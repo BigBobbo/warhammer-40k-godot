@@ -37,6 +37,8 @@ var autosave_on_phase_transition: bool = false  # Save at every phase transition
 var autosave_timer: Timer = null
 var last_save_path: String = ""
 var _last_autosave_phase: int = -1  # Track last phase to avoid duplicate saves
+var _autosave_deferred_event: String = ""  # SAVE-6: Deferred autosave event tag when AI was thinking
+var _autosave_deferred_metadata: Dictionary = {}  # SAVE-6: Deferred autosave metadata
 
 func _ready() -> void:
 	is_web_platform = OS.has_feature("web")
@@ -108,6 +110,27 @@ func _connect_phase_signals() -> void:
 	else:
 		print("SaveLoadManager: PhaseManager not found, event-driven autosave disabled")
 
+	# SAVE-6: Connect to AIPlayer.ai_turn_ended to flush deferred autosaves
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player:
+		ai_player.ai_turn_ended.connect(_on_ai_turn_ended_flush_autosave)
+		print("SaveLoadManager: Connected to AIPlayer.ai_turn_ended for deferred autosave (SAVE-6)")
+
+# SAVE-6: Check if AI is currently thinking — guards autosave to avoid capturing incomplete state
+func _is_ai_thinking() -> bool:
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.has_method("is_thinking"):
+		return ai_player.is_thinking()
+	return false
+
+# SAVE-6: When AI turn ends, flush any deferred autosave
+func _on_ai_turn_ended_flush_autosave(_player: int, _action_summary: Array) -> void:
+	if _autosave_deferred_event != "":
+		print("SaveLoadManager: SAVE-6 AI turn ended — flushing deferred autosave: %s" % _autosave_deferred_event)
+		_perform_event_autosave(_autosave_deferred_event, _autosave_deferred_metadata)
+		_autosave_deferred_event = ""
+		_autosave_deferred_metadata = {}
+
 # P3-112: Handle phase completion for round-end autosave
 func _on_phase_completed_autosave(completed_phase: int) -> void:
 	if not autosave_on_round_end:
@@ -123,11 +146,18 @@ func _on_phase_completed_autosave(completed_phase: int) -> void:
 			var battle_round = GameState.get_battle_round()
 			# battle_round was already incremented by ScoringPhase._handle_end_turn()
 			var completed_round = battle_round - 1
+
+			# SAVE-6: Defer autosave if AI is mid-action to avoid capturing incomplete state
+			var event_tag = "round_end"
+			var event_meta = {"event": "round_end", "battle_round": completed_round}
+			if _is_ai_thinking():
+				print("SaveLoadManager: SAVE-6 Round %d completed but AI is thinking — deferring autosave" % completed_round)
+				_autosave_deferred_event = event_tag
+				_autosave_deferred_metadata = event_meta
+				return
+
 			print("SaveLoadManager: Round %d completed — performing round-end autosave" % completed_round)
-			_perform_event_autosave("round_end", {
-				"event": "round_end",
-				"battle_round": completed_round
-			})
+			_perform_event_autosave(event_tag, event_meta)
 
 # P3-112: Handle phase transitions for phase-transition autosave
 func _on_phase_changed_autosave(new_phase: int) -> void:

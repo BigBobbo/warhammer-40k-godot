@@ -951,7 +951,29 @@ func _restore_terrain_types(terrain_features: Array) -> Array:
 # Load state from a snapshot
 func load_from_snapshot(snapshot: Dictionary) -> void:
 	state = _deep_copy_dict(snapshot)
-	
+
+	# SAVE/LOAD FIX: Ensure formation metadata exists for backwards compatibility with old saves.
+	# If the saved phase is past FORMATIONS and formation flags are missing, infer they were completed.
+	if state.has("meta"):
+		var meta = state["meta"]
+		var saved_phase = meta.get("phase", Phase.FORMATIONS)
+		if saved_phase > Phase.FORMATIONS:
+			if not meta.has("formations_declared"):
+				print("[GameState] Old save missing formations_declared — inferring true (phase is past FORMATIONS)")
+				meta["formations_declared"] = true
+			if not meta.has("formations_p1_confirmed"):
+				print("[GameState] Old save missing formations_p1_confirmed — inferring true")
+				meta["formations_p1_confirmed"] = true
+			if not meta.has("formations_p2_confirmed"):
+				print("[GameState] Old save missing formations_p2_confirmed — inferring true")
+				meta["formations_p2_confirmed"] = true
+			if not meta.has("formations"):
+				print("[GameState] Old save missing formations data — setting empty defaults")
+				meta["formations"] = {
+					"1": {"leader_attachments": {}, "transport_embarkations": {}, "reserves": []},
+					"2": {"leader_attachments": {}, "transport_embarkations": {}, "reserves": []}
+				}
+
 	# Load terrain features if present (autoload, not Engine singleton)
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if state.has("board") and terrain_manager:

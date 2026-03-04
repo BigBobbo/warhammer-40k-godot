@@ -157,6 +157,10 @@ func _request_evaluation() -> void:
 			emit_signal("ai_turn_started", active_player)
 			print("AIPlayer: AI thinking started for player %d" % active_player)
 
+func is_thinking() -> bool:
+	"""SAVE-6: Public accessor for AI thinking state — used by SaveLoadManager to guard autosave."""
+	return _ai_thinking
+
 func _end_ai_thinking() -> void:
 	"""T7-20: Signal that the AI has finished its current thinking sequence."""
 	if _ai_thinking:
@@ -270,6 +274,81 @@ func reset_runtime_state() -> void:
 	# Clear AIDecisionMaker static caches
 	AIDecisionMaker.reset_caches()
 	print("AIPlayer: Runtime state reset complete")
+
+func cancel_ai_before_load() -> void:
+	"""SAVE-1: Cancel any active AI thinking before a load operation.
+	This prevents the AI from acting on stale state during the load process."""
+	print("AIPlayer: Cancelling AI before load")
+	if _ai_thinking:
+		_end_ai_thinking()
+	_processing_turn = false
+	_needs_evaluation = false
+	_step_by_step_paused = false
+	# Disconnect phase signals so stale phase references don't fire during load
+	_disconnect_phase_stratagem_signals()
+	print("AIPlayer: AI cancelled before load — thinking=%s, processing=%s" % [_ai_thinking, _processing_turn])
+
+func reconfigure_ai_after_load(game_config: Dictionary) -> void:
+	"""SAVE-1: Re-initialize AI player after loading a save file.
+	Unlike configure(), this does NOT trigger immediate evaluation — the caller
+	is responsible for triggering evaluation after phase controllers are ready.
+	Also properly cleans up stale phase signal connections."""
+	print("AIPlayer: reconfigure_ai_after_load() called")
+
+	# Cancel any lingering thinking state
+	if _ai_thinking:
+		_end_ai_thinking()
+
+	# Reset all runtime state
+	reset_runtime_state()
+
+	# Reconfigure player types and difficulty from loaded game config
+	var p1_type = game_config.get("player1_type", "HUMAN")
+	var p2_type = game_config.get("player2_type", "HUMAN")
+	var p1_difficulty = int(game_config.get("player1_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
+	var p2_difficulty = int(game_config.get("player2_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
+
+	ai_players.clear()
+	ai_difficulty.clear()
+	ai_players[1] = (p1_type == "AI")
+	ai_players[2] = (p2_type == "AI")
+	ai_difficulty[1] = p1_difficulty
+	ai_difficulty[2] = p2_difficulty
+	enabled = ai_players.values().has(true)
+
+	# Detect spectator mode
+	_spectator_mode = ai_players.get(1, false) and ai_players.get(2, false)
+
+	# Re-initialize per-game performance tracking
+	_game_performance.clear()
+	for pid in ai_players:
+		if ai_players[pid]:
+			_game_performance[pid] = {
+				"cp_spent": 0,
+				"units_lost": 0,
+				"units_killed": 0,
+				"objectives_per_round": {},
+				"key_moments": [],
+			}
+
+	# Apply AI speed from config
+	var ai_speed = int(game_config.get("ai_speed", 1))
+	set_ai_speed_preset(ai_speed)
+
+	print("AIPlayer: Reconfigured after load — P1=%s (diff=%s), P2=%s (diff=%s), enabled=%s, spectator=%s" % [
+		p1_type, AIDifficultyConfigData.difficulty_name(p1_difficulty),
+		p2_type, AIDifficultyConfigData.difficulty_name(p2_difficulty),
+		enabled, _spectator_mode])
+	# NOTE: Evaluation is NOT triggered here — caller must call _request_evaluation()
+	# after phase controllers and visuals are fully set up.
+
+func request_evaluation_after_load() -> void:
+	"""SAVE-1: Trigger AI evaluation after load, once phase controllers are ready."""
+	if enabled:
+		print("AIPlayer: Requesting evaluation after load (AI is enabled)")
+		_request_evaluation()
+	else:
+		print("AIPlayer: Skipping evaluation after load (AI not enabled)")
 
 func get_action_log() -> Array:
 	return _action_log.duplicate()

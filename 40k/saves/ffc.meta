@@ -1,0 +1,19 @@
+{
+	"created_at": 1772562235.60103,
+	"description": "ffc",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "d256c2fc-8bb3-5892-9858-4d37ff7f180daf70",
+		"phase": 6,
+		"player1_type": "HUMAN",
+		"player2_type": "AI",
+		"turn": 1
+	},
+	"save_info": {
+		"description": "ffc",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

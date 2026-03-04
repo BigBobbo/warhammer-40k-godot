@@ -1,0 +1,7860 @@
+{
+	"_serialization": {
+		"game_version": "1.0.0",
+		"serializer": "StateSerializer",
+		"timestamp": 1772546650.06774,
+		"version": "1.0.0"
+	},
+	"board": {
+		"deployment_zones": [
+			{
+				"player": 1.0,
+				"poly": [
+					{
+						"x": 0.0,
+						"y": 0.0
+					},
+					{
+						"x": 44.0,
+						"y": 0.0
+					},
+					{
+						"x": 44.0,
+						"y": 12.0
+					},
+					{
+						"x": 0.0,
+						"y": 12.0
+					}
+				]
+			},
+			{
+				"player": 2.0,
+				"poly": [
+					{
+						"x": 0.0,
+						"y": 48.0
+					},
+					{
+						"x": 44.0,
+						"y": 48.0
+					},
+					{
+						"x": 44.0,
+						"y": 60.0
+					},
+					{
+						"x": 0.0,
+						"y": 60.0
+					}
+				]
+			}
+		],
+		"objectives": [
+			{
+				"id": "obj_center",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 1200.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_nml_1",
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 720.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_nml_2",
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1680.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_home_1",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 240.0
+				},
+				"radius_mm": 40.0,
+				"zone": "player1"
+			},
+			{
+				"id": "obj_home_2",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 2160.0
+				},
+				"radius_mm": 40.0,
+				"zone": "player2"
+			}
+		],
+		"size": {
+			"height": 60,
+			"width": 44
+		},
+		"terrain": [],
+		"terrain_features": [
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_1",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 120.0,
+							"y": 80.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 600.0,
+							"y": 80.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 600.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 120.0,
+							"y": 320.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 360.0,
+					"y": 200.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 600.0,
+							"y": 320.0
+						},
+						"id": "ruins_1_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 120.0,
+							"y": 320.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 600.0,
+							"y": 320.0
+						},
+						"id": "ruins_1_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 600.0,
+							"y": 80.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_2",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 800.0
+						},
+						{
+							"_type": "Vector2",
+							"x": -0.00000762939453125,
+							"y": 800.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 0.00000762939453125,
+							"y": 320.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 560.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": -0.00000762939453125,
+							"y": 800.0
+						},
+						"id": "ruins_2_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 800.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_3",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1160.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1640.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1640.0,
+							"y": 2320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1160.0,
+							"y": 2320.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1400.0,
+					"y": 2200.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1640.0,
+							"y": 2080.0
+						},
+						"id": "ruins_3_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 1160.0,
+							"y": 2080.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1160.0,
+							"y": 2320.0
+						},
+						"id": "ruins_3_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1160.0,
+							"y": 2080.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_4",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1760.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1760.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 1600.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1640.0,
+					"y": 1840.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 1600.0
+						},
+						"id": "ruins_4_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1760.0,
+							"y": 1600.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_5",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 860.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 860.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 1060.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1060.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 680.0,
+					"y": 960.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 200.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 860.0
+						},
+						"id": "ruins_5_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 860.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 1060.0
+						},
+						"id": "ruins_5_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 860.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_6",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1040.0,
+							"y": 720.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1040.0,
+							"y": 960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 720.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 960.0,
+					"y": 840.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 960.0
+						},
+						"id": "ruins_6_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 720.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_7",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 1340.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 1340.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 1540.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 1540.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1080.0,
+					"y": 1440.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 200.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 1540.0
+						},
+						"id": "ruins_7_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 1540.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 1540.0
+						},
+						"id": "ruins_7_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 1340.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_8",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 1440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 1680.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 720.0,
+							"y": 1680.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 720.0,
+							"y": 1440.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 800.0,
+					"y": 1560.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 1680.0
+						},
+						"id": "ruins_8_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 880.0,
+							"y": 1440.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "medium",
+				"id": "ruins_9",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 480.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 480.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1480.0,
+					"y": 400.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 480.0
+						},
+						"id": "ruins_9_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 320.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "medium",
+				"id": "ruins_10",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1920.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 1920.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 2080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 2000.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 2080.0
+						},
+						"id": "ruins_10_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 1920.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_11",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 1320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 1320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 840.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1400.0,
+					"y": 1080.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 840.0
+						},
+						"id": "ruins_11_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 840.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 1320.0
+						},
+						"id": "ruins_11_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 840.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_12",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1560.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 1560.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 1080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 360.0,
+					"y": 1320.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 1560.0
+						},
+						"id": "ruins_12_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1560.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1560.0
+						},
+						"id": "ruins_12_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1080.0
+						},
+						"type": "window"
+					}
+				]
+			}
+		],
+		"terrain_layout": "layout_1"
+	},
+	"factions": {
+		"1": {
+			"detachment": "Shield Host",
+			"name": "Adeptus Custodes",
+			"player_name": "",
+			"points": 1000.0,
+			"team_name": ""
+		},
+		"2": {
+			"detachment": "War Horde",
+			"name": "Orks",
+			"player_name": "",
+			"points": 2000.0,
+			"team_name": ""
+		}
+	},
+	"history": [
+		{
+			"actions": [
+				{
+					"_replay_diffs": [],
+					"player": 1,
+					"reserve_type": "deep_strike",
+					"timestamp": 1772546450.28001,
+					"type": "DECLARE_RESERVES",
+					"unit_id": "U_CUSTODIAN_GUARD_B"
+				},
+				{
+					"_replay_diffs": [],
+					"player": 1,
+					"reserve_type": "strategic_reserves",
+					"timestamp": 1772546450.28721,
+					"type": "DECLARE_RESERVES",
+					"unit_id": "U_WITCHSEEKERS_C"
+				},
+				{
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "meta.formations_p1_confirmed",
+							"value": true
+						},
+						{
+							"op": "set",
+							"path": "meta.active_player",
+							"value": 2
+						}
+					],
+					"player": 1,
+					"timestamp": 1772546450.29479,
+					"type": "CONFIRM_FORMATIONS"
+				},
+				{
+					"_ai_description": "AI attaches Painboss to Boyz (synergy: 3.07)",
+					"_replay_diffs": [],
+					"bodyguard_id": "U_BOYZ_E",
+					"character_id": "U_PAINBOSS_I",
+					"description": "Attach Painboss to Boyz",
+					"player": 2,
+					"timestamp": 1772546450.46877,
+					"type": "DECLARE_LEADER_ATTACHMENT"
+				},
+				{
+					"_ai_description": "AI attaches Warboss to Boyz (synergy: 2.59)",
+					"_replay_diffs": [],
+					"bodyguard_id": "U_BOYZ_E",
+					"character_id": "U_WARBOSS_B",
+					"description": "Attach Warboss to Boyz",
+					"player": 2,
+					"timestamp": 1772546450.68028,
+					"type": "DECLARE_LEADER_ATTACHMENT"
+				},
+				{
+					"_ai_description": "AI attaches Warboss to Boyz (synergy: 2.59)",
+					"_replay_diffs": [],
+					"bodyguard_id": "U_BOYZ_F",
+					"character_id": "U_WARBOSS_C",
+					"description": "Attach Warboss to Boyz",
+					"player": 2,
+					"timestamp": 1772546450.87583,
+					"type": "DECLARE_LEADER_ATTACHMENT"
+				},
+				{
+					"_ai_description": "AI attaches Warboss in Mega Armour to Boyz (synergy: 2.59)",
+					"_replay_diffs": [],
+					"bodyguard_id": "U_BOYZ_F",
+					"character_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+					"description": "Attach Warboss in Mega Armour to Boyz",
+					"player": 2,
+					"timestamp": 1772546451.07813,
+					"type": "DECLARE_LEADER_ATTACHMENT"
+				},
+				{
+					"_ai_description": "AI attaches Weirdboy to Boyz (synergy: 1.79)",
+					"_replay_diffs": [],
+					"bodyguard_id": "U_BOYZ_K",
+					"character_id": "U_WEIRDBOY_J",
+					"description": "Attach Weirdboy to Boyz",
+					"player": 2,
+					"timestamp": 1772546451.28721,
+					"type": "DECLARE_LEADER_ATTACHMENT"
+				},
+				{
+					"_ai_description": "AI embarks Kommandos in Battlewagon (score: 1.40, 10/22 capacity)",
+					"_replay_diffs": [],
+					"player": 2,
+					"timestamp": 1772546451.50586,
+					"transport_id": "U_BATTLEWAGON_G",
+					"type": "DECLARE_TRANSPORT_EMBARKATION",
+					"unit_ids": [
+						"U_KOMMANDOS_H"
+					]
+				},
+				{
+					"_ai_description": "AI confirms battle formations (all declarations done)",
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "meta.formations_p2_confirmed",
+							"value": true
+						},
+						{
+							"op": "set",
+							"path": "units.U_CUSTODIAN_GUARD_B.status",
+							"value": 7
+						},
+						{
+							"op": "set",
+							"path": "units.U_CUSTODIAN_GUARD_B.reserve_type",
+							"value": "deep_strike"
+						},
+						{
+							"op": "set",
+							"path": "units.U_WITCHSEEKERS_C.status",
+							"value": 7
+						},
+						{
+							"op": "set",
+							"path": "units.U_WITCHSEEKERS_C.reserve_type",
+							"value": "strategic_reserves"
+						},
+						{
+							"op": "set",
+							"path": "units.U_PAINBOSS_I.attached_to",
+							"value": "U_BOYZ_E"
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_B.attached_to",
+							"value": "U_BOYZ_E"
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_C.attached_to",
+							"value": "U_BOYZ_F"
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_IN_MEGA_ARMOUR_D.attached_to",
+							"value": "U_BOYZ_F"
+						},
+						{
+							"op": "set",
+							"path": "units.U_WEIRDBOY_J.attached_to",
+							"value": "U_BOYZ_K"
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.attachment_data.attached_characters",
+							"value": [
+								"U_PAINBOSS_I",
+								"U_WARBOSS_B"
+							]
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.attachment_data.attached_characters",
+							"value": [
+								"U_WARBOSS_C",
+								"U_WARBOSS_IN_MEGA_ARMOUR_D"
+							]
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.attachment_data.attached_characters",
+							"value": [
+								"U_WEIRDBOY_J"
+							]
+						},
+						{
+							"op": "set",
+							"path": "units.U_KOMMANDOS_H.embarked_in",
+							"value": "U_BATTLEWAGON_G"
+						},
+						{
+							"op": "set",
+							"path": "units.U_BATTLEWAGON_G.transport_data.embarked_units",
+							"value": [
+								"U_KOMMANDOS_H"
+							]
+						},
+						{
+							"op": "set",
+							"path": "units.U_SHIELD_CAPTAIN_A.meta.is_warlord",
+							"value": true
+						},
+						{
+							"op": "set",
+							"path": "units.U_BLADE_CHAMPION_A.meta.is_warlord",
+							"value": false
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_B.meta.is_warlord",
+							"value": true
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_C.meta.is_warlord",
+							"value": false
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_IN_MEGA_ARMOUR_D.meta.is_warlord",
+							"value": false
+						},
+						{
+							"op": "set",
+							"path": "units.U_PAINBOSS_I.meta.is_warlord",
+							"value": false
+						},
+						{
+							"op": "set",
+							"path": "units.U_WEIRDBOY_J.meta.is_warlord",
+							"value": false
+						},
+						{
+							"op": "set",
+							"path": "meta.formations",
+							"value": {
+								"1": {
+									"leader_attachments": {
+
+									},
+									"reserves": [
+										{
+											"reserve_type": "deep_strike",
+											"unit_id": "U_CUSTODIAN_GUARD_B"
+										},
+										{
+											"reserve_type": "strategic_reserves",
+											"unit_id": "U_WITCHSEEKERS_C"
+										}
+									],
+									"transport_embarkations": {
+
+									}
+								},
+								"2": {
+									"leader_attachments": {
+										"U_PAINBOSS_I": "U_BOYZ_E",
+										"U_WARBOSS_B": "U_BOYZ_E",
+										"U_WARBOSS_C": "U_BOYZ_F",
+										"U_WARBOSS_IN_MEGA_ARMOUR_D": "U_BOYZ_F",
+										"U_WEIRDBOY_J": "U_BOYZ_K"
+									},
+									"reserves": [],
+									"transport_embarkations": {
+										"U_BATTLEWAGON_G": [
+											"U_KOMMANDOS_H"
+										]
+									}
+								}
+							}
+						},
+						{
+							"op": "set",
+							"path": "meta.formations_declared",
+							"value": true
+						}
+					],
+					"player": 2,
+					"timestamp": 1772546451.70643,
+					"type": "CONFIRM_FORMATIONS"
+				}
+			],
+			"phase": 0,
+			"turn": 1
+		},
+		{
+			"actions": [
+				{
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_SHIELD_CAPTAIN_A.models.0.position",
+							"value": {
+								"x": 1137.39978027344,
+								"y": 433.049865722656
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_SHIELD_CAPTAIN_A.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_SHIELD_CAPTAIN_A.status",
+							"value": 2
+						}
+					],
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1137.39978027344,
+							"y": 433.049865722656
+						}
+					],
+					"model_rotations": [
+						0.0
+					],
+					"phase": 1,
+					"player": 1,
+					"timestamp": 1772546456.16482,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_SHIELD_CAPTAIN_A"
+				},
+				{
+					"_ai_description": "Deployed Strike Force (general, col 1, row 1)",
+					"_ai_thinking_steps": [
+						"Deploying Strike Force (general role)"
+					],
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_STRIKE_FORCE_A.models.0.position",
+							"value": {
+								"x": 460.0,
+								"y": 2000.0
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_STRIKE_FORCE_A.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_STRIKE_FORCE_A.status",
+							"value": 2
+						}
+					],
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 460.0,
+							"y": 2000.0
+						}
+					],
+					"model_rotations": [
+						0.0
+					],
+					"player": 2,
+					"timestamp": 1772546456.3625,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_STRIKE_FORCE_A"
+				},
+				{
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BLADE_CHAMPION_A.models.0.position",
+							"value": {
+								"x": 620.949890136719,
+								"y": 444.599853515625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BLADE_CHAMPION_A.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BLADE_CHAMPION_A.status",
+							"value": 2
+						}
+					],
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 620.949890136719,
+							"y": 444.599853515625
+						}
+					],
+					"model_rotations": [
+						0.0
+					],
+					"phase": 1,
+					"player": 1,
+					"timestamp": 1772546459.37579,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_BLADE_CHAMPION_A"
+				},
+				{
+					"_ai_description": "Deployed Boyz (durable_shooter, col 2, row 1)",
+					"_ai_thinking_steps": [
+						"Deploying Boyz (durable ranged unit — positioning for firing lanes)"
+					],
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.0.position",
+							"value": {
+								"x": 628.782287597656,
+								"y": 2206.45092773438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.1.position",
+							"value": {
+								"x": 689.176025390625,
+								"y": 2206.45092773438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.1.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.2.position",
+							"value": {
+								"x": 749.569702148438,
+								"y": 2206.45092773438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.2.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.3.position",
+							"value": {
+								"x": 809.96337890625,
+								"y": 2206.45092773438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.3.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.4.position",
+							"value": {
+								"x": 870.357116699219,
+								"y": 2206.45092773438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.4.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.5.position",
+							"value": {
+								"x": 628.782287597656,
+								"y": 2266.8447265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.5.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.6.position",
+							"value": {
+								"x": 689.176025390625,
+								"y": 2266.8447265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.6.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.7.position",
+							"value": {
+								"x": 749.569702148438,
+								"y": 2266.8447265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.7.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.8.position",
+							"value": {
+								"x": 809.96337890625,
+								"y": 2266.8447265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.8.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.9.position",
+							"value": {
+								"x": 870.357116699219,
+								"y": 2266.8447265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.9.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.10.position",
+							"value": {
+								"x": 628.782287597656,
+								"y": 2327.23828125
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.10.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.11.position",
+							"value": {
+								"x": 689.176025390625,
+								"y": 2327.23828125
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.11.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.12.position",
+							"value": {
+								"x": 749.569702148438,
+								"y": 2327.23828125
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.12.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.13.position",
+							"value": {
+								"x": 809.96337890625,
+								"y": 2327.23828125
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.13.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.14.position",
+							"value": {
+								"x": 870.357116699219,
+								"y": 2327.23828125
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.14.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.15.position",
+							"value": {
+								"x": 587.49169921875,
+								"y": 2369.80322265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.15.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.16.position",
+							"value": {
+								"x": 519.964050292969,
+								"y": 2369.80322265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.16.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.17.position",
+							"value": {
+								"x": 924.750793457031,
+								"y": 2369.80322265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.17.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.18.position",
+							"value": {
+								"x": 985.144470214844,
+								"y": 2369.80322265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.18.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.19.position",
+							"value": {
+								"x": 952.938293457031,
+								"y": 2287.22216796875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.models.19.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.status",
+							"value": 2
+						},
+						{
+							"op": "set",
+							"path": "units.U_PAINBOSS_I.models.0.position",
+							"value": {
+								"x": 687.475200983483,
+								"y": 2206.45092773438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_PAINBOSS_I.status",
+							"value": 2
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_B.models.0.position",
+							"value": {
+								"x": 687.475200983483,
+								"y": 2206.45092773438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_B.status",
+							"value": 2
+						}
+					],
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 628.782287597656,
+							"y": 2206.45092773438
+						},
+						{
+							"_type": "Vector2",
+							"x": 689.176025390625,
+							"y": 2206.45092773438
+						},
+						{
+							"_type": "Vector2",
+							"x": 749.569702148438,
+							"y": 2206.45092773438
+						},
+						{
+							"_type": "Vector2",
+							"x": 809.96337890625,
+							"y": 2206.45092773438
+						},
+						{
+							"_type": "Vector2",
+							"x": 870.357116699219,
+							"y": 2206.45092773438
+						},
+						{
+							"_type": "Vector2",
+							"x": 628.782287597656,
+							"y": 2266.8447265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 689.176025390625,
+							"y": 2266.8447265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 749.569702148438,
+							"y": 2266.8447265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 809.96337890625,
+							"y": 2266.8447265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 870.357116699219,
+							"y": 2266.8447265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 628.782287597656,
+							"y": 2327.23828125
+						},
+						{
+							"_type": "Vector2",
+							"x": 689.176025390625,
+							"y": 2327.23828125
+						},
+						{
+							"_type": "Vector2",
+							"x": 749.569702148438,
+							"y": 2327.23828125
+						},
+						{
+							"_type": "Vector2",
+							"x": 809.96337890625,
+							"y": 2327.23828125
+						},
+						{
+							"_type": "Vector2",
+							"x": 870.357116699219,
+							"y": 2327.23828125
+						},
+						{
+							"_type": "Vector2",
+							"x": 587.49169921875,
+							"y": 2369.80322265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 519.964050292969,
+							"y": 2369.80322265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 924.750793457031,
+							"y": 2369.80322265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 985.144470214844,
+							"y": 2369.80322265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 952.938293457031,
+							"y": 2287.22216796875
+						}
+					],
+					"model_rotations": [
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0
+					],
+					"player": 2,
+					"timestamp": 1772546459.56354,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_BOYZ_E"
+				},
+				{
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_TELEMON_HEAVY_DREADNOUGHT_I.models.0.position",
+							"value": {
+								"x": 1257.84973144531,
+								"y": 325.799865722656
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_TELEMON_HEAVY_DREADNOUGHT_I.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_TELEMON_HEAVY_DREADNOUGHT_I.status",
+							"value": 2
+						}
+					],
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1257.84973144531,
+							"y": 325.799865722656
+						}
+					],
+					"model_rotations": [
+						0.0
+					],
+					"phase": 1,
+					"player": 1,
+					"timestamp": 1772546465.0222,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I"
+				},
+				{
+					"_ai_description": "Deployed Boyz (retry 1)",
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.0.position",
+							"value": {
+								"x": 394.350219726562,
+								"y": 2174.14794921875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.1.position",
+							"value": {
+								"x": 454.743927001953,
+								"y": 2174.14794921875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.1.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.2.position",
+							"value": {
+								"x": 515.137634277344,
+								"y": 2174.14794921875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.2.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.3.position",
+							"value": {
+								"x": 575.531311035156,
+								"y": 2174.14794921875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.3.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.4.position",
+							"value": {
+								"x": 635.925048828125,
+								"y": 2115.75415039062
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.4.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.5.position",
+							"value": {
+								"x": 394.350219726562,
+								"y": 2234.54174804688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.5.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.6.position",
+							"value": {
+								"x": 454.743927001953,
+								"y": 2234.54174804688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.6.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.7.position",
+							"value": {
+								"x": 515.137634277344,
+								"y": 2234.54174804688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.7.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.8.position",
+							"value": {
+								"x": 575.531311035156,
+								"y": 2234.54174804688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.8.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.9.position",
+							"value": {
+								"x": 553.343872070312,
+								"y": 2317.12280273438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.9.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.10.position",
+							"value": {
+								"x": 394.350219726562,
+								"y": 2294.93530273438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.10.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.11.position",
+							"value": {
+								"x": 454.743927001953,
+								"y": 2294.93530273438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.11.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.12.position",
+							"value": {
+								"x": 432.556457519531,
+								"y": 2369.80322265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.12.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.13.position",
+							"value": {
+								"x": 575.531311035156,
+								"y": 2119.75415039062
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.13.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.14.position",
+							"value": {
+								"x": 723.515625,
+								"y": 2143.22412109375
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.14.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.15.position",
+							"value": {
+								"x": 353.059631347656,
+								"y": 2369.80322265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.15.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.16.position",
+							"value": {
+								"x": 285.531982421875,
+								"y": 2369.80322265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.16.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.17.position",
+							"value": {
+								"x": 286.050903320312,
+								"y": 2309.76098632812
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.17.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.18.position",
+							"value": {
+								"x": 315.385467529297,
+								"y": 2222.77807617188
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.18.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.19.position",
+							"value": {
+								"x": 464.310272216797,
+								"y": 2119.12158203125
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.19.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.status",
+							"value": 2
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_C.models.0.position",
+							"value": {
+								"x": 453.043133112389,
+								"y": 2174.14794921875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_C.status",
+							"value": 2
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_IN_MEGA_ARMOUR_D.models.0.position",
+							"value": {
+								"x": 460.917148860421,
+								"y": 2174.14794921875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_WARBOSS_IN_MEGA_ARMOUR_D.status",
+							"value": 2
+						}
+					],
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 394.350219726562,
+							"y": 2174.14794921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 454.743927001953,
+							"y": 2174.14794921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 515.137634277344,
+							"y": 2174.14794921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 575.531311035156,
+							"y": 2174.14794921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 635.925048828125,
+							"y": 2115.75415039062
+						},
+						{
+							"_type": "Vector2",
+							"x": 394.350219726562,
+							"y": 2234.54174804688
+						},
+						{
+							"_type": "Vector2",
+							"x": 454.743927001953,
+							"y": 2234.54174804688
+						},
+						{
+							"_type": "Vector2",
+							"x": 515.137634277344,
+							"y": 2234.54174804688
+						},
+						{
+							"_type": "Vector2",
+							"x": 575.531311035156,
+							"y": 2234.54174804688
+						},
+						{
+							"_type": "Vector2",
+							"x": 553.343872070312,
+							"y": 2317.12280273438
+						},
+						{
+							"_type": "Vector2",
+							"x": 394.350219726562,
+							"y": 2294.93530273438
+						},
+						{
+							"_type": "Vector2",
+							"x": 454.743927001953,
+							"y": 2294.93530273438
+						},
+						{
+							"_type": "Vector2",
+							"x": 432.556457519531,
+							"y": 2369.80322265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 575.531311035156,
+							"y": 2119.75415039062
+						},
+						{
+							"_type": "Vector2",
+							"x": 723.515625,
+							"y": 2143.22412109375
+						},
+						{
+							"_type": "Vector2",
+							"x": 353.059631347656,
+							"y": 2369.80322265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 285.531982421875,
+							"y": 2369.80322265625
+						},
+						{
+							"_type": "Vector2",
+							"x": 286.050903320312,
+							"y": 2309.76098632812
+						},
+						{
+							"_type": "Vector2",
+							"x": 315.385467529297,
+							"y": 2222.77807617188
+						},
+						{
+							"_type": "Vector2",
+							"x": 464.310272216797,
+							"y": 2119.12158203125
+						}
+					],
+					"model_rotations": [
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0
+					],
+					"player": 2,
+					"timestamp": 1772546465.30324,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_BOYZ_F"
+				},
+				{
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_CALADIUS_GRAV-TANK_E.models.0.position",
+							"value": {
+								"x": 904.749877929688,
+								"y": 383.549865722656
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_CALADIUS_GRAV-TANK_E.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_CALADIUS_GRAV-TANK_E.status",
+							"value": 2
+						}
+					],
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 904.749877929688,
+							"y": 383.549865722656
+						}
+					],
+					"model_rotations": [
+						0.0
+					],
+					"phase": 1,
+					"player": 1,
+					"timestamp": 1772546469.42082,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_CALADIUS_GRAV-TANK_E"
+				},
+				{
+					"_ai_description": "Deployed Battlewagon (durable_shooter, col 3, row 2)",
+					"_ai_thinking_steps": [
+						"Deploying Battlewagon (durable ranged unit — positioning for firing lanes)"
+					],
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BATTLEWAGON_G.models.0.position",
+							"value": {
+								"x": 1440.205078125,
+								"y": 2200.0
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BATTLEWAGON_G.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BATTLEWAGON_G.status",
+							"value": 2
+						}
+					],
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1440.205078125,
+							"y": 2200.0
+						}
+					],
+					"model_rotations": [
+						0.0
+					],
+					"player": 2,
+					"timestamp": 1772546469.58742,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_BATTLEWAGON_G"
+				},
+				{
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H.models.0.position",
+							"value": {
+								"x": 483.999877929688,
+								"y": 380.249877929688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H.status",
+							"value": 2
+						}
+					],
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 483.999877929688,
+							"y": 380.249877929688
+						}
+					],
+					"model_rotations": [
+						0.0
+					],
+					"phase": 1,
+					"player": 1,
+					"timestamp": 1772546473.05617,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+				},
+				{
+					"_ai_description": "Deployed Boyz (durable_shooter, col 4, row 2)",
+					"_ai_thinking_steps": [
+						"Deploying Boyz (durable ranged unit — positioning for firing lanes)"
+					],
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.0.position",
+							"value": {
+								"x": 1306.53564453125,
+								"y": 2358.51611328125
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.1.position",
+							"value": {
+								"x": 1238.72497558594,
+								"y": 2296.19018554688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.1.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.2.position",
+							"value": {
+								"x": 1222.94506835938,
+								"y": 2206.80493164062
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.2.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.3.position",
+							"value": {
+								"x": 1236.88330078125,
+								"y": 2116.12451171875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.3.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.4.position",
+							"value": {
+								"x": 1332.2783203125,
+								"y": 2031.62377929688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.4.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.5.position",
+							"value": {
+								"x": 1242.41491699219,
+								"y": 2354.7890625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.5.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.6.position",
+							"value": {
+								"x": 1176.84130859375,
+								"y": 2357.42163085938
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.6.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.7.position",
+							"value": {
+								"x": 1382.36267089844,
+								"y": 2007.05261230469
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.7.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.8.position",
+							"value": {
+								"x": 1485.083984375,
+								"y": 1989.51989746094
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.8.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.9.position",
+							"value": {
+								"x": 1590.13269042969,
+								"y": 2038.11181640625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.9.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.status",
+							"value": 2
+						},
+						{
+							"op": "set",
+							"path": "units.U_WEIRDBOY_J.models.0.position",
+							"value": {
+								"x": 1365.22855791708,
+								"y": 2358.51611328125
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_WEIRDBOY_J.status",
+							"value": 2
+						}
+					],
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1306.53564453125,
+							"y": 2358.51611328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 1238.72497558594,
+							"y": 2296.19018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1222.94506835938,
+							"y": 2206.80493164062
+						},
+						{
+							"_type": "Vector2",
+							"x": 1236.88330078125,
+							"y": 2116.12451171875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1332.2783203125,
+							"y": 2031.62377929688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1242.41491699219,
+							"y": 2354.7890625
+						},
+						{
+							"_type": "Vector2",
+							"x": 1176.84130859375,
+							"y": 2357.42163085938
+						},
+						{
+							"_type": "Vector2",
+							"x": 1382.36267089844,
+							"y": 2007.05261230469
+						},
+						{
+							"_type": "Vector2",
+							"x": 1485.083984375,
+							"y": 1989.51989746094
+						},
+						{
+							"_type": "Vector2",
+							"x": 1590.13269042969,
+							"y": 2038.11181640625
+						}
+					],
+					"model_rotations": [
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0,
+						0.0
+					],
+					"player": 2,
+					"timestamp": 1772546473.5313,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_BOYZ_K"
+				},
+				{
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_WITCHSEEKERS_D.models.0.position",
+							"value": {
+								"x": 1411.29968261719,
+								"y": 350.549865722656
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_WITCHSEEKERS_D.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_WITCHSEEKERS_D.models.1.position",
+							"value": {
+								"x": 1417.89978027344,
+								"y": 254.849853515625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_WITCHSEEKERS_D.models.1.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_WITCHSEEKERS_D.models.2.position",
+							"value": {
+								"x": 1411.29968261719,
+								"y": 154.199890136719
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_WITCHSEEKERS_D.models.2.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_WITCHSEEKERS_D.models.3.position",
+							"value": {
+								"x": 1350.24975585938,
+								"y": 70.0499267578125
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_WITCHSEEKERS_D.models.3.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_WITCHSEEKERS_D.status",
+							"value": 2
+						}
+					],
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1411.29968261719,
+							"y": 350.549865722656
+						},
+						{
+							"_type": "Vector2",
+							"x": 1417.89978027344,
+							"y": 254.849853515625
+						},
+						{
+							"_type": "Vector2",
+							"x": 1411.29968261719,
+							"y": 154.199890136719
+						},
+						{
+							"_type": "Vector2",
+							"x": 1350.24975585938,
+							"y": 70.0499267578125
+						}
+					],
+					"model_rotations": [
+						0.0,
+						0.0,
+						0.0,
+						0.0
+					],
+					"phase": 1,
+					"player": 1,
+					"timestamp": 1772546481.94103,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_WITCHSEEKERS_D"
+				}
+			],
+			"phase": 1,
+			"turn": 1
+		},
+		{
+			"actions": [
+				{
+					"_log_text": "Roll-off: Player 1 = 1, Player 2 = 5 — Player 2 wins!",
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "meta.roll_off_player1_roll",
+							"value": 1
+						},
+						{
+							"op": "set",
+							"path": "meta.roll_off_player2_roll",
+							"value": 5
+						},
+						{
+							"op": "set",
+							"path": "meta.roll_off_winner",
+							"value": 2
+						}
+					],
+					"player": 1,
+					"timestamp": 1772546491.56066,
+					"type": "ROLL_FOR_FIRST_TURN"
+				}
+			],
+			"phase": 5,
+			"turn": 1
+		},
+		{
+			"actions": [
+				{
+					"player": 1,
+					"timestamp": 1772546499.59519,
+					"type": "END_COMMAND"
+				}
+			],
+			"phase": 6,
+			"turn": 1
+		},
+		{
+			"actions": [
+				{
+					"_replay_diffs": [],
+					"player": 1,
+					"timestamp": 1772546506.17138,
+					"type": "END_MOVEMENT"
+				}
+			],
+			"phase": 7,
+			"turn": 1
+		},
+		{
+			"actions": [
+				{
+					"_replay_diffs": [],
+					"player": 1,
+					"timestamp": 1772546506.42044,
+					"type": "END_SHOOTING"
+				}
+			],
+			"phase": 8,
+			"turn": 1
+		},
+		{
+			"actions": [
+				{
+					"_replay_diffs": [],
+					"player": 1,
+					"timestamp": 1772546506.53781,
+					"type": "END_CHARGE"
+				}
+			],
+			"phase": 9,
+			"turn": 1
+		},
+		{
+			"actions": [
+				{
+					"_replay_diffs": [],
+					"player": 1,
+					"timestamp": 1772546506.90373,
+					"type": "END_FIGHT"
+				},
+				{
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "meta.active_player",
+							"value": 2
+						}
+					],
+					"player": 1,
+					"timestamp": 1772546507.0022,
+					"type": "END_SCORING"
+				}
+			],
+			"phase": 10,
+			"turn": 1
+		},
+		{
+			"actions": [
+				{
+					"player": 2,
+					"timestamp": 1772546507.07025,
+					"type": "END_COMMAND"
+				},
+				{
+					"_ai_description": "Battlewagon remains stationary (moving to objective)",
+					"_ai_thinking_steps": [
+						"Movement plan: 5 units — 5 move; avoiding 6 threat zones"
+					],
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BATTLEWAGON_G.flags.moved",
+							"value": true
+						},
+						{
+							"op": "set",
+							"path": "units.U_BATTLEWAGON_G.flags.remained_stationary",
+							"value": true
+						}
+					],
+					"actor_unit_id": "U_BATTLEWAGON_G",
+					"player": 2,
+					"timestamp": 1772546507.30055,
+					"type": "REMAIN_STATIONARY"
+				},
+				{
+					"_ai_description": "Boyz moves toward obj_nml_2 (moving to objective, obj: 12.4\" away)",
+					"_ai_model_destinations": {
+						"m1": [
+							1245.14245605469,
+							2173.19262695312
+						],
+						"m10": [
+							1604.10205078125,
+							1858.65466308594
+						],
+						"m2": [
+							1252.6943359375,
+							2116.73315429688
+						],
+						"m3": [
+							1236.91442871094,
+							2027.34777832031
+						],
+						"m4": [
+							1250.85266113281,
+							1936.66735839844
+						],
+						"m5": [
+							1346.24768066406,
+							1852.16662597656
+						],
+						"m6": [
+							1181.02172851562,
+							2169.46557617188
+						],
+						"m7": [
+							1115.44812011719,
+							2172.09814453125
+						],
+						"m8": [
+							1396.33203125,
+							1827.59545898438
+						],
+						"m9": [
+							1499.05334472656,
+							1810.06274414062
+						]
+					},
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.flags.move_cap_inches",
+							"value": 6.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.flags.movement_active",
+							"value": true
+						}
+					],
+					"actor_unit_id": "U_BOYZ_K",
+					"player": 2,
+					"timestamp": 1772546507.5272,
+					"type": "BEGIN_NORMAL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_K",
+					"payload": {
+						"dest": [
+							1236.91442871094,
+							2027.34777832031
+						],
+						"model_id": "m3",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546507.60249,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_K",
+					"payload": {
+						"dest": [
+							1250.85266113281,
+							1936.66735839844
+						],
+						"model_id": "m4",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546507.6658,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_K",
+					"payload": {
+						"dest": [
+							1346.24768066406,
+							1852.16662597656
+						],
+						"model_id": "m5",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546507.73884,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_K",
+					"payload": {
+						"dest": [
+							1181.02172851562,
+							2169.46557617188
+						],
+						"model_id": "m6",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546507.80486,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_K",
+					"payload": {
+						"dest": [
+							1115.44812011719,
+							2172.09814453125
+						],
+						"model_id": "m7",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546507.87155,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_K",
+					"payload": {
+						"dest": [
+							1396.33203125,
+							1827.59545898438
+						],
+						"model_id": "m8",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546507.93657,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_K",
+					"payload": {
+						"dest": [
+							1499.05334472656,
+							1810.06274414062
+						],
+						"model_id": "m9",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546508.00021,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_K",
+					"payload": {
+						"dest": [
+							1604.10205078125,
+							1858.65466308594
+						],
+						"model_id": "m10",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546508.0622,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.2.position",
+							"value": {
+								"x": 1222.94506835938,
+								"y": 2206.80493164062
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.3.position",
+							"value": {
+								"x": 1236.88330078125,
+								"y": 2116.12451171875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.4.position",
+							"value": {
+								"x": 1332.2783203125,
+								"y": 2031.62377929688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.5.position",
+							"value": {
+								"x": 1242.41491699219,
+								"y": 2354.7890625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.6.position",
+							"value": {
+								"x": 1176.84130859375,
+								"y": 2357.42163085938
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.7.position",
+							"value": {
+								"x": 1382.36267089844,
+								"y": 2007.05261230469
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.8.position",
+							"value": {
+								"x": 1485.083984375,
+								"y": 1989.51989746094
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.9.position",
+							"value": {
+								"x": 1590.13269042969,
+								"y": 2038.11181640625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.2.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.3.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.4.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.5.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.6.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.7.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.8.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.models.9.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "remove",
+							"path": "units.U_BOYZ_K.flags.movement_active"
+						},
+						{
+							"op": "remove",
+							"path": "units.U_BOYZ_K.flags.move_cap_inches"
+						}
+					],
+					"actor_unit_id": "U_BOYZ_K",
+					"player": 2,
+					"timestamp": 1772546508.13007,
+					"type": "RESET_UNIT_MOVE"
+				},
+				{
+					"_ai_description": "Boyz remains stationary (confirm failed: [\"Unit coherency broken: model m1 is not within 2\\\" horizontally and 5\\\" vertically of 2 model(s)\"])",
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.flags.moved",
+							"value": true
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_K.flags.remained_stationary",
+							"value": true
+						}
+					],
+					"actor_unit_id": "U_BOYZ_K",
+					"player": 2,
+					"timestamp": 1772546508.14299,
+					"type": "REMAIN_STATIONARY"
+				},
+				{
+					"_ai_description": "Boyz remains stationary (moving to objective)",
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.flags.moved",
+							"value": true
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_E.flags.remained_stationary",
+							"value": true
+						}
+					],
+					"actor_unit_id": "U_BOYZ_E",
+					"player": 2,
+					"timestamp": 1772546508.41481,
+					"type": "REMAIN_STATIONARY"
+				},
+				{
+					"_ai_description": "Strike Force moves toward obj_center (moving to objective, obj: 22.6\" away)",
+					"_ai_model_destinations": {
+						"m1": [
+							571.560119628906,
+							1787.50451660156
+						]
+					},
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_STRIKE_FORCE_A.flags.move_cap_inches",
+							"value": 6.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_STRIKE_FORCE_A.flags.movement_active",
+							"value": true
+						}
+					],
+					"actor_unit_id": "U_STRIKE_FORCE_A",
+					"player": 2,
+					"timestamp": 1772546508.58399,
+					"type": "BEGIN_NORMAL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_STRIKE_FORCE_A",
+					"payload": {
+						"dest": [
+							571.560119628906,
+							1787.50451660156
+						],
+						"model_id": "m1",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546508.62191,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_STRIKE_FORCE_A.models.0.position",
+							"value": {
+								"x": 571.560119628906,
+								"y": 1787.50451660156
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_STRIKE_FORCE_A.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_STRIKE_FORCE_A.flags.moved",
+							"value": true
+						},
+						{
+							"op": "remove",
+							"path": "units.U_STRIKE_FORCE_A.flags.move_cap_inches"
+						},
+						{
+							"op": "remove",
+							"path": "units.U_STRIKE_FORCE_A.flags.movement_active"
+						}
+					],
+					"actor_unit_id": "U_STRIKE_FORCE_A",
+					"player": 2,
+					"timestamp": 1772546508.67647,
+					"type": "CONFIRM_UNIT_MOVE"
+				},
+				{
+					"_ai_description": "Boyz moves toward obj_center (moving to objective, obj: 27.8\" away)",
+					"_ai_model_destinations": {
+						"m1": [
+							461.016143798828,
+							2006.94848632812
+						],
+						"m10": [
+							620.009826660156,
+							2149.92333984375
+						],
+						"m11": [
+							414.206146240234,
+							2109.07177734375
+						],
+						"m12": [
+							521.409851074219,
+							2127.73583984375
+						],
+						"m13": [
+							522.627380371094,
+							2211.93579101562
+						],
+						"m14": [
+							642.197265625,
+							1952.5546875
+						],
+						"m15": [
+							790.181579589844,
+							1976.02465820312
+						],
+						"m16": [
+							372.915557861328,
+							2183.93969726562
+						],
+						"m17": [
+							305.387908935547,
+							2183.93969726562
+						],
+						"m18": [
+							329.311828613281,
+							2133.2294921875
+						],
+						"m19": [
+							382.051391601562,
+							2055.57861328125
+						],
+						"m2": [
+							521.409851074219,
+							2006.94848632812
+						],
+						"m20": [
+							530.976196289062,
+							1951.92211914062
+						],
+						"m3": [
+							581.803588867188,
+							2006.94848632812
+						],
+						"m4": [
+							642.197265625,
+							2006.94848632812
+						],
+						"m5": [
+							702.591003417969,
+							1948.5546875
+						],
+						"m6": [
+							461.016143798828,
+							2067.34228515625
+						],
+						"m7": [
+							521.409851074219,
+							2067.34228515625
+						],
+						"m8": [
+							581.803588867188,
+							2067.34228515625
+						],
+						"m9": [
+							642.197265625,
+							2067.34228515625
+						]
+					},
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.flags.move_cap_inches",
+							"value": 6.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.flags.movement_active",
+							"value": true
+						}
+					],
+					"actor_unit_id": "U_BOYZ_F",
+					"player": 2,
+					"timestamp": 1772546508.95509,
+					"type": "BEGIN_NORMAL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							461.016143798828,
+							2006.94848632812
+						],
+						"model_id": "m1",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.01096,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							521.409851074219,
+							2006.94848632812
+						],
+						"model_id": "m2",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.05937,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							581.803588867188,
+							2006.94848632812
+						],
+						"model_id": "m3",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.11069,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							642.197265625,
+							2006.94848632812
+						],
+						"model_id": "m4",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.16304,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							702.591003417969,
+							1948.5546875
+						],
+						"model_id": "m5",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.2134,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							461.016143798828,
+							2067.34228515625
+						],
+						"model_id": "m6",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.26318,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							521.409851074219,
+							2067.34228515625
+						],
+						"model_id": "m7",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.31436,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							581.803588867188,
+							2067.34228515625
+						],
+						"model_id": "m8",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.35913,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							642.197265625,
+							2067.34228515625
+						],
+						"model_id": "m9",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.40214,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							620.009826660156,
+							2149.92333984375
+						],
+						"model_id": "m10",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.4459,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							414.206146240234,
+							2109.07177734375
+						],
+						"model_id": "m11",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.4946,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							521.409851074219,
+							2127.73583984375
+						],
+						"model_id": "m12",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.56076,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							522.627380371094,
+							2211.93579101562
+						],
+						"model_id": "m13",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.62959,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							642.197265625,
+							1952.5546875
+						],
+						"model_id": "m14",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.66992,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							790.181579589844,
+							1976.02465820312
+						],
+						"model_id": "m15",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.71083,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							372.915557861328,
+							2183.93969726562
+						],
+						"model_id": "m16",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.75574,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							329.311828613281,
+							2133.2294921875
+						],
+						"model_id": "m18",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.86441,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							382.051391601562,
+							2055.57861328125
+						],
+						"model_id": "m19",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.90772,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"payload": {
+						"dest": [
+							530.976196289062,
+							1951.92211914062
+						],
+						"model_id": "m20",
+						"rotation": 0.0
+					},
+					"player": 2,
+					"timestamp": 1772546509.95798,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.0.position",
+							"value": {
+								"x": 394.350219726562,
+								"y": 2174.14794921875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.1.position",
+							"value": {
+								"x": 454.743927001953,
+								"y": 2174.14794921875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.2.position",
+							"value": {
+								"x": 515.137634277344,
+								"y": 2174.14794921875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.3.position",
+							"value": {
+								"x": 575.531311035156,
+								"y": 2174.14794921875
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.4.position",
+							"value": {
+								"x": 635.925048828125,
+								"y": 2115.75415039062
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.5.position",
+							"value": {
+								"x": 394.350219726562,
+								"y": 2234.54174804688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.6.position",
+							"value": {
+								"x": 454.743927001953,
+								"y": 2234.54174804688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.7.position",
+							"value": {
+								"x": 515.137634277344,
+								"y": 2234.54174804688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.8.position",
+							"value": {
+								"x": 575.531311035156,
+								"y": 2234.54174804688
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.9.position",
+							"value": {
+								"x": 553.343872070312,
+								"y": 2317.12280273438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.10.position",
+							"value": {
+								"x": 394.350219726562,
+								"y": 2294.93530273438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.11.position",
+							"value": {
+								"x": 454.743927001953,
+								"y": 2294.93530273438
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.12.position",
+							"value": {
+								"x": 432.556457519531,
+								"y": 2369.80322265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.13.position",
+							"value": {
+								"x": 575.531311035156,
+								"y": 2119.75415039062
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.14.position",
+							"value": {
+								"x": 723.515625,
+								"y": 2143.22412109375
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.15.position",
+							"value": {
+								"x": 353.059631347656,
+								"y": 2369.80322265625
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.17.position",
+							"value": {
+								"x": 286.050903320312,
+								"y": 2309.76098632812
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.18.position",
+							"value": {
+								"x": 315.385467529297,
+								"y": 2222.77807617188
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.19.position",
+							"value": {
+								"x": 464.310272216797,
+								"y": 2119.12158203125
+							}
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.0.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.1.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.2.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.3.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.4.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.5.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.6.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.7.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.8.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.9.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.10.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.11.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.12.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.13.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.14.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.15.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.17.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.18.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.models.19.rotation",
+							"value": 0.0
+						},
+						{
+							"op": "remove",
+							"path": "units.U_BOYZ_F.flags.movement_active"
+						},
+						{
+							"op": "remove",
+							"path": "units.U_BOYZ_F.flags.move_cap_inches"
+						}
+					],
+					"actor_unit_id": "U_BOYZ_F",
+					"player": 2,
+					"timestamp": 1772546510.00508,
+					"type": "RESET_UNIT_MOVE"
+				},
+				{
+					"_ai_description": "Boyz remains stationary (confirm failed: [\"Unit coherency broken: model m15 is not within 2\\\" horizontally and 5\\\" vertically of 2 model(s)\"])",
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.flags.moved",
+							"value": true
+						},
+						{
+							"op": "set",
+							"path": "units.U_BOYZ_F.flags.remained_stationary",
+							"value": true
+						}
+					],
+					"actor_unit_id": "U_BOYZ_F",
+					"player": 2,
+					"timestamp": 1772546510.01806,
+					"type": "REMAIN_STATIONARY"
+				}
+			],
+			"phase": 6,
+			"turn": 1
+		},
+		{
+			"actions": [
+				{
+					"_ai_description": "End Movement Phase",
+					"_replay_diffs": [],
+					"player": 2,
+					"timestamp": 1772546510.16862,
+					"type": "END_MOVEMENT"
+				},
+				{
+					"_ai_description": "Battlewagon shoots at Witchseekers — expected 0.1 dmg vs 4 HP (1% kill)",
+					"_ai_thinking_steps": [
+						"Focus fire plan: 1 shooters coordinating — priority targets: Witchseekers (1 shooter(s))"
+					],
+					"_log_text": "Battlewagon → Witchseekers: 1 hits, 0 wounds",
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "units.U_BATTLEWAGON_G.flags.has_shot",
+							"value": true
+						}
+					],
+					"actor_unit_id": "U_BATTLEWAGON_G",
+					"payload": {
+						"assignments": [
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_WITCHSEEKERS_D",
+								"weapon_id": "lobba_ranged"
+							}
+						]
+					},
+					"player": 2,
+					"timestamp": 1772546517.03124,
+					"type": "SHOOT"
+				}
+			],
+			"phase": 7,
+			"turn": 1
+		},
+		{
+			"actions": [
+				{
+					"_ai_description": "End Shooting Phase",
+					"_replay_diffs": [],
+					"player": 2,
+					"timestamp": 1772546523.9822,
+					"type": "END_SHOOTING"
+				},
+				{
+					"_ai_description": "Skipped charge for Strike Force (no good target)",
+					"_replay_diffs": [],
+					"actor_unit_id": "U_STRIKE_FORCE_A",
+					"player": 2,
+					"timestamp": 1772546524.76588,
+					"type": "SKIP_CHARGE"
+				},
+				{
+					"_ai_description": "Skipped charge for Warboss (no good target)",
+					"_replay_diffs": [],
+					"actor_unit_id": "U_WARBOSS_B",
+					"player": 2,
+					"timestamp": 1772546525.59512,
+					"type": "SKIP_CHARGE"
+				},
+				{
+					"_ai_description": "Skipped charge for Warboss (no good target)",
+					"_replay_diffs": [],
+					"actor_unit_id": "U_WARBOSS_C",
+					"player": 2,
+					"timestamp": 1772546526.20099,
+					"type": "SKIP_CHARGE"
+				},
+				{
+					"_ai_description": "Skipped charge for Warboss in Mega Armour (no good target)",
+					"_replay_diffs": [],
+					"actor_unit_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+					"player": 2,
+					"timestamp": 1772546526.76331,
+					"type": "SKIP_CHARGE"
+				},
+				{
+					"_ai_description": "Skipped charge for Boyz (no good target)",
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_E",
+					"player": 2,
+					"timestamp": 1772546527.32784,
+					"type": "SKIP_CHARGE"
+				},
+				{
+					"_ai_description": "Skipped charge for Boyz (no good target)",
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_F",
+					"player": 2,
+					"timestamp": 1772546527.8463,
+					"type": "SKIP_CHARGE"
+				},
+				{
+					"_ai_description": "Skipped charge for Battlewagon (no good target)",
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BATTLEWAGON_G",
+					"player": 2,
+					"timestamp": 1772546528.39863,
+					"type": "SKIP_CHARGE"
+				},
+				{
+					"_ai_description": "Skipped charge for Painboss (no good target)",
+					"_replay_diffs": [],
+					"actor_unit_id": "U_PAINBOSS_I",
+					"player": 2,
+					"timestamp": 1772546528.88707,
+					"type": "SKIP_CHARGE"
+				},
+				{
+					"_ai_description": "Skipped charge for Weirdboy (no good target)",
+					"_replay_diffs": [],
+					"actor_unit_id": "U_WEIRDBOY_J",
+					"player": 2,
+					"timestamp": 1772546529.40699,
+					"type": "SKIP_CHARGE"
+				},
+				{
+					"_ai_description": "Skipped charge for Boyz (no good target)",
+					"_replay_diffs": [],
+					"actor_unit_id": "U_BOYZ_K",
+					"player": 2,
+					"timestamp": 1772546529.91338,
+					"type": "SKIP_CHARGE"
+				}
+			],
+			"phase": 8,
+			"turn": 1
+		},
+		{
+			"actions": [
+				{
+					"_ai_description": "End Fight Phase",
+					"_replay_diffs": [],
+					"player": 2,
+					"timestamp": 1772546530.4789,
+					"type": "END_FIGHT"
+				},
+				{
+					"_ai_description": "End Turn",
+					"_replay_diffs": [
+						{
+							"op": "set",
+							"path": "meta.active_player",
+							"value": 1
+						},
+						{
+							"op": "set",
+							"path": "meta.battle_round",
+							"value": 2
+						}
+					],
+					"player": 2,
+					"timestamp": 1772546530.73121,
+					"type": "END_SCORING"
+				}
+			],
+			"phase": 10,
+			"turn": 2
+		}
+	],
+	"meta": {
+		"active_player": 1,
+		"battle_round": 2,
+		"created_at": 1772546437.38459,
+		"deployment_type": "hammer_anvil",
+		"formations": {
+			"1": {
+				"leader_attachments": {
+
+				},
+				"reserves": [
+					{
+						"reserve_type": "deep_strike",
+						"unit_id": "U_CUSTODIAN_GUARD_B"
+					},
+					{
+						"reserve_type": "strategic_reserves",
+						"unit_id": "U_WITCHSEEKERS_C"
+					}
+				],
+				"transport_embarkations": {
+
+				}
+			},
+			"2": {
+				"leader_attachments": {
+					"U_PAINBOSS_I": "U_BOYZ_E",
+					"U_WARBOSS_B": "U_BOYZ_E",
+					"U_WARBOSS_C": "U_BOYZ_F",
+					"U_WARBOSS_IN_MEGA_ARMOUR_D": "U_BOYZ_F",
+					"U_WEIRDBOY_J": "U_BOYZ_K"
+				},
+				"reserves": [],
+				"transport_embarkations": {
+					"U_BATTLEWAGON_G": [
+						"U_KOMMANDOS_H"
+					]
+				}
+			}
+		},
+		"formations_declared": true,
+		"formations_p1_confirmed": true,
+		"formations_p2_confirmed": true,
+		"from_menu": true,
+		"game_config": {
+			"ai_speed": 1,
+			"deployment": "hammer_anvil",
+			"mission": "take_and_hold",
+			"player1_army": "adeptus_custodes",
+			"player1_difficulty": 1,
+			"player1_fixed_missions": [],
+			"player1_secondary_mode": "tactical",
+			"player1_type": "HUMAN",
+			"player2_army": "orks",
+			"player2_difficulty": 1,
+			"player2_fixed_missions": [],
+			"player2_secondary_mode": "tactical",
+			"player2_type": "AI",
+			"terrain": "layout_1"
+		},
+		"game_id": "2d38fa1f-177b-59df-a933-142cc9d7b2d5af3a",
+		"mission_type": "take_and_hold",
+		"phase": 6,
+		"roll_off_player1_roll": 1,
+		"roll_off_player2_roll": 5,
+		"roll_off_winner": 2,
+		"turn_number": 1,
+		"version": "1.0.0"
+	},
+	"phase_log": [
+		{
+			"player": 1,
+			"timestamp": 1772546536.3037,
+			"type": "END_COMMAND"
+		},
+		{
+			"_replay_diffs": [
+				{
+					"op": "set",
+					"path": "units.U_BLADE_CHAMPION_A.flags.move_cap_inches",
+					"value": 6.0
+				},
+				{
+					"op": "set",
+					"path": "units.U_BLADE_CHAMPION_A.flags.movement_active",
+					"value": true
+				}
+			],
+			"actor_unit_id": "U_BLADE_CHAMPION_A",
+			"payload": {
+
+			},
+			"player": 1,
+			"timestamp": 1772546560.67689,
+			"type": "BEGIN_NORMAL_MOVE"
+		}
+	],
+	"players": {
+		"1": {
+			"bonus_cp_gained_this_round": 0,
+			"cp": 6,
+			"primary_vp": 5,
+			"secondary_vp": 0,
+			"vp": 5
+		},
+		"2": {
+			"bonus_cp_gained_this_round": 0,
+			"cp": 6,
+			"primary_vp": 0,
+			"secondary_vp": 5,
+			"vp": 5
+		}
+	},
+	"secondary_missions": {
+		"active_actions": {
+			"1": [],
+			"2": []
+		},
+		"objective_control_at_turn_start": {
+			"obj_center": 0,
+			"obj_home_1": 1,
+			"obj_home_2": 2,
+			"obj_nml_1": 0,
+			"obj_nml_2": 0
+		},
+		"player_state": {
+			"1": {
+				"active": [
+					{
+						"achieved": false,
+						"action": {
+
+						},
+						"category": "Purge the Enemy",
+						"id": "no_prisoners",
+						"interaction_details": {
+
+						},
+						"interaction_type": "",
+						"mission_data": {
+
+						},
+						"name": "No Prisoners",
+						"number": 14,
+						"pending_interaction": false,
+						"requires_action": false,
+						"scoring": {
+							"conditions": [
+								{
+									"check": "enemy_unit_destroyed",
+									"params": {
+
+									},
+									"vp": 2
+								}
+							],
+							"max_vp_per_score": 5,
+							"when": "while_active"
+						},
+						"vp_scored": 0
+					},
+					{
+						"achieved": false,
+						"action": {
+
+						},
+						"category": "Strategic Conquests",
+						"id": "extend_battle_lines",
+						"interaction_details": {
+
+						},
+						"interaction_type": "",
+						"mission_data": {
+
+						},
+						"name": "Extend Battle Lines",
+						"number": 9,
+						"pending_interaction": false,
+						"requires_action": false,
+						"scoring": {
+							"conditions": [
+								{
+									"check": "control_own_zone_and_nml_objectives",
+									"params": {
+										"nml_count": 1,
+										"own_zone_count": 1
+									},
+									"vp": 5
+								}
+							],
+							"when": "end_of_your_turn"
+						},
+						"vp_scored": 0
+					}
+				],
+				"deck": [
+					"cull_the_horde",
+					"display_of_might",
+					"area_denial",
+					"a_tempting_target",
+					"behind_enemy_lines",
+					"storm_hostile_objective",
+					"defend_stronghold",
+					"engage_on_all_fronts",
+					"marked_for_death",
+					"deploy_teleport_homer",
+					"overwhelming_force",
+					"secure_no_mans_land",
+					"cleanse",
+					"bring_it_down",
+					"assassination",
+					"establish_locus"
+				],
+				"discard": [],
+				"initialized": true,
+				"mode": "tactical",
+				"secondary_vp": 0
+			},
+			"2": {
+				"active": [
+					{
+						"achieved": false,
+						"action": {
+
+						},
+						"category": "Strategic Conquests",
+						"id": "secure_no_mans_land",
+						"interaction_details": {
+
+						},
+						"interaction_type": "",
+						"mission_data": {
+
+						},
+						"name": "Secure No Man's Land",
+						"number": 7,
+						"pending_interaction": false,
+						"requires_action": false,
+						"scoring": {
+							"conditions": [
+								{
+									"check": "control_objectives_in_no_mans_land",
+									"params": {
+										"count": 2
+									},
+									"vp": 5
+								},
+								{
+									"check": "control_objectives_in_no_mans_land",
+									"params": {
+										"count": 1
+									},
+									"vp": 2
+								}
+							],
+							"when": "end_of_your_turn"
+						},
+						"vp_scored": 0
+					}
+				],
+				"deck": [
+					"no_prisoners",
+					"engage_on_all_fronts",
+					"cleanse",
+					"assassination",
+					"overwhelming_force",
+					"behind_enemy_lines",
+					"storm_hostile_objective",
+					"marked_for_death",
+					"area_denial",
+					"extend_battle_lines",
+					"defend_stronghold",
+					"bring_it_down",
+					"establish_locus",
+					"cull_the_horde",
+					"a_tempting_target",
+					"deploy_teleport_homer"
+				],
+				"discard": [
+					"display_of_might"
+				],
+				"initialized": true,
+				"mode": "tactical",
+				"secondary_vp": 5
+			}
+		},
+		"units_destroyed_this_turn": []
+	},
+	"unit_visuals": {
+		"U_BATTLEWAGON_G": {
+			"color": "338026",
+			"label": ""
+		},
+		"U_BLADE_CHAMPION_A": {
+			"color": "d9b333",
+			"label": ""
+		},
+		"U_BOYZ_E": {
+			"color": "338026",
+			"label": ""
+		},
+		"U_BOYZ_F": {
+			"color": "338026",
+			"label": ""
+		},
+		"U_BOYZ_K": {
+			"color": "338026",
+			"label": ""
+		},
+		"U_CALADIUS_GRAV-TANK_E": {
+			"color": "d9b333",
+			"label": ""
+		},
+		"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H": {
+			"color": "d9b333",
+			"label": ""
+		},
+		"U_PAINBOSS_I": {
+			"color": "338026",
+			"label": ""
+		},
+		"U_SHIELD_CAPTAIN_A": {
+			"color": "d9b333",
+			"label": ""
+		},
+		"U_STRIKE_FORCE_A": {
+			"color": "338026",
+			"label": ""
+		},
+		"U_TELEMON_HEAVY_DREADNOUGHT_I": {
+			"color": "d9b333",
+			"label": ""
+		},
+		"U_WARBOSS_B": {
+			"color": "338026",
+			"label": ""
+		},
+		"U_WARBOSS_C": {
+			"color": "338026",
+			"label": ""
+		},
+		"U_WARBOSS_IN_MEGA_ARMOUR_D": {
+			"color": "338026",
+			"label": ""
+		},
+		"U_WEIRDBOY_J": {
+			"color": "338026",
+			"label": ""
+		},
+		"U_WITCHSEEKERS_D": {
+			"color": "d9b333",
+			"label": ""
+		}
+	},
+	"units": {
+		"U_BATTLEWAGON_G": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+				"get_stuck_in": true,
+				"has_shot": true,
+				"moved": true,
+				"remained_stationary": true
+			},
+			"id": "U_BATTLEWAGON_G",
+			"meta": {
+				"abilities": [
+					{
+						"description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D6 mortal wounds.",
+						"name": "Deadly Demise D6",
+						"type": "Core"
+					},
+					{
+						"description": "Firing Deck 11. Each time this transport shoots, up to 11 models embarked within it can be selected to shoot as well. Each time such a model makes a ranged attack, it is treated as if it were not embarked, except that it cannot use any abilities that require it to be on the battlefield.",
+						"name": "FIRING DECK",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time this model loses one or more wounds, roll one D6: on a 6, this model does not lose a wound.",
+						"name": "Ramshackle",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll.",
+						"name": "Damaged: 1-5 Wounds Remaining",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Add 2 to this model's Toughness characteristic. If this model is equipped with this wargear, it loses the Firing Deck ability.",
+						"name": "'Ard Case",
+						"type": "Wargear"
+					},
+					{
+						"description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models.",
+						"name": "TRANSPORT",
+						"type": "Special"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLEWAGON",
+					"ORKS",
+					"TRANSPORT",
+					"VEHICLE"
+				],
+				"name": "Battlewagon",
+				"points": 160.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 10.0,
+					"objective_control": 5.0,
+					"save": 3.0,
+					"toughness": 12.0,
+					"wounds": 16.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Battlewagon",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Deff rolla",
+					"1x Grabbin' klaw",
+					"1x Kannon",
+					"1x Lobba",
+					"1x Wreckin' ball",
+					"1x 'Ard Case"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "D6+3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kannon – frag",
+						"range": "36",
+						"special_rules": "blast",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "D6",
+						"name": "Kannon – shell",
+						"range": "36",
+						"strength": "10",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D6+1",
+						"ballistic_skill": "5",
+						"damage": "2",
+						"name": "Killkannon",
+						"range": "24",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Lobba",
+						"range": "48",
+						"special_rules": "blast, indirect fire",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-3",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "5",
+						"name": "Zzap gun",
+						"range": "36",
+						"special_rules": "anti-vehicle 4+",
+						"strength": "D6+6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Deff rolla",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "2",
+						"damage": "2",
+						"name": "Grabbin' klaw",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "6",
+						"damage": "1",
+						"name": "Tracks and wheels",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"damage": "D6",
+						"name": "Wreckin' ball",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_dimensions": {
+						"length": 180.0,
+						"width": 110.0
+					},
+					"base_mm": 180.0,
+					"base_type": "rectangular",
+					"current_wounds": 16.0,
+					"id": "m1",
+					"position": {
+						"x": 1440.205078125,
+						"y": 2200.0
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 16.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BATTLEWAGON_G",
+			"status": 2,
+			"transport_data": {
+				"capacity": 22,
+				"capacity_keywords": [
+					"ORKS",
+					"INFANTRY"
+				],
+				"embarked_units": [
+					"U_KOMMANDOS_H"
+				],
+				"firing_deck": 0
+			}
+		},
+		"U_BLADE_CHAMPION_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+				"move_cap_inches": 6.0,
+				"movement_active": true
+			},
+			"id": "U_BLADE_CHAMPION_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, you can re-roll Charge rolls made for that unit",
+						"name": "Swift Onslaught",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, in your Charge phase, this model's unit is eligible to declare a charge in a turn which it Advanced.",
+						"name": "Martial Inspiration",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [
+					"Adamantine Talisman (+25 pts)"
+				],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BLADE CHAMPION",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"CUSTODIAN GUARD"
+					]
+				},
+				"name": "Blade Champion",
+				"points": 145.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Blade Champion",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-2",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Vaultswords – Behemor",
+						"range": "Melee",
+						"special_rules": "precision",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-1",
+						"attacks": "9",
+						"damage": "1",
+						"name": "Vaultswords – Hurricanus",
+						"range": "Melee",
+						"special_rules": "sustained hits 1",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-3",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Vaultswords – Victus",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 620.949890136719,
+						"y": 444.599853515625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_BLADE_CHAMPION_A",
+			"status": 2
+		},
+		"U_BOYZ_E": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": [
+					"U_PAINBOSS_I",
+					"U_WARBOSS_B"
+				]
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+				"effect_fall_back_and_charge": true,
+				"get_stuck_in": true,
+				"moved": true,
+				"remained_stationary": true
+			},
+			"id": "U_BOYZ_E",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the end of your Command phase, if this unit is within range of an objective marker you control, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					},
+					{
+						"description": "If this unit has a Starting Strength of 20, you can attach up to two Leader units to it instead of one (but only if one of those is a WARBOSS model). If you do, and this unit is destroyed, the Leader units attached to it become separate units with their original Starting Strengths.",
+						"name": "BODYGUARD",
+						"type": "Special (правая колонка)"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Boyz",
+				"points": 80.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9-19 Boyz",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 628.782287597656,
+						"y": 2206.45092773438
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 689.176025390625,
+						"y": 2206.45092773438
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 749.569702148438,
+						"y": 2206.45092773438
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 809.96337890625,
+						"y": 2206.45092773438
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 870.357116699219,
+						"y": 2206.45092773438
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"x": 628.782287597656,
+						"y": 2266.8447265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"x": 689.176025390625,
+						"y": 2266.8447265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"x": 749.569702148438,
+						"y": 2266.8447265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"x": 809.96337890625,
+						"y": 2266.8447265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"x": 870.357116699219,
+						"y": 2266.8447265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m11",
+					"position": {
+						"x": 628.782287597656,
+						"y": 2327.23828125
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m12",
+					"position": {
+						"x": 689.176025390625,
+						"y": 2327.23828125
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m13",
+					"position": {
+						"x": 749.569702148438,
+						"y": 2327.23828125
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m14",
+					"position": {
+						"x": 809.96337890625,
+						"y": 2327.23828125
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m15",
+					"position": {
+						"x": 870.357116699219,
+						"y": 2327.23828125
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m16",
+					"position": {
+						"x": 587.49169921875,
+						"y": 2369.80322265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m17",
+					"position": {
+						"x": 519.964050292969,
+						"y": 2369.80322265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m18",
+					"position": {
+						"x": 924.750793457031,
+						"y": 2369.80322265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m19",
+					"position": {
+						"x": 985.144470214844,
+						"y": 2369.80322265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m20",
+					"position": {
+						"x": 952.938293457031,
+						"y": 2287.22216796875
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BOYZ_E",
+			"status": 2
+		},
+		"U_BOYZ_F": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": [
+					"U_WARBOSS_C",
+					"U_WARBOSS_IN_MEGA_ARMOUR_D"
+				]
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+				"get_stuck_in": true,
+				"moved": true,
+				"remained_stationary": true
+			},
+			"id": "U_BOYZ_F",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the end of your Command phase, if this unit is within range of an objective marker you control, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					},
+					{
+						"description": "If this unit has a Starting Strength of 20, you can attach up to two Leader units to it instead of one (but only if one of those is a WARBOSS model). If you do, and this unit is destroyed, the Leader units attached to it become separate units with their original Starting Strengths.",
+						"name": "BODYGUARD",
+						"type": "Special (правая колонка)"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Boyz",
+				"points": 80.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9-19 Boyz",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 394.350219726562,
+						"y": 2174.14794921875
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 454.743927001953,
+						"y": 2174.14794921875
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 515.137634277344,
+						"y": 2174.14794921875
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 575.531311035156,
+						"y": 2174.14794921875
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 635.925048828125,
+						"y": 2115.75415039062
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"x": 394.350219726562,
+						"y": 2234.54174804688
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"x": 454.743927001953,
+						"y": 2234.54174804688
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"x": 515.137634277344,
+						"y": 2234.54174804688
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"x": 575.531311035156,
+						"y": 2234.54174804688
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"x": 553.343872070312,
+						"y": 2317.12280273438
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m11",
+					"position": {
+						"x": 394.350219726562,
+						"y": 2294.93530273438
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m12",
+					"position": {
+						"x": 454.743927001953,
+						"y": 2294.93530273438
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m13",
+					"position": {
+						"x": 432.556457519531,
+						"y": 2369.80322265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m14",
+					"position": {
+						"x": 575.531311035156,
+						"y": 2119.75415039062
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m15",
+					"position": {
+						"x": 723.515625,
+						"y": 2143.22412109375
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m16",
+					"position": {
+						"x": 353.059631347656,
+						"y": 2369.80322265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m17",
+					"position": {
+						"x": 285.531982421875,
+						"y": 2369.80322265625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m18",
+					"position": {
+						"x": 286.050903320312,
+						"y": 2309.76098632812
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m19",
+					"position": {
+						"x": 315.385467529297,
+						"y": 2222.77807617188
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m20",
+					"position": {
+						"x": 464.310272216797,
+						"y": 2119.12158203125
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BOYZ_F",
+			"status": 2
+		},
+		"U_BOYZ_K": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": [
+					"U_WEIRDBOY_J"
+				]
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+				"get_stuck_in": true,
+				"moved": true,
+				"remained_stationary": true
+			},
+			"id": "U_BOYZ_K",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the end of your Command phase, if this unit is within range of an objective marker you control, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Boyz",
+				"points": 80.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9 Boyz",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 1306.53564453125,
+						"y": 2358.51611328125
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 1238.72497558594,
+						"y": 2296.19018554688
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 1222.94506835938,
+						"y": 2206.80493164062
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 1236.88330078125,
+						"y": 2116.12451171875
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 1332.2783203125,
+						"y": 2031.62377929688
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"x": 1242.41491699219,
+						"y": 2354.7890625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"x": 1176.84130859375,
+						"y": 2357.42163085938
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"x": 1382.36267089844,
+						"y": 2007.05261230469
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"x": 1485.083984375,
+						"y": 1989.51989746094
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"x": 1590.13269042969,
+						"y": 2038.11181640625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BOYZ_K",
+			"status": 2
+		},
+		"U_CALADIUS_GRAV-TANK_E": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CALADIUS_GRAV-TANK_E",
+			"meta": {
+				"abilities": [
+					{
+						"description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds.",
+						"name": "Deadly Demise D3",
+						"type": "Core"
+					},
+					{
+						"description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time this model makes an attack with its twin iliastus accelerator cannon that targets an enemy unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time this model makes an attack with its twin arachnus heavy blaze cannon that targets an enemy MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability.",
+						"name": "Advanced Firepower",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll.",
+						"name": "Damaged: 1-5 Wounds Remaining",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"CALADIUS GRAV-TANK",
+					"FLY",
+					"IMPERIUM",
+					"VEHICLE"
+				],
+				"name": "Caladius Grav-tank",
+				"points": 215.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 10.0,
+					"objective_control": 4.0,
+					"save": 2.0,
+					"toughness": 11.0,
+					"wounds": 14.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Caladius Grav-tank",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-3",
+						"attacks": "4",
+						"ballistic_skill": "2",
+						"damage": "D6+2",
+						"name": "Twin arachnus heavy blaze cannon",
+						"range": "48",
+						"special_rules": "twin-linked",
+						"strength": "12",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "4",
+						"ballistic_skill": "2",
+						"damage": "3",
+						"name": "Twin iliastus accelerator cannon",
+						"range": "48",
+						"special_rules": "rapid fire 4, twin-linked",
+						"strength": "10",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Twin lastrum bolt cannon",
+						"range": "36",
+						"special_rules": "sustained hits 1",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "4",
+						"damage": "1",
+						"name": "Armoured hull",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_dimensions": {
+						"length": 170.0,
+						"width": 105.0
+					},
+					"base_mm": 170.0,
+					"base_type": "oval",
+					"current_wounds": 14.0,
+					"id": "m1",
+					"position": {
+						"x": 904.749877929688,
+						"y": 383.549865722656
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 14.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_CALADIUS_GRAV-TANK_E",
+			"status": 2
+		},
+		"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+			"meta": {
+				"abilities": [
+					{
+						"description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers 1 mortal wound.",
+						"name": "Deadly Demise 1",
+						"type": "Core"
+					},
+					{
+						"description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time this model is selected to fight, you can select one enemy unit within Engagement Range of it and roll one D6, adding 2 to the result if this model made a Charge move this turn: on a 4-5, that enemy unit suffers D3 mortal wounds; on a 6+, that enemy unit suffers 3 mortal wounds.",
+						"name": "Dread Foe",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"CONTEMPTOR-ACHILLUS DREADNOUGHT",
+					"IMPERIUM",
+					"VEHICLE",
+					"WALKER"
+				],
+				"name": "Contemptor-Achillus Dreadnought",
+				"points": 155.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 3.0,
+					"save": 2.0,
+					"toughness": 9.0,
+					"wounds": 10.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Contemptor-Achillus Dreadnought",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "2",
+						"damage": "3",
+						"name": "Achillus dreadspear",
+						"range": "12",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "D6",
+						"ballistic_skill": null,
+						"damage": "1",
+						"name": "Infernus incinerator",
+						"range": "12",
+						"special_rules": "torrent, ignores cover",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "2",
+						"damage": "3",
+						"name": "Twin adrathic destructor",
+						"range": "18",
+						"special_rules": "twin-linked",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "D6+1",
+						"name": "Achillus dreadspear",
+						"range": "Melee",
+						"special_rules": "lance",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 60.0,
+					"current_wounds": 10.0,
+					"id": "m1",
+					"position": {
+						"x": 483.999877929688,
+						"y": 380.249877929688
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 10.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_B": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_B",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Add 1 to the bearer's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Wargear"
+					},
+					{
+						"description": "Add 1 to the Objective Control characteristic of models in the bearer's unit.",
+						"name": "Vexilla",
+						"type": "Wargear"
+					},
+					{
+						"description": "Each time a model in this unit makes an attack, re-roll a Wound roll of 1. While this unit is within range of an objective marker you control, you can re-roll the Wound roll instead.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, in your Shooting phase, after this unit has shot, it can shoot again.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 170.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 3.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"Custodian Guard",
+					"Custodian Guard (Shield), Praesidium Shield"
+				],
+				"weapons": [
+					{
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Sentinel blade",
+						"range": "12",
+						"special_rules": "assault, pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "1",
+						"name": "Misericordia",
+						"range": "Melee",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "1",
+						"name": "Sentinel blade",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": null,
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": null,
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": null,
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"reserve_type": "deep_strike",
+			"squad_id": "U_CUSTODIAN_GUARD_B",
+			"status": 7
+		},
+		"U_KOMMANDOS_H": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": "U_BATTLEWAGON_G",
+			"flags": {
+				"get_stuck_in": true
+			},
+			"id": "U_KOMMANDOS_H",
+			"meta": {
+				"abilities": [
+					{
+						"description": "During deployment, this unit can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and more than 9\" away from all enemy models.",
+						"name": "Infiltrators",
+						"type": "Core"
+					},
+					{
+						"description": "If every model in a unit has this ability, then each time a ranged attack is made against this unit, subtract 1 from the Hit roll.",
+						"name": "Stealth",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the start of your Shooting phase, if this unit is within 9\" of one or more enemy units, it can use this ability. If it does, until the end of the phase, this unit is not eligible to shoot, but you roll one D6 for each model in this unit that is within 9\" of an enemy unit: for each 5+, that enemy unit suffers 1 mortal wound.",
+						"name": "Throat Slittas",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Enemy units cannot use the Fire Overwatch Stratagem to shoot at this unit.",
+						"name": "Sneaky Surprise",
+						"type": "Datasheet"
+					},
+					{
+						"description": "At the start of the Declare Battle Formations step, this unit can be split into two units, each containing five models.",
+						"name": "Patrol Squad",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, in your opponent's Shooting phase, when this unit is selected as the target of a ranged attack, until the end of the phase, models in this unit have a 5+ invulnerable save.",
+						"name": "Distraction Grot",
+						"type": "Wargear"
+					},
+					{
+						"description": "Once per battle, after this unit ends a Normal move, you can select one enemy unit within 12\" of and visible to this unit and roll one D6: on a 3+, that enemy unit suffers D3 mortal wounds.",
+						"name": "Bomb Squigs",
+						"type": "Wargear"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"GRENADES",
+					"INFANTRY",
+					"KOMMANDOS",
+					"ORKS"
+				],
+				"name": "Kommandos",
+				"points": 135.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9 Kommandos",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"10x Choppa",
+					"10x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_KOMMANDOS_H",
+			"status": 0
+		},
+		"U_PAINBOSS_I": {
+			"attached_to": "U_BOYZ_E",
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+				"get_stuck_in": true
+			},
+			"id": "U_PAINBOSS_I",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Each time this model would lose a wound, roll one D6: on a 5+, that wound is not lost.",
+						"name": "Feel No Pain 5+",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.",
+						"name": "Dok's Toolz",
+						"type": "Datasheet"
+					},
+					{
+						"description": "At the end of your Movement phase, you can select one friendly BEAST SNAGGA CHARACTER model within 3\" of this model. That model regains up to 3 lost wounds.",
+						"name": "Sawbonez",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model is leading a unit, that unit is eligible to declare a charge in a turn in which it Fell Back.",
+						"name": "One Scalpel Short of a Medpack",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, if the bearer's unit is below its Starting Strength, you can return up to D3 destroyed Bodyguard models to that unit.",
+						"name": "Grot Orderly",
+						"type": "Wargear"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"INFANTRY",
+					"BEAST SNAGGA",
+					"ORKS",
+					"PAINBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BEAST SNAGGA BOYZ",
+						"BOYZ"
+					]
+				},
+				"name": "Painboss",
+				"points": 70.0,
+				"stats": {
+					"fnp": 5.0,
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Painboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Beast Snagga klaw",
+					"1x Grot Orderly"
+				],
+				"weapons": [
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Beast Snagga klaw",
+						"range": "Melee",
+						"special_rules": "anti-monster 4+, anti-vehicle 4+",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 687.475200983483,
+						"y": 2206.45092773438
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_PAINBOSS_I",
+			"status": 2
+		},
+		"U_SHIELD_CAPTAIN_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_SHIELD_CAPTAIN_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Once per battle, when this model's unit is selected to fight, it can use this ability. If it does, until that fight is resolved, both Ka'tah Stances are active for that unit instead of only one.",
+						"name": "Master of the Stances",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle round, you can select one model from your army with this ability and target that model's unit with a Stratagem. If you do, reduce the CP cost of that use of that Stratagem by 1CP.",
+						"name": "Strategic Mastery",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Add 1 to the bearer's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Wargear"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": true,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY",
+					"SHIELD-CAPTAIN"
+				],
+				"leader_data": {
+					"can_lead": [
+						"CUSTODIAN GUARD"
+					]
+				},
+				"name": "Shield-Captain",
+				"points": 120.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 7.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Shield-Captain",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"Shield-Captain (Shield), Praesidium Shield"
+				],
+				"weapons": [
+					{
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Sentinel blade",
+						"range": "12",
+						"special_rules": "assault, pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "7",
+						"damage": "1",
+						"name": "Sentinel blade",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 7.0,
+					"id": "m1",
+					"position": {
+						"x": 1137.39978027344,
+						"y": 433.049865722656
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 7.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_SHIELD_CAPTAIN_A",
+			"status": 2
+		},
+		"U_STRIKE_FORCE_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+				"moved": true
+			},
+			"id": "U_STRIKE_FORCE_A",
+			"meta": {
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"UNKNOWN"
+				],
+				"name": "Strike Force",
+				"points": 2000.0,
+				"stats": {
+					"move": 6.0,
+					"save": 3.0,
+					"toughness": 4.0
+				},
+				"wargear": []
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 571.560119628906,
+						"y": 1787.50451660156
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_STRIKE_FORCE_A",
+			"status": 2
+		},
+		"U_TELEMON_HEAVY_DREADNOUGHT_I": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
+			"meta": {
+				"abilities": [
+					{
+						"description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds.",
+						"name": "Deadly Demise D3",
+						"type": "Core"
+					},
+					{
+						"description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time an attack is allocated to this model, subtract 1 from the Damage characteristic of that attack.",
+						"name": "Guardian Eternal",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model has 1-4 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll.",
+						"name": "Damaged: 1-4 Wounds Remaining",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"IMPERIUM",
+					"TELEMON HEAVY DREADNOUGHT",
+					"VEHICLE",
+					"WALKER"
+				],
+				"name": "Telemon Heavy Dreadnought",
+				"points": 265.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 8.0,
+					"objective_control": 5.0,
+					"save": 2.0,
+					"toughness": 12.0,
+					"wounds": 12.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Telemon Heavy Dreadnought",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Telemon Caestus",
+						"range": "12",
+						"special_rules": "twin-linked",
+						"strength": "7",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "6",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Spiculus bolt launcher",
+						"range": "36",
+						"special_rules": "",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "8",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Iliastus accelerator culverin",
+						"range": "48",
+						"special_rules": "",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Telemon Caestus",
+						"range": "Melee",
+						"special_rules": "",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-1",
+						"attacks": "16",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Telemon Storm Cannon",
+						"range": "72",
+						"special_rules": "",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-4",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "D6+1",
+						"name": "Twin arachnus las-blaze",
+						"range": "48",
+						"special_rules": "twin-linked",
+						"strength": "14",
+						"type": "Ranged"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 100.0,
+					"current_wounds": 12.0,
+					"id": "m1",
+					"position": {
+						"x": 1257.84973144531,
+						"y": 325.799865722656
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 12.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
+			"status": 2
+		},
+		"U_WARBOSS_B": {
+			"attached_to": "U_BOYZ_E",
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+				"get_stuck_in": true
+			},
+			"id": "U_WARBOSS_B",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+						"name": "Might is Right",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While the Waaagh! is active for your army, add 4 to the Attacks characteristic of this model's melee weapons.",
+						"name": "Da Biggest and da Best",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": true,
+				"keywords": [
+					"CHARACTER",
+					"GRENADES",
+					"INFANTRY",
+					"ORKS",
+					"WARBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Warboss",
+				"points": 75.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Kombi-weapon",
+					"1x Power klaw",
+					"1x Twin sluggas"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Twin slugga",
+						"range": "12",
+						"special_rules": "pistol, twin-linked",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Attack squig",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 687.475200983483,
+						"y": 2206.45092773438
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WARBOSS_B",
+			"status": 2
+		},
+		"U_WARBOSS_C": {
+			"attached_to": "U_BOYZ_F",
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+				"get_stuck_in": true
+			},
+			"id": "U_WARBOSS_C",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+						"name": "Might is Right",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While the Waaagh! is active for your army, add 4 to the Attacks characteristic of this model's melee weapons.",
+						"name": "Da Biggest and da Best",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"GRENADES",
+					"INFANTRY",
+					"ORKS",
+					"WARBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Warboss",
+				"points": 75.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Kombi-weapon",
+					"1x Power klaw",
+					"1x Twin sluggas"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Twin slugga",
+						"range": "12",
+						"special_rules": "pistol, twin-linked",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Attack squig",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 453.043133112389,
+						"y": 2174.14794921875
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WARBOSS_C",
+			"status": 2
+		},
+		"U_WARBOSS_IN_MEGA_ARMOUR_D": {
+			"attached_to": "U_BOYZ_F",
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+				"get_stuck_in": true
+			},
+			"id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+						"name": "Might is Right",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While the Waaagh! is active for your army, this model's 'uge choppa has a Damage characteristic of 3.",
+						"name": "Dead Brutal",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [
+					"Tellyporta"
+				],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"INFANTRY",
+					"MEGA ARMOUR",
+					"ORKS",
+					"WARBOSS",
+					"WARBOSS IN MEGA ARMOUR"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Warboss in Mega Armour",
+				"points": 115.0,
+				"stats": {
+					"fnp": 5.0,
+					"leadership": 6.0,
+					"move": 5.0,
+					"objective_control": 1.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 7.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss in Mega Armour",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x 'Uge choppa"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "4",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "'Uge choppa",
+						"range": "Melee",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 50.0,
+					"current_wounds": 7.0,
+					"id": "m1",
+					"position": {
+						"x": 460.917148860421,
+						"y": 2174.14794921875
+					},
+					"status_effects": [],
+					"wounds": 7.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+			"status": 2
+		},
+		"U_WEIRDBOY_J": {
+			"attached_to": "U_BOYZ_K",
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+				"get_stuck_in": true
+			},
+			"id": "U_WEIRDBOY_J",
+			"meta": {
+				"abilities": [
+					{
+						"description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds.",
+						"name": "Deadly Demise D3",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, add 1 to the Strength and Damage characteristics of this model's 'Eadbanger weapon for every 5 models in that unit (rounding down), but while that unit contains 10 or more models, that weapon has the [HAZARDOUS] ability.",
+						"name": "Waaagh! Energy",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per turn, at the end of your Movement phase, one WEIRDBOY from your army can use this ability. If it does, roll one D6: on a 1, that WEIRDBOY's unit suffers D6 mortal wounds; on a 2+, remove this WEIRDBOY's unit from the battlefield and set it up again anywhere on the battlefield that is more than 9\" horizontally away from all enemy models.",
+						"name": "Da Jump",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"INFANTRY",
+					"PSYKER",
+					"ORKS",
+					"WEIRDBOY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Weirdboy",
+				"points": 65.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Weirdboy",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x 'Eadbanger",
+					"1x Weirdboy staff"
+				],
+				"weapons": [
+					{
+						"ap": "-3",
+						"attacks": "1",
+						"ballistic_skill": "4",
+						"damage": "1",
+						"name": "'Eadbanger",
+						"range": "24",
+						"special_rules": "precision, psychic",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "D3",
+						"name": "Weirdboy staff",
+						"range": "Melee",
+						"special_rules": "psychic",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 1365.22855791708,
+						"y": 2358.51611328125
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WEIRDBOY_J",
+			"status": 2
+		},
+		"U_WITCHSEEKERS_C": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_WITCHSEEKERS_C",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "6\"",
+						"type": "Core"
+					},
+					{
+						"description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds.",
+						"name": "Daughters of the Abyss",
+						"type": "Datasheet"
+					},
+					{
+						"description": "In your Shooting phase, after this unit has shot, select one enemy unit hit by one or more of those attacks. That enemy unit must take a Battle-shock test.",
+						"name": "Sanctified Flames",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ANATHEMA PSYKANA",
+					"IMPERIUM",
+					"INFANTRY",
+					"WITCHSEEKERS"
+				],
+				"name": "Witchseekers",
+				"points": 50.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 3.0,
+					"toughness": 3.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Witchseeker Sister Superior",
+						"line": 1.0
+					},
+					{
+						"description": "3-9 Witchseekers",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"Witchseeker Sister Superior",
+					"Witchseeker"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": null,
+						"damage": "1",
+						"name": "Witchseeker flamer",
+						"range": "12",
+						"special_rules": "ignores cover, torrent",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"reserve_type": "strategic_reserves",
+			"squad_id": "U_WITCHSEEKERS_C",
+			"status": 7
+		},
+		"U_WITCHSEEKERS_D": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_WITCHSEEKERS_D",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "6\"",
+						"type": "Core"
+					},
+					{
+						"description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds.",
+						"name": "Daughters of the Abyss",
+						"type": "Datasheet"
+					},
+					{
+						"description": "In your Shooting phase, after this unit has shot, select one enemy unit hit by one or more of those attacks. That enemy unit must take a Battle-shock test.",
+						"name": "Sanctified Flames",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ANATHEMA PSYKANA",
+					"IMPERIUM",
+					"INFANTRY",
+					"WITCHSEEKERS"
+				],
+				"name": "Witchseekers",
+				"points": 65.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 3.0,
+					"toughness": 3.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Witchseeker Sister Superior",
+						"line": 1.0
+					},
+					{
+						"description": "3-9 Witchseekers",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"Witchseeker Sister Superior",
+					"Witchseeker"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": null,
+						"damage": "1",
+						"name": "Witchseeker flamer",
+						"range": "12",
+						"special_rules": "ignores cover, torrent",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 1411.29968261719,
+						"y": 350.549865722656
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 1417.89978027344,
+						"y": 254.849853515625
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 1411.29968261719,
+						"y": 154.199890136719
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 1350.24975585938,
+						"y": 70.0499267578125
+					},
+					"rotation": 0.0,
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_WITCHSEEKERS_D",
+			"status": 2
+		}
+	}
+}

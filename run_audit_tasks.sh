@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 ###############################################################################
-# run_audit_tasks.sh — Automated ABILITIES_AUDIT.md task runner using Claude Code
+# run_audit_tasks.sh — Automated SAVE_AUDIT.md task runner using Claude Code
 #
-# Parses open tasks from ABILITIES_AUDIT.md Priority Recommendations, loops
+# Parses open tasks from SAVE_AUDIT.md Priority Recommendations, loops
 # through them one-by-one, launching a fresh Claude Code session for each.
 # Claude implements the task, updates the audit file, commits, and merges to
 # main before the next task starts.
@@ -38,7 +38,7 @@ export GIT_MERGE_AUTOEDIT=no
 # ─── Configuration ───────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
-AUDIT_FILE="$PROJECT_DIR/ABILITIES_AUDIT.md"
+AUDIT_FILE="$PROJECT_DIR/SAVE_AUDIT.md"
 STATE_FILE="$PROJECT_DIR/.audit_runner_state"
 STOP_FILE="$PROJECT_DIR/.audit_runner_stop"
 LOG_DIR="$PROJECT_DIR/.audit_logs"
@@ -178,7 +178,7 @@ get_failed_task_ids() {
 
 # ─── Task Parsing ────────────────────────────────────────────────────────────
 
-# Extracts all open tasks from ABILITIES_AUDIT.md Priority Recommendations.
+# Extracts all open tasks from SAVE_AUDIT.md Priority Recommendations.
 # Tasks are numbered lines under ### P{n} headers, e.g.:
 #   ### P0 — Critical (abilities that claim to work but don't)
 #   1. **Fix ChargePhase to check advance_and_charge flag** — Martial Inspiration
@@ -220,7 +220,7 @@ parse_all_tasks() {
     done < "$AUDIT_FILE"
 }
 
-# Extracts the full context for a given task from ABILITIES_AUDIT.md.
+# Extracts the full context for a given task from SAVE_AUDIT.md.
 # Task ID format: P{priority}-{number} (e.g. P0-1, P1-8)
 # Returns: the priority header, the task line itself, and all related
 # sections from earlier in the file that provide background context.
@@ -291,7 +291,7 @@ get_task_context() {
     echo "Task: ${task_line}"
     echo ""
     echo "═══════════════════════════════════════════════════════"
-    echo "RELATED CONTEXT FROM ABILITIES_AUDIT.md"
+    echo "RELATED CONTEXT FROM SAVE_AUDIT.md"
     echo "═══════════════════════════════════════════════════════"
     echo ""
     echo "$related_context"
@@ -371,7 +371,7 @@ build_prompt() {
 
     cat <<PROMPT_EOF
 You are working on a Warhammer 40k tabletop game implemented in Godot 4.4 (GDScript).
-Your job is to implement one specific ability task from the project's ABILITIES_AUDIT.md.
+Your job is to implement one specific ability task from the project's SAVE_AUDIT.md.
 
 ═══════════════════════════════════════════════════════
 TASK: ${task_id} — ${task_title}
@@ -409,7 +409,7 @@ INSTRUCTIONS
    - Ensure any new logic has consistent behavior across both the interactive
      resolution path and auto-resolve path in RulesEngine.gd (if applicable)
 
-3. UPDATE ABILITIES_AUDIT.md to reflect completion:
+3. UPDATE SAVE_AUDIT.md to reflect completion:
    a. In the Priority Recommendations section, append **DONE** to the task line
       (e.g., change "1. **Fix ChargePhase...**" to "1. **Fix ChargePhase...** — **DONE**")
    b. Update the Summary table: decrement the relevant count
@@ -663,7 +663,7 @@ main() {
     parse_args "$@"
 
     # Sanity checks
-    [[ -f "$AUDIT_FILE" ]] || die "ABILITIES_AUDIT.md not found at: ${AUDIT_FILE}"
+    [[ -f "$AUDIT_FILE" ]] || die "SAVE_AUDIT.md not found at: ${AUDIT_FILE}"
     command -v claude >/dev/null 2>&1 || die "Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code"
     command -v git >/dev/null 2>&1 || die "git not found"
 
@@ -689,7 +689,7 @@ main() {
     tasks_raw=$(parse_all_tasks)
 
     if [[ -z "$tasks_raw" ]]; then
-        log_ok "No open tasks found in ABILITIES_AUDIT.md — all done!"
+        log_ok "No open tasks found in SAVE_AUDIT.md — all done!"
         exit 0
     fi
 
