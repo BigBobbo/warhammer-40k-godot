@@ -192,9 +192,9 @@ StateSerializer validates structure (required sections/fields) but not data inte
 
 `GameState._deep_copy_dict()` handles Dictionary and Array but may not catch all Godot-specific types that need deep copying (e.g., PackedVector2Array).
 
-### 7.3 StateSerializer Compression Disabled
+### 7.3 StateSerializer Compression ~~Disabled~~ Enabled (SAVE-17 DONE)
 
-GZIP compression support exists but is disabled. For large games with many units, save files could benefit from compression.
+GZIP compression is now enabled by default with a 50 KB size threshold. Saves below the threshold remain human-readable JSON; larger saves are automatically compressed. Deserialization auto-detects compressed data for backward compatibility.
 
 ---
 
@@ -223,7 +223,7 @@ GZIP compression support exists but is disabled. For large games with many units
 
 ### P3 — Nice to Have
 16. **Add multiple save slots** — Beyond single quicksave (SAVE-16) — **DONE**
-17. **Enable save file compression** — Activate GZIP for large saves (SAVE-17)
+17. **Enable save file compression** — Activate GZIP for large saves (SAVE-17) — **DONE**
 18. **Add unit data validation on load** — Integrity checks beyond structure (SAVE-18)
 19. **Add save file export/import** — Portable format for sharing (SAVE-19)
 20. **Add save/load progress indicator** — For cloud saves especially (SAVE-20)

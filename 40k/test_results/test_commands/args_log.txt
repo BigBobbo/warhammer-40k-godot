@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["--script", "tests/test_save_load_phase_restore.gd"]
