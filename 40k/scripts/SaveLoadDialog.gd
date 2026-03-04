@@ -29,6 +29,12 @@ var is_web_platform: bool = false
 var _save_files_signal_connected: bool = false
 var _is_multiplayer_client: bool = false  # SAVE-8: Track if non-host in multiplayer
 
+# SAVE-16: Save slot UI references
+var slot_buttons_save: Array = []   # Save-to-slot buttons
+var slot_buttons_load: Array = []   # Load-from-slot buttons
+var slot_buttons_delete: Array = []  # Delete-slot buttons
+var slot_labels: Array = []          # Slot info labels
+
 # SAVE-14: Sorting and filtering state
 enum SortMode { DATE_NEWEST, DATE_OLDEST, NAME_AZ, NAME_ZA, GAME_TYPE }
 var current_sort_mode: int = SortMode.DATE_NEWEST
@@ -77,9 +83,9 @@ func _build_ui() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 
-	# Main panel — SAVE-11: widened to fit preview panel
+	# Main panel — SAVE-11: widened to fit preview panel, SAVE-16: taller for save slots
 	var panel = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(900, 550)
+	panel.custom_minimum_size = Vector2(900, 750)
 	WhiteDwarfThemeData.apply_to_panel(panel)
 	center.add_child(panel)
 
@@ -160,6 +166,73 @@ func _build_ui() -> void:
 	var sep2 = HSeparator.new()
 	sep2.add_theme_color_override("separator", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(sep2)
+
+	# ── SAVE-16: Save Slots Section ──
+	var slots_header = Label.new()
+	slots_header.text = "Save Slots (Ctrl+1..5 save, Shift+1..5 load)"
+	slots_header.add_theme_font_size_override("font_size", 16)
+	slots_header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+	vbox.add_child(slots_header)
+
+	var slots_container = VBoxContainer.new()
+	slots_container.add_theme_constant_override("separation", 4)
+	vbox.add_child(slots_container)
+
+	slot_buttons_save.clear()
+	slot_buttons_load.clear()
+	slot_buttons_delete.clear()
+	slot_labels.clear()
+
+	for i in range(1, SaveLoadManager.MAX_SAVE_SLOTS + 1):
+		var slot_row = HBoxContainer.new()
+		slot_row.add_theme_constant_override("separation", 6)
+		slots_container.add_child(slot_row)
+
+		var slot_num_label = Label.new()
+		slot_num_label.text = "Slot %d:" % i
+		slot_num_label.custom_minimum_size = Vector2(50, 0)
+		slot_num_label.add_theme_font_size_override("font_size", 13)
+		slot_num_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+		slot_row.add_child(slot_num_label)
+
+		var slot_info = Label.new()
+		slot_info.text = "[Empty]"
+		slot_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slot_info.add_theme_font_size_override("font_size", 13)
+		slot_info.add_theme_color_override("font_color", Color(0.6, 0.55, 0.45))
+		slot_labels.append(slot_info)
+		slot_row.add_child(slot_info)
+
+		var save_btn = Button.new()
+		save_btn.text = "Save"
+		save_btn.custom_minimum_size = Vector2(60, 28)
+		WhiteDwarfThemeData.apply_to_button(save_btn)
+		save_btn.pressed.connect(_on_slot_save_pressed.bind(i))
+		slot_buttons_save.append(save_btn)
+		slot_row.add_child(save_btn)
+
+		var load_btn = Button.new()
+		load_btn.text = "Load"
+		load_btn.custom_minimum_size = Vector2(60, 28)
+		load_btn.disabled = true
+		WhiteDwarfThemeData.apply_to_button(load_btn)
+		load_btn.pressed.connect(_on_slot_load_pressed.bind(i))
+		slot_buttons_load.append(load_btn)
+		slot_row.add_child(load_btn)
+
+		var del_btn = Button.new()
+		del_btn.text = "X"
+		del_btn.custom_minimum_size = Vector2(30, 28)
+		del_btn.disabled = true
+		WhiteDwarfThemeData.apply_to_button(del_btn)
+		del_btn.pressed.connect(_on_slot_delete_pressed.bind(i))
+		slot_buttons_delete.append(del_btn)
+		slot_row.add_child(del_btn)
+
+	# Separator
+	var sep2b = HSeparator.new()
+	sep2b.add_theme_color_override("separator", WhiteDwarfThemeData.WH_GOLD)
+	vbox.add_child(sep2b)
 
 	# ── Load Section ──
 	var load_header = Label.new()
@@ -831,6 +904,7 @@ func show_dialog() -> void:
 		print("SaveLoadDialog: SAVE-8 Non-host client detected — Load button will be hidden")
 
 	refresh_saves_list()
+	_refresh_slot_info()  # SAVE-16: Refresh save slot info
 	save_name_input.text = ""
 	visible = true
 
@@ -987,6 +1061,127 @@ func _get_phase_name(phase_num: int) -> String:
 		10: return "Scoring"
 		11: return "Morale"
 		_: return "Unknown"
+
+# ============================================================================
+# SAVE-16: Save Slots
+# ============================================================================
+
+func _refresh_slot_info() -> void:
+	for i in range(SaveLoadManager.MAX_SAVE_SLOTS):
+		var slot_num = i + 1
+		var info = SaveLoadManager.get_slot_info(slot_num)
+		var has_save = not info.is_empty()
+
+		# Update label
+		if i < slot_labels.size():
+			if has_save:
+				var metadata = info.get("metadata", {})
+				var game_state = metadata.get("game_state", {})
+				var turn = game_state.get("turn", "?")
+				var phase = game_state.get("phase", -1)
+				var phase_name = _get_phase_name(phase) if phase >= 0 else "?"
+				var created_at = metadata.get("created_at", 0)
+				var timestamp_text = ""
+				if created_at > 0:
+					var datetime = Time.get_datetime_dict_from_unix_time(created_at)
+					timestamp_text = "%04d-%02d-%02d %02d:%02d" % [
+						datetime.year, datetime.month, datetime.day,
+						datetime.hour, datetime.minute
+					]
+				# Show faction names if available in preview
+				var preview = metadata.get("preview", {})
+				var players = preview.get("players", {})
+				var p1_faction = players.get("1", {}).get("faction", "")
+				var p2_faction = players.get("2", {}).get("faction", "")
+				var faction_text = ""
+				if not p1_faction.is_empty() and not p2_faction.is_empty():
+					faction_text = "%s vs %s  " % [p1_faction, p2_faction]
+				slot_labels[i].text = "%sTurn %s - %s  %s" % [faction_text, str(turn), phase_name, timestamp_text]
+				slot_labels[i].add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+			else:
+				slot_labels[i].text = "[Empty]"
+				slot_labels[i].add_theme_color_override("font_color", Color(0.6, 0.55, 0.45))
+
+		# Update buttons
+		if i < slot_buttons_load.size():
+			slot_buttons_load[i].disabled = not has_save
+			# SAVE-8: Hide load for non-host multiplayer clients
+			if _is_multiplayer_client:
+				slot_buttons_load[i].visible = false
+		if i < slot_buttons_delete.size():
+			slot_buttons_delete[i].disabled = not has_save
+
+func _on_slot_save_pressed(slot: int) -> void:
+	print("SaveLoadDialog: SAVE-16 Save to slot %d" % slot)
+	if SaveLoadManager.slot_has_save(slot):
+		_show_slot_overwrite_confirmation(slot)
+	else:
+		_perform_slot_save(slot)
+
+func _on_slot_load_pressed(slot: int) -> void:
+	print("SaveLoadDialog: SAVE-16 Load from slot %d" % slot)
+	if _is_multiplayer_client:
+		print("SaveLoadDialog: SAVE-8 Slot load blocked for non-host client")
+		return
+	_show_slot_load_confirmation(slot)
+
+func _on_slot_delete_pressed(slot: int) -> void:
+	print("SaveLoadDialog: SAVE-16 Delete slot %d" % slot)
+	var confirmation = ConfirmationDialog.new()
+	confirmation.dialog_text = "Delete save in Slot %d?\nThis cannot be undone." % slot
+	confirmation.title = "Delete Slot?"
+	var parent = get_tree().current_scene if get_tree().current_scene else get_parent()
+	parent.add_child(confirmation)
+	confirmation.confirmed.connect(func():
+		SaveLoadManager.delete_slot(slot)
+		_refresh_slot_info()
+		confirmation.queue_free()
+	)
+	confirmation.canceled.connect(func(): confirmation.queue_free())
+	confirmation.close_requested.connect(func(): confirmation.queue_free())
+	confirmation.popup_centered()
+
+func _show_slot_overwrite_confirmation(slot: int) -> void:
+	var confirmation = ConfirmationDialog.new()
+	confirmation.dialog_text = "Slot %d already has a save.\nOverwrite it?" % slot
+	confirmation.title = "Overwrite Slot?"
+	var parent = get_tree().current_scene if get_tree().current_scene else get_parent()
+	parent.add_child(confirmation)
+	confirmation.confirmed.connect(func():
+		_perform_slot_save(slot)
+		confirmation.queue_free()
+	)
+	confirmation.canceled.connect(func(): confirmation.queue_free())
+	confirmation.close_requested.connect(func(): confirmation.queue_free())
+	confirmation.popup_centered()
+
+func _show_slot_load_confirmation(slot: int) -> void:
+	var confirmation = ConfirmationDialog.new()
+	confirmation.dialog_text = "Loading Slot %d will replace your current game.\nAny unsaved progress will be lost.\n\nProceed?" % slot
+	confirmation.title = "Load Slot?"
+	var parent = get_tree().current_scene if get_tree().current_scene else get_parent()
+	parent.add_child(confirmation)
+	confirmation.confirmed.connect(func():
+		_perform_slot_load(slot)
+		confirmation.queue_free()
+	)
+	confirmation.canceled.connect(func(): confirmation.queue_free())
+	confirmation.close_requested.connect(func(): confirmation.queue_free())
+	confirmation.popup_centered()
+
+func _perform_slot_save(slot: int) -> void:
+	var metadata = {"type": "slot", "slot_number": slot}
+	var success = SaveLoadManager.save_game_to_slot(slot, metadata)
+	if success:
+		print("SaveLoadDialog: SAVE-16 Saved to slot %d" % slot)
+	else:
+		print("SaveLoadDialog: SAVE-16 Failed to save to slot %d" % slot)
+	_refresh_slot_info()
+
+func _perform_slot_load(slot: int) -> void:
+	print("SaveLoadDialog: SAVE-16 Loading from slot %d" % slot)
+	emit_signal("load_requested", "slot_%d" % slot, "")
+	hide()
 
 # Debug methods
 func print_debug_info() -> void:

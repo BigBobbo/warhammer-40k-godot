@@ -3734,7 +3734,21 @@ func _input(event: InputEvent) -> void:
 		_perform_quick_load()
 		get_viewport().set_input_as_handled()
 		return
-	
+
+	# SAVE-16: Save slot shortcuts (Ctrl+1..5 to save, Shift+1..5 to load)
+	if event is InputEventKey and event.pressed:
+		for slot in range(1, SaveLoadManager.MAX_SAVE_SLOTS + 1):
+			if KeybindingManager.matches_action(event, "save_slot_%d" % slot):
+				print("[KeybindingManager] Save to slot %d detected" % slot)
+				_perform_slot_save(slot)
+				get_viewport().set_input_as_handled()
+				return
+			if KeybindingManager.matches_action(event, "load_slot_%d" % slot):
+				print("[KeybindingManager] Load from slot %d detected" % slot)
+				_perform_slot_load(slot)
+				get_viewport().set_input_as_handled()
+				return
+
 	# Handle quick save/load
 	if event.is_action_pressed("quick_save"):
 		print("quick_save action detected!")
@@ -5141,6 +5155,61 @@ func _debug_save_system():
 		print("❌ StateSerializer not available")
 	
 	print("=== Debug Complete ===\n")
+
+# SAVE-16: Save to a numbered slot
+func _perform_slot_save(slot: int) -> void:
+	print("========================================")
+	print("SAVE TO SLOT %d TRIGGERED" % slot)
+	print("========================================")
+	_show_save_notification("Saving to slot %d..." % slot, Color.YELLOW)
+	var metadata = {"type": "slot", "slot_number": slot}
+	var success = SaveLoadManager.save_game_to_slot(slot, metadata)
+	if success:
+		_show_save_notification("Saved to slot %d!" % slot, Color.GREEN)
+	else:
+		_show_save_notification("Save to slot %d failed!" % slot, Color.RED)
+
+# SAVE-16: Load from a numbered slot
+func _perform_slot_load(slot: int) -> void:
+	print("========================================")
+	print("LOAD FROM SLOT %d TRIGGERED" % slot)
+	print("========================================")
+
+	# Check if we're in multiplayer as a client
+	if NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_host():
+		_show_save_notification("Only host can load games in multiplayer", Color.RED)
+		push_warning("Main: Client attempted to load slot during multiplayer - blocked")
+		return
+
+	if not SaveLoadManager.slot_has_save(slot):
+		_show_save_notification("Slot %d is empty!" % slot, Color.RED)
+		return
+
+	_show_save_notification("Loading slot %d..." % slot, Color.YELLOW)
+
+	var success = SaveLoadManager.load_game_from_slot(slot)
+	if success:
+		_show_save_notification("Loaded slot %d!" % slot, Color.BLUE)
+
+		# Same post-load logic as quick load
+		_clear_right_panel_phase_ui()
+		current_phase = GameState.get_current_phase()
+		print("Loaded phase from slot %d: %s" % [slot, GameStateData.Phase.keys()[current_phase]])
+		_sync_board_state_with_game_state()
+		_initialize_ai_player()
+		if PhaseManager.has_method("transition_to_phase"):
+			PhaseManager.transition_to_phase(current_phase)
+		await get_tree().process_frame
+		await setup_phase_controllers()
+		await get_tree().process_frame
+		refresh_unit_list()
+		update_ui()
+		update_ui_for_phase()
+		update_deployment_zone_visibility()
+		_recreate_unit_visuals()
+		print("Main: Slot %d load complete" % slot)
+	else:
+		_show_save_notification("Load from slot %d failed!" % slot, Color.RED)
 
 func _perform_quick_load() -> void:
 	print("========================================")
