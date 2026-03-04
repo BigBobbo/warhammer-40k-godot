@@ -1,1 +1,1 @@
-ARGS: ["-s", "tests/test_save_load_ai.gd"]
+ARGS: ["-s", "tests/test_save_format_migration.gd"]
