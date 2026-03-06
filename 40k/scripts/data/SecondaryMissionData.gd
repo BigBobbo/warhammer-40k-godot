@@ -282,7 +282,7 @@ static func _load_missions() -> void:
 		"action": {},
 		"when_drawn": {
 			"condition": "opponent_selects_units",
-			"details": {"alpha_targets": 3, "fallback_if_fewer": true},
+			"details": {"alpha_targets": 2, "fallback_if_fewer": true},
 		},
 	}
 

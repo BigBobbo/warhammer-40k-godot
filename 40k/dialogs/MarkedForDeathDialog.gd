@@ -3,38 +3,42 @@ class_name MarkedForDeathDialog
 
 # MarkedForDeathDialog - Two-step unit selection for Marked for Death secondary mission
 #
-# When Player 1 draws Marked for Death, Player 2 must select:
-# Step 1: 3 Alpha targets from their own units
-# Step 2: 1 Gamma target from remaining units
+# Per Chapter Approved 2025-26 rules:
+# Step 1: The OPPONENT (non-card-holder) selects 2 Alpha targets from their own units
+# Step 2: The CARD HOLDER (player who drew) selects 1 Gamma target from opponent's remaining units
 #
-# Fallback: If opponent has fewer than 4 units, adjust selections accordingly
+# Fallback: If opponent has fewer than 3 units, adjust selections accordingly
 
 signal marked_for_death_resolved(alpha_targets: Array, gamma_target: String)
 
 var opponent_units: Array = []  # Array of { unit_id, unit_name }
 var selected_alpha_targets: Array = []  # Array of unit_id strings
 var selected_gamma_target: String = ""
-var required_alpha_count: int = 3
+var required_alpha_count: int = 2
 var opponent_player: int = 0
+var drawing_player: int = 0  # The player who drew the card (card holder)
 
 # UI references
 var step_label: Label
+var player_indicator: Label
 var unit_list_container: VBoxContainer
 var info_label: Label
 var confirm_btn: Button
 var back_btn: Button
+var flavour_label: Label
 
-func setup(opponent: int, units: Array, details: Dictionary) -> void:
+func setup(drawing: int, opponent: int, units: Array, details: Dictionary) -> void:
+	drawing_player = drawing
 	opponent_player = opponent
 	opponent_units = units
-	required_alpha_count = details.get("alpha_targets", 3)
+	required_alpha_count = details.get("alpha_targets", 2)
 	var fallback = details.get("fallback_if_fewer", true)
 
 	# Fallback: if fewer units than required alpha + gamma, adjust
 	if fallback and opponent_units.size() < required_alpha_count + 1:
 		required_alpha_count = max(0, opponent_units.size() - 1)
 
-	title = "Marked for Death — Player %d Selects Targets" % opponent
+	title = "Marked for Death"
 	get_ok_button().visible = false
 
 	_build_ui()
@@ -53,14 +57,19 @@ func _build_ui() -> void:
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
 
+	# Player indicator — shows which player should be selecting
+	player_indicator = Label.new()
+	player_indicator.add_theme_font_size_override("font_size", 14)
+	player_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	main_container.add_child(player_indicator)
+
 	# Flavour text
-	var flavour = Label.new()
-	flavour.text = "Your opponent has drawn Marked for Death.\nYou must designate targets from your own units."
-	flavour.add_theme_font_size_override("font_size", 12)
-	flavour.add_theme_color_override("font_color", Color.GRAY)
-	flavour.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	flavour.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	main_container.add_child(flavour)
+	flavour_label = Label.new()
+	flavour_label.add_theme_font_size_override("font_size", 12)
+	flavour_label.add_theme_color_override("font_color", Color.GRAY)
+	flavour_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	flavour_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	main_container.add_child(flavour_label)
 
 	main_container.add_child(HSeparator.new())
 
@@ -121,7 +130,13 @@ func _show_alpha_selection() -> void:
 	back_btn.visible = false
 	confirm_btn.visible = false
 
-	# Handle edge case: no alpha targets needed (all units become... nothing needed)
+	# Step 1 is for the OPPONENT — they pick Alpha targets from their own units
+	player_indicator.text = "Player %d (Opponent) — Select Alpha Targets" % opponent_player
+	player_indicator.add_theme_color_override("font_color", Color(0.4, 0.8, 1.0))
+	flavour_label.text = "Player %d has drawn Marked for Death.\nPlayer %d: select %d of your units as Alpha targets (5 VP each if destroyed)." % [
+		drawing_player, opponent_player, required_alpha_count]
+
+	# Handle edge case: no alpha targets needed
 	if required_alpha_count == 0:
 		# Skip straight to gamma
 		_show_gamma_selection()
@@ -150,7 +165,7 @@ func _populate_alpha_list() -> void:
 		var btn = Button.new()
 		btn.name = "AlphaBtn_%s" % unit_id
 		if is_selected:
-			btn.text = "[X] %s" % unit_name
+			btn.text = "[ALPHA] %s" % unit_name
 			btn.add_theme_color_override("font_color", Color.YELLOW)
 		else:
 			btn.text = "[ ] %s" % unit_name
@@ -165,7 +180,7 @@ func _on_alpha_unit_toggled(unit_id: String) -> void:
 		if selected_alpha_targets.size() < required_alpha_count:
 			selected_alpha_targets.append(unit_id)
 		else:
-			# Already at max, ignore (or could swap)
+			# Already at max, ignore
 			return
 
 	info_label.text = "Selected: %d / %d" % [selected_alpha_targets.size(), required_alpha_count]
@@ -196,8 +211,12 @@ func _on_confirm_alpha_pressed() -> void:
 	_show_gamma_selection()
 
 func _show_gamma_selection() -> void:
+	# Step 2 is for the CARD HOLDER — they pick the Gamma target
 	step_label.text = "Step 2: Select 1 Gamma Target"
 	step_label.add_theme_color_override("font_color", Color.YELLOW)
+	player_indicator.text = "Player %d (Card Holder) — Select Gamma Target" % drawing_player
+	player_indicator.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	flavour_label.text = "Player %d: select 1 remaining opponent unit as the Gamma target (2 VP if destroyed, when no Alpha destroyed)." % drawing_player
 	info_label.text = "Click a unit to designate as Gamma target"
 	back_btn.visible = true
 	confirm_btn.visible = false

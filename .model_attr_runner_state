@@ -3,3 +3,4 @@ MA-35|success|2026-03-06T04:05:36Z|model-attr/MA-35/fix-unable-to-select-units-f
 MA-36|failed|2026-03-06T10:08:56Z|model-attr/MA-36/fix-esc-key-not-opening-menu-during-shoo
 MA-37|success|2026-03-06T10:20:18Z|model-attr/MA-37/fix-army-json-parsing-only-creating-one-
 MA-38|failed|2026-03-06T16:22:02Z|model-attr/MA-38/fix-movement-range-using-strict-less-tha
+MA-39|success|2026-03-06T16:30:10Z|model-attr/MA-39/fix-a-tempting-target-secondary-mission-
