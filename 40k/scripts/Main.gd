@@ -2246,13 +2246,12 @@ func _fix_hud_layout() -> void:
 
 		print("Fixed HUD layout: HUD_Right adjusted for new layout (full height, panel hidden)")
 
-	# Adjust unit list to take less space, giving more room to phase panels
+	# Ensure unit list expands to fill available space so all units are visible and scrollable
 	var unit_list_panel = get_node_or_null("HUD_Right/VBoxContainer/UnitListPanel")
 	if unit_list_panel:
-		# Change from size_flags_vertical = 3 (expand/fill) to 0 (fixed size)
-		unit_list_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		unit_list_panel.custom_minimum_size = Vector2(0, 150)  # Fixed height of 150px
-		print("Adjusted unit list: fixed height to 150px")
+		unit_list_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		unit_list_panel.custom_minimum_size = Vector2(0, 150)  # Minimum height of 150px
+		print("Adjusted unit list: expand/fill with 150px minimum")
 
 func _apply_white_dwarf_theme() -> void:
 	# Apply gothic red/black/gold UI chrome to HUD panels
@@ -3539,10 +3538,13 @@ func connect_signals() -> void:
 	TurnManager.deployment_side_changed.connect(_on_deployment_side_changed)
 	TurnManager.deployment_phase_complete.connect(_on_deployment_complete)
 	
-	# Controller signals (if they exist)
+	# Controller signals (if they exist) — guard against double-connection
+	# (setup_deployment_controller already connects these)
 	if deployment_controller:
-		deployment_controller.unit_confirmed.connect(_on_unit_confirmed)
-		deployment_controller.models_placed_changed.connect(_on_models_placed_changed)
+		if not deployment_controller.unit_confirmed.is_connected(_on_unit_confirmed):
+			deployment_controller.unit_confirmed.connect(_on_unit_confirmed)
+		if not deployment_controller.models_placed_changed.is_connected(_on_models_placed_changed):
+			deployment_controller.models_placed_changed.connect(_on_models_placed_changed)
 		if deployment_controller.has_signal("coherency_warning_changed") and not deployment_controller.coherency_warning_changed.is_connected(_on_coherency_warning_changed):
 			deployment_controller.coherency_warning_changed.connect(_on_coherency_warning_changed)
 	
