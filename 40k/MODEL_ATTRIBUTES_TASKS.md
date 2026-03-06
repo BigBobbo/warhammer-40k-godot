@@ -30,12 +30,12 @@
 - **Validation**: Deploy a Battlewagon (or other TRANSPORT unit). Transport embark dialog appears. Click on an eligible unit to embark — it is selected and embarked successfully. Capacity updates correctly. Ineligible units are greyed out or show a reason. Dialog can be dismissed without embarking if desired.
 
 ### MA-36: Fix ESC key not opening menu during shooting phase
-- [ ] Investigate why pressing ESC during the shooting phase does not open the game menu (pause/settings), when it works in other phases
-- [ ] Check ShootingController.gd for input handling that may be consuming or blocking the ESC key event (e.g., `_unhandled_input`, `_input`, or `ui_cancel` action handling)
-- [ ] Check if ESC is being intercepted to cancel a weapon selection, target selection, or other shooting UI state instead of propagating to the menu
-- [ ] Check if any modal dialog or overlay active during shooting (WeaponOrderDialog, NextWeaponDialog, etc.) is swallowing the ESC input
-- [ ] Verify how ESC is handled in other phases (deployment, movement, charge, fight) for comparison
-- [ ] Fix so that ESC opens the game menu during the shooting phase, or if ESC is used for cancelling shooting actions, ensure the menu is still accessible (e.g., ESC cancels action first, second ESC opens menu, or menu is accessible via a different path)
+- [x] Investigate why pressing ESC during the shooting phase does not open the game menu (pause/settings), when it works in other phases
+- [x] Check ShootingController.gd for input handling that may be consuming or blocking the ESC key event (e.g., `_unhandled_input`, `_input`, or `ui_cancel` action handling)
+- [x] Check if ESC is being intercepted to cancel a weapon selection, target selection, or other shooting UI state instead of propagating to the menu
+- [x] Check if any modal dialog or overlay active during shooting (WeaponOrderDialog, NextWeaponDialog, etc.) is swallowing the ESC input
+- [x] Verify how ESC is handled in other phases (deployment, movement, charge, fight) for comparison
+- [x] Fix so that ESC opens the game menu during the shooting phase, or if ESC is used for cancelling shooting actions, ensure the menu is still accessible (e.g., ESC cancels action first, second ESC opens menu, or menu is accessible via a different path)
 - **Files**: ShootingController.gd, WeaponOrderDialog.gd, NextWeaponDialog.gd, Main.gd (or wherever the pause menu input is handled)
 - **Validation**: During the shooting phase with no dialog open, press ESC — game menu opens. If a weapon/target selection is active, ESC cancels that selection first; pressing ESC again opens the menu. Menu is accessible in all shooting sub-states (unit selection, target selection, weapon ordering, between weapon resolutions).
 
