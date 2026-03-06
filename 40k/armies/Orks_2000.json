@@ -1268,6 +1268,42 @@
           "position": null,
           "alive": true,
           "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
         }
       ]
     },
@@ -1372,6 +1408,42 @@
       "models": [
         {
           "id": "m1",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
           "wounds": 1,
           "current_wounds": 1,
           "base_mm": 32,
@@ -2024,6 +2096,78 @@
           "position": null,
           "alive": true,
           "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m6",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m7",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m8",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m9",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m10",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
         }
       ]
     },
@@ -2133,6 +2277,78 @@
           "position": null,
           "alive": true,
           "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m6",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m7",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m8",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m9",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m10",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
         }
       ]
     },
@@ -2236,6 +2452,78 @@
         },
         {
           "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m6",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m7",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m8",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m9",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m10",
           "wounds": 1,
           "current_wounds": 1,
           "base_mm": 32,
