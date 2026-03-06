@@ -1601,8 +1601,11 @@ func _auto_resolve_pending_interaction(player: int, mission: Dictionary, seconda
 	match mission_id:
 		"marked_for_death":
 			# Auto-select first available units as targets
+			# Read alpha count from mission data (default 2 per CA2025-26)
+			var mfd_data = SecondaryMissionData.get_mission_by_id("marked_for_death")
+			var required_alpha = mfd_data.get("when_drawn", {}).get("details", {}).get("alpha_targets", 2)
 			var opponent_units = secondary_mgr._get_opponent_units_on_battlefield(player)
-			var alpha_count = min(3, max(0, opponent_units.size() - 1))
+			var alpha_count = min(required_alpha, max(0, opponent_units.size() - 1))
 			var alpha_targets = opponent_units.slice(0, alpha_count)
 			var gamma_target = opponent_units[alpha_count] if opponent_units.size() > alpha_count else ""
 			secondary_mgr.resolve_marked_for_death(player, alpha_targets, gamma_target)

@@ -432,11 +432,14 @@ func voluntary_discard(player: int, mission_index: int) -> Dictionary:
 	state["active"].remove_at(mission_index)
 	state["discard"].append(discarded["id"])
 
-	# Clear visual indicator if this was A Tempting Target
+	# Clear visual indicators if this was A Tempting Target or Marked for Death
 	if discarded["id"] == "a_tempting_target":
 		var target_id = discarded.get("mission_data", {}).get("tempting_target_id", "")
 		if target_id != "":
 			_clear_tempting_target_visual(target_id)
+	elif discarded["id"] == "marked_for_death":
+		var mfd_data = discarded.get("mission_data", {})
+		_clear_mfd_target_visuals(mfd_data.get("alpha_targets", []), mfd_data.get("gamma_target", ""))
 
 	# Grant 1 CP if it's the player's turn (subject to bonus CP cap per battle round)
 	var cp_gained = 0
@@ -1055,11 +1058,14 @@ func _discard_achieved_missions(player: int) -> void:
 	for mission in state["active"]:
 		if mission["achieved"]:
 			state["discard"].append(mission["id"])
-			# Clear visual indicator if this was A Tempting Target
+			# Clear visual indicators if this was A Tempting Target or Marked for Death
 			if mission["id"] == "a_tempting_target":
 				var target_id = mission.get("mission_data", {}).get("tempting_target_id", "")
 				if target_id != "":
 					_clear_tempting_target_visual(target_id)
+			elif mission["id"] == "marked_for_death":
+				var mfd_data = mission.get("mission_data", {})
+				_clear_mfd_target_visuals(mfd_data.get("alpha_targets", []), mfd_data.get("gamma_target", ""))
 			print("SecondaryMissionManager: Player %d achieved and discarded %s" % [player, mission["name"]])
 		else:
 			remaining.append(mission)
@@ -1248,6 +1254,8 @@ func resolve_marked_for_death(player: int, alpha_targets: Array, gamma_target: S
 			mission["mission_data"]["gamma_target"] = gamma_target
 			mission["pending_interaction"] = false
 			print("SecondaryMissionManager: Marked for Death resolved - Alpha: %s, Gamma: %s" % [str(alpha_targets), gamma_target])
+			# Set visual flags on targeted units
+			_mark_mfd_target_visuals(alpha_targets, gamma_target, player)
 			return
 
 func resolve_tempting_target(player: int, objective_id: String) -> void:
@@ -1277,6 +1285,47 @@ func _clear_tempting_target_visual(objective_id: String) -> void:
 	var obj_visual = MissionManager.objectives_visual_refs.get(objective_id, null)
 	if obj_visual and obj_visual is ObjectiveVisual:
 		obj_visual.set_tempting_target(false)
+
+func _mark_mfd_target_visuals(alpha_targets: Array, gamma_target: String, _player: int) -> void:
+	"""Set 'marked_for_death' flag on targeted units for visual indicators."""
+	for unit_id in alpha_targets:
+		var unit = GameState.state.get("units", {}).get(unit_id, {})
+		if not unit.is_empty():
+			if not unit.has("flags"):
+				unit["flags"] = {}
+			unit["flags"]["marked_for_death"] = "alpha"
+			print("SecondaryMissionManager: Marked unit %s as Alpha target" % unit_id)
+
+	if gamma_target != "":
+		var unit = GameState.state.get("units", {}).get(gamma_target, {})
+		if not unit.is_empty():
+			if not unit.has("flags"):
+				unit["flags"] = {}
+			unit["flags"]["marked_for_death"] = "gamma"
+			print("SecondaryMissionManager: Marked unit %s as Gamma target" % gamma_target)
+
+func _clear_mfd_target_visuals(alpha_targets: Array, gamma_target: String) -> void:
+	"""Remove 'marked_for_death' flag from previously targeted units."""
+	var all_targets = alpha_targets.duplicate()
+	if gamma_target != "":
+		all_targets.append(gamma_target)
+
+	for unit_id in all_targets:
+		var unit = GameState.state.get("units", {}).get(unit_id, {})
+		if not unit.is_empty() and unit.has("flags"):
+			unit["flags"].erase("marked_for_death")
+
+func _restore_mfd_target_visuals() -> void:
+	"""Re-apply Marked for Death visual flags after loading save data."""
+	for player_key in _player_state:
+		var state = _player_state[player_key]
+		for mission in state.get("active", []):
+			if mission.get("id", "") == "marked_for_death":
+				var mdata = mission.get("mission_data", {})
+				var alpha = mdata.get("alpha_targets", [])
+				var gamma = mdata.get("gamma_target", "")
+				if not alpha.is_empty() or gamma != "":
+					_mark_mfd_target_visuals(alpha, gamma, int(player_key))
 
 # ============================================================================
 # QUERIES
@@ -1727,8 +1776,9 @@ func load_save_data(data: Dictionary) -> void:
 		_objective_control_at_turn_start = data["objective_control_at_turn_start"].duplicate(true)
 	if data.has("active_actions"):
 		_active_actions = data["active_actions"].duplicate(true)
-	# Restore tempting target visual indicators after load
+	# Restore visual indicators after load
 	_restore_tempting_target_visuals()
+	_restore_mfd_target_visuals()
 
 func _restore_tempting_target_visuals() -> void:
 	"""Re-apply Tempting Target visual indicators after loading save data."""

@@ -936,11 +936,12 @@ func _on_when_drawn_requires_interaction(player: int, mission_id: String, intera
 			push_error("CommandController: Unknown interaction type: %s" % interaction_type)
 
 func _show_marked_for_death_dialog(drawing_player: int, opponent: int, details: Dictionary) -> void:
-	"""Show Marked for Death dialog for the opponent to select targets."""
+	"""Show Marked for Death dialog — opponent selects Alpha targets, card holder selects Gamma."""
 	# Skip dialog for AI players — AIPlayer handles via _on_secondary_requires_interaction
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(opponent):
-		print("CommandController: Skipping Marked for Death dialog for AI player %d" % opponent)
+	if ai_player_node and ai_player_node.is_ai_player(opponent) and ai_player_node.is_ai_player(drawing_player):
+		# Both AI — fully handled by AIPlayer
+		print("CommandController: Skipping Marked for Death dialog — both players are AI")
 		return
 
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
@@ -948,24 +949,31 @@ func _show_marked_for_death_dialog(drawing_player: int, opponent: int, details: 
 		push_error("CommandController: SecondaryMissionManager not found")
 		return
 
-	# Get opponent's alive, deployed units
+	# Get opponent's alive, deployed units (excluding leaders in attached units per FAQ)
 	var opponent_unit_ids = secondary_mgr._get_opponent_units_on_battlefield(drawing_player)
 	var opponent_units = []
 	for unit_id in opponent_unit_ids:
 		var unit = GameState.get_unit(unit_id)
+		if unit.is_empty():
+			continue
+		# Per FAQ: Leaders within Attached units cannot be selected for Marked for Death
+		var attachment = unit.get("attachment_data", {})
+		if attachment.get("is_leader_attached", false):
+			print("CommandController: Skipping attached leader %s for Marked for Death eligibility" % unit_id)
+			continue
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		opponent_units.append({"unit_id": unit_id, "unit_name": unit_name})
 
 	if opponent_units.is_empty():
-		print("CommandController: No opponent units for Marked for Death — skipping dialog")
+		print("CommandController: No eligible opponent units for Marked for Death — skipping dialog")
 		return
 
 	var dialog = MarkedForDeathDialog.new()
-	dialog.setup(opponent, opponent_units, details)
+	dialog.setup(drawing_player, opponent, opponent_units, details)
 	dialog.marked_for_death_resolved.connect(_on_marked_for_death_resolved.bind(drawing_player))
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
-	print("CommandController: Marked for Death dialog shown for player %d to select targets" % opponent)
+	print("CommandController: Marked for Death dialog shown — P%d (opponent) selects Alpha, P%d (card holder) selects Gamma" % [opponent, drawing_player])
 
 func _on_marked_for_death_resolved(alpha_targets: Array, gamma_target: String, drawing_player: int) -> void:
 	"""Handle Marked for Death target selection from dialog."""

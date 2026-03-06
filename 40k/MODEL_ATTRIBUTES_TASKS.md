@@ -73,18 +73,18 @@
 - **Validation**: Draw "A Tempting Target". Opposing player is prompted to select an objective (only valid objectives shown). Selected objective is visually marked on the board for both players. Scoring evaluates at the correct phase per the rules. VP awarded correctly when conditions are met. Works in both single-player (AI selects) and multiplayer (remote player selects via dialog).
 
 ### MA-40: Fix "Marked for Death" secondary mission implementation
-- [ ] Research the exact rules for "Marked for Death" from Chapter Approved 2025-26 (https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/) — confirm: when it is drawn, the two-step selection process (opponent picks Alpha targets, card holder picks Gamma target), what restrictions apply to unit selection, when it scores, VP values for destroying Alpha vs Gamma targets, and any edge cases
-- [ ] Audit the current implementation in SecondaryMissionManager.gd — check `_check_alpha_target_destroyed()`, `_check_gamma_target_destroyed()`, `resolve_marked_for_death()`, and the When Drawn handler to see if they match the actual rules
-- [ ] Verify the two-step opponent/player selection flow:
+- [x] Research the exact rules for "Marked for Death" from Chapter Approved 2025-26 (https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/) — confirm: when it is drawn, the two-step selection process (opponent picks Alpha targets, card holder picks Gamma target), what restrictions apply to unit selection, when it scores, VP values for destroying Alpha vs Gamma targets, and any edge cases
+- [x] Audit the current implementation in SecondaryMissionManager.gd — check `_check_alpha_target_destroyed()`, `_check_gamma_target_destroyed()`, `resolve_marked_for_death()`, and the When Drawn handler to see if they match the actual rules
+- [x] Verify the two-step opponent/player selection flow:
   - Step 1: When the card is drawn, the opposing player selects units as Alpha targets (confirm how many and any restrictions on which units are eligible)
   - Step 2: The card holder then selects one unit as the Gamma target from among the Alpha targets or from a different pool (confirm the exact rule)
-- [ ] Check that MarkedForDeathDialog.gd correctly implements both selection steps, prompting the right player at each step
-- [ ] Verify selected targets are clearly communicated to both players — there should be persistent visual indicators on the board (e.g., icons, labels, or colored markers on the targeted units) showing which units are Alpha targets and which is the Gamma target, visible throughout the game
-- [ ] Verify scoring timing: confirm when "Marked for Death" scores (end of turn, when unit destroyed, etc.) and that the code evaluates at the correct phase
-- [ ] Verify scoring conditions: confirm VP awarded for destroying Alpha targets vs the Gamma target and that the checks correctly detect unit destruction
-- [ ] Check multiplayer: ensure the two-step selection dialog works over the network — opponent selects first, then card holder selects, selections sync to both clients, visual indicators appear for both players
-- [ ] Check AI: ensure AIPlayer handles both the opponent selection (picking Alpha targets) and card holder selection (picking Gamma target) correctly with reasonable choices
-- [ ] Fix any discrepancies found between the rules and the current implementation
+- [x] Check that MarkedForDeathDialog.gd correctly implements both selection steps, prompting the right player at each step
+- [x] Verify selected targets are clearly communicated to both players — there should be persistent visual indicators on the board (e.g., icons, labels, or colored markers on the targeted units) showing which units are Alpha targets and which is the Gamma target, visible throughout the game
+- [x] Verify scoring timing: confirm when "Marked for Death" scores (end of turn, when unit destroyed, etc.) and that the code evaluates at the correct phase
+- [x] Verify scoring conditions: confirm VP awarded for destroying Alpha targets vs the Gamma target and that the checks correctly detect unit destruction
+- [x] Check multiplayer: ensure the two-step selection dialog works over the network — opponent selects first, then card holder selects, selections sync to both clients, visual indicators appear for both players
+- [x] Check AI: ensure AIPlayer handles both the opponent selection (picking Alpha targets) and card holder selection (picking Gamma target) correctly with reasonable choices
+- [x] Fix any discrepancies found between the rules and the current implementation
 - **Files**: SecondaryMissionManager.gd, SecondaryMissionData.gd, MarkedForDeathDialog.gd, ScoringController.gd, MissionManager.gd, AIPlayer.gd
 - **Validation**: Draw "Marked for Death". Opposing player is prompted to select Alpha target units (only valid units shown). Card holder is then prompted to select Gamma target. Selected units are visually marked on the board with distinct indicators for Alpha vs Gamma. Scoring evaluates at the correct time per the rules. Correct VP awarded when Alpha or Gamma targets are destroyed. Works in single-player (AI handles both selection roles) and multiplayer (each player selects via dialog over network).
 

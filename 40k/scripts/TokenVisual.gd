@@ -66,6 +66,9 @@ func _process(delta: float) -> void:
 	elif is_selected or is_hovered:
 		# Selection/hover pulsing
 		needs_redraw = true
+	elif _has_marked_for_death_flag():
+		# Marked for Death pulsing indicator
+		needs_redraw = true
 
 	if needs_redraw:
 		_pulse_time += delta
@@ -125,6 +128,7 @@ func _draw() -> void:
 			_draw_health_bar(classic_radius)
 			_draw_fought_overlay(classic_radius, base_shape.get_type(), classic_rot)
 			_draw_engaged_overlay(classic_radius)
+			_draw_marked_for_death_indicator(classic_radius)
 
 	# Draw model number with shadow for readability (all styles)
 	_draw_model_number()
@@ -186,6 +190,9 @@ func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 
 	# --- Layer 7: Status indicator tick ---
 	_draw_status_tick(radius)
+
+	# --- Layer 7b: Marked for Death target indicator ---
+	_draw_marked_for_death_indicator(radius)
 
 	# --- Layer 8: Selection/hover pulsing ring ---
 	if is_selected or is_hovered:
@@ -455,6 +462,55 @@ func _draw_status_tick(radius: float) -> void:
 	var flags = unit.get("flags", {})
 	TokenDrawUtils.draw_status_tick(self, Vector2.ZERO, radius, flags)
 
+func _draw_marked_for_death_indicator(radius: float) -> void:
+	if not has_meta("unit_id"):
+		return
+	var unit_id = get_meta("unit_id")
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	var mfd_type = unit.get("flags", {}).get("marked_for_death", "")
+	if mfd_type == "":
+		return
+
+	# Draw a distinct crosshair/target indicator
+	var pulse = (sin(_pulse_time * 3.0) + 1.0) / 2.0  # 0..1 oscillation
+	var indicator_radius = radius + 6.0
+
+	if mfd_type == "alpha":
+		# Alpha targets: red crosshair ring with "A" label
+		var alpha_val = 0.5 + pulse * 0.3
+		var ring_color = Color(1.0, 0.2, 0.2, alpha_val)
+		draw_arc(Vector2.ZERO, indicator_radius, 0, TAU, 48, ring_color, 2.0)
+		# Inner crosshair lines
+		var cross_len = indicator_radius * 0.4
+		draw_line(Vector2(-cross_len, 0), Vector2(cross_len, 0), ring_color, 1.5)
+		draw_line(Vector2(0, -cross_len), Vector2(0, cross_len), ring_color, 1.5)
+		# "A" label top-right
+		var font = ThemeDB.fallback_font
+		if font:
+			var label_pos = Vector2(indicator_radius * 0.6, -indicator_radius * 0.6)
+			draw_string(font, label_pos + Vector2(1, 1), "A", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.BLACK)
+			draw_string(font, label_pos, "A", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1.0, 0.3, 0.3))
+	elif mfd_type == "gamma":
+		# Gamma targets: orange/yellow dashed ring with "G" label
+		var alpha_val = 0.4 + pulse * 0.3
+		var ring_color = Color(1.0, 0.7, 0.1, alpha_val)
+		# Draw dashed ring (segments)
+		var segments = 12
+		for i in range(segments):
+			if i % 2 == 0:
+				var start_angle = TAU * i / segments
+				var end_angle = TAU * (i + 1) / segments
+				draw_arc(Vector2.ZERO, indicator_radius, start_angle, end_angle, 8, ring_color, 2.0)
+		# "G" label top-right
+		var font = ThemeDB.fallback_font
+		if font:
+			var label_pos = Vector2(indicator_radius * 0.6, -indicator_radius * 0.6)
+			draw_string(font, label_pos + Vector2(1, 1), "G", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.BLACK)
+			draw_string(font, label_pos, "G", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1.0, 0.8, 0.2))
+
 func _draw_selection_ring(radius: float) -> void:
 	# Pulsing gold ring for selected/hovered state
 	var pulse = (sin(_pulse_time * 4.0) + 1.0) / 2.0  # 0..1 oscillation
@@ -626,6 +682,13 @@ func _is_character() -> bool:
 		if str(keyword).to_upper() == "CHARACTER":
 			return true
 	return false
+
+func _has_marked_for_death_flag() -> bool:
+	var unit_id = get_meta("unit_id") if has_meta("unit_id") else ""
+	if unit_id == "":
+		return false
+	var unit = GameState.get_unit(unit_id)
+	return unit.get("flags", {}).get("marked_for_death", "") != ""
 
 # --- Original overlay rendering (style_a, style_b, classic) ---
 

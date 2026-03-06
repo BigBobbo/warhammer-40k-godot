@@ -1950,38 +1950,59 @@ func _on_secondary_requires_interaction(player: int, mission_id: String, interac
 
 	match interaction_type:
 		"opponent_selects_units":
-			# Marked for Death — opponent selects units from THEIR OWN army as targets
-			# 'player' here is the DRAWING player. 'opponent' (declared above) selects from the OPPONENT's army.
+			# Marked for Death — two-step process per Chapter Approved 2025-26:
+			# Step 1: OPPONENT selects Alpha targets from their own army
+			# Step 2: CARD HOLDER (drawing player) selects Gamma target from remaining opponent units
+			# 'player' here is the DRAWING player. 'opponent' selects from the OPPONENT's army.
+			var required_alpha = details.get("alpha_targets", 2)
 			var snapshot = GameState.create_snapshot()
 			var units = snapshot.get("units", {})
-			var player_units = []
+			var eligible_units = []
 			for uid in units:
 				var unit = units[uid]
-				# GameState.UnitStatus: UNDEPLOYED=0, DEPLOYING=1, DEPLOYED=2, etc.
-				if unit.get("owner", 0) == opponent and unit.get("status", 0) >= 2:  # DEPLOYED or later status
-					player_units.append({"id": uid, "points": unit.get("meta", {}).get("points", 0), "name": unit.get("meta", {}).get("name", uid)})
-			# Sort by points descending
-			player_units.sort_custom(func(a, b): return a.points > b.points)
+				if unit.get("owner", 0) != opponent or unit.get("status", 0) < 2:
+					continue
+				# Per FAQ: Leaders within Attached units cannot be selected
+				var attachment = unit.get("attachment_data", {})
+				if attachment.get("is_leader_attached", false):
+					continue
+				eligible_units.append({"id": uid, "points": unit.get("meta", {}).get("points", 0), "name": unit.get("meta", {}).get("name", uid)})
+
+			if eligible_units.is_empty():
+				print("AIPlayer: Cannot resolve Marked for Death — no eligible targets")
+				return
+
+			# Fallback: if fewer units than alpha + gamma, reduce alpha count
+			if eligible_units.size() < required_alpha + 1:
+				required_alpha = max(0, eligible_units.size() - 1)
+
+			# AI as OPPONENT picks Alpha targets: choose weakest/least valuable units
+			# (opponent wants to minimize damage from giving away targets)
+			eligible_units.sort_custom(func(a, b): return a.points < b.points)
 			var alpha_targets = []
+			for i in range(min(required_alpha, eligible_units.size())):
+				alpha_targets.append(eligible_units[i].id)
+
+			# AI as CARD HOLDER picks Gamma target: choose most damaged/weakest remaining unit
+			# (card holder wants the easiest unit to kill for 2VP)
+			var remaining = []
+			for eu in eligible_units:
+				if eu.id not in alpha_targets:
+					remaining.append(eu)
 			var gamma_target = ""
-			if player_units.size() >= 3:
-				alpha_targets = [player_units[0].id, player_units[1].id]
-				gamma_target = player_units[-1].id
-			elif player_units.size() == 2:
-				alpha_targets = [player_units[0].id]
-				gamma_target = player_units[1].id
-			elif player_units.size() == 1:
-				alpha_targets = [player_units[0].id]
-				gamma_target = player_units[0].id
-			if not alpha_targets.is_empty():
+			if not remaining.is_empty():
+				# Pick the lowest-points remaining unit (easiest to kill)
+				gamma_target = remaining[0].id
+
+			if not alpha_targets.is_empty() or gamma_target != "":
 				secondary_mgr.resolve_marked_for_death(player, alpha_targets, gamma_target)
 				var alpha_names = []
 				var gamma_name = ""
-				for pu in player_units:
-					if pu.id in alpha_targets:
-						alpha_names.append("%s (%dpts)" % [pu.name, pu.points])
-					if pu.id == gamma_target:
-						gamma_name = "%s (%dpts)" % [pu.name, pu.points]
+				for eu in eligible_units:
+					if eu.id in alpha_targets:
+						alpha_names.append("%s (%dpts)" % [eu.name, eu.points])
+					if eu.id == gamma_target:
+						gamma_name = "%s (%dpts)" % [eu.name, eu.points]
 				print("AIPlayer: [MFD] Auto-resolved Marked for Death for Player %d (drawing) — opponent P%d's units marked:" % [player, opponent])
 				print("AIPlayer: [MFD]   Alpha targets (5VP each): %s" % str(alpha_names))
 				print("AIPlayer: [MFD]   Gamma target (2VP): %s" % gamma_name)
