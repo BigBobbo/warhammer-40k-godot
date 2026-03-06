@@ -10,6 +10,7 @@ var control_indicator: Label
 var objective_marker: Node2D
 var objective_circle: Line2D
 var objective_polygon: Polygon2D
+var tempting_target_label: Label = null  # Visual indicator for A Tempting Target
 
 # Constants
 const OBJECTIVE_RADIUS_INCHES = 3.78740157  # 3" + 20mm (0.78740157")
@@ -237,6 +238,29 @@ func flash_control_change(new_controller: int, old_controller: int) -> void:
 	# Final fade out
 	_flash_tween.tween_property(_flash_ring, "default_color:a", 0.0, 0.2)
 	_flash_tween.tween_callback(func(): _flash_ring.visible = false)
+
+func set_tempting_target(enabled: bool, player: int = 0) -> void:
+	"""Mark or unmark this objective as a Tempting Target for the given player."""
+	if enabled:
+		if tempting_target_label == null:
+			tempting_target_label = Label.new()
+			tempting_target_label.name = "TemptingTargetLabel"
+			tempting_target_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+			tempting_target_label.add_theme_font_size_override("font_size", 13)
+			tempting_target_label.add_theme_constant_override("outline_size", 3)
+			tempting_target_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+			tempting_target_label.z_index = 10
+			var control_radius = Measurement.inches_to_px(OBJECTIVE_RADIUS_INCHES)
+			tempting_target_label.position = Vector2(-65, control_radius + 5)
+			add_child(tempting_target_label)
+		tempting_target_label.text = "TEMPTING TARGET (P%d)" % player
+		tempting_target_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.1, 1.0))
+		tempting_target_label.visible = true
+		print("[ObjectiveVisual] Marked %s as Tempting Target for Player %d" % [objective_data.get("id", "?"), player])
+	else:
+		if tempting_target_label != null:
+			tempting_target_label.visible = false
+		print("[ObjectiveVisual] Unmarked %s as Tempting Target" % objective_data.get("id", "?"))
 
 func highlight(enabled: bool) -> void:
 	if enabled:
