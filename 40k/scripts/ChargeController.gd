@@ -139,6 +139,10 @@ func _input(event: InputEvent) -> void:
 		_handle_mouse_motion(event.global_position)
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey:
+		# MA-41: Skip keyboard input when a text input has focus
+		var focused = get_viewport().gui_get_focus_owner()
+		if focused is LineEdit or focused is TextEdit:
+			return
 		# Keyboard rotation controls during charge movement
 		if event.pressed and dragging_model:
 			if KeybindingManager.matches_action(event, "rotate_left"):

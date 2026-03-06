@@ -89,12 +89,12 @@
 - **Validation**: Draw "Marked for Death". Opposing player is prompted to select Alpha target units (only valid units shown). Card holder is then prompted to select Gamma target. Selected units are visually marked on the board with distinct indicators for Alpha vs Gamma. Scoring evaluates at the correct time per the rules. Correct VP awarded when Alpha or Gamma targets are destroyed. Works in single-player (AI handles both selection roles) and multiplayer (each player selects via dialog over network).
 
 ### MA-41: Fix keyboard input leaking through save/load panel text input
-- [ ] Investigate why typing into the save name text field in the save/load panel causes game actions (camera panning, hotkeys, unit actions, etc.) to fire in the background
-- [ ] The root cause is likely that the LineEdit/TextEdit does not consume keyboard input events, allowing them to propagate to the game's `_unhandled_input()` or `_input()` handlers
-- [ ] Check if the save/load panel sets focus on the text input field when opened — without focus, key events won't be captured by the LineEdit
-- [ ] Check if the game's input handlers (Main.gd, camera controller, phase controllers) check whether a GUI control has focus before processing key events (e.g., `get_viewport().gui_get_focus_owner() != null`)
-- [ ] Fix by either: (a) ensuring the save/load panel's text input grabs focus and consumes key events, (b) adding a guard in the game's input handlers to skip processing when a text input has focus, or (c) both
-- [ ] Verify the fix also applies to any other text input fields in the game (e.g., player name entry, chat input in multiplayer) if they exist
+- [x] Investigate why typing into the save name text field in the save/load panel causes game actions (camera panning, hotkeys, unit actions, etc.) to fire in the background
+- [x] The root cause is likely that the LineEdit/TextEdit does not consume keyboard input events, allowing them to propagate to the game's `_unhandled_input()` or `_input()` handlers
+- [x] Check if the save/load panel sets focus on the text input field when opened — without focus, key events won't be captured by the LineEdit
+- [x] Check if the game's input handlers (Main.gd, camera controller, phase controllers) check whether a GUI control has focus before processing key events (e.g., `get_viewport().gui_get_focus_owner() != null`)
+- [x] Fix by either: (a) ensuring the save/load panel's text input grabs focus and consumes key events, (b) adding a guard in the game's input handlers to skip processing when a text input has focus, or (c) both
+- [x] Verify the fix also applies to any other text input fields in the game (e.g., player name entry, chat input in multiplayer) if they exist
 - **Files**: SaveLoadPanel.gd (or equivalent save/load UI script), Main.gd (camera/input handling), any scripts with `_unhandled_input` or `_input` that process key events
 - **Validation**: Open save/load panel. Click into the save name text field. Type a name — letters appear in the text field only, camera does not pan, no game actions triggered. Press Enter to confirm save. Close panel — keyboard controls resume working normally. If other text inputs exist, they also consume keyboard input correctly.
 

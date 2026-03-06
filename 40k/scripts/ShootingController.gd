@@ -3318,7 +3318,11 @@ func _input(event: InputEvent) -> void:
 		return
 
 	# T5-UX12: Keyboard shortcuts for shooting phase
+	# MA-41: Skip keyboard shortcuts when a text input has focus
 	if event is InputEventKey and event.pressed and not event.echo:
+		var focused = get_viewport().gui_get_focus_owner()
+		if focused is LineEdit or focused is TextEdit:
+			return
 		if _handle_shooting_keyboard_shortcut(event):
 			get_viewport().set_input_as_handled()
 			return
