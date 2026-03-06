@@ -51,9 +51,9 @@ const App = (function () {
 
     DOM.actionsSection = document.getElementById('actions-section');
     DOM.downloadBtn = document.getElementById('download-btn');
+    DOM.saveLocalBtn = document.getElementById('save-local-btn');
     DOM.uploadBtn = document.getElementById('upload-btn');
     DOM.armyNameInput = document.getElementById('army-name-input');
-    DOM.playerIdInput = document.getElementById('player-id-input');
     DOM.uploadStatus = document.getElementById('upload-status');
 
     DOM.factionOverride = document.getElementById('faction-override');
@@ -63,20 +63,16 @@ const App = (function () {
     DOM.clearBtn.addEventListener('click', handleClear);
     DOM.sampleBtn.addEventListener('click', handleSample);
     DOM.downloadBtn.addEventListener('click', handleDownload);
+    DOM.saveLocalBtn.addEventListener('click', handleSaveLocal);
     DOM.uploadBtn.addEventListener('click', handleUpload);
     DOM.jsonToggleBtn.addEventListener('click', handleJsonToggle);
     DOM.factionOverride.addEventListener('change', handleFactionOverride);
 
-    // Restore player ID from localStorage
-    const savedPlayerId = localStorage.getItem('w40k_player_id');
-    if (savedPlayerId) {
-      DOM.playerIdInput.value = savedPlayerId;
+    // Auto-generate player ID if not already stored
+    if (!localStorage.getItem('w40k_player_id')) {
+      const id = 'web_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem('w40k_player_id', id);
     }
-
-    // Save player ID on change
-    DOM.playerIdInput.addEventListener('change', () => {
-      localStorage.setItem('w40k_player_id', DOM.playerIdInput.value.trim());
-    });
 
     // Load the datasheet database
     loadDatabase();
@@ -435,6 +431,50 @@ const App = (function () {
     URL.revokeObjectURL(url);
   }
 
+  // ── Save to local game directory ────────────────────────────────
+
+  async function handleSaveLocal() {
+    if (!_generatedResult || !_generatedResult.army) {
+      setUploadStatus('No army to save. Parse an army list first.', 'error');
+      return;
+    }
+
+    const armyName = DOM.armyNameInput.value.trim();
+    if (!armyName) {
+      setUploadStatus('Please enter an army name.', 'error');
+      return;
+    }
+
+    const validation = ArmyGenerator.validateArmy(_generatedResult.army);
+    if (!validation.valid) {
+      setUploadStatus('Army validation failed: ' + validation.errors.join(', '), 'error');
+      return;
+    }
+
+    setUploadStatus('Saving locally...', 'info');
+    DOM.saveLocalBtn.disabled = true;
+
+    try {
+      const response = await fetch('/api/local-armies/' + encodeURIComponent(armyName), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ army_data: _generatedResult.army })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Server returned ' + response.status);
+      }
+
+      const data = await response.json();
+      setUploadStatus('Army "' + armyName + '" saved to 40k/armies/' + data.file + ' — available in local games immediately.', 'success');
+    } catch (err) {
+      setUploadStatus('Save failed: ' + err.message, 'error');
+    } finally {
+      DOM.saveLocalBtn.disabled = false;
+    }
+  }
+
   // ── Upload handler ──────────────────────────────────────────────
 
   async function handleUpload() {
@@ -443,11 +483,7 @@ const App = (function () {
       return;
     }
 
-    const playerId = DOM.playerIdInput.value.trim();
-    if (!playerId || playerId.length < 8) {
-      setUploadStatus('Please enter your Player ID (at least 8 characters). Find it in-game under Settings.', 'error');
-      return;
-    }
+    const playerId = localStorage.getItem('w40k_player_id');
 
     const armyName = DOM.armyNameInput.value.trim();
     if (!armyName) {
@@ -488,8 +524,6 @@ const App = (function () {
         'success'
       );
 
-      // Save player ID
-      localStorage.setItem('w40k_player_id', playerId);
     } catch (err) {
       setUploadStatus('Upload failed: ' + err.message, 'error');
     } finally {

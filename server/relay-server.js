@@ -282,7 +282,7 @@ function streamFile(res, filePath, ext) {
 
   res.writeHead(200, {
     'Content-Type': contentType,
-    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=86400',
+    'Cache-Control': (ext === '.html' || ext === '.js' || ext === '.css') ? 'no-cache' : 'public, max-age=86400',
   });
   stream.pipe(res);
 }
@@ -321,6 +321,8 @@ async function handleHTTPRequest(req, res) {
         return handleSaves(req, res, param);
       case 'armies':
         return handleArmies(req, res, param);
+      case 'local-armies':
+        return handleLocalArmies(req, res, param);
       case 'games':
         return handleGames(req, res, param, parts[3]);
       default:
@@ -501,6 +503,49 @@ async function handleArmies(req, res, armyName) {
     }
     default:
       sendError(res, 405, 'Method not allowed');
+  }
+}
+
+// ============================================================================
+// Local Army Saving (saves directly to 40k/armies/ directory)
+// ============================================================================
+
+const ARMIES_DIR = path.join(__dirname, '..', '40k', 'armies');
+
+async function handleLocalArmies(req, res, armyName) {
+  if (req.method !== 'PUT') {
+    sendError(res, 405, 'Method not allowed');
+    return;
+  }
+
+  if (!armyName) {
+    sendError(res, 400, 'Missing army name');
+    return;
+  }
+
+  const body = await parseBody(req);
+  if (!body || !body.army_data) {
+    sendError(res, 400, 'Missing army_data in request body');
+    return;
+  }
+
+  const fileName = armyName.replace(/[^a-zA-Z0-9_-]/g, '_') + '.json';
+  const filePath = path.join(ARMIES_DIR, fileName);
+
+  // Ensure we're not writing outside the armies directory
+  if (!filePath.startsWith(ARMIES_DIR)) {
+    sendError(res, 400, 'Invalid army name');
+    return;
+  }
+
+  try {
+    const armyDataStr = typeof body.army_data === 'string' ? body.army_data : JSON.stringify(body.army_data, null, 2);
+    fs.writeFileSync(filePath, armyDataStr, 'utf8');
+    console.log(`Local army saved: ${fileName}`);
+    sendJSON(res, 200, { army_name: armyName, file: fileName, saved: true });
+  } catch (err) {
+    console.error('Failed to save local army:', err.message);
+    sendError(res, 500, 'Failed to save army file: ' + err.message);
   }
 }
 

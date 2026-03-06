@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 ###############################################################################
-# run_audit_tasks.sh — Automated SAVE_AUDIT.md task runner using Claude Code
+# run_audit_tasks.sh — Automated MODEL_ATTRIBUTES_TASKS.md task runner using Claude Code
 #
-# Parses open tasks from SAVE_AUDIT.md Priority Recommendations, loops
-# through them one-by-one, launching a fresh Claude Code session for each.
-# Claude implements the task, updates the audit file, commits, and merges to
+# Parses open tasks from MODEL_ATTRIBUTES_TASKS.md, loops through them
+# one-by-one, launching a fresh Claude Code session for each.
+# Claude implements the task, updates the task file, commits, and merges to
 # main before the next task starts.
 #
-# Tasks are numbered 1-35 under priority headers (P0-P3).
-# Task IDs use the format P{priority}-{number} (e.g. P0-1, P1-8, P2-19).
+# Tasks use IDs like MA-1 through MA-33 under Phase headers (Phase 1-8).
+# Phase numbers map to priority for filtering: Phase 1 = priority 1, etc.
 #
 # Designed to run locally on macOS.
 #
@@ -17,8 +17,8 @@
 #
 # Options:
 #   --dry-run            Show tasks that would be processed without executing
-#   --start-from ID      Start from a specific task ID (e.g. P0-1, P1-8)
-#   --priority N         Only run tasks from priority N (0-3)
+#   --start-from ID      Start from a specific task ID (e.g. MA-1, MA-15)
+#   --priority N         Only run tasks from phase N (1-8)
 #   --max-tasks N        Stop after processing N tasks
 #   --skip ID[,ID,...]   Skip specific task IDs (comma-separated)
 #   --skip-failed        Skip tasks that previously failed (from state file)
@@ -38,9 +38,9 @@ export GIT_MERGE_AUTOEDIT=no
 # ─── Configuration ───────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
-AUDIT_FILE="$PROJECT_DIR/SAVE_AUDIT.md"
-STATE_FILE="$PROJECT_DIR/.audit_runner_state"
-STOP_FILE="$PROJECT_DIR/.audit_runner_stop"
+AUDIT_FILE="$PROJECT_DIR/40k/MODEL_ATTRIBUTES_TASKS.md"
+STATE_FILE="$PROJECT_DIR/.model_attr_runner_state"
+STOP_FILE="$PROJECT_DIR/.model_attr_runner_stop"
 LOG_DIR="$PROJECT_DIR/.audit_logs"
 MAIN_BRANCH="main"
 CLAUDE_MODEL="sonnet"
@@ -178,129 +178,144 @@ get_failed_task_ids() {
 
 # ─── Task Parsing ────────────────────────────────────────────────────────────
 
-# Extracts all open tasks from SAVE_AUDIT.md Priority Recommendations.
-# Tasks are numbered lines under ### P{n} headers, e.g.:
-#   ### P0 — Critical (abilities that claim to work but don't)
-#   1. **Fix ChargePhase to check advance_and_charge flag** — Martial Inspiration
+# Extracts all open tasks from MODEL_ATTRIBUTES_TASKS.md.
+# Tasks are ### headers with IDs like MA-1, MA-2, etc. under ## Phase N sections.
+# A task is considered DONE if all its `- [ ]` checkboxes are `- [x]`.
 #
 # Output format: TASK_ID<TAB>TASK_TITLE
-# Task IDs are constructed as P{priority}-{number} (e.g. P0-1, P1-8)
 parse_all_tasks() {
-    local current_priority=""
+    local current_phase=""
+    local current_task_id=""
+    local current_task_title=""
+    local has_open_checkbox=false
+    local has_any_checkbox=false
+
+    # Flush the previous task if it has open checkboxes
+    flush_task() {
+        if [[ -n "$current_task_id" ]]; then
+            if [[ "$has_any_checkbox" == true && "$has_open_checkbox" == true ]]; then
+                printf '%s\t%s\n' "$current_task_id" "$current_task_title"
+            fi
+        fi
+    }
 
     while IFS= read -r line; do
-        # Detect priority header: ### P0, ### P1, ### P2, ### P3
-        if printf '%s' "$line" | grep -qE '^### P[0-9]'; then
-            current_priority=$(printf '%s' "$line" | grep -oE 'P[0-9]' | head -1 | sed 's/P//')
+        # Detect phase header: ## Phase N:
+        if printf '%s' "$line" | grep -qE '^## Phase [0-9]+'; then
+            current_phase=$(printf '%s' "$line" | grep -oE 'Phase [0-9]+' | grep -oE '[0-9]+')
             continue
         fi
 
-        # Skip if we haven't found a priority header yet
-        [[ -z "$current_priority" ]] && continue
+        # Skip if we haven't found a phase header yet
+        [[ -z "$current_phase" ]] && continue
 
-        # Stop if we hit a section break (next ## or ---)
-        if printf '%s' "$line" | grep -qE '^(## |---)'; then
+        # Stop parsing at non-phase ## headers (Implementation Order, Key Files, etc.)
+        if printf '%s' "$line" | grep -qE '^## ' && ! printf '%s' "$line" | grep -qE '^## Phase'; then
+            flush_task
             break
         fi
 
-        # Match numbered task lines: "1. **Task title** — description"
-        if printf '%s' "$line" | grep -qE '^[0-9]+\. \*\*'; then
-            # Skip DONE tasks
-            if printf '%s' "$line" | grep -qE '\*\*DONE\*\*|~~.*~~'; then
-                continue
-            fi
+        # Detect task header: ### MA-N: Title
+        if printf '%s' "$line" | grep -qE '^### MA-[0-9]+:'; then
+            # Flush previous task
+            flush_task
 
-            local task_num task_title task_id
-            task_num=$(printf '%s' "$line" | grep -oE '^[0-9]+')
-            task_id="P${current_priority}-${task_num}"
-            # Extract the full line minus the leading number and period
-            task_title=$(printf '%s' "$line" | sed 's/^[0-9]*\. //')
-            printf '%s\t%s\n' "$task_id" "$task_title"
+            current_task_id=$(printf '%s' "$line" | grep -oE 'MA-[0-9]+')
+            current_task_title=$(printf '%s' "$line" | sed 's/^### MA-[0-9]*: //')
+            has_open_checkbox=false
+            has_any_checkbox=false
+            continue
+        fi
+
+        # Track checkboxes within current task
+        if [[ -n "$current_task_id" ]]; then
+            if printf '%s' "$line" | grep -qE '^\- \[x\]'; then
+                has_any_checkbox=true
+            elif printf '%s' "$line" | grep -qE '^\- \[ \]'; then
+                has_any_checkbox=true
+                has_open_checkbox=true
+            fi
         fi
     done < "$AUDIT_FILE"
+
+    # Flush last task
+    flush_task
 }
 
-# Extracts the full context for a given task from SAVE_AUDIT.md.
-# Task ID format: P{priority}-{number} (e.g. P0-1, P1-8)
-# Returns: the priority header, the task line itself, and all related
-# sections from earlier in the file that provide background context.
+# Extracts the full context for a given task from MODEL_ATTRIBUTES_TASKS.md.
+# Task ID format: MA-{number} (e.g. MA-1, MA-15)
+# Returns: the phase header, the full task section (header + all bullet points),
+# and any dependency context from prerequisite tasks.
 get_task_context() {
     local task_id="$1"
+    local task_num
+    task_num=$(echo "$task_id" | sed 's/MA-//')
 
-    # Parse priority and task number from ID
-    local priority task_num
-    priority=$(echo "$task_id" | sed 's/P\([0-9]\)-.*/\1/')
-    task_num=$(echo "$task_id" | sed 's/P[0-9]-//')
-
-    # Find the priority header text
-    local priority_header
-    priority_header=$(grep -E "^### P${priority} " "$AUDIT_FILE" | head -1)
-
-    # Find the task line itself
-    local task_line
-    task_line=$(awk "
-        /^### P${priority} / { in_section=1; next }
-        in_section && /^### P[0-9]/ { in_section=0 }
-        in_section && /^(## |---)/ { in_section=0 }
-        in_section && /^${task_num}\. / { print; exit }
+    # Extract the full task block: from ### MA-N: to the next ### or ## header
+    local task_block
+    task_block=$(awk "
+        /^### ${task_id}:/ { found=1 }
+        found && /^###? / && !/^### ${task_id}:/ { found=0 }
+        found { print }
     " "$AUDIT_FILE")
 
-    if [[ -z "$task_line" ]]; then
+    if [[ -z "$task_block" ]]; then
         echo "Task ${task_id} not found in audit file."
         return
     fi
 
-    # Extract key terms from the task to find related context sections.
-    # Look for ability names, unit names, or system names mentioned in the task.
-    local related_context=""
+    # Find which phase this task belongs to
+    local phase_header
+    phase_header=$(awk "
+        /^## Phase [0-9]+/ { header=\$0 }
+        /^### ${task_id}:/ { print header; exit }
+    " "$AUDIT_FILE")
 
-    # Always include the Broken Pipeline section for P0 tasks (they're about broken flags)
-    if [[ "$priority" == "0" ]]; then
-        related_context+=$(awk '
-            /^## Broken Pipeline/ { found=1 }
-            found && /^---/ { found=0 }
-            found { print }
-        ' "$AUDIT_FILE")
-        related_context+=$'\n\n'
-    fi
+    # Extract the Key Files Reference table for context
+    local files_table
+    files_table=$(awk '
+        /^## Key Files Reference/ { found=1 }
+        found && /^## / && !/^## Key Files Reference/ { found=0 }
+        found { print }
+    ' "$AUDIT_FILE")
 
-    # Include the relevant unit gap tables by scanning for ability/unit names in the task line
-    # Check each faction section for mentions of terms in the task
-    for section in "Orks — Unit Ability Gaps" "Adeptus Custodes — Unit Ability Gaps" "Space Marines — Unit Ability Gaps" "Faction Abilities" "Core Abilities Audit" "Once Per Battle"; do
-        local section_escaped
-        section_escaped=$(printf '%s' "$section" | sed 's/[.*+?^${}()|[\]\\]/\\&/g')
-        # Check if any key terms from the task line appear in this section
-        local section_content
-        section_content=$(awk -v sec="$section" '
-            $0 ~ "^## " sec { found=1; next }
-            found && /^---/ { found=0 }
-            found && /^## / { found=0 }
-            found { print }
-        ' "$AUDIT_FILE")
-
-        if [[ -n "$section_content" ]]; then
-            related_context+="## ${section}"$'\n'
-            related_context+="$section_content"$'\n\n'
-        fi
-    done
+    # Extract the Implementation Order section for dependency context
+    local impl_order
+    impl_order=$(awk '
+        /^## Implementation Order/ { found=1 }
+        found && /^## / && !/^## Implementation Order/ { found=0 }
+        found { print }
+    ' "$AUDIT_FILE")
 
     # Build the full context
     echo "TASK: ${task_id}"
-    echo "${priority_header}"
+    echo "${phase_header}"
     echo ""
-    echo "Task: ${task_line}"
+    echo "${task_block}"
     echo ""
     echo "═══════════════════════════════════════════════════════"
-    echo "RELATED CONTEXT FROM SAVE_AUDIT.md"
+    echo "IMPLEMENTATION ORDER & DEPENDENCIES"
     echo "═══════════════════════════════════════════════════════"
     echo ""
-    echo "$related_context"
+    echo "$impl_order"
+    echo ""
+    echo "═══════════════════════════════════════════════════════"
+    echo "KEY FILES REFERENCE"
+    echo "═══════════════════════════════════════════════════════"
+    echo ""
+    echo "$files_table"
 }
 
-# Get the priority number from a task ID (P0-1 -> 0, P1-8 -> 1, etc.)
+# Get the phase number from a task ID by looking up which phase it belongs to.
+# MA-1 through MA-5 = Phase 1, MA-6 through MA-9 = Phase 2, etc.
 get_tier() {
     local task_id="$1"
-    echo "$task_id" | grep -oE '^P[0-9]' | sed 's/P//'
+    local phase
+    phase=$(awk "
+        /^## Phase [0-9]+/ { p=\$0; gsub(/[^0-9]/,\"\",p) }
+        /^### ${task_id}:/ { print p; exit }
+    " "$AUDIT_FILE")
+    echo "${phase:-0}"
 }
 
 # ─── Branch Management ───────────────────────────────────────────────────────
@@ -311,7 +326,7 @@ sanitize_branch_name() {
     # Create a short, clean branch name from task ID and title
     local slug
     slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | cut -c1-40)
-    echo "audit/${task_id}/${slug}"
+    echo "model-attr/${task_id}/${slug}"
 }
 
 create_feature_branch() {
@@ -371,13 +386,15 @@ build_prompt() {
 
     cat <<PROMPT_EOF
 You are working on a Warhammer 40k tabletop game implemented in Godot 4.4 (GDScript).
-Your job is to implement one specific ability task from the project's SAVE_AUDIT.md.
+Your job is to implement one specific task from the project's MODEL_ATTRIBUTES_TASKS.md,
+which adds per-model loadout support (different models in a unit can have different
+weapons, stats, and roles).
 
 ═══════════════════════════════════════════════════════
 TASK: ${task_id} — ${task_title}
 ═══════════════════════════════════════════════════════
 
-Full task details from the audit:
+Full task details:
 ---
 ${task_context}
 ---
@@ -389,51 +406,57 @@ INSTRUCTIONS
 1. READ the relevant source files mentioned in the task details above.
    Understand the existing code patterns before making changes.
    Key files to check:
-   - 40k/autoloads/UnitAbilityManager.gd (ABILITY_EFFECTS table, ability application)
-   - 40k/autoloads/FactionAbilityManager.gd (faction abilities like Oath of Moment)
-   - 40k/autoloads/EffectPrimitives.gd (effect flag system)
-   - 40k/phases/ChargePhase.gd (charge eligibility checks)
-   - 40k/phases/ShootingPhase.gd (shooting eligibility checks)
-   - 40k/phases/FightPhase.gd (fight phase logic)
-   - 40k/autoloads/RulesEngine.gd (combat resolution, rerolls, saves)
-   - 40k/armies/*.json (unit data with abilities)
+   - 40k/autoloads/RulesEngine.gd (weapon assignment, combat resolution, saves)
+   - 40k/autoloads/ArmyListManager.gd (army loading and validation)
+   - 40k/autoloads/GameState.gd (central game state, unit access)
+   - 40k/autoloads/StateSerializer.gd (save/load, data validation)
+   - 40k/scripts/DeploymentController.gd (model placement)
+   - 40k/scripts/GhostVisual.gd (placement preview)
+   - 40k/scripts/TokenVisual.gd (model display on board)
+   - 40k/scripts/WoundAllocationOverlay.gd (casualty selection)
+   - 40k/scripts/UnitStatsPanel.gd (unit info display)
+   - 40k/autoloads/TransportManager.gd (transport capacity)
+   - 40k/armies/*.json (unit data with models and weapons)
 
 2. IMPLEMENT the required changes:
    - Follow existing code style and patterns in the codebase
    - Do NOT remove debugging logs (project rule)
    - Keep changes focused — only implement what this task requires
+   - Maintain backward compatibility: units without model_profiles must work exactly as before
    - Reference the 10th Edition core rules at https://wahapedia.ru/wh40k10ed/the-rules/core-rules/
-   - Reference specific unit datasheets on wahapedia when implementing unit-specific abilities
    - Reference Godot 4.4 docs at https://docs.godotengine.org/en/4.4/
-   - Be careful not to introduce regressions in other phases
-   - Ensure any new logic has consistent behavior across both the interactive
-     resolution path and auto-resolve path in RulesEngine.gd (if applicable)
+   - Be careful not to introduce regressions in combat, deployment, or save/load
+   - If this task touches RulesEngine.gd, ensure consistency between interactive
+     and auto-resolve code paths
 
-3. UPDATE SAVE_AUDIT.md to reflect completion:
-   a. In the Priority Recommendations section, append **DONE** to the task line
-      (e.g., change "1. **Fix ChargePhase...**" to "1. **Fix ChargePhase...** — **DONE**")
-   b. Update the Summary table: decrement the relevant count
-   c. If the task fixed an item in the "Implementation Status of ABILITY_EFFECTS Table",
-      update the "Actually Working" column to reflect the new status
+3. TEST the changes by running the relevant Godot test suite:
+   - Run existing tests to verify no regressions
+   - Verify against the Validation criteria listed in the task
 
-4. COMMIT all changes with a clear message in this format:
+4. UPDATE 40k/MODEL_ATTRIBUTES_TASKS.md to reflect completion:
+   - Check off completed items: change \`- [ ]\` to \`- [x]\` for each completed bullet
+   - Only mark items done if they are actually implemented and tested
+
+5. COMMIT all changes with a clear message in this format:
       Implement ${task_id}: <short description>
 
       <brief explanation of what was changed and why>
 
-5. Do NOT push — the runner script handles that.
+6. Do NOT push — the runner script handles that.
 
 ═══════════════════════════════════════════════════════
 IMPORTANT NOTES
 ═══════════════════════════════════════════════════════
 - The project path is the current working directory
-- If a task depends on another task, implement what you can and note any
-  limitations. Do NOT skip the task entirely.
+- If a task depends on another task that isn't done yet, implement what you can
+  and note any limitations. Do NOT skip the task entirely.
 - If a task references specific line numbers, verify them first — they may have
   shifted since the audit was written.
-- For abilities that need army JSON changes AND code changes, do both.
-- For abilities marked as "simplified" that need fixing, update both the
-  ABILITY_EFFECTS entry and the EffectPrimitives flag handling.
+- For tasks that need army JSON changes AND code changes, do both.
+- BACKWARD COMPATIBILITY is critical: all existing units without model_profiles
+  must continue to work identically. Always add fallback paths.
+- The model_profiles system is opt-in: only units that define model_profiles in
+  their meta and model_type on their models use the new behavior.
 PROMPT_EOF
 }
 
@@ -663,7 +686,7 @@ main() {
     parse_args "$@"
 
     # Sanity checks
-    [[ -f "$AUDIT_FILE" ]] || die "SAVE_AUDIT.md not found at: ${AUDIT_FILE}"
+    [[ -f "$AUDIT_FILE" ]] || die "MODEL_ATTRIBUTES_TASKS.md not found at: ${AUDIT_FILE}"
     command -v claude >/dev/null 2>&1 || die "Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code"
     command -v git >/dev/null 2>&1 || die "git not found"
 
@@ -680,7 +703,7 @@ main() {
 
     echo ""
     echo -e "${BOLD}╔═══════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BOLD}║   ABILITIES AUDIT TASK RUNNER — Claude Code          ║${NC}"
+    echo -e "${BOLD}║   MODEL ATTRIBUTES TASK RUNNER — Claude Code         ║${NC}"
     echo -e "${BOLD}╚═══════════════════════════════════════════════════════╝${NC}"
     echo ""
 
@@ -689,7 +712,7 @@ main() {
     tasks_raw=$(parse_all_tasks)
 
     if [[ -z "$tasks_raw" ]]; then
-        log_ok "No open tasks found in SAVE_AUDIT.md — all done!"
+        log_ok "No open tasks found in MODEL_ATTRIBUTES_TASKS.md — all done!"
         exit 0
     fi
 

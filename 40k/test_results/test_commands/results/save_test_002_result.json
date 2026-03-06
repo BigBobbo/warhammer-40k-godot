@@ -1,0 +1,11 @@
+{
+	"execution_time_ms": 2,
+	"result": {
+		"error": "LOAD_FAILED",
+		"message": "Failed to load save file: res://saves/test_save_verify.w40ksave",
+		"success": false
+	},
+	"sequence": 2,
+	"timestamp": 58738,
+	"version": "1.0"
+}

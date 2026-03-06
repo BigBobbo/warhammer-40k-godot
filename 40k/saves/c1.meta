@@ -1,0 +1,63 @@
+{
+	"created_at": 1772675513.5122,
+	"description": "c1",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "9f3c61a4-33a5-5aa9-95c6-31ee4823025c31",
+		"is_multiplayer": false,
+		"phase": 5,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": 1,
+		"player2_type": "AI",
+		"turn": 1
+	},
+	"preview": {
+		"battle_round": 2,
+		"players": {
+			"1": {
+				"alive_models": 5,
+				"alive_units": 3,
+				"cp": 5,
+				"detachment": "Shield Host",
+				"faction": "Adeptus Custodes",
+				"points": 1000.0,
+				"primary_vp": 0,
+				"secondary_vp": 0,
+				"total_models": 5,
+				"total_units": 3,
+				"unit_names": [
+					"Blade Champion",
+					"Witchseekers",
+					"Caladius Grav-tank"
+				],
+				"vp": 0
+			},
+			"2": {
+				"alive_models": 3,
+				"alive_units": 3,
+				"cp": 4,
+				"detachment": "War Horde",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 0,
+				"secondary_vp": 5,
+				"total_models": 3,
+				"total_units": 3,
+				"unit_names": [
+					"Warboss",
+					"Warboss in Mega Armour",
+					"Battlewagon"
+				],
+				"vp": 5
+			}
+		}
+	},
+	"save_info": {
+		"description": "c1",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.1.0"
+}
