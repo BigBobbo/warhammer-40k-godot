@@ -3605,6 +3605,12 @@ func connect_signals() -> void:
 			print("Main: Connected to NetworkManager.peer_disconnect_grace_period signal")
 	
 
+## MA-41: Check if a text input control (LineEdit/TextEdit) currently has focus.
+## When true, keyboard input should not trigger game actions (camera pan, hotkeys, etc.).
+func _is_text_input_focused() -> bool:
+	var focused = get_viewport().gui_get_focus_owner()
+	return focused is LineEdit or focused is TextEdit
+
 func _input(event: InputEvent) -> void:
 	# ESC key handling — highest priority: opens settings menu (or closes overlays first)
 	# Use direct keycode check for reliability (is_action_pressed can miss with physical_keycode-only mappings)
@@ -3638,6 +3644,11 @@ func _input(event: InputEvent) -> void:
 		add_child(_settings_menu)
 		print("Main: Settings menu opened via Escape")
 		get_viewport().set_input_as_handled()
+		return
+
+	# MA-41: Skip all non-Escape keyboard input when a text input field has focus
+	# (e.g., typing a save name in SaveLoadDialog should not trigger game hotkeys)
+	if event is InputEventKey and _is_text_input_focused():
 		return
 
 	# Right-click context menu for unit color/label editing (letter mode)
@@ -3890,19 +3901,22 @@ func screen_to_world_position(screen_pos: Vector2) -> Vector2:
 	return board_transform.affine_inverse() * screen_pos
 
 func _process(delta: float) -> void:
+	# MA-41: Skip camera/view keyboard controls when a text input has focus
+	var _text_focused = _is_text_input_focused()
+
 	# View controls using BoardRoot transform
 	var pan_speed = 800.0 * delta / view_zoom
 	var view_changed = false
-	
+
 	# Build pan vector in screen space, then rotate to match board orientation
 	var pan_dir = Vector2.ZERO
-	if KeybindingManager.is_action_pressed("camera_pan_up"):
+	if not _text_focused and KeybindingManager.is_action_pressed("camera_pan_up"):
 		pan_dir.y -= 1.0
-	if KeybindingManager.is_action_pressed("camera_pan_down"):
+	if not _text_focused and KeybindingManager.is_action_pressed("camera_pan_down"):
 		pan_dir.y += 1.0
-	if KeybindingManager.is_action_pressed("camera_pan_left"):
+	if not _text_focused and KeybindingManager.is_action_pressed("camera_pan_left"):
 		pan_dir.x -= 1.0
-	if KeybindingManager.is_action_pressed("camera_pan_right"):
+	if not _text_focused and KeybindingManager.is_action_pressed("camera_pan_right"):
 		pan_dir.x += 1.0
 	if pan_dir != Vector2.ZERO:
 		# Counter-rotate the pan direction so WASD always maps to screen directions
@@ -3910,17 +3924,17 @@ func _process(delta: float) -> void:
 		view_changed = true
 
 	# Zoom controls
-	if KeybindingManager.is_action_pressed("zoom_in"):
+	if not _text_focused and KeybindingManager.is_action_pressed("zoom_in"):
 		view_zoom *= 1.03
 		view_zoom = clamp(view_zoom, 0.1, 3.0)
 		view_changed = true
-	if KeybindingManager.is_action_pressed("zoom_out"):
+	if not _text_focused and KeybindingManager.is_action_pressed("zoom_out"):
 		view_zoom *= 0.97
 		view_zoom = clamp(view_zoom, 0.1, 3.0)
 		view_changed = true
 
 	# Focus commands
-	if KeybindingManager.is_action_pressed("focus_p2_zone"):
+	if not _text_focused and KeybindingManager.is_action_pressed("focus_p2_zone"):
 		focus_on_player2_zone()
 		view_changed = true
 	
