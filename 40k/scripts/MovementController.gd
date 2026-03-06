@@ -3,6 +3,8 @@ class_name MovementController
 
 const GameStateData = preload("res://autoloads/GameState.gd")
 
+# Floating-point tolerance for movement cap checks — must match MovementPhase.MOVEMENT_CAP_EPSILON
+const MOVEMENT_CAP_EPSILON: float = 0.02
 
 # MovementController - Handles UI interactions for the Movement Phase
 # Manages model dragging, path visualization, and movement validation
@@ -1365,7 +1367,9 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	var inches_left = effective_cap - total_distance
 
 	# Check validity based on total distance (accounting for pivot cost)
-	path_valid = total_distance <= effective_cap
+	# Use epsilon tolerance to match MovementPhase validation — prevents false
+	# "invalid" indicator at exactly max range due to floating-point imprecision
+	path_valid = total_distance <= effective_cap + MOVEMENT_CAP_EPSILON
 
 	# Also check for model overlaps, wall collisions, and board edge
 	var overlap_detected = false
@@ -1396,7 +1400,7 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 				illegal_reason_label.modulate = Color.RED
 
 	# Clear error label when position is valid
-	if not overlap_detected and not out_of_bounds and total_distance <= effective_cap:
+	if not overlap_detected and not out_of_bounds and total_distance <= effective_cap + MOVEMENT_CAP_EPSILON:
 		if illegal_reason_label:
 			illegal_reason_label.text = ""
 
@@ -1404,7 +1408,7 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	_update_path_visual()
 	_update_ruler_visual()
 	_update_ghost_position(world_pos)
-	_update_ghost_validity(!overlap_detected and !out_of_bounds and total_distance <= effective_cap)
+	_update_ghost_validity(!overlap_detected and !out_of_bounds and total_distance <= effective_cap + MOVEMENT_CAP_EPSILON)
 	# Show total distance used (already accumulated + current drag)
 	_update_movement_display_with_preview(total_distance, inches_left, path_valid)
 	# Update floating movement remaining indicator near the ghost
@@ -1445,7 +1449,7 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	var accumulated = _get_accumulated_distance()
 	var total_distance = accumulated + distance_inches
 	var effective_cap = _get_effective_move_cap()
-	var valid = total_distance <= effective_cap
+	var valid = total_distance <= effective_cap + MOVEMENT_CAP_EPSILON
 
 	# Also check for model overlap
 	var overlap_detected = false
@@ -1770,8 +1774,8 @@ func _validate_move_path(path: Array, distance_inches: float) -> bool:
 	if selected_model.is_empty():
 		return false
 	
-	# Check distance cap (accounting for pivot cost)
-	if distance_inches > _get_effective_move_cap():
+	# Check distance cap (accounting for pivot cost, with floating-point tolerance)
+	if distance_inches > _get_effective_move_cap() + MOVEMENT_CAP_EPSILON:
 		illegal_reason_label.text = "Exceeds movement cap"
 		return false
 	
@@ -3282,11 +3286,12 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 
 		# Clear error label when all positions are valid
 		var group_effective_cap = _get_effective_move_cap()
-		if not any_wall_collision and not any_out_of_bounds and max_used <= group_effective_cap:
+		var group_distance_ok = max_used <= group_effective_cap + MOVEMENT_CAP_EPSILON
+		if not any_wall_collision and not any_out_of_bounds and group_distance_ok:
 			if illegal_reason_label:
 				illegal_reason_label.text = ""
 
-		if max_used > group_effective_cap or any_wall_collision or any_out_of_bounds:
+		if not group_distance_ok or any_wall_collision or any_out_of_bounds:
 			# Some models exceed their movement or collide with walls - show invalid state
 			for child in ghost_visual.get_children():
 				if child is Label:
@@ -3308,7 +3313,7 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 					child.queue_redraw()
 
 		# Update floating movement remaining label for group drag
-		var group_valid = max_used <= group_effective_cap and not any_wall_collision and not any_out_of_bounds
+		var group_valid = group_distance_ok and not any_wall_collision and not any_out_of_bounds
 		_update_movement_remaining_label(min_remaining, group_valid)
 		# Position label near the cursor during group drag
 		if movement_remaining_label and is_instance_valid(movement_remaining_label):

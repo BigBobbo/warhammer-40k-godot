@@ -50,12 +50,12 @@
 - **Validation**: Load Orks_2000 army. Burna Boyz unit has the correct number of models matching its unit_composition (e.g., 5 models for "5 Burna Boyz"). Each model has correct wounds, base_mm, and alive status. Deploy the unit — all models are placeable. Other multi-model squads across all armies also have correct model counts.
 
 ### MA-38: Fix movement range using strict less-than instead of less-than-or-equal
-- [ ] Investigate movement validation logic to find where the movement distance check uses `<` (strict less-than) instead of `<=` (less-than-or-equal) against the model's Move characteristic
-- [ ] Per 10th Edition core rules, a model can move "up to" its Move characteristic in inches — this means a model with M6" can move exactly 6" (less than or equal to 6)
-- [ ] Check MovementController/MovementPhase for the distance comparison that rejects or flags moves at exactly the max distance
-- [ ] Check if the issue is in the validation check, the visual indicator (showing red at exactly max range), or both
-- [ ] Fix the comparison to use `<=` so that moving exactly the Move characteristic value is allowed
-- [ ] Verify the same fix applies to Advance moves (Move + D6"), charge moves, pile-in, and consolidate distances if they share the same comparison logic
+- [x] Investigate movement validation logic to find where the movement distance check uses `<` (strict less-than) instead of `<=` (less-than-or-equal) against the model's Move characteristic
+- [x] Per 10th Edition core rules, a model can move "up to" its Move characteristic in inches — this means a model with M6" can move exactly 6" (less than or equal to 6)
+- [x] Check MovementController/MovementPhase for the distance comparison that rejects or flags moves at exactly the max distance
+- [x] Check if the issue is in the validation check, the visual indicator (showing red at exactly max range), or both
+- [x] Fix the comparison to use `<=` so that moving exactly the Move characteristic value is allowed
+- [x] Verify the same fix applies to Advance moves (Move + D6"), charge moves, pile-in, and consolidate distances if they share the same comparison logic
 - **Files**: MovementController.gd (or equivalent movement script), RulesEngine.gd (if movement validation lives there), any movement phase scripts
 - **Validation**: Unit with M6" moves exactly 6.0" — move is accepted (green indicator, not rejected). Moving 6.01" is rejected. Same for Advance: if rolled a 3 on D6, moving exactly 9" (6+3) is accepted. Charge, pile-in (3"), and consolidate (3") also accept moves at exactly their max distance.
 

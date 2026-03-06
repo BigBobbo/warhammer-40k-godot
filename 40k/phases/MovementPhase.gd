@@ -471,7 +471,7 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
 	var terrain_penalty = _get_movement_terrain_penalty(current_pos, dest_vec, unit_id)
 	var effective_distance = distance_inches + terrain_penalty
-	if effective_distance > move_data.move_cap_inches:
+	if effective_distance > move_data.move_cap_inches + MOVEMENT_CAP_EPSILON:
 		return {"valid": false, "errors": ["Move exceeds cap: %.1f\" > %.1f\"" % [effective_distance, move_data.move_cap_inches]]}
 
 	# Check engagement range restrictions

@@ -7,6 +7,9 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 # ChargePhase - Full implementation of the Charge phase following 10e rules
 # Supports: Charge declarations, 2D6 charge rolls, movement validation, engagement range
 
+# Floating-point tolerance for distance cap checks (< 1px)
+const MOVEMENT_CAP_EPSILON: float = 0.02
+
 signal unit_selected_for_charge(unit_id: String)
 signal targets_declared(unit_id: String, target_ids: Array)
 signal charge_targets_available(unit_id: String, eligible_targets: Dictionary)
@@ -1398,7 +1401,7 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 				print("ChargePhase: Model %s terrain penalty: %.1f\" (FLY=%s), effective distance: %.1f\"" % [
 					model_id, terrain_penalty, str(has_fly), effective_distance])
 
-			if effective_distance > rolled_distance:
+			if effective_distance > rolled_distance + MOVEMENT_CAP_EPSILON:
 				var err = ""
 				if terrain_penalty > 0.0:
 					err = "Model %s path (%.1f\") + terrain penalty (%.1f\") = %.1f\" exceeds charge distance %d\"" % [

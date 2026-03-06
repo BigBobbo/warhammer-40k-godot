@@ -2399,8 +2399,8 @@ func _end_model_drag_pile_in() -> void:
 
 		# If not reverted, check distance limits
 		if not reverted:
-			# Check if movement exceeds 3"
-			if distance > 3.0:
+			# Check if movement exceeds 3" (with floating-point tolerance)
+			if distance > 3.0 + 0.02:
 				# Snap back to maximum 3" distance in the same direction
 				var direction = (final_pos - original_pos).normalized()
 				var max_distance_px = Measurement.inches_to_px(3.0)
