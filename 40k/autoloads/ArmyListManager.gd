@@ -622,6 +622,21 @@ func validate_army_structure(army_data: Dictionary) -> Dictionary:
 				if unit.models.size() == 0:
 					result.valid = false
 					result.errors.append("Unit " + unit_id + " has no models")
+				else:
+					# MA-34: Warn if VEHICLE/MONSTER has models with small bases and no base_type
+					var kw_list = unit.get("meta", {}).get("keywords", [])
+					var has_vehicle_kw = false
+					for kw in kw_list:
+						if str(kw).to_upper() in ["VEHICLE", "MONSTER"]:
+							has_vehicle_kw = true
+							break
+					if has_vehicle_kw:
+						for model in unit.models:
+							var bm = model.get("base_mm", 0)
+							if bm is float:
+								bm = int(bm)
+							if bm < 60 and not model.has("base_type"):
+								print("WARNING: Unit %s (%s) is VEHICLE/MONSTER but model %s has small base_mm=%d and no base_type — likely needs base_type and base_dimensions" % [unit_id, unit.get("meta", {}).get("name", "?"), model.get("id", "?"), bm])
 			else:
 				result.valid = false
 				result.errors.append("Unit " + unit_id + " 'models' field is not an array")

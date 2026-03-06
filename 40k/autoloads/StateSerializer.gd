@@ -754,6 +754,17 @@ func _validate_unit_data(data: Dictionary) -> Dictionary:
 					model["base_mm"] = 25
 					validation.repairs.append("%s: set base_mm to 25" % m_prefix)
 
+				# MA-34: Warn if VEHICLE/MONSTER unit has small base and no base_type
+				# Most vehicles use rectangular/oval bases larger than 60mm
+				var unit_keywords = meta.get("keywords", []) if meta is Dictionary else []
+				var is_vehicle_or_monster = false
+				for kw in unit_keywords:
+					if str(kw).to_upper() in ["VEHICLE", "MONSTER"]:
+						is_vehicle_or_monster = true
+						break
+				if is_vehicle_or_monster and base_mm is int and base_mm < 60 and not model.has("base_type"):
+					validation.warnings.append("%s: VEHICLE/MONSTER unit has small base_mm (%d) and no base_type — may need base_type and base_dimensions" % [m_prefix, base_mm])
+
 				# Status effects
 				var status_effects = model.get("status_effects", [])
 				if not status_effects is Array:
