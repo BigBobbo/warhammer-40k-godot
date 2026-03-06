@@ -1,0 +1,35 @@
+{
+	"execution_time_ms": 501,
+	"result": {
+		"data": {
+			"save_path": "res://tests/saves/test_save_verify.w40ksave",
+			"unit_count": 19,
+			"unit_ids": [
+				"U_BATTLEWAGON_G",
+				"U_BLADE_CHAMPION_A",
+				"U_BOYZ_E",
+				"U_BOYZ_F",
+				"U_BOYZ_K",
+				"U_CALADIUS_GRAV-TANK_E",
+				"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+				"U_CUSTODIAN_GUARD_B",
+				"U_KOMMANDOS_H",
+				"U_PAINBOSS_I",
+				"U_SHIELD_CAPTAIN_A",
+				"U_STRIKE_FORCE_A",
+				"U_TELEMON_HEAVY_DREADNOUGHT_I",
+				"U_WARBOSS_B",
+				"U_WARBOSS_C",
+				"U_WARBOSS_IN_MEGA_ARMOUR_D",
+				"U_WEIRDBOY_J",
+				"U_WITCHSEEKERS_C",
+				"U_WITCHSEEKERS_D"
+			]
+		},
+		"message": "Save file loaded successfully",
+		"success": true
+	},
+	"sequence": 4,
+	"timestamp": 131737,
+	"version": "1.0"
+}
