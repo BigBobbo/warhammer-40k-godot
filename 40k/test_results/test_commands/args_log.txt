@@ -1,1 +1,1 @@
-ARGS: ["--script", "tests/unit/test_army_model_count.gd"]
+ARGS: ["--script", "res://tests/test_secondary_missions.gd"]

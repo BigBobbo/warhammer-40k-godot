@@ -1993,9 +1993,8 @@ func _on_secondary_requires_interaction(player: int, mission_id: String, interac
 			var objectives = GameState.state.get("board", {}).get("objectives", [])
 			var nml_objectives = []
 			for obj in objectives:
-				var obj_id = obj.get("id", "")
-				if "nml" in obj_id or "center" in obj_id:
-					nml_objectives.append(obj_id)
+				if obj.get("zone", "") == "no_mans_land":
+					nml_objectives.append(obj.get("id", ""))
 			if nml_objectives.size() > 0:
 				# Pick randomly
 				var chosen = nml_objectives[randi() % nml_objectives.size()]

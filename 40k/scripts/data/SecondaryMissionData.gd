@@ -177,7 +177,7 @@ static func _load_missions() -> void:
 		"category": "Strategic Conquests",
 		"description": "Control the objective selected by your opponent.",
 		"scoring": {
-			"when": TIMING_END_OF_YOUR_TURN,
+			"when": TIMING_END_OF_EITHER_TURN,
 			"conditions": [
 				{"check": "control_tempting_target", "params": {}, "vp": 5},
 			],

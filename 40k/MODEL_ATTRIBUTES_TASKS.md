@@ -60,15 +60,15 @@
 - **Validation**: Unit with M6" moves exactly 6.0" — move is accepted (green indicator, not rejected). Moving 6.01" is rejected. Same for Advance: if rolled a 3 on D6, moving exactly 9" (6+3) is accepted. Charge, pile-in (3"), and consolidate (3") also accept moves at exactly their max distance.
 
 ### MA-39: Fix "A Tempting Target" secondary mission implementation
-- [ ] Research the exact rules for "A Tempting Target" from Chapter Approved 2025-26 (https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/) — confirm: when it is drawn, which player selects the objective, what restrictions apply to the selection (e.g., must be in No Man's Land), when it scores, what the VP values are, and any edge cases
-- [ ] Audit the current implementation in SecondaryMissionManager.gd — check `_check_tempting_target()`, `resolve_tempting_target()`, and the When Drawn handler to see if they match the actual rules
-- [ ] Verify opponent selection flow: when this card is drawn, the opposing player (not the card holder) must choose an objective. Check that TemptingTargetDialog.gd correctly prompts the right player and that the selection is properly stored
-- [ ] Verify the selected objective is clearly communicated to both players — there should be a persistent visual indicator on the board (e.g., highlighted objective marker, icon, or label) showing which objective was chosen, visible throughout the game
-- [ ] Verify scoring timing: check whether the mission scores at the end of the card holder's turn, end of opponent's turn, or another timing, and confirm the code evaluates at the correct phase
-- [ ] Verify the scoring condition itself: confirm what "controlling" the tempting target means and that the check correctly evaluates objective control
-- [ ] Check multiplayer: ensure the opponent selection dialog works correctly over the network, the selected objective syncs to both clients, and the visual indicator appears for both players
-- [ ] Check AI: ensure AIPlayer handles the opponent selection correctly when AI is the opposing player (auto-selects a valid objective)
-- [ ] Fix any discrepancies found between the rules and the current implementation
+- [x] Research the exact rules for "A Tempting Target" from Chapter Approved 2025-26 (https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/) — confirm: when it is drawn, which player selects the objective, what restrictions apply to the selection (e.g., must be in No Man's Land), when it scores, what the VP values are, and any edge cases
+- [x] Audit the current implementation in SecondaryMissionManager.gd — check `_check_tempting_target()`, `resolve_tempting_target()`, and the When Drawn handler to see if they match the actual rules
+- [x] Verify opponent selection flow: when this card is drawn, the opposing player (not the card holder) must choose an objective. Check that TemptingTargetDialog.gd correctly prompts the right player and that the selection is properly stored
+- [x] Verify the selected objective is clearly communicated to both players — there should be a persistent visual indicator on the board (e.g., highlighted objective marker, icon, or label) showing which objective was chosen, visible throughout the game
+- [x] Verify scoring timing: check whether the mission scores at the end of the card holder's turn, end of opponent's turn, or another timing, and confirm the code evaluates at the correct phase
+- [x] Verify the scoring condition itself: confirm what "controlling" the tempting target means and that the check correctly evaluates objective control
+- [x] Check multiplayer: ensure the opponent selection dialog works correctly over the network, the selected objective syncs to both clients, and the visual indicator appears for both players
+- [x] Check AI: ensure AIPlayer handles the opponent selection correctly when AI is the opposing player (auto-selects a valid objective)
+- [x] Fix any discrepancies found between the rules and the current implementation
 - **Files**: SecondaryMissionManager.gd, SecondaryMissionData.gd, TemptingTargetDialog.gd, ScoringController.gd, MissionManager.gd, AIPlayer.gd
 - **Validation**: Draw "A Tempting Target". Opposing player is prompted to select an objective (only valid objectives shown). Selected objective is visually marked on the board for both players. Scoring evaluates at the correct phase per the rules. VP awarded correctly when conditions are met. Works in both single-player (AI selects) and multiplayer (remote player selects via dialog).
 
