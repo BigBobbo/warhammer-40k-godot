@@ -35,6 +35,9 @@ func _ready() -> void:
 	# Connect to the 'canceled' signal (Godot 4.x American spelling)
 	canceled.connect(_on_skip_pressed)
 
+	# Handle window close button (X) — treat as skip to prevent stuck deployment
+	close_requested.connect(_on_skip_pressed)
+
 	# Create main container
 	vbox = VBoxContainer.new()
 	vbox.set_custom_minimum_size(Vector2(DialogConstants.MEDIUM.x - 20, 0))
@@ -51,9 +54,11 @@ func _ready() -> void:
 	# Create scrollable container for units
 	var scroll = ScrollContainer.new()
 	scroll.set_custom_minimum_size(Vector2(DialogConstants.MEDIUM.x - 20, 200))
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	vbox.add_child(scroll)
 
 	unit_container = VBoxContainer.new()
+	unit_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(unit_container)
 
 	print("TransportEmbarkDialog initialized")
@@ -65,7 +70,8 @@ func setup(p_transport_id: String) -> void:
 	DebugLogger.info("TransportEmbarkDialog.setup called", {
 		"transport_id": transport_id,
 		"transport_exists": transport != null,
-		"has_transport_data": transport.has("transport_data") if transport else false
+		"has_transport_data": transport.has("transport_data") if transport else false,
+		"is_node_ready": is_node_ready()
 	})
 
 	if not transport or not transport.has("transport_data"):
@@ -74,6 +80,8 @@ func setup(p_transport_id: String) -> void:
 			"transport_id": transport_id,
 			"transport_exists": transport != null
 		})
+		# Emit empty selection so deployment flow continues
+		emit_signal("units_selected", [])
 		queue_free()
 		return
 
@@ -183,7 +191,10 @@ func _create_unit_checkboxes() -> void:
 		if capacity_keywords.size() > 0:
 			no_units_label.text += "\n(Requires %s keywords)" % str(capacity_keywords)
 		unit_container.add_child(no_units_label)
+		print("TransportEmbarkDialog: No eligible units found")
 		return
+
+	print("TransportEmbarkDialog: Creating %d unit checkboxes" % available_units.size())
 
 	# Create checkbox for each available unit
 	for unit_data in available_units:
@@ -191,10 +202,13 @@ func _create_unit_checkboxes() -> void:
 		var model_count = unit_data.model_count
 
 		var hbox = HBoxContainer.new()
+		hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 		var checkbox = CheckBox.new()
 		var unit_name = unit.meta.get("name", unit.id)
 		checkbox.text = "%s (%d models)" % [unit_name, model_count]
+		checkbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		checkbox.mouse_filter = Control.MOUSE_FILTER_STOP
 		checkbox.toggled.connect(_on_unit_toggled.bind(unit.id, model_count))
 
 		checkboxes[unit.id] = checkbox
@@ -202,7 +216,10 @@ func _create_unit_checkboxes() -> void:
 
 		unit_container.add_child(hbox)
 
+	print("TransportEmbarkDialog: Checkboxes created successfully, unit_container children: %d" % unit_container.get_child_count())
+
 func _on_unit_toggled(pressed: bool, unit_id: String, model_count: int) -> void:
+	print("TransportEmbarkDialog: Unit toggled - %s pressed=%s model_count=%d" % [unit_id, str(pressed), model_count])
 	if pressed:
 		# Check if adding this unit would exceed capacity
 		if current_model_count + model_count > capacity:

@@ -616,11 +616,11 @@ func _show_character_attach_dialog() -> void:
 
 	var dialog_script = load("res://scripts/CharacterAttachDialog.gd")
 	var dialog = dialog_script.new()
-	dialog.setup(unit_id)
 	dialog.characters_selected.connect(_on_attach_characters_selected)
 
-	# Add to scene tree and show
+	# Add to scene tree FIRST so _ready() runs before setup()
 	get_tree().root.add_child(dialog)
+	dialog.setup(unit_id)
 	dialog.popup_centered()
 
 func _on_attach_characters_selected(character_ids: Array) -> void:
@@ -642,11 +642,11 @@ func _show_transport_embark_dialog() -> void:
 
 	var dialog_script = load("res://scripts/TransportEmbarkDialog.gd")
 	var dialog = dialog_script.new()
-	dialog.setup(unit_id)
 	dialog.units_selected.connect(_on_embark_units_selected)
 
-	# Add to scene tree and show
+	# Add to scene tree FIRST so _ready() runs before setup()
 	get_tree().root.add_child(dialog)
+	dialog.setup(unit_id)
 	dialog.popup_centered()
 
 func _on_embark_units_selected(unit_ids: Array) -> void:

@@ -19,13 +19,13 @@
 - **Validation**: Deploy the Battlewagon. It renders with a large rectangular base (~180mm x 110mm) rather than a small circle. Ghost visual during placement also shows the rectangular shape. Distances measured from the Battlewagon use edge-to-edge rectangular math. Other units with circular bases are unaffected.
 
 ### MA-35: Fix unable to select units for transport embarkation
-- [ ] Investigate why clicking on units in the transport embarkation UI does not register selection, even though the option is visible
-- [ ] Trace the transport embark flow: after deploying a TRANSPORT unit, the DeploymentTransportDialog should appear allowing the user to select which units to embark
-- [ ] Check DeploymentTransportDialog for click handling issues — button signals, input blocking, z-order/layering problems, or modal dialog consuming input
-- [ ] Check if the clickable elements (buttons, list items) have correct mouse filter settings and are not obscured by invisible overlays or other UI nodes
-- [ ] Check TransportManager embark validation — the selection may be silently rejected if validation fails (capacity, keyword restrictions, unit status)
-- [ ] Verify the issue in both single-player and multiplayer contexts
-- [ ] Fix the root cause so that units can be selected and embarked into transports during deployment
+- [x] Investigate why clicking on units in the transport embarkation UI does not register selection, even though the option is visible
+- [x] Trace the transport embark flow: after deploying a TRANSPORT unit, the DeploymentTransportDialog should appear allowing the user to select which units to embark
+- [x] Check DeploymentTransportDialog for click handling issues — button signals, input blocking, z-order/layering problems, or modal dialog consuming input
+- [x] Check if the clickable elements (buttons, list items) have correct mouse filter settings and are not obscured by invisible overlays or other UI nodes
+- [x] Check TransportManager embark validation — the selection may be silently rejected if validation fails (capacity, keyword restrictions, unit status)
+- [x] Verify the issue in both single-player and multiplayer contexts
+- [x] Fix the root cause so that units can be selected and embarked into transports during deployment
 - **Files**: DeploymentTransportDialog.gd (or equivalent transport embark UI), DeploymentController.gd (transport embark flow), TransportManager.gd (embark validation)
 - **Validation**: Deploy a Battlewagon (or other TRANSPORT unit). Transport embark dialog appears. Click on an eligible unit to embark — it is selected and embarked successfully. Capacity updates correctly. Ineligible units are greyed out or show a reason. Dialog can be dismissed without embarking if desired.
 
