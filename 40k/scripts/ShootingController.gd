@@ -2458,11 +2458,20 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	dialog.setup(defending_player, available_stratagems, target_unit_ids)
 	dialog.popup_centered()
 
+	# MA-42: Show blocking overlay to active player
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
+		main_node.show_reactive_stratagem_waiting("Reactive Stratagem")
+
 	print("ShootingController: StratagemDialog shown for player %d" % defending_player)
 
 func _on_reactive_stratagem_selected(stratagem_id: String, target_unit_id: String) -> void:
 	"""Handle defender selecting a reactive stratagem."""
 	print("ShootingController: Reactive stratagem selected: %s on %s" % [stratagem_id, target_unit_id])
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("shoot_action_requested", {
 		"type": "USE_REACTIVE_STRATAGEM",
 		"stratagem_id": stratagem_id,
@@ -2472,6 +2481,10 @@ func _on_reactive_stratagem_selected(stratagem_id: String, target_unit_id: Strin
 func _on_reactive_stratagem_declined() -> void:
 	"""Handle defender declining all reactive stratagems."""
 	print("ShootingController: Reactive stratagems declined")
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("shoot_action_requested", {
 		"type": "DECLINE_REACTIVE_STRATAGEM"
 	})

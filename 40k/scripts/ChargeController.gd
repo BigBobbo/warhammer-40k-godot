@@ -2531,12 +2531,21 @@ func _on_overwatch_opportunity(charging_unit_id: String, defending_player: int, 
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
 
+	# MA-42: Show blocking overlay to active player
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
+		main_node.show_reactive_stratagem_waiting("Fire Overwatch")
+
 	if is_instance_valid(dice_log_display):
 		dice_log_display.append_text("[color=orange_red]FIRE OVERWATCH available for Player %d![/color]\n" % defending_player)
 
 func _on_fire_overwatch_used(shooter_unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Fire Overwatch during charge."""
 	print("ChargeController: Fire Overwatch USED by %s" % shooter_unit_id)
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 	if is_instance_valid(dice_log_display):
 		dice_log_display.append_text("[color=orange_red]FIRE OVERWATCH! Player %d fires with %s[/color]\n" % [player, shooter_unit_id])
 	emit_signal("charge_action_requested", {
@@ -2550,6 +2559,10 @@ func _on_fire_overwatch_used(shooter_unit_id: String, player: int) -> void:
 func _on_fire_overwatch_declined(player: int) -> void:
 	"""Handle player declining Fire Overwatch during charge."""
 	print("ChargeController: Fire Overwatch DECLINED by player %d" % player)
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 	if is_instance_valid(dice_log_display):
 		dice_log_display.append_text("[color=gray]Fire Overwatch declined.[/color]\n")
 	emit_signal("charge_action_requested", {
@@ -2599,9 +2612,18 @@ func _on_heroic_intervention_opportunity(player: int, eligible_units: Array, cha
 	dialog.popup_centered()
 	print("ChargeController: Heroic Intervention dialog shown for player %d" % player)
 
+	# MA-42: Show blocking overlay to active player
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
+		main_node.show_reactive_stratagem_waiting("Heroic Intervention")
+
 func _on_heroic_intervention_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Heroic Intervention."""
 	print("ChargeController: Heroic Intervention USED: player %d selects %s" % [player, unit_id])
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 
 	if is_instance_valid(dice_log_display):
 		var unit_name = GameState.get_unit(unit_id).get("meta", {}).get("name", unit_id)
@@ -2616,6 +2638,10 @@ func _on_heroic_intervention_used(unit_id: String, player: int) -> void:
 func _on_heroic_intervention_declined(player: int) -> void:
 	"""Handle player declining Heroic Intervention."""
 	print("ChargeController: Heroic Intervention DECLINED by player %d" % player)
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 	if is_instance_valid(dice_log_display):
 		dice_log_display.append_text("[color=gray]Heroic Intervention declined.[/color]\n")
 	emit_signal("charge_action_requested", {

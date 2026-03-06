@@ -15,6 +15,12 @@ var target_unit_ids: Array = []
 var selected_stratagem_id: String = ""
 var selected_target_unit_id: String = ""
 
+# MA-42: Auto-decline timer
+const AUTO_DECLINE_SECONDS: float = 5.0
+var _countdown_timer: Timer = null
+var _countdown_label: Label = null
+var _time_remaining: float = AUTO_DECLINE_SECONDS
+
 func setup(player: int, stratagems: Array, targets: Array) -> void:
 	defending_player = player
 	available_stratagems = stratagems
@@ -74,7 +80,35 @@ func _build_ui() -> void:
 	decline_button.pressed.connect(_on_decline_pressed)
 	main_container.add_child(decline_button)
 
+	# MA-42: Countdown timer display
+	_countdown_label = Label.new()
+	_countdown_label.text = "Auto-declining in %d seconds..." % int(AUTO_DECLINE_SECONDS)
+	_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_countdown_label.add_theme_font_size_override("font_size", 13)
+	_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	main_container.add_child(_countdown_label)
+
 	add_child(main_container)
+
+	# MA-42: Start auto-decline timer
+	_countdown_timer = Timer.new()
+	_countdown_timer.wait_time = 1.0
+	_countdown_timer.timeout.connect(_on_countdown_tick)
+	add_child(_countdown_timer)
+	_time_remaining = AUTO_DECLINE_SECONDS
+	_countdown_timer.start()
+
+func _on_countdown_tick() -> void:
+	_time_remaining -= 1.0
+	if _time_remaining <= 0:
+		_countdown_timer.stop()
+		print("StratagemDialog: Auto-declining after %d seconds" % int(AUTO_DECLINE_SECONDS))
+		_on_decline_pressed()
+		return
+	if is_instance_valid(_countdown_label):
+		_countdown_label.text = "Auto-declining in %d seconds..." % int(_time_remaining)
+		if _time_remaining <= 2:
+			_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
 
 func _create_stratagem_card(strat: Dictionary, eligible_units: Array) -> VBoxContainer:
 	var card = VBoxContainer.new()
@@ -137,6 +171,8 @@ func _create_stratagem_card(strat: Dictionary, eligible_units: Array) -> VBoxCon
 	return card
 
 func _on_use_pressed(stratagem_id: String, target_unit_id: String) -> void:
+	if _countdown_timer:
+		_countdown_timer.stop()
 	selected_stratagem_id = stratagem_id
 	selected_target_unit_id = target_unit_id
 	print("StratagemDialog: Player %d selected %s on %s" % [defending_player, stratagem_id, target_unit_id])
@@ -145,6 +181,8 @@ func _on_use_pressed(stratagem_id: String, target_unit_id: String) -> void:
 	queue_free()
 
 func _on_decline_pressed() -> void:
+	if _countdown_timer:
+		_countdown_timer.stop()
 	print("StratagemDialog: Player %d declined all reactive stratagems" % defending_player)
 	emit_signal("stratagem_declined")
 	hide()
