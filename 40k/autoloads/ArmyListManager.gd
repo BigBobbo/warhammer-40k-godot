@@ -204,6 +204,9 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 						"firing_deck": firing_deck
 					}
 
+			# Ensure models array has the correct number of entries for this unit
+			_ensure_correct_model_count(unit_id, unit)
+
 			# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
 			_apply_wargear_stat_bonuses(unit_id, unit)
 
@@ -475,6 +478,9 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 					"firing_deck": firing_deck
 				}
 
+		# Ensure models array has the correct number of entries for this unit
+		_ensure_correct_model_count(unit_id, unit)
+
 		# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
 		_apply_wargear_stat_bonuses(unit_id, unit)
 
@@ -584,6 +590,149 @@ func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 					print("ArmyListManager: Wargear '%s' on %s: removed Firing Deck %d" % [
 						ability_name, meta.get("name", unit_id), old_fd
 					])
+
+# ============================================================================
+# MODEL COUNT EXPANSION (MA-37)
+# ============================================================================
+# Ensures the models array matches the expected count from unit_composition.
+# When JSON files have fewer models than expected (e.g. 1 model for a 5-model
+# squad), this expands the array by cloning existing model data.
+
+func _ensure_correct_model_count(unit_id: String, unit: Dictionary) -> void:
+	"""Check if the models array is shorter than expected and expand if needed."""
+	if not unit.has("models") or not unit.models is Array:
+		return
+	if not unit.has("meta") or not unit.meta is Dictionary:
+		return
+
+	var expected = _get_expected_model_count(unit.meta)
+	if expected <= 0:
+		return  # Can't determine expected count
+
+	var current_count = unit.models.size()
+	if current_count >= expected:
+		return  # Already correct or more than expected
+
+	# Expand the models array by cloning the last existing model
+	var template_model = unit.models[current_count - 1]
+	var unit_name = unit.meta.get("name", unit_id)
+
+	for i in range(current_count, expected):
+		var new_model = template_model.duplicate(true)
+		new_model["id"] = "m%d" % (i + 1)
+		new_model["position"] = null
+		new_model["alive"] = true
+		# Reset current_wounds to match max wounds (not damaged)
+		new_model["current_wounds"] = new_model.get("wounds", 1)
+		unit.models.append(new_model)
+
+	print("ArmyListManager: MA-37 expanded models for %s (%s): %d -> %d models" % [
+		unit_name, unit_id, current_count, unit.models.size()
+	])
+
+func _get_expected_model_count(meta: Dictionary) -> int:
+	"""Determine the expected model count from unit_composition and wargear."""
+	var unit_comp = meta.get("unit_composition", [])
+	if unit_comp.is_empty():
+		return -1
+
+	var wargear: Array = meta.get("wargear", [])
+
+	# Collect composition entries, handling "OR" patterns (take the option matching wargear)
+	var options: Array = []  # Array of arrays of {min, max, name} dicts
+	var current_option: Array = []
+
+	for comp in unit_comp:
+		var desc = str(comp.get("description", ""))
+		if desc.strip_edges().to_upper() == "OR":
+			if not current_option.is_empty():
+				options.append(current_option)
+			current_option = []
+			continue
+
+		# Handle "N ModelA and M ModelB" pattern (e.g. "1 Runtherd and 10 Gretchin")
+		var parts = desc.split(" and ")
+		for part in parts:
+			part = part.strip_edges()
+			var parsed = _parse_composition_entry(part)
+			if parsed.min_count > 0:
+				current_option.append(parsed)
+
+	if not current_option.is_empty():
+		options.append(current_option)
+
+	if options.is_empty():
+		return -1
+
+	# For each option, calculate the total using wargear to refine counts
+	var best_total = 0
+	for option in options:
+		var option_total = 0
+		for entry in option:
+			var wargear_count = _find_wargear_model_count(wargear, entry.name)
+			if wargear_count > 0 and wargear_count >= entry.min_count and wargear_count <= entry.max_count:
+				option_total += wargear_count
+			else:
+				option_total += entry.min_count
+		if option_total > best_total:
+			best_total = option_total
+
+	return best_total if best_total > 0 else -1
+
+func _parse_composition_entry(desc: String) -> Dictionary:
+	"""Parse a unit composition entry like '4-8 Burna Boyz' or '1 Warboss'."""
+	var regex = RegEx.new()
+	regex.compile("^(\\d+)(?:\\s*-\\s*(\\d+))?\\s+(.+)$")
+	var result = regex.search(desc)
+	if not result:
+		return {"min_count": 0, "max_count": 0, "name": ""}
+
+	var min_count = int(result.get_string(1))
+	var max_str = result.get_string(2)
+	var max_count = int(max_str) if not max_str.is_empty() else min_count
+	var name = result.get_string(3).strip_edges()
+
+	# Remove EPIC HERO or similar suffixes
+	var hero_idx = name.find(" – ")
+	if hero_idx > 0:
+		name = name.substr(0, hero_idx).strip_edges()
+
+	return {"min_count": min_count, "max_count": max_count, "name": name}
+
+func _find_wargear_model_count(wargear: Array, model_name: String) -> int:
+	"""Try to find the actual model count from wargear 'Nx ModelName' entries."""
+	var normalized_name = _normalize_model_name(model_name)
+	if normalized_name.is_empty():
+		return 0
+
+	var regex = RegEx.new()
+	regex.compile("^(\\d+)x\\s+(.+)$")
+
+	for gear_str in wargear:
+		var gear = str(gear_str)
+		var result = regex.search(gear)
+		if not result:
+			continue
+
+		var count = int(result.get_string(1))
+		var gear_name = result.get_string(2).strip_edges()
+		var normalized_gear = _normalize_model_name(gear_name)
+
+		if normalized_gear == normalized_name:
+			return count
+
+	return 0
+
+func _normalize_model_name(name: String) -> String:
+	"""Normalize a model name for comparison by stripping plural suffixes."""
+	name = name.to_lower().strip_edges()
+	# Remove trailing 'z' (e.g. "Boyz" -> "Boy")
+	if name.ends_with("z") and name.length() > 2:
+		name = name.substr(0, name.length() - 1)
+	# Remove trailing 's' (e.g. "Spanners" -> "Spanner", "Lootas" -> "Loota")
+	elif name.ends_with("s") and name.length() > 2:
+		name = name.substr(0, name.length() - 1)
+	return name
 
 # Validate army structure
 func validate_army_structure(army_data: Dictionary) -> Dictionary:

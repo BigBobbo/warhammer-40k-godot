@@ -93,7 +93,9 @@
           }
         ],
         "leader_data": {
-          "can_lead": ["CUSTODIAN GUARD"]
+          "can_lead": [
+            "CUSTODIAN GUARD"
+          ]
         }
       },
       "models": [
@@ -205,7 +207,9 @@
           }
         ],
         "leader_data": {
-          "can_lead": ["CUSTODIAN GUARD"]
+          "can_lead": [
+            "CUSTODIAN GUARD"
+          ]
         }
       },
       "models": [
@@ -369,6 +373,15 @@
           "position": null,
           "alive": true,
           "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
         }
       ]
     },
@@ -474,6 +487,15 @@
         },
         {
           "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
           "wounds": 1,
           "current_wounds": 1,
           "base_mm": 32,
