@@ -193,11 +193,14 @@ func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 	if "CHARACTER" in bg_keywords:
 		errors.append("Cannot attach to another CHARACTER unit")
 
-	# Check keyword compatibility
+	# Check keyword compatibility (case-insensitive)
 	if can_lead.size() > 0:
 		var has_match = false
+		var upper_bg_keywords = []
+		for kw in bg_keywords:
+			upper_bg_keywords.append(str(kw).to_upper())
 		for lead_keyword in can_lead:
-			if lead_keyword in bg_keywords:
+			if str(lead_keyword).to_upper() in upper_bg_keywords:
 				has_match = true
 				break
 		if not has_match:
