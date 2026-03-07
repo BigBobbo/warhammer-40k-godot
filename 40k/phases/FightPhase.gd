@@ -2551,6 +2551,10 @@ func _unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
 
 # Legacy method compatibility (for existing helper methods)
 func _is_unit_in_combat(unit: Dictionary) -> bool:
+	# Destroyed units cannot be in combat
+	if _is_unit_destroyed_check(unit):
+		return false
+
 	# Check if unit is within engagement range of any enemy
 	var all_units = game_state_snapshot.get("units", {})
 	var unit_owner = unit.get("owner", 0)

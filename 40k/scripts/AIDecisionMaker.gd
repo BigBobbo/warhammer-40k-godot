@@ -13050,7 +13050,14 @@ static func _get_units_for_player(snapshot: Dictionary, player: int) -> Dictiona
 	for unit_id in snapshot.get("units", {}):
 		var unit = snapshot.units[unit_id]
 		if unit.get("owner", 0) == player:
-			result[unit_id] = unit
+			# Skip destroyed units (all models dead)
+			var has_alive = false
+			for model in unit.get("models", []):
+				if model.get("alive", true):
+					has_alive = true
+					break
+			if has_alive:
+				result[unit_id] = unit
 	return result
 
 static func _get_enemy_units(snapshot: Dictionary, player: int) -> Dictionary:
