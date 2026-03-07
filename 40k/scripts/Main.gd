@@ -7569,6 +7569,8 @@ func _append_log_entry(text: String, entry_type: String) -> void:
 			colored_text = "[color=#CC6666]%s[/color]" % text
 		"ai_thinking":
 			colored_text = "[i][color=#8899AA]  %s[/color][/i]" % text
+		"overwatch":
+			colored_text = "[b][color=#FF6600]%s[/color][/b]" % text
 		_:
 			colored_text = "[color=#AAAAAA]%s[/color]" % text
 

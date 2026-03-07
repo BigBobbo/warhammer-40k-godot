@@ -246,6 +246,10 @@ func add_player_entry(player: int, text: String) -> void:
 	var entry_type = "p1_action" if player == 1 else "p2_action"
 	_add_entry(prefix + text, entry_type)
 
+func add_overwatch_entry(text: String) -> void:
+	"""Add a Fire Overwatch entry to the game log with distinctive styling."""
+	_add_entry(text, "overwatch")
+
 func get_all_entries() -> Array:
 	return entries.duplicate()
 
