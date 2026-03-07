@@ -171,8 +171,11 @@ const ArmyParser = (function () {
    * Returns: 'standard' | 'battlescribe' | 'unknown'
    */
   function detectFormat(text) {
-    // BattleScribe uses ++ markers
-    if (/^\+\+/.test(text.trim())) return 'battlescribe';
+    const trimmed = text.trim();
+    // New Recruit style: header block bordered by +++++ lines with + FACTION KEYWORD: etc.
+    if (/^\+{5,}/.test(trimmed) || /^\+\s*FACTION KEYWORD:/m.test(trimmed)) return 'newrecruit';
+    // BattleScribe uses ++ Section ++ markers (not solid +++++ lines)
+    if (/^\+\+\s*.+\s*\+\+$/m.test(trimmed)) return 'battlescribe';
     // Standard format: faction line with points, then unit blocks
     return 'standard';
   }
@@ -365,6 +368,10 @@ const ArmyParser = (function () {
     const format = detectFormat(normalized);
     const errors = [];
 
+    if (format === 'newrecruit') {
+      return parseNewRecruit(normalized);
+    }
+
     if (format === 'battlescribe') {
       return parseBattleScribe(normalized);
     }
@@ -471,6 +478,199 @@ const ArmyParser = (function () {
       points: header.points,
       units: units,
       format: 'standard',
+      errors: errors
+    };
+  }
+
+  /**
+   * New Recruit format parser.
+   *
+   * Header block bordered by +++++ lines:
+   *   + FACTION KEYWORD: Imperium - Adeptus Custodes
+   *   + DETACHMENT: Lions of the Emperor
+   *   + TOTAL ARMY POINTS: 1995pts
+   *   + WARLORD: Char1: Trajann Valoris
+   *
+   * Section headers: CHARACTER, BATTLELINE, OTHER DATASHEETS, ALLIED UNITS
+   *
+   * Units: "Char2: 1x Blade Champion (120 pts)" or "5x Custodian Guard (190 pts)"
+   * Wargear: "1 with Vaultswords" or "3 with Guardian Spear"
+   * Sub-units: "* 3x Custodian Guard (Guardian Spear)"
+   */
+  function parseNewRecruit(text) {
+    const lines = text.split('\n');
+    const errors = [];
+    const units = [];
+    let faction = null;
+    let detachment = null;
+    let points = null;
+    let warlordName = null;
+    let enhancementInfo = null;
+
+    // Known section headers to skip
+    const sectionHeaders = new Set([
+      'character', 'battleline', 'other datasheets', 'allied units',
+      'dedicated transports', 'fast attack', 'heavy support', 'elites',
+      'hq', 'troops', 'lords of war', 'fortification', 'no force org slot'
+    ]);
+
+    // Phase 1: Parse the +++++ header block
+    let inHeader = false;
+    let headerDone = false;
+    let unitLines = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Header border lines
+      if (/^\+{5,}$/.test(trimmed)) {
+        if (!inHeader && !headerDone) {
+          inHeader = true;
+        } else if (inHeader) {
+          inHeader = false;
+          headerDone = true;
+        }
+        continue;
+      }
+
+      if (inHeader) {
+        // Parse header fields: "+ KEY: value"
+        const headerMatch = trimmed.match(/^\+\s*(.+?):\s*(.+)$/);
+        if (headerMatch) {
+          const key = headerMatch[1].trim().toUpperCase();
+          const value = headerMatch[2].trim();
+
+          if (key === 'FACTION KEYWORD') {
+            // Strip "Imperium - " prefix if present
+            faction = value.replace(/^Imperium\s*-\s*/i, '').trim();
+          } else if (key === 'DETACHMENT') {
+            // Strip parenthetical like "(Against All Odds)"
+            detachment = value.replace(/\s*\(.*?\)\s*$/, '').trim();
+          } else if (key === 'TOTAL ARMY POINTS') {
+            const ptsMatch = value.match(/(\d+)/);
+            if (ptsMatch) points = parseInt(ptsMatch[1], 10);
+          } else if (key === 'WARLORD') {
+            // "Char1: Trajann Valoris" → "Trajann Valoris"
+            warlordName = value.replace(/^Char\d+:\s*/i, '').trim();
+          } else if (key === 'ENHANCEMENT') {
+            enhancementInfo = value;
+          }
+        }
+        continue;
+      }
+
+      // After header: collect non-header lines
+      if (headerDone || !inHeader) {
+        unitLines.push(trimmed);
+      }
+    }
+
+    // Phase 2: Parse unit blocks from the remaining lines
+    let currentUnit = null;
+
+    for (let i = 0; i < unitLines.length; i++) {
+      const line = unitLines[i];
+
+      // Skip empty lines and section headers
+      if (!line) {
+        continue;
+      }
+      if (sectionHeaders.has(line.toLowerCase())) {
+        continue;
+      }
+
+      // Check if this is a unit header line: has (N pts) at the end
+      // Examples:
+      //   "Char2: 1x Blade Champion (120 pts)"
+      //   "5x Custodian Guard (190 pts)"
+      if (/\(\s*\d+\s*pts?\s*\)\s*$/.test(line)) {
+        // Save previous unit
+        if (currentUnit && currentUnit.name) {
+          units.push(currentUnit);
+        }
+
+        const pts = extractPoints(line);
+        let rawName = extractName(line);
+
+        // Strip "CharN: " prefix
+        rawName = rawName.replace(/^Char\d+:\s*/i, '').trim();
+
+        // Extract model count from "Nx" prefix
+        const countMatch = rawName.match(/^(\d+)\s*x\s+/i);
+        let modelCount = null;
+        if (countMatch) {
+          modelCount = parseInt(countMatch[1], 10);
+          rawName = rawName.replace(/^\d+\s*x\s+/i, '').trim();
+        }
+
+        currentUnit = {
+          name: rawName,
+          points: pts,
+          wargear: [],
+          enhancement: null,
+          modelCount: modelCount,
+          isWarlord: warlordName && rawName.toLowerCase() === warlordName.toLowerCase(),
+          matchedDatasheet: null
+        };
+        continue;
+      }
+
+      // If no current unit, skip
+      if (!currentUnit) continue;
+
+      // Enhancement line: "Enhancement: Name (+10 pts)"
+      if (/^enhancement/i.test(line)) {
+        currentUnit.enhancement = parseEnhancementLine(line);
+        continue;
+      }
+
+      // Warlord marker in wargear
+      if (/,\s*warlord\s*$/i.test(line) || line.toLowerCase() === 'warlord') {
+        currentUnit.isWarlord = true;
+      }
+
+      // Sub-unit lines: "* 3x Custodian Guard (Guardian Spear)" — skip these
+      // They describe model composition variants, not separate units
+      if (/^\*\s*\d+x\s+/i.test(line)) {
+        continue;
+      }
+
+      // Wargear lines: "1 with Vaultswords" or "3 with Guardian Spear, Sentinel blade"
+      const wargearMatch = line.match(/^\d+\s+with\s+(.+)$/i);
+      if (wargearMatch) {
+        const items = wargearMatch[1]
+          .replace(/,\s*Warlord\s*$/i, '')  // strip trailing Warlord marker
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean);
+        for (const item of items) {
+          if (!currentUnit.wargear.includes(item)) {
+            currentUnit.wargear.push(item);
+          }
+        }
+        continue;
+      }
+
+      // Indented wargear lines with bullet: "• Something" or "- Something"
+      if (/^[•·\-\*]\s+/.test(line)) {
+        const gear = parseWargearLine(line);
+        if (gear && !currentUnit.wargear.includes(gear)) {
+          currentUnit.wargear.push(gear);
+        }
+      }
+    }
+
+    // Don't forget the last unit
+    if (currentUnit && currentUnit.name) {
+      units.push(currentUnit);
+    }
+
+    return {
+      faction: faction,
+      detachment: detachment,
+      points: points,
+      units: units,
+      format: 'newrecruit',
       errors: errors
     };
   }

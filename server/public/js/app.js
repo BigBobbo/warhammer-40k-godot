@@ -52,7 +52,6 @@ const App = (function () {
     DOM.actionsSection = document.getElementById('actions-section');
     DOM.downloadBtn = document.getElementById('download-btn');
     DOM.saveLocalBtn = document.getElementById('save-local-btn');
-    DOM.uploadBtn = document.getElementById('upload-btn');
     DOM.armyNameInput = document.getElementById('army-name-input');
     DOM.uploadStatus = document.getElementById('upload-status');
 
@@ -64,18 +63,34 @@ const App = (function () {
     DOM.sampleBtn.addEventListener('click', handleSample);
     DOM.downloadBtn.addEventListener('click', handleDownload);
     DOM.saveLocalBtn.addEventListener('click', handleSaveLocal);
-    DOM.uploadBtn.addEventListener('click', handleUpload);
     DOM.jsonToggleBtn.addEventListener('click', handleJsonToggle);
     DOM.factionOverride.addEventListener('change', handleFactionOverride);
 
-    // Auto-generate player ID if not already stored
+    // Load the game's player ID, then load the datasheet database
+    initPlayerId().then(() => loadDatabase());
+  }
+
+  // ── Player ID initialization ────────────────────────────────────
+
+  async function initPlayerId() {
+    try {
+      const res = await fetch('/api/game-player-id');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.player_id) {
+          localStorage.setItem('w40k_player_id', data.player_id);
+          console.log('Using game player ID:', data.player_id.substring(0, 8) + '...');
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch game player ID:', err.message);
+    }
+    // Fallback: generate one if game ID not available
     if (!localStorage.getItem('w40k_player_id')) {
       const id = 'web_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 10);
       localStorage.setItem('w40k_player_id', id);
     }
-
-    // Load the datasheet database
-    loadDatabase();
   }
 
   // ── Database loading ────────────────────────────────────────────
@@ -451,28 +466,61 @@ const App = (function () {
       return;
     }
 
-    setUploadStatus('Saving locally...', 'info');
+    setUploadStatus('Saving...', 'info');
     DOM.saveLocalBtn.disabled = true;
 
+    const results = { local: null, cloud: null };
+
+    // Save locally
     try {
-      const response = await fetch('/api/local-armies/' + encodeURIComponent(armyName), {
+      const localRes = await fetch('/api/local-armies/' + encodeURIComponent(armyName), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ army_data: _generatedResult.army })
       });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Server returned ' + response.status);
+      if (!localRes.ok) {
+        const errData = await localRes.json().catch(() => ({}));
+        results.local = 'Failed: ' + (errData.error || localRes.status);
+      } else {
+        results.local = 'ok';
       }
-
-      const data = await response.json();
-      setUploadStatus('Army "' + armyName + '" saved to 40k/armies/' + data.file + ' — available in local games immediately.', 'success');
     } catch (err) {
-      setUploadStatus('Save failed: ' + err.message, 'error');
-    } finally {
-      DOM.saveLocalBtn.disabled = false;
+      results.local = 'Failed: ' + err.message;
     }
+
+    // Upload to cloud (production server)
+    try {
+      const playerId = localStorage.getItem('w40k_player_id');
+      const cloudRes = await fetch('https://warhammer-40k-godot.fly.dev/api/armies/' + encodeURIComponent(armyName), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Player-ID': playerId
+        },
+        body: JSON.stringify({ army_data: _generatedResult.army })
+      });
+      if (!cloudRes.ok) {
+        const errData = await cloudRes.json().catch(() => ({}));
+        results.cloud = 'Failed: ' + (errData.error || cloudRes.status);
+      } else {
+        results.cloud = 'ok';
+      }
+    } catch (err) {
+      results.cloud = 'Failed: ' + err.message;
+    }
+
+    // Report results
+    if (results.local === 'ok' && results.cloud === 'ok') {
+      setUploadStatus('Army "' + armyName + '" saved — available locally and online.', 'success');
+    } else if (results.local === 'ok') {
+      setUploadStatus('Army "' + armyName + '" saved locally. Cloud upload failed: ' + results.cloud, 'error');
+    } else if (results.cloud === 'ok') {
+      setUploadStatus('Army "' + armyName + '" uploaded to cloud. Local save failed: ' + results.local, 'error');
+    } else {
+      setUploadStatus('Save failed — Local: ' + results.local + ' | Cloud: ' + results.cloud, 'error');
+    }
+
+    DOM.saveLocalBtn.disabled = false;
   }
 
   // ── Upload handler ──────────────────────────────────────────────

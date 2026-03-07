@@ -207,6 +207,9 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# Ensure models array has the correct number of entries for this unit
 			_ensure_correct_model_count(unit_id, unit)
 
+			# MA-13: Apply stats_override.wounds from model_profiles before wargear bonuses
+			_apply_model_profile_wounds(unit_id, unit)
+
 			# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
 			_apply_wargear_stat_bonuses(unit_id, unit)
 
@@ -505,6 +508,9 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 		# Ensure models array has the correct number of entries for this unit
 		_ensure_correct_model_count(unit_id, unit)
 
+		# MA-13: Apply stats_override.wounds from model_profiles before wargear bonuses
+		_apply_model_profile_wounds(unit_id, unit)
+
 		# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
 		_apply_wargear_stat_bonuses(unit_id, unit)
 
@@ -640,6 +646,63 @@ func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 					])
 
 # ============================================================================
+# MODEL PROFILE WOUNDS OVERRIDE (MA-13)
+# ============================================================================
+# If a model's profile has stats_override.wounds, ensure model["wounds"] uses
+# that value. This runs BEFORE wargear bonuses so that wargear (e.g. Praesidium
+# Shield +1W) stacks correctly on top of the profile wounds value.
+#
+# model["wounds"] in JSON should match the profile's effective wounds value.
+# If there's a mismatch, this function logs a warning and corrects the value.
+
+func _apply_model_profile_wounds(unit_id: String, unit: Dictionary) -> void:
+	"""Apply stats_override.wounds from model_profiles to each model's wounds field."""
+	if not unit.has("meta") or not unit.meta is Dictionary:
+		return
+	if not unit.meta.has("model_profiles") or not unit.meta.model_profiles is Dictionary:
+		return
+	if not unit.has("models") or not unit.models is Array:
+		return
+
+	var meta = unit.meta
+	var profiles = meta.model_profiles
+	var unit_name = meta.get("name", unit_id)
+
+	for model in unit.models:
+		if not model is Dictionary:
+			continue
+		var model_type = model.get("model_type", "")
+		if model_type == "" or not profiles.has(model_type):
+			continue
+
+		var profile = profiles[model_type]
+		var override_wounds = profile.get("stats_override", {}).get("wounds", -1)
+		if override_wounds is float:
+			override_wounds = int(override_wounds)
+		if override_wounds <= 0:
+			continue
+
+		var json_wounds = model.get("wounds", 1)
+		if json_wounds is float:
+			json_wounds = int(json_wounds)
+
+		if json_wounds != override_wounds:
+			print("WARNING: MA-13 Unit %s (%s) model %s has wounds=%d but profile '%s' stats_override.wounds=%d — correcting to %d" % [
+				unit_id, unit_name, model.get("id", "?"), json_wounds, model_type, override_wounds, override_wounds
+			])
+			model["wounds"] = override_wounds
+			# Also update current_wounds if model was at full health (not damaged)
+			var current_wounds = model.get("current_wounds", json_wounds)
+			if current_wounds is float:
+				current_wounds = int(current_wounds)
+			if current_wounds == json_wounds:
+				model["current_wounds"] = override_wounds
+		else:
+			print("ArmyListManager: MA-13 model %s (%s) wounds=%d matches profile '%s' stats_override.wounds" % [
+				model.get("id", "?"), unit_name, json_wounds, model_type
+			])
+
+# ============================================================================
 # MODEL PROFILE VALIDATION (MA-3)
 # ============================================================================
 # Validates model_profiles data during army loading:
@@ -692,7 +755,35 @@ func _validate_model_profiles(unit_id: String, unit: Dictionary) -> void:
 			if model_type not in profile_keys:
 				print("ERROR: MA-3 Unit %s (%s) model %s has model_type '%s' not found in model_profiles keys %s" % [unit_id, unit_name, model.get("id", "?"), str(model_type), str(profile_keys)])
 
-	print("ArmyListManager: MA-3 model_profiles validation complete for %s (%s)" % [unit_id, unit_name])
+	# MA-13: Validate stats_override.wounds matches model wounds for each profile
+	# Note: model["wounds"] in JSON should match the profile's effective wounds value.
+	# _apply_model_profile_wounds already corrects mismatches before this runs,
+	# so this validation confirms the correction was applied.
+	for profile_key in profile_keys:
+		var profile = profiles[profile_key]
+		if not profile is Dictionary:
+			continue
+		var profile_wounds = profile.get("stats_override", {}).get("wounds", -1)
+		if profile_wounds is float:
+			profile_wounds = int(profile_wounds)
+		if profile_wounds <= 0:
+			continue
+		# Check all models with this profile type
+		if unit.has("models") and unit.models is Array:
+			for model in unit.models:
+				if not model is Dictionary:
+					continue
+				if model.get("model_type", "") != profile_key:
+					continue
+				var model_wounds = model.get("wounds", 1)
+				if model_wounds is float:
+					model_wounds = int(model_wounds)
+				if model_wounds != profile_wounds:
+					print("WARNING: MA-13 validation: Unit %s (%s) model %s wounds=%d still doesn't match profile '%s' stats_override.wounds=%d after correction" % [
+						unit_id, unit_name, model.get("id", "?"), model_wounds, profile_key, profile_wounds
+					])
+
+	print("ArmyListManager: MA-3/MA-13 model_profiles validation complete for %s (%s)" % [unit_id, unit_name])
 
 # ============================================================================
 # MODEL COUNT EXPANSION (MA-37)
@@ -924,6 +1015,26 @@ func validate_army_structure(army_data: Dictionary) -> Dictionary:
 									# Valid model_type reference
 									pass
 							# Models without model_type use legacy behavior — no error needed
+						# MA-13: Validate stats_override.wounds matches model wounds
+						for profile_key in profile_keys:
+							var profile = unit.meta.model_profiles[profile_key]
+							if not profile is Dictionary:
+								continue
+							var pw = profile.get("stats_override", {}).get("wounds", -1)
+							if pw is float:
+								pw = int(pw)
+							if pw <= 0:
+								continue
+							for model in unit.models:
+								if not model is Dictionary:
+									continue
+								if str(model.get("model_type", "")) != profile_key:
+									continue
+								var mw = model.get("wounds", 1)
+								if mw is float:
+									mw = int(mw)
+								if mw != pw:
+									result.errors.append("Unit %s model %s wounds=%d doesn't match profile '%s' stats_override.wounds=%d" % [unit_id, model.get("id", "?"), mw, profile_key, pw])
 					# MA-34: Warn if VEHICLE/MONSTER has models with small bases and no base_type
 					var kw_list = unit.get("meta", {}).get("keywords", [])
 					var has_vehicle_kw = false

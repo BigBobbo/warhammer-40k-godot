@@ -244,10 +244,10 @@
 - **Validation**: Unit with MEGA ARMOUR model (save 2+) and regular model (save 5+) shows correct save values in wound allocation UI. Test both interactive and auto-resolve paths.
 
 ### MA-13: Per-model wounds from stats_override
-- [ ] If `stats_override` contains `wounds`, ensure model's max wounds uses that value
-- [ ] Currently `model["wounds"]` is set from JSON — this may be sufficient if JSON is authored correctly
-- [ ] Add validation: if `model_profiles` has `wounds` in `stats_override`, verify model JSON `wounds` field matches
-- [ ] Document that `model["wounds"]` in JSON should match the profile's effective wounds value
+- [x] If `stats_override` contains `wounds`, ensure model's max wounds uses that value
+- [x] Currently `model["wounds"]` is set from JSON — this may be sufficient if JSON is authored correctly
+- [x] Add validation: if `model_profiles` has `wounds` in `stats_override`, verify model JSON `wounds` field matches
+- [x] Document that `model["wounds"]` in JSON should match the profile's effective wounds value
 - **Files**: ArmyListManager.gd (validation), documentation
 - **Validation**: Model with stats_override.wounds = 3 has correct max wounds. Wargear bonus (e.g., Praesidium Shield +1W) stacks correctly on top of profile wounds.
 
