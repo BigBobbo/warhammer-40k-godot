@@ -92,12 +92,14 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 |---------|------|-----------|---------|---------|----|----|--------|
 | Deep Strike | Core | Set up in Reserves, deploy 9"+ from enemies | N/A | Deployment system exists | N/A | N/A | **Not in game** |
 | Martial Ka'tah | Faction | Choose Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) when fighting | N/A | FactionAbilityManager handles this | N/A | N/A | **Not in game** |
-| Captain-Commander | Datasheet (Leader) | While leading, ignore all modifiers to BS/WS and Hit roll modifiers | N/A | **NO** | **NO** | **NO** | **Not in game** |
-| Moment Shackle | Datasheet | Once per battle, start of Fight phase, choose one: (1) Watcher's Axe has 12 Attacks, (2) 2+ invuln save, (3) unit has Fights First | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Captain-General | Datasheet (Leader) | While leading, ignore any/all modifiers to BS/WS and Hit roll modifiers | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Moment Shackle | Datasheet | Once per battle, start of Fight phase, choose one: (1) Watcher's Axe has 12 Attacks, OR (2) 2+ invuln save | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Golden Laurels | Datasheet (Leader) | While leading, worsen AP of incoming melee attacks by 1 | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Hero of Lion's Gate | Datasheet | Once per battle: change any Hit/Wound/Save roll to unmodified 6 | N/A | **NO** | **NO** | **NO** | **Not in game** |
 | Warlord requirement | Special | Must be Warlord if in army | N/A | **NO** | **NO** | **NO** | **Not in game** |
 | Invulnerable Save 4+ | Innate | 4+ invulnerable save | N/A | N/A | N/A | N/A | **Not in game** |
 
-**Notes:** Trajann is an Epic Hero with 2 major unique abilities. Captain-Commander is particularly impactful as it negates all hit modifiers (e.g., cover, -1 to hit abilities). Moment Shackle has 3 options (12 attacks, 2+ invuln, or Fights First for the whole unit).
+**Notes:** Trajann is an Epic Hero with 4 unique datasheet abilities. None exist in the codebase. Captain-General is particularly impactful as it negates all hit modifiers (e.g., cover, -1 to hit abilities). Golden Laurels provides passive melee defense, and Hero of Lion's Gate is a clutch once-per-battle roll manipulation.
 
 ---
 
