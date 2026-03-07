@@ -162,9 +162,6 @@ var game_log_scroll: ScrollContainer
 var is_game_log_visible: bool = true
 var game_log_toggle_button: Button
 
-# P3-119: Live opponent action feed
-var _opponent_action_feed: OpponentActionFeed = null
-
 # P3-117: Dice Roll History panel UI elements
 var _dice_history_panel: PanelContainer = null
 var _dice_history_label: RichTextLabel = null
@@ -380,9 +377,6 @@ func _ready() -> void:
 	# T7-20: Setup AI thinking indicator
 	_setup_ai_thinking_indicator()
 
-	# P3-119: Setup live opponent action feed
-	_setup_opponent_action_feed()
-
 	# T7-54: Setup AI action log overlay
 	_setup_ai_action_log_overlay()
 
@@ -480,9 +474,6 @@ func _initialize_ai_player() -> void:
 	if not ai_player.step_by_step_waiting.is_connected(_on_step_by_step_waiting):
 		ai_player.step_by_step_waiting.connect(_on_step_by_step_waiting)
 
-	# P3-119: Update opponent feed local player now that AI config is known
-	_update_opponent_feed_local_player()
-
 	# T7-36: Show AI speed HUD for non-spectator AI games
 	_is_spectator_mode = ai_player.is_spectator_mode()
 	if not _is_spectator_mode and ai_player.enabled:
@@ -575,9 +566,6 @@ func _reinitialize_ai_after_load() -> void:
 		ai_player.ai_speed_changed.connect(_on_ai_speed_changed)
 	if not ai_player.step_by_step_waiting.is_connected(_on_step_by_step_waiting):
 		ai_player.step_by_step_waiting.connect(_on_step_by_step_waiting)
-
-	# P3-119: Update opponent feed
-	_update_opponent_feed_local_player()
 
 	# Update spectator/speed UI
 	_is_spectator_mode = ai_player.is_spectator_mode()
@@ -1283,44 +1271,6 @@ func _update_ai_thinking_dots(delta: float) -> void:
 		_ai_thinking_dots_count = (_ai_thinking_dots_count % 3) + 1
 		var dots = ".".repeat(_ai_thinking_dots_count)
 		ai_thinking_label.text = "AI is thinking" + dots
-
-# =============================================================================
-# P3-119: Live Opponent Action Feed
-# =============================================================================
-
-func _setup_opponent_action_feed() -> void:
-	_opponent_action_feed = OpponentActionFeed.new()
-	add_child(_opponent_action_feed)
-
-	# Determine the local player for filtering opponent entries
-	_update_opponent_feed_local_player()
-	print("Main: Opponent action feed created (P3-119)")
-
-func _update_opponent_feed_local_player() -> void:
-	"""Update the opponent feed's local player based on game mode."""
-	if not _opponent_action_feed:
-		return
-
-	var network_manager = get_node_or_null("/root/NetworkManager")
-	if network_manager and network_manager.is_networked():
-		# Networked multiplayer: local player is fixed
-		var local_player = network_manager.get_local_player()
-		_opponent_action_feed.set_local_player(local_player)
-		print("Main: P3-119 Opponent feed local player set to %d (networked)" % local_player)
-	else:
-		# Local game (vs AI or hotseat): local player is the active human player
-		var ai_player = get_node_or_null("/root/AIPlayer")
-		if ai_player and ai_player.enabled:
-			# AI game: local player is whichever player is NOT AI
-			for p in [1, 2]:
-				if not ai_player.is_ai_player(p):
-					_opponent_action_feed.set_local_player(p)
-					print("Main: P3-119 Opponent feed local player set to %d (vs AI)" % p)
-					return
-		# Hotseat or fallback: local player is current active player
-		var active = GameState.get_active_player()
-		_opponent_action_feed.set_local_player(active)
-		print("Main: P3-119 Opponent feed local player set to %d (hotseat)" % active)
 
 # =============================================================================
 # T7-54: AI Action Log Overlay
@@ -6224,15 +6174,6 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 			_last_active_player = border_player
 		else:
 			_player_turn_border.set_active_player(border_player)
-
-	# P3-119: Update opponent feed local player on phase change (hotseat mode)
-	if _opponent_action_feed:
-		var network_manager_feed = get_node_or_null("/root/NetworkManager")
-		var is_multiplayer_feed = network_manager_feed and network_manager_feed.is_networked()
-		if not is_multiplayer_feed:
-			# In local games, update local player to current active player
-			# so opponent feed shows the previous player's last actions
-			_update_opponent_feed_local_player()
 
 	# T7-54: Add phase header to AI action log overlay when AI is active
 	if _ai_action_log_overlay:

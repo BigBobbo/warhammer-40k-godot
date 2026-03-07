@@ -113,12 +113,12 @@
 - **Validation**: Active player declares a charge. Non-active player is prompted to use Fire Overwatch. Active player cannot proceed (input blocked, "Waiting for opponent..." shown). Non-active player clicks "Yes" or "No" — active player is unblocked. If non-active player does nothing for 5 seconds, auto-declines and active player is unblocked. AI opponent responds immediately without waiting for timer. Works correctly in multiplayer with both clients staying in sync.
 
 ### MA-43: Remove "Opponents Actions" panel and ensure game log covers all its content
-- [ ] Identify the "Opponents Actions" panel — find the UI node/script responsible for it and catalogue everything it currently displays (opponent movement, shooting results, charge declarations, stratagem usage, etc.)
-- [ ] Compare the panel's content against what is already recorded in the game log — identify any information shown only in the "Opponents Actions" panel that is not in the game log
-- [ ] For any missing information, add it to the game log so nothing is lost when the panel is removed
-- [ ] Remove the "Opponents Actions" panel entirely — delete the UI node, scene, and script
-- [ ] Verify the right-hand panel is no longer obscured or overlapped by the removed panel
-- [ ] Clean up any signals, references, or update calls to the removed panel across the codebase
+- [x] Identify the "Opponents Actions" panel — find the UI node/script responsible for it and catalogue everything it currently displays (opponent movement, shooting results, charge declarations, stratagem usage, etc.)
+- [x] Compare the panel's content against what is already recorded in the game log — identify any information shown only in the "Opponents Actions" panel that is not in the game log
+- [x] For any missing information, add it to the game log so nothing is lost when the panel is removed
+- [x] Remove the "Opponents Actions" panel entirely — delete the UI node, scene, and script
+- [x] Verify the right-hand panel is no longer obscured or overlapped by the removed panel
+- [x] Clean up any signals, references, or update calls to the removed panel across the codebase
 - **Files**: The "Opponents Actions" panel script/scene (identify exact file), Main.gd or HUD script (where the panel is instantiated/shown), game log script (to add any missing log entries)
 - **Validation**: Play a game against the AI. The "Opponents Actions" panel no longer appears. All opponent actions (movement, shooting, charges, stratagems, etc.) are visible in the game log. The right-hand panel is fully visible and not obscured. No errors or warnings related to the removed panel in the logs.
 
