@@ -16,3 +16,4 @@ MA-5|success|2026-03-07T01:07:58Z|model-attr/MA-5/create-test-army-json-with-het
 MA-6|success|2026-03-07T01:19:10Z|model-attr/MA-6/update-get-unit-weapons-for-per-model-pr
 MA-7|success|2026-03-07T01:31:30Z|model-attr/MA-7/update-get-unit-melee-weapons-for-per-mo
 MA-8|failed|2026-03-07T07:33:20Z|model-attr/MA-8/update-weapon-filter-functions-for-per-m
+MA-9|success|2026-03-07T07:41:29Z|model-attr/MA-9/unify-overwatch-weapon-assembly-with-new

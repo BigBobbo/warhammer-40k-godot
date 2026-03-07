@@ -1198,8 +1198,16 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
 	var base_attacks = 0
 	var attacks_roll_log = []
+	# MA-10: Track per-model BS for each attack (supports stats_override.ballistic_skill)
+	var bs_per_attack = []
+	var has_bs_override = false
 
 	for model_id in model_ids:
+		var model = _get_model_by_id(actor_unit, model_id)
+		var model_bs = _get_model_effective_bs(model, actor_unit, weapon_profile)
+		if model_bs != weapon_profile.get("bs", 4):
+			has_bs_override = true
+
 		# Roll variable attacks for each model separately (per 10e rules)
 		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
 		var model_attacks = attacks_result.value
@@ -1210,29 +1218,61 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			model_attacks = effective_model_attacks
 
 		base_attacks += model_attacks
+		# MA-10: Record this model's BS for each of its attacks
+		for _j in range(model_attacks):
+			bs_per_attack.append(model_bs)
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
+
+	if has_bs_override:
+		print("RulesEngine: [MA-10] Per-model BS override active — models have different BS values")
 
 	if attacks_roll_log.size() > 0:
 		print("RulesEngine: Variable attacks rolled (%s) for %d models → %d total base attacks" % [attacks_raw, model_ids.size(), base_attacks])
 
 	# RAPID FIRE KEYWORD: Check if weapon is Rapid Fire and models are in half range
+	# MA-10: Track rapid fire attacks with per-model BS
 	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
-		models_in_half_range = count_models_in_half_range(actor_unit, target_unit, weapon_id, model_ids, board)
+		var weapon_range = weapon_profile.get("range", 24)
+		var half_range_inches = weapon_range / 2.0
+		for model_id in model_ids:
+			var rf_model = _get_model_by_id(actor_unit, model_id)
+			if rf_model.is_empty() or not rf_model.get("alive", true):
+				continue
+			var closest_distance_inches = INF
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+				var edge_distance_px = Measurement.model_to_model_distance_px(rf_model, target_model)
+				var edge_distance_inches = Measurement.px_to_inches(edge_distance_px)
+				closest_distance_inches = min(closest_distance_inches, edge_distance_inches)
+			if closest_distance_inches <= half_range_inches:
+				models_in_half_range += 1
+				var rf_model_bs = _get_model_effective_bs(rf_model, actor_unit, weapon_profile)
+				for _j in range(rapid_fire_value):
+					bs_per_attack.append(rf_model_bs)
 		rapid_fire_attacks = models_in_half_range * rapid_fire_value
 
 	# BLAST KEYWORD (PRP-013): Add bonus attacks based on target unit size
 	var blast_bonus_attacks = calculate_blast_bonus(weapon_id, target_unit, board)
 	var target_model_count = count_alive_models(target_unit)
+	# MA-10: Blast bonus attacks use weapon's default BS (not model-specific)
+	var default_bs = weapon_profile.get("bs", 4)
+	for _j in range(blast_bonus_attacks):
+		bs_per_attack.append(default_bs)
 
 	var total_attacks = base_attacks + rapid_fire_attacks + blast_bonus_attacks
 	if assignment.has("attacks_override") and assignment.attacks_override != null:
 		total_attacks = assignment.attacks_override
 		rapid_fire_attacks = 0  # Override disables the rapid fire bonus tracking
 		blast_bonus_attacks = 0  # Override disables the blast bonus tracking
+		# MA-10: Rebuild bs_per_attack with default BS when attacks are overridden
+		bs_per_attack.clear()
+		for _j in range(total_attacks):
+			bs_per_attack.append(default_bs)
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
@@ -1253,6 +1293,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# normally but cannot lower the threshold below the unmodified-6 check)
 	if is_overwatch:
 		bs = 7
+		# MA-10: Override all per-model BS to 7 for overwatch
+		for i in range(bs_per_attack.size()):
+			bs_per_attack[i] = 7
 		print("RulesEngine: [OVERWATCH] Forcing BS=7 — only unmodified 6s will hit")
 
 	var hits = 0
@@ -1390,7 +1433,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			var unmodified_roll = roll  # Store BEFORE any modifications
-			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, bs)
+			# MA-10: Use per-model BS for this attack's threshold
+			var attack_bs = bs_per_attack[i] if i < bs_per_attack.size() else bs
+			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, attack_bs)
 			var final_roll = modifier_result.modified_roll
 			modified_rolls.append(final_roll)
 
@@ -1409,7 +1454,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				pass  # Auto-miss regardless of modifiers
 			elif is_indirect_fire and unmodified_roll <= 3:
 				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
-			elif unmodified_roll >= critical_hit_threshold or final_roll >= bs:
+			elif unmodified_roll >= critical_hit_threshold or final_roll >= attack_bs:
 				hits += 1
 				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
 				if unmodified_roll >= critical_hit_threshold:
@@ -1821,8 +1866,16 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
 	var base_attacks = 0
 	var attacks_roll_log = []
+	# MA-10: Track per-model BS for each attack (supports stats_override.ballistic_skill)
+	var bs_per_attack = []
+	var has_bs_override = false
 
 	for model_id in model_ids:
+		var model = _get_model_by_id(actor_unit, model_id)
+		var model_bs = _get_model_effective_bs(model, actor_unit, weapon_profile)
+		if model_bs != weapon_profile.get("bs", 4):
+			has_bs_override = true
+
 		# Roll variable attacks for each model separately (per 10e rules)
 		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
 		var model_attacks = attacks_result.value
@@ -1833,29 +1886,61 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			model_attacks = effective_model_attacks
 
 		base_attacks += model_attacks
+		# MA-10: Record this model's BS for each of its attacks
+		for _j in range(model_attacks):
+			bs_per_attack.append(model_bs)
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
+
+	if has_bs_override:
+		print("RulesEngine: [MA-10][auto-resolve] Per-model BS override active — models have different BS values")
 
 	if attacks_roll_log.size() > 0:
 		print("RulesEngine: [auto-resolve] Variable attacks rolled (%s) for %d models → %d total base attacks" % [attacks_raw, model_ids.size(), base_attacks])
 
 	# RAPID FIRE KEYWORD: Check if weapon is Rapid Fire and models are in half range
+	# MA-10: Track rapid fire attacks with per-model BS
 	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
-		models_in_half_range = count_models_in_half_range(actor_unit, target_unit, weapon_id, model_ids, board)
+		var weapon_range = weapon_profile.get("range", 24)
+		var half_range_inches = weapon_range / 2.0
+		for model_id in model_ids:
+			var rf_model = _get_model_by_id(actor_unit, model_id)
+			if rf_model.is_empty() or not rf_model.get("alive", true):
+				continue
+			var closest_distance_inches = INF
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+				var edge_distance_px = Measurement.model_to_model_distance_px(rf_model, target_model)
+				var edge_distance_inches = Measurement.px_to_inches(edge_distance_px)
+				closest_distance_inches = min(closest_distance_inches, edge_distance_inches)
+			if closest_distance_inches <= half_range_inches:
+				models_in_half_range += 1
+				var rf_model_bs = _get_model_effective_bs(rf_model, actor_unit, weapon_profile)
+				for _j in range(rapid_fire_value):
+					bs_per_attack.append(rf_model_bs)
 		rapid_fire_attacks = models_in_half_range * rapid_fire_value
 
 	# BLAST KEYWORD (PRP-013): Add bonus attacks based on target unit size
 	var blast_bonus_attacks = calculate_blast_bonus(weapon_id, target_unit, board)
 	var target_model_count = count_alive_models(target_unit)
+	# MA-10: Blast bonus attacks use weapon's default BS (not model-specific)
+	var default_bs = weapon_profile.get("bs", 4)
+	for _j in range(blast_bonus_attacks):
+		bs_per_attack.append(default_bs)
 
 	var total_attacks = base_attacks + rapid_fire_attacks + blast_bonus_attacks
 	if assignment.has("attacks_override") and assignment.attacks_override != null:
 		total_attacks = assignment.attacks_override
 		rapid_fire_attacks = 0  # Override disables the rapid fire bonus tracking
 		blast_bonus_attacks = 0  # Override disables the blast bonus tracking
+		# MA-10: Rebuild bs_per_attack with default BS when attacks are overridden
+		bs_per_attack.clear()
+		for _j in range(total_attacks):
+			bs_per_attack.append(default_bs)
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
@@ -1874,6 +1959,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# auto-hit on natural 6 rule applies)
 	if is_overwatch:
 		bs = 7
+		# MA-10: Override all per-model BS to 7 for overwatch
+		for i in range(bs_per_attack.size()):
+			bs_per_attack[i] = 7
 		print("RulesEngine: [OVERWATCH][auto-resolve] Forcing BS=7 — only unmodified 6s will hit")
 
 	var hits = 0
@@ -2008,8 +2096,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			var unmodified_roll = roll  # Store BEFORE any modifications
+			# MA-10: Use per-model BS for this attack's threshold
+			var attack_bs = bs_per_attack[i] if i < bs_per_attack.size() else bs
 			# Apply modifiers to this roll
-			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, bs)
+			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, attack_bs)
 			var final_roll = modifier_result.modified_roll
 			modified_rolls.append(final_roll)
 
@@ -2028,7 +2118,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				pass  # Auto-miss regardless of modifiers
 			elif is_indirect_fire and unmodified_roll <= 3:
 				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
-			elif unmodified_roll >= critical_hit_threshold or final_roll >= bs:
+			elif unmodified_roll >= critical_hit_threshold or final_roll >= attack_bs:
 				hits += 1
 				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
 				if unmodified_roll >= critical_hit_threshold:
@@ -3363,6 +3453,23 @@ static func _get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
 		if model.get("id", "") == model_id:
 			return model
 	return {}
+
+# MA-10: Get effective BS for a model, checking stats_override.ballistic_skill
+# Returns the model's overridden BS if available, otherwise falls back to weapon profile BS.
+static func _get_model_effective_bs(model: Dictionary, unit: Dictionary, weapon_profile: Dictionary) -> int:
+	var default_bs = weapon_profile.get("bs", 4)
+	if model.is_empty():
+		return default_bs
+	var model_type = model.get("model_type", "")
+	if model_type == "":
+		return default_bs
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	if not model_profiles.has(model_type):
+		return default_bs
+	var override_bs = model_profiles[model_type].get("stats_override", {}).get("ballistic_skill", -1)
+	if override_bs > 0:
+		return override_bs
+	return default_bs
 
 # Shared helper: return weapon IDs for a specific model, respecting model_profiles if present.
 # weapon_type_filter: "Ranged" or "Melee" (case-insensitive match against weapon type)
