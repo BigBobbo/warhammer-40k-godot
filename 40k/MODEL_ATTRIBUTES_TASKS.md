@@ -159,12 +159,12 @@
 - **Validation**: Load army with valid profiles (no errors), load army with invalid `model_type` reference (error logged), load army with missing weapon name in profile (warning logged), load old army without profiles (no errors)
 
 ### MA-4: StateSerializer validation for model_type
-- [ ] In `_validate_unit_data()` model loop (~lines 687-762), add validation for `model_type` field:
+- [x] In `_validate_unit_data()` model loop (~lines 687-762), add validation for `model_type` field:
   - If `model_profiles` exists on unit meta, warn if model has no `model_type`
   - Warn if `model_type` references nonexistent profile key
   - Auto-repair: if `model_profiles` has exactly 1 key and `model_type` is missing, set it to that key
-- [ ] Ensure `model_type` (string) serializes/deserializes without special handling
-- [ ] Add save migration: old saves without `model_type` on models load with `model_type = null` (no crash)
+- [x] Ensure `model_type` (string) serializes/deserializes without special handling
+- [x] Add save migration: old saves without `model_type` on models load with `model_type = null` (no crash)
 - **Files**: StateSerializer.gd (lines ~537-846)
 - **Validation**: Save game with model_type models, reload, verify model_type preserved. Load old save without model_type, verify no crash and null/absent model_type. Intentionally corrupt model_type to invalid key, verify warning logged and graceful handling.
 
