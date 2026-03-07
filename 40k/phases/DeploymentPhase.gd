@@ -504,6 +504,42 @@ func _process_deploy_unit(action: Dictionary) -> Dictionary:
 	var attached_char_ids = unit_data.get("attachment_data", {}).get("attached_characters", [])
 	if attached_char_ids.size() > 0:
 		log_phase_message("P1-66: Auto-deploying %d attached character(s) with bodyguard %s" % [attached_char_ids.size(), unit_id])
+		# Build list of all occupied positions (bodyguard models + already deployed models)
+		var occupied_positions: Array = []  # Array of {position: Vector2, radius_px: float}
+		for pos in model_positions:
+			if pos != null:
+				var p: Vector2
+				if pos is Vector2:
+					p = pos
+				else:
+					p = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+				var bg_base_mm_for_occ = unit_data.get("models", [{}])[0].get("base_mm", 32)
+				occupied_positions.append({
+					"position": p,
+					"radius_px": Measurement.base_radius_px(bg_base_mm_for_occ)
+				})
+		# Add all other deployed models from snapshot
+		var snapshot_units = game_state_snapshot.get("units", {})
+		for other_id in snapshot_units:
+			if other_id == unit_id:
+				continue
+			var other_unit = snapshot_units[other_id]
+			if other_unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+				continue
+			for other_model in other_unit.get("models", []):
+				if not other_model.get("alive", true):
+					continue
+				var other_pos = other_model.get("position", null)
+				if other_pos != null:
+					var op: Vector2
+					if other_pos is Vector2:
+						op = other_pos
+					else:
+						op = Vector2(float(other_pos.get("x", 0)), float(other_pos.get("y", 0)))
+					occupied_positions.append({
+						"position": op,
+						"radius_px": Measurement.base_radius_px(other_model.get("base_mm", 32))
+					})
 		# Use the first bodyguard model position as reference
 		var ref_pos = null
 		if model_positions.size() > 0 and model_positions[0] != null:
@@ -520,14 +556,22 @@ func _process_deploy_unit(action: Dictionary) -> Dictionary:
 			for ci in range(char_models.size()):
 				if ref_pos != null:
 					var char_base_mm = char_models[ci].get("base_mm", 40)
-					var bg_base_mm = unit_data.get("models", [{}])[0].get("base_mm", 32)
-					var offset_px = Measurement.base_radius_px(char_base_mm) + Measurement.base_radius_px(bg_base_mm) + 2
-					var ref_x = ref_pos.x if ref_pos is Vector2 else ref_pos.get("x", 0)
-					var ref_y = ref_pos.y if ref_pos is Vector2 else ref_pos.get("y", 0)
+					var char_radius_px = Measurement.base_radius_px(char_base_mm)
+					var ref_x = ref_pos.x if ref_pos is Vector2 else float(ref_pos.get("x", 0))
+					var ref_y = ref_pos.y if ref_pos is Vector2 else float(ref_pos.get("y", 0))
+					var ref_vec = Vector2(ref_x, ref_y)
+					var char_pos = _find_non_overlapping_adjacent_position(
+						ref_vec, char_radius_px, occupied_positions
+					)
 					changes.append({
 						"op": "set",
 						"path": "units.%s.models.%d.position" % [char_id, ci],
-						"value": {"x": ref_x + offset_px, "y": ref_y}
+						"value": {"x": char_pos.x, "y": char_pos.y}
+					})
+					# Add this character to occupied positions for subsequent characters
+					occupied_positions.append({
+						"position": char_pos,
+						"radius_px": char_radius_px
 					})
 			changes.append({
 				"op": "set",
@@ -1259,6 +1303,31 @@ func _set_local_value(path: String, value) -> void:
 	else:
 		if current is Dictionary:
 			current[final_key] = value
+
+func _find_non_overlapping_adjacent_position(ref_pos: Vector2, char_radius_px: float, occupied_positions: Array) -> Vector2:
+	"""Find a position adjacent to ref_pos that doesn't overlap with any occupied positions.
+	Uses spiral search around the reference position."""
+	var min_gap_px = 4.0  # Minimum gap between bases
+	for ring in range(1, 15):
+		var ring_radius = (char_radius_px + 30.0) * ring
+		var points_in_ring = maxi(8, ring * 8)
+		for p_idx in range(points_in_ring):
+			var angle = (2.0 * PI * p_idx) / points_in_ring
+			var candidate = Vector2(
+				ref_pos.x + cos(angle) * ring_radius,
+				ref_pos.y + sin(angle) * ring_radius
+			)
+			var overlaps = false
+			for occ in occupied_positions:
+				var min_dist = char_radius_px + occ.radius_px + min_gap_px
+				if candidate.distance_to(occ.position) < min_dist:
+					overlaps = true
+					break
+			if not overlaps:
+				return candidate
+	# Fallback
+	log_phase_message("P1-66: WARNING — could not find non-overlapping position for character")
+	return Vector2(ref_pos.x + char_radius_px * 3.0, ref_pos.y + char_radius_px * 3.0)
 
 # Geometry and validation helpers
 func _base_radius_px(base_mm: int) -> float:
