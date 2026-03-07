@@ -5,6 +5,7 @@ extends SceneTree
 # via GameState.get_unit(unit_id).meta.model_profiles
 # Usage: godot --headless --path . -s tests/test_model_profiles.gd
 
+
 func _init():
 	print("\n=== Test Model Profiles Schema (MA-1) ===\n")
 	var passed = 0
@@ -281,6 +282,64 @@ func _init():
 		passed += 1
 	else:
 		print("  FAIL: Expected 1x boss_nob, 19x boy, got %s" % str(boyz_type_counts))
+		failed += 1
+
+	# --- Test 17: MA-12 Boss Nob has save override in stats_override ---
+	print("\n--- Test 17: MA-12 Boss Nob has save override ---")
+	var boyz_f_profiles_2 = boyz_f.get("meta", {}).get("model_profiles", {})
+	var nob_save = boyz_f_profiles_2.get("boss_nob", {}).get("stats_override", {}).get("save", null)
+	if nob_save != null and int(nob_save) == 4:
+		print("  PASS: boss_nob has save=4 in stats_override")
+		passed += 1
+	else:
+		print("  FAIL: Expected boss_nob save=4, got %s" % str(nob_save))
+		failed += 1
+
+	# --- Test 18: MA-12 stats_override save lookup returns correct values ---
+	print("\n--- Test 18: MA-12 stats_override save lookup logic ---")
+	# Inline the _get_model_effective_save logic to verify it works on the data
+	var unit_save = 5  # Boyz unit base save
+	var nob_type = "boss_nob"
+	var boy_type = "boy"
+	var nob_override_save = boyz_f_profiles_2.get(nob_type, {}).get("stats_override", {}).get("save", -1)
+	var boy_override_save = boyz_f_profiles_2.get(boy_type, {}).get("stats_override", {}).get("save", -1)
+	var nob_eff_save = nob_override_save if nob_override_save > 0 else unit_save
+	var boy_eff_save = boy_override_save if boy_override_save > 0 else unit_save
+	if nob_eff_save == 4 and boy_eff_save == 5:
+		print("  PASS: boss_nob effective save=4+, boy effective save=5+ (unit default)")
+		passed += 1
+	else:
+		print("  FAIL: Expected nob=4, boy=5, got nob=%d boy=%d" % [nob_eff_save, boy_eff_save])
+		failed += 1
+
+	# --- Test 19: MA-12 stats_override invuln lookup returns defaults when absent ---
+	print("\n--- Test 19: MA-12 stats_override invuln lookup defaults ---")
+	var nob_override_invuln = boyz_f_profiles_2.get(nob_type, {}).get("stats_override", {}).get("invuln", -1)
+	var boy_override_invuln = boyz_f_profiles_2.get(boy_type, {}).get("stats_override", {}).get("invuln", -1)
+	if nob_override_invuln <= 0 and boy_override_invuln <= 0:
+		print("  PASS: No invuln overrides in stats_override for either model type")
+		passed += 1
+	else:
+		print("  FAIL: Expected no invuln overrides, got nob=%s boy=%s" % [str(nob_override_invuln), str(boy_override_invuln)])
+		failed += 1
+
+	# --- Test 20: MA-12 Model types in Boyz have different effective saves ---
+	print("\n--- Test 20: MA-12 Boyz models have differentiated saves ---")
+	var boyz_f_models_2 = boyz_f.get("models", [])
+	var boyz_f_unit_save = boyz_f.get("meta", {}).get("stats", {}).get("save", 7)
+	var save_values_by_type = {}
+	for m in boyz_f_models_2:
+		var mt = m.get("model_type", "")
+		if mt == "":
+			continue
+		var override = boyz_f_profiles_2.get(mt, {}).get("stats_override", {}).get("save", -1)
+		var eff = override if override > 0 else boyz_f_unit_save
+		save_values_by_type[mt] = eff
+	if save_values_by_type.get("boss_nob", -1) == 4 and save_values_by_type.get("boy", -1) == 5:
+		print("  PASS: boss_nob effective save=4+, boy effective save=5+")
+		passed += 1
+	else:
+		print("  FAIL: Expected boss_nob=4, boy=5, got %s" % str(save_values_by_type))
 		failed += 1
 
 	# --- Summary ---

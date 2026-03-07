@@ -1053,14 +1053,18 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		if not weapon_ignores_cover:
 			has_cover = _check_model_has_cover(target_model, shooter_unit_id, board) or effect_cover
 
-		# Check invuln (model native or effect-granted)
-		var model_invuln = target_model.get("invuln", 0)
+		# MA-12: Per-model save from stats_override (overwatch)
+		var ow_model_base_save = _get_model_effective_save(target_model, target_unit, base_save)
+
+		# Check invuln (model native, stats_override, or effect-granted)
+		# MA-12: Per-model invuln from stats_override (overwatch)
+		var model_invuln = _get_model_effective_invuln(target_model, target_unit, target_model.get("invuln", 0))
 		var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
 		if effect_invuln > 0:
 			if model_invuln == 0 or effect_invuln < model_invuln:
 				model_invuln = effect_invuln
 
-		var save_result = _calculate_save_needed(base_save, ap, has_cover, model_invuln)
+		var save_result = _calculate_save_needed(ow_model_base_save, ap, has_cover, model_invuln)
 
 		# T4-18: Read save roll modifier from target unit flags (capped at +1/-1 per 10e)
 		var ow_save_modifier = target_unit.get("flags", {}).get("save_modifier", 0)
@@ -2581,15 +2585,21 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			else:
 				has_cover = _check_model_has_cover(target_model, actor_unit_id, board) or auto_stratagem_cover
 
+		# MA-12: Per-model save from stats_override (auto-resolve)
+		var auto_model_base_save = _get_model_effective_save(target_model, target_unit, base_save)
+		if auto_model_base_save != base_save:
+			print("RulesEngine: MA-12 per-model save override (auto-resolve) — save %d+ (unit default %d+)" % [auto_model_base_save, base_save])
+
 		# Check effect-granted invulnerable save (Go to Ground / abilities)
-		var auto_model_invuln = target_model.get("invuln", 0)
+		# MA-12: Per-model invuln from stats_override (auto-resolve)
+		var auto_model_invuln = _get_model_effective_invuln(target_model, target_unit, target_model.get("invuln", 0))
 		var auto_effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
 		if auto_effect_invuln > 0:
 			if auto_model_invuln == 0 or auto_effect_invuln < auto_model_invuln:
 				auto_model_invuln = auto_effect_invuln
 
 		# Calculate save needed
-		var save_result = _calculate_save_needed(base_save, ap, has_cover, auto_model_invuln)
+		var save_result = _calculate_save_needed(auto_model_base_save, ap, has_cover, auto_model_invuln)
 
 		# T4-18: Read save roll modifier from target unit flags (capped at +1/-1 per 10e)
 		var save_modifier = target_unit.get("flags", {}).get("save_modifier", 0)
@@ -3487,6 +3497,38 @@ static func _get_model_effective_ws(model: Dictionary, unit: Dictionary, weapon_
 	if override_ws > 0:
 		return override_ws
 	return default_ws
+
+# MA-12: Get effective save for a model, checking stats_override.save
+# Returns the model's overridden save if available, otherwise falls back to unit base save.
+static func _get_model_effective_save(model: Dictionary, unit: Dictionary, default_save: int) -> int:
+	if model.is_empty():
+		return default_save
+	var model_type = model.get("model_type", "")
+	if model_type == "":
+		return default_save
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	if not model_profiles.has(model_type):
+		return default_save
+	var override_save = model_profiles[model_type].get("stats_override", {}).get("save", -1)
+	if override_save > 0:
+		return override_save
+	return default_save
+
+# MA-12: Get effective invuln for a model, checking stats_override.invuln
+# Returns the model's overridden invuln if available, otherwise falls back to model-level invuln.
+static func _get_model_effective_invuln(model: Dictionary, unit: Dictionary, default_invuln: int) -> int:
+	if model.is_empty():
+		return default_invuln
+	var model_type = model.get("model_type", "")
+	if model_type == "":
+		return default_invuln
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	if not model_profiles.has(model_type):
+		return default_invuln
+	var override_invuln = model_profiles[model_type].get("stats_override", {}).get("invuln", -1)
+	if override_invuln > 0:
+		return override_invuln
+	return default_invuln
 
 # Shared helper: return weapon IDs for a specific model, respecting model_profiles if present.
 # weapon_type_filter: "Ranged" or "Melee" (case-insensitive match against weapon type)
@@ -7091,9 +7133,14 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# Get invulnerable save from first alive target model
 		var target_models = target_unit.get("models", [])
 		var invuln = 0
+		# MA-12: Per-model save from stats_override (melee auto-resolve)
+		var melee_auto_model_save = base_save
 		for model in target_models:
 			if model.get("alive", true):
-				invuln = model.get("invuln", 0)
+				invuln = _get_model_effective_invuln(model, target_unit, model.get("invuln", 0))
+				melee_auto_model_save = _get_model_effective_save(model, target_unit, base_save)
+				if melee_auto_model_save != base_save:
+					print("RulesEngine: MA-12 per-model save override (melee auto-resolve) — save %d+ (unit default %d+)" % [melee_auto_model_save, base_save])
 				break
 		# Also check unit-level invuln in meta stats
 		if invuln == 0:
@@ -7105,7 +7152,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 				invuln = melee_effect_invuln
 				print("RulesEngine: Effect-granted %d+ invulnerable save applied in melee" % melee_effect_invuln)
 
-		var save_info = _calculate_save_needed(base_save, ap, false, invuln)  # No cover in melee
+		var save_info = _calculate_save_needed(melee_auto_model_save, ap, false, invuln)  # No cover in melee
 		save_threshold = save_info.inv if save_info.use_invuln else save_info.armour
 
 		save_rolls = rng.roll_d6(wounds_needing_saves)
@@ -7689,15 +7736,24 @@ static func prepare_save_resolution(
 			else:
 				has_cover = _check_model_has_cover(model, shooter_unit_id, board) or effect_cover
 
-		# Invulnerable save: use best of model's native invuln and effect-granted invuln
-		var model_invuln = model.get("invuln", 0)
+		# MA-12: Per-model save from stats_override (e.g., Mega Armour save 2+ vs regular save 5+)
+		var model_base_save = _get_model_effective_save(model, target_unit, base_save)
+		if model_base_save != base_save:
+			print("RulesEngine: MA-12 per-model save override — model %s save %d+ (unit default %d+)" % [model_info.model_id, model_base_save, base_save])
+
+		# Invulnerable save: use best of model's native invuln, stats_override invuln, and effect-granted invuln
+		# MA-12: Check stats_override.invuln for per-model invuln override
+		var model_invuln = _get_model_effective_invuln(model, target_unit, model.get("invuln", 0))
 		var invuln_source = "Native" if model_invuln > 0 else ""
+		if model_invuln != model.get("invuln", 0) and model_invuln > 0:
+			invuln_source = "Model Profile"
+			print("RulesEngine: MA-12 per-model invuln override — model %s invuln %d+ (model default %d+)" % [model_info.model_id, model_invuln, model.get("invuln", 0)])
 		if effect_invuln > 0:
 			if model_invuln == 0 or effect_invuln < model_invuln:
 				model_invuln = effect_invuln
 				invuln_source = effect_invuln_source if effect_invuln_source != "" else "Ability"
 
-		var save_result = _calculate_save_needed(base_save, ap, has_cover, model_invuln)
+		var save_result = _calculate_save_needed(model_base_save, ap, has_cover, model_invuln)
 
 		model_save_profiles.append({
 			"model_id": model_info.model_id,
@@ -7835,15 +7891,24 @@ static func prepare_melee_save_resolution(
 	var model_save_profiles = []
 	for model_info in allocation_info.models:
 		var model = model_info.model
-		# Invulnerable save: use best of model's native invuln and effect-granted invuln
-		var model_invuln = model.get("invuln", 0)
+		# MA-12: Per-model save from stats_override
+		var model_base_save = _get_model_effective_save(model, target_unit, base_save)
+		if model_base_save != base_save:
+			print("RulesEngine: MA-12 per-model save override (melee) — model %s save %d+ (unit default %d+)" % [model_info.model_id, model_base_save, base_save])
+
+		# Invulnerable save: use best of model's native invuln, stats_override invuln, and effect-granted invuln
+		# MA-12: Check stats_override.invuln for per-model invuln override
+		var model_invuln = _get_model_effective_invuln(model, target_unit, model.get("invuln", 0))
 		var invuln_source = "Native" if model_invuln > 0 else ""
+		if model_invuln != model.get("invuln", 0) and model_invuln > 0:
+			invuln_source = "Model Profile"
+			print("RulesEngine: MA-12 per-model invuln override (melee) — model %s invuln %d+ (model default %d+)" % [model_info.model_id, model_invuln, model.get("invuln", 0)])
 		if effect_invuln > 0:
 			if model_invuln == 0 or effect_invuln < model_invuln:
 				model_invuln = effect_invuln
 				invuln_source = effect_invuln_source if effect_invuln_source != "" else "Ability"
 
-		var save_result = _calculate_save_needed(base_save, ap, false, model_invuln)  # No cover in melee
+		var save_result = _calculate_save_needed(model_base_save, ap, false, model_invuln)  # No cover in melee
 
 		model_save_profiles.append({
 			"model_id": model_info.model_id,
