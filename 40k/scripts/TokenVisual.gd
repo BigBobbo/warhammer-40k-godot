@@ -69,6 +69,9 @@ func _process(delta: float) -> void:
 	elif _has_marked_for_death_flag():
 		# Marked for Death pulsing indicator
 		needs_redraw = true
+	elif _has_performed_action_flag():
+		# Secondary action pulsing indicator
+		needs_redraw = true
 
 	if needs_redraw:
 		_pulse_time += delta
@@ -129,6 +132,7 @@ func _draw() -> void:
 			_draw_fought_overlay(classic_radius, base_shape.get_type(), classic_rot)
 			_draw_engaged_overlay(classic_radius)
 			_draw_marked_for_death_indicator(classic_radius)
+			_draw_action_overlay(classic_radius)
 
 	# Draw model number with shadow for readability (all styles)
 	_draw_model_number()
@@ -193,6 +197,9 @@ func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 
 	# --- Layer 7b: Marked for Death target indicator ---
 	_draw_marked_for_death_indicator(radius)
+
+	# --- Layer 7c: Secondary action indicator ---
+	_draw_action_overlay(radius)
 
 	# --- Layer 8: Selection/hover pulsing ring ---
 	if is_selected or is_hovered:
@@ -301,6 +308,7 @@ func _draw_letter_mode() -> void:
 	_draw_fought_overlay(radius, shape_type, rot)
 	_draw_engaged_overlay(radius)
 	_draw_status_tick(radius)
+	_draw_action_overlay(radius)
 
 	# --- Layer 6: Selection/hover pulsing ring ---
 	if is_selected or is_hovered:
@@ -689,6 +697,24 @@ func _has_marked_for_death_flag() -> bool:
 		return false
 	var unit = GameState.get_unit(unit_id)
 	return unit.get("flags", {}).get("marked_for_death", "") != ""
+
+func _has_performed_action_flag() -> bool:
+	var unit_id = get_meta("unit_id") if has_meta("unit_id") else ""
+	if unit_id == "":
+		return false
+	var unit = GameState.get_unit(unit_id)
+	return unit.get("flags", {}).get("performed_action", "") != ""
+
+func _draw_action_overlay(radius: float) -> void:
+	if not has_meta("unit_id"):
+		return
+	var unit_id = get_meta("unit_id")
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+	if unit.get("flags", {}).get("performed_action", "") == "":
+		return
+	TokenDrawUtils.draw_action_indicator(self, Vector2.ZERO, radius, _pulse_time)
 
 # --- Original overlay rendering (style_a, style_b, classic) ---
 

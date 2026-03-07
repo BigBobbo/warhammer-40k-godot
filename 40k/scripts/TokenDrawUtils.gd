@@ -173,6 +173,8 @@ static func draw_status_tick(canvas: CanvasItem, center: Vector2, radius: float,
 		tick_color = Color(0.85, 0.2, 0.2, 0.9)  # Red - fought
 	elif flags.get("has_charged", false) or flags.get("charged_this_turn", false):
 		tick_color = Color(0.9, 0.5, 0.1, 0.9)  # Orange - charged
+	elif flags.get("performed_action", "") != "":
+		tick_color = Color(0.7, 0.3, 0.9, 0.9)  # Purple - performed secondary action
 	elif flags.get("has_shot", false):
 		tick_color = Color(0.2, 0.6, 0.9, 0.9)  # Blue - shot
 	elif flags.get("moved", false) or flags.get("advanced", false) or flags.get("fell_back", false):
@@ -728,3 +730,37 @@ static func draw_monster_pixel(canvas: CanvasItem, center: Vector2, radius: floa
 	# Claw pincer
 	_px(canvas, c, grid, 6 - claw_offset, -5, claw_color)
 	_px(canvas, c, grid, 5 - claw_offset, -5, claw_color)
+
+
+static func draw_action_indicator(canvas: CanvasItem, center: Vector2, radius: float, pulse_time: float) -> void:
+	# Pulsing purple diamond badge in the top-right quadrant for units performing secondary actions.
+	# The diamond pulses in opacity and scale to draw attention.
+	var pulse = (sin(pulse_time * 3.0) + 1.0) / 2.0  # 0..1 oscillation
+	var badge_size = max(5.0, radius * 0.3) * (0.85 + pulse * 0.15)
+	var badge_center = center + Vector2(radius * 0.4, -radius * 0.4)
+
+	# Badge background circle (dark)
+	var bg_alpha = 0.6 + pulse * 0.2
+	canvas.draw_circle(badge_center, badge_size + 1.5, Color(0.0, 0.0, 0.0, bg_alpha))
+	# Purple circle background
+	var purple = Color(0.55, 0.2, 0.8, 0.8 + pulse * 0.2)
+	canvas.draw_circle(badge_center, badge_size, purple)
+
+	# Draw a lightning bolt / action symbol (stylized "A" / exclamation)
+	var icon_color = Color(1.0, 1.0, 1.0, 0.9 + pulse * 0.1)
+	var stroke = max(1.5, badge_size * 0.22)
+	var s = badge_size * 0.5
+
+	# Lightning bolt shape: zig-zag from top to bottom
+	var bolt_top = badge_center + Vector2(s * 0.1, -s * 0.9)
+	var bolt_mid_left = badge_center + Vector2(-s * 0.3, -s * 0.05)
+	var bolt_mid_right = badge_center + Vector2(s * 0.15, -s * 0.05)
+	var bolt_bottom = badge_center + Vector2(-s * 0.1, s * 0.9)
+	canvas.draw_line(bolt_top, bolt_mid_left, icon_color, stroke)
+	canvas.draw_line(bolt_mid_left, bolt_mid_right, icon_color, stroke)
+	canvas.draw_line(bolt_mid_right, bolt_bottom, icon_color, stroke)
+
+	# Pulsing outer ring for extra visibility
+	var ring_alpha = 0.3 + pulse * 0.4
+	var ring_color = Color(0.7, 0.3, 0.9, ring_alpha)
+	canvas.draw_arc(badge_center, badge_size + 2.5, 0, TAU, 24, ring_color, 1.5)
