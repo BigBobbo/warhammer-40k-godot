@@ -127,7 +127,7 @@
 ## Phase 1: Data Schema & Army Loading
 
 ### MA-1: Add `model_profiles` to unit meta schema
-- [ ] Define `model_profiles` dictionary structure in unit `meta`:
+- [x] Define `model_profiles` dictionary structure in unit `meta`:
   ```json
   "model_profiles": {
     "loota_deffgun": {
@@ -138,8 +138,8 @@
     }
   }
   ```
-- [ ] Each profile has: `label` (display name), `stats_override` (dict of stat deltas over unit base stats), `weapons` (array of weapon names referencing `meta.weapons`), `transport_slots` (int, default 1)
-- [ ] Units without `model_profiles` continue to work unchanged (all models share all weapons)
+- [x] Each profile has: `label` (display name), `stats_override` (dict of stat deltas over unit base stats), `weapons` (array of weapon names referencing `meta.weapons`), `transport_slots` (int, default 1)
+- [x] Units without `model_profiles` continue to work unchanged (all models share all weapons)
 - **Files**: Army JSON files (orks.json as first example)
 - **Validation**: Load army with `model_profiles`, verify `meta.model_profiles` dict is accessible via `GameState.get_unit(unit_id).meta.model_profiles`
 

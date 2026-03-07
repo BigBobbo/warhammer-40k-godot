@@ -1426,6 +1426,121 @@
         {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
         {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
       ]
+    },
+    "U_LOOTAS_A": {
+      "id": "U_LOOTAS_A",
+      "squad_id": "U_LOOTAS_A",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Lootas",
+        "keywords": [
+          "ORKS",
+          "LOOTAS",
+          "INFANTRY"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 5,
+          "save": 5,
+          "wounds": 1,
+          "leadership": 7,
+          "objective_control": 1
+        },
+        "points": 100,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "2x Spanner",
+          "2x Close combat weapon",
+          "2x Kustom mega-blasta",
+          "8x Loota",
+          "8x Close combat weapon",
+          "8x Deffgun"
+        ],
+        "weapons": [
+          {
+            "name": "Deffgun",
+            "type": "Ranged",
+            "range": "48",
+            "attacks": "2",
+            "strength": "8",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "6",
+            "special_rules": "heavy, rapid fire 1"
+          },
+          {
+            "name": "Kustom mega-blasta",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "3",
+            "strength": "9",
+            "ap": "-2",
+            "damage": "D6",
+            "ballistic_skill": "5",
+            "special_rules": "hazardous"
+          },
+          {
+            "name": "Close combat weapon",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "weapon_skill": "3"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "If your Army Faction is ORKS, once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase, the Waaagh! is active for your army and:\n- Units from your army with this ability are eligible to declare a charge in a turn in which they Advanced.\n- Add 1 to the Strength and Attacks characteristics of melee weapons equipped by models from your army with this ability.\n- Models from your army with this ability have a 5+ invulnerable save."
+          },
+          {
+            "name": "Dat's Our Loot!",
+            "type": "Datasheet",
+            "description": "Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1. If that attack targets a unit that is within range of an objective marker, you can re-roll the Hit roll instead."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "2 Spanners",
+            "line": 1
+          },
+          {
+            "description": "8 Lootas",
+            "line": 2
+          }
+        ],
+        "model_profiles": {
+          "loota_deffgun": {
+            "label": "Loota (Deffgun)",
+            "stats_override": {},
+            "weapons": ["Deffgun", "Close combat weapon"],
+            "transport_slots": 1
+          },
+          "spanner_kmb": {
+            "label": "Spanner (Kustom Mega-blasta)",
+            "stats_override": {},
+            "weapons": ["Kustom mega-blasta", "Close combat weapon"],
+            "transport_slots": 1
+          }
+        }
+      },
+      "models": [
+        {"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+      ]
     }
   }
 }

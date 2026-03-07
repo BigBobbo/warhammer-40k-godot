@@ -210,6 +210,10 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
 			_apply_wargear_stat_bonuses(unit_id, unit)
 
+			# MA-1: Log model_profiles if present
+			if unit.has("meta") and unit.meta.has("model_profiles"):
+				print("ArmyListManager: Unit %s (%s) loaded with model_profiles: %s" % [unit_id, unit.meta.get("name", "?"), str(unit.meta.model_profiles.keys())])
+
 			print("Processed unit: ", unit_id, " for player ", player)
 
 	# Validate army construction points and detachment
@@ -483,6 +487,10 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 
 		# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
 		_apply_wargear_stat_bonuses(unit_id, unit)
+
+		# MA-1: Log model_profiles if present
+		if unit.has("meta") and unit.meta.has("model_profiles"):
+			print("ArmyListManager: Unit %s (%s) loaded with model_profiles: %s" % [unit_id, unit.meta.get("name", "?"), str(unit.meta.model_profiles.keys())])
 
 		print("Processed unit: ", unit_id, " for player ", player)
 
@@ -765,6 +773,42 @@ func validate_army_structure(army_data: Dictionary) -> Dictionary:
 				if not unit.meta.has("name"):
 					result.valid = false
 					result.errors.append("Unit " + unit_id + " meta missing 'name' field")
+
+				# MA-1: Validate model_profiles if present
+				if unit.meta.has("model_profiles"):
+					var profiles = unit.meta.model_profiles
+					if not profiles is Dictionary:
+						result.valid = false
+						result.errors.append("Unit " + unit_id + " model_profiles is not a dictionary")
+					else:
+						var weapon_names = []
+						if unit.meta.has("weapons") and unit.meta.weapons is Array:
+							for w in unit.meta.weapons:
+								if w is Dictionary and w.has("name"):
+									weapon_names.append(w.name)
+						for profile_key in profiles:
+							var profile = profiles[profile_key]
+							if not profile is Dictionary:
+								result.valid = false
+								result.errors.append("Unit %s model_profiles.%s is not a dictionary" % [unit_id, profile_key])
+								continue
+							# Validate required fields
+							if not profile.has("label") or not profile.label is String:
+								result.errors.append("Unit %s model_profiles.%s missing or invalid 'label'" % [unit_id, profile_key])
+							if not profile.has("weapons") or not profile.weapons is Array:
+								result.errors.append("Unit %s model_profiles.%s missing or invalid 'weapons'" % [unit_id, profile_key])
+							else:
+								# Validate weapon references
+								for weapon_ref in profile.weapons:
+									if weapon_ref not in weapon_names:
+										result.errors.append("Unit %s model_profiles.%s references unknown weapon '%s'" % [unit_id, profile_key, weapon_ref])
+							# Ensure stats_override defaults to empty dict
+							if not profile.has("stats_override"):
+								profile["stats_override"] = {}
+							# Ensure transport_slots defaults to 1
+							if not profile.has("transport_slots"):
+								profile["transport_slots"] = 1
+						print("ArmyListManager: Unit %s (%s) has model_profiles: %s" % [unit_id, unit.meta.get("name", "?"), str(profiles.keys())])
 			
 			# Validate models
 			if unit.has("models") and unit.models is Array:
