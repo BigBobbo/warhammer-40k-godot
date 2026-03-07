@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gselect=test_per_model_weapons", "-glog=1", "-gexit"]
+ARGS: ["-s", "tests/test_ma7_melee_weapons.gd"]
