@@ -3,7 +3,7 @@ class_name ScoutPhase
 
 const BasePhase = preload("res://phases/BasePhase.gd")
 
-# ScoutPhase - Handles the pre-game Scout moves between Deployment and Turn 1
+# ScoutPhase - Handles the pre-game Scout moves after Roll-Off and before Turn 1
 # Per 10e rules + Balance Dataslate:
 # - Units with Scout X" can make a Normal Move of up to X" after deployment
 # - The distance moved can exceed the model's Move characteristic, as long as ≤ X"
