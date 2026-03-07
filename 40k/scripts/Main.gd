@@ -4516,7 +4516,7 @@ func _on_unit_selected(index: int) -> void:
 	_hide_deploy_hover_tooltip()
 	_hovered_deploy_unit_id = ""
 
-	if deployment_controller and deployment_controller.is_placing():
+	if deployment_controller and deployment_controller.is_placing() and current_phase == GameStateData.Phase.DEPLOYMENT:
 		return
 
 	# Block selection during AI player's turn
@@ -4589,6 +4589,10 @@ func _on_unit_selected(index: int) -> void:
 			_show_deployment_color_picker(unit_id)
 			unit_list.visible = false
 	elif current_phase == GameStateData.Phase.SCOUT:
+		# Clean up any previous active scout move before starting a new one
+		if _scout_active_unit_id != "" and _scout_active_unit_id != unit_id:
+			_scout_reset_previous_unit(_scout_active_unit_id)
+
 		# Begin scout move for the selected unit
 		_scout_active_unit_id = unit_id
 		show_unit_card(unit_id)
@@ -4607,6 +4611,8 @@ func _on_unit_selected(index: int) -> void:
 			status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist)
 			# Show confirm/skip buttons
 			_setup_scout_unit_card_buttons(unit_id)
+			# Highlight the selected unit's models on the board
+			_scout_highlight_active_unit(unit_id, scout_dist)
 		else:
 			print("Main: BEGIN_SCOUT_MOVE failed: ", scout_result.get("errors", ["Scout move failed"]))
 			status_label.text = "Error: " + str(scout_result.get("errors", ["Scout move failed"]))
@@ -4678,6 +4684,9 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 				unit_list.visible = false
 		elif current_phase == GameStateData.Phase.SCOUT:
 			# Scout unit selected from bottom panel - trigger same logic as right panel
+			# Clean up any previous active scout move before starting a new one
+			if _scout_active_unit_id != "" and _scout_active_unit_id != unit_id:
+				_scout_reset_previous_unit(_scout_active_unit_id)
 			_scout_active_unit_id = unit_id
 			var scout_dist_bp = GameState.get_scout_distance(unit_id)
 			_scout_move_distance = scout_dist_bp
@@ -4690,6 +4699,7 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 			if scout_result_bp.get("success", false):
 				status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist_bp)
 				_setup_scout_unit_card_buttons(unit_id)
+				_scout_highlight_active_unit(unit_id, scout_dist_bp)
 			else:
 				_scout_active_unit_id = ""
 		elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
@@ -4841,6 +4851,15 @@ func update_unit_card_buttons() -> void:
 					reset_button.visible = false
 					confirm_button.visible = false
 		
+		GameStateData.Phase.SCOUT:
+			# Scout phase buttons are managed by _setup_scout_unit_card_buttons
+			# Just hide default buttons here; they'll be set up when a unit is selected
+			if _scout_active_unit_id == "":
+				undo_button.visible = false
+				reset_button.visible = false
+				confirm_button.visible = false
+				models_label.text = "Select a unit to begin scout move"
+
 		GameStateData.Phase.MOVEMENT:
 			# During reinforcement placement, show deployment-style buttons
 			if deployment_controller and deployment_controller.is_reinforcement_mode and deployment_controller.is_placing():
@@ -8389,6 +8408,7 @@ func _setup_scout_unit_card_buttons(unit_id: String) -> void:
 	var unit_name = unit_data.get("meta", {}).get("name", unit_id)
 	var scout_dist = GameState.get_scout_distance(unit_id)
 	unit_name_label.text = "%s [Scout %d\"]" % [unit_name, int(scout_dist)]
+	models_label.text = "Click and drag models to move (up to %d\")" % int(scout_dist)
 
 	# Configure buttons
 	confirm_button.visible = true
@@ -8465,10 +8485,104 @@ func _scout_cleanup_after_move() -> void:
 	if reset_button.pressed.is_connected(_on_scout_skip_pressed):
 		reset_button.pressed.disconnect(_on_scout_skip_pressed)
 
+	# Clear visual highlights
+	_scout_clear_highlights()
+
 	_scout_active_unit_id = ""
 	_scout_dragging_model = false
 	_scout_drag_model_id = ""
 	_scout_move_distance = 0.0
+
+func _scout_reset_previous_unit(previous_unit_id: String) -> void:
+	"""Reset the previous scout unit's active move when selecting a different unit.
+	Restores any dragged models to their original positions and cleans up phase state."""
+	print("Main: Resetting previous scout unit: ", previous_unit_id)
+
+	# Restore any visually dragged models to their original positions
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if phase_instance and phase_instance.get("active_scout_moves"):
+		var active_moves = phase_instance.active_scout_moves
+		if active_moves.has(previous_unit_id):
+			var move_data = active_moves[previous_unit_id]
+			var original_positions = move_data.get("original_positions", {})
+			# Restore visual token positions
+			if token_layer:
+				for child in token_layer.get_children():
+					if child.has_meta("unit_id") and child.get_meta("unit_id") == previous_unit_id:
+						var model_id = child.get_meta("model_id") if child.has_meta("model_id") else ""
+						if original_positions.has(model_id):
+							var orig = original_positions[model_id]
+							child.position = Vector2(orig.x, orig.y)
+			# Remove the active move entry so BEGIN_SCOUT_MOVE can succeed again
+			active_moves.erase(previous_unit_id)
+
+	# Clean up UI state
+	_scout_clear_highlights()
+	_scout_dragging_model = false
+	_scout_drag_model_id = ""
+
+func _scout_highlight_active_unit(unit_id: String, scout_distance: float) -> void:
+	"""Highlight the active scout unit's models and show movement range circles."""
+	if not token_layer:
+		return
+
+	# Clear any existing scout highlights first
+	_scout_clear_highlights()
+
+	var range_px = scout_distance * 40.0  # PX_PER_INCH = 40.0
+
+	for child in token_layer.get_children():
+		if not child.has_meta("unit_id") or child.get_meta("unit_id") != unit_id:
+			continue
+
+		# Add a movement range circle around each model
+		var range_circle = _scout_create_range_circle(range_px)
+		range_circle.set_meta("scout_highlight", true)
+		child.add_child(range_circle)
+
+		# Add a subtle highlight/glow to the model
+		if child.has_method("set_modulate"):
+			child.set_meta("scout_original_modulate", child.modulate)
+			child.modulate = Color(1.2, 1.2, 1.0, 1.0)  # Slight yellow tint
+
+func _scout_create_range_circle(radius_px: float) -> Node2D:
+	"""Create a visual circle showing scout movement range using a Line2D."""
+	var container = Node2D.new()
+	container.set_meta("scout_highlight", true)
+	container.z_index = -1  # Draw behind models
+
+	# Create circle outline using Line2D
+	var line = Line2D.new()
+	line.width = 2.0
+	line.default_color = Color(0.3, 0.7, 1.0, 0.5)
+	line.set_meta("scout_highlight", true)
+
+	var point_count = 64
+	for i in range(point_count + 1):
+		var angle = (float(i) / point_count) * TAU
+		line.add_point(Vector2(cos(angle) * radius_px, sin(angle) * radius_px))
+
+	container.add_child(line)
+	return container
+
+func _scout_clear_highlights() -> void:
+	"""Remove all scout movement range highlights."""
+	if not token_layer:
+		return
+
+	for child in token_layer.get_children():
+		# Restore original modulate
+		if child.has_meta("scout_original_modulate"):
+			child.modulate = child.get_meta("scout_original_modulate")
+			child.remove_meta("scout_original_modulate")
+
+		# Remove range circle children
+		var to_remove = []
+		for subchild in child.get_children():
+			if subchild.has_meta("scout_highlight"):
+				to_remove.append(subchild)
+		for node in to_remove:
+			node.queue_free()
 
 # ============================================================================
 # P3-111: In-game Settings Menu (Escape key)
