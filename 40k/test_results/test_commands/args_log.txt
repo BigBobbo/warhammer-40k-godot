@@ -1,1 +1,1 @@
-ARGS: ["-s", "tests/test_model_profiles.gd"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gprefix=test_", "-glog=1", "-gexit"]

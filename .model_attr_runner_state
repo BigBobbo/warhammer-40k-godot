@@ -8,3 +8,4 @@ MA-40|success|2026-03-06T16:42:40Z|model-attr/MA-40/fix-marked-for-death-seconda
 MA-41|success|2026-03-06T18:10:59Z|model-attr/MA-41/fix-keyboard-input-leaking-through-save-
 MA-42|failed|2026-03-07T00:12:42Z|model-attr/MA-42/block-active-player-actions-while-reacti
 MA-43|success|2026-03-07T00:16:29Z|model-attr/MA-43/remove-opponents-actions-panel-and-ensur
+MA-1|success|2026-03-07T00:22:27Z|model-attr/MA-1/add-model-profiles-to-unit-meta-schema
