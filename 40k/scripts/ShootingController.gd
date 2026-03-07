@@ -688,9 +688,13 @@ func _refresh_unit_list() -> void:
 		if current_phase._can_unit_shoot(unit) or unit_id in units_shot:
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			
-			# Show status for units that have shot
+			# Show status for units that have shot or performed an action
 			if unit_id in units_shot:
-				unit_name += " [SHOT]"
+				var unit_flags = unit.get("flags", {})
+				if unit_flags.get("performed_action", "") != "":
+					unit_name += " [ACTION]"
+				else:
+					unit_name += " [SHOT]"
 			elif unit_id == active_shooter_id:
 				unit_name += " [ACTIVE]"
 			

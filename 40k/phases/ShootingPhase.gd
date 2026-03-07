@@ -1101,6 +1101,10 @@ func _process_perform_secondary_action(action: Dictionary) -> Dictionary:
 		"op": "set",
 		"path": "units.%s.flags.has_shot" % unit_id,
 		"value": true
+	}, {
+		"op": "set",
+		"path": "units.%s.flags.performed_action" % unit_id,
+		"value": action_name
 	}]
 
 	# Clear active state if this unit was selected
@@ -2981,6 +2985,7 @@ func _clear_phase_flags() -> void:
 		var unit = units[unit_id]
 		if unit.has("flags"):
 			unit.flags.erase("has_shot")
+			unit.flags.erase("performed_action")
 
 func _clear_stratagem_phase_flags() -> void:
 	"""Clear effect-granted flags from all units at end of shooting phase."""
