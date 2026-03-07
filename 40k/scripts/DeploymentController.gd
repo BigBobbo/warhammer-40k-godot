@@ -55,6 +55,9 @@ var reinforcement_placement_type: String = ""
 # Infiltrators mode (deploy anywhere >9" from enemy zone and enemy models)
 var is_infiltrators_mode: bool = false
 
+# Infiltrator exclusion boundary visual
+var infiltrator_exclusion_visual: Node2D = null
+
 func _ready() -> void:
 	set_process(true)
 	set_process_unhandled_input(true)
@@ -251,6 +254,7 @@ func begin_deploy(_unit_id: String) -> void:
 	is_infiltrators_mode = GameState.unit_has_infiltrators(unit_id)
 	if is_infiltrators_mode:
 		print("[DeploymentController] Unit %s has Infiltrators - deploying in Infiltrators mode" % _unit_id)
+		_show_infiltrator_exclusion()
 
 	# Update through PhaseManager instead of BoardState
 	if has_node("/root/PhaseManager"):
@@ -531,6 +535,7 @@ func reset_unit() -> void:
 	is_reinforcement_mode = false
 	reinforcement_placement_type = ""  # P2-80: Clear placement type override
 	is_infiltrators_mode = false
+	_hide_infiltrator_exclusion()
 	is_combined_deployment = false
 	combined_models.clear()
 	unit_id = ""
@@ -805,6 +810,7 @@ func _complete_deployment() -> void:
 	combined_models.clear()
 	is_combined_deployment = false
 	is_infiltrators_mode = false
+	_hide_infiltrator_exclusion()
 
 	emit_signal("coherency_warning_changed", false, "")
 	emit_signal("unit_confirmed")
@@ -2182,6 +2188,29 @@ func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary,
 			return false
 
 	return true
+
+func _show_infiltrator_exclusion() -> void:
+	"""Show the 9-inch exclusion boundary visual around the enemy deployment zone."""
+	_hide_infiltrator_exclusion()  # Clean up any existing visual
+	var active_player = GameState.get_active_player()
+	var enemy_zone = GameState.get_enemy_deployment_zone(active_player)
+	var enemy_zone_poly = enemy_zone.get("poly", [])
+	if enemy_zone_poly.size() < 3:
+		return
+	infiltrator_exclusion_visual = load("res://scripts/InfiltratorExclusionVisual.gd").new()
+	if ghost_layer:
+		ghost_layer.add_child(infiltrator_exclusion_visual)
+	else:
+		push_error("[DeploymentController] ghost_layer is NULL - cannot add infiltrator exclusion visual!")
+		return
+	infiltrator_exclusion_visual.show_exclusion(enemy_zone_poly)
+
+func _hide_infiltrator_exclusion() -> void:
+	"""Hide and remove the infiltrator exclusion boundary visual."""
+	if infiltrator_exclusion_visual and is_instance_valid(infiltrator_exclusion_visual):
+		infiltrator_exclusion_visual.hide_exclusion()
+		infiltrator_exclusion_visual.queue_free()
+		infiltrator_exclusion_visual = null
 
 func _cleanup_repositioning() -> void:
 	"""Clean up repositioning state"""
