@@ -426,3 +426,107 @@ static func get_mission_display_text(mission: Dictionary) -> String:
 		vp_text = "Up to %d VP" % max_vp
 
 	return "%s\n%s" % [desc, vp_text]
+
+static func get_mission_instructions(mission_id: String) -> String:
+	"""Get detailed instructions for a mission, suitable for display on a card."""
+	match mission_id:
+		"behind_enemy_lines":
+			return "At the end of your turn, if two or more of your units (excluding Battle-shocked) are wholly within your opponent's deployment zone, you score 5 VP. Otherwise, if one or more such units are wholly within the opponent's deployment zone, you score 2 VP.\n\nNote: If drawn in the first battle round, this card must be shuffled back into your deck."
+		"engage_on_all_fronts":
+			return "At the end of your turn, score VP based on how many different table quarters contain at least one of your units (excluding Battle-shocked) that is more than 6\" from the centre of the battlefield.\n• 4 quarters: 5 VP\n• 3 quarters: 3 VP\n• 2 quarters: 2 VP"
+		"area_denial":
+			return "At the end of your turn, if you have one or more units (excluding Battle-shocked) within 6\" of the centre of the battlefield:\n• If no enemy units are within 6\" of the centre: 5 VP\n• If no enemy units are within 3\" of the centre: 3 VP"
+		"display_of_might":
+			return "At the end of your turn, if you have more units wholly within No Man's Land than your opponent, you score 5 VP."
+		"storm_hostile_objective":
+			return "At the end of your turn, score VP for controlling objective markers that were controlled by your opponent at the start of the turn.\n• 2 or more such objectives: 5 VP\n• 1 such objective: 2 VP\n\nIf your opponent controlled no objectives at the start of your turn (from round 2 onwards) and you control at least one, score 2 VP."
+		"defend_stronghold":
+			return "At the end of your turn, score VP for controlling objective markers that are within your own deployment zone.\n• 2 or more objectives: 5 VP\n• 1 objective: 2 VP"
+		"secure_no_mans_land":
+			return "At the end of your turn, score VP for controlling objective markers that are in No Man's Land.\n• 2 or more objectives: 5 VP\n• 1 objective: 2 VP"
+		"a_tempting_target":
+			return "When this card is drawn, your opponent selects one objective marker in No Man's Land. At the end of either player's turn, if you control that objective marker, you score 5 VP."
+		"extend_battle_lines":
+			return "At the end of your turn, if you control at least one objective marker in your deployment zone AND at least one objective marker in No Man's Land, you score 5 VP."
+		"assassination":
+			return "At the end of either player's turn:\n• If all enemy CHARACTER models have been destroyed: 5 VP\n• If at least one enemy CHARACTER model was destroyed this turn: 3 VP"
+		"bring_it_down":
+			return "At the end of either player's turn, score VP for enemy MONSTER or VEHICLE units destroyed this turn.\n• 2 or more destroyed: 5 VP\n• 1 destroyed: 3 VP"
+		"cull_the_horde":
+			return "At the end of either player's turn, score VP for enemy INFANTRY units (starting strength 13+) destroyed this turn.\n• 2 or more destroyed: 5 VP\n• 1 destroyed: 3 VP"
+		"marked_for_death":
+			return "When this card is drawn, your opponent selects 2 of their units as Alpha targets (and optionally a Gamma fallback). At the end of either player's turn:\n• If an Alpha target was destroyed this turn: 5 VP\n• If no Alpha target was destroyed, but a Gamma target was: 2 VP"
+		"no_prisoners":
+			return "While this mission is active, each time an enemy unit is destroyed, you score 2 VP (max 5 VP per scoring)."
+		"overwhelming_force":
+			return "While this mission is active, each time an enemy unit is destroyed within range of an objective marker, you score 3 VP (max 5 VP per scoring)."
+		"establish_locus":
+			return "One of your units can perform the 'Establish Locus' action during the Shooting phase. At the end of your turn:\n• If a locus was established in the opponent's deployment zone: 5 VP\n• If a locus was established within 6\" of the centre: 3 VP"
+		"cleanse":
+			return "One of your units can perform the 'Cleanse' action during the Shooting phase to cleanse an objective marker it controls. At the end of your turn:\n• 2 or more objectives cleansed: 5 VP\n• 1 objective cleansed: 2 VP"
+		"deploy_teleport_homer":
+			return "One of your units can perform the 'Deploy Teleport Homer' action during the Shooting phase. At the end of your turn:\n• Homer deployed in opponent's deployment zone: 5 VP\n• Homer deployed elsewhere (not in opponent's zone): 3 VP"
+		_:
+			return ""
+
+static func get_human_readable_condition(check: String, params: Dictionary = {}, vp: int = 0) -> String:
+	"""Convert a scoring condition check ID and params into human-readable text."""
+	match check:
+		"units_wholly_in_opponent_deployment_zone":
+			var count = params.get("count", 1)
+			return "%d+ units wholly in opponent's deployment zone" % count
+		"presence_in_table_quarters":
+			var count = params.get("count", 1)
+			return "Units in %d+ table quarters (>6\" from centre)" % count
+		"units_within_center_no_enemies_within":
+			var enemy_range = params.get("enemy_range", 6.0)
+			return "Your units within 6\" of centre, no enemies within %d\"" % int(enemy_range)
+		"more_units_wholly_in_no_mans_land_than_opponent":
+			return "More units wholly in No Man's Land than opponent"
+		"control_objectives_opponent_controlled_at_start":
+			var count = params.get("count", 1)
+			return "Control %d+ objectives your opponent held at turn start" % count
+		"opponent_controlled_no_objectives_at_start_and_you_control_new":
+			return "Opponent held no objectives at turn start, you control one (round 2+)"
+		"control_objectives_in_own_deployment_zone":
+			var count = params.get("count", 1)
+			return "Control %d+ objectives in your deployment zone" % count
+		"control_objectives_in_no_mans_land":
+			var count = params.get("count", 1)
+			return "Control %d+ objectives in No Man's Land" % count
+		"control_tempting_target":
+			return "Control the objective your opponent selected"
+		"control_own_zone_and_nml_objectives":
+			return "Control 1+ objective in your zone AND 1+ in No Man's Land"
+		"all_enemy_characters_destroyed":
+			return "All enemy CHARACTER models destroyed"
+		"character_models_destroyed_this_turn":
+			var count = params.get("count", 1)
+			return "%d+ enemy CHARACTER model(s) destroyed this turn" % count
+		"monster_or_vehicle_destroyed_this_turn":
+			var count = params.get("count", 1)
+			return "%d+ enemy MONSTER/VEHICLE destroyed this turn" % count
+		"infantry_starting_strength_13_plus_destroyed_this_turn":
+			var count = params.get("count", 1)
+			return "%d+ enemy INFANTRY (13+ starting strength) destroyed this turn" % count
+		"alpha_target_destroyed_this_turn":
+			return "An Alpha target destroyed this turn"
+		"no_alpha_destroyed_but_gamma_destroyed_this_turn":
+			return "No Alpha destroyed, but a Gamma target was destroyed"
+		"enemy_unit_destroyed":
+			return "An enemy unit is destroyed"
+		"enemy_unit_destroyed_within_objective_range":
+			return "An enemy unit destroyed within range of an objective"
+		"locus_established_in_opponent_deployment_zone":
+			return "Locus established in opponent's deployment zone"
+		"locus_established_within_center":
+			return "Locus established within 6\" of centre"
+		"objectives_cleansed":
+			var count = params.get("count", 1)
+			return "%d+ objectives cleansed this turn" % count
+		"teleport_homer_deployed_in_opponent_zone":
+			return "Teleport Homer deployed in opponent's deployment zone"
+		"teleport_homer_deployed_not_in_opponent_zone":
+			return "Teleport Homer deployed (not in opponent's zone)"
+		_:
+			return check.replace("_", " ").capitalize()
