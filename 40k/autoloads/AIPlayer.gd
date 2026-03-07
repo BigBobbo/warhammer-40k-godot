@@ -71,6 +71,7 @@ var _phase_manager_ref: Node = null
 var _connected_phase_signals: Array = []  # [{signal_name, callable}]
 var _current_phase_ref = null  # Reference to the currently connected phase instance
 
+
 # Signals for UI
 signal ai_turn_started(player: int)
 signal ai_turn_ended(player: int, action_summary: Array)
@@ -151,11 +152,17 @@ func _request_evaluation() -> void:
 	# T7-20: Signal that AI is now thinking (only on first evaluation of a sequence)
 	if not _ai_thinking:
 		var active_player = GameState.get_active_player()
-		if is_ai_player(active_player):
+		# In fight phase, the selecting player may be AI even when active player is human
+		var thinking_player = active_player
+		if not is_ai_player(active_player):
+			var fight_player = _get_fight_phase_selecting_player()
+			if fight_player > 0 and is_ai_player(fight_player):
+				thinking_player = fight_player
+		if is_ai_player(thinking_player):
 			_ai_thinking = true
 			_turn_start_log_index = _action_log.size()  # T7-56: Track where this turn's actions start
-			emit_signal("ai_turn_started", active_player)
-			print("AIPlayer: AI thinking started for player %d" % active_player)
+			emit_signal("ai_turn_started", thinking_player)
+			print("AIPlayer: AI thinking started for player %d" % thinking_player)
 
 func is_thinking() -> bool:
 	"""SAVE-6: Public accessor for AI thinking state — used by SaveLoadManager to guard autosave."""
@@ -236,6 +243,22 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 
 func is_ai_player(player: int) -> bool:
 	return enabled and ai_players.get(player, false)
+
+func _get_fight_phase_selecting_player() -> int:
+	"""Get the current selecting player from the fight phase, if we're in fight phase.
+	Returns -1 if not in fight phase or phase instance not available.
+	During fight phase alternating activation, the selecting player may differ
+	from GameState.get_active_player()."""
+	if GameState.get_current_phase() != GameStateData.Phase.FIGHT:
+		return -1
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if not _phase_manager_ref or not _phase_manager_ref.current_phase_instance:
+		return -1
+	var fight_phase = _phase_manager_ref.current_phase_instance
+	if "current_selecting_player" in fight_phase:
+		return fight_phase.current_selecting_player
+	return -1
 
 func get_difficulty(player: int) -> int:
 	"""T7-40: Get the difficulty level for a given player."""
@@ -537,6 +560,14 @@ func _connect_phase_stratagem_signals() -> void:
 		phase.counter_offensive_opportunity.connect(callable)
 		_connected_phase_signals.append({"signal_name": "counter_offensive_opportunity", "callable": callable})
 		print("AIPlayer: Connected to FightPhase.counter_offensive_opportunity")
+
+	# Fight selection in Fight Phase — AI must act when it's the selecting player
+	# During alternating activation, the selecting player may not be the active player
+	if phase.has_signal("fight_selection_required"):
+		var callable_fs = Callable(self, "_on_fight_selection_required")
+		phase.fight_selection_required.connect(callable_fs)
+		_connected_phase_signals.append({"signal_name": "fight_selection_required", "callable": callable_fs})
+		print("AIPlayer: Connected to FightPhase.fight_selection_required")
 
 	# Epic Challenge in Fight Phase — AI must respond or the game stalls
 	if phase.has_signal("epic_challenge_opportunity"):
@@ -841,6 +872,30 @@ func _on_heroic_intervention_opportunity(defending_player: int, eligible_units: 
 
 	print("AIPlayer: Heroic Intervention opportunity for AI player %d — %d eligible units against %s" % [
 		defending_player, eligible_units.size(), charging_unit_id])
+	_request_evaluation()
+
+# --- Fight Selection: AI selects a fighter during alternating activation ---
+
+func _on_fight_selection_required(data: Dictionary) -> void:
+	"""
+	Called when the FightPhase requests a player to select their next fighter.
+	During alternating activation, the selecting player may differ from the
+	active player (whose game turn it is). If the selecting player is AI,
+	trigger evaluation so the AI submits a SELECT_FIGHTER action.
+	"""
+	var selecting_player = data.get("selecting_player", 0)
+	if not is_ai_player(selecting_player):
+		return
+
+	var eligible_count = data.get("eligible_units", {}).size()
+	if eligible_count == 0:
+		return
+
+	print("AIPlayer: Fight selection required for AI player %d — %d eligible units (subphase: %s)" % [
+		selecting_player, eligible_count, data.get("current_subphase", "?")])
+
+	# Trigger evaluation — _evaluate_and_act will check the fight phase's
+	# current_selecting_player to determine it should act as this player
 	_request_evaluation()
 
 # --- T7-32: Reactive Stratagem: Counter-Offensive (FightPhase — after enemy unit fights) ---
@@ -1154,7 +1209,18 @@ func _evaluate_and_act() -> void:
 		return  # Already processing, avoid re-entrancy
 
 	var active_player = GameState.get_active_player()
+
+	# In fight phase, the selecting player (who picks the next fighter in alternating
+	# activation) may differ from the active player (whose game turn it is).
+	# Check fight phase state to determine if AI should act as the selecting player.
+	var acting_player = active_player
 	if not is_ai_player(active_player):
+		var fight_player = _get_fight_phase_selecting_player()
+		if fight_player > 0 and is_ai_player(fight_player):
+			acting_player = fight_player
+			DebugLogger.info("AIPlayer._evaluate_and_act - fight phase selecting player override", {"acting_player": acting_player, "active_player": active_player})
+
+	if not is_ai_player(acting_player):
 		DebugLogger.info("AIPlayer._evaluate_and_act - not AI turn", {"active_player": active_player})
 		_end_ai_thinking()
 		return  # Not AI's turn
@@ -1186,9 +1252,9 @@ func _evaluate_and_act() -> void:
 		_end_ai_thinking()
 		return
 
-	DebugLogger.info("AIPlayer._evaluate_and_act - executing for player", {"player": active_player, "phase": GameState.get_current_phase()})
+	DebugLogger.info("AIPlayer._evaluate_and_act - executing for player", {"player": acting_player, "phase": GameState.get_current_phase()})
 	_processing_turn = true
-	_execute_next_action(active_player)
+	_execute_next_action(acting_player)
 	_processing_turn = false
 	DebugLogger.info("AIPlayer._evaluate_and_act - complete", {})
 
