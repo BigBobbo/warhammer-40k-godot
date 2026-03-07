@@ -32,11 +32,14 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 	if can_lead.is_empty():
 		return {"valid": false, "reason": "Character has no Leader ability"}
 
-	# Check bodyguard has a matching keyword from can_lead
+	# Check bodyguard has a matching keyword from can_lead (case-insensitive)
 	var bg_keywords = bodyguard.get("meta", {}).get("keywords", [])
+	var upper_bg_keywords = []
+	for kw in bg_keywords:
+		upper_bg_keywords.append(str(kw).to_upper())
 	var has_match = false
 	for lead_keyword in can_lead:
-		if lead_keyword in bg_keywords:
+		if str(lead_keyword).to_upper() in upper_bg_keywords:
 			has_match = true
 			break
 	if not has_match:
