@@ -22,3 +22,4 @@ MA-11|success|2026-03-07T13:00:41Z|model-attr/MA-11/per-model-ws-in-melee-hit-re
 MA-12|failed|2026-03-07T19:02:18Z|model-attr/MA-12/per-model-save-characteristics-in-wound-
 MA-13|success|2026-03-07T19:08:47Z|model-attr/MA-13/per-model-wounds-from-stats-override
 MA-14|success|2026-03-07T19:18:25Z|model-attr/MA-14/rapid-fire-bonus-per-weapon-per-model
+MA-15|success|2026-03-07T19:27:34Z|model-attr/MA-15/model-type-picker-ui-during-deployment
