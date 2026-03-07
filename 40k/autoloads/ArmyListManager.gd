@@ -214,6 +214,23 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			if unit.has("meta") and unit.meta.has("model_profiles"):
 				print("ArmyListManager: Unit %s (%s) loaded with model_profiles: %s" % [unit_id, unit.meta.get("name", "?"), str(unit.meta.model_profiles.keys())])
 
+			# MA-2: Log model_type assignments if model_profiles present
+			if unit.has("meta") and unit.meta.has("model_profiles") and unit.has("models") and unit.models is Array:
+				var type_counts := {}
+				var untyped_count := 0
+				for model in unit.models:
+					var mt = model.get("model_type", null)
+					if mt != null and mt is String and not mt.is_empty():
+						type_counts[mt] = type_counts.get(mt, 0) + 1
+					else:
+						untyped_count += 1
+				var summary_parts := []
+				for key in type_counts:
+					summary_parts.append("%dx %s" % [type_counts[key], key])
+				if untyped_count > 0:
+					summary_parts.append("%dx (no model_type)" % untyped_count)
+				print("ArmyListManager: MA-2 Unit %s (%s) model_type breakdown: %s" % [unit_id, unit.meta.get("name", "?"), ", ".join(summary_parts)])
+
 			print("Processed unit: ", unit_id, " for player ", player)
 
 	# Validate army construction points and detachment
@@ -491,6 +508,23 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 		# MA-1: Log model_profiles if present
 		if unit.has("meta") and unit.meta.has("model_profiles"):
 			print("ArmyListManager: Unit %s (%s) loaded with model_profiles: %s" % [unit_id, unit.meta.get("name", "?"), str(unit.meta.model_profiles.keys())])
+
+		# MA-2: Log model_type assignments if model_profiles present
+		if unit.has("meta") and unit.meta.has("model_profiles") and unit.has("models") and unit.models is Array:
+			var type_counts := {}
+			var untyped_count := 0
+			for model in unit.models:
+				var mt = model.get("model_type", null)
+				if mt != null and mt is String and not mt.is_empty():
+					type_counts[mt] = type_counts.get(mt, 0) + 1
+				else:
+					untyped_count += 1
+			var summary_parts := []
+			for key in type_counts:
+				summary_parts.append("%dx %s" % [type_counts[key], key])
+			if untyped_count > 0:
+				summary_parts.append("%dx (no model_type)" % untyped_count)
+			print("ArmyListManager: MA-2 Unit %s (%s) model_type breakdown: %s" % [unit_id, unit.meta.get("name", "?"), ", ".join(summary_parts)])
 
 		print("Processed unit: ", unit_id, " for player ", player)
 
@@ -816,6 +850,19 @@ func validate_army_structure(army_data: Dictionary) -> Dictionary:
 					result.valid = false
 					result.errors.append("Unit " + unit_id + " has no models")
 				else:
+					# MA-2: Validate model_type on each model if model_profiles exists
+					var has_profiles = unit.has("meta") and unit.meta is Dictionary and unit.meta.has("model_profiles") and unit.meta.model_profiles is Dictionary
+					if has_profiles:
+						var profile_keys = unit.meta.model_profiles.keys()
+						for model in unit.models:
+							if model is Dictionary and model.has("model_type") and model.model_type != null:
+								var mt = str(model.model_type)
+								if mt not in profile_keys:
+									result.errors.append("Unit %s model %s has model_type '%s' which is not in model_profiles keys: %s" % [unit_id, model.get("id", "?"), mt, str(profile_keys)])
+								else:
+									# Valid model_type reference
+									pass
+							# Models without model_type use legacy behavior — no error needed
 					# MA-34: Warn if VEHICLE/MONSTER has models with small bases and no base_type
 					var kw_list = unit.get("meta", {}).get("keywords", [])
 					var has_vehicle_kw = false

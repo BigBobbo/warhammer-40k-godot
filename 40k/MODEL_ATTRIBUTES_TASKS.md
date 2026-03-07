@@ -144,9 +144,9 @@
 - **Validation**: Load army with `model_profiles`, verify `meta.model_profiles` dict is accessible via `GameState.get_unit(unit_id).meta.model_profiles`
 
 ### MA-2: Add `model_type` field to individual models
-- [ ] Each model in `unit.models[]` gains a `model_type` string field referencing a key in `meta.model_profiles`
-- [ ] Models without `model_type` (null or absent) use legacy behavior (all weapons)
-- [ ] Create example Lootas unit in orks.json: 8x loota_deffgun, 2x loota_kmb, 1x spanner with different BS via `stats_override`
+- [x] Each model in `unit.models[]` gains a `model_type` string field referencing a key in `meta.model_profiles`
+- [x] Models without `model_type` (null or absent) use legacy behavior (all weapons)
+- [x] Create example Lootas unit in orks.json: 8x loota_deffgun, 2x spanner_kmb with different BS via `stats_override`
 - **Files**: Army JSON files, ArmyListManager.gd (processing)
 - **Validation**: Load army, iterate `unit.models`, confirm each model's `model_type` matches a key in `meta.model_profiles`
 
