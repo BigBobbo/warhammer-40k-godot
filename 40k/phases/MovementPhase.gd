@@ -1221,6 +1221,12 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 	log_phase_message("Player %d uses FIRE OVERWATCH — %s shoots at moving %s!" % [player, unit_name, enemy_unit_name])
 	print("MovementPhase: Fire Overwatch activated — %s (Player %d) shooting at %s" % [unit_name, player, enemy_unit_name])
 
+	# Log targeting notification to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_overwatch_entry(">>> FIRE OVERWATCH <<<")
+		game_event_log.add_overwatch_entry("P%d: %s fires at %s (only 6s hit)" % [player, unit_name, enemy_unit_name])
+
 	# P1-59: Set out-of-phase flag before resolving overwatch shooting
 	# This blocks any phase-specific abilities/stratagems during the out-of-phase action
 	if strat_manager:
@@ -1232,6 +1238,10 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 	# P1-59: Clear out-of-phase flag after overwatch resolves
 	if strat_manager:
 		strat_manager.set_out_of_phase_active(false)
+
+	# Log detailed overwatch roll results to GameEventLog
+	if game_event_log:
+		_log_overwatch_results_to_game_log(game_event_log, ow_shooting_result, unit_name, enemy_unit_name, player)
 
 	# Clear Overwatch state
 	_awaiting_fire_overwatch = false
@@ -2059,6 +2069,57 @@ func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: Strin
 	])
 
 	return shoot_result
+
+func _log_overwatch_results_to_game_log(game_event_log, ow_result: Dictionary, shooter_name: String, target_name: String, player: int) -> void:
+	"""Log detailed overwatch roll results (hits, wounds, saves, casualties) to the GameEventLog."""
+	var dice_entries = ow_result.get("dice", [])
+	var total_hits = 0
+	var total_wounds = 0
+	var total_failed_saves = 0
+	var total_saved = 0
+
+	for dice_entry in dice_entries:
+		var context = dice_entry.get("context", "")
+		var weapon_name = dice_entry.get("weapon_name", "")
+		var rolls_raw = dice_entry.get("rolls_raw", [])
+		var threshold = dice_entry.get("threshold", "")
+		var successes = dice_entry.get("successes", 0)
+		var rolls_str = ", ".join(rolls_raw.map(func(r): return str(r)))
+
+		if context == "overwatch_to_hit" or context == "to_hit":
+			total_hits += successes
+			game_event_log.add_overwatch_entry("  %s - Hit rolls: [%s] vs %s (%d hit%s)" % [
+				weapon_name, rolls_str, str(threshold), successes, "" if successes == 1 else "s"])
+		elif context == "to_wound":
+			total_wounds += successes
+			game_event_log.add_overwatch_entry("  %s - Wound rolls: [%s] vs %s (%d wound%s)" % [
+				weapon_name, rolls_str, str(threshold), successes, "" if successes == 1 else "s"])
+		elif context == "save":
+			var fails = dice_entry.get("fails", 0)
+			var sv = dice_entry.get("sv", str(threshold))
+			total_failed_saves += fails
+			if fails == 0:
+				total_saved += 1
+			game_event_log.add_overwatch_entry("  Save roll: [%s] vs %s (%s)" % [
+				rolls_str, str(sv), "failed!" if fails > 0 else "saved"])
+
+	# Count casualties from diffs (models set to alive=false)
+	var total_casualties = 0
+	for diff in ow_result.get("diffs", []):
+		var path = diff.get("path", "")
+		if path.ends_with(".alive") and diff.get("value") == false:
+			total_casualties += 1
+
+	# Log the final outcome summary
+	if total_casualties > 0:
+		game_event_log.add_overwatch_entry("  >>> %d model%s destroyed! <<<" % [
+			total_casualties, "" if total_casualties == 1 else "s"])
+	elif total_wounds > 0:
+		game_event_log.add_overwatch_entry("  Result: All wounds saved - no casualties")
+	elif total_hits > 0:
+		game_event_log.add_overwatch_entry("  Result: Hits failed to wound")
+	else:
+		game_event_log.add_overwatch_entry("  Result: No hits (only unmodified 6s hit)")
 
 
 func _process_begin_fall_back(action: Dictionary) -> Dictionary:
