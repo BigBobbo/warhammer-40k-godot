@@ -135,16 +135,28 @@ func get_current_player() -> int:
 func get_turn_number() -> int:
 	return game_state_snapshot.get("meta", {}).get("turn_number", 1)
 
-func get_units_for_player(player: int) -> Dictionary:
+func get_units_for_player(player: int, include_destroyed: bool = false) -> Dictionary:
 	var player_units = {}
 	var units = game_state_snapshot.get("units", {})
-	
+
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("owner", 0) == player:
+			if not include_destroyed and _is_unit_destroyed_check(unit):
+				continue
 			player_units[unit_id] = unit
-	
+
 	return player_units
+
+static func _is_unit_destroyed_check(unit: Dictionary) -> bool:
+	"""Check if a unit dictionary represents a fully destroyed unit (all models dead)."""
+	var models = unit.get("models", [])
+	if models.is_empty():
+		return true
+	for model in models:
+		if model.get("alive", true):
+			return false
+	return true
 
 func get_unit(unit_id: String) -> Dictionary:
 	var units = game_state_snapshot.get("units", {})

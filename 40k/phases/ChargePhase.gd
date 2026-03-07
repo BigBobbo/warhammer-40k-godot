@@ -1194,10 +1194,14 @@ func _process_end_charge(action: Dictionary) -> Dictionary:
 func _can_unit_charge(unit: Dictionary) -> bool:
 	var status = unit.get("status", 0)
 	var flags = unit.get("flags", {})
-	
+
+	# Check if unit is destroyed (all models dead)
+	if _is_unit_destroyed_check(unit):
+		return false
+
 	# Check if unit is deployed
-	if not (status == GameStateData.UnitStatus.DEPLOYED or 
-			status == GameStateData.UnitStatus.MOVED or 
+	if not (status == GameStateData.UnitStatus.DEPLOYED or
+			status == GameStateData.UnitStatus.MOVED or
 			status == GameStateData.UnitStatus.SHOT):
 		return false
 	

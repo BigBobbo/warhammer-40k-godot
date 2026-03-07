@@ -2560,6 +2560,10 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	var status = unit.get("status", 0)
 	var flags = unit.get("flags", {})
 
+	# Check if unit is destroyed (all models dead)
+	if _is_unit_destroyed_check(unit):
+		return false
+
 	# Check if unit is embarked (can't shoot directly, only through transport's firing deck)
 	if unit.get("embarked_in", null) != null:
 		return false

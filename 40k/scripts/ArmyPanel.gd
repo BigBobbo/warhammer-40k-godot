@@ -107,8 +107,8 @@ func _build_player_section(parent: VBoxContainer, player: int) -> void:
 	header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	parent.add_child(header)
 
-	# Get units for this player
-	var player_units = GameState.get_units_for_player(player)
+	# Get units for this player (include destroyed units in army overview)
+	var player_units = GameState.get_units_for_player(player, true)
 	if player_units.is_empty():
 		var empty_lbl = Label.new()
 		empty_lbl.text = "  No units"
