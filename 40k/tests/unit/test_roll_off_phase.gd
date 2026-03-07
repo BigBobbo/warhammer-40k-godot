@@ -3,14 +3,15 @@ extends "res://addons/gut/test.gd"
 # Tests for the First Turn Roll-Off implementation (T3-7)
 #
 # Per Warhammer 40k 10th Edition rules:
-# After deployment and Scout moves, players roll off (each rolls 1D6).
+# After deployment, players roll off (each rolls 1D6).
 # The winner chooses who takes the first turn.
 # If tied, re-roll until there is a winner.
 # The player who goes first is the Attacker; the other is the Defender.
+# Then Scout moves happen (player going first moves scouts first).
 #
 # These tests verify:
 # 1. ROLL_OFF phase exists in Phase enum
-# 2. Phase transitions: SCOUT → ROLL_OFF → COMMAND
+# 2. Phase transitions: REDEPLOYMENT → ROLL_OFF → SCOUT → COMMAND
 # 3. Roll-off mechanics (winner determination, tie handling)
 # 4. Turn order choice (winner picks first or second)
 # 5. Active player set correctly after choice
@@ -88,34 +89,43 @@ func _setup_phase_with_state(test_state: Dictionary) -> void:
 # ==========================================
 
 func test_roll_off_phase_exists_in_enum():
-	"""ROLL_OFF should exist in the Phase enum between SCOUT and COMMAND."""
+	"""ROLL_OFF should exist in the Phase enum between REDEPLOYMENT and SCOUT."""
 	var roll_off_value = GameStateData.Phase.ROLL_OFF
+	var redeployment_value = GameStateData.Phase.REDEPLOYMENT
 	var scout_value = GameStateData.Phase.SCOUT
-	var command_value = GameStateData.Phase.COMMAND
-	assert_true(roll_off_value > scout_value, "ROLL_OFF should be after SCOUT")
-	assert_true(roll_off_value < command_value, "ROLL_OFF should be before COMMAND")
+	assert_true(roll_off_value > redeployment_value, "ROLL_OFF should be after REDEPLOYMENT")
+	assert_true(roll_off_value < scout_value, "ROLL_OFF should be before SCOUT")
 
 # ==========================================
 # Phase Transition Tests
 # ==========================================
 
-func test_phase_manager_transitions_scout_to_roll_off():
-	"""PhaseManager._get_next_phase should return ROLL_OFF after SCOUT."""
+func test_phase_manager_transitions_redeployment_to_roll_off():
+	"""PhaseManager._get_next_phase should return ROLL_OFF after REDEPLOYMENT."""
 	var pm = get_node_or_null("/root/PhaseManager")
 	if not pm:
 		pending("PhaseManager autoload not available")
 		return
-	var next = pm._get_next_phase(GameStateData.Phase.SCOUT)
-	assert_eq(next, GameStateData.Phase.ROLL_OFF, "Next phase after SCOUT should be ROLL_OFF")
+	var next = pm._get_next_phase(GameStateData.Phase.REDEPLOYMENT)
+	assert_eq(next, GameStateData.Phase.ROLL_OFF, "Next phase after REDEPLOYMENT should be ROLL_OFF")
 
-func test_phase_manager_transitions_roll_off_to_command():
-	"""PhaseManager._get_next_phase should return COMMAND after ROLL_OFF."""
+func test_phase_manager_transitions_roll_off_to_scout():
+	"""PhaseManager._get_next_phase should return SCOUT after ROLL_OFF."""
 	var pm = get_node_or_null("/root/PhaseManager")
 	if not pm:
 		pending("PhaseManager autoload not available")
 		return
 	var next = pm._get_next_phase(GameStateData.Phase.ROLL_OFF)
-	assert_eq(next, GameStateData.Phase.COMMAND, "Next phase after ROLL_OFF should be COMMAND")
+	assert_eq(next, GameStateData.Phase.SCOUT, "Next phase after ROLL_OFF should be SCOUT")
+
+func test_phase_manager_transitions_scout_to_command():
+	"""PhaseManager._get_next_phase should return COMMAND after SCOUT."""
+	var pm = get_node_or_null("/root/PhaseManager")
+	if not pm:
+		pending("PhaseManager autoload not available")
+		return
+	var next = pm._get_next_phase(GameStateData.Phase.SCOUT)
+	assert_eq(next, GameStateData.Phase.COMMAND, "Next phase after SCOUT should be COMMAND")
 
 # ==========================================
 # Roll-Off Initialization Tests
