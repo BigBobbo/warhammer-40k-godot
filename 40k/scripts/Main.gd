@@ -4115,10 +4115,11 @@ func refresh_unit_list() -> void:
 					unit_list.add_item(display_text)
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 
-				# Show reserves button during deployment (visible when units available)
+				# Reserves are declared during Formations phase, not Deployment.
+				# Hide the reserves button during deployment.
 				if reserves_button:
-					reserves_button.visible = units.size() > 0
-					reserves_button.disabled = true  # Disabled until a unit is selected
+					reserves_button.visible = false
+					reserves_button.disabled = true
 					_selected_unit_for_reserves = ""
 
 		GameStateData.Phase.SCOUT:
