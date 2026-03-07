@@ -282,3 +282,105 @@ func test_attached_character_on_profiled_unit():
 	assert_true(result.has(composite_id), "Character model should use composite ID")
 	assert_true(slugga_id in result[composite_id], "Character should have slugga")
 	assert_eq(result[composite_id].size(), 1, "Character should only have 1 ranged weapon (slugga)")
+
+# ==========================================
+# MA-7: get_unit_melee_weapons() per-model tests
+# ==========================================
+
+func _make_intercessor_unit() -> Dictionary:
+	"""Intercessor Squad: sergeant has Power fist, regular have Close combat weapon."""
+	return {
+		"id": "U_INTER",
+		"meta": {
+			"name": "Intercessor Squad",
+			"weapons": [
+				{"name": "Bolt rifle", "type": "Ranged", "range": "24", "attacks": "2", "strength": "4", "ap": "-1", "damage": "1"},
+				{"name": "Close combat weapon", "type": "Melee", "range": "Melee", "attacks": "3", "weapon_skill": "3", "strength": "4", "ap": "0", "damage": "1"},
+				{"name": "Power fist", "type": "Melee", "range": "Melee", "attacks": "3", "weapon_skill": "3", "strength": "8", "ap": "-2", "damage": "2"}
+			],
+			"model_profiles": {
+				"intercessor": {
+					"label": "Intercessor",
+					"weapons": ["Bolt rifle", "Close combat weapon"]
+				},
+				"intercessor_sergeant": {
+					"label": "Intercessor Sergeant",
+					"weapons": ["Bolt rifle", "Power fist"]
+				}
+			}
+		},
+		"models": [
+			{"id": "m1", "wounds": 2, "current_wounds": 2, "alive": true, "model_type": "intercessor_sergeant"},
+			{"id": "m2", "wounds": 2, "current_wounds": 2, "alive": true, "model_type": "intercessor"},
+			{"id": "m3", "wounds": 2, "current_wounds": 2, "alive": true, "model_type": "intercessor"},
+			{"id": "m4", "wounds": 2, "current_wounds": 2, "alive": false, "model_type": "intercessor"}
+		]
+	}
+
+func test_melee_sergeant_gets_power_fist():
+	"""Intercessor Sergeant (model_type) should get Power fist, not Close combat weapon."""
+	var unit = _make_intercessor_unit()
+	var board = _make_board({"U_INTER": unit})
+	var result = RulesEngine.get_unit_melee_weapons("U_INTER", board)
+
+	# m0 = index 0 = sergeant (get_unit_melee_weapons uses "m" + index)
+	assert_true(result.has("m0"), "Sergeant (m0) should be in melee results")
+	assert_true("Power fist" in result["m0"], "Sergeant should have Power fist")
+	assert_false("Close combat weapon" in result["m0"], "Sergeant should NOT have Close combat weapon")
+
+func test_melee_regular_models_get_ccw():
+	"""Regular intercessors should get Close combat weapon, not Power fist."""
+	var unit = _make_intercessor_unit()
+	var board = _make_board({"U_INTER": unit})
+	var result = RulesEngine.get_unit_melee_weapons("U_INTER", board)
+
+	# m1 = index 1 = intercessor
+	assert_true(result.has("m1"), "Intercessor (m1) should be in melee results")
+	assert_true("Close combat weapon" in result["m1"], "Intercessor should have Close combat weapon")
+	assert_false("Power fist" in result["m1"], "Intercessor should NOT have Power fist")
+
+	# m2 = index 2 = intercessor
+	assert_true(result.has("m2"), "Intercessor (m2) should be in melee results")
+	assert_true("Close combat weapon" in result["m2"], "Intercessor should have Close combat weapon")
+
+func test_melee_dead_model_excluded():
+	"""Dead models should not appear in melee weapon results."""
+	var unit = _make_intercessor_unit()
+	var board = _make_board({"U_INTER": unit})
+	var result = RulesEngine.get_unit_melee_weapons("U_INTER", board)
+
+	# m3 = index 3 = dead intercessor
+	assert_false(result.has("m3"), "Dead model m3 should NOT be in melee results")
+
+func test_melee_no_profiles_all_models_get_all_melee():
+	"""Without model_profiles, all alive models should get all melee weapons."""
+	var unit = _make_basic_unit()
+	var board = _make_board({"U_BASIC": unit})
+	var result = RulesEngine.get_unit_melee_weapons("U_BASIC", board)
+
+	assert_eq(result.size(), 3, "All 3 alive models should have melee weapon entries")
+	for model_id in result:
+		assert_true("Close combat weapon" in result[model_id], "Model %s should have Close combat weapon" % model_id)
+
+func test_melee_ranged_weapons_excluded():
+	"""Ranged weapons should not appear in get_unit_melee_weapons results."""
+	var unit = _make_intercessor_unit()
+	var board = _make_board({"U_INTER": unit})
+	var result = RulesEngine.get_unit_melee_weapons("U_INTER", board)
+
+	for model_id in result:
+		assert_false("Bolt rifle" in result[model_id], "Model %s should not have ranged weapon in melee results" % model_id)
+
+func test_melee_lootas_all_get_ccw():
+	"""All Lootas model types have Close combat weapon — all alive models should get it."""
+	var unit = _make_lootas_unit()
+	var board = _make_board({"U_LOOTAS": unit})
+	var result = RulesEngine.get_unit_melee_weapons("U_LOOTAS", board)
+
+	# 4 alive models (m5/index 4 is dead)
+	assert_eq(result.size(), 4, "4 alive models should have melee weapon entries")
+	for model_id in result:
+		assert_true("Close combat weapon" in result[model_id], "Model %s should have Close combat weapon" % model_id)
+		# No model should have ranged weapons
+		assert_false("Deffgun" in result[model_id], "Model %s should not have Deffgun in melee results" % model_id)
+		assert_false("Kustom mega-blasta" in result[model_id], "Model %s should not have KMB in melee results" % model_id)

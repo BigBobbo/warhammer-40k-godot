@@ -193,9 +193,9 @@
 - **Validation**: Call `get_unit_weapons()` on Lootas unit. Verify deffgun models return only deffgun weapon ID, mega-blasta models return only mega-blasta weapon ID, spanner returns mega-blasta. Call on unit without profiles, verify unchanged behavior. Call on unit with attached character, verify composite IDs still work.
 
 ### MA-7: Update `get_unit_melee_weapons()` for per-model profiles
-- [ ] In `get_unit_melee_weapons()` (RulesEngine.gd:7360-7395), add same per-model profile lookup
-- [ ] Each model's melee weapons come from their profile's `weapons` array filtered to `type == "Melee"`
-- [ ] Fallback to current behavior when no `model_profiles`
+- [x] In `get_unit_melee_weapons()` (RulesEngine.gd:7376), add same per-model profile lookup
+- [x] Each model's melee weapons come from their profile's `weapons` array filtered to `type == "Melee"`
+- [x] Fallback to current behavior when no `model_profiles`
 - **Files**: RulesEngine.gd
 - **Validation**: Unit with Nob (power klaw) + Boyz (choppa) returns correct melee weapons per model. Unit without profiles returns same weapons for all models.
 

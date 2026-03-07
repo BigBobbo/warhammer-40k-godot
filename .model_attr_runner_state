@@ -13,3 +13,4 @@ MA-2|success|2026-03-07T00:27:54Z|model-attr/MA-2/add-model-type-field-to-indivi
 MA-3|success|2026-03-07T00:51:12Z|model-attr/MA-3/armylistmanager-processes-and-validates-
 MA-4|success|2026-03-07T01:02:40Z|model-attr/MA-4/stateserializer-validation-for-model-typ
 MA-5|success|2026-03-07T01:07:58Z|model-attr/MA-5/create-test-army-json-with-heterogeneous
+MA-6|success|2026-03-07T01:19:10Z|model-attr/MA-6/update-get-unit-weapons-for-per-model-pr
