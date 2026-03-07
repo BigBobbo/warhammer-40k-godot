@@ -38,8 +38,8 @@ func _init():
 
 	# --- Test 3: Profile keys exist ---
 	print("\n--- Test 3: Expected profile keys exist ---")
-	if mp is Dictionary and mp.has("loota_deffgun") and mp.has("spanner_kmb"):
-		print("  PASS: Found loota_deffgun and spanner_kmb profiles")
+	if mp is Dictionary and mp.has("loota_deffgun") and mp.has("loota_kmb") and mp.has("spanner"):
+		print("  PASS: Found loota_deffgun, loota_kmb, and spanner profiles")
 		passed += 1
 	else:
 		print("  FAIL: Missing expected profile keys (got: %s)" % str(mp.keys() if mp is Dictionary else "null"))
@@ -151,6 +151,104 @@ func _init():
 			failed += 1
 	else:
 		print("  FAIL: loota_deffgun profile not found")
+		failed += 1
+
+	# --- Test 9: MA-5 Lootas has 3 model types with correct counts ---
+	print("\n--- Test 9: MA-5 Lootas heterogeneous model types ---")
+	var lootas_models = army_data.get("units", {}).get("U_LOOTAS_A", {}).get("models", [])
+	var type_counts = {}
+	for m in lootas_models:
+		var mt = m.get("model_type", "")
+		type_counts[mt] = type_counts.get(mt, 0) + 1
+	if lootas_models.size() == 11 and type_counts.get("loota_deffgun", 0) == 8 and type_counts.get("loota_kmb", 0) == 2 and type_counts.get("spanner", 0) == 1:
+		print("  PASS: 11 models with 8x loota_deffgun, 2x loota_kmb, 1x spanner")
+		passed += 1
+	else:
+		print("  FAIL: Expected 11 models (8 loota_deffgun, 2 loota_kmb, 1 spanner), got %d models: %s" % [lootas_models.size(), str(type_counts)])
+		failed += 1
+
+	# --- Test 10: MA-5 Spanner profile has BS4+ stats_override ---
+	print("\n--- Test 10: MA-5 Spanner profile has stats_override ---")
+	var spanner_profile = mp.get("spanner", {}) if mp is Dictionary else {}
+	var spanner_bs = spanner_profile.get("stats_override", {}).get("ballistic_skill", null)
+	if spanner_bs != null and int(spanner_bs) == 4:
+		print("  PASS: spanner profile has ballistic_skill=4 stats_override")
+		passed += 1
+	else:
+		print("  FAIL: spanner profile stats_override.ballistic_skill expected 4, got %s" % str(spanner_bs))
+		failed += 1
+
+	# --- Test 11: MA-5 loota_kmb profile has KMB weapon ---
+	print("\n--- Test 11: MA-5 loota_kmb profile weapons ---")
+	var kmb_profile = mp.get("loota_kmb", {}) if mp is Dictionary else {}
+	var kmb_weapons = kmb_profile.get("weapons", [])
+	if "Kustom mega-blasta" in kmb_weapons and "Close combat weapon" in kmb_weapons:
+		print("  PASS: loota_kmb profile has Kustom mega-blasta and Close combat weapon")
+		passed += 1
+	else:
+		print("  FAIL: loota_kmb weapons expected [Kustom mega-blasta, Close combat weapon], got %s" % str(kmb_weapons))
+		failed += 1
+
+	# --- Test 12: MA-5 Space Marines Intercessors heterogeneous ---
+	print("\n--- Test 12: MA-5 Space Marines Intercessor Squad heterogeneous ---")
+	var sm_data = _load_army_json("space_marines")
+	if sm_data.is_empty():
+		print("  FAIL: Could not load space_marines.json")
+		failed += 1
+	else:
+		var intercessors = sm_data.get("units", {}).get("U_INTERCESSORS_A", {})
+		var sm_meta = intercessors.get("meta", {})
+		var sm_profiles = sm_meta.get("model_profiles", {})
+		var sm_models = intercessors.get("models", [])
+		var sm_type_counts = {}
+		for m in sm_models:
+			var mt = m.get("model_type", "")
+			sm_type_counts[mt] = sm_type_counts.get(mt, 0) + 1
+		if sm_profiles.has("intercessor") and sm_profiles.has("intercessor_sergeant") and sm_type_counts.get("intercessor", 0) == 4 and sm_type_counts.get("intercessor_sergeant", 0) == 1:
+			print("  PASS: 5 models with 1x intercessor_sergeant, 4x intercessor")
+			passed += 1
+		else:
+			print("  FAIL: Expected profiles [intercessor, intercessor_sergeant] with counts 4+1, got profiles=%s counts=%s" % [str(sm_profiles.keys()), str(sm_type_counts)])
+			failed += 1
+
+	# --- Test 13: MA-5 Intercessor Sergeant has Power fist ---
+	print("\n--- Test 13: MA-5 Intercessor Sergeant profile weapons ---")
+	if not sm_data.is_empty():
+		var sm_profiles2 = sm_data.get("units", {}).get("U_INTERCESSORS_A", {}).get("meta", {}).get("model_profiles", {})
+		var sgt_profile = sm_profiles2.get("intercessor_sergeant", {})
+		var sgt_weapons = sgt_profile.get("weapons", [])
+		if "Power fist" in sgt_weapons and "Bolt rifle" in sgt_weapons:
+			print("  PASS: intercessor_sergeant has Power fist and Bolt rifle")
+			passed += 1
+		else:
+			print("  FAIL: intercessor_sergeant weapons expected Power fist + Bolt rifle, got %s" % str(sgt_weapons))
+			failed += 1
+	else:
+		print("  FAIL: space_marines.json not loaded")
+		failed += 1
+
+	# --- Test 14: MA-5 All weapon references valid in SM Intercessors ---
+	print("\n--- Test 14: MA-5 SM Intercessor weapon references valid ---")
+	if not sm_data.is_empty():
+		var sm_meta2 = sm_data.get("units", {}).get("U_INTERCESSORS_A", {}).get("meta", {})
+		var sm_weapon_names = []
+		for w in sm_meta2.get("weapons", []):
+			if w is Dictionary:
+				sm_weapon_names.append(w.get("name", ""))
+		var sm_profiles3 = sm_meta2.get("model_profiles", {})
+		var sm_weapons_ok = true
+		for pk in sm_profiles3:
+			for wn in sm_profiles3[pk].get("weapons", []):
+				if wn not in sm_weapon_names:
+					print("  FAIL: SM profile %s references unknown weapon '%s'" % [pk, wn])
+					sm_weapons_ok = false
+		if sm_weapons_ok:
+			print("  PASS: All SM Intercessor weapon references are valid")
+			passed += 1
+		else:
+			failed += 1
+	else:
+		print("  FAIL: space_marines.json not loaded")
 		failed += 1
 
 	# --- Summary ---

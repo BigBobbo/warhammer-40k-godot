@@ -1451,7 +1451,10 @@
         "is_warlord": false,
         "enhancements": [],
         "wargear": [
-          "2x Spanner",
+          "1x Spanner",
+          "1x Close combat weapon",
+          "1x Kustom mega-blasta",
+          "2x Loota (KMB)",
           "2x Close combat weapon",
           "2x Kustom mega-blasta",
           "8x Loota",
@@ -1506,12 +1509,16 @@
         ],
         "unit_composition": [
           {
-            "description": "2 Spanners",
+            "description": "1 Spanner",
             "line": 1
           },
           {
             "description": "8 Lootas",
             "line": 2
+          },
+          {
+            "description": "2 Lootas (KMB)",
+            "line": 3
           }
         ],
         "model_profiles": {
@@ -1521,8 +1528,14 @@
             "weapons": ["Deffgun", "Close combat weapon"],
             "transport_slots": 1
           },
-          "spanner_kmb": {
-            "label": "Spanner (Kustom Mega-blasta)",
+          "loota_kmb": {
+            "label": "Loota (Kustom Mega-blasta)",
+            "stats_override": {},
+            "weapons": ["Kustom mega-blasta", "Close combat weapon"],
+            "transport_slots": 1
+          },
+          "spanner": {
+            "label": "Spanner",
             "stats_override": {"ballistic_skill": 4},
             "weapons": ["Kustom mega-blasta", "Close combat weapon"],
             "transport_slots": 1
@@ -1538,8 +1551,9 @@
         {"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_deffgun"},
         {"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_deffgun"},
         {"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_deffgun"},
-        {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "spanner_kmb"},
-        {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "spanner_kmb"}
+        {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_kmb"},
+        {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_kmb"},
+        {"id": "m11", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "spanner"}
       ]
     }
   }

@@ -169,12 +169,12 @@
 - **Validation**: Save game with model_type models, reload, verify model_type preserved. Load old save without model_type, verify no crash and null/absent model_type. Intentionally corrupt model_type to invalid key, verify warning logged and graceful handling.
 
 ### MA-5: Create test army JSON with heterogeneous unit
-- [ ] Add a Lootas unit to orks.json (or a test army file) with:
+- [x] Add a Lootas unit to orks.json (or a test army file) with:
   - 8 models: `model_type: "loota_deffgun"` — Deffgun (Heavy D3, BS5+, S8, AP-1, D2)
   - 2 models: `model_type: "loota_kmb"` — Kustom mega-blasta (Assault 1, BS5+, S9, AP-2, D[D6], Hazardous)
   - 1 model: `model_type: "spanner"` — Kustom mega-blasta, BS4+ via stats_override, different base_mm if applicable
-- [ ] Add a simpler heterogeneous unit (e.g., Intercessor Squad with Sergeant having different melee weapon) for Space Marines testing
-- [ ] Verify both units load without errors
+- [x] Add a simpler heterogeneous unit (e.g., Intercessor Squad with Sergeant having different melee weapon) for Space Marines testing
+- [x] Verify both units load without errors
 - **Files**: 40k/armies/orks.json (or new test army), 40k/armies/space_marines.json
 - **Validation**: Both units load, `GameState.get_unit()` returns correct model_profiles and model_type on each model
 

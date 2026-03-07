@@ -59,6 +59,16 @@
             "strength": "4",
             "ap": "0",
             "damage": "1"
+          },
+          {
+            "name": "Power fist",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "3",
+            "strength": "8",
+            "ap": "-2",
+            "damage": "2"
           }
         ],
         "abilities": [
@@ -80,17 +90,35 @@
         ],
         "unit_composition": [
           {
-            "description": "5 Intercessors",
+            "description": "1 Intercessor Sergeant",
             "line": 1
+          },
+          {
+            "description": "4 Intercessors",
+            "line": 2
           }
-        ]
+        ],
+        "model_profiles": {
+          "intercessor": {
+            "label": "Intercessor",
+            "stats_override": {},
+            "weapons": ["Bolt rifle", "Bolt pistol", "Close combat weapon"],
+            "transport_slots": 1
+          },
+          "intercessor_sergeant": {
+            "label": "Intercessor Sergeant",
+            "stats_override": {"leadership": 6, "attacks": 4},
+            "weapons": ["Bolt rifle", "Bolt pistol", "Power fist"],
+            "transport_slots": 1
+          }
+        }
       },
       "models": [
-        {"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m2", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m3", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m4", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m5", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+        {"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "intercessor_sergeant"},
+        {"id": "m2", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "intercessor"},
+        {"id": "m3", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "intercessor"},
+        {"id": "m4", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "intercessor"},
+        {"id": "m5", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "intercessor"}
       ]
     },
     "U_TACTICAL_A": {

@@ -11,3 +11,4 @@ MA-43|success|2026-03-07T00:16:29Z|model-attr/MA-43/remove-opponents-actions-pan
 MA-1|success|2026-03-07T00:22:27Z|model-attr/MA-1/add-model-profiles-to-unit-meta-schema
 MA-2|success|2026-03-07T00:27:54Z|model-attr/MA-2/add-model-type-field-to-individual-model
 MA-3|success|2026-03-07T00:51:12Z|model-attr/MA-3/armylistmanager-processes-and-validates-
+MA-4|success|2026-03-07T01:02:40Z|model-attr/MA-4/stateserializer-validation-for-model-typ
