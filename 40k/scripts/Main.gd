@@ -6531,6 +6531,14 @@ func _on_phase_action_pressed() -> void:
 			if GameState.is_game_complete():
 				print("Main: Game is complete, cannot advance phase")
 				return
+			# Check for active secondary missions and offer discard opportunity
+			var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+			if secondary_mgr and secondary_mgr.is_initialized(active_player):
+				var active_missions = secondary_mgr.get_active_missions(active_player)
+				if active_missions.size() > 0:
+					print("Main: Player %d has %d active secondary missions, showing discard dialog" % [active_player, active_missions.size()])
+					_show_mission_discard_dialog(active_missions, active_player)
+					return
 			action = {"type": "END_SCORING", "player": active_player}
 		GameStateData.Phase.MORALE:
 			action = {"type": "END_MORALE", "player": active_player}
@@ -7052,6 +7060,66 @@ func _on_end_command_confirmed(active_player: int) -> void:
 func _on_end_command_cancelled() -> void:
 	"""P3-94: Player cancelled ending command phase"""
 	print("Main: P3-94: Player cancelled end command phase, returning to command phase")
+
+func _show_mission_discard_dialog(active_missions: Array, active_player: int) -> void:
+	"""Show dialog offering to discard a secondary mission for CP before ending turn"""
+	# Skip dialog for AI players — AI never discards via this prompt
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(active_player):
+		print("Main: Skipping mission discard dialog for AI player %d" % active_player)
+		var action = {"type": "END_SCORING", "player": active_player}
+		NetworkIntegration.route_action(action)
+		return
+
+	var dialog_script = load("res://dialogs/MissionDiscardDialog.gd")
+	if not dialog_script:
+		push_error("Main: Failed to load MissionDiscardDialog.gd")
+		var action = {"type": "END_SCORING", "player": active_player}
+		NetworkIntegration.route_action(action)
+		return
+
+	var can_gain_cp = GameState.can_gain_bonus_cp(active_player)
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(active_missions, can_gain_cp)
+	dialog.mission_discard_requested.connect(_on_mission_discard_from_dialog.bind(active_player))
+	dialog.end_turn_without_discard.connect(_on_end_scoring_without_discard.bind(active_player))
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("Main: Mission discard dialog shown for player %d" % active_player)
+
+func _on_mission_discard_from_dialog(mission_index: int, active_player: int) -> void:
+	"""Player chose to discard a secondary mission from the end-turn dialog"""
+	print("Main: Player %d discarding mission index %d from dialog" % [active_player, mission_index])
+	var discard_action = {
+		"type": "DISCARD_SECONDARY",
+		"mission_index": mission_index,
+		"player": active_player,
+	}
+	var result = NetworkIntegration.route_action(discard_action)
+	if result.get("success", false):
+		print("Main: Mission discarded successfully, now ending scoring phase")
+	else:
+		print("Main: Mission discard failed: ", result.get("error", "Unknown error"))
+	# End the scoring phase after the discard
+	var end_action = {"type": "END_SCORING", "player": active_player}
+	var end_result = NetworkIntegration.route_action(end_action)
+	if not end_result.get("success", false):
+		print("Main: Failed to end scoring phase: ", end_result.get("error", "Unknown error"))
+		if not NetworkManager.is_networked():
+			print("Main: Falling back to local phase advance")
+			PhaseManager.advance_to_next_phase()
+
+func _on_end_scoring_without_discard(active_player: int) -> void:
+	"""Player chose to end turn without discarding any mission"""
+	print("Main: Player %d ending scoring phase without discarding" % active_player)
+	var action = {"type": "END_SCORING", "player": active_player}
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false):
+		print("Main: Failed to end scoring phase: ", result.get("error", "Unknown error"))
+		if not NetworkManager.is_networked():
+			print("Main: Falling back to local phase advance")
+			PhaseManager.advance_to_next_phase()
 
 func _show_deployment_summary_dialog(deployment_data: Dictionary, active_player: int) -> void:
 	"""T5-UX8: Show deployment summary dialog before ending deployment phase"""
