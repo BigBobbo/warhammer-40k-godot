@@ -342,10 +342,14 @@ func get_eligible_bodyguards_for_character(character_id: String) -> Array:
 		# Bodyguard must not be a CHARACTER
 		if "CHARACTER" in keywords:
 			continue
-		# Must have a matching keyword
+		# Must have a matching keyword (case-insensitive to handle inconsistent casing
+		# between can_lead values and unit keywords across army list files)
 		var has_match = false
+		var upper_keywords = []
+		for kw in keywords:
+			upper_keywords.append(str(kw).to_upper())
 		for lead_kw in can_lead:
-			if lead_kw in keywords:
+			if str(lead_kw).to_upper() in upper_keywords:
 				has_match = true
 				break
 		if has_match:

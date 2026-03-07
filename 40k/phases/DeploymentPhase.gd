@@ -906,8 +906,11 @@ func _validate_attach_character_deployment(action: Dictionary) -> Dictionary:
 			continue
 
 		var has_match = false
+		var upper_bg_keywords = []
+		for kw in bg_keywords:
+			upper_bg_keywords.append(str(kw).to_upper())
 		for lead_keyword in can_lead:
-			if lead_keyword in bg_keywords:
+			if str(lead_keyword).to_upper() in upper_bg_keywords:
 				has_match = true
 				break
 		if not has_match:
