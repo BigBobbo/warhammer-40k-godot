@@ -504,6 +504,11 @@ func _process_deploy_unit(action: Dictionary) -> Dictionary:
 	var attached_char_ids = unit_data.get("attachment_data", {}).get("attached_characters", [])
 	if attached_char_ids.size() > 0:
 		log_phase_message("P1-66: Auto-deploying %d attached character(s) with bodyguard %s" % [attached_char_ids.size(), unit_id])
+		# Get deployment zone polygon for clamping character positions
+		var unit_owner_for_zone = unit_data.get("owner", 1)
+		var deploy_zone = get_deployment_zone_for_player(unit_owner_for_zone)
+		var zone_poly_inches = deploy_zone.get("poly", [])
+		var zone_poly_pixels = _convert_zone_inches_to_pixels(zone_poly_inches)
 		# Build list of all occupied positions (bodyguard models + already deployed models)
 		var occupied_positions: Array = []  # Array of {position: Vector2, radius_px: float}
 		for pos in model_positions:
@@ -561,8 +566,9 @@ func _process_deploy_unit(action: Dictionary) -> Dictionary:
 					var ref_y = ref_pos.y if ref_pos is Vector2 else float(ref_pos.get("y", 0))
 					var ref_vec = Vector2(ref_x, ref_y)
 					var char_pos = _find_non_overlapping_adjacent_position(
-						ref_vec, char_radius_px, occupied_positions
+						ref_vec, char_radius_px, occupied_positions, zone_poly_pixels
 					)
+					log_phase_message("P1-66: Character model %d placed at (%.1f, %.1f), ref_pos=(%.1f, %.1f)" % [ci, char_pos.x, char_pos.y, ref_vec.x, ref_vec.y])
 					changes.append({
 						"op": "set",
 						"path": "units.%s.models.%d.position" % [char_id, ci],
@@ -1390,10 +1396,27 @@ func _set_local_value(path: String, value) -> void:
 		if current is Dictionary:
 			current[final_key] = value
 
-func _find_non_overlapping_adjacent_position(ref_pos: Vector2, char_radius_px: float, occupied_positions: Array) -> Vector2:
+func _find_non_overlapping_adjacent_position(ref_pos: Vector2, char_radius_px: float, occupied_positions: Array, zone_poly_pixels: PackedVector2Array = PackedVector2Array()) -> Vector2:
 	"""Find a position adjacent to ref_pos that doesn't overlap with any occupied positions.
-	Uses spiral search around the reference position."""
+	Uses spiral search around the reference position. Clamps to deployment zone if provided."""
 	var min_gap_px = 4.0  # Minimum gap between bases
+	var has_zone = zone_poly_pixels.size() >= 3
+	# Calculate zone bounding box for clamping
+	var zone_min_x = 0.0
+	var zone_max_x = 1760.0  # Board width fallback
+	var zone_min_y = 0.0
+	var zone_max_y = 2400.0  # Board height fallback
+	if has_zone:
+		zone_min_x = INF
+		zone_max_x = -INF
+		zone_min_y = INF
+		zone_max_y = -INF
+		for v in zone_poly_pixels:
+			zone_min_x = min(zone_min_x, v.x)
+			zone_max_x = max(zone_max_x, v.x)
+			zone_min_y = min(zone_min_y, v.y)
+			zone_max_y = max(zone_max_y, v.y)
+	var margin = char_radius_px + 5.0
 	for ring in range(1, 15):
 		var ring_radius = (char_radius_px + 30.0) * ring
 		var points_in_ring = maxi(8, ring * 8)
@@ -1403,6 +1426,12 @@ func _find_non_overlapping_adjacent_position(ref_pos: Vector2, char_radius_px: f
 				ref_pos.x + cos(angle) * ring_radius,
 				ref_pos.y + sin(angle) * ring_radius
 			)
+			# Clamp to deployment zone bounds
+			candidate.x = clamp(candidate.x, zone_min_x + margin, zone_max_x - margin)
+			candidate.y = clamp(candidate.y, zone_min_y + margin, zone_max_y - margin)
+			# Check if wholly within zone polygon
+			if has_zone and not Geometry2D.is_point_in_polygon(candidate, zone_poly_pixels):
+				continue
 			var overlaps = false
 			for occ in occupied_positions:
 				var min_dist = char_radius_px + occ.radius_px + min_gap_px
@@ -1411,9 +1440,12 @@ func _find_non_overlapping_adjacent_position(ref_pos: Vector2, char_radius_px: f
 					break
 			if not overlaps:
 				return candidate
-	# Fallback
+	# Fallback: clamp to zone bounds
 	log_phase_message("P1-66: WARNING — could not find non-overlapping position for character")
-	return Vector2(ref_pos.x + char_radius_px * 3.0, ref_pos.y + char_radius_px * 3.0)
+	var fallback = Vector2(ref_pos.x + char_radius_px * 3.0, ref_pos.y + char_radius_px * 3.0)
+	fallback.x = clamp(fallback.x, zone_min_x + margin, zone_max_x - margin)
+	fallback.y = clamp(fallback.y, zone_min_y + margin, zone_max_y - margin)
+	return fallback
 
 # Geometry and validation helpers
 func _base_radius_px(base_mm: int) -> float:

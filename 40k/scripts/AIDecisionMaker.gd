@@ -2194,7 +2194,11 @@ static func _find_terrain_aware_position(
 
 			# Penalize distance from baseline position (don't drift too far from column layout)
 			var drift_dist = candidate_pos.distance_to(baseline_pos)
-			var drift_penalty = drift_dist / 400.0  # Lose ~1 point per 400px drift
+			var drift_penalty = drift_dist / 200.0  # Lose ~1 point per 200px drift (stronger to prevent army clustering)
+			# Hard cap: reject candidates that drift more than 40% of zone width from baseline
+			var zone_w = zone_bounds.max_x - zone_bounds.min_x
+			if abs(candidate_pos.x - baseline_pos.x) > zone_w * 0.4:
+				continue
 
 			# Bonus for proximity to objectives
 			var obj_bonus = 0.0
