@@ -1088,11 +1088,14 @@ func _dismiss_game_loaded_overlay() -> void:
 
 	print("Main: P2-12 Dismissing game loaded overlay (fade out)")
 
+	# CRITICAL: Immediately stop blocking input so the game is interactive
+	# even during the visual fade-out animation.
+	_game_loaded_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	# Stop any tweens running on children (pulse animation)
 	for child in _game_loaded_overlay.get_children():
 		for grandchild in child.get_children():
 			if grandchild is Label:
-				var existing = get_tree().create_tween()
 				# Just reset modulate so the label is fully visible during fade-out
 				grandchild.modulate = Color(1, 1, 1, 1)
 
@@ -5794,12 +5797,13 @@ func _on_load_completed(file_path: String, metadata: Dictionary) -> void:
 	_clear_debug_visualizations()
 
 	if OS.has_feature("web"):
-		# On web, load is async - apply state now that data arrived
 		_show_save_notification("Game loaded!", Color.BLUE)
-		call_deferred("_apply_loaded_state")
-	else:
-		# Force UI refresh after loading
-		call_deferred("_refresh_after_load")
+
+	# Unified load path: use _apply_loaded_state for both web and desktop.
+	# On desktop, the load_completed signal fires synchronously inside load_game(),
+	# so _on_load_requested would also call _apply_loaded_state — causing double
+	# execution and a freeze. Now only this signal handler triggers state restoration.
+	call_deferred("_apply_loaded_state")
 
 # Helper method to clear debug visualizations safely
 func _clear_debug_visualizations() -> void:
@@ -5822,8 +5826,9 @@ func _on_load_failed(error: String) -> void:
 	print("Load failed: %s" % error)
 	# SAVE-20: Dismiss progress indicator on failure
 	_dismiss_save_load_progress()
-	if OS.has_feature("web"):
-		_show_save_notification("Load failed: " + error, Color.RED)
+	# Dismiss game loaded overlay if it was shown (prevents permanent input freeze)
+	_dismiss_game_loaded_overlay()
+	_show_save_notification("Load failed: " + error, Color.RED)
 
 # SAVE-20: Signal handlers for save/load progress indicator
 func _on_save_started(file_path: String) -> void:
@@ -5884,8 +5889,17 @@ func _apply_loaded_state() -> void:
 	if ai_player and ai_player.has_method("request_evaluation_after_load"):
 		ai_player.request_evaluation_after_load()
 
-	# P2-12: Dismiss the fade overlay now that everything is restored
+	# Clear active deployment if any (prevents stale state from blocking input)
+	if deployment_controller and deployment_controller.is_placing():
+		deployment_controller.undo()
+
+	# CRITICAL: Always dismiss the overlay so the game is never left frozen.
+	# This must run even if earlier steps encountered errors.
 	_dismiss_game_loaded_overlay()
+
+	# Show success notification on desktop (web already shows via _on_load_completed)
+	if not OS.has_feature("web"):
+		_show_save_notification("Game loaded!", Color.BLUE)
 
 	print("Main: _apply_loaded_state() complete")
 
@@ -6058,15 +6072,12 @@ func _on_load_requested(save_file: String, owner_id: String = "") -> void:
 	# Show loading notification
 	_show_save_notification("Loading...", Color.YELLOW)
 
-	# Perform load (on web this is async - result comes via load_completed/load_failed signals)
+	# Perform load — result comes via load_completed/load_failed signals for both
+	# web (async) and desktop (synchronous, signal fires inside load_game).
+	# State restoration is handled entirely by _on_load_completed → _apply_loaded_state.
 	var success = SaveLoadManager.load_game(save_file, owner_id)
-	if not OS.has_feature("web"):
-		# Desktop: synchronous result
-		if success:
-			_show_save_notification("Game loaded!", Color.BLUE)
-			_apply_loaded_state()
-		else:
-			_show_save_notification("Load failed!", Color.RED)
+	if not OS.has_feature("web") and not success:
+		_show_save_notification("Load failed!", Color.RED)
 
 func _on_delete_requested(save_file: String) -> void:
 	print("Main: Delete requested for file: ", save_file)
