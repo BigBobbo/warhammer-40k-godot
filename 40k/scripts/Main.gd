@@ -6556,6 +6556,12 @@ func _on_phase_action_pressed() -> void:
 		if not NetworkManager.is_networked():
 			print("Main: Falling back to local phase advance")
 			PhaseManager.advance_to_next_phase()
+	else:
+		# Update button text after successful roll-off (no longer need to roll)
+		if current_phase == GameStateData.Phase.ROLL_OFF and action.get("type") == "ROLL_FOR_FIRST_TURN":
+			if not result.get("tied", false):
+				phase_action_button.text = "Start Game"
+				print("Main: Roll-off complete, button text updated to 'Start Game'")
 
 func update_ui_for_phase() -> void:
 	# Clear any phase-specific UI artifacts first
