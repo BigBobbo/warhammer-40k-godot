@@ -125,9 +125,10 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 
 | Ability | Type | Rules Text | In JSON | In Code | UI | AI | Status |
 |---------|------|-----------|---------|---------|----|----|--------|
+| Deep Strike | Core | Set up in Reserves, deploy 9"+ from enemies | N/A | Deployment system exists | N/A | N/A | **Not in game** |
 | Martial Ka'tah | Faction | Stance selection when fighting | N/A | FactionAbilityManager | N/A | N/A | **Not in game** |
-| Strategic Mastery | Datasheet | Once per round: reduce stratagem CP by 1 | N/A | StratagemManager (exists for foot Shield-Captain) | N/A | N/A | **Not in game** |
-| Sweeping Advance | Datasheet | Once per battle: free Fall Back or Normal move after fighting | N/A | **NO** — not in any code | **NO** | **NO** | **Not in game** |
+| Strategic Mastery | Datasheet | Once per battle round: select one model with this ability, target its unit with a Stratagem at -1CP cost | N/A | StratagemManager (exists for foot Shield-Captain) | N/A | N/A | **Not in game** |
+| Sweeping Advance | Datasheet | Once per battle, end of Fight phase: if in Engagement Range, can Fall Back D6"; if not in Engagement Range, can make a Normal move | N/A | **NO** — not in any code | **NO** | **NO** | **Not in game** |
 | Leader (Vertus Praetors) | Core | Can lead Vertus Praetors | N/A | Attachment system | N/A | N/A | **Not in game** |
 | Invulnerable Save 4+ | Innate | 4+ invulnerable save | N/A | N/A | N/A | N/A | **Not in game** |
 | Mounted, Fly keywords | Special | 12" move, Fly keyword | N/A | N/A | N/A | N/A | **Not in game** |
@@ -142,7 +143,6 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 
 | Ability | Type | Rules Text | In JSON | In Code | UI | AI | Status |
 |---------|------|-----------|---------|---------|----|----|--------|
-| Deep Strike | Core | Teleport deployment | **Yes** | Deployment system | Yes | Yes | **Working** |
 | Martial Ka'tah | Faction | Stance selection in Fight phase | **Yes** | FactionAbilityManager | KatahStanceDialog | Yes | **Working** |
 | Stand Vigil | Datasheet | Re-roll wound 1s; re-roll ALL wounds if on controlled objective | **Yes** | UnitAbilityManager `reroll_wounds: ones` | Passive | Yes | **PARTIAL** — objective-conditional reroll ALL not implemented |
 | Sentinel Storm | Datasheet | Once per battle: shoot again | **Yes** | ShootingPhase `has_shoot_again_ability()` | SentinelStormDialog | Always activates | **Working** |
@@ -150,7 +150,7 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 | Vexilla | Wargear | +1 OC | **Yes** | ArmyListManager WARGEAR_STAT_BONUSES | Passive | N/A | **Working** |
 | Invulnerable Save 4+ | Innate | 4+ invulnerable save | **No** (missing from stats) | N/A | N/A | N/A | **MISSING** |
 
-**Notes:** Stand Vigil's enhanced mode (re-roll ALL wound rolls near controlled objectives) is not implemented — only the basic "re-roll 1s" works. The invulnerable save 4+ is missing from the stats block.
+**Notes:** Custodian Guard do NOT have Deep Strike (previously listed in error). Stand Vigil's enhanced mode (re-roll ALL wound rolls near controlled objectives) is not implemented — only the basic "re-roll 1s" works. The invulnerable save 4+ is missing from the stats block.
 
 ---
 
@@ -193,13 +193,13 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 | Ability | Type | Rules Text | In JSON | In Code | UI | AI | Status |
 |---------|------|-----------|---------|---------|----|----|--------|
 | Martial Ka'tah | Faction | Stance selection when fighting | N/A | FactionAbilityManager | N/A | N/A | **Not in game** |
-| Quicksilver Execution | Datasheet | After moving over enemy models, roll D6 per model: 2+ = 1 mortal wound | N/A | **NO** | **NO** | **NO** | **Not in game** |
-| Turbo-boost | Core/Datasheet | Fixed Advance distance (no roll) | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Quicksilver Execution | Datasheet | Once per battle, after Normal/Advance move, select one enemy unit (excl. MONSTER/VEHICLE) moved over, roll D6 per model: 2+ = 2 mortal wounds each | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Turbo-boost | Datasheet | When Advancing, don't roll — instead add 6" to Move characteristic | N/A | **NO** | **NO** | **NO** | **Not in game** |
 | Mounted, Fly keywords | Special | Fast movement, Fly | N/A | N/A | N/A | N/A | **Not in game** |
 | Lance (weapon keyword) | Weapon | +1 to wound on charge turn | N/A | N/A | N/A | N/A | **Not in game** |
 | Invulnerable Save 4+ | Innate | 4+ invulnerable save | N/A | N/A | N/A | N/A | **Not in game** |
 
-**Notes:** Vertus Praetors are the jetbike unit. Quicksilver Execution (fly-over mortal wounds) is a unique ability with no equivalent in the codebase. The Lance weapon keyword (+1 to wound on charge turn) is also not implemented for their interceptor lances.
+**Notes:** Vertus Praetors are the jetbike unit (no Deep Strike). Quicksilver Execution (once per battle fly-over: 2 mortal wounds per model on 2+, excluding MONSTER/VEHICLE) is a unique ability with no equivalent in the codebase. The Lance weapon keyword (+1 to wound on charge turn) is also not implemented for their interceptor lances.
 
 ---
 
@@ -213,8 +213,9 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 | Daughters of the Abyss | Datasheet | FNP 3+ vs Psychic/mortal wounds | **Yes** | UnitAbilityManager `grant_fnp_psychic_mortal` | Passive | N/A | **PARTIAL** — simplified as FNP 3+ always, should only apply vs Psychic Attacks and mortal wounds |
 | Sanctified Flames | Datasheet | After shooting, enemy hit takes Battle-shock test | **Yes** | ShootingPhase | Automatic | Yes | **Working** |
 | Null Aegis (Aura) | Faction (Talons of the Emperor) | Custodes within 6" get FNP 5+ vs Psychic Attacks and mortal wounds | **No** | **NO** | **NO** | **NO** | **MISSING** |
+| Invulnerable Save 6+ | Innate | 6+ invulnerable save | Need to check | N/A | N/A | N/A | **Verify** |
 
-**Notes:** Witchseekers are the most complete unit in this army list. Daughters of the Abyss has a minor implementation issue (FNP 3+ should only apply against Psychic Attacks and mortal wounds, not all damage). Null Aegis aura (part of Talons of the Emperor faction rules) is entirely missing — this would give nearby Custodes units FNP 5+ vs psychic/mortal wounds.
+**Notes:** Witchseekers are the most complete unit in this army list. They have a 6+ invulnerable save (not 4+ like Custodes). Daughters of the Abyss has a minor implementation issue (FNP 3+ should only apply against Psychic Attacks and mortal wounds, not all damage). Null Aegis aura (part of Talons of the Emperor faction rules) is entirely missing — this would give nearby Custodes units FNP 5+ vs psychic/mortal wounds.
 
 ---
 
@@ -224,9 +225,11 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 
 | Ability | Type | Rules Text | In JSON | In Code | UI | AI | Status |
 |---------|------|-----------|---------|---------|----|----|--------|
+| Deep Strike | Core | Set up in Reserves, deploy 9"+ from enemies | N/A | Deployment system exists | N/A | N/A | **Not in game** |
+| Fights First | Core | Fights in the Fights First step | N/A | FightPhase has Fights First logic | N/A | N/A | **Not in game** |
 | Infiltrators | Core | Deploy anywhere 9"+ from enemy deployment zone and models | N/A | Deployment system exists for Kommandos | N/A | N/A | **Not in game** |
 | Lone Operative | Core | Cannot be targeted unless within 12" | N/A | RulesEngine.has_lone_operative() exists | N/A | N/A | **Not in game** |
-| Acrobatic Escape | Datasheet | End of Fight: Fall Back D6". End of opponent's turn if not in engagement: redeploy 9"+ from enemies | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Acrobatic Escape | Datasheet | End of Fight phase: Fall Back D6". End of opponent's turn if not within 3" of enemies: redeploy into Reinforcements, set up 9"+ from enemies next turn (destroyed if battle ends off-board) | N/A | **NO** | **NO** | **NO** | **Not in game** |
 | Lord of Deceit (Aura) | Datasheet | Enemy stratagems cost +1CP within 12" | N/A | **NO** | **NO** | **NO** | **Not in game** |
 | Invulnerable Save 4+ | Innate | 4+ invulnerable save | N/A | N/A | N/A | N/A | **Not in game** |
 | Phase sword (AP-4, Precision) | Weapon | High AP precision melee weapon | N/A | N/A | N/A | N/A | **Not in game** |
@@ -294,7 +297,7 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 6. **Sweeping Advance not implemented** — Shield-Captain on Dawneagle Jetbike's key ability.
 7. **Quicksilver Execution not implemented** — Vertus Praetors' fly-over mortal wounds.
 8. **Callidus Assassin's Acrobatic Escape & Lord of Deceit not implemented** — Unique redeployment and CP-taxing mechanics.
-9. **Allarus Custodians' Slayers of Nightmares not implemented** — Post-charge Battle-shock forcing.
+9. **Allarus Custodians' Slayers of Tyrants not implemented** — Re-roll Wound rolls vs CHARACTER, MONSTER, VEHICLE. From Golden Light redeployment also missing.
 10. **Inquisitor Draxus's 3 abilities not implemented** — Authority, Xenos Hunter, Psychic Veil.
 
 ### Minor Gaps (Partially Working or Edge Cases)
