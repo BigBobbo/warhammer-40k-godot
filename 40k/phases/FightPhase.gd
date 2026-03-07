@@ -1213,6 +1213,16 @@ func _process_roll_dice_interactive(melee_action: Dictionary) -> Dictionary:
 
 	var save_data_list = result.get("save_data_list", [])
 
+	# VERBOSE COMBAT LOG: Emit hit/wound details for interactive melee
+	for assignment in confirmed_attacks:
+		var vcl_target_id = assignment.get("target", "")
+		var non_save_dice = []
+		for dice_block in result.get("dice", []):
+			var dctx = dice_block.get("context", "")
+			if dctx != "save_roll" and dctx != "save" and dctx != "feel_no_pain":
+				non_save_dice.append(dice_block)
+		_emit_verbose_melee_combat_log(active_fighter_id, vcl_target_id, non_save_dice, [], 0)
+
 	if save_data_list.is_empty():
 		# No wounds caused — proceed directly to consolidate (no saves needed)
 		print("[FightPhase] P0-58: No wounds caused in interactive melee — skipping saves")
@@ -1278,6 +1288,26 @@ func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
 	# Process dice results step by step (like shooting phase)
 	for dice_block in result.get("dice", []):
 		emit_signal("dice_rolled", dice_block)
+
+	# VERBOSE COMBAT LOG: Emit detailed melee combat log
+	if result.success:
+		for assignment in confirmed_attacks:
+			var target_id = assignment.get("target", "")
+			var save_blocks = []
+			for dice_block in result.get("dice", []):
+				var dctx = dice_block.get("context", "")
+				if dctx == "save_roll" or dctx == "save" or dctx == "feel_no_pain":
+					save_blocks.append(dice_block)
+			var non_save_dice = []
+			for dice_block in result.get("dice", []):
+				var dctx = dice_block.get("context", "")
+				if dctx != "save_roll" and dctx != "save" and dctx != "feel_no_pain":
+					non_save_dice.append(dice_block)
+			var melee_casualties = 0
+			for diff in result.get("diffs", []):
+				if diff.get("path", "").ends_with(".alive") and diff.get("value") == false:
+					melee_casualties += 1
+			_emit_verbose_melee_combat_log(active_fighter_id, target_id, non_save_dice, save_blocks, melee_casualties)
 
 	# Emit resolution signals for each target
 	if result.success:
@@ -1530,6 +1560,33 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 			log_phase_message("Melee saves for %s: %d saved, %d failed → %d casualties" % [
 				target_name, saved_count, failed_count, damage_result.casualties
 			])
+
+	# VERBOSE COMBAT LOG: Emit save details and result for melee saves
+	# Normalize save_roll_melee context to save_roll for our log helpers
+	var normalized_save_blocks = []
+	for sb in save_dice_blocks:
+		var nsb = sb.duplicate()
+		if nsb.get("context", "") == "save_roll_melee":
+			nsb["context"] = "save_roll"
+			# Get proper threshold from model profiles
+			var sb_profiles = []
+			for sd in pending_melee_save_data:
+				sb_profiles = sd.get("model_save_profiles", [])
+				break
+			if not sb_profiles.is_empty():
+				nsb["threshold"] = str(sb_profiles[0].get("save_needed", 7)) + "+"
+				nsb["using_invuln"] = sb_profiles[0].get("using_invuln", false)
+		normalized_save_blocks.append(nsb)
+	for nsb in normalized_save_blocks:
+		var nsb_ctx = nsb.get("context", "")
+		if nsb_ctx == "save_roll":
+			_emit_melee_save_detail(nsb)
+		elif nsb_ctx == "feel_no_pain":
+			_emit_melee_fnp_detail(nsb)
+	if total_casualties > 0:
+		GameEventLog.add_combat_result("  Result: %d model(s) destroyed" % total_casualties)
+	else:
+		GameEventLog.add_combat_result("  Result: No models destroyed")
 
 	# Clear pending state
 	awaiting_melee_saves = false
@@ -3413,6 +3470,152 @@ func advance_to_next_fighter() -> void:
 
 	emit_signal("fight_sequence_updated")
 
+
+# ============================================================================
+# VERBOSE COMBAT LOG — Detailed melee dice breakdown for Game Event Log
+# ============================================================================
+
+func _emit_verbose_melee_combat_log(fighter_id: String, target_id: String, dice_data: Array,
+		save_dice_blocks: Array, casualties: int) -> void:
+	"""Emit detailed melee combat log entries to GameEventLog from dice_data and save results."""
+	var fighter_unit = game_state_snapshot.get("units", {}).get(fighter_id, {})
+	var fighter_name = fighter_unit.get("meta", {}).get("name", fighter_id)
+	var target_unit = game_state_snapshot.get("units", {}).get(target_id, {})
+	var target_name = target_unit.get("meta", {}).get("name", target_id)
+	var player = get_current_player()
+
+	# Header
+	GameEventLog.add_combat_header("P%d: %s fights %s" % [player, fighter_name, target_name])
+
+	# Extract hit and wound dice blocks
+	for dice_block in dice_data:
+		var context = dice_block.get("context", "")
+		if context == "resolution_start":
+			continue
+		if context == "to_hit" or context == "hit_roll":
+			_emit_melee_hit_detail(dice_block)
+		elif context == "auto_hit":
+			GameEventLog.add_combat_detail("  To Hit: Auto-hit — %d hits" % dice_block.get("successes", dice_block.get("total_attacks", 0)))
+		elif context == "to_wound" or context == "wound_roll":
+			_emit_melee_wound_detail(dice_block)
+
+	# Save rolls
+	for save_block in save_dice_blocks:
+		var scontext = save_block.get("context", "")
+		if scontext == "save_roll" or scontext == "save":
+			_emit_melee_save_detail(save_block)
+		elif scontext == "feel_no_pain":
+			_emit_melee_fnp_detail(save_block)
+
+	# Result
+	if casualties > 0:
+		GameEventLog.add_combat_result("  Result: %d model(s) destroyed" % casualties)
+	else:
+		GameEventLog.add_combat_result("  Result: No models destroyed")
+
+func _emit_melee_hit_detail(dice_block: Dictionary) -> void:
+	"""Emit detailed melee hit roll log."""
+	var threshold = dice_block.get("threshold", "?")
+	var rolls_raw = dice_block.get("rolls_raw", [])
+	var successes = dice_block.get("successes", 0)
+	var total_attacks = rolls_raw.size()
+	var weapon_name = dice_block.get("weapon_name", "")
+
+	if weapon_name != "":
+		var attacks_desc = "%d attacks" % total_attacks
+		if dice_block.get("variable_attacks", false):
+			attacks_desc = "%s → %d attacks" % [dice_block.get("attacks_notation", "?"), total_attacks]
+		GameEventLog.add_combat_detail("  Weapon: %s — %s" % [weapon_name, attacks_desc])
+
+	var rolls_str = GameEventLog._format_dice_rolls(rolls_raw)
+	GameEventLog.add_combat_detail("  To Hit: needed %s — rolled %s — %d/%d hit" % [threshold, rolls_str, successes, total_attacks])
+
+	# Rerolls
+	var rerolls = dice_block.get("rerolls", [])
+	if not rerolls.is_empty():
+		var rr_strs = []
+		for rr in rerolls:
+			rr_strs.append("%d→%d" % [rr.get("original", 0), rr.get("rerolled_to", rr.get("new", 0))])
+		GameEventLog.add_combat_detail("    Re-rolls: %s" % ", ".join(rr_strs))
+
+	# Critical hits
+	var crits = dice_block.get("critical_hits", 0)
+	if crits > 0:
+		var crit_parts = ["%d critical hit(s)" % crits]
+		if dice_block.get("lethal_hits_weapon", false):
+			crit_parts.append("Lethal Hits (crits auto-wound)")
+		if dice_block.get("sustained_hits_weapon", false):
+			crit_parts.append("Sustained Hits: +%d bonus" % dice_block.get("sustained_bonus_hits", 0))
+		GameEventLog.add_combat_detail("    Criticals: %s" % " | ".join(crit_parts))
+
+func _emit_melee_wound_detail(dice_block: Dictionary) -> void:
+	"""Emit detailed melee wound roll log."""
+	var threshold = dice_block.get("threshold", "?")
+	var rolls_raw = dice_block.get("rolls_raw", [])
+	var successes = dice_block.get("successes", 0)
+	var total = rolls_raw.size()
+
+	var auto_wounds = dice_block.get("lethal_hits_auto_wounds", 0)
+	if auto_wounds > 0:
+		GameEventLog.add_combat_detail("  Lethal Hits: %d auto-wound(s)" % auto_wounds)
+
+	if total > 0:
+		var rolls_str = GameEventLog._format_dice_rolls(rolls_raw)
+		var wounds_from_rolls = dice_block.get("wounds_from_rolls", successes - auto_wounds)
+		GameEventLog.add_combat_detail("  To Wound: needed %s — rolled %s — %d/%d wounded" % [threshold, rolls_str, wounds_from_rolls, total])
+
+	var wound_mod_net = dice_block.get("wound_modifier_net", 0)
+	if wound_mod_net != 0:
+		GameEventLog.add_combat_detail("    Wound modifier: %+d" % wound_mod_net)
+
+	var wound_rerolls = dice_block.get("wound_rerolls", [])
+	if not wound_rerolls.is_empty():
+		var wrr_strs = []
+		for wrr in wound_rerolls:
+			wrr_strs.append("%d→%d" % [wrr.get("original", 0), wrr.get("rerolled_to", wrr.get("new", 0))])
+		GameEventLog.add_combat_detail("    Re-rolls: %s" % ", ".join(wrr_strs))
+
+	if dice_block.get("anti_keyword_active", false):
+		GameEventLog.add_combat_detail("    Anti-keyword: critical wounds on %d+" % dice_block.get("critical_wound_threshold", 6))
+
+	var dw_count = dice_block.get("critical_wounds", 0)
+	if dice_block.get("devastating_wounds_weapon", false) and dw_count > 0:
+		GameEventLog.add_combat_detail("    DEVASTATING WOUNDS: %d bypass saves" % dw_count)
+
+	GameEventLog.add_combat_detail("  Total wounds caused: %d" % successes)
+
+func _emit_melee_save_detail(save_block: Dictionary) -> void:
+	"""Emit detailed melee save roll log."""
+	var target_name = save_block.get("target_unit_name", "Unknown")
+	var threshold = save_block.get("threshold", "?")
+	var rolls_raw = save_block.get("rolls_raw", [])
+	var passed = save_block.get("successes", 0)
+	var failed = save_block.get("failed", 0)
+	var ap = save_block.get("ap", 0)
+	var using_invuln = save_block.get("using_invuln", false)
+	var weapon_name = save_block.get("weapon_name", "")
+
+	var save_type = ""
+	if using_invuln:
+		save_type = "Invulnerable Save %s" % threshold
+	else:
+		save_type = "Armour Save %s (AP -%d)" % [threshold, ap]
+
+	var rolls_str = GameEventLog._format_dice_rolls(rolls_raw)
+	GameEventLog.add_combat_detail("  %s Saves vs %s: %s — rolled %s — %d passed, %d failed" % [
+		target_name, weapon_name, save_type, rolls_str, passed, failed])
+
+func _emit_melee_fnp_detail(fnp_block: Dictionary) -> void:
+	"""Emit Feel No Pain roll details for melee."""
+	var target_name = fnp_block.get("target_unit_name", "Unknown")
+	var threshold = fnp_block.get("threshold", "?")
+	var rolls_raw = fnp_block.get("rolls_raw", [])
+	var prevented = fnp_block.get("wounds_prevented", 0)
+	var total = fnp_block.get("total_wounds", 0)
+
+	var rolls_str = GameEventLog._format_dice_rolls(rolls_raw)
+	GameEventLog.add_combat_detail("  %s Feel No Pain %s: rolled %s — %d/%d prevented" % [
+		target_name, threshold, rolls_str, prevented, total])
 
 func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 	"""Trigger an animation on all token visuals for a unit."""

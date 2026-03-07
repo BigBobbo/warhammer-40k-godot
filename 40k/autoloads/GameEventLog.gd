@@ -7,7 +7,8 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 
 signal entry_added(text: String, entry_type: String)
 
-# entry_type: "phase_header", "p1_action", "p2_action", "ai_thinking", "info"
+# entry_type: "phase_header", "p1_action", "p2_action", "ai_thinking", "info",
+#             "combat_header", "combat_detail", "combat_result"
 var entries: Array = []
 
 # Noisy internal actions to filter out
@@ -249,6 +250,135 @@ func add_player_entry(player: int, text: String) -> void:
 func add_overwatch_entry(text: String) -> void:
 	"""Add a Fire Overwatch entry to the game log with distinctive styling."""
 	_add_entry(text, "overwatch")
+
+func add_combat_header(text: String) -> void:
+	"""Add a combat section header (e.g. 'Unit A shoots at Unit B')."""
+	_add_entry(text, "combat_header")
+
+func add_combat_detail(text: String) -> void:
+	"""Add a combat detail line (indented, smaller text for dice breakdowns)."""
+	_add_entry(text, "combat_detail")
+
+func add_combat_result(text: String) -> void:
+	"""Add a combat result line (outcome summary — bold, colored)."""
+	_add_entry(text, "combat_result")
+
+func add_shooting_combat_log(shooter_name: String, target_name: String, weapon_name: String,
+		total_attacks: int, hit_data: Dictionary, wound_data: Dictionary,
+		save_info: Dictionary, result_info: Dictionary, player: int) -> void:
+	"""Add a full verbose combat log card for a shooting attack sequence.
+	hit_data: {rolls, threshold, successes, total, rerolls, modifiers_desc, critical_hits}
+	wound_data: {rolls, threshold, successes, total, rerolls, auto_wounds, modifiers_desc, devastating_wounds}
+	save_info: {rolls, threshold, passed, failed, using_invuln, invuln_value, ap, fnp_rolls, fnp_threshold, fnp_prevented}
+	result_info: {wounds_inflicted, models_destroyed, damage_per_wound}"""
+
+	var prefix = "P%d" % player
+
+	# Header line
+	add_combat_header("%s: %s shoots at %s" % [prefix, shooter_name, target_name])
+
+	# Weapon and attacks
+	add_combat_detail("  Weapon: %s (%d attacks)" % [weapon_name, total_attacks])
+
+	# Hit roll details
+	if hit_data.get("is_torrent", false):
+		add_combat_detail("  To Hit: Auto-hit (Torrent) — %d hits" % hit_data.get("successes", 0))
+	else:
+		var hit_rolls_str = _format_dice_rolls(hit_data.get("rolls", []))
+		var hit_line = "  To Hit: needed %s — rolled %s" % [hit_data.get("threshold", "?"), hit_rolls_str]
+		hit_line += " — %d/%d hit" % [hit_data.get("successes", 0), hit_data.get("total", 0)]
+		add_combat_detail(hit_line)
+
+		# Hit modifiers
+		var hit_mods = hit_data.get("modifiers_desc", "")
+		if hit_mods != "":
+			add_combat_detail("    Modifiers: %s" % hit_mods)
+
+		# Hit rerolls
+		var hit_rerolls = hit_data.get("rerolls", [])
+		if not hit_rerolls.is_empty():
+			var reroll_strs = []
+			for rr in hit_rerolls:
+				reroll_strs.append("%d→%d" % [rr.get("original", 0), rr.get("rerolled_to", rr.get("new", 0))])
+			add_combat_detail("    Re-rolls: %s" % ", ".join(reroll_strs))
+
+		# Critical hits
+		var crits = hit_data.get("critical_hits", 0)
+		if crits > 0:
+			add_combat_detail("    Critical hits: %d" % crits)
+
+		# Sustained hits
+		var sustained = hit_data.get("sustained_bonus", 0)
+		if sustained > 0:
+			add_combat_detail("    Sustained Hits: +%d bonus hits" % sustained)
+
+	# Wound roll details
+	var wound_total = wound_data.get("total", 0)
+	if wound_total > 0:
+		var wound_rolls_str = _format_dice_rolls(wound_data.get("rolls", []))
+		var wound_line = "  To Wound: needed %s — rolled %s" % [wound_data.get("threshold", "?"), wound_rolls_str]
+		wound_line += " — %d/%d wounded" % [wound_data.get("successes", 0), wound_total]
+		add_combat_detail(wound_line)
+
+		# Wound modifiers
+		var wound_mods = wound_data.get("modifiers_desc", "")
+		if wound_mods != "":
+			add_combat_detail("    Modifiers: %s" % wound_mods)
+
+		# Wound rerolls
+		var wound_rerolls = wound_data.get("rerolls", [])
+		if not wound_rerolls.is_empty():
+			var wrr_strs = []
+			for wrr in wound_rerolls:
+				wrr_strs.append("%d→%d" % [wrr.get("original", 0), wrr.get("rerolled_to", wrr.get("new", 0))])
+			add_combat_detail("    Re-rolls: %s" % ", ".join(wrr_strs))
+
+		# Auto-wounds from Lethal Hits
+		var auto_wounds = wound_data.get("auto_wounds", 0)
+		if auto_wounds > 0:
+			add_combat_detail("    Lethal Hits: %d auto-wounds (no roll needed)" % auto_wounds)
+
+		# Devastating Wounds
+		var dw = wound_data.get("devastating_wounds", 0)
+		if dw > 0:
+			add_combat_detail("    DEVASTATING WOUNDS: %d (bypass saves)" % dw)
+
+	# Save roll details
+	var save_rolls = save_info.get("rolls", [])
+	if not save_rolls.is_empty():
+		var save_rolls_str = _format_dice_rolls(save_rolls)
+		var save_type = ""
+		if save_info.get("using_invuln", false):
+			save_type = "Invulnerable Save %s" % save_info.get("threshold", "?")
+		else:
+			save_type = "Armour Save %s (AP -%d)" % [save_info.get("threshold", "?"), save_info.get("ap", 0)]
+		var save_line = "  Saves: %s — rolled %s" % [save_type, save_rolls_str]
+		save_line += " — %d passed, %d failed" % [save_info.get("passed", 0), save_info.get("failed", 0)]
+		add_combat_detail(save_line)
+
+	# Feel No Pain
+	var fnp_rolls = save_info.get("fnp_rolls", [])
+	if not fnp_rolls.is_empty():
+		var fnp_str = _format_dice_rolls(fnp_rolls)
+		var fnp_threshold = save_info.get("fnp_threshold", "?")
+		var fnp_prevented = save_info.get("fnp_prevented", 0)
+		add_combat_detail("  Feel No Pain %s+: rolled %s — %d wounds prevented" % [fnp_threshold, fnp_str, fnp_prevented])
+
+	# Result summary
+	var wounds_inflicted = result_info.get("wounds_inflicted", 0)
+	var models_destroyed = result_info.get("models_destroyed", 0)
+	var dmg_per = result_info.get("damage_per_wound", 1)
+	var result_line = "  Result: %d wound(s) inflicted" % wounds_inflicted
+	if dmg_per > 1:
+		result_line += " (%d damage each)" % dmg_per
+	result_line += " — %d model(s) destroyed" % models_destroyed
+	add_combat_result(result_line)
+
+func _format_dice_rolls(rolls: Array) -> String:
+	"""Format an array of dice rolls as [3, 5, 2, 6] style string."""
+	if rolls.is_empty():
+		return "[]"
+	return "[%s]" % ", ".join(rolls.map(func(r): return str(r)))
 
 func get_all_entries() -> Array:
 	return entries.duplicate()
