@@ -151,10 +151,10 @@
 - **Validation**: Load army, iterate `unit.models`, confirm each model's `model_type` matches a key in `meta.model_profiles`
 
 ### MA-3: ArmyListManager processes and validates model_profiles on load
-- [ ] In `_process_army_data()`, verify that every model's `model_type` references an existing profile key (log error if not)
-- [ ] Verify every weapon name in each profile's `weapons` array exists in `meta.weapons` (log warning if not)
-- [ ] Ensure `model_profiles` dict is preserved through load pipeline (not stripped or mutated)
-- [ ] Backward compat: units without `model_profiles` skip all new validation
+- [x] In `_process_army_data()`, verify that every model's `model_type` references an existing profile key (log error if not)
+- [x] Verify every weapon name in each profile's `weapons` array exists in `meta.weapons` (log warning if not)
+- [x] Ensure `model_profiles` dict is preserved through load pipeline (not stripped or mutated)
+- [x] Backward compat: units without `model_profiles` skip all new validation
 - **Files**: ArmyListManager.gd (lines ~387-489)
 - **Validation**: Load army with valid profiles (no errors), load army with invalid `model_type` reference (error logged), load army with missing weapon name in profile (warning logged), load old army without profiles (no errors)
 

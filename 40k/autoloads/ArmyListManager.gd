@@ -231,6 +231,9 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 					summary_parts.append("%dx (no model_type)" % untyped_count)
 				print("ArmyListManager: MA-2 Unit %s (%s) model_type breakdown: %s" % [unit_id, unit.meta.get("name", "?"), ", ".join(summary_parts)])
 
+			# MA-3: Validate model_profiles on load (skip units without model_profiles)
+			_validate_model_profiles(unit_id, unit)
+
 			print("Processed unit: ", unit_id, " for player ", player)
 
 	# Validate army construction points and detachment
@@ -526,6 +529,9 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 				summary_parts.append("%dx (no model_type)" % untyped_count)
 			print("ArmyListManager: MA-2 Unit %s (%s) model_type breakdown: %s" % [unit_id, unit.meta.get("name", "?"), ", ".join(summary_parts)])
 
+		# MA-3: Validate model_profiles on load (skip units without model_profiles)
+		_validate_model_profiles(unit_id, unit)
+
 		print("Processed unit: ", unit_id, " for player ", player)
 
 	# Validate army construction points and detachment (cloud army path)
@@ -632,6 +638,61 @@ func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 					print("ArmyListManager: Wargear '%s' on %s: removed Firing Deck %d" % [
 						ability_name, meta.get("name", unit_id), old_fd
 					])
+
+# ============================================================================
+# MODEL PROFILE VALIDATION (MA-3)
+# ============================================================================
+# Validates model_profiles data during army loading:
+# - Every model's model_type must reference an existing profile key
+# - Every weapon in each profile's weapons array must exist in meta.weapons
+# - Units without model_profiles skip all validation (backward compat)
+
+func _validate_model_profiles(unit_id: String, unit: Dictionary) -> void:
+	"""Validate model_profiles references during army load. Skips units without model_profiles."""
+	if not unit.has("meta") or not unit.meta is Dictionary:
+		return
+	if not unit.meta.has("model_profiles"):
+		return  # Backward compat: no model_profiles means no validation needed
+
+	var meta = unit.meta
+	var profiles = meta.model_profiles
+	var unit_name = meta.get("name", unit_id)
+
+	if not profiles is Dictionary:
+		print("ERROR: MA-3 Unit %s (%s) model_profiles is not a dictionary — skipping validation" % [unit_id, unit_name])
+		return
+
+	var profile_keys = profiles.keys()
+
+	# Build list of known weapon names from meta.weapons
+	var known_weapon_names: Array = []
+	if meta.has("weapons") and meta.weapons is Array:
+		for w in meta.weapons:
+			if w is Dictionary and w.has("name"):
+				known_weapon_names.append(w.name)
+
+	# Validate each profile's weapons array against meta.weapons
+	for profile_key in profile_keys:
+		var profile = profiles[profile_key]
+		if not profile is Dictionary:
+			continue
+		if profile.has("weapons") and profile.weapons is Array:
+			for weapon_name in profile.weapons:
+				if weapon_name not in known_weapon_names:
+					print("WARNING: MA-3 Unit %s (%s) profile '%s' references weapon '%s' not found in meta.weapons %s" % [unit_id, unit_name, profile_key, weapon_name, str(known_weapon_names)])
+
+	# Validate each model's model_type against profile keys
+	if unit.has("models") and unit.models is Array:
+		for model in unit.models:
+			if not model is Dictionary:
+				continue
+			var model_type = model.get("model_type", null)
+			if model_type == null or (model_type is String and model_type.is_empty()):
+				continue  # Models without model_type use legacy behavior
+			if model_type not in profile_keys:
+				print("ERROR: MA-3 Unit %s (%s) model %s has model_type '%s' not found in model_profiles keys %s" % [unit_id, unit_name, model.get("id", "?"), str(model_type), str(profile_keys)])
+
+	print("ArmyListManager: MA-3 model_profiles validation complete for %s (%s)" % [unit_id, unit_name])
 
 # ============================================================================
 # MODEL COUNT EXPANSION (MA-37)
