@@ -7465,7 +7465,7 @@ func _setup_game_log_panel() -> void:
 	game_log_panel.anchor_top = 0.0
 	game_log_panel.anchor_bottom = 1.0
 	game_log_panel.offset_left = 0.0
-	game_log_panel.offset_right = 280.0
+	game_log_panel.offset_right = 340.0
 	game_log_panel.offset_top = 105.0
 	game_log_panel.offset_bottom = -305.0
 
@@ -7572,10 +7572,69 @@ func _append_log_entry(text: String, entry_type: String) -> void:
 			colored_text = "[i][color=#8899AA]  %s[/color][/i]" % text
 		"overwatch":
 			colored_text = "[b][color=#FF6600]%s[/color][/b]" % text
+		"combat_header":
+			# Card-style combat header: bold gold with top border
+			colored_text = "[color=#444444]────────────────────[/color]\n[b][color=#E8C477]%s[/color][/b]" % text
+		"combat_detail":
+			# Indented detail lines: smaller, muted color with dice highlighting
+			var styled = _style_combat_detail(text)
+			colored_text = "[color=#B0B8C0]%s[/color]" % styled
+		"combat_result":
+			# Result line: bold with color based on outcome
+			if "destroyed" in text and "No models" not in text:
+				colored_text = "[b][color=#FF6B6B]%s[/color][/b]" % text
+			else:
+				colored_text = "[b][color=#77CC77]%s[/color][/b]" % text
 		_:
 			colored_text = "[color=#AAAAAA]%s[/color]" % text
 
 	game_log_label.append_text(colored_text + "\n")
+
+func _style_combat_detail(text: String) -> String:
+	"""Apply inline styling to combat detail text — highlight dice rolls, thresholds, and keywords."""
+	var styled = text
+
+	# Highlight dice roll arrays [1, 3, 5, 6] in cyan
+	var dice_regex = RegEx.new()
+	dice_regex.compile("\\[([0-9, ]+)\\]")
+	var dice_results = dice_regex.search_all(styled)
+	# Process in reverse order to preserve positions
+	for i in range(dice_results.size() - 1, -1, -1):
+		var m = dice_results[i]
+		var full_match = m.get_string()
+		var inner = m.get_string(1)
+		# Color individual dice: 6s in gold, 1s in red, others in cyan
+		var dice_parts = inner.split(", ")
+		var colored_dice = []
+		for d in dice_parts:
+			var dval = d.strip_edges()
+			if dval == "6":
+				colored_dice.append("[color=#FFD700]6[/color]")
+			elif dval == "1":
+				colored_dice.append("[color=#FF4444]1[/color]")
+			else:
+				colored_dice.append("[color=#66CCEE]%s[/color]" % dval)
+		var replacement = "[color=#888888][[/color]%s[color=#888888]][/color]" % ", ".join(colored_dice)
+		styled = styled.substr(0, m.get_start()) + replacement + styled.substr(m.get_end())
+
+	# Highlight keywords in distinct colors
+	# DEVASTATING WOUNDS in red
+	styled = styled.replace("DEVASTATING WOUNDS", "[color=#FF4444]DEVASTATING WOUNDS[/color]")
+	styled = styled.replace("DEVASTATING", "[color=#FF4444]DEVASTATING[/color]")
+	# Lethal Hits in orange
+	styled = styled.replace("Lethal Hits", "[color=#FF8844]Lethal Hits[/color]")
+	# Sustained Hits in yellow
+	styled = styled.replace("Sustained Hits", "[color=#EEDD44]Sustained Hits[/color]")
+	# Feel No Pain in green
+	styled = styled.replace("Feel No Pain", "[color=#44CC88]Feel No Pain[/color]")
+	# Invulnerable Save in purple
+	styled = styled.replace("Invulnerable Save", "[color=#BB88FF]Invulnerable Save[/color]")
+	# Re-rolls in light blue
+	styled = styled.replace("Re-rolls:", "[color=#88BBFF]Re-rolls:[/color]")
+	# Torrent in orange
+	styled = styled.replace("Torrent", "[color=#FF8844]Torrent[/color]")
+
+	return styled
 
 func _on_game_log_collapse_pressed() -> void:
 	is_game_log_visible = false
@@ -7608,8 +7667,8 @@ func _setup_dice_history_panel() -> void:
 	_dice_history_panel.anchor_right = 0.0
 	_dice_history_panel.anchor_top = 0.0
 	_dice_history_panel.anchor_bottom = 1.0
-	_dice_history_panel.offset_left = 285.0
-	_dice_history_panel.offset_right = 565.0
+	_dice_history_panel.offset_left = 345.0
+	_dice_history_panel.offset_right = 625.0
 	_dice_history_panel.offset_top = 105.0
 	_dice_history_panel.offset_bottom = -305.0
 
