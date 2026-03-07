@@ -210,9 +210,9 @@
 - **Validation**: For Lootas, `get_heavy_weapons()` returns deffgun only for deffgun models (Heavy keyword), `get_assault_weapons()` returns mega-blasta only for kmb/spanner models (Assault keyword). Models without the weapon keyword return empty.
 
 ### MA-9: Unify overwatch weapon assembly with new per-model path
-- [ ] `_build_overwatch_weapon_assignments()` (RulesEngine.gd:856-908) already reads `model.get("weapons", [])` per model
-- [ ] Align this to use the same profile-based lookup as `get_unit_weapons()` so both paths produce consistent results
-- [ ] Extract a shared helper: `_get_model_weapon_ids(unit, model, weapon_type_filter)` used by both `get_unit_weapons()` and overwatch
+- [x] `_build_overwatch_weapon_assignments()` (RulesEngine.gd:856-908) already reads `model.get("weapons", [])` per model
+- [x] Align this to use the same profile-based lookup as `get_unit_weapons()` so both paths produce consistent results
+- [x] Extract a shared helper: `_get_model_weapon_ids(unit, model, weapon_type_filter)` used by both `get_unit_weapons()` and overwatch
 - **Files**: RulesEngine.gd
 - **Validation**: Fire overwatch with Lootas unit. Verify 8 models fire deffguns and 3 models (2 kmb + 1 spanner) fire mega-blastas in separate assignments.
 

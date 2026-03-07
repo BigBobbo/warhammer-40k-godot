@@ -854,11 +854,12 @@ static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: 
 	return result
 
 static func _build_overwatch_weapon_assignments(shooter_unit: Dictionary, shooter_unit_id: String, board: Dictionary) -> Array:
-	"""Build weapon assignments for overwatch: gather all ranged weapons from alive models."""
+	"""Build weapon assignments for overwatch: gather all ranged weapons from alive models.
+	Uses _get_model_weapon_ids() for consistent weapon lookup with get_unit_weapons()."""
 	var assignments = []
 	var models = shooter_unit.get("models", [])
 
-	# Group models by weapon
+	# Group models by weapon using the shared profile-based lookup
 	var weapon_models: Dictionary = {}  # weapon_id -> [model_ids]
 
 	for i in range(models.size()):
@@ -867,32 +868,9 @@ static func _build_overwatch_weapon_assignments(shooter_unit: Dictionary, shoote
 			continue
 
 		var model_id = model.get("id", "m%d" % (i + 1))
-		var weapons = model.get("weapons", [])
+		var weapon_ids = _get_model_weapon_ids(shooter_unit, model, "Ranged")
 
-		for weapon in weapons:
-			var weapon_id = ""
-			if weapon is Dictionary:
-				weapon_id = weapon.get("id", weapon.get("weapon_id", ""))
-			elif weapon is String:
-				weapon_id = weapon
-
-			if weapon_id == "":
-				continue
-
-			# Only include ranged weapons (have BS stat, or check type)
-			var profile = get_weapon_profile(weapon_id, board)
-			if profile.is_empty():
-				continue
-
-			# Skip melee-only weapons
-			var weapon_type = profile.get("type", "ranged").to_lower()
-			if weapon_type == "melee":
-				continue
-
-			# Has a BS stat? It's a ranged weapon
-			if not profile.has("bs") and not profile.has("ballistic_skill"):
-				continue
-
+		for weapon_id in weapon_ids:
 			if not weapon_models.has(weapon_id):
 				weapon_models[weapon_id] = []
 			weapon_models[weapon_id].append(model_id)
@@ -3386,6 +3364,34 @@ static func _get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
 			return model
 	return {}
 
+# Shared helper: return weapon IDs for a specific model, respecting model_profiles if present.
+# weapon_type_filter: "Ranged" or "Melee" (case-insensitive match against weapon type)
+static func _get_model_weapon_ids(unit: Dictionary, model: Dictionary, weapon_type_filter: String) -> Array:
+	var weapons_data = unit.get("meta", {}).get("weapons", [])
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	var model_type = model.get("model_type", "")
+
+	var use_profile = not model_profiles.is_empty() and model_type != "" and model_profiles.has(model_type)
+	var allowed_weapon_names = []
+	if use_profile:
+		allowed_weapon_names = model_profiles[model_type].get("weapons", [])
+
+	var weapon_ids = []
+	for weapon in weapons_data:
+		var wtype = weapon.get("type", "")
+		if wtype.to_lower() != weapon_type_filter.to_lower():
+			continue
+
+		var wname = weapon.get("name", "")
+		if use_profile and wname not in allowed_weapon_names:
+			continue
+
+		var weapon_id = _generate_weapon_id(wname, wtype)
+		if weapon_id not in weapon_ids:
+			weapon_ids.append(weapon_id)
+
+	return weapon_ids
+
 # Get weapons for a unit
 static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
 	# First try legacy format for backward compatibility
@@ -3405,40 +3411,14 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 		return {}
 	
 	# Convert modern weapons format to model-weapon mapping
-	var weapons = unit.get("meta", {}).get("weapons", [])
 	var models = unit.get("models", [])
-	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
 	var result = {}
 
-	# First, collect unique weapon IDs from unit's weapon list (used as fallback)
-	# This prevents duplicate weapons from causing multiple assignments
-	var unique_weapon_ids = []
-	for weapon in weapons:
-		if weapon.get("type", "") == "Ranged":  # Only include ranged weapons for shooting
-			var weapon_id = _generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
-			if weapon_id not in unique_weapon_ids:
-				unique_weapon_ids.append(weapon_id)
-
-	# Assign weapons to all alive models
+	# Assign weapons to all alive models using shared helper
 	for model in models:
 		var model_id = model.get("id", "")
 		if model_id != "" and model.get("alive", true):
-			# Per-model profile branch: if model_profiles exist and model has a model_type,
-			# only assign weapons listed in that model's profile
-			var model_type = model.get("model_type", "")
-			if not model_profiles.is_empty() and model_type != "" and model_profiles.has(model_type):
-				var profile = model_profiles[model_type]
-				var profile_weapon_names = profile.get("weapons", [])
-				var model_weapon_ids = []
-				for weapon in weapons:
-					if weapon.get("type", "") == "Ranged" and weapon.get("name", "") in profile_weapon_names:
-						var weapon_id = _generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
-						if weapon_id not in model_weapon_ids:
-							model_weapon_ids.append(weapon_id)
-				result[model_id] = model_weapon_ids
-			else:
-				# Fallback: no model_profiles or no model_type — assign all ranged weapons
-				result[model_id] = unique_weapon_ids.duplicate()
+			result[model_id] = _get_model_weapon_ids(unit, model, "Ranged")
 
 	# Include attached character weapons (combined unit shoots together)
 	var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
@@ -3447,14 +3427,6 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 		if char_unit.is_empty():
 			continue
 
-		var char_weapons = char_unit.get("meta", {}).get("weapons", [])
-		var char_unique_weapon_ids = []
-		for weapon in char_weapons:
-			if weapon.get("type", "") == "Ranged":
-				var weapon_id = _generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
-				if weapon_id not in char_unique_weapon_ids:
-					char_unique_weapon_ids.append(weapon_id)
-
 		# Assign character weapons to character's alive models
 		var char_models = char_unit.get("models", [])
 		for char_model in char_models:
@@ -3462,7 +3434,7 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 			if char_model_id != "" and char_model.get("alive", true):
 				# Use composite ID so damage routing works correctly
 				var composite_id = "%s:%s" % [char_id, char_model_id]
-				result[composite_id] = char_unique_weapon_ids.duplicate()
+				result[composite_id] = _get_model_weapon_ids(char_unit, char_model, "Ranged")
 
 	return result
 
