@@ -229,9 +229,9 @@
 - **Validation**: Lootas spanner (BS4+) should hit on 4+ while regular Lootas (BS5+) hit on 5+. Create test: fire Lootas, verify spanner's hits use BS4+ threshold.
 
 ### MA-11: Per-model WS in melee hit resolution
-- [ ] In `_resolve_melee_assignment()` (~RulesEngine.gd:6516), WS is read from weapon profile: `weapon_profile.get("ws", 4)`
-- [ ] Add same override logic as MA-10: check model's `stats_override.weapon_skill`
-- [ ] Melee attack loop (~lines 6464-6505) already iterates per model — add per-model WS lookup there
+- [x] In `_resolve_melee_assignment()` (~RulesEngine.gd:6516), WS is read from weapon profile: `weapon_profile.get("ws", 4)`
+- [x] Add same override logic as MA-10: check model's `stats_override.weapon_skill`
+- [x] Melee attack loop (~lines 6464-6505) already iterates per model — add per-model WS lookup there
 - **Files**: RulesEngine.gd
 - **Validation**: Unit with Nob (WS3+) and Boyz (WS4+) resolves correct hit thresholds per model. Verify with test.
 
