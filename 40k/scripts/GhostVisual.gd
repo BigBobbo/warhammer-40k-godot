@@ -7,6 +7,9 @@ var model_data: Dictionary = {}
 var base_rotation: float = 0.0
 var base_shape: BaseShape = null
 
+# MA-17: Model type label shown during placement
+var model_type_label: String = ""
+
 # Pulsing effect state
 var _pulse_time: float = 0.0
 const PULSE_SPEED: float = 2.5  # Cycles per second
@@ -92,6 +95,10 @@ func _draw() -> void:
 		# Fallback: single nearest model line (used in deployment)
 		_draw_coherency_line(border_color)
 
+	# MA-17: Draw model type label above the ghost
+	if model_type_label != "":
+		_draw_model_type_label(pulse_factor)
+
 func _draw_coherency_line(border_color: Color) -> void:
 	if nearest_model_world_pos == null:
 		return
@@ -169,6 +176,31 @@ func _draw_all_coherency_lines() -> void:
 		var dot_color = Color(0.2, 0.9, 0.2, 0.6) if in_coherency else Color(0.9, 0.2, 0.2, 0.6)
 		draw_circle(local_target, 3.0, dot_color)
 
+func _draw_model_type_label(pulse_factor: float) -> void:
+	"""MA-17: Draw a small label above the ghost showing the model type (e.g., 'Spanner')."""
+	var font = ThemeDB.fallback_font
+	var font_size = 12
+	var text_size = font.get_string_size(model_type_label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+
+	# Position the label above the ghost base
+	var base_bounds = base_shape.get_bounds() if base_shape else Rect2(-20, -20, 40, 40)
+	var label_y = base_bounds.position.y - 8.0  # Above the top of the base
+	var label_pos = Vector2(-text_size.x / 2.0, label_y)
+
+	# Semi-transparent dark background for readability
+	var bg_padding = Vector2(4, 2)
+	var bg_rect = Rect2(
+		label_pos.x - bg_padding.x,
+		label_y - text_size.y - bg_padding.y,
+		text_size.x + bg_padding.x * 2,
+		text_size.y + bg_padding.y * 2
+	)
+	draw_rect(bg_rect, Color(0.0, 0.0, 0.0, 0.5 * pulse_factor))
+
+	# White text
+	var text_color = Color(1.0, 1.0, 1.0, 0.9 * pulse_factor)
+	draw_string(font, label_pos, model_type_label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
+
 func set_coherency_preview(lines_data: Array, status_text: String, is_valid: bool) -> void:
 	"""P3-116: Set coherency preview data for all unit models during movement.
 	lines_data: Array of { world_pos: Vector2, distance_inches: float, in_coherency: bool }"""
@@ -203,6 +235,12 @@ func set_model_data(data: Dictionary) -> void:
 	print("[GhostVisual] base_shape created: ", base_shape != null)
 	if base_shape:
 		print("[GhostVisual] base_shape type: ", base_shape.get_type())
+	queue_redraw()
+
+func set_model_type_label(label: String) -> void:
+	"""MA-17: Set the model type label to display above the ghost during placement."""
+	print("[GhostVisual] MA-17: set_model_type_label('%s')" % label)
+	model_type_label = label
 	queue_redraw()
 
 func set_base_rotation(rot: float) -> void:
