@@ -772,6 +772,22 @@ func _validate_unit_data(data: Dictionary) -> Dictionary:
 					model["status_effects"] = []
 					validation.repairs.append("%s: set status_effects to []" % m_prefix)
 
+				# MA-4: model_type validation (only when unit has model_profiles)
+				var model_profiles = meta.get("model_profiles", {}) if meta is Dictionary else {}
+				if model_profiles is Dictionary and model_profiles.size() > 0:
+					var m_type = model.get("model_type", null)
+					if m_type == null or m_type == "":
+						# Auto-repair: if exactly 1 profile key, assign it
+						if model_profiles.size() == 1:
+							var only_key = model_profiles.keys()[0]
+							validation.warnings.append("%s: missing model_type with model_profiles present — auto-setting to '%s'" % [m_prefix, only_key])
+							model["model_type"] = only_key
+							validation.repairs.append("%s: set model_type to '%s'" % [m_prefix, only_key])
+						else:
+							validation.warnings.append("%s: missing model_type but unit has %d model_profiles — cannot auto-repair" % [m_prefix, model_profiles.size()])
+					elif m_type is String and not model_profiles.has(m_type):
+						validation.warnings.append("%s: model_type '%s' references nonexistent profile key (valid keys: %s)" % [m_prefix, m_type, str(model_profiles.keys())])
+
 		# --- Cross-reference validation: embarked_in ---
 		var embarked_in = unit.get("embarked_in", null)
 		if embarked_in != null and embarked_in is String and embarked_in != "":
