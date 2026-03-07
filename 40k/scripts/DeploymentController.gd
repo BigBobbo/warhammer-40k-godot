@@ -1106,6 +1106,8 @@ func _create_ghost() -> void:
 		ghost_sprite.owner_player = cm_unit_data.get("owner", unit_data["owner"])
 		ghost_sprite.set_model_data(model_data)
 		ghost_sprite.set_meta("unit_id", cm["unit_id"])
+		# MA-17: Set model type label on ghost
+		ghost_sprite.set_model_type_label(_get_model_type_label(model_data, cm_unit_data))
 	elif model_idx < unit_data["models"].size():
 		var model_data = unit_data["models"][model_idx]
 		print("[DeploymentController] model_data: ", model_data.get("id", "unknown"))
@@ -1113,6 +1115,8 @@ func _create_ghost() -> void:
 		# Set the complete model data for shape handling
 		ghost_sprite.set_model_data(model_data)
 		ghost_sprite.set_meta("unit_id", unit_id)
+		# MA-17: Set model type label on ghost
+		ghost_sprite.set_model_type_label(_get_model_type_label(model_data, unit_data))
 
 	if ghost_layer:
 		ghost_layer.add_child(ghost_sprite)
@@ -1894,6 +1898,11 @@ func _create_formation_ghosts(count: int) -> void:
 		ghost.name = "FormationGhost_%d" % i
 		ghost.owner_player = unit_data["owner"]
 		ghost.set_model_data(model_data)
+		# MA-17: Set model type label on formation ghosts
+		var fm_unit_data = unit_data
+		if is_combined_deployment and model_index < combined_models.size():
+			fm_unit_data = GameState.get_unit(combined_models[model_index]["unit_id"])
+		ghost.set_model_type_label(_get_model_type_label(model_data, fm_unit_data))
 		ghost.modulate.a = 0.6  # Slightly transparent for formation ghosts
 		ghost_layer.add_child(ghost)
 		formation_preview_ghosts.append(ghost)
@@ -2012,6 +2021,9 @@ func _start_model_repositioning(deployed_model: Dictionary) -> void:
 	reposition_ghost.name = "RepositionGhost"
 	reposition_ghost.owner_player = GameState.get_active_player()
 	reposition_ghost.set_model_data(model_data)
+	# MA-17: Set model type label on reposition ghost
+	var repo_unit_data = GameState.get_unit(unit_id)
+	reposition_ghost.set_model_type_label(_get_model_type_label(model_data, repo_unit_data))
 	ghost_layer.add_child(reposition_ghost)
 
 	# Make the original token semi-transparent during repositioning
@@ -2370,6 +2382,18 @@ func _on_model_type_selected(type_key: String) -> void:
 		var remaining = _get_unplaced_model_indices()
 		if not remaining.is_empty():
 			_create_formation_ghosts(min(formation_size, remaining.size()))
+
+func _get_model_type_label(model_data: Dictionary, unit_data: Dictionary) -> String:
+	"""MA-17: Get the display label for a model's type from model_profiles.
+	Returns empty string if no model_profiles or model has no model_type."""
+	var model_type = model_data.get("model_type", "")
+	if model_type == "":
+		return ""
+	var model_profiles = unit_data.get("meta", {}).get("model_profiles", {})
+	if model_profiles.is_empty():
+		return ""
+	var profile = model_profiles.get(model_type, {})
+	return profile.get("label", "")
 
 func _find_next_unplaced_of_type(models: Array, type_key: String) -> int:
 	"""Find the index of the first unplaced model with the given model_type."""

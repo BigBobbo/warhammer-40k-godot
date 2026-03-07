@@ -282,9 +282,9 @@
 - **Validation**: Place models in arbitrary order (spanner first, then deffguns, then mega-blastas). All positions saved correctly. Coherency checks work. Confirm deployment succeeds.
 
 ### MA-17: Update ghost visual to show model type info
-- [ ] During placement, ghost visual should display the model type label (e.g., "Spanner") near the cursor or on the ghost
-- [ ] Use a small Label node attached to the ghost showing `model_profiles[model_type].label`
-- [ ] If no `model_profiles`, no label shown (existing behavior)
+- [x] During placement, ghost visual should display the model type label (e.g., "Spanner") near the cursor or on the ghost
+- [x] Use a small Label node attached to the ghost showing `model_profiles[model_type].label`
+- [x] If no `model_profiles`, no label shown (existing behavior)
 - **Files**: GhostVisual.gd, DeploymentController.gd
 - **Validation**: While placing a Spanner model, ghost shows "Spanner" label. While placing deffgun Loota, ghost shows "Loota (Deffgun)". No label on units without profiles.
 
