@@ -7375,39 +7375,56 @@ static func units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> b
 # Get melee weapons for a unit
 static func get_unit_melee_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
 	var unit_weapons = {}
-	
+
 	# Use provided board or get from GameState
 	var units = {}
 	if not board.is_empty():
 		units = board.get("units", {})
 	else:
 		units = GameState.state.get("units", {})
-	
+
 	var unit = units.get(unit_id, {})
 	if unit.is_empty():
 		return unit_weapons
-	
+
 	var models = unit.get("models", [])
-	
+	var weapons_data = unit.get("meta", {}).get("weapons", [])
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+
+	# Collect all melee weapon names as fallback (for units without model_profiles)
+	var all_melee_weapons = []
+	for weapon in weapons_data:
+		if weapon.get("type", "").to_lower() == "melee":
+			var wname = weapon.get("name", "Unknown Weapon")
+			if wname not in all_melee_weapons:
+				all_melee_weapons.append(wname)
+
 	for model_index in range(models.size()):
 		var model = models[model_index]
 		if not model.get("alive", true):
 			continue
-		
+
 		var model_id = "m" + str(model_index)
 		var model_weapons = []
-		
-		# Get weapons from model or unit meta
-		var weapons_data = unit.get("meta", {}).get("weapons", [])
-		
-		for weapon in weapons_data:
-			# Check if this is a melee weapon
-			if weapon.get("type", "").to_lower() == "melee":
-				model_weapons.append(weapon.get("name", "Unknown Weapon"))
-		
+
+		# Per-model profile branch: if model_profiles exist and model has a model_type,
+		# only assign melee weapons listed in that model's profile
+		var model_type = model.get("model_type", "")
+		if not model_profiles.is_empty() and model_type != "" and model_profiles.has(model_type):
+			var profile = model_profiles[model_type]
+			var profile_weapon_names = profile.get("weapons", [])
+			for weapon in weapons_data:
+				if weapon.get("type", "").to_lower() == "melee" and weapon.get("name", "") in profile_weapon_names:
+					var wname = weapon.get("name", "Unknown Weapon")
+					if wname not in model_weapons:
+						model_weapons.append(wname)
+		else:
+			# Fallback: no model_profiles or no model_type — assign all melee weapons
+			model_weapons = all_melee_weapons.duplicate()
+
 		if not model_weapons.is_empty():
 			unit_weapons[model_id] = model_weapons
-	
+
 	return unit_weapons
 
 # Helper function to apply damage to a unit (reused from shooting)
