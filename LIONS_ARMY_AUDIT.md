@@ -17,7 +17,8 @@
 | Enhancement (Admonimortis) implemented | **NO** |
 | Lions of the Emperor stratagems in data CSV | Yes (6) |
 | Lions of the Emperor stratagems implemented in code | **NO** |
-| **Total ability gaps** | **~45** |
+| Talons of the Emperor faction auras implemented | **NO** |
+| **Total ability gaps** | **~50** |
 
 ---
 
@@ -58,19 +59,26 @@
 
 **Impact:** The core benefit of this army list — +1 to hit and wound when isolated — is completely non-functional. This is a critical gap since the entire army composition is designed around this rule.
 
-### Admonimortis (Enhancement on Shield-Captain on Dawneagle Jetbike)
+### Lions of the Emperor Enhancements (4 total)
 
-**Rules:** The bearer's melee weapons get +3 Strength, +1 AP, +1 Damage.
+Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawneagle Jetbike). All 4 are listed for completeness.
+
+| Enhancement | Points | Restriction | Effect | Status |
+|-------------|--------|-------------|--------|--------|
+| **Admonimortis** | 10pts | Shield-Captain only | Bearer's melee weapons get +3 Strength, +1 AP, +1 Damage | **NOT IMPLEMENTED** |
+| Superior Creation | 25pts | Infantry only | Once per battle: when destroyed, 2+ to return with full wounds | **NOT IMPLEMENTED** |
+| Praesidius | 25pts | Any character | Bearer gains Lone Operative and Stealth | **NOT IMPLEMENTED** |
+| Fierce Conqueror | 15pts | Shield-Captain only | +2 melee Attacks per 5 enemy models within 6" (rounded down) | **NOT IMPLEMENTED** |
 
 | Aspect | Status | Notes |
 |--------|--------|-------|
-| Enhancement in data files | **NO** | No Enhancements.csv or enhancement data for Lions of the Emperor in `40k/data/` |
-| Enhancement applied in code | **NO** | No code references to "Admonimortis" in any `.gd` file |
-| Enhancement modifies weapon stats | **NO** | No weapon stat modification system for enhancements exists |
+| Enhancement data in `40k/data/` | **NO** | No enhancement data files for Lions of the Emperor |
+| Enhancement system in code | **NO** | No code references to any of these enhancements in `.gd` files |
+| Weapon stat modification for enhancements | **NO** | No generic system to modify weapon stats based on enhancements |
 | UI for enhancement effects | **NO** | No enhancement effect display or weapon stat overlay |
-| AI aware of enhancement | **NO** | AI has no enhancement awareness |
+| AI aware of enhancements | **NO** | AI has no enhancement awareness |
 
-**Impact:** The Shield-Captain's interceptor lance should hit at S10 AP-2 D3 instead of S7 AP-1 D2 in melee. Without this, the unit is significantly weaker than intended.
+**Impact of Admonimortis:** The Shield-Captain's interceptor lance should hit at S10 AP-2 D3 instead of S7 AP-1 D2 in melee. Without this, the unit is significantly weaker than intended.
 
 ---
 
@@ -84,14 +92,12 @@
 |---------|------|-----------|---------|---------|----|----|--------|
 | Deep Strike | Core | Set up in Reserves, deploy 9"+ from enemies | N/A | Deployment system exists | N/A | N/A | **Not in game** |
 | Martial Ka'tah | Faction | Choose Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) when fighting | N/A | FactionAbilityManager handles this | N/A | N/A | **Not in game** |
-| Captain-General | Datasheet | While leading, ignore modifiers to BS/WS and Hit roll modifiers | N/A | **NO** | **NO** | **NO** | **Not in game** |
-| Moment Shackle | Datasheet | Once per battle: 12 attacks OR 2+ invuln in Fight phase | N/A | **NO** | **NO** | **NO** | **Not in game** |
-| Golden Laurels | Datasheet | While leading, worsen AP of incoming melee attacks by 1 | N/A | **NO** | **NO** | **NO** | **Not in game** |
-| Hero of Lion's Gate | Datasheet | Once per battle: change any Hit/Wound/Save roll to unmodified 6 | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Captain-Commander | Datasheet (Leader) | While leading, ignore all modifiers to BS/WS and Hit roll modifiers | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Moment Shackle | Datasheet | Once per battle, start of Fight phase, choose one: (1) Watcher's Axe has 12 Attacks, (2) 2+ invuln save, (3) unit has Fights First | N/A | **NO** | **NO** | **NO** | **Not in game** |
 | Warlord requirement | Special | Must be Warlord if in army | N/A | **NO** | **NO** | **NO** | **Not in game** |
 | Invulnerable Save 4+ | Innate | 4+ invulnerable save | N/A | N/A | N/A | N/A | **Not in game** |
 
-**Notes:** Trajann is an Epic Hero with 4 unique datasheet abilities. None exist in the codebase. Captain-General is particularly impactful as it negates all hit modifiers (e.g., cover, -1 to hit abilities).
+**Notes:** Trajann is an Epic Hero with 2 major unique abilities. Captain-Commander is particularly impactful as it negates all hit modifiers (e.g., cover, -1 to hit abilities). Moment Shackle has 3 options (12 attacks, 2+ invuln, or Fights First for the whole unit).
 
 ---
 
@@ -152,14 +158,14 @@
 
 | Ability | Type | Rules Text | In JSON | In Code | UI | AI | Status |
 |---------|------|-----------|---------|---------|----|----|--------|
-| Deep Strike (From Golden Light) | Core | Teleport deployment | N/A | Deployment system exists | N/A | N/A | **Not in game** |
+| Deep Strike | Core | Teleport deployment | N/A | Deployment system exists | N/A | N/A | **Not in game** |
 | Martial Ka'tah | Faction | Stance selection when fighting | N/A | FactionAbilityManager | N/A | N/A | **Not in game** |
-| Slayers of Nightmares | Datasheet | After charging, enemy units in Engagement Range take Battle-shock test (-1) | N/A | **NO** | **NO** | **NO** | **Not in game** |
-| From Golden Light (datasheet) | Datasheet | Deep Strike (same as core) | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Slayers of Tyrants | Datasheet | Re-roll Wound rolls when attacking CHARACTER, MONSTER, or VEHICLE | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| From Golden Light | Datasheet | Once per battle: at end of opponent's turn, if not in Engagement Range, redeploy 9"+ from all enemies | N/A | **NO** | **NO** | **NO** | **Not in game** |
 | Invulnerable Save 4+ | Innate | 4+ invulnerable save | N/A | N/A | N/A | N/A | **Not in game** |
 | Terminator keyword | Special | Relevant for Unleash the Lions stratagem | N/A | N/A | N/A | N/A | **Not in game** |
 
-**Notes:** The Unleash the Lions stratagem (split into single-model units) is listed in the Lions of the Emperor stratagems CSV but has no code implementation. This is a signature ability of this army list.
+**Notes:** Slayers of Tyrants is a powerful anti-elite ability (re-roll wounds vs Characters/Monsters/Vehicles). From Golden Light allows tactical redeployment mid-game. The Unleash the Lions stratagem (split into single-model units) is in the CSV data but has no code implementation.
 
 ---
 
@@ -170,10 +176,11 @@
 | Ability | Type | Rules Text | In JSON | In Code | UI | AI | Status |
 |---------|------|-----------|---------|---------|----|----|--------|
 | Daughters of the Abyss | Datasheet | FNP 3+ vs Psychic Attacks and mortal wounds | N/A | UnitAbilityManager has entry (for Witchseekers) | N/A | N/A | **Not in game** |
-| Purgation Protocols | Datasheet | After shooting, one hit enemy must take Battle-shock test; if PSYKER, subtract 1 from test | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Purity of Execution | Datasheet | Ranged attacks vs PSYKER units gain [PRECISION] and [DEVASTATING WOUNDS] | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Null Aegis (Aura) | Faction (Talons of the Emperor) | Custodes within 6" get FNP 5+ vs Psychic Attacks and mortal wounds | N/A | **NO** | **NO** | **NO** | **Not in game** |
 | ANATHEMA PSYKANA keyword | Special | Anti-psyker faction keyword | N/A | N/A | N/A | N/A | **Not in game** |
 
-**Notes:** Prosecutors are a Sisters of Silence unit. Their Purgation Protocols is similar to (but distinct from) Witchseekers' Sanctified Flames — it specifically punishes PSYKER targets.
+**Notes:** Prosecutors are a Sisters of Silence unit. Purity of Execution gives Precision + Devastating Wounds vs Psykers. Null Aegis is a faction-level aura that benefits nearby Custodes units — this is part of the Talons of the Emperor faction rules which are entirely unimplemented.
 
 ---
 
@@ -203,8 +210,9 @@
 | Scout 6" | Core | Pre-game 6" movement | **Yes** (ability entry with parameter "6\"") | ScoutPhase | Yes | Yes | **Working** |
 | Daughters of the Abyss | Datasheet | FNP 3+ vs Psychic/mortal wounds | **Yes** | UnitAbilityManager `grant_fnp_psychic_mortal` | Passive | N/A | **PARTIAL** — simplified as FNP 3+ always, should only apply vs Psychic Attacks and mortal wounds |
 | Sanctified Flames | Datasheet | After shooting, enemy hit takes Battle-shock test | **Yes** | ShootingPhase | Automatic | Yes | **Working** |
+| Null Aegis (Aura) | Faction (Talons of the Emperor) | Custodes within 6" get FNP 5+ vs Psychic Attacks and mortal wounds | **No** | **NO** | **NO** | **NO** | **MISSING** |
 
-**Notes:** Witchseekers are the most complete unit in this army list. Daughters of the Abyss has a minor implementation issue (FNP 3+ should only apply against Psychic Attacks and mortal wounds, not all damage).
+**Notes:** Witchseekers are the most complete unit in this army list. Daughters of the Abyss has a minor implementation issue (FNP 3+ should only apply against Psychic Attacks and mortal wounds, not all damage). Null Aegis aura (part of Talons of the Emperor faction rules) is entirely missing — this would give nearby Custodes units FNP 5+ vs psychic/mortal wounds.
 
 ---
 
@@ -238,6 +246,19 @@
 | Invulnerable Save 5+ | Innate | 5+ invulnerable save | N/A | N/A | N/A | N/A | **Not in game** |
 
 **Notes:** Draxus is from the Agents of the Imperium faction. Xenos Hunter's +1 to Hit against non-IMPERIUM/CHAOS targets is broadly useful but requires keyword checking infrastructure. Psychic Veil's 18" range restriction is a unique defensive mechanic with no equivalent in the codebase.
+
+---
+
+## Faction Ability: Talons of the Emperor
+
+**Status: NOT IMPLEMENTED** — No code references to these aura interactions.
+
+| Rule | Applies To | Effect | Status |
+|------|-----------|--------|--------|
+| Null Aegis (Aura) | ANATHEMA PSYKANA units (Sisters of Silence) | While a Custodes unit is within 6", that Custodes unit gets FNP 5+ vs Psychic Attacks and mortal wounds | **Not implemented** |
+| Deadly Unity (Aura) | ADEPTUS CUSTODES units (non-Anathema Psykana) | While an Anathema Psykana unit is within 6", +1 to Hit for that Anathema Psykana unit | **Not implemented** |
+
+**Notes:** These are cross-faction auras that encourage mixed Custodes + Sisters of Silence positioning. Both Witchseeker and Prosecutor squads in this army would project Null Aegis, and all Custodes units would project Deadly Unity. This requires the aura ability infrastructure in UnitAbilityManager.
 
 ---
 
