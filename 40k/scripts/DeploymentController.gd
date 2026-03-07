@@ -11,6 +11,7 @@ var unit_id: String = ""
 var model_idx: int = -1
 var temp_positions: Array = []
 var temp_rotations: Array = []  # Store rotations for each model
+var placement_order: Array = []  # MA-16: Track order of model placement for non-sequential undo
 var token_layer: Node2D
 var ghost_layer: Node2D
 var ghost_sprite: Node2D = null
@@ -179,6 +180,7 @@ func begin_deploy(_unit_id: String) -> void:
 	model_idx = 0
 	temp_positions.clear()
 	temp_rotations.clear()
+	placement_order.clear()  # MA-16: Reset placement order tracking
 	combined_models.clear()
 	is_combined_deployment = false
 	var unit_data = GameState.get_unit(unit_id)
@@ -387,6 +389,7 @@ func try_place_at(world_pos: Vector2) -> void:
 	# Store position and rotation (rotation already captured above)
 	temp_positions[model_idx] = world_pos
 	temp_rotations[model_idx] = rotation
+	placement_order.append(model_idx)  # MA-16: Track placement order for non-sequential undo
 	_spawn_preview_token(spawn_unit_id, spawn_model_idx, world_pos, rotation)
 
 	# MA-15: Advance to next model — type-aware if picker is active
@@ -457,6 +460,7 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 		var idx = remaining_indices[i]
 		temp_positions[idx] = positions[i]
 		temp_rotations[idx] = 0.0
+		placement_order.append(idx)  # MA-16: Track placement order for non-sequential undo
 		var spawn_uid = unit_id
 		var spawn_midx = idx
 		if is_combined_deployment and idx < combined_models.size():
@@ -488,18 +492,32 @@ func undo_last_model() -> bool:
 	if not is_placing():
 		return false
 
-	# Find the last placed model by scanning backwards from model_idx
+	# MA-16: Use placement_order to find the most recently placed model
+	# This supports non-sequential placement (e.g., placing spanner at idx 10 before grots at idx 0-7)
 	var last_placed_idx = -1
-	for i in range(model_idx - 1, -1, -1):
-		if temp_positions[i] != null:
-			last_placed_idx = i
-			break
+	if placement_order.size() > 0:
+		last_placed_idx = placement_order.back()
+	else:
+		# Fallback: scan all positions for any placed model
+		for i in range(temp_positions.size() - 1, -1, -1):
+			if temp_positions[i] != null:
+				last_placed_idx = i
+				break
 
 	if last_placed_idx == -1:
 		print("[DeploymentController] undo_last_model: No placed models to undo")
 		return false
 
 	print("[DeploymentController] undo_last_model: Undoing model at index %d" % last_placed_idx)
+
+	# MA-16: Remove from placement order tracking
+	if placement_order.size() > 0 and placement_order.back() == last_placed_idx:
+		placement_order.pop_back()
+	else:
+		# Fallback: remove the index from wherever it appears
+		var order_idx = placement_order.find(last_placed_idx)
+		if order_idx >= 0:
+			placement_order.remove_at(order_idx)
 
 	# Clear the position and rotation for this model
 	temp_positions[last_placed_idx] = null
@@ -560,6 +578,7 @@ func reset_unit() -> void:
 	_clear_previews()
 	temp_positions.fill(null)
 	temp_rotations.fill(0.0)  # Reset rotations to default
+	placement_order.clear()  # MA-16: Reset placement order tracking
 	model_idx = 0
 
 	# Update through PhaseManager instead of BoardState
@@ -610,6 +629,7 @@ func confirm() -> void:
 		model_idx = -1
 		temp_positions.clear()
 		temp_rotations.clear()
+		placement_order.clear()  # MA-16: Clear placement order tracking
 		is_reinforcement_mode = false
 		reinforcement_placement_type = ""
 		# MA-15: Clean up model type picker
@@ -856,6 +876,7 @@ func _complete_deployment() -> void:
 	model_idx = -1
 	temp_positions.clear()
 	temp_rotations.clear()  # Added to properly clear rotations
+	placement_order.clear()  # MA-16: Clear placement order tracking
 	combined_models.clear()
 	is_combined_deployment = false
 	is_infiltrators_mode = false

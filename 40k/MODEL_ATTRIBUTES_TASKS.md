@@ -273,11 +273,11 @@
 - **Validation**: Deploy Lootas unit. Panel shows "Loota (Deffgun) x8", "Loota (Mega-blasta) x2", "Spanner x1". Select Spanner, place it. Panel updates to show "Spanner x0" (greyed out). Select deffgun type, place 8 times. Auto-selects mega-blasta type for final 2. Deploy unit without profiles — no panel shown.
 
 ### MA-16: Update deployment model_idx to support non-sequential placement
-- [ ] Currently `model_idx` increments 0, 1, 2... placing models in array order
-- [ ] With model selection, user might place m11 (spanner) first, then m1-m8, then m9-m10
-- [ ] Change placement to track `current_model_to_place` as a model array index selected by the picker
-- [ ] `_get_unplaced_model_indices()` (~line 1713) still works (returns indices where position is null)
-- [ ] Update `temp_positions` and `temp_rotations` indexing to work with non-sequential placement
+- [x] Currently `model_idx` increments 0, 1, 2... placing models in array order
+- [x] With model selection, user might place m11 (spanner) first, then m1-m8, then m9-m10
+- [x] Change placement to track `current_model_to_place` as a model array index selected by the picker
+- [x] `_get_unplaced_model_indices()` (~line 1713) still works (returns indices where position is null)
+- [x] Update `temp_positions` and `temp_rotations` indexing to work with non-sequential placement
 - **Files**: DeploymentController.gd
 - **Validation**: Place models in arbitrary order (spanner first, then deffguns, then mega-blastas). All positions saved correctly. Coherency checks work. Confirm deployment succeeds.
 
