@@ -1132,25 +1132,11 @@ func get_available_actions() -> Array:
 			"description": "Deploy " + get_unit(unit_id).get("meta", {}).get("name", unit_id)
 		})
 
-		# Units can be placed in reserves (strategic reserves or deep strike)
-		# Exception: Fortification units must be deployed on the table
-		var unit = get_unit(unit_id)
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		if not GameState.unit_is_fortification(unit_id):
-			if GameState.unit_has_deep_strike(unit_id):
-				actions.append({
-					"type": "PLACE_IN_RESERVES",
-					"unit_id": unit_id,
-					"reserve_type": "deep_strike",
-					"description": "Deep Strike %s" % unit_name
-				})
-			else:
-				actions.append({
-					"type": "PLACE_IN_RESERVES",
-					"unit_id": unit_id,
-					"reserve_type": "strategic_reserves",
-					"description": "Strategic Reserves %s" % unit_name
-				})
+		# Reserves (strategic reserves / deep strike) are declared during the
+		# Formations phase, not during Deployment.  The PLACE_IN_RESERVES action
+		# is kept in validate/process only as a safety-net for AI fallback and
+		# auto-timeout scenarios, but is intentionally excluded from available
+		# actions so players and AI do not proactively choose it here.
 
 	# Check if player can be switched
 	if not _has_undeployed_units(current_player):
