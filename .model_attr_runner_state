@@ -9,3 +9,4 @@ MA-41|success|2026-03-06T18:10:59Z|model-attr/MA-41/fix-keyboard-input-leaking-t
 MA-42|failed|2026-03-07T00:12:42Z|model-attr/MA-42/block-active-player-actions-while-reacti
 MA-43|success|2026-03-07T00:16:29Z|model-attr/MA-43/remove-opponents-actions-panel-and-ensur
 MA-1|success|2026-03-07T00:22:27Z|model-attr/MA-1/add-model-profiles-to-unit-meta-schema
+MA-2|success|2026-03-07T00:27:54Z|model-attr/MA-2/add-model-type-field-to-individual-model
