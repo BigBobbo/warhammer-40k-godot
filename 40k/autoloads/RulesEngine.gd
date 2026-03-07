@@ -1232,6 +1232,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# RAPID FIRE KEYWORD: Check if weapon is Rapid Fire and models are in half range
 	# MA-10: Track rapid fire attacks with per-model BS
+	# MA-14: Only models in this assignment's model_ids count for RF (per-model weapons)
 	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
@@ -1255,6 +1256,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				for _j in range(rapid_fire_value):
 					bs_per_attack.append(rf_model_bs)
 		rapid_fire_attacks = models_in_half_range * rapid_fire_value
+		print("RulesEngine: [MA-14] Rapid Fire %d — %d/%d assigned models in half range (+%d attacks)" % [rapid_fire_value, models_in_half_range, model_ids.size(), rapid_fire_attacks])
 
 	# BLAST KEYWORD (PRP-013): Add bonus attacks based on target unit size
 	var blast_bonus_attacks = calculate_blast_bonus(weapon_id, target_unit, board)
@@ -1900,6 +1902,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# RAPID FIRE KEYWORD: Check if weapon is Rapid Fire and models are in half range
 	# MA-10: Track rapid fire attacks with per-model BS
+	# MA-14: Only models in this assignment's model_ids count for RF (per-model weapons)
 	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
@@ -1923,6 +1926,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				for _j in range(rapid_fire_value):
 					bs_per_attack.append(rf_model_bs)
 		rapid_fire_attacks = models_in_half_range * rapid_fire_value
+		print("RulesEngine: [MA-14][auto-resolve] Rapid Fire %d — %d/%d assigned models in half range (+%d attacks)" % [rapid_fire_value, models_in_half_range, model_ids.size(), rapid_fire_attacks])
 
 	# BLAST KEYWORD (PRP-013): Add bonus attacks based on target unit size
 	var blast_bonus_attacks = calculate_blast_bonus(weapon_id, target_unit, board)

@@ -2963,26 +2963,26 @@ func _build_auto_shoot_plan() -> Array:
 			continue
 
 		# Build weapon assignments: all ranged weapons → nearest target
+		# MA-14: Group model_ids per weapon so RF/melta only count models with that weapon
 		var unit_weapons = RulesEngine.get_unit_weapons(unit_id, snapshot)
-		var assigned_weapon_ids = []
-		var model_ids = []
+		var weapon_model_map: Dictionary = {}  # weapon_id -> [model_ids]
 		var assignments = []
 
 		for model_id in unit_weapons:
-			if model_id not in model_ids:
-				model_ids.append(model_id)
 			for weapon_id in unit_weapons[model_id]:
-				if weapon_id not in assigned_weapon_ids:
-					assigned_weapon_ids.append(weapon_id)
+				if not weapon_model_map.has(weapon_id):
+					weapon_model_map[weapon_id] = []
+				if model_id not in weapon_model_map[weapon_id]:
+					weapon_model_map[weapon_id].append(model_id)
 
-		for weapon_id in assigned_weapon_ids:
+		for weapon_id in weapon_model_map:
 			# Only assign if weapon is in the eligible weapons list for this target
 			var target_weapons = eligible[nearest_target_id].get("weapons_in_range", [])
 			if weapon_id in target_weapons:
 				assignments.append({
 					"weapon_id": weapon_id,
 					"target_unit_id": nearest_target_id,
-					"model_ids": model_ids
+					"model_ids": weapon_model_map[weapon_id]
 				})
 
 		if assignments.is_empty():

@@ -252,10 +252,10 @@
 - **Validation**: Model with stats_override.wounds = 3 has correct max wounds. Wargear bonus (e.g., Praesidium Shield +1W) stacks correctly on top of profile wounds.
 
 ### MA-14: Rapid Fire bonus per-weapon-per-model
-- [ ] In shooting resolution (~RulesEngine.gd:1246), Rapid Fire bonus is `models_in_half_range * rapid_fire_value`
-- [ ] This counts ALL models in half range, but with per-model weapons, only models that actually have the RF weapon should count
-- [ ] Fix: when computing `models_in_half_range`, filter to models present in the current assignment's `model_ids`
-- [ ] Same fix needed in auto-resolve path (~RulesEngine.gd:1862)
+- [x] In shooting resolution (~RulesEngine.gd:1246), Rapid Fire bonus is `models_in_half_range * rapid_fire_value`
+- [x] This counts ALL models in half range, but with per-model weapons, only models that actually have the RF weapon should count
+- [x] Fix: when computing `models_in_half_range`, filter to models present in the current assignment's `model_ids`
+- [x] Same fix needed in auto-resolve path (~RulesEngine.gd:1862)
 - **Files**: RulesEngine.gd
 - **Validation**: Unit with 5 bolter models and 5 plasma models. Only bolter models count for bolt rifle RF bonus. Only plasma models count for plasma gun RF bonus (if RF). Verify with mixed-weapon unit.
 
