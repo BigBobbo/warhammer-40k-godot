@@ -305,6 +305,17 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle: after Normal move, select enemy within 12\" — on 3+, D3 mortal wounds"
 	},
 
+	# Custodes Shield-captain On Dawneagle Jetbike — once per battle move at end of fight phase
+	"Sweeping Advance": {
+		"condition": "end_of_fight_phase",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: at end of Fight phase, if unit fought — Fall Back (if in engagement) or Normal Move (if not)"
+	},
+
 	# Damaged Profile — -1 to hit when at low wounds (Battlewagon, Caladius, Telemon)
 	# The wound threshold is parsed from the ability name, e.g. "Damaged: 1-5 Wounds Remaining" -> 5
 	# Checked directly by RulesEngine.is_damaged_profile_active() rather than using the flag system,

@@ -10442,7 +10442,15 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		var uid = a.get("unit_id", "")
 		return _compute_consolidate_action(snapshot, uid, player)
 
-	# Step 6: End fight phase
+	# Step 6: Sweeping Advance if available
+	if action_types.has("SWEEPING_ADVANCE"):
+		var sa_action = action_types["SWEEPING_ADVANCE"][0]
+		var sa_unit_id = sa_action.get("unit_id", "")
+		var sa_in_engagement = sa_action.get("in_engagement", false)
+		var sa_move_distance = sa_action.get("move_distance", 6.0)
+		return _compute_sweeping_advance_action(snapshot, sa_unit_id, player, sa_in_engagement, sa_move_distance)
+
+	# Step 7: End fight phase
 	if action_types.has("END_FIGHT"):
 		return {"type": "END_FIGHT", "_ai_description": "End Fight Phase"}
 
@@ -15511,3 +15519,107 @@ static func _find_safer_position(
 		])
 
 	return best_pos
+
+# =============================================================================
+# SWEEPING ADVANCE COMPUTATION
+# =============================================================================
+
+static func _compute_sweeping_advance_action(snapshot: Dictionary, unit_id: String, player: int, in_engagement: bool, move_distance: float) -> Dictionary:
+	"""Compute Sweeping Advance movement for a unit at end of Fight phase.
+	If in engagement: Fall Back move (move away from enemies).
+	If not in engagement: Normal Move (move toward nearest objective or safety)."""
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {"type": "DECLINE_SWEEPING_ADVANCE", "unit_id": unit_id, "_ai_description": "Decline Sweeping Advance (unit not found)"}
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var models = unit.get("models", [])
+	var movements = {}
+
+	if in_engagement:
+		# Fall Back: move each model away from the nearest enemy
+		var enemies_dict = _get_enemy_units(snapshot, player)
+		var enemies = enemies_dict.values()
+		for i in range(models.size()):
+			var model = models[i]
+			if not model.get("alive", true):
+				continue
+			var pos = Vector2(model.get("position", {}).get("x", 0), model.get("position", {}).get("y", 0))
+
+			# Find nearest enemy model position
+			var nearest_enemy_pos = _find_nearest_enemy_model_pos(pos, enemies)
+			if nearest_enemy_pos != Vector2.ZERO:
+				# Move directly away from enemy
+				var away_dir = (pos - nearest_enemy_pos).normalized()
+				var new_pos = pos + away_dir * move_distance
+				movements[str(i)] = new_pos
+
+		return {
+			"type": "SWEEPING_ADVANCE",
+			"unit_id": unit_id,
+			"movements": movements,
+			"player": player,
+			"_ai_description": "%s uses Sweeping Advance — Fall Back (%.0f\")" % [unit_name, move_distance]
+		}
+	else:
+		# Normal Move: move toward nearest objective
+		var objectives = snapshot.get("board", {}).get("objectives", [])
+		if objectives.is_empty():
+			# No objectives — decline
+			return {"type": "DECLINE_SWEEPING_ADVANCE", "unit_id": unit_id, "_ai_description": "%s declines Sweeping Advance (no objectives)" % unit_name}
+
+		# Find unit center
+		var unit_center = Vector2.ZERO
+		var alive_count = 0
+		for model in models:
+			if model.get("alive", true):
+				unit_center += Vector2(model.get("position", {}).get("x", 0), model.get("position", {}).get("y", 0))
+				alive_count += 1
+		if alive_count > 0:
+			unit_center /= alive_count
+
+		# Find nearest objective
+		var nearest_obj_pos = Vector2.ZERO
+		var nearest_dist = INF
+		for obj in objectives:
+			var obj_pos = Vector2(obj.get("x", 0), obj.get("y", 0))
+			var dist = unit_center.distance_to(obj_pos)
+			if dist < nearest_dist:
+				nearest_dist = dist
+				nearest_obj_pos = obj_pos
+
+		# Move each model toward the objective
+		for i in range(models.size()):
+			var model = models[i]
+			if not model.get("alive", true):
+				continue
+			var pos = Vector2(model.get("position", {}).get("x", 0), model.get("position", {}).get("y", 0))
+			var dir_to_obj = (nearest_obj_pos - pos).normalized()
+			var dist_to_obj = pos.distance_to(nearest_obj_pos)
+			var actual_move = min(move_distance, dist_to_obj)
+			var new_pos = pos + dir_to_obj * actual_move
+			movements[str(i)] = new_pos
+
+		return {
+			"type": "SWEEPING_ADVANCE",
+			"unit_id": unit_id,
+			"movements": movements,
+			"player": player,
+			"_ai_description": "%s uses Sweeping Advance — Normal Move toward objective (%.0f\")" % [unit_name, move_distance]
+		}
+
+static func _find_nearest_enemy_model_pos(pos: Vector2, enemies: Array) -> Vector2:
+	"""Find the position of the nearest enemy model."""
+	var nearest_pos = Vector2.ZERO
+	var nearest_dist = INF
+	for enemy in enemies:
+		var enemy_models = enemy.get("models", [])
+		for model in enemy_models:
+			if not model.get("alive", true):
+				continue
+			var enemy_pos = Vector2(model.get("position", {}).get("x", 0), model.get("position", {}).get("y", 0))
+			var dist = pos.distance_to(enemy_pos)
+			if dist < nearest_dist:
+				nearest_dist = dist
+				nearest_pos = enemy_pos
+	return nearest_pos

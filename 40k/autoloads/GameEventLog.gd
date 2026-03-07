@@ -193,6 +193,14 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			if ai_desc != "":
 				return prefix + ai_desc
 			return prefix + "%s fell back" % unit_name
+		"SWEEPING_ADVANCE":
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s used Sweeping Advance" % unit_name
+		"DECLINE_SWEEPING_ADVANCE":
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s declined Sweeping Advance" % unit_name
 		"BATCH_FIGHT_ACTIONS":
 			var log_text = action.get("_log_text", "")
 			if log_text != "":
