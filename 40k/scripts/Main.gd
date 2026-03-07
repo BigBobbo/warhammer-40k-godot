@@ -42,6 +42,13 @@ var charge_controller: Node
 var fight_controller: Node
 var scoring_controller: Node
 var current_phase: GameStateData.Phase
+
+# Scout phase state
+var _scout_active_unit_id: String = ""
+var _scout_dragging_model: bool = false
+var _scout_drag_model_id: String = ""
+var _scout_drag_start_pos: Vector2 = Vector2.ZERO
+var _scout_move_distance: float = 0.0
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
 var view_rotation: float = 0.0  # Board rotation in radians (multiples of PI/2)
@@ -3832,6 +3839,16 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	
+	# Scout phase model dragging
+	if current_phase == GameStateData.Phase.SCOUT and _scout_active_unit_id != "":
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				_scout_handle_mouse_press(event.position)
+			else:
+				_scout_handle_mouse_release(event.position)
+		elif event is InputEventMouseMotion and _scout_dragging_model:
+			_scout_handle_mouse_motion(event.position)
+
 	# Handle mouse clicks for placement - but only consume if we actually place something
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if deployment_controller and deployment_controller.is_placing():
@@ -4099,6 +4116,34 @@ func refresh_unit_list() -> void:
 					reserves_button.visible = units.size() > 0
 					reserves_button.disabled = true  # Disabled until a unit is selected
 					_selected_unit_for_reserves = ""
+
+		GameStateData.Phase.SCOUT:
+			# Show only scout-capable units that haven't completed their scout move
+			unit_list.visible = true
+			var phase_instance = PhaseManager.get_current_phase_instance()
+			var pending_scouts = []
+			if phase_instance and phase_instance.has_method("get_available_actions"):
+				# Get pending scout unit IDs from the phase
+				var scout_pending = phase_instance.get("scout_units_pending")
+				if scout_pending:
+					pending_scouts = scout_pending.get(active_player, [])
+
+			if pending_scouts.size() == 0:
+				unit_list.add_item("No scout units remaining")
+				unit_list.set_item_disabled(0, true)
+			else:
+				for scout_unit_id in pending_scouts:
+					var scout_unit = GameState.get_unit(scout_unit_id)
+					if scout_unit.is_empty():
+						continue
+					var scout_name = scout_unit.get("meta", {}).get("name", scout_unit_id)
+					var model_count = scout_unit.get("models", []).size()
+					var scout_dist = GameState.get_scout_distance(scout_unit_id)
+					var display_text = "%s (%d models) [Scout %d\"]" % [scout_name, model_count, int(scout_dist)]
+					unit_list.add_item(display_text)
+					unit_list.set_item_metadata(unit_list.get_item_count() - 1, scout_unit_id)
+
+			print("Refreshing right panel unit list for scout - found ", pending_scouts.size(), " pending scout units")
 
 		GameStateData.Phase.MOVEMENT:
 			# Show deployed units during movement in right panel
@@ -4539,6 +4584,30 @@ func _on_unit_selected(index: int) -> void:
 			show_unit_card(unit_id)
 			_show_deployment_color_picker(unit_id)
 			unit_list.visible = false
+	elif current_phase == GameStateData.Phase.SCOUT:
+		# Begin scout move for the selected unit
+		_scout_active_unit_id = unit_id
+		show_unit_card(unit_id)
+		var scout_dist = GameState.get_scout_distance(unit_id)
+		_scout_move_distance = scout_dist
+		print("Main: Scout unit selected: ", unit_id, " (Scout %d\")" % int(scout_dist))
+
+		# Send BEGIN_SCOUT_MOVE action
+		var scout_action = {
+			"type": "BEGIN_SCOUT_MOVE",
+			"unit_id": unit_id,
+			"player": GameState.get_active_player()
+		}
+		var scout_result = NetworkIntegration.route_action(scout_action)
+		if scout_result.get("success", false):
+			status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist)
+			# Show confirm/skip buttons
+			_setup_scout_unit_card_buttons(unit_id)
+		else:
+			print("Main: BEGIN_SCOUT_MOVE failed: ", scout_result.get("errors", ["Scout move failed"]))
+			status_label.text = "Error: " + str(scout_result.get("errors", ["Scout move failed"]))
+			_scout_active_unit_id = ""
+
 	elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
 		# Check if this is a reserve unit arriving as reinforcement
 		var selected_unit = GameState.get_unit(unit_id)
@@ -4603,6 +4672,22 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 				# For non-transport units, deploy normally
 				deployment_controller.begin_deploy(unit_id)
 				unit_list.visible = false
+		elif current_phase == GameStateData.Phase.SCOUT:
+			# Scout unit selected from bottom panel - trigger same logic as right panel
+			_scout_active_unit_id = unit_id
+			var scout_dist_bp = GameState.get_scout_distance(unit_id)
+			_scout_move_distance = scout_dist_bp
+			var scout_action_bp = {
+				"type": "BEGIN_SCOUT_MOVE",
+				"unit_id": unit_id,
+				"player": GameState.get_active_player()
+			}
+			var scout_result_bp = NetworkIntegration.route_action(scout_action_bp)
+			if scout_result_bp.get("success", false):
+				status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist_bp)
+				_setup_scout_unit_card_buttons(unit_id)
+			else:
+				_scout_active_unit_id = ""
 		elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
 			# Check if unit is embarked - route to disembark flow instead of normal move
 			if unit_data.get("embarked_in", null) != null:
@@ -6399,6 +6484,19 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.REDEPLOYMENT:
 			action = {"type": "END_REDEPLOYMENT_PHASE", "player": active_player}
 		GameStateData.Phase.SCOUT:
+			# Skip all remaining pending scout moves before ending the phase
+			var scout_phase = PhaseManager.get_current_phase_instance()
+			if scout_phase:
+				var scout_pending = scout_phase.get("scout_units_pending")
+				if scout_pending:
+					# Collect all pending unit IDs across all players
+					var all_pending = []
+					for p in scout_pending:
+						all_pending.append_array(scout_pending[p].duplicate())
+					for pending_uid in all_pending:
+						var skip_action = {"type": "SKIP_SCOUT_MOVE", "unit_id": pending_uid, "player": active_player}
+						NetworkIntegration.route_action(skip_action)
+			_scout_cleanup_after_move()
 			action = {"type": "END_SCOUT_PHASE", "player": active_player}
 		GameStateData.Phase.ROLL_OFF:
 			action = {"type": "ROLL_FOR_FIRST_TURN", "player": active_player}
@@ -6549,6 +6647,18 @@ func update_ui_for_phase() -> void:
 			# Update button state based on deployment status
 			if GameState.all_units_deployed():
 				phase_action_button.disabled = false
+
+		GameStateData.Phase.SCOUT:
+			# Hide deployment zones during scout phase
+			p1_zone.visible = false
+			p2_zone.visible = false
+			# Hide movement action buttons
+			_show_movement_action_buttons(false)
+			# Show unit list for scout unit selection, show unit card for details
+			unit_list.visible = true
+			unit_card.visible = true
+			# End Scout Moves button always enabled (can skip remaining scouts)
+			phase_action_button.disabled = false
 
 		GameStateData.Phase.ROLL_OFF:
 			# Hide deployment zones during roll-off
@@ -8016,6 +8126,208 @@ func _refresh_tokens_for_unit(uid: String) -> void:
 				if model_node.has_method("queue_redraw"):
 					model_node.queue_redraw()
 
+
+# ============================================================================
+# Scout Phase - Model Dragging and UI
+# ============================================================================
+
+func _scout_find_model_at_position(world_pos: Vector2) -> Dictionary:
+	"""Find a model belonging to the active scout unit at the given world position."""
+	if not token_layer or _scout_active_unit_id == "":
+		return {}
+
+	var closest_model = {}
+	var closest_distance = INF
+
+	for child in token_layer.get_children():
+		if not child.has_meta("unit_id") or not child.has_meta("model_id"):
+			continue
+		if child.get_meta("unit_id") != _scout_active_unit_id:
+			continue
+
+		var model_id = child.get_meta("model_id")
+		var visual_pos = child.position
+		var distance = world_pos.distance_to(visual_pos)
+
+		var base_radius = 16.0
+		if child.has_meta("base_mm"):
+			base_radius = (child.get_meta("base_mm") / 2.0) / 25.4 * 40.0
+
+		if distance <= base_radius and distance < closest_distance:
+			closest_distance = distance
+			closest_model = {
+				"unit_id": _scout_active_unit_id,
+				"model_id": model_id,
+				"position": visual_pos,
+				"base_mm": child.get_meta("base_mm") if child.has_meta("base_mm") else 32
+			}
+
+	return closest_model
+
+func _scout_handle_mouse_press(screen_pos: Vector2) -> void:
+	"""Handle mouse press during scout phase - start dragging a model."""
+	# Check if click is on UI area
+	var ui_rect = get_viewport().get_visible_rect()
+	var right_hud_rect = Rect2(ui_rect.size.x - 400, 0, 400, ui_rect.size.y)
+	var bottom_hud_rect = Rect2(0, ui_rect.size.y - 100, ui_rect.size.x, 100)
+	if right_hud_rect.has_point(screen_pos) or bottom_hud_rect.has_point(screen_pos):
+		return
+
+	var world_pos = screen_to_world_position(screen_pos)
+	var model = _scout_find_model_at_position(world_pos)
+	if model.is_empty():
+		return
+
+	_scout_dragging_model = true
+	_scout_drag_model_id = model.model_id
+	_scout_drag_start_pos = model.position
+	print("Main: Scout drag started for model ", model.model_id, " at ", model.position)
+	get_viewport().set_input_as_handled()
+
+func _scout_handle_mouse_motion(screen_pos: Vector2) -> void:
+	"""Handle mouse motion during scout phase - update dragged model position."""
+	if not _scout_dragging_model:
+		return
+
+	var world_pos = screen_to_world_position(screen_pos)
+
+	# Move the visual token
+	if token_layer:
+		for child in token_layer.get_children():
+			if child.has_meta("unit_id") and child.get_meta("unit_id") == _scout_active_unit_id \
+			   and child.has_meta("model_id") and child.get_meta("model_id") == _scout_drag_model_id:
+				child.position = world_pos
+				break
+
+	# Update status with distance
+	var distance_px = _scout_drag_start_pos.distance_to(world_pos)
+	var distance_inches = distance_px / 40.0
+	status_label.text = "Scout: %.1f\" / %d\" moved" % [distance_inches, int(_scout_move_distance)]
+
+func _scout_handle_mouse_release(screen_pos: Vector2) -> void:
+	"""Handle mouse release during scout phase - commit model position."""
+	if not _scout_dragging_model:
+		return
+
+	var world_pos = screen_to_world_position(screen_pos)
+	_scout_dragging_model = false
+
+	# Send SET_SCOUT_MODEL_DEST action
+	var action = {
+		"type": "SET_SCOUT_MODEL_DEST",
+		"unit_id": _scout_active_unit_id,
+		"model_id": _scout_drag_model_id,
+		"destination": {"x": world_pos.x, "y": world_pos.y},
+		"player": GameState.get_active_player()
+	}
+
+	var result = NetworkIntegration.route_action(action)
+	if result.get("success", false):
+		print("Main: Scout model %s moved to %s" % [_scout_drag_model_id, str(world_pos)])
+		status_label.text = "Scout move: Model placed. Drag more models or Confirm/Skip."
+	else:
+		# Move visual token back to original position on failure
+		print("Main: Scout model move failed: ", result.get("errors", []))
+		status_label.text = "Invalid: " + str(result.get("errors", ["Move rejected"]))
+		if token_layer:
+			for child in token_layer.get_children():
+				if child.has_meta("unit_id") and child.get_meta("unit_id") == _scout_active_unit_id \
+				   and child.has_meta("model_id") and child.get_meta("model_id") == _scout_drag_model_id:
+					child.position = _scout_drag_start_pos
+					break
+
+	_scout_drag_model_id = ""
+	get_viewport().set_input_as_handled()
+
+func _setup_scout_unit_card_buttons(unit_id: String) -> void:
+	"""Configure the unit card buttons for scout move confirm/skip."""
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return
+
+	var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+	var scout_dist = GameState.get_scout_distance(unit_id)
+	unit_name_label.text = "%s [Scout %d\"]" % [unit_name, int(scout_dist)]
+
+	# Configure buttons
+	confirm_button.visible = true
+	confirm_button.text = "Confirm Scout"
+	confirm_button.disabled = false
+
+	reset_button.visible = true
+	reset_button.text = "Skip Scout"
+	reset_button.disabled = false
+
+	undo_button.visible = false
+
+	# Disconnect any existing connections
+	if confirm_button.pressed.is_connected(_on_scout_confirm_pressed):
+		confirm_button.pressed.disconnect(_on_scout_confirm_pressed)
+	if reset_button.pressed.is_connected(_on_scout_skip_pressed):
+		reset_button.pressed.disconnect(_on_scout_skip_pressed)
+
+	# Connect to scout-specific handlers
+	confirm_button.pressed.connect(_on_scout_confirm_pressed)
+	reset_button.pressed.connect(_on_scout_skip_pressed)
+
+	unit_card.visible = true
+
+func _on_scout_confirm_pressed() -> void:
+	"""Confirm the scout move for the active unit."""
+	if _scout_active_unit_id == "":
+		return
+
+	var action = {
+		"type": "CONFIRM_SCOUT_MOVE",
+		"unit_id": _scout_active_unit_id,
+		"player": GameState.get_active_player()
+	}
+
+	var result = NetworkIntegration.route_action(action)
+	if result.get("success", false):
+		print("Main: Scout move confirmed for ", _scout_active_unit_id)
+		_scout_cleanup_after_move()
+		_recreate_unit_visuals()
+		refresh_unit_list()
+		status_label.text = "Scout move confirmed. Select next unit."
+	else:
+		print("Main: Scout confirm failed: ", result.get("errors", []))
+		status_label.text = "Error: " + str(result.get("errors", ["Confirm failed"]))
+
+func _on_scout_skip_pressed() -> void:
+	"""Skip the scout move for the active unit."""
+	if _scout_active_unit_id == "":
+		return
+
+	var action = {
+		"type": "SKIP_SCOUT_MOVE",
+		"unit_id": _scout_active_unit_id,
+		"player": GameState.get_active_player()
+	}
+
+	var result = NetworkIntegration.route_action(action)
+	if result.get("success", false):
+		print("Main: Scout move skipped for ", _scout_active_unit_id)
+		_scout_cleanup_after_move()
+		_recreate_unit_visuals()
+		refresh_unit_list()
+		status_label.text = "Scout move skipped. Select next unit."
+	else:
+		print("Main: Scout skip failed: ", result.get("errors", []))
+		status_label.text = "Error: " + str(result.get("errors", ["Skip failed"]))
+
+func _scout_cleanup_after_move() -> void:
+	"""Clean up scout state after a move is confirmed or skipped."""
+	# Disconnect button signals
+	if confirm_button.pressed.is_connected(_on_scout_confirm_pressed):
+		confirm_button.pressed.disconnect(_on_scout_confirm_pressed)
+	if reset_button.pressed.is_connected(_on_scout_skip_pressed):
+		reset_button.pressed.disconnect(_on_scout_skip_pressed)
+
+	_scout_active_unit_id = ""
+	_scout_dragging_model = false
+	_scout_drag_model_id = ""
+	_scout_move_distance = 0.0
 
 # ============================================================================
 # P3-111: In-game Settings Menu (Escape key)
