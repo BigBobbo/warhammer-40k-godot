@@ -15,6 +15,7 @@ const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 @onready var phase_label: Label = $HUD_Bottom/HBoxContainer/PhaseLabel
 @onready var active_player_badge: Label = $HUD_Bottom/HBoxContainer/ActivePlayerBadge
 @onready var status_label: Label = $HUD_Bottom/HBoxContainer/StatusLabel
+@onready var auto_decline_overwatch: CheckButton = $HUD_Bottom/HBoxContainer/AutoDeclineOverwatch
 @onready var phase_action_button: Button = $HUD_Bottom/HBoxContainer/PhaseActionButton
 
 @onready var unit_list: ItemList = $HUD_Right/VBoxContainer/UnitListPanel

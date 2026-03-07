@@ -2513,6 +2513,13 @@ func _on_overwatch_opportunity(charging_unit_id: String, defending_player: int, 
 		print("ChargeController: Defending player %d is AI — skipping overwatch dialog" % defending_player)
 		return
 
+	# Auto-decline if the player has toggled auto-decline overwatch
+	var auto_decline_btn = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch")
+	if auto_decline_btn and auto_decline_btn.button_pressed:
+		print("ChargeController: Auto-declining Fire Overwatch for player %d (toggle enabled)" % defending_player)
+		_on_fire_overwatch_declined(defending_player)
+		return
+
 	if eligible_units.is_empty():
 		_on_fire_overwatch_declined(defending_player)
 		return
