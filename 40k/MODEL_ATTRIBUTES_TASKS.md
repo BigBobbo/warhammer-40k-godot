@@ -183,12 +183,12 @@
 ## Phase 2: Core Weapon Assignment
 
 ### MA-6: Update `get_unit_weapons()` for per-model profiles
-- [ ] In `get_unit_weapons()` (RulesEngine.gd:3390-3451), add branch:
+- [x] In `get_unit_weapons()` (RulesEngine.gd:3390-3451), add branch:
   - If `meta.model_profiles` exists, look up each alive model's `model_type` → profile → `weapons` array
   - Map weapon names to weapon IDs via `_generate_weapon_id()`
   - Only assign weapons listed in that model's profile
   - If model has no `model_type` or no `model_profiles` on unit, fall back to current behavior (all weapons)
-- [ ] Ensure attached character weapons still use composite IDs (lines 3427-3449 unchanged)
+- [x] Ensure attached character weapons still use composite IDs (lines 3427-3449 unchanged)
 - **Files**: RulesEngine.gd
 - **Validation**: Call `get_unit_weapons()` on Lootas unit. Verify deffgun models return only deffgun weapon ID, mega-blasta models return only mega-blasta weapon ID, spanner returns mega-blasta. Call on unit without profiles, verify unchanged behavior. Call on unit with attached character, verify composite IDs still work.
 

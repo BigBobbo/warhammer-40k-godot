@@ -3407,9 +3407,10 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 	# Convert modern weapons format to model-weapon mapping
 	var weapons = unit.get("meta", {}).get("weapons", [])
 	var models = unit.get("models", [])
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
 	var result = {}
 
-	# First, collect unique weapon IDs from unit's weapon list
+	# First, collect unique weapon IDs from unit's weapon list (used as fallback)
 	# This prevents duplicate weapons from causing multiple assignments
 	var unique_weapon_ids = []
 	for weapon in weapons:
@@ -3418,11 +3419,26 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 			if weapon_id not in unique_weapon_ids:
 				unique_weapon_ids.append(weapon_id)
 
-	# Assign unique weapons to all alive models
+	# Assign weapons to all alive models
 	for model in models:
 		var model_id = model.get("id", "")
 		if model_id != "" and model.get("alive", true):
-			result[model_id] = unique_weapon_ids.duplicate()
+			# Per-model profile branch: if model_profiles exist and model has a model_type,
+			# only assign weapons listed in that model's profile
+			var model_type = model.get("model_type", "")
+			if not model_profiles.is_empty() and model_type != "" and model_profiles.has(model_type):
+				var profile = model_profiles[model_type]
+				var profile_weapon_names = profile.get("weapons", [])
+				var model_weapon_ids = []
+				for weapon in weapons:
+					if weapon.get("type", "") == "Ranged" and weapon.get("name", "") in profile_weapon_names:
+						var weapon_id = _generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
+						if weapon_id not in model_weapon_ids:
+							model_weapon_ids.append(weapon_id)
+				result[model_id] = model_weapon_ids
+			else:
+				# Fallback: no model_profiles or no model_type — assign all ranged weapons
+				result[model_id] = unique_weapon_ids.duplicate()
 
 	# Include attached character weapons (combined unit shoots together)
 	var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
