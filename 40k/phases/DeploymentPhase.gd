@@ -703,6 +703,42 @@ func _process_composite_deploy(action: Dictionary) -> Dictionary:
 				ref_pos = pos
 				break
 
+		# Build occupied positions from bodyguard models + already deployed models
+		var attach_occupied: Array = []
+		for bg_model in bodyguard.get("models", []):
+			var bg_pos = bg_model.get("position", null)
+			if bg_pos != null:
+				var bp: Vector2
+				if bg_pos is Vector2:
+					bp = bg_pos
+				else:
+					bp = Vector2(float(bg_pos.get("x", 0)), float(bg_pos.get("y", 0)))
+				attach_occupied.append({
+					"position": bp,
+					"radius_px": Measurement.base_radius_px(bg_model.get("base_mm", 32))
+				})
+		var attach_snapshot_units = game_state_snapshot.get("units", {})
+		for att_other_id in attach_snapshot_units:
+			if att_other_id == bodyguard_id:
+				continue
+			var att_other_unit = attach_snapshot_units[att_other_id]
+			if att_other_unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+				continue
+			for att_other_model in att_other_unit.get("models", []):
+				if not att_other_model.get("alive", true):
+					continue
+				var att_other_pos = att_other_model.get("position", null)
+				if att_other_pos != null:
+					var aop: Vector2
+					if att_other_pos is Vector2:
+						aop = att_other_pos
+					else:
+						aop = Vector2(float(att_other_pos.get("x", 0)), float(att_other_pos.get("y", 0)))
+					attach_occupied.append({
+						"position": aop,
+						"radius_px": Measurement.base_radius_px(att_other_model.get("base_mm", 32))
+					})
+
 		for char_id in character_ids:
 			all_changes.append({
 				"op": "set",
@@ -715,20 +751,27 @@ func _process_composite_deploy(action: Dictionary) -> Dictionary:
 				"value": GameStateData.UnitStatus.DEPLOYED
 			})
 
-			# Place character model adjacent to bodyguard
+			# Place character model adjacent to bodyguard (non-overlapping)
 			if ref_pos != null:
 				var char_unit = get_unit(char_id)
 				var char_models = char_unit.get("models", [])
+				var ref_x = ref_pos.get("x", 0) if ref_pos is Dictionary else ref_pos.x
+				var ref_y = ref_pos.get("y", 0) if ref_pos is Dictionary else ref_pos.y
+				var ref_vec = Vector2(float(ref_x), float(ref_y))
 				for ci in range(char_models.size()):
 					var char_base_mm = char_models[ci].get("base_mm", 40)
-					var bg_base_mm = bodyguard.get("models", [{}])[0].get("base_mm", 32)
-					var offset_px = Measurement.base_radius_px(char_base_mm) + Measurement.base_radius_px(bg_base_mm) + 2
-					var ref_x = ref_pos.get("x", 0) if ref_pos is Dictionary else ref_pos.x
-					var ref_y = ref_pos.get("y", 0) if ref_pos is Dictionary else ref_pos.y
+					var char_radius_px = Measurement.base_radius_px(char_base_mm)
+					var char_pos = _find_non_overlapping_adjacent_position(
+						ref_vec, char_radius_px, attach_occupied
+					)
 					all_changes.append({
 						"op": "set",
 						"path": "units.%s.models.%d.position" % [char_id, ci],
-						"value": {"x": ref_x + offset_px, "y": ref_y}
+						"value": {"x": char_pos.x, "y": char_pos.y}
+					})
+					attach_occupied.append({
+						"position": char_pos,
+						"radius_px": char_radius_px
 					})
 
 			var char_unit = get_unit(char_id)
@@ -978,6 +1021,42 @@ func _process_attach_character_deployment(action: Dictionary) -> Dictionary:
 			ref_pos = pos
 			break
 
+	# Build occupied positions from bodyguard models + already deployed models
+	var att_occupied: Array = []
+	for bg_model in bodyguard.get("models", []):
+		var bg_pos = bg_model.get("position", null)
+		if bg_pos != null:
+			var bp: Vector2
+			if bg_pos is Vector2:
+				bp = bg_pos
+			else:
+				bp = Vector2(float(bg_pos.get("x", 0)), float(bg_pos.get("y", 0)))
+			att_occupied.append({
+				"position": bp,
+				"radius_px": Measurement.base_radius_px(bg_model.get("base_mm", 32))
+			})
+	var att_snap_units = game_state_snapshot.get("units", {})
+	for att_oid in att_snap_units:
+		if att_oid == bodyguard_id:
+			continue
+		var att_ou = att_snap_units[att_oid]
+		if att_ou.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		for att_om in att_ou.get("models", []):
+			if not att_om.get("alive", true):
+				continue
+			var att_op = att_om.get("position", null)
+			if att_op != null:
+				var aop: Vector2
+				if att_op is Vector2:
+					aop = att_op
+				else:
+					aop = Vector2(float(att_op.get("x", 0)), float(att_op.get("y", 0)))
+				att_occupied.append({
+					"position": aop,
+					"radius_px": Measurement.base_radius_px(att_om.get("base_mm", 32))
+				})
+
 	for char_id in character_ids:
 		# Set attached_to field on character
 		changes.append({
@@ -993,20 +1072,27 @@ func _process_attach_character_deployment(action: Dictionary) -> Dictionary:
 			"value": GameStateData.UnitStatus.DEPLOYED
 		})
 
-		# Place character model adjacent to bodyguard
+		# Place character model adjacent to bodyguard (non-overlapping)
 		if ref_pos != null:
 			var char_unit = get_unit(char_id)
 			var char_models = char_unit.get("models", [])
+			var ref_x = ref_pos.get("x", 0) if ref_pos is Dictionary else ref_pos.x
+			var ref_y = ref_pos.get("y", 0) if ref_pos is Dictionary else ref_pos.y
+			var ref_vec = Vector2(float(ref_x), float(ref_y))
 			for i in range(char_models.size()):
 				var char_base_mm = char_models[i].get("base_mm", 40)
-				var bg_base_mm = bodyguard.get("models", [{}])[0].get("base_mm", 32)
-				var offset_px = Measurement.base_radius_px(char_base_mm) + Measurement.base_radius_px(bg_base_mm) + 2
-				var ref_x = ref_pos.get("x", 0) if ref_pos is Dictionary else ref_pos.x
-				var ref_y = ref_pos.get("y", 0) if ref_pos is Dictionary else ref_pos.y
+				var char_radius_px = Measurement.base_radius_px(char_base_mm)
+				var char_pos = _find_non_overlapping_adjacent_position(
+					ref_vec, char_radius_px, att_occupied
+				)
 				changes.append({
 					"op": "set",
 					"path": "units.%s.models.%d.position" % [char_id, i],
-					"value": {"x": ref_x + offset_px, "y": ref_y}
+					"value": {"x": char_pos.x, "y": char_pos.y}
+				})
+				att_occupied.append({
+					"position": char_pos,
+					"radius_px": char_radius_px
 				})
 
 		var char_unit = get_unit(char_id)
