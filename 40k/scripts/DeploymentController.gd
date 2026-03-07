@@ -55,6 +55,12 @@ var reinforcement_placement_type: String = ""
 # Infiltrators mode (deploy anywhere >9" from enemy zone and enemy models)
 var is_infiltrators_mode: bool = false
 
+# MA-15: Model type picker state
+var has_model_type_picker: bool = false
+var selected_model_type: String = ""
+var model_type_picker_panel: Node = null
+var model_type_picker_canvas: CanvasLayer = null
+
 func _ready() -> void:
 	set_process(true)
 	set_process_unhandled_input(true)
@@ -247,6 +253,21 @@ func begin_deploy(_unit_id: String) -> void:
 
 	formation_rotation = 0.0  # Reset formation rotation for new unit
 
+	# MA-15: Reset model type picker state
+	has_model_type_picker = false
+	selected_model_type = ""
+	_hide_model_type_picker()
+
+	# MA-15: Check if unit has model_profiles with >1 distinct model_type
+	if not is_combined_deployment:
+		var model_profiles = unit_data.get("meta", {}).get("model_profiles", {})
+		if model_profiles.size() > 1:
+			var distinct_types = _get_distinct_unplaced_types(unit_data["models"], [])
+			if distinct_types.size() > 1:
+				has_model_type_picker = true
+				_show_model_type_picker(model_profiles, unit_data["models"])
+				print("[DeploymentController] MA-15: Model type picker shown with %d types" % distinct_types.size())
+
 	# Check if this unit has Infiltrators ability
 	is_infiltrators_mode = GameState.unit_has_infiltrators(unit_id)
 	if is_infiltrators_mode:
@@ -262,6 +283,14 @@ func begin_deploy(_unit_id: String) -> void:
 				"path": "units.%s.status" % unit_id,
 				"value": GameStateData.UnitStatus.DEPLOYING
 			}])
+
+	# MA-15: If model type picker is active, try auto-select or wait for user pick
+	if has_model_type_picker:
+		if not _try_auto_select_model_type():
+			# Multiple types remain — wait for user to pick, no ghost yet
+			model_idx = temp_positions.size()  # Sentinel: prevents ghost/placement
+			print("[DeploymentController] MA-15: Waiting for model type selection")
+			return
 
 	# Create appropriate ghosts based on formation mode
 	if formation_mode == "SINGLE":
@@ -359,7 +388,12 @@ func try_place_at(world_pos: Vector2) -> void:
 	temp_positions[model_idx] = world_pos
 	temp_rotations[model_idx] = rotation
 	_spawn_preview_token(spawn_unit_id, spawn_model_idx, world_pos, rotation)
-	model_idx += 1
+
+	# MA-15: Advance to next model — type-aware if picker is active
+	if has_model_type_picker:
+		_advance_model_type_placement()
+	else:
+		model_idx += 1
 
 	_check_coherency_warning()
 	emit_signal("models_placed_changed")
@@ -495,6 +529,18 @@ func undo_last_model() -> bool:
 	# Set model_idx back to this model so the ghost appears for it
 	model_idx = last_placed_idx
 
+	# MA-15: Update model type picker after undo
+	if has_model_type_picker:
+		_update_model_type_picker()
+		# Set selected type to the undone model's type
+		var unit_data = GameState.get_unit(unit_id)
+		var undone_model = unit_data["models"][last_placed_idx]
+		var undone_type = undone_model.get("model_type", "")
+		if undone_type != "":
+			selected_model_type = undone_type
+			if model_type_picker_panel:
+				model_type_picker_panel.highlight_selected(undone_type)
+
 	# Recreate ghost for the model we just undid
 	if formation_mode == "SINGLE":
 		_remove_ghost()
@@ -533,6 +579,10 @@ func reset_unit() -> void:
 	is_infiltrators_mode = false
 	is_combined_deployment = false
 	combined_models.clear()
+	# MA-15: Clean up model type picker
+	has_model_type_picker = false
+	selected_model_type = ""
+	_hide_model_type_picker()
 	unit_id = ""
 	_clear_formation_ghosts()  # Clear any formation ghosts
 	_remove_ghost()  # Also removes coherency distance label
@@ -562,6 +612,10 @@ func confirm() -> void:
 		temp_rotations.clear()
 		is_reinforcement_mode = false
 		reinforcement_placement_type = ""
+		# MA-15: Clean up model type picker
+		has_model_type_picker = false
+		selected_model_type = ""
+		_hide_model_type_picker()
 		emit_signal("coherency_warning_changed", false, "")
 		return
 
@@ -805,6 +859,10 @@ func _complete_deployment() -> void:
 	combined_models.clear()
 	is_combined_deployment = false
 	is_infiltrators_mode = false
+	# MA-15: Clean up model type picker
+	has_model_type_picker = false
+	selected_model_type = ""
+	_hide_model_type_picker()
 
 	emit_signal("coherency_warning_changed", false, "")
 	emit_signal("unit_confirmed")
@@ -2192,3 +2250,189 @@ func _cleanup_repositioning() -> void:
 	if reposition_ghost and is_instance_valid(reposition_ghost):
 		reposition_ghost.queue_free()
 		reposition_ghost = null
+
+# ── MA-15: Model type picker methods ─────────────────────────────────
+
+func _get_distinct_unplaced_types(models: Array, placed_indices: Array) -> Array:
+	"""Get list of distinct model_type values among unplaced models."""
+	var types = {}
+	for i in range(models.size()):
+		if i in placed_indices:
+			continue
+		var mt = models[i].get("model_type", "")
+		if mt != "":
+			types[mt] = true
+	return types.keys()
+
+func _get_placed_indices() -> Array:
+	"""Get indices of models that have been placed (non-null temp_positions)."""
+	var placed = []
+	for i in range(temp_positions.size()):
+		if temp_positions[i] != null:
+			placed.append(i)
+	return placed
+
+func _show_model_type_picker(model_profiles: Dictionary, models: Array) -> void:
+	"""Create and display the model type picker panel."""
+	_hide_model_type_picker()
+
+	# Create a CanvasLayer so the panel is in screen space (not world space)
+	model_type_picker_canvas = CanvasLayer.new()
+	model_type_picker_canvas.name = "ModelTypePickerCanvas"
+	model_type_picker_canvas.layer = 10  # Above game elements
+	get_tree().root.add_child(model_type_picker_canvas)
+
+	var PickerScript = load("res://scripts/ModelTypePickerPanel.gd")
+	model_type_picker_panel = PickerScript.new()
+	model_type_picker_panel.name = "ModelTypePickerPanel"
+	model_type_picker_canvas.add_child(model_type_picker_panel)
+
+	# Position on left side of screen
+	model_type_picker_panel.position = Vector2(20, 200)
+
+	# Setup with current data
+	var placed = _get_placed_indices()
+	model_type_picker_panel.setup(model_profiles, models, placed)
+
+	# Connect selection signal
+	model_type_picker_panel.model_type_selected.connect(_on_model_type_selected)
+
+	print("[DeploymentController] MA-15: Model type picker shown")
+
+func _hide_model_type_picker() -> void:
+	"""Remove the model type picker panel."""
+	if model_type_picker_panel and is_instance_valid(model_type_picker_panel):
+		model_type_picker_panel.queue_free()
+		model_type_picker_panel = null
+	if model_type_picker_canvas and is_instance_valid(model_type_picker_canvas):
+		model_type_picker_canvas.queue_free()
+		model_type_picker_canvas = null
+
+func _update_model_type_picker() -> void:
+	"""Update the picker panel counts based on current placement state."""
+	if not model_type_picker_panel or not is_instance_valid(model_type_picker_panel):
+		return
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return
+	var placed = _get_placed_indices()
+	model_type_picker_panel.update_counts(unit_data["models"], placed)
+
+func _on_model_type_selected(type_key: String) -> void:
+	"""Handle user selecting a model type from the picker."""
+	print("[DeploymentController] MA-15: Model type selected: %s" % type_key)
+	selected_model_type = type_key
+
+	# Highlight the selected type in the panel
+	if model_type_picker_panel and is_instance_valid(model_type_picker_panel):
+		model_type_picker_panel.highlight_selected(type_key)
+
+	# Find the first unplaced model of this type
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return
+
+	var next_idx = _find_next_unplaced_of_type(unit_data["models"], type_key)
+	if next_idx < 0:
+		print("[DeploymentController] MA-15: No unplaced models of type %s" % type_key)
+		return
+
+	model_idx = next_idx
+	print("[DeploymentController] MA-15: Set model_idx to %d for type %s" % [model_idx, type_key])
+
+	# Create/update ghost for this model
+	if formation_mode == "SINGLE":
+		_remove_ghost()
+		_create_ghost()
+	else:
+		_clear_formation_ghosts()
+		var remaining = _get_unplaced_model_indices()
+		if not remaining.is_empty():
+			_create_formation_ghosts(min(formation_size, remaining.size()))
+
+func _find_next_unplaced_of_type(models: Array, type_key: String) -> int:
+	"""Find the index of the first unplaced model with the given model_type."""
+	for i in range(models.size()):
+		if temp_positions[i] != null:
+			continue
+		if models[i].get("model_type", "") == type_key:
+			return i
+	return -1
+
+func _try_auto_select_model_type() -> bool:
+	"""If only one model type has unplaced models, auto-select it. Returns true if auto-selected."""
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return false
+
+	var placed = _get_placed_indices()
+	var remaining_types = _get_distinct_unplaced_types(unit_data["models"], placed)
+
+	if remaining_types.size() == 1:
+		# Auto-select the only remaining type
+		var auto_type = remaining_types[0]
+		print("[DeploymentController] MA-15: Auto-selecting sole remaining type: %s" % auto_type)
+		selected_model_type = auto_type
+
+		# Highlight in picker
+		if model_type_picker_panel and is_instance_valid(model_type_picker_panel):
+			model_type_picker_panel.highlight_selected(auto_type)
+			model_type_picker_panel.update_counts(unit_data["models"], placed)
+
+		# Set model_idx to first unplaced of this type
+		var next_idx = _find_next_unplaced_of_type(unit_data["models"], auto_type)
+		if next_idx >= 0:
+			model_idx = next_idx
+			return true
+
+	if remaining_types.size() == 0:
+		# All models placed
+		model_idx = temp_positions.size()
+		return true
+
+	return false
+
+func _advance_model_type_placement() -> void:
+	"""After placing a model, advance to the next model of the same type or wait for picker."""
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return
+
+	# Update the picker panel
+	_update_model_type_picker()
+
+	# Try to find next unplaced model of the same type
+	var next_idx = _find_next_unplaced_of_type(unit_data["models"], selected_model_type)
+	if next_idx >= 0:
+		model_idx = next_idx
+		print("[DeploymentController] MA-15: Next model of type %s at index %d" % [selected_model_type, model_idx])
+		return
+
+	# No more of this type — check remaining types
+	var placed = _get_placed_indices()
+	var remaining_types = _get_distinct_unplaced_types(unit_data["models"], placed)
+
+	if remaining_types.size() == 0:
+		# All models placed
+		model_idx = temp_positions.size()
+		print("[DeploymentController] MA-15: All models placed")
+		_remove_ghost()
+		return
+
+	if remaining_types.size() == 1:
+		# Auto-select the last remaining type
+		var auto_type = remaining_types[0]
+		print("[DeploymentController] MA-15: Auto-selecting last type: %s" % auto_type)
+		selected_model_type = auto_type
+		if model_type_picker_panel and is_instance_valid(model_type_picker_panel):
+			model_type_picker_panel.highlight_selected(auto_type)
+		next_idx = _find_next_unplaced_of_type(unit_data["models"], auto_type)
+		if next_idx >= 0:
+			model_idx = next_idx
+			return
+
+	# Multiple types remain — pause placement, wait for user to pick
+	model_idx = temp_positions.size()  # Sentinel: prevents ghost/placement
+	selected_model_type = ""
+	_remove_ghost()
+	print("[DeploymentController] MA-15: Type exhausted, waiting for user to select next type")

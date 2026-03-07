@@ -264,11 +264,11 @@
 ## Phase 4: Deployment Model Selection
 
 ### MA-15: Model type picker UI during deployment
-- [ ] When `begin_deploy()` is called for a unit with `model_profiles` containing >1 distinct `model_type` among unplaced models, show a model type selector panel
-- [ ] Panel shows each remaining model type with its `label` and count of unplaced models of that type
-- [ ] Clicking a type selects the next model of that type as the one to place
-- [ ] If only 1 type remains, auto-select it (no panel shown)
-- [ ] If unit has no `model_profiles`, deployment works exactly as before
+- [x] When `begin_deploy()` is called for a unit with `model_profiles` containing >1 distinct `model_type` among unplaced models, show a model type selector panel
+- [x] Panel shows each remaining model type with its `label` and count of unplaced models of that type
+- [x] Clicking a type selects the next model of that type as the one to place
+- [x] If only 1 type remains, auto-select it (no panel shown)
+- [x] If unit has no `model_profiles`, deployment works exactly as before
 - **Files**: DeploymentController.gd (new state tracking), new UI panel scene
 - **Validation**: Deploy Lootas unit. Panel shows "Loota (Deffgun) x8", "Loota (Mega-blasta) x2", "Spanner x1". Select Spanner, place it. Panel updates to show "Spanner x0" (greyed out). Select deffgun type, place 8 times. Auto-selects mega-blasta type for final 2. Deploy unit without profiles — no panel shown.
 
