@@ -221,10 +221,10 @@
 ## Phase 3: Per-Model Stats in Combat Resolution
 
 ### MA-10: Per-model BS in ranged hit resolution
-- [ ] In `_resolve_shooting_assignment()` (~RulesEngine.gd:1270) and `_resolve_shooting_assignment_auto()` (~RulesEngine.gd:1847+), BS is currently read from weapon profile: `weapon_profile.get("bs", 4)`
-- [ ] Add check: if model has `model_type` with `stats_override.ballistic_skill`, use that instead
-- [ ] Implementation approach: since attacks are rolled per-model in the loop (lines 1224-1239), look up the model's BS override at roll time
-- [ ] If no override, use weapon profile BS (existing behavior)
+- [x] In `_resolve_shooting_assignment()` (~RulesEngine.gd:1270) and `_resolve_shooting_assignment_auto()` (~RulesEngine.gd:1847+), BS is currently read from weapon profile: `weapon_profile.get("bs", 4)`
+- [x] Add check: if model has `model_type` with `stats_override.ballistic_skill`, use that instead
+- [x] Implementation approach: since attacks are rolled per-model in the loop (lines 1224-1239), look up the model's BS override at roll time
+- [x] If no override, use weapon profile BS (existing behavior)
 - **Files**: RulesEngine.gd
 - **Validation**: Lootas spanner (BS4+) should hit on 4+ while regular Lootas (BS5+) hit on 5+. Create test: fire Lootas, verify spanner's hits use BS4+ threshold.
 
