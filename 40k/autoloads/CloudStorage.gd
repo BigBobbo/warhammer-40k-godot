@@ -139,10 +139,10 @@ func register_game_participation(game_id: String) -> void:
 # ============================================================================
 
 func list_armies() -> void:
-	_enqueue_request("GET", "/api/armies", null, "list_armies", {})
+	_enqueue_request("GET", "/api/armies", null, "list_armies", {}, true)
 
 func get_army(army_name: String) -> void:
-	_enqueue_request("GET", "/api/armies/" + army_name.uri_encode(), null, "get_army", {"army_name": army_name})
+	_enqueue_request("GET", "/api/armies/" + army_name.uri_encode(), null, "get_army", {"army_name": army_name}, true)
 
 func put_army(army_name: String, army_data: Dictionary) -> void:
 	var body = {"army_data": army_data}
@@ -155,13 +155,14 @@ func delete_army(army_name: String) -> void:
 # HTTP Request Queue
 # ============================================================================
 
-func _enqueue_request(method: String, path: String, body, operation: String, context: Dictionary) -> void:
+func _enqueue_request(method: String, path: String, body, operation: String, context: Dictionary, public_request: bool = false) -> void:
 	request_queue.append({
 		"method": method,
 		"path": path,
 		"body": body,
 		"operation": operation,
-		"context": context
+		"context": context,
+		"public": public_request
 	})
 	if not is_processing:
 		_process_next_request()
@@ -175,10 +176,9 @@ func _process_next_request() -> void:
 	var req = request_queue.pop_front()
 
 	var url = base_url + req.path
-	var headers = [
-		"Content-Type: application/json",
-		"X-Player-ID: " + player_id
-	]
+	var headers = ["Content-Type: application/json"]
+	if not req.get("public", false):
+		headers.append("X-Player-ID: " + player_id)
 
 	var http_method: int
 	match req.method:

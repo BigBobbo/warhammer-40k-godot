@@ -1,0 +1,2009 @@
+{
+  "faction": {
+    "name": "Adeptus Custodes",
+    "points": 1995,
+    "detachment": "Lions of the Emperor",
+    "player_name": "",
+    "team_name": ""
+  },
+  "units": {
+    "U_BLADE_CHAMPION_A": {
+      "id": "U_BLADE_CHAMPION_A",
+      "squad_id": "U_BLADE_CHAMPION_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Blade Champion",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "INFANTRY",
+          "IMPERIUM",
+          "BLADE CHAMPION",
+          "CHARACTER"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 6,
+          "leadership": 6,
+          "objective_control": 2,
+          "invulnerable_save": 4
+        },
+        "points": 120,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Vaultswords"
+        ],
+        "weapons": [
+          {
+            "name": "Vaultswords – Behemor",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "6",
+            "strength": "7",
+            "ap": "-2",
+            "damage": "2",
+            "weapon_skill": "2",
+            "special_rules": "precision"
+          },
+          {
+            "name": "Vaultswords – Hurricanus",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "9",
+            "strength": "5",
+            "ap": "-1",
+            "damage": "1",
+            "weapon_skill": "2",
+            "special_rules": "sustained hits 1"
+          },
+          {
+            "name": "Vaultswords – Victus",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "5",
+            "strength": "6",
+            "ap": "-3",
+            "damage": "3",
+            "weapon_skill": "2",
+            "special_rules": "devastating wounds"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "DEEP STRIKESome units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.During the Declare Battle Formations step, if every model in a unit has this ability, you can set it up in Reserves instead of setting it up on the battlefield. If you do, in the Reinforcements step of one of your Movement phases you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If a unit with the Deep Strike ability arrives from Strategic Reserves, the controlling player can choose for that unit to be set up either using the rules for Strategic Reserves or using the Deep Strike ability. \n- Unit can be set up in Reserves instead of on the battlefield.\n- Unit can be set up in your Reinforcements step, more than 9\" horizontally away from all enemy models."
+          },
+          {
+            "name": "Leader",
+            "type": "Core",
+            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have ‘Leader’ listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead – known as their Bodyguard units – are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader’s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit’s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
+          },
+          {
+            "name": "Martial Ka’tah",
+            "type": "Faction",
+            "description": "Each time a unit from your army with this ability is selected to fight, select one of the Ka’tah Stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability:Dacatarai StanceThose Custodians skilled in the Dacatarai Ka'tah are able to turn their enemies numerical advantage against them. Reserved for when the Custodians must battle seething hordes of foes, this stance sees them reap a terrible tallyMelee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.Rendax StanceMasters of Rendax are superlative monster and war machine hunters. They have studied every aspect of how to do battle with a foe far larger than themselves, how to evade its powerful attacks, exploit its blind spots and lay it low.Melee weapons equipped by models in this unit have the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Swift Onslaught",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, you can re-roll Charge rolls made for that unit"
+          },
+          {
+            "name": "Martial Inspiration",
+            "type": "Datasheet",
+            "description": "Once per battle, in your Charge phase, this model’s unit is eligible to declare a charge in a turn which it Advanced."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Blade Champion",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": [
+            "Custodian Wardens",
+            "Custodian Guard"
+          ]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 6,
+          "current_wounds": 6,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_BLADE_CHAMPION_B": {
+      "id": "U_BLADE_CHAMPION_B",
+      "squad_id": "U_BLADE_CHAMPION_B",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Blade Champion",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "INFANTRY",
+          "IMPERIUM",
+          "BLADE CHAMPION",
+          "CHARACTER"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 6,
+          "leadership": 6,
+          "objective_control": 2,
+          "invulnerable_save": 4
+        },
+        "points": 120,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Vaultswords"
+        ],
+        "weapons": [
+          {
+            "name": "Vaultswords – Behemor",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "6",
+            "strength": "7",
+            "ap": "-2",
+            "damage": "2",
+            "weapon_skill": "2",
+            "special_rules": "precision"
+          },
+          {
+            "name": "Vaultswords – Hurricanus",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "9",
+            "strength": "5",
+            "ap": "-1",
+            "damage": "1",
+            "weapon_skill": "2",
+            "special_rules": "sustained hits 1"
+          },
+          {
+            "name": "Vaultswords – Victus",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "5",
+            "strength": "6",
+            "ap": "-3",
+            "damage": "3",
+            "weapon_skill": "2",
+            "special_rules": "devastating wounds"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "DEEP STRIKESome units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.During the Declare Battle Formations step, if every model in a unit has this ability, you can set it up in Reserves instead of setting it up on the battlefield. If you do, in the Reinforcements step of one of your Movement phases you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If a unit with the Deep Strike ability arrives from Strategic Reserves, the controlling player can choose for that unit to be set up either using the rules for Strategic Reserves or using the Deep Strike ability. \n- Unit can be set up in Reserves instead of on the battlefield.\n- Unit can be set up in your Reinforcements step, more than 9\" horizontally away from all enemy models."
+          },
+          {
+            "name": "Leader",
+            "type": "Core",
+            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have ‘Leader’ listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead – known as their Bodyguard units – are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader’s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit’s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
+          },
+          {
+            "name": "Martial Ka’tah",
+            "type": "Faction",
+            "description": "Each time a unit from your army with this ability is selected to fight, select one of the Ka’tah Stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability:Dacatarai StanceThose Custodians skilled in the Dacatarai Ka'tah are able to turn their enemies numerical advantage against them. Reserved for when the Custodians must battle seething hordes of foes, this stance sees them reap a terrible tallyMelee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.Rendax StanceMasters of Rendax are superlative monster and war machine hunters. They have studied every aspect of how to do battle with a foe far larger than themselves, how to evade its powerful attacks, exploit its blind spots and lay it low.Melee weapons equipped by models in this unit have the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Swift Onslaught",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, you can re-roll Charge rolls made for that unit"
+          },
+          {
+            "name": "Martial Inspiration",
+            "type": "Datasheet",
+            "description": "Once per battle, in your Charge phase, this model’s unit is eligible to declare a charge in a turn which it Advanced."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Blade Champion",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": [
+            "Custodian Wardens",
+            "Custodian Guard"
+          ]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 6,
+          "current_wounds": 6,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_SHIELD-CAPTAIN_ON_DAWNEAGLE_JETBIKE_A": {
+      "id": "U_SHIELD-CAPTAIN_ON_DAWNEAGLE_JETBIKE_A",
+      "squad_id": "U_SHIELD-CAPTAIN_ON_DAWNEAGLE_JETBIKE_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Shield-captain On Dawneagle Jetbike",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "MOUNTED",
+          "CHARACTER",
+          "FLY",
+          "SHIELD-CAPTAIN",
+          "DAWNEAGLE JETBIKE",
+          "IMPERIUM"
+        ],
+        "stats": {
+          "move": 12,
+          "toughness": 7,
+          "save": 2,
+          "wounds": 8,
+          "leadership": 6,
+          "objective_control": 2,
+          "invulnerable_save": 4
+        },
+        "points": 160,
+        "is_warlord": false,
+        "enhancements": [
+          "Admonimortis"
+        ],
+        "wargear": [
+          "Interceptor lance",
+          "Salvo launcher"
+        ],
+        "weapons": [
+          {
+            "name": "Salvo launcher",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "1",
+            "strength": "10",
+            "ap": "-3",
+            "damage": "D6+1",
+            "ballistic_skill": "2",
+            "special_rules": "twin-linked"
+          },
+          {
+            "name": "Interceptor lance",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "6",
+            "strength": "7",
+            "ap": "-2",
+            "damage": "2",
+            "weapon_skill": "2",
+            "special_rules": "lance"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Leader",
+            "type": "Core",
+            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have ‘Leader’ listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead – known as their Bodyguard units – are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader’s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit’s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
+          },
+          {
+            "name": "Martial Ka’tah",
+            "type": "Faction",
+            "description": "Each time a unit from your army with this ability is selected to fight, select one of the Ka’tah Stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability:Dacatarai StanceThose Custodians skilled in the Dacatarai Ka'tah are able to turn their enemies numerical advantage against them. Reserved for when the Custodians must battle seething hordes of foes, this stance sees them reap a terrible tallyMelee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.Rendax StanceMasters of Rendax are superlative monster and war machine hunters. They have studied every aspect of how to do battle with a foe far larger than themselves, how to evade its powerful attacks, exploit its blind spots and lay it low.Melee weapons equipped by models in this unit have the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Sweeping Advance",
+            "type": "Datasheet",
+            "description": "Once per battle, at the end of the Fight phase, if this model’s unit has fought this phase, if it is within Engagement Range of one or more enemy units, it can make a Fall Back move or, if it is not within Engagement Range of one or more enemy units, it can make a Normal move"
+          },
+          {
+            "name": "Strategic Mastery",
+            "type": "Datasheet",
+            "description": "Once per battle round, you can select one model from your army with this ability and target that model’s unit with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Shield-Captain on Dawneagle Jetbike",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": [
+            "Vertus Praetors"
+          ]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 8,
+          "current_wounds": 8,
+          "base_mm": 75,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "base_type": "oval",
+          "base_dimensions": {
+            "length": 75,
+            "width": 42
+          }
+        }
+      ]
+    },
+    "U_TRAJANN_VALORIS_A": {
+      "id": "U_TRAJANN_VALORIS_A",
+      "squad_id": "U_TRAJANN_VALORIS_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Trajann Valoris",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "CHARACTER",
+          "EPIC HERO",
+          "IMPERIUM",
+          "TRAJANN VALORIS",
+          "INFANTRY"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 7,
+          "leadership": 5,
+          "objective_control": 2,
+          "invulnerable_save": 4
+        },
+        "points": 140,
+        "is_warlord": true,
+        "enhancements": [],
+        "wargear": [
+          "Eagle's Scream",
+          "Watcher's Axe"
+        ],
+        "weapons": [
+          {
+            "name": "Eagle's Scream",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "2",
+            "strength": "5",
+            "ap": "-2",
+            "damage": "3",
+            "ballistic_skill": "2",
+            "special_rules": "assault"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "DEEP STRIKESome units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.During the Declare Battle Formations step, if every model in a unit has this ability, you can set it up in Reserves instead of setting it up on the battlefield. If you do, in the Reinforcements step of one of your Movement phases you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If a unit with the Deep Strike ability arrives from Strategic Reserves, the controlling player can choose for that unit to be set up either using the rules for Strategic Reserves or using the Deep Strike ability. \n- Unit can be set up in Reserves instead of on the battlefield.\n- Unit can be set up in your Reinforcements step, more than 9\" horizontally away from all enemy models."
+          },
+          {
+            "name": "Feel No Pain",
+            "type": "Core",
+            "description": "FEEL NO PAINSome warriors refuse to be laid low, even by what should be fatal wounds.Some models have ‘Feel No Pain x+’ listed in their abilities. Each time a model with this ability suffers damage and so would lose a wound (including wounds lost due to mortal wounds), roll one D6: if the result is greater than or equal to the number denoted by ‘x’, that wound is ignored and is not lost. If a model has more than one Feel No Pain ability, you can only use one of those abilities each time that model suffers damage and so would lose a wound.\n- Feel No Pain x+: Each time this model would lose a wound, roll one D6: if the result equals or exceeds ‘x’, that wound is not lost.",
+            "parameter": "5+"
+          },
+          {
+            "name": "Leader",
+            "type": "Core",
+            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have ‘Leader’ listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead – known as their Bodyguard units – are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader’s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit’s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
+          },
+          {
+            "name": "Martial Ka’tah",
+            "type": "Faction",
+            "description": "Each time a unit from your army with this ability is selected to fight, select one of the Ka’tah Stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability:Dacatarai StanceThose Custodians skilled in the Dacatarai Ka'tah are able to turn their enemies numerical advantage against them. Reserved for when the Custodians must battle seething hordes of foes, this stance sees them reap a terrible tallyMelee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.Rendax StanceMasters of Rendax are superlative monster and war machine hunters. They have studied every aspect of how to do battle with a foe far larger than themselves, how to evade its powerful attacks, exploit its blind spots and lay it low.Melee weapons equipped by models in this unit have the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Captain-General",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, each time a model in this unit makes an attack, you can ignore any or all modifiers to that attack’s Ballistic skill or Weapon skill characteristics and/or all modifiers to the Hit roll"
+          },
+          {
+            "name": "Moment Shackle",
+            "type": "Datasheet",
+            "description": "Once per battle, at the start of the Fight phase, you can select one of the following to take effect until the end of the phase:\n- This model’s Watcher’s Axe melee weapon has an Attacks characteristic of 12.\n- This model has a 2+ invulnerable save."
+          },
+          {
+            "name": "SUPREME COMMANDER",
+            "type": "Special (правая колонка)",
+            "description": "If this model is in your army, it must be your Warlord."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Trajann Valoris – EPIC HERO",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": [
+            "Custodian Guard",
+            "Custodian Wardens"
+          ]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 7,
+          "current_wounds": 7,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_CUSTODIAN_GUARD_A": {
+      "id": "U_CUSTODIAN_GUARD_A",
+      "squad_id": "U_CUSTODIAN_GUARD_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Custodian Guard",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "INFANTRY",
+          "BATTLELINE",
+          "IMPERIUM",
+          "CUSTODIAN GUARD"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 3,
+          "leadership": 6,
+          "objective_control": 2,
+          "invulnerable_save": 4
+        },
+        "points": 190,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Guardian Spear",
+          "Sentinel blade",
+          "Praesidium Shield"
+        ],
+        "weapons": [
+          {
+            "name": "Guardian spear",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "2",
+            "special_rules": "assault"
+          },
+          {
+            "name": "Sentinel blade",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "2",
+            "special_rules": "assault, pistol"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "DEEP STRIKESome units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.During the Declare Battle Formations step, if every model in a unit has this ability, you can set it up in Reserves instead of setting it up on the battlefield. If you do, in the Reinforcements step of one of your Movement phases you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If a unit with the Deep Strike ability arrives from Strategic Reserves, the controlling player can choose for that unit to be set up either using the rules for Strategic Reserves or using the Deep Strike ability. \n- Unit can be set up in Reserves instead of on the battlefield.\n- Unit can be set up in your Reinforcements step, more than 9\" horizontally away from all enemy models."
+          },
+          {
+            "name": "Martial Ka’tah",
+            "type": "Faction",
+            "description": "Each time a unit from your army with this ability is selected to fight, select one of the Ka’tah Stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability:Dacatarai StanceThose Custodians skilled in the Dacatarai Ka'tah are able to turn their enemies numerical advantage against them. Reserved for when the Custodians must battle seething hordes of foes, this stance sees them reap a terrible tallyMelee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.Rendax StanceMasters of Rendax are superlative monster and war machine hunters. They have studied every aspect of how to do battle with a foe far larger than themselves, how to evade its powerful attacks, exploit its blind spots and lay it low.Melee weapons equipped by models in this unit have the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Praesidium Shield",
+            "type": "Wargear",
+            "description": "Add 1 to the bearer’s Wounds characteristic."
+          },
+          {
+            "name": "Vexilla",
+            "type": "Wargear",
+            "description": "Add 1 to the Objective Control characteristic of models in the bearer’s unit."
+          },
+          {
+            "name": "Stand Vigil",
+            "type": "Datasheet",
+            "description": "Each time a model in this unit makes an attack, re-roll a Wound roll of 1. While this unit is within range of an objective marker you control, you can re-roll the Wound roll instead."
+          },
+          {
+            "name": "Sentinel Storm",
+            "type": "Datasheet",
+            "description": "Once per battle, in your Shooting phase, after this unit has shot, it can shoot again."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "4-5 Custodian Guard",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_CUSTODIAN_GUARD_B": {
+      "id": "U_CUSTODIAN_GUARD_B",
+      "squad_id": "U_CUSTODIAN_GUARD_B",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Custodian Guard",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "INFANTRY",
+          "BATTLELINE",
+          "IMPERIUM",
+          "CUSTODIAN GUARD"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 3,
+          "leadership": 6,
+          "objective_control": 2,
+          "invulnerable_save": 4
+        },
+        "points": 190,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Guardian Spear",
+          "Sentinel blade",
+          "Praesidium Shield"
+        ],
+        "weapons": [
+          {
+            "name": "Guardian spear",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "2",
+            "special_rules": "assault"
+          },
+          {
+            "name": "Sentinel blade",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "2",
+            "special_rules": "assault, pistol"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "DEEP STRIKESome units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.During the Declare Battle Formations step, if every model in a unit has this ability, you can set it up in Reserves instead of setting it up on the battlefield. If you do, in the Reinforcements step of one of your Movement phases you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If a unit with the Deep Strike ability arrives from Strategic Reserves, the controlling player can choose for that unit to be set up either using the rules for Strategic Reserves or using the Deep Strike ability. \n- Unit can be set up in Reserves instead of on the battlefield.\n- Unit can be set up in your Reinforcements step, more than 9\" horizontally away from all enemy models."
+          },
+          {
+            "name": "Martial Ka’tah",
+            "type": "Faction",
+            "description": "Each time a unit from your army with this ability is selected to fight, select one of the Ka’tah Stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability:Dacatarai StanceThose Custodians skilled in the Dacatarai Ka'tah are able to turn their enemies numerical advantage against them. Reserved for when the Custodians must battle seething hordes of foes, this stance sees them reap a terrible tallyMelee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.Rendax StanceMasters of Rendax are superlative monster and war machine hunters. They have studied every aspect of how to do battle with a foe far larger than themselves, how to evade its powerful attacks, exploit its blind spots and lay it low.Melee weapons equipped by models in this unit have the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Praesidium Shield",
+            "type": "Wargear",
+            "description": "Add 1 to the bearer’s Wounds characteristic."
+          },
+          {
+            "name": "Vexilla",
+            "type": "Wargear",
+            "description": "Add 1 to the Objective Control characteristic of models in the bearer’s unit."
+          },
+          {
+            "name": "Stand Vigil",
+            "type": "Datasheet",
+            "description": "Each time a model in this unit makes an attack, re-roll a Wound roll of 1. While this unit is within range of an objective marker you control, you can re-roll the Wound roll instead."
+          },
+          {
+            "name": "Sentinel Storm",
+            "type": "Datasheet",
+            "description": "Once per battle, in your Shooting phase, after this unit has shot, it can shoot again."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "4-5 Custodian Guard",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_CUSTODIAN_GUARD_C": {
+      "id": "U_CUSTODIAN_GUARD_C",
+      "squad_id": "U_CUSTODIAN_GUARD_C",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Custodian Guard",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "INFANTRY",
+          "BATTLELINE",
+          "IMPERIUM",
+          "CUSTODIAN GUARD"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 3,
+          "leadership": 6,
+          "objective_control": 2,
+          "invulnerable_save": 4
+        },
+        "points": 190,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Guardian Spear",
+          "Sentinel blade",
+          "Praesidium Shield"
+        ],
+        "weapons": [
+          {
+            "name": "Guardian spear",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "2",
+            "special_rules": "assault"
+          },
+          {
+            "name": "Sentinel blade",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "2",
+            "special_rules": "assault, pistol"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "DEEP STRIKESome units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.During the Declare Battle Formations step, if every model in a unit has this ability, you can set it up in Reserves instead of setting it up on the battlefield. If you do, in the Reinforcements step of one of your Movement phases you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If a unit with the Deep Strike ability arrives from Strategic Reserves, the controlling player can choose for that unit to be set up either using the rules for Strategic Reserves or using the Deep Strike ability. \n- Unit can be set up in Reserves instead of on the battlefield.\n- Unit can be set up in your Reinforcements step, more than 9\" horizontally away from all enemy models."
+          },
+          {
+            "name": "Martial Ka’tah",
+            "type": "Faction",
+            "description": "Each time a unit from your army with this ability is selected to fight, select one of the Ka’tah Stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability:Dacatarai StanceThose Custodians skilled in the Dacatarai Ka'tah are able to turn their enemies numerical advantage against them. Reserved for when the Custodians must battle seething hordes of foes, this stance sees them reap a terrible tallyMelee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.Rendax StanceMasters of Rendax are superlative monster and war machine hunters. They have studied every aspect of how to do battle with a foe far larger than themselves, how to evade its powerful attacks, exploit its blind spots and lay it low.Melee weapons equipped by models in this unit have the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Praesidium Shield",
+            "type": "Wargear",
+            "description": "Add 1 to the bearer’s Wounds characteristic."
+          },
+          {
+            "name": "Vexilla",
+            "type": "Wargear",
+            "description": "Add 1 to the Objective Control characteristic of models in the bearer’s unit."
+          },
+          {
+            "name": "Stand Vigil",
+            "type": "Datasheet",
+            "description": "Each time a model in this unit makes an attack, re-roll a Wound roll of 1. While this unit is within range of an objective marker you control, you can re-roll the Wound roll instead."
+          },
+          {
+            "name": "Sentinel Storm",
+            "type": "Datasheet",
+            "description": "Once per battle, in your Shooting phase, after this unit has shot, it can shoot again."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "4-5 Custodian Guard",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_CUSTODIAN_GUARD_D": {
+      "id": "U_CUSTODIAN_GUARD_D",
+      "squad_id": "U_CUSTODIAN_GUARD_D",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Custodian Guard",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "INFANTRY",
+          "BATTLELINE",
+          "IMPERIUM",
+          "CUSTODIAN GUARD"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 3,
+          "leadership": 6,
+          "objective_control": 2,
+          "invulnerable_save": 4
+        },
+        "points": 150,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Guardian Spear",
+          "Sentinel blade",
+          "Praesidium Shield"
+        ],
+        "weapons": [
+          {
+            "name": "Guardian spear",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "2",
+            "special_rules": "assault"
+          },
+          {
+            "name": "Sentinel blade",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "2",
+            "special_rules": "assault, pistol"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "DEEP STRIKESome units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.During the Declare Battle Formations step, if every model in a unit has this ability, you can set it up in Reserves instead of setting it up on the battlefield. If you do, in the Reinforcements step of one of your Movement phases you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If a unit with the Deep Strike ability arrives from Strategic Reserves, the controlling player can choose for that unit to be set up either using the rules for Strategic Reserves or using the Deep Strike ability. \n- Unit can be set up in Reserves instead of on the battlefield.\n- Unit can be set up in your Reinforcements step, more than 9\" horizontally away from all enemy models."
+          },
+          {
+            "name": "Martial Ka’tah",
+            "type": "Faction",
+            "description": "Each time a unit from your army with this ability is selected to fight, select one of the Ka’tah Stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability:Dacatarai StanceThose Custodians skilled in the Dacatarai Ka'tah are able to turn their enemies numerical advantage against them. Reserved for when the Custodians must battle seething hordes of foes, this stance sees them reap a terrible tallyMelee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.Rendax StanceMasters of Rendax are superlative monster and war machine hunters. They have studied every aspect of how to do battle with a foe far larger than themselves, how to evade its powerful attacks, exploit its blind spots and lay it low.Melee weapons equipped by models in this unit have the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Praesidium Shield",
+            "type": "Wargear",
+            "description": "Add 1 to the bearer’s Wounds characteristic."
+          },
+          {
+            "name": "Vexilla",
+            "type": "Wargear",
+            "description": "Add 1 to the Objective Control characteristic of models in the bearer’s unit."
+          },
+          {
+            "name": "Stand Vigil",
+            "type": "Datasheet",
+            "description": "Each time a model in this unit makes an attack, re-roll a Wound roll of 1. While this unit is within range of an objective marker you control, you can re-roll the Wound roll instead."
+          },
+          {
+            "name": "Sentinel Storm",
+            "type": "Datasheet",
+            "description": "Once per battle, in your Shooting phase, after this unit has shot, it can shoot again."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "4-5 Custodian Guard",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_CUSTODIAN_GUARD_E": {
+      "id": "U_CUSTODIAN_GUARD_E",
+      "squad_id": "U_CUSTODIAN_GUARD_E",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Custodian Guard",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "INFANTRY",
+          "BATTLELINE",
+          "IMPERIUM",
+          "CUSTODIAN GUARD"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 3,
+          "leadership": 6,
+          "objective_control": 2,
+          "invulnerable_save": 4
+        },
+        "points": 150,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Guardian Spear",
+          "Sentinel blade",
+          "Praesidium Shield",
+          "Misericordia",
+          "Vexilla"
+        ],
+        "weapons": [
+          {
+            "name": "Guardian spear",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "2",
+            "special_rules": "assault"
+          },
+          {
+            "name": "Sentinel blade",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "2",
+            "special_rules": "assault, pistol"
+          },
+          {
+            "name": "Misericordia",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "5",
+            "strength": "5",
+            "ap": "-2",
+            "damage": "1",
+            "weapon_skill": "2"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "DEEP STRIKESome units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.During the Declare Battle Formations step, if every model in a unit has this ability, you can set it up in Reserves instead of setting it up on the battlefield. If you do, in the Reinforcements step of one of your Movement phases you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If a unit with the Deep Strike ability arrives from Strategic Reserves, the controlling player can choose for that unit to be set up either using the rules for Strategic Reserves or using the Deep Strike ability. \n- Unit can be set up in Reserves instead of on the battlefield.\n- Unit can be set up in your Reinforcements step, more than 9\" horizontally away from all enemy models."
+          },
+          {
+            "name": "Martial Ka’tah",
+            "type": "Faction",
+            "description": "Each time a unit from your army with this ability is selected to fight, select one of the Ka’tah Stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability:Dacatarai StanceThose Custodians skilled in the Dacatarai Ka'tah are able to turn their enemies numerical advantage against them. Reserved for when the Custodians must battle seething hordes of foes, this stance sees them reap a terrible tallyMelee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.Rendax StanceMasters of Rendax are superlative monster and war machine hunters. They have studied every aspect of how to do battle with a foe far larger than themselves, how to evade its powerful attacks, exploit its blind spots and lay it low.Melee weapons equipped by models in this unit have the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Praesidium Shield",
+            "type": "Wargear",
+            "description": "Add 1 to the bearer’s Wounds characteristic."
+          },
+          {
+            "name": "Vexilla",
+            "type": "Wargear",
+            "description": "Add 1 to the Objective Control characteristic of models in the bearer’s unit."
+          },
+          {
+            "name": "Stand Vigil",
+            "type": "Datasheet",
+            "description": "Each time a model in this unit makes an attack, re-roll a Wound roll of 1. While this unit is within range of an objective marker you control, you can re-roll the Wound roll instead."
+          },
+          {
+            "name": "Sentinel Storm",
+            "type": "Datasheet",
+            "description": "Once per battle, in your Shooting phase, after this unit has shot, it can shoot again."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "4-5 Custodian Guard",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_ALLARUS_CUSTODIANS_A": {
+      "id": "U_ALLARUS_CUSTODIANS_A",
+      "squad_id": "U_ALLARUS_CUSTODIANS_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Allarus Custodians",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "INFANTRY",
+          "TERMINATOR",
+          "IMPERIUM",
+          "ALLARUS CUSTODIANS"
+        ],
+        "stats": {
+          "move": 5,
+          "toughness": 7,
+          "save": 2,
+          "wounds": 4,
+          "leadership": 6,
+          "objective_control": 2,
+          "invulnerable_save": 4
+        },
+        "points": 110,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Balistus grenade launcher",
+          "Castellan Axe"
+        ],
+        "weapons": [
+          {
+            "name": "Balistus grenade launcher",
+            "type": "Ranged",
+            "range": "18",
+            "attacks": "D6",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "1",
+            "ballistic_skill": "2",
+            "special_rules": "blast"
+          },
+          {
+            "name": "Castellan axe",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "ballistic_skill": "2",
+            "special_rules": "assault"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "DEEP STRIKESome units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.During the Declare Battle Formations step, if every model in a unit has this ability, you can set it up in Reserves instead of setting it up on the battlefield. If you do, in the Reinforcements step of one of your Movement phases you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If a unit with the Deep Strike ability arrives from Strategic Reserves, the controlling player can choose for that unit to be set up either using the rules for Strategic Reserves or using the Deep Strike ability. \n- Unit can be set up in Reserves instead of on the battlefield.\n- Unit can be set up in your Reinforcements step, more than 9\" horizontally away from all enemy models."
+          },
+          {
+            "name": "Martial Ka’tah",
+            "type": "Faction",
+            "description": "Each time a unit from your army with this ability is selected to fight, select one of the Ka’tah Stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability:Dacatarai StanceThose Custodians skilled in the Dacatarai Ka'tah are able to turn their enemies numerical advantage against them. Reserved for when the Custodians must battle seething hordes of foes, this stance sees them reap a terrible tallyMelee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.Rendax StanceMasters of Rendax are superlative monster and war machine hunters. They have studied every aspect of how to do battle with a foe far larger than themselves, how to evade its powerful attacks, exploit its blind spots and lay it low.Melee weapons equipped by models in this unit have the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Vexilla",
+            "type": "Wargear",
+            "description": "Add 1 to the Objective Control characteristic of models in the bearer’s unit."
+          },
+          {
+            "name": "Slayers of Tyrants",
+            "type": "Datasheet",
+            "description": "Each time a model in this unit makes an attack that targets a CHARACTER, MONSTER or VEHICLE unit, you can re-roll the Wound roll."
+          },
+          {
+            "name": "From Golden Light",
+            "type": "Datasheet",
+            "description": "Once per battle, at the end of your opponent’s turn, if this unit is not within Engagement Range of one or more enemy units, you can remove it from the battlefield and place it into Strategic Reserves."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "2-6 Allarus Custodians",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 4,
+          "current_wounds": 4,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 4,
+          "current_wounds": 4,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_PROSECUTORS_A": {
+      "id": "U_PROSECUTORS_A",
+      "squad_id": "U_PROSECUTORS_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Prosecutors",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "INFANTRY",
+          "IMPERIUM",
+          "ANATHEMA PSYKANA",
+          "PROSECUTORS"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 3,
+          "save": 3,
+          "wounds": 1,
+          "leadership": 6,
+          "objective_control": 2
+        },
+        "points": 40,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Boltgun",
+          "Close combat weapon"
+        ],
+        "weapons": [
+          {
+            "name": "Boltgun",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "1",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "ballistic_skill": "3",
+            "special_rules": "rapid fire 1"
+          },
+          {
+            "name": "Close combat weapon",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "2",
+            "strength": "3",
+            "ap": "0",
+            "damage": "1",
+            "weapon_skill": "3"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Daughters of the Abyss",
+            "type": "Datasheet",
+            "description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds."
+          },
+          {
+            "name": "Purity of Execution",
+            "type": "Datasheet",
+            "description": "Each time a model in this unit makes a ranged attack that targets a PSYKER unit, that attack has the [PRECISION] and [DEVASTATING WOUNDS] abilities."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Prosecutor Sister Superior",
+            "line": 1
+          },
+          {
+            "description": "3-9 Prosecutors",
+            "line": 2
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_VERTUS_PRAETORS_A": {
+      "id": "U_VERTUS_PRAETORS_A",
+      "squad_id": "U_VERTUS_PRAETORS_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Vertus Praetors",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "FLY",
+          "MOUNTED",
+          "VERTUS PRAETORS",
+          "IMPERIUM"
+        ],
+        "stats": {
+          "move": 12,
+          "toughness": 7,
+          "save": 2,
+          "wounds": 5,
+          "leadership": 6,
+          "objective_control": 2,
+          "invulnerable_save": 4
+        },
+        "points": 150,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Interceptor lance",
+          "Salvo launcher"
+        ],
+        "weapons": [
+          {
+            "name": "Salvo launcher",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "1",
+            "strength": "10",
+            "ap": "-3",
+            "damage": "D6+1",
+            "ballistic_skill": "2",
+            "special_rules": "twin-linked"
+          },
+          {
+            "name": "Interceptor lance",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "5",
+            "strength": "7",
+            "ap": "-2",
+            "damage": "2",
+            "weapon_skill": "2",
+            "special_rules": "lance"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Martial Ka’tah",
+            "type": "Faction",
+            "description": "Each time a unit from your army with this ability is selected to fight, select one of the Ka’tah Stances below. Until that unit has finished making its attacks, the selected Stance is active for it and it gains the relevant ability:Dacatarai StanceThose Custodians skilled in the Dacatarai Ka'tah are able to turn their enemies numerical advantage against them. Reserved for when the Custodians must battle seething hordes of foes, this stance sees them reap a terrible tallyMelee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.Rendax StanceMasters of Rendax are superlative monster and war machine hunters. They have studied every aspect of how to do battle with a foe far larger than themselves, how to evade its powerful attacks, exploit its blind spots and lay it low.Melee weapons equipped by models in this unit have the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Turbo-boost",
+            "type": "Datasheet",
+            "description": "Each time this unit Advances, do not make an Advance roll. Instead, until the end of the phase, add 6\" to the Move characteristic of models in this unit."
+          },
+          {
+            "name": "Quicksilver Execution",
+            "type": "Datasheet",
+            "description": "Once per battle, after this unit ends a Normal Move or Advance move, you can select one enemy unit (excluding MONSTER and VEHICLE units) that it moved over during that move, then roll one D6 for each model in this unit: for each 2+, that enemy unit suffers 2 mortal wounds."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "2-3 Vertus Praetors",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 5,
+          "current_wounds": 5,
+          "base_mm": 75,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "base_type": "oval",
+          "base_dimensions": {
+            "length": 75,
+            "width": 42
+          }
+        },
+        {
+          "id": "m2",
+          "wounds": 5,
+          "current_wounds": 5,
+          "base_mm": 75,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "base_type": "oval",
+          "base_dimensions": {
+            "length": 75,
+            "width": 42
+          }
+        }
+      ]
+    },
+    "U_WITCHSEEKERS_A": {
+      "id": "U_WITCHSEEKERS_A",
+      "squad_id": "U_WITCHSEEKERS_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Witchseekers",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "INFANTRY",
+          "ANATHEMA PSYKANA",
+          "IMPERIUM",
+          "WITCHSEEKERS"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 3,
+          "save": 3,
+          "wounds": 1,
+          "leadership": 6,
+          "objective_control": 1
+        },
+        "points": 45,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Close combat weapon",
+          "Witchseeker flamer"
+        ],
+        "weapons": [
+          {
+            "name": "Witchseeker flamer",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "D6",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "ballistic_skill": null,
+            "special_rules": "ignores cover, torrent"
+          },
+          {
+            "name": "Close combat weapon",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "2",
+            "strength": "3",
+            "ap": "0",
+            "damage": "1",
+            "weapon_skill": "3"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Scouts",
+            "type": "Core",
+            "description": "SCOUTSScouts form the vanguard of many armies. Unnoticed by the enemy, they range ahead of the main force.Some units have ‘Scouts x\"’ listed in their abilities. If every model in a unit has this ability, then at the start of the first battle round, before the first turn begins, it can make a Normal move of up to x\", with the exception that, while making that move, the distance moved by each model in that unit can be greater than that model's Move characteristic, as long as it is not greater than x\".\nDEDICATED TRANSPORT models can make use of any Scouts x\" ability listed in their abilities, or a Scouts x\" ability that a unit that starts the battle embarked within that DEDICATED TRANSPORT model has (provided only models with this ability are embarked within that DEDICATED TRANSPORT model), regardless of how that embarked unit gained this ability (e.g. listed in their abilities, conferred by an Enhancement or by an attached CHARACTER, etc.).\nA unit that moves using this ability must end that move more than 9\" horizontally away from all enemy models. If both players have units that can do this, the player who is taking the first turn moves their units first.\nExample: A unit has the Scouts 6\" ability. At the start of the first battle round, the controlling player can make a Normal move with that unit of up to 6\".\n- Scouts x\": Unit can make a Normal move of up to x\" before the first turn begins.\n- If embarked in a DEDICATED TRANSPORT, that DEDICATED TRANSPORT can make this move instead.\n- Must end this move more than 9\" horizontally away from all enemy models.",
+            "parameter": "6\""
+          },
+          {
+            "name": "Daughters of the Abyss",
+            "type": "Datasheet",
+            "description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds."
+          },
+          {
+            "name": "Sanctified Flames",
+            "type": "Datasheet",
+            "description": "In your Shooting phase, after this unit has shot, select one enemy unit hit by one or more of those attacks. That enemy unit must take a Battle-shock test."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Witchseeker Sister Superior",
+            "line": 1
+          },
+          {
+            "description": "3-9 Witchseekers",
+            "line": 2
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_WITCHSEEKERS_B": {
+      "id": "U_WITCHSEEKERS_B",
+      "squad_id": "U_WITCHSEEKERS_B",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Witchseekers",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "INFANTRY",
+          "ANATHEMA PSYKANA",
+          "IMPERIUM",
+          "WITCHSEEKERS"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 3,
+          "save": 3,
+          "wounds": 1,
+          "leadership": 6,
+          "objective_control": 1
+        },
+        "points": 45,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Close combat weapon",
+          "Witchseeker flamer"
+        ],
+        "weapons": [
+          {
+            "name": "Witchseeker flamer",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "D6",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "ballistic_skill": null,
+            "special_rules": "ignores cover, torrent"
+          },
+          {
+            "name": "Close combat weapon",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "2",
+            "strength": "3",
+            "ap": "0",
+            "damage": "1",
+            "weapon_skill": "3"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Scouts",
+            "type": "Core",
+            "description": "SCOUTSScouts form the vanguard of many armies. Unnoticed by the enemy, they range ahead of the main force.Some units have ‘Scouts x\"’ listed in their abilities. If every model in a unit has this ability, then at the start of the first battle round, before the first turn begins, it can make a Normal move of up to x\", with the exception that, while making that move, the distance moved by each model in that unit can be greater than that model's Move characteristic, as long as it is not greater than x\".\nDEDICATED TRANSPORT models can make use of any Scouts x\" ability listed in their abilities, or a Scouts x\" ability that a unit that starts the battle embarked within that DEDICATED TRANSPORT model has (provided only models with this ability are embarked within that DEDICATED TRANSPORT model), regardless of how that embarked unit gained this ability (e.g. listed in their abilities, conferred by an Enhancement or by an attached CHARACTER, etc.).\nA unit that moves using this ability must end that move more than 9\" horizontally away from all enemy models. If both players have units that can do this, the player who is taking the first turn moves their units first.\nExample: A unit has the Scouts 6\" ability. At the start of the first battle round, the controlling player can make a Normal move with that unit of up to 6\".\n- Scouts x\": Unit can make a Normal move of up to x\" before the first turn begins.\n- If embarked in a DEDICATED TRANSPORT, that DEDICATED TRANSPORT can make this move instead.\n- Must end this move more than 9\" horizontally away from all enemy models.",
+            "parameter": "6\""
+          },
+          {
+            "name": "Daughters of the Abyss",
+            "type": "Datasheet",
+            "description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds."
+          },
+          {
+            "name": "Sanctified Flames",
+            "type": "Datasheet",
+            "description": "In your Shooting phase, after this unit has shot, select one enemy unit hit by one or more of those attacks. That enemy unit must take a Battle-shock test."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Witchseeker Sister Superior",
+            "line": 1
+          },
+          {
+            "description": "3-9 Witchseekers",
+            "line": 2
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_CALLIDUS_ASSASSIN_A": {
+      "id": "U_CALLIDUS_ASSASSIN_A",
+      "squad_id": "U_CALLIDUS_ASSASSIN_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Callidus Assassin",
+        "keywords": [
+          "AGENTS OF THE IMPERIUM",
+          "EPIC HERO",
+          "INFANTRY",
+          "CHARACTER",
+          "OFFICIO ASSASSINORUM",
+          "CALLIDUS ASSASSIN",
+          "IMPERIUM"
+        ],
+        "stats": {
+          "move": 7,
+          "toughness": 4,
+          "save": 6,
+          "wounds": 4,
+          "leadership": 6,
+          "objective_control": 1,
+          "invulnerable_save": 4
+        },
+        "points": 100,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Neural shredder",
+          "Phase sword and poison blades"
+        ],
+        "weapons": [
+          {
+            "name": "Neural shredder",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "D6",
+            "strength": "5",
+            "ap": "-2",
+            "damage": "1",
+            "ballistic_skill": null,
+            "special_rules": "anti-infantry 2+, precision, torrent"
+          },
+          {
+            "name": "Phase sword and poison blades",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "5",
+            "strength": "5",
+            "ap": "-4",
+            "damage": "2",
+            "weapon_skill": "2",
+            "special_rules": "lethal hits, precision"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "DEEP STRIKESome units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.During the Declare Battle Formations step, if every model in a unit has this ability, you can set it up in Reserves instead of setting it up on the battlefield. If you do, in the Reinforcements step of one of your Movement phases you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If a unit with the Deep Strike ability arrives from Strategic Reserves, the controlling player can choose for that unit to be set up either using the rules for Strategic Reserves or using the Deep Strike ability. \n- Unit can be set up in Reserves instead of on the battlefield.\n- Unit can be set up in your Reinforcements step, more than 9\" horizontally away from all enemy models."
+          },
+          {
+            "name": "Fights First",
+            "type": "Core",
+            "description": "FIGHTS FIRSTSome warriors attack with blinding speed, landing their blows before their foes can react.Units with this ability that are eligible to fight do so in the Fights First step, provided every model in the unit has this ability."
+          },
+          {
+            "name": "Infiltrators",
+            "type": "Core",
+            "description": "INFILTRATORSMany armies employ reconnaissance units who can sit concealed, waiting for the right moment to strike.During deployment, if every model in a unit has this ability, then when you set it up, it can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and all enemy models."
+          },
+          {
+            "name": "Lone Operative",
+            "type": "Core",
+            "description": "LONE OPERATIVEAssassins and other covert agents are difficult to track and pinpoint in the swirling maelstrom of battle.Unless part of an Attached unit (see Leader), this unit can only be selected as the target of a ranged attack if the attacking model is within 12\"."
+          },
+          {
+            "name": "Assigned Agents",
+            "type": "Faction",
+            "description": "If your Army Faction is AGENTS OF THE IMPERIUM, then in the Select Detachment Rules step, you can select one of the available Detachments from this book as normal.\nIf your Army Faction is not AGENTS OF THE IMPERIUM, but every model in your army has the IMPERIUM keyword, you can include AGENTS OF THE IMPERIUM units in your army even if they do not have the Faction keyword you selected in the Select Army Faction step. In this case, the maximum number of AGENTS OF THE IMPERIUM units you can include in your army depends on the battle size, as shown below.\nBATTLE SIZERETINUE UNITSCHARACTER UNITSREQUISITIONED UNITSIncursion111Strike Force221Onslaught332\nNote that you can include AGENTS OF THE IMPERIUM DEDICATED TRANSPORT units in such an army as normal, but each unit must start the battle with one or more units embarked within it, or it cannot be deployed for that battle and will count as having been destroyed during the first battle round."
+          },
+          {
+            "name": "Acrobatic Escape",
+            "type": "Datasheet",
+            "description": "At the end of the Fight phase, if this model is within Engagement Range of one or more enemy units, it can make a Fall Back move of up to D6\". In addition, at the end of your opponent’s turn, if this model is not within 3\" of one or more enemy units, you can remove it from the battlefield and then, in the Reinforcements step of your next Movement phase, set it up anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If the battle ends and this model is not on the battlefield, it is destroyed."
+          },
+          {
+            "name": "Lord of Deceit (Aura)",
+            "type": "Datasheet",
+            "description": "Each time your opponent targets a unit from their army with a Stratagem, if that unit is within 12\" of this model, increase the cost of that use of that Stratagem by 1CP."
+          },
+          {
+            "name": "SHADOW ASSIGNMENT",
+            "type": "Special (правая колонка)",
+            "description": "This model cannot be selected to be your WARLORD.\nIf your army faction is AGENTS OF THE IMPERIUM, then during the Declare Battle Formations step, you can replace this model with a different OFFICIO ASSASSINORUM model, provided the total points value of the new model does not exceed the points value of the model it replaced. Your army cannot include duplicates of the same model (i.e. after replacing a model with this rule, your army cannot have more than 1 VINDICARE ASSASSIN, it cannot have more than 1 CUlExUS ASSASSIN, it cannot have more than 1 EvERSOR ASSASSIN and it cannot have more than 1 CALLIDUS ASSASSIN)."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Callidus Assassin – EPIC HERO",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 4,
+          "current_wounds": 4,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_INQUISITOR_DRAXUS_A": {
+      "id": "U_INQUISITOR_DRAXUS_A",
+      "squad_id": "U_INQUISITOR_DRAXUS_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Inquisitor Draxus",
+        "keywords": [
+          "AGENTS OF THE IMPERIUM",
+          "INQUISITOR",
+          "ORDO XENOS",
+          "IMPERIUM",
+          "CHARACTER",
+          "GRENADES",
+          "PSYKER",
+          "EPIC HERO",
+          "INFANTRY",
+          "DRAXUS"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 3,
+          "save": 3,
+          "wounds": 4,
+          "leadership": 6,
+          "objective_control": 1,
+          "invulnerable_save": 5
+        },
+        "points": 95,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Dirgesinger",
+          "Power fist",
+          "Psychic Tempest"
+        ],
+        "weapons": [
+          {
+            "name": "Dirgesinger",
+            "type": "Ranged",
+            "range": "18",
+            "attacks": "4",
+            "strength": "4",
+            "ap": "0",
+            "damage": "2",
+            "ballistic_skill": "3",
+            "special_rules": "anti-infantry 4+, assault, devastating wounds"
+          },
+          {
+            "name": "Psychic Tempest",
+            "type": "Ranged",
+            "range": "18",
+            "attacks": "6",
+            "strength": "6",
+            "ap": "0",
+            "damage": "2",
+            "ballistic_skill": "3",
+            "special_rules": "psychic, sustained hits 2"
+          },
+          {
+            "name": "Power fist",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "strength": "6",
+            "ap": "-2",
+            "damage": "2",
+            "weapon_skill": "3"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Leader",
+            "type": "Core",
+            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have ‘Leader’ listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead – known as their Bodyguard units – are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader’s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit’s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
+          },
+          {
+            "name": "Assigned Agents",
+            "type": "Faction",
+            "description": "If your Army Faction is AGENTS OF THE IMPERIUM, then in the Select Detachment Rules step, you can select one of the available Detachments from this book as normal.\nIf your Army Faction is not AGENTS OF THE IMPERIUM, but every model in your army has the IMPERIUM keyword, you can include AGENTS OF THE IMPERIUM units in your army even if they do not have the Faction keyword you selected in the Select Army Faction step. In this case, the maximum number of AGENTS OF THE IMPERIUM units you can include in your army depends on the battle size, as shown below.\nBATTLE SIZERETINUE UNITSCHARACTER UNITSREQUISITIONED UNITSIncursion111Strike Force221Onslaught332\nNote that you can include AGENTS OF THE IMPERIUM DEDICATED TRANSPORT units in such an army as normal, but each unit must start the battle with one or more units embarked within it, or it cannot be deployed for that battle and will count as having been destroyed during the first battle round."
+          },
+          {
+            "name": "Authority of the Inquisition",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, it can embark within any TRANSPORT that its Bodyguard unit can embark within."
+          },
+          {
+            "name": "Xenos Hunter",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, each time a model in that unit makes an attack that targets an enemy unit that does not have the IMPERIUM or CHAOS keywords, add 1 to the Hit roll."
+          },
+          {
+            "name": "Psychic Veil (Psychic)",
+            "type": "Datasheet",
+            "description": "In your Command phase, this PSYKER can use this ability. If it does, roll one D6: on a 1, this PSYKER’s unit suffers D3 mortal wounds; on a 2+, until the start of your next Command phase, this PSYKER’s unit can only be selected as the target of a ranged attack if the attacking model is within 18\"."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Inquisitor Draxus – EPIC HERO",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": [
+            "Deathwatch Veterans",
+            "Subductor Squad",
+            "Skitarii Rangers",
+            "Heavy Intercessor Squad",
+            "Crusader Squad",
+            "Brotherhood Terminator Squad",
+            "Vigilant Squad",
+            "Deathwatch Kill Team",
+            "Skitarii Vanguard",
+            "Skitarii Vanguard",
+            "Cadian Shock Troops",
+            "Spectrus Kill Team",
+            "Catachan Jungle Fighters",
+            "Vigilant Squad",
+            "Custodian Guard",
+            "Death Korps Of Krieg",
+            "Death Korps Of Krieg",
+            "Grey Hunters",
+            "Deathwatch Terminator Squad",
+            "Exaction Squad",
+            "Crusader Squad (Legendary)",
+            "Imperial Navy Breachers",
+            "Strike Squad",
+            "Imperial Navy Breachers",
+            "Intercessor Squad",
+            "Cadian Shock Troops",
+            "Tactical Squad",
+            "Fortis Kill Team",
+            "Proteus Kill Team",
+            "Catachan Jungle Fighters",
+            "Skitarii Rangers",
+            "Blood Claws",
+            "Assault Intercessor Squad",
+            "Aquila Kill Team",
+            "Decimus Kill Team",
+            "Battle Sisters Squad",
+            "Inquisitorial Agents"
+          ]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 4,
+          "current_wounds": 4,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    }
+  }
+}

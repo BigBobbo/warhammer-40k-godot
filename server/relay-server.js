@@ -120,9 +120,17 @@ const stmts = {
     SELECT army_name, created_at, updated_at
     FROM army_lists WHERE player_id = ? ORDER BY army_name ASC
   `),
+  listAllArmies: db.prepare(`
+    SELECT army_name, created_at, updated_at
+    FROM army_lists ORDER BY army_name ASC
+  `),
   getArmy: db.prepare(`
     SELECT army_name, army_data, created_at, updated_at
     FROM army_lists WHERE player_id = ? AND army_name = ?
+  `),
+  getArmyByName: db.prepare(`
+    SELECT army_name, army_data, created_at, updated_at
+    FROM army_lists WHERE army_name = ? LIMIT 1
   `),
   upsertArmy: db.prepare(`
     INSERT INTO army_lists (player_id, army_name, army_data, created_at, updated_at)
@@ -323,6 +331,8 @@ async function handleHTTPRequest(req, res) {
         return handleArmies(req, res, param);
       case 'local-armies':
         return handleLocalArmies(req, res, param);
+      case 'game-player-id':
+        return handleGamePlayerId(req, res);
       case 'games':
         return handleGames(req, res, param, parts[3]);
       default:
@@ -449,23 +459,15 @@ async function handleSaves(req, res, saveName) {
 }
 
 async function handleArmies(req, res, armyName) {
-  const playerId = authenticatePlayer(req, res);
-  if (!playerId) return;
-
-  if (!armyName) {
-    // GET /api/armies - list all armies
-    if (req.method !== 'GET') {
-      sendError(res, 405, 'Method not allowed');
-      return;
-    }
-    const armies = stmts.listArmies.all(playerId);
-    sendJSON(res, 200, { armies });
-    return;
-  }
-
-  switch (req.method) {
-    case 'GET': {
-      const army = stmts.getArmy.get(playerId, armyName);
+  // GETs are public (no player ID required)
+  if (req.method === 'GET') {
+    if (!armyName) {
+      // GET /api/armies - always list all armies (shared across all players)
+      const armies = stmts.listAllArmies.all();
+      sendJSON(res, 200, { armies });
+    } else {
+      // GET /api/armies/:name - find by name across all players
+      let army = stmts.getArmyByName.get(armyName);
       if (!army) {
         sendError(res, 404, 'Army not found');
         return;
@@ -476,8 +478,20 @@ async function handleArmies(req, res, armyName) {
         created_at: army.created_at,
         updated_at: army.updated_at,
       });
-      break;
     }
+    return;
+  }
+
+  // Writes still require a player ID
+  const playerId = authenticatePlayer(req, res);
+  if (!playerId) return;
+
+  if (!armyName) {
+    sendError(res, 400, 'Missing army name');
+    return;
+  }
+
+  switch (req.method) {
     case 'PUT': {
       const body = await parseBody(req);
       if (!body || !body.army_data) {
@@ -546,6 +560,33 @@ async function handleLocalArmies(req, res, armyName) {
   } catch (err) {
     console.error('Failed to save local army:', err.message);
     sendError(res, 500, 'Failed to save army file: ' + err.message);
+  }
+}
+
+// ============================================================================
+// Game Player ID (reads the Godot game's player_id.txt)
+// ============================================================================
+
+const GODOT_PLAYER_ID_PATH = path.join(
+  process.env.HOME || process.env.USERPROFILE || '',
+  'Library', 'Application Support', 'Godot', 'app_userdata', '40k', 'player_id.txt'
+);
+
+function handleGamePlayerId(req, res) {
+  if (req.method !== 'GET') {
+    sendError(res, 405, 'Method not allowed');
+    return;
+  }
+
+  try {
+    const playerId = fs.readFileSync(GODOT_PLAYER_ID_PATH, 'utf8').trim();
+    if (playerId && playerId.length > 8) {
+      sendJSON(res, 200, { player_id: playerId });
+    } else {
+      sendError(res, 404, 'No game player ID found');
+    }
+  } catch (err) {
+    sendError(res, 404, 'Game player ID file not found. Launch the game at least once first.');
   }
 }
 

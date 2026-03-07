@@ -532,32 +532,56 @@ const ArmyGenerator = (function () {
     for (const parsedUnit of (parsedArmy.units || [])) {
       const factionName = parsedArmy.faction || '';
 
-      // Step 1: Exact lookup
+      // Step 1: Exact lookup in primary faction
       let datasheet = lookup(factionName, parsedUnit.name);
       let matchType = datasheet ? 'exact' : 'none';
+      let matchedFaction = factionName;
 
-      // Step 2: Fuzzy match if exact lookup failed
       if (!datasheet && typeof Datasheets !== 'undefined' && Datasheets.isLoaded()) {
-        const fuzzyResults = Datasheets.fuzzyMatchUnit(factionName, parsedUnit.name, {
+        // Step 2: Fuzzy match within primary faction
+        let fuzzyResults = Datasheets.fuzzyMatchUnit(factionName, parsedUnit.name, {
           maxResults: 5,
           minScore: 0.4
         });
 
-        if (fuzzyResults.length > 0) {
-          if (fuzzyResults[0].score >= 0.85) {
-            // High confidence match — use it automatically
-            datasheet = fuzzyResults[0].unit;
-            matchType = 'fuzzy_auto';
-          } else {
-            // Low confidence — mark as ambiguous, use best match
-            matchType = 'fuzzy_ambiguous';
+        if (fuzzyResults.length > 0 && fuzzyResults[0].score >= 0.85) {
+          datasheet = fuzzyResults[0].unit;
+          matchType = 'fuzzy_auto';
+        }
+
+        // Step 3: If not found in primary faction, search all factions (for allied units)
+        if (!datasheet) {
+          const allFactionResults = Datasheets.fuzzySearchAllFactions(parsedUnit.name, {
+            maxResults: 5,
+            minScore: 0.4
+          });
+
+          if (allFactionResults.length > 0) {
+            if (allFactionResults[0].score >= 0.85) {
+              datasheet = allFactionResults[0].unit;
+              matchType = 'fuzzy_auto';
+              matchedFaction = allFactionResults[0].faction;
+            } else {
+              matchType = 'fuzzy_ambiguous';
+            }
+            // Use cross-faction results as candidates
+            fuzzyResults = allFactionResults.map(r => ({
+              name: r.name + ' (' + r.faction + ')',
+              unit: r.unit,
+              score: r.score
+            }));
           }
+        }
+
+        if (!datasheet && fuzzyResults.length > 0 && matchType !== 'fuzzy_ambiguous') {
+          matchType = fuzzyResults.length > 0 ? 'fuzzy_ambiguous' : 'none';
         }
 
         matchResults.push({
           parsedName: parsedUnit.name,
           matchType: matchType,
           matchedName: datasheet ? datasheet.name : null,
+          matchedFaction: matchedFaction,
           candidates: fuzzyResults.map(r => ({
             name: r.name,
             score: r.score
@@ -568,6 +592,7 @@ const ArmyGenerator = (function () {
           parsedName: parsedUnit.name,
           matchType: matchType,
           matchedName: datasheet ? datasheet.name : null,
+          matchedFaction: matchedFaction,
           candidates: []
         });
       }

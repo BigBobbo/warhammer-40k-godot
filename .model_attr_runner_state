@@ -18,3 +18,5 @@ MA-7|success|2026-03-07T01:31:30Z|model-attr/MA-7/update-get-unit-melee-weapons-
 MA-8|failed|2026-03-07T07:33:20Z|model-attr/MA-8/update-weapon-filter-functions-for-per-m
 MA-9|success|2026-03-07T07:41:29Z|model-attr/MA-9/unify-overwatch-weapon-assembly-with-new
 MA-10|success|2026-03-07T12:49:47Z|model-attr/MA-10/per-model-bs-in-ranged-hit-resolution
+MA-11|success|2026-03-07T13:00:41Z|model-attr/MA-11/per-model-ws-in-melee-hit-resolution
+MA-12|failed|2026-03-07T19:02:18Z|model-attr/MA-12/per-model-save-characteristics-in-wound-
