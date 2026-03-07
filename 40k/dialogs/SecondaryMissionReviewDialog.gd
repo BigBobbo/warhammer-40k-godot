@@ -34,10 +34,10 @@ func setup(player: int, drawn_missions: Array, player_cp: int, deck_size: int) -
 	_build_ui()
 
 func _build_ui() -> void:
-	min_size = DialogConstants.MEDIUM
+	min_size = DialogConstants.LARGE
 	var main_container = VBoxContainer.new()
 	main_container.name = "MainContainer"
-	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
+	main_container.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 20, 0)
 
 	# Header
 	var header = Label.new()
@@ -57,10 +57,21 @@ func _build_ui() -> void:
 
 	main_container.add_child(HSeparator.new())
 
+	# Scrollable area for mission cards
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 300)
+	main_container.add_child(scroll)
+
+	var scroll_vbox = VBoxContainer.new()
+	scroll_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll_vbox.add_theme_constant_override("separation", 8)
+	scroll.add_child(scroll_vbox)
+
 	# Show each drawn mission
 	for i in range(_drawn_missions.size()):
 		var mission = _drawn_missions[i]
-		_add_mission_card(main_container, mission, i)
+		_add_mission_card(scroll_vbox, mission, i)
 
 	main_container.add_child(HSeparator.new())
 
@@ -128,16 +139,40 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 	cat_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	card_vbox.add_child(cat_label)
 
-	# Scoring info
+	# Mission instructions/details
+	var mission_id = mission.get("id", "")
+	var instructions = SecondaryMissionData.get_mission_instructions(mission_id)
+	if instructions != "":
+		var instructions_label = Label.new()
+		instructions_label.text = instructions
+		instructions_label.add_theme_font_size_override("font_size", 12)
+		instructions_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+		instructions_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		instructions_label.custom_minimum_size = Vector2(0, 0)
+		card_vbox.add_child(instructions_label)
+
+	card_vbox.add_child(HSeparator.new())
+
+	# Scoring info with human-readable conditions
 	var scoring = mission.get("scoring", {})
 	var conditions = scoring.get("conditions", [])
+
+	var scoring_header = Label.new()
+	scoring_header.text = "SCORING:"
+	scoring_header.add_theme_font_size_override("font_size", 11)
+	scoring_header.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
+	card_vbox.add_child(scoring_header)
+
 	for condition in conditions:
 		var vp = condition.get("vp", 0)
 		var check = condition.get("check", "")
+		var params = condition.get("params", {})
+		var readable_text = SecondaryMissionData.get_human_readable_condition(check, params, vp)
 		var condition_label = Label.new()
-		condition_label.text = "  %d VP - %s" % [vp, _format_condition(check)]
+		condition_label.text = "  %d VP - %s" % [vp, readable_text]
 		condition_label.add_theme_font_size_override("font_size", 11)
 		condition_label.add_theme_color_override("font_color", Color(0.4, 0.85, 0.4))
+		condition_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		card_vbox.add_child(condition_label)
 
 	# Scoring timing
@@ -147,6 +182,18 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 	timing_label.add_theme_font_size_override("font_size", 10)
 	timing_label.add_theme_color_override("font_color", Color(0.5, 0.7, 0.9))
 	card_vbox.add_child(timing_label)
+
+	# Action requirement
+	if mission.get("requires_action", false):
+		var action_info = mission.get("action", {})
+		var action_label = Label.new()
+		action_label.text = "Requires Action: %s (during %s phase)" % [
+			action_info.get("name", "Unknown"),
+			action_info.get("phase", "unknown").capitalize()
+		]
+		action_label.add_theme_font_size_override("font_size", 10)
+		action_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.4))
+		card_vbox.add_child(action_label)
 
 	# Pending interaction indicator
 	if mission.get("pending_interaction", false):
@@ -164,7 +211,6 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 		replace_btn.custom_minimum_size = Vector2(0, 30)
 		replace_btn.add_theme_font_size_override("font_size", 12)
 		replace_btn.tooltip_text = "Spend 1 CP to put this mission back in your deck and draw a different one"
-		var mission_id = mission.get("id", "")
 		replace_btn.pressed.connect(_on_replace_pressed.bind(mission_id))
 		card_vbox.add_child(replace_btn)
 
@@ -180,10 +226,6 @@ func _get_timing_display(timing: String) -> String:
 			return "While active"
 		_:
 			return timing
-
-func _format_condition(check: String) -> String:
-	"""Convert condition check ID to human-readable text."""
-	return check.replace("_", " ").capitalize()
 
 func _on_replace_pressed(mission_id: String) -> void:
 	if _replacement_used:
