@@ -251,6 +251,38 @@ func _init():
 		print("  FAIL: space_marines.json not loaded")
 		failed += 1
 
+	# --- Test 15: MA-11 Boyz unit has model_profiles with weapon_skill overrides ---
+	print("\n--- Test 15: MA-11 Boyz unit has model_profiles with weapon_skill overrides ---")
+	var boyz_f = army_data.get("units", {}).get("U_BOYZ_F", {})
+	var boyz_f_meta = boyz_f.get("meta", {})
+	var boyz_f_profiles = boyz_f_meta.get("model_profiles", {})
+	if boyz_f_profiles.has("boss_nob") and boyz_f_profiles.has("boy"):
+		var nob_ws = boyz_f_profiles["boss_nob"].get("stats_override", {}).get("weapon_skill", null)
+		var boy_ws = boyz_f_profiles["boy"].get("stats_override", {}).get("weapon_skill", null)
+		if nob_ws != null and int(nob_ws) == 3 and boy_ws != null and int(boy_ws) == 4:
+			print("  PASS: boss_nob WS=3, boy WS=4")
+			passed += 1
+		else:
+			print("  FAIL: Expected boss_nob WS=3 boy WS=4, got nob=%s boy=%s" % [str(nob_ws), str(boy_ws)])
+			failed += 1
+	else:
+		print("  FAIL: U_BOYZ_F missing boss_nob or boy profiles (keys: %s)" % str(boyz_f_profiles.keys()))
+		failed += 1
+
+	# --- Test 16: MA-11 Boyz models have correct model_type ---
+	print("\n--- Test 16: MA-11 Boyz models have correct model_type ---")
+	var boyz_f_models = boyz_f.get("models", [])
+	var boyz_type_counts = {}
+	for m in boyz_f_models:
+		var mt = m.get("model_type", "")
+		boyz_type_counts[mt] = boyz_type_counts.get(mt, 0) + 1
+	if boyz_type_counts.get("boss_nob", 0) == 1 and boyz_type_counts.get("boy", 0) == 19:
+		print("  PASS: 1x boss_nob, 19x boy")
+		passed += 1
+	else:
+		print("  FAIL: Expected 1x boss_nob, 19x boy, got %s" % str(boyz_type_counts))
+		failed += 1
+
 	# --- Summary ---
 	print("\n=== Results: %d passed, %d failed ===" % [passed, failed])
 	if failed > 0:

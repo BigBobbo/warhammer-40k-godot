@@ -3471,6 +3471,23 @@ static func _get_model_effective_bs(model: Dictionary, unit: Dictionary, weapon_
 		return override_bs
 	return default_bs
 
+# MA-11: Get effective WS for a model, checking stats_override.weapon_skill
+# Returns the model's overridden WS if available, otherwise falls back to weapon profile WS.
+static func _get_model_effective_ws(model: Dictionary, unit: Dictionary, weapon_profile: Dictionary) -> int:
+	var default_ws = weapon_profile.get("ws", 4)
+	if model.is_empty():
+		return default_ws
+	var model_type = model.get("model_type", "")
+	if model_type == "":
+		return default_ws
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	if not model_profiles.has(model_type):
+		return default_ws
+	var override_ws = model_profiles[model_type].get("stats_override", {}).get("weapon_skill", -1)
+	if override_ws > 0:
+		return override_ws
+	return default_ws
+
 # Shared helper: return weapon IDs for a specific model, respecting model_profiles if present.
 # weapon_type_filter: "Ranged" or "Melee" (case-insensitive match against weapon type)
 static func _get_model_weapon_ids(unit: Dictionary, model: Dictionary, weapon_type_filter: String) -> Array:
@@ -6530,6 +6547,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var attacker_models = attacker_unit.get("models", [])
 	var model_count = 0
 	var attacks_roll_log = []
+	# MA-11: Track per-model WS for each attack (supports stats_override.weapon_skill)
+	var ws_per_attack = []
+	var has_ws_override = false
 
 	# BALANCE DATASLATE (P2-75): Extra Attacks weapons cannot have their attack count
 	# modified by other rules, unless the rule explicitly names the weapon.
@@ -6576,6 +6596,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			continue
 
 		model_count += 1
+
+		# MA-11: Get this model's effective WS (may differ from weapon profile)
+		var model_ws = _get_model_effective_ws(model, attacker_unit, weapon_profile)
+		if model_ws != weapon_profile.get("ws", 4):
+			has_ws_override = true
+
 		# Roll variable attacks for each model separately (per 10e rules)
 		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
 		var model_attacks = attacks_result.value
@@ -6596,8 +6622,14 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			print("RulesEngine: Da Biggest and da Best +4 attacks BLOCKED for Extra Attacks weapon '%s' (Balance Dataslate)" % weapon_name)
 
 		total_attacks += model_attacks
+		# MA-11: Record this model's WS for each of its attacks
+		for _j in range(model_attacks):
+			ws_per_attack.append(model_ws)
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
+
+	if has_ws_override:
+		print("RulesEngine: [MA-11] Per-model WS override active — models have different WS values")
 
 	if model_count < total_alive_models:
 		print("RulesEngine: Melee eligibility filter: %d/%d alive models eligible to fight" % [model_count, total_alive_models])
@@ -6762,9 +6794,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			var unmodified_roll = roll
+			# MA-11: Use per-model WS for this attack's threshold
+			var attack_ws = ws_per_attack[i] if i < ws_per_attack.size() else ws
 
 			# Apply hit modifiers (re-rolls first, using HitModifier system)
-			var modifier_result = apply_hit_modifiers(roll, melee_hit_modifiers, rng, ws)
+			var modifier_result = apply_hit_modifiers(roll, melee_hit_modifiers, rng, attack_ws)
 			roll = modifier_result.modified_roll
 
 			# Track re-rolls for dice log
@@ -6778,7 +6812,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			if unmodified_roll == 1:
 				pass  # Auto-miss
-			elif unmodified_roll >= melee_crit_threshold or unmodified_roll == 6 or roll >= ws:
+			elif unmodified_roll >= melee_crit_threshold or unmodified_roll == 6 or roll >= attack_ws:
 				hits += 1
 				# Critical hit = unmodified roll >= threshold (6 normally, 5+ with Martial Mastery)
 				if unmodified_roll >= melee_crit_threshold:

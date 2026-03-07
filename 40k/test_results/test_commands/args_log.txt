@@ -1,1 +1,1 @@
-ARGS: ["-s", "tests/test_ma7_melee_weapons.gd"]
+ARGS: ["-s", "tests/test_ma10_per_model_bs.gd"]
