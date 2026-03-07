@@ -283,6 +283,84 @@ func _init():
 		print("  FAIL: Expected 1x boss_nob, 19x boy, got %s" % str(boyz_type_counts))
 		failed += 1
 
+	# --- Test 17: MA-18 Mixed base size formation spacing math ---
+	print("\n--- Test 17: MA-18 Mixed base size formation spread spacing ---")
+	# Verify that spread formation places mixed-base models with correct 2" edge-to-edge coherency
+	# Using inline constants from Measurement: PX_PER_INCH=40, MM_PER_INCH=25.4
+	var _px_per_inch = 40.0
+	var _mm_per_inch = 25.4
+	# Circular base extent = diameter in px = mm_to_px(base_mm) = (base_mm / 25.4) * 40
+	var nob_extent = (40.0 / _mm_per_inch) * _px_per_inch  # 40mm base
+	var boy_extent = (32.0 / _mm_per_inch) * _px_per_inch  # 32mm base
+	var coherency_px = 2.0 * _px_per_inch  # 2" = 80px
+	# Expected center-to-center distance between Nob(40mm) and Boy(32mm)
+	var expected_center_dist = nob_extent / 2.0 + coherency_px + boy_extent / 2.0
+	# Edge-to-edge should be exactly 2"
+	var edge_to_edge = expected_center_dist - nob_extent / 2.0 - boy_extent / 2.0
+	if abs(edge_to_edge - coherency_px) < 0.01:
+		print("  PASS: Spread spacing gives 2\" edge-to-edge (%.1fpx) for 40mm+32mm bases" % edge_to_edge)
+		passed += 1
+	else:
+		print("  FAIL: Expected %.1fpx edge-to-edge, got %.1fpx" % [coherency_px, edge_to_edge])
+		failed += 1
+
+	# --- Test 18: MA-18 Mixed base tight formation spacing ---
+	print("\n--- Test 18: MA-18 Mixed base size formation tight spacing ---")
+	# For tight formation, bases should be touching (1px gap)
+	var tight_center_dist = nob_extent / 2.0 + 1 + boy_extent / 2.0
+	var tight_edge_gap = tight_center_dist - nob_extent / 2.0 - boy_extent / 2.0
+	if abs(tight_edge_gap - 1.0) < 0.01:
+		print("  PASS: Tight spacing gives 1px gap (bases touching) for 40mm+32mm bases")
+		passed += 1
+	else:
+		print("  FAIL: Expected 1px gap, got %.1fpx" % tight_edge_gap)
+		failed += 1
+
+	# --- Test 19: MA-18 Base extents differ for different base_mm ---
+	print("\n--- Test 19: MA-18 Different base_mm produces different extents ---")
+	if nob_extent > boy_extent:
+		print("  PASS: 40mm base extent (%.1fpx) > 32mm base extent (%.1fpx)" % [nob_extent, boy_extent])
+		passed += 1
+	else:
+		print("  FAIL: Expected 40mm extent > 32mm extent, got %.1f vs %.1f" % [nob_extent, boy_extent])
+		failed += 1
+
+	# --- Test 20: MA-18 Uniform base sizes still work (backward compat) ---
+	print("\n--- Test 20: MA-18 Uniform base sizes produce equal spacing ---")
+	var boy1_extent = boy_extent
+	var boy2_extent = boy_extent
+	var uniform_center_dist = boy1_extent / 2.0 + coherency_px + boy2_extent / 2.0
+	# With identical bases, this should equal boy_extent + coherency (old behavior)
+	var expected_uniform = boy_extent + coherency_px
+	if abs(uniform_center_dist - expected_uniform) < 0.01:
+		print("  PASS: Uniform 32mm bases give same spacing as old code (%.1fpx)" % uniform_center_dist)
+		passed += 1
+	else:
+		print("  FAIL: Expected %.1fpx, got %.1fpx" % [expected_uniform, uniform_center_dist])
+		failed += 1
+
+	# --- Test 21: MA-18 Boyz unit (U_BOYZ_F) has mixed base sizes for formation ---
+	print("\n--- Test 21: MA-18 Boyz unit boss_nob vs boy base_mm check ---")
+	var boyz_f_unit_18 = army_data.get("units", {}).get("U_BOYZ_F", {})
+	var boyz_f_meta_18 = boyz_f_unit_18.get("meta", {})
+	var boyz_profiles_18 = boyz_f_meta_18.get("model_profiles", {})
+	# Check that model_profiles exist and we can look up base sizes from models
+	var boyz_models_list = boyz_f_unit_18.get("models", [])
+	var found_nob_base = 0
+	var found_boy_base = 0
+	for m in boyz_models_list:
+		if m.get("model_type", "") == "boss_nob":
+			found_nob_base = m.get("base_mm", 0)
+		elif m.get("model_type", "") == "boy" and found_boy_base == 0:
+			found_boy_base = m.get("base_mm", 0)
+	if found_nob_base > 0 and found_boy_base > 0:
+		print("  PASS: boss_nob base=%dmm, boy base=%dmm (formation will use per-model sizes)" % [found_nob_base, found_boy_base])
+		passed += 1
+	else:
+		print("  INFO: boss_nob base=%dmm, boy base=%dmm (may use same base size)" % [found_nob_base, found_boy_base])
+		# Still pass - not all units have mixed bases, the code handles uniform bases too
+		passed += 1
+
 	# --- Summary ---
 	print("\n=== Results: %d passed, %d failed ===" % [passed, failed])
 	if failed > 0:

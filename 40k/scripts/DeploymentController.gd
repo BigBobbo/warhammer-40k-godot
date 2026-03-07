@@ -417,20 +417,22 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 	if models_to_place == 0:
 		return
 
-	# Calculate formation positions - get model data from combined or unit
-	var first_model_data: Dictionary
-	if is_combined_deployment and remaining_indices[0] < combined_models.size():
-		first_model_data = combined_models[remaining_indices[0]]["model_data"]
-	else:
-		first_model_data = unit_data["models"][remaining_indices[0]]
-	var base_mm = first_model_data["base_mm"]
+	# MA-18: Build model data array for all models being placed (supports mixed base sizes)
+	var formation_model_data: Array = []
+	for i in range(models_to_place):
+		var idx = remaining_indices[i]
+		if is_combined_deployment and idx < combined_models.size():
+			formation_model_data.append(combined_models[idx]["model_data"])
+		else:
+			formation_model_data.append(unit_data["models"][idx])
+	var base_mm = formation_model_data[0]["base_mm"]
 	var positions = []
 
 	match formation_mode:
 		"SPREAD":
-			positions = calculate_spread_formation(world_pos, models_to_place, base_mm, formation_rotation)
+			positions = calculate_spread_formation(world_pos, models_to_place, base_mm, formation_rotation, formation_model_data)
 		"TIGHT":
-			positions = calculate_tight_formation(world_pos, models_to_place, base_mm, formation_rotation)
+			positions = calculate_tight_formation(world_pos, models_to_place, base_mm, formation_rotation, formation_model_data)
 
 	# Validate all positions
 	var zone = BoardState.get_deployment_zone_for_player(GameState.get_active_player())
@@ -1802,38 +1804,73 @@ func _get_unplaced_model_indices() -> Array:
 	return unplaced
 
 # Formation calculation functions
-func calculate_spread_formation(anchor_pos: Vector2, model_count: int, base_mm: int, rotation: float = 0.0) -> Array:
-	"""Calculate positions for maximum spread (2 inch coherency)"""
+func calculate_spread_formation(anchor_pos: Vector2, model_count: int, base_mm: int, rotation: float = 0.0, model_data_array: Array = []) -> Array:
+	"""Calculate positions for maximum spread (2 inch coherency)
+	MA-18: Supports mixed base sizes via model_data_array. Each model's actual base
+	extent is used for spacing so edge-to-edge coherency of 2\" is maintained."""
 	var positions = []
 
-	# Get first model data to determine base type
-	var unit_data = GameState.get_unit(unit_id)
-	var remaining_indices = _get_unplaced_model_indices()
-	if remaining_indices.is_empty():
-		return positions
+	# MA-18: Build per-model base extents from model_data_array or fall back to uniform
+	var base_extents = []
+	if model_data_array.size() == model_count:
+		for md in model_data_array:
+			var shape = Measurement.create_base_shape(md)
+			var bounds = shape.get_bounds()
+			base_extents.append(max(bounds.size.x, bounds.size.y))
+	else:
+		# Fallback: use first model's data for all (backward compat)
+		var unit_data = GameState.get_unit(unit_id)
+		var remaining_indices = _get_unplaced_model_indices()
+		if remaining_indices.is_empty():
+			return positions
+		var first_md = unit_data["models"][remaining_indices[0]]
+		var shape = Measurement.create_base_shape(first_md)
+		var bounds = shape.get_bounds()
+		var extent = max(bounds.size.x, bounds.size.y)
+		for i in range(model_count):
+			base_extents.append(extent)
 
-	var model_data = unit_data["models"][remaining_indices[0]]
-	var shape = Measurement.create_base_shape(model_data)
-
-	# Use bounding box for spacing calculations
-	var bounds = shape.get_bounds()
-	var spacing_inches = 2.0  # Maximum coherency distance
-	var spacing_px = Measurement.inches_to_px(spacing_inches)
-
-	# For spacing, use the maximum dimension of the base
-	var base_extent = max(bounds.size.x, bounds.size.y)
-	var total_spacing = spacing_px + base_extent
+	var coherency_px = Measurement.inches_to_px(2.0)  # 2" coherency edge-to-edge
 
 	# Arrange in rows of 5
 	var cols = min(5, model_count)
-	var rows = ceil(model_count / 5.0)
 
+	# MA-18: Compute cumulative x positions per row, accounting for different radii
+	# Between model i and model i+1: center distance = extent_i/2 + coherency + extent_{i+1}/2
 	for i in range(model_count):
 		var col = i % cols
 		var row = floor(i / cols)
-		var x_offset = (col - cols/2.0) * total_spacing
-		var y_offset = row * total_spacing
-		var base_pos = Vector2(x_offset, y_offset)
+
+		# Calculate x offset: accumulate from col 0 to this col within the same row
+		var row_start = int(row) * cols
+		var x_pos = 0.0
+		for c in range(col):
+			var idx_prev = row_start + c
+			var idx_curr = row_start + c + 1
+			x_pos += base_extents[idx_prev] / 2.0 + coherency_px + base_extents[idx_curr] / 2.0
+
+		# Calculate y offset: accumulate from row 0 to this row
+		var y_pos = 0.0
+		for r in range(row):
+			# Use spacing based on model at same col in adjacent rows (or first col as reference)
+			var idx_above = r * cols + min(col, cols - 1)
+			var idx_curr = (r + 1) * cols + min(col, cols - 1)
+			if idx_above < model_count and idx_curr < model_count:
+				y_pos += base_extents[idx_above] / 2.0 + coherency_px + base_extents[idx_curr] / 2.0
+			else:
+				# Fallback for incomplete rows
+				y_pos += base_extents[min(idx_above, model_count - 1)] / 2.0 + coherency_px + base_extents[min(idx_curr, model_count - 1)] / 2.0
+
+		# Center the row horizontally: compute total row width
+		var row_model_count = min(cols, model_count - row_start)
+		var row_total_width = 0.0
+		for c in range(row_model_count - 1):
+			var idx_a = row_start + c
+			var idx_b = row_start + c + 1
+			row_total_width += base_extents[idx_a] / 2.0 + coherency_px + base_extents[idx_b] / 2.0
+
+		var x_offset = x_pos - row_total_width / 2.0
+		var base_pos = Vector2(x_offset, y_pos)
 
 		# Apply rotation around origin, then translate to anchor
 		var rotated_pos = base_pos.rotated(rotation)
@@ -1841,36 +1878,71 @@ func calculate_spread_formation(anchor_pos: Vector2, model_count: int, base_mm: 
 
 	return positions
 
-func calculate_tight_formation(anchor_pos: Vector2, model_count: int, base_mm: int, rotation: float = 0.0) -> Array:
-	"""Calculate positions for tight formation (bases touching)"""
+func calculate_tight_formation(anchor_pos: Vector2, model_count: int, base_mm: int, rotation: float = 0.0, model_data_array: Array = []) -> Array:
+	"""Calculate positions for tight formation (bases touching)
+	MA-18: Supports mixed base sizes via model_data_array. Each model's actual base
+	extent is used so bases are touching with a minimal 1px gap."""
 	var positions = []
 
-	# Get first model data to determine base type
-	var unit_data = GameState.get_unit(unit_id)
-	var remaining_indices = _get_unplaced_model_indices()
-	if remaining_indices.is_empty():
-		return positions
+	# MA-18: Build per-model base extents from model_data_array or fall back to uniform
+	var base_extents = []
+	if model_data_array.size() == model_count:
+		for md in model_data_array:
+			var shape = Measurement.create_base_shape(md)
+			var bounds = shape.get_bounds()
+			base_extents.append(max(bounds.size.x, bounds.size.y))
+	else:
+		# Fallback: use first model's data for all (backward compat)
+		var unit_data = GameState.get_unit(unit_id)
+		var remaining_indices = _get_unplaced_model_indices()
+		if remaining_indices.is_empty():
+			return positions
+		var first_md = unit_data["models"][remaining_indices[0]]
+		var shape = Measurement.create_base_shape(first_md)
+		var bounds = shape.get_bounds()
+		var extent = max(bounds.size.x, bounds.size.y)
+		for i in range(model_count):
+			base_extents.append(extent)
 
-	var model_data = unit_data["models"][remaining_indices[0]]
-	var shape = Measurement.create_base_shape(model_data)
-
-	# Use bounding box for spacing calculations
-	var bounds = shape.get_bounds()
-
-	# For tight formation, use actual dimensions plus minimal gap
-	var base_extent = max(bounds.size.x, bounds.size.y)
-	var spacing_px = base_extent + 1  # 1px gap to prevent overlap
+	var gap_px = 1  # 1px gap to prevent overlap
 
 	# Arrange in rows of 5
 	var cols = min(5, model_count)
-	var rows = ceil(model_count / 5.0)
 
+	# MA-18: Compute cumulative positions per row, accounting for different radii
+	# Between model i and model i+1: center distance = extent_i/2 + gap + extent_{i+1}/2
 	for i in range(model_count):
 		var col = i % cols
 		var row = floor(i / cols)
-		var x_offset = (col - cols/2.0) * spacing_px
-		var y_offset = row * spacing_px
-		var base_pos = Vector2(x_offset, y_offset)
+
+		# Calculate x offset: accumulate from col 0 to this col within the same row
+		var row_start = int(row) * cols
+		var x_pos = 0.0
+		for c in range(col):
+			var idx_prev = row_start + c
+			var idx_curr = row_start + c + 1
+			x_pos += base_extents[idx_prev] / 2.0 + gap_px + base_extents[idx_curr] / 2.0
+
+		# Calculate y offset: accumulate from row 0 to this row
+		var y_pos = 0.0
+		for r in range(row):
+			var idx_above = r * cols + min(col, cols - 1)
+			var idx_curr = (r + 1) * cols + min(col, cols - 1)
+			if idx_above < model_count and idx_curr < model_count:
+				y_pos += base_extents[idx_above] / 2.0 + gap_px + base_extents[idx_curr] / 2.0
+			else:
+				y_pos += base_extents[min(idx_above, model_count - 1)] / 2.0 + gap_px + base_extents[min(idx_curr, model_count - 1)] / 2.0
+
+		# Center the row horizontally
+		var row_model_count = min(cols, model_count - row_start)
+		var row_total_width = 0.0
+		for c in range(row_model_count - 1):
+			var idx_a = row_start + c
+			var idx_b = row_start + c + 1
+			row_total_width += base_extents[idx_a] / 2.0 + gap_px + base_extents[idx_b] / 2.0
+
+		var x_offset = x_pos - row_total_width / 2.0
+		var base_pos = Vector2(x_offset, y_pos)
 
 		# Apply rotation around origin, then translate to anchor
 		var rotated_pos = base_pos.rotated(rotation)
@@ -1924,19 +1996,24 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 	if remaining_models.is_empty():
 		return
 
-	var first_model_data: Dictionary
-	if is_combined_deployment and remaining_models[0] < combined_models.size():
-		first_model_data = combined_models[remaining_models[0]]["model_data"]
-	else:
-		first_model_data = unit_data["models"][remaining_models[0]]
-	var base_mm = first_model_data["base_mm"]
+	# MA-18: Build model data array for all formation ghosts (supports mixed base sizes)
+	var ghost_count = formation_preview_ghosts.size()
+	var formation_model_data: Array = []
+	for i in range(ghost_count):
+		if i < remaining_models.size():
+			var idx = remaining_models[i]
+			if is_combined_deployment and idx < combined_models.size():
+				formation_model_data.append(combined_models[idx]["model_data"])
+			else:
+				formation_model_data.append(unit_data["models"][idx])
+	var base_mm = formation_model_data[0]["base_mm"] if not formation_model_data.is_empty() else 32
 
 	var positions = []
 	match formation_mode:
 		"SPREAD":
-			positions = calculate_spread_formation(mouse_pos, formation_preview_ghosts.size(), base_mm, formation_rotation)
+			positions = calculate_spread_formation(mouse_pos, ghost_count, base_mm, formation_rotation, formation_model_data)
 		"TIGHT":
-			positions = calculate_tight_formation(mouse_pos, formation_preview_ghosts.size(), base_mm, formation_rotation)
+			positions = calculate_tight_formation(mouse_pos, ghost_count, base_mm, formation_rotation, formation_model_data)
 
 	# Update ghost positions and validity
 	var zone = BoardState.get_deployment_zone_for_player(GameState.get_active_player())
@@ -1946,8 +2023,9 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 			ghost.position = positions[i]
 			ghost.visible = true
 
-			# Check validity for each ghost position
-			var is_valid = _validate_formation_position(positions[i], first_model_data, zone)
+			# MA-18: Use each model's actual data for validation
+			var model_data_for_validation = formation_model_data[i] if i < formation_model_data.size() else formation_model_data[0]
+			var is_valid = _validate_formation_position(positions[i], model_data_for_validation, zone)
 			ghost.set_validity(is_valid)
 
 func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: PackedVector2Array) -> bool:

@@ -289,11 +289,11 @@
 - **Validation**: While placing a Spanner model, ghost shows "Spanner" label. While placing deffgun Loota, ghost shows "Loota (Deffgun)". No label on units without profiles.
 
 ### MA-18: Update formation deployment for mixed base sizes
-- [ ] `calculate_spread_formation()` (~DeploymentController.gd:1722) and `calculate_tight_formation()` (~line 1761) use first model's `base_mm` for all
-- [ ] With heterogeneous units, models may have different base sizes
-- [ ] Fix: use each model's actual `base_mm` when calculating spacing
-- [ ] For spread: ensure 2" coherency edge-to-edge, accounting for different radii
-- [ ] For tight: use base-touching distance, accounting for different radii
+- [x] `calculate_spread_formation()` (~DeploymentController.gd:1722) and `calculate_tight_formation()` (~line 1761) use first model's `base_mm` for all
+- [x] With heterogeneous units, models may have different base sizes
+- [x] Fix: use each model's actual `base_mm` when calculating spacing
+- [x] For spread: ensure 2" coherency edge-to-edge, accounting for different radii
+- [x] For tight: use base-touching distance, accounting for different radii
 - **Files**: DeploymentController.gd
 - **Validation**: Formation with 40mm Nob and 32mm Boyz spaces correctly. Spread formation maintains 2" coherency. Tight formation has bases touching. No overlap.
 
