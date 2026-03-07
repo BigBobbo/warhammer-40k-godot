@@ -21,9 +21,10 @@ var current_fight_index: int = -1
 var pending_pile_in_unit: String = ""
 var pending_consolidate_unit: String = ""
 
-# Pile-in/Consolidate interactive mode
+# Pile-in/Consolidate/Sweeping Advance interactive mode
 var pile_in_active: bool = false
 var consolidate_active: bool = false
+var sweeping_advance_active: bool = false
 var pile_in_unit_id: String = ""
 var pile_in_dialog_ref: Node = null
 var original_model_positions: Dictionary = {}  # model_id -> Vector2
@@ -395,6 +396,9 @@ func set_phase(phase: BasePhase) -> void:
 		# P0-58: Connect saves_required signal for interactive melee wound allocation
 		if phase.has_signal("saves_required") and not phase.saves_required.is_connected(_on_melee_saves_required):
 			phase.saves_required.connect(_on_melee_saves_required)
+		# Sweeping Advance signal
+		if phase.has_signal("sweeping_advance_available") and not phase.sweeping_advance_available.is_connected(_on_sweeping_advance_available):
+			phase.sweeping_advance_available.connect(_on_sweeping_advance_available)
 
 		print("DEBUG: FightController signals connected, setting up UI")
 
@@ -2651,3 +2655,92 @@ func _on_melee_saves_required(save_data_list: Array) -> void:
 	overlay.setup(save_data, defender_player)
 	print("║ Overlay setup called with defender_player=%d" % defender_player)
 	print("╚═══════════════════════════════════════════════════════════════")
+
+# ============================================================================
+# SWEEPING ADVANCE
+# ============================================================================
+
+func _on_sweeping_advance_available(unit_id: String, player: int, in_engagement: bool, move_distance: float) -> void:
+	"""Show Sweeping Advance dialog and enable interactive movement"""
+	print("[FightController] Sweeping Advance available for %s (player %d, in_engagement=%s, move=%.0f\")" % [
+		unit_id, player, str(in_engagement), move_distance
+	])
+
+	# Skip dialog for AI players — they handle it via AIDecisionMaker
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("[FightController] Skipping Sweeping Advance dialog for AI player %d" % player)
+		return
+
+	var dialog_script = load("res://dialogs/SweepingAdvanceDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load SweepingAdvanceDialog.gd")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(unit_id, in_engagement, move_distance, current_phase, self)
+	dialog.sweeping_advance_accepted.connect(_on_sweeping_advance_accepted.bind(unit_id))
+	dialog.sweeping_advance_declined.connect(_on_sweeping_advance_declined.bind(unit_id))
+	dialog.tree_exiting.connect(_on_sweeping_advance_dialog_closed)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+	# Enable movement mode (reuses pile-in infrastructure)
+	sweeping_advance_active = true
+	_enable_pile_in_mode(unit_id, dialog)
+
+	# Show in dice log
+	if dice_log_display:
+		var unit_name = ""
+		if current_phase:
+			var unit = current_phase.get_unit(unit_id)
+			unit_name = unit.get("meta", {}).get("name", unit_id)
+		var move_type = "Fall Back" if in_engagement else "Normal Move"
+		dice_log_display.append_text("\n[color=gold]SWEEPING ADVANCE: %s may make a %s (%.0f\")[/color]\n" % [
+			unit_name, move_type, move_distance
+		])
+
+	print("[FightController] Sweeping Advance dialog shown for %s" % unit_id)
+
+func _on_sweeping_advance_accepted(movements: Dictionary, unit_id: String) -> void:
+	"""Submit SWEEPING_ADVANCE action with movements"""
+	print("[FightController] Sweeping Advance accepted for %s with movements: %s" % [unit_id, str(movements)])
+
+	# Convert model IDs from "m1" format to array indices for FightPhase
+	var converted_movements = {}
+	if not movements.is_empty() and current_phase:
+		var unit = current_phase.get_unit(unit_id)
+		if unit:
+			var models = unit.get("models", [])
+			for model_id in movements:
+				for i in range(models.size()):
+					if models[i].get("id", "") == model_id:
+						converted_movements[str(i)] = movements[model_id]
+						break
+
+	var action = {
+		"type": "SWEEPING_ADVANCE",
+		"unit_id": unit_id,
+		"movements": converted_movements,
+		"player": current_phase.get_unit(unit_id).get("owner", 0) if current_phase else 0
+	}
+	emit_signal("fight_action_requested", action)
+	sweeping_advance_active = false
+
+func _on_sweeping_advance_declined(unit_id: String) -> void:
+	"""Player declined Sweeping Advance"""
+	print("[FightController] Sweeping Advance declined for %s" % unit_id)
+
+	var action = {
+		"type": "DECLINE_SWEEPING_ADVANCE",
+		"unit_id": unit_id,
+		"player": current_phase.get_unit(unit_id).get("owner", 0) if current_phase else 0
+	}
+	emit_signal("fight_action_requested", action)
+	sweeping_advance_active = false
+
+func _on_sweeping_advance_dialog_closed() -> void:
+	"""Handle Sweeping Advance dialog being closed"""
+	_disable_pile_in_mode()
+	sweeping_advance_active = false

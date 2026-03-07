@@ -7002,6 +7002,8 @@ func _on_fight_action_requested(action: Dictionary) -> void:
 				ToastManager.show_error("Consolidate rejected: %s" % error_msg)
 				# Re-request consolidate so player can try again
 				_re_request_fight_movement(action, "consolidate")
+			elif action_type == "SWEEPING_ADVANCE":
+				ToastManager.show_error("Sweeping Advance rejected: %s" % error_msg)
 			else:
 				ToastManager.show_error("Fight action failed: %s" % error_msg)
 	else:
