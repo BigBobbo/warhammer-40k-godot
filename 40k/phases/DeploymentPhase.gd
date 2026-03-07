@@ -591,7 +591,8 @@ func _process_deploy_unit(action: Dictionary) -> Dictionary:
 	# Don't handle player switching here - let TurnManager do it via the action_taken signal
 
 	var unit = get_unit(unit_id)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var _dp_meta = unit.get("meta", {})
+	var unit_name = _dp_meta.get("display_name", _dp_meta.get("name", unit_id))
 	log_phase_message("Deployed %s" % unit_name)
 
 	# Transport embark dialog is now handled by DeploymentController BEFORE deployment
@@ -1129,13 +1130,14 @@ func get_available_actions() -> Array:
 		actions.append({
 			"type": "DEPLOY_UNIT",
 			"unit_id": unit_id,
-			"description": "Deploy " + get_unit(unit_id).get("meta", {}).get("name", unit_id)
+			"description": "Deploy " + GameState.get_unit_display_name(unit_id)
 		})
 
 		# Units can be placed in reserves (strategic reserves or deep strike)
 		# Exception: Fortification units must be deployed on the table
 		var unit = get_unit(unit_id)
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var _avail_meta = unit.get("meta", {})
+		var unit_name = _avail_meta.get("display_name", _avail_meta.get("name", unit_id))
 		if not GameState.unit_is_fortification(unit_id):
 			if GameState.unit_has_deep_strike(unit_id):
 				actions.append({

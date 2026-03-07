@@ -236,6 +236,9 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 
 			print("Processed unit: ", unit_id, " for player ", player)
 
+	# Assign display names to differentiate duplicate squad types
+	_assign_display_names(army_data)
+
 	# Validate army construction points and detachment
 	var construction_result = validate_army_construction_points(army_data)
 	if not construction_result.valid:
@@ -534,6 +537,9 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 
 		print("Processed unit: ", unit_id, " for player ", player)
 
+	# Assign display names to differentiate duplicate squad types
+	_assign_display_names(army_data)
+
 	# Validate army construction points and detachment (cloud army path)
 	var construction_result = validate_army_construction_points(army_data)
 	if not construction_result.valid:
@@ -541,6 +547,51 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 			print("ARMY CONSTRUCTION ERROR (cloud): ", err)
 
 	return army_data
+
+# ============================================================================
+# DISPLAY NAME ASSIGNMENT (DUPLICATE SQUAD LABELING)
+# ============================================================================
+# When an army has multiple units with the same meta.name (e.g. two "Witchseekers"
+# squads), this assigns a unique display_name with a Greek letter suffix to each
+# duplicate (e.g. "Witchseekers Alpha", "Witchseekers Beta"). Units that are
+# unique keep their original name as display_name.
+
+const GREEK_SUFFIXES: Array = [
+	"Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta",
+	"Eta", "Theta", "Iota", "Kappa", "Lambda", "Mu"
+]
+
+func _assign_display_names(army_data: Dictionary) -> void:
+	if not army_data.has("units") or not army_data.units is Dictionary:
+		return
+
+	# Count how many units share each meta.name
+	var name_counts: Dictionary = {}  # meta.name -> [unit_id, unit_id, ...]
+	for unit_id in army_data.units:
+		var unit = army_data.units[unit_id]
+		if not unit.has("meta") or not unit.meta is Dictionary:
+			continue
+		var unit_name = unit.meta.get("name", "")
+		if unit_name.is_empty():
+			continue
+		if not name_counts.has(unit_name):
+			name_counts[unit_name] = []
+		name_counts[unit_name].append(unit_id)
+
+	# Assign display_name to each unit
+	for unit_name in name_counts:
+		var unit_ids = name_counts[unit_name]
+		if unit_ids.size() <= 1:
+			# Unique unit — display_name matches meta.name
+			var unit = army_data.units[unit_ids[0]]
+			unit.meta["display_name"] = unit_name
+		else:
+			# Multiple units with the same name — add Greek letter suffix
+			for i in range(unit_ids.size()):
+				var unit = army_data.units[unit_ids[i]]
+				var suffix = GREEK_SUFFIXES[i] if i < GREEK_SUFFIXES.size() else str(i + 1)
+				unit.meta["display_name"] = "%s %s" % [unit_name, suffix]
+				print("ArmyListManager: Duplicate squad labeled: %s -> %s" % [unit_ids[i], unit.meta["display_name"]])
 
 # ============================================================================
 # WARGEAR STAT BONUSES

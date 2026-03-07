@@ -124,7 +124,8 @@ func _create_stratagem_card(strat: Dictionary, eligible_units: Array) -> VBoxCon
 	var button_container = HBoxContainer.new()
 	for unit_id in eligible_units:
 		var unit = GameState.get_unit(unit_id)
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var _sd_meta = unit.get("meta", {})
+		var unit_name = _sd_meta.get("display_name", _sd_meta.get("name", unit_id))
 
 		var use_button = Button.new()
 		use_button.text = "Use on %s" % unit_name

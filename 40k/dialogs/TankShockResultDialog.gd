@@ -22,8 +22,10 @@ func setup(result: Dictionary) -> void:
 
 	var vehicle_unit = GameState.get_unit(vehicle_unit_id)
 	var target_unit = GameState.get_unit(target_unit_id)
-	var vehicle_name = vehicle_unit.get("meta", {}).get("name", vehicle_unit_id)
-	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var _tsrd_v_meta = vehicle_unit.get("meta", {})
+	var vehicle_name = _tsrd_v_meta.get("display_name", _tsrd_v_meta.get("name", vehicle_unit_id))
+	var _tsrd_t_meta = target_unit.get("meta", {})
+	var target_name = _tsrd_t_meta.get("display_name", _tsrd_t_meta.get("name", target_unit_id))
 
 	var main = VBoxContainer.new()
 	main.custom_minimum_size = Vector2(DialogConstants.SMALL.x - 20, 0)

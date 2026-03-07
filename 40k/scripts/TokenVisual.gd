@@ -555,13 +555,15 @@ func _draw_unit_name_label() -> void:
 	if unit.is_empty():
 		return
 
-	var unit_name = unit.get("meta", {}).get("name", "")
+	# Prefer display_name (includes Greek suffix for duplicates) over raw name
+	var meta = unit.get("meta", {})
+	var unit_name = meta.get("display_name", meta.get("name", ""))
 	if unit_name == "":
 		return
 
 	# Truncate long names to keep label compact
-	if unit_name.length() > 14:
-		unit_name = unit_name.substr(0, 12) + ".."
+	if unit_name.length() > 18:
+		unit_name = unit_name.substr(0, 16) + ".."
 
 	var font = _get_faction_font()
 	var font_size = 9

@@ -25,7 +25,8 @@ func setup(p_unit_id: String, p_player: int, p_master_available: bool = false) -
 	master_of_stances_available = p_master_available
 
 	var unit = GameState.get_unit(unit_id)
-	unit_name = unit.get("meta", {}).get("name", unit_id)
+	var _ksd_meta = unit.get("meta", {})
+	unit_name = _ksd_meta.get("display_name", _ksd_meta.get("name", unit_id))
 
 	title = "Martial Ka'tah — %s" % unit_name
 	min_size = DialogConstants.MEDIUM

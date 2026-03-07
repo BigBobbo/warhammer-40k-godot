@@ -33,7 +33,8 @@ func setup(p_unit_id: String, p_player: int, p_roll_type: String, p_original_rol
 		roll_total += r
 
 	var unit = GameState.get_unit(unit_id)
-	unit_name = unit.get("meta", {}).get("name", unit_id)
+	var _crd_meta = unit.get("meta", {})
+	unit_name = _crd_meta.get("display_name", _crd_meta.get("name", unit_id))
 
 	title = "Command Re-roll Available - Player %d" % player
 	min_size = DialogConstants.SMALL

@@ -40,7 +40,7 @@ func setup(p_unit_id: String) -> void:
 		return
 
 	# Get unit info
-	unit_name = unit.meta.get("name", unit_id)
+	unit_name = unit.meta.get("display_name", unit.meta.get("name", unit_id))
 	transport_id = unit.get("embarked_in", null)
 
 	if not transport_id:
@@ -55,7 +55,7 @@ func setup(p_unit_id: String) -> void:
 		return
 
 	# Get transport info
-	transport_name = transport.meta.get("name", transport_id)
+	transport_name = transport.meta.get("display_name", transport.meta.get("name", transport_id))
 
 	# Check transport movement status
 	var flags = transport.get("flags", {})

@@ -533,7 +533,8 @@ func _update_ui_for_current_wound() -> void:
 		if model.get("alive", true):
 			alive_count += 1
 
-	target_info_label.text = "Target: %s (%d models alive)" % [target_unit.get("meta", {}).get("name", "Unknown"), alive_count]
+	var _target_meta = target_unit.get("meta", {})
+	target_info_label.text = "Target: %s (%d models alive)" % [_target_meta.get("display_name", _target_meta.get("name", "Unknown")), alive_count]
 
 	# Save info
 	var example_profile = save_data.get("model_save_profiles", [])[0] if not save_data.get("model_save_profiles", []).is_empty() else {}

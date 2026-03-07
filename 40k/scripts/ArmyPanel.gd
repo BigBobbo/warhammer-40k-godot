@@ -150,8 +150,9 @@ func _build_unit_row(parent: VBoxContainer, uid: String, unit_data: Dictionary) 
 	swatch.pressed.connect(_on_swatch_pressed.bind(uid, swatch))
 	row.add_child(swatch)
 
-	# Unit name
-	var unit_name = unit_data.get("meta", {}).get("name", "Unknown")
+	# Unit name (prefer display_name which includes Greek suffix for duplicates)
+	var meta = unit_data.get("meta", {})
+	var unit_name = meta.get("display_name", meta.get("name", "Unknown"))
 	var name_lbl = Label.new()
 	name_lbl.text = unit_name
 	name_lbl.custom_minimum_size = Vector2(180, 0)
