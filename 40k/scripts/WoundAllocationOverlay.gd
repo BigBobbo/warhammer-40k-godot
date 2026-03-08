@@ -1002,8 +1002,10 @@ func _apply_damage_to_model(model_id: String, model_index: int, damage: int, des
 
 		if destroyed:
 			GameState.state.units[actual_unit_id].models[actual_model_index].alive = false
+			# MA-22: Include model type in death logging
+			var display_label = RulesEngine.get_model_display_label(model, unit_data)
 			print("╔═══════════════════════════════════════════════════════════")
-			print("║ 💀 MODEL DESTROYED - alive set to false in GameState")
+			print("║ 💀 %s destroyed" % display_label)
 			print("║ model_id: ", model_id)
 			print("║ model.alive before: ", model.get("alive", true))
 			print("║ model.alive after: ", GameState.state.units[actual_unit_id].models[actual_model_index].alive)
@@ -1187,9 +1189,13 @@ func _show_model_death_effect(model_id: String, model: Dictionary) -> void:
 	_hide_destroyed_model_token(model_id)
 	print("WoundAllocationOverlay: ✅ _hide_destroyed_model_token() returned")
 
+	# MA-22: Include model type in death effect log
+	var death_unit_id = model_id.split(":")[0] if ":" in model_id else save_data.get("target_unit_id", "")
+	var death_unit_data = GameState.get_unit(death_unit_id)
+	var death_display_label = RulesEngine.get_model_display_label(model, death_unit_data)
 	print("╔══════════════════════════════════════════════════════════════════")
 	print("║ ✅ 💀 MODEL DEATH EFFECT COMPLETE")
-	print("║ Model %s destroyed - marker created, token hidden" % model_id)
+	print("║ %s destroyed - marker created, token hidden" % death_display_label)
 	print("╚══════════════════════════════════════════════════════════════════")
 
 func _show_model_damage_effect(model_id: String, model: Dictionary, new_wounds: int) -> void:
@@ -1351,6 +1357,10 @@ func _display_summary(summary: Dictionary) -> void:
 	summary_text += "[color=red]Saves Failed:[/color] %d\n" % summary.get("saves_failed", 0)
 	summary_text += "[b]Damage Dealt:[/b] %d\n" % summary.get("total_damage", 0)
 	summary_text += "[color=red]Models Destroyed:[/color] %d" % summary.get("models_destroyed", 0)
+	# MA-22: Show destroyed model type labels if available
+	var destroyed_labels = summary.get("destroyed_labels", [])
+	if not destroyed_labels.is_empty():
+		summary_text += "\n[color=red]Casualties:[/color] %s" % ", ".join(destroyed_labels)
 	summary_text += "[/center]"
 
 	save_info_label.text = summary_text
@@ -1364,6 +1374,7 @@ func _build_summary() -> Dictionary:
 	var failed = 0
 	var total_damage = 0
 	var destroyed = 0
+	var destroyed_labels: Array = []  # MA-22: Track destroyed model display labels
 
 	for entry in allocation_history:
 		if entry.get("saved", false):
@@ -1373,6 +1384,11 @@ func _build_summary() -> Dictionary:
 			total_damage += entry.get("damage", 0)
 			if entry.get("model_destroyed", false):
 				destroyed += 1
+				# MA-22: Get display label for destroyed model
+				var entry_model_id = entry.get("model_id", "")
+				if entry_model_id != "":
+					var display_name = _get_model_display_name(entry_model_id)
+					destroyed_labels.append(display_name)
 
 	return {
 		"total_wounds": total_wounds,
@@ -1380,6 +1396,7 @@ func _build_summary() -> Dictionary:
 		"saves_failed": failed,
 		"total_damage": total_damage,
 		"models_destroyed": destroyed,
+		"destroyed_labels": destroyed_labels,
 		"allocation_history": allocation_history
 	}
 
