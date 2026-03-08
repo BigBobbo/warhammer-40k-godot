@@ -1352,9 +1352,9 @@ func _execute_next_action(player: int) -> void:
 	var decision_records = decision.get("_ai_decision_records", [])
 	if not decision_records.is_empty():
 		var phase_name = PHASE_DISPLAY_NAMES.get(phase, "unknown").to_lower()
-		var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+		var record_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 		_all_decision_records.append({
-			"round": battle_round,
+			"round": record_round,
 			"phase_name": phase_name,
 			"player": player,
 			"records": decision_records,

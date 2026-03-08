@@ -2892,25 +2892,34 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					var wp_name = wp.get("name", weapon_id)
 					errors.append("One Shot weapon '%s' has already been fired by model '%s' this battle" % [wp_name, model_id])
 
-	# PISTOL MUTUAL EXCLUSIVITY (T2-5): A model cannot fire both Pistol and non-Pistol
-	# weapons in the same shooting activation. Exception: MONSTER/VEHICLE models.
+	# MA-25: PISTOL MUTUAL EXCLUSIVITY — per-model check (was unit-wide before MA-25)
 	# Per 10e rules: "If a model is equipped with one or more Pistols, unless it is a
 	# MONSTER or VEHICLE model, it can either shoot with its Pistols or with all of its
 	# other ranged weapons."
+	# Per-model: Model A (pistol only) can fire pistol while Model B (bolt rifle only)
+	# fires bolt rifle. But a single model with both must choose one category.
 	if not is_monster_or_vehicle(actor_unit):
-		var has_pistol_assignment = false
-		var has_non_pistol_assignment = false
+		# Build per-model weapon type map: model_id -> { "pistol": bool, "non_pistol": bool }
+		var model_weapon_types: Dictionary = {}
 		for assignment in assignments:
 			var w_id = assignment.get("weapon_id", "")
 			if w_id == "":
 				continue
-			if is_pistol_weapon(w_id, board):
-				has_pistol_assignment = true
-			else:
-				has_non_pistol_assignment = true
-		if has_pistol_assignment and has_non_pistol_assignment:
-			errors.append("Cannot fire both Pistol and non-Pistol weapons — a unit must choose one or the other (MONSTER/VEHICLE exempt)")
-			print("RulesEngine: PISTOL MUTUAL EXCLUSIVITY — rejected: unit has both Pistol and non-Pistol weapon assignments")
+			var is_pistol = is_pistol_weapon(w_id, board)
+			var m_ids = assignment.get("model_ids", [])
+			for m_id in m_ids:
+				if not model_weapon_types.has(m_id):
+					model_weapon_types[m_id] = {"pistol": false, "non_pistol": false}
+				if is_pistol:
+					model_weapon_types[m_id]["pistol"] = true
+				else:
+					model_weapon_types[m_id]["non_pistol"] = true
+		# Check each model individually
+		for m_id in model_weapon_types:
+			var types = model_weapon_types[m_id]
+			if types["pistol"] and types["non_pistol"]:
+				errors.append("Model '%s' cannot fire both Pistol and non-Pistol weapons — must choose one category (MONSTER/VEHICLE exempt)" % m_id)
+				print("RulesEngine: PISTOL MUTUAL EXCLUSIVITY — rejected: model '%s' has both Pistol and non-Pistol weapon assignments" % m_id)
 
 	return {"valid": errors.is_empty(), "errors": errors}
 

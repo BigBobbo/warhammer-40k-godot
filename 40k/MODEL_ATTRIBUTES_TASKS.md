@@ -352,9 +352,9 @@
 - **Validation**: Battlewagon with 22 capacity. Embark 10 regular Boyz (10 slots) + 5 Meganobz (10 slots) = 20 slots. Attempt to embark 1 more Meganob (2 slots) — fails with "Insufficient capacity". Embark 2 more regular Boyz (2 slots) — succeeds. Unit without profiles counts 1 per model as before.
 
 ### MA-25: Pistol mutual exclusivity per-model
-- [ ] Pistol validation (~RulesEngine.gd:2823-2841) currently checks unit-wide
-- [ ] Change to per-model: Model A with only pistols can fire pistols while Model B with only bolter fires bolter in same phase
-- [ ] If a single model has both pistol and non-pistol weapons in its profile, it must choose one category (not both)
+- [x] Pistol validation (~RulesEngine.gd:2823-2841) currently checks unit-wide
+- [x] Change to per-model: Model A with only pistols can fire pistols while Model B with only bolter fires bolter in same phase
+- [x] If a single model has both pistol and non-pistol weapons in its profile, it must choose one category (not both)
 - **Files**: RulesEngine.gd
 - **Validation**: Unit with sergeant (bolt pistol + bolt rifle) and marines (bolt rifle only). Sergeant fires bolt pistol, marines fire bolt rifle — allowed. Sergeant tries to fire both bolt pistol AND bolt rifle — rejected. All marines fire bolt rifles — allowed.
 
