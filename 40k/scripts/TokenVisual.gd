@@ -134,6 +134,12 @@ func _draw() -> void:
 			_draw_marked_for_death_indicator(classic_radius)
 			_draw_action_overlay(classic_radius)
 
+	# MA-20: Draw model type colored ring (all styles except letter which handles it separately)
+	if not debug_mode and style != "letter":
+		var bounds_for_ring = base_shape.get_bounds()
+		var ring_radius = min(bounds_for_ring.size.x, bounds_for_ring.size.y) / 2.0
+		_draw_model_type_ring(ring_radius)
+
 	# Draw model number with shadow for readability (all styles)
 	_draw_model_number()
 
@@ -292,15 +298,25 @@ func _draw_letter_mode() -> void:
 		for offset in [Vector2(-0.5, 0), Vector2(0.5, 0), Vector2(0, 0)]:
 			draw_string(font, text_pos + offset, label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, text_color)
 
-	# --- Layer 4: Model number (only on select/hover) ---
+	# --- Layer 3b: MA-20 model type colored ring ---
+	_draw_model_type_ring(radius)
+
+	# --- Layer 4: Model number or type label (only on select/hover) ---
 	if is_selected or is_hovered:
 		var num_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
-		var num_text = str(model_number)
+		# MA-20: Show model type short label instead of model number when available
+		var type_label = _get_model_type_short_label()
+		var num_text = type_label if type_label != "" else str(model_number)
 		var num_size = 10
 		var num_text_size = num_font.get_string_size(num_text, HORIZONTAL_ALIGNMENT_CENTER, -1, num_size)
 		var num_pos = Vector2(-num_text_size.x / 2.0, radius - 2)
+		# Use model type color if available
+		var num_color = Color.WHITE
+		var ring_col = _get_model_type_ring_color()
+		if ring_col != Color.TRANSPARENT:
+			num_color = Color(ring_col.r, ring_col.g, ring_col.b, 1.0).lightened(0.3)
 		draw_string(num_font, num_pos + Vector2(0.5, 0.5), num_text, HORIZONTAL_ALIGNMENT_CENTER, -1, num_size, Color(0, 0, 0, 0.6))
-		draw_string(num_font, num_pos, num_text, HORIZONTAL_ALIGNMENT_CENTER, -1, num_size, Color.WHITE)
+		draw_string(num_font, num_pos, num_text, HORIZONTAL_ALIGNMENT_CENTER, -1, num_size, num_color)
 
 	# --- Layer 5: Reuse existing overlays ---
 	_draw_wound_pips(radius)
@@ -536,13 +552,123 @@ func _draw_selection_ring(radius: float) -> void:
 
 func _draw_model_number() -> void:
 	var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
-	var text = str(model_number)
-	var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, 16)
+	# MA-20: Show model type short label instead of model number when model_profiles exist
+	var type_label = _get_model_type_short_label()
+	var text = type_label if type_label != "" else str(model_number)
+	var font_size = 16
+	# Slightly smaller font for multi-character type labels
+	if text.length() > 1 and type_label != "":
+		font_size = 13
+	var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
 	var text_pos = Vector2(-text_size.x / 2, text_size.y / 4)
 
+	# MA-20: Use model type color for the text when available, white otherwise
+	var text_color = Color.WHITE
+	var ring_color = _get_model_type_ring_color()
+	if ring_color != Color.TRANSPARENT:
+		# Use a bright version of the ring color for the label text
+		text_color = Color(ring_color.r, ring_color.g, ring_color.b, 1.0).lightened(0.3)
+
 	# Black shadow behind text
-	draw_string(font, text_pos + Vector2(1, 1), text, HORIZONTAL_ALIGNMENT_CENTER, -1, 16, Color.BLACK)
-	draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, 16, Color.WHITE)
+	draw_string(font, text_pos + Vector2(1, 1), text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color.BLACK)
+	draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, text_color)
+
+# --- MA-20: Model type helpers ---
+
+# Predefined distinct colors for model type rings (up to 6 types)
+const MODEL_TYPE_COLORS = [
+	Color(0.2, 0.8, 0.3, 0.85),   # Green
+	Color(0.3, 0.5, 1.0, 0.85),   # Blue
+	Color(1.0, 0.55, 0.1, 0.85),  # Orange
+	Color(0.8, 0.3, 0.8, 0.85),   # Purple
+	Color(1.0, 0.85, 0.1, 0.85),  # Yellow
+	Color(0.1, 0.85, 0.85, 0.85), # Cyan
+]
+
+func _get_model_type_short_label() -> String:
+	"""MA-20: Get a short label for this model's type (e.g., 'D' for Deffgun, 'S' for Spanner).
+	Returns '' if no model_profiles exist (backward compat)."""
+	if not has_meta("unit_id"):
+		return ""
+
+	var model_type = model_data.get("model_type", "")
+	if model_type == "" or model_type == null:
+		return ""
+
+	var unit_id = get_meta("unit_id")
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return ""
+
+	var profiles = unit.get("meta", {}).get("model_profiles", {})
+	if profiles.is_empty():
+		return ""
+
+	var profile = profiles.get(model_type, {})
+	if profile.is_empty():
+		return ""
+
+	# Check for explicit short_label override in profile
+	var short_label = profile.get("short_label", "")
+	if short_label != "":
+		return short_label
+
+	# Auto-generate from the label
+	var label = profile.get("label", "")
+	if label == "":
+		return model_type.substr(0, 1).to_upper()
+
+	# If label has parenthesized content like "Loota (Deffgun)", use first letter inside parens
+	var paren_start = label.find("(")
+	var paren_end = label.find(")")
+	if paren_start >= 0 and paren_end > paren_start + 1:
+		var paren_content = label.substr(paren_start + 1, paren_end - paren_start - 1).strip_edges()
+		return paren_content.substr(0, 1).to_upper()
+
+	# Otherwise use first letter of the label
+	return label.substr(0, 1).to_upper()
+
+
+func _get_model_type_ring_color() -> Color:
+	"""MA-20: Get a distinct color for this model's type for the colored ring indicator.
+	Returns Color.TRANSPARENT if no model_profiles or only 1 profile type."""
+	if not has_meta("unit_id"):
+		return Color.TRANSPARENT
+
+	var model_type = model_data.get("model_type", "")
+	if model_type == "" or model_type == null:
+		return Color.TRANSPARENT
+
+	var unit_id = get_meta("unit_id")
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return Color.TRANSPARENT
+
+	var profiles = unit.get("meta", {}).get("model_profiles", {})
+	if profiles.size() <= 1:
+		# No need for color distinction with 0 or 1 profile type
+		return Color.TRANSPARENT
+
+	# Find the index of this model_type among sorted profile keys for deterministic color
+	var profile_keys = profiles.keys()
+	profile_keys.sort()
+	var type_index = profile_keys.find(model_type)
+	if type_index < 0:
+		return Color.TRANSPARENT
+
+	return MODEL_TYPE_COLORS[type_index % MODEL_TYPE_COLORS.size()]
+
+
+func _draw_model_type_ring(radius: float) -> void:
+	"""MA-20: Draw a colored ring around the base to indicate model type."""
+	var ring_color = _get_model_type_ring_color()
+	if ring_color == Color.TRANSPARENT:
+		return
+
+	# Draw a thin colored ring just inside the base border
+	var ring_radius = radius - 1.5
+	draw_arc(Vector2.ZERO, ring_radius, 0, TAU, 48, ring_color, 2.0)
+
 
 func _draw_unit_name_label() -> void:
 	if SettingsService and not SettingsService.show_unit_labels:

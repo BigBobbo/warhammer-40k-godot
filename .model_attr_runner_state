@@ -24,3 +24,6 @@ MA-13|success|2026-03-07T19:08:47Z|model-attr/MA-13/per-model-wounds-from-stats-
 MA-14|success|2026-03-07T19:18:25Z|model-attr/MA-14/rapid-fire-bonus-per-weapon-per-model
 MA-15|success|2026-03-07T19:27:34Z|model-attr/MA-15/model-type-picker-ui-during-deployment
 MA-16|success|2026-03-07T19:38:43Z|model-attr/MA-16/update-deployment-model-idx-to-support-n
+MA-17|success|2026-03-07T19:41:59Z|model-attr/MA-17/update-ghost-visual-to-show-model-type-i
+MA-18|failed|2026-03-08T01:43:40Z|model-attr/MA-18/update-formation-deployment-for-mixed-ba
+MA-19|failed|2026-03-08T07:45:22Z|model-attr/MA-19/combined-deployment-character-bodyguard-
