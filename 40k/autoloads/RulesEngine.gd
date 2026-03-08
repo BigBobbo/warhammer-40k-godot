@@ -7715,7 +7715,8 @@ static func prepare_save_resolution(
 			"using_invuln": save_result.use_invuln,
 			"invuln_value": save_result.inv if save_result.use_invuln else 0,
 			"invuln_source": invuln_source if save_result.use_invuln else "",
-			"armour_value": save_result.armour
+			"armour_value": save_result.armour,
+			"model_type": model.get("model_type", "")  # MA-21: Model type for wound allocation UI display
 		})
 
 	# DEVASTATING WOUNDS (PRP-012): Extract critical wound info
@@ -7861,7 +7862,8 @@ static func prepare_melee_save_resolution(
 			"using_invuln": save_result.use_invuln,
 			"invuln_value": save_result.inv if save_result.use_invuln else 0,
 			"invuln_source": invuln_source if save_result.use_invuln else "",
-			"armour_value": save_result.armour
+			"armour_value": save_result.armour,
+			"model_type": model.get("model_type", "")  # MA-21: Model type for wound allocation UI display
 		})
 
 	# DEVASTATING WOUNDS data
