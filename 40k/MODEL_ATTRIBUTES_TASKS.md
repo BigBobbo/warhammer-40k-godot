@@ -359,9 +359,9 @@
 - **Validation**: Unit with sergeant (bolt pistol + bolt rifle) and marines (bolt rifle only). Sergeant fires bolt pistol, marines fire bolt rifle — allowed. Sergeant tries to fire both bolt pistol AND bolt rifle — rejected. All marines fire bolt rifles — allowed.
 
 ### MA-26: Weapon ownership validation in shooting
-- [ ] Weapon validation (~RulesEngine.gd:2765-2779) currently checks if weapon exists on unit's weapon list
-- [ ] Update to verify the specific models in an assignment actually have that weapon via their profile
-- [ ] Reject assignments where model_ids include models that don't own the weapon
+- [x] Weapon validation (~RulesEngine.gd:2765-2779) currently checks if weapon exists on unit's weapon list
+- [x] Update to verify the specific models in an assignment actually have that weapon via their profile
+- [x] Reject assignments where model_ids include models that don't own the weapon
 - **Files**: RulesEngine.gd
 - **Validation**: Attempt to assign deffgun to a mega-blasta model — rejected with error. Assign deffgun to deffgun models — accepted. Assign mega-blasta to spanner — accepted. Unit without profiles allows all weapons to all models.
 

@@ -403,6 +403,86 @@ func _init():
 		print("  FAIL: Expected no profiles and 1:1 model:slot ratio")
 		failed += 1
 
+	# --- MA-26: Weapon ownership validation in shooting ---
+	# These tests verify the weapon ownership logic directly using the data structures,
+	# since RulesEngine autoload is not available in headless SceneTree mode.
+	# The logic mirrors what validate_shoot does: check model_profiles[model_type].weapons
+	# for the assigned weapon name.
+
+	print("\n--- Test 24: MA-26 Assign deffgun to deffgun model — accepted ---")
+	var ma26_lootas = army_data.get("units", {}).get("U_LOOTAS_A", {}).duplicate(true)
+	var ma26_profiles = ma26_lootas.get("meta", {}).get("model_profiles", {})
+	var ma26_models = ma26_lootas.get("models", [])
+	# m1 is loota_deffgun — Deffgun should be in its profile weapons
+	var ma26_m1 = {}
+	for mdl in ma26_models:
+		if mdl.get("id", "") == "m1":
+			ma26_m1 = mdl
+			break
+	var ma26_m1_type = ma26_m1.get("model_type", "")
+	var ma26_m1_weapons = ma26_profiles.get(ma26_m1_type, {}).get("weapons", [])
+	if "Deffgun" in ma26_m1_weapons:
+		print("  PASS: Deffgun is in deffgun model (m1, type=%s) profile weapons: %s" % [ma26_m1_type, str(ma26_m1_weapons)])
+		passed += 1
+	else:
+		print("  FAIL: Deffgun NOT in model m1 (type=%s) profile weapons: %s" % [ma26_m1_type, str(ma26_m1_weapons)])
+		failed += 1
+
+	# --- Test 25: MA-26 Assign deffgun to mega-blasta model — rejected ---
+	print("\n--- Test 25: MA-26 Assign deffgun to mega-blasta model — rejected ---")
+	# m9 is loota_kmb — Deffgun should NOT be in its profile weapons
+	var ma26_m9 = {}
+	for mdl in ma26_models:
+		if mdl.get("id", "") == "m9":
+			ma26_m9 = mdl
+			break
+	var ma26_m9_type = ma26_m9.get("model_type", "")
+	var ma26_m9_weapons = ma26_profiles.get(ma26_m9_type, {}).get("weapons", [])
+	if "Deffgun" not in ma26_m9_weapons:
+		print("  PASS: Deffgun correctly NOT in KMB model (m9, type=%s) profile weapons: %s" % [ma26_m9_type, str(ma26_m9_weapons)])
+		passed += 1
+	else:
+		print("  FAIL: Deffgun unexpectedly found in KMB model m9 (type=%s) profile weapons: %s" % [ma26_m9_type, str(ma26_m9_weapons)])
+		failed += 1
+
+	# --- Test 26: MA-26 Assign mega-blasta to spanner — accepted ---
+	print("\n--- Test 26: MA-26 Assign kustom mega-blasta to spanner — accepted ---")
+	# m11 is spanner — Kustom mega-blasta should be in its profile weapons
+	var ma26_m11 = {}
+	for mdl in ma26_models:
+		if mdl.get("id", "") == "m11":
+			ma26_m11 = mdl
+			break
+	var ma26_m11_type = ma26_m11.get("model_type", "")
+	var ma26_m11_weapons = ma26_profiles.get(ma26_m11_type, {}).get("weapons", [])
+	if "Kustom mega-blasta" in ma26_m11_weapons:
+		print("  PASS: Kustom mega-blasta is in spanner model (m11, type=%s) profile weapons: %s" % [ma26_m11_type, str(ma26_m11_weapons)])
+		passed += 1
+	else:
+		print("  FAIL: Kustom mega-blasta NOT in spanner model m11 (type=%s) profile weapons: %s" % [ma26_m11_type, str(ma26_m11_weapons)])
+		failed += 1
+
+	# --- Test 27: MA-26 Unit without profiles allows all weapons to all models ---
+	print("\n--- Test 27: MA-26 Unit without profiles allows all weapons ---")
+	var ma26_noprofile = army_data.get("units", {}).get("U_BOYZ_E", {}).duplicate(true)
+	var ma26_noprofile_profiles = ma26_noprofile.get("meta", {}).get("model_profiles", {})
+	if ma26_noprofile_profiles.is_empty():
+		print("  PASS: Unit without profiles has empty model_profiles — all weapons allowed to all models")
+		passed += 1
+	else:
+		print("  FAIL: Expected empty model_profiles but got: %s" % str(ma26_noprofile_profiles.keys()))
+		failed += 1
+
+	# --- Test 28: MA-26 Validation logic matches: weapon_name checked against profile ---
+	print("\n--- Test 28: MA-26 Cross-check: deffgun model cannot fire KMB ---")
+	# m1 is loota_deffgun — Kustom mega-blasta should NOT be in its profile
+	if "Kustom mega-blasta" not in ma26_m1_weapons:
+		print("  PASS: KMB correctly NOT in deffgun model (m1) profile weapons: %s" % str(ma26_m1_weapons))
+		passed += 1
+	else:
+		print("  FAIL: KMB unexpectedly found in deffgun model m1 profile weapons: %s" % str(ma26_m1_weapons))
+		failed += 1
+
 	# --- Summary ---
 	print("\n=== Results: %d passed, %d failed ===" % [passed, failed])
 	if failed > 0:

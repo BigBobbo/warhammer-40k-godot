@@ -2829,6 +2829,32 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 				if actor_advanced and not is_assault_weapon(weapon_id, board) and not EffectPrimitivesData.has_effect_advance_and_shoot(actor_unit):
 					errors.append("Cannot fire non-Assault weapon '%s' after Advancing" % weapon_profile.get("name", weapon_id))
 
+				# MA-26: WEAPON OWNERSHIP VALIDATION — verify each model in the assignment
+				# actually has this weapon via their model_profile. Units without model_profiles
+				# allow all weapons to all models (backward compatibility).
+				var unit_model_profiles = actor_unit.get("meta", {}).get("model_profiles", {})
+				if not unit_model_profiles.is_empty():
+					var assignment_model_ids = assignment.get("model_ids", [])
+					var actor_models = actor_unit.get("models", [])
+					var weapon_name = weapon_profile.get("name", weapon_id)
+					for check_model_id in assignment_model_ids:
+						# Find this model in the unit
+						var check_model = {}
+						for m in actor_models:
+							if m.get("id", "") == check_model_id:
+								check_model = m
+								break
+						if check_model.is_empty():
+							continue
+						var check_model_type = check_model.get("model_type", "")
+						if check_model_type == "" or not unit_model_profiles.has(check_model_type):
+							continue  # No profile for this model — allow all weapons (fallback)
+						var profile_weapons = unit_model_profiles[check_model_type].get("weapons", [])
+						if weapon_name not in profile_weapons:
+							var profile_label = unit_model_profiles[check_model_type].get("label", check_model_type)
+							errors.append("Model '%s' (%s) does not have weapon '%s' in their profile" % [check_model_id, profile_label, weapon_name])
+							print("RulesEngine: MA-26 WEAPON OWNERSHIP — rejected: model '%s' (type '%s') assigned weapon '%s' not in profile weapons %s" % [check_model_id, check_model_type, weapon_name, str(profile_weapons)])
+
 		if target_unit_id == "":
 			errors.append("Assignment missing target_unit_id")
 		elif not units.has(target_unit_id):
