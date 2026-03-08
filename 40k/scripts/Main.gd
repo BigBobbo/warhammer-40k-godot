@@ -4179,12 +4179,27 @@ func refresh_unit_list() -> void:
 				# Skip reserve units (shown above) and undeployed
 				if unit_status == GameStateData.UnitStatus.IN_RESERVES:
 					continue
+				# Skip attached characters — they move with their bodyguard unit
+				if unit.get("attached_to", null) != null:
+					continue
 				if unit_status >= GameStateData.UnitStatus.DEPLOYED and unit_status != GameStateData.UnitStatus.IN_RESERVES:
 					var unit_name = unit.get("meta", {}).get("name", unit_id)
 					var model_count = unit.get("models", []).size()
 					var moved = unit.get("flags", {}).get("moved", false)
 					var status = " [MOVED]" if moved else ""
-					var display_text = "%s (%d models)%s" % [unit_name, model_count, status]
+					# Show attached character names for bodyguard units
+					var attach_info = ""
+					var attached_char_ids = unit.get("attachment_data", {}).get("attached_characters", [])
+					if attached_char_ids.size() > 0:
+						var char_names = []
+						for char_id in attached_char_ids:
+							var char_unit = GameState.get_unit(char_id)
+							if not char_unit.is_empty():
+								char_names.append(char_unit.get("meta", {}).get("name", char_id))
+								model_count += char_unit.get("models", []).size()
+						if char_names.size() > 0:
+							attach_info = " + " + ", ".join(char_names)
+					var display_text = "%s%s (%d models)%s" % [unit_name, attach_info, model_count, status]
 					unit_list.add_item(display_text)
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 					deployed_count += 1
