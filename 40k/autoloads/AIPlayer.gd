@@ -1275,7 +1275,8 @@ func _evaluate_and_act() -> void:
 	# Check game completion
 	if GameState.is_game_complete():
 		if enabled:
-			print("AIPlayer: Game is complete, disabling AI")
+			print("AIPlayer: Game is complete, disabling AI — auto-exporting decision log")
+			export_decision_log()
 			enabled = false
 		_end_ai_thinking()
 		return
@@ -1385,6 +1386,9 @@ func _execute_next_action(player: int) -> void:
 			"thinking_steps": thinking_steps,
 			"actions": [{"type": decision.get("type", ""), "description": decision.get("_ai_description", "")}],
 		})
+		# Auto-save decision log every 50 decision batches for mid-game access
+		if _all_decision_records.size() % 50 == 0:
+			export_decision_log()
 
 	# Log for summary
 	var description = decision.get("_ai_description", str(decision.get("type", "unknown")))

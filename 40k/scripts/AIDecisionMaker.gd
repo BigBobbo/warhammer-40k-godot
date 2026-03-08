@@ -758,7 +758,43 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 			"round": current_round,
 			"vp_diff": _get_vp_diff(snapshot, player),
 			"units_remaining_pct": _get_units_remaining_pct(snapshot, player),
+			"on_objective": false,
+			"nearest_enemy_inches": 999.0,
+			"is_melee_unit": false,
+			"is_vehicle": false,
+			"unit_points": 0,
 		}
+		# Populate unit-level context from the active unit in available_actions
+		var active_uid = ""
+		for a in available_actions:
+			var uid = a.get("actor_unit_id", a.get("unit_id", ""))
+			if uid != "":
+				active_uid = uid
+				break
+		if active_uid != "":
+			var active_unit = snapshot.get("units", {}).get(active_uid, {})
+			if not active_unit.is_empty():
+				# is_melee_unit
+				rule_context["is_melee_unit"] = _is_melee_focused_unit(active_unit)
+				# is_vehicle
+				var kws = active_unit.get("meta", {}).get("keywords", [])
+				rule_context["is_vehicle"] = "VEHICLE" in kws
+				# unit_points
+				rule_context["unit_points"] = int(active_unit.get("meta", {}).get("points", 0))
+				# on_objective — check if unit centroid is within objective control range
+				var centroid = _get_unit_centroid(active_unit)
+				if centroid != Vector2.INF:
+					var objectives = _get_objectives(snapshot)
+					for obj_pos in objectives:
+						if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+							rule_context["on_objective"] = true
+							break
+				# nearest_enemy_inches
+				var enemy_player = 2 if player == 1 else 1
+				var enemies = _get_units_for_player(snapshot, enemy_player)
+				var nearest_info = _get_nearest_enemy_for_charge(active_unit, enemies)
+				if not nearest_info.is_empty():
+					rule_context["nearest_enemy_inches"] = nearest_info.get("distance_inches", 999.0)
 		evaluate_rules(player, rule_context)
 	_thinking_steps.clear()  # Reset thinking log for this decision
 	_decision_records.clear()  # Reset decision records for this decision
