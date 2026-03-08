@@ -493,42 +493,173 @@ func _create_composition_list(unit_data: Dictionary, composition_container: VBox
 	# Clear existing
 	for child in composition_container.get_children():
 		child.queue_free()
-	
-	if not unit_data.has("meta") or not unit_data["meta"].has("unit_composition"):
+
+	if not unit_data.has("meta"):
 		return
-	
-	var composition = unit_data["meta"]["unit_composition"]
+
+	var meta = unit_data["meta"]
+	var model_profiles = meta.get("model_profiles", {})
+	var models = unit_data.get("models", [])
+
+	# If model_profiles exist, show detailed per-type breakdown
+	if not model_profiles.is_empty() and not models.is_empty():
+		_create_model_profiles_breakdown(composition_container, model_profiles, models, meta)
+		return
+
+	# Fallback: existing display for units without model_profiles
+	if not meta.has("unit_composition"):
+		return
+
+	var composition = meta["unit_composition"]
 	if composition.is_empty():
 		return
-	
+
 	var comp_label = Label.new()
 	comp_label.text = "UNIT COMPOSITION"
 	comp_label.add_theme_font_size_override("font_size", 14)
 	comp_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	composition_container.add_child(comp_label)
-	
+
 	for comp_item in composition:
 		var item_label = Label.new()
 		item_label.text = "• " + comp_item.get("description", "Unknown")
 		item_label.add_theme_font_size_override("font_size", 11)
 		item_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		composition_container.add_child(item_label)
-	
+
 	# Also show model count from models array if available
-	if unit_data.has("models"):
-		var models = unit_data["models"]
+	if not models.is_empty():
 		var alive_count = 0
 		var total_count = models.size()
-		
+
 		for model in models:
 			if model.get("alive", true):
 				alive_count += 1
-		
+
 		var model_status = Label.new()
 		model_status.text = "Models: %d/%d alive" % [alive_count, total_count]
 		model_status.add_theme_font_size_override("font_size", 11)
 		model_status.modulate = Color(0.8, 1.0, 0.8) if alive_count == total_count else Color(1.0, 0.8, 0.8)
 		composition_container.add_child(model_status)
+
+func _create_model_profiles_breakdown(container: VBoxContainer, model_profiles: Dictionary,
+									   models: Array, meta: Dictionary) -> void:
+	"""Show detailed model composition breakdown when model_profiles exists."""
+	print("UnitStatsPanel: Showing model profiles breakdown for %d models, %d profiles" % [models.size(), model_profiles.size()])
+
+	var comp_label = Label.new()
+	comp_label.text = "MODEL COMPOSITION"
+	comp_label.add_theme_font_size_override("font_size", 14)
+	comp_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	container.add_child(comp_label)
+
+	# Count alive/total per model_type
+	var type_counts: Dictionary = {}  # {model_type: {alive: int, total: int}}
+	for model in models:
+		var mt = model.get("model_type", "")
+		if mt == "":
+			mt = "_unknown"
+		if not type_counts.has(mt):
+			type_counts[mt] = {"alive": 0, "total": 0}
+		type_counts[mt]["total"] += 1
+		if model.get("alive", true):
+			type_counts[mt]["alive"] += 1
+
+	# Display each profile type
+	var unit_stats = meta.get("stats", {})
+	for profile_key in model_profiles:
+		var profile = model_profiles[profile_key]
+		var profile_label_text = profile.get("label", profile_key)
+		var counts = type_counts.get(profile_key, {"alive": 0, "total": 0})
+
+		# Format: "8x Loota (Deffgun) - 6/8 alive" or just "8x Loota (Deffgun)" if all alive
+		var count_text = "%dx %s" % [counts["total"], profile_label_text]
+		if counts["alive"] < counts["total"]:
+			count_text += "  [%d/%d alive]" % [counts["alive"], counts["total"]]
+
+		var type_label = Label.new()
+		type_label.text = count_text
+		type_label.add_theme_font_size_override("font_size", 12)
+		if counts["alive"] == 0:
+			type_label.modulate = Color(0.5, 0.3, 0.3)  # Dim red for wiped out
+		elif counts["alive"] < counts["total"]:
+			type_label.modulate = Color(1.0, 0.7, 0.7)  # Light red for casualties
+		else:
+			type_label.modulate = _WhiteDwarfTheme.WH_PARCHMENT
+		container.add_child(type_label)
+
+		# Show stats overrides if any
+		var stats_override = profile.get("stats_override", {})
+		if not stats_override.is_empty():
+			var override_label = Label.new()
+			override_label.text = "  " + _format_stats_override(stats_override, unit_stats)
+			override_label.add_theme_font_size_override("font_size", 10)
+			override_label.modulate = Color(0.9, 0.85, 0.7)  # Slightly gold tint
+			container.add_child(override_label)
+
+		# Show weapons for this profile
+		var profile_weapons = profile.get("weapons", [])
+		if not profile_weapons.is_empty():
+			var weapons_label = Label.new()
+			weapons_label.text = "  Weapons: " + ", ".join(profile_weapons)
+			weapons_label.add_theme_font_size_override("font_size", 10)
+			weapons_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			container.add_child(weapons_label)
+
+	# Handle any models without a recognized profile (edge case)
+	if type_counts.has("_unknown"):
+		var unk = type_counts["_unknown"]
+		var unk_label = Label.new()
+		unk_label.text = "%dx Unknown type" % unk["total"]
+		if unk["alive"] < unk["total"]:
+			unk_label.text += "  [%d/%d alive]" % [unk["alive"], unk["total"]]
+		unk_label.add_theme_font_size_override("font_size", 12)
+		unk_label.modulate = Color(0.7, 0.7, 0.7)
+		container.add_child(unk_label)
+
+	# Separator + overall totals
+	var separator = HSeparator.new()
+	separator.add_theme_constant_override("separation", 4)
+	container.add_child(separator)
+
+	var total_alive = 0
+	var total_count = models.size()
+	for model in models:
+		if model.get("alive", true):
+			total_alive += 1
+
+	var total_label = Label.new()
+	total_label.text = "Total: %d/%d models alive" % [total_alive, total_count]
+	total_label.add_theme_font_size_override("font_size", 11)
+	total_label.modulate = Color(0.8, 1.0, 0.8) if total_alive == total_count else Color(1.0, 0.8, 0.8)
+	container.add_child(total_label)
+
+# Stat name abbreviations matching Warhammer 40k conventions
+const STAT_ABBREVIATIONS = {
+	"move": "M",
+	"toughness": "T",
+	"save": "Sv",
+	"wounds": "W",
+	"leadership": "Ld",
+	"objective_control": "OC",
+	"attacks": "A",
+	"weapon_skill": "WS",
+	"ballistic_skill": "BS",
+}
+
+# Stats that display with a "+" suffix
+const STAT_PLUS_SUFFIX = ["save", "leadership", "weapon_skill", "ballistic_skill"]
+
+func _format_stats_override(overrides: Dictionary, base_stats: Dictionary) -> String:
+	"""Format stat overrides as readable text, e.g. 'WS 3+, A 4'."""
+	var parts = []
+	for stat_key in overrides:
+		var abbrev = STAT_ABBREVIATIONS.get(stat_key, stat_key)
+		var value = str(overrides[stat_key])
+		if stat_key in STAT_PLUS_SUFFIX:
+			value += "+"
+		parts.append("%s %s" % [abbrev, value])
+	return ", ".join(parts)
 
 func _update_section_labels() -> void:
 	# Get local player (who "I" am) - not whose turn it is

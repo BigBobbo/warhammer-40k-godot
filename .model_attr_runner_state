@@ -28,3 +28,5 @@ MA-17|success|2026-03-07T19:41:59Z|model-attr/MA-17/update-ghost-visual-to-show-
 MA-18|failed|2026-03-08T01:43:40Z|model-attr/MA-18/update-formation-deployment-for-mixed-ba
 MA-19|failed|2026-03-08T07:45:22Z|model-attr/MA-19/combined-deployment-character-bodyguard-
 MA-20|success|2026-03-08T07:49:09Z|model-attr/MA-20/show-model-type-on-deployed-tokens
+MA-21|success|2026-03-08T07:54:57Z|model-attr/MA-21/show-model-type-in-wound-allocation-ui
+MA-22|failed|2026-03-08T13:56:38Z|model-attr/MA-22/show-model-type-in-casualty-reporting
