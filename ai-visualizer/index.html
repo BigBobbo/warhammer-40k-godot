@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warhammer 40k AI Decision Visualizer</title>
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #1a1a2e;
+  --bg-dark: #12121f;
+  --bg-card: #222240;
+  --bg-card-hover: #2a2a50;
+  --gold: #d4af37;
+  --gold-dim: #a68a2a;
+  --parchment: #f0e6d2;
+  --parchment-dim: #b8a88a;
+  --player1: #4a90d9;
+  --player2: #d94a4a;
+  --green: #4caf50;
+  --red: #e53935;
+  --orange: #ff9800;
+  --border: #3a3a5c;
+  --font: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+html { font-size: 15px; }
+body {
+  background: var(--bg);
+  color: var(--parchment);
+  font-family: var(--font);
+  min-height: 100vh;
+}
+a { color: var(--gold); text-decoration: none; }
+button {
+  cursor: pointer;
+  font-family: var(--font);
+  border: 1px solid var(--gold-dim);
+  background: var(--bg-card);
+  color: var(--parchment);
+  padding: 6px 14px;
+  border-radius: 4px;
+  transition: background .15s;
+}
+button:hover { background: var(--bg-card-hover); }
+input[type="number"] {
+  background: var(--bg-dark);
+  color: var(--parchment);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: 4px;
+  width: 90px;
+  font-family: var(--font);
+}
+input[type="range"] { accent-color: var(--gold); }
+table { border-collapse: collapse; width: 100%; }
+th, td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+th { color: var(--gold); font-weight: 600; cursor: pointer; user-select: none; }
+th:hover { color: var(--parchment); }
+
+/* ── Layout ── */
+#app-header {
+  background: var(--bg-dark);
+  border-bottom: 2px solid var(--gold);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+#app-header h1 {
+  font-size: 1.4rem;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+
+/* Drop zone */
+#drop-zone {
+  border: 2px dashed var(--gold-dim);
+  border-radius: 8px;
+  padding: 14px 24px;
+  text-align: center;
+  color: var(--parchment-dim);
+  transition: border-color .2s, background .2s;
+  cursor: pointer;
+  font-size: .9rem;
+}
+#drop-zone.dragover {
+  border-color: var(--gold);
+  background: rgba(212,175,55,.08);
+}
+#drop-zone input { display: none; }
+
+/* Tabs */
+#tab-bar {
+  display: flex;
+  background: var(--bg-dark);
+  border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  flex: 1;
+  text-align: center;
+  padding: 12px 8px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--parchment-dim);
+  font-size: .95rem;
+  font-weight: 600;
+  transition: color .15s, border-color .15s;
+  border-radius: 0;
+}
+.tab-btn:hover { color: var(--parchment); }
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+.tab-content { display: none; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+.tab-content.active { display: block; }
+
+/* ── Timeline ── */
+.timeline { position: relative; padding-left: 32px; }
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--gold-dim);
+  border-radius: 2px;
+}
+.round-block { margin-bottom: 16px; }
+.round-header {
+  background: var(--bg-card);
+  border: 1px solid var(--gold-dim);
+  border-radius: 6px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--gold);
+  position: relative;
+  user-select: none;
+}
+.round-header::before {
+  content: '';
+  position: absolute;
+  left: -24px;
+  top: 14px;
+  width: 12px;
+  height: 12px;
+  background: var(--gold);
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+}
+.round-header .toggle { float: right; transition: transform .2s; }
+.round-header.open .toggle { transform: rotate(90deg); }
+.round-body { display: none; padding: 8px 0 8px 16px; }
+.round-body.open { display: block; }
+
+.phase-block { margin-bottom: 10px; }
+.phase-name {
+  font-weight: 600;
+  color: var(--parchment-dim);
+  font-size: .85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.action-cards { display: flex; flex-wrap: wrap; gap: 8px; }
+.action-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: border-color .15s, transform .1s;
+  min-width: 180px;
+  flex: 1 1 220px;
+  max-width: 350px;
+}
+.action-card:hover { border-color: var(--gold); transform: translateY(-1px); }
+.action-card.player-1 { border-left: 3px solid var(--player1); }
+.action-card.player-2 { border-left: 3px solid var(--player2); }
+.action-card .card-unit { font-weight: 700; font-size: .95rem; }
+.action-card .card-type { font-size: .75rem; color: var(--parchment-dim); text-transform: uppercase; }
+.action-card .card-chosen { font-size: .85rem; margin-top: 4px; color: var(--gold); }
+
+/* ── Decision Inspector ── */
+.context-bar {
+  display: flex;
+  gap: 16px;
+  background: var(--bg-dark);
+  padding: 10px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.context-item { font-size: .9rem; }
+.context-item span { color: var(--gold); font-weight: 600; }
+
+.unit-card {
+  background: var(--bg-card);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.unit-card h3 { color: var(--gold); margin-bottom: 8px; }
+.stat-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.stat-box {
+  text-align: center;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 14px;
+  min-width: 50px;
+}
+.stat-box .stat-label { font-size: .65rem; color: var(--parchment-dim); text-transform: uppercase; }
+.stat-box .stat-value { font-size: 1.1rem; font-weight: 700; color: var(--gold); }
+
+.decision-summary {
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+}
+.decision-summary h4 { color: var(--gold); margin-bottom: 8px; }
+
+.candidates-table { margin-bottom: 16px; overflow-x: auto; }
+.candidates-table tr.chosen { background: rgba(212,175,55,.1); }
+.candidates-table .score-cell { font-weight: 700; }
+
+.breakdown-section { margin-bottom: 16px; }
+.breakdown-section h4 { color: var(--gold); margin-bottom: 10px; }
+.bar-row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
+.bar-label { width: 180px; font-size: .85rem; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-container {
+  flex: 1;
+  display: flex;
+  height: 24px;
+  position: relative;
+  background: var(--bg-dark);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bar-center { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--parchment-dim); z-index: 2; }
+.bar-neg, .bar-pos { display: flex; height: 100%; }
+.bar-neg { justify-content: flex-end; width: 50%; }
+.bar-pos { width: 50%; }
+.bar-seg {
+  height: 100%;
+  position: relative;
+  min-width: 2px;
+}
+.bar-seg .seg-tip {
+  display: none;
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-dark);
+  border: 1px solid var(--gold-dim);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: .75rem;
+  white-space: nowrap;
+  z-index: 10;
+}
+.bar-seg:hover .seg-tip { display: block; }
+.bar-score { width: 55px; text-align: right; font-weight: 700; font-size: .85rem; flex-shrink: 0; }
+
+.params-used {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.params-used h4 { color: var(--gold); margin-bottom: 8px; }
+.param-chip {
+  display: inline-block;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  margin: 3px;
+  font-size: .8rem;
+}
+.param-chip .pval { color: var(--gold); font-weight: 600; }
+
+.difficulty-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: .85rem;
+}
+.diff-easy { background: #2e7d32; color: #fff; }
+.diff-normal { background: #1565c0; color: #fff; }
+.diff-hard { background: #e65100; color: #fff; }
+.diff-competitive { background: #b71c1c; color: #fff; }
+
+.thinking-steps {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.thinking-steps h4 { color: var(--gold); margin-bottom: 8px; }
+.thinking-steps ol { padding-left: 20px; }
+.thinking-steps li { margin-bottom: 4px; font-size: .9rem; color: var(--parchment-dim); }
+
+.no-decision { text-align: center; padding: 60px 20px; color: var(--parchment-dim); }
+.no-decision p { margin-bottom: 8px; }
+
+/* ── Parameter Editor ── */
+.editor-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.editor-actions button { font-weight: 600; }
+.btn-gold { border-color: var(--gold); color: var(--gold); }
+.btn-red { border-color: var(--red); color: var(--red); }
+
+.param-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.param-section-header {
+  padding: 10px 16px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  font-weight: 700;
+  color: var(--gold);
+}
+.param-section-header:hover { background: var(--bg-card-hover); }
+.param-section-header .arrow { transition: transform .2s; }
+.param-section-header.open .arrow { transform: rotate(90deg); }
+.param-section-body { display: none; padding: 8px 16px 16px; }
+.param-section-body.open { display: block; }
+
+.param-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  flex-wrap: wrap;
+}
+.param-name { width: 320px; font-size: .85rem; flex-shrink: 0; word-break: break-all; }
+.param-slider { flex: 1; min-width: 120px; }
+.param-input { width: 90px; }
+.param-default { font-size: .75rem; color: var(--parchment-dim); width: 90px; text-align: center; flex-shrink: 0; }
+.param-reset { font-size: .75rem; padding: 3px 8px; }
+
+.section-reset { margin-top: 8px; }
+
+/* ── Difficulty Comparison ── */
+.diff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.diff-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.diff-card h3 { color: var(--gold); margin-bottom: 12px; text-align: center; }
+
+.feature-matrix { margin-top: 24px; }
+.feature-matrix table { background: var(--bg-card); border-radius: 8px; overflow: hidden; }
+.feature-matrix th { background: var(--bg-dark); }
+.feature-matrix td { text-align: center; font-size: .9rem; }
+.feat-on { color: var(--green); font-weight: 700; }
+.feat-off { color: var(--red); }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  #app-header { flex-direction: column; align-items: stretch; }
+  .tab-btn { font-size: .8rem; padding: 10px 4px; }
+  .tab-content { padding: 12px; }
+  .param-name { width: 100%; }
+  .bar-label { width: 120px; }
+  .stat-row { gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<div id="app-header">
+  <h1>Warhammer 40k &mdash; AI Decision Visualizer</h1>
+  <div id="drop-zone">
+    Drop <strong>ai_decision_log.json</strong> here or click to import
+    <input type="file" id="file-input" accept=".json">
+  </div>
+</div>
+
+<div id="tab-bar">
+  <button class="tab-btn active" data-tab="timeline">Game Timeline</button>
+  <button class="tab-btn" data-tab="inspector">Decision Inspector</button>
+  <button class="tab-btn" data-tab="params">Parameter Editor</button>
+  <button class="tab-btn" data-tab="difficulty">Difficulty Comparison</button>
+</div>
+
+<div id="tab-timeline" class="tab-content active"></div>
+<div id="tab-inspector" class="tab-content"></div>
+<div id="tab-params" class="tab-content"></div>
+<div id="tab-difficulty" class="tab-content"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════════════════════
+
+const PHASE_ORDER = ['command','movement','shooting','charge','fight','scoring'];
+const PHASE_LABELS = {command:'Command',movement:'Movement',shooting:'Shooting',charge:'Charge',fight:'Fight',scoring:'Scoring'};
+
+const PARAM_SECTIONS = [
+  { name: "Objective Priorities", params: {
+    WEIGHT_UNCONTROLLED_OBJ:10.0, WEIGHT_CONTESTED_OBJ:8.0, WEIGHT_ENEMY_WEAK_OBJ:7.0, WEIGHT_HOME_UNDEFENDED:9.0,
+    WEIGHT_ENEMY_STRONG_OBJ:-5.0, WEIGHT_ALREADY_HELD_OBJ:-3.0, WEIGHT_SCORING_URGENCY:3.0, WEIGHT_OC_EFFICIENCY:2.0
+  }},
+  { name: "Threat Assessment", params: {
+    THREAT_CHARGE_PENALTY:2.0, THREAT_SHOOTING_PENALTY:0.5, THREAT_FRAGILE_BONUS:1.3, THREAT_MELEE_UNIT_IGNORE:0.05,
+    THREAT_SAFE_MARGIN_INCHES:2.0, THREAT_CLOSE_MELEE_DISTANCE_INCHES:12.0, THREAT_CLOSE_MELEE_PENALTY:2.0,
+    DEEP_STRIKE_DENIAL_RANGE_PX:360.0
+  }},
+  { name: "Weapon Efficiency", params: {
+    EFFICIENCY_PERFECT_MATCH:1.4, EFFICIENCY_GOOD_MATCH:1.15, EFFICIENCY_NEUTRAL:1.0, EFFICIENCY_POOR_MATCH:0.6,
+    EFFICIENCY_TERRIBLE_MATCH:0.35, DAMAGE_WASTE_PENALTY_HEAVY:0.4, DAMAGE_WASTE_PENALTY_MODERATE:0.7,
+    ANTI_KEYWORD_BONUS:1.5, ANTI_TANK_STRENGTH_THRESHOLD:7
+  }},
+  { name: "Focus Fire", params: { OVERKILL_TOLERANCE:1.15, KILL_BONUS_MULTIPLIER:2.0, LOW_HEALTH_BONUS:1.5 }},
+  { name: "Weapon Keywords", params: {
+    CRIT_PROBABILITY:0.1667, HALF_RANGE_FALLBACK_PROB:0.5, HALF_RANGE_MOVE_BLEND:0.4,
+    HALF_RANGE_MIN_BENEFIT:2.0, HALF_RANGE_APPROACH_MARGIN_INCHES:1.0
+  }},
+  { name: "Firing Position", params: {
+    WEIGHT_FIRING_POSITION_KEPT:3.0, WEIGHT_FIRING_POSITION_LOST:-2.5, WEIGHT_FIRING_POSITION_GAINED:1.5,
+    FIRING_POSITION_BLEND:0.35
+  }},
+  { name: "Heavy Weapons", params: { HEAVY_STATIONARY_MIN_BENEFIT:0.15, HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE:10.0 }},
+  { name: "Multi-Phase Planning", params: {
+    PHASE_PLAN_CHARGE_LANE_BONUS:3.0, PHASE_PLAN_SHOOTING_LANE_BONUS:2.0, PHASE_PLAN_CHARGE_INTENT_THRESHOLD:3.0,
+    PHASE_PLAN_LOCK_SHOOTER_BONUS:3.0, PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET:0.5, PHASE_PLAN_RANGED_STRENGTH_DANGEROUS:5.0,
+    URGENCY_ROUND_2_CONTEST:2.0, URGENCY_ROUND_3_HOLD:1.5, URGENCY_LATE_GAME_PUSH:2.5
+  }},
+  { name: "Trade & Tempo", params: {
+    TRADE_PPW_WEIGHT:0.25, TRADE_FAVORABLE_BONUS:1.3, TRADE_UNFAVORABLE_PENALTY:0.7, TEMPO_VP_DIFF_WEIGHT:0.1,
+    TEMPO_BEHIND_AGGRESSION_BOOST:1.5, TEMPO_AHEAD_CONSERVATION:0.8, TEMPO_DESPERATION_ROUND:4,
+    TEMPO_DESPERATION_MULTIPLIER:1.8, TEMPO_MAX_ROUNDS:5, TEMPO_CHARGE_THRESHOLD_REDUCTION:0.4
+  }},
+  { name: "Late-Game Strategy", params: {
+    STRATEGY_EARLY_AGGRESSION:1.3, STRATEGY_EARLY_OBJECTIVE:0.95, STRATEGY_EARLY_SURVIVAL:0.7, STRATEGY_EARLY_CHARGE:0.5,
+    STRATEGY_LATE_AGGRESSION:0.7, STRATEGY_LATE_OBJECTIVE:1.6, STRATEGY_LATE_SURVIVAL:1.4, STRATEGY_LATE_CHARGE:1.3,
+    STRATEGY_LATE_CHARGE_ON_OBJ_BONUS:1.5, STRATEGY_LATE_OBJ_TARGET_BONUS:1.3
+  }},
+  { name: "Secondary Missions", params: {
+    SECONDARY_OBJECTIVE_ZONE_BONUS:3.5, SECONDARY_POSITIONAL_BONUS:4.0, SECONDARY_KILL_PROXIMITY_BONUS:2.0,
+    SECONDARY_SPREAD_BONUS:6.0, SECONDARY_CENTER_BONUS:3.5, SECONDARY_ENEMY_ZONE_PUSH_BONUS:7.0
+  }},
+  { name: "Faction Aggression", params: {
+    FACTION_AGGRESSION_DEFAULT:1.0, FACTION_AGGRESSION_CUSTODES:1.5, FACTION_AGGRESSION_ORKS:1.8,
+    FACTION_AGGRESSION_WORLD_EATERS:2.0, FACTION_AGGRESSION_KHORNE:1.8
+  }},
+  { name: "Melee Aggression", params: {
+    MELEE_AGGRESSION_ENEMY_SEEK_BONUS:8.0, MELEE_AGGRESSION_CHARGE_RANGE_BONUS:12.0,
+    MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES:20.0, MELEE_AGGRESSION_MIN_MOVE_RATIO:0.6
+  }},
+  { name: "Survival Assessment", params: {
+    SURVIVAL_LETHAL_THRESHOLD:0.75, SURVIVAL_SEVERE_THRESHOLD:0.5, SURVIVAL_FALL_BACK_BONUS:2.0, SURVIVAL_HOLD_BONUS:1.5
+  }},
+  { name: "Target Priority", params: {
+    MACRO_POINTS_WEIGHT:0.008, MACRO_RANGED_OUTPUT_WEIGHT:0.15, MACRO_MELEE_OUTPUT_WEIGHT:0.10,
+    MACRO_ABILITY_VALUE_WEIGHT:0.5, MACRO_SURVIVABILITY_DISCOUNT:0.15, MACRO_OC_ON_OBJECTIVE_WEIGHT:0.5,
+    MACRO_OC_NEAR_OBJECTIVE_WEIGHT:0.2, MACRO_LEADER_BUFF_BONUS:1.5, MICRO_MARGINAL_KILL_BONUS:2.5,
+    MICRO_OVERKILL_DECAY:0.35, MICRO_MODEL_KILL_VALUE:0.6
+  }},
+  { name: "Screening & Denial", params: {
+    SCREEN_SPACING_PX:720.0, SCREEN_CHEAP_UNIT_POINTS:100, SCREEN_SCORE_BASE:8.0
+  }},
+  { name: "Corridor Blocking", params: {
+    CORRIDOR_BLOCK_THREAT_RANGE_INCHES:30.0, CORRIDOR_BLOCK_POSITION_RATIO:0.55, CORRIDOR_BLOCK_SCORE_BASE:7.0,
+    CORRIDOR_BLOCK_MIN_GAP_PX:200.0, CORRIDOR_BLOCK_MAX_POSITIONS:4
+  }}
+];
+
+// Build flat defaults map
+const DEFAULTS = {};
+PARAM_SECTIONS.forEach(s => Object.entries(s.params).forEach(([k,v]) => DEFAULTS[k] = v));
+// Current values
+const currentParams = { ...DEFAULTS };
+
+// ── Demo Data ──
+function makeDemoData() {
+  return {
+    version: "1.0",
+    game_metadata: {
+      mission: "Scorched Earth",
+      difficulty: "Normal",
+      armies: [
+        { name: "Ultramarines 5th Company", faction: "Adeptus Astartes" },
+        { name: "Death Guard Vectorium", faction: "Death Guard" }
+      ]
+    },
+    rounds: [
+      {
+        round_number: 1,
+        phases: [
+          {
+            phase: "movement", player: 1,
+            decisions: [{
+              decision_type: "movement",
+              unit_id: "intercessors_1",
+              unit_name: "Intercessor Squad Alpha",
+              unit_stats: { M:"6\"", T:4, Sv:"3+", W:2, Ld:"6+", OC:2 },
+              candidates: [
+                { description: "Advance to Objective 2 (uncontrolled)", score: 14.8,
+                  score_breakdown: { objective: 10.0, threat: -1.2, firing_position: 3.0, urgency: 3.0 }},
+                { description: "Hold current position near cover", score: 8.5,
+                  score_breakdown: { objective: -3.0, threat: 0.0, firing_position: 3.0, survival: 5.5, heavy_bonus: 3.0 }},
+                { description: "Move toward Objective 4 (enemy held)", score: 6.2,
+                  score_breakdown: { objective: 7.0, threat: -4.8, firing_position: -2.5, urgency: 3.0, survival: 3.5 }}
+              ],
+              chosen_index: 0,
+              parameters_used: { WEIGHT_UNCONTROLLED_OBJ: 10.0, WEIGHT_SCORING_URGENCY: 3.0, WEIGHT_FIRING_POSITION_KEPT: 3.0, THREAT_SHOOTING_PENALTY: 0.5 },
+              difficulty: "Normal",
+              thinking_steps: [
+                "Evaluated 3 candidate positions for Intercessor Squad Alpha",
+                "Objective 2 is uncontrolled and within normal move range (5.8\" away)",
+                "No significant shooting threats in new position (nearest enemy 26\" away)",
+                "Firing position to enemy units maintained from new position",
+                "Selected: Advance to Objective 2 (score 14.8 vs next best 8.5)"
+              ]
+            }],
+            actions: [
+              { type: "BEGIN_NORMAL_MOVE", description: "Intercessor Squad Alpha moves 5.8\" toward Objective 2" }
+            ]
+          },
+          {
+            phase: "movement", player: 2,
+            decisions: [{
+              decision_type: "movement",
+              unit_id: "plague_marines_1",
+              unit_name: "Plague Marine Squad",
+              unit_stats: { M:"5\"", T:5, Sv:"3+", W:2, Ld:"6+", OC:2 },
+              candidates: [
+                { description: "Advance toward Objective 3 (center)", score: 11.2,
+                  score_breakdown: { objective: 8.0, threat: -0.8, survival: 2.0, urgency: 2.0 }},
+                { description: "Hold Objective 1 (home)", score: 9.0,
+                  score_breakdown: { objective: 9.0, threat: 0.0, survival: 3.0, urgency: -3.0 }}
+              ],
+              chosen_index: 0,
+              parameters_used: { WEIGHT_CONTESTED_OBJ: 8.0, WEIGHT_HOME_UNDEFENDED: 9.0 },
+              difficulty: "Normal",
+              thinking_steps: [
+                "Plague Marines choosing between center push and home defense",
+                "Center objective contested — high value target",
+                "Selected: Advance toward center (11.2 vs 9.0)"
+              ]
+            }],
+            actions: [
+              { type: "BEGIN_NORMAL_MOVE", description: "Plague Marine Squad advances 5\" toward Objective 3" }
+            ]
+          },
+          {
+            phase: "shooting", player: 1,
+            decisions: [{
+              decision_type: "shooting",
+              unit_id: "intercessors_1",
+              unit_name: "Intercessor Squad Alpha",
+              unit_stats: { M:"6\"", T:4, Sv:"3+", W:2, Ld:"6+", OC:2 },
+              candidates: [
+                { description: "Target Plague Marine Squad (bolt rifles)", score: 9.4,
+                  score_breakdown: { efficiency: 1.0, focus_fire: 2.0, kill_potential: 3.5, macro_priority: 2.9 }},
+                { description: "Target Poxwalkers (bolt rifles)", score: 5.1,
+                  score_breakdown: { efficiency: 0.6, focus_fire: 0.0, kill_potential: 4.5, macro_priority: 0.0 }}
+              ],
+              chosen_index: 0,
+              parameters_used: { EFFICIENCY_NEUTRAL: 1.0, KILL_BONUS_MULTIPLIER: 2.0, MACRO_RANGED_OUTPUT_WEIGHT: 0.15 },
+              difficulty: "Normal",
+              thinking_steps: [
+                "Bolt rifles effective against T5 targets (S4 vs T5 = neutral efficiency)",
+                "Plague Marines are higher macro priority than Poxwalkers",
+                "Focus fire bonus applied — other units also targeting Plague Marines",
+                "Selected: Target Plague Marine Squad (9.4 vs 5.1)"
+              ]
+            }],
+            actions: [
+              { type: "DECLARE_SHOOTING", description: "Intercessor Squad Alpha fires bolt rifles at Plague Marine Squad" }
+            ]
+          }
+        ]
+      },
+      {
+        round_number: 2,
+        phases: [
+          {
+            phase: "movement", player: 1,
+            decisions: [{
+              decision_type: "movement",
+              unit_id: "assault_intercessors_1",
+              unit_name: "Assault Intercessor Squad",
+              unit_stats: { M:"6\"", T:4, Sv:"3+", W:2, Ld:"6+", OC:2 },
+              candidates: [
+                { description: "Move into charge range of Plague Marines", score: 16.2,
+                  score_breakdown: { objective: 5.0, charge_lane: 3.0, melee_aggression: 8.0, threat: -2.8, urgency: 3.0 }},
+                { description: "Screen home objective from deep strike", score: 10.5,
+                  score_breakdown: { objective: 0.0, screening: 8.0, survival: 3.5, threat: -1.0 }}
+              ],
+              chosen_index: 0,
+              parameters_used: { MELEE_AGGRESSION_ENEMY_SEEK_BONUS: 8.0, PHASE_PLAN_CHARGE_LANE_BONUS: 3.0, MELEE_AGGRESSION_CHARGE_RANGE_BONUS: 12.0 },
+              difficulty: "Normal",
+              thinking_steps: [
+                "Assault Intercessors have strong melee output — seeking charge target",
+                "Plague Marines within 12\" after move — charge range bonus applied",
+                "Multi-phase planning: securing charge lane for upcoming charge phase",
+                "Selected: Move into charge range (16.2 vs 10.5)"
+              ]
+            }],
+            actions: [
+              { type: "BEGIN_NORMAL_MOVE", description: "Assault Intercessor Squad moves 6\" toward Plague Marine Squad" }
+            ]
+          },
+          {
+            phase: "charge", player: 1,
+            decisions: [{
+              decision_type: "charge",
+              unit_id: "assault_intercessors_1",
+              unit_name: "Assault Intercessor Squad",
+              unit_stats: { M:"6\"", T:4, Sv:"3+", W:2, Ld:"6+", OC:2 },
+              candidates: [
+                { description: "Charge Plague Marine Squad (7\" away)", score: 13.8,
+                  score_breakdown: { melee_output: 6.5, charge_success_prob: 3.5, objective_contest: 2.0, trade_value: 1.8 }},
+                { description: "Charge Poxwalkers (9\" away)", score: 7.2,
+                  score_breakdown: { melee_output: 4.0, charge_success_prob: 1.5, objective_contest: 0.0, trade_value: 1.7 }}
+              ],
+              chosen_index: 0,
+              parameters_used: { TRADE_PPW_WEIGHT: 0.25, TRADE_FAVORABLE_BONUS: 1.3, MELEE_AGGRESSION_CHARGE_RANGE_BONUS: 12.0 },
+              difficulty: "Normal",
+              thinking_steps: [
+                "7\" charge has ~58% success probability (2d6 >= 7)",
+                "Plague Marines are higher-value trade target (points per wound ratio)",
+                "Charging contests Objective 3 — objective bonus applied",
+                "Selected: Charge Plague Marine Squad (13.8 vs 7.2)"
+              ]
+            }],
+            actions: [
+              { type: "DECLARE_CHARGE", description: "Assault Intercessor Squad declares charge against Plague Marine Squad" }
+            ]
+          }
+        ]
+      }
+    ]
+  };
+}
+
+let gameData = null;
+let selectedDecision = null;
+
+// ═══════════════════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════════════════
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  FILE IMPORT
+// ═══════════════════════════════════════════════════════════════════
+
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) loadFile(fileInput.files[0]); });
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      gameData = data;
+      selectedDecision = null;
+      renderTimeline();
+      renderInspector();
+      dropZone.innerHTML = '<strong>Loaded:</strong> ' + file.name + ' <span style="color:var(--parchment-dim)">(drop another to replace)</span><input type="file" id="file-input" accept=".json" style="display:none">';
+      document.getElementById('file-input').addEventListener('change', function() { if (this.files.length) loadFile(this.files[0]); });
+    } catch (err) {
+      alert('Failed to parse JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TIMELINE
+// ═══════════════════════════════════════════════════════════════════
+
+function renderTimeline() {
+  const el = document.getElementById('tab-timeline');
+  if (!gameData) {
+    el.innerHTML = '<div class="no-decision"><p>No game data loaded.</p><p>Drop an ai_decision_log.json file above or view the demo data.</p></div>';
+    return;
+  }
+  const meta = gameData.game_metadata || {};
+  let html = '<div style="margin-bottom:16px">';
+  html += '<h2 style="color:var(--gold);margin-bottom:6px">Game Timeline</h2>';
+  if (meta.mission) html += '<span style="margin-right:16px">Mission: <strong>' + esc(meta.mission) + '</strong></span>';
+  if (meta.difficulty) html += '<span class="difficulty-badge diff-' + (meta.difficulty||'normal').toLowerCase() + '">' + esc(meta.difficulty) + '</span> ';
+  if (meta.armies && meta.armies.length >= 2) {
+    html += '<div style="margin-top:8px"><span style="color:var(--player1)">Player 1: ' + esc(meta.armies[0].name) + ' (' + esc(meta.armies[0].faction) + ')</span>';
+    html += ' &nbsp;vs&nbsp; ';
+    html += '<span style="color:var(--player2)">Player 2: ' + esc(meta.armies[1].name) + ' (' + esc(meta.armies[1].faction) + ')</span></div>';
+  }
+  html += '</div>';
+  html += '<div class="timeline">';
+
+  (gameData.rounds || []).forEach((round, ri) => {
+    const roundId = 'round-' + ri;
+    html += '<div class="round-block">';
+    html += '<div class="round-header open" onclick="toggleRound(this)">';
+    html += 'Battle Round ' + round.round_number;
+    html += '<span class="toggle">&#9654;</span></div>';
+    html += '<div class="round-body open">';
+
+    // Group phases by phase name to show in order
+    const phaseMap = {};
+    (round.phases || []).forEach(p => {
+      const key = p.phase;
+      if (!phaseMap[key]) phaseMap[key] = [];
+      phaseMap[key].push(p);
+    });
+
+    PHASE_ORDER.forEach(phaseName => {
+      if (!phaseMap[phaseName]) return;
+      html += '<div class="phase-block">';
+      html += '<div class="phase-name">' + (PHASE_LABELS[phaseName] || phaseName) + ' Phase</div>';
+      html += '<div class="action-cards">';
+      phaseMap[phaseName].forEach(phase => {
+        const playerClass = 'player-' + (phase.player || 1);
+        (phase.decisions || []).forEach((dec, di) => {
+          const chosen = (dec.candidates && dec.candidates[dec.chosen_index]) || {};
+          html += '<div class="action-card ' + playerClass + '" onclick=\'inspectDecision(' + JSON.stringify(JSON.stringify({round: round.round_number, phase: phaseName, player: phase.player, decision: dec})) + ')\'>';
+          html += '<div class="card-type">' + esc(dec.decision_type || '') + '</div>';
+          html += '<div class="card-unit">' + esc(dec.unit_name || dec.unit_id || '?') + '</div>';
+          html += '<div class="card-chosen">' + esc(chosen.description || '') + '</div>';
+          html += '</div>';
+        });
+        (phase.actions || []).forEach(act => {
+          if (phase.decisions && phase.decisions.length > 0) return; // skip if decisions shown
+        });
+      });
+      html += '</div></div>';
+    });
+
+    html += '</div></div>';
+  });
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function toggleRound(header) {
+  header.classList.toggle('open');
+  const body = header.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+function inspectDecision(jsonStr) {
+  const data = JSON.parse(jsonStr);
+  selectedDecision = data;
+  renderInspector();
+  switchTab('inspector');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DECISION INSPECTOR
+// ═══════════════════════════════════════════════════════════════════
+
+function renderInspector() {
+  const el = document.getElementById('tab-inspector');
+  if (!selectedDecision) {
+    el.innerHTML = '<div class="no-decision"><p>No decision selected.</p><p>Click on an action card in the Game Timeline to inspect it.</p></div>';
+    return;
+  }
+  const d = selectedDecision;
+  const dec = d.decision;
+  const candidates = dec.candidates || [];
+  const chosen = candidates[dec.chosen_index] || {};
+
+  let html = '';
+
+  // Context bar
+  html += '<div class="context-bar">';
+  html += '<div class="context-item">Round: <span>' + d.round + '</span></div>';
+  html += '<div class="context-item">Phase: <span>' + (PHASE_LABELS[d.phase] || d.phase) + '</span></div>';
+  html += '<div class="context-item">Player: <span style="color:var(--player' + d.player + ')">Player ' + d.player + '</span></div>';
+  if (dec.difficulty) {
+    html += '<div class="context-item">Difficulty: <span class="difficulty-badge diff-' + dec.difficulty.toLowerCase() + '">' + esc(dec.difficulty) + '</span></div>';
+  }
+  html += '</div>';
+
+  // Unit card
+  if (dec.unit_name || dec.unit_stats) {
+    html += '<div class="unit-card"><h3>' + esc(dec.unit_name || dec.unit_id || '') + '</h3>';
+    if (dec.unit_stats) {
+      html += '<div class="stat-row">';
+      ['M','T','Sv','W','Ld','OC'].forEach(s => {
+        const v = dec.unit_stats[s] !== undefined ? dec.unit_stats[s] : '-';
+        html += '<div class="stat-box"><div class="stat-label">' + s + '</div><div class="stat-value">' + v + '</div></div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Decision summary
+  html += '<div class="decision-summary"><h4>Decision: ' + esc(dec.decision_type || '') + '</h4>';
+  html += '<p>Chosen: <strong style="color:var(--gold)">' + esc(chosen.description || '') + '</strong> (score: ' + (chosen.score || 0).toFixed(1) + ')</p>';
+  html += '</div>';
+
+  // Candidates table
+  html += '<div class="candidates-table"><h4 style="color:var(--gold);margin-bottom:8px">All Candidates</h4>';
+  html += '<table id="candidates-tbl"><thead><tr>';
+  html += '<th onclick="sortCandidates(0)">#</th>';
+  html += '<th onclick="sortCandidates(1)">Description</th>';
+  html += '<th onclick="sortCandidates(2)">Score</th>';
+  Object.keys(chosen.score_breakdown || {}).forEach((k, i) => {
+    html += '<th onclick="sortCandidates(' + (3+i) + ')">' + esc(k) + '</th>';
+  });
+  html += '</tr></thead><tbody>';
+  candidates.forEach((c, i) => {
+    const isChosen = i === dec.chosen_index;
+    html += '<tr class="' + (isChosen ? 'chosen' : '') + '">';
+    html += '<td>' + (i+1) + '</td>';
+    html += '<td>' + esc(c.description || '') + (isChosen ? ' <strong style="color:var(--gold)">[CHOSEN]</strong>' : '') + '</td>';
+    html += '<td class="score-cell">' + (c.score || 0).toFixed(1) + '</td>';
+    Object.keys(chosen.score_breakdown || {}).forEach(k => {
+      const v = (c.score_breakdown || {})[k];
+      html += '<td style="color:' + (v > 0 ? 'var(--green)' : v < 0 ? 'var(--red)' : 'var(--parchment-dim)') + '">' + (v !== undefined ? (v > 0 ? '+' : '') + v.toFixed(1) : '-') + '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+
+  // Score breakdown visualization (top 3)
+  const top3 = candidates.slice().sort((a,b) => b.score - a.score).slice(0, 3);
+  if (top3.length > 0) {
+    html += '<div class="breakdown-section"><h4>Score Breakdown — Top 3 Candidates</h4>';
+    // Find max absolute component value for scaling
+    let maxAbs = 1;
+    top3.forEach(c => {
+      Object.values(c.score_breakdown || {}).forEach(v => { if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v); });
+    });
+
+    const colors_pos = ['#4caf50','#66bb6a','#81c784'];
+    const colors_neg = ['#e53935','#ef5350','#f44336'];
+
+    top3.forEach((c, ci) => {
+      const bd = c.score_breakdown || {};
+      const posEntries = Object.entries(bd).filter(([,v]) => v > 0).sort((a,b) => b[1] - a[1]);
+      const negEntries = Object.entries(bd).filter(([,v]) => v < 0).sort((a,b) => a[1] - b[1]);
+      const isChosen = candidates.indexOf(c) === dec.chosen_index;
+
+      html += '<div class="bar-row">';
+      html += '<div class="bar-label"' + (isChosen ? ' style="color:var(--gold);font-weight:700"' : '') + '>' + esc(c.description || '') + '</div>';
+      html += '<div class="bar-container"><div class="bar-center"></div>';
+
+      // Negative side (left half)
+      html += '<div class="bar-neg">';
+      negEntries.forEach(([k, v], si) => {
+        const pct = (Math.abs(v) / maxAbs) * 50;
+        html += '<div class="bar-seg" style="width:' + pct + '%;background:' + colors_neg[si % colors_neg.length] + '"><span class="seg-tip">' + esc(k) + ': ' + v.toFixed(1) + '</span></div>';
+      });
+      html += '</div>';
+
+      // Positive side (right half)
+      html += '<div class="bar-pos">';
+      posEntries.forEach(([k, v], si) => {
+        const pct = (v / maxAbs) * 50;
+        html += '<div class="bar-seg" style="width:' + pct + '%;background:' + colors_pos[si % colors_pos.length] + '"><span class="seg-tip">' + esc(k) + ': +' + v.toFixed(1) + '</span></div>';
+      });
+      html += '</div>';
+
+      html += '</div>';
+      html += '<div class="bar-score">' + c.score.toFixed(1) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Thinking steps
+  if (dec.thinking_steps && dec.thinking_steps.length) {
+    html += '<div class="thinking-steps"><h4>AI Thinking Steps</h4><ol>';
+    dec.thinking_steps.forEach(s => { html += '<li>' + esc(s) + '</li>'; });
+    html += '</ol></div>';
+  }
+
+  // Parameters used
+  if (dec.parameters_used) {
+    html += '<div class="params-used"><h4>Parameters Used</h4>';
+    Object.entries(dec.parameters_used).forEach(([k, v]) => {
+      html += '<span class="param-chip">' + esc(k) + ' = <span class="pval">' + v + '</span></span>';
+    });
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+let sortCol = -1, sortAsc = true;
+function sortCandidates(colIndex) {
+  if (!selectedDecision) return;
+  if (sortCol === colIndex) sortAsc = !sortAsc; else { sortCol = colIndex; sortAsc = true; }
+  const dec = selectedDecision.decision;
+  const candidates = dec.candidates || [];
+  const chosen = candidates[dec.chosen_index] || {};
+  const keys = Object.keys(chosen.score_breakdown || {});
+
+  candidates.sort((a, b) => {
+    let va, vb;
+    if (colIndex === 0) { va = candidates.indexOf(a); vb = candidates.indexOf(b); }
+    else if (colIndex === 1) { va = a.description || ''; vb = b.description || ''; return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va); }
+    else if (colIndex === 2) { va = a.score || 0; vb = b.score || 0; }
+    else { const k = keys[colIndex - 3]; va = (a.score_breakdown || {})[k] || 0; vb = (b.score_breakdown || {})[k] || 0; }
+    return sortAsc ? va - vb : vb - va;
+  });
+  renderInspector();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PARAMETER EDITOR
+// ═══════════════════════════════════════════════════════════════════
+
+function renderParamEditor() {
+  const el = document.getElementById('tab-params');
+  let html = '';
+
+  // Global actions
+  html += '<div class="editor-actions">';
+  html += '<button class="btn-gold" onclick="exportConfig()">Export Config</button>';
+  html += '<button onclick="importConfig()">Import Config</button>';
+  html += '<button class="btn-red" onclick="resetAllParams()">Reset All</button>';
+  html += '<input type="file" id="config-input" accept=".json" style="display:none">';
+  html += '</div>';
+
+  PARAM_SECTIONS.forEach((section, si) => {
+    html += '<div class="param-section">';
+    html += '<div class="param-section-header" onclick="toggleSection(this)"><span>' + (si+1) + '. ' + esc(section.name) + '</span><span class="arrow">&#9654;</span></div>';
+    html += '<div class="param-section-body">';
+
+    Object.entries(section.params).forEach(([key, defaultVal]) => {
+      const cur = currentParams[key] !== undefined ? currentParams[key] : defaultVal;
+      // Determine slider range
+      let min, max, step;
+      if (defaultVal < 0) { min = defaultVal * 3; max = Math.abs(defaultVal) * 3; }
+      else if (defaultVal === 0) { min = -10; max = 10; }
+      else if (defaultVal > 100) { min = 0; max = defaultVal * 3; }
+      else { min = Math.min(0, defaultVal - Math.abs(defaultVal)); max = defaultVal * 3 || 10; }
+      step = Math.abs(defaultVal) >= 10 ? 1 : Math.abs(defaultVal) >= 1 ? 0.1 : 0.01;
+      if (Number.isInteger(defaultVal) && defaultVal >= 1) step = 1;
+
+      html += '<div class="param-row">';
+      html += '<div class="param-name">' + esc(key) + '</div>';
+      html += '<input type="range" class="param-slider" min="' + min + '" max="' + max + '" step="' + step + '" value="' + cur + '" data-key="' + key + '" oninput="updateParam(this)">';
+      html += '<input type="number" class="param-input" value="' + cur + '" step="' + step + '" data-key="' + key + '" oninput="updateParamNum(this)">';
+      html += '<div class="param-default">default: ' + defaultVal + '</div>';
+      html += '<button class="param-reset" onclick="resetParam(\'' + key + '\')">Reset</button>';
+      html += '</div>';
+    });
+
+    html += '<button class="section-reset" onclick="resetSection(' + si + ')">Reset Section</button>';
+    html += '</div></div>';
+  });
+
+  el.innerHTML = html;
+}
+
+function toggleSection(header) {
+  header.classList.toggle('open');
+  header.nextElementSibling.classList.toggle('open');
+}
+
+function updateParam(slider) {
+  const key = slider.dataset.key;
+  const val = parseFloat(slider.value);
+  currentParams[key] = val;
+  const numInput = slider.parentElement.querySelector('input[type="number"]');
+  if (numInput) numInput.value = val;
+}
+
+function updateParamNum(input) {
+  const key = input.dataset.key;
+  const val = parseFloat(input.value);
+  if (!isNaN(val)) {
+    currentParams[key] = val;
+    const slider = input.parentElement.querySelector('input[type="range"]');
+    if (slider) slider.value = val;
+  }
+}
+
+function resetParam(key) {
+  currentParams[key] = DEFAULTS[key];
+  document.querySelectorAll('[data-key="' + key + '"]').forEach(el => {
+    el.value = DEFAULTS[key];
+  });
+}
+
+function resetSection(si) {
+  const section = PARAM_SECTIONS[si];
+  Object.entries(section.params).forEach(([k, v]) => {
+    currentParams[k] = v;
+    document.querySelectorAll('[data-key="' + k + '"]').forEach(el => { el.value = v; });
+  });
+}
+
+function resetAllParams() {
+  if (!confirm('Reset all parameters to defaults?')) return;
+  Object.assign(currentParams, DEFAULTS);
+  renderParamEditor();
+}
+
+function exportConfig() {
+  const config = {
+    version: "1.0",
+    exported_at: new Date().toISOString(),
+    source: "AI Gameplay Visualizer",
+    parameters: { ...currentParams }
+  };
+  const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ai_config.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importConfig() {
+  const input = document.getElementById('config-input');
+  input.onchange = function() {
+    if (!input.files.length) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const config = JSON.parse(e.target.result);
+        const params = config.parameters || config;
+        Object.entries(params).forEach(([k, v]) => {
+          if (DEFAULTS.hasOwnProperty(k)) currentParams[k] = v;
+        });
+        renderParamEditor();
+      } catch (err) {
+        alert('Failed to parse config: ' + err.message);
+      }
+    };
+    reader.readAsText(input.files[0]);
+    input.value = '';
+  };
+  input.click();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DIFFICULTY COMPARISON
+// ═══════════════════════════════════════════════════════════════════
+
+function renderDifficulty() {
+  const el = document.getElementById('tab-difficulty');
+
+  const levels = [
+    { name: 'Easy', color: '#2e7d32', desc: 'Basic AI with random elements. Good for learning the game.' },
+    { name: 'Normal', color: '#1565c0', desc: 'Threat-aware AI that makes reasonable decisions.' },
+    { name: 'Hard', color: '#e65100', desc: 'Multi-phase planning with focus fire and stratagems.' },
+    { name: 'Competitive', color: '#b71c1c', desc: 'Full optimization with fight order and zero noise.' }
+  ];
+
+  const features = [
+    { name: 'Random actions', easy: true, normal: false, hard: false, comp: false },
+    { name: 'Threat awareness', easy: false, normal: true, hard: true, comp: true },
+    { name: 'Multi-phase planning', easy: false, normal: false, hard: true, comp: true },
+    { name: 'Focus fire coordination', easy: false, normal: false, hard: true, comp: true },
+    { name: 'Stratagems', easy: false, normal: false, hard: true, comp: true },
+    { name: 'Fight order optimization', easy: false, normal: false, hard: false, comp: true }
+  ];
+
+  const noiseMap = { Easy: 'High', Normal: 'Medium', Hard: 'Low', Competitive: 'None' };
+  const iterMap = { Easy: 1, Normal: 1, Hard: 2, Competitive: 3 };
+
+  let html = '<h2 style="color:var(--gold);margin-bottom:16px">Difficulty Comparison</h2>';
+
+  // Cards
+  html += '<div class="diff-grid">';
+  levels.forEach(lv => {
+    html += '<div class="diff-card" style="border-top:3px solid ' + lv.color + '">';
+    html += '<h3>' + lv.name + '</h3>';
+    html += '<p style="font-size:.9rem;color:var(--parchment-dim);margin-bottom:12px">' + lv.desc + '</p>';
+    const key = lv.name === 'Competitive' ? 'comp' : lv.name.toLowerCase();
+    html += '<div style="font-size:.85rem"><strong>Score noise:</strong> ' + noiseMap[lv.name] + '</div>';
+    html += '<div style="font-size:.85rem"><strong>Iterations:</strong> ' + iterMap[lv.name] + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // Feature matrix
+  html += '<div class="feature-matrix"><h3 style="color:var(--gold);margin-bottom:12px">Feature Toggle Matrix</h3>';
+  html += '<table><thead><tr><th>Feature</th><th>Easy</th><th>Normal</th><th>Hard</th><th>Competitive</th></tr></thead><tbody>';
+
+  features.forEach(f => {
+    html += '<tr><td>' + f.name + '</td>';
+    [f.easy, f.normal, f.hard, f.comp].forEach(on => {
+      html += '<td class="' + (on ? 'feat-on' : 'feat-off') + '">' + (on ? '&#10003;' : '&#10007;') + '</td>';
+    });
+    html += '</tr>';
+  });
+
+  // Score noise row
+  html += '<tr><td>Score noise</td>';
+  ['Easy','Normal','Hard','Competitive'].forEach(lv => {
+    html += '<td>' + noiseMap[lv] + '</td>';
+  });
+  html += '</tr>';
+
+  // Iterations row
+  html += '<tr><td>Iterations</td>';
+  ['Easy','Normal','Hard','Competitive'].forEach(lv => {
+    html += '<td>' + iterMap[lv] + '</td>';
+  });
+  html += '</tr>';
+
+  html += '</tbody></table></div>';
+
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  UTILS & INIT
+// ═══════════════════════════════════════════════════════════════════
+
+function esc(s) {
+  if (typeof s !== 'string') return String(s);
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Init
+gameData = makeDemoData();
+renderTimeline();
+renderInspector();
+renderParamEditor();
+renderDifficulty();
+</script>
+</body>
+</html>
