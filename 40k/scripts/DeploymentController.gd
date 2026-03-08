@@ -62,6 +62,9 @@ var selected_model_type: String = ""
 var model_type_picker_panel: Node = null
 var model_type_picker_canvas: CanvasLayer = null
 
+# MA-19: Combined deployment model profiles for picker
+var _combined_profiles: Dictionary = {}
+
 func _ready() -> void:
 	set_process(true)
 	set_process_unhandled_input(true)
@@ -183,6 +186,7 @@ func begin_deploy(_unit_id: String) -> void:
 	placement_order.clear()  # MA-16: Reset placement order tracking
 	combined_models.clear()
 	is_combined_deployment = false
+	_combined_profiles.clear()
 	var unit_data = GameState.get_unit(unit_id)
 
 	# Check if this unit has pre-declared character attachments (from Formations phase)
@@ -221,27 +225,56 @@ func begin_deploy(_unit_id: String) -> void:
 		is_combined_deployment = true
 		print("[DeploymentController] Combined deployment: bodyguard %s + %d attached character(s)" % [_unit_id, attached_char_ids.size()])
 
-		# Add bodyguard models first
+		# MA-19: Build combined model profiles for picker and add model_type to entries
+		var bg_profiles = unit_data.get("meta", {}).get("model_profiles", {})
+		var has_bg_profiles = bg_profiles.size() > 0
+		var bg_type_key = "bg_" + _unit_id
+		_combined_profiles = {}
+
+		# Copy bodyguard profiles or create synthetic one
+		if has_bg_profiles:
+			for key in bg_profiles:
+				_combined_profiles[key] = bg_profiles[key]
+		else:
+			var bg_name = unit_data.get("meta", {}).get("name", "Bodyguard")
+			_combined_profiles[bg_type_key] = {"label": bg_name}
+
+		# Add bodyguard models first (with model_type)
 		for i in range(unit_data["models"].size()):
+			var model = unit_data["models"][i]
+			var mt = model.get("model_type", "")
+			var model_data_entry = model
+			if mt == "":
+				# No model_type - use synthetic bodyguard type
+				mt = bg_type_key
+				model_data_entry = model.duplicate()
+				model_data_entry["model_type"] = mt
 			combined_models.append({
 				"unit_id": _unit_id,
 				"model_idx": i,
-				"model_data": unit_data["models"][i]
+				"model_data": model_data_entry,
+				"model_type": mt
 			})
 
-		# Then add character models
+		# Then add character models (with synthetic model_type)
 		for char_id in attached_char_ids:
 			var char_data = GameState.get_unit(char_id)
 			if char_data.is_empty():
 				push_error("[DeploymentController] Attached character not found: %s" % char_id)
 				continue
+			var char_name = char_data.get("meta", {}).get("name", "Character")
+			var char_type_key = "char_" + char_id
+			_combined_profiles[char_type_key] = {"label": char_name, "is_character": true}
 			for i in range(char_data["models"].size()):
+				var char_model = char_data["models"][i].duplicate()
+				char_model["model_type"] = char_type_key
 				combined_models.append({
 					"unit_id": char_id,
 					"model_idx": i,
-					"model_data": char_data["models"][i]
+					"model_data": char_model,
+					"model_type": char_type_key
 				})
-			print("[DeploymentController] Added %d models from character %s" % [char_data["models"].size(), char_id])
+			print("[DeploymentController] Added %d models from character %s (%s)" % [char_data["models"].size(), char_id, char_name])
 
 		# Size temp arrays to fit all combined models
 		temp_positions.resize(combined_models.size())
@@ -260,8 +293,18 @@ func begin_deploy(_unit_id: String) -> void:
 	selected_model_type = ""
 	_hide_model_type_picker()
 
-	# MA-15: Check if unit has model_profiles with >1 distinct model_type
-	if not is_combined_deployment:
+	# MA-15/MA-19: Check if model type picker should be shown
+	if is_combined_deployment:
+		# MA-19: Show picker for combined deployment (character + bodyguard types)
+		if _combined_profiles.size() > 1:
+			var effective_models = _get_effective_models()
+			var distinct_types = _get_distinct_unplaced_types(effective_models, [])
+			if distinct_types.size() > 1:
+				has_model_type_picker = true
+				_show_model_type_picker(_combined_profiles, effective_models)
+				print("[DeploymentController] MA-19: Combined deployment picker shown with %d types" % distinct_types.size())
+	else:
+		# MA-15: Non-combined deployment with model_profiles
 		var model_profiles = unit_data.get("meta", {}).get("model_profiles", {})
 		if model_profiles.size() > 1:
 			var distinct_types = _get_distinct_unplaced_types(unit_data["models"], [])
@@ -547,12 +590,12 @@ func undo_last_model() -> bool:
 	# Set model_idx back to this model so the ghost appears for it
 	model_idx = last_placed_idx
 
-	# MA-15: Update model type picker after undo
+	# MA-15/MA-19: Update model type picker after undo
 	if has_model_type_picker:
 		_update_model_type_picker()
 		# Set selected type to the undone model's type
-		var unit_data = GameState.get_unit(unit_id)
-		var undone_model = unit_data["models"][last_placed_idx]
+		var effective_models = _get_effective_models()
+		var undone_model = effective_models[last_placed_idx] if last_placed_idx < effective_models.size() else {}
 		var undone_type = undone_model.get("model_type", "")
 		if undone_type != "":
 			selected_model_type = undone_type
@@ -598,6 +641,7 @@ func reset_unit() -> void:
 	is_infiltrators_mode = false
 	is_combined_deployment = false
 	combined_models.clear()
+	_combined_profiles.clear()  # MA-19
 	# MA-15: Clean up model type picker
 	has_model_type_picker = false
 	selected_model_type = ""
@@ -879,6 +923,7 @@ func _complete_deployment() -> void:
 	placement_order.clear()  # MA-16: Clear placement order tracking
 	combined_models.clear()
 	is_combined_deployment = false
+	_combined_profiles.clear()  # MA-19
 	is_infiltrators_mode = false
 	# MA-15: Clean up model type picker
 	has_model_type_picker = false
@@ -2284,7 +2329,30 @@ func _cleanup_repositioning() -> void:
 		reposition_ghost.queue_free()
 		reposition_ghost = null
 
-# ── MA-15: Model type picker methods ─────────────────────────────────
+# ── MA-15/MA-19: Model type picker methods ───────────────────────────
+
+func _get_effective_models() -> Array:
+	"""MA-19: Get the effective models array for picker operations.
+	For combined deployment, returns model_data dicts from combined_models.
+	For normal deployment, returns unit_data['models']."""
+	if is_combined_deployment:
+		var models = []
+		for cm in combined_models:
+			models.append(cm["model_data"])
+		return models
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return []
+	return unit_data["models"]
+
+func _get_effective_profiles() -> Dictionary:
+	"""MA-19: Get the effective model profiles for picker operations."""
+	if is_combined_deployment:
+		return _combined_profiles
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return {}
+	return unit_data.get("meta", {}).get("model_profiles", {})
 
 func _get_distinct_unplaced_types(models: Array, placed_indices: Array) -> Array:
 	"""Get list of distinct model_type values among unplaced models."""
@@ -2345,11 +2413,11 @@ func _update_model_type_picker() -> void:
 	"""Update the picker panel counts based on current placement state."""
 	if not model_type_picker_panel or not is_instance_valid(model_type_picker_panel):
 		return
-	var unit_data = GameState.get_unit(unit_id)
-	if unit_data.is_empty():
+	var effective_models = _get_effective_models()
+	if effective_models.is_empty():
 		return
 	var placed = _get_placed_indices()
-	model_type_picker_panel.update_counts(unit_data["models"], placed)
+	model_type_picker_panel.update_counts(effective_models, placed)
 
 func _on_model_type_selected(type_key: String) -> void:
 	"""Handle user selecting a model type from the picker."""
@@ -2361,11 +2429,11 @@ func _on_model_type_selected(type_key: String) -> void:
 		model_type_picker_panel.highlight_selected(type_key)
 
 	# Find the first unplaced model of this type
-	var unit_data = GameState.get_unit(unit_id)
-	if unit_data.is_empty():
+	var effective_models = _get_effective_models()
+	if effective_models.is_empty():
 		return
 
-	var next_idx = _find_next_unplaced_of_type(unit_data["models"], type_key)
+	var next_idx = _find_next_unplaced_of_type(effective_models, type_key)
 	if next_idx < 0:
 		print("[DeploymentController] MA-15: No unplaced models of type %s" % type_key)
 		return
@@ -2384,11 +2452,15 @@ func _on_model_type_selected(type_key: String) -> void:
 			_create_formation_ghosts(min(formation_size, remaining.size()))
 
 func _get_model_type_label(model_data: Dictionary, unit_data: Dictionary) -> String:
-	"""MA-17: Get the display label for a model's type from model_profiles.
-	Returns empty string if no model_profiles or model has no model_type."""
+	"""MA-17/MA-19: Get the display label for a model's type from model_profiles.
+	Returns empty string if no model_profiles or model has no model_type.
+	For combined deployment, also checks _combined_profiles for character types."""
 	var model_type = model_data.get("model_type", "")
 	if model_type == "":
 		return ""
+	# MA-19: Check combined profiles first for combined deployment
+	if is_combined_deployment and _combined_profiles.has(model_type):
+		return _combined_profiles[model_type].get("label", "")
 	var model_profiles = unit_data.get("meta", {}).get("model_profiles", {})
 	if model_profiles.is_empty():
 		return ""
@@ -2406,12 +2478,12 @@ func _find_next_unplaced_of_type(models: Array, type_key: String) -> int:
 
 func _try_auto_select_model_type() -> bool:
 	"""If only one model type has unplaced models, auto-select it. Returns true if auto-selected."""
-	var unit_data = GameState.get_unit(unit_id)
-	if unit_data.is_empty():
+	var effective_models = _get_effective_models()
+	if effective_models.is_empty():
 		return false
 
 	var placed = _get_placed_indices()
-	var remaining_types = _get_distinct_unplaced_types(unit_data["models"], placed)
+	var remaining_types = _get_distinct_unplaced_types(effective_models, placed)
 
 	if remaining_types.size() == 1:
 		# Auto-select the only remaining type
@@ -2422,10 +2494,10 @@ func _try_auto_select_model_type() -> bool:
 		# Highlight in picker
 		if model_type_picker_panel and is_instance_valid(model_type_picker_panel):
 			model_type_picker_panel.highlight_selected(auto_type)
-			model_type_picker_panel.update_counts(unit_data["models"], placed)
+			model_type_picker_panel.update_counts(effective_models, placed)
 
 		# Set model_idx to first unplaced of this type
-		var next_idx = _find_next_unplaced_of_type(unit_data["models"], auto_type)
+		var next_idx = _find_next_unplaced_of_type(effective_models, auto_type)
 		if next_idx >= 0:
 			model_idx = next_idx
 			return true
@@ -2439,15 +2511,15 @@ func _try_auto_select_model_type() -> bool:
 
 func _advance_model_type_placement() -> void:
 	"""After placing a model, advance to the next model of the same type or wait for picker."""
-	var unit_data = GameState.get_unit(unit_id)
-	if unit_data.is_empty():
+	var effective_models = _get_effective_models()
+	if effective_models.is_empty():
 		return
 
 	# Update the picker panel
 	_update_model_type_picker()
 
 	# Try to find next unplaced model of the same type
-	var next_idx = _find_next_unplaced_of_type(unit_data["models"], selected_model_type)
+	var next_idx = _find_next_unplaced_of_type(effective_models, selected_model_type)
 	if next_idx >= 0:
 		model_idx = next_idx
 		print("[DeploymentController] MA-15: Next model of type %s at index %d" % [selected_model_type, model_idx])
@@ -2455,7 +2527,7 @@ func _advance_model_type_placement() -> void:
 
 	# No more of this type — check remaining types
 	var placed = _get_placed_indices()
-	var remaining_types = _get_distinct_unplaced_types(unit_data["models"], placed)
+	var remaining_types = _get_distinct_unplaced_types(effective_models, placed)
 
 	if remaining_types.size() == 0:
 		# All models placed
@@ -2471,7 +2543,7 @@ func _advance_model_type_placement() -> void:
 		selected_model_type = auto_type
 		if model_type_picker_panel and is_instance_valid(model_type_picker_panel):
 			model_type_picker_panel.highlight_selected(auto_type)
-		next_idx = _find_next_unplaced_of_type(unit_data["models"], auto_type)
+		next_idx = _find_next_unplaced_of_type(effective_models, auto_type)
 		if next_idx >= 0:
 			model_idx = next_idx
 			return
