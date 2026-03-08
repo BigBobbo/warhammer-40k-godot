@@ -4,7 +4,7 @@
 
 ## P1 — High (AI plays very poorly without these)
 
-- [ ] Implement screening/deep strike denial — position cheap units to deny enemy deep strike zones (AI-TACTIC-3, MOV-4)
+- [x] Implement screening/deep strike denial — position cheap units to deny enemy deep strike zones (AI-TACTIC-3, MOV-4)
 - [ ] Implement reserves deployment — bring reserve units onto the board from Round 2+ (MOV-8)
 - [ ] Implement leader attachment in formations — evaluate and attach leaders to bodyguard units (FORM-1)
 - [ ] Add terrain-aware deployment — place units behind LoS-blocking terrain for cover (DEPLOY-1)
