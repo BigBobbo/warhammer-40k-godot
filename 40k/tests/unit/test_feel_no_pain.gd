@@ -312,3 +312,118 @@ func test_warboss_mega_armour_has_fnp_in_game_state():
 		return
 	var fnp = RulesEngine.get_unit_fnp(unit)
 	assert_eq(fnp, 5, "Warboss in Mega Armour should have FNP 5+")
+
+# ==========================================
+# MA-28: Per-model FNP Tests
+# ==========================================
+
+func _create_mixed_fnp_unit() -> Dictionary:
+	"""Helper to create a unit with mixed FNP via model_profiles.
+	Champion has FNP 5+, Trooper has no FNP. Unit itself has no base FNP."""
+	var models = [
+		{"id": "m0", "alive": true, "wounds": 2, "current_wounds": 2, "base_mm": 32, "model_type": "champion"},
+		{"id": "m1", "alive": true, "wounds": 1, "current_wounds": 1, "base_mm": 32, "model_type": "trooper"},
+		{"id": "m2", "alive": true, "wounds": 1, "current_wounds": 1, "base_mm": 32, "model_type": "trooper"},
+	]
+	return {
+		"meta": {
+			"name": "Mixed FNP Unit",
+			"stats": {"toughness": 4, "save": 3, "wounds": 1},
+			"model_profiles": {
+				"champion": {"label": "Champion", "stats_override": {"fnp": 5}, "weapons": []},
+				"trooper": {"label": "Trooper", "weapons": []}
+			}
+		},
+		"models": models
+	}
+
+func test_get_model_fnp_returns_override_when_present():
+	"""MA-28: Model with stats_override.fnp should use that value"""
+	var unit = _create_mixed_fnp_unit()
+	var champion = unit.models[0]
+	var result = RulesEngine.get_model_fnp(unit, champion)
+	assert_eq(result, 5, "Champion with stats_override.fnp=5 should return 5")
+
+func test_get_model_fnp_falls_back_to_unit_fnp():
+	"""MA-28: Model without stats_override.fnp falls back to unit FNP"""
+	var unit = _create_test_unit_with_fnp(4, 2, 3)
+	var model = unit.models[0]  # No model_type, no override
+	var result = RulesEngine.get_model_fnp(unit, model)
+	assert_eq(result, 4, "Model without override should fall back to unit FNP 4+")
+
+func test_get_model_fnp_returns_0_when_no_override_and_no_unit_fnp():
+	"""MA-28: Model without override in unit without FNP returns 0"""
+	var unit = _create_mixed_fnp_unit()
+	var trooper = unit.models[1]
+	var result = RulesEngine.get_model_fnp(unit, trooper)
+	assert_eq(result, 0, "Trooper without stats_override.fnp in unit without base FNP should return 0")
+
+func test_get_model_fnp_explicit_zero_overrides_unit_fnp():
+	"""MA-28: Model with stats_override.fnp=0 should have no FNP even if unit has FNP"""
+	var unit = _create_test_unit_with_fnp(5, 2, 3)
+	# Add model_profiles where one model type explicitly has no FNP
+	unit.meta["model_profiles"] = {
+		"immune": {"label": "Immune", "stats_override": {"fnp": 0}, "weapons": []},
+	}
+	var model = {"id": "m0", "alive": true, "wounds": 2, "current_wounds": 2, "model_type": "immune"}
+	var result = RulesEngine.get_model_fnp(unit, model)
+	assert_eq(result, 0, "Model with stats_override.fnp=0 should have no FNP even if unit has FNP 5+")
+
+func test_get_model_fnp_empty_model_returns_unit_fnp():
+	"""MA-28: Empty model dict falls back to unit FNP"""
+	var unit = _create_test_unit_with_fnp(5, 2, 3)
+	var result = RulesEngine.get_model_fnp(unit, {})
+	assert_eq(result, 5, "Empty model should fall back to unit FNP")
+
+func test_get_model_fnp_no_model_type_returns_unit_fnp():
+	"""MA-28: Model without model_type falls back to unit FNP"""
+	var unit = _create_test_unit_with_fnp(6, 2, 3)
+	var model = {"id": "m0", "alive": true, "wounds": 2, "current_wounds": 2}
+	var result = RulesEngine.get_model_fnp(unit, model)
+	assert_eq(result, 6, "Model without model_type should fall back to unit FNP 6+")
+
+func test_apply_save_damage_per_model_fnp_champion_gets_fnp():
+	"""MA-28: In apply_save_damage, champion with FNP 5+ should get FNP rolls,
+	trooper without FNP should not."""
+	var unit = _create_mixed_fnp_unit()
+	var board = {"units": {"test_unit": unit}}
+	var save_data = {"target_unit_id": "test_unit", "damage": 1}
+
+	# Wound allocated to champion (model_index 0) — should get FNP rolls
+	var save_results = [{"saved": false, "model_index": 0}]
+	var rng = RulesEngine.RNGService.new(42)
+	var result = RulesEngine.apply_save_damage(save_results, save_data, board, -1, rng)
+	assert_eq(result.fnp_rolls.size(), 1, "Champion should get FNP rolls")
+	assert_eq(result.fnp_rolls[0].fnp_value, 5, "Champion FNP should be 5+")
+
+func test_apply_save_damage_per_model_fnp_trooper_no_fnp():
+	"""MA-28: Trooper without FNP should not get FNP rolls."""
+	var unit = _create_mixed_fnp_unit()
+	var board = {"units": {"test_unit": unit}}
+	var save_data = {"target_unit_id": "test_unit", "damage": 1}
+
+	# Wound allocated to trooper (model_index 1) — should NOT get FNP rolls
+	var save_results = [{"saved": false, "model_index": 1}]
+	var rng = RulesEngine.RNGService.new(42)
+	var result = RulesEngine.apply_save_damage(save_results, save_data, board, -1, rng)
+	assert_eq(result.fnp_rolls.size(), 0, "Trooper should NOT get FNP rolls")
+
+func test_apply_save_damage_mixed_fnp_both_wounded():
+	"""MA-28: When both champion and trooper take wounds, only champion gets FNP."""
+	var unit = _create_mixed_fnp_unit()
+	# Give champion more wounds so it survives first hit
+	unit.models[0].wounds = 3
+	unit.models[0].current_wounds = 3
+	var board = {"units": {"test_unit": unit}}
+	var save_data = {"target_unit_id": "test_unit", "damage": 1}
+
+	# Two failed saves: one on champion (idx 0), one on trooper (idx 1)
+	var save_results = [
+		{"saved": false, "model_index": 0},
+		{"saved": false, "model_index": 1}
+	]
+	var rng = RulesEngine.RNGService.new(42)
+	var result = RulesEngine.apply_save_damage(save_results, save_data, board, -1, rng)
+	# Only champion's wound should generate FNP rolls
+	assert_eq(result.fnp_rolls.size(), 1, "Only champion should get FNP rolls")
+	assert_eq(result.fnp_rolls[0].fnp_value, 5, "Champion FNP value should be 5+")

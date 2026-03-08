@@ -378,10 +378,10 @@
 - **Validation**: Call with deffgun Loota model → returns unit base stats. Call with Spanner model → returns base stats with BS overridden to 4. Call with model without model_type → returns unit base stats. Call with unit without model_profiles → returns unit base stats.
 
 ### MA-28: Per-model FNP (stretch goal)
-- [ ] `get_unit_fnp()` (~RulesEngine.gd:8317-8330) returns single FNP for unit
-- [ ] Add `get_model_fnp(unit, model)` that checks model profile `stats_override.fnp` first, then falls back to unit FNP
-- [ ] Update `roll_feel_no_pain()` to accept per-model FNP value
-- [ ] Only needed if/when a unit with mixed FNP models is added
+- [x] `get_unit_fnp()` (~RulesEngine.gd:8317-8330) returns single FNP for unit
+- [x] Add `get_model_fnp(unit, model)` that checks model profile `stats_override.fnp` first, then falls back to unit FNP
+- [x] Update `roll_feel_no_pain()` to accept per-model FNP value
+- [x] Only needed if/when a unit with mixed FNP models is added
 - **Files**: RulesEngine.gd
 - **Validation**: Unit where one model type has FNP 5+ and another has none. Wound allocation rolls FNP only for the model type that has it. Other model type takes full damage.
 
