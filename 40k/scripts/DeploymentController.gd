@@ -56,16 +56,14 @@ var reinforcement_placement_type: String = ""
 # Infiltrators mode (deploy anywhere >9" from enemy zone and enemy models)
 var is_infiltrators_mode: bool = false
 
-<<<<<<< HEAD
 # MA-15: Model type picker state
 var has_model_type_picker: bool = false
 var selected_model_type: String = ""
 var model_type_picker_panel: Node = null
 var model_type_picker_canvas: CanvasLayer = null
-=======
+
 # Infiltrator exclusion boundary visual
 var infiltrator_exclusion_visual: Node2D = null
->>>>>>> da45b447c6ea589da7ab98f8536ec153a45fbf9f
 
 func _ready() -> void:
 	set_process(true)
@@ -887,14 +885,11 @@ func _complete_deployment() -> void:
 	combined_models.clear()
 	is_combined_deployment = false
 	is_infiltrators_mode = false
-<<<<<<< HEAD
 	# MA-15: Clean up model type picker
 	has_model_type_picker = false
 	selected_model_type = ""
 	_hide_model_type_picker()
-=======
 	_hide_infiltrator_exclusion()
->>>>>>> da45b447c6ea589da7ab98f8536ec153a45fbf9f
 
 	emit_signal("coherency_warning_changed", false, "")
 	emit_signal("unit_confirmed")

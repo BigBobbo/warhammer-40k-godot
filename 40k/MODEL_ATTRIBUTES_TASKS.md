@@ -319,9 +319,9 @@
 - **Validation**: Deployed Lootas unit shows visual distinction between deffgun, mega-blasta, and spanner models. Players can tell models apart at a glance. Units without profiles unchanged.
 
 ### MA-21: Show model type in wound allocation UI
-- [ ] In WoundAllocationOverlay, when player selects which model takes a wound, display model type label alongside model ID
-- [ ] Add `model_type` field to save profiles in `prepare_save_resolution()` (~RulesEngine.gd:7556)
-- [ ] WoundAllocationOverlay reads `model_type` from profile and shows label (e.g., "Loota (Deffgun) - m3" or "Spanner - m11")
+- [x] In WoundAllocationOverlay, when player selects which model takes a wound, display model type label alongside model ID
+- [x] Add `model_type` field to save profiles in `prepare_save_resolution()` (~RulesEngine.gd:7556)
+- [x] WoundAllocationOverlay reads `model_type` from profile and shows label (e.g., "Loota (Deffgun) - m3" or "Spanner - m11")
 - **Files**: RulesEngine.gd (prepare_save_resolution), WoundAllocationOverlay.gd
 - **Validation**: Take wounds on Lootas unit. Wound allocation UI shows model type labels. Player can distinguish which model type they're allocating wounds to. Units without profiles show model IDs only (existing behavior).
 

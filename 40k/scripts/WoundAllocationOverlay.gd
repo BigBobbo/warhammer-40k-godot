@@ -612,6 +612,11 @@ func _highlight_valid_models() -> void:
 		var current_wounds = model.get("current_wounds", max_wounds)
 		board_highlighter.update_model_health_display(model_pos, base_mm, current_wounds, max_wounds, model_id)
 
+		# MA-21: Show model type label above model if available
+		var model_type = model.get("model_type", "")
+		if model_type != "":
+			board_highlighter.create_model_type_label(model_pos, base_mm, model_id, model_type)
+
 		# Highlight alive models
 		if model_id in wounded_models:
 			# MUST SELECT - Red pulsing highlight
@@ -930,9 +935,13 @@ func _display_save_result(result: Dictionary) -> void:
 			if actual_dmg == 0:
 				outcome_text += "[color=green][b]All damage prevented by FNP![/b][/color]"
 			else:
-				outcome_text += "%s takes %d damage (reduced from %d)" % [result.get("model_id", "Unknown"), actual_dmg, weapon_dmg]
+				# MA-21: Show model type label alongside model ID
+				var dmg_display_name = _get_model_display_name(result.get("model_id", "Unknown"))
+				outcome_text += "%s takes %d damage (reduced from %d)" % [dmg_display_name, actual_dmg, weapon_dmg]
 		else:
-			outcome_text += "%s takes %d damage" % [result.get("model_id", "Unknown"), actual_dmg]
+			# MA-21: Show model type label alongside model ID
+			var dmg_display_name = _get_model_display_name(result.get("model_id", "Unknown"))
+			outcome_text += "%s takes %d damage" % [dmg_display_name, actual_dmg]
 
 		if result.get("model_destroyed", false):
 			outcome_text += "\n[color=red][b]💀 DESTROYED[/b][/color]"
@@ -1570,6 +1579,22 @@ func _get_model_save_profile(model_id: String) -> Dictionary:
 		if profile.get("model_id", "") == model_id:
 			return profile
 	return {}
+
+func _get_model_display_name(model_id: String) -> String:
+	"""MA-21: Get display name for a model using model_type if available.
+	Returns e.g. 'Loota (Deffgun) - m3' or 'Spanner - m11' for profiled models,
+	or just the model_id for units without model_profiles."""
+	var profile = _get_model_save_profile(model_id)
+	var model_type = profile.get("model_type", "") if not profile.is_empty() else ""
+	if model_type == "":
+		# Fallback: check the model data directly
+		var model = _get_model_by_id(model_id)
+		model_type = model.get("model_type", "")
+	if model_type != "":
+		# For composite character IDs (unit_id:model_id), use just the model part for display
+		var display_id = model_id.split(":")[-1] if ":" in model_id else model_id
+		return "%s - %s" % [model_type, display_id]
+	return model_id
 
 func _sync_model_positions_from_tokens(unit_id: String) -> void:
 	"""P1-67: Sync GameState model positions from actual token visual positions.

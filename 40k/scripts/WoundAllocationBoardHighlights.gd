@@ -162,6 +162,9 @@ func clear_all() -> void:
 		# T5-V6: Skip health overlays and wound counters - they persist
 		if child.name.begins_with("HealthOverlay_") or child.name.begins_with("WoundCounter_"):
 			continue
+		# MA-21: Skip model type labels - they persist like wound counters
+		if child.name.begins_with("ModelTypeLabel_"):
+			continue
 
 		child.queue_free()
 
@@ -398,6 +401,47 @@ func remove_model_health_display(model_id: String) -> void:
 			counter.queue_free()
 		wound_counters.erase(model_id)
 
+# MA-21: Model type labels displayed near models during wound allocation
+var model_type_labels: Dictionary = {}  # model_id -> Label
+
+func create_model_type_label(model_pos: Vector2, base_radius_mm: float, model_id: String, model_type: String) -> void:
+	"""MA-21: Display model type label above the model highlight"""
+	if model_type == "":
+		return
+
+	# Remove existing label for this model
+	if model_type_labels.has(model_id):
+		var old = model_type_labels[model_id]
+		if is_instance_valid(old):
+			old.queue_free()
+		model_type_labels.erase(model_id)
+
+	var base_px = Measurement.base_radius_px(base_radius_mm)
+
+	var label = Label.new()
+	label.name = "ModelTypeLabel_" + model_id
+	label.text = model_type
+	label.add_theme_font_size_override("font_size", max(9, int(base_px * 0.45)))
+	label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.95))
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.95))
+	label.add_theme_constant_override("outline_size", 3)
+
+	# Position above the model base
+	label.position = model_pos + Vector2(-base_px * 0.8, -base_px * 1.3)
+	label.z_index = 56  # Above wound counters
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	add_child(label)
+	model_type_labels[model_id] = label
+
+func clear_model_type_labels() -> void:
+	"""MA-21: Remove all model type labels"""
+	for model_id in model_type_labels:
+		var label = model_type_labels[model_id]
+		if label and is_instance_valid(label):
+			label.queue_free()
+	model_type_labels.clear()
+
 # T5-V6: Clear all health overlays and wound counters
 func clear_health_displays() -> void:
 	"""Remove all health overlays and wound counters"""
@@ -412,6 +456,9 @@ func clear_health_displays() -> void:
 		if counter and is_instance_valid(counter):
 			counter.queue_free()
 	wound_counters.clear()
+
+	# MA-21: Also clear model type labels
+	clear_model_type_labels()
 	print("WoundAllocationBoardHighlights: T5-V6 cleared all health displays")
 
 func _create_circle_texture(size: int) -> ImageTexture:
