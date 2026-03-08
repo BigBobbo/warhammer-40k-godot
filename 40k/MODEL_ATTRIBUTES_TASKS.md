@@ -333,9 +333,9 @@
 - **Validation**: Kill a Spanner model. Log shows "Spanner (m11) destroyed". Kill a deffgun Loota. Log shows "Loota (Deffgun) (m3) destroyed". Units without profiles show "m3 destroyed" as before.
 
 ### MA-23: UnitStatsPanel shows model composition breakdown
-- [ ] UnitStatsPanel (unit info display) should show model composition when `model_profiles` exists
-- [ ] Display: "8x Loota (Deffgun), 2x Loota (Mega-blasta), 1x Spanner" with alive/dead counts
-- [ ] Show each profile's weapons and stats overrides
+- [x] UnitStatsPanel (unit info display) should show model composition when `model_profiles` exists
+- [x] Display: "8x Loota (Deffgun), 2x Loota (Mega-blasta), 1x Spanner" with alive/dead counts
+- [x] Show each profile's weapons and stats overrides
 - **Files**: UnitStatsPanel.gd
 - **Validation**: Select Lootas unit. Stats panel shows breakdown by model type with weapon info. Shows alive counts. After casualties, counts update. Units without profiles show existing display.
 
