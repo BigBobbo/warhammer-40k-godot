@@ -179,17 +179,17 @@ func advance_to_next_phase() -> void:
 
 func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
 	# Define the standard 40k phase order with Command and Scoring phases
-	# Scout phase runs once between Deployment and the first Command phase
+	# Roll-off determines first turn, then Scout moves happen before the first Command phase
 	match current:
 		GameStateData.Phase.FORMATIONS:
 			return GameStateData.Phase.DEPLOYMENT
 		GameStateData.Phase.DEPLOYMENT:
 			return GameStateData.Phase.REDEPLOYMENT
 		GameStateData.Phase.REDEPLOYMENT:
-			return GameStateData.Phase.SCOUT
-		GameStateData.Phase.SCOUT:
 			return GameStateData.Phase.ROLL_OFF
 		GameStateData.Phase.ROLL_OFF:
+			return GameStateData.Phase.SCOUT
+		GameStateData.Phase.SCOUT:
 			return GameStateData.Phase.COMMAND
 		GameStateData.Phase.COMMAND:
 			return GameStateData.Phase.MOVEMENT

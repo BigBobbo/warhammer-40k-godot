@@ -15,6 +15,7 @@ const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 @onready var phase_label: Label = $HUD_Bottom/HBoxContainer/PhaseLabel
 @onready var active_player_badge: Label = $HUD_Bottom/HBoxContainer/ActivePlayerBadge
 @onready var status_label: Label = $HUD_Bottom/HBoxContainer/StatusLabel
+@onready var auto_decline_overwatch: CheckButton = $HUD_Bottom/HBoxContainer/AutoDeclineOverwatch
 @onready var phase_action_button: Button = $HUD_Bottom/HBoxContainer/PhaseActionButton
 
 @onready var unit_list: ItemList = $HUD_Right/VBoxContainer/UnitListPanel
@@ -42,6 +43,13 @@ var charge_controller: Node
 var fight_controller: Node
 var scoring_controller: Node
 var current_phase: GameStateData.Phase
+
+# Scout phase state
+var _scout_active_unit_id: String = ""
+var _scout_dragging_model: bool = false
+var _scout_drag_model_id: String = ""
+var _scout_drag_start_pos: Vector2 = Vector2.ZERO
+var _scout_move_distance: float = 0.0
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
 var view_rotation: float = 0.0  # Board rotation in radians (multiples of PI/2)
@@ -1080,11 +1088,14 @@ func _dismiss_game_loaded_overlay() -> void:
 
 	print("Main: P2-12 Dismissing game loaded overlay (fade out)")
 
+	# CRITICAL: Immediately stop blocking input so the game is interactive
+	# even during the visual fade-out animation.
+	_game_loaded_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	# Stop any tweens running on children (pulse animation)
 	for child in _game_loaded_overlay.get_children():
 		for grandchild in child.get_children():
 			if grandchild is Label:
-				var existing = get_tree().create_tween()
 				# Just reset modulate so the label is fully visible during fade-out
 				grandchild.modulate = Color(1, 1, 1, 1)
 
@@ -3832,6 +3843,16 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	
+	# Scout phase model dragging
+	if current_phase == GameStateData.Phase.SCOUT and _scout_active_unit_id != "":
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				_scout_handle_mouse_press(event.position)
+			else:
+				_scout_handle_mouse_release(event.position)
+		elif event is InputEventMouseMotion and _scout_dragging_model:
+			_scout_handle_mouse_motion(event.position)
+
 	# Handle mouse clicks for placement - but only consume if we actually place something
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if deployment_controller and deployment_controller.is_placing():
@@ -4094,11 +4115,40 @@ func refresh_unit_list() -> void:
 					unit_list.add_item(display_text)
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 
-				# Show reserves button during deployment (visible when units available)
+				# Reserves are declared during Formations phase, not Deployment.
+				# Hide the reserves button during deployment.
 				if reserves_button:
-					reserves_button.visible = units.size() > 0
-					reserves_button.disabled = true  # Disabled until a unit is selected
+					reserves_button.visible = false
+					reserves_button.disabled = true
 					_selected_unit_for_reserves = ""
+
+		GameStateData.Phase.SCOUT:
+			# Show only scout-capable units that haven't completed their scout move
+			unit_list.visible = true
+			var phase_instance = PhaseManager.get_current_phase_instance()
+			var pending_scouts = []
+			if phase_instance and phase_instance.has_method("get_available_actions"):
+				# Get pending scout unit IDs from the phase
+				var scout_pending = phase_instance.get("scout_units_pending")
+				if scout_pending:
+					pending_scouts = scout_pending.get(active_player, [])
+
+			if pending_scouts.size() == 0:
+				unit_list.add_item("No scout units remaining")
+				unit_list.set_item_disabled(0, true)
+			else:
+				for scout_unit_id in pending_scouts:
+					var scout_unit = GameState.get_unit(scout_unit_id)
+					if scout_unit.is_empty():
+						continue
+					var scout_name = scout_unit.get("meta", {}).get("name", scout_unit_id)
+					var model_count = scout_unit.get("models", []).size()
+					var scout_dist = GameState.get_scout_distance(scout_unit_id)
+					var display_text = "%s (%d models) [Scout %d\"]" % [scout_name, model_count, int(scout_dist)]
+					unit_list.add_item(display_text)
+					unit_list.set_item_metadata(unit_list.get_item_count() - 1, scout_unit_id)
+
+			print("Refreshing right panel unit list for scout - found ", pending_scouts.size(), " pending scout units")
 
 		GameStateData.Phase.MOVEMENT:
 			# Show deployed units during movement in right panel
@@ -4467,7 +4517,7 @@ func _on_unit_selected(index: int) -> void:
 	_hide_deploy_hover_tooltip()
 	_hovered_deploy_unit_id = ""
 
-	if deployment_controller and deployment_controller.is_placing():
+	if deployment_controller and deployment_controller.is_placing() and current_phase == GameStateData.Phase.DEPLOYMENT:
 		return
 
 	# Block selection during AI player's turn
@@ -4539,6 +4589,36 @@ func _on_unit_selected(index: int) -> void:
 			show_unit_card(unit_id)
 			_show_deployment_color_picker(unit_id)
 			unit_list.visible = false
+	elif current_phase == GameStateData.Phase.SCOUT:
+		# Clean up any previous active scout move before starting a new one
+		if _scout_active_unit_id != "" and _scout_active_unit_id != unit_id:
+			_scout_reset_previous_unit(_scout_active_unit_id)
+
+		# Begin scout move for the selected unit
+		_scout_active_unit_id = unit_id
+		show_unit_card(unit_id)
+		var scout_dist = GameState.get_scout_distance(unit_id)
+		_scout_move_distance = scout_dist
+		print("Main: Scout unit selected: ", unit_id, " (Scout %d\")" % int(scout_dist))
+
+		# Send BEGIN_SCOUT_MOVE action
+		var scout_action = {
+			"type": "BEGIN_SCOUT_MOVE",
+			"unit_id": unit_id,
+			"player": GameState.get_active_player()
+		}
+		var scout_result = NetworkIntegration.route_action(scout_action)
+		if scout_result.get("success", false):
+			status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist)
+			# Show confirm/skip buttons
+			_setup_scout_unit_card_buttons(unit_id)
+			# Highlight the selected unit's models on the board
+			_scout_highlight_active_unit(unit_id, scout_dist)
+		else:
+			print("Main: BEGIN_SCOUT_MOVE failed: ", scout_result.get("errors", ["Scout move failed"]))
+			status_label.text = "Error: " + str(scout_result.get("errors", ["Scout move failed"]))
+			_scout_active_unit_id = ""
+
 	elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
 		# Check if this is a reserve unit arriving as reinforcement
 		var selected_unit = GameState.get_unit(unit_id)
@@ -4603,6 +4683,26 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 				# For non-transport units, deploy normally
 				deployment_controller.begin_deploy(unit_id)
 				unit_list.visible = false
+		elif current_phase == GameStateData.Phase.SCOUT:
+			# Scout unit selected from bottom panel - trigger same logic as right panel
+			# Clean up any previous active scout move before starting a new one
+			if _scout_active_unit_id != "" and _scout_active_unit_id != unit_id:
+				_scout_reset_previous_unit(_scout_active_unit_id)
+			_scout_active_unit_id = unit_id
+			var scout_dist_bp = GameState.get_scout_distance(unit_id)
+			_scout_move_distance = scout_dist_bp
+			var scout_action_bp = {
+				"type": "BEGIN_SCOUT_MOVE",
+				"unit_id": unit_id,
+				"player": GameState.get_active_player()
+			}
+			var scout_result_bp = NetworkIntegration.route_action(scout_action_bp)
+			if scout_result_bp.get("success", false):
+				status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist_bp)
+				_setup_scout_unit_card_buttons(unit_id)
+				_scout_highlight_active_unit(unit_id, scout_dist_bp)
+			else:
+				_scout_active_unit_id = ""
 		elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
 			# Check if unit is embarked - route to disembark flow instead of normal move
 			if unit_data.get("embarked_in", null) != null:
@@ -4752,6 +4852,15 @@ func update_unit_card_buttons() -> void:
 					reset_button.visible = false
 					confirm_button.visible = false
 		
+		GameStateData.Phase.SCOUT:
+			# Scout phase buttons are managed by _setup_scout_unit_card_buttons
+			# Just hide default buttons here; they'll be set up when a unit is selected
+			if _scout_active_unit_id == "":
+				undo_button.visible = false
+				reset_button.visible = false
+				confirm_button.visible = false
+				models_label.text = "Select a unit to begin scout move"
+
 		GameStateData.Phase.MOVEMENT:
 			# During reinforcement placement, show deployment-style buttons
 			if deployment_controller and deployment_controller.is_reinforcement_mode and deployment_controller.is_placing():
@@ -5708,12 +5817,13 @@ func _on_load_completed(file_path: String, metadata: Dictionary) -> void:
 	_clear_debug_visualizations()
 
 	if OS.has_feature("web"):
-		# On web, load is async - apply state now that data arrived
 		_show_save_notification("Game loaded!", Color.BLUE)
-		call_deferred("_apply_loaded_state")
-	else:
-		# Force UI refresh after loading
-		call_deferred("_refresh_after_load")
+
+	# Unified load path: use _apply_loaded_state for both web and desktop.
+	# On desktop, the load_completed signal fires synchronously inside load_game(),
+	# so _on_load_requested would also call _apply_loaded_state — causing double
+	# execution and a freeze. Now only this signal handler triggers state restoration.
+	call_deferred("_apply_loaded_state")
 
 # Helper method to clear debug visualizations safely
 func _clear_debug_visualizations() -> void:
@@ -5736,8 +5846,9 @@ func _on_load_failed(error: String) -> void:
 	print("Load failed: %s" % error)
 	# SAVE-20: Dismiss progress indicator on failure
 	_dismiss_save_load_progress()
-	if OS.has_feature("web"):
-		_show_save_notification("Load failed: " + error, Color.RED)
+	# Dismiss game loaded overlay if it was shown (prevents permanent input freeze)
+	_dismiss_game_loaded_overlay()
+	_show_save_notification("Load failed: " + error, Color.RED)
 
 # SAVE-20: Signal handlers for save/load progress indicator
 func _on_save_started(file_path: String) -> void:
@@ -5798,8 +5909,17 @@ func _apply_loaded_state() -> void:
 	if ai_player and ai_player.has_method("request_evaluation_after_load"):
 		ai_player.request_evaluation_after_load()
 
-	# P2-12: Dismiss the fade overlay now that everything is restored
+	# Clear active deployment if any (prevents stale state from blocking input)
+	if deployment_controller and deployment_controller.is_placing():
+		deployment_controller.undo()
+
+	# CRITICAL: Always dismiss the overlay so the game is never left frozen.
+	# This must run even if earlier steps encountered errors.
 	_dismiss_game_loaded_overlay()
+
+	# Show success notification on desktop (web already shows via _on_load_completed)
+	if not OS.has_feature("web"):
+		_show_save_notification("Game loaded!", Color.BLUE)
 
 	print("Main: _apply_loaded_state() complete")
 
@@ -5972,15 +6092,12 @@ func _on_load_requested(save_file: String, owner_id: String = "") -> void:
 	# Show loading notification
 	_show_save_notification("Loading...", Color.YELLOW)
 
-	# Perform load (on web this is async - result comes via load_completed/load_failed signals)
+	# Perform load — result comes via load_completed/load_failed signals for both
+	# web (async) and desktop (synchronous, signal fires inside load_game).
+	# State restoration is handled entirely by _on_load_completed → _apply_loaded_state.
 	var success = SaveLoadManager.load_game(save_file, owner_id)
-	if not OS.has_feature("web"):
-		# Desktop: synchronous result
-		if success:
-			_show_save_notification("Game loaded!", Color.BLUE)
-			_apply_loaded_state()
-		else:
-			_show_save_notification("Load failed!", Color.RED)
+	if not OS.has_feature("web") and not success:
+		_show_save_notification("Load failed!", Color.RED)
 
 func _on_delete_requested(save_file: String) -> void:
 	print("Main: Delete requested for file: ", save_file)
@@ -6399,6 +6516,19 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.REDEPLOYMENT:
 			action = {"type": "END_REDEPLOYMENT_PHASE", "player": active_player}
 		GameStateData.Phase.SCOUT:
+			# Skip all remaining pending scout moves before ending the phase
+			var scout_phase = PhaseManager.get_current_phase_instance()
+			if scout_phase:
+				var scout_pending = scout_phase.get("scout_units_pending")
+				if scout_pending:
+					# Collect all pending unit IDs across all players
+					var all_pending = []
+					for p in scout_pending:
+						all_pending.append_array(scout_pending[p].duplicate())
+					for pending_uid in all_pending:
+						var skip_action = {"type": "SKIP_SCOUT_MOVE", "unit_id": pending_uid, "player": active_player}
+						NetworkIntegration.route_action(skip_action)
+			_scout_cleanup_after_move()
 			action = {"type": "END_SCOUT_PHASE", "player": active_player}
 		GameStateData.Phase.ROLL_OFF:
 			action = {"type": "ROLL_FOR_FIRST_TURN", "player": active_player}
@@ -6432,6 +6562,14 @@ func _on_phase_action_pressed() -> void:
 			if GameState.is_game_complete():
 				print("Main: Game is complete, cannot advance phase")
 				return
+			# Check for active secondary missions and offer discard opportunity
+			var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+			if secondary_mgr and secondary_mgr.is_initialized(active_player):
+				var active_missions = secondary_mgr.get_active_missions(active_player)
+				if active_missions.size() > 0:
+					print("Main: Player %d has %d active secondary missions, showing discard dialog" % [active_player, active_missions.size()])
+					_show_mission_discard_dialog(active_missions, active_player)
+					return
 			action = {"type": "END_SCORING", "player": active_player}
 		GameStateData.Phase.MORALE:
 			action = {"type": "END_MORALE", "player": active_player}
@@ -6449,6 +6587,12 @@ func _on_phase_action_pressed() -> void:
 		if not NetworkManager.is_networked():
 			print("Main: Falling back to local phase advance")
 			PhaseManager.advance_to_next_phase()
+	else:
+		# Update button text after successful roll-off (no longer need to roll)
+		if current_phase == GameStateData.Phase.ROLL_OFF and action.get("type") == "ROLL_FOR_FIRST_TURN":
+			if not result.get("tied", false):
+				phase_action_button.text = "Start Game"
+				print("Main: Roll-off complete, button text updated to 'Start Game'")
 
 func update_ui_for_phase() -> void:
 	# Clear any phase-specific UI artifacts first
@@ -6549,6 +6693,18 @@ func update_ui_for_phase() -> void:
 			# Update button state based on deployment status
 			if GameState.all_units_deployed():
 				phase_action_button.disabled = false
+
+		GameStateData.Phase.SCOUT:
+			# Hide deployment zones during scout phase
+			p1_zone.visible = false
+			p2_zone.visible = false
+			# Hide movement action buttons
+			_show_movement_action_buttons(false)
+			# Show unit list for scout unit selection, show unit card for details
+			unit_list.visible = true
+			unit_card.visible = true
+			# End Scout Moves button always enabled (can skip remaining scouts)
+			phase_action_button.disabled = false
 
 		GameStateData.Phase.ROLL_OFF:
 			# Hide deployment zones during roll-off
@@ -6853,6 +7009,8 @@ func _on_fight_action_requested(action: Dictionary) -> void:
 				ToastManager.show_error("Consolidate rejected: %s" % error_msg)
 				# Re-request consolidate so player can try again
 				_re_request_fight_movement(action, "consolidate")
+			elif action_type == "SWEEPING_ADVANCE":
+				ToastManager.show_error("Sweeping Advance rejected: %s" % error_msg)
 			else:
 				ToastManager.show_error("Fight action failed: %s" % error_msg)
 	else:
@@ -6941,6 +7099,66 @@ func _on_end_command_confirmed(active_player: int) -> void:
 func _on_end_command_cancelled() -> void:
 	"""P3-94: Player cancelled ending command phase"""
 	print("Main: P3-94: Player cancelled end command phase, returning to command phase")
+
+func _show_mission_discard_dialog(active_missions: Array, active_player: int) -> void:
+	"""Show dialog offering to discard a secondary mission for CP before ending turn"""
+	# Skip dialog for AI players — AI never discards via this prompt
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(active_player):
+		print("Main: Skipping mission discard dialog for AI player %d" % active_player)
+		var action = {"type": "END_SCORING", "player": active_player}
+		NetworkIntegration.route_action(action)
+		return
+
+	var dialog_script = load("res://dialogs/MissionDiscardDialog.gd")
+	if not dialog_script:
+		push_error("Main: Failed to load MissionDiscardDialog.gd")
+		var action = {"type": "END_SCORING", "player": active_player}
+		NetworkIntegration.route_action(action)
+		return
+
+	var can_gain_cp = GameState.can_gain_bonus_cp(active_player)
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(active_missions, can_gain_cp)
+	dialog.mission_discard_requested.connect(_on_mission_discard_from_dialog.bind(active_player))
+	dialog.end_turn_without_discard.connect(_on_end_scoring_without_discard.bind(active_player))
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("Main: Mission discard dialog shown for player %d" % active_player)
+
+func _on_mission_discard_from_dialog(mission_index: int, active_player: int) -> void:
+	"""Player chose to discard a secondary mission from the end-turn dialog"""
+	print("Main: Player %d discarding mission index %d from dialog" % [active_player, mission_index])
+	var discard_action = {
+		"type": "DISCARD_SECONDARY",
+		"mission_index": mission_index,
+		"player": active_player,
+	}
+	var result = NetworkIntegration.route_action(discard_action)
+	if result.get("success", false):
+		print("Main: Mission discarded successfully, now ending scoring phase")
+	else:
+		print("Main: Mission discard failed: ", result.get("error", "Unknown error"))
+	# End the scoring phase after the discard
+	var end_action = {"type": "END_SCORING", "player": active_player}
+	var end_result = NetworkIntegration.route_action(end_action)
+	if not end_result.get("success", false):
+		print("Main: Failed to end scoring phase: ", end_result.get("error", "Unknown error"))
+		if not NetworkManager.is_networked():
+			print("Main: Falling back to local phase advance")
+			PhaseManager.advance_to_next_phase()
+
+func _on_end_scoring_without_discard(active_player: int) -> void:
+	"""Player chose to end turn without discarding any mission"""
+	print("Main: Player %d ending scoring phase without discarding" % active_player)
+	var action = {"type": "END_SCORING", "player": active_player}
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false):
+		print("Main: Failed to end scoring phase: ", result.get("error", "Unknown error"))
+		if not NetworkManager.is_networked():
+			print("Main: Falling back to local phase advance")
+			PhaseManager.advance_to_next_phase()
 
 func _show_deployment_summary_dialog(deployment_data: Dictionary, active_player: int) -> void:
 	"""T5-UX8: Show deployment summary dialog before ending deployment phase"""
@@ -7354,7 +7572,7 @@ func _setup_game_log_panel() -> void:
 	game_log_panel.anchor_top = 0.0
 	game_log_panel.anchor_bottom = 1.0
 	game_log_panel.offset_left = 0.0
-	game_log_panel.offset_right = 280.0
+	game_log_panel.offset_right = 340.0
 	game_log_panel.offset_top = 105.0
 	game_log_panel.offset_bottom = -305.0
 
@@ -7459,10 +7677,71 @@ func _append_log_entry(text: String, entry_type: String) -> void:
 			colored_text = "[color=#CC6666]%s[/color]" % text
 		"ai_thinking":
 			colored_text = "[i][color=#8899AA]  %s[/color][/i]" % text
+		"overwatch":
+			colored_text = "[b][color=#FF6600]%s[/color][/b]" % text
+		"combat_header":
+			# Card-style combat header: bold gold with top border
+			colored_text = "[color=#444444]────────────────────[/color]\n[b][color=#E8C477]%s[/color][/b]" % text
+		"combat_detail":
+			# Indented detail lines: smaller, muted color with dice highlighting
+			var styled = _style_combat_detail(text)
+			colored_text = "[color=#B0B8C0]%s[/color]" % styled
+		"combat_result":
+			# Result line: bold with color based on outcome
+			if "destroyed" in text and "No models" not in text:
+				colored_text = "[b][color=#FF6B6B]%s[/color][/b]" % text
+			else:
+				colored_text = "[b][color=#77CC77]%s[/color][/b]" % text
 		_:
 			colored_text = "[color=#AAAAAA]%s[/color]" % text
 
 	game_log_label.append_text(colored_text + "\n")
+
+func _style_combat_detail(text: String) -> String:
+	"""Apply inline styling to combat detail text — highlight dice rolls, thresholds, and keywords."""
+	var styled = text
+
+	# Highlight dice roll arrays [1, 3, 5, 6] in cyan
+	var dice_regex = RegEx.new()
+	dice_regex.compile("\\[([0-9, ]+)\\]")
+	var dice_results = dice_regex.search_all(styled)
+	# Process in reverse order to preserve positions
+	for i in range(dice_results.size() - 1, -1, -1):
+		var m = dice_results[i]
+		var full_match = m.get_string()
+		var inner = m.get_string(1)
+		# Color individual dice: 6s in gold, 1s in red, others in cyan
+		var dice_parts = inner.split(", ")
+		var colored_dice = []
+		for d in dice_parts:
+			var dval = d.strip_edges()
+			if dval == "6":
+				colored_dice.append("[color=#FFD700]6[/color]")
+			elif dval == "1":
+				colored_dice.append("[color=#FF4444]1[/color]")
+			else:
+				colored_dice.append("[color=#66CCEE]%s[/color]" % dval)
+		var replacement = "[color=#888888][[/color]%s[color=#888888]][/color]" % ", ".join(colored_dice)
+		styled = styled.substr(0, m.get_start()) + replacement + styled.substr(m.get_end())
+
+	# Highlight keywords in distinct colors
+	# DEVASTATING WOUNDS in red
+	styled = styled.replace("DEVASTATING WOUNDS", "[color=#FF4444]DEVASTATING WOUNDS[/color]")
+	styled = styled.replace("DEVASTATING", "[color=#FF4444]DEVASTATING[/color]")
+	# Lethal Hits in orange
+	styled = styled.replace("Lethal Hits", "[color=#FF8844]Lethal Hits[/color]")
+	# Sustained Hits in yellow
+	styled = styled.replace("Sustained Hits", "[color=#EEDD44]Sustained Hits[/color]")
+	# Feel No Pain in green
+	styled = styled.replace("Feel No Pain", "[color=#44CC88]Feel No Pain[/color]")
+	# Invulnerable Save in purple
+	styled = styled.replace("Invulnerable Save", "[color=#BB88FF]Invulnerable Save[/color]")
+	# Re-rolls in light blue
+	styled = styled.replace("Re-rolls:", "[color=#88BBFF]Re-rolls:[/color]")
+	# Torrent in orange
+	styled = styled.replace("Torrent", "[color=#FF8844]Torrent[/color]")
+
+	return styled
 
 func _on_game_log_collapse_pressed() -> void:
 	is_game_log_visible = false
@@ -7495,8 +7774,8 @@ func _setup_dice_history_panel() -> void:
 	_dice_history_panel.anchor_right = 0.0
 	_dice_history_panel.anchor_top = 0.0
 	_dice_history_panel.anchor_bottom = 1.0
-	_dice_history_panel.offset_left = 285.0
-	_dice_history_panel.offset_right = 565.0
+	_dice_history_panel.offset_left = 345.0
+	_dice_history_panel.offset_right = 625.0
 	_dice_history_panel.offset_top = 105.0
 	_dice_history_panel.offset_bottom = -305.0
 
@@ -8016,6 +8295,303 @@ func _refresh_tokens_for_unit(uid: String) -> void:
 				if model_node.has_method("queue_redraw"):
 					model_node.queue_redraw()
 
+
+# ============================================================================
+# Scout Phase - Model Dragging and UI
+# ============================================================================
+
+func _scout_find_model_at_position(world_pos: Vector2) -> Dictionary:
+	"""Find a model belonging to the active scout unit at the given world position."""
+	if not token_layer or _scout_active_unit_id == "":
+		return {}
+
+	var closest_model = {}
+	var closest_distance = INF
+
+	for child in token_layer.get_children():
+		if not child.has_meta("unit_id") or not child.has_meta("model_id"):
+			continue
+		if child.get_meta("unit_id") != _scout_active_unit_id:
+			continue
+
+		var model_id = child.get_meta("model_id")
+		var visual_pos = child.position
+		var distance = world_pos.distance_to(visual_pos)
+
+		var base_radius = 16.0
+		if child.has_meta("base_mm"):
+			base_radius = (child.get_meta("base_mm") / 2.0) / 25.4 * 40.0
+
+		if distance <= base_radius and distance < closest_distance:
+			closest_distance = distance
+			closest_model = {
+				"unit_id": _scout_active_unit_id,
+				"model_id": model_id,
+				"position": visual_pos,
+				"base_mm": child.get_meta("base_mm") if child.has_meta("base_mm") else 32
+			}
+
+	return closest_model
+
+func _scout_handle_mouse_press(screen_pos: Vector2) -> void:
+	"""Handle mouse press during scout phase - start dragging a model."""
+	# Check if click is on UI area
+	var ui_rect = get_viewport().get_visible_rect()
+	var right_hud_rect = Rect2(ui_rect.size.x - 400, 0, 400, ui_rect.size.y)
+	var bottom_hud_rect = Rect2(0, ui_rect.size.y - 100, ui_rect.size.x, 100)
+	if right_hud_rect.has_point(screen_pos) or bottom_hud_rect.has_point(screen_pos):
+		return
+
+	var world_pos = screen_to_world_position(screen_pos)
+	var model = _scout_find_model_at_position(world_pos)
+	if model.is_empty():
+		return
+
+	_scout_dragging_model = true
+	_scout_drag_model_id = model.model_id
+	_scout_drag_start_pos = model.position
+	print("Main: Scout drag started for model ", model.model_id, " at ", model.position)
+	get_viewport().set_input_as_handled()
+
+func _scout_handle_mouse_motion(screen_pos: Vector2) -> void:
+	"""Handle mouse motion during scout phase - update dragged model position."""
+	if not _scout_dragging_model:
+		return
+
+	var world_pos = screen_to_world_position(screen_pos)
+
+	# Move the visual token
+	if token_layer:
+		for child in token_layer.get_children():
+			if child.has_meta("unit_id") and child.get_meta("unit_id") == _scout_active_unit_id \
+			   and child.has_meta("model_id") and child.get_meta("model_id") == _scout_drag_model_id:
+				child.position = world_pos
+				break
+
+	# Update status with distance
+	var distance_px = _scout_drag_start_pos.distance_to(world_pos)
+	var distance_inches = distance_px / 40.0
+	status_label.text = "Scout: %.1f\" / %d\" moved" % [distance_inches, int(_scout_move_distance)]
+
+func _scout_handle_mouse_release(screen_pos: Vector2) -> void:
+	"""Handle mouse release during scout phase - commit model position."""
+	if not _scout_dragging_model:
+		return
+
+	var world_pos = screen_to_world_position(screen_pos)
+	_scout_dragging_model = false
+
+	# Send SET_SCOUT_MODEL_DEST action
+	var action = {
+		"type": "SET_SCOUT_MODEL_DEST",
+		"unit_id": _scout_active_unit_id,
+		"model_id": _scout_drag_model_id,
+		"destination": {"x": world_pos.x, "y": world_pos.y},
+		"player": GameState.get_active_player()
+	}
+
+	var result = NetworkIntegration.route_action(action)
+	if result.get("success", false):
+		print("Main: Scout model %s moved to %s" % [_scout_drag_model_id, str(world_pos)])
+		status_label.text = "Scout move: Model placed. Drag more models or Confirm/Skip."
+	else:
+		# Move visual token back to original position on failure
+		print("Main: Scout model move failed: ", result.get("errors", []))
+		status_label.text = "Invalid: " + str(result.get("errors", ["Move rejected"]))
+		if token_layer:
+			for child in token_layer.get_children():
+				if child.has_meta("unit_id") and child.get_meta("unit_id") == _scout_active_unit_id \
+				   and child.has_meta("model_id") and child.get_meta("model_id") == _scout_drag_model_id:
+					child.position = _scout_drag_start_pos
+					break
+
+	_scout_drag_model_id = ""
+	get_viewport().set_input_as_handled()
+
+func _setup_scout_unit_card_buttons(unit_id: String) -> void:
+	"""Configure the unit card buttons for scout move confirm/skip."""
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return
+
+	var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+	var scout_dist = GameState.get_scout_distance(unit_id)
+	unit_name_label.text = "%s [Scout %d\"]" % [unit_name, int(scout_dist)]
+	models_label.text = "Click and drag models to move (up to %d\")" % int(scout_dist)
+
+	# Configure buttons
+	confirm_button.visible = true
+	confirm_button.text = "Confirm Scout"
+	confirm_button.disabled = false
+
+	reset_button.visible = true
+	reset_button.text = "Skip Scout"
+	reset_button.disabled = false
+
+	undo_button.visible = false
+
+	# Disconnect any existing connections
+	if confirm_button.pressed.is_connected(_on_scout_confirm_pressed):
+		confirm_button.pressed.disconnect(_on_scout_confirm_pressed)
+	if reset_button.pressed.is_connected(_on_scout_skip_pressed):
+		reset_button.pressed.disconnect(_on_scout_skip_pressed)
+
+	# Connect to scout-specific handlers
+	confirm_button.pressed.connect(_on_scout_confirm_pressed)
+	reset_button.pressed.connect(_on_scout_skip_pressed)
+
+	unit_card.visible = true
+
+func _on_scout_confirm_pressed() -> void:
+	"""Confirm the scout move for the active unit."""
+	if _scout_active_unit_id == "":
+		return
+
+	var action = {
+		"type": "CONFIRM_SCOUT_MOVE",
+		"unit_id": _scout_active_unit_id,
+		"player": GameState.get_active_player()
+	}
+
+	var result = NetworkIntegration.route_action(action)
+	if result.get("success", false):
+		print("Main: Scout move confirmed for ", _scout_active_unit_id)
+		_scout_cleanup_after_move()
+		_recreate_unit_visuals()
+		refresh_unit_list()
+		status_label.text = "Scout move confirmed. Select next unit."
+	else:
+		print("Main: Scout confirm failed: ", result.get("errors", []))
+		status_label.text = "Error: " + str(result.get("errors", ["Confirm failed"]))
+
+func _on_scout_skip_pressed() -> void:
+	"""Skip the scout move for the active unit."""
+	if _scout_active_unit_id == "":
+		return
+
+	var action = {
+		"type": "SKIP_SCOUT_MOVE",
+		"unit_id": _scout_active_unit_id,
+		"player": GameState.get_active_player()
+	}
+
+	var result = NetworkIntegration.route_action(action)
+	if result.get("success", false):
+		print("Main: Scout move skipped for ", _scout_active_unit_id)
+		_scout_cleanup_after_move()
+		_recreate_unit_visuals()
+		refresh_unit_list()
+		status_label.text = "Scout move skipped. Select next unit."
+	else:
+		print("Main: Scout skip failed: ", result.get("errors", []))
+		status_label.text = "Error: " + str(result.get("errors", ["Skip failed"]))
+
+func _scout_cleanup_after_move() -> void:
+	"""Clean up scout state after a move is confirmed or skipped."""
+	# Disconnect button signals
+	if confirm_button.pressed.is_connected(_on_scout_confirm_pressed):
+		confirm_button.pressed.disconnect(_on_scout_confirm_pressed)
+	if reset_button.pressed.is_connected(_on_scout_skip_pressed):
+		reset_button.pressed.disconnect(_on_scout_skip_pressed)
+
+	# Clear visual highlights
+	_scout_clear_highlights()
+
+	_scout_active_unit_id = ""
+	_scout_dragging_model = false
+	_scout_drag_model_id = ""
+	_scout_move_distance = 0.0
+
+func _scout_reset_previous_unit(previous_unit_id: String) -> void:
+	"""Reset the previous scout unit's active move when selecting a different unit.
+	Restores any dragged models to their original positions and cleans up phase state."""
+	print("Main: Resetting previous scout unit: ", previous_unit_id)
+
+	# Restore any visually dragged models to their original positions
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if phase_instance and phase_instance.get("active_scout_moves"):
+		var active_moves = phase_instance.active_scout_moves
+		if active_moves.has(previous_unit_id):
+			var move_data = active_moves[previous_unit_id]
+			var original_positions = move_data.get("original_positions", {})
+			# Restore visual token positions
+			if token_layer:
+				for child in token_layer.get_children():
+					if child.has_meta("unit_id") and child.get_meta("unit_id") == previous_unit_id:
+						var model_id = child.get_meta("model_id") if child.has_meta("model_id") else ""
+						if original_positions.has(model_id):
+							var orig = original_positions[model_id]
+							child.position = Vector2(orig.x, orig.y)
+			# Remove the active move entry so BEGIN_SCOUT_MOVE can succeed again
+			active_moves.erase(previous_unit_id)
+
+	# Clean up UI state
+	_scout_clear_highlights()
+	_scout_dragging_model = false
+	_scout_drag_model_id = ""
+
+func _scout_highlight_active_unit(unit_id: String, scout_distance: float) -> void:
+	"""Highlight the active scout unit's models and show movement range circles."""
+	if not token_layer:
+		return
+
+	# Clear any existing scout highlights first
+	_scout_clear_highlights()
+
+	var range_px = scout_distance * 40.0  # PX_PER_INCH = 40.0
+
+	for child in token_layer.get_children():
+		if not child.has_meta("unit_id") or child.get_meta("unit_id") != unit_id:
+			continue
+
+		# Add a movement range circle around each model
+		var range_circle = _scout_create_range_circle(range_px)
+		range_circle.set_meta("scout_highlight", true)
+		child.add_child(range_circle)
+
+		# Add a subtle highlight/glow to the model
+		if child.has_method("set_modulate"):
+			child.set_meta("scout_original_modulate", child.modulate)
+			child.modulate = Color(1.2, 1.2, 1.0, 1.0)  # Slight yellow tint
+
+func _scout_create_range_circle(radius_px: float) -> Node2D:
+	"""Create a visual circle showing scout movement range using a Line2D."""
+	var container = Node2D.new()
+	container.set_meta("scout_highlight", true)
+	container.z_index = -1  # Draw behind models
+
+	# Create circle outline using Line2D
+	var line = Line2D.new()
+	line.width = 2.0
+	line.default_color = Color(0.3, 0.7, 1.0, 0.5)
+	line.set_meta("scout_highlight", true)
+
+	var point_count = 64
+	for i in range(point_count + 1):
+		var angle = (float(i) / point_count) * TAU
+		line.add_point(Vector2(cos(angle) * radius_px, sin(angle) * radius_px))
+
+	container.add_child(line)
+	return container
+
+func _scout_clear_highlights() -> void:
+	"""Remove all scout movement range highlights."""
+	if not token_layer:
+		return
+
+	for child in token_layer.get_children():
+		# Restore original modulate
+		if child.has_meta("scout_original_modulate"):
+			child.modulate = child.get_meta("scout_original_modulate")
+			child.remove_meta("scout_original_modulate")
+
+		# Remove range circle children
+		var to_remove = []
+		for subchild in child.get_children():
+			if subchild.has_meta("scout_highlight"):
+				to_remove.append(subchild)
+		for node in to_remove:
+			node.queue_free()
 
 # ============================================================================
 # P3-111: In-game Settings Menu (Escape key)

@@ -43,6 +43,7 @@ var dice_result_panel: PanelContainer
 var result_label: Label
 var outcome_label: RichTextLabel  # FIX: Changed from Label to RichTextLabel
 var continue_button: Button
+var defender_banner_label: RichTextLabel  # Shows which player should allocate wounds
 
 func _ready() -> void:
 	# CRITICAL: Log to both console AND push_warning so it's impossible to miss
@@ -236,6 +237,25 @@ func _build_ui() -> void:
 	main_vbox.add_theme_constant_override("separation", 8)
 	overlay_panel.add_child(main_vbox)
 
+	# Defender Banner - Shows which player should be allocating wounds
+	var defender_banner_panel = PanelContainer.new()
+	var banner_style = StyleBoxFlat.new()
+	banner_style.bg_color = Color(0.15, 0.05, 0.05, 0.9)
+	banner_style.set_border_width_all(2)
+	banner_style.border_color = WhiteDwarfTheme.WH_RED
+	banner_style.set_corner_radius_all(4)
+	defender_banner_panel.add_theme_stylebox_override("panel", banner_style)
+	main_vbox.add_child(defender_banner_panel)
+
+	defender_banner_label = RichTextLabel.new()
+	defender_banner_label.custom_minimum_size = Vector2(0, 30)
+	defender_banner_label.bbcode_enabled = true
+	defender_banner_label.fit_content = true
+	defender_banner_label.scroll_active = false
+	defender_banner_panel.add_child(defender_banner_label)
+
+	main_vbox.add_child(HSeparator.new())
+
 	# Header - Attack Info
 	var header_hbox = HBoxContainer.new()
 	main_vbox.add_child(header_hbox)
@@ -338,6 +358,7 @@ func _build_ui() -> void:
 	print("  - result_label: ", result_label)
 	print("  - outcome_label: ", outcome_label)
 	print("  - continue_button: ", continue_button)
+	print("  - defender_banner_label: ", defender_banner_label)
 	print("██████████████████████████████████████████████████████")
 
 func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
@@ -383,6 +404,10 @@ func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 	total_wounds = save_data.get("wounds_to_save", 0)
 	current_wound_index = 0
 	allocation_history.clear()
+
+	# Set defender banner text - the defending player chooses wound allocation per 10e rules
+	if defender_banner_label:
+		defender_banner_label.text = "[center][b][color=red]PLAYER %d — DEFENDER'S CHOICE[/color][/b]\n[color=white]The defending player allocates wounds to their models[/color][/center]" % defender_player
 
 	# PRECISION (T3-4): Initialize precision state
 	has_precision = save_data.get("has_precision", false)
@@ -529,19 +554,20 @@ func _update_ui_for_current_wound() -> void:
 
 	save_info_label.text = save_text
 
-	# Instructions
+	# Instructions — the defending player (unit owner) chooses wound allocation per 10e rules
 	var wounded_models = _get_wounded_models()
+	var player_tag = "[color=yellow]Player %d[/color]" % defender_player
 	# PRECISION (T3-4): Show precision targeting instructions
 	if _is_precision_wound_active():
 		var char_wounded = _get_wounded_character_models()
 		if not char_wounded.is_empty():
-			instruction_label.text = "[center][b]PRECISION — TARGET CHARACTER[/b]\n[color=orange]Wounded CHARACTER must be selected![/color]\nClick on the [color=orange][b]ORANGE[/b][/color] highlighted CHARACTER model[/center]"
+			instruction_label.text = "[center][b]PRECISION — TARGET CHARACTER[/b]\n[color=orange]Wounded CHARACTER must be selected![/color]\n%s: Click on the [color=orange][b]ORANGE[/b][/color] highlighted CHARACTER model[/center]" % player_tag
 		else:
-			instruction_label.text = "[center][b]PRECISION — Can target CHARACTER[/b]\n[color=orange]Select a CHARACTER ([b]ORANGE[/b]) or bodyguard model[/color]\n(%d precision wounds remaining)[/center]" % precision_wounds_remaining
+			instruction_label.text = "[center][b]PRECISION — Can target CHARACTER[/b]\n%s: [color=orange]Select a CHARACTER ([b]ORANGE[/b]) or bodyguard model[/color]\n(%d precision wounds remaining)[/center]" % [player_tag, precision_wounds_remaining]
 	elif not wounded_models.is_empty():
-		instruction_label.text = "[center][b]⚠ PRIORITY TARGET ⚠[/b]\n[color=red]Must select wounded model first![/color]\nClick on the [color=red][b]RED PULSING[/b][/color] model on the board[/center]"
+		instruction_label.text = "[center][b]⚠ PRIORITY TARGET ⚠[/b]\n[color=red]Must select wounded model first![/color]\n%s: Click on the [color=red][b]RED PULSING[/b][/color] model on the board[/center]" % player_tag
 	else:
-		instruction_label.text = "[center][b]Click on a model to allocate this wound[/b]\nClick any [color=green][b]GREEN[/b][/color] highlighted model on the board[/center]"
+		instruction_label.text = "[center][b]%s: Click on a model to allocate this wound[/b]\nClick any [color=green][b]GREEN[/b][/color] highlighted model on the board[/center]" % player_tag
 
 	# Hide dice result
 	dice_result_panel.visible = false

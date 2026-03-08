@@ -54,6 +54,11 @@ text = "Player 1 (Defender)"
 layout_mode = 2
 text = "Select a unit to deploy"
 
+[node name="AutoDeclineOverwatch" type="CheckButton" parent="HUD_Bottom/HBoxContainer"]
+layout_mode = 2
+tooltip_text = "Auto-decline all Fire Overwatch opportunities"
+text = "Auto-Decline Overwatch"
+
 [node name="PhaseActionButton" type="Button" parent="HUD_Bottom/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 10

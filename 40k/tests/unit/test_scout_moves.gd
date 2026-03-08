@@ -213,11 +213,11 @@ func test_get_scout_units_for_player_excludes_reserves():
 # ==========================================
 
 func test_scout_phase_exists_in_enum():
-	"""SCOUT should exist in the Phase enum between DEPLOYMENT and COMMAND."""
+	"""SCOUT should exist in the Phase enum between ROLL_OFF and COMMAND."""
 	var scout_value = GameStateData.Phase.SCOUT
-	var deployment_value = GameStateData.Phase.DEPLOYMENT
+	var roll_off_value = GameStateData.Phase.ROLL_OFF
 	var command_value = GameStateData.Phase.COMMAND
-	assert_true(scout_value > deployment_value, "SCOUT should be after DEPLOYMENT")
+	assert_true(scout_value > roll_off_value, "SCOUT should be after ROLL_OFF")
 	assert_true(scout_value < command_value, "SCOUT should be before COMMAND")
 
 # ==========================================

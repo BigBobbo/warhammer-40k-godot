@@ -723,9 +723,28 @@ func begin_unit_movement(unit_id: String) -> void:
 		print("MovementController: Movement initiated for unit %s with mode %s" % [unit_id, active_mode])
 
 func _highlight_unit_models(unit_id: String) -> void:
-	# Visual feedback for selected unit
-	# This would highlight all models in the unit on the board
-	pass
+	# Clear any existing unit highlight first
+	_clear_unit_highlight()
+
+	# Set all token visuals for this unit as selected (triggers pulsing gold ring)
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		return
+
+	for child in token_layer.get_children():
+		if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id:
+			if child.has_method("set_selected"):
+				child.set_selected(true)
+
+func _clear_unit_highlight() -> void:
+	# Clear selection highlight from all token visuals
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		return
+
+	for child in token_layer.get_children():
+		if child.has_method("set_selected"):
+			child.set_selected(false)
 
 func _get_unit_movement_status(unit_id: String) -> String:
 	if not current_phase or not current_phase.active_moves:
@@ -818,6 +837,7 @@ func _on_remain_stationary_pressed() -> void:
 
 	# Mark as completed immediately (no dragging needed)
 	# Clear active unit since this unit is done
+	_clear_unit_highlight()
 	active_unit_id = ""
 	call_deferred("_update_selected_unit_display")
 
@@ -1097,6 +1117,7 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 	_show_confirmed_movement_paths(unit_id)
 
 	# Clear movement state
+	_clear_unit_highlight()
 	active_unit_id = ""
 	active_mode = ""
 	move_cap_inches = 0.0
@@ -1899,6 +1920,7 @@ func _on_disembark_canceled(unit_id: String) -> void:
 	print("MovementController: Disembark canceled for unit %s" % unit_id)
 
 	# Clear selection
+	_clear_unit_highlight()
 	active_unit_id = ""
 	_update_selected_unit_display()
 
@@ -3663,6 +3685,13 @@ func _on_overwatch_opportunity(moved_unit_id: String, defending_player: int, eli
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	if ai_player and ai_player.is_ai_player(defending_player):
 		print("MovementController: Defending player %d is AI — skipping overwatch dialog" % defending_player)
+		return
+
+	# Auto-decline if the player has toggled auto-decline overwatch
+	var auto_decline_btn = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch")
+	if auto_decline_btn and auto_decline_btn.button_pressed:
+		print("MovementController: Auto-declining Fire Overwatch for player %d (toggle enabled)" % defending_player)
+		_on_fire_overwatch_declined(defending_player)
 		return
 
 	if eligible_units.is_empty():

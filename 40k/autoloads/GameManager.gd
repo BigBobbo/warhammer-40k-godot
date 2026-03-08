@@ -230,6 +230,33 @@ func _get_pos_xy(pos) -> Dictionary:
 		push_error("GameManager: Unexpected position type: %s" % typeof(pos))
 		return {"x": 0.0, "y": 0.0}
 
+func _find_non_overlapping_adjacent_position(ref_pos: Vector2, char_radius_px: float, occupied_positions: Array) -> Vector2:
+	"""Find a position adjacent to ref_pos that doesn't overlap with any occupied positions.
+	Uses spiral search around the reference position."""
+	var min_gap_px = 4.0  # Minimum gap between bases
+	# Try positions around the reference in a spiral pattern
+	for ring in range(1, 15):
+		var ring_radius = (char_radius_px + 30.0) * ring  # Step outward from ref
+		var points_in_ring = maxi(8, ring * 8)
+		for p_idx in range(points_in_ring):
+			var angle = (2.0 * PI * p_idx) / points_in_ring
+			var candidate = Vector2(
+				ref_pos.x + cos(angle) * ring_radius,
+				ref_pos.y + sin(angle) * ring_radius
+			)
+			# Check if candidate overlaps any occupied position
+			var overlaps = false
+			for occ in occupied_positions:
+				var min_dist = char_radius_px + occ.radius_px + min_gap_px
+				if candidate.distance_to(occ.position) < min_dist:
+					overlaps = true
+					break
+			if not overlaps:
+				return candidate
+	# Fallback: return offset position (shouldn't normally reach here)
+	print("GameManager: WARNING — could not find non-overlapping position for character, using fallback")
+	return Vector2(ref_pos.x + char_radius_px * 3.0, ref_pos.y + char_radius_px * 3.0)
+
 func process_deploy_unit(action: Dictionary) -> Dictionary:
 	var unit_id = action["unit_id"]
 	var model_positions = action.get("model_positions", [])
@@ -302,6 +329,37 @@ func process_deploy_unit(action: Dictionary) -> Dictionary:
 	var attached_char_ids = unit_data.get("attachment_data", {}).get("attached_characters", [])
 	if attached_char_ids.size() > 0:
 		print("GameManager: P1-66 auto-deploying %d attached character(s) with bodyguard %s" % [attached_char_ids.size(), unit_id])
+		# Build list of all occupied positions (bodyguard models being deployed + already deployed models)
+		var occupied_positions: Array = []  # Array of {position: Vector2, radius_px: float}
+		for pos in model_positions:
+			if pos != null:
+				var xy = _get_pos_xy(pos)
+				var bg_base_mm = unit_data.get("models", [{}])[0].get("base_mm", 32)
+				occupied_positions.append({
+					"position": Vector2(float(xy["x"]), float(xy["y"])),
+					"radius_px": Measurement.base_radius_px(bg_base_mm)
+				})
+		# Add all other deployed models from game state
+		for other_id in GameState.state.units:
+			if other_id == unit_id:
+				continue
+			var other_unit = GameState.state.units[other_id]
+			if other_unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+				continue
+			for other_model in other_unit.get("models", []):
+				if not other_model.get("alive", true):
+					continue
+				var other_pos = other_model.get("position", null)
+				if other_pos != null:
+					var op: Vector2
+					if other_pos is Vector2:
+						op = other_pos
+					else:
+						op = Vector2(float(other_pos.get("x", 0)), float(other_pos.get("y", 0)))
+					occupied_positions.append({
+						"position": op,
+						"radius_px": Measurement.base_radius_px(other_model.get("base_mm", 32))
+					})
 		var ref_pos = null
 		if model_positions.size() > 0 and model_positions[0] != null:
 			ref_pos = _get_pos_xy(model_positions[0])
@@ -317,12 +375,20 @@ func process_deploy_unit(action: Dictionary) -> Dictionary:
 			for ci in range(char_models.size()):
 				if ref_pos != null:
 					var char_base_mm = char_models[ci].get("base_mm", 40)
-					var bg_base_mm = unit_data.get("models", [{}])[0].get("base_mm", 32)
-					var offset_px = Measurement.base_radius_px(char_base_mm) + Measurement.base_radius_px(bg_base_mm) + 2
+					var char_radius_px = Measurement.base_radius_px(char_base_mm)
+					var char_pos = _find_non_overlapping_adjacent_position(
+						Vector2(float(ref_pos["x"]), float(ref_pos["y"])),
+						char_radius_px, occupied_positions
+					)
 					diffs.append({
 						"op": "set",
 						"path": "units.%s.models.%d.position" % [char_id, ci],
-						"value": {"x": ref_pos["x"] + offset_px, "y": ref_pos["y"]}
+						"value": {"x": char_pos.x, "y": char_pos.y}
+					})
+					# Add this character model to occupied positions for subsequent characters
+					occupied_positions.append({
+						"position": char_pos,
+						"radius_px": char_radius_px
 					})
 			diffs.append({
 				"op": "set",

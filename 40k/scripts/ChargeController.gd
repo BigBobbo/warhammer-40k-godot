@@ -31,6 +31,14 @@ var movement_lines: Dictionary = {}  # model_id -> Line2D for movement path
 var confirm_button: Button = null  # Button to confirm charge moves
 var charge_direction_visual: Node2D = null  # P3-99: Live direction validation feedback
 
+# Base-to-base snap state
+var snap_active: bool = false  # Whether snap is currently engaged
+var snap_position: Vector2 = Vector2.ZERO  # The snapped base-to-base position
+var snap_target_model_id: String = ""  # Which enemy model we're snapped to
+const SNAP_ZONE_INCHES: float = 1.5  # How close (beyond base contact) to trigger snap
+const SNAP_BREAK_INCHES: float = 2.0  # How far to drag away from snap point to break out
+var target_engagement_visuals: Array = []  # Engagement range circles around charge targets
+
 # UI References
 var board_view: Node2D
 var charge_line_visual: Line2D
@@ -963,7 +971,10 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 			print("DEBUG: Added model ", model_id, " to models_to_move")
 	
 	print("Models to move: ", models_to_move)
-	
+
+	# Show engagement range circles around charge target models
+	_show_target_engagement_visuals(unit_id)
+
 	# Add confirm button if not already present
 	if not confirm_button:
 		_add_confirm_button()
@@ -993,6 +1004,52 @@ func _clear_movement_visuals() -> void:
 	if charge_direction_visual and is_instance_valid(charge_direction_visual):
 		charge_direction_visual.queue_free()
 		charge_direction_visual = null
+
+	# Clear target engagement range visuals
+	_clear_target_engagement_visuals()
+
+func _show_target_engagement_visuals(unit_id: String) -> void:
+	# Show engagement range circles around all charge target models
+	_clear_target_engagement_visuals()
+
+	var charge_targets = selected_targets
+	if charge_targets.is_empty() and current_phase:
+		charge_targets = _get_charge_targets_from_phase(unit_id)
+
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	if not board_root:
+		return
+
+	for target_id in charge_targets:
+		var target_unit = GameState.get_unit(target_id)
+		if target_unit.is_empty():
+			continue
+
+		for target_model in target_unit.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+
+			var target_pos = _get_model_position(target_model)
+			if target_pos == null or target_pos == Vector2.ZERO:
+				continue
+
+			# Create an engagement range visual around this target model
+			var er_visual = preload("res://scripts/EngagementRangeVisual.gd").new()
+			var base_mm = target_model.get("base_mm", 32)
+			var base_radius_px = Measurement.base_radius_px(base_mm)
+			var er_px = Measurement.inches_to_px(1.0)  # 1" engagement range
+			er_visual.setup_engagement_range(base_radius_px + er_px, Color(1.0, 0.5, 0.0, 0.5))
+			er_visual.position = target_pos
+			board_root.add_child(er_visual)
+			target_engagement_visuals.append(er_visual)
+
+	print("DEBUG: Created ", target_engagement_visuals.size(), " engagement range visuals around charge targets")
+
+func _clear_target_engagement_visuals() -> void:
+	for visual in target_engagement_visuals:
+		if is_instance_valid(visual):
+			visual.queue_free()
+	target_engagement_visuals.clear()
 
 func _add_confirm_button() -> void:
 	# Add confirm button to right panel instead of top bar
@@ -1073,6 +1130,11 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 	var model_id = model.get("id", "")
 	print("Starting drag for model ", model_id)
 
+	# Reset snap state for new drag
+	snap_active = false
+	snap_position = Vector2.ZERO
+	snap_target_model_id = ""
+
 	# DEBUG: Verify model data completeness
 	print("DEBUG: Model Dictionary keys: ", model.keys())
 	print("DEBUG: Model base_type: ", model.get("base_type", "NOT SET"))
@@ -1132,24 +1194,47 @@ func _update_model_drag(world_pos: Vector2) -> void:
 		return
 
 	var model_id = dragging_model.get("id", "")
+	var effective_pos = world_pos  # Position that may be adjusted by snap
 
-	# TEMPORARY: Don't move the actual token during drag to prevent disappearing
-	# Just update the ghost visual instead
+	# Base-to-base snap: check if cursor is close enough to snap to a target
+	if snap_active:
+		# Check if we should break out of snap
+		var break_distance_px = Measurement.inches_to_px(SNAP_BREAK_INCHES)
+		if world_pos.distance_to(snap_position) > break_distance_px:
+			snap_active = false
+			snap_target_model_id = ""
+			print("DEBUG: Snap broken - cursor moved too far from snap point")
+		else:
+			effective_pos = snap_position  # Stay snapped
+
+	if not snap_active:
+		# Try to engage snap
+		var snap_result = _calculate_snap_to_base_contact(dragging_model, world_pos)
+		if snap_result.get("snap", false):
+			snap_active = true
+			snap_position = snap_result["position"]
+			snap_target_model_id = snap_result.get("target_model_id", "")
+			effective_pos = snap_position
+			print("DEBUG: Snapped to base contact with target model ", snap_target_model_id)
+
+	# Update ghost visual position (uses snapped position when active)
 	if ghost_visual:
-		ghost_visual.position = world_pos
+		ghost_visual.position = effective_pos
 
 	# Update movement line
 	if model_id in movement_lines:
 		var line = movement_lines[model_id]
 		if line.get_point_count() > 1:
-			line.set_point_position(1, world_pos)
+			line.set_point_position(1, effective_pos)
 
 	# Check if position is valid (within charge distance and rules)
-	var is_valid = _validate_charge_position(dragging_model, world_pos)
+	var is_valid = _validate_charge_position(dragging_model, effective_pos)
 
-	# Update ghost visual color based on validity
+	# Update ghost visual color based on validity and snap state
 	if ghost_visual:
-		if is_valid:
+		if snap_active:
+			ghost_visual.modulate = Color(0, 0.8, 1.0, 0.8)  # Cyan for snapped to base contact
+		elif is_valid:
 			ghost_visual.modulate = Color(0, 1, 0, 0.7)  # Green for valid
 		else:
 			ghost_visual.modulate = Color(1, 0, 0, 0.7)  # Red for invalid
@@ -1157,9 +1242,9 @@ func _update_model_drag(world_pos: Vector2) -> void:
 	# Calculate distance moved for display (including terrain penalty - T2-8)
 	var original_pos = dragging_model.get("original_position")
 	if original_pos:
-		var distance_moved_px = original_pos.distance_to(world_pos)
+		var distance_moved_px = original_pos.distance_to(effective_pos)
 		var distance_moved_inches = Measurement.px_to_inches(distance_moved_px)
-		var terrain_penalty = _calculate_terrain_penalty_for_path(original_pos, world_pos)
+		var terrain_penalty = _calculate_terrain_penalty_for_path(original_pos, effective_pos)
 		var effective_distance = distance_moved_inches + terrain_penalty
 
 		# P3-98: Update distance display with preview (show effective distance including terrain breakdown)
@@ -1171,44 +1256,55 @@ func _update_model_drag(world_pos: Vector2) -> void:
 			if charge_targets.is_empty() and current_phase:
 				charge_targets = _get_charge_targets_from_phase(active_unit_id)
 			if not charge_targets.is_empty():
-				charge_direction_visual.update_direction(world_pos, original_pos, charge_targets)
+				charge_direction_visual.update_direction(effective_pos, original_pos, charge_targets)
 
 func _end_model_drag(world_pos: Vector2) -> void:
 	if not dragging_model:
 		return
-	
+
 	var model_id = dragging_model.get("id", "")
-	
+
+	# Use snapped position if snap is active
+	var final_pos = world_pos
+	if snap_active:
+		final_pos = snap_position
+		print("DEBUG: Using snapped position for model ", model_id, " at ", final_pos)
+
+	# Reset snap state
+	snap_active = false
+	snap_position = Vector2.ZERO
+	snap_target_model_id = ""
+
 	# Validate final position
-	if _validate_charge_position(dragging_model, world_pos):
+	if _validate_charge_position(dragging_model, final_pos):
 		print("Model ", model_id, " moved to valid position")
 		
 		# Calculate and store distance moved
 		var start_pos = _get_model_position(dragging_model)
 		if start_pos:
-			var distance_moved_px = start_pos.distance_to(world_pos)
+			var distance_moved_px = start_pos.distance_to(final_pos)
 			var distance_moved_inches = Measurement.px_to_inches(distance_moved_px)
 			# P3-98: Include terrain penalty in final distance display
-			var terrain_penalty = _calculate_terrain_penalty_for_path(start_pos, world_pos)
+			var terrain_penalty = _calculate_terrain_penalty_for_path(start_pos, final_pos)
 
 			# Update distance display for this model (with terrain breakdown)
 			_update_charge_distance_display(model_id, distance_moved_inches, terrain_penalty)
-		
+
 		# Store the new position AND rotation
 		moved_models[model_id] = {
-			"position": world_pos,
+			"position": final_pos,
 			"rotation": dragging_model.get("rotation", 0.0)
 		}
 
 		# IMPORTANT: Update GameState FIRST with position and rotation
 		# This ensures GameState has the correct data before we update visuals
 		print("DEBUG: Updating GameState position and rotation FIRST")
-		_update_model_position_in_gamestate(active_unit_id, model_id, world_pos)
+		_update_model_position_in_gamestate(active_unit_id, model_id, final_pos)
 
 		# NOW update the visual token (after GameState has been updated)
 		print("DEBUG: Moving token visual after GameState update")
 		var model_rotation = dragging_model.get("rotation", 0.0)
-		_move_token_visual(active_unit_id, model_id, world_pos, model_rotation)
+		_move_token_visual(active_unit_id, model_id, final_pos, model_rotation)
 		
 		# Remove from models to move
 		models_to_move.erase(model_id)
@@ -1379,6 +1475,141 @@ func _update_model_position_in_gamestate(unit_id: String, model_id: String, new_
 			return
 
 	print("ERROR: Could not find model ", model_id, " in unit ", unit_id)
+
+func _calculate_snap_to_base_contact(model: Dictionary, cursor_pos: Vector2) -> Dictionary:
+	# Calculate if the cursor is close enough to snap to base-to-base contact with a target model.
+	# Returns {"snap": true, "position": Vector2, "target_model_id": String} or {"snap": false}
+
+	var charge_targets = selected_targets
+	if charge_targets.is_empty() and current_phase:
+		charge_targets = _get_charge_targets_from_phase(active_unit_id)
+	if charge_targets.is_empty():
+		return {"snap": false}
+
+	var model_shape = Measurement.create_base_shape(model)
+	var model_rotation = model.get("rotation", 0.0)
+	var model_id = model.get("id", "")
+
+	var best_snap = {"snap": false}
+	var best_distance = INF
+
+	for target_id in charge_targets:
+		var target_unit = GameState.get_unit(target_id)
+		if target_unit.is_empty():
+			continue
+
+		for target_model in target_unit.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+
+			var target_pos = _get_model_position(target_model)
+			if target_pos == null or target_pos == Vector2.ZERO:
+				continue
+
+			var target_model_id_str = target_model.get("id", "")
+
+			# Calculate the edge-to-edge distance if we placed our model at cursor_pos
+			var test_model = model.duplicate()
+			test_model["position"] = cursor_pos
+			var edge_distance_px = Measurement.model_to_model_distance_px(test_model, target_model)
+			var edge_distance_inches = Measurement.px_to_inches(edge_distance_px)
+
+			# If cursor is already overlapping the target or within snap zone, trigger snap
+			if edge_distance_inches <= SNAP_ZONE_INCHES:
+				# Calculate the snap position: place our model's base touching the target's base
+				# Direction from target center to cursor position
+				var direction = (cursor_pos - target_pos).normalized()
+				if direction == Vector2.ZERO:
+					direction = Vector2.RIGHT  # Default direction if exactly on top
+
+				# Use shape-aware edge point calculation to find exact contact point
+				var target_shape = Measurement.create_base_shape(target_model)
+				var target_rotation = target_model.get("rotation", 0.0)
+
+				# Find the closest edge point on the target model's base in the direction of the cursor
+				var target_edge = target_shape.get_closest_edge_point(cursor_pos, target_pos, target_rotation)
+
+				# Find how far from the target edge point our model's center needs to be
+				# We need to place our model so its edge touches the target edge
+				# To do this: place our center along the direction, then check/adjust
+				var approx_snap_pos = target_edge + direction * _get_model_half_size(model)
+
+				# Refine: iteratively find exact base contact position
+				var snap_pos = _refine_snap_position(model, target_model, approx_snap_pos, target_pos, direction)
+
+				# Check if this snap position is within charge movement range
+				var original_pos = model.get("original_position")
+				if original_pos:
+					var snap_distance_px = original_pos.distance_to(snap_pos)
+					var snap_distance_inches = Measurement.px_to_inches(snap_distance_px)
+					var terrain_penalty = _calculate_terrain_penalty_for_path(original_pos, snap_pos)
+					if snap_distance_inches + terrain_penalty > charge_distance:
+						continue  # Can't reach this snap point within charge distance
+
+				# Check if snap position would overlap with friendly models
+				var would_overlap = _check_position_would_overlap(model, snap_pos)
+				if would_overlap:
+					continue  # Can't snap here, would overlap
+
+				# Track the closest snap candidate
+				var cursor_to_snap = cursor_pos.distance_to(snap_pos)
+				if cursor_to_snap < best_distance:
+					best_distance = cursor_to_snap
+					best_snap = {
+						"snap": true,
+						"position": snap_pos,
+						"target_model_id": target_model_id_str
+					}
+
+	return best_snap
+
+func _get_model_half_size(model: Dictionary) -> float:
+	# Get approximate half-size of a model base in pixels (for snap positioning)
+	var base_type = model.get("base_type", "circular")
+	var base_mm = model.get("base_mm", 32)
+	if base_type == "circular":
+		return Measurement.base_radius_px(base_mm)
+	else:
+		# For non-circular bases, use the average of dimensions
+		var dims = model.get("base_dimensions", {})
+		var length_mm = dims.get("length", base_mm)
+		var width_mm = dims.get("width", base_mm * 0.6)
+		return Measurement.mm_to_px((length_mm + width_mm) / 4.0)
+
+func _refine_snap_position(model: Dictionary, target_model: Dictionary, initial_pos: Vector2, target_pos: Vector2, direction: Vector2) -> Vector2:
+	# Iteratively refine the snap position so the model base exactly touches the target base.
+	# Direction points from target center toward where we want to place our model.
+	# We binary-search along the direction to find the exact contact point.
+	var test = model.duplicate()
+
+	# Start with a position far enough to definitely not overlap, and one close enough to overlap
+	var far_pos = initial_pos
+	var near_pos = target_pos  # Definitely overlapping (same center)
+
+	# First verify far_pos is actually not overlapping; if it is, push it out more
+	test["position"] = far_pos
+	var far_dist = Measurement.model_to_model_distance_px(test, target_model)
+	if far_dist <= 0:
+		far_pos = target_pos + direction * (target_pos.distance_to(initial_pos) + Measurement.inches_to_px(2.0))
+
+	# Binary search: find position where edge distance is ~0
+	for i in range(16):
+		var mid_pos = (far_pos + near_pos) * 0.5
+		test["position"] = mid_pos
+		var edge_dist = Measurement.model_to_model_distance_px(test, target_model)
+
+		if abs(edge_dist) < 0.5:  # Sub-pixel accuracy
+			return mid_pos
+
+		if edge_dist > 0:
+			# Still separated, move closer (toward near_pos)
+			far_pos = mid_pos
+		else:
+			# Overlapping, move away (toward far_pos)
+			near_pos = mid_pos
+
+	# Return the midpoint of our final range (should be very close to contact)
+	return (far_pos + near_pos) * 0.5
 
 func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 	# Check 1: Movement distance (including terrain penalty - T2-8)
@@ -1906,7 +2137,7 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 	# Phase says charge is still pending → roll was sufficient, enable movement
 	awaiting_movement = true
 	if is_instance_valid(charge_info_label):
-		charge_info_label.text = "Success! Rolled %d\" - Click models to move them into engagement (max %d\" each)" % [distance, distance]
+		charge_info_label.text = "Success! Rolled %d\" - Drag models toward targets - they auto-snap to base contact (max %d\" each)" % [distance, distance]
 	if is_instance_valid(dice_log_display):
 		dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
 	# T7-58: Update arrows with success result (roll sufficient)
@@ -2018,7 +2249,7 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if success:
 		awaiting_movement = true
 		if is_instance_valid(charge_info_label):
-			charge_info_label.text = "Success! Rolled %d\" - Click models to move them into engagement (max %d\" each)" % [total, total]
+			charge_info_label.text = "Success! Rolled %d\" - Drag models toward targets - they auto-snap to base contact (max %d\" each)" % [total, total]
 		if is_instance_valid(dice_log_display):
 			dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
 
@@ -2511,6 +2742,13 @@ func _on_overwatch_opportunity(charging_unit_id: String, defending_player: int, 
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	if ai_player and ai_player.is_ai_player(defending_player):
 		print("ChargeController: Defending player %d is AI — skipping overwatch dialog" % defending_player)
+		return
+
+	# Auto-decline if the player has toggled auto-decline overwatch
+	var auto_decline_btn = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch")
+	if auto_decline_btn and auto_decline_btn.button_pressed:
+		print("ChargeController: Auto-declining Fire Overwatch for player %d (toggle enabled)" % defending_player)
+		_on_fire_overwatch_declined(defending_player)
 		return
 
 	if eligible_units.is_empty():

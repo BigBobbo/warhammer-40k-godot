@@ -4,7 +4,7 @@ class_name GameStateData
 # Modular Game State for Warhammer 40k
 # This class represents the complete game state that can be serialized and passed between phases
 
-enum Phase { FORMATIONS, DEPLOYMENT, REDEPLOYMENT, SCOUT, ROLL_OFF, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
+enum Phase { FORMATIONS, DEPLOYMENT, REDEPLOYMENT, ROLL_OFF, SCOUT, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
 enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT, IN_RESERVES }
 
 # The complete game state as a dictionary
@@ -215,11 +215,26 @@ func get_faction_name(player: int) -> String:
 func get_turn_number() -> int:
 	return state["meta"]["turn_number"]
 
-func get_units_for_player(player: int) -> Dictionary:
+func is_unit_destroyed(unit_id: String) -> bool:
+	"""Check if a unit has been fully destroyed (all models dead)."""
+	var unit = state["units"].get(unit_id, {})
+	if unit.is_empty():
+		return true
+	var models = unit.get("models", [])
+	if models.is_empty():
+		return true
+	for model in models:
+		if model.get("alive", true):
+			return false
+	return true
+
+func get_units_for_player(player: int, include_destroyed: bool = false) -> Dictionary:
 	var player_units = {}
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]
 		if unit["owner"] == player:
+			if not include_destroyed and is_unit_destroyed(unit_id):
+				continue
 			player_units[unit_id] = unit
 	return player_units
 
@@ -342,10 +357,14 @@ func get_eligible_bodyguards_for_character(character_id: String) -> Array:
 		# Bodyguard must not be a CHARACTER
 		if "CHARACTER" in keywords:
 			continue
-		# Must have a matching keyword
+		# Must have a matching keyword (case-insensitive to handle inconsistent casing
+		# between can_lead values and unit keywords across army list files)
 		var has_match = false
+		var upper_keywords = []
+		for kw in keywords:
+			upper_keywords.append(str(kw).to_upper())
 		for lead_kw in can_lead:
-			if lead_kw in keywords:
+			if str(lead_kw).to_upper() in upper_keywords:
 				has_match = true
 				break
 		if has_match:

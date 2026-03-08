@@ -103,10 +103,13 @@ func _draw_coherency_line(border_color: Color) -> void:
 	if nearest_model_world_pos == null:
 		return
 
-	# Convert parent-space target to local-space for drawing
-	# Both nearest_model_world_pos and position are in BoardRoot local space,
-	# so use position (not global_position which includes BoardRoot's zoom/pan transform)
-	var local_target: Vector2 = nearest_model_world_pos - position
+	# Convert BoardRoot-space target to local-space for drawing.
+	# This node may be a child of a container (e.g. ghost_visual) that is positioned
+	# at the drag location, so we must account for the full parent chain position.
+	var board_pos: Vector2 = position
+	if get_parent():
+		board_pos = get_parent().position + position
+	var local_target: Vector2 = nearest_model_world_pos - board_pos
 
 	# Determine line color based on coherency (2" threshold)
 	var line_color: Color
@@ -137,14 +140,19 @@ func _draw_coherency_line(border_color: Color) -> void:
 
 func _draw_all_coherency_lines() -> void:
 	"""P3-116: Draw dashed lines from ghost to all unit models, colored by coherency status."""
+	# Calculate our position in BoardRoot space once (accounts for parent container offset)
+	var board_pos: Vector2 = position
+	if get_parent():
+		board_pos = get_parent().position + position
+
 	for line_data in coherency_lines_data:
 		var world_pos: Vector2 = line_data.get("world_pos", Vector2.ZERO)
 		var in_coherency: bool = line_data.get("in_coherency", false)
 
-		# Convert parent-space target to local-space for drawing
-		# Both world_pos and position are in BoardRoot local space,
-		# so use position (not global_position which includes BoardRoot's zoom/pan transform)
-		var local_target: Vector2 = world_pos - position
+		# Convert BoardRoot-space target to local-space for drawing.
+		# This node may be a child of a container (e.g. ghost_visual) that is positioned
+		# at the drag location, so we must account for the parent's position.
+		var local_target: Vector2 = world_pos - board_pos
 
 		var line_color: Color
 		if in_coherency:

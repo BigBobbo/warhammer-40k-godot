@@ -1365,6 +1365,19 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 		else:
 			print("NetworkManager: ⚠️ Phase doesn't support consolidate_required or missing unit_id")
 
+	# Handle sweeping_advance_available signal (after END_FIGHT)
+	if result.get("trigger_sweeping_advance", false):
+		print("NetworkManager: Result has trigger_sweeping_advance flag")
+		var unit_id = result.get("sweeping_advance_unit_id", "")
+		var sa_player = result.get("sweeping_advance_player", 0)
+		var sa_in_engagement = result.get("sweeping_advance_in_engagement", false)
+		var sa_move_distance = result.get("sweeping_advance_move_distance", 6.0)
+		if phase.has_signal("sweeping_advance_available") and unit_id != "":
+			print("NetworkManager: Client re-emitting sweeping_advance_available for unit %s" % unit_id)
+			phase.emit_signal("sweeping_advance_available", unit_id, sa_player, sa_in_engagement, sa_move_distance)
+		else:
+			print("NetworkManager: ⚠️ Phase doesn't support sweeping_advance_available or missing unit_id")
+
 	# ====================================================================
 	# CHARGE PHASE - Signal re-emission for multiplayer sync
 	# ====================================================================
