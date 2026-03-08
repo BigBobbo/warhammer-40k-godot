@@ -370,10 +370,10 @@
 ## Phase 7: Ability & Effect Integration
 
 ### MA-27: Add per-model stat lookup helper
-- [ ] Create `RulesEngine.get_model_effective_stats(unit, model) -> Dictionary` helper
-- [ ] Returns unit base stats merged with model's `stats_override` from its profile
-- [ ] Used by hit resolution (BS/WS), save resolution, wound allocation, and any future per-model stat checks
-- [ ] Returns base unit stats if no `model_type` or no `model_profiles`
+- [x] Create `RulesEngine.get_model_effective_stats(unit, model) -> Dictionary` helper
+- [x] Returns unit base stats merged with model's `stats_override` from its profile
+- [x] Used by hit resolution (BS/WS), save resolution, wound allocation, and any future per-model stat checks
+- [x] Returns base unit stats if no `model_type` or no `model_profiles`
 - **Files**: RulesEngine.gd
 - **Validation**: Call with deffgun Loota model → returns unit base stats. Call with Spanner model → returns base stats with BS overridden to 4. Call with model without model_type → returns unit base stats. Call with unit without model_profiles → returns unit base stats.
 
