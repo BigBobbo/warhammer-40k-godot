@@ -31,3 +31,4 @@ MA-20|success|2026-03-08T07:49:09Z|model-attr/MA-20/show-model-type-on-deployed-
 MA-21|success|2026-03-08T07:54:57Z|model-attr/MA-21/show-model-type-in-wound-allocation-ui
 MA-22|failed|2026-03-08T13:56:38Z|model-attr/MA-22/show-model-type-in-casualty-reporting
 MA-23|success|2026-03-08T14:01:10Z|model-attr/MA-23/unitstatspanel-shows-model-composition-b
+MA-24|success|2026-03-08T14:09:58Z|model-attr/MA-24/transport-capacity-respects-per-model-tr

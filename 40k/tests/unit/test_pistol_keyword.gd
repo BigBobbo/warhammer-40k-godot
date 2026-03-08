@@ -324,3 +324,157 @@ func test_pistol_exclusivity_multiple_pistols_allowed():
 			has_exclusivity_error = true
 			break
 	assert_false(has_exclusivity_error, "Multiple Pistol weapons should be allowed together")
+
+# ==========================================
+# MA-25: Per-Model Pistol Mutual Exclusivity Tests
+# Different models in the same unit can choose different weapon categories.
+# Model A fires pistol, Model B fires bolt rifle — allowed.
+# Model A fires BOTH pistol AND bolt rifle — rejected.
+# ==========================================
+
+func _create_multi_model_pistol_board() -> Dictionary:
+	"""Helper: create a board with a unit that has a sergeant (bolt_rifle + plasma_pistol)
+	and marines (bolt_rifle only), simulating Intercessors."""
+	return {
+		"units": {
+			"shooter": {
+				"owner": 1,
+				"meta": {
+					"name": "Intercessors",
+					"keywords": ["INFANTRY"],
+					"stats": {"toughness": 4, "save": 3, "wounds": 2},
+					"weapons": [
+						{
+							"name": "Bolt Rifle",
+							"type": "Ranged",
+							"range": "24",
+							"attacks": "2",
+							"ballistic_skill": "3",
+							"strength": "4",
+							"ap": "-1",
+							"damage": "1",
+							"special_rules": ""
+						},
+						{
+							"name": "Plasma Pistol",
+							"type": "Ranged",
+							"range": "12",
+							"attacks": "1",
+							"ballistic_skill": "3",
+							"strength": "7",
+							"ap": "-2",
+							"damage": "1",
+							"special_rules": "pistol"
+						}
+					]
+				},
+				"models": [
+					{"id": "m1", "alive": true, "wounds_current": 2, "wounds_max": 2, "position": {"x": 100, "y": 100}, "base_size_mm": 32},
+					{"id": "m2", "alive": true, "wounds_current": 2, "wounds_max": 2, "position": {"x": 110, "y": 100}, "base_size_mm": 32},
+					{"id": "m3", "alive": true, "wounds_current": 2, "wounds_max": 2, "position": {"x": 120, "y": 100}, "base_size_mm": 32},
+					{"id": "m4", "alive": true, "wounds_current": 2, "wounds_max": 2, "position": {"x": 130, "y": 100}, "base_size_mm": 32},
+					{"id": "m5", "alive": true, "wounds_current": 2, "wounds_max": 2, "position": {"x": 140, "y": 100}, "base_size_mm": 32}
+				],
+				"flags": {}
+			},
+			"target": {
+				"owner": 2,
+				"meta": {
+					"name": "Enemy Target",
+					"keywords": ["INFANTRY"],
+					"stats": {"toughness": 4, "save": 4, "wounds": 1},
+					"weapons": []
+				},
+				"models": [
+					{"id": "t1", "alive": true, "wounds_current": 1, "wounds_max": 1, "position": {"x": 200, "y": 100}, "base_size_mm": 32}
+				],
+				"flags": {}
+			}
+		}
+	}
+
+func test_ma25_per_model_different_models_different_categories_allowed():
+	"""MA-25: Sergeant fires bolt pistol, marines fire bolt rifle — allowed.
+	Different models choosing different weapon categories is valid per 10e rules."""
+	var board = _create_multi_model_pistol_board()
+	var action = {
+		"actor_unit_id": "shooter",
+		"payload": {
+			"assignments": [
+				# Sergeant (m5) fires plasma pistol only
+				{"weapon_id": "plasma_pistol", "target_unit_id": "target", "model_ids": ["m5"]},
+				# Marines (m1-m4) fire bolt rifles only
+				{"weapon_id": "bolt_rifle", "target_unit_id": "target", "model_ids": ["m1", "m2", "m3", "m4"]}
+			]
+		}
+	}
+	var result = rules_engine.validate_shoot(action, board)
+	var has_exclusivity_error = false
+	for error in result.get("errors", []):
+		if "Pistol" in error and "non-Pistol" in error:
+			has_exclusivity_error = true
+			break
+	assert_false(has_exclusivity_error, "Different models choosing different weapon categories should be allowed (MA-25)")
+
+func test_ma25_per_model_same_model_both_categories_rejected():
+	"""MA-25: Sergeant tries to fire both bolt pistol AND bolt rifle — rejected.
+	A single model cannot fire both Pistol and non-Pistol weapons."""
+	var board = _create_multi_model_pistol_board()
+	var action = {
+		"actor_unit_id": "shooter",
+		"payload": {
+			"assignments": [
+				# Sergeant (m5) fires BOTH plasma pistol and bolt rifle — invalid
+				{"weapon_id": "plasma_pistol", "target_unit_id": "target", "model_ids": ["m5"]},
+				{"weapon_id": "bolt_rifle", "target_unit_id": "target", "model_ids": ["m5", "m1", "m2", "m3", "m4"]}
+			]
+		}
+	}
+	var result = rules_engine.validate_shoot(action, board)
+	var has_exclusivity_error = false
+	for error in result.get("errors", []):
+		if "Pistol" in error and "non-Pistol" in error:
+			has_exclusivity_error = true
+			break
+	assert_true(has_exclusivity_error, "Sergeant (m5) firing both Pistol and non-Pistol should be rejected (MA-25)")
+
+func test_ma25_per_model_all_marines_bolt_rifle_allowed():
+	"""MA-25: All marines (including sergeant) fire bolt rifles — allowed.
+	Choosing only non-Pistol weapons for all models is valid."""
+	var board = _create_multi_model_pistol_board()
+	var action = {
+		"actor_unit_id": "shooter",
+		"payload": {
+			"assignments": [
+				{"weapon_id": "bolt_rifle", "target_unit_id": "target", "model_ids": ["m1", "m2", "m3", "m4", "m5"]}
+			]
+		}
+	}
+	var result = rules_engine.validate_shoot(action, board)
+	var has_exclusivity_error = false
+	for error in result.get("errors", []):
+		if "Pistol" in error and "non-Pistol" in error:
+			has_exclusivity_error = true
+			break
+	assert_false(has_exclusivity_error, "All models firing bolt rifles should be allowed (MA-25)")
+
+func test_ma25_per_model_error_identifies_specific_model():
+	"""MA-25: Error message should identify the specific model that violated the rule."""
+	var board = _create_multi_model_pistol_board()
+	var action = {
+		"actor_unit_id": "shooter",
+		"payload": {
+			"assignments": [
+				{"weapon_id": "plasma_pistol", "target_unit_id": "target", "model_ids": ["m5"]},
+				{"weapon_id": "bolt_rifle", "target_unit_id": "target", "model_ids": ["m5"]}
+			]
+		}
+	}
+	var result = rules_engine.validate_shoot(action, board)
+	assert_false(result.valid, "Should be invalid")
+	var found_model_id_in_error = false
+	for error in result.get("errors", []):
+		if "m5" in error and "Pistol" in error:
+			found_model_id_in_error = true
+			break
+	assert_true(found_model_id_in_error, "Error should mention model 'm5' specifically (MA-25)")

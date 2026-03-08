@@ -9381,11 +9381,9 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var t_prob = _charge_success_probability(max(0.0, t_dist - 1.0))
 			var t_melee = _estimate_melee_damage(charge_unit, t_unit) if not t_unit.is_empty() else 0.0
 			var t_hp = _calculate_kill_threshold(t_unit) if not t_unit.is_empty() else 0.0
-			# Find score from scored_targets if available
-			for st in scored_targets if charger_targets[charge_unit_id] == charger_targets.get(charge_unit_id, []) else []:
-				if st.target_id == tid:
-					t_score = st.score
-					break
+			# Score comes from best_score for the chosen target, 0.0 for others
+			if tid == best_action.get("payload", {}).get("target_unit_ids", [null])[0] if not best_action.get("payload", {}).get("target_unit_ids", []).is_empty() else "":
+				t_score = best_score
 			charge_candidates.append({
 				"description": "Charge %s (%.1f\" away, %.0f%% chance)" % [t_name, t_dist, t_prob * 100.0],
 				"score": t_score,

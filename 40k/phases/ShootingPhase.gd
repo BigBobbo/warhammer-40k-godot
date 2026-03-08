@@ -428,22 +428,29 @@ func _validate_assign_target(action: Dictionary) -> Dictionary:
 	# there's never two targets for the same weapon simultaneously.
 	# No validation needed here — reassignment is always valid.
 
-	# PISTOL MUTUAL EXCLUSIVITY (T2-5): Cannot mix Pistol and non-Pistol weapons
+	# MA-25: PISTOL MUTUAL EXCLUSIVITY — per-model check (was unit-wide before MA-25)
 	# Per 10e: "If a model is equipped with one or more Pistols, unless it is a
 	# MONSTER or VEHICLE model, it can either shoot with its Pistols or with all
 	# of its other ranged weapons."
+	# Per-model: each model individually must choose pistol or non-pistol, but
+	# different models in the same unit can make different choices.
 	var shooter_unit = get_unit(active_shooter_id)
 	if not RulesEngine.is_monster_or_vehicle(shooter_unit):
 		var new_weapon_is_pistol = RulesEngine.is_pistol_weapon(weapon_id, game_state_snapshot)
-		for assignment in pending_assignments:
-			var existing_weapon_id = assignment.get("weapon_id", "")
-			if existing_weapon_id == "":
-				continue
-			var existing_is_pistol = RulesEngine.is_pistol_weapon(existing_weapon_id, game_state_snapshot)
-			if new_weapon_is_pistol and not existing_is_pistol:
-				return {"valid": false, "errors": ["Cannot fire Pistol weapons when non-Pistol weapons are already assigned — must choose one or the other"]}
-			if not new_weapon_is_pistol and existing_is_pistol:
-				return {"valid": false, "errors": ["Cannot fire non-Pistol weapons when Pistol weapons are already assigned — must choose one or the other"]}
+		# Check each model in the new assignment against existing assignments
+		for new_model_id in model_ids:
+			for assignment in pending_assignments:
+				var existing_weapon_id = assignment.get("weapon_id", "")
+				if existing_weapon_id == "":
+					continue
+				var existing_model_ids = assignment.get("model_ids", [])
+				if new_model_id not in existing_model_ids:
+					continue  # This existing assignment doesn't involve this model
+				var existing_is_pistol = RulesEngine.is_pistol_weapon(existing_weapon_id, game_state_snapshot)
+				if new_weapon_is_pistol and not existing_is_pistol:
+					return {"valid": false, "errors": ["Model '%s' cannot fire Pistol weapons when non-Pistol weapons are already assigned — must choose one or the other" % new_model_id]}
+				if not new_weapon_is_pistol and existing_is_pistol:
+					return {"valid": false, "errors": ["Model '%s' cannot fire non-Pistol weapons when Pistol weapons are already assigned — must choose one or the other" % new_model_id]}
 
 	# Validate with RulesEngine
 	var shoot_action = {
