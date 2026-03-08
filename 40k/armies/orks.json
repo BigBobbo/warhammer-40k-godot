@@ -1569,6 +1569,106 @@
         {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_kmb"},
         {"id": "m11", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "spanner"}
       ]
+    },
+    "U_MEGANOBZ_L": {
+      "id": "U_MEGANOBZ_L",
+      "squad_id": "U_MEGANOBZ_L",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Meganobz",
+        "keywords": [
+          "INFANTRY",
+          "MEGA ARMOUR",
+          "ORKS",
+          "MEGANOBZ",
+          "GRENADES"
+        ],
+        "stats": {
+          "move": 5,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 3,
+          "leadership": 7,
+          "objective_control": 1
+        },
+        "points": 160,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [],
+        "weapons": [
+          {
+            "name": "Kustom shoota",
+            "type": "Ranged",
+            "range": "18",
+            "attacks": "4",
+            "ballistic_skill": "5",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1"
+          },
+          {
+            "name": "Power klaw",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "3",
+            "strength": "10",
+            "ap": "-2",
+            "damage": "2"
+          },
+          {
+            "name": "Killsaws",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "4",
+            "strength": "12",
+            "ap": "-3",
+            "damage": "2",
+            "special_rules": "twin-linked"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
+          },
+          {
+            "name": "Krumpin' Time",
+            "type": "Datasheet",
+            "description": "Each time a model in this unit makes a melee attack, if this unit made a Charge move this turn, add 1 to the Wound roll."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "2-6 Meganobz",
+            "line": 1
+          }
+        ],
+        "model_profiles": {
+          "meganob_klaw": {
+            "label": "Meganob (Power Klaw)",
+            "stats_override": {},
+            "weapons": ["Kustom shoota", "Power klaw"],
+            "transport_slots": 2
+          },
+          "meganob_saws": {
+            "label": "Meganob (Killsaws)",
+            "stats_override": {},
+            "weapons": ["Kustom shoota", "Killsaws"],
+            "transport_slots": 2
+          }
+        }
+      },
+      "models": [
+        {"id": "m1", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_klaw"},
+        {"id": "m2", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_klaw"},
+        {"id": "m3", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_klaw"},
+        {"id": "m4", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_saws"},
+        {"id": "m5", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_saws"}
+      ]
     }
   }
 }

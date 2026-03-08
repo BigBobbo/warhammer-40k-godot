@@ -1,1 +1,1 @@
-ARGS: ["--script", "tests/test_model_profiles.gd"]
+ARGS: ["-s", "tests/test_transport_slots.gd"]

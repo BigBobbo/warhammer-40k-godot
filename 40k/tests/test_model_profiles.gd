@@ -283,6 +283,126 @@ func _init():
 		print("  FAIL: Expected 1x boss_nob, 19x boy, got %s" % str(boyz_type_counts))
 		failed += 1
 
+	# --- Test 17: MA-24 Meganobz unit exists with transport_slots: 2 ---
+	print("\n--- Test 17: MA-24 Meganobz unit has transport_slots: 2 ---")
+	var meganobz = army_data.get("units", {}).get("U_MEGANOBZ_L", {})
+	var mega_meta = meganobz.get("meta", {})
+	var mega_profiles = mega_meta.get("model_profiles", {})
+	if mega_profiles.has("meganob_klaw") and mega_profiles.has("meganob_saws"):
+		var klaw_slots = int(mega_profiles["meganob_klaw"].get("transport_slots", 0))
+		var saws_slots = int(mega_profiles["meganob_saws"].get("transport_slots", 0))
+		if klaw_slots == 2 and saws_slots == 2:
+			print("  PASS: meganob_klaw and meganob_saws both have transport_slots=2")
+			passed += 1
+		else:
+			print("  FAIL: Expected transport_slots=2 for both, got klaw=%d saws=%d" % [klaw_slots, saws_slots])
+			failed += 1
+	else:
+		print("  FAIL: U_MEGANOBZ_L missing meganob_klaw or meganob_saws profiles")
+		failed += 1
+
+	# --- Test 18: MA-24 Meganobz has MEGA ARMOUR keyword ---
+	print("\n--- Test 18: MA-24 Meganobz has MEGA ARMOUR keyword ---")
+	var mega_keywords = mega_meta.get("keywords", [])
+	if "MEGA ARMOUR" in mega_keywords:
+		print("  PASS: Meganobz has MEGA ARMOUR keyword")
+		passed += 1
+	else:
+		print("  FAIL: Meganobz missing MEGA ARMOUR keyword (got: %s)" % str(mega_keywords))
+		failed += 1
+
+	# --- Test 19: MA-24 Meganobz has 5 models with correct types ---
+	print("\n--- Test 19: MA-24 Meganobz has 5 models with correct model_type ---")
+	var mega_models = meganobz.get("models", [])
+	var mega_type_counts = {}
+	for m in mega_models:
+		var mt = m.get("model_type", "")
+		mega_type_counts[mt] = mega_type_counts.get(mt, 0) + 1
+	if mega_models.size() == 5 and mega_type_counts.get("meganob_klaw", 0) == 3 and mega_type_counts.get("meganob_saws", 0) == 2:
+		print("  PASS: 5 models with 3x meganob_klaw, 2x meganob_saws")
+		passed += 1
+	else:
+		print("  FAIL: Expected 5 models (3 klaw, 2 saws), got %d models: %s" % [mega_models.size(), str(mega_type_counts)])
+		failed += 1
+
+	# --- Test 20: MA-24 Regular Boyz profiles have transport_slots: 1 ---
+	print("\n--- Test 20: MA-24 Regular Boyz profiles have transport_slots: 1 ---")
+	var boyz_profiles = boyz_f_meta.get("model_profiles", {})
+	var boyz_slots_ok = true
+	for pk in boyz_profiles:
+		var ts = int(boyz_profiles[pk].get("transport_slots", 0))
+		if ts != 1:
+			print("  FAIL: Boyz profile '%s' has transport_slots=%d (expected 1)" % [pk, ts])
+			boyz_slots_ok = false
+	if boyz_slots_ok and boyz_profiles.size() > 0:
+		print("  PASS: All Boyz profiles have transport_slots=1")
+		passed += 1
+	else:
+		if boyz_profiles.size() == 0:
+			print("  FAIL: No Boyz profiles found")
+		failed += 1
+
+	# --- Test 21: MA-24 Slot-aware counting logic ---
+	print("\n--- Test 21: MA-24 Slot-aware counting logic (simulated) ---")
+	# Simulate _get_alive_model_count logic for Meganobz (5 models x 2 slots = 10)
+	var mega_slot_count = 0
+	for m in mega_models:
+		if m.get("alive", true):
+			var mt = m.get("model_type", "")
+			var profile = mega_profiles.get(mt, {})
+			mega_slot_count += int(profile.get("transport_slots", 1))
+	if mega_slot_count == 10:
+		print("  PASS: 5 Meganobz = 10 transport slots")
+		passed += 1
+	else:
+		print("  FAIL: Expected 10 transport slots for 5 Meganobz, got %d" % mega_slot_count)
+		failed += 1
+
+	# --- Test 22: MA-24 Mixed unit slot counting ---
+	print("\n--- Test 22: MA-24 Mixed slot counting (Boyz vs Meganobz) ---")
+	# Boyz: 20 models x 1 slot = 20 slots
+	var boyz_slot_count = 0
+	for m in boyz_f_models:
+		if m.get("alive", true):
+			var mt = m.get("model_type", "")
+			var profile = boyz_profiles.get(mt, {})
+			boyz_slot_count += int(profile.get("transport_slots", 1))
+	# Battlewagon has 22 capacity: 20 boyz (20 slots) + 5 meganobz (10 slots) = 30, won't fit
+	# But 10 boyz (10 slots) + 5 meganobz (10 slots) = 20, fits in 22
+	if boyz_slot_count == 20 and mega_slot_count == 10:
+		var combined = boyz_slot_count + mega_slot_count  # 30
+		var partial_boyz = 10  # 10 Boyz slots
+		if combined > 22 and (partial_boyz + mega_slot_count) <= 22:
+			print("  PASS: 20 Boyz + 5 Meganobz = 30 slots (exceeds 22), but 10 Boyz + 5 Meganobz = 20 slots (fits)")
+			passed += 1
+		else:
+			print("  FAIL: Capacity math incorrect")
+			failed += 1
+	else:
+		print("  FAIL: Slot counts wrong (boyz=%d mega=%d)" % [boyz_slot_count, mega_slot_count])
+		failed += 1
+
+	# --- Test 23: MA-24 Unit without profiles defaults to 1 slot per model ---
+	print("\n--- Test 23: MA-24 Unit without profiles defaults to 1 per model ---")
+	var boyz_e_models = army_data.get("units", {}).get("U_BOYZ_E", {}).get("models", [])
+	var boyz_e_meta = army_data.get("units", {}).get("U_BOYZ_E", {}).get("meta", {})
+	var boyz_e_has_profiles = boyz_e_meta.get("model_profiles", {}).size() > 0
+	var boyz_e_slot_count = 0
+	for m in boyz_e_models:
+		if m.get("alive", true):
+			if boyz_e_has_profiles:
+				var mt = m.get("model_type", "")
+				var profile = boyz_e_meta.get("model_profiles", {}).get(mt, {})
+				boyz_e_slot_count += int(profile.get("transport_slots", 1))
+			else:
+				boyz_e_slot_count += 1
+	if not boyz_e_has_profiles and boyz_e_slot_count == boyz_e_models.size():
+		print("  PASS: U_BOYZ_E (no profiles) counts 1 per model (%d models = %d slots)" % [boyz_e_models.size(), boyz_e_slot_count])
+		passed += 1
+	else:
+		print("  FAIL: Expected no profiles and 1:1 model:slot ratio")
+		failed += 1
+
 	# --- Summary ---
 	print("\n=== Results: %d passed, %d failed ===" % [passed, failed])
 	if failed > 0:
