@@ -344,10 +344,10 @@
 ## Phase 6: Transport & Special Rules
 
 ### MA-24: Transport capacity respects per-model transport_slots
-- [ ] Add `transport_slots` field to model profiles (default 1)
-- [ ] In TransportManager capacity counting (~lines 154-174), multiply each model by its profile's `transport_slots`
-- [ ] MEGA ARMOUR models should have `transport_slots: 2` in their profile
-- [ ] Embark validation uses slot-aware count
+- [x] Add `transport_slots` field to model profiles (default 1)
+- [x] In TransportManager capacity counting (~lines 154-174), multiply each model by its profile's `transport_slots`
+- [x] MEGA ARMOUR models should have `transport_slots: 2` in their profile
+- [x] Embark validation uses slot-aware count
 - **Files**: TransportManager.gd, army JSON files
 - **Validation**: Battlewagon with 22 capacity. Embark 10 regular Boyz (10 slots) + 5 Meganobz (10 slots) = 20 slots. Attempt to embark 1 more Meganob (2 slots) — fails with "Insufficient capacity". Embark 2 more regular Boyz (2 slots) — succeeds. Unit without profiles counts 1 per model as before.
 

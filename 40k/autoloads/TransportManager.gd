@@ -164,13 +164,28 @@ func _get_embarked_model_count(transport_id: String) -> int:
 
 	return count
 
-# Get number of alive models in a unit
+# MA-24: Get transport slot count for a single model based on its profile
+func _get_model_transport_slots(unit: Dictionary, model: Dictionary) -> int:
+	var model_type = model.get("model_type", null)
+	if model_type == null or model_type == "":
+		return 1
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	if model_profiles.is_empty():
+		return 1
+	var profile = model_profiles.get(model_type, {})
+	return int(profile.get("transport_slots", 1))
+
+# MA-24: Get total transport slot count for alive models in a unit (slot-aware)
 func _get_alive_model_count(unit: Dictionary) -> int:
 	var count = 0
 	if unit.has("models"):
+		var has_profiles = unit.get("meta", {}).get("model_profiles", {}).size() > 0
 		for model in unit.models:
 			if model.get("alive", true):
-				count += 1
+				if has_profiles:
+					count += _get_model_transport_slots(unit, model)
+				else:
+					count += 1
 	return count
 
 # Check if unit has all required keywords
