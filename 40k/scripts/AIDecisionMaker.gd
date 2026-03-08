@@ -116,6 +116,16 @@ static var _bodyguards_with_leaders: Array = []
 # Verbose thinking log — accumulates reasoning steps during a decision, returned in the result dict
 # Cleared at the start of each decide() call, and attached as "_ai_thinking_steps" to the result
 static var _thinking_steps: Array = []
+
+# Structured decision records — captures full scoring breakdowns for the AI Gameplay Visualizer
+# Each entry is a dictionary with decision_type, unit_id, candidates[], chosen_index, parameters_used, etc.
+# Cleared at the start of each decide() call, and attached as "_ai_decision_records" to the result
+static var _decision_records: Array = []
+
+# Config override system — allows runtime parameter tuning via ai_config.json
+# Loaded from user://ai_config.json exported by the AI Gameplay Visualizer web app
+static var _config_overrides: Dictionary = {}
+static var _config_loaded: bool = false
 # Track whether the movement plan summary has been logged (reset per phase)
 static var _movement_plan_logged: bool = false
 # Track whether the focus fire summary has been logged (reset per phase)
@@ -146,10 +156,62 @@ static func reset_caches() -> void:
 	_fight_coordination_round = -1
 	_bodyguards_with_leaders.clear()
 	_thinking_steps.clear()
+	_decision_records.clear()
 	_movement_plan_logged = false
 	_focus_fire_plan_logged = false
 	_fight_order_logged = false
 	print("AIDecisionMaker: Static caches reset complete")
+
+# Config override system — load parameter overrides from user://ai_config.json
+static func load_config_overrides() -> void:
+	var path = "user://ai_config.json"
+	if not FileAccess.file_exists(path):
+		print("AIDecisionMaker: No config override file found at %s" % path)
+		return
+	var file = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		push_warning("AIDecisionMaker: Failed to open config override file: %s" % path)
+		return
+	var json = JSON.new()
+	var parse_result = json.parse(file.get_as_text())
+	file.close()
+	if parse_result == OK:
+		_config_overrides = json.data.get("parameters", {})
+		_config_loaded = true
+		print("AIDecisionMaker: Loaded %d config overrides from %s" % [_config_overrides.size(), path])
+		for key in _config_overrides:
+			print("  Override: %s = %s" % [key, str(_config_overrides[key])])
+	else:
+		push_warning("AIDecisionMaker: Failed to parse config override file: %s" % json.get_error_message())
+
+static func get_param(param_name: String, default_value: float) -> float:
+	"""Get a tunable parameter value, checking config overrides first."""
+	if _config_overrides.has(param_name):
+		return float(_config_overrides[param_name])
+	return default_value
+
+static func get_param_int(param_name: String, default_value: int) -> int:
+	"""Get an integer tunable parameter value, checking config overrides first."""
+	if _config_overrides.has(param_name):
+		return int(_config_overrides[param_name])
+	return default_value
+
+# Structured decision record helper — adds a decision record for the AI Gameplay Visualizer
+static func _add_decision_record(decision_type: String, unit_id: String, unit_name: String,
+		candidates: Array, chosen_index: int, parameters_used: Dictionary = {},
+		context: Dictionary = {}) -> void:
+	"""Add a structured decision record capturing full scoring breakdown."""
+	var record = {
+		"decision_type": decision_type,
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"candidates": candidates,
+		"chosen_index": chosen_index,
+		"parameters_used": parameters_used,
+		"difficulty": AIDifficultyConfigData.difficulty_name(_current_difficulty),
+		"context": context,
+	}
+	_decision_records.append(record)
 
 # Focus fire tuning constants
 const OVERKILL_TOLERANCE: float = 1.15  # Allow up to 15% overkill before redirecting (tighter to ensure kills)
@@ -362,14 +424,14 @@ static func _get_faction_aggression(snapshot: Dictionary, player: int) -> float:
 	melee engagement, advancing, and charging."""
 	var faction_name = _get_player_faction_name(snapshot, player).to_upper()
 	if "ORK" in faction_name:
-		return FACTION_AGGRESSION_ORKS
+		return get_param("FACTION_AGGRESSION_ORKS", FACTION_AGGRESSION_ORKS)
 	elif "CUSTODES" in faction_name or "ADEPTUS CUSTODES" in faction_name:
-		return FACTION_AGGRESSION_CUSTODES
+		return get_param("FACTION_AGGRESSION_CUSTODES", FACTION_AGGRESSION_CUSTODES)
 	elif "WORLD EATER" in faction_name:
-		return FACTION_AGGRESSION_WORLD_EATERS
+		return get_param("FACTION_AGGRESSION_WORLD_EATERS", FACTION_AGGRESSION_WORLD_EATERS)
 	elif "KHORNE" in faction_name:
-		return FACTION_AGGRESSION_KHORNE
-	return FACTION_AGGRESSION_DEFAULT
+		return get_param("FACTION_AGGRESSION_KHORNE", FACTION_AGGRESSION_KHORNE)
+	return get_param("FACTION_AGGRESSION_DEFAULT", FACTION_AGGRESSION_DEFAULT)
 
 static func _get_player_faction_name(snapshot: Dictionary, player: int) -> String:
 	"""Get the faction name for a player from the game state."""
@@ -518,6 +580,7 @@ static var _current_difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL
 static func decide(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL) -> Dictionary:
 	_current_difficulty = difficulty
 	_thinking_steps.clear()  # Reset thinking log for this decision
+	_decision_records.clear()  # Reset decision records for this decision
 	var diff_name = AIDifficultyConfigData.difficulty_name(difficulty)
 	# T7-43: Log round strategy mode
 	var current_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
@@ -615,9 +678,11 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 					result = {"type": t, "_ai_description": "End phase (fallback)"}
 					break
 
-	# Attach accumulated thinking steps to the decision
+	# Attach accumulated thinking steps and decision records to the decision
 	if not _thinking_steps.is_empty() and not result.is_empty():
 		result["_ai_thinking_steps"] = _thinking_steps.duplicate()
+	if not _decision_records.is_empty() and not result.is_empty():
+		result["_ai_decision_records"] = _decision_records.duplicate(true)
 	return result
 
 # =============================================================================
@@ -973,7 +1038,7 @@ static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
 
 			# Bonus for locking dangerous shooters
 			if enemy_id in plan.lock_targets:
-				score += PHASE_PLAN_LOCK_SHOOTER_BONUS
+				score += get_param("PHASE_PLAN_LOCK_SHOOTER_BONUS", PHASE_PLAN_LOCK_SHOOTER_BONUS)
 				# Extra bonus proportional to how dangerous the shooter is
 				var shooter_strength = _estimate_unit_ranged_strength(enemy)
 				score += shooter_strength * 0.3
@@ -999,7 +1064,7 @@ static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
 				best_charge_dist = dist_inches
 				best_charge_name = enemy.get("meta", {}).get("name", enemy_id)
 
-		if best_charge_score >= PHASE_PLAN_CHARGE_INTENT_THRESHOLD and best_charge_target != "":
+		if best_charge_score >= get_param("PHASE_PLAN_CHARGE_INTENT_THRESHOLD", PHASE_PLAN_CHARGE_INTENT_THRESHOLD) and best_charge_target != "":
 			plan.charge_intent[unit_id] = {
 				"target_id": best_charge_target,
 				"target_name": best_charge_name,
@@ -1660,7 +1725,7 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 		score *= 0.3  # Heavy ranged platforms (Devastators, Leman Russ) want to shoot immediately
 
 	# Cheap screening units are sometimes better deployed as screens
-	if points <= SCREEN_CHEAP_UNIT_POINTS and not has_deep_strike:
+	if points <= get_param_int("SCREEN_CHEAP_UNIT_POINTS", SCREEN_CHEAP_UNIT_POINTS) and not has_deep_strike:
 		score *= 0.5  # Cheap units are better as Turn 1 screens than reserves
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
@@ -3767,11 +3832,11 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			# to charge, adjust movement to close to half range of the best target.
 			if charge_intent.is_empty():
 				var half_range_data = _get_unit_half_range_data(unit)
-				if half_range_data.has_bonus and half_range_data.total_benefit >= HALF_RANGE_MIN_BENEFIT:
+				if half_range_data.has_bonus and half_range_data.total_benefit >= get_param("HALF_RANGE_MIN_BENEFIT", HALF_RANGE_MIN_BENEFIT):
 					var half_range_pos = _find_best_half_range_position(centroid, enemies, half_range_data, snapshot, unit)
 					if half_range_pos != Vector2.INF:
 						if move_target != Vector2.INF:
-							move_target = half_range_pos * HALF_RANGE_MOVE_BLEND + move_target * (1.0 - HALF_RANGE_MOVE_BLEND)
+							move_target = half_range_pos * get_param("HALF_RANGE_MOVE_BLEND", HALF_RANGE_MOVE_BLEND) + move_target * (1.0 - get_param("HALF_RANGE_MOVE_BLEND", HALF_RANGE_MOVE_BLEND))
 						else:
 							move_target = half_range_pos
 						var hr_dist = centroid.distance_to(half_range_pos) / PIXELS_PER_INCH
@@ -3803,7 +3868,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 							centroid, move_target, max_weapon_range_inches, enemies_in_range_now, move_inches
 						)
 						if firing_pos != Vector2.INF:
-							move_target = firing_pos * FIRING_POSITION_BLEND + move_target * (1.0 - FIRING_POSITION_BLEND)
+							move_target = firing_pos * get_param("FIRING_POSITION_BLEND", FIRING_POSITION_BLEND) + move_target * (1.0 - get_param("FIRING_POSITION_BLEND", FIRING_POSITION_BLEND))
 							print("AIDecisionMaker: [T7-14] %s blending movement to maintain %.0f\" weapon range (%d targets in range)" % [
 								unit_name, max_weapon_range_inches, enemies_in_range_now.size()])
 
@@ -4846,58 +4911,58 @@ static func _evaluate_all_objectives(
 		var priority = 0.0
 		match state:
 			"uncontrolled":
-				priority += WEIGHT_UNCONTROLLED_OBJ
+				priority += get_param("WEIGHT_UNCONTROLLED_OBJ", WEIGHT_UNCONTROLLED_OBJ)
 			"contested":
-				priority += WEIGHT_CONTESTED_OBJ
+				priority += get_param("WEIGHT_CONTESTED_OBJ", WEIGHT_CONTESTED_OBJ)
 			"enemy_weak":
-				priority += WEIGHT_ENEMY_WEAK_OBJ
+				priority += get_param("WEIGHT_ENEMY_WEAK_OBJ", WEIGHT_ENEMY_WEAK_OBJ)
 			"enemy_strong":
-				priority += WEIGHT_ENEMY_STRONG_OBJ
+				priority += get_param("WEIGHT_ENEMY_STRONG_OBJ", WEIGHT_ENEMY_STRONG_OBJ)
 			"held_safe":
-				priority += WEIGHT_ALREADY_HELD_OBJ
+				priority += get_param("WEIGHT_ALREADY_HELD_OBJ", WEIGHT_ALREADY_HELD_OBJ)
 			"held_threatened":
-				priority += WEIGHT_CONTESTED_OBJ * 0.8  # Still important to reinforce
+				priority += get_param("WEIGHT_CONTESTED_OBJ", WEIGHT_CONTESTED_OBJ) * 0.8  # Still important to reinforce
 
 		# Home objective bonus - defend it if undefended
 		if is_home and friendly_oc == 0:
-			priority += WEIGHT_HOME_UNDEFENDED
+			priority += get_param("WEIGHT_HOME_UNDEFENDED", WEIGHT_HOME_UNDEFENDED)
 
 		# T7-23: Expanded round-based urgency scoring (was only round 1 + round 4+)
 		# Round 1: Rush to objectives — scoring starts in round 2
 		if battle_round == 1:
-			priority += WEIGHT_SCORING_URGENCY
+			priority += get_param("WEIGHT_SCORING_URGENCY", WEIGHT_SCORING_URGENCY)
 			# Extra urgency for uncontrolled no-man's-land objectives
 			if state == "uncontrolled" and not is_home and not is_enemy_home:
 				priority += 1.0
 		# Round 2: Contest uncontrolled objectives — this is the first scoring round
 		elif battle_round == 2:
 			if state in ["uncontrolled", "enemy_weak"]:
-				priority += URGENCY_ROUND_2_CONTEST
+				priority += get_param("URGENCY_ROUND_2_CONTEST", URGENCY_ROUND_2_CONTEST)
 			elif state == "contested":
-				priority += URGENCY_ROUND_2_CONTEST * 0.8
+				priority += get_param("URGENCY_ROUND_2_CONTEST", URGENCY_ROUND_2_CONTEST) * 0.8
 			# T13-1: Held objectives in R2 need retention — this is the FIRST scoring round
 			elif state in ["held_safe", "held_threatened"]:
-				priority += URGENCY_ROUND_2_CONTEST * 0.6  # +1.2 to stay on held objectives for first VP scoring
+				priority += get_param("URGENCY_ROUND_2_CONTEST", URGENCY_ROUND_2_CONTEST) * 0.6  # +1.2 to stay on held objectives for first VP scoring
 			# T13-1: NML objectives get extra priority in R2 since they're the main contested ground
 			if not is_home and not is_enemy_home:
 				priority += 1.5  # Extra NML urgency in first scoring round
 		# Round 3: Consolidate — hold what we have, reinforce contested
 		elif battle_round == 3:
 			if state == "held_threatened":
-				priority += URGENCY_ROUND_3_HOLD
+				priority += get_param("URGENCY_ROUND_3_HOLD", URGENCY_ROUND_3_HOLD)
 			elif state == "contested":
-				priority += URGENCY_ROUND_3_HOLD * 1.2
+				priority += get_param("URGENCY_ROUND_3_HOLD", URGENCY_ROUND_3_HOLD) * 1.2
 			elif state == "enemy_weak":
-				priority += URGENCY_ROUND_3_HOLD
+				priority += get_param("URGENCY_ROUND_3_HOLD", URGENCY_ROUND_3_HOLD)
 		# Round 4-5: Aggressive push — every VP matters, flip what we can
 		elif battle_round >= 4:
 			if state in ["contested", "enemy_weak"]:
-				priority += URGENCY_LATE_GAME_PUSH
+				priority += get_param("URGENCY_LATE_GAME_PUSH", URGENCY_LATE_GAME_PUSH)
 			elif state == "uncontrolled":
-				priority += URGENCY_LATE_GAME_PUSH * 0.8
+				priority += get_param("URGENCY_LATE_GAME_PUSH", URGENCY_LATE_GAME_PUSH) * 0.8
 			# In round 5, even try to contest enemy strongholds
 			if battle_round >= 5 and state == "enemy_strong":
-				priority += URGENCY_LATE_GAME_PUSH * 0.4
+				priority += get_param("URGENCY_LATE_GAME_PUSH", URGENCY_LATE_GAME_PUSH) * 0.4
 
 		# T7-24: Tempo-based aggression adjustment
 		# When behind on VP, increase urgency to contest/capture objectives
@@ -5031,7 +5096,7 @@ static func _assign_units_to_objectives(
 
 			# OC efficiency: high-OC units are more valuable at contested objectives
 			if eval.oc_needed > 0:
-				score += min(float(unit_oc) / max(1.0, float(eval.oc_needed)), 1.5) * WEIGHT_OC_EFFICIENCY
+				score += min(float(unit_oc) / max(1.0, float(eval.oc_needed)), 1.5) * get_param("WEIGHT_OC_EFFICIENCY", WEIGHT_OC_EFFICIENCY)
 
 			# Distance penalty: further away = less useful
 			if turns_to_reach > 1:
@@ -5080,13 +5145,13 @@ static func _assign_units_to_objectives(
 					if not enemies_at_dest.is_empty():
 						# Good — moving here keeps targets in range
 						var kept_ratio = float(enemies_at_dest.size()) / float(enemies_currently_in_range.size())
-						score += WEIGHT_FIRING_POSITION_KEPT * kept_ratio
+						score += get_param("WEIGHT_FIRING_POSITION_KEPT", WEIGHT_FIRING_POSITION_KEPT) * kept_ratio
 					else:
 						# Bad — moving here loses ALL current shooting targets
-						score += WEIGHT_FIRING_POSITION_LOST
+						score += get_param("WEIGHT_FIRING_POSITION_LOST", WEIGHT_FIRING_POSITION_LOST)
 				elif not enemies_at_dest.is_empty():
 					# No current targets, but moving here brings enemies into range
-					score += WEIGHT_FIRING_POSITION_GAINED
+					score += get_param("WEIGHT_FIRING_POSITION_GAINED", WEIGHT_FIRING_POSITION_GAINED)
 				elif eval.enemy_nearby > 0:
 					# No targets in range now or at dest, but enemies near objective
 					score += 1.0
@@ -5124,10 +5189,10 @@ static func _assign_units_to_objectives(
 						var alignment = dir_to_obj.dot(dir_to_charge)
 						if alignment > 0.5:
 							# Objective is in the same general direction as charge target
-							score += PHASE_PLAN_CHARGE_LANE_BONUS * alignment
+							score += get_param("PHASE_PLAN_CHARGE_LANE_BONUS", PHASE_PLAN_CHARGE_LANE_BONUS) * alignment
 						elif alignment < -0.3:
 							# Objective is in the opposite direction — penalize
-							score -= PHASE_PLAN_CHARGE_LANE_BONUS * 0.5
+							score -= get_param("PHASE_PLAN_CHARGE_LANE_BONUS", PHASE_PLAN_CHARGE_LANE_BONUS) * 0.5
 
 			# Ranged units: bonus for objectives that maintain shooting lanes
 			if has_ranged and not charge_intent.is_empty() == false:
@@ -5142,7 +5207,7 @@ static func _assign_units_to_objectives(
 							if lane_centroid != Vector2.INF:
 								var dist_to_lane_target = obj_pos.distance_to(lane_centroid) / PIXELS_PER_INCH
 								if dist_to_lane_target <= max_weapon_range:
-									score += PHASE_PLAN_SHOOTING_LANE_BONUS * 0.5
+									score += get_param("PHASE_PLAN_SHOOTING_LANE_BONUS", PHASE_PLAN_SHOOTING_LANE_BONUS) * 0.5
 
 			# --- T7-25: SECONDARY MISSION AWARENESS INFLUENCE ---
 			# Factor active secondary missions into movement positioning (per-player)
@@ -5206,7 +5271,7 @@ static func _assign_units_to_objectives(
 					var dest_quarter = _get_table_quarter(estimated_dest)
 					if not covered[dest_quarter]:
 						# Moving into an uncovered quarter — valuable for scoring
-						score += SECONDARY_SPREAD_BONUS
+						score += get_param("SECONDARY_SPREAD_BONUS", SECONDARY_SPREAD_BONUS)
 
 				# Kill target proximity: bias positioning toward secondary kill targets
 				var kill_kws = sec_awareness.get("kill_keywords", [])
@@ -5223,7 +5288,7 @@ static func _assign_units_to_objectives(
 						var enemy_keywords = enemy.get("meta", {}).get("keywords", [])
 						for ekw in enemy_keywords:
 							if ekw.to_upper() in kill_kws:
-								score += SECONDARY_KILL_PROXIMITY_BONUS
+								score += get_param("SECONDARY_KILL_PROXIMITY_BONUS", SECONDARY_KILL_PROXIMITY_BONUS)
 								break
 
 				# T12-2: No Prisoners — bonus for positioning near any enemy unit (kills score VP)
@@ -5450,7 +5515,7 @@ static func _assign_units_to_objectives(
 					break
 
 			if not too_close_to_screener:
-				var score = SCREEN_SCORE_BASE + denial.priority
+				var score = get_param("SCREEN_SCORE_BASE", SCREEN_SCORE_BASE) + denial.priority
 				# Closer units score higher for screening
 				score -= (dist_to_denial / PIXELS_PER_INCH) * 0.3
 				assignments[unit_id] = {
@@ -5486,7 +5551,7 @@ static func _assign_units_to_objectives(
 						"objective_id": "screen_protect",
 						"objective_pos": screen_pos,
 						"action": "screen",
-						"score": SCREEN_SCORE_BASE,
+						"score": get_param("SCREEN_SCORE_BASE", SCREEN_SCORE_BASE),
 						"reason": "screening valuable friendlies from enemy threats",
 						"distance": dist_to_screen
 					}
@@ -5513,7 +5578,7 @@ static func _assign_units_to_objectives(
 					break
 
 			if not too_close_to_blocker:
-				var score = CORRIDOR_BLOCK_SCORE_BASE + block.priority
+				var score = get_param("CORRIDOR_BLOCK_SCORE_BASE", CORRIDOR_BLOCK_SCORE_BASE) + block.priority
 				# Closer units score higher for blocking
 				score -= (dist_to_block / PIXELS_PER_INCH) * 0.3
 				assignments[unit_id] = {
@@ -5548,6 +5613,37 @@ static func _assign_units_to_objectives(
 				"reason": "no useful objective",
 				"distance": 0.0
 			}
+
+	# Record structured decision records for AI Gameplay Visualizer
+	# Each unit's assignment is a decision with the top candidates being other objectives
+	for uid in assignments:
+		var a = assignments[uid]
+		var u = snapshot.get("units", {}).get(uid, {})
+		var u_name = u.get("meta", {}).get("name", uid)
+		# Find all candidates for this unit from the sorted candidates array
+		var unit_candidates = []
+		var chosen_idx = 0
+		var c_idx = 0
+		for cand in candidates:
+			if cand.unit_id == uid:
+				unit_candidates.append({
+					"description": "%s %s (%s)" % [cand.action.capitalize(), cand.objective_id, cand.reason],
+					"score": cand.score,
+					"score_breakdown": {
+						"objective_priority": cand.score,
+						"distance_inches": cand.distance / PIXELS_PER_INCH if cand.distance > 0 else 0.0,
+						"unit_oc": cand.unit_oc,
+					}
+				})
+				if cand.objective_id == a.get("objective_id", "") and cand.action == a.get("action", ""):
+					chosen_idx = c_idx
+				c_idx += 1
+		if unit_candidates.size() > 1:
+			_add_decision_record("movement", uid, u_name, unit_candidates, chosen_idx,
+				{"WEIGHT_UNCONTROLLED_OBJ": get_param("WEIGHT_UNCONTROLLED_OBJ", WEIGHT_UNCONTROLLED_OBJ),
+				 "WEIGHT_CONTESTED_OBJ": get_param("WEIGHT_CONTESTED_OBJ", WEIGHT_CONTESTED_OBJ),
+				 "WEIGHT_HOME_UNDEFENDED": get_param("WEIGHT_HOME_UNDEFENDED", WEIGHT_HOME_UNDEFENDED)},
+				{"phase": "movement", "round": battle_round})
 
 	return assignments
 
@@ -5929,8 +6025,8 @@ static func _assess_engaged_unit_survival(
 	  - expected_damage: total expected melee damage from engaging enemies
 	  - remaining_wounds: unit's total remaining wounds
 	  - damage_ratio: expected_damage / remaining_wounds (0.0 to INF)
-	  - is_lethal: true if damage_ratio >= SURVIVAL_LETHAL_THRESHOLD
-	  - is_severe: true if damage_ratio >= SURVIVAL_SEVERE_THRESHOLD
+	  - is_lethal: true if damage_ratio >= get_param("SURVIVAL_LETHAL_THRESHOLD", SURVIVAL_LETHAL_THRESHOLD)
+	  - is_severe: true if damage_ratio >= get_param("SURVIVAL_SEVERE_THRESHOLD", SURVIVAL_SEVERE_THRESHOLD)
 	  - engaging_enemy_ids: list of engaging enemy unit IDs
 	  - recommendation: "fall_back" or "hold" or "neutral"
 	"""
@@ -5948,8 +6044,8 @@ static func _assess_engaged_unit_survival(
 
 	var expected_damage = _estimate_incoming_melee_damage(unit, enemies, unit_id)
 	var damage_ratio = expected_damage / remaining_wounds
-	var is_lethal = damage_ratio >= SURVIVAL_LETHAL_THRESHOLD
-	var is_severe = damage_ratio >= SURVIVAL_SEVERE_THRESHOLD
+	var is_lethal = damage_ratio >= get_param("SURVIVAL_LETHAL_THRESHOLD", SURVIVAL_LETHAL_THRESHOLD)
+	var is_severe = damage_ratio >= get_param("SURVIVAL_SEVERE_THRESHOLD", SURVIVAL_SEVERE_THRESHOLD)
 
 	var engaging = _get_engaging_enemy_units(unit, unit_id, enemies)
 	var engaging_ids = []
@@ -6403,7 +6499,7 @@ static func _should_hold_for_heavy_bonus(
 		return false
 
 	# Check if the Heavy bonus is significant enough
-	if heavy_data.total_expected_extra_hits < HEAVY_STATIONARY_MIN_BENEFIT:
+	if heavy_data.total_expected_extra_hits < get_param("HEAVY_STATIONARY_MIN_BENEFIT", HEAVY_STATIONARY_MIN_BENEFIT):
 		return false
 
 	# Check if there are enemies within Heavy weapon range
@@ -6419,7 +6515,7 @@ static func _should_hold_for_heavy_bonus(
 
 	# If objective is high-priority and close (2 turns), don't hold
 	var obj_priority = assignment.get("score", 0.0)
-	if obj_priority >= HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE and dist_to_obj_inches <= move_inches * 2:
+	if obj_priority >= get_param("HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE", HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE) and dist_to_obj_inches <= move_inches * 2:
 		return false  # High priority objective within 2 turns overrides Heavy bonus
 
 	# If the unit intends to charge, don't hold for Heavy bonus
@@ -6522,12 +6618,12 @@ static func _find_best_half_range_position(
 			best_score = score
 			# Compute a position at half range of this enemy (with safety margin)
 			var dir = (enemy_centroid - centroid).normalized()
-			var margin_px = HALF_RANGE_APPROACH_MARGIN_INCHES * PIXELS_PER_INCH
+			var margin_px = get_param("HALF_RANGE_APPROACH_MARGIN_INCHES", HALF_RANGE_APPROACH_MARGIN_INCHES) * PIXELS_PER_INCH
 			var desired_dist_px = applicable_half_range_px - margin_px
 			var move_distance_px = max(0.0, dist_px - desired_dist_px)
 			best_target = centroid + dir * move_distance_px
 
-	return best_target if best_score >= HALF_RANGE_MIN_BENEFIT else Vector2.INF
+	return best_target if best_score >= get_param("HALF_RANGE_MIN_BENEFIT", HALF_RANGE_MIN_BENEFIT) else Vector2.INF
 
 # =============================================================================
 # SHOOTING RANGE CONSIDERATION FOR MOVEMENT (MOV-1)
@@ -6734,7 +6830,7 @@ static func _should_hold_for_shooting(
 	# that would benefit from moving forward to half range. If so, don't hold — let
 	# the movement logic push toward half range for the damage bonus.
 	var half_range_data = _get_unit_half_range_data(unit)
-	if half_range_data.has_bonus and half_range_data.total_benefit >= HALF_RANGE_MIN_BENEFIT:
+	if half_range_data.has_bonus and half_range_data.total_benefit >= get_param("HALF_RANGE_MIN_BENEFIT", HALF_RANGE_MIN_BENEFIT):
 		# Check if any enemy in range is beyond half range (would benefit from closing)
 		var would_benefit_from_closing = false
 		for entry in enemies_in_range:
@@ -7209,10 +7305,10 @@ static func _is_screening_candidate(unit: Dictionary) -> bool:
 	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
 	# Cheap units with low OC are ideal screeners — they're expendable
 	# Also include zero-point units (chaff)
-	if points <= SCREEN_CHEAP_UNIT_POINTS and unit_oc <= 2:
+	if points <= get_param_int("SCREEN_CHEAP_UNIT_POINTS", SCREEN_CHEAP_UNIT_POINTS) and unit_oc <= 2:
 		return true
 	# Units with no ranged weapons are also good screeners (they want to be forward)
-	if points <= SCREEN_CHEAP_UNIT_POINTS * 1.5 and not _unit_has_ranged_weapons(unit):
+	if points <= get_param_int("SCREEN_CHEAP_UNIT_POINTS", SCREEN_CHEAP_UNIT_POINTS) * 1.5 and not _unit_has_ranged_weapons(unit):
 		return true
 	return false
 
@@ -7426,7 +7522,7 @@ static func _calculate_corridor_blocking_positions(
 			# Calculate blocking position along the corridor
 			# Place the blocker between the enemy and the objective, biased toward the enemy
 			var corridor_dir = (obj_pos - enemy_centroid).normalized()
-			var block_pos = enemy_centroid + corridor_dir * dist_to_obj * CORRIDOR_BLOCK_POSITION_RATIO
+			var block_pos = enemy_centroid + corridor_dir * dist_to_obj * get_param("CORRIDOR_BLOCK_POSITION_RATIO", CORRIDOR_BLOCK_POSITION_RATIO)
 
 			# Clamp to board
 			block_pos.x = clamp(block_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
@@ -7465,8 +7561,8 @@ static func _calculate_corridor_blocking_positions(
 
 	# Sort by priority (highest first) and cap the number of positions
 	blocking_positions.sort_custom(func(a, b): return a.priority > b.priority)
-	if blocking_positions.size() > CORRIDOR_BLOCK_MAX_POSITIONS:
-		blocking_positions.resize(CORRIDOR_BLOCK_MAX_POSITIONS)
+	if blocking_positions.size() > get_param_int("CORRIDOR_BLOCK_MAX_POSITIONS", CORRIDOR_BLOCK_MAX_POSITIONS):
+		blocking_positions.resize(get_param_int("CORRIDOR_BLOCK_MAX_POSITIONS", CORRIDOR_BLOCK_MAX_POSITIONS))
 	return blocking_positions
 
 # --- Movement helpers ---
@@ -8003,6 +8099,29 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			desc_parts.append("%s — expected %.1f dmg vs %.0f HP (%.0f%% kill)" % [tname, dmg, hp, min(kill_pct, 100.0)])
 
 		var target_summary = "; ".join(desc_parts) if not desc_parts.is_empty() else "targets"
+
+		# Record structured decision for AI Gameplay Visualizer
+		var shoot_candidates = []
+		var shoot_chosen_idx = 0
+		var shoot_idx = 0
+		for tid in target_damage:
+			var tname = target_name_map.get(tid, tid)
+			var dmg = target_damage[tid]
+			var hp = target_hp[tid]
+			var kill_pct = (dmg / hp * 100.0) if hp > 0 else 0.0
+			shoot_candidates.append({
+				"description": "Shoot at %s" % tname,
+				"score": dmg,
+				"score_breakdown": {"expected_damage": dmg, "target_hp": hp, "kill_chance": min(kill_pct, 100.0)}
+			})
+			shoot_idx += 1
+		if shoot_candidates.size() > 0:
+			var shoot_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+			_add_decision_record("shooting", selected_unit_id, unit_name,
+				shoot_candidates, 0,
+				{"OVERKILL_TOLERANCE": OVERKILL_TOLERANCE, "KILL_BONUS_MULTIPLIER": KILL_BONUS_MULTIPLIER},
+				{"phase": "shooting", "round": shoot_round})
+
 		return {
 			"type": "SHOOT",
 			"actor_unit_id": selected_unit_id,
@@ -8113,8 +8232,8 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		if _is_charge_target(enemy_id):
 			var enemy_name = enemy.get("meta", {}).get("name", enemy_id)
 			print("AIDecisionMaker: [PHASE-PLAN] Suppressing shooting priority for %s (planned charge target, %.2f -> %.2f)" % [
-				enemy_name, base_value, base_value * PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET])
-			base_value *= PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET
+				enemy_name, base_value, base_value * get_param("PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET", PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET)])
+			base_value *= get_param("PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET", PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET)
 
 		target_values[enemy_id] = base_value
 
@@ -8360,7 +8479,7 @@ static func _get_trade_efficiency(attacker: Dictionary, target: Dictionary) -> f
 		return 1.0  # No points data available, neutral trade
 	# Ratio: target PPW / attacker PPW. >1.0 means target is more expensive per wound
 	var ratio = target_ppw / attacker_ppw
-	return clampf(ratio, TRADE_UNFAVORABLE_PENALTY, TRADE_FAVORABLE_BONUS)
+	return clampf(ratio, get_param("TRADE_UNFAVORABLE_PENALTY", TRADE_UNFAVORABLE_PENALTY), get_param("TRADE_FAVORABLE_BONUS", TRADE_FAVORABLE_BONUS))
 
 static func _calculate_tempo_modifier(snapshot: Dictionary, player: int) -> float:
 	"""T7-24: Calculate aggression modifier based on VP differential and game round.
@@ -8381,16 +8500,16 @@ static func _calculate_tempo_modifier(snapshot: Dictionary, player: int) -> floa
 	var modifier = 1.0
 	if vp_diff < 0:
 		# Behind: increase aggression proportional to deficit
-		modifier += minf(absf(vp_diff) * TEMPO_VP_DIFF_WEIGHT, TEMPO_BEHIND_AGGRESSION_BOOST - 1.0)
+		modifier += minf(absf(vp_diff) * get_param("TEMPO_VP_DIFF_WEIGHT", TEMPO_VP_DIFF_WEIGHT), get_param("TEMPO_BEHIND_AGGRESSION_BOOST", TEMPO_BEHIND_AGGRESSION_BOOST) - 1.0)
 	elif vp_diff > 0:
 		# Ahead: play more conservatively (smaller adjustment to avoid passivity)
-		modifier -= minf(float(vp_diff) * TEMPO_VP_DIFF_WEIGHT * 0.5, 1.0 - TEMPO_AHEAD_CONSERVATION)
+		modifier -= minf(float(vp_diff) * get_param("TEMPO_VP_DIFF_WEIGHT", TEMPO_VP_DIFF_WEIGHT) * 0.5, 1.0 - get_param("TEMPO_AHEAD_CONSERVATION", TEMPO_AHEAD_CONSERVATION))
 
 	# Late-game desperation: being behind in rounds 4-5 increases aggression sharply
-	if battle_round >= TEMPO_DESPERATION_ROUND and vp_diff < 0:
-		var rounds_left = TEMPO_MAX_ROUNDS - battle_round + 1
-		var urgency = 1.0 + (absf(vp_diff) * TEMPO_VP_DIFF_WEIGHT * (3.0 / maxf(float(rounds_left), 1.0)))
-		modifier = maxf(modifier, minf(urgency, TEMPO_DESPERATION_MULTIPLIER))
+	if battle_round >= get_param_int("TEMPO_DESPERATION_ROUND", TEMPO_DESPERATION_ROUND) and vp_diff < 0:
+		var rounds_left = get_param_int("TEMPO_MAX_ROUNDS", TEMPO_MAX_ROUNDS) - battle_round + 1
+		var urgency = 1.0 + (absf(vp_diff) * get_param("TEMPO_VP_DIFF_WEIGHT", TEMPO_VP_DIFF_WEIGHT) * (3.0 / maxf(float(rounds_left), 1.0)))
+		modifier = maxf(modifier, minf(urgency, get_param("TEMPO_DESPERATION_MULTIPLIER", TEMPO_DESPERATION_MULTIPLIER)))
 
 	print("AIDecisionMaker: [TEMPO] VP: %d vs %d (diff=%+d), round=%d, modifier=%.2f" % [
 		my_vp, opp_vp, vp_diff, battle_round, modifier])
@@ -8404,10 +8523,10 @@ static func _get_round_strategy_modifiers(battle_round: int) -> Dictionary:
 	Returns a dictionary with multipliers for different strategic priorities."""
 	if battle_round <= 2:
 		return {
-			"aggression": STRATEGY_EARLY_AGGRESSION,
-			"objective_priority": STRATEGY_EARLY_OBJECTIVE,
-			"survival": STRATEGY_EARLY_SURVIVAL,
-			"charge_threshold": STRATEGY_EARLY_CHARGE,
+			"aggression": get_param("STRATEGY_EARLY_AGGRESSION", STRATEGY_EARLY_AGGRESSION),
+			"objective_priority": get_param("STRATEGY_EARLY_OBJECTIVE", STRATEGY_EARLY_OBJECTIVE),
+			"survival": get_param("STRATEGY_EARLY_SURVIVAL", STRATEGY_EARLY_SURVIVAL),
+			"charge_threshold": get_param("STRATEGY_EARLY_CHARGE", STRATEGY_EARLY_CHARGE),
 			"label": "AGGRESSIVE",
 		}
 	elif battle_round == 3:
@@ -8420,10 +8539,10 @@ static func _get_round_strategy_modifiers(battle_round: int) -> Dictionary:
 		}
 	else:  # Rounds 4-5
 		return {
-			"aggression": STRATEGY_LATE_AGGRESSION,
-			"objective_priority": STRATEGY_LATE_OBJECTIVE,
-			"survival": STRATEGY_LATE_SURVIVAL,
-			"charge_threshold": STRATEGY_LATE_CHARGE,
+			"aggression": get_param("STRATEGY_LATE_AGGRESSION", STRATEGY_LATE_AGGRESSION),
+			"objective_priority": get_param("STRATEGY_LATE_OBJECTIVE", STRATEGY_LATE_OBJECTIVE),
+			"survival": get_param("STRATEGY_LATE_SURVIVAL", STRATEGY_LATE_SURVIVAL),
+			"charge_threshold": get_param("STRATEGY_LATE_CHARGE", STRATEGY_LATE_CHARGE),
 			"label": "OBJECTIVE/SURVIVAL",
 		}
 
@@ -8452,7 +8571,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	# --- Points cost: expensive units are strategically more valuable to remove ---
 	var points = int(meta.get("points", 0))
 	if points > 0:
-		value += float(points) * MACRO_POINTS_WEIGHT
+		value += float(points) * get_param("MACRO_POINTS_WEIGHT", MACRO_POINTS_WEIGHT)
 
 	# --- T7-24: Points-per-wound efficiency bonus ---
 	# Units with high points-per-wound are more efficient to remove (each wound is expensive)
@@ -8460,7 +8579,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	if target_ppw > 0.0:
 		# Normalize against a reference PPW (~25 pts/wound is average for infantry)
 		var ppw_ratio = target_ppw / 25.0
-		value += (ppw_ratio - 1.0) * TRADE_PPW_WEIGHT
+		value += (ppw_ratio - 1.0) * get_param("TRADE_PPW_WEIGHT", TRADE_PPW_WEIGHT)
 
 	# --- Expected damage output: compute actual expected damage, not just raw attacks*damage ---
 	# Use a "typical" target (T4, Sv3+) as baseline to estimate how threatening this unit is
@@ -8502,7 +8621,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 		ranged_output += attacks * p_hit * p_wound * p_unsaved * dmg
 	# Scale by model count (each model fires)
 	ranged_output *= model_multiplier
-	value += ranged_output * MACRO_RANGED_OUTPUT_WEIGHT
+	value += ranged_output * get_param("MACRO_RANGED_OUTPUT_WEIGHT", MACRO_RANGED_OUTPUT_WEIGHT)
 
 	# Melee damage output (probability-weighted)
 	var melee_output = 0.0
@@ -8537,13 +8656,13 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 		var p_unsaved = 1.0 - _save_probability(3, w_ap)
 		melee_output += attacks * p_hit * p_wound * p_unsaved * dmg
 	melee_output *= model_multiplier
-	value += melee_output * MACRO_MELEE_OUTPUT_WEIGHT
+	value += melee_output * get_param("MACRO_MELEE_OUTPUT_WEIGHT", MACRO_MELEE_OUTPUT_WEIGHT)
 
 	# --- Ability value: leaders providing buffs are high-priority targets ---
 	# Offensive multiplier indicates how much this unit's abilities boost its damage
 	var offensive_mult = AIAbilityAnalyzerData.get_offensive_multiplier_ranged(unit_id, target_unit, all_units)
 	if offensive_mult > 1.0:
-		value += (offensive_mult - 1.0) * MACRO_ABILITY_VALUE_WEIGHT
+		value += (offensive_mult - 1.0) * get_param("MACRO_ABILITY_VALUE_WEIGHT", MACRO_ABILITY_VALUE_WEIGHT)
 
 	# Defensive multiplier: units with strong defensive abilities (FNP, Stealth)
 	# are harder to kill but also more dangerous if left alive
@@ -8551,7 +8670,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	if defensive_mult > 1.0:
 		# Slight discount — harder to kill means less efficient to shoot,
 		# but still valuable to remove. Net effect is mild.
-		value -= (defensive_mult - 1.0) * MACRO_SURVIVABILITY_DISCOUNT
+		value -= (defensive_mult - 1.0) * get_param("MACRO_SURVIVABILITY_DISCOUNT", MACRO_SURVIVABILITY_DISCOUNT)
 
 	# --- Character bonus: leaders providing buffs are strategically critical ---
 	if "CHARACTER" in keywords:
@@ -8559,7 +8678,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 		var attached_to = target_unit.get("attached_to", null)
 		var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
 		if attached_to != null or not attached_chars.is_empty():
-			value *= MACRO_LEADER_BUFF_BONUS  # Leader actively buffing = very high priority
+			value *= get_param("MACRO_LEADER_BUFF_BONUS", MACRO_LEADER_BUFF_BONUS)  # Leader actively buffing = very high priority
 		else:
 			value *= 1.3  # Standalone character still valuable
 
@@ -8570,7 +8689,7 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	# --- Below half health bonus (finish off wounded units — easy VP) ---
 	var total_count = target_unit.get("models", []).size()
 	if total_count > 0 and alive_count * 2 < total_count:
-		value *= LOW_HEALTH_BONUS
+		value *= get_param("LOW_HEALTH_BONUS", LOW_HEALTH_BONUS)
 
 	# --- Objective presence: units on/near objectives are strategically critical ---
 	var unit_centroid = _get_unit_centroid(target_unit)
@@ -8591,15 +8710,15 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 			value *= 1.4
 			# OC value matters much more when actually on an objective
 			if oc >= 1:
-				value += float(oc) * MACRO_OC_ON_OBJECTIVE_WEIGHT
+				value += float(oc) * get_param("MACRO_OC_ON_OBJECTIVE_WEIGHT", MACRO_OC_ON_OBJECTIVE_WEIGHT)
 			# T7-43: In late game, further boost priority of shooting units on objectives
 			var target_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 			if target_battle_round >= 4:
-				value *= STRATEGY_LATE_OBJ_TARGET_BONUS
+				value *= get_param("STRATEGY_LATE_OBJ_TARGET_BONUS", STRATEGY_LATE_OBJ_TARGET_BONUS)
 		elif near_objective:
 			value *= 1.15
 			if oc >= 1:
-				value += float(oc) * MACRO_OC_NEAR_OBJECTIVE_WEIGHT
+				value += float(oc) * get_param("MACRO_OC_NEAR_OBJECTIVE_WEIGHT", MACRO_OC_NEAR_OBJECTIVE_WEIGHT)
 
 	# Secondary mission kill-target bonus: boost priority when target matches active kill secondaries
 	var sec_awareness = _get_secondary_awareness(player)
@@ -8656,7 +8775,7 @@ static func _calculate_marginal_value(
 	var overkill_damage = 0.0
 	var new_total = current_alloc + weapon_damage
 
-	if current_alloc >= threshold * OVERKILL_TOLERANCE:
+	if current_alloc >= threshold * get_param("OVERKILL_TOLERANCE", OVERKILL_TOLERANCE):
 		# Already massively overkilling — all damage is waste
 		overkill_damage = weapon_damage
 	elif new_total <= threshold:
@@ -8681,14 +8800,14 @@ static func _calculate_marginal_value(
 
 		if new_model_kills >= 1.0:
 			# Each new model killed adds fractional value
-			marginal += new_model_kills * wpm * target_value * MICRO_MODEL_KILL_VALUE
+			marginal += new_model_kills * wpm * target_value * get_param("MICRO_MODEL_KILL_VALUE", MICRO_MODEL_KILL_VALUE)
 
 		# Full wipe bonus: if we cross the total kill threshold
 		if current_alloc < threshold and new_total >= threshold * 0.6:
-			marginal *= MICRO_MARGINAL_KILL_BONUS
+			marginal *= get_param("MICRO_MARGINAL_KILL_BONUS", MICRO_MARGINAL_KILL_BONUS)
 
 	# Overkill: heavily discount damage beyond the threshold
-	marginal += overkill_damage * target_value * MICRO_OVERKILL_DECAY
+	marginal += overkill_damage * target_value * get_param("MICRO_OVERKILL_DECAY", MICRO_OVERKILL_DECAY)
 
 	# Factor in weapon-target efficiency (anti-tank vs vehicle = bonus)
 	marginal *= efficiency
@@ -8699,7 +8818,7 @@ static func _calculate_marginal_value(
 		var alive_count = _get_alive_models(enemy).size()
 		var total_count = enemy.get("models", []).size()
 		if total_count > 0 and alive_count * 2 < total_count:
-			marginal *= LOW_HEALTH_BONUS
+			marginal *= get_param("LOW_HEALTH_BONUS", LOW_HEALTH_BONUS)
 
 	return marginal
 
@@ -9136,7 +9255,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 				if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
 					score *= 1.5  # Target is on an objective
 					if charge_battle_round >= 4:
-						score *= STRATEGY_LATE_CHARGE_ON_OBJ_BONUS
+						score *= get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS)
 					break
 
 			# T7-51: Apply overwatch risk penalty to charge score
@@ -9197,7 +9316,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 	var charge_threshold = 1.0
 	if charge_tempo > 1.0:
 		# When behind: reduce threshold to accept more marginal charges
-		charge_threshold = maxf(1.0 - (charge_tempo - 1.0) * TEMPO_CHARGE_THRESHOLD_REDUCTION, 0.3)
+		charge_threshold = maxf(1.0 - (charge_tempo - 1.0) * get_param("TEMPO_CHARGE_THRESHOLD_REDUCTION", TEMPO_CHARGE_THRESHOLD_REDUCTION), 0.3)
 		print("AIDecisionMaker: [TEMPO] Charge threshold lowered to %.2f (tempo=%.2f)" % [charge_threshold, charge_tempo])
 
 	# T7-40: Apply difficulty modifier to charge threshold
@@ -9239,6 +9358,50 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 
 	print("AIDecisionMaker: Best charge: %s (score=%.1f)" % [best_description, best_score])
 	_add_thinking_step("Declaring charge: %s (score: %.1f)" % [best_description, best_score])
+
+	# Record structured decision for AI Gameplay Visualizer
+	var charge_candidates = []
+	var charge_chosen_idx = 0
+	var charge_unit_id = best_action.get("actor_unit_id", "")
+	var charge_unit = snapshot.get("units", {}).get(charge_unit_id, {})
+	var charge_unit_name = charge_unit.get("meta", {}).get("name", charge_unit_id)
+	if charger_targets.has(charge_unit_id):
+		var idx = 0
+		for target_info in charger_targets[charge_unit_id]:
+			var tid = target_info.target_id
+			var t_unit = snapshot.get("units", {}).get(tid, {})
+			var t_name = t_unit.get("meta", {}).get("name", tid)
+			var t_dist = target_info.distance_inches
+			# Find the scored entry for this target
+			var t_score = 0.0
+			var t_prob = _charge_success_probability(max(0.0, t_dist - 1.0))
+			var t_melee = _estimate_melee_damage(charge_unit, t_unit) if not t_unit.is_empty() else 0.0
+			var t_hp = _calculate_kill_threshold(t_unit) if not t_unit.is_empty() else 0.0
+			# Find score from scored_targets if available
+			for st in scored_targets if charger_targets[charge_unit_id] == charger_targets.get(charge_unit_id, []) else []:
+				if st.target_id == tid:
+					t_score = st.score
+					break
+			charge_candidates.append({
+				"description": "Charge %s (%.1f\" away, %.0f%% chance)" % [t_name, t_dist, t_prob * 100.0],
+				"score": t_score,
+				"score_breakdown": {
+					"charge_probability": t_prob,
+					"melee_damage": t_melee,
+					"target_hp": t_hp,
+					"distance": t_dist,
+				}
+			})
+			if tid == best_action.get("payload", {}).get("target_unit_ids", [null])[0] if not best_action.get("payload", {}).get("target_unit_ids", []).is_empty() else "":
+				charge_chosen_idx = idx
+			idx += 1
+	if not charge_candidates.is_empty():
+		_add_decision_record("charge", charge_unit_id, charge_unit_name,
+			charge_candidates, charge_chosen_idx,
+			{"TEMPO_CHARGE_THRESHOLD_REDUCTION": TEMPO_CHARGE_THRESHOLD_REDUCTION,
+			 "charge_threshold": charge_threshold},
+			{"phase": "charge", "round": ct_battle_round})
+
 	var result = best_action.duplicate()
 	result["_ai_description"] = best_description
 
@@ -9388,7 +9551,7 @@ static func _score_multi_target_combo(
 			if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
 				score *= 1.3
 				if charge_battle_round >= 4:
-					score *= STRATEGY_LATE_CHARGE_ON_OBJ_BONUS
+					score *= get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS)
 				break
 
 	# Apply overwatch risk penalty
@@ -9463,7 +9626,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		var lock_targets = _phase_plan.get("lock_targets", [])
 		if target_id_for_lock in lock_targets:
 			var ranged_strength = _estimate_unit_ranged_strength(target)
-			var lock_bonus = PHASE_PLAN_LOCK_SHOOTER_BONUS
+			var lock_bonus = get_param("PHASE_PLAN_LOCK_SHOOTER_BONUS", PHASE_PLAN_LOCK_SHOOTER_BONUS)
 			# Scale bonus by how dangerous the shooter is
 			if ranged_strength >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS * 2.0:
 				lock_bonus *= 1.5  # Very dangerous — high priority to lock
@@ -10599,6 +10762,33 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	print("AIDecisionMaker: T7-29 fight target optimized — %s selects '%s' vs %s (damage: %.2f, score: %.2f, primaries: %d, EA: %d)" % [
 		unit_name, best_weapon_name, target_name, best_raw_damage, best_composite_score, primary_weapons.size(), ea_count])
 
+	# Record structured decision for AI Gameplay Visualizer
+	var fight_candidates = []
+	var fight_chosen_idx = 0
+	var fight_idx = 0
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		var ename = enemy.get("meta", {}).get("name", enemy_id)
+		var e_toughness = int(enemy.get("meta", {}).get("stats", {}).get("toughness", 4))
+		var e_save = int(enemy.get("meta", {}).get("stats", {}).get("save", 4))
+		var e_invuln = _get_target_invulnerable_save(enemy)
+		var e_damage = 0.0
+		for w in primary_weapons:
+			e_damage = maxf(e_damage, _evaluate_melee_weapon_damage(w, alive_attackers, e_toughness, e_save, e_invuln, waaagh_buffs))
+		var e_hp = _calculate_kill_threshold(enemy)
+		var e_score = _score_fight_target(unit, enemy, e_damage, snapshot, player, objectives)
+		fight_candidates.append({
+			"description": "Attack %s with melee" % ename,
+			"score": e_score,
+			"score_breakdown": {"melee_damage": e_damage, "target_hp": e_hp, "strategic_value": e_score - e_damage * 2.0}
+		})
+		if enemy_id == best_target_id:
+			fight_chosen_idx = fight_idx
+		fight_idx += 1
+	if fight_candidates.size() > 1:
+		_add_decision_record("fight", unit_id, unit_name, fight_candidates, fight_chosen_idx,
+			{}, {"phase": "fight", "round": snapshot.get("meta", {}).get("battle_round", 1)})
+
 	# Record fight coordination for subsequent fighters to see accumulated damage on this target
 	var current_round = snapshot.get("meta", {}).get("battle_round", 1)
 	if _fight_coordination_round != current_round:
@@ -10894,10 +11084,10 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 		var enemy = entry.enemy_unit
 		incoming_damage += _estimate_melee_damage(enemy, unit)
 	var our_remaining_wounds = _calculate_kill_threshold(unit)
-	if our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * SURVIVAL_LETHAL_THRESHOLD:
+	if our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * get_param("SURVIVAL_LETHAL_THRESHOLD", SURVIVAL_LETHAL_THRESHOLD):
 		score += 3.0  # Unit is likely to die — fight first to get value
 		print("AIDecisionMaker: T7-46   %s: +3.0 vulnerability (%.1f incoming vs %.0f HP)" % [unit_name, incoming_damage, our_remaining_wounds])
-	elif our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * SURVIVAL_SEVERE_THRESHOLD:
+	elif our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * get_param("SURVIVAL_SEVERE_THRESHOLD", SURVIVAL_SEVERE_THRESHOLD):
 		score += 1.5  # Unit will be badly hurt — prefer fighting early
 
 	# --- Overkill penalty: don't activate big damage units first against weak targets ---
@@ -12842,8 +13032,8 @@ static func _build_secondary_awareness(snapshot: Dictionary, player: int) -> Dic
 			# --- POSITIONAL MISSIONS ---
 			"behind_enemy_lines":
 				# Need units wholly in opponent's deployment zone
-				awareness.enemy_zone_push = SECONDARY_ENEMY_ZONE_PUSH_BONUS
-				awareness.objective_zone_bonuses[enemy_zone] = awareness.objective_zone_bonuses.get(enemy_zone, 0.0) + SECONDARY_POSITIONAL_BONUS
+				awareness.enemy_zone_push = get_param("SECONDARY_ENEMY_ZONE_PUSH_BONUS", SECONDARY_ENEMY_ZONE_PUSH_BONUS)
+				awareness.objective_zone_bonuses[enemy_zone] = awareness.objective_zone_bonuses.get(enemy_zone, 0.0) + get_param("SECONDARY_POSITIONAL_BONUS", SECONDARY_POSITIONAL_BONUS)
 				print("AIDecisionMaker: [T7-25] Behind Enemy Lines active — pushing toward %s zone" % enemy_zone)
 
 			"engage_on_all_fronts":
@@ -12853,46 +13043,46 @@ static func _build_secondary_awareness(snapshot: Dictionary, player: int) -> Dic
 
 			"area_denial":
 				# Need units near board center, no enemies within 6"
-				awareness.center_priority = SECONDARY_CENTER_BONUS
+				awareness.center_priority = get_param("SECONDARY_CENTER_BONUS", SECONDARY_CENTER_BONUS)
 				print("AIDecisionMaker: [T7-25] Area Denial active — prioritizing center positioning")
 
 			"display_of_might":
 				# Need more units in NML than opponent
-				awareness.nml_priority += SECONDARY_POSITIONAL_BONUS
-				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS
+				awareness.nml_priority += get_param("SECONDARY_POSITIONAL_BONUS", SECONDARY_POSITIONAL_BONUS)
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
 				print("AIDecisionMaker: [T7-25] Display of Might active — pushing units into NML")
 
 			# --- OBJECTIVE MISSIONS ---
 			"storm_hostile_objective":
 				# Need to take objectives opponent controlled at turn start
 				# Boost enemy-held/contested objectives
-				awareness.objective_zone_bonuses[enemy_zone] = awareness.objective_zone_bonuses.get(enemy_zone, 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS
-				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS * 0.5
+				awareness.objective_zone_bonuses[enemy_zone] = awareness.objective_zone_bonuses.get(enemy_zone, 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.5
 				print("AIDecisionMaker: [T7-25] Storm Hostile Objective active — contesting enemy objectives")
 
 			"defend_stronghold":
 				# Need to control objectives in own deployment zone
-				awareness.defend_home = SECONDARY_OBJECTIVE_ZONE_BONUS
-				awareness.objective_zone_bonuses[player_zone] = awareness.objective_zone_bonuses.get(player_zone, 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS
+				awareness.defend_home = get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
+				awareness.objective_zone_bonuses[player_zone] = awareness.objective_zone_bonuses.get(player_zone, 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
 				print("AIDecisionMaker: [T7-25] Defend Stronghold active — defending home zone objectives")
 
 			"secure_no_mans_land":
 				# Need to control NML objectives
-				awareness.nml_priority += SECONDARY_OBJECTIVE_ZONE_BONUS
-				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS
+				awareness.nml_priority += get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
 				print("AIDecisionMaker: [T7-25] Secure NML active — prioritizing no man's land objectives")
 
 			"a_tempting_target":
 				# Need to control opponent-selected objective (in NML)
-				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
 				print("AIDecisionMaker: [T7-25] A Tempting Target active — contesting NML objectives")
 
 			"extend_battle_lines":
 				# Need to control own zone AND NML objectives
-				awareness.defend_home = max(awareness.defend_home, SECONDARY_OBJECTIVE_ZONE_BONUS * 0.8)
-				awareness.nml_priority += SECONDARY_OBJECTIVE_ZONE_BONUS * 0.8
-				awareness.objective_zone_bonuses[player_zone] = awareness.objective_zone_bonuses.get(player_zone, 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS * 0.8
-				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS * 0.8
+				awareness.defend_home = max(awareness.defend_home, get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.8)
+				awareness.nml_priority += get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.8
+				awareness.objective_zone_bonuses[player_zone] = awareness.objective_zone_bonuses.get(player_zone, 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.8
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.8
 				print("AIDecisionMaker: [T7-25] Extend Battle Lines active — defending home + NML")
 
 			# --- KILL MISSIONS ---
@@ -12943,7 +13133,7 @@ static func _build_secondary_awareness(snapshot: Dictionary, player: int) -> Dic
 			"establish_locus", "cleanse", "deploy_teleport_homer":
 				# Action missions require performing actions near objectives
 				# Bias toward NML objectives where actions are typically performed
-				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS * 0.6
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.6
 				print("AIDecisionMaker: [T7-25] %s active — positioning for actions" % mission_id)
 
 	print("AIDecisionMaker: [T7-25] Secondary awareness built: zone_bonuses=%s, kill_keywords=%s, spread=%s, center=%.1f, enemy_push=%.1f" % [
@@ -13891,16 +14081,16 @@ static func _classify_weapon_role(weapon: Dictionary) -> int:
 
 	# Score weapon characteristics for anti-tank role
 	var anti_tank_score = 0
-	if strength >= ANTI_TANK_STRENGTH_THRESHOLD:
+	if strength >= get_param_int("ANTI_TANK_STRENGTH_THRESHOLD", ANTI_TANK_STRENGTH_THRESHOLD):
 		anti_tank_score += 2
-	if ap >= ANTI_TANK_AP_THRESHOLD:
+	if ap >= get_param_int("ANTI_TANK_AP_THRESHOLD", ANTI_TANK_AP_THRESHOLD):
 		anti_tank_score += 1
 	if damage >= ANTI_TANK_DAMAGE_THRESHOLD:
 		anti_tank_score += 2
 
 	# Score weapon characteristics for anti-infantry role
 	var anti_infantry_score = 0
-	if strength <= ANTI_INFANTRY_STRENGTH_CAP:
+	if strength <= get_param_int("ANTI_INFANTRY_STRENGTH_CAP", ANTI_INFANTRY_STRENGTH_CAP):
 		anti_infantry_score += 1
 	if damage <= ANTI_INFANTRY_DAMAGE_THRESHOLD:
 		anti_infantry_score += 2
@@ -13981,19 +14171,19 @@ static func _calculate_efficiency_multiplier(weapon: Dictionary, target_unit: Di
 		WeaponRole.ANTI_TANK:
 			match target_type:
 				TargetType.VEHICLE_MONSTER:
-					multiplier = EFFICIENCY_PERFECT_MATCH
+					multiplier = get_param("EFFICIENCY_PERFECT_MATCH", EFFICIENCY_PERFECT_MATCH)
 				TargetType.ELITE:
-					multiplier = EFFICIENCY_GOOD_MATCH
+					multiplier = get_param("EFFICIENCY_GOOD_MATCH", EFFICIENCY_GOOD_MATCH)
 				TargetType.HORDE:
-					multiplier = EFFICIENCY_POOR_MATCH
+					multiplier = get_param("EFFICIENCY_POOR_MATCH", EFFICIENCY_POOR_MATCH)
 		WeaponRole.ANTI_INFANTRY:
 			match target_type:
 				TargetType.HORDE:
-					multiplier = EFFICIENCY_PERFECT_MATCH
+					multiplier = get_param("EFFICIENCY_PERFECT_MATCH", EFFICIENCY_PERFECT_MATCH)
 				TargetType.ELITE:
-					multiplier = EFFICIENCY_GOOD_MATCH
+					multiplier = get_param("EFFICIENCY_GOOD_MATCH", EFFICIENCY_GOOD_MATCH)
 				TargetType.VEHICLE_MONSTER:
-					multiplier = EFFICIENCY_POOR_MATCH
+					multiplier = get_param("EFFICIENCY_POOR_MATCH", EFFICIENCY_POOR_MATCH)
 		WeaponRole.GENERAL_PURPOSE:
 			multiplier = EFFICIENCY_NEUTRAL
 
@@ -14007,16 +14197,16 @@ static func _calculate_efficiency_multiplier(weapon: Dictionary, target_unit: Di
 	var wpm = float(_get_target_wounds_per_model(target_unit))
 	if wpm <= 1.0 and avg_damage > 1.0:
 		if avg_damage >= ANTI_TANK_DAMAGE_THRESHOLD:  # D3+ avg damage (heavy waste)
-			multiplier *= DAMAGE_WASTE_PENALTY_HEAVY
+			multiplier *= get_param("DAMAGE_WASTE_PENALTY_HEAVY", DAMAGE_WASTE_PENALTY_HEAVY)
 		else:  # D2 (moderate waste)
-			multiplier *= DAMAGE_WASTE_PENALTY_MODERATE
+			multiplier *= get_param("DAMAGE_WASTE_PENALTY_MODERATE", DAMAGE_WASTE_PENALTY_MODERATE)
 
 	# --- Anti-keyword bonus ---
 	var special_rules = weapon.get("special_rules", "").to_lower()
 	var keywords = target_unit.get("meta", {}).get("keywords", [])
 
 	if _weapon_anti_keyword_matches_target(special_rules, keywords):
-		multiplier *= ANTI_KEYWORD_BONUS
+		multiplier *= get_param("ANTI_KEYWORD_BONUS", ANTI_KEYWORD_BONUS)
 
 	return multiplier
 
@@ -15359,10 +15549,10 @@ static func _evaluate_position_threat(
 		if td.has_melee and dist < td.charge_threat_px:
 			# How deep into the charge threat zone are we? (0.0 = edge, 1.0 = right on top)
 			var depth = 1.0 - (dist / td.charge_threat_px)
-			var charge_penalty = depth * td.unit_value * THREAT_CHARGE_PENALTY
+			var charge_penalty = depth * td.unit_value * get_param("THREAT_CHARGE_PENALTY", THREAT_CHARGE_PENALTY)
 			# Melee units care less about being charged (they want to fight)
 			if is_melee_focused:
-				charge_penalty *= THREAT_MELEE_UNIT_IGNORE
+				charge_penalty *= get_param("THREAT_MELEE_UNIT_IGNORE", THREAT_MELEE_UNIT_IGNORE)
 			charge_threat += charge_penalty
 			threats.append({
 				"enemy_id": td.unit_id,
@@ -15376,9 +15566,9 @@ static func _evaluate_position_threat(
 			# charge without needing to move first, which is critically dangerous
 			if dist < close_melee_range_px:
 				var close_depth = 1.0 - (dist / close_melee_range_px)  # 0=edge of 12", 1=on top
-				var close_penalty = close_depth * td.unit_value * THREAT_CLOSE_MELEE_PENALTY
+				var close_penalty = close_depth * td.unit_value * get_param("THREAT_CLOSE_MELEE_PENALTY", THREAT_CLOSE_MELEE_PENALTY)
 				if is_melee_focused:
-					close_penalty *= THREAT_MELEE_UNIT_IGNORE
+					close_penalty *= get_param("THREAT_MELEE_UNIT_IGNORE", THREAT_MELEE_UNIT_IGNORE)
 				charge_threat += close_penalty
 				threats.append({
 					"enemy_id": td.unit_id,
@@ -15391,7 +15581,7 @@ static func _evaluate_position_threat(
 		# Check shooting threat zone
 		if td.has_ranged and td.shoot_threat_px > 0 and dist < td.shoot_threat_px:
 			var depth = 1.0 - (dist / td.shoot_threat_px)
-			var shoot_penalty = depth * td.unit_value * THREAT_SHOOTING_PENALTY
+			var shoot_penalty = depth * td.unit_value * get_param("THREAT_SHOOTING_PENALTY", THREAT_SHOOTING_PENALTY)
 			shoot_threat += shoot_penalty
 			threats.append({
 				"enemy_id": td.unit_id,
@@ -15408,7 +15598,7 @@ static func _evaluate_position_threat(
 	var own_toughness = int(own_stats.get("toughness", 4))
 	var own_wounds = int(own_stats.get("wounds", 1))
 	if own_toughness <= 3 or own_wounds <= 1:
-		total_threat *= THREAT_FRAGILE_BONUS
+		total_threat *= get_param("THREAT_FRAGILE_BONUS", THREAT_FRAGILE_BONUS)
 
 	return {
 		"charge_threat": charge_threat,
