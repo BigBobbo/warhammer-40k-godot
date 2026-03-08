@@ -91,15 +91,15 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 | Ability | Type | Rules Text | In JSON | In Code | UI | AI | Status |
 |---------|------|-----------|---------|---------|----|----|--------|
 | Deep Strike | Core | Set up in Reserves, deploy 9"+ from enemies | N/A | Deployment system exists | N/A | N/A | **Not in game** |
+| Feel No Pain 5+ | Core | Each wound lost, roll D6: 5+ ignores it | N/A | FNP system exists | N/A | N/A | **Not in game** |
+| Leader | Core | Can lead Custodian Guard or Custodian Wardens | N/A | Attachment system exists | N/A | N/A | **Not in game** |
 | Martial Ka'tah | Faction | Choose Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) when fighting | N/A | FactionAbilityManager handles this | N/A | N/A | **Not in game** |
 | Captain-General | Datasheet (Leader) | While leading, ignore any/all modifiers to BS/WS and Hit roll modifiers | N/A | **NO** | **NO** | **NO** | **Not in game** |
 | Moment Shackle | Datasheet | Once per battle, start of Fight phase, choose one: (1) Watcher's Axe has 12 Attacks, OR (2) 2+ invuln save | N/A | **NO** | **NO** | **NO** | **Not in game** |
-| Golden Laurels | Datasheet (Leader) | While leading, worsen AP of incoming melee attacks by 1 | N/A | **NO** | **NO** | **NO** | **Not in game** |
-| Hero of Lion's Gate | Datasheet | Once per battle: change any Hit/Wound/Save roll to unmodified 6 | N/A | **NO** | **NO** | **NO** | **Not in game** |
-| Warlord requirement | Special | Must be Warlord if in army | N/A | **NO** | **NO** | **NO** | **Not in game** |
+| Supreme Commander | Special | Must be Warlord if in army | N/A | **NO** | **NO** | **NO** | **Not in game** |
 | Invulnerable Save 4+ | Innate | 4+ invulnerable save | N/A | N/A | N/A | N/A | **Not in game** |
 
-**Notes:** Trajann is an Epic Hero with 4 unique datasheet abilities. None exist in the codebase. Captain-General is particularly impactful as it negates all hit modifiers (e.g., cover, -1 to hit abilities). Golden Laurels provides passive melee defense, and Hero of Lion's Gate is a clutch once-per-battle roll manipulation.
+**Notes:** Trajann is an Epic Hero. Per the wahapedia CSV data, his abilities are: Deep Strike, FNP 5+, Leader, Martial Ka'tah, Captain-General, Moment Shackle, and Supreme Commander. Captain-General is particularly impactful as it negates all hit modifiers (e.g., cover, -1 to hit abilities).
 
 ---
 
@@ -125,11 +125,10 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 
 | Ability | Type | Rules Text | In JSON | In Code | UI | AI | Status |
 |---------|------|-----------|---------|---------|----|----|--------|
-| Deep Strike | Core | Set up in Reserves, deploy 9"+ from enemies | N/A | Deployment system exists | N/A | N/A | **Not in game** |
-| Martial Ka'tah | Faction | Stance selection when fighting | N/A | FactionAbilityManager | N/A | N/A | **Not in game** |
-| Strategic Mastery | Datasheet | Once per battle round: select one model with this ability, target its unit with a Stratagem at -1CP cost | N/A | StratagemManager (exists for foot Shield-Captain) | N/A | N/A | **Not in game** |
-| Sweeping Advance | Datasheet | Once per battle, end of Fight phase: if in Engagement Range, can Fall Back D6"; if not in Engagement Range, can make a Normal move | N/A | **NO** — not in any code | **NO** | **NO** | **Not in game** |
 | Leader (Vertus Praetors) | Core | Can lead Vertus Praetors | N/A | Attachment system | N/A | N/A | **Not in game** |
+| Martial Ka'tah | Faction | Stance selection when fighting | N/A | FactionAbilityManager | N/A | N/A | **Not in game** |
+| Sweeping Advance | Datasheet | Once per battle, end of Fight phase: if in Engagement Range, can Fall Back; if not in Engagement Range, can make a Normal move | N/A | **NO** — not in any code | **NO** | **NO** | **Not in game** |
+| Strategic Mastery | Datasheet | Once per battle round: select one model with this ability, target its unit with a Stratagem at -1CP cost | N/A | StratagemManager (exists for foot Shield-Captain) | N/A | N/A | **Not in game** |
 | Invulnerable Save 4+ | Innate | 4+ invulnerable save | N/A | N/A | N/A | N/A | **Not in game** |
 | Mounted, Fly keywords | Special | 12" move, Fly keyword | N/A | N/A | N/A | N/A | **Not in game** |
 
@@ -143,6 +142,7 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 
 | Ability | Type | Rules Text | In JSON | In Code | UI | AI | Status |
 |---------|------|-----------|---------|---------|----|----|--------|
+| Deep Strike | Core | Teleport deployment | **Yes** | Deployment system | Yes | Yes | **Working** |
 | Martial Ka'tah | Faction | Stance selection in Fight phase | **Yes** | FactionAbilityManager | KatahStanceDialog | Yes | **Working** |
 | Stand Vigil | Datasheet | Re-roll wound 1s; re-roll ALL wounds if on controlled objective | **Yes** | UnitAbilityManager `reroll_wounds: ones` | Passive | Yes | **PARTIAL** — objective-conditional reroll ALL not implemented |
 | Sentinel Storm | Datasheet | Once per battle: shoot again | **Yes** | ShootingPhase `has_shoot_again_ability()` | SentinelStormDialog | Always activates | **Working** |
@@ -150,7 +150,7 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 | Vexilla | Wargear | +1 OC | **Yes** | ArmyListManager WARGEAR_STAT_BONUSES | Passive | N/A | **Working** |
 | Invulnerable Save 4+ | Innate | 4+ invulnerable save | **No** (missing from stats) | N/A | N/A | N/A | **MISSING** |
 
-**Notes:** Custodian Guard do NOT have Deep Strike (previously listed in error). Stand Vigil's enhanced mode (re-roll ALL wound rolls near controlled objectives) is not implemented — only the basic "re-roll 1s" works. The invulnerable save 4+ is missing from the stats block.
+**Notes:** Stand Vigil's enhanced mode (re-roll ALL wound rolls near controlled objectives) is not implemented — only the basic "re-roll 1s" works. The invulnerable save 4+ is missing from the stats block.
 
 ---
 
@@ -213,9 +213,8 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 | Daughters of the Abyss | Datasheet | FNP 3+ vs Psychic/mortal wounds | **Yes** | UnitAbilityManager `grant_fnp_psychic_mortal` | Passive | N/A | **PARTIAL** — simplified as FNP 3+ always, should only apply vs Psychic Attacks and mortal wounds |
 | Sanctified Flames | Datasheet | After shooting, enemy hit takes Battle-shock test | **Yes** | ShootingPhase | Automatic | Yes | **Working** |
 | Null Aegis (Aura) | Faction (Talons of the Emperor) | Custodes within 6" get FNP 5+ vs Psychic Attacks and mortal wounds | **No** | **NO** | **NO** | **NO** | **MISSING** |
-| Invulnerable Save 6+ | Innate | 6+ invulnerable save | Need to check | N/A | N/A | N/A | **Verify** |
 
-**Notes:** Witchseekers are the most complete unit in this army list. They have a 6+ invulnerable save (not 4+ like Custodes). Daughters of the Abyss has a minor implementation issue (FNP 3+ should only apply against Psychic Attacks and mortal wounds, not all damage). Null Aegis aura (part of Talons of the Emperor faction rules) is entirely missing — this would give nearby Custodes units FNP 5+ vs psychic/mortal wounds.
+**Notes:** Witchseekers are the most complete unit in this army list. They have NO invulnerable save (inv_sv is "-" in CSV). Daughters of the Abyss has a minor implementation issue (FNP 3+ should only apply against Psychic Attacks and mortal wounds, not all damage). Null Aegis aura (part of Talons of the Emperor faction rules) is entirely missing — this would give nearby Custodes units FNP 5+ vs psychic/mortal wounds.
 
 ---
 
@@ -293,7 +292,7 @@ Only **Admonimortis** is used in this army list (on the Shield-Captain on Dawnea
 ### Major Gaps (Significant Ability Missing)
 
 4. **Admonimortis enhancement not implemented** — +3S/+1AP/+1D to melee weapons is a significant power boost.
-5. **Trajann's 4 unique abilities not implemented** — Captain-General, Moment Shackle, Golden Laurels, Hero of Lion's Gate.
+5. **Trajann's abilities not implemented** — Captain-General (ignore hit modifiers while leading), Moment Shackle (12 Attacks or 2+ invuln), FNP 5+, Supreme Commander.
 6. **Sweeping Advance not implemented** — Shield-Captain on Dawneagle Jetbike's key ability.
 7. **Quicksilver Execution not implemented** — Vertus Praetors' fly-over mortal wounds.
 8. **Callidus Assassin's Acrobatic Escape & Lord of Deceit not implemented** — Unique redeployment and CP-taxing mechanics.
