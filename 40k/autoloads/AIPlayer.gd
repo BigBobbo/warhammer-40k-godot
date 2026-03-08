@@ -2,6 +2,7 @@ extends Node
 const GameStateData = preload("res://autoloads/GameState.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const AIMovementPathVisualScript = preload("res://scripts/AIMovementPathVisual.gd")
+const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
 
 # AIPlayer - Autoload controller for AI opponents
 # Monitors game signals and submits actions through NetworkIntegration.route_action()
@@ -123,8 +124,17 @@ func _ready() -> void:
 		secondary_mgr.when_drawn_requires_interaction.connect(_on_secondary_requires_interaction)
 		print("AIPlayer: Connected to SecondaryMissionManager.when_drawn_requires_interaction")
 
+	# Load AI config overrides on startup
+	AIDecisionMaker.load_config_overrides()
+
 	set_process(true)
 	print("AIPlayer: Ready (disabled until configured)")
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_F10:
+			export_decision_log()
+			get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
 	if not _needs_evaluation or not enabled or PhaseManager.game_ended or _processing_turn:
@@ -1338,6 +1348,20 @@ func _execute_next_action(player: int) -> void:
 	for step in thinking_steps:
 		_log_ai_thinking(player, step)
 
+	# Collect decision records for AI Gameplay Visualizer export
+	var decision_records = decision.get("_ai_decision_records", [])
+	if not decision_records.is_empty():
+		var phase_name = PHASE_DISPLAY_NAMES.get(phase, "unknown").to_lower()
+		var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+		_all_decision_records.append({
+			"round": battle_round,
+			"phase_name": phase_name,
+			"player": player,
+			"records": decision_records,
+			"thinking_steps": thinking_steps,
+			"actions": [{"type": decision.get("type", ""), "description": decision.get("_ai_description", "")}],
+		})
+
 	# Log for summary
 	var description = decision.get("_ai_description", str(decision.get("type", "unknown")))
 	_action_log.append({
@@ -2525,6 +2549,114 @@ func _handle_failed_reinforcement(player: int, original_decision: Dictionary) ->
 	print("AIPlayer: All reinforcement retries failed for %s — skipping (unit stays in reserves)" % unit_name)
 	_failed_reinforcement_unit_ids.append(unit_id)
 	_log_ai_event(player, "%s reinforcement failed after retries — remains in reserves" % unit_name)
+
+# =============================================================================
+# AI Gameplay Visualizer — Decision Log Export (F10 keybind)
+# =============================================================================
+
+# Accumulated decision records from all AI decisions this game
+var _all_decision_records: Array = []  # Array of {round, phase, player, records: Array}
+
+func export_decision_log() -> void:
+	"""Export the full AI decision log as JSON for the AI Gameplay Visualizer web app."""
+	var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
+
+	# Build game metadata
+	var metadata = {
+		"mission": "Unknown",
+		"exported_at": Time.get_datetime_string_from_system(),
+		"difficulty": {},
+	}
+	for player_id in ai_players:
+		if ai_players[player_id]:
+			metadata["difficulty"][str(player_id)] = AIDifficultyConfigData.difficulty_name(get_difficulty(player_id))
+
+	# Build army info from game state
+	var armies = []
+	var players = GameState.state.get("players", {})
+	for pid in players:
+		var pdata = players[pid]
+		armies.append({
+			"player": int(pid),
+			"name": pdata.get("army_name", "Player %s" % pid),
+			"faction": pdata.get("faction", "Unknown"),
+		})
+	metadata["armies"] = armies
+
+	# Get mission name from GameState
+	var mission_data = GameState.state.get("mission", {})
+	metadata["mission"] = mission_data.get("name", mission_data.get("id", "Unknown Mission"))
+
+	# Organize decision records by round and phase
+	var rounds_data = []
+	var current_round_data = {}  # round -> {round_number, phases: []}
+
+	for entry in _all_decision_records:
+		var round_num = entry.get("round", 1)
+		if not current_round_data.has(round_num):
+			current_round_data[round_num] = {
+				"round_number": round_num,
+				"phases": []
+			}
+		current_round_data[round_num].phases.append({
+			"phase": entry.get("phase_name", "unknown"),
+			"player": entry.get("player", 0),
+			"decisions": entry.get("records", []),
+			"actions": entry.get("actions", []),
+			"thinking_steps": entry.get("thinking_steps", []),
+		})
+
+	# Convert to sorted array
+	var sorted_rounds = current_round_data.keys()
+	sorted_rounds.sort()
+	for r in sorted_rounds:
+		rounds_data.append(current_round_data[r])
+
+	# Also include turn history as actions
+	for hist_entry in _turn_history:
+		var round_num = hist_entry.get("battle_round", 1)
+		# Ensure this round exists in our data
+		var found = false
+		for rd in rounds_data:
+			if rd.round_number == round_num:
+				found = true
+				break
+		if not found:
+			rounds_data.append({"round_number": round_num, "phases": []})
+
+	var export_data = {
+		"version": "1.0",
+		"game_metadata": metadata,
+		"rounds": rounds_data,
+		"action_log": _action_log.duplicate(true),
+		"turn_history": _turn_history.duplicate(true),
+	}
+
+	# Write to user:// directory
+	var filename = "ai_decision_log_%s.json" % timestamp
+	var path = "user://%s" % filename
+	var file = FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		push_error("AIPlayer: Failed to open %s for writing" % path)
+		return
+
+	var json_string = JSON.stringify(export_data, "\t")
+	file.store_string(json_string)
+	file.close()
+
+	# Also write a "latest" symlink-style copy for easy access
+	var latest_path = "user://ai_decision_log.json"
+	var latest_file = FileAccess.open(latest_path, FileAccess.WRITE)
+	if latest_file:
+		latest_file.store_string(json_string)
+		latest_file.close()
+
+	print("AIPlayer: Exported AI decision log to %s (%d rounds, %d action log entries, %d decision record batches)" % [
+		path, rounds_data.size(), _action_log.size(), _all_decision_records.size()])
+
+	# Log to debug file as well
+	var actual_path = ProjectSettings.globalize_path(path)
+	print("AIPlayer: Decision log absolute path: %s" % actual_path)
 
 func _get_deployment_zone_polygon_pixels(snapshot: Dictionary, player: int) -> PackedVector2Array:
 	"""Get the actual deployment zone polygon in pixels for point-in-polygon testing."""
