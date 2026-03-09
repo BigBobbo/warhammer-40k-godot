@@ -91,6 +91,9 @@ const WORSEN_AP = "worsen_ap"                     # value: amount to worsen
 const PLUS_DAMAGE = "plus_damage"                 # value: amount to add
 const MINUS_DAMAGE = "minus_damage"               # value: amount to subtract (min 1)
 
+# Attack count modifiers (persistent flags)
+const PLUS_ATTACKS = "plus_attacks"               # value: amount to add to Attacks characteristic
+
 # Critical threshold modifiers (persistent flags)
 const CRIT_HIT_ON = "crit_hit_on"                 # value: threshold (e.g., 5 for 5+)
 const CRIT_WOUND_ON = "crit_wound_on"             # value: threshold
@@ -151,6 +154,13 @@ const FLAG_FALL_BACK_AND_CHARGE = "effect_fall_back_and_charge"
 const FLAG_ADVANCE_AND_CHARGE = "effect_advance_and_charge"
 const FLAG_ADVANCE_AND_SHOOT = "effect_advance_and_shoot"
 const FLAG_REROLL_CHARGE = "effect_reroll_charge"
+const FLAG_PLUS_ATTACKS = "effect_plus_attacks"            # value: int (amount to add)
+
+# MA-29: Weapon-targeted effect filter suffix
+# When an effect has target_weapon_names, a companion flag is stored:
+#   "{flag_name}_weapon_filter" = ["weapon_name1", "weapon_name2", ...]
+# If no companion flag exists, the effect applies to all weapons (unit-wide).
+const WEAPON_FILTER_SUFFIX = "_weapon_filter"
 
 # ============================================================================
 # EFFECT → FLAG MAPPING
@@ -194,6 +204,7 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	ADVANCE_AND_CHARGE: [{"flag": FLAG_ADVANCE_AND_CHARGE, "value": true}],
 	ADVANCE_AND_SHOOT: [{"flag": FLAG_ADVANCE_AND_SHOOT, "value": true}],
 	REROLL_CHARGE: [{"flag": FLAG_REROLL_CHARGE, "value": true}],
+	PLUS_ATTACKS: [{"flag": FLAG_PLUS_ATTACKS, "value_from": "value"}],
 }
 
 # Set of instant effect types that don't set persistent flags
@@ -261,6 +272,18 @@ static func _apply_single_effect(effect: Dictionary, target_unit_id: String) -> 
 			"path": "units.%s.flags.%s" % [target_unit_id, flag_name],
 			"value": value
 		})
+
+		# MA-29: If this effect has target_weapon_names, store companion weapon filter flag
+		var weapon_names = effect.get("target_weapon_names", [])
+		if not weapon_names.is_empty():
+			var filter_flag = flag_name + WEAPON_FILTER_SUFFIX
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.flags.%s" % [target_unit_id, filter_flag],
+				"value": weapon_names
+			})
+			print("EffectPrimitives: MA-29 weapon filter for %s → %s" % [flag_name, str(weapon_names)])
+
 	return diffs
 
 static func _apply_grant_keyword(effect: Dictionary, target_unit_id: String) -> Array:
@@ -356,9 +379,14 @@ static func _clear_single_effect(effect: Dictionary, unit_id: String, unit_flags
 		var keyword = effect.get("keyword", "").to_upper()
 		var scope = effect.get("scope", "all").to_lower()
 		var flag_name = _keyword_to_flag(keyword, scope)
-		if flag_name != "" and unit_flags.has(flag_name):
-			unit_flags.erase(flag_name)
-			print("EffectPrimitives: Cleared %s from %s" % [flag_name, unit_id])
+		if flag_name != "":
+			if unit_flags.has(flag_name):
+				unit_flags.erase(flag_name)
+				print("EffectPrimitives: Cleared %s from %s" % [flag_name, unit_id])
+			# MA-29: Clear companion weapon filter
+			var kw_filter_flag = flag_name + WEAPON_FILTER_SUFFIX
+			if unit_flags.has(kw_filter_flag):
+				unit_flags.erase(kw_filter_flag)
 		return
 
 	# Handle grant_precision specially
@@ -368,10 +396,16 @@ static func _clear_single_effect(effect: Dictionary, unit_id: String, unit_flags
 			if unit_flags.has(FLAG_PRECISION_MELEE):
 				unit_flags.erase(FLAG_PRECISION_MELEE)
 				print("EffectPrimitives: Cleared %s from %s" % [FLAG_PRECISION_MELEE, unit_id])
+			var melee_filter = FLAG_PRECISION_MELEE + WEAPON_FILTER_SUFFIX
+			if unit_flags.has(melee_filter):
+				unit_flags.erase(melee_filter)
 		if scope == "ranged" or scope == "all":
 			if unit_flags.has(FLAG_PRECISION_RANGED):
 				unit_flags.erase(FLAG_PRECISION_RANGED)
 				print("EffectPrimitives: Cleared %s from %s" % [FLAG_PRECISION_RANGED, unit_id])
+			var ranged_filter = FLAG_PRECISION_RANGED + WEAPON_FILTER_SUFFIX
+			if unit_flags.has(ranged_filter):
+				unit_flags.erase(ranged_filter)
 		return
 
 	# Look up flag mapping
@@ -384,6 +418,11 @@ static func _clear_single_effect(effect: Dictionary, unit_id: String, unit_flags
 		if unit_flags.has(flag_name):
 			unit_flags.erase(flag_name)
 			print("EffectPrimitives: Cleared %s from %s" % [flag_name, unit_id])
+		# MA-29: Also clear companion weapon filter flag if present
+		var filter_flag = flag_name + WEAPON_FILTER_SUFFIX
+		if unit_flags.has(filter_flag):
+			unit_flags.erase(filter_flag)
+			print("EffectPrimitives: Cleared weapon filter %s from %s" % [filter_flag, unit_id])
 
 static func get_flag_names_for_effects(effects: Array) -> Array:
 	"""
@@ -421,6 +460,12 @@ static func get_flag_names_for_effects(effects: Array) -> Array:
 		for descriptor in mapping:
 			if descriptor.flag not in flags:
 				flags.append(descriptor.flag)
+			# MA-29: Include companion weapon filter flag if present
+			var weapon_names = effect.get("target_weapon_names", [])
+			if not weapon_names.is_empty():
+				var filter_flag = descriptor.flag + WEAPON_FILTER_SUFFIX
+				if filter_flag not in flags:
+					flags.append(filter_flag)
 	return flags
 
 # ============================================================================
@@ -555,6 +600,38 @@ static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""
 	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false)
 
+# ============================================================================
+# MA-29: WEAPON-TARGETED EFFECT QUERIES
+# ============================================================================
+
+static func has_effect_plus_attacks(unit: Dictionary) -> bool:
+	"""Check if a unit has effect-granted bonus attacks."""
+	return unit.get("flags", {}).get(FLAG_PLUS_ATTACKS, 0) > 0
+
+static func get_effect_plus_attacks(unit: Dictionary) -> int:
+	"""Get the effect-granted bonus attacks value (0 if none)."""
+	return unit.get("flags", {}).get(FLAG_PLUS_ATTACKS, 0)
+
+static func get_weapon_filter_for_flag(unit: Dictionary, flag_name: String) -> Array:
+	"""Get the weapon filter for a specific effect flag.
+	Returns empty array if no filter (meaning the effect applies to all weapons)."""
+	var filter_flag = flag_name + WEAPON_FILTER_SUFFIX
+	return unit.get("flags", {}).get(filter_flag, [])
+
+static func effect_applies_to_weapon(unit: Dictionary, flag_name: String, weapon_name: String) -> bool:
+	"""Check if an effect flag applies to a specific weapon.
+	If the flag has a weapon filter, the weapon name must match one of the filter entries.
+	If no weapon filter exists, the effect applies to all weapons (unit-wide).
+	Returns false if the flag itself is not set on the unit."""
+	var flags = unit.get("flags", {})
+	if not flags.has(flag_name):
+		return false
+	var filter_flag = flag_name + WEAPON_FILTER_SUFFIX
+	var weapon_filter = flags.get(filter_flag, [])
+	if weapon_filter.is_empty():
+		return true  # No filter = applies to all weapons
+	return weapon_name in weapon_filter
+
 static func has_any_effect_flag(unit: Dictionary) -> bool:
 	"""Check if a unit has any effect flags set."""
 	var flags = unit.get("flags", {})
@@ -604,4 +681,5 @@ static func get_all_persistent_flag_names() -> Array:
 		FLAG_FALL_BACK_AND_SHOOT, FLAG_FALL_BACK_AND_CHARGE,
 		FLAG_ADVANCE_AND_CHARGE, FLAG_ADVANCE_AND_SHOOT,
 		FLAG_REROLL_CHARGE,
+		FLAG_PLUS_ATTACKS,
 	]
