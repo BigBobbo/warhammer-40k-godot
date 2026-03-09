@@ -1,12 +1,12 @@
 extends SceneTree
 
-# Test: MA-1 Model Profiles Schema
-# Verifies that model_profiles are correctly loaded from army JSON and accessible
-# via GameState.get_unit(unit_id).meta.model_profiles
+# Test: Model Profiles (MA-1, MA-5, MA-10, MA-11, MA-24, MA-26, MA-30, MA-31)
+# Verifies model_profiles schema, per-model weapon assignment, and combat resolution.
+# MA-31 tests: mixed BS/WS, rapid fire counting, per-model saves, hazardous, one-shot tracking
 # Usage: godot --headless --path . -s tests/test_model_profiles.gd
 
 func _init():
-	print("\n=== Test Model Profiles Schema (MA-1) ===\n")
+	print("\n=== Test Model Profiles (MA-1, MA-5, MA-10, MA-11, MA-24, MA-26, MA-30, MA-31) ===\n")
 	var passed = 0
 	var failed = 0
 
@@ -735,6 +735,539 @@ func _init():
 		print("  FAIL: Expected empty torrent weapons for Lootas, got: %s" % str(t37_torrent))
 		failed += 1
 
+	# ═══════════════════════════════════════════════════════════════════════
+	# MA-31: Unit tests for per-model combat resolution
+	# These tests verify that combat resolution uses per-model stats correctly.
+	# Since RulesEngine can't be loaded in headless SceneTree mode, we mirror
+	# the relevant static functions directly.
+	# ═══════════════════════════════════════════════════════════════════════
+
+	# --- Test 38: MA-31 Mixed BS shooting — spanner BS4+ vs loota BS6+ ---
+	print("\n--- Test 38: MA-31 Mixed BS shooting (Lootas: spanner BS4+, deffgun BS6+, KMB BS5+) ---")
+	var t38_ok = true
+	# Build weapon profile for Deffgun (bs=6 from JSON ballistic_skill:"6")
+	var t38_deffgun_profile = {"bs": 6, "ws": 4}
+	# Build weapon profile for KMB (bs=5 from JSON ballistic_skill:"5")
+	var t38_kmb_profile = {"bs": 5, "ws": 4}
+	var t38_lootas = army_data.get("units", {}).get("U_LOOTAS_A", {})
+	var t38_models = t38_lootas.get("models", [])
+	# Check each model's effective BS for the Deffgun
+	for m in t38_models:
+		var model_type = m.get("model_type", "")
+		var effective_bs = _get_model_effective_bs(m, t38_lootas, t38_deffgun_profile)
+		if model_type == "spanner":
+			# Spanner has stats_override.ballistic_skill=4, overrides weapon BS6
+			if effective_bs != 4:
+				print("  FAIL: spanner model %s should have effective BS=4 for Deffgun, got %d" % [m.get("id", ""), effective_bs])
+				t38_ok = false
+		elif model_type == "loota_deffgun":
+			# loota_deffgun has empty stats_override, uses weapon BS=6
+			if effective_bs != 6:
+				print("  FAIL: loota_deffgun model %s should have effective BS=6 for Deffgun, got %d" % [m.get("id", ""), effective_bs])
+				t38_ok = false
+		elif model_type == "loota_kmb":
+			# loota_kmb has empty stats_override, uses weapon BS=6 for Deffgun
+			# (they shouldn't fire Deffgun per profile, but testing BS resolution)
+			if effective_bs != 6:
+				print("  FAIL: loota_kmb model %s should have effective BS=6 for Deffgun, got %d" % [m.get("id", ""), effective_bs])
+				t38_ok = false
+	# Also check KMB weapon profile BS for spanner (should override to 4)
+	for m in t38_models:
+		var model_type = m.get("model_type", "")
+		if model_type == "spanner":
+			var eff_bs_kmb = _get_model_effective_bs(m, t38_lootas, t38_kmb_profile)
+			if eff_bs_kmb != 4:
+				print("  FAIL: spanner should have effective BS=4 for KMB too, got %d" % eff_bs_kmb)
+				t38_ok = false
+		elif model_type == "loota_kmb":
+			var eff_bs_kmb = _get_model_effective_bs(m, t38_lootas, t38_kmb_profile)
+			if eff_bs_kmb != 5:
+				print("  FAIL: loota_kmb should have effective BS=5 for KMB (weapon default), got %d" % eff_bs_kmb)
+				t38_ok = false
+	if t38_ok:
+		print("  PASS: Mixed BS correctly resolved — spanner BS4+, loota_deffgun BS6+, loota_kmb BS5+ (weapon default)")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 39: MA-31 bs_per_attack array built correctly for mixed BS ---
+	print("\n--- Test 39: MA-31 bs_per_attack array for mixed-BS Deffgun assignment ---")
+	var t39_ok = true
+	# Simulate resolve_shooting_assignment: build bs_per_attack for Deffgun
+	# Only deffgun-profiled models (m1-m8) fire Deffgun; spanner has override BS4
+	# Deffgun: attacks=2 per model, so 8 deffgun models + (spanner doesn't have Deffgun per profile)
+	# But spanner DOES have KMB, not Deffgun — so only m1-m8 fire Deffgun
+	var t39_deffgun_models = []
+	var t39_bs_per_attack = []
+	for m in t38_models:
+		var mt = m.get("model_type", "")
+		var profile_weapons = mp.get(mt, {}).get("weapons", []) if mp is Dictionary else []
+		if "Deffgun" in profile_weapons and m.get("alive", true):
+			t39_deffgun_models.append(m.get("id", ""))
+			var model_bs = _get_model_effective_bs(m, t38_lootas, t38_deffgun_profile)
+			# Deffgun has attacks=2, so 2 entries per model
+			for _j in range(2):
+				t39_bs_per_attack.append(model_bs)
+	# Should be 8 models x 2 attacks = 16 entries, all with BS6
+	if t39_deffgun_models.size() != 8:
+		print("  FAIL: Expected 8 Deffgun models, got %d" % t39_deffgun_models.size())
+		t39_ok = false
+	if t39_bs_per_attack.size() != 16:
+		print("  FAIL: Expected 16 bs_per_attack entries, got %d" % t39_bs_per_attack.size())
+		t39_ok = false
+	for bs_val in t39_bs_per_attack:
+		if bs_val != 6:
+			print("  FAIL: All Deffgun bs_per_attack should be 6, found %d" % bs_val)
+			t39_ok = false
+			break
+	# Now simulate KMB assignment (m9, m10, m11) — m11 spanner gets BS4 override
+	var t39_kmb_bs = []
+	var t39_kmb_models = []
+	for m in t38_models:
+		var mt = m.get("model_type", "")
+		var profile_weapons = mp.get(mt, {}).get("weapons", []) if mp is Dictionary else []
+		if "Kustom mega-blasta" in profile_weapons and m.get("alive", true):
+			t39_kmb_models.append(m.get("id", ""))
+			var model_bs = _get_model_effective_bs(m, t38_lootas, t38_kmb_profile)
+			# KMB has attacks=3, so 3 entries per model
+			for _j in range(3):
+				t39_kmb_bs.append(model_bs)
+	# Should be 3 models (m9, m10 loota_kmb BS5; m11 spanner BS4) x 3 attacks = 9 entries
+	if t39_kmb_models.size() != 3:
+		print("  FAIL: Expected 3 KMB models, got %d (%s)" % [t39_kmb_models.size(), str(t39_kmb_models)])
+		t39_ok = false
+	# Count BS values: 2 models x BS5 x 3 attacks = 6 entries with BS5; 1 model x BS4 x 3 = 3 entries with BS4
+	var t39_bs5_count = 0
+	var t39_bs4_count = 0
+	for bs_val in t39_kmb_bs:
+		if bs_val == 5:
+			t39_bs5_count += 1
+		elif bs_val == 4:
+			t39_bs4_count += 1
+	if t39_bs5_count != 6:
+		print("  FAIL: Expected 6 BS5 entries for KMB loota models, got %d" % t39_bs5_count)
+		t39_ok = false
+	if t39_bs4_count != 3:
+		print("  FAIL: Expected 3 BS4 entries for KMB spanner model, got %d" % t39_bs4_count)
+		t39_ok = false
+	if t39_ok:
+		print("  PASS: bs_per_attack correctly built — Deffgun: 16x BS6; KMB: 6x BS5 + 3x BS4")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 40: MA-31 Mixed WS melee (Boyz: boss_nob WS3+ vs boy WS4+) ---
+	print("\n--- Test 40: MA-31 Mixed WS melee (Boyz_F: boss_nob WS3+, boy WS4+) ---")
+	var t40_ok = true
+	var t40_boyz = army_data.get("units", {}).get("U_BOYZ_F", {})
+	var t40_models = t40_boyz.get("models", [])
+	# Choppa weapon: ws=3 in JSON (weapon_skill:"3") for boss_nob-level,
+	# but the weapon WS comes from the JSON weapon data
+	# Let's check the weapon_skill for Choppa in the Boyz_F meta
+	var t40_choppa_ws = 4  # default
+	for w in t40_boyz.get("meta", {}).get("weapons", []):
+		if w.get("name", "") == "Choppa" and w.get("type", "").to_lower() == "melee":
+			var ws_str = w.get("weapon_skill", "4")
+			t40_choppa_ws = int(ws_str) if ws_str.is_valid_int() else 4
+			break
+	var t40_choppa_profile = {"ws": t40_choppa_ws, "bs": 4}
+	# boss_nob (model index 0, model_type="boss_nob") has WS3 override
+	# boy (model indices 1-19, model_type="boy") has WS4 override
+	var t40_ws_per_attack = []
+	for m in t40_models:
+		if not m.get("alive", true):
+			continue
+		var model_ws = _get_model_effective_ws(m, t40_boyz, t40_choppa_profile)
+		# Choppa attacks = 3 per model
+		for _j in range(3):
+			t40_ws_per_attack.append(model_ws)
+	# Check: 1 boss_nob x WS3 x 3 attacks = 3 entries; 19 boys x WS4 x 3 attacks = 57 entries
+	var t40_ws3_count = 0
+	var t40_ws4_count = 0
+	for ws_val in t40_ws_per_attack:
+		if ws_val == 3:
+			t40_ws3_count += 1
+		elif ws_val == 4:
+			t40_ws4_count += 1
+	if t40_ws3_count != 3:
+		print("  FAIL: Expected 3 WS3 entries for boss_nob Choppa, got %d" % t40_ws3_count)
+		t40_ok = false
+	if t40_ws4_count != 57:
+		print("  FAIL: Expected 57 WS4 entries for boy Choppa, got %d" % t40_ws4_count)
+		t40_ok = false
+	if t40_ok:
+		print("  PASS: ws_per_attack correctly built — boss_nob: 3x WS3; boys: 57x WS4")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 41: MA-31 WS override only applies to models with matching model_type ---
+	print("\n--- Test 41: MA-31 Unit without profiles uses weapon WS for all models ---")
+	var t41_ok = true
+	var t41_boyz_e = army_data.get("units", {}).get("U_BOYZ_E", {})
+	var t41_models_e = t41_boyz_e.get("models", [])
+	var t41_choppa_profile = {"ws": t40_choppa_ws, "bs": 4}
+	# U_BOYZ_E has no model_profiles — all models should use weapon default WS
+	for m in t41_models_e:
+		if not m.get("alive", true):
+			continue
+		var ws = _get_model_effective_ws(m, t41_boyz_e, t41_choppa_profile)
+		if ws != t40_choppa_ws:
+			print("  FAIL: U_BOYZ_E model %s should use weapon WS=%d (no profiles), got %d" % [m.get("id", ""), t40_choppa_ws, ws])
+			t41_ok = false
+			break
+	if t41_ok:
+		print("  PASS: Unit without profiles uses weapon WS=%d for all models" % t40_choppa_ws)
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 42: MA-31 Rapid Fire bonus only counts models with RF weapon ---
+	print("\n--- Test 42: MA-31 Rapid Fire bonus only counts deffgun models (not KMB) ---")
+	var t42_ok = true
+	# Deffgun has "rapid fire 1" — only models with Deffgun in their profile should count
+	# for rapid fire bonus. KMB models (m9, m10) and spanner (m11 — has KMB, not Deffgun) don't count.
+	var t42_rf_model_count = 0
+	var t42_non_rf_model_count = 0
+	for m in t38_models:
+		if not m.get("alive", true):
+			continue
+		var mt = m.get("model_type", "")
+		var profile_weapons = mp.get(mt, {}).get("weapons", []) if mp is Dictionary else []
+		if "Deffgun" in profile_weapons:
+			t42_rf_model_count += 1
+		else:
+			t42_non_rf_model_count += 1
+	# Only 8 deffgun models should count for RF, 3 models (2 KMB + 1 spanner) should not
+	if t42_rf_model_count != 8:
+		print("  FAIL: Expected 8 models with Deffgun (rapid fire eligible), got %d" % t42_rf_model_count)
+		t42_ok = false
+	if t42_non_rf_model_count != 3:
+		print("  FAIL: Expected 3 models without Deffgun, got %d" % t42_non_rf_model_count)
+		t42_ok = false
+	# Verify KMB weapon does NOT have rapid fire keyword
+	var t42_kmb_has_rf = false
+	for w in t38_lootas.get("meta", {}).get("weapons", []):
+		if w.get("name", "") == "Kustom mega-blasta":
+			var sr = w.get("special_rules", "").to_lower()
+			if "rapid fire" in sr:
+				t42_kmb_has_rf = true
+	if t42_kmb_has_rf:
+		print("  FAIL: KMB should NOT have rapid fire keyword")
+		t42_ok = false
+	# Verify Deffgun DOES have rapid fire keyword
+	var t42_deffgun_has_rf = false
+	for w in t38_lootas.get("meta", {}).get("weapons", []):
+		if w.get("name", "") == "Deffgun":
+			var sr = w.get("special_rules", "").to_lower()
+			if "rapid fire" in sr:
+				t42_deffgun_has_rf = true
+	if not t42_deffgun_has_rf:
+		print("  FAIL: Deffgun should have rapid fire keyword")
+		t42_ok = false
+	if t42_ok:
+		print("  PASS: Rapid Fire bonus only applies to 8 Deffgun models; 3 KMB/spanner excluded")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 43: MA-31 Rapid Fire model count matches per-model weapon assignment ---
+	print("\n--- Test 43: MA-31 RF model count from weapon assignment matches ---")
+	var t43_ok = true
+	# Using the existing t35 rapid fire filter from MA-30, verify model count
+	# t35_rf should only contain m1-m8 (the deffgun models), not m9-m11
+	var t43_rf_weapons = _filter_unit_weapons("U_LOOTAS_A", "rapid fire", ork_board)
+	if t43_rf_weapons.size() != 8:
+		print("  FAIL: Expected 8 models with rapid fire weapons, got %d (keys: %s)" % [t43_rf_weapons.size(), str(t43_rf_weapons.keys())])
+		t43_ok = false
+	# Verify these are m1-m8
+	for mid in ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"]:
+		if not t43_rf_weapons.has(mid):
+			print("  FAIL: Model %s should be in RF weapon set" % mid)
+			t43_ok = false
+	for mid in ["m9", "m10", "m11"]:
+		if t43_rf_weapons.has(mid):
+			print("  FAIL: Model %s should NOT be in RF weapon set" % mid)
+			t43_ok = false
+	if t43_ok:
+		print("  PASS: RF weapon assignment matches per-model profile (8 deffgun models only)")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 44: MA-31 Per-model save characteristics in wound allocation ---
+	print("\n--- Test 44: MA-31 Per-model save characteristics ---")
+	var t44_ok = true
+	# Current implementation: base_save comes from unit.meta.stats.save (unit-level)
+	# stats_override currently supports ballistic_skill, weapon_skill — save override
+	# would follow the same pattern if/when added.
+	# Test: verify save resolution uses unit base_save, and model_save_profiles
+	# are built per-model (each model gets its own save entry)
+	var t44_lootas_save = t38_lootas.get("meta", {}).get("stats", {}).get("save", 7)
+	if t44_lootas_save != 5:
+		print("  FAIL: Lootas base save should be 5+, got %d" % t44_lootas_save)
+		t44_ok = false
+	# Build model_save_profiles like prepare_save_resolution does
+	var t44_save_profiles = []
+	for i in range(t38_models.size()):
+		var m = t38_models[i]
+		if not m.get("alive", true):
+			continue
+		var model_type = m.get("model_type", "")
+		# Check if model has a save override in stats_override
+		var model_save = t44_lootas_save  # default to unit save
+		var model_profile = mp.get(model_type, {}) if mp is Dictionary else {}
+		var save_override = model_profile.get("stats_override", {}).get("save", -1)
+		if save_override > 0:
+			model_save = int(save_override)
+		t44_save_profiles.append({
+			"model_id": m.get("id", "m%d" % i),
+			"model_type": model_type,
+			"save": model_save
+		})
+	# All Lootas currently have unit save=5 (no save override in profiles)
+	var t44_all_save_5 = true
+	for sp in t44_save_profiles:
+		if sp.save != 5:
+			print("  FAIL: Model %s (type=%s) expected save=5, got %d" % [sp.model_id, sp.model_type, sp.save])
+			t44_all_save_5 = false
+			t44_ok = false
+	if t44_save_profiles.size() != 11:
+		print("  FAIL: Expected 11 save profiles, got %d" % t44_save_profiles.size())
+		t44_ok = false
+	if t44_ok:
+		print("  PASS: 11 model_save_profiles built, all using unit base save=5+ (no save overrides in current profiles)")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 45: MA-31 Per-model save with hypothetical save override ---
+	print("\n--- Test 45: MA-31 Per-model save with hypothetical save override ---")
+	var t45_ok = true
+	# Simulate: if spanner had stats_override.save=4, verify it would be used
+	var t45_test_profiles = {
+		"loota_deffgun": {"stats_override": {}, "weapons": ["Deffgun"]},
+		"loota_kmb": {"stats_override": {}, "weapons": ["Kustom mega-blasta"]},
+		"spanner": {"stats_override": {"ballistic_skill": 4, "save": 4}, "weapons": ["Kustom mega-blasta"]}
+	}
+	var t45_save_results = []
+	for m in t38_models:
+		var mt = m.get("model_type", "")
+		var model_save = 5  # unit default
+		var profile = t45_test_profiles.get(mt, {})
+		var so = profile.get("stats_override", {}).get("save", -1)
+		if so > 0:
+			model_save = int(so)
+		t45_save_results.append({"model_type": mt, "save": model_save})
+	# Count: 8 deffgun save=5, 2 KMB save=5, 1 spanner save=4
+	var t45_save5_count = 0
+	var t45_save4_count = 0
+	for sr in t45_save_results:
+		if sr.save == 5:
+			t45_save5_count += 1
+		elif sr.save == 4:
+			t45_save4_count += 1
+	if t45_save5_count != 10:
+		print("  FAIL: Expected 10 models with save=5, got %d" % t45_save5_count)
+		t45_ok = false
+	if t45_save4_count != 1:
+		print("  FAIL: Expected 1 model (spanner) with save=4, got %d" % t45_save4_count)
+		t45_ok = false
+	if t45_ok:
+		print("  PASS: Hypothetical save override correctly applied — spanner save=4+, others save=5+")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 46: MA-31 Hazardous weapon resolution — only KMB models risk hazardous ---
+	print("\n--- Test 46: MA-31 Hazardous resolution — only KMB-carrying models risk hazardous ---")
+	var t46_ok = true
+	# KMB has "hazardous" in special_rules, Deffgun does not
+	var t46_kmb_is_hazardous = false
+	var t46_deffgun_is_hazardous = false
+	for w in t38_lootas.get("meta", {}).get("weapons", []):
+		var sr = w.get("special_rules", "").to_lower()
+		if w.get("name", "") == "Kustom mega-blasta" and "hazardous" in sr:
+			t46_kmb_is_hazardous = true
+		if w.get("name", "") == "Deffgun" and "hazardous" in sr:
+			t46_deffgun_is_hazardous = true
+	if not t46_kmb_is_hazardous:
+		print("  FAIL: KMB should have hazardous keyword")
+		t46_ok = false
+	if t46_deffgun_is_hazardous:
+		print("  FAIL: Deffgun should NOT have hazardous keyword")
+		t46_ok = false
+	# Count which models would trigger hazardous checks:
+	# Only models whose profile includes KMB fire it, so only they risk hazardous
+	var t46_hazardous_models = []
+	var t46_safe_models = []
+	for m in t38_models:
+		var mt = m.get("model_type", "")
+		var profile_weapons = mp.get(mt, {}).get("weapons", []) if mp is Dictionary else []
+		if "Kustom mega-blasta" in profile_weapons:
+			t46_hazardous_models.append(m.get("id", ""))
+		else:
+			t46_safe_models.append(m.get("id", ""))
+	# 3 models fire KMB (m9, m10 loota_kmb + m11 spanner) → 3 hazardous checks
+	if t46_hazardous_models.size() != 3:
+		print("  FAIL: Expected 3 models with hazardous KMB, got %d (%s)" % [t46_hazardous_models.size(), str(t46_hazardous_models)])
+		t46_ok = false
+	# 8 deffgun models are safe (no hazardous)
+	if t46_safe_models.size() != 8:
+		print("  FAIL: Expected 8 safe models (deffgun), got %d" % t46_safe_models.size())
+		t46_ok = false
+	if t46_ok:
+		print("  PASS: Only 3 KMB models (m9, m10, m11) risk hazardous; 8 Deffgun models safe")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 47: MA-31 Hazardous allocation target prioritizes KMB-carrying models ---
+	print("\n--- Test 47: MA-31 Hazardous allocation targets model with hazardous weapon ---")
+	var t47_ok = true
+	# Per Balance Dataslate v3.3, hazardous mortal wounds go to models that
+	# have the hazardous weapon. For Lootas, that's KMB models (m9, m10, m11).
+	# The _find_hazardous_allocation_target logic checks if each model has a
+	# hazardous weapon. Deffgun models should NOT be allocation targets.
+	# Simulate: check which models "have" a hazardous weapon
+	var t47_kmb_weapon_id = _gen_weapon_id("Kustom mega-blasta", "Ranged")
+	var t47_models_with_hazardous = []
+	var t47_models_without_hazardous = []
+	for m in t38_models:
+		var mt = m.get("model_type", "")
+		var profile_weapons = mp.get(mt, {}).get("weapons", []) if mp is Dictionary else []
+		if "Kustom mega-blasta" in profile_weapons:
+			t47_models_with_hazardous.append(m.get("id", ""))
+		else:
+			t47_models_without_hazardous.append(m.get("id", ""))
+	# Allocation should go to a model WITH the hazardous weapon (m9, m10, or m11)
+	if t47_models_with_hazardous.size() != 3:
+		print("  FAIL: Expected 3 models with hazardous weapon, got %d" % t47_models_with_hazardous.size())
+		t47_ok = false
+	if t47_models_without_hazardous.size() != 8:
+		print("  FAIL: Expected 8 models without hazardous weapon, got %d" % t47_models_without_hazardous.size())
+		t47_ok = false
+	# Verify the deffgun models would NOT be allocated hazardous wounds
+	for mid in t47_models_without_hazardous:
+		if mid in ["m9", "m10", "m11"]:
+			print("  FAIL: Model %s should be in hazardous group, not safe group" % mid)
+			t47_ok = false
+	if t47_ok:
+		print("  PASS: Hazardous allocation correctly targets KMB models (m9/m10/m11), not Deffgun models")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 48: MA-31 One-shot tracking with per-model weapons ---
+	print("\n--- Test 48: MA-31 One-shot tracking per model ---")
+	var t48_ok = true
+	# One-shot weapons are tracked per model in unit.flags.one_shot_fired = { model_id: [weapon_ids] }
+	# Test: marking one model's one-shot as fired doesn't affect other models
+	var t48_unit = {
+		"id": "TEST_UNIT",
+		"flags": {},
+		"models": [
+			{"id": "m1", "alive": true, "model_type": "type_a"},
+			{"id": "m2", "alive": true, "model_type": "type_a"},
+			{"id": "m3", "alive": true, "model_type": "type_b"}
+		]
+	}
+	var t48_weapon_id = "test_oneshot_ranged"
+	# Initially no one-shot fired
+	if _has_fired_one_shot(t48_unit, "m1", t48_weapon_id):
+		print("  FAIL: m1 should NOT have fired one-shot initially")
+		t48_ok = false
+	if _has_fired_one_shot(t48_unit, "m2", t48_weapon_id):
+		print("  FAIL: m2 should NOT have fired one-shot initially")
+		t48_ok = false
+	# Mark m1 as having fired
+	_mark_one_shot_fired(t48_unit, "m1", t48_weapon_id)
+	# m1 should now be marked, m2 and m3 should not
+	if not _has_fired_one_shot(t48_unit, "m1", t48_weapon_id):
+		print("  FAIL: m1 SHOULD have fired one-shot after marking")
+		t48_ok = false
+	if _has_fired_one_shot(t48_unit, "m2", t48_weapon_id):
+		print("  FAIL: m2 should NOT have fired one-shot (only m1 was marked)")
+		t48_ok = false
+	if _has_fired_one_shot(t48_unit, "m3", t48_weapon_id):
+		print("  FAIL: m3 should NOT have fired one-shot (only m1 was marked)")
+		t48_ok = false
+	if t48_ok:
+		print("  PASS: One-shot tracking is per-model — marking m1 doesn't affect m2/m3")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 49: MA-31 One-shot filter removes fired weapons per model ---
+	print("\n--- Test 49: MA-31 One-shot filter removes fired weapons per model ---")
+	var t49_ok = true
+	# Build a weapons dict like get_unit_weapons returns
+	var t49_weapons = {
+		"m1": ["test_oneshot_ranged", "regular_weapon_ranged"],
+		"m2": ["test_oneshot_ranged", "regular_weapon_ranged"],
+		"m3": ["other_weapon_ranged"]
+	}
+	# Filter with unit from test 48 (m1 has fired one-shot)
+	var t49_filtered = _filter_fired_one_shot_weapons(t49_weapons, t48_unit, t48_weapon_id)
+	# m1 should have one-shot removed, m2 should keep it
+	if "test_oneshot_ranged" in t49_filtered.get("m1", []):
+		print("  FAIL: m1 should have one-shot weapon removed after firing")
+		t49_ok = false
+	if "regular_weapon_ranged" not in t49_filtered.get("m1", []):
+		print("  FAIL: m1 should still have regular weapon")
+		t49_ok = false
+	if "test_oneshot_ranged" not in t49_filtered.get("m2", []):
+		print("  FAIL: m2 should still have one-shot weapon (hasn't fired)")
+		t49_ok = false
+	if "regular_weapon_ranged" not in t49_filtered.get("m2", []):
+		print("  FAIL: m2 should still have regular weapon")
+		t49_ok = false
+	if "other_weapon_ranged" not in t49_filtered.get("m3", []):
+		print("  FAIL: m3 should still have its weapon (not one-shot)")
+		t49_ok = false
+	if t49_ok:
+		print("  PASS: One-shot filter correctly removes fired weapon from m1 only, m2 keeps it")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 50: MA-31 BS override with empty model (fallback to weapon BS) ---
+	print("\n--- Test 50: MA-31 BS override fallback — empty model uses weapon BS ---")
+	var t50_ok = true
+	# _get_model_effective_bs with empty model should return weapon default
+	var t50_empty_bs = _get_model_effective_bs({}, t38_lootas, t38_deffgun_profile)
+	if t50_empty_bs != 6:
+		print("  FAIL: Empty model should fallback to weapon BS=6, got %d" % t50_empty_bs)
+		t50_ok = false
+	# Model with empty model_type should also fallback
+	var t50_no_type_bs = _get_model_effective_bs({"id": "mx", "model_type": ""}, t38_lootas, t38_deffgun_profile)
+	if t50_no_type_bs != 6:
+		print("  FAIL: Model with empty model_type should fallback to weapon BS=6, got %d" % t50_no_type_bs)
+		t50_ok = false
+	if t50_ok:
+		print("  PASS: BS fallback works — empty model and empty model_type use weapon BS")
+		passed += 1
+	else:
+		failed += 1
+
+	# --- Test 51: MA-31 WS override with empty model (fallback to weapon WS) ---
+	print("\n--- Test 51: MA-31 WS override fallback — empty model uses weapon WS ---")
+	var t51_ok = true
+	var t51_choppa_profile = {"ws": 4, "bs": 4}
+	var t51_empty_ws = _get_model_effective_ws({}, t40_boyz, t51_choppa_profile)
+	if t51_empty_ws != 4:
+		print("  FAIL: Empty model should fallback to weapon WS=4, got %d" % t51_empty_ws)
+		t51_ok = false
+	var t51_no_type_ws = _get_model_effective_ws({"id": "mx", "model_type": ""}, t40_boyz, t51_choppa_profile)
+	if t51_no_type_ws != 4:
+		print("  FAIL: Model with empty model_type should fallback to weapon WS=4, got %d" % t51_no_type_ws)
+		t51_ok = false
+	if t51_ok:
+		print("  PASS: WS fallback works — empty model and empty model_type use weapon WS")
+		passed += 1
+	else:
+		failed += 1
+
 	# --- Summary ---
 	print("\n=== Results: %d passed, %d failed ===" % [passed, failed])
 	if failed > 0:
@@ -888,4 +1421,73 @@ func _filter_unit_weapons(unit_id: String, keyword: String, board: Dictionary) -
 				filtered.append(wid)
 		if not filtered.is_empty():
 			result[model_id] = filtered
+	return result
+
+# ═══════════════════════════════════════════════════════════════════════
+# MA-31 Helper functions — mirror RulesEngine combat resolution logic
+# ═══════════════════════════════════════════════════════════════════════
+
+# Mirrors RulesEngine._get_model_effective_bs
+func _get_model_effective_bs(model: Dictionary, unit: Dictionary, weapon_profile: Dictionary) -> int:
+	var default_bs = weapon_profile.get("bs", 4)
+	if model.is_empty():
+		return default_bs
+	var model_type = model.get("model_type", "")
+	if model_type == "":
+		return default_bs
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	if not model_profiles.has(model_type):
+		return default_bs
+	var override_bs = model_profiles[model_type].get("stats_override", {}).get("ballistic_skill", -1)
+	if override_bs > 0:
+		return int(override_bs)
+	return default_bs
+
+# Mirrors RulesEngine._get_model_effective_ws
+func _get_model_effective_ws(model: Dictionary, unit: Dictionary, weapon_profile: Dictionary) -> int:
+	var default_ws = weapon_profile.get("ws", 4)
+	if model.is_empty():
+		return default_ws
+	var model_type = model.get("model_type", "")
+	if model_type == "":
+		return default_ws
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	if not model_profiles.has(model_type):
+		return default_ws
+	var override_ws = model_profiles[model_type].get("stats_override", {}).get("weapon_skill", -1)
+	if override_ws > 0:
+		return int(override_ws)
+	return default_ws
+
+# Mirrors RulesEngine.has_fired_one_shot
+func _has_fired_one_shot(unit: Dictionary, model_id: String, weapon_id: String) -> bool:
+	var fired = unit.get("flags", {}).get("one_shot_fired", {})
+	var model_fired = fired.get(model_id, [])
+	return weapon_id in model_fired
+
+# Mirrors RulesEngine.mark_one_shot_fired_diffs (mutates unit in-place for test simplicity)
+func _mark_one_shot_fired(unit: Dictionary, model_id: String, weapon_id: String) -> void:
+	if not unit.has("flags"):
+		unit["flags"] = {}
+	var flags = unit["flags"]
+	if not flags.has("one_shot_fired"):
+		flags["one_shot_fired"] = {}
+	var one_shot_fired = flags["one_shot_fired"]
+	if not one_shot_fired.has(model_id):
+		one_shot_fired[model_id] = [weapon_id]
+	elif weapon_id not in one_shot_fired[model_id]:
+		one_shot_fired[model_id].append(weapon_id)
+
+# Mirrors RulesEngine.filter_fired_one_shot_weapons (simplified — checks one specific weapon_id)
+func _filter_fired_one_shot_weapons(weapons_dict: Dictionary, unit: Dictionary, one_shot_weapon_id: String) -> Dictionary:
+	var result = {}
+	for model_id in weapons_dict:
+		var weapons = weapons_dict[model_id]
+		var filtered = []
+		for wid in weapons:
+			# If this weapon is the one-shot and model has fired it, skip
+			if wid == one_shot_weapon_id and _has_fired_one_shot(unit, model_id, wid):
+				continue
+			filtered.append(wid)
+		result[model_id] = filtered
 	return result

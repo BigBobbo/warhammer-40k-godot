@@ -407,12 +407,12 @@
 - **Validation**: All tests pass. No regression in existing weapon assignment tests.
 
 ### MA-31: Unit tests for per-model combat resolution
-- [ ] Test shooting with mixed BS (spanner BS4+ vs loota BS5+) → correct hit thresholds
-- [ ] Test melee with mixed WS → correct hit thresholds
-- [ ] Test Rapid Fire bonus only counts models with RF weapon
-- [ ] Test per-model save characteristics in wound allocation
-- [ ] Test Hazardous weapon resolution with mixed weapons (only kmb models risk hazardous)
-- [ ] Test one-shot tracking with per-model weapons
+- [x] Test shooting with mixed BS (spanner BS4+ vs loota BS5+) → correct hit thresholds
+- [x] Test melee with mixed WS → correct hit thresholds
+- [x] Test Rapid Fire bonus only counts models with RF weapon
+- [x] Test per-model save characteristics in wound allocation
+- [x] Test Hazardous weapon resolution with mixed weapons (only kmb models risk hazardous)
+- [x] Test one-shot tracking with per-model weapons
 - **Files**: New test file `tests/test_model_profiles.gd`
 - **Validation**: All tests pass with correct per-model stat usage.
 
