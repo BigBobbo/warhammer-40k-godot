@@ -418,6 +418,18 @@ func get_available_actions() -> Array:
 				"player": current_player
 			})
 
+	# Here Be Loot — Loot Objective selection (Orks — Freebooter Krew) (OA-1)
+	if faction_mgr and faction_mgr.is_loot_objective_available(current_player):
+		var loot_objectives = faction_mgr.get_eligible_loot_objectives()
+		for obj in loot_objectives:
+			var obj_id = obj.get("id", "")
+			actions.append({
+				"type": "SELECT_LOOT_OBJECTIVE",
+				"objective_id": obj_id,
+				"description": "Here Be Loot: %s — Sustained Hits 1 near this objective" % obj_id.replace("obj_", "Objective ").to_upper(),
+				"player": current_player
+			})
+
 	# P3-29: Grot Orderly — once per battle, return D3 destroyed Bodyguard models
 	var ability_mgr_go = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr_go:
@@ -490,6 +502,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			pass  # Always valid
 		"SELECT_MARTIAL_MASTERY":
 			errors = _validate_select_martial_mastery(action)
+		"SELECT_LOOT_OBJECTIVE":
+			errors = _validate_select_loot_objective(action)
 		"USE_GROT_ORDERLY":
 			errors = _validate_use_grot_orderly(action)
 		"RESOLVE_MARKED_FOR_DEATH":
@@ -561,6 +575,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_skip_combat_doctrine(action)
 		"SELECT_MARTIAL_MASTERY":
 			return _handle_select_martial_mastery(action)
+		"SELECT_LOOT_OBJECTIVE":
+			return _handle_select_loot_objective(action)
 		"USE_GROT_ORDERLY":
 			return _handle_use_grot_orderly(action)
 		"RESOLVE_MARKED_FOR_DEATH":
@@ -1112,6 +1128,64 @@ func _handle_select_martial_mastery(action: Dictionary) -> Dictionary:
 			"player": current_player,
 			"mastery": mastery_key,
 			"mastery_display": result.get("mastery_display", ""),
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+# ============================================================================
+# HERE BE LOOT — LOOT OBJECTIVE SELECTION (OA-1)
+# ============================================================================
+
+func _validate_select_loot_objective(action: Dictionary) -> Array:
+	var errors = []
+	var current_player = get_current_player()
+	var objective_id = action.get("objective_id", "")
+
+	if objective_id == "":
+		errors.append("Missing objective_id for loot objective selection")
+		return errors
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if not faction_mgr.is_loot_objective_available(current_player):
+		errors.append("Loot objective selection is not available for player %d" % current_player)
+		return errors
+
+	# Verify objective exists
+	var eligible = faction_mgr.get_eligible_loot_objectives()
+	var found = false
+	for obj in eligible:
+		if obj.get("id", "") == objective_id:
+			found = true
+			break
+	if not found:
+		errors.append("Objective %s is not eligible for loot selection" % objective_id)
+
+	return errors
+
+func _handle_select_loot_objective(action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+	var objective_id = action.get("objective_id", "")
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var result = faction_mgr.set_loot_objective(current_player, objective_id)
+
+	if result.success:
+		log_phase_message("HERE BE LOOT: Player %d designates %s as Loot Objective" % [
+			current_player, objective_id.replace("obj_", "Objective ").to_upper()])
+
+		var log_entry = {
+			"type": "SELECT_LOOT_OBJECTIVE",
+			"player": current_player,
+			"objective_id": objective_id,
 			"turn": GameState.get_battle_round()
 		}
 		GameState.add_action_to_phase_log(log_entry)

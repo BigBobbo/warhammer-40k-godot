@@ -11,6 +11,7 @@ var objective_marker: Node2D
 var objective_circle: Line2D
 var objective_polygon: Polygon2D
 var tempting_target_label: Label = null  # Visual indicator for A Tempting Target
+var loot_objective_label: Label = null  # Visual indicator for Here Be Loot (OA-1)
 
 # Constants
 const OBJECTIVE_RADIUS_INCHES = 3.78740157  # 3" + 20mm (0.78740157")
@@ -261,6 +262,33 @@ func set_tempting_target(enabled: bool, player: int = 0) -> void:
 		if tempting_target_label != null:
 			tempting_target_label.visible = false
 		print("[ObjectiveVisual] Unmarked %s as Tempting Target" % objective_data.get("id", "?"))
+
+func set_loot_objective(enabled: bool, player: int = 0) -> void:
+	"""Mark or unmark this objective as a Loot Objective for the given player (OA-1)."""
+	if enabled:
+		if loot_objective_label == null:
+			loot_objective_label = Label.new()
+			loot_objective_label.name = "LootObjectiveLabel"
+			loot_objective_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+			loot_objective_label.add_theme_font_size_override("font_size", 13)
+			loot_objective_label.add_theme_constant_override("outline_size", 3)
+			loot_objective_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+			loot_objective_label.z_index = 10
+			var control_radius = Measurement.inches_to_px(OBJECTIVE_RADIUS_INCHES)
+			# Position below objective (or below tempting target label if present)
+			var y_offset = control_radius + 5
+			if tempting_target_label != null and tempting_target_label.visible:
+				y_offset += 20
+			loot_objective_label.position = Vector2(-55, y_offset)
+			add_child(loot_objective_label)
+		loot_objective_label.text = "LOOT OBJECTIVE (P%d)" % player
+		loot_objective_label.add_theme_color_override("font_color", Color(0.0, 1.0, 0.2, 1.0))  # Orky green
+		loot_objective_label.visible = true
+		print("[ObjectiveVisual] Marked %s as Loot Objective for Player %d" % [objective_data.get("id", "?"), player])
+	else:
+		if loot_objective_label != null:
+			loot_objective_label.visible = false
+		print("[ObjectiveVisual] Unmarked %s as Loot Objective" % objective_data.get("id", "?"))
 
 func highlight(enabled: bool) -> void:
 	if enabled:

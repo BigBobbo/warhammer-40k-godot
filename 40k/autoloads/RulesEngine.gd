@@ -1472,6 +1472,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board)
+
+		# HERE BE LOOT (OA-1): Freebooter Krew — Sustained Hits 1 near loot objective (ranged)
+		if sustained_data.value == 0 and FactionAbilityManager.check_here_be_loot_sustained_hits(actor_unit, target_unit, board):
+			sustained_data = {"value": 1, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS 1 granted by Here Be Loot (Freebooter Krew detachment)")
+
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
 
@@ -2138,6 +2144,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board)
+
+		# HERE BE LOOT (OA-1): Freebooter Krew — Sustained Hits 1 near loot objective (ranged)
+		if sustained_data.value == 0 and FactionAbilityManager.check_here_be_loot_sustained_hits(actor_unit, target_unit, board):
+			sustained_data = {"value": 1, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS 1 granted by Here Be Loot (Freebooter Krew detachment)")
+
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
 
@@ -6735,6 +6747,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if sustained_data.value == 0 and FactionAbilityManager.unit_has_get_stuck_in(attacker_unit):
 		sustained_data = {"value": 1, "is_dice": false}
 		print("RulesEngine:   SUSTAINED HITS 1 granted by Get Stuck In (War Horde detachment)")
+
+	# HERE BE LOOT (OA-1): Freebooter Krew — Sustained Hits 1 near loot objective (melee)
+	if sustained_data.value == 0 and FactionAbilityManager.check_here_be_loot_sustained_hits(attacker_unit, target_unit, board):
+		sustained_data = {"value": 1, "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS 1 granted by Here Be Loot (Freebooter Krew detachment)")
 
 	print("RulesEngine: Melee %s (%s) → %s: %d attacks (%d/%d models eligible), WS %d+, S%d, AP%d, D%d" % [
 		attacker_name, weapon_name, target_name, total_attacks, model_count, total_alive_models, ws, strength, ap, damage

@@ -1,1 +1,1 @@
-ARGS: ["-s", "tests/test_integration_model_profiles.gd"]
+ARGS: ["--script", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-ginclude_subdirs", "-gexit"]

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 ###############################################################################
-# run_audit_tasks.sh — Automated MODEL_ATTRIBUTES_TASKS.md task runner using Claude Code
+# run_audit_tasks.sh — Automated audit task runner using Claude Code
 #
-# Parses open tasks from MODEL_ATTRIBUTES_TASKS.md, loops through them
+# Parses open tasks from an audit task file, loops through them
 # one-by-one, launching a fresh Claude Code session for each.
 # Claude implements the task, updates the task file, commits, and merges to
 # main before the next task starts.
 #
-# Tasks use IDs like MA-1 through MA-33 under Phase headers (Phase 1-8).
-# Phase numbers map to priority for filtering: Phase 1 = priority 1, etc.
+# Tasks use IDs like PREFIX-N (e.g. MA-1, OA-1) under Phase headers.
+# The prefix is auto-detected from the file. Phase numbers map to priority.
 #
 # Designed to run locally on macOS.
 #
@@ -25,6 +25,7 @@
 #   --resume             Resume from last incomplete task in state file
 #   --list               List all open tasks and exit
 #   --no-merge           Skip merging to main (leave on feature branch)
+#   --audit-file FILE    Task file to process (default: 40k/MODEL_ATTRIBUTES_TASKS.md)
 #   --model MODEL        Claude model to use (default: sonnet)
 #   --timeout SECS       Max seconds per task before killing (default: 1800)
 #   --help               Show this help
@@ -39,6 +40,7 @@ export GIT_MERGE_AUTOEDIT=no
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
 AUDIT_FILE="$PROJECT_DIR/40k/MODEL_ATTRIBUTES_TASKS.md"
+TASK_PREFIX="MA"  # Task ID prefix (e.g. MA for MA-1, OA for OA-1)
 STATE_FILE="$PROJECT_DIR/.model_attr_runner_state"
 STOP_FILE="$PROJECT_DIR/.model_attr_runner_stop"
 LOG_DIR="$PROJECT_DIR/.audit_logs"
@@ -114,6 +116,7 @@ parse_args() {
             --resume)       RESUME=true ;;
             --list)         LIST_ONLY=true ;;
             --no-merge)     NO_MERGE=true ;;
+            --audit-file)   AUDIT_FILE="$PROJECT_DIR/$2"; shift ;;
             --model)        CLAUDE_MODEL="$2"; shift ;;
             --timeout)      TASK_TIMEOUT="$2"; shift ;;
             --help|-h)      usage ;;
@@ -212,16 +215,17 @@ parse_all_tasks() {
         # Stop parsing at non-phase ## headers (Implementation Order, Key Files, etc.)
         if printf '%s' "$line" | grep -qE '^## ' && ! printf '%s' "$line" | grep -qE '^## Phase'; then
             flush_task
+            current_task_id=""
             break
         fi
 
-        # Detect task header: ### MA-N: Title
-        if printf '%s' "$line" | grep -qE '^### MA-[0-9]+:'; then
+        # Detect task header: ### PREFIX-N: Title
+        if printf '%s' "$line" | grep -qE "^### ${TASK_PREFIX}-[0-9]+:"; then
             # Flush previous task
             flush_task
 
-            current_task_id=$(printf '%s' "$line" | grep -oE 'MA-[0-9]+')
-            current_task_title=$(printf '%s' "$line" | sed 's/^### MA-[0-9]*: //')
+            current_task_id=$(printf '%s' "$line" | grep -oE "${TASK_PREFIX}-[0-9]+")
+            current_task_title=$(printf '%s' "$line" | sed "s/^### ${TASK_PREFIX}-[0-9]*: //")
             has_open_checkbox=false
             has_any_checkbox=false
             continue
@@ -249,7 +253,7 @@ parse_all_tasks() {
 get_task_context() {
     local task_id="$1"
     local task_num
-    task_num=$(echo "$task_id" | sed 's/MA-//')
+    task_num=$(echo "$task_id" | sed "s/${TASK_PREFIX}-//")
 
     # Extract the full task block: from ### MA-N: to the next ### or ## header
     local task_block
@@ -326,7 +330,9 @@ sanitize_branch_name() {
     # Create a short, clean branch name from task ID and title
     local slug
     slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | cut -c1-40)
-    echo "model-attr/${task_id}/${slug}"
+    local prefix_slug
+    prefix_slug=$(echo "$TASK_PREFIX" | tr '[:upper:]' '[:lower:]')
+    echo "${prefix_slug}-tasks/${task_id}/${slug}"
 }
 
 create_feature_branch() {
@@ -685,8 +691,18 @@ run_single_task() {
 main() {
     parse_args "$@"
 
+    # Derive task prefix from audit file (first ### ID-N: header found)
+    TASK_PREFIX=$(grep -oE '^### [A-Z]+-[0-9]+:' "$AUDIT_FILE" 2>/dev/null | head -1 | grep -oE '[A-Z]+' | head -1)
+    [[ -n "$TASK_PREFIX" ]] || TASK_PREFIX="MA"
+
+    # Derive state/stop file names from audit file basename
+    local audit_basename
+    audit_basename=$(basename "$AUDIT_FILE" .md | tr '[:upper:]' '[:lower:]' | sed 's/_tasks$//')
+    STATE_FILE="$PROJECT_DIR/.${audit_basename}_runner_state"
+    STOP_FILE="$PROJECT_DIR/.${audit_basename}_runner_stop"
+
     # Sanity checks
-    [[ -f "$AUDIT_FILE" ]] || die "MODEL_ATTRIBUTES_TASKS.md not found at: ${AUDIT_FILE}"
+    [[ -f "$AUDIT_FILE" ]] || die "Audit file not found at: ${AUDIT_FILE}"
     command -v claude >/dev/null 2>&1 || die "Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code"
     command -v git >/dev/null 2>&1 || die "git not found"
 
