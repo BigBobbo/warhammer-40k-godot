@@ -62,6 +62,7 @@ var selected_model_type: String = ""
 var model_type_picker_panel: Node = null
 var model_type_picker_canvas: CanvasLayer = null
 
+
 # Infiltrator exclusion boundary visual
 var infiltrator_exclusion_visual: Node2D = null
 
