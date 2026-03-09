@@ -429,12 +429,12 @@
 - **Validation**: Full flow completes without errors. Weapon assignments match model profiles. Save/load round-trips correctly. Model type visible throughout.
 
 ### MA-33: Backward compatibility regression tests
-- [ ] Load all existing army JSONs (space_marines.json, orks.json, adeptus_custodes.json) — no errors
-- [ ] All units without model_profiles behave identically to before
-- [ ] Load old save files without model_type — no crashes, models load with null model_type
-- [ ] Shooting, melee, deployment, wound allocation all work for non-profiled units
-- [ ] Existing Godot test suite passes with no regressions
-- **Files**: Existing test files, manual testing
+- [x] Load all existing army JSONs (space_marines.json, orks.json, adeptus_custodes.json) — no errors
+- [x] All units without model_profiles behave identically to before
+- [x] Load old save files without model_type — no crashes, models load with null model_type
+- [x] Shooting, melee, deployment, wound allocation all work for non-profiled units
+- [x] Existing Godot test suite passes with no regressions
+- **Files**: Existing test files, tests/test_backward_compatibility.gd, manual testing
 - **Validation**: All existing tests pass. All existing armies load. Old saves load without error.
 
 ---
