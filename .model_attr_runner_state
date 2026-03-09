@@ -33,3 +33,7 @@ MA-22|failed|2026-03-08T13:56:38Z|model-attr/MA-22/show-model-type-in-casualty-r
 MA-23|success|2026-03-08T14:01:10Z|model-attr/MA-23/unitstatspanel-shows-model-composition-b
 MA-24|success|2026-03-08T14:09:58Z|model-attr/MA-24/transport-capacity-respects-per-model-tr
 MA-25|success|2026-03-08T14:28:15Z|model-attr/MA-25/pistol-mutual-exclusivity-per-model
+MA-26|success|2026-03-08T14:36:06Z|model-attr/MA-26/weapon-ownership-validation-in-shooting
+MA-27|failed|2026-03-08T20:37:56Z|model-attr/MA-27/add-per-model-stat-lookup-helper
+MA-28|failed|2026-03-09T02:39:55Z|model-attr/MA-28/per-model-fnp-stretch-goal
+MA-29|failed|2026-03-09T08:41:52Z|model-attr/MA-29/ability-weapon-targeting-filter-stretch-
