@@ -417,15 +417,15 @@
 - **Validation**: All tests pass with correct per-model stat usage.
 
 ### MA-32: Integration test with full game flow
-- [ ] Load Orks army with Lootas (heterogeneous unit)
-- [ ] Deploy Lootas using model picker — place models in non-sequential order
-- [ ] Verify token visuals distinguish model types
-- [ ] Shoot with Lootas — 8 deffgun models fire deffguns, 3 models fire mega-blastas, separate assignments
-- [ ] Take casualties — wound allocation UI shows model type labels
-- [ ] Remove spanner model — verify it's correctly tracked as dead
-- [ ] Save game, reload — model_type preserved, weapon assignments correct
-- [ ] Verify in multiplayer: remote player sees correct model types and weapon assignments
-- **Files**: Manual test / integration test script
+- [x] Load Orks army with Lootas (heterogeneous unit)
+- [x] Deploy Lootas using model picker — place models in non-sequential order
+- [x] Verify token visuals distinguish model types
+- [x] Shoot with Lootas — 8 deffgun models fire deffguns, 3 models fire mega-blastas, separate assignments
+- [x] Take casualties — wound allocation UI shows model type labels
+- [x] Remove spanner model — verify it's correctly tracked as dead
+- [x] Save game, reload — model_type preserved, weapon assignments correct
+- [x] Verify in multiplayer: remote player sees correct model types and weapon assignments
+- **Files**: tests/test_integration_model_profiles.gd
 - **Validation**: Full flow completes without errors. Weapon assignments match model profiles. Save/load round-trips correctly. Model type visible throughout.
 
 ### MA-33: Backward compatibility regression tests
