@@ -40,3 +40,4 @@ MA-29|failed|2026-03-09T08:41:52Z|model-attr/MA-29/ability-weapon-targeting-filt
 MA-30|success|2026-03-09T09:01:40Z|model-attr/MA-30/unit-tests-for-per-model-weapon-assignme
 MA-31|success|2026-03-09T09:09:28Z|model-attr/MA-31/unit-tests-for-per-model-combat-resoluti
 MA-32|success|2026-03-09T09:18:02Z|model-attr/MA-32/integration-test-with-full-game-flow
+MA-33|success|2026-03-09T09:26:06Z|model-attr/MA-33/backward-compatibility-regression-tests
