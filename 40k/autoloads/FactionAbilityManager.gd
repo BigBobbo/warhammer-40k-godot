@@ -69,6 +69,13 @@ const DETACHMENT_ABILITIES = {
 		"effect": "sustained_hits_1_melee",
 		"description": "Melee weapons equipped by ORKS models from your army have the [SUSTAINED HITS 1] ability."
 	},
+	"Freebooter Krew": {
+		"faction_keyword": "ORKS",
+		"ability_name": "Here Be Loot",
+		"trigger": "battle_round_start",
+		"effect": "sustained_hits_near_loot",
+		"description": "At the start of each battle round, select one objective marker as the Loot Objective. While an ORKS INFANTRY, MOUNTED, or WALKER unit from your army is within range of the Loot Objective, each time a model in that unit makes an attack, that attack has the [SUSTAINED HITS 1] ability. In addition, while an enemy unit is within range of the Loot Objective, each time a model from your army makes an attack against that unit, that attack has the [SUSTAINED HITS 1] ability."
+	},
 	"Shield Host": {
 		"faction_keyword": "ADEPTUS CUSTODES",
 		"ability_name": "Martial Mastery",
@@ -157,6 +164,12 @@ var _active_doctrine: Dictionary = {"1": "", "2": ""}
 var _active_mastery: Dictionary = {"1": "", "2": ""}
 # Per-player: battle round in which mastery was last selected (to detect new round)
 var _mastery_selected_round: Dictionary = {"1": 0, "2": 0}
+
+# Loot Objective tracking (Orks — Freebooter Krew) (OA-1)
+# Per-player: which objective is the current loot objective (objective_id string)
+var _loot_objective: Dictionary = {"1": "", "2": ""}
+# Per-player: battle round in which loot objective was last selected
+var _loot_objective_round: Dictionary = {"1": 0, "2": 0}
 
 func _ready():
 	print("FactionAbilityManager: Ready")
@@ -797,6 +810,214 @@ func _clear_mastery_effects(player: int) -> void:
 	_active_mastery[player_key] = ""
 	print("FactionAbilityManager: Cleared Martial Mastery effects for player %d (was: %s)" % [player, old_mastery])
 
+# ---- HERE BE LOOT (Orks — Freebooter Krew) (OA-1) ----
+
+func is_loot_objective_available(player: int) -> bool:
+	"""Check if loot objective selection is needed (new battle round, Freebooter Krew player)."""
+	var detachment = get_player_detachment(player)
+	if detachment != "Freebooter Krew":
+		return false
+	var current_round = GameState.get_battle_round()
+	var last_selected = _loot_objective_round.get(str(player), 0)
+	return current_round > last_selected
+
+func get_loot_objective(player: int) -> String:
+	"""Get the current loot objective ID for a player. Returns empty string if none."""
+	return _loot_objective.get(str(player), "")
+
+func get_eligible_loot_objectives() -> Array:
+	"""Get all objective markers on the board for loot selection."""
+	var objectives = GameState.state.get("board", {}).get("objectives", [])
+	var result = []
+	for obj in objectives:
+		var obj_id = obj.get("id", "")
+		if obj_id == "":
+			continue
+		# Skip burned objectives
+		var mission_mgr = get_node_or_null("/root/MissionManager")
+		if mission_mgr and mission_mgr._burned_objectives.has(obj_id):
+			continue
+		result.append({
+			"id": obj_id,
+			"position": obj.get("position", Vector2.ZERO),
+			"zone": obj.get("zone", "")
+		})
+	return result
+
+func set_loot_objective(player: int, objective_id: String) -> Dictionary:
+	"""Set the loot objective for a player. Returns result dict."""
+	var player_key = str(player)
+	var detachment = get_player_detachment(player)
+
+	if detachment != "Freebooter Krew":
+		return {"success": false, "error": "Player %d is not using Freebooter Krew detachment" % player}
+
+	# Validate objective exists
+	var objectives = GameState.state.get("board", {}).get("objectives", [])
+	var found = false
+	for obj in objectives:
+		if obj.get("id", "") == objective_id:
+			found = true
+			break
+	if not found:
+		return {"success": false, "error": "Objective %s not found" % objective_id}
+
+	# Set the loot objective
+	_loot_objective[player_key] = objective_id
+	_loot_objective_round[player_key] = GameState.get_battle_round()
+
+	# Write to GameState.state.board for static combat function access
+	if not GameState.state.board.has("loot_objective"):
+		GameState.state.board["loot_objective"] = {}
+	GameState.state.board["loot_objective"][player_key] = objective_id
+
+	print("FactionAbilityManager: Player %d loot objective set to %s (round %d)" % [
+		player, objective_id, GameState.get_battle_round()])
+
+	# Update visual indicator on the objective
+	_update_loot_objective_visual(objective_id, player)
+
+	# Log to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_player_entry(player, "HERE BE LOOT: %s designated as Loot Objective — Sustained Hits 1 near it!" % objective_id.replace("obj_", "Objective ").to_upper())
+
+	return {
+		"success": true,
+		"objective_id": objective_id,
+		"message": "Here Be Loot: %s designated as Loot Objective" % objective_id.replace("obj_", "Objective ").to_upper()
+	}
+
+func _clear_loot_objective(player: int) -> void:
+	"""Clear loot objective for a player (called at start of new battle round)."""
+	var player_key = str(player)
+	var old_loot = _loot_objective.get(player_key, "")
+	if old_loot != "":
+		# Clear visual indicator on old objective
+		_clear_loot_objective_visual(old_loot)
+		_loot_objective[player_key] = ""
+		# Also clear from GameState.state.board
+		if GameState.state.board.has("loot_objective"):
+			GameState.state.board["loot_objective"][player_key] = ""
+		print("FactionAbilityManager: Cleared loot objective for player %d (was: %s)" % [player, old_loot])
+
+func _update_loot_objective_visual(objective_id: String, player: int) -> void:
+	"""Mark an objective on the board as the Loot Objective for the given player."""
+	var mission_mgr = get_node_or_null("/root/MissionManager")
+	if not mission_mgr:
+		return
+	# Clear any previous loot objective visual for this player
+	for obj_id in mission_mgr.objectives_visual_refs:
+		var obj_vis = mission_mgr.objectives_visual_refs[obj_id]
+		if obj_vis and obj_vis.has_method("set_loot_objective"):
+			obj_vis.set_loot_objective(false)
+	# Set new loot objective visual
+	var obj_visual = mission_mgr.objectives_visual_refs.get(objective_id, null)
+	if obj_visual and obj_visual.has_method("set_loot_objective"):
+		obj_visual.set_loot_objective(true, player)
+	else:
+		print("FactionAbilityManager: Could not find ObjectiveVisual for %s to mark as Loot Objective" % objective_id)
+
+func _clear_loot_objective_visual(objective_id: String) -> void:
+	"""Remove the Loot Objective visual indicator from an objective."""
+	var mission_mgr = get_node_or_null("/root/MissionManager")
+	if not mission_mgr:
+		return
+	var obj_visual = mission_mgr.objectives_visual_refs.get(objective_id, null)
+	if obj_visual and obj_visual.has_method("set_loot_objective"):
+		obj_visual.set_loot_objective(false)
+
+static func _is_any_model_near_objective(unit: Dictionary, objective_pos, board: Dictionary) -> bool:
+	"""Check if any alive model in the unit is within objective control range of a position."""
+	# Convert objective position to Vector2 if needed
+	var obj_vec = Vector2.ZERO
+	if objective_pos is Vector2:
+		obj_vec = objective_pos
+	elif objective_pos is Dictionary:
+		obj_vec = Vector2(objective_pos.get("x", 0), objective_pos.get("y", 0))
+	else:
+		return false
+
+	# Objective control range: 3" + 20mm base = 3.78740157"
+	var control_radius_px = 3.78740157 * 40.0  # PX_PER_INCH = 40.0
+
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var model_pos = model.get("position", null)
+		if model_pos == null:
+			continue
+		if model_pos is Dictionary:
+			model_pos = Vector2(model_pos.get("x", 0), model_pos.get("y", 0))
+		elif not (model_pos is Vector2):
+			continue
+
+		# Edge-to-edge distance from model to objective center
+		# Use model base radius for edge-to-edge calculation
+		var base_mm = model.get("base_mm", 32)
+		var base_radius_px = (base_mm / 25.4) * 40.0 / 2.0  # mm to inches to px, halved for radius
+		var center_distance = model_pos.distance_to(obj_vec)
+		var edge_distance = max(0.0, center_distance - base_radius_px)
+
+		if edge_distance <= control_radius_px:
+			return true
+
+	return false
+
+static func _unit_has_ork_loot_keyword(unit: Dictionary) -> bool:
+	"""Check if unit has ORKS keyword AND is INFANTRY, MOUNTED, or WALKER."""
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var has_orks = false
+	var has_type = false
+	for kw in keywords:
+		if kw is String:
+			var upper = kw.to_upper()
+			if upper == "ORKS":
+				has_orks = true
+			if upper == "INFANTRY" or upper == "MOUNTED" or upper == "WALKER":
+				has_type = true
+	return has_orks and has_type
+
+static func check_here_be_loot_sustained_hits(attacker_unit: Dictionary, target_unit: Dictionary, board: Dictionary) -> bool:
+	"""Static query: Check if Here Be Loot grants Sustained Hits 1 for this attack.
+	Returns true if either:
+	  1. Attacker is ORKS INFANTRY/MOUNTED/WALKER within range of their loot objective, OR
+	  2. Target is within range of the attacker's loot objective.
+	Called from RulesEngine static combat functions."""
+	var attacker_owner = attacker_unit.get("owner", 0)
+	if attacker_owner == 0:
+		return false
+
+	var player_key = str(attacker_owner)
+
+	# Get loot objective from board state
+	var loot_objectives = board.get("board", {}).get("loot_objective", {})
+	var loot_obj_id = loot_objectives.get(player_key, "")
+	if loot_obj_id == "":
+		return false
+
+	# Find the objective's position
+	var objectives = board.get("board", {}).get("objectives", [])
+	var loot_pos = null
+	for obj in objectives:
+		if obj.get("id", "") == loot_obj_id:
+			loot_pos = obj.get("position", null)
+			break
+
+	if loot_pos == null:
+		return false
+
+	# Check condition 1: Attacker is ORKS INFANTRY/MOUNTED/WALKER within range
+	if _unit_has_ork_loot_keyword(attacker_unit):
+		if _is_any_model_near_objective(attacker_unit, loot_pos, board):
+			return true
+
+	# Check condition 2: Target (enemy) is within range of loot objective
+	if _is_any_model_near_objective(target_unit, loot_pos, board):
+		return true
+
+	return false
+
 # ---- DETACHMENT HELPER ----
 
 func _unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
@@ -927,6 +1148,12 @@ func on_command_phase_start(player: int) -> void:
 	if detachment == "War Horde":
 		_apply_get_stuck_in(player)
 
+	# Clear loot objective from previous round (Freebooter Krew — OA-1)
+	# Loot objective resets each battle round; selection happens via action in CommandPhase
+	if detachment == "Freebooter Krew":
+		_clear_loot_objective(player)
+		print("FactionAbilityManager: Player %d has Freebooter Krew — awaiting loot objective selection" % player)
+
 	# Clear previous Oath of Moment (it's re-selected each Command Phase)
 	if player_has_ability(player, "Oath of Moment"):
 		clear_oath_of_moment(player)
@@ -961,7 +1188,10 @@ func get_state_for_save() -> Dictionary:
 		"doctrines_used": _doctrines_used.duplicate(true),
 		"active_doctrine": _active_doctrine.duplicate(true),
 		"active_mastery": _active_mastery.duplicate(true),
-		"mastery_selected_round": _mastery_selected_round.duplicate(true)
+		"mastery_selected_round": _mastery_selected_round.duplicate(true),
+		# Loot objective state (OA-1)
+		"loot_objective": _loot_objective.duplicate(true),
+		"loot_objective_round": _loot_objective_round.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
@@ -976,4 +1206,13 @@ func load_state(data: Dictionary) -> void:
 	_active_doctrine = data.get("active_doctrine", {"1": "", "2": ""})
 	_active_mastery = data.get("active_mastery", {"1": "", "2": ""})
 	_mastery_selected_round = data.get("mastery_selected_round", {"1": 0, "2": 0})
+	# Loot objective state (OA-1)
+	_loot_objective = data.get("loot_objective", {"1": "", "2": ""})
+	_loot_objective_round = data.get("loot_objective_round", {"1": 0, "2": 0})
+	# Restore loot objective to GameState.state.board for static access
+	for pk in _loot_objective:
+		if _loot_objective[pk] != "":
+			if not GameState.state.board.has("loot_objective"):
+				GameState.state.board["loot_objective"] = {}
+			GameState.state.board["loot_objective"][pk] = _loot_objective[pk]
 	print("FactionAbilityManager: State loaded — effects: %s, waaagh_active: %s, detachments: %s" % [str(_active_effects), str(_waaagh_active), str(_player_detachment)])
