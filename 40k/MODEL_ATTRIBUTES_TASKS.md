@@ -398,11 +398,11 @@
 ## Phase 8: Testing & Validation
 
 ### MA-30: Unit tests for per-model weapon assignment
-- [ ] Test `get_unit_weapons()` with model_profiles unit → each model gets correct weapons
-- [ ] Test `get_unit_weapons()` without model_profiles → all models get all weapons (regression)
-- [ ] Test `get_unit_melee_weapons()` with model_profiles
-- [ ] Test `get_unit_weapons()` with attached character on profiled unit → character weapons use composite IDs
-- [ ] Test weapon filter functions (pistol, assault, heavy, rapid fire, torrent) with profiled unit
+- [x] Test `get_unit_weapons()` with model_profiles unit → each model gets correct weapons
+- [x] Test `get_unit_weapons()` without model_profiles → all models get all weapons (regression)
+- [x] Test `get_unit_melee_weapons()` with model_profiles
+- [x] Test `get_unit_weapons()` with attached character on profiled unit → character weapons use composite IDs
+- [x] Test weapon filter functions (pistol, assault, heavy, rapid fire, torrent) with profiled unit
 - **Files**: New test file `tests/test_model_profiles.gd`
 - **Validation**: All tests pass. No regression in existing weapon assignment tests.
 

@@ -2,7 +2,7 @@
 	"execution_time_ms": 0,
 	"result": {
 		"data": {
-			"current_phase": "Unknown",
+			"current_phase": "Roll-Off",
 			"current_turn": 0,
 			"player_turn": 0,
 			"units": {
@@ -3665,6 +3665,6 @@
 		"success": true
 	},
 	"sequence": 1,
-	"timestamp": 28675,
+	"timestamp": 23257108,
 	"version": "1.0"
 }
