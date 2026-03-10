@@ -1202,6 +1202,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# Calculate total attacks — roll variable attacks per model (D3, D6, etc.)
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
+
+	# GUN-CRAZY SHOW-OFFS (OA-9): Override snazzgun attacks to 4 when targeting closest eligible enemy
+	var gun_crazy_attacks = get_gun_crazy_showoffs_attacks(actor_unit, weapon_id, weapon_profile, actor_unit_id, target_unit_id, board)
+	if gun_crazy_attacks > 0:
+		attacks_raw = str(gun_crazy_attacks)
+
 	var base_attacks = 0
 	var attacks_roll_log = []
 	# MA-10: Track per-model BS for each attack (supports stats_override.ballistic_skill)
@@ -1909,6 +1915,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# Calculate total attacks — roll variable attacks per model (D3, D6, etc.)
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
+
+	# GUN-CRAZY SHOW-OFFS (OA-9): Override snazzgun attacks to 4 when targeting closest eligible enemy (auto-resolve)
+	var gun_crazy_attacks = get_gun_crazy_showoffs_attacks(actor_unit, weapon_id, weapon_profile, actor_unit_id, target_unit_id, board)
+	if gun_crazy_attacks > 0:
+		attacks_raw = str(gun_crazy_attacks)
+
 	var base_attacks = 0
 	var attacks_roll_log = []
 	# MA-10: Track per-model BS for each attack (supports stats_override.ballistic_skill)
@@ -4731,6 +4743,39 @@ static func is_closest_eligible_target(actor_unit_id: String, target_unit_id: St
 
 	# No non-protected unit is closer — this character IS the closest eligible target
 	return true
+
+# GUN-CRAZY SHOW-OFFS (OA-9): Check if a unit has the "Gun-crazy Show-offs" ability
+# and the weapon is a snazzgun. If so, and the target is the closest eligible enemy,
+# the snazzgun's Attacks characteristic becomes 4 (instead of base 3).
+static func get_gun_crazy_showoffs_attacks(actor_unit: Dictionary, weapon_id: String, weapon_profile: Dictionary, actor_unit_id: String, target_unit_id: String, board: Dictionary) -> int:
+	# Check if the actor unit has the "Gun-crazy Show-offs" ability
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Gun-crazy Show-offs":
+			has_ability = true
+			break
+
+	if not has_ability:
+		return -1  # -1 means ability not applicable
+
+	# Check if the weapon is a snazzgun
+	var weapon_name = weapon_profile.get("name", weapon_id).to_lower()
+	if weapon_name.find("snazzgun") == -1:
+		return -1  # Not a snazzgun
+
+	# Check if target is the closest eligible enemy unit
+	if is_closest_eligible_target(actor_unit_id, target_unit_id, board):
+		print("RulesEngine: GUN-CRAZY SHOW-OFFS — %s targeting closest eligible enemy with snazzgun → Attacks = 4" % actor_unit.get("meta", {}).get("name", actor_unit_id))
+		return 4
+	else:
+		print("RulesEngine: GUN-CRAZY SHOW-OFFS — %s targeting non-closest enemy with snazzgun → Attacks = 3 (base)" % actor_unit.get("meta", {}).get("name", actor_unit_id))
+		return -1  # Use base attacks (3)
 
 # STEALTH (T2-1): Check if a unit has the Stealth ability
 # Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit

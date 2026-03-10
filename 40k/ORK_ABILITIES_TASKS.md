@@ -79,10 +79,10 @@
 ## Phase 2: Combat Abilities
 
 ### OA-9: Implement "Gun-crazy Show-offs" ability for Flash Gitz
-- [ ] Add "Gun-crazy Show-offs" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] When targeting closest eligible enemy, snazzgun Attacks = 4
-- [ ] When targeting non-closest enemies, snazzgun Attacks = 3 (base)
-- [ ] Implement closest-target validation using model-to-model distance
+- [x] Add "Gun-crazy Show-offs" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] When targeting closest eligible enemy, snazzgun Attacks = 4
+- [x] When targeting non-closest enemies, snazzgun Attacks = 3 (base)
+- [x] Implement closest-target validation using model-to-model distance
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd, ShootingPhase.gd
 - **Validation**: Snazzgun Attacks = 4 vs closest enemy. Attacks = 3 vs non-closest. Distance calculated correctly.
 

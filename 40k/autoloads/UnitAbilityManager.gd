@@ -499,6 +499,22 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# COMBAT ABILITIES — Weapon stat modifiers based on targeting conditions
+	# ======================================================================
+
+	# Ork Flash Gitz — snazzgun Attacks = 4 when targeting closest eligible enemy
+	# Handled directly in RulesEngine._resolve_ranged_assignment() and _resolve_assignment():
+	# checks if weapon is a snazzgun and target is closest eligible, then overrides attacks to 4.
+	"Gun-crazy Show-offs": {
+		"condition": "always",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Snazzgun Attacks = 4 when targeting closest eligible enemy — checked directly in RulesEngine"
+	},
+
+	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
 	# ======================================================================
