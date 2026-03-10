@@ -6967,6 +6967,14 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
 		print("RulesEngine: Effect re-roll wounds (melee) applied for %s" % attacker_id)
 
+	# BASH AND GRAB (OA-3): Freebooter Krew — re-roll Wound rolls vs targets near loot objective
+	if attacker_unit.get("flags", {}).get("effect_bash_and_grab", false):
+		if FactionAbilityManager.check_bash_and_grab_reroll_wounds(attacker_unit, target_unit, board):
+			melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+			print("RulesEngine: BASH AND GRAB (melee) — re-roll Wound rolls vs %s (near loot objective)" % target_name)
+		else:
+			print("RulesEngine: BASH AND GRAB active but target %s not within range of loot objective — no re-roll" % target_name)
+
 	# LANCE (T4-1): +1 to wound if unit charged this turn (melee Lance weapons)
 	if is_lance_weapon(weapon_id, board):
 		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)

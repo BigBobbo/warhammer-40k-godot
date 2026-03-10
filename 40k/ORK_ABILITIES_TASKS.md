@@ -30,10 +30,10 @@
 - **Validation**: Each enhancement applies correctly when equipped on valid models. Once-per-round tracking for Da Kaptin. Random roll for Bionik Workshop at battle start. Razgit's Magik Map allows redeployment.
 
 ### OA-3: Implement "Bash and Grab" stratagem
-- [ ] Ensure Freebooter Krew detachment is registered so stratagems load from CSV
-- [ ] Implement Fight phase stratagem: 1 CP, target one ORKS unit that hasn't fought
-- [ ] Apply re-roll Wound rolls for attacks targeting enemies within range of loot objective
-- [ ] Enforce once-per-phase restriction
+- [x] Ensure Freebooter Krew detachment is registered so stratagems load from CSV
+- [x] Implement Fight phase stratagem: 1 CP, target one ORKS unit that hasn't fought
+- [x] Apply re-roll Wound rolls for attacks targeting enemies within range of loot objective
+- [x] Enforce once-per-phase restriction
 - **Files**: FactionAbilityManager.gd, StratagemManager.gd, FactionStratagemLoader.gd
 - **Validation**: Stratagem appears during Fight phase. Re-roll Wound rolls only vs targets within range of loot objective. 1 CP deducted. Once-per-phase enforced.
 

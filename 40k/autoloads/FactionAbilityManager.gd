@@ -1073,6 +1073,39 @@ static func check_here_be_loot_sustained_hits(attacker_unit: Dictionary, target_
 
 	return false
 
+static func check_bash_and_grab_reroll_wounds(attacker_unit: Dictionary, target_unit: Dictionary, board: Dictionary) -> bool:
+	"""Static query: Check if Bash and Grab grants re-roll Wound rolls for this attack.
+	Returns true if the target enemy unit is within range of the attacker's loot objective.
+	Called from RulesEngine melee combat when the attacker has effect_bash_and_grab flag."""
+	var attacker_owner = attacker_unit.get("owner", 0)
+	if attacker_owner == 0:
+		return false
+
+	var player_key = str(attacker_owner)
+
+	# Get loot objective from board state
+	var loot_objectives = board.get("board", {}).get("loot_objective", {})
+	var loot_obj_id = loot_objectives.get(player_key, "")
+	if loot_obj_id == "":
+		return false
+
+	# Find the objective's position
+	var objectives = board.get("board", {}).get("objectives", [])
+	var loot_pos = null
+	for obj in objectives:
+		if obj.get("id", "") == loot_obj_id:
+			loot_pos = obj.get("position", null)
+			break
+
+	if loot_pos == null:
+		return false
+
+	# Check if target is within range of loot objective
+	if _is_any_model_near_objective(target_unit, loot_pos, board):
+		return true
+
+	return false
+
 # ---- DETACHMENT HELPER ----
 
 func _unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
