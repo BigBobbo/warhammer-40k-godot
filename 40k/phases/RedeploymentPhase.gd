@@ -83,6 +83,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_confirm_redeploy(action)
 		"SKIP_REDEPLOY":
 			return _validate_skip_redeploy(action)
+		"SEND_TO_STRATEGIC_RESERVES":
+			return _validate_send_to_reserves(action)
 		"END_REDEPLOYMENT_PHASE":
 			return _validate_end_redeployment_phase(action)
 		"DEBUG_MOVE":
@@ -102,6 +104,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_confirm_redeploy(action)
 		"SKIP_REDEPLOY":
 			return _process_skip_redeploy(action)
+		"SEND_TO_STRATEGIC_RESERVES":
+			return _process_send_to_reserves(action)
 		"END_REDEPLOYMENT_PHASE":
 			return _process_end_redeployment_phase(action)
 		_:
@@ -338,6 +342,14 @@ func _process_confirm_redeploy(action: Dictionary) -> Dictionary:
 	# Mark unit as completed
 	_mark_redeploy_complete(unit_id)
 
+	# OA-2: Track Razgit's Magik Map redeployment usage
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	var player = unit.get("owner", 0)
+	if faction_mgr and faction_mgr.has_razgit_magik_map(player):
+		# Check if this unit is a Razgit's eligible unit (not a normal redeploy unit)
+		if not GameState.unit_has_redeploy(unit_id):
+			faction_mgr.mark_razgit_redeploy_used(player)
+
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var models_moved = staged_positions.size()
 	log_phase_message("Redeployment confirmed for %s (%d models repositioned)" % [unit_name, models_moved])
@@ -373,6 +385,79 @@ func _process_end_redeployment_phase(action: Dictionary) -> Dictionary:
 	log_phase_message("Redeployment phase ending")
 	emit_signal("phase_completed")
 	return create_result(true, [])
+
+# ---- OA-2: Razgit's Magik Map — Send to Strategic Reserves ----
+
+func _validate_send_to_reserves(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing unit_id"]}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
+
+	if unit.get("owner", 0) != get_current_player():
+		return {"valid": false, "errors": ["Unit does not belong to active player"]}
+
+	# Must be in pending list
+	var pending = redeploy_units_pending.get(get_current_player(), [])
+	if unit_id not in pending:
+		return {"valid": false, "errors": ["Unit is not eligible for redeployment"]}
+
+	# Must be a Razgit's Magik Map unit (not a normal redeploy unit)
+	if GameState.unit_has_redeploy(unit_id):
+		return {"valid": false, "errors": ["Only Razgit's Magik Map units can be sent to Strategic Reserves"]}
+
+	# Check Razgit's remaining slots
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr or not faction_mgr.is_razgit_redeploy_available(get_current_player()):
+		return {"valid": false, "errors": ["No Razgit's Magik Map redeployment slots remaining"]}
+
+	return {"valid": true, "errors": []}
+
+func _process_send_to_reserves(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var player = unit.get("owner", 0)
+
+	# Set unit status to STRATEGIC_RESERVES and clear model positions
+	var changes = []
+	changes.append({
+		"op": "set",
+		"path": "units.%s.status" % unit_id,
+		"value": GameStateData.UnitStatus.UNDEPLOYED
+	})
+
+	# Clear model positions
+	var models = unit.get("models", [])
+	for i in range(models.size()):
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%d.position" % [unit_id, i],
+			"value": null
+		})
+
+	# Apply changes
+	if get_parent() and get_parent().has_method("apply_state_changes"):
+		get_parent().apply_state_changes(changes)
+	_apply_changes_to_local_state(changes)
+
+	# Mark Razgit's redeploy as used
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr:
+		faction_mgr.mark_razgit_redeploy_used(player)
+
+	# Mark unit as completed
+	_mark_redeploy_complete(unit_id)
+
+	log_phase_message("RAZGIT'S MAGIK MAP: %s sent to Strategic Reserves" % unit_name)
+
+	# Check progression
+	_check_redeploy_progression()
+
+	return create_result(true, changes)
 
 # ========================================
 # Helper Methods
@@ -512,9 +597,21 @@ func get_available_actions() -> Array:
 	var current_player = get_current_player()
 	var pending = redeploy_units_pending.get(current_player, [])
 
+	# OA-2: Check if Razgit's Magik Map redeployments remain
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	var razgit_remaining = 0
+	if faction_mgr:
+		razgit_remaining = faction_mgr.get_razgit_redeploys_remaining(current_player)
+
 	for unit_id in pending:
 		var unit = get_unit(unit_id)
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+		# OA-2: Check if this is a Razgit's unit and if slots remain
+		var is_razgit_unit = not GameState.unit_has_redeploy(unit_id)
+		if is_razgit_unit and razgit_remaining <= 0:
+			# No Razgit's slots left, skip this unit
+			continue
 
 		# Can begin a redeploy
 		if not active_redeploy.has(unit_id):
@@ -523,6 +620,14 @@ func get_available_actions() -> Array:
 				"unit_id": unit_id,
 				"description": "Redeploy %s" % unit_name
 			})
+
+			# OA-2: Razgit's Magik Map — offer sending to Strategic Reserves
+			if is_razgit_unit and faction_mgr and faction_mgr.has_razgit_magik_map(current_player):
+				actions.append({
+					"type": "SEND_TO_STRATEGIC_RESERVES",
+					"unit_id": unit_id,
+					"description": "Razgit's Magik Map: Send %s to Strategic Reserves" % unit_name
+				})
 
 		# Can skip the redeploy
 		actions.append({

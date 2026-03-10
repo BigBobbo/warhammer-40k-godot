@@ -119,21 +119,25 @@ func get_pivot_value_for_unit(unit_id: String) -> float:
 
 # Helper function to get unit movement stat with proper error handling
 func get_unit_movement(unit: Dictionary) -> float:
+	var movement: float = 6.0
 	# Try the expected path first
 	if unit.has("meta") and unit.meta.has("stats") and unit.meta.stats.has("move"):
-		var movement = float(unit.meta.stats.move)
-		return movement
-	
-	# Try nested get with type safety
-	var stats = unit.get("meta", {}).get("stats", {})
-	if stats and stats.has("move"):
-		var movement = float(stats.get("move"))
-		return movement
-	
-	# Log warning and return default
-	var unit_name = unit.get("meta", {}).get("name", "Unknown")
-	push_warning("Unit %s missing movement stat, using default: 6" % unit_name)
-	return 6.0
+		movement = float(unit.meta.stats.move)
+	elif unit.get("meta", {}).get("stats", {}).has("move"):
+		# Try nested get with type safety
+		movement = float(unit.get("meta", {}).get("stats", {}).get("move"))
+	else:
+		# Log warning and return default
+		var unit_name = unit.get("meta", {}).get("name", "Unknown")
+		push_warning("Unit %s missing movement stat, using default: 6" % unit_name)
+
+	# BIONIK WORKSHOP (OA-2): +1 Move bonus
+	var bionik_bonus = unit.get("flags", {}).get("bionik_workshop_bonus", "")
+	if bionik_bonus == "move":
+		movement += 1.0
+		print("MovementPhase: Bionik Workshop — movement %d → %d (+1\")" % [int(movement - 1), int(movement)])
+
+	return movement
 
 func _init():
 	phase_type = GameStateData.Phase.MOVEMENT
