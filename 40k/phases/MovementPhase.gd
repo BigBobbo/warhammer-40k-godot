@@ -22,6 +22,7 @@ signal rapid_ingress_opportunity(player: int, eligible_units: Array)
 signal bomb_squigs_available(unit_id: String, player: int, eligible_targets: Array)
 signal bomb_squigs_result(unit_id: String, results: Dictionary)
 signal surge_move_completed(unit_id: String, distance_moved: float)
+signal krump_and_run_opportunity(player: int, eligible_units: Array, fell_back_unit_id: String)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
@@ -71,6 +72,17 @@ var _normal_moves_this_phase: Dictionary = {}   # unit_id -> true (units that ha
 # Surge moves are out-of-phase moves triggered by abilities.
 # Restrictions: once per phase per unit, not while battle-shocked, not while in Engagement Range.
 var _surge_moves_this_phase: Dictionary = {}    # unit_id -> true (units that have surged this phase)
+
+# Krump and Run state tracking (OA-8)
+var _awaiting_krump_and_run: bool = false
+var _krump_and_run_player: int = 0               # Non-active player offered the stratagem
+var _krump_and_run_eligible_units: Array = []     # Eligible ORKS units freed by fall back
+var _krump_and_run_fell_back_unit_id: String = "" # The enemy unit that fell back
+var _krump_and_run_unit_id: String = ""           # The unit chosen for reactive move
+var _krump_and_run_pending_after_overwatch: bool = false  # Defer K&R check until overwatch resolves
+var _krump_and_run_pending_fell_back_id: String = ""      # Fell-back unit ID for deferred check
+var _engagement_at_phase_start: Dictionary = {}   # unit_id -> [enemy_unit_ids] at phase start
+var _reactive_move_owner: int = 0                 # Override player for engagement checks during reactive moves
 
 # Calculate pivot value for a unit based on base type and keywords (10e Core Rules Update)
 # - Non-round base, non-Monster/Vehicle: 1"
@@ -164,6 +176,19 @@ func _on_phase_enter() -> void:
 	_bomb_squigs_pending_dice = []
 	_normal_moves_this_phase.clear()
 	_surge_moves_this_phase.clear()
+	_awaiting_krump_and_run = false
+	_krump_and_run_player = 0
+	_krump_and_run_eligible_units = []
+	_krump_and_run_fell_back_unit_id = ""
+	_krump_and_run_unit_id = ""
+	_krump_and_run_pending_after_overwatch = false
+	_krump_and_run_pending_fell_back_id = ""
+	_reactive_move_owner = 0
+
+	# OA-8: Snapshot engagement state at phase start for Krump and Run eligibility
+	_engagement_at_phase_start = _compute_engagement_snapshot()
+	if not _engagement_at_phase_start.is_empty():
+		print("MovementPhase: OA-8 engagement snapshot — %d units in engagement at phase start" % _engagement_at_phase_start.size())
 
 	# Connect to TransportManager to handle disembark completion
 	if TransportManager and not TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
@@ -291,6 +316,12 @@ func validate_action(action: Dictionary) -> Dictionary:
 			if not _awaiting_sawbonez:
 				return {"valid": false, "errors": ["Not awaiting Sawbonez decision"]}
 			return {"valid": true}
+		"USE_KRUMP_AND_RUN":
+			return _validate_use_krump_and_run(action)
+		"DECLINE_KRUMP_AND_RUN":
+			if not _awaiting_krump_and_run:
+				return {"valid": false, "errors": ["Not awaiting Krump and Run decision"]}
+			return {"valid": true}
 		"APPLY_PIVOT_COST":
 			return _validate_apply_pivot_cost(action)
 		"BEGIN_SURGE_MOVE":
@@ -359,6 +390,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_sawbonez(action)
 		"DECLINE_SAWBONEZ":
 			return _process_decline_sawbonez(action)
+		"USE_KRUMP_AND_RUN":
+			return _process_use_krump_and_run(action)
+		"DECLINE_KRUMP_AND_RUN":
+			return _process_decline_krump_and_run(action)
 		"APPLY_PIVOT_COST":
 			return _process_apply_pivot_cost(action)
 		"BEGIN_SURGE_MOVE":
@@ -1279,6 +1314,27 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 		emit_signal("phase_completed")
 		log_phase_message("=== END_MOVEMENT COMPLETE (post-Rapid Ingress + Overwatch) ===")
 
+	# OA-8: Check for pending Krump and Run after overwatch used
+	if _krump_and_run_pending_after_overwatch:
+		_krump_and_run_pending_after_overwatch = false
+		var fell_back_id = _krump_and_run_pending_fell_back_id
+		_krump_and_run_pending_fell_back_id = ""
+		print("MovementPhase: OA-8 Checking deferred Krump and Run after Fire Overwatch used")
+		# game_state_snapshot is now updated with fall-back positions
+		var kar_result = _check_krump_and_run_opportunity(fell_back_id)
+		if kar_result.triggered:
+			var kar_extra_result = create_result(true, ow_shooting_result.get("diffs", []))
+			kar_extra_result["fire_overwatch_used"] = true
+			kar_extra_result["fire_overwatch_unit_id"] = unit_id
+			kar_extra_result["fire_overwatch_target_id"] = enemy_unit_id
+			kar_extra_result["fire_overwatch_shooting_result"] = ow_shooting_result
+			if ow_shooting_result.has("dice"):
+				kar_extra_result["dice"] = ow_shooting_result.dice
+			if ow_shooting_result.has("log_text"):
+				kar_extra_result["log_text"] = ow_shooting_result.log_text
+			kar_extra_result.merge(kar_result.result_extra)
+			return kar_extra_result
+
 	var result = create_result(true, ow_shooting_result.get("diffs", []))
 	result["fire_overwatch_used"] = true
 	result["fire_overwatch_unit_id"] = unit_id
@@ -1309,6 +1365,18 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 		log_phase_message("Ending Movement Phase (after Rapid Ingress + Overwatch declined) - emitting phase_completed signal")
 		emit_signal("phase_completed")
 		log_phase_message("=== END_MOVEMENT COMPLETE (post-Rapid Ingress + Overwatch declined) ===")
+
+	# OA-8: Check for pending Krump and Run after overwatch declined
+	if _krump_and_run_pending_after_overwatch:
+		_krump_and_run_pending_after_overwatch = false
+		var fell_back_id = _krump_and_run_pending_fell_back_id
+		_krump_and_run_pending_fell_back_id = ""
+		print("MovementPhase: OA-8 Checking deferred Krump and Run after Fire Overwatch declined")
+		var kar_result = _check_krump_and_run_opportunity(fell_back_id)
+		if kar_result.triggered:
+			var result = create_result(true, [])
+			result.merge(kar_result.result_extra)
+			return result
 
 	return create_result(true, [])
 
@@ -2617,6 +2685,25 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		})
 		emit_signal("surge_move_completed", unit_id, move_data.move_cap_inches)
 
+	# OA-8: If this was a Krump and Run reactive move, clear the reactive state
+	if move_data.get("is_reactive_move", false) and move_data.get("reactive_source", "") == "krump_and_run":
+		_reactive_move_owner = 0
+		_krump_and_run_unit_id = ""
+		# Krump and Run normal move — unit can still shoot and charge normally
+		# (it's a Normal move, not a Fall Back)
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.moved" % unit_id,
+			"value": true
+		})
+		log_phase_message("OA-8: Krump and Run reactive move completed for %s" % unit_id)
+		print("MovementPhase: OA-8 Krump and Run move completed for %s — reactive state cleared" % unit_id)
+		move_data["completed"] = true
+		emit_signal("unit_move_confirmed", unit_id, {"mode": "NORMAL", "models_moved": move_data.model_moves.size()})
+		if MissionManager:
+			MissionManager.call_deferred("check_all_objectives")
+		return create_result(true, changes)
+
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	log_phase_message("Confirmed %s move for %s" % [move_data.mode.to_lower(), unit_name])
@@ -2653,9 +2740,22 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 
 	var ow_result = _check_fire_overwatch_opportunity(unit_id, "move end", temp_snapshot)
 	if ow_result.triggered:
+		# OA-8: If this was a Fall Back, defer Krump and Run check until overwatch resolves
+		if move_data.mode == "FALL_BACK":
+			_krump_and_run_pending_after_overwatch = true
+			_krump_and_run_pending_fell_back_id = unit_id
+			print("MovementPhase: OA-8 Krump and Run check deferred — Fire Overwatch triggered first")
 		var result = create_result(true, changes, "", {"dice": additional_dice})
 		result.merge(ow_result.result_extra)
 		return result
+
+	# OA-8: Check for Krump and Run opportunity after Fall Back (no overwatch triggered)
+	if move_data.mode == "FALL_BACK":
+		var kar_result = _check_krump_and_run_opportunity(unit_id, temp_snapshot)
+		if kar_result.triggered:
+			var result = create_result(true, changes, "", {"dice": additional_dice})
+			result.merge(kar_result.result_extra)
+			return result
 
 	# P2-25: Check for Bomb Squigs after Normal move
 	var _ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -3199,6 +3299,301 @@ func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictio
 	return {"changes": changes, "dice": dice_rolls}
 
 # ============================================================================
+# KRUMP AND RUN — REACTIVE MOVE AFTER FALL BACK (OA-8)
+# ============================================================================
+# Freebooter Krew – Strategic Ploy Stratagem (1 CP)
+# WHEN: Your opponent's Movement phase, just after an enemy unit falls back.
+# TARGET: One ORKS unit that was within engagement range of that enemy unit at
+#         the start of the phase and is not within engagement range of one or more enemy units.
+# EFFECT: Your unit can make a Normal move of up to 6".
+
+func _compute_engagement_snapshot() -> Dictionary:
+	"""Compute which units are engaged with which enemy units at the current moment.
+	Returns { unit_id: [enemy_unit_ids] } for all deployed units in engagement."""
+	var result = {}
+	var units = game_state_snapshot.get("units", {})
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		if _is_unit_destroyed_check(unit):
+			continue
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+
+		var unit_owner = int(unit.get("owner", 0))
+		var engaged_enemies = []
+
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos = _get_model_position(model)
+			if pos == null or pos == Vector2.ZERO:
+				continue
+
+			for enemy_unit_id in units:
+				if enemy_unit_id == unit_id or enemy_unit_id in engaged_enemies:
+					continue
+				var enemy_unit = units[enemy_unit_id]
+				if int(enemy_unit.get("owner", 0)) == unit_owner:
+					continue
+				if _is_unit_destroyed_check(enemy_unit):
+					continue
+				if enemy_unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+					continue
+
+				var found_engagement = false
+				for enemy_model in enemy_unit.get("models", []):
+					if not enemy_model.get("alive", true):
+						continue
+					var enemy_pos = _get_model_position(enemy_model)
+					if enemy_pos == null or enemy_pos == Vector2.ZERO:
+						continue
+					var effective_er = _get_effective_engagement_range(pos, enemy_pos)
+					if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
+						engaged_enemies.append(enemy_unit_id)
+						found_engagement = true
+						break
+				if found_engagement:
+					break  # Already found engagement with this enemy, check next enemy unit
+
+		if not engaged_enemies.is_empty():
+			result[unit_id] = engaged_enemies
+
+	return result
+
+func _is_unit_engaged_for_player(unit_id: String, owner_player: int, snapshot_override: Dictionary = {}) -> bool:
+	"""Check if a unit is in engagement range of any enemy unit.
+	Uses owner_player to determine which units are enemies, instead of get_current_player()."""
+	var check_snapshot = snapshot_override if not snapshot_override.is_empty() else game_state_snapshot
+	var unit = check_snapshot.get("units", {}).get(unit_id, {})
+	var models = unit.get("models", [])
+	var units = check_snapshot.get("units", {})
+
+	for model in models:
+		if not model.get("alive", true):
+			continue
+		var pos = _get_model_position(model)
+		if pos == null or pos == Vector2.ZERO:
+			continue
+
+		for enemy_unit_id in units:
+			if enemy_unit_id == unit_id:
+				continue
+			var enemy_unit = units[enemy_unit_id]
+			if int(enemy_unit.get("owner", 0)) == owner_player:
+				continue  # Skip friendly units
+			if _is_unit_destroyed_check(enemy_unit):
+				continue
+			for enemy_model in enemy_unit.get("models", []):
+				if not enemy_model.get("alive", true):
+					continue
+				var enemy_pos = _get_model_position(enemy_model)
+				if enemy_pos == null or enemy_pos == Vector2.ZERO:
+					continue
+				var effective_er = _get_effective_engagement_range(pos, enemy_pos)
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
+					return true
+
+	return false
+
+func _check_krump_and_run_opportunity(fell_back_unit_id: String, snapshot_override: Dictionary = {}) -> Dictionary:
+	"""Check if any defending ORKS unit can use Krump and Run after an enemy falls back.
+	Returns { triggered: bool, result_extra: Dictionary }."""
+	var fell_back_unit = get_unit(fell_back_unit_id)
+	var active_player = get_current_player()  # The player who fell back
+	var defending_player = 2 if active_player == 1 else 1  # Potential Ork player
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		return {"triggered": false}
+
+	# Find the Krump and Run stratagem ID for the defending player
+	var kar_strat_id = strat_manager.find_faction_stratagem_by_name(defending_player, "Krump and Run")
+	if kar_strat_id == "":
+		return {"triggered": false}
+
+	# Check basic stratagem availability (CP, restrictions)
+	var basic_check = strat_manager.can_use_stratagem(defending_player, kar_strat_id)
+	if not basic_check.can_use:
+		print("MovementPhase: OA-8 Krump and Run not available: %s" % basic_check.reason)
+		return {"triggered": false}
+
+	var check_snapshot = snapshot_override if not snapshot_override.is_empty() else game_state_snapshot
+
+	# Find eligible ORKS units
+	var eligible = []
+	var units = check_snapshot.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if int(unit.get("owner", 0)) != defending_player:
+			continue
+		if _is_unit_destroyed_check(unit):
+			continue
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+
+		# Must be ORKS keyword
+		if not RulesEngine.unit_has_keyword(unit, "ORKS"):
+			continue
+
+		# Must have been in engagement with the fell-back unit at phase start
+		if not _engagement_at_phase_start.has(unit_id):
+			continue
+		if fell_back_unit_id not in _engagement_at_phase_start[unit_id]:
+			continue
+
+		# Must NOT currently be in engagement with any enemy unit (freed from all combat)
+		if _is_unit_engaged_for_player(unit_id, defending_player, check_snapshot):
+			continue
+
+		# Must not be battle-shocked
+		if unit.get("flags", {}).get("battle_shocked", false) or unit.get("status_effects", {}).get("battle_shocked", false):
+			continue
+
+		# Check stratagem can be used for this specific target
+		var check = strat_manager.can_use_stratagem(defending_player, kar_strat_id, unit_id)
+		if not check.can_use:
+			continue
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		eligible.append({"unit_id": unit_id, "unit_name": unit_name})
+
+	if eligible.is_empty():
+		print("MovementPhase: OA-8 Krump and Run — no eligible ORKS units after %s fell back" % fell_back_unit_id)
+		return {"triggered": false}
+
+	# Krump and Run is available!
+	_awaiting_krump_and_run = true
+	_krump_and_run_player = defending_player
+	_krump_and_run_eligible_units = eligible
+	_krump_and_run_fell_back_unit_id = fell_back_unit_id
+
+	var fell_back_name = fell_back_unit.get("meta", {}).get("name", fell_back_unit_id)
+	log_phase_message("KRUMP AND RUN available for Player %d (%d eligible ORKS units) after %s fell back" % [defending_player, eligible.size(), fell_back_name])
+	print("MovementPhase: OA-8 Krump and Run opportunity — Player %d has %d eligible units" % [defending_player, eligible.size()])
+
+	emit_signal("krump_and_run_opportunity", defending_player, eligible, fell_back_unit_id)
+
+	return {
+		"triggered": true,
+		"result_extra": {
+			"trigger_krump_and_run": true,
+			"awaiting_krump_and_run": true,
+			"krump_and_run_player": defending_player,
+			"krump_and_run_eligible_units": eligible,
+			"krump_and_run_fell_back_unit_id": fell_back_unit_id,
+		}
+	}
+
+func _validate_use_krump_and_run(action: Dictionary) -> Dictionary:
+	"""Validate using the Krump and Run stratagem."""
+	var errors = []
+
+	if not _awaiting_krump_and_run:
+		errors.append("Not awaiting Krump and Run decision")
+		return {"valid": false, "errors": errors}
+
+	var unit_id = action.get("payload", {}).get("unit_id", "")
+	if unit_id.is_empty():
+		errors.append("No unit specified for Krump and Run")
+		return {"valid": false, "errors": errors}
+
+	# Validate the unit is in the eligible list
+	var found = false
+	for eligible in _krump_and_run_eligible_units:
+		if eligible.unit_id == unit_id:
+			found = true
+			break
+	if not found:
+		errors.append("Unit %s is not eligible for Krump and Run" % unit_id)
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
+
+func _process_use_krump_and_run(action: Dictionary) -> Dictionary:
+	"""Process using Krump and Run — use stratagem and set up reactive Normal move."""
+	var unit_id = action.get("payload", {}).get("unit_id", "")
+	var player = _krump_and_run_player
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# Use the stratagem via StratagemManager (deducts CP, records usage)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var kar_strat_id = strat_manager.find_faction_stratagem_by_name(player, "Krump and Run")
+		var strat_result = strat_manager.use_stratagem(player, kar_strat_id, unit_id)
+		if not strat_result.success:
+			return create_result(false, [], "Failed to use Krump and Run: %s" % strat_result.get("error", "unknown"))
+
+	log_phase_message("Player %d uses KRUMP AND RUN — %s can make a 6\" Normal move!" % [player, unit_name])
+	print("MovementPhase: OA-8 Krump and Run activated — %s (Player %d) gets 6\" Normal move" % [unit_name, player])
+
+	# Set up the reactive Normal move with 6" cap
+	_krump_and_run_unit_id = unit_id
+	_reactive_move_owner = player  # Override engagement checks for this player's unit
+
+	var move_cap = 6.0
+	var pivot_value = get_pivot_value_for_unit(unit_id)
+	active_moves[unit_id] = {
+		"mode": "NORMAL",
+		"mode_locked": true,
+		"completed": false,
+		"move_cap_inches": move_cap,
+		"advance_roll": 0,
+		"model_moves": [],
+		"staged_moves": [],
+		"original_positions": {},
+		"original_rotations": {},
+		"model_distances": {},
+		"dice_rolls": [],
+		"battle_shocked": false,
+		"pivot_value": pivot_value,
+		"pivot_cost_applied": false,
+		"group_moves": [],
+		"group_selection": [],
+		"group_formation": {},
+		"is_reactive_move": true,  # Flag to identify reactive moves
+		"reactive_source": "krump_and_run"
+	}
+
+	# Store original positions for potential reset
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			var model_id = model.get("id", "")
+			var pos = _get_model_position(model)
+			active_moves[unit_id]["original_positions"][model_id] = pos
+			active_moves[unit_id]["original_rotations"][model_id] = model.get("rotation", 0.0)
+
+	emit_signal("unit_move_begun", unit_id, "NORMAL")
+
+	# Clear awaiting state
+	_awaiting_krump_and_run = false
+	_krump_and_run_eligible_units = []
+	_krump_and_run_fell_back_unit_id = ""
+
+	var result = create_result(true, [])
+	result["krump_and_run_used"] = true
+	result["krump_and_run_unit_id"] = unit_id
+	result["krump_and_run_player"] = player
+	result["krump_and_run_move_cap"] = move_cap
+	return result
+
+func _process_decline_krump_and_run(action: Dictionary) -> Dictionary:
+	"""Process declining the Krump and Run stratagem."""
+	var player = _krump_and_run_player
+	log_phase_message("Player %d declined KRUMP AND RUN" % player)
+	print("MovementPhase: OA-8 Krump and Run DECLINED by Player %d" % player)
+
+	# Clear state
+	_awaiting_krump_and_run = false
+	_krump_and_run_player = 0
+	_krump_and_run_eligible_units = []
+	_krump_and_run_fell_back_unit_id = ""
+	_krump_and_run_unit_id = ""
+
+	return create_result(true, [])
+
+# ============================================================================
 # SURGE MOVE VALIDATION AND PROCESSING (P2-71)
 # ============================================================================
 # 10e Core Rules Update: "Surge" moves are out-of-phase moves triggered by abilities.
@@ -3407,12 +3802,14 @@ func _is_position_in_engagement_range(unit_id: String, model_id: String, pos: Ve
 	model_at_pos["position"] = pos
 
 	# Check against all enemy units using shape-aware distance
-	var current_player = get_current_player()
+	# OA-8: During reactive moves (Krump and Run), use the reactive move owner
+	# instead of the current active player for determining friendly/enemy units
+	var check_player = _reactive_move_owner if _reactive_move_owner > 0 else get_current_player()
 	var units = game_state_snapshot.get("units", {})
 
 	for enemy_unit_id in units:
 		var enemy_unit = units[enemy_unit_id]
-		if enemy_unit.get("owner", 0) == current_player:
+		if enemy_unit.get("owner", 0) == check_player:
 			continue  # Skip friendly units
 
 		var enemy_models = enemy_unit.get("models", [])

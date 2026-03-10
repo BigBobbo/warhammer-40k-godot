@@ -67,10 +67,10 @@
 - **Validation**: Available during Shooting phase. BLAST added only when targeting INFANTRY. Bonus attacks correct.
 
 ### OA-8: Implement "Krump and Run" stratagem
-- [ ] Implement reactive stratagem: opponent's Movement phase, 1 CP
-- [ ] Trigger after enemy unit falls back from engagement with targeted ORKS unit
-- [ ] ORKS unit must not be engaged with other enemies
-- [ ] Allow up to 6" Normal move for freed Ork unit
+- [x] Implement reactive stratagem: opponent's Movement phase, 1 CP
+- [x] Trigger after enemy unit falls back from engagement with targeted ORKS unit
+- [x] ORKS unit must not be engaged with other enemies
+- [x] Allow up to 6" Normal move for freed Ork unit
 - **Files**: StratagemManager.gd, MovementPhase.gd, MovementController.gd
 - **Validation**: Triggers after enemy falls back. ORKS unit not engaged with others. Up to 6" Normal move. Opponent's turn timing enforced.
 

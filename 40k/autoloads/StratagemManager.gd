@@ -491,6 +491,10 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "DECK FRAGGERS":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# KRUMP AND RUN (OA-8): Reactive Normal move after enemy falls back
+		if name_upper == "KRUMP AND RUN":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
 func load_all_faction_stratagems() -> void:
 	"""Load faction stratagems for both players. Call after armies are loaded."""
@@ -625,6 +629,13 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 				return {"can_use": false, "reason": "Deck Fraggers can only target ORKS units"}
 			if target_unit.get("flags", {}).get("has_shot", false):
 				return {"can_use": false, "reason": "Target unit has already been selected to shoot this phase"}
+
+	# KRUMP AND RUN (OA-8): Must target an ORKS unit
+	if strat.get("name", "").to_upper() == "KRUMP AND RUN" and target_unit_id != "":
+		var target_unit = GameState.get_unit(target_unit_id)
+		if not target_unit.is_empty():
+			if not RulesEngine.unit_has_keyword(target_unit, "ORKS"):
+				return {"can_use": false, "reason": "Krump and Run can only target ORKS units"}
 
 	return {"can_use": true, "reason": ""}
 
@@ -848,6 +859,17 @@ func get_stratagem(stratagem_id: String) -> Dictionary:
 	"""Get a stratagem definition by ID."""
 	return stratagems.get(stratagem_id, {})
 
+func find_faction_stratagem_by_name(player: int, stratagem_name: String) -> String:
+	"""Find a faction stratagem ID by its display name for a given player.
+	Returns the stratagem ID or empty string if not found."""
+	var name_upper = stratagem_name.to_upper()
+	var player_key = str(player)
+	for strat_id in _player_faction_stratagems.get(player_key, []):
+		if stratagems.has(strat_id):
+			if stratagems[strat_id].get("name", "").to_upper() == name_upper:
+				return strat_id
+	return ""
+
 func get_player_cp(player: int) -> int:
 	"""Public accessor for player CP."""
 	return _get_player_cp(player)
@@ -1018,6 +1040,12 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		}]
 		print("StratagemManager: Applied Deck Fraggers to %s (flag: effect_deck_fraggers — BLAST vs INFANTRY)" % target_unit_id)
 		return diffs
+
+	# KRUMP AND RUN (OA-8): No persistent flags — the effect is a reactive Normal move
+	# handled by MovementPhase. Just log for tracking.
+	if strat.get("name", "").to_upper() == "KRUMP AND RUN":
+		print("StratagemManager: Applied Krump and Run to %s (reactive 6\" Normal move)" % target_unit_id)
+		return []
 
 	var effects = strat.get("effects", [])
 	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)

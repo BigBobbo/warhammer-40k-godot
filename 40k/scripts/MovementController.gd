@@ -555,6 +555,9 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("rapid_ingress_opportunity"):
 				if not phase.rapid_ingress_opportunity.is_connected(_on_rapid_ingress_opportunity):
 					phase.rapid_ingress_opportunity.connect(_on_rapid_ingress_opportunity)
+			if phase.has_signal("krump_and_run_opportunity"):
+				if not phase.krump_and_run_opportunity.is_connected(_on_krump_and_run_opportunity):
+					phase.krump_and_run_opportunity.connect(_on_krump_and_run_opportunity)
 
 			# Update the game state snapshot reference
 			if phase.has_method("get_game_state_snapshot"):
@@ -3788,6 +3791,63 @@ func _on_rapid_ingress_declined(player: int) -> void:
 	print("MovementController: Rapid Ingress DECLINED by player %d" % player)
 	emit_signal("move_action_requested", {
 		"type": "DECLINE_RAPID_INGRESS",
+		"actor_unit_id": "",
+	})
+
+# ===================================================
+# KRUMP AND RUN HANDLING (OA-8)
+# ===================================================
+
+func _on_krump_and_run_opportunity(player: int, eligible_units: Array, fell_back_unit_id: String) -> void:
+	"""Handle Krump and Run opportunity — show dialog to the defending player."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ MovementController: KRUMP AND RUN OPPORTUNITY")
+	print("║ Player %d has %d eligible ORKS units after enemy fell back" % [player, eligible_units.size()])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Skip dialog for AI players — AIPlayer handles via signal
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("MovementController: Skipping Krump and Run dialog for AI player %d" % player)
+		_on_krump_and_run_declined(player)
+		return
+
+	if eligible_units.is_empty():
+		_on_krump_and_run_declined(player)
+		return
+
+	# Load and show the dialog
+	var dialog_script = load("res://dialogs/KrumpAndRunDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load KrumpAndRunDialog.gd")
+		_on_krump_and_run_declined(player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(player, eligible_units, fell_back_unit_id)
+	dialog.krump_and_run_used.connect(_on_krump_and_run_used)
+	dialog.krump_and_run_declined.connect(_on_krump_and_run_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("MovementController: Krump and Run dialog shown for player %d" % player)
+
+func _on_krump_and_run_used(unit_id: String, player: int) -> void:
+	"""Handle player choosing to use Krump and Run."""
+	print("MovementController: Krump and Run USED — unit %s by player %d" % [unit_id, player])
+	emit_signal("move_action_requested", {
+		"type": "USE_KRUMP_AND_RUN",
+		"actor_unit_id": unit_id,
+		"payload": {
+			"unit_id": unit_id
+		}
+	})
+
+func _on_krump_and_run_declined(player: int) -> void:
+	"""Handle player declining Krump and Run."""
+	print("MovementController: Krump and Run DECLINED by player %d" % player)
+	emit_signal("move_action_requested", {
+		"type": "DECLINE_KRUMP_AND_RUN",
 		"actor_unit_id": "",
 	})
 
