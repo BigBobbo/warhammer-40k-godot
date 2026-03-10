@@ -958,6 +958,12 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
 
+	# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ from stratagem flag
+	if shooter_unit.get("flags", {}).get("effect_rolling_loot_heap", false):
+		if unit_has_keyword(target_unit, "VEHICLE"):
+			critical_wound_threshold = mini(critical_wound_threshold, 4)
+			print("RulesEngine: ROLLING LOOT-HEAP (overwatch) — Anti-Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
+
 	var wound_rolls = rng.roll_d6(hits)
 	var wounds = 0
 
@@ -1202,6 +1208,16 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	var bs_per_attack = []
 	var has_bs_override = false
 
+	# DECK FRAGGERS (OA-7): Check if ranged weapons gain BLAST vs INFANTRY targets
+	var deck_fraggers_blast = false
+	if actor_unit.get("flags", {}).get("effect_deck_fraggers", false):
+		if unit_has_keyword(target_unit, "INFANTRY"):
+			var wp_type = weapon_profile.get("type", "")
+			if wp_type.to_lower() == "ranged" or weapon_profile.get("range", 0) > 0:
+				if not is_blast_weapon(weapon_id, board):
+					deck_fraggers_blast = true
+					print("RulesEngine: DECK FRAGGERS — BLAST granted to %s vs INFANTRY target" % weapon_id)
+
 	for model_id in model_ids:
 		var model = _get_model_by_id(actor_unit, model_id)
 		var model_bs = _get_model_effective_bs(model, actor_unit, weapon_profile)
@@ -1214,6 +1230,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 		# BLAST KEYWORD (PRP-013): Apply minimum attacks per model for Blast weapons vs 6+ model units
 		var effective_model_attacks = calculate_blast_minimum(weapon_id, model_attacks, target_unit, board)
+		# DECK FRAGGERS (OA-7): Also apply BLAST minimum if stratagem grants BLAST
+		if deck_fraggers_blast:
+			var df_model_count = count_alive_models(target_unit)
+			if df_model_count >= 6 and model_attacks < 3:
+				effective_model_attacks = maxi(effective_model_attacks, 3)
 		if effective_model_attacks > model_attacks:
 			model_attacks = effective_model_attacks
 
@@ -1260,6 +1281,13 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# BLAST KEYWORD (PRP-013): Add bonus attacks based on target unit size
 	var blast_bonus_attacks = calculate_blast_bonus(weapon_id, target_unit, board)
+	# DECK FRAGGERS (OA-7): Also add BLAST bonus attacks if stratagem grants BLAST
+	if deck_fraggers_blast:
+		var df_target_count = count_alive_models(target_unit)
+		if df_target_count >= 11:
+			blast_bonus_attacks += 2
+		elif df_target_count >= 6:
+			blast_bonus_attacks += 1
 	var target_model_count = count_alive_models(target_unit)
 	# MA-10: Blast bonus attacks use weapon's default BS (not model-specific)
 	var default_bs = weapon_profile.get("bs", 4)
@@ -1350,13 +1378,14 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			"sustained_hits_weapon": sustained_data.value > 0,
 			"sustained_hits_note": "N/A - no hit roll for Torrent",
 			# BLAST (PRP-013)
-			"blast_weapon": is_blast_weapon(weapon_id, board),
+			"blast_weapon": is_blast_weapon(weapon_id, board) or deck_fraggers_blast,
 			"blast_bonus_attacks": blast_bonus_attacks,
 			"target_model_count": target_model_count,
 			"base_attacks": base_attacks,
 			"rapid_fire_bonus": rapid_fire_attacks,
 			"rapid_fire_value": rapid_fire_value,
-			"models_in_half_range": models_in_half_range
+			"models_in_half_range": models_in_half_range,
+			"deck_fraggers_blast": deck_fraggers_blast
 		})
 	else:
 		# Normal hit roll path (non-Torrent weapons)
@@ -1519,9 +1548,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			"attacks_notation": attacks_raw if attacks_roll_log.size() > 0 else "",
 			"attacks_rolls": attacks_roll_log,
 			# BLAST (PRP-013)
-			"blast_weapon": is_blast_weapon(weapon_id, board),
+			"blast_weapon": is_blast_weapon(weapon_id, board) or deck_fraggers_blast,
 			"blast_bonus_attacks": blast_bonus_attacks,
-			"target_model_count": target_model_count
+			"target_model_count": target_model_count,
+			"deck_fraggers_blast": deck_fraggers_blast
 		})
 
 	if hits == 0 and sustained_bonus_hits == 0:
@@ -1543,6 +1573,13 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
+
+	# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ from stratagem flag
+	if actor_unit.get("flags", {}).get("effect_rolling_loot_heap", false):
+		if unit_has_keyword(target_unit, "VEHICLE"):
+			critical_wound_threshold = mini(critical_wound_threshold, 4)
+			print("RulesEngine: ROLLING LOOT-HEAP — Anti-Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
+
 	var anti_keyword_active = critical_wound_threshold < 6
 
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
@@ -1878,6 +1915,16 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var bs_per_attack = []
 	var has_bs_override = false
 
+	# DECK FRAGGERS (OA-7): Check if ranged weapons gain BLAST vs INFANTRY targets (auto-resolve)
+	var deck_fraggers_blast = false
+	if actor_unit.get("flags", {}).get("effect_deck_fraggers", false):
+		if unit_has_keyword(target_unit, "INFANTRY"):
+			var wp_type = weapon_profile.get("type", "")
+			if wp_type.to_lower() == "ranged" or weapon_profile.get("range", 0) > 0:
+				if not is_blast_weapon(weapon_id, board):
+					deck_fraggers_blast = true
+					print("RulesEngine: DECK FRAGGERS (auto-resolve) — BLAST granted to %s vs INFANTRY target" % weapon_id)
+
 	for model_id in model_ids:
 		var model = _get_model_by_id(actor_unit, model_id)
 		var model_bs = _get_model_effective_bs(model, actor_unit, weapon_profile)
@@ -1890,6 +1937,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# BLAST KEYWORD (PRP-013): Apply minimum attacks per model for Blast weapons vs 6+ model units
 		var effective_model_attacks = calculate_blast_minimum(weapon_id, model_attacks, target_unit, board)
+		# DECK FRAGGERS (OA-7): Also apply BLAST minimum if stratagem grants BLAST (auto-resolve)
+		if deck_fraggers_blast:
+			var df_model_count = count_alive_models(target_unit)
+			if df_model_count >= 6 and model_attacks < 3:
+				effective_model_attacks = maxi(effective_model_attacks, 3)
 		if effective_model_attacks > model_attacks:
 			model_attacks = effective_model_attacks
 
@@ -1936,6 +1988,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# BLAST KEYWORD (PRP-013): Add bonus attacks based on target unit size
 	var blast_bonus_attacks = calculate_blast_bonus(weapon_id, target_unit, board)
+	# DECK FRAGGERS (OA-7): Also add BLAST bonus attacks if stratagem grants BLAST (auto-resolve)
+	if deck_fraggers_blast:
+		var df_target_count = count_alive_models(target_unit)
+		if df_target_count >= 11:
+			blast_bonus_attacks += 2
+		elif df_target_count >= 6:
+			blast_bonus_attacks += 1
 	var target_model_count = count_alive_models(target_unit)
 	# MA-10: Blast bonus attacks use weapon's default BS (not model-specific)
 	var default_bs = weapon_profile.get("bs", 4)
@@ -2024,13 +2083,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			"sustained_hits_weapon": sustained_data.value > 0,
 			"sustained_hits_note": "N/A - no hit roll for Torrent",
 			# BLAST (PRP-013)
-			"blast_weapon": is_blast_weapon(weapon_id, board),
+			"blast_weapon": is_blast_weapon(weapon_id, board) or deck_fraggers_blast,
 			"blast_bonus_attacks": blast_bonus_attacks,
 			"target_model_count": target_model_count,
 			"base_attacks": base_attacks,
 			"rapid_fire_bonus": rapid_fire_attacks,
 			"rapid_fire_value": rapid_fire_value,
-			"models_in_half_range": models_in_half_range
+			"models_in_half_range": models_in_half_range,
+			"deck_fraggers_blast": deck_fraggers_blast
 		})
 	else:
 		# Normal hit roll path (non-Torrent weapons)
@@ -2191,9 +2251,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			"attacks_notation": attacks_raw if attacks_roll_log.size() > 0 else "",
 			"attacks_rolls": attacks_roll_log,
 			# BLAST (PRP-013)
-			"blast_weapon": is_blast_weapon(weapon_id, board),
+			"blast_weapon": is_blast_weapon(weapon_id, board) or deck_fraggers_blast,
 			"blast_bonus_attacks": blast_bonus_attacks,
-			"target_model_count": target_model_count
+			"target_model_count": target_model_count,
+			"deck_fraggers_blast": deck_fraggers_blast
 		})
 
 	if hits == 0 and sustained_bonus_hits == 0:
@@ -2215,6 +2276,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var ar_critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
+
+	# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ from stratagem flag
+	if actor_unit.get("flags", {}).get("effect_rolling_loot_heap", false):
+		if unit_has_keyword(target_unit, "VEHICLE"):
+			ar_critical_wound_threshold = mini(ar_critical_wound_threshold, 4)
+			print("RulesEngine: ROLLING LOOT-HEAP (auto-resolve) — Anti-Vehicle 4+ active (critical wound threshold %d+)" % ar_critical_wound_threshold)
+
 	var ar_anti_keyword_active = ar_critical_wound_threshold < 6
 
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
@@ -4937,12 +5005,22 @@ static func _is_target_in_friendly_engagement(target_unit_id: String, actor_unit
 # Validate Blast targeting restriction
 # Per 10e rules: Blast weapons cannot target units in Engagement Range of friendly units
 static func validate_blast_targeting(actor_unit_id: String, target_unit_id: String, weapon_id: String, board: Dictionary) -> Dictionary:
-	if not is_blast_weapon(weapon_id, board):
-		return {"valid": true, "errors": []}
-
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
 	var target_unit = units.get(target_unit_id, {})
+
+	# Check if weapon has BLAST natively or via Deck Fraggers (OA-7)
+	var has_blast = is_blast_weapon(weapon_id, board)
+	if not has_blast:
+		# DECK FRAGGERS (OA-7): Ranged weapons gain BLAST when targeting INFANTRY
+		if actor_unit.get("flags", {}).get("effect_deck_fraggers", false):
+			if unit_has_keyword(target_unit, "INFANTRY"):
+				var wp = get_weapon_profile(weapon_id, board)
+				var wp_type = wp.get("type", "")
+				if wp_type.to_lower() == "ranged" or wp.get("range", 0) > 0:
+					has_blast = true
+	if not has_blast:
+		return {"valid": true, "errors": []}
 	var actor_owner = actor_unit.get("owner", 0)
 
 	if actor_unit.is_empty() or target_unit.is_empty():
