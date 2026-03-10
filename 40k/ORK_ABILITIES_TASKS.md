@@ -60,9 +60,9 @@
 - **Validation**: Only targets Flash Gitz. Grants Anti-Vehicle 4+. Critical wounds on 4+ against VEHICLE keyword units.
 
 ### OA-7: Implement "Deck Fraggers" stratagem
-- [ ] Implement Shooting phase stratagem: 1 CP, target one ORKS unit that hasn't shot
-- [ ] Grant BLAST keyword to ranged weapons only when targeting INFANTRY units
-- [ ] BLAST bonus attacks calculated correctly (min 3 if 6+ models in target)
+- [x] Implement Shooting phase stratagem: 1 CP, target one ORKS unit that hasn't shot
+- [x] Grant BLAST keyword to ranged weapons only when targeting INFANTRY units
+- [x] BLAST bonus attacks calculated correctly (min 3 if 6+ models in target)
 - **Files**: StratagemManager.gd, RulesEngine.gd
 - **Validation**: Available during Shooting phase. BLAST added only when targeting INFANTRY. Bonus attacks correct.
 

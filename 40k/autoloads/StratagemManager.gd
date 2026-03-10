@@ -487,6 +487,10 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "ROLLING LOOT-HEAP":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# DECK FRAGGERS (OA-7): Grant BLAST to ranged weapons targeting INFANTRY
+		if name_upper == "DECK FRAGGERS":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
 func load_all_faction_stratagems() -> void:
 	"""Load faction stratagems for both players. Call after armies are loaded."""
@@ -612,6 +616,15 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		var target_unit = GameState.get_unit(target_unit_id)
 		if not target_unit.is_empty() and target_unit.get("flags", {}).get("has_shot", false):
 			return {"can_use": false, "reason": "Target unit has already been selected to shoot this phase"}
+
+	# DECK FRAGGERS (OA-7): Must target an ORKS unit that hasn't shot
+	if strat.get("name", "").to_upper() == "DECK FRAGGERS" and target_unit_id != "":
+		var target_unit = GameState.get_unit(target_unit_id)
+		if not target_unit.is_empty():
+			if not RulesEngine.unit_has_keyword(target_unit, "ORKS"):
+				return {"can_use": false, "reason": "Deck Fraggers can only target ORKS units"}
+			if target_unit.get("flags", {}).get("has_shot", false):
+				return {"can_use": false, "reason": "Target unit has already been selected to shoot this phase"}
 
 	return {"can_use": true, "reason": ""}
 
@@ -995,6 +1008,17 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		print("StratagemManager: Applied Rolling Loot-heap to %s (flag: effect_rolling_loot_heap — Anti-Vehicle 4+)" % target_unit_id)
 		return diffs
 
+	# DECK FRAGGERS (OA-7): Grant BLAST to ranged weapons when targeting INFANTRY.
+	# Sets a flag so RulesEngine treats ranged weapons as BLAST vs INFANTRY targets.
+	if strat.get("name", "").to_upper() == "DECK FRAGGERS":
+		var diffs = [{
+			"op": "set",
+			"path": "units.%s.flags.effect_deck_fraggers" % target_unit_id,
+			"value": true
+		}]
+		print("StratagemManager: Applied Deck Fraggers to %s (flag: effect_deck_fraggers — BLAST vs INFANTRY)" % target_unit_id)
+		return diffs
+
 	var effects = strat.get("effects", [])
 	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
 
@@ -1055,6 +1079,13 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 		if flags.has("effect_rolling_loot_heap"):
 			flags.erase("effect_rolling_loot_heap")
 			print("StratagemManager: Cleared effect_rolling_loot_heap from %s" % unit_id)
+		return
+
+	# DECK FRAGGERS (OA-7): Clear BLAST-vs-INFANTRY flag
+	if strat.get("name", "").to_upper() == "DECK FRAGGERS":
+		if flags.has("effect_deck_fraggers"):
+			flags.erase("effect_deck_fraggers")
+			print("StratagemManager: Cleared effect_deck_fraggers from %s" % unit_id)
 		return
 
 	var effects = strat.get("effects", [])
@@ -1162,6 +1193,68 @@ func get_rolling_loot_heap_eligible_units(player: int) -> Array:
 		# Must be a Flash Gitz unit (check unit name)
 		var unit_name = unit.get("meta", {}).get("name", "").to_upper()
 		if "FLASH GITZ" not in unit_name:
+			continue
+
+		var flags = unit.get("flags", {})
+
+		# Cannot have already shot
+		if flags.get("has_shot", false):
+			continue
+		# Cannot be battle-shocked
+		if flags.get("battle_shocked", false):
+			continue
+
+		# Must be deployed/moved
+		var status = unit.get("status", 0)
+		if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:
+			continue
+
+		# Must have alive models
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit.get("meta", {}).get("name", unit_id)
+		})
+
+	return eligible
+
+func get_deck_fraggers_eligible_units(player: int) -> Array:
+	"""
+	Get units eligible for the DECK FRAGGERS stratagem for the given player.
+	Requirements: Must be an ORKS unit, not already shot, not battle-shocked.
+	Returns array of { unit_id: String, unit_name: String }
+	"""
+	var eligible = []
+
+	# Find the Deck Fraggers stratagem ID
+	var strat_id = ""
+	for sid in stratagems:
+		if stratagems[sid].get("name", "").to_upper() == "DECK FRAGGERS":
+			strat_id = sid
+			break
+	if strat_id == "":
+		return eligible
+
+	# Check if Deck Fraggers can be used at all (CP, restrictions)
+	var validation = can_use_stratagem(player, strat_id)
+	if not validation.can_use:
+		return eligible
+
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+
+		# Must be an ORKS unit
+		if not RulesEngine.unit_has_keyword(unit, "ORKS"):
 			continue
 
 		var flags = unit.get("flags", {})
