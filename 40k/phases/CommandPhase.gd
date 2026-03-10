@@ -441,6 +441,29 @@ func get_available_actions() -> Array:
 				"player": current_player
 			})
 
+	# Grab and Bash — per-unit Waaagh! for non-Gretchin ORKS unit near loot objective (OA-4)
+	if faction_mgr and faction_mgr.get_player_detachment(current_player) == "Freebooter Krew":
+		var strat_manager_gab = get_node_or_null("/root/StratagemManager")
+		if strat_manager_gab:
+			# Find the Grab and Bash stratagem ID from loaded faction stratagems
+			var gab_strat_id = ""
+			for strat in strat_manager_gab.get_faction_stratagems_for_player(current_player):
+				if strat.get("name", "").to_upper() == "GRAB AND BASH":
+					gab_strat_id = strat.get("id", "")
+					break
+			if gab_strat_id != "":
+				var eligible_targets = faction_mgr.get_grab_and_bash_eligible_units(current_player)
+				for target in eligible_targets:
+					var can_use = strat_manager_gab.can_use_stratagem(current_player, gab_strat_id, target.unit_id)
+					if can_use.can_use:
+						actions.append({
+							"type": "USE_STRATAGEM",
+							"stratagem_id": gab_strat_id,
+							"target_unit_id": target.unit_id,
+							"description": "Grab and Bash: %s — Waaagh! active (5+ invuln, +1S/A melee, advance+charge) (1 CP)" % target.unit_name,
+							"player": current_player
+						})
+
 	# P3-29: Grot Orderly — once per battle, return D3 destroyed Bodyguard models
 	var ability_mgr_go = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr_go:
@@ -841,6 +864,22 @@ func _validate_use_stratagem(action: Dictionary) -> Array:
 		elif target_unit_id in _units_tested:
 			errors.append("Unit %s has already taken a battle-shock test this phase" % target_unit_id)
 
+	# For Grab and Bash (OA-4): target must be non-Gretchin ORKS unit near loot objective
+	var strat_def = strat_manager.stratagems.get(stratagem_id, {})
+	if strat_def.get("name", "").to_upper() == "GRAB AND BASH":
+		if target_unit_id == "":
+			errors.append("Grab and Bash requires a target unit")
+		else:
+			var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+			if faction_mgr:
+				var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
+				# Must have ORKS keyword
+				if not faction_mgr._unit_has_keyword(target_unit, "ORKS"):
+					errors.append("Grab and Bash target must be an ORKS unit")
+				# Must NOT be GRETCHIN
+				if faction_mgr._unit_has_keyword(target_unit, "GRETCHIN"):
+					errors.append("Grab and Bash cannot target Gretchin units")
+
 	return errors
 
 func _handle_use_stratagem(action: Dictionary) -> Dictionary:
@@ -862,6 +901,15 @@ func _handle_use_stratagem(action: Dictionary) -> Dictionary:
 		"insane_bravery":
 			return _apply_insane_bravery(target_unit_id, result)
 		_:
+			# Check for faction stratagems by name (IDs are dynamically generated)
+			var strat_def = strat_manager.stratagems.get(stratagem_id, {})
+			var strat_name_upper = strat_def.get("name", "").to_upper()
+			if strat_name_upper == "GRAB AND BASH":
+				var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
+				var unit_name = target_unit.get("meta", {}).get("name", target_unit_id)
+				print("CommandPhase: Grab and Bash — Waaagh! effects applied to %s" % unit_name)
+				result["message"] = "Grab and Bash: Waaagh! active for %s (5+ invuln, +1S/A melee, advance+charge)" % unit_name
+				return result
 			print("CommandPhase: Stratagem %s used but no phase-specific handler" % stratagem_id)
 			return result
 
