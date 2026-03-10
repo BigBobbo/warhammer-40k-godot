@@ -479,6 +479,10 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "GRAB AND BASH":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# BOARDIN' RUSH (OA-5): Skip advance roll, add flat 6" to Move — custom implementation
+		if name_upper == "BOARDIN' RUSH":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
 func load_all_faction_stratagems() -> void:
 	"""Load faction stratagems for both players. Call after armies are loaded."""
@@ -943,6 +947,18 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		print("StratagemManager: Applied Grab and Bash — Waaagh! effects active for %s (5+ invuln, +1S/A melee, advance+charge)" % target_unit_id)
 		return diffs
 
+	# BOARDIN' RUSH (OA-5): Skip advance roll, add flat 6" to Move.
+	# Sets a flag so MovementPhase._process_begin_advance() skips the D6 roll
+	# and uses a flat 6" bonus instead. Expires at end of phase.
+	if strat.get("name", "").to_upper() == "BOARDIN' RUSH":
+		var diffs = [{
+			"op": "set",
+			"path": "units.%s.flags.effect_boardin_rush" % target_unit_id,
+			"value": true
+		}]
+		print("StratagemManager: Applied Boardin' Rush to %s (flag: effect_boardin_rush — advance = flat +6\")" % target_unit_id)
+		return diffs
+
 	# BASH AND GRAB (OA-3): Conditional re-roll wounds — only vs targets near loot objective.
 	# Override the generic REROLL_WOUNDS effect with a custom flag so RulesEngine can
 	# apply the condition check at combat resolution time.
@@ -994,6 +1010,13 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 				flags.erase("effect_invuln")
 				flags.erase("effect_invuln_source")
 			print("StratagemManager: Cleared Grab and Bash (Waaagh!) effects from %s" % unit_id)
+		return
+
+	# BOARDIN' RUSH (OA-5): Clear custom flag
+	if strat.get("name", "").to_upper() == "BOARDIN' RUSH":
+		if flags.has("effect_boardin_rush"):
+			flags.erase("effect_boardin_rush")
+			print("StratagemManager: Cleared effect_boardin_rush from %s" % unit_id)
 		return
 
 	# BASH AND GRAB (OA-3): Clear custom flag
