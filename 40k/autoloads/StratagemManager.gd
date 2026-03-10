@@ -900,6 +900,18 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 	Returns an array of diffs that set the appropriate flags.
 	These flags are read by RulesEngine during combat resolution.
 	"""
+	# BASH AND GRAB (OA-3): Conditional re-roll wounds — only vs targets near loot objective.
+	# Override the generic REROLL_WOUNDS effect with a custom flag so RulesEngine can
+	# apply the condition check at combat resolution time.
+	if strat.get("name", "").to_upper() == "BASH AND GRAB":
+		var diffs = [{
+			"op": "set",
+			"path": "units.%s.flags.effect_bash_and_grab" % target_unit_id,
+			"value": true
+		}]
+		print("StratagemManager: Applied Bash and Grab effect to %s (flag: effect_bash_and_grab)" % target_unit_id)
+		return diffs
+
 	var effects = strat.get("effects", [])
 	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
 
@@ -927,6 +939,14 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 
 	var flags = unit.get("flags", {})
 	var strat = stratagems.get(stratagem_id, {})
+
+	# BASH AND GRAB (OA-3): Clear custom flag
+	if strat.get("name", "").to_upper() == "BASH AND GRAB":
+		if flags.has("effect_bash_and_grab"):
+			flags.erase("effect_bash_and_grab")
+			print("StratagemManager: Cleared effect_bash_and_grab from %s" % unit_id)
+		return
+
 	var effects = strat.get("effects", [])
 
 	EffectPrimitivesData.clear_effects(effects, unit_id, flags)
