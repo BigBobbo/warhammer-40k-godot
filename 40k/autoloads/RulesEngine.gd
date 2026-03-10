@@ -958,6 +958,12 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
 
+	# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ from stratagem flag
+	if shooter_unit.get("flags", {}).get("effect_rolling_loot_heap", false):
+		if unit_has_keyword(target_unit, "VEHICLE"):
+			critical_wound_threshold = mini(critical_wound_threshold, 4)
+			print("RulesEngine: ROLLING LOOT-HEAP (overwatch) — Anti-Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
+
 	var wound_rolls = rng.roll_d6(hits)
 	var wounds = 0
 
@@ -1543,6 +1549,13 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
+
+	# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ from stratagem flag
+	if actor_unit.get("flags", {}).get("effect_rolling_loot_heap", false):
+		if unit_has_keyword(target_unit, "VEHICLE"):
+			critical_wound_threshold = mini(critical_wound_threshold, 4)
+			print("RulesEngine: ROLLING LOOT-HEAP — Anti-Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
+
 	var anti_keyword_active = critical_wound_threshold < 6
 
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
@@ -2215,6 +2228,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var ar_critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
+
+	# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ from stratagem flag
+	if actor_unit.get("flags", {}).get("effect_rolling_loot_heap", false):
+		if unit_has_keyword(target_unit, "VEHICLE"):
+			ar_critical_wound_threshold = mini(ar_critical_wound_threshold, 4)
+			print("RulesEngine: ROLLING LOOT-HEAP (auto-resolve) — Anti-Vehicle 4+ active (critical wound threshold %d+)" % ar_critical_wound_threshold)
+
 	var ar_anti_keyword_active = ar_critical_wound_threshold < 6
 
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)

@@ -53,9 +53,9 @@
 - **Validation**: Available during Movement phase before unit moves. Advance roll skipped, +6" added to Move. Only affects targeted unit.
 
 ### OA-6: Implement "Rolling Loot-heap" stratagem
-- [ ] Implement Shooting phase stratagem: 1 CP, target one Flash Gitz unit that hasn't shot
-- [ ] Grant Anti-Vehicle 4+ to all ranged weapons until end of phase
-- [ ] Validate only Flash Gitz units can be targeted
+- [x] Implement Shooting phase stratagem: 1 CP, target one Flash Gitz unit that hasn't shot
+- [x] Grant Anti-Vehicle 4+ to all ranged weapons until end of phase
+- [x] Validate only Flash Gitz units can be targeted
 - **Files**: StratagemManager.gd, RulesEngine.gd
 - **Validation**: Only targets Flash Gitz. Grants Anti-Vehicle 4+. Critical wounds on 4+ against VEHICLE keyword units.
 

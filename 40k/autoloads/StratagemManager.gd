@@ -483,6 +483,10 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "BOARDIN' RUSH":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ to Flash Gitz ranged weapons
+		if name_upper == "ROLLING LOOT-HEAP":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
 func load_all_faction_stratagems() -> void:
 	"""Load faction stratagems for both players. Call after armies are loaded."""
@@ -599,6 +603,15 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		var source_unit = GameState.get_unit(source_unit_id)
 		if not source_unit.is_empty() and source_unit.get("flags", {}).get("battle_shocked", false):
 			return {"can_use": false, "reason": "Battle-shocked units cannot use Stratagems"}
+
+	# ROLLING LOOT-HEAP (OA-6): Only Flash Gitz units can be targeted
+	if strat.get("name", "").to_upper() == "ROLLING LOOT-HEAP" and target_unit_id != "":
+		if not is_flash_gitz_unit(target_unit_id):
+			return {"can_use": false, "reason": "Rolling Loot-heap can only target Flash Gitz units"}
+		# Must not have already shot
+		var target_unit = GameState.get_unit(target_unit_id)
+		if not target_unit.is_empty() and target_unit.get("flags", {}).get("has_shot", false):
+			return {"can_use": false, "reason": "Target unit has already been selected to shoot this phase"}
 
 	return {"can_use": true, "reason": ""}
 
@@ -971,6 +984,17 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		print("StratagemManager: Applied Bash and Grab effect to %s (flag: effect_bash_and_grab)" % target_unit_id)
 		return diffs
 
+	# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ to all ranged weapons until end of phase.
+	# Sets a flag so RulesEngine lowers the critical wound threshold to 4+ vs VEHICLE targets.
+	if strat.get("name", "").to_upper() == "ROLLING LOOT-HEAP":
+		var diffs = [{
+			"op": "set",
+			"path": "units.%s.flags.effect_rolling_loot_heap" % target_unit_id,
+			"value": true
+		}]
+		print("StratagemManager: Applied Rolling Loot-heap to %s (flag: effect_rolling_loot_heap — Anti-Vehicle 4+)" % target_unit_id)
+		return diffs
+
 	var effects = strat.get("effects", [])
 	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
 
@@ -1024,6 +1048,13 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 		if flags.has("effect_bash_and_grab"):
 			flags.erase("effect_bash_and_grab")
 			print("StratagemManager: Cleared effect_bash_and_grab from %s" % unit_id)
+		return
+
+	# ROLLING LOOT-HEAP (OA-6): Clear Anti-Vehicle 4+ flag
+	if strat.get("name", "").to_upper() == "ROLLING LOOT-HEAP":
+		if flags.has("effect_rolling_loot_heap"):
+			flags.erase("effect_rolling_loot_heap")
+			print("StratagemManager: Cleared effect_rolling_loot_heap from %s" % unit_id)
 		return
 
 	var effects = strat.get("effects", [])
@@ -1099,6 +1130,76 @@ func get_grenade_eligible_units(player: int) -> Array:
 		})
 
 	return eligible
+
+func get_rolling_loot_heap_eligible_units(player: int) -> Array:
+	"""
+	Get units eligible for the ROLLING LOOT-HEAP stratagem for the given player.
+	Requirements: Must be a Flash Gitz unit, not already shot, not battle-shocked.
+	Returns array of { unit_id: String, unit_name: String }
+	"""
+	var eligible = []
+
+	# Find the Rolling Loot-heap stratagem ID
+	var strat_id = ""
+	for sid in stratagems:
+		if stratagems[sid].get("name", "").to_upper() == "ROLLING LOOT-HEAP":
+			strat_id = sid
+			break
+	if strat_id == "":
+		return eligible
+
+	# Check if Rolling Loot-heap can be used at all (CP, restrictions)
+	var validation = can_use_stratagem(player, strat_id)
+	if not validation.can_use:
+		return eligible
+
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+
+		# Must be a Flash Gitz unit (check unit name)
+		var unit_name = unit.get("meta", {}).get("name", "").to_upper()
+		if "FLASH GITZ" not in unit_name:
+			continue
+
+		var flags = unit.get("flags", {})
+
+		# Cannot have already shot
+		if flags.get("has_shot", false):
+			continue
+		# Cannot be battle-shocked
+		if flags.get("battle_shocked", false):
+			continue
+
+		# Must be deployed/moved
+		var status = unit.get("status", 0)
+		if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:
+			continue
+
+		# Must have alive models
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit.get("meta", {}).get("name", unit_id)
+		})
+
+	return eligible
+
+func is_flash_gitz_unit(unit_id: String) -> bool:
+	"""Check if a unit is a Flash Gitz unit (by name)."""
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	return "FLASH GITZ" in unit.get("meta", {}).get("name", "").to_upper()
 
 func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: String) -> Dictionary:
 	"""
