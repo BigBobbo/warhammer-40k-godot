@@ -38,10 +38,10 @@
 - **Validation**: Stratagem appears during Fight phase. Re-roll Wound rolls only vs targets within range of loot objective. 1 CP deducted. Once-per-phase enforced.
 
 ### OA-4: Implement "Grab and Bash" stratagem
-- [ ] Implement Command phase stratagem: 1 CP, target one non-Gretchin Orks unit within range of loot objective
-- [ ] Apply per-unit Waaagh! effects (5+ invuln, +1S/A melee, advance+charge) to targeted unit only
-- [ ] Effects last until start of next Command phase
-- [ ] Works even if Waaagh! has already been called this battle
+- [x] Implement Command phase stratagem: 1 CP, target one non-Gretchin Orks unit within range of loot objective
+- [x] Apply per-unit Waaagh! effects (5+ invuln, +1S/A melee, advance+charge) to targeted unit only
+- [x] Effects last until start of next Command phase
+- [x] Works even if Waaagh! has already been called this battle
 - **Files**: StratagemManager.gd, FactionAbilityManager.gd
 - **Validation**: Available during Command phase. Only targets non-Gretchin ORKS units near loot objective. Waaagh! effects apply to targeted unit. Lasts until next Command phase.
 

@@ -1106,6 +1106,69 @@ static func check_bash_and_grab_reroll_wounds(attacker_unit: Dictionary, target_
 
 	return false
 
+# ---- GRAB AND BASH (OA-4) ----
+
+func get_grab_and_bash_eligible_units(player: int) -> Array:
+	"""Get all eligible target units for Grab and Bash stratagem.
+	Requirements: non-Gretchin ORKS unit, deployed, alive, within range of loot objective.
+	Returns array of { unit_id: String, unit_name: String }."""
+	var eligible = []
+	var detachment = get_player_detachment(player)
+	if detachment != "Freebooter Krew":
+		return eligible
+
+	var player_key = str(player)
+	var loot_obj_id = _loot_objective.get(player_key, "")
+	if loot_obj_id == "":
+		print("FactionAbilityManager: Grab and Bash — no loot objective set for player %d" % player)
+		return eligible
+
+	# Find loot objective position
+	var objectives = GameState.state.get("board", {}).get("objectives", [])
+	var loot_pos = null
+	for obj in objectives:
+		if obj.get("id", "") == loot_obj_id:
+			loot_pos = obj.get("position", null)
+			break
+
+	if loot_pos == null:
+		print("FactionAbilityManager: Grab and Bash — loot objective %s position not found" % loot_obj_id)
+		return eligible
+
+	var units = GameState.state.get("units", {})
+	var board = GameState.state
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		# Must be deployed
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		# Must have alive models
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+		# Must have ORKS keyword
+		if not _unit_has_keyword(unit, "ORKS"):
+			continue
+		# Must NOT be GRETCHIN
+		if _unit_has_keyword(unit, "GRETCHIN"):
+			continue
+		# Must be within range of loot objective
+		if not _is_any_model_near_objective(unit, loot_pos, board):
+			continue
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		eligible.append({"unit_id": unit_id, "unit_name": unit_name})
+
+	print("FactionAbilityManager: Grab and Bash — %d eligible units for player %d" % [eligible.size(), player])
+	return eligible
+
 # ---- DETACHMENT HELPER ----
 
 func _unit_has_keyword(unit: Dictionary, keyword: String) -> bool:

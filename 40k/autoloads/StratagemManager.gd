@@ -454,7 +454,31 @@ func load_faction_stratagems_for_player(player: int) -> void:
 		if strat.get("implemented", false):
 			implemented_count += 1
 
+	# Mark custom-implemented stratagems that can't be auto-detected from CSV effect text
+	_mark_custom_implemented_stratagems(player)
+
+	# Recount after marking
+	implemented_count = 0
+	for strat_id in _player_faction_stratagems[str(player)]:
+		if stratagems.has(strat_id) and stratagems[strat_id].get("implemented", false):
+			implemented_count += 1
+
 	print("StratagemManager: Loaded %d faction stratagems for player %d (%d mechanically implemented)" % [loaded_count, player, implemented_count])
+
+func _mark_custom_implemented_stratagems(player: int) -> void:
+	"""Mark stratagems with custom implementations as 'implemented'.
+	These are stratagems whose CSV effect text can't be auto-parsed by FactionStratagemLoader
+	but have manual handling in _apply_stratagem_effects / _clear_stratagem_flags."""
+	var player_key = str(player)
+	for strat_id in _player_faction_stratagems.get(player_key, []):
+		if not stratagems.has(strat_id):
+			continue
+		var strat = stratagems[strat_id]
+		var name_upper = strat.get("name", "").to_upper()
+		# GRAB AND BASH (OA-4): Waaagh! effects on single unit — custom implementation
+		if name_upper == "GRAB AND BASH":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
 func load_all_faction_stratagems() -> void:
 	"""Load faction stratagems for both players. Call after armies are loaded."""
@@ -715,12 +739,16 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		diffs.append_array(effect_diffs)
 
 	# Track active effect for duration management
+	# GRAB AND BASH (OA-4): Effects last until start of next Command phase (= next turn start)
+	var expires = "end_of_phase"
+	if strat.get("name", "").to_upper() == "GRAB AND BASH":
+		expires = "end_of_turn"
 	add_active_effect({
 		"stratagem_id": stratagem_id,
 		"player": player,
 		"target_unit_id": target_unit_id,
 		"effects": strat.effects,
-		"expires": "end_of_phase",
+		"expires": expires,
 		"applied_turn": GameState.get_battle_round(),
 		"applied_phase": GameState.get_current_phase()
 	})
@@ -900,6 +928,21 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 	Returns an array of diffs that set the appropriate flags.
 	These flags are read by RulesEngine during combat resolution.
 	"""
+	# GRAB AND BASH (OA-4): Apply per-unit Waaagh! effects to a single unit.
+	# Sets waaagh_active flag so RulesEngine applies +1S/+1A melee bonuses,
+	# plus 5+ invuln and advance+charge eligibility.
+	# Effects last until start of next Command phase (expires: "end_of_turn").
+	if strat.get("name", "").to_upper() == "GRAB AND BASH":
+		var diffs = [
+			{"op": "set", "path": "units.%s.flags.waaagh_active" % target_unit_id, "value": true},
+			{"op": "set", "path": "units.%s.flags.grab_and_bash_active" % target_unit_id, "value": true},
+			{"op": "set", "path": "units.%s.flags.effect_invuln" % target_unit_id, "value": 5},
+			{"op": "set", "path": "units.%s.flags.effect_invuln_source" % target_unit_id, "value": "Grab and Bash"},
+			{"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % target_unit_id, "value": true},
+		]
+		print("StratagemManager: Applied Grab and Bash — Waaagh! effects active for %s (5+ invuln, +1S/A melee, advance+charge)" % target_unit_id)
+		return diffs
+
 	# BASH AND GRAB (OA-3): Conditional re-roll wounds — only vs targets near loot objective.
 	# Override the generic REROLL_WOUNDS effect with a custom flag so RulesEngine can
 	# apply the condition check at combat resolution time.
@@ -939,6 +982,19 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 
 	var flags = unit.get("flags", {})
 	var strat = stratagems.get(stratagem_id, {})
+
+	# GRAB AND BASH (OA-4): Clear per-unit Waaagh! effects
+	if strat.get("name", "").to_upper() == "GRAB AND BASH":
+		if flags.has("grab_and_bash_active"):
+			flags.erase("grab_and_bash_active")
+			flags.erase("waaagh_active")
+			flags.erase("effect_advance_and_charge")
+			# Only clear invuln if it was set by Grab and Bash (don't clobber other sources)
+			if flags.get("effect_invuln_source", "") == "Grab and Bash":
+				flags.erase("effect_invuln")
+				flags.erase("effect_invuln_source")
+			print("StratagemManager: Cleared Grab and Bash (Waaagh!) effects from %s" % unit_id)
+		return
 
 	# BASH AND GRAB (OA-3): Clear custom flag
 	if strat.get("name", "").to_upper() == "BASH AND GRAB":
