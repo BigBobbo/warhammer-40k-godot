@@ -524,6 +524,34 @@ const ABILITY_EFFECTS: Dictionary = {
 		"implemented": true,
 		"description": "Weapon damage = 3 while Waaagh! active — applied in RulesEngine melee resolution"
 	},
+
+	# ======================================================================
+	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
+	# These are checked via unit.meta.enhancements[] rather than abilities[].
+	# ======================================================================
+
+	# Git-spotter Squig — bearer's unit ranged weapons gain [IGNORES COVER]
+	"Git-spotter Squig": {
+		"condition": "enhancement",
+		"effects": [{"type": "grant_ignores_cover"}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Bearer's unit ranged weapons have [IGNORES COVER]"
+	},
+
+	# Bionik Workshop — +1 to melee Hit rolls (when d3 roll = 3)
+	# The actual bonus type is determined at battle start by FactionAbilityManager.
+	# The "hit" variant uses this effect entry; "move" and "strength" are handled
+	# via flags checked directly in MovementPhase and RulesEngine respectively.
+	"Bionik Workshop — Hit Bonus": {
+		"condition": "enhancement_flag",
+		"effects": [{"type": "plus_one_hit"}],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "+1 to melee Hit rolls (Bionik Workshop d3 = 3)"
+	},
 }
 
 # ============================================================================
@@ -613,7 +641,10 @@ func _apply_all_ability_effects(phase: int) -> void:
 		# 2. Check for always-on unit abilities
 		_apply_unit_abilities(unit_id, unit, phase)
 
-	# 3. Check for aura abilities (after all units have been scanned,
+	# 3. Check for enhancement abilities (OA-2: Git-spotter Squig, Bionik Workshop)
+	_apply_enhancement_abilities(phase)
+
+	# 4. Check for aura abilities (after all units have been scanned,
 	#    since auras affect OTHER units within range)
 	_apply_aura_abilities(phase)
 
@@ -781,6 +812,120 @@ func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> voi
 				var desc = effect_def.get("description", ability_name)
 				game_event_log.add_player_entry(owner,
 					"%s ability '%s' active (%s)" % [unit_name, ability_name, desc])
+
+# ============================================================================
+# ENHANCEMENT ABILITIES (OA-2)
+# ============================================================================
+# Enhancement abilities are stored in unit.meta.enhancements[] (not abilities[]).
+# They apply effects to the bearer's unit (the combined unit if character is attached).
+
+func _apply_enhancement_abilities(phase: int) -> void:
+	"""Scan all units for enhancement abilities and apply effects."""
+	var units = GameState.state.get("units", {})
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		if not _has_alive_models(unit):
+			continue
+
+		var enhancements = unit.get("meta", {}).get("enhancements", [])
+		if enhancements.is_empty():
+			continue
+
+		for enhancement_name in enhancements:
+			if enhancement_name == "":
+				continue
+
+			var effect_def = ABILITY_EFFECTS.get(enhancement_name, {})
+			if effect_def.is_empty():
+				continue
+			if not effect_def.get("implemented", false):
+				continue
+
+			var condition = effect_def.get("condition", "")
+			if condition != "enhancement":
+				continue
+
+			# Determine the target unit (bearer's unit = combined unit)
+			var target_unit_id = unit_id
+			if effect_def.get("target", "") == "bearer_unit":
+				# Find the bodyguard unit the bearer is attached to
+				target_unit_id = _get_combined_unit_for_enhancement(unit_id)
+
+			# Don't double-apply
+			if _applied_this_phase.has(target_unit_id) and enhancement_name in _applied_this_phase[target_unit_id]:
+				continue
+
+			# Check if relevant for this phase
+			if not _is_relevant_for_phase(effect_def, phase):
+				continue
+
+			var effects = effect_def.get("effects", [])
+			if effects.is_empty():
+				continue
+
+			var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
+			if not diffs.is_empty():
+				PhaseManager.apply_state_changes(diffs)
+
+				_active_ability_effects.append({
+					"ability_name": enhancement_name,
+					"source_unit_id": unit_id,
+					"target_unit_id": target_unit_id,
+					"effects": effects,
+					"attack_type": effect_def.get("attack_type", "all"),
+					"condition": "enhancement"
+				})
+
+				if not _applied_this_phase.has(target_unit_id):
+					_applied_this_phase[target_unit_id] = []
+				_applied_this_phase[target_unit_id].append(enhancement_name)
+
+				var bearer_name = unit.get("meta", {}).get("name", unit_id)
+				var target_name = units.get(target_unit_id, {}).get("meta", {}).get("name", target_unit_id)
+				var flag_names = EffectPrimitivesData.get_flag_names_for_effects(effects)
+				print("UnitAbilityManager: Enhancement '%s' (bearer: %s) applied to %s — flags: %s" % [
+					enhancement_name, bearer_name, target_name, str(flag_names)])
+
+	# Also apply Bionik Workshop "hit" bonus if the flag is set on any unit
+	for unit_id in units:
+		var unit = units[unit_id]
+		if not _has_alive_models(unit):
+			continue
+		var bionik_bonus = unit.get("flags", {}).get("bionik_workshop_bonus", "")
+		if bionik_bonus == "hit":
+			# Apply +1 to melee hit rolls for this unit
+			if _applied_this_phase.has(unit_id) and "Bionik Workshop — Hit Bonus" in _applied_this_phase[unit_id]:
+				continue
+			if not _is_relevant_for_phase(ABILITY_EFFECTS["Bionik Workshop — Hit Bonus"], phase):
+				continue
+			var effects = ABILITY_EFFECTS["Bionik Workshop — Hit Bonus"]["effects"]
+			var diffs = EffectPrimitivesData.apply_effects(effects, unit_id)
+			if not diffs.is_empty():
+				PhaseManager.apply_state_changes(diffs)
+				_active_ability_effects.append({
+					"ability_name": "Bionik Workshop — Hit Bonus",
+					"source_unit_id": unit_id,
+					"target_unit_id": unit_id,
+					"effects": effects,
+					"attack_type": "melee",
+					"condition": "enhancement_flag"
+				})
+				if not _applied_this_phase.has(unit_id):
+					_applied_this_phase[unit_id] = []
+				_applied_this_phase[unit_id].append("Bionik Workshop — Hit Bonus")
+				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				print("UnitAbilityManager: Bionik Workshop +1 melee Hit applied to %s" % unit_name)
+
+func _get_combined_unit_for_enhancement(char_unit_id: String) -> String:
+	"""Get the bodyguard unit this character is attached to, or the char_unit_id if standalone."""
+	var units = GameState.state.get("units", {})
+	for uid in units:
+		var unit = units[uid]
+		var attached = unit.get("attachment_data", {}).get("attached_characters", [])
+		if char_unit_id in attached:
+			return uid
+	return char_unit_id
 
 # ============================================================================
 # AURA ABILITIES

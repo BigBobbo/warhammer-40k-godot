@@ -6699,6 +6699,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		strength += 1
 		print("RulesEngine: Waaagh! active — melee strength %d → %d (+1)" % [strength - 1, strength])
 
+	# BIONIK WORKSHOP (OA-2): +1 Strength to melee weapons
+	var bionik_bonus = attacker_unit.get("flags", {}).get("bionik_workshop_bonus", "")
+	if bionik_bonus == "strength":
+		strength += 1
+		print("RulesEngine: Bionik Workshop — melee strength %d → %d (+1)" % [strength - 1, strength])
+
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	var ap = weapon_profile.get("ap", 0)
 	# MARTIAL MASTERY — IMPROVE AP (P2-27): Shield Host detachment — improve AP by 1 on melee weapons

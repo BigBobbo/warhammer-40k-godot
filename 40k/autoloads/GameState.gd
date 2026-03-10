@@ -608,7 +608,8 @@ func unit_has_redeploy(unit_id: String) -> bool:
 
 func get_redeploy_units_for_player(player: int) -> Array:
 	"""Get all deployed units with a redeployment ability for a given player.
-	Per Core Rules Updates, redeployment occurs after Deploy Armies, before Determine First Turn."""
+	Per Core Rules Updates, redeployment occurs after Deploy Armies, before Determine First Turn.
+	Also includes units eligible via Razgit's Magik Map enhancement (OA-2)."""
 	var redeploy_units = []
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]
@@ -621,6 +622,17 @@ func get_redeploy_units_for_player(player: int) -> Array:
 			continue
 		if unit_has_redeploy(unit_id):
 			redeploy_units.append(unit_id)
+
+	# OA-2: Add units eligible via Razgit's Magik Map enhancement
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr and faction_mgr.has_razgit_magik_map(player):
+		var razgit_units = faction_mgr.get_razgit_eligible_units(player)
+		for ru in razgit_units:
+			var uid = ru.get("unit_id", "")
+			if uid != "" and uid not in redeploy_units:
+				redeploy_units.append(uid)
+				print("GameState: Razgit's Magik Map — %s eligible for redeployment" % ru.get("unit_name", uid))
+
 	return redeploy_units
 
 func get_enemy_deployment_zone(player: int) -> Dictionary:

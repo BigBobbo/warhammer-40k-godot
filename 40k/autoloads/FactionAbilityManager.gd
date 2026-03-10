@@ -96,6 +96,41 @@ const DETACHMENT_ABILITIES = {
 	}
 }
 
+# ============================================================================
+# FREEBOOTER KREW ENHANCEMENTS (OA-2)
+# ============================================================================
+# Enhancement abilities available to the Freebooter Krew detachment.
+# Each enhancement can be equipped on a specific CHARACTER model.
+# The enhancement name is stored in unit.meta.enhancements[].
+
+const FREEBOOTER_ENHANCEMENTS = {
+	"Da Kaptin": {
+		"points": 10,
+		"restriction": "WARBOSS",
+		"trigger": "start_of_any_phase",
+		"once_per_battle_round": true,
+		"description": "At the start of any phase, select one Battle-shocked friendly ORKS unit within 12\" of the bearer. That unit suffers D3 mortal wounds but is no longer Battle-shocked."
+	},
+	"Git-spotter Squig": {
+		"points": 20,
+		"restriction": "ORKS",
+		"trigger": "passive",
+		"description": "Ranged weapons equipped by models in the bearer's unit have the [IGNORES COVER] ability."
+	},
+	"Bionik Workshop": {
+		"points": 15,
+		"restriction": ["BIG MEK", "PAINBOY"],
+		"trigger": "start_of_battle",
+		"description": "At the start of the battle, roll one D3: 1 = +1 Move, 2 = +1 Strength (melee), 3 = +1 to melee Hit rolls. Applies to the bearer's unit for the entire battle."
+	},
+	"Razgit's Magik Map": {
+		"points": 25,
+		"restriction": "ORKS",
+		"trigger": "after_deployment",
+		"description": "After both players have deployed their armies, select up to 3 friendly Orks INFANTRY units and redeploy them. Any of those units can be placed into Strategic Reserves."
+	}
+}
+
 # Known faction ability definitions
 # Each entry maps a faction ability name to its configuration
 const FACTION_ABILITIES = {
@@ -170,6 +205,26 @@ var _mastery_selected_round: Dictionary = {"1": 0, "2": 0}
 var _loot_objective: Dictionary = {"1": "", "2": ""}
 # Per-player: battle round in which loot objective was last selected
 var _loot_objective_round: Dictionary = {"1": 0, "2": 0}
+
+# ============================================================================
+# FREEBOOTER KREW ENHANCEMENT STATE (OA-2)
+# ============================================================================
+
+# Da Kaptin: per-player battle round in which it was last used (once per battle round)
+var _da_kaptin_used_round: Dictionary = {"1": 0, "2": 0}
+
+# Bionik Workshop: per-unit result of the D3 roll at battle start
+# Key: unit_id (the bearer's CHARACTER unit), Value: {roll: int, bonus_type: String}
+# bonus_type: "move" (+1 Move), "strength" (+1 Strength melee), "hit" (+1 to melee Hit rolls)
+var _bionik_workshop_results: Dictionary = {}
+# Whether Bionik Workshop has been resolved this battle
+var _bionik_workshop_resolved: bool = false
+
+# Razgit's Magik Map: per-player tracking of redeployments used
+# Key: player string, Value: number of units redeployed via Razgit's
+var _razgit_redeploys_used: Dictionary = {"1": 0, "2": 0}
+# Whether Razgit's Magik Map has been resolved this battle
+var _razgit_resolved: bool = false
 
 func _ready():
 	print("FactionAbilityManager: Ready")
@@ -1029,6 +1084,388 @@ func _unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
 	return false
 
 # ============================================================================
+# FREEBOOTER KREW ENHANCEMENTS (OA-2)
+# ============================================================================
+
+# ---- ENHANCEMENT HELPERS ----
+
+func _find_enhancement_bearer(player: int, enhancement_name: String) -> Dictionary:
+	"""Find the CHARACTER unit that has a specific enhancement.
+	Returns {bearer_id, combined_unit_id, bearer_name} or empty dict.
+	combined_unit_id is the bodyguard unit the bearer is attached to (or bearer_id if standalone)."""
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		var enhancements = unit.get("meta", {}).get("enhancements", [])
+		if enhancement_name in enhancements:
+			# Check unit has alive models
+			var has_alive = false
+			for model in unit.get("models", []):
+				if model.get("alive", true):
+					has_alive = true
+					break
+			if not has_alive:
+				continue
+			# Find the combined unit (bodyguard this character is attached to, or self)
+			var combined_unit_id = _get_combined_unit_for_character(unit_id)
+			return {
+				"bearer_id": unit_id,
+				"combined_unit_id": combined_unit_id,
+				"bearer_name": unit.get("meta", {}).get("name", unit_id)
+			}
+	return {}
+
+func _get_combined_unit_for_character(char_unit_id: String) -> String:
+	"""Get the bodyguard unit this character is attached to, or the char_unit_id if standalone."""
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		var attached = unit.get("attachment_data", {}).get("attached_characters", [])
+		if char_unit_id in attached:
+			return unit_id
+	return char_unit_id
+
+func _is_unit_within_range_inches(unit_a: Dictionary, unit_b: Dictionary, range_inches: float) -> bool:
+	"""Check if any alive model in unit_a is within range_inches of any alive model in unit_b.
+	Uses center-to-center distance minus base radii (edge-to-edge)."""
+	var px_per_inch: float = 40.0
+	var range_px = range_inches * px_per_inch
+
+	for model_a in unit_a.get("models", []):
+		if not model_a.get("alive", true):
+			continue
+		var pos_a = model_a.get("position", null)
+		if pos_a == null:
+			continue
+		var vec_a = Vector2.ZERO
+		if pos_a is Vector2:
+			vec_a = pos_a
+		elif pos_a is Dictionary:
+			vec_a = Vector2(pos_a.get("x", 0), pos_a.get("y", 0))
+		else:
+			continue
+		var base_a_mm = model_a.get("base_mm", 32)
+		var radius_a_px = (base_a_mm / 25.4) * px_per_inch / 2.0
+
+		for model_b in unit_b.get("models", []):
+			if not model_b.get("alive", true):
+				continue
+			var pos_b = model_b.get("position", null)
+			if pos_b == null:
+				continue
+			var vec_b = Vector2.ZERO
+			if pos_b is Vector2:
+				vec_b = pos_b
+			elif pos_b is Dictionary:
+				vec_b = Vector2(pos_b.get("x", 0), pos_b.get("y", 0))
+			else:
+				continue
+			var base_b_mm = model_b.get("base_mm", 32)
+			var radius_b_px = (base_b_mm / 25.4) * px_per_inch / 2.0
+
+			var center_distance = vec_a.distance_to(vec_b)
+			var edge_distance = max(0.0, center_distance - radius_a_px - radius_b_px)
+			if edge_distance <= range_px:
+				return true
+	return false
+
+func has_enhancement(player: int, enhancement_name: String) -> bool:
+	"""Check if any unit owned by player has the given enhancement."""
+	return not _find_enhancement_bearer(player, enhancement_name).is_empty()
+
+# ---- DA KAPTIN (10pts, Warboss only) ----
+# Start of any phase: select Battle-shocked friendly ORKS unit within 12" of bearer.
+# That unit suffers D3 mortal wounds but is no longer Battle-shocked.
+# Once per battle round.
+
+func is_da_kaptin_available(player: int) -> bool:
+	"""Check if Da Kaptin can be used this battle round."""
+	if get_player_detachment(player) != "Freebooter Krew":
+		return false
+	# Check once-per-round
+	var current_round = GameState.get_battle_round()
+	if _da_kaptin_used_round.get(str(player), 0) >= current_round:
+		return false
+	# Must have a bearer
+	var bearer = _find_enhancement_bearer(player, "Da Kaptin")
+	if bearer.is_empty():
+		return false
+	# Must have at least one eligible target
+	return get_da_kaptin_targets(player).size() > 0
+
+func get_da_kaptin_targets(player: int) -> Array:
+	"""Get all Battle-shocked friendly ORKS units within 12\" of the Da Kaptin bearer."""
+	var bearer_info = _find_enhancement_bearer(player, "Da Kaptin")
+	if bearer_info.is_empty():
+		return []
+
+	var bearer_unit_id = bearer_info.bearer_id
+	var bearer_unit = GameState.state.get("units", {}).get(bearer_unit_id, {})
+	if bearer_unit.is_empty():
+		return []
+
+	var targets = []
+	var units = GameState.state.get("units", {})
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		# Can't target the bearer's own unit
+		if unit_id == bearer_unit_id or unit_id == bearer_info.combined_unit_id:
+			continue
+		# Must be Battle-shocked
+		if not unit.get("flags", {}).get("battle_shocked", false):
+			continue
+		# Must have ORKS keyword
+		if not _unit_has_keyword(unit, "ORKS"):
+			continue
+		# Must have alive models
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+		# Must be deployed (have positions)
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED and unit.get("status", "") != "DEPLOYED":
+			continue
+		# Must be within 12" of bearer
+		if _is_unit_within_range_inches(bearer_unit, unit, 12.0):
+			targets.append({
+				"unit_id": unit_id,
+				"unit_name": unit.get("meta", {}).get("name", unit_id)
+			})
+
+	return targets
+
+func use_da_kaptin(player: int, target_unit_id: String) -> Dictionary:
+	"""Activate Da Kaptin: D3 mortal wounds to target, remove Battle-shocked."""
+	if not is_da_kaptin_available(player):
+		return {"success": false, "error": "Da Kaptin is not available"}
+
+	# Validate target
+	var targets = get_da_kaptin_targets(player)
+	var target_found = false
+	for t in targets:
+		if t.unit_id == target_unit_id:
+			target_found = true
+			break
+	if not target_found:
+		return {"success": false, "error": "Target %s is not an eligible Da Kaptin target" % target_unit_id}
+
+	# Roll D3 for mortal wounds
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+	var d3_roll = rng.randi_range(1, 3)
+
+	# Apply mortal wounds
+	var board = GameState.create_snapshot()
+	var mw_result = RulesEngine.apply_mortal_wounds(target_unit_id, d3_roll, board)
+
+	# Apply damage diffs
+	if mw_result.diffs.size() > 0:
+		PhaseManager.apply_state_changes(mw_result.diffs)
+
+	# Remove Battle-shocked status from target
+	var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
+	if target_unit.has("flags"):
+		target_unit["flags"]["battle_shocked"] = false
+
+	# Also remove Battle-shocked from any attached characters
+	var attached_chars = GameState.get_attached_characters(target_unit_id)
+	for char_id in attached_chars:
+		var char_unit = GameState.state.get("units", {}).get(char_id, {})
+		if not char_unit.is_empty() and char_unit.has("flags"):
+			char_unit["flags"]["battle_shocked"] = false
+			print("FactionAbilityManager: Da Kaptin — attached character %s also no longer Battle-shocked" % char_id)
+
+	# Mark as used this round
+	_da_kaptin_used_round[str(player)] = GameState.get_battle_round()
+
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var bearer_info = _find_enhancement_bearer(player, "Da Kaptin")
+	var bearer_name = bearer_info.get("bearer_name", "Da Kaptin bearer")
+	print("FactionAbilityManager: DA KAPTIN — %s suffers %d mortal wounds (%d casualties), no longer Battle-shocked (bearer: %s)" % [
+		target_name, d3_roll, mw_result.casualties, bearer_name])
+
+	# Log to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_player_entry(player,
+			"DA KAPTIN: %s suffers %d mortal wounds but is no longer Battle-shocked!" % [target_name, d3_roll])
+
+	return {
+		"success": true,
+		"target_unit_id": target_unit_id,
+		"target_name": target_name,
+		"d3_roll": d3_roll,
+		"mortal_wounds": d3_roll,
+		"casualties": mw_result.casualties,
+		"message": "Da Kaptin: %s suffers %d mortal wounds but is no longer Battle-shocked!" % [target_name, d3_roll]
+	}
+
+# ---- GIT-SPOTTER SQUIG (20pts, ORKS model) ----
+# Passive: Bearer's unit ranged weapons have [IGNORES COVER].
+# Handled via UnitAbilityManager ABILITY_EFFECTS (applied at phase start).
+# See UnitAbilityManager.gd for the effect definition.
+
+func has_git_spotter_squig(player: int) -> bool:
+	"""Check if any unit has the Git-spotter Squig enhancement."""
+	return has_enhancement(player, "Git-spotter Squig")
+
+func get_git_spotter_squig_unit(player: int) -> Dictionary:
+	"""Get the combined unit that has Git-spotter Squig active.
+	Returns {bearer_id, combined_unit_id} or empty dict."""
+	return _find_enhancement_bearer(player, "Git-spotter Squig")
+
+# ---- BIONIK WORKSHOP (15pts, Big Mek or Painboy) ----
+# At the start of the battle, roll D3:
+# 1 = +1 Move, 2 = +1 Strength (melee), 3 = +1 to melee Hit rolls.
+# Applies to the bearer's unit for the entire battle.
+
+func resolve_bionik_workshop(player: int) -> Dictionary:
+	"""Roll D3 at the start of the battle to determine the bionik bonus.
+	Should be called once, at the start of the first battle round."""
+	var bearer_info = _find_enhancement_bearer(player, "Bionik Workshop")
+	if bearer_info.is_empty():
+		return {"success": false, "error": "No unit with Bionik Workshop found"}
+
+	var bearer_id = bearer_info.bearer_id
+	# Check if already resolved for this bearer
+	if _bionik_workshop_results.has(bearer_id):
+		return {"success": false, "error": "Bionik Workshop already resolved for %s" % bearer_id}
+
+	# Roll D3
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+	var d3_roll = rng.randi_range(1, 3)
+
+	var bonus_type = ""
+	var bonus_description = ""
+	match d3_roll:
+		1:
+			bonus_type = "move"
+			bonus_description = "+1 Move"
+		2:
+			bonus_type = "strength"
+			bonus_description = "+1 Strength (melee weapons)"
+		3:
+			bonus_type = "hit"
+			bonus_description = "+1 to melee Hit rolls"
+
+	_bionik_workshop_results[bearer_id] = {
+		"roll": d3_roll,
+		"bonus_type": bonus_type,
+		"combined_unit_id": bearer_info.combined_unit_id
+	}
+
+	# Apply the bonus as a persistent flag on the combined unit
+	var combined_unit = GameState.state.get("units", {}).get(bearer_info.combined_unit_id, {})
+	if not combined_unit.is_empty():
+		if not combined_unit.has("flags"):
+			combined_unit["flags"] = {}
+		combined_unit["flags"]["bionik_workshop_bonus"] = bonus_type
+		combined_unit["flags"]["bionik_workshop_bearer"] = bearer_id
+		print("FactionAbilityManager: BIONIK WORKSHOP — %s grants %s to unit %s (rolled D3 = %d)" % [
+			bearer_info.bearer_name, bonus_description, bearer_info.combined_unit_id, d3_roll])
+
+	# Log to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_player_entry(player,
+			"BIONIK WORKSHOP: %s rolled D3 = %d — %s for bearer's unit!" % [bearer_info.bearer_name, d3_roll, bonus_description])
+
+	return {
+		"success": true,
+		"bearer_id": bearer_id,
+		"bearer_name": bearer_info.bearer_name,
+		"combined_unit_id": bearer_info.combined_unit_id,
+		"d3_roll": d3_roll,
+		"bonus_type": bonus_type,
+		"bonus_description": bonus_description,
+		"message": "Bionik Workshop: Rolled D3 = %d — %s!" % [d3_roll, bonus_description]
+	}
+
+func get_bionik_workshop_result(bearer_id: String) -> Dictionary:
+	"""Get the Bionik Workshop result for a specific bearer. Returns empty dict if none."""
+	return _bionik_workshop_results.get(bearer_id, {})
+
+func get_bionik_workshop_bonus_for_unit(unit_id: String) -> String:
+	"""Get the Bionik Workshop bonus type active on a unit. Returns empty string if none."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	return unit.get("flags", {}).get("bionik_workshop_bonus", "")
+
+# ---- RAZGIT'S MAGIK MAP (25pts, ORKS model) ----
+# After deployment, select up to 3 friendly Orks INFANTRY units and redeploy them.
+# Any of those units can be placed into Strategic Reserves.
+
+func has_razgit_magik_map(player: int) -> bool:
+	"""Check if a player has the Razgit's Magik Map enhancement."""
+	return has_enhancement(player, "Razgit's Magik Map")
+
+func get_razgit_eligible_units(player: int) -> Array:
+	"""Get all Orks INFANTRY units eligible for Razgit's Magik Map redeployment."""
+	if not has_razgit_magik_map(player):
+		return []
+
+	var bearer_info = _find_enhancement_bearer(player, "Razgit's Magik Map")
+	if bearer_info.is_empty():
+		return []
+
+	var eligible = []
+	var units = GameState.state.get("units", {})
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		# Skip the bearer's own unit (bearer doesn't redeploy themselves)
+		if unit_id == bearer_info.bearer_id:
+			continue
+		# Must be deployed
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED and unit.get("status", "") != "DEPLOYED":
+			continue
+		# Must be ORKS INFANTRY
+		if not _unit_has_keyword(unit, "ORKS"):
+			continue
+		if not _unit_has_keyword(unit, "INFANTRY"):
+			continue
+		# Must have alive models
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit.get("meta", {}).get("name", unit_id)
+		})
+
+	return eligible
+
+func get_razgit_redeploys_remaining(player: int) -> int:
+	"""Get how many Razgit's Magik Map redeployments remain (max 3)."""
+	return 3 - _razgit_redeploys_used.get(str(player), 0)
+
+func mark_razgit_redeploy_used(player: int) -> void:
+	"""Mark one Razgit's Magik Map redeployment as used."""
+	var pk = str(player)
+	_razgit_redeploys_used[pk] = _razgit_redeploys_used.get(pk, 0) + 1
+	print("FactionAbilityManager: Razgit's Magik Map — player %d used redeploy %d/3" % [
+		player, _razgit_redeploys_used[pk]])
+
+func is_razgit_redeploy_available(player: int) -> bool:
+	"""Check if Razgit's Magik Map redeployment slots are still available."""
+	return has_razgit_magik_map(player) and get_razgit_redeploys_remaining(player) > 0
+
+# ============================================================================
 # PHASE LIFECYCLE
 # ============================================================================
 
@@ -1154,6 +1591,14 @@ func on_command_phase_start(player: int) -> void:
 		_clear_loot_objective(player)
 		print("FactionAbilityManager: Player %d has Freebooter Krew — awaiting loot objective selection" % player)
 
+	# Bionik Workshop — resolve on first Command Phase (start of battle) (OA-2)
+	if detachment == "Freebooter Krew" and not _bionik_workshop_resolved:
+		if has_enhancement(player, "Bionik Workshop"):
+			var bw_result = resolve_bionik_workshop(player)
+			if bw_result.success:
+				print("FactionAbilityManager: Bionik Workshop resolved for player %d — %s" % [player, bw_result.bonus_description])
+		_bionik_workshop_resolved = true
+
 	# Clear previous Oath of Moment (it's re-selected each Command Phase)
 	if player_has_ability(player, "Oath of Moment"):
 		clear_oath_of_moment(player)
@@ -1191,7 +1636,13 @@ func get_state_for_save() -> Dictionary:
 		"mastery_selected_round": _mastery_selected_round.duplicate(true),
 		# Loot objective state (OA-1)
 		"loot_objective": _loot_objective.duplicate(true),
-		"loot_objective_round": _loot_objective_round.duplicate(true)
+		"loot_objective_round": _loot_objective_round.duplicate(true),
+		# Enhancement state (OA-2)
+		"da_kaptin_used_round": _da_kaptin_used_round.duplicate(true),
+		"bionik_workshop_results": _bionik_workshop_results.duplicate(true),
+		"bionik_workshop_resolved": _bionik_workshop_resolved,
+		"razgit_redeploys_used": _razgit_redeploys_used.duplicate(true),
+		"razgit_resolved": _razgit_resolved
 	}
 
 func load_state(data: Dictionary) -> void:
@@ -1215,4 +1666,21 @@ func load_state(data: Dictionary) -> void:
 			if not GameState.state.board.has("loot_objective"):
 				GameState.state.board["loot_objective"] = {}
 			GameState.state.board["loot_objective"][pk] = _loot_objective[pk]
+	# Enhancement state (OA-2)
+	_da_kaptin_used_round = data.get("da_kaptin_used_round", {"1": 0, "2": 0})
+	_bionik_workshop_results = data.get("bionik_workshop_results", {})
+	_bionik_workshop_resolved = data.get("bionik_workshop_resolved", false)
+	_razgit_redeploys_used = data.get("razgit_redeploys_used", {"1": 0, "2": 0})
+	_razgit_resolved = data.get("razgit_resolved", false)
+	# Restore bionik workshop flags on units
+	for bearer_id in _bionik_workshop_results:
+		var bw_data = _bionik_workshop_results[bearer_id]
+		var combined_unit_id = bw_data.get("combined_unit_id", "")
+		if combined_unit_id != "":
+			var unit = GameState.state.get("units", {}).get(combined_unit_id, {})
+			if not unit.is_empty():
+				if not unit.has("flags"):
+					unit["flags"] = {}
+				unit["flags"]["bionik_workshop_bonus"] = bw_data.get("bonus_type", "")
+				unit["flags"]["bionik_workshop_bearer"] = bearer_id
 	print("FactionAbilityManager: State loaded — effects: %s, waaagh_active: %s, detachments: %s" % [str(_active_effects), str(_waaagh_active), str(_player_detachment)])

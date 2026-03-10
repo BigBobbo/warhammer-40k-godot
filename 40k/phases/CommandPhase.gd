@@ -430,6 +430,17 @@ func get_available_actions() -> Array:
 				"player": current_player
 			})
 
+	# Da Kaptin — remove Battle-shocked from friendly ORKS unit, D3 mortal wounds (OA-2)
+	if faction_mgr and faction_mgr.is_da_kaptin_available(current_player):
+		var da_kaptin_targets = faction_mgr.get_da_kaptin_targets(current_player)
+		for target in da_kaptin_targets:
+			actions.append({
+				"type": "USE_DA_KAPTIN",
+				"target_unit_id": target.unit_id,
+				"description": "Da Kaptin: %s — D3 mortal wounds, no longer Battle-shocked" % target.unit_name,
+				"player": current_player
+			})
+
 	# P3-29: Grot Orderly — once per battle, return D3 destroyed Bodyguard models
 	var ability_mgr_go = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr_go:
@@ -504,6 +515,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_select_martial_mastery(action)
 		"SELECT_LOOT_OBJECTIVE":
 			errors = _validate_select_loot_objective(action)
+		"USE_DA_KAPTIN":
+			errors = _validate_use_da_kaptin(action)
 		"USE_GROT_ORDERLY":
 			errors = _validate_use_grot_orderly(action)
 		"RESOLVE_MARKED_FOR_DEATH":
@@ -577,6 +590,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_select_martial_mastery(action)
 		"SELECT_LOOT_OBJECTIVE":
 			return _handle_select_loot_objective(action)
+		"USE_DA_KAPTIN":
+			return _handle_use_da_kaptin(action)
 		"USE_GROT_ORDERLY":
 			return _handle_use_grot_orderly(action)
 		"RESOLVE_MARKED_FOR_DEATH":
@@ -1186,6 +1201,67 @@ func _handle_select_loot_objective(action: Dictionary) -> Dictionary:
 			"type": "SELECT_LOOT_OBJECTIVE",
 			"player": current_player,
 			"objective_id": objective_id,
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+# ============================================================================
+# OA-2: DA KAPTIN (Freebooter Krew Enhancement — remove Battle-shocked)
+# ============================================================================
+
+func _validate_use_da_kaptin(action: Dictionary) -> Array:
+	var errors = []
+	var target_unit_id = action.get("target_unit_id", "")
+	var current_player = get_current_player()
+
+	if target_unit_id == "":
+		errors.append("Missing target_unit_id for Da Kaptin")
+		return errors
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if not faction_mgr.is_da_kaptin_available(current_player):
+		errors.append("Da Kaptin is not available for player %d" % current_player)
+		return errors
+
+	# Verify target is in the eligible list
+	var targets = faction_mgr.get_da_kaptin_targets(current_player)
+	var found = false
+	for t in targets:
+		if t.unit_id == target_unit_id:
+			found = true
+			break
+	if not found:
+		errors.append("Unit %s is not an eligible Da Kaptin target" % target_unit_id)
+
+	return errors
+
+func _handle_use_da_kaptin(action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+	var target_unit_id = action.get("target_unit_id", "")
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var result = faction_mgr.use_da_kaptin(current_player, target_unit_id)
+
+	if result.success:
+		log_phase_message("DA KAPTIN: %s suffers %d mortal wounds (%d casualties), no longer Battle-shocked" % [
+			result.target_name, result.mortal_wounds, result.casualties])
+
+		var log_entry = {
+			"type": "USE_DA_KAPTIN",
+			"player": current_player,
+			"target_unit_id": target_unit_id,
+			"d3_roll": result.d3_roll,
+			"mortal_wounds": result.mortal_wounds,
+			"casualties": result.casualties,
 			"turn": GameState.get_battle_round()
 		}
 		GameState.add_action_to_phase_log(log_entry)

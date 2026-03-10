@@ -20,12 +20,12 @@
 - **Validation**: At battle round start, player selects loot objective. Orks Infantry/Mounted/Walker units near it get Sustained Hits 1. Attacks targeting units near it also get Sustained Hits 1. Resets each round. Works for local and cloud-loaded armies.
 
 ### OA-2: Register Freebooter Krew enhancements
-- [ ] Define all 4 enhancement abilities: Da Kaptin, Git-spotter Squig, Bionik Workshop, Razgit's Magik Map
-- [ ] Da Kaptin (10pts, Warboss only): start of any phase, select Battle-shocked friendly ORKS unit within 12" — D3 mortal wounds, no longer Battle-shocked. Once per battle round
-- [ ] Git-spotter Squig (20pts, ORKS model): bearer's unit ranged weapons gain Ignores Cover
-- [ ] Bionik Workshop (15pts, Big Mek or Painboy): at start of battle, roll D3 for random bionik — adds Move, Strength, or WS bonus to bearer's unit
-- [ ] Razgit's Magik Map (25pts, ORKS model): after deployment, redeploy up to 3 Orks Infantry units (can go to Strategic Reserves)
-- [ ] Wire enhancement effects into correct phase triggers
+- [x] Define all 4 enhancement abilities: Da Kaptin, Git-spotter Squig, Bionik Workshop, Razgit's Magik Map
+- [x] Da Kaptin (10pts, Warboss only): start of any phase, select Battle-shocked friendly ORKS unit within 12" — D3 mortal wounds, no longer Battle-shocked. Once per battle round
+- [x] Git-spotter Squig (20pts, ORKS model): bearer's unit ranged weapons gain Ignores Cover
+- [x] Bionik Workshop (15pts, Big Mek or Painboy): at start of battle, roll D3 for random bionik — adds Move, Strength, or WS bonus to bearer's unit
+- [x] Razgit's Magik Map (25pts, ORKS model): after deployment, redeploy up to 3 Orks Infantry units (can go to Strategic Reserves)
+- [x] Wire enhancement effects into correct phase triggers
 - **Files**: UnitAbilityManager.gd, FactionAbilityManager.gd, CommandPhase.gd, DeploymentPhase.gd
 - **Validation**: Each enhancement applies correctly when equipped on valid models. Once-per-round tracking for Da Kaptin. Random roll for Bionik Workshop at battle start. Razgit's Magik Map allows redeployment.
 
