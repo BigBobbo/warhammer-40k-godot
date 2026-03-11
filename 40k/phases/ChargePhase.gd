@@ -521,7 +521,7 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	# Reset ability reroll tracking for this charge attempt
 	ability_reroll_used = false
 
-	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught)
+	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught, Plummeting Descent)
 	var unit_data = get_unit(unit_id)
 	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data)
 
@@ -529,6 +529,9 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 		# Offer free ability reroll first (before Command Re-roll)
 		awaiting_ability_reroll = true
 		ability_reroll_unit_id = unit_id
+
+		# OA-23: Determine which ability granted the charge reroll for display
+		var reroll_ability_name = _get_charge_reroll_ability_name(unit_id)
 
 		var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
 		var needed = max(0.0, min_distance - ENGAGEMENT_RANGE_INCHES)
@@ -542,10 +545,10 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 			"unit_name": unit_name,
 			"context_text": context_text,
 			"min_distance": min_distance,
-			"ability_name": "Swift Onslaught",
+			"ability_name": reroll_ability_name,
 		}
 
-		print("ChargePhase: Ability reroll (Swift Onslaught) available for %s — pausing for player decision" % unit_name)
+		print("ChargePhase: Ability reroll (%s) available for %s — pausing for player decision" % [reroll_ability_name, unit_name])
 		emit_signal("ability_reroll_opportunity", unit_id, get_current_player(), roll_context)
 
 		return create_result(true, [], "", {
@@ -1774,12 +1777,13 @@ func get_available_actions() -> Array:
 
 	# --- Reaction states: these block normal charge actions until resolved ---
 
-	# Ability reroll decision pending (e.g. Swift Onslaught — free reroll)
+	# Ability reroll decision pending (e.g. Swift Onslaught, Plummeting Descent — free reroll)
 	if awaiting_ability_reroll and ability_reroll_unit_id != "":
+		var reroll_ability = _get_charge_reroll_ability_name(ability_reroll_unit_id)
 		actions.append({
 			"type": "USE_ABILITY_REROLL",
 			"actor_unit_id": ability_reroll_unit_id,
-			"description": "Use Swift Onslaught — re-roll charge dice (free)"
+			"description": "Use %s — re-roll charge dice (free)" % reroll_ability
 		})
 		actions.append({
 			"type": "DECLINE_ABILITY_REROLL",
@@ -2098,6 +2102,17 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 					return true
 
 	return false
+
+func _get_charge_reroll_ability_name(unit_id: String) -> String:
+	"""OA-23: Determine which ability granted the charge reroll flag for display purposes."""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		for entry in ability_mgr._active_ability_effects:
+			if entry.get("target_unit_id", "") == unit_id:
+				for effect in entry.get("effects", []):
+					if effect.get("type", "") == "reroll_charge":
+						return entry.get("ability_name", "ability")
+	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:
 	"""Get the minimum edge-to-edge distance (inches) from any charging model to any target model."""

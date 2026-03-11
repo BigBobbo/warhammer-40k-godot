@@ -252,6 +252,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "When Advancing, do not roll — add flat 6\" to Move instead"
 	},
 
+	# OA-23: Boss Zagstruk — re-roll Charge rolls when arriving from Reserves this turn
+	"Plummeting Descent": {
+		"condition": "arrived_from_reserves",
+		"effects": [{"type": "reroll_charge"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Re-roll Charge rolls if this unit was set up from Reserves this turn"
+	},
+
 	# Deffkilla Wartrike — same effect as High-octane Fuel
 	"Fuel-mixa Grot": {
 		"condition": "while_leading",
@@ -938,9 +948,15 @@ func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> voi
 		if not effect_def.get("implemented", false):
 			continue
 
-		# Only handle "always" condition here (leader abilities handled separately)
+		# Handle unit-level conditions (leader abilities handled separately)
 		var condition = effect_def.get("condition", "")
-		if condition != "always":
+		if condition == "arrived_from_reserves":
+			# OA-23: Only apply if unit arrived from reserves THIS battle round
+			var arrival_turn = unit.get("arrived_from_reserves_turn", -1)
+			var current_round = GameState.get_battle_round()
+			if arrival_turn != current_round:
+				continue
+		elif condition != "always":
 			continue
 
 		# Target must be "unit" (self)
@@ -969,7 +985,7 @@ func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> voi
 				"target_unit_id": unit_id,
 				"effects": effects,
 				"attack_type": effect_def.get("attack_type", "all"),
-				"condition": "always"
+				"condition": condition
 			})
 
 			if not _applied_this_phase.has(unit_id):
