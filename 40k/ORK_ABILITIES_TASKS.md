@@ -103,10 +103,10 @@
 - **Validation**: +1 Hit and +1 Wound vs MONSTER/VEHICLE. No bonus vs other types. Applies to all ranged attacks.
 
 ### OA-12: Implement "Dat's Our Loot!" ability for Lootas
-- [ ] Add "Dat's Our Loot!" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Re-roll Hit rolls of 1 on all ranged attacks
-- [ ] Full Hit re-roll when target is within range of an objective marker
-- [ ] Objective proximity check uses correct range calculation
+- [x] Add "Dat's Our Loot!" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Re-roll Hit rolls of 1 on all ranged attacks
+- [x] Full Hit re-roll when target is within range of an objective marker
+- [x] Objective proximity check uses correct range calculation
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: Re-roll 1s on all ranged attacks. Full re-roll vs targets on objectives. Range check correct.
 
