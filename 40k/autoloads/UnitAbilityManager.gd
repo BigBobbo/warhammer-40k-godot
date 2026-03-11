@@ -573,6 +573,21 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Improve AP by 1 for ranged attacks against targets within 9\" — checked directly in RulesEngine save resolution"
 	},
 
+	# Ork Burna Boyz / Skorchas — re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6"
+	# Full Wound re-roll if target is also within range of an objective marker.
+	# Checked directly in RulesEngine where both weapon type and board are available.
+	"Pyromaniaks": {
+		"condition": "target_within_range",
+		"range_inches": 6.0,
+		"effects": [{"type": "reroll_wounds", "scope": "ones"}],
+		"effects_on_objective": [{"type": "reroll_wounds", "scope": "failed"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"weapon_filter": "torrent",
+		"implemented": true,
+		"description": "Re-roll Wound rolls of 1 with Torrent weapons against enemies within 6\". Full Wound re-roll if target is also within range of an objective marker — checked directly in RulesEngine"
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.

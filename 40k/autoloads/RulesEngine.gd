@@ -964,14 +964,35 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 			critical_wound_threshold = mini(critical_wound_threshold, 4)
 			print("RulesEngine: ROLLING LOOT-HEAP (overwatch) — Anti-Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
 
+	# PYROMANIAKS (OA-14): Check for wound re-rolls with Torrent weapons vs enemies within 6" (Overwatch)
+	var ow_pyromaniaks_scope = get_pyromaniaks_reroll_scope(shooter_unit, target_unit, weapon_id, board)
+	if ow_pyromaniaks_scope == "failed":
+		print("RulesEngine: PYROMANIAKS (Overwatch) — full wound re-roll for %s (Torrent weapon, target within 6\" AND near objective)" % shooter_unit_id)
+	elif ow_pyromaniaks_scope == "ones":
+		print("RulesEngine: PYROMANIAKS (Overwatch) — re-roll wound rolls of 1 for %s (Torrent weapon, target within 6\")" % shooter_unit_id)
+
 	var wound_rolls = rng.roll_d6(hits)
 	var wounds = 0
 
 	for roll in wound_rolls:
-		if roll == 1:
+		var effective_roll = roll
+		# PYROMANIAKS (OA-14): Re-roll wound rolls based on scope
+		if ow_pyromaniaks_scope == "ones" and roll == 1:
+			effective_roll = rng.roll_d6(1)[0]
+			print("RulesEngine: PYROMANIAKS (Overwatch) — re-rolled wound 1 → %d" % effective_roll)
+		elif ow_pyromaniaks_scope == "failed" and roll != 1:
+			var is_fail = roll < wound_threshold and roll < critical_wound_threshold
+			if is_fail:
+				effective_roll = rng.roll_d6(1)[0]
+				print("RulesEngine: PYROMANIAKS (Overwatch) — re-rolled failed wound %d → %d" % [roll, effective_roll])
+		elif ow_pyromaniaks_scope == "failed" and roll == 1:
+			effective_roll = rng.roll_d6(1)[0]
+			print("RulesEngine: PYROMANIAKS (Overwatch) — re-rolled wound 1 → %d" % effective_roll)
+
+		if effective_roll == 1:
 			continue  # Unmodified 1 always fails
-		var is_critical_wound = (roll >= critical_wound_threshold)
-		if is_critical_wound or roll >= wound_threshold:
+		var is_critical_wound = (effective_roll >= critical_wound_threshold)
+		if is_critical_wound or effective_roll >= wound_threshold:
 			wounds += 1
 
 	result.dice.append({
@@ -1666,6 +1687,16 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	if has_tank_hunters_vs_target(actor_unit, target_unit):
 		wound_modifiers |= WoundModifier.PLUS_ONE
 		print("RulesEngine: TANK HUNTERS — +1 to wound for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
+
+	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6"
+	# Full Wound re-roll if target is also within range of an objective marker.
+	var pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
+	if pyromaniaks_scope == "failed":
+		wound_modifiers |= WoundModifier.REROLL_FAILED
+		print("RulesEngine: PYROMANIAKS — full wound re-roll for %s (Torrent weapon, target within 6\" AND near objective)" % actor_unit_id)
+	elif pyromaniaks_scope == "ones":
+		wound_modifiers |= WoundModifier.REROLL_ONES
+		print("RulesEngine: PYROMANIAKS — re-roll wound rolls of 1 for %s (Torrent weapon, target within 6\")" % actor_unit_id)
 
 	var wound_modifier_net = 0
 	if wound_modifiers & WoundModifier.PLUS_ONE:
@@ -2396,6 +2427,16 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if has_tank_hunters_vs_target(actor_unit, target_unit):
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
 		print("RulesEngine: TANK HUNTERS (auto-resolve) — +1 to wound for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
+
+	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6" (auto-resolve)
+	# Full Wound re-roll if target is also within range of an objective marker.
+	var ar_pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
+	if ar_pyromaniaks_scope == "failed":
+		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+		print("RulesEngine: PYROMANIAKS (auto-resolve) — full wound re-roll for %s (Torrent weapon, target within 6\" AND near objective)" % actor_unit_id)
+	elif ar_pyromaniaks_scope == "ones":
+		ar_wound_modifiers |= WoundModifier.REROLL_ONES
+		print("RulesEngine: PYROMANIAKS (auto-resolve) — re-roll wound rolls of 1 for %s (Torrent weapon, target within 6\")" % actor_unit_id)
 
 	var ar_wound_modifier_net = 0
 	if ar_wound_modifiers & WoundModifier.PLUS_ONE:
@@ -4970,6 +5011,40 @@ static func get_drive_by_dakka_ap_bonus(actor_unit: Dictionary, target_unit: Dic
 	if is_target_within_range_inches(actor_unit, target_unit, 9.0):
 		return 1
 	return 0
+
+# PYROMANIAKS (OA-14): Check if a unit has the "Pyromaniaks" ability.
+# Returns true if the unit has the ability (Burna Boyz / Skorchas datasheet ability).
+static func has_pyromaniaks(actor_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Pyromaniaks":
+			return true
+	return false
+
+# PYROMANIAKS (OA-14): Get the wound re-roll scope for Pyromaniaks.
+# Only applies to Torrent weapons (burna, Skorcha, etc.) against targets within 6".
+# Returns "failed" if target is within 6" AND within range of any objective marker (full re-roll),
+# "ones" if target is within 6" but not near an objective (re-roll 1s only),
+# or "" if the unit doesn't have the ability, weapon isn't Torrent, or target is beyond 6".
+static func get_pyromaniaks_reroll_scope(actor_unit: Dictionary, target_unit: Dictionary, weapon_id: String, board: Dictionary) -> String:
+	if not has_pyromaniaks(actor_unit):
+		return ""
+	# Only applies to Torrent weapons (burna, Skorcha, etc.)
+	if not is_torrent_weapon(weapon_id, board):
+		return ""
+	# Target must be within 6" of the attacker
+	if not is_target_within_range_inches(actor_unit, target_unit, 6.0):
+		return ""
+	# If target is also within range of any objective marker, allow full re-roll
+	if is_unit_near_any_objective(target_unit, board):
+		return "failed"
+	# Otherwise just re-roll wound rolls of 1
+	return "ones"
 
 # STEALTH (T2-1): Check if a unit has the Stealth ability
 # Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit

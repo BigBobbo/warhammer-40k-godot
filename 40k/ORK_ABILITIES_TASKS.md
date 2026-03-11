@@ -119,9 +119,9 @@
 - **Validation**: AP improved by 1 vs targets within 9". No improvement beyond 9". Works for both units.
 
 ### OA-14: Implement "Pyromaniaks" ability for Burna Boyz and Skorchas
-- [ ] Add "Pyromaniaks" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Re-roll Wound rolls of 1 with burna/Torrent weapons vs enemies within 6"
-- [ ] Full Wound re-roll when target is also within range of an objective marker
+- [x] Add "Pyromaniaks" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Re-roll Wound rolls of 1 with burna/Torrent weapons vs enemies within 6"
+- [x] Full Wound re-roll when target is also within range of an objective marker
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: Re-roll wound 1s vs enemies within 6" with Torrent weapons. Full re-roll if also on objective.
 
