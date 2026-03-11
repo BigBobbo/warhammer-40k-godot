@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gtest=test_prophet_crit_hit.gd", "-gexit"]
+ARGS: ["--script", "tests/unit/test_full_throttle_ability.gd"]
