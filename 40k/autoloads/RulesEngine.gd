@@ -1464,6 +1464,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			indirect_fire_applied = true
 			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s'" % weapon_profile.get("name", weapon_id))
 
+		# TANK HUNTERS (OA-11): +1 to Hit when attacking MONSTER or VEHICLE targets
+		if has_tank_hunters_vs_target(actor_unit, target_unit):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: TANK HUNTERS — +1 to hit for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
+
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -1640,6 +1645,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		if unit_charged:
 			wound_modifiers |= WoundModifier.PLUS_ONE
 			print("RulesEngine: LANCE — +1 to wound (unit charged this turn)")
+
+	# TANK HUNTERS (OA-11): +1 to Wound when attacking MONSTER or VEHICLE targets
+	if has_tank_hunters_vs_target(actor_unit, target_unit):
+		wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: TANK HUNTERS — +1 to wound for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
 
 	var wound_modifier_net = 0
 	if wound_modifiers & WoundModifier.PLUS_ONE:
@@ -2176,6 +2186,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			indirect_fire_applied = true
 			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s'" % weapon_profile.get("name", weapon_id))
 
+		# TANK HUNTERS (OA-11): +1 to Hit when attacking MONSTER or VEHICLE targets (auto-resolve)
+		if has_tank_hunters_vs_target(actor_unit, target_unit):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: TANK HUNTERS (auto-resolve) — +1 to hit for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
+
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -2350,6 +2365,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if unit_charged:
 			ar_wound_modifiers |= WoundModifier.PLUS_ONE
 			print("RulesEngine: LANCE (auto-resolve) — +1 to wound (unit charged this turn)")
+
+	# TANK HUNTERS (OA-11): +1 to Wound when attacking MONSTER or VEHICLE targets (auto-resolve)
+	if has_tank_hunters_vs_target(actor_unit, target_unit):
+		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: TANK HUNTERS (auto-resolve) — +1 to wound for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
 
 	var ar_wound_modifier_net = 0
 	if ar_wound_modifiers & WoundModifier.PLUS_ONE:
@@ -4784,6 +4804,28 @@ static func get_gun_crazy_showoffs_attacks(actor_unit: Dictionary, weapon_id: St
 	else:
 		print("RulesEngine: GUN-CRAZY SHOW-OFFS — %s targeting non-closest enemy with snazzgun → Attacks = 3 (base)" % actor_unit.get("meta", {}).get("name", actor_unit_id))
 		return -1  # Use base attacks (3)
+
+# TANK HUNTERS (OA-11): Check if a unit has the "Tank Hunters" ability
+# and the target is a MONSTER or VEHICLE. If so, returns true indicating
+# +1 to Hit and +1 to Wound should be applied for ranged attacks.
+static func has_tank_hunters_vs_target(actor_unit: Dictionary, target_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Tank Hunters":
+			has_ability = true
+			break
+
+	if not has_ability:
+		return false
+
+	# Check if target is MONSTER or VEHICLE
+	return is_monster_or_vehicle(target_unit)
 
 # STEALTH (T2-1): Check if a unit has the Stealth ability
 # Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit

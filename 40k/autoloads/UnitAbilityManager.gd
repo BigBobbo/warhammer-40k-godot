@@ -533,6 +533,22 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# TARGET-CONDITIONAL ABILITIES — bonuses based on target keywords
+	# These are checked directly in RulesEngine where both attacker and target are known.
+	# ======================================================================
+
+	# Ork Tankbustas — +1 Hit and +1 Wound vs MONSTER or VEHICLE (ranged only)
+	"Tank Hunters": {
+		"condition": "target_has_keyword",
+		"target_keywords": ["MONSTER", "VEHICLE"],
+		"effects": [{"type": "plus_one_hit"}, {"type": "plus_one_wound"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "+1 to Hit and +1 to Wound when making ranged attacks against MONSTER or VEHICLE units — checked directly in RulesEngine"
+	},
+
+	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
 	# ======================================================================

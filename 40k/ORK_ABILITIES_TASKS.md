@@ -95,10 +95,10 @@
 - **Validation**: Once-per-battle per ammo runt. Lethal Hits granted. UI prompt shown. Multiple runts tracked independently.
 
 ### OA-11: Implement "Tank Hunters" ability for Tankbustas
-- [ ] Add "Tank Hunters" to UnitAbilityManager.ABILITY_EFFECTS with target-keyword condition
-- [ ] Apply +1 to Hit roll when attacking MONSTER or VEHICLE targets
-- [ ] Apply +1 to Wound roll when attacking MONSTER or VEHICLE targets
-- [ ] No bonus when attacking other unit types
+- [x] Add "Tank Hunters" to UnitAbilityManager.ABILITY_EFFECTS with target-keyword condition
+- [x] Apply +1 to Hit roll when attacking MONSTER or VEHICLE targets
+- [x] Apply +1 to Wound roll when attacking MONSTER or VEHICLE targets
+- [x] No bonus when attacking other unit types
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: +1 Hit and +1 Wound vs MONSTER/VEHICLE. No bonus vs other types. Applies to all ranged attacks.
 
