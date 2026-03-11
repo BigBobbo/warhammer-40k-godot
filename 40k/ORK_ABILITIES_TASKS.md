@@ -166,9 +166,9 @@
 - **Validation**: D6 mortal wounds on Crit Wound with 'urty syringe. No mortals vs VEHICLE. Weapon-specific.
 
 ### OA-20: Implement "Prophet of Da Great Waaagh!" Crit Hit on 5+ for Ghazghkull
-- [ ] Extend existing "Prophet of Da Great Waaagh!" definition (already has +1 Hit/+1 Wound)
-- [ ] Add Critical Hit on unmodified 5+ when Waaagh! is active
-- [ ] Both +1 Hit/Wound and Crit 5+ apply simultaneously during Waaagh!
+- [x] Extend existing "Prophet of Da Great Waaagh!" definition (already has +1 Hit/+1 Wound)
+- [x] Add Critical Hit on unmodified 5+ when Waaagh! is active
+- [x] Both +1 Hit/Wound and Crit 5+ apply simultaneously during Waaagh!
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: +1 Hit and +1 Wound always active while leading. Crit Hit threshold 5+ during Waaagh!. Both effects stack.
 
