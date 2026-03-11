@@ -573,6 +573,18 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Improve AP by 1 for ranged attacks against targets within 9\" — checked directly in RulesEngine save resolution"
 	},
 
+	# Ork Nobz — subtract 1 from incoming Wound rolls when attack S > unit T,
+	# but only while a Warboss model is leading the unit.
+	# Checked directly in RulesEngine wound modifier collection (all 4 paths).
+	"Da Boss' Ladz": {
+		"condition": "while_warboss_leading",
+		"effects": [{"type": "minus_one_wound_incoming", "requirement": "strength_gt_toughness"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While a Warboss leads this unit, subtract 1 from incoming Wound rolls when attack S > unit T — checked directly in RulesEngine"
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
