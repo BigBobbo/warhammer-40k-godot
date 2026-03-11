@@ -4724,6 +4724,20 @@ static func has_lone_operative(unit: Dictionary) -> bool:
 			return true
 	return false
 
+# OA-19: "Hold Still and Say 'Aargh!'" — Check if unit has this ability (Painboy)
+# On Critical Wound with 'urty syringe vs non-VEHICLE, target suffers D6 mortal wounds
+static func _has_hold_still_ability(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Hold Still and Say 'Aargh!'":
+			return true
+	return false
+
 # CHARACTER TARGETING (SHOOT-1): Check if a CHARACTER unit is "protected" from ranged targeting
 # Per 10e rules: A CHARACTER with Wounds <=9 cannot be targeted by ranged attacks if it is
 # within 3" of a friendly non-CHARACTER unit that has either 3+ models or the VEHICLE/MONSTER keyword,
@@ -6946,6 +6960,11 @@ static func resolve_melee_attacks_interactive(action: Dictionary, board: Diction
 			)
 
 			if save_data.get("success", false):
+				# OA-19: Attach Hold Still mortal wound data to save_data
+				var hs_mw = assignment_result.get("hold_still_mortal_wounds", 0)
+				if hs_mw > 0:
+					save_data["hold_still_mortal_wounds"] = hs_mw
+					print("RulesEngine: P0-58 — Hold Still mortal wounds attached to save data: %d MW" % hs_mw)
 				result.save_data_list.append(save_data)
 				result.has_wounds = true
 				print("RulesEngine: P0-58 — Prepared melee save data: %d wounds for %s from %s" % [
@@ -7420,6 +7439,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var wound_rolls = []
 	var critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
 	var regular_wound_count = 0
+	var all_critical_wound_count = 0  # OA-19: Track ALL critical wounds (for Hold Still and Say 'Aargh!')
 	var melee_wound_reroll_data = []  # Track twin-linked / modifier re-rolls
 
 	if weapon_has_lethal_hits and not is_torrent:
@@ -7449,6 +7469,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 				var melee_is_critical_wound = (unmodified_roll >= melee_critical_wound_threshold)
 				if melee_is_critical_wound or final_wound_roll >= wound_threshold:
 					wounds_from_rolls += 1
+					# OA-19: Track all critical wounds for Hold Still ability
+					if melee_is_critical_wound:
+						all_critical_wound_count += 1
 					if weapon_has_devastating_wounds and melee_is_critical_wound:
 						critical_wound_count += 1
 					else:
@@ -7477,6 +7500,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 				var melee_is_critical_wound = (unmodified_roll >= melee_critical_wound_threshold)
 				if melee_is_critical_wound or final_wound_roll >= wound_threshold:
 					wounds_from_rolls += 1
+					# OA-19: Track all critical wounds for Hold Still ability
+					if melee_is_critical_wound:
+						all_critical_wound_count += 1
 					if weapon_has_devastating_wounds and melee_is_critical_wound:
 						critical_wound_count += 1
 					else:
@@ -7540,6 +7566,17 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		result["attacker_name"] = attacker_name
 		result["weapon_name"] = weapon_name
 		result["stop_before_saves"] = true
+		# OA-19: Compute Hold Still mortal wound count for interactive path
+		var hs_mw_count = 0
+		if all_critical_wound_count > 0 and _has_hold_still_ability(attacker_unit):
+			if weapon_name.to_lower().contains("urty syringe"):
+				if not unit_has_keyword(target_unit, "VEHICLE"):
+					for _hs_i in range(all_critical_wound_count):
+						hs_mw_count += rng.roll_d6(1)[0]
+					print("RulesEngine: HOLD STILL AND SAY 'AARGH!' (interactive) — %d critical wound(s), %d mortal wounds pending" % [all_critical_wound_count, hs_mw_count])
+				else:
+					print("RulesEngine: HOLD STILL AND SAY 'AARGH!' (interactive) — target %s is VEHICLE, excluded" % target_name)
+		result["hold_still_mortal_wounds"] = hs_mw_count
 		# Build log text for the hit/wound portion
 		var hw_parts = []
 		hw_parts.append("Melee: %s (%s) → %s" % [attacker_name, weapon_name, target_name])
@@ -7868,6 +7905,26 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			damage_result["casualties"] += reg_result.get("casualties", 0)
 			damage_result["damage_applied"] += reg_result.get("damage_applied", 0)
 
+	# ===== OA-19: HOLD STILL AND SAY 'AARGH!' — MORTAL WOUNDS ON CRITICAL WOUND =====
+	# After normal damage, apply D6 mortal wounds per critical wound with 'urty syringe
+	# Excludes VEHICLE targets. Only triggers for 'urty syringe weapon.
+	var hold_still_mortal_wounds = 0
+	var hold_still_mw_casualties = 0
+	if all_critical_wound_count > 0 and _has_hold_still_ability(attacker_unit):
+		if weapon_name.to_lower().contains("urty syringe"):
+			if not unit_has_keyword(target_unit, "VEHICLE"):
+				for _crit_i in range(all_critical_wound_count):
+					hold_still_mortal_wounds += rng.roll_d6(1)[0]
+				print("RulesEngine: HOLD STILL AND SAY 'AARGH!' — %d critical wound(s) with '%s', %d mortal wounds vs %s" % [all_critical_wound_count, weapon_name, hold_still_mortal_wounds, target_name])
+				if hold_still_mortal_wounds > 0:
+					var hs_mw_result = apply_mortal_wounds(target_id, hold_still_mortal_wounds, board, rng)
+					result.diffs.append_array(hs_mw_result.get("diffs", []))
+					hold_still_mw_casualties = hs_mw_result.get("casualties", 0)
+					damage_result["casualties"] += hold_still_mw_casualties
+					print("RulesEngine: HOLD STILL — %d mortal wounds applied (%d casualties)" % [hold_still_mortal_wounds, hold_still_mw_casualties])
+			else:
+				print("RulesEngine: HOLD STILL AND SAY 'AARGH!' — target %s is VEHICLE, mortal wounds excluded" % target_name)
+
 	# ===== BUILD LOG TEXT (verbose with dice rolls) =====
 	var log_parts = []
 	var eligibility_text = ""
@@ -7913,6 +7970,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var prevented = total_damage - actual_damage
 		if prevented > 0:
 			log_parts.append("FNP %d+ prevented %d" % [fnp_value, prevented])
+
+	# OA-19: Add Hold Still mortal wound info to log
+	if hold_still_mortal_wounds > 0:
+		log_parts.append("HOLD STILL: %d MW (%d slain)" % [hold_still_mortal_wounds, hold_still_mw_casualties])
 
 	result.log_text = " - ".join(log_parts)
 

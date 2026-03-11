@@ -646,6 +646,20 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Feel No Pain 5+ while Waaagh! is active — applied via FactionAbilityManager Waaagh! activation"
 	},
 
+	# Ork Painboy — D6 mortal wounds on Critical Wound with 'urty syringe vs non-VEHICLE (OA-19)
+	# Checked in RulesEngine._resolve_melee_assignment() after wound rolls.
+	# Only triggers for the 'urty syringe weapon, not other Painboy attacks.
+	"Hold Still and Say 'Aargh!'": {
+		"condition": "on_critical_wound",
+		"effects": [{"type": "mortal_wounds_d6"}],
+		"target": "attacked_enemy",
+		"attack_type": "melee",
+		"weapon_restriction": "'urty syringe",
+		"exclude_keywords": ["VEHICLE"],
+		"implemented": true,
+		"description": "On Critical Wound with 'urty syringe, target suffers D6 mortal wounds (excludes VEHICLE)"
+	},
+
 	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
@@ -1589,6 +1603,21 @@ func has_throat_slittas_ability(unit_id: String) -> bool:
 		var ability_name = _get_ability_name(ability)
 		if ability_name == "Throat Slittas":
 			print("UnitAbilityManager: Unit %s has Throat Slittas ability" % unit_id)
+			return true
+	return false
+
+func has_hold_still_ability(unit_id: String) -> bool:
+	"""Check if a unit has the 'Hold Still and Say Aargh!' ability (e.g. Painboy).
+	Used by RulesEngine to trigger D6 mortal wounds on Critical Wound with 'urty syringe."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Hold Still and Say 'Aargh!'":
+			print("UnitAbilityManager: Unit %s has Hold Still and Say 'Aargh!' ability" % unit_id)
 			return true
 	return false
 
