@@ -573,6 +573,18 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Improve AP by 1 for ranged attacks against targets within 9\" — checked directly in RulesEngine save resolution"
 	},
 
+	# Ork Dakkajet — every successful Hit roll scores a Critical Hit (ranged only)
+	# Sustained Hits and Lethal Hits trigger on every successful hit.
+	# Checked directly in RulesEngine hit resolution (interactive + auto-resolve paths).
+	"Dakkastorm": {
+		"condition": "always",
+		"effects": [{"type": "all_hits_critical"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Every successful Hit roll scores a Critical Hit (ranged attacks only) — checked directly in RulesEngine"
+	},
+
 	# Ork Nobz — subtract 1 from incoming Wound rolls when attack S > unit T,
 	# but only while a Warboss model is leading the unit.
 	# Checked directly in RulesEngine wound modifier collection (all 4 paths).

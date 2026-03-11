@@ -1529,6 +1529,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				else:
 					regular_hits += 1
 
+		# DAKKASTORM (OA-16): Every successful Hit roll scores a Critical Hit (ranged only)
+		if has_dakkastorm(actor_unit) and regular_hits > 0:
+			print("RulesEngine: DAKKASTORM — converting %d regular hits to critical hits for %s" % [regular_hits, actor_unit_id])
+			critical_hits += regular_hits
+			regular_hits = 0
+
 		# Check for Lethal Hits keyword
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
 		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
@@ -1591,7 +1597,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			"blast_weapon": is_blast_weapon(weapon_id, board) or deck_fraggers_blast,
 			"blast_bonus_attacks": blast_bonus_attacks,
 			"target_model_count": target_model_count,
-			"deck_fraggers_blast": deck_fraggers_blast
+			"deck_fraggers_blast": deck_fraggers_blast,
+			# DAKKASTORM (OA-16)
+			"dakkastorm_active": has_dakkastorm(actor_unit)
 		})
 
 	if hits == 0 and sustained_bonus_hits == 0:
@@ -2268,6 +2276,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				else:
 					regular_hits += 1
 
+		# DAKKASTORM (OA-16): Every successful Hit roll scores a Critical Hit (ranged only, auto-resolve)
+		if has_dakkastorm(actor_unit) and regular_hits > 0:
+			print("RulesEngine: DAKKASTORM (auto-resolve) — converting %d regular hits to critical hits for %s" % [regular_hits, actor_unit_id])
+			critical_hits += regular_hits
+			regular_hits = 0
+
 		# Check for Lethal Hits keyword
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
 		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
@@ -2330,7 +2344,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			"blast_weapon": is_blast_weapon(weapon_id, board) or deck_fraggers_blast,
 			"blast_bonus_attacks": blast_bonus_attacks,
 			"target_model_count": target_model_count,
-			"deck_fraggers_blast": deck_fraggers_blast
+			"deck_fraggers_blast": deck_fraggers_blast,
+			# DAKKASTORM (OA-16)
+			"dakkastorm_active": has_dakkastorm(actor_unit)
 		})
 
 	if hits == 0 and sustained_bonus_hits == 0:
@@ -4991,6 +5007,20 @@ static func get_drive_by_dakka_ap_bonus(actor_unit: Dictionary, target_unit: Dic
 	if is_target_within_range_inches(actor_unit, target_unit, 9.0):
 		return 1
 	return 0
+
+# DAKKASTORM (OA-16): Check if a unit has the "Dakkastorm" ability (Dakkajet).
+# Every successful Hit roll scores a Critical Hit for ranged attacks.
+static func has_dakkastorm(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Dakkastorm":
+			return true
+	return false
 
 # DA BOSS' LADZ (OA-15): Check if a unit has the "Da Boss' Ladz" ability.
 # Returns true if the unit has the ability (Nobz datasheet ability).
