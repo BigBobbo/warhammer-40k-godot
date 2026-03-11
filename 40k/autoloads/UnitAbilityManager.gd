@@ -548,6 +548,20 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "+1 to Hit and +1 to Wound when making ranged attacks against MONSTER or VEHICLE units — checked directly in RulesEngine"
 	},
 
+	# Ork Lootas — re-roll Hit rolls of 1 on ranged attacks; full Hit re-roll
+	# if target is within range of any objective marker.
+	# Checked directly in RulesEngine._resolve_assignment_until_wounds() and
+	# _resolve_assignment() where both attacker and target + board are available.
+	"Dat's Our Loot!": {
+		"condition": "target_near_objective",
+		"effects": [{"type": "reroll_hits", "scope": "ones"}],
+		"effects_on_objective": [{"type": "reroll_hits", "scope": "failed"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Re-roll Hit rolls of 1 on ranged attacks. Full Hit re-roll if target is within range of an objective marker — checked directly in RulesEngine"
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.

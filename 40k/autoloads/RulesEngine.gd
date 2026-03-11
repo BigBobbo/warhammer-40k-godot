@@ -1469,6 +1469,16 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: TANK HUNTERS — +1 to hit for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
 
+		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
+		# full Hit re-roll if target is within range of any objective marker.
+		var dats_our_loot_scope = get_dats_our_loot_reroll_scope(actor_unit, target_unit, board)
+		if dats_our_loot_scope == "failed":
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: DAT'S OUR LOOT! — full hit re-roll for %s (target near objective)" % actor_unit_id)
+		elif dats_our_loot_scope == "ones":
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: DAT'S OUR LOOT! — re-roll hit rolls of 1 for %s" % actor_unit_id)
+
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -2190,6 +2200,16 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if has_tank_hunters_vs_target(actor_unit, target_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: TANK HUNTERS (auto-resolve) — +1 to hit for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
+
+		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
+		# full Hit re-roll if target is within range of any objective marker (auto-resolve).
+		var dats_our_loot_scope_ar = get_dats_our_loot_reroll_scope(actor_unit, target_unit, board)
+		if dats_our_loot_scope_ar == "failed":
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: DAT'S OUR LOOT! (auto-resolve) — full hit re-roll for %s (target near objective)" % actor_unit_id)
+		elif dats_our_loot_scope_ar == "ones":
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: DAT'S OUR LOOT! (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -4826,6 +4846,74 @@ static func has_tank_hunters_vs_target(actor_unit: Dictionary, target_unit: Dict
 
 	# Check if target is MONSTER or VEHICLE
 	return is_monster_or_vehicle(target_unit)
+
+# DAT'S OUR LOOT! (OA-12): Check if a unit has the "Dat's Our Loot!" ability.
+# Returns true if the unit has the ability (Lootas datasheet ability).
+static func has_dats_our_loot(actor_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Dat's Our Loot!":
+			return true
+	return false
+
+# DAT'S OUR LOOT! (OA-12): Check if a target unit is within range of ANY objective marker.
+# "Within range" means any alive model in the unit has its base edge within the objective
+# control range (3" + 20mm objective marker radius = 3.787").
+# This is used to determine whether the full re-roll (vs re-roll 1s) applies.
+static func is_unit_near_any_objective(unit: Dictionary, board: Dictionary) -> bool:
+	var objectives = board.get("board", {}).get("objectives", [])
+	if objectives.is_empty():
+		return false
+
+	# Objective control range: 3" + 20mm marker base radius = 3.78740157"
+	var control_range_px = 3.78740157 * 40.0  # PX_PER_INCH = 40.0
+
+	for obj in objectives:
+		var obj_pos = obj.get("position", null)
+		if obj_pos == null:
+			continue
+		if obj_pos is Dictionary:
+			obj_pos = Vector2(obj_pos.get("x", 0), obj_pos.get("y", 0))
+		elif not (obj_pos is Vector2):
+			continue
+
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var model_pos = model.get("position", null)
+			if model_pos == null:
+				continue
+			if model_pos is Dictionary:
+				model_pos = Vector2(model_pos.get("x", 0), model_pos.get("y", 0))
+			elif not (model_pos is Vector2):
+				continue
+
+			# Edge-to-edge: subtract model's base radius from center-to-center distance
+			var base_mm = model.get("base_mm", 32)
+			var base_radius_px = (base_mm / 25.4) * 40.0 / 2.0
+			var center_distance = model_pos.distance_to(obj_pos)
+			var edge_distance = max(0.0, center_distance - base_radius_px)
+
+			if edge_distance <= control_range_px:
+				return true
+
+	return false
+
+# DAT'S OUR LOOT! (OA-12): Get the re-roll scope for a Lootas unit's ranged attacks.
+# Returns "failed" if target is within range of any objective marker (full re-roll),
+# "ones" if the unit has the ability but target is not near an objective,
+# or "" if the unit doesn't have the ability.
+static func get_dats_our_loot_reroll_scope(actor_unit: Dictionary, target_unit: Dictionary, board: Dictionary) -> String:
+	if not has_dats_our_loot(actor_unit):
+		return ""
+	if is_unit_near_any_objective(target_unit, board):
+		return "failed"
+	return "ones"
 
 # STEALTH (T2-1): Check if a unit has the Stealth ability
 # Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit
