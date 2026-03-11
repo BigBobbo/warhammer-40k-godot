@@ -111,10 +111,10 @@
 - **Validation**: Re-roll 1s on all ranged attacks. Full re-roll vs targets on objectives. Range check correct.
 
 ### OA-13: Implement "Drive-by Dakka" ability for Warbikers and Wartrakks
-- [ ] Add "Drive-by Dakka" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Improve AP by 1 for ranged attacks against targets within 9"
-- [ ] No AP improvement for targets beyond 9"
-- [ ] Applies to both Warbikers and Wartrakks
+- [x] Add "Drive-by Dakka" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Improve AP by 1 for ranged attacks against targets within 9"
+- [x] No AP improvement for targets beyond 9"
+- [x] Applies to both Warbikers and Wartrakks
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: AP improved by 1 vs targets within 9". No improvement beyond 9". Works for both units.
 
