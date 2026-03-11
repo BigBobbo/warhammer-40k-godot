@@ -1603,6 +1603,21 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 	else:
 		GameEventLog.add_combat_result("  Result: No models destroyed")
 
+	# OA-19: Apply Hold Still and Say 'Aargh!' mortal wounds after saves
+	for sd in pending_melee_save_data:
+		var hs_mw = sd.get("hold_still_mortal_wounds", 0)
+		if hs_mw > 0:
+			var hs_target_id = sd.get("target_unit_id", "")
+			var hs_target_name = sd.get("target_unit_name", "Unknown")
+			print("[FightPhase] OA-19: HOLD STILL AND SAY 'AARGH!' — applying %d mortal wounds to %s" % [hs_mw, hs_target_name])
+			var hs_rng = RulesEngine.RNGService.new()
+			var hs_result = RulesEngine.apply_mortal_wounds(hs_target_id, hs_mw, game_state_snapshot, hs_rng)
+			all_diffs.append_array(hs_result.get("diffs", []))
+			var hs_casualties = hs_result.get("casualties", 0)
+			total_casualties += hs_casualties
+			GameEventLog.add_combat_result("  Hold Still and Say 'Aargh!': %d mortal wounds → %s (%d slain)" % [hs_mw, hs_target_name, hs_casualties])
+			log_phase_message("Hold Still and Say 'Aargh!': %d mortal wounds → %s (%d casualties)" % [hs_mw, hs_target_name, hs_casualties])
+
 	# Clear pending state
 	awaiting_melee_saves = false
 	pending_melee_save_data.clear()

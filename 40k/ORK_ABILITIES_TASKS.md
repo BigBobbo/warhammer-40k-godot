@@ -158,10 +158,10 @@
 - **Validation**: 4+ invuln vs ranged attacks. No invuln in melee. Only when Big Mek leads.
 
 ### OA-19: Implement "Hold Still and Say 'Aargh!'" ability for Painboy
-- [ ] Add ability to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] On Critical Wound with 'urty syringe, target suffers D6 mortal wounds
-- [ ] Exclude VEHICLE targets from mortal wound effect
-- [ ] Only applies to 'urty syringe weapon, not all Painboy attacks
+- [x] Add ability to UnitAbilityManager.ABILITY_EFFECTS
+- [x] On Critical Wound with 'urty syringe, target suffers D6 mortal wounds
+- [x] Exclude VEHICLE targets from mortal wound effect
+- [x] Only applies to 'urty syringe weapon, not all Painboy attacks
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: D6 mortal wounds on Crit Wound with 'urty syringe. No mortals vs VEHICLE. Weapon-specific.
 
