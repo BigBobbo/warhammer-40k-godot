@@ -447,6 +447,15 @@ func _apply_waaagh_effects(player: int) -> void:
 		# Advance and charge eligibility
 		unit["flags"]["effect_advance_and_charge"] = true
 
+		# OA-17: Krumpin' Time — FNP 5+ while Waaagh! active (Meganobz)
+		if _unit_has_ability(unit, "Krumpin' Time"):
+			# Only set FNP if no better (lower) FNP already present
+			var current_fnp = unit["flags"].get("effect_fnp", 0)
+			if current_fnp == 0 or 5 <= current_fnp:
+				unit["flags"]["effect_fnp"] = 5
+				unit["flags"]["effect_fnp_source"] = "Krumpin' Time"
+				print("FactionAbilityManager: Krumpin' Time FNP 5+ applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		print("FactionAbilityManager: Waaagh! effects applied to %s (%s) — 5+ invuln, advance+charge" % [unit_name, unit_id])
 
@@ -467,11 +476,20 @@ func _clear_waaagh_effects(player: int) -> void:
 			if flags.get("effect_invuln", 0) == 5:
 				flags.erase("effect_invuln")
 				flags.erase("effect_invuln_source")
+			# OA-17: Only clear FNP if it was from Krumpin' Time (don't clobber other sources)
+			if flags.get("effect_fnp_source", "") == "Krumpin' Time":
+				flags.erase("effect_fnp")
+				flags.erase("effect_fnp_source")
+				print("FactionAbilityManager: Krumpin' Time FNP 5+ cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			print("FactionAbilityManager: Waaagh! effects cleared from %s (%s)" % [unit_name, unit_id])
 
 func _unit_has_waaagh_ability(unit: Dictionary) -> bool:
 	"""Check if a unit has the Waaagh! faction ability."""
+	return _unit_has_ability(unit, "Waaagh!")
+
+func _unit_has_ability(unit: Dictionary, target_ability_name: String) -> bool:
+	"""Check if a unit has a specific ability by name."""
 	var abilities = unit.get("meta", {}).get("abilities", [])
 	for ability in abilities:
 		var ability_name = ""
@@ -479,7 +497,7 @@ func _unit_has_waaagh_ability(unit: Dictionary) -> bool:
 			ability_name = ability
 		elif ability is Dictionary:
 			ability_name = ability.get("name", "")
-		if ability_name == "Waaagh!":
+		if ability_name == target_ability_name:
 			return true
 	return false
 

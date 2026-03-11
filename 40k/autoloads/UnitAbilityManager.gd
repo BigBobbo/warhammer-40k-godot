@@ -624,6 +624,18 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Weapon damage = 3 while Waaagh! active — applied in RulesEngine melee resolution"
 	},
 
+	# Ork Meganobz — Feel No Pain 5+ while Waaagh! is active (OA-17)
+	# Applied/cleared by FactionAbilityManager._apply_waaagh_effects / _clear_waaagh_effects
+	# Does not stack with other FNP sources — get_unit_fnp() uses the better (lower) value
+	"Krumpin' Time": {
+		"condition": "waaagh_active",
+		"effects": [{"type": "grant_fnp", "value": 5}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Feel No Pain 5+ while Waaagh! is active — applied via FactionAbilityManager Waaagh! activation"
+	},
+
 	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
