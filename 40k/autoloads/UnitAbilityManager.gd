@@ -103,6 +103,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Re-roll ranged Hit rolls of 1 for led unit"
 	},
 
+	# Ork Big Mek — Kustom Force Field wargear: 4+ invulnerable save vs ranged attacks
+	"Kustom Force Field": {
+		"condition": "while_leading",
+		"effects": [{"type": "grant_invuln", "value": 4}],
+		"target": "led_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "4+ invulnerable save against ranged attacks for led unit"
+	},
+
 	# Ork Kaptin Badrukk — re-roll Hit rolls (all, ranged)
 	"Flashiest Gitz": {
 		"condition": "while_leading",
@@ -821,6 +831,16 @@ func _apply_leader_abilities(bodyguard_unit_id: String, bodyguard_unit: Dictiona
 			if not diffs.is_empty():
 				PhaseManager.apply_state_changes(diffs)
 
+				# Set invuln source for logging/UI if this ability grants an invuln save
+				for eff in effects:
+					if eff.get("type", "") == "grant_invuln":
+						PhaseManager.apply_state_changes([{
+							"op": "set",
+							"path": "units.%s.flags.effect_invuln_source" % bodyguard_unit_id,
+							"value": ability_name
+						}])
+						break
+
 				# Track the active effect
 				_active_ability_effects.append({
 					"ability_name": ability_name,
@@ -1458,6 +1478,14 @@ func _clear_all_ability_effects() -> void:
 
 		var flags = unit.get("flags", {})
 		EffectPrimitivesData.clear_effects(effects, target_unit_id, flags)
+
+		# Clear invuln source if this ability granted an invuln save
+		for eff in effects:
+			if eff.get("type", "") == "grant_invuln":
+				if flags.has("effect_invuln_source"):
+					flags.erase("effect_invuln_source")
+					print("EffectPrimitives: Cleared effect_invuln_source from %s" % target_unit_id)
+				break
 
 	_active_ability_effects.clear()
 	_applied_this_phase.clear()

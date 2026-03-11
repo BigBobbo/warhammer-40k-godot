@@ -150,10 +150,10 @@
 - **Validation**: FNP 5+ when Waaagh! active. No FNP when inactive. No stacking.
 
 ### OA-18: Implement "Kustom Force Field" wargear for Big Mek
-- [ ] Add "Kustom Force Field" to UnitAbilityManager.ABILITY_EFFECTS (condition: while_leading)
-- [ ] Grant 4+ invulnerable save to led unit against ranged attacks only
-- [ ] Does not apply in melee
-- [ ] Only active when Big Mek is alive and attached as leader
+- [x] Add "Kustom Force Field" to UnitAbilityManager.ABILITY_EFFECTS (condition: while_leading)
+- [x] Grant 4+ invulnerable save to led unit against ranged attacks only
+- [x] Does not apply in melee
+- [x] Only active when Big Mek is alive and attached as leader
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: 4+ invuln vs ranged attacks. No invuln in melee. Only when Big Mek leads.
 
