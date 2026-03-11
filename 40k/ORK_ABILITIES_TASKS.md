@@ -126,10 +126,10 @@
 - **Validation**: Re-roll wound 1s vs enemies within 6" with Torrent weapons. Full re-roll if also on objective.
 
 ### OA-15: Implement "Da Boss' Ladz" ability for Nobz
-- [ ] Add "Da Boss' Ladz" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Apply -1 to incoming Wound rolls when attack Strength > unit Toughness
-- [ ] Only active when a Warboss model is leading the Nobz unit
-- [ ] No effect when S <= T or no Warboss attached
+- [x] Add "Da Boss' Ladz" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Apply -1 to incoming Wound rolls when attack Strength > unit Toughness
+- [x] Only active when a Warboss model is leading the Nobz unit
+- [x] No effect when S <= T or no Warboss attached
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: -1 Wound roll when S > T and Warboss leads. No effect when S <= T or no Warboss.
 

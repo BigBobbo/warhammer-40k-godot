@@ -964,14 +964,22 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 			critical_wound_threshold = mini(critical_wound_threshold, 4)
 			print("RulesEngine: ROLLING LOOT-HEAP (overwatch) — Anti-Vehicle 4+ active (critical wound threshold %d+)" % critical_wound_threshold)
 
+	# DA BOSS' LADZ (OA-15): -1 to incoming Wound rolls when S > T and Warboss leads target unit (overwatch)
+	var ow_da_boss_ladz_mod = get_da_boss_ladz_wound_modifier(target_unit, board, strength, toughness)
+	var ow_wound_modifier = 0
+	if ow_da_boss_ladz_mod == WoundModifier.MINUS_ONE:
+		ow_wound_modifier = -1
+		print("RulesEngine: DA BOSS' LADZ (overwatch) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
+
 	var wound_rolls = rng.roll_d6(hits)
 	var wounds = 0
 
 	for roll in wound_rolls:
 		if roll == 1:
 			continue  # Unmodified 1 always fails
-		var is_critical_wound = (roll >= critical_wound_threshold)
-		if is_critical_wound or roll >= wound_threshold:
+		var modified_roll = roll + ow_wound_modifier
+		var is_critical_wound = (roll >= critical_wound_threshold)  # Critical check on unmodified roll
+		if is_critical_wound or modified_roll >= wound_threshold:
 			wounds += 1
 
 	result.dice.append({
@@ -980,7 +988,8 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		"threshold": str(wound_threshold) + "+",
 		"rolls_raw": wound_rolls,
 		"successes": wounds,
-		"overwatch": true
+		"overwatch": true,
+		"wound_modifier": ow_wound_modifier
 	})
 
 	result.wounds = wounds
@@ -1666,6 +1675,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	if has_tank_hunters_vs_target(actor_unit, target_unit):
 		wound_modifiers |= WoundModifier.PLUS_ONE
 		print("RulesEngine: TANK HUNTERS — +1 to wound for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
+
+	# DA BOSS' LADZ (OA-15): -1 to incoming Wound rolls when S > T and Warboss leads target unit
+	var da_boss_ladz_mod = get_da_boss_ladz_wound_modifier(target_unit, board, strength, toughness)
+	if da_boss_ladz_mod != WoundModifier.NONE:
+		wound_modifiers |= da_boss_ladz_mod
+		print("RulesEngine: DA BOSS' LADZ — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
 
 	var wound_modifier_net = 0
 	if wound_modifiers & WoundModifier.PLUS_ONE:
@@ -2396,6 +2411,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if has_tank_hunters_vs_target(actor_unit, target_unit):
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
 		print("RulesEngine: TANK HUNTERS (auto-resolve) — +1 to wound for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
+
+	# DA BOSS' LADZ (OA-15): -1 to incoming Wound rolls when S > T and Warboss leads target unit (auto-resolve)
+	var ar_da_boss_ladz_mod = get_da_boss_ladz_wound_modifier(target_unit, board, strength, toughness)
+	if ar_da_boss_ladz_mod != WoundModifier.NONE:
+		ar_wound_modifiers |= ar_da_boss_ladz_mod
+		print("RulesEngine: DA BOSS' LADZ (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
 
 	var ar_wound_modifier_net = 0
 	if ar_wound_modifiers & WoundModifier.PLUS_ONE:
@@ -4971,6 +4992,55 @@ static func get_drive_by_dakka_ap_bonus(actor_unit: Dictionary, target_unit: Dic
 		return 1
 	return 0
 
+# DA BOSS' LADZ (OA-15): Check if a unit has the "Da Boss' Ladz" ability.
+# Returns true if the unit has the ability (Nobz datasheet ability).
+static func has_da_boss_ladz(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Da Boss' Ladz":
+			return true
+	return false
+
+# DA BOSS' LADZ (OA-15): Check if a Warboss model is leading the given unit.
+# A Warboss is identified by the WARBOSS keyword on an attached CHARACTER unit.
+# Returns true if at least one alive Warboss model is attached as leader.
+static func is_warboss_leading_unit(unit: Dictionary, board: Dictionary) -> bool:
+	var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+	if attached_chars.is_empty():
+		return false
+	var units = board.get("units", {})
+	for char_id in attached_chars:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty():
+			continue
+		# Check if character has WARBOSS keyword
+		if not unit_has_keyword(char_unit, "WARBOSS"):
+			continue
+		# Check if at least one model in the character unit is alive
+		var char_models = char_unit.get("models", [])
+		for char_model in char_models:
+			if char_model.get("alive", true):
+				return true
+	return false
+
+# DA BOSS' LADZ (OA-15): Get wound modifier for Da Boss' Ladz.
+# Returns WoundModifier.MINUS_ONE if the target unit has "Da Boss' Ladz", a Warboss is
+# leading it, and the attack Strength is greater than the unit's Toughness.
+# Otherwise returns WoundModifier.NONE.
+static func get_da_boss_ladz_wound_modifier(target_unit: Dictionary, board: Dictionary, strength: int, toughness: int) -> int:
+	if not has_da_boss_ladz(target_unit):
+		return WoundModifier.NONE
+	if strength <= toughness:
+		return WoundModifier.NONE
+	if not is_warboss_leading_unit(target_unit, board):
+		return WoundModifier.NONE
+	return WoundModifier.MINUS_ONE
+
 # STEALTH (T2-1): Check if a unit has the Stealth ability
 # Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit
 # Abilities can be stored as strings ("Stealth") or dicts ({"name": "Stealth", ...})
@@ -7298,6 +7368,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if unit_charged:
 			melee_wound_modifiers |= WoundModifier.PLUS_ONE
 			print("RulesEngine: LANCE (melee) — +1 to wound (unit charged this turn)")
+
+	# DA BOSS' LADZ (OA-15): -1 to incoming Wound rolls when S > T and Warboss leads target unit (melee)
+	var melee_da_boss_ladz_mod = get_da_boss_ladz_wound_modifier(target_unit, board, strength, toughness)
+	if melee_da_boss_ladz_mod != WoundModifier.NONE:
+		melee_wound_modifiers |= melee_da_boss_ladz_mod
+		print("RulesEngine: DA BOSS' LADZ (melee) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_id, strength, toughness])
 
 	var melee_wound_modifier_net = 0
 	if melee_wound_modifiers & WoundModifier.PLUS_ONE:
