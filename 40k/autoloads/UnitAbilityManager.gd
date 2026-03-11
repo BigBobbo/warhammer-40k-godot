@@ -262,6 +262,17 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Re-roll Charge rolls if this unit was set up from Reserves this turn"
 	},
 
+	# OA-24: Boss Snikrot — once per battle, redeploy unit instead of Normal move
+	"Kunnin' Infiltrator": {
+		"condition": "instead_of_normal_move",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: instead of Normal move, remove unit and redeploy 9\"+ from all enemies"
+	},
+
 	# Deffkilla Wartrike — same effect as High-octane Fuel
 	"Fuel-mixa Grot": {
 		"condition": "while_leading",
@@ -1944,6 +1955,24 @@ func has_bomb_squigs(unit_id: String) -> bool:
 				return true
 			else:
 				print("UnitAbilityManager: Unit %s has Bomb Squigs but already used this battle" % unit_id)
+	return false
+
+func has_kunnin_infiltrator(unit_id: String) -> bool:
+	"""Check if a unit has the Kunnin' Infiltrator ability (Boss Snikrot).
+	Used by MovementPhase to offer once-per-battle redeployment instead of Normal move."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Kunnin' Infiltrator":
+			if not is_once_per_battle_used(unit_id, "Kunnin' Infiltrator"):
+				print("UnitAbilityManager: Unit %s has unused Kunnin' Infiltrator" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Kunnin' Infiltrator but already used this battle" % unit_id)
 	return false
 
 func has_sawbonez(unit_id: String) -> bool:

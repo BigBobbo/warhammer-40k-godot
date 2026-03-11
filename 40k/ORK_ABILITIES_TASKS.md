@@ -197,10 +197,10 @@
 - **Validation**: Charge re-rolls available when arriving from Reserves. No re-roll later turns.
 
 ### OA-24: Implement "Kunnin' Infiltrator" ability for Boss Snikrot
-- [ ] Add "Kunnin' Infiltrator" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Once per battle, in Movement phase, remove unit and redeploy 9"+ from all enemies
-- [ ] Track once-per-battle usage
-- [ ] Add UI for redeployment placement
+- [x] Add "Kunnin' Infiltrator" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Once per battle, in Movement phase, remove unit and redeploy 9"+ from all enemies
+- [x] Track once-per-battle usage
+- [x] Add UI for redeployment placement
 - **Files**: UnitAbilityManager.gd, MovementPhase.gd, MovementController.gd
 - **Validation**: Once per battle teleport. Must be 9"+ from enemies. Usage tracked.
 

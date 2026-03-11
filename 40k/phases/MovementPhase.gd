@@ -23,6 +23,7 @@ signal bomb_squigs_available(unit_id: String, player: int, eligible_targets: Arr
 signal bomb_squigs_result(unit_id: String, results: Dictionary)
 signal surge_move_completed(unit_id: String, distance_moved: float)
 signal krump_and_run_opportunity(player: int, eligible_units: Array, fell_back_unit_id: String)
+signal kunnin_infiltrator_available(unit_id: String, player: int)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
@@ -83,6 +84,10 @@ var _krump_and_run_pending_after_overwatch: bool = false  # Defer K&R check unti
 var _krump_and_run_pending_fell_back_id: String = ""      # Fell-back unit ID for deferred check
 var _engagement_at_phase_start: Dictionary = {}   # unit_id -> [enemy_unit_ids] at phase start
 var _reactive_move_owner: int = 0                 # Override player for engagement checks during reactive moves
+
+# Kunnin' Infiltrator state tracking (OA-24)
+var _kunnin_infiltrator_pending: bool = false       # Waiting for redeployment placement
+var _kunnin_infiltrator_unit_id: String = ""        # Unit being redeployed
 
 # Calculate pivot value for a unit based on base type and keywords (10e Core Rules Update)
 # - Non-round base, non-Monster/Vehicle: 1"
@@ -184,6 +189,8 @@ func _on_phase_enter() -> void:
 	_krump_and_run_pending_after_overwatch = false
 	_krump_and_run_pending_fell_back_id = ""
 	_reactive_move_owner = 0
+	_kunnin_infiltrator_pending = false
+	_kunnin_infiltrator_unit_id = ""
 
 	# OA-8: Snapshot engagement state at phase start for Krump and Run eligibility
 	_engagement_at_phase_start = _compute_engagement_snapshot()
@@ -326,6 +333,14 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_apply_pivot_cost(action)
 		"BEGIN_SURGE_MOVE":
 			return _validate_begin_surge_move(action)
+		"ACTIVATE_KUNNIN_INFILTRATOR":
+			return _validate_activate_kunnin_infiltrator(action)
+		"PLACE_KUNNIN_INFILTRATOR":
+			return _validate_place_kunnin_infiltrator(action)
+		"CANCEL_KUNNIN_INFILTRATOR":
+			if not _kunnin_infiltrator_pending:
+				return {"valid": false, "errors": ["No Kunnin' Infiltrator redeployment pending"]}
+			return {"valid": true}
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -398,6 +413,12 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_apply_pivot_cost(action)
 		"BEGIN_SURGE_MOVE":
 			return _process_begin_surge_move(action)
+		"ACTIVATE_KUNNIN_INFILTRATOR":
+			return _process_activate_kunnin_infiltrator(action)
+		"PLACE_KUNNIN_INFILTRATOR":
+			return _process_place_kunnin_infiltrator(action)
+		"CANCEL_KUNNIN_INFILTRATOR":
+			return _process_cancel_kunnin_infiltrator(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -1485,6 +1506,233 @@ func _process_decline_bomb_squigs(action: Dictionary) -> Dictionary:
 	_bomb_squigs_pending_dice = []
 
 	return create_result(true, cached_changes, "", {"dice": cached_dice})
+
+# ============================================================================
+# OA-24: KUNNIN' INFILTRATOR (Boss Snikrot redeployment)
+# Once per battle, instead of Normal move, remove unit and redeploy 9"+ from enemies
+# ============================================================================
+
+func _validate_activate_kunnin_infiltrator(action: Dictionary) -> Dictionary:
+	"""Validate activating Kunnin' Infiltrator ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
+
+	if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+		return {"valid": false, "errors": ["Unit is not deployed"]}
+
+	if unit.get("flags", {}).get("moved", false):
+		return {"valid": false, "errors": ["Unit has already moved this phase"]}
+
+	# Must not be engaged
+	if _is_unit_engaged(unit_id):
+		return {"valid": false, "errors": ["Cannot use Kunnin' Infiltrator while engaged"]}
+
+	# Check ability availability
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr or not ability_mgr.has_kunnin_infiltrator(unit_id):
+		return {"valid": false, "errors": ["Unit does not have unused Kunnin' Infiltrator ability"]}
+
+	return {"valid": true}
+
+func _validate_place_kunnin_infiltrator(action: Dictionary) -> Dictionary:
+	"""Validate placing a unit via Kunnin' Infiltrator redeployment."""
+	var errors = []
+
+	if not _kunnin_infiltrator_pending:
+		return {"valid": false, "errors": ["No Kunnin' Infiltrator redeployment pending"]}
+
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "" or unit_id != _kunnin_infiltrator_unit_id:
+		return {"valid": false, "errors": ["Unit ID mismatch for Kunnin' Infiltrator"]}
+
+	var model_positions = action.get("model_positions", [])
+	if model_positions.is_empty():
+		return {"valid": false, "errors": ["Missing model_positions"]}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
+
+	var active_player = get_current_player()
+	var board_width = GameState.state.board.size.width  # 44 inches
+	var board_height = GameState.state.board.size.height  # 60 inches
+	var px_per_inch = 40.0
+
+	for i in range(model_positions.size()):
+		var pos = model_positions[i]
+		if pos == null:
+			continue
+
+		var pos_inches_x = pos.x / px_per_inch
+		var pos_inches_y = pos.y / px_per_inch
+
+		# Must be on the board
+		if pos_inches_x < 0 or pos_inches_x > board_width or pos_inches_y < 0 or pos_inches_y > board_height:
+			errors.append("Model %d: position is off the board" % i)
+			continue
+
+		# Must be >9" from all enemy models (edge-to-edge)
+		var model_data = unit.get("models", [])[i] if i < unit.get("models", []).size() else {}
+		var model_base_mm = model_data.get("base_mm", 32)
+		var model_radius_inches = (model_base_mm / 2.0) / 25.4  # mm to inches
+
+		var enemy_positions = GameState.get_enemy_model_positions(active_player)
+		for enemy in enemy_positions:
+			var enemy_pos_px = Vector2(enemy.x, enemy.y)
+			var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
+			var dist_px = pos.distance_to(enemy_pos_px)
+			var dist_inches = dist_px / px_per_inch
+			# Edge-to-edge distance: center distance minus both radii
+			var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+			if edge_dist < 9.0:
+				errors.append("Model %d: must be >9\" from enemy models (currently %.1f\")" % [i, edge_dist])
+				break
+
+	# Check unit coherency for multi-model units
+	if errors.is_empty():
+		var final_models = []
+		var unit_models = unit.get("models", [])
+		for i in range(model_positions.size()):
+			if model_positions[i] == null:
+				continue
+			if i >= unit_models.size():
+				break
+			if not unit_models[i].get("alive", true):
+				continue
+			var model_at_pos = unit_models[i].duplicate()
+			model_at_pos["position"] = model_positions[i]
+			final_models.append(model_at_pos)
+
+		if final_models.size() > 1:
+			var coherency_result = _check_models_coherency(final_models)
+			if not coherency_result.valid:
+				errors.append_array(coherency_result.errors)
+
+	return {"valid": errors.size() == 0, "errors": errors}
+
+func _process_activate_kunnin_infiltrator(action: Dictionary) -> Dictionary:
+	"""Player activates Kunnin' Infiltrator — enter redeployment mode."""
+	var unit_id = action.get("actor_unit_id", "")
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-24: KUNNIN' INFILTRATOR — ACTIVATED")
+	print("║ Unit: %s (%s)" % [unit_name, unit_id])
+	print("║ Remove from battlefield, awaiting redeployment placement...")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	_kunnin_infiltrator_pending = true
+	_kunnin_infiltrator_unit_id = unit_id
+
+	var current_player = get_current_player()
+	emit_signal("kunnin_infiltrator_available", unit_id, current_player)
+
+	log_phase_message("Kunnin' Infiltrator activated for %s — awaiting redeployment" % unit_name)
+
+	var result = create_result(true, [])
+	result["kunnin_infiltrator_activated"] = true
+	result["unit_id"] = unit_id
+	return result
+
+func _process_place_kunnin_infiltrator(action: Dictionary) -> Dictionary:
+	"""Process Kunnin' Infiltrator redeployment — place unit at new position."""
+	var unit_id = action.get("actor_unit_id", "")
+	var model_positions = action.get("model_positions", [])
+	var model_rotations = action.get("model_rotations", [])
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-24: KUNNIN' INFILTRATOR — REDEPLOYING")
+	print("║ Unit: %s (%s)" % [unit_name, unit_id])
+	print("║ Placing %d models at new positions" % model_positions.size())
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var changes = []
+
+	# Update model positions
+	for i in range(model_positions.size()):
+		var pos = model_positions[i]
+		if pos != null:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.position" % [unit_id, i],
+				"value": {"x": pos.x, "y": pos.y}
+			})
+			if i < model_rotations.size() and model_rotations[i] != null:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.rotation" % [unit_id, i],
+					"value": model_rotations[i]
+				})
+
+	# Mark unit as moved (this counts as its Normal move)
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.moved" % unit_id,
+		"value": true
+	})
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.move_mode" % unit_id,
+		"value": "normal"
+	})
+
+	# Mark as completed in active_moves
+	active_moves[unit_id] = {
+		"mode": "KUNNIN_INFILTRATOR",
+		"mode_locked": true,
+		"completed": true,
+		"move_cap_inches": 0,
+		"advance_roll": 0,
+		"model_moves": [],
+		"staged_moves": [],
+		"original_positions": {},
+		"original_rotations": {},
+		"model_distances": {},
+		"dice_rolls": [],
+		"group_moves": [],
+		"group_selection": [],
+		"group_formation": {}
+	}
+
+	# Mark once-per-battle used
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.mark_once_per_battle_used(unit_id, "Kunnin' Infiltrator")
+
+	# Clear pending state
+	_kunnin_infiltrator_pending = false
+	_kunnin_infiltrator_unit_id = ""
+
+	log_phase_message("Kunnin' Infiltrator: %s redeployed to new position" % unit_name)
+
+	emit_signal("unit_move_confirmed", unit_id, {"mode": "KUNNIN_INFILTRATOR", "distance": 0})
+
+	return create_result(true, changes, "Kunnin' Infiltrator redeployment complete")
+
+func _process_cancel_kunnin_infiltrator(action: Dictionary) -> Dictionary:
+	"""Player cancels Kunnin' Infiltrator redeployment — unit stays in place, ability NOT consumed."""
+	var unit_id = _kunnin_infiltrator_unit_id
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id) if not get_unit(unit_id).is_empty() else unit_id
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-24: KUNNIN' INFILTRATOR — CANCELLED")
+	print("║ Unit: %s (%s)" % [unit_name, unit_id])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	_kunnin_infiltrator_pending = false
+	_kunnin_infiltrator_unit_id = ""
+
+	log_phase_message("Kunnin' Infiltrator cancelled for %s — unit remains in place" % unit_name)
+
+	return create_result(true, [])
 
 # ============================================================================
 # P3-29: SAWBONEZ (Painboss healing at end of Movement phase)
@@ -4246,7 +4494,32 @@ func get_available_actions() -> Array:
 				"actor_unit_id": unit_id,
 				"description": unit_name + " remains stationary"
 			})
-	
+
+			# OA-24: Offer Kunnin' Infiltrator as alternative to Normal move
+			var _ki_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+			if _ki_ability_mgr and _ki_ability_mgr.has_kunnin_infiltrator(unit_id):
+				actions.append({
+					"type": "ACTIVATE_KUNNIN_INFILTRATOR",
+					"actor_unit_id": unit_id,
+					"description": "Kunnin' Infiltrator: Redeploy %s (>9\" from enemies)" % unit_name
+				})
+
+	# OA-24: Kunnin' Infiltrator pending — offer place/cancel
+	if _kunnin_infiltrator_pending:
+		var ki_unit = get_unit(_kunnin_infiltrator_unit_id)
+		var ki_name = ki_unit.get("meta", {}).get("name", _kunnin_infiltrator_unit_id) if not ki_unit.is_empty() else _kunnin_infiltrator_unit_id
+		actions.append({
+			"type": "PLACE_KUNNIN_INFILTRATOR",
+			"actor_unit_id": _kunnin_infiltrator_unit_id,
+			"description": "Place %s — Kunnin' Infiltrator redeployment (>9\" from enemies)" % ki_name
+		})
+		actions.append({
+			"type": "CANCEL_KUNNIN_INFILTRATOR",
+			"actor_unit_id": _kunnin_infiltrator_unit_id,
+			"description": "Cancel Kunnin' Infiltrator — %s remains in place" % ki_name
+		})
+		return actions  # Block other actions until resolved
+
 	# P2-25: Bomb Squigs pending — offer use/decline
 	if _bomb_squigs_pending_unit != "":
 		var bs_unit = get_unit(_bomb_squigs_pending_unit)
