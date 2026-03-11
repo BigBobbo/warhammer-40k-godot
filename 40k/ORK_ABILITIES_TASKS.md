@@ -190,9 +190,9 @@
 - **Validation**: No Advance roll. Move +6" when Advancing. Only for units led by Warboss On Warbike.
 
 ### OA-23: Implement "Plummeting Descent" ability for Boss Zagstruk
-- [ ] Add "Plummeting Descent" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Allow charge roll re-rolls when unit was set up from Reserves this turn
-- [ ] No re-roll benefit on subsequent turns
+- [x] Add "Plummeting Descent" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Allow charge roll re-rolls when unit was set up from Reserves this turn
+- [x] No re-roll benefit on subsequent turns
 - **Files**: UnitAbilityManager.gd, ChargePhase.gd
 - **Validation**: Charge re-rolls available when arriving from Reserves. No re-roll later turns.
 

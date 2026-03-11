@@ -2076,6 +2076,13 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 		"value": GameStateData.UnitStatus.DEPLOYED
 	})
 
+	# OA-23: Track the battle round this unit arrived from reserves (for Plummeting Descent)
+	changes.append({
+		"op": "set",
+		"path": "units.%s.arrived_from_reserves_turn" % unit_id,
+		"value": GameState.get_battle_round()
+	})
+
 	# Apply changes through PhaseManager
 	if get_parent() and get_parent().has_method("apply_state_changes"):
 		get_parent().apply_state_changes(changes)
@@ -3086,6 +3093,13 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 		"op": "set",
 		"path": "units.%s.status" % unit_id,
 		"value": GameStateData.UnitStatus.DEPLOYED
+	})
+
+	# OA-23: Track the battle round this unit arrived from reserves (for Plummeting Descent)
+	changes.append({
+		"op": "set",
+		"path": "units.%s.arrived_from_reserves_turn" % unit_id,
+		"value": GameState.get_battle_round()
 	})
 
 	# Apply changes through PhaseManager
