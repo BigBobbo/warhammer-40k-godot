@@ -87,10 +87,10 @@
 - **Validation**: Snazzgun Attacks = 4 vs closest enemy. Attacks = 3 vs non-closest. Distance calculated correctly.
 
 ### OA-10: Implement "Ammo Runt" wargear ability for Nobz and Flash Gitz
-- [ ] Add "Ammo Runt" to UnitAbilityManager.ABILITY_EFFECTS with once-per-battle tracking
-- [ ] When unit selected to shoot, prompt "Use Ammo Runt?"
-- [ ] Grant Lethal Hits to all ranged weapons for the phase
-- [ ] Track multiple ammo runts independently (Nobz can have 2)
+- [x] Add "Ammo Runt" to UnitAbilityManager.ABILITY_EFFECTS with once-per-battle tracking
+- [x] When unit selected to shoot, prompt "Use Ammo Runt?"
+- [x] Grant Lethal Hits to all ranged weapons for the phase
+- [x] Track multiple ammo runts independently (Nobz can have 2)
 - **Files**: UnitAbilityManager.gd, ShootingPhase.gd, RulesEngine.gd
 - **Validation**: Once-per-battle per ammo runt. Lethal Hits granted. UI prompt shown. Multiple runts tracked independently.
 

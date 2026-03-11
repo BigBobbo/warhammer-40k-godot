@@ -1504,6 +1504,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
 		if not weapon_has_lethal_hits:
 			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
+		# OA-10: Ammo Runt / unit effect flags — Lethal Hits from abilities or stratagems (ranged)
+		if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(actor_unit):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Ammo Runt)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board)
@@ -2213,6 +2217,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
 		if not weapon_has_lethal_hits:
 			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
+		# OA-10: Ammo Runt / unit effect flags — Lethal Hits from abilities or stratagems (ranged)
+		if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(actor_unit):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Ammo Runt)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board)
