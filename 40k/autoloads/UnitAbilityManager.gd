@@ -242,6 +242,26 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Unit is eligible to charge in a turn in which it Advanced or Fell Back"
 	},
 
+	# OA-22: Warboss On Warbike — replace Advance roll with flat +6" to Move
+	"High-octane Fuel": {
+		"condition": "while_leading",
+		"effects": [{"type": "flat_advance"}],
+		"target": "led_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When Advancing, do not roll — add flat 6\" to Move instead"
+	},
+
+	# Deffkilla Wartrike — same effect as High-octane Fuel
+	"Fuel-mixa Grot": {
+		"condition": "while_leading",
+		"effects": [{"type": "flat_advance"}],
+		"target": "led_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When Advancing, do not roll — add flat 6\" to Move instead"
+	},
+
 	# Custodes Custodian Guard — once per battle shoot again after shooting
 	"Sentinel Storm": {
 		"condition": "always",
@@ -1452,7 +1472,7 @@ func _apply_eligibility_effects() -> void:
 						print("UnitAbilityManager: '%s' already used this battle for unit %s — skipping" % [ability_name, unit_id])
 						continue
 
-				# Only apply eligibility effects (fall_back_and_*, advance_and_*)
+				# Only apply eligibility effects (fall_back_and_*, advance_and_*, flat_advance)
 				var effects = effect_def.get("effects", [])
 				var eligibility_effects = []
 				for effect in effects:
@@ -1461,7 +1481,8 @@ func _apply_eligibility_effects() -> void:
 						EffectPrimitivesData.FALL_BACK_AND_SHOOT,
 						EffectPrimitivesData.FALL_BACK_AND_CHARGE,
 						EffectPrimitivesData.ADVANCE_AND_CHARGE,
-						EffectPrimitivesData.ADVANCE_AND_SHOOT
+						EffectPrimitivesData.ADVANCE_AND_SHOOT,
+						EffectPrimitivesData.FLAT_ADVANCE
 					]:
 						eligibility_effects.append(effect)
 
@@ -1500,7 +1521,7 @@ func _apply_eligibility_effects() -> void:
 			if effect_def.get("condition", "") != "always":
 				continue
 
-			# Only apply eligibility effects (fall_back_and_*, advance_and_*)
+			# Only apply eligibility effects (fall_back_and_*, advance_and_*, flat_advance)
 			var effects = effect_def.get("effects", [])
 			var eligibility_effects = []
 			for effect in effects:
@@ -1509,7 +1530,8 @@ func _apply_eligibility_effects() -> void:
 					EffectPrimitivesData.FALL_BACK_AND_SHOOT,
 					EffectPrimitivesData.FALL_BACK_AND_CHARGE,
 					EffectPrimitivesData.ADVANCE_AND_CHARGE,
-					EffectPrimitivesData.ADVANCE_AND_SHOOT
+					EffectPrimitivesData.ADVANCE_AND_SHOOT,
+					EffectPrimitivesData.FLAT_ADVANCE
 				]:
 					eligibility_effects.append(effect)
 

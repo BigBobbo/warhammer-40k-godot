@@ -101,6 +101,7 @@ const FALL_BACK_AND_CHARGE = "fall_back_and_charge"
 const ADVANCE_AND_CHARGE = "advance_and_charge"
 const ADVANCE_AND_SHOOT = "advance_and_shoot"
 const REROLL_CHARGE = "reroll_charge"                   # Re-roll charge rolls (full 2D6)
+const FLAT_ADVANCE = "flat_advance"                     # Replace Advance roll with flat +6" to Move
 
 # Instant effects (no persistent flags — executed immediately by the caller)
 const MORTAL_WOUNDS = "mortal_wounds"                     # dice: int, threshold: int
@@ -151,6 +152,7 @@ const FLAG_FALL_BACK_AND_CHARGE = "effect_fall_back_and_charge"
 const FLAG_ADVANCE_AND_CHARGE = "effect_advance_and_charge"
 const FLAG_ADVANCE_AND_SHOOT = "effect_advance_and_shoot"
 const FLAG_REROLL_CHARGE = "effect_reroll_charge"
+const FLAG_FLAT_ADVANCE = "effect_flat_advance"
 
 # ============================================================================
 # EFFECT → FLAG MAPPING
@@ -194,6 +196,7 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	ADVANCE_AND_CHARGE: [{"flag": FLAG_ADVANCE_AND_CHARGE, "value": true}],
 	ADVANCE_AND_SHOOT: [{"flag": FLAG_ADVANCE_AND_SHOOT, "value": true}],
 	REROLL_CHARGE: [{"flag": FLAG_REROLL_CHARGE, "value": true}],
+	FLAT_ADVANCE: [{"flag": FLAG_FLAT_ADVANCE, "value": true}],
 }
 
 # Set of instant effect types that don't set persistent flags
@@ -554,6 +557,10 @@ static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""
 	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false)
+
+static func has_effect_flat_advance(unit: Dictionary) -> bool:
+	"""Check if a unit has effect-granted flat advance (replace Advance roll with +6\" to Move)."""
+	return unit.get("flags", {}).get(FLAG_FLAT_ADVANCE, false)
 
 static func has_any_effect_flag(unit: Dictionary) -> bool:
 	"""Check if a unit has any effect flags set."""
