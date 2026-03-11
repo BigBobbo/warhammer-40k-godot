@@ -24,6 +24,8 @@ signal bomb_squigs_result(unit_id: String, results: Dictionary)
 signal surge_move_completed(unit_id: String, distance_moved: float)
 signal krump_and_run_opportunity(player: int, eligible_units: Array, fell_back_unit_id: String)
 signal kunnin_infiltrator_available(unit_id: String, player: int)
+signal deff_from_above_available(unit_id: String, player: int, eligible_targets: Array)
+signal deff_from_above_result(unit_id: String, results: Dictionary)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
@@ -88,6 +90,12 @@ var _reactive_move_owner: int = 0                 # Override player for engageme
 # Kunnin' Infiltrator state tracking (OA-24)
 var _kunnin_infiltrator_pending: bool = false       # Waiting for redeployment placement
 var _kunnin_infiltrator_unit_id: String = ""        # Unit being redeployed
+
+# Deff from Above state tracking (OA-25)
+var _deff_from_above_pending_unit: String = ""      # Unit awaiting Deff from Above decision
+var _deff_from_above_pending_targets: Array = []    # Eligible enemy units moved over
+var _deff_from_above_pending_changes: Array = []    # Pending movement changes
+var _deff_from_above_pending_dice: Array = []       # Pending dice
 
 # Calculate pivot value for a unit based on base type and keywords (10e Core Rules Update)
 # - Non-round base, non-Monster/Vehicle: 1"
@@ -341,6 +349,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			if not _kunnin_infiltrator_pending:
 				return {"valid": false, "errors": ["No Kunnin' Infiltrator redeployment pending"]}
 			return {"valid": true}
+		"USE_DEFF_FROM_ABOVE":
+			return _validate_use_deff_from_above(action)
+		"DECLINE_DEFF_FROM_ABOVE":
+			return _validate_decline_deff_from_above(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -419,6 +431,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_place_kunnin_infiltrator(action)
 		"CANCEL_KUNNIN_INFILTRATOR":
 			return _process_cancel_kunnin_infiltrator(action)
+		"USE_DEFF_FROM_ABOVE":
+			return _process_use_deff_from_above(action)
+		"DECLINE_DEFF_FROM_ABOVE":
+			return _process_decline_deff_from_above(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -1506,6 +1522,261 @@ func _process_decline_bomb_squigs(action: Dictionary) -> Dictionary:
 	_bomb_squigs_pending_dice = []
 
 	return create_result(true, cached_changes, "", {"dice": cached_dice})
+
+# ============================================================================
+# OA-25: DEFF FROM ABOVE (Deffkoptas)
+# ============================================================================
+# "Each time this unit ends a Normal move, you can select one enemy unit it moved
+# over during that move and roll one D6 for each model in this unit: for each 4+,
+# that enemy unit suffers 1 mortal wound."
+
+func _validate_use_deff_from_above(action: Dictionary) -> Dictionary:
+	"""Validate activating Deff from Above ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if _deff_from_above_pending_unit == "" or _deff_from_above_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Deff from Above pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_deff_from_above(action: Dictionary) -> Dictionary:
+	"""Validate declining Deff from Above ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if _deff_from_above_pending_unit == "" or _deff_from_above_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Deff from Above pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_deff_from_above(action: Dictionary) -> Dictionary:
+	"""Player activates Deff from Above — roll D6 per model, 4+ = 1 mortal wound."""
+	var unit_id = action.get("actor_unit_id", "")
+	var target_unit_id = action.get("target_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-25: DEFF FROM ABOVE — ACTIVATED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Get cached movement changes/dice
+	var cached_changes = _deff_from_above_pending_changes.duplicate()
+	var cached_dice = _deff_from_above_pending_dice.duplicate()
+	var pending_targets = _deff_from_above_pending_targets.duplicate()
+
+	# Clear the pending state
+	_deff_from_above_pending_unit = ""
+	_deff_from_above_pending_targets = []
+	_deff_from_above_pending_changes = []
+	_deff_from_above_pending_dice = []
+
+	# If no specific target, pick the first eligible target
+	if target_unit_id == "":
+		if not pending_targets.is_empty():
+			target_unit_id = pending_targets[0].get("target_unit_id", "")
+
+	if target_unit_id == "":
+		log_phase_message("Deff from Above: No valid target found")
+		return create_result(true, cached_changes, "", {"dice": cached_dice})
+
+	# Resolve: roll D6 per model in unit, on 4+ = 1 mortal wound each
+	var result = _resolve_deff_from_above(unit_id, target_unit_id)
+
+	var all_changes = cached_changes.duplicate()
+	all_changes.append_array(result.get("diffs", []))
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
+	log_phase_message("Deff from Above: %s targets %s — %s" % [unit_name, target_name, result.get("log_text", "")])
+
+	emit_signal("deff_from_above_result", unit_id, result)
+
+	return create_result(true, all_changes, "Deff from Above resolved", {"dice": cached_dice})
+
+func _process_decline_deff_from_above(action: Dictionary) -> Dictionary:
+	"""Player declines Deff from Above — proceed normally."""
+	var unit_id = action.get("actor_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-25: DEFF FROM ABOVE — DECLINED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var cached_changes = _deff_from_above_pending_changes.duplicate()
+	var cached_dice = _deff_from_above_pending_dice.duplicate()
+
+	# Clear pending state
+	_deff_from_above_pending_unit = ""
+	_deff_from_above_pending_targets = []
+	_deff_from_above_pending_changes = []
+	_deff_from_above_pending_dice = []
+
+	return create_result(true, cached_changes, "", {"dice": cached_dice})
+
+func _get_units_moved_over(unit_id: String, move_data: Dictionary) -> Array:
+	"""Get enemy units whose bases were crossed during a unit's movement path.
+	Returns array of { target_unit_id: String, target_name: String }.
+	Uses the same path sampling approach as _path_crosses_enemy_bases but returns which units."""
+	var current_player = get_current_player()
+	var units = game_state_snapshot.get("units", {})
+	var moving_unit = units.get(unit_id, {})
+	if moving_unit.is_empty():
+		return []
+
+	# Get a reference model for overlap detection
+	var reference_model = {}
+	for model in moving_unit.get("models", []):
+		if model.get("alive", true):
+			reference_model = model.duplicate()
+			break
+	if reference_model.is_empty():
+		return []
+
+	# Collect all movement path segments from model_moves
+	var path_segments = []
+	for model_move in move_data.get("model_moves", []):
+		var from_pos = model_move.get("from")
+		var dest_pos = model_move.get("dest")
+		if from_pos != null and dest_pos != null:
+			path_segments.append({"from": from_pos, "dest": dest_pos})
+
+	if path_segments.is_empty():
+		return []
+
+	# Check each enemy unit to see if any model's path crossed their bases
+	var crossed_units = {}  # unit_id -> unit_name (deduplicate)
+
+	for segment in path_segments:
+		var from = segment.from
+		var to = segment.dest
+
+		# Sample points along the path (approximately every 10 pixels)
+		var path_length = from.distance_to(to)
+		var num_samples = max(2, int(path_length / 10.0))
+
+		for i in range(num_samples + 1):
+			var t = float(i) / float(num_samples)
+			var sample_pos = from.lerp(to, t)
+
+			# Create a temporary model at this position
+			var model_at_pos = reference_model.duplicate()
+			model_at_pos["position"] = sample_pos
+
+			# Check against all enemy units
+			for enemy_unit_id in units:
+				if crossed_units.has(enemy_unit_id):
+					continue  # Already found this unit
+				var enemy_unit = units[enemy_unit_id]
+				if int(enemy_unit.get("owner", 0)) == current_player:
+					continue  # Skip friendly units
+				if enemy_unit_id == unit_id:
+					continue  # Skip self
+
+				var has_alive = false
+				for enemy_model in enemy_unit.get("models", []):
+					if not enemy_model.get("alive", true):
+						continue
+					has_alive = true
+					var enemy_pos = _get_model_position(enemy_model)
+					if enemy_pos and Measurement.models_overlap(model_at_pos, enemy_model):
+						var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
+						crossed_units[enemy_unit_id] = enemy_name
+						break
+
+				if not has_alive:
+					continue
+
+	# Convert to array format
+	var result = []
+	for eid in crossed_units:
+		result.append({
+			"target_unit_id": eid,
+			"target_name": crossed_units[eid]
+		})
+
+	return result
+
+func _resolve_deff_from_above(unit_id: String, target_unit_id: String) -> Dictionary:
+	"""Resolve Deff from Above: roll D6 per model in unit, 4+ = 1 mortal wound each.
+	Returns {diffs: Array, mortal_wounds: int, casualties: int, rolls: Array, log_text: String}."""
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
+
+	# Count alive models in the unit
+	var alive_models = 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			alive_models += 1
+
+	# Roll D6 per model
+	var rolls = []
+	var mortal_wounds = 0
+	for i in range(alive_models):
+		var roll = rng.randi_range(1, 6)
+		rolls.append(roll)
+		if roll >= 4:
+			mortal_wounds += 1
+
+	print("║ OA-25: Deff from Above — %d models, rolls: %s, mortal wounds: %d" % [alive_models, str(rolls), mortal_wounds])
+
+	if mortal_wounds == 0:
+		var log_text = "Deff from Above: %s → %s — %d dice rolled, no mortal wounds" % [unit_name, target_name, alive_models]
+		print("║ OA-25: %s" % log_text)
+		return {
+			"diffs": [],
+			"mortal_wounds": 0,
+			"casualties": 0,
+			"rolls": rolls,
+			"log_text": log_text
+		}
+
+	# Apply mortal wounds to target
+	var target = get_unit(target_unit_id)
+	var diffs = []
+	var casualties = 0
+	var remaining_mw = mortal_wounds
+
+	for model in target.get("models", []):
+		if remaining_mw <= 0:
+			break
+		if not model.get("alive", true):
+			continue
+
+		var current_wounds = model.get("current_wounds", 1)
+		var new_wounds = max(0, current_wounds - remaining_mw)
+		remaining_mw -= (current_wounds - new_wounds)
+
+		if new_wounds != current_wounds:
+			var model_idx = target.get("models", []).find(model)
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.current_wounds" % [target_unit_id, model_idx],
+				"value": new_wounds
+			})
+			if new_wounds <= 0:
+				diffs.append({
+					"op": "set",
+					"path": "units.%s.models.%d.alive" % [target_unit_id, model_idx],
+					"value": false
+				})
+				casualties += 1
+
+	var log_text = "Deff from Above: %s → %s — %d dice, %d mortal wound(s), %d casualt%s" % [
+		unit_name, target_name, alive_models, mortal_wounds, casualties,
+		"y" if casualties == 1 else "ies"
+	]
+	print("║ OA-25: %s" % log_text)
+
+	return {
+		"diffs": diffs,
+		"mortal_wounds": mortal_wounds,
+		"casualties": casualties,
+		"rolls": rolls,
+		"log_text": log_text
+	}
 
 # ============================================================================
 # OA-24: KUNNIN' INFILTRATOR (Boss Snikrot redeployment)
@@ -3049,6 +3320,28 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				result["eligible_targets"] = bomb_targets
 				return result
 
+	# OA-25: Check for Deff from Above after Normal move
+	if _ability_mgr and _ability_mgr.has_deff_from_above(unit_id):
+		if move_data.mode == "NORMAL":
+			var dfa_targets = _get_units_moved_over(unit_id, move_data)
+			if not dfa_targets.is_empty():
+				print("MovementPhase: OA-25 Deff from Above — %s moved over %d enemy unit(s)" % [unit_name, dfa_targets.size()])
+				_deff_from_above_pending_unit = unit_id
+				_deff_from_above_pending_targets = dfa_targets
+				_deff_from_above_pending_changes = changes
+				_deff_from_above_pending_dice = additional_dice
+
+				var current_player = get_current_player()
+				emit_signal("deff_from_above_available", unit_id, current_player, dfa_targets)
+
+				log_phase_message("Deff from Above available for %s — awaiting decision" % unit_name)
+
+				var result = create_result(true, changes, "", {"dice": additional_dice})
+				result["deff_from_above_available"] = true
+				result["unit_id"] = unit_id
+				result["eligible_targets"] = dfa_targets
+				return result
+
 	return create_result(true, changes, "", {"dice": additional_dice})
 
 func _process_remain_stationary(action: Dictionary) -> Dictionary:
@@ -4533,6 +4826,24 @@ func get_available_actions() -> Array:
 			"type": "DECLINE_BOMB_SQUIGS",
 			"actor_unit_id": _bomb_squigs_pending_unit,
 			"description": "Decline Bomb Squigs — %s" % bs_name
+		})
+		return actions  # Block other actions until resolved
+
+	# OA-25: Deff from Above pending — offer use/decline with target selection
+	if _deff_from_above_pending_unit != "":
+		var dfa_unit = get_unit(_deff_from_above_pending_unit)
+		var dfa_name = dfa_unit.get("meta", {}).get("name", _deff_from_above_pending_unit) if not dfa_unit.is_empty() else _deff_from_above_pending_unit
+		for target in _deff_from_above_pending_targets:
+			actions.append({
+				"type": "USE_DEFF_FROM_ABOVE",
+				"actor_unit_id": _deff_from_above_pending_unit,
+				"target_unit_id": target.get("target_unit_id", ""),
+				"description": "Deff from Above: %s targets %s — roll D6 per model, 4+ = 1 MW" % [dfa_name, target.get("target_name", "")]
+			})
+		actions.append({
+			"type": "DECLINE_DEFF_FROM_ABOVE",
+			"actor_unit_id": _deff_from_above_pending_unit,
+			"description": "Decline Deff from Above — %s" % dfa_name
 		})
 		return actions  # Block other actions until resolved
 

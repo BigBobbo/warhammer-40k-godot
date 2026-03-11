@@ -273,6 +273,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle: instead of Normal move, remove unit and redeploy 9\"+ from all enemies"
 	},
 
+	# OA-25: Deffkoptas — mortal wounds after Normal move over enemy units
+	"Deff from Above": {
+		"condition": "after_normal_move",
+		"effects": [],
+		"target": "enemy_moved_over",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "After Normal move, select one enemy unit moved over — roll D6 per model, 4+ = 1 mortal wound"
+	},
+
 	# Deffkilla Wartrike — same effect as High-octane Fuel
 	"Fuel-mixa Grot": {
 		"condition": "while_leading",
@@ -1973,6 +1983,21 @@ func has_kunnin_infiltrator(unit_id: String) -> bool:
 				return true
 			else:
 				print("UnitAbilityManager: Unit %s has Kunnin' Infiltrator but already used this battle" % unit_id)
+	return false
+
+func has_deff_from_above(unit_id: String) -> bool:
+	"""Check if a unit has the Deff from Above ability (Deffkoptas).
+	Used by MovementPhase to offer mortal wounds after Normal move over enemies."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Deff from Above":
+			print("UnitAbilityManager: Unit %s has Deff from Above ability" % unit_id)
+			return true
 	return false
 
 func has_sawbonez(unit_id: String) -> bool:

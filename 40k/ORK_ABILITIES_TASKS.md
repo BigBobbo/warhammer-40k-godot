@@ -205,10 +205,10 @@
 - **Validation**: Once per battle teleport. Must be 9"+ from enemies. Usage tracked.
 
 ### OA-25: Implement "Deff from Above" ability for Deffkoptas
-- [ ] Add "Deff from Above" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] After Normal move, select one enemy unit moved over
-- [ ] Roll D6 per model in unit, 4+ = 1 mortal wound
-- [ ] Only triggers on Normal moves (not Advance, Fall Back, etc.)
+- [x] Add "Deff from Above" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] After Normal move, select one enemy unit moved over
+- [x] Roll D6 per model in unit, 4+ = 1 mortal wound
+- [x] Only triggers on Normal moves (not Advance, Fall Back, etc.)
 - **Files**: UnitAbilityManager.gd, MovementPhase.gd
 - **Validation**: After Normal move, select enemy moved over. D6 per model, 4+ = 1 MW. Normal moves only.
 
