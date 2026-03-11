@@ -177,9 +177,9 @@
 ## Phase 3: Movement/Positioning Abilities
 
 ### OA-21: Implement "Full Throttle" ability for Stormboyz
-- [ ] Add "Full Throttle" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Allow unit to charge after Advancing
-- [ ] Allow unit to charge after Falling Back
+- [x] Add "Full Throttle" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Allow unit to charge after Advancing
+- [x] Allow unit to charge after Falling Back
 - **Files**: UnitAbilityManager.gd, ChargePhase.gd
 - **Validation**: Unit can charge after Advancing. Unit can charge after Falling Back.
 
