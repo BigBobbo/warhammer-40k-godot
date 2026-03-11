@@ -184,9 +184,9 @@
 - **Validation**: Unit can charge after Advancing. Unit can charge after Falling Back.
 
 ### OA-22: Implement "High-octane Fuel" ability for Warboss On Warbike
-- [ ] Add "High-octane Fuel" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Replace Advance roll with flat +6" to Move when leading a unit
-- **Files**: UnitAbilityManager.gd, MovementPhase.gd
+- [x] Add "High-octane Fuel" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Replace Advance roll with flat +6" to Move when leading a unit
+- **Files**: UnitAbilityManager.gd, MovementPhase.gd, EffectPrimitives.gd
 - **Validation**: No Advance roll. Move +6" when Advancing. Only for units led by Warboss On Warbike.
 
 ### OA-23: Implement "Plummeting Descent" ability for Boss Zagstruk
