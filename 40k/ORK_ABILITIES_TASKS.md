@@ -142,11 +142,11 @@
 - **Validation**: All successful Hit rolls are Critical Hits. Sustained/Lethal Hits trigger on every hit. Ranged only.
 
 ### OA-17: Implement "Krumpin' Time" ability for Meganobz
-- [ ] Add "Krumpin' Time" to UnitAbilityManager.ABILITY_EFFECTS with waaagh_active condition
-- [ ] Apply FNP 5+ when Waaagh! is active
-- [ ] Remove FNP 5+ when Waaagh! deactivates
-- [ ] Does not stack with other FNP sources (use better value)
-- **Files**: UnitAbilityManager.gd, RulesEngine.gd
+- [x] Add "Krumpin' Time" to UnitAbilityManager.ABILITY_EFFECTS with waaagh_active condition
+- [x] Apply FNP 5+ when Waaagh! is active
+- [x] Remove FNP 5+ when Waaagh! deactivates
+- [x] Does not stack with other FNP sources (use better value)
+- **Files**: UnitAbilityManager.gd, FactionAbilityManager.gd
 - **Validation**: FNP 5+ when Waaagh! active. No FNP when inactive. No stacking.
 
 ### OA-18: Implement "Kustom Force Field" wargear for Big Mek
