@@ -232,6 +232,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle: charge after advancing"
 	},
 
+	# Ork Stormboyz — eligible to charge after Advancing or Falling Back
+	"Full Throttle": {
+		"condition": "always",
+		"effects": [{"type": "advance_and_charge"}, {"type": "fall_back_and_charge"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Unit is eligible to charge in a turn in which it Advanced or Fell Back"
+	},
+
 	# Custodes Custodian Guard — once per battle shoot again after shooting
 	"Sentinel Storm": {
 		"condition": "always",
@@ -1476,6 +1486,53 @@ func _apply_eligibility_effects() -> void:
 					var char_name = char_unit.get("meta", {}).get("name", char_id)
 					var bg_name = unit.get("meta", {}).get("name", unit_id)
 					print("UnitAbilityManager: %s grants eligibility '%s' to %s" % [char_name, ability_name, bg_name])
+
+		# Check the unit's own abilities for eligibility effects (condition: "always")
+		var unit_abilities = unit.get("meta", {}).get("abilities", [])
+		for ability in unit_abilities:
+			var ability_name = _get_ability_name(ability)
+			if ability_name == "":
+				continue
+
+			var effect_def = ABILITY_EFFECTS.get(ability_name, {})
+			if effect_def.is_empty() or not effect_def.get("implemented", false):
+				continue
+			if effect_def.get("condition", "") != "always":
+				continue
+
+			# Only apply eligibility effects (fall_back_and_*, advance_and_*)
+			var effects = effect_def.get("effects", [])
+			var eligibility_effects = []
+			for effect in effects:
+				var etype = effect.get("type", "")
+				if etype in [
+					EffectPrimitivesData.FALL_BACK_AND_SHOOT,
+					EffectPrimitivesData.FALL_BACK_AND_CHARGE,
+					EffectPrimitivesData.ADVANCE_AND_CHARGE,
+					EffectPrimitivesData.ADVANCE_AND_SHOOT
+				]:
+					eligibility_effects.append(effect)
+
+			if eligibility_effects.is_empty():
+				continue
+
+			var diffs = EffectPrimitivesData.apply_effects(eligibility_effects, unit_id)
+			if not diffs.is_empty():
+				PhaseManager.apply_state_changes(diffs)
+				_active_ability_effects.append({
+					"ability_name": ability_name,
+					"source_unit_id": unit_id,
+					"target_unit_id": unit_id,
+					"effects": eligibility_effects,
+					"attack_type": "all",
+					"condition": "always"
+				})
+				if not _applied_this_phase.has(unit_id):
+					_applied_this_phase[unit_id] = []
+				_applied_this_phase[unit_id].append(ability_name)
+
+				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				print("UnitAbilityManager: %s has own eligibility ability '%s'" % [unit_name, ability_name])
 
 # ============================================================================
 # CLEAR ABILITY EFFECTS
