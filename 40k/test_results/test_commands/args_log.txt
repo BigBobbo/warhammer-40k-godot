@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gselect=test_unit_ability_manager", "-glog=3", "-gexit", "-gunit_test_name=test_is_ability_implemented"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gprefix=test_drive_by_dakka", "-glog=1", "-gexit"]

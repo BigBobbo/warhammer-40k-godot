@@ -562,6 +562,17 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Re-roll Hit rolls of 1 on ranged attacks. Full Hit re-roll if target is within range of an objective marker — checked directly in RulesEngine"
 	},
 
+	# Ork Warbikers / Wartrakks — improve AP by 1 for ranged attacks vs targets within 9"
+	"Drive-by Dakka": {
+		"condition": "target_within_range",
+		"range_inches": 9.0,
+		"effects": [{"type": "improve_ap", "value": 1}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Improve AP by 1 for ranged attacks against targets within 9\" — checked directly in RulesEngine save resolution"
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.

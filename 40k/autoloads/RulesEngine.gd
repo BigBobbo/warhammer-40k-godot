@@ -991,6 +991,12 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 	# --- PHASE 4: Saves and damage (normal rules apply) ---
 	var ap = weapon_profile.get("ap", 0)
+	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
+	var ow_dbd_bonus = get_drive_by_dakka_ap_bonus(shooter_unit, target_unit)
+	if ow_dbd_bonus > 0:
+		var pre_ap_dbd = ap
+		ap = ap + ow_dbd_bonus
+		print("RulesEngine: Drive-by Dakka (Overwatch) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ow_dbd_bonus])
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ow_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ow_worsen_ap > 0 and ap > 0:
@@ -2534,6 +2540,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# T3-17: This section mirrors the interactive path (prepare_save_resolution + apply_save_damage)
 	# to ensure both resolution paths produce identical results. Keep in sync with apply_save_damage().
 	var ap = weapon_profile.get("ap", 0)
+	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
+	var ar_dbd_bonus = get_drive_by_dakka_ap_bonus(actor_unit, target_unit)
+	if ar_dbd_bonus > 0:
+		var pre_ap_dbd = ap
+		ap = ap + ar_dbd_bonus
+		print("RulesEngine: Drive-by Dakka (auto-resolve) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ar_dbd_bonus])
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ar_worsen_ap > 0 and ap > 0:
@@ -4914,6 +4926,50 @@ static func get_dats_our_loot_reroll_scope(actor_unit: Dictionary, target_unit: 
 	if is_unit_near_any_objective(target_unit, board):
 		return "failed"
 	return "ones"
+
+# DRIVE-BY DAKKA (OA-13): Check if a unit has the "Drive-by Dakka" ability.
+# Returns true if the unit has the ability (Warbikers / Wartrakks datasheet ability).
+static func has_drive_by_dakka(actor_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Drive-by Dakka":
+			return true
+	return false
+
+# DRIVE-BY DAKKA (OA-13): Check if the closest distance between any alive model in the
+# attacker unit and any alive model in the target unit is within the given range (inches).
+# Used to determine if Drive-by Dakka AP improvement applies (target within 9").
+static func is_target_within_range_inches(actor_unit: Dictionary, target_unit: Dictionary, range_inches: float) -> bool:
+	for attacker_model in actor_unit.get("models", []):
+		if not attacker_model.get("alive", true):
+			continue
+		var a_pos = attacker_model.get("position", null)
+		if a_pos == null:
+			continue
+		for target_model in target_unit.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+			var t_pos = target_model.get("position", null)
+			if t_pos == null:
+				continue
+			var distance = Measurement.model_to_model_distance_inches(attacker_model, target_model)
+			if distance <= range_inches:
+				return true
+	return false
+
+# DRIVE-BY DAKKA (OA-13): Get AP improvement for Drive-by Dakka.
+# Returns 1 if attacker has Drive-by Dakka and target is within 9", otherwise 0.
+static func get_drive_by_dakka_ap_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	if not has_drive_by_dakka(actor_unit):
+		return 0
+	if is_target_within_range_inches(actor_unit, target_unit, 9.0):
+		return 1
+	return 0
 
 # STEALTH (T2-1): Check if a unit has the Stealth ability
 # Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit
@@ -7955,6 +8011,13 @@ static func prepare_save_resolution(
 		return {"success": false, "error": "Target unit not found"}
 
 	var ap = weapon_profile.get("ap", 0)
+	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
+	var shooter_unit = units.get(shooter_unit_id, {})
+	var int_dbd_bonus = get_drive_by_dakka_ap_bonus(shooter_unit, target_unit)
+	if int_dbd_bonus > 0:
+		var pre_ap_dbd = ap
+		ap = ap + int_dbd_bonus
+		print("RulesEngine: Drive-by Dakka (interactive) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, int_dbd_bonus])
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if int_worsen_ap > 0 and ap > 0:
