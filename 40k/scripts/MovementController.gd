@@ -558,6 +558,9 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("krump_and_run_opportunity"):
 				if not phase.krump_and_run_opportunity.is_connected(_on_krump_and_run_opportunity):
 					phase.krump_and_run_opportunity.connect(_on_krump_and_run_opportunity)
+			if phase.has_signal("kunnin_infiltrator_available"):
+				if not phase.kunnin_infiltrator_available.is_connected(_on_kunnin_infiltrator_available):
+					phase.kunnin_infiltrator_available.connect(_on_kunnin_infiltrator_available)
 
 			# Update the game state snapshot reference
 			if phase.has_method("get_game_state_snapshot"):
@@ -3850,6 +3853,23 @@ func _on_krump_and_run_declined(player: int) -> void:
 		"type": "DECLINE_KRUMP_AND_RUN",
 		"actor_unit_id": "",
 	})
+
+# ===================================================
+# KUNNIN' INFILTRATOR HANDLING (OA-24)
+# ===================================================
+
+func _on_kunnin_infiltrator_available(unit_id: String, player: int) -> void:
+	"""Handle Kunnin' Infiltrator activation — notify UI that redeployment placement is needed.
+	The actual placement is handled by Main.gd via DeploymentController (same as reinforcements)."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ MovementController: KUNNIN' INFILTRATOR AVAILABLE")
+	print("║ Unit: %s, Player: %d" % [unit_id, player])
+	print("║ Awaiting redeployment placement via DeploymentController...")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Refresh the UI to show the updated available actions (PLACE/CANCEL)
+	_refresh_unit_list()
+	emit_signal("ui_update_requested")
 
 
 # ── Inner helper classes for selection visuals ──────────────────────────────

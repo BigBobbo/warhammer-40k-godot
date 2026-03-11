@@ -1463,7 +1463,8 @@ func _get_ai_action_highlight_color(action_type: String) -> Color:
 	if action_type in ["STAGE_MODEL_MOVE", "CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY",
 			"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK",
 			"SET_SCOUT_MODEL_DEST", "CONFIRM_SCOUT_MOVE", "SKIP_SCOUT_MOVE",
-			"BEGIN_REDEPLOY", "SET_REDEPLOY_MODEL_POS", "CONFIRM_REDEPLOY", "SKIP_REDEPLOY"]:
+			"BEGIN_REDEPLOY", "SET_REDEPLOY_MODEL_POS", "CONFIRM_REDEPLOY", "SKIP_REDEPLOY",
+			"ACTIVATE_KUNNIN_INFILTRATOR", "PLACE_KUNNIN_INFILTRATOR"]:
 		return AIUnitHighlightScript.COLOR_MOVE
 	# Shooting actions → red
 	if action_type in ["SHOOT", "ASSIGN_WEAPON", "CONFIRM_TARGETS", "RESOLVE_SHOOTING",
@@ -2016,6 +2017,137 @@ func _on_rapid_ingress_confirmed() -> void:
 	if deployment_controller.unit_confirmed.is_connected(_on_rapid_ingress_confirmed):
 		deployment_controller.unit_confirmed.disconnect(_on_rapid_ingress_confirmed)
 
+	refresh_unit_list()
+	update_ui()
+
+# OA-24: Kunnin' Infiltrator redeployment placement
+var _kunnin_infiltrator_unit_id: String = ""
+
+func _begin_kunnin_infiltrator_placement(unit_id: String) -> void:
+	"""Start placing a unit at a new position via Kunnin' Infiltrator redeployment."""
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("Main: Beginning Kunnin' Infiltrator redeployment placement for %s" % unit_name)
+
+	# Ensure deployment controller exists
+	if not deployment_controller:
+		print("Main: Creating deployment controller for Kunnin' Infiltrator placement")
+		setup_deployment_controller()
+
+	if deployment_controller:
+		deployment_controller.is_reinforcement_mode = true
+
+		# Hide existing unit tokens temporarily (unit is "removed from the battlefield")
+		for child in token_layer.get_children():
+			if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id:
+				child.visible = false
+
+		# Temporarily set unit status to DEPLOYING so the controller can work with it
+		if has_node("/root/PhaseManager"):
+			var phase_manager = get_node("/root/PhaseManager")
+			if phase_manager.current_phase_instance:
+				phase_manager.apply_state_changes([{
+					"op": "set",
+					"path": "units.%s.status" % unit_id,
+					"value": GameStateData.UnitStatus.DEPLOYING
+				}])
+
+		deployment_controller.unit_id = unit_id
+		deployment_controller.model_idx = 0
+		deployment_controller.temp_positions.clear()
+		deployment_controller.temp_rotations.clear()
+		var unit_data = GameState.get_unit(unit_id)
+		deployment_controller.temp_positions.resize(unit_data["models"].size())
+		deployment_controller.temp_rotations.resize(unit_data["models"].size())
+		deployment_controller.temp_rotations.fill(0.0)
+		deployment_controller.formation_rotation = 0.0
+
+		# Create ghost for placement
+		deployment_controller._create_ghost()
+
+		# Store that we're in kunnin infiltrator placement mode
+		_kunnin_infiltrator_unit_id = unit_id
+
+		# Connect to confirm signal for placement completion
+		if not deployment_controller.unit_confirmed.is_connected(_on_kunnin_infiltrator_confirmed):
+			deployment_controller.unit_confirmed.connect(_on_kunnin_infiltrator_confirmed)
+
+		status_label.text = "Kunnin' Infiltrator: placing %s — must be >9\" from all enemies" % unit_name
+
+		unit_list.visible = false
+		show_unit_card(unit_id)
+
+func _on_kunnin_infiltrator_confirmed() -> void:
+	"""Handle Kunnin' Infiltrator placement completion."""
+	if _kunnin_infiltrator_unit_id == "":
+		return
+
+	var unit_id = _kunnin_infiltrator_unit_id
+	var unit_data = GameState.get_unit(unit_id)
+
+	if unit_data.is_empty() or not deployment_controller:
+		return
+
+	# Collect model positions from the deployment controller
+	var model_positions = []
+	for pos in deployment_controller.temp_positions:
+		model_positions.append(pos)
+
+	var model_rotations = deployment_controller.temp_rotations.duplicate()
+
+	print("Main: Kunnin' Infiltrator placement confirmed for %s with %d model positions" % [unit_id, model_positions.size()])
+
+	# Reset the unit status back to DEPLOYED before sending the action
+	if has_node("/root/PhaseManager"):
+		var phase_manager = get_node("/root/PhaseManager")
+		if phase_manager.current_phase_instance:
+			phase_manager.apply_state_changes([{
+				"op": "set",
+				"path": "units.%s.status" % unit_id,
+				"value": GameStateData.UnitStatus.DEPLOYED
+			}])
+
+	# Create the placement action
+	var action = {
+		"type": "PLACE_KUNNIN_INFILTRATOR",
+		"actor_unit_id": unit_id,
+		"model_positions": model_positions,
+		"model_rotations": model_rotations,
+		"phase": GameStateData.Phase.MOVEMENT,
+		"timestamp": Time.get_unix_time_from_system()
+	}
+
+	var result = NetworkIntegration.route_action(action)
+
+	if result.success:
+		var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_success("Kunnin' Infiltrator: %s redeployed!" % unit_name)
+		print("Main: Kunnin' Infiltrator redeployment placed successfully for %s" % unit_name)
+	else:
+		var errors = result.get("errors", [])
+		var error_msg = errors[0] if errors.size() > 0 else "Failed to place via Kunnin' Infiltrator"
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_error(error_msg)
+		print("Main: Kunnin' Infiltrator placement failed: %s" % str(errors))
+
+	_kunnin_infiltrator_unit_id = ""
+
+	# Reset reinforcement mode
+	if deployment_controller:
+		deployment_controller.is_reinforcement_mode = false
+
+	# Disconnect signal
+	if deployment_controller.unit_confirmed.is_connected(_on_kunnin_infiltrator_confirmed):
+		deployment_controller.unit_confirmed.disconnect(_on_kunnin_infiltrator_confirmed)
+
+	# Make unit tokens visible again and recreate visuals
+	_recreate_unit_visuals()
 	refresh_unit_list()
 	update_ui()
 
@@ -6897,6 +7029,13 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 				if ri_unit_id != "":
 					print("Main: Rapid Ingress used — starting reinforcement placement for %s" % ri_unit_id)
 					_begin_rapid_ingress_placement(ri_unit_id)
+
+			# OA-24: Handle Kunnin' Infiltrator activation — start redeployment placement
+			if action.type == "ACTIVATE_KUNNIN_INFILTRATOR" and result.get("kunnin_infiltrator_activated", false):
+				var ki_unit_id = result.get("unit_id", action.get("actor_unit_id", ""))
+				if ki_unit_id != "":
+					print("Main: Kunnin' Infiltrator activated — starting redeployment placement for %s" % ki_unit_id)
+					_begin_kunnin_infiltrator_placement(ki_unit_id)
 
 			# Update UI after successful action
 			update_movement_card_buttons()
