@@ -83,14 +83,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "+1 to melee Hit rolls for led unit"
 	},
 
-	# Ork Ghazghkull Thraka — +1 to melee Hit AND Wound rolls
+	# Ork Ghazghkull Thraka — +1 to melee Hit AND Wound rolls; Crit Hit 5+ during Waaagh!
 	"Prophet of Da Great Waaagh!": {
 		"condition": "while_leading",
 		"effects": [{"type": "plus_one_hit"}, {"type": "plus_one_wound"}],
+		# OA-20: Waaagh!-conditional effects applied by FactionAbilityManager._apply_waaagh_effects()
+		"waaagh_effects": [{"type": "crit_hit_on", "value": 5}],
 		"target": "led_unit",
 		"attack_type": "melee",
 		"implemented": true,
-		"description": "+1 to melee Hit and Wound rolls for led unit"
+		"description": "+1 to melee Hit and Wound rolls for led unit. During Waaagh!: Critical Hits on 5+"
 	},
 
 	# Ork Big Mek in Mega Armour — re-roll Hit rolls of 1 (ranged)
