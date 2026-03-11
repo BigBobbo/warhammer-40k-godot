@@ -134,10 +134,10 @@
 - **Validation**: -1 Wound roll when S > T and Warboss leads. No effect when S <= T or no Warboss.
 
 ### OA-16: Implement "Dakkastorm" ability for Dakkajet
-- [ ] Add "Dakkastorm" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Every successful Hit roll scores a Critical Hit for ranged attacks
-- [ ] Sustained Hits and Lethal Hits trigger on every successful hit
-- [ ] Only applies to ranged attacks, not melee
+- [x] Add "Dakkastorm" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Every successful Hit roll scores a Critical Hit for ranged attacks
+- [x] Sustained Hits and Lethal Hits trigger on every successful hit
+- [x] Only applies to ranged attacks, not melee
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: All successful Hit rolls are Critical Hits. Sustained/Lethal Hits trigger on every hit. Ranged only.
 
