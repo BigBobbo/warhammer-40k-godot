@@ -26,6 +26,8 @@ signal throat_slittas_available(unit_id: String, player: int, eligible_targets: 
 signal throat_slittas_result(unit_id: String, results: Dictionary)  # P1-12: Throat Slittas resolution result
 signal distraction_grot_available(unit_id: String, player: int)  # P2-25: Distraction Grot invuln save prompt
 signal distraction_grot_result(unit_id: String, activated: bool)  # P2-25: Distraction Grot decision result
+signal ammo_runt_available(unit_id: String, player: int, remaining: int)  # OA-10: Ammo Runt Lethal Hits prompt
+signal ammo_runt_result(unit_id: String, activated: bool)  # OA-10: Ammo Runt decision result
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -42,6 +44,8 @@ var sentinel_storm_pending_unit: String = ""  # P1-10: Unit awaiting Sentinel St
 var throat_slittas_pending_unit: String = ""  # P1-12: Unit awaiting Throat Slittas decision
 var distraction_grot_pending_unit: String = ""  # P2-25: Defending unit awaiting Distraction Grot decision
 var awaiting_distraction_grot: bool = false  # P2-25: True when waiting for Distraction Grot response
+var ammo_runt_pending_unit: String = ""  # OA-10: Unit awaiting Ammo Runt decision
+var awaiting_ammo_runt: bool = false  # OA-10: True when waiting for Ammo Runt response
 var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
 var _rng = RandomNumberGenerator.new()  # P1-11: RNG for battle-shock tests
 
@@ -63,6 +67,8 @@ func _on_phase_enter() -> void:
 	throat_slittas_pending_unit = ""
 	distraction_grot_pending_unit = ""
 	awaiting_distraction_grot = false
+	ammo_runt_pending_unit = ""
+	awaiting_ammo_runt = false
 	_targets_hit_by_shooter.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
@@ -280,6 +286,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_distraction_grot(action)
 		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
 			return _validate_decline_distraction_grot(action)
+		"USE_AMMO_RUNT":  # OA-10: Player activates Ammo Runt
+			return _validate_use_ammo_runt(action)
+		"DECLINE_AMMO_RUNT":  # OA-10: Player declines Ammo Runt
+			return _validate_decline_ammo_runt(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission (Establish Locus, Cleanse, Deploy Teleport Homer)
 			return _validate_perform_secondary_action(action)
 		"BURN_OBJECTIVE":  # Scorched Earth: unit burns an objective instead of shooting
@@ -366,6 +376,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
 			print("ShootingPhase: Matched DECLINE_DISTRACTION_GROT")
 			return _process_decline_distraction_grot(action)
+		"USE_AMMO_RUNT":  # OA-10: Player activates Ammo Runt
+			print("ShootingPhase: Matched USE_AMMO_RUNT")
+			return _process_use_ammo_runt(action)
+		"DECLINE_AMMO_RUNT":  # OA-10: Player declines Ammo Runt
+			print("ShootingPhase: Matched DECLINE_AMMO_RUNT")
+			return _process_decline_ammo_runt(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission
 			print("ShootingPhase: Matched PERFORM_SECONDARY_ACTION")
 			return _process_perform_secondary_action(action)
@@ -593,6 +609,29 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 					"unit_id": unit_id,
 					"eligible_targets": ts_targets
 				})
+
+	# OA-10: Check for Ammo Runt — offer Lethal Hits for ranged weapons
+	if not action.get("payload", {}).get("skip_ammo_runt_check", false):
+		var ability_mgr_ar = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr_ar and ability_mgr_ar.has_ammo_runt(unit_id):
+			var remaining = ability_mgr_ar.get_ammo_runts_remaining(unit_id)
+			var total = ability_mgr_ar.get_ammo_runt_count(unit_id)
+			print("ShootingPhase: OA-10 Ammo Runt: Unit %s has %d/%d runts remaining — prompting" % [unit_id, remaining, total])
+			ammo_runt_pending_unit = unit_id
+			awaiting_ammo_runt = true
+
+			var current_player = get_current_player()
+			emit_signal("ammo_runt_available", unit_id, current_player, remaining)
+
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			log_phase_message("Ammo Runt available for %s (%d remaining) — awaiting decision" % [unit_name, remaining])
+
+			return create_result(true, [], "Ammo Runt available", {
+				"ammo_runt_available": true,
+				"unit_id": unit_id,
+				"remaining": remaining,
+				"total": total
+			})
 
 	# Normal shooting flow
 	# Get eligible targets
@@ -1674,6 +1713,25 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 				"mortal_wounds": ts_result.get("total_mortal_wounds", 0),
 				"casualties": ts_result.get("total_casualties", 0)
 			})
+
+	# OA-10: AI auto-use Ammo Runt if available
+	var ability_mgr_ai = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr_ai and ability_mgr_ai.has_ammo_runt(unit_id):
+		var ar_remaining = ability_mgr_ai.get_ammo_runts_remaining(unit_id)
+		print("║ AI SHOOT: OA-10 Ammo Runt — auto-activating for %s (%d remaining)" % [unit_id, ar_remaining])
+		var runt_idx = ability_mgr_ai.mark_ammo_runt_used(unit_id)
+
+		# Apply Lethal Hits flag
+		var ar_diffs = [{
+			"op": "set",
+			"path": "units.%s.flags.effect_lethal_hits" % unit_id,
+			"value": true
+		}]
+		PhaseManager.apply_state_changes(ar_diffs)
+		game_state_snapshot = GameState.create_snapshot()
+
+		var ai_unit_name_ar = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+		log_phase_message("AI: Ammo Runt activated for %s — Lethal Hits granted (runt #%d)" % [ai_unit_name_ar, runt_idx + 1])
 
 	# Step 2: Merge assignments into confirmed_assignments (inline, no signals)
 	var assignments = action.get("payload", {}).get("assignments", [])
@@ -3146,6 +3204,32 @@ func get_available_actions() -> Array:
 		})
 		return actions  # Block other actions until resolved
 
+	# OA-10: Ammo Runt pending — offer use/decline (active player's choice)
+	if awaiting_ammo_runt and ammo_runt_pending_unit != "":
+		var ar_unit = get_unit(ammo_runt_pending_unit)
+		var ar_name = ar_unit.get("meta", {}).get("name", ammo_runt_pending_unit) if not ar_unit.is_empty() else ammo_runt_pending_unit
+		var ar_player = int(ar_unit.get("owner", 0))
+		var ability_mgr_ar = get_node_or_null("/root/UnitAbilityManager")
+		var ar_remaining = ability_mgr_ar.get_ammo_runts_remaining(ammo_runt_pending_unit) if ability_mgr_ar else 0
+		actions.append({
+			"type": "USE_AMMO_RUNT",
+			"actor_unit_id": ammo_runt_pending_unit,
+			"player": ar_player,
+			"description": "Use Ammo Runt — %s gains Lethal Hits (%d remaining)" % [ar_name, ar_remaining]
+		})
+		actions.append({
+			"type": "DECLINE_AMMO_RUNT",
+			"actor_unit_id": ammo_runt_pending_unit,
+			"player": ar_player,
+			"description": "Decline Ammo Runt — %s" % ar_name
+		})
+		# When Ammo Runt is pending, only these actions should be available
+		actions.append({
+			"type": "END_SHOOTING",
+			"description": "End Shooting Phase"
+		})
+		return actions
+
 	# P1-12: Throat Slittas pending — offer use/decline
 	if throat_slittas_pending_unit != "":
 		var ts_unit = get_unit(throat_slittas_pending_unit)
@@ -4158,6 +4242,113 @@ func _process_decline_distraction_grot(action: Dictionary) -> Dictionary:
 		})
 
 	return _continue_after_reactive_stratagems()
+
+# ============================================================================
+# OA-10: AMMO RUNT — Lethal Hits on ranged weapons when selected to shoot
+# ============================================================================
+# "Once per battle for each ammo runt this unit has, when this unit is selected
+# to shoot, it can use this ability. If it does, until the end of the phase,
+# ranged weapons equipped by models in this unit have the [LETHAL HITS] ability."
+
+func _validate_use_ammo_runt(action: Dictionary) -> Dictionary:
+	"""Validate activating Ammo Runt ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if not awaiting_ammo_runt:
+		return {"valid": false, "errors": ["Not awaiting Ammo Runt decision"]}
+	if ammo_runt_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Ammo Runt pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_ammo_runt(action: Dictionary) -> Dictionary:
+	"""Validate declining Ammo Runt ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if not awaiting_ammo_runt:
+		return {"valid": false, "errors": ["Not awaiting Ammo Runt decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_ammo_runt(action: Dictionary) -> Dictionary:
+	"""Player activates Ammo Runt — unit's ranged weapons gain Lethal Hits for the phase."""
+	var unit_id = action.get("actor_unit_id", ammo_runt_pending_unit)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-10: AMMO RUNT — ACTIVATED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	awaiting_ammo_runt = false
+	ammo_runt_pending_unit = ""
+
+	# Mark one ammo runt as used (independently tracked)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	var runt_index = -1
+	if ability_mgr:
+		runt_index = ability_mgr.mark_ammo_runt_used(unit_id)
+
+	# Apply Lethal Hits flag to the unit for this phase
+	var diffs = []
+	diffs.append({
+		"op": "set",
+		"path": "units.%s.flags.effect_lethal_hits" % unit_id,
+		"value": true
+	})
+	PhaseManager.apply_state_changes(diffs)
+
+	# Refresh snapshot
+	game_state_snapshot = GameState.create_snapshot()
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var remaining = ability_mgr.get_ammo_runts_remaining(unit_id) if ability_mgr else 0
+	log_phase_message("Ammo Runt: %s gains Lethal Hits (runt #%d used, %d remaining)" % [unit_name, runt_index + 1, remaining])
+
+	emit_signal("ammo_runt_result", unit_id, true)
+
+	# Log ability activation to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var owner = int(get_unit(unit_id).get("owner", 0))
+		game_event_log.add_player_entry(owner,
+			"Ammo Runt activated: %s gains [LETHAL HITS] on ranged weapons (%d runts remaining)" % [unit_name, remaining])
+
+	# Continue to normal shooting flow (target selection)
+	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
+	emit_signal("unit_selected_for_shooting", unit_id)
+	emit_signal("targets_available", unit_id, eligible_targets)
+
+	return create_result(true, diffs, "Ammo Runt activated — Lethal Hits granted", {
+		"ammo_runt_used": true,
+		"ammo_runt_unit_id": unit_id,
+		"ammo_runt_index": runt_index,
+		"remaining": remaining
+	})
+
+func _process_decline_ammo_runt(action: Dictionary) -> Dictionary:
+	"""Player declines Ammo Runt — proceed with normal shooting."""
+	var unit_id = action.get("actor_unit_id", ammo_runt_pending_unit)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-10: AMMO RUNT — DECLINED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	awaiting_ammo_runt = false
+	ammo_runt_pending_unit = ""
+
+	emit_signal("ammo_runt_result", unit_id, false)
+
+	# Continue to normal shooting flow (target selection)
+	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
+	emit_signal("unit_selected_for_shooting", unit_id)
+	emit_signal("targets_available", unit_id, eligible_targets)
+
+	log_phase_message("Ammo Runt declined for %s — proceeding with normal shooting" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
+
+	return create_result(true, [], "Ammo Runt declined")
 
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""

@@ -1202,6 +1202,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# Calculate total attacks — roll variable attacks per model (D3, D6, etc.)
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
+
+	# GUN-CRAZY SHOW-OFFS (OA-9): Override snazzgun attacks to 4 when targeting closest eligible enemy
+	var gun_crazy_attacks = get_gun_crazy_showoffs_attacks(actor_unit, weapon_id, weapon_profile, actor_unit_id, target_unit_id, board)
+	if gun_crazy_attacks > 0:
+		attacks_raw = str(gun_crazy_attacks)
+
 	var base_attacks = 0
 	var attacks_roll_log = []
 	# MA-10: Track per-model BS for each attack (supports stats_override.ballistic_skill)
@@ -1458,6 +1464,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			indirect_fire_applied = true
 			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s'" % weapon_profile.get("name", weapon_id))
 
+		# TANK HUNTERS (OA-11): +1 to Hit when attacking MONSTER or VEHICLE targets
+		if has_tank_hunters_vs_target(actor_unit, target_unit):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: TANK HUNTERS — +1 to hit for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
+
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -1498,6 +1509,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
 		if not weapon_has_lethal_hits:
 			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
+		# OA-10: Ammo Runt / unit effect flags — Lethal Hits from abilities or stratagems (ranged)
+		if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(actor_unit):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Ammo Runt)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board)
@@ -1630,6 +1645,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		if unit_charged:
 			wound_modifiers |= WoundModifier.PLUS_ONE
 			print("RulesEngine: LANCE — +1 to wound (unit charged this turn)")
+
+	# TANK HUNTERS (OA-11): +1 to Wound when attacking MONSTER or VEHICLE targets
+	if has_tank_hunters_vs_target(actor_unit, target_unit):
+		wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: TANK HUNTERS — +1 to wound for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
 
 	var wound_modifier_net = 0
 	if wound_modifiers & WoundModifier.PLUS_ONE:
@@ -1909,6 +1929,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# Calculate total attacks — roll variable attacks per model (D3, D6, etc.)
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
+
+	# GUN-CRAZY SHOW-OFFS (OA-9): Override snazzgun attacks to 4 when targeting closest eligible enemy (auto-resolve)
+	var gun_crazy_attacks = get_gun_crazy_showoffs_attacks(actor_unit, weapon_id, weapon_profile, actor_unit_id, target_unit_id, board)
+	if gun_crazy_attacks > 0:
+		attacks_raw = str(gun_crazy_attacks)
+
 	var base_attacks = 0
 	var attacks_roll_log = []
 	# MA-10: Track per-model BS for each attack (supports stats_override.ballistic_skill)
@@ -2160,6 +2186,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			indirect_fire_applied = true
 			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s'" % weapon_profile.get("name", weapon_id))
 
+		# TANK HUNTERS (OA-11): +1 to Hit when attacking MONSTER or VEHICLE targets (auto-resolve)
+		if has_tank_hunters_vs_target(actor_unit, target_unit):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: TANK HUNTERS (auto-resolve) — +1 to hit for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
+
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -2201,6 +2232,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
 		if not weapon_has_lethal_hits:
 			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
+		# OA-10: Ammo Runt / unit effect flags — Lethal Hits from abilities or stratagems (ranged)
+		if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(actor_unit):
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Ammo Runt)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board)
@@ -2330,6 +2365,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if unit_charged:
 			ar_wound_modifiers |= WoundModifier.PLUS_ONE
 			print("RulesEngine: LANCE (auto-resolve) — +1 to wound (unit charged this turn)")
+
+	# TANK HUNTERS (OA-11): +1 to Wound when attacking MONSTER or VEHICLE targets (auto-resolve)
+	if has_tank_hunters_vs_target(actor_unit, target_unit):
+		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: TANK HUNTERS (auto-resolve) — +1 to wound for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
 
 	var ar_wound_modifier_net = 0
 	if ar_wound_modifiers & WoundModifier.PLUS_ONE:
@@ -4731,6 +4771,61 @@ static func is_closest_eligible_target(actor_unit_id: String, target_unit_id: St
 
 	# No non-protected unit is closer — this character IS the closest eligible target
 	return true
+
+# GUN-CRAZY SHOW-OFFS (OA-9): Check if a unit has the "Gun-crazy Show-offs" ability
+# and the weapon is a snazzgun. If so, and the target is the closest eligible enemy,
+# the snazzgun's Attacks characteristic becomes 4 (instead of base 3).
+static func get_gun_crazy_showoffs_attacks(actor_unit: Dictionary, weapon_id: String, weapon_profile: Dictionary, actor_unit_id: String, target_unit_id: String, board: Dictionary) -> int:
+	# Check if the actor unit has the "Gun-crazy Show-offs" ability
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Gun-crazy Show-offs":
+			has_ability = true
+			break
+
+	if not has_ability:
+		return -1  # -1 means ability not applicable
+
+	# Check if the weapon is a snazzgun
+	var weapon_name = weapon_profile.get("name", weapon_id).to_lower()
+	if weapon_name.find("snazzgun") == -1:
+		return -1  # Not a snazzgun
+
+	# Check if target is the closest eligible enemy unit
+	if is_closest_eligible_target(actor_unit_id, target_unit_id, board):
+		print("RulesEngine: GUN-CRAZY SHOW-OFFS — %s targeting closest eligible enemy with snazzgun → Attacks = 4" % actor_unit.get("meta", {}).get("name", actor_unit_id))
+		return 4
+	else:
+		print("RulesEngine: GUN-CRAZY SHOW-OFFS — %s targeting non-closest enemy with snazzgun → Attacks = 3 (base)" % actor_unit.get("meta", {}).get("name", actor_unit_id))
+		return -1  # Use base attacks (3)
+
+# TANK HUNTERS (OA-11): Check if a unit has the "Tank Hunters" ability
+# and the target is a MONSTER or VEHICLE. If so, returns true indicating
+# +1 to Hit and +1 to Wound should be applied for ranged attacks.
+static func has_tank_hunters_vs_target(actor_unit: Dictionary, target_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Tank Hunters":
+			has_ability = true
+			break
+
+	if not has_ability:
+		return false
+
+	# Check if target is MONSTER or VEHICLE
+	return is_monster_or_vehicle(target_unit)
 
 # STEALTH (T2-1): Check if a unit has the Stealth ability
 # Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit

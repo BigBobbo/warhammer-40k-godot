@@ -79,26 +79,26 @@
 ## Phase 2: Combat Abilities
 
 ### OA-9: Implement "Gun-crazy Show-offs" ability for Flash Gitz
-- [ ] Add "Gun-crazy Show-offs" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] When targeting closest eligible enemy, snazzgun Attacks = 4
-- [ ] When targeting non-closest enemies, snazzgun Attacks = 3 (base)
-- [ ] Implement closest-target validation using model-to-model distance
+- [x] Add "Gun-crazy Show-offs" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] When targeting closest eligible enemy, snazzgun Attacks = 4
+- [x] When targeting non-closest enemies, snazzgun Attacks = 3 (base)
+- [x] Implement closest-target validation using model-to-model distance
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd, ShootingPhase.gd
 - **Validation**: Snazzgun Attacks = 4 vs closest enemy. Attacks = 3 vs non-closest. Distance calculated correctly.
 
 ### OA-10: Implement "Ammo Runt" wargear ability for Nobz and Flash Gitz
-- [ ] Add "Ammo Runt" to UnitAbilityManager.ABILITY_EFFECTS with once-per-battle tracking
-- [ ] When unit selected to shoot, prompt "Use Ammo Runt?"
-- [ ] Grant Lethal Hits to all ranged weapons for the phase
-- [ ] Track multiple ammo runts independently (Nobz can have 2)
+- [x] Add "Ammo Runt" to UnitAbilityManager.ABILITY_EFFECTS with once-per-battle tracking
+- [x] When unit selected to shoot, prompt "Use Ammo Runt?"
+- [x] Grant Lethal Hits to all ranged weapons for the phase
+- [x] Track multiple ammo runts independently (Nobz can have 2)
 - **Files**: UnitAbilityManager.gd, ShootingPhase.gd, RulesEngine.gd
 - **Validation**: Once-per-battle per ammo runt. Lethal Hits granted. UI prompt shown. Multiple runts tracked independently.
 
 ### OA-11: Implement "Tank Hunters" ability for Tankbustas
-- [ ] Add "Tank Hunters" to UnitAbilityManager.ABILITY_EFFECTS with target-keyword condition
-- [ ] Apply +1 to Hit roll when attacking MONSTER or VEHICLE targets
-- [ ] Apply +1 to Wound roll when attacking MONSTER or VEHICLE targets
-- [ ] No bonus when attacking other unit types
+- [x] Add "Tank Hunters" to UnitAbilityManager.ABILITY_EFFECTS with target-keyword condition
+- [x] Apply +1 to Hit roll when attacking MONSTER or VEHICLE targets
+- [x] Apply +1 to Wound roll when attacking MONSTER or VEHICLE targets
+- [x] No bonus when attacking other unit types
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: +1 Hit and +1 Wound vs MONSTER/VEHICLE. No bonus vs other types. Applies to all ranged attacks.
 

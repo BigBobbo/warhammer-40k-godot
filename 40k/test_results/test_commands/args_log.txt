@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gtest=test_faction_stratagems.gd", "-gexit"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gtest=test_tank_hunters.gd", "-gprefix=test_", "-glog=1", "-gexit"]

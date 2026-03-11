@@ -499,6 +499,56 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# COMBAT ABILITIES — Weapon stat modifiers based on targeting conditions
+	# ======================================================================
+
+	# Ork Flash Gitz — snazzgun Attacks = 4 when targeting closest eligible enemy
+	# Handled directly in RulesEngine._resolve_ranged_assignment() and _resolve_assignment():
+	# checks if weapon is a snazzgun and target is closest eligible, then overrides attacks to 4.
+	"Gun-crazy Show-offs": {
+		"condition": "always",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Snazzgun Attacks = 4 when targeting closest eligible enemy — checked directly in RulesEngine"
+	},
+
+	# ======================================================================
+	# WARGEAR ABILITIES — Ammo Runt (OA-10)
+	# ======================================================================
+
+	# Ork Nobz / Flash Gitz — once per battle per ammo runt, Lethal Hits on ranged weapons
+	# Nobz can have up to 2 ammo runts; Flash Gitz have 1.
+	# Triggered when unit is selected to shoot — prompt offered in ShootingPhase.
+	# The ammo runt count is stored in ability dict as "count" field (default 1).
+	"Ammo Runt": {
+		"condition": "on_shooting_selection",
+		"effects": [{"type": "grant_lethal_hits"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle per ammo runt: ranged weapons gain [LETHAL HITS] for the phase"
+	},
+
+	# ======================================================================
+	# TARGET-CONDITIONAL ABILITIES — bonuses based on target keywords
+	# These are checked directly in RulesEngine where both attacker and target are known.
+	# ======================================================================
+
+	# Ork Tankbustas — +1 Hit and +1 Wound vs MONSTER or VEHICLE (ranged only)
+	"Tank Hunters": {
+		"condition": "target_has_keyword",
+		"target_keywords": ["MONSTER", "VEHICLE"],
+		"effects": [{"type": "plus_one_hit"}, {"type": "plus_one_wound"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "+1 to Hit and +1 to Wound when making ranged attacks against MONSTER or VEHICLE units — checked directly in RulesEngine"
+	},
+
+	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
 	# ======================================================================
@@ -1610,6 +1660,58 @@ func has_distraction_grot(unit_id: String) -> bool:
 			else:
 				print("UnitAbilityManager: Unit %s has Distraction Grot but already used this battle" % unit_id)
 	return false
+
+func has_ammo_runt(unit_id: String) -> bool:
+	"""OA-10: Check if a unit has at least one unused Ammo Runt wargear ability.
+	Used by ShootingPhase to offer Lethal Hits when unit is selected to shoot."""
+	return get_ammo_runts_remaining(unit_id) > 0
+
+func get_ammo_runt_count(unit_id: String) -> int:
+	"""OA-10: Get the total number of ammo runts a unit has.
+	Reads count from ability dict (default 1). Nobz can have up to 2."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return 0
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Ammo Runt":
+			# Count stored in ability dict, default 1 (Flash Gitz), can be 2 (Nobz)
+			if ability is Dictionary:
+				return ability.get("count", 1)
+			return 1
+	return 0
+
+func get_ammo_runts_remaining(unit_id: String) -> int:
+	"""OA-10: Get the number of unused ammo runts for a unit.
+	Each runt is tracked independently via 'unit_id:Ammo Runt:N' keys."""
+	var total = get_ammo_runt_count(unit_id)
+	if total == 0:
+		return 0
+
+	var remaining = 0
+	for i in range(total):
+		var usage_key = unit_id + ":Ammo Runt:" + str(i)
+		if not _once_per_battle_used.get(usage_key, false):
+			remaining += 1
+
+	print("UnitAbilityManager: Unit %s has %d/%d ammo runts remaining" % [unit_id, remaining, total])
+	return remaining
+
+func mark_ammo_runt_used(unit_id: String) -> int:
+	"""OA-10: Mark the next unused ammo runt as used for a unit.
+	Returns the index of the runt that was marked, or -1 if none available."""
+	var total = get_ammo_runt_count(unit_id)
+	for i in range(total):
+		var usage_key = unit_id + ":Ammo Runt:" + str(i)
+		if not _once_per_battle_used.get(usage_key, false):
+			_once_per_battle_used[usage_key] = true
+			var remaining = get_ammo_runts_remaining(unit_id)
+			print("UnitAbilityManager: Marked Ammo Runt #%d as used for unit %s (%d remaining)" % [i, unit_id, remaining])
+			return i
+	print("UnitAbilityManager: No unused ammo runts for unit %s" % unit_id)
+	return -1
 
 func has_bomb_squigs(unit_id: String) -> bool:
 	"""Check if a unit has the Bomb Squigs wargear ability (e.g. Kommandos).
