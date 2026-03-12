@@ -538,6 +538,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle: at start of Command phase, if bearer's unit is below Starting Strength, return up to D3 destroyed Bodyguard models"
 	},
 
+	# Ork Big Mek in Mega Armour — return 1 destroyed Bodyguard model each Command phase while leading
+	"Fix Dat Armour Up": {
+		"condition": "start_of_command",
+		"effects": [],
+		"target": "led_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While this model is leading a unit, in your Command phase, you can return 1 destroyed Bodyguard model to that unit"
+	},
+
 	# ======================================================================
 	# PHASE-TRIGGERED ABILITIES (Movement phase etc.)
 	# ======================================================================
@@ -2267,6 +2277,59 @@ func get_grot_orderly_unit(painboss_unit_id: String) -> Dictionary:
 				return {"eligible": false}
 
 	print("UnitAbilityManager: Grot Orderly — Painboss %s is not leading any unit" % painboss_unit_id)
+	return {"eligible": false}
+
+func has_fix_dat_armour_up(unit_id: String) -> bool:
+	"""Check if a unit has the Fix Dat Armour Up ability (Big Mek in Mega Armour).
+	Used by CommandPhase to offer model revival each command phase while leading."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Fix Dat Armour Up":
+			print("UnitAbilityManager: Unit %s has Fix Dat Armour Up" % unit_id)
+			return true
+	return false
+
+func get_fix_dat_armour_up_unit(character_unit_id: String) -> Dictionary:
+	"""Check if the Big Mek's led unit has destroyed Bodyguard models for Fix Dat Armour Up.
+	Returns { eligible: bool, bodyguard_unit_id, bodyguard_unit_name, destroyed_count } or ineligible dict."""
+	var units = GameState.state.get("units", {})
+
+	# Find the bodyguard unit the Big Mek is leading
+	for unit_id in units:
+		var unit = units[unit_id]
+		var attachment_data = unit.get("attachment_data", {})
+		var attached_characters = attachment_data.get("attached_characters", [])
+		if character_unit_id in attached_characters:
+			# Found the bodyguard unit — check for destroyed models
+			var models = unit.get("models", [])
+			var alive_count = 0
+			var destroyed_count = 0
+			for model in models:
+				if model.get("alive", true):
+					alive_count += 1
+				else:
+					destroyed_count += 1
+
+			if destroyed_count > 0:
+				print("UnitAbilityManager: Fix Dat Armour Up — bodyguard unit %s has %d destroyed model(s)" % [unit_id, destroyed_count])
+				return {
+					"eligible": true,
+					"bodyguard_unit_id": unit_id,
+					"bodyguard_unit_name": unit.get("meta", {}).get("name", unit_id),
+					"destroyed_count": destroyed_count,
+					"alive_count": alive_count,
+					"total_models": models.size()
+				}
+			else:
+				print("UnitAbilityManager: Fix Dat Armour Up — bodyguard unit %s is at full strength" % unit_id)
+				return {"eligible": false}
+
+	print("UnitAbilityManager: Fix Dat Armour Up — Big Mek %s is not leading any unit" % character_unit_id)
 	return {"eligible": false}
 
 func _calculate_distance(pos_a, pos_b) -> float:

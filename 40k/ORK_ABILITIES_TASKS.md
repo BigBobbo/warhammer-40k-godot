@@ -263,8 +263,8 @@
 - **Validation**: Once per battle. D3 wounds healed at end of Movement phase.
 
 ### OA-33: Implement "Fix Dat Armour Up" for Big Mek in Mega Armour
-- [ ] While leading, return 1 destroyed Bodyguard model in Command phase
-- [ ] Model returns with full wounds
+- [x] While leading, return 1 destroyed Bodyguard model in Command phase
+- [x] Model returns with full wounds
 - **Files**: UnitAbilityManager.gd, CommandPhase.gd
 - **Validation**: 1 destroyed Bodyguard model returned per Command phase while leading.
 

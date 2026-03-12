@@ -26,6 +26,7 @@ var _awaiting_reroll_decision: bool = false
 var _reroll_pending_unit_id: String = ""
 var _reroll_pending_roll: Dictionary = {}  # Stores {die1, die2, unit_id, leadership}
 var _newly_drawn_missions: Array = []  # Missions drawn this phase, for review dialog
+var _fix_dat_armour_up_used: Array = []  # Units that used Fix Dat Armour Up this command phase
 
 func _init():
 	_rng = RandomNumberGenerator.new()
@@ -37,6 +38,9 @@ func _on_phase_enter() -> void:
 	var battle_round = GameState.get_battle_round()
 	print("CommandPhase: Entering command phase for player ", current_player)
 	print("CommandPhase: Battle round ", battle_round)
+
+	# Reset per-command-phase tracking
+	_fix_dat_armour_up_used = []
 
 	# Step 0a: Reset per-round tracking at start of each battle round (Player 1's turn)
 	if current_player == 1:
@@ -489,6 +493,32 @@ func get_available_actions() -> Array:
 					"player": current_player
 				})
 
+	# OA-33: Fix Dat Armour Up — Big Mek in Mega Armour returns 1 destroyed Bodyguard model each Command phase
+	var ability_mgr_fda = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr_fda:
+		var all_units_fda = GameState.state.get("units", {})
+		for unit_id in all_units_fda:
+			var unit = all_units_fda[unit_id]
+			if unit.get("owner", 0) != current_player:
+				continue
+			if unit_id in _fix_dat_armour_up_used:
+				continue
+			if not ability_mgr_fda.has_fix_dat_armour_up(unit_id):
+				continue
+			if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+				continue
+			var fda_info = ability_mgr_fda.get_fix_dat_armour_up_unit(unit_id)
+			if fda_info.get("eligible", false):
+				var mek_name = unit.get("meta", {}).get("name", unit_id)
+				actions.append({
+					"type": "USE_FIX_DAT_ARMOUR_UP",
+					"unit_id": unit_id,
+					"bodyguard_unit_id": fda_info.bodyguard_unit_id,
+					"description": "Fix Dat Armour Up: %s returns 1 model to %s (%d destroyed)" % [
+						mek_name, fda_info.bodyguard_unit_name, fda_info.destroyed_count],
+					"player": current_player
+				})
+
 	# Always allow ending command phase (but warn if tests remain)
 	actions.append({
 		"type": "END_COMMAND",
@@ -542,6 +572,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_use_da_kaptin(action)
 		"USE_GROT_ORDERLY":
 			errors = _validate_use_grot_orderly(action)
+		"USE_FIX_DAT_ARMOUR_UP":
+			errors = _validate_use_fix_dat_armour_up(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			errors = _validate_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -617,6 +649,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_use_da_kaptin(action)
 		"USE_GROT_ORDERLY":
 			return _handle_use_grot_orderly(action)
+		"USE_FIX_DAT_ARMOUR_UP":
+			return _handle_use_fix_dat_armour_up(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			return _handle_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -1431,6 +1465,121 @@ func _handle_use_grot_orderly(action: Dictionary) -> Dictionary:
 		"d3_roll": d3_roll,
 		"models_returned": returned,
 		"message": "Grot Orderly: %s returned %d model(s) to %s (D3 = %d)" % [painboss_name, returned, bg_name, d3_roll]
+	}
+
+# ============================================================================
+# FIX DAT ARMOUR UP — Big Mek in Mega Armour (OA-33)
+# ============================================================================
+
+func _validate_use_fix_dat_armour_up(action: Dictionary) -> Array:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var current_player = get_current_player()
+
+	if unit_id == "":
+		errors.append("Missing unit_id for Fix Dat Armour Up")
+		return errors
+
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		errors.append("UnitAbilityManager not available")
+		return errors
+
+	if not ability_mgr.has_fix_dat_armour_up(unit_id):
+		errors.append("Unit %s does not have Fix Dat Armour Up ability" % unit_id)
+		return errors
+
+	if unit_id in _fix_dat_armour_up_used:
+		errors.append("Unit %s has already used Fix Dat Armour Up this command phase" % unit_id)
+		return errors
+
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.get("owner", 0) != current_player:
+		errors.append("Unit %s does not belong to active player" % unit_id)
+
+	var fda_info = ability_mgr.get_fix_dat_armour_up_unit(unit_id)
+	if not fda_info.get("eligible", false):
+		errors.append("Big Mek's unit has no destroyed Bodyguard models to return")
+
+	return errors
+
+func _handle_use_fix_dat_armour_up(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var bodyguard_unit_id = action.get("bodyguard_unit_id", "")
+	var current_player = get_current_player()
+
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return {"success": false, "error": "UnitAbilityManager not available"}
+
+	var fda_info = ability_mgr.get_fix_dat_armour_up_unit(unit_id)
+	if not fda_info.get("eligible", false):
+		return {"success": false, "error": "No destroyed Bodyguard models to return"}
+
+	bodyguard_unit_id = fda_info.bodyguard_unit_id
+
+	# Fix Dat Armour Up returns exactly 1 destroyed model
+	print("CommandPhase: Fix Dat Armour Up — returning 1 model to %s" % bodyguard_unit_id)
+
+	var bodyguard_unit = GameState.state.get("units", {}).get(bodyguard_unit_id, {})
+	var models = bodyguard_unit.get("models", [])
+	var changes = []
+	var returned = 0
+
+	for i in range(models.size()):
+		if returned >= 1:
+			break
+		var model = models[i]
+		if not model.get("alive", true):
+			# Revive this model at full wounds
+			var max_wounds = model.get("wounds", 1)
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.alive" % [bodyguard_unit_id, i],
+				"value": true
+			})
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.current_wounds" % [bodyguard_unit_id, i],
+				"value": max_wounds
+			})
+			returned += 1
+			print("CommandPhase: Fix Dat Armour Up — returned model %s (index %d) with %d wounds" % [model.get("id", ""), i, max_wounds])
+
+	# Apply changes
+	if changes.size() > 0:
+		PhaseManager.apply_state_changes(changes)
+
+	# Track that this unit used Fix Dat Armour Up this command phase
+	_fix_dat_armour_up_used.append(unit_id)
+
+	var mek_name = GameState.state.get("units", {}).get(unit_id, {}).get("meta", {}).get("name", unit_id)
+	var bg_name = fda_info.bodyguard_unit_name
+
+	log_phase_message("FIX DAT ARMOUR UP: %s returns %d model to %s" % [
+		mek_name, returned, bg_name])
+
+	# Log to phase log
+	var log_entry = {
+		"type": "USE_FIX_DAT_ARMOUR_UP",
+		"player": current_player,
+		"big_mek_unit_id": unit_id,
+		"bodyguard_unit_id": bodyguard_unit_id,
+		"models_returned": returned,
+		"turn": GameState.get_battle_round()
+	}
+	GameState.add_action_to_phase_log(log_entry)
+
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_player_entry(current_player, "Fix Dat Armour Up: %s returned 1 model to %s" % [mek_name, bg_name])
+
+	return {
+		"success": true,
+		"unit_id": unit_id,
+		"bodyguard_unit_id": bodyguard_unit_id,
+		"models_returned": returned,
+		"message": "Fix Dat Armour Up: %s returned 1 model to %s" % [mek_name, bg_name]
 	}
 
 # ============================================================================
