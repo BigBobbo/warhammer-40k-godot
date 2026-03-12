@@ -996,7 +996,12 @@
           "id": "m1",
           "wounds": 16,
           "current_wounds": 16,
-          "base_mm": 32,
+          "base_mm": 180,
+          "base_type": "rectangular",
+          "base_dimensions": {
+            "length": 180,
+            "width": 110
+          },
           "position": null,
           "alive": true,
           "status_effects": []
@@ -1144,7 +1149,12 @@
           "id": "m1",
           "wounds": 16,
           "current_wounds": 16,
-          "base_mm": 32,
+          "base_mm": 180,
+          "base_type": "rectangular",
+          "base_dimensions": {
+            "length": 180,
+            "width": 110
+          },
           "position": null,
           "alive": true,
           "status_effects": []

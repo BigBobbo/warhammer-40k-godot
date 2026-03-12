@@ -1,10 +1,9 @@
 extends "res://addons/gut/test.gd"
 
-# Tests for P1-61: Pivot values for non-round base models (10e Core Rules Update)
+# Tests for P1-61: Pivot values for non-round base models (10e Core Rules + Pariah Nexus)
 #
-# Pivot value rules:
-# - Non-round base, non-Monster/Vehicle = 1" subtracted from movement
-# - Monster/Vehicle non-round base = 2" subtracted from movement
+# Pivot value rules (per Pariah Nexus Companion & Q3 2024 Balance Update):
+# - All non-round base models = 2" subtracted from movement
 # - Vehicle round base >32mm with flying stem = 2" subtracted
 # - Aircraft = 0" (exempt)
 # - Standard round base = 0" (no cost)
@@ -57,7 +56,7 @@ func _create_pivot_test_state() -> Dictionary:
 			# Standard infantry with round base — 0" pivot cost
 			"infantry_round": _create_unit("infantry_round", "Intercessors", 1, Vector2(200, 200),
 				["INFANTRY", "IMPERIUM"], 32, "circular"),
-			# Infantry with non-round base — 1" pivot cost
+			# Infantry with non-round base — 2" pivot cost (Pariah Nexus: all non-round bases = 2")
 			"infantry_nonround": _create_unit("infantry_nonround", "Test Non-Round", 1, Vector2(400, 200),
 				["INFANTRY"], 50, "oval", {"length": 75, "width": 42}),
 			# Vehicle with non-round base — 2" pivot cost
@@ -130,10 +129,10 @@ func test_round_base_infantry_has_zero_pivot_value():
 	var pivot_value = phase.get_pivot_value_for_unit("infantry_round")
 	assert_eq(pivot_value, 0.0, "Round-base infantry should have 0\" pivot value")
 
-func test_nonround_base_infantry_has_1_inch_pivot_value():
-	"""Non-round base non-Monster/Vehicle should have 1\" pivot value"""
+func test_nonround_base_infantry_has_2_inch_pivot_value():
+	"""Non-round base models should have 2\" pivot value (Pariah Nexus: all non-round bases = 2\")"""
 	var pivot_value = phase.get_pivot_value_for_unit("infantry_nonround")
-	assert_eq(pivot_value, 1.0, "Non-round base infantry should have 1\" pivot value")
+	assert_eq(pivot_value, 2.0, "Non-round base infantry should have 2\" pivot value (Pariah Nexus)")
 
 func test_vehicle_nonround_base_has_2_inch_pivot_value():
 	"""Vehicle with non-round base should have 2\" pivot value"""
