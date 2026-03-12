@@ -5,9 +5,9 @@ shader_type canvas_item;
 // from a typical top-down game camera distance.
 
 // Tunable uniforms — all have sensible defaults for a 40 K grass mat.
-uniform vec4 base_color : source_color = vec4(0.16, 0.38, 0.13, 1.0);
-uniform vec4 tip_color  : source_color = vec4(0.28, 0.52, 0.18, 1.0);
-uniform vec4 shadow_color : source_color = vec4(0.08, 0.20, 0.06, 1.0);
+uniform vec4 base_color : source_color = vec4(0.12, 0.22, 0.08, 1.0);
+uniform vec4 tip_color  : source_color = vec4(0.18, 0.30, 0.10, 1.0);
+uniform vec4 shadow_color : source_color = vec4(0.06, 0.12, 0.04, 1.0);
 
 uniform float blade_density : hint_range(20.0, 400.0) = 120.0;
 uniform float color_variation : hint_range(0.0, 0.3) = 0.08;

@@ -1,7 +1,7 @@
 shader_type canvas_item;
 
 // Green felt gaming table shader - hash-based noise, no texture lookups (WebGL-safe)
-uniform vec4 base_color : source_color = vec4(0.15, 0.35, 0.12, 1.0);
+uniform vec4 base_color : source_color = vec4(0.10, 0.20, 0.08, 1.0);
 uniform float noise_strength : hint_range(0.0, 0.2) = 0.04;
 uniform float noise_scale : hint_range(1.0, 200.0) = 80.0;
 
