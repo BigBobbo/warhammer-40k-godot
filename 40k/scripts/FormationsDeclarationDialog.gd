@@ -478,7 +478,7 @@ func _update_summary() -> void:
 			parts.append("%s [%s]" % [unit_name, type_label])
 			total_pts += GameState.get_unit(entry["unit_id"]).get("meta", {}).get("points", 0)
 		var total_army = GameState.get_total_army_points(declaring_player)
-		var max_pts = int(total_army * 0.25)
+		var max_pts = int(total_army * 0.50)
 		text += ", ".join(parts) + " (%d/%d pts)\n" % [total_pts, max_pts]
 
 	if leader_attachments.is_empty() and total_embarked == 0 and reserves.is_empty():
