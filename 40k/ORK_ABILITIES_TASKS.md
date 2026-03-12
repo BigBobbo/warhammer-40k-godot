@@ -233,9 +233,9 @@
 - **Validation**: Can move over non-MONSTER/VEHICLE enemies and terrain ≤4".
 
 ### OA-29: Implement "Stompin' Forward" ability for Stompa
-- [ ] Add "Stompin' Forward" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Allow moving over all non-TITANIC models
-- [ ] Allow moving over terrain 4" or less in height
+- [x] Add "Stompin' Forward" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Allow moving over all non-TITANIC models
+- [x] Allow moving over terrain 4" or less in height
 - **Files**: UnitAbilityManager.gd, MovementPhase.gd
 - **Validation**: Can move over all non-TITANIC models and terrain ≤4".
 

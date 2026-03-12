@@ -559,9 +559,13 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	# FLY units are exempt — they can move over enemy models
 	# Fall Back and Surge are also exempt
 	# OA-28: Clankin' Forward also exempts (can move over non-MONSTER/VEHICLE enemies)
+	# OA-29: Stompin' Forward exempts (can move over all non-TITANIC models)
 	var _has_clankin_fwd = _unit_has_clankin_forward(unit_id)
+	var _has_stompin_fwd = _unit_has_stompin_forward(unit_id)
 	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
-		if _has_clankin_fwd:
+		if _has_stompin_fwd:
+			log_phase_message("  OA-29: Stompin' Forward — bypassing enemy base crossing check (all non-TITANIC allowed)")
+		elif _has_clankin_fwd:
 			log_phase_message("  OA-28: Clankin' Forward — bypassing enemy base crossing check (non-MONSTER/VEHICLE allowed)")
 		elif _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
@@ -570,14 +574,22 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
 	# FLY units are exempt
 	# OA-28: Clankin' Forward units are still blocked by MONSTER/VEHICLE
-	if not _unit_has_fly_keyword(unit_id):
+	# OA-29: Stompin' Forward units bypass this — they can move over MONSTER/VEHICLE
+	if not _unit_has_fly_keyword(unit_id) and not _has_stompin_fwd:
 		if _path_crosses_monster_vehicle_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses friendly/enemy Monster/Vehicle model base")
 			return {"valid": false, "errors": ["Cannot move through Monster or Vehicle models"]}
 
+	# OA-29: Stompin' Forward units are blocked only by TITANIC models
+	if _has_stompin_fwd and not _unit_has_fly_keyword(unit_id):
+		if _path_crosses_titanic_bases(current_pos, dest_vec, unit_id, model):
+			log_phase_message("  FAILED: Path crosses TITANIC model base (Stompin' Forward blocked by TITANIC)")
+			return {"valid": false, "errors": ["Cannot move through TITANIC models"]}
+
 	# Check terrain collision
 	# OA-28: Clankin' Forward allows moving over terrain ≤4" height
-	if _has_clankin_fwd:
+	# OA-29: Stompin' Forward allows moving over terrain ≤4" height
+	if _has_clankin_fwd or _has_stompin_fwd:
 		if _position_intersects_terrain(dest_vec, model, 4.0):
 			return {"valid": false, "errors": ["Position intersects impassable terrain (height > 4\")"]}
 	else:
@@ -661,9 +673,13 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	# Fall Back and Surge are also exempt (Fall Back handled via Desperate Escape,
 	# Surge moves allow moving through/into Engagement Range)
 	# OA-28: Clankin' Forward also exempts (can move over non-MONSTER/VEHICLE enemies)
+	# OA-29: Stompin' Forward exempts (can move over all non-TITANIC models)
 	var _has_clankin_fwd_stage = _unit_has_clankin_forward(unit_id)
+	var _has_stompin_fwd_stage = _unit_has_stompin_forward(unit_id)
 	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
-		if _has_clankin_fwd_stage:
+		if _has_stompin_fwd_stage:
+			log_phase_message("  OA-29: Stompin' Forward — bypassing enemy base crossing check (all non-TITANIC allowed)")
+		elif _has_clankin_fwd_stage:
 			log_phase_message("  OA-28: Clankin' Forward — bypassing enemy base crossing check (non-MONSTER/VEHICLE allowed)")
 		elif _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
@@ -672,14 +688,22 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
 	# FLY units are exempt
 	# OA-28: Clankin' Forward units are still blocked by MONSTER/VEHICLE
-	if not _unit_has_fly_keyword(unit_id):
+	# OA-29: Stompin' Forward units bypass this — they can move over MONSTER/VEHICLE
+	if not _unit_has_fly_keyword(unit_id) and not _has_stompin_fwd_stage:
 		if _path_crosses_monster_vehicle_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses friendly/enemy Monster/Vehicle model base")
 			return {"valid": false, "errors": ["Cannot move through Monster or Vehicle models"]}
 
+	# OA-29: Stompin' Forward units are blocked only by TITANIC models
+	if _has_stompin_fwd_stage and not _unit_has_fly_keyword(unit_id):
+		if _path_crosses_titanic_bases(current_pos, dest_vec, unit_id, model):
+			log_phase_message("  FAILED: Path crosses TITANIC model base (Stompin' Forward blocked by TITANIC)")
+			return {"valid": false, "errors": ["Cannot move through TITANIC models"]}
+
 	# Check terrain collision
 	# OA-28: Clankin' Forward allows moving over terrain ≤4" height
-	if _has_clankin_fwd_stage:
+	# OA-29: Stompin' Forward allows moving over terrain ≤4" height
+	if _has_clankin_fwd_stage or _has_stompin_fwd_stage:
 		if _position_intersects_terrain(dest_vec, model, 4.0):
 			return {"valid": false, "errors": ["Position intersects impassable terrain (height > 4\")"]}
 	else:
@@ -4448,6 +4472,57 @@ func _unit_has_clankin_forward(unit_id: String) -> bool:
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr and ability_mgr.has_clankin_forward(unit_id):
 		return true
+	return false
+
+func _unit_has_stompin_forward(unit_id: String) -> bool:
+	# OA-29: Check if the unit has the Stompin' Forward ability (Stompa)
+	# Allows moving over all non-TITANIC models and terrain ≤4" height
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr and ability_mgr.has_stompin_forward(unit_id):
+		return true
+	return false
+
+func _path_crosses_titanic_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary) -> bool:
+	# OA-29: Check if path crosses any TITANIC model bases (friendly or enemy).
+	# Stompin' Forward units can move over everything EXCEPT TITANIC models.
+	var units = game_state_snapshot.get("units", {})
+
+	var reference_model = model.duplicate()
+
+	var path_length = from.distance_to(to)
+	var num_samples = max(2, int(path_length / 10.0))
+
+	for i in range(num_samples + 1):
+		var t = float(i) / float(num_samples)
+		var sample_pos = from.lerp(to, t)
+
+		var model_at_pos = reference_model.duplicate()
+		model_at_pos["position"] = sample_pos
+
+		for check_unit_id in units:
+			if check_unit_id == unit_id:
+				continue  # Skip own unit's models
+
+			var check_unit = units[check_unit_id]
+			var check_keywords = check_unit.get("meta", {}).get("keywords", [])
+			var is_titanic = false
+			for kw in check_keywords:
+				if kw.to_upper() == "TITANIC":
+					is_titanic = true
+					break
+			if not is_titanic:
+				continue
+
+			var check_models = check_unit.get("models", [])
+			for check_model in check_models:
+				if not check_model.get("alive", true):
+					continue
+				var check_pos = _get_model_position(check_model)
+				if check_pos:
+					if Measurement.models_overlap(model_at_pos, check_model):
+						log_phase_message("  Path crosses TITANIC model base in unit %s" % check_unit_id)
+						return true
+
 	return false
 
 func _get_terrain_height_inches(terrain_piece: Dictionary) -> float:
