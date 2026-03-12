@@ -996,10 +996,15 @@
           "id": "m1",
           "wounds": 16,
           "current_wounds": 16,
-          "base_mm": 32,
+          "base_mm": 180,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "base_type": "rectangular",
+          "base_dimensions": {
+            "length": 180,
+            "width": 110
+          }
         }
       ]
     },
@@ -1144,10 +1149,15 @@
           "id": "m1",
           "wounds": 16,
           "current_wounds": 16,
-          "base_mm": 32,
+          "base_mm": 180,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "base_type": "rectangular",
+          "base_dimensions": {
+            "length": 180,
+            "width": 110
+          }
         }
       ]
     },
