@@ -219,9 +219,9 @@
 - **Validation**: Consolidation move is 6" instead of 3".
 
 ### OA-27: Implement "Outflank" ability for Warbuggies
-- [ ] Add "Outflank" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Allow deployment in opponent's deployment zone when arriving from Strategic Reserves
-- [ ] Other reserve restrictions still apply
+- [x] Add "Outflank" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Allow deployment in opponent's deployment zone when arriving from Strategic Reserves
+- [x] Other reserve restrictions still apply
 - **Files**: UnitAbilityManager.gd, MovementPhase.gd
 - **Validation**: Can deploy in opponent's zone from Strategic Reserves. Other restrictions apply.
 

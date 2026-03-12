@@ -657,6 +657,17 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Consolidation distance is 6\" instead of 3\" — checked directly in FightPhase"
 	},
 
+	# Ork Warbuggies — can deploy in opponent's deployment zone from Strategic Reserves (OA-27)
+	# Checked directly in MovementPhase reserve placement validation.
+	"Outflank": {
+		"condition": "deployment_override",
+		"effects": [{"type": "ignore_opponent_zone_restriction"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When arriving from Strategic Reserves, can be set up in opponent's deployment zone (Turn 2 restriction bypassed)"
+	},
+
 	# Ork Dakkajet — every successful Hit roll scores a Critical Hit (ranged only)
 	# Sustained Hits and Lethal Hits trigger on every successful hit.
 	# Checked directly in RulesEngine hit resolution (interactive + auto-resolve paths).
@@ -2211,6 +2222,21 @@ func get_deadly_demise_value(unit_id: String) -> String:
 				return parts[2]  # "D6", "D3", "1", etc.
 			return "D3"  # Default if no value specified
 	return ""
+
+func has_outflank(unit_id: String) -> bool:
+	"""Check if a unit has the Outflank ability (Warbuggies).
+	Used by MovementPhase to allow deployment in opponent's zone from Strategic Reserves."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Outflank":
+			print("UnitAbilityManager: Unit %s has Outflank ability" % unit_id)
+			return true
+	return false
 
 func get_implemented_abilities() -> Array:
 	"""Get all ability names that are mechanically implemented."""
