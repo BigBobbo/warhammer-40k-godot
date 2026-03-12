@@ -665,6 +665,24 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# WARGEAR ABILITIES — Shooty Power Trip (OA-37)
+	# ======================================================================
+
+	# Ork Killa Kans — each time this unit is selected to shoot, player may roll D6:
+	# 1-2: Unit suffers D3 mortal wounds.
+	# 3-4: +1 Strength to ranged weapons for the phase.
+	# 5-6: +1 Attacks to ranged weapons for the phase.
+	# Not once per battle — can be used every time the unit shoots.
+	"Shooty Power Trip": {
+		"condition": "on_shooting_selection",
+		"effects": [{"type": "random_d6_effect"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "When selected to shoot, roll D6: 1-2 = D3 mortal wounds to self, 3-4 = +1 Strength, 5-6 = +1 Attacks to ranged weapons"
+	},
+
+	# ======================================================================
 	# TARGET-CONDITIONAL ABILITIES — bonuses based on target keywords
 	# These are checked directly in RulesEngine where both attacker and target are known.
 	# ======================================================================
@@ -2079,6 +2097,22 @@ func mark_pulsa_rokkit_used(unit_id: String) -> void:
 	"""OA-31: Mark Pulsa Rokkit as used for a unit."""
 	mark_once_per_battle_used(unit_id, "Pulsa Rokkit")
 	print("UnitAbilityManager: Marked Pulsa Rokkit as used for unit %s" % unit_id)
+
+func has_shooty_power_trip(unit_id: String) -> bool:
+	"""OA-37: Check if a unit has the Shooty Power Trip ability (Killa Kans).
+	Not once per battle — can be used every time the unit is selected to shoot.
+	Used by ShootingPhase to offer the D6 roll when unit is selected to shoot."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Shooty Power Trip":
+			print("UnitAbilityManager: Unit %s has Shooty Power Trip" % unit_id)
+			return true
+	return false
 
 func get_bomb_squig_count(unit_id: String) -> int:
 	"""OA-30: Get the total number of bomb squigs a unit has.

@@ -30,6 +30,8 @@ signal ammo_runt_available(unit_id: String, player: int, remaining: int)  # OA-1
 signal ammo_runt_result(unit_id: String, activated: bool)  # OA-10: Ammo Runt decision result
 signal pulsa_rokkit_available(unit_id: String, player: int)  # OA-31: Pulsa Rokkit +1S/+1AP prompt
 signal pulsa_rokkit_result(unit_id: String, activated: bool)  # OA-31: Pulsa Rokkit decision result
+signal shooty_power_trip_available(unit_id: String, player: int)  # OA-37: Shooty Power Trip D6 roll prompt
+signal shooty_power_trip_result(unit_id: String, d6_roll: int, effect: String)  # OA-37: Shooty Power Trip result
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -50,6 +52,8 @@ var ammo_runt_pending_unit: String = ""  # OA-10: Unit awaiting Ammo Runt decisi
 var awaiting_ammo_runt: bool = false  # OA-10: True when waiting for Ammo Runt response
 var pulsa_rokkit_pending_unit: String = ""  # OA-31: Unit awaiting Pulsa Rokkit decision
 var awaiting_pulsa_rokkit: bool = false  # OA-31: True when waiting for Pulsa Rokkit response
+var shooty_power_trip_pending_unit: String = ""  # OA-37: Unit awaiting Shooty Power Trip decision
+var awaiting_shooty_power_trip: bool = false  # OA-37: True when waiting for Shooty Power Trip response
 var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
 var _rng = RandomNumberGenerator.new()  # P1-11: RNG for battle-shock tests
 
@@ -75,6 +79,8 @@ func _on_phase_enter() -> void:
 	awaiting_ammo_runt = false
 	pulsa_rokkit_pending_unit = ""
 	awaiting_pulsa_rokkit = false
+	shooty_power_trip_pending_unit = ""
+	awaiting_shooty_power_trip = false
 	_targets_hit_by_shooter.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
@@ -300,6 +306,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_pulsa_rokkit(action)
 		"DECLINE_PULSA_ROKKIT":  # OA-31: Player declines Pulsa Rokkit
 			return _validate_decline_pulsa_rokkit(action)
+		"USE_SHOOTY_POWER_TRIP":  # OA-37: Player activates Shooty Power Trip
+			return _validate_use_shooty_power_trip(action)
+		"DECLINE_SHOOTY_POWER_TRIP":  # OA-37: Player declines Shooty Power Trip
+			return _validate_decline_shooty_power_trip(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission (Establish Locus, Cleanse, Deploy Teleport Homer)
 			return _validate_perform_secondary_action(action)
 		"BURN_OBJECTIVE":  # Scorched Earth: unit burns an objective instead of shooting
@@ -398,6 +408,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"DECLINE_PULSA_ROKKIT":  # OA-31: Player declines Pulsa Rokkit
 			print("ShootingPhase: Matched DECLINE_PULSA_ROKKIT")
 			return _process_decline_pulsa_rokkit(action)
+		"USE_SHOOTY_POWER_TRIP":  # OA-37: Player activates Shooty Power Trip
+			print("ShootingPhase: Matched USE_SHOOTY_POWER_TRIP")
+			return _process_use_shooty_power_trip(action)
+		"DECLINE_SHOOTY_POWER_TRIP":  # OA-37: Player declines Shooty Power Trip
+			print("ShootingPhase: Matched DECLINE_SHOOTY_POWER_TRIP")
+			return _process_decline_shooty_power_trip(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission
 			print("ShootingPhase: Matched PERFORM_SECONDARY_ACTION")
 			return _process_perform_secondary_action(action)
@@ -665,6 +681,25 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 
 			return create_result(true, [], "Pulsa Rokkit available", {
 				"pulsa_rokkit_available": true,
+				"unit_id": unit_id
+			})
+
+	# OA-37: Check for Shooty Power Trip — offer D6 roll (Killa Kans)
+	if not action.get("payload", {}).get("skip_shooty_power_trip_check", false):
+		var ability_mgr_spt = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr_spt and ability_mgr_spt.has_shooty_power_trip(unit_id):
+			print("ShootingPhase: OA-37 Shooty Power Trip: Unit %s has Shooty Power Trip — prompting" % unit_id)
+			shooty_power_trip_pending_unit = unit_id
+			awaiting_shooty_power_trip = true
+
+			var current_player = get_current_player()
+			emit_signal("shooty_power_trip_available", unit_id, current_player)
+
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			log_phase_message("Shooty Power Trip available for %s — awaiting decision" % unit_name)
+
+			return create_result(true, [], "Shooty Power Trip available", {
+				"shooty_power_trip_available": true,
 				"unit_id": unit_id
 			})
 
@@ -1785,6 +1820,62 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 
 		var ai_unit_name_pr = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 		log_phase_message("AI: Pulsa Rokkit activated for %s — +1S/+1AP to ranged weapons" % ai_unit_name_pr)
+
+	# OA-37: AI auto-use Shooty Power Trip if available
+	var ability_mgr_spt_ai = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr_spt_ai and ability_mgr_spt_ai.has_shooty_power_trip(unit_id):
+		var ai_d6_roll = _rng.randi_range(1, 6)
+		var ai_spt_unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+		print("║ AI SHOOT: OA-37 Shooty Power Trip — auto-rolling for %s (D6 = %d)" % [unit_id, ai_d6_roll])
+
+		if ai_d6_roll <= 2:
+			# 1-2: D3 mortal wounds to self
+			var ai_d3_roll = _rng.randi_range(1, 6)
+			var ai_mortal_wounds = ((ai_d3_roll - 1) / 2) + 1
+			print("║ AI SHOOT: OA-37 Shooty Power Trip — D3 mortal wounds to self (D3 = %d, MW = %d)" % [ai_d3_roll, ai_mortal_wounds])
+
+			var ai_rng_service = RulesEngine.RNGService.new()
+			var ai_mw_result = RulesEngine.apply_mortal_wounds(unit_id, ai_mortal_wounds, game_state_snapshot, ai_rng_service)
+			var ai_mw_diffs = ai_mw_result.get("diffs", [])
+			if not ai_mw_diffs.is_empty():
+				PhaseManager.apply_state_changes(ai_mw_diffs)
+				game_state_snapshot = GameState.create_snapshot()
+
+			var ai_casualties = ai_mw_result.get("casualties", 0)
+			log_phase_message("AI: Shooty Power Trip — %s rolled %d, suffers %d mortal wounds (%d casualties)" % [ai_spt_unit_name, ai_d6_roll, ai_mortal_wounds, ai_casualties])
+
+			# Check if unit was destroyed
+			var ai_unit_after = get_unit(unit_id)
+			if ai_unit_after.is_empty() or RulesEngine.count_alive_models(ai_unit_after) <= 0:
+				print("║ AI SHOOT: OA-37 Unit %s destroyed by Shooty Power Trip self-damage!" % unit_id)
+				log_phase_message("AI: Shooty Power Trip — %s destroyed by self-inflicted mortal wounds!" % ai_spt_unit_name)
+				return create_result(true, ai_mw_diffs, "AI: Shooty Power Trip — unit destroyed", {
+					"shooty_power_trip_used": true,
+					"d6_roll": ai_d6_roll,
+					"effect": "self_damage",
+					"unit_destroyed": true
+				})
+
+		elif ai_d6_roll <= 4:
+			# 3-4: +1 Strength to ranged weapons
+			var spt_s_diffs = [{
+				"op": "set",
+				"path": "units.%s.flags.effect_shooty_power_trip_strength" % unit_id,
+				"value": true
+			}]
+			PhaseManager.apply_state_changes(spt_s_diffs)
+			game_state_snapshot = GameState.create_snapshot()
+			log_phase_message("AI: Shooty Power Trip — %s rolled %d, ranged weapons gain +1 Strength" % [ai_spt_unit_name, ai_d6_roll])
+		else:
+			# 5-6: +1 Attacks to ranged weapons
+			var spt_a_diffs = [{
+				"op": "set",
+				"path": "units.%s.flags.effect_shooty_power_trip_attacks" % unit_id,
+				"value": true
+			}]
+			PhaseManager.apply_state_changes(spt_a_diffs)
+			game_state_snapshot = GameState.create_snapshot()
+			log_phase_message("AI: Shooty Power Trip — %s rolled %d, ranged weapons gain +1 Attacks" % [ai_spt_unit_name, ai_d6_roll])
 
 	# Step 2: Merge assignments into confirmed_assignments (inline, no signals)
 	var assignments = action.get("payload", {}).get("assignments", [])
@@ -3307,6 +3398,30 @@ func get_available_actions() -> Array:
 		})
 		return actions
 
+	# OA-37: Shooty Power Trip pending — offer use/decline (active player's choice)
+	if awaiting_shooty_power_trip and shooty_power_trip_pending_unit != "":
+		var spt_unit = get_unit(shooty_power_trip_pending_unit)
+		var spt_name = spt_unit.get("meta", {}).get("name", shooty_power_trip_pending_unit) if not spt_unit.is_empty() else shooty_power_trip_pending_unit
+		var spt_player = int(spt_unit.get("owner", 0))
+		actions.append({
+			"type": "USE_SHOOTY_POWER_TRIP",
+			"actor_unit_id": shooty_power_trip_pending_unit,
+			"player": spt_player,
+			"description": "Use Shooty Power Trip — %s rolls D6 (risk: 1-2 = D3 MW to self)" % spt_name
+		})
+		actions.append({
+			"type": "DECLINE_SHOOTY_POWER_TRIP",
+			"actor_unit_id": shooty_power_trip_pending_unit,
+			"player": spt_player,
+			"description": "Decline Shooty Power Trip — %s" % spt_name
+		})
+		# When Shooty Power Trip is pending, only these actions should be available
+		actions.append({
+			"type": "END_SHOOTING",
+			"description": "End Shooting Phase"
+		})
+		return actions
+
 	# P1-12: Throat Slittas pending — offer use/decline
 	if throat_slittas_pending_unit != "":
 		var ts_unit = get_unit(throat_slittas_pending_unit)
@@ -4530,6 +4645,181 @@ func _process_decline_pulsa_rokkit(action: Dictionary) -> Dictionary:
 	log_phase_message("Pulsa Rokkit declined for %s — proceeding with normal shooting" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
 
 	return create_result(true, [], "Pulsa Rokkit declined")
+
+# ============================================================================
+# OA-37: SHOOTY POWER TRIP — Killa Kans D6 roll when selected to shoot
+# ============================================================================
+# "Each time this unit is selected to shoot, you can roll one D6:
+# On a 1-2, this unit suffers D3 mortal wounds.
+# On a 3-4, until the end of the phase, add 1 to the Strength characteristic
+#   of ranged weapons equipped by models in this unit.
+# On a 5-6, until the end of the phase, add 1 to the Attacks characteristic
+#   of ranged weapons equipped by models in this unit."
+
+func _validate_use_shooty_power_trip(action: Dictionary) -> Dictionary:
+	"""Validate activating Shooty Power Trip ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if not awaiting_shooty_power_trip:
+		return {"valid": false, "errors": ["Not awaiting Shooty Power Trip decision"]}
+	if shooty_power_trip_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Shooty Power Trip pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_shooty_power_trip(action: Dictionary) -> Dictionary:
+	"""Validate declining Shooty Power Trip ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if not awaiting_shooty_power_trip:
+		return {"valid": false, "errors": ["Not awaiting Shooty Power Trip decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
+	"""Player activates Shooty Power Trip — roll D6 and apply effect."""
+	var unit_id = action.get("actor_unit_id", shooty_power_trip_pending_unit)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-37: SHOOTY POWER TRIP — ACTIVATED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	awaiting_shooty_power_trip = false
+	shooty_power_trip_pending_unit = ""
+
+	# Roll D6 to determine effect
+	var d6_roll = _rng.randi_range(1, 6)
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var diffs = []
+	var effect_name = ""
+
+	print("║ OA-37: Shooty Power Trip D6 roll = %d" % d6_roll)
+
+	if d6_roll <= 2:
+		# 1-2: D3 mortal wounds to self
+		effect_name = "self_damage"
+		var d3_roll = _rng.randi_range(1, 6)
+		var mortal_wounds = ((d3_roll - 1) / 2) + 1  # 1-2→1, 3-4→2, 5-6→3
+		print("║ OA-37: Result 1-2 — D3 mortal wounds to self (D3 roll = %d, MW = %d)" % [d3_roll, mortal_wounds])
+
+		# Apply mortal wounds to the unit
+		var board = game_state_snapshot
+		var rng_service = RulesEngine.RNGService.new()
+		var mw_result = RulesEngine.apply_mortal_wounds(unit_id, mortal_wounds, board, rng_service)
+		diffs.append_array(mw_result.get("diffs", []))
+
+		var casualties = mw_result.get("casualties", 0)
+		log_phase_message("Shooty Power Trip: %s rolled %d — suffers %d mortal wounds! (%d casualties)" % [unit_name, d6_roll, mortal_wounds, casualties])
+
+		# Apply diffs to game state
+		if not diffs.is_empty():
+			PhaseManager.apply_state_changes(diffs)
+			game_state_snapshot = GameState.create_snapshot()
+
+		# Log to GameEventLog
+		var game_event_log = get_node_or_null("/root/GameEventLog")
+		if game_event_log:
+			var owner = int(get_unit(unit_id).get("owner", 0))
+			game_event_log.add_player_entry(owner,
+				"Shooty Power Trip: %s rolled %d — suffers %d mortal wounds (%d casualties)" % [unit_name, d6_roll, mortal_wounds, casualties])
+
+		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "self_damage")
+
+		# Check if unit was destroyed by self-damage
+		var unit_after = get_unit(unit_id)
+		if unit_after.is_empty() or RulesEngine.count_alive_models(unit_after) <= 0:
+			print("║ OA-37: Unit %s destroyed by Shooty Power Trip self-damage!" % unit_id)
+			log_phase_message("Shooty Power Trip: %s destroyed by self-inflicted mortal wounds!" % unit_name)
+			return create_result(true, diffs, "Shooty Power Trip — unit destroyed by self-damage", {
+				"shooty_power_trip_used": true,
+				"d6_roll": d6_roll,
+				"effect": "self_damage",
+				"mortal_wounds": mortal_wounds,
+				"unit_destroyed": true
+			})
+
+	elif d6_roll <= 4:
+		# 3-4: +1 Strength to ranged weapons
+		effect_name = "plus_one_strength"
+		print("║ OA-37: Result 3-4 — +1 Strength to ranged weapons for the phase")
+
+		diffs.append({
+			"op": "set",
+			"path": "units.%s.flags.effect_shooty_power_trip_strength" % unit_id,
+			"value": true
+		})
+		PhaseManager.apply_state_changes(diffs)
+		game_state_snapshot = GameState.create_snapshot()
+
+		log_phase_message("Shooty Power Trip: %s rolled %d — ranged weapons gain +1 Strength" % [unit_name, d6_roll])
+
+		var game_event_log = get_node_or_null("/root/GameEventLog")
+		if game_event_log:
+			var owner = int(get_unit(unit_id).get("owner", 0))
+			game_event_log.add_player_entry(owner,
+				"Shooty Power Trip: %s rolled %d — ranged weapons gain [+1 STRENGTH]" % [unit_name, d6_roll])
+
+		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "plus_one_strength")
+
+	else:
+		# 5-6: +1 Attacks to ranged weapons
+		effect_name = "plus_one_attacks"
+		print("║ OA-37: Result 5-6 — +1 Attacks to ranged weapons for the phase")
+
+		diffs.append({
+			"op": "set",
+			"path": "units.%s.flags.effect_shooty_power_trip_attacks" % unit_id,
+			"value": true
+		})
+		PhaseManager.apply_state_changes(diffs)
+		game_state_snapshot = GameState.create_snapshot()
+
+		log_phase_message("Shooty Power Trip: %s rolled %d — ranged weapons gain +1 Attacks" % [unit_name, d6_roll])
+
+		var game_event_log = get_node_or_null("/root/GameEventLog")
+		if game_event_log:
+			var owner = int(get_unit(unit_id).get("owner", 0))
+			game_event_log.add_player_entry(owner,
+				"Shooty Power Trip: %s rolled %d — ranged weapons gain [+1 ATTACKS]" % [unit_name, d6_roll])
+
+		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "plus_one_attacks")
+
+	# Continue to normal shooting flow (target selection)
+	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
+	emit_signal("unit_selected_for_shooting", unit_id)
+	emit_signal("targets_available", unit_id, eligible_targets)
+
+	return create_result(true, diffs, "Shooty Power Trip activated — rolled %d (%s)" % [d6_roll, effect_name], {
+		"shooty_power_trip_used": true,
+		"d6_roll": d6_roll,
+		"effect": effect_name
+	})
+
+func _process_decline_shooty_power_trip(action: Dictionary) -> Dictionary:
+	"""Player declines Shooty Power Trip — proceed with normal shooting."""
+	var unit_id = action.get("actor_unit_id", shooty_power_trip_pending_unit)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-37: SHOOTY POWER TRIP — DECLINED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	awaiting_shooty_power_trip = false
+	shooty_power_trip_pending_unit = ""
+
+	emit_signal("shooty_power_trip_result", unit_id, 0, "declined")
+
+	# Continue to normal shooting flow (target selection)
+	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
+	emit_signal("unit_selected_for_shooting", unit_id)
+	emit_signal("targets_available", unit_id, eligible_targets)
+
+	log_phase_message("Shooty Power Trip declined for %s — proceeding with normal shooting" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
+
+	return create_result(true, [], "Shooty Power Trip declined")
 
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""
