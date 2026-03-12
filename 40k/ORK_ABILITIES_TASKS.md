@@ -287,11 +287,11 @@
 - **Validation**: Triggers after charge. D6 roll determines MW (2-5: D3, 6: D3+3).
 
 ### OA-37: Implement "Shooty Power Trip" for Killa Kans
-- [ ] When selected to shoot, roll D6
-- [ ] 1-2 = D3 mortal wounds to self
-- [ ] 3-4 = +1 Strength to ranged weapons
-- [ ] 5-6 = +1 Attacks to ranged weapons
-- **Files**: UnitAbilityManager.gd, ShootingPhase.gd
+- [x] When selected to shoot, roll D6
+- [x] 1-2 = D3 mortal wounds to self
+- [x] 3-4 = +1 Strength to ranged weapons
+- [x] 5-6 = +1 Attacks to ranged weapons
+- **Files**: UnitAbilityManager.gd, ShootingPhase.gd, RulesEngine.gd
 - **Validation**: D6 determines effect. Self-damage, +1S, or +1A applied correctly.
 
 ### OA-38: Implement "Splat!" for Big Gunz and Mek Gunz

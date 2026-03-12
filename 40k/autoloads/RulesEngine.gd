@@ -918,9 +918,16 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
 	var total_attacks = 0
 
+	# SHOOTY POWER TRIP (OA-37): +1 Attacks to ranged weapons for the phase (D6 roll 5-6)
+	var ow_spt_attacks_bonus = 1 if shooter_unit.get("flags", {}).get("effect_shooty_power_trip_attacks", false) else 0
+
 	for model_id in model_ids:
 		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
-		total_attacks += attacks_result.value
+		var model_attacks_ow = attacks_result.value + ow_spt_attacks_bonus
+		total_attacks += model_attacks_ow
+
+	if ow_spt_attacks_bonus > 0:
+		print("RulesEngine: Shooty Power Trip (Overwatch) — +1 attack per model (%d models)" % model_ids.size())
 
 	if total_attacks <= 0:
 		return result
@@ -958,6 +965,11 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var pre_s_pr = strength
 		strength += 1
 		print("RulesEngine: Pulsa Rokkit (Overwatch) — ranged strength %d → %d (+1)" % [pre_s_pr, strength])
+	# SHOOTY POWER TRIP (OA-37): +1 Strength to ranged weapons for the phase (D6 roll 3-4)
+	if shooter_unit.get("flags", {}).get("effect_shooty_power_trip_strength", false):
+		var pre_s_spt = strength
+		strength += 1
+		print("RulesEngine: Shooty Power Trip (Overwatch) — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
@@ -1249,6 +1261,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 					deck_fraggers_blast = true
 					print("RulesEngine: DECK FRAGGERS — BLAST granted to %s vs INFANTRY target" % weapon_id)
 
+	# SHOOTY POWER TRIP (OA-37): +1 Attacks to ranged weapons for the phase (D6 roll 5-6)
+	var spt_attacks_bonus = 1 if actor_unit.get("flags", {}).get("effect_shooty_power_trip_attacks", false) else 0
+
 	for model_id in model_ids:
 		var model = _get_model_by_id(actor_unit, model_id)
 		var model_bs = _get_model_effective_bs(model, actor_unit, weapon_profile)
@@ -1258,6 +1273,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# Roll variable attacks for each model separately (per 10e rules)
 		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
 		var model_attacks = attacks_result.value
+
+		# SHOOTY POWER TRIP (OA-37): +1 Attacks per model
+		model_attacks += spt_attacks_bonus
 
 		# BLAST KEYWORD (PRP-013): Apply minimum attacks per model for Blast weapons vs 6+ model units
 		var effective_model_attacks = calculate_blast_minimum(weapon_id, model_attacks, target_unit, board)
@@ -1275,6 +1293,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			bs_per_attack.append(model_bs)
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
+
+	if spt_attacks_bonus > 0:
+		print("RulesEngine: Shooty Power Trip — +1 attack per model (%d models, total base attacks = %d)" % [model_ids.size(), base_attacks])
 
 	if has_bs_override:
 		print("RulesEngine: [MA-10] Per-model BS override active — models have different BS values")
@@ -1633,6 +1654,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		var pre_s_pr = strength
 		strength += 1
 		print("RulesEngine: Pulsa Rokkit — ranged strength %d → %d (+1)" % [pre_s_pr, strength])
+	# SHOOTY POWER TRIP (OA-37): +1 Strength to ranged weapons for the phase (D6 roll 3-4)
+	if actor_unit.get("flags", {}).get("effect_shooty_power_trip_strength", false):
+		var pre_s_spt = strength
+		strength += 1
+		print("RulesEngine: Shooty Power Trip — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
@@ -2010,6 +2036,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 					deck_fraggers_blast = true
 					print("RulesEngine: DECK FRAGGERS (auto-resolve) — BLAST granted to %s vs INFANTRY target" % weapon_id)
 
+	# SHOOTY POWER TRIP (OA-37): +1 Attacks to ranged weapons for the phase (D6 roll 5-6)
+	var ar_spt_attacks_bonus = 1 if actor_unit.get("flags", {}).get("effect_shooty_power_trip_attacks", false) else 0
+
 	for model_id in model_ids:
 		var model = _get_model_by_id(actor_unit, model_id)
 		var model_bs = _get_model_effective_bs(model, actor_unit, weapon_profile)
@@ -2019,6 +2048,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Roll variable attacks for each model separately (per 10e rules)
 		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
 		var model_attacks = attacks_result.value
+
+		# SHOOTY POWER TRIP (OA-37): +1 Attacks per model (auto-resolve)
+		model_attacks += ar_spt_attacks_bonus
 
 		# BLAST KEYWORD (PRP-013): Apply minimum attacks per model for Blast weapons vs 6+ model units
 		var effective_model_attacks = calculate_blast_minimum(weapon_id, model_attacks, target_unit, board)
@@ -2036,6 +2068,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			bs_per_attack.append(model_bs)
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
+
+	if ar_spt_attacks_bonus > 0:
+		print("RulesEngine: Shooty Power Trip (auto-resolve) — +1 attack per model (%d models, total base attacks = %d)" % [model_ids.size(), base_attacks])
 
 	if has_bs_override:
 		print("RulesEngine: [MA-10][auto-resolve] Per-model BS override active — models have different BS values")
@@ -2390,6 +2425,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var pre_s_pr = strength
 		strength += 1
 		print("RulesEngine: Pulsa Rokkit (auto-resolve) — ranged strength %d → %d (+1)" % [pre_s_pr, strength])
+	# SHOOTY POWER TRIP (OA-37): +1 Strength to ranged weapons for the phase (D6 roll 3-4)
+	if actor_unit.get("flags", {}).get("effect_shooty_power_trip_strength", false):
+		var pre_s_spt = strength
+		strength += 1
+		print("RulesEngine: Shooty Power Trip (auto-resolve) — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
