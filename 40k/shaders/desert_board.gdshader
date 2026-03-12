@@ -20,7 +20,7 @@ float hash(vec2 p) {
 float value_noise(vec2 p) {
 	vec2 i = floor(p);
 	vec2 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
+	f = f * f * f * (f * (f * 6.0 - 15.0) + 10.0); // quintic smoothstep
 	float a = hash(i);
 	float b = hash(i + vec2(1.0, 0.0));
 	float c = hash(i + vec2(0.0, 1.0));
@@ -43,8 +43,8 @@ void fragment() {
 	// Dune-like large shapes
 	float dunes = fbm(UV * dune_scale);
 
-	// Fine sand grain
-	float grain = hash(floor(UV * grain_scale));
+	// Fine sand grain — smooth variation
+	float grain = value_noise(UV * grain_scale);
 
 	float pattern = dunes * 0.7 + grain * 0.3;
 
@@ -55,8 +55,8 @@ void fragment() {
 		col = mix(base_color.rgb, light_color.rgb, (pattern - 0.45) / 0.55);
 	}
 
-	// Sand shimmer jitter
-	float jitter = (hash(floor(UV * 250.0)) - 0.5) * color_variation;
+	// Sand shimmer jitter — smooth variation
+	float jitter = (value_noise(UV * 250.0) - 0.5) * color_variation;
 	col.r += jitter;
 	col.g += jitter * 0.85;
 	col.b += jitter * 0.5;

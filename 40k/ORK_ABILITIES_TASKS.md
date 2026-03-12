@@ -301,10 +301,10 @@
 - **Validation**: Conditional re-roll 1s based on unit-specific criteria.
 
 ### OA-39: Implement "'Ard Case" wargear for Battlewagon
-- [ ] Grant +2 Toughness to Battlewagon
-- [ ] Disable Firing Deck ability
-- **Files**: UnitAbilityManager.gd, army JSON validation
-- **Validation**: +2T applied. Firing Deck disabled.
+- [x] Grant +2 Toughness to Battlewagon
+- [x] Disable Firing Deck ability
+- **Files**: ArmyListManager.gd (WARGEAR_STAT_BONUSES), army JSON (orks.json)
+- **Validation**: +2T applied. Firing Deck disabled. Verified by test_oa39_ard_case.gd (6/6 pass).
 
 ### OA-40: Implement "Blastajet Attack Run" for Wazbom Blastajet
 - [ ] Re-roll Hit rolls of 1 when targeting non-FLY units

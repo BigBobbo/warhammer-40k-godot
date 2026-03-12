@@ -29,7 +29,7 @@ float hash2(vec2 p) {
 float value_noise(vec2 p) {
 	vec2 i = floor(p);
 	vec2 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f); // smoothstep
+	f = f * f * f * (f * (f * 6.0 - 15.0) + 10.0); // quintic smoothstep — removes grid artifacts
 	float a = hash(i);
 	float b = hash(i + vec2(1.0, 0.0));
 	float c = hash(i + vec2(0.0, 1.0));
@@ -58,8 +58,8 @@ void fragment() {
 	// Medium blade-level variation — gives the "thousands of blades" feel.
 	float blades = value_noise(UV * blade_density);
 
-	// Fine micro-detail — adds grit / grain at very close zoom.
-	float micro = hash(floor(UV * fine_detail));
+	// Fine micro-detail — smooth grain at very close zoom.
+	float micro = value_noise(UV * fine_detail);
 
 	// Combine layers (weighted toward clumps for realism from afar).
 	float pattern = clumps * 0.55 + blades * 0.30 + micro * 0.15;
@@ -73,7 +73,7 @@ void fragment() {
 	}
 
 	// Per-pixel hue jitter — prevents the "too uniform" look.
-	float jitter = (hash2(UV * 200.0) - 0.5) * color_variation;
+	float jitter = (value_noise(UV * 200.0) - 0.5) * color_variation;
 	col.r += jitter * 0.6;
 	col.g += jitter;
 	col.b += jitter * 0.3;
