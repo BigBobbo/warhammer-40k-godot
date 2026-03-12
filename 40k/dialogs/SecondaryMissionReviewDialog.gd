@@ -14,6 +14,8 @@ var _player_cp: int = 0
 var _deck_size: int = 0
 var _can_replace: bool = false
 var _replacement_used: bool = false
+var _scroll_vbox: VBoxContainer = null
+var _replace_info_label: Label = null
 
 func setup(player: int, drawn_missions: Array, player_cp: int, deck_size: int) -> void:
 	_player = player
@@ -63,35 +65,35 @@ func _build_ui() -> void:
 	scroll.custom_minimum_size = Vector2(0, 300)
 	main_container.add_child(scroll)
 
-	var scroll_vbox = VBoxContainer.new()
-	scroll_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll_vbox.add_theme_constant_override("separation", 8)
-	scroll.add_child(scroll_vbox)
+	_scroll_vbox = VBoxContainer.new()
+	_scroll_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll_vbox.add_theme_constant_override("separation", 8)
+	scroll.add_child(_scroll_vbox)
 
 	# Show each drawn mission
 	for i in range(_drawn_missions.size()):
 		var mission = _drawn_missions[i]
-		_add_mission_card(scroll_vbox, mission, i)
+		_add_mission_card(_scroll_vbox, mission, i)
 
 	main_container.add_child(HSeparator.new())
 
 	# Replacement info
-	var replace_info = Label.new()
+	_replace_info_label = Label.new()
 	if _can_replace:
-		replace_info.text = "You may spend 1 CP to replace one mission (it returns to your deck).\nYou have %d CP | Deck: %d cards remaining" % [_player_cp, _deck_size]
-		replace_info.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
+		_replace_info_label.text = "You may spend 1 CP to replace one mission (it returns to your deck).\nYou have %d CP | Deck: %d cards remaining" % [_player_cp, _deck_size]
+		_replace_info_label.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
 	else:
 		if _player_cp < 1:
-			replace_info.text = "Not enough CP to replace a mission (need 1 CP, have %d)" % _player_cp
+			_replace_info_label.text = "Not enough CP to replace a mission (need 1 CP, have %d)" % _player_cp
 		elif _deck_size == 0:
-			replace_info.text = "Deck is empty - cannot replace a mission"
+			_replace_info_label.text = "Deck is empty - cannot replace a mission"
 		else:
-			replace_info.text = "Cannot replace missions at this time"
-		replace_info.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-	replace_info.add_theme_font_size_override("font_size", 11)
-	replace_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	replace_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	main_container.add_child(replace_info)
+			_replace_info_label.text = "Cannot replace missions at this time"
+		_replace_info_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	_replace_info_label.add_theme_font_size_override("font_size", 11)
+	_replace_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_replace_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	main_container.add_child(_replace_info_label)
 
 	main_container.add_child(HSeparator.new())
 
@@ -234,8 +236,24 @@ func _on_replace_pressed(mission_id: String) -> void:
 	_replacement_used = true
 	print("SecondaryMissionReviewDialog: Player %d wants to replace mission %s" % [_player, mission_id])
 	emit_signal("mission_replacement_requested", mission_id)
-	hide()
-	queue_free()
+
+func update_after_replacement(new_missions: Array) -> void:
+	"""Rebuild the mission cards to show the updated missions after a replacement."""
+	_drawn_missions = new_missions
+	_can_replace = false
+
+	# Clear existing mission cards
+	for child in _scroll_vbox.get_children():
+		child.queue_free()
+
+	# Rebuild mission cards (no replace buttons since replacement was used)
+	for i in range(_drawn_missions.size()):
+		var mission = _drawn_missions[i]
+		_add_mission_card(_scroll_vbox, mission, i)
+
+	# Update the replacement info text
+	_replace_info_label.text = "Mission replaced! Review your new mission above."
+	_replace_info_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
 
 func _on_done_pressed() -> void:
 	print("SecondaryMissionReviewDialog: Player %d accepted drawn missions" % _player)

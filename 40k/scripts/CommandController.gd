@@ -20,6 +20,7 @@ var hud_right: Control
 # UI Elements
 var phase_info_label: Label
 var dice_roll_visual: DiceRollVisual  # P3-118: Dice roll visualization for reroll comparisons
+var _active_review_dialog: SecondaryMissionReviewDialog = null
 
 func _ready() -> void:
 	_setup_ui_references()
@@ -838,6 +839,7 @@ func _show_drawn_missions_review_dialog() -> void:
 	dialog.setup(current_player, drawn_missions, player_cp, deck_size)
 	dialog.mission_replacement_requested.connect(_on_mission_replacement_requested)
 	dialog.review_completed.connect(_on_mission_review_completed)
+	_active_review_dialog = dialog
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
 
@@ -869,9 +871,16 @@ func _on_mission_replacement_requested(mission_id: String) -> void:
 	if current_phase and current_phase.has_method("clear_newly_drawn_missions"):
 		current_phase.clear_newly_drawn_missions()
 
+	# Update the dialog to show the new missions instead of closing it
+	if _active_review_dialog and is_instance_valid(_active_review_dialog) and secondary_mgr:
+		var updated_missions = secondary_mgr.get_active_missions(current_player)
+		print("CommandController: Updating review dialog with %d missions after replacement" % updated_missions.size())
+		_active_review_dialog.update_after_replacement(updated_missions)
+
 func _on_mission_review_completed() -> void:
 	"""Handle player accepting drawn missions without replacement."""
 	print("CommandController: Player accepted drawn missions without replacement")
+	_active_review_dialog = null
 	if current_phase and current_phase.has_method("clear_newly_drawn_missions"):
 		current_phase.clear_newly_drawn_missions()
 
