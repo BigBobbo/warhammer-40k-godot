@@ -565,7 +565,6 @@ static func has_effect_flat_advance(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted flat advance (replace Advance roll with +6\" to Move)."""
 	return unit.get("flags", {}).get(FLAG_FLAT_ADVANCE, false)
 
-
 static func has_effect_auto_advance_6(unit: Dictionary) -> bool:
 	"""Check if a unit has auto advance 6 (Fuel-mixa Grot / High-octane Fuel)."""
 	return unit.get("flags", {}).get(FLAG_AUTO_ADVANCE_6, false)
