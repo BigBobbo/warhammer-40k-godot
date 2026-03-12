@@ -1530,6 +1530,13 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: DAT'S OUR LOOT! — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
+		# SPLAT! (OA-38): Re-roll Hit rolls of 1 on ranged attacks when conditions met.
+		# Big Gunz: target has 10+ models. Mek Gunz: at Starting Strength vs non-MONSTER/VEHICLE.
+		var splat_scope = get_splat_reroll_scope(actor_unit, target_unit)
+		if splat_scope == "ones":
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: SPLAT! — re-roll hit rolls of 1 for %s" % actor_unit_id)
+
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -2299,6 +2306,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		elif dats_our_loot_scope_ar == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: DAT'S OUR LOOT! (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
+
+		# SPLAT! (OA-38): Re-roll Hit rolls of 1 on ranged attacks when conditions met (auto-resolve).
+		# Big Gunz: target has 10+ models. Mek Gunz: at Starting Strength vs non-MONSTER/VEHICLE.
+		var splat_scope_ar = get_splat_reroll_scope(actor_unit, target_unit)
+		if splat_scope_ar == "ones":
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: SPLAT! (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -5052,6 +5066,64 @@ static func get_dats_our_loot_reroll_scope(actor_unit: Dictionary, target_unit: 
 	if is_unit_near_any_objective(target_unit, board):
 		return "failed"
 	return "ones"
+
+# SPLAT! (OA-38): Check if a unit has the "Splat!" ability.
+# Returns true if the unit has the ability (Big Gunz / Mek Gunz datasheet ability).
+static func has_splat(actor_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Splat!":
+			return true
+	return false
+
+# SPLAT! (OA-38): Check if a unit is at Starting Strength (no models destroyed).
+# A unit is at Starting Strength if all its models are alive.
+static func is_unit_at_starting_strength(unit: Dictionary) -> bool:
+	var models = unit.get("models", [])
+	for model in models:
+		if not model.get("alive", true):
+			return false
+	return true
+
+# SPLAT! (OA-38): Get the re-roll scope for a unit's Splat! ability.
+# Big Gunz: re-roll Hit rolls of 1 when targeting units with 10+ models.
+# Mek Gunz: re-roll Hit rolls of 1 when at Starting Strength and targeting non-MONSTER/VEHICLE.
+# Returns "ones" if the condition is met, "" otherwise.
+static func get_splat_reroll_scope(actor_unit: Dictionary, target_unit: Dictionary) -> String:
+	if not has_splat(actor_unit):
+		return ""
+
+	var unit_name = actor_unit.get("meta", {}).get("name", "")
+
+	# Big Gunz variant: re-roll 1s when target has 10+ alive models
+	if unit_name == "Big Gunz":
+		var target_model_count = count_alive_models(target_unit)
+		if target_model_count >= 10:
+			print("RulesEngine: SPLAT! (Big Gunz) — target has %d models (>=10), re-roll hit 1s" % target_model_count)
+			return "ones"
+		else:
+			print("RulesEngine: SPLAT! (Big Gunz) — target has %d models (<10), no re-roll" % target_model_count)
+			return ""
+
+	# Mek Gunz variant: re-roll 1s when at Starting Strength AND target is not MONSTER/VEHICLE
+	if unit_name == "Mek Gunz":
+		if not is_unit_at_starting_strength(actor_unit):
+			print("RulesEngine: SPLAT! (Mek Gunz) — not at Starting Strength, no re-roll")
+			return ""
+		if is_monster_or_vehicle(target_unit):
+			print("RulesEngine: SPLAT! (Mek Gunz) — target is MONSTER/VEHICLE, no re-roll")
+			return ""
+		print("RulesEngine: SPLAT! (Mek Gunz) — at Starting Strength vs non-MONSTER/VEHICLE, re-roll hit 1s")
+		return "ones"
+
+	# Unknown unit with Splat! — log but don't apply
+	print("RulesEngine: SPLAT! — unit '%s' has ability but no matching variant" % unit_name)
+	return ""
 
 # DRIVE-BY DAKKA (OA-13): Check if a unit has the "Drive-by Dakka" ability.
 # Returns true if the unit has the ability (Warbikers / Wartrakks datasheet ability).

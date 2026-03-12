@@ -295,8 +295,8 @@
 - **Validation**: D6 determines effect. Self-damage, +1S, or +1A applied correctly.
 
 ### OA-38: Implement "Splat!" for Big Gunz and Mek Gunz
-- [ ] Big Gunz: re-roll Hit rolls of 1 when targeting units with 10+ models
-- [ ] Mek Gunz: re-roll Hit rolls of 1 when at Starting Strength and targeting non-MONSTER/VEHICLE
+- [x] Big Gunz: re-roll Hit rolls of 1 when targeting units with 10+ models
+- [x] Mek Gunz: re-roll Hit rolls of 1 when at Starting Strength and targeting non-MONSTER/VEHICLE
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: Conditional re-roll 1s based on unit-specific criteria.
 

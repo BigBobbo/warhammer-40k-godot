@@ -712,6 +712,24 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Re-roll Hit rolls of 1 on ranged attacks. Full Hit re-roll if target is within range of an objective marker — checked directly in RulesEngine"
 	},
 
+	# ======================================================================
+	# CONDITIONAL RE-ROLL ABILITIES — Splat! (OA-38)
+	# These are checked directly in RulesEngine where both attacker and target are known.
+	# ======================================================================
+
+	# Ork Big Gunz — re-roll Hit rolls of 1 when targeting units with 10+ models.
+	# Ork Mek Gunz — re-roll Hit rolls of 1 when at Starting Strength and targeting
+	# non-MONSTER/VEHICLE units.
+	# The specific condition is determined by the unit's meta.name in RulesEngine.
+	"Splat!": {
+		"condition": "target_conditional",
+		"effects": [{"type": "reroll_hits", "scope": "ones"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Big Gunz: re-roll Hit rolls of 1 vs 10+ model targets. Mek Gunz: re-roll Hit rolls of 1 at Starting Strength vs non-MONSTER/VEHICLE — checked directly in RulesEngine"
+	},
+
 	# Ork Warbikers / Wartrakks — improve AP by 1 for ranged attacks vs targets within 9"
 	"Drive-by Dakka": {
 		"condition": "target_within_range",
