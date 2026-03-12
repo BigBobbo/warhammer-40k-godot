@@ -1819,7 +1819,11 @@ func calculate_spread_formation(anchor_pos: Vector2, model_count: int, base_mm: 
 	if remaining_indices.is_empty():
 		return positions
 
-	var model_data = unit_data["models"][remaining_indices[0]]
+	var model_data: Dictionary
+	if is_combined_deployment and remaining_indices[0] < combined_models.size():
+		model_data = combined_models[remaining_indices[0]]["model_data"]
+	else:
+		model_data = unit_data["models"][remaining_indices[0]]
 	var shape = Measurement.create_base_shape(model_data)
 
 	# Use bounding box for spacing calculations
@@ -1858,7 +1862,11 @@ func calculate_tight_formation(anchor_pos: Vector2, model_count: int, base_mm: i
 	if remaining_indices.is_empty():
 		return positions
 
-	var model_data = unit_data["models"][remaining_indices[0]]
+	var model_data: Dictionary
+	if is_combined_deployment and remaining_indices[0] < combined_models.size():
+		model_data = combined_models[remaining_indices[0]]["model_data"]
+	else:
+		model_data = unit_data["models"][remaining_indices[0]]
 	var shape = Measurement.create_base_shape(model_data)
 
 	# Use bounding box for spacing calculations
