@@ -953,6 +953,11 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 	# --- PHASE 3: Wound rolls (normal rules apply) ---
 	var strength = weapon_profile.get("strength", 4)
+	# PULSA ROKKIT (OA-31): +1 Strength to ranged weapons for the phase
+	if shooter_unit.get("flags", {}).get("effect_pulsa_rokkit_active", false):
+		var pre_s_pr = strength
+		strength += 1
+		print("RulesEngine: Pulsa Rokkit (Overwatch) — ranged strength %d → %d (+1)" % [pre_s_pr, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
@@ -1000,6 +1005,11 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 	# --- PHASE 4: Saves and damage (normal rules apply) ---
 	var ap = weapon_profile.get("ap", 0)
+	# PULSA ROKKIT (OA-31): +1 AP to ranged weapons for the phase
+	if shooter_unit.get("flags", {}).get("effect_pulsa_rokkit_active", false):
+		var pre_ap_pr = ap
+		ap = ap + 1
+		print("RulesEngine: Pulsa Rokkit (Overwatch) — ranged AP %d → %d (+1)" % [pre_ap_pr, ap])
 	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
 	var ow_dbd_bonus = get_drive_by_dakka_ap_bonus(shooter_unit, target_unit)
 	if ow_dbd_bonus > 0:
@@ -1613,6 +1623,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011) + DEVASTATING WOUNDS (PRP-012)
 	# TORRENT (PRP-014): Torrent weapons skip hit roll but still roll to wound normally
 	var strength = weapon_profile.get("strength", 4)
+	# PULSA ROKKIT (OA-31): +1 Strength to ranged weapons for the phase
+	if actor_unit.get("flags", {}).get("effect_pulsa_rokkit_active", false):
+		var pre_s_pr = strength
+		strength += 1
+		print("RulesEngine: Pulsa Rokkit — ranged strength %d → %d (+1)" % [pre_s_pr, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
@@ -2360,6 +2375,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011)
 	# TORRENT (PRP-014): Torrent weapons skip hit roll but still roll to wound normally
 	var strength = weapon_profile.get("strength", 4)
+	# PULSA ROKKIT (OA-31): +1 Strength to ranged weapons for the phase
+	if actor_unit.get("flags", {}).get("effect_pulsa_rokkit_active", false):
+		var pre_s_pr = strength
+		strength += 1
+		print("RulesEngine: Pulsa Rokkit (auto-resolve) — ranged strength %d → %d (+1)" % [pre_s_pr, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
@@ -2577,6 +2597,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# T3-17: This section mirrors the interactive path (prepare_save_resolution + apply_save_damage)
 	# to ensure both resolution paths produce identical results. Keep in sync with apply_save_damage().
 	var ap = weapon_profile.get("ap", 0)
+	# PULSA ROKKIT (OA-31): +1 AP to ranged weapons for the phase
+	if actor_unit.get("flags", {}).get("effect_pulsa_rokkit_active", false):
+		var pre_ap_pr = ap
+		ap = ap + 1
+		print("RulesEngine: Pulsa Rokkit (auto-resolve) — ranged AP %d → %d (+1)" % [pre_ap_pr, ap])
 	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
 	var ar_dbd_bonus = get_drive_by_dakka_ap_bonus(actor_unit, target_unit)
 	if ar_dbd_bonus > 0:
@@ -8178,8 +8203,13 @@ static func prepare_save_resolution(
 		return {"success": false, "error": "Target unit not found"}
 
 	var ap = weapon_profile.get("ap", 0)
-	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
+	# PULSA ROKKIT (OA-31): +1 AP to ranged weapons for the phase
 	var shooter_unit = units.get(shooter_unit_id, {})
+	if shooter_unit.get("flags", {}).get("effect_pulsa_rokkit_active", false):
+		var pre_ap_pr = ap
+		ap = ap + 1
+		print("RulesEngine: Pulsa Rokkit (interactive) — ranged AP %d → %d (+1)" % [pre_ap_pr, ap])
+	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
 	var int_dbd_bonus = get_drive_by_dakka_ap_bonus(shooter_unit, target_unit)
 	if int_dbd_bonus > 0:
 		var pre_ap_dbd = ap

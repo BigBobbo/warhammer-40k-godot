@@ -251,8 +251,8 @@
 - **Validation**: 2 squigs tracked independently. Each triggers once per battle. D3 MW on 3+.
 
 ### OA-31: Implement "Pulsa Rokkit" wargear for Tankbustas
-- [ ] Add once-per-battle wargear ability
-- [ ] When unit shoots: +1 S and +1 AP to all ranged weapons for the phase
+- [x] Add once-per-battle wargear ability
+- [x] When unit shoots: +1 S and +1 AP to all ranged weapons for the phase
 - **Files**: UnitAbilityManager.gd, ShootingPhase.gd
 - **Validation**: Once per battle. +1S and +1AP to ranged weapons for phase.
 
