@@ -4,7 +4,8 @@
     "points": 1000,
     "detachment": "Shield Host",
     "player_name": "",
-    "team_name": ""
+    "team_name": "",
+    "created_date": "2025-02-15"
   },
   "units": {
     "U_BLADE_CHAMPION_A": {

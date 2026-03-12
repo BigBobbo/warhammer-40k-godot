@@ -34,6 +34,10 @@ var connected_players: int = 0
 var army_options: Array = []
 var selected_player1_army: String = "A_C_test"
 var selected_player2_army: String = "ORK_test"
+# Army sort mode: "alphabetical" or "newest_first"
+var army_sort_mode: String = "alphabetical"
+var army_sort_container: HBoxContainer = null
+var army_sort_dropdown: OptionButton = null
 
 # Deployment configuration
 var deployment_options = [
@@ -707,8 +711,12 @@ func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
 	var added_count = 0
 	for cloud_name in cloud_armies:
 		if cloud_name not in local_ids:
-			var display_name = _format_army_name(cloud_name) + " (Cloud)"
-			army_options.append({"id": cloud_name, "name": display_name, "source": "cloud"})
+			var base_name = _format_army_name(cloud_name) + " (Cloud)"
+			var date_str = ArmyListManager.get_army_date(cloud_name)
+			var display_name = base_name
+			if not date_str.is_empty():
+				display_name = "%s (%s)" % [base_name, _format_date_display(date_str)]
+			army_options.append({"id": cloud_name, "name": base_name, "date": date_str, "display": display_name, "source": "cloud"})
 			player1_dropdown.add_item(display_name)
 			player2_dropdown.add_item(display_name)
 			added_count += 1
@@ -746,28 +754,39 @@ func _on_cloud_army_fetch_failed(army_name: String, error: String) -> void:
 # ============================================================================
 
 func _setup_army_selection() -> void:
+	# Create sort dropdown
+	_create_army_sort_dropdown()
+
 	# Get available armies
 	army_options = []
 	var available_armies = ArmyListManager.get_available_armies()
 
-	# Build army options (mirror MainMenu.gd pattern)
+	# Build army options with dates (mirror MainMenu.gd pattern)
 	for army_name in available_armies:
+		var base_name = _format_army_name(army_name)
+		var date_str = ArmyListManager.get_army_date(army_name)
+		var display_name = base_name
+		if not date_str.is_empty():
+			display_name = "%s (%s)" % [base_name, _format_date_display(date_str)]
 		army_options.append({
 			"id": army_name,
-			"name": _format_army_name(army_name)
+			"name": base_name,
+			"date": date_str,
+			"display": display_name
 		})
 
 	# Fallback if no armies found
 	if army_options.is_empty():
 		army_options = [
-			{"id": "A_C_test", "name": "A C Test"},
-			{"id": "ORK_test", "name": "ORK Test"}
+			{"id": "A_C_test", "name": "A C Test", "date": "", "display": "A C Test"},
+			{"id": "ORK_test", "name": "ORK Test", "date": "", "display": "ORK Test"}
 		]
 
+	# Sort based on current mode
+	_sort_army_options()
+
 	# Populate dropdowns
-	for option in army_options:
-		player1_dropdown.add_item(option.name)
-		player2_dropdown.add_item(option.name)
+	_populate_army_dropdowns()
 
 	# Set defaults - try to find A_C_test for P1 and ORK_test for P2
 	var p1_default = 0
@@ -802,6 +821,80 @@ func _format_army_name(army_id: String) -> String:
 	for part in parts:
 		formatted_parts.append(part.capitalize())
 	return " ".join(formatted_parts)
+
+func _format_date_display(date_str: String) -> String:
+	"""Convert YYYY-MM-DD to a readable format like 'Mar 7, 2025'."""
+	if date_str.is_empty():
+		return ""
+	var parts = date_str.split("-")
+	if parts.size() != 3:
+		return date_str
+	var month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+	var month_idx = parts[1].to_int() - 1
+	if month_idx < 0 or month_idx >= 12:
+		return date_str
+	var day = parts[2].to_int()
+	return "%s %d, %s" % [month_names[month_idx], day, parts[0]]
+
+func _sort_army_options() -> void:
+	"""Sort army_options based on current sort mode."""
+	if army_sort_mode == "newest_first":
+		army_options.sort_custom(func(a, b): return a.date > b.date)
+	else:
+		army_options.sort_custom(func(a, b): return a.name < b.name)
+
+func _populate_army_dropdowns() -> void:
+	"""Clear and repopulate army dropdowns from army_options."""
+	player1_dropdown.clear()
+	player2_dropdown.clear()
+	for option in army_options:
+		player1_dropdown.add_item(option.display)
+		player2_dropdown.add_item(option.display)
+
+func _create_army_sort_dropdown() -> void:
+	"""Create a sort mode dropdown for army list ordering."""
+	var army_selection = $LobbyContainer/ArmySelection
+
+	army_sort_container = HBoxContainer.new()
+	army_sort_container.name = "ArmySortContainer"
+
+	var sort_label = Label.new()
+	sort_label.text = "Sort By:"
+	sort_label.custom_minimum_size = Vector2(150, 0)
+	army_sort_container.add_child(sort_label)
+
+	army_sort_dropdown = OptionButton.new()
+	army_sort_dropdown.name = "ArmySortDropdown"
+	army_sort_dropdown.custom_minimum_size = Vector2(300, 0)
+	army_sort_dropdown.add_item("Alphabetical")
+	army_sort_dropdown.add_item("Newest First")
+	army_sort_dropdown.selected = 0
+	army_sort_dropdown.item_selected.connect(_on_army_sort_changed)
+	army_sort_container.add_child(army_sort_dropdown)
+
+	# Insert after the ArmyLabel (index 0 in ArmySelection)
+	army_selection.add_child(army_sort_container)
+	army_selection.move_child(army_sort_container, 1)
+
+	print("MultiplayerLobby: Army sort dropdown created")
+
+func _on_army_sort_changed(index: int) -> void:
+	"""Handle sort mode change."""
+	var previous_p1_id = selected_player1_army
+	var previous_p2_id = selected_player2_army
+
+	army_sort_mode = "newest_first" if index == 1 else "alphabetical"
+	_sort_army_options()
+	_populate_army_dropdowns()
+
+	# Restore selections
+	for i in range(army_options.size()):
+		if army_options[i].id == previous_p1_id:
+			player1_dropdown.selected = i
+		if army_options[i].id == previous_p2_id:
+			player2_dropdown.selected = i
+
+	print("MultiplayerLobby: Army sort changed to ", army_sort_mode)
 
 func _on_player1_army_changed(index: int) -> void:
 	if index < 0 or index >= army_options.size():

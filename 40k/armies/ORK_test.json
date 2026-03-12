@@ -4,7 +4,8 @@
       "points": 2000,
       "detachment": "War Horde",
       "player_name": "",
-      "team_name": ""
+      "team_name": "",
+      "created_date": "2025-02-10"
     },
     "units": {
       "U_WARBOSS_B": {

@@ -304,6 +304,40 @@ func get_available_armies() -> Array:
 func get_current_army_data() -> Dictionary:
 	return current_army_data
 
+func get_army_date(army_name: String) -> String:
+	"""Returns the created_date from the army JSON faction data, or file modification time as fallback."""
+	# Try to read created_date from the JSON
+	var file_path = "res://armies/%s.json" % army_name
+	if not FileAccess.file_exists(file_path):
+		file_path = "user://armies/%s.json" % army_name
+	if not FileAccess.file_exists(file_path):
+		return ""
+
+	var file = FileAccess.open(file_path, FileAccess.READ)
+	if not file:
+		return ""
+
+	var json_text = file.get_as_text()
+	file.close()
+
+	var json = JSON.new()
+	var error = json.parse(json_text)
+	if error != OK:
+		return ""
+
+	var data = json.data
+	if data is Dictionary and data.has("faction") and data.faction is Dictionary:
+		if data.faction.has("created_date"):
+			return data.faction.created_date
+
+	# Fallback: use file modification time
+	var mod_time = FileAccess.get_modified_time(file_path)
+	if mod_time > 0:
+		var dt = Time.get_datetime_dict_from_unix_time(mod_time)
+		return "%04d-%02d-%02d" % [dt.year, dt.month, dt.day]
+
+	return ""
+
 # ============================================================================
 # Cloud Army Support
 # ============================================================================
