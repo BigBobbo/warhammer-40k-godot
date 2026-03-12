@@ -44,6 +44,9 @@ var show_unit_labels: bool = true
 # Board texture style: "grass", "mud", "desert", "stone", "felt", "none"
 var board_style: String = "grass"
 
+# Ruins texture style: "concrete", "marble", "brick", "weathered_stone", "none"
+var ruins_style: String = "concrete"
+
 # P3-111: Signals for real-time setting changes
 signal ui_scale_changed(new_scale: float)
 signal animation_speed_changed(new_speed: float)
@@ -51,6 +54,7 @@ signal colorblind_mode_changed(new_mode: String)
 signal audio_settings_changed()
 signal unit_labels_visibility_changed(visible: bool)
 signal board_style_changed(new_style: String)
+signal ruins_style_changed(new_style: String)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -233,6 +237,16 @@ func set_board_style(style: String) -> void:
 	_save_settings()
 	print("[SettingsService] Board style set to %s" % style)
 
+func set_ruins_style(style: String) -> void:
+	var valid_styles = ["concrete", "marble", "brick", "weathered_stone", "none"]
+	if style not in valid_styles:
+		print("[SettingsService] Invalid ruins style: %s" % style)
+		return
+	ruins_style = style
+	ruins_style_changed.emit(ruins_style)
+	_save_settings()
+	print("[SettingsService] Ruins style set to %s" % style)
+
 func set_unit_visual_style_setting(style: String) -> void:
 	if style not in ["letter", "enhanced", "style_a", "style_b", "classic"]:
 		print("[SettingsService] Invalid visual style: %s" % style)
@@ -262,6 +276,7 @@ func _save_settings() -> void:
 	config.set_value("visual", "colorblind_mode", colorblind_mode)
 	config.set_value("visual", "show_unit_labels", show_unit_labels)
 	config.set_value("visual", "board_style", board_style)
+	config.set_value("visual", "ruins_style", ruins_style)
 
 	# Save/Load
 	config.set_value("save_load", "pretty_print", save_files_pretty_print)
@@ -297,6 +312,7 @@ func _load_settings() -> void:
 	colorblind_mode = config.get_value("visual", "colorblind_mode", "none")
 	show_unit_labels = config.get_value("visual", "show_unit_labels", true)
 	board_style = config.get_value("visual", "board_style", "grass")
+	ruins_style = config.get_value("visual", "ruins_style", "concrete")
 
 	# Save/Load
 	save_files_pretty_print = config.get_value("save_load", "pretty_print", true)
