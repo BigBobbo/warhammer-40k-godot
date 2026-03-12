@@ -4,7 +4,8 @@
     "points": 2000,
     "detachment": "Strike Force",
     "player_name": "",
-    "team_name": ""
+    "team_name": "",
+    "created_date": "2025-03-07"
   },
   "units": {
     "U_BEASTBOSS_A": {
@@ -982,6 +983,11 @@
             "name": "’Ard Case",
             "type": "Wargear",
             "description": "Add 2 to the bearer’s Toughness characteristic, but it no longer has the Firing Deck ability."
+          },
+          {
+            "name": "TRANSPORT",
+            "type": "Special",
+            "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models."
           }
         ],
         "unit_composition": [
@@ -996,10 +1002,17 @@
           "id": "m1",
           "wounds": 16,
           "current_wounds": 16,
-          "base_mm": 32,
+          "base_mm": 170,
+          "base_type": "rectangular",
+          "base_dimensions": { "length": 170, "width": 110 },
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "base_type": "rectangular",
+          "base_dimensions": {
+            "length": 180,
+            "width": 110
+          }
         }
       ]
     },
@@ -1130,6 +1143,11 @@
             "name": "’Ard Case",
             "type": "Wargear",
             "description": "Add 2 to the bearer’s Toughness characteristic, but it no longer has the Firing Deck ability."
+          },
+          {
+            "name": "TRANSPORT",
+            "type": "Special",
+            "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models."
           }
         ],
         "unit_composition": [
@@ -1144,10 +1162,17 @@
           "id": "m1",
           "wounds": 16,
           "current_wounds": 16,
-          "base_mm": 32,
+          "base_mm": 170,
+          "base_type": "rectangular",
+          "base_dimensions": { "length": 170, "width": 110 },
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "base_type": "rectangular",
+          "base_dimensions": {
+            "length": 180,
+            "width": 110
+          }
         }
       ]
     },

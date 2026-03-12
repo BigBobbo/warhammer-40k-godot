@@ -345,9 +345,9 @@
 - **Validation**: Once per battle. Waaagh! effects for one round. 4+ invuln and OC 5.
 
 ### OA-47: Implement "Thievin' Scavengers" for Gretchin
-- [ ] Start of Movement phase: D6 per controlled objective with Gretchin on it
-- [ ] On 4+ on any die, gain +1 CP
-- **Files**: UnitAbilityManager.gd, MovementPhase.gd
+- [x] Start of Movement phase: D6 per controlled objective with Gretchin on it
+- [x] On 4+ on any die, gain +1 CP
+- **Files**: MovementPhase.gd
 - **Validation**: D6 per objective with Gretchin. 4+ = +1CP.
 
 ### OA-48: Implement "Runtherd" for Gretchin

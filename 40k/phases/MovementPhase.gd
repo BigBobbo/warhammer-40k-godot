@@ -217,6 +217,9 @@ func _on_phase_enter() -> void:
 	if ability_mgr:
 		ability_mgr.on_movement_phase_start()
 
+	# Check Thievin' Scavengers ability (Gretchin) before movement begins
+	_check_thievin_scavengers()
+
 	_initialize_movement()
 
 func _on_phase_exit() -> void:
@@ -259,6 +262,153 @@ func _initialize_movement() -> void:
 	if not can_move:
 		log_phase_message("No units available for movement, completing phase")
 		emit_signal("phase_completed")
+
+func _check_thievin_scavengers() -> void:
+	"""Thievin' Scavengers (Gretchin datasheet ability):
+	At the start of your Movement phase, roll one D6 for each objective marker
+	you control that has one or more units from your army with this ability
+	within range of it (excluding Battle-shocked units). If one or more of
+	those rolls is a 4+, you gain 1CP."""
+	var current_player = get_current_player()
+	var units = GameState.state.get("units", {})
+	var objectives = GameState.state.get("board", {}).get("objectives", [])
+
+	if objectives.is_empty():
+		return
+
+	# Control radius matches MissionManager._check_objective_control: 3" + 20mm objective radius
+	var control_radius = Measurement.inches_to_px(3.78740157)
+
+	# Find objectives controlled by the current player that have a unit with
+	# "Thievin' Scavengers" within range (non-battle-shocked, deployed).
+	var qualifying_objectives: Array = []
+
+	for obj in objectives:
+		# Only check objectives this player controls
+		if not MissionManager:
+			continue
+		var controller = MissionManager.objective_control_state.get(obj.id, 0)
+		if controller != current_player:
+			continue
+
+		var obj_pos = obj.position
+		if obj_pos is Dictionary:
+			obj_pos = Vector2(obj_pos.x, obj_pos.y)
+
+		# Check if any non-battle-shocked unit with the ability is within range
+		var has_ability_unit = false
+		for unit_id in units:
+			var unit = units[unit_id]
+			if unit.get("owner", 0) != current_player:
+				continue
+			if unit.get("flags", {}).get("battle_shocked", false):
+				continue
+			var status = unit.get("status", GameStateData.UnitStatus.UNDEPLOYED)
+			if status == GameStateData.UnitStatus.UNDEPLOYED:
+				continue
+
+			# Check if unit has "Thievin' Scavengers" ability
+			var has_scavengers = false
+			var abilities = unit.get("meta", {}).get("abilities", [])
+			for ability in abilities:
+				var ability_name = ""
+				if ability is String:
+					ability_name = ability
+				elif ability is Dictionary:
+					ability_name = ability.get("name", "")
+				if ability_name == "Thievin' Scavengers":
+					has_scavengers = true
+					break
+
+			if not has_scavengers:
+				continue
+
+			# Check if any alive model in this unit is within range of the objective
+			for model in unit.get("models", []):
+				if not model.get("alive", true):
+					continue
+				var model_pos = model.get("position")
+				if model_pos == null:
+					continue
+				if model_pos is Dictionary:
+					model_pos = Vector2(model_pos.x, model_pos.y)
+				var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
+				if edge_distance <= control_radius:
+					has_ability_unit = true
+					break
+
+			if has_ability_unit:
+				break
+
+		if has_ability_unit:
+			qualifying_objectives.append(obj)
+
+	if qualifying_objectives.is_empty():
+		return
+
+	# Roll 1D6 per qualifying objective
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+	var rolls: Array = []
+	var any_success = false
+
+	for obj in qualifying_objectives:
+		var roll = rng.randi_range(1, 6)
+		rolls.append({"objective_id": obj.id, "roll": roll, "success": roll >= 4})
+		if roll >= 4:
+			any_success = true
+
+	# Log the results
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	var roll_descriptions: Array = []
+	for r in rolls:
+		var result_text = "%d (pass)" % r.roll if r.success else "%d (fail)" % r.roll
+		roll_descriptions.append("Obj %s: %s" % [r.objective_id, result_text])
+
+	var rolls_summary = ", ".join(roll_descriptions)
+	var log_text = "Thievin' Scavengers: Rolled for %d objective(s) — %s" % [qualifying_objectives.size(), rolls_summary]
+	print("MovementPhase: %s" % log_text)
+
+	if game_event_log:
+		game_event_log.add_info_entry(log_text)
+
+	# Record dice rolls in the phase dice log
+	for r in rolls:
+		dice_log.append({
+			"type": "thievin_scavengers",
+			"objective_id": r.objective_id,
+			"roll": r.roll,
+			"success": r.success,
+			"player": current_player
+		})
+
+	# If any roll was 4+, gain 1CP (subject to bonus CP cap)
+	if any_success:
+		if GameState.can_gain_bonus_cp(current_player):
+			var current_cp = GameState.state.get("players", {}).get(str(current_player), {}).get("cp", 0)
+			var changes = [{
+				"op": "set",
+				"path": "players.%s.cp" % str(current_player),
+				"value": current_cp + 1
+			}]
+			PhaseManager.apply_state_changes(changes)
+			GameState.record_bonus_cp_gained(current_player, 1)
+
+			var gain_text = "Thievin' Scavengers: Player %d gains 1CP! (now %dCP)" % [current_player, current_cp + 1]
+			print("MovementPhase: %s" % gain_text)
+			if game_event_log:
+				game_event_log.add_info_entry(gain_text)
+		else:
+			var cap_text = "Thievin' Scavengers: Player %d rolled 4+ but already gained bonus CP this round (cap reached)" % current_player
+			print("MovementPhase: %s" % cap_text)
+			if game_event_log:
+				game_event_log.add_info_entry(cap_text)
+	else:
+		var fail_text = "Thievin' Scavengers: No rolls of 4+ — no CP gained"
+		print("MovementPhase: %s" % fail_text)
+		if game_event_log:
+			game_event_log.add_info_entry(fail_text)
+
 
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
