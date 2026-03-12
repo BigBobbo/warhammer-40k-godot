@@ -2503,6 +2503,7 @@
           {
             "name": "Bomb Squigs",
             "type": "Datasheet",
+            "count": 2,
             "description": "Once per battle, for each bomb squig this unit has, after this unit ends a Normal move, you can use one Bomb Squig. If you do, select one enemy unit within 12\" and visible to this unit and roll one D6: on a 3+, that enemy unit suffers D3 mortal wounds.\nDesigner’s Note: Place two Bomb Squig tokens next to the unit, removing one each time this unit uses this ability."
           },
           {

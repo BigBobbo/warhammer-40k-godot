@@ -367,7 +367,8 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle: 5+ invulnerable save when targeted in opponent's Shooting phase"
 	},
 
-	# Ork Kommandos wargear — once per battle mortal wounds after normal move
+	# Ork wargear — once per battle per squig, mortal wounds after normal move
+	# OA-30: Kommandos have 1 squig, Tankbustas have 2 (tracked independently)
 	"Bomb Squigs": {
 		"condition": "after_normal_move",
 		"effects": [],
@@ -375,7 +376,7 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "all",
 		"implemented": true,
 		"once_per_battle": true,
-		"description": "Once per battle: after Normal move, select enemy within 12\" — on 3+, D3 mortal wounds"
+		"description": "Once per battle per squig: after Normal move, select enemy within 12\" — on 3+, D3 mortal wounds"
 	},
 
 	# Custodes Shield-captain On Dawneagle Jetbike — once per battle move at end of fight phase
@@ -1993,22 +1994,60 @@ func mark_ammo_runt_used(unit_id: String) -> int:
 	print("UnitAbilityManager: No unused ammo runts for unit %s" % unit_id)
 	return -1
 
-func has_bomb_squigs(unit_id: String) -> bool:
-	"""Check if a unit has the Bomb Squigs wargear ability (e.g. Kommandos).
-	Used by MovementPhase to offer once-per-battle mortal wounds after normal move."""
+func get_bomb_squig_count(unit_id: String) -> int:
+	"""OA-30: Get the total number of bomb squigs a unit has.
+	Reads count from ability dict (default 1). Tankbustas have 2, Kommandos have 1."""
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
-		return false
+		return 0
 
 	var abilities = unit.get("meta", {}).get("abilities", [])
 	for ability in abilities:
 		var ability_name = _get_ability_name(ability)
 		if ability_name == "Bomb Squigs":
-			if not is_once_per_battle_used(unit_id, "Bomb Squigs"):
-				print("UnitAbilityManager: Unit %s has unused Bomb Squigs" % unit_id)
-				return true
-			else:
-				print("UnitAbilityManager: Unit %s has Bomb Squigs but already used this battle" % unit_id)
+			if ability is Dictionary:
+				return ability.get("count", 1)
+			return 1
+	return 0
+
+func get_bomb_squigs_remaining(unit_id: String) -> int:
+	"""OA-30: Get the number of unused bomb squigs for a unit.
+	Each squig is tracked independently via 'unit_id:Bomb Squigs:N' keys."""
+	var total = get_bomb_squig_count(unit_id)
+	if total == 0:
+		return 0
+
+	var remaining = 0
+	for i in range(total):
+		var usage_key = unit_id + ":Bomb Squigs:" + str(i)
+		if not _once_per_battle_used.get(usage_key, false):
+			remaining += 1
+
+	print("UnitAbilityManager: Unit %s has %d/%d bomb squigs remaining" % [unit_id, remaining, total])
+	return remaining
+
+func mark_bomb_squig_used(unit_id: String) -> int:
+	"""OA-30: Mark the next unused bomb squig as used for a unit.
+	Returns the index of the squig that was marked, or -1 if none available."""
+	var total = get_bomb_squig_count(unit_id)
+	for i in range(total):
+		var usage_key = unit_id + ":Bomb Squigs:" + str(i)
+		if not _once_per_battle_used.get(usage_key, false):
+			_once_per_battle_used[usage_key] = true
+			var remaining = get_bomb_squigs_remaining(unit_id)
+			print("UnitAbilityManager: Marked Bomb Squig #%d as used for unit %s (%d remaining)" % [i, unit_id, remaining])
+			return i
+	print("UnitAbilityManager: No unused bomb squigs for unit %s" % unit_id)
+	return -1
+
+func has_bomb_squigs(unit_id: String) -> bool:
+	"""Check if a unit has unused Bomb Squigs wargear ability.
+	Used by MovementPhase to offer once-per-battle mortal wounds after normal move.
+	OA-30: Supports multi-squig (Tankbustas have 2, Kommandos have 1)."""
+	var remaining = get_bomb_squigs_remaining(unit_id)
+	if remaining > 0:
+		print("UnitAbilityManager: Unit %s has %d unused Bomb Squig(s)" % [unit_id, remaining])
+		return true
 	return false
 
 func has_kunnin_infiltrator(unit_id: String) -> bool:

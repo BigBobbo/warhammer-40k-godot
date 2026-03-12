@@ -244,10 +244,10 @@
 ## Phase 4: Situational/Conditional Abilities
 
 ### OA-30: Implement "Bomb Squigs" (multi-squig) for Tankbustas
-- [ ] Extend existing Bomb Squig implementation to support Tankbustas (2 squigs vs Kommandos 1)
-- [ ] Once per battle per squig, after Normal move, enemy within 12": on 3+, D3 mortal wounds
-- [ ] Track per-squig usage independently
-- **Files**: UnitAbilityManager.gd
+- [x] Extend existing Bomb Squig implementation to support Tankbustas (2 squigs vs Kommandos 1)
+- [x] Once per battle per squig, after Normal move, enemy within 12": on 3+, D3 mortal wounds
+- [x] Track per-squig usage independently
+- **Files**: UnitAbilityManager.gd, MovementPhase.gd, army JSON files
 - **Validation**: 2 squigs tracked independently. Each triggers once per battle. D3 MW on 3+.
 
 ### OA-31: Implement "Pulsa Rokkit" wargear for Tankbustas
