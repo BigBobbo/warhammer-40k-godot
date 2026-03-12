@@ -20,7 +20,7 @@ float hash(vec2 p) {
 float value_noise(vec2 p) {
 	vec2 i = floor(p);
 	vec2 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
+	f = f * f * f * (f * (f * 6.0 - 15.0) + 10.0); // quintic smoothstep
 	float a = hash(i);
 	float b = hash(i + vec2(1.0, 0.0));
 	float c = hash(i + vec2(0.0, 1.0));
@@ -56,7 +56,7 @@ void fragment() {
 	}
 
 	// Weathering jitter — subtle grey variation
-	float jitter = (hash(floor(UV * 180.0)) - 0.5) * weathering;
+	float jitter = (value_noise(UV * 180.0) - 0.5) * weathering;
 	col += vec3(jitter);
 
 	COLOR = vec4(col, 1.0);
