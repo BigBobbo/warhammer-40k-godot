@@ -440,6 +440,11 @@
             "name": "Mekaniak",
             "type": "Datasheet",
             "description": "At the end of your Movement phase, you can select one friendly Orks Vehicle model within 3\" of this model. That VEHICLE model regains up to D3 lost wounds, and, until the start of your next Movement phase, each time that VEHICLE model makes an attack, add 1 to the Hit roll. Each model can only be selected for this ability once per turn."
+          },
+          {
+            "name": "Grot Oiler",
+            "type": "Wargear",
+            "description": "Once per battle, at the end of your Movement phase, one model in the bearer's unit regains D3 lost wounds."
           }
         ],
         "unit_composition": [
@@ -532,6 +537,11 @@
             "name": "Mekaniak",
             "type": "Datasheet",
             "description": "At the end of your Movement phase, you can select one friendly Orks Vehicle model within 3\" of this model. That VEHICLE model regains up to D3 lost wounds, and, until the start of your next Movement phase, each time that VEHICLE model makes an attack, add 1 to the Hit roll. Each model can only be selected for this ability once per turn."
+          },
+          {
+            "name": "Grot Oiler",
+            "type": "Wargear",
+            "description": "Once per battle, at the end of your Movement phase, one model in the bearer's unit regains D3 lost wounds."
           }
         ],
         "unit_composition": [

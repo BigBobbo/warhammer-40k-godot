@@ -607,7 +607,7 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
-	# WARGEAR ABILITIES — Pulsa Rokkit (OA-31)
+	# WARGEAR ABILITIES — Pulsa Rokkit (OA-31), Grot Oiler (OA-32)
 	# ======================================================================
 
 	# Ork Tankbustas — once per battle, when unit is selected to shoot:
@@ -621,6 +621,20 @@ const ABILITY_EFFECTS: Dictionary = {
 		"implemented": true,
 		"once_per_battle": true,
 		"description": "Once per battle: +1 Strength and +1 AP to ranged weapons for the phase"
+	},
+
+	# Ork Big Mek / Mek — once per battle, at the end of your Movement phase:
+	# One model in the bearer's unit regains D3 lost wounds.
+	# Triggered at end of Movement phase — prompt offered in MovementPhase.
+	# OA-32: Grot Oiler wargear ability
+	"Grot Oiler": {
+		"condition": "end_of_movement",
+		"effects": [{"type": "heal_d3"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: one model in bearer's unit regains D3 lost wounds at end of Movement phase"
 	},
 
 	# ======================================================================
@@ -2034,6 +2048,83 @@ func mark_pulsa_rokkit_used(unit_id: String) -> void:
 	"""OA-31: Mark Pulsa Rokkit as used for a unit."""
 	mark_once_per_battle_used(unit_id, "Pulsa Rokkit")
 	print("UnitAbilityManager: Marked Pulsa Rokkit as used for unit %s" % unit_id)
+
+func has_grot_oiler(unit_id: String) -> bool:
+	"""OA-32: Check if a unit has an unused Grot Oiler wargear ability.
+	Used by MovementPhase at end of movement to offer D3 wound healing."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Grot Oiler":
+			if not is_once_per_battle_used(unit_id, "Grot Oiler"):
+				print("UnitAbilityManager: Unit %s has unused Grot Oiler" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Grot Oiler but already used this battle" % unit_id)
+				return false
+	return false
+
+func mark_grot_oiler_used(unit_id: String) -> void:
+	"""OA-32: Mark Grot Oiler as used for a unit."""
+	mark_once_per_battle_used(unit_id, "Grot Oiler")
+	print("UnitAbilityManager: Marked Grot Oiler as used for unit %s" % unit_id)
+
+func get_grot_oiler_targets(bearer_unit_id: String) -> Array:
+	"""OA-32: Get eligible healing targets for Grot Oiler wargear ability.
+	Returns array of { unit_id, unit_name, model_id, model_index, current_wounds, max_wounds }
+	for models in the bearer's unit (including bodyguard models if attached) that have lost wounds."""
+	var targets = []
+	var bearer_unit = GameState.state.get("units", {}).get(bearer_unit_id, {})
+	if bearer_unit.is_empty():
+		return targets
+
+	# Collect all unit IDs that form the bearer's unit (character + bodyguard if attached)
+	var unit_ids_to_check = [bearer_unit_id]
+
+	# If the bearer is attached to a bodyguard, include the bodyguard unit
+	var attached_to = bearer_unit.get("attached_to", null)
+	if attached_to != null and attached_to != "":
+		unit_ids_to_check.append(attached_to)
+
+	# If the bearer has attached characters (unlikely for Mek but handle generically),
+	# include those units too
+	var attached_chars = bearer_unit.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in attached_chars:
+		if char_id != bearer_unit_id and char_id not in unit_ids_to_check:
+			unit_ids_to_check.append(char_id)
+
+	# Find models with lost wounds in all units in the combined Attached unit
+	for unit_id in unit_ids_to_check:
+		var unit = GameState.state.get("units", {}).get(unit_id, {})
+		if unit.is_empty():
+			continue
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var models = unit.get("models", [])
+		for i in range(models.size()):
+			var model = models[i]
+			if not model.get("alive", true):
+				continue
+			var max_wounds = model.get("wounds", 1)
+			var current_wounds = model.get("current_wounds", max_wounds)
+			if current_wounds >= max_wounds:
+				continue  # No wounds lost
+			targets.append({
+				"unit_id": unit_id,
+				"unit_name": unit_name,
+				"model_id": model.get("id", "m%d" % (i + 1)),
+				"model_index": i,
+				"current_wounds": current_wounds,
+				"max_wounds": max_wounds
+			})
+			print("UnitAbilityManager: Grot Oiler target — %s model %s (%d/%d wounds)" % [
+				unit_name, model.get("id", ""), current_wounds, max_wounds])
+
+	print("UnitAbilityManager: Grot Oiler found %d eligible targets for unit %s" % [targets.size(), bearer_unit_id])
+	return targets
 
 func get_bomb_squig_count(unit_id: String) -> int:
 	"""OA-30: Get the total number of bomb squigs a unit has.
