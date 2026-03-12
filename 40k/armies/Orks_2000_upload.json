@@ -4,7 +4,8 @@
     "points": 2000,
     "detachment": "Strike Force",
     "player_name": "",
-    "team_name": ""
+    "team_name": "",
+    "created_date": "2025-03-06"
   },
   "units": {
     "U_BEASTBOSS_A": {
