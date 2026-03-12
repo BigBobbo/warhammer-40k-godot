@@ -3552,13 +3552,18 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 				if min_edge_dist > 6.0:
 					errors.append("Model %d: Strategic Reserves must be within 6\" of a battlefield edge (nearest edge: %.1f\")" % [i, min_edge_dist])
 
-				# Turn 2: cannot be in opponent's deployment zone
+				# Turn 2: cannot be in opponent's deployment zone (unless unit has Outflank — OA-27)
 				if battle_round == 2:
-					var opponent = 3 - active_player
-					var opponent_zone = GameState.get_deployment_zone_for_player(opponent)
-					var zone_poly = opponent_zone.get("poly", [])
-					if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
-						errors.append("Model %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % i)
+					var _ability_mgr_outflank = get_node_or_null("/root/UnitAbilityManager")
+					var _has_outflank = _ability_mgr_outflank and _ability_mgr_outflank.has_outflank(unit_id)
+					if not _has_outflank:
+						var opponent = 3 - active_player
+						var opponent_zone = GameState.get_deployment_zone_for_player(opponent)
+						var zone_poly = opponent_zone.get("poly", [])
+						if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
+							errors.append("Model %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % i)
+					else:
+						print("MovementPhase: OA-27 Outflank — unit %s bypasses opponent deployment zone restriction" % unit_id)
 
 			# Deep Strike: can be placed anywhere on the board (>9" check already done above)
 			# No additional restrictions for deep strike placement
