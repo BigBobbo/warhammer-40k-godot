@@ -122,6 +122,7 @@ var reserves_button: Button = null
 var reinforcements_button: Button = null
 var _selected_unit_for_reserves: String = ""
 var _reinforcement_placement_type: String = ""  # P2-80: chosen placement type (deep_strike or strategic_reserves)
+var _deep_strike_exclusion_visual: Node2D = null  # 9" exclusion bubble around enemy models
 
 # Deployment zone toggle (Z key) - allows viewing zones after deployment phase
 var _deployment_zones_toggled_on: bool = false
@@ -1815,6 +1816,9 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		if omni_positions.size() > 0:
 			status_label.text += " — >12\" from Omni-scramblers"
 
+		# Show 9" exclusion bubbles around all enemy models
+		_show_deep_strike_exclusion()
+
 		unit_list.visible = false
 		show_unit_card(unit_id)
 
@@ -1881,6 +1885,9 @@ func _on_reinforcement_confirmed() -> void:
 	_selected_unit_for_reserves = ""
 	_reinforcement_placement_type = ""  # P2-80: Clear placement type choice
 
+	# Hide deep strike exclusion bubbles
+	_hide_deep_strike_exclusion()
+
 	# Reset reinforcement mode
 	if deployment_controller:
 		deployment_controller.is_reinforcement_mode = false
@@ -1892,6 +1899,27 @@ func _on_reinforcement_confirmed() -> void:
 
 	refresh_unit_list()
 	update_ui()
+
+func _show_deep_strike_exclusion() -> void:
+	"""Show 9-inch exclusion bubbles around all enemy models for reinforcement placement."""
+	_hide_deep_strike_exclusion()  # Clean up any existing visual
+	var active_player = GameState.get_active_player()
+	var enemy_positions = GameState.get_enemy_model_positions(active_player)
+	if enemy_positions.is_empty():
+		return
+	_deep_strike_exclusion_visual = load("res://scripts/DeepStrikeExclusionVisual.gd").new()
+	if ghost_layer:
+		ghost_layer.add_child(_deep_strike_exclusion_visual)
+	else:
+		add_child(_deep_strike_exclusion_visual)
+	_deep_strike_exclusion_visual.show_exclusion(enemy_positions)
+
+func _hide_deep_strike_exclusion() -> void:
+	"""Hide and free the deep strike exclusion visual."""
+	if _deep_strike_exclusion_visual and is_instance_valid(_deep_strike_exclusion_visual):
+		_deep_strike_exclusion_visual.hide_exclusion()
+		_deep_strike_exclusion_visual.queue_free()
+		_deep_strike_exclusion_visual = null
 
 # T4-7: Rapid Ingress placement — same as reinforcement but uses PLACE_RAPID_INGRESS_REINFORCEMENT
 var _rapid_ingress_unit_id: String = ""
@@ -1945,6 +1973,9 @@ func _begin_rapid_ingress_placement(unit_id: String) -> void:
 		status_label.text = "Rapid Ingress: placing %s (%s) — >9\" from enemies" % [unit_name, type_label]
 		if reserve_type == "strategic_reserves":
 			status_label.text += " — within 6\" of board edge"
+
+		# Show 9" exclusion bubbles around all enemy models
+		_show_deep_strike_exclusion()
 
 		unit_list.visible = false
 		show_unit_card(unit_id)
@@ -2007,6 +2038,9 @@ func _on_rapid_ingress_confirmed() -> void:
 		print("Main: Rapid Ingress placement failed: %s" % str(errors))
 
 	_rapid_ingress_unit_id = ""
+
+	# Hide deep strike exclusion bubbles
+	_hide_deep_strike_exclusion()
 
 	# Reset reinforcement mode
 	if deployment_controller:
@@ -6194,6 +6228,9 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	# P3-54: Hide keyboard shortcut overlay when leaving deployment
 	if _keyboard_shortcut_overlay and is_instance_valid(_keyboard_shortcut_overlay):
 		_keyboard_shortcut_overlay.visible = false
+
+	# Hide deep strike exclusion bubbles on phase change
+	_hide_deep_strike_exclusion()
 
 	# Clear transport panel when phase changes
 	update_transport_panel("")
