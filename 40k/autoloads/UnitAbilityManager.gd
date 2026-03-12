@@ -232,6 +232,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle: charge after advancing"
 	},
 
+	# Vertus Praetors, Outrider Squad, etc. — skip advance roll, auto +6" to Move
+	"Turbo-boost": {
+		"condition": "always",
+		"effects": [{"type": "auto_advance_6"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When advancing, do not roll — add 6\" to Move instead"
+	},
+
 	# Deffkilla Wartrike — skip advance roll, auto +6" to Move
 	"Fuel-mixa Grot": {
 		"condition": "always",
