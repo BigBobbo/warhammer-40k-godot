@@ -542,6 +542,17 @@ const ABILITY_EFFECTS: Dictionary = {
 	# PHASE-TRIGGERED ABILITIES (Movement phase etc.)
 	# ======================================================================
 
+	# Ork Mek / Big Mek on Warbike / Meka-dread — heal D3 + grant +1 Hit to friendly Orks Vehicle
+	# at end of Movement phase. Once per vehicle per turn.
+	"Mekaniak": {
+		"condition": "end_of_movement",
+		"effects": [],
+		"target": "friendly_orks_vehicle",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "At end of Movement phase, select one friendly Orks Vehicle within 3\" — regain up to D3 lost wounds and +1 to Hit until start of next Movement phase. Once per vehicle per turn."
+	},
+
 	# Ork Weirdboy — teleport unit at end of Movement phase
 	# Once per turn, roll D6: on 1, unit suffers D6 mortal wounds;
 	# on 2+, remove unit and redeploy 9"+ from enemies.
@@ -840,6 +851,10 @@ var _once_per_battle_used: Dictionary = {}
 # Track once-per-battle-round ability usage (e.g., Strategic Mastery)
 # Key: "player:ability_name", Value: battle_round_number (last used round)
 var _once_per_round_used: Dictionary = {}
+
+# OA-34: Track which vehicles have been selected for Mekaniak this turn
+# Key: vehicle_unit_id, Value: true
+var _mekaniak_used_this_turn: Dictionary = {}
 
 func _ready() -> void:
 	var implemented_count = 0
@@ -2293,6 +2308,123 @@ func _calculate_distance(pos_a, pos_b) -> float:
 
 	return sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by))
 
+# ============================================================================
+# OA-34: MEKANIAK (Mek/Big Mek healing + hit buff at end of Movement phase)
+# ============================================================================
+
+func has_mekaniak(unit_id: String) -> bool:
+	"""Check if a unit has the Mekaniak ability.
+	Used by MovementPhase at end of movement to offer healing/buff."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Mekaniak":
+			print("UnitAbilityManager: Unit %s has Mekaniak ability" % unit_id)
+			return true
+	return false
+
+func get_mekaniak_targets(mek_unit_id: String) -> Array:
+	"""Get eligible vehicle targets for Mekaniak ability.
+	Returns array of { unit_id, unit_name, model_id, model_index, current_wounds, max_wounds, wounds_lost }
+	for friendly ORKS VEHICLE models within 3\" that haven't already been selected this turn."""
+	var targets = []
+	var mek_unit = GameState.state.get("units", {}).get(mek_unit_id, {})
+	if mek_unit.is_empty():
+		return targets
+
+	# Get Mek position (first alive model)
+	var mek_pos = null
+	for model in mek_unit.get("models", []):
+		if model.get("alive", true) and model.get("position", null) != null:
+			mek_pos = model.get("position")
+			break
+
+	if mek_pos == null:
+		print("UnitAbilityManager: Mek %s has no position — cannot find Mekaniak targets" % mek_unit_id)
+		return targets
+
+	var units = GameState.state.get("units", {})
+	var mek_owner = mek_unit.get("owner", 0)
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		# Must be same owner (friendly)
+		if unit.get("owner", 0) != mek_owner:
+			continue
+
+		# Skip the Mek itself
+		if unit_id == mek_unit_id:
+			continue
+
+		# Must have ORKS and VEHICLE keywords
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var has_orks = false
+		var has_vehicle = false
+		for kw in keywords:
+			if kw.to_upper() == "ORKS":
+				has_orks = true
+			if kw.to_upper() == "VEHICLE":
+				has_vehicle = true
+		if not has_orks or not has_vehicle:
+			continue
+
+		# Once per vehicle per turn — skip if already selected
+		if is_mekaniak_used_this_turn(unit_id):
+			print("UnitAbilityManager: Mekaniak — vehicle %s already selected this turn, skipping" % unit_id)
+			continue
+
+		# Check each alive model for proximity
+		for i in range(unit.get("models", []).size()):
+			var model = unit.get("models", [])[i]
+			if not model.get("alive", true):
+				continue
+
+			var model_pos = model.get("position", null)
+			if model_pos == null:
+				continue
+
+			var dist = _calculate_distance(mek_pos, model_pos)
+			if dist <= 3.0:
+				var max_wounds = model.get("wounds", 1)
+				var current_wounds = model.get("current_wounds", max_wounds)
+				targets.append({
+					"unit_id": unit_id,
+					"unit_name": unit.get("meta", {}).get("name", unit_id),
+					"model_id": model.get("id", "m%d" % (i + 1)),
+					"model_index": i,
+					"current_wounds": current_wounds,
+					"max_wounds": max_wounds,
+					"wounds_lost": max_wounds - current_wounds
+				})
+				print("UnitAbilityManager: Mekaniak target found — %s model %s (%d/%d wounds)" % [
+					unit.get("meta", {}).get("name", unit_id), model.get("id", ""), current_wounds, max_wounds])
+
+	return targets
+
+func mark_mekaniak_used_this_turn(vehicle_unit_id: String) -> void:
+	"""Mark a vehicle as having been selected for Mekaniak this turn."""
+	_mekaniak_used_this_turn[vehicle_unit_id] = true
+	print("UnitAbilityManager: Marked vehicle %s as Mekaniak target this turn" % vehicle_unit_id)
+
+func is_mekaniak_used_this_turn(vehicle_unit_id: String) -> bool:
+	"""Check if a vehicle has already been selected for Mekaniak this turn."""
+	return _mekaniak_used_this_turn.get(vehicle_unit_id, false)
+
+func clear_mekaniak_turn_tracking() -> void:
+	"""Clear Mekaniak per-vehicle-per-turn tracking. Called at start of each player's Movement phase."""
+	if not _mekaniak_used_this_turn.is_empty():
+		print("UnitAbilityManager: Clearing Mekaniak turn tracking (%d vehicles tracked)" % _mekaniak_used_this_turn.size())
+	_mekaniak_used_this_turn.clear()
+
+static func has_mekaniak_buff(unit: Dictionary) -> bool:
+	"""Check if a unit has the Mekaniak +1 Hit buff active.
+	Used by RulesEngine when resolving hit rolls."""
+	return unit.get("flags", {}).get("mekaniak_buffed", false)
+
 func has_deadly_demise(unit_id: String) -> bool:
 	"""Check if a unit has a Deadly Demise ability (e.g. 'Deadly Demise D6', 'Deadly Demise D3', 'Deadly Demise 1').
 	Used by _check_kill_diffs to trigger mortal wounds on destruction."""
@@ -2534,7 +2666,8 @@ func get_state_for_save() -> Dictionary:
 		"applied_this_phase": _applied_this_phase.duplicate(true),
 		"once_per_battle_used": _once_per_battle_used.duplicate(true),
 		"once_per_round_used": _once_per_round_used.duplicate(true),
-		"active_aura_effects": _active_aura_effects.duplicate(true)
+		"active_aura_effects": _active_aura_effects.duplicate(true),
+		"mekaniak_used_this_turn": _mekaniak_used_this_turn.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
@@ -2544,6 +2677,7 @@ func load_state(data: Dictionary) -> void:
 	_once_per_battle_used = data.get("once_per_battle_used", {})
 	_once_per_round_used = data.get("once_per_round_used", {})
 	_active_aura_effects = data.get("active_aura_effects", {})
+	_mekaniak_used_this_turn = data.get("mekaniak_used_this_turn", {})
 	print("UnitAbilityManager: State loaded — %d active effects, %d aura effects, %d once-per-battle used, %d once-per-round used" % [_active_ability_effects.size(), _active_aura_effects.size(), _once_per_battle_used.size(), _once_per_round_used.size()])
 
 func reset_for_new_game() -> void:
@@ -2553,4 +2687,5 @@ func reset_for_new_game() -> void:
 	_once_per_battle_used.clear()
 	_once_per_round_used.clear()
 	_active_aura_effects.clear()
+	_mekaniak_used_this_turn.clear()
 	print("UnitAbilityManager: Reset for new game")

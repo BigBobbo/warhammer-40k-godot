@@ -1494,6 +1494,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: TANK HUNTERS — +1 to hit for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
 
+		# MEKANIAK (OA-34): +1 to Hit for vehicles buffed by Mek at end of Movement phase
+		if UnitAbilityManager.has_mekaniak_buff(actor_unit):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: MEKANIAK — +1 to hit for %s (Mek-buffed vehicle)" % actor_unit_id)
+
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker.
 		var dats_our_loot_scope = get_dats_our_loot_reroll_scope(actor_unit, target_unit, board)
@@ -2244,6 +2249,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if has_tank_hunters_vs_target(actor_unit, target_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: TANK HUNTERS (auto-resolve) — +1 to hit for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
+
+		# MEKANIAK (OA-34): +1 to Hit for vehicles buffed by Mek at end of Movement phase (auto-resolve)
+		if UnitAbilityManager.has_mekaniak_buff(actor_unit):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: MEKANIAK (auto-resolve) — +1 to hit for %s (Mek-buffed vehicle)" % actor_unit_id)
 
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker (auto-resolve).
@@ -7312,6 +7322,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if is_damaged_profile_active(attacker_unit):
 			melee_hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Damaged profile -1 to hit (melee) applied for %s" % attacker_id)
+
+		# MEKANIAK (OA-34): +1 to Hit for vehicles buffed by Mek at end of Movement phase (melee)
+		if UnitAbilityManager.has_mekaniak_buff(attacker_unit):
+			melee_hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: MEKANIAK (melee) — +1 to hit for %s (Mek-buffed vehicle)" % attacker_id)
 
 		var melee_hit_reroll_data = []
 		for i in range(hit_rolls.size()):

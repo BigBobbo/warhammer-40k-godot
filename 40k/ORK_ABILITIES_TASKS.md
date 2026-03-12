@@ -269,9 +269,9 @@
 - **Validation**: 1 destroyed Bodyguard model returned per Command phase while leading.
 
 ### OA-34: Implement "Mekaniak" for Mek/Big Mek On Warbike/Meka-dread
-- [ ] End of Movement: heal D3 wounds on nearby Orks Vehicle
-- [ ] Grant +1 to Hit for that vehicle until end of turn
-- [ ] Once per vehicle per turn
+- [x] End of Movement: heal D3 wounds on nearby Orks Vehicle
+- [x] Grant +1 to Hit for that vehicle until end of turn
+- [x] Once per vehicle per turn
 - **Files**: UnitAbilityManager.gd, MovementPhase.gd, RulesEngine.gd
 - **Validation**: D3 healed. +1 Hit for vehicle. Once per vehicle per turn.
 
