@@ -2976,6 +2976,195 @@
           }
         }
       ]
+    },
+    "U_BIG_GUNZ_A": {
+      "id": "U_BIG_GUNZ_A",
+      "squad_id": "U_BIG_GUNZ_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Big Gunz",
+        "keywords": [
+          "ORKS",
+          "BIG GUNZ"
+        ],
+        "stats": {
+          "move": 4,
+          "toughness": 5,
+          "save": 5,
+          "wounds": 3,
+          "leadership": 7,
+          "objective_control": 2
+        },
+        "points": 50,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "3x Kannon",
+          "3x Close combat weapon"
+        ],
+        "weapons": [
+          {
+            "name": "Kannon – frag",
+            "type": "Ranged",
+            "range": "36",
+            "attacks": "D6",
+            "strength": "5",
+            "ap": "0",
+            "damage": "1",
+            "ballistic_skill": "5",
+            "special_rules": "blast"
+          },
+          {
+            "name": "Kannon – shell",
+            "type": "Ranged",
+            "range": "36",
+            "attacks": "1",
+            "strength": "9",
+            "ap": "-2",
+            "damage": "D3",
+            "ballistic_skill": "5",
+            "special_rules": ""
+          },
+          {
+            "name": "Close combat weapon",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "1",
+            "strength": "2",
+            "ap": "0",
+            "damage": "1",
+            "weapon_skill": "5"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "If your Army Faction is ORKS, once per battle, at the start of your Command phase, you can call a Waaagh!."
+          },
+          {
+            "name": "Splat!",
+            "type": "Datasheet",
+            "description": "Each time a model in this unit makes a ranged attack that targets a unit that contains 10 or more models, re-roll a Hit roll of 1."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1-3 Big Gunz",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_MEK_GUNZ_A": {
+      "id": "U_MEK_GUNZ_A",
+      "squad_id": "U_MEK_GUNZ_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Mek Gunz",
+        "keywords": [
+          "ORKS",
+          "MEK GUNZ"
+        ],
+        "stats": {
+          "move": 3,
+          "toughness": 5,
+          "save": 5,
+          "wounds": 4,
+          "leadership": 7,
+          "objective_control": 2
+        },
+        "points": 45,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "1x Smasha gun",
+          "1x Close combat weapon"
+        ],
+        "weapons": [
+          {
+            "name": "Smasha gun",
+            "type": "Ranged",
+            "range": "48",
+            "attacks": "D3",
+            "strength": "9",
+            "ap": "-2",
+            "damage": "D6",
+            "ballistic_skill": "5",
+            "special_rules": ""
+          },
+          {
+            "name": "Close combat weapon",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "4",
+            "strength": "2",
+            "ap": "0",
+            "damage": "1",
+            "weapon_skill": "5"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "If your Army Faction is ORKS, once per battle, at the start of your Command phase, you can call a Waaagh!."
+          },
+          {
+            "name": "Splat!",
+            "type": "Datasheet",
+            "description": "Each time a model in this unit makes a ranged attack, if this unit is at its Starting Strength and the target does not have the MONSTER or VEHICLE keyword, re-roll a Hit roll of 1."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Mek Gun",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 4,
+          "current_wounds": 4,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
     }
   }
 }
