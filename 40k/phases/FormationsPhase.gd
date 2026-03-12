@@ -372,6 +372,11 @@ func _validate_declare_reserves(action: Dictionary) -> Dictionary:
 
 	# Check 50% reserves point cap (Chapter Approved 2025-26)
 	var unit_points = unit.get("meta", {}).get("points", 0)
+	# Include attached character points in the calculation
+	var attached_char_ids = action.get("attached_character_ids", [])
+	for char_id in attached_char_ids:
+		var char_unit = get_unit(char_id)
+		unit_points += char_unit.get("meta", {}).get("points", 0)
 	var total_points = GameState.get_total_army_points(player)
 	var max_reserves_points = int(total_points * 0.50)
 	var current_reserves_points = _get_declared_reserves_points(player)
@@ -528,16 +533,24 @@ func _process_declare_transport_embarkation(action: Dictionary) -> Dictionary:
 func _process_declare_reserves(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var reserve_type = action.get("reserve_type", "strategic_reserves")
+	var attached_char_ids = action.get("attached_character_ids", [])
 	var player = action.get("player", get_current_player())
 
 	player_formations[player]["reserves"].append({
 		"unit_id": unit_id,
-		"reserve_type": reserve_type
+		"reserve_type": reserve_type,
+		"attached_character_ids": attached_char_ids
 	})
 
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
-	log_phase_message("Player %d declares: %s in %s" % [player, unit_name, type_label])
+	if attached_char_ids.size() > 0:
+		var char_names = []
+		for char_id in attached_char_ids:
+			char_names.append(get_unit(char_id).get("meta", {}).get("name", char_id))
+		log_phase_message("Player %d declares: %s + %s in %s" % [player, unit_name, ", ".join(char_names), type_label])
+	else:
+		log_phase_message("Player %d declares: %s in %s" % [player, unit_name, type_label])
 
 	return create_result(true, [])
 
@@ -688,6 +701,10 @@ func _get_declared_reserves_points(player: int) -> int:
 	for entry in formations.get("reserves", []):
 		var unit = get_unit(entry.get("unit_id", ""))
 		total += unit.get("meta", {}).get("points", 0)
+		# Include attached character points
+		for char_id in entry.get("attached_character_ids", []):
+			var char_unit = get_unit(char_id)
+			total += char_unit.get("meta", {}).get("points", 0)
 	return total
 
 func _get_declared_reserves_count(player: int) -> int:
@@ -857,6 +874,7 @@ func _build_formation_changes() -> Array:
 		for entry in formations["reserves"]:
 			var unit_id = entry["unit_id"]
 			var reserve_type = entry["reserve_type"]
+			var attached_char_ids = entry.get("attached_character_ids", [])
 			changes.append({
 				"op": "set",
 				"path": "units.%s.status" % unit_id,
@@ -871,6 +889,21 @@ func _build_formation_changes() -> Array:
 			var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 			var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
 			log_phase_message("Applied: %s placed in %s" % [unit_name, type_label])
+
+			# Also put attached characters in reserves with the same type
+			for char_id in attached_char_ids:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.status" % char_id,
+					"value": GameStateData.UnitStatus.IN_RESERVES
+				})
+				changes.append({
+					"op": "set",
+					"path": "units.%s.reserve_type" % char_id,
+					"value": reserve_type
+				})
+				var char_name = get_unit(char_id).get("meta", {}).get("name", char_id)
+				log_phase_message("Applied: %s (attached to %s) placed in %s" % [char_name, unit_name, type_label])
 
 	# Sync warlord designation via diffs (already applied to GameState in validation/designation)
 	for player in [1, 2]:
