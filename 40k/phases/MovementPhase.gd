@@ -1529,10 +1529,11 @@ func _process_use_bomb_squigs(action: Dictionary) -> Dictionary:
 		log_phase_message("Bomb Squigs: No valid target found")
 		return create_result(true, cached_changes, "", {"dice": cached_dice})
 
-	# Mark as used (once per battle)
+	# OA-30: Mark one bomb squig as used (indexed tracking for multi-squig support)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
-		ability_mgr.mark_once_per_battle_used(unit_id, "Bomb Squigs")
+		var squig_index = ability_mgr.mark_bomb_squig_used(unit_id)
+		print("║ P2-25: Bomb Squig #%d used" % squig_index)
 
 	# Resolve: roll 1D6, on 3+ the target suffers D3 mortal wounds
 	var result = _resolve_bomb_squigs(unit_id, target_unit_id)
@@ -1545,6 +1546,27 @@ func _process_use_bomb_squigs(action: Dictionary) -> Dictionary:
 	log_phase_message("Bomb Squigs: %s targets %s — %s" % [unit_name, target_name, result.get("log_text", "")])
 
 	emit_signal("bomb_squigs_result", unit_id, result)
+
+	# OA-30: Check if more bomb squigs remain (Tankbustas have 2)
+	if ability_mgr and ability_mgr.has_bomb_squigs(unit_id):
+		var bomb_targets = _get_bomb_squigs_targets(unit_id)
+		if not bomb_targets.is_empty():
+			var remaining = ability_mgr.get_bomb_squigs_remaining(unit_id)
+			print("MovementPhase: OA-30 Bomb Squigs — %s has %d squig(s) remaining, re-offering" % [unit_name, remaining])
+			_bomb_squigs_pending_unit = unit_id
+			_bomb_squigs_pending_changes = all_changes
+			_bomb_squigs_pending_dice = cached_dice
+
+			var current_player = get_current_player()
+			emit_signal("bomb_squigs_available", unit_id, current_player, bomb_targets)
+
+			log_phase_message("Bomb Squigs: %s has %d squig(s) remaining — awaiting decision" % [unit_name, remaining])
+
+			var re_result = create_result(true, all_changes, "", {"dice": cached_dice})
+			re_result["bomb_squigs_available"] = true
+			re_result["unit_id"] = unit_id
+			re_result["eligible_targets"] = bomb_targets
+			return re_result
 
 	return create_result(true, all_changes, "Bomb Squigs resolved", {"dice": cached_dice})
 
