@@ -1076,6 +1076,19 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 					unit_name, int(move_inches + 6), int(move_inches)])
 		return _resolve_advance_roll(unit_id, 6)
 
+	# Fuel-mixa Grot / High-octane Fuel — skip advance roll, auto +6" to Move
+	if flags.get("effect_auto_advance_6", false):
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		log_phase_message("Advance: %s → auto advance ability active — skip roll, +6\" to Move" % unit_name)
+		print("MovementPhase: Auto Advance 6 — %s advances with flat +6\" (no roll)" % unit_name)
+		var game_event_log = get_node_or_null("/root/GameEventLog")
+		if game_event_log:
+			var owner = int(unit.get("owner", 0))
+			game_event_log.add_player_entry(owner,
+				"%s advances (auto +6\"): total move = %d\" (M %d\" + 6\")" % [
+					unit_name, int(move_inches + 6), int(move_inches)])
+		return _resolve_advance_roll(unit_id, 6)
+
 	# Roll D6 for advance (with deterministic seed for multiplayer)
 	# T5-MP9: Read seed from action payload (embedded by NetworkManager.submit_action)
 	# so both optimistic client and authoritative host produce the same roll.
