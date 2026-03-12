@@ -1006,7 +1006,12 @@
           "base_dimensions": { "length": 170, "width": 110 },
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "base_type": "rectangular",
+          "base_dimensions": {
+            "length": 180,
+            "width": 110
+          }
         }
       ]
     },
@@ -1161,7 +1166,12 @@
           "base_dimensions": { "length": 170, "width": 110 },
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "base_type": "rectangular",
+          "base_dimensions": {
+            "length": 180,
+            "width": 110
+          }
         }
       ]
     },

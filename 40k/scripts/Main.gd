@@ -4587,7 +4587,6 @@ func _on_unit_selected(index: int) -> void:
 			# For non-transport units, deploy normally
 			deployment_controller.begin_deploy(unit_id)
 			show_unit_card(unit_id)
-			_show_deployment_color_picker(unit_id)
 			unit_list.visible = false
 	elif current_phase == GameStateData.Phase.SCOUT:
 		# Clean up any previous active scout move before starting a new one
@@ -4745,76 +4744,6 @@ func _on_unit_stats_panel_visibility_changed(panel_is_visible: bool) -> void:
 	if hud_left:
 		hud_left.offset_bottom = bottom_offset
 		print("Main: HUD_Left offset_bottom adjusted to ", bottom_offset, " (panel visible: ", panel_is_visible, ")")
-
-func _show_deployment_color_picker(uid: String) -> void:
-	# Show inline color picker below unit card during deployment (letter mode)
-	var style = SettingsService.unit_visual_style if SettingsService else "classic"
-	if style != "letter":
-		return
-
-	# Remove any existing color picker
-	var right_panel_node = get_node_or_null("HUD_Right/VBoxContainer")
-	var existing = right_panel_node.get_node_or_null("DeploymentColorPicker") if right_panel_node else get_node_or_null("DeploymentColorPicker")
-	if existing:
-		existing.queue_free()
-		await get_tree().process_frame
-
-	var unit_data = GameState.get_unit(uid)
-	if unit_data.is_empty():
-		return
-
-	var player = unit_data.get("owner", 1)
-	var faction_name = GameState.state.get("factions", {}).get(str(player), {}).get("name", "")
-	var palette = FactionPalettes.get_palette(faction_name)
-	var current_color = GameState.get_unit_color(uid)
-
-	var picker_container = HBoxContainer.new()
-	picker_container.name = "DeploymentColorPicker"
-	picker_container.add_theme_constant_override("separation", 4)
-	picker_container.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var lbl = Label.new()
-	lbl.text = "Color:"
-	lbl.add_theme_font_size_override("font_size", 11)
-	lbl.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
-	picker_container.add_child(lbl)
-
-	for color in palette:
-		var swatch = Button.new()
-		swatch.custom_minimum_size = Vector2(22, 22)
-		swatch.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		var style_normal = StyleBoxFlat.new()
-		style_normal.bg_color = color
-		style_normal.corner_radius_top_left = 3
-		style_normal.corner_radius_top_right = 3
-		style_normal.corner_radius_bottom_left = 3
-		style_normal.corner_radius_bottom_right = 3
-		if current_color.is_equal_approx(color):
-			style_normal.border_width_left = 2
-			style_normal.border_width_right = 2
-			style_normal.border_width_top = 2
-			style_normal.border_width_bottom = 2
-			style_normal.border_color = Color.WHITE
-		swatch.add_theme_stylebox_override("normal", style_normal)
-		swatch.add_theme_stylebox_override("hover", style_normal)
-		swatch.add_theme_stylebox_override("pressed", style_normal)
-		swatch.pressed.connect(_on_deployment_color_picked.bind(uid, color))
-		picker_container.add_child(swatch)
-
-	# Add it to right panel below the unit card
-	var right_panel = get_node_or_null("HUD_Right/VBoxContainer")
-	if right_panel:
-		right_panel.add_child(picker_container)
-	else:
-		add_child(picker_container)
-
-
-func _on_deployment_color_picked(uid: String, color: Color) -> void:
-	GameState.set_unit_color(uid, color)
-	_force_redraw_all_tokens()
-	# Refresh the picker to show the new selection
-	_show_deployment_color_picker(uid)
-
 
 func show_unit_card(unit_id: String) -> void:
 	var unit_data = GameState.get_unit(unit_id)
@@ -7435,10 +7364,7 @@ func _clear_right_panel_phase_ui() -> void:
 		"FightSequence", "FightActions",
 
 		# Generic phase elements
-		"PhasePanel", "PhaseControls", "PhaseActions",
-
-		# Deployment color picker (letter mode)
-		"DeploymentColorPicker"
+		"PhasePanel", "PhaseControls", "PhaseActions"
 	]
 
 	# Remove all matching elements
@@ -8147,6 +8073,10 @@ func _handle_right_click(event: InputEventMouseButton) -> void:
 	add_child(_unit_context_menu)
 	_unit_context_menu.position = Vector2i(int(event.global_position.x), int(event.global_position.y))
 	_unit_context_menu.popup()
+
+	# Consume the event so other handlers (DeploymentController cancel,
+	# MovementController rotation) don't also process this right-click
+	get_viewport().set_input_as_handled()
 
 
 func _on_unit_context_menu_pressed(id: int) -> void:
