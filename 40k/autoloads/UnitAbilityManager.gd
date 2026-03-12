@@ -859,6 +859,28 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Feel No Pain 5+ while Waaagh! is active — applied via FactionAbilityManager Waaagh! activation"
 	},
 
+	# Ork Morkanaut — +1 to Hit for ranged attacks while Waaagh! active (OA-41)
+	# Applied via FactionAbilityManager._apply_waaagh_effects, checked in RulesEngine shooting paths
+	"Big an' Shooty": {
+		"condition": "waaagh_active",
+		"effects": [{"type": "plus_one_hit"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "+1 to Hit for ranged attacks while Waaagh! active — applied via FactionAbilityManager Waaagh! activation, checked in RulesEngine"
+	},
+
+	# Ork Gorkanaut — +1 to Hit for melee attacks while Waaagh! active (OA-41)
+	# Applied via FactionAbilityManager._apply_waaagh_effects, checked in RulesEngine melee path
+	"Big an' Stompy": {
+		"condition": "waaagh_active",
+		"effects": [{"type": "plus_one_hit"}],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "+1 to Hit for melee attacks while Waaagh! active — applied via FactionAbilityManager Waaagh! activation, checked in RulesEngine"
+	},
+
 	# Ork Painboy — D6 mortal wounds on Critical Wound with 'urty syringe vs non-VEHICLE (OA-19)
 	# Checked in RulesEngine._resolve_melee_assignment() after wound rolls.
 	# Only triggers for the 'urty syringe weapon, not other Painboy attacks.
@@ -2562,6 +2584,16 @@ static func has_mekaniak_buff(unit: Dictionary) -> bool:
 	"""Check if a unit has the Mekaniak +1 Hit buff active.
 	Used by RulesEngine when resolving hit rolls."""
 	return unit.get("flags", {}).get("mekaniak_buffed", false)
+
+static func has_big_an_shooty(unit: Dictionary) -> bool:
+	"""Check if a unit has Big an' Shooty +1 Hit (ranged) active during Waaagh!.
+	Used by RulesEngine when resolving ranged hit rolls."""
+	return unit.get("flags", {}).get("big_an_shooty_active", false)
+
+static func has_big_an_stompy(unit: Dictionary) -> bool:
+	"""Check if a unit has Big an' Stompy +1 Hit (melee) active during Waaagh!.
+	Used by RulesEngine when resolving melee hit rolls."""
+	return unit.get("flags", {}).get("big_an_stompy_active", false)
 
 func has_deadly_demise(unit_id: String) -> bool:
 	"""Check if a unit has a Deadly Demise ability (e.g. 'Deadly Demise D6', 'Deadly Demise D3', 'Deadly Demise 1').

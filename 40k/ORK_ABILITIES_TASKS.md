@@ -312,10 +312,10 @@
 - **Validation**: Re-roll 1s vs non-FLY targets. No re-roll vs FLY. Verified by test_oa40_blastajet_attack_run.gd (6/6 pass).
 
 ### OA-41: Implement "Big an' Shooty" / "Big an' Stompy" for Morkanaut/Gorkanaut
-- [ ] Morkanaut: +1 to Hit for ranged attacks while Waaagh! active
-- [ ] Gorkanaut: +1 to Hit for melee attacks while Waaagh! active
-- **Files**: UnitAbilityManager.gd
-- **Validation**: +1 Hit ranged (Morkanaut) or melee (Gorkanaut) during Waaagh!.
+- [x] Morkanaut: +1 to Hit for ranged attacks while Waaagh! active
+- [x] Gorkanaut: +1 to Hit for melee attacks while Waaagh! active
+- **Files**: UnitAbilityManager.gd, FactionAbilityManager.gd, RulesEngine.gd
+- **Validation**: +1 Hit ranged (Morkanaut) or melee (Gorkanaut) during Waaagh!. Flags applied/cleared via FactionAbilityManager Waaagh! lifecycle, checked in RulesEngine interactive, auto-resolve, and melee paths.
 
 ### OA-42: Implement "Scatter!" for Grot Tanks
 - [ ] Reactive 6" move when enemy ends move within 9"

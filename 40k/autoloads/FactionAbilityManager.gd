@@ -456,6 +456,16 @@ func _apply_waaagh_effects(player: int) -> void:
 				unit["flags"]["effect_fnp_source"] = "Krumpin' Time"
 				print("FactionAbilityManager: Krumpin' Time FNP 5+ applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
 
+		# OA-41: Big an' Shooty — +1 to Hit for ranged attacks while Waaagh! active (Morkanaut)
+		if _unit_has_ability(unit, "Big an' Shooty"):
+			unit["flags"]["big_an_shooty_active"] = true
+			print("FactionAbilityManager: Big an' Shooty +1 Hit (ranged) applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+
+		# OA-41: Big an' Stompy — +1 to Hit for melee attacks while Waaagh! active (Gorkanaut)
+		if _unit_has_ability(unit, "Big an' Stompy"):
+			unit["flags"]["big_an_stompy_active"] = true
+			print("FactionAbilityManager: Big an' Stompy +1 Hit (melee) applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+
 		# OA-20: Prophet of Da Great Waaagh! — Crit Hit on 5+ while Waaagh! active (Ghazghkull leading)
 		# Check if any attached character has this ability and apply crit threshold to the led unit
 		var attachment_data = unit.get("attachment_data", {})
@@ -503,6 +513,13 @@ func _clear_waaagh_effects(player: int) -> void:
 				flags.erase("effect_crit_hit_on")
 				flags.erase("effect_crit_hit_on_source")
 				print("FactionAbilityManager: Prophet of Da Great Waaagh! Crit Hit 5+ cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+			# OA-41: Clear Big an' Shooty / Big an' Stompy flags
+			if flags.get("big_an_shooty_active", false):
+				flags.erase("big_an_shooty_active")
+				print("FactionAbilityManager: Big an' Shooty +1 Hit (ranged) cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+			if flags.get("big_an_stompy_active", false):
+				flags.erase("big_an_stompy_active")
+				print("FactionAbilityManager: Big an' Stompy +1 Hit (melee) cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			print("FactionAbilityManager: Waaagh! effects cleared from %s (%s)" % [unit_name, unit_id])
 
