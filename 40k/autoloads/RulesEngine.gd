@@ -1537,6 +1537,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: SPLAT! — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
+		# BLASTAJET ATTACK RUN (OA-40): Re-roll Hit rolls of 1 when targeting non-FLY units.
+		var blastajet_scope = get_blastajet_attack_run_reroll_scope(actor_unit, target_unit)
+		if blastajet_scope == "ones":
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: BLASTAJET ATTACK RUN — re-roll hit rolls of 1 for %s" % actor_unit_id)
+
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -2313,6 +2319,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if splat_scope_ar == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: SPLAT! (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
+
+		# BLASTAJET ATTACK RUN (OA-40): Re-roll Hit rolls of 1 when targeting non-FLY units (auto-resolve).
+		var blastajet_scope_ar = get_blastajet_attack_run_reroll_scope(actor_unit, target_unit)
+		if blastajet_scope_ar == "ones":
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: BLASTAJET ATTACK RUN (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -5123,6 +5135,35 @@ static func get_splat_reroll_scope(actor_unit: Dictionary, target_unit: Dictiona
 
 	# Unknown unit with Splat! — log but don't apply
 	print("RulesEngine: SPLAT! — unit '%s' has ability but no matching variant" % unit_name)
+	return ""
+
+# BLASTAJET ATTACK RUN (OA-40): Check if a unit has the "Blastajet Attack Run" ability.
+# Returns true if the unit has the ability (Wazbom Blastajet datasheet ability).
+static func has_blastajet_attack_run(actor_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Blastajet Attack Run":
+			return true
+	return false
+
+# BLASTAJET ATTACK RUN (OA-40): Get the re-roll scope for a unit's Blastajet Attack Run ability.
+# Re-roll Hit rolls of 1 when targeting non-FLY units.
+# Returns "ones" if the target does not have the FLY keyword, "" otherwise.
+static func get_blastajet_attack_run_reroll_scope(actor_unit: Dictionary, target_unit: Dictionary) -> String:
+	if not has_blastajet_attack_run(actor_unit):
+		return ""
+
+	# Re-roll Hit rolls of 1 when targeting non-FLY units
+	if not unit_has_keyword(target_unit, "FLY"):
+		print("RulesEngine: BLASTAJET ATTACK RUN — target does not have FLY, re-roll hit 1s")
+		return "ones"
+
+	print("RulesEngine: BLASTAJET ATTACK RUN — target has FLY, no re-roll")
 	return ""
 
 # DRIVE-BY DAKKA (OA-13): Check if a unit has the "Drive-by Dakka" ability.
