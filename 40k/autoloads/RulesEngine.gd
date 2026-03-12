@@ -9514,6 +9514,77 @@ static func resolve_dread_foe(attacker_unit_id: String, target_unit_id: String, 
 		"fnp_rolls": mw_result.get("fnp_rolls", [])
 	}
 
+# ==========================================
+# PISTON-DRIVEN BRUTALITY (OA-36)
+# ==========================================
+
+static func resolve_piston_driven_brutality(attacker_unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	"""OA-36: Resolve Piston-driven Brutality ability after a Deff Dread ends a Charge move.
+	Rules: Select one enemy unit within Engagement Range. Roll 1D6:
+	  on 2-5, D3 mortal wounds; on 6, D3+3 mortal wounds; on 1, nothing.
+	Args:
+		attacker_unit_id: The unit with Piston-driven Brutality (Deff Dread)
+		target_unit_id: The selected enemy unit within Engagement Range
+		board: The game state board dictionary
+		rng: Optional RNG service for dice rolls
+	Returns: { roll: int, mortal_wounds: int, diffs: Array, casualties: int }
+	"""
+	if rng == null:
+		rng = RNGService.new()
+
+	var units = board.get("units", {})
+	var attacker_unit = units.get(attacker_unit_id, {})
+	var attacker_name = attacker_unit.get("meta", {}).get("name", attacker_unit_id)
+	var target_unit = units.get(target_unit_id, {})
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-36: PISTON-DRIVEN BRUTALITY — %s (%s)" % [attacker_name, attacker_unit_id])
+	print("║ Target: %s (%s)" % [target_name, target_unit_id])
+
+	# Step 1: Roll 1D6
+	var roll = rng.roll_d6(1)[0]
+	print("║ Roll: %d" % roll)
+
+	# Step 2: Determine mortal wounds based on roll
+	var mortal_wounds = 0
+	if roll == 6:
+		# D3+3 mortal wounds
+		var d3_roll = rng.roll_d6(1)[0]
+		var d3_value = ceili(float(d3_roll) / 2.0)
+		mortal_wounds = d3_value + 3
+		print("║ Result: 6 → D3+3 mortal wounds (D3 rolled %d on D6 = %d, +3 = %d)" % [d3_roll, d3_value, mortal_wounds])
+	elif roll >= 2:
+		# D3 mortal wounds
+		var d3_roll = rng.roll_d6(1)[0]
+		mortal_wounds = ceili(float(d3_roll) / 2.0)
+		print("║ Result: %d → D3 mortal wounds (rolled %d on D6 = %d)" % [roll, d3_roll, mortal_wounds])
+	else:
+		print("║ Result: 1 — no mortal wounds")
+		print("╚═══════════════════════════════════════════════════════════════")
+		return {
+			"roll": roll,
+			"mortal_wounds": 0,
+			"diffs": [],
+			"casualties": 0
+		}
+
+	# Step 3: Apply mortal wounds to target
+	var mw_result = apply_mortal_wounds(target_unit_id, mortal_wounds, board, rng)
+
+	print("║ PISTON-DRIVEN BRUTALITY SUMMARY: %d mortal wound(s) dealt to %s, %d casualt(y/ies)" % [
+		mortal_wounds, target_name, mw_result.get("casualties", 0)
+	])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	return {
+		"roll": roll,
+		"mortal_wounds": mortal_wounds,
+		"diffs": mw_result.get("diffs", []),
+		"casualties": mw_result.get("casualties", 0),
+		"fnp_rolls": mw_result.get("fnp_rolls", [])
+	}
+
 static func _find_units_within_range_of_unit(source_unit_id: String, range_inches: float, board: Dictionary) -> Array:
 	"""Find all units (friendly AND enemy) within range_inches of any model in the source unit.
 	Deadly Demise affects ALL units within 6\", both friendly and enemy.

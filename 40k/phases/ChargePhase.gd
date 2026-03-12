@@ -26,6 +26,7 @@ signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit
 signal tank_shock_opportunity(player: int, vehicle_unit_id: String, eligible_targets: Array)
 signal tank_shock_result(vehicle_unit_id: String, target_unit_id: String, result: Dictionary)
 signal ability_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
+signal piston_driven_brutality_resolved(unit_id: String, result: Dictionary)  # OA-36: Piston-driven Brutality mortal wounds result
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
@@ -1061,6 +1062,9 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	# T7-39: Recheck objective control after charge movement
 	if MissionManager:
 		MissionManager.call_deferred("check_all_objectives")
+
+	# OA-36: Piston-driven Brutality — after Charge move, auto-resolve mortal wounds
+	_resolve_piston_driven_brutality_after_charge(unit_id, changes)
 
 	# Check if Tank Shock is available for the charging player
 	# Per 10e rules: "just after a VEHICLE unit ends a Charge move"
@@ -2703,6 +2707,164 @@ func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: i
 	return false
 
 # Override create_result to support additional data
+# ============================================================================
+# OA-36: PISTON-DRIVEN BRUTALITY — Mortal wounds after Charge move
+# ============================================================================
+
+func _resolve_piston_driven_brutality_after_charge(unit_id: String, changes: Array) -> void:
+	"""OA-36: Check if the charging unit has Piston-driven Brutality.
+	If so, auto-resolve mortal wounds against one enemy in Engagement Range.
+	Roll 1D6: on 2-5, D3 MW; on 6, D3+3 MW; on 1, nothing.
+	Applied immediately via PhaseManager (like Dread Foe in FightPhase)."""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr or not ability_mgr.has_piston_driven_brutality(unit_id):
+		return
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# Build a temp snapshot with charge move positions applied
+	# so engagement range checks use post-move positions
+	var temp_snapshot = game_state_snapshot.duplicate(true)
+	for change in changes:
+		if change.get("op", "") == "set":
+			var path_parts = change.path.split(".")
+			if path_parts.size() >= 5 and path_parts[0] == "units" and path_parts[2] == "models":
+				var u_id = path_parts[1]
+				var m_idx = int(path_parts[3])
+				var field = path_parts[4] if path_parts.size() > 4 else ""
+				if field == "position" and temp_snapshot.get("units", {}).has(u_id):
+					var models = temp_snapshot.units[u_id].get("models", [])
+					if m_idx < models.size():
+						models[m_idx]["position"] = change.value
+
+	# Find enemy units within Engagement Range using post-move positions
+	var targets = _get_piston_brutality_targets(unit_id, temp_snapshot)
+	if targets.is_empty():
+		log_phase_message("PISTON-DRIVEN BRUTALITY: %s has ability but no enemies in Engagement Range" % unit_name)
+		print("ChargePhase: Piston-driven Brutality — %s has no valid targets in Engagement Range" % unit_name)
+		return
+
+	# Auto-select first target (same pattern as Dread Foe)
+	var target_id = targets[0].get("unit_id", "")
+	var target_name = targets[0].get("unit_name", target_id)
+	log_phase_message("PISTON-DRIVEN BRUTALITY: %s targets %s within Engagement Range" % [unit_name, target_name])
+
+	# Resolve via RulesEngine
+	var rng_service = RulesEngine.RNGService.new()
+	var result = RulesEngine.resolve_piston_driven_brutality(
+		unit_id, target_id, temp_snapshot, rng_service
+	)
+
+	# Apply state changes if mortal wounds were dealt
+	var pdb_diffs = result.get("diffs", [])
+	if not pdb_diffs.is_empty():
+		PhaseManager.apply_state_changes(pdb_diffs)
+		# Update our snapshot
+		game_state_snapshot = GameState.state.duplicate(true)
+		log_phase_message("PISTON-DRIVEN BRUTALITY: Applied %d state change(s)" % pdb_diffs.size())
+
+	# Emit signal for UI/logging
+	emit_signal("piston_driven_brutality_resolved", unit_id, result)
+
+	# Log to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var owner = int(unit.get("owner", 0))
+		game_event_log.add_player_entry(owner,
+			"Piston-driven Brutality: %s rolled %d — %d mortal wound(s) to %s (%d casualt(y/ies))" % [
+				unit_name, result.get("roll", 0), result.get("mortal_wounds", 0),
+				target_name, result.get("casualties", 0)
+			])
+
+	log_phase_message("PISTON-DRIVEN BRUTALITY: %s rolled %d — %d mortal wound(s) to %s, %d casualt(y/ies)" % [
+		unit_name,
+		result.get("roll", 0),
+		result.get("mortal_wounds", 0),
+		target_name,
+		result.get("casualties", 0)
+	])
+
+	# Check if mortal wounds killed any units (could trigger Deadly Demise)
+	if not pdb_diffs.is_empty():
+		_check_kill_diffs_for_deadly_demise(pdb_diffs)
+
+func _get_piston_brutality_targets(unit_id: String, snapshot: Dictionary) -> Array:
+	"""OA-36: Get enemy units within Engagement Range of a unit for Piston-driven Brutality targeting.
+	Uses post-charge-move positions from the provided snapshot.
+	Returns array of { unit_id, unit_name } dictionaries."""
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	var unit_owner = unit.get("owner", 0)
+	var all_units = snapshot.get("units", {})
+	var targets: Array = []
+
+	for other_id in all_units:
+		var other = all_units[other_id]
+		# Only enemy units
+		if other.get("owner", 0) == unit_owner:
+			continue
+		# Must have alive models
+		var has_alive = false
+		for m in other.get("models", []):
+			if m.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Check if any model of our unit is within Engagement Range of any model of the enemy
+		var in_range = false
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var model_pos = _get_model_position(model)
+			if model_pos == Vector2.ZERO:
+				continue
+
+			for enemy_model in other.get("models", []):
+				if not enemy_model.get("alive", true):
+					continue
+				var enemy_pos = _get_model_position(enemy_model)
+				if enemy_pos == Vector2.ZERO:
+					continue
+
+				var effective_er = _get_effective_engagement_range(model_pos, enemy_pos)
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
+					in_range = true
+					break
+			if in_range:
+				break
+
+		if in_range:
+			targets.append({
+				"unit_id": other_id,
+				"unit_name": other.get("meta", {}).get("name", other_id)
+			})
+
+	return targets
+
+func _check_kill_diffs_for_deadly_demise(diffs: Array) -> void:
+	"""OA-36: Check if mortal wound diffs killed any models that might trigger Deadly Demise.
+	Follows same pattern as FightPhase._check_kill_diffs."""
+	for diff in diffs:
+		if diff.get("op", "") == "set" and diff.get("path", "").ends_with(".alive") and diff.get("value", true) == false:
+			var path_parts = diff.path.split(".")
+			if path_parts.size() >= 2:
+				var killed_unit_id = path_parts[1]
+				var killed_unit = get_unit(killed_unit_id)
+				if killed_unit.is_empty():
+					continue
+				# Check if any models in unit are still alive
+				var any_alive = false
+				for m in killed_unit.get("models", []):
+					if m.get("alive", true):
+						any_alive = true
+						break
+				if not any_alive:
+					var killed_name = killed_unit.get("meta", {}).get("name", killed_unit_id)
+					log_phase_message("PISTON-DRIVEN BRUTALITY: %s destroyed — checking for Deadly Demise" % killed_name)
+					print("ChargePhase: Piston-driven Brutality destroyed %s — Deadly Demise check may apply" % killed_name)
+
 func create_result(success: bool, changes: Array = [], error: String = "", additional_data: Dictionary = {}) -> Dictionary:
 	var result = {
 		"success": success,
