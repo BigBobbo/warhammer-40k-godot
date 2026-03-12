@@ -101,6 +101,7 @@ const FALL_BACK_AND_CHARGE = "fall_back_and_charge"
 const ADVANCE_AND_CHARGE = "advance_and_charge"
 const ADVANCE_AND_SHOOT = "advance_and_shoot"
 const REROLL_CHARGE = "reroll_charge"                   # Re-roll charge rolls (full 2D6)
+const AUTO_ADVANCE_6 = "auto_advance_6"                 # Skip advance roll, auto +6" to Move
 
 # Instant effects (no persistent flags — executed immediately by the caller)
 const MORTAL_WOUNDS = "mortal_wounds"                     # dice: int, threshold: int
@@ -151,6 +152,7 @@ const FLAG_FALL_BACK_AND_CHARGE = "effect_fall_back_and_charge"
 const FLAG_ADVANCE_AND_CHARGE = "effect_advance_and_charge"
 const FLAG_ADVANCE_AND_SHOOT = "effect_advance_and_shoot"
 const FLAG_REROLL_CHARGE = "effect_reroll_charge"
+const FLAG_AUTO_ADVANCE_6 = "effect_auto_advance_6"
 
 # ============================================================================
 # EFFECT → FLAG MAPPING
@@ -194,6 +196,7 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	ADVANCE_AND_CHARGE: [{"flag": FLAG_ADVANCE_AND_CHARGE, "value": true}],
 	ADVANCE_AND_SHOOT: [{"flag": FLAG_ADVANCE_AND_SHOOT, "value": true}],
 	REROLL_CHARGE: [{"flag": FLAG_REROLL_CHARGE, "value": true}],
+	AUTO_ADVANCE_6: [{"flag": FLAG_AUTO_ADVANCE_6, "value": true}],
 }
 
 # Set of instant effect types that don't set persistent flags
@@ -555,6 +558,10 @@ static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""
 	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false)
 
+static func has_effect_auto_advance_6(unit: Dictionary) -> bool:
+	"""Check if a unit has auto advance 6 (Fuel-mixa Grot / High-octane Fuel)."""
+	return unit.get("flags", {}).get(FLAG_AUTO_ADVANCE_6, false)
+
 static func has_any_effect_flag(unit: Dictionary) -> bool:
 	"""Check if a unit has any effect flags set."""
 	var flags = unit.get("flags", {})
@@ -603,5 +610,5 @@ static func get_all_persistent_flag_names() -> Array:
 		FLAG_CRIT_HIT_ON, FLAG_CRIT_WOUND_ON,
 		FLAG_FALL_BACK_AND_SHOOT, FLAG_FALL_BACK_AND_CHARGE,
 		FLAG_ADVANCE_AND_CHARGE, FLAG_ADVANCE_AND_SHOOT,
-		FLAG_REROLL_CHARGE,
+		FLAG_REROLL_CHARGE, FLAG_AUTO_ADVANCE_6,
 	]

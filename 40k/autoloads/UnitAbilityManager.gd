@@ -232,6 +232,26 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle: charge after advancing"
 	},
 
+	# Deffkilla Wartrike — skip advance roll, auto +6" to Move
+	"Fuel-mixa Grot": {
+		"condition": "always",
+		"effects": [{"type": "auto_advance_6"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When advancing, do not roll — add 6\" to Move instead"
+	},
+
+	# Warboss on Warbike — skip advance roll, auto +6" to Move
+	"High-octane Fuel": {
+		"condition": "always",
+		"effects": [{"type": "auto_advance_6"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When advancing, do not roll — add 6\" to Move instead"
+	},
+
 	# Ork Stormboyz — eligible to charge after Advancing or Falling Back
 	"Full Throttle": {
 		"condition": "always",
