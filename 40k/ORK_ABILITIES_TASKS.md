@@ -226,9 +226,9 @@
 - **Validation**: Can deploy in opponent's zone from Strategic Reserves. Other restrictions apply.
 
 ### OA-28: Implement "Clankin' Forward" ability for Morkanaut/Gorkanaut
-- [ ] Add "Clankin' Forward" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Allow moving over non-MONSTER/VEHICLE enemy models
-- [ ] Allow moving over terrain 4" or less in height
+- [x] Add "Clankin' Forward" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Allow moving over non-MONSTER/VEHICLE enemy models
+- [x] Allow moving over terrain 4" or less in height
 - **Files**: UnitAbilityManager.gd, MovementPhase.gd
 - **Validation**: Can move over non-MONSTER/VEHICLE enemies and terrain ≤4".
 
