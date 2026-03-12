@@ -28,6 +28,8 @@ signal distraction_grot_available(unit_id: String, player: int)  # P2-25: Distra
 signal distraction_grot_result(unit_id: String, activated: bool)  # P2-25: Distraction Grot decision result
 signal ammo_runt_available(unit_id: String, player: int, remaining: int)  # OA-10: Ammo Runt Lethal Hits prompt
 signal ammo_runt_result(unit_id: String, activated: bool)  # OA-10: Ammo Runt decision result
+signal pulsa_rokkit_available(unit_id: String, player: int)  # OA-31: Pulsa Rokkit +1S/+1AP prompt
+signal pulsa_rokkit_result(unit_id: String, activated: bool)  # OA-31: Pulsa Rokkit decision result
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -46,6 +48,8 @@ var distraction_grot_pending_unit: String = ""  # P2-25: Defending unit awaiting
 var awaiting_distraction_grot: bool = false  # P2-25: True when waiting for Distraction Grot response
 var ammo_runt_pending_unit: String = ""  # OA-10: Unit awaiting Ammo Runt decision
 var awaiting_ammo_runt: bool = false  # OA-10: True when waiting for Ammo Runt response
+var pulsa_rokkit_pending_unit: String = ""  # OA-31: Unit awaiting Pulsa Rokkit decision
+var awaiting_pulsa_rokkit: bool = false  # OA-31: True when waiting for Pulsa Rokkit response
 var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
 var _rng = RandomNumberGenerator.new()  # P1-11: RNG for battle-shock tests
 
@@ -69,6 +73,8 @@ func _on_phase_enter() -> void:
 	awaiting_distraction_grot = false
 	ammo_runt_pending_unit = ""
 	awaiting_ammo_runt = false
+	pulsa_rokkit_pending_unit = ""
+	awaiting_pulsa_rokkit = false
 	_targets_hit_by_shooter.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
@@ -290,6 +296,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_ammo_runt(action)
 		"DECLINE_AMMO_RUNT":  # OA-10: Player declines Ammo Runt
 			return _validate_decline_ammo_runt(action)
+		"USE_PULSA_ROKKIT":  # OA-31: Player activates Pulsa Rokkit
+			return _validate_use_pulsa_rokkit(action)
+		"DECLINE_PULSA_ROKKIT":  # OA-31: Player declines Pulsa Rokkit
+			return _validate_decline_pulsa_rokkit(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission (Establish Locus, Cleanse, Deploy Teleport Homer)
 			return _validate_perform_secondary_action(action)
 		"BURN_OBJECTIVE":  # Scorched Earth: unit burns an objective instead of shooting
@@ -382,6 +392,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"DECLINE_AMMO_RUNT":  # OA-10: Player declines Ammo Runt
 			print("ShootingPhase: Matched DECLINE_AMMO_RUNT")
 			return _process_decline_ammo_runt(action)
+		"USE_PULSA_ROKKIT":  # OA-31: Player activates Pulsa Rokkit
+			print("ShootingPhase: Matched USE_PULSA_ROKKIT")
+			return _process_use_pulsa_rokkit(action)
+		"DECLINE_PULSA_ROKKIT":  # OA-31: Player declines Pulsa Rokkit
+			print("ShootingPhase: Matched DECLINE_PULSA_ROKKIT")
+			return _process_decline_pulsa_rokkit(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission
 			print("ShootingPhase: Matched PERFORM_SECONDARY_ACTION")
 			return _process_perform_secondary_action(action)
@@ -631,6 +647,25 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 				"unit_id": unit_id,
 				"remaining": remaining,
 				"total": total
+			})
+
+	# OA-31: Check for Pulsa Rokkit — offer +1S/+1AP for ranged weapons
+	if not action.get("payload", {}).get("skip_pulsa_rokkit_check", false):
+		var ability_mgr_pr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr_pr and ability_mgr_pr.has_pulsa_rokkit(unit_id):
+			print("ShootingPhase: OA-31 Pulsa Rokkit: Unit %s has unused Pulsa Rokkit — prompting" % unit_id)
+			pulsa_rokkit_pending_unit = unit_id
+			awaiting_pulsa_rokkit = true
+
+			var current_player = get_current_player()
+			emit_signal("pulsa_rokkit_available", unit_id, current_player)
+
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			log_phase_message("Pulsa Rokkit available for %s — awaiting decision" % unit_name)
+
+			return create_result(true, [], "Pulsa Rokkit available", {
+				"pulsa_rokkit_available": true,
+				"unit_id": unit_id
 			})
 
 	# Normal shooting flow
@@ -1732,6 +1767,24 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 
 		var ai_unit_name_ar = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 		log_phase_message("AI: Ammo Runt activated for %s — Lethal Hits granted (runt #%d)" % [ai_unit_name_ar, runt_idx + 1])
+
+	# OA-31: AI auto-use Pulsa Rokkit if available
+	var ability_mgr_pr_ai = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr_pr_ai and ability_mgr_pr_ai.has_pulsa_rokkit(unit_id):
+		print("║ AI SHOOT: OA-31 Pulsa Rokkit — auto-activating for %s" % unit_id)
+		ability_mgr_pr_ai.mark_pulsa_rokkit_used(unit_id)
+
+		# Apply Pulsa Rokkit flag (+1S/+1AP to ranged weapons for the phase)
+		var pr_diffs = [{
+			"op": "set",
+			"path": "units.%s.flags.effect_pulsa_rokkit_active" % unit_id,
+			"value": true
+		}]
+		PhaseManager.apply_state_changes(pr_diffs)
+		game_state_snapshot = GameState.create_snapshot()
+
+		var ai_unit_name_pr = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+		log_phase_message("AI: Pulsa Rokkit activated for %s — +1S/+1AP to ranged weapons" % ai_unit_name_pr)
 
 	# Step 2: Merge assignments into confirmed_assignments (inline, no signals)
 	var assignments = action.get("payload", {}).get("assignments", [])
@@ -3230,6 +3283,30 @@ func get_available_actions() -> Array:
 		})
 		return actions
 
+	# OA-31: Pulsa Rokkit pending — offer use/decline (active player's choice)
+	if awaiting_pulsa_rokkit and pulsa_rokkit_pending_unit != "":
+		var pr_unit = get_unit(pulsa_rokkit_pending_unit)
+		var pr_name = pr_unit.get("meta", {}).get("name", pulsa_rokkit_pending_unit) if not pr_unit.is_empty() else pulsa_rokkit_pending_unit
+		var pr_player = int(pr_unit.get("owner", 0))
+		actions.append({
+			"type": "USE_PULSA_ROKKIT",
+			"actor_unit_id": pulsa_rokkit_pending_unit,
+			"player": pr_player,
+			"description": "Use Pulsa Rokkit — %s gains +1S/+1AP on ranged weapons" % pr_name
+		})
+		actions.append({
+			"type": "DECLINE_PULSA_ROKKIT",
+			"actor_unit_id": pulsa_rokkit_pending_unit,
+			"player": pr_player,
+			"description": "Decline Pulsa Rokkit — %s" % pr_name
+		})
+		# When Pulsa Rokkit is pending, only these actions should be available
+		actions.append({
+			"type": "END_SHOOTING",
+			"description": "End Shooting Phase"
+		})
+		return actions
+
 	# P1-12: Throat Slittas pending — offer use/decline
 	if throat_slittas_pending_unit != "":
 		var ts_unit = get_unit(throat_slittas_pending_unit)
@@ -4349,6 +4426,110 @@ func _process_decline_ammo_runt(action: Dictionary) -> Dictionary:
 	log_phase_message("Ammo Runt declined for %s — proceeding with normal shooting" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
 
 	return create_result(true, [], "Ammo Runt declined")
+
+# ============================================================================
+# OA-31: PULSA ROKKIT — +1 Strength and +1 AP to ranged weapons when selected to shoot
+# ============================================================================
+# "Once per battle, when the bearer's unit is selected to shoot in your Shooting phase,
+# the bearer can use its pulsa rokkit. If it does, until the end of the phase, improve
+# the Strength and Armour Penetration characteristics of ranged weapons equipped by
+# models in the bearer's unit by 1."
+
+func _validate_use_pulsa_rokkit(action: Dictionary) -> Dictionary:
+	"""Validate activating Pulsa Rokkit ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if not awaiting_pulsa_rokkit:
+		return {"valid": false, "errors": ["Not awaiting Pulsa Rokkit decision"]}
+	if pulsa_rokkit_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Pulsa Rokkit pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_pulsa_rokkit(action: Dictionary) -> Dictionary:
+	"""Validate declining Pulsa Rokkit ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if not awaiting_pulsa_rokkit:
+		return {"valid": false, "errors": ["Not awaiting Pulsa Rokkit decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_pulsa_rokkit(action: Dictionary) -> Dictionary:
+	"""Player activates Pulsa Rokkit — unit's ranged weapons gain +1S/+1AP for the phase."""
+	var unit_id = action.get("actor_unit_id", pulsa_rokkit_pending_unit)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-31: PULSA ROKKIT — ACTIVATED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	awaiting_pulsa_rokkit = false
+	pulsa_rokkit_pending_unit = ""
+
+	# Mark Pulsa Rokkit as used (once per battle)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.mark_pulsa_rokkit_used(unit_id)
+
+	# Apply Pulsa Rokkit flag to the unit for this phase
+	var diffs = []
+	diffs.append({
+		"op": "set",
+		"path": "units.%s.flags.effect_pulsa_rokkit_active" % unit_id,
+		"value": true
+	})
+	PhaseManager.apply_state_changes(diffs)
+
+	# Refresh snapshot
+	game_state_snapshot = GameState.create_snapshot()
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	log_phase_message("Pulsa Rokkit: %s gains +1 Strength and +1 AP on ranged weapons" % unit_name)
+
+	emit_signal("pulsa_rokkit_result", unit_id, true)
+
+	# Log ability activation to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var owner = int(get_unit(unit_id).get("owner", 0))
+		game_event_log.add_player_entry(owner,
+			"Pulsa Rokkit activated: %s gains [+1 STRENGTH] [+1 AP] on ranged weapons" % unit_name)
+
+	# Continue to normal shooting flow (target selection)
+	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
+	emit_signal("unit_selected_for_shooting", unit_id)
+	emit_signal("targets_available", unit_id, eligible_targets)
+
+	return create_result(true, diffs, "Pulsa Rokkit activated — +1S/+1AP granted", {
+		"pulsa_rokkit_used": true,
+		"pulsa_rokkit_unit_id": unit_id
+	})
+
+func _process_decline_pulsa_rokkit(action: Dictionary) -> Dictionary:
+	"""Player declines Pulsa Rokkit — proceed with normal shooting."""
+	var unit_id = action.get("actor_unit_id", pulsa_rokkit_pending_unit)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-31: PULSA ROKKIT — DECLINED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	awaiting_pulsa_rokkit = false
+	pulsa_rokkit_pending_unit = ""
+
+	emit_signal("pulsa_rokkit_result", unit_id, false)
+
+	# Continue to normal shooting flow (target selection)
+	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
+	emit_signal("unit_selected_for_shooting", unit_id)
+	emit_signal("targets_available", unit_id, eligible_targets)
+
+	log_phase_message("Pulsa Rokkit declined for %s — proceeding with normal shooting" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
+
+	return create_result(true, [], "Pulsa Rokkit declined")
 
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""

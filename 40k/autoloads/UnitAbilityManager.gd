@@ -607,6 +607,23 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# WARGEAR ABILITIES — Pulsa Rokkit (OA-31)
+	# ======================================================================
+
+	# Ork Tankbustas — once per battle, when unit is selected to shoot:
+	# +1 Strength and +1 AP to all ranged weapons for the phase.
+	# Triggered when unit is selected to shoot — prompt offered in ShootingPhase.
+	"Pulsa Rokkit": {
+		"condition": "on_shooting_selection",
+		"effects": [{"type": "improve_strength"}, {"type": "improve_ap"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: +1 Strength and +1 AP to ranged weapons for the phase"
+	},
+
+	# ======================================================================
 	# TARGET-CONDITIONAL ABILITIES — bonuses based on target keywords
 	# These are checked directly in RulesEngine where both attacker and target are known.
 	# ======================================================================
@@ -1993,6 +2010,30 @@ func mark_ammo_runt_used(unit_id: String) -> int:
 			return i
 	print("UnitAbilityManager: No unused ammo runts for unit %s" % unit_id)
 	return -1
+
+func has_pulsa_rokkit(unit_id: String) -> bool:
+	"""OA-31: Check if a unit has an unused Pulsa Rokkit wargear ability.
+	Used by ShootingPhase to offer +1S/+1AP when unit is selected to shoot."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Pulsa Rokkit":
+			if not is_once_per_battle_used(unit_id, "Pulsa Rokkit"):
+				print("UnitAbilityManager: Unit %s has unused Pulsa Rokkit" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Pulsa Rokkit but already used this battle" % unit_id)
+				return false
+	return false
+
+func mark_pulsa_rokkit_used(unit_id: String) -> void:
+	"""OA-31: Mark Pulsa Rokkit as used for a unit."""
+	mark_once_per_battle_used(unit_id, "Pulsa Rokkit")
+	print("UnitAbilityManager: Marked Pulsa Rokkit as used for unit %s" % unit_id)
 
 func get_bomb_squig_count(unit_id: String) -> int:
 	"""OA-30: Get the total number of bomb squigs a unit has.
