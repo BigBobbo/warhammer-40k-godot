@@ -3,16 +3,48 @@ extends Node2D
 var board_width: float = 1760.0  # 44 inches
 var board_height: float = 2400.0 # 60 inches
 
+# Board surface style — swap shaders here to change the board look.
+# Available: "grass", "felt", "none" (plain solid color)
+var board_style: String = "grass"
+
+var _background: Node2D = null
+
+# Preload available board shaders
+var _shaders: Dictionary = {
+	"grass": preload("res://shaders/grass_board.gdshader"),
+	"felt":  preload("res://shaders/felt_texture.gdshader"),
+}
+
 func _ready() -> void:
 	z_index = -10
 	board_width = SettingsService.get_board_width_px()
 	board_height = SettingsService.get_board_height_px()
+	_setup_background()
+
+func _setup_background() -> void:
+	var BoardBackground = preload("res://scripts/BoardBackground.gd")
+	_background = BoardBackground.new()
+	_background.name = "BoardBackground"
+	_background.z_index = -1  # Behind borders & grid drawn by this node
+	_background.setup(board_width, board_height)
+	add_child(_background)
+	set_board_style(board_style)
+
+## Change the board surface at runtime.
+## style: "grass", "felt", or "none"
+func set_board_style(style: String) -> void:
+	board_style = style
+	if _background == null:
+		return
+	if style in _shaders:
+		_background.apply_shader(_shaders[style])
+		print("[BoardVisual] Board style set to: ", style)
+	else:
+		_background.clear_shader()
+		print("[BoardVisual] Board style set to: none (solid color)")
 
 func _draw() -> void:
 	var board_rect = Rect2(Vector2.ZERO, Vector2(board_width, board_height))
-
-	# Green felt board background
-	draw_rect(board_rect, Color(0.15, 0.35, 0.12, 1.0))
 
 	# Dark wood outer border
 	draw_rect(board_rect, Color(0.35, 0.28, 0.15, 1.0), false, 4.0)
