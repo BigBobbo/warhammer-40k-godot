@@ -232,6 +232,26 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle: charge after advancing"
 	},
 
+	# Deffkilla Wartrike — skip advance roll, auto +6" to Move
+	"Fuel-mixa Grot": {
+		"condition": "always",
+		"effects": [{"type": "auto_advance_6"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When advancing, do not roll — add 6\" to Move instead"
+	},
+
+	# Warboss on Warbike — skip advance roll, auto +6" to Move
+	"High-octane Fuel": {
+		"condition": "always",
+		"effects": [{"type": "auto_advance_6"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When advancing, do not roll — add 6\" to Move instead"
+	},
+
 	# Ork Stormboyz — eligible to charge after Advancing or Falling Back
 	"Full Throttle": {
 		"condition": "always",
@@ -525,6 +545,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "all",
 		"implemented": true,
 		"description": "At end of Movement phase, select one friendly BEAST SNAGGA CHARACTER within 3\" — regain up to 3 lost wounds"
+	},
+
+	# Ork Trukk — regain 1 lost wound at start of Command phase
+	"Grot Riggers": {
+		"condition": "start_of_command",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "At the start of your Command phase, this model regains 1 lost wound"
 	},
 
 	# Ork Painboss wargear — once per battle return D3 destroyed Bodyguard models at start of Command phase
@@ -2227,6 +2257,51 @@ func get_sawbonez_targets(painboss_unit_id: String) -> Array:
 					unit.get("meta", {}).get("name", unit_id), model.get("id", ""), current_wounds, max_wounds])
 
 	return targets
+
+func has_grot_riggers(unit_id: String) -> bool:
+	"""Check if a unit has the Grot Riggers ability (Trukk).
+	Used by CommandPhase at start of command for automatic wound regeneration."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Grot Riggers":
+			print("UnitAbilityManager: Unit %s has Grot Riggers" % unit_id)
+			return true
+	return false
+
+func get_grot_riggers_eligible(unit_id: String) -> Dictionary:
+	"""Check if a Trukk with Grot Riggers has lost wounds and is eligible to regain 1.
+	Returns { eligible: bool, unit_id, unit_name, current_wounds, max_wounds }."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {"eligible": false}
+
+	# For vehicles, check the first (and usually only) model
+	var models = unit.get("models", [])
+	for i in range(models.size()):
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
+		var max_wounds = model.get("wounds", 1)
+		if current_wounds < max_wounds:
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			print("UnitAbilityManager: Grot Riggers — %s has %d/%d wounds (eligible)" % [unit_name, current_wounds, max_wounds])
+			return {
+				"eligible": true,
+				"unit_id": unit_id,
+				"unit_name": unit_name,
+				"model_index": i,
+				"current_wounds": current_wounds,
+				"max_wounds": max_wounds
+			}
+
+	print("UnitAbilityManager: Grot Riggers — unit %s is at full wounds (not eligible)" % unit_id)
+	return {"eligible": false}
 
 func has_grot_orderly(unit_id: String) -> bool:
 	"""Check if a unit has an unused Grot Orderly wargear ability (Painboss).

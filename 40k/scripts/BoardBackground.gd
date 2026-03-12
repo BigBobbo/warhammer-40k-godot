@@ -8,7 +8,7 @@ extends Node2D
 
 var board_width: float = 1760.0
 var board_height: float = 2400.0
-var base_color: Color = Color(0.15, 0.35, 0.12, 1.0)
+var base_color: Color = Color(0.10, 0.20, 0.08, 1.0)
 
 func setup(width: float, height: float) -> void:
 	board_width = width
