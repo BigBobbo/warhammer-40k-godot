@@ -66,6 +66,13 @@ var _sawbonez_painboss_id: String = ""          # The Painboss unit offering hea
 var _sawbonez_targets: Array = []               # Eligible healing targets
 var _sawbonez_pending_changes: Array = []       # Pending changes from END_MOVEMENT cleanup
 
+# OA-34: Mekaniak state tracking (Mek/Big Mek heal + buff at end of Movement phase)
+var _awaiting_mekaniak: bool = false             # Waiting for Mekaniak heal/buff decision
+var _mekaniak_mek_id: String = ""                # The Mek unit offering healing/buff
+var _mekaniak_targets: Array = []                # Eligible vehicle targets
+var _mekaniak_pending_changes: Array = []        # Pending changes from earlier in END_MOVEMENT
+var _mekaniak_checked_meks: Array = []           # Mek unit IDs already checked this end-of-movement
+
 # Normal move tracking (P2-72) — 10e Core Rules
 # "A unit cannot make more than one Normal move per phase."
 # Tracks which units have made a Normal move this phase to enforce the limit.
@@ -217,6 +224,10 @@ func _on_phase_enter() -> void:
 	if ability_mgr:
 		ability_mgr.on_movement_phase_start()
 
+		# OA-34: Clear Mekaniak +1 Hit buffs from previous turn and reset per-vehicle tracking
+		_clear_mekaniak_buffs(get_current_player())
+		ability_mgr.clear_mekaniak_turn_tracking()
+
 	# Check Thievin' Scavengers ability (Gretchin) before movement begins
 	_check_thievin_scavengers()
 
@@ -247,6 +258,13 @@ func _on_phase_exit() -> void:
 	_sawbonez_painboss_id = ""
 	_sawbonez_targets = []
 	_sawbonez_pending_changes = []
+
+	# Clear Mekaniak state (OA-34)
+	_awaiting_mekaniak = false
+	_mekaniak_mek_id = ""
+	_mekaniak_targets = []
+	_mekaniak_pending_changes = []
+	_mekaniak_checked_meks = []
 
 func _initialize_movement() -> void:
 	var current_player = get_current_player()
@@ -481,6 +499,14 @@ func validate_action(action: Dictionary) -> Dictionary:
 			if not _awaiting_sawbonez:
 				return {"valid": false, "errors": ["Not awaiting Sawbonez decision"]}
 			return {"valid": true}
+		"USE_MEKANIAK":
+			if not _awaiting_mekaniak:
+				return {"valid": false, "errors": ["Not awaiting Mekaniak decision"]}
+			return {"valid": true}
+		"DECLINE_MEKANIAK":
+			if not _awaiting_mekaniak:
+				return {"valid": false, "errors": ["Not awaiting Mekaniak decision"]}
+			return {"valid": true}
 		"USE_KRUMP_AND_RUN":
 			return _validate_use_krump_and_run(action)
 		"DECLINE_KRUMP_AND_RUN":
@@ -567,6 +593,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_sawbonez(action)
 		"DECLINE_SAWBONEZ":
 			return _process_decline_sawbonez(action)
+		"USE_MEKANIAK":
+			return _process_use_mekaniak(action)
+		"DECLINE_MEKANIAK":
+			return _process_decline_mekaniak(action)
 		"USE_KRUMP_AND_RUN":
 			return _process_use_krump_and_run(action)
 		"DECLINE_KRUMP_AND_RUN":
@@ -2297,8 +2327,130 @@ func _process_decline_sawbonez(action: Dictionary) -> Dictionary:
 	_sawbonez_targets = []
 	_sawbonez_pending_changes = []
 
-	# Continue with Rapid Ingress check and phase completion
+	# Continue with Mekaniak check and phase completion
 	return _continue_end_movement_after_sawbonez(cached_changes)
+
+# ============================================================================
+# OA-34: MEKANIAK (Mek/Big Mek heal + buff at end of Movement phase)
+# ============================================================================
+
+func _process_use_mekaniak(action: Dictionary) -> Dictionary:
+	"""Player chooses a vehicle target for Mekaniak — heal D3 wounds and grant +1 Hit."""
+	var target_unit_id = action.get("target_unit_id", "")
+	var target_model_index = action.get("target_model_index", -1)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-34: MEKANIAK — HEAL & BUFF")
+	print("║ Mek: ", _mekaniak_mek_id)
+	print("║ Target Unit: ", target_unit_id)
+	print("║ Target Model Index: ", target_model_index)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var cached_changes = _mekaniak_pending_changes.duplicate()
+	var mekaniak_changes = []
+
+	# Roll D3 for healing
+	var rng = RulesEngine.rng if RulesEngine else null
+	var d3_roll = 0
+	if rng:
+		d3_roll = rng.roll_d3()
+	else:
+		d3_roll = (randi() % 3) + 1
+	print("MovementPhase: Mekaniak D3 heal roll = %d" % d3_roll)
+
+	# Find the target model and heal up to D3 wounds
+	var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
+	if not target_unit.is_empty() and target_model_index >= 0:
+		var models = target_unit.get("models", [])
+		if target_model_index < models.size():
+			var model = models[target_model_index]
+			var current_wounds = model.get("current_wounds", model.get("wounds", 1))
+			var max_wounds = model.get("wounds", 1)
+			var heal_amount = min(d3_roll, max_wounds - current_wounds)
+			var new_wounds = current_wounds + heal_amount
+
+			if heal_amount > 0:
+				mekaniak_changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_model_index],
+					"value": new_wounds
+				})
+
+				var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+				var model_id = model.get("id", "m%d" % (target_model_index + 1))
+				log_phase_message("MEKANIAK: Mek heals %s model %s for %d wounds (%d → %d) [D3 roll: %d]" % [
+					target_name, model_id, heal_amount, current_wounds, new_wounds, d3_roll])
+				print("MovementPhase: Mekaniak healed %s model %s: %d → %d wounds (D3=%d)" % [
+					target_name, model_id, current_wounds, new_wounds, d3_roll])
+			else:
+				var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+				log_phase_message("MEKANIAK: %s at full wounds — no healing needed [D3 roll: %d]" % [target_name, d3_roll])
+				print("MovementPhase: Mekaniak — %s at full wounds, no healing applied" % target_name)
+
+		# Set mekaniak_buffed flag on the vehicle unit for +1 Hit
+		mekaniak_changes.append({
+			"op": "set",
+			"path": "units.%s.flags.mekaniak_buffed" % target_unit_id,
+			"value": true
+		})
+		log_phase_message("MEKANIAK: +1 to Hit buff applied to %s until start of next Movement phase" % target_unit_id)
+		print("MovementPhase: Mekaniak +1 Hit buff set on vehicle %s" % target_unit_id)
+
+	# Mark this vehicle as used for Mekaniak this turn (once per vehicle per turn)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.mark_mekaniak_used_this_turn(target_unit_id)
+
+	# Clear Mekaniak state
+	_awaiting_mekaniak = false
+	_mekaniak_mek_id = ""
+	_mekaniak_targets = []
+	_mekaniak_pending_changes = []
+
+	# Apply mekaniak changes
+	if mekaniak_changes.size() > 0:
+		PhaseManager.apply_state_changes(mekaniak_changes)
+
+	# Check for more Mekaniak opportunities (other Mek units), then Rapid Ingress
+	return _check_mekaniak_opportunities(cached_changes)
+
+func _process_decline_mekaniak(action: Dictionary) -> Dictionary:
+	"""Player declines Mekaniak — proceed with checking more Meks or ending movement phase."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-34: MEKANIAK — DECLINED")
+	print("║ Mek: ", _mekaniak_mek_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var cached_changes = _mekaniak_pending_changes.duplicate()
+
+	# Clear Mekaniak state
+	_awaiting_mekaniak = false
+	_mekaniak_mek_id = ""
+	_mekaniak_targets = []
+	_mekaniak_pending_changes = []
+
+	# Check for more Mekaniak opportunities (other Mek units), then Rapid Ingress
+	return _check_mekaniak_opportunities(cached_changes)
+
+func _clear_mekaniak_buffs(player: int) -> void:
+	"""OA-34: Clear mekaniak_buffed flags from all vehicles owned by the given player.
+	Called at the start of that player's Movement phase (ability lasts 'until start of next Movement phase')."""
+	var units = GameState.state.get("units", {})
+	var changes = []
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		if unit.get("flags", {}).get("mekaniak_buffed", false):
+			changes.append({
+				"op": "remove",
+				"path": "units.%s.flags.mekaniak_buffed" % unit_id
+			})
+			print("MovementPhase: Clearing Mekaniak buff from vehicle %s at start of Movement phase" % unit_id)
+
+	if changes.size() > 0:
+		PhaseManager.apply_state_changes(changes)
+		log_phase_message("OA-34: Cleared Mekaniak buffs from %d vehicles" % changes.size())
 
 func _validate_apply_pivot_cost(action: Dictionary) -> Dictionary:
 	"""Validate APPLY_PIVOT_COST action — pivot cost deduction for non-round base models."""
@@ -2346,6 +2498,68 @@ func _process_apply_pivot_cost(action: Dictionary) -> Dictionary:
 
 func _continue_end_movement_after_sawbonez(changes: Array) -> Dictionary:
 	"""Continue the END_MOVEMENT flow after Sawbonez decision (heal or decline).
+	Checks for Mekaniak, then Rapid Ingress, then completes the phase."""
+	# OA-34: Check for Mekaniak opportunities before Rapid Ingress
+	return _check_mekaniak_opportunities(changes)
+
+func _check_mekaniak_opportunities(changes: Array) -> Dictionary:
+	"""OA-34: Check for Mekaniak (Mek healing/buff) opportunities at end of Movement phase.
+	Iterates through Mek units not yet checked, finding eligible vehicle targets."""
+	var current_player = get_current_player()
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+
+	if ability_mgr:
+		var all_units_check = GameState.state.get("units", {})
+		for unit_id in all_units_check:
+			# Skip Meks we've already checked
+			if unit_id in _mekaniak_checked_meks:
+				continue
+
+			var unit = all_units_check[unit_id]
+			if unit.get("owner", 0) != current_player:
+				continue
+			if not ability_mgr.has_mekaniak(unit_id):
+				continue
+
+			# Mark this Mek as checked so we don't re-prompt
+			_mekaniak_checked_meks.append(unit_id)
+
+			# Check if the Mek is deployed and alive
+			var is_deployed = unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED
+			if not is_deployed:
+				continue
+			var has_alive_model = false
+			for model in unit.get("models", []):
+				if model.get("alive", true):
+					has_alive_model = true
+					break
+			if not has_alive_model:
+				continue
+
+			# Find eligible vehicle targets
+			var targets = ability_mgr.get_mekaniak_targets(unit_id)
+			if targets.size() > 0:
+				_awaiting_mekaniak = true
+				_mekaniak_mek_id = unit_id
+				_mekaniak_targets = targets
+				_mekaniak_pending_changes = changes
+				var mek_name = unit.get("meta", {}).get("name", unit_id)
+				log_phase_message("MEKANIAK available for %s (%s) — %d eligible vehicle targets" % [mek_name, unit_id, targets.size()])
+				print("MovementPhase: Mekaniak opportunity — %s has %d eligible vehicle targets" % [mek_name, targets.size()])
+
+				var result = create_result(true, changes)
+				result["trigger_mekaniak"] = true
+				result["awaiting_mekaniak"] = true
+				result["mekaniak_mek_id"] = unit_id
+				result["mekaniak_mek_name"] = mek_name
+				result["mekaniak_targets"] = targets
+				return result
+
+	# No more Mekaniak opportunities — continue to Rapid Ingress
+	return _continue_end_movement_after_mekaniak(changes)
+
+func _continue_end_movement_after_mekaniak(changes: Array) -> Dictionary:
+	"""Continue the END_MOVEMENT flow after all Mekaniak decisions.
 	Checks for Rapid Ingress, then completes the phase."""
 	var current_player = get_current_player()
 
@@ -2374,9 +2588,9 @@ func _continue_end_movement_after_sawbonez(changes: Array) -> Dictionary:
 				result["rapid_ingress_eligible_units"] = ri_eligible
 				return result
 
-	log_phase_message("Ending Movement Phase (post-Sawbonez) - emitting phase_completed signal")
+	log_phase_message("Ending Movement Phase (post-abilities) - emitting phase_completed signal")
 	emit_signal("phase_completed")
-	log_phase_message("=== END_MOVEMENT COMPLETE (post-Sawbonez) ===")
+	log_phase_message("=== END_MOVEMENT COMPLETE ===")
 	return create_result(true, changes)
 
 func _get_bomb_squigs_targets(unit_id: String) -> Array:
@@ -3956,39 +4170,9 @@ func _process_end_movement(action: Dictionary) -> Dictionary:
 				result["sawbonez_targets"] = targets
 				return result
 
-	# T4-7: Check for Rapid Ingress opportunity for the non-active player
-	# Rapid Ingress is used at the END of the opponent's Movement phase to bring
-	# in a Reserves unit as if it were the Reinforcements step.
-	var defending_player = 2 if current_player == 1 else 1
-	var battle_round = GameState.get_battle_round()
-
-	var strat_manager = get_node_or_null("/root/StratagemManager")
-	if strat_manager and battle_round >= 2:
-		var strat_check = strat_manager.can_use_stratagem(defending_player, "rapid_ingress")
-		if strat_check.can_use:
-			# Check if defending player has any units in reserves
-			var ri_eligible = _get_rapid_ingress_eligible_units(defending_player)
-			if not ri_eligible.is_empty():
-				# Rapid Ingress is available! Pause and offer it to the defender
-				_awaiting_rapid_ingress = true
-				_rapid_ingress_player = defending_player
-				_rapid_ingress_eligible_units = ri_eligible
-				log_phase_message("RAPID INGRESS available for Player %d (%d eligible reserve units)" % [defending_player, ri_eligible.size()])
-				print("MovementPhase: Rapid Ingress opportunity — Player %d has %d eligible units in reserves" % [defending_player, ri_eligible.size()])
-
-				emit_signal("rapid_ingress_opportunity", defending_player, ri_eligible)
-
-				var result = create_result(true, changes)
-				result["trigger_rapid_ingress"] = true
-				result["awaiting_rapid_ingress"] = true
-				result["rapid_ingress_player"] = defending_player
-				result["rapid_ingress_eligible_units"] = ri_eligible
-				return result
-
-	log_phase_message("Ending Movement Phase - emitting phase_completed signal")
-	emit_signal("phase_completed")
-	log_phase_message("=== END_MOVEMENT COMPLETE ===")
-	return create_result(true, changes)
+	# OA-34: Check for Mekaniak, then Rapid Ingress, then complete phase
+	_mekaniak_checked_meks = []  # Reset checked Meks for this end-of-movement
+	return _check_mekaniak_opportunities(changes)
 
 func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
@@ -5164,6 +5348,30 @@ func get_available_actions() -> Array:
 			"type": "DECLINE_SAWBONEZ",
 			"actor_unit_id": _sawbonez_painboss_id,
 			"description": "Decline Sawbonez healing"
+		})
+		return actions  # Block other actions until resolved
+
+	# OA-34: Mekaniak pending — offer vehicle targets or decline
+	if _awaiting_mekaniak:
+		var mek_unit = GameState.state.get("units", {}).get(_mekaniak_mek_id, {})
+		var mek_name = mek_unit.get("meta", {}).get("name", _mekaniak_mek_id)
+		for target in _mekaniak_targets:
+			var wound_info = ""
+			if target.wounds_lost > 0:
+				wound_info = " (%d/%d wounds)" % [target.current_wounds, target.max_wounds]
+			actions.append({
+				"type": "USE_MEKANIAK",
+				"actor_unit_id": _mekaniak_mek_id,
+				"target_unit_id": target.unit_id,
+				"target_model_id": target.model_id,
+				"target_model_index": target.model_index,
+				"description": "Mekaniak (%s): Heal D3 + give +1 Hit to %s%s" % [
+					mek_name, target.unit_name, wound_info]
+			})
+		actions.append({
+			"type": "DECLINE_MEKANIAK",
+			"actor_unit_id": _mekaniak_mek_id,
+			"description": "Decline Mekaniak (%s)" % mek_name
 		})
 		return actions  # Block other actions until resolved
 

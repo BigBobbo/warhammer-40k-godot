@@ -1,1 +1,1 @@
-ARGS: ["--script", "tests/test_integration_model_profiles.gd"]
+ARGS: []
