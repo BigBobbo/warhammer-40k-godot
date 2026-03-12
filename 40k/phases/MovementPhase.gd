@@ -1188,7 +1188,7 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 		return _resolve_advance_roll(unit_id, 6)
 
 	# OA-22: High-octane Fuel / Fuel-mixa Grot — skip advance roll, add flat 6" to Move
-	if EffectPrimitivesData.has_effect_flat_advance(unit):
+	if EffectPrimitivesData.has_effect_flat_advance(unit) or EffectPrimitivesData.has_effect_auto_advance_6(unit):
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		log_phase_message("Advance: %s → High-octane Fuel active — skip roll, +6\" to Move" % unit_name)
 		print("MovementPhase: High-octane Fuel — %s advances with flat +6\" (no roll)" % unit_name)

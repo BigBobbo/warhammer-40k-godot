@@ -11,15 +11,22 @@ var _background: Node2D = null
 
 # Preload available board shaders
 var _shaders: Dictionary = {
-	"grass": preload("res://shaders/grass_board.gdshader"),
-	"felt":  preload("res://shaders/felt_texture.gdshader"),
+	"grass":  preload("res://shaders/grass_board.gdshader"),
+	"mud":    preload("res://shaders/mud_board.gdshader"),
+	"desert": preload("res://shaders/desert_board.gdshader"),
+	"stone":  preload("res://shaders/stone_board.gdshader"),
+	"felt":   preload("res://shaders/felt_texture.gdshader"),
 }
 
 func _ready() -> void:
 	z_index = -10
 	board_width = SettingsService.get_board_width_px()
 	board_height = SettingsService.get_board_height_px()
+	# Use persisted board style from settings
+	board_style = SettingsService.board_style
 	_setup_background()
+	# Listen for runtime board style changes from the settings menu
+	SettingsService.board_style_changed.connect(_on_board_style_changed)
 
 func _setup_background() -> void:
 	var BoardBackground = preload("res://scripts/BoardBackground.gd")
@@ -66,3 +73,6 @@ func _draw() -> void:
 	while y < board_height:
 		draw_line(Vector2(0, y), Vector2(board_width, y), grid_color, 1.0)
 		y += grid_spacing
+
+func _on_board_style_changed(new_style: String) -> void:
+	set_board_style(new_style)

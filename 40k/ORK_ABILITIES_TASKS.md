@@ -276,7 +276,7 @@
 - **Validation**: D3 healed. +1 Hit for vehicle. Once per vehicle per turn.
 
 ### OA-35: Implement "Grot Riggers" for Trukk
-- [ ] Start of Command phase: regain 1 wound
+- [x] Start of Command phase: regain 1 wound
 - **Files**: UnitAbilityManager.gd, CommandPhase.gd
 - **Validation**: 1 wound regained at start of Command phase.
 

@@ -117,6 +117,9 @@ func _on_phase_enter() -> void:
 	if strat_manager:
 		strat_manager.on_turn_start(current_player)
 
+	# OA-35: Grot Riggers — automatically regain 1 wound for eligible units
+	_apply_grot_riggers(current_player)
+
 	if _units_needing_test.size() == 0:
 		print("CommandPhase: No units need battle-shock tests")
 	else:
@@ -1315,6 +1318,60 @@ func _handle_use_da_kaptin(action: Dictionary) -> Dictionary:
 		GameState.add_action_to_phase_log(log_entry)
 
 	return result
+
+# ============================================================================
+# OA-35: GROT RIGGERS (Trukk — regain 1 lost wound at start of Command phase)
+# ============================================================================
+
+func _apply_grot_riggers(current_player: int) -> void:
+	"""Auto-apply Grot Riggers: at start of Command phase, eligible units regain 1 wound."""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return
+
+	var all_units = GameState.state.get("units", {})
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("owner", 0) != current_player:
+			continue
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		if not ability_mgr.has_grot_riggers(unit_id):
+			continue
+
+		var gr_info = ability_mgr.get_grot_riggers_eligible(unit_id)
+		if not gr_info.get("eligible", false):
+			continue
+
+		# Regain 1 wound (capped at max)
+		var model_index = gr_info.model_index
+		var new_wounds = gr_info.current_wounds + 1
+		var max_wounds = gr_info.max_wounds
+		if new_wounds > max_wounds:
+			new_wounds = max_wounds
+
+		var changes = [{
+			"op": "set",
+			"path": "units.%s.models.%d.current_wounds" % [unit_id, model_index],
+			"value": new_wounds
+		}]
+		PhaseManager.apply_state_changes(changes)
+
+		var unit_name = gr_info.unit_name
+		print("CommandPhase: Grot Riggers — %s regains 1 wound (%d → %d/%d)" % [unit_name, gr_info.current_wounds, new_wounds, max_wounds])
+		log_phase_message("GROT RIGGERS: %s regains 1 wound (%d → %d)" % [unit_name, gr_info.current_wounds, new_wounds])
+
+		# Log to phase log
+		var log_entry = {
+			"type": "GROT_RIGGERS",
+			"player": current_player,
+			"unit_id": unit_id,
+			"wounds_before": gr_info.current_wounds,
+			"wounds_after": new_wounds,
+			"max_wounds": max_wounds,
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
 
 # ============================================================================
 # P3-29: GROT ORDERLY (Painboss — return D3 destroyed Bodyguard models)
