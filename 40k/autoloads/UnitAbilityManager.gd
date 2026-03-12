@@ -730,6 +730,17 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Big Gunz: re-roll Hit rolls of 1 vs 10+ model targets. Mek Gunz: re-roll Hit rolls of 1 at Starting Strength vs non-MONSTER/VEHICLE — checked directly in RulesEngine"
 	},
 
+	# Ork Wazbom Blastajet — re-roll Hit rolls of 1 when targeting non-FLY units (OA-40)
+	# The FLY keyword check is performed directly in RulesEngine.
+	"Blastajet Attack Run": {
+		"condition": "target_conditional",
+		"effects": [{"type": "reroll_hits", "scope": "ones"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Re-roll Hit rolls of 1 when targeting non-FLY units — checked directly in RulesEngine"
+	},
+
 	# Ork Warbikers / Wartrakks — improve AP by 1 for ranged attacks vs targets within 9"
 	"Drive-by Dakka": {
 		"condition": "target_within_range",

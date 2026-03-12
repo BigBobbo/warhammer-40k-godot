@@ -307,9 +307,9 @@
 - **Validation**: +2T applied. Firing Deck disabled. Verified by test_oa39_ard_case.gd (6/6 pass).
 
 ### OA-40: Implement "Blastajet Attack Run" for Wazbom Blastajet
-- [ ] Re-roll Hit rolls of 1 when targeting non-FLY units
-- **Files**: UnitAbilityManager.gd, RulesEngine.gd
-- **Validation**: Re-roll 1s vs non-FLY targets. No re-roll vs FLY.
+- [x] Re-roll Hit rolls of 1 when targeting non-FLY units
+- **Files**: UnitAbilityManager.gd, RulesEngine.gd, orks.json
+- **Validation**: Re-roll 1s vs non-FLY targets. No re-roll vs FLY. Verified by test_oa40_blastajet_attack_run.gd (6/6 pass).
 
 ### OA-41: Implement "Big an' Shooty" / "Big an' Stompy" for Morkanaut/Gorkanaut
 - [ ] Morkanaut: +1 to Hit for ranged attacks while Waaagh! active

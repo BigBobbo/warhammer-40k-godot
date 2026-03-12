@@ -1670,6 +1670,102 @@
         {"id": "m4", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_saws"},
         {"id": "m5", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_saws"}
       ]
+    },
+    "U_WAZBOM_BLASTAJET": {
+      "id": "U_WAZBOM_BLASTAJET",
+      "squad_id": "U_WAZBOM_BLASTAJET",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Wazbom Blastajet",
+        "keywords": [
+          "WAZBOM BLASTAJET",
+          "ORKS",
+          "GRENADES",
+          "AIRCRAFT",
+          "VEHICLE",
+          "SPEED FREEKS",
+          "FLY"
+        ],
+        "stats": {
+          "move": 20,
+          "toughness": 9,
+          "save": 3,
+          "wounds": 12,
+          "leadership": 7,
+          "objective_control": 0,
+          "invulnerable_save": 6
+        },
+        "points": 175,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [],
+        "weapons": [
+          {
+            "name": "Smasha gun",
+            "type": "Ranged",
+            "range": "48",
+            "attacks": "D3",
+            "ballistic_skill": "4",
+            "strength": "9",
+            "ap": "-3",
+            "damage": "4",
+            "special_rules": "blast"
+          },
+          {
+            "name": "Twin wazbom mega-kannon",
+            "type": "Ranged",
+            "range": "36",
+            "attacks": "D3",
+            "ballistic_skill": "4",
+            "strength": "12",
+            "ap": "-2",
+            "damage": "D6",
+            "special_rules": "blast, hazardous, twin-linked"
+          },
+          {
+            "name": "Armoured hull",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "4",
+            "strength": "6",
+            "ap": "0",
+            "damage": "1"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deadly Demise",
+            "type": "Core",
+            "description": "Deadly Demise D3",
+            "parameter": "D3"
+          },
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Waaagh! faction ability"
+          },
+          {
+            "name": "Blastajet Attack Run",
+            "type": "Datasheet",
+            "description": "Each time this model makes a ranged attack that targets a unit that cannot FLY, re-roll a Hit roll of 1."
+          }
+        ],
+        "damaged_profile": {
+          "wounds_remaining": "1-4",
+          "description": "While this model has 1-4 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
+        },
+        "unit_composition": [
+          {
+            "description": "1 Wazbom Blastajet",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 12, "current_wounds": 12, "base_mm": 120, "position": null, "alive": true, "status_effects": []}
+      ]
     }
   }
 }
