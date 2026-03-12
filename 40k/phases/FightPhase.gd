@@ -702,8 +702,10 @@ func _determine_consolidate_mode(unit: Dictionary, movements: Dictionary) -> Str
 	- NONE: Neither is possible"""
 
 	# Check if it's POSSIBLE for unit to end in engagement range
-	# "if possible" means: can ANY model get within 1" of an enemy with 3" movement?
-	var can_reach_engagement = _can_unit_reach_engagement_range(unit)
+	# "if possible" means: can ANY model get within 1" of an enemy within consolidation distance?
+	var unit_id_for_consol = unit.get("id", "")
+	var consol_dist = _get_consolidation_distance(unit_id_for_consol)
+	var can_reach_engagement = _can_unit_reach_engagement_range(unit, consol_dist)
 
 	if can_reach_engagement:
 		return "ENGAGEMENT"
@@ -716,10 +718,11 @@ func _determine_consolidate_mode(unit: Dictionary, movements: Dictionary) -> Str
 
 	return "NONE"
 
-func _can_unit_reach_engagement_range(unit: Dictionary) -> bool:
-	"""Check if it's POSSIBLE for unit to reach engagement range with 3" movement.
-	This means: is ANY enemy model within 4" of ANY friendly model?
-	(3" consolidate movement + 1" engagement range)"""
+func _can_unit_reach_engagement_range(unit: Dictionary, consol_dist: float = 3.0) -> bool:
+	"""Check if it's POSSIBLE for unit to reach engagement range within consolidation distance.
+	This means: is ANY enemy model within (consol_dist + 1") of ANY friendly model?
+	(consolidation movement + 1" engagement range)"""
+	var max_reach = consol_dist + 1.0  # consolidation distance + engagement range
 	var models = unit.get("models", [])
 	var all_units = game_state_snapshot.get("units", {})
 	var unit_owner = unit.get("owner", 0)
@@ -745,9 +748,9 @@ func _can_unit_reach_engagement_range(unit: Dictionary) -> bool:
 				if not enemy_model.get("alive", true):
 					continue
 
-				# Check if within 4" (3" move + 1" engagement) using shape-aware edge-to-edge
+				# Check if within reach (consolidation dist + 1" engagement) using shape-aware edge-to-edge
 				var distance = Measurement.model_to_model_distance_inches(model, enemy_model)
-				if distance <= 4.0:
+				if distance <= max_reach:
 					return true
 
 	return false
@@ -888,9 +891,10 @@ func _validate_consolidate_engagement_range(unit_id: String, movements: Dictiona
 	var errors = []
 	var unit = get_unit(unit_id)
 	var models = unit.get("models", [])
+	var max_consol_dist = _get_consolidation_distance(unit_id)
 
 	# Each model must:
-	# 1. Move max 3"
+	# 1. Move max consolidation distance (3" normally, 6" with Drive-by Krumpin')
 	# 2. End closer to closest enemy
 	# 3. End in base contact if possible
 	# 4. Maintain unit coherency
@@ -912,10 +916,10 @@ func _validate_consolidate_engagement_range(unit_id: String, movements: Dictiona
 				log_phase_message("[T4-5] Model %s rejected: already in base contact, moved %.2f\" during consolidation" % [model_id, move_distance])
 				continue
 
-		# Check 3" movement limit
+		# Check consolidation movement limit
 		var distance = Measurement.distance_inches(old_pos, new_pos)
-		if distance > 3.0:
-			errors.append("Model %s consolidate exceeds 3\" limit (%.1f\")" % [model_id, distance])
+		if distance > max_consol_dist:
+			errors.append("Model %s consolidate exceeds %.0f\" limit (%.1f\")" % [model_id, max_consol_dist, distance])
 
 		# Check movement is toward closest enemy
 		if not _is_moving_toward_closest_enemy(unit_id, model_id, old_pos, new_pos):
@@ -937,7 +941,7 @@ func _validate_consolidate_engagement_range(unit_id: String, movements: Dictiona
 
 	# T1-6: Base-to-base contact enforcement for consolidation in engagement mode
 	# Same rule as pile-in: models must end in b2b with closest enemy if possible.
-	var b2b_check = _validate_base_to_base_if_possible(unit_id, movements, 3.0)
+	var b2b_check = _validate_base_to_base_if_possible(unit_id, movements, max_consol_dist)
 	if not b2b_check.valid:
 		errors.append_array(b2b_check.errors)
 
@@ -949,13 +953,14 @@ func _validate_consolidate_objective(unit_id: String, movements: Dictionary) -> 
 	var unit = get_unit(unit_id)
 	var models = unit.get("models", [])
 	var objectives = GameState.state.board.get("objectives", [])
+	var max_consol_dist = _get_consolidation_distance(unit_id)
 
 	if objectives.is_empty():
 		errors.append("No objectives available for consolidate")
 		return {"valid": false, "errors": errors}
 
 	# Each model must:
-	# 1. Move max 3"
+	# 1. Move max consolidation distance (3" normally, 6" with Drive-by Krumpin')
 	# 2. Move toward closest objective marker
 	# 3. Unit must end within range of objective (at least one model)
 	# 4. Maintain unit coherency
@@ -969,10 +974,10 @@ func _validate_consolidate_objective(unit_id: String, movements: Dictionary) -> 
 			errors.append("Model %s position not found" % model_id)
 			continue
 
-		# Check 3" movement limit
+		# Check consolidation movement limit
 		var distance = Measurement.distance_inches(old_pos, new_pos)
-		if distance > 3.0:
-			errors.append("Model %s consolidate exceeds 3\" limit (%.1f\")" % [model_id, distance])
+		if distance > max_consol_dist:
+			errors.append("Model %s consolidate exceeds %.0f\" limit (%.1f\")" % [model_id, max_consol_dist, distance])
 
 		# Check movement is toward closest objective
 		if not _is_moving_toward_closest_objective(old_pos, new_pos, objectives):
@@ -1247,12 +1252,13 @@ func _process_roll_dice_interactive(melee_action: Dictionary) -> Dictionary:
 			emit_signal("fight_resolved", active_fighter_id, result)
 		confirmed_attacks.clear()
 		log_phase_message("Melee combat resolved for %s (no wounds)" % active_fighter_id)
-		emit_signal("consolidate_required", active_fighter_id, 3.0)
+		var consol_dist = _get_consolidation_distance(active_fighter_id)
+		emit_signal("consolidate_required", active_fighter_id, consol_dist)
 
 		var final_result = create_result(true, result.get("diffs", []))
 		final_result["trigger_consolidate"] = true
 		final_result["consolidate_unit_id"] = active_fighter_id
-		final_result["consolidate_distance"] = 3.0
+		final_result["consolidate_distance"] = consol_dist
 		final_result["log_text"] = result.get("log_text", "")
 		if result.has("dice"):
 			final_result["dice"] = result["dice"]
@@ -1339,13 +1345,14 @@ func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
 	log_phase_message("Melee combat resolved for %s" % active_fighter_id)
 
 	# After attacks, request consolidate
-	emit_signal("consolidate_required", active_fighter_id, 3.0)
+	var consol_dist = _get_consolidation_distance(active_fighter_id)
+	emit_signal("consolidate_required", active_fighter_id, consol_dist)
 
 	# Add metadata for NetworkManager to re-emit signal on client
 	var final_result = create_result(true, result.get("diffs", []))
 	final_result["trigger_consolidate"] = true
 	final_result["consolidate_unit_id"] = active_fighter_id
-	final_result["consolidate_distance"] = 3.0
+	final_result["consolidate_distance"] = consol_dist
 	final_result["log_text"] = result.get("log_text", "")
 
 	# Preserve dice and save_data_list from combat resolution
@@ -1635,13 +1642,14 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 	log_phase_message("Melee combat resolved for %s (interactive saves)" % active_fighter_id)
 
 	# After attacks, request consolidate
-	emit_signal("consolidate_required", active_fighter_id, 3.0)
+	var consol_dist = _get_consolidation_distance(active_fighter_id)
+	emit_signal("consolidate_required", active_fighter_id, consol_dist)
 
 	# Build final result
 	var final_result = create_result(true, all_diffs)
 	final_result["trigger_consolidate"] = true
 	final_result["consolidate_unit_id"] = active_fighter_id
-	final_result["consolidate_distance"] = 3.0
+	final_result["consolidate_distance"] = consol_dist
 	final_result["log_text"] = "Melee saves applied — %d casualties" % total_casualties
 	final_result["dice"] = save_dice_blocks
 
@@ -1807,6 +1815,24 @@ func _show_mathhammer_predictions() -> void:
 		"context": "mathhammer_prediction",
 		"message": prediction_text
 	})
+
+func _get_consolidation_distance(unit_id: String) -> float:
+	"""OA-26: Returns the consolidation distance for a unit.
+	Normally 3\", but 6\" for units with 'Drive-by Krumpin'' ability."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return 3.0
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is Dictionary:
+			ability_name = ability.get("name", "")
+		elif ability is String:
+			ability_name = ability
+		if ability_name == "Drive-by Krumpin'":
+			log_phase_message("[OA-26] Drive-by Krumpin': Consolidation distance 6\" for %s" % unit_id)
+			return 6.0
+	return 3.0
 
 func _process_consolidate(action: Dictionary) -> Dictionary:
 	var changes = []

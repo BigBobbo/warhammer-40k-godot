@@ -646,6 +646,17 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Improve AP by 1 for ranged attacks against targets within 9\" — checked directly in RulesEngine save resolution"
 	},
 
+	# Ork Nobz On Warbikes — Consolidation distance is 6" instead of 3" (OA-26)
+	# Checked directly in FightPhase consolidation logic.
+	"Drive-by Krumpin'": {
+		"condition": "always",
+		"effects": [{"type": "consolidation_distance", "value": 6}],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "Consolidation distance is 6\" instead of 3\" — checked directly in FightPhase"
+	},
+
 	# Ork Dakkajet — every successful Hit roll scores a Critical Hit (ranged only)
 	# Sustained Hits and Lethal Hits trigger on every successful hit.
 	# Checked directly in RulesEngine hit resolution (interactive + auto-resolve paths).

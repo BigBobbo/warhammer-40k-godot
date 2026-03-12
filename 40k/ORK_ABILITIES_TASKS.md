@@ -213,8 +213,8 @@
 - **Validation**: After Normal move, select enemy moved over. D6 per model, 4+ = 1 MW. Normal moves only.
 
 ### OA-26: Implement "Drive-by Krumpin'" ability for Nobz On Warbikes
-- [ ] Add "Drive-by Krumpin'" to UnitAbilityManager.ABILITY_EFFECTS
-- [ ] Override Consolidation distance to 6" instead of 3"
+- [x] Add "Drive-by Krumpin'" to UnitAbilityManager.ABILITY_EFFECTS
+- [x] Override Consolidation distance to 6" instead of 3"
 - **Files**: UnitAbilityManager.gd, FightPhase.gd
 - **Validation**: Consolidation move is 6" instead of 3".
 
