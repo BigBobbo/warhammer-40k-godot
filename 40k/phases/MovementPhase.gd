@@ -558,21 +558,31 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	# 10e Rule: Normal Move and Advance cannot cross enemy model bases
 	# FLY units are exempt — they can move over enemy models
 	# Fall Back and Surge are also exempt
+	# OA-28: Clankin' Forward also exempts (can move over non-MONSTER/VEHICLE enemies)
+	var _has_clankin_fwd = _unit_has_clankin_forward(unit_id)
 	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
-		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
+		if _has_clankin_fwd:
+			log_phase_message("  OA-28: Clankin' Forward — bypassing enemy base crossing check (non-MONSTER/VEHICLE allowed)")
+		elif _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
 			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
 
 	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
 	# FLY units are exempt
+	# OA-28: Clankin' Forward units are still blocked by MONSTER/VEHICLE
 	if not _unit_has_fly_keyword(unit_id):
 		if _path_crosses_monster_vehicle_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses friendly/enemy Monster/Vehicle model base")
 			return {"valid": false, "errors": ["Cannot move through Monster or Vehicle models"]}
 
 	# Check terrain collision
-	if _position_intersects_terrain(dest_vec, model):
-		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
+	# OA-28: Clankin' Forward allows moving over terrain ≤4" height
+	if _has_clankin_fwd:
+		if _position_intersects_terrain(dest_vec, model, 4.0):
+			return {"valid": false, "errors": ["Position intersects impassable terrain (height > 4\")"]}
+	else:
+		if _position_intersects_terrain(dest_vec, model):
+			return {"valid": false, "errors": ["Position intersects impassable terrain"]}
 
 	# Check model overlap
 	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
@@ -650,21 +660,31 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	# FLY units are exempt — they can move over enemy models
 	# Fall Back and Surge are also exempt (Fall Back handled via Desperate Escape,
 	# Surge moves allow moving through/into Engagement Range)
+	# OA-28: Clankin' Forward also exempts (can move over non-MONSTER/VEHICLE enemies)
+	var _has_clankin_fwd_stage = _unit_has_clankin_forward(unit_id)
 	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
-		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
+		if _has_clankin_fwd_stage:
+			log_phase_message("  OA-28: Clankin' Forward — bypassing enemy base crossing check (non-MONSTER/VEHICLE allowed)")
+		elif _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
 			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
 
 	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
 	# FLY units are exempt
+	# OA-28: Clankin' Forward units are still blocked by MONSTER/VEHICLE
 	if not _unit_has_fly_keyword(unit_id):
 		if _path_crosses_monster_vehicle_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses friendly/enemy Monster/Vehicle model base")
 			return {"valid": false, "errors": ["Cannot move through Monster or Vehicle models"]}
 
 	# Check terrain collision
-	if _position_intersects_terrain(dest_vec, model):
-		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
+	# OA-28: Clankin' Forward allows moving over terrain ≤4" height
+	if _has_clankin_fwd_stage:
+		if _position_intersects_terrain(dest_vec, model, 4.0):
+			return {"valid": false, "errors": ["Position intersects impassable terrain (height > 4\")"]}
+	else:
+		if _position_intersects_terrain(dest_vec, model):
+			return {"valid": false, "errors": ["Position intersects impassable terrain"]}
 
 	# Check model overlap
 	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
@@ -4422,6 +4442,28 @@ func _unit_has_fly_keyword(unit_id: String) -> bool:
 	var keywords = unit.get("meta", {}).get("keywords", [])
 	return "FLY" in keywords
 
+func _unit_has_clankin_forward(unit_id: String) -> bool:
+	# OA-28: Check if the unit has the Clankin' Forward ability (Morkanaut/Gorkanaut)
+	# Allows moving over non-MONSTER/VEHICLE enemy models and terrain ≤4" height
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr and ability_mgr.has_clankin_forward(unit_id):
+		return true
+	return false
+
+func _get_terrain_height_inches(terrain_piece: Dictionary) -> float:
+	# OA-28: Convert terrain height_category to inches for Clankin' Forward check
+	# LOW (<2") = 1.5", MEDIUM (2-5") = 3.5", TALL (>5") = 6.0"
+	var height_cat = terrain_piece.get("height_category", "tall")
+	match height_cat:
+		"low":
+			return 1.5
+		"medium":
+			return 3.5
+		"tall":
+			return 6.0
+		_:
+			return 6.0  # Default to tall
+
 func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: String) -> float:
 	# Calculate terrain penalty for movement (difficult ground traits only).
 	# Units always stay on the ground floor — no vertical height penalty.
@@ -4604,8 +4646,10 @@ func _position_overlaps_other_models(unit_id: String, model_id: String, position
 
 	return false
 
-func _position_intersects_terrain(pos: Vector2, model: Dictionary) -> bool:
+func _position_intersects_terrain(pos: Vector2, model: Dictionary, max_passable_height: float = 0.0) -> bool:
 	# Check against terrain polygons using shape-aware bounds
+	# OA-28: max_passable_height > 0 means terrain at or below that height (inches) is ignored
+	# (used by Clankin' Forward to allow moving over terrain ≤4")
 	var terrain = game_state_snapshot.get("board", {}).get("terrain", [])
 
 	# Create the base shape to get accurate bounds
@@ -4618,6 +4662,11 @@ func _position_intersects_terrain(pos: Vector2, model: Dictionary) -> bool:
 
 	for terrain_piece in terrain:
 		if terrain_piece.get("type", "") == "impassable":
+			# OA-28: Skip terrain that is short enough for Clankin' Forward
+			if max_passable_height > 0.0:
+				var terrain_height = _get_terrain_height_inches(terrain_piece)
+				if terrain_height <= max_passable_height:
+					continue
 			var poly = terrain_piece.get("poly", [])
 			if _point_in_expanded_polygon(pos, poly, expansion):
 				return true

@@ -657,6 +657,17 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Consolidation distance is 6\" instead of 3\" — checked directly in FightPhase"
 	},
 
+	# Ork Morkanaut/Gorkanaut — can move over non-MONSTER/VEHICLE enemy models and terrain ≤4" (OA-28)
+	# Checked directly in MovementPhase movement validation.
+	"Clankin' Forward": {
+		"condition": "always",
+		"effects": [{"type": "move_over_non_monster_vehicle"}, {"type": "move_over_short_terrain", "max_height": 4.0}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Can move over enemy models (excluding MONSTER/VEHICLE) and terrain ≤4\" height during Normal, Advance, or Fall Back moves"
+	},
+
 	# Ork Warbuggies — can deploy in opponent's deployment zone from Strategic Reserves (OA-27)
 	# Checked directly in MovementPhase reserve placement validation.
 	"Outflank": {
@@ -2235,6 +2246,21 @@ func has_outflank(unit_id: String) -> bool:
 		var ability_name = _get_ability_name(ability)
 		if ability_name == "Outflank":
 			print("UnitAbilityManager: Unit %s has Outflank ability" % unit_id)
+			return true
+	return false
+
+func has_clankin_forward(unit_id: String) -> bool:
+	"""Check if a unit has the Clankin' Forward ability (Morkanaut/Gorkanaut).
+	Used by MovementPhase to allow moving over non-MONSTER/VEHICLE enemies and terrain ≤4\"."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Clankin' Forward":
+			print("UnitAbilityManager: Unit %s has Clankin' Forward ability" % unit_id)
 			return true
 	return false
 
