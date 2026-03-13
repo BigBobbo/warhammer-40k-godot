@@ -5265,6 +5265,28 @@ static func has_tank_hunters_vs_target(actor_unit: Dictionary, target_unit: Dict
 	# Check if target is MONSTER or VEHICLE
 	return is_monster_or_vehicle(target_unit)
 
+# MONSTER HUNTERS (OA-49): Check if a unit has the "Monster Hunters" ability
+# and the target is a MONSTER or VEHICLE. If so, returns true indicating
+# Hit rolls should be re-rolled for melee attacks.
+static func has_monster_hunters_vs_target(actor_unit: Dictionary, target_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Monster Hunters":
+			has_ability = true
+			break
+
+	if not has_ability:
+		return false
+
+	# Check if target is MONSTER or VEHICLE
+	return is_monster_or_vehicle(target_unit)
+
 # DAT'S OUR LOOT! (OA-12): Check if a unit has the "Dat's Our Loot!" ability.
 # Returns true if the unit has the ability (Lootas datasheet ability).
 static func has_dats_our_loot(actor_unit: Dictionary) -> bool:
@@ -7749,6 +7771,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if UnitAbilityManager.has_mekaniak_buff(attacker_unit):
 			melee_hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: MEKANIAK (melee) — +1 to hit for %s (Mek-buffed vehicle)" % attacker_id)
+
+		# MONSTER HUNTERS (OA-49): Re-roll Hit rolls when attacking MONSTER or VEHICLE (melee)
+		if has_monster_hunters_vs_target(attacker_unit, target_unit):
+			melee_hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: MONSTER HUNTERS (melee) — re-roll hit rolls for %s (target is MONSTER/VEHICLE)" % attacker_id)
 
 		var melee_hit_reroll_data = []
 		for i in range(hit_rolls.size()):

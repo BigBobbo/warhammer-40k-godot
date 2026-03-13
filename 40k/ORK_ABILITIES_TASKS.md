@@ -356,10 +356,10 @@
 - **Validation**: Runtherd T2 while Gretchin alive. Reverts if all Gretchin killed.
 
 ### OA-49: Implement Beast Snagga sub-faction abilities
-- [ ] Add abilities for all Beast Snagga units: Beastboss, Squighog Boyz, Kill Rig, Hunta Rig, Beast Snagga Boyz, Painboss, Wurrboy, Zodgrod, Mozrog
-- [ ] Each unit has unique ability — define all in UnitAbilityManager
-- **Files**: UnitAbilityManager.gd
-- **Validation**: All Beast Snagga abilities defined and functional.
+- [x] Add abilities for all Beast Snagga units: Beastboss, Squighog Boyz, Kill Rig, Hunta Rig, Beast Snagga Boyz, Painboss, Wurrboy, Zodgrod, Mozrog
+- [x] Each unit has unique ability — define all in UnitAbilityManager
+- **Files**: UnitAbilityManager.gd, RulesEngine.gd
+- **Validation**: All Beast Snagga abilities defined. Beastboss (+1 melee hit), Monster Hunters (re-roll vs MONSTER/VEHICLE, melee), Super Runts (+1 hit/wound for led unit), Dok's Toolz (FNP 5+), Grot Orderly, Sawbonez fully functional. Complex abilities (Beastly Rage, Wild Ride, Snagged, Spirit of Gork, On Da Hunt, Unstable Oracle, Roar of Mork, Special Dose, One Last Kill, Da Bigger Dey iz...) defined with implemented: false pending phase integration.
 
 ### OA-50: Implement remaining Ork vehicle abilities
 - [ ] Implement Da Bigger Dey Are, Spiked Ram, Big Booms, Wall of Dakka, and other vehicle-specific abilities
