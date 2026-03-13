@@ -164,9 +164,9 @@ Save files are listed chronologically. No way to sort by name, filter by game ty
 
 ## 6. Visual Improvements
 
-### 6.1 ~~No~~ Save/Load Animation or Progress Indicator (SAVE-20 DONE)
+### 6.1 No Save/Load Animation or Progress Indicator
 
-Save and load operations now show a progress indicator banner at the top of the screen with pulsing text and stage-by-stage detail updates (e.g. "Serializing game data...", "Uploading to cloud..."). The indicator appears in both Main scene and MainMenu, and auto-dismisses on completion or failure.
+Save and load operations happen instantly with no visual feedback during the operation (just a success/failure toast after). For cloud saves especially, a progress indicator would be appropriate.
 
 ### 6.2 No "Game Loaded" Transition
 
@@ -180,27 +180,21 @@ When autosave triggers, there's no visual indicator (like a floppy disk icon or 
 
 ## 7. Code Quality Observations
 
-### 7.1 ~~No~~ Unit Data Validation on Load (SAVE-18 DONE)
+### 7.1 No Unit Data Validation on Load
 
-StateSerializer now validates data integrity beyond structure via `_validate_unit_data()`:
-- ✅ Unit owner validation (must be 1 or 2)
-- ✅ Unit status enum range check (0-7)
-- ✅ Unit ID consistency (key matches stored id)
-- ✅ Model wounds integrity (current_wounds ≤ max wounds, non-negative)
-- ✅ Model alive/wounds consistency (auto-repair)
-- ✅ Model base_mm validation (> 0)
-- ✅ Cross-reference validation (embarked_in, attached_to, attached_characters, transport embarked_units)
-- ✅ Player CP/VP non-negative checks
-- ✅ Meta field validation (keywords, abilities, weapons, stats)
-- Auto-repairs fixable issues with warnings; blocks load on unfixable errors
+StateSerializer validates structure (required sections/fields) but not data integrity:
+- No check that unit IDs are unique
+- No check that model positions are valid (on board, not overlapping)
+- No check that unit statuses are consistent (e.g., deployed unit has positions)
+- No check that player CP/VP values are reasonable
 
 ### 7.2 Deep Copy Could Miss Nested References
 
 `GameState._deep_copy_dict()` handles Dictionary and Array but may not catch all Godot-specific types that need deep copying (e.g., PackedVector2Array).
 
-### 7.3 StateSerializer Compression ~~Disabled~~ Enabled (SAVE-17 DONE)
+### 7.3 StateSerializer Compression Disabled
 
-GZIP compression is now enabled by default with a 50 KB size threshold. Saves below the threshold remain human-readable JSON; larger saves are automatically compressed. Deserialization auto-detects compressed data for backward compatibility.
+GZIP compression support exists but is disabled. For large games with many units, save files could benefit from compression.
 
 ---
 
@@ -208,31 +202,31 @@ GZIP compression is now enabled by default with a 50 KB size threshold. Saves be
 
 ### P0 — Must Fix (Correctness)
 1. **Fix AI re-initialization after load** — Add `reconfigure_ai_after_load()` call in load completion path (SAVE-1) — **DONE**
-2. **Fix multiplayer load sync confirmation** — Add client acknowledgment mechanism (SAVE-2)
-3. **Implement save format migration system** — Version tracking + upgrade functions (SAVE-3) — **DONE**
+2. **Fix multiplayer load sync confirmation** — Add client acknowledgment mechanism (SAVE-2) — **DONE**
+3. **Implement save format migration system** — Version tracking + upgrade functions (SAVE-3)
 4. **Fix `_refresh_after_load()` to fully restore state** — Clear old visuals, reinit controllers, reinit AI (SAVE-4)
-5. **Fix web `save_exists()` for overwrite protection** — Async check before cloud save (SAVE-5) — **DONE**
+5. **Fix web `save_exists()` for overwrite protection** — Async check before cloud save (SAVE-5)
 
 ### P1 — Should Fix (Robustness)
-6. **Prevent autosave during AI turn** — Guard autosave triggers with AI thinking check (SAVE-6) — **DONE**
-7. **Save AI turn history in snapshot** — Add AI decision history to save data (SAVE-7) — **DONE**
-8. **Hide Load button for non-host in multiplayer** — UI restriction (SAVE-8) — **DONE**
-9. **Add load confirmation dialog** — Warn about unsaved progress (SAVE-9) — **DONE**
-10. **Add autosave visual indicator** — Brief icon/toast when autosave triggers (SAVE-10) — **DONE**
+6. **Prevent autosave during AI turn** — Guard autosave triggers with AI thinking check (SAVE-6)
+7. **Save AI turn history in snapshot** — Add AI decision history to save data (SAVE-7)
+8. **Hide Load button for non-host in multiplayer** — UI restriction (SAVE-8)
+9. **Add load confirmation dialog** — Warn about unsaved progress (SAVE-9)
+10. **Add autosave visual indicator** — Brief icon/toast when autosave triggers (SAVE-10)
 
 ### P2 — Should Improve (QoL/Visual)
-11. **Add save file preview** — Show army compositions, VP scores, unit counts (SAVE-11) — **DONE**
-12. **Add "Game Loaded" transition** — Fade overlay during load (SAVE-12) — **DONE**
-13. **Add AI difficulty to save metadata** — Show in save file listing (SAVE-13) — **DONE**
-14. **Add save list sorting/filtering** — By name, date, game type (SAVE-14) — **DONE**
-15. **Add multiplayer resume flow** — Dedicated UI for resuming saved multiplayer games (SAVE-15) — **DONE**
+11. **Add save file preview** — Show army compositions, VP scores, unit counts (SAVE-11)
+12. **Add "Game Loaded" transition** — Fade overlay during load (SAVE-12)
+13. **Add AI difficulty to save metadata** — Show in save file listing (SAVE-13)
+14. **Add save list sorting/filtering** — By name, date, game type (SAVE-14)
+15. **Add multiplayer resume flow** — Dedicated UI for resuming saved multiplayer games (SAVE-15)
 
 ### P3 — Nice to Have
-16. **Add multiple save slots** — Beyond single quicksave (SAVE-16) — **DONE**
-17. **Enable save file compression** — Activate GZIP for large saves (SAVE-17) — **DONE**
-18. **Add unit data validation on load** — Integrity checks beyond structure (SAVE-18) — **DONE**
+16. **Add multiple save slots** — Beyond single quicksave (SAVE-16)
+17. **Enable save file compression** — Activate GZIP for large saves (SAVE-17)
+18. **Add unit data validation on load** — Integrity checks beyond structure (SAVE-18)
 19. **Add save file export/import** — Portable format for sharing (SAVE-19)
-20. **Add save/load progress indicator** — For cloud saves especially (SAVE-20) — **DONE**
+20. **Add save/load progress indicator** — For cloud saves especially (SAVE-20)
 
 ---
 
