@@ -7,6 +7,9 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 # FightPhase - Full implementation for the Fight phase following 10e rules
 # Supports fight sequencing, pile in, attack resolution, and consolidation
 
+# Floating-point tolerance for distance cap checks (< 1px)
+const MOVEMENT_CAP_EPSILON: float = 0.02
+
 # Signals (mirror ShootingPhase pattern)
 signal unit_selected_for_fighting(unit_id: String)
 signal fighter_selected(unit_id: String)  # Alias for compatibility
@@ -568,9 +571,9 @@ func _validate_pile_in(action: Dictionary) -> Dictionary:
 				log_phase_message("[T4-5] Model %s rejected: already in base contact, moved %.2f\"" % [model_id, move_distance])
 				continue
 
-		# Check 3" movement limit
+		# Check 3" movement limit (with floating-point tolerance)
 		var distance = Measurement.distance_inches(old_pos, new_pos)
-		if distance > 3.0:
+		if distance > 3.0 + MOVEMENT_CAP_EPSILON:
 			errors.append("Model %s pile in exceeds 3\" limit (%.1f\")" % [model_id, distance])
 
 		# Check movement is toward closest enemy
@@ -944,9 +947,9 @@ func _validate_consolidate_engagement_range(unit_id: String, movements: Dictiona
 				log_phase_message("[T4-5] Model %s rejected: already in base contact, moved %.2f\" during consolidation" % [model_id, move_distance])
 				continue
 
-		# Check consolidation movement limit
+		# Check consolidation movement limit (with floating-point tolerance)
 		var distance = Measurement.distance_inches(old_pos, new_pos)
-		if distance > max_consol_dist:
+		if distance > max_consol_dist + MOVEMENT_CAP_EPSILON:
 			errors.append("Model %s consolidate exceeds %.0f\" limit (%.1f\")" % [model_id, max_consol_dist, distance])
 
 		# Check movement is toward closest enemy
@@ -1002,9 +1005,9 @@ func _validate_consolidate_objective(unit_id: String, movements: Dictionary) -> 
 			errors.append("Model %s position not found" % model_id)
 			continue
 
-		# Check consolidation movement limit
+		# Check consolidation movement limit (with floating-point tolerance)
 		var distance = Measurement.distance_inches(old_pos, new_pos)
-		if distance > max_consol_dist:
+		if distance > max_consol_dist + MOVEMENT_CAP_EPSILON:
 			errors.append("Model %s consolidate exceeds %.0f\" limit (%.1f\")" % [model_id, max_consol_dist, distance])
 
 		# Check movement is toward closest objective

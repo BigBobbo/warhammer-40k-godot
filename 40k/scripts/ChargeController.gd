@@ -3,6 +3,8 @@ class_name ChargeController
 
 const GameStateData = preload("res://autoloads/GameState.gd")
 
+# Floating-point tolerance for distance cap checks (< 1px)
+const MOVEMENT_CAP_EPSILON: float = 0.02
 
 # ChargeController - Handles UI interactions for the Charge Phase
 # Manages charge declarations, target selection, dice rolling, and movement validation
@@ -1623,7 +1625,7 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 	var terrain_penalty = _calculate_terrain_penalty_for_path(old_pos, new_pos)
 	var effective_distance = distance_moved + terrain_penalty
 
-	if effective_distance > charge_distance:
+	if effective_distance > charge_distance + MOVEMENT_CAP_EPSILON:
 		if terrain_penalty > 0.0:
 			print("Movement too far with terrain: %.1f\" + %.1f\" terrain = %.1f\" > %d\"" % [
 				distance_moved, terrain_penalty, effective_distance, charge_distance])
