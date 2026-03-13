@@ -1478,9 +1478,18 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 	dialog.popup_centered()
 	print("[FightController] Counter-Offensive dialog shown")
 
+	# MA-42: Show blocking overlay to active player
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
+		main_node.show_reactive_stratagem_waiting("Counter-Offensive")
+
 func _on_counter_offensive_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Counter-Offensive"""
 	print("[FightController] Counter-Offensive USED: player %d selects %s" % [player, unit_id])
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 
 	# Store for subsequent actions in this activation
 	current_fighter_id = unit_id
@@ -1500,6 +1509,10 @@ func _on_counter_offensive_used(unit_id: String, player: int) -> void:
 func _on_counter_offensive_declined(player: int) -> void:
 	"""Handle player declining Counter-Offensive"""
 	print("[FightController] Counter-Offensive DECLINED by player %d" % player)
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 	var action = {
 		"type": "DECLINE_COUNTER_OFFENSIVE",
 		"player": player

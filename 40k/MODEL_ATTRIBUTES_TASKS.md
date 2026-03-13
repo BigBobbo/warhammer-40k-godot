@@ -99,16 +99,16 @@
 - **Validation**: Open save/load panel. Click into the save name text field. Type a name — letters appear in the text field only, camera does not pan, no game actions triggered. Press Enter to confirm save. Close panel — keyboard controls resume working normally. If other text inputs exist, they also consume keyboard input correctly.
 
 ### MA-42: Block active player actions while reactive stratagem decision is pending
-- [ ] Investigate the current reactive stratagem flow (Fire Overwatch, Rapid Ingress, Counter-Offensive, Heroic Intervention, etc.) — the game notifies the non-active player they can use a reactive stratagem but does not block the active player from continuing
-- [ ] Implement a blocking/pause mechanism: when a reactive stratagem prompt is shown to the non-active player, the active player's input should be disabled (no movement, shooting, charges, or other actions) until the non-active player responds
-- [ ] Add a visible indicator for the active player showing they are waiting for the opponent's stratagem decision (e.g., "Waiting for opponent..." overlay or message)
-- [ ] Implement a 5-second auto-decline timer: if the non-active player does not click a decision within 5 seconds, automatically select "No" / decline the stratagem and unblock the active player
-- [ ] Show a countdown timer on the stratagem prompt so the non-active player knows how long they have to decide
-- [ ] Ensure AI opponents respond immediately (or near-immediately) rather than waiting for the timer, since the AI decision is instant
-- [ ] Verify this works for all reactive stratagems: Fire Overwatch, Rapid Ingress, Counter-Offensive, Heroic Intervention, and any others
-- [ ] Verify multiplayer: the blocking state syncs correctly — active player sees "waiting" on their client, non-active player sees the stratagem prompt on theirs, and unblocking happens when either a decision is made or the timer expires
-- [ ] Ensure the timer resets/cancels correctly if the non-active player clicks a response before it expires
-- [ ] Edge case: if multiple reactive stratagems could trigger at the same point (e.g., both Overwatch and Heroic Intervention), handle them sequentially — block until all pending decisions are resolved
+- [x] Investigate the current reactive stratagem flow (Fire Overwatch, Rapid Ingress, Counter-Offensive, Heroic Intervention, etc.) — the game notifies the non-active player they can use a reactive stratagem but does not block the active player from continuing
+- [x] Implement a blocking/pause mechanism: when a reactive stratagem prompt is shown to the non-active player, the active player's input should be disabled (no movement, shooting, charges, or other actions) until the non-active player responds
+- [x] Add a visible indicator for the active player showing they are waiting for the opponent's stratagem decision (e.g., "Waiting for opponent..." overlay or message)
+- [x] Implement a 5-second auto-decline timer: if the non-active player does not click a decision within 5 seconds, automatically select "No" / decline the stratagem and unblock the active player
+- [x] Show a countdown timer on the stratagem prompt so the non-active player knows how long they have to decide
+- [x] Ensure AI opponents respond immediately (or near-immediately) rather than waiting for the timer, since the AI decision is instant
+- [x] Verify this works for all reactive stratagems: Fire Overwatch, Rapid Ingress, Counter-Offensive, Heroic Intervention, and any others
+- [x] Verify multiplayer: the blocking state syncs correctly — active player sees "waiting" on their client, non-active player sees the stratagem prompt on theirs, and unblocking happens when either a decision is made or the timer expires
+- [x] Ensure the timer resets/cancels correctly if the non-active player clicks a response before it expires
+- [x] Edge case: if multiple reactive stratagems could trigger at the same point (e.g., both Overwatch and Heroic Intervention), handle them sequentially — block until all pending decisions are resolved
 - **Files**: StratagemManager.gd, PhaseManager.gd (or equivalent turn flow controller), Main.gd, NetworkManager.gd, AIPlayer.gd, any reactive stratagem UI/dialog scripts
 - **Validation**: Active player declares a charge. Non-active player is prompted to use Fire Overwatch. Active player cannot proceed (input blocked, "Waiting for opponent..." shown). Non-active player clicks "Yes" or "No" — active player is unblocked. If non-active player does nothing for 5 seconds, auto-declines and active player is unblocked. AI opponent responds immediately without waiting for timer. Works correctly in multiplayer with both clients staying in sync.
 

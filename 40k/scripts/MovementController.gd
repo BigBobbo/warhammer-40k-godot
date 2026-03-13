@@ -3819,9 +3819,18 @@ func _on_overwatch_opportunity(moved_unit_id: String, defending_player: int, eli
 	dialog.popup_centered()
 	print("MovementController: Fire Overwatch dialog shown for player %d" % defending_player)
 
+	# MA-42: Show blocking overlay to active player
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
+		main_node.show_reactive_stratagem_waiting("Fire Overwatch")
+
 func _on_fire_overwatch_used(shooter_unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Fire Overwatch."""
 	print("MovementController: Fire Overwatch USED by %s" % shooter_unit_id)
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("move_action_requested", {
 		"type": "USE_FIRE_OVERWATCH",
 		"actor_unit_id": shooter_unit_id,
@@ -3833,6 +3842,10 @@ func _on_fire_overwatch_used(shooter_unit_id: String, player: int) -> void:
 func _on_fire_overwatch_declined(player: int) -> void:
 	"""Handle player declining Fire Overwatch."""
 	print("MovementController: Fire Overwatch DECLINED by player %d" % player)
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("move_action_requested", {
 		"type": "DECLINE_FIRE_OVERWATCH",
 		"actor_unit_id": "",
@@ -3890,9 +3903,18 @@ func _on_rapid_ingress_opportunity(player: int, eligible_units: Array) -> void:
 	dialog.popup_centered()
 	print("MovementController: Rapid Ingress dialog shown for player %d (10s countdown)" % player)
 
+	# MA-42: Show blocking overlay to active player
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
+		main_node.show_reactive_stratagem_waiting("Rapid Ingress")
+
 func _on_rapid_ingress_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Rapid Ingress."""
 	print("MovementController: Rapid Ingress USED — unit %s by player %d" % [unit_id, player])
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("move_action_requested", {
 		"type": "USE_RAPID_INGRESS",
 		"actor_unit_id": unit_id,
@@ -3904,6 +3926,10 @@ func _on_rapid_ingress_used(unit_id: String, player: int) -> void:
 func _on_rapid_ingress_declined(player: int) -> void:
 	"""Handle player declining Rapid Ingress."""
 	print("MovementController: Rapid Ingress DECLINED by player %d" % player)
+	# MA-42: Hide blocking overlay
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("move_action_requested", {
 		"type": "DECLINE_RAPID_INGRESS",
 		"actor_unit_id": "",

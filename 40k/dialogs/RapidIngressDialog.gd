@@ -21,11 +21,14 @@ const COUNTDOWN_SECONDS: float = 10.0
 var player: int = 0
 var eligible_units: Array = []  # Array of { unit_id: String, unit_name: String, reserve_type: String }
 
+# MA-42: Auto-decline timer
+const AUTO_DECLINE_SECONDS: float = 5.0
 var _countdown_timer: Timer = null
 var _seconds_remaining: float = COUNTDOWN_SECONDS
 var _countdown_label: Label = null
 var _countdown_bar: ProgressBar = null
 var _resolved: bool = false
+var _time_remaining: float = AUTO_DECLINE_SECONDS
 
 func setup(p_player: int, p_eligible_units: Array) -> void:
 	player = p_player
@@ -158,6 +161,14 @@ func _build_ui() -> void:
 	button_container.add_child(decline_button)
 
 	main_container.add_child(button_container)
+
+	# MA-42: Countdown timer display
+	_countdown_label = Label.new()
+	_countdown_label.text = "Auto-declining in %d seconds..." % int(AUTO_DECLINE_SECONDS)
+	_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_countdown_label.add_theme_font_size_override("font_size", 13)
+	_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	main_container.add_child(_countdown_label)
 
 	add_child(main_container)
 

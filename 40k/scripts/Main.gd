@@ -78,6 +78,14 @@ var waiting_overlay_timer_label: Label = null
 var _waiting_overlay_pulse_tween: Tween = null
 var _opponent_zone_pulse_tween: Tween = null
 
+# MA-42: Reactive stratagem blocking overlay — blocks active player while opponent decides
+var _reactive_stratagem_overlay: ColorRect = null
+var _reactive_stratagem_overlay_panel: PanelContainer = null
+var _reactive_stratagem_overlay_label: Label = null
+var _reactive_stratagem_overlay_timer_label: Label = null
+var _reactive_stratagem_overlay_pulse_tween: Tween = null
+var _reactive_stratagem_pending: bool = false
+
 # T5-V3: Phase transition animation banner
 var phase_transition_banner: PhaseTransitionBanner = null
 
@@ -378,6 +386,9 @@ func _ready() -> void:
 
 	# Setup "Waiting for Opponent" overlay for multiplayer (T5-MP6 + T5-MP8)
 	_setup_waiting_for_opponent_overlay()
+
+	# MA-42: Setup reactive stratagem blocking overlay
+	_setup_reactive_stratagem_overlay()
 
 	# T5-MP8: Setup phase timer HUD for multiplayer
 	_setup_phase_timer_hud()
@@ -981,6 +992,103 @@ func _stop_opponent_zone_pulse() -> void:
 	# Restore zone modulates via the normal visibility function
 	if current_phase == GameStateData.Phase.DEPLOYMENT:
 		update_deployment_zone_visibility()
+
+# =============================================================================
+# MA-42: Reactive Stratagem Blocking Overlay
+# =============================================================================
+
+func _setup_reactive_stratagem_overlay() -> void:
+	# MA-42: Full-screen semi-transparent overlay that blocks active player input
+	# while the non-active player is deciding on a reactive stratagem.
+	_reactive_stratagem_overlay = ColorRect.new()
+	_reactive_stratagem_overlay.name = "ReactiveStratagemOverlay"
+	_reactive_stratagem_overlay.anchor_left = 0.0
+	_reactive_stratagem_overlay.anchor_right = 1.0
+	_reactive_stratagem_overlay.anchor_top = 0.0
+	_reactive_stratagem_overlay.anchor_bottom = 1.0
+	_reactive_stratagem_overlay.color = Color(0.0, 0.0, 0.0, 0.45)
+	_reactive_stratagem_overlay.mouse_filter = Control.MOUSE_FILTER_STOP  # Block all input
+	_reactive_stratagem_overlay.visible = false
+	add_child(_reactive_stratagem_overlay)
+
+	# Centered banner panel
+	_reactive_stratagem_overlay_panel = PanelContainer.new()
+	_reactive_stratagem_overlay_panel.anchor_left = 0.25
+	_reactive_stratagem_overlay_panel.anchor_right = 0.75
+	_reactive_stratagem_overlay_panel.anchor_top = 0.35
+	_reactive_stratagem_overlay_panel.anchor_bottom = 0.35
+	_reactive_stratagem_overlay_panel.offset_top = 0
+	_reactive_stratagem_overlay_panel.offset_bottom = 120
+	_reactive_stratagem_overlay_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var banner_style = StyleBoxFlat.new()
+	banner_style.bg_color = Color(0.12, 0.08, 0.05, 0.97)
+	banner_style.border_color = _WhiteDwarfTheme.WH_GOLD
+	banner_style.set_border_width_all(3)
+	banner_style.set_corner_radius_all(8)
+	banner_style.set_content_margin_all(16)
+	_reactive_stratagem_overlay_panel.add_theme_stylebox_override("panel", banner_style)
+
+	var vbox = VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 8)
+	_reactive_stratagem_overlay_panel.add_child(vbox)
+
+	# Main text
+	_reactive_stratagem_overlay_label = Label.new()
+	_reactive_stratagem_overlay_label.text = "Waiting for opponent's stratagem decision..."
+	_reactive_stratagem_overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_reactive_stratagem_overlay_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	_reactive_stratagem_overlay_label.add_theme_font_size_override("font_size", 22)
+	vbox.add_child(_reactive_stratagem_overlay_label)
+
+	# Timer label
+	_reactive_stratagem_overlay_timer_label = Label.new()
+	_reactive_stratagem_overlay_timer_label.text = ""
+	_reactive_stratagem_overlay_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_reactive_stratagem_overlay_timer_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	_reactive_stratagem_overlay_timer_label.add_theme_font_size_override("font_size", 16)
+	vbox.add_child(_reactive_stratagem_overlay_timer_label)
+
+	_reactive_stratagem_overlay.add_child(_reactive_stratagem_overlay_panel)
+	print("Main: MA-42 Reactive stratagem blocking overlay created")
+
+func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> void:
+	# MA-42: Show blocking overlay to the active player while opponent decides
+	if not _reactive_stratagem_overlay:
+		return
+	_reactive_stratagem_pending = true
+	_reactive_stratagem_overlay_label.text = "Waiting for opponent's %s decision..." % stratagem_name
+	_reactive_stratagem_overlay_timer_label.text = "Auto-declining in 5 seconds..."
+	_reactive_stratagem_overlay.visible = true
+
+	# Start pulse animation
+	if _reactive_stratagem_overlay_pulse_tween:
+		_reactive_stratagem_overlay_pulse_tween.kill()
+	_reactive_stratagem_overlay_pulse_tween = create_tween().set_loops()
+	_reactive_stratagem_overlay_pulse_tween.tween_property(
+		_reactive_stratagem_overlay_panel, "modulate", Color(1, 1, 1, 0.7), 1.2
+	).set_trans(Tween.TRANS_SINE)
+	_reactive_stratagem_overlay_pulse_tween.tween_property(
+		_reactive_stratagem_overlay_panel, "modulate", Color(1, 1, 1, 1.0), 1.2
+	).set_trans(Tween.TRANS_SINE)
+
+	print("Main: MA-42 Showing reactive stratagem blocking overlay (%s)" % stratagem_name)
+
+func hide_reactive_stratagem_waiting() -> void:
+	# MA-42: Hide the blocking overlay when the decision is made or timer expires
+	if not _reactive_stratagem_overlay:
+		return
+	if not _reactive_stratagem_pending:
+		return
+	_reactive_stratagem_pending = false
+	_reactive_stratagem_overlay.visible = false
+	if _reactive_stratagem_overlay_pulse_tween:
+		_reactive_stratagem_overlay_pulse_tween.kill()
+		_reactive_stratagem_overlay_pulse_tween = null
+	if _reactive_stratagem_overlay_panel:
+		_reactive_stratagem_overlay_panel.modulate = Color(1, 1, 1, 1)
+	print("Main: MA-42 Hiding reactive stratagem blocking overlay")
 
 # =============================================================================
 # P3-56: Web Relay "Waiting for game state" Loading Screen
