@@ -213,14 +213,18 @@ func _build_transport_section() -> void:
 			transport_container.add_child(checkbox)
 
 func _build_reserves_section() -> void:
-	"""Build the reserves declaration section."""
+	"""Build the reserves declaration section.
+	Characters attached to bodyguards are shown as part of the bodyguard entry.
+	Unattached characters appear as independent entries."""
 	var sep = HSeparator.new()
+	sep.set_meta("reserves_section", true)
 	content_vbox.add_child(sep)
 
 	var section_label = Label.new()
-	section_label.text = "STRATEGIC RESERVES"
+	section_label.text = "STRATEGIC RESERVES / DEEP STRIKE"
 	section_label.add_theme_font_size_override("font_size", 14)
 	section_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	section_label.set_meta("reserves_section", true)
 	content_vbox.add_child(section_label)
 
 	var total_points = GameState.get_total_army_points(declaring_player)
@@ -230,7 +234,13 @@ func _build_reserves_section() -> void:
 	desc_label.text = "Place units in reserves (max 50%% of army points = %d pts):" % max_reserves
 	desc_label.add_theme_font_size_override("font_size", 12)
 	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
+	desc_label.set_meta("reserves_section", true)
 	content_vbox.add_child(desc_label)
+
+	# Build a set of character IDs that are currently attached to bodyguards
+	var attached_character_ids = {}
+	for char_id in leader_attachments:
+		attached_character_ids[char_id] = leader_attachments[char_id]
 
 	var units = GameState.get_units_for_player(declaring_player)
 	for unit_id in units:
@@ -239,23 +249,50 @@ func _build_reserves_section() -> void:
 		var unit_points = unit.get("meta", {}).get("points", 0)
 		var has_deep_strike = GameState.unit_has_deep_strike(unit_id)
 
-		# Skip CHARACTERs with Leader ability (they deploy with their bodyguard)
+		# Skip characters that are attached to a bodyguard (they go with their bodyguard)
 		var keywords = unit.get("meta", {}).get("keywords", [])
-		var leader_data = unit.get("meta", {}).get("leader_data", {})
-		if "CHARACTER" in keywords and leader_data.get("can_lead", []).size() > 0:
+		if "CHARACTER" in keywords and attached_character_ids.has(unit_id):
 			continue
 
 		# Skip transports (they need to be on the board)
 		if unit.has("transport_data"):
 			continue
 
-		var reserve_type_label = "Deep Strike" if has_deep_strike else "Strategic Reserves"
+		# Determine reserve type — if a unit OR any of its attached characters has deep strike, it's DS
+		var combined_has_ds = has_deep_strike
+		var combined_points = unit_points
+		var attached_chars_text = ""
+
+		# Check if this unit has any attached characters (bodyguard check)
+		var attached_chars_on_this = []
+		for char_id in leader_attachments:
+			if leader_attachments[char_id] == unit_id:
+				attached_chars_on_this.append(char_id)
+
+		for char_id in attached_chars_on_this:
+			var char_unit = GameState.get_unit(char_id)
+			var char_name = char_unit.get("meta", {}).get("name", char_id)
+			var char_points = char_unit.get("meta", {}).get("points", 0)
+			combined_points += char_points
+			if GameState.unit_has_deep_strike(char_id):
+				combined_has_ds = true
+			if attached_chars_text == "":
+				attached_chars_text = " + %s (%d pts)" % [char_name, char_points]
+			else:
+				attached_chars_text += " + %s (%d pts)" % [char_name, char_points]
+
+		var reserve_type_label = "Deep Strike" if combined_has_ds else "Strategic Reserves"
 
 		var checkbox = CheckBox.new()
-		checkbox.text = "%s (%d pts) — %s" % [unit_name, unit_points, reserve_type_label]
+		if attached_chars_on_this.size() > 0:
+			checkbox.text = "%s (%d pts)%s — %s" % [unit_name, unit_points, attached_chars_text, reserve_type_label]
+		else:
+			checkbox.text = "%s (%d pts) — %s" % [unit_name, unit_points, reserve_type_label]
 		checkbox.set_meta("unit_id", unit_id)
-		checkbox.set_meta("unit_points", unit_points)
-		checkbox.set_meta("reserve_type", "deep_strike" if has_deep_strike else "strategic_reserves")
+		checkbox.set_meta("unit_points", combined_points)
+		checkbox.set_meta("attached_character_ids", attached_chars_on_this)
+		checkbox.set_meta("reserve_type", "deep_strike" if combined_has_ds else "strategic_reserves")
+		checkbox.set_meta("reserves_section", true)
 		checkbox.toggled.connect(_on_reserves_checkbox_toggled.bind(checkbox))
 		content_vbox.add_child(checkbox)
 
@@ -315,6 +352,13 @@ func _on_leader_option_changed(index: int, option_button: OptionButton) -> void:
 
 		leader_attachments[character_id] = bodyguard_id
 
+	# Remove any reserves declarations that are now invalid due to attachment changes
+	# (e.g. character was in reserves independently but is now attached to a bodyguard)
+	_sync_reserves_after_attachment_change()
+
+	# Rebuild reserves section to reflect attachment changes
+	_rebuild_reserves_section()
+
 	_update_summary()
 
 func _reset_leader_option_for_character(char_id: String) -> void:
@@ -363,6 +407,7 @@ func _on_reserves_checkbox_toggled(toggled_on: bool, checkbox: CheckBox) -> void
 	var unit_id = checkbox.get_meta("unit_id")
 	var reserve_type = checkbox.get_meta("reserve_type")
 	var unit_points = checkbox.get_meta("unit_points")
+	var attached_char_ids = checkbox.get_meta("attached_character_ids") if checkbox.has_meta("attached_character_ids") else []
 
 	if toggled_on:
 		# Check 50% point limit (Chapter Approved 2025-26)
@@ -380,7 +425,11 @@ func _on_reserves_checkbox_toggled(toggled_on: bool, checkbox: CheckBox) -> void
 			checkbox.button_pressed = false
 			return
 
-		reserves.append({"unit_id": unit_id, "reserve_type": reserve_type})
+		reserves.append({
+			"unit_id": unit_id,
+			"reserve_type": reserve_type,
+			"attached_character_ids": attached_char_ids
+		})
 	else:
 		for i in range(reserves.size()):
 			if reserves[i].get("unit_id", "") == unit_id:
@@ -411,6 +460,43 @@ func _on_canceled() -> void:
 # Helper Methods
 # ========================================
 
+func _sync_reserves_after_attachment_change() -> void:
+	"""Remove reserves entries for characters that are now attached to bodyguards.
+	Attached characters will go with their bodyguard automatically."""
+	var to_remove = []
+	for i in range(reserves.size()):
+		var entry_unit_id = reserves[i].get("unit_id", "")
+		if leader_attachments.has(entry_unit_id):
+			# This character is now attached — remove its independent reserves entry
+			to_remove.append(i)
+	# Remove in reverse order to maintain indices
+	to_remove.reverse()
+	for idx in to_remove:
+		reserves.remove_at(idx)
+
+func _rebuild_reserves_section() -> void:
+	"""Remove and rebuild the reserves section to reflect attachment changes."""
+	# Remove all existing reserves section UI elements
+	var to_remove = []
+	for child in content_vbox.get_children():
+		if child.has_meta("reserves_section"):
+			to_remove.append(child)
+	for child in to_remove:
+		content_vbox.remove_child(child)
+		child.queue_free()
+
+	# Rebuild
+	_build_reserves_section()
+
+	# Re-check any checkboxes that are still in the reserves array
+	for child in content_vbox.get_children():
+		if child is CheckBox and child.has_meta("reserves_section") and child.has_meta("unit_id"):
+			var uid = child.get_meta("unit_id")
+			for entry in reserves:
+				if entry.get("unit_id", "") == uid:
+					child.set_pressed_no_signal(true)
+					break
+
 func _get_embarked_model_count(transport_id: String) -> int:
 	var total = 0
 	for unit_id in transport_embarkations.get(transport_id, []):
@@ -425,17 +511,30 @@ func _get_declared_reserves_points() -> int:
 	for entry in reserves:
 		var unit = GameState.get_unit(entry.get("unit_id", ""))
 		total += unit.get("meta", {}).get("points", 0)
+		# Include attached character points
+		for char_id in entry.get("attached_character_ids", []):
+			var char_unit = GameState.get_unit(char_id)
+			total += char_unit.get("meta", {}).get("points", 0)
 	return total
 
 func _is_unit_in_use(unit_id: String) -> bool:
 	"""Check if a unit is already declared in attachments, transport, or reserves."""
 	if leader_attachments.has(unit_id):
 		return true
+	# Check if this unit is a bodyguard that has a character attached going to reserves with it
+	for char_id in leader_attachments:
+		if leader_attachments[char_id] == unit_id:
+			# This unit has an attached character — but that doesn't make it "in use"
+			pass
 	for transport_id in transport_embarkations:
 		if unit_id in transport_embarkations[transport_id]:
 			return true
 	for entry in reserves:
 		if entry.get("unit_id", "") == unit_id:
+			return true
+		# Also check if this unit is an attached character going with a bodyguard
+		var attached_chars = entry.get("attached_character_ids", [])
+		if unit_id in attached_chars:
 			return true
 	return false
 
@@ -475,8 +574,16 @@ func _update_summary() -> void:
 		for entry in reserves:
 			var unit_name = GameState.get_unit(entry["unit_id"]).get("meta", {}).get("name", entry["unit_id"])
 			var type_label = "DS" if entry["reserve_type"] == "deep_strike" else "SR"
-			parts.append("%s [%s]" % [unit_name, type_label])
+			var entry_text = "%s [%s]" % [unit_name, type_label]
 			total_pts += GameState.get_unit(entry["unit_id"]).get("meta", {}).get("points", 0)
+			# Show attached characters
+			for char_id in entry.get("attached_character_ids", []):
+				var char_unit = GameState.get_unit(char_id)
+				var char_name = char_unit.get("meta", {}).get("name", char_id)
+				var char_pts = char_unit.get("meta", {}).get("points", 0)
+				entry_text += " + %s" % char_name
+				total_pts += char_pts
+			parts.append(entry_text)
 		var total_army = GameState.get_total_army_points(declaring_player)
 		var max_pts = int(total_army * 0.50)
 		text += ", ".join(parts) + " (%d/%d pts)\n" % [total_pts, max_pts]

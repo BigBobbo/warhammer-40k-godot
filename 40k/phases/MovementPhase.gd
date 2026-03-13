@@ -1934,7 +1934,8 @@ func _resolve_bomb_squigs(unit_id: String, target_unit_id: String) -> Dictionary
 
 func _get_rapid_ingress_eligible_units(player: int) -> Array:
 	"""Get reserve units eligible for Rapid Ingress for the given player.
-	Returns array of { unit_id: String, unit_name: String, reserve_type: String }."""
+	Returns array of { unit_id: String, unit_name: String, reserve_type: String }.
+	Attached characters are excluded — they arrive with their bodyguard."""
 	var eligible = []
 	var battle_round = GameState.get_battle_round()
 
@@ -1942,6 +1943,10 @@ func _get_rapid_ingress_eligible_units(player: int) -> Array:
 	for unit_id in reserves:
 		var unit = get_unit(unit_id)
 		if unit.is_empty():
+			continue
+
+		# Skip attached characters — they arrive with their bodyguard
+		if unit.get("attached_to", "") != "":
 			continue
 
 		var reserve_type = unit.get("reserve_type", "strategic_reserves")
@@ -1952,6 +1957,13 @@ func _get_rapid_ingress_eligible_units(player: int) -> Array:
 		# (Special rules allowing Round 1 arrival are not yet implemented.)
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		# Show attached characters in the name
+		var attachment_data = unit.get("attachment_data", {})
+		var attached_chars = attachment_data.get("attached_characters", [])
+		for char_id in attached_chars:
+			var char_unit = get_unit(char_id)
+			if char_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+				unit_name += " + " + char_unit.get("meta", {}).get("name", char_id)
 		eligible.append({
 			"unit_id": unit_id,
 			"unit_name": unit_name,
@@ -2225,6 +2237,34 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 		"value": GameStateData.UnitStatus.DEPLOYED
 	})
 
+	# Deploy attached characters that are also in reserves (same logic as PLACE_REINFORCEMENT)
+	var unit = get_unit(unit_id)
+	var attachment_data = unit.get("attachment_data", {})
+	var attached_chars = attachment_data.get("attached_characters", [])
+
+	for char_id in attached_chars:
+		var char_unit = get_unit(char_id)
+		if char_unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		var char_models = char_unit.get("models", [])
+		for ci in range(char_models.size()):
+			var char_pos = null
+			if model_positions.size() > 0 and model_positions[0] != null:
+				char_pos = Vector2(model_positions[0].x + 40.0 * (ci + 1), model_positions[0].y)
+			if char_pos != null:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.position" % [char_id, ci],
+					"value": {"x": char_pos.x, "y": char_pos.y}
+				})
+		changes.append({
+			"op": "set",
+			"path": "units.%s.status" % char_id,
+			"value": GameStateData.UnitStatus.DEPLOYED
+		})
+		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		log_phase_message("Attached character %s arrived via Rapid Ingress with bodyguard" % char_name)
+
 	# Apply changes through PhaseManager
 	if get_parent() and get_parent().has_method("apply_state_changes"):
 		get_parent().apply_state_changes(changes)
@@ -2232,8 +2272,10 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 	# Update local snapshot
 	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
 		game_state_snapshot.units[unit_id]["status"] = GameStateData.UnitStatus.DEPLOYED
+	for char_id in attached_chars:
+		if game_state_snapshot.has("units") and game_state_snapshot.units.has(char_id):
+			game_state_snapshot.units[char_id]["status"] = GameStateData.UnitStatus.DEPLOYED
 
-	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
 	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
@@ -3237,6 +3279,47 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 		"value": GameStateData.UnitStatus.DEPLOYED
 	})
 
+	# Deploy attached characters that are also in reserves
+	# Per 10e rules, attached characters arrive together with their bodyguard
+	var unit = get_unit(unit_id)
+	var attachment_data = unit.get("attachment_data", {})
+	var attached_chars = attachment_data.get("attached_characters", [])
+	var char_model_positions = action.get("character_model_positions", {})
+
+	for char_id in attached_chars:
+		var char_unit = get_unit(char_id)
+		if char_unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
+			continue
+
+		# Deploy the character — use provided positions or place near the bodyguard
+		var char_positions = char_model_positions.get(char_id, [])
+		var char_models = char_unit.get("models", [])
+		for ci in range(char_models.size()):
+			var char_pos = null
+			if ci < char_positions.size():
+				char_pos = char_positions[ci]
+			elif model_positions.size() > 0:
+				# Place near the first bodyguard model with a small offset
+				var base_pos = model_positions[0]
+				if base_pos != null:
+					# Offset based on character model index (40px = ~1 inch)
+					char_pos = Vector2(base_pos.x + 40.0 * (ci + 1), base_pos.y)
+			if char_pos != null:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.position" % [char_id, ci],
+					"value": {"x": char_pos.x, "y": char_pos.y}
+				})
+
+		changes.append({
+			"op": "set",
+			"path": "units.%s.status" % char_id,
+			"value": GameStateData.UnitStatus.DEPLOYED
+		})
+
+		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		log_phase_message("Attached character %s arrived with bodyguard from reserves" % char_name)
+
 	# Apply changes through PhaseManager
 	if get_parent() and get_parent().has_method("apply_state_changes"):
 		get_parent().apply_state_changes(changes)
@@ -3244,8 +3327,10 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	# Update local snapshot
 	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
 		game_state_snapshot.units[unit_id]["status"] = GameStateData.UnitStatus.DEPLOYED
+	for char_id in attached_chars:
+		if game_state_snapshot.has("units") and game_state_snapshot.units.has(char_id):
+			game_state_snapshot.units[char_id]["status"] = GameStateData.UnitStatus.DEPLOYED
 
-	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
 	var placement_type = action.get("placement_type", reserve_type)
@@ -4315,9 +4400,26 @@ func get_available_actions() -> Array:
 		var reserves = GameState.get_reserves_for_player(current_player)
 		for reserve_unit_id in reserves:
 			var reserve_unit = get_unit(reserve_unit_id)
+
+			# Skip attached characters — they arrive with their bodyguard automatically
+			if reserve_unit.get("attached_to", "") != "":
+				continue
+
 			var reserve_name = reserve_unit.get("meta", {}).get("name", reserve_unit_id)
 			var reserve_type = reserve_unit.get("reserve_type", "strategic_reserves")
 			var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Reserves"
+
+			# Show attached characters in the description
+			var attachment_data = reserve_unit.get("attachment_data", {})
+			var attached_chars = attachment_data.get("attached_characters", [])
+			var char_names = []
+			for char_id in attached_chars:
+				var char_unit = get_unit(char_id)
+				if char_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+					char_names.append(char_unit.get("meta", {}).get("name", char_id))
+			var char_suffix = ""
+			if char_names.size() > 0:
+				char_suffix = " + " + ", ".join(char_names)
 
 			# P2-80: Flag units that can choose between Deep Strike and Strategic Reserves placement
 			var has_ds_choice = false
@@ -4328,7 +4430,7 @@ func get_available_actions() -> Array:
 			actions.append({
 				"type": "PLACE_REINFORCEMENT",
 				"unit_id": reserve_unit_id,
-				"description": "Arrive from %s: %s" % [type_label, reserve_name],
+				"description": "Arrive from %s: %s%s" % [type_label, reserve_name, char_suffix],
 				"has_ds_choice": has_ds_choice
 			})
 

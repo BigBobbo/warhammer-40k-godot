@@ -1805,7 +1805,17 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		if not deployment_controller.unit_confirmed.is_connected(_on_reinforcement_confirmed):
 			deployment_controller.unit_confirmed.connect(_on_reinforcement_confirmed)
 
-		status_label.text = "Placing reinforcement: %s (%s) — >9\" from enemies" % [unit_name, type_label]
+		# Show attached characters in the status text
+		var attached_char_names = []
+		var attachment_data = unit.get("attachment_data", {})
+		for char_id in attachment_data.get("attached_characters", []):
+			var char_unit = GameState.get_unit(char_id)
+			if char_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+				attached_char_names.append(char_unit.get("meta", {}).get("name", char_id))
+		var char_suffix = ""
+		if attached_char_names.size() > 0:
+			char_suffix = " + " + ", ".join(attached_char_names)
+		status_label.text = "Placing reinforcement: %s%s (%s) — >9\" from enemies" % [unit_name, char_suffix, type_label]
 		# P2-80: Show board edge constraint only for strategic reserves placement
 		if placement_type == "strategic_reserves":
 			status_label.text += " — within 6\" of board edge"
@@ -1866,10 +1876,20 @@ func _on_reinforcement_confirmed() -> void:
 
 	if result.success:
 		var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+		# Check for attached characters that also arrived
+		var attachment_data = unit_data.get("attachment_data", {})
+		var arrived_chars = []
+		for char_id in attachment_data.get("attached_characters", []):
+			var char_unit = GameState.get_unit(char_id)
+			if char_unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
+				arrived_chars.append(char_unit.get("meta", {}).get("name", char_id))
+		var toast_text = "Reinforcement arrived: %s" % unit_name
+		if arrived_chars.size() > 0:
+			toast_text += " + " + ", ".join(arrived_chars)
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr:
-			toast_mgr.show_success("Reinforcement arrived: %s" % unit_name)
-		print("Main: Reinforcement placed successfully for %s" % unit_name)
+			toast_mgr.show_success(toast_text)
+		print("Main: Reinforcement placed successfully for %s" % toast_text)
 	else:
 		var errors = result.get("errors", [])
 		var error_msg = errors[0] if errors.size() > 0 else "Failed to place reinforcement"
@@ -4159,16 +4179,36 @@ func refresh_unit_list() -> void:
 
 			# Show reinforcements header if there are reserve units and it's Turn 2+
 			var reserves = GameState.get_reserves_for_player(active_player)
-			if reserves.size() > 0 and battle_round >= 2:
+			# Filter out characters that are attached to a bodyguard in reserves
+			# (they arrive automatically with their bodyguard, not independently)
+			var independent_reserves = []
+			var attached_chars_in_reserves = {}  # bodyguard_id -> [char names]
+			for reserve_id in reserves:
+				var reserve_unit = GameState.get_unit(reserve_id)
+				var attached_to = reserve_unit.get("attached_to", "")
+				if attached_to != "":
+					# This is an attached character — don't show separately
+					if not attached_chars_in_reserves.has(attached_to):
+						attached_chars_in_reserves[attached_to] = []
+					var char_name = reserve_unit.get("meta", {}).get("name", reserve_id)
+					attached_chars_in_reserves[attached_to].append(char_name)
+				else:
+					independent_reserves.append(reserve_id)
+
+			if independent_reserves.size() > 0 and battle_round >= 2:
 				unit_list.add_item("--- REINFORCEMENTS (Reserves) ---")
 				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
-				for reserve_id in reserves:
+				for reserve_id in independent_reserves:
 					var reserve_unit = GameState.get_unit(reserve_id)
 					var reserve_name = reserve_unit.get("meta", {}).get("name", reserve_id)
 					var reserve_type = reserve_unit.get("reserve_type", "strategic_reserves")
 					var type_tag = "[DS]" if reserve_type == "deep_strike" else "[SR]"
 					var model_count = reserve_unit.get("models", []).size()
-					var display_text = "%s %s (%d models) - DEPLOY" % [type_tag, reserve_name, model_count]
+					# Show attached characters in the display text
+					var char_suffix = ""
+					if attached_chars_in_reserves.has(reserve_id):
+						char_suffix = " + " + ", ".join(attached_chars_in_reserves[reserve_id])
+					var display_text = "%s %s%s (%d models) - DEPLOY" % [type_tag, reserve_name, char_suffix, model_count]
 					unit_list.add_item(display_text)
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, reserve_id)
 				unit_list.add_item("--- DEPLOYED UNITS ---")
@@ -4622,6 +4662,16 @@ func _on_unit_selected(index: int) -> void:
 		# Check if this is a reserve unit arriving as reinforcement
 		var selected_unit = GameState.get_unit(unit_id)
 		if selected_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+			# Skip attached characters — they arrive with their bodyguard automatically
+			var attached_to = selected_unit.get("attached_to", "")
+			if attached_to != "":
+				var bg_name = GameState.get_unit(attached_to).get("meta", {}).get("name", attached_to)
+				print("Main: Attached character selected — will arrive with bodyguard %s" % bg_name)
+				var toast_mgr = get_node_or_null("/root/ToastManager")
+				if toast_mgr:
+					toast_mgr.show_info("This character will arrive with %s" % bg_name)
+				return
+
 			print("Main: Reserve unit selected for reinforcement: ", unit_id)
 			# P2-80: If unit has Deep Strike but is in Strategic Reserves, offer choice
 			var reserve_type = selected_unit.get("reserve_type", "strategic_reserves")
@@ -5064,12 +5114,16 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 
 	# Submit reserves declarations
 	for entry in formations.get("reserves", []):
-		NetworkIntegration.route_action({
+		var reserve_action = {
 			"type": "DECLARE_RESERVES",
 			"unit_id": entry["unit_id"],
 			"reserve_type": entry["reserve_type"],
 			"player": player
-		})
+		}
+		var attached_chars = entry.get("attached_character_ids", [])
+		if attached_chars.size() > 0:
+			reserve_action["attached_character_ids"] = attached_chars
+		NetworkIntegration.route_action(reserve_action)
 
 	# Confirm this player's formations
 	var confirm_result = NetworkIntegration.route_action({
