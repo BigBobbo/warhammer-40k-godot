@@ -12,6 +12,10 @@ signal load_failed(error: String)
 signal autosave_completed(file_path: String)
 signal save_files_received(save_files: Array)
 signal delete_completed(save_name: String)
+signal export_completed(file_path: String)
+signal export_failed(error: String)
+signal import_completed(file_path: String)
+signal import_failed(error: String)
 
 # SAVE-20: Progress indicator signals for save/load operations
 signal save_started(file_path: String)
@@ -21,6 +25,7 @@ signal operation_progress(stage: String, detail: String)  # e.g. ("serializing",
 const SAVE_EXTENSION = ".w40ksave"
 const METADATA_EXTENSION = ".meta"
 const BACKUP_EXTENSION = ".backup"
+const EXPORT_EXTENSION = ".w40kexport"
 const WEB_STORAGE_PREFIX = "w40k_save_"
 
 # SAVE-16: Multiple save slots
@@ -1164,6 +1169,211 @@ func get_autosave_directory() -> String:
 
 func get_last_save_path() -> String:
 	return last_save_path
+
+# ============================================================================
+# SAVE-19: Export/Import — Portable format for sharing save files
+# ============================================================================
+
+# Export a save file (or current game) to a portable .w40kexport file.
+# The export bundles game data + metadata into a single human-readable JSON
+# file that can be shared between players and imported on any machine.
+func export_save(export_path: String, source_save_path: String = "") -> bool:
+	print("SaveLoadManager: SAVE-19 export_save to: %s (source: %s)" % [export_path, source_save_path])
+
+	var game_state: Dictionary
+	var save_metadata: Dictionary
+
+	if source_save_path.is_empty():
+		# Export current game state directly
+		game_state = GameState.create_snapshot()
+		save_metadata = _create_save_metadata({"type": "export"})
+	else:
+		# Export from an existing save file
+		if not FileAccess.file_exists(source_save_path):
+			var error = "Source save file not found: %s" % source_save_path
+			print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+			emit_signal("export_failed", error)
+			return false
+
+		# Read and deserialize the source save
+		var file = FileAccess.open(source_save_path, FileAccess.READ)
+		if not file:
+			var error = "Failed to open source save: %s" % source_save_path
+			print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+			emit_signal("export_failed", error)
+			return false
+
+		var serialized_data = file.get_as_text()
+		file.close()
+
+		game_state = StateSerializer.deserialize_game_state(serialized_data)
+		if game_state.is_empty():
+			var error = "Failed to deserialize source save"
+			print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+			emit_signal("export_failed", error)
+			return false
+
+		save_metadata = _load_metadata(source_save_path)
+		if save_metadata.is_empty():
+			save_metadata = _create_save_metadata({"type": "export"})
+
+	if game_state.is_empty():
+		var error = "Game state is empty — nothing to export"
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("export_failed", error)
+		return false
+
+	# Build the portable export envelope
+	var export_data = {
+		"_export": {
+			"format": "w40k_portable_save",
+			"format_version": "1.0.0",
+			"exported_at": Time.get_datetime_string_from_system(),
+			"exported_from_version": StateSerializer.CURRENT_VERSION if StateSerializer else "1.1.0",
+			"source_file": source_save_path.get_file() if not source_save_path.is_empty() else "live_game"
+		},
+		"metadata": save_metadata,
+		"game_data": StateSerializer.serialize_game_state(game_state)
+	}
+
+	# Verify game_data serialized successfully
+	if export_data["game_data"].is_empty():
+		var error = "Failed to serialize game state for export"
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("export_failed", error)
+		return false
+
+	# Write as pretty-printed JSON (always human-readable for portability)
+	var export_json = JSON.stringify(export_data, "\t")
+
+	var out_file = FileAccess.open(export_path, FileAccess.WRITE)
+	if not out_file:
+		var error = "Failed to open export file for writing: %s (Error: %s)" % [export_path, str(FileAccess.get_open_error())]
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("export_failed", error)
+		return false
+
+	out_file.store_string(export_json)
+	out_file.close()
+
+	print("SaveLoadManager: SAVE-19 Exported save to %s (%d bytes)" % [export_path, export_json.length()])
+	emit_signal("export_completed", export_path)
+	return true
+
+# Import a portable .w40kexport file and load it into the game.
+func import_save(import_path: String) -> bool:
+	print("SaveLoadManager: SAVE-19 import_save from: %s" % import_path)
+
+	if not FileAccess.file_exists(import_path):
+		var error = "Import file not found: %s" % import_path
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("import_failed", error)
+		return false
+
+	var file = FileAccess.open(import_path, FileAccess.READ)
+	if not file:
+		var error = "Failed to open import file: %s" % import_path
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("import_failed", error)
+		return false
+
+	var raw_text = file.get_as_text()
+	file.close()
+
+	if raw_text.is_empty():
+		var error = "Import file is empty"
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("import_failed", error)
+		return false
+
+	# Parse the export envelope
+	var json = JSON.new()
+	var parse_result = json.parse(raw_text)
+	if parse_result != OK:
+		var error = "Invalid export file — JSON parse error at line %d: %s" % [json.get_error_line(), json.get_error_message()]
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("import_failed", error)
+		return false
+
+	var export_data = json.data
+	if not export_data is Dictionary:
+		var error = "Invalid export file — root is not a Dictionary"
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("import_failed", error)
+		return false
+
+	# Validate export envelope
+	if not export_data.has("_export") or not export_data.has("game_data"):
+		var error = "Invalid export file — missing _export header or game_data"
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("import_failed", error)
+		return false
+
+	var export_header = export_data["_export"]
+	if export_header.get("format", "") != "w40k_portable_save":
+		var error = "Unknown export format: %s" % export_header.get("format", "(none)")
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("import_failed", error)
+		return false
+
+	print("SaveLoadManager: SAVE-19 Export file valid — format_version=%s, exported_at=%s, source=%s" % [
+		export_header.get("format_version", "?"),
+		export_header.get("exported_at", "?"),
+		export_header.get("source_file", "?")
+	])
+
+	# The game_data field is the serialized game state string (JSON or compressed)
+	var game_data_string = export_data["game_data"]
+	if not game_data_string is String or game_data_string.is_empty():
+		var error = "Export file has empty or invalid game_data"
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("import_failed", error)
+		return false
+
+	# Deserialize using StateSerializer (handles compression, migration, validation)
+	var game_state = StateSerializer.deserialize_game_state(game_data_string)
+	if game_state.is_empty():
+		var error = "Failed to deserialize imported game data"
+		print("SaveLoadManager: SAVE-19 ERROR — %s" % error)
+		emit_signal("import_failed", error)
+		return false
+
+	# Load into GameState
+	print("SaveLoadManager: SAVE-19 Loading imported state into GameState...")
+	GameState.load_from_snapshot(game_state)
+
+	var metadata = export_data.get("metadata", {})
+	emit_signal("import_completed", import_path)
+	emit_signal("load_completed", import_path, metadata)
+	print("SaveLoadManager: SAVE-19 Import successful from %s" % import_path)
+
+	# Sync with multiplayer clients if in networked game
+	if NetworkManager and NetworkManager.is_networked():
+		print("SaveLoadManager: SAVE-19 Multiplayer detected — syncing imported state")
+		NetworkManager.sync_loaded_state()
+
+	return true
+
+# Export a selected save from the save list to a user-chosen path.
+# Convenience method that derives the source save path from a save name.
+func export_save_by_name(save_name: String, export_path: String) -> bool:
+	var sanitized_name = _sanitize_filename(save_name)
+	var source_path = save_directory + sanitized_name + SAVE_EXTENSION
+	return export_save(export_path, source_path)
+
+# Get the default export directory (user's Documents or home folder)
+func get_default_export_directory() -> String:
+	var home = OS.get_environment("HOME")
+	if home.is_empty():
+		home = OS.get_environment("USERPROFILE")  # Windows fallback
+	if home.is_empty():
+		return "res://saves/"
+
+	# Prefer Documents folder
+	var docs_path = home.path_join("Documents")
+	if DirAccess.dir_exists_absolute(docs_path):
+		return docs_path
+	return home
 
 # Debug methods
 func print_save_info() -> void:

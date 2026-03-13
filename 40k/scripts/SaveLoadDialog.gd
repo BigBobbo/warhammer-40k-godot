@@ -43,6 +43,12 @@ var sort_option_button: OptionButton
 var filter_input: LineEdit
 var _unfiltered_save_files: Array = []  # Full list before filtering
 
+# SAVE-19: Export/Import UI references
+var export_button: Button
+var import_button: Button
+var _export_file_dialog: FileDialog
+var _import_file_dialog: FileDialog
+
 func _ready() -> void:
 	# Configure as full-screen overlay (hidden initially)
 	visible = false
@@ -408,6 +414,23 @@ func _build_ui() -> void:
 	delete_button.pressed.connect(_on_delete_button_pressed)
 	btn_row.add_child(delete_button)
 
+	# SAVE-19: Export button (exports selected save to portable file)
+	export_button = Button.new()
+	export_button.text = "Export"
+	export_button.custom_minimum_size = Vector2(100, 40)
+	export_button.disabled = true
+	WhiteDwarfThemeData.apply_to_button(export_button)
+	export_button.pressed.connect(_on_export_button_pressed)
+	btn_row.add_child(export_button)
+
+	# SAVE-19: Import button (imports a portable save file)
+	import_button = Button.new()
+	import_button.text = "Import"
+	import_button.custom_minimum_size = Vector2(100, 40)
+	WhiteDwarfThemeData.apply_to_button(import_button)
+	import_button.pressed.connect(_on_import_button_pressed)
+	btn_row.add_child(import_button)
+
 	# Spacer
 	var spacer = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -658,6 +681,12 @@ func _update_button_states() -> void:
 		is_shared = save_files_data[selected_save_index].get("ownership", "own") == "shared"
 	if delete_button:
 		delete_button.disabled = not has_selection or is_shared
+	# SAVE-19: Export requires a selected save (desktop only)
+	if export_button:
+		export_button.disabled = not has_selection or is_web_platform
+	# SAVE-19: Import is always available on desktop
+	if import_button:
+		import_button.disabled = is_web_platform
 
 func _sanitize_save_name(input_name: String) -> String:
 	var sanitized = input_name.strip_edges()
@@ -1182,6 +1211,136 @@ func _perform_slot_load(slot: int) -> void:
 	print("SaveLoadDialog: SAVE-16 Loading from slot %d" % slot)
 	emit_signal("load_requested", "slot_%d" % slot, "")
 	hide()
+
+# ============================================================================
+# SAVE-19: Export/Import — Portable save file sharing
+# ============================================================================
+
+func _on_export_button_pressed() -> void:
+	if selected_save_index < 0 or selected_save_index >= save_files_data.size():
+		print("SaveLoadDialog: SAVE-19 Export pressed but no save selected")
+		return
+
+	var save_info = save_files_data[selected_save_index]
+	var display_name = save_info.get("display_name", "save")
+	print("SaveLoadDialog: SAVE-19 Export pressed for: %s" % display_name)
+
+	# Create and show export file dialog
+	if _export_file_dialog:
+		_export_file_dialog.queue_free()
+
+	_export_file_dialog = FileDialog.new()
+	_export_file_dialog.title = "Export Save — %s" % display_name
+	_export_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_export_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_export_file_dialog.add_filter("*.w40kexport", "W40K Portable Save")
+	_export_file_dialog.current_file = display_name + SaveLoadManager.EXPORT_EXTENSION
+	_export_file_dialog.current_dir = SaveLoadManager.get_default_export_directory()
+	_export_file_dialog.size = Vector2i(700, 500)
+
+	var parent = get_tree().current_scene if get_tree().current_scene else get_parent()
+	parent.add_child(_export_file_dialog)
+
+	# Store selected save path for the callback
+	var source_path = save_info.get("file_path", "")
+	_export_file_dialog.file_selected.connect(_on_export_file_selected.bind(source_path))
+	_export_file_dialog.canceled.connect(func():
+		print("SaveLoadDialog: SAVE-19 Export cancelled")
+		_export_file_dialog.queue_free()
+		_export_file_dialog = null
+	)
+	_export_file_dialog.close_requested.connect(func():
+		_export_file_dialog.queue_free()
+		_export_file_dialog = null
+	)
+	_export_file_dialog.popup_centered()
+
+func _on_export_file_selected(path: String, source_save_path: String) -> void:
+	print("SaveLoadDialog: SAVE-19 Export file selected: %s (source: %s)" % [path, source_save_path])
+
+	# Ensure .w40kexport extension
+	if not path.ends_with(SaveLoadManager.EXPORT_EXTENSION):
+		path = path + SaveLoadManager.EXPORT_EXTENSION
+
+	var success = SaveLoadManager.export_save(path, source_save_path)
+	if success:
+		_show_export_result("Save exported successfully!\n\nFile: %s" % path)
+	else:
+		_show_export_result("Export failed. Check the log for details.")
+
+	if _export_file_dialog:
+		_export_file_dialog.queue_free()
+		_export_file_dialog = null
+
+func _on_import_button_pressed() -> void:
+	print("SaveLoadDialog: SAVE-19 Import pressed")
+
+	# Create and show import file dialog
+	if _import_file_dialog:
+		_import_file_dialog.queue_free()
+
+	_import_file_dialog = FileDialog.new()
+	_import_file_dialog.title = "Import Portable Save"
+	_import_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_import_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_import_file_dialog.add_filter("*.w40kexport", "W40K Portable Save")
+	_import_file_dialog.current_dir = SaveLoadManager.get_default_export_directory()
+	_import_file_dialog.size = Vector2i(700, 500)
+
+	var parent = get_tree().current_scene if get_tree().current_scene else get_parent()
+	parent.add_child(_import_file_dialog)
+
+	_import_file_dialog.file_selected.connect(_on_import_file_selected)
+	_import_file_dialog.canceled.connect(func():
+		print("SaveLoadDialog: SAVE-19 Import cancelled")
+		_import_file_dialog.queue_free()
+		_import_file_dialog = null
+	)
+	_import_file_dialog.close_requested.connect(func():
+		_import_file_dialog.queue_free()
+		_import_file_dialog = null
+	)
+	_import_file_dialog.popup_centered()
+
+func _on_import_file_selected(path: String) -> void:
+	print("SaveLoadDialog: SAVE-19 Import file selected: %s" % path)
+
+	# Show confirmation dialog before importing (replaces current game)
+	var confirmation = ConfirmationDialog.new()
+	confirmation.dialog_text = "Importing a save will replace your current game.\nAny unsaved progress will be lost.\n\nImport from:\n%s" % path.get_file()
+	confirmation.title = "Import Save?"
+	var parent = get_tree().current_scene if get_tree().current_scene else get_parent()
+	parent.add_child(confirmation)
+
+	confirmation.confirmed.connect(func():
+		_perform_import(path)
+		confirmation.queue_free()
+	)
+	confirmation.canceled.connect(func(): confirmation.queue_free())
+	confirmation.close_requested.connect(func(): confirmation.queue_free())
+	confirmation.popup_centered()
+
+	if _import_file_dialog:
+		_import_file_dialog.queue_free()
+		_import_file_dialog = null
+
+func _perform_import(path: String) -> void:
+	var success = SaveLoadManager.import_save(path)
+	if success:
+		print("SaveLoadDialog: SAVE-19 Import successful — hiding dialog")
+		hide()
+	else:
+		_show_export_result("Import failed. The file may be corrupted or incompatible.\nCheck the log for details.")
+
+func _show_export_result(message: String) -> void:
+	var dialog = AcceptDialog.new()
+	dialog.dialog_text = message
+	dialog.title = "Export/Import"
+	var parent = get_tree().current_scene if get_tree().current_scene else get_parent()
+	parent.add_child(dialog)
+	dialog.confirmed.connect(func(): dialog.queue_free())
+	dialog.close_requested.connect(func(): dialog.queue_free())
+	dialog.popup_centered()
 
 # Debug methods
 func print_debug_info() -> void:
