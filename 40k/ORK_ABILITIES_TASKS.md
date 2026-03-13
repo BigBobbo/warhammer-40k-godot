@@ -318,9 +318,9 @@
 - **Validation**: +1 Hit ranged (Morkanaut) or melee (Gorkanaut) during Waaagh!.
 
 ### OA-42: Implement "Scatter!" for Grot Tanks
-- [ ] Reactive 6" move when enemy ends move within 9"
-- [ ] Once per turn, not while in engagement range
-- **Files**: UnitAbilityManager.gd, MovementPhase.gd
+- [x] Reactive 6" move when enemy ends move within 9"
+- [x] Once per turn, not while in engagement range
+- **Files**: UnitAbilityManager.gd, MovementPhase.gd, MovementController.gd, ScatterDialog.gd
 - **Validation**: 6" reactive move. Once per turn. Not in engagement range.
 
 ### OA-43: Implement "Waaagh! Effigy" aura for Stompa

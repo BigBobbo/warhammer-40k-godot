@@ -50,6 +50,12 @@ var _scout_dragging_model: bool = false
 var _scout_drag_model_id: String = ""
 var _scout_drag_start_pos: Vector2 = Vector2.ZERO
 var _scout_move_distance: float = 0.0
+# Scout phase visual state (mirrors MovementController visuals)
+var _scout_ghost_visual: Node2D = null  # Container for ghost preview
+var _scout_path_visual: Line2D = null  # Path line from start to cursor
+var _scout_staged_path_visual: Node2D = null  # HumanMovementPathVisual for staged moves
+var _scout_movement_remaining_label: Label = null  # Floating distance label near ghost
+var _scout_selected_model_data: Dictionary = {}  # Full model data for ghost creation
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
 var view_rotation: float = 0.0  # Board rotation in radians (multiples of PI/2)
@@ -122,6 +128,7 @@ var reserves_button: Button = null
 var reinforcements_button: Button = null
 var _selected_unit_for_reserves: String = ""
 var _reinforcement_placement_type: String = ""  # P2-80: chosen placement type (deep_strike or strategic_reserves)
+var _deep_strike_exclusion_visual: Node2D = null  # 9" exclusion bubble around enemy models
 
 # Deployment zone toggle (Z key) - allows viewing zones after deployment phase
 var _deployment_zones_toggled_on: bool = false
@@ -1806,7 +1813,17 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		if not deployment_controller.unit_confirmed.is_connected(_on_reinforcement_confirmed):
 			deployment_controller.unit_confirmed.connect(_on_reinforcement_confirmed)
 
-		status_label.text = "Placing reinforcement: %s (%s) — >9\" from enemies" % [unit_name, type_label]
+		# Show attached characters in the status text
+		var attached_char_names = []
+		var attachment_data = unit.get("attachment_data", {})
+		for char_id in attachment_data.get("attached_characters", []):
+			var char_unit = GameState.get_unit(char_id)
+			if char_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+				attached_char_names.append(char_unit.get("meta", {}).get("name", char_id))
+		var char_suffix = ""
+		if attached_char_names.size() > 0:
+			char_suffix = " + " + ", ".join(attached_char_names)
+		status_label.text = "Placing reinforcement: %s%s (%s) — >9\" from enemies" % [unit_name, char_suffix, type_label]
 		# P2-80: Show board edge constraint only for strategic reserves placement
 		if placement_type == "strategic_reserves":
 			status_label.text += " — within 6\" of board edge"
@@ -1815,6 +1832,9 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		var omni_positions = GameState.get_omni_scrambler_positions(active_player)
 		if omni_positions.size() > 0:
 			status_label.text += " — >12\" from Omni-scramblers"
+
+		# Show 9" exclusion bubbles around all enemy models
+		_show_deep_strike_exclusion()
 
 		unit_list.visible = false
 		show_unit_card(unit_id)
@@ -1867,10 +1887,20 @@ func _on_reinforcement_confirmed() -> void:
 
 	if result.success:
 		var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+		# Check for attached characters that also arrived
+		var attachment_data = unit_data.get("attachment_data", {})
+		var arrived_chars = []
+		for char_id in attachment_data.get("attached_characters", []):
+			var char_unit = GameState.get_unit(char_id)
+			if char_unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
+				arrived_chars.append(char_unit.get("meta", {}).get("name", char_id))
+		var toast_text = "Reinforcement arrived: %s" % unit_name
+		if arrived_chars.size() > 0:
+			toast_text += " + " + ", ".join(arrived_chars)
 		var toast_mgr = get_node_or_null("/root/ToastManager")
 		if toast_mgr:
-			toast_mgr.show_success("Reinforcement arrived: %s" % unit_name)
-		print("Main: Reinforcement placed successfully for %s" % unit_name)
+			toast_mgr.show_success(toast_text)
+		print("Main: Reinforcement placed successfully for %s" % toast_text)
 	else:
 		var errors = result.get("errors", [])
 		var error_msg = errors[0] if errors.size() > 0 else "Failed to place reinforcement"
@@ -1881,6 +1911,9 @@ func _on_reinforcement_confirmed() -> void:
 
 	_selected_unit_for_reserves = ""
 	_reinforcement_placement_type = ""  # P2-80: Clear placement type choice
+
+	# Hide deep strike exclusion bubbles
+	_hide_deep_strike_exclusion()
 
 	# Reset reinforcement mode
 	if deployment_controller:
@@ -1893,6 +1926,27 @@ func _on_reinforcement_confirmed() -> void:
 
 	refresh_unit_list()
 	update_ui()
+
+func _show_deep_strike_exclusion() -> void:
+	"""Show 9-inch exclusion bubbles around all enemy models for reinforcement placement."""
+	_hide_deep_strike_exclusion()  # Clean up any existing visual
+	var active_player = GameState.get_active_player()
+	var enemy_positions = GameState.get_enemy_model_positions(active_player)
+	if enemy_positions.is_empty():
+		return
+	_deep_strike_exclusion_visual = load("res://scripts/DeepStrikeExclusionVisual.gd").new()
+	if ghost_layer:
+		ghost_layer.add_child(_deep_strike_exclusion_visual)
+	else:
+		add_child(_deep_strike_exclusion_visual)
+	_deep_strike_exclusion_visual.show_exclusion(enemy_positions)
+
+func _hide_deep_strike_exclusion() -> void:
+	"""Hide and free the deep strike exclusion visual."""
+	if _deep_strike_exclusion_visual and is_instance_valid(_deep_strike_exclusion_visual):
+		_deep_strike_exclusion_visual.hide_exclusion()
+		_deep_strike_exclusion_visual.queue_free()
+		_deep_strike_exclusion_visual = null
 
 # T4-7: Rapid Ingress placement — same as reinforcement but uses PLACE_RAPID_INGRESS_REINFORCEMENT
 var _rapid_ingress_unit_id: String = ""
@@ -1946,6 +2000,9 @@ func _begin_rapid_ingress_placement(unit_id: String) -> void:
 		status_label.text = "Rapid Ingress: placing %s (%s) — >9\" from enemies" % [unit_name, type_label]
 		if reserve_type == "strategic_reserves":
 			status_label.text += " — within 6\" of board edge"
+
+		# Show 9" exclusion bubbles around all enemy models
+		_show_deep_strike_exclusion()
 
 		unit_list.visible = false
 		show_unit_card(unit_id)
@@ -2008,6 +2065,9 @@ func _on_rapid_ingress_confirmed() -> void:
 		print("Main: Rapid Ingress placement failed: %s" % str(errors))
 
 	_rapid_ingress_unit_id = ""
+
+	# Hide deep strike exclusion bubbles
+	_hide_deep_strike_exclusion()
 
 	# Reset reinforcement mode
 	if deployment_controller:
@@ -3120,6 +3180,9 @@ func setup_phase_controllers() -> void:
 	if command_controller:
 		command_controller.queue_free()
 		command_controller = null
+	# Clean up scout phase visuals
+	_scout_destroy_visuals()
+	_scout_clear_highlights()
 	if movement_controller:
 		movement_controller.queue_free()
 		movement_controller = null
@@ -4283,24 +4346,44 @@ func refresh_unit_list() -> void:
 			print("Refreshing right panel unit list for scout - found ", pending_scouts.size(), " pending scout units")
 
 		GameStateData.Phase.MOVEMENT:
-			# Show deployed units during movement in right panel
-			unit_list.visible = true
+			# MovementController manages its own right panel UI, hide the shared unit list
+			unit_list.visible = false
 			var all_units = GameState.get_units_for_player(active_player)
 			var deployed_count = 0
 			var battle_round = GameState.get_battle_round()
 
 			# Show reinforcements header if there are reserve units and it's Turn 2+
 			var reserves = GameState.get_reserves_for_player(active_player)
-			if reserves.size() > 0 and battle_round >= 2:
+			# Filter out characters that are attached to a bodyguard in reserves
+			# (they arrive automatically with their bodyguard, not independently)
+			var independent_reserves = []
+			var attached_chars_in_reserves = {}  # bodyguard_id -> [char names]
+			for reserve_id in reserves:
+				var reserve_unit = GameState.get_unit(reserve_id)
+				var attached_to = reserve_unit.get("attached_to", "")
+				if attached_to != "":
+					# This is an attached character — don't show separately
+					if not attached_chars_in_reserves.has(attached_to):
+						attached_chars_in_reserves[attached_to] = []
+					var char_name = reserve_unit.get("meta", {}).get("name", reserve_id)
+					attached_chars_in_reserves[attached_to].append(char_name)
+				else:
+					independent_reserves.append(reserve_id)
+
+			if independent_reserves.size() > 0 and battle_round >= 2:
 				unit_list.add_item("--- REINFORCEMENTS (Reserves) ---")
 				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
-				for reserve_id in reserves:
+				for reserve_id in independent_reserves:
 					var reserve_unit = GameState.get_unit(reserve_id)
 					var reserve_name = reserve_unit.get("meta", {}).get("name", reserve_id)
 					var reserve_type = reserve_unit.get("reserve_type", "strategic_reserves")
 					var type_tag = "[DS]" if reserve_type == "deep_strike" else "[SR]"
 					var model_count = reserve_unit.get("models", []).size()
-					var display_text = "%s %s (%d models) - DEPLOY" % [type_tag, reserve_name, model_count]
+					# Show attached characters in the display text
+					var char_suffix = ""
+					if attached_chars_in_reserves.has(reserve_id):
+						char_suffix = " + " + ", ".join(attached_chars_in_reserves[reserve_id])
+					var display_text = "%s %s%s (%d models) - DEPLOY" % [type_tag, reserve_name, char_suffix, model_count]
 					unit_list.add_item(display_text)
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, reserve_id)
 				unit_list.add_item("--- DEPLOYED UNITS ---")
@@ -4754,6 +4837,16 @@ func _on_unit_selected(index: int) -> void:
 		# Check if this is a reserve unit arriving as reinforcement
 		var selected_unit = GameState.get_unit(unit_id)
 		if selected_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+			# Skip attached characters — they arrive with their bodyguard automatically
+			var attached_to = selected_unit.get("attached_to", "")
+			if attached_to != "":
+				var bg_name = GameState.get_unit(attached_to).get("meta", {}).get("name", attached_to)
+				print("Main: Attached character selected — will arrive with bodyguard %s" % bg_name)
+				var toast_mgr = get_node_or_null("/root/ToastManager")
+				if toast_mgr:
+					toast_mgr.show_info("This character will arrive with %s" % bg_name)
+				return
+
 			print("Main: Reserve unit selected for reinforcement: ", unit_id)
 			# P2-80: If unit has Deep Strike but is in Strategic Reserves, offer choice
 			var reserve_type = selected_unit.get("reserve_type", "strategic_reserves")
@@ -5196,12 +5289,16 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 
 	# Submit reserves declarations
 	for entry in formations.get("reserves", []):
-		NetworkIntegration.route_action({
+		var reserve_action = {
 			"type": "DECLARE_RESERVES",
 			"unit_id": entry["unit_id"],
 			"reserve_type": entry["reserve_type"],
 			"player": player
-		})
+		}
+		var attached_chars = entry.get("attached_character_ids", [])
+		if attached_chars.size() > 0:
+			reserve_action["attached_character_ids"] = attached_chars
+		NetworkIntegration.route_action(reserve_action)
 
 	# Confirm this player's formations
 	var confirm_result = NetworkIntegration.route_action({
@@ -6327,8 +6424,15 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	if _keyboard_shortcut_overlay and is_instance_valid(_keyboard_shortcut_overlay):
 		_keyboard_shortcut_overlay.visible = false
 
+	# Hide deep strike exclusion bubbles on phase change
+	_hide_deep_strike_exclusion()
+
 	# Clear transport panel when phase changes
 	update_transport_panel("")
+
+	# Clean up scout UI state when leaving the scout phase
+	if _scout_active_unit_id != "":
+		_scout_cleanup_after_move()
 
 	await setup_phase_controllers()
 
@@ -6766,6 +6870,8 @@ func update_ui_for_phase() -> void:
 			unit_card.visible = true
 			# End Scout Moves button always enabled (can skip remaining scouts)
 			phase_action_button.disabled = false
+			# Create scout visual elements (ghost, path, staged moves)
+			_scout_create_visuals()
 
 		GameStateData.Phase.ROLL_OFF:
 			# Hide deployment zones during roll-off
@@ -6795,9 +6901,9 @@ func update_ui_for_phase() -> void:
 			p2_zone.visible = false
 			# Show movement action buttons
 			_show_movement_action_buttons(true)
-			# Show unit list and unit card during movement phase
-			unit_list.visible = true
-			unit_card.visible = true
+			# Hide scout/deployment unit list and unit card - MovementController manages its own right panel UI
+			unit_list.visible = false
+			unit_card.visible = false
 
 		GameStateData.Phase.SHOOTING:
 			# Hide deployment zones
@@ -8366,11 +8472,12 @@ func _refresh_tokens_for_unit(uid: String) -> void:
 
 
 # ============================================================================
-# Scout Phase - Model Dragging and UI
+# Scout Phase - Model Dragging and UI (reuses MovementController visual patterns)
 # ============================================================================
 
 func _scout_find_model_at_position(world_pos: Vector2) -> Dictionary:
-	"""Find a model belonging to the active scout unit at the given world position."""
+	"""Find a model belonging to the active scout unit at the given world position.
+	Returns full model data from GameState for proper ghost visual creation."""
 	if not token_layer or _scout_active_unit_id == "":
 		return {}
 
@@ -8389,21 +8496,208 @@ func _scout_find_model_at_position(world_pos: Vector2) -> Dictionary:
 
 		var base_radius = 16.0
 		if child.has_meta("base_mm"):
-			base_radius = (child.get_meta("base_mm") / 2.0) / 25.4 * 40.0
+			base_radius = Measurement.base_radius_px(child.get_meta("base_mm"))
 
 		if distance <= base_radius and distance < closest_distance:
 			closest_distance = distance
-			closest_model = {
-				"unit_id": _scout_active_unit_id,
-				"model_id": model_id,
-				"position": visual_pos,
-				"base_mm": child.get_meta("base_mm") if child.has_meta("base_mm") else 32
-			}
+			# Fetch complete model data from GameState (same as MovementController)
+			var unit = GameState.get_unit(_scout_active_unit_id)
+			if not unit.is_empty():
+				var models = unit.get("models", [])
+				for model_data in models:
+					if model_data.get("id", "") == model_id:
+						closest_model = model_data.duplicate()
+						closest_model["unit_id"] = _scout_active_unit_id
+						closest_model["model_id"] = model_id
+						closest_model["position"] = visual_pos
+						break
+			# Fallback if GameState lookup fails
+			if closest_model.is_empty():
+				closest_model = {
+					"unit_id": _scout_active_unit_id,
+					"model_id": model_id,
+					"position": visual_pos,
+					"base_mm": child.get_meta("base_mm") if child.has_meta("base_mm") else 32
+				}
 
 	return closest_model
 
+func _scout_create_visuals() -> void:
+	"""Create scout phase visual elements (ghost, path, labels) in BoardRoot space.
+	Mirrors MovementController._create_path_visuals()."""
+	var board_root = get_node_or_null("BoardRoot")
+	if not board_root:
+		return
+
+	# Ghost visual container (same as MovementController)
+	if not _scout_ghost_visual or not is_instance_valid(_scout_ghost_visual):
+		_scout_ghost_visual = Node2D.new()
+		_scout_ghost_visual.name = "ScoutGhostVisual"
+		board_root.add_child(_scout_ghost_visual)
+
+	# Path visual (green line from drag start to cursor, same as MovementController)
+	if not _scout_path_visual or not is_instance_valid(_scout_path_visual):
+		_scout_path_visual = Line2D.new()
+		_scout_path_visual.name = "ScoutPathVisual"
+		_scout_path_visual.width = 2.0
+		_scout_path_visual.default_color = Color.GREEN
+		board_root.add_child(_scout_path_visual)
+
+	# Staged moves visualization (HumanMovementPathVisual for already-placed models)
+	if not _scout_staged_path_visual or not is_instance_valid(_scout_staged_path_visual):
+		var HumanMovementPathVisualScript = preload("res://scripts/HumanMovementPathVisual.gd")
+		_scout_staged_path_visual = Node2D.new()
+		_scout_staged_path_visual.set_script(HumanMovementPathVisualScript)
+		_scout_staged_path_visual.name = "ScoutStagedPathVisual"
+		board_root.add_child(_scout_staged_path_visual)
+
+func _scout_destroy_visuals() -> void:
+	"""Clean up all scout phase visual elements."""
+	if _scout_ghost_visual and is_instance_valid(_scout_ghost_visual):
+		_scout_ghost_visual.queue_free()
+		_scout_ghost_visual = null
+	if _scout_path_visual and is_instance_valid(_scout_path_visual):
+		_scout_path_visual.queue_free()
+		_scout_path_visual = null
+	if _scout_staged_path_visual and is_instance_valid(_scout_staged_path_visual):
+		_scout_staged_path_visual.queue_free()
+		_scout_staged_path_visual = null
+	_scout_movement_remaining_label = null
+
+func _scout_show_ghost_visual(model: Dictionary) -> void:
+	"""Create a ghost preview for the model being dragged (same as MovementController._show_ghost_visual)."""
+	_scout_clear_ghost_visual()
+	if not _scout_ghost_visual or not is_instance_valid(_scout_ghost_visual):
+		_scout_create_visuals()
+
+	# Create ghost token using GhostVisual (same as MovementController)
+	var ghost_token = preload("res://scripts/GhostVisual.gd").new()
+	ghost_token.owner_player = GameState.get_active_player()
+	ghost_token.is_valid_position = true
+	ghost_token.set_model_data(model)
+
+	if model.has("rotation"):
+		ghost_token.set_base_rotation(model.get("rotation", 0.0))
+
+	ghost_token.position = Vector2.ZERO
+	_scout_ghost_visual.add_child(ghost_token)
+	_scout_ghost_visual.modulate = Color(1, 1, 1, 0.8)
+
+	# Create floating movement remaining label (same as MovementController)
+	_scout_movement_remaining_label = Label.new()
+	_scout_movement_remaining_label.name = "ScoutMovementRemainingLabel"
+	_scout_movement_remaining_label.text = ""
+	_scout_movement_remaining_label.add_theme_font_size_override("font_size", 16)
+	_scout_movement_remaining_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3, 0.9))
+	_scout_movement_remaining_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_scout_movement_remaining_label.z_index = 58
+	_scout_movement_remaining_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var base_mm = model.get("base_mm", 32)
+	var base_radius_px = Measurement.base_radius_px(base_mm)
+	_scout_movement_remaining_label.position = Vector2(-30, -(base_radius_px + 22))
+	_scout_ghost_visual.add_child(_scout_movement_remaining_label)
+
+func _scout_clear_ghost_visual() -> void:
+	"""Remove all children from the ghost visual container."""
+	if _scout_ghost_visual and is_instance_valid(_scout_ghost_visual):
+		for child in _scout_ghost_visual.get_children():
+			child.queue_free()
+	_scout_movement_remaining_label = null
+
+func _scout_update_ghost_position(world_pos: Vector2) -> void:
+	"""Move the ghost visual to the given world position."""
+	if _scout_ghost_visual and is_instance_valid(_scout_ghost_visual):
+		_scout_ghost_visual.position = world_pos
+
+func _scout_update_ghost_validity(is_valid: bool) -> void:
+	"""Update the ghost visual's validity state (green vs red)."""
+	if not _scout_ghost_visual or not is_instance_valid(_scout_ghost_visual):
+		return
+	for child in _scout_ghost_visual.get_children():
+		if child.has_method("set_validity"):
+			child.set_validity(is_valid)
+
+func _scout_update_movement_remaining_label(inches_left: float, is_valid: bool) -> void:
+	"""Update the floating movement remaining label (same as MovementController._update_movement_remaining_label)."""
+	if not _scout_movement_remaining_label or not is_instance_valid(_scout_movement_remaining_label):
+		return
+	if inches_left >= 0:
+		_scout_movement_remaining_label.text = "%.1f\" left" % inches_left
+	else:
+		_scout_movement_remaining_label.text = "%.1f\" over!" % abs(inches_left)
+	# Green when valid, orange for position invalid, red when over cap
+	if is_valid and inches_left >= 0:
+		_scout_movement_remaining_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3, 0.9))
+	elif inches_left >= 0:
+		_scout_movement_remaining_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.1, 0.9))
+	else:
+		_scout_movement_remaining_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.1, 0.9))
+
+func _scout_update_path_visual(from_pos: Vector2, to_pos: Vector2, is_valid: bool) -> void:
+	"""Update the path line during drag (same as MovementController._update_path_visual)."""
+	if not _scout_path_visual or not is_instance_valid(_scout_path_visual):
+		return
+	_scout_path_visual.clear_points()
+	_scout_path_visual.add_point(from_pos)
+	_scout_path_visual.add_point(to_pos)
+	_scout_path_visual.default_color = Color.GREEN if is_valid else Color.RED
+
+func _scout_clear_path_visual() -> void:
+	"""Clear the path line."""
+	if _scout_path_visual and is_instance_valid(_scout_path_visual):
+		_scout_path_visual.clear_points()
+
+func _scout_update_staged_moves_visual() -> void:
+	"""Show dashed path lines for models that have already been staged in this scout move.
+	Uses HumanMovementPathVisual same as MovementController._update_movement_path_preview."""
+	if not _scout_staged_path_visual or not is_instance_valid(_scout_staged_path_visual):
+		return
+
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if not phase_instance or not phase_instance.get("active_scout_moves"):
+		if _scout_staged_path_visual.has_method("clear_now"):
+			_scout_staged_path_visual.clear_now()
+		return
+
+	var active_moves = phase_instance.active_scout_moves
+	if not active_moves.has(_scout_active_unit_id):
+		if _scout_staged_path_visual.has_method("clear_now"):
+			_scout_staged_path_visual.clear_now()
+		return
+
+	var move_data = active_moves[_scout_active_unit_id]
+	var staged_positions = move_data.get("staged_positions", {})
+	var original_positions = move_data.get("original_positions", {})
+	var preview_paths: Array = []
+
+	for model_id in staged_positions:
+		var orig = original_positions.get(model_id, null)
+		if orig == null:
+			continue
+		var orig_pos = Vector2(orig.x, orig.y) if orig is Dictionary else orig
+		var staged = staged_positions[model_id]
+		var staged_pos = Vector2(staged.x, staged.y) if staged is Dictionary else staged
+
+		if orig_pos.distance_to(staged_pos) > 5.0:
+			var distance_inches = orig_pos.distance_to(staged_pos) / 40.0
+			preview_paths.append({
+				"from": orig_pos,
+				"to": staged_pos,
+				"distance": distance_inches
+			})
+
+	if preview_paths.is_empty():
+		if _scout_staged_path_visual.has_method("clear_now"):
+			_scout_staged_path_visual.clear_now()
+		return
+
+	var player = GameState.get_active_player()
+	if _scout_staged_path_visual.has_method("update_planning_paths"):
+		_scout_staged_path_visual.update_planning_paths(preview_paths, player, _scout_move_distance)
+
 func _scout_handle_mouse_press(screen_pos: Vector2) -> void:
-	"""Handle mouse press during scout phase - start dragging a model."""
+	"""Handle mouse press during scout phase - start dragging a model.
+	Creates ghost visual and path line like MovementController."""
 	# Check if click is on UI area
 	var ui_rect = get_viewport().get_visible_rect()
 	var right_hud_rect = Rect2(ui_rect.size.x - 400, 0, 400, ui_rect.size.y)
@@ -8419,17 +8713,27 @@ func _scout_handle_mouse_press(screen_pos: Vector2) -> void:
 	_scout_dragging_model = true
 	_scout_drag_model_id = model.model_id
 	_scout_drag_start_pos = model.position
+	_scout_selected_model_data = model
+
+	# Create visuals if needed
+	_scout_create_visuals()
+
+	# Show ghost visual at the model's current position (same as MovementController)
+	_scout_show_ghost_visual(model)
+	_scout_update_ghost_position(world_pos)
+
 	print("Main: Scout drag started for model ", model.model_id, " at ", model.position)
 	get_viewport().set_input_as_handled()
 
 func _scout_handle_mouse_motion(screen_pos: Vector2) -> void:
-	"""Handle mouse motion during scout phase - update dragged model position."""
+	"""Handle mouse motion during scout phase - update ghost, path, and distance display.
+	Mirrors MovementController._update_model_drag behavior."""
 	if not _scout_dragging_model:
 		return
 
 	var world_pos = screen_to_world_position(screen_pos)
 
-	# Move the visual token
+	# Move the visual token (same as before)
 	if token_layer:
 		for child in token_layer.get_children():
 			if child.has_meta("unit_id") and child.get_meta("unit_id") == _scout_active_unit_id \
@@ -8437,18 +8741,50 @@ func _scout_handle_mouse_motion(screen_pos: Vector2) -> void:
 				child.position = world_pos
 				break
 
-	# Update status with distance
+	# Calculate distance
 	var distance_px = _scout_drag_start_pos.distance_to(world_pos)
 	var distance_inches = distance_px / 40.0
-	status_label.text = "Scout: %.1f\" / %d\" moved" % [distance_inches, int(_scout_move_distance)]
+	var inches_left = _scout_move_distance - distance_inches
+	var is_within_range = distance_inches <= _scout_move_distance + 0.02
+
+	# Check board bounds
+	var board_width_px = GameState.state.board.size.width * 40.0
+	var board_height_px = GameState.state.board.size.height * 40.0
+	var out_of_bounds = world_pos.x < 0 or world_pos.x > board_width_px or world_pos.y < 0 or world_pos.y > board_height_px
+
+	var is_valid = is_within_range and not out_of_bounds
+
+	# Update ghost visual (same as MovementController)
+	_scout_update_ghost_position(world_pos)
+	_scout_update_ghost_validity(is_valid)
+
+	# Update path line from start to cursor (same as MovementController)
+	_scout_update_path_visual(_scout_drag_start_pos, world_pos, is_valid)
+
+	# Update floating movement remaining label (same as MovementController)
+	_scout_update_movement_remaining_label(inches_left, is_valid)
+
+	# Update status bar with distance info (matches movement phase format)
+	if is_valid:
+		status_label.text = "Scout: %.1f\" / %d\" (%.1f\" remaining)" % [distance_inches, int(_scout_move_distance), inches_left]
+	else:
+		if not is_within_range:
+			status_label.text = "Scout: %.1f\" exceeds %d\" range!" % [distance_inches, int(_scout_move_distance)]
+		elif out_of_bounds:
+			status_label.text = "Scout: Cannot move beyond the board edge"
 
 func _scout_handle_mouse_release(screen_pos: Vector2) -> void:
-	"""Handle mouse release during scout phase - commit model position."""
+	"""Handle mouse release during scout phase - commit model position.
+	Validates and shows staged move visualization like MovementController."""
 	if not _scout_dragging_model:
 		return
 
 	var world_pos = screen_to_world_position(screen_pos)
 	_scout_dragging_model = false
+
+	# Clear drag visuals
+	_scout_clear_ghost_visual()
+	_scout_clear_path_visual()
 
 	# Send SET_SCOUT_MODEL_DEST action
 	var action = {
@@ -8463,6 +8799,8 @@ func _scout_handle_mouse_release(screen_pos: Vector2) -> void:
 	if result.get("success", false):
 		print("Main: Scout model %s moved to %s" % [_scout_drag_model_id, str(world_pos)])
 		status_label.text = "Scout move: Model placed. Drag more models or Confirm/Skip."
+		# Update staged moves visualization (shows dashed paths for placed models)
+		_scout_update_staged_moves_visual()
 	else:
 		# Move visual token back to original position on failure
 		print("Main: Scout model move failed: ", result.get("errors", []))
@@ -8475,10 +8813,12 @@ func _scout_handle_mouse_release(screen_pos: Vector2) -> void:
 					break
 
 	_scout_drag_model_id = ""
+	_scout_selected_model_data = {}
 	get_viewport().set_input_as_handled()
 
 func _setup_scout_unit_card_buttons(unit_id: String) -> void:
-	"""Configure the unit card buttons for scout move confirm/skip."""
+	"""Configure the unit card buttons for scout move confirm/skip.
+	Uses same button layout as movement phase (Confirm Move / Reset Unit)."""
 	var unit_data = GameState.get_unit(unit_id)
 	if unit_data.is_empty():
 		return
@@ -8486,11 +8826,11 @@ func _setup_scout_unit_card_buttons(unit_id: String) -> void:
 	var unit_name = unit_data.get("meta", {}).get("name", unit_id)
 	var scout_dist = GameState.get_scout_distance(unit_id)
 	unit_name_label.text = "%s [Scout %d\"]" % [unit_name, int(scout_dist)]
-	models_label.text = "Click and drag models to move (up to %d\")" % int(scout_dist)
+	models_label.text = "Drag models to move (up to %d\", must end >9\" from enemies)" % int(scout_dist)
 
-	# Configure buttons
+	# Configure buttons (same layout as movement phase)
 	confirm_button.visible = true
-	confirm_button.text = "Confirm Scout"
+	confirm_button.text = "Confirm Move"
 	confirm_button.disabled = false
 
 	reset_button.visible = true
@@ -8512,9 +8852,13 @@ func _setup_scout_unit_card_buttons(unit_id: String) -> void:
 	unit_card.visible = true
 
 func _on_scout_confirm_pressed() -> void:
-	"""Confirm the scout move for the active unit."""
+	"""Confirm the scout move for the active unit.
+	Shows confirmed path visual before cleanup (same as MovementController)."""
 	if _scout_active_unit_id == "":
 		return
+
+	# Show confirmed movement paths before cleanup (same as MovementController._show_confirmed_movement_paths)
+	_scout_show_confirmed_paths()
 
 	var action = {
 		"type": "CONFIRM_SCOUT_MOVE",
@@ -8532,6 +8876,47 @@ func _on_scout_confirm_pressed() -> void:
 	else:
 		print("Main: Scout confirm failed: ", result.get("errors", []))
 		status_label.text = "Error: " + str(result.get("errors", ["Confirm failed"]))
+
+func _scout_show_confirmed_paths() -> void:
+	"""Show confirmed movement paths (hold + fade) for the scout move that was just confirmed.
+	Same as MovementController._show_confirmed_movement_paths."""
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if not phase_instance or not phase_instance.get("active_scout_moves"):
+		return
+
+	var active_moves = phase_instance.active_scout_moves
+	if not active_moves.has(_scout_active_unit_id):
+		return
+
+	var move_data = active_moves[_scout_active_unit_id]
+	var staged_positions = move_data.get("staged_positions", {})
+	var original_positions = move_data.get("original_positions", {})
+	var confirmed_paths: Array = []
+
+	for model_id in staged_positions:
+		var orig = original_positions.get(model_id, null)
+		if orig == null:
+			continue
+		var from_pos = Vector2(orig.x, orig.y) if orig is Dictionary else orig
+		var staged = staged_positions[model_id]
+		var to_pos = Vector2(staged.x, staged.y) if staged is Dictionary else staged
+
+		if from_pos.distance_to(to_pos) > 5.0:
+			confirmed_paths.append({"from": from_pos, "to": to_pos})
+
+	if confirmed_paths.is_empty():
+		return
+
+	var board_root = get_node_or_null("BoardRoot")
+	if not board_root:
+		return
+
+	var HumanMovementPathVisualScript = preload("res://scripts/HumanMovementPathVisual.gd")
+	var confirmed_visual = Node2D.new()
+	confirmed_visual.set_script(HumanMovementPathVisualScript)
+	confirmed_visual.name = "ScoutMovementConfirmed_%d" % (randi() % 10000)
+	board_root.add_child(confirmed_visual)
+	confirmed_visual.show_confirmed_paths(confirmed_paths, GameState.get_active_player())
 
 func _on_scout_skip_pressed() -> void:
 	"""Skip the scout move for the active unit."""
@@ -8563,13 +8948,19 @@ func _scout_cleanup_after_move() -> void:
 	if reset_button.pressed.is_connected(_on_scout_skip_pressed):
 		reset_button.pressed.disconnect(_on_scout_skip_pressed)
 
-	# Clear visual highlights
+	# Clear all visual elements
 	_scout_clear_highlights()
+	_scout_clear_ghost_visual()
+	_scout_clear_path_visual()
+	# Clear staged paths visual
+	if _scout_staged_path_visual and is_instance_valid(_scout_staged_path_visual) and _scout_staged_path_visual.has_method("clear_now"):
+		_scout_staged_path_visual.clear_now()
 
 	_scout_active_unit_id = ""
 	_scout_dragging_model = false
 	_scout_drag_model_id = ""
 	_scout_move_distance = 0.0
+	_scout_selected_model_data = {}
 
 func _scout_reset_previous_unit(previous_unit_id: String) -> void:
 	"""Reset the previous scout unit's active move when selecting a different unit.
@@ -8594,18 +8985,28 @@ func _scout_reset_previous_unit(previous_unit_id: String) -> void:
 			# Remove the active move entry so BEGIN_SCOUT_MOVE can succeed again
 			active_moves.erase(previous_unit_id)
 
-	# Clean up UI state
+	# Clean up all visual state
 	_scout_clear_highlights()
+	_scout_clear_ghost_visual()
+	_scout_clear_path_visual()
+	if _scout_staged_path_visual and is_instance_valid(_scout_staged_path_visual) and _scout_staged_path_visual.has_method("clear_now"):
+		_scout_staged_path_visual.clear_now()
 	_scout_dragging_model = false
 	_scout_drag_model_id = ""
+	_scout_selected_model_data = {}
 
 func _scout_highlight_active_unit(unit_id: String, scout_distance: float) -> void:
-	"""Highlight the active scout unit's models and show movement range circles."""
+	"""Highlight the active scout unit's models and show movement range circles.
+	Uses set_selected() for the pulsing gold ring (same as MovementController._highlight_unit_models)
+	and creates range circles matching the movement phase style."""
 	if not token_layer:
 		return
 
 	# Clear any existing scout highlights first
 	_scout_clear_highlights()
+
+	# Create visuals if needed
+	_scout_create_visuals()
 
 	var range_px = scout_distance * 40.0  # PX_PER_INCH = 40.0
 
@@ -8613,46 +9014,79 @@ func _scout_highlight_active_unit(unit_id: String, scout_distance: float) -> voi
 		if not child.has_meta("unit_id") or child.get_meta("unit_id") != unit_id:
 			continue
 
-		# Add a movement range circle around each model
+		# Use set_selected for the pulsing gold ring (same as MovementController)
+		if child.has_method("set_selected"):
+			child.set_selected(true)
+			child.set_meta("scout_was_selected", true)
+
+		# Add a movement range circle around each model (improved style)
 		var range_circle = _scout_create_range_circle(range_px)
 		range_circle.set_meta("scout_highlight", true)
 		child.add_child(range_circle)
 
-		# Add a subtle highlight/glow to the model
-		if child.has_method("set_modulate"):
-			child.set_meta("scout_original_modulate", child.modulate)
-			child.modulate = Color(1.2, 1.2, 1.0, 1.0)  # Slight yellow tint
-
 func _scout_create_range_circle(radius_px: float) -> Node2D:
-	"""Create a visual circle showing scout movement range using a Line2D."""
+	"""Create a visual circle showing scout movement range.
+	Uses a dashed circle with fill matching movement phase style."""
 	var container = Node2D.new()
 	container.set_meta("scout_highlight", true)
 	container.z_index = -1  # Draw behind models
 
-	# Create circle outline using Line2D
-	var line = Line2D.new()
-	line.width = 2.0
-	line.default_color = Color(0.3, 0.7, 1.0, 0.5)
-	line.set_meta("scout_highlight", true)
+	# Determine player color (same scheme as movement phase)
+	var player = GameState.get_active_player()
+	var circle_color: Color
+	var fill_color: Color
+	if player == 1:
+		circle_color = Color(0.3, 0.6, 1.0, 0.6)  # Blue for P1
+		fill_color = Color(0.3, 0.6, 1.0, 0.08)
+	else:
+		circle_color = Color(1.0, 0.3, 0.3, 0.6)  # Red for P2
+		fill_color = Color(1.0, 0.3, 0.3, 0.08)
 
+	# Create semi-transparent fill circle
+	var fill_polygon = Polygon2D.new()
+	fill_polygon.set_meta("scout_highlight", true)
+	var fill_points = PackedVector2Array()
 	var point_count = 64
-	for i in range(point_count + 1):
+	for i in range(point_count):
 		var angle = (float(i) / point_count) * TAU
-		line.add_point(Vector2(cos(angle) * radius_px, sin(angle) * radius_px))
+		fill_points.append(Vector2(cos(angle) * radius_px, sin(angle) * radius_px))
+	fill_polygon.polygon = fill_points
+	fill_polygon.color = fill_color
+	container.add_child(fill_polygon)
 
-	container.add_child(line)
+	# Create dashed circle outline using Line2D segments
+	var dash_length_deg = 5.0  # degrees per dash
+	var gap_length_deg = 3.0   # degrees per gap
+	var segment_deg = dash_length_deg + gap_length_deg
+	var angle_deg = 0.0
+	while angle_deg < 360.0:
+		var dash_line = Line2D.new()
+		dash_line.width = 2.0
+		dash_line.default_color = circle_color
+		dash_line.set_meta("scout_highlight", true)
+		var start_rad = deg_to_rad(angle_deg)
+		var end_rad = deg_to_rad(min(angle_deg + dash_length_deg, 360.0))
+		var steps = max(2, int((end_rad - start_rad) / (TAU / 64.0)) + 1)
+		for i in range(steps + 1):
+			var t = float(i) / float(steps)
+			var a = lerp(start_rad, end_rad, t)
+			dash_line.add_point(Vector2(cos(a) * radius_px, sin(a) * radius_px))
+		container.add_child(dash_line)
+		angle_deg += segment_deg
+
 	return container
 
 func _scout_clear_highlights() -> void:
-	"""Remove all scout movement range highlights."""
+	"""Remove all scout movement range highlights and model selection."""
 	if not token_layer:
 		return
 
 	for child in token_layer.get_children():
-		# Restore original modulate
-		if child.has_meta("scout_original_modulate"):
-			child.modulate = child.get_meta("scout_original_modulate")
-			child.remove_meta("scout_original_modulate")
+		# Deselect models (remove pulsing gold ring)
+		if child.has_meta("scout_was_selected"):
+			if child.has_method("set_selected"):
+				child.set_selected(false)
+			child.remove_meta("scout_was_selected")
 
 		# Remove range circle children
 		var to_remove = []

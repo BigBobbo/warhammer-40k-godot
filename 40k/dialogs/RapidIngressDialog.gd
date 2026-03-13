@@ -11,12 +11,21 @@ extends AcceptDialog
 #              Once per phase.
 #
 # Shows eligible reserve units with "Arrive" buttons and a "Decline" button.
+# Includes a 10-second countdown timer that auto-declines if the player doesn't respond.
 
 signal rapid_ingress_used(unit_id: String, player: int)
 signal rapid_ingress_declined(player: int)
 
+const COUNTDOWN_SECONDS: float = 10.0
+
 var player: int = 0
 var eligible_units: Array = []  # Array of { unit_id: String, unit_name: String, reserve_type: String }
+
+var _countdown_timer: Timer = null
+var _seconds_remaining: float = COUNTDOWN_SECONDS
+var _countdown_label: Label = null
+var _countdown_bar: ProgressBar = null
+var _resolved: bool = false
 
 func setup(p_player: int, p_eligible_units: Array) -> void:
 	player = p_player
@@ -24,15 +33,46 @@ func setup(p_player: int, p_eligible_units: Array) -> void:
 
 	title = "Rapid Ingress Available - Player %d" % player
 
-	# Disable default OK button - we use custom buttons
+	# Disable default OK button and close button - we use custom buttons
 	get_ok_button().visible = false
+	# Prevent closing via X button or Escape — must use Arrive/Decline or wait for timeout
+	close_requested.connect(_on_close_requested)
 
 	_build_ui()
+	_start_countdown()
 
 func _build_ui() -> void:
 	min_size = DialogConstants.MEDIUM
 	var main_container = VBoxContainer.new()
 	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
+
+	# Countdown timer bar at the top
+	var timer_container = VBoxContainer.new()
+
+	_countdown_label = Label.new()
+	_countdown_label.text = "Time remaining: %d seconds" % int(COUNTDOWN_SECONDS)
+	_countdown_label.add_theme_font_size_override("font_size", 14)
+	_countdown_label.add_theme_color_override("font_color", Color.ORANGE)
+	_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	timer_container.add_child(_countdown_label)
+
+	_countdown_bar = ProgressBar.new()
+	_countdown_bar.min_value = 0.0
+	_countdown_bar.max_value = COUNTDOWN_SECONDS
+	_countdown_bar.value = COUNTDOWN_SECONDS
+	_countdown_bar.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 40, 8)
+	_countdown_bar.show_percentage = false
+	# Style the bar orange
+	var bar_style = StyleBoxFlat.new()
+	bar_style.bg_color = Color(1.0, 0.6, 0.0, 0.9)  # Orange fill
+	_countdown_bar.add_theme_stylebox_override("fill", bar_style)
+	var bar_bg = StyleBoxFlat.new()
+	bar_bg.bg_color = Color(0.2, 0.2, 0.2, 0.8)
+	_countdown_bar.add_theme_stylebox_override("background", bar_bg)
+	timer_container.add_child(_countdown_bar)
+
+	main_container.add_child(timer_container)
+	main_container.add_child(HSeparator.new())
 
 	# Header
 	var header = Label.new()
@@ -121,7 +161,41 @@ func _build_ui() -> void:
 
 	add_child(main_container)
 
+func _start_countdown() -> void:
+	_seconds_remaining = COUNTDOWN_SECONDS
+	_countdown_timer = Timer.new()
+	_countdown_timer.wait_time = 0.1  # Update every 100ms for smooth bar
+	_countdown_timer.timeout.connect(_on_countdown_tick)
+	add_child(_countdown_timer)
+	_countdown_timer.start()
+	print("RapidIngressDialog: Countdown started — %d seconds for Player %d" % [int(COUNTDOWN_SECONDS), player])
+
+func _on_countdown_tick() -> void:
+	_seconds_remaining -= 0.1
+	if _countdown_label:
+		var secs = max(0, ceili(_seconds_remaining))
+		_countdown_label.text = "Time remaining: %d seconds" % secs
+		# Change color to red when under 3 seconds
+		if _seconds_remaining <= 3.0:
+			_countdown_label.add_theme_color_override("font_color", Color.RED)
+	if _countdown_bar:
+		_countdown_bar.value = max(0.0, _seconds_remaining)
+
+	if _seconds_remaining <= 0.0:
+		_countdown_timer.stop()
+		print("RapidIngressDialog: Countdown expired — auto-declining for Player %d" % player)
+		_on_decline_pressed()
+
+func _on_close_requested() -> void:
+	# Treat closing the dialog (X button / Escape) as declining
+	_on_decline_pressed()
+
 func _on_use_pressed(unit_id: String) -> void:
+	if _resolved:
+		return
+	_resolved = true
+	if _countdown_timer:
+		_countdown_timer.stop()
 	var unit_name = ""
 	for unit_info in eligible_units:
 		if unit_info.unit_id == unit_id:
@@ -133,6 +207,11 @@ func _on_use_pressed(unit_id: String) -> void:
 	queue_free()
 
 func _on_decline_pressed() -> void:
+	if _resolved:
+		return
+	_resolved = true
+	if _countdown_timer:
+		_countdown_timer.stop()
 	print("RapidIngressDialog: Player %d declines RAPID INGRESS" % player)
 	emit_signal("rapid_ingress_declined", player)
 	hide()

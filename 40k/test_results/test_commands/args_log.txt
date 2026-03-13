@@ -1,1 +1,1 @@
-ARGS: ["-s", "tests/test_oa40_blastajet_attack_run.gd"]
+ARGS: ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]

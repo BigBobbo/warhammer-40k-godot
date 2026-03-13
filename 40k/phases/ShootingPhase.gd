@@ -1627,10 +1627,10 @@ func _determine_homer_location(unit_id: String, player: int) -> String:
 	return "other"
 
 func _determine_cleanse_objective(unit_id: String) -> String:
-	"""Find the objective within 3\" of a unit's model for Cleanse action. Returns objective id or empty."""
+	"""Find the objective within control range (3\" + 20mm marker base) of a unit's model for Cleanse action. Returns objective id or empty."""
 	var unit = get_unit(unit_id)
 	var objectives = GameState.state.get("board", {}).get("objectives", [])
-	var control_radius = Measurement.inches_to_px(3.0)
+	var control_radius = Measurement.inches_to_px(3.78740157)
 
 	for obj in objectives:
 		var obj_pos = obj.get("position", Vector2.ZERO)
@@ -1649,10 +1649,13 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 
 	var action_missions = SecondaryMissionManager.get_action_missions_for_player(player)
 	if action_missions.is_empty():
+		print("ShootingPhase: _get_secondary_action_options - no action missions for player %d" % player)
 		return options
+	print("ShootingPhase: _get_secondary_action_options - %d action missions for player %d" % [action_missions.size(), player])
 
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
+		print("ShootingPhase: _get_secondary_action_options - unit %s is empty" % unit_id)
 		return options
 
 	var opponent = 2 if player == 1 else 1
@@ -1714,15 +1717,20 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 					})
 
 			"cleanse":
-				# Check if unit has a model within 3" of an objective
+				# Check if unit has a model within objective control range (3" + 20mm marker base)
 				var objectives = GameState.state.get("board", {}).get("objectives", [])
-				var control_radius = Measurement.inches_to_px(3.0)
+				var control_radius = Measurement.inches_to_px(3.78740157)
+				print("ShootingPhase: Cleanse check - %d objectives, control_radius=%.1fpx, unit=%s" % [objectives.size(), control_radius, unit_id])
+				var found_cleanse = false
 				for obj in objectives:
 					var obj_pos = obj.get("position", Vector2.ZERO)
 					if obj_pos == Vector2.ZERO:
+						print("ShootingPhase: Cleanse - skipping objective with zero position")
 						continue
-					if SecondaryMissionManager._has_model_within_range(unit, obj_pos, control_radius):
-						var obj_id = obj.get("id", "unknown")
+					var in_range = SecondaryMissionManager._has_model_within_range(unit, obj_pos, control_radius)
+					var obj_id = obj.get("id", "unknown")
+					print("ShootingPhase: Cleanse - obj %s at %s, in_range=%s" % [obj_id, obj_pos, in_range])
+					if in_range:
 						options.append({
 							"action_name": action_name,
 							"location": "objective",
@@ -1731,7 +1739,10 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 							"vp_value": 2,
 							"objective_id": obj_id
 						})
+						found_cleanse = true
 						break  # One cleanse per unit
+				if not found_cleanse:
+					print("ShootingPhase: Cleanse - no objective in range for unit %s" % unit_id)
 
 	return options
 

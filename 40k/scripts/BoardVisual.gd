@@ -18,6 +18,10 @@ var _shaders: Dictionary = {
 	"felt":   preload("res://shaders/felt_texture.gdshader"),
 }
 
+# Preload grass textures for the texture-based grass shader
+var _grass_basecolor: Texture2D = preload("res://textures/grass/Grass_08_basecolor.png")
+var _grass_normal: Texture2D = preload("res://textures/grass/Grass_08_normal.png")
+
 func _ready() -> void:
 	z_index = -10
 	board_width = SettingsService.get_board_width_px()
@@ -44,7 +48,11 @@ func set_board_style(style: String) -> void:
 	if _background == null:
 		return
 	if style in _shaders:
-		_background.apply_shader(_shaders[style])
+		var params: Dictionary = {}
+		if style == "grass":
+			params["grass_texture"] = _grass_basecolor
+			params["grass_normal"] = _grass_normal
+		_background.apply_shader(_shaders[style], params)
 		print("[BoardVisual] Board style set to: ", style)
 	else:
 		_background.clear_shader()

@@ -232,8 +232,8 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle: charge after advancing"
 	},
 
-	# Deffkilla Wartrike — skip advance roll, auto +6" to Move
-	"Fuel-mixa Grot": {
+	# Vertus Praetors, Outrider Squad, etc. — skip advance roll, auto +6" to Move
+	"Turbo-boost": {
 		"condition": "always",
 		"effects": [{"type": "auto_advance_6"}],
 		"target": "unit",
@@ -242,15 +242,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "When advancing, do not roll — add 6\" to Move instead"
 	},
 
-	# Warboss on Warbike — skip advance roll, auto +6" to Move
-	"High-octane Fuel": {
-		"condition": "always",
-		"effects": [{"type": "auto_advance_6"}],
-		"target": "unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "When advancing, do not roll — add 6\" to Move instead"
-	},
 
 	# Ork Stormboyz — eligible to charge after Advancing or Falling Back
 	"Full Throttle": {
@@ -301,6 +292,17 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "all",
 		"implemented": true,
 		"description": "After Normal move, select one enemy unit moved over — roll D6 per model, 4+ = 1 mortal wound"
+	},
+
+	# OA-42: Grot Tanks — reactive 6" Normal move when enemy ends move within 9"
+	"Scatter!": {
+		"condition": "reactive_enemy_move",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_turn": true,
+		"description": "Once per turn, when an enemy unit ends a Normal, Advance or Fall Back move within 9\" of this unit, if not within Engagement Range, can make a Normal move of up to 6\""
 	},
 
 	# Deffkilla Wartrike — same effect as High-octane Fuel
@@ -932,6 +934,10 @@ var _once_per_round_used: Dictionary = {}
 # OA-34: Track which vehicles have been selected for Mekaniak this turn
 # Key: vehicle_unit_id, Value: true
 var _mekaniak_used_this_turn: Dictionary = {}
+
+# OA-42: Track which units have used Scatter! this turn
+# Key: unit_id, Value: true
+var _scatter_used_this_turn: Dictionary = {}
 
 func _ready() -> void:
 	var implemented_count = 0
@@ -2640,6 +2646,39 @@ func has_stompin_forward(unit_id: String) -> bool:
 			return true
 	return false
 
+# ============================================================================
+# OA-42: SCATTER! — Grot Tanks reactive move
+# ============================================================================
+
+func has_scatter(unit_id: String) -> bool:
+	"""Check if a unit has the Scatter! ability (Grot Tanks).
+	Used by MovementPhase to offer reactive 6\" Normal move when enemy ends move within 9\"."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Scatter!":
+			return true
+	return false
+
+func mark_scatter_used_this_turn(unit_id: String) -> void:
+	"""Mark a unit as having used Scatter! this turn."""
+	_scatter_used_this_turn[unit_id] = true
+	print("UnitAbilityManager: OA-42 Marked unit %s as having used Scatter! this turn" % unit_id)
+
+func is_scatter_used_this_turn(unit_id: String) -> bool:
+	"""Check if a unit has already used Scatter! this turn."""
+	return _scatter_used_this_turn.get(unit_id, false)
+
+func clear_scatter_turn_tracking() -> void:
+	"""Clear Scatter! per-unit-per-turn tracking. Called at start of each player's Movement phase."""
+	if not _scatter_used_this_turn.is_empty():
+		print("UnitAbilityManager: OA-42 Clearing Scatter! turn tracking (%d units tracked)" % _scatter_used_this_turn.size())
+	_scatter_used_this_turn.clear()
+
 func get_implemented_abilities() -> Array:
 	"""Get all ability names that are mechanically implemented."""
 	var result = []
@@ -2805,7 +2844,8 @@ func get_state_for_save() -> Dictionary:
 		"once_per_battle_used": _once_per_battle_used.duplicate(true),
 		"once_per_round_used": _once_per_round_used.duplicate(true),
 		"active_aura_effects": _active_aura_effects.duplicate(true),
-		"mekaniak_used_this_turn": _mekaniak_used_this_turn.duplicate(true)
+		"mekaniak_used_this_turn": _mekaniak_used_this_turn.duplicate(true),
+		"scatter_used_this_turn": _scatter_used_this_turn.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
@@ -2816,6 +2856,7 @@ func load_state(data: Dictionary) -> void:
 	_once_per_round_used = data.get("once_per_round_used", {})
 	_active_aura_effects = data.get("active_aura_effects", {})
 	_mekaniak_used_this_turn = data.get("mekaniak_used_this_turn", {})
+	_scatter_used_this_turn = data.get("scatter_used_this_turn", {})
 	print("UnitAbilityManager: State loaded — %d active effects, %d aura effects, %d once-per-battle used, %d once-per-round used" % [_active_ability_effects.size(), _active_aura_effects.size(), _once_per_battle_used.size(), _once_per_round_used.size()])
 
 func reset_for_new_game() -> void:
@@ -2826,4 +2867,5 @@ func reset_for_new_game() -> void:
 	_once_per_round_used.clear()
 	_active_aura_effects.clear()
 	_mekaniak_used_this_turn.clear()
+	_scatter_used_this_turn.clear()
 	print("UnitAbilityManager: Reset for new game")
