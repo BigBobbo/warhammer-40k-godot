@@ -976,6 +976,11 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if ded_glowy_penalty_ow > 0:
 		toughness = max(1, toughness - ded_glowy_penalty_ow)
 		print("RulesEngine: DED GLOWY AMMO (Overwatch) — INFANTRY target T reduced by %d to T%d" % [ded_glowy_penalty_ow, toughness])
+	# OA-48: RUNTHERD — Runtherds revert to T4 when all Gretchin are dead
+	var runtherd_t_override_ow = get_runtherd_toughness_override(target_unit)
+	if runtherd_t_override_ow > 0:
+		toughness = runtherd_t_override_ow
+		print("RulesEngine: RUNTHERD (Overwatch) — all Gretchin dead, Runtherd T overridden to T%d" % toughness)
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
@@ -1683,6 +1688,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	if ded_glowy_penalty > 0:
 		toughness = max(1, toughness - ded_glowy_penalty)
 		print("RulesEngine: DED GLOWY AMMO — INFANTRY target T reduced by %d to T%d" % [ded_glowy_penalty, toughness])
+	# OA-48: RUNTHERD — Runtherds revert to T4 when all Gretchin are dead
+	var runtherd_t_override = get_runtherd_toughness_override(target_unit)
+	if runtherd_t_override > 0:
+		toughness = runtherd_t_override
+		print("RulesEngine: RUNTHERD — all Gretchin dead, Runtherd T overridden to T%d" % toughness)
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
@@ -2472,6 +2482,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if ded_glowy_penalty_ar > 0:
 		toughness = max(1, toughness - ded_glowy_penalty_ar)
 		print("RulesEngine: DED GLOWY AMMO (auto-resolve) — INFANTRY target T reduced by %d to T%d" % [ded_glowy_penalty_ar, toughness])
+	# OA-48: RUNTHERD — Runtherds revert to T4 when all Gretchin are dead
+	var runtherd_t_override_ar = get_runtherd_toughness_override(target_unit)
+	if runtherd_t_override_ar > 0:
+		toughness = runtherd_t_override_ar
+		print("RulesEngine: RUNTHERD (auto-resolve) — all Gretchin dead, Runtherd T overridden to T%d" % toughness)
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
@@ -3381,6 +3396,55 @@ static func _unit_has_ded_glowy_ammo(unit: Dictionary) -> bool:
 		elif ability is Dictionary:
 			ability_name = ability.get("name", "")
 		if ability_name == "Ded Glowy Ammo (Aura)":
+			return true
+	return false
+
+# OA-48: Runtherd — While unit contains Gretchin models, Runtherd models use T2 (same as
+# unit base T). If all Gretchin die, Runtherd models revert to their base toughness (T4).
+# Returns the effective toughness value if all Gretchin are dead (override needed), or -1
+# if no override applies (Gretchin alive = T2 unchanged, or ability not present).
+static func get_runtherd_toughness_override(target_unit: Dictionary) -> int:
+	# Check if unit has the "Runtherd" datasheet ability
+	if not _unit_has_runtherd_ability(target_unit):
+		return -1
+
+	var model_profiles = target_unit.get("meta", {}).get("model_profiles", {})
+	var has_alive_gretchin = false
+	var has_alive_runtherd = false
+
+	for model in target_unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var model_type = model.get("model_type", "")
+		if model_type == "gretchin":
+			has_alive_gretchin = true
+		elif model_type == "runtherd":
+			has_alive_runtherd = true
+
+	if not has_alive_runtherd:
+		return -1  # No Runtherd models alive — ability irrelevant
+
+	if has_alive_gretchin:
+		# Runtherd ability active: Runtherd models constrained to T2 (same as unit base T)
+		# No toughness override needed — unit toughness already reflects T2
+		print("RulesEngine: RUNTHERD — Gretchin alive, Runtherd models constrained to T2")
+		return -1
+
+	# All Gretchin dead: Runtherds revert to their base toughness from model_profiles
+	var runtherd_t = model_profiles.get("runtherd", {}).get("stats_override", {}).get("toughness", 4)
+	print("RulesEngine: RUNTHERD — All Gretchin dead, Runtherd models reverted to T%d" % runtherd_t)
+	return runtherd_t
+
+# Helper: check if a unit dict has the 'Runtherd' datasheet ability.
+static func _unit_has_runtherd_ability(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Runtherd":
 			return true
 	return false
 
@@ -7525,6 +7589,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if ded_glowy_penalty_melee > 0:
 		toughness = max(1, toughness - ded_glowy_penalty_melee)
 		print("RulesEngine: DED GLOWY AMMO (melee) — INFANTRY target T reduced by %d to T%d" % [ded_glowy_penalty_melee, toughness])
+	# OA-48: RUNTHERD — Runtherds revert to T4 when all Gretchin are dead
+	var runtherd_t_override_melee = get_runtherd_toughness_override(target_unit)
+	if runtherd_t_override_melee > 0:
+		toughness = runtherd_t_override_melee
+		print("RulesEngine: RUNTHERD (melee) — all Gretchin dead, Runtherd T overridden to T%d" % toughness)
 	var ap = weapon_profile.get("ap", 0)
 	# MARTIAL MASTERY — IMPROVE AP (P2-27): Shield Host detachment — improve AP by 1 on melee weapons
 	# Applied before defender's worsen_ap (attacker improvement first, then defender reduction)

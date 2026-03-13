@@ -1502,7 +1502,21 @@
             "description": "2 Runtherds and 20 Gretchin",
             "line": 3
           }
-        ]
+        ],
+        "model_profiles": {
+          "runtherd": {
+            "label": "Runtherd",
+            "stats_override": {"toughness": 4, "weapon_skill": 3},
+            "weapons": ["Runtherd tools", "Slugga"],
+            "transport_slots": 1
+          },
+          "gretchin": {
+            "label": "Gretchin",
+            "stats_override": {"toughness": 2, "weapon_skill": 5},
+            "weapons": ["Grot blasta", "Close combat weapon"],
+            "transport_slots": 1
+          }
+        }
       },
       "models": [
         {
@@ -1512,7 +1526,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "runtherd"
         },
         {
           "id": "m2",
@@ -1521,7 +1536,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "runtherd"
         },
         {
           "id": "m3",
@@ -1530,7 +1546,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m4",
@@ -1539,7 +1556,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m5",
@@ -1548,7 +1566,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m6",
@@ -1557,7 +1576,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m7",
@@ -1566,7 +1586,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m8",
@@ -1575,7 +1596,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m9",
@@ -1584,7 +1606,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m10",
@@ -1593,7 +1616,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m11",
@@ -1602,7 +1626,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m12",
@@ -1611,7 +1636,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m13",
@@ -1620,7 +1646,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m14",
@@ -1629,7 +1656,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m15",
@@ -1638,7 +1666,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m16",
@@ -1647,7 +1676,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m17",
@@ -1656,7 +1686,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m18",
@@ -1665,7 +1696,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m19",
@@ -1674,7 +1706,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m20",
@@ -1683,7 +1716,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m21",
@@ -1692,7 +1726,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         },
         {
           "id": "m22",
@@ -1701,7 +1736,8 @@
           "base_mm": 25,
           "position": null,
           "alive": true,
-          "status_effects": []
+          "status_effects": [],
+          "model_type": "gretchin"
         }
       ]
     },

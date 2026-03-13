@@ -892,13 +892,15 @@ Freebooter Krew has 4 enhancements:
 
 ### TASK: Implement "Runtherd" for Gretchin
 
-**Status:** Not implemented
+**Status:** Implemented (OA-48)
 **Priority:** P3
 
-**Rules:** Runtherd models use T2 while Gretchin models alive in unit.
+**Rules:** Runtherd models use T2 while Gretchin models alive in unit. Reverts to T4 when all Gretchin die.
 
-**Files to modify:**
-- `40k/autoloads/RulesEngine.gd`
+**Files modified:**
+- `40k/autoloads/RulesEngine.gd` — get_runtherd_toughness_override(), _unit_has_runtherd_ability()
+- `40k/autoloads/UnitAbilityManager.gd` — "Runtherd" added to ABILITY_EFFECTS
+- `40k/armies/Orks_2000.json`, `Orks_Upload_Mar7.json`, `Orks_2000_upload.json` — model_profiles + model_type
 
 ---
 
