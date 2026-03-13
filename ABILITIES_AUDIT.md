@@ -153,7 +153,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Ramshackle | Datasheet | Yes | Yes (implemented) | **Yes** | Correctly worsens AP of incoming attacks by 1 |
 | Damaged: 1-5 Wounds | Datasheet | Yes | Yes (RulesEngine) | **Yes** | -1 to hit when 1-5 wounds remaining — added to JSON, RulesEngine.is_damaged_profile_active() checks wounds and applies -1 to hit |
 | 'Ard Case | Wargear | Yes | Yes (ArmyListManager) | **Yes** | +2 Toughness, lose Firing Deck — added to JSON, applied at army load time via WARGEAR_STAT_BONUSES. Updates meta.stats.toughness and removes firing_deck from transport_data |
-| Transport (22 capacity) | Special | Yes | No | Unknown | Transport mechanic |
+| Transport (22 capacity) | Special | Yes | Yes (TransportManager) | **Yes** | Full embark/disembark mechanics — TransportManager handles validation, capacity with MEGA ARMOUR multiplier (2 spaces), JUMP PACK exclusion, emergency disembark on destruction (D6 casualty rolls). MovementPhase shows DISEMBARK_UNIT actions for embarked units. AI handles disembark decisions via AIDecisionMaker |
 
 ### Painboss
 
@@ -406,7 +406,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 29. **Add Painboss to army JSON** — Sawbonez (heal), Grot Orderly (revive) — **DONE**
 30. **Add Weirdboy to army JSON** — Waaagh! Energy, Da Jump — **DONE**
 31. **Implement Firing Deck** — embarked model shooting (Battlewagon) — **DONE**
-32. **Implement Transport capacity** — embark/disembark mechanics
+32. **Implement Transport capacity** — embark/disembark mechanics — **DONE**
 33. **Add optional wargear** — Helix Gauntlet (FNP 6+), Infiltrator Comms Array (CP regen)
 34. **Implement Devoted to Destruction** — +2 Attacks with dual Telemon caestus
 35. **Implement Bodyguard (20-model)** — double Leader attachment for large Boyz units

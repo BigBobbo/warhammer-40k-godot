@@ -1309,6 +1309,10 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	if flags.get("charged_this_turn", false):
 		return false
 
+	# P3-32: Embarked units cannot declare charges (they're inside a transport)
+	if unit.get("embarked_in", null) != null:
+		return false
+
 	# T2-9: AIRCRAFT units cannot declare charges
 	var keywords = unit.get("meta", {}).get("keywords", [])
 	if "AIRCRAFT" in keywords:

@@ -197,9 +197,36 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 								if match:
 									firing_deck = int(match.get_string(1))
 
+					# P3-32: Parse capacity multipliers (e.g. "Each MEGA ARMOUR model takes up the space of 2 models")
+					var capacity_multipliers = {}
+					var excluded_keywords = []
+					if unit.meta.has("abilities"):
+						for ability2 in unit.meta.abilities:
+							if ability2.has("name") and ability2.name == "TRANSPORT":
+								var desc2 = ability2.get("description", "")
+								# Parse multipliers: "Each <KEYWORD> model takes up the space of <N> models"
+								var mult_regex = RegEx.new()
+								mult_regex.compile("Each ([A-Z ]+?) model takes up the space of (\\d+) models")
+								var mult_matches = mult_regex.search_all(desc2)
+								for mult_match in mult_matches:
+									var kw = mult_match.get_string(1).strip_edges()
+									var mult_val = int(mult_match.get_string(2))
+									capacity_multipliers[kw] = mult_val
+									print("ArmyListManager: Parsed transport capacity multiplier: %s = %d spaces" % [kw, mult_val])
+								# Parse exclusions: "cannot transport models that are <KEYWORD> models"
+								var excl_regex = RegEx.new()
+								excl_regex.compile("cannot transport models that are ([A-Z ]+?) models")
+								var excl_matches = excl_regex.search_all(desc2)
+								for excl_match in excl_matches:
+									var excl_kw = excl_match.get_string(1).strip_edges()
+									excluded_keywords.append(excl_kw)
+									print("ArmyListManager: Parsed transport exclusion: %s" % excl_kw)
+
 					unit["transport_data"] = {
 						"capacity": capacity,
 						"capacity_keywords": capacity_keywords,
+						"capacity_multipliers": capacity_multipliers,
+						"excluded_keywords": excluded_keywords,
 						"embarked_units": [],
 						"firing_deck": firing_deck
 					}
@@ -532,9 +559,34 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 							if match:
 								firing_deck = int(match.get_string(1))
 
+				# P3-32: Parse capacity multipliers and exclusions
+				var capacity_multipliers = {}
+				var excluded_keywords = []
+				if unit.meta.has("abilities"):
+					for ability2 in unit.meta.abilities:
+						if ability2.has("name") and ability2.name == "TRANSPORT":
+							var desc2 = ability2.get("description", "")
+							var mult_regex = RegEx.new()
+							mult_regex.compile("Each ([A-Z ]+?) model takes up the space of (\\d+) models")
+							var mult_matches = mult_regex.search_all(desc2)
+							for mult_match in mult_matches:
+								var kw = mult_match.get_string(1).strip_edges()
+								var mult_val = int(mult_match.get_string(2))
+								capacity_multipliers[kw] = mult_val
+								print("ArmyListManager: Parsed transport capacity multiplier: %s = %d spaces" % [kw, mult_val])
+							var excl_regex = RegEx.new()
+							excl_regex.compile("cannot transport models that are ([A-Z ]+?) models")
+							var excl_matches = excl_regex.search_all(desc2)
+							for excl_match in excl_matches:
+								var excl_kw = excl_match.get_string(1).strip_edges()
+								excluded_keywords.append(excl_kw)
+								print("ArmyListManager: Parsed transport exclusion: %s" % excl_kw)
+
 				unit["transport_data"] = {
 					"capacity": capacity,
 					"capacity_keywords": capacity_keywords,
+					"capacity_multipliers": capacity_multipliers,
+					"excluded_keywords": excluded_keywords,
 					"embarked_units": [],
 					"firing_deck": firing_deck
 				}

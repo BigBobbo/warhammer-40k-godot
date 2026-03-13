@@ -5757,6 +5757,22 @@ func get_available_actions() -> Array:
 		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
 			continue
 
+		# P3-32: Embarked units get disembark option instead of normal movement
+		if unit.get("embarked_in", null) != null:
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			var transport_id = unit.embarked_in
+			var transport = get_unit(transport_id)
+			var transport_name = transport.get("meta", {}).get("name", transport_id) if transport else transport_id
+			# Check if disembark is valid (transport hasn't Advanced/Fell Back)
+			var can_disembark = TransportManager.can_disembark(unit_id)
+			if can_disembark.valid:
+				actions.append({
+					"type": "DISEMBARK_UNIT",
+					"actor_unit_id": unit_id,
+					"description": "Disembark %s from %s" % [unit_name, transport_name]
+				})
+			continue
+
 		# Skip if already moved
 		if unit.get("flags", {}).get("moved", false):
 			continue
@@ -5765,13 +5781,10 @@ func get_available_actions() -> Array:
 		if unit.get("attached_to", null) != null:
 			continue
 
-		# Skip embarked units — they move with their transport
-		if unit.get("embarked_in", null) != null:
-			continue
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		var is_engaged = _is_unit_engaged(unit_id)
-		
+
 		if is_engaged:
 			# Can only Fall Back or Remain Stationary when engaged
 			actions.append({
