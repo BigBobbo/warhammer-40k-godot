@@ -65,6 +65,7 @@ func _setup_background() -> void:
 	add_child(_background)
 	set_board_style(board_style)
 
+
 ## Change the board surface at runtime.
 ## style: "grass", "felt", or "none"
 func set_board_style(style: String) -> void:
