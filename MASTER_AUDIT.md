@@ -23,7 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
-| T7-41 (2026-02-21): AI army-specific strategies — Added `_detect_army_archetype()` to classify army as MELEE/SHOOTING/ELITE/BALANCED based on weapon output distribution and model stats. Archetype modifiers multiply with round strategy modifiers at all 6 integration points (movement, engaged, target value, charge threshold, charge scoring, fight priority). Cache per game, reset on configure(). | All/AI | AI_AUDIT.md §QoL-6 |
+| T7-48 (2026-02-22): AI Pistol usage in engagement range — Added engagement range awareness to AI shooting. Filters non-pistol weapons for engaged non-MV units, restricts pistol targets to engagement range in damage matrix and fallback. Monster/Vehicle units retain Big Guns Never Tire. 18/18 tests pass. | Shooting/AI | AI_AUDIT.md §SHOOT-9 |
 | T7-26 (2026-02-21): AI Heavy weapon stationary bonus — Added `_get_unit_heavy_weapon_data()` and `_should_hold_for_heavy_bonus()` to prefer remaining stationary when Heavy weapons provide significant +1 to hit bonus with targets in range. Overrides for reachable/high-priority objectives and charge intent. | Movement/AI | AI_AUDIT.md §MOV-3 |
 | T7-25 (2026-02-21): AI secondary mission awareness — Added `_build_secondary_awareness()` to analyze active secondary missions in command phase. Movement phase now factors secondary conditions into unit-to-objective assignment: zone bonuses, center positioning, spread incentives, enemy zone push, and kill keyword proximity. Scoring phase discard-for-CP via T7-47. | Command/Movement/Scoring/AI | AI_AUDIT.md §AI-TACTIC-8, SCORE-1 |
 | T4-6 (2026-02-21): Go to Ground / Smokescreen stratagems — Verified full implementation across StratagemManager.gd (definitions, validation, CP deduction, effect application, reactive detection), EffectPrimitives.gd (flag system), RulesEngine.gd (invuln/cover/stealth integration), ShootingPhase.gd (reactive stratagem flow). Fixed test assertions for known AP sign bug. 35/35 tests pass. | Shooting | SHOOTING_PHASE_AUDIT.md |
@@ -1345,13 +1345,12 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Single difficulty level. Implement Easy (random valid actions), Normal (current + Tier 7 P0/P1 fixes), Hard (full tactics + stratagems), Competitive (look-ahead planning + optimal stratagem timing).
 - **Resolution:** Created `AIDifficultyConfig.gd` with Easy/Normal/Hard/Competitive enum and per-level feature flags (stratagems, multi-phase planning, focus fire, threat awareness, trade analysis, look-ahead, score noise, charge thresholds). Updated `AIPlayer.gd` to store per-player difficulty and gate reactive stratagems/overwatch/counter-offensive/command reroll by level. Updated `AIDecisionMaker.gd` with `_decide_random()` for Easy mode (random valid actions with required sequencing), difficulty noise on movement/charge scoring, stratagem gating for Normal-, and multi-phase plan suppression for Normal-. Added difficulty dropdowns to MainMenu UI (auto-shown when player type is AI). Config flows through `game_config` to `Main.gd` → `AIPlayer.configure()`.
 
-### T7-41. AI army-specific strategies — **DONE**
+### T7-41. AI army-specific strategies
 - **Phase:** All
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §QoL-6
-- **Files:** `AIDecisionMaker.gd`, `AIPlayer.gd`
+- **Files:** `AIDecisionMaker.gd`
 - **Details:** Identical heuristics regardless of army. Detect archetype based on weapon/keyword distribution: melee-focused (aggressive advance, early charges), shooting-focused (castle, maintain range), balanced, elite (protect key models).
-- **Resolution:** Added `_detect_army_archetype()` to analyze friendly army weapon/keyword distribution and classify as MELEE (60%+ melee output → aggressive advance/charges), SHOOTING (65%+ ranged output → castle/range), ELITE (avg W≥4 + pts≥40 → protect key models), or BALANCED (neutral). Archetype modifiers multiply with existing round strategy modifiers via `_apply_army_archetype_to_strategy()` at all 6 integration points (movement scoring, engaged unit decisions, target value, charge threshold, charge scoring, fight priority). Cache detected once per game, reset on AIPlayer.configure().
 
 ### T7-42. AI move blocking — **DONE**
 - **Phase:** Movement
@@ -1401,12 +1400,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Never discards unachievable secondary missions for +1 CP.
 - **Resolution:** Replaced stub `_decide_scoring()` with full mission achievability evaluation. Added `_secondary_mission_manager()` accessor, `_evaluate_mission_achievability()` dispatcher, and 14 mission-specific assessors (kill-based: check if valid targets still alive; positional: check if AI has enough units; objective: check if relevant objectives exist; action: check if AI has units to perform actions; while-active: always keep if enemies exist). AI discards lowest-scoring mission when achievability score falls below threshold (0.2), gaining +1 CP. Late-game with empty deck uses lower threshold (0.1). 16/16 tests pass.
 
-### T7-48. AI Pistol usage in engagement range
+### T7-48. AI Pistol usage in engagement range — **DONE**
 - **Phase:** Shooting
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §SHOOT-9
 - **Files:** `AIDecisionMaker.gd` — `_decide_shooting()`
 - **Details:** Doesn't fire Pistols when units are in engagement range.
+- **Resolution:** Added engagement range awareness to AI shooting decisions. In `_build_focus_fire_plan()`, non-pistol weapons are now filtered out for engaged non-Monster/Vehicle units, and pistol weapons from engaged units can only target enemies within engagement range (1") in the damage matrix. In `_decide_shooting()`, ranged weapons are filtered to pistol-only for engaged units, and fallback enemies are restricted to engagement range targets. Added `_is_weapon_dict_pistol()` helper. Monster/Vehicle units retain all weapons via Big Guns Never Tire. 18/18 tests pass.
 
 ### T7-49. AI counter-play to opponent defensive stratagems — **DONE**
 - **Phase:** Shooting

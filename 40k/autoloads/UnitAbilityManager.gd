@@ -1501,7 +1501,16 @@ func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> voi
 		if _applied_this_phase.has(unit_id) and ability_name in _applied_this_phase[unit_id]:
 			continue
 
+		# Determine which effects to use — check for objective-conditional upgrade
 		var effects = effect_def.get("effects", [])
+		var upgrade_effects = effect_def.get("objective_upgrade_effects", [])
+		var using_upgrade = false
+		if not upgrade_effects.is_empty():
+			if _is_unit_within_controlled_objective_range(unit_id, unit):
+				effects = upgrade_effects
+				using_upgrade = true
+				print("UnitAbilityManager: %s — objective-conditional upgrade active for '%s'" % [unit_id, ability_name])
+
 		if effects.is_empty():
 			continue
 
@@ -1524,8 +1533,9 @@ func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> voi
 
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			var flag_names = EffectPrimitivesData.get_flag_names_for_effects(effects)
-			print("UnitAbilityManager: %s (%s) has ability '%s' — flags: %s" % [
-				unit_name, unit_id, ability_name, str(flag_names)
+			var upgrade_note = " (OBJECTIVE UPGRADE)" if using_upgrade else ""
+			print("UnitAbilityManager: %s (%s) has ability '%s'%s — flags: %s" % [
+				unit_name, unit_id, ability_name, upgrade_note, str(flag_names)
 			])
 
 			# Log ability activation to GameEventLog

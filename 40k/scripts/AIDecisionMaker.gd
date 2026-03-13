@@ -8066,6 +8066,24 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			if w.get("type", "").to_lower() == "ranged":
 				ranged_weapons.append(w)
 
+		# T7-48: In engagement range, filter to pistol weapons only (unless Monster/Vehicle)
+		var unit_in_engagement = unit.get("flags", {}).get("in_engagement", false)
+		if unit_in_engagement:
+			var unit_keywords = unit.get("meta", {}).get("keywords", [])
+			var is_mv = false
+			for kw in unit_keywords:
+				var kw_upper = kw.to_upper()
+				if kw_upper == "MONSTER" or kw_upper == "VEHICLE":
+					is_mv = true
+					break
+			if not is_mv:
+				var pistol_weapons = []
+				for w in ranged_weapons:
+					if _is_weapon_dict_pistol(w):
+						pistol_weapons.append(w)
+				print("AIDecisionMaker: T7-48 %s in engagement range — filtered to %d pistol weapon(s) from %d ranged" % [unit_name, pistol_weapons.size(), ranged_weapons.size()])
+				ranged_weapons = pistol_weapons
+
 		if ranged_weapons.is_empty():
 			# Remove from plan and skip
 			_focus_fire_plan.erase(selected_unit_id)
@@ -8080,6 +8098,24 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			_focus_fire_plan_built = false
 			_focus_fire_plan.clear()
 			return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase (no targets)"}
+
+		# T7-48: For engaged units with pistol weapons, filter fallback enemies to engagement range only
+		var fallback_enemies = enemies
+		if unit_in_engagement:
+			fallback_enemies = {}
+			for enemy_id in enemies:
+				var enemy = enemies[enemy_id]
+				var er_dist = _get_closest_model_distance_inches(unit, enemy)
+				if er_dist <= 1.0:
+					fallback_enemies[enemy_id] = enemy
+			if fallback_enemies.is_empty():
+				print("AIDecisionMaker: T7-48 %s in engagement but no enemies within engagement range — skipping" % unit_name)
+				_focus_fire_plan.erase(selected_unit_id)
+				return {
+					"type": "SKIP_UNIT",
+					"actor_unit_id": selected_unit_id,
+					"_ai_description": "Skipped %s — in engagement, no enemies in engagement range" % unit_name
+				}
 
 		# Use focus fire plan assignments if available for this unit
 		var assignments = []
@@ -8102,14 +8138,14 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				valid_assignments.append(a)
 			assignments = valid_assignments
 			# If all plan targets were destroyed, fall back to greedy scoring
-			if assignments.is_empty() and not enemies.is_empty():
-				assignments = _build_unit_assignments_fallback(unit, ranged_weapons, enemies, snapshot)
+			if assignments.is_empty() and not fallback_enemies.is_empty():
+				assignments = _build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot)
 				print("AIDecisionMaker: Plan targets destroyed, using fallback for %s (%d assignments)" % [unit_name, assignments.size()])
 			else:
 				print("AIDecisionMaker: Using focus fire plan for %s (%d assignments)" % [unit_name, assignments.size()])
 		else:
 			# Fallback: per-weapon greedy scoring (same as old behavior)
-			assignments = _build_unit_assignments_fallback(unit, ranged_weapons, enemies, snapshot)
+			assignments = _build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot)
 			print("AIDecisionMaker: Using fallback scoring for %s (%d assignments)" % [unit_name, assignments.size()])
 
 		if assignments.is_empty():
@@ -8210,16 +8246,34 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		return {}
 
 	# --- Step 1: Build weapon inventory across all shooters ---
-	# Each entry: {unit_id, weapon, weapon_id, unit}
+	# Each entry: {unit_id, weapon, weapon_id, unit, in_engagement}
 	var all_weapons = []
 	for unit_id in shooter_unit_ids:
 		var unit = snapshot.get("units", {}).get(unit_id, {})
 		if unit.is_empty():
 			continue
+
+		# T7-48: Check engagement range status for pistol weapon filtering
+		var unit_in_engagement = unit.get("flags", {}).get("in_engagement", false)
+		var unit_is_monster_vehicle = false
+		if unit_in_engagement:
+			var unit_keywords = unit.get("meta", {}).get("keywords", [])
+			for kw in unit_keywords:
+				var kw_upper = kw.to_upper()
+				if kw_upper == "MONSTER" or kw_upper == "VEHICLE":
+					unit_is_monster_vehicle = true
+					break
+
 		var weapons = unit.get("meta", {}).get("weapons", [])
 		for w in weapons:
 			if w.get("type", "").to_lower() != "ranged":
 				continue
+
+			# T7-48: In engagement range, only Pistol weapons can fire (unless Monster/Vehicle)
+			if unit_in_engagement and not unit_is_monster_vehicle:
+				if not _is_weapon_dict_pistol(w):
+					continue
+
 			var weapon_name = w.get("name", "")
 			var weapon_id = _generate_weapon_id(weapon_name, w.get("type", ""))
 
@@ -8241,7 +8295,8 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 				"unit_id": unit_id,
 				"weapon": w,
 				"weapon_id": weapon_id,
-				"unit": unit
+				"unit": unit,
+				"in_engagement": unit_in_engagement
 			})
 
 	if all_weapons.is_empty():
@@ -8295,9 +8350,18 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		var weapon_id = weapon_entry["weapon_id"]
 		var shooter_unit = weapon_entry["unit"]
 		var shooter_unit_id = weapon_entry["unit_id"]
+		var weapon_in_engagement = weapon_entry.get("in_engagement", false)
 		var dmg_row = {}
 		for enemy_id in enemies:
 			var enemy = enemies[enemy_id]
+
+			# T7-48: Pistol weapons from engaged units can only target enemies in engagement range
+			if weapon_in_engagement and _is_weapon_dict_pistol(weapon):
+				var er_dist = _get_closest_model_distance_inches(shooter_unit, enemy)
+				if er_dist > 1.0:
+					dmg_row[enemy_id] = 0.0
+					continue
+
 			# T7-11: Lone Operative targeting restriction — cannot target with ranged attacks
 			# from >12" away. Set damage to 0 if the shooter is too far.
 			if AIAbilityAnalyzerData.is_lone_operative_protected(enemy):
@@ -13798,6 +13862,14 @@ static func _find_wall_free_center(model_template: Dictionary, zone_bounds: Dict
 			return test_pos
 
 	return Vector2.ZERO
+
+# T7-48: Check if a weapon dictionary has the PISTOL keyword
+static func _is_weapon_dict_pistol(weapon: Dictionary) -> bool:
+	var keywords = weapon.get("keywords", [])
+	for kw in keywords:
+		if kw.to_upper() == "PISTOL":
+			return true
+	return false
 
 static func _generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
 	var weapon_id = weapon_name.to_lower()
