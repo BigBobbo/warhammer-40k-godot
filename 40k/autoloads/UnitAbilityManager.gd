@@ -242,6 +242,25 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "When advancing, do not roll — add 6\" to Move instead"
 	},
 
+	# Deffkilla Wartrike — skip advance roll, auto +6" to Move
+	"Fuel-mixa Grot": {
+		"condition": "always",
+		"effects": [{"type": "auto_advance_6"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When advancing, do not roll — add 6\" to Move instead"
+	},
+
+	# Warboss on Warbike — skip advance roll, auto +6" to Move
+	"High-octane Fuel": {
+		"condition": "always",
+		"effects": [{"type": "auto_advance_6"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When advancing, do not roll — add 6\" to Move instead"
+	},
 
 	# Ork Stormboyz — eligible to charge after Advancing or Falling Back
 	"Full Throttle": {
@@ -251,16 +270,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "all",
 		"implemented": true,
 		"description": "Unit is eligible to charge in a turn in which it Advanced or Fell Back"
-	},
-
-	# OA-22: Warboss On Warbike — replace Advance roll with flat +6" to Move
-	"High-octane Fuel": {
-		"condition": "while_leading",
-		"effects": [{"type": "flat_advance"}],
-		"target": "led_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "When Advancing, do not roll — add flat 6\" to Move instead"
 	},
 
 	# OA-23: Boss Zagstruk — re-roll Charge rolls when arriving from Reserves this turn
@@ -303,16 +312,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"implemented": true,
 		"once_per_turn": true,
 		"description": "Once per turn, when an enemy unit ends a Normal, Advance or Fall Back move within 9\" of this unit, if not within Engagement Range, can make a Normal move of up to 6\""
-	},
-
-	# Deffkilla Wartrike — same effect as High-octane Fuel
-	"Fuel-mixa Grot": {
-		"condition": "while_leading",
-		"effects": [{"type": "flat_advance"}],
-		"target": "led_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "When Advancing, do not roll — add flat 6\" to Move instead"
 	},
 
 	# Custodes Custodian Guard — once per battle shoot again after shooting
@@ -901,6 +900,25 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "melee",
 		"implemented": true,
 		"description": "+1 to melee Hit rolls (Bionik Workshop d3 = 3)"
+	},
+
+	# ======================================================================
+	# AURA ABILITIES — Battle-shock modifiers (OA-43)
+	# ======================================================================
+
+	# OA-43: Ork Stompa — friendly ORKS units within 12" get +1 to Battle-shock tests.
+	# Not a combat flag — enforced directly in CommandPhase._resolve_battle_shock_test()
+	# via get_battle_shock_bonus(). The aura condition documents the intent; effects are
+	# empty because the bonus is applied to the dice roll, not via the EffectPrimitives system.
+	"Waaagh! Effigy (Aura)": {
+		"condition": "aura",
+		"effects": [],
+		"aura_range": 12.0,
+		"aura_target": "friendly",
+		"target": "friendly_orks_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Friendly ORKS units within 12\" get +1 to Battle-shock tests — checked directly in CommandPhase"
 	},
 }
 
@@ -1627,6 +1645,73 @@ func find_enemy_units_within_aura(source_unit_id: String, aura_range: float) -> 
 			results.append(other_id)
 
 	return results
+
+# OA-43: Waaagh! Effigy (Aura) — Battle-shock bonus
+func get_battle_shock_bonus(unit_id: String) -> int:
+	"""Check if a unit benefits from the Waaagh! Effigy (Aura) ability on a nearby Stompa.
+	Returns +1 if the unit has the ORKS keyword and is within 12\" edge-to-edge of a
+	friendly unit with the 'Waaagh! Effigy (Aura)' ability. Returns 0 otherwise.
+	Per 10th Edition: same aura from multiple sources does not stack — returns 1 at most."""
+	var units = GameState.state.get("units", {})
+	var target_unit = units.get(unit_id, {})
+	if target_unit.is_empty():
+		return 0
+
+	# Only ORKS keyword units benefit from this aura
+	var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+	var has_orks_keyword = false
+	for kw in target_keywords:
+		if kw.to_upper() == "ORKS":
+			has_orks_keyword = true
+			break
+	if not has_orks_keyword:
+		return 0
+
+	var target_owner = target_unit.get("owner", 0)
+	var target_embarked = target_unit.get("embarked_in", "")
+
+	# Check all friendly units for Waaagh! Effigy (Aura) ability
+	for source_unit_id in units:
+		var source_unit = units[source_unit_id]
+
+		# Must be a friendly unit owned by the same player
+		if source_unit.get("owner", 0) != target_owner:
+			continue
+
+		# Must be alive and on the board
+		if not _has_alive_models(source_unit):
+			continue
+		if source_unit.get("embarked_in", "") != "":
+			continue
+
+		# Check if this unit has the Waaagh! Effigy (Aura) ability
+		var source_abilities = source_unit.get("meta", {}).get("abilities", [])
+		var has_effigy = false
+		for ability in source_abilities:
+			if ability.get("name", "") == "Waaagh! Effigy (Aura)":
+				has_effigy = true
+				break
+		if not has_effigy:
+			continue
+
+		# Per 10th Ed rules, a model is always within range of its own aura.
+		# If the source and target are the same unit (Stompa taking its own test), apply bonus.
+		if source_unit_id == unit_id:
+			print("UnitAbilityManager: Waaagh! Effigy aura — %s is source unit, bonus applies (self-aura)" % unit_id)
+			return 1
+
+		# Skip range check if target is embarked (positions not meaningful on-board)
+		if target_embarked != "":
+			continue
+
+		# Calculate closest model-to-model distance (edge-to-edge)
+		var dist = _closest_model_distance(target_unit, source_unit)
+		if dist <= 12.0:
+			print("UnitAbilityManager: Waaagh! Effigy aura — %s within 12\" of %s (%.1f\"), Battle-shock bonus +1 applies" % [
+				unit_id, source_unit_id, dist])
+			return 1
+
+	return 0
 
 func _apply_eligibility_effects() -> void:
 	"""Apply eligibility abilities (fall_back_and_charge, advance_and_charge, etc.)
