@@ -6,9 +6,18 @@ extends Node2D
 
 var terrain_pieces: Array = []
 var terrain_containers: Dictionary = {}  # terrain_id -> Node2D container
+var _ruins_polygons: Array = []  # Track ruins Polygon2D nodes for style changes
 
 # Border width
 const BORDER_WIDTH = 2.5
+
+# Preloaded ruins shaders
+var _ruins_shaders: Dictionary = {
+	"concrete": preload("res://shaders/ruins_concrete.gdshader"),
+	"marble": preload("res://shaders/ruins_marble.gdshader"),
+	"brick": preload("res://shaders/ruins_brick.gdshader"),
+	"weathered_stone": preload("res://shaders/ruins_weathered_stone.gdshader"),
+}
 
 # Terrain type color palettes: { fill: Color, border: Color, label_prefix: String }
 # Each type has low/medium/tall variants via alpha modulation
@@ -87,6 +96,10 @@ func _ready() -> void:
 		if TerrainManager.terrain_features.size() > 0:
 			_on_terrain_loaded(TerrainManager.terrain_features)
 
+	# Connect to ruins style changes from settings
+	if SettingsService:
+		SettingsService.ruins_style_changed.connect(_on_ruins_style_changed)
+
 	print("[TerrainVisual] Initialized")
 
 func _on_terrain_loaded(terrain_features: Array) -> void:
@@ -145,6 +158,11 @@ func _add_terrain_piece(terrain_data: Dictionary) -> void:
 	var piece = Polygon2D.new()
 	piece.polygon = polygon_points
 	piece.color = _get_fill_color(terrain_type, height_cat)
+
+	# Apply ruins shader if this is a ruins terrain piece
+	if terrain_type == "ruins":
+		_apply_ruins_shader(piece)
+		_ruins_polygons.append(piece)
 
 	# Create the border with type-specific color
 	var border = Line2D.new()
@@ -380,6 +398,7 @@ func _clear_terrain_visuals() -> void:
 
 	terrain_pieces.clear()
 	terrain_containers.clear()
+	_ruins_polygons.clear()
 
 func _on_visibility_changed(visible: bool) -> void:
 	self.visible = visible
@@ -405,6 +424,29 @@ func _get_terrain_type_for_id(terrain_id: String) -> String:
 			if terrain.get("id", "") == terrain_id:
 				return terrain.get("type", "ruins")
 	return "ruins"
+
+## Apply the current ruins shader to a Polygon2D
+func _apply_ruins_shader(polygon: Polygon2D) -> void:
+	var style = SettingsService.ruins_style if SettingsService else "concrete"
+	if style in _ruins_shaders:
+		var mat = ShaderMaterial.new()
+		mat.shader = _ruins_shaders[style]
+		polygon.material = mat
+		print("[TerrainVisual] Applied ruins shader: %s" % style)
+	else:
+		polygon.material = null
+
+## Handle ruins style change from settings — update all existing ruins polygons
+func _on_ruins_style_changed(new_style: String) -> void:
+	print("[TerrainVisual] Ruins style changed to: %s" % new_style)
+	for polygon in _ruins_polygons:
+		if is_instance_valid(polygon):
+			if new_style in _ruins_shaders:
+				var mat = ShaderMaterial.new()
+				mat.shader = _ruins_shaders[new_style]
+				polygon.material = mat
+			else:
+				polygon.material = null
 
 func show_cover_indicator_at(position: Vector2, in_cover: bool) -> void:
 	# Create a temporary indicator showing cover status

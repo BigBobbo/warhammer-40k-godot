@@ -26,6 +26,7 @@ signal krump_and_run_opportunity(player: int, eligible_units: Array, fell_back_u
 signal kunnin_infiltrator_available(unit_id: String, player: int)
 signal deff_from_above_available(unit_id: String, player: int, eligible_targets: Array)
 signal deff_from_above_result(unit_id: String, results: Dictionary)
+signal scatter_opportunity(player: int, eligible_units: Array, trigger_unit_id: String)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
@@ -103,6 +104,17 @@ var _deff_from_above_pending_unit: String = ""      # Unit awaiting Deff from Ab
 var _deff_from_above_pending_targets: Array = []    # Eligible enemy units moved over
 var _deff_from_above_pending_changes: Array = []    # Pending movement changes
 var _deff_from_above_pending_dice: Array = []       # Pending dice
+
+# OA-42: Scatter! state tracking (Grot Tanks reactive move)
+var _awaiting_scatter: bool = false
+var _scatter_player: int = 0                        # Defending player offered Scatter!
+var _scatter_eligible_units: Array = []             # Eligible units with Scatter! ability
+var _scatter_trigger_unit_id: String = ""           # The enemy unit that triggered the opportunity
+var _scatter_unit_id: String = ""                   # The unit chosen for reactive move
+var _scatter_pending_after_overwatch: bool = false   # Defer Scatter! check until overwatch resolves
+var _scatter_pending_trigger_id: String = ""         # Trigger unit ID for deferred check
+var _scatter_pending_changes: Array = []             # Pending changes to propagate after Scatter!
+var _scatter_pending_dice: Array = []                # Pending dice to propagate after Scatter!
 
 # Calculate pivot value for a unit based on base type and keywords (10e Core Rules Update)
 # - Non-round base, non-Monster/Vehicle: 1"
@@ -206,6 +218,15 @@ func _on_phase_enter() -> void:
 	_reactive_move_owner = 0
 	_kunnin_infiltrator_pending = false
 	_kunnin_infiltrator_unit_id = ""
+	_awaiting_scatter = false
+	_scatter_player = 0
+	_scatter_eligible_units = []
+	_scatter_trigger_unit_id = ""
+	_scatter_unit_id = ""
+	_scatter_pending_after_overwatch = false
+	_scatter_pending_trigger_id = ""
+	_scatter_pending_changes = []
+	_scatter_pending_dice = []
 
 	# OA-8: Snapshot engagement state at phase start for Krump and Run eligibility
 	_engagement_at_phase_start = _compute_engagement_snapshot()
@@ -227,6 +248,9 @@ func _on_phase_enter() -> void:
 		# OA-34: Clear Mekaniak +1 Hit buffs from previous turn and reset per-vehicle tracking
 		_clear_mekaniak_buffs(get_current_player())
 		ability_mgr.clear_mekaniak_turn_tracking()
+
+		# OA-42: Clear Scatter! per-unit tracking for new turn
+		ability_mgr.clear_scatter_turn_tracking()
 
 	# Check Thievin' Scavengers ability (Gretchin) before movement begins
 	_check_thievin_scavengers()
@@ -529,6 +553,12 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_deff_from_above(action)
 		"DECLINE_DEFF_FROM_ABOVE":
 			return _validate_decline_deff_from_above(action)
+		"USE_SCATTER":
+			return _validate_use_scatter(action)
+		"DECLINE_SCATTER":
+			if not _awaiting_scatter:
+				return {"valid": false, "errors": ["Not awaiting Scatter! decision"]}
+			return {"valid": true}
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -615,6 +645,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_deff_from_above(action)
 		"DECLINE_DEFF_FROM_ABOVE":
 			return _process_decline_deff_from_above(action)
+		"USE_SCATTER":
+			return _process_use_scatter(action)
+		"DECLINE_SCATTER":
+			return _process_decline_scatter(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -799,12 +833,21 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	if not active_moves.has(unit_id):
 		log_phase_message("ERROR: No active move for unit %s. Active moves: %s" % [unit_id, active_moves.keys()])
 		return {"valid": false, "errors": ["No active move for unit"]}
-	
+
 	var move_data = active_moves[unit_id]
 	var dest_vec = Vector2(dest[0], dest[1])
-	
+
 	# Get model's current position (may be staged position)
+	# Also check attached character units if model not found in the bodyguard unit
 	var model = _get_model_in_unit(unit_id, model_id)
+	if model.is_empty():
+		var bodyguard = get_unit(unit_id)
+		var attached_chars = bodyguard.get("attachment_data", {}).get("attached_characters", [])
+		for char_id in attached_chars:
+			model = _get_model_in_unit(char_id, model_id)
+			if not model.is_empty():
+				print("[MovementPhase] Found model %s in attached character unit %s" % [model_id, char_id])
+				break
 	if model.is_empty():
 		return {"valid": false, "errors": ["Model not found in unit"]}
 	
@@ -1187,17 +1230,16 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 					unit_name, int(move_inches + 6), int(move_inches)])
 		return _resolve_advance_roll(unit_id, 6)
 
-	# OA-22: High-octane Fuel / Fuel-mixa Grot — skip advance roll, add flat 6" to Move
+	# Turbo-boost / Fuel-mixa Grot / High-octane Fuel — skip advance roll, auto +6" to Move
 	if EffectPrimitivesData.has_effect_flat_advance(unit) or EffectPrimitivesData.has_effect_auto_advance_6(unit):
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		log_phase_message("Advance: %s → High-octane Fuel active — skip roll, +6\" to Move" % unit_name)
-		print("MovementPhase: High-octane Fuel — %s advances with flat +6\" (no roll)" % unit_name)
-		# Log to GameEventLog
+		log_phase_message("Advance: %s → auto advance ability active — skip roll, +6\" to Move" % unit_name)
+		print("MovementPhase: Auto Advance 6 — %s advances with flat +6\" (no roll)" % unit_name)
 		var game_event_log = get_node_or_null("/root/GameEventLog")
 		if game_event_log:
 			var owner = int(unit.get("owner", 0))
 			game_event_log.add_player_entry(owner,
-				"%s advances (High-octane Fuel): +6\", total move = %d\" (M %d\" + 6\")" % [
+				"%s advances (auto +6\"): total move = %d\" (M %d\" + 6\")" % [
 					unit_name, int(move_inches + 6), int(move_inches)])
 		return _resolve_advance_roll(unit_id, 6)
 
@@ -1610,6 +1652,28 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 			kar_extra_result.merge(kar_result.result_extra)
 			return kar_extra_result
 
+	# OA-42: Check for pending Scatter! after overwatch used
+	if _scatter_pending_after_overwatch:
+		_scatter_pending_after_overwatch = false
+		var trigger_id = _scatter_pending_trigger_id
+		_scatter_pending_trigger_id = ""
+		_scatter_pending_changes = []
+		_scatter_pending_dice = []
+		print("MovementPhase: OA-42 Checking deferred Scatter! after Fire Overwatch used")
+		var sct_result = _check_scatter_opportunity(trigger_id)
+		if sct_result.triggered:
+			var sct_extra_result = create_result(true, ow_shooting_result.get("diffs", []))
+			sct_extra_result["fire_overwatch_used"] = true
+			sct_extra_result["fire_overwatch_unit_id"] = unit_id
+			sct_extra_result["fire_overwatch_target_id"] = enemy_unit_id
+			sct_extra_result["fire_overwatch_shooting_result"] = ow_shooting_result
+			if ow_shooting_result.has("dice"):
+				sct_extra_result["dice"] = ow_shooting_result.dice
+			if ow_shooting_result.has("log_text"):
+				sct_extra_result["log_text"] = ow_shooting_result.log_text
+			sct_extra_result.merge(sct_result.result_extra)
+			return sct_extra_result
+
 	var result = create_result(true, ow_shooting_result.get("diffs", []))
 	result["fire_overwatch_used"] = true
 	result["fire_overwatch_unit_id"] = unit_id
@@ -1651,6 +1715,20 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 		if kar_result.triggered:
 			var result = create_result(true, [])
 			result.merge(kar_result.result_extra)
+			return result
+
+	# OA-42: Check for pending Scatter! after overwatch declined
+	if _scatter_pending_after_overwatch:
+		_scatter_pending_after_overwatch = false
+		var trigger_id = _scatter_pending_trigger_id
+		_scatter_pending_trigger_id = ""
+		_scatter_pending_changes = []
+		_scatter_pending_dice = []
+		print("MovementPhase: OA-42 Checking deferred Scatter! after Fire Overwatch declined")
+		var sct_result = _check_scatter_opportunity(trigger_id)
+		if sct_result.triggered:
+			var result = create_result(true, [])
+			result.merge(sct_result.result_extra)
 			return result
 
 	return create_result(true, [])
@@ -2734,7 +2812,8 @@ func _resolve_bomb_squigs(unit_id: String, target_unit_id: String) -> Dictionary
 
 func _get_rapid_ingress_eligible_units(player: int) -> Array:
 	"""Get reserve units eligible for Rapid Ingress for the given player.
-	Returns array of { unit_id: String, unit_name: String, reserve_type: String }."""
+	Returns array of { unit_id: String, unit_name: String, reserve_type: String }.
+	Attached characters are excluded — they arrive with their bodyguard."""
 	var eligible = []
 	var battle_round = GameState.get_battle_round()
 
@@ -2742,6 +2821,10 @@ func _get_rapid_ingress_eligible_units(player: int) -> Array:
 	for unit_id in reserves:
 		var unit = get_unit(unit_id)
 		if unit.is_empty():
+			continue
+
+		# Skip attached characters — they arrive with their bodyguard
+		if unit.get("attached_to", "") != "":
 			continue
 
 		var reserve_type = unit.get("reserve_type", "strategic_reserves")
@@ -2752,6 +2835,13 @@ func _get_rapid_ingress_eligible_units(player: int) -> Array:
 		# (Special rules allowing Round 1 arrival are not yet implemented.)
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		# Show attached characters in the name
+		var attachment_data = unit.get("attachment_data", {})
+		var attached_chars = attachment_data.get("attached_characters", [])
+		for char_id in attached_chars:
+			var char_unit = get_unit(char_id)
+			if char_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+				unit_name += " + " + char_unit.get("meta", {}).get("name", char_id)
 		eligible.append({
 			"unit_id": unit_id,
 			"unit_name": unit_name,
@@ -3032,6 +3122,34 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 		"value": GameState.get_battle_round()
 	})
 
+	# Deploy attached characters that are also in reserves (same logic as PLACE_REINFORCEMENT)
+	var unit = get_unit(unit_id)
+	var attachment_data = unit.get("attachment_data", {})
+	var attached_chars = attachment_data.get("attached_characters", [])
+
+	for char_id in attached_chars:
+		var char_unit = get_unit(char_id)
+		if char_unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		var char_models = char_unit.get("models", [])
+		for ci in range(char_models.size()):
+			var char_pos = null
+			if model_positions.size() > 0 and model_positions[0] != null:
+				char_pos = Vector2(model_positions[0].x + 40.0 * (ci + 1), model_positions[0].y)
+			if char_pos != null:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.position" % [char_id, ci],
+					"value": {"x": char_pos.x, "y": char_pos.y}
+				})
+		changes.append({
+			"op": "set",
+			"path": "units.%s.status" % char_id,
+			"value": GameStateData.UnitStatus.DEPLOYED
+		})
+		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		log_phase_message("Attached character %s arrived via Rapid Ingress with bodyguard" % char_name)
+
 	# Apply changes through PhaseManager
 	if get_parent() and get_parent().has_method("apply_state_changes"):
 		get_parent().apply_state_changes(changes)
@@ -3039,8 +3157,10 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 	# Update local snapshot
 	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
 		game_state_snapshot.units[unit_id]["status"] = GameStateData.UnitStatus.DEPLOYED
+	for char_id in attached_chars:
+		if game_state_snapshot.has("units") and game_state_snapshot.units.has(char_id):
+			game_state_snapshot.units[char_id]["status"] = GameStateData.UnitStatus.DEPLOYED
 
-	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
 	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
@@ -3289,7 +3409,18 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 
 	var move_data = active_moves[unit_id]
 	var model = _get_model_in_unit(unit_id, model_id)
-	
+	# Also check attached character units if model not found in the bodyguard unit
+	var model_actual_unit_id = unit_id
+	if model.is_empty():
+		var bodyguard = get_unit(unit_id)
+		var attached_chars = bodyguard.get("attachment_data", {}).get("attached_characters", [])
+		for char_id in attached_chars:
+			model = _get_model_in_unit(char_id, model_id)
+			if not model.is_empty():
+				model_actual_unit_id = char_id
+				print("[MovementPhase] Processing stage move for attached character model %s (unit %s)" % [model_id, char_id])
+				break
+
 	# Get current position (may be staged)
 	var current_pos = null
 	for staged_move in move_data.staged_moves:
@@ -3377,6 +3508,21 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var move_data = active_moves[unit_id]
 
+	# Build lookup of attached character IDs for resolving model ownership
+	var undo_unit = get_unit(unit_id)
+	var undo_attached_chars = undo_unit.get("attachment_data", {}).get("attached_characters", [])
+
+	# Helper to resolve which unit owns a model
+	var _resolve_undo_owner = func(mid: String) -> Dictionary:
+		var idx = _get_model_index(unit_id, mid)
+		if idx >= 0:
+			return {"unit_id": unit_id, "index": idx}
+		for cid in undo_attached_chars:
+			idx = _get_model_index(cid, mid)
+			if idx >= 0:
+				return {"unit_id": cid, "index": idx}
+		return {"unit_id": unit_id, "index": -1}
+
 	# Prefer undoing staged moves (current system), fall back to model_moves (legacy)
 	if not move_data.staged_moves.is_empty():
 		var last_staged = move_data.staged_moves.pop_back()
@@ -3402,11 +3548,11 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 			var original_rotations = move_data.get("original_rotations", {})
 			if original_rotations.has(model_id):
 				var original_rot = original_rotations[model_id]
-				var model_idx = _get_model_index(unit_id, model_id)
-				if model_idx >= 0:
+				var owner_info = _resolve_undo_owner.call(model_id)
+				if owner_info.index >= 0:
 					changes.append({
 						"op": "set",
-						"path": "units.%s.models.%s.rotation" % [unit_id, model_idx],
+						"path": "units.%s.models.%s.rotation" % [owner_info.unit_id, owner_info.index],
 						"value": original_rot
 					})
 					print("[MovementPhase] Restoring rotation for model %s to %.2f" % [model_id, original_rot])
@@ -3419,9 +3565,12 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 
 		# Restore to original position (before any movement this phase)
 		if original_pos:
-			var model = _get_model_in_unit(unit_id, model_id)
+			# Resolve the actual unit that owns this model for visual update
+			var owner_info = _resolve_undo_owner.call(model_id)
+			var actual_unit_id = owner_info.unit_id if owner_info.index >= 0 else unit_id
+			var model = _get_model_in_unit(actual_unit_id, model_id)
 			var original_rotation = model.get("rotation", 0.0)
-			emit_signal("model_drop_committed", unit_id, model_id, original_pos, original_rotation)
+			emit_signal("model_drop_committed", actual_unit_id, model_id, original_pos, original_rotation)
 			return create_result(true, [])
 		else:
 			return create_result(true, changes)
@@ -3462,26 +3611,43 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var move_data = active_moves[unit_id]
 	var changes = []
-	
+
+	# Build lookup of attached character IDs for resolving model ownership
+	var reset_unit = get_unit(unit_id)
+	var reset_attached_chars = reset_unit.get("attachment_data", {}).get("attached_characters", [])
+
+	# Helper to resolve which unit owns a model
+	var _resolve_model_owner = func(mid: String) -> Dictionary:
+		var idx = _get_model_index(unit_id, mid)
+		if idx >= 0:
+			return {"unit_id": unit_id, "index": idx}
+		for cid in reset_attached_chars:
+			idx = _get_model_index(cid, mid)
+			if idx >= 0:
+				return {"unit_id": cid, "index": idx}
+		return {"unit_id": unit_id, "index": -1}
+
 	# Reset models from staged moves to their original positions
 	for model_id in move_data.original_positions:
 		var original_pos = move_data.original_positions[model_id]
 		if original_pos:
-			changes.append({
-				"op": "set",
-				"path": "units.%s.models.%s.position" % [unit_id, _get_model_index(unit_id, model_id)],
-				"value": {"x": original_pos.x, "y": original_pos.y}
-			})
+			var owner_info = _resolve_model_owner.call(model_id)
+			if owner_info.index >= 0:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.models.%s.position" % [owner_info.unit_id, owner_info.index],
+					"value": {"x": original_pos.x, "y": original_pos.y}
+				})
 
 	# Reset model rotations to their original values
 	var original_rotations = move_data.get("original_rotations", {})
 	for model_id in original_rotations:
 		var original_rot = original_rotations[model_id]
-		var model_idx = _get_model_index(unit_id, model_id)
-		if model_idx >= 0:
+		var owner_info = _resolve_model_owner.call(model_id)
+		if owner_info.index >= 0:
 			changes.append({
 				"op": "set",
-				"path": "units.%s.models.%s.rotation" % [unit_id, model_idx],
+				"path": "units.%s.models.%s.rotation" % [owner_info.unit_id, owner_info.index],
 				"value": original_rot
 			})
 			print("[MovementPhase] Resetting rotation for model %s to %.2f" % [model_id, original_rot])
@@ -3489,11 +3655,13 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 	# Reset all model positions from permanent moves (if any)
 	for model_move in move_data.model_moves:
 		var from_pos = model_move.from
-		changes.append({
-			"op": "set",
-			"path": "units.%s.models.%s.position" % [unit_id, _get_model_index(unit_id, model_move.model_id)],
-			"value": {"x": from_pos.x, "y": from_pos.y} if from_pos else null
-		})
+		var owner_info = _resolve_model_owner.call(model_move.model_id)
+		if owner_info.index >= 0:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%s.position" % [owner_info.unit_id, owner_info.index],
+				"value": {"x": from_pos.x, "y": from_pos.y} if from_pos else null
+			})
 
 	# Clear all move data
 	move_data.model_moves.clear()
@@ -3548,6 +3716,10 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		unique_models[staged_move.model_id] = true
 	print("[MovementPhase] Processing ", unique_models.size(), " unique models")
 
+	# Build lookup of attached character IDs for resolving model ownership
+	var _confirm_unit = get_unit(unit_id)
+	var _confirm_attached_chars = _confirm_unit.get("attachment_data", {}).get("attached_characters", [])
+
 	# Convert staged moves to permanent moves
 	for staged_move in move_data.staged_moves:
 		print("  Confirming move for model ", staged_move.model_id, " to ", staged_move.dest)
@@ -3560,17 +3732,29 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"crosses_enemy": staged_move.get("crosses_enemy", false)
 		})
 
+		# Resolve which unit actually owns this model (bodyguard or attached character)
+		var model_owner_id = unit_id
+		var model_idx = _get_model_index(unit_id, staged_move.model_id)
+		if model_idx < 0:
+			# Model not in bodyguard unit — check attached characters
+			for char_id in _confirm_attached_chars:
+				model_idx = _get_model_index(char_id, staged_move.model_id)
+				if model_idx >= 0:
+					model_owner_id = char_id
+					print("  Model %s belongs to attached character %s (index %d)" % [staged_move.model_id, char_id, model_idx])
+					break
+
 		# Update model position in game state
 		changes.append({
 			"op": "set",
-			"path": "units.%s.models.%s.position" % [unit_id, _get_model_index(unit_id, staged_move.model_id)],
+			"path": "units.%s.models.%s.position" % [model_owner_id, model_idx],
 			"value": {"x": staged_move.dest.x, "y": staged_move.dest.y}
 		})
 
 		# Update model rotation in game state
 		changes.append({
 			"op": "set",
-			"path": "units.%s.models.%s.rotation" % [unit_id, _get_model_index(unit_id, staged_move.model_id)],
+			"path": "units.%s.models.%s.rotation" % [model_owner_id, model_idx],
 			"value": staged_move.get("rotation", 0.0)
 		})
 	
@@ -3579,10 +3763,13 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	move_data.accumulated_distance = 0.0
 
 	# Move attached character models with the bodyguard unit
-	var _unit = get_unit(unit_id)
-	var attached_chars = _unit.get("attachment_data", {}).get("attached_characters", [])
+	# Skip character models that were already explicitly moved via staged moves
+	var explicitly_moved_model_ids = {}
+	for mm in move_data.model_moves:
+		explicitly_moved_model_ids[mm.model_id] = true
+	var attached_chars = _confirm_unit.get("attachment_data", {}).get("attached_characters", [])
 	if attached_chars.size() > 0:
-		changes.append_array(_move_attached_characters(unit_id, attached_chars))
+		changes.append_array(_move_attached_characters(unit_id, attached_chars, explicitly_moved_model_ids))
 
 	# Handle Desperate Escape for Fall Back
 	if move_data.mode == "FALL_BACK":
@@ -3628,6 +3815,19 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.cannot_charge" % unit_id,
 			"value": true
 		})
+		# Propagate advance flags to attached characters
+		for char_id in attached_chars:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.flags.advanced" % char_id,
+				"value": true
+			})
+			changes.append({
+				"op": "set",
+				"path": "units.%s.flags.cannot_charge" % char_id,
+				"value": true
+			})
+			print("[MovementPhase] Propagated advance flags to attached character %s" % char_id)
 	elif move_data.mode == "FALL_BACK":
 		# Set fell_back flag - units that Fell Back cannot shoot or charge
 		changes.append({
@@ -3645,6 +3845,24 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.cannot_charge" % unit_id,
 			"value": true
 		})
+		# Propagate fall back flags to attached characters
+		for char_id in attached_chars:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.flags.fell_back" % char_id,
+				"value": true
+			})
+			changes.append({
+				"op": "set",
+				"path": "units.%s.flags.cannot_shoot" % char_id,
+				"value": true
+			})
+			changes.append({
+				"op": "set",
+				"path": "units.%s.flags.cannot_charge" % char_id,
+				"value": true
+			})
+			print("[MovementPhase] Propagated fall back flags to attached character %s" % char_id)
 	elif move_data.mode == "SURGE":
 		# Set surge_moved flag — surge moves don't restrict shooting/charging
 		# but track that a surge happened (P2-71)
@@ -3653,6 +3871,13 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.surge_moved" % unit_id,
 			"value": true
 		})
+		# Propagate surge flag to attached characters
+		for char_id in attached_chars:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.flags.surge_moved" % char_id,
+				"value": true
+			})
 		emit_signal("surge_move_completed", unit_id, move_data.move_cap_inches)
 
 	# OA-8: If this was a Krump and Run reactive move, clear the reactive state
@@ -3668,6 +3893,24 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		})
 		log_phase_message("OA-8: Krump and Run reactive move completed for %s" % unit_id)
 		print("MovementPhase: OA-8 Krump and Run move completed for %s — reactive state cleared" % unit_id)
+		move_data["completed"] = true
+		emit_signal("unit_move_confirmed", unit_id, {"mode": "NORMAL", "models_moved": move_data.model_moves.size()})
+		if MissionManager:
+			MissionManager.call_deferred("check_all_objectives")
+		return create_result(true, changes)
+
+	# OA-42: If this was a Scatter! reactive move, clear the reactive state
+	if move_data.get("is_reactive_move", false) and move_data.get("reactive_source", "") == "scatter":
+		_reactive_move_owner = 0
+		_scatter_unit_id = ""
+		# Scatter! normal move — unit can still shoot and charge normally
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.moved" % unit_id,
+			"value": true
+		})
+		log_phase_message("OA-42: Scatter! reactive move completed for %s" % unit_id)
+		print("MovementPhase: OA-42 Scatter! move completed for %s — reactive state cleared" % unit_id)
 		move_data["completed"] = true
 		emit_signal("unit_move_confirmed", unit_id, {"mode": "NORMAL", "models_moved": move_data.model_moves.size()})
 		if MissionManager:
@@ -3715,6 +3958,12 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			_krump_and_run_pending_after_overwatch = true
 			_krump_and_run_pending_fell_back_id = unit_id
 			print("MovementPhase: OA-8 Krump and Run check deferred — Fire Overwatch triggered first")
+		# OA-42: Defer Scatter! check until overwatch resolves
+		_scatter_pending_after_overwatch = true
+		_scatter_pending_trigger_id = unit_id
+		_scatter_pending_changes = changes.duplicate()
+		_scatter_pending_dice = additional_dice.duplicate() if additional_dice is Array else []
+		print("MovementPhase: OA-42 Scatter! check deferred — Fire Overwatch triggered first")
 		var result = create_result(true, changes, "", {"dice": additional_dice})
 		result.merge(ow_result.result_extra)
 		return result
@@ -3726,6 +3975,13 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			var result = create_result(true, changes, "", {"dice": additional_dice})
 			result.merge(kar_result.result_extra)
 			return result
+
+	# OA-42: Check for Scatter! opportunity after Normal, Advance or Fall Back move
+	var scatter_result = _check_scatter_opportunity(unit_id, temp_snapshot)
+	if scatter_result.triggered:
+		var result = create_result(true, changes, "", {"dice": additional_dice})
+		result.merge(scatter_result.result_extra)
+		return result
 
 	# P2-25: Check for Bomb Squigs after Normal move
 	var _ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -3794,6 +4050,21 @@ func _process_remain_stationary(action: Dictionary) -> Dictionary:
 			"value": not is_disembarked
 		}
 	]
+
+	# Propagate remain stationary flags to attached characters
+	var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in attached_chars:
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.moved" % char_id,
+			"value": true
+		})
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.remained_stationary" % char_id,
+			"value": not is_disembarked
+		})
+		print("[MovementPhase] Propagated remain stationary flags to attached character %s" % char_id)
 
 	if is_disembarked:
 		log_phase_message("%s remained stationary (disembarked this phase — no Heavy bonus)" % unit.get("meta", {}).get("name", unit_id))
@@ -4078,6 +4349,47 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 		"value": GameState.get_battle_round()
 	})
 
+	# Deploy attached characters that are also in reserves
+	# Per 10e rules, attached characters arrive together with their bodyguard
+	var unit = get_unit(unit_id)
+	var attachment_data = unit.get("attachment_data", {})
+	var attached_chars = attachment_data.get("attached_characters", [])
+	var char_model_positions = action.get("character_model_positions", {})
+
+	for char_id in attached_chars:
+		var char_unit = get_unit(char_id)
+		if char_unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
+			continue
+
+		# Deploy the character — use provided positions or place near the bodyguard
+		var char_positions = char_model_positions.get(char_id, [])
+		var char_models = char_unit.get("models", [])
+		for ci in range(char_models.size()):
+			var char_pos = null
+			if ci < char_positions.size():
+				char_pos = char_positions[ci]
+			elif model_positions.size() > 0:
+				# Place near the first bodyguard model with a small offset
+				var base_pos = model_positions[0]
+				if base_pos != null:
+					# Offset based on character model index (40px = ~1 inch)
+					char_pos = Vector2(base_pos.x + 40.0 * (ci + 1), base_pos.y)
+			if char_pos != null:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.position" % [char_id, ci],
+					"value": {"x": char_pos.x, "y": char_pos.y}
+				})
+
+		changes.append({
+			"op": "set",
+			"path": "units.%s.status" % char_id,
+			"value": GameStateData.UnitStatus.DEPLOYED
+		})
+
+		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		log_phase_message("Attached character %s arrived with bodyguard from reserves" % char_name)
+
 	# Apply changes through PhaseManager
 	if get_parent() and get_parent().has_method("apply_state_changes"):
 		get_parent().apply_state_changes(changes)
@@ -4085,8 +4397,10 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	# Update local snapshot
 	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
 		game_state_snapshot.units[unit_id]["status"] = GameStateData.UnitStatus.DEPLOYED
+	for char_id in attached_chars:
+		if game_state_snapshot.has("units") and game_state_snapshot.units.has(char_id):
+			game_state_snapshot.units[char_id]["status"] = GameStateData.UnitStatus.DEPLOYED
 
-	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
 	var placement_type = action.get("placement_type", reserve_type)
@@ -4564,6 +4878,204 @@ func _process_decline_krump_and_run(action: Dictionary) -> Dictionary:
 	_krump_and_run_eligible_units = []
 	_krump_and_run_fell_back_unit_id = ""
 	_krump_and_run_unit_id = ""
+
+	return create_result(true, [])
+
+# ============================================================================
+# OA-42: SCATTER! — GROT TANKS REACTIVE MOVE
+# ============================================================================
+# "Once per turn, when an enemy unit ends a Normal, Advance or Fall Back move
+# within 9" of this unit, if this unit is not within Engagement Range of one
+# or more enemy units, it can make a Normal move of up to 6"."
+
+func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dictionary = {}) -> Dictionary:
+	"""Check if any defending unit with Scatter! can react after an enemy ends a move within 9\".
+	Returns { triggered: bool, result_extra: Dictionary }."""
+	var trigger_unit = get_unit(trigger_unit_id)
+	var active_player = get_current_player()  # The player who just moved
+	var defending_player = 2 if active_player == 1 else 1  # Potential Scatter! player
+
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return {"triggered": false}
+
+	var check_snapshot = snapshot_override if not snapshot_override.is_empty() else game_state_snapshot
+
+	# Get the trigger unit's position from the snapshot (post-move)
+	var trigger_unit_data = check_snapshot.get("units", {}).get(trigger_unit_id, {})
+	var trigger_pos = _get_unit_center(trigger_unit_data)
+	if trigger_pos == null:
+		return {"triggered": false}
+
+	# Find eligible units with Scatter! ability
+	var eligible = []
+	var units = check_snapshot.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if int(unit.get("owner", 0)) != defending_player:
+			continue
+		if _is_unit_destroyed_check(unit):
+			continue
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+
+		# Must have Scatter! ability
+		if not ability_mgr.has_scatter(unit_id):
+			continue
+
+		# Must not have used Scatter! this turn
+		if ability_mgr.is_scatter_used_this_turn(unit_id):
+			continue
+
+		# Must NOT be in engagement range of any enemy unit
+		if _is_unit_engaged_for_player(unit_id, defending_player, check_snapshot):
+			continue
+
+		# Must not be battle-shocked
+		if unit.get("flags", {}).get("battle_shocked", false) or unit.get("status_effects", {}).get("battle_shocked", false):
+			continue
+
+		# Check if the trigger unit ended within 9" of this unit
+		var unit_pos = _get_unit_center(unit)
+		if unit_pos == null:
+			continue
+
+		var dist_inches = unit_pos.distance_to(trigger_pos) / GameState.PIXELS_PER_INCH
+		if dist_inches > 9.0:
+			continue
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		eligible.append({"unit_id": unit_id, "unit_name": unit_name})
+		print("MovementPhase: OA-42 Scatter! — %s is eligible (%.1f\" from trigger unit)" % [unit_name, dist_inches])
+
+	if eligible.is_empty():
+		return {"triggered": false}
+
+	# Scatter! is available!
+	_awaiting_scatter = true
+	_scatter_player = defending_player
+	_scatter_eligible_units = eligible
+	_scatter_trigger_unit_id = trigger_unit_id
+
+	var trigger_name = trigger_unit.get("meta", {}).get("name", trigger_unit_id)
+	log_phase_message("SCATTER! available for Player %d (%d eligible units) after %s moved within 9\"" % [defending_player, eligible.size(), trigger_name])
+	print("MovementPhase: OA-42 Scatter! opportunity — Player %d has %d eligible units" % [defending_player, eligible.size()])
+
+	emit_signal("scatter_opportunity", defending_player, eligible, trigger_unit_id)
+
+	return {
+		"triggered": true,
+		"result_extra": {
+			"trigger_scatter": true,
+			"awaiting_scatter": true,
+			"scatter_player": defending_player,
+			"scatter_eligible_units": eligible,
+			"scatter_trigger_unit_id": trigger_unit_id,
+		}
+	}
+
+func _validate_use_scatter(action: Dictionary) -> Dictionary:
+	"""Validate using Scatter! ability."""
+	var errors = []
+
+	if not _awaiting_scatter:
+		errors.append("Not awaiting Scatter! decision")
+		return {"valid": false, "errors": errors}
+
+	var unit_id = action.get("payload", {}).get("unit_id", "")
+	if unit_id.is_empty():
+		errors.append("No unit specified for Scatter!")
+		return {"valid": false, "errors": errors}
+
+	# Validate the unit is in the eligible list
+	var found = false
+	for eligible in _scatter_eligible_units:
+		if eligible.unit_id == unit_id:
+			found = true
+			break
+	if not found:
+		errors.append("Unit %s is not eligible for Scatter!" % unit_id)
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
+
+func _process_use_scatter(action: Dictionary) -> Dictionary:
+	"""Process using Scatter! — set up reactive Normal move of up to 6\"."""
+	var unit_id = action.get("payload", {}).get("unit_id", "")
+	var player = _scatter_player
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# Mark Scatter! as used this turn for this unit
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.mark_scatter_used_this_turn(unit_id)
+
+	log_phase_message("Player %d uses SCATTER! — %s can make a 6\" Normal move!" % [player, unit_name])
+	print("MovementPhase: OA-42 Scatter! activated — %s (Player %d) gets 6\" Normal move" % [unit_name, player])
+
+	# Set up the reactive Normal move with 6" cap
+	_scatter_unit_id = unit_id
+	_reactive_move_owner = player  # Override engagement checks for this player's unit
+
+	var move_cap = 6.0
+	var pivot_value = get_pivot_value_for_unit(unit_id)
+	active_moves[unit_id] = {
+		"mode": "NORMAL",
+		"mode_locked": true,
+		"completed": false,
+		"move_cap_inches": move_cap,
+		"advance_roll": 0,
+		"model_moves": [],
+		"staged_moves": [],
+		"original_positions": {},
+		"original_rotations": {},
+		"model_distances": {},
+		"dice_rolls": [],
+		"battle_shocked": false,
+		"pivot_value": pivot_value,
+		"pivot_cost_applied": false,
+		"group_moves": [],
+		"group_selection": [],
+		"group_formation": {},
+		"is_reactive_move": true,
+		"reactive_source": "scatter"
+	}
+
+	# Store original positions for potential reset
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			var model_id = model.get("id", "")
+			var pos = _get_model_position(model)
+			active_moves[unit_id]["original_positions"][model_id] = pos
+			active_moves[unit_id]["original_rotations"][model_id] = model.get("rotation", 0.0)
+
+	emit_signal("unit_move_begun", unit_id, "NORMAL")
+
+	# Clear awaiting state
+	_awaiting_scatter = false
+	_scatter_eligible_units = []
+	_scatter_trigger_unit_id = ""
+
+	var result = create_result(true, [])
+	result["scatter_used"] = true
+	result["scatter_unit_id"] = unit_id
+	result["scatter_player"] = player
+	result["scatter_move_cap"] = move_cap
+	return result
+
+func _process_decline_scatter(action: Dictionary) -> Dictionary:
+	"""Process declining the Scatter! ability."""
+	var player = _scatter_player
+	log_phase_message("Player %d declined SCATTER!" % player)
+	print("MovementPhase: OA-42 Scatter! DECLINED by Player %d" % player)
+
+	# Clear state
+	_awaiting_scatter = false
+	_scatter_player = 0
+	_scatter_eligible_units = []
+	_scatter_trigger_unit_id = ""
+	_scatter_unit_id = ""
 
 	return create_result(true, [])
 
@@ -5206,9 +5718,26 @@ func get_available_actions() -> Array:
 		var reserves = GameState.get_reserves_for_player(current_player)
 		for reserve_unit_id in reserves:
 			var reserve_unit = get_unit(reserve_unit_id)
+
+			# Skip attached characters — they arrive with their bodyguard automatically
+			if reserve_unit.get("attached_to", "") != "":
+				continue
+
 			var reserve_name = reserve_unit.get("meta", {}).get("name", reserve_unit_id)
 			var reserve_type = reserve_unit.get("reserve_type", "strategic_reserves")
 			var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Reserves"
+
+			# Show attached characters in the description
+			var attachment_data = reserve_unit.get("attachment_data", {})
+			var attached_chars = attachment_data.get("attached_characters", [])
+			var char_names = []
+			for char_id in attached_chars:
+				var char_unit = get_unit(char_id)
+				if char_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+					char_names.append(char_unit.get("meta", {}).get("name", char_id))
+			var char_suffix = ""
+			if char_names.size() > 0:
+				char_suffix = " + " + ", ".join(char_names)
 
 			# P2-80: Flag units that can choose between Deep Strike and Strategic Reserves placement
 			var has_ds_choice = false
@@ -5219,7 +5748,7 @@ func get_available_actions() -> Array:
 			actions.append({
 				"type": "PLACE_REINFORCEMENT",
 				"unit_id": reserve_unit_id,
-				"description": "Arrive from %s: %s" % [type_label, reserve_name],
+				"description": "Arrive from %s: %s%s" % [type_label, reserve_name, char_suffix],
 				"has_ds_choice": has_ds_choice
 			})
 
@@ -6199,16 +6728,20 @@ func _process_embark_unit(action: Dictionary) -> Dictionary:
 
 	return create_result(true, changes)
 
-func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array) -> Array:
+func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, explicitly_moved_models: Dictionary = {}) -> Array:
 	"""Move attached character models to maintain formation with bodyguard.
-	Calculates delta from the bodyguard's first model move and applies to character models."""
+	Calculates delta from the bodyguard's first model move and applies to character models.
+	Models in explicitly_moved_models were already positioned via staged moves and are skipped."""
 	var changes = []
 	var bodyguard = get_unit(bodyguard_id)
 	if bodyguard.is_empty():
 		return changes
 
-	# Calculate movement delta from first bodyguard model
+	# Calculate movement delta from first bodyguard model (only from bodyguard models, not character models)
 	var bg_models = bodyguard.get("models", [])
+	var bg_model_ids = {}
+	for bg_m in bg_models:
+		bg_model_ids[bg_m.get("id", "")] = true
 	var move_delta = Vector2.ZERO
 	var found_delta = false
 
@@ -6216,14 +6749,16 @@ func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array) -
 	if active_moves.has(bodyguard_id):
 		var move_data = active_moves[bodyguard_id]
 		for model_move in move_data.model_moves:
-			var from_pos = model_move.get("from", null)
-			var to_pos = model_move.get("dest", null)
-			if from_pos != null and to_pos != null:
-				var from_vec = Vector2(from_pos.x if from_pos is Vector2 else from_pos.get("x", 0), from_pos.y if from_pos is Vector2 else from_pos.get("y", 0))
-				var to_vec = Vector2(to_pos.x if to_pos is Vector2 else to_pos.get("x", 0), to_pos.y if to_pos is Vector2 else to_pos.get("y", 0))
-				move_delta = to_vec - from_vec
-				found_delta = true
-				break
+			# Only use bodyguard model moves for delta calculation, not character model moves
+			if model_move.model_id in bg_model_ids:
+				var from_pos = model_move.get("from", null)
+				var to_pos = model_move.get("dest", null)
+				if from_pos != null and to_pos != null:
+					var from_vec = Vector2(from_pos.x if from_pos is Vector2 else from_pos.get("x", 0), from_pos.y if from_pos is Vector2 else from_pos.get("y", 0))
+					var to_vec = Vector2(to_pos.x if to_pos is Vector2 else to_pos.get("x", 0), to_pos.y if to_pos is Vector2 else to_pos.get("y", 0))
+					move_delta = to_vec - from_vec
+					found_delta = true
+					break
 
 	if not found_delta:
 		print("[MovementPhase] WARNING: Could not determine move delta for attached characters of %s" % bodyguard_id)
@@ -6239,6 +6774,13 @@ func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array) -
 		var char_models = char_unit.get("models", [])
 		for i in range(char_models.size()):
 			var model = char_models[i]
+			var model_id = model.get("id", "m%d" % (i + 1))
+
+			# Skip models that were already explicitly moved via staged moves
+			if explicitly_moved_models.has(model_id):
+				print("[MovementPhase] Skipping attached character model %s — already explicitly moved" % model_id)
+				continue
+
 			var model_pos = model.get("position", null)
 			if model_pos == null:
 				continue
