@@ -228,6 +228,9 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 	_spectator_mode = ai_players.get(1, false) and ai_players.get(2, false)
 	_phase_action_counts.clear()
 
+	# T7-41: Reset army archetype cache for new game
+	AIDecisionMaker.reset_army_archetype_cache()
+
 	# T7-57: Initialize per-game performance tracking
 	_game_performance.clear()
 	for pid in ai_players:
