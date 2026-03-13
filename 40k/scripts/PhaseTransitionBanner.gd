@@ -6,6 +6,7 @@ class_name PhaseTransitionBanner
 # The banner fades/slides into the center of the screen, holds briefly, then fades out.
 # Uses the WhiteDwarfTheme gothic theme for consistent styling.
 # P3-110: Added phase rules brief — concise description of available actions per phase.
+# P3-126: Added phase transition sound effects — audio cues via DiceSoundManager.
 
 const SLIDE_IN_DURATION := 0.4
 const HOLD_DURATION := 2.5
@@ -200,6 +201,9 @@ func show_phase_banner(phase: GameStateData.Phase, current_round: int = 1, activ
 	_rules_label.text = rules_brief
 	_rules_label.visible = rules_brief != ""
 
+	# P3-126: Play phase transition sound effect
+	_play_phase_sound(phase)
+
 	# Position slightly above center (hidden) for slide-in effect
 	offset_top = -BANNER_HEIGHT / 2.0 - SLIDE_OFFSET
 	offset_bottom = BANNER_HEIGHT / 2.0 - SLIDE_OFFSET
@@ -241,3 +245,29 @@ func _on_banner_complete() -> void:
 	modulate = Color(1, 1, 1, 0)
 	_is_showing = false
 	print("PhaseTransitionBanner: Banner animation complete")
+
+# P3-126: Phase transition sound effects
+
+## Combat phases get a more intense sound cue
+const COMBAT_PHASES := [
+	GameStateData.Phase.SHOOTING,
+	GameStateData.Phase.CHARGE,
+	GameStateData.Phase.FIGHT,
+]
+
+func _get_sound_manager() -> Node:
+	if not is_inside_tree():
+		return null
+	return get_tree().root.get_node_or_null("/root/DiceSoundManager")
+
+func _play_phase_sound(phase: GameStateData.Phase) -> void:
+	var sound_manager = _get_sound_manager()
+	if not sound_manager:
+		print("PhaseTransitionBanner: DiceSoundManager not available for phase sound")
+		return
+	if phase in COMBAT_PHASES:
+		sound_manager.play_phase_combat()
+		print("PhaseTransitionBanner: Playing combat phase sound for %s" % GameStateData.Phase.keys()[phase])
+	else:
+		sound_manager.play_phase_transition()
+		print("PhaseTransitionBanner: Playing transition sound for %s" % GameStateData.Phase.keys()[phase])
