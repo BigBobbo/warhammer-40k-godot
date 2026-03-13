@@ -454,40 +454,110 @@ func _create_abilities_list(unit_data: Dictionary, abilities_container: VBoxCont
 	# Clear existing
 	for child in abilities_container.get_children():
 		child.queue_free()
-	
-	if not unit_data.has("meta") or not unit_data["meta"].has("abilities"):
+
+	# Display unit's own abilities
+	var abilities = []
+	if unit_data.has("meta") and unit_data["meta"].has("abilities"):
+		abilities = unit_data["meta"]["abilities"]
+
+	if not abilities.is_empty():
+		var abilities_label = Label.new()
+		abilities_label.text = "ABILITIES"
+		abilities_label.add_theme_font_size_override("font_size", 14)
+		abilities_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+		abilities_container.add_child(abilities_label)
+
+		for ability in abilities:
+			var ability_container = VBoxContainer.new()
+
+			var name_label = Label.new()
+			name_label.text = "• " + ability.get("name", "Unknown")
+			if ability.has("type"):
+				name_label.text += " (" + ability.get("type", "") + ")"
+			name_label.add_theme_font_size_override("font_size", 12)
+			name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			name_label.modulate = _WhiteDwarfTheme.WH_PARCHMENT  # Parchment tint
+			ability_container.add_child(name_label)
+
+			if ability.has("description"):
+				var desc_label = Label.new()
+				desc_label.text = "  " + ability.get("description", "")
+				desc_label.add_theme_font_size_override("font_size", 10)
+				desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				ability_container.add_child(desc_label)
+
+			abilities_container.add_child(ability_container)
+
+	# OA-51: Show detachment ability for Freebooter Krew units
+	_create_detachment_ability_section(unit_data, abilities_container)
+
+func _create_detachment_ability_section(unit_data: Dictionary, abilities_container: VBoxContainer) -> void:
+	"""OA-51: Show detachment ability (e.g. Here Be Loot) when unit belongs to Freebooter Krew."""
+	var owner = unit_data.get("owner", 0)
+	if owner == 0:
 		return
-	
-	var abilities = unit_data["meta"]["abilities"]
-	if abilities.is_empty():
+
+	var faction_ability_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_ability_mgr:
 		return
-	
-	var abilities_label = Label.new()
-	abilities_label.text = "ABILITIES"
-	abilities_label.add_theme_font_size_override("font_size", 14)
-	abilities_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	abilities_container.add_child(abilities_label)
-	
-	for ability in abilities:
-		var ability_container = VBoxContainer.new()
-		
-		var name_label = Label.new()
-		name_label.text = "• " + ability.get("name", "Unknown")
-		if ability.has("type"):
-			name_label.text += " (" + ability.get("type", "") + ")"
-		name_label.add_theme_font_size_override("font_size", 12)
-		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		name_label.modulate = _WhiteDwarfTheme.WH_PARCHMENT  # Parchment tint
-		ability_container.add_child(name_label)
-		
-		if ability.has("description"):
-			var desc_label = Label.new()
-			desc_label.text = "  " + ability.get("description", "")
-			desc_label.add_theme_font_size_override("font_size", 10)
-			desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			ability_container.add_child(desc_label)
-		
-		abilities_container.add_child(ability_container)
+
+	var detachment = faction_ability_mgr.get_player_detachment(owner)
+	if detachment == "":
+		return
+
+	var ability_info = faction_ability_mgr.DETACHMENT_ABILITIES.get(detachment, {})
+	if ability_info.is_empty():
+		return
+
+	# Separator before detachment section
+	var separator = HSeparator.new()
+	separator.add_theme_constant_override("separation", 4)
+	abilities_container.add_child(separator)
+
+	var det_header = Label.new()
+	det_header.text = "DETACHMENT ABILITY"
+	det_header.add_theme_font_size_override("font_size", 14)
+	det_header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	abilities_container.add_child(det_header)
+
+	var ability_container = VBoxContainer.new()
+
+	var name_label = Label.new()
+	name_label.text = "• " + ability_info.get("ability_name", detachment)
+	name_label.add_theme_font_size_override("font_size", 12)
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Orky green for Freebooter Krew, parchment for others
+	if detachment == "Freebooter Krew":
+		name_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.3, 1.0))
+	else:
+		name_label.modulate = _WhiteDwarfTheme.WH_PARCHMENT
+	ability_container.add_child(name_label)
+
+	var desc = ability_info.get("description", "")
+	if desc != "":
+		var desc_label = Label.new()
+		desc_label.text = "  " + desc
+		desc_label.add_theme_font_size_override("font_size", 10)
+		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		ability_container.add_child(desc_label)
+
+	# For Freebooter Krew, also show the current loot objective (OA-51)
+	if detachment == "Freebooter Krew":
+		var loot_obj_id = faction_ability_mgr.get_loot_objective(owner)
+		var loot_status_label = Label.new()
+		if loot_obj_id != "":
+			var display_id = loot_obj_id.replace("obj_", "Objective ").to_upper()
+			loot_status_label.text = "  ★ LOOT OBJECTIVE: %s" % display_id
+			loot_status_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.3, 1.0))
+		else:
+			loot_status_label.text = "  (No Loot Objective selected this round)"
+			loot_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 1.0))
+		loot_status_label.add_theme_font_size_override("font_size", 10)
+		ability_container.add_child(loot_status_label)
+
+	abilities_container.add_child(ability_container)
+	print("UnitStatsPanel: Showing detachment ability '%s' for player %d (%s)" % [
+		ability_info.get("ability_name", ""), owner, detachment])
 
 func _create_composition_list(unit_data: Dictionary, composition_container: VBoxContainer) -> void:
 	# Clear existing
