@@ -1076,7 +1076,7 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 					unit_name, int(move_inches + 6), int(move_inches)])
 		return _resolve_advance_roll(unit_id, 6)
 
-	# Fuel-mixa Grot / High-octane Fuel — skip advance roll, auto +6" to Move
+	# Turbo-boost / Fuel-mixa Grot / High-octane Fuel — skip advance roll, auto +6" to Move
 	if flags.get("effect_auto_advance_6", false):
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		log_phase_message("Advance: %s → auto advance ability active — skip roll, +6\" to Move" % unit_name)
