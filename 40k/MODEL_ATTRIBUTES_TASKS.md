@@ -386,11 +386,11 @@
 - **Validation**: Unit where one model type has FNP 5+ and another has none. Wound allocation rolls FNP only for the model type that has it. Other model type takes full damage.
 
 ### MA-29: Ability weapon targeting filter (stretch goal)
-- [ ] Some abilities say "add 2 to Attacks of bolt rifles equipped by models in this unit"
-- [ ] Add optional `target_weapon_names` field to ability effect definitions
-- [ ] When applying attack bonuses, filter to only models whose profile includes the named weapon
-- [ ] Currently all abilities apply unit-wide — this would be a new filtering layer
-- **Files**: UnitAbilityManager.gd, EffectPrimitives.gd
+- [x] Some abilities say "add 2 to Attacks of bolt rifles equipped by models in this unit"
+- [x] Add optional `target_weapon_names` field to ability effect definitions
+- [x] When applying attack bonuses, filter to only models whose profile includes the named weapon
+- [x] Currently all abilities apply unit-wide — this would be a new filtering layer
+- **Files**: UnitAbilityManager.gd, EffectPrimitives.gd, RulesEngine.gd
 - **Validation**: Ability "+2 attacks to bolt rifles". Unit has 5 bolt rifle models and 1 plasma model. Only bolt rifle models get +2 attacks. Plasma model unaffected. Ability without target_weapon_names applies to all as before.
 
 ---

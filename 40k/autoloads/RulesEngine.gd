@@ -1373,6 +1373,23 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		for _j in range(total_attacks):
 			bs_per_attack.append(default_bs)
 
+	# MA-29: ABILITY ATTACK BONUS — Check for weapon-targeted +X Attacks from abilities
+	var ability_attack_bonus = 0
+	if EffectPrimitivesData.has_effect_plus_attacks(actor_unit):
+		var bonus_value = EffectPrimitivesData.get_effect_plus_attacks(actor_unit)
+		if EffectPrimitivesData.effect_applies_to_weapon(actor_unit, EffectPrimitivesData.FLAG_PLUS_ATTACKS, weapon_name):
+			ability_attack_bonus = bonus_value * model_ids.size()  # Per-model bonus
+			total_attacks += ability_attack_bonus
+			# Add BS entries for the bonus attacks (use per-model BS)
+			for ab_model_id in model_ids:
+				var bonus_model = _get_model_by_id(actor_unit, ab_model_id)
+				var bonus_bs = _get_model_effective_bs(bonus_model, actor_unit, weapon_profile)
+				for _j in range(bonus_value):
+					bs_per_attack.append(bonus_bs)
+			print("RulesEngine: [MA-29] Ability +%d Attacks for '%s' → +%d total (%d models × %d)" % [bonus_value, weapon_name, ability_attack_bonus, model_ids.size(), bonus_value])
+		else:
+			print("RulesEngine: [MA-29] Ability +%d Attacks exists but does not apply to '%s' (weapon filter active)" % [bonus_value, weapon_name])
+
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
 
@@ -2176,6 +2193,24 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		bs_per_attack.clear()
 		for _j in range(total_attacks):
 			bs_per_attack.append(default_bs)
+
+	# MA-29: ABILITY ATTACK BONUS — Check for weapon-targeted +X Attacks from abilities (auto-resolve)
+	var ar_weapon_name = weapon_profile.get("name", weapon_id)
+	var ar_ability_attack_bonus = 0
+	if EffectPrimitivesData.has_effect_plus_attacks(actor_unit):
+		var ar_bonus_value = EffectPrimitivesData.get_effect_plus_attacks(actor_unit)
+		if EffectPrimitivesData.effect_applies_to_weapon(actor_unit, EffectPrimitivesData.FLAG_PLUS_ATTACKS, ar_weapon_name):
+			ar_ability_attack_bonus = ar_bonus_value * model_ids.size()  # Per-model bonus
+			total_attacks += ar_ability_attack_bonus
+			# Add BS entries for the bonus attacks (use per-model BS)
+			for ar_model_id in model_ids:
+				var ar_bonus_model = _get_model_by_id(actor_unit, ar_model_id)
+				var ar_bonus_bs = _get_model_effective_bs(ar_bonus_model, actor_unit, weapon_profile)
+				for _j in range(ar_bonus_value):
+					bs_per_attack.append(ar_bonus_bs)
+			print("RulesEngine: [MA-29][auto-resolve] Ability +%d Attacks for '%s' → +%d total (%d models × %d)" % [ar_bonus_value, ar_weapon_name, ar_ability_attack_bonus, model_ids.size(), ar_bonus_value])
+		else:
+			print("RulesEngine: [MA-29][auto-resolve] Ability +%d Attacks exists but does not apply to '%s' (weapon filter active)" % [ar_bonus_value, ar_weapon_name])
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
@@ -7714,6 +7749,19 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	if has_ws_override:
 		print("RulesEngine: [MA-11] Per-model WS override active — models have different WS values")
+
+	# MA-29: ABILITY ATTACK BONUS — Check for weapon-targeted +X Attacks from abilities (melee)
+	if model_count > 0 and EffectPrimitivesData.has_effect_plus_attacks(attacker_unit):
+		var melee_bonus_value = EffectPrimitivesData.get_effect_plus_attacks(attacker_unit)
+		if EffectPrimitivesData.effect_applies_to_weapon(attacker_unit, EffectPrimitivesData.FLAG_PLUS_ATTACKS, weapon_name):
+			if not is_extra_attacks_weapon:  # Balance Dataslate: skip for Extra Attacks weapons
+				var melee_ability_bonus = melee_bonus_value * model_count
+				total_attacks += melee_ability_bonus
+				# Add WS entries for bonus attacks using default WS
+				var melee_default_ws = weapon_profile.get("ws", 4)
+				for _j in range(melee_ability_bonus):
+					ws_per_attack.append(melee_default_ws)
+				print("RulesEngine: [MA-29] Ability +%d Attacks for '%s' (melee) → +%d total (%d models × %d)" % [melee_bonus_value, weapon_name, melee_ability_bonus, model_count, melee_bonus_value])
 
 	if model_count < total_alive_models:
 		print("RulesEngine: Melee eligibility filter: %d/%d alive models eligible to fight" % [model_count, total_alive_models])

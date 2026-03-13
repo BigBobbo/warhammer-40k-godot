@@ -46,6 +46,13 @@ extends Node
 # For aura abilities (condition == "aura"), additional fields:
 #   "aura_range": float,    # Range in inches (edge-to-edge model distance)
 #   "aura_target": String,  # "friendly", "enemy", "all" — which units are affected
+#
+# MA-29: Weapon-targeted ability filtering (optional field):
+#   "target_weapon_names": Array[String]  # Only apply effects to attacks using these weapons
+#   When present, each effect dict gets target_weapon_names injected before applying,
+#   causing EffectPrimitives to store a companion weapon filter flag alongside the effect flag.
+#   RulesEngine checks the weapon filter when reading effect flags during combat resolution.
+#   If omitted, the ability applies to all weapons (unit-wide) as before.
 
 const ABILITY_EFFECTS: Dictionary = {
 	# ======================================================================
@@ -496,14 +503,17 @@ const ABILITY_EFFECTS: Dictionary = {
 
 	# Space Marines Intercessor Squad — +2 bolt rifle attacks vs single target
 	# When selected to shoot, can choose to add 2 to Attacks of bolt rifles but must
-	# target only one enemy unit with all attacks. Requires ShootingPhase integration.
+	# target only one enemy unit with all attacks.
+	# MA-29: Uses target_weapon_names to filter the +2 Attacks bonus to bolt rifle weapons only.
+	# The single-target constraint is not yet enforced (would need ShootingPhase prompt).
 	"Target Elimination": {
 		"condition": "on_shooting_selection",
-		"effects": [],
+		"effects": [{"type": "plus_attacks", "value": 2}],
 		"target": "unit",
 		"attack_type": "ranged",
-		"implemented": false,
-		"description": "+2 bolt rifle Attacks when targeting a single enemy unit — requires ShootingPhase prompt"
+		"target_weapon_names": ["Bolt rifle", "Auto bolt rifle", "Stalker bolt rifle"],
+		"implemented": true,
+		"description": "+2 Attacks for bolt rifles when targeting a single enemy unit"
 	},
 
 	# Space Marines Tactical Squad — unit splitting at deployment
@@ -1254,6 +1264,23 @@ const ABILITY_EFFECTS: Dictionary = {
 }
 
 # ============================================================================
+# MA-29: WEAPON FILTER INJECTION HELPER
+# ============================================================================
+
+static func _inject_weapon_filter(effects: Array, effect_def: Dictionary) -> Array:
+	"""If the ability definition has target_weapon_names, inject it into each effect dict.
+	Returns a new array with the filter injected (or the original array if no filter)."""
+	var weapon_names = effect_def.get("target_weapon_names", [])
+	if weapon_names.is_empty():
+		return effects
+	var filtered_effects: Array = []
+	for effect in effects:
+		var copy = effect.duplicate()
+		copy["target_weapon_names"] = weapon_names
+		filtered_effects.append(copy)
+	return filtered_effects
+
+# ============================================================================
 # STATE
 # ============================================================================
 
@@ -1413,6 +1440,9 @@ func _apply_leader_abilities(bodyguard_unit_id: String, bodyguard_unit: Dictiona
 			if effects.is_empty():
 				continue
 
+			# MA-29: Inject target_weapon_names into effect dicts if present on the ability
+			effects = _inject_weapon_filter(effects, effect_def)
+
 			var diffs = EffectPrimitivesData.apply_effects(effects, bodyguard_unit_id)
 			if not diffs.is_empty():
 				PhaseManager.apply_state_changes(diffs)
@@ -1513,6 +1543,9 @@ func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> voi
 
 		if effects.is_empty():
 			continue
+
+		# MA-29: Inject target_weapon_names into effect dicts if present on the ability
+		effects = _inject_weapon_filter(effects, effect_def)
 
 		var diffs = EffectPrimitivesData.apply_effects(effects, unit_id)
 		if not diffs.is_empty():
@@ -1696,6 +1729,9 @@ func _apply_aura_abilities(phase: int) -> void:
 			var effects = effect_def.get("effects", [])
 			if effects.is_empty():
 				continue
+
+			# MA-29: Inject target_weapon_names into effect dicts if present on the ability
+			effects = _inject_weapon_filter(effects, effect_def)
 
 			# Check if relevant for this phase
 			if not _is_relevant_for_phase(effect_def, phase):
