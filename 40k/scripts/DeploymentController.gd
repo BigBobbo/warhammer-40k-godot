@@ -430,12 +430,17 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 		first_model_data = unit_data["models"][remaining_indices[0]]
 	var base_mm = first_model_data["base_mm"]
 	var positions = []
+	var formation_rotations = []  # Per-model rotations (for oval/rectangular in tight formation)
 
 	match formation_mode:
 		"SPREAD":
 			positions = calculate_spread_formation(world_pos, models_to_place, base_mm, formation_rotation)
+			formation_rotations.resize(positions.size())
+			formation_rotations.fill(0.0)
 		"TIGHT":
-			positions = calculate_tight_formation(world_pos, models_to_place, base_mm, formation_rotation)
+			var result = calculate_tight_formation(world_pos, models_to_place, base_mm, formation_rotation)
+			positions = result["positions"]
+			formation_rotations = result["rotations"]
 
 	# Validate all positions
 	var zone = BoardState.get_deployment_zone_for_player(GameState.get_active_player())
@@ -451,7 +456,8 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 		else:
 			model = unit_data["models"][idx]
 
-		if not _validate_formation_position(pos, model, zone):
+		var validate_rot = formation_rotations[i] if i < formation_rotations.size() else 0.0
+		if not _validate_formation_position(pos, model, zone, validate_rot):
 			all_valid = false
 			error_msg = "Formation would place models outside deployment zone or overlapping"
 			break
@@ -463,15 +469,16 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 	# Place all models
 	for i in range(positions.size()):
 		var idx = remaining_indices[i]
+		var model_rot = formation_rotations[i] if i < formation_rotations.size() else 0.0
 		temp_positions[idx] = positions[i]
-		temp_rotations[idx] = 0.0
+		temp_rotations[idx] = model_rot
 		placement_order.append(idx)  # MA-16: Track placement order for non-sequential undo
 		var spawn_uid = unit_id
 		var spawn_midx = idx
 		if is_combined_deployment and idx < combined_models.size():
 			spawn_uid = combined_models[idx]["unit_id"]
 			spawn_midx = combined_models[idx]["model_idx"]
-		_spawn_preview_token(spawn_uid, spawn_midx, positions[i], 0.0)
+		_spawn_preview_token(spawn_uid, spawn_midx, positions[i], model_rot)
 
 	# Update model_idx to next unplaced model
 	if models_to_place < remaining_indices.size():
@@ -1852,15 +1859,19 @@ func calculate_spread_formation(anchor_pos: Vector2, model_count: int, base_mm: 
 
 	return positions
 
-func calculate_tight_formation(anchor_pos: Vector2, model_count: int, base_mm: int, rotation: float = 0.0) -> Array:
-	"""Calculate positions for tight formation (bases touching)"""
+func calculate_tight_formation(anchor_pos: Vector2, model_count: int, base_mm: int, rotation: float = 0.0) -> Dictionary:
+	"""Calculate positions for tight formation (bases touching).
+	Returns {"positions": Array[Vector2], "rotations": Array[float]}
+	For oval/rectangular bases, models are rotated 90 degrees so the longer axis
+	points north-south, allowing them to fit closer together side by side."""
 	var positions = []
+	var model_rotations = []
 
 	# Get first model data to determine base type
 	var unit_data = GameState.get_unit(unit_id)
 	var remaining_indices = _get_unplaced_model_indices()
 	if remaining_indices.is_empty():
-		return positions
+		return {"positions": positions, "rotations": model_rotations}
 
 	var model_data: Dictionary
 	if is_combined_deployment and remaining_indices[0] < combined_models.size():
@@ -1871,27 +1882,52 @@ func calculate_tight_formation(anchor_pos: Vector2, model_count: int, base_mm: i
 
 	# Use bounding box for spacing calculations
 	var bounds = shape.get_bounds()
+	var base_type = model_data.get("base_type", "circular")
+	var is_elongated = base_type == "oval" or base_type == "rectangular"
+
+	# For oval/rectangular bases, rotate 90 degrees so longer axis points north-south
+	# This means the width (shorter dimension) becomes the horizontal extent
+	var per_model_rotation = PI / 2.0 if is_elongated else 0.0
 
 	# For tight formation, use actual dimensions plus minimal gap
-	var base_extent = max(bounds.size.x, bounds.size.y)
-	var spacing_px = base_extent + 1  # 1px gap to prevent overlap
+	if is_elongated:
+		# After 90-degree rotation, the shorter dimension (width) is horizontal
+		# and the longer dimension (length) is vertical
+		var x_spacing = bounds.size.y + 1  # width becomes horizontal after rotation
+		var y_spacing = bounds.size.x + 1  # length becomes vertical after rotation
+		var cols = min(5, model_count)
+		var rows = ceil(model_count / 5.0)
 
-	# Arrange in rows of 5
-	var cols = min(5, model_count)
-	var rows = ceil(model_count / 5.0)
+		for i in range(model_count):
+			var col = i % cols
+			var row = floor(i / cols)
+			var x_offset = (col - cols/2.0) * x_spacing
+			var y_offset = row * y_spacing
+			var base_pos = Vector2(x_offset, y_offset)
 
-	for i in range(model_count):
-		var col = i % cols
-		var row = floor(i / cols)
-		var x_offset = (col - cols/2.0) * spacing_px
-		var y_offset = row * spacing_px
-		var base_pos = Vector2(x_offset, y_offset)
+			# Apply formation rotation around origin, then translate to anchor
+			var rotated_pos = base_pos.rotated(rotation)
+			positions.append(anchor_pos + rotated_pos)
+			model_rotations.append(per_model_rotation + rotation)
+	else:
+		var base_extent = max(bounds.size.x, bounds.size.y)
+		var spacing_px = base_extent + 1  # 1px gap to prevent overlap
+		var cols = min(5, model_count)
+		var rows = ceil(model_count / 5.0)
 
-		# Apply rotation around origin, then translate to anchor
-		var rotated_pos = base_pos.rotated(rotation)
-		positions.append(anchor_pos + rotated_pos)
+		for i in range(model_count):
+			var col = i % cols
+			var row = floor(i / cols)
+			var x_offset = (col - cols/2.0) * spacing_px
+			var y_offset = row * spacing_px
+			var base_pos = Vector2(x_offset, y_offset)
 
-	return positions
+			# Apply rotation around origin, then translate to anchor
+			var rotated_pos = base_pos.rotated(rotation)
+			positions.append(anchor_pos + rotated_pos)
+			model_rotations.append(0.0)
+
+	return {"positions": positions, "rotations": model_rotations}
 
 # Formation ghost management
 func _create_formation_ghosts(count: int) -> void:
@@ -1947,11 +1983,16 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 	var base_mm = first_model_data["base_mm"]
 
 	var positions = []
+	var ghost_rotations = []  # Per-model rotations for oval/rectangular in tight formation
 	match formation_mode:
 		"SPREAD":
 			positions = calculate_spread_formation(mouse_pos, formation_preview_ghosts.size(), base_mm, formation_rotation)
+			ghost_rotations.resize(positions.size())
+			ghost_rotations.fill(0.0)
 		"TIGHT":
-			positions = calculate_tight_formation(mouse_pos, formation_preview_ghosts.size(), base_mm, formation_rotation)
+			var result = calculate_tight_formation(mouse_pos, formation_preview_ghosts.size(), base_mm, formation_rotation)
+			positions = result["positions"]
+			ghost_rotations = result["rotations"]
 
 	# Update ghost positions and validity
 	var zone = BoardState.get_deployment_zone_for_player(GameState.get_active_player())
@@ -1961,17 +2002,21 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 			ghost.position = positions[i]
 			ghost.visible = true
 
+			# Apply per-model rotation for oval/rectangular bases in tight formation
+			var model_rot = ghost_rotations[i] if i < ghost_rotations.size() else 0.0
+			ghost.set_base_rotation(model_rot)
+
 			# Check validity for each ghost position
-			var is_valid = _validate_formation_position(positions[i], first_model_data, zone)
+			var is_valid = _validate_formation_position(positions[i], first_model_data, zone, model_rot)
 			ghost.set_validity(is_valid)
 
-func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: PackedVector2Array) -> bool:
+func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: PackedVector2Array, model_rotation: float = 0.0) -> bool:
 	"""Validate a single position in a formation"""
 	if is_infiltrators_mode:
 		# In Infiltrators mode, use Infiltrators validation instead of zone check
-		if not _validate_infiltrators_position(pos, model_data, 0.0):
+		if not _validate_infiltrators_position(pos, model_data, model_rotation):
 			return false
-		if _overlaps_with_existing_models_shape(pos, model_data, 0.0):
+		if _overlaps_with_existing_models_shape(pos, model_data, model_rotation):
 			return false
 	else:
 		var base_type = model_data.get("base_type", "circular")
@@ -1984,15 +2029,15 @@ func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: Pa
 				return false
 		else:
 			# For non-circular bases, use shape-aware validation
-			if not _shape_wholly_in_polygon(pos, model_data, 0.0, zone):
+			if not _shape_wholly_in_polygon(pos, model_data, model_rotation, zone):
 				return false
-			if _overlaps_with_existing_models_shape(pos, model_data, 0.0):
+			if _overlaps_with_existing_models_shape(pos, model_data, model_rotation):
 				return false
 
 	# Check wall collision
 	var test_model = model_data.duplicate()
 	test_model["position"] = pos
-	test_model["rotation"] = 0.0
+	test_model["rotation"] = model_rotation
 	if Measurement.model_overlaps_any_wall(test_model):
 		return false
 
