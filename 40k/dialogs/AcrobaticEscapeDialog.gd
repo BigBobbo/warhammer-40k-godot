@@ -17,6 +17,13 @@ var phase_reference = null
 var controller_reference = null
 var model_movements: Dictionary = {}
 
+# Timer
+const DECISION_TIMEOUT: float = 15.0
+var _timer: Timer = null
+var _time_remaining: float = DECISION_TIMEOUT
+var _timer_label: Label = null
+var _resolved: bool = false
+
 # UI elements
 var status_label: Label = null
 var reset_button: Button = null
@@ -33,6 +40,7 @@ func setup(p_unit_id: String, p_move_distance: float, phase, controller = null) 
 	title = "Acrobatic Escape: %s" % unit_name
 
 	_build_ui()
+	_start_timer()
 
 func _build_ui() -> void:
 	# Disable default OK button — we use custom buttons
@@ -69,6 +77,14 @@ func _build_ui() -> void:
 	main_container.add_child(desc_label)
 
 	main_container.add_child(HSeparator.new())
+
+	# Timer countdown label
+	_timer_label = Label.new()
+	_timer_label.text = "Auto-declining in %d seconds..." % int(DECISION_TIMEOUT)
+	_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_timer_label.add_theme_font_size_override("font_size", 12)
+	_timer_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))  # Orange warning
+	main_container.add_child(_timer_label)
 
 	# Status label for movement feedback
 	status_label = Label.new()
@@ -122,6 +138,26 @@ func _build_ui() -> void:
 	unresizable = false
 	min_size = DialogConstants.MEDIUM
 
+func _start_timer() -> void:
+	_time_remaining = DECISION_TIMEOUT
+	_timer = Timer.new()
+	_timer.wait_time = 1.0
+	_timer.autostart = true
+	_timer.timeout.connect(_on_timer_tick)
+	add_child(_timer)
+
+func _on_timer_tick() -> void:
+	_time_remaining -= 1.0
+	if _timer_label:
+		if _time_remaining <= 5:
+			_timer_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))  # Red when urgent
+		_timer_label.text = "Auto-declining in %d seconds..." % int(_time_remaining)
+
+	if _time_remaining <= 0:
+		_timer.stop()
+		print("[AcrobaticEscapeDialog] Timer expired — auto-declining Acrobatic Escape for %s" % unit_id)
+		_on_decline_pressed()
+
 func update_movements(movements: Dictionary) -> void:
 	"""Called by FightController when user drags models"""
 	model_movements = movements
@@ -147,6 +183,11 @@ func _on_reset_pressed() -> void:
 		_update_status()
 
 func _on_confirm_pressed() -> void:
+	if _resolved:
+		return
+	_resolved = true
+	if _timer:
+		_timer.stop()
 	print("[AcrobaticEscapeDialog] Confirm pressed with movements: ", model_movements)
 	hide()
 	emit_signal("acrobatic_escape_accepted", model_movements)
@@ -154,6 +195,11 @@ func _on_confirm_pressed() -> void:
 	queue_free()
 
 func _on_decline_pressed() -> void:
+	if _resolved:
+		return
+	_resolved = true
+	if _timer:
+		_timer.stop()
 	print("[AcrobaticEscapeDialog] Declined Acrobatic Escape for %s" % unit_id)
 	hide()
 	emit_signal("acrobatic_escape_declined")
