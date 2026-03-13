@@ -802,9 +802,16 @@ func _update_weapon_selection() -> void:
 				]
 			
 			var weapon_label = Label.new()
-			weapon_label.text = weapon_name + weapon_stats
+			# T4-20: Show weapon keywords from special_rules so users can see abilities
+			var special_rules = weapon.get("special_rules", "")
+			var keyword_text = ""
+			if special_rules != "":
+				keyword_text = " [%s]" % special_rules
+			weapon_label.text = weapon_name + weapon_stats + keyword_text
 			weapon_label.custom_minimum_size.x = 250
 			weapon_label.add_theme_font_size_override("font_size", 11)
+			if keyword_text != "":
+				weapon_label.tooltip_text = "Keywords: %s" % special_rules
 			weapon_row.add_child(weapon_label)
 			
 			# Attack count spinbox
@@ -906,6 +913,12 @@ func _auto_detect_weapon_rules() -> void:
 		var keywords = unit.get("meta", {}).get("keywords", [])
 		if "ORKS" in keywords:
 			detected_rule_ids["waaagh_active"] = true
+		# T4-20: Also parse unit-level abilities for attacker-relevant rules
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		for ability in abilities:
+			var ability_rules = MathhammerRuleModifiers._parse_ability_rules(ability)
+			for rule_id in ability_rules:
+				detected_rule_ids[rule_id] = true
 
 	# Auto-enable detected rules
 	if not detected_rule_ids.is_empty():
@@ -986,6 +999,9 @@ func _on_weapon_attack_count_changed(value: float, weapon_key: String) -> void:
 	if selected_weapons.has(weapon_key):
 		selected_weapons[weapon_key]["attack_count"] = int(value)
 		print("MathhammerUI: Weapon attack count changed - %s: %d" % [weapon_key, int(value)])
+		# T4-20: Re-trigger auto-detection when weapon counts change
+		# (enabling/disabling weapons should update rule toggles)
+		_auto_detect_weapon_rules()
 
 func _on_rule_toggled(rule_id: String, active: bool) -> void:
 	rule_toggles[rule_id] = active
