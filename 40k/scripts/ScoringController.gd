@@ -391,6 +391,10 @@ func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
 
 	if phase:
+		# Connect Acrobatic Escape vanish signal
+		if phase.has_signal("acrobatic_escape_vanish_available") and not phase.acrobatic_escape_vanish_available.is_connected(_on_acrobatic_escape_vanish_available):
+			phase.acrobatic_escape_vanish_available.connect(_on_acrobatic_escape_vanish_available)
+
 		# Update UI elements with current game state
 		_refresh_ui()
 		show()
@@ -422,3 +426,46 @@ func _on_end_turn_pressed() -> void:
 
 	print("ScoringController: End Turn button pressed")
 	emit_signal("scoring_action_requested", {"type": "END_TURN"})
+
+# ============================================================================
+# ACROBATIC ESCAPE VANISH (End of opponent's turn)
+# ============================================================================
+
+func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, player: int) -> void:
+	"""Show dialog offering to remove the Callidus from the battlefield."""
+	print("[ScoringController] Acrobatic Escape vanish available for %s (player %d)" % [unit_name, player])
+
+	# Skip dialog for AI players
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("[ScoringController] Skipping Acrobatic Escape vanish dialog for AI player %d" % player)
+		return
+
+	var dialog = ConfirmationDialog.new()
+	dialog.title = "Acrobatic Escape: %s" % unit_name
+	dialog.dialog_text = "ACROBATIC ESCAPE\n\n%s is not within 3\" of any enemy units.\n\nRemove this model from the battlefield?\nIt will return in the Reinforcements step of your next Movement phase (more than 9\" from all enemies).\n\nWARNING: If the battle ends while this model is off the battlefield, it is destroyed." % unit_name
+	dialog.ok_button_text = "Vanish"
+	dialog.cancel_button_text = "Stay"
+	dialog.min_size = DialogConstants.MEDIUM
+
+	dialog.confirmed.connect(func():
+		print("[ScoringController] Acrobatic Escape vanish confirmed for %s" % unit_id)
+		emit_signal("scoring_action_requested", {
+			"type": "ACROBATIC_ESCAPE_VANISH",
+			"unit_id": unit_id,
+			"player": player,
+		})
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(func():
+		print("[ScoringController] Acrobatic Escape vanish declined for %s" % unit_id)
+		emit_signal("scoring_action_requested", {
+			"type": "DECLINE_ACROBATIC_ESCAPE_VANISH",
+			"unit_id": unit_id,
+			"player": player,
+		})
+		dialog.queue_free()
+	)
+
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()

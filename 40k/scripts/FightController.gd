@@ -25,6 +25,7 @@ var pending_consolidate_unit: String = ""
 var pile_in_active: bool = false
 var consolidate_active: bool = false
 var sweeping_advance_active: bool = false
+var acrobatic_escape_active: bool = false
 var pile_in_unit_id: String = ""
 var pile_in_dialog_ref: Node = null
 var original_model_positions: Dictionary = {}  # model_id -> Vector2
@@ -399,6 +400,9 @@ func set_phase(phase: BasePhase) -> void:
 		# Sweeping Advance signal
 		if phase.has_signal("sweeping_advance_available") and not phase.sweeping_advance_available.is_connected(_on_sweeping_advance_available):
 			phase.sweeping_advance_available.connect(_on_sweeping_advance_available)
+		# Acrobatic Escape signal
+		if phase.has_signal("acrobatic_escape_available") and not phase.acrobatic_escape_available.is_connected(_on_acrobatic_escape_available):
+			phase.acrobatic_escape_available.connect(_on_acrobatic_escape_available)
 
 		print("DEBUG: FightController signals connected, setting up UI")
 
@@ -2744,3 +2748,91 @@ func _on_sweeping_advance_dialog_closed() -> void:
 	"""Handle Sweeping Advance dialog being closed"""
 	_disable_pile_in_mode()
 	sweeping_advance_active = false
+
+# ============================================================================
+# ACROBATIC ESCAPE (Callidus Assassin)
+# ============================================================================
+
+func _on_acrobatic_escape_available(unit_id: String, player: int, move_distance: float) -> void:
+	"""Show Acrobatic Escape dialog and enable interactive movement"""
+	print("[FightController] Acrobatic Escape available for %s (player %d, D6=%.0f\")" % [
+		unit_id, player, move_distance
+	])
+
+	# Skip dialog for AI players — they handle it via AIDecisionMaker
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("[FightController] Skipping Acrobatic Escape dialog for AI player %d" % player)
+		return
+
+	var dialog_script = load("res://dialogs/AcrobaticEscapeDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load AcrobaticEscapeDialog.gd")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(unit_id, move_distance, current_phase, self)
+	dialog.acrobatic_escape_accepted.connect(_on_acrobatic_escape_accepted.bind(unit_id))
+	dialog.acrobatic_escape_declined.connect(_on_acrobatic_escape_declined.bind(unit_id))
+	dialog.tree_exiting.connect(_on_acrobatic_escape_dialog_closed)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+	# Enable movement mode (reuses pile-in infrastructure)
+	acrobatic_escape_active = true
+	_enable_pile_in_mode(unit_id, dialog)
+
+	# Show in dice log
+	if dice_log_display:
+		var unit_name = ""
+		if current_phase:
+			var unit = current_phase.get_unit(unit_id)
+			unit_name = unit.get("meta", {}).get("name", unit_id)
+		dice_log_display.append_text("\n[color=#CC33CC]ACROBATIC ESCAPE: %s may Fall Back (D6 = %.0f\")[/color]\n" % [
+			unit_name, move_distance
+		])
+
+	print("[FightController] Acrobatic Escape dialog shown for %s" % unit_id)
+
+func _on_acrobatic_escape_accepted(movements: Dictionary, unit_id: String) -> void:
+	"""Submit ACROBATIC_ESCAPE action with movements"""
+	print("[FightController] Acrobatic Escape accepted for %s with movements: %s" % [unit_id, str(movements)])
+
+	# Convert model IDs from "m1" format to array indices for FightPhase
+	var converted_movements = {}
+	if not movements.is_empty() and current_phase:
+		var unit = current_phase.get_unit(unit_id)
+		if unit:
+			var models = unit.get("models", [])
+			for model_id in movements:
+				for i in range(models.size()):
+					if models[i].get("id", "") == model_id:
+						converted_movements[str(i)] = movements[model_id]
+						break
+
+	var action = {
+		"type": "ACROBATIC_ESCAPE",
+		"unit_id": unit_id,
+		"movements": converted_movements,
+		"player": current_phase.get_unit(unit_id).get("owner", 0) if current_phase else 0
+	}
+	emit_signal("fight_action_requested", action)
+	acrobatic_escape_active = false
+
+func _on_acrobatic_escape_declined(unit_id: String) -> void:
+	"""Player declined Acrobatic Escape"""
+	print("[FightController] Acrobatic Escape declined for %s" % unit_id)
+
+	var action = {
+		"type": "DECLINE_ACROBATIC_ESCAPE",
+		"unit_id": unit_id,
+		"player": current_phase.get_unit(unit_id).get("owner", 0) if current_phase else 0
+	}
+	emit_signal("fight_action_requested", action)
+	acrobatic_escape_active = false
+
+func _on_acrobatic_escape_dialog_closed() -> void:
+	"""Handle Acrobatic Escape dialog being closed"""
+	_disable_pile_in_mode()
+	acrobatic_escape_active = false

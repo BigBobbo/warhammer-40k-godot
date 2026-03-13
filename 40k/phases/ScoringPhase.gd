@@ -26,8 +26,18 @@ var _secondary_results: Array = []
 # Track whether the phase should complete (only after END_TURN, not after discard)
 var _turn_ended: bool = false
 
+# Acrobatic Escape vanish state tracking
+var _awaiting_acrobatic_escape_vanish: bool = false
+var _acrobatic_escape_vanish_pending: Array = []  # [{unit_id, unit_name, player}]
+var _acrobatic_escape_vanish_offered: bool = false  # Prevents re-checking after all resolved
+
+signal acrobatic_escape_vanish_available(unit_id: String, unit_name: String, player: int)
+
 func _on_phase_enter() -> void:
 	_turn_ended = false
+	_awaiting_acrobatic_escape_vanish = false
+	_acrobatic_escape_vanish_pending.clear()
+	_acrobatic_escape_vanish_offered = false
 	phase_type = GameStateData.Phase.SCORING
 	var current_player = get_current_player()
 	print("ScoringPhase: Entering scoring phase for player ", current_player)
@@ -92,6 +102,23 @@ func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
 
+	# Acrobatic Escape vanish actions when awaiting
+	if _awaiting_acrobatic_escape_vanish and not _acrobatic_escape_vanish_pending.is_empty():
+		var ae_unit = _acrobatic_escape_vanish_pending[0]
+		actions.append({
+			"type": "ACROBATIC_ESCAPE_VANISH",
+			"unit_id": ae_unit.unit_id,
+			"description": "Acrobatic Escape: Remove %s from battlefield" % ae_unit.unit_name,
+			"player": ae_unit.player,
+		})
+		actions.append({
+			"type": "DECLINE_ACROBATIC_ESCAPE_VANISH",
+			"unit_id": ae_unit.unit_id,
+			"description": "Keep %s on the battlefield" % ae_unit.unit_name,
+			"player": ae_unit.player,
+		})
+		return actions
+
 	# Offer voluntary discard of active secondary missions (tactical mode only — fixed missions cannot be discarded)
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player) and not secondary_mgr.is_fixed_mode(current_player):
@@ -126,6 +153,12 @@ func validate_action(action: Dictionary) -> Dictionary:
 			var mission_index = action.get("mission_index", -1)
 			if mission_index < 0:
 				errors.append("Invalid mission index")
+		"ACROBATIC_ESCAPE_VANISH":
+			if not _awaiting_acrobatic_escape_vanish:
+				errors.append("No Acrobatic Escape vanish is pending")
+		"DECLINE_ACROBATIC_ESCAPE_VANISH":
+			if not _awaiting_acrobatic_escape_vanish:
+				errors.append("No Acrobatic Escape vanish is pending")
 		_:
 			errors.append("Unknown action type: %s" % action_type)
 
@@ -140,6 +173,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_end_turn()
 		"DISCARD_SECONDARY":
 			return _handle_discard_secondary(action)
+		"ACROBATIC_ESCAPE_VANISH":
+			return _handle_acrobatic_escape_vanish(action)
+		"DECLINE_ACROBATIC_ESCAPE_VANISH":
+			return _handle_decline_acrobatic_escape_vanish(action)
 		_:
 			return {"success": false, "error": "Unknown action type"}
 
@@ -161,9 +198,31 @@ func _handle_discard_secondary(action: Dictionary) -> Dictionary:
 	return result
 
 func _handle_end_turn() -> Dictionary:
-	_turn_ended = true
 	var current_player = get_current_player()
 	var next_player = 2 if current_player == 1 else 1
+
+	# Check for Acrobatic Escape vanish eligibility before ending the turn
+	# "At the end of your opponent's turn" — the opponent is the NON-active player
+	var ae_eligible = _get_acrobatic_escape_vanish_eligible(current_player)
+	if not ae_eligible.is_empty() and not _awaiting_acrobatic_escape_vanish and not _acrobatic_escape_vanish_offered:
+		_awaiting_acrobatic_escape_vanish = true
+		_acrobatic_escape_vanish_offered = true
+		_acrobatic_escape_vanish_pending = ae_eligible.duplicate()
+
+		var first = ae_eligible[0]
+		print("ScoringPhase: ACROBATIC ESCAPE VANISH: %s (player %d) eligible — offering choice" % [first.unit_name, first.player])
+		emit_signal("acrobatic_escape_vanish_available", first.unit_id, first.unit_name, first.player)
+
+		return {
+			"success": true,
+			"changes": [],
+			"message": "Acrobatic Escape: %s can vanish from the battlefield" % first.unit_name,
+			"trigger_acrobatic_escape_vanish": true,
+			"acrobatic_escape_vanish_unit_id": first.unit_id,
+			"acrobatic_escape_vanish_player": first.player,
+		}
+
+	_turn_ended = true
 
 	print("ScoringPhase: Player %d ending turn, switching to player %d" % [current_player, next_player])
 
@@ -347,3 +406,199 @@ func _destroy_remaining_reserves() -> Array:
 func _should_complete_phase() -> bool:
 	# Only complete after END_TURN, not after a discard action
 	return _turn_ended
+
+# ============================================================================
+# ACROBATIC ESCAPE VANISH (End of opponent's turn)
+# ============================================================================
+
+func _get_acrobatic_escape_vanish_eligible(current_player: int) -> Array:
+	"""Find units with Acrobatic Escape that belong to the opponent and are NOT within 3\" of enemies.
+	The current_player is the active player whose turn is ending — the opponent's Callidus can vanish."""
+	var eligible = []
+	var all_units = game_state_snapshot.get("units", {})
+	var opponent = 2 if current_player == 1 else 1
+
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if int(unit.get("owner", 0)) != opponent:
+			continue
+
+		# Check if unit has Acrobatic Escape ability
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		var has_ability = false
+		for ability in abilities:
+			if ability is Dictionary and ability.get("name", "") == "Acrobatic Escape":
+				has_ability = true
+				break
+			elif ability is String and ability == "Acrobatic Escape":
+				has_ability = true
+				break
+
+		if not has_ability:
+			continue
+
+		# Check if unit is alive and deployed
+		var models = unit.get("models", [])
+		var has_alive = false
+		for model in models:
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+
+		# Must NOT be within 3" of any enemy model
+		if _is_unit_within_distance_of_enemies(unit, unit_id, 3.0):
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			print("ScoringPhase: ACROBATIC ESCAPE: %s is within 3\" of enemies — cannot vanish" % unit_name)
+			continue
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit_name,
+			"player": opponent,
+		})
+		print("ScoringPhase: ACROBATIC ESCAPE: %s (player %d) eligible to vanish" % [unit_name, opponent])
+
+	return eligible
+
+func _is_unit_within_distance_of_enemies(unit: Dictionary, unit_id: String, distance_inches: float) -> bool:
+	"""Check if any enemy model is within the specified distance (edge-to-edge) of any model in the unit."""
+	var all_units = game_state_snapshot.get("units", {})
+	var unit_owner = int(unit.get("owner", 0))
+
+	for other_unit_id in all_units:
+		if other_unit_id == unit_id:
+			continue
+		var other_unit = all_units[other_unit_id]
+		if int(other_unit.get("owner", 0)) == unit_owner:
+			continue
+
+		# Skip destroyed units
+		var other_alive = false
+		for m in other_unit.get("models", []):
+			if m.get("alive", true):
+				other_alive = true
+				break
+		if not other_alive:
+			continue
+
+		var models1 = unit.get("models", [])
+		var models2 = other_unit.get("models", [])
+
+		for model1 in models1:
+			if not model1.get("alive", true):
+				continue
+			for model2 in models2:
+				if not model2.get("alive", true):
+					continue
+				var dist = Measurement.model_to_model_distance_inches(model1, model2)
+				if dist <= distance_inches:
+					return true
+
+	return false
+
+func _handle_acrobatic_escape_vanish(action: Dictionary) -> Dictionary:
+	"""Remove the Callidus from the battlefield and put into reserves."""
+	var unit_id = action.get("unit_id", "")
+	var unit = game_state_snapshot.get("units", {}).get(unit_id, {})
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var player = int(unit.get("owner", 0))
+
+	print("ScoringPhase: ACROBATIC ESCAPE: %s vanishing from battlefield — moving to reserves" % unit_name)
+
+	var changes = []
+
+	# Set unit status to IN_RESERVES
+	changes.append({
+		"op": "set",
+		"path": "units.%s.status" % unit_id,
+		"value": GameStateData.UnitStatus.IN_RESERVES
+	})
+
+	# Set flag so we know this is an Acrobatic Escape reserves (for destruction at battle end)
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.acrobatic_escape_reserves" % unit_id,
+		"value": true
+	})
+
+	# Log the event
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_player_entry(player, "Acrobatic Escape: %s vanished from the battlefield" % unit_name)
+
+	# Show toast
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_info("Acrobatic Escape: %s vanished — will return next Movement phase" % unit_name)
+
+	# Remove from pending list
+	_acrobatic_escape_vanish_pending = _acrobatic_escape_vanish_pending.filter(
+		func(u): return u.unit_id != unit_id
+	)
+
+	# Check for more pending units
+	if not _acrobatic_escape_vanish_pending.is_empty():
+		var next = _acrobatic_escape_vanish_pending[0]
+		print("ScoringPhase: ACROBATIC ESCAPE: Next eligible — %s (player %d)" % [next.unit_name, next.player])
+		emit_signal("acrobatic_escape_vanish_available", next.unit_id, next.unit_name, next.player)
+
+		return {
+			"success": true,
+			"changes": changes,
+			"message": "Acrobatic Escape: %s vanished" % unit_name,
+			"trigger_acrobatic_escape_vanish": true,
+			"acrobatic_escape_vanish_unit_id": next.unit_id,
+			"acrobatic_escape_vanish_player": next.player,
+		}
+
+	# All resolved — now do the actual end turn
+	_awaiting_acrobatic_escape_vanish = false
+
+	# Process the actual end turn now
+	var end_turn_result = _handle_end_turn()
+	# Merge our changes with the end-turn changes
+	var all_changes = changes.duplicate()
+	all_changes.append_array(end_turn_result.get("changes", []))
+	end_turn_result["changes"] = all_changes
+	return end_turn_result
+
+func _handle_decline_acrobatic_escape_vanish(action: Dictionary) -> Dictionary:
+	"""Player chose not to vanish the Callidus."""
+	var unit_id = action.get("unit_id", "")
+	var unit_name = ""
+	if not unit_id.is_empty():
+		var unit = game_state_snapshot.get("units", {}).get(unit_id, {})
+		unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("ScoringPhase: ACROBATIC ESCAPE: %s declined vanish — staying on battlefield" % unit_name)
+
+	# Remove from pending list
+	_acrobatic_escape_vanish_pending = _acrobatic_escape_vanish_pending.filter(
+		func(u): return u.unit_id != unit_id
+	)
+
+	# Check for more pending units
+	if not _acrobatic_escape_vanish_pending.is_empty():
+		var next = _acrobatic_escape_vanish_pending[0]
+		print("ScoringPhase: ACROBATIC ESCAPE: Next eligible — %s (player %d)" % [next.unit_name, next.player])
+		emit_signal("acrobatic_escape_vanish_available", next.unit_id, next.unit_name, next.player)
+
+		return {
+			"success": true,
+			"changes": [],
+			"message": "%s stays on the battlefield" % unit_name,
+			"trigger_acrobatic_escape_vanish": true,
+			"acrobatic_escape_vanish_unit_id": next.unit_id,
+			"acrobatic_escape_vanish_player": next.player,
+		}
+
+	# All resolved — now do the actual end turn
+	_awaiting_acrobatic_escape_vanish = false
+
+	# Process the actual end turn
+	return _handle_end_turn()

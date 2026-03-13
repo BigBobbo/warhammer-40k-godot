@@ -252,6 +252,17 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "When advancing, do not roll — add 6\" to Move instead"
 	},
 
+	# Callidus Assassin — end-of-fight-phase Fall Back + end-of-opponent-turn vanish/reappear
+	# Handled directly by FightPhase and ScoringPhase (not via effect flags)
+	"Acrobatic Escape": {
+		"condition": "always",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "End of Fight phase: Fall Back D6\" if in engagement. End of opponent's turn: vanish if not within 3\" of enemies, reappear next Movement phase >9\" from enemies."
+	},
+
 	# Ork Stormboyz — eligible to charge after Advancing or Falling Back
 	"Full Throttle": {
 		"condition": "always",

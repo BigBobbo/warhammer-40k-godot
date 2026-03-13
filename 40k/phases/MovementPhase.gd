@@ -3237,6 +3237,14 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 		"value": GameStateData.UnitStatus.DEPLOYED
 	})
 
+	# Clear Acrobatic Escape reserves flag if set (Callidus Assassin returning from vanish)
+	var unit_pre = get_unit(unit_id)
+	if unit_pre.get("flags", {}).get("acrobatic_escape_reserves", false):
+		changes.append({
+			"op": "remove",
+			"path": "units.%s.flags.acrobatic_escape_reserves" % unit_id
+		})
+
 	# Apply changes through PhaseManager
 	if get_parent() and get_parent().has_method("apply_state_changes"):
 		get_parent().apply_state_changes(changes)
