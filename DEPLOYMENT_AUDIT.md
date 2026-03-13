@@ -78,10 +78,14 @@ Both players reveal simultaneously, then deployment begins.
 ### 7. Deployment Map Variety — IMPLEMENTED
 **Status**: **Implemented.** Five deployment map types available: Hammer and Anvil, Dawn of War, Search and Destroy, Sweeping Engagement, and Crucible of Battle.
 
-### 8. TITANIC Unit Deployment — IMPLEMENTED
+### 8. TITANIC Unit Deployment — Not Implemented
 **Rule**: When a player sets up a TITANIC unit, they skip their next turn to set up a unit. This represents the extra time needed to position a massive model.
 
-**Status**: **Implemented.** `TurnManager.check_deployment_alternation()` now accepts the deployed unit's ID, looks up its keywords via `GameState.get_unit()`, and detects the TITANIC keyword. When found, the deploying player's next deployment turn is skipped via `_titanic_skip_turns` tracking dictionary. `_apply_titanic_skips()` consumes the skip after the normal alternation, giving the opponent an extra deployment turn. Only applies to units set up on the board (not reserves). Skip state is cleared when deployment phase ends or when only one player has units remaining. `[TITAN]` tag shown in deployment unit list for visibility. GameManager and Main.gd reserve-placement paths also pass unit_id for consistent detection.
+**Current Implementation**: No TITANIC deployment skip logic exists. TITANIC keyword is referenced in other contexts (movement, LoS) but not in deployment alternation.
+
+**Impact**: Low — affects only armies with TITANIC units, but is a rules-accurate penalty for fielding them.
+
+**Recommendation**: In `TurnManager.check_deployment_alternation()` or `DeploymentPhase._process_deploy_unit()`, detect if the just-deployed unit has the TITANIC keyword and skip the deploying player's next turn to deploy.
 
 ### 9. Reserves Destroyed if Not Arrived by Round 3 — IMPLEMENTED
 **Rule**: Any Reserves units that have not arrived on the battlefield by the end of the third battle round count as destroyed.
@@ -117,10 +121,8 @@ Both players reveal simultaneously, then deployment begins.
 ### 3. "Waiting for Opponent" State in Multiplayer — RESOLVED
 **Status**: **Fixed.** Prominent overlay with live turn timer countdown and pulse animation.
 
-### 4. Undo Last Model Placement
-**Issue**: The current undo (`DeploymentController.undo()` at line 315) resets the entire unit — all placed models are cleared and `temp_positions` is refilled with `null`. There's no way to undo just the last model placement.
-
-**Recommendation**: Add a per-model undo (e.g., pressing `Ctrl+Z` removes only the most recently placed model by decrementing `model_idx` and clearing the last entry in `temp_positions`). Keep the full-unit reset as a separate "Reset" button.
+### 4. Undo Last Model Placement — RESOLVED
+**Status**: **Fixed.** `DeploymentController.undo_last_model()` removes only the most recently placed model by scanning backwards from `model_idx`, clearing the position/rotation, removing the preview token, and resetting `model_idx` to that index. Ctrl+Z keyboard shortcut mapped in `_unhandled_input()`. Separate "Undo" (per-model) and "Reset Unit" (full reset) buttons in the deployment UI. Button visibility managed by `Main.update_unit_card_buttons()` — both shown when any models are placed.
 
 ### 5. Auto-Zoom to Deployment Zone — IMPLEMENTED
 **Status**: **Implemented.** `Main.gd` auto-zooms to the active player's deployment zone on phase entry and on turn switch (`_auto_zoom_tween` with smooth cubic easing). Triggered by `deployment_side_changed` signal.
@@ -134,8 +136,10 @@ Both players reveal simultaneously, then deployment begins.
 ### 8. Deployment Summary Before Ending Phase — IMPLEMENTED
 **Status**: **Implemented.** `DeploymentSummaryDialog.gd` shows deployed units, transports, attached characters, and reserves with explicit confirmation.
 
-### 9. Measuring Tool During Deployment — IMPLEMENTED
-**Status**: **Implemented (P3-55).** A "Measuring Tape (T)" button is now visible in the HUD_Right panel during deployment. The button has a tooltip explaining keybinds (Hold T to measure, Y to clear, ? for all shortcuts). Styled with WhiteDwarfTheme. Created in `Main.gd::_setup_measuring_tape_button()`, shown only during deployment phase.
+### 9. Measuring Tool During Deployment
+**Issue**: A measuring tape tool exists (`MeasuringTapeManager`) but there is no visible button or clear keybind to activate it during deployment specifically.
+
+**Recommendation**: Ensure the measuring tape is easily accessible during deployment (visible button or tooltip showing the keybind).
 
 ### 10. Replay/History of Opponent's Deployment
 **Issue**: In multiplayer, when the opponent deploys a unit, the local player may miss it. There is no camera pan or notification on opponent deployment.
@@ -145,13 +149,15 @@ Both players reveal simultaneously, then deployment begins.
 - Show a notification: "[Unit Name] deployed at [zone area]"
 - Add a deployment log panel showing the order of all deployments
 
-### 11. Coherency Distance Display During Placement — RESOLVED
-**Status**: **Fixed.** A floating `Label` node tracks the ghost model and displays the edge-to-edge distance (in inches) to the nearest placed model in real-time. Green when ≤2" (in coherency), red when >2". Uses shape-aware `Measurement.model_to_model_distance_inches()` for accuracy. Works in single placement mode and during model repositioning. Hidden when no models are placed yet or in formation mode.
+### 11. Coherency Distance Display During Placement
+**Issue**: The coherency check uses edge-to-edge distances, but this distance is never shown to the player during placement. When placing a model near the 2" coherency boundary, the player has to guess.
 
-### 12. Keyboard Shortcut Reference During Deployment — RESOLVED
+**Recommendation**: Display the distance from the ghost model to the nearest placed model in real-time (e.g., a small floating label next to the ghost showing "1.8\"" in green or "2.3\"" in red).
+
+### 12. Keyboard Shortcut Reference During Deployment
 **Issue**: Deployment has several keybinds (Q/E for rotation, Shift+click for repositioning, mouse wheel for rotation) but there is no on-screen reference.
 
-**Status**: **Implemented (P3-54).** `KeyboardShortcutOverlay.gd` provides a toggleable reference panel (press `?` / Shift+Slash to show/hide) positioned bottom-left. Lists all deployment controls: Q/E rotation, mouse wheel rotation, Shift+click reposition, Right-click cancel, Ctrl+Z undo, formation modes (Single/Spread/Tight), and general shortcuts (measuring tape, camera, zoom, board rotation). Styled with WhiteDwarfTheme. Created in `Main.gd::_setup_keyboard_shortcut_overlay()`, hidden on phase change.
+**Recommendation**: Show a small "Controls" panel or tooltip during deployment listing available shortcuts. Could be a toggleable overlay (e.g., press `?` to show/hide).
 
 ---
 
@@ -160,32 +166,46 @@ Both players reveal simultaneously, then deployment begins.
 ### 1. Deployment Phase Transition Animation — IMPLEMENTED
 **Status**: **Implemented.** `PhaseTransitionBanner.gd` shows animated banner for all phase transitions including DEPLOYMENT, SCOUT, ROLL OFF, etc. Slides in from top, holds, slides out with gothic-themed styling.
 
-### 2. Unit Placement Animation — IMPLEMENTED
-**Status**: **Implemented.** `_spawn_preview_token()` in both `DeploymentController.gd` and `DisembarkController.gd` now applies a scale 0→1 tween over 0.2s with back-ease-out for a tactile "pop" effect when each model is placed.
+### 2. Unit Placement Animation
+**Issue**: When a model is placed, it appears instantly via `_spawn_preview_token()`.
 
-### 3. Player Turn Indicator Enhancement — IMPLEMENTED
-**Status**: **Implemented.** `PlayerTurnBorder.gd` draws a colored border around the screen edge matching the active player's color (blue for P1, red for P2). Flashes briefly on turn swap and deployment side change. Works across all phases. Integrated in `Main.gd` via `_setup_player_turn_border()`, updated in `_on_phase_changed()` and `_on_deployment_side_changed()`.
+**Recommendation**: Add a brief drop-in animation (scale from 0 to 1 or fade-in over 0.2s) when a model is placed. This gives tactile feedback and makes the deployment feel more deliberate.
 
-### 4. Deployment Zone Theming — IMPLEMENTED
-**Status**: **Implemented.** `DeploymentZoneVisual.gd` now draws subtle diagonal hatching lines (45° dashed pattern, clipped to zone polygon via `Geometry2D.intersect_polyline_with_polygon`) and military-style L-shaped corner brackets at inner edge corners. Hatching uses very low alpha (0.08) to avoid overwhelming the board. Corner brackets replace the previous simple circle markers with inset L-shaped arms along edge directions.
+### 3. Player Turn Indicator Enhancement
+**Issue**: Active player is shown as a text badge. In multiplayer, it can be easy to miss whose turn it is.
 
-### 5. Ghost Visual Enhancement — IMPLEMENTED
-**Status**: **Implemented.** `GhostVisual.gd` now features: (1) Subtle pulsing effect via sine-wave alpha modulation (0.7–1.0 at 2.5 Hz) applied to fill and border colors. (2) Dashed connecting line from ghost to nearest placed model, colored green when within 2" coherency range, red when outside. (3) Distance display in inches already implemented via QoL #11 coherency distance label. `DeploymentController.gd` passes nearest model world position and distance to the ghost via `set_nearest_model()`. Works in single placement and reposition modes; hidden in formation mode.
+**Recommendation**:
+- Add a prominent colored border around the screen edge matching the active player's color (blue/red)
+- Flash the border briefly when turns swap
+- Add an audio cue (optional) when it becomes your turn
 
-### 6. Coherency Visualization — IMPLEMENTED
-**Status**: **Implemented.** `CoherencyCircleVisual.gd` draws faint dashed 2" radius circles around each placed model during deployment. Circles are colored green when the ghost (next model to place) is within 2" edge-to-edge coherency range of that model, red when outside. `DeploymentController.gd` spawns a circle for each placed token via `_spawn_coherency_circle()`, updates colors per-frame in `_update_coherency_circles()`, and cleans up on undo/reset/confirm. When all models are placed (no ghost), circles show static coherency status between placed models. Supports repositioning mode and combined deployments.
+### 4. Deployment Zone Theming
+**Issue**: Zones are flat color overlays.
 
-### 7. Token Visual Improvement — Unit Name Labels — IMPLEMENTED
+**Recommendation**: Add subtle deployment-themed textures or patterns within the zones (e.g., diagonal hatching, military-style markers).
+
+### 5. Ghost Visual Enhancement
+**Issue**: Ghost previews are functional but basic.
+
+**Recommendation**:
+- Add a subtle pulsing effect to the ghost to draw attention
+- Show a connecting line from the ghost to the nearest placed model (helps with coherency)
+- Display the distance from the ghost to the nearest friendly model in inches (see QoL #11)
+
+### 6. Coherency Visualization
+**Issue**: Coherency is only communicated via a text warning and a toast.
+
+**Recommendation**: Draw faint 2" radius circles around placed models (coherency range). Color them green when the next model would be in coherency range, red when it would be out of range.
+
+### 7. Token Visual Improvement — Unit Name Labels
 **Issue**: Deployed model tokens show colored circles with a model number, but no unit name.
 
-**Status**: **Implemented.** `TokenVisual.gd` now draws a tiny unit name label beneath each token's base via `_draw_unit_name_label()`. The label uses a dark background pill for readability and faction-colored text (via `_get_faction_accent_color()`). Long names are truncated to 14 characters. Labels appear on all deployed tokens to help distinguish same-type units (e.g., multiple Boyz squads).
+**Recommendation**: Add a small unit name label that appears on hover over a deployed token, or show the unit name as a tiny label beneath each token cluster.
 
-### 8. Opponent Deployment Zone Dimming — RESOLVED
+### 8. Opponent Deployment Zone Dimming
 **Issue**: During your deployment turn, the opponent's deployment zone looks the same as yours.
 
 **Recommendation**: Dim or desaturate the opponent's deployment zone when it's your turn. The opponent zone pulsing during "waiting" state is already implemented, but active dimming during the player's own turn is not.
-
-**Status**: **Fixed.** `update_deployment_zone_visibility()` in `Main.gd` now applies distinct active/dimmed visual treatment per player. Active zone gets bright, saturated colors (0.65 alpha) and full border intensity. Opponent zone gets desaturated grayish tones (0.2 alpha) with dimmed borders. `DeploymentZoneVisual.gd` gained an `is_dimmed` flag that scales down pulse amplitude (30%), glow intensity (30%), hatching visibility (40%), and corner bracket visibility (30%) for the inactive zone. Visual state reverses when deployment turns switch. Z-key toggle outside deployment resets dimming.
 
 ---
 
@@ -194,43 +214,45 @@ Both players reveal simultaneously, then deployment begins.
 ### 1. `ATTACH_CHARACTER_DEPLOYMENT` Not in DETERMINISTIC_ACTIONS — RESOLVED
 **Status**: **Fixed.**
 
-### 2. Disconnect Handling During Deployment — RESOLVED
-**Status**: **Fixed.** `NetworkManager._on_peer_disconnected()` now emits `peer_disconnect_grace_period` signal instead of immediately ending the game. `DisconnectDialog.gd` shows a 60-second reconnection grace period with options to: save game state via `SaveLoadManager`, continue in single-player mode (switches disconnected player to AI), or claim victory. Timer auto-claims victory on expiry.
+### 2. Disconnect Handling During Deployment
+**Issue**: `NetworkManager._on_peer_disconnected()` calls `get_tree().quit()` on any disconnect. This is overly aggressive for the deployment phase.
+
+**Recommendation**: Show a reconnection dialog instead. Allow a grace period for the opponent to reconnect. If they don't reconnect, offer the option to save the game state or continue in single-player mode.
 
 ### 3. SWITCH_PLAYER Action Validation Gap — RESOLVED
 **Status**: **Fixed.**
 
-### 4. Race Condition: Embark/Attach Actions After Player Switch — RESOLVED
+### 4. Race Condition: Embark/Attach Actions After Player Switch
 **Issue**: The deployment action triggers a player switch before embark/attach actions arrive in multiplayer. Current mitigation checks `transport.owner` instead of `active_player`, which is correct but fragile.
 
-**Status**: **Implemented (P2-43).** `DeploymentController._complete_deployment()` now detects when embark/attach sub-actions are needed and bundles them into a single `COMPOSITE_DEPLOY` action. This atomic action is processed by `DeploymentPhase._process_composite_deploy()` which applies all state changes (deploy + embark + combined characters + attach) in one pass before the turn switch. Registered in `GameManager`, `NetworkManager.DETERMINISTIC_ACTIONS`, and `TurnManager` deployment alternation. Simple deployments without embark/attach still use the standard `DEPLOY_UNIT` path.
+**Recommendation**: Add a comment documenting this design decision. Consider batching the deploy + embark/attach into a single composite action for atomicity.
 
 ### 5. Turn Timer UI During Deployment — IMPLEMENTED
 **Status**: **Implemented.** Turn timer countdown is shown in the HUD bar via `_on_turn_timer_warning()` connected to `NetworkManager.turn_timer_warning`. The "waiting for opponent" overlay also includes a live countdown.
 
-### 6. Game Over on Timeout is Too Punitive — IMPLEMENTED
+### 6. Game Over on Timeout is Too Punitive
 **Issue**: When turn timeout fires, the other player immediately wins. During deployment — where players are carefully arranging many models — 90 seconds may not be enough for large armies.
 
-**Status**: **Implemented.** Deployment phase now uses a scaled timeout: base 120s + 15s per unit (capped at 300s). Deployment-specific warning thresholds at 60s, 30s, 15s, 10s, and 5s. Warnings at 30s explicitly notify that remaining units will go to Strategic Reserves. On timeout, remaining undeployed units are automatically placed into Strategic Reserves instead of triggering an instant loss. Reserves cap validation is bypassed for auto-timeout placements.
+**Recommendation**: Consider (a) longer timeout during deployment specifically, (b) warnings at 60s and 30s remaining, or (c) auto-placing remaining units rather than ending the game.
 
-### 7. Web Relay Deployment State Sync — RESOLVED
+### 7. Web Relay Deployment State Sync
 **Issue**: In web relay mode, the initial state is sent after a 0.5-second delay. Guest may briefly see default army configuration.
 
-**Status**: **Implemented (P3-56).** Full-screen "Waiting for game state..." loading overlay shown on guest side in web relay mode. Dark background covers the entire screen (preventing flash of default army configuration) with pulsing text and subtitle. Overlay blocks all input while active. Automatically dismissed with a fade-out animation when the host's initial state is received via `NetworkManager.game_started` signal. Styled with WhiteDwarfTheme. Created in `Main.gd::_setup_web_relay_loading_overlay()`, dismissed by `Main.gd::_dismiss_web_relay_loading_overlay()`.
+**Recommendation**: Add a "Waiting for game state..." loading screen on the guest side.
 
 ---
 
 ## Code Quality Observations
 
-### 1. ~~Duplicate Geometry Functions~~ — **DONE**
-**Issue**: Both `DeploymentPhase.gd` and `DeploymentController.gd` contained their own implementations of `_circle_wholly_in_polygon()`, `_point_to_line_distance()`, and `_shape_wholly_in_polygon()`.
+### 1. Duplicate Geometry Functions
+**Issue**: Both `DeploymentPhase.gd` and `DeploymentController.gd` contain their own implementations of `_circle_wholly_in_polygon()`, `_point_to_line_distance()`, and `_shape_wholly_in_polygon()`.
 
-**Resolution**: Consolidated into `Measurement.gd` as `circle_wholly_in_polygon()`, `point_to_line_distance()`, and `shape_wholly_in_polygon()`. Both files now delegate to these shared functions.
+**Recommendation**: Consolidate into `Measurement.gd`.
 
-### 2. ~~`_all_units_deployed()` Uses Direct GameState Access~~ — **DONE**
+### 2. `_all_units_deployed()` Uses Direct GameState Access
 **Issue**: `DeploymentPhase._all_units_deployed()` accesses `GameState.state` directly bypassing the snapshot architecture.
 
-**Resolution**: `GameManager.apply_result()` now refreshes the phase snapshot after applying diffs for all deployment actions (`DEPLOY_UNIT`, `COMPOSITE_DEPLOY`, etc.) via `update_local_state()`. `_all_units_deployed()` and `get_deployment_summary()` now read from `game_state_snapshot` instead of `GameState.state`.
+**Recommendation**: Refresh the snapshot in `_process_deploy_unit()` after applying changes.
 
 ---
 
@@ -259,25 +281,25 @@ Both players reveal simultaneously, then deployment begins.
 | Fortification deployment | **Low** | Low | Rules | **DONE** |
 | Reserves cap fixed (25% → 50% points + 50% units) | **High** | Low | Rules | **DONE** |
 | Reserves destroyed after Round 3 | **Medium** | Low | Rules | **DONE** |
-| TITANIC deployment skip | **Low** | Low | Rules | **DONE** |
-| Per-model undo | **Medium** | Low | QoL | Open |
-| Coherency distance display | **Medium** | Low | QoL | **DONE** |
-| Measuring tool accessibility | **Low** | Low | QoL | **DONE** |
+| TITANIC deployment skip | **Low** | Low | Rules | Open |
+| Per-model undo | **Medium** | Low | QoL | **DONE** |
+| Coherency distance display | **Medium** | Low | QoL | Open |
+| Measuring tool accessibility | **Low** | Low | QoL | Open |
 | Opponent deployment notifications (MP) | **Medium** | Medium | QoL/MP | Open |
-| Keyboard shortcut reference | **Low** | Low | QoL | **DONE** |
-| Player turn screen-edge indicator | **Medium** | Low | Visual | **Done** |
-| Unit placement animation | **Low** | Low | Visual | **DONE** |
-| Coherency visualization circles | **Low** | Low | Visual | **DONE** |
-| Ghost visual enhancement | **Low** | Low | Visual | **DONE** |
-| Deployment zone theming | **Low** | Low | Visual | **DONE** |
-| Token unit name labels | **Low** | Low | Visual | **DONE** |
-| Opponent zone dimming | **Low** | Low | Visual | **DONE** |
-| Disconnect handling (graceful) | **Medium** | Medium | Multiplayer | **DONE** |
-| Web relay state sync loading screen | **Medium** | Low | Multiplayer | **DONE** |
-| Timeout too punitive during deployment | **Medium** | Low | Multiplayer | **DONE** |
-| Race condition: embark after player switch | **Medium** | Low | Multiplayer | **DONE** |
-| Duplicate geometry functions | **Low** | Low | Code Quality | **DONE** |
-| Snapshot staleness in `_all_units_deployed()` | **Low** | Low | Code Quality | **DONE** |
+| Keyboard shortcut reference | **Low** | Low | QoL | Open |
+| Player turn screen-edge indicator | **Medium** | Low | Visual | Open |
+| Unit placement animation | **Low** | Low | Visual | Open |
+| Coherency visualization circles | **Low** | Low | Visual | Open |
+| Ghost visual enhancement | **Low** | Low | Visual | Open |
+| Deployment zone theming | **Low** | Low | Visual | Open |
+| Token unit name labels | **Low** | Low | Visual | Open |
+| Opponent zone dimming | **Low** | Low | Visual | Open |
+| Disconnect handling (graceful) | **Medium** | Medium | Multiplayer | Open |
+| Web relay state sync loading screen | **Medium** | Low | Multiplayer | Open |
+| Timeout too punitive during deployment | **Medium** | Low | Multiplayer | Open |
+| Race condition: embark after player switch | **Medium** | Low | Multiplayer | Open |
+| Duplicate geometry functions | **Low** | Low | Code Quality | Open |
+| Snapshot staleness in `_all_units_deployed()` | **Low** | Low | Code Quality | Open |
 | Mission selection | **Low** | High | Rules | Open |
 
 ---
@@ -292,15 +314,3 @@ Both players reveal simultaneously, then deployment begins.
 | Update 3 | **Strategic Reserves + Deep Strike marked DONE.** Full multiplayer sync support. |
 | Update 4 | **Infiltrators marked DONE.** Full server-side and client-side validation. |
 | Update 5 | **Major revision.** Marked newly-implemented items as DONE: Scout Moves (`ScoutPhase.gd`), Roll-Off Phase (`RollOffPhase.gd`), Formations Phase (`FormationsPhase.gd`), Auto-Zoom, Phase Transition Banner, Deployment Summary Dialog, Unit Base Hover Tooltip, Turn Timer UI. Added new gaps: TITANIC deployment skip (not implemented), Reserves cap incorrect (25% → should be 50% per CA 2025-26), Reserves not destroyed after Round 3. Removed outdated recommendations section. Cleaned up resolved items. |
-| Update 6 | **Coherency distance display marked DONE.** Floating label near ghost shows edge-to-edge distance to nearest placed model in real-time (green ≤2", red >2"). Works in single and reposition modes. |
-| Update 7 | **Deployment timeout punitiveness marked DONE (DEPLOY-MP-3).** Scaled timeout (120s base + 15s/unit, max 300s), deployment warnings at 60s/30s/15s/10s/5s, auto-placement to Strategic Reserves on timeout instead of instant loss. |
-| Update 8 | **Race condition: embark after player switch marked DONE (DEPLOY-MP-4, P2-43).** Deploy + embark/attach bundled into atomic `COMPOSITE_DEPLOY` action. Single-action processing prevents turn switch before sub-actions complete. |
-| Update 9 | **Snapshot staleness in `_all_units_deployed()` marked DONE (DEPLOY-CODE-2, P2-46).** `GameManager.apply_result()` refreshes phase snapshot after deployment diffs. `_all_units_deployed()` and `get_deployment_summary()` now use `game_state_snapshot`. |
-| Update 10 | **Unit placement animation marked DONE (DEPLOY-VIS-2, P3-47).** Scale 0→1 tween over 0.2s with back-ease-out in `_spawn_preview_token()` for both `DeploymentController.gd` and `DisembarkController.gd`. |
-| Update 11 | **Deployment zone theming marked DONE (DEPLOY-VIS-3, P3-48).** Diagonal hatching (45° dashed lines clipped to polygon via Geometry2D) and military-style L-shaped corner brackets at inner edge corners in `DeploymentZoneVisual.gd`. |
-| Update 12 | **Ghost visual enhancement marked DONE (DEPLOY-VIS-4, P3-49).** Pulsing effect (sine-wave alpha 0.7–1.0 at 2.5 Hz), dashed connecting line to nearest placed model (green/red coherency coloring), and distance display (existing QoL #11) in `GhostVisual.gd`. |
-| Update 13 | **Token unit name labels marked DONE (DEPLOY-VIS-6, P3-51).** `TokenVisual._draw_unit_name_label()` draws tiny faction-colored unit name beneath each token base with dark background pill. Truncates names >14 chars. Helps distinguish same-type units. |
-| Update 14 | **Opponent zone dimming marked DONE (DEPLOY-VIS-7, P3-52).** Active zone: bright saturated color (0.65 alpha), full border/glow/hatching. Opponent zone: desaturated grayish tones (0.2 alpha), scaled-down pulse (30%), glow (30%), hatching (40%), brackets (30%) via `is_dimmed` flag in `DeploymentZoneVisual.gd`. Reverses on turn switch. |
-| Update 15 | **TITANIC deployment skip marked DONE (DEPLOY-RULES-3, P3-53).** `TurnManager.check_deployment_alternation()` detects TITANIC keyword on deployed units and skips the deploying player's next deployment turn via `_titanic_skip_turns` dictionary. Only applies to board placement (not reserves). `[TITAN]` tag in deployment list. GameManager and Main.gd paths pass unit_id. |
-| Update 16 | **Keyboard shortcut reference marked DONE (DEPLOY-QOL-5, P3-54).** `KeyboardShortcutOverlay.gd` provides toggleable reference panel (press ? to show/hide) listing all deployment controls, formation modes, and general shortcuts. Positioned bottom-left, WhiteDwarfTheme styled. Created in `Main.gd::_setup_keyboard_shortcut_overlay()`. |
-| Update 17 | **Web relay state sync loading screen marked DONE (DEPLOY-MP-2, P3-56).** Full-screen "Waiting for game state..." overlay on guest side prevents flash of default army configuration. Dark background, pulsing text, input blocking. Dismissed with fade-out on `game_started` signal. Created in `Main.gd::_setup_web_relay_loading_overlay()`. |
