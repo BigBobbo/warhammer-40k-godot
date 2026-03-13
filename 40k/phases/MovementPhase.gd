@@ -27,6 +27,8 @@ signal kunnin_infiltrator_available(unit_id: String, player: int)
 signal deff_from_above_available(unit_id: String, player: int, eligible_targets: Array)
 signal deff_from_above_result(unit_id: String, results: Dictionary)
 signal scatter_opportunity(player: int, eligible_units: Array, trigger_unit_id: String)
+signal grot_oiler_available(unit_id: String, player: int, eligible_targets: Array)
+signal grot_oiler_result(unit_id: String, results: Dictionary)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
@@ -115,6 +117,11 @@ var _scatter_pending_after_overwatch: bool = false   # Defer Scatter! check unti
 var _scatter_pending_trigger_id: String = ""         # Trigger unit ID for deferred check
 var _scatter_pending_changes: Array = []             # Pending changes to propagate after Scatter!
 var _scatter_pending_dice: Array = []                # Pending dice to propagate after Scatter!
+# Grot Oiler state tracking (OA-32)
+var _awaiting_grot_oiler: bool = false              # Waiting for Grot Oiler heal decision
+var _grot_oiler_bearer_id: String = ""              # The unit with Grot Oiler wargear
+var _grot_oiler_targets: Array = []                 # Eligible healing targets
+var _grot_oiler_pending_changes: Array = []         # Pending changes from END_MOVEMENT cleanup
 
 # Calculate pivot value for a unit based on base type and keywords (10e Core Rules Update)
 # - Non-round base, non-Monster/Vehicle: 1"
@@ -289,6 +296,11 @@ func _on_phase_exit() -> void:
 	_mekaniak_targets = []
 	_mekaniak_pending_changes = []
 	_mekaniak_checked_meks = []
+	# Clear Grot Oiler state (OA-32)
+	_awaiting_grot_oiler = false
+	_grot_oiler_bearer_id = ""
+	_grot_oiler_targets = []
+	_grot_oiler_pending_changes = []
 
 func _initialize_movement() -> void:
 	var current_player = get_current_player()
@@ -530,6 +542,13 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"DECLINE_MEKANIAK":
 			if not _awaiting_mekaniak:
 				return {"valid": false, "errors": ["Not awaiting Mekaniak decision"]}
+		"USE_GROT_OILER":
+			if not _awaiting_grot_oiler:
+				return {"valid": false, "errors": ["Not awaiting Grot Oiler decision"]}
+			return {"valid": true}
+		"DECLINE_GROT_OILER":
+			if not _awaiting_grot_oiler:
+				return {"valid": false, "errors": ["Not awaiting Grot Oiler decision"]}
 			return {"valid": true}
 		"USE_KRUMP_AND_RUN":
 			return _validate_use_krump_and_run(action)
@@ -627,6 +646,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_mekaniak(action)
 		"DECLINE_MEKANIAK":
 			return _process_decline_mekaniak(action)
+		"USE_GROT_OILER":
+			return _process_use_grot_oiler(action)
+		"DECLINE_GROT_OILER":
+			return _process_decline_grot_oiler(action)
 		"USE_KRUMP_AND_RUN":
 			return _process_use_krump_and_run(action)
 		"DECLINE_KRUMP_AND_RUN":
@@ -2638,6 +2661,157 @@ func _check_mekaniak_opportunities(changes: Array) -> Dictionary:
 
 func _continue_end_movement_after_mekaniak(changes: Array) -> Dictionary:
 	"""Continue the END_MOVEMENT flow after all Mekaniak decisions.
+	Checks for Grot Oiler, then Rapid Ingress, then completes the phase."""
+	var current_player = get_current_player()
+
+	# OA-32: Check for Grot Oiler opportunity after Sawbonez
+	var grot_oiler_result = _check_grot_oiler_opportunity(current_player, changes)
+	if grot_oiler_result != null:
+		return grot_oiler_result
+
+	# Continue to Rapid Ingress and phase completion
+	return _continue_end_movement_after_grot_oiler(changes)
+
+func _check_grot_oiler_opportunity(current_player: int, changes: Array):
+	"""OA-32: Check if any deployed unit with Grot Oiler wargear can heal at end of movement.
+	Returns a result dictionary if Grot Oiler is available, or null if not."""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return null
+
+	var all_units = GameState.state.get("units", {})
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("owner", 0) != current_player:
+			continue
+		if not ability_mgr.has_grot_oiler(unit_id):
+			continue
+		# Check if the unit is deployed and has alive models
+		var is_deployed = unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED
+		if not is_deployed:
+			continue
+		var has_alive_model = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive_model = true
+				break
+		if not has_alive_model:
+			continue
+
+		# Find eligible healing targets (models in bearer's unit with lost wounds)
+		var targets = ability_mgr.get_grot_oiler_targets(unit_id)
+		if targets.size() > 0:
+			_awaiting_grot_oiler = true
+			_grot_oiler_bearer_id = unit_id
+			_grot_oiler_targets = targets
+			_grot_oiler_pending_changes = changes
+			log_phase_message("GROT OILER available for unit %s — %d eligible targets" % [unit_id, targets.size()])
+			print("MovementPhase: Grot Oiler healing opportunity — unit %s has %d eligible targets" % [unit_id, targets.size()])
+
+			emit_signal("grot_oiler_available", unit_id, current_player, targets)
+
+			var result = create_result(true, changes)
+			result["trigger_grot_oiler"] = true
+			result["awaiting_grot_oiler"] = true
+			result["grot_oiler_bearer_id"] = unit_id
+			result["grot_oiler_targets"] = targets
+			return result
+
+	return null
+
+func _process_use_grot_oiler(action: Dictionary) -> Dictionary:
+	"""OA-32: Player chooses a target for Grot Oiler healing — heal D3 wounds."""
+	var target_unit_id = action.get("target_unit_id", "")
+	var target_model_index = action.get("target_model_index", -1)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-32: GROT OILER — HEALING")
+	print("║ Bearer: ", _grot_oiler_bearer_id)
+	print("║ Target Unit: ", target_unit_id)
+	print("║ Target Model Index: ", target_model_index)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var cached_changes = _grot_oiler_pending_changes.duplicate()
+	var heal_changes = []
+
+	# Roll D3 for healing amount
+	var d6_roll = randi() % 6 + 1
+	var d3_result = int(ceil(float(d6_roll) / 2.0))  # 1-2=1, 3-4=2, 5-6=3
+	print("MovementPhase: Grot Oiler D3 roll — D6=%d → D3=%d" % [d6_roll, d3_result])
+	log_phase_message("GROT OILER: D3 roll — D6=%d → D3=%d wounds to heal" % [d6_roll, d3_result])
+
+	# Find the target model and heal D3 wounds
+	var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
+	if not target_unit.is_empty() and target_model_index >= 0:
+		var models = target_unit.get("models", [])
+		if target_model_index < models.size():
+			var model = models[target_model_index]
+			var current_wounds = model.get("current_wounds", 1)
+			var max_wounds = model.get("wounds", 1)
+			var heal_amount = min(d3_result, max_wounds - current_wounds)
+			var new_wounds = current_wounds + heal_amount
+
+			if heal_amount > 0:
+				heal_changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_model_index],
+					"value": new_wounds
+				})
+
+				var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+				var model_id = model.get("id", "m%d" % (target_model_index + 1))
+				log_phase_message("GROT OILER: Heals %s model %s for %d wounds (%d → %d)" % [
+					target_name, model_id, heal_amount, current_wounds, new_wounds])
+				print("MovementPhase: Grot Oiler healed %s model %s: %d → %d wounds" % [
+					target_name, model_id, current_wounds, new_wounds])
+
+	# Mark Grot Oiler as used (once per battle)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.mark_grot_oiler_used(_grot_oiler_bearer_id)
+
+	# Emit result signal
+	emit_signal("grot_oiler_result", _grot_oiler_bearer_id, {
+		"d6_roll": d6_roll,
+		"d3_result": d3_result,
+		"target_unit_id": target_unit_id,
+		"target_model_index": target_model_index,
+		"heal_amount": d3_result
+	})
+
+	# Clear Grot Oiler state
+	_awaiting_grot_oiler = false
+	_grot_oiler_bearer_id = ""
+	_grot_oiler_targets = []
+	_grot_oiler_pending_changes = []
+
+	# Apply heal changes
+	if heal_changes.size() > 0:
+		PhaseManager.apply_state_changes(heal_changes)
+
+	# Continue with Rapid Ingress check and phase completion
+	return _continue_end_movement_after_grot_oiler(cached_changes)
+
+func _process_decline_grot_oiler(action: Dictionary) -> Dictionary:
+	"""OA-32: Player declines Grot Oiler healing — proceed with ending movement phase."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ OA-32: GROT OILER — DECLINED")
+	print("║ Bearer: ", _grot_oiler_bearer_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var cached_changes = _grot_oiler_pending_changes.duplicate()
+
+	# Clear Grot Oiler state
+	_awaiting_grot_oiler = false
+	_grot_oiler_bearer_id = ""
+	_grot_oiler_targets = []
+	_grot_oiler_pending_changes = []
+
+	# Continue with Rapid Ingress check and phase completion
+	return _continue_end_movement_after_grot_oiler(cached_changes)
+
+func _continue_end_movement_after_grot_oiler(changes: Array) -> Dictionary:
+	"""OA-32: Continue the END_MOVEMENT flow after Grot Oiler decision.
 	Checks for Rapid Ingress, then completes the phase."""
 	var current_player = get_current_player()
 
@@ -2667,6 +2841,7 @@ func _continue_end_movement_after_mekaniak(changes: Array) -> Dictionary:
 				return result
 
 	log_phase_message("Ending Movement Phase (post-abilities) - emitting phase_completed signal")
+	log_phase_message("Ending Movement Phase - emitting phase_completed signal")
 	emit_signal("phase_completed")
 	log_phase_message("=== END_MOVEMENT COMPLETE ===")
 	return create_result(true, changes)
@@ -4487,6 +4662,13 @@ func _process_end_movement(action: Dictionary) -> Dictionary:
 	# OA-34: Check for Mekaniak, then Rapid Ingress, then complete phase
 	_mekaniak_checked_meks = []  # Reset checked Meks for this end-of-movement
 	return _check_mekaniak_opportunities(changes)
+	# OA-32: Check for Grot Oiler (D3 wound healing) at end of Movement phase
+	var grot_oiler_result = _check_grot_oiler_opportunity(current_player, changes)
+	if grot_oiler_result != null:
+		return grot_oiler_result
+
+	# Continue to Rapid Ingress and phase completion
+	return _continue_end_movement_after_grot_oiler(changes)
 
 func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
@@ -5914,6 +6096,22 @@ func get_available_actions() -> Array:
 			"type": "DECLINE_MEKANIAK",
 			"actor_unit_id": _mekaniak_mek_id,
 			"description": "Decline Mekaniak (%s)" % mek_name
+	# OA-32: Grot Oiler pending — offer heal targets or decline
+	if _awaiting_grot_oiler:
+		for target in _grot_oiler_targets:
+			actions.append({
+				"type": "USE_GROT_OILER",
+				"actor_unit_id": _grot_oiler_bearer_id,
+				"target_unit_id": target.unit_id,
+				"target_model_id": target.model_id,
+				"target_model_index": target.model_index,
+				"description": "Grot Oiler: Heal %s model %s (%d/%d wounds) — regain D3 wounds" % [
+					target.unit_name, target.model_id, target.current_wounds, target.max_wounds]
+			})
+		actions.append({
+			"type": "DECLINE_GROT_OILER",
+			"actor_unit_id": _grot_oiler_bearer_id,
+			"description": "Decline Grot Oiler healing"
 		})
 		return actions  # Block other actions until resolved
 

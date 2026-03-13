@@ -257,8 +257,8 @@
 - **Validation**: Once per battle. +1S and +1AP to ranged weapons for phase.
 
 ### OA-32: Implement "Grot Oiler" wargear for Big Mek
-- [ ] Add once-per-battle wargear ability
-- [ ] End of Movement phase: one model regains D3 wounds
+- [x] Add once-per-battle wargear ability
+- [x] End of Movement phase: one model regains D3 wounds
 - **Files**: UnitAbilityManager.gd, MovementPhase.gd
 - **Validation**: Once per battle. D3 wounds healed at end of Movement phase.
 
