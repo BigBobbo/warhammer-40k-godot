@@ -298,10 +298,10 @@
 - **Validation**: Formation with 40mm Nob and 32mm Boyz spaces correctly. Spread formation maintains 2" coherency. Tight formation has bases touching. No overlap.
 
 ### MA-19: Combined deployment (character + bodyguard) with model types
-- [ ] Combined deployment already tracks `combined_models[i] = {unit_id, model_idx, model_data}`
-- [ ] Extend to include `model_type` for display purposes
-- [ ] Model picker should show character models as their own type group (e.g., "Warboss x1" alongside bodyguard types)
-- [ ] Character models should always be placeable (no type restriction)
+- [x] Combined deployment already tracks `combined_models[i] = {unit_id, model_idx, model_data}`
+- [x] Extend to include `model_type` for display purposes
+- [x] Model picker should show character models as their own type group (e.g., "Warboss x1" alongside bodyguard types)
+- [x] Character models should always be placeable (no type restriction)
 - **Files**: DeploymentController.gd
 - **Validation**: Deploy Warboss attached to Nobz. Picker shows "Warboss x1" and "Nob x5". Can place in any order. All models placed correctly with correct unit_id associations.
 
