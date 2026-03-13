@@ -4171,8 +4171,8 @@ func refresh_unit_list() -> void:
 			print("Refreshing right panel unit list for scout - found ", pending_scouts.size(), " pending scout units")
 
 		GameStateData.Phase.MOVEMENT:
-			# Show deployed units during movement in right panel
-			unit_list.visible = true
+			# MovementController manages its own right panel UI, hide the shared unit list
+			unit_list.visible = false
 			var all_units = GameState.get_units_for_player(active_player)
 			var deployed_count = 0
 			var battle_round = GameState.get_battle_round()
@@ -6252,6 +6252,10 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	# Clear transport panel when phase changes
 	update_transport_panel("")
 
+	# Clean up scout UI state when leaving the scout phase
+	if _scout_active_unit_id != "":
+		_scout_cleanup_after_move()
+
 	await setup_phase_controllers()
 
 	# Re-check after await — game may have ended while we were waiting
@@ -6717,9 +6721,9 @@ func update_ui_for_phase() -> void:
 			p2_zone.visible = false
 			# Show movement action buttons
 			_show_movement_action_buttons(true)
-			# Show unit list and unit card during movement phase
-			unit_list.visible = true
-			unit_card.visible = true
+			# Hide scout/deployment unit list and unit card - MovementController manages its own right panel UI
+			unit_list.visible = false
+			unit_card.visible = false
 
 		GameStateData.Phase.SHOOTING:
 			# Hide deployment zones
