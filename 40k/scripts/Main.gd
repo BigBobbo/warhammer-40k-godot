@@ -123,6 +123,9 @@ var _last_active_player: int = -1  # Track player changes for flash animation
 var phase_timer_label: Label = null
 var _phase_timer_last_warning: int = -1
 
+# T5-MP7: Surrender button for multiplayer games
+var surrender_button: Button = null
+
 # Strategic Reserves / Deep Strike UI elements
 var reserves_button: Button = null
 var reinforcements_button: Button = null
@@ -369,6 +372,9 @@ func _ready() -> void:
 
 	# T5-MP8: Setup phase timer HUD for multiplayer
 	_setup_phase_timer_hud()
+
+	# T5-MP7: Setup surrender button for multiplayer
+	_setup_surrender_button()
 
 	# Setup Strategic Reserves button
 	_setup_reserves_button()
@@ -1649,6 +1655,56 @@ func _on_phase_auto_ended(phase_name: String) -> void:
 	else:
 		_show_toast("Player %d's %s phase timed out" % [active_player, phase_name.to_lower()], 3.0)
 	print("Main: Phase auto-ended - %s (active_player=%d, my_turn=%s)" % [phase_name, active_player, is_my_turn])
+
+# ============================================================================
+# T5-MP7: Surrender Button (multiplayer only)
+# ============================================================================
+
+func _setup_surrender_button() -> void:
+	"""T5-MP7: Create a surrender button in the HUD for multiplayer games."""
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	var is_multiplayer = network_manager and network_manager.is_networked()
+	if not is_multiplayer:
+		return
+
+	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if not hud_container:
+		print("Main: HUD_Bottom/HBoxContainer not found for surrender button")
+		return
+
+	surrender_button = Button.new()
+	surrender_button.name = "SurrenderButton"
+	surrender_button.text = "Surrender"
+	surrender_button.custom_minimum_size = Vector2(90, 0)
+	surrender_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_WhiteDwarfTheme.apply_to_button(surrender_button)
+	# Use a red-tinted style to visually distinguish from other buttons
+	surrender_button.add_theme_color_override("font_color", Color(1.0, 0.5, 0.5))
+	surrender_button.add_theme_color_override("font_hover_color", Color(1.0, 0.3, 0.3))
+	surrender_button.pressed.connect(_on_surrender_button_pressed)
+	hud_container.add_child(surrender_button)
+	print("Main: Surrender button created (T5-MP7)")
+
+func _on_surrender_button_pressed() -> void:
+	"""T5-MP7: Show confirmation dialog before surrendering."""
+	print("Main: Surrender button pressed - showing confirmation")
+	var confirm_dialog = ConfirmationDialog.new()
+	confirm_dialog.title = "Surrender"
+	confirm_dialog.dialog_text = "Are you sure you want to surrender?\nYour opponent will be declared the winner."
+	confirm_dialog.ok_button_text = "Surrender"
+	confirm_dialog.cancel_button_text = "Cancel"
+	confirm_dialog.confirmed.connect(_on_surrender_confirmed.bind(confirm_dialog))
+	confirm_dialog.canceled.connect(func(): confirm_dialog.queue_free())
+	add_child(confirm_dialog)
+	confirm_dialog.popup_centered()
+
+func _on_surrender_confirmed(dialog: ConfirmationDialog) -> void:
+	"""T5-MP7: Player confirmed surrender - notify NetworkManager."""
+	print("Main: Surrender confirmed by player")
+	dialog.queue_free()
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager:
+		network_manager.request_surrender()
 
 func _setup_reserves_button() -> void:
 	# Create "Place in Reserves" button in the HUD_Right panel, below the unit list

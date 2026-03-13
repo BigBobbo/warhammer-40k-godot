@@ -427,6 +427,8 @@ func _get_reason_text() -> String:
 			return "Opponent disconnected"
 		"surrender":
 			return "Player %d surrendered" % (3 - winner_player)
+		"tabled":
+			return "Player %d has no models remaining" % (3 - winner_player)
 		"rounds_complete":
 			return "All 5 battle rounds completed"
 		_:

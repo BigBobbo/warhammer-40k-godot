@@ -2165,6 +2165,48 @@ func _broadcast_game_over(winner: int, reason: String) -> void:
 		phase_manager_ref.game_ended = true
 	game_over.emit(winner, reason)
 
+# ============================================================================
+# T5-MP7: SURRENDER / CONCEDE
+# ============================================================================
+
+func request_surrender() -> void:
+	"""T5-MP7: Local player requests to surrender the game."""
+	if not is_networked():
+		print("NetworkManager: Cannot surrender in offline mode")
+		return
+
+	var local_player = get_local_player()
+	if local_player <= 0:
+		print("NetworkManager: Cannot surrender - unknown local player")
+		return
+
+	print("NetworkManager: Player %d is surrendering" % local_player)
+
+	if is_host():
+		# Host surrenders directly
+		var winner = 3 - local_player
+		_broadcast_game_over.rpc(winner, "surrender")
+	else:
+		# Client sends surrender request to host
+		_receive_surrender.rpc_id(1, local_player)
+
+@rpc("any_peer", "reliable")
+func _receive_surrender(surrendering_player: int) -> void:
+	"""T5-MP7: Host receives surrender request from client."""
+	if not is_host():
+		return
+
+	# Verify the surrendering player matches the sender
+	var sender_id = multiplayer.get_remote_sender_id()
+	var sender_player = peer_to_player_map.get(sender_id, 0)
+	if sender_player != surrendering_player:
+		print("NetworkManager: Surrender rejected - player mismatch (sender: %d, claimed: %d)" % [sender_player, surrendering_player])
+		return
+
+	print("NetworkManager: Player %d surrendered (received from peer %d)" % [surrendering_player, sender_id])
+	var winner = 3 - surrendering_player
+	_broadcast_game_over.rpc(winner, "surrender")
+
 # Hook into phase changes to restart timer
 func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	if not is_networked():
