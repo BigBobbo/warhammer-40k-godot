@@ -3832,7 +3832,9 @@ func _on_fire_overwatch_declined(player: int) -> void:
 # ===================================================
 
 func _on_rapid_ingress_opportunity(player: int, eligible_units: Array) -> void:
-	"""Handle Rapid Ingress opportunity — show dialog to the non-active player."""
+	"""Handle Rapid Ingress opportunity — show dialog to the non-active player.
+	In networked mode, only shows the interactive dialog on the correct player's client.
+	The active player sees a 'Waiting for opponent...' notification instead."""
 	print("╔═══════════════════════════════════════════════════════════════")
 	print("║ MovementController: RAPID INGRESS OPPORTUNITY")
 	print("║ Non-active player %d has %d eligible reserve units" % [player, eligible_units.size()])
@@ -3849,6 +3851,18 @@ func _on_rapid_ingress_opportunity(player: int, eligible_units: Array) -> void:
 		_on_rapid_ingress_declined(player)
 		return
 
+	# In networked mode, only show the dialog to the player who owns the reserves
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked():
+		var local_player = network_manager.get_local_player()
+		if local_player != player:
+			# This client is the active player — show a waiting notification
+			print("MovementController: Local player %d is not rapid ingress player %d — showing waiting notification" % [local_player, player])
+			var toast_mgr = get_node_or_null("/root/ToastManager")
+			if toast_mgr:
+				toast_mgr.show_toast("Waiting for opponent to decide on Rapid Ingress... (10s)", Color.DODGER_BLUE, 10.0)
+			return
+
 	# Load and show the dialog
 	var dialog_script = load("res://dialogs/RapidIngressDialog.gd")
 	if not dialog_script:
@@ -3863,7 +3877,7 @@ func _on_rapid_ingress_opportunity(player: int, eligible_units: Array) -> void:
 	dialog.rapid_ingress_declined.connect(_on_rapid_ingress_declined)
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
-	print("MovementController: Rapid Ingress dialog shown for player %d" % player)
+	print("MovementController: Rapid Ingress dialog shown for player %d (10s countdown)" % player)
 
 func _on_rapid_ingress_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Rapid Ingress."""
