@@ -1172,6 +1172,9 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 				allocation_focus_model_id = null
 				# Mark model as dead in local reference for subsequent wounds
 				target_model["alive"] = false
+				# MA-22: Log model destruction with model type label
+				var ow_label = get_model_display_label(target_model, target_unit)
+				print("RulesEngine: 💀 %s destroyed (Overwatch)" % ow_label)
 			else:
 				target_model["current_wounds"] = new_wounds
 
@@ -3020,6 +3023,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				})
 				casualties += 1
 				allocation_focus_model_id = null  # Need new allocation target
+				# MA-22: Log model destruction with model type label
+				var ar_label = get_model_display_label(target_model, target_unit)
+				print("RulesEngine: 💀 %s destroyed (auto-resolve)" % ar_label)
 
 	# Add variable damage dice log if any rolls were made
 	if damage_roll_log.size() > 0:
@@ -4049,6 +4055,20 @@ static func _get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
 			return model
 	return {}
 
+# MA-22: Get display label for a model, including model type if available.
+# Returns e.g. "Spanner (m11)" for profiled models, or "m3" for units without profiles.
+# Used in death logging and casualty reporting.
+static func get_model_display_label(model: Dictionary, unit: Dictionary) -> String:
+	var model_id = model.get("id", "")
+	var model_type = model.get("model_type", "")
+	if model_type == "":
+		return model_id
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	if model_profiles.has(model_type):
+		var label = model_profiles[model_type].get("label", model_type)
+		return "%s (%s)" % [label, model_id]
+	return model_id
+
 # MA-10: Get effective BS for a model, checking stats_override.ballistic_skill
 # Returns the model's overridden BS if available, otherwise falls back to weapon profile BS.
 static func _get_model_effective_bs(model: Dictionary, unit: Dictionary, weapon_profile: Dictionary) -> int:
@@ -5018,6 +5038,10 @@ static func _apply_damage_to_attached_characters(attached_chars: Array, total_da
 			})
 			result.casualties += 1
 			model["alive"] = false
+			# MA-22: Log attached CHARACTER model destruction with model type label
+			var attached_unit = board.get("units", {}).get(unit_id, {})
+			var attached_label = get_model_display_label(model, attached_unit)
+			print("RulesEngine: 💀 %s destroyed (attached CHARACTER)" % attached_label)
 
 	return result
 
@@ -6127,9 +6151,14 @@ static func resolve_hazardous_check(
 			})
 			models[target_model_idx]["alive"] = false
 			casualties = 1
+			# MA-22: Log hazardous model destruction with model type label
+			var haz_label = get_model_display_label(target_model, actor_unit)
+			print("RulesEngine: 💀 %s destroyed (Hazardous)" % haz_label)
 
+		# MA-22: Use model display label in hazardous log text
+		var haz_display = get_model_display_label(target_model, actor_unit)
 		result.log_text = "HAZARDOUS! %s: %d ones → %d mortal wounds to %s (%d wounds applied)" % [
-			weapon_name, ones_rolled, total_mw, model_name, damage_to_apply
+			weapon_name, ones_rolled, total_mw, haz_display, damage_to_apply
 		]
 
 		result.dice.append({
@@ -8656,12 +8685,15 @@ static func _apply_damage_to_unit(unit_id: String, failed_saves: int, damage_per
 				"value": false
 			})
 			result.diffs.append({
-				"op": "set", 
+				"op": "set",
 				"path": "units.%s.models.%d.current_wounds" % [unit_id, model_index],
 				"value": 0
 			})
 			result.casualties += 1
 			wounds_to_allocate -= 1
+			# MA-22: Log model destruction with model type label
+			var simple_label = get_model_display_label(model, unit)
+			print("RulesEngine: 💀 %s destroyed" % simple_label)
 		else:
 			# Model survives with reduced wounds
 			result.diffs.append({
@@ -9327,6 +9359,9 @@ static func apply_save_damage(
 			})
 			result.casualties += 1
 			models[model_index]["alive"] = false
+			# MA-22: Log model destruction with model type label
+			var destroyed_label = get_model_display_label(model, target_unit)
+			print("RulesEngine: 💀 %s destroyed" % destroyed_label)
 
 	# Log variable damage rolls if any occurred
 	if damage_roll_log.size() > 0:
@@ -9377,6 +9412,10 @@ static func _apply_damage_to_unit_pool(target_unit_id: String, total_damage: int
 			})
 			result.casualties += 1
 			models[target_model_index]["alive"] = false
+			# MA-22: Log model destruction with model type label
+			var pool_unit = board.get("units", {}).get(target_unit_id, {})
+			var pool_label = get_model_display_label(model, pool_unit)
+			print("RulesEngine: 💀 %s destroyed (devastating wounds)" % pool_label)
 
 	return result
 
@@ -9425,6 +9464,10 @@ static func _apply_damage_per_wound_no_spillover(target_unit_id: String, wound_d
 			})
 			result_ns.casualties += 1
 			models[target_idx]["alive"] = false
+			# MA-22: Log model destruction with model type label
+			var ns_unit = board.get("units", {}).get(target_unit_id, {})
+			var ns_label = get_model_display_label(model, ns_unit)
+			print("RulesEngine: 💀 %s destroyed (no spillover)" % ns_label)
 			# Excess damage from this wound is LOST (no spillover)
 			var excess = wound_dmg - damage_to_apply
 			if excess > 0:
@@ -9531,6 +9574,10 @@ static func _apply_damage_to_character_models(target_unit_id: String, total_dama
 			})
 			result.casualties += 1
 			models[target_index]["alive"] = false
+			# MA-22: Log CHARACTER model destruction with model type label
+			var char_unit = board.get("units", {}).get(target_unit_id, {})
+			var char_label = get_model_display_label(model, char_unit)
+			print("RulesEngine: 💀 %s destroyed (PRECISION)" % char_label)
 
 	return result
 

@@ -1188,6 +1188,16 @@ func check_and_report_unit_destroyed(unit_id: String) -> void:
 	var owner = unit.get("owner", 0)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
+	# MA-22: Collect model type labels for destroyed unit
+	var model_type_labels: Array = []
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	for model in models:
+		var mt = model.get("model_type", "")
+		if mt != "" and model_profiles.has(mt):
+			var label = model_profiles[mt].get("label", mt)
+			if label not in model_type_labels:
+				model_type_labels.append(label)
+
 	var destroyed_dict = {
 		"unit_id": unit_id,
 		"unit_name": unit_name,
@@ -1200,9 +1210,14 @@ func check_and_report_unit_destroyed(unit_id: String) -> void:
 		"is_vehicle": "VEHICLE" in upper_keywords,
 		"is_bodyguard": unit.get("attachment_data", {}).get("attached_characters", []).size() > 0 or "BODYGUARD" in upper_keywords,
 		"was_near_objective": _check_unit_near_any_objective(unit),
+		"model_types": model_type_labels,  # MA-22: Model type labels in destroyed unit
 	}
 
-	print("SecondaryMissionManager: Unit %s (%s) fully destroyed! Reporting..." % [unit_id, unit_name])
+	# MA-22: Include model types in destruction log if available
+	var type_info = ""
+	if not model_type_labels.is_empty():
+		type_info = " [types: %s]" % ", ".join(model_type_labels)
+	print("SecondaryMissionManager: Unit %s (%s) fully destroyed!%s Reporting..." % [unit_id, unit_name, type_info])
 	on_unit_destroyed(destroyed_dict)
 
 	# Recursively check attached characters — when a bodyguard dies, characters

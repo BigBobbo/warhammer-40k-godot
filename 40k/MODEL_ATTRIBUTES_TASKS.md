@@ -326,9 +326,9 @@
 - **Validation**: Take wounds on Lootas unit. Wound allocation UI shows model type labels. Player can distinguish which model type they're allocating wounds to. Units without profiles show model IDs only (existing behavior).
 
 ### MA-22: Show model type in casualty reporting
-- [ ] When models die, log messages and any casualty summary should include model type
-- [ ] Update death logging to include profile label: "Spanner (m11) destroyed" instead of "m11 destroyed"
-- [ ] If secondary mission hooks track kills, include model type info
+- [x] When models die, log messages and any casualty summary should include model type
+- [x] Update death logging to include profile label: "Spanner (m11) destroyed" instead of "m11 destroyed"
+- [x] If secondary mission hooks track kills, include model type info
 - **Files**: RulesEngine.gd (damage application), WoundAllocationOverlay.gd
 - **Validation**: Kill a Spanner model. Log shows "Spanner (m11) destroyed". Kill a deffgun Loota. Log shows "Loota (Deffgun) (m3) destroyed". Units without profiles show "m3 destroyed" as before.
 
