@@ -200,12 +200,12 @@
 - **Validation**: Unit with Nob (power klaw) + Boyz (choppa) returns correct melee weapons per model. Unit without profiles returns same weapons for all models.
 
 ### MA-8: Update weapon filter functions for per-model profiles
-- [ ] Update `get_pistol_weapons()` (RulesEngine.gd:3587-3623) to filter per-model
-- [ ] Update `get_assault_weapons()` (RulesEngine.gd:3636-3653) to filter per-model
-- [ ] Update `get_heavy_weapons()` (RulesEngine.gd:3672-3689) to filter per-model
-- [ ] Update `get_rapid_fire_weapons()` (RulesEngine.gd:5110-5180) to filter per-model
-- [ ] Update `get_torrent_weapons()` (RulesEngine.gd:4873-4890) to filter per-model
-- [ ] All functions: if no `model_profiles`, fall back to current behavior
+- [x] Update `get_pistol_weapons()` (RulesEngine.gd:3587-3623) to filter per-model
+- [x] Update `get_assault_weapons()` (RulesEngine.gd:3636-3653) to filter per-model
+- [x] Update `get_heavy_weapons()` (RulesEngine.gd:3672-3689) to filter per-model
+- [x] Update `get_rapid_fire_weapons()` (RulesEngine.gd:5110-5180) to filter per-model
+- [x] Update `get_torrent_weapons()` (RulesEngine.gd:4873-4890) to filter per-model
+- [x] All functions: if no `model_profiles`, fall back to current behavior
 - **Files**: RulesEngine.gd
 - **Validation**: For Lootas, `get_heavy_weapons()` returns deffgun only for deffgun models (Heavy keyword), `get_assault_weapons()` returns mega-blasta only for kmb/spanner models (Assault keyword). Models without the weapon keyword return empty.
 
