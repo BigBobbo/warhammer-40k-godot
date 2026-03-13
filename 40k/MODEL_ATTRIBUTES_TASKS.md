@@ -236,10 +236,10 @@
 - **Validation**: Unit with Nob (WS3+) and Boyz (WS4+) resolves correct hit thresholds per model. Verify with test.
 
 ### MA-12: Per-model save characteristics in wound allocation
-- [ ] In `prepare_save_resolution()` (~RulesEngine.gd:7556-7569), model save profiles are built from unit-level stats
-- [ ] Add `stats_override` merge: for each model, if it has a `model_type` with `stats_override.save`, use that instead of unit save
-- [ ] Also handle per-model `invuln` override if present in `stats_override`
-- [ ] Pass through to `model_save_profiles` used by WoundAllocationOverlay
+- [x] In `prepare_save_resolution()` (~RulesEngine.gd:7556-7569), model save profiles are built from unit-level stats
+- [x] Add `stats_override` merge: for each model, if it has a `model_type` with `stats_override.save`, use that instead of unit save
+- [x] Also handle per-model `invuln` override if present in `stats_override`
+- [x] Pass through to `model_save_profiles` used by WoundAllocationOverlay
 - **Files**: RulesEngine.gd
 - **Validation**: Unit with MEGA ARMOUR model (save 2+) and regular model (save 5+) shows correct save values in wound allocation UI. Test both interactive and auto-resolve paths.
 

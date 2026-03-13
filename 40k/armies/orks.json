@@ -732,7 +732,7 @@
         "model_profiles": {
           "boss_nob": {
             "label": "Boss Nob",
-            "stats_override": {"weapon_skill": 3},
+            "stats_override": {"weapon_skill": 3, "save": 4},
             "weapons": ["Big choppa", "Choppa", "Power klaw", "Slugga", "Kombi-weapon"],
             "transport_slots": 1
           },
