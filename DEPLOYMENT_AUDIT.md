@@ -141,13 +141,13 @@ Both players reveal simultaneously, then deployment begins.
 
 **Recommendation**: Ensure the measuring tape is easily accessible during deployment (visible button or tooltip showing the keybind).
 
-### 10. Replay/History of Opponent's Deployment
-**Issue**: In multiplayer, when the opponent deploys a unit, the local player may miss it. There is no camera pan or notification on opponent deployment.
-
-**Recommendation**: When the opponent deploys a unit:
-- Briefly pan the camera to show where the unit was placed
-- Show a notification: "[Unit Name] deployed at [zone area]"
-- Add a deployment log panel showing the order of all deployments
+### 10. Replay/History of Opponent's Deployment — RESOLVED
+**Status**: **Fixed.** When an opponent deploys a unit in multiplayer (or AI deploys in single-player), the system now:
+- Briefly pans the camera to the deployed unit's position using smooth CUBIC easing (0.5s pan, 1.5s hold, 0.5s return)
+- Shows a toast notification: "[Unit Name] deployed" in gold color
+- Displays a deployment log panel (bottom-left) tracking all deployments in order with player color-coding (P1 blue, P2 red)
+- The deployment log panel is automatically shown during deployment and hidden when deployment completes
+- Connected via `GameManager.result_applied` signal for reliable detection in both multiplayer and single-player modes
 
 ### 11. Coherency Distance Display During Placement
 **Issue**: The coherency check uses edge-to-edge distances, but this distance is never shown to the player during placement. When placing a model near the 2" coherency boundary, the player has to guess.
@@ -285,7 +285,7 @@ Both players reveal simultaneously, then deployment begins.
 | Per-model undo | **Medium** | Low | QoL | **DONE** |
 | Coherency distance display | **Medium** | Low | QoL | Open |
 | Measuring tool accessibility | **Low** | Low | QoL | Open |
-| Opponent deployment notifications (MP) | **Medium** | Medium | QoL/MP | Open |
+| Opponent deployment notifications (MP) | **Medium** | Medium | QoL/MP | **DONE** |
 | Keyboard shortcut reference | **Low** | Low | QoL | Open |
 | Player turn screen-edge indicator | **Medium** | Low | Visual | Open |
 | Unit placement animation | **Low** | Low | Visual | Open |
