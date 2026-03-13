@@ -41,7 +41,7 @@ var colorblind_mode: String = "none"
 # Unit label visibility — toggle the name text shown underneath models
 var show_unit_labels: bool = true
 
-# Board texture style: "grass", "mud", "desert", "stone", "felt", "none"
+# Board texture style: "grass", "mud", "desert", "stone", "felt", "tilepack", "none"
 var board_style: String = "grass"
 
 # Ruins texture style: "concrete", "marble", "brick", "weathered_stone", "none"
@@ -228,7 +228,7 @@ func toggle_unit_labels() -> void:
 	set_show_unit_labels(not show_unit_labels)
 
 func set_board_style(style: String) -> void:
-	var valid_styles = ["grass", "mud", "desert", "stone", "felt", "none"]
+	var valid_styles = ["grass", "mud", "desert", "stone", "felt", "tilepack", "none"]
 	if style not in valid_styles:
 		print("[SettingsService] Invalid board style: %s" % style)
 		return

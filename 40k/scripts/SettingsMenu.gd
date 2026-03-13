@@ -151,7 +151,7 @@ func _build_ui() -> void:
 
 	var visual_content = visual_scroll.get_child(0) as VBoxContainer
 	_add_section_header(visual_content, "Visual")
-	_board_style_dropdown = _add_dropdown_row(visual_content, "Board Texture:", ["Grass", "Mud", "Desert", "Stone", "Felt", "None (Solid)"], "_on_board_style_changed")
+	_board_style_dropdown = _add_dropdown_row(visual_content, "Board Texture:", ["Grass", "Mud", "Desert", "Stone", "Felt", "Tilepack", "None (Solid)"], "_on_board_style_changed")
 	_ruins_style_dropdown = _add_dropdown_row(visual_content, "Ruins Texture:", ["Concrete", "Marble", "Brick", "Weathered Stone", "None (Solid)"], "_on_ruins_style_changed")
 	_visual_style_dropdown = _add_dropdown_row(visual_content, "Unit Style:", ["Letter (Default)", "Enhanced", "Silhouettes", "Faction Glyphs", "Classic"], "_on_visual_style_changed")
 	_ui_scale_slider = _add_slider_row(visual_content, "UI Scale:", 0.5, 2.0, 0.1, "_on_ui_scale_changed")
@@ -446,7 +446,7 @@ func _load_current_settings() -> void:
 	_update_volume_label(_sfx_volume_label, SettingsService.sfx_volume)
 
 	# Visual
-	var board_style_index = ["grass", "mud", "desert", "stone", "felt", "none"].find(SettingsService.board_style)
+	var board_style_index = ["grass", "mud", "desert", "stone", "felt", "tilepack", "none"].find(SettingsService.board_style)
 	if board_style_index >= 0:
 		_board_style_dropdown.selected = board_style_index
 	var ruins_style_index = ["concrete", "marble", "brick", "weathered_stone", "none"].find(SettingsService.ruins_style)
@@ -510,7 +510,7 @@ func _on_mute_toggled(pressed: bool) -> void:
 # ============================================================================
 
 func _on_board_style_changed(index: int) -> void:
-	var styles = ["grass", "mud", "desert", "stone", "felt", "none"]
+	var styles = ["grass", "mud", "desert", "stone", "felt", "tilepack", "none"]
 	if index >= 0 and index < styles.size():
 		SettingsService.set_board_style(styles[index])
 
