@@ -375,6 +375,17 @@ func get_available_actions() -> Array:
 			"player": current_player
 		})
 
+	# Plant the Waaagh! Banner (OA-46) — Nob with Waaagh! Banner, once per battle
+	if faction_mgr:
+		var plant_eligible = faction_mgr.get_plant_waaagh_banner_eligible_units(current_player)
+		for target in plant_eligible:
+			actions.append({
+				"type": "PLANT_WAAAGH_BANNER",
+				"unit_id": target.unit_id,
+				"description": "Plant the Waaagh! Banner: %s — Waaagh! effects, 4+ invuln, OC 5 (once per battle)" % target.unit_name,
+				"player": current_player
+			})
+
 	# Oath of Moment target selection (Space Marines)
 	if faction_mgr and faction_mgr.player_has_ability(current_player, "Oath of Moment"):
 		var current_oath_target = faction_mgr.get_oath_of_moment_target(current_player)
@@ -533,6 +544,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_select_oath_target(action)
 		"CALL_WAAAGH":
 			errors = _validate_call_waaagh(action)
+		"PLANT_WAAAGH_BANNER":
+			errors = _validate_plant_waaagh_banner(action)
 		"SELECT_COMBAT_DOCTRINE":
 			errors = _validate_select_combat_doctrine(action)
 		"SKIP_COMBAT_DOCTRINE":
@@ -608,6 +621,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_select_oath_target(action)
 		"CALL_WAAAGH":
 			return _handle_call_waaagh(action)
+		"PLANT_WAAAGH_BANNER":
+			return _handle_plant_waaagh_banner(action)
 		"SELECT_COMBAT_DOCTRINE":
 			return _handle_select_combat_doctrine(action)
 		"SKIP_COMBAT_DOCTRINE":
@@ -1042,6 +1057,51 @@ func _handle_call_waaagh(action: Dictionary) -> Dictionary:
 		var log_entry = {
 			"type": "CALL_WAAAGH",
 			"player": current_player,
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+# ============================================================================
+# PLANT THE WAAAGH! BANNER (OA-46)
+# ============================================================================
+
+func _validate_plant_waaagh_banner(action: Dictionary) -> Array:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	if unit_id == "":
+		errors.append("Missing unit_id for Plant the Waaagh! Banner")
+		return errors
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if not faction_mgr.can_plant_waaagh_banner(unit_id):
+		errors.append("Plant the Waaagh! Banner cannot be used: already used this battle or unit not eligible")
+
+	return errors
+
+func _handle_plant_waaagh_banner(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var current_player = get_current_player()
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var result = faction_mgr.activate_plant_waaagh_banner(unit_id)
+
+	if result.success:
+		log_phase_message(result.message)
+
+		var log_entry = {
+			"type": "PLANT_WAAAGH_BANNER",
+			"player": current_player,
+			"unit_id": unit_id,
+			"unit_name": result.get("unit_name", unit_id),
 			"turn": GameState.get_battle_round()
 		}
 		GameState.add_action_to_phase_log(log_entry)

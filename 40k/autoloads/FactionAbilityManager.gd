@@ -181,6 +181,10 @@ var _waaagh_used: Dictionary = {"1": false, "2": false}
 # Per-player: whether Waaagh! is currently active (lasts until start of next Command phase)
 var _waaagh_active: Dictionary = {"1": false, "2": false}
 
+# Plant the Waaagh! Banner tracking (OA-46) — Nob with Waaagh! Banner
+# Per-unit (unit_id key): whether the ability has been used this battle (once per battle)
+var _plant_waaagh_banner_used: Dictionary = {}
+
 # ============================================================================
 # DETACHMENT ABILITY STATE (P2-27)
 # ============================================================================
@@ -473,6 +477,11 @@ func _apply_waaagh_effects(player: int) -> void:
 					print("FactionAbilityManager: Prophet of Da Great Waaagh! Crit Hit 5+ applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
 				break
 
+		# OA-46: Da Boss Iz Watchin' — 4+ invuln and OC 5 while Waaagh! active (Nob with Waaagh! Banner)
+		# Upgrade invuln from 5+ to 4+ and set OC 5 for units with this ability
+		if _unit_has_ability(unit, "Da Boss Iz Watchin'"):
+			_apply_da_boss_iz_watchin(unit, unit_id)
+
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		print("FactionAbilityManager: Waaagh! effects applied to %s (%s) — 5+ invuln, advance+charge" % [unit_name, unit_id])
 
@@ -489,10 +498,16 @@ func _clear_waaagh_effects(player: int) -> void:
 		if flags.get("waaagh_active", false):
 			flags.erase("waaagh_active")
 			flags.erase("effect_advance_and_charge")
-			# Only clear invuln if it was the Waaagh! 5+ (don't clobber other sources)
-			if flags.get("effect_invuln", 0) == 5:
+			# Clear invuln if it was from Waaagh! effects (5+ base or 4+ from Da Boss Iz Watchin')
+			# Use source-based check to avoid clobbering other invuln sources
+			if flags.get("effect_invuln_source", "") in ["Waaagh!", "Da Boss Iz Watchin'"]:
 				flags.erase("effect_invuln")
 				flags.erase("effect_invuln_source")
+			# OA-46: Clear OC override from Da Boss Iz Watchin' (don't clobber other sources)
+			if flags.get("effect_oc_source", "") == "Da Boss Iz Watchin'":
+				flags.erase("effect_oc_override")
+				flags.erase("effect_oc_source")
+				print("FactionAbilityManager: Da Boss Iz Watchin' OC 5 cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
 			# OA-17: Only clear FNP if it was from Krumpin' Time (don't clobber other sources)
 			if flags.get("effect_fnp_source", "") == "Krumpin' Time":
 				flags.erase("effect_fnp")
@@ -526,6 +541,117 @@ func _unit_has_ability(unit: Dictionary, target_ability_name: String) -> bool:
 static func is_waaagh_active_for_unit(unit: Dictionary) -> bool:
 	"""Static query: Check if a unit currently has Waaagh! active (for RulesEngine)."""
 	return unit.get("flags", {}).get("waaagh_active", false)
+
+# ============================================================================
+# PLANT THE WAAAGH! BANNER (OA-46) — Nob with Waaagh! Banner
+# ============================================================================
+
+func _apply_da_boss_iz_watchin(unit: Dictionary, unit_id: String) -> void:
+	"""Apply Da Boss Iz Watchin' effects: 4+ invuln save and OC 5 while Waaagh! active."""
+	unit["flags"]["effect_invuln"] = 4
+	unit["flags"]["effect_invuln_source"] = "Da Boss Iz Watchin'"
+	unit["flags"]["effect_oc_override"] = 5
+	unit["flags"]["effect_oc_source"] = "Da Boss Iz Watchin'"
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("FactionAbilityManager: Da Boss Iz Watchin' — 4+ invuln + OC 5 applied to %s (%s)" % [unit_name, unit_id])
+
+func can_plant_waaagh_banner(unit_id: String) -> bool:
+	"""Check if a unit can use Plant the Waaagh! Banner (has ability, deployed, alive, once per battle)."""
+	if _plant_waaagh_banner_used.get(unit_id, false):
+		return false
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+	if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+		return false
+	var has_alive = false
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			has_alive = true
+			break
+	if not has_alive:
+		return false
+	return _unit_has_ability(unit, "Plant the Waaagh! Banner")
+
+func get_plant_waaagh_banner_eligible_units(player: int) -> Array:
+	"""Get all units that can use Plant the Waaagh! Banner this turn."""
+	var eligible = []
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		if can_plant_waaagh_banner(unit_id):
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			eligible.append({"unit_id": unit_id, "unit_name": unit_name})
+	print("FactionAbilityManager: Plant the Waaagh! Banner — %d eligible units for player %d" % [eligible.size(), player])
+	return eligible
+
+func activate_plant_waaagh_banner(unit_id: String) -> Dictionary:
+	"""Activate Plant the Waaagh! Banner for a specific unit (once per battle). Called during Command Phase."""
+	if _plant_waaagh_banner_used.get(unit_id, false):
+		return {"success": false, "error": "Plant the Waaagh! Banner already used this battle for unit %s" % unit_id}
+
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {"success": false, "error": "Unit not found: %s" % unit_id}
+
+	if not _unit_has_ability(unit, "Plant the Waaagh! Banner"):
+		return {"success": false, "error": "Unit %s does not have Plant the Waaagh! Banner ability" % unit_id}
+
+	# Mark as used (once per battle)
+	_plant_waaagh_banner_used[unit_id] = true
+
+	# Apply Waaagh! effects to this unit
+	if not unit.has("flags"):
+		unit["flags"] = {}
+	unit["flags"]["waaagh_active"] = true
+	unit["flags"]["plant_waaagh_banner_active"] = true
+	unit["flags"]["effect_advance_and_charge"] = true
+
+	# Da Boss Iz Watchin': 4+ invuln and OC 5
+	_apply_da_boss_iz_watchin(unit, unit_id)
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("FactionAbilityManager: Plant the Waaagh! Banner — %s gains Waaagh! effects (4+ invuln, OC 5, advance+charge)" % unit_name)
+
+	# Log to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_player_entry(unit.get("owner", 1), "Plant the Waaagh! Banner: %s — Waaagh! active (4+ invuln, OC 5, advance+charge)!" % unit_name)
+
+	return {
+		"success": true,
+		"unit_name": unit_name,
+		"message": "Plant the Waaagh! Banner: %s gains Waaagh! effects (4+ invuln, OC 5, advance+charge)!" % unit_name
+	}
+
+func _clear_plant_waaagh_banner_effects(player: int) -> void:
+	"""Clear Plant the Waaagh! Banner per-unit effects at the start of the next Command Phase."""
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		var flags = unit.get("flags", {})
+		if not flags.get("plant_waaagh_banner_active", false):
+			continue
+
+		flags.erase("plant_waaagh_banner_active")
+		# Clear waaagh_active and advance_and_charge (army Waaagh! already deactivated by this point)
+		flags.erase("waaagh_active")
+		flags.erase("effect_advance_and_charge")
+		# Clear Da Boss Iz Watchin' invuln (4+)
+		if flags.get("effect_invuln_source", "") == "Da Boss Iz Watchin'":
+			flags.erase("effect_invuln")
+			flags.erase("effect_invuln_source")
+		# Clear Da Boss Iz Watchin' OC override
+		if flags.get("effect_oc_source", "") == "Da Boss Iz Watchin'":
+			flags.erase("effect_oc_override")
+			flags.erase("effect_oc_source")
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		print("FactionAbilityManager: Plant the Waaagh! Banner effects cleared from %s (%s)" % [unit_name, unit_id])
 
 # ============================================================================
 # COMBAT MODIFIER QUERIES (called by RulesEngine)
@@ -1713,6 +1839,9 @@ func on_command_phase_start(player: int) -> void:
 	if _waaagh_active.get(str(player), false):
 		deactivate_waaagh(player)
 
+	# OA-46: Clear Plant the Waaagh! Banner per-unit effects (lasts until start of next battle round)
+	_clear_plant_waaagh_banner_effects(player)
+
 	# Clear previous Combat Doctrine effects (they last until next Command phase)
 	_clear_doctrine_effects(player)
 
@@ -1778,7 +1907,9 @@ func get_state_for_save() -> Dictionary:
 		"bionik_workshop_results": _bionik_workshop_results.duplicate(true),
 		"bionik_workshop_resolved": _bionik_workshop_resolved,
 		"razgit_redeploys_used": _razgit_redeploys_used.duplicate(true),
-		"razgit_resolved": _razgit_resolved
+		"razgit_resolved": _razgit_resolved,
+		# OA-46: Plant the Waaagh! Banner state
+		"plant_waaagh_banner_used": _plant_waaagh_banner_used.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
@@ -1808,6 +1939,8 @@ func load_state(data: Dictionary) -> void:
 	_bionik_workshop_resolved = data.get("bionik_workshop_resolved", false)
 	_razgit_redeploys_used = data.get("razgit_redeploys_used", {"1": 0, "2": 0})
 	_razgit_resolved = data.get("razgit_resolved", false)
+	# OA-46: Plant the Waaagh! Banner state
+	_plant_waaagh_banner_used = data.get("plant_waaagh_banner_used", {})
 	# Restore bionik workshop flags on units
 	for bearer_id in _bionik_workshop_results:
 		var bw_data = _bionik_workshop_results[bearer_id]

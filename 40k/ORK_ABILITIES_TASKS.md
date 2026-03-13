@@ -351,7 +351,7 @@
 - **Validation**: D6 per objective with Gretchin. 4+ = +1CP.
 
 ### OA-48: Implement "Runtherd" for Gretchin
-- [ ] Runtherd models use Toughness 2 while Gretchin models are alive in the unit
+- [x] Runtherd models use Toughness 2 while Gretchin models are alive in the unit
 - **Files**: RulesEngine.gd
 - **Validation**: Runtherd T2 while Gretchin alive. Reverts if all Gretchin killed.
 

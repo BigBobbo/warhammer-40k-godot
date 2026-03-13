@@ -860,6 +860,30 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Feel No Pain 5+ while Waaagh! is active — applied via FactionAbilityManager Waaagh! activation"
 	},
 
+	# OA-46: Nob with Waaagh! Banner — once per battle, unit gains Waaagh! effects for one round
+	# Activated via FactionAbilityManager.activate_plant_waaagh_banner() during Command Phase.
+	# Effects (4+ invuln, OC 5, advance+charge) applied/cleared by FactionAbilityManager.
+	"Plant the Waaagh! Banner": {
+		"condition": "once_per_battle",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: unit gains Waaagh! effects (4+ invuln, OC 5, advance+charge) — applied via FactionAbilityManager"
+	},
+
+	# OA-46: Nob with Waaagh! Banner — 4+ invuln and OC 5 while Waaagh! active
+	# Applied by FactionAbilityManager when Waaagh! is active for this unit (army or Plant banner).
+	"Da Boss Iz Watchin'": {
+		"condition": "waaagh_active",
+		"effects": [{"type": "grant_invuln", "value": 4}, {"type": "grant_oc", "value": 5}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While Waaagh! active: 4+ invuln save and OC 5 — applied via FactionAbilityManager"
+	},
+
 	# Ork Painboy — D6 mortal wounds on Critical Wound with 'urty syringe vs non-VEHICLE (OA-19)
 	# Checked in RulesEngine._resolve_melee_assignment() after wound rolls.
 	# Only triggers for the 'urty syringe weapon, not other Painboy attacks.
@@ -958,6 +982,25 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "melee",
 		"implemented": true,
 		"description": "Friendly ORKS units within 12\" get Lethal Hits on melee weapons while Waaagh! active — checked directly in RulesEngine"
+	},
+
+	# ======================================================================
+	# CONDITIONAL TOUGHNESS ABILITIES — Unit composition (OA-48)
+	# ======================================================================
+
+	# OA-48: Gretchin/Runtherd — While the unit contains Gretchin models, Runtherd models
+	# use T2 (same as unit base T — no change). When all Gretchin die, Runtherd models
+	# revert to T4 from their model_profile stats_override.
+	# Not a combat flag applied via EffectPrimitives — enforced directly in RulesEngine
+	# via get_runtherd_toughness_override(). Effects are empty because toughness is modified
+	# at wound resolution time, conditioned on unit composition (alive Gretchin count).
+	"Runtherd": {
+		"condition": "unit_composition",
+		"effects": [],
+		"target": "self",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While unit contains Gretchin models, Runtherd models use T2. Reverts to T4 when all Gretchin die — checked directly in RulesEngine"
 	},
 }
 
