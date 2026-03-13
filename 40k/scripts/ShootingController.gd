@@ -3147,6 +3147,7 @@ func _update_perform_action_button() -> void:
 
 	# Check if there are action options for the active shooter
 	var options = current_phase._get_secondary_action_options(active_shooter_id)
+	print("ShootingController: _update_perform_action_button - %d options for %s" % [options.size(), active_shooter_id])
 	if options.is_empty():
 		perform_action_button.visible = false
 	else:
