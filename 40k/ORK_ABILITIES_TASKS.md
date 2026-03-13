@@ -329,7 +329,7 @@
 - **Validation**: +1 Battle-shock tests for friendly ORKS within 12".
 
 ### OA-44: Implement "Ded Glowy Ammo" aura for Kaptin Badrukk
-- [ ] Enemy Infantry within 6" suffer -1 Toughness
+- [x] Enemy Infantry within 6" suffer -1 Toughness
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: -1T on enemy Infantry within 6".
 
