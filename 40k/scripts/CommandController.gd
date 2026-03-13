@@ -664,6 +664,13 @@ func set_phase(phase: BasePhase) -> void:
 					secondary_mgr.mission_discarded.connect(_on_mission_discarded)
 					print("CommandController: Connected to SecondaryMissionManager.mission_discarded")
 
+		# Connect AIPlayer signal for when AI opponent selects alpha targets but human needs to pick gamma
+		var ai_player_node = get_node_or_null("/root/AIPlayer")
+		if ai_player_node and ai_player_node.has_signal("ai_alpha_targets_selected"):
+			if not ai_player_node.ai_alpha_targets_selected.is_connected(_on_ai_alpha_targets_selected):
+				ai_player_node.ai_alpha_targets_selected.connect(_on_ai_alpha_targets_selected)
+				print("CommandController: Connected to AIPlayer.ai_alpha_targets_selected")
+
 		# Update UI elements with current game state
 		_refresh_ui()
 		show()
@@ -946,11 +953,16 @@ func _on_when_drawn_requires_interaction(player: int, mission_id: String, intera
 
 func _show_marked_for_death_dialog(drawing_player: int, opponent: int, details: Dictionary) -> void:
 	"""Show Marked for Death dialog — opponent selects Alpha targets, card holder selects Gamma."""
-	# Skip dialog for AI players — AIPlayer handles via _on_secondary_requires_interaction
+	# Skip dialog when AI is involved — AIPlayer handles via _on_secondary_requires_interaction
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(opponent) and ai_player_node.is_ai_player(drawing_player):
-		# Both AI — fully handled by AIPlayer
-		print("CommandController: Skipping Marked for Death dialog — both players are AI")
+	if ai_player_node and ai_player_node.is_ai_player(opponent):
+		if ai_player_node.is_ai_player(drawing_player):
+			# Both AI — fully handled by AIPlayer
+			print("CommandController: Skipping Marked for Death dialog — both players are AI")
+		else:
+			# AI opponent will select alphas and emit ai_alpha_targets_selected signal
+			# which triggers _on_ai_alpha_targets_selected to show gamma-only dialog
+			print("CommandController: Skipping full Marked for Death dialog — AI opponent P%d will select alphas, then human P%d picks gamma" % [opponent, drawing_player])
 		return
 
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
@@ -994,6 +1006,44 @@ func _on_marked_for_death_resolved(alpha_targets: Array, gamma_target: String, d
 		"alpha_targets": alpha_targets,
 		"gamma_target": gamma_target,
 	})
+
+func _on_ai_alpha_targets_selected(drawing_player: int, alpha_targets: Array, eligible_units: Array) -> void:
+	"""Handle AI opponent's alpha target selection — show gamma-only dialog for human card holder."""
+	print("CommandController: AI selected alpha targets %s, showing gamma selection dialog for human P%d" % [
+		str(alpha_targets), drawing_player])
+
+	var opponent = 2 if drawing_player == 1 else 1
+
+	# Build unit list for the dialog (excluding alpha-selected units)
+	var remaining_units = []
+	for eu in eligible_units:
+		if eu.get("id", "") not in alpha_targets:
+			var unit = GameState.get_unit(eu.get("id", ""))
+			var unit_name = eu.get("name", eu.get("id", ""))
+			remaining_units.append({"unit_id": eu.get("id", ""), "unit_name": unit_name})
+
+	if remaining_units.is_empty():
+		# No remaining units for gamma — resolve with empty gamma
+		print("CommandController: No remaining units for gamma target after AI alpha selection")
+		emit_signal("command_action_requested", {
+			"type": "RESOLVE_MARKED_FOR_DEATH",
+			"player": drawing_player,
+			"alpha_targets": alpha_targets,
+			"gamma_target": "",
+		})
+		return
+
+	# Build the full opponent_units list (for display of alpha selections in dialog)
+	var all_opponent_units = []
+	for eu in eligible_units:
+		all_opponent_units.append({"unit_id": eu.get("id", ""), "unit_name": eu.get("name", eu.get("id", ""))})
+
+	var dialog = MarkedForDeathDialog.new()
+	dialog.setup_gamma_only(drawing_player, opponent, all_opponent_units, alpha_targets)
+	dialog.marked_for_death_resolved.connect(_on_marked_for_death_resolved.bind(drawing_player))
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("CommandController: Marked for Death gamma-only dialog shown for P%d (card holder)" % drawing_player)
 
 func _show_tempting_target_dialog(drawing_player: int, opponent: int, details: Dictionary) -> void:
 	"""Show A Tempting Target dialog for the opponent to select an objective."""

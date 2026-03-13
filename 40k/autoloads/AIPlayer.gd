@@ -90,6 +90,7 @@ signal spectator_phase_summary(player: int, phase: int, summary: Dictionary)
 
 # T7-56: Turn history signal — emitted when a turn's actions are stored
 signal turn_history_updated()
+signal ai_alpha_targets_selected(drawing_player: int, alpha_targets: Array, eligible_units: Array)  # AI opponent selected alphas; human card holder needs to pick gamma
 
 func _ready() -> void:
 	# Connect to signals - use call_deferred to avoid acting during signal emission
@@ -2044,7 +2045,7 @@ func _on_secondary_requires_interaction(player: int, mission_id: String, interac
 			# Step 1: OPPONENT selects Alpha targets from their own army
 			# Step 2: CARD HOLDER (drawing player) selects Gamma target from remaining opponent units
 			# 'player' here is the DRAWING player. 'opponent' selects from the OPPONENT's army.
-			var required_alpha = details.get("alpha_targets", 2)
+			var required_alpha = details.get("alpha_targets", 3)
 			var snapshot = GameState.create_snapshot()
 			var units = snapshot.get("units", {})
 			var eligible_units = []
@@ -2072,6 +2073,17 @@ func _on_secondary_requires_interaction(player: int, mission_id: String, interac
 			var alpha_targets = []
 			for i in range(min(required_alpha, eligible_units.size())):
 				alpha_targets.append(eligible_units[i].id)
+
+			# If the drawing player is human, let them pick the Gamma target via dialog
+			if not is_ai_player(player):
+				var alpha_names = []
+				for eu in eligible_units:
+					if eu.id in alpha_targets:
+						alpha_names.append("%s (%dpts)" % [eu.name, eu.points])
+				print("AIPlayer: [MFD] AI opponent P%d selected Alpha targets: %s" % [opponent, str(alpha_names)])
+				print("AIPlayer: [MFD] Human player P%d will select Gamma target via dialog" % player)
+				emit_signal("ai_alpha_targets_selected", player, alpha_targets, eligible_units)
+				return
 
 			# AI as CARD HOLDER picks Gamma target: choose most damaged/weakest remaining unit
 			# (card holder wants the easiest unit to kill for 2VP)
