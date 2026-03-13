@@ -1970,6 +1970,95 @@
         {"id": "m1", "wounds": 12, "current_wounds": 12, "base_mm": 100, "position": null, "alive": true, "status_effects": []},
         {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
       ]
+    },
+    "U_NOB_WAAAGH_BANNER_A": {
+      "id": "U_NOB_WAAAGH_BANNER_A",
+      "squad_id": "U_NOB_WAAAGH_BANNER_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Nob with Waaagh! Banner",
+        "keywords": [
+          "ORKS",
+          "NOB WITH WAAAGH! BANNER",
+          "INFANTRY",
+          "CHARACTER"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 5,
+          "save": 4,
+          "wounds": 3,
+          "leadership": 7,
+          "objective_control": 1
+        },
+        "points": 70,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "1x Kustom shoota",
+          "1x Waaagh! banner"
+        ],
+        "weapons": [
+          {
+            "name": "Kustom shoota",
+            "type": "Ranged",
+            "range": "18",
+            "attacks": "4",
+            "ballistic_skill": "5",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "rapid fire 2"
+          },
+          {
+            "name": "Waaagh! banner",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "3",
+            "strength": "8",
+            "ap": "-2",
+            "damage": "2"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Core",
+            "type": "Core",
+            "description": ""
+          },
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Waaagh! faction ability"
+          },
+          {
+            "name": "Plant the Waaagh! Banner",
+            "type": "Datasheet",
+            "description": "Once per battle, at the start of the battle round, this model can use this ability. If it does, until the start of the next battle round, this model's unit gains the benefits of the Waaagh! ability as if you had called a Waaagh! this battle round."
+          },
+          {
+            "name": "Da Boss Iz Watchin'",
+            "type": "Datasheet",
+            "description": "While this model is gaining the benefits of the Waaagh! ability, it has a 4+ invulnerable save and an Objective Control characteristic of 5."
+          },
+          {
+            "name": "Leader",
+            "type": "Core",
+            "description": "Nob with Waaagh! Banner can be attached to a Boyz, Breaka Boyz, or Nobz unit."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Nob with Waaagh! Banner",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 3, "current_wounds": 3, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+      ]
     }
   }
 }

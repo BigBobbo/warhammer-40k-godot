@@ -166,7 +166,10 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 		var owner = unit.get("owner", 0)
 
 		# Skip if unit has no OC value
-		var oc_value = unit.get("meta", {}).get("stats", {}).get("objective_control", 0)
+		# OA-46: Check for OC override (Da Boss Iz Watchin' during Waaagh!)
+		var oc_value = unit.get("flags", {}).get("effect_oc_override", 0)
+		if oc_value == 0:
+			oc_value = unit.get("meta", {}).get("stats", {}).get("objective_control", 0)
 		if oc_value <= 0:
 			print("  Skipping %s - no OC value (OC: %d)" % [unit_id, oc_value])
 			continue

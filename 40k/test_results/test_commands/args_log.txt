@@ -1,1 +1,1 @@
-ARGS: ["-s", "tests/test_oa45_waaagh_banner.gd"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gexit"]
