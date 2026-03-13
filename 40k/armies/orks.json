@@ -1868,6 +1868,108 @@
       "models": [
         {"id": "m1", "wounds": 6, "current_wounds": 6, "base_mm": 40, "position": null, "alive": true, "status_effects": []}
       ]
+    },
+    "U_GHAZGHKULL_THRAKA_A": {
+      "id": "U_GHAZGHKULL_THRAKA_A",
+      "squad_id": "U_GHAZGHKULL_THRAKA_A",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Ghazghkull Thraka",
+        "keywords": [
+          "ORKS",
+          "MONSTER",
+          "CHARACTER",
+          "EPIC HERO",
+          "WARBOSS",
+          "GHAZGHKULL THRAKA"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 9,
+          "save": 2,
+          "wounds": 12,
+          "leadership": 6,
+          "objective_control": 2
+        },
+        "points": 300,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "1x Gork's Klaw",
+          "1x Mork's Roar",
+          "1x Makari's Stabba"
+        ],
+        "weapons": [
+          {
+            "name": "Gork's Klaw",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "5",
+            "weapon_skill": "2",
+            "strength": "14",
+            "ap": "-4",
+            "damage": "D3+3"
+          },
+          {
+            "name": "Mork's Roar",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "D6",
+            "ballistic_skill": "2",
+            "strength": "7",
+            "ap": "-1",
+            "damage": "2",
+            "special_rules": "rapid fire 2"
+          },
+          {
+            "name": "Makari's Stabba",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "4",
+            "weapon_skill": "4",
+            "strength": "3",
+            "ap": "0",
+            "damage": "1"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Core",
+            "type": "Core",
+            "description": ""
+          },
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Waaagh! faction ability"
+          },
+          {
+            "name": "Prophet of Da Great Waaagh!",
+            "type": "Datasheet",
+            "description": "While a Waaagh! is active for Ghazghkull's army, each time a model in this unit makes a melee attack, add 1 to the Hit roll and the Wound roll. In addition, each time a model in this unit makes a melee attack, a Critical Hit is scored on a 5+ rather than a 6."
+          },
+          {
+            "name": "Ghazghkull's Waaagh! Banner (Aura)",
+            "type": "Datasheet",
+            "description": "While a Waaagh! is active for Ghazghkull's army, friendly ORKS units within 12\" of this unit have the Lethal Hits ability on their melee weapons."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Ghazghkull Thraka",
+            "line": 1
+          },
+          {
+            "description": "1 Makari",
+            "line": 2
+          }
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 12, "current_wounds": 12, "base_mm": 100, "position": null, "alive": true, "status_effects": []},
+        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+      ]
     }
   }
 }
