@@ -4081,6 +4081,28 @@ static func get_model_display_label(model: Dictionary, unit: Dictionary) -> Stri
 		return "%s (%s)" % [label, model_id]
 	return model_id
 
+# MA-27: Get effective stats for a model, merging unit base stats with model profile stats_override.
+# Returns unit base stats merged with the model's stats_override from its model_profiles entry.
+# Returns base unit stats if no model_type or no model_profiles.
+# Used by hit resolution (BS/WS), save resolution, wound allocation, and any future per-model stat checks.
+static func get_model_effective_stats(unit: Dictionary, model: Dictionary) -> Dictionary:
+	var base_stats = unit.get("meta", {}).get("stats", {}).duplicate()
+	if model.is_empty():
+		return base_stats
+	var model_type = model.get("model_type", "")
+	if model_type == "":
+		return base_stats
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	if not model_profiles.has(model_type):
+		return base_stats
+	var stats_override = model_profiles[model_type].get("stats_override", {})
+	if stats_override.is_empty():
+		return base_stats
+	# Merge: override keys replace base stats
+	for key in stats_override:
+		base_stats[key] = stats_override[key]
+	return base_stats
+
 # MA-10: Get effective BS for a model, checking stats_override.ballistic_skill
 # Returns the model's overridden BS if available, otherwise falls back to weapon profile BS.
 static func _get_model_effective_bs(model: Dictionary, unit: Dictionary, weapon_profile: Dictionary) -> int:
