@@ -939,6 +939,26 @@ const ABILITY_EFFECTS: Dictionary = {
 		"implemented": true,
 		"description": "Enemy INFANTRY units within 6\" suffer -1 Toughness — checked directly in RulesEngine"
 	},
+
+	# ======================================================================
+	# AURA ABILITIES — Lethal Hits (OA-45)
+	# ======================================================================
+
+	# OA-45: Ghazghkull Thraka — friendly ORKS units within 12" get Lethal Hits on melee
+	# weapons while a Waaagh! is active. Measured from Ghazghkull/Makari's unit.
+	# Not a combat flag applied via EffectPrimitives — enforced directly in RulesEngine
+	# via unit_has_waaagh_banner_lethal_hits(). The aura condition documents the intent; effects
+	# are empty because Lethal Hits is granted at melee resolution time, conditioned on Waaagh!.
+	"Ghazghkull's Waaagh! Banner (Aura)": {
+		"condition": "aura_waaagh",
+		"effects": [],
+		"aura_range": 12.0,
+		"aura_target": "friendly",
+		"target": "friendly_orks_unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "Friendly ORKS units within 12\" get Lethal Hits on melee weapons while Waaagh! active — checked directly in RulesEngine"
+	},
 }
 
 # ============================================================================

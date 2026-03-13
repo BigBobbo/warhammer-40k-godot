@@ -334,7 +334,7 @@
 - **Validation**: -1T on enemy Infantry within 6".
 
 ### OA-45: Implement "Ghazghkull's Waaagh! Banner" aura for Ghazghkull
-- [ ] Friendly ORKS within 12" of Makari during Waaagh! get Lethal Hits on melee weapons
+- [x] Friendly ORKS within 12" of Makari during Waaagh! get Lethal Hits on melee weapons
 - **Files**: UnitAbilityManager.gd, RulesEngine.gd
 - **Validation**: Lethal Hits on melee for friendly ORKS within 12" of Makari during Waaagh!.
 

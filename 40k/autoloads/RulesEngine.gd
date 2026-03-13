@@ -3384,6 +3384,89 @@ static func _unit_has_ded_glowy_ammo(unit: Dictionary) -> bool:
 			return true
 	return false
 
+# OA-45: Ghazghkull's Waaagh! Banner (Aura) — Check if attacker gets Lethal Hits on melee.
+# Ghazghkull Thraka's aura: friendly ORKS within 12" edge-to-edge get Lethal Hits on melee
+# weapons while a Waaagh! is active for their army.
+# Returns true if the condition is met, false otherwise.
+# Per 10th Edition: same aura from multiple sources does not stack — boolean result.
+static func unit_has_waaagh_banner_lethal_hits(attacker_unit: Dictionary, board: Dictionary) -> bool:
+	# Must have ORKS keyword
+	if not unit_has_keyword(attacker_unit, "ORKS"):
+		return false
+
+	# Waaagh! must be active for this unit
+	if not FactionAbilityManager.is_waaagh_active_for_unit(attacker_unit):
+		return false
+
+	var attacker_owner = attacker_unit.get("owner", 0)
+	var units = board.get("units", {})
+
+	for source_unit_id in units:
+		var source_unit = units[source_unit_id]
+
+		# Must be a friendly unit (same owner)
+		if source_unit.get("owner", 0) != attacker_owner:
+			continue
+
+		# Must be alive
+		var source_alive = false
+		for model in source_unit.get("models", []):
+			if model.get("alive", true):
+				source_alive = true
+				break
+		if not source_alive:
+			continue
+
+		# Must be on the board (not embarked in transport)
+		if source_unit.get("embarked_in", "") != "":
+			continue
+
+		# Must have "Ghazghkull's Waaagh! Banner (Aura)" ability
+		if not _unit_has_waaagh_banner(source_unit):
+			continue
+
+		# Per 10th Ed rules, a model is always within range of its own aura.
+		# If attacker is the same unit as the source (Ghazghkull's own unit), apply.
+		var attacker_id = attacker_unit.get("id", "")
+		if attacker_id != "" and attacker_id == source_unit.get("id", ""):
+			print("RulesEngine: WAAAGH! BANNER — %s is source unit, LETHAL HITS granted (self-aura)" % attacker_id)
+			return true
+
+		# Check 12" edge-to-edge distance between source unit and attacker unit
+		var min_dist = INF
+		for source_model in source_unit.get("models", []):
+			if not source_model.get("alive", true):
+				continue
+			if source_model.get("position", null) == null:
+				continue
+			for target_model in attacker_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+				if target_model.get("position", null) == null:
+					continue
+				var dist = Measurement.model_to_model_distance_inches(source_model, target_model)
+				if dist < min_dist:
+					min_dist = dist
+
+		if min_dist <= 12.0:
+			print("RulesEngine: WAAAGH! BANNER — attacker within 12\" of Ghazghkull/Makari (%.1f\"), LETHAL HITS granted" % min_dist)
+			return true
+
+	return false
+
+# Helper: check if a unit dict has the "Ghazghkull's Waaagh! Banner (Aura)" ability.
+static func _unit_has_waaagh_banner(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Ghazghkull's Waaagh! Banner (Aura)":
+			return true
+	return false
+
 static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, invuln: int) -> Dictionary:
 	# Calculate armour save with AP and cover
 	var armour_save = base_save + ap  # AP makes saves worse (higher number needed)
@@ -7494,6 +7577,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if sustained_data.value == 0 and FactionAbilityManager.check_here_be_loot_sustained_hits(attacker_unit, target_unit, board):
 		sustained_data = {"value": 1, "is_dice": false}
 		print("RulesEngine:   SUSTAINED HITS 1 granted by Here Be Loot (Freebooter Krew detachment)")
+
+	# GHAZGHKULL'S WAAAGH! BANNER (OA-45): Lethal Hits on melee attacks for ORKS within 12" of Makari during Waaagh!
+	if not weapon_has_lethal_hits and unit_has_waaagh_banner_lethal_hits(attacker_unit, board):
+		weapon_has_lethal_hits = true
+		print("RulesEngine:   LETHAL HITS granted by Ghazghkull's Waaagh! Banner (ORKS within 12\" of Makari, Waaagh! active)")
 
 	print("RulesEngine: Melee %s (%s) → %s: %d attacks (%d/%d models eligible), WS %d+, S%d, AP%d, D%d" % [
 		attacker_name, weapon_name, target_name, total_attacks, model_count, total_alive_models, ws, strength, ap, damage
