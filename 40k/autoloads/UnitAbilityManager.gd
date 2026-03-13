@@ -1178,6 +1178,68 @@ const ABILITY_EFFECTS: Dictionary = {
 		"implemented": false,
 		"description": "+1 Damage to melee attacks vs MONSTER or VEHICLE; +2 Damage vs TITANIC — requires RulesEngine integration for per-model conditional damage bonus"
 	},
+
+	# ======================================================================
+	# ORK VEHICLE ABILITIES (OA-50)
+	# ======================================================================
+
+	# Gorkanaut — Deadly Demise triggered by lifta-droppa fires on 3+ instead of 6
+	# Each time an attack made with this model's lifta-droppa destroys an enemy model
+	# that has the Deadly Demise ability, that model's Deadly Demise triggers on a D6
+	# roll of 3+ instead of 6.
+	# Checked in RulesEngine.resolve_deadly_demise() when killer context is provided.
+	"Da Bigger Dey Are, da Better Dey Drop": {
+		"condition": "on_deadly_demise",
+		"effects": [],
+		"target": "enemy",
+		"attack_type": "ranged",
+		"weapon_restriction": "lifta-droppa",
+		"implemented": true,
+		"description": "When lifta-droppa destroys enemy model with Deadly Demise, Deadly Demise triggers on 3+ instead of 6 — checked in RulesEngine.resolve_deadly_demise() with killer context"
+	},
+
+	# Trukk — after Charge move ends, select enemy in Engagement Range, roll D6: 2-5=D3 MW, 6=3 MW
+	# Each time this model ends a Charge move, you can select one enemy unit within
+	# Engagement Range of it and roll one D6: on a 2-5, that unit suffers D3 mortal wounds;
+	# on a 6, that unit suffers 3 mortal wounds.
+	# Resolved in ChargePhase._apply_spiked_ram_if_applicable() after charge move.
+	"Spiked Ram": {
+		"condition": "after_charge_move",
+		"effects": [],
+		"target": "enemy_in_engagement_range",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "After Charge move ends, select one enemy in Engagement Range — roll D6: 2-5=D3 mortal wounds, 6=3 mortal wounds — resolved in ChargePhase"
+	},
+
+	# Battlewagon — concussive wave from supa-kannon: D6 vs target+units within 3", 5+=MW
+	# In your Shooting phase, just after selecting the target for this model's supa-kannon,
+	# roll one D6 for the target unit and each other unit (friend or foe) within 3\" of it:
+	# on a 5+, that unit is struck by the concussive wave. After making all attacks against
+	# the target unit, each unit struck by the concussive wave suffers D3 mortal wounds.
+	# Requires ShootingPhase integration to roll concussive wave after target selection.
+	"Big Booms": {
+		"condition": "on_shooting_target_selection",
+		"effects": [],
+		"target": "enemy_target",
+		"attack_type": "ranged",
+		"weapon_restriction": "supa-kannon",
+		"implemented": false,
+		"description": "When targeting with supa-kannon: roll D6 for target and units within 3\" — 5+=concussive wave; after attack resolves each struck unit suffers D3 MW — requires ShootingPhase integration"
+	},
+
+	# Bonebreaka — +1 to Hit on ranged attacks vs targets within half weapon range
+	# Each time this model makes a ranged attack that targets a unit within half the
+	# range of that weapon, add 1 to the Hit roll.
+	# Checked directly in RulesEngine hit modifier collection.
+	"Wall of Dakka": {
+		"condition": "target_within_half_range",
+		"effects": [{"type": "plus_one_hit"}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "+1 to Hit rolls for ranged attacks when target is within half the weapon's range — checked directly in RulesEngine"
+	},
 }
 
 # ============================================================================

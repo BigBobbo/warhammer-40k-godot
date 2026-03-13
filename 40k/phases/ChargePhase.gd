@@ -941,6 +941,71 @@ func _check_heroic_intervention_after_tank_shock(vehicle_unit_id: String, pendin
 
 	return create_result(true, [])
 
+# ============================================================================
+# SPIKED RAM (OA-50)
+# ============================================================================
+# "Each time this model ends a Charge move, select one enemy unit within
+# Engagement Range of it and roll one D6: on a 2-5, that unit suffers D3
+# mortal wounds; on a 6, that unit suffers 3 mortal wounds."
+# Applied automatically to the first charge target (most common case: one target).
+
+func _unit_has_spiked_ram(unit: Dictionary) -> bool:
+	"""Check if a unit has the Spiked Ram ability (Trukk)."""
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Spiked Ram":
+			return true
+	return false
+
+func _apply_spiked_ram_if_applicable(unit_id: String, charge_targets: Array, changes: Array) -> void:
+	"""OA-50: If charging unit has Spiked Ram, roll D6 and deal mortal wounds to first charge target."""
+	var unit = get_unit(unit_id)
+	if not _unit_has_spiked_ram(unit):
+		return
+
+	if charge_targets.is_empty():
+		return
+
+	# Select first charge target (auto-select: Trukk typically charges one unit)
+	var target_unit_id = charge_targets[0]
+	var target_unit = get_unit(target_unit_id)
+	if target_unit.is_empty():
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+
+	var rng = RulesEngine.RNGService.new()
+	var roll = rng.roll_d6(1)[0]
+
+	var mortal_wounds = 0
+	if roll >= 6:
+		mortal_wounds = 3
+	elif roll >= 2:
+		# D3 mortal wounds: roll D6, divide by 2 (round up)
+		var d3_roll = rng.roll_d6(1)[0]
+		mortal_wounds = ceili(float(d3_roll) / 2.0)
+
+	log_phase_message("SPIKED RAM: %s rolled %d → %d mortal wound(s) on %s" % [unit_name, roll, mortal_wounds, target_name])
+	print("ChargePhase: SPIKED RAM — %s rolled %d → %d mortal wound(s) on %s" % [unit_name, roll, mortal_wounds, target_name])
+
+	if mortal_wounds <= 0:
+		log_phase_message("SPIKED RAM: %s rolled 1 — no mortal wounds" % unit_name)
+		return
+
+	var board = GameState.create_snapshot()
+	var mw_result = RulesEngine.apply_mortal_wounds(target_unit_id, mortal_wounds, board, rng)
+	var mw_diffs = mw_result.get("diffs", [])
+	if not mw_diffs.is_empty():
+		PhaseManager.apply_state_changes(mw_diffs)
+		changes.append_array(mw_diffs)
+		print("ChargePhase: SPIKED RAM applied %d mortal wound(s) to %s (%d casualties)" % [mortal_wounds, target_unit_id, mw_result.get("casualties", 0)])
+
 func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var payload = action.get("payload", {})
@@ -1061,6 +1126,11 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	# T7-39: Recheck objective control after charge movement
 	if MissionManager:
 		MissionManager.call_deferred("check_all_objectives")
+
+	# SPIKED RAM (OA-50): After charge move, deal mortal wounds to a charge target.
+	# "Each time this model ends a Charge move, select one enemy unit within Engagement Range
+	# and roll D6: on 2-5 = D3 mortal wounds; on 6 = 3 mortal wounds."
+	_apply_spiked_ram_if_applicable(unit_id, charge_data.targets, changes)
 
 	# Check if Tank Shock is available for the charging player
 	# Per 10e rules: "just after a VEHICLE unit ends a Charge move"

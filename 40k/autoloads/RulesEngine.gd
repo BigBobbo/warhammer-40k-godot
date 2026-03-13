@@ -1530,6 +1530,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: MEKANIAK — +1 to hit for %s (Mek-buffed vehicle)" % actor_unit_id)
 
+		# WALL OF DAKKA (OA-50): +1 to Hit on ranged attacks vs targets within half weapon range (Bonebreaka)
+		var wall_of_dakka_bonus = get_wall_of_dakka_hit_bonus(actor_unit, target_unit, weapon_profile)
+		if wall_of_dakka_bonus > 0:
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: WALL OF DAKKA — +1 to hit for %s (target within half range)" % actor_unit_id)
+
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker.
 		var dats_our_loot_scope = get_dats_our_loot_reroll_scope(actor_unit, target_unit, board)
@@ -2322,6 +2328,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if UnitAbilityManager.has_mekaniak_buff(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: MEKANIAK (auto-resolve) — +1 to hit for %s (Mek-buffed vehicle)" % actor_unit_id)
+
+		# WALL OF DAKKA (OA-50): +1 to Hit on ranged attacks vs targets within half weapon range (auto-resolve)
+		var wall_of_dakka_bonus_ar = get_wall_of_dakka_hit_bonus(actor_unit, target_unit, weapon_profile)
+		if wall_of_dakka_bonus_ar > 0:
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: WALL OF DAKKA (auto-resolve) — +1 to hit for %s (target within half range)" % actor_unit_id)
 
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker (auto-resolve).
@@ -5483,6 +5495,31 @@ static func get_drive_by_dakka_ap_bonus(actor_unit: Dictionary, target_unit: Dic
 	if not has_drive_by_dakka(actor_unit):
 		return 0
 	if is_target_within_range_inches(actor_unit, target_unit, 9.0):
+		return 1
+	return 0
+
+# WALL OF DAKKA (OA-50): Check if a unit has the "Wall of Dakka" ability (Bonebreaka).
+# +1 to Hit rolls for ranged attacks when target is within half the weapon's range.
+static func has_wall_of_dakka(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Wall of Dakka":
+			return true
+	return false
+
+# WALL OF DAKKA (OA-50): Get hit bonus for Wall of Dakka.
+# Returns 1 if attacker has Wall of Dakka and target is within half weapon range, otherwise 0.
+static func get_wall_of_dakka_hit_bonus(actor_unit: Dictionary, target_unit: Dictionary, weapon_profile: Dictionary) -> int:
+	if not has_wall_of_dakka(actor_unit):
+		return 0
+	var weapon_range = weapon_profile.get("range", 24)
+	var half_range_inches = weapon_range / 2.0
+	if is_target_within_range_inches(actor_unit, target_unit, half_range_inches):
 		return 1
 	return 0
 

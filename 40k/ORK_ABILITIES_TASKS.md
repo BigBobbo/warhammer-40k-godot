@@ -362,10 +362,10 @@
 - **Validation**: All Beast Snagga abilities defined. Beastboss (+1 melee hit), Monster Hunters (re-roll vs MONSTER/VEHICLE, melee), Super Runts (+1 hit/wound for led unit), Dok's Toolz (FNP 5+), Grot Orderly, Sawbonez fully functional. Complex abilities (Beastly Rage, Wild Ride, Snagged, Spirit of Gork, On Da Hunt, Unstable Oracle, Roar of Mork, Special Dose, One Last Kill, Da Bigger Dey iz...) defined with implemented: false pending phase integration.
 
 ### OA-50: Implement remaining Ork vehicle abilities
-- [ ] Implement Da Bigger Dey Are, Spiked Ram, Big Booms, Wall of Dakka, and other vehicle-specific abilities
-- [ ] Define each in UnitAbilityManager with correct trigger and effect
-- **Files**: UnitAbilityManager.gd
-- **Validation**: All vehicle abilities functional.
+- [x] Implement Da Bigger Dey Are, Spiked Ram, Big Booms, Wall of Dakka, and other vehicle-specific abilities
+- [x] Define each in UnitAbilityManager with correct trigger and effect
+- **Files**: UnitAbilityManager.gd, RulesEngine.gd, ChargePhase.gd
+- **Validation**: Wall of Dakka (+1 Hit vs targets within half weapon range) and Spiked Ram (D6 mortal wounds after charge move) fully functional. Da Bigger Dey Are (Gorkanaut lifta-droppa reduces Deadly Demise trigger to 3+) defined and implemented in RulesEngine.resolve_deadly_demise() with optional killer context. Big Booms (Battlewagon supa-kannon concussive wave) defined with implemented:false pending ShootingPhase target-selection integration. Merge conflicts from OA-49/main also resolved (EffectPrimitives.gd, MovementPhase.gd, BoardVisual.gd, grass_board.gdshader).
 
 ---
 
