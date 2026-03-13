@@ -1,1 +1,1 @@
-ARGS: ["-s", "tests/test_oa44_ded_glowy_ammo.gd"]
+ARGS: ["-s", "tests/test_oa45_waaagh_banner.gd"]
