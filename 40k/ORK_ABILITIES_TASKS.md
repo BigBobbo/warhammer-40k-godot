@@ -372,8 +372,8 @@
 ## Phase 5: Display/Cosmetic
 
 ### OA-51: Display Freebooter Krew detachment ability and loot objective in UI
-- [ ] UnitStatsPanel shows "Here Be Loot" detachment ability
-- [ ] Loot objective visually distinguished on the board (highlight, icon, or label)
+- [x] UnitStatsPanel shows "Here Be Loot" detachment ability
+- [x] Loot objective visually distinguished on the board (highlight, icon, or label)
 - **Files**: UnitStatsPanel.gd, Main.gd
 - **Validation**: Detachment ability visible in stats panel. Loot objective clearly marked.
 
