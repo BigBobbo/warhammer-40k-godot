@@ -2985,15 +2985,17 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				print("RulesEngine: Minus Damage (auto-resolve) — damage %d → %d (-%d)" % [pre_minus, damage, ar_minus_dmg])
 
 			# FEEL NO PAIN (T3-17): Roll FNP for each point of damage — mirrors apply_save_damage()
+			# MA-28: Use per-model FNP if available, otherwise fall back to unit FNP
 			var actual_damage = damage
-			if ar_fnp_value > 0:
-				var fnp_result = roll_feel_no_pain(damage, ar_fnp_value, rng)
+			var model_fnp_value = get_model_fnp(target_unit, target_model)
+			if model_fnp_value > 0:
+				var fnp_result = roll_feel_no_pain(damage, model_fnp_value, rng)
 				actual_damage = fnp_result.wounds_remaining
 				result.dice.append({
 					"context": "feel_no_pain",
 					"source": "failed_save",
 					"rolls": fnp_result.rolls,
-					"fnp_value": ar_fnp_value,
+					"fnp_value": model_fnp_value,
 					"wounds_prevented": fnp_result.wounds_prevented,
 					"wounds_remaining": fnp_result.wounds_remaining,
 					"total_wounds": damage
@@ -6121,7 +6123,8 @@ static func resolve_hazardous_check(
 		var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
 
 		# Check for Feel No Pain
-		var fnp_value = get_unit_fnp(actor_unit)
+		# MA-28: Use per-model FNP for the specific model taking hazardous damage
+		var fnp_value = get_model_fnp(actor_unit, target_model)
 		var actual_mw = total_mw
 		var fnp_rolls_arr = []
 
@@ -9317,15 +9320,17 @@ static func apply_save_damage(
 			print("RulesEngine: Minus Damage — failed save damage %d → %d (-%d)" % [pre_minus, wound_damage, int_minus_dmg])
 
 		# FEEL NO PAIN: Roll FNP for each point of damage from this failed save
+		# MA-28: Use per-model FNP if available, otherwise fall back to unit FNP
 		var actual_damage = wound_damage
-		if fnp_value > 0 and rng != null:
-			var fnp_result = roll_feel_no_pain(wound_damage, fnp_value, rng)
+		var model_fnp_value = get_model_fnp(target_unit, model)
+		if model_fnp_value > 0 and rng != null:
+			var fnp_result = roll_feel_no_pain(wound_damage, model_fnp_value, rng)
 			actual_damage = fnp_result.wounds_remaining
 			result.fnp_rolls.append({
 				"context": "feel_no_pain",
 				"source": "failed_save",
 				"rolls": fnp_result.rolls,
-				"fnp_value": fnp_value,
+				"fnp_value": model_fnp_value,
 				"wounds_prevented": fnp_result.wounds_prevented,
 				"wounds_remaining": fnp_result.wounds_remaining,
 				"total_wounds": wound_damage
@@ -9615,6 +9620,30 @@ static func get_unit_fnp(unit: Dictionary) -> int:
 	elif base_fnp > 0:
 		return base_fnp
 	return 0
+
+# MA-28: Get effective FNP for a specific model, checking stats_override.fnp first.
+# Returns the model's overridden FNP if available, otherwise falls back to unit FNP.
+# Uses -1 sentinel from .get("fnp", -1) to distinguish "no override" from "explicitly no FNP (0)".
+static func get_model_fnp(unit: Dictionary, model: Dictionary) -> int:
+	var unit_fnp = get_unit_fnp(unit)
+	if model.is_empty():
+		return unit_fnp
+	var model_type = model.get("model_type", "")
+	if model_type == "":
+		return unit_fnp
+	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+	if not model_profiles.has(model_type):
+		return unit_fnp
+	var override_fnp = model_profiles[model_type].get("stats_override", {}).get("fnp", -1)
+	if override_fnp < 0:
+		return unit_fnp  # No override — use unit FNP
+	if override_fnp == 0:
+		return 0  # Explicitly no FNP for this model type
+	# Model has a specific FNP — also check effect FNP and use the better (lower) value
+	var effect_fnp = EffectPrimitivesData.get_effect_fnp(unit)
+	if effect_fnp > 0:
+		return min(override_fnp, effect_fnp)
+	return override_fnp
 
 # HALF DAMAGE (T4-17): Check if unit has half-damage defensive ability
 static func get_unit_half_damage(unit: Dictionary) -> bool:
