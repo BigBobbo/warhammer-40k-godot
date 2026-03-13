@@ -16,6 +16,7 @@ uniform float color_variation : hint_range(0.0, 0.15) = 0.04;
 uniform float brightness : hint_range(0.5, 1.5) = 1.0;
 
 // ---- hash helper for variation ----
+
 float hash(vec2 p) {
 	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
 	p3 += dot(p3, p3.yzx + 33.33);

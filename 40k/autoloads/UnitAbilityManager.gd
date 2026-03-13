@@ -1002,6 +1002,182 @@ const ABILITY_EFFECTS: Dictionary = {
 		"implemented": true,
 		"description": "While unit contains Gretchin models, Runtherd models use T2. Reverts to T4 when all Gretchin die — checked directly in RulesEngine"
 	},
+
+	# ======================================================================
+	# BEAST SNAGGA SUB-FACTION ABILITIES (OA-49)
+	# ======================================================================
+
+	# Beastboss — +1 to melee Hit rolls for led unit
+	# While this model is leading a unit, each time a model in that unit makes a
+	# melee attack, add 1 to the Hit roll. Same mechanic as "Might is Right".
+	"Beastboss": {
+		"condition": "while_leading",
+		"effects": [{"type": "plus_one_hit"}],
+		"target": "led_unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "+1 to melee Hit rolls for led unit"
+	},
+
+	# Beastboss — melee weapons gain [DEVASTATING WOUNDS] after charging
+	# Each time this model makes a Charge move, until the end of the turn, melee weapons
+	# it is equipped with have the [DEVASTATING WOUNDS] ability.
+	# NOTE: This applies to the Beastboss model only, not the whole led unit. Requires
+	# model-level weapon keyword tracking — not yet supported by the flag system.
+	"Beastly Rage": {
+		"condition": "charged_this_turn",
+		"effects": [{"type": "grant_devastating_wounds"}],
+		"target": "model",
+		"attack_type": "melee",
+		"implemented": false,
+		"description": "After charging, this model's melee weapons gain [DEVASTATING WOUNDS] until end of turn — requires model-level weapon keyword tracking"
+	},
+
+	# Squighog Boyz — ignore modifiers to Move characteristic and Advance/Charge rolls
+	# You can ignore any or all modifiers to this unit's Move characteristic and to
+	# Advance and Charge rolls made for this unit.
+	"Wild Ride": {
+		"condition": "always",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": false,
+		"description": "Ignore any or all modifiers to Move characteristic and Advance/Charge rolls — requires MovementPhase/ChargePhase integration"
+	},
+
+	# Kill Rig / Hunta Rig — +2 to Charge rolls and block Fire Overwatch vs hit MONSTER/VEHICLE
+	# Each time this weapon scores a hit against a MONSTER or VEHICLE unit, until the end
+	# of the turn, if the bearer selects that unit as a target of a charge, add 2 to Charge
+	# rolls and enemy units cannot use Fire Overwatch to shoot at the bearer.
+	"Snagged": {
+		"condition": "weapon_hit_conditional",
+		"target_keywords": ["MONSTER", "VEHICLE"],
+		"effects": [],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": false,
+		"description": "After hitting MONSTER or VEHICLE, +2 to Charge rolls vs that unit and cannot be targeted by Fire Overwatch — requires ShootingPhase/ChargePhase integration"
+	},
+
+	# Kill Rig — Psychic: start of Fight phase, buff friendly Orks unit within 12"
+	# At the start of the Fight phase, select one friendly Orks unit within 12":
+	# D6 roll — 1: this model suffers D3 mortal wounds; 2-5: +1 Strength to melee weapons;
+	# 6: +1 Strength AND [LETHAL HITS] to melee weapons until end of phase.
+	"Spirit of Gork (Psychic)": {
+		"condition": "start_of_fight_phase",
+		"effects": [],
+		"target": "friendly_orks_unit_within_12",
+		"attack_type": "melee",
+		"implemented": false,
+		"description": "Start of Fight phase: select friendly Orks unit within 12\" — roll D6: 1=D3 MW to self, 2-5=+1S to melee weapons, 6=+1S and LETHAL HITS — requires FightPhase integration"
+	},
+
+	# Hunta Rig — +1 Attacks per embarked model to butcha boyz weapon (max +6)
+	# For each model embarked within this TRANSPORT, add 1 to the Attacks characteristic
+	# of this model's butcha boyz weapon (to a maximum of +6).
+	"On Da Hunt": {
+		"condition": "always",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": false,
+		"description": "+1 Attacks to butcha boyz per model embarked in this TRANSPORT (max +6) — requires TransportManager and dynamic weapon modification"
+	},
+
+	# Beast Snagga Boyz — re-roll Hit rolls when making melee attacks vs MONSTER or VEHICLE
+	# Each time a model in this unit makes an attack that targets a MONSTER or VEHICLE unit,
+	# you can re-roll the Hit roll.
+	# Checked directly in RulesEngine.has_monster_hunters_vs_target() — same pattern as Tank Hunters.
+	"Monster Hunters": {
+		"condition": "target_has_keyword",
+		"target_keywords": ["MONSTER", "VEHICLE"],
+		"effects": [],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "Re-roll Hit rolls when making melee attacks against MONSTER or VEHICLE units — checked directly in RulesEngine"
+	},
+
+	# Wurrboy — Eyez of Mork weapon scales with led unit size; Hazardous at 10+ models
+	# While this model is leading a unit, add 2 to the Attacks characteristic of this
+	# model's Eyez of Mork weapon for every 5 models in that unit (rounding down), but
+	# while that unit contains 10 or more models, that weapon has the [HAZARDOUS] ability.
+	"Unstable Oracle": {
+		"condition": "while_leading",
+		"effects": [],
+		"target": "model",
+		"attack_type": "ranged",
+		"implemented": false,
+		"description": "+2 Attacks to Eyez of Mork per 5 models in led unit (round down); HAZARDOUS at 10+ models — requires dynamic weapon modification based on unit size"
+	},
+
+	# Wurrboy — Psychic: in opponent's Command phase, debuff enemy unit
+	# In your opponent's Command phase, select one enemy unit within 18" and visible:
+	# roll D6 — 1: this PSYKER's unit suffers D3 mortal wounds; 2+: target is confrazzled
+	# (subtract 2 from Battle-shock and Leadership tests) until opponent's next Command phase.
+	"Roar of Mork (Psychic)": {
+		"condition": "opponent_command_phase",
+		"effects": [],
+		"target": "enemy_within_18",
+		"attack_type": "all",
+		"implemented": false,
+		"description": "Opponent's Command phase: select enemy within 18\" — roll D6: 1=D3 MW to self, 2+=confrazzled (−2 to Battle-shock/Leadership tests) — requires CommandPhase integration"
+	},
+
+	# Zodgrod Wortsnagga — led unit has Scouts 9", +1 Hit, +1 Wound, -1 incoming Wound
+	# While this model is leading a unit:
+	# - Models in that unit have the Scouts 9" ability (deployment, not a combat flag).
+	# - Each time a model in that unit makes an attack, add 1 to the Hit roll and Wound roll.
+	# - Each time an attack targets that unit, subtract 1 from the Wound roll.
+	# Combat effects (+1 Hit, +1 Wound) are applied via the flag system on the led unit.
+	# Scouts 9" is enforced at deployment. -1 incoming Wound requires RulesEngine integration.
+	"Super Runts": {
+		"condition": "while_leading",
+		"effects": [{"type": "plus_one_hit"}, {"type": "plus_one_wound"}],
+		"target": "led_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Led unit: +1 to Hit rolls, +1 to Wound rolls when attacking. Scouts 9\" handled at deployment. -1 incoming Wound requires RulesEngine integration — checked directly in RulesEngine for full effect"
+	},
+
+	# Zodgrod Wortsnagga — +6\" to Move of led unit while Waaagh! is active
+	# While the Waaagh! is active for your army, add 6\" to the Move characteristic of
+	# models in this model's unit.
+	"Special Dose": {
+		"condition": "waaagh_active",
+		"effects": [],
+		"target": "led_unit",
+		"attack_type": "all",
+		"implemented": false,
+		"description": "While Waaagh! active, add 6\" to Move characteristic of models in this model's unit — requires MovementPhase integration"
+	},
+
+	# Mozrog Skragbad — led unit models can fight before dying when destroyed by melee (4+)
+	# While this model is leading a unit, each time a model in that unit is destroyed by
+	# a melee attack, if it has not fought this phase, roll one D6: on a 4+, do not remove
+	# it from play. It can fight after the attacking unit has finished making its attacks,
+	# then is removed from play.
+	"One Last Kill": {
+		"condition": "while_leading",
+		"effects": [],
+		"target": "led_unit",
+		"attack_type": "melee",
+		"implemented": false,
+		"description": "While leading: when led unit model destroyed by melee, on 4+ it fights before removal — requires FightPhase model destruction integration"
+	},
+
+	# Mozrog Skragbad — +1 Damage vs MONSTER/VEHICLE, +2 Damage vs TITANIC (melee)
+	# Each time this model makes a melee attack that targets a MONSTER or VEHICLE unit,
+	# add 1 to the Damage characteristic of that attack. Against TITANIC: add 2 instead.
+	"Da Bigger Dey iz...": {
+		"condition": "target_has_keyword",
+		"target_keywords": ["MONSTER", "VEHICLE"],
+		"effects": [],
+		"target": "model",
+		"attack_type": "melee",
+		"implemented": false,
+		"description": "+1 Damage to melee attacks vs MONSTER or VEHICLE; +2 Damage vs TITANIC — requires RulesEngine integration for per-model conditional damage bonus"
+	},
 }
 
 # ============================================================================
