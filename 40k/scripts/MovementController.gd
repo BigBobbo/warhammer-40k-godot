@@ -488,6 +488,16 @@ func _update_selected_unit_display() -> void:
 			var unit = current_phase.get_unit(active_unit_id)
 			if unit:
 				unit_name = unit.get("meta", {}).get("name", active_unit_id)
+				# Show attached character names
+				var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+				if attached_chars.size() > 0:
+					var char_names = []
+					for char_id in attached_chars:
+						var char_unit = current_phase.get_unit(char_id)
+						if not char_unit.is_empty():
+							char_names.append(char_unit.get("meta", {}).get("name", char_id))
+					if char_names.size() > 0:
+						unit_name += " + " + ", ".join(char_names)
 		selected_unit_label.text = "Unit: " + unit_name
 		
 	if unit_mode_label:
@@ -588,9 +598,21 @@ func _refresh_unit_list() -> void:
 		if unit_id != "" and not added_units.has(unit_id):
 			var unit = current_phase.get_unit(unit_id)
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+			# Show attached character name alongside bodyguard unit
+			var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+			if attached_chars.size() > 0:
+				var char_names = []
+				for char_id in attached_chars:
+					var char_unit = current_phase.get_unit(char_id)
+					if not char_unit.is_empty():
+						char_names.append(char_unit.get("meta", {}).get("name", char_id))
+				if char_names.size() > 0:
+					unit_name += " + " + ", ".join(char_names)
+
 			var status = _get_unit_movement_status(unit_id)
 			var status_text = ""
-			
+
 			match status:
 				"not_moved":
 					status_text = " [YET TO MOVE]"
@@ -598,7 +620,7 @@ func _refresh_unit_list() -> void:
 					status_text = " [CURRENTLY MOVING]"
 				"completed":
 					status_text = " [COMPLETED MOVING]"
-			
+
 			# Show if unit is embarked (special case - can still be selected to disembark)
 			if unit.get("embarked_in", null) != null:
 				var transport = GameState.get_unit(unit.embarked_in)
@@ -729,13 +751,21 @@ func _highlight_unit_models(unit_id: String) -> void:
 	# Clear any existing unit highlight first
 	_clear_unit_highlight()
 
-	# Set all token visuals for this unit as selected (triggers pulsing gold ring)
+	# Collect all unit IDs to highlight (bodyguard + attached characters)
+	var ids_to_highlight = [unit_id]
+	var unit = GameState.get_unit(unit_id)
+	if unit:
+		var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+		for char_id in attached_chars:
+			ids_to_highlight.append(char_id)
+
+	# Set all token visuals for this unit and attached characters as selected (triggers pulsing gold ring)
 	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
 	if not token_layer:
 		return
 
 	for child in token_layer.get_children():
-		if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id:
+		if child.has_meta("unit_id") and child.get_meta("unit_id") in ids_to_highlight:
 			if child.has_method("set_selected"):
 				child.set_selected(true)
 
@@ -1293,6 +1323,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif KeybindingManager.matches_action(event, "rotate_right"):
 				_rotate_model_by_angle(PI/12)  # Rotate 15 degrees right
 
+func _is_model_in_active_unit_group(model_unit_id: String) -> bool:
+	"""Check if a model belongs to the active unit or one of its attached characters"""
+	if model_unit_id == active_unit_id:
+		return true
+	var active_unit = GameState.get_unit(active_unit_id)
+	if active_unit:
+		var attached_chars = active_unit.get("attachment_data", {}).get("attached_characters", [])
+		if model_unit_id in attached_chars:
+			return true
+	return false
+
 func _start_model_drag(mouse_pos: Vector2) -> void:
 	print("Starting model drag. Active unit: ", active_unit_id, " Mode: ", active_mode)
 
@@ -1335,11 +1376,11 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 		print("Found model with tolerance search")
 	
 	print("Found model: ", model)
-	
-	if model.unit_id != active_unit_id:
+
+	if not _is_model_in_active_unit_group(model.unit_id):
 		print("Model belongs to different unit: ", model.unit_id, " vs ", active_unit_id)
 		return
-	
+
 	selected_model = model
 	dragging_model = true
 	drag_start_pos = model.position  # Use model's actual position as start
@@ -2496,19 +2537,39 @@ func _apply_rotation_to_model(new_rotation: float) -> void:
 	# Update the model's rotation
 	selected_model["rotation"] = new_rotation
 
-	# Update the model in GameState
+	# Update the model in GameState — check bodyguard unit and attached characters
+	var model_id = selected_model.get("id", selected_model.get("model_id", ""))
+	var model_found = false
+	var model_owner_unit_id = active_unit_id
+
 	var unit = GameState.get_unit(active_unit_id)
 	if unit:
 		var models = unit.get("models", [])
-		var model_id = selected_model.get("id", selected_model.get("model_id", ""))
 		for i in range(models.size()):
 			if models[i].get("id", "m%d" % (i+1)) == model_id:
 				models[i]["rotation"] = new_rotation
+				model_found = true
 				break
+
+		# If model not found in bodyguard, check attached characters
+		if not model_found:
+			var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+			for char_id in attached_chars:
+				var char_unit = GameState.get_unit(char_id)
+				if char_unit:
+					var char_models = char_unit.get("models", [])
+					for i in range(char_models.size()):
+						if char_models[i].get("id", "m%d" % (i+1)) == model_id:
+							char_models[i]["rotation"] = new_rotation
+							model_owner_unit_id = char_id
+							model_found = true
+							break
+				if model_found:
+					break
 
 	# Update the visual if it exists
 	if current_phase and current_phase.has_method("update_model_rotation"):
-		current_phase.update_model_rotation(active_unit_id, selected_model["id"], new_rotation)
+		current_phase.update_model_rotation(model_owner_unit_id, selected_model["id"], new_rotation)
 
 	# Update any ghost visual with the new rotation
 	if ghost_visual and ghost_visual.get_child_count() > 0:
@@ -2699,7 +2760,7 @@ func _handle_ctrl_click_selection(mouse_pos: Vector2) -> void:
 		if model.is_empty():
 			return
 
-	if model.unit_id != active_unit_id:
+	if not _is_model_in_active_unit_group(model.unit_id):
 		print("Model belongs to different unit: ", model.unit_id, " vs ", active_unit_id)
 		return
 
@@ -2867,12 +2928,20 @@ func _update_drag_box_preview(min_pos: Vector2, max_pos: Vector2) -> void:
 	if not board_root or active_unit_id == "":
 		return
 
+	# Collect all unit IDs in the group (bodyguard + attached characters)
+	var group_unit_ids = [active_unit_id]
+	var active_unit_data = GameState.get_unit(active_unit_id)
+	if active_unit_data:
+		var attached_chars_preview = active_unit_data.get("attachment_data", {}).get("attached_characters", [])
+		for char_id in attached_chars_preview:
+			group_unit_ids.append(char_id)
+
 	# Try visual tokens first
 	var found_via_tokens = false
 	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
 	if token_layer:
 		for child in token_layer.get_children():
-			if not child.has_meta("unit_id") or child.get_meta("unit_id") != active_unit_id:
+			if not child.has_meta("unit_id") or child.get_meta("unit_id") not in group_unit_ids:
 				continue
 			if not child.has_meta("model_id"):
 				continue
@@ -2920,13 +2989,21 @@ func _update_drag_box_preview(min_pos: Vector2, max_pos: Vector2) -> void:
 					selection_indicators.append(indicator)
 
 func _select_models_in_box() -> void:
-	"""Select all models from the active unit within the drag box"""
+	"""Select all models from the active unit and attached characters within the drag box"""
 	if not current_phase or active_unit_id == "":
 		print("_select_models_in_box: No current_phase or active_unit_id")
 		return
 
 	# Clear existing selection
 	_clear_selection()
+
+	# Collect all unit IDs in the group (bodyguard + attached characters)
+	var group_unit_ids = [active_unit_id]
+	var active_unit = GameState.get_unit(active_unit_id)
+	if active_unit:
+		var attached_chars = active_unit.get("attachment_data", {}).get("attached_characters", [])
+		for char_id in attached_chars:
+			group_unit_ids.append(char_id)
 
 	# Define the selection rectangle
 	var min_pos = Vector2(min(drag_box_start.x, drag_box_end.x), min(drag_box_start.y, drag_box_end.y))
@@ -2939,12 +3016,13 @@ func _select_models_in_box() -> void:
 	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
 	if token_layer:
 		for child in token_layer.get_children():
-			if not child.has_meta("unit_id") or child.get_meta("unit_id") != active_unit_id:
+			if not child.has_meta("unit_id") or child.get_meta("unit_id") not in group_unit_ids:
 				continue
 			if not child.has_meta("model_id"):
 				continue
 
 			found_via_tokens = true
+			var token_unit_id = child.get_meta("unit_id")
 			var model_id = child.get_meta("model_id")
 			var visual_pos = child.position
 
@@ -2953,15 +3031,15 @@ func _select_models_in_box() -> void:
 				# Skip duplicates (TokenLayer may have duplicate tokens)
 				if _find_selected_model_index(model_id) >= 0:
 					continue
-				var model = _get_model_by_id(active_unit_id, model_id)
+				var model = _get_model_by_id(token_unit_id, model_id)
 				if model.is_empty():
 					continue
 				var model_data = model.duplicate()
-				model_data["unit_id"] = active_unit_id
+				model_data["unit_id"] = token_unit_id
 				model_data["model_id"] = model_id
 				model_data["position"] = visual_pos
 				selected_models.append(model_data)
-				print("  Selected model ", model_id, " at visual position ", visual_pos)
+				print("  Selected model ", model_id, " from unit ", token_unit_id, " at visual position ", visual_pos)
 
 	# FALLBACK: If no tokens found for this unit, use GameState positions
 	if not found_via_tokens:
@@ -3179,36 +3257,45 @@ func _update_group_movement_display() -> void:
 		inches_left_label.text = "Group Min Left: %.1f\"" % min_remaining
 
 func _select_all_unit_models() -> void:
-	"""Select all models in the active unit (Ctrl+A functionality)"""
+	"""Select all models in the active unit and attached characters (Ctrl+A functionality)"""
 	if not current_phase or active_unit_id == "":
 		return
 
 	_clear_selection()
 
-	# Use current game state, not snapshot
+	# Collect all unit IDs to select from (bodyguard + attached characters)
+	var unit_ids_to_select = [active_unit_id]
 	var unit = current_phase.get_unit(active_unit_id)
 	if unit.is_empty():
 		return
 
-	var models = unit.get("models", [])
+	var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in attached_chars:
+		unit_ids_to_select.append(char_id)
 
-	for i in range(models.size()):
-		var model = models[i]
-		if not model.get("alive", true):
+	for sel_unit_id in unit_ids_to_select:
+		var sel_unit = current_phase.get_unit(sel_unit_id)
+		if sel_unit.is_empty():
 			continue
+		var models = sel_unit.get("models", [])
 
-		var model_id = model.get("id", "m%d" % (i+1))
-		var model_data = model.duplicate()
-		model_data["unit_id"] = active_unit_id
-		model_data["model_id"] = model_id
-		model_data["position"] = _get_model_position(model)
-		selected_models.append(model_data)
+		for i in range(models.size()):
+			var model = models[i]
+			if not model.get("alive", true):
+				continue
+
+			var model_id = model.get("id", "m%d" % (i+1))
+			var model_data = model.duplicate()
+			model_data["unit_id"] = sel_unit_id
+			model_data["model_id"] = model_id
+			model_data["position"] = _get_model_position(model)
+			selected_models.append(model_data)
 
 	selection_mode = "MULTI" if selected_models.size() > 1 else "SINGLE"
 	_update_model_selection_visuals()
 	_update_movement_display()
 
-	print("Selected all ", selected_models.size(), " models in unit")
+	print("Selected all ", selected_models.size(), " models in unit (including attached characters)")
 
 func _update_group_drag(mouse_pos: Vector2) -> void:
 	"""Update group drag movement"""
@@ -3371,7 +3458,10 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 			var new_pos = start_pos + drag_vector
 
 			# Get the full model data with base information from GameState
-			var full_model = _get_model_by_id(active_unit_id, model_id)
+			# Check both bodyguard unit and attached character units
+			var full_model = _get_model_by_id(model_data.get("unit_id", active_unit_id), model_id)
+			if full_model.is_empty():
+				full_model = _get_model_by_id(active_unit_id, model_id)
 			if full_model.is_empty():
 				print("ERROR: Could not get full model data for ", model_id)
 				continue
