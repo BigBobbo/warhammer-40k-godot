@@ -920,6 +920,25 @@ const ABILITY_EFFECTS: Dictionary = {
 		"implemented": true,
 		"description": "Friendly ORKS units within 12\" get +1 to Battle-shock tests — checked directly in CommandPhase"
 	},
+
+	# ======================================================================
+	# AURA ABILITIES — Toughness modifiers (OA-44)
+	# ======================================================================
+
+	# OA-44: Kaptin Badrukk — enemy INFANTRY units within 6" suffer -1 Toughness.
+	# Not a combat flag applied via EffectPrimitives — enforced directly in RulesEngine
+	# via get_ded_glowy_ammo_toughness_penalty(). The aura condition documents the intent;
+	# effects are empty because toughness is modified at wound resolution time, not via flags.
+	"Ded Glowy Ammo (Aura)": {
+		"condition": "aura",
+		"effects": [],
+		"aura_range": 6.0,
+		"aura_target": "enemy",
+		"target": "enemy_infantry_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Enemy INFANTRY units within 6\" suffer -1 Toughness — checked directly in RulesEngine"
+	},
 }
 
 # ============================================================================

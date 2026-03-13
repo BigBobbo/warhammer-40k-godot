@@ -971,6 +971,11 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		strength += 1
 		print("RulesEngine: Shooty Power Trip (Overwatch) — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
+	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (overwatch)
+	var ded_glowy_penalty_ow = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
+	if ded_glowy_penalty_ow > 0:
+		toughness = max(1, toughness - ded_glowy_penalty_ow)
+		print("RulesEngine: DED GLOWY AMMO (Overwatch) — INFANTRY target T reduced by %d to T%d" % [ded_glowy_penalty_ow, toughness])
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
@@ -1673,6 +1678,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		strength += 1
 		print("RulesEngine: Shooty Power Trip — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
+	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk
+	var ded_glowy_penalty = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
+	if ded_glowy_penalty > 0:
+		toughness = max(1, toughness - ded_glowy_penalty)
+		print("RulesEngine: DED GLOWY AMMO — INFANTRY target T reduced by %d to T%d" % [ded_glowy_penalty, toughness])
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
@@ -2457,6 +2467,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		strength += 1
 		print("RulesEngine: Shooty Power Trip (auto-resolve) — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
+	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (auto-resolve)
+	var ded_glowy_penalty_ar = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
+	if ded_glowy_penalty_ar > 0:
+		toughness = max(1, toughness - ded_glowy_penalty_ar)
+		print("RulesEngine: DED GLOWY AMMO (auto-resolve) — INFANTRY target T reduced by %d to T%d" % [ded_glowy_penalty_ar, toughness])
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
@@ -3276,6 +3291,98 @@ static func _get_attached_unit_toughness(target_unit: Dictionary, board: Diction
 
 	# Bodyguard unit or standalone unit — use own toughness
 	return own_toughness
+
+# OA-44: Ded Glowy Ammo (Aura) — Check if target INFANTRY unit suffers -1 Toughness.
+# Kaptin Badrukk's aura: enemy INFANTRY within 6" edge-to-edge of Kaptin Badrukk suffer -1T.
+# Returns 1 (the toughness penalty to subtract) if the condition is met, 0 otherwise.
+# Per 10th Edition: same aura from multiple sources does not stack — returns 1 at most.
+static func get_ded_glowy_ammo_toughness_penalty(target_unit: Dictionary, board: Dictionary) -> int:
+	# Must have INFANTRY keyword
+	if not unit_has_keyword(target_unit, "INFANTRY"):
+		return 0
+
+	var target_owner = target_unit.get("owner", 0)
+	var units = board.get("units", {})
+
+	for source_unit_id in units:
+		var source_unit = units[source_unit_id]
+
+		# Must be an enemy unit (different owner from target)
+		if source_unit.get("owner", 0) == target_owner:
+			continue
+
+		# Must be alive
+		var source_alive = false
+		for model in source_unit.get("models", []):
+			if model.get("alive", true):
+				source_alive = true
+				break
+		if not source_alive:
+			continue
+
+		# Must be on the board (not embarked in transport)
+		if source_unit.get("embarked_in", "") != "":
+			continue
+
+		# Check if this unit has 'Ded Glowy Ammo (Aura)' ability directly
+		var has_ability = _unit_has_ded_glowy_ammo(source_unit)
+
+		if not has_ability:
+			# Also check if any attached characters have the ability
+			# (Kaptin Badrukk may be attached to Flash Gitz; range measured from bodyguard unit)
+			var attached_chars = source_unit.get("attachment_data", {}).get("attached_characters", [])
+			for char_id in attached_chars:
+				var char_unit = units.get(char_id, {})
+				if char_unit.is_empty():
+					continue
+				var char_alive = false
+				for char_model in char_unit.get("models", []):
+					if char_model.get("alive", true):
+						char_alive = true
+						break
+				if not char_alive:
+					continue
+				if _unit_has_ded_glowy_ammo(char_unit):
+					has_ability = true
+					break  # source_unit is the bodyguard — range measured from it
+
+		if not has_ability:
+			continue
+
+		# Check 6" edge-to-edge distance between source_unit and target_unit
+		var min_dist = INF
+		for source_model in source_unit.get("models", []):
+			if not source_model.get("alive", true):
+				continue
+			if source_model.get("position", null) == null:
+				continue
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+				if target_model.get("position", null) == null:
+					continue
+				var dist = Measurement.model_to_model_distance_inches(source_model, target_model)
+				if dist < min_dist:
+					min_dist = dist
+
+		if min_dist <= 6.0:
+			print("RulesEngine: DED GLOWY AMMO — INFANTRY target within 6\" of source (%s), -1 Toughness applied" % source_unit_id)
+			return 1  # Per 10th Ed: same aura from multiple sources does not stack
+
+	return 0
+
+# Helper: check if a unit dict has the 'Ded Glowy Ammo (Aura)' ability.
+static func _unit_has_ded_glowy_ammo(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Ded Glowy Ammo (Aura)":
+			return true
+	return false
 
 static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, invuln: int) -> Dictionary:
 	# Calculate armour save with AP and cover
@@ -7330,6 +7437,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		print("RulesEngine: Bionik Workshop — melee strength %d → %d (+1)" % [strength - 1, strength])
 
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
+	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (melee)
+	var ded_glowy_penalty_melee = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
+	if ded_glowy_penalty_melee > 0:
+		toughness = max(1, toughness - ded_glowy_penalty_melee)
+		print("RulesEngine: DED GLOWY AMMO (melee) — INFANTRY target T reduced by %d to T%d" % [ded_glowy_penalty_melee, toughness])
 	var ap = weapon_profile.get("ap", 0)
 	# MARTIAL MASTERY — IMPROVE AP (P2-27): Shield Host detachment — improve AP by 1 on melee weapons
 	# Applied before defender's worsen_ap (attacker improvement first, then defender reduction)

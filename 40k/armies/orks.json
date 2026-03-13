@@ -1766,6 +1766,108 @@
       "models": [
         {"id": "m1", "wounds": 12, "current_wounds": 12, "base_mm": 120, "position": null, "alive": true, "status_effects": []}
       ]
+    },
+    "U_KAPTIN_BADRUKK_A": {
+      "id": "U_KAPTIN_BADRUKK_A",
+      "squad_id": "U_KAPTIN_BADRUKK_A",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Kaptin Badrukk",
+        "keywords": [
+          "ORKS",
+          "INFANTRY",
+          "CHARACTER",
+          "FREEBOOTER",
+          "KAPTIN BADRUKK"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 5,
+          "save": 4,
+          "wounds": 6,
+          "leadership": 6,
+          "objective_control": 1
+        },
+        "points": 100,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "1x Da Rippa",
+          "1x Kustom mega-blasta",
+          "1x Power klaw"
+        ],
+        "weapons": [
+          {
+            "name": "Da Rippa",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "5",
+            "weapon_skill": "2",
+            "strength": "6",
+            "ap": "-1",
+            "damage": "2",
+            "special_rules": "lethal hits"
+          },
+          {
+            "name": "Kustom mega-blasta",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "D3",
+            "ballistic_skill": "2",
+            "strength": "8",
+            "ap": "-2",
+            "damage": "D6",
+            "special_rules": "blast"
+          },
+          {
+            "name": "Power klaw",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "4",
+            "weapon_skill": "3",
+            "strength": "10",
+            "ap": "-2",
+            "damage": "2"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Core",
+            "type": "Core",
+            "description": ""
+          },
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Waaagh! faction ability"
+          },
+          {
+            "name": "Flashiest Gitz",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, each time a model in that unit makes a ranged attack, re-roll a Hit roll of 1."
+          },
+          {
+            "name": "Ded Glowy Ammo (Aura)",
+            "type": "Datasheet",
+            "description": "While this model is on the battlefield, subtract 1 from the Toughness characteristic of enemy INFANTRY units that are within 6\" of this model."
+          },
+          {
+            "name": "Leader",
+            "type": "Core",
+            "description": "Kaptin Badrukk can be attached to a Flash Gitz unit."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Kaptin Badrukk",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 6, "current_wounds": 6, "base_mm": 40, "position": null, "alive": true, "status_effects": []}
+      ]
     }
   }
 }
