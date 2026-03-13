@@ -646,9 +646,21 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 		die2 = _rng.randi_range(1, 6)
 
 	var roll_total = die1 + die2
-	var test_passed = roll_total >= leadership
 
-	log_phase_message("Battle-shock test for %s: 2D6 = %d (%d + %d) vs Ld %d" % [unit_name, roll_total, die1, die2, leadership])
+	# OA-43: Check for Waaagh! Effigy (Aura) — +1 to Battle-shock tests for friendly ORKS within 12"
+	var battle_shock_bonus = 0
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		battle_shock_bonus = ability_mgr.get_battle_shock_bonus(unit_id)
+
+	var effective_roll = roll_total + battle_shock_bonus
+	var test_passed = effective_roll >= leadership
+
+	if battle_shock_bonus > 0:
+		log_phase_message("Battle-shock test for %s: 2D6 = %d (%d + %d) + Waaagh! Effigy +%d = %d vs Ld %d" % [
+			unit_name, roll_total, die1, die2, battle_shock_bonus, effective_roll, leadership])
+	else:
+		log_phase_message("Battle-shock test for %s: 2D6 = %d (%d + %d) vs Ld %d" % [unit_name, roll_total, die1, die2, leadership])
 
 	# Check if Command Re-roll is available (only offer on failed tests)
 	if not test_passed and not action.has("dice_roll"):
@@ -669,7 +681,9 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 					"unit_name": unit_name,
 				}
 
-				var context_text = "Need %d+ to pass (rolled %d)" % [leadership, roll_total]
+				var context_text = "Need %d+ to pass (rolled %d%s)" % [
+					leadership, effective_roll,
+					" (+%d Waaagh! Effigy)" % battle_shock_bonus if battle_shock_bonus > 0 else ""]
 				var roll_context = {
 					"roll_type": "battle_shock_test",
 					"original_rolls": [die1, die2],
@@ -693,7 +707,10 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 					"leadership": leadership,
 					"test_passed": false,
 					"awaiting_reroll": true,
-					"message": "%s FAILED battle-shock test (rolled %d vs Ld %d) — Command Re-roll available!" % [unit_name, roll_total, leadership]
+					"message": "%s FAILED battle-shock test (rolled %d%s vs Ld %d) — Command Re-roll available!" % [
+						unit_name, effective_roll,
+						" (+%d Waaagh! Effigy)" % battle_shock_bonus if battle_shock_bonus > 0 else "",
+						leadership]
 				}
 
 	# Resolve immediately (no reroll available or test passed)
@@ -705,7 +722,15 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var leadership = unit.get("meta", {}).get("stats", {}).get("leadership", 7)
 	var roll_total = die1 + die2
-	var test_passed = roll_total >= leadership
+
+	# OA-43: Check for Waaagh! Effigy (Aura) — +1 to Battle-shock tests for friendly ORKS within 12"
+	var battle_shock_bonus = 0
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		battle_shock_bonus = ability_mgr.get_battle_shock_bonus(unit_id)
+
+	var effective_roll = roll_total + battle_shock_bonus
+	var test_passed = effective_roll >= leadership
 
 	# Mark unit as tested
 	if unit_id not in _units_tested:
@@ -727,13 +752,23 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 				char_unit["flags"]["battle_shocked"] = true
 				print("CommandPhase: Attached character %s also Battle-shocked" % char_id)
 
-		print("CommandPhase: %s FAILED battle-shock test (rolled %d+%d=%d vs Ld %d) - now Battle-shocked!" % [
-			unit_name, die1, die2, roll_total, leadership
-		])
+		if battle_shock_bonus > 0:
+			print("CommandPhase: %s FAILED battle-shock test (rolled %d+%d=%d + Waaagh! Effigy +%d = %d vs Ld %d) - now Battle-shocked!" % [
+				unit_name, die1, die2, roll_total, battle_shock_bonus, effective_roll, leadership
+			])
+		else:
+			print("CommandPhase: %s FAILED battle-shock test (rolled %d+%d=%d vs Ld %d) - now Battle-shocked!" % [
+				unit_name, die1, die2, roll_total, leadership
+			])
 	else:
-		print("CommandPhase: %s PASSED battle-shock test (rolled %d+%d=%d vs Ld %d)" % [
-			unit_name, die1, die2, roll_total, leadership
-		])
+		if battle_shock_bonus > 0:
+			print("CommandPhase: %s PASSED battle-shock test (rolled %d+%d=%d + Waaagh! Effigy +%d = %d vs Ld %d)" % [
+				unit_name, die1, die2, roll_total, battle_shock_bonus, effective_roll, leadership
+			])
+		else:
+			print("CommandPhase: %s PASSED battle-shock test (rolled %d+%d=%d vs Ld %d)" % [
+				unit_name, die1, die2, roll_total, leadership
+			])
 
 	var result = {
 		"success": true,
@@ -742,13 +777,16 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 		"die1": die1,
 		"die2": die2,
 		"roll_total": roll_total,
+		"effective_roll": effective_roll,
+		"battle_shock_bonus": battle_shock_bonus,
 		"leadership": leadership,
 		"test_passed": test_passed,
 		"battle_shocked": not test_passed,
-		"message": "%s %s battle-shock test (rolled %d vs Ld %d)" % [
+		"message": "%s %s battle-shock test (rolled %d%s vs Ld %d)" % [
 			unit_name,
 			"passed" if test_passed else "FAILED",
-			roll_total,
+			effective_roll,
+			" (+%d Waaagh! Effigy)" % battle_shock_bonus if battle_shock_bonus > 0 else "",
 			leadership
 		]
 	}
@@ -760,6 +798,8 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 		"die1": die1,
 		"die2": die2,
 		"roll_total": roll_total,
+		"effective_roll": effective_roll,
+		"battle_shock_bonus": battle_shock_bonus,
 		"leadership": leadership,
 		"passed": test_passed,
 		"turn": GameState.get_battle_round()
@@ -771,13 +811,23 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 	if game_event_log:
 		var owner = int(unit.get("owner", 0))
 		if test_passed:
-			game_event_log.add_player_entry(owner,
-				"%s passed Battle-shock test: 2D6 = %d (%d + %d) vs Ld %d" % [
-					unit_name, roll_total, die1, die2, leadership])
+			if battle_shock_bonus > 0:
+				game_event_log.add_player_entry(owner,
+					"%s passed Battle-shock test: 2D6 = %d (%d + %d) + Waaagh! Effigy +%d = %d vs Ld %d" % [
+						unit_name, roll_total, die1, die2, battle_shock_bonus, effective_roll, leadership])
+			else:
+				game_event_log.add_player_entry(owner,
+					"%s passed Battle-shock test: 2D6 = %d (%d + %d) vs Ld %d" % [
+						unit_name, roll_total, die1, die2, leadership])
 		else:
-			game_event_log.add_player_entry(owner,
-				"%s FAILED Battle-shock test: 2D6 = %d (%d + %d) vs Ld %d — now Battle-shocked!" % [
-					unit_name, roll_total, die1, die2, leadership])
+			if battle_shock_bonus > 0:
+				game_event_log.add_player_entry(owner,
+					"%s FAILED Battle-shock test: 2D6 = %d (%d + %d) + Waaagh! Effigy +%d = %d vs Ld %d — now Battle-shocked!" % [
+						unit_name, roll_total, die1, die2, battle_shock_bonus, effective_roll, leadership])
+			else:
+				game_event_log.add_player_entry(owner,
+					"%s FAILED Battle-shock test: 2D6 = %d (%d + %d) vs Ld %d — now Battle-shocked!" % [
+						unit_name, roll_total, die1, die2, leadership])
 
 	return result
 

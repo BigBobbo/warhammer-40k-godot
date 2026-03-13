@@ -324,8 +324,8 @@
 - **Validation**: 6" reactive move. Once per turn. Not in engagement range.
 
 ### OA-43: Implement "Waaagh! Effigy" aura for Stompa
-- [ ] Friendly ORKS units within 12" get +1 to Battle-shock tests
-- **Files**: UnitAbilityManager.gd, MoralePhase.gd
+- [x] Friendly ORKS units within 12" get +1 to Battle-shock tests
+- **Files**: UnitAbilityManager.gd, CommandPhase.gd
 - **Validation**: +1 Battle-shock tests for friendly ORKS within 12".
 
 ### OA-44: Implement "Ded Glowy Ammo" aura for Kaptin Badrukk

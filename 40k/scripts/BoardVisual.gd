@@ -18,9 +18,9 @@ var _shaders: Dictionary = {
 	"felt":   preload("res://shaders/felt_texture.gdshader"),
 }
 
-# Preload grass textures for the texture-based grass shader
-var _grass_basecolor: Texture2D = preload("res://textures/grass/Grass_08_basecolor.png")
-var _grass_normal: Texture2D = preload("res://textures/grass/Grass_08_normal.png")
+# Grass textures loaded at runtime (bypasses import system)
+var _grass_basecolor: ImageTexture = null
+var _grass_normal: ImageTexture = null
 
 func _ready() -> void:
 	z_index = -10
@@ -28,9 +28,33 @@ func _ready() -> void:
 	board_height = SettingsService.get_board_height_px()
 	# Use persisted board style from settings
 	board_style = SettingsService.board_style
+	_load_grass_textures()
 	_setup_background()
 	# Listen for runtime board style changes from the settings menu
 	SettingsService.board_style_changed.connect(_on_board_style_changed)
+
+func _load_grass_textures() -> void:
+	_grass_basecolor = _load_png_as_texture("res://textures/grass/Grass_08_basecolor.png")
+	_grass_normal = _load_png_as_texture("res://textures/grass/Grass_08_normal.png")
+	if _grass_basecolor:
+		print("[BoardVisual] Loaded grass basecolor texture: %dx%d" % [_grass_basecolor.get_width(), _grass_basecolor.get_height()])
+	else:
+		print("[BoardVisual] WARNING: Failed to load grass basecolor texture")
+	if _grass_normal:
+		print("[BoardVisual] Loaded grass normal texture: %dx%d" % [_grass_normal.get_width(), _grass_normal.get_height()])
+	else:
+		print("[BoardVisual] WARNING: Failed to load grass normal texture")
+
+func _load_png_as_texture(res_path: String) -> ImageTexture:
+	# Convert res:// path to absolute filesystem path
+	var abs_path = ProjectSettings.globalize_path(res_path)
+	var img = Image.new()
+	var err = img.load(abs_path)
+	if err != OK:
+		print("[BoardVisual] ERROR: Could not load image at %s (error %d)" % [abs_path, err])
+		return null
+	var tex = ImageTexture.create_from_image(img)
+	return tex
 
 func _setup_background() -> void:
 	var BoardBackground = preload("res://scripts/BoardBackground.gd")
@@ -49,9 +73,10 @@ func set_board_style(style: String) -> void:
 		return
 	if style in _shaders:
 		var params: Dictionary = {}
-		if style == "grass":
+		if style == "grass" and _grass_basecolor != null:
 			params["grass_texture"] = _grass_basecolor
-			params["grass_normal"] = _grass_normal
+			if _grass_normal != null:
+				params["grass_normal"] = _grass_normal
 		_background.apply_shader(_shaders[style], params)
 		print("[BoardVisual] Board style set to: ", style)
 	else:
