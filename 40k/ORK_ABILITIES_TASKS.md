@@ -378,8 +378,8 @@
 - **Validation**: Detachment ability visible in stats panel. Loot objective clearly marked.
 
 ### OA-52: Display all unit abilities in UnitStatsPanel for Orks units
-- [ ] All abilities from unit meta.abilities displayed with descriptions
-- [ ] Conditional abilities show active/inactive state (e.g., Waaagh!-dependent abilities greyed out when inactive)
+- [x] All abilities from unit meta.abilities displayed with descriptions
+- [x] Conditional abilities show active/inactive state (e.g., Waaagh!-dependent abilities greyed out when inactive)
 - **Files**: UnitStatsPanel.gd
 - **Validation**: All abilities shown. Conditional state visible.
 

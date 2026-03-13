@@ -470,26 +470,90 @@ func _create_abilities_list(unit_data: Dictionary, abilities_container: VBoxCont
 		for ability in abilities:
 			var ability_container = VBoxContainer.new()
 
+			# OA-52: Determine conditional active/inactive state
+			var state_info = _get_ability_state(ability, unit_data)
+			var is_active: bool = state_info.get("active", true)
+			var state_tag: String = state_info.get("state_tag", "")
+
 			var name_label = Label.new()
 			name_label.text = "• " + ability.get("name", "Unknown")
-			if ability.has("type"):
+			if ability.has("type") and ability.get("type", "") != "":
 				name_label.text += " (" + ability.get("type", "") + ")"
+			if state_tag != "":
+				name_label.text += "  " + state_tag
 			name_label.add_theme_font_size_override("font_size", 12)
 			name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			name_label.modulate = _WhiteDwarfTheme.WH_PARCHMENT  # Parchment tint
+			if is_active:
+				name_label.modulate = _WhiteDwarfTheme.WH_PARCHMENT
+			else:
+				name_label.modulate = Color(0.5, 0.5, 0.5, 1.0)  # Grey for inactive
 			ability_container.add_child(name_label)
 
-			if ability.has("description"):
+			var desc = ability.get("description", "")
+			if desc != "":
 				var desc_label = Label.new()
-				desc_label.text = "  " + ability.get("description", "")
+				desc_label.text = "  " + desc
 				desc_label.add_theme_font_size_override("font_size", 10)
 				desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				if not is_active:
+					desc_label.modulate = Color(0.5, 0.5, 0.5, 1.0)
 				ability_container.add_child(desc_label)
 
 			abilities_container.add_child(ability_container)
 
+		print("UnitStatsPanel: Displayed %d abilities for unit %s" % [abilities.size(), unit_data.get("id", "?")])
+
 	# OA-51: Show detachment ability for Freebooter Krew units
 	_create_detachment_ability_section(unit_data, abilities_container)
+
+func _get_ability_state(ability: Dictionary, unit_data: Dictionary) -> Dictionary:
+	"""OA-52: Determine if an ability is currently active or inactive based on game conditions."""
+	var ability_name: String = ability.get("name", "")
+	var owner: int = unit_data.get("owner", 0)
+	var unit_flags: Dictionary = unit_data.get("flags", {})
+
+	# Look up the ability definition in UnitAbilityManager
+	var ability_def: Dictionary = UnitAbilityManager.ABILITY_EFFECTS.get(ability_name, {})
+
+	# Prefix-match fallback (e.g. "Deadly Demise D6" → "Deadly Demise", "Damaged: 1-5 Wounds" → "Damaged")
+	if ability_def.is_empty():
+		for def_name in UnitAbilityManager.ABILITY_EFFECTS:
+			if ability_name.begins_with(def_name):
+				ability_def = UnitAbilityManager.ABILITY_EFFECTS[def_name]
+				break
+
+	if ability_def.is_empty():
+		return {"active": true}
+
+	var condition: String = ability_def.get("condition", "always")
+
+	match condition:
+		"waaagh_active":
+			# Check unit flag first (set by FactionAbilityManager._apply_waaagh_effects)
+			var waaagh_on: bool = unit_flags.get("waaagh_active", false)
+			if not waaagh_on:
+				var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+				if faction_mgr and owner > 0:
+					waaagh_on = faction_mgr.is_waaagh_active(owner)
+			if waaagh_on:
+				return {"active": true, "state_tag": "[WAAAGH! Active]"}
+			else:
+				return {"active": false, "state_tag": "[Inactive: requires Waaagh!]"}
+
+		"while_leading":
+			# Active when this CHARACTER is currently attached to a bodyguard unit
+			var is_leading: bool = unit_data.get("attached_to", null) != null
+			if is_leading:
+				return {"active": true, "state_tag": "[Leading]"}
+			else:
+				return {"active": false, "state_tag": "[Not leading]"}
+
+		"always", "passive":
+			return {"active": true}
+
+		_:
+			# Phase-triggered or other conditions — shown as active (no dimming for ambiguous state)
+			return {"active": true}
 
 func _create_detachment_ability_section(unit_data: Dictionary, abilities_container: VBoxContainer) -> void:
 	"""OA-51: Show detachment ability (e.g. Here Be Loot) when unit belongs to Freebooter Krew."""
