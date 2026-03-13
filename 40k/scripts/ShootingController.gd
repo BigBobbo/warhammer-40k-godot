@@ -671,7 +671,7 @@ func _restore_state_after_load() -> void:
 	# Update unit list to reflect units that have already shot
 	_refresh_unit_list()
 
-func _refresh_unit_list() -> void:
+func _refresh_unit_list(auto_select: bool = true) -> void:
 	if not unit_selector:
 		return
 	
@@ -703,7 +703,8 @@ func _refresh_unit_list() -> void:
 	
 	# Auto-select first unit for debugging if we have units
 	# BUT only if it's the local player's turn in multiplayer
-	if unit_selector.get_item_count() > 0 and active_shooter_id == "":
+	# MA-36: Skip auto-select when user explicitly deselected via ESC (auto_select=false)
+	if auto_select and unit_selector.get_item_count() > 0 and active_shooter_id == "":
 		var should_auto_select = false
 
 		if NetworkManager.is_networked():
@@ -3429,7 +3430,8 @@ func _keyboard_deselect_shooter() -> void:
 		modifier_panel.visible = false
 
 	# Refresh unit list to remove [ACTIVE] marker
-	_refresh_unit_list()
+	# MA-36: Pass auto_select=false to prevent immediate re-selection after ESC deselect
+	_refresh_unit_list(false)
 
 	if dice_log_display:
 		dice_log_display.append_text("[color=gray]Deselected shooter (Esc)[/color]\n")
