@@ -178,14 +178,15 @@ const ABILITY_EFFECTS: Dictionary = {
 	# ALWAYS-ON UNIT ABILITIES
 	# ======================================================================
 
-	# Custodes Custodian Guard — re-roll Wound rolls of 1
+	# Custodes Custodian Guard — re-roll Wound rolls of 1; re-roll all Wounds while on controlled objective
 	"Stand Vigil": {
 		"condition": "always",
 		"effects": [{"type": "reroll_wounds", "scope": "ones"}],
+		"objective_upgrade_effects": [{"type": "reroll_wounds", "scope": "all"}],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Re-roll Wound rolls of 1"
+		"description": "Re-roll Wound rolls of 1. While within range of controlled objective, re-roll all Wound rolls instead."
 	},
 
 	# Ork Battlewagon — worsen AP of incoming attacks by 1
@@ -3250,6 +3251,48 @@ func _has_alive_models(unit: Dictionary) -> bool:
 	for model in unit.get("models", []):
 		if model.get("alive", true):
 			return true
+	return false
+
+func _is_unit_within_controlled_objective_range(unit_id: String, unit: Dictionary) -> bool:
+	"""Check if any alive model in the unit is within range of an objective
+	controlled by the unit's owner. Used for Stand Vigil objective-conditional upgrade."""
+	var owner = unit.get("owner", 0)
+	if owner == 0:
+		return false
+
+	var objectives = GameState.state.board.get("objectives", [])
+	if objectives.is_empty():
+		return false
+
+	# Same control radius used by MissionManager: 3" + 20mm objective marker radius
+	var control_radius = Measurement.inches_to_px(3.78740157)
+
+	# Get objective control state from MissionManager
+	var obj_control = MissionManager.objective_control_state
+
+	for obj in objectives:
+		var obj_id = obj.get("id", "")
+		# Only consider objectives controlled by this unit's owner
+		if obj_control.get(obj_id, 0) != owner:
+			continue
+
+		var obj_pos = obj.get("position")
+		if obj_pos == null:
+			continue
+
+		# Check if any alive model is within range
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var model_pos = model.get("position")
+			if model_pos == null:
+				continue
+			if model_pos is Dictionary:
+				model_pos = Vector2(model_pos.x, model_pos.y)
+			if model_pos.distance_to(obj_pos) <= control_radius:
+				print("UnitAbilityManager: Unit %s is within range of controlled objective %s" % [unit_id, obj_id])
+				return true
+
 	return false
 
 func _get_ability_name(ability) -> String:
