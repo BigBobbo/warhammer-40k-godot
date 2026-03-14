@@ -1638,23 +1638,30 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 		print("Position would overlap with another model")
 		return false
 
-	# Check 3 (T3-8): Each model must end closer to at least one charge target
+	# Check 3: Must end closer to at least one declared target (10e rule)
+	# This gives live feedback during drag - final enforcement is in ChargePhase
+	var model_at_old = model.duplicate()
+	model_at_old["position"] = old_pos
+	var model_at_new = model.duplicate()
+	model_at_new["position"] = new_pos
+
 	var charge_targets = selected_targets
 	if charge_targets.is_empty() and current_phase:
 		charge_targets = _get_charge_targets_from_phase(active_unit_id)
-	if not charge_targets.is_empty():
+
+	# Only enforce if the model actually moved a meaningful distance
+	if old_pos.distance_to(new_pos) > 1.0 and not charge_targets.is_empty():  # > 1 pixel
 		var ends_closer = false
 		for target_id in charge_targets:
-			var target_unit = GameState.get_unit(target_id)
-			if target_unit.is_empty():
+			var target = GameState.get_unit(target_id)
+			if target.is_empty():
 				continue
-			for target_model in target_unit.get("models", []):
+			for target_model in target.get("models", []):
 				if not target_model.get("alive", true):
 					continue
-				var target_pos = _get_model_position(target_model)
-				if target_pos == null or target_pos == Vector2.ZERO:
-					continue
-				if new_pos.distance_to(target_pos) < old_pos.distance_to(target_pos):
+				var start_dist = Measurement.model_to_model_distance_inches(model_at_old, target_model)
+				var end_dist = Measurement.model_to_model_distance_inches(model_at_new, target_model)
+				if end_dist < start_dist:
 					ends_closer = true
 					break
 			if ends_closer:

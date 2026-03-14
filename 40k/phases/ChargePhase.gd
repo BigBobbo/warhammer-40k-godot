@@ -76,6 +76,7 @@ const FAIL_COHERENCY = "COHERENCY"
 const FAIL_OVERLAP = "OVERLAP"
 const FAIL_BASE_CONTACT = "BASE_CONTACT"
 const FAIL_DIRECTION = "DIRECTION"
+const FAIL_MUST_END_CLOSER = "MUST_END_CLOSER"
 
 # Human-readable explanations for each failure category (teaches players the rules)
 const FAIL_CATEGORY_TOOLTIPS = {
@@ -87,6 +88,7 @@ const FAIL_CATEGORY_TOOLTIPS = {
 	FAIL_OVERLAP: "Models cannot end their charge movement overlapping with other models (friendly or enemy). Reposition to avoid base overlaps.",
 	FAIL_BASE_CONTACT: "If a charging model CAN make base-to-base contact with an enemy model while still satisfying all other charge conditions, it MUST do so (10e core rule).",
 	FAIL_DIRECTION: "Each model making a charge move must end that move closer to at least one of the charge target units than it started. Reposition the model so it ends nearer to a declared target.",
+	FAIL_MUST_END_CLOSER: "Each model making a charge move must end closer to at least one declared charge target than it started. Models cannot move laterally or away from all targets during a charge.",
 }
 
 func _init():
@@ -1535,6 +1537,13 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 		for err in base_to_base_validation.errors:
 			categorized_errors.append({"category": FAIL_BASE_CONTACT, "detail": err})
 
+	# 6. Validate each model ends closer to at least one target
+	var closer_validation = _validate_must_end_closer(unit_id, per_model_paths, target_ids)
+	if not closer_validation.valid:
+		errors.append_array(closer_validation.errors)
+		for err in closer_validation.errors:
+			categorized_errors.append({"category": FAIL_MUST_END_CLOSER, "detail": err})
+
 	return {"valid": errors.is_empty(), "errors": errors, "categorized_errors": categorized_errors}
 
 func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
@@ -1663,6 +1672,68 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 	var errors = []
 	var all_units = game_state_snapshot.get("units", {})
 	const BASE_CONTACT_TOLERANCE_INCHES: float = 0.25  # Match RulesEngine tolerance for digital positioning
+
+func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
+	# 10e Rule: Each model making a charge move must end that move closer to at
+	# least one of the declared charge targets than it started.
+	var errors = []
+	var all_units = game_state_snapshot.get("units", {})
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() >= 2):
+			continue
+
+		var start_pos = Vector2(path[0][0], path[0][1])
+		var final_pos = Vector2(path[-1][0], path[-1][1])
+
+		# If the model didn't move, skip this check (no movement = no violation)
+		if start_pos.distance_to(final_pos) < 0.5:
+			continue
+
+		var model = _get_model_in_unit(unit_id, model_id)
+		if model.is_empty():
+			continue
+
+		# Build model dicts at start and final positions
+		var model_at_start = model.duplicate()
+		model_at_start["position"] = start_pos
+		var model_at_final = model.duplicate()
+		model_at_final["position"] = final_pos
+
+		# Check if model ends closer to ANY declared target
+		var ends_closer_to_any_target = false
+
+		for target_id in target_ids:
+			var target_unit = all_units.get(target_id, {})
+			if target_unit.is_empty():
+				continue
+
+			# Find closest distance to this target unit from start and end
+			var min_start_distance = INF
+			var min_end_distance = INF
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var start_dist = Measurement.model_to_model_distance_inches(model_at_start, target_model)
+				var end_dist = Measurement.model_to_model_distance_inches(model_at_final, target_model)
+
+				min_start_distance = min(min_start_distance, start_dist)
+				min_end_distance = min(min_end_distance, end_dist)
+
+			if min_end_distance < min_start_distance:
+				ends_closer_to_any_target = true
+				break
+
+		if not ends_closer_to_any_target:
+			var unit = get_unit(unit_id)
+			var model_name = model_id
+			errors.append("Model %s did not end closer to any declared charge target" % model_name)
+			print("ChargePhase: Must-end-closer violation - model %s is not closer to any target after move" % model_id)
+
+	return {"valid": errors.is_empty(), "errors": errors}
 
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]

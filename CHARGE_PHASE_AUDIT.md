@@ -90,6 +90,8 @@ However, several **rules-required features are missing or incomplete**, and the 
 
 **Status (updated 2026-02-17):** IMPLEMENTED. `ChargePhase.gd:971-1038` and `RulesEngine.gd:3523-3583` now enforce B2B contact. For each charging model, the validator checks whether B2B is reachable (edge-to-edge distance ≤ rolled distance) and whether the final position achieves it (within 0.25" tolerance). Validation errors are raised if B2B is achievable but not achieved. Both interactive and auto-resolve paths are consistent.
 
+> **Additional implementation (branch):** `_validate_base_to_base_possible()` also enforces the 10e rule via a complementary approach: if a model ends within engagement range of a target but not in B2B contact, the validator checks whether a B2B position was reachable (within charge distance) and unblocked (no overlaps). If B2B was achievable, the placement is rejected with a `BASE_CONTACT` categorized error. Uses shape-aware `Measurement` functions for accuracy with non-circular bases.
+
 ### 2.5 ~~HIGH: Failed Charge Handling — Split Between Client and Server~~ **[RESOLVED — T1-8]**
 
 **Rule:** If a charge fails (rolled distance insufficient), the unit does **not move at all**. It stays exactly where it was.
@@ -120,11 +122,13 @@ However, several **rules-required features are missing or incomplete**, and the 
 
 **Impact:** Charges across barricades would be overly strict (requiring 1" instead of the correct 2").
 
-### 2.9 LOW: Charge Move Direction Constraint — Not Enforced
+### ~~2.9 LOW: Charge Move Direction Constraint — Not Enforced~~ — FIXED
 
 **Rule:** Each model making a charge move must end that move **closer** to at least one of the charge targets than it started.
 
-**Current state:** `_validate_charge_position()` in `ChargeController.gd:1265-1286` has a comment about being "lenient" for individual model validation. There's no explicit check that each model ends closer to a target. The server-side `_validate_charge_movement_constraints()` also does not enforce this.
+> **Resolved** — Two-layer enforcement added:
+> 1. **Server-side (authoritative):** `ChargePhase.gd:_validate_must_end_closer()` — Validates that each model's final position is closer (edge-to-edge, shape-aware) to at least one declared charge target than its start position. Runs as step 6 in `_validate_charge_movement_constraints()`. Failures produce `MUST_END_CLOSER` categorized errors with descriptive tooltips.
+> 2. **Client-side (feedback):** `ChargeController.gd:_validate_charge_position()` — Soft check during drag that rejects placements where the model doesn't end closer to any target, giving immediate red ghost visual feedback.
 
 ### 2.10 LOW: Models Must Move Into B2B Before Others Move
 
@@ -348,27 +352,28 @@ Both contain the same success/failure logic, UI updates, and failure recording. 
 2. ~~**[NEW] Add `COMPLETE_UNIT_CHARGE` / `SKIP_CHARGE` signal re-emission**~~ — **DONE** (added `charge_unit_completed`/`charge_unit_skipped` signals + NetworkManager re-emission)
 3. ~~**[NEW] Track "has been charged" flag on target units**~~ — **DONE** (sets `has_been_charged` flag on targets via diff; ScoringPhase cleans up at end of turn)
 4. ~~**Record failed charge attempts in phase state** — Broadcast failure to both players~~ — **DONE** (commit `6caf26e`)
-5. **Implement base-to-base enforcement** — Currently stubbed, rules require it
+5. ~~**Implement base-to-base enforcement**~~ — **DONE** — Full B2B validation with reachability and overlap checks
 6. ~~**[NEW] Fix confirm button firing two actions without waiting**~~ — **DONE** (`COMPLETE_UNIT_CHARGE` now sent from `_on_charge_resolved` after server confirms)
 
 ### Should Fix (Rules Compliance)
-6. **Add Overwatch reaction window** — Major tactical element missing (requires Stratagem system)
-7. **Add Heroic Intervention** — Major defensive element missing (requires Stratagem system)
-8. **Add terrain interaction for charges** — Distance should account for terrain height
-9. **Add AIRCRAFT charge restrictions** — Missing keyword checks
-10. **Enforce "must end closer to target" per model** — Currently not validated
-11. **[NEW] Add barricade engagement range (2") support** — Missing terrain type
+7. **Add Overwatch reaction window** — Major tactical element missing (requires Stratagem system)
+8. **Add Heroic Intervention** — Major defensive element missing (requires Stratagem system)
+9. **Add terrain interaction for charges** — Distance should account for terrain height
+10. **Add AIRCRAFT charge restrictions** — Missing keyword checks
+11. ~~**Enforce "must end closer to target" per model**~~ — **DONE** — Server + client enforcement with shape-aware distance
+12. **[NEW] Add barricade engagement range (2") support** — Missing terrain type
 
 ### Should Improve (Multiplayer/QoL/Visual)
-12. **[NEW] Add defending player charge phase visibility** — Opponent currently sees almost nothing
-13. **Add engagement range visualization** during charge movement
-14. **Add charge range (12") indicator** when selecting units
-15. **Implement auto-path/snap-to-engagement** for faster gameplay
-16. **Improve real-time drag validation feedback** — Show specific reasons in-UI, not just red/green ghost
-17. **Improve target highlights** from squares to proper base-sized circles
-18. **Add distance-to-target indicator** during model drag
-19. **Remove direct GameState mutation** in ChargeController — route through action pipeline
-20. **[NEW] Fix client `charge_resolved` re-emission to include failure detail** — Currently loses structured error data
+13. **[NEW] Add defending player charge phase visibility** — Opponent currently sees almost nothing
+14. **Add engagement range visualization** during charge movement
+15. **Add charge range (12") indicator** when selecting units
+16. **Implement auto-path/snap-to-engagement** for faster gameplay
+17. **Improve real-time drag validation feedback** — Show specific reasons in-UI, not just red/green ghost
+18. **Add "Why failed?" explanations** visible to the player
+19. **Improve target highlights** from squares to proper base-sized circles
+20. **Add distance-to-target indicator** during model drag
+21. **Remove direct GameState mutation** in ChargeController — route through action pipeline
+22. **[NEW] Fix client `charge_resolved` re-emission to include failure detail** — Currently loses structured error data
 
 ### Nice to Have
 21. **Add dice roll animation** for charge rolls
