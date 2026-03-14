@@ -26,26 +26,30 @@ This audit must be extremely detailed with no assumptions - everything must be v
 
 ### Critical Findings
 
+*Last reviewed: 2026-02-15*
+
 #### ✅ Working Components:
 - Test infrastructure and base classes are well-designed
 - Helper utilities (TestDataFactory) provide good test data generation
 - Action-based phase testing framework is comprehensive
 - Mouse simulation and UI interaction framework exists
+- **CI/CD pipeline implemented** (`.github/workflows/test-suite.yml` with 6 job types) *(NEW)*
+- **AutoloadHelper** provides reliable autoload access in tests *(NEW)*
+- **Multiplayer E2E test infrastructure** with GameInstance, LogMonitor, MultiplayerIntegrationTest base class *(NEW)*
 
 #### ❌ Broken Components:
-- **Multiple compilation errors** prevent tests from running
-- Missing assertion methods (`assert_has`, `assert_does_not_have`)
-- Method signature mismatches in BaseUITest
-- GameState autoload resolution issues in some test files
-- Test runner times out due to compilation errors
+- ~~Missing assertion methods (`assert_has`, `assert_does_not_have`)~~ ✅ **FIXED** — Added to `BasePhaseTest.gd:143-149`
+- ~~Method signature mismatches in BaseUITest~~ ✅ **N/A** — `BaseUITest.gd` no longer exists in the codebase; UI test infrastructure has been restructured
+- ~~GameState autoload resolution issues~~ ✅ **FIXED** — `AutoloadHelper.gd` provides `verify_autoloads_available()`, `get_game_state()`, etc.
+- **Note:** The `tests/ui/` directory and files (`test_model_dragging.gd`, `test_mathhammer_ui.gd`, `test_deployment_formations.gd`) referenced in the original audit no longer exist. The test suite has shifted toward multiplayer and keyword-focused tests.
 
 #### ⚠️ Missing Coverage:
-- No E2E user workflow tests
+- ~~No E2E user workflow tests~~ ✅ **PARTIALLY ADDRESSED** — Multiplayer E2E tests exist (`test_multiplayer_deployment.gd`, keyword integration tests)
 - Limited save/load testing integration
 - Deployment phase transport integration not tested
-- Multiplayer functionality not tested
-- Performance testing minimal
-- No regression test suite
+- ~~Multiplayer functionality not tested~~ ✅ **ADDRESSED** — Comprehensive multiplayer test infrastructure and integration tests added
+- Performance testing minimal (CI/CD infrastructure ready, no dedicated test files yet)
+- No regression test suite (no `test_gh_issue_*` pattern files)
 
 ## Detailed Test Inventory
 
@@ -122,25 +126,25 @@ This audit must be extremely detailed with no assumptions - everything must be v
 
 ### 4. UI Tests (Directory: `tests/ui/`)
 
-| Test File | Purpose | Test Count | Status | Issues |
-|-----------|---------|-----------|--------|--------|
-| `test_model_dragging.gd` | Drag & drop | 20+ tests | ❌ BROKEN | Parse error: `assert_unit_card_visible()` wrong signature |
-| `test_button_functionality.gd` | Button interactions | 30+ tests | ⚠️ Unknown | Comprehensive button testing |
-| `test_camera_controls.gd` | Camera controls | 20+ tests | ⚠️ Unknown | Mouse & keyboard camera tests |
-| `test_ui_interactions.gd` | General UI | ~15 tests | ⚠️ Unknown | Needs validation |
-| `test_mathhammer_ui.gd` | Mathhammer panel | ~10 tests | ❌ BROKEN | GameState identifier not found |
-| `test_multi_model_selection.gd` | Multi-select | ~5 tests | ⚠️ Unknown | Needs validation |
-| `test_deployment_formations.gd` | Formation UI | ~10 tests | ❌ BROKEN | Missing assert_has(), assert_does_not_have() |
-| `test_deployment_repositioning.gd` | Drag deployed units | ~5 tests | ⚠️ Unknown | Needs validation |
+*Updated 2026-02-15: The `tests/ui/` directory and its files no longer exist in the codebase. BaseUITest.gd has been removed. The test suite has been restructured to focus on multiplayer integration and keyword-specific tests.*
 
-**Coverage Analysis:**
-- ✅ Mouse interaction framework exists (BaseUITest)
-- ✅ Button state testing comprehensive
-- ✅ Drag-and-drop simulation present
-- ❌ **Multiple UI tests broken with compilation errors**
+| Test File | Purpose | Status (Original) | Status (Current) |
+|-----------|---------|-------------------|-------------------|
+| `test_model_dragging.gd` | Drag & drop | ❌ BROKEN | **REMOVED** |
+| `test_button_functionality.gd` | Button interactions | ⚠️ Unknown | **REMOVED** |
+| `test_camera_controls.gd` | Camera controls | ⚠️ Unknown | **REMOVED** |
+| `test_ui_interactions.gd` | General UI | ⚠️ Unknown | **REMOVED** |
+| `test_mathhammer_ui.gd` | Mathhammer panel | ❌ BROKEN | **REMOVED** |
+| `test_multi_model_selection.gd` | Multi-select | ⚠️ Unknown | **REMOVED** |
+| `test_deployment_formations.gd` | Formation UI | ❌ BROKEN | **REMOVED** |
+| `test_deployment_repositioning.gd` | Drag deployed units | ⚠️ Unknown | **REMOVED** |
+
+**Coverage Analysis (Updated 2026-02-15):**
+- ~~✅ Mouse interaction framework exists (BaseUITest)~~ **REMOVED** — BaseUITest.gd no longer in codebase
+- ❌ UI-level tests no longer exist; this is now a gap
 - ❌ No keyboard shortcut testing
-- ❌ Limited accessibility testing
-- ❌ No mobile/touch input tests
+- ❌ No drag-and-drop UI tests remain
+- ❌ No button state testing remains
 
 ## Test Infrastructure Analysis
 
@@ -274,35 +278,25 @@ godot --headless --path 40k -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit -g
 
 #### 1. Compilation Errors (Blocking Test Execution)
 
-**Error 1: Missing GameState Autoload**
-```
-File: res://tests/ui/test_mathhammer_ui.gd:32
-Error: Identifier not found: GameState
-```
-- **Impact**: Prevents test from loading
-- **Cause**: Autoload not available in headless test environment
-- **Affected Tests**: test_mathhammer_ui.gd, possibly others
+*Updated 2026-02-15: All three original errors resolved. Files referenced no longer exist in codebase.*
 
-**Error 2: Missing Assertion Methods**
+**~~Error 1: Missing GameState Autoload~~** ✅ RESOLVED
 ```
-File: res://tests/ui/test_deployment_formations.gd:98-102
-Error: Function "assert_has()" not found in base self
-Error: Function "assert_does_not_have()" not found in base self
+File: res://tests/ui/test_mathhammer_ui.gd:32 (FILE NO LONGER EXISTS)
 ```
-- **Impact**: Parse error prevents test execution
-- **Cause**: Methods not implemented in GutTest base class
-- **Affected Tests**: test_deployment_formations.gd
+- **Resolution**: `AutoloadHelper.gd` now provides `verify_autoloads_available()` and `get_game_state()` for reliable autoload access. The problematic file itself has been removed from the test suite.
 
-**Error 3: Method Signature Mismatch**
+**~~Error 2: Missing Assertion Methods~~** ✅ RESOLVED
 ```
-File: res://tests/ui/test_model_dragging.gd:16
-Error: Too many arguments for "assert_unit_card_visible()" call
-Expected at most 1 but received 2
+File: res://tests/ui/test_deployment_formations.gd (FILE NO LONGER EXISTS)
 ```
-- **Impact**: Parse error prevents test execution
-- **Cause**: BaseUITest method signature doesn't match usage
-- **Definition** (BaseUITest.gd:210): `func assert_unit_card_visible(visible: bool = true):`
-- **Called** (test_model_dragging.gd:16): `assert_unit_card_visible(true, "Unit card should be visible...")`
+- **Resolution**: `assert_has()` and `assert_does_not_have()` added to `BasePhaseTest.gd:143-149`.
+
+**~~Error 3: Method Signature Mismatch~~** ✅ RESOLVED
+```
+File: res://tests/ui/test_model_dragging.gd (FILE NO LONGER EXISTS)
+```
+- **Resolution**: `BaseUITest.gd` no longer exists. Test infrastructure has been restructured around `BasePhaseTest.gd` and `MultiplayerIntegrationTest.gd`.
 
 #### 2. Test Results (Partial)
 
@@ -556,45 +550,21 @@ func test_normal_movement_processing():
 
 ### Immediate Priorities (Week 1)
 
+*Updated 2026-02-15: Tasks 1.1-1.3 have been completed.*
+
 #### 1. Fix Broken Tests (Critical)
 
-**Task 1.1: Fix BaseUITest Method Signatures**
-```gdscript
-// In tests/helpers/BaseUITest.gd
-// Change line 210 from:
-func assert_unit_card_visible(visible: bool = true):
-// To:
-func assert_unit_card_visible(visible: bool = true, message: String = ""):
-    var unit_card = find_ui_element("UnitCard", VBoxContainer)
-    assert_not_null(unit_card, "Unit card should exist")
-    assert_eq(visible, unit_card.visible, message if message else "Unit card visibility should be " + str(visible))
-```
+**~~Task 1.1: Fix BaseUITest Method Signatures~~** ✅ DONE
+- `BaseUITest.gd` no longer exists. Test infrastructure restructured around `BasePhaseTest.gd` and `MultiplayerIntegrationTest.gd`.
 
-**Task 1.2: Add Missing Assertion Methods to BaseUITest or BasePhaseTest**
-```gdscript
-// Add to tests/helpers/BaseUITest.gd or BasePhaseTest.gd
-func assert_has(container, item, message: String = ""):
-    assert_true(item in container, message if message else str(container) + " should contain " + str(item))
+**~~Task 1.2: Add Missing Assertion Methods~~** ✅ DONE
+- `assert_has()` and `assert_does_not_have()` implemented in `BasePhaseTest.gd:143-149` with optional message parameter.
 
-func assert_does_not_have(container, item, message: String = ""):
-    assert_false(item in container, message if message else str(container) + " should not contain " + str(item))
-```
-
-**Task 1.3: Fix GameState Autoload Resolution**
-```gdscript
-// In problematic test files, add before using GameState:
-func before_each():
-    super.before_each()
-    if not has_node("/root/GameState"):
-        # Load GameState manually for headless testing
-        var game_state_script = load("res://autoloads/GameState.gd")
-        var game_state = game_state_script.new()
-        get_tree().root.add_child(game_state)
-        game_state.name = "GameState"
-```
+**~~Task 1.3: Fix GameState Autoload Resolution~~** ✅ DONE
+- `AutoloadHelper.gd` provides `verify_autoloads_available()`, `get_game_state()`, `get_rules_engine()`, and other convenience getters for reliable autoload access.
 
 **Task 1.4: Extend Test Timeout**
-- Increase timeout in test runner or split test execution into batches
+- CI/CD pipeline uses 300s timeout for performance tests. May still need tuning.
 
 #### 2. Validate All Existing Tests (Critical)
 
@@ -856,40 +826,22 @@ func test_escape_closes_dialogs():
 
 ### Long-term Improvements (Weeks 7-12)
 
-#### 11. Continuous Integration Setup
+#### 11. Continuous Integration Setup — ✅ **IMPLEMENTED**
 
-```yaml
-# .github/workflows/test.yml
-name: Godot Tests
+*Updated 2026-02-15: A comprehensive CI/CD pipeline has been implemented at `.github/workflows/test-suite.yml` (316 lines).*
 
-on: [push, pull_request]
+**What was implemented:**
+- Triggers on: push to main/develop, pull_request to main, workflow_dispatch
+- Godot 4.4.0 setup with chickensoft-games/setup-godot
+- Test execution by category: unit, phases, ui, integration
+- JUnit XML test reporting with test-reporter
+- 6 job types: test, build-verification, performance-tests, code-quality, security-scan, documentation-check
+- Artifact uploading for results
+- Final notification/summary job
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Godot
-        uses: chickensoft-games/setup-godot@v1
-        with:
-          version: 4.4
-      - name: Run Unit Tests
-        run: |
-          godot --headless --path 40k -s addons/gut/gut_cmdln.gd \
-            -gdir=res://tests/unit -gexit
-      - name: Run Integration Tests
-        run: |
-          godot --headless --path 40k -s addons/gut/gut_cmdln.gd \
-            -gdir=res://tests/integration -gexit
-      - name: Generate Coverage Report
-        run: |
-          # Generate coverage report
-      - name: Upload Results
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results
-          path: test_results/
-```
+**Remaining improvements:**
+- Coverage report generation not yet configured
+- Performance test files need to be created (infrastructure ready)
 
 #### 12. Test Data Management
 
@@ -1006,18 +958,22 @@ python3 scripts/create_validation_matrix.py > VALIDATION_MATRIX.md
 
 ### Current State (Estimated)
 
-| Metric | Current | Target | Status |
-|--------|---------|--------|--------|
-| Total Tests | ~300+ | 500+ | 60% |
-| Compilation Success Rate | ~85% | 100% | ❌ Critical |
-| Test Execution Success Rate | Unknown | 95%+ | ⚠️ Need data |
-| Code Coverage | Unknown | 80%+ | ⚠️ Need tooling |
-| User Input Coverage | ~30% | 90%+ | ❌ Low |
-| E2E Workflow Tests | 0 | 10+ | ❌ Missing |
-| Regression Tests | 0 | 50+ | ❌ Missing |
-| Performance Tests | ~5 | 20+ | ❌ Low |
-| Test Execution Time | >2min (timeout) | <5min | ⚠️ Needs optimization |
-| Flaky Test Rate | Unknown | <2% | ⚠️ Need tracking |
+*Updated 2026-02-15*
+
+| Metric | Original (2025-09) | Current (2026-02) | Target | Status |
+|--------|--------------------|--------------------|--------|--------|
+| Total Tests | ~300+ | ~300+ (restructured) | 500+ | ⚠️ Needs growth |
+| Compilation Success Rate | ~85% | ~95%+ (broken UI tests removed) | 100% | ✅ Improved |
+| Test Execution Success Rate | Unknown | Unknown | 95%+ | ⚠️ Need data |
+| Code Coverage | Unknown | Unknown | 80%+ | ⚠️ Need tooling |
+| User Input Coverage | ~30% | ~10% (UI tests removed) | 90%+ | ❌ Regressed |
+| E2E Workflow Tests | 0 | 3+ (multiplayer E2E) | 10+ | ✅ Improved |
+| Regression Tests | 0 | 0 | 50+ | ❌ Missing |
+| Performance Tests | ~5 | ~5 (infra ready, no files) | 20+ | ⚠️ Infrastructure ready |
+| Test Execution Time | >2min (timeout) | Unknown | <5min | ⚠️ CI/CD in place |
+| Flaky Test Rate | Unknown | Unknown | <2% | ⚠️ Need tracking |
+| CI/CD Pipeline | None | ✅ Comprehensive | Automated | ✅ Done |
+| Test Documentation | None | Partial (multiplayer) | Complete | ✅ Partial |
 
 ### Success Criteria
 

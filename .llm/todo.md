@@ -1,235 +1,267 @@
-# AI Audit Tasks
+# Shooting Phase Audit Tasks
 
-> Source: AI_AUDIT.md — 82 items across P0-P3 priorities
+## Tier 1 — Core Rules Compliance (Blocking for Accurate Games)
 
-## P0 — Critical (AI plays incorrectly without these)
+- [x] ~~Implement variable attacks and damage rolling for weapons with D3/D6/D3+3 notation~~ **COMPLETED**
+  `roll_variable_characteristic()` at `RulesEngine.gd:3160` handles D3, D6, 2D6, D6+N, D3+N. Attacks rolling at lines 498, 861, 3444. Damage rolling at lines 1217, 3713, 3721, 4139, 4207.
 
-- [x] Implement AI charge declarations — evaluate charge feasibility (distance, probability), declare charges against optimal targets, compute model positions post-charge (AI-GAP-1, CHARGE-1 through CHARGE-3)
-- [x] Implement pile-in movement — move models up to 3" toward nearest enemy during fight phase (AI-GAP-2, FIGHT-1)
-- [x] Implement consolidation movement — move models up to 3" toward nearest enemy or objective after fighting (AI-GAP-2, FIGHT-2)
-- [x] Implement fall-back model positioning — compute valid fall-back destinations away from enemy engagement range (MOV-6)
+- [x] ~~Implement ANTI-[KEYWORD] X+ weapon keyword for critical wounds against matching unit types~~ **COMPLETED**
+  `get_critical_wound_threshold()` and `get_anti_keyword_data()` at `RulesEngine.gd:2317`. Critical wound threshold checks at lines 706, 735, 751, 1067, 1090, 1098. Anti-keyword tracking in dice logs at lines 781, 1120.
 
-## P1 — High (AI plays very poorly without these)
+- [ ] Implement MELTA X weapon keyword for bonus damage at half range
+  Rule: MELTA X adds +X to the Damage characteristic when the target is within half the weapon's range.
+  No implementation exists in `RulesEngine.gd`.
+  Need to: parse the Melta keyword and value from weapon data, check if target is within half range using edge-to-edge measurement, and add the bonus damage when applying damage.
+  The range checking infrastructure already exists — `count_models_in_half_range()` at `RulesEngine.gd:500-504` is used for Rapid Fire and can be referenced.
+  This is a core weapon type for anti-vehicle (e.g., Multi-melta, Meltagun).
+  Files: `RulesEngine.gd` — damage application, range checking functions.
 
-- [x] Add weapon range checking to target scoring — score 0 for out-of-range targets (AI-GAP-5, SHOOT-4)
-- [x] Implement focus fire system — coordinate weapon assignments across all shooting units to concentrate on kill thresholds (AI-TACTIC-2, SHOOT-1)
-- [x] Implement weapon-target efficiency matching — match anti-tank to vehicles, anti-infantry to hordes, avoid wasting multi-damage on single-wound models (AI-TACTIC-5, SHOOT-2)
-- [x] Add invulnerable save to target scoring — use min(modified_save, invuln) in shooting target evaluation (AI-GAP-6, SHOOT-3)
-- [x] Add weapon keyword awareness to target scoring — Blast, Rapid Fire, Melta, Anti-keyword, Torrent, Sustained/Lethal/Devastating Wounds (SHOOT-5)
-- [x] Implement basic stratagem usage — start with Grenade, Fire Overwatch, Go to Ground, Command Re-roll, Smokescreen (AI-GAP-3)
-- [x] Implement unit ability awareness — read abilities, factor leader bonuses, detect "Fall Back and X" (AI-GAP-4)
-- [x] Implement scout move execution — move scout units toward nearest uncontrolled objective (SCOUT-1, SCOUT-2)
-- [x] Add enemy threat range awareness — calculate charge threat zones and shooting ranges, avoid moving into danger (AI-TACTIC-4, MOV-2)
-- [x] Add shooting range consideration to movement — don't move units out of their weapon range (MOV-1)
-- [ ] Implement screening/deep strike denial — position cheap units to deny enemy deep strike zones (AI-TACTIC-3, MOV-4)
-- [ ] Implement reserves deployment — bring reserve units onto the board from Round 2+ (MOV-8)
-- [ ] Implement leader attachment in formations — evaluate and attach leaders to bodyguard units (FORM-1)
-- [ ] Add terrain-aware deployment — place units behind LoS-blocking terrain for cover (DEPLOY-1)
-- [ ] Add AI turn summary panel — consume existing AIPlayer signals to show what happened (QoL-1)
-- [ ] Add AI thinking indicator — show visual feedback during AI processing (QoL-2)
-- [ ] Add AI movement path visualization — draw movement trails during AI unit movement (VIS-1)
+- [ ] Implement TWIN-LINKED weapon keyword for re-rolling wound rolls
+  Rule: TWIN-LINKED allows the attacking player to re-roll all failed wound rolls with that weapon.
+  No implementation exists in `RulesEngine.gd`. The wound roll logic at `RulesEngine.gd:714-733` simply compares the raw roll against the threshold with no re-roll support.
+  Need to: check if the weapon has the Twin-linked keyword, and if so, re-roll any wound rolls that fail (roll < wound_threshold). Only re-roll once per die (cannot re-roll a re-roll).
+  This is a common keyword across many weapon profiles.
+  Files: `RulesEngine.gd` — wound roll logic around lines 700-733.
 
-## P2 — Medium (AI competence and feel improvements)
+## Tier 2 — Important Defensive Rules
 
-- [ ] Implement target priority framework — macro-level threat ranking + micro-level weapon allocation (AI-TACTIC-1)
-- [ ] Implement multi-phase planning — movement considers shooting lanes, shooting considers upcoming charges (AI-TACTIC-6)
-- [ ] Implement trade/tempo awareness — track points values, adjust aggression based on VP score (AI-TACTIC-7)
-- [ ] Implement secondary mission awareness — factor secondary conditions into positioning and targeting (AI-TACTIC-8)
-- [ ] Implement Heavy weapon stationary bonus — prefer remaining stationary when Heavy bonus is significant (MOV-3)
-- [ ] Implement engaged unit survival assessment — estimate fight-phase damage before hold/fall-back decision (MOV-9)
-- [ ] Implement multi-weapon melee optimization — use Extra Attacks weapons, pick best weapon per target (AI-GAP-7, FIGHT-3)
-- [ ] Implement fight target optimization — score melee targets by expected damage, not just distance (FIGHT-4)
-- [ ] Add range-band optimization — prefer Rapid Fire half-range, Melta half-range positioning (SHOOT-6)
-- [ ] Add cover consideration in target scoring — penalize targets with Benefit of Cover (SHOOT-7)
-- [ ] Implement Counter-Operative stratagem — use 2CP when AI's high-value melee unit is at risk (FIGHT-5)
-- [ ] Implement transport usage — embark in formations, disembark during movement (FORM-2, MOV-7)
-- [ ] Implement reserves declarations — put appropriate units in strategic reserves or deep strike (FORM-3)
-- [ ] Add Rapid Ingress stratagem — arrive from reserves at end of opponent's movement (AI-GAP-3 Phase 3)
-- [ ] Add AI speed controls — configurable action delay (QoL-3)
-- [ ] Add AI decision explanations — enhanced _ai_description with reasoning (QoL-4)
-- [ ] Add AI shooting target lines — visual targeting feedback (VIS-2)
-- [ ] Add objective control flash on change — highlight when AI flips objectives (VIS-4)
+- [ ] Implement Stealth ability giving -1 to hit for ranged attacks targeting units where all models have Stealth
+  Rule: If every model in a unit has the Stealth ability, ranged attacks targeting that unit subtract 1 from their hit rolls.
+  No check for the Stealth keyword exists in `RulesEngine.gd`. The `_resolve_assignment_until_wounds()` function checks for Heavy, BGNT, and user-specified modifiers on the attacker's side but never checks the target for defensive abilities.
+  Fix: In the hit modifier calculation section of `_resolve_assignment_until_wounds()` (around `RulesEngine.gd:591-601`), check if all alive models in the target unit have the Stealth keyword, and if so, apply `HitModifier.MINUS_ONE`.
+  The `HitModifier` enum and `apply_hit_modifiers()` function exist at `RulesEngine.gd:349-378` and can be reused.
+  Files: `RulesEngine.gd` — hit modifier section in `_resolve_assignment_until_wounds()`, and also in `_resolve_assignment()` for the auto-resolve path.
 
-## P3 — Low (Polish and competitive-level play)
+- [ ] Implement Lone Operative ability restricting targeting to within 12 inches
+  Rule: Unless part of an Attached unit, a unit with Lone Operative can only be selected as the target of a ranged attack if the attacking model is within 12".
+  No check for Lone Operative exists in `get_eligible_targets()` or `validate_shoot()` in `RulesEngine.gd`.
+  Fix: In `get_eligible_targets()` (around `RulesEngine.gd:1611-1655`), before adding a target to the eligible list, check if the target has the Lone Operative keyword and is not attached to a bodyguard unit (`attached_to` check). If so, verify that at least one alive model in the actor unit is within 12" of the target using the existing edge-to-edge measurement.
+  Also add a check in `validate_shoot()` for consistency.
+  Affects characters like Vindicare Assassin and many standalone characters.
+  Files: `RulesEngine.gd` — `get_eligible_targets()` and `validate_shoot()`.
 
-- [ ] Implement AI difficulty levels — Easy/Normal/Hard with different heuristic depths (QoL-5)
-- [ ] Implement army-specific strategies — melee/shooting/balanced/elite archetypes (QoL-6)
-- [ ] Implement move blocking — position units to block enemy movement corridors (AI-TACTIC-9)
-- [ ] Implement late-game strategy pivot — shift priorities based on turn and VP score (AI-TACTIC-10)
-- [ ] Implement counter-deployment — react to opponent's deployment choices (DEPLOY-2)
-- [ ] Implement faction ability activation — Oath of Moment target, Waaagh! declaration (CMD-3)
-- [ ] Implement fight order optimization — choose which unit fights first for best outcomes (FIGHT-6)
-- [ ] Implement secondary mission discard logic — discard unachievable secondaries for CP (SCORE-2)
-- [ ] Add Pistol usage in engagement range — fire Pistols when in melee (SHOOT-9)
-- [ ] Add counter-play to opponent stratagems — penalize targets with defensive buffs (SHOOT-10)
-- [ ] Implement charge multi-target declarations — declare charges against multiple nearby enemies (CHARGE-4)
-- [ ] Implement overwatch risk assessment — weigh charge benefit vs. overwatch damage (CHARGE-5)
-- [ ] Add AI unit highlighting during actions — glow effect on active unit (VIS-5)
-- [ ] Add floating damage numbers — combat text for damage and kills (VIS-6)
-- [ ] Add AI action log overlay — scrolling real-time action feed (VIS-7)
-- [ ] Add AI vs AI spectator improvements — auto-slow and dual summaries (QoL-7)
-- [ ] Add AI turn replay — review previous AI turn actions (QoL-8)
-- [ ] Add post-game AI performance summary — VP, kills, objectives, CP spent (QoL-9)
-- [ ] Implement charge arrow visualization — show charge declarations visually (VIS-3)
+- [ ] Implement wound roll modifier system with +1/-1 cap, similar to existing hit roll modifiers
+  Rule: Wound rolls can be modified by +1 or -1 (from abilities, auras, stratagems). Like hit roll modifiers, wound roll modifiers are capped at a net +1/-1. An unmodified wound roll of 1 always fails.
+  Hit roll modifiers are well-implemented with `HitModifier` enum and `apply_hit_modifiers()` at `RulesEngine.gd:349-378`. No equivalent system exists for wound rolls.
+  The wound roll logic at `RulesEngine.gd:714-733` simply compares the raw roll against the threshold with no modifier application.
+  The `assignment.modifiers` dictionary supports `hit` modifiers but has no `wound` modifier path.
+  Need to: create a `WoundModifier` enum similar to `HitModifier`, add an `apply_wound_modifiers()` function, integrate it into the wound roll comparison, ensure unmodified 1 always fails, and cap net modifier at +1/-1.
+  This infrastructure is needed for TWIN-LINKED re-rolls, LANCE keyword, and many unit abilities.
+  Files: `RulesEngine.gd` — create new wound modifier system near the existing hit modifier system (lines 349-378), integrate into wound roll logic (lines 714-733).
 
----
+- [ ] Implement HAZARDOUS weapon keyword causing mortal wounds on roll of 1 after attacking
+  Rule: After a unit has attacked with Hazardous weapons, for each Hazardous weapon that was used, roll one D6. On a 1, the bearer suffers 3 mortal wounds (or is destroyed if non-Character/non-Vehicle/non-Monster).
+  No implementation exists in `RulesEngine.gd`.
+  Need to: after resolving all attacks for a weapon with the Hazardous keyword, roll D6 per model that fired a Hazardous weapon. On a roll of 1, apply 3 mortal wounds to the bearer model. If the bearer is not a CHARACTER, VEHICLE, or MONSTER, it is simply destroyed instead.
+  Affects plasma weapons (Plasma Gun, Plasma Cannon, etc.).
+  Files: `RulesEngine.gd` — add post-attack Hazardous resolution. `ShootingPhase.gd` — trigger Hazardous checks after weapon resolution completes (around lines 682-764, the sequential weapon resolution section).
 
-# Deployment Phase Audit Tasks
+- [ ] Implement INDIRECT FIRE weapon keyword for shooting without line of sight
+  Rule: Weapons with Indirect Fire can target units not visible to the attacking model. When doing so: -1 to hit roll, unmodified hit rolls of 1-3 always fail (instead of just 1), and the target gains Benefit of Cover.
+  No implementation exists in `RulesEngine.gd`.
+  Need to: check if the weapon has the Indirect Fire keyword, and if the target is NOT visible (fails LoS check), allow the attack but apply the penalties: -1 to hit (via HitModifier system), unmodified rolls of 1-3 auto-fail, and force Benefit of Cover on the target.
+  The LoS check exists at `RulesEngine.gd:1350-1351` via `_check_line_of_sight()`. Currently, failing LoS prevents targeting entirely — need to allow it for Indirect Fire weapons.
+  The cover system exists at `RulesEngine.gd:1293-1296`.
+  Files: `RulesEngine.gd` — `validate_shoot()`, `get_eligible_targets()`, hit roll logic, and cover application.
 
-> Source: DEPLOYMENT_AUDIT.md — open items from deployment phase audit
+- [x] ~~Enforce Pistol mutual exclusivity — cannot fire both Pistol and non-Pistol weapons on the same model~~ **COMPLETED**
+  Lines 1324-1325 in `RulesEngine.gd` validate non-Pistol weapons cannot fire in engagement range. BIG GUNS NEVER TIRE applies -1 penalty to non-Pistol weapons at lines 609-614.
 
-## Rules Gaps
+## Tier 3 — Polish & Multiplayer
 
-- [ ] Fix reserves point cap from 25% to 50% — Chapter Approved 2025-26 rules specify max 50% of points AND 50% of units in reserves, but `DeploymentPhase._validate_place_in_reserves()` at line 276 uses `int(total_points * 0.25)`. Update to `0.50` and add unit count check (DEPLOY-RULES-1)
-- [x] Destroy reserves units not arrived by end of Round 3 — Per rules, any reserves units not on the battlefield by end of Round 3 count as destroyed. No enforcement exists. Add check at end-of-round processing to mark remaining `IN_RESERVES` units as `DESTROYED` with notification (DEPLOY-RULES-2)
-- [ ] Implement TITANIC unit deployment skip — When a player deploys a TITANIC unit, they skip their next deployment turn. Detect TITANIC keyword in `TurnManager.check_deployment_alternation()` and skip the deploying player's next turn (DEPLOY-RULES-3)
-- [ ] Add mission selection variety — Currently only "Take and Hold" with static objectives. Add additional mission types from Chapter Approved 2025-26 with different primary objectives and deployment configurations (DEPLOY-RULES-4)
+- [ ] Implement Overwatch (Fire Overwatch Stratagem) allowing defender to shoot at charging/shooting units
+  Rule: The defending player may use the Fire Overwatch stratagem (1CP) to shoot at an enemy unit during the opponent's Shooting, Charge, or Movement phases. Overwatch hits only on unmodified 6s regardless of BS or modifiers.
+  Not implemented. Test stubs exist in `test_shooting_phase.gd:312-324` and `test_charge_phase.gd:141-161`.
+  This requires: a Stratagem system (new), CP tracking for stratagem spending (extends existing Command Phase CP generation), an interrupt/reaction window in ShootingPhase and ChargePhase, NetworkManager support for cross-player actions during opponent's phase, and a RulesEngine function for Overwatch resolution (hits on 6s only).
+  This is a large feature that adds defender agency in multiplayer.
+  Files: New stratagem system, `ShootingPhase.gd`, `ChargePhase.gd` (if exists), `NetworkManager`, `RulesEngine.gd`.
 
-## Quality of Life
+- [ ] Implement PRECISION weapon keyword allowing wounds to be allocated to attached Character models
+  Rule: When a model with a Precision weapon scores a critical wound (unmodified 6), the attacking player can choose to allocate that wound to an attached Character model instead of the bodyguard unit.
+  No implementation exists. Currently attached characters are targeted through the bodyguard unit (`RulesEngine.gd:1611-1613`) with no option to allocate directly.
+  Need to: detect critical wounds from Precision weapons, present the attacker with a choice to allocate to the Character, and modify the wound allocation flow accordingly.
+  Files: `RulesEngine.gd` — wound allocation logic around lines 3648-3718, `WoundAllocationOverlay.gd`.
 
-- [ ] Add per-model undo during deployment — Current undo resets entire unit. Add Ctrl+Z to undo only the last placed model by decrementing `model_idx` and clearing last `temp_positions` entry. Keep full reset as separate button (DEPLOY-QOL-1)
-- [ ] Add coherency distance display during placement — Show real-time distance from ghost model to nearest placed model as a floating label (e.g., "1.8\"" green / "2.3\"" red) near the cursor during deployment (DEPLOY-QOL-2)
-- [ ] Add measuring tool button during deployment — Ensure measuring tape is accessible during deployment with a visible button or tooltip showing keybind (DEPLOY-QOL-3)
-- [x] Add opponent deployment notifications in multiplayer — When opponent deploys a unit: pan camera briefly to show placement, show toast "[Unit Name] deployed", add deployment log panel showing order of all deployments (DEPLOY-QOL-4)
-- [ ] Add keyboard shortcut reference overlay during deployment — Show toggleable controls panel (press ? to show/hide) listing Q/E rotation, Shift+click reposition, mouse wheel rotation, formation modes (DEPLOY-QOL-5)
+- [ ] Add remote player visual feedback for shooting actions (target highlights, range circles, LoS lines)
+  When the active player selects a shooter, assigns targets, and resolves attacks, the remote player sees state changes and dice results but NOT the visual feedback (range circles, LoS lines, target highlights).
+  The visual feedback is created by `ShootingController.gd` which only runs for the active player.
+  Suggestion: Broadcast "SELECT_SHOOTER" and "ASSIGN_TARGET" visual hints to the remote player. The `ShootingController` could listen for remote actions and create simplified visual overlays.
+  Files: `ShootingController.gd` — visual creation logic, `NetworkManager` — broadcast additional visual state.
 
-## Visual Improvements
+- [ ] Add expected damage preview when hovering weapons over potential targets
+  When hovering a weapon over a potential target, show an expected damage preview: "~X hits, ~Y wounds, ~Z unsaved" based on the weapon profile vs target stats.
+  The `RulesEngine.gd` already has all the data needed to compute this (BS, weapon S vs target T, AP vs save, damage).
+  Need to: create a calculation function that computes expected values without rolling dice, and display the result in a tooltip or overlay near the target.
+  Files: `RulesEngine.gd` — new expected damage calculation function. `ShootingController.gd` — UI display on hover.
 
-- [ ] Add unit placement drop-in animation — Brief scale 0→1 or fade-in over 0.2s when model is placed in `_spawn_preview_token()` for tactile feedback (DEPLOY-VIS-1)
-- [ ] Add player turn screen-edge color indicator — Prominent colored border around screen edge matching active player color (blue/red), flash briefly on turn swap, optional audio cue (DEPLOY-VIS-2)
-- [ ] Add deployment zone theming — Subtle textures/patterns within zones (diagonal hatching, military markers) to distinguish from regular board (DEPLOY-VIS-3)
-- [ ] Enhance ghost visual with coherency aids — Add pulsing effect to ghost, connecting line from ghost to nearest placed model, distance display to nearest friendly model (DEPLOY-VIS-4)
-- [ ] Add coherency visualization circles — Draw faint 2" radius circles around placed models, green when next model in range, red when out of range (DEPLOY-VIS-5)
-- [ ] Add unit name labels on deployed tokens — Show unit name on hover over deployed token or as tiny label beneath token cluster to distinguish same-type units (DEPLOY-VIS-6)
-- [ ] Add opponent deployment zone dimming — Dim/desaturate opponent zone when it's your turn, brighten your own zone. Reverse on opponent's turn (DEPLOY-VIS-7)
+- [ ] Add animated dice roll visualization replacing text-based dice log
+  Currently dice results are shown in a text-based dice log. Both hit and wound rolls appear as numbers.
+  Suggestion: Add animated dice roll visualization — show 2D dice sprites rolling and landing. Highlight critical hits (6s) in gold, misses (1s) in red.
+  This is impactful for engagement in multiplayer where both players watch the rolls.
+  The `dice_rolled` signal already emits dice blocks that can be visualized.
+  Files: New dice visualization scene/script, integration with `ShootingPhase.gd` dice_rolled signal.
 
-## Multiplayer Issues
+## Tier 4 — Nice to Have
 
-- [ ] Implement graceful disconnect handling during deployment — Replace `get_tree().quit()` on disconnect with reconnection dialog, grace period, option to save state or continue single-player (DEPLOY-MP-1)
-- [ ] Add web relay "Waiting for game state" loading screen — Guest side loading screen that dismisses once host state is received, preventing flash of default army configuration (DEPLOY-MP-2)
-- [ ] Reduce deployment timeout punitiveness — Longer timeout during deployment (>90s for large armies), warnings at 60s and 30s, consider auto-placing remaining units instead of instant loss (DEPLOY-MP-3)
-- [ ] Batch deploy+embark/attach into composite action — Fix race condition where embark/attach actions arrive after player switch in multiplayer. Bundle deploy + embark/attach into single atomic action (DEPLOY-MP-4)
+- [ ] Implement LANCE weapon keyword giving +1 to wound if bearer charged this turn
+  Rule: +1 to wound rolls if the bearer's unit made a charge move this turn. Primarily melee but applies to ranged weapons too.
+  No implementation exists. Requires the wound modifier system to be implemented first (see wound roll modifier task).
+  Need to: check if the attacking unit has the `charged` flag set, and if the weapon has the Lance keyword, apply +1 wound modifier.
+  Files: `RulesEngine.gd` — wound roll logic, depends on wound modifier system being in place.
 
-## Code Quality
+- [ ] Implement ONE SHOT weapon keyword restricting weapon to single use per battle
+  Rule: A weapon with One Shot can only be fired once per battle. After firing, it cannot be selected again.
+  No implementation exists.
+  Need to: track which One Shot weapons have been fired (per model, persisted across turns), and exclude them from weapon selection in subsequent shooting phases.
+  Files: `RulesEngine.gd` — weapon eligibility, unit/model state tracking for fired One Shot weapons. `ShootingPhase.gd` — weapon selection filtering.
 
-- [ ] Consolidate duplicate geometry functions — Move shared `_circle_wholly_in_polygon()`, `_point_to_line_distance()`, `_shape_wholly_in_polygon()` from DeploymentPhase.gd and DeploymentController.gd into Measurement.gd (DEPLOY-CODE-1)
-- [ ] Fix snapshot staleness in `_all_units_deployed()` — Refresh phase snapshot in `_process_deploy_unit()` after applying changes so `_all_units_deployed()` can use snapshot instead of direct GameState access (DEPLOY-CODE-2)
+- [ ] Implement EXTRA ATTACKS weapon keyword for bonus attacks that don't replace normal attacks
+  Rule: A weapon with Extra Attacks provides additional attacks on top of the model's normal attacks, rather than being an alternative weapon choice.
+  No implementation exists.
+  Need to: when a model has a weapon with Extra Attacks, automatically include those attacks in addition to whatever other weapon the model fires, rather than requiring the player to choose between them.
+  Files: `ShootingPhase.gd` — weapon assignment logic. `RulesEngine.gd` — attack counting.
 
----
+- [ ] Implement Go to Ground and Smokescreen stratagems for defender reactions
+  Rule: Go to Ground (Infantry) and Smokescreen (SMOKE keyword units) are stratagems the defender can use when targeted. Go to Ground makes the unit go prone for improved cover. Smokescreen grants Benefit of Cover.
+  Requires the stratagem system to be built first (see Overwatch task).
+  Files: New stratagem system, `RulesEngine.gd` — cover/save modifications.
 
-# Holistic Game Audit Tasks
+- [ ] Add shooting phase summary panel showing total hits/wounds/casualties per target after all units have shot
+  After all units have shot, show a summary panel with total hits/wounds/casualties per target unit before ending the phase.
+  This gives both players a clear picture of the phase's outcome.
+  Files: New UI panel scene, `ShootingPhase.gd` — trigger display before phase end.
 
-> Source: FEB21_AUDIT.md (updated 2026-02-27) — Rules compliance, QoL, visual improvements
-> Cross-referenced against: Wahapedia 10e Core Rules, Balance Dataslate v3.3, Core Rules Updates & Errata, MASTER_AUDIT.md
+- [ ] Add shooting line animation and tracer effects from attacker to target during resolution
+  During attack resolution, draw a clear animated line or arrow from the shooting unit to its target. Add a brief muzzle flash or tracer effect. Remove after resolution completes.
+  An LoS line exists (`los_visual` in `ShootingController.gd:29`) but is used primarily for LoS debugging, not as a persistent shooting visualization.
+  Files: `ShootingController.gd` — visual line creation. New particle/animation effects.
 
-## P0 — Critical (Game-breaking rules violations)
+- [ ] Add keyboard shortcuts for common shooting phase actions (Space/Enter confirm, Escape cancel, Tab cycle, N skip, E end)
+  Keyboard shortcuts for frequent actions: Space or Enter to confirm targets, Escape to deselect/cancel, Tab to cycle through eligible units, N to skip current unit, E to end shooting phase.
+  Files: `ShootingPhase.gd` or `ShootingController.gd` — input handling.
 
-- [ ] Implement CHARACTER targeting "closest eligible visible unit" restriction — Characters with W<=9 near friendly non-Character units (3+ models or VEHICLE/MONSTER) cannot be targeted by ranged attacks unless they are the closest eligible visible target to the attacker. Add closest-eligible check to `_validate_assign_target()` in ShootingPhase.gd and `get_eligible_targets()` in RulesEngine.gd. Must compute distance from each attacking model to all eligible targets and only allow CHARACTER targeting when it is the nearest. (SHOOT-1)
-- [ ] Implement defender-controlled wound allocation — Per 10e rules, the DEFENDING player chooses which model receives each wound (with the restriction that a model that has already lost wounds or had attacks allocated to it this phase must be allocated first). Currently wounds are auto-allocated without defender input. Add a wound allocation prompt for the defending player in ShootingPhase.gd and FightPhase.gd, with the auto-allocation as fallback for AI. In multiplayer, the defender must be presented the allocation choice. (SHOOT-9)
+## Additional Issues from Audit
 
-## P1 — High (Incorrect rules that significantly affect gameplay)
+- [ ] Expand cover determination beyond ruins terrain to include area terrain, obstacles, woods, craters, barricades
+  Currently `check_benefit_of_cover()` at `RulesEngine.gd:1440-1461` only checks for "ruins" terrain type.
+  Rule: Benefit of Cover can be granted by ruins, area terrain, obstacles, and other terrain features. Specific conditions apply depending on terrain type (e.g., "within" for Area Terrain, "behind" for obstacles).
+  Files: `RulesEngine.gd` — `check_benefit_of_cover()` around lines 1440-1461, terrain type definitions.
 
-- [ ] Implement Out-of-Phase rules restriction — When using out-of-phase rules (e.g., Fire Overwatch during opponent's movement), you cannot use any other rules normally triggered in that phase. Add an `out_of_phase` flag to track when actions are performed reactively and gate phase-specific abilities/stratagems. Critical for preventing e.g. Pinning Bombardment during Overwatch. (GEN-1)
-- [ ] Implement transport destruction effects — When a transport with embarked units is destroyed: roll D6 per embarked model (1 = 1 MW set up within 3", 1-3 = 1 MW set up within 6", 4+ = safe). Models that can't be placed are destroyed. Surviving models count as having disembarked. Add `resolve_transport_destruction()` to RulesEngine.gd, triggered from damage application when a transport unit is destroyed. (GEN-8)
-- [ ] Implement pivot values for non-round base models — Core Rules Updates: non-round base non-Monster/Vehicle = 1" subtracted from movement on first pivot, Monster/Vehicle non-round base = 2", Vehicle round base >32mm with flying stem = 2". Add pivot tracking to MovementPhase.gd and deduct from remaining movement distance. (MOV-1)
-- [ ] Implement vertical coherency limit (5") — `_check_models_coherency()` in MovementPhase.gd only checks 2" horizontal distance. Rules require models be within 2" horizontal AND 5" vertical of coherency partners. Add vertical distance check to coherency validation. (MOV-2)
-- [ ] Add 5" vertical component to Engagement Range checks — `Measurement.is_in_engagement_range_shape_aware()` is purely 2D (1" horizontal). Rules define ER as 1" horizontal AND 5" vertical. Add height/elevation check to engagement range calculation in Measurement.gd. Affects movement restrictions, shooting eligibility, fight eligibility, and charge validation. (MOV-8)
-- [ ] Fix attached unit starting strength for battle-shock — `is_below_half_strength()` in GameState.gd does not combine bodyguard + attached character models for starting strength. A Warboss (1 model) attached to 10 Boyz should have starting strength 11. Update to use `get_combined_models()` count when checking attached units in CommandPhase.gd. (CMD-6)
-- [ ] Implement Ruins visibility rules — Core Rules Updates: "Models cannot see over or through Ruins terrain." Aircraft and Towering models are exceptions. Models can see into Ruins normally. Models wholly within Ruins can see out normally. Add ruins-specific LoS blocking to LineOfSightManager.gd / EnhancedLineOfSight.gd. (TER-2)
-- [ ] Fix leader attachment not working visually for human player — User reports selecting leaders in Formations phase but they still deploy separately. AI attachment works. Investigate FormationsPhase → DeploymentPhase integration for human players — ensure attachment state persists and deployment skips attached characters. (BUG-1)
-- [ ] Fix wound allocation overlay showing models in wrong positions — "The Kommandos are not in the place where they are expected to be when I allocate wounds." Investigate WoundAllocationOverlay model position rendering — model tokens may not match actual board positions. (BUG-2)
-- [ ] Investigate and fix Line of Sight issues — User reports "Line of sight is not working as expected." May relate to TER-2 (ruins) or bugs in EnhancedLineOfSight.gd. Test LoS across various terrain configurations and fix discrepancies. (BUG-3)
+- [x] ~~Fix Devastating Wounds to properly model mortal wounds as distinct damage type with correct spillover~~ **COMPLETED**
+  `has_devastating_wounds()` at `RulesEngine.gd:703`. Critical wounds tracked at lines 739-758. DW count separated from regular wounds at lines 778-779 and passed to save preparation at lines 791-803.
 
-## P2 — Medium (Rules gaps that occasionally affect gameplay)
+- [x] ~~Add unmodified wound roll of 1 always fails check to wound roll logic~~ **COMPLETED**
+  Handling at `RulesEngine.gd:713-714`. Implicit in wound processing logic.
 
-- [ ] Implement CP cap — Core rules + FAQ: players can gain at most 1 additional CP per battle round from non-automatic sources (beyond the 1 CP auto-generated). Add tracking of CP gained per battle round and cap enforcement in CommandPhase.gd and StratagemManager.gd. (CMD-1)
-- [ ] Add FEARLESS/ATSKNF keyword immunity to battle-shock — Units with FEARLESS or And They Shall Know No Fear keywords should auto-pass battle-shock tests. Add keyword check in `_identify_units_needing_tests()` in CommandPhase.gd. (CMD-2)
-- [ ] Implement surge move rules and restrictions — Core Rules Updates defines "surge" moves (out-of-phase moves triggered by abilities). Restrictions: once per phase, not while battle-shocked, not while in Engagement Range. Add surge move validation. (MOV-3)
-- [ ] Enforce one Normal move per phase limit — "A unit cannot make more than one Normal move per phase." Add per-phase normal move tracking in MovementPhase.gd. (MOV-4)
-- [ ] Validate Monster/Vehicle cannot move through friendly Monster/Vehicle — Errata: Monsters and Vehicles cannot move through other friendly Monsters/Vehicles. Add keyword-based movement blocking check. (MOV-5)
-- [ ] Update Hazardous to Balance Dataslate v3.3 allocation priority — Allocation priority: (1) wounded model with Hazardous weapon, (2) non-Character with Hazardous, (3) Character with Hazardous. Unit suffers 3 mortal wounds allocated to selected model. Verify and update `resolve_hazardous_check()` in RulesEngine.gd. (SHOOT-2)
-- [ ] Enforce Extra Attacks number cannot be modified — Balance Dataslate: "number of attacks made with an Extra Attacks weapon cannot be modified by other rules, unless that weapon's name is explicitly specified." Add validation in RulesEngine.gd attack count calculation. (SHOOT-4)
-- [ ] Verify Tank Shock matches Balance Dataslate v3.3 — v3.3: Roll D6 equal to TOUGHNESS of selected Vehicle model, 5+ = MW (max 6 MW). Check StratagemManager.gd Tank Shock implementation against updated wording. (CHG-1)
-- [ ] Add terrain penalties to Heroic Intervention charge roll — `_is_heroic_intervention_roll_sufficient()` does not apply terrain vertical distance penalties unlike normal charge sufficiency check. Add terrain penalty calculation. (CHG-2)
-- [ ] Verify consolidation is mandatory at unit level per FAQ — "Consolidation for a unit is not optional. However, for each model, whether or not that model makes a Consolidation move is optional." Ensure FightPhase.gd forces the consolidation step even if individual models don't move. (FGT-1)
-- [ ] Implement Obscuring terrain keyword — No special rules for terrain features with the Obscuring keyword. Add terrain trait and LoS interaction. (TER-4)
-- [ ] Implement Deep Strike can choose Strategic Reserves placement — Balance Dataslate: "If a unit with Deep Strike arrives from Strategic Reserves, the player can choose to set up using Strategic Reserves OR Deep Strike rules." Add option in reinforcement placement UI. (DEP-3)
-- [ ] Update Scouts rules per Balance Dataslate — Dedicated Transports can use Scouts ability from embarked unit. Scout distance can exceed Move characteristic as long as ≤ X". Update ScoutPhase.gd. (DEP-4)
-- [ ] Complete Scorched Earth mission — Burn mechanics are stub only. Implement the objective burning action and scoring. (MIS-1)
-- [ ] Complete The Ritual mission — Action-based objective mechanics not implemented. Add action system for ritual objectives. (MIS-2)
-- [ ] Complete Terraform mission — Objective flipping between players not implemented. Add flip mechanics. (MIS-3)
-- [ ] Add Fixed secondary mission mode — Only tactical deck mode available. Add option for players to select 3 fixed secondary missions before the game. (MIS-4)
-- [ ] Apply Balance Dataslate v3.3 stratagem modifications — Multiple stratagem changes: closer setup range (3"→6"), AP worsening timing, CP cost modifications, targeting prevention (12"→18"), unit addition once per battle restriction. Update StratagemManager.gd. (GEN-4)
-- [ ] Update Rapid Ingress per Balance Dataslate — Updated: "if every model has Deep Strike ability, you can set up using Deep Strike (even though not your Movement phase)." Verify implementation in StratagemManager.gd. (GEN-5)
-- [ ] Update Fire Overwatch timing per Balance Dataslate — Trigger expanded to: "just after an enemy unit is set up or when an enemy unit starts or ends a Normal, Advance or Fall Back move, or declares a charge." Verify timing in MovementPhase.gd and ChargePhase.gd. (GEN-6)
-- [ ] Implement aura abilities system — No range-based aura effect application. `passive_aura` condition type exists in UnitAbilityManager.gd but is not functionally applied to other units within range. Build aura detection and effect propagation system. (GEN-7)
-- [ ] Fix attached unit Toughness resolution — For wound rolls against an attached unit, Toughness should be the bodyguard unit's T value. RulesEngine.gd reads T from the target unit directly with no special handling for attached characters. May cause incorrect wound thresholds. (GEN-13)
-- [ ] Fix weapon-by-weapon attack allocation for multi-weapon units — User reports "I should be able to allocate each user's attacks separately." Verify multi-weapon target assignment works correctly for units with different weapon profiles. (BUG-4)
-- [ ] Fix save/load games with AI players — SaveLoadManager.gd has no AI player detection or state serialization. AI player state (difficulty, decision context) not preserved across save/load. (BUG-5)
+- [x] ~~Add unmodified save roll of 1 always fails check to auto-resolve save path~~ **COMPLETED**
+  `RulesEngine.gd:1199-1200` in auto-resolve path: `if save_roll > 1` explicitly checks for 1 as auto-fail.
 
-## P3 — Low (Edge cases, polish, minor gaps)
+- [ ] Sync duplicate resolution paths to prevent rules drift between auto-resolve and interactive paths
+  Two parallel resolution functions exist: `_resolve_assignment()` (auto-resolve, `RulesEngine.gd:803-1180`) and `_resolve_assignment_until_wounds()` (interactive, `RulesEngine.gd:467-798`).
+  Risk: If a keyword or rule is updated in one path but not the other, they'll produce different results.
+  Consider refactoring to share common logic, or at minimum ensure both paths are updated together when adding new keywords/rules.
+  Files: `RulesEngine.gd` — both resolution functions.
 
-- [ ] Prevent battle-shocked units from using self-targeted stratagems — StratagemManager.gd only prevents targeting battle-shocked units with friendly stratagems, not all stratagem usage by battle-shocked units. (CMD-3)
-- [ ] Add confirmation before auto-resolving untaken battle-shock tests — Currently auto-resolves silently. Show warning dialog. (CMD-4)
-- [ ] Fix embark/disembark distance calculation inconsistency — Embark uses `model_to_model_distance_inches()` but disembark uses shape-aware distance. Standardize. (MOV-6)
-- [ ] Enforce "cannot select to shoot with no eligible targets" — "Unless at least one model in a unit has an eligible target, that unit cannot be selected to shoot." Add check to unit selection. (SHOOT-7)
-- [ ] Track invulnerable save source in UI — When invuln save is used, show indicator of whether it's model-native or effect-granted. (SHOOT-8)
-- [ ] Display terrain penalty in charge distance UI — Players see rolled distance but not effective distance after terrain penalties. Show "Effective: X\" (Y\" - Z\" terrain)". (CHG-3)
-- [ ] Add live direction validation feedback during charge movement — No real-time feedback as player drags model to show if final position satisfies direction constraint. (CHG-4)
-- [ ] Verify Epic Challenge stratagem interaction in attached units — Ensure 1CP Epic Challenge properly enables CHARACTER vs CHARACTER melee dueling within attached units. (FGT-2)
-- [ ] Sync pile-in/consolidation drag for remote player — Remote player sees models "teleport" to final positions; cosmetic only. (FGT-3)
-- [ ] Complete when-drawn secondary mission interactions UI — Marked for Death and Tempting Target opponent selection not fully wired. (MIS-5)
-- [ ] Verify objective control timing — "A player will control an objective marker at the end of any phase or turn." Ensure timing matches rules. (MIS-6)
-- [ ] Validate Warlord designation — `is_warlord` field exists but no enforcement that exactly one CHARACTER is designated. (GEN-9)
-- [ ] Add army construction points validation — Points tracked but no validation during list building. No detachment enforcement. (GEN-10)
-- [ ] Verify persisting effects match Core Rules Updates — Core Rules Updates defines "persisting effects" with specific duration tracking. Verify effect expiration. (GEN-11)
-- [ ] Implement redeployment rules — Core Rules Updates: rules allowing redeployment resolved after Deploy Armies, before Determine First Turn. (GEN-12)
-- [ ] Make deployment zone toggle more prominent — User requested deployment zone visibility toggle. Ensure button is easy to find. (BUG-6)
+- [ ] Fix single weapon result dialog to include hit count and total attacks data instead of hardcoded zeros
+  In the single-weapon path through `_process_apply_saves()` at `ShootingPhase.gd:1796-1807`, the `last_weapon_result` dictionary has hardcoded zeros for "hits" and "total_attacks".
+  The data IS available in the dice log but isn't being extracted.
+  Fix: Extract hit count and total attacks from the dice log or resolution results and populate the result dictionary.
+  Files: `ShootingPhase.gd` — `_process_apply_saves()` around lines 1796-1807.
 
-## QoL — Quality of Life Improvements
+- [ ] Fix weapon ID generation to prevent collisions for weapons with similar names
+  `_generate_weapon_id()` creates IDs from weapon names (lowered, spaces to underscores). If two different weapons share the same generated ID (e.g., different variants of "Bolt Rifle"), they'd collide.
+  Fix: Include additional distinguishing information in the ID (e.g., weapon stats hash, model index, or a unique counter).
+  Files: `RulesEngine.gd` or `ShootingPhase.gd` — wherever `_generate_weapon_id()` is defined.
 
-- [ ] Add turn/round progress indicator to HUD — Show "Round 3/5 - Player 1 Turn" persistently. (QOL-1)
-- [ ] Add phase rules brief during transitions — Brief popup/tooltip explaining available actions in each phase. (QOL-2)
-- [ ] Add keyboard hotkeys for common actions — Tab to cycle units, number keys for quick-select, Enter to confirm, Esc to cancel. (QOL-3)
-- [ ] Add settings menu — Audio controls, visual settings, UI scale, animation speed, colorblind mode. (QOL-4)
-- [ ] Add auto-save at round end — Automatic saves at key points (round end, phase transitions). (QOL-5)
-- [ ] Add quick-assign "All weapons to target" in shooting — Common case should be one click. (QOL-6)
-- [ ] Add expected damage preview during weapon assignment — Mathhammer-style prediction as assignments are made. (QOL-7)
-- [ ] Add quick-assign "All to Target" in melee — Same as QOL-6 for fight phase. (QOL-8)
-- [ ] Add available movement indicator — Show "X inches remaining" floating text during model movement. (QOL-9)
-- [ ] Add coherency preview during movement — Visual line showing unit coherency as models move. (QOL-10)
-- [ ] Add terrain penalty display during charge — Show effective charge distance after terrain penalties. (QOL-11)
-- [ ] Add dice roll history panel — Scrollable history of past dice rolls for review. (QOL-12)
-- [ ] Add dice statistics summary after rolls — Show aggregate counts (e.g., "8 hits out of 10 rolls"). (QOL-13)
-- [ ] Add reroll visualization — Show original + new die side-by-side for Command Re-roll. (QOL-14)
-- [ ] Add live opponent action feed in multiplayer — Show "Player 2 moved Ork Boyz forward" in real-time. (QOL-15)
-- [ ] Add chat/emote system for multiplayer — Quick predefined messages (Good Luck, Nice Move, etc.). (QOL-16)
-- [ ] Add save file descriptions — User-editable notes on save files. (QOL-17)
-- [ ] Add quick save/load hotkeys — F5 to quick-save, F9 to quick-load. (QOL-18)
-- [ ] Add Mathhammer quick start presets — "Typical Infantry vs Light Armor" templates. (QOL-19)
-- [ ] Add unit filter/sort in selection panel — Filter by status (wounded, fresh, moved) or type (infantry, vehicle). (QOL-20)
-- [ ] Add double-click zoom to unit — Camera centers on selected unit on double-click. (QOL-21)
-- [ ] Add scoring counter HUD — Display current VP by player persistently. (QOL-22)
-- [ ] Add secondary objective progress tracking — Show progress toward active secondary missions. (QOL-23)
-- [ ] Add undo last action — Allow undoing last model placement/move/assignment. (QOL-24)
-- [ ] Add weapon range comparison view — Side-by-side range circles for all weapons on selected unit. (QOL-25)
+- [ ] Add auto-select weapon for single-weapon units to reduce unnecessary clicks
+  If a unit only has one ranged weapon type, auto-assign it when a target is selected. Only show the full weapon assignment UI for units with 2+ weapon types.
+  Files: `ShootingPhase.gd` — weapon assignment flow, `ShootingController.gd` — UI logic.
 
-## Visual — Visual Improvements
+- [ ] Add "Shoot All Remaining" button to auto-process eligible units that haven't shot
+  After a unit finishes shooting, add a "Shoot All Remaining" or "Auto-Shoot Remaining" option that iterates through all eligible units, using a default target assignment (e.g., nearest eligible target). Include a confirmation step before executing.
+  Files: `ShootingPhase.gd` — phase flow, `ShootingController.gd` — UI button.
 
-- [ ] Add dice roll sound effects — Rolling, settling, critical success/failure audio cues. (VIS-1)
-- [ ] Add larger dice for mobile/touch — Current dice too small for touchscreen. (VIS-2)
-- [ ] Add distinct terrain type visuals — Different visual styles for ruins, forests, hills, obstacles. (VIS-3)
-- [ ] Add measurement grid overlay — Optional inch markers (every 6", every 12"). (VIS-4)
-- [ ] Add height/elevation visualization — Elevated terrain with shading/3D effect. (VIS-5)
-- [ ] Add LoS blocker terrain indication — Visual distinction for LoS-blocking terrain. (VIS-6)
-- [ ] Add persistent model health bars on board — Show model wounds above/below bases. (VIS-7)
-- [ ] Add damaged model visual distinction — Wounded models look different from fresh. (VIS-8)
-- [ ] Add human player movement path preview — Drag-to-plan movement path visualization (AI has this, humans don't). (VIS-9)
-- [ ] Add movement cost terrain heatmap — Darker colors = slower movement areas. (VIS-10)
-- [ ] Add multi-enemy engagement highlighting — Show all eligible enemies simultaneously. (VIS-11)
-- [ ] Add colorblind-friendly engagement indicators — Shapes/patterns in addition to color. (VIS-12)
-- [ ] Add phase transition sound effects — Audio cues for phase changes. (VIS-13)
-- [ ] Add charge trajectory preview — Show expected path when declaring charges. (VIS-14)
-- [ ] Add multi-weapon range display overlay — All weapon ranges overlaid together. (VIS-15)
-- [ ] Add enemy threat range indicators — Show where enemy counter-attacks can reach. (VIS-16)
-- [ ] Add VP scoring timeline chart — VP progression chart over game rounds. (VIS-17)
+- [ ] Show weapon stats (range, S, AP, D, keywords) in target assignment UI panel
+  When assigning weapons to targets, show a compact weapon stat line next to each weapon (e.g., "Bolt Rifle: 24\" S4 AP-1 D1 [Rapid Fire 1, Heavy]").
+  Files: `ShootingController.gd` — weapon assignment UI panel.
+
+- [ ] Add "Undo Last Assignment" button to weapon assignment UI
+  Currently the clear button removes all assignments. Add an "Undo Last" button that removes only the most recent weapon assignment while keeping previous ones.
+  Files: `ShootingPhase.gd` — assignment tracking, `ShootingController.gd` — UI button.
+
+- [ ] Add target unit damage feedback with flash effect and death animation when models take damage or die
+  Currently casualties are applied and sprites are updated with no transition effect.
+  Suggestion: Add a brief damage flash (red tint) when a model takes damage, and a death animation (fade out, fall over, or small explosion particle) when destroyed.
+  Files: Model scene scripts, new particle/animation effects.
+
+- [ ] Add range circle visualization showing weapon range and half-range when selecting weapons
+  When a weapon is selected, show its range as a translucent circle on the board. Color-code eligible targets inside the range. Show half-range for Rapid Fire and Melta weapons as a dotted inner circle.
+  `ShootingRangeVisual` exists at `ShootingController.gd:133-135` as a Node2D container but needs full implementation.
+  Files: `ShootingController.gd` — `ShootingRangeVisual` implementation.
+
+- [ ] Enhance wound allocation overlay with pulsing highlight on priority model, health color gradient, and wound counters
+  Enhance `WoundAllocationOverlay.gd` with: pulsing highlight on the model that must receive the next wound (priority wounded model), color gradient from green to red on model bases based on health, and small wound counter displayed near each model's sprite.
+  Files: `WoundAllocationOverlay.gd`.
+
+- [ ] Add weapon keyword icons next to weapon names in UI (lightning for Lethal Hits, spread for Blast, flame for Torrent, etc.)
+  Display small icons next to weapon names in the UI to represent their keywords, making weapon capabilities immediately recognizable without reading text.
+  Files: UI scenes for weapon display, new icon assets.
+
+- [ ] Add phase transition animation banner when entering Shooting Phase
+  Show a brief phase banner ("SHOOTING PHASE" with an appropriate icon) that fades in and out when entering the phase. Signals phase change clearly to both players.
+  Files: Phase transition UI, `ShootingPhase.gd` — trigger on phase entry.
+
+- [ ] Improve save dialog timing reliability for defender on remote client with retry/confirmation mechanism
+  The `saves_required` signal triggers the wound allocation overlay. In multiplayer, save data is broadcast in the action result. If the broadcast is delayed or lost, the defender may not see the save dialog.
+  The code has defensive logging at `ShootingPhase.gd:601-619` but no explicit retry or confirmation mechanism.
+  Files: `ShootingPhase.gd` — save data broadcast, `NetworkManager` — reliable delivery.
+
+- [ ] Sync dice log visibility to remote player in real-time during shooting resolution
+  The `dice_rolled` signal emits dice blocks locally. The remote player receives dice results through action result broadcasts, but real-time dice roll display may not be synchronized.
+  Files: `ShootingPhase.gd` — dice_rolled signal, `NetworkManager` — dice result broadcasting.
+
+## Code TODOs Not Covered Elsewhere (discovered 2026-02-15)
+
+- [ ] Show game over UI with winner and reason
+  `NetworkManager.gd:1469` — After game over is determined, no UI is shown to the players.
+  Files: `NetworkManager.gd`, new game over UI scene.
+
+- [ ] Implement Morale Phase stratagem validation
+  `MoralePhase.gd:107` — Stratagem validation during morale is stubbed out.
+  Files: `MoralePhase.gd`.
+
+- [ ] Remove additional models due to morale failure
+  `MoralePhase.gd:164` — After a failed morale check, additional model removal is not implemented.
+  Files: `MoralePhase.gd`.
+
+- [ ] Implement actual Morale Phase stratagem effects
+  `MoralePhase.gd:203` — Stratagem effects (e.g., Insane Bravery) are not implemented.
+  Files: `MoralePhase.gd`.
+
+- [ ] Implement morale modifiers based on unit state and abilities
+  `MoralePhase.gd:339` — Morale modifiers from unit abilities, nearby characters, etc. are not applied.
+  Files: `MoralePhase.gd`.
+
+- [ ] Add helper methods for morale mechanics
+  `MoralePhase.gd:357` — Missing utility functions for morale calculations.
+  Files: `MoralePhase.gd`.
+
+- [ ] Integrate full mathhammer simulation for melee predictions
+  `FightPhase.gd:947` — Fight phase predictions use basic text instead of full statistical simulation.
+  Files: `FightPhase.gd`, `MathhhammerUI.gd`.
+
+- [ ] Implement custom drawing for visual histogram in Mathhammer UI
+  `MathhhammerUI.gd:738` — Histogram uses text-based display instead of drawn visuals.
+  Files: `MathhhammerUI.gd`.
+
+- [ ] Handle medium/low terrain height in Line of Sight calculations
+  `LineOfSightCalculator.gd:79` — Only "tall" terrain is handled; medium/low terrain is not factored based on model height.
+  Files: `LineOfSightCalculator.gd`.
+
+- [ ] Fix LogMonitor or use alternative method to track peer connections in tests
+  `MultiplayerIntegrationTest.gd:469` — LogMonitor peer connection tracking is unreliable.
+  Files: `tests/helpers/MultiplayerIntegrationTest.gd`.
+
+- [ ] Complete multiplayer deployment test assertions
+  `test_multiplayer_deployment.gd:555-574` — Multiple test assertion TODOs for verifying host/client state sync, unit positions, coherency checks, and model position extraction.
+  Files: `tests/integration/test_multiplayer_deployment.gd`.
