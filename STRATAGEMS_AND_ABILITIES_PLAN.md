@@ -13,21 +13,44 @@
 - Full ability data in army JSON files (`meta.abilities` array per unit)
 - Ability data in `Abilities.csv` and `Datasheets_abilities.csv`
 
-### What's Missing
+### What's Been Completed (Steps 1-10)
 
-**Stratagems: Not implemented at all**
-- `GameManager.process_use_stratagem()` returns empty success (line 525-526)
-- `MoralePhase._process_use_stratagem()` has skeleton code with TODOs (line 198-232)
-- No stratagem data loaded into the game engine
-- No stratagem UI
-- No CP spending/tracking for stratagems
+**Stratagems: Fully functional**
+- StratagemManager autoload with CP tracking, usage history, phase/timing validation
+- All 11 Core stratagems implemented: Insane Bravery, Go to Ground, Smokescreen, Grenade, Epic Challenge, Command Re-roll, Counter-Offensive, Fire Overwatch, Heroic Intervention (Tank Shock, Rapid Ingress pending)
+- EffectPrimitives data-driven effect library with 30+ effect types, shared by stratagems and abilities
+- Faction stratagems loaded from CSV for Space Marines, Orks, Adeptus Custodes (~40-60% coverage per detachment)
+- Reactive stratagem flow (opponent-turn prompting) for defensive stratagems
+- Full integration with RulesEngine hit/wound/save modifier system
 
-**Unit Abilities: Stored but mostly unused**
-- Only 6 abilities are actually functional: Deep Strike, Infiltrators, Fights First, Leader, Transport, Firing Deck
-- All other datasheet abilities (e.g., "Might is Right: +1 to Hit while leading") are stored in JSON but **never read during gameplay**
-- No system to parse ability descriptions into mechanical effects
-- No aura system for abilities that affect nearby units
-- Hit/wound modifiers exist in RulesEngine but are only populated from manual UI checkboxes, not from abilities
+**Unit Abilities: Data-driven via UnitAbilityManager**
+- UnitAbilityManager autoload with ABILITY_EFFECTS lookup table (18 abilities defined, 13 implemented)
+- Leader abilities apply effect flags to bodyguard units at combat phase start (Might is Right, More Dakka, Dok's Toolz, etc.)
+- Always-on abilities apply to unit itself (Stand Vigil, Ramshackle, Daughters of the Abyss)
+- RulesEngine reads effect flags for hit/wound modifiers, FNP, cover in all combat resolution paths
+- Oath of Moment faction ability fully functional via FactionAbilityManager
+
+### What Remains
+
+**Core stratagems not yet implemented:**
+- Tank Shock (mortal wounds on charge)
+- Rapid Ingress (reserves during opponent's turn)
+
+**Faction abilities not yet implemented:**
+- Waaagh! (Orks): multi-effect activation (advance+charge, +1 S/A melee, 5+ invuln)
+- Martial Ka'tah (Custodes): stance-based system
+
+**Unit abilities not yet mappable (need new effect primitives):**
+- Stat characteristic modification (e.g., Da Biggest and da Best: +4 Attacks, Dead Brutal: Damage = 3)
+- Weapon-specific modifications (changes to specific weapon profiles)
+- Aura abilities (effects on nearby friendly/enemy units within range)
+
+**Integration & polish (Stage 6):**
+- Stratagem UI panel (showing available stratagems per phase)
+- Multiplayer sync for stratagem usage
+- AI opponent stratagem usage (simple heuristics)
+- Save/load integration for stratagem usage history
+- Comprehensive integration test coverage
 
 ---
 
@@ -64,19 +87,19 @@ Analysis of all 1,397 stratagems reveals they fall into these mechanical effect 
 
 These are universal and highest priority:
 
-| Stratagem | CP | Phase | Effect |
-|-----------|-----|-------|--------|
-| **COMMAND RE-ROLL** | 1 | Any | Re-roll any single dice roll |
-| **EPIC CHALLENGE** | 1 | Fight | CHARACTER melee attacks gain [PRECISION] |
-| **INSANE BRAVERY** | 1 | Command | Auto-pass Battle-shock test (once/battle) |
-| **GO TO GROUND** | 1 | Opponent Shooting | INFANTRY gains 6+ invuln + cover |
-| **SMOKESCREEN** | 1 | Opponent Shooting | SMOKE unit gains cover + Stealth |
-| **GRENADE** | 1 | Shooting | GRENADES unit: roll 6D6, 4+ = 1 MW |
-| **TANK SHOCK** | 1 | Charge | VEHICLE: roll D6 = Toughness, 5+ = MW |
-| **FIRE OVERWATCH** | 1 | Opponent Move/Charge | Shoot enemy (only hit on 6s) |
-| **RAPID INGRESS** | 1 | Opponent Movement | Reserves unit arrives during enemy turn |
-| **HEROIC INTERVENTION** | 1 | Opponent Charge | Declare counter-charge within 6" |
-| **COUNTER-OFFENSIVE** | 2 | Fight | Your unit fights next |
+| Stratagem | CP | Phase | Effect | Status |
+|-----------|-----|-------|--------|--------|
+| **INSANE BRAVERY** | 1 | Command | Auto-pass Battle-shock test (once/battle) | ✅ Step 1 |
+| **GO TO GROUND** | 1 | Opponent Shooting | INFANTRY gains 6+ invuln + cover | ✅ Step 2 |
+| **SMOKESCREEN** | 1 | Opponent Shooting | SMOKE unit gains cover + Stealth | ✅ Step 2 |
+| **GRENADE** | 1 | Shooting | GRENADES unit: roll 6D6, 4+ = 1 MW | ✅ Step 3 |
+| **EPIC CHALLENGE** | 1 | Fight | CHARACTER melee attacks gain [PRECISION] | ✅ Step 4 |
+| **COMMAND RE-ROLL** | 1 | Any | Re-roll any single dice roll | ✅ Step 5 |
+| **COUNTER-OFFENSIVE** | 2 | Fight | Your unit fights next | ✅ Step 6 |
+| **FIRE OVERWATCH** | 1 | Opponent Move/Charge | Shoot enemy (only hit on 6s) | ✅ Step 7 |
+| **HEROIC INTERVENTION** | 1 | Opponent Charge | Declare counter-charge within 6" | ✅ Step 7 |
+| **TANK SHOCK** | 1 | Charge | VEHICLE: roll D6 = Toughness, 5+ = MW | ❌ Pending |
+| **RAPID INGRESS** | 1 | Opponent Movement | Reserves unit arrives during enemy turn | ❌ Pending |
 
 ---
 
@@ -106,7 +129,7 @@ Start with hardcoded implementations for the 11 Core Stratagems to validate the 
 
 ## Staged Implementation Plan
 
-### Stage 1: Foundation -- Stratagem Data Pipeline + UI Framework
+### Stage 1: Foundation -- Stratagem Data Pipeline + UI Framework ✅ COMPLETED
 
 **Goal**: Get stratagem data into the game, build the UI for selecting/using stratagems, implement CP tracking.
 
@@ -215,9 +238,10 @@ Needed: Decrement on stratagem use, validation before use, display in UI.
 
 ---
 
-### Stage 2: Core Stratagems (11 Universal Stratagems)
+### Stage 2: Core Stratagems (11 Universal Stratagems) ✅ COMPLETED (9/11)
 
 Implement the 11 Core stratagems that every army can use. This validates the entire framework.
+**Status**: 9 of 11 implemented. Tank Shock and Rapid Ingress remain.
 
 #### Group A: Dice Modification (builds on existing HitModifier system)
 - **COMMAND RE-ROLL** -- The hardest of the Core stratagems. Requires prompting after ANY roll result to offer a re-roll. Needs the trigger system from Stage 1.
@@ -240,20 +264,20 @@ Implement the 11 Core stratagems that every army can use. This validates the ent
 #### Group E: Morale Stratagem
 - **INSANE BRAVERY** -- Auto-pass Battle-shock test (once per battle). Simplest stratagem; intercept before battle-shock roll.
 
-**Recommended implementation order within Stage 2:**
-1. INSANE BRAVERY (simplest, validates trigger system)
-2. GO TO GROUND + SMOKESCREEN (validates defensive modifier path)
-3. EPIC CHALLENGE (validates weapon keyword granting path)
-4. GRENADE + TANK SHOCK (validates mortal wound path)
-5. COMMAND RE-ROLL (validates universal re-roll system)
-6. COUNTER-OFFENSIVE (validates fight order manipulation)
-7. FIRE OVERWATCH (validates cross-phase shooting)
-8. HEROIC INTERVENTION (validates cross-phase charging)
-9. RAPID INGRESS (validates cross-phase reserves)
+**Implementation order (as completed):**
+1. ✅ INSANE BRAVERY (simplest, validates trigger system)
+2. ✅ GO TO GROUND + SMOKESCREEN (validates defensive modifier path)
+3. ✅ EPIC CHALLENGE (validates weapon keyword granting path)
+4. ✅ GRENADE (validates mortal wound path) — TANK SHOCK remaining
+5. ✅ COMMAND RE-ROLL (validates universal re-roll system)
+6. ✅ COUNTER-OFFENSIVE (validates fight order manipulation)
+7. ✅ FIRE OVERWATCH + HEROIC INTERVENTION (validates cross-phase shooting/charging)
+8. ❌ TANK SHOCK (pending — mortal wounds on charge)
+9. ❌ RAPID INGRESS (pending — cross-phase reserves)
 
 ---
 
-### Stage 3: Effect Primitives Library
+### Stage 3: Effect Primitives Library ✅ COMPLETED
 
 After Core stratagems prove the framework, extract reusable effect types:
 
@@ -327,7 +351,7 @@ Each effect would have:
 
 ---
 
-### Stage 4: Faction Detachment Stratagems
+### Stage 4: Faction Detachment Stratagems ✅ COMPLETED
 
 With the effect primitives library, faction stratagems become data entries. Focus on factions present in army JSON files:
 
@@ -339,7 +363,7 @@ For each faction, load their detachment's stratagems from parsed CSV data. Most 
 
 ---
 
-### Stage 5: Unit Abilities System
+### Stage 5: Unit Abilities System ✅ COMPLETED
 
 Unit abilities use the **same effect primitives** as stratagems but with different trigger conditions:
 
@@ -393,104 +417,69 @@ This avoids the complexity of NLP-parsing ability descriptions and instead uses 
 
 ---
 
-### Stage 6: Integration & Polish
+### Stage 6: Integration & Polish — REMAINING
 
-- Multiplayer sync for stratagem usage (actions already flow through GameManager diffs)
-- AI opponent stratagem usage (simple heuristics: use Command Re-roll on failed critical rolls)
-- Save/load integration (stratagem usage history in game state)
-- Test coverage for all implemented stratagems and abilities
+- [ ] Stratagem UI panel (always-visible sidebar showing available stratagems per phase, CP counter, usage log)
+- [ ] Multiplayer sync for stratagem usage (actions already flow through GameManager diffs)
+- [ ] AI opponent stratagem usage (simple heuristics: use Command Re-roll on failed critical rolls)
+- [ ] Save/load integration (stratagem usage history in game state)
+- [ ] Test coverage for all implemented stratagems and abilities
 
 ---
 
 ## Estimated Scope
 
-| Stage | What Ships | Files Modified/Created |
-|-------|-----------|----------------------|
-| 1 | Data pipeline, UI, triggers, CP tracking | ~5 new files, ~8 modified |
-| 2 | 11 Core stratagems playable | ~6 modified (phases + RulesEngine) |
-| 3 | Effect primitives library | ~2 new files, ~3 modified |
-| 4 | Faction stratagems (SM, Orks, Custodes) | ~2 new data files, ~2 modified |
-| 5 | Unit abilities system | ~3 new files, ~4 modified |
-| 6 | Polish, multiplayer, AI, tests | ~5 modified, ~5 test files |
+| Stage | What Ships | Status |
+|-------|-----------|--------|
+| 1 | Data pipeline, triggers, CP tracking | ✅ COMPLETED |
+| 2 | 11 Core stratagems playable | ✅ COMPLETED (9/11 — Tank Shock, Rapid Ingress remaining) |
+| 3 | Effect primitives library | ✅ COMPLETED |
+| 4 | Faction stratagems (SM, Orks, Custodes) | ✅ COMPLETED (~40-60% per detachment) |
+| 5 | Unit abilities system | ✅ COMPLETED (13/18 abilities implemented) |
+| 6 | Polish, multiplayer, AI, tests | ❌ REMAINING |
 
 ---
 
 ## Key Architectural Decisions
 
-### 1. Trigger/Event System
-The trigger system is the most critical design decision. Two options:
+### 1. Trigger/Event System — RESOLVED
+**Chosen: Hybrid (signal + poll).** Reactive stratagems (Go to Ground, Smokescreen, Fire Overwatch, Heroic Intervention) use signals emitted by phases to prompt the opponent. Active-turn stratagems (Grenade, Epic Challenge, Counter-Offensive) are offered at specific action points via the phase's process_action flow.
 
-**Option A: Signal-based** -- Each phase emits Godot signals at trigger points. StratagemManager connects to these signals and checks for available stratagems.
+### 2. Effect Application — RESOLVED
+**Chosen: Extend existing system.** Added `WoundModifier` enum alongside existing `HitModifier`. EffectPrimitives applies `effect_*` flags to unit dictionaries. RulesEngine reads flags via helper functions (`has_effect_plus_one_hit()`, `has_effect_cover()`, etc.) in all three combat resolution paths (normal shooting, auto-resolve, melee).
 
-**Option B: Poll-based** -- After each action, StratagemManager is queried: "are any stratagems available now?" The UI shows them if yes.
+### 3. State Representation — RESOLVED
+**Chosen: StratagemManager tracks active effects, PhaseManager applies diffs.** Active effects stored in `StratagemManager.active_effects[]` and `UnitAbilityManager._active_ability_effects[]` with source, target, effects, and expiry. Flags set on `unit.flags` via state diffs. Cleared at phase/turn end.
 
-**Recommendation: Hybrid.** Use signals for reactive triggers (opponent's turn stratagems) and polling for active-turn stratagems (your turn, you choose when to use them). Active-turn stratagems appear in the UI panel; reactive stratagems prompt via popup.
-
-### 2. Effect Application
-Effects must integrate with the existing `RulesEngine` modifier system. The current `HitModifier` enum is too limited (only REROLL_ONES, PLUS_ONE, MINUS_ONE). It needs to be extended to support:
-- Full re-rolls (not just 1s)
-- Wound modifiers
-- Save modifiers
-- AP modification
-- Damage modification
-
-**Recommendation:** Extend the existing system rather than replacing it. Add `WoundModifier`, `SaveModifier` enums. The `assignment.modifiers` dictionary already flows through `RulesEngine._resolve_assignment_until_wounds()` -- just need more modifier types.
-
-### 3. State Representation
-Stratagem effects need to be tracked in game state for:
-- Multiplayer sync (diffs system)
-- Save/load
-- Undo support
-- Duration tracking (end of phase, end of turn, etc.)
-
-**Recommendation:** Add to game state:
-```
-state.active_effects = [
-    {
-        "source": "stratagem:go_to_ground",
-        "target_unit": "U_INTERCESSORS_A",
-        "effects": [...],
-        "expires": "end_of_phase",
-        "phase": "shooting",
-        "turn": 2
-    }
-]
-state.players.X.stratagems_used_this_turn = [...]
-state.players.X.stratagems_used_this_battle = [...]
-```
-
-### 4. Ability vs Stratagem Unification
-Both abilities and stratagems produce the same kinds of effects (modifiers, keyword grants, etc.). The difference is:
-- **Stratagems**: Player-activated, costs CP, specific timing window
-- **Abilities**: Always active or auto-triggered, no CP cost, often conditional
-
-**Recommendation:** Share the effect primitives library. The trigger/activation system differs but the downstream effects are identical.
+### 4. Ability vs Stratagem Unification — RESOLVED
+**Chosen: Shared EffectPrimitives library.** Both stratagems and abilities produce the same `effect_*` flags. RulesEngine doesn't distinguish the source — `effect_plus_one_hit` is `effect_plus_one_hit` whether from a stratagem or Might is Right. The 40k modifier cap rules (+1/-1 max) naturally handle overlapping sources.
 
 ---
 
 ## Risk Assessment
 
-| Risk | Impact | Mitigation |
-|------|--------|-----------|
-| Trigger system complexity | High | Start with Core stratagems only; reactive stratagems are hardest |
-| UI interruption flow | Medium | Clear UX for "opponent wants to use stratagem" pauses |
-| Multiplayer sync | Medium | Stratagems are actions; use existing diff system |
-| Edge case interactions | High | Comprehensive test suite; start with non-overlapping effects |
-| Scope creep | High | Strict staged approach; ship Core stratagems before faction ones |
-| Performance | Low | Effects are evaluated per-attack, not per-frame; 10-20 effects max |
+| Risk | Impact | Status |
+|------|--------|--------|
+| Trigger system complexity | High | ✅ Mitigated — hybrid signal+poll approach works for all implemented stratagems |
+| UI interruption flow | Medium | ⚠️ Open — Stratagem UI panel not yet built; reactive prompts work via console/action system |
+| Multiplayer sync | Medium | ⚠️ Open — Stratagems use diff system but not end-to-end tested in multiplayer |
+| Edge case interactions | High | ✅ Mitigated — comprehensive test suites for each stratagem; effect flag deduplication via 40k modifier caps |
+| Scope creep | High | ✅ Mitigated — strict staged approach followed; all 10 steps completed in order |
+| Performance | Low | ✅ Non-issue — UnitAbilityManager scans all units at phase start with negligible overhead |
 
 ---
 
-## Recommended Starting Point
+## Recommended Next Steps
 
-**Start with Stage 1.2 (StratagemManager) + Stage 2 Group E (INSANE BRAVERY)** as the absolute minimum viable slice. This proves:
-1. Stratagem data can be loaded
-2. CP can be spent
-3. A trigger point works (before battle-shock test)
-4. The effect resolves (auto-pass)
-5. Usage tracking works (once per battle)
+All 10 build order steps are complete. The recommended next priorities are:
 
-Then expand to GO TO GROUND + SMOKESCREEN (defensive modifiers during opponent's turn -- proves reactive stratagem flow), then GRENADE (proves mortal wound path), then COMMAND RE-ROLL (proves universal re-roll), then the reactive stratagems.
+1. **Tank Shock + Rapid Ingress** — Complete the remaining 2 Core stratagems (mortal wound on charge, reserves during opponent's turn)
+2. **Stratagem UI panel** — Build always-visible sidebar showing available stratagems per phase with CP counter
+3. **Waaagh! faction ability** — Implement the multi-effect Ork faction ability (advance+charge, +1 S/A melee, 5+ invuln)
+4. **Stat characteristic modification effects** — New EffectPrimitives for +N Attacks, +N Strength, set Damage to X (unlocks Da Biggest and da Best, Dead Brutal, Waaagh!)
+5. **Aura abilities** — Effects that apply to all friendly/enemy units within a range
+6. **AI stratagem usage** — Simple heuristics for AI opponent
+7. **Save/load integration** — Wire StratagemManager and UnitAbilityManager state into save files
 
 ---
 
