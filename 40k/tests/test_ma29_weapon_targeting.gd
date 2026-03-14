@@ -5,7 +5,7 @@ extends SceneTree
 # and UAM.
 # Usage: godot --headless --path . -s 40k/tests/test_ma29_weapon_targeting.gd
 
-const EP = preload("res://40k/autoloads/EffectPrimitives.gd")
+const EP = preload("res://autoloads/EffectPrimitives.gd")
 # Note: UnitAbilityManager requires autoloads (GameState, PhaseManager, etc.)
 # so it cannot be preloaded in SceneTree tests. UAM-specific tests are skipped.
 

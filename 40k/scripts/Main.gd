@@ -1914,7 +1914,7 @@ func _show_deep_strike_placement_dialog(unit_id: String) -> void:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	print("Main: P2-80 — Showing DeepStrikePlacementDialog for %s" % unit_name)
 
-	var dialog = load("res://40k/dialogs/DeepStrikePlacementDialog.gd").new()
+	var dialog = load("res://dialogs/DeepStrikePlacementDialog.gd").new()
 	add_child(dialog)
 	dialog.setup(unit_id, unit_name)
 	dialog.placement_chosen.connect(_on_deep_strike_placement_chosen)
