@@ -187,9 +187,10 @@ var _round_indicator_label: Label = null
 var _settings_menu: SettingsMenu = null
 
 # Game Event Log UI elements
-var game_log_panel: PanelContainer
-var game_log_scroll: ScrollContainer
-var game_log_entries_container: VBoxContainer  # VBox holding GameLogEntry cards
+var game_log_panel: GameLogPanel
+var game_log_label: RichTextLabel  # Legacy — kept for theme compat
+var game_log_scroll: ScrollContainer  # Legacy — kept for theme compat
+var game_log_entries_container: VBoxContainer  # VBox holding GameLogEntry cards (legacy)
 var is_game_log_visible: bool = true
 var game_log_toggle_button: Button
 var _current_combat_card: GameLogEntry = null  # Tracks active combat card for grouping
@@ -8274,101 +8275,15 @@ func _setup_player_turn_border() -> void:
 	print("Main: P2-44: Player turn border initialized for Player %d" % active_player)
 
 func _setup_game_log_panel() -> void:
-	print("Main: Setting up Game Event Log panel (card-based UI)")
+	print("Main: Setting up Game Event Log panel (card-based)")
 
-	# Create the main panel container anchored to the left side
-	game_log_panel = PanelContainer.new()
-	game_log_panel.name = "GameLogPanel"
-	add_child(game_log_panel)
-
-	# Anchor to left side, below top HUD, above bottom stats panel
-	game_log_panel.anchor_left = 0.0
-	game_log_panel.anchor_right = 0.0
-	game_log_panel.anchor_top = 0.0
-	game_log_panel.anchor_bottom = 1.0
-	game_log_panel.offset_left = 0.0
-	game_log_panel.offset_right = 340.0
-	game_log_panel.offset_top = 105.0
-	game_log_panel.offset_bottom = -305.0
-
-	# Dark semi-transparent background
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.06, 0.09, 0.85)
-	style.border_width_left = 0
-	style.border_width_right = 2
-	style.border_width_top = 0
-	style.border_width_bottom = 0
-	style.border_color = Color(0.833, 0.588, 0.376, 0.6)  # Gold accent
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_right = 4
-	style.content_margin_left = 4
-	style.content_margin_right = 4
-	style.content_margin_top = 0
-	style.content_margin_bottom = 4
-	game_log_panel.add_theme_stylebox_override("panel", style)
-
-	# Main VBox
-	var vbox = VBoxContainer.new()
-	vbox.name = "VBox"
-	game_log_panel.add_child(vbox)
-
-	# Header with title and toggle
-	var header = HBoxContainer.new()
-	header.custom_minimum_size = Vector2(0, 30)
-	vbox.add_child(header)
-
-	var title = Label.new()
-	title.text = "Game Log"
-	title.add_theme_font_size_override("font_size", 14)
-	title.add_theme_color_override("font_color", Color(0.833, 0.588, 0.376))  # Gold
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
-
-	var collapse_btn = Button.new()
-	collapse_btn.text = "X"
-	collapse_btn.custom_minimum_size = Vector2(30, 25)
-	collapse_btn.add_theme_font_size_override("font_size", 12)
-	collapse_btn.pressed.connect(_on_game_log_collapse_pressed)
-	header.add_child(collapse_btn)
-
-	# Separator
-	var sep = HSeparator.new()
-	vbox.add_child(sep)
-
-	# Scroll container for the log entry cards
-	game_log_scroll = ScrollContainer.new()
-	game_log_scroll.name = "LogScroll"
-	game_log_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	game_log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	vbox.add_child(game_log_scroll)
-
-	# VBoxContainer to hold individual GameLogEntry cards
-	game_log_entries_container = VBoxContainer.new()
-	game_log_entries_container.name = "EntriesContainer"
-	game_log_entries_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	game_log_entries_container.add_theme_constant_override("separation", 3)
-	game_log_scroll.add_child(game_log_entries_container)
-
-	# Connect to GameEventLog signal
-	if GameEventLog:
-		GameEventLog.entry_added.connect(_on_game_log_entry_added)
-		print("Main: Connected to GameEventLog.entry_added")
-
-		# Populate any entries that were added before we connected
-		for entry in GameEventLog.get_all_entries():
-			_append_log_entry(entry.text, entry.type, false)
-
-	# Add toggle button to top HUD
+	# Use the new card-based GameLogPanel component
+	game_log_panel = GameLogPanel.new()
 	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
-	if hud_bottom:
-		game_log_toggle_button = Button.new()
-		game_log_toggle_button.name = "GameLogToggle"
-		game_log_toggle_button.text = "Hide Log"
-		game_log_toggle_button.pressed.connect(_on_game_log_toggle_pressed)
-		hud_bottom.add_child(game_log_toggle_button)
-		hud_bottom.move_child(game_log_toggle_button, 1)  # After left panel toggle
+	game_log_panel.setup(self, hud_bottom, 105.0, 0.0)
+	game_log_toggle_button = game_log_panel.get_toggle_button()
 
-	print("Main: Game Event Log panel created (card-based UI)")
+	print("Main: Game Event Log panel created (card-based)")
 
 func _on_game_log_entry_added(text: String, entry_type: String) -> void:
 	_append_log_entry(text, entry_type, true)
@@ -8701,7 +8616,9 @@ func _on_replay_event_applied(event: Dictionary) -> void:
 			entry_type = "p1_action"
 		elif event.get("active_player", 0) == 2:
 			entry_type = "p2_action"
-		_append_log_entry(description, entry_type)
+		# Route through GameEventLog so the new card-based panel picks it up
+		if GameEventLog:
+			GameEventLog._add_entry(description, entry_type)
 
 var _replay_refresh_pending: bool = false
 
