@@ -182,10 +182,7 @@ var _round_indicator_label: Label = null
 var _settings_menu: SettingsMenu = null
 
 # Game Event Log UI elements
-var game_log_panel: PanelContainer
-var game_log_label: RichTextLabel
-var game_log_scroll: ScrollContainer
-var is_game_log_visible: bool = true
+var game_log_panel: GameLogPanel
 var game_log_toggle_button: Button
 
 # P3-117: Dice Roll History panel UI elements
@@ -8162,203 +8159,12 @@ func _setup_player_turn_border() -> void:
 	print("Main: P2-44: Player turn border initialized for Player %d" % active_player)
 
 func _setup_game_log_panel() -> void:
-	print("Main: Setting up Game Event Log panel")
-
-	# Create the main panel container anchored to the left side
-	game_log_panel = PanelContainer.new()
-	game_log_panel.name = "GameLogPanel"
-	add_child(game_log_panel)
-
-	# Anchor to left side, below top HUD, above bottom stats panel
-	game_log_panel.anchor_left = 0.0
-	game_log_panel.anchor_right = 0.0
-	game_log_panel.anchor_top = 0.0
-	game_log_panel.anchor_bottom = 1.0
-	game_log_panel.offset_left = 0.0
-	game_log_panel.offset_right = 340.0
-	game_log_panel.offset_top = 105.0
-	game_log_panel.offset_bottom = -305.0
-
-	# Dark semi-transparent background
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.12, 0.85)
-	style.border_width_left = 0
-	style.border_width_right = 2
-	style.border_width_top = 0
-	style.border_width_bottom = 0
-	style.border_color = Color(0.833, 0.588, 0.376, 0.6)  # Gold accent
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_right = 4
-	game_log_panel.add_theme_stylebox_override("panel", style)
-
-	# Main VBox
-	var vbox = VBoxContainer.new()
-	vbox.name = "VBox"
-	game_log_panel.add_child(vbox)
-
-	# Header with title and toggle
-	var header = HBoxContainer.new()
-	header.custom_minimum_size = Vector2(0, 30)
-	vbox.add_child(header)
-
-	var title = Label.new()
-	title.text = "Game Log"
-	title.add_theme_font_size_override("font_size", 14)
-	title.add_theme_color_override("font_color", Color(0.833, 0.588, 0.376))  # Gold
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
-
-	var collapse_btn = Button.new()
-	collapse_btn.text = "X"
-	collapse_btn.custom_minimum_size = Vector2(30, 25)
-	collapse_btn.add_theme_font_size_override("font_size", 12)
-	collapse_btn.pressed.connect(_on_game_log_collapse_pressed)
-	header.add_child(collapse_btn)
-
-	# Separator
-	var sep = HSeparator.new()
-	vbox.add_child(sep)
-
-	# Scroll container for the log entries
-	game_log_scroll = ScrollContainer.new()
-	game_log_scroll.name = "LogScroll"
-	game_log_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	game_log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	vbox.add_child(game_log_scroll)
-
-	# RichTextLabel for color-coded entries
-	game_log_label = RichTextLabel.new()
-	game_log_label.name = "LogLabel"
-	game_log_label.bbcode_enabled = true
-	game_log_label.fit_content = true
-	game_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	game_log_label.scroll_active = false  # We use our own scroll container
-	game_log_label.add_theme_font_size_override("normal_font_size", 11)
-	game_log_label.add_theme_font_size_override("bold_font_size", 12)
-	game_log_scroll.add_child(game_log_label)
-
-	# Connect to GameEventLog signal
-	if GameEventLog:
-		GameEventLog.entry_added.connect(_on_game_log_entry_added)
-		print("Main: Connected to GameEventLog.entry_added")
-
-		# Populate any entries that were added before we connected
-		for entry in GameEventLog.get_all_entries():
-			_append_log_entry(entry.text, entry.type)
-
-	# Add toggle button to top HUD
+	print("Main: Setting up Game Event Log panel (card-based)")
+	game_log_panel = GameLogPanel.new()
 	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
-	if hud_bottom:
-		game_log_toggle_button = Button.new()
-		game_log_toggle_button.name = "GameLogToggle"
-		game_log_toggle_button.text = "Hide Log"
-		game_log_toggle_button.pressed.connect(_on_game_log_toggle_pressed)
-		hud_bottom.add_child(game_log_toggle_button)
-		hud_bottom.move_child(game_log_toggle_button, 1)  # After left panel toggle
-
-	print("Main: Game Event Log panel created")
-
-func _on_game_log_entry_added(text: String, entry_type: String) -> void:
-	_append_log_entry(text, entry_type)
-
-	# Auto-scroll to bottom
-	if game_log_scroll:
-		await get_tree().process_frame
-		game_log_scroll.scroll_vertical = int(game_log_scroll.get_v_scroll_bar().max_value)
-
-func _append_log_entry(text: String, entry_type: String) -> void:
-	if not game_log_label:
-		return
-
-	var colored_text = ""
-	match entry_type:
-		"phase_header":
-			colored_text = "[b][color=#D49761]%s[/color][/b]" % text
-		"p1_action":
-			colored_text = "[color=#6699CC]%s[/color]" % text
-		"p2_action":
-			colored_text = "[color=#CC6666]%s[/color]" % text
-		"ai_thinking":
-			colored_text = "[i][color=#8899AA]  %s[/color][/i]" % text
-		"overwatch":
-			colored_text = "[b][color=#FF6600]%s[/color][/b]" % text
-		"combat_header":
-			# Card-style combat header: bold gold with top border
-			colored_text = "[color=#444444]────────────────────[/color]\n[b][color=#E8C477]%s[/color][/b]" % text
-		"combat_detail":
-			# Indented detail lines: smaller, muted color with dice highlighting
-			var styled = _style_combat_detail(text)
-			colored_text = "[color=#B0B8C0]%s[/color]" % styled
-		"combat_result":
-			# Result line: bold with color based on outcome
-			if "destroyed" in text and "No models" not in text:
-				colored_text = "[b][color=#FF6B6B]%s[/color][/b]" % text
-			else:
-				colored_text = "[b][color=#77CC77]%s[/color][/b]" % text
-		_:
-			colored_text = "[color=#AAAAAA]%s[/color]" % text
-
-	game_log_label.append_text(colored_text + "\n")
-
-func _style_combat_detail(text: String) -> String:
-	"""Apply inline styling to combat detail text — highlight dice rolls, thresholds, and keywords."""
-	var styled = text
-
-	# Highlight dice roll arrays [1, 3, 5, 6] in cyan
-	var dice_regex = RegEx.new()
-	dice_regex.compile("\\[([0-9, ]+)\\]")
-	var dice_results = dice_regex.search_all(styled)
-	# Process in reverse order to preserve positions
-	for i in range(dice_results.size() - 1, -1, -1):
-		var m = dice_results[i]
-		var full_match = m.get_string()
-		var inner = m.get_string(1)
-		# Color individual dice: 6s in gold, 1s in red, others in cyan
-		var dice_parts = inner.split(", ")
-		var colored_dice = []
-		for d in dice_parts:
-			var dval = d.strip_edges()
-			if dval == "6":
-				colored_dice.append("[color=#FFD700]6[/color]")
-			elif dval == "1":
-				colored_dice.append("[color=#FF4444]1[/color]")
-			else:
-				colored_dice.append("[color=#66CCEE]%s[/color]" % dval)
-		var replacement = "[color=#888888][[/color]%s[color=#888888]][/color]" % ", ".join(colored_dice)
-		styled = styled.substr(0, m.get_start()) + replacement + styled.substr(m.get_end())
-
-	# Highlight keywords in distinct colors
-	# DEVASTATING WOUNDS in red
-	styled = styled.replace("DEVASTATING WOUNDS", "[color=#FF4444]DEVASTATING WOUNDS[/color]")
-	styled = styled.replace("DEVASTATING", "[color=#FF4444]DEVASTATING[/color]")
-	# Lethal Hits in orange
-	styled = styled.replace("Lethal Hits", "[color=#FF8844]Lethal Hits[/color]")
-	# Sustained Hits in yellow
-	styled = styled.replace("Sustained Hits", "[color=#EEDD44]Sustained Hits[/color]")
-	# Feel No Pain in green
-	styled = styled.replace("Feel No Pain", "[color=#44CC88]Feel No Pain[/color]")
-	# Invulnerable Save in purple
-	styled = styled.replace("Invulnerable Save", "[color=#BB88FF]Invulnerable Save[/color]")
-	# Re-rolls in light blue
-	styled = styled.replace("Re-rolls:", "[color=#88BBFF]Re-rolls:[/color]")
-	# Torrent in orange
-	styled = styled.replace("Torrent", "[color=#FF8844]Torrent[/color]")
-
-	return styled
-
-func _on_game_log_collapse_pressed() -> void:
-	is_game_log_visible = false
-	if game_log_panel:
-		game_log_panel.visible = false
-	if game_log_toggle_button:
-		game_log_toggle_button.text = "Show Log"
-
-func _on_game_log_toggle_pressed() -> void:
-	is_game_log_visible = !is_game_log_visible
-	if game_log_panel:
-		game_log_panel.visible = is_game_log_visible
-	if game_log_toggle_button:
-		game_log_toggle_button.text = "Hide Log" if is_game_log_visible else "Show Log"
+	game_log_panel.setup(self, hud_bottom, 105.0, -305.0)
+	game_log_toggle_button = game_log_panel.get_toggle_button()
+	print("Main: Game Event Log panel created (card-based)")
 
 # ============================================================================
 # P3-117: Dice Roll History Panel
@@ -8601,7 +8407,8 @@ func _on_replay_event_applied(event: Dictionary) -> void:
 			entry_type = "p1_action"
 		elif event.get("active_player", 0) == 2:
 			entry_type = "p2_action"
-		_append_log_entry(description, entry_type)
+		if GameEventLog:
+			GameEventLog.add_entry(description, entry_type)
 
 var _replay_refresh_pending: bool = false
 
