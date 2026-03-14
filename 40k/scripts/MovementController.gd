@@ -1969,6 +1969,45 @@ func _on_disembark_completed(unit_id: String, positions: Array) -> void:
 	print("MovementController: Routing CONFIRM_DISEMBARK through action system")
 	emit_signal("move_action_requested", action)
 
+	# UI updates happen in _post_disembark_ui_update after Main routes the action
+	call_deferred("_post_disembark_ui_update", unit_id)
+
+func _post_disembark_ui_update(unit_id: String) -> void:
+	"""Update controller UI after a CONFIRM_DISEMBARK action has been processed"""
+	# Refresh board visuals to show the disembarked models
+	var main = get_node_or_null("/root/Main")
+	if main and main.has_method("_recreate_unit_visuals"):
+		print("MovementController: Refreshing board visuals after disembark")
+		main._recreate_unit_visuals()
+
+	# Refresh UI to show disembarked unit
+	_refresh_unit_list()
+
+	# Check if the disembarked unit can move
+	var unit = GameState.get_unit(unit_id)
+	if unit and not unit.get("flags", {}).get("cannot_move", false):
+		print("MovementController: Disembarked unit can move")
+		active_unit_id = unit_id
+		active_mode = "NORMAL"
+
+		if unit:
+			move_cap_inches = get_unit_movement(unit)
+			print("MovementController: Unit %s has movement cap of %d inches" % [unit_id, move_cap_inches])
+
+		_update_selected_unit_display()
+		_update_fall_back_visibility()
+		emit_signal("ui_update_requested")
+
+		# Find and select the unit in the list
+		for i in range(unit_list.get_item_count()):
+			if unit_list.get_item_metadata(i) == unit_id:
+				unit_list.select(i)
+				break
+	else:
+		print("MovementController: Disembarked unit cannot move (transport already moved)")
+		active_unit_id = ""
+		_update_selected_unit_display()
+
 func _on_disembark_canceled(unit_id: String) -> void:
 	"""Handle canceled disembark"""
 	print("MovementController: Disembark canceled for unit %s" % unit_id)
