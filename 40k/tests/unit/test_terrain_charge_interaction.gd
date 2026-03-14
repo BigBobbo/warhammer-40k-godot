@@ -170,22 +170,22 @@ func test_low_terrain_no_penalty():
 # Tall terrain (>2"): non-FLY pays full climb penalty
 # ==========================================
 
-func test_tall_terrain_non_fly_no_penalty():
-	# Units always stay on ground floor — no height penalty even for tall terrain
+func test_tall_terrain_non_fly_climb_penalty():
+	# Non-FLY unit crossing tall terrain pays climb up + climb down = 6" * 2 = 12"
 	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
 
 	var from_pos = Vector2(0, 0)
 	var to_pos = Vector2(400, 0)  # Path crosses the tall terrain
 
 	var penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false)
-	assert_eq(penalty, 0.0, "No height penalty — units always stay on ground floor")
+	assert_eq(penalty, 12.0, "Non-FLY crossing tall terrain should pay climb up + down = 12\"")
 
 # ==========================================
 # Tall terrain: FLY unit pays diagonal penalty (less than full climb)
 # ==========================================
 
-func test_tall_terrain_fly_and_non_fly_both_zero():
-	# With ground floor assumption, no height penalty for anyone
+func test_tall_terrain_fly_less_than_non_fly():
+	# FLY units measure diagonally, which should be less than full climb
 	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
 
 	var from_pos = Vector2(0, 0)
@@ -194,22 +194,23 @@ func test_tall_terrain_fly_and_non_fly_both_zero():
 	var non_fly_penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false)
 	var fly_penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, true)
 
-	assert_eq(non_fly_penalty, 0.0, "No height penalty — units always stay on ground floor")
-	assert_eq(fly_penalty, 0.0, "No height penalty — units always stay on ground floor")
+	assert_gt(non_fly_penalty, 0.0, "Non-FLY should have a positive penalty")
+	assert_gt(fly_penalty, 0.0, "FLY should have a positive diagonal penalty during charges")
+	assert_lt(fly_penalty, non_fly_penalty, "FLY diagonal penalty should be less than non-FLY climb penalty")
 
 # ==========================================
 # Medium terrain (2-5"): penalty applies (>2")
 # ==========================================
 
-func test_medium_terrain_no_penalty():
-	# Units always stay on ground floor — no height penalty even for medium terrain
+func test_medium_terrain_climb_penalty():
+	# Medium terrain (3.5") is >2", so climb penalty applies
 	_add_medium_terrain("medium_ruins", Vector2(200, 0), Vector2(80, 80))
 
 	var from_pos = Vector2(0, 0)
 	var to_pos = Vector2(400, 0)
 
 	var penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false)
-	assert_eq(penalty, 0.0, "No height penalty — units always stay on ground floor")
+	assert_eq(penalty, 7.0, "Non-FLY crossing medium terrain should pay climb up + down = 3.5\" * 2 = 7\"")
 
 # ==========================================
 # Path does NOT cross terrain: no penalty
@@ -229,10 +230,10 @@ func test_path_misses_terrain_no_penalty():
 # RulesEngine: validate_charge_paths with terrain penalty
 # ==========================================
 
-func test_rules_engine_charge_paths_no_terrain_height_penalty():
+func test_rules_engine_charge_paths_with_terrain_penalty():
 	# Set up: charger 5" away from target, rolls 7
-	# Tall terrain between them has NO height penalty (ground floor assumption)
-	# Horizontal path = 5" < rolled 7 = SUCCESS
+	# Tall terrain between them adds climb penalty (12")
+	# Total effective distance = 5" + 12" = 17" > rolled 7 = FAIL
 	var px_per_inch = 40.0
 	var target_x = 5.0 * px_per_inch + 50.4  # 5" edge-to-edge for 32mm bases
 
@@ -257,16 +258,15 @@ func test_rules_engine_charge_paths_no_terrain_height_penalty():
 		"charger_unit", ["target_unit"], 7, per_model_paths, board
 	)
 
-	# No height penalty — units always stay on ground floor
-	# The path itself is only ~5" < rolled 7 = SUCCESS
-	assert_true(result.valid, "Should succeed: no terrain height penalty with ground floor assumption")
+	# Terrain height penalty makes the charge fail
+	assert_false(result.valid, "Should fail: terrain height penalty makes effective distance exceed charge roll")
 
 # ==========================================
 # RulesEngine: FLY unit can charge through terrain more efficiently
 # ==========================================
 
-func test_rules_engine_no_terrain_height_penalty_fly_or_non_fly():
-	# With ground floor assumption, both FLY and non-FLY have zero terrain height penalty
+func test_rules_engine_fly_vs_non_fly_terrain_penalty():
+	# FLY units should have a smaller penalty than non-FLY
 	var px_per_inch = 40.0
 	var target_x = 3.0 * px_per_inch + 50.4  # 3" edge-to-edge
 
@@ -292,14 +292,14 @@ func test_rules_engine_no_terrain_height_penalty_fly_or_non_fly():
 		"marine_1": [[0, 0], [move_end_x, 0]]
 	}
 
-	# Both should have zero terrain height penalty (ground floor assumption)
 	var non_fly_penalty = RulesEngineScript._calculate_charge_terrain_penalty_rules(
 		per_model_paths["marine_1"], false, board_no_fly)
 	var fly_penalty = RulesEngineScript._calculate_charge_terrain_penalty_rules(
 		per_model_paths["marine_1"], true, board_fly)
 
-	assert_eq(non_fly_penalty, 0.0, "Non-FLY should have zero terrain height penalty (ground floor)")
-	assert_eq(fly_penalty, 0.0, "FLY should have zero terrain height penalty (ground floor)")
+	assert_gt(non_fly_penalty, 0.0, "Non-FLY should have a positive terrain penalty")
+	assert_gt(fly_penalty, 0.0, "FLY should have a positive diagonal terrain penalty during charges")
+	assert_lt(fly_penalty, non_fly_penalty, "FLY penalty should be less than non-FLY penalty")
 
 # ==========================================
 # No terrain in path: charge proceeds normally
@@ -352,8 +352,8 @@ func test_get_tall_terrain_on_path():
 # Multiple terrain pieces on same path
 # ==========================================
 
-func test_multiple_terrain_no_height_penalty():
-	# Units always stay on ground floor — no height penalty even with multiple terrain
+func test_multiple_terrain_accumulated_penalty():
+	# Two tall terrain pieces: 6" * 2 * 2 = 24" total penalty
 	_add_tall_terrain("ruins_a", Vector2(150, 0), Vector2(60, 60))
 	_add_tall_terrain("ruins_b", Vector2(350, 0), Vector2(60, 60))
 
@@ -362,4 +362,29 @@ func test_multiple_terrain_no_height_penalty():
 
 	var penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false)
 
-	assert_eq(penalty, 0.0, "No height penalty — units always stay on ground floor")
+	# Two tall terrain pieces: 6" * 2 * 2 = 24" total penalty
+	assert_eq(penalty, 24.0, "Two tall terrain penalties should accumulate: 12\" + 12\" = 24\"")
+
+# ==========================================
+# Moving onto / off terrain during charge: partial climb
+# ==========================================
+
+func test_charge_onto_tall_terrain_half_penalty():
+	# Charging onto tall terrain should only pay climb up = height * 1
+	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
+
+	var from_pos = Vector2(0, 0)       # Outside terrain
+	var to_pos = Vector2(200, 0)       # Inside terrain (center)
+
+	var penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false)
+	assert_eq(penalty, 6.0, "Charging onto tall terrain should only pay climb up = 6\" (not 12\")")
+
+func test_charge_off_tall_terrain_half_penalty():
+	# Charging from inside terrain to outside should only pay climb down = height * 1
+	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
+
+	var from_pos = Vector2(200, 0)     # Inside terrain (center)
+	var to_pos = Vector2(400, 0)       # Outside terrain
+
+	var penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false)
+	assert_eq(penalty, 6.0, "Charging off tall terrain should only pay climb down = 6\" (not 12\")")
