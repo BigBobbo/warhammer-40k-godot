@@ -462,6 +462,16 @@ func _initialize_ai_player() -> void:
 		p2_type, AIDifficultyConfigData.difficulty_name(p2_difficulty)])
 	ai_player.configure({1: p1_type, 2: p2_type}, {1: p1_difficulty, 2: p2_difficulty})
 
+	# Load per-player AI profiles if configured
+	var p1_profile = game_config.get("player1_ai_profile", "")
+	var p2_profile = game_config.get("player2_ai_profile", "")
+	if p1_profile != "" and p1_type == "AI":
+		ai_player.load_player_profile(1, p1_profile)
+		print("Main: Loaded AI profile '%s' for player 1" % p1_profile)
+	if p2_profile != "" and p2_type == "AI":
+		ai_player.load_player_profile(2, p2_profile)
+		print("Main: Loaded AI profile '%s' for player 2" % p2_profile)
+
 	# Connect to AI deployment signal so we can create visual tokens
 	if not ai_player.ai_unit_deployed.is_connected(_on_ai_unit_deployed):
 		ai_player.ai_unit_deployed.connect(_on_ai_unit_deployed)

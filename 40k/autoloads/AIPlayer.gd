@@ -15,6 +15,7 @@ const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
 # Configuration
 var ai_players: Dictionary = {}  # player_id (int) -> true/false (is AI)
 var ai_difficulty: Dictionary = {}  # player_id (int) -> AIDifficultyConfigData.Difficulty value
+var ai_profiles: Dictionary = {}  # {player_id: profile_name} — per-player AI profile names
 var enabled: bool = false
 var _processing_turn: bool = false  # Guard against re-entrant calls
 var _action_log: Array = []  # Log of AI actions for summary display
@@ -250,9 +251,32 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 		player_types.get(2, player_types.get("2", "HUMAN")), p2_diff,
 		enabled, _spectator_mode])
 
+	# Clear any existing per-player profiles
+	ai_profiles.clear()
+	AIDecisionMaker.clear_all_profiles()
+
 	# If AI should act right away (e.g., Player 1 is AI in deployment), kick off
 	if enabled:
 		_request_evaluation()
+
+func load_player_profile(player: int, profile_name: String) -> bool:
+	"""Load an AI profile for a specific player."""
+	var profile_data = ProfileManager.load_profile(profile_name)
+	if profile_data.is_empty():
+		push_warning("AIPlayer: Failed to load profile '%s' for player %d" % [profile_name, player])
+		return false
+	AIDecisionMaker.load_player_profile(player, profile_data)
+	ai_profiles[player] = profile_name
+	print("AIPlayer: Loaded profile '%s' for player %d" % [profile_name, player])
+	return true
+
+func get_available_profiles() -> Array:
+	"""Get list of available AI profiles."""
+	return ProfileManager.list_profiles()
+
+func get_player_profile(player: int) -> String:
+	"""Get the profile name for a player (empty string = default)."""
+	return ai_profiles.get(player, "")
 
 func is_ai_player(player: int) -> bool:
 	return enabled and ai_players.get(player, false)
@@ -1254,7 +1278,8 @@ func _evaluate_and_act() -> void:
 	# Check game completion
 	if GameState.is_game_complete():
 		if enabled:
-			print("AIPlayer: Game is complete, disabling AI")
+			print("AIPlayer: Game is complete, disabling AI — auto-exporting decision log")
+			export_decision_log()
 			enabled = false
 		_end_ai_thinking()
 		return
@@ -1364,6 +1389,9 @@ func _execute_next_action(player: int) -> void:
 			"thinking_steps": thinking_steps,
 			"actions": [{"type": decision.get("type", ""), "description": decision.get("_ai_description", "")}],
 		})
+		# Auto-save decision log every 50 decision batches for mid-game access
+		if _all_decision_records.size() % 50 == 0:
+			export_decision_log()
 
 	# Log for summary
 	var description = decision.get("_ai_description", str(decision.get("type", "unknown")))

@@ -133,6 +133,10 @@ static var _focus_fire_plan_logged: bool = false
 # Track whether fight order summary has been logged (reset per phase)
 static var _fight_order_logged: bool = false
 
+# Per-player AI profile support — allows different AI configs per player
+static var _player_profiles: Dictionary = {}  # {player_id: {parameters: {}, rules: []}}
+static var _active_rule_overrides: Dictionary = {}  # Computed rule-based overrides for current context
+
 # P2-92: Reset all static caches (called on game load to prevent stale data)
 static func reset_caches() -> void:
 	print("AIDecisionMaker: Resetting all static caches")
@@ -160,6 +164,8 @@ static func reset_caches() -> void:
 	_movement_plan_logged = false
 	_focus_fire_plan_logged = false
 	_fight_order_logged = false
+	_active_rule_overrides.clear()
+	_current_player = 0
 	print("AIDecisionMaker: Static caches reset complete")
 
 # Config override system — load parameter overrides from user://ai_config.json
@@ -184,14 +190,150 @@ static func load_config_overrides() -> void:
 	else:
 		push_warning("AIDecisionMaker: Failed to parse config override file: %s" % json.get_error_message())
 
-static func get_param(param_name: String, default_value: float) -> float:
-	"""Get a tunable parameter value, checking config overrides first."""
+static func load_player_profile(player: int, profile_data: Dictionary) -> void:
+	"""Load a profile for a specific player. Profile includes parameters and rules."""
+	var params = profile_data.get("parameters", {})
+	var rules = profile_data.get("rules", [])
+	_player_profiles[player] = {"parameters": params, "rules": rules}
+	print("AIDecisionMaker: Loaded profile for player %d with %d param overrides and %d rules" % [player, params.size(), rules.size()])
+
+static func clear_player_profile(player: int) -> void:
+	"""Clear profile for a specific player (reverts to global config)."""
+	_player_profiles.erase(player)
+	_active_rule_overrides.clear()
+	print("AIDecisionMaker: Cleared profile for player %d" % player)
+
+static func clear_all_profiles() -> void:
+	"""Clear all player profiles."""
+	_player_profiles.clear()
+	_active_rule_overrides.clear()
+
+static func evaluate_rules(player: int, context: Dictionary) -> void:
+	"""Evaluate conditional rules for a player given game context.
+	Context keys: phase (String), round (int), vp_diff (int), units_remaining_pct (float),
+	nearest_enemy_inches (float), on_objective (bool), is_melee_unit (bool), is_vehicle (bool), unit_points (int)
+	Results stored in _active_rule_overrides for get_param() to use."""
+	_active_rule_overrides.clear()
+	if not _player_profiles.has(player):
+		return
+	var profile = _player_profiles[player]
+	var rules = profile.get("rules", [])
+	# Sort by priority
+	var sorted_rules = rules.duplicate()
+	sorted_rules.sort_custom(func(a, b): return a.get("priority", 99) < b.get("priority", 99))
+	for rule in sorted_rules:
+		if not rule.get("enabled", true):
+			continue
+		if _check_rule_conditions(rule.get("conditions", []), context):
+			_apply_rule_actions(rule.get("actions", []))
+			_add_thinking_step("Rule fired: '%s'" % rule.get("name", "unnamed"))
+
+static func _check_rule_conditions(conditions: Array, context: Dictionary) -> bool:
+	"""Check if ALL conditions in a rule are met (AND logic)."""
+	for cond in conditions:
+		var ctype = cond.get("type", "")
+		var cval = cond.get("value", null)
+		match ctype:
+			"phase":
+				if context.get("phase", "") != cval:
+					return false
+			"round_gte":
+				if context.get("round", 1) < int(cval):
+					return false
+			"round_lte":
+				if context.get("round", 1) > int(cval):
+					return false
+			"vp_ahead":
+				if context.get("vp_diff", 0) <= 0:
+					return false
+			"vp_behind":
+				if context.get("vp_diff", 0) >= 0:
+					return false
+			"vp_diff_gte":
+				if context.get("vp_diff", 0) < int(cval):
+					return false
+			"vp_diff_lte":
+				if context.get("vp_diff", 0) > -int(cval):
+					return false
+			"units_remaining_pct_lte":
+				if context.get("units_remaining_pct", 100.0) > float(cval):
+					return false
+			"enemy_within_inches":
+				if context.get("nearest_enemy_inches", 999.0) > float(cval):
+					return false
+			"on_objective":
+				if not context.get("on_objective", false):
+					return false
+			"is_melee_unit":
+				if not context.get("is_melee_unit", false):
+					return false
+			"is_vehicle":
+				if not context.get("is_vehicle", false):
+					return false
+			"unit_points_gte":
+				if context.get("unit_points", 0) < int(cval):
+					return false
+	return true
+
+static func _apply_rule_actions(actions: Array) -> void:
+	"""Apply rule actions to _active_rule_overrides."""
+	for action in actions:
+		var op = action.get("type", "override")
+		var param = action.get("param", "")
+		var value = float(action.get("value", 0))
+		if param.is_empty():
+			continue
+		match op:
+			"override":
+				_active_rule_overrides[param] = value
+			"multiply":
+				var current = _active_rule_overrides.get(param, null)
+				if current == null:
+					# Get base value from profile params or config overrides
+					current = _get_base_param_value(param)
+				_active_rule_overrides[param] = current * value
+			"add":
+				var current = _active_rule_overrides.get(param, null)
+				if current == null:
+					current = _get_base_param_value(param)
+				_active_rule_overrides[param] = current + value
+
+static func _get_base_param_value(param_name: String) -> float:
+	"""Get the base parameter value (from player profile or config overrides, before rules)."""
+	# Check active player's profile first
+	for player in _player_profiles:
+		var params = _player_profiles[player].get("parameters", {})
+		if params.has(param_name):
+			return float(params[param_name])
+	# Then config overrides
 	if _config_overrides.has(param_name):
 		return float(_config_overrides[param_name])
+	return 0.0  # Will use const default via get_param
+
+static func get_param(param_name: String, default_value: float) -> float:
+	"""Get a tunable parameter value. Priority: rule overrides > player profile > global config > default."""
+	# 1. Rule-based dynamic overrides (highest priority)
+	if _active_rule_overrides.has(param_name):
+		return float(_active_rule_overrides[param_name])
+	# 2. Per-player profile parameters
+	if _current_player > 0 and _player_profiles.has(_current_player):
+		var profile_params = _player_profiles[_current_player].get("parameters", {})
+		if profile_params.has(param_name):
+			return float(profile_params[param_name])
+	# 3. Global config overrides (ai_config.json)
+	if _config_overrides.has(param_name):
+		return float(_config_overrides[param_name])
+	# 4. Default constant value
 	return default_value
 
 static func get_param_int(param_name: String, default_value: int) -> int:
-	"""Get an integer tunable parameter value, checking config overrides first."""
+	"""Get an integer tunable parameter value. Priority: rule overrides > player profile > global config > default."""
+	if _active_rule_overrides.has(param_name):
+		return int(_active_rule_overrides[param_name])
+	if _current_player > 0 and _player_profiles.has(_current_player):
+		var profile_params = _player_profiles[_current_player].get("parameters", {})
+		if profile_params.has(param_name):
+			return int(profile_params[param_name])
 	if _config_overrides.has(param_name):
 		return int(_config_overrides[param_name])
 	return default_value
@@ -608,12 +750,87 @@ static func _find_flank_around_terrain(from_pos: Vector2, target_pos: Vector2, u
 # MAIN ENTRY POINT
 # =============================================================================
 
+static var _current_player: int = 0  # Active AI player for profile lookups
+
 # T7-40: Current difficulty level for the active AI player
 # Set by AIPlayer before each decide() call, used by sub-methods
 static var _current_difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL
 
+static func _get_vp_diff(snapshot: Dictionary, player: int) -> int:
+	"""Get VP differential (positive = ahead, negative = behind)."""
+	var meta = snapshot.get("meta", {})
+	var p1_vp = meta.get("player1_vp", 0)
+	var p2_vp = meta.get("player2_vp", 0)
+	if player == 1:
+		return p1_vp - p2_vp
+	return p2_vp - p1_vp
+
+static func _get_units_remaining_pct(snapshot: Dictionary, player: int) -> float:
+	"""Get percentage of units remaining for a player."""
+	var units = snapshot.get("units", {})
+	var total = 0
+	var alive = 0
+	for uid in units:
+		var u = units[uid]
+		if u.get("player", 0) == player:
+			total += 1
+			if u.get("alive", true) and not u.get("destroyed", false):
+				alive += 1
+	if total == 0:
+		return 100.0
+	return (float(alive) / float(total)) * 100.0
+
 static func decide(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL) -> Dictionary:
 	_current_difficulty = difficulty
+	_current_player = player
+	# Evaluate profile rules if player has a profile
+	if _player_profiles.has(player):
+		var phase_names = {0:"FORMATIONS",1:"DEPLOYMENT",4:"MOVEMENT",5:"SHOOTING",6:"CHARGE",7:"FIGHT",9:"SCORING"}
+		var phase_name = phase_names.get(phase, "UNKNOWN")
+		var current_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+		var rule_context = {
+			"phase": phase_name,
+			"round": current_round,
+			"vp_diff": _get_vp_diff(snapshot, player),
+			"units_remaining_pct": _get_units_remaining_pct(snapshot, player),
+			"on_objective": false,
+			"nearest_enemy_inches": 999.0,
+			"is_melee_unit": false,
+			"is_vehicle": false,
+			"unit_points": 0,
+		}
+		# Populate unit-level context from the active unit in available_actions
+		var active_uid = ""
+		for a in available_actions:
+			var uid = a.get("actor_unit_id", a.get("unit_id", ""))
+			if uid != "":
+				active_uid = uid
+				break
+		if active_uid != "":
+			var active_unit = snapshot.get("units", {}).get(active_uid, {})
+			if not active_unit.is_empty():
+				# is_melee_unit
+				rule_context["is_melee_unit"] = _is_melee_focused_unit(active_unit)
+				# is_vehicle
+				var kws = active_unit.get("meta", {}).get("keywords", [])
+				rule_context["is_vehicle"] = "VEHICLE" in kws
+				# unit_points
+				rule_context["unit_points"] = int(active_unit.get("meta", {}).get("points", 0))
+				# on_objective — check if unit centroid is within objective control range
+				var centroid = _get_unit_centroid(active_unit)
+				if centroid != Vector2.INF:
+					var objectives = _get_objectives(snapshot)
+					for obj_pos in objectives:
+						if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+							rule_context["on_objective"] = true
+							break
+				# nearest_enemy_inches
+				var enemy_player = 2 if player == 1 else 1
+				var enemies = _get_units_for_player(snapshot, enemy_player)
+				var nearest_info = _get_nearest_enemy_for_charge(active_unit, enemies)
+				if not nearest_info.is_empty():
+					rule_context["nearest_enemy_inches"] = nearest_info.get("distance_inches", 999.0)
+		evaluate_rules(player, rule_context)
 	_thinking_steps.clear()  # Reset thinking log for this decision
 	_decision_records.clear()  # Reset decision records for this decision
 	var diff_name = AIDifficultyConfigData.difficulty_name(difficulty)

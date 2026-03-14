@@ -1,0 +1,1712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WH40K AI Profile Creator</title>
+<style>
+/* =========================================================================
+   CSS VARIABLES & RESET
+   ========================================================================= */
+:root {
+  --bg: #1a1a2e;
+  --bg-dark: #12121f;
+  --bg-card: #222240;
+  --bg-card-hover: #2a2a50;
+  --gold: #d4af37;
+  --gold-dim: #a68a2a;
+  --parchment: #f0e6d2;
+  --parchment-dim: #b8a88a;
+  --player1: #4a90d9;
+  --player2: #d94a4a;
+  --green: #4caf50;
+  --red: #e53935;
+  --orange: #ff9800;
+  --border: #3a3a5c;
+  --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-mono: 'Consolas', 'Courier New', monospace;
+  --radius: 6px;
+  --transition: 0.2s ease;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 14px; }
+
+body {
+  font-family: var(--font-main);
+  background: var(--bg-dark);
+  color: var(--parchment);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* =========================================================================
+   SCROLLBAR
+   ========================================================================= */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-dark); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+
+/* =========================================================================
+   LAYOUT
+   ========================================================================= */
+.app-header {
+  background: linear-gradient(135deg, var(--bg-dark), var(--bg));
+  border-bottom: 2px solid var(--gold-dim);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.app-header h1 {
+  font-size: 1.4rem;
+  color: var(--gold);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.app-header .subtitle {
+  color: var(--parchment-dim);
+  font-size: 0.85rem;
+}
+
+/* =========================================================================
+   TABS
+   ========================================================================= */
+.tab-bar {
+  display: flex;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--parchment-dim);
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-family: var(--font-main);
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+.tab-btn:hover { color: var(--parchment); background: var(--bg-card); }
+.tab-btn.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+  background: var(--bg-card);
+}
+
+.tab-content { display: none; padding: 16px 24px; max-width: 1400px; margin: 0 auto; }
+.tab-content.active { display: block; }
+
+/* =========================================================================
+   BUTTONS
+   ========================================================================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  color: var(--parchment);
+  cursor: pointer;
+  font-family: var(--font-main);
+  font-size: 0.85rem;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+.btn:hover { background: var(--bg-card-hover); border-color: var(--gold-dim); }
+.btn-gold { border-color: var(--gold-dim); color: var(--gold); }
+.btn-gold:hover { background: var(--gold-dim); color: var(--bg-dark); }
+.btn-red { border-color: var(--red); color: var(--red); }
+.btn-red:hover { background: var(--red); color: #fff; }
+.btn-green { border-color: var(--green); color: var(--green); }
+.btn-green:hover { background: var(--green); color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 0.8rem; }
+
+/* =========================================================================
+   FORM CONTROLS
+   ========================================================================= */
+input[type="text"], input[type="number"], textarea, select {
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--parchment);
+  padding: 6px 10px;
+  font-family: var(--font-main);
+  font-size: 0.85rem;
+  transition: var(--transition);
+}
+input[type="text"]:focus, input[type="number"]:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--gold-dim);
+}
+textarea { resize: vertical; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--gold);
+  cursor: pointer;
+  border: 2px solid var(--bg-dark);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--gold);
+  cursor: pointer;
+  border: 2px solid var(--bg-dark);
+}
+
+/* Toggle switch */
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  top: 3px;
+  background: var(--parchment-dim);
+  border-radius: 50%;
+  transition: var(--transition);
+}
+.toggle input:checked + .toggle-slider { background: var(--green); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(18px); background: #fff; }
+
+/* =========================================================================
+   CARDS & SECTIONS
+   ========================================================================= */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+  transition: var(--transition);
+}
+.card-header:hover { background: var(--bg-card-hover); }
+.card-header.open { border-bottom-color: var(--border); }
+.card-header .chevron {
+  color: var(--gold-dim);
+  font-size: 0.8rem;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.card-header.open .chevron { transform: rotate(90deg); }
+.card-header .section-title { font-weight: 600; color: var(--gold); flex: 1; }
+.card-header .section-desc { color: var(--parchment-dim); font-size: 0.8rem; }
+.card-body { padding: 12px 16px; display: none; }
+.card-header.open + .card-body { display: block; }
+
+/* =========================================================================
+   PARAMETER TUNER
+   ========================================================================= */
+.tuner-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.tuner-actions .change-count {
+  margin-left: auto;
+  color: var(--parchment-dim);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+}
+
+.param-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.5fr) 1fr 80px 70px 32px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(58, 58, 92, 0.4);
+}
+.param-row:last-child { border-bottom: none; }
+.param-row.modified .param-name { color: var(--orange); }
+.param-name {
+  font-size: 0.85rem;
+  color: var(--parchment);
+}
+.param-name .param-desc {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--parchment-dim);
+  margin-top: 1px;
+}
+.param-row input[type="range"] { width: 100%; }
+.param-row input[type="number"] { width: 80px; text-align: center; }
+.param-default {
+  font-size: 0.75rem;
+  color: var(--parchment-dim);
+  text-align: center;
+}
+.param-reset {
+  background: none;
+  border: none;
+  color: var(--parchment-dim);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px;
+  border-radius: 4px;
+  transition: var(--transition);
+  visibility: hidden;
+}
+.param-row.modified .param-reset { visibility: visible; }
+.param-reset:hover { color: var(--red); background: rgba(229,57,53,0.15); }
+
+/* =========================================================================
+   RULE BUILDER
+   ========================================================================= */
+.rule-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  transition: var(--transition);
+}
+.rule-card.disabled { opacity: 0.5; }
+.rule-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.rule-header input[type="text"] {
+  flex: 1;
+  min-width: 150px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.rule-header input[type="number"] { width: 60px; text-align: center; }
+.rule-body { padding: 12px 16px; }
+.rule-section-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.rule-section-label.if-label { color: var(--player1); }
+.rule-section-label.then-label { color: var(--orange); }
+
+.condition-row, .action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.condition-row select, .action-row select { min-width: 140px; }
+.action-row input[type="number"] { width: 90px; }
+.remove-row-btn {
+  background: none;
+  border: none;
+  color: var(--parchment-dim);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: var(--transition);
+}
+.remove-row-btn:hover { color: var(--red); background: rgba(229,57,53,0.15); }
+
+.rule-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* =========================================================================
+   PROFILE MANAGER
+   ========================================================================= */
+.profile-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  min-height: 500px;
+}
+@media (max-width: 768px) {
+  .profile-layout { grid-template-columns: 1fr; }
+}
+.profile-list-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+}
+.profile-list-header {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.profile-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.profile-item {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  transition: var(--transition);
+}
+.profile-item:hover { background: var(--bg-card-hover); }
+.profile-item.selected { border-color: var(--gold-dim); background: var(--bg-card-hover); }
+.profile-item .p-name { font-weight: 600; color: var(--gold); font-size: 0.95rem; }
+.profile-item .p-meta {
+  font-size: 0.75rem;
+  color: var(--parchment-dim);
+  margin-top: 2px;
+}
+
+.profile-detail-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+@media (max-width: 600px) {
+  .profile-form-grid { grid-template-columns: 1fr; }
+}
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 0.8rem; color: var(--parchment-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.form-group.full-width { grid-column: 1 / -1; }
+.profile-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* =========================================================================
+   DECISION REPLAY
+   ========================================================================= */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 40px;
+  text-align: center;
+  color: var(--parchment-dim);
+  cursor: pointer;
+  transition: var(--transition);
+  margin-bottom: 16px;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--gold-dim);
+  background: rgba(212,175,55,0.05);
+}
+.drop-zone .drop-icon { font-size: 2rem; margin-bottom: 8px; display: block; color: var(--gold-dim); }
+
+.timeline-bar {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.timeline-marker {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--parchment-dim);
+  transition: var(--transition);
+}
+.timeline-marker:hover { border-color: var(--gold-dim); }
+.timeline-marker.active { background: var(--gold-dim); color: var(--bg-dark); border-color: var(--gold); }
+.timeline-marker.movement { border-left: 3px solid var(--player1); }
+.timeline-marker.shooting { border-left: 3px solid var(--red); }
+.timeline-marker.charge { border-left: 3px solid var(--orange); }
+.timeline-marker.fight { border-left: 3px solid var(--player2); }
+
+.decision-detail {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.decision-detail h3 { color: var(--gold); margin-bottom: 12px; }
+.candidate-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+.candidate-table th {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 2px solid var(--border);
+  color: var(--gold-dim);
+  font-weight: 600;
+}
+.candidate-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(58,58,92,0.4);
+}
+.candidate-table tr.winner { background: rgba(76,175,80,0.1); }
+.candidate-table tr:hover { background: var(--bg-card-hover); }
+
+.thinking-steps {
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+  color: var(--parchment-dim);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.badge-aggressive { background: rgba(229,57,53,0.2); color: var(--red); border: 1px solid var(--red); }
+.badge-defensive { background: rgba(74,144,217,0.2); color: var(--player1); border: 1px solid var(--player1); }
+.badge-balanced { background: rgba(76,175,80,0.2); color: var(--green); border: 1px solid var(--green); }
+.badge-custom { background: rgba(255,152,0,0.2); color: var(--orange); border: 1px solid var(--orange); }
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--parchment-dim);
+}
+
+/* =========================================================================
+   RESPONSIVE
+   ========================================================================= */
+@media (max-width: 900px) {
+  .param-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 10px 0;
+  }
+  .param-row input[type="range"] { width: 100%; }
+  .tab-content { padding: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- =====================================================================
+     HEADER
+     ====================================================================== -->
+<header class="app-header">
+  <div>
+    <h1>WH40K AI Profile Creator</h1>
+    <div class="subtitle">Configure AI behavior weights, build custom rules, and manage profiles</div>
+  </div>
+</header>
+
+<!-- =====================================================================
+     TAB BAR
+     ====================================================================== -->
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="tuner">Parameter Tuner</button>
+  <button class="tab-btn" data-tab="rules">Rule Builder</button>
+  <button class="tab-btn" data-tab="profiles">Profile Manager</button>
+  <button class="tab-btn" data-tab="replay">Decision Replay</button>
+</nav>
+
+<!-- =====================================================================
+     TAB 1: PARAMETER TUNER
+     ====================================================================== -->
+<div id="tab-tuner" class="tab-content active">
+  <div class="tuner-actions">
+    <button class="btn btn-gold" onclick="exportConfig()">Export Config</button>
+    <button class="btn btn-gold" onclick="importConfigClick()">Import Config</button>
+    <input type="file" id="importConfigFile" accept=".json" style="display:none" onchange="importConfigFile(event)">
+    <button class="btn btn-red" onclick="resetAllParams()">Reset All</button>
+    <div class="change-count" id="changeCount">0 parameters modified</div>
+  </div>
+  <div id="paramSections"></div>
+</div>
+
+<!-- =====================================================================
+     TAB 2: RULE BUILDER
+     ====================================================================== -->
+<div id="tab-rules" class="tab-content">
+  <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+    <button class="btn btn-gold" onclick="addRule()">+ Add Rule</button>
+    <div style="margin-left:auto; color:var(--parchment-dim); font-size:0.85rem; display:flex; align-items:center;" id="ruleCount">0 rules</div>
+  </div>
+  <div id="rulesContainer"></div>
+  <div class="empty-state" id="rulesEmpty">
+    No rules defined. Click "Add Rule" to create conditional AI behavior modifications.
+  </div>
+</div>
+
+<!-- =====================================================================
+     TAB 3: PROFILE MANAGER
+     ====================================================================== -->
+<div id="tab-profiles" class="tab-content">
+  <div class="profile-layout">
+    <div class="profile-list-panel">
+      <div class="profile-list-header">
+        <button class="btn btn-gold btn-sm" onclick="newProfile()">New</button>
+        <button class="btn btn-sm" onclick="importProfileClick()">Import</button>
+        <input type="file" id="importProfileFile" accept=".json" style="display:none" onchange="importProfileFile(event)">
+      </div>
+      <div class="profile-list" id="profileList"></div>
+    </div>
+    <div class="profile-detail-panel" id="profileDetail">
+      <div class="empty-state">Select a profile or create a new one</div>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================================
+     TAB 4: DECISION REPLAY
+     ====================================================================== -->
+<div id="tab-replay" class="tab-content">
+  <div class="drop-zone" id="replayDropZone">
+    <span class="drop-icon">&#128196;</span>
+    Drop ai_decision_log.json here or click to browse
+    <input type="file" id="replayFileInput" accept=".json" style="display:none">
+  </div>
+  <div id="replayContent" style="display:none;">
+    <div class="timeline-bar" id="replayTimeline"></div>
+    <div class="decision-detail" id="replayDetail">
+      <div class="empty-state">Select a decision from the timeline above</div>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================================
+     JAVASCRIPT
+     ====================================================================== -->
+<script>
+/* =========================================================================
+   PARAMETER DEFINITIONS
+   ========================================================================= */
+const PARAM_SECTIONS = [
+  { name: "Objective Priorities", desc: "How the AI values objective control", params: {
+    WEIGHT_UNCONTROLLED_OBJ: {val:10.0, desc:"Score for moving to uncontrolled objectives"},
+    WEIGHT_CONTESTED_OBJ: {val:8.0, desc:"Score for contesting enemy-held objectives"},
+    WEIGHT_ENEMY_WEAK_OBJ: {val:7.0, desc:"Score for attacking weakly-held enemy objectives"},
+    WEIGHT_HOME_UNDEFENDED: {val:9.0, desc:"Score for defending own undefended objectives"},
+    WEIGHT_ENEMY_STRONG_OBJ: {val:-5.0, desc:"Penalty for attacking strongly-held objectives"},
+    WEIGHT_ALREADY_HELD_OBJ: {val:-3.0, desc:"Penalty for stacking on already-held objectives"},
+    WEIGHT_SCORING_URGENCY: {val:3.0, desc:"Additional urgency score when objectives matter"},
+    WEIGHT_OC_EFFICIENCY: {val:2.0, desc:"Bonus for high OC units controlling objectives"}
+  }},
+  { name: "Threat Assessment", desc: "How the AI evaluates and avoids threats", params: {
+    THREAT_CHARGE_PENALTY: {val:2.0, desc:"Penalty for being in enemy charge range"},
+    THREAT_SHOOTING_PENALTY: {val:0.5, desc:"Penalty for being in enemy shooting range"},
+    THREAT_FRAGILE_BONUS: {val:1.3, desc:"Extra threat penalty for fragile/valuable units"},
+    THREAT_MELEE_UNIT_IGNORE: {val:0.05, desc:"How much melee units ignore charge threats (near 0 = ignore)"},
+    THREAT_SAFE_MARGIN_INCHES: {val:2.0, desc:"Extra buffer distance beyond threat ranges"},
+    THREAT_CLOSE_MELEE_DISTANCE_INCHES: {val:12.0, desc:"Distance at which charge threat becomes critical"},
+    THREAT_CLOSE_MELEE_PENALTY: {val:2.0, desc:"Extra penalty for being within close melee range"},
+    DEEP_STRIKE_DENIAL_RANGE_PX: {val:360.0, desc:"Screening distance for deep strike denial (pixels)"}
+  }},
+  { name: "Weapon Efficiency", desc: "How the AI matches weapons to targets", params: {
+    EFFICIENCY_PERFECT_MATCH: {val:1.4, desc:"Multiplier for perfect weapon-target match"},
+    EFFICIENCY_GOOD_MATCH: {val:1.15, desc:"Multiplier for good weapon-target match"},
+    EFFICIENCY_NEUTRAL: {val:1.0, desc:"Multiplier for neutral weapon-target match"},
+    EFFICIENCY_POOR_MATCH: {val:0.6, desc:"Multiplier for poor weapon-target match"},
+    EFFICIENCY_TERRIBLE_MATCH: {val:0.35, desc:"Multiplier for terrible weapon-target match"},
+    DAMAGE_WASTE_PENALTY_HEAVY: {val:0.4, desc:"Penalty for D3+ weapons vs 1W models"},
+    DAMAGE_WASTE_PENALTY_MODERATE: {val:0.7, desc:"Penalty for D2 weapons vs 1W models"},
+    ANTI_KEYWORD_BONUS: {val:1.5, desc:"Bonus when weapon has anti-X matching target"},
+    ANTI_TANK_STRENGTH_THRESHOLD: {val:7, desc:"Strength threshold for anti-tank classification"}
+  }},
+  { name: "Focus Fire", desc: "How the AI concentrates fire on targets", params: {
+    OVERKILL_TOLERANCE: {val:1.15, desc:"Allow up to 15% overkill before redirecting"},
+    KILL_BONUS_MULTIPLIER: {val:2.0, desc:"Bonus for targets the AI can actually kill"},
+    LOW_HEALTH_BONUS: {val:1.5, desc:"Bonus for targeting units below half health"}
+  }},
+  { name: "Weapon Keywords", desc: "Rapid Fire, Melta, and range considerations", params: {
+    CRIT_PROBABILITY: {val:0.1667, desc:"Critical hit probability (1/6)"},
+    HALF_RANGE_FALLBACK_PROB: {val:0.5, desc:"Assumed probability of being in half range"},
+    HALF_RANGE_MOVE_BLEND: {val:0.4, desc:"How much to move toward half-range position"},
+    HALF_RANGE_MIN_BENEFIT: {val:2.0, desc:"Minimum extra attacks to trigger repositioning"},
+    HALF_RANGE_APPROACH_MARGIN_INCHES: {val:1.0, desc:"Safety margin inside half range"}
+  }},
+  { name: "Firing Position", desc: "How the AI values maintaining shooting lanes", params: {
+    WEIGHT_FIRING_POSITION_KEPT: {val:3.0, desc:"Bonus for maintaining weapon range on enemies"},
+    WEIGHT_FIRING_POSITION_LOST: {val:-2.5, desc:"Penalty for losing all shooting targets"},
+    WEIGHT_FIRING_POSITION_GAINED: {val:1.5, desc:"Bonus for bringing new enemies into range"},
+    FIRING_POSITION_BLEND: {val:0.35, desc:"Blend factor for firing position vs objective"}
+  }},
+  { name: "Heavy Weapons", desc: "Stationary bonus for Heavy weapons", params: {
+    HEAVY_STATIONARY_MIN_BENEFIT: {val:0.15, desc:"Minimum hit improvement to justify staying still"},
+    HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE: {val:10.0, desc:"Objective score that overrides Heavy hold"}
+  }},
+  { name: "Multi-Phase Planning", desc: "How phases coordinate (movement to shooting to charge)", params: {
+    PHASE_PLAN_CHARGE_LANE_BONUS: {val:3.0, desc:"Movement bonus toward charge targets"},
+    PHASE_PLAN_SHOOTING_LANE_BONUS: {val:2.0, desc:"Movement bonus for shooting lanes"},
+    PHASE_PLAN_CHARGE_INTENT_THRESHOLD: {val:3.0, desc:"Minimum charge score to flag intent"},
+    PHASE_PLAN_LOCK_SHOOTER_BONUS: {val:3.0, desc:"Bonus for charging dangerous shooters"},
+    PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET: {val:0.5, desc:"Shooting penalty on charge targets"},
+    PHASE_PLAN_RANGED_STRENGTH_DANGEROUS: {val:5.0, desc:"Ranged output threshold for dangerous shooter"},
+    URGENCY_ROUND_2_CONTEST: {val:2.0, desc:"Round 2 objective contest urgency"},
+    URGENCY_ROUND_3_HOLD: {val:1.5, desc:"Round 3 hold objective urgency"},
+    URGENCY_LATE_GAME_PUSH: {val:2.5, desc:"Round 4-5 aggressive push bonus"}
+  }},
+  { name: "Trade & Tempo", desc: "Point efficiency and VP-based aggression", params: {
+    TRADE_PPW_WEIGHT: {val:0.25, desc:"Points-per-wound weight in target value"},
+    TRADE_FAVORABLE_BONUS: {val:1.3, desc:"Bonus when trading up (cheap kills expensive)"},
+    TRADE_UNFAVORABLE_PENALTY: {val:0.7, desc:"Penalty when trading down"},
+    TEMPO_VP_DIFF_WEIGHT: {val:0.1, desc:"Per-VP aggression adjustment"},
+    TEMPO_BEHIND_AGGRESSION_BOOST: {val:1.5, desc:"Max aggression boost when losing"},
+    TEMPO_AHEAD_CONSERVATION: {val:0.8, desc:"Conservation factor when winning"},
+    TEMPO_DESPERATION_ROUND: {val:4, desc:"Round that triggers desperation mode"},
+    TEMPO_DESPERATION_MULTIPLIER: {val:1.8, desc:"Aggression multiplier in desperation"},
+    TEMPO_MAX_ROUNDS: {val:5, desc:"Total game rounds"},
+    TEMPO_CHARGE_THRESHOLD_REDUCTION: {val:0.4, desc:"Charge threshold reduction when desperate"}
+  }},
+  { name: "Late-Game Strategy", desc: "How priorities shift across rounds", params: {
+    STRATEGY_EARLY_AGGRESSION: {val:1.3, desc:"Rounds 1-2 kill-seeking boost"},
+    STRATEGY_EARLY_OBJECTIVE: {val:0.95, desc:"Rounds 1-2 objective weight"},
+    STRATEGY_EARLY_SURVIVAL: {val:0.7, desc:"Rounds 1-2 risk tolerance"},
+    STRATEGY_EARLY_CHARGE: {val:0.5, desc:"Rounds 1-2 charge threshold"},
+    STRATEGY_LATE_AGGRESSION: {val:0.7, desc:"Rounds 4-5 kill-seeking reduction"},
+    STRATEGY_LATE_OBJECTIVE: {val:1.6, desc:"Rounds 4-5 objective priority boost"},
+    STRATEGY_LATE_SURVIVAL: {val:1.4, desc:"Rounds 4-5 survival priority"},
+    STRATEGY_LATE_CHARGE: {val:1.3, desc:"Rounds 4-5 charge threshold"},
+    STRATEGY_LATE_CHARGE_ON_OBJ_BONUS: {val:1.5, desc:"Late-game charge-on-objective bonus"},
+    STRATEGY_LATE_OBJ_TARGET_BONUS: {val:1.3, desc:"Late-game shooting units on objectives"}
+  }},
+  { name: "Secondary Missions", desc: "How secondary missions influence positioning", params: {
+    SECONDARY_OBJECTIVE_ZONE_BONUS: {val:3.5, desc:"Bonus for objectives relevant to secondaries"},
+    SECONDARY_POSITIONAL_BONUS: {val:4.0, desc:"Bonus for secondary-mission positions"},
+    SECONDARY_KILL_PROXIMITY_BONUS: {val:2.0, desc:"Bonus near secondary kill targets"},
+    SECONDARY_SPREAD_BONUS: {val:6.0, desc:"Bonus for spreading to table quarters"},
+    SECONDARY_CENTER_BONUS: {val:3.5, desc:"Bonus for Area Denial center positioning"},
+    SECONDARY_ENEMY_ZONE_PUSH_BONUS: {val:7.0, desc:"Bonus for Behind Enemy Lines push"}
+  }},
+  { name: "Faction Aggression", desc: "Faction-specific combat style modifiers", params: {
+    FACTION_AGGRESSION_DEFAULT: {val:1.0, desc:"Base aggression (1.0 = neutral)"},
+    FACTION_AGGRESSION_CUSTODES: {val:1.5, desc:"Custodes elite melee aggression"},
+    FACTION_AGGRESSION_ORKS: {val:1.8, desc:"Orks charge-happy aggression"},
+    FACTION_AGGRESSION_WORLD_EATERS: {val:2.0, desc:"World Eaters blood god aggression"},
+    FACTION_AGGRESSION_KHORNE: {val:1.8, desc:"Khorne daemon melee focus"}
+  }},
+  { name: "Melee Aggression", desc: "How melee units seek and engage enemies", params: {
+    MELEE_AGGRESSION_ENEMY_SEEK_BONUS: {val:8.0, desc:"Score bonus for moving toward nearest enemy"},
+    MELEE_AGGRESSION_CHARGE_RANGE_BONUS: {val:12.0, desc:"Big bonus for reaching charge range"},
+    MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES: {val:20.0, desc:"Advance toward enemy if within this distance"},
+    MELEE_AGGRESSION_MIN_MOVE_RATIO: {val:0.6, desc:"Minimum movement ratio toward enemy"}
+  }},
+  { name: "Survival Assessment", desc: "Hold vs fall-back decisions for engaged units", params: {
+    SURVIVAL_LETHAL_THRESHOLD: {val:0.75, desc:"Damage ratio that suggests unit destruction"},
+    SURVIVAL_SEVERE_THRESHOLD: {val:0.5, desc:"Damage ratio for severe hurt"},
+    SURVIVAL_FALL_BACK_BONUS: {val:2.0, desc:"Score bonus toward falling back under threat"},
+    SURVIVAL_HOLD_BONUS: {val:1.5, desc:"Score bonus toward holding when survivable"}
+  }},
+  { name: "Target Priority", desc: "How the AI ranks shooting targets", params: {
+    MACRO_POINTS_WEIGHT: {val:0.008, desc:"Per-point value contribution"},
+    MACRO_RANGED_OUTPUT_WEIGHT: {val:0.15, desc:"Weight for target's ranged damage output"},
+    MACRO_MELEE_OUTPUT_WEIGHT: {val:0.10, desc:"Weight for target's melee damage output"},
+    MACRO_ABILITY_VALUE_WEIGHT: {val:0.5, desc:"Bonus per ability multiplier above 1.0"},
+    MACRO_SURVIVABILITY_DISCOUNT: {val:0.15, desc:"Discount for hard-to-kill targets"},
+    MACRO_OC_ON_OBJECTIVE_WEIGHT: {val:0.5, desc:"Per-OC value when on objective"},
+    MACRO_OC_NEAR_OBJECTIVE_WEIGHT: {val:0.2, desc:"Per-OC value when near objective"},
+    MACRO_LEADER_BUFF_BONUS: {val:1.5, desc:"Multiplier for leaders buffing attached units"},
+    MICRO_MARGINAL_KILL_BONUS: {val:2.5, desc:"Bonus when allocation enables a kill"},
+    MICRO_OVERKILL_DECAY: {val:0.35, desc:"Value multiplier for excess damage"},
+    MICRO_MODEL_KILL_VALUE: {val:0.6, desc:"Value per model killed vs full wipe"}
+  }},
+  { name: "Screening & Denial", desc: "Deep strike denial and screening behavior", params: {
+    SCREEN_SPACING_PX: {val:720.0, desc:"Spacing between screeners (pixels)"},
+    SCREEN_CHEAP_UNIT_POINTS: {val:100, desc:"Point cost threshold for screening units"},
+    SCREEN_SCORE_BASE: {val:8.0, desc:"Base score for screening assignment"}
+  }},
+  { name: "Corridor Blocking", desc: "Blocking enemy movement corridors", params: {
+    CORRIDOR_BLOCK_THREAT_RANGE_INCHES: {val:30.0, desc:"Enemy distance to objective to warrant blocking"},
+    CORRIDOR_BLOCK_POSITION_RATIO: {val:0.55, desc:"Where to place blocker (0=objective, 1=enemy)"},
+    CORRIDOR_BLOCK_SCORE_BASE: {val:7.0, desc:"Base priority for blocking assignments"},
+    CORRIDOR_BLOCK_MIN_GAP_PX: {val:200.0, desc:"Minimum spacing between blockers (pixels)"},
+    CORRIDOR_BLOCK_MAX_POSITIONS: {val:4, desc:"Maximum blocking positions to consider"}
+  }}
+];
+
+/* =========================================================================
+   CONDITION & ACTION TYPE DEFINITIONS
+   ========================================================================= */
+const CONDITION_TYPES = [
+  { value: "phase", label: "Phase", input: "select", options: ["Movement","Shooting","Charge","Fight"] },
+  { value: "round_gte", label: "Round >=", input: "number" },
+  { value: "round_lte", label: "Round <=", input: "number" },
+  { value: "vp_ahead", label: "VP Ahead", input: "none" },
+  { value: "vp_behind", label: "VP Behind", input: "none" },
+  { value: "vp_diff_gte", label: "VP Lead >=", input: "number" },
+  { value: "vp_diff_lte", label: "VP Deficit >=", input: "number" },
+  { value: "units_remaining_pct_lte", label: "Units Left % <=", input: "number" },
+  { value: "enemy_within_inches", label: "Enemy Within (inches)", input: "number" },
+  { value: "on_objective", label: "On Objective", input: "none" },
+  { value: "is_melee_unit", label: "Is Melee Unit", input: "none" },
+  { value: "is_vehicle", label: "Is Vehicle", input: "none" },
+  { value: "unit_points_gte", label: "Unit Points >=", input: "number" }
+];
+
+const ACTION_OPERATIONS = [
+  { value: "multiply", label: "Multiply by" },
+  { value: "add", label: "Add" },
+  { value: "override", label: "Set to" }
+];
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+let currentParams = {};   // { paramName: currentValue }
+let defaultParams = {};   // { paramName: defaultValue }
+let currentRules = [];    // array of rule objects
+let profiles = [];        // array of profile objects
+let selectedProfileId = null;
+let replayData = null;
+
+// Build flat param maps
+PARAM_SECTIONS.forEach(sec => {
+  Object.entries(sec.params).forEach(([key, def]) => {
+    defaultParams[key] = def.val;
+    currentParams[key] = def.val;
+  });
+});
+
+// All param names for dropdowns
+const ALL_PARAM_NAMES = Object.keys(defaultParams);
+
+/* =========================================================================
+   TAB SWITCHING
+   ========================================================================= */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* =========================================================================
+   TAB 1: PARAMETER TUNER - RENDER
+   ========================================================================= */
+function renderParamSections() {
+  const container = document.getElementById('paramSections');
+  container.innerHTML = '';
+
+  PARAM_SECTIONS.forEach((sec, si) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const paramKeys = Object.keys(sec.params);
+    const modCount = paramKeys.filter(k => currentParams[k] !== defaultParams[k]).length;
+
+    card.innerHTML = `
+      <div class="card-header open" onclick="toggleSection(this)">
+        <span class="chevron">&#9654;</span>
+        <span class="section-title">${sec.name}${modCount > 0 ? ' <span style="color:var(--orange);font-size:0.8rem;">(' + modCount + ' modified)</span>' : ''}</span>
+        <span class="section-desc">${sec.desc}</span>
+        <button class="btn btn-sm" onclick="event.stopPropagation(); resetSection(${si})">Reset Section</button>
+      </div>
+      <div class="card-body" id="section-body-${si}"></div>
+    `;
+    container.appendChild(card);
+
+    const body = card.querySelector('.card-body');
+    paramKeys.forEach(key => {
+      const def = sec.params[key];
+      const cur = currentParams[key];
+      const isModified = cur !== def.val;
+      const range = getParamRange(def.val);
+
+      const row = document.createElement('div');
+      row.className = 'param-row' + (isModified ? ' modified' : '');
+      row.id = 'row-' + key;
+      row.innerHTML = `
+        <div class="param-name">
+          ${key}
+          <span class="param-desc">${def.desc}</span>
+        </div>
+        <input type="range" min="${range.min}" max="${range.max}" step="${range.step}" value="${cur}"
+               oninput="onParamSlider('${key}', this.value)">
+        <input type="number" step="${range.step}" value="${cur}"
+               onchange="onParamNumber('${key}', this.value)">
+        <div class="param-default">default: ${def.val}</div>
+        <button class="param-reset" title="Reset to default" onclick="resetParam('${key}')">&#8634;</button>
+      `;
+      body.appendChild(row);
+    });
+  });
+
+  updateChangeCount();
+}
+
+function getParamRange(defaultVal) {
+  const abs = Math.abs(defaultVal);
+  if (abs === 0) return { min: -10, max: 10, step: 0.1 };
+  if (abs < 0.1) return { min: -1, max: 1, step: 0.001 };
+  if (abs < 1) return { min: -5, max: 5, step: 0.01 };
+  if (abs < 5) return { min: -15, max: 15, step: 0.05 };
+  if (abs < 20) return { min: -50, max: 50, step: 0.1 };
+  if (abs < 100) return { min: -200, max: 200, step: 0.5 };
+  return { min: -2000, max: 2000, step: 1 };
+}
+
+function toggleSection(header) {
+  header.classList.toggle('open');
+}
+
+function onParamSlider(key, val) {
+  val = parseFloat(val);
+  currentParams[key] = val;
+  const row = document.getElementById('row-' + key);
+  row.querySelector('input[type="number"]').value = val;
+  row.className = 'param-row' + (val !== defaultParams[key] ? ' modified' : '');
+  updateChangeCount();
+}
+
+function onParamNumber(key, val) {
+  val = parseFloat(val);
+  if (isNaN(val)) return;
+  currentParams[key] = val;
+  const row = document.getElementById('row-' + key);
+  row.querySelector('input[type="range"]').value = val;
+  row.className = 'param-row' + (val !== defaultParams[key] ? ' modified' : '');
+  updateChangeCount();
+}
+
+function resetParam(key) {
+  currentParams[key] = defaultParams[key];
+  const row = document.getElementById('row-' + key);
+  row.querySelector('input[type="range"]').value = defaultParams[key];
+  row.querySelector('input[type="number"]').value = defaultParams[key];
+  row.className = 'param-row';
+  updateChangeCount();
+}
+
+function resetSection(sectionIndex) {
+  const sec = PARAM_SECTIONS[sectionIndex];
+  Object.keys(sec.params).forEach(key => resetParam(key));
+  renderParamSections();
+}
+
+function resetAllParams() {
+  if (!confirm('Reset all parameters to defaults?')) return;
+  Object.keys(defaultParams).forEach(key => { currentParams[key] = defaultParams[key]; });
+  renderParamSections();
+}
+
+function updateChangeCount() {
+  const count = Object.keys(defaultParams).filter(k => currentParams[k] !== defaultParams[k]).length;
+  document.getElementById('changeCount').textContent = count + ' parameter' + (count !== 1 ? 's' : '') + ' modified';
+}
+
+function getModifiedParams() {
+  const mods = {};
+  Object.keys(defaultParams).forEach(k => {
+    if (currentParams[k] !== defaultParams[k]) mods[k] = currentParams[k];
+  });
+  return mods;
+}
+
+function exportConfig() {
+  const data = {
+    format: "wh40k_ai_profile",
+    version: 1,
+    profile_name: "Exported Config",
+    description: "",
+    faction_affinity: "None",
+    playstyle: "custom",
+    created_at: new Date().toISOString(),
+    modified_at: new Date().toISOString(),
+    parameters: getModifiedParams(),
+    rules: currentRules
+  };
+  downloadJSON(data, 'ai_config.json');
+}
+
+function importConfigClick() {
+  document.getElementById('importConfigFile').click();
+}
+
+function importConfigFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      loadProfileData(data);
+      alert('Config imported successfully. ' + Object.keys(data.parameters || {}).length + ' parameters, ' + (data.rules || []).length + ' rules.');
+    } catch (err) {
+      alert('Error importing config: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+/* =========================================================================
+   TAB 2: RULE BUILDER
+   ========================================================================= */
+function generateId() {
+  return 'rule_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function addRule() {
+  const rule = {
+    id: generateId(),
+    name: 'New Rule',
+    enabled: true,
+    priority: currentRules.length + 1,
+    conditions: [],
+    actions: []
+  };
+  currentRules.push(rule);
+  renderRules();
+}
+
+function renderRules() {
+  const container = document.getElementById('rulesContainer');
+  const empty = document.getElementById('rulesEmpty');
+  container.innerHTML = '';
+
+  if (currentRules.length === 0) {
+    empty.style.display = '';
+    document.getElementById('ruleCount').textContent = '0 rules';
+    return;
+  }
+  empty.style.display = 'none';
+  document.getElementById('ruleCount').textContent = currentRules.length + ' rule' + (currentRules.length !== 1 ? 's' : '');
+
+  // Sort by priority
+  const sorted = [...currentRules].sort((a, b) => a.priority - b.priority);
+
+  sorted.forEach(rule => {
+    const card = document.createElement('div');
+    card.className = 'rule-card' + (rule.enabled ? '' : ' disabled');
+    card.innerHTML = `
+      <div class="rule-header">
+        <label class="toggle">
+          <input type="checkbox" ${rule.enabled ? 'checked' : ''} onchange="toggleRule('${rule.id}', this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+        <input type="text" value="${escapeAttr(rule.name)}" onchange="renameRule('${rule.id}', this.value)" style="flex:1;">
+        <label style="font-size:0.8rem; color:var(--parchment-dim);">Priority:</label>
+        <input type="number" value="${rule.priority}" min="1" onchange="setRulePriority('${rule.id}', this.value)" style="width:60px;">
+        <button class="btn btn-red btn-sm" onclick="deleteRule('${rule.id}')">Delete</button>
+      </div>
+      <div class="rule-body">
+        <div class="rule-section-label if-label">IF (all conditions match)</div>
+        <div id="conds-${rule.id}"></div>
+        <button class="btn btn-sm" onclick="addCondition('${rule.id}')" style="margin:8px 0;">+ Add Condition</button>
+
+        <div class="rule-section-label then-label" style="margin-top:12px;">THEN (apply actions)</div>
+        <div id="actions-${rule.id}"></div>
+        <button class="btn btn-sm" onclick="addAction('${rule.id}')" style="margin:8px 0;">+ Add Action</button>
+      </div>
+    `;
+    container.appendChild(card);
+
+    // Render conditions
+    const condContainer = card.querySelector('#conds-' + rule.id);
+    rule.conditions.forEach((cond, ci) => {
+      condContainer.appendChild(renderConditionRow(rule.id, ci, cond));
+    });
+
+    // Render actions
+    const actContainer = card.querySelector('#actions-' + rule.id);
+    rule.actions.forEach((act, ai) => {
+      actContainer.appendChild(renderActionRow(rule.id, ai, act));
+    });
+  });
+}
+
+function renderConditionRow(ruleId, index, cond) {
+  const row = document.createElement('div');
+  row.className = 'condition-row';
+
+  const typeDef = CONDITION_TYPES.find(t => t.value === cond.type) || CONDITION_TYPES[0];
+
+  let typeOptions = CONDITION_TYPES.map(t =>
+    `<option value="${t.value}" ${t.value === cond.type ? 'selected' : ''}>${t.label}</option>`
+  ).join('');
+
+  let valueInput = '';
+  if (typeDef.input === 'number') {
+    valueInput = `<input type="number" value="${cond.value || 0}" step="any" onchange="updateConditionValue('${ruleId}', ${index}, this.value)">`;
+  } else if (typeDef.input === 'select') {
+    const opts = (typeDef.options || []).map(o =>
+      `<option value="${o}" ${o === cond.value ? 'selected' : ''}>${o}</option>`
+    ).join('');
+    valueInput = `<select onchange="updateConditionValue('${ruleId}', ${index}, this.value)">${opts}</select>`;
+  } else {
+    valueInput = '<span style="color:var(--parchment-dim); font-size:0.8rem;">(no value needed)</span>';
+  }
+
+  row.innerHTML = `
+    <select onchange="updateConditionType('${ruleId}', ${index}, this.value)">${typeOptions}</select>
+    ${valueInput}
+    <button class="remove-row-btn" onclick="removeCondition('${ruleId}', ${index})" title="Remove">&times;</button>
+  `;
+  return row;
+}
+
+function renderActionRow(ruleId, index, act) {
+  const row = document.createElement('div');
+  row.className = 'action-row';
+
+  let paramOptions = ALL_PARAM_NAMES.map(p =>
+    `<option value="${p}" ${p === act.param ? 'selected' : ''}>${p}</option>`
+  ).join('');
+
+  let opOptions = ACTION_OPERATIONS.map(o =>
+    `<option value="${o.value}" ${o.value === act.type ? 'selected' : ''}>${o.label}</option>`
+  ).join('');
+
+  row.innerHTML = `
+    <select onchange="updateActionParam('${ruleId}', ${index}, this.value)" style="min-width:220px;">${paramOptions}</select>
+    <select onchange="updateActionOp('${ruleId}', ${index}, this.value)">${opOptions}</select>
+    <input type="number" value="${act.value || 0}" step="any" onchange="updateActionValue('${ruleId}', ${index}, this.value)">
+    <button class="remove-row-btn" onclick="removeAction('${ruleId}', ${index})" title="Remove">&times;</button>
+  `;
+  return row;
+}
+
+function findRule(id) { return currentRules.find(r => r.id === id); }
+
+function toggleRule(id, enabled) { findRule(id).enabled = enabled; renderRules(); }
+function renameRule(id, name) { findRule(id).name = name; }
+function setRulePriority(id, val) { findRule(id).priority = parseInt(val) || 1; renderRules(); }
+function deleteRule(id) {
+  if (!confirm('Delete this rule?')) return;
+  currentRules = currentRules.filter(r => r.id !== id);
+  renderRules();
+}
+
+function addCondition(ruleId) {
+  findRule(ruleId).conditions.push({ type: 'phase', value: 'Movement' });
+  renderRules();
+}
+function addAction(ruleId) {
+  findRule(ruleId).actions.push({ type: 'multiply', param: ALL_PARAM_NAMES[0], value: 1.0 });
+  renderRules();
+}
+
+function updateConditionType(ruleId, index, type) {
+  const rule = findRule(ruleId);
+  const typeDef = CONDITION_TYPES.find(t => t.value === type);
+  rule.conditions[index].type = type;
+  if (typeDef.input === 'select') rule.conditions[index].value = typeDef.options[0];
+  else if (typeDef.input === 'number') rule.conditions[index].value = 0;
+  else rule.conditions[index].value = null;
+  renderRules();
+}
+function updateConditionValue(ruleId, index, val) {
+  const rule = findRule(ruleId);
+  const typeDef = CONDITION_TYPES.find(t => t.value === rule.conditions[index].type);
+  rule.conditions[index].value = typeDef.input === 'number' ? parseFloat(val) : val;
+}
+function removeCondition(ruleId, index) {
+  findRule(ruleId).conditions.splice(index, 1);
+  renderRules();
+}
+
+function updateActionParam(ruleId, index, param) { findRule(ruleId).actions[index].param = param; }
+function updateActionOp(ruleId, index, op) { findRule(ruleId).actions[index].type = op; }
+function updateActionValue(ruleId, index, val) { findRule(ruleId).actions[index].value = parseFloat(val); }
+function removeAction(ruleId, index) {
+  findRule(ruleId).actions.splice(index, 1);
+  renderRules();
+}
+
+/* =========================================================================
+   TAB 3: PROFILE MANAGER
+   ========================================================================= */
+const PLAYSTYLES = ['aggressive', 'defensive', 'balanced', 'custom'];
+const FACTIONS = ['None', 'Space Marines', 'Orks', 'Death Guard', 'Custodes', 'World Eaters',
+                  'Aeldari', 'Tyranids', 'Necrons', 'Tau Empire', 'Chaos Space Marines',
+                  'Adeptus Mechanicus', 'Imperial Knights', 'Chaos Knights', 'Grey Knights',
+                  'Sisters of Battle', 'Chaos Daemons'];
+
+function loadProfiles() {
+  try {
+    const raw = localStorage.getItem('wh40k_ai_profiles');
+    if (raw) {
+      profiles = JSON.parse(raw);
+    } else {
+      profiles = getDefaultProfiles();
+      saveProfiles();
+    }
+  } catch (e) {
+    profiles = getDefaultProfiles();
+    saveProfiles();
+  }
+}
+
+function saveProfiles() {
+  localStorage.setItem('wh40k_ai_profiles', JSON.stringify(profiles));
+}
+
+function getDefaultProfiles() {
+  return [
+    {
+      id: 'profile_default',
+      format: 'wh40k_ai_profile',
+      version: 1,
+      profile_name: 'Default Balanced',
+      description: 'Standard AI behavior with no parameter modifications. A solid baseline for all factions.',
+      faction_affinity: 'None',
+      playstyle: 'balanced',
+      created_at: '2026-03-08T00:00:00Z',
+      modified_at: '2026-03-08T00:00:00Z',
+      parameters: {},
+      rules: []
+    },
+    {
+      id: 'profile_aggro_melee',
+      format: 'wh40k_ai_profile',
+      version: 1,
+      profile_name: 'Aggressive Melee',
+      description: 'Rush forward and charge everything. Boosted aggression and melee-seeking behavior with a late-game charge bonus rule.',
+      faction_affinity: 'Orks',
+      playstyle: 'aggressive',
+      created_at: '2026-03-08T00:00:00Z',
+      modified_at: '2026-03-08T00:00:00Z',
+      parameters: {
+        FACTION_AGGRESSION_DEFAULT: 1.6,
+        MELEE_AGGRESSION_ENEMY_SEEK_BONUS: 12.0,
+        MELEE_AGGRESSION_CHARGE_RANGE_BONUS: 18.0,
+        MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES: 28.0,
+        STRATEGY_EARLY_AGGRESSION: 1.6,
+        STRATEGY_EARLY_CHARGE: 0.3,
+        PHASE_PLAN_CHARGE_LANE_BONUS: 5.0,
+        THREAT_MELEE_UNIT_IGNORE: 0.01,
+        TEMPO_BEHIND_AGGRESSION_BOOST: 2.0
+      },
+      rules: [
+        {
+          id: 'rule_aggro_late_charge',
+          name: 'Late-Game Charge Frenzy',
+          enabled: true,
+          priority: 1,
+          conditions: [
+            { type: 'round_gte', value: 4 },
+            { type: 'phase', value: 'Charge' }
+          ],
+          actions: [
+            { type: 'multiply', param: 'MELEE_AGGRESSION_CHARGE_RANGE_BONUS', value: 2.5 },
+            { type: 'add', param: 'STRATEGY_LATE_CHARGE_ON_OBJ_BONUS', value: 3.0 }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'profile_def_gunline',
+      format: 'wh40k_ai_profile',
+      version: 1,
+      profile_name: 'Defensive Gunline',
+      description: 'Hold positions, maximize shooting, and fall back when threatened. Ideal for armies with strong ranged firepower.',
+      faction_affinity: 'Tau Empire',
+      playstyle: 'defensive',
+      created_at: '2026-03-08T00:00:00Z',
+      modified_at: '2026-03-08T00:00:00Z',
+      parameters: {
+        SURVIVAL_FALL_BACK_BONUS: 4.0,
+        SURVIVAL_HOLD_BONUS: 0.8,
+        WEIGHT_FIRING_POSITION_KEPT: 5.0,
+        WEIGHT_FIRING_POSITION_LOST: -5.0,
+        HEAVY_STATIONARY_MIN_BENEFIT: 0.08,
+        HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE: 15.0,
+        THREAT_CHARGE_PENALTY: 4.0,
+        THREAT_FRAGILE_BONUS: 2.0,
+        STRATEGY_LATE_SURVIVAL: 2.0,
+        MELEE_AGGRESSION_CHARGE_RANGE_BONUS: 4.0,
+        PHASE_PLAN_CHARGE_LANE_BONUS: 0.5
+      },
+      rules: [
+        {
+          id: 'rule_def_fallback',
+          name: 'Fall Back When Threatened',
+          enabled: true,
+          priority: 1,
+          conditions: [
+            { type: 'enemy_within_inches', value: 6 },
+            { type: 'phase', value: 'Movement' }
+          ],
+          actions: [
+            { type: 'multiply', param: 'SURVIVAL_FALL_BACK_BONUS', value: 2.0 },
+            { type: 'override', param: 'MELEE_AGGRESSION_CHARGE_RANGE_BONUS', value: 0 }
+          ]
+        }
+      ]
+    }
+  ];
+}
+
+function renderProfileList() {
+  const container = document.getElementById('profileList');
+  container.innerHTML = '';
+
+  if (profiles.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:20px;">No profiles saved</div>';
+    return;
+  }
+
+  profiles.forEach(p => {
+    const paramCount = Object.keys(p.parameters || {}).length;
+    const ruleCount = (p.rules || []).length;
+    const item = document.createElement('div');
+    item.className = 'profile-item' + (p.id === selectedProfileId ? ' selected' : '');
+    item.onclick = () => { selectedProfileId = p.id; renderProfileList(); renderProfileDetail(); };
+    item.innerHTML = `
+      <div class="p-name">${escapeHtml(p.profile_name)}</div>
+      <div class="p-meta">
+        <span class="badge badge-${p.playstyle || 'custom'}">${p.playstyle || 'custom'}</span>
+        ${p.faction_affinity && p.faction_affinity !== 'None' ? ' &middot; ' + escapeHtml(p.faction_affinity) : ''}
+        &middot; ${paramCount} params &middot; ${ruleCount} rules
+      </div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function renderProfileDetail() {
+  const panel = document.getElementById('profileDetail');
+  const prof = profiles.find(p => p.id === selectedProfileId);
+
+  if (!prof) {
+    panel.innerHTML = '<div class="empty-state">Select a profile or create a new one</div>';
+    return;
+  }
+
+  const paramCount = Object.keys(prof.parameters || {}).length;
+  const ruleCount = (prof.rules || []).length;
+
+  panel.innerHTML = `
+    <div class="profile-form-grid">
+      <div class="form-group">
+        <label>Profile Name</label>
+        <input type="text" id="profName" value="${escapeAttr(prof.profile_name)}">
+      </div>
+      <div class="form-group">
+        <label>Playstyle</label>
+        <select id="profPlaystyle">
+          ${PLAYSTYLES.map(s => `<option value="${s}" ${s === prof.playstyle ? 'selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Faction Affinity</label>
+        <select id="profFaction">
+          ${FACTIONS.map(f => `<option value="${f}" ${f === prof.faction_affinity ? 'selected' : ''}>${f}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Modified</label>
+        <input type="text" value="${prof.modified_at ? new Date(prof.modified_at).toLocaleString() : 'N/A'}" disabled>
+      </div>
+      <div class="form-group full-width">
+        <label>Description</label>
+        <textarea id="profDesc" rows="3">${escapeHtml(prof.description || '')}</textarea>
+      </div>
+    </div>
+    <div style="display:flex; gap:16px; margin-bottom:16px; color:var(--parchment-dim); font-size:0.85rem;">
+      <span>${paramCount} parameter override${paramCount !== 1 ? 's' : ''}</span>
+      <span>${ruleCount} rule${ruleCount !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="profile-actions">
+      <button class="btn btn-gold" onclick="saveCurrentProfile()">Save Changes</button>
+      <button class="btn btn-green" onclick="loadProfile()">Load into Editor</button>
+      <button class="btn" onclick="duplicateProfile()">Duplicate</button>
+      <button class="btn btn-gold" onclick="exportProfile()">Export JSON</button>
+      <button class="btn btn-red" onclick="deleteProfile()">Delete</button>
+    </div>
+  `;
+}
+
+function newProfile() {
+  const prof = {
+    id: 'profile_' + Date.now().toString(36),
+    format: 'wh40k_ai_profile',
+    version: 1,
+    profile_name: 'New Profile',
+    description: '',
+    faction_affinity: 'None',
+    playstyle: 'balanced',
+    created_at: new Date().toISOString(),
+    modified_at: new Date().toISOString(),
+    parameters: getModifiedParams(),
+    rules: JSON.parse(JSON.stringify(currentRules))
+  };
+  profiles.push(prof);
+  selectedProfileId = prof.id;
+  saveProfiles();
+  renderProfileList();
+  renderProfileDetail();
+}
+
+function saveCurrentProfile() {
+  const prof = profiles.find(p => p.id === selectedProfileId);
+  if (!prof) return;
+
+  prof.profile_name = document.getElementById('profName').value;
+  prof.description = document.getElementById('profDesc').value;
+  prof.playstyle = document.getElementById('profPlaystyle').value;
+  prof.faction_affinity = document.getElementById('profFaction').value;
+  prof.modified_at = new Date().toISOString();
+  prof.parameters = getModifiedParams();
+  prof.rules = JSON.parse(JSON.stringify(currentRules));
+
+  saveProfiles();
+  renderProfileList();
+  renderProfileDetail();
+}
+
+function loadProfile() {
+  const prof = profiles.find(p => p.id === selectedProfileId);
+  if (!prof) return;
+  loadProfileData(prof);
+  alert('Profile "' + prof.profile_name + '" loaded into editor.');
+}
+
+function loadProfileData(data) {
+  // Reset all to defaults
+  Object.keys(defaultParams).forEach(k => { currentParams[k] = defaultParams[k]; });
+
+  // Apply overrides
+  if (data.parameters) {
+    Object.entries(data.parameters).forEach(([k, v]) => {
+      if (k in defaultParams) currentParams[k] = v;
+    });
+  }
+
+  // Load rules
+  currentRules = JSON.parse(JSON.stringify(data.rules || []));
+
+  renderParamSections();
+  renderRules();
+}
+
+function duplicateProfile() {
+  const prof = profiles.find(p => p.id === selectedProfileId);
+  if (!prof) return;
+  const dup = JSON.parse(JSON.stringify(prof));
+  dup.id = 'profile_' + Date.now().toString(36);
+  dup.profile_name = prof.profile_name + ' (Copy)';
+  dup.created_at = new Date().toISOString();
+  dup.modified_at = new Date().toISOString();
+  profiles.push(dup);
+  selectedProfileId = dup.id;
+  saveProfiles();
+  renderProfileList();
+  renderProfileDetail();
+}
+
+function deleteProfile() {
+  const prof = profiles.find(p => p.id === selectedProfileId);
+  if (!prof) return;
+  if (!confirm('Delete profile "' + prof.profile_name + '"?')) return;
+  profiles = profiles.filter(p => p.id !== selectedProfileId);
+  selectedProfileId = null;
+  saveProfiles();
+  renderProfileList();
+  renderProfileDetail();
+}
+
+function exportProfile() {
+  const prof = profiles.find(p => p.id === selectedProfileId);
+  if (!prof) return;
+  const exported = { ...prof };
+  delete exported.id;  // Remove internal id
+  downloadJSON(exported, prof.profile_name.replace(/[^a-zA-Z0-9]/g, '_') + '.json');
+}
+
+function importProfileClick() {
+  document.getElementById('importProfileFile').click();
+}
+
+function importProfileFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.format !== 'wh40k_ai_profile') {
+        alert('Invalid profile format. Expected wh40k_ai_profile.');
+        return;
+      }
+      // Validate parameters
+      if (data.parameters) {
+        Object.keys(data.parameters).forEach(k => {
+          if (!(k in defaultParams)) {
+            console.warn('Unknown parameter in import: ' + k);
+          }
+        });
+      }
+      // Validate rules
+      if (data.rules) {
+        data.rules.forEach(rule => {
+          if (!rule.id) rule.id = generateId();
+          (rule.conditions || []).forEach(c => {
+            if (!CONDITION_TYPES.find(t => t.value === c.type)) {
+              console.warn('Unknown condition type: ' + c.type);
+            }
+          });
+          (rule.actions || []).forEach(a => {
+            if (!(a.param in defaultParams)) {
+              console.warn('Unknown action param: ' + a.param);
+            }
+          });
+        });
+      }
+
+      data.id = 'profile_' + Date.now().toString(36);
+      if (!data.created_at) data.created_at = new Date().toISOString();
+      data.modified_at = new Date().toISOString();
+      profiles.push(data);
+      selectedProfileId = data.id;
+      saveProfiles();
+      renderProfileList();
+      renderProfileDetail();
+      alert('Profile "' + data.profile_name + '" imported successfully.');
+    } catch (err) {
+      alert('Error importing profile: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+/* =========================================================================
+   TAB 4: DECISION REPLAY
+   ========================================================================= */
+function initReplay() {
+  const dropZone = document.getElementById('replayDropZone');
+  const fileInput = document.getElementById('replayFileInput');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) loadReplayFile(file);
+  });
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) loadReplayFile(e.target.files[0]);
+    e.target.value = '';
+  });
+}
+
+function loadReplayFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      replayData = JSON.parse(e.target.result);
+      renderReplay();
+    } catch (err) {
+      alert('Error parsing replay file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function renderReplay() {
+  if (!replayData) return;
+
+  document.getElementById('replayDropZone').style.display = 'none';
+  document.getElementById('replayContent').style.display = '';
+
+  const timeline = document.getElementById('replayTimeline');
+  timeline.innerHTML = '';
+
+  const decisions = Array.isArray(replayData) ? replayData : (replayData.decisions || replayData.entries || [replayData]);
+
+  decisions.forEach((dec, i) => {
+    const phase = (dec.phase || dec.type || 'unknown').toLowerCase();
+    const round = dec.round || dec.battle_round || '?';
+    const unit = dec.unit_name || dec.unit || dec.label || ('Decision ' + (i + 1));
+
+    const marker = document.createElement('button');
+    marker.className = 'timeline-marker ' + getPhaseClass(phase);
+    marker.textContent = 'R' + round + ' ' + abbreviate(unit);
+    marker.title = 'Round ' + round + ' - ' + phase + ' - ' + unit;
+    marker.onclick = () => {
+      timeline.querySelectorAll('.timeline-marker').forEach(m => m.classList.remove('active'));
+      marker.classList.add('active');
+      renderDecisionDetail(dec, i);
+    };
+    timeline.appendChild(marker);
+  });
+}
+
+function getPhaseClass(phase) {
+  if (phase.includes('move')) return 'movement';
+  if (phase.includes('shoot') || phase.includes('firing')) return 'shooting';
+  if (phase.includes('charge')) return 'charge';
+  if (phase.includes('fight') || phase.includes('melee')) return 'fight';
+  return '';
+}
+
+function abbreviate(str) {
+  if (!str) return '?';
+  return str.length > 16 ? str.slice(0, 14) + '..' : str;
+}
+
+function renderDecisionDetail(dec, index) {
+  const detail = document.getElementById('replayDetail');
+
+  const unit = dec.unit_name || dec.unit || 'Unknown Unit';
+  const phase = dec.phase || dec.type || 'Unknown Phase';
+  const round = dec.round || dec.battle_round || '?';
+  const candidates = dec.candidates || dec.options || dec.scored_positions || [];
+  const thinking = dec.thinking || dec.reasoning || dec.steps || [];
+  const chosen = dec.chosen || dec.winner || dec.selected || null;
+  const params = dec.parameters_used || dec.params || null;
+
+  let html = `<h3>Round ${escapeHtml(String(round))} - ${escapeHtml(String(phase))} - ${escapeHtml(String(unit))}</h3>`;
+
+  // Candidates table
+  if (candidates.length > 0) {
+    html += '<h4 style="color:var(--parchment-dim); margin:8px 0 4px;">Candidates</h4>';
+    html += '<div style="overflow-x:auto;"><table class="candidate-table"><thead><tr>';
+
+    // Dynamic columns from first candidate
+    const cols = Object.keys(candidates[0]).filter(k => typeof candidates[0][k] !== 'object');
+    cols.forEach(c => { html += `<th>${escapeHtml(c)}</th>`; });
+    html += '</tr></thead><tbody>';
+
+    candidates.forEach(cand => {
+      const isWinner = chosen && (cand.id === chosen || cand.label === chosen || cand.name === chosen ||
+                        JSON.stringify(cand) === JSON.stringify(chosen));
+      html += `<tr class="${isWinner ? 'winner' : ''}">`;
+      cols.forEach(c => {
+        let val = cand[c];
+        if (typeof val === 'number') val = Math.round(val * 1000) / 1000;
+        html += `<td>${escapeHtml(String(val != null ? val : ''))}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // Thinking steps
+  if (thinking.length > 0 || (typeof thinking === 'string' && thinking)) {
+    html += '<h4 style="color:var(--parchment-dim); margin:12px 0 4px;">Thinking Steps</h4>';
+    const steps = Array.isArray(thinking) ? thinking : [thinking];
+    html += '<div class="thinking-steps">' + steps.map(s => escapeHtml(typeof s === 'string' ? s : JSON.stringify(s, null, 2))).join('\n') + '</div>';
+  }
+
+  // Parameters used
+  if (params && typeof params === 'object') {
+    html += '<h4 style="color:var(--parchment-dim); margin:12px 0 4px;">Parameters Used</h4>';
+    html += '<div class="thinking-steps">' + escapeHtml(JSON.stringify(params, null, 2)) + '</div>';
+  }
+
+  detail.innerHTML = html;
+}
+
+/* =========================================================================
+   UTILITY FUNCTIONS
+   ========================================================================= */
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function escapeAttr(str) {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function downloadJSON(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* =========================================================================
+   INITIALIZATION
+   ========================================================================= */
+function init() {
+  renderParamSections();
+  renderRules();
+  loadProfiles();
+  renderProfileList();
+  renderProfileDetail();
+  initReplay();
+}
+
+init();
+</script>
+</body>
+</html>
