@@ -60,7 +60,7 @@ func _ready() -> void:
 	anchor_top = 0.0
 	anchor_right = 1.0
 	anchor_bottom = 1.0
-	z_index = 100  # Ensure we're on top of everything
+	z_index = 2000  # Ensure we're on top of everything (UI_MODAL_Z)
 	mouse_filter = Control.MOUSE_FILTER_STOP  # FIXED: STOP clicks from passing through
 
 	print("WoundAllocationOverlay: [READY STEP 2] Anchors and z_index set")
@@ -218,7 +218,7 @@ func _build_ui() -> void:
 	overlay_panel.offset_left = -225  # Half of width
 	overlay_panel.offset_right = 225
 	overlay_panel.offset_bottom = 250
-	overlay_panel.z_index = 101  # Above the overlay background
+	overlay_panel.z_index = 2001  # Above the overlay background
 	overlay_panel.mouse_filter = Control.MOUSE_FILTER_PASS  # FIXED: Pass clicks through panel to overlay, not to board
 	overlay_panel.visible = true
 	print("WoundAllocationOverlay: _build_ui() [STEP 3] PanelContainer configured")
