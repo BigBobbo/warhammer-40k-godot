@@ -85,6 +85,8 @@ func _on_phase_enter() -> void:
 	# Step 5: Check objectives at start of command phase (AFTER snapshot)
 	if MissionManager:
 		MissionManager.check_all_objectives()
+		# Snapshot alive units for kill detection (used by Purge the Foe)
+		MissionManager.snapshot_alive_units()
 
 	# Step 6: Draw secondary mission cards (tactical mode only — fixed mode skips drawing)
 	_newly_drawn_missions = []
@@ -2087,6 +2089,8 @@ func _handle_end_command() -> Dictionary:
 	# Per 10e rules: primary mission scoring occurs "at the end of your Command phase"
 	# check_all_objectives() was already called at phase entry (line 78) so control state is current
 	if MissionManager:
+		# Auto-detect destroyed units for Purge the Foe
+		MissionManager.count_destroyed_units_this_round()
 		MissionManager.score_primary_objectives()
 
 	# Log VP summary to game log

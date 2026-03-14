@@ -8,6 +8,8 @@ signal objective_control_changed(objective_id: String, controller: int, old_cont
 signal victory_points_scored(player: int, points: int, reason: String)
 signal objective_removed(objective_id: String)
 signal objective_burned(objective_id: String, player: int)
+signal objective_burn_started(objective_id: String, player: int)
+signal objective_burn_completed(objective_id: String, player: int)
 
 var current_mission: Dictionary = {}
 var objective_control_state: Dictionary = {} # objective_id -> controlling_player
@@ -48,6 +50,23 @@ var _pending_terraforms: Dictionary = {}
 # Structure: { round_number: { "1": {total, primary, secondary}, "2": {total, primary, secondary} } }
 var _vp_timeline: Dictionary = {}
 
+# --- Scorched Earth state (incoming branch) ---
+# objective_id -> { "player": int, "started_round": int }
+var burn_in_progress: Dictionary = {}
+var burned_objectives: Array = []  # IDs of objectives that have been burned and removed
+
+# --- Supply Drop state ---
+var removed_objectives: Array = []  # IDs of NML objectives removed in later rounds
+var supply_drop_resolved_round_4: bool = false
+
+# --- Purge the Foe state ---
+# Tracks unit kills per player per battle round: { round_str: { "1": count, "2": count } }
+var kills_per_round: Dictionary = {}
+
+# --- Sites of Power state ---
+# Tracks which objectives have been claimed by a character: objective_id -> { "player": int, "claimed_round": int }
+var character_claimed_objectives: Dictionary = {}
+
 func _ready() -> void:
 	print("MissionManager: Initializing mission system")
 	initialize_default_mission()
@@ -71,17 +90,19 @@ func initialize_mission(mission_id: String) -> void:
 		mission_data = MissionData.get_mission("take_and_hold")
 		mission_id = "take_and_hold"
 
-	current_mission = {
-		"id": mission_id,
-		"name": mission_data.name,
-		"type": "primary",
-		"scoring_type": mission_data.scoring_type,
-		"max_vp": mission_data.max_vp,
-		"scoring_rules": mission_data.scoring.duplicate(true),
-		"start_round": mission_data.start_round,
-		"special_rules": mission_data.special_rules.duplicate(),
-		"objectives_used": mission_data.objectives_used,
-	}
+	current_mission = mission_data.duplicate(true)
+
+	# Also store scoring rules in a flat reference for compatibility
+	if not current_mission.has("scoring_rules"):
+		current_mission["scoring_rules"] = current_mission.get("scoring", {}).duplicate(true)
+
+	# Reset mission-specific state
+	burn_in_progress.clear()
+	burned_objectives.clear()
+	removed_objectives.clear()
+	supply_drop_resolved_round_4 = false
+	kills_per_round.clear()
+	character_claimed_objectives.clear()
 
 	# Initialize objectives based on deployment type
 	var deployment_type = GameState.get_deployment_type()
@@ -127,6 +148,10 @@ func _setup_objectives_for_deployment(deployment_type: String) -> void:
 	for obj in objectives:
 		print("  - %s at position %s (zone: %s)" % [obj.id, obj.position, obj.get("zone", "unknown")])
 
+# ============================================================
+# OBJECTIVE CONTROL (shared by all missions)
+# ============================================================
+
 func check_all_objectives() -> void:
 	var objectives = GameState.state.board.get("objectives", [])
 
@@ -142,6 +167,10 @@ func check_all_objectives() -> void:
 	print("MissionManager: Checking control for %d objectives with %d units" % [objectives.size(), units.size()])
 
 	for obj in objectives:
+		# Skip removed/burned objectives
+		if obj.id in removed_objectives or obj.id in burned_objectives:
+			continue
+
 		print("\nChecking objective: %s at position %s" % [obj.id, obj.position])
 		var controller = _check_objective_control(obj, units)
 		var old_controller = objective_control_state.get(obj.id, 0)
@@ -357,10 +386,14 @@ func get_sticky_objectives() -> Dictionary:
 # PRIMARY SCORING — dispatches to mission-specific scoring logic
 # ============================================================================
 
+# ============================================================
+# SCORING DISPATCH
+# ============================================================
+
 func score_primary_objectives() -> void:
 	var battle_round = GameState.get_battle_round()
 	var active_player = GameState.get_active_player()
-	var start_round = current_mission.get("start_round", 2)
+	var start_round = current_mission.get("start_round", current_mission.get("scoring_rules", {}).get("start_round", 2))
 
 	print("MissionManager: Checking primary scoring for Player %d in battle round %d (mission: %s)" % [active_player, battle_round, current_mission.name])
 
@@ -368,6 +401,9 @@ func score_primary_objectives() -> void:
 	if battle_round < start_round:
 		print("MissionManager: No scoring before battle round %d" % start_round)
 		return
+
+	# Handle round-start events (objective removal for Supply Drop, burn completion for Scorched Earth)
+	_process_round_start_events(battle_round, active_player)
 
 	# Dispatch to mission-specific scoring
 	var scoring_type = current_mission.get("scoring_type", "hold_objectives")
@@ -378,6 +414,8 @@ func score_primary_objectives() -> void:
 			_score_hold_and_kill(active_player, battle_round)
 		"supply_drop":
 			_score_supply_drop(active_player, battle_round)
+		"purge_the_foe":
+			_score_purge_the_foe(active_player, battle_round)
 		"sites_of_power":
 			_score_sites_of_power(active_player, battle_round)
 		"hold_and_burn":
@@ -400,11 +438,8 @@ func _score_hold_objectives(active_player: int, _battle_round: int) -> void:
 	var center_bonus = scoring_rules.get("vp_center_bonus", 0)
 	var max_per_turn = scoring_rules.get("max_vp_per_turn", 15)
 
-	# Count controlled objectives
-	var controlled_objectives = []
-	for obj_id in objective_control_state:
-		if objective_control_state[obj_id] == active_player:
-			controlled_objectives.append(obj_id)
+	# Count controlled objectives (excluding removed/burned)
+	var controlled_objectives = _get_controlled_objectives(active_player)
 
 	var controlled_count = controlled_objectives.size()
 
@@ -425,6 +460,10 @@ func _score_hold_objectives(active_player: int, _battle_round: int) -> void:
 
 	_apply_primary_vp(active_player, vp_earned, "Controlled %d objectives" % controlled_count)
 
+# Alias for compatibility with incoming branch code
+func _score_take_and_hold(active_player: int, battle_round: int) -> void:
+	_score_hold_objectives(active_player, battle_round)
+
 # ============================================================================
 # PURGE THE FOE — hold objectives + destroy enemy units
 # ============================================================================
@@ -442,14 +481,8 @@ func _score_hold_and_kill(active_player: int, _battle_round: int) -> void:
 	var reasons = []
 
 	# Holding component
-	var player_objectives = 0
-	var opponent_objectives = 0
-	for obj_id in objective_control_state:
-		var controller = objective_control_state[obj_id]
-		if controller == active_player:
-			player_objectives += 1
-		elif controller == opponent:
-			opponent_objectives += 1
+	var player_objectives = _get_controlled_objectives(active_player).size()
+	var opponent_objectives = _get_controlled_objectives(opponent).size()
 
 	if player_objectives > 0:
 		vp_earned += hold_any_vp
@@ -458,9 +491,15 @@ func _score_hold_and_kill(active_player: int, _battle_round: int) -> void:
 		vp_earned += hold_more_vp
 		reasons.append("holds more than opponent")
 
-	# Kill component
+	# Kill component — check both tracking systems
 	var player_kills = _kills_this_round.get(str(active_player), 0)
 	var opponent_kills = _kills_this_round.get(str(opponent), 0)
+
+	# Also check the per-round kill tracking from incoming branch
+	var round_key = str(_battle_round) if _battle_round > 0 else str(GameState.get_battle_round())
+	var round_kills = kills_per_round.get(round_key, {})
+	player_kills = max(player_kills, round_kills.get(str(active_player), 0))
+	opponent_kills = max(opponent_kills, round_kills.get(str(opponent), 0))
 
 	if player_kills > 0:
 		vp_earned += kill_any_vp
@@ -475,6 +514,10 @@ func _score_hold_and_kill(active_player: int, _battle_round: int) -> void:
 	print("MissionManager: Purge the Foe - %s" % reason_text)
 	_apply_primary_vp(active_player, vp_earned, reason_text)
 
+# Alias for compatibility with incoming branch dispatch
+func _score_purge_the_foe(active_player: int, battle_round: int) -> void:
+	_score_hold_and_kill(active_player, battle_round)
+
 # ============================================================================
 # SUPPLY DROP — Only NML objectives score; remove one in Round 4
 # ============================================================================
@@ -483,21 +526,9 @@ func _score_supply_drop(active_player: int, battle_round: int) -> void:
 	var scoring_rules = current_mission.get("scoring_rules", {})
 	var vp_per_obj = scoring_rules.get("vp_per_objective", 5)
 	var max_per_turn = scoring_rules.get("max_vp_per_turn", 15)
-	var remove_round = scoring_rules.get("remove_random_nml_round", 4)
 
-	# Handle objective removal at start of the specified round
-	if battle_round == remove_round and active_player == 1:
-		# Remove one random NML objective (only do this once, when P1 scores)
-		_remove_random_nml_objective()
-
-	# Only count NML objectives
-	var controlled_nml = []
-	var objectives = GameState.state.board.get("objectives", [])
-	for obj in objectives:
-		var zone = obj.get("zone", "")
-		if zone == "no_mans_land" and objective_control_state.get(obj.id, 0) == active_player:
-			controlled_nml.append(obj.id)
-
+	# Only count NML objectives (using helper method, respects removed_objectives)
+	var controlled_nml = _get_controlled_nml_objectives(active_player)
 	var controlled_count = controlled_nml.size()
 
 	if controlled_count > 0:
@@ -505,162 +536,192 @@ func _score_supply_drop(active_player: int, battle_round: int) -> void:
 	else:
 		print("MissionManager: Supply Drop - Player %d controls no NML objectives" % active_player)
 
-	var vp_earned = mini(controlled_count * vp_per_obj, max_per_turn)
-	_apply_primary_vp(active_player, vp_earned, "Controlled %d NML objectives" % controlled_count)
+	# Round 5 bonus: remaining NML objective is worth extra
+	var removal_rules = current_mission.get("removal_rules", {})
+	if battle_round >= 5 and controlled_count > 0:
+		var bonus = removal_rules.get("round_5_bonus_vp", 10)
+		var vp_earned = mini(controlled_count * vp_per_obj + bonus, max_per_turn)
+		_apply_primary_vp(active_player, vp_earned, "Held %d supply drop objectives (+bonus)" % controlled_count)
+	else:
+		var vp_earned = min(controlled_count * vp_per_obj, rules.max_vp_per_turn)
+		_award_primary_vp(active_player, vp_earned, "Held %d supply drop objectives" % controlled_count)
 
-func _remove_random_nml_objective() -> void:
-	var objectives = GameState.state.board.get("objectives", [])
-	var nml_objectives = []
-	for i in range(objectives.size()):
-		if objectives[i].get("zone", "") == "no_mans_land":
-			nml_objectives.append(i)
+func _process_round_start_events(battle_round: int, active_player: int) -> void:
+	"""Handle round-start events like objective removal for Supply Drop."""
+	if current_mission.get("scoring_type", "") == "supply_drop":
+		_process_supply_drop_removal(battle_round, active_player)
 
-	if nml_objectives.is_empty():
-		print("MissionManager: Supply Drop - No NML objectives to remove")
+func _process_supply_drop_removal(battle_round: int, active_player: int) -> void:
+	"""Remove NML objectives at the start of round 4 for Supply Drop."""
+	var removal_rules = current_mission.get("removal_rules", {})
+
+	# Only process removal once, when the first player scores in round 4
+	if battle_round == 4 and not supply_drop_resolved_round_4 and active_player == 1:
+		var remove_count = removal_rules.get("round_4_remove_count", 1)
+		var nml_objectives = _get_nml_objective_ids()
+
+		# Remove objectives that haven't already been removed
+		var available_for_removal = []
+		for obj_id in nml_objectives:
+			if obj_id not in removed_objectives:
+				available_for_removal.append(obj_id)
+
+		for i in range(min(remove_count, available_for_removal.size())):
+			# Pick randomly
+			var idx = randi() % available_for_removal.size()
+			var removed_id = available_for_removal[idx]
+			available_for_removal.remove_at(idx)
+
+			removed_objectives.append(removed_id)
+			objective_control_state.erase(removed_id)
+
+			print("MissionManager: Supply Drop - removed objective %s at start of round %d" % [removed_id, battle_round])
+			emit_signal("objective_removed", removed_id)
+
+		supply_drop_resolved_round_4 = true
+
+# ============================================================
+# KILL TRACKING — per-round tracking for Purge the Foe
+# ============================================================
+
+func record_unit_destroyed_detailed(destroyed_unit_owner: int, destroying_player: int) -> void:
+	"""Called when a unit is destroyed. Tracks kills per round for Purge the Foe.
+	Can be called externally from combat resolution code, or the mission manager
+	can detect destroyed units via count_destroyed_units_this_round()."""
+	var battle_round = str(GameState.get_battle_round())
+
+	if not kills_per_round.has(battle_round):
+		kills_per_round[battle_round] = {"1": 0, "2": 0}
+
+	kills_per_round[battle_round][str(destroying_player)] += 1
+
+	print("MissionManager: Recorded kill - Player %d destroyed Player %d's unit (Round %s total: %d)" % [
+		destroying_player, destroyed_unit_owner, battle_round,
+		kills_per_round[battle_round][str(destroying_player)]
+	])
+
+# Track which units were alive at the start of each round (for kill detection)
+var _units_alive_at_round_start: Dictionary = {}  # round_str -> { unit_id: owner }
+
+func snapshot_alive_units() -> void:
+	"""Take a snapshot of alive units at the start of a round.
+	Called at the beginning of Command phase to enable kill detection."""
+	var battle_round = str(GameState.get_battle_round())
+	var alive_units = {}
+	var units = GameState.state.get("units", {})
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		var has_alive_model = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive_model = true
+				break
+		if has_alive_model:
+			alive_units[unit_id] = unit.get("owner", 0)
+
+	_units_alive_at_round_start[battle_round] = alive_units
+	print("MissionManager: Snapshot %d alive units at start of round %s" % [alive_units.size(), battle_round])
+
+func count_destroyed_units_this_round() -> void:
+	"""Compare current alive units to round-start snapshot to detect kills.
+	Called during scoring to auto-detect unit destruction for Purge the Foe."""
+	var battle_round = str(GameState.get_battle_round())
+	var snapshot = _units_alive_at_round_start.get(battle_round, {})
+	if snapshot.is_empty():
 		return
 
-	# Pick a random NML objective to remove
-	var remove_index = nml_objectives[randi() % nml_objectives.size()]
-	var removed_obj = objectives[remove_index]
-	var removed_id = removed_obj.id
+	var units = GameState.state.get("units", {})
 
-	print("MissionManager: Supply Drop - Removing NML objective '%s' in Round 4" % removed_id)
-	objectives.remove_at(remove_index)
-	objective_control_state.erase(removed_id)
-	emit_signal("objective_removed", removed_id)
+	for unit_id in snapshot:
+		var unit = units.get(unit_id, {})
+		if unit.is_empty():
+			continue
 
-# ============================================================================
-# SITES OF POWER — Characters on NML objectives
-# ============================================================================
+		# Check if unit is now fully wiped
+		var has_alive_model = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive_model = true
+				break
 
-func _score_sites_of_power(active_player: int, _battle_round: int) -> void:
-	var scoring_rules = current_mission.get("scoring_rules", {})
-	var vp_per_char = scoring_rules.get("vp_per_character_on_nml_objective", 5)
-	var max_per_turn = scoring_rules.get("max_vp_per_turn", 15)
+		if not has_alive_model:
+			var destroyed_owner = snapshot[unit_id]
+			var destroying_player = 1 if destroyed_owner == 2 else 2
 
-	var control_radius = Measurement.inches_to_px(3.78740157)
+			# Only record if not already counted
+			if not kills_per_round.has(battle_round):
+				kills_per_round[battle_round] = {"1": 0, "2": 0}
+
+			# Use a tracking set to avoid double-counting
+			var key = "_%s_counted" % battle_round
+			if not kills_per_round.has(key):
+				kills_per_round[key] = []
+			if unit_id not in kills_per_round[key]:
+				kills_per_round[key].append(unit_id)
+				kills_per_round[battle_round][str(destroying_player)] += 1
+				print("MissionManager: Auto-detected kill - %s (Player %d) destroyed this round" % [unit_id, destroyed_owner])
+
+# ============================================================
+# SITES OF POWER SCORING
+# ============================================================
+
+func _score_sites_of_power(active_player: int, battle_round: int) -> void:
+	var rules = current_mission.scoring_rules
+	var total_vp = 0
+
+	# Standard objective holding (same as Take and Hold base)
+	var controlled_objectives = _get_controlled_objectives(active_player)
+	var controlled_count = controlled_objectives.size()
+	var hold_vp = min(controlled_count * rules.vp_per_objective, rules.max_vp_per_turn)
+	total_vp += hold_vp
+
+	# Check for character claims on NML objectives
 	var objectives = GameState.state.board.get("objectives", [])
 	var units = GameState.state.get("units", {})
-	var characters_on_nml = 0
+	var control_radius = Measurement.inches_to_px(3.78740157)
 
 	for obj in objectives:
 		if obj.get("zone", "") != "no_mans_land":
 			continue
-		var obj_pos = obj.position
-
-		for unit_id in units:
-			var unit = units[unit_id]
-			if unit.get("owner", 0) != active_player:
-				continue
-			var keywords = unit.get("meta", {}).get("keywords", [])
-			if "CHARACTER" not in keywords:
-				continue
-			if unit.get("flags", {}).get("battle_shocked", false):
-				continue
-
-			# Check if any model of this character unit is within range
-			# (any part of the base overlapping counts — shape-aware for oval/rect bases)
-			for model in unit.get("models", []):
-				if not model.get("alive", true):
-					continue
-				var model_pos = model.get("position")
-				if model_pos == null:
-					continue
-				if model_pos is Dictionary:
-					model_pos = Vector2(model_pos.x, model_pos.y)
-				var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
-				if edge_distance <= control_radius:
-					characters_on_nml += 1
-					print("MissionManager: Sites of Power - Character %s on NML objective %s" % [unit_id, obj.id])
-					break  # Only count this character once
-
-	var vp_earned = mini(characters_on_nml * vp_per_char, max_per_turn)
-	_apply_primary_vp(active_player, vp_earned, "%d characters on NML objectives" % characters_on_nml)
-
-# ============================================================================
-# SCORCHED EARTH — Hold objectives + burn NML/enemy objectives
-# ============================================================================
-# Rules: From round 2, during Shooting phase, a non-battle-shocked unit eligible
-# to shoot can give up shooting and charging to burn a nearby objective the player
-# controls. At the next Command phase, if the unit is still within range of that
-# controlled objective, the objective is burned and removed.
-#
-# Per-turn scoring: 5 VP per controlled objective (max 10 VP per turn).
-# End-of-battle bonus: +5 VP per burned NML objective, +10 VP per burned enemy DZ objective.
-
-func _score_hold_and_burn(active_player: int, _battle_round: int) -> void:
-	var scoring_rules = current_mission.get("scoring_rules", {})
-	var vp_per_obj = scoring_rules.get("vp_per_objective", 5)
-	var max_per_turn = scoring_rules.get("max_vp_per_turn", 10)
-
-	# Count controlled objectives (excluding burned/removed ones)
-	var controlled_objectives = []
-	for obj_id in objective_control_state:
-		if objective_control_state[obj_id] == active_player:
-			controlled_objectives.append(obj_id)
-
-	var controlled_count = controlled_objectives.size()
-
-	if controlled_count > 0:
-		print("MissionManager: Scorched Earth - Player %d controls %d objectives: %s" % [active_player, controlled_count, controlled_objectives])
-	else:
-		print("MissionManager: Scorched Earth - Player %d controls no objectives" % active_player)
-
-	# Calculate VP from holding
-	var vp_earned = mini(controlled_count * vp_per_obj, max_per_turn)
-
-	_apply_primary_vp(active_player, vp_earned, "Scorched Earth: Controlled %d objectives" % controlled_count)
-
-func is_scorched_earth_mission() -> bool:
-	"""Check if the current mission uses burn mechanics."""
-	return current_mission.get("scoring_type", "") == "hold_and_burn"
-
-func get_burnable_objectives_for_unit(unit_id: String) -> Array:
-	"""Get objectives that a unit can burn. Returns array of objective dictionaries.
-	A unit can burn an objective if:
-	- Current mission is Scorched Earth (hold_and_burn)
-	- The objective is in NML or the ENEMY deployment zone (not the player's own DZ)
-	- The objective is currently controlled by the unit's owner
-	- The objective hasn't already been burned
-	- The unit has a model within range of the objective (3" + marker radius)"""
-	if not is_scorched_earth_mission():
-		return []
-
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return []
-
-	var owner = unit.get("owner", 0)
-	if owner == 0:
-		return []
-
-	# Determine which zones the player can burn (NML + enemy DZ)
-	var enemy_zone = "player2" if owner == 1 else "player1"
-	var burnable_zones = ["no_mans_land", enemy_zone]
-
-	var objectives = GameState.state.board.get("objectives", [])
-	var control_radius = Measurement.inches_to_px(3.78740157)
-	var result = []
-
-	for obj in objectives:
-		var obj_id = obj.get("id", "")
-
-		# Skip already burned objectives
-		if _burned_objectives.has(obj_id):
+		if obj.id in removed_objectives or obj.id in burned_objectives:
 			continue
 
-		# Skip objectives not in burnable zones
-		var zone = obj.get("zone", "")
-		if zone not in burnable_zones:
+		# Check if active player has a CHARACTER within range
+		var has_character_on_obj = _player_has_character_on_objective(active_player, obj, units, control_radius)
+
+		if has_character_on_obj:
+			var prev_claim = character_claimed_objectives.get(obj.id, {})
+			if prev_claim.is_empty() or prev_claim.get("player", 0) != active_player:
+				# First time claiming this objective
+				character_claimed_objectives[obj.id] = {
+					"player": active_player,
+					"claimed_round": battle_round
+				}
+				total_vp += rules.character_claim_vp
+				print("MissionManager: Player %d CHARACTER claimed %s (+%d VP)" % [active_player, obj.id, rules.character_claim_vp])
+			else:
+				# Character still holding from previous round
+				total_vp += rules.character_hold_vp
+				print("MissionManager: Player %d CHARACTER still on %s (+%d VP)" % [active_player, obj.id, rules.character_hold_vp])
+
+	_award_primary_vp(active_player, total_vp, "Sites of Power: held %d obj, character claims active" % controlled_count)
+
+func _player_has_character_on_objective(player: int, obj: Dictionary, units: Dictionary, control_radius: float) -> bool:
+	"""Check if a player has a CHARACTER unit within range of an objective."""
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
 			continue
 
-		# Must be controlled by the unit's owner
-		if objective_control_state.get(obj_id, 0) != owner:
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		if "CHARACTER" not in keywords:
 			continue
 
-		# Check if any alive model is within range
-		var obj_pos = obj.get("position", Vector2.ZERO)
-		var unit_in_range = false
+		var status = unit.get("status", GameStateData.UnitStatus.UNDEPLOYED)
+		if status == GameStateData.UnitStatus.UNDEPLOYED:
+			continue
+
 		for model in unit.get("models", []):
 			if not model.get("alive", true):
 				continue
@@ -669,627 +730,119 @@ func get_burnable_objectives_for_unit(unit_id: String) -> Array:
 				continue
 			if model_pos is Dictionary:
 				model_pos = Vector2(model_pos.x, model_pos.y)
-			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
-			if edge_distance <= control_radius:
-				unit_in_range = true
-				break
 
-		if unit_in_range:
-			# Determine VP value for burning this objective
-			var burn_vp = 0
-			if zone == "no_mans_land":
-				burn_vp = current_mission.get("scoring_rules", {}).get("burn_nml_vp", 5)
-			else:
-				burn_vp = current_mission.get("scoring_rules", {}).get("burn_enemy_vp", 10)
+			if model_pos.distance_to(obj.position) <= control_radius:
+				return true
 
-			result.append({
-				"objective_id": obj_id,
-				"zone": zone,
-				"burn_vp": burn_vp,
-				"position": obj_pos,
-			})
+	return false
 
-	return result
+# ============================================================
+# HELPER METHODS
+# ============================================================
 
-func register_burn_action(unit_id: String, objective_id: String) -> bool:
-	"""Register a unit's intent to burn an objective (during Shooting phase).
-	The unit gives up shooting and charging. The burn resolves at end-of-Command.
-	For simplicity, we resolve the burn immediately since the Shooting phase
-	already validates proximity and control."""
-	if not is_scorched_earth_mission():
-		print("MissionManager: Cannot burn — not a Scorched Earth mission")
-		return false
+func _get_controlled_objectives(player: int) -> Array:
+	"""Get list of objective IDs controlled by a player (excluding removed/burned)."""
+	var controlled = []
+	for obj_id in objective_control_state:
+		if obj_id in removed_objectives or obj_id in burned_objectives:
+			continue
+		if objective_control_state[obj_id] == player:
+			controlled.append(obj_id)
+	return controlled
 
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		print("MissionManager: Cannot burn — unit %s not found" % unit_id)
-		return false
-
-	var owner = unit.get("owner", 0)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-
-	# Verify objective is burnable
-	var burnable = get_burnable_objectives_for_unit(unit_id)
-	var target_obj = null
-	for b in burnable:
-		if b.objective_id == objective_id:
-			target_obj = b
-			break
-
-	if target_obj == null:
-		print("MissionManager: Cannot burn — %s is not a valid burn target for %s" % [objective_id, unit_id])
-		return false
-
-	# Record the burn
-	_burned_objectives[objective_id] = {
-		"player": owner,
-		"unit_id": unit_id,
-		"zone": target_obj.zone,
-	}
-
-	print("MissionManager: OBJECTIVE BURNED — %s burned %s (%s zone) for Player %d" % [
-		unit_name, objective_id, target_obj.zone, owner])
-
-	# Remove the objective from the board
+func _get_controlled_nml_objectives(player: int) -> Array:
+	"""Get NML objectives controlled by a player (for Supply Drop)."""
+	var controlled = []
 	var objectives = GameState.state.board.get("objectives", [])
-	for i in range(objectives.size()):
-		if objectives[i].get("id", "") == objective_id:
-			objectives.remove_at(i)
-			break
 
-	# Remove from control state
-	objective_control_state.erase(objective_id)
+	for obj in objectives:
+		if obj.get("zone", "") != "no_mans_land":
+			continue
+		if obj.id in removed_objectives:
+			continue
+		if objective_control_state.get(obj.id, 0) == player:
+			controlled.append(obj.id)
+	return controlled
 
-	# Remove any sticky lock
-	_sticky_objectives.erase(objective_id)
+func _get_nml_objective_ids() -> Array:
+	"""Get all no-man's-land objective IDs."""
+	var nml_ids = []
+	var objectives = GameState.state.board.get("objectives", [])
+	for obj in objectives:
+		if obj.get("zone", "") == "no_mans_land":
+			nml_ids.append(obj.id)
+	return nml_ids
 
-	emit_signal("objective_burned", objective_id, owner)
-	emit_signal("objective_removed", objective_id)
+func _get_objective_by_id(objective_id: String) -> Dictionary:
+	"""Find an objective by its ID."""
+	var objectives = GameState.state.board.get("objectives", [])
+	for obj in objectives:
+		if obj.id == objective_id:
+			return obj
+	return {}
 
-	return true
-
-func score_end_of_game_burn_bonus() -> void:
-	"""Score end-of-battle burn bonuses for Scorched Earth.
-	Called at end of battle round 5 (or whenever the game ends).
-	+5 VP per burned NML objective, +10 VP per burned enemy DZ objective."""
-	if not is_scorched_earth_mission():
+func _award_primary_vp(player: int, vp_earned: int, reason: String) -> void:
+	"""Award primary VP to a player, respecting max caps."""
+	if vp_earned <= 0:
+		print("MissionManager: Player %d scored 0 VP" % player)
 		return
 
-	var scoring_rules = current_mission.get("scoring_rules", {})
-	var burn_nml_vp = scoring_rules.get("burn_nml_vp", 5)
-	var burn_enemy_vp = scoring_rules.get("burn_enemy_vp", 10)
+	var player_key = str(player)
+	if not GameState.state.players.has(player_key):
+		GameState.state.players[player_key] = {}
 
-	# Tally burn bonuses per player
-	var player_burn_vp = {1: 0, 2: 0}
-	var player_burn_reasons = {1: [], 2: []}
+	var current_vp = GameState.state.players[player_key].get("vp", 0)
+	var primary_vp = GameState.state.players[player_key].get("primary_vp", 0)
 
-	for obj_id in _burned_objectives:
-		var burn_data = _burned_objectives[obj_id]
-		var player = burn_data.player
-		var zone = burn_data.zone
+	# Cap at max primary VP
+	var max_vp = current_mission.get("max_vp", 50)
+	var new_primary_vp = min(primary_vp + vp_earned, max_vp)
+	var actual_vp_earned = new_primary_vp - primary_vp
 
-		if zone == "no_mans_land":
-			player_burn_vp[player] += burn_nml_vp
-			player_burn_reasons[player].append("%s (NML +%d)" % [obj_id, burn_nml_vp])
-		else:
-			# Enemy deployment zone objective
-			player_burn_vp[player] += burn_enemy_vp
-			player_burn_reasons[player].append("%s (Enemy DZ +%d)" % [obj_id, burn_enemy_vp])
+	if actual_vp_earned <= 0:
+		print("MissionManager: Player %d at max primary VP (%d)" % [player, max_vp])
+		return
 
-	for player in [1, 2]:
-		if player_burn_vp[player] > 0:
-			var reason = "Burn bonus: " + ", ".join(player_burn_reasons[player])
-			_apply_primary_vp(player, player_burn_vp[player], reason)
-			print("MissionManager: Scorched Earth end-of-game burn bonus — Player %d: +%d VP (%s)" % [
-				player, player_burn_vp[player], reason])
+	GameState.state.players[player_key]["vp"] = current_vp + actual_vp_earned
+	GameState.state.players[player_key]["primary_vp"] = new_primary_vp
 
-func get_burned_objectives() -> Dictionary:
-	"""Get current burned objectives state (for save/load and debugging)."""
-	return _burned_objectives.duplicate(true)
+	emit_signal("victory_points_scored", player, actual_vp_earned, reason)
 
-# ============================================================================
-# THE RITUAL — Action-based objective scoring
-# ============================================================================
-# Rules (Chapter Approved 2025-26): All NML objectives remain on board. During
-# a player's Shooting phase, a unit can perform a ritual action (giving up
-# shooting and charging). At end of turn, if the unit is still eligible, a new
-# objective marker is placed wholly within NML, within 1" of the unit, exactly
-# 12" from one existing NML objective, and not within 6" of any other objective.
-#
-# Scoring: From round 2, at start of Command phase, 5 VP per controlled NML
-# objective (max 15 VP per turn). For simplicity, we score all NML objectives
-# the player controls (including any created by ritual actions).
-#
-# Since we don't have visual placement of new objectives on the board, the
-# ritual action instead creates a new objective at a valid position near the
-# acting unit (auto-placed), following the distance rules as closely as
-# possible given the grid/board state.
+	print("MissionManager: Player %d scored %d VP (%s)" % [player, actual_vp_earned, reason])
+	print("MissionManager: Player %d total VP: %d (Primary: %d)" % [player, current_vp + actual_vp_earned, new_primary_vp])
 
-func is_ritual_mission() -> bool:
-	"""Check if the current mission uses ritual action mechanics."""
-	return current_mission.get("scoring_type", "") == "ritual"
-
-func _score_ritual(active_player: int, _battle_round: int) -> void:
-	"""Score The Ritual: 5 VP per controlled NML objective (max 15 VP per turn)."""
-	var scoring_rules = current_mission.get("scoring_rules", {})
-	var vp_per_obj = scoring_rules.get("vp_per_nml_objective", 5)
-	var max_per_turn = scoring_rules.get("max_vp_per_turn", 15)
-
-	# Count controlled NML objectives (including ritual-created ones)
-	var controlled_nml = []
-	var objectives = GameState.state.board.get("objectives", [])
-	for obj in objectives:
-		var zone = obj.get("zone", "")
-		if zone == "no_mans_land" and objective_control_state.get(obj.id, 0) == active_player:
-			controlled_nml.append(obj.id)
-
-	var controlled_count = controlled_nml.size()
-
-	if controlled_count > 0:
-		print("MissionManager: The Ritual - Player %d controls %d NML objectives: %s" % [active_player, controlled_count, controlled_nml])
-	else:
-		print("MissionManager: The Ritual - Player %d controls no NML objectives" % active_player)
-
-	var vp_earned = mini(controlled_count * vp_per_obj, max_per_turn)
-	_apply_primary_vp(active_player, vp_earned, "The Ritual: Controlled %d NML objectives" % controlled_count)
-
-func get_ritual_objectives_for_unit(unit_id: String) -> Array:
-	"""Get objectives where a unit can perform a ritual action. Returns array of
-	objective dictionaries with position and id.
-	A unit can perform a ritual action if:
-	- Current mission is The Ritual
-	- The unit has a model within range of a controlled NML objective
-	- The unit is not battle-shocked
-	- The unit has OC > 0
-	- The unit is not an Aircraft"""
-	if not is_ritual_mission():
-		return []
-
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return []
-
-	var owner = unit.get("owner", 0)
-	if owner == 0:
-		return []
-
-	# Units must have OC > 0 to perform actions
-	var oc_value = unit.get("meta", {}).get("stats", {}).get("objective_control", 0)
-	if oc_value <= 0:
-		return []
-
-	# Aircraft cannot perform actions
-	var keywords = unit.get("meta", {}).get("keywords", [])
-	if "AIRCRAFT" in keywords:
-		return []
-
-	var objectives = GameState.state.board.get("objectives", [])
-	var control_radius = Measurement.inches_to_px(3.78740157)
-	var result = []
-
-	for obj in objectives:
-		var obj_id = obj.get("id", "")
-		var zone = obj.get("zone", "")
-
-		# Ritual actions are performed at NML objectives the player controls
-		if zone != "no_mans_land":
-			continue
-
-		if objective_control_state.get(obj_id, 0) != owner:
-			continue
-
-		# Check if any alive model is within range
-		var obj_pos = obj.get("position", Vector2.ZERO)
-		var unit_in_range = false
-		for model in unit.get("models", []):
-			if not model.get("alive", true):
-				continue
-			var model_pos = model.get("position")
-			if model_pos == null:
-				continue
-			if model_pos is Dictionary:
-				model_pos = Vector2(model_pos.x, model_pos.y)
-			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
-			if edge_distance <= control_radius:
-				unit_in_range = true
-				break
-
-		if unit_in_range:
-			result.append({
-				"objective_id": obj_id,
-				"position": obj_pos,
-			})
-
-	return result
-
-func register_ritual_action(unit_id: String, objective_id: String) -> bool:
-	"""Register a unit performing a ritual action at an objective (during Shooting phase).
-	The unit gives up shooting and charging. On completion, a new objective marker
-	is placed near the unit in NML (auto-placed following distance rules).
-	For simplicity, the new objective is placed immediately."""
-	if not is_ritual_mission():
-		print("MissionManager: Cannot perform ritual — not The Ritual mission")
-		return false
-
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		print("MissionManager: Cannot perform ritual — unit %s not found" % unit_id)
-		return false
-
-	var owner = unit.get("owner", 0)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-
-	# Verify objective is valid for ritual
-	var valid_objectives = get_ritual_objectives_for_unit(unit_id)
-	var target_obj = null
-	for v in valid_objectives:
-		if v.objective_id == objective_id:
-			target_obj = v
-			break
-
-	if target_obj == null:
-		print("MissionManager: Cannot perform ritual — %s is not a valid ritual target for %s" % [objective_id, unit_id])
-		return false
-
-	# Try to place a new objective near the unit
-	var new_obj = _try_place_ritual_objective(unit, target_obj)
-	if new_obj != null:
-		# Add the new objective to the board
-		var objectives = GameState.state.board.get("objectives", [])
-		objectives.append(new_obj)
-		objective_control_state[new_obj.id] = owner  # New objective starts controlled by creator
-
-		_ritual_objectives[new_obj.id] = {
-			"player": owner,
-			"unit_id": unit_id,
-			"round_created": GameState.get_battle_round(),
-		}
-
-		print("MissionManager: RITUAL COMPLETE — %s created new objective %s at %s for Player %d" % [
-			unit_name, new_obj.id, new_obj.position, owner])
-	else:
-		# No valid placement found — the ritual still completes (unit sacrificed shooting)
-		# but no new objective is created (board is too crowded)
-		print("MissionManager: RITUAL — %s performed ritual at %s but no valid placement found for new objective" % [
-			unit_name, objective_id])
-
-	return true
-
-func _try_place_ritual_objective(unit: Dictionary, source_obj: Dictionary) -> Variant:
-	"""Try to find a valid position for a new ritual objective.
-	Rules: Must be wholly within NML, within 1" of the unit, 12" from one
-	existing NML objective, and not within 6" of any other objective.
-	Returns objective dict or null if no valid position found."""
-	var objectives = GameState.state.board.get("objectives", [])
-
-	# Collect NML objective positions for distance checks
-	var nml_obj_positions = []
-	var all_obj_positions = []
-	for obj in objectives:
-		var pos = obj.get("position", Vector2.ZERO)
-		if pos is Dictionary:
-			pos = Vector2(pos.x, pos.y)
-		all_obj_positions.append(pos)
-		if obj.get("zone", "") == "no_mans_land":
-			nml_obj_positions.append(pos)
-
-	# Get unit model positions to find placement near unit
-	var model_positions = []
-	for model in unit.get("models", []):
-		if not model.get("alive", true):
-			continue
-		var pos = model.get("position")
-		if pos == null:
-			continue
-		if pos is Dictionary:
-			pos = Vector2(pos.x, pos.y)
-		model_positions.append(pos)
-
-	if model_positions.is_empty():
-		return null
-
-	# Use the first alive model position as reference
-	var ref_pos = model_positions[0]
-
-	# Distance constants in pixels
-	var distance_12 = Measurement.inches_to_px(12.0)
-	var distance_6 = Measurement.inches_to_px(6.0)
-	var distance_1 = Measurement.inches_to_px(1.0)
-
-	# Get NML zone boundaries (approximate using board dimensions)
-	# NML is roughly the middle third of the board in standard deployments
-	var board_width_px = Measurement.inches_to_px(GameState.state.get("board", {}).get("size", {}).get("width", 44))
-	var board_height_px = Measurement.inches_to_px(GameState.state.get("board", {}).get("size", {}).get("height", 60))
-
-	# Try angles around the reference position to find a valid spot
-	# The new objective should be ~12" from an existing NML objective
-	for nml_pos in nml_obj_positions:
-		# Try placing at 12" from this NML objective, near the unit
-		var dir_to_unit = (ref_pos - nml_pos).normalized()
-		if dir_to_unit.length() < 0.01:
-			dir_to_unit = Vector2(1, 0)  # Default direction if positions overlap
-
-		# Try the direction toward the unit first, then rotate around
-		for angle_offset in [0, 15, -15, 30, -30, 45, -45, 60, -60, 90, -90]:
-			var angle_rad = deg_to_rad(angle_offset)
-			var rotated_dir = dir_to_unit.rotated(angle_rad)
-			var candidate_pos = nml_pos + rotated_dir * distance_12
-
-			# Check: must be within 1" of a model
-			var near_model = false
-			for mpos in model_positions:
-				if candidate_pos.distance_to(mpos) <= distance_1 + Measurement.inches_to_px(2.0):
-					# Allow a bit more flexibility (within ~3" of model) for practical placement
-					near_model = true
-					break
-
-			if not near_model:
-				continue
-
-			# Check: must be on the board
-			if candidate_pos.x < 0 or candidate_pos.x > board_width_px:
-				continue
-			if candidate_pos.y < 0 or candidate_pos.y > board_height_px:
-				continue
-
-			# Check: must not be within 6" of any OTHER objective
-			var too_close = false
-			for obj_pos in all_obj_positions:
-				if candidate_pos.distance_to(obj_pos) < distance_6:
-					# Allow being exactly 12" from the source NML objective
-					if candidate_pos.distance_to(obj_pos) > distance_12 - Measurement.inches_to_px(0.5) and candidate_pos.distance_to(obj_pos) < distance_12 + Measurement.inches_to_px(0.5):
-						continue  # This is the 12" placement target, not a violation
-					too_close = true
-					break
-
-			if too_close:
-				continue
-
-			# Valid placement found! Create the objective
-			var new_id = "ritual_obj_%d_%d" % [unit.get("owner", 0), _ritual_objectives.size() + 1]
-			return {
-				"id": new_id,
-				"position": candidate_pos,
-				"zone": "no_mans_land",
-				"radius_mm": 40,
-				"ritual_created": true,
-			}
-
-	# No valid position found
-	print("MissionManager: No valid position for ritual objective (board too crowded)")
-	return null
-
-func get_ritual_objectives() -> Dictionary:
-	"""Get current ritual objectives state (for save/load and debugging)."""
-	return _ritual_objectives.duplicate(true)
-
-func clear_pending_rituals() -> void:
-	"""Clear pending ritual actions at start of a new turn."""
-	_pending_rituals.clear()
-
-# ============================================================================
-# TERRAFORM — Objective flipping mission
-# ============================================================================
-# Rules (Chapter Approved 2025-26): During the Shooting phase, a unit can
-# perform the Terraform action on an objective it controls that is NOT in
-# the player's own deployment zone. The unit gives up shooting and charging.
-# At end of turn, if the unit is still within range and the player still
-# controls the objective, the objective is "terraformed by" that player.
-# If the opponent had already terraformed it, their terraform is removed
-# and the new player's terraform replaces it (flip mechanic).
-#
-# Scoring (from round 2): At end of Command phase, each player scores
-# 4 VP per controlled objective (max 12 VP). Additionally, each player
-# scores 1 VP per objective they have terraformed.
-
-func is_terraform_mission() -> bool:
-	"""Check if the current mission uses terraform/flip mechanics."""
-	return current_mission.get("scoring_type", "") == "terraform"
-
-func _score_terraform(active_player: int, _battle_round: int) -> void:
-	"""Score Terraform mission: 4 VP per controlled objective (max 12),
-	plus 1 VP per terraformed objective."""
-	var scoring_rules = current_mission.get("scoring_rules", {})
-	var vp_per_obj = scoring_rules.get("vp_per_controlled", 4)
-	var max_control_vp = scoring_rules.get("max_control_vp_per_turn", 12)
-	var vp_per_terraform = scoring_rules.get("vp_per_terraformed", 1)
-	var max_per_turn = scoring_rules.get("max_vp_per_turn", 15)
-
-	# Count controlled objectives
-	var controlled_objectives = []
-	for obj_id in objective_control_state:
-		if objective_control_state[obj_id] == active_player:
-			controlled_objectives.append(obj_id)
-
-	var controlled_count = controlled_objectives.size()
-	var control_vp = mini(controlled_count * vp_per_obj, max_control_vp)
-
-	# Count terraformed objectives (these score regardless of current control)
-	var terraform_count = 0
-	for obj_id in _terraformed_objectives:
-		if _terraformed_objectives[obj_id] == active_player:
-			terraform_count += 1
-	var terraform_vp = terraform_count * vp_per_terraform
-
-	var total_vp = mini(control_vp + terraform_vp, max_per_turn)
-
-	if controlled_count > 0 or terraform_count > 0:
-		print("MissionManager: Terraform - Player %d controls %d objectives (+%d VP), has %d terraformed (+%d VP)" % [
-			active_player, controlled_count, control_vp, terraform_count, terraform_vp])
-	else:
-		print("MissionManager: Terraform - Player %d controls no objectives and has no terraformed objectives" % active_player)
-
-	var reason = "Terraform: %d controlled (+%d VP), %d terraformed (+%d VP)" % [
-		controlled_count, control_vp, terraform_count, terraform_vp]
-	_apply_primary_vp(active_player, total_vp, reason)
-
-func get_terraformable_objectives_for_unit(unit_id: String) -> Array:
-	"""Get objectives that a unit can terraform. Returns array of objective dicts.
-	A unit can terraform an objective if:
-	- Current mission is Terraform
-	- The objective is NOT in the unit owner's deployment zone
-	- The objective is currently controlled by the unit's owner
-	- The unit has a model within range of the objective (3" + marker radius)
-	- The objective hasn't already been terraformed by this player"""
-	if not is_terraform_mission():
-		return []
-
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return []
-
-	var owner = unit.get("owner", 0)
-	if owner == 0:
-		return []
-
-	# Units must have OC > 0 to perform actions
-	var oc_value = unit.get("meta", {}).get("stats", {}).get("objective_control", 0)
-	if oc_value <= 0:
-		return []
-
-	# Aircraft cannot perform actions
-	var keywords = unit.get("meta", {}).get("keywords", [])
-	if "AIRCRAFT" in keywords:
-		return []
-
-	# Determine which zone is the player's OWN deployment zone (cannot terraform there)
-	var own_zone = "player1" if owner == 1 else "player2"
-
-	var objectives = GameState.state.board.get("objectives", [])
-	var control_radius = Measurement.inches_to_px(3.78740157)
-	var result = []
-
-	for obj in objectives:
-		var obj_id = obj.get("id", "")
-		var zone = obj.get("zone", "")
-
-		# Cannot terraform objectives in your own deployment zone
-		if zone == own_zone:
-			continue
-
-		# Must be controlled by the unit's owner
-		if objective_control_state.get(obj_id, 0) != owner:
-			continue
-
-		# Skip objectives already terraformed by this player
-		if _terraformed_objectives.get(obj_id, 0) == owner:
-			continue
-
-		# Check if any alive model is within range
-		var obj_pos = obj.get("position", Vector2.ZERO)
-		var unit_in_range = false
-		for model in unit.get("models", []):
-			if not model.get("alive", true):
-				continue
-			var model_pos = model.get("position")
-			if model_pos == null:
-				continue
-			if model_pos is Dictionary:
-				model_pos = Vector2(model_pos.x, model_pos.y)
-			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
-			if edge_distance <= control_radius:
-				unit_in_range = true
-				break
-
-		if unit_in_range:
-			var is_opponent_terraformed = _terraformed_objectives.get(obj_id, 0) != 0 and _terraformed_objectives[obj_id] != owner
-			result.append({
-				"objective_id": obj_id,
-				"zone": zone,
-				"position": obj_pos,
-				"is_flip": is_opponent_terraformed,
-			})
-
-	return result
-
-func register_terraform_action(unit_id: String, objective_id: String) -> bool:
-	"""Register a unit performing a terraform action at an objective (during Shooting phase).
-	The unit gives up shooting and charging. The terraform resolves immediately
-	for simplicity (same pattern as burn/ritual)."""
-	if not is_terraform_mission():
-		print("MissionManager: Cannot terraform — not a Terraform mission")
-		return false
-
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		print("MissionManager: Cannot terraform — unit %s not found" % unit_id)
-		return false
-
-	var owner = unit.get("owner", 0)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-
-	# Verify objective is valid for terraforming
-	var valid_targets = get_terraformable_objectives_for_unit(unit_id)
-	var target_obj = null
-	for v in valid_targets:
-		if v.objective_id == objective_id:
-			target_obj = v
-			break
-
-	if target_obj == null:
-		print("MissionManager: Cannot terraform — %s is not a valid terraform target for %s" % [objective_id, unit_id])
-		return false
-
-	# Check if opponent had terraformed this objective (flip)
-	var old_owner = _terraformed_objectives.get(objective_id, 0)
-	if old_owner > 0 and old_owner != owner:
-		print("MissionManager: TERRAFORM FLIP — %s flips %s from Player %d to Player %d" % [
-			unit_name, objective_id, old_owner, owner])
-	else:
-		print("MissionManager: TERRAFORM — %s terraforms %s for Player %d" % [
-			unit_name, objective_id, owner])
-
-	# Set the terraform state (replaces any previous terraform by opponent)
-	_terraformed_objectives[objective_id] = owner
-
-	return true
-
-func get_terraformed_objectives() -> Dictionary:
-	"""Get current terraformed objectives state (for save/load and debugging)."""
-	return _terraformed_objectives.duplicate(true)
-
-func clear_pending_terraforms() -> void:
-	"""Clear pending terraform actions at start of a new turn."""
-	_pending_terraforms.clear()
-
-# ============================================================================
-# VP APPLICATION — common VP bookkeeping
-# ============================================================================
-
+# Alias for HEAD's VP application function — delegates to _award_primary_vp
 func _apply_primary_vp(active_player: int, vp_earned: int, reason: String) -> void:
-	if vp_earned > 0:
-		var player_key = str(active_player)
-		if not GameState.state.players.has(player_key):
-			GameState.state.players[player_key] = {}
+	_award_primary_vp(active_player, vp_earned, reason)
 
-		var current_vp = GameState.state.players[player_key].get("vp", 0)
-		var primary_vp = GameState.state.players[player_key].get("primary_vp", 0)
+func is_objective_active(objective_id: String) -> bool:
+	"""Check if an objective is still active (not removed or burned)."""
+	return objective_id not in removed_objectives and objective_id not in burned_objectives
 
-		# Cap at max primary VP
-		var max_vp = current_mission.get("max_vp", MissionData.MAX_PRIMARY_VP)
-		var new_primary_vp = mini(primary_vp + vp_earned, max_vp)
-		var actual_vp_earned = new_primary_vp - primary_vp
+func get_mission_type() -> String:
+	"""Get the current mission type ID."""
+	return current_mission.get("id", "take_and_hold")
 
-		GameState.state.players[player_key]["vp"] = current_vp + actual_vp_earned
-		GameState.state.players[player_key]["primary_vp"] = new_primary_vp
-
-		emit_signal("victory_points_scored", active_player, actual_vp_earned, reason)
-
-		print("MissionManager: Player %d scored %d VP (%s)" % [active_player, actual_vp_earned, reason])
-		print("MissionManager: Player %d total VP: %d (Primary: %d)" %
-			  [active_player, current_vp + actual_vp_earned, new_primary_vp])
-	else:
-		print("MissionManager: Player %d scored 0 VP" % active_player)
+# ============================================================
+# SUMMARY / QUERY METHODS
+# ============================================================
 
 # ============================================================================
 # KILL TRACKING — for Purge the Foe
 # ============================================================================
 
 ## Call this when an enemy unit is destroyed during a battle round.
+## Also updates per-round kill tracking for detailed kill detection.
 func record_unit_destroyed(destroyed_by_player: int) -> void:
 	var player_key = str(destroyed_by_player)
 	_kills_this_round[player_key] = _kills_this_round.get(player_key, 0) + 1
 	print("MissionManager: Player %d destroyed a unit (total this round: %d)" % [destroyed_by_player, _kills_this_round[player_key]])
+
+	# Also update per-round tracking
+	var battle_round = str(GameState.get_battle_round())
+	if not kills_per_round.has(battle_round):
+		kills_per_round[battle_round] = {"1": 0, "2": 0}
+	kills_per_round[battle_round][player_key] = kills_per_round[battle_round].get(player_key, 0) + 1
 
 ## Reset kill counts at the start of each battle round.
 func reset_round_kills() -> void:
@@ -1315,6 +868,9 @@ func get_objective_control_summary() -> Dictionary:
 	}
 
 	for obj_id in objective_control_state:
+		if obj_id in removed_objectives or obj_id in burned_objectives:
+			continue
+
 		var controller = objective_control_state[obj_id]
 		summary.objectives[obj_id] = controller
 
@@ -1374,3 +930,18 @@ func record_vp_snapshot(battle_round: int) -> void:
 ## P3-128: Get the full VP timeline for the chart
 func get_vp_timeline() -> Dictionary:
 	return _vp_timeline.duplicate(true)
+
+func get_burn_state() -> Dictionary:
+	"""Get current burn state for UI display."""
+	return {
+		"in_progress": burn_in_progress.duplicate(),
+		"completed": burned_objectives.duplicate()
+	}
+
+func get_removed_objectives() -> Array:
+	"""Get list of removed objective IDs (burned + supply drop removed)."""
+	var all_removed = removed_objectives.duplicate()
+	for obj_id in burned_objectives:
+		if obj_id not in all_removed:
+			all_removed.append(obj_id)
+	return all_removed
