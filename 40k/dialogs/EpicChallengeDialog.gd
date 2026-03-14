@@ -22,7 +22,8 @@ func setup(p_unit_id: String, p_player: int) -> void:
 	player = p_player
 
 	var unit = GameState.get_unit(unit_id)
-	unit_name = unit.get("meta", {}).get("name", unit_id)
+	var _ecd_meta = unit.get("meta", {})
+	unit_name = _ecd_meta.get("display_name", _ecd_meta.get("name", unit_id))
 
 	title = "Epic Challenge Available - Player %d" % player
 	min_size = DialogConstants.SMALL

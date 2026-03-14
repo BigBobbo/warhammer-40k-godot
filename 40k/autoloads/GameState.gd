@@ -241,6 +241,13 @@ func get_units_for_player(player: int, include_destroyed: bool = false) -> Dicti
 func get_unit(unit_id: String) -> Dictionary:
 	return state["units"].get(unit_id, {})
 
+func get_unit_display_name(unit_id: String) -> String:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return unit_id
+	var meta = unit.get("meta", {})
+	return meta.get("display_name", meta.get("name", unit_id))
+
 func get_undeployed_units_for_player(player: int) -> Array:
 	var undeployed = []
 	for unit_id in state["units"]:

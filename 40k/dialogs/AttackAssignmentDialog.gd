@@ -23,7 +23,8 @@ func setup(fighter_id: String, targets: Dictionary, phase) -> void:
 	phase_reference = phase
 
 	var unit = phase.get_unit(unit_id)
-	title = "Assign Attacks: %s" % unit.get("meta", {}).get("name", unit_id)
+	var _aad_meta = unit.get("meta", {})
+	title = "Assign Attacks: %s" % _aad_meta.get("display_name", _aad_meta.get("name", unit_id))
 
 	print("[AttackAssignmentDialog] Building UI...")
 	_build_ui()

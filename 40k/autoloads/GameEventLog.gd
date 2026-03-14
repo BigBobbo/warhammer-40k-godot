@@ -223,7 +223,7 @@ func _get_unit_name(unit_id: String) -> String:
 	var unit = units.get(unit_id, {})
 	# Unit name is stored in meta.name for army-loaded units, or top-level name for defaults
 	var meta = unit.get("meta", {})
-	var name = meta.get("name", unit.get("name", ""))
+	var name = meta.get("display_name", meta.get("name", unit.get("name", "")))
 	if name != "":
 		return name
 	return unit_id

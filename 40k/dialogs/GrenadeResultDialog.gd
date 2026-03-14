@@ -21,8 +21,10 @@ func setup(result: Dictionary) -> void:
 
 	var grenade_unit = GameState.get_unit(grenade_unit_id)
 	var target_unit = GameState.get_unit(target_unit_id)
-	var grenade_name = grenade_unit.get("meta", {}).get("name", grenade_unit_id)
-	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var _grd_g_meta = grenade_unit.get("meta", {})
+	var grenade_name = _grd_g_meta.get("display_name", _grd_g_meta.get("name", grenade_unit_id))
+	var _grd_t_meta = target_unit.get("meta", {})
+	var target_name = _grd_t_meta.get("display_name", _grd_t_meta.get("name", target_unit_id))
 
 	var main = VBoxContainer.new()
 	main.custom_minimum_size = Vector2(DialogConstants.SMALL.x - 20, 0)

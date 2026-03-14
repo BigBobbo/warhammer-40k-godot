@@ -74,7 +74,8 @@ func _build_ui() -> void:
 
 	# Target info
 	var target_unit = GameState.get_unit(target_unit_id)
-	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var _fod_meta = target_unit.get("meta", {})
+	var target_name = _fod_meta.get("display_name", _fod_meta.get("name", target_unit_id))
 	var target_label = Label.new()
 	target_label.text = "Enemy unit: %s" % target_name
 	target_label.add_theme_font_size_override("font_size", 14)

@@ -33,7 +33,8 @@ func setup(p_player: int, p_charging_unit_id: String, p_eligible_units: Array) -
 	eligible_units = p_eligible_units
 	# Derive the display name from the charging unit
 	var charging_unit = GameState.get_unit(charging_unit_id)
-	charging_unit_name = charging_unit.get("meta", {}).get("name", charging_unit_id)
+	var _hid_meta = charging_unit.get("meta", {})
+	charging_unit_name = _hid_meta.get("display_name", _hid_meta.get("name", charging_unit_id))
 
 	title = "Heroic Intervention Available - Player %d" % player
 

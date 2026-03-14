@@ -21,7 +21,8 @@ func setup(fighter_id: String, max_dist: float, phase, controller = null) -> voi
 	controller_reference = controller
 
 	var unit = phase.get_unit(unit_id)
-	title = "Pile In: %s" % unit.get("meta", {}).get("name", unit_id)
+	var _pid_meta = unit.get("meta", {})
+	title = "Pile In: %s" % _pid_meta.get("display_name", _pid_meta.get("name", unit_id))
 
 	_build_ui()
 
