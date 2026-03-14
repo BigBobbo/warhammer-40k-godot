@@ -2628,9 +2628,6 @@ func has_shooty_power_trip(unit_id: String) -> bool:
 	"""OA-37: Check if a unit has the Shooty Power Trip ability (Killa Kans).
 	Not once per battle — can be used every time the unit is selected to shoot.
 	Used by ShootingPhase to offer the D6 roll when unit is selected to shoot."""
-func has_grot_oiler(unit_id: String) -> bool:
-	"""OA-32: Check if a unit has an unused Grot Oiler wargear ability.
-	Used by MovementPhase at end of movement to offer D3 wound healing."""
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
 		return false
@@ -2643,6 +2640,16 @@ func has_grot_oiler(unit_id: String) -> bool:
 			return true
 	return false
 
+func has_grot_oiler(unit_id: String) -> bool:
+	"""OA-32: Check if a unit has an unused Grot Oiler wargear ability.
+	Used by MovementPhase at end of movement to offer D3 wound healing."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
 		if ability_name == "Grot Oiler":
 			if not is_once_per_battle_used(unit_id, "Grot Oiler"):
 				print("UnitAbilityManager: Unit %s has unused Grot Oiler" % unit_id)
