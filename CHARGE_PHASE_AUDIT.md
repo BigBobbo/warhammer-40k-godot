@@ -71,7 +71,20 @@ However, several **rules-required features are missing or incomplete**, and the 
 
 **Status (updated 2026-02-16):** IMPLEMENTED. `ChargePhase.gd:488-493` now sets `flags.has_been_charged` on charge targets. The flag is integrated into the charge resolution system.
 
-### ~~2.4 HIGH: Base-to-Base Contact Enforcement — Stubbed~~ DONE
+### ~~2.4 HIGH: Failed Charge — Unit Doesn't Move But No Explicit "Do Not Move" Enforcement~~ — FIXED
+
+> **Resolved in commit `6caf26e`** — Server-side charge roll failure detection and broadcast.
+
+**What was changed:**
+- `ChargePhase._process_charge_roll()` now performs a server-side feasibility check via `_is_charge_roll_sufficient()` immediately after rolling 2D6
+- When the roll is insufficient, the phase records the structured failure, cleans up state (`pending_charges`, `completed_charges`, `units_that_charged`), and emits `charge_resolved(unit_id, false, failure_data)`
+- The result includes `charge_failed: true` and `failure_record` so `NetworkManager._emit_client_visual_updates()` can broadcast the failure to the defending player
+- NetworkManager re-emits `charge_resolved` on the client and syncs the client's local phase state
+- `ChargeController._on_charge_roll_made()` (host) defers to phase state instead of recomputing success locally
+- `ChargeController._on_dice_rolled()` (client) reads the server-side `charge_failed` flag from dice data rather than recomputing, with backwards-compatible fallback
+- Both players now see the same failure message and the unit is properly locked from retrying
+
+### ~~2.5 HIGH: Base-to-Base Contact Enforcement — Stubbed~~ DONE
 
 **Rule:** If it is possible for a charging model to end its move in base-to-base contact with an enemy model (while satisfying all other constraints), it **must** do so.
 
@@ -334,8 +347,9 @@ Both contain the same success/failure logic, UI updates, and failure recording. 
 1. ~~**Add charge phase signal re-emission in NetworkManager**~~ — **DONE** (commit `63748bc`)
 2. ~~**[NEW] Add `COMPLETE_UNIT_CHARGE` / `SKIP_CHARGE` signal re-emission**~~ — **DONE** (added `charge_unit_completed`/`charge_unit_skipped` signals + NetworkManager re-emission)
 3. ~~**[NEW] Track "has been charged" flag on target units**~~ — **DONE** (sets `has_been_charged` flag on targets via diff; ScoringPhase cleans up at end of turn)
-4. **Implement base-to-base enforcement** — Currently stubbed, rules require it
-5. ~~**[NEW] Fix confirm button firing two actions without waiting**~~ — **DONE** (`COMPLETE_UNIT_CHARGE` now sent from `_on_charge_resolved` after server confirms)
+4. ~~**Record failed charge attempts in phase state** — Broadcast failure to both players~~ — **DONE** (commit `6caf26e`)
+5. **Implement base-to-base enforcement** — Currently stubbed, rules require it
+6. ~~**[NEW] Fix confirm button firing two actions without waiting**~~ — **DONE** (`COMPLETE_UNIT_CHARGE` now sent from `_on_charge_resolved` after server confirms)
 
 ### Should Fix (Rules Compliance)
 6. **Add Overwatch reaction window** — Major tactical element missing (requires Stratagem system)
