@@ -123,10 +123,10 @@ var _grot_oiler_bearer_id: String = ""              # The unit with Grot Oiler w
 var _grot_oiler_targets: Array = []                 # Eligible healing targets
 var _grot_oiler_pending_changes: Array = []         # Pending changes from END_MOVEMENT cleanup
 
-# Calculate pivot value for a unit based on base type and keywords (10e Core Rules Update)
-# - Non-round base, non-Monster/Vehicle: 1"
-# - Monster/Vehicle non-round base: 2"
-# - Vehicle round base >32mm with flying stem: 2"
+# Calculate pivot value for a unit based on base type and keywords (10e Core Rules + Pariah Nexus)
+# Per Pariah Nexus Companion & Q3 2024 Balance Update:
+# - All non-round base models: 2" (Pariah Nexus expanded this from just Vehicle/Monster)
+# - Vehicle round base >32mm with flying stem/hover stand: 2" (August 2024 FAQ)
 # - Aircraft: 0"
 # - All other (standard round base): 0"
 func get_pivot_value_for_unit(unit_id: String) -> float:
@@ -136,7 +136,6 @@ func get_pivot_value_for_unit(unit_id: String) -> float:
 
 	var keywords = unit.get("meta", {}).get("keywords", [])
 	var is_vehicle = "VEHICLE" in keywords
-	var is_monster = "MONSTER" in keywords
 	var is_aircraft = "AIRCRAFT" in keywords
 
 	# Aircraft always have 0" pivot value
@@ -155,14 +154,11 @@ func get_pivot_value_for_unit(unit_id: String) -> float:
 			has_flying_stem = model.get("flying_stem", false)
 			break
 
-	# Non-round base (rectangular, oval, etc.)
+	# Non-round base (rectangular, oval, etc.) — ALL non-round bases cost 2" per Pariah Nexus
 	if base_type != "circular":
-		if is_vehicle or is_monster:
-			return 2.0  # Monster/Vehicle non-round base = 2"
-		else:
-			return 1.0  # Other non-round base = 1"
+		return 2.0
 
-	# Round base >32mm with flying stem — Vehicle only
+	# Round base >32mm with flying stem — Vehicle only (August 2024 FAQ)
 	if base_type == "circular" and base_mm > 32 and has_flying_stem and is_vehicle:
 		return 2.0
 
