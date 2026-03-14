@@ -1044,3 +1044,269 @@ static func draw_monster_topdown(canvas: CanvasItem, center: Vector2, radius: fl
 	_px(canvas, c, grid, 6 + r_ext, -5 - r_ext, claw_color)
 	# Claw tip
 	_px(canvas, c, grid, 7 + r_ext, -5 - r_ext, accent)
+
+
+# --- Full Retro Pixel Art Sprites ---
+# Sprite map rendering system for detailed, colorful pixel art sprites.
+# Each sprite is a 2D array of palette indices rendered pixel-by-pixel.
+# Inspired by 90s strategy games (Advance Wars, Fire Emblem, StarCraft).
+
+# Palette indices (shared across all sprite types):
+#  0 = transparent
+#  1 = outline (near-black, subtly tinted)
+#  2 = armor shadow (deepest shade)
+#  3 = armor dark
+#  4 = armor mid (base faction color)
+#  5 = armor light
+#  6 = armor highlight (brightest)
+#  7 = visor/eye glow dark
+#  8 = visor/eye glow bright
+#  9 = gold/trim dark
+# 10 = gold/trim bright
+# 11 = gun/metal dark
+# 12 = gun/metal mid
+# 13 = gun/metal light
+# 14 = bone/chitin/horn
+# 15 = red accent (purity seal, blood, maw)
+
+# --- Sprite data: 2D arrays of palette indices ---
+
+# Space Marine infantry (15 wide × 21 tall)
+# Front-facing battle stance with bolter held across chest
+const RETRO_INFANTRY_SPRITE := [
+	[0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 1, 4, 5, 4, 1, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 1, 3, 5, 6, 5, 4, 1, 0, 0, 0, 0],
+	[0, 0, 0, 0, 1, 4, 6, 6, 5, 4, 1, 0, 0, 0, 0],
+	[0, 0, 0, 0, 1, 7, 8, 8, 8, 7, 1, 0, 0, 0, 0],
+	[0, 0, 0, 0, 1, 2, 3, 4, 3, 2, 1, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 1, 2, 3, 2, 1, 0, 0, 0, 0, 0],
+	[0, 1, 9, 10, 10, 1, 3, 4, 1, 10, 10, 9, 1, 0, 0],
+	[1, 9, 10, 6, 5, 4, 5, 5, 4, 5, 6, 10, 9, 1, 0],
+	[1, 10, 9, 1, 4, 5, 10, 10, 5, 4, 1, 9, 10, 1, 0],
+	[0, 1, 1, 3, 4, 5, 5, 5, 5, 4, 3, 1, 1, 0, 0],
+	[0, 0, 0, 1, 11, 12, 13, 12, 11, 1, 0, 0, 0, 0, 0],
+	[0, 0, 0, 1, 3, 4, 5, 4, 3, 1, 0, 0, 0, 0, 0],
+	[0, 0, 0, 1, 2, 9, 10, 9, 2, 1, 0, 0, 0, 0, 0],
+	[0, 0, 0, 1, 3, 5, 1, 5, 3, 1, 0, 0, 0, 0, 0],
+	[0, 0, 0, 1, 4, 5, 1, 5, 4, 1, 0, 0, 0, 0, 0],
+	[0, 0, 0, 1, 3, 4, 1, 4, 3, 1, 0, 0, 0, 0, 0],
+	[0, 0, 1, 2, 3, 3, 1, 3, 3, 2, 1, 0, 0, 0, 0],
+	[0, 0, 1, 2, 3, 4, 1, 4, 3, 2, 1, 0, 0, 0, 0],
+	[0, 1, 2, 2, 3, 3, 1, 3, 3, 2, 2, 1, 0, 0, 0],
+	[0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0],
+]
+
+# Vehicle / tank (19 wide × 15 tall, top-down view)
+# Rhino-style APC with tracks, hull armor plates, turret, and gun barrel
+const RETRO_VEHICLE_SPRITE := [
+	[0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+	[0, 0, 0, 1, 11, 2, 3, 4, 5, 6, 5, 4, 3, 2, 11, 1, 0, 0, 0],
+	[0, 0, 1, 11, 12, 1, 3, 4, 5, 6, 5, 4, 3, 1, 12, 11, 1, 0, 0],
+	[0, 1, 11, 12, 1, 3, 4, 5, 5, 6, 5, 5, 4, 3, 1, 12, 11, 1, 0],
+	[1, 11, 12, 1, 3, 4, 10, 10, 4, 5, 4, 10, 10, 4, 3, 1, 12, 11, 1],
+	[1, 12, 11, 1, 3, 4, 4, 5, 5, 5, 5, 5, 4, 4, 3, 1, 11, 12, 1],
+	[1, 11, 12, 1, 3, 4, 1, 9, 10, 10, 10, 9, 1, 4, 3, 1, 12, 11, 1],
+	[1, 12, 11, 1, 3, 4, 9, 10, 5, 6, 5, 10, 9, 4, 3, 1, 11, 12, 1],
+	[1, 11, 12, 1, 3, 4, 1, 9, 10, 10, 10, 9, 1, 4, 3, 1, 12, 11, 1],
+	[1, 12, 11, 1, 3, 4, 4, 5, 5, 5, 5, 5, 4, 4, 3, 1, 11, 12, 1],
+	[1, 11, 12, 1, 3, 4, 10, 10, 4, 5, 4, 10, 10, 4, 3, 1, 12, 11, 1],
+	[0, 1, 11, 12, 1, 3, 4, 4, 5, 5, 5, 4, 4, 3, 1, 12, 11, 1, 0],
+	[0, 0, 1, 11, 12, 1, 3, 4, 4, 5, 4, 4, 3, 1, 12, 11, 1, 0, 0],
+	[0, 0, 0, 1, 11, 1, 2, 15, 2, 15, 2, 15, 2, 1, 11, 1, 0, 0, 0],
+	[0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+]
+
+# Monster / creature (15 wide × 23 tall)
+# Tyranid-like alien with carapace armor, scything talons, glowing eyes
+const RETRO_MONSTER_SPRITE := [
+	[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+	[0, 1, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 1, 0],
+	[0, 0, 1, 14, 0, 0, 0, 1, 0, 0, 0, 14, 1, 0, 0],
+	[0, 0, 0, 1, 1, 0, 1, 4, 1, 0, 1, 1, 0, 0, 0],
+	[0, 0, 0, 0, 1, 1, 3, 5, 3, 1, 1, 0, 0, 0, 0],
+	[0, 0, 0, 1, 3, 4, 5, 6, 5, 4, 3, 1, 0, 0, 0],
+	[0, 0, 0, 1, 7, 4, 5, 5, 5, 4, 8, 1, 0, 0, 0],
+	[0, 0, 0, 0, 1, 3, 15, 15, 15, 3, 1, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 1, 2, 3, 2, 1, 0, 0, 0, 0, 0],
+	[0, 14, 1, 0, 0, 1, 4, 5, 4, 1, 0, 0, 1, 14, 0],
+	[14, 1, 1, 1, 1, 3, 5, 6, 5, 3, 1, 1, 1, 1, 14],
+	[1, 0, 0, 1, 3, 4, 5, 6, 5, 4, 3, 1, 0, 0, 1],
+	[0, 0, 0, 1, 4, 5, 6, 6, 6, 5, 4, 1, 0, 0, 0],
+	[0, 0, 1, 3, 4, 5, 5, 6, 5, 5, 4, 3, 1, 0, 0],
+	[0, 0, 1, 3, 4, 4, 5, 5, 5, 4, 4, 3, 1, 0, 0],
+	[0, 0, 0, 1, 11, 1, 4, 4, 4, 1, 11, 1, 0, 0, 0],
+	[0, 0, 0, 0, 1, 3, 5, 1, 5, 3, 1, 0, 0, 0, 0],
+	[0, 0, 0, 1, 2, 3, 4, 1, 4, 3, 2, 1, 0, 0, 0],
+	[0, 0, 1, 2, 3, 4, 1, 0, 1, 4, 3, 2, 1, 0, 0],
+	[0, 1, 2, 3, 3, 1, 0, 0, 0, 1, 3, 3, 2, 1, 0],
+	[1, 14, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 14, 1],
+	[0, 0, 0, 0, 0, 0, 1, 3, 1, 0, 0, 0, 0, 0, 0],
+	[0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+]
+
+
+# --- Palette builders ---
+# Build a rich color palette from faction armor + accent colors.
+# Returns an Array of 16 Colors indexed by the palette constants above.
+
+static func _build_retro_palette(armor_color: Color, _accent_color: Color) -> Array:
+	var armor = armor_color
+	armor.a = 1.0
+	return [
+		Color.TRANSPARENT,                                       # 0  transparent
+		Color(armor.r * 0.12, armor.g * 0.1, armor.b * 0.1, 1), # 1  outline (tinted)
+		armor.darkened(0.6),                                     # 2  armor shadow
+		armor.darkened(0.3),                                     # 3  armor dark
+		armor,                                                   # 4  armor mid
+		armor.lightened(0.2),                                    # 5  armor light
+		armor.lightened(0.45),                                   # 6  armor highlight
+		Color(0.05, 0.45, 0.5, 1.0),                            # 7  visor/eye dark
+		Color(0.15, 0.85, 0.95, 1.0),                           # 8  visor/eye bright
+		Color(0.55, 0.4, 0.15, 1.0),                            # 9  gold/trim dark
+		Color(0.85, 0.7, 0.25, 1.0),                            # 10 gold/trim bright
+		Color(0.18, 0.18, 0.18, 1.0),                           # 11 gun/metal dark
+		Color(0.38, 0.38, 0.4, 1.0),                            # 12 gun/metal mid
+		Color(0.58, 0.58, 0.62, 1.0),                           # 13 gun/metal light
+		Color(0.88, 0.82, 0.65, 1.0),                           # 14 bone/chitin
+		Color(0.78, 0.12, 0.08, 1.0),                           # 15 red accent
+	]
+
+
+# --- Sprite map renderer ---
+# Draws a 2D pixel art sprite from a map of palette indices.
+# Each cell is rendered as a square of pixel_size, centered on the given position.
+
+static func _draw_sprite_map(canvas: CanvasItem, center: Vector2, pixel_size: float,
+		sprite_data: Array, palette: Array, y_offset: float = 0.0) -> void:
+	var rows = sprite_data.size()
+	if rows == 0:
+		return
+	var cols = sprite_data[0].size()
+	var origin = Vector2(
+		center.x - cols * pixel_size / 2.0,
+		center.y - rows * pixel_size / 2.0 + y_offset
+	)
+
+	for y in range(rows):
+		var row = sprite_data[y]
+		for x in range(cols):
+			var idx = row[x]
+			if idx == 0:
+				continue
+			if idx >= palette.size():
+				continue
+			var color = palette[idx]
+			var rect = Rect2(
+				origin.x + x * pixel_size,
+				origin.y + y * pixel_size,
+				pixel_size + 0.5,  # Slight overlap prevents sub-pixel gaps
+				pixel_size + 0.5
+			)
+			canvas.draw_rect(rect, color, true)
+
+
+# --- Public retro draw functions ---
+
+static func draw_retro_infantry(canvas: CanvasItem, center: Vector2, radius: float, armor_color: Color, accent_color: Color, animation_time: float) -> void:
+	var palette = _build_retro_palette(armor_color, accent_color)
+	var sprite = RETRO_INFANTRY_SPRITE
+	# Scale: sprite should fill ~80% of the base diameter
+	var sprite_height = sprite.size()
+	var pixel_size = (radius * 1.6) / float(sprite_height)
+	# Subtle idle bob animation
+	var bob_frame = int(animation_time * 2.0) % 4
+	var bob_offset = 0.0
+	if bob_frame == 1:
+		bob_offset = pixel_size * 0.4
+	elif bob_frame == 3:
+		bob_offset = -pixel_size * 0.4
+	# Visor glow pulse
+	var glow_t = (sin(animation_time * 3.0) + 1.0) / 2.0
+	palette[8] = Color(0.15, 0.85, 0.95, 1.0).lerp(Color(0.4, 1.0, 1.0, 1.0), glow_t)
+	_draw_sprite_map(canvas, center, pixel_size, sprite, palette, bob_offset)
+
+
+static func draw_retro_vehicle(canvas: CanvasItem, center: Vector2, radius: float, armor_color: Color, accent_color: Color, animation_time: float) -> void:
+	var palette = _build_retro_palette(armor_color, accent_color)
+	var sprite = RETRO_VEHICLE_SPRITE
+	# Vehicles are wider - scale to fill base width
+	var sprite_width = sprite[0].size() if sprite.size() > 0 else 1
+	var pixel_size = (radius * 1.7) / float(sprite_width)
+	# Subtle engine rumble
+	var rumble_offset = 0.0
+	if int(animation_time * 8.0) % 2 == 0:
+		rumble_offset = pixel_size * 0.15
+	# Animated track marks: cycle metal colors on track columns
+	var track_phase = int(animation_time * 4.0) % 3
+	if track_phase == 1:
+		palette[11] = Color(0.25, 0.25, 0.25, 1.0)  # Shift track shade
+	elif track_phase == 2:
+		palette[12] = Color(0.32, 0.32, 0.34, 1.0)
+	# Exhaust glow pulse
+	var exhaust_t = (sin(animation_time * 5.0) + 1.0) / 2.0
+	palette[15] = Color(0.78, 0.12, 0.08, 1.0).lerp(Color(1.0, 0.5, 0.1, 1.0), exhaust_t)
+	_draw_sprite_map(canvas, center, pixel_size, sprite, palette, rumble_offset)
+
+
+static func draw_retro_monster(canvas: CanvasItem, center: Vector2, radius: float, armor_color: Color, accent_color: Color, animation_time: float) -> void:
+	var palette = _build_retro_palette(armor_color, accent_color)
+	var sprite = RETRO_MONSTER_SPRITE
+	# Scale to fill base
+	var sprite_height = sprite.size()
+	var pixel_size = (radius * 1.7) / float(sprite_height)
+	# Breathing animation: slight vertical scale pulse
+	var breathe_t = (sin(animation_time * 1.8) + 1.0) / 2.0
+	var breathe_offset = breathe_t * pixel_size * 0.3
+	# Eye glow pulse (alternating eyes for alien feel)
+	var eye_phase = sin(animation_time * 2.5)
+	palette[7] = Color(0.7, 0.1, 0.05, 1.0).lerp(Color(1.0, 0.3, 0.0, 1.0), (eye_phase + 1.0) / 2.0)
+	palette[8] = Color(1.0, 0.3, 0.0, 1.0).lerp(Color(1.0, 0.9, 0.2, 1.0), (-eye_phase + 1.0) / 2.0)
+	# Maw pulse
+	var maw_t = (sin(animation_time * 1.5) + 1.0) / 2.0
+	palette[15] = Color(0.5, 0.08, 0.05, 1.0).lerp(Color(0.85, 0.15, 0.1, 1.0), maw_t)
+	_draw_sprite_map(canvas, center, pixel_size, sprite, palette, breathe_offset)
+
+
+static func draw_retro_health_bar(canvas: CanvasItem, center: Vector2, radius: float, total_wounds: int, current_wounds: int) -> void:
+	# Pixel-art style health bar: chunky blocks instead of smooth gradient
+	if total_wounds <= 1:
+		return
+
+	var grid = max(3.0, radius * 0.1)
+	var bar_y = center.y - radius - grid * 2 - 2.0
+	var max_blocks = mini(total_wounds, 10)
+	var total_width = max_blocks * grid + (max_blocks - 1)  # blocks + 1px gaps
+	var start_x = center.x - total_width / 2.0
+
+	# Background
+	var bg_rect = Rect2(start_x - 1, bar_y - 1, total_width + 2, grid + 2)
+	canvas.draw_rect(bg_rect, Color(0.05, 0.05, 0.05, 0.85), true)
+
+	# Health blocks
+	for i in range(max_blocks):
+		var block_x = start_x + i * (grid + 1)
+		var block_rect = Rect2(block_x, bar_y, grid, grid)
+		if i < current_wounds:
+			# Full health = bright green, depleting shifts to yellow
+			var health_ratio = float(current_wounds) / float(total_wounds)
+			var bar_color: Color
+			if health_ratio > 0.5:
+				bar_color = Color(0.2, 0.85, 0.2, 1.0)
+			elif health_ratio > 0.25:
+				bar_color = Color(0.85, 0.85, 0.15, 1.0)
+			else:
+				bar_color = Color(0.85, 0.3, 0.1, 1.0)
+			canvas.draw_rect(block_rect, bar_color, true)
+		else:
+			# Lost wound block: dark red
+			canvas.draw_rect(block_rect, Color(0.3, 0.06, 0.06, 0.8), true)
+
+	# If total > max displayed, show count
+	if total_wounds > max_blocks:
+		var font = ThemeDB.fallback_font
+		var wound_text = "%d/%d" % [current_wounds, total_wounds]
+		var font_size = maxi(8, int(grid * 1.5))
+		var text_size = font.get_string_size(wound_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+		var text_pos = Vector2(center.x - text_size.x / 2.0, bar_y + grid + font_size + 1)
+		canvas.draw_string(font, text_pos, wound_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0.9, 0.9, 0.3, 1.0))
