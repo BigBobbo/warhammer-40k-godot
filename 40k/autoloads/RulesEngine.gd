@@ -1024,9 +1024,6 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 		if effective_roll == 1:
 			continue  # Unmodified 1 always fails
-		var modified_roll = roll + ow_wound_modifier
-		var is_critical_wound = (roll >= critical_wound_threshold)  # Critical check on unmodified roll
-		if is_critical_wound or modified_roll >= wound_threshold:
 		var is_critical_wound = (effective_roll >= critical_wound_threshold)
 		if is_critical_wound or effective_roll >= wound_threshold:
 			wounds += 1
@@ -1278,6 +1275,8 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# Calculate total attacks — roll variable attacks per model (D3, D6, etc.)
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
+
+	var weapon_name = weapon_profile.get("name", weapon_id)
 
 	# GUN-CRAZY SHOW-OFFS (OA-9): Override snazzgun attacks to 4 when targeting closest eligible enemy
 	var gun_crazy_attacks = get_gun_crazy_showoffs_attacks(actor_unit, weapon_id, weapon_profile, actor_unit_id, target_unit_id, board)
@@ -5677,6 +5676,16 @@ static func get_drive_by_dakka_ap_bonus(actor_unit: Dictionary, target_unit: Dic
 # +1 to Hit rolls for ranged attacks when target is within half the weapon's range.
 static func has_wall_of_dakka(unit: Dictionary) -> bool:
 	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Wall of Dakka":
+			return true
+	return false
+
 # PYROMANIAKS (OA-14): Check if a unit has the "Pyromaniaks" ability.
 # Returns true if the unit has the ability (Burna Boyz / Skorchas datasheet ability).
 static func has_pyromaniaks(actor_unit: Dictionary) -> bool:
@@ -5687,7 +5696,7 @@ static func has_pyromaniaks(actor_unit: Dictionary) -> bool:
 			ability_name = ability
 		elif ability is Dictionary:
 			ability_name = ability.get("name", "")
-		if ability_name == "Wall of Dakka":
+		if ability_name == "Pyromaniaks":
 			return true
 	return false
 
@@ -5764,9 +5773,6 @@ static func get_da_boss_ladz_wound_modifier(target_unit: Dictionary, board: Dict
 	if not is_warboss_leading_unit(target_unit, board):
 		return WoundModifier.NONE
 	return WoundModifier.MINUS_ONE
-		if ability_name == "Pyromaniaks":
-			return true
-	return false
 
 # PYROMANIAKS (OA-14): Get the wound re-roll scope for Pyromaniaks.
 # Only applies to Torrent weapons (burna, Skorcha, etc.) against targets within 6".

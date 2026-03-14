@@ -542,6 +542,7 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"DECLINE_MEKANIAK":
 			if not _awaiting_mekaniak:
 				return {"valid": false, "errors": ["Not awaiting Mekaniak decision"]}
+			return {"valid": true}
 		"USE_GROT_OILER":
 			if not _awaiting_grot_oiler:
 				return {"valid": false, "errors": ["Not awaiting Grot Oiler decision"]}
@@ -6096,6 +6097,7 @@ func get_available_actions() -> Array:
 			"type": "DECLINE_MEKANIAK",
 			"actor_unit_id": _mekaniak_mek_id,
 			"description": "Decline Mekaniak (%s)" % mek_name
+		})
 	# OA-32: Grot Oiler pending — offer heal targets or decline
 	if _awaiting_grot_oiler:
 		for target in _grot_oiler_targets:
