@@ -1582,6 +1582,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: WALL OF DAKKA — +1 to hit for %s (target within half range)" % actor_unit_id)
 
+		# BIG AN' SHOOTY (OA-41): +1 to Hit for ranged attacks while Waaagh! active (Morkanaut)
+		if UnitAbilityManager.has_big_an_shooty(actor_unit):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: BIG AN' SHOOTY — +1 to hit (ranged) for %s (Waaagh! active)" % actor_unit_id)
+
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker.
 		var dats_our_loot_scope = get_dats_our_loot_reroll_scope(actor_unit, target_unit, board)
@@ -2407,6 +2412,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if wall_of_dakka_bonus_ar > 0:
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: WALL OF DAKKA (auto-resolve) — +1 to hit for %s (target within half range)" % actor_unit_id)
+
+		# BIG AN' SHOOTY (OA-41): +1 to Hit for ranged attacks while Waaagh! active (Morkanaut, auto-resolve)
+		if UnitAbilityManager.has_big_an_shooty(actor_unit):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: BIG AN' SHOOTY (auto-resolve) — +1 to hit (ranged) for %s (Waaagh! active)" % actor_unit_id)
 
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker (auto-resolve).
@@ -8024,6 +8034,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if has_monster_hunters_vs_target(attacker_unit, target_unit):
 			melee_hit_modifiers |= HitModifier.REROLL_FAILED
 			print("RulesEngine: MONSTER HUNTERS (melee) — re-roll hit rolls for %s (target is MONSTER/VEHICLE)" % attacker_id)
+
+		# BIG AN' STOMPY (OA-41): +1 to Hit for melee attacks while Waaagh! active (Gorkanaut)
+		if UnitAbilityManager.has_big_an_stompy(attacker_unit):
+			melee_hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: BIG AN' STOMPY — +1 to hit (melee) for %s (Waaagh! active)" % attacker_id)
 
 		var melee_hit_reroll_data = []
 		for i in range(hit_rolls.size()):
