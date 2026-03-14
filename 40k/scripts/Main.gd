@@ -172,10 +172,11 @@ var _settings_menu: SettingsMenu = null
 
 # Game Event Log UI elements
 var game_log_panel: PanelContainer
-var game_log_label: RichTextLabel
 var game_log_scroll: ScrollContainer
+var game_log_entries_container: VBoxContainer  # VBox holding GameLogEntry cards
 var is_game_log_visible: bool = true
 var game_log_toggle_button: Button
+var _current_combat_card: GameLogEntry = null  # Tracks active combat card for grouping
 
 # P3-117: Dice Roll History panel UI elements
 var _dice_history_panel: PanelContainer = null
@@ -7730,7 +7731,7 @@ func _setup_player_turn_border() -> void:
 	print("Main: P2-44: Player turn border initialized for Player %d" % active_player)
 
 func _setup_game_log_panel() -> void:
-	print("Main: Setting up Game Event Log panel")
+	print("Main: Setting up Game Event Log panel (card-based UI)")
 
 	# Create the main panel container anchored to the left side
 	game_log_panel = PanelContainer.new()
@@ -7749,7 +7750,7 @@ func _setup_game_log_panel() -> void:
 
 	# Dark semi-transparent background
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.12, 0.85)
+	style.bg_color = Color(0.06, 0.06, 0.09, 0.85)
 	style.border_width_left = 0
 	style.border_width_right = 2
 	style.border_width_top = 0
@@ -7757,6 +7758,10 @@ func _setup_game_log_panel() -> void:
 	style.border_color = Color(0.833, 0.588, 0.376, 0.6)  # Gold accent
 	style.corner_radius_top_right = 4
 	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 4
+	style.content_margin_right = 4
+	style.content_margin_top = 0
+	style.content_margin_bottom = 4
 	game_log_panel.add_theme_stylebox_override("panel", style)
 
 	# Main VBox
@@ -7787,23 +7792,19 @@ func _setup_game_log_panel() -> void:
 	var sep = HSeparator.new()
 	vbox.add_child(sep)
 
-	# Scroll container for the log entries
+	# Scroll container for the log entry cards
 	game_log_scroll = ScrollContainer.new()
 	game_log_scroll.name = "LogScroll"
 	game_log_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	game_log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	vbox.add_child(game_log_scroll)
 
-	# RichTextLabel for color-coded entries
-	game_log_label = RichTextLabel.new()
-	game_log_label.name = "LogLabel"
-	game_log_label.bbcode_enabled = true
-	game_log_label.fit_content = true
-	game_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	game_log_label.scroll_active = false  # We use our own scroll container
-	game_log_label.add_theme_font_size_override("normal_font_size", 11)
-	game_log_label.add_theme_font_size_override("bold_font_size", 12)
-	game_log_scroll.add_child(game_log_label)
+	# VBoxContainer to hold individual GameLogEntry cards
+	game_log_entries_container = VBoxContainer.new()
+	game_log_entries_container.name = "EntriesContainer"
+	game_log_entries_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	game_log_entries_container.add_theme_constant_override("separation", 3)
+	game_log_scroll.add_child(game_log_entries_container)
 
 	# Connect to GameEventLog signal
 	if GameEventLog:
@@ -7812,7 +7813,7 @@ func _setup_game_log_panel() -> void:
 
 		# Populate any entries that were added before we connected
 		for entry in GameEventLog.get_all_entries():
-			_append_log_entry(entry.text, entry.type)
+			_append_log_entry(entry.text, entry.type, false)
 
 	# Add toggle button to top HUD
 	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
@@ -7824,95 +7825,70 @@ func _setup_game_log_panel() -> void:
 		hud_bottom.add_child(game_log_toggle_button)
 		hud_bottom.move_child(game_log_toggle_button, 1)  # After left panel toggle
 
-	print("Main: Game Event Log panel created")
+	print("Main: Game Event Log panel created (card-based UI)")
 
 func _on_game_log_entry_added(text: String, entry_type: String) -> void:
-	_append_log_entry(text, entry_type)
+	_append_log_entry(text, entry_type, true)
 
 	# Auto-scroll to bottom
 	if game_log_scroll:
 		await get_tree().process_frame
 		game_log_scroll.scroll_vertical = int(game_log_scroll.get_v_scroll_bar().max_value)
 
-func _append_log_entry(text: String, entry_type: String) -> void:
-	if not game_log_label:
+func _append_log_entry(text: String, entry_type: String, animate: bool = true) -> void:
+	if not game_log_entries_container:
 		return
 
-	var colored_text = ""
 	match entry_type:
-		"phase_header":
-			colored_text = "[b][color=#D49761]%s[/color][/b]" % text
-		"p1_action":
-			colored_text = "[color=#6699CC]%s[/color]" % text
-		"p2_action":
-			colored_text = "[color=#CC6666]%s[/color]" % text
-		"ai_thinking":
-			colored_text = "[i][color=#8899AA]  %s[/color][/i]" % text
-		"overwatch":
-			colored_text = "[b][color=#FF6600]%s[/color][/b]" % text
 		"combat_header":
-			# Card-style combat header: bold gold with top border
-			colored_text = "[color=#444444]────────────────────[/color]\n[b][color=#E8C477]%s[/color][/b]" % text
+			# Start a new combat card — details and result will be appended to it
+			_current_combat_card = GameLogEntry.create_combat_card(text)
+			# Determine if this is shooting or melee from text content
+			var is_melee = "fights" in text.to_lower() or "fight" in text.to_lower()
+			_current_combat_card.set_combat_icon_type(is_melee)
+			game_log_entries_container.add_child(_current_combat_card)
+			if animate:
+				_current_combat_card.animate_in()
+
 		"combat_detail":
-			# Indented detail lines: smaller, muted color with dice highlighting
-			var styled = _style_combat_detail(text)
-			colored_text = "[color=#B0B8C0]%s[/color]" % styled
+			# Append detail to the current combat card
+			if _current_combat_card and is_instance_valid(_current_combat_card):
+				_current_combat_card.append_combat_detail(text)
+			else:
+				# Orphaned combat detail — create a standalone card
+				var card = GameLogEntry.create_simple_entry(text, entry_type)
+				game_log_entries_container.add_child(card)
+				if animate:
+					card.animate_in()
+
 		"combat_result":
-			# Result line: bold with color based on outcome
-			if "destroyed" in text and "No models" not in text:
-				colored_text = "[b][color=#FF6B6B]%s[/color][/b]" % text
+			# Finalize the current combat card with the result
+			if _current_combat_card and is_instance_valid(_current_combat_card):
+				_current_combat_card.set_combat_result(text)
+				_current_combat_card = null
 			else:
-				colored_text = "[b][color=#77CC77]%s[/color][/b]" % text
+				# Orphaned combat result — create a standalone card
+				var card = GameLogEntry.create_simple_entry(text, entry_type)
+				game_log_entries_container.add_child(card)
+				if animate:
+					card.animate_in()
+
 		_:
-			colored_text = "[color=#AAAAAA]%s[/color]" % text
+			# All other entry types: create a simple one-line card
+			# Refine category based on text content for player actions
+			var card = GameLogEntry.create_simple_entry(text, entry_type)
+			var refined_cat = GameLogEntry.refine_category_from_text(text, card.category)
+			if refined_cat != card.category:
+				card.category = refined_cat
+				# Rebuild the style with the refined category color
+				var new_style = card._create_card_style()
+				card.add_theme_stylebox_override("panel", new_style)
+			game_log_entries_container.add_child(card)
+			if animate:
+				card.animate_in()
 
-	game_log_label.append_text(colored_text + "\n")
-
-func _style_combat_detail(text: String) -> String:
-	"""Apply inline styling to combat detail text — highlight dice rolls, thresholds, and keywords."""
-	var styled = text
-
-	# Highlight dice roll arrays [1, 3, 5, 6] in cyan
-	var dice_regex = RegEx.new()
-	dice_regex.compile("\\[([0-9, ]+)\\]")
-	var dice_results = dice_regex.search_all(styled)
-	# Process in reverse order to preserve positions
-	for i in range(dice_results.size() - 1, -1, -1):
-		var m = dice_results[i]
-		var full_match = m.get_string()
-		var inner = m.get_string(1)
-		# Color individual dice: 6s in gold, 1s in red, others in cyan
-		var dice_parts = inner.split(", ")
-		var colored_dice = []
-		for d in dice_parts:
-			var dval = d.strip_edges()
-			if dval == "6":
-				colored_dice.append("[color=#FFD700]6[/color]")
-			elif dval == "1":
-				colored_dice.append("[color=#FF4444]1[/color]")
-			else:
-				colored_dice.append("[color=#66CCEE]%s[/color]" % dval)
-		var replacement = "[color=#888888][[/color]%s[color=#888888]][/color]" % ", ".join(colored_dice)
-		styled = styled.substr(0, m.get_start()) + replacement + styled.substr(m.get_end())
-
-	# Highlight keywords in distinct colors
-	# DEVASTATING WOUNDS in red
-	styled = styled.replace("DEVASTATING WOUNDS", "[color=#FF4444]DEVASTATING WOUNDS[/color]")
-	styled = styled.replace("DEVASTATING", "[color=#FF4444]DEVASTATING[/color]")
-	# Lethal Hits in orange
-	styled = styled.replace("Lethal Hits", "[color=#FF8844]Lethal Hits[/color]")
-	# Sustained Hits in yellow
-	styled = styled.replace("Sustained Hits", "[color=#EEDD44]Sustained Hits[/color]")
-	# Feel No Pain in green
-	styled = styled.replace("Feel No Pain", "[color=#44CC88]Feel No Pain[/color]")
-	# Invulnerable Save in purple
-	styled = styled.replace("Invulnerable Save", "[color=#BB88FF]Invulnerable Save[/color]")
-	# Re-rolls in light blue
-	styled = styled.replace("Re-rolls:", "[color=#88BBFF]Re-rolls:[/color]")
-	# Torrent in orange
-	styled = styled.replace("Torrent", "[color=#FF8844]Torrent[/color]")
-
-	return styled
+	# Limit total cards to prevent memory bloat (keep last 200)
+	_prune_old_log_entries()
 
 func _on_game_log_collapse_pressed() -> void:
 	is_game_log_visible = false
@@ -7927,6 +7903,16 @@ func _on_game_log_toggle_pressed() -> void:
 		game_log_panel.visible = is_game_log_visible
 	if game_log_toggle_button:
 		game_log_toggle_button.text = "Hide Log" if is_game_log_visible else "Show Log"
+
+func _prune_old_log_entries() -> void:
+	"""Remove oldest log entry cards when count exceeds 200 to prevent memory bloat."""
+	if not game_log_entries_container:
+		return
+	var max_entries = 200
+	while game_log_entries_container.get_child_count() > max_entries:
+		var oldest = game_log_entries_container.get_child(0)
+		game_log_entries_container.remove_child(oldest)
+		oldest.queue_free()
 
 # ============================================================================
 # P3-117: Dice Roll History Panel
