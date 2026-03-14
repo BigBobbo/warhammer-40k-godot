@@ -36,6 +36,7 @@ signal katah_stance_required(unit_id: String, player: int)
 signal dread_foe_resolved(unit_id: String, result: Dictionary)  # P1-17: Dread Foe mortal wounds result
 signal saves_required(save_data_list: Array)  # P0-58: Interactive wound allocation for defender
 signal sweeping_advance_available(unit_id: String, player: int, in_engagement: bool, move_distance: float)  # Sweeping Advance opportunity
+signal acrobatic_escape_available(unit_id: String, player: int, move_distance: float)  # Acrobatic Escape opportunity (Callidus Assassin)
 
 # Fight state tracking
 var active_fighter_id: String = ""
@@ -91,6 +92,10 @@ var current_subphase: Subphase = Subphase.FIGHTS_FIRST
 var awaiting_sweeping_advance: bool = false
 var sweeping_advance_pending_units: Array = []  # Units eligible for Sweeping Advance at end of fight phase
 
+# Acrobatic Escape state tracking (Callidus Assassin)
+var awaiting_acrobatic_escape: bool = false
+var acrobatic_escape_pending_units: Array = []  # Units eligible for Acrobatic Escape at end of fight phase
+
 func _init():
 	phase_type = GameStateData.Phase.FIGHT
 
@@ -112,6 +117,8 @@ func _on_phase_enter() -> void:
 	_pending_fight_selection_data = {}
 	awaiting_sweeping_advance = false
 	sweeping_advance_pending_units.clear()
+	awaiting_acrobatic_escape = false
+	acrobatic_escape_pending_units.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -414,6 +421,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_sweeping_advance(action)
 		"DECLINE_SWEEPING_ADVANCE":
 			return {"valid": true}
+		"ACROBATIC_ESCAPE":
+			return _validate_acrobatic_escape(action)
+		"DECLINE_ACROBATIC_ESCAPE":
+			return {"valid": true}
 		"BATCH_FIGHT_ACTIONS":
 			return _validate_batch_fight_actions(action)
 		"APPLY_MELEE_SAVES":
@@ -459,6 +470,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_sweeping_advance(action)
 		"DECLINE_SWEEPING_ADVANCE":
 			return _process_decline_sweeping_advance(action)
+		"ACROBATIC_ESCAPE":
+			return _process_acrobatic_escape(action)
+		"DECLINE_ACROBATIC_ESCAPE":
+			return _process_decline_acrobatic_escape(action)
 		"BATCH_FIGHT_ACTIONS":
 			return _process_batch_fight_actions(action)
 		"APPLY_MELEE_SAVES":
@@ -2651,7 +2666,7 @@ func get_available_actions() -> Array:
 		can_end_fight = true
 		log_phase_message("Adding END_FIGHT action - all units processed (legacy)")
 
-	if can_end_fight and not awaiting_sweeping_advance:
+	if can_end_fight and not awaiting_sweeping_advance and not awaiting_acrobatic_escape:
 		actions.append({
 			"type": "END_FIGHT",
 			"description": "End Fight Phase"
@@ -2671,6 +2686,21 @@ func get_available_actions() -> Array:
 			"type": "DECLINE_SWEEPING_ADVANCE",
 			"unit_id": sa_unit.unit_id,
 			"description": "Decline Sweeping Advance: %s" % sa_unit.unit_name
+		})
+
+	# Acrobatic Escape actions when awaiting
+	if awaiting_acrobatic_escape and not acrobatic_escape_pending_units.is_empty():
+		var ae_unit = acrobatic_escape_pending_units[0]
+		actions.append({
+			"type": "ACROBATIC_ESCAPE",
+			"unit_id": ae_unit.unit_id,
+			"move_distance": ae_unit.move_distance,
+			"description": "Acrobatic Escape: %s (D6 = %.0f\")" % [ae_unit.unit_name, ae_unit.move_distance]
+		})
+		actions.append({
+			"type": "DECLINE_ACROBATIC_ESCAPE",
+			"unit_id": ae_unit.unit_id,
+			"description": "Decline Acrobatic Escape: %s" % ae_unit.unit_name
 		})
 	
 	log_phase_message("Returning %d available actions: %s" % [actions.size(), str(actions)])
@@ -3423,6 +3453,11 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 		result["sweeping_advance_move_distance"] = first.move_distance
 		return result
 
+	# Check for Acrobatic Escape before ending
+	var ae_result = _check_acrobatic_escape_or_complete([])
+	if ae_result != null:
+		return ae_result
+
 	log_phase_message("Fight phase ended")
 	emit_signal("phase_completed")
 	return create_result(true, [])
@@ -3585,11 +3620,16 @@ func _process_sweeping_advance(action: Dictionary) -> Dictionary:
 		result["sweeping_advance_move_distance"] = next.move_distance
 		return result
 
-	# All Sweeping Advances resolved — now end the fight phase
-	log_phase_message("SWEEPING ADVANCE: All resolved — ending Fight phase")
+	# All Sweeping Advances resolved — check for Acrobatic Escape before ending
+	log_phase_message("SWEEPING ADVANCE: All resolved — checking Acrobatic Escape")
 	awaiting_sweeping_advance = false
-	emit_signal("phase_completed")
 
+	var ae_result = _check_acrobatic_escape_or_complete(changes)
+	if ae_result != null:
+		return ae_result
+
+	log_phase_message("Fight phase ended")
+	emit_signal("phase_completed")
 	var result = create_result(true, changes)
 	return result
 
@@ -3620,11 +3660,260 @@ func _process_decline_sweeping_advance(action: Dictionary) -> Dictionary:
 		result["sweeping_advance_move_distance"] = next.move_distance
 		return result
 
-	# All done — end fight phase
-	log_phase_message("SWEEPING ADVANCE: All resolved — ending Fight phase")
+	# All done — check for Acrobatic Escape before ending fight phase
+	log_phase_message("SWEEPING ADVANCE: All resolved — checking Acrobatic Escape")
 	awaiting_sweeping_advance = false
+
+	var ae_result = _check_acrobatic_escape_or_complete([])
+	if ae_result != null:
+		return ae_result
+
+	log_phase_message("Fight phase ended")
 	emit_signal("phase_completed")
 	return create_result(true, [])
+
+# ============================================================================
+# ACROBATIC ESCAPE (Callidus Assassin)
+# ============================================================================
+
+func _check_acrobatic_escape_or_complete(changes: Array):
+	"""Check for Acrobatic Escape eligible units. Returns a result Dictionary if
+	Acrobatic Escape is triggered, or null if the phase should complete normally."""
+	if awaiting_acrobatic_escape:
+		return null  # Already processing
+
+	var ae_eligible = _get_acrobatic_escape_eligible_units()
+	if ae_eligible.is_empty():
+		return null  # No eligible units, proceed to phase_completed
+
+	awaiting_acrobatic_escape = true
+	acrobatic_escape_pending_units = ae_eligible.duplicate()
+
+	var first = ae_eligible[0]
+	log_phase_message("ACROBATIC ESCAPE: %s (player %d) is eligible — D6 roll = %.0f\" — offering ability" % [
+		first.unit_name, first.player, first.move_distance
+	])
+	emit_signal("acrobatic_escape_available", first.unit_id, first.player, first.move_distance)
+
+	var result = create_result(true, changes)
+	result["trigger_acrobatic_escape"] = true
+	result["acrobatic_escape_unit_id"] = first.unit_id
+	result["acrobatic_escape_player"] = first.player
+	result["acrobatic_escape_move_distance"] = first.move_distance
+	return result
+
+func _get_acrobatic_escape_eligible_units() -> Array:
+	"""Find units with the Acrobatic Escape ability that are within Engagement Range at end of Fight phase."""
+	var eligible = []
+	var all_units = game_state_snapshot.get("units", {})
+
+	for unit_id in all_units:
+		var unit = all_units.get(unit_id, {})
+		if unit.is_empty():
+			continue
+
+		# Check if unit has Acrobatic Escape ability
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		var has_acrobatic_escape = false
+		for ability in abilities:
+			if ability is Dictionary and ability.get("name", "") == "Acrobatic Escape":
+				has_acrobatic_escape = true
+				break
+			elif ability is String and ability == "Acrobatic Escape":
+				has_acrobatic_escape = true
+				break
+
+		if not has_acrobatic_escape:
+			continue
+
+		# Check if unit is still alive
+		if _is_unit_destroyed_check(unit):
+			continue
+
+		# Must be deployed on the battlefield
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+
+		# Must be within Engagement Range of one or more enemy units
+		if not _is_unit_in_combat(unit):
+			log_phase_message("ACROBATIC ESCAPE: %s not in engagement range — skipping" % unit.get("meta", {}).get("name", unit_id))
+			continue
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var player = int(unit.get("owner", 0))
+
+		# Roll D6 for move distance
+		var rng = RulesEngine.RNGService.new()
+		var d6_roll = rng.roll_d6(1)[0]
+
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit_name,
+			"player": player,
+			"move_distance": float(d6_roll)
+		})
+
+		log_phase_message("ACROBATIC ESCAPE: %s eligible (in engagement, D6 = %d\")" % [unit_name, d6_roll])
+
+	return eligible
+
+func _validate_acrobatic_escape(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var movements = action.get("movements", {})
+	var errors = []
+
+	if unit_id.is_empty():
+		errors.append("No unit_id provided for Acrobatic Escape")
+		return {"valid": false, "errors": errors}
+
+	if not awaiting_acrobatic_escape:
+		errors.append("No Acrobatic Escape is pending")
+		return {"valid": false, "errors": errors}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit %s not found" % unit_id)
+		return {"valid": false, "errors": errors}
+
+	# Get the D6 move distance from pending units
+	var move_distance = 6.0  # fallback
+	for pending in acrobatic_escape_pending_units:
+		if pending.unit_id == unit_id:
+			move_distance = pending.move_distance
+			break
+
+	# Validate movements — each model can move up to the D6 roll distance
+	for model_idx in movements:
+		var new_pos = movements[model_idx]
+		var models = unit.get("models", [])
+		var idx = int(model_idx)
+		if idx < 0 or idx >= models.size():
+			errors.append("Invalid model index: %s" % model_idx)
+			continue
+
+		var model = models[idx]
+		if not model.get("alive", true):
+			errors.append("Cannot move destroyed model %s" % model_idx)
+			continue
+
+		var old_pos = Vector2(model.position.x, model.position.y)
+		var distance = Measurement.distance_inches(old_pos, new_pos)
+		if distance > move_distance + 0.1:  # Small tolerance
+			errors.append("Model %s exceeds Acrobatic Escape distance (%.1f\" > %.0f\")" % [model_idx, distance, move_distance])
+
+	return {"valid": errors.is_empty(), "errors": errors}
+
+func _process_acrobatic_escape(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var movements = action.get("movements", {})
+	var changes = []
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	log_phase_message("ACROBATIC ESCAPE: %s performs Fall Back move" % unit_name)
+
+	# Apply model position changes
+	for model_idx in movements:
+		var new_pos = movements[model_idx]
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%s.position" % [unit_id, model_idx],
+			"value": {"x": new_pos.x, "y": new_pos.y}
+		})
+
+	# Mark the unit as having fallen back
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.fell_back" % unit_id,
+		"value": true
+	})
+
+	# Remove this unit from pending list
+	acrobatic_escape_pending_units = acrobatic_escape_pending_units.filter(
+		func(u): return u.unit_id != unit_id
+	)
+
+	# Check if there are more Acrobatic Escape units to process
+	if not acrobatic_escape_pending_units.is_empty():
+		var next = acrobatic_escape_pending_units[0]
+		log_phase_message("ACROBATIC ESCAPE: Next eligible unit — %s (player %d)" % [next.unit_name, next.player])
+		emit_signal("acrobatic_escape_available", next.unit_id, next.player, next.move_distance)
+
+		var result = create_result(true, changes)
+		result["trigger_acrobatic_escape"] = true
+		result["acrobatic_escape_unit_id"] = next.unit_id
+		result["acrobatic_escape_player"] = next.player
+		result["acrobatic_escape_move_distance"] = next.move_distance
+		return result
+
+	# All Acrobatic Escapes resolved — end the fight phase
+	log_phase_message("ACROBATIC ESCAPE: All resolved — ending Fight phase")
+	awaiting_acrobatic_escape = false
+	emit_signal("phase_completed")
+
+	var result = create_result(true, changes)
+	return result
+
+func _process_decline_acrobatic_escape(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var unit_name = ""
+	if not unit_id.is_empty():
+		var unit = get_unit(unit_id)
+		unit_name = unit.get("meta", {}).get("name", unit_id)
+	log_phase_message("ACROBATIC ESCAPE: %s declined" % unit_name)
+
+	# Remove this unit from pending list
+	acrobatic_escape_pending_units = acrobatic_escape_pending_units.filter(
+		func(u): return u.unit_id != unit_id
+	)
+
+	# Check for more eligible units
+	if not acrobatic_escape_pending_units.is_empty():
+		var next = acrobatic_escape_pending_units[0]
+		log_phase_message("ACROBATIC ESCAPE: Next eligible unit — %s (player %d)" % [next.unit_name, next.player])
+		emit_signal("acrobatic_escape_available", next.unit_id, next.player, next.move_distance)
+
+		var result = create_result(true, [])
+		result["trigger_acrobatic_escape"] = true
+		result["acrobatic_escape_unit_id"] = next.unit_id
+		result["acrobatic_escape_player"] = next.player
+		result["acrobatic_escape_move_distance"] = next.move_distance
+		return result
+
+	# All done — end fight phase
+	log_phase_message("ACROBATIC ESCAPE: All resolved — ending Fight phase")
+	awaiting_acrobatic_escape = false
+	emit_signal("phase_completed")
+	return create_result(true, [])
+
+# Helper to check if any enemy model is within a given distance of any model in a unit
+func _is_unit_within_distance_of_enemies(unit: Dictionary, distance_inches: float) -> bool:
+	"""Check if any enemy model is within the specified distance (edge-to-edge) of any model in the unit."""
+	var all_units = game_state_snapshot.get("units", {})
+	var unit_owner = unit.get("owner", 0)
+
+	for other_unit_id in all_units:
+		var other_unit = all_units[other_unit_id]
+		if other_unit.get("owner", 0) == unit_owner:
+			continue
+		if _is_unit_destroyed_check(other_unit):
+			continue
+
+		var models1 = unit.get("models", [])
+		var models2 = other_unit.get("models", [])
+
+		for model1 in models1:
+			if not model1.get("alive", true):
+				continue
+			for model2 in models2:
+				if not model2.get("alive", true):
+					continue
+				var dist = Measurement.model_to_model_distance_inches(model1, model2)
+				if dist <= distance_inches:
+					return true
+
+	return false
 
 func get_unfought_eligible_units() -> Array:
 	"""Return array of {unit_id, unit_name, player, subphase} for units that haven't fought yet.

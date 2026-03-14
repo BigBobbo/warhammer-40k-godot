@@ -11138,6 +11138,13 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		var sa_move_distance = sa_action.get("move_distance", 6.0)
 		return _compute_sweeping_advance_action(snapshot, sa_unit_id, player, sa_in_engagement, sa_move_distance)
 
+	# Step 6b: Acrobatic Escape if available (Callidus Assassin)
+	if action_types.has("ACROBATIC_ESCAPE"):
+		var ae_action = action_types["ACROBATIC_ESCAPE"][0]
+		var ae_unit_id = ae_action.get("unit_id", "")
+		var ae_move_distance = ae_action.get("move_distance", 3.0)
+		return _compute_acrobatic_escape_action(snapshot, ae_unit_id, player, ae_move_distance)
+
 	# Step 7: End fight phase
 	if action_types.has("END_FIGHT"):
 		return {"type": "END_FIGHT", "_ai_description": "End Fight Phase"}
@@ -12662,6 +12669,25 @@ static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_
 # =============================================================================
 
 static func _decide_scoring(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	# Acrobatic Escape vanish — AI always vanishes when available (it's generally advantageous)
+	var action_types_map = {}
+	for action in available_actions:
+		var t = action.get("type", "")
+		if not action_types_map.has(t):
+			action_types_map[t] = []
+		action_types_map[t].append(action)
+
+	if action_types_map.has("ACROBATIC_ESCAPE_VANISH"):
+		var ae_action = action_types_map["ACROBATIC_ESCAPE_VANISH"][0]
+		var ae_unit_id = ae_action.get("unit_id", "")
+		print("AIDecisionMaker: [SCORING] Acrobatic Escape — vanishing %s" % ae_unit_id)
+		return {
+			"type": "ACROBATIC_ESCAPE_VANISH",
+			"unit_id": ae_unit_id,
+			"player": ae_action.get("player", player),
+			"_ai_description": "Acrobatic Escape: vanish from battlefield"
+		}
+
 	# T7-47: Evaluate active secondary missions and discard unachievable ones for +1 CP
 	var discard_actions = []
 	for action in available_actions:
@@ -16333,6 +16359,40 @@ static func _compute_sweeping_advance_action(snapshot: Dictionary, unit_id: Stri
 			"player": player,
 			"_ai_description": "%s uses Sweeping Advance — Normal Move toward objective (%.0f\")" % [unit_name, move_distance]
 		}
+
+static func _compute_acrobatic_escape_action(snapshot: Dictionary, unit_id: String, player: int, move_distance: float) -> Dictionary:
+	"""Compute Acrobatic Escape Fall Back movement for a unit at end of Fight phase.
+	Always moves directly away from the nearest enemy to escape engagement range."""
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {"type": "DECLINE_ACROBATIC_ESCAPE", "unit_id": unit_id, "_ai_description": "Decline Acrobatic Escape (unit not found)"}
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var models = unit.get("models", [])
+	var movements = {}
+
+	# Fall Back: move each model away from the nearest enemy
+	var enemies_dict = _get_enemy_units(snapshot, player)
+	var enemies = enemies_dict.values()
+	for i in range(models.size()):
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+		var pos = Vector2(model.get("position", {}).get("x", 0), model.get("position", {}).get("y", 0))
+
+		var nearest_enemy_pos = _find_nearest_enemy_model_pos(pos, enemies)
+		if nearest_enemy_pos != Vector2.ZERO:
+			var away_dir = (pos - nearest_enemy_pos).normalized()
+			var new_pos = pos + away_dir * move_distance
+			movements[str(i)] = new_pos
+
+	return {
+		"type": "ACROBATIC_ESCAPE",
+		"unit_id": unit_id,
+		"movements": movements,
+		"player": player,
+		"_ai_description": "%s uses Acrobatic Escape — Fall Back (D6 = %.0f\")" % [unit_name, move_distance]
+	}
 
 static func _find_nearest_enemy_model_pos(pos: Vector2, enemies: Array) -> Vector2:
 	"""Find the position of the nearest enemy model."""

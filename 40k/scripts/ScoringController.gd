@@ -391,6 +391,10 @@ func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
 
 	if phase:
+		# Connect Acrobatic Escape vanish signal
+		if phase.has_signal("acrobatic_escape_vanish_available") and not phase.acrobatic_escape_vanish_available.is_connected(_on_acrobatic_escape_vanish_available):
+			phase.acrobatic_escape_vanish_available.connect(_on_acrobatic_escape_vanish_available)
+
 		# Update UI elements with current game state
 		_refresh_ui()
 		show()
@@ -422,3 +426,94 @@ func _on_end_turn_pressed() -> void:
 
 	print("ScoringController: End Turn button pressed")
 	emit_signal("scoring_action_requested", {"type": "END_TURN"})
+
+# ============================================================================
+# ACROBATIC ESCAPE VANISH (End of opponent's turn)
+# ============================================================================
+
+func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, player: int) -> void:
+	"""Show dialog offering to remove the Callidus from the battlefield."""
+	print("[ScoringController] Acrobatic Escape vanish available for %s (player %d)" % [unit_name, player])
+
+	# Skip dialog for AI players
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("[ScoringController] Skipping Acrobatic Escape vanish dialog for AI player %d" % player)
+		return
+
+	var dialog = ConfirmationDialog.new()
+	dialog.title = "Acrobatic Escape: %s" % unit_name
+	dialog.ok_button_text = "Vanish"
+	dialog.cancel_button_text = "Stay"
+	dialog.min_size = DialogConstants.MEDIUM
+
+	# Build custom content with timer countdown
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 6)
+
+	var desc = Label.new()
+	desc.text = "ACROBATIC ESCAPE\n\n%s is not within 3\" of any enemy units.\n\nRemove this model from the battlefield?\nIt will return in the Reinforcements step of your next Movement phase (more than 9\" from all enemies).\n\nWARNING: If the battle ends while this model is off the battlefield, it is destroyed." % unit_name
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(desc)
+
+	content.add_child(HSeparator.new())
+
+	var timer_label = Label.new()
+	timer_label.text = "Auto-declining in 15 seconds..."
+	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	timer_label.add_theme_font_size_override("font_size", 12)
+	timer_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))  # Orange
+	content.add_child(timer_label)
+
+	dialog.add_child(content)
+
+	# Track whether dialog has been resolved to prevent double-fire
+	var resolved = [false]  # Array so lambda can mutate
+
+	var on_confirmed = func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		print("[ScoringController] Acrobatic Escape vanish confirmed for %s" % unit_id)
+		emit_signal("scoring_action_requested", {
+			"type": "ACROBATIC_ESCAPE_VANISH",
+			"unit_id": unit_id,
+			"player": player,
+		})
+		dialog.queue_free()
+
+	var on_declined = func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		print("[ScoringController] Acrobatic Escape vanish declined for %s" % unit_id)
+		emit_signal("scoring_action_requested", {
+			"type": "DECLINE_ACROBATIC_ESCAPE_VANISH",
+			"unit_id": unit_id,
+			"player": player,
+		})
+		dialog.queue_free()
+
+	dialog.confirmed.connect(on_confirmed)
+	dialog.canceled.connect(on_declined)
+
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+	# 15-second countdown timer
+	var time_remaining = [15.0]
+	var countdown_timer = Timer.new()
+	countdown_timer.wait_time = 1.0
+	countdown_timer.autostart = true
+	countdown_timer.timeout.connect(func():
+		time_remaining[0] -= 1.0
+		if timer_label and is_instance_valid(timer_label):
+			if time_remaining[0] <= 5:
+				timer_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))  # Red
+			timer_label.text = "Auto-declining in %d seconds..." % int(time_remaining[0])
+		if time_remaining[0] <= 0:
+			countdown_timer.stop()
+			print("[ScoringController] Timer expired — auto-declining vanish for %s" % unit_id)
+			on_declined.call()
+	)
+	dialog.add_child(countdown_timer)
