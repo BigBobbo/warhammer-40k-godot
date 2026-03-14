@@ -764,3 +764,283 @@ static func draw_action_indicator(canvas: CanvasItem, center: Vector2, radius: f
 	var ring_alpha = 0.3 + pulse * 0.4
 	var ring_color = Color(0.7, 0.3, 0.9, ring_alpha)
 	canvas.draw_arc(badge_center, badge_size + 2.5, 0, TAU, 24, ring_color, 1.5)
+
+
+# --- Top-Down Pixel Art (Hotline Miami Style Retro Mode) ---
+# These draw units from a bird's-eye view using chunky pixel blocks.
+# The pixel art fills ~85% of the base and IS the primary visual, not an overlay.
+
+static func draw_infantry_topdown(canvas: CanvasItem, center: Vector2, radius: float, color: Color, accent: Color, animation_time: float) -> void:
+	# Top-down Space Marine: helmet dome from above, shoulder pads, weapon pointing outward
+	# 12x12 grid, fills most of the base
+	var grid = radius * 0.14
+	var c = center + Vector2(-grid * 0.5, -grid * 0.5)
+
+	var dark = Color(color.r * 0.5, color.g * 0.5, color.b * 0.5, 1.0)
+	var light = Color(color.r * 1.2, color.g * 1.2, color.b * 1.2, 1.0).clamp()
+	var visor = Color(0.1, 0.85, 0.95, 1.0)  # Cyan visor
+	var gun_metal = Color(0.3, 0.3, 0.35, 1.0)
+	var gun_dark = Color(0.2, 0.2, 0.22, 1.0)
+
+	# Subtle idle sway
+	var sway_frame = int(animation_time * 1.5) % 6
+	var sway_x = 0
+	if sway_frame == 1 or sway_frame == 2:
+		sway_x = 0
+	elif sway_frame == 4 or sway_frame == 5:
+		sway_x = 0
+
+	# --- Backpack / power pack (behind head, top of sprite) ---
+	_px_row(canvas, c, grid, -1, 1, -5, dark)
+	_px_row(canvas, c, grid, -1, 1, -4, dark)
+	# Exhaust vents on backpack
+	_px(canvas, c, grid, -1, -5, gun_metal)
+	_px(canvas, c, grid, 1, -5, gun_metal)
+
+	# --- Left shoulder pad (wide, viewed from above) ---
+	_px_row(canvas, c, grid, -4, -2, -3, accent)
+	_px_row(canvas, c, grid, -4, -2, -2, accent)
+	_px_row(canvas, c, grid, -4, -2, -1, accent)
+	# Shoulder pad trim
+	_px(canvas, c, grid, -4, -3, dark)
+	_px(canvas, c, grid, -4, -1, dark)
+	_px(canvas, c, grid, -2, -3, dark)
+	_px(canvas, c, grid, -2, -1, dark)
+
+	# --- Right shoulder pad ---
+	_px_row(canvas, c, grid, 2, 4, -3, color)
+	_px_row(canvas, c, grid, 2, 4, -2, color)
+	_px_row(canvas, c, grid, 2, 4, -1, color)
+	# Shoulder pad trim
+	_px(canvas, c, grid, 2, -3, dark)
+	_px(canvas, c, grid, 2, -1, dark)
+	_px(canvas, c, grid, 4, -3, dark)
+	_px(canvas, c, grid, 4, -1, dark)
+
+	# --- Helmet (top of head from above, centered) ---
+	_px_row(canvas, c, grid, -1, 1, -3, color)
+	_px_row(canvas, c, grid, -1, 1, -2, color)
+	_px_row(canvas, c, grid, -1, 1, -1, light)
+	# Visor strip (front of helmet - bottom edge when viewed from above)
+	_px_row(canvas, c, grid, -1, 1, 0, visor)
+
+	# --- Torso / chest plate (below helmet from top view) ---
+	_px_row(canvas, c, grid, -2, 2, 1, color)
+	_px_row(canvas, c, grid, -2, 2, 2, dark)
+	# Aquila chest detail
+	_px(canvas, c, grid, 0, 1, accent)
+
+	# --- Arms extending to sides ---
+	_px(canvas, c, grid, -3, 0, color)
+	_px(canvas, c, grid, -3, 1, color)
+	_px(canvas, c, grid, 3, 0, color)
+	_px(canvas, c, grid, 3, 1, color)
+
+	# --- Legs (below torso from above) ---
+	_px(canvas, c, grid, -1, 3, color)
+	_px(canvas, c, grid, 0, 3, dark)
+	_px(canvas, c, grid, 1, 3, color)
+	_px(canvas, c, grid, -1, 4, dark)
+	_px(canvas, c, grid, 1, 4, dark)
+
+	# --- Bolter weapon (held to the right, pointing forward/up) ---
+	# Animated: weapon sways slightly
+	var weapon_frame = int(animation_time * 2.0) % 4
+	var wy = 0
+	if weapon_frame == 1:
+		wy = -1
+	elif weapon_frame == 3:
+		wy = 0
+	_px(canvas, c, grid, 4, -1 + wy, gun_metal)
+	_px(canvas, c, grid, 5, -2 + wy, gun_metal)
+	_px(canvas, c, grid, 5, -3 + wy, gun_dark)
+	_px(canvas, c, grid, 5, -4 + wy, gun_dark)
+	# Muzzle flash hint (every other cycle)
+	if weapon_frame == 1:
+		_px(canvas, c, grid, 5, -5 + wy, Color(1.0, 0.9, 0.3, 0.8))
+
+
+static func draw_vehicle_topdown(canvas: CanvasItem, center: Vector2, radius: float, color: Color, accent: Color, animation_time: float) -> void:
+	# Top-down tank: hull plate, two track assemblies, turret with barrel
+	# 14x10 grid
+	var grid = radius * 0.12
+	var c = center + Vector2(-grid * 0.5, -grid * 0.5)
+
+	var dark = Color(color.r * 0.45, color.g * 0.45, color.b * 0.45, 1.0)
+	var light = Color(color.r * 1.15, color.g * 1.15, color.b * 1.15, 1.0).clamp()
+	var track_color = Color(0.25, 0.22, 0.2, 1.0)
+	var track_detail = Color(0.35, 0.32, 0.28, 1.0)
+	var turret_color = Color(color.r * 0.85, color.g * 0.85, color.b * 0.85, 1.0)
+	var gun_metal = Color(0.3, 0.3, 0.35, 1.0)
+
+	# Engine rumble
+	var rumble = sin(animation_time * 6.0) * grid * 0.15
+
+	# --- Left track assembly ---
+	var track_anim = int(animation_time * 4.0) % 3
+	for ty in range(-4, 5):
+		_px(canvas, c, grid, -6, ty, track_color)
+		_px(canvas, c, grid, -5, ty, track_color)
+	# Track tread marks (animated)
+	for i in range(4):
+		var mark_y = -3 + i * 2 + track_anim
+		if mark_y >= -4 and mark_y <= 4:
+			_px(canvas, c, grid, -6, mark_y, track_detail)
+			_px(canvas, c, grid, -5, mark_y, track_detail)
+	# Track caps
+	_px(canvas, c, grid, -6, -4, dark)
+	_px(canvas, c, grid, -5, -4, dark)
+	_px(canvas, c, grid, -6, 4, dark)
+	_px(canvas, c, grid, -5, 4, dark)
+
+	# --- Right track assembly ---
+	for ty in range(-4, 5):
+		_px(canvas, c, grid, 5, ty, track_color)
+		_px(canvas, c, grid, 6, ty, track_color)
+	for i in range(4):
+		var mark_y = -3 + i * 2 + track_anim
+		if mark_y >= -4 and mark_y <= 4:
+			_px(canvas, c, grid, 5, mark_y, track_detail)
+			_px(canvas, c, grid, 6, mark_y, track_detail)
+	_px(canvas, c, grid, 5, -4, dark)
+	_px(canvas, c, grid, 6, -4, dark)
+	_px(canvas, c, grid, 5, 4, dark)
+	_px(canvas, c, grid, 6, 4, dark)
+
+	# --- Hull body ---
+	# Front armor (sloped)
+	_px_row(canvas, c, grid, -4, 4, -4, dark)
+	_px_row(canvas, c, grid, -3, 3, -3, dark)
+	# Main hull
+	for hy in range(-2, 5):
+		_px_row(canvas, c, grid, -4, 4, hy, color)
+	# Rear armor
+	_px_row(canvas, c, grid, -4, 4, 4, dark)
+	# Hull detail lines
+	_px_row(canvas, c, grid, -2, 2, -2, light)
+	# Side armor plates
+	for hy in range(-3, 4):
+		_px(canvas, c, grid, -4, hy, dark)
+		_px(canvas, c, grid, 4, hy, dark)
+
+	# --- Faction marking on hull ---
+	_px(canvas, c, grid, 0, 2, accent)
+	_px(canvas, c, grid, -1, 3, accent)
+	_px(canvas, c, grid, 1, 3, accent)
+
+	# --- Turret (rotates slowly) ---
+	var turret_frame = int(animation_time * 0.3) % 8
+	var turret_angle = turret_frame * TAU / 8.0
+
+	# Turret base (3x3 square)
+	for tx in range(-1, 2):
+		for ty in range(-1, 2):
+			_px(canvas, c, grid, tx, ty, turret_color)
+	# Turret rim
+	_px(canvas, c, grid, -1, -1, light)
+	_px(canvas, c, grid, 1, -1, light)
+
+	# Gun barrel (points in turret direction, forward = negative Y)
+	var bdx = round(sin(turret_angle))
+	var bdy = round(-cos(turret_angle))
+	for i in range(2, 6):
+		var bx = int(bdx * i)
+		var by = int(bdy * i)
+		if abs(bx) <= 7 and abs(by) <= 7:
+			_px(canvas, c, grid, bx, by, gun_metal)
+
+
+static func draw_monster_topdown(canvas: CanvasItem, center: Vector2, radius: float, color: Color, accent: Color, animation_time: float) -> void:
+	# Top-down Tyranid monster: central body mass, head crest, four limbs, two claws
+	# 14x14 grid
+	var grid = radius * 0.11
+	var c = center + Vector2(-grid * 0.5, -grid * 0.5)
+
+	var dark = Color(color.r * 0.45, color.g * 0.45, color.b * 0.45, 1.0)
+	var light = Color(color.r * 1.2, color.g * 1.2, color.b * 1.2, 1.0).clamp()
+	var claw_color = Color(0.85, 0.8, 0.65, 1.0)  # Bone/chitin claws
+	var eye_color = Color(1.0, 0.15, 0.05, 1.0)
+	var carapace = Color(color.r * 0.7, color.g * 0.7, color.b * 0.7, 1.0)
+
+	# Breathing
+	var breathe_frame = int(animation_time * 1.2) % 4
+	var expand = 1 if (breathe_frame == 1 or breathe_frame == 2) else 0
+
+	# Claw animation
+	var claw_frame = int(animation_time * 1.8) % 4
+	var claw_ext = 0
+	if claw_frame == 1:
+		claw_ext = 1
+	elif claw_frame == 2:
+		claw_ext = 2
+	elif claw_frame == 3:
+		claw_ext = 1
+
+	# --- Tail (extends behind/below from top view) ---
+	_px(canvas, c, grid, 0, 6, dark)
+	_px(canvas, c, grid, 0, 5, carapace)
+	_px_row(canvas, c, grid, -1, 1, 4, carapace)
+
+	# --- Main body mass (large oval from above) ---
+	_px_row(canvas, c, grid, -2 - expand, 2 + expand, 3, color)
+	_px_row(canvas, c, grid, -3 - expand, 3 + expand, 2, color)
+	_px_row(canvas, c, grid, -3 - expand, 3 + expand, 1, color)
+	_px_row(canvas, c, grid, -3 - expand, 3 + expand, 0, color)
+	_px_row(canvas, c, grid, -3 - expand, 3 + expand, -1, color)
+	_px_row(canvas, c, grid, -2 - expand, 2 + expand, -2, color)
+
+	# Carapace plates (dorsal ridges visible from above)
+	_px_row(canvas, c, grid, -1, 1, 2, carapace)
+	_px_row(canvas, c, grid, -1, 1, 1, carapace)
+	_px_row(canvas, c, grid, -1, 1, 0, light)
+	_px_row(canvas, c, grid, -1, 1, -1, carapace)
+
+	# --- Head (extending forward/up from body) ---
+	_px_row(canvas, c, grid, -2, 2, -3, color)
+	_px_row(canvas, c, grid, -1, 1, -4, color)
+	_px(canvas, c, grid, 0, -5, color)
+	# Eyes (glowing, on sides of head)
+	_px(canvas, c, grid, -2, -3, eye_color)
+	_px(canvas, c, grid, 2, -3, eye_color)
+	# Head crest / horn
+	_px(canvas, c, grid, 0, -6, accent)
+
+	# --- Hind legs (bottom pair, angled back) ---
+	_px(canvas, c, grid, -3, 3, dark)
+	_px(canvas, c, grid, -4, 4, dark)
+	_px(canvas, c, grid, -5, 5, dark)
+	_px(canvas, c, grid, 3, 3, dark)
+	_px(canvas, c, grid, 4, 4, dark)
+	_px(canvas, c, grid, 5, 5, dark)
+
+	# --- Middle legs (smaller pair) ---
+	_px(canvas, c, grid, -4, 0, dark)
+	_px(canvas, c, grid, -5, 0, dark)
+	_px(canvas, c, grid, 4, 0, dark)
+	_px(canvas, c, grid, 5, 0, dark)
+
+	# --- Scything talons / claws (front pair, animated) ---
+	# Left claw
+	_px(canvas, c, grid, -3, -2, claw_color)
+	_px(canvas, c, grid, -4, -3, claw_color)
+	_px(canvas, c, grid, -5 - claw_ext, -4 - claw_ext, claw_color)
+	_px(canvas, c, grid, -6 - claw_ext, -5 - claw_ext, claw_color)
+	# Claw tip (pincer)
+	_px(canvas, c, grid, -7 - claw_ext, -5 - claw_ext, accent)
+
+	# Right claw (opposite phase)
+	var r_ext = 0
+	if claw_frame == 0:
+		r_ext = 1
+	elif claw_frame == 1:
+		r_ext = 0
+	elif claw_frame == 2:
+		r_ext = 1
+	else:
+		r_ext = 2
+	_px(canvas, c, grid, 3, -2, claw_color)
+	_px(canvas, c, grid, 4, -3, claw_color)
+	_px(canvas, c, grid, 5 + r_ext, -4 - r_ext, claw_color)
+	_px(canvas, c, grid, 6 + r_ext, -5 - r_ext, claw_color)
+	# Claw tip
+	_px(canvas, c, grid, 7 + r_ext, -5 - r_ext, accent)
