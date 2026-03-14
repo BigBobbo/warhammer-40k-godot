@@ -7073,69 +7073,193 @@ static func _validate_unit_coherency_for_charge_rules(unit_id: String, per_model
 	return {"valid": errors.is_empty(), "errors": errors}
 
 # Validate base-to-base if possible for charge
-# 10e rule: If a charging model CAN make base-to-base contact with an enemy
-# model while still satisfying all other charge conditions, it MUST do so.
+# Per 10e core rules: if a charging model CAN make base-to-base contact
+# with an enemy model while satisfying all other constraints, it MUST.
 static func _validate_base_to_base_possible_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary, rolled_distance: int = 0) -> Dictionary:
 	var errors = []
-	var all_units = board.get("units", {})
-	var unit = all_units.get(unit_id, {})
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	var unit_owner = unit.get("owner", 0)
+
+	const B2B_THRESHOLD_INCHES = 0.1
+	const ENGAGEMENT_RANGE_INCHES = 1.0
+
 	if unit.is_empty():
 		return {"valid": true, "errors": []}
 
+	# Build final position model dicts for all charging models
+	var final_models = {}  # model_id -> model dict at final position
 	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if path is Array and path.size() > 0:
+			var model = _get_model_in_unit_rules(unit, model_id)
+			if model.is_empty():
+				continue
+			var model_at_final = model.duplicate()
+			model_at_final["position"] = Vector2(path[-1][0], path[-1][1])
+			final_models[model_id] = model_at_final
+
+	if final_models.is_empty():
+		return {"valid": true, "errors": []}
+
+	# Collect all alive enemy target models
+	var target_models = []
+	for target_id in target_ids:
+		var target_unit = units.get(target_id, {})
+		for target_model in target_unit.get("models", []):
+			if target_model.get("alive", true):
+				target_models.append({"model": target_model, "unit_id": target_id})
+
+	if target_models.is_empty():
+		return {"valid": true, "errors": []}
+
+	# Check if ANY charging model already has B2B with any target model
+	for model_id in final_models:
+		var final_model = final_models[model_id]
+		for target_entry in target_models:
+			var distance = Measurement.model_to_model_distance_inches(final_model, target_entry.model)
+			if distance <= B2B_THRESHOLD_INCHES:
+				return {"valid": true, "errors": []}
+
+	# No model achieved B2B. Check if any COULD have while satisfying all constraints.
+	if rolled_distance <= 0:
+		return {"valid": true, "errors": []}
+
+	for model_id in final_models:
 		var path = per_model_paths[model_id]
 		if not (path is Array and path.size() > 0):
 			continue
 
+		var start_pos = Vector2(path[0][0], path[0][1])
 		var model = _get_model_in_unit_rules(unit, model_id)
 		if model.is_empty():
 			continue
 
-		var final_pos = Vector2(path[-1][0], path[-1][1])
+		var model_at_start = model.duplicate()
+		model_at_start["position"] = start_pos
 
-		# Create model dict at final position for shape-aware distance checks
-		var model_at_final = model.duplicate()
-		model_at_final["position"] = final_pos
-
-		# Check if this model could reach b2b with any target model and whether it did
-		var could_reach_b2b = false
-		var is_in_b2b = false
-		var closest_reachable_target_name = ""
-
-		for target_id in target_ids:
-			var target_unit = all_units.get(target_id, {})
-			if target_unit.is_empty():
+		for target_entry in target_models:
+			var target_model = target_entry.model
+			var target_pos = _get_model_position_rules(target_model)
+			if target_pos == null or target_pos == Vector2.ZERO:
 				continue
 
-			for target_model in target_unit.get("models", []):
-				if not target_model.get("alive", true):
+			# Edge-to-edge distance from start to target = gap the model must close
+			var distance_to_b2b = Measurement.model_to_model_distance_inches(model_at_start, target_model)
+
+			if distance_to_b2b > rolled_distance:
+				continue
+
+			# Compute B2B position: move model center toward target to close the gap
+			var direction = (target_pos - start_pos)
+			if direction.length() < 0.001:
+				continue
+			direction = direction.normalized()
+			var move_px = Measurement.inches_to_px(distance_to_b2b)
+			var b2b_pos = start_pos + direction * move_px
+
+			var b2b_model = model.duplicate()
+			b2b_model["position"] = b2b_pos
+
+			# Constraint 1: Coherency
+			var coherency_ok = true
+			if final_models.size() > 1:
+				var has_nearby = false
+				for other_model_id in final_models:
+					if other_model_id == model_id:
+						continue
+					var dist = Measurement.model_to_model_distance_inches(b2b_model, final_models[other_model_id])
+					if dist <= 2.0:
+						has_nearby = true
+						break
+				coherency_ok = has_nearby
+
+			if not coherency_ok:
+				continue
+
+			# Constraint 2: No non-target ER violation
+			var non_target_er_ok = true
+			for enemy_unit_id in units:
+				var enemy_unit = units[enemy_unit_id]
+				if enemy_unit.get("owner", 0) == unit_owner:
+					continue
+				if enemy_unit_id in target_ids:
 					continue
 
-				var target_pos = _get_model_position_rules(target_model)
-				if target_pos == null:
+				for enemy_model in enemy_unit.get("models", []):
+					if not enemy_model.get("alive", true):
+						continue
+					if Measurement.is_in_engagement_range_shape_aware(b2b_model, enemy_model, ENGAGEMENT_RANGE_INCHES):
+						non_target_er_ok = false
+						break
+
+				if not non_target_er_ok:
+					break
+
+			if not non_target_er_ok:
+				continue
+
+			# Constraint 3: No model overlap
+			var no_overlap = true
+			for check_unit_id in units:
+				var check_unit = units[check_unit_id]
+				for check_model in check_unit.get("models", []):
+					if not check_model.get("alive", true):
+						continue
+					var check_model_id = check_model.get("id", "")
+					if check_unit_id == unit_id and check_model_id == model_id:
+						continue
+
+					var check_pos_model = check_model
+					if check_unit_id == unit_id and final_models.has(check_model_id):
+						check_pos_model = final_models[check_model_id]
+					if Measurement.models_overlap(b2b_model, check_pos_model):
+						no_overlap = false
+						break
+				if not no_overlap:
+					break
+
+			if not no_overlap:
+				continue
+
+			# Constraint 4: Unit still has ER with ALL declared targets
+			var all_targets_covered = true
+			for check_target_id in target_ids:
+				var check_target_unit = units.get(check_target_id, {})
+				if check_target_unit.is_empty():
 					continue
 
-				# Check if model could reach b2b from its starting position
-				var start_distance = Measurement.model_to_model_distance_inches(model, target_model)
-				if start_distance <= float(rolled_distance):
-					could_reach_b2b = true
-					if closest_reachable_target_name.is_empty():
-						var target_name = target_unit.get("meta", {}).get("name", target_id)
-						var target_model_id = target_model.get("id", "unknown")
-						closest_reachable_target_name = "%s (model %s)" % [target_name, target_model_id]
+				var target_covered = false
+				for other_model_id in final_models:
+					var check_charging_model = final_models[other_model_id]
+					if other_model_id == model_id:
+						check_charging_model = b2b_model
 
-				# Check if model's final position IS in b2b with this target model
-				var final_distance = Measurement.model_to_model_distance_inches(model_at_final, target_model)
-				if final_distance <= BASE_CONTACT_TOLERANCE_INCHES:
-					is_in_b2b = true
+					for check_tm in check_target_unit.get("models", []):
+						if not check_tm.get("alive", true):
+							continue
+						if Measurement.is_in_engagement_range_shape_aware(check_charging_model, check_tm, ENGAGEMENT_RANGE_INCHES):
+							target_covered = true
+							break
 
-		# If model could reach b2b but didn't, flag the error
-		if could_reach_b2b and not is_in_b2b:
-			var err = "Model %s can reach base-to-base contact with %s but did not — charging models must make base contact when possible" % [model_id, closest_reachable_target_name]
-			errors.append(err)
-			print("RulesEngine: B2B enforcement - %s" % err)
+					if target_covered:
+						break
 
-	return {"valid": errors.is_empty(), "errors": errors}
+				if not target_covered:
+					all_targets_covered = false
+					break
+
+			if not all_targets_covered:
+				continue
+
+			# All constraints pass — B2B was achievable but not taken
+			errors.append(
+				"Base-to-base contact is achievable and must be made when possible (10e core rules)"
+			)
+			print("RulesEngine: B2B enforcement - %s" % errors[-1])
+			return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
 
 # Helper to get model in unit for charge calculations
 static func _get_model_in_unit_rules(unit: Dictionary, model_id: String) -> Dictionary:
