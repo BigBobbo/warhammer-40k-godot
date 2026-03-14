@@ -490,12 +490,12 @@ func _update_selected_unit_display() -> void:
 			var unit = current_phase.get_unit(active_unit_id)
 			if unit:
 				unit_name = unit.get("meta", {}).get("name", active_unit_id)
-				# Show attached character names
-				var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
-				if attached_chars.size() > 0:
+				# Show attached character names for bodyguard units
+				var attached_char_ids = unit.get("attachment_data", {}).get("attached_characters", [])
+				if attached_char_ids.size() > 0:
 					var char_names = []
-					for char_id in attached_chars:
-						var char_unit = current_phase.get_unit(char_id)
+					for char_id in attached_char_ids:
+						var char_unit = GameState.get_unit(char_id)
 						if not char_unit.is_empty():
 							char_names.append(char_unit.get("meta", {}).get("name", char_id))
 					if char_names.size() > 0:
@@ -635,7 +635,19 @@ func _refresh_unit_list() -> void:
 				var transport_name = transport.get("meta", {}).get("name", unit.embarked_in) if transport else "Transport"
 				status_text = " [Embarked in %s]" % transport_name
 
-			unit_list.add_item(unit_name + status_text)
+			# Show attached character names for bodyguard units
+			var attach_info = ""
+			var attached_char_ids = unit.get("attachment_data", {}).get("attached_characters", [])
+			if attached_char_ids.size() > 0:
+				var char_names = []
+				for char_id in attached_char_ids:
+					var char_unit = GameState.get_unit(char_id)
+					if not char_unit.is_empty():
+						char_names.append(char_unit.get("meta", {}).get("name", char_id))
+				if char_names.size() > 0:
+					attach_info = " + " + ", ".join(char_names)
+
+			unit_list.add_item(unit_name + attach_info + status_text)
 			unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 			added_units[unit_id] = true
 
@@ -759,21 +771,21 @@ func _highlight_unit_models(unit_id: String) -> void:
 	# Clear any existing unit highlight first
 	_clear_unit_highlight()
 
-	# Collect all unit IDs to highlight (bodyguard + attached characters)
-	var ids_to_highlight = [unit_id]
+	# Build set of unit IDs to highlight (bodyguard + attached characters)
+	var highlight_ids = {unit_id: true}
 	var unit = GameState.get_unit(unit_id)
-	if unit:
-		var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
-		for char_id in attached_chars:
-			ids_to_highlight.append(char_id)
+	if unit and not unit.is_empty():
+		var attached_char_ids = unit.get("attachment_data", {}).get("attached_characters", [])
+		for char_id in attached_char_ids:
+			highlight_ids[char_id] = true
 
-	# Set all token visuals for this unit and attached characters as selected (triggers pulsing gold ring)
+	# Set all token visuals for this unit (and attached characters) as selected
 	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
 	if not token_layer:
 		return
 
 	for child in token_layer.get_children():
-		if child.has_meta("unit_id") and child.get_meta("unit_id") in ids_to_highlight:
+		if child.has_meta("unit_id") and child.get_meta("unit_id") in highlight_ids:
 			if child.has_method("set_selected"):
 				child.set_selected(true)
 
@@ -1385,7 +1397,11 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 	
 	print("Found model: ", model)
 
-	if not _is_model_in_active_unit_group(model.unit_id):
+	if model.unit_id != active_unit_id:
+		# Check if clicked model belongs to a character attached to the active bodyguard unit
+		if _is_model_in_active_unit_group(model.unit_id):
+			print("MovementController: Clicked attached character model — character moves automatically with bodyguard")
+			return
 		print("Model belongs to different unit: ", model.unit_id, " vs ", active_unit_id)
 		return
 
@@ -2809,7 +2825,11 @@ func _handle_ctrl_click_selection(mouse_pos: Vector2) -> void:
 		if model.is_empty():
 			return
 
-	if not _is_model_in_active_unit_group(model.unit_id):
+	if model.unit_id != active_unit_id:
+		# Check if clicked model belongs to a character attached to the active bodyguard unit
+		if _is_model_in_active_unit_group(model.unit_id):
+			print("MovementController: Ctrl+click on attached character model — character moves automatically with bodyguard")
+			return
 		print("Model belongs to different unit: ", model.unit_id, " vs ", active_unit_id)
 		return
 
