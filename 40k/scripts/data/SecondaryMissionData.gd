@@ -282,7 +282,7 @@ static func _load_missions() -> void:
 		"action": {},
 		"when_drawn": {
 			"condition": "opponent_selects_units",
-			"details": {"alpha_targets": 2, "fallback_if_fewer": true},
+			"details": {"alpha_targets": 3, "fallback_if_fewer": true},
 		},
 	}
 
@@ -455,7 +455,7 @@ static func get_mission_instructions(mission_id: String) -> String:
 		"cull_the_horde":
 			return "At the end of either player's turn, score VP for enemy INFANTRY units (starting strength 13+) destroyed this turn.\n• 2 or more destroyed: 5 VP\n• 1 destroyed: 3 VP"
 		"marked_for_death":
-			return "When this card is drawn, your opponent selects 2 of their units as Alpha targets (and optionally a Gamma fallback). At the end of either player's turn:\n• If an Alpha target was destroyed this turn: 5 VP\n• If no Alpha target was destroyed, but a Gamma target was: 2 VP"
+			return "When this card is drawn, your opponent selects 3 of their units as Alpha targets and you select 1 Gamma target from remaining units. At the end of either player's turn:\n• If an Alpha target was destroyed this turn: 5 VP\n• If no Alpha target was destroyed, but a Gamma target was: 2 VP"
 		"no_prisoners":
 			return "While this mission is active, each time an enemy unit is destroyed, you score 2 VP (max 5 VP per scoring)."
 		"overwhelming_force":

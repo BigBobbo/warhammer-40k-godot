@@ -4,7 +4,7 @@ class_name MarkedForDeathDialog
 # MarkedForDeathDialog - Two-step unit selection for Marked for Death secondary mission
 #
 # Per Chapter Approved 2025-26 rules:
-# Step 1: The OPPONENT (non-card-holder) selects 2 Alpha targets from their own units
+# Step 1: The OPPONENT (non-card-holder) selects 3 Alpha targets from their own units
 # Step 2: The CARD HOLDER (player who drew) selects 1 Gamma target from opponent's remaining units
 #
 # Fallback: If opponent has fewer than 3 units, adjust selections accordingly
@@ -17,6 +17,7 @@ var selected_gamma_target: String = ""
 var required_alpha_count: int = 2
 var opponent_player: int = 0
 var drawing_player: int = 0  # The player who drew the card (card holder)
+var _gamma_only_mode: bool = false  # True when alpha targets were pre-selected by AI
 
 # UI references
 var step_label: Label
@@ -43,6 +44,23 @@ func setup(drawing: int, opponent: int, units: Array, details: Dictionary) -> vo
 
 	_build_ui()
 	_show_alpha_selection()
+
+func setup_gamma_only(drawing: int, opponent: int, units: Array, pre_selected_alphas: Array) -> void:
+	"""Setup dialog with pre-selected alpha targets (chosen by AI opponent).
+	Skips straight to gamma selection for the human card holder."""
+	drawing_player = drawing
+	opponent_player = opponent
+	opponent_units = units
+	selected_alpha_targets = pre_selected_alphas.duplicate()
+	required_alpha_count = pre_selected_alphas.size()
+	_gamma_only_mode = true
+
+	title = "Marked for Death"
+	get_ok_button().visible = false
+
+	_build_ui()
+	# Skip alpha selection — go straight to gamma
+	_show_gamma_selection()
 
 func _build_ui() -> void:
 	min_size = DialogConstants.MEDIUM
@@ -212,13 +230,22 @@ func _on_confirm_alpha_pressed() -> void:
 
 func _show_gamma_selection() -> void:
 	# Step 2 is for the CARD HOLDER — they pick the Gamma target
-	step_label.text = "Step 2: Select 1 Gamma Target"
+	step_label.text = "Select 1 Gamma Target"
 	step_label.add_theme_color_override("font_color", Color.YELLOW)
 	player_indicator.text = "Player %d (Card Holder) — Select Gamma Target" % drawing_player
 	player_indicator.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
-	flavour_label.text = "Player %d: select 1 remaining opponent unit as the Gamma target (2 VP if destroyed, when no Alpha destroyed)." % drawing_player
+
+	# Build alpha target names for display
+	var alpha_names = []
+	for unit_data in opponent_units:
+		if unit_data.get("unit_id", "") in selected_alpha_targets:
+			alpha_names.append(unit_data.get("unit_name", unit_data.get("unit_id", "")))
+	var alpha_display = ", ".join(alpha_names) if not alpha_names.is_empty() else "None"
+
+	flavour_label.text = "Alpha targets: %s\nSelect 1 remaining opponent unit as the Gamma target (2 VP if destroyed, when no Alpha destroyed)." % alpha_display
 	info_label.text = "Click a unit to designate as Gamma target"
-	back_btn.visible = true
+	# Only show back button if alpha selection was manual (not pre-selected by AI)
+	back_btn.visible = required_alpha_count > 0 and not _gamma_only_mode
 	confirm_btn.visible = false
 
 	# Clear and populate with remaining units
