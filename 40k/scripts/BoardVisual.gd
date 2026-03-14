@@ -16,11 +16,16 @@ var _shaders: Dictionary = {
 	"desert": preload("res://shaders/desert_board.gdshader"),
 	"stone":  preload("res://shaders/stone_board.gdshader"),
 	"felt":   preload("res://shaders/felt_texture.gdshader"),
+	"tilepack": preload("res://shaders/tilepack_board.gdshader"),
 }
 
 # Grass textures loaded at runtime (bypasses import system)
 var _grass_basecolor: ImageTexture = null
 var _grass_normal: ImageTexture = null
+
+# Tilepack textures (two grass tile variants)
+var _tilepack_1: ImageTexture = null
+var _tilepack_2: ImageTexture = null
 
 func _ready() -> void:
 	z_index = -10
@@ -29,6 +34,7 @@ func _ready() -> void:
 	# Use persisted board style from settings
 	board_style = SettingsService.board_style
 	_load_grass_textures()
+	_load_tilepack_textures()
 	_setup_background()
 	# Listen for runtime board style changes from the settings menu
 	SettingsService.board_style_changed.connect(_on_board_style_changed)
@@ -56,6 +62,14 @@ func _load_png_as_texture(res_path: String) -> ImageTexture:
 	var tex = ImageTexture.create_from_image(img)
 	return tex
 
+func _load_tilepack_textures() -> void:
+	_tilepack_1 = _load_png_as_texture("res://textures/tilepack/tileGrass1.png")
+	_tilepack_2 = _load_png_as_texture("res://textures/tilepack/tileGrass2.png")
+	if _tilepack_1 and _tilepack_2:
+		print("[BoardVisual] Loaded tilepack textures: %dx%d x2 variants" % [_tilepack_1.get_width(), _tilepack_1.get_height()])
+	else:
+		print("[BoardVisual] WARNING: Failed to load one or more tilepack textures")
+
 func _setup_background() -> void:
 	var BoardBackground = preload("res://scripts/BoardBackground.gd")
 	_background = BoardBackground.new()
@@ -78,6 +92,9 @@ func set_board_style(style: String) -> void:
 			params["grass_texture"] = _grass_basecolor
 			if _grass_normal != null:
 				params["grass_normal"] = _grass_normal
+		elif style == "tilepack" and _tilepack_1 != null and _tilepack_2 != null:
+			params["tile_texture_1"] = _tilepack_1
+			params["tile_texture_2"] = _tilepack_2
 		_background.apply_shader(_shaders[style], params)
 		print("[BoardVisual] Board style set to: ", style)
 	else:
