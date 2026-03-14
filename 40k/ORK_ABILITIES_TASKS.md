@@ -281,8 +281,8 @@
 - **Validation**: 1 wound regained at start of Command phase.
 
 ### OA-36: Implement "Piston-driven Brutality" for Deff Dread
-- [ ] After charge move, select enemy in Engagement Range
-- [ ] Roll D6: 2-5 = D3 mortal wounds, 6 = D3+3 mortal wounds
+- [x] After charge move, select enemy in Engagement Range
+- [x] Roll D6: 2-5 = D3 mortal wounds, 6 = D3+3 mortal wounds
 - **Files**: UnitAbilityManager.gd, ChargePhase.gd
 - **Validation**: Triggers after charge. D6 roll determines MW (2-5: D3, 6: D3+3).
 

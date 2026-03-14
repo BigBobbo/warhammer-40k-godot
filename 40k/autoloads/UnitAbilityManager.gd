@@ -480,6 +480,18 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "When selected to fight, select one enemy in Engagement Range and roll D6 (+2 if charged): 4-5 = D3 MW, 6+ = 3 MW"
 	},
 
+	# OA-36: Ork Deff Dread — mortal wounds after completing a Charge move
+	# Resolved directly in ChargePhase after charge move completes.
+	# Roll 1D6: on 2-5, target suffers D3 mortal wounds; on 6, target suffers D3+3 mortal wounds.
+	"Piston-driven Brutality": {
+		"condition": "on_charge_end",
+		"effects": [],
+		"target": "enemy_in_engagement",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "After Charge move, select one enemy in Engagement Range and roll D6: 2-5 = D3 MW, 6 = D3+3 MW"
+	},
+
 	# Custodes Telemon Heavy Dreadnought — -1 Damage to incoming attacks
 	"Guardian Eternal": {
 		"condition": "always",
@@ -2402,6 +2414,21 @@ func has_dread_foe(unit_id: String) -> bool:
 		var ability_name = _get_ability_name(ability)
 		if ability_name == "Dread Foe":
 			print("UnitAbilityManager: Unit %s has Dread Foe ability" % unit_id)
+			return true
+	return false
+
+func has_piston_driven_brutality(unit_id: String) -> bool:
+	"""OA-36: Check if a unit has the Piston-driven Brutality ability (e.g. Deff Dread).
+	Used by ChargePhase to trigger mortal wounds after a Charge move."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Piston-driven Brutality":
+			print("UnitAbilityManager: Unit %s has Piston-driven Brutality ability" % unit_id)
 			return true
 	return false
 
