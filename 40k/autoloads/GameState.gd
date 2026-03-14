@@ -4,7 +4,7 @@ class_name GameStateData
 # Modular Game State for Warhammer 40k
 # This class represents the complete game state that can be serialized and passed between phases
 
-enum Phase { FORMATIONS, DEPLOYMENT, REDEPLOYMENT, ROLL_OFF, SCOUT, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
+enum Phase { FORMATIONS, DEPLOYMENT, REDEPLOYMENT, ROLL_OFF, SCOUT, SCOUT_MOVES, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
 enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT, IN_RESERVES }
 
 # The complete game state as a dictionary
@@ -577,6 +577,10 @@ func get_scout_distance(unit_id: String) -> float:
 				return min_distance
 	return 0.0
 
+func get_scout_range(unit_id: String) -> float:
+	"""Alias for get_scout_distance() for compatibility."""
+	return get_scout_distance(unit_id)
+
 func get_scout_units_for_player(player: int) -> Array:
 	"""Get all deployed units with the Scout ability for a given player.
 	Per Balance Dataslate: Dedicated Transports can inherit Scout from embarked units."""
@@ -589,6 +593,8 @@ func get_scout_units_for_player(player: int) -> Array:
 		if unit.get("status", 0) != UnitStatus.DEPLOYED:
 			continue
 		if unit.get("embarked_in", null) != null:
+			continue
+		if unit.get("attached_to", null) != null:
 			continue
 		if unit_has_scout(unit_id):
 			scout_units.append(unit_id)

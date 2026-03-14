@@ -1031,6 +1031,12 @@
             "description": "If every model in a unit has this ability, then each time a ranged attack is made against this unit, subtract 1 from the Hit roll."
           },
           {
+            "name": "Scout 6\"",
+            "type": "Core",
+            "range": 6,
+            "description": "After deployment, this unit can make a Normal Move of up to 6\", but must end that move more than 9\" horizontally away from all enemy models."
+          },
+          {
             "name": "Waaagh!",
             "type": "Faction",
             "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."

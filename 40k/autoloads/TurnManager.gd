@@ -30,6 +30,10 @@ func _on_phase_completed(completed_phase: GameStateData.Phase) -> void:
 		GameStateData.Phase.SCOUT:
 			# Scout phase complete - roll-off phase will determine who goes first
 			print("TurnManager: Scout phase complete, advancing to Roll-Off phase")
+		GameStateData.Phase.SCOUT_MOVES:
+			# Scout Moves complete - ensure Player 1 starts the first Command phase
+			print("TurnManager: Scout Moves phase complete")
+			GameState.set_active_player(1)
 		GameStateData.Phase.ROLL_OFF:
 			# Roll-off phase complete - active player was set by the roll-off choice
 			var first_turn_player = GameState.state.get("meta", {}).get("first_turn_player", 1)

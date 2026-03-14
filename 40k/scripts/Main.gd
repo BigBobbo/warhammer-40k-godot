@@ -61,6 +61,9 @@ var _scout_path_visual: Line2D = null  # Path line from start to cursor
 var _scout_staged_path_visual: Node2D = null  # HumanMovementPathVisual for staged moves
 var _scout_movement_remaining_label: Label = null  # Floating distance label near ghost
 var _scout_selected_model_data: Dictionary = {}  # Full model data for ghost creation
+# Scout Moves state (ScoutMovesPhase)
+var _current_scout_unit_id: String = ""
+var _scout_model_destinations: Array = []
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
 var view_rotation: float = 0.0  # Board rotation in radians (multiples of PI/2)
@@ -3008,6 +3011,240 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 
 		print("Unit data display updated")
 
+func _setup_scout_moves_ui() -> void:
+	print("Main: Setting up Scout Moves UI")
+	# Scout Moves uses the unit list to show scout-eligible units
+	# Units are selected from the list, then the player clicks on the board to set destinations
+	# The ScoutMovesPhase handles all validation
+	refresh_unit_list()
+
+	# Connect unit list selection for scout moves if not already
+	if not unit_list.item_selected.is_connected(_on_scout_unit_selected):
+		unit_list.item_selected.connect(_on_scout_unit_selected)
+
+	# Show status info
+	var active_player = GameState.get_active_player()
+	var scout_units = GameState.get_scout_units_for_player(active_player)
+	status_label.text = "Scout Moves — Select a unit to move (max >9\" from enemies)"
+	print("Main: Scout Moves setup complete. %d scout units for Player %d" % [scout_units.size(), active_player])
+
+func _on_scout_unit_selected(index: int) -> void:
+	"""Handle selection of a scout unit from the unit list"""
+	if current_phase != GameStateData.Phase.SCOUT_MOVES:
+		return
+
+	var unit_id = unit_list.get_item_metadata(index)
+	if unit_id == null or unit_id == "":
+		return
+
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	# Check if unit has already scouted
+	if unit.get("flags", {}).get("scouted", false):
+		print("Main: Unit %s already scouted" % unit_id)
+		return
+
+	# Begin scout move through network routing
+	var action = {
+		"type": "BEGIN_SCOUT_MOVE",
+		"unit_id": unit_id,
+		"player": GameState.get_active_player()
+	}
+	print("Main: Beginning scout move for %s" % unit_id)
+	var result = NetworkIntegration.route_action(action)
+	if result.get("success", false):
+		_enter_scout_move_mode(unit_id)
+
+func _enter_scout_move_mode(unit_id: String) -> void:
+	"""Enter interactive scout move mode for a unit - allows clicking to place models"""
+	var unit = GameState.get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", "Unknown")
+	var scout_range = GameState.get_scout_range(unit_id)
+	status_label.text = "Scout Move: %s — Click to set destination (max %d\", >9\" from enemies)" % [unit_name, int(scout_range)]
+
+	# Store the unit being scouted for input handling
+	_current_scout_unit_id = unit_id
+	_scout_model_destinations = []
+	for model in unit.get("models", []):
+		_scout_model_destinations.append(null)
+
+	# Update unit card
+	unit_name_label.text = unit_name
+	var model_count = unit.get("models", []).size()
+	models_label.text = "Models: %d | Scout %d\"" % [model_count, int(scout_range)]
+	keywords_label.text = ", ".join(unit.get("meta", {}).get("keywords", []))
+	unit_card.visible = true
+
+	# Show confirm/skip buttons
+	confirm_button.visible = true
+	confirm_button.text = "Confirm Scout"
+	confirm_button.disabled = true  # Disabled until all models placed
+	if not confirm_button.pressed.is_connected(_on_confirm_scout_pressed):
+		confirm_button.pressed.connect(_on_confirm_scout_pressed)
+
+	# Repurpose reset button as Skip
+	reset_button.visible = true
+	reset_button.text = "Skip Unit"
+	if not reset_button.pressed.is_connected(_on_skip_scout_pressed):
+		reset_button.pressed.connect(_on_skip_scout_pressed)
+
+func _on_confirm_scout_pressed() -> void:
+	"""Confirm the scout move for the current unit"""
+	if _current_scout_unit_id == "":
+		return
+
+	var action = {
+		"type": "CONFIRM_SCOUT_MOVE",
+		"unit_id": _current_scout_unit_id,
+		"model_positions": _scout_model_destinations,
+		"player": GameState.get_active_player()
+	}
+	var result = NetworkIntegration.route_action(action)
+	if result.get("success", false):
+		print("Main: Scout move confirmed for %s" % _current_scout_unit_id)
+
+	_exit_scout_move_mode()
+	refresh_unit_list()
+
+func _on_skip_scout_pressed() -> void:
+	"""Skip the scout move for the current unit"""
+	if _current_scout_unit_id == "":
+		return
+
+	var action = {
+		"type": "SKIP_SCOUT_UNIT",
+		"unit_id": _current_scout_unit_id,
+		"player": GameState.get_active_player()
+	}
+	var result = NetworkIntegration.route_action(action)
+	if result.get("success", false):
+		print("Main: Scout move skipped for %s" % _current_scout_unit_id)
+
+	_exit_scout_move_mode()
+	refresh_unit_list()
+
+func _exit_scout_move_mode() -> void:
+	"""Clean up scout move mode"""
+	_current_scout_unit_id = ""
+	_scout_model_destinations = []
+	status_label.text = "Scout Moves — Select a unit to move"
+	confirm_button.visible = false
+	reset_button.visible = false
+
+	# Disconnect scout-specific button handlers
+	if confirm_button.pressed.is_connected(_on_confirm_scout_pressed):
+		confirm_button.pressed.disconnect(_on_confirm_scout_pressed)
+	if reset_button.pressed.is_connected(_on_skip_scout_pressed):
+		reset_button.pressed.disconnect(_on_skip_scout_pressed)
+
+func _handle_scout_move_click(world_pos: Vector2) -> void:
+	"""Handle a board click during scout move mode - move the entire unit as a group"""
+	if _current_scout_unit_id == "":
+		return
+
+	var unit = GameState.get_unit(_current_scout_unit_id)
+	if unit.is_empty():
+		return
+
+	var models = unit.get("models", [])
+	if models.is_empty():
+		return
+
+	# Calculate the unit's centroid (average position of all models)
+	var centroid = Vector2.ZERO
+	var valid_model_count = 0
+	for model in models:
+		var pos = model.get("position", null)
+		if pos != null:
+			centroid += Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+			valid_model_count += 1
+
+	if valid_model_count == 0:
+		print("Main: No models have positions, cannot scout move")
+		return
+
+	centroid /= valid_model_count
+
+	# Calculate the offset to move the unit centroid to the click position
+	var offset = world_pos - centroid
+
+	# Check that the move distance doesn't exceed scout range
+	var scout_range = GameState.get_scout_range(_current_scout_unit_id)
+	var move_distance_inches = offset.length() / 40.0  # PX_PER_INCH = 40
+	if move_distance_inches > scout_range + 0.01:
+		# Clamp the offset to max scout range
+		offset = offset.normalized() * scout_range * 40.0
+		print("Main: Scout move clamped to max range of %d\"" % int(scout_range))
+
+	# Calculate new positions for all models (maintaining formation)
+	var new_positions = []
+	var all_valid = true
+	var validation_error = ""
+
+	for i in range(models.size()):
+		var model = models[i]
+		var pos = model.get("position", null)
+		if pos == null:
+			new_positions.append(null)
+			continue
+
+		var old_pos = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+		var new_pos = old_pos + offset
+		var new_pos_dict = {"x": new_pos.x, "y": new_pos.y}
+
+		# Validate via phase validation
+		var validate_action = {
+			"type": "SET_SCOUT_MODEL_DEST",
+			"unit_id": _current_scout_unit_id,
+			"model_index": i,
+			"destination": new_pos_dict
+		}
+		var validation = NetworkIntegration.route_action(validate_action)
+		if not validation.get("success", false):
+			var errors = validation.get("errors", [])
+			if errors.size() > 0:
+				validation_error = errors[0]
+				all_valid = false
+				break
+
+		new_positions.append(new_pos_dict)
+
+	if not all_valid:
+		# Show toast with error
+		print("Main: Scout move invalid: %s" % validation_error)
+		if has_node("/root/ToastManager"):
+			get_node("/root/ToastManager").show_toast(validation_error, "error")
+		return
+
+	# Store destinations and enable confirm
+	_scout_model_destinations = new_positions
+	confirm_button.disabled = false
+
+	# Visual feedback: update status with distance
+	var actual_distance = offset.length() / 40.0
+	status_label.text = "Scout Move: %s — %.1f\" (Click Confirm or choose new position)" % [
+		unit.get("meta", {}).get("name", "Unknown"), actual_distance
+	]
+
+	# Move token visuals to preview position
+	_update_scout_preview_tokens(_current_scout_unit_id, new_positions)
+
+func _update_scout_preview_tokens(unit_id: String, positions: Array) -> void:
+	"""Update the visual tokens to show scout move preview"""
+	# Find and move existing tokens on the board
+	for child in token_layer.get_children():
+		if child.has_method("get_unit_id") and child.get_unit_id() == unit_id:
+			# This is a token for our unit - update model positions
+			if child.has_method("update_model_positions"):
+				child.update_model_positions(positions)
+			return
+
+	# If no token method available, just update positions directly in visuals
+	# The actual game state update happens on CONFIRM_SCOUT_MOVE
+	print("Main: Preview positions set for %s (visual update via confirm)" % unit_id)
+
 func _setup_mathhammer_ui() -> void:
 	# Create MathhammerUI and add it to the left HUD
 	print("Setting up Mathhammer UI...")
@@ -3534,6 +3771,8 @@ func setup_phase_controllers() -> void:
 			_setup_formations_phase()
 		GameStateData.Phase.DEPLOYMENT:
 			setup_deployment_controller()
+		GameStateData.Phase.SCOUT_MOVES:
+			_setup_scout_moves_ui()
 		GameStateData.Phase.COMMAND:
 			setup_command_controller()
 		GameStateData.Phase.MOVEMENT:
@@ -4100,6 +4339,19 @@ func _input(event: InputEvent) -> void:
 	# (e.g., typing a save name in SaveLoadDialog should not trigger game hotkeys)
 	if event is InputEventKey and _is_text_input_focused():
 		return
+
+	# Handle mouse clicks for scout move placement (ScoutMovesPhase)
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if current_phase == GameStateData.Phase.SCOUT_MOVES and _current_scout_unit_id != "":
+			var ui_rect = get_viewport().get_visible_rect()
+			var right_hud_rect = Rect2(ui_rect.size.x - 400, 0, 400, ui_rect.size.y)
+			var bottom_hud_rect = Rect2(0, ui_rect.size.y - 100, ui_rect.size.x, 100)
+
+			if not right_hud_rect.has_point(event.position) and not bottom_hud_rect.has_point(event.position):
+				var world_pos = screen_to_world_position(event.position)
+				_handle_scout_move_click(world_pos)
+				get_viewport().set_input_as_handled()
+				return
 
 	# Right-click context menu for unit color/label editing (letter mode)
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
@@ -4682,6 +4934,36 @@ func refresh_unit_list() -> void:
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, scout_unit_id)
 
 			print("Refreshing right panel unit list for scout - found ", pending_scouts.size(), " pending scout units")
+
+		GameStateData.Phase.SCOUT_MOVES:
+			# Show scout-eligible units during Scout Moves phase
+			unit_list.visible = true
+			var scout_moves_units = GameState.get_scout_units_for_player(active_player)
+			print("Refreshing right panel unit list for Scout Moves - found ", scout_moves_units.size(), " scout units")
+
+			if scout_moves_units.is_empty():
+				unit_list.add_item("No units with Scout ability")
+				unit_list.set_item_disabled(0, true)
+			else:
+				# In multiplayer, only show units when it's your turn
+				if is_multiplayer and not is_my_turn:
+					unit_list.add_item("Waiting for Player %d to scout..." % active_player)
+					unit_list.set_item_disabled(0, true)
+				else:
+					unit_list.add_item("--- SCOUT MOVES (>9\" from enemies) ---")
+					unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
+					for unit_id in scout_moves_units:
+						var unit_data = GameState.get_unit(unit_id)
+						var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+						var model_count = unit_data.get("models", []).size()
+						var scout_range = GameState.get_scout_range(unit_id)
+						var scouted = unit_data.get("flags", {}).get("scouted", false)
+						var status = " [SCOUTED]" if scouted else ""
+						var display_text = "%s (%d models) [Scout %d\"]%s" % [unit_name, model_count, int(scout_range), status]
+						unit_list.add_item(display_text)
+						unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
+						if scouted:
+							unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
 
 		GameStateData.Phase.MOVEMENT:
 			# MovementController manages its own right panel UI, hide the shared unit list
@@ -7159,6 +7441,7 @@ func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.DEPLOYMENT: return "Deployment Phase"
 		GameStateData.Phase.REDEPLOYMENT: return "Redeployment"
 		GameStateData.Phase.SCOUT: return "Scout Moves"
+		GameStateData.Phase.SCOUT_MOVES: return "Scout Moves"
 		GameStateData.Phase.ROLL_OFF: return "Roll Off — First Turn"
 		GameStateData.Phase.COMMAND: return "Command Phase"
 		GameStateData.Phase.MOVEMENT: return "Movement Phase"
@@ -7175,6 +7458,7 @@ func _get_phase_button_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.DEPLOYMENT: return "End Deployment"
 		GameStateData.Phase.REDEPLOYMENT: return "End Redeployment"
 		GameStateData.Phase.SCOUT: return "End Scout Moves"
+		GameStateData.Phase.SCOUT_MOVES: return "End Scout Moves"
 		GameStateData.Phase.ROLL_OFF: return "Roll for First Turn"
 		GameStateData.Phase.COMMAND: return "End Command Phase"
 		GameStateData.Phase.MOVEMENT: return "End Movement Phase"
@@ -7240,6 +7524,8 @@ func _on_phase_action_pressed() -> void:
 						NetworkIntegration.route_action(skip_action)
 			_scout_cleanup_after_move()
 			action = {"type": "END_SCOUT_PHASE", "player": active_player}
+		GameStateData.Phase.SCOUT_MOVES:
+			action = {"type": "END_SCOUT_MOVES", "player": active_player}
 		GameStateData.Phase.ROLL_OFF:
 			action = {"type": "ROLL_FOR_FIRST_TURN", "player": active_player}
 		GameStateData.Phase.COMMAND:
@@ -7417,6 +7703,18 @@ func update_ui_for_phase() -> void:
 			phase_action_button.disabled = false
 			# Create scout visual elements (ghost, path, staged moves)
 			_scout_create_visuals()
+
+		GameStateData.Phase.SCOUT_MOVES:
+			# Show deployment zones for reference during scout moves
+			p1_zone.visible = true
+			p2_zone.visible = true
+			# Hide movement action buttons
+			_show_movement_action_buttons(false)
+			# Show unit list for scout-eligible units
+			unit_list.visible = true
+			unit_card.visible = true
+			# Button is always enabled (player can skip all scouts)
+			phase_action_button.disabled = false
 
 		GameStateData.Phase.ROLL_OFF:
 			# Hide deployment zones during roll-off

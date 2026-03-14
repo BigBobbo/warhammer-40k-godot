@@ -264,6 +264,12 @@
             "description": "During deployment, this unit can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and more than 9\" away from all enemy models."
           },
           {
+            "name": "Scout 6\"",
+            "type": "Core",
+            "range": 6,
+            "description": "After deployment, this unit can make a Normal Move of up to 6\", but must end that move more than 9\" horizontally away from all enemy models."
+          },
+          {
             "name": "Oath of Moment",
             "type": "Faction",
             "description": "At the start of your Command phase, select one unit from your opponent's army. Until the start of your next Command phase, that enemy unit is your Oath of Moment target. Each time a model with this ability makes an attack that targets your Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
