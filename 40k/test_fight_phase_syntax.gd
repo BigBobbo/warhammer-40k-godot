@@ -4,7 +4,7 @@ func _init():
 	print("=== Testing FightPhase Syntax ===")
 
 	# Try to load and instantiate FightPhase
-	var FightPhaseClass = load("res://40k/phases/FightPhase.gd")
+	var FightPhaseClass = load("res://phases/FightPhase.gd")
 	if FightPhaseClass == null:
 		print("ERROR: Could not load FightPhase.gd")
 		quit(1)

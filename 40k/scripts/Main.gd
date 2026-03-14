@@ -191,10 +191,6 @@ var _settings_menu: SettingsMenu = null
 
 # Game Event Log UI elements
 var game_log_panel: GameLogPanel
-var game_log_label: RichTextLabel  # Legacy — kept for theme compat
-var game_log_scroll: ScrollContainer  # Legacy — kept for theme compat
-var game_log_entries_container: VBoxContainer  # VBox holding GameLogEntry cards (legacy)
-var is_game_log_visible: bool = true
 var game_log_toggle_button: Button
 var _current_combat_card: GameLogEntry = null  # Tracks active combat card for grouping
 
@@ -1940,7 +1936,7 @@ func _show_deep_strike_placement_dialog(unit_id: String) -> void:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	print("Main: P2-80 — Showing DeepStrikePlacementDialog for %s" % unit_name)
 
-	var dialog = load("res://40k/dialogs/DeepStrikePlacementDialog.gd").new()
+	var dialog = load("res://dialogs/DeepStrikePlacementDialog.gd").new()
 	add_child(dialog)
 	dialog.z_index = UI_MODAL_Z
 	dialog.setup(unit_id, unit_name)
@@ -8574,91 +8570,11 @@ func _setup_player_turn_border() -> void:
 
 func _setup_game_log_panel() -> void:
 	print("Main: Setting up Game Event Log panel (card-based)")
-
-	# Use the new card-based GameLogPanel component
 	game_log_panel = GameLogPanel.new()
 	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
-	game_log_panel.setup(self, hud_bottom, 105.0, 0.0)
+	game_log_panel.setup(self, hud_bottom, 105.0, -305.0)
 	game_log_toggle_button = game_log_panel.get_toggle_button()
-
 	print("Main: Game Event Log panel created (card-based)")
-
-func _on_game_log_entry_added(text: String, entry_type: String) -> void:
-	_append_log_entry(text, entry_type, true)
-
-	# Auto-scroll to bottom
-	if game_log_scroll:
-		await get_tree().process_frame
-		game_log_scroll.scroll_vertical = int(game_log_scroll.get_v_scroll_bar().max_value)
-
-func _append_log_entry(text: String, entry_type: String, animate: bool = true) -> void:
-	if not game_log_entries_container:
-		return
-
-	match entry_type:
-		"combat_header":
-			# Start a new combat card — details and result will be appended to it
-			_current_combat_card = GameLogEntry.create_combat_card(text)
-			# Determine if this is shooting or melee from text content
-			var is_melee = "fights" in text.to_lower() or "fight" in text.to_lower()
-			_current_combat_card.set_combat_icon_type(is_melee)
-			game_log_entries_container.add_child(_current_combat_card)
-			if animate:
-				_current_combat_card.animate_in()
-
-		"combat_detail":
-			# Append detail to the current combat card
-			if _current_combat_card and is_instance_valid(_current_combat_card):
-				_current_combat_card.append_combat_detail(text)
-			else:
-				# Orphaned combat detail — create a standalone card
-				var card = GameLogEntry.create_simple_entry(text, entry_type)
-				game_log_entries_container.add_child(card)
-				if animate:
-					card.animate_in()
-
-		"combat_result":
-			# Finalize the current combat card with the result
-			if _current_combat_card and is_instance_valid(_current_combat_card):
-				_current_combat_card.set_combat_result(text)
-				_current_combat_card = null
-			else:
-				# Orphaned combat result — create a standalone card
-				var card = GameLogEntry.create_simple_entry(text, entry_type)
-				game_log_entries_container.add_child(card)
-				if animate:
-					card.animate_in()
-
-		_:
-			# All other entry types: create a simple one-line card
-			# Refine category based on text content for player actions
-			var card = GameLogEntry.create_simple_entry(text, entry_type)
-			var refined_cat = GameLogEntry.refine_category_from_text(text, card.category)
-			if refined_cat != card.category:
-				card.category = refined_cat
-				# Rebuild the style with the refined category color
-				var new_style = card._create_card_style()
-				card.add_theme_stylebox_override("panel", new_style)
-			game_log_entries_container.add_child(card)
-			if animate:
-				card.animate_in()
-
-	# Limit total cards to prevent memory bloat (keep last 200)
-	_prune_old_log_entries()
-
-func _on_game_log_collapse_pressed() -> void:
-	is_game_log_visible = false
-	if game_log_panel:
-		game_log_panel.visible = false
-	if game_log_toggle_button:
-		game_log_toggle_button.text = "Show Log"
-
-func _on_game_log_toggle_pressed() -> void:
-	is_game_log_visible = !is_game_log_visible
-	if game_log_panel:
-		game_log_panel.visible = is_game_log_visible
-	if game_log_toggle_button:
-		game_log_toggle_button.text = "Hide Log" if is_game_log_visible else "Show Log"
 
 func _prune_old_log_entries() -> void:
 	"""Remove oldest log entry cards when count exceeds 200 to prevent memory bloat."""
@@ -8914,9 +8830,8 @@ func _on_replay_event_applied(event: Dictionary) -> void:
 			entry_type = "p1_action"
 		elif event.get("active_player", 0) == 2:
 			entry_type = "p2_action"
-		# Route through GameEventLog so the new card-based panel picks it up
 		if GameEventLog:
-			GameEventLog._add_entry(description, entry_type)
+			GameEventLog.add_entry(description, entry_type)
 
 var _replay_refresh_pending: bool = false
 
