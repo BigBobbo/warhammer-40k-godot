@@ -1,6 +1,8 @@
 extends Control
 class_name WoundAllocationOverlay
 
+const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+
 # Interactive Wound Allocation Overlay for 10th Edition Warhammer 40K
 # Implements sequential, one-at-a-time wound allocation with board-based model selection
 
@@ -341,6 +343,7 @@ func _build_ui() -> void:
 	continue_button.disabled = true
 	WhiteDwarfTheme.apply_to_button(continue_button)
 	continue_button.pressed.connect(_on_continue_pressed)
+	_WhiteDwarfTheme.apply_to_button(continue_button)
 	action_hbox.add_child(continue_button)
 	print("WoundAllocationOverlay: _build_ui() [STEP 8] continue_button added to tree")
 

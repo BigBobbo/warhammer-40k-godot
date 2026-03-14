@@ -1,5 +1,6 @@
 extends VBoxContainer
 const GameStateData = preload("res://autoloads/GameState.gd")
+const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 
 # UI for deploying units directly into transports during deployment phase
 # This is designed to be added as a child to the right panel's VBoxContainer
@@ -70,6 +71,7 @@ func _setup_ui() -> void:
 	deploy_button.text = "Deploy Unit in Transport"
 	deploy_button.disabled = true
 	deploy_button.pressed.connect(_on_deploy_pressed)
+	_WhiteDwarfTheme.apply_to_button(deploy_button)
 	add_child(deploy_button)
 
 func show_for_player(player: int) -> void:

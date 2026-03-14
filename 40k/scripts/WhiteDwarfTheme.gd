@@ -71,7 +71,7 @@ static func create_button_pressed() -> StyleBoxFlat:
 
 static func create_button_disabled() -> StyleBoxFlat:
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.09, 0.07, 0.6)
+	style.bg_color = Color(0.1, 0.09, 0.07, 0.7)
 	style.border_color = Color(0.4, 0.3, 0.2, 0.5)
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(3)
@@ -114,7 +114,7 @@ static func apply_to_button(button: Button) -> void:
 	button.add_theme_color_override("font_color", WH_PARCHMENT)
 	button.add_theme_color_override("font_hover_color", WH_PARCHMENT)
 	button.add_theme_color_override("font_pressed_color", WH_GOLD)
-	button.add_theme_color_override("font_disabled_color", Color(0.5, 0.45, 0.35, 0.5))
+	button.add_theme_color_override("font_disabled_color", Color(0.5, 0.45, 0.35, 0.6))
 
 static func apply_to_label(label: Label, is_header: bool = false) -> void:
 	if not label:

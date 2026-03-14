@@ -3,6 +3,7 @@ class_name ShootingController
 
 const BasePhase = preload("res://phases/BasePhase.gd")
 const DamageFeedbackVisualScript = preload("res://scripts/DamageFeedbackVisual.gd")  # T7-53
+const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 
 
 # ShootingController - Handles UI interactions for the Shooting Phase
@@ -302,7 +303,7 @@ func _setup_right_panel() -> void:
 	apply_to_all_button.text = "Apply to All Weapons"
 	apply_to_all_button.custom_minimum_size = Vector2(150, 30)
 	apply_to_all_button.pressed.connect(_on_apply_to_all_pressed)
-	WhiteDwarfTheme.apply_to_button(apply_to_all_button)
+	_WhiteDwarfTheme.apply_to_button(apply_to_all_button)
 	auto_target_button_container.add_child(apply_to_all_button)
 
 	shooting_panel.add_child(auto_target_button_container)
@@ -412,7 +413,7 @@ func _setup_right_panel() -> void:
 	grenade_button.custom_minimum_size = Vector2(230, 35)
 	grenade_button.pressed.connect(_on_grenade_button_pressed)
 	grenade_button.tooltip_text = "GRENADES unit: Roll 6D6, each 4+ = 1 mortal wound to enemy within 8\""
-	WhiteDwarfTheme.apply_to_button(grenade_button)
+	_WhiteDwarfTheme.apply_to_button(grenade_button)
 	shooting_panel.add_child(grenade_button)
 	_update_grenade_button_visibility()
 
@@ -433,7 +434,7 @@ func _setup_right_panel() -> void:
 	clear_button = Button.new()
 	clear_button.text = "Clear All"
 	clear_button.pressed.connect(_on_clear_pressed)
-	WhiteDwarfTheme.apply_to_button(clear_button)
+	_WhiteDwarfTheme.apply_to_button(clear_button)
 	button_container.add_child(clear_button)
 
 	# T5-UX4: Undo last assignment button
@@ -442,13 +443,13 @@ func _setup_right_panel() -> void:
 	undo_button.pressed.connect(_on_undo_last_pressed)
 	undo_button.tooltip_text = "Remove the most recent weapon assignment"
 	undo_button.disabled = true
-	WhiteDwarfTheme.apply_to_button(undo_button)
+	_WhiteDwarfTheme.apply_to_button(undo_button)
 	button_container.add_child(undo_button)
 
 	confirm_button = Button.new()
 	confirm_button.text = "Confirm Targets"
 	confirm_button.pressed.connect(_on_confirm_pressed)
-	WhiteDwarfTheme.apply_to_button(confirm_button)
+	_WhiteDwarfTheme.apply_to_button(confirm_button)
 	button_container.add_child(confirm_button)
 	
 	shooting_panel.add_child(button_container)
@@ -461,7 +462,7 @@ func _setup_right_panel() -> void:
 	shoot_all_remaining_button.custom_minimum_size = Vector2(230, 35)
 	shoot_all_remaining_button.pressed.connect(_on_shoot_all_remaining_pressed)
 	shoot_all_remaining_button.tooltip_text = "Auto-shoot all remaining eligible units at their nearest targets"
-	WhiteDwarfTheme.apply_to_button(shoot_all_remaining_button)
+	_WhiteDwarfTheme.apply_to_button(shoot_all_remaining_button)
 	shooting_panel.add_child(shoot_all_remaining_button)
 	_update_shoot_all_remaining_button()
 

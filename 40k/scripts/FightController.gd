@@ -4,6 +4,7 @@ class_name FightController
 const BasePhase = preload("res://phases/BasePhase.gd")
 const EngagementRangeVisualScript = preload("res://scripts/EngagementRangeVisual.gd")
 const DamageFeedbackVisualScript = preload("res://scripts/DamageFeedbackVisual.gd")  # T5-V12
+const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 
 
 # FightController - Handles UI interactions for the Fight Phase
@@ -281,13 +282,13 @@ func _setup_right_panel() -> void:
 	clear_button = Button.new()
 	clear_button.text = "Clear All"
 	clear_button.pressed.connect(_on_clear_pressed)
-	WhiteDwarfTheme.apply_to_button(clear_button)
+	_WhiteDwarfTheme.apply_to_button(clear_button)
 	button_container.add_child(clear_button)
 
 	confirm_button = Button.new()
 	confirm_button.text = "Fight!"
 	confirm_button.pressed.connect(_on_confirm_pressed)
-	WhiteDwarfTheme.apply_to_button(confirm_button)
+	_WhiteDwarfTheme.apply_to_button(confirm_button)
 	button_container.add_child(confirm_button)
 	
 	fight_panel.add_child(button_container)
@@ -340,7 +341,7 @@ func _setup_right_panel() -> void:
 	pile_in_button.text = "Pile In"
 	pile_in_button.pressed.connect(_on_pile_in_pressed)
 	pile_in_button.disabled = true
-	WhiteDwarfTheme.apply_to_button(pile_in_button)
+	_WhiteDwarfTheme.apply_to_button(pile_in_button)
 	action_button_container.add_child(pile_in_button)
 
 	# Consolidate button (moved from top bar)
@@ -348,7 +349,7 @@ func _setup_right_panel() -> void:
 	consolidate_button.text = "Consolidate"
 	consolidate_button.pressed.connect(_on_consolidate_pressed)
 	consolidate_button.disabled = true
-	WhiteDwarfTheme.apply_to_button(consolidate_button)
+	_WhiteDwarfTheme.apply_to_button(consolidate_button)
 	action_button_container.add_child(consolidate_button)
 	
 	fight_panel.add_child(action_button_container)
