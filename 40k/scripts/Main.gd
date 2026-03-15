@@ -1940,7 +1940,7 @@ func _show_deep_strike_placement_dialog(unit_id: String) -> void:
 
 	var dialog = load("res://dialogs/DeepStrikePlacementDialog.gd").new()
 	add_child(dialog)
-	dialog.z_index = UI_MODAL_Z
+	dialog.always_on_top = true
 	dialog.setup(unit_id, unit_name)
 	dialog.placement_chosen.connect(_on_deep_strike_placement_chosen)
 	dialog.popup_centered()
@@ -5992,7 +5992,6 @@ func _show_formations_dialog(player: int) -> void:
 	formations_dialog = AcceptDialog.new()
 	formations_dialog.set_script(dialog_script)
 	add_child(formations_dialog)
-	formations_dialog.z_index = UI_MODAL_Z
 	formations_dialog.setup(player)
 	formations_dialog.formations_confirmed.connect(_on_formations_dialog_confirmed)
 	formations_dialog.popup_centered()
@@ -7284,7 +7283,7 @@ func _show_game_over_dialog(winner: int, reason: String) -> void:
 	game_over_dialog = AcceptDialog.new()
 	game_over_dialog.set_script(dialog_script)
 	add_child(game_over_dialog)
-	game_over_dialog.z_index = UI_MODAL_Z
+	game_over_dialog.always_on_top = true
 
 	# Determine local player number for networked games
 	var local_player_num = 0
@@ -7333,7 +7332,7 @@ func _on_peer_disconnect_grace_period(disconnected_player: int) -> void:
 	disconnect_dialog = AcceptDialog.new()
 	disconnect_dialog.set_script(dialog_script)
 	add_child(disconnect_dialog)
-	disconnect_dialog.z_index = UI_MODAL_Z
+	disconnect_dialog.always_on_top = true
 
 	disconnect_dialog.save_game_requested.connect(_on_disconnect_save_game)
 	disconnect_dialog.continue_single_player_requested.connect(_on_disconnect_continue_single_player.bind(disconnected_player))
