@@ -2399,47 +2399,6 @@ func _on_kunnin_infiltrator_confirmed() -> void:
 	if deployment_controller.unit_confirmed.is_connected(_on_kunnin_infiltrator_confirmed):
 		deployment_controller.unit_confirmed.disconnect(_on_kunnin_infiltrator_confirmed)
 
-func _setup_objectives() -> void:
-	print("Setting up objectives on board...")
-
-	# Create objectives container
-	var objectives_container = Node2D.new()
-	objectives_container.name = "Objectives"
-	objectives_container.z_index = -8  # Between board and deployment zones
-	$BoardRoot.add_child(objectives_container)
-
-	if MissionManager:
-		var objectives = GameState.state.board.get("objectives", [])
-		print("Main: Creating visuals for %d objectives" % objectives.size())
-
-		for obj in objectives:
-			var obj_visual = preload("res://scripts/ObjectiveVisual.gd").new()
-			obj_visual.setup(obj)
-			objectives_container.add_child(obj_visual)
-
-			# Store reference in MissionManager for easy access
-			MissionManager.objectives_visual_refs[obj.id] = obj_visual
-
-			# Connect to control changes
-			MissionManager.objective_control_changed.connect(
-				func(obj_id, controller):
-					if obj_id == obj.id:
-						obj_visual.update_control(controller)
-			)
-
-		# Connect objective removal signal (for Scorched Earth burns and Supply Drop)
-		if not MissionManager.objective_removed.is_connected(_on_objective_removed):
-			MissionManager.objective_removed.connect(_on_objective_removed)
-		if MissionManager.has_signal("objective_burn_started") and not MissionManager.objective_burn_started.is_connected(_on_objective_burn_started):
-			MissionManager.objective_burn_started.connect(_on_objective_burn_started)
-
-		# Do initial control check
-		MissionManager.check_all_objectives()
-
-		print("Main: Objectives setup complete")
-	else:
-		print("Main: MissionManager not available, skipping objectives")
-
 func _on_objective_removed(objective_id: String) -> void:
 	var visual = MissionManager.objectives_visual_refs.get(objective_id)
 	if visual:
@@ -2451,24 +2410,6 @@ func _on_objective_burn_started(objective_id: String, _player: int) -> void:
 	if visual:
 		visual.set_burning(true)
 		print("Main: Objective %s is now burning" % objective_id)
-
-func _toggle_los_debug() -> void:
-	# Try to get LoS debug visual from ShootingController first (if in shooting phase)
-	var shooting_controller = get_node_or_null("ShootingController")
-	var los_debug = null
-
-	if shooting_controller and "los_debug_visual" in shooting_controller and shooting_controller.los_debug_visual:
-		los_debug = shooting_controller.los_debug_visual
-		print("LoS debug: Using ShootingController's instance")
-	else:
-		# Fallback to finding it in BoardRoot
-		los_debug = get_node_or_null("BoardRoot/LoSDebugVisual")
-		print("LoS debug: Using BoardRoot instance (fallback)")
-
-	# Make unit tokens visible again and recreate visuals
-	_recreate_unit_visuals()
-	refresh_unit_list()
-	update_ui()
 
 func _restructure_ui_layout() -> void:
 	# Move HUD_Bottom to top of screen
@@ -3566,9 +3507,15 @@ func _setup_objectives() -> void:
 						obj_visual.flash_control_change(controller, old_ctrl)
 			)
 		
+		# Connect objective removal signal (for Scorched Earth burns and Supply Drop)
+		if not MissionManager.objective_removed.is_connected(_on_objective_removed):
+			MissionManager.objective_removed.connect(_on_objective_removed)
+		if MissionManager.has_signal("objective_burn_started") and not MissionManager.objective_burn_started.is_connected(_on_objective_burn_started):
+			MissionManager.objective_burn_started.connect(_on_objective_burn_started)
+
 		# Do initial control check
 		MissionManager.check_all_objectives()
-		
+
 		print("Main: Objectives setup complete")
 	else:
 		print("Main: MissionManager not available, skipping objectives")
