@@ -171,12 +171,13 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 		hud_bottom.add_child(_toggle_button)
 		hud_bottom.move_child(_toggle_button, 1)
 
-	# Connect to GameEventLog
-	if GameEventLog:
-		GameEventLog.entry_added.connect(_on_entry_added)
+	# Connect to GameEventLog (accessed via scene tree since autoloads aren't available at class_name parse time)
+	var game_event_log = Engine.get_main_loop().root.get_node_or_null("GameEventLog") if Engine.get_main_loop() else null
+	if game_event_log:
+		game_event_log.entry_added.connect(_on_entry_added)
 		print("GameLogPanel: Connected to GameEventLog.entry_added")
 		# Populate existing entries (no animation for backfill)
-		for entry in GameEventLog.get_all_entries():
+		for entry in game_event_log.get_all_entries():
 			_create_card(entry.text, entry.type, false)
 
 	print("GameLogPanel: Setup complete")

@@ -63,14 +63,14 @@ var _combat_result_text: String = ""
 
 static func create_simple_entry(text: String, entry_type: String) -> GameLogEntry:
 	"""Create a simple one-line log entry card."""
-	var entry = GameLogEntry.new()
+	var entry = new()
 	entry.category = _categorize_entry_type(entry_type)
 	entry._build_simple_card(text, entry_type)
 	return entry
 
 static func create_combat_card(header_text: String) -> GameLogEntry:
 	"""Create a combat card with collapsible detail section."""
-	var entry = GameLogEntry.new()
+	var entry = new()
 	entry.is_combat_card = true
 	entry.category = EntryCategory.COMBAT
 	entry._build_combat_card(header_text)

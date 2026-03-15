@@ -3,6 +3,7 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const AIMovementPathVisualScript = preload("res://scripts/AIMovementPathVisual.gd")
 const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
+const ProfileManager = preload("res://scripts/ProfileManager.gd")
 
 # AIPlayer - Autoload controller for AI opponents
 # Monitors game signals and submits actions through NetworkIntegration.route_action()

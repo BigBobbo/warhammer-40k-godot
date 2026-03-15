@@ -3,6 +3,8 @@ extends CanvasLayer
 # GameStateData, BasePhase, ShootingPhase, NetworkIntegration are available via class_name
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
+const GameLogPanelScript = preload("res://scripts/GameLogPanel.gd")
+const GameLogEntryScript = preload("res://scripts/GameLogEntry.gd")
 
 # UI z_index layering constants — ensure panels always render above all board elements
 const UI_PANEL_Z: int = 500      # HUD panels (left, right, bottom, stats, logs)
@@ -190,9 +192,9 @@ var _round_indicator_label: Label = null
 var _settings_menu: SettingsMenu = null
 
 # Game Event Log UI elements
-var game_log_panel: GameLogPanel
+var game_log_panel = null  # GameLogPanel instance
 var game_log_toggle_button: Button
-var _current_combat_card: GameLogEntry = null  # Tracks active combat card for grouping
+var _current_combat_card = null  # GameLogEntry - Tracks active combat card for grouping
 
 # P3-117: Dice Roll History panel UI elements
 var _dice_history_panel: PanelContainer = null
@@ -4210,8 +4212,7 @@ func connect_signals() -> void:
 			print("Main: P3-120: Connected to StratagemManager.stratagem_used for CP display updates")
 
 	# Connect multiplayer sync signals
-	if has_node("/root/GameManager"):
-		var game_manager = get_node("/root/GameManager")
+	if game_manager:
 		game_manager.result_applied.connect(_on_network_result_applied)
 		print("Main: Connected to GameManager.result_applied signal")
 
@@ -8517,21 +8518,15 @@ func _setup_player_turn_border() -> void:
 
 func _setup_game_log_panel() -> void:
 	print("Main: Setting up Game Event Log panel (card-based)")
-	game_log_panel = GameLogPanel.new()
+	game_log_panel = GameLogPanelScript.new()
 	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
 	game_log_panel.setup(self, hud_bottom, 105.0, -305.0)
 	game_log_toggle_button = game_log_panel.get_toggle_button()
 	print("Main: Game Event Log panel created (card-based)")
 
 func _prune_old_log_entries() -> void:
-	"""Remove oldest log entry cards when count exceeds 200 to prevent memory bloat."""
-	if not game_log_entries_container:
-		return
-	var max_entries = 200
-	while game_log_entries_container.get_child_count() > max_entries:
-		var oldest = game_log_entries_container.get_child(0)
-		game_log_entries_container.remove_child(oldest)
-		oldest.queue_free()
+	"""Pruning is handled internally by GameLogPanel._trim_old_cards()."""
+	pass
 
 # ============================================================================
 # P3-117: Dice Roll History Panel

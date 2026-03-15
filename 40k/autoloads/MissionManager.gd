@@ -543,7 +543,7 @@ func _score_supply_drop(active_player: int, battle_round: int) -> void:
 		var vp_earned = mini(controlled_count * vp_per_obj + bonus, max_per_turn)
 		_apply_primary_vp(active_player, vp_earned, "Held %d supply drop objectives (+bonus)" % controlled_count)
 	else:
-		var vp_earned = min(controlled_count * vp_per_obj, rules.max_vp_per_turn)
+		var vp_earned = mini(controlled_count * vp_per_obj, max_per_turn)
 		_award_primary_vp(active_player, vp_earned, "Held %d supply drop objectives" % controlled_count)
 
 func _process_round_start_events(battle_round: int, active_player: int) -> void:
@@ -737,6 +737,109 @@ func _player_has_character_on_objective(player: int, obj: Dictionary, units: Dic
 	return false
 
 # ============================================================
+# SCORCHED EARTH — hold objectives + burn NML/enemy objectives for bonus VP
+# ============================================================
+
+func _score_hold_and_burn(active_player: int, _battle_round: int) -> void:
+	var scoring_rules = current_mission.get("scoring_rules", {})
+	var vp_per_obj = scoring_rules.get("vp_per_objective", 5)
+	var max_per_turn = scoring_rules.get("max_vp_per_turn", 10)
+	var burn_nml_vp = scoring_rules.get("burn_nml_vp", 5)
+	var burn_enemy_vp = scoring_rules.get("burn_enemy_vp", 10)
+
+	# Count controlled objectives (excluding removed/burned)
+	var controlled_objectives = _get_controlled_objectives(active_player)
+	var controlled_count = controlled_objectives.size()
+
+	if controlled_count > 0:
+		print("MissionManager: Scorched Earth - Player %d controls %d objectives: %s" % [active_player, controlled_count, controlled_objectives])
+	else:
+		print("MissionManager: Scorched Earth - Player %d controls no objectives" % active_player)
+
+	# Base VP from holding objectives
+	var vp_earned = controlled_count * vp_per_obj
+
+	# Check for any burns that completed this turn and award bonus VP
+	for obj_id in _burned_objectives:
+		var burn_data = _burned_objectives[obj_id]
+		if burn_data.get("player", 0) != active_player:
+			continue
+		# Determine the zone to calculate burn bonus
+		var obj = _get_objective_by_id(obj_id)
+		var zone = obj.get("zone", burn_data.get("zone", ""))
+		if zone == "no_mans_land":
+			vp_earned += burn_nml_vp
+			print("MissionManager: Scorched Earth - Burn bonus for NML objective %s: +%d VP" % [obj_id, burn_nml_vp])
+		elif zone != "" and zone != _get_player_home_zone(active_player):
+			vp_earned += burn_enemy_vp
+			print("MissionManager: Scorched Earth - Burn bonus for enemy objective %s: +%d VP" % [obj_id, burn_enemy_vp])
+
+	vp_earned = mini(vp_earned, max_per_turn)
+	_apply_primary_vp(active_player, vp_earned, "Scorched Earth: held %d objectives" % controlled_count)
+
+func _get_player_home_zone(player: int) -> String:
+	"""Return the deployment zone name for a player."""
+	if player == 1:
+		return "player1_zone"
+	else:
+		return "player2_zone"
+
+# ============================================================
+# THE RITUAL — Score VP by controlling NML objectives;
+#              ritual actions can create new NML objectives
+# ============================================================
+
+func _score_ritual(active_player: int, _battle_round: int) -> void:
+	var scoring_rules = current_mission.get("scoring_rules", {})
+	var vp_per_nml = scoring_rules.get("vp_per_nml_objective", 5)
+	var max_per_turn = scoring_rules.get("max_vp_per_turn", 15)
+
+	# Only NML objectives score for The Ritual
+	var controlled_nml = _get_controlled_nml_objectives(active_player)
+	var controlled_count = controlled_nml.size()
+
+	if controlled_count > 0:
+		print("MissionManager: The Ritual - Player %d controls %d NML objectives: %s" % [active_player, controlled_count, controlled_nml])
+	else:
+		print("MissionManager: The Ritual - Player %d controls no NML objectives" % active_player)
+
+	var vp_earned = mini(controlled_count * vp_per_nml, max_per_turn)
+	_apply_primary_vp(active_player, vp_earned, "The Ritual: controlled %d NML objectives" % controlled_count)
+
+# ============================================================
+# TERRAFORM — Score VP for controlling objectives;
+#             terraformed objectives give bonus VP
+# ============================================================
+
+func _score_terraform(active_player: int, _battle_round: int) -> void:
+	var scoring_rules = current_mission.get("scoring_rules", {})
+	var vp_per_controlled = scoring_rules.get("vp_per_controlled", 4)
+	var max_control_vp = scoring_rules.get("max_control_vp_per_turn", 12)
+	var vp_per_terraformed = scoring_rules.get("vp_per_terraformed", 1)
+	var max_per_turn = scoring_rules.get("max_vp_per_turn", 15)
+
+	# Base VP from controlling objectives
+	var controlled_objectives = _get_controlled_objectives(active_player)
+	var controlled_count = controlled_objectives.size()
+
+	var control_vp = mini(controlled_count * vp_per_controlled, max_control_vp)
+
+	if controlled_count > 0:
+		print("MissionManager: Terraform - Player %d controls %d objectives: %s (+%d VP)" % [active_player, controlled_count, controlled_objectives, control_vp])
+	else:
+		print("MissionManager: Terraform - Player %d controls no objectives" % active_player)
+
+	# Bonus VP for each terraformed objective (regardless of current control)
+	var terraform_bonus = 0
+	for obj_id in _terraformed_objectives:
+		if _terraformed_objectives[obj_id] == active_player:
+			terraform_bonus += vp_per_terraformed
+			print("MissionManager: Terraform - Bonus for terraformed objective %s: +%d VP" % [obj_id, vp_per_terraformed])
+
+	var vp_earned = mini(control_vp + terraform_bonus, max_per_turn)
+	_apply_primary_vp(active_player, vp_earned, "Terraform: held %d objectives, %d terraformed" % [controlled_count, terraform_bonus])
+
+# ============================================================
 # HELPER METHODS
 # ============================================================
 
@@ -822,6 +925,25 @@ func is_objective_active(objective_id: String) -> bool:
 func get_mission_type() -> String:
 	"""Get the current mission type ID."""
 	return current_mission.get("id", "take_and_hold")
+
+func is_scorched_earth_mission() -> bool:
+	"""Check if the current mission is Scorched Earth (hold_and_burn)."""
+	return current_mission.get("id", "") == "scorched_earth" or current_mission.get("scoring_type", "") == "hold_and_burn"
+
+func is_ritual_mission() -> bool:
+	"""Check if the current mission is The Ritual."""
+	return current_mission.get("id", "") == "the_ritual" or current_mission.get("scoring_type", "") == "ritual"
+
+func is_terraform_mission() -> bool:
+	"""Check if the current mission is Terraform."""
+	return current_mission.get("id", "") == "terraform" or current_mission.get("scoring_type", "") == "terraform"
+
+func score_end_of_game_burn_bonus() -> void:
+	"""Award end-of-game bonus VP for burned objectives in Scorched Earth missions."""
+	if not is_scorched_earth_mission():
+		return
+	# No bonus needed — burn VP is already awarded when objectives are burned during gameplay
+	print("MissionManager: End-of-game burn bonus check (Scorched Earth) — no additional bonus to award")
 
 # ============================================================
 # SUMMARY / QUERY METHODS
