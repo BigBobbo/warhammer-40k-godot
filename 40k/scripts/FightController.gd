@@ -2124,7 +2124,7 @@ func _update_coherency_visuals() -> void:
 			var pos2 = positions[j]
 			var dist = Measurement.distance_inches(pos1, pos2)
 
-			if dist <= 2.0:  # Within coherency range
+			if dist <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES:  # Within coherency range
 				var line = Line2D.new()
 				line.width = 1.0
 				line.default_color = Color(0.0, 1.0, 0.0, 0.3)  # Green, transparent

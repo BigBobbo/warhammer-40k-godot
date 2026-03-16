@@ -113,7 +113,7 @@ func _draw_coherency_line(border_color: Color) -> void:
 
 	# Determine line color based on coherency (2" threshold)
 	var line_color: Color
-	if nearest_model_distance_inches >= 0.0 and nearest_model_distance_inches <= 2.0:
+	if nearest_model_distance_inches >= 0.0 and nearest_model_distance_inches <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES:
 		line_color = Color(0.2, 0.9, 0.2, 0.4)  # Green - in coherency
 	else:
 		line_color = Color(0.9, 0.2, 0.2, 0.4)  # Red - out of coherency

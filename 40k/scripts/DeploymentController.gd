@@ -1274,7 +1274,7 @@ func _update_coherency_distance_display(ghost_pos: Vector2, ghost_model_data: Di
 		active_ghost.set_nearest_model(nearest_pos, min_distance_inches)
 
 	# Update label text and color
-	var is_in_coherency = min_distance_inches <= 2.0
+	var is_in_coherency = min_distance_inches <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES
 	coherency_distance_label.text = "%.1f\"" % min_distance_inches
 	if is_in_coherency:
 		coherency_distance_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.2))  # Green
@@ -1412,7 +1412,7 @@ func _update_coherency_circles() -> void:
 		placed_model["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
 
 		var dist = Measurement.model_to_model_distance_inches(ghost_model, placed_model)
-		coherency_circles[i].set_in_range(dist <= 2.0)
+		coherency_circles[i].set_in_range(dist <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES)
 
 func _update_coherency_circles_static() -> void:
 	"""DEPLOY-VIS-5: When no ghost is active, show coherency status between placed models.
@@ -1461,7 +1461,7 @@ func _update_coherency_circles_static() -> void:
 			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
 
 			var dist = Measurement.model_to_model_distance_inches(model_i, model_j)
-			if dist <= 2.0:
+			if dist <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES:
 				has_neighbor = true
 				break
 

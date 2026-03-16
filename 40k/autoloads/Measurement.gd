@@ -6,6 +6,9 @@ const OvalBase = preload("res://scripts/bases/OvalBase.gd")
 
 const PX_PER_INCH: float = 40.0
 const MM_PER_INCH: float = 25.4
+# Small tolerance for distance comparisons to account for floating-point and
+# iterative convergence errors (convergence tolerance is 0.1px ≈ 0.0025")
+const DISTANCE_TOLERANCE_INCHES: float = 0.05
 
 func inches_to_px(inches: float) -> float:
 	return inches * PX_PER_INCH
@@ -155,10 +158,10 @@ func is_within_coherency(model1: Dictionary, model2: Dictionary) -> bool:
 	"""Check if two models satisfy the 10th Edition coherency requirement:
 	within 2\" horizontally (edge-to-edge) AND within 5\" vertically."""
 	var horizontal = model_to_model_distance_inches(model1, model2)
-	if horizontal > 2.0:
+	if horizontal > 2.0 + DISTANCE_TOLERANCE_INCHES:
 		return false
 	var vertical = model_vertical_distance_inches(model1, model2)
-	return vertical <= 5.0
+	return vertical <= 5.0 + DISTANCE_TOLERANCE_INCHES
 
 func models_overlap(model1: Dictionary, model2: Dictionary) -> bool:
 	# Check if two models' bases overlap

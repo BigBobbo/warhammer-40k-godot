@@ -6395,7 +6395,7 @@ func _check_group_unit_coherency(group_moves: Array, unit_id: String) -> bool:
 
 			var distance = Measurement.model_to_model_distance_inches(final_models[model_id1], final_models[model_id2])
 
-			if distance <= 2.0:
+			if distance <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES:
 				connections += 1
 
 		# Coherency rules based on unit size

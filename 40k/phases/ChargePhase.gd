@@ -1759,7 +1759,7 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 					if other_model_id == model_id:
 						continue
 					var dist = Measurement.model_to_model_distance_inches(b2b_model, final_models[other_model_id])
-					if dist <= 2.0:
+					if dist <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES:
 						has_nearby = true
 						break
 				coherency_ok = has_nearby
