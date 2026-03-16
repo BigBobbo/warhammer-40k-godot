@@ -9067,13 +9067,10 @@ func _screen_to_world(screen_pos: Vector2):
 func _refresh_tokens_for_unit(uid: String) -> void:
 	if not token_layer:
 		return
-	for unit_node in token_layer.get_children():
-		if not unit_node is Node2D:
-			continue
-		for model_node in unit_node.get_children():
-			if model_node.has_meta("unit_id") and model_node.get_meta("unit_id") == uid:
-				if model_node.has_method("queue_redraw"):
-					model_node.queue_redraw()
+	for token_node in token_layer.get_children():
+		if token_node.has_meta("unit_id") and token_node.get_meta("unit_id") == uid:
+			if token_node.has_method("queue_redraw"):
+				token_node.queue_redraw()
 
 
 # ============================================================================
