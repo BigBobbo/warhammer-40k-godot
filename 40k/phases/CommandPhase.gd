@@ -1808,6 +1808,12 @@ func _handle_use_new_orders(action: Dictionary) -> Dictionary:
 		log_phase_message("Player %d used NEW ORDERS (1 CP): discarded %s, drew %s" % [
 			current_player, result.get("discarded", "?"), result.get("drawn", "?")])
 
+		# Log to game event log
+		var game_event_log = get_node_or_null("/root/GameEventLog")
+		if game_event_log:
+			game_event_log.add_player_entry(current_player, "Used NEW ORDERS (1 CP): discarded %s, drew %s" % [
+				result.get("discarded", "?"), result.get("drawn", "?")])
+
 		# Log to phase log
 		var log_entry = {
 			"type": "USE_NEW_ORDERS",
@@ -1873,6 +1879,12 @@ func _handle_replace_secondary_mission(action: Dictionary) -> Dictionary:
 	if result.get("success", false):
 		log_phase_message("Player %d replaced secondary mission %s (back to deck), drew %s (1 CP)" % [
 			current_player, result.get("replaced", "?"), result.get("drawn", "?")])
+
+		# Log to game event log
+		var game_event_log = get_node_or_null("/root/GameEventLog")
+		if game_event_log:
+			game_event_log.add_player_entry(current_player, "Re-rolled secondary mission: replaced %s, drew %s (1 CP)" % [
+				result.get("replaced", "?"), result.get("drawn", "?")])
 
 		# Log to phase log
 		var log_entry = {
