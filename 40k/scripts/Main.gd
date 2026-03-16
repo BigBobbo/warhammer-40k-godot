@@ -5,6 +5,7 @@ const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const GameLogPanelScript = preload("res://scripts/GameLogPanel.gd")
 const GameLogEntryScript = preload("res://scripts/GameLogEntry.gd")
+const UnitStatsCardPopupScript = preload("res://scripts/UnitStatsCardPopup.gd")
 
 # UI z_index layering constants — ensure panels always render above all board elements
 const UI_PANEL_Z: int = 500      # HUD panels (left, right, bottom, stats, logs)
@@ -8918,6 +8919,7 @@ func _handle_right_click(event: InputEventMouseButton) -> void:
 	_unit_context_menu.name = "UnitContextMenu"
 	_unit_context_menu.add_item("Change Color", 0)
 	_unit_context_menu.add_item("Change Label", 1)
+	_unit_context_menu.add_item("Unit Stats", 2)
 	_unit_context_menu.id_pressed.connect(_on_unit_context_menu_pressed)
 	add_child(_unit_context_menu)
 	_unit_context_menu.position = Vector2i(int(event.global_position.x), int(event.global_position.y))
@@ -8934,6 +8936,8 @@ func _on_unit_context_menu_pressed(id: int) -> void:
 			_show_unit_color_picker_popup(_context_unit_id)
 		1:  # Change Label
 			_show_unit_label_dialog(_context_unit_id)
+		2:  # Unit Stats
+			_show_unit_stats_card_popup(_context_unit_id)
 
 
 func _show_unit_color_picker_popup(uid: String) -> void:
@@ -8952,6 +8956,18 @@ func _show_unit_color_picker_popup(uid: String) -> void:
 
 func _on_unit_color_changed_from_popup(uid: String, _color: Color) -> void:
 	_refresh_tokens_for_unit(uid)
+
+
+func _show_unit_stats_card_popup(uid: String) -> void:
+	# Remove any existing stats card
+	var existing = get_node_or_null("UnitStatsCardPopup")
+	if existing:
+		existing.queue_free()
+
+	var card = UnitStatsCardPopupScript.new()
+	add_child(card)
+	var popup_pos = get_viewport().get_mouse_position()
+	card.setup(uid, popup_pos)
 
 
 func _show_unit_label_dialog(uid: String) -> void:
