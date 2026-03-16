@@ -29,6 +29,8 @@ func _init():
 	_test_condition_is_instead_of_normal_move()
 	_test_movement_phase_action_types()
 	_test_placement_validation_logic()
+	_test_has_kunnin_infiltrator_checks_attached_leaders()
+	_test_movement_controller_has_special_action_popup()
 
 	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
 	if _fail_count == 0:
@@ -148,3 +150,32 @@ func _test_placement_validation_logic():
 	dist_inches = dist_px / px_per_inch
 	edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
 	_assert_true(edge_dist >= 9.0, "10.5\" center-to-center is >= 9\" edge-to-edge (%.2f\")" % edge_dist)
+
+func _test_has_kunnin_infiltrator_checks_attached_leaders():
+	print("\n--- Test 7: has_kunnin_infiltrator checks attached leaders ---")
+	# Verify the UnitAbilityManager source includes attached_characters check
+	var uam_script = load("res://autoloads/UnitAbilityManager.gd")
+	_assert_true(uam_script != null, "UnitAbilityManager.gd loads successfully")
+
+	var source = uam_script.source_code
+	# The function should check attached_characters for leader abilities
+	_assert_true(source.find("attached_characters") != -1 and source.find("has_kunnin_infiltrator") != -1,
+		"has_kunnin_infiltrator checks attached_characters for leader abilities")
+	# Should check if the attached character has the ability
+	_assert_true(source.find("Kunnin' Infiltrator via attached leader") != -1,
+		"has_kunnin_infiltrator logs when ability found on attached leader")
+
+func _test_movement_controller_has_special_action_popup():
+	print("\n--- Test 8: MovementController has special action popup for Kunnin' Infiltrator ---")
+	var mc_script = load("res://scripts/MovementController.gd")
+	_assert_true(mc_script != null, "MovementController.gd loads successfully")
+
+	var source = mc_script.source_code
+	_assert_true(source.find("_movement_action_popup") != -1,
+		"MovementController has popup menu for movement actions")
+	_assert_true(source.find("_get_special_movement_actions") != -1,
+		"MovementController has function to detect special movement actions")
+	_assert_true(source.find("_show_movement_action_popup") != -1,
+		"MovementController has function to show movement action popup")
+	_assert_true(source.find("ACTIVATE_KUNNIN_INFILTRATOR") != -1,
+		"MovementController recognizes ACTIVATE_KUNNIN_INFILTRATOR as special action")

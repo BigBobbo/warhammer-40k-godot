@@ -83,6 +83,11 @@ var advance_roll_label: Label
 # Flag to prevent duplicate actions when programmatically setting radio buttons
 var setting_radio_programmatically: bool = false
 
+# OA-24: PopupMenu for special movement actions (e.g. Kunnin' Infiltrator)
+var _movement_action_popup: PopupMenu = null
+var _popup_pending_unit_id: String = ""  # Unit awaiting action choice from popup
+var _kunnin_infiltrator_button: Button = null  # Persistent button in mode selection panel
+
 # Path tracking
 var current_path: Array = []  # Array of Vector2 points
 var path_valid: bool = false
@@ -167,6 +172,11 @@ func _exit_tree() -> void:
 				print("MovementController: Removing element: ", element)
 				container.remove_child(node)
 				node.queue_free()
+
+	# OA-24: Clean up movement action popup
+	if _movement_action_popup and is_instance_valid(_movement_action_popup):
+		_movement_action_popup.queue_free()
+		_movement_action_popup = null
 
 	# Reset UI setup flag
 	ui_setup_complete = false
@@ -397,6 +407,15 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	
 	section.add_child(button_container)
 
+	# OA-24: Add Kunnin' Infiltrator button (hidden by default, shown when ability available)
+	_kunnin_infiltrator_button = Button.new()
+	_kunnin_infiltrator_button.name = "KunninInfiltratorButton"
+	_kunnin_infiltrator_button.text = "Kunnin' Infiltrator (Redeploy)"
+	_kunnin_infiltrator_button.visible = false
+	_kunnin_infiltrator_button.pressed.connect(_on_kunnin_infiltrator_button_pressed)
+	_WhiteDwarfTheme.apply_to_button(_kunnin_infiltrator_button)
+	section.add_child(_kunnin_infiltrator_button)
+
 	# Add dice result display (hidden initially)
 	advance_roll_label = Label.new()
 	advance_roll_label.text = "Advance Roll: -"
@@ -597,11 +616,18 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 func _refresh_unit_list() -> void:
 	if not unit_list or not current_phase:
 		return
-	
+
 	unit_list.clear()
 	var actions = current_phase.get_available_actions()
 	var added_units = {}
-	
+
+	# OA-24: Build a set of unit_ids that have special movement actions
+	var _special_action_types = ["ACTIVATE_KUNNIN_INFILTRATOR"]
+	var units_with_special_actions = {}
+	for action in actions:
+		if action.get("type", "") in _special_action_types:
+			units_with_special_actions[action.get("actor_unit_id", "")] = action.get("type", "")
+
 	for action in actions:
 		var unit_id = action.get("actor_unit_id", "")
 		if unit_id != "" and not added_units.has(unit_id):
@@ -629,6 +655,10 @@ func _refresh_unit_list() -> void:
 					status_text = " [CURRENTLY MOVING]"
 				"completed":
 					status_text = " [COMPLETED MOVING]"
+
+			# OA-24: Show ability indicator for units with special movement actions
+			if units_with_special_actions.has(unit_id):
+				status_text += " *ABILITY*"
 
 			# Show if unit is embarked (special case - can still be selected to disembark)
 			if unit.get("embarked_in", null) != null:
@@ -701,13 +731,19 @@ func _on_unit_selected(index: int) -> void:
 			move_cap_inches = get_unit_movement(unit)
 			print("MovementController: Unit %s has movement cap of %.1f inches" % [unit_id, move_cap_inches])
 
-		# Request phase to begin movement (this will trigger _on_unit_move_begun callback)
+		# OA-24: Check if unit has special movement actions (e.g. Kunnin' Infiltrator)
+		# If so, show a popup to let the player choose instead of auto-starting Normal Move
 		if current_phase:
-			var action = {
-				"type": "BEGIN_NORMAL_MOVE",
-				"actor_unit_id": unit_id
-			}
-			emit_signal("move_action_requested", action)
+			var special_actions = _get_special_movement_actions(unit_id)
+			if special_actions.size() > 0:
+				_show_movement_action_popup(unit_id, special_actions)
+			else:
+				# No special actions — proceed with Normal Move as before
+				var action = {
+					"type": "BEGIN_NORMAL_MOVE",
+					"actor_unit_id": unit_id
+				}
+				emit_signal("move_action_requested", action)
 
 	_highlight_unit_models(unit_id)
 	_update_selected_unit_display()  # NEW: Update section 2
@@ -899,6 +935,16 @@ func _on_remain_stationary_pressed() -> void:
 	if unit_list:
 		call_deferred("_populate_unit_list")
 
+func _on_kunnin_infiltrator_button_pressed() -> void:
+	"""Handle the Kunnin' Infiltrator button press in the mode selection panel."""
+	if active_unit_id == "":
+		return
+	print("MovementController: Kunnin' Infiltrator button pressed for %s" % active_unit_id)
+	emit_signal("move_action_requested", {
+		"type": "ACTIVATE_KUNNIN_INFILTRATOR",
+		"actor_unit_id": active_unit_id
+	})
+
 func _on_undo_model_pressed() -> void:
 	if active_unit_id == "":
 		return
@@ -1022,6 +1068,9 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 	if mode_is_locked:
 		# Unit's mode is already locked, disable all controls
 		_update_mode_buttons_state(false)
+		# OA-24: Hide ability button when mode is locked
+		if _kunnin_infiltrator_button:
+			_kunnin_infiltrator_button.visible = false
 
 		# Show the locked mode in the UI
 		var locked_mode = current_phase.active_moves[unit_id].get("mode", "")
@@ -1054,6 +1103,11 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 		# Hide advance roll label
 		if advance_roll_label:
 			advance_roll_label.visible = false
+
+		# OA-24: Show/hide Kunnin' Infiltrator button based on unit abilities
+		if _kunnin_infiltrator_button:
+			var has_ki = _get_special_movement_actions(unit_id).size() > 0 if current_phase else false
+			_kunnin_infiltrator_button.visible = has_ki
 
 		# Update display for fresh unit
 		_update_movement_display()
@@ -4125,6 +4179,116 @@ func _on_kunnin_infiltrator_available(unit_id: String, player: int) -> void:
 	# Refresh the UI to show the updated available actions (PLACE/CANCEL)
 	_refresh_unit_list()
 	emit_signal("ui_update_requested")
+
+# ===================================================
+# SPECIAL MOVEMENT ACTION POPUP (OA-24)
+# Shows a popup when a unit has abilities like Kunnin' Infiltrator
+# that replace the Normal Move, letting the player choose.
+# ===================================================
+
+func _get_special_movement_actions(unit_id: String) -> Array:
+	"""Check phase available actions for special movement abilities for this unit.
+	Returns an array of special action dictionaries (e.g. ACTIVATE_KUNNIN_INFILTRATOR)."""
+	if not current_phase:
+		print("MovementController: _get_special_movement_actions — no current_phase")
+		return []
+
+	var special_types = ["ACTIVATE_KUNNIN_INFILTRATOR"]
+	var special_actions = []
+	var actions = current_phase.get_available_actions()
+	print("MovementController: _get_special_movement_actions for %s — checking %d available actions" % [unit_id, actions.size()])
+	for action in actions:
+		var action_type = action.get("type", "")
+		var action_unit = action.get("actor_unit_id", action.get("unit_id", ""))
+		if action_unit == unit_id:
+			print("MovementController:   Action for %s: type=%s" % [unit_id, action_type])
+		if action_unit == unit_id and action_type in special_types:
+			special_actions.append(action)
+	return special_actions
+
+func _show_movement_action_popup(unit_id: String, special_actions: Array) -> void:
+	"""Show a popup menu letting the player choose between Normal Move and special actions.
+	Deferred to next frame to avoid the unit-list click immediately closing the popup."""
+	_popup_pending_unit_id = unit_id
+	_popup_pending_special_actions = special_actions
+	# Defer to next frame so the current mouse click doesn't immediately close the popup
+	call_deferred("_show_movement_action_popup_deferred")
+
+var _popup_pending_special_actions: Array = []
+
+func _show_movement_action_popup_deferred() -> void:
+	"""Actually show the popup (called deferred to avoid click-through)."""
+	var unit_id = _popup_pending_unit_id
+	var special_actions = _popup_pending_special_actions
+	_popup_pending_special_actions = []
+
+	if unit_id == "":
+		return
+
+	# Create popup if needed
+	if _movement_action_popup == null:
+		_movement_action_popup = PopupMenu.new()
+		_movement_action_popup.name = "MovementActionPopup"
+		add_child(_movement_action_popup)
+		_movement_action_popup.id_pressed.connect(_on_movement_action_popup_selected)
+		_movement_action_popup.popup_hide.connect(_on_movement_action_popup_closed)
+
+	_movement_action_popup.clear()
+
+	# Add Normal Move as the first option (ID 0)
+	_movement_action_popup.add_item("Normal Move", 0)
+
+	# Add each special action
+	for i in range(special_actions.size()):
+		var action = special_actions[i]
+		var label = action.get("description", action.get("type", "Special Action"))
+		_movement_action_popup.add_item(label, 100 + i)
+		# Store action data in metadata
+		_movement_action_popup.set_item_metadata(_movement_action_popup.get_item_count() - 1, action)
+
+	# Position popup near mouse
+	var popup_pos = get_viewport().get_mouse_position()
+	_movement_action_popup.position = Vector2i(int(popup_pos.x), int(popup_pos.y))
+	_movement_action_popup.popup()
+
+	var unit_name = GameState.get_unit(unit_id).get("meta", {}).get("name", unit_id) if GameState.get_unit(unit_id) else unit_id
+	print("MovementController: Showing movement action popup for %s with %d special actions" % [unit_name, special_actions.size()])
+
+func _on_movement_action_popup_selected(id: int) -> void:
+	"""Handle player's choice from the movement action popup."""
+	var unit_id = _popup_pending_unit_id
+	_popup_pending_unit_id = ""
+
+	if unit_id == "":
+		return
+
+	if id == 0:
+		# Normal Move selected
+		print("MovementController: Player chose Normal Move for %s" % unit_id)
+		var action = {
+			"type": "BEGIN_NORMAL_MOVE",
+			"actor_unit_id": unit_id
+		}
+		emit_signal("move_action_requested", action)
+	else:
+		# Special action selected — find the metadata
+		for item_idx in range(_movement_action_popup.item_count):
+			if _movement_action_popup.get_item_id(item_idx) == id:
+				var action = _movement_action_popup.get_item_metadata(item_idx)
+				if action and action is Dictionary:
+					var action_type = action.get("type", "")
+					print("MovementController: Player chose special action %s for %s" % [action_type, unit_id])
+					emit_signal("move_action_requested", {
+						"type": action_type,
+						"actor_unit_id": unit_id
+					})
+				break
+
+func _on_movement_action_popup_closed() -> void:
+	"""Handle popup dismissed without selection — player can re-select or use radio buttons."""
+	if _popup_pending_unit_id != "":
+		print("MovementController: Movement action popup dismissed for %s — use radio buttons or re-select" % _popup_pending_unit_id)
+		_popup_pending_unit_id = ""
 
 
 # ── Inner helper classes for selection visuals ──────────────────────────────

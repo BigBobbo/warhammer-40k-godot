@@ -2835,20 +2835,44 @@ func has_bomb_squigs(unit_id: String) -> bool:
 
 func has_kunnin_infiltrator(unit_id: String) -> bool:
 	"""Check if a unit has the Kunnin' Infiltrator ability (Boss Snikrot).
-	Used by MovementPhase to offer once-per-battle redeployment instead of Normal move."""
+	Used by MovementPhase to offer once-per-battle redeployment instead of Normal move.
+	Also checks attached leader characters, since Boss Snikrot leads Kommandos."""
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
 		return false
 
+	# Check unit's own abilities
 	var abilities = unit.get("meta", {}).get("abilities", [])
+	print("UnitAbilityManager: has_kunnin_infiltrator(%s) — found %d abilities" % [unit_id, abilities.size()])
 	for ability in abilities:
 		var ability_name = _get_ability_name(ability)
-		if ability_name == "Kunnin' Infiltrator":
+		if ability_name == "Kunnin' Infiltrator" or ability_name.find("unnin") != -1:
+			print("UnitAbilityManager:   Found ability match: '%s'" % ability_name)
 			if not is_once_per_battle_used(unit_id, "Kunnin' Infiltrator"):
 				print("UnitAbilityManager: Unit %s has unused Kunnin' Infiltrator" % unit_id)
 				return true
 			else:
 				print("UnitAbilityManager: Unit %s has Kunnin' Infiltrator but already used this battle" % unit_id)
+				return false
+
+	# Check attached leader characters' abilities (e.g. Boss Snikrot attached to Kommandos)
+	var attached_characters = unit.get("attachment_data", {}).get("attached_characters", [])
+	var all_units = GameState.state.get("units", {})
+	for char_id in attached_characters:
+		var char_unit = all_units.get(char_id, {})
+		if char_unit.is_empty() or not _has_alive_models(char_unit):
+			continue
+		var char_abilities = char_unit.get("meta", {}).get("abilities", [])
+		for ability in char_abilities:
+			var ability_name = _get_ability_name(ability)
+			if ability_name == "Kunnin' Infiltrator":
+				if not is_once_per_battle_used(unit_id, "Kunnin' Infiltrator"):
+					print("UnitAbilityManager: Unit %s has unused Kunnin' Infiltrator via attached leader %s" % [unit_id, char_id])
+					return true
+				else:
+					print("UnitAbilityManager: Unit %s has Kunnin' Infiltrator (via %s) but already used this battle" % [unit_id, char_id])
+					return false
+
 	return false
 
 func has_deff_from_above(unit_id: String) -> bool:

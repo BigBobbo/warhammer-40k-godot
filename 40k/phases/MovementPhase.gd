@@ -6004,7 +6004,9 @@ func get_available_actions() -> Array:
 
 			# OA-24: Offer Kunnin' Infiltrator as alternative to Normal move
 			var _ki_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-			if _ki_ability_mgr and _ki_ability_mgr.has_kunnin_infiltrator(unit_id):
+			var _ki_has = _ki_ability_mgr.has_kunnin_infiltrator(unit_id) if _ki_ability_mgr else false
+			print("[OA-24] Checking Kunnin' Infiltrator for %s (%s): ability_mgr=%s, has_ability=%s" % [unit_name, unit_id, str(_ki_ability_mgr != null), str(_ki_has)])
+			if _ki_has:
 				actions.append({
 					"type": "ACTIVATE_KUNNIN_INFILTRATOR",
 					"actor_unit_id": unit_id,
