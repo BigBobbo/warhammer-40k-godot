@@ -33,18 +33,12 @@ func setup(uid: String, popup_position: Vector2) -> void:
 	add_theme_stylebox_override("panel", panel_style)
 
 	custom_minimum_size = Vector2(MAX_WIDTH, 0)
-
-	# Scroll container so tall datasheets don't overflow the screen
-	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(MAX_WIDTH, 0)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll)
+	clip_contents = true
 
 	var content = VBoxContainer.new()
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 0)
-	scroll.add_child(content)
+	add_child(content)
 
 	# ── Header: Unit Name + Keywords ──
 	_build_header(content, unit, meta)
@@ -487,10 +481,10 @@ func _build_footer(parent: VBoxContainer, unit: Dictionary) -> void:
 	footer_panel.add_child(footer_row)
 
 	# Model count
-	var alive_count := 0
-	var total_count := models.size()
-	var total_wounds := 0
-	var current_wounds := 0
+	var alive_count: int = 0
+	var total_count: int = models.size()
+	var total_wounds: int = 0
+	var current_wounds: int = 0
 	for model in models:
 		if model.get("alive", true):
 			alive_count += 1
@@ -561,9 +555,10 @@ func _clamp_to_screen(desired_pos: Vector2) -> void:
 # ── Input Handling ──────────────────────────────────────────────
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+	# Dismiss on any key press or any mouse click
+	if event is InputEventKey and event.pressed:
 		queue_free()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.pressed:
-		if not get_global_rect().has_point(event.global_position):
-			queue_free()
+		queue_free()
+		get_viewport().set_input_as_handled()
