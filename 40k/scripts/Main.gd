@@ -8920,7 +8920,6 @@ func _handle_right_click(event: InputEventMouseButton) -> void:
 	_unit_context_menu.add_item("Change Label", 1)
 	_unit_context_menu.id_pressed.connect(_on_unit_context_menu_pressed)
 	add_child(_unit_context_menu)
-	_unit_context_menu.z_index = UI_OVERLAY_Z
 	_unit_context_menu.position = Vector2i(int(event.global_position.x), int(event.global_position.y))
 	_unit_context_menu.popup()
 
@@ -9036,33 +9035,33 @@ func _find_unit_at_world_pos(world_pos: Vector2) -> String:
 	var closest_uid: String = ""
 	var closest_dist: float = INF
 
-	for unit_node in token_layer.get_children():
-		if not unit_node is Node2D:
+	for token_node in token_layer.get_children():
+		if not token_node is Node2D:
 			continue
-		for model_node in unit_node.get_children():
-			if not model_node is Node2D:
-				continue
-			if not model_node.has_meta("unit_id"):
-				continue
-			var dist = model_node.global_position.distance_to(world_pos)
-			# Check if click is within the token's base radius
-			var base_radius = 20.0  # Default
-			if model_node.has_method("get") and model_node.get("base_shape"):
-				var bounds = model_node.base_shape.get_bounds()
-				base_radius = max(bounds.size.x, bounds.size.y) / 2.0
-			if dist <= base_radius + 5.0 and dist < closest_dist:
-				closest_dist = dist
-				closest_uid = model_node.get_meta("unit_id")
+		if not token_node.has_meta("unit_id"):
+			continue
+		var token_pos = token_node.position
+		var dist = token_pos.distance_to(world_pos)
+		var hit = false
+		# Use base_shape.contains_point for accurate hit detection
+		if token_node.get("base_shape") and token_node.base_shape.has_method("contains_point"):
+			hit = token_node.base_shape.contains_point(world_pos, token_pos, token_node.rotation)
+		else:
+			# Fallback: distance check with generous radius
+			hit = dist <= 30.0
+		if hit and dist < closest_dist:
+			closest_dist = dist
+			closest_uid = token_node.get_meta("unit_id")
 
 	return closest_uid
 
 
 func _screen_to_world(screen_pos: Vector2):
-	# Convert screen position to world coordinates through the camera
-	if not camera:
+	# Convert screen position to world coordinates through the BoardRoot transform
+	if not has_node("BoardRoot"):
 		return null
-	var canvas_transform = get_viewport().canvas_transform
-	return canvas_transform.affine_inverse() * screen_pos
+	var board_transform = $BoardRoot.transform
+	return board_transform.affine_inverse() * screen_pos
 
 
 func _refresh_tokens_for_unit(uid: String) -> void:
