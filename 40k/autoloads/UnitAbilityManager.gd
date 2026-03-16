@@ -2215,7 +2215,8 @@ func _apply_eligibility_effects() -> void:
 						EffectPrimitivesData.FALL_BACK_AND_CHARGE,
 						EffectPrimitivesData.ADVANCE_AND_CHARGE,
 						EffectPrimitivesData.ADVANCE_AND_SHOOT,
-						EffectPrimitivesData.FLAT_ADVANCE
+						EffectPrimitivesData.FLAT_ADVANCE,
+						EffectPrimitivesData.AUTO_ADVANCE_6
 					]:
 						eligibility_effects.append(effect)
 
@@ -2254,7 +2255,7 @@ func _apply_eligibility_effects() -> void:
 			if effect_def.get("condition", "") != "always":
 				continue
 
-			# Only apply eligibility effects (fall_back_and_*, advance_and_*, flat_advance)
+			# Only apply eligibility effects (fall_back_and_*, advance_and_*, flat_advance, auto_advance_6)
 			var effects = effect_def.get("effects", [])
 			var eligibility_effects = []
 			for effect in effects:
@@ -2264,30 +2265,35 @@ func _apply_eligibility_effects() -> void:
 					EffectPrimitivesData.FALL_BACK_AND_CHARGE,
 					EffectPrimitivesData.ADVANCE_AND_CHARGE,
 					EffectPrimitivesData.ADVANCE_AND_SHOOT,
-					EffectPrimitivesData.FLAT_ADVANCE
+					EffectPrimitivesData.FLAT_ADVANCE,
+					EffectPrimitivesData.AUTO_ADVANCE_6
 				]:
 					eligibility_effects.append(effect)
 
 			if eligibility_effects.is_empty():
 				continue
 
-			var diffs = EffectPrimitivesData.apply_effects(eligibility_effects, unit_id)
+			# If this unit is attached as a character to a bodyguard, apply the flag
+			# to the bodyguard unit (since the combined unit moves as the bodyguard).
+			var target_unit_id = _get_combined_unit_for_enhancement(unit_id)
+			var diffs = EffectPrimitivesData.apply_effects(eligibility_effects, target_unit_id)
 			if not diffs.is_empty():
 				PhaseManager.apply_state_changes(diffs)
 				_active_ability_effects.append({
 					"ability_name": ability_name,
 					"source_unit_id": unit_id,
-					"target_unit_id": unit_id,
+					"target_unit_id": target_unit_id,
 					"effects": eligibility_effects,
 					"attack_type": "all",
 					"condition": "always"
 				})
-				if not _applied_this_phase.has(unit_id):
-					_applied_this_phase[unit_id] = []
-				_applied_this_phase[unit_id].append(ability_name)
+				if not _applied_this_phase.has(target_unit_id):
+					_applied_this_phase[target_unit_id] = []
+				_applied_this_phase[target_unit_id].append(ability_name)
 
 				var unit_name = unit.get("meta", {}).get("name", unit_id)
-				print("UnitAbilityManager: %s has own eligibility ability '%s'" % [unit_name, ability_name])
+				var target_note = "" if target_unit_id == unit_id else " (applied to bodyguard %s)" % target_unit_id
+				print("UnitAbilityManager: %s has own eligibility ability '%s'%s" % [unit_name, ability_name, target_note])
 
 # ============================================================================
 # CLEAR ABILITY EFFECTS

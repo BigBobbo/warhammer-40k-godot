@@ -74,46 +74,46 @@ func _test_ability_registered():
 	_assert_true(effects["High-octane Fuel"].get("implemented", false), "High-octane Fuel is marked as implemented")
 
 func _test_ability_has_correct_effects():
-	print("\n--- Test 2: High-octane Fuel has flat_advance effect ---")
+	print("\n--- Test 2: High-octane Fuel has auto_advance_6 effect ---")
 	var effect_def = UnitAbilityManagerData.ABILITY_EFFECTS.get("High-octane Fuel", {})
 	var effects = effect_def.get("effects", [])
 	_assert_eq(effects.size(), 1, "High-octane Fuel has exactly 1 effect")
 
-	var has_flat_advance = false
+	var has_auto_advance = false
 	for effect in effects:
-		if effect.get("type", "") == "flat_advance":
-			has_flat_advance = true
+		if effect.get("type", "") == "auto_advance_6":
+			has_auto_advance = true
 
-	_assert_true(has_flat_advance, "High-octane Fuel has flat_advance effect")
+	_assert_true(has_auto_advance, "High-octane Fuel has auto_advance_6 effect")
 
 func _test_flat_advance_flag():
-	print("\n--- Test 3: Unit with flat_advance flag gets flat advance ---")
-	var unit = {"flags": {EffectPrimitivesData.FLAG_FLAT_ADVANCE: true}}
-	_assert_true(EffectPrimitivesData.has_effect_flat_advance(unit),
-		"has_effect_flat_advance returns true when flag is set")
+	print("\n--- Test 3: Unit with auto_advance_6 flag gets auto advance ---")
+	var unit = {"flags": {EffectPrimitivesData.FLAG_AUTO_ADVANCE_6: true}}
+	_assert_true(EffectPrimitivesData.has_effect_auto_advance_6(unit),
+		"has_effect_auto_advance_6 returns true when flag is set")
 
 func _test_no_flag_no_flat_advance():
-	print("\n--- Test 4: Unit WITHOUT flat_advance flag does NOT get flat advance ---")
+	print("\n--- Test 4: Unit WITHOUT auto_advance_6 flag does NOT get auto advance ---")
 	var unit = {"flags": {}}
-	_assert_false(EffectPrimitivesData.has_effect_flat_advance(unit),
-		"has_effect_flat_advance returns false without flag")
+	_assert_false(EffectPrimitivesData.has_effect_auto_advance_6(unit),
+		"has_effect_auto_advance_6 returns false without flag")
 	# Also test with no flags dict at all
 	var unit_no_flags = {}
-	_assert_false(EffectPrimitivesData.has_effect_flat_advance(unit_no_flags),
-		"has_effect_flat_advance returns false when no flags dict exists")
+	_assert_false(EffectPrimitivesData.has_effect_auto_advance_6(unit_no_flags),
+		"has_effect_auto_advance_6 returns false when no flags dict exists")
 
 func _test_fuel_mixa_grot_same_effect():
-	print("\n--- Test 5: Fuel-mixa Grot (Deffkilla Wartrike) has same flat_advance effect ---")
+	print("\n--- Test 5: Fuel-mixa Grot (Deffkilla Wartrike) has same auto_advance_6 effect ---")
 	var effects = UnitAbilityManagerData.ABILITY_EFFECTS
 	_assert_true(effects.has("Fuel-mixa Grot"), "Fuel-mixa Grot exists in ABILITY_EFFECTS")
 	_assert_true(effects["Fuel-mixa Grot"].get("implemented", false), "Fuel-mixa Grot is marked as implemented")
 
 	var fuel_mixa_effects = effects["Fuel-mixa Grot"].get("effects", [])
-	var has_flat_advance = false
+	var has_auto_advance = false
 	for effect in fuel_mixa_effects:
-		if effect.get("type", "") == "flat_advance":
-			has_flat_advance = true
-	_assert_true(has_flat_advance, "Fuel-mixa Grot has flat_advance effect")
+		if effect.get("type", "") == "auto_advance_6":
+			has_auto_advance = true
+	_assert_true(has_auto_advance, "Fuel-mixa Grot has auto_advance_6 effect")
 
 func _test_wartrike_army_data():
 	print("\n--- Test 6: Deffkilla Wartrike army JSON has Fuel-mixa Grot ability ---")
@@ -156,7 +156,7 @@ func _test_wartrike_army_data():
 	_assert_true(has_fuel_mixa, "Deffkilla Wartrike has Fuel-mixa Grot ability in army data")
 
 func _test_condition_while_leading():
-	print("\n--- Test 7: High-octane Fuel condition is 'while_leading' ---")
+	print("\n--- Test 7: High-octane Fuel condition is 'always' ---")
 	var effect_def = UnitAbilityManagerData.ABILITY_EFFECTS.get("High-octane Fuel", {})
-	_assert_eq(effect_def.get("condition", ""), "while_leading", "Condition is 'while_leading'")
-	_assert_eq(effect_def.get("target", ""), "led_unit", "Target is 'led_unit'")
+	_assert_eq(effect_def.get("condition", ""), "always", "Condition is 'always'")
+	_assert_eq(effect_def.get("target", ""), "unit", "Target is 'unit'")
