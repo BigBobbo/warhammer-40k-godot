@@ -8900,10 +8900,8 @@ func _handle_right_click(event: InputEventMouseButton) -> void:
 	if style != "letter":
 		return
 
-	# Convert screen position to world position
-	var world_pos = _screen_to_world(event.global_position)
-	if world_pos == null:
-		return
+	# Convert screen position to world position (use event.position, same as other handlers)
+	var world_pos = screen_to_world_position(event.position)
 
 	var uid = _find_unit_at_world_pos(world_pos)
 	if uid == "":
@@ -9063,8 +9061,8 @@ func _find_unit_at_world_pos(world_pos: Vector2) -> String:
 		if token_node.get("base_shape") and token_node.base_shape.has_method("contains_point"):
 			hit = token_node.base_shape.contains_point(world_pos, token_pos, token_node.rotation)
 		else:
-			# Fallback: distance check with generous radius
-			hit = dist <= 30.0
+			# Fallback: distance check with generous radius (50px covers most base sizes)
+			hit = dist <= 50.0
 		if hit and dist < closest_dist:
 			closest_dist = dist
 			closest_uid = token_node.get_meta("unit_id")
