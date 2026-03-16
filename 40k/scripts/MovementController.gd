@@ -176,10 +176,11 @@ func _setup_ui_references() -> void:
 	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
 	hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
 	hud_right = get_node_or_null("/root/Main/HUD_Right")
-	
-	# Get references to existing UI elements instead of creating new ones
-	unit_list = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/UnitListPanel")
-	
+
+	# Do NOT grab the persistent UnitListPanel — the movement controller creates
+	# its own ItemList in _create_section1_unit_list(). Reusing the persistent
+	# one causes an "already has a parent" error when add_child is called.
+
 	# Setup movement-specific UI elements
 	if hud_bottom:
 		_setup_bottom_hud()
@@ -305,23 +306,22 @@ func _setup_right_panel() -> void:
 func _create_section1_unit_list(parent: VBoxContainer) -> void:
 	var section = VBoxContainer.new()
 	section.name = "Section1_UnitList"
-	
+
 	var label = Label.new()
 	label.text = "Units Eligible to Move"
 	label.add_theme_font_size_override("font_size", 14)
 	section.add_child(label)
-	
-	# Use existing unit list or create new one
-	if not unit_list:
-		unit_list = ItemList.new()
-		unit_list.name = "UnitListPanel" 
-		unit_list.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		unit_list.custom_minimum_size = Vector2(0, 120)
-	
+
+	# Always create a fresh ItemList for the movement panel
+	unit_list = ItemList.new()
+	unit_list.name = "MovementUnitList"
+	unit_list.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	unit_list.custom_minimum_size = Vector2(0, 120)
+
 	# Connect unit selection signal
 	if not unit_list.item_selected.is_connected(_on_unit_selected):
 		unit_list.item_selected.connect(_on_unit_selected)
-	
+
 	section.add_child(unit_list)
 	parent.add_child(section)
 
