@@ -197,7 +197,7 @@ func _setup_right_panel() -> void:
 	# Battle-shock tests and Stratagems section
 	_setup_battle_shock_section(command_panel)
 
-	# Faction abilities section (Oath of Moment, etc.)
+	# Faction abilities section (Oath of Moment, Waaagh!, etc.)
 	_setup_faction_abilities_section(command_panel)
 
 	# Show VP status
@@ -566,13 +566,17 @@ func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
 		unit_box.add_child(HSeparator.new())
 
 func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
-	"""Build faction abilities display (Oath of Moment target selection, etc.)."""
+	"""Build faction abilities display (Oath of Moment, Waaagh!, etc.)."""
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if not faction_mgr:
 		return
 
 	var current_player = GameState.get_active_player()
-	if not faction_mgr.player_has_ability(current_player, "Oath of Moment"):
+	var has_oath = faction_mgr.player_has_ability(current_player, "Oath of Moment")
+	var has_waaagh = faction_mgr.is_waaagh_available(current_player) or faction_mgr.is_waaagh_active(current_player)
+	var plant_eligible = faction_mgr.get_plant_waaagh_banner_eligible_units(current_player) if faction_mgr.has_method("get_plant_waaagh_banner_eligible_units") else []
+
+	if not has_oath and not has_waaagh and plant_eligible.size() == 0:
 		return
 
 	command_panel.add_child(HSeparator.new())
@@ -582,6 +586,82 @@ func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 	section.add_theme_constant_override("separation", 4)
 	command_panel.add_child(section)
 
+	# --- WAAAGH! (Orks) ---
+	if has_waaagh:
+		_setup_waaagh_subsection(section, faction_mgr, current_player)
+
+	# --- Plant the Waaagh! Banner (OA-46) ---
+	if plant_eligible.size() > 0:
+		_setup_plant_waaagh_banner_subsection(section, plant_eligible, current_player)
+
+	# --- Oath of Moment (Space Marines) ---
+	if has_oath:
+		_setup_oath_of_moment_subsection(section, faction_mgr, current_player)
+
+func _setup_waaagh_subsection(section: VBoxContainer, faction_mgr, current_player: int) -> void:
+	"""Build the Waaagh! activation UI for Ork players."""
+	var header = Label.new()
+	header.text = "WAAAGH!"
+	header.add_theme_font_size_override("font_size", 14)
+	header.add_theme_color_override("font_color", Color(0.2, 0.9, 0.2))
+	section.add_child(header)
+
+	var desc = Label.new()
+	desc.text = "Once per battle. All Ork units gain: Advance and Charge, +1 Strength and +1 Attack (melee), 5+ invulnerable save."
+	desc.add_theme_font_size_override("font_size", 10)
+	desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	section.add_child(desc)
+
+	if faction_mgr.is_waaagh_active(current_player):
+		var active_label = Label.new()
+		active_label.text = "WAAAGH! IS ACTIVE"
+		active_label.add_theme_font_size_override("font_size", 12)
+		active_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
+		section.add_child(active_label)
+	elif faction_mgr.is_waaagh_available(current_player):
+		var btn = Button.new()
+		btn.text = "CALL DA WAAAGH!"
+		btn.custom_minimum_size = Vector2(230, 34)
+		btn.add_theme_font_size_override("font_size", 13)
+		_WhiteDwarfTheme.apply_to_button(btn)
+		btn.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
+		btn.tooltip_text = "Declare a Waaagh! — all Ork units gain advance+charge, +1 S/A melee, 5+ invuln this turn"
+		btn.pressed.connect(_on_call_waaagh_pressed)
+		section.add_child(btn)
+
+	section.add_child(HSeparator.new())
+
+func _setup_plant_waaagh_banner_subsection(section: VBoxContainer, plant_eligible: Array, current_player: int) -> void:
+	"""Build the Plant the Waaagh! Banner UI for eligible Nob units."""
+	var header = Label.new()
+	header.text = "PLANT DA WAAAGH! BANNER"
+	header.add_theme_font_size_override("font_size", 14)
+	header.add_theme_color_override("font_color", Color(0.2, 0.9, 0.2))
+	section.add_child(header)
+
+	var desc = Label.new()
+	desc.text = "Once per battle per unit. Grants Waaagh! effects, 4+ invuln, OC 5."
+	desc.add_theme_font_size_override("font_size", 10)
+	desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	section.add_child(desc)
+
+	for target in plant_eligible:
+		var btn = Button.new()
+		btn.text = "Plant Banner: %s" % target.unit_name
+		btn.custom_minimum_size = Vector2(230, 30)
+		btn.add_theme_font_size_override("font_size", 11)
+		_WhiteDwarfTheme.apply_to_button(btn)
+		btn.add_theme_color_override("font_color", Color(0.2, 0.9, 0.2))
+		btn.tooltip_text = "Plant the Waaagh! Banner with %s" % target.unit_name
+		btn.pressed.connect(_on_plant_waaagh_banner_pressed.bind(target.unit_id))
+		section.add_child(btn)
+
+	section.add_child(HSeparator.new())
+
+func _setup_oath_of_moment_subsection(section: VBoxContainer, faction_mgr, current_player: int) -> void:
+	"""Build the Oath of Moment target selection UI for Space Marines."""
 	# Section header
 	var section_title = Label.new()
 	section_title.text = "OATH OF MOMENT"
@@ -638,6 +718,23 @@ func _on_oath_target_pressed(target_unit_id: String) -> void:
 	emit_signal("command_action_requested", {
 		"type": "SELECT_OATH_TARGET",
 		"target_unit_id": target_unit_id
+	})
+
+func _on_call_waaagh_pressed() -> void:
+	"""Handle Waaagh! activation button press."""
+	print("CommandController: WAAAGH! called by human player")
+	emit_signal("command_action_requested", {
+		"type": "CALL_WAAAGH",
+		"player": GameState.get_active_player()
+	})
+
+func _on_plant_waaagh_banner_pressed(unit_id: String) -> void:
+	"""Handle Plant the Waaagh! Banner button press."""
+	print("CommandController: Plant the Waaagh! Banner requested for %s" % unit_id)
+	emit_signal("command_action_requested", {
+		"type": "PLANT_WAAAGH_BANNER",
+		"unit_id": unit_id,
+		"player": GameState.get_active_player()
 	})
 
 func _on_battle_shock_test_pressed(unit_id: String) -> void:
@@ -731,7 +828,7 @@ func _refresh_ui() -> void:
 			if p2_label:
 				p2_label.text = "Player 2 (%s): %d CP" % [GameState.get_faction_name(2), p2_cp]
 
-		# Rebuild the faction abilities section to reflect Oath of Moment changes
+		# Rebuild the faction abilities section to reflect Oath of Moment / Waaagh! changes
 		var old_faction_section = command_panel.get_node_or_null("FactionAbilitiesSection")
 		if old_faction_section:
 			var fa_idx = old_faction_section.get_index()
