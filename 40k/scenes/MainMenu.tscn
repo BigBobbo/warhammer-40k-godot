@@ -180,3 +180,9 @@ layout_mode = 2
 custom_minimum_size = Vector2(200, 40)
 size_flags_horizontal = 4
 text = "Settings"
+
+[node name="QuitButton" type="Button" parent="ScrollContainer/MenuContainer/ButtonSection"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 40)
+size_flags_horizontal = 4
+text = "Quit"
