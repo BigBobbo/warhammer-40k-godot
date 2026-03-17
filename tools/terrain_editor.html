@@ -273,6 +273,9 @@ const COLORS = {
   objectiveCenter: '#ffeb3b',
   vertexHandle: '#e94560',
   vertexHandleHover: '#ff6b8a',
+  arcCenter: '#00bcd4',
+  arcCenterHover: '#26c6da',
+  arcGuide: 'rgba(0, 188, 212, 0.3)',
 };
 
 // ============================================================
@@ -320,10 +323,17 @@ const DEPLOYMENT_DATA = {
   },
   search_and_destroy: {
     id: "search_and_destroy", name: "Search and Destroy",
-    description: "Opposite corner L-shaped zones",
+    description: "Opposite quarter-board zones with 9\" centre exclusion",
     zones: [
-      { player: 1, poly: [{x:0,y:0},{x:24,y:0},{x:24,y:6},{x:6,y:6},{x:6,y:24},{x:0,y:24}] },
-      { player: 2, poly: [{x:20,y:36},{x:38,y:36},{x:38,y:54},{x:44,y:54},{x:44,y:60},{x:20,y:60}] }
+      { player: 1, poly: [
+        {x:0,y:0},{x:22,y:0},
+        {x:22,y:21, arc:{cx:22,cy:30,radius:9,ccw:true}},
+        {x:13,y:30},{x:0,y:30}
+      ]},
+      { player: 2, poly: [
+        {x:44,y:30},{x:31,y:30, arc:{cx:22,cy:30,radius:9,ccw:false}},
+        {x:22,y:39},{x:22,y:60},{x:44,y:60}
+      ]}
     ],
     objectives: [
       {id:"obj_center", position:[22,30], radius_mm:40, zone:"no_mans_land"},
@@ -631,20 +641,64 @@ function drawDeploymentZones() {
     ctx.strokeStyle = isP1 ? COLORS.p1Border : COLORS.p2Border;
     ctx.lineWidth = 2;
 
+    // Build path with arc support
     ctx.beginPath();
+    ctx.moveTo(zone.poly[0].x * scale, zone.poly[0].y * scale);
     for (let i = 0; i < zone.poly.length; i++) {
-      const p = zone.poly[i];
-      if (i === 0) ctx.moveTo(p.x * scale, p.y * scale);
-      else ctx.lineTo(p.x * scale, p.y * scale);
+      const curr = zone.poly[i];
+      const next = zone.poly[(i + 1) % zone.poly.length];
+      if (curr.arc) {
+        const acx = curr.arc.cx * scale;
+        const acy = curr.arc.cy * scale;
+        const ar = curr.arc.radius * scale;
+        const startAngle = Math.atan2(curr.y * scale - acy, curr.x * scale - acx);
+        const endAngle = Math.atan2(next.y * scale - acy, next.x * scale - acx);
+        ctx.arc(acx, acy, ar, startAngle, endAngle, !!curr.arc.ccw);
+      } else {
+        ctx.lineTo(next.x * scale, next.y * scale);
+      }
     }
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
+    // Draw arc guide circles and centre handles
+    for (let i = 0; i < zone.poly.length; i++) {
+      const p = zone.poly[i];
+      if (p.arc) {
+        // Guide circle (subtle)
+        ctx.strokeStyle = COLORS.arcGuide;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(p.arc.cx * scale, p.arc.cy * scale, p.arc.radius * scale, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Arc centre handle (diamond shape)
+        const acx = p.arc.cx * scale;
+        const acy = p.arc.cy * scale;
+        const isHovered = hoveredVertex && hoveredVertex.type === 'arcCenter' && hoveredVertex.player === zone.player && hoveredVertex.idx === i;
+        ctx.fillStyle = isHovered ? COLORS.arcCenterHover : COLORS.arcCenter;
+        ctx.beginPath();
+        const hs = isHovered ? 6 : 5;
+        ctx.moveTo(acx, acy - hs);
+        ctx.lineTo(acx + hs, acy);
+        ctx.lineTo(acx, acy + hs);
+        ctx.lineTo(acx - hs, acy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Restore zone stroke style
+        ctx.strokeStyle = isP1 ? COLORS.p1Border : COLORS.p2Border;
+        ctx.lineWidth = 2;
+      }
+    }
+
     // Draw vertex handles
     for (let i = 0; i < zone.poly.length; i++) {
       const p = zone.poly[i];
-      const isHovered = hoveredVertex && hoveredVertex.player === zone.player && hoveredVertex.idx === i;
+      const isHovered = hoveredVertex && hoveredVertex.type !== 'arcCenter' && hoveredVertex.player === zone.player && hoveredVertex.idx === i;
       ctx.fillStyle = isHovered ? COLORS.vertexHandleHover : COLORS.vertexHandle;
       ctx.beginPath();
       ctx.arc(p.x * scale, p.y * scale, isHovered ? 5 : 4, 0, Math.PI * 2);
@@ -863,12 +917,25 @@ function hitTestTerrain(mx, my) {
 
 function hitTestVertex(mx, my) {
   const threshold = 6 / scale; // 6 pixels
+  // Check arc centre handles first (higher priority when overlapping)
+  for (const zone of deploymentZones.zones) {
+    for (let i = 0; i < zone.poly.length; i++) {
+      const p = zone.poly[i];
+      if (p.arc) {
+        const dx = mx - p.arc.cx, dy = my - p.arc.cy;
+        if (Math.sqrt(dx * dx + dy * dy) < threshold) {
+          return { player: zone.player, idx: i, type: 'arcCenter' };
+        }
+      }
+    }
+  }
+  // Then check vertex handles
   for (const zone of deploymentZones.zones) {
     for (let i = 0; i < zone.poly.length; i++) {
       const p = zone.poly[i];
       const dx = mx - p.x, dy = my - p.y;
       if (Math.sqrt(dx * dx + dy * dy) < threshold) {
-        return { player: zone.player, idx: i };
+        return { player: zone.player, idx: i, type: 'vertex' };
       }
     }
   }
@@ -957,12 +1024,16 @@ function onMouseDown(e) {
   const pos = mouseToInches(e);
   const mx = pos.x, my = pos.y;
 
-  // Check vertex handles first (deployment zones)
+  // Check vertex/arc handles first (deployment zones)
   const vertex = hitTestVertex(mx, my);
   if (vertex) {
     const zone = deploymentZones.zones.find(z => z.player === vertex.player);
     const origPoly = JSON.parse(JSON.stringify(zone.poly));
-    dragState = { type: 'vertex', player: vertex.player, idx: vertex.idx, origPoly: origPoly };
+    if (vertex.type === 'arcCenter') {
+      dragState = { type: 'arcCenter', player: vertex.player, idx: vertex.idx, origPoly: origPoly };
+    } else {
+      dragState = { type: 'vertex', player: vertex.player, idx: vertex.idx, origPoly: origPoly };
+    }
     return;
   }
 
@@ -1028,13 +1099,23 @@ function onMouseMove(e) {
     piece.position = [newX, newY];
     updateTerrainPropsFromData();
     render();
+  } else if (dragState.type === 'arcCenter') {
+    const zone = deploymentZones.zones.find(z => z.player === dragState.player);
+    let newX = Math.round(mx * 2) / 2;
+    let newY = Math.round(my * 2) / 2;
+    zone.poly[dragState.idx].arc.cx = newX;
+    zone.poly[dragState.idx].arc.cy = newY;
+    updateDeployVerticesUI();
+    render();
   } else if (dragState.type === 'vertex') {
     const zone = deploymentZones.zones.find(z => z.player === dragState.player);
     let newX = Math.round(mx * 2) / 2;
     let newY = Math.round(my * 2) / 2;
     newX = Math.max(0, Math.min(BOARD_W, newX));
     newY = Math.max(0, Math.min(BOARD_H, newY));
+    const arcData = zone.poly[dragState.idx].arc;
     zone.poly[dragState.idx] = { x: newX, y: newY };
+    if (arcData) zone.poly[dragState.idx].arc = arcData;
     updateDeployVerticesUI();
     render();
   } else if (dragState.type === 'objective') {
@@ -1207,14 +1288,32 @@ function updateDeployVerticesUI() {
 
     for (let i = 0; i < zone.poly.length; i++) {
       const v = zone.poly[i];
+      const hasArc = !!v.arc;
       const item = document.createElement('div');
       item.className = 'vertex-item';
-      item.innerHTML = `
+      item.style.flexWrap = 'wrap';
+      let html = `
         <span style="width:20px; color:#808090;">${i}</span>
-        <input type="number" step="0.5" value="${v.x}" onchange="updateVertex(${player}, ${i}, 'x', this.value)">
-        <input type="number" step="0.5" value="${v.y}" onchange="updateVertex(${player}, ${i}, 'y', this.value)">
+        <input type="number" step="0.5" value="${v.x}" onchange="updateVertex(${player}, ${i}, 'x', this.value)" title="X">
+        <input type="number" step="0.5" value="${v.y}" onchange="updateVertex(${player}, ${i}, 'y', this.value)" title="Y">
+        <button class="btn-small${hasArc ? '' : ''}" onclick="toggleArc(${player}, ${i})" style="padding:1px 4px; font-size:10px; ${hasArc ? 'background:#00bcd4; color:#fff; border-color:#00bcd4;' : ''}" title="Toggle arc on edge from this vertex to next">arc</button>
         <button class="btn-small danger" onclick="deleteVertex(${player}, ${i})" style="padding:1px 4px;">x</button>
       `;
+      if (hasArc) {
+        html += `
+        <div style="display:flex; gap:3px; align-items:center; width:100%; margin-top:3px; padding-left:24px;">
+          <span style="font-size:9px; color:#00bcd4;">cx:</span>
+          <input type="number" step="0.5" value="${v.arc.cx}" onchange="updateArcProp(${player}, ${i}, 'cx', this.value)" style="width:42px;">
+          <span style="font-size:9px; color:#00bcd4;">cy:</span>
+          <input type="number" step="0.5" value="${v.arc.cy}" onchange="updateArcProp(${player}, ${i}, 'cy', this.value)" style="width:42px;">
+          <span style="font-size:9px; color:#00bcd4;">r:</span>
+          <input type="number" step="0.5" value="${v.arc.radius}" onchange="updateArcProp(${player}, ${i}, 'radius', this.value)" style="width:42px;" min="0.5">
+          <label style="font-size:9px; color:#00bcd4; display:flex; align-items:center; gap:2px;" title="Counter-clockwise">
+            <input type="checkbox" ${v.arc.ccw ? 'checked' : ''} onchange="updateArcProp(${player}, ${i}, 'ccw', this.checked)" style="width:12px; height:12px;">ccw
+          </label>
+        </div>`;
+      }
+      item.innerHTML = html;
       container.appendChild(item);
     }
   }
@@ -1226,6 +1325,36 @@ function updateVertex(player, idx, coord, value) {
     zone.poly[idx][coord] = parseFloat(value) || 0;
     render();
   }
+}
+
+function toggleArc(player, idx) {
+  const zone = deploymentZones.zones.find(z => z.player === player);
+  if (!zone) return;
+  const v = zone.poly[idx];
+  if (v.arc) {
+    delete v.arc;
+  } else {
+    // Default arc: centre at board centre, radius calculated from vertex distance
+    const next = zone.poly[(idx + 1) % zone.poly.length];
+    const midX = (v.x + next.x) / 2;
+    const midY = (v.y + next.y) / 2;
+    const dx = v.x - midX, dy = v.y - midY;
+    const halfDist = Math.sqrt(dx * dx + dy * dy);
+    v.arc = { cx: midX, cy: midY, radius: Math.max(halfDist, 1), ccw: false };
+  }
+  updateDeployVerticesUI();
+  render();
+}
+
+function updateArcProp(player, idx, prop, value) {
+  const zone = deploymentZones.zones.find(z => z.player === player);
+  if (!zone || !zone.poly[idx].arc) return;
+  if (prop === 'ccw') {
+    zone.poly[idx].arc.ccw = !!value;
+  } else {
+    zone.poly[idx].arc[prop] = parseFloat(value) || 0;
+  }
+  render();
 }
 
 function updateObjectivesUI() {

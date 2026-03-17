@@ -1,7 +1,7 @@
 {
 	"id": "search_and_destroy",
 	"name": "Search and Destroy",
-	"description": "Opposite corner L-shaped zones",
+	"description": "Opposite quarter-board zones with 9\" centre exclusion",
 	"zones": [
 		{
 			"player": 1,
@@ -16,14 +16,16 @@
 				},
 				{
 					"x": 22,
-					"y": 6
+					"y": 21,
+					"arc": {
+						"cx": 22,
+						"cy": 30,
+						"radius": 9,
+						"ccw": true
+					}
 				},
 				{
-					"x": 22,
-					"y": 19.5
-				},
-				{
-					"x": 12,
+					"x": 13,
 					"y": 30
 				},
 				{
@@ -36,27 +38,29 @@
 			"player": 2,
 			"poly": [
 				{
-					"x": 20,
-					"y": 42
-				},
-				{
-					"x": 30,
-					"y": 30
-				},
-				{
 					"x": 44,
 					"y": 30
 				},
 				{
-					"x": 44,
-					"y": 54
+					"x": 31,
+					"y": 30,
+					"arc": {
+						"cx": 22,
+						"cy": 30,
+						"radius": 9,
+						"ccw": false
+					}
 				},
 				{
-					"x": 44,
+					"x": 22,
+					"y": 39
+				},
+				{
+					"x": 22,
 					"y": 60
 				},
 				{
-					"x": 20,
+					"x": 44,
 					"y": 60
 				}
 			]
