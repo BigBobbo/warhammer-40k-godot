@@ -33,6 +33,7 @@ var _p2_fixed_mission_ids: Array = []
 @onready var load_button: Button = $ScrollContainer/MenuContainer/ButtonSection/LoadButton
 @onready var replay_button: Button = $ScrollContainer/MenuContainer/ButtonSection/ReplayButton
 @onready var settings_button: Button = $ScrollContainer/MenuContainer/ButtonSection/SettingsButton
+@onready var quit_button: Button = $ScrollContainer/MenuContainer/ButtonSection/QuitButton
 
 # Configuration options
 var terrain_options = [
@@ -157,7 +158,7 @@ func _apply_theme() -> void:
 		WhiteDwarfThemeData.apply_to_button(dropdown)
 
 	# Buttons
-	for btn in [start_button, multiplayer_button, load_button, replay_button, settings_button]:
+	for btn in [start_button, multiplayer_button, load_button, replay_button, settings_button, quit_button]:
 		WhiteDwarfThemeData.apply_to_button(btn)
 
 func _apply_theme_to_dynamic_elements() -> void:
@@ -702,6 +703,12 @@ func _connect_signals() -> void:
 	load_button.pressed.connect(_on_load_button_pressed)
 	replay_button.pressed.connect(_on_replay_button_pressed)
 	settings_button.pressed.connect(_on_settings_button_pressed)
+	quit_button.pressed.connect(_on_quit_button_pressed)
+
+	# Hide quit button on web platform (not applicable)
+	if OS.has_feature("web"):
+		quit_button.visible = false
+		print("MainMenu: Quit button hidden (web platform)")
 
 	# Show/hide multiplayer button based on feature flag
 	multiplayer_button.visible = FeatureFlags.is_multiplayer_available()
@@ -1037,6 +1044,10 @@ func _on_settings_button_pressed() -> void:
 	var settings_menu = SettingsMenuScript.new()
 	settings_menu.show_return_to_menu = false
 	add_child(settings_menu)
+
+func _on_quit_button_pressed() -> void:
+	print("MainMenu: Quit button pressed")
+	get_tree().quit()
 
 # ============================================================================
 # Replay Browser
