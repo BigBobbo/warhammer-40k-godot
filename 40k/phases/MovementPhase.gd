@@ -6042,6 +6042,18 @@ func get_available_actions() -> Array:
 				"has_ds_choice": has_ds_choice
 			})
 
+	# Debug: Log all units and their embarked status for transport diagnostics
+	print("MovementPhase: get_available_actions — checking %d units for player %d" % [units.size(), current_player])
+	for dbg_id in units:
+		var dbg_unit = units[dbg_id]
+		var dbg_name = dbg_unit.get("meta", {}).get("name", dbg_id)
+		var dbg_status = dbg_unit.get("status", -1)
+		var dbg_embarked = dbg_unit.get("embarked_in", null)
+		var dbg_transport_data = dbg_unit.get("transport_data", {})
+		var dbg_embarked_units = dbg_transport_data.get("embarked_units", []) if dbg_transport_data else []
+		if dbg_embarked != null or dbg_embarked_units.size() > 0:
+			print("MovementPhase:   TRANSPORT-RELATED: %s (id=%s) status=%d embarked_in=%s embarked_units=%s" % [dbg_name, dbg_id, dbg_status, str(dbg_embarked), str(dbg_embarked_units)])
+
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
@@ -6053,14 +6065,25 @@ func get_available_actions() -> Array:
 			var transport_id = unit.embarked_in
 			var transport = get_unit(transport_id)
 			var transport_name = transport.get("meta", {}).get("name", transport_id) if transport else transport_id
+			print("MovementPhase: Found embarked unit %s (id=%s) in transport %s (id=%s)" % [unit_name, unit_id, transport_name, transport_id])
 			# Check if disembark is valid (transport hasn't Advanced/Fell Back)
-			var can_disembark = TransportManager.can_disembark(unit_id)
-			if can_disembark.valid:
+			var can_disembark_result = TransportManager.can_disembark(unit_id)
+			print("MovementPhase: can_disembark result for %s: %s" % [unit_name, str(can_disembark_result)])
+			if can_disembark_result.valid:
 				actions.append({
 					"type": "DISEMBARK_UNIT",
 					"actor_unit_id": unit_id,
 					"description": "Disembark %s from %s" % [unit_name, transport_name]
 				})
+				print("MovementPhase: Added DISEMBARK_UNIT action for %s" % unit_name)
+			else:
+				# Still show the unit in the list so user can see it, but mark as blocked
+				actions.append({
+					"type": "DISEMBARK_BLOCKED",
+					"actor_unit_id": unit_id,
+					"description": "%s (Embarked in %s — %s)" % [unit_name, transport_name, can_disembark_result.get("reason", "cannot disembark")]
+				})
+				print("MovementPhase: Disembark not valid for %s — reason: %s (still adding to list as blocked)" % [unit_name, can_disembark_result.get("reason", "unknown")])
 			continue
 
 		# Skip if already moved

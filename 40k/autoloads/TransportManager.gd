@@ -61,22 +61,29 @@ func can_embark(unit_id: String, transport_id: String) -> Dictionary:
 # Check if a unit can disembark from its transport
 func can_disembark(unit_id: String) -> Dictionary:
 	var unit = GameState.get_unit(unit_id)
+	print("TransportManager: can_disembark(%s) — unit found: %s" % [unit_id, str(unit != null and not unit.is_empty())])
 
 	if not unit:
+		print("TransportManager: can_disembark — unit not found in live GameState")
 		return {"valid": false, "reason": "Unit not found"}
 
-	if not unit.get("embarked_in", null):
+	var embarked_in = unit.get("embarked_in", null)
+	print("TransportManager: can_disembark — unit embarked_in (live state): %s" % str(embarked_in))
+	if not embarked_in:
 		return {"valid": false, "reason": "Unit is not embarked"}
 
-	var transport = GameState.get_unit(unit.embarked_in)
+	var transport = GameState.get_unit(embarked_in)
 	if not transport:
+		print("TransportManager: can_disembark — transport %s not found in live GameState" % str(embarked_in))
 		return {"valid": false, "reason": "Transport not found"}
 
 	# Check if transport has advanced or fell back
-	if transport.get("flags", {}).get("advanced", false):
+	var transport_flags = transport.get("flags", {})
+	print("TransportManager: can_disembark — transport flags: %s" % str(transport_flags))
+	if transport_flags.get("advanced", false):
 		return {"valid": false, "reason": "Cannot disembark from transport that Advanced"}
 
-	if transport.get("flags", {}).get("fell_back", false):
+	if transport_flags.get("fell_back", false):
 		return {"valid": false, "reason": "Cannot disembark from transport that Fell Back"}
 
 	return {"valid": true}
