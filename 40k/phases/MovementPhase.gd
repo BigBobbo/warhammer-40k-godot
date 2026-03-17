@@ -255,10 +255,17 @@ func _on_phase_enter() -> void:
 		# OA-42: Clear Scatter! per-unit tracking for new turn
 		ability_mgr.clear_scatter_turn_tracking()
 
-	# Check Thievin' Scavengers ability (Gretchin) before movement begins
-	_check_thievin_scavengers()
-
 	_initialize_movement()
+
+	# Check Thievin' Scavengers ability (Gretchin) before movement begins.
+	# We must wait until the phase header ("--- Movement Phase ---") has been
+	# logged to GameEventLog so our entries appear underneath it. The phase
+	# header is added by GameEventLog._on_phase_changed which fires AFTER
+	# _on_phase_enter returns (PhaseManager emits phase_changed on line after
+	# enter_phase). So we listen for the next entry_added signal.
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.entry_added.connect(_on_phase_header_logged, CONNECT_ONE_SHOT)
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Movement Phase")
@@ -313,6 +320,12 @@ func _initialize_movement() -> void:
 		log_phase_message("No units available for movement, completing phase")
 		emit_signal("phase_completed")
 
+func _on_phase_header_logged(_text: String, _entry_type: String) -> void:
+	"""Called once when the first GameEventLog entry is added after we connect.
+	This is the phase_header entry. Now safe to add our Thievin' Scavengers
+	entries so they appear directly underneath."""
+	_check_thievin_scavengers()
+
 func _check_thievin_scavengers() -> void:
 	"""Thievin' Scavengers (Gretchin datasheet ability):
 	At the start of your Movement phase, roll one D6 for each objective marker
@@ -322,9 +335,38 @@ func _check_thievin_scavengers() -> void:
 	var current_player = get_current_player()
 	var units = GameState.state.get("units", {})
 	var objectives = GameState.state.get("board", {}).get("objectives", [])
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+
+	# First check: does any unit belonging to this player have the ability?
+	var scavenger_units: Array = []
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != current_player:
+			continue
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		for ability in abilities:
+			var ability_name = ""
+			if ability is String:
+				ability_name = ability
+			elif ability is Dictionary:
+				ability_name = ability.get("name", "")
+			if ability_name == "Thievin' Scavengers" or ability_name == "Thievin\u2019 Scavengers":
+				scavenger_units.append(unit_id)
+				break
+
+	if scavenger_units.is_empty():
+		# No units with this ability — skip silently (player doesn't have Gretchin)
+		return
+
+	print("MovementPhase: Thievin' Scavengers — checking %d unit(s) with ability: %s" % [scavenger_units.size(), str(scavenger_units)])
 
 	if objectives.is_empty():
+		print("MovementPhase: Thievin' Scavengers — no objectives on board, skipping")
 		return
+
+	# Refresh objective control state before checking, so it's current
+	if MissionManager:
+		MissionManager.check_all_objectives()
 
 	# Control radius matches MissionManager._check_objective_control: 3" + 20mm objective radius
 	var control_radius = Measurement.inches_to_px(3.78740157)
@@ -339,6 +381,7 @@ func _check_thievin_scavengers() -> void:
 			continue
 		var controller = MissionManager.objective_control_state.get(obj.id, 0)
 		if controller != current_player:
+			print("MovementPhase: Thievin' Scavengers — objective %s controlled by player %d, not current player %d" % [obj.id, controller, current_player])
 			continue
 
 		var obj_pos = obj.position
@@ -347,30 +390,14 @@ func _check_thievin_scavengers() -> void:
 
 		# Check if any non-battle-shocked unit with the ability is within range
 		var has_ability_unit = false
-		for unit_id in units:
+		for unit_id in scavenger_units:
 			var unit = units[unit_id]
-			if unit.get("owner", 0) != current_player:
-				continue
 			if unit.get("flags", {}).get("battle_shocked", false):
+				print("MovementPhase: Thievin' Scavengers — unit %s is Battle-shocked, skipping" % unit_id)
 				continue
 			var status = unit.get("status", GameStateData.UnitStatus.UNDEPLOYED)
 			if status == GameStateData.UnitStatus.UNDEPLOYED:
-				continue
-
-			# Check if unit has "Thievin' Scavengers" ability
-			var has_scavengers = false
-			var abilities = unit.get("meta", {}).get("abilities", [])
-			for ability in abilities:
-				var ability_name = ""
-				if ability is String:
-					ability_name = ability
-				elif ability is Dictionary:
-					ability_name = ability.get("name", "")
-				if ability_name == "Thievin' Scavengers":
-					has_scavengers = true
-					break
-
-			if not has_scavengers:
+				print("MovementPhase: Thievin' Scavengers — unit %s is not deployed (status=%s), skipping" % [unit_id, str(status)])
 				continue
 
 			# Check if any alive model in this unit is within range of the objective
@@ -386,6 +413,8 @@ func _check_thievin_scavengers() -> void:
 				if edge_distance <= control_radius:
 					has_ability_unit = true
 					break
+				else:
+					print("MovementPhase: Thievin' Scavengers — model in %s is %.1f\" from objective %s (need <= %.1f\")" % [unit_id, Measurement.px_to_inches(edge_distance), obj.id, Measurement.px_to_inches(control_radius)])
 
 			if has_ability_unit:
 				break
@@ -394,6 +423,10 @@ func _check_thievin_scavengers() -> void:
 			qualifying_objectives.append(obj)
 
 	if qualifying_objectives.is_empty():
+		var no_qualify_text = "Thievin' Scavengers: No controlled objectives with Gretchin in range — ability does not trigger"
+		print("MovementPhase: %s" % no_qualify_text)
+		if game_event_log:
+			game_event_log.add_info_entry(no_qualify_text)
 		return
 
 	# Roll 1D6 per qualifying objective
@@ -409,7 +442,6 @@ func _check_thievin_scavengers() -> void:
 			any_success = true
 
 	# Log the results
-	var game_event_log = get_node_or_null("/root/GameEventLog")
 	var roll_descriptions: Array = []
 	for r in rolls:
 		var result_text = "%d (pass)" % r.roll if r.success else "%d (fail)" % r.roll
@@ -418,7 +450,6 @@ func _check_thievin_scavengers() -> void:
 	var rolls_summary = ", ".join(roll_descriptions)
 	var log_text = "Thievin' Scavengers: Rolled for %d objective(s) — %s" % [qualifying_objectives.size(), rolls_summary]
 	print("MovementPhase: %s" % log_text)
-
 	if game_event_log:
 		game_event_log.add_info_entry(log_text)
 
@@ -433,6 +464,7 @@ func _check_thievin_scavengers() -> void:
 		})
 
 	# If any roll was 4+, gain 1CP (subject to bonus CP cap)
+	var notification_text := ""
 	if any_success:
 		if GameState.can_gain_bonus_cp(current_player):
 			var current_cp = GameState.state.get("players", {}).get(str(current_player), {}).get("cp", 0)
@@ -445,19 +477,71 @@ func _check_thievin_scavengers() -> void:
 			GameState.record_bonus_cp_gained(current_player, 1)
 
 			var gain_text = "Thievin' Scavengers: Player %d gains 1CP! (now %dCP)" % [current_player, current_cp + 1]
+			notification_text = "Thievin' Scavengers\nRolled: %s\n+1 CP! (now %d CP)" % [rolls_summary, current_cp + 1]
 			print("MovementPhase: %s" % gain_text)
 			if game_event_log:
 				game_event_log.add_info_entry(gain_text)
 		else:
 			var cap_text = "Thievin' Scavengers: Player %d rolled 4+ but already gained bonus CP this round (cap reached)" % current_player
+			notification_text = "Thievin' Scavengers\nRolled: %s\nCP cap reached — no CP gained"  % rolls_summary
 			print("MovementPhase: %s" % cap_text)
 			if game_event_log:
 				game_event_log.add_info_entry(cap_text)
 	else:
 		var fail_text = "Thievin' Scavengers: No rolls of 4+ — no CP gained"
+		notification_text = "Thievin' Scavengers\nRolled: %s\nNo 4+ — no CP gained" % rolls_summary
 		print("MovementPhase: %s" % fail_text)
 		if game_event_log:
 			game_event_log.add_info_entry(fail_text)
+
+	# Show a floating on-screen notification so the result is clearly visible
+	_show_thievin_scavengers_notification(notification_text, any_success)
+
+
+func _show_thievin_scavengers_notification(text: String, success: bool) -> void:
+	"""Show a temporary on-screen banner for Thievin' Scavengers result."""
+	var main_node = get_node_or_null("/root/Main")
+	if not main_node:
+		return
+
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.12, 0.08, 0.92) if success else Color(0.12, 0.08, 0.08, 0.92)
+	style.border_width_left = 4
+	style.border_color = Color(0.3, 0.85, 0.3) if success else Color(0.7, 0.5, 0.2)
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_right = 6
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	panel.add_theme_stylebox_override("panel", style)
+
+	var label = Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.75))
+	panel.add_child(label)
+
+	# Position at top-center of screen
+	panel.anchors_preset = Control.PRESET_CENTER_TOP
+	panel.anchor_top = 0.12
+	panel.anchor_bottom = 0.12
+	panel.anchor_left = 0.5
+	panel.anchor_right = 0.5
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_END
+
+	main_node.add_child(panel)
+
+	# Animate: fade in, hold, fade out, remove
+	panel.modulate = Color(1, 1, 1, 0)
+	var tween = panel.create_tween()
+	tween.tween_property(panel, "modulate", Color(1, 1, 1, 1), 0.3)
+	tween.tween_interval(3.0)
+	tween.tween_property(panel, "modulate", Color(1, 1, 1, 0), 0.5)
+	tween.tween_callback(panel.queue_free)
 
 
 func validate_action(action: Dictionary) -> Dictionary:
@@ -858,8 +942,16 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	var dest_vec = Vector2(dest[0], dest[1])
 
 	# Get model's current position (may be staged position)
-	# Also check attached character units if model not found in the bodyguard unit
-	var model = _get_model_in_unit(unit_id, model_id)
+	# If model_source_unit_id is provided (attached character), look there first
+	# to avoid model ID collisions (e.g. both units having "m1")
+	var model_source_unit_id = payload.get("model_source_unit_id", "")
+	var model = {}
+	if model_source_unit_id != "":
+		model = _get_model_in_unit(model_source_unit_id, model_id)
+		if not model.is_empty():
+			print("[MovementPhase] Found model %s in specified source unit %s" % [model_id, model_source_unit_id])
+	if model.is_empty():
+		model = _get_model_in_unit(unit_id, model_id)
 	if model.is_empty():
 		var bodyguard = get_unit(unit_id)
 		var attached_chars = bodyguard.get("attachment_data", {}).get("attached_characters", [])
@@ -3580,9 +3672,19 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	print("[MovementPhase] Processing STAGE_MODEL_MOVE for model ", model_id, " to ", dest_vec)
 
 	var move_data = active_moves[unit_id]
-	var model = _get_model_in_unit(unit_id, model_id)
-	# Also check attached character units if model not found in the bodyguard unit
+	# If model_source_unit_id is provided (attached character), look there first
+	# to avoid model ID collisions (e.g. both units having "m1")
+	var model_source_unit_id = payload.get("model_source_unit_id", "")
+	var model = {}
 	var model_actual_unit_id = unit_id
+	if model_source_unit_id != "":
+		model = _get_model_in_unit(model_source_unit_id, model_id)
+		if not model.is_empty():
+			model_actual_unit_id = model_source_unit_id
+			print("[MovementPhase] Processing stage move for attached character model %s (source unit %s)" % [model_id, model_source_unit_id])
+	if model.is_empty():
+		model = _get_model_in_unit(unit_id, model_id)
+	# Also check attached character units if model not found in the bodyguard unit
 	if model.is_empty():
 		var bodyguard = get_unit(unit_id)
 		var attached_chars = bodyguard.get("attachment_data", {}).get("attached_characters", [])
@@ -3662,9 +3764,10 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 		print("  - Pivot cost applied: ", move_data.get("pivot_value", 0.0), "\"")
 
 	# Emit both signals for visual update
-	emit_signal("model_drop_preview", unit_id, model_id, [current_pos, dest_vec], distance_inches, true)
+	# Use model_actual_unit_id so visual tokens (which are keyed by their real unit_id) are found
+	emit_signal("model_drop_preview", model_actual_unit_id, model_id, [current_pos, dest_vec], distance_inches, true)
 	# Also emit committed signal so model visually moves (but game state not updated)
-	emit_signal("model_drop_committed", unit_id, model_id, dest_vec, rotation)
+	emit_signal("model_drop_committed", model_actual_unit_id, model_id, dest_vec, rotation)
 
 	# Return result without state changes (staged only)
 	return create_result(true, [], "", {

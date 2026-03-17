@@ -1453,12 +1453,13 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 	print("Found model: ", model)
 
 	if model.unit_id != active_unit_id:
-		# Check if clicked model belongs to a character attached to the active bodyguard unit
+		# Allow dragging attached character models (e.g. Deffkilla Wartrike attached to Warbikers)
+		# They are part of the combined unit and should be positionable during movement
 		if _is_model_in_active_unit_group(model.unit_id):
-			print("MovementController: Clicked attached character model — character moves automatically with bodyguard")
+			print("MovementController: Dragging attached character model from unit %s (bodyguard: %s)" % [model.unit_id, active_unit_id])
+		else:
+			print("Model belongs to different unit: ", model.unit_id, " vs ", active_unit_id)
 			return
-		print("Model belongs to different unit: ", model.unit_id, " vs ", active_unit_id)
-		return
 
 	selected_model = model
 	dragging_model = true
@@ -1608,14 +1609,19 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 		print("  Total staged: ", total_distance, " inches")
 		
 		# Send STAGE_MODEL_MOVE action instead of SET_MODEL_DEST
+		var payload = {
+			"model_id": selected_model.model_id,
+			"dest": [world_pos.x, world_pos.y],
+			"rotation": selected_model.get("rotation", 0.0)  # Preserve rotation
+		}
+		# Include source unit ID when model belongs to an attached character
+		# (model IDs like "m1" can collide between bodyguard and character units)
+		if selected_model.get("unit_id", "") != "" and selected_model.unit_id != active_unit_id:
+			payload["model_source_unit_id"] = selected_model.unit_id
 		var action = {
 			"type": "STAGE_MODEL_MOVE",  # Changed to stage instead of commit
 			"actor_unit_id": active_unit_id,
-			"payload": {
-				"model_id": selected_model.model_id,
-				"dest": [world_pos.x, world_pos.y],
-				"rotation": selected_model.get("rotation", 0.0)  # Preserve rotation
-			}
+			"payload": payload
 		}
 		print("  Action: ", action)
 		emit_signal("move_action_requested", action)
