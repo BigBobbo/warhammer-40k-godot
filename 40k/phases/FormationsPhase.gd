@@ -315,23 +315,16 @@ func _validate_declare_transport_embarkation(action: Dictionary) -> Dictionary:
 		if _is_unit_declared_embarked(unit_id, player):
 			errors.append("Unit already declared as embarked: " + unit_id)
 
-		# Count models for capacity
-		var model_count = 0
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				model_count += 1
-		total_models += model_count
+		# Count models for capacity (including any attached characters)
+		total_models += _get_unit_model_count_with_attached(unit_id, player)
 
 	# Check capacity
-	# Also count any already-declared units in this transport
+	# Also count any already-declared units in this transport (including attached characters)
 	var formations = player_formations.get(player, {})
 	var existing_embarked = formations.get("transport_embarkations", {}).get(transport_id, [])
 	var existing_models = 0
 	for existing_unit_id in existing_embarked:
-		var existing_unit = get_unit(existing_unit_id)
-		for model in existing_unit.get("models", []):
-			if model.get("alive", true):
-				existing_models += 1
+		existing_models += _get_unit_model_count_with_attached(existing_unit_id, player)
 
 	if existing_models + total_models > capacity:
 		errors.append("Exceeds transport capacity: %d + %d > %d" % [existing_models, total_models, capacity])
@@ -695,6 +688,24 @@ func _is_unit_declared_in_reserves(unit_id: String, player: int) -> bool:
 			return true
 	return false
 
+# Count alive models in a unit, plus models from any characters declared as attached to it
+func _get_unit_model_count_with_attached(unit_id: String, player: int) -> int:
+	var unit = get_unit(unit_id)
+	var count = 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			count += 1
+	# Check if any characters are declared as attached to this unit (bodyguard)
+	var formations = player_formations.get(player, {})
+	var attachments = formations.get("leader_attachments", {})
+	for character_id in attachments:
+		if attachments[character_id] == unit_id:
+			var char_unit = get_unit(character_id)
+			for model in char_unit.get("models", []):
+				if model.get("alive", true):
+					count += 1
+	return count
+
 func _get_declared_reserves_points(player: int) -> int:
 	var total = 0
 	var formations = player_formations.get(player, {})
@@ -1028,10 +1039,7 @@ func get_available_actions() -> Array:
 		var already_embarked_ids = formations.get("transport_embarkations", {}).get(transport_id, [])
 		var already_embarked_count = 0
 		for emb_id in already_embarked_ids:
-			var emb_unit = get_unit(emb_id)
-			for m in emb_unit.get("models", []):
-				if m.get("alive", true):
-					already_embarked_count += 1
+			already_embarked_count += _get_unit_model_count_with_attached(emb_id, current_player)
 		if already_embarked_count < capacity:
 			var all_player_units = GameState.get_units_for_player(current_player)
 			for uid in all_player_units:
