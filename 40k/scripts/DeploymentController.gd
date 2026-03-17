@@ -1804,7 +1804,7 @@ func _process(delta: float) -> void:
 
 			if base_type == "circular":
 				var radius_px = Measurement.base_radius_px(model_data["base_mm"])
-				is_valid = _circle_wholly_in_polygon(mouse_pos, radius_px, zone) and not _overlaps_with_existing_models(mouse_pos, radius_px)
+				is_valid = _circle_wholly_in_polygon(mouse_pos, radius_px, zone) and not _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation)
 			else:
 				is_valid = _shape_wholly_in_polygon(mouse_pos, model_data, rotation, zone) and not _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation)
 
@@ -2145,7 +2145,7 @@ func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: Pa
 			var radius_px = Measurement.base_radius_px(model_data["base_mm"])
 			if not _circle_wholly_in_polygon(pos, radius_px, zone):
 				return false
-			if _overlaps_with_existing_models(pos, radius_px):
+			if _overlaps_with_existing_models_shape(pos, model_data, model_rotation):
 				return false
 		else:
 			# For non-circular bases, use shape-aware validation
