@@ -24,6 +24,7 @@ const UI_MODAL_Z: int = 2000     # Modal dialogs (wound allocation, save/load, g
 @onready var active_player_badge: Label = $HUD_Bottom/HBoxContainer/ActivePlayerBadge
 @onready var status_label: Label = $HUD_Bottom/HBoxContainer/StatusLabel
 @onready var auto_decline_overwatch: CheckButton = $HUD_Bottom/HBoxContainer/AutoDeclineOverwatch
+@onready var auto_decline_command_reroll: CheckButton = $HUD_Bottom/HBoxContainer/AutoDeclineCommandReroll
 @onready var phase_action_button: Button = $HUD_Bottom/HBoxContainer/PhaseActionButton
 
 @onready var unit_list: ItemList = $HUD_Right/VBoxContainer/UnitListPanel

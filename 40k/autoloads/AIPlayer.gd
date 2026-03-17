@@ -1075,6 +1075,19 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 			should_reroll = AIDecisionMaker.evaluate_command_reroll_battleshock(player, total, leadership, snapshot)
 			print("AIPlayer: Battle-shock reroll evaluation — rolled %d, leadership %d, reroll: %s" % [total, leadership, str(should_reroll)])
 
+		"save_roll":
+			# Evaluate save reroll: reroll if the failed roll was close to the threshold
+			var original_rolls = roll_context.get("original_rolls", [])
+			var save_needed = roll_context.get("save_needed", 7)
+			if not original_rolls.is_empty():
+				var failed_roll = original_rolls[0]
+				# AI will reroll if there's at least a 50% chance of success (save_needed <= 4)
+				# or if the roll was close (failed by 1)
+				should_reroll = (failed_roll >= save_needed - 2) or (save_needed <= 4)
+				print("AIPlayer: Save reroll evaluation — rolled %d, need %d+, reroll: %s" % [failed_roll, save_needed, str(should_reroll)])
+			else:
+				print("AIPlayer: Save reroll — no rolls in context, declining")
+
 		_:
 			# Unknown roll type — decline
 			print("AIPlayer: Unknown reroll type '%s' — declining" % roll_type)

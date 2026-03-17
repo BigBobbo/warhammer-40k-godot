@@ -60,6 +60,12 @@ button_pressed = true
 tooltip_text = "Auto-decline all Fire Overwatch opportunities"
 text = "Auto-Decline Overwatch"
 
+[node name="AutoDeclineCommandReroll" type="CheckButton" parent="HUD_Bottom/HBoxContainer"]
+layout_mode = 2
+button_pressed = true
+tooltip_text = "Auto-decline all Command Re-roll opportunities (1 CP to re-roll a dice)"
+text = "Auto-Decline Reroll"
+
 [node name="PhaseActionButton" type="Button" parent="HUD_Bottom/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 10

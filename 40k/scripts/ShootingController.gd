@@ -610,6 +610,13 @@ func set_phase(phase: BasePhase) -> void:
 			phase.throat_slittas_available.connect(_on_throat_slittas_available)
 			print("║ P1-12: Connected throat_slittas_available signal")
 
+		# Command Re-roll: Connect for save reroll opportunities
+		if phase.has_signal("command_reroll_opportunity"):
+			if phase.command_reroll_opportunity.is_connected(_on_command_reroll_opportunity):
+				phase.command_reroll_opportunity.disconnect(_on_command_reroll_opportunity)
+			phase.command_reroll_opportunity.connect(_on_command_reroll_opportunity)
+			print("║ Connected command_reroll_opportunity signal")
+
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
 		
@@ -4814,3 +4821,66 @@ func _calc_expected_variable_value(raw_str: String) -> float:
 		return float(fallback)
 
 	return 1.0
+
+# ============================================================================
+# COMMAND RE-ROLL HANDLERS (Save Rerolls)
+# ============================================================================
+
+func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:
+	"""Handle Command Re-roll opportunity for a failed save roll."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ ShootingController: COMMAND RE-ROLL OPPORTUNITY (Save)")
+	print("║ Unit: %s, Player: %d" % [unit_id, player])
+	print("║ Roll: %s, Context: %s" % [str(roll_context.get("original_rolls", [])), roll_context.get("context_text", "")])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Skip dialog for AI players — AIPlayer handles the decision via signal
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("ShootingController: Skipping command reroll dialog for AI player %d" % player)
+		return
+
+	# Check auto-decline toggle
+	var auto_decline_btn = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineCommandReroll")
+	if auto_decline_btn and auto_decline_btn.button_pressed:
+		print("ShootingController: Auto-declining Command Re-roll for player %d (toggle enabled)" % player)
+		_on_command_reroll_declined(unit_id, player)
+		return
+
+	# Show the CommandRerollDialog
+	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load CommandRerollDialog.gd")
+		_on_command_reroll_declined(unit_id, player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(
+		unit_id,
+		player,
+		roll_context.get("roll_type", "save_roll"),
+		roll_context.get("original_rolls", []),
+		roll_context.get("context_text", "")
+	)
+	dialog.command_reroll_used.connect(_on_command_reroll_used)
+	dialog.command_reroll_declined.connect(_on_command_reroll_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("ShootingController: Command Re-roll dialog shown for player %d" % player)
+
+func _on_command_reroll_used(unit_id: String, _player: int) -> void:
+	"""Handle player choosing to use Command Re-roll for a save."""
+	print("ShootingController: Command Re-roll USED for save on %s" % unit_id)
+	emit_signal("shoot_action_requested", {
+		"type": "USE_COMMAND_REROLL",
+		"actor_unit_id": unit_id,
+	})
+
+func _on_command_reroll_declined(unit_id: String, _player: int) -> void:
+	"""Handle player declining Command Re-roll for a save."""
+	print("ShootingController: Command Re-roll DECLINED for save on %s" % unit_id)
+	emit_signal("shoot_action_requested", {
+		"type": "DECLINE_COMMAND_REROLL",
+		"actor_unit_id": unit_id,
+	})
