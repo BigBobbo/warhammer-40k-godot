@@ -318,7 +318,7 @@ func _create_section1_unit_list(parent: VBoxContainer) -> void:
 	section.name = "Section1_UnitList"
 
 	var label = Label.new()
-	label.text = "Units Eligible to Move"
+	label.text = "Units (Move / Disembark)"
 	label.add_theme_font_size_override("font_size", 14)
 	section.add_child(label)
 
@@ -621,6 +621,15 @@ func _refresh_unit_list() -> void:
 	var actions = current_phase.get_available_actions()
 	var added_units = {}
 
+	# Debug: Log all actions returned by the phase
+	print("MovementController: _refresh_unit_list — got %d actions from phase" % actions.size())
+	for dbg_action in actions:
+		print("MovementController:   Action type=%s actor_unit_id=%s desc=%s" % [
+			dbg_action.get("type", "?"),
+			dbg_action.get("actor_unit_id", dbg_action.get("unit_id", "none")),
+			dbg_action.get("description", "")
+		])
+
 	# OA-24: Build a set of unit_ids that have special movement actions
 	var _special_action_types = ["ACTIVATE_KUNNIN_INFILTRATOR"]
 	var units_with_special_actions = {}
@@ -633,6 +642,7 @@ func _refresh_unit_list() -> void:
 		if unit_id != "" and not added_units.has(unit_id):
 			var unit = current_phase.get_unit(unit_id)
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			var action_type = action.get("type", "")
 
 			# Show attached character name alongside bodyguard unit
 			var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
@@ -664,7 +674,12 @@ func _refresh_unit_list() -> void:
 			if unit.get("embarked_in", null) != null:
 				var transport = GameState.get_unit(unit.embarked_in)
 				var transport_name = transport.get("meta", {}).get("name", unit.embarked_in) if transport else "Transport"
-				status_text = " [Embarked in %s]" % transport_name
+				if action_type == "DISEMBARK_UNIT":
+					status_text = " [Embarked in %s — Click to Disembark]" % transport_name
+				elif action_type == "DISEMBARK_BLOCKED":
+					status_text = " [Embarked in %s — Cannot Disembark]" % transport_name
+				else:
+					status_text = " [Embarked in %s]" % transport_name
 
 			# Show attached character names for bodyguard units
 			var attach_info = ""
@@ -680,6 +695,9 @@ func _refresh_unit_list() -> void:
 
 			unit_list.add_item(unit_name + attach_info + status_text)
 			unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
+			# Disable blocked disembark items so they can't be clicked
+			if action_type == "DISEMBARK_BLOCKED":
+				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
 			added_units[unit_id] = true
 
 func _on_unit_selected(index: int) -> void:
@@ -698,6 +716,11 @@ func _on_unit_selected(index: int) -> void:
 
 	active_unit_id = unit_id
 	print("MovementController: Unit selected - ", unit_id)
+
+	# Update transport panel in Main for transport info display
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("update_transport_panel"):
+		main_node.update_transport_panel(unit_id)
 
 	# Check if unit is embarked and needs to disembark
 	if unit.get("embarked_in", null) != null:
