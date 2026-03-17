@@ -87,7 +87,7 @@ func _build_ui() -> void:
 			label.add_theme_color_override("font_color", Color.INDIAN_RED)
 			content_list.add_child(label)
 
-	# Embarked units
+	# Embarked units - grouped by transport
 	if embarked_units.size() > 0:
 		content_list.add_child(HSeparator.new())
 		var emb_header = Label.new()
@@ -95,11 +95,29 @@ func _build_ui() -> void:
 		emb_header.add_theme_font_size_override("font_size", 13)
 		emb_header.add_theme_color_override("font_color", Color.YELLOW)
 		content_list.add_child(emb_header)
+		# Group embarked units by their transport
+		var by_transport = {}
 		for unit_info in embarked_units:
-			var label = Label.new()
-			label.text = "  %s" % unit_info.display_text
-			label.add_theme_font_size_override("font_size", 12)
-			content_list.add_child(label)
+			# Extract transport name from display_text format "P# - unit_name (in transport_name)"
+			var transport_key = "Unknown Transport"
+			var dt = unit_info.get("display_text", "")
+			var in_idx = dt.rfind("(in ")
+			if in_idx >= 0:
+				transport_key = dt.substr(in_idx + 4).trim_suffix(")")
+			if not by_transport.has(transport_key):
+				by_transport[transport_key] = []
+			by_transport[transport_key].append(unit_info)
+		for transport_name in by_transport:
+			var t_label = Label.new()
+			t_label.text = "  %s:" % transport_name
+			t_label.add_theme_font_size_override("font_size", 12)
+			t_label.add_theme_color_override("font_color", Color.YELLOW)
+			content_list.add_child(t_label)
+			for unit_info in by_transport[transport_name]:
+				var label = Label.new()
+				label.text = "    - %s" % unit_info.get("unit_name", "Unknown")
+				label.add_theme_font_size_override("font_size", 12)
+				content_list.add_child(label)
 
 	# Attached characters
 	if attached_units.size() > 0:
