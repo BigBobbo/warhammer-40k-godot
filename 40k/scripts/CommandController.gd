@@ -566,13 +566,16 @@ func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
 		unit_box.add_child(HSeparator.new())
 
 func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
-	"""Build faction abilities display (Oath of Moment target selection, etc.)."""
+	"""Build faction abilities display (Oath of Moment, Waaagh!, etc.)."""
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if not faction_mgr:
 		return
 
 	var current_player = GameState.get_active_player()
-	if not faction_mgr.player_has_ability(current_player, "Oath of Moment"):
+	var has_oath = faction_mgr.player_has_ability(current_player, "Oath of Moment")
+	var has_waaagh = faction_mgr.player_has_ability(current_player, "Waaagh!")
+
+	if not has_oath and not has_waaagh:
 		return
 
 	command_panel.add_child(HSeparator.new())
@@ -582,6 +585,62 @@ func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 	section.add_theme_constant_override("separation", 4)
 	command_panel.add_child(section)
 
+	# --- Waaagh! section ---
+	if has_waaagh:
+		_setup_waaagh_subsection(section, faction_mgr, current_player)
+
+	# --- Oath of Moment section ---
+	if has_oath:
+		_setup_oath_of_moment_subsection(section, faction_mgr, current_player)
+
+func _setup_waaagh_subsection(section: VBoxContainer, faction_mgr, current_player: int) -> void:
+	"""Build the Waaagh! activation / status UI."""
+	var waaagh_available = faction_mgr.is_waaagh_available(current_player)
+	var waaagh_active = faction_mgr.is_waaagh_active(current_player)
+	var waaagh_used = not waaagh_available and not waaagh_active
+
+	# Section header
+	var section_title = Label.new()
+	section_title.text = "WAAAGH!"
+	section_title.add_theme_font_size_override("font_size", 14)
+	section_title.add_theme_color_override("font_color", Color(0.8, 1.0, 0.2))
+	section.add_child(section_title)
+
+	var desc_label = Label.new()
+	desc_label.text = "Once per battle: Advance+Charge, +1 S/A melee, 5+ invuln until next Command phase."
+	desc_label.add_theme_font_size_override("font_size", 10)
+	desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	section.add_child(desc_label)
+
+	if waaagh_active:
+		# Show active status
+		var active_label = Label.new()
+		active_label.text = "WAAAGH! IS ACTIVE"
+		active_label.add_theme_font_size_override("font_size", 12)
+		active_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
+		section.add_child(active_label)
+	elif waaagh_used:
+		# Already used this battle
+		var used_label = Label.new()
+		used_label.text = "Already used this battle"
+		used_label.add_theme_font_size_override("font_size", 11)
+		used_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		section.add_child(used_label)
+	else:
+		# Available — show activation button
+		var waaagh_btn = Button.new()
+		waaagh_btn.text = "CALL WAAAGH!"
+		waaagh_btn.custom_minimum_size = Vector2(230, 36)
+		waaagh_btn.add_theme_font_size_override("font_size", 14)
+		_WhiteDwarfTheme.apply_to_button(waaagh_btn)
+		waaagh_btn.add_theme_color_override("font_color", Color(0.8, 1.0, 0.2))
+		waaagh_btn.tooltip_text = "Call a Waaagh! — Advance+Charge, +1 S/A melee, 5+ invuln (once per battle)"
+		waaagh_btn.pressed.connect(_on_call_waaagh_pressed)
+		section.add_child(waaagh_btn)
+
+func _setup_oath_of_moment_subsection(section: VBoxContainer, faction_mgr, current_player: int) -> void:
+	"""Build the Oath of Moment target selection UI."""
 	# Section header
 	var section_title = Label.new()
 	section_title.text = "OATH OF MOMENT"
@@ -631,6 +690,14 @@ func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 				btn.tooltip_text = "Mark %s for Oath of Moment" % target_info.unit_name
 			btn.pressed.connect(_on_oath_target_pressed.bind(target_info.unit_id))
 			section.add_child(btn)
+
+func _on_call_waaagh_pressed() -> void:
+	"""Handle Waaagh! activation button press."""
+	print("CommandController: WAAAGH! called by player")
+	emit_signal("command_action_requested", {
+		"type": "CALL_WAAAGH",
+		"player": GameState.get_active_player()
+	})
 
 func _on_oath_target_pressed(target_unit_id: String) -> void:
 	"""Handle Oath of Moment target selection button press."""
