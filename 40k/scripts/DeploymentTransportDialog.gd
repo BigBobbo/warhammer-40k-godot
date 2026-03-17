@@ -65,6 +65,18 @@ func show_for_unit(unit_id_: String, deployment_controller: Node) -> void:
 				transport.capacity_used,
 				transport.capacity_total
 			]
+			# Show embarked unit names so player can distinguish between transports
+			var embarked_ids = TransportManager.get_embarked_unit_ids(transport.id)
+			if embarked_ids.size() > 0:
+				var embarked_names = []
+				for emb_id in embarked_ids:
+					var emb_unit = GameState.get_unit(emb_id)
+					if emb_unit and not emb_unit.is_empty():
+						embarked_names.append(emb_unit.get("meta", {}).get("name", emb_id))
+				if embarked_names.size() > 0:
+					text += " [Contains: %s]" % ", ".join(embarked_names)
+			else:
+				text += " [Empty]"
 			transport_list.add_item(text)
 			transport_list.set_item_metadata(transport_list.get_item_count() - 1, transport.id)
 

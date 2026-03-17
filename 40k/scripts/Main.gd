@@ -4841,7 +4841,21 @@ func refresh_unit_list() -> void:
 								model_count += char_unit["models"].size()
 						if char_names.size() > 0:
 							attach_info = " + " + ", ".join(char_names)
-					var display_text = "%s (%d models)%s%s" % [unit_name, model_count, attach_info, ability_tag]
+					# Show embarked unit names for transport vehicles
+					var transport_contents = ""
+					if unit_data.has("transport_data"):
+						var embarked_ids = unit_data.transport_data.get("embarked_units", [])
+						if embarked_ids.size() > 0:
+							var embarked_names = []
+							for emb_id in embarked_ids:
+								var emb_unit = GameState.get_unit(emb_id)
+								if emb_unit and not emb_unit.is_empty():
+									embarked_names.append(emb_unit.get("meta", {}).get("name", emb_id))
+							if embarked_names.size() > 0:
+								transport_contents = " [Contains: %s]" % ", ".join(embarked_names)
+						else:
+							transport_contents = " [Empty]"
+					var display_text = "%s (%d models)%s%s%s" % [unit_name, model_count, attach_info, transport_contents, ability_tag]
 					unit_list.add_item(display_text)
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 
@@ -8435,13 +8449,24 @@ func _show_transport_deployment_dialog(transport_id: String) -> void:
 	var transport = GameState.get_unit(transport_id)
 	var transport_name = transport.get("meta", {}).get("name", transport_id)
 
-	# For now, deploy the transport empty
-	# Units can be embarked after deployment by deploying them directly into the transport
-	print("Main: Deploying transport ", transport_name, " - deploy INFANTRY units afterwards to embark them")
+	# Show what's inside this transport
+	var contents_text = ""
+	if transport.has("transport_data"):
+		var embarked_ids = transport.transport_data.get("embarked_units", [])
+		if embarked_ids.size() > 0:
+			var emb_names = []
+			for emb_id in embarked_ids:
+				var emb_unit = GameState.get_unit(emb_id)
+				if emb_unit and not emb_unit.is_empty():
+					emb_names.append(emb_unit.get("meta", {}).get("name", emb_id))
+			if emb_names.size() > 0:
+				contents_text = " (Contains: %s)" % ", ".join(emb_names)
+
+	print("Main: Deploying transport ", transport_name, contents_text, " - deploy INFANTRY units afterwards to embark them")
 
 	# Update status to inform user
 	if status_label:
-		status_label.text = "Deploying %s - Deploy INFANTRY units after to embark them" % transport_name
+		status_label.text = "Deploying %s%s" % [transport_name, contents_text]
 
 	# Deploy the transport
 	deployment_controller.begin_deploy(transport_id)

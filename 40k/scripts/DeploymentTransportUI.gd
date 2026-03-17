@@ -112,6 +112,18 @@ func _refresh_lists(player: int) -> void:
 				# Add to transport list with capacity info
 				var capacity_info = TransportManager.get_transport_capacity(unit)
 				var capacity_text = "%s (Cap: %d)" % [name, capacity_info.total]
+				# Show embarked unit names to distinguish between transports
+				var embarked_ids = TransportManager.get_embarked_unit_ids(unit_id)
+				if embarked_ids.size() > 0:
+					var embarked_names = []
+					for emb_id in embarked_ids:
+						var emb_unit = GameState.get_unit(emb_id)
+						if emb_unit and not emb_unit.is_empty():
+							embarked_names.append(emb_unit.get("meta", {}).get("name", emb_id))
+					if embarked_names.size() > 0:
+						capacity_text += " [%s]" % ", ".join(embarked_names)
+				else:
+					capacity_text += " [Empty]"
 				transport_list.add_item(capacity_text)
 				transport_list.set_item_metadata(transport_list.get_item_count() - 1, unit_id)
 			else:
@@ -129,7 +141,20 @@ func _refresh_lists(player: int) -> void:
 				var name = unit.get("meta", {}).get("name", unit_id)
 				var capacity_info = TransportManager.get_transport_capacity(unit)
 				var current_usage = TransportManager.calculate_current_usage(unit_id)
-				var capacity_text = "%s (Cap: %d/%d) [Deployed]" % [name, current_usage, capacity_info.total]
+				var capacity_text = "%s (Cap: %d/%d)" % [name, current_usage, capacity_info.total]
+				# Show embarked unit names to distinguish between transports
+				var embarked_ids = TransportManager.get_embarked_unit_ids(unit_id)
+				if embarked_ids.size() > 0:
+					var embarked_names = []
+					for emb_id in embarked_ids:
+						var emb_unit = GameState.get_unit(emb_id)
+						if emb_unit and not emb_unit.is_empty():
+							embarked_names.append(emb_unit.get("meta", {}).get("name", emb_id))
+					if embarked_names.size() > 0:
+						capacity_text += " [%s]" % ", ".join(embarked_names)
+				else:
+					capacity_text += " [Empty]"
+				capacity_text += " [Deployed]"
 				transport_list.add_item(capacity_text)
 				transport_list.set_item_metadata(transport_list.get_item_count() - 1, unit_id)
 

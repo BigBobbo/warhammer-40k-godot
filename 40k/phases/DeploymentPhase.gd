@@ -1295,11 +1295,25 @@ func get_deployment_summary() -> Dictionary:
 						pos_text = " at (%.0f, %.0f)" % [x, y]
 					break
 
+			# Show transport contents for deployed transports
+			var transport_text = ""
+			if unit.has("transport_data"):
+				var embarked_ids = unit.transport_data.get("embarked_units", [])
+				if embarked_ids.size() > 0:
+					var emb_names = []
+					for emb_id in embarked_ids:
+						var emb_unit = units.get(emb_id, {})
+						var emb_name = emb_unit.get("meta", {}).get("name", emb_id)
+						emb_names.append(emb_name)
+					transport_text = " [Contains: %s]" % ", ".join(emb_names)
+				else:
+					transport_text = " [Empty]"
+
 			var unit_info = {
 				"unit_id": unit_id,
 				"unit_name": unit_name,
 				"owner": owner,
-				"display_text": "%s%s" % [unit_name, pos_text]
+				"display_text": "%s%s%s" % [unit_name, transport_text, pos_text]
 			}
 
 			if owner == 1:
