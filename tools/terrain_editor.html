@@ -186,6 +186,15 @@ canvas { cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
             <button class="btn-small" onclick="duplicateSelected()">Duplicate</button>
             <button class="btn-small danger" onclick="deleteSelected()">Delete</button>
           </div>
+          <div style="border-top:1px solid #0f3460; margin-top:6px; padding-top:6px;">
+            <div class="panel-title" style="font-size:10px; margin-bottom:4px;">Corner Positions (drag handles or edit)</div>
+            <div id="cornerCoordsContainer">
+              <div class="prop-row"><label style="color:#e94560; font-weight:bold; width:14px;">A:</label><input type="number" id="cornerAx" step="0.5" style="width:52px;"><input type="number" id="cornerAy" step="0.5" style="width:52px;"></div>
+              <div class="prop-row"><label style="color:#e94560; font-weight:bold; width:14px;">B:</label><input type="number" id="cornerBx" step="0.5" style="width:52px;"><input type="number" id="cornerBy" step="0.5" style="width:52px;"></div>
+              <div class="prop-row"><label style="color:#e94560; font-weight:bold; width:14px;">C:</label><input type="number" id="cornerCx" step="0.5" style="width:52px;"><input type="number" id="cornerCy" step="0.5" style="width:52px;"></div>
+              <div class="prop-row"><label style="color:#e94560; font-weight:bold; width:14px;">D:</label><input type="number" id="cornerDx" step="0.5" style="width:52px;"><input type="number" id="cornerDy" step="0.5" style="width:52px;"></div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="panel" id="wallsPanel" style="display:none;">
@@ -287,6 +296,7 @@ let selectedTerrainIdx = -1;
 let selectedObjIdx = -1;
 let dragState = null; // { type: 'terrain'|'vertex'|'objective', idx, startX, startY, origData }
 let hoveredVertex = null;
+let hoveredTerrainCorner = null; // { pieceIdx, cornerIdx }
 let nextTerrainId = 1;
 
 // Built-in deployment zone data
@@ -756,11 +766,21 @@ function drawTerrainPieces() {
       ctx.fillText(piece.size[0] + '"x' + piece.size[1] + '" ' + piece.height, piece.position[0] * scale, labelY + scale * 0.5);
     }
 
-    // Resize handles when selected
+    // Corner handles when selected
     if (isSelected) {
-      for (const c of corners) {
-        ctx.fillStyle = COLORS.terrainSelected;
-        ctx.fillRect(c.x * scale - 3, c.y * scale - 3, 6, 6);
+      for (let ci = 0; ci < corners.length; ci++) {
+        const c = corners[ci];
+        const isHovered = hoveredTerrainCorner && hoveredTerrainCorner.pieceIdx === i && hoveredTerrainCorner.cornerIdx === ci;
+        const handleSize = isHovered ? 5 : 3;
+        ctx.fillStyle = isHovered ? '#ff6b8a' : COLORS.terrainSelected;
+        ctx.fillRect(c.x * scale - handleSize, c.y * scale - handleSize, handleSize * 2, handleSize * 2);
+        // Corner label (A, B, C, D)
+        if (document.getElementById('layerLabels').checked) {
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold ' + Math.max(8, scale * 0.45) + 'px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(['A','B','C','D'][ci], c.x * scale, c.y * scale - handleSize - 3);
+        }
       }
     }
   }
@@ -915,6 +935,21 @@ function hitTestTerrain(mx, my) {
   return -1;
 }
 
+function hitTestTerrainCorner(mx, my) {
+  // Only test corners of the selected piece
+  if (selectedTerrainIdx < 0) return null;
+  const piece = terrainPieces[selectedTerrainIdx];
+  const corners = getTerrainCorners(piece);
+  const threshold = 6 / scale; // 6 pixels
+  for (let i = 0; i < corners.length; i++) {
+    const dx = mx - corners[i].x, dy = my - corners[i].y;
+    if (Math.sqrt(dx * dx + dy * dy) < threshold) {
+      return { pieceIdx: selectedTerrainIdx, cornerIdx: i };
+    }
+  }
+  return null;
+}
+
 function hitTestVertex(mx, my) {
   const threshold = 6 / scale; // 6 pixels
   // Check arc centre handles first (higher priority when overlapping)
@@ -999,6 +1034,11 @@ function setupEventListeners() {
     document.getElementById(id).addEventListener('input', onTerrainPropChange);
   });
 
+  // Corner coordinate inputs
+  ['cornerAx', 'cornerAy', 'cornerBx', 'cornerBy', 'cornerCx', 'cornerCy', 'cornerDx', 'cornerDy'].forEach(id => {
+    document.getElementById(id).addEventListener('change', onCornerCoordChange);
+  });
+
   // Tabs
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -1050,6 +1090,22 @@ function onMouseDown(e) {
     return;
   }
 
+  // Check terrain corner handles (selected piece only)
+  const cornerHit = hitTestTerrainCorner(mx, my);
+  if (cornerHit) {
+    const piece = terrainPieces[cornerHit.pieceIdx];
+    const corners = getTerrainCorners(piece);
+    const oppositeIdx = (cornerHit.cornerIdx + 2) % 4;
+    dragState = {
+      type: 'terrainCorner',
+      idx: cornerHit.pieceIdx,
+      cornerIdx: cornerHit.cornerIdx,
+      oppositeCorner: { x: corners[oppositeIdx].x, y: corners[oppositeIdx].y },
+      rotation: piece.rotation || 0
+    };
+    return;
+  }
+
   // Check terrain pieces
   const terrainIdx = hitTestTerrain(mx, my);
   if (terrainIdx >= 0) {
@@ -1079,6 +1135,14 @@ function onMouseMove(e) {
   // Update status bar
   document.getElementById('mousePos').textContent = 'Mouse: ' + mx.toFixed(1) + '", ' + my.toFixed(1) + '"';
 
+  // Update hover state for terrain corners
+  const oldCornerHover = hoveredTerrainCorner;
+  hoveredTerrainCorner = hitTestTerrainCorner(mx, my);
+  if (JSON.stringify(oldCornerHover) !== JSON.stringify(hoveredTerrainCorner)) {
+    canvas.style.cursor = hoveredTerrainCorner ? 'nwse-resize' : '';
+    render();
+  }
+
   // Update hover state for vertices
   const oldHovered = hoveredVertex;
   hoveredVertex = hitTestVertex(mx, my);
@@ -1086,7 +1150,31 @@ function onMouseMove(e) {
 
   if (!dragState) return;
 
-  if (dragState.type === 'terrain') {
+  if (dragState.type === 'terrainCorner') {
+    const piece = terrainPieces[dragState.idx];
+    // Snap dragged corner to 0.5" grid
+    let dx = Math.round(mx * 2) / 2;
+    let dy = Math.round(my * 2) / 2;
+    dx = Math.max(0, Math.min(BOARD_W, dx));
+    dy = Math.max(0, Math.min(BOARD_H, dy));
+    const fx = dragState.oppositeCorner.x;
+    const fy = dragState.oppositeCorner.y;
+    // New center is midpoint of dragged corner and fixed opposite corner
+    const cx = (dx + fx) / 2;
+    const cy = (dy + fy) / 2;
+    // Compute size by projecting diagonal onto the rotated local axes
+    const rot = (dragState.rotation || 0) * Math.PI / 180;
+    const cos = Math.cos(-rot), sin = Math.sin(-rot);
+    const localX = (dx - cx) * cos - (dy - cy) * sin;
+    const localY = (dx - cx) * sin + (dy - cy) * cos;
+    const newW = Math.max(0.5, Math.abs(localX * 2));
+    const newH = Math.max(0.5, Math.abs(localY * 2));
+    piece.position = [Math.round(cx * 2) / 2, Math.round(cy * 2) / 2];
+    piece.size = [Math.round(newW * 2) / 2, Math.round(newH * 2) / 2];
+    updateTerrainPropsFromData();
+    updateCornerCoordsUI();
+    render();
+  } else if (dragState.type === 'terrain') {
     const piece = terrainPieces[dragState.idx];
     let newX = mx - dragState.offsetX;
     let newY = my - dragState.offsetY;
@@ -1133,6 +1221,9 @@ function onMouseMove(e) {
 }
 
 function onMouseUp(e) {
+  if (dragState && dragState.type === 'terrainCorner') {
+    canvas.style.cursor = '';
+  }
   dragState = null;
 }
 
@@ -1210,6 +1301,51 @@ function updateTerrainPropsFromData() {
   document.getElementById('propHeight').value = piece.height || 'tall';
   document.getElementById('propRotation').value = piece.rotation || 0;
   document.getElementById('selectionInfo').textContent = 'Selection: ' + piece.id;
+  updateCornerCoordsUI();
+}
+
+function updateCornerCoordsUI() {
+  if (selectedTerrainIdx < 0) return;
+  const piece = terrainPieces[selectedTerrainIdx];
+  const corners = getTerrainCorners(piece);
+  const ids = ['A', 'B', 'C', 'D'];
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('corner' + ids[i] + 'x').value = Math.round(corners[i].x * 100) / 100;
+    document.getElementById('corner' + ids[i] + 'y').value = Math.round(corners[i].y * 100) / 100;
+  }
+}
+
+function onCornerCoordChange() {
+  if (selectedTerrainIdx < 0) return;
+  const piece = terrainPieces[selectedTerrainIdx];
+  const ids = ['A', 'B', 'C', 'D'];
+  const corners = [];
+  for (let i = 0; i < 4; i++) {
+    corners.push({
+      x: parseFloat(document.getElementById('corner' + ids[i] + 'x').value) || 0,
+      y: parseFloat(document.getElementById('corner' + ids[i] + 'y').value) || 0
+    });
+  }
+  // Derive center, size, and rotation from corners
+  // Center is average of all 4 corners
+  const cx = (corners[0].x + corners[1].x + corners[2].x + corners[3].x) / 4;
+  const cy = (corners[0].y + corners[1].y + corners[2].y + corners[3].y) / 4;
+  // Rotation from edge A->B direction
+  const edgeX = corners[1].x - corners[0].x;
+  const edgeY = corners[1].y - corners[0].y;
+  const rotation = Math.atan2(edgeY, edgeX) * 180 / Math.PI;
+  // Size from edge lengths: A->B = width, B->C = height
+  const width = Math.sqrt(edgeX * edgeX + edgeY * edgeY);
+  const edge2X = corners[2].x - corners[1].x;
+  const edge2Y = corners[2].y - corners[1].y;
+  const height = Math.sqrt(edge2X * edge2X + edge2Y * edge2Y);
+
+  piece.position = [Math.round(cx * 2) / 2, Math.round(cy * 2) / 2];
+  piece.size = [Math.max(0.5, Math.round(width * 2) / 2), Math.max(0.5, Math.round(height * 2) / 2)];
+  piece.rotation = Math.round(rotation * 10) / 10;
+  updateTerrainPropsFromData();
+  updateTerrainList();
+  render();
 }
 
 function onTerrainPropChange() {
@@ -1221,6 +1357,7 @@ function onTerrainPropChange() {
   piece.size = [parseFloat(document.getElementById('propW').value) || 1, parseFloat(document.getElementById('propH').value) || 1];
   piece.height = document.getElementById('propHeight').value;
   piece.rotation = parseFloat(document.getElementById('propRotation').value) || 0;
+  updateCornerCoordsUI();
   updateTerrainList();
   render();
 }
