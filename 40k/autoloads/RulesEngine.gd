@@ -6575,15 +6575,25 @@ static func eligible_to_charge(unit_id: String, board: Dictionary) -> bool:
 		return false
 	
 	# Check restriction flags
+	# cannot_charge is set by Advance and Fall Back moves, but abilities like
+	# Waaagh! (advance_and_charge) or Full Throttle (fall_back_and_charge) can override it.
 	if flags.get("cannot_charge", false):
-		return false
-	
+		var can_override = false
+		if flags.get("advanced", false) and EffectPrimitivesData.has_effect_advance_and_charge(unit):
+			can_override = true
+		if flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_charge(unit):
+			can_override = true
+		if not can_override:
+			return false
+
 	if flags.get("advanced", false):
-		return false
-	
+		if not EffectPrimitivesData.has_effect_advance_and_charge(unit):
+			return false
+
 	if flags.get("fell_back", false):
-		return false
-	
+		if not EffectPrimitivesData.has_effect_fall_back_and_charge(unit):
+			return false
+
 	if flags.get("charged_this_turn", false):
 		return false
 	

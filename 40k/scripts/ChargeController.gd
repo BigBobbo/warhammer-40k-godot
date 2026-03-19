@@ -580,8 +580,8 @@ func _refresh_ui() -> void:
 				print("    BLOCKED: Status must be DEPLOYED, MOVED, or SHOT")
 			elif flags.get("cannot_charge", false):
 				print("    BLOCKED: Unit has 'cannot_charge' flag")
-			elif flags.get("advanced", false):
-				print("    BLOCKED: Unit has 'advanced' flag (Advanced units cannot charge)")
+			elif flags.get("advanced", false) and not flags.get("effect_advance_and_charge", false):
+				print("    BLOCKED: Unit has 'advanced' flag (Advanced units cannot charge without advance_and_charge effect)")
 			elif flags.get("fell_back", false):
 				print("    BLOCKED: Unit has 'fell_back' flag")
 			elif unit_id in current_phase.get_completed_charges():
