@@ -94,21 +94,25 @@ var path_valid: bool = false
 
 # Helper function to get unit movement stat with proper error handling
 func get_unit_movement(unit: Dictionary) -> float:
+	var movement: float = 6.0
 	# Try the expected path first
 	if unit.has("meta") and unit.meta.has("stats") and unit.meta.stats.has("move"):
-		var movement = float(unit.meta.stats.move)
-		return movement
-	
-	# Try nested get with type safety
-	var stats = unit.get("meta", {}).get("stats", {})
-	if stats and stats.has("move"):
-		var movement = float(stats.get("move"))
-		return movement
-	
-	# Log warning and return default
-	var unit_name = unit.get("meta", {}).get("name", "Unknown")
-	push_warning("MovementController: Unit %s missing movement stat, using default: 6" % unit_name)
-	return 6.0
+		movement = float(unit.meta.stats.move)
+	elif unit.get("meta", {}).get("stats", {}).has("move"):
+		# Try nested get with type safety
+		movement = float(unit.get("meta", {}).get("stats", {}).get("move"))
+	else:
+		# Log warning and use default
+		var unit_name = unit.get("meta", {}).get("name", "Unknown")
+		push_warning("MovementController: Unit %s missing movement stat, using default: 6" % unit_name)
+
+	# SPECIAL DOSE: +6" to Move while Waaagh! active (Zodgrod Wortsnagga)
+	if unit.get("flags", {}).get("special_dose_active", false):
+		var old_movement = movement
+		movement += 6.0
+		print("MovementController: Special Dose — movement %d → %d (+6\")" % [int(old_movement), int(movement)])
+
+	return movement
 
 func _ready() -> void:
 	# Add to group so DisembarkController can find us

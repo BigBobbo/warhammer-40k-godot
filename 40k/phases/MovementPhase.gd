@@ -184,6 +184,12 @@ func get_unit_movement(unit: Dictionary) -> float:
 		movement += 1.0
 		print("MovementPhase: Bionik Workshop — movement %d → %d (+1\")" % [int(movement - 1), int(movement)])
 
+	# SPECIAL DOSE: +6" to Move while Waaagh! active (Zodgrod Wortsnagga)
+	if unit.get("flags", {}).get("special_dose_active", false):
+		var old_movement = movement
+		movement += 6.0
+		print("MovementPhase: Special Dose — movement %d → %d (+6\")" % [int(old_movement), int(movement)])
+
 	return movement
 
 func _init():
