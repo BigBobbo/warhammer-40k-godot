@@ -1288,8 +1288,18 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 		return false
 	
 	# Check restriction flags
+	# cannot_charge is set by both Advance and Fall Back moves, but abilities like
+	# Waaagh! (advance_and_charge) or Full Throttle (fall_back_and_charge) can override it.
 	if flags.get("cannot_charge", false):
-		return false
+		var can_override = false
+		if flags.get("advanced", false) and EffectPrimitivesData.has_effect_advance_and_charge(unit):
+			can_override = true
+			print("ChargePhase: Unit %s advanced but has advance_and_charge effect — overriding cannot_charge" % unit.get("id", "unknown"))
+		if flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_charge(unit):
+			can_override = true
+			print("ChargePhase: Unit %s fell back but has fall_back_and_charge effect — overriding cannot_charge" % unit.get("id", "unknown"))
+		if not can_override:
+			return false
 
 	# Units that burned an objective (Scorched Earth) cannot charge this turn
 	if flags.get("burned_objective", false):
