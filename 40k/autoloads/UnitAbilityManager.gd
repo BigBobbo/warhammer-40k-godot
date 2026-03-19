@@ -1117,15 +1117,16 @@ const ABILITY_EFFECTS: Dictionary = {
 	# Beastboss — melee weapons gain [DEVASTATING WOUNDS] after charging
 	# Each time this model makes a Charge move, until the end of the turn, melee weapons
 	# it is equipped with have the [DEVASTATING WOUNDS] ability.
-	# NOTE: This applies to the Beastboss model only, not the whole led unit. Requires
-	# model-level weapon keyword tracking — not yet supported by the flag system.
+	# Checked directly in RulesEngine._resolve_melee_assignment() via has_beastly_rage_active().
+	# Since characters fight with their own unit_id (separate from bodyguard), this naturally
+	# restricts the effect to the Beastboss's attacks only.
 	"Beastly Rage": {
 		"condition": "charged_this_turn",
 		"effects": [{"type": "grant_devastating_wounds"}],
 		"target": "model",
 		"attack_type": "melee",
-		"implemented": false,
-		"description": "After charging, this model's melee weapons gain [DEVASTATING WOUNDS] until end of turn — requires model-level weapon keyword tracking"
+		"implemented": true,
+		"description": "After charging, this model's melee weapons gain [DEVASTATING WOUNDS] until end of turn"
 	},
 
 	# Squighog Boyz — ignore modifiers to Move characteristic and Advance/Charge rolls
