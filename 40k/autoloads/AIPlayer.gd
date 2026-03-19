@@ -1088,6 +1088,21 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 			else:
 				print("AIPlayer: Save reroll — no rolls in context, declining")
 
+		"wound_roll":
+			# Evaluate wound reroll: wounds are always valuable to reroll
+			var wr_original_rolls = roll_context.get("original_rolls", [])
+			if not wr_original_rolls.is_empty():
+				should_reroll = true  # Wounds directly translate to saves needed
+				print("AIPlayer: Wound reroll evaluation — rolled %d, reroll: %s" % [wr_original_rolls[0], str(should_reroll)])
+
+		"hit_roll":
+			# Evaluate hit reroll: less impactful (still needs to wound and fail save)
+			var hr_original_rolls = roll_context.get("original_rolls", [])
+			if not hr_original_rolls.is_empty():
+				var failed_roll = hr_original_rolls[0]
+				should_reroll = (failed_roll >= 3)  # Only reroll if we rolled 3+ (close to hitting)
+				print("AIPlayer: Hit reroll evaluation — rolled %d, reroll: %s" % [failed_roll, str(should_reroll)])
+
 		_:
 			# Unknown roll type — decline
 			print("AIPlayer: Unknown reroll type '%s' — declining" % roll_type)

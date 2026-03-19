@@ -104,6 +104,15 @@ var save_reroll_save_index: int = -1  # Index into save_results of the failed sa
 var save_reroll_defending_player: int = 0  # The defending player who can use the reroll
 var save_reroll_target_unit_id: String = ""  # The defending unit's ID
 
+# Command Re-roll state tracking (hit/wound rerolls — attacker's opportunity)
+var awaiting_hit_wound_reroll: bool = false
+var hit_wound_reroll_type: String = ""  # "hit_roll" or "wound_roll"
+var hit_wound_reroll_dice_block: Dictionary = {}
+var hit_wound_reroll_die_index: int = -1
+var hit_wound_reroll_threshold: int = 0
+var hit_wound_reroll_pending_result: Dictionary = {}
+var hit_wound_reroll_pending_melee_action: Dictionary = {}  # The original melee action to resume
+
 func _init():
 	phase_type = GameStateData.Phase.FIGHT
 
@@ -131,6 +140,13 @@ func _on_phase_enter() -> void:
 	save_reroll_save_index = -1
 	save_reroll_defending_player = 0
 	save_reroll_target_unit_id = ""
+	awaiting_hit_wound_reroll = false
+	hit_wound_reroll_type = ""
+	hit_wound_reroll_dice_block = {}
+	hit_wound_reroll_die_index = -1
+	hit_wound_reroll_threshold = 0
+	hit_wound_reroll_pending_result = {}
+	hit_wound_reroll_pending_melee_action = {}
 	awaiting_acrobatic_escape = false
 	acrobatic_escape_pending_units.clear()
 
@@ -1301,6 +1317,34 @@ func _process_roll_dice_interactive(melee_action: Dictionary) -> Dictionary:
 	for dice_block in result.get("dice", []):
 		emit_signal("dice_rolled", dice_block)
 
+	# COMMAND RE-ROLL: Check if attacker can reroll a failed hit or wound
+	if not awaiting_hit_wound_reroll:
+		var hw_reroll_check = _check_hit_wound_reroll_opportunity(result)
+		if hw_reroll_check.get("should_offer", false):
+			print("╔═══════════════════════════════════════════════════════════════")
+			print("║ COMMAND RE-ROLL OPPORTUNITY (Melee Hit/Wound)")
+			print("║ Type: %s, Roll: %d (needed %d+)" % [
+				hw_reroll_check.reroll_type, hw_reroll_check.failed_roll, hw_reroll_check.threshold])
+			print("║ Player: %d, Unit: %s" % [hw_reroll_check.player, hw_reroll_check.unit_name])
+			print("╚═══════════════════════════════════════════════════════════════")
+			awaiting_hit_wound_reroll = true
+			hit_wound_reroll_type = hw_reroll_check.reroll_type
+			hit_wound_reroll_dice_block = hw_reroll_check.dice_block
+			hit_wound_reroll_die_index = hw_reroll_check.die_index
+			hit_wound_reroll_threshold = hw_reroll_check.threshold
+			hit_wound_reroll_pending_result = result
+			hit_wound_reroll_pending_melee_action = melee_action
+			var roll_context = {
+				"roll_type": hw_reroll_check.reroll_type,
+				"original_rolls": [hw_reroll_check.failed_roll],
+				"unit_name": hw_reroll_check.unit_name,
+				"context_text": "%s needed: %d+ (rolled %d)" % [
+					"Wound" if hw_reroll_check.reroll_type == "wound_roll" else "Hit",
+					hw_reroll_check.threshold, hw_reroll_check.failed_roll],
+			}
+			emit_signal("command_reroll_opportunity", active_fighter_id, hw_reroll_check.player, roll_context)
+			return create_result(true, [], "Awaiting Command Re-roll decision for melee %s" % hw_reroll_check.reroll_type)
+
 	var save_data_list = result.get("save_data_list", [])
 
 	# VERBOSE COMBAT LOG: Emit hit/wound details for interactive melee
@@ -1518,7 +1562,7 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 	var save_results_list = payload.get("save_results_list", [])
 
 	# COMMAND RE-ROLL: Check if defender can reroll a failed save before applying damage
-	if not awaiting_save_reroll:
+	if not awaiting_save_reroll and not action.get("_skip_reroll_check", false):
 		var reroll_check = _check_melee_save_reroll_opportunity(save_results_list)
 		if reroll_check.get("should_offer", false):
 			print("╔═══════════════════════════════════════════════════════════════")
@@ -1830,16 +1874,246 @@ func _check_melee_save_reroll_opportunity(save_results_list: Array) -> Dictionar
 	return best_candidate
 
 func _validate_use_command_reroll(_action: Dictionary) -> Dictionary:
-	if not awaiting_save_reroll:
+	if not awaiting_save_reroll and not awaiting_hit_wound_reroll:
 		return {"valid": false, "errors": ["Not awaiting a Command Re-roll decision"]}
 	return {"valid": true}
 
 func _validate_decline_command_reroll(_action: Dictionary) -> Dictionary:
-	if not awaiting_save_reroll:
+	if not awaiting_save_reroll and not awaiting_hit_wound_reroll:
 		return {"valid": false, "errors": ["Not awaiting a Command Re-roll decision"]}
 	return {"valid": true}
 
-func _process_use_command_reroll(_action: Dictionary) -> Dictionary:
+func _process_use_command_reroll(action: Dictionary) -> Dictionary:
+	"""Handle player choosing to use Command Re-roll."""
+	if awaiting_hit_wound_reroll:
+		return _process_use_hit_wound_reroll(action)
+	return _process_use_save_reroll(action)
+
+func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
+	"""Handle player declining Command Re-roll."""
+	if awaiting_hit_wound_reroll:
+		return _process_decline_hit_wound_reroll(action)
+	return _process_decline_save_reroll(action)
+
+# ============================================================================
+# COMMAND RE-ROLL: HIT/WOUND REROLL (attacker's opportunity)
+# ============================================================================
+
+func _check_hit_wound_reroll_opportunity(result: Dictionary) -> Dictionary:
+	"""Check if the attacking player can reroll a failed melee hit or wound die."""
+	var fighter_unit = game_state_snapshot.get("units", {}).get(active_fighter_id, {})
+	var current_player = fighter_unit.get("owner", 0)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		return {"should_offer": false}
+	var availability = strat_manager.is_command_reroll_available(current_player)
+	if not availability.get("available", false):
+		print("FightPhase: Command Re-roll not available for attacker P%d: %s" % [current_player, availability.get("reason", "")])
+		return {"should_offer": false}
+
+	var dice_blocks = result.get("dice", [])
+	var best_candidate = {"should_offer": false}
+	var best_roll = -1
+
+	# Priority: wound rerolls > hit rerolls
+	for block in dice_blocks:
+		var context = block.get("context", "")
+		if context != "wound_roll" and context != "to_wound" and context != "wound_roll_melee":
+			continue
+		var rolls_raw = block.get("rolls_raw", [])
+		var threshold_str = block.get("threshold", "")
+		var threshold = threshold_str.replace("+", "").to_int() if threshold_str != "" else 7
+		for i in range(rolls_raw.size()):
+			var roll = rolls_raw[i]
+			if roll < threshold and roll > best_roll:
+				best_roll = roll
+				best_candidate = {
+					"should_offer": true,
+					"player": current_player,
+					"reroll_type": "wound_roll",
+					"dice_block": block,
+					"die_index": i,
+					"failed_roll": roll,
+					"threshold": threshold,
+					"unit_id": active_fighter_id,
+				}
+
+	if not best_candidate.get("should_offer", false):
+		best_roll = -1
+		for block in dice_blocks:
+			var context = block.get("context", "")
+			if context != "hit_roll" and context != "to_hit" and context != "hit_roll_melee":
+				continue
+			var rolls_raw = block.get("rolls_raw", [])
+			var threshold_str = block.get("threshold", "")
+			var threshold = threshold_str.replace("+", "").to_int() if threshold_str != "" else 7
+			for i in range(rolls_raw.size()):
+				var roll = rolls_raw[i]
+				if roll < threshold and roll > best_roll:
+					best_roll = roll
+					best_candidate = {
+						"should_offer": true,
+						"player": current_player,
+						"reroll_type": "hit_roll",
+						"dice_block": block,
+						"die_index": i,
+						"failed_roll": roll,
+						"threshold": threshold,
+						"unit_id": active_fighter_id,
+					}
+
+	if best_candidate.get("should_offer", false):
+		var fighter_name = fighter_unit.get("meta", {}).get("display_name", fighter_unit.get("meta", {}).get("name", active_fighter_id))
+		best_candidate["unit_name"] = fighter_name
+		print("FightPhase: Best hit/wound reroll — %s roll %d vs %d+ for %s" % [
+			best_candidate.reroll_type, best_candidate.failed_roll, best_candidate.threshold, fighter_name])
+
+	return best_candidate
+
+func _process_use_hit_wound_reroll(_action: Dictionary) -> Dictionary:
+	"""Handle attacker using Command Re-roll on a failed melee hit or wound."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ FightPhase: COMMAND RE-ROLL USED (%s)" % hit_wound_reroll_type)
+	print("║ Die index: %d, threshold: %d+" % [hit_wound_reroll_die_index, hit_wound_reroll_threshold])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var fighter_unit = game_state_snapshot.get("units", {}).get(active_fighter_id, {})
+	var current_player = fighter_unit.get("owner", 0)
+	var unit_name = fighter_unit.get("meta", {}).get("display_name", fighter_unit.get("meta", {}).get("name", active_fighter_id))
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var roll_context = {
+			"roll_type": hit_wound_reroll_type,
+			"original_rolls": [hit_wound_reroll_dice_block.get("rolls_raw", [])[hit_wound_reroll_die_index] if hit_wound_reroll_die_index >= 0 else 0],
+			"unit_name": unit_name,
+		}
+		var strat_result = strat_manager.execute_command_reroll(current_player, active_fighter_id, roll_context)
+		if not strat_result.success:
+			print("FightPhase: Command Re-roll failed: %s" % strat_result.get("error", ""))
+			return _resume_roll_dice_after_reroll()
+
+	var rng = RulesEngine.RNGService.new()
+	var new_roll = rng.roll_d6(1)[0]
+	var original_roll = hit_wound_reroll_dice_block.get("rolls_raw", [])[hit_wound_reroll_die_index]
+	var passed = new_roll >= hit_wound_reroll_threshold
+
+	print("FightPhase: COMMAND RE-ROLL %s: %d → %d (needed %d+, %s)" % [
+		hit_wound_reroll_type, original_roll, new_roll, hit_wound_reroll_threshold, "PASSED" if passed else "FAILED"])
+	log_phase_message("COMMAND RE-ROLL: %s re-rolled from %d → %d (needed %d+) — %s" % [
+		"Wound roll" if hit_wound_reroll_type == "wound_roll" else "Hit roll",
+		original_roll, new_roll, hit_wound_reroll_threshold, "success!" if passed else "still failed"])
+
+	if hit_wound_reroll_die_index < hit_wound_reroll_dice_block.get("rolls_raw", []).size():
+		hit_wound_reroll_dice_block["rolls_raw"][hit_wound_reroll_die_index] = new_roll
+
+	if passed:
+		var pending_result = hit_wound_reroll_pending_result
+		if hit_wound_reroll_type == "wound_roll":
+			var save_data_list = pending_result.get("save_data_list", [])
+			if not save_data_list.is_empty():
+				save_data_list[0]["wounds_to_save"] = save_data_list[0].get("wounds_to_save", 0) + 1
+				print("FightPhase: Wound reroll passed — wounds_to_save incremented to %d" % save_data_list[0]["wounds_to_save"])
+		elif hit_wound_reroll_type == "hit_roll":
+			var wound_threshold = 4
+			for block in pending_result.get("dice", []):
+				var ctx = block.get("context", "")
+				if ctx == "wound_roll" or ctx == "to_wound" or ctx == "wound_roll_melee":
+					var wt_str = block.get("threshold", "")
+					wound_threshold = wt_str.replace("+", "").to_int() if wt_str != "" else 4
+					break
+			var wound_roll = rng.roll_d6(1)[0]
+			var wound_passed = wound_roll >= wound_threshold
+			print("FightPhase: Hit reroll passed → wound roll: %d (needed %d+, %s)" % [
+				wound_roll, wound_threshold, "PASSED" if wound_passed else "FAILED"])
+			log_phase_message("  → Wound roll for rerolled hit: %d (needed %d+) — %s" % [
+				wound_roll, wound_threshold, "wounds!" if wound_passed else "no wound"])
+			if wound_passed:
+				var save_data_list = pending_result.get("save_data_list", [])
+				if not save_data_list.is_empty():
+					save_data_list[0]["wounds_to_save"] = save_data_list[0].get("wounds_to_save", 0) + 1
+
+	var reroll_dice_block = {
+		"context": "command_reroll_" + hit_wound_reroll_type,
+		"original_roll": original_roll,
+		"new_roll": new_roll,
+		"threshold": hit_wound_reroll_threshold,
+		"passed": passed,
+		"reroll_type": hit_wound_reroll_type,
+	}
+	emit_signal("dice_rolled", reroll_dice_block)
+
+	return _resume_roll_dice_after_reroll()
+
+func _process_decline_hit_wound_reroll(_action: Dictionary) -> Dictionary:
+	"""Handle attacker declining Command Re-roll on melee hit/wound."""
+	print("FightPhase: COMMAND RE-ROLL DECLINED for %s" % hit_wound_reroll_type)
+	return _resume_roll_dice_after_reroll()
+
+func _resume_roll_dice_after_reroll() -> Dictionary:
+	"""Resume _process_roll_dice_interactive after hit/wound reroll decision."""
+	var result = hit_wound_reroll_pending_result
+	var melee_action = hit_wound_reroll_pending_melee_action
+
+	awaiting_hit_wound_reroll = false
+	hit_wound_reroll_type = ""
+	hit_wound_reroll_dice_block = {}
+	hit_wound_reroll_die_index = -1
+	hit_wound_reroll_threshold = 0
+	hit_wound_reroll_pending_result = {}
+	hit_wound_reroll_pending_melee_action = {}
+
+	return _continue_roll_dice_interactive(result)
+
+func _continue_roll_dice_interactive(result: Dictionary) -> Dictionary:
+	"""Continue roll_dice_interactive after hit/wound reroll decision."""
+	var save_data_list = result.get("save_data_list", [])
+
+	if save_data_list.is_empty():
+		print("[FightPhase] After reroll — no wounds caused, skipping saves")
+		for assignment in confirmed_attacks:
+			emit_signal("attacks_resolved", active_fighter_id, assignment.get("target", ""), result)
+			emit_signal("fight_resolved", active_fighter_id, result)
+		confirmed_attacks.clear()
+		log_phase_message("Melee combat resolved for %s (no wounds)" % active_fighter_id)
+		var consol_dist = _get_consolidation_distance(active_fighter_id)
+		emit_signal("consolidate_required", active_fighter_id, consol_dist)
+		var final_result = create_result(true, result.get("diffs", []))
+		final_result["trigger_consolidate"] = true
+		final_result["consolidate_unit_id"] = active_fighter_id
+		final_result["consolidate_distance"] = consol_dist
+		final_result["log_text"] = result.get("log_text", "")
+		if result.has("dice"):
+			final_result["dice"] = result["dice"]
+		return final_result
+
+	# Wounds exist — proceed to saves
+	pending_melee_save_data = save_data_list
+	pending_melee_hit_wound_result = result
+	awaiting_melee_saves = true
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ MELEE SAVES_REQUIRED EMISSION (after reroll)")
+	print("║ Save data list size: %d" % save_data_list.size())
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	emit_signal("saves_required", save_data_list)
+	log_phase_message("Awaiting defender wound allocation for melee combat...")
+
+	var pause_result = create_result(true, result.get("diffs", []), "Awaiting melee save resolution")
+	pause_result["awaiting_melee_saves"] = true
+	pause_result["log_text"] = result.get("log_text", "")
+	if result.has("dice"):
+		pause_result["dice"] = result["dice"]
+	if not save_data_list.is_empty():
+		pause_result["save_data_list"] = save_data_list
+	return pause_result
+
+# ============================================================================
+# COMMAND RE-ROLL: SAVE REROLL (defender's opportunity)
+# ============================================================================
+
+func _process_use_save_reroll(_action: Dictionary) -> Dictionary:
 	"""Handle player choosing to use Command Re-roll on a failed melee save."""
 	print("╔═══════════════════════════════════════════════════════════════")
 	print("║ FightPhase: COMMAND RE-ROLL USED (Melee Save)")
@@ -1910,7 +2184,7 @@ func _process_use_command_reroll(_action: Dictionary) -> Dictionary:
 
 	return _resume_apply_melee_saves_after_reroll()
 
-func _process_decline_command_reroll(_action: Dictionary) -> Dictionary:
+func _process_decline_save_reroll(_action: Dictionary) -> Dictionary:
 	"""Handle player declining Command Re-roll on a melee save."""
 	print("FightPhase: COMMAND RE-ROLL DECLINED for melee save on %s" % save_reroll_target_unit_id)
 	return _resume_apply_melee_saves_after_reroll()
@@ -1924,6 +2198,8 @@ func _resume_apply_melee_saves_after_reroll() -> Dictionary:
 	save_reroll_save_index = -1
 	save_reroll_defending_player = 0
 	save_reroll_target_unit_id = ""
+	# Mark the action so we skip the reroll check on re-entry
+	action_to_resume["_skip_reroll_check"] = true
 	return _process_apply_melee_saves(action_to_resume)
 
 # T3-3: Auto-inject Extra Attacks weapons that aren't already in confirmed_attacks
