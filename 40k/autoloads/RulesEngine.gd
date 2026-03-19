@@ -5473,6 +5473,34 @@ static func has_monster_hunters_vs_target(actor_unit: Dictionary, target_unit: D
 	# Check if target is MONSTER or VEHICLE
 	return is_monster_or_vehicle(target_unit)
 
+# DA BIGGER DEY IZ (OA-49): Mozrog Skragbad — +1 Damage to melee attacks vs MONSTER/VEHICLE,
+# +2 Damage vs TITANIC. Returns the damage bonus (0, 1, or 2).
+# Since Mozrog is a CHARACTER who fights with his own unit_id, this naturally restricts
+# the bonus to his attacks only (not the bodyguard unit's).
+static func get_da_bigger_damage_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Da Bigger Dey iz...":
+			has_ability = true
+			break
+
+	if not has_ability:
+		return 0
+
+	# TITANIC gets +2, MONSTER/VEHICLE gets +1
+	if unit_has_keyword(target_unit, "TITANIC"):
+		return 2
+	elif is_monster_or_vehicle(target_unit):
+		return 1
+
+	return 0
+
 # BEASTLY RAGE: Beastboss on Squigosaur — after charging, this model's melee weapons
 # gain [DEVASTATING WOUNDS] until end of turn. Returns true if the unit has the ability
 # AND charged this turn. Since characters fight with their own unit_id, this naturally
@@ -8615,12 +8643,20 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if melee_has_half_damage:
 		print("RulesEngine: Half Damage active on melee defender — all damage characteristics halved (round up)")
 
+	# DA BIGGER DEY IZ (OA-49): Mozrog Skragbad — conditional damage bonus vs MONSTER/VEHICLE/TITANIC
+	var da_bigger_bonus = get_da_bigger_damage_bonus(attacker_unit, target_unit)
+	if da_bigger_bonus > 0:
+		print("RulesEngine: DA BIGGER DEY IZ — +%d damage for %s (target is %s)" % [da_bigger_bonus, attacker_name, "TITANIC" if da_bigger_bonus == 2 else "MONSTER/VEHICLE"])
+
 	# Roll variable damage per regular failed save
 	var melee_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
 	var regular_wound_damages = []
 	for _i in range(failed_saves):
 		var dmg_result = roll_variable_characteristic(damage_raw, rng)
 		var wound_dmg_value = dmg_result.value
+		# DA BIGGER DEY IZ (OA-49): Add conditional damage bonus before defensive modifiers
+		if da_bigger_bonus > 0:
+			wound_dmg_value += da_bigger_bonus
 		# HALF DAMAGE (T4-17): Halve per-wound damage (round up)
 		if melee_has_half_damage:
 			wound_dmg_value = apply_half_damage(wound_dmg_value)
@@ -8641,6 +8677,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	for _i in range(devastating_wound_count):
 		var dmg_result = roll_variable_characteristic(damage_raw, rng)
 		var dw_dmg_value = dmg_result.value
+		# DA BIGGER DEY IZ (OA-49): Add conditional damage bonus before defensive modifiers
+		if da_bigger_bonus > 0:
+			dw_dmg_value += da_bigger_bonus
 		# HALF DAMAGE (T4-17): Halve devastating wound damage (round up)
 		if melee_has_half_damage:
 			dw_dmg_value = apply_half_damage(dw_dmg_value)
@@ -8870,6 +8909,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		log_parts.append("%d DEVASTATING (unsaveable)" % devastating_wound_count)
 	if weapon_has_precision and precision_wounds_allocated > 0:
 		log_parts.append("PRECISION: %d damage → CHARACTER" % precision_wounds_allocated)
+
+	# DA BIGGER DEY IZ: Log damage bonus in combat summary
+	if da_bigger_bonus > 0:
+		log_parts.append("DA BIGGER DEY IZ +%d dmg" % da_bigger_bonus)
 
 	# Save result
 	log_parts.append("Save: %d/%d failed" % [total_unsaved, wounds_caused])
@@ -9372,6 +9415,11 @@ static func prepare_melee_save_resolution(
 	# MINUS DAMAGE (P1-18)
 	var minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
 
+	# DA BIGGER DEY IZ (OA-49): Mozrog Skragbad — conditional damage bonus vs MONSTER/VEHICLE/TITANIC
+	var da_bigger_bonus = get_da_bigger_damage_bonus(attacker_unit, target_unit)
+	if da_bigger_bonus > 0:
+		print("RulesEngine: DA BIGGER DEY IZ (melee interactive) — +%d damage for %s" % [da_bigger_bonus, attacker_unit.get("meta", {}).get("name", attacker_unit_id)])
+
 	return {
 		"success": true,
 		"wounds_to_save": wounds_needing_saves,
@@ -9405,6 +9453,8 @@ static func prepare_melee_save_resolution(
 		# Melee-specific: damage modifiers for WoundAllocationOverlay
 		"has_half_damage": has_half_damage,
 		"minus_damage": minus_dmg,
+		# DA BIGGER DEY IZ (OA-49): Conditional damage bonus for melee
+		"da_bigger_damage_bonus": da_bigger_bonus,
 		# Flag to identify this as melee save data
 		"is_melee": true
 	}
@@ -9548,6 +9598,11 @@ static func apply_save_damage(
 	if int_minus_dmg > 0:
 		print("RulesEngine: Minus Damage active on defender — all damage reduced by %d (min 1)" % int_minus_dmg)
 
+	# DA BIGGER DEY IZ (OA-49): Conditional damage bonus from melee save data
+	var da_bigger_bonus = save_data.get("da_bigger_damage_bonus", 0)
+	if da_bigger_bonus > 0:
+		print("RulesEngine: DA BIGGER DEY IZ — +%d damage per wound (interactive save)" % da_bigger_bonus)
+
 	# DEVASTATING WOUNDS (PRP-012, T2-11): Apply devastating damage first (unsaveable)
 	# T2-11: DW mortal wounds spill over between models via _apply_damage_to_unit_pool
 	# Roll variable damage per devastating wound (D3, D6, etc.)
@@ -9574,6 +9629,9 @@ static func apply_save_damage(
 				dw_wound_damage += melta_bonus
 				melta_wounds_remaining -= 1
 				print("RulesEngine: MELTA +%d applied to devastating wound (damage: %d → %d)" % [melta_bonus, dmg_result.value, dw_wound_damage])
+			# DA BIGGER DEY IZ (OA-49): Add conditional damage bonus before defensive modifiers
+			if da_bigger_bonus > 0:
+				dw_wound_damage += da_bigger_bonus
 			# HALF DAMAGE (T4-17): Halve devastating wound damage (round up)
 			if has_half_damage:
 				var pre_half = dw_wound_damage
@@ -9594,6 +9652,9 @@ static func apply_save_damage(
 			var melta_dw_wounds = min(devastating_wound_count, melta_wounds_remaining)
 			dw_damage += melta_dw_wounds * melta_bonus
 			melta_wounds_remaining -= melta_dw_wounds
+		# DA BIGGER DEY IZ (OA-49): Add conditional damage bonus to fixed estimate
+		if da_bigger_bonus > 0 and devastating_wound_count > 0:
+			dw_damage += devastating_wound_count * da_bigger_bonus
 		# HALF DAMAGE (T4-17): Halve fixed devastating damage estimate (round up)
 		if has_half_damage and dw_damage > 0:
 			var pre_half = dw_damage
@@ -9676,6 +9737,10 @@ static func apply_save_damage(
 			wound_damage += melta_bonus
 			melta_wounds_remaining -= 1
 			print("RulesEngine: MELTA +%d applied to failed save damage (total: %d)" % [melta_bonus, wound_damage])
+
+		# DA BIGGER DEY IZ (OA-49): Add conditional damage bonus before defensive modifiers
+		if da_bigger_bonus > 0:
+			wound_damage += da_bigger_bonus
 
 		# HALF DAMAGE (T4-17): Halve per-wound damage (round up)
 		if has_half_damage:

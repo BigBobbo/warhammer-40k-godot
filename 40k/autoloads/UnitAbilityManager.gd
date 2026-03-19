@@ -1271,8 +1271,8 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [],
 		"target": "model",
 		"attack_type": "melee",
-		"implemented": false,
-		"description": "+1 Damage to melee attacks vs MONSTER or VEHICLE; +2 Damage vs TITANIC — requires RulesEngine integration for per-model conditional damage bonus"
+		"implemented": true,
+		"description": "+1 Damage to melee attacks vs MONSTER or VEHICLE; +2 Damage vs TITANIC — checked directly in RulesEngine.get_da_bigger_damage_bonus()"
 	},
 
 	# ======================================================================
