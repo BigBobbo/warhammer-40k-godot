@@ -3495,6 +3495,95 @@ static func get_ability_attack_type(ability_name: String) -> String:
 	return def_data.get("attack_type", "all")
 
 # ============================================================================
+# UNIFIED RANGE-CONDITIONAL ABILITY RESOLVER
+# ============================================================================
+
+static func resolve_ranged_ability_bonuses(actor_unit: Dictionary, target_unit: Dictionary, weapon_profile: Dictionary = {}) -> Dictionary:
+	"""Resolve all range-conditional ability bonuses for ranged attacks.
+	Scans the actor unit's abilities, looks each up in ABILITY_EFFECTS, checks
+	range conditions, and aggregates bonuses by effect type.
+	Returns: {"ap_bonus": int, "hit_bonus": int, "abilities_applied": Array[String]}
+	"""
+	var ap_bonus := 0
+	var hit_bonus := 0
+	var abilities_applied: Array = []
+
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name := _extract_ability_name_static(ability)
+		if ability_name == "":
+			continue
+
+		var def = ABILITY_EFFECTS.get(ability_name, {})
+		if def.is_empty() or not def.get("implemented", false):
+			continue
+
+		# Only consider abilities that apply to ranged attacks
+		var attack_type = def.get("attack_type", "all")
+		if attack_type != "ranged" and attack_type != "all":
+			continue
+
+		var condition = def.get("condition", "")
+		var condition_met := false
+
+		if condition == "target_within_range":
+			var range_inches = def.get("range_inches", 0.0)
+			if range_inches > 0.0:
+				condition_met = _is_target_in_range_static(actor_unit, target_unit, range_inches)
+		elif condition == "target_within_half_range":
+			var weapon_range_str = str(weapon_profile.get("range", "0"))
+			var weapon_range = float(weapon_range_str) if weapon_range_str != "Melee" else 0.0
+			if weapon_range > 0.0:
+				condition_met = _is_target_in_range_static(actor_unit, target_unit, weapon_range / 2.0)
+
+		if not condition_met:
+			continue
+
+		# Aggregate effect bonuses
+		for effect in def.get("effects", []):
+			var effect_type = effect.get("type", "")
+			if effect_type == "improve_ap":
+				ap_bonus += effect.get("value", 1)
+			elif effect_type == "plus_one_hit":
+				hit_bonus += 1
+
+		abilities_applied.append(ability_name)
+
+	return {
+		"ap_bonus": ap_bonus,
+		"hit_bonus": hit_bonus,
+		"abilities_applied": abilities_applied
+	}
+
+static func _extract_ability_name_static(ability) -> String:
+	"""Extract ability name from either String or Dictionary format (static version)."""
+	if ability is String:
+		return ability
+	elif ability is Dictionary:
+		return ability.get("name", "")
+	return ""
+
+static func _is_target_in_range_static(actor_unit: Dictionary, target_unit: Dictionary, range_inches: float) -> bool:
+	"""Check if any alive model in actor_unit is within range_inches of any alive model in target_unit.
+	Uses Measurement for accurate edge-to-edge distance."""
+	for attacker_model in actor_unit.get("models", []):
+		if not attacker_model.get("alive", true):
+			continue
+		var a_pos = attacker_model.get("position", null)
+		if a_pos == null:
+			continue
+		for target_model in target_unit.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+			var t_pos = target_model.get("position", null)
+			if t_pos == null:
+				continue
+			var distance = Measurement.model_to_model_distance_inches(attacker_model, target_model)
+			if distance <= range_inches:
+				return true
+	return false
+
+# ============================================================================
 # HELPERS
 # ============================================================================
 

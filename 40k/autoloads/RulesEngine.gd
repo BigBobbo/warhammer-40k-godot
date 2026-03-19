@@ -1051,12 +1051,12 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var pre_ap_pr = ap
 		ap = ap + 1
 		print("RulesEngine: Pulsa Rokkit (Overwatch) — ranged AP %d → %d (+1)" % [pre_ap_pr, ap])
-	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
-	var ow_dbd_bonus = get_drive_by_dakka_ap_bonus(shooter_unit, target_unit)
-	if ow_dbd_bonus > 0:
-		var pre_ap_dbd = ap
-		ap = ap + ow_dbd_bonus
-		print("RulesEngine: Drive-by Dakka (Overwatch) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ow_dbd_bonus])
+	# UNIFIED ABILITY AP BONUS: Resolve all range-conditional AP improvements (Drive-by Dakka, etc.) — Overwatch
+	var ow_ability_bonuses = UnitAbilityManager.resolve_ranged_ability_bonuses(shooter_unit, target_unit, weapon_profile)
+	if ow_ability_bonuses.ap_bonus > 0:
+		var pre_ap_ab = ap
+		ap = ap + ow_ability_bonuses.ap_bonus
+		print("RulesEngine: Ability AP bonus (Overwatch) — AP %d → %d (improve by %d, abilities: %s)" % [pre_ap_ab, ap, ow_ability_bonuses.ap_bonus, str(ow_ability_bonuses.abilities_applied)])
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ow_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ow_worsen_ap > 0 and ap > 0:
@@ -1575,11 +1575,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: MEKANIAK — +1 to hit for %s (Mek-buffed vehicle)" % actor_unit_id)
 
-		# WALL OF DAKKA (OA-50): +1 to Hit on ranged attacks vs targets within half weapon range (Bonebreaka)
-		var wall_of_dakka_bonus = get_wall_of_dakka_hit_bonus(actor_unit, target_unit, weapon_profile)
-		if wall_of_dakka_bonus > 0:
+		# UNIFIED ABILITY HIT BONUS: Resolve range-conditional hit bonuses (Wall of Dakka, etc.)
+		var ability_hit_bonuses = UnitAbilityManager.resolve_ranged_ability_bonuses(actor_unit, target_unit, weapon_profile)
+		if ability_hit_bonuses.hit_bonus > 0:
 			hit_modifiers |= HitModifier.PLUS_ONE
-			print("RulesEngine: WALL OF DAKKA — +1 to hit for %s (target within half range)" % actor_unit_id)
+			print("RulesEngine: Ability hit bonus — +1 to hit for %s (abilities: %s)" % [actor_unit_id, str(ability_hit_bonuses.abilities_applied)])
 
 		# BIG AN' SHOOTY (OA-41): +1 to Hit for ranged attacks while Waaagh! active (Morkanaut)
 		if UnitAbilityManager.has_big_an_shooty(actor_unit):
@@ -2406,11 +2406,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: MEKANIAK (auto-resolve) — +1 to hit for %s (Mek-buffed vehicle)" % actor_unit_id)
 
-		# WALL OF DAKKA (OA-50): +1 to Hit on ranged attacks vs targets within half weapon range (auto-resolve)
-		var wall_of_dakka_bonus_ar = get_wall_of_dakka_hit_bonus(actor_unit, target_unit, weapon_profile)
-		if wall_of_dakka_bonus_ar > 0:
+		# UNIFIED ABILITY HIT BONUS: Resolve range-conditional hit bonuses (Wall of Dakka, etc.) — auto-resolve
+		var ability_hit_bonuses_ar = UnitAbilityManager.resolve_ranged_ability_bonuses(actor_unit, target_unit, weapon_profile)
+		if ability_hit_bonuses_ar.hit_bonus > 0:
 			hit_modifiers |= HitModifier.PLUS_ONE
-			print("RulesEngine: WALL OF DAKKA (auto-resolve) — +1 to hit for %s (target within half range)" % actor_unit_id)
+			print("RulesEngine: Ability hit bonus (auto-resolve) — +1 to hit for %s (abilities: %s)" % [actor_unit_id, str(ability_hit_bonuses_ar.abilities_applied)])
 
 		# BIG AN' SHOOTY (OA-41): +1 to Hit for ranged attacks while Waaagh! active (Morkanaut, auto-resolve)
 		if UnitAbilityManager.has_big_an_shooty(actor_unit):
@@ -2811,12 +2811,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var pre_ap_pr = ap
 		ap = ap + 1
 		print("RulesEngine: Pulsa Rokkit (auto-resolve) — ranged AP %d → %d (+1)" % [pre_ap_pr, ap])
-	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
-	var ar_dbd_bonus = get_drive_by_dakka_ap_bonus(actor_unit, target_unit)
-	if ar_dbd_bonus > 0:
-		var pre_ap_dbd = ap
-		ap = ap + ar_dbd_bonus
-		print("RulesEngine: Drive-by Dakka (auto-resolve) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ar_dbd_bonus])
+	# UNIFIED ABILITY AP BONUS: Resolve all range-conditional AP improvements (Drive-by Dakka, etc.)
+	var ar_ability_bonuses = UnitAbilityManager.resolve_ranged_ability_bonuses(actor_unit, target_unit, weapon_profile)
+	if ar_ability_bonuses.ap_bonus > 0:
+		var pre_ap_ab = ap
+		ap = ap + ar_ability_bonuses.ap_bonus
+		print("RulesEngine: Ability AP bonus (auto-resolve) — AP %d → %d (improve by %d, abilities: %s)" % [pre_ap_ab, ap, ar_ability_bonuses.ap_bonus, str(ar_ability_bonuses.abilities_applied)])
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ar_worsen_ap > 0 and ap > 0:
@@ -9074,12 +9074,12 @@ static func prepare_save_resolution(
 		var pre_ap_pr = ap
 		ap = ap + 1
 		print("RulesEngine: Pulsa Rokkit (interactive) — ranged AP %d → %d (+1)" % [pre_ap_pr, ap])
-	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
-	var int_dbd_bonus = get_drive_by_dakka_ap_bonus(shooter_unit, target_unit)
-	if int_dbd_bonus > 0:
-		var pre_ap_dbd = ap
-		ap = ap + int_dbd_bonus
-		print("RulesEngine: Drive-by Dakka (interactive) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, int_dbd_bonus])
+	# UNIFIED ABILITY AP BONUS: Resolve all range-conditional AP improvements (Drive-by Dakka, etc.)
+	var int_ability_bonuses = UnitAbilityManager.resolve_ranged_ability_bonuses(shooter_unit, target_unit, weapon_profile)
+	if int_ability_bonuses.ap_bonus > 0:
+		var pre_ap_ab = ap
+		ap = ap + int_ability_bonuses.ap_bonus
+		print("RulesEngine: Ability AP bonus (interactive) — AP %d → %d (improve by %d, abilities: %s)" % [pre_ap_ab, ap, int_ability_bonuses.ap_bonus, str(int_ability_bonuses.abilities_applied)])
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if int_worsen_ap > 0 and ap > 0:
