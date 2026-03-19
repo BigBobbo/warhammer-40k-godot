@@ -492,6 +492,21 @@ func _apply_waaagh_effects(player: int) -> void:
 		if _unit_has_ability(unit, "Da Boss Iz Watchin'"):
 			_apply_da_boss_iz_watchin(unit, unit_id)
 
+		# Special Dose — +6" to Move characteristic while Waaagh! active (Zodgrod Wortsnagga leading)
+		# Check if any attached character has this ability and apply movement bonus to the led unit
+		for char_id in attached_characters:
+			var char_unit = units.get(char_id, {})
+			if char_unit.is_empty():
+				continue
+			if _unit_has_ability(char_unit, "Special Dose"):
+				unit["flags"]["special_dose_active"] = true
+				# Also apply to the character unit itself (Zodgrod is part of the unit)
+				if not char_unit.has("flags"):
+					char_unit["flags"] = {}
+				char_unit["flags"]["special_dose_active"] = true
+				print("FactionAbilityManager: Special Dose +6\" Move applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+				break
+
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		print("FactionAbilityManager: Waaagh! effects applied to %s (%s) — 5+ invuln, advance+charge" % [unit_name, unit_id])
 
@@ -528,6 +543,17 @@ func _clear_waaagh_effects(player: int) -> void:
 				flags.erase("effect_crit_hit_on")
 				flags.erase("effect_crit_hit_on_source")
 				print("FactionAbilityManager: Prophet of Da Great Waaagh! Crit Hit 5+ cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+			# Special Dose: Clear +6" Move bonus
+			if flags.get("special_dose_active", false):
+				flags.erase("special_dose_active")
+				print("FactionAbilityManager: Special Dose +6\" Move cleared from %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+				# Also clear from any attached characters
+				var attachment_data = unit.get("attachment_data", {})
+				var attached_characters = attachment_data.get("attached_characters", [])
+				for char_id in attached_characters:
+					var char_unit = units.get(char_id, {})
+					if not char_unit.is_empty():
+						char_unit.get("flags", {}).erase("special_dose_active")
 			# OA-41: Clear Big an' Shooty / Big an' Stompy flags
 			if flags.get("big_an_shooty_active", false):
 				flags.erase("big_an_shooty_active")

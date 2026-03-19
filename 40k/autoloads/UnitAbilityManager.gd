@@ -1243,8 +1243,8 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [],
 		"target": "led_unit",
 		"attack_type": "all",
-		"implemented": false,
-		"description": "While Waaagh! active, add 6\" to Move characteristic of models in this model's unit — requires MovementPhase integration"
+		"implemented": true,
+		"description": "While Waaagh! active, add 6\" to Move characteristic of models in this model's unit — applied via special_dose_active flag in FactionAbilityManager/MovementPhase"
 	},
 
 	# Mozrog Skragbad — led unit models can fight before dying when destroyed by melee (4+)
