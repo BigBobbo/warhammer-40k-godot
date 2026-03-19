@@ -665,7 +665,15 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 
 		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage
 		var weapon_id = assignment.get("weapon_id", "")
-		if is_hazardous_weapon(weapon_id, board):
+		var ar_is_haz = is_hazardous_weapon(weapon_id, board)
+		# WAAAGH! ENERGY: Check if weapon becomes HAZARDOUS due to 10+ models in led unit
+		if not ar_is_haz:
+			var ar_haz_wp = get_weapon_profile(weapon_id, board)
+			var ar_haz_we = get_waaagh_energy_bonus(actor_unit, ar_haz_wp.get("name", weapon_id), board)
+			if not ar_haz_we.is_empty() and ar_haz_we.hazardous:
+				ar_is_haz = true
+				print("RulesEngine: Waaagh! Energy — 'Eadbanger HAZARDOUS check required (10+ models, auto-resolve path)")
+		if ar_is_haz:
 			var models_that_fired = assignment.get("model_ids", []).size()
 			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fired, board, rng_service)
 			if hazardous_result.hazardous_triggered:
@@ -735,7 +743,15 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 
 		# HAZARDOUS (T2-3): Track hazardous weapons for post-save resolution
 		var weapon_id = assignment.get("weapon_id", "")
-		if is_hazardous_weapon(weapon_id, board):
+		var is_haz = is_hazardous_weapon(weapon_id, board)
+		# WAAAGH! ENERGY: Check if weapon becomes HAZARDOUS due to 10+ models in led unit
+		if not is_haz:
+			var haz_wp = get_weapon_profile(weapon_id, board)
+			var haz_we = get_waaagh_energy_bonus(actor_unit, haz_wp.get("name", weapon_id), board)
+			if not haz_we.is_empty() and haz_we.hazardous:
+				is_haz = true
+				print("RulesEngine: Waaagh! Energy — 'Eadbanger HAZARDOUS check required (10+ models, interactive path)")
+		if is_haz:
 			hazardous_weapons.append({
 				"weapon_id": weapon_id,
 				"models_that_fired": assignment.get("model_ids", []).size()
@@ -970,6 +986,12 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var pre_s_spt = strength
 		strength += 1
 		print("RulesEngine: Shooty Power Trip (Overwatch) — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
+	# WAAAGH! ENERGY: Weirdboy — +1S per 5 models in led unit for 'Eadbanger (overwatch)
+	var ow_waaagh_energy = get_waaagh_energy_bonus(shooter_unit, weapon_name, board)
+	if not ow_waaagh_energy.is_empty():
+		var pre_s_we = strength
+		strength += ow_waaagh_energy.strength_bonus
+		print("RulesEngine: Waaagh! Energy (Overwatch) — 'Eadbanger strength %d → %d (+%d, %d models in led unit)" % [pre_s_we, strength, ow_waaagh_energy.strength_bonus, ow_waaagh_energy.model_count])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (overwatch)
 	var ded_glowy_penalty_ow = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -1738,6 +1760,19 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		var pre_s_spt = strength
 		strength += 1
 		print("RulesEngine: Shooty Power Trip — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
+	# WAAAGH! ENERGY: Weirdboy — +1S per 5 models in led unit for 'Eadbanger
+	var waaagh_energy = get_waaagh_energy_bonus(actor_unit, weapon_name, board)
+	if not waaagh_energy.is_empty():
+		var pre_s_we = strength
+		strength += waaagh_energy.strength_bonus
+		print("RulesEngine: Waaagh! Energy — 'Eadbanger strength %d → %d (+%d, %d models in led unit)" % [pre_s_we, strength, waaagh_energy.strength_bonus, waaagh_energy.model_count])
+		# Also modify weapon_profile damage for interactive save resolution
+		var pre_d_we = weapon_profile.get("damage", 1)
+		weapon_profile["damage"] = pre_d_we + waaagh_energy.damage_bonus
+		weapon_profile["damage_raw"] = str(pre_d_we + waaagh_energy.damage_bonus)
+		print("RulesEngine: Waaagh! Energy — 'Eadbanger damage %d → %d (+%d)" % [pre_d_we, weapon_profile["damage"], waaagh_energy.damage_bonus])
+		if waaagh_energy.hazardous:
+			print("RulesEngine: Waaagh! Energy — 'Eadbanger gains [HAZARDOUS] (10+ models in led unit)")
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk
 	var ded_glowy_penalty = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -2570,6 +2605,17 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var pre_s_spt = strength
 		strength += 1
 		print("RulesEngine: Shooty Power Trip (auto-resolve) — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
+	# WAAAGH! ENERGY: Weirdboy — +1S and +1D per 5 models in led unit for 'Eadbanger (auto-resolve)
+	var ar_waaagh_energy = get_waaagh_energy_bonus(actor_unit, weapon_profile.get("name", weapon_id), board)
+	var ar_waaagh_energy_damage_bonus = 0
+	if not ar_waaagh_energy.is_empty():
+		var pre_s_we = strength
+		strength += ar_waaagh_energy.strength_bonus
+		ar_waaagh_energy_damage_bonus = ar_waaagh_energy.damage_bonus
+		print("RulesEngine: Waaagh! Energy (auto-resolve) — 'Eadbanger strength %d → %d (+%d, %d models in led unit)" % [pre_s_we, strength, ar_waaagh_energy.strength_bonus, ar_waaagh_energy.model_count])
+		print("RulesEngine: Waaagh! Energy (auto-resolve) — 'Eadbanger damage +%d per wound" % ar_waaagh_energy.damage_bonus)
+		if ar_waaagh_energy.hazardous:
+			print("RulesEngine: Waaagh! Energy (auto-resolve) — 'Eadbanger gains [HAZARDOUS] (10+ models in led unit)")
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (auto-resolve)
 	var ded_glowy_penalty_ar = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -2898,6 +2944,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var dw_wound_damage = dmg_result.value
 			if dmg_result.rolled:
 				damage_roll_log.append(dmg_result)
+			# WAAAGH! ENERGY: Add damage bonus per wound (auto-resolve, devastating)
+			if ar_waaagh_energy_damage_bonus > 0:
+				dw_wound_damage += ar_waaagh_energy_damage_bonus
+				print("RulesEngine: Waaagh! Energy +%d damage (auto-resolve, devastating wound)" % ar_waaagh_energy_damage_bonus)
 			# MELTA X (T1-1): Add melta bonus to devastating wound damage if applicable
 			if ar_melta_value > 0 and ar_melta_wounds_remaining > 0:
 				dw_wound_damage += ar_melta_value
@@ -3058,6 +3108,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var damage = dmg_result.value
 			if dmg_result.rolled:
 				damage_roll_log.append(dmg_result)
+
+			# WAAAGH! ENERGY: Add damage bonus per wound (auto-resolve, regular wound)
+			if ar_waaagh_energy_damage_bonus > 0:
+				damage += ar_waaagh_energy_damage_bonus
+				print("RulesEngine: Waaagh! Energy +%d damage (auto-resolve)" % ar_waaagh_energy_damage_bonus)
 
 			# MELTA X (T1-1): Add melta bonus to damage if applicable
 			if ar_melta_value > 0 and ar_melta_wounds_remaining > 0:
@@ -5491,6 +5546,55 @@ static func has_beastly_rage_active(actor_unit: Dictionary) -> bool:
 		if ability_name == "Beastly Rage":
 			return true
 	return false
+
+# WAAAGH! ENERGY: Weirdboy — while leading a unit, 'Eadbanger gains +1S and +1D per 5 models
+# in the led unit (rounded down). At 10+ models, the weapon gains [HAZARDOUS].
+# Returns {"strength_bonus": int, "damage_bonus": int, "hazardous": bool, "model_count": int}
+# or empty dict if not applicable.
+static func get_waaagh_energy_bonus(attacker_unit: Dictionary, weapon_name: String, board: Dictionary) -> Dictionary:
+	# Check if weapon is 'Eadbanger
+	if not "eadbanger" in weapon_name.to_lower():
+		return {}
+
+	# Check if attacker has "Waaagh! Energy" ability
+	var abilities = attacker_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ab_name = ""
+		if ability is String:
+			ab_name = ability
+		elif ability is Dictionary:
+			ab_name = ability.get("name", "")
+		if ab_name == "Waaagh! Energy":
+			has_ability = true
+			break
+
+	if not has_ability:
+		return {}
+
+	# Check if attached to a bodyguard unit (while leading)
+	var attached_to = attacker_unit.get("attached_to", "")
+	if attached_to == null or attached_to == "":
+		return {}
+
+	# Get bodyguard unit and count alive models
+	var units = board.get("units", {})
+	var bodyguard_unit = units.get(attached_to, {})
+	if bodyguard_unit.is_empty():
+		return {}
+
+	var model_count = count_alive_models(bodyguard_unit)
+	var bonus = model_count / 5  # integer division = floor
+
+	if bonus <= 0:
+		return {}
+
+	return {
+		"strength_bonus": bonus,
+		"damage_bonus": bonus,
+		"hazardous": model_count >= 10,
+		"model_count": model_count
+	}
 
 # DAT'S OUR LOOT! (OA-12): Check if a unit has the "Dat's Our Loot!" ability.
 # Returns true if the unit has the ability (Lootas datasheet ability).

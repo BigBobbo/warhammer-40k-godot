@@ -647,15 +647,16 @@ const ABILITY_EFFECTS: Dictionary = {
 	# ======================================================================
 
 	# Ork Weirdboy — 'Eadbanger gains +1 S and +1 D per 5 models in led unit
-	# Hazardous at 10+ models. Requires dynamic weapon stat modification
-	# based on attached unit model count. Not auto-applied via flag system.
+	# Hazardous at 10+ models. Checked directly in RulesEngine via get_waaagh_energy_bonus()
+	# in all shooting resolution paths (normal, auto-resolve, overwatch). Hazardous check
+	# integrated in resolve_shooting_attacks() and resolve_auto_shooting().
 	"Waaagh! Energy": {
 		"condition": "while_leading",
 		"effects": [],
 		"target": "model",
 		"attack_type": "ranged",
-		"implemented": false,
-		"description": "+1 S and +1 D to 'Eadbanger per 5 models in led unit; Hazardous at 10+ models — requires dynamic weapon modification"
+		"implemented": true,
+		"description": "+1 S and +1 D to 'Eadbanger per 5 models in led unit (round down); Hazardous at 10+ models — checked in RulesEngine"
 	},
 
 	# ======================================================================
