@@ -5473,6 +5473,25 @@ static func has_monster_hunters_vs_target(actor_unit: Dictionary, target_unit: D
 	# Check if target is MONSTER or VEHICLE
 	return is_monster_or_vehicle(target_unit)
 
+# BEASTLY RAGE: Beastboss on Squigosaur — after charging, this model's melee weapons
+# gain [DEVASTATING WOUNDS] until end of turn. Returns true if the unit has the ability
+# AND charged this turn. Since characters fight with their own unit_id, this naturally
+# restricts the effect to the Beastboss's attacks only (not the bodyguard unit's).
+static func has_beastly_rage_active(actor_unit: Dictionary) -> bool:
+	var charged = actor_unit.get("flags", {}).get("charged_this_turn", false)
+	if not charged:
+		return false
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Beastly Rage":
+			return true
+	return false
+
 # DAT'S OUR LOOT! (OA-12): Check if a unit has the "Dat's Our Loot!" ability.
 # Returns true if the unit has the ability (Lootas datasheet ability).
 static func has_dats_our_loot(actor_unit: Dictionary) -> bool:
@@ -8032,6 +8051,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
 	var sustained_data = get_sustained_hits_value(weapon_id, board)
 	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
+	# BEASTLY RAGE: Beastboss on Squigosaur — melee weapons gain DEVASTATING WOUNDS after charging
+	if not weapon_has_devastating_wounds and has_beastly_rage_active(attacker_unit):
+		weapon_has_devastating_wounds = true
+		print("RulesEngine:   DEVASTATING WOUNDS granted by Beastly Rage (charged this turn)")
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
 	# PRECISION: Check both weapon keyword and stratagem flag on attacker
 	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)
