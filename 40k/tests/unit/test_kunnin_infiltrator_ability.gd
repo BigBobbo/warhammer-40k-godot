@@ -31,6 +31,8 @@ func _init():
 	_test_placement_validation_logic()
 	_test_has_kunnin_infiltrator_checks_attached_leaders()
 	_test_movement_controller_has_special_action_popup()
+	_test_deployment_controller_uses_kunnin_infiltrator_mode()
+	_test_no_board_edge_restriction()
 
 	print("\n=== Results: %d passed, %d failed ===" % [_pass_count, _fail_count])
 	if _fail_count == 0:
@@ -179,3 +181,47 @@ func _test_movement_controller_has_special_action_popup():
 		"MovementController has function to show movement action popup")
 	_assert_true(source.find("ACTIVATE_KUNNIN_INFILTRATOR") != -1,
 		"MovementController recognizes ACTIVATE_KUNNIN_INFILTRATOR as special action")
+
+func _test_deployment_controller_uses_kunnin_infiltrator_mode():
+	print("\n--- Test 9: Main.gd uses is_kunnin_infiltrator_mode (not is_reinforcement_mode) ---")
+	var main_script = load("res://scripts/Main.gd")
+	_assert_true(main_script != null, "Main.gd loads successfully")
+	var source = main_script.source_code
+	# _begin_kunnin_infiltrator_placement should set is_kunnin_infiltrator_mode, NOT is_reinforcement_mode
+	_assert_true(source.find("is_kunnin_infiltrator_mode = true") != -1,
+		"Main.gd sets is_kunnin_infiltrator_mode = true for Kunnin' Infiltrator placement")
+	# Ensure we're NOT using is_reinforcement_mode in the kunnin infiltrator flow
+	# Find the kunnin infiltrator placement function and verify it doesn't set reinforcement mode
+	var ki_func_idx = source.find("_begin_kunnin_infiltrator_placement")
+	var ki_func_end = source.find("\nfunc ", ki_func_idx + 1)
+	if ki_func_idx != -1 and ki_func_end != -1:
+		var ki_func_body = source.substr(ki_func_idx, ki_func_end - ki_func_idx)
+		_assert_false(ki_func_body.find("is_reinforcement_mode = true") != -1,
+			"_begin_kunnin_infiltrator_placement does NOT set is_reinforcement_mode")
+	else:
+		_assert_true(false, "Could not locate _begin_kunnin_infiltrator_placement function body")
+
+func _test_no_board_edge_restriction():
+	print("\n--- Test 10: DeploymentController has dedicated Kunnin' Infiltrator validation without board-edge restriction ---")
+	var dc_script = load("res://scripts/DeploymentController.gd")
+	_assert_true(dc_script != null, "DeploymentController.gd loads successfully")
+	var source = dc_script.source_code
+	# Should have the dedicated mode flag
+	_assert_true(source.find("is_kunnin_infiltrator_mode") != -1,
+		"DeploymentController has is_kunnin_infiltrator_mode flag")
+	# Should have the dedicated validation function
+	_assert_true(source.find("_validate_kunnin_infiltrator_position") != -1,
+		"DeploymentController has _validate_kunnin_infiltrator_position function")
+	# The dedicated validation function should NOT reference strategic reserves or 6" board edge
+	var ki_val_idx = source.find("func _validate_kunnin_infiltrator_position")
+	var ki_val_end = source.find("\nfunc ", ki_val_idx + 1)
+	if ki_val_idx != -1 and ki_val_end != -1:
+		var ki_val_body = source.substr(ki_val_idx, ki_val_end - ki_val_idx)
+		_assert_false(ki_val_body.find("strategic") != -1,
+			"_validate_kunnin_infiltrator_position has no strategic reserves logic")
+		_assert_false(ki_val_body.find("6.0") != -1,
+			"_validate_kunnin_infiltrator_position has no 6-inch board edge restriction")
+		_assert_true(ki_val_body.find("9.0") != -1,
+			"_validate_kunnin_infiltrator_position checks >9\" from enemies")
+	else:
+		_assert_true(false, "Could not locate _validate_kunnin_infiltrator_position function body")

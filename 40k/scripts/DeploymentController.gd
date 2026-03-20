@@ -56,6 +56,9 @@ var reinforcement_placement_type: String = ""
 # Infiltrators mode (deploy anywhere >9" from enemy zone and enemy models)
 var is_infiltrators_mode: bool = false
 
+# Kunnin' Infiltrator redeployment mode (>9" from enemies, anywhere on the board, no board-edge restriction)
+var is_kunnin_infiltrator_mode: bool = false
+
 # MA-15: Model type picker state
 var has_model_type_picker: bool = false
 var selected_model_type: String = ""
@@ -396,7 +399,11 @@ func try_place_at(world_pos: Vector2) -> void:
 		rotation = ghost_sprite.get_base_rotation()
 
 	# Check placement validity
-	if is_reinforcement_mode:
+	if is_kunnin_infiltrator_mode:
+		# Kunnin' Infiltrator: validate >9" from enemies, on the board (no board-edge restriction)
+		if not _validate_kunnin_infiltrator_position(world_pos, model_data, rotation):
+			return
+	elif is_reinforcement_mode:
 		# Reinforcement mode: validate >9" from enemies, on the board
 		if not _validate_reinforcement_position(world_pos, model_data, rotation):
 			return
@@ -652,6 +659,7 @@ func reset_unit() -> void:
 	is_reinforcement_mode = false
 	reinforcement_placement_type = ""  # P2-80: Clear placement type override
 	is_infiltrators_mode = false
+	is_kunnin_infiltrator_mode = false
 	_hide_infiltrator_exclusion()
 	is_combined_deployment = false
 	combined_models.clear()
@@ -675,7 +683,25 @@ func confirm() -> void:
 		_show_toast("Cannot deploy: unit is not in coherency (all models must be within 2\" of mates)", Color.RED)
 		return
 
-	# In reinforcement mode, emit signal BEFORE clearing state so Main can collect positions
+	# In kunnin infiltrator or reinforcement mode, emit signal BEFORE clearing state so Main can collect positions
+	if is_kunnin_infiltrator_mode:
+		print("[DeploymentController] Kunnin' Infiltrator confirm — emitting unit_confirmed (positions still available)")
+		emit_signal("unit_confirmed")
+		_finalize_tokens()
+		_clear_previews()
+		_remove_ghost()
+		unit_id = ""
+		model_idx = -1
+		temp_positions.clear()
+		temp_rotations.clear()
+		placement_order.clear()
+		is_kunnin_infiltrator_mode = false
+		has_model_type_picker = false
+		selected_model_type = ""
+		_hide_model_type_picker()
+		emit_signal("coherency_warning_changed", false, "")
+		return
+
 	if is_reinforcement_mode:
 		print("[DeploymentController] Reinforcement confirm — emitting unit_confirmed (positions still available)")
 		emit_signal("unit_confirmed")
@@ -1785,7 +1811,12 @@ func _process(delta: float) -> void:
 
 		var is_valid = false
 
-		if is_reinforcement_mode:
+		if is_kunnin_infiltrator_mode:
+			# Kunnin' Infiltrator: validate >9" from enemies, no board-edge restriction
+			is_valid = _validate_kunnin_infiltrator_position(mouse_pos, model_data, rotation)
+			if is_valid and _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation):
+				is_valid = false
+		elif is_reinforcement_mode:
 			# Reinforcement mode: validate >9" from enemies instead of deployment zone
 			is_valid = _validate_reinforcement_position(mouse_pos, model_data, rotation)
 			# Also check model overlap
@@ -2394,6 +2425,35 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 		var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
 		if edge_dist < 12.0:
 			_show_toast("Cannot deploy within 12\" of Omni-scramblers (%s) (%.1f\")" % [omni.get("unit_name", "unknown"), edge_dist])
+			return false
+
+	return true
+
+func _validate_kunnin_infiltrator_position(world_pos: Vector2, model_data: Dictionary, rotation: float) -> bool:
+	"""Validate Kunnin' Infiltrator redeployment: anywhere on the board, >9\" from all enemies. No board-edge restriction."""
+	var px_per_inch = 40.0
+	var board_width_px = GameState.state.board.size.width * px_per_inch
+	var board_height_px = GameState.state.board.size.height * px_per_inch
+
+	# Must be on the board
+	if world_pos.x < 0 or world_pos.x > board_width_px or world_pos.y < 0 or world_pos.y > board_height_px:
+		_show_toast("Must be on the battlefield")
+		return false
+
+	# Must be >9" from all enemy models (edge-to-edge)
+	var active_player = GameState.get_active_player()
+	var model_base_mm = model_data.get("base_mm", 32)
+	var model_radius_inches = (model_base_mm / 2.0) / 25.4
+
+	var enemy_positions = GameState.get_enemy_model_positions(active_player)
+	for enemy in enemy_positions:
+		var enemy_pos_px = Vector2(enemy.x, enemy.y)
+		var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
+		var dist_px = world_pos.distance_to(enemy_pos_px)
+		var dist_inches = dist_px / px_per_inch
+		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+		if edge_dist < 9.0:
+			_show_toast("Must be >9\" from enemy models (%.1f\")" % edge_dist)
 			return false
 
 	return true

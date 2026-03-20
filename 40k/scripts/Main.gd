@@ -2294,7 +2294,7 @@ func _begin_kunnin_infiltrator_placement(unit_id: String) -> void:
 		setup_deployment_controller()
 
 	if deployment_controller:
-		deployment_controller.is_reinforcement_mode = true
+		deployment_controller.is_kunnin_infiltrator_mode = true
 
 		# Hide existing unit tokens temporarily (unit is "removed from the battlefield")
 		for child in token_layer.get_children():
@@ -2394,9 +2394,9 @@ func _on_kunnin_infiltrator_confirmed() -> void:
 
 	_kunnin_infiltrator_unit_id = ""
 
-	# Reset reinforcement mode
+	# Reset kunnin infiltrator mode
 	if deployment_controller:
-		deployment_controller.is_reinforcement_mode = false
+		deployment_controller.is_kunnin_infiltrator_mode = false
 
 	# Disconnect signal
 	if deployment_controller.unit_confirmed.is_connected(_on_kunnin_infiltrator_confirmed):
