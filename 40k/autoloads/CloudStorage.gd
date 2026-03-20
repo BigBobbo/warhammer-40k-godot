@@ -127,10 +127,6 @@ func put_save(save_name: String, metadata: Dictionary, game_data: String) -> voi
 func delete_save(save_name: String) -> void:
 	_enqueue_request("DELETE", "/api/saves/" + save_name.uri_encode(), null, "delete_save", {"save_name": save_name})
 
-func get_shared_save(save_name: String, owner_id: String) -> void:
-	var path = "/api/saves/" + save_name.uri_encode() + "?owner_id=" + owner_id.uri_encode()
-	_enqueue_request("GET", path, null, "get_save", {"save_name": save_name})
-
 func register_game_participation(game_id: String) -> void:
 	_enqueue_request("POST", "/api/games/" + game_id.uri_encode() + "/join", null, "register_game", {"game_id": game_id})
 

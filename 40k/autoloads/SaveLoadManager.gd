@@ -544,13 +544,9 @@ func _load_game_from_cloud(save_name: String, owner_id: String = "") -> void:
 	emit_signal("load_started", "cloud://" + save_name)
 	emit_signal("operation_progress", "loading", "Downloading from cloud...")
 
-	# Request save from cloud
+	# Request save from cloud (all saves are globally accessible)
 	if CloudStorage:
-		if not owner_id.is_empty() and owner_id != CloudStorage.player_id:
-			# Loading a shared save from another player
-			CloudStorage.get_shared_save(save_name, owner_id)
-		else:
-			CloudStorage.get_save(save_name)
+		CloudStorage.get_save(save_name)
 		# Completion handled by _on_cloud_save_downloaded signal
 	else:
 		emit_signal("load_failed", "CloudStorage not available")
