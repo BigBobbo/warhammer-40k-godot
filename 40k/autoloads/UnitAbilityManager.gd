@@ -647,15 +647,17 @@ const ABILITY_EFFECTS: Dictionary = {
 	# ======================================================================
 
 	# Ork Weirdboy — 'Eadbanger gains +1 S and +1 D per 5 models in led unit
-	# Hazardous at 10+ models. Requires dynamic weapon stat modification
-	# based on attached unit model count. Not auto-applied via flag system.
+	# Hazardous at 10+ models. Dynamic weapon stat modification applied via
+	# _apply_waaagh_energy() based on bodyguard unit model count at phase start.
+	# Effects are applied to the bodyguard unit (combined actor) with weapon filter.
 	"Waaagh! Energy": {
 		"condition": "while_leading",
 		"effects": [],
 		"target": "model",
 		"attack_type": "ranged",
-		"implemented": false,
-		"description": "+1 S and +1 D to 'Eadbanger per 5 models in led unit; Hazardous at 10+ models — requires dynamic weapon modification"
+		"implemented": true,
+		"dynamic": true,
+		"description": "+1 S and +1 D to 'Eadbanger per 5 models in led unit; Hazardous at 10+ models"
 	},
 
 	# ======================================================================
@@ -1561,6 +1563,99 @@ func _apply_leader_abilities(bodyguard_unit_id: String, bodyguard_unit: Dictiona
 					var desc = effect_def.get("description", ability_name)
 					game_event_log.add_player_entry(owner,
 						"%s ability '%s' active on %s (%s)" % [char_name, ability_name, bg_name, desc])
+
+	# Dynamic leader abilities — abilities that require custom logic based on game state
+	_apply_dynamic_leader_abilities(bodyguard_unit_id, bodyguard_unit, phase, units)
+
+func _apply_dynamic_leader_abilities(bodyguard_unit_id: String, bodyguard_unit: Dictionary, phase: int, units: Dictionary) -> void:
+	"""Apply leader abilities that require dynamic computation (e.g., model-count-based bonuses).
+	These abilities have 'dynamic: true' in ABILITY_EFFECTS and empty effects arrays."""
+	var attachment_data = bodyguard_unit.get("attachment_data", {})
+	var attached_characters = attachment_data.get("attached_characters", [])
+
+	for char_id in attached_characters:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty() or not _has_alive_models(char_unit):
+			continue
+
+		var abilities = char_unit.get("meta", {}).get("abilities", [])
+		for ability in abilities:
+			var ability_name = ""
+			if ability is String:
+				ability_name = ability
+			elif ability is Dictionary:
+				ability_name = ability.get("name", "")
+
+			if ability_name == "Waaagh! Energy":
+				_apply_waaagh_energy(bodyguard_unit_id, bodyguard_unit, char_id, char_unit, phase)
+
+func _apply_waaagh_energy(bodyguard_unit_id: String, bodyguard_unit: Dictionary, char_id: String, char_unit: Dictionary, phase: int) -> void:
+	"""Waaagh! Energy: While leading, add +1 S and +1 D to 'Eadbanger per 5 models
+	in the led unit (rounding down). At 10+ models, 'Eadbanger gains [HAZARDOUS].
+	Effects are applied to the bodyguard unit (the combined actor during shooting)."""
+
+	# Only relevant during shooting phase (ranged weapon ability)
+	if phase != GameStateData.Phase.SHOOTING:
+		return
+
+	# Count alive models in the bodyguard unit (not including the character)
+	var alive_count = 0
+	for model in bodyguard_unit.get("models", []):
+		if model.get("alive", true):
+			alive_count += 1
+
+	# Calculate bonus: +1 per 5 models, rounded down
+	var bonus = int(alive_count / 5)
+	if bonus <= 0:
+		print("UnitAbilityManager: Waaagh! Energy — %d alive bodyguard models, bonus = 0 (need 5+)" % alive_count)
+		return
+
+	var char_name = char_unit.get("meta", {}).get("name", char_id)
+	var bg_name = bodyguard_unit.get("meta", {}).get("name", bodyguard_unit_id)
+
+	# Build dynamic effects with weapon filter for 'Eadbanger
+	var effects: Array = [
+		{"type": "plus_strength", "value": bonus, "target_weapon_names": ["'Eadbanger"]},
+		{"type": "plus_damage", "value": bonus, "target_weapon_names": ["'Eadbanger"]},
+	]
+
+	# At 10+ models, 'Eadbanger gains [HAZARDOUS]
+	if alive_count >= 10:
+		effects.append({"type": "grant_hazardous", "target_weapon_names": ["'Eadbanger"]})
+		print("UnitAbilityManager: Waaagh! Energy — %d models (10+), 'Eadbanger gains [HAZARDOUS]" % alive_count)
+
+	# Apply effects to the bodyguard unit (combined actor during shooting)
+	var diffs = EffectPrimitivesData.apply_effects(effects, bodyguard_unit_id)
+	if not diffs.is_empty():
+		PhaseManager.apply_state_changes(diffs)
+
+		# Track the active effect
+		_active_ability_effects.append({
+			"ability_name": "Waaagh! Energy",
+			"source_unit_id": char_id,
+			"target_unit_id": bodyguard_unit_id,
+			"effects": effects,
+			"attack_type": "ranged",
+			"condition": "while_leading"
+		})
+
+		# Track for phase cleanup
+		if not _applied_this_phase.has(bodyguard_unit_id):
+			_applied_this_phase[bodyguard_unit_id] = []
+		_applied_this_phase[bodyguard_unit_id].append("Waaagh! Energy")
+
+		var hazardous_str = " + [HAZARDOUS]" if alive_count >= 10 else ""
+		print("UnitAbilityManager: %s (%s) Waaagh! Energy — %d bodyguard models → +%d S/D to 'Eadbanger%s on %s" % [
+			char_name, char_id, alive_count, bonus, hazardous_str, bg_name
+		])
+
+		# Log to GameEventLog
+		var game_event_log = get_node_or_null("/root/GameEventLog")
+		if game_event_log:
+			var owner = int(bodyguard_unit.get("owner", 0))
+			game_event_log.add_player_entry(owner,
+				"%s Waaagh! Energy: 'Eadbanger +%d S/+%d D (%d models in %s)%s" % [
+					char_name, bonus, bonus, alive_count, bg_name, hazardous_str])
 
 func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> void:
 	"""Check if this unit has always-on abilities that affect combat."""

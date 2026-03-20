@@ -94,6 +94,12 @@ const MINUS_DAMAGE = "minus_damage"               # value: amount to subtract (m
 # Attack count modifiers (persistent flags)
 const PLUS_ATTACKS = "plus_attacks"               # value: amount to add to Attacks characteristic
 
+# Strength modifier (persistent flag)
+const PLUS_STRENGTH = "plus_strength"             # value: amount to add to Strength characteristic
+
+# Dynamic weapon keyword grant (persistent flag)
+const GRANT_HAZARDOUS = "grant_hazardous"         # Grants [HAZARDOUS] keyword to filtered weapons
+
 # Critical threshold modifiers (persistent flags)
 const CRIT_HIT_ON = "crit_hit_on"                 # value: threshold (e.g., 5 for 5+)
 const CRIT_WOUND_ON = "crit_wound_on"             # value: threshold
@@ -159,6 +165,8 @@ const FLAG_REROLL_CHARGE = "effect_reroll_charge"
 const FLAG_FLAT_ADVANCE = "effect_flat_advance"
 const FLAG_AUTO_ADVANCE_6 = "effect_auto_advance_6"
 const FLAG_PLUS_ATTACKS = "effect_plus_attacks"            # value: int (amount to add)
+const FLAG_PLUS_STRENGTH = "effect_plus_strength"          # value: int (amount to add)
+const FLAG_GRANT_HAZARDOUS = "effect_grant_hazardous"      # value: true (uses weapon filter)
 
 # MA-29: Weapon-targeted effect filter suffix
 # When an effect has target_weapon_names, a companion flag is stored:
@@ -211,6 +219,8 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	FLAT_ADVANCE: [{"flag": FLAG_FLAT_ADVANCE, "value": true}],
 	AUTO_ADVANCE_6: [{"flag": FLAG_AUTO_ADVANCE_6, "value": true}],
 	PLUS_ATTACKS: [{"flag": FLAG_PLUS_ATTACKS, "value_from": "value"}],
+	PLUS_STRENGTH: [{"flag": FLAG_PLUS_STRENGTH, "value_from": "value"}],
+	GRANT_HAZARDOUS: [{"flag": FLAG_GRANT_HAZARDOUS, "value": true}],
 }
 
 # Set of instant effect types that don't set persistent flags
@@ -627,6 +637,26 @@ static func get_effect_plus_attacks(unit: Dictionary) -> int:
 	"""Get the effect-granted bonus attacks value (0 if none)."""
 	return unit.get("flags", {}).get(FLAG_PLUS_ATTACKS, 0)
 
+static func has_effect_plus_strength(unit: Dictionary) -> bool:
+	"""Check if a unit has effect-granted bonus strength."""
+	return unit.get("flags", {}).get(FLAG_PLUS_STRENGTH, 0) > 0
+
+static func get_effect_plus_strength(unit: Dictionary) -> int:
+	"""Get the effect-granted bonus strength value (0 if none)."""
+	return unit.get("flags", {}).get(FLAG_PLUS_STRENGTH, 0)
+
+static func has_effect_plus_damage(unit: Dictionary) -> bool:
+	"""Check if a unit has effect-granted bonus damage."""
+	return unit.get("flags", {}).get(FLAG_PLUS_DAMAGE, 0) > 0
+
+static func get_effect_plus_damage(unit: Dictionary) -> int:
+	"""Get the effect-granted bonus damage value (0 if none)."""
+	return unit.get("flags", {}).get(FLAG_PLUS_DAMAGE, 0)
+
+static func has_effect_grant_hazardous(unit: Dictionary) -> bool:
+	"""Check if a unit has dynamically granted HAZARDOUS on any weapon."""
+	return unit.get("flags", {}).get(FLAG_GRANT_HAZARDOUS, false)
+
 static func get_weapon_filter_for_flag(unit: Dictionary, flag_name: String) -> Array:
 	"""Get the weapon filter for a specific effect flag.
 	Returns empty array if no filter (meaning the effect applies to all weapons)."""
@@ -696,5 +726,5 @@ static func get_all_persistent_flag_names() -> Array:
 		FLAG_FALL_BACK_AND_SHOOT, FLAG_FALL_BACK_AND_CHARGE,
 		FLAG_ADVANCE_AND_CHARGE, FLAG_ADVANCE_AND_SHOOT,
 		FLAG_REROLL_CHARGE, FLAG_FLAT_ADVANCE, FLAG_AUTO_ADVANCE_6,
-		FLAG_PLUS_ATTACKS,
+		FLAG_PLUS_ATTACKS, FLAG_PLUS_STRENGTH, FLAG_GRANT_HAZARDOUS,
 	]

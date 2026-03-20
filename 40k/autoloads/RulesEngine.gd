@@ -665,7 +665,14 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 
 		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage
 		var weapon_id = assignment.get("weapon_id", "")
-		if is_hazardous_weapon(weapon_id, board):
+		var _weapon_is_hazardous = is_hazardous_weapon(weapon_id, board)
+		# DYNAMIC HAZARDOUS: Check for effect-granted HAZARDOUS (e.g., Waaagh! Energy at 10+ models)
+		if not _weapon_is_hazardous and EffectPrimitivesData.has_effect_grant_hazardous(actor_unit):
+			var _haz_wpn_name = get_weapon_profile(weapon_id, board).get("name", weapon_id)
+			if EffectPrimitivesData.effect_applies_to_weapon(actor_unit, EffectPrimitivesData.FLAG_GRANT_HAZARDOUS, _haz_wpn_name):
+				_weapon_is_hazardous = true
+				print("RulesEngine: Dynamic HAZARDOUS granted for '%s' via effect flag" % _haz_wpn_name)
+		if _weapon_is_hazardous:
 			var models_that_fired = assignment.get("model_ids", []).size()
 			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fired, board, rng_service)
 			if hazardous_result.hazardous_triggered:
@@ -735,7 +742,14 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 
 		# HAZARDOUS (T2-3): Track hazardous weapons for post-save resolution
 		var weapon_id = assignment.get("weapon_id", "")
-		if is_hazardous_weapon(weapon_id, board):
+		var _int_weapon_is_hazardous = is_hazardous_weapon(weapon_id, board)
+		# DYNAMIC HAZARDOUS: Check for effect-granted HAZARDOUS (e.g., Waaagh! Energy at 10+ models)
+		if not _int_weapon_is_hazardous and EffectPrimitivesData.has_effect_grant_hazardous(actor_unit):
+			var _int_haz_wpn_name = get_weapon_profile(weapon_id, board).get("name", weapon_id)
+			if EffectPrimitivesData.effect_applies_to_weapon(actor_unit, EffectPrimitivesData.FLAG_GRANT_HAZARDOUS, _int_haz_wpn_name):
+				_int_weapon_is_hazardous = true
+				print("RulesEngine: Dynamic HAZARDOUS granted for '%s' via effect flag (interactive)" % _int_haz_wpn_name)
+		if _int_weapon_is_hazardous:
 			hazardous_weapons.append({
 				"weapon_id": weapon_id,
 				"models_that_fired": assignment.get("model_ids", []).size()
@@ -970,6 +984,13 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var pre_s_spt = strength
 		strength += 1
 		print("RulesEngine: Shooty Power Trip (Overwatch) — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
+	# EFFECT PLUS STRENGTH: Generic +N Strength from abilities (e.g., Waaagh! Energy)
+	if EffectPrimitivesData.has_effect_plus_strength(shooter_unit):
+		if EffectPrimitivesData.effect_applies_to_weapon(shooter_unit, EffectPrimitivesData.FLAG_PLUS_STRENGTH, weapon_name):
+			var plus_s_val = EffectPrimitivesData.get_effect_plus_strength(shooter_unit)
+			var pre_s_ep = strength
+			strength += plus_s_val
+			print("RulesEngine: Effect +%d Strength (Overwatch) — '%s' strength %d → %d" % [plus_s_val, weapon_name, pre_s_ep, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (overwatch)
 	var ded_glowy_penalty_ow = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -1159,6 +1180,14 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 			# Roll damage
 			var dmg_result = roll_variable_characteristic(damage_raw, rng)
 			var dmg = dmg_result.value
+
+			# EFFECT PLUS DAMAGE: Generic +N Damage from abilities (e.g., Waaagh! Energy)
+			if EffectPrimitivesData.has_effect_plus_damage(shooter_unit):
+				var ow_wpn_name = weapon_profile.get("name", "")
+				if EffectPrimitivesData.effect_applies_to_weapon(shooter_unit, EffectPrimitivesData.FLAG_PLUS_DAMAGE, ow_wpn_name):
+					var plus_d_val = EffectPrimitivesData.get_effect_plus_damage(shooter_unit)
+					dmg += plus_d_val
+					print("RulesEngine: Effect +%d Damage (Overwatch) — '%s' damage → %d" % [plus_d_val, ow_wpn_name, dmg])
 
 			# HALF DAMAGE (T4-17): Halve damage if defender has half-damage ability
 			if get_unit_half_damage(target_unit):
@@ -1738,6 +1767,13 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		var pre_s_spt = strength
 		strength += 1
 		print("RulesEngine: Shooty Power Trip — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
+	# EFFECT PLUS STRENGTH: Generic +N Strength from abilities (e.g., Waaagh! Energy)
+	if EffectPrimitivesData.has_effect_plus_strength(actor_unit):
+		if EffectPrimitivesData.effect_applies_to_weapon(actor_unit, EffectPrimitivesData.FLAG_PLUS_STRENGTH, weapon_name):
+			var plus_s_val = EffectPrimitivesData.get_effect_plus_strength(actor_unit)
+			var pre_s_ep = strength
+			strength += plus_s_val
+			print("RulesEngine: Effect +%d Strength — '%s' strength %d → %d" % [plus_s_val, weapon_name, pre_s_ep, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk
 	var ded_glowy_penalty = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -2570,6 +2606,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var pre_s_spt = strength
 		strength += 1
 		print("RulesEngine: Shooty Power Trip (auto-resolve) — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
+	# EFFECT PLUS STRENGTH: Generic +N Strength from abilities (e.g., Waaagh! Energy)
+	if EffectPrimitivesData.has_effect_plus_strength(actor_unit):
+		if EffectPrimitivesData.effect_applies_to_weapon(actor_unit, EffectPrimitivesData.FLAG_PLUS_STRENGTH, ar_weapon_name):
+			var plus_s_val = EffectPrimitivesData.get_effect_plus_strength(actor_unit)
+			var pre_s_ep = strength
+			strength += plus_s_val
+			print("RulesEngine: Effect +%d Strength (auto-resolve) — '%s' strength %d → %d" % [plus_s_val, ar_weapon_name, pre_s_ep, strength])
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (auto-resolve)
 	var ded_glowy_penalty_ar = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -3058,6 +3101,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var damage = dmg_result.value
 			if dmg_result.rolled:
 				damage_roll_log.append(dmg_result)
+
+			# EFFECT PLUS DAMAGE: Generic +N Damage from abilities (e.g., Waaagh! Energy)
+			if EffectPrimitivesData.has_effect_plus_damage(actor_unit):
+				if EffectPrimitivesData.effect_applies_to_weapon(actor_unit, EffectPrimitivesData.FLAG_PLUS_DAMAGE, ar_weapon_name):
+					var ar_plus_d_val = EffectPrimitivesData.get_effect_plus_damage(actor_unit)
+					damage += ar_plus_d_val
+					print("RulesEngine: Effect +%d Damage (auto-resolve) — '%s' damage → %d" % [ar_plus_d_val, ar_weapon_name, damage])
 
 			# MELTA X (T1-1): Add melta bonus to damage if applicable
 			if ar_melta_value > 0 and ar_melta_wounds_remaining > 0:
@@ -8039,6 +8089,13 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if bionik_bonus == "strength":
 		strength += 1
 		print("RulesEngine: Bionik Workshop — melee strength %d → %d (+1)" % [strength - 1, strength])
+	# EFFECT PLUS STRENGTH: Generic +N Strength from abilities (e.g., Waaagh! Energy)
+	if EffectPrimitivesData.has_effect_plus_strength(attacker_unit):
+		if EffectPrimitivesData.effect_applies_to_weapon(attacker_unit, EffectPrimitivesData.FLAG_PLUS_STRENGTH, weapon_name):
+			var plus_s_val = EffectPrimitivesData.get_effect_plus_strength(attacker_unit)
+			var pre_s_ep = strength
+			strength += plus_s_val
+			print("RulesEngine: Effect +%d Strength (melee) — '%s' strength %d → %d" % [plus_s_val, weapon_name, pre_s_ep, strength])
 
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (melee)
@@ -8072,6 +8129,13 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var pre_damage = damage
 		damage = 3
 		print("RulesEngine: Dead Brutal — 'Uge choppa damage %d → %d (Waaagh! active)" % [pre_damage, damage])
+	# EFFECT PLUS DAMAGE: Generic +N Damage from abilities (e.g., Waaagh! Energy)
+	if EffectPrimitivesData.has_effect_plus_damage(attacker_unit):
+		if EffectPrimitivesData.effect_applies_to_weapon(attacker_unit, EffectPrimitivesData.FLAG_PLUS_DAMAGE, weapon_name):
+			var plus_d_val = EffectPrimitivesData.get_effect_plus_damage(attacker_unit)
+			var pre_d_ep = damage
+			damage += plus_d_val
+			print("RulesEngine: Effect +%d Damage (melee) — '%s' damage %d → %d" % [plus_d_val, weapon_name, pre_d_ep, damage])
 
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
@@ -9153,6 +9217,14 @@ static func prepare_save_resolution(
 		ap = max(0, ap - int_worsen_ap)
 		print("RulesEngine: Worsen AP (interactive) — AP %d → %d (worsen by %d)" % [pre_ap, ap, int_worsen_ap])
 	var damage = weapon_profile.get("damage", 1)
+	# EFFECT PLUS DAMAGE: Generic +N Damage from abilities (e.g., Waaagh! Energy)
+	var int_save_weapon_name = weapon_profile.get("name", "")
+	if EffectPrimitivesData.has_effect_plus_damage(shooter_unit):
+		if EffectPrimitivesData.effect_applies_to_weapon(shooter_unit, EffectPrimitivesData.FLAG_PLUS_DAMAGE, int_save_weapon_name):
+			var plus_d_val = EffectPrimitivesData.get_effect_plus_damage(shooter_unit)
+			var pre_d_ep = damage
+			damage += plus_d_val
+			print("RulesEngine: Effect +%d Damage (interactive ranged) — '%s' damage %d → %d" % [plus_d_val, int_save_weapon_name, pre_d_ep, damage])
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
 	var damage_raw = weapon_profile.get("damage_raw", str(damage))
@@ -9350,6 +9422,14 @@ static func prepare_melee_save_resolution(
 			if ab_name == "Dead Brutal" and weapon_profile.get("name", "").to_lower().contains("uge choppa"):
 				damage = 3
 				print("RulesEngine: Dead Brutal — melee interactive 'Uge choppa damage = 3")
+	# EFFECT PLUS DAMAGE: Generic +N Damage from abilities (e.g., Waaagh! Energy)
+	var melee_int_weapon_name = weapon_profile.get("name", "")
+	if EffectPrimitivesData.has_effect_plus_damage(attacker_unit):
+		if EffectPrimitivesData.effect_applies_to_weapon(attacker_unit, EffectPrimitivesData.FLAG_PLUS_DAMAGE, melee_int_weapon_name):
+			var plus_d_val = EffectPrimitivesData.get_effect_plus_damage(attacker_unit)
+			var pre_d_ep = damage
+			damage += plus_d_val
+			print("RulesEngine: Effect +%d Damage (melee interactive) — '%s' damage %d → %d" % [plus_d_val, melee_int_weapon_name, pre_d_ep, damage])
 
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 	var damage_raw = weapon_profile.get("damage_raw", str(damage))
