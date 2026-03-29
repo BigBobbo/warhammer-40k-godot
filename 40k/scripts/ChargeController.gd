@@ -2694,6 +2694,13 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		print("ChargeController: Skipping command reroll dialog for AI player %d" % player)
 		return
 
+	# Auto-decline if the player has toggled auto-decline command reroll
+	var auto_decline_btn = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineCommandReroll")
+	if auto_decline_btn and auto_decline_btn.button_pressed:
+		print("ChargeController: Auto-declining Command Re-roll for player %d (toggle enabled)" % player)
+		_on_command_reroll_declined(unit_id, player)
+		return
+
 	# Load and show the dialog
 	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
 	if not dialog_script:
