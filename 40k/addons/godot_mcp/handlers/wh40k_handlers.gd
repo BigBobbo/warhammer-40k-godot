@@ -122,6 +122,30 @@ func get_current_phase(_params: Dictionary) -> Dictionary:
 	return info
 
 
+func get_legal_actions(_params: Dictionary) -> Dictionary:
+	# Return the list of contextually-valid actions the active player can take
+	# right now. Each phase implements get_available_actions() returning rich
+	# dicts (type, unit_id, description, etc.) — exactly the shapes that
+	# dispatch_action expects. This lets the agent enumerate legal moves
+	# instead of guessing action shapes and getting validation rejections.
+	var pm := _autoload("PhaseManager")
+	var gs := _autoload("GameState")
+	if pm == null or gs == null:
+		return {"status": "error", "message": "PhaseManager or GameState not found"}
+	var phase_id: int = gs.state.get("meta", {}).get("phase", -1)
+	var actions: Array = []
+	if pm.has_method("get_available_actions"):
+		actions = pm.get_available_actions()
+	return {
+		"status": "ok",
+		"phase": _phase_name(phase_id),
+		"phase_id": phase_id,
+		"active_player": gs.state.get("meta", {}).get("active_player", 0),
+		"count": actions.size(),
+		"actions": _to_serializable(actions),
+	}
+
+
 func advance_phase(_params: Dictionary) -> Dictionary:
 	var pm := _autoload("PhaseManager")
 	if pm == null:
