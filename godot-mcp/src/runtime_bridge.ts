@@ -268,7 +268,8 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: 'simulate_click',
-    description: 'Simulate a mouse click at a screen coordinate.',
+    description:
+      'TESTING ONLY — do NOT use to play the game. Synthesizes an OS-level mouse click at a screen coordinate. Reserved for explicit UI/input regression tests where you must verify that the actual click handlers fire (drag-ghost, button states, _gui_input chains). For normal gameplay use `dispatch_action` instead — it is faster, deterministic, and skips pixel-hunting.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -282,7 +283,8 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: 'simulate_mouse_move',
-    description: 'Move the mouse cursor without clicking.',
+    description:
+      'TESTING ONLY — do NOT use to play the game. Moves the mouse cursor without clicking. Reserved for hover-state UI tests. For gameplay use `dispatch_action`.',
     inputSchema: {
       type: 'object',
       properties: { x: { type: 'number' }, y: { type: 'number' } },
@@ -291,7 +293,8 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: 'simulate_drag',
-    description: 'Press at (from_x, from_y), drag through `steps` waypoints, release at (to_x, to_y).',
+    description:
+      'TESTING ONLY — do NOT use to play the game. Press at (from_x, from_y), drag through `steps` waypoints, release at (to_x, to_y). Reserved for verifying drag-and-drop UI (model placement, drag ghost). For gameplay use `dispatch_action` with a MOVE_UNIT / STAGE_MODEL_MOVE payload.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -307,7 +310,8 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: 'simulate_key_press',
-    description: 'Press a keyboard key (Godot keycode int) for a duration.',
+    description:
+      'TESTING ONLY — do NOT use to play the game. Presses a keyboard key (Godot keycode int) for a duration. Reserved for keybinding regression tests. For gameplay use `dispatch_action`.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -319,7 +323,8 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: 'simulate_action',
-    description: 'Trigger a named InputMap action for a duration.',
+    description:
+      'TESTING ONLY — do NOT use to play the game. Triggers a named InputMap action for a duration. Reserved for input-action wiring tests. For gameplay use `dispatch_action`.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -421,7 +426,13 @@ const TOOLS: ToolDef[] = [
   {
     name: 'get_board_state',
     description:
-      'WH40K: return the full board state — phase, active player, players (CP/VP), units (id, owner, models alive, wounds), available actions.',
+      'WH40K [PRIMARY play tool]: return the full board state — phase, active player, players (CP/VP), units (id, owner, models alive, wounds), available actions. Call this at the start of every turn to ground reasoning before issuing actions.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_legal_actions',
+    description:
+      'WH40K [PRIMARY play tool]: return the contextually-valid action dicts the active player can take RIGHT NOW. Each entry is shaped exactly as `dispatch_action` expects, so you can pick one and forward it. Use this to enumerate legal moves instead of guessing action shapes and getting validation rejections.',
     inputSchema: { type: 'object', properties: {} },
   },
   {
@@ -466,7 +477,7 @@ const TOOLS: ToolDef[] = [
   {
     name: 'select_unit',
     description:
-      'WH40K: locate a unit token in the running scene and synthesize a left-click on it (UI selection path).',
+      "WH40K [TESTING-leaning]: locate a unit token in the running scene and synthesize a left-click on it (UI selection path). Use this only when you specifically need the UI's selection signals to fire (highlights, side panel, etc.). For normal play, name the unit_id directly inside a `dispatch_action` payload — no selection step required.",
     inputSchema: {
       type: 'object',
       properties: { unit_id: { type: 'string' }, unit_name: { type: 'string' } },
@@ -475,7 +486,7 @@ const TOOLS: ToolDef[] = [
   {
     name: 'dispatch_action',
     description:
-      'WH40K: send a phase action dictionary through the active phase instance (validate_action + process_action).',
+      'WH40K [PRIMARY play tool — use this to take any in-game action]: send a phase action dictionary through the active phase instance (validate_action + process_action). This is the canonical way to play the game programmatically — it skips the UI/mouse layer and goes straight through the same code path the UI buttons use, so it is faster, deterministic, and cheap on tokens. Call `get_legal_actions` first to see valid action dict shapes for the current phase.',
     inputSchema: {
       type: 'object',
       properties: { action: { type: 'object' } },
@@ -485,7 +496,7 @@ const TOOLS: ToolDef[] = [
   {
     name: 'move_unit_to',
     description:
-      "WH40K: convenience wrapper that builds a MOVE_UNIT action and dispatches it. The active phase must accept this action shape.",
+      "WH40K [PRIMARY play tool]: convenience wrapper that builds a MOVE_UNIT action and dispatches it. The active phase must accept this action shape — if unsure, call `get_legal_actions` first.",
     inputSchema: {
       type: 'object',
       properties: {

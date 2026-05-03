@@ -53,7 +53,8 @@ func _register_routes() -> void:
 
 	var wh40k_methods := [
 		"get_board_state", "get_unit_details", "list_units",
-		"get_current_phase", "advance_phase", "transition_to_phase",
+		"get_current_phase", "get_legal_actions",
+		"advance_phase", "transition_to_phase",
 		"select_unit", "dispatch_action", "move_unit_to",
 	]
 	for m in wh40k_methods:
