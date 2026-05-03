@@ -251,13 +251,18 @@ const TOOLS: ToolDef[] = [
   {
     name: 'capture_screenshot',
     description:
-      'Capture the running viewport as PNG. Returns base64 data plus a path under user://test_screenshots/.',
+      'Capture the running viewport as PNG. Returns the image inline (vision-capable hosts see it as a real image) plus a saved path under user://test_screenshots/. Inline copy is downscaled to `max_dim` on the long side; the on-disk file stays at full resolution.',
     inputSchema: {
       type: 'object',
       properties: {
         label: { type: 'string' },
         include_base64: { type: 'boolean', default: true },
         include_path: { type: 'boolean', default: true },
+        max_dim: {
+          type: 'number',
+          description: 'Long-side cap for the inline image (default 1280). Pass 0 to disable scaling.',
+          default: 1280,
+        },
       },
     },
   },
@@ -511,12 +516,29 @@ server.setRequestHandler(CallToolRequestSchema, async req => {
     const msg = err instanceof Error ? err.message : String(err);
     throw new McpError(ErrorCode.InternalError, `Godot bridge error: ${msg}`);
   }
-  // Surface Godot-side errors as MCP tool content rather than rejecting; the
-  // host can decide what to do with them.
+
+  // If Godot returned an image (e.g. capture_screenshot), surface it as a
+  // real MCP image content block so vision-capable hosts can actually see
+  // it. Strip the base64 from the text JSON to avoid duplicating ~MB of
+  // payload as text tokens.
+  const content: Array<{ type: string; [k: string]: unknown }> = [];
+  if (
+    result &&
+    typeof result === 'object' &&
+    typeof (result as any).image_base64 === 'string' &&
+    (result as any).image_base64.length > 0
+  ) {
+    const imageData = (result as any).image_base64 as string;
+    const mimeType = (result as any).image_mime_type ?? 'image/png';
+    const { image_base64: _omit, ...metadata } = result as Record<string, unknown>;
+    content.push({ type: 'text', text: JSON.stringify(metadata, null, 2) });
+    content.push({ type: 'image', data: imageData, mimeType });
+  } else {
+    content.push({ type: 'text', text: JSON.stringify(result, null, 2) });
+  }
+
   return {
-    content: [
-      { type: 'text', text: JSON.stringify(result, null, 2) },
-    ],
+    content,
     isError: result?.status === 'error',
   };
 });

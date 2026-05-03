@@ -97,8 +97,11 @@ The wire protocol is one JSON object per line:
 - `read_script`, `write_script` (refuses paths outside `res://`)
 
 ### Core testing
-- `capture_screenshot` — PNG to `user://test_screenshots/<label>.png`, base64
-  blob in the response
+- `capture_screenshot` — PNG to `user://test_screenshots/<label>.png` plus an
+  inline image content block. Vision-capable MCP hosts (Claude Code/Desktop)
+  see it as a real image they can reason over, not as base64 text. Inline
+  copy is downscaled to `max_dim` on the long side (default 1280); the
+  on-disk file is full resolution.
 - `simulate_click`, `simulate_mouse_move`, `simulate_drag`,
   `simulate_key_press`, `simulate_action`
 - `get_scene_state` — recursive tree dump with positions, visibility, and

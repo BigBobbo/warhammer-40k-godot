@@ -16,6 +16,10 @@ func capture_screenshot(params: Dictionary) -> Dictionary:
 	var label: String = params.get("label", "capture_%d" % Time.get_ticks_msec())
 	var include_base64: bool = params.get("include_base64", true)
 	var include_path: bool = params.get("include_path", true)
+	# Default to 1280px on the long side. Claude's vision pipeline downscales
+	# anything larger, so transmitting full 1920+ wastes tokens. Pass 0 to
+	# disable scaling.
+	var max_dim: int = int(params.get("max_dim", 1280))
 	if host == null:
 		return {"status": "error", "message": "MCP host not ready"}
 
@@ -32,11 +36,14 @@ func capture_screenshot(params: Dictionary) -> Dictionary:
 	if image == null:
 		return {"status": "error", "message": "Failed to read viewport image"}
 
+	var orig_size := [image.get_width(), image.get_height()]
+
+	# Save the full-resolution PNG to disk before any resizing, so callers
+	# can still inspect the original if needed.
 	var result := {
 		"status": "ok",
-		"size": [image.get_width(), image.get_height()],
+		"size": orig_size,
 	}
-
 	if include_path:
 		DirAccess.make_dir_recursive_absolute("user://test_screenshots")
 		var path := "user://test_screenshots/%s.png" % label
@@ -46,8 +53,23 @@ func capture_screenshot(params: Dictionary) -> Dictionary:
 			result["absolute_path"] = ProjectSettings.globalize_path(path)
 
 	if include_base64:
-		var buffer := image.save_png_to_buffer()
+		# Downscale only the inline copy. Image.resize is in-place so we
+		# duplicate first to keep the on-disk file at full res.
+		var inline_image := image
+		if max_dim > 0:
+			var w := image.get_width()
+			var h := image.get_height()
+			var long := max(w, h)
+			if long > max_dim:
+				inline_image = image.duplicate()
+				var scale := float(max_dim) / float(long)
+				var new_w := int(round(w * scale))
+				var new_h := int(round(h * scale))
+				inline_image.resize(new_w, new_h, Image.INTERPOLATE_BILINEAR)
+				result["inline_size"] = [new_w, new_h]
+		var buffer := inline_image.save_png_to_buffer()
 		result["image_base64"] = Marshalls.raw_to_base64(buffer)
+		result["image_mime_type"] = "image/png"
 
 	return result
 
