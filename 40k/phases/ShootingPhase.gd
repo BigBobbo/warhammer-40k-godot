@@ -969,6 +969,19 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	# Trigger attack animation on the shooting unit
 	_trigger_unit_animation(active_shooter_id, "attack")
 
+	# VERBOSE COMBAT LOG: Emit combat header BEFORE resolution so dice can display in real-time
+	var _vcl_shooter = game_state_snapshot.get("units", {}).get(active_shooter_id, {})
+	var _vcl_shooter_name = _vcl_shooter.get("meta", {}).get("name", active_shooter_id)
+	if not confirmed_assignments.is_empty():
+		var _vcl_target_id = confirmed_assignments[0].get("target_unit_id", "")
+		var _vcl_target = game_state_snapshot.get("units", {}).get(_vcl_target_id, {})
+		var _vcl_target_name = _vcl_target.get("meta", {}).get("name", _vcl_target_id)
+		var _vcl_weapon_id = confirmed_assignments[0].get("weapon_id", "")
+		var _vcl_weapon_profile = RulesEngine.get_weapon_profile(_vcl_weapon_id)
+		var _vcl_weapon_name = _vcl_weapon_profile.get("name", _vcl_weapon_id)
+		GameEventLog.add_combat_header("P%d: %s shoots at %s with %s" % [
+			get_current_player(), _vcl_shooter_name, _vcl_target_name, _vcl_weapon_name])
+
 	# T5-MP5: Build resolution_start block and emit locally + include in result for remote sync
 	var resolution_start_block = {"context": "resolution_start", "message": "Beginning attack resolution..."}
 	emit_signal("dice_rolled", resolution_start_block)
@@ -1001,18 +1014,6 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 
 	log_phase_message(result.get("log_text", "Attack rolls complete"))
 
-	# VERBOSE COMBAT LOG: Emit combat header for this shooting attack
-	var _vcl_shooter = game_state_snapshot.get("units", {}).get(active_shooter_id, {})
-	var _vcl_shooter_name = _vcl_shooter.get("meta", {}).get("name", active_shooter_id)
-	if not confirmed_assignments.is_empty():
-		var _vcl_target_id = confirmed_assignments[0].get("target_unit_id", "")
-		var _vcl_target = game_state_snapshot.get("units", {}).get(_vcl_target_id, {})
-		var _vcl_target_name = _vcl_target.get("meta", {}).get("name", _vcl_target_id)
-		var _vcl_weapon_id = confirmed_assignments[0].get("weapon_id", "")
-		var _vcl_weapon_profile = RulesEngine.get_weapon_profile(_vcl_weapon_id)
-		var _vcl_weapon_name = _vcl_weapon_profile.get("name", _vcl_weapon_id)
-		GameEventLog.add_combat_header("P%d: %s shoots at %s with %s" % [
-			get_current_player(), _vcl_shooter_name, _vcl_target_name, _vcl_weapon_name])
 	# Emit hit/wound detail lines from dice data
 	_emit_verbose_combat_log(active_shooter_id, dice_data, [], 0, "shooting_hits")
 
@@ -1055,7 +1056,8 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	var save_data_list = result.get("save_data_list", [])
 
 	if save_data_list.is_empty():
-		# No wounds caused
+		# No wounds caused — finalize the combat log card
+		GameEventLog.add_combat_result("  Result: No wounds caused — attack missed")
 		print("╔═══════════════════════════════════════════════════════════════")
 		print("║ NO WOUNDS CAUSED - Weapon missed!")
 		print("║ resolution_state.mode: '", resolution_state.get("mode", ""), "'")
@@ -2507,6 +2509,17 @@ func _resolve_next_weapon() -> Dictionary:
 
 	print("ShootingPhase: Resolving weapon %d of %d: %s" % [current_index + 1, weapon_order.size(), weapon_id])
 
+	# VERBOSE COMBAT LOG: Header BEFORE resolution so dice can display in real-time
+	var _seq_shooter = game_state_snapshot.get("units", {}).get(active_shooter_id, {})
+	var _seq_shooter_name = _seq_shooter.get("meta", {}).get("name", active_shooter_id)
+	var _seq_weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
+	var _seq_weapon_name = _seq_weapon_profile.get("name", weapon_id)
+	var _seq_target = get_unit(current_assignment.target_unit_id)
+	var _seq_target_name = _seq_target.get("meta", {}).get("name", current_assignment.target_unit_id)
+	GameEventLog.add_combat_header("P%d: %s → %s with %s (weapon %d/%d)" % [
+		get_current_player(), _seq_shooter_name, _seq_target_name, _seq_weapon_name,
+		current_index + 1, weapon_order.size()])
+
 	# T5-MP5: Build weapon_progress block and emit locally + include in result for remote sync
 	var weapon_progress_block = {
 		"context": "weapon_progress",
@@ -2552,16 +2565,6 @@ func _resolve_next_weapon() -> Dictionary:
 	log_phase_message(result.get("log_text", "Weapon attacks complete"))
 	print("ShootingPhase: Log text: ", result.get("log_text", ""))
 
-	# VERBOSE COMBAT LOG: Header for this weapon in the sequence
-	var _seq_shooter = game_state_snapshot.get("units", {}).get(active_shooter_id, {})
-	var _seq_shooter_name = _seq_shooter.get("meta", {}).get("name", active_shooter_id)
-	var _seq_weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
-	var _seq_weapon_name = _seq_weapon_profile.get("name", weapon_id)
-	var _seq_target = get_unit(current_assignment.target_unit_id)
-	var _seq_target_name = _seq_target.get("meta", {}).get("name", current_assignment.target_unit_id)
-	GameEventLog.add_combat_header("P%d: %s → %s with %s (weapon %d/%d)" % [
-		get_current_player(), _seq_shooter_name, _seq_target_name, _seq_weapon_name,
-		current_index + 1, weapon_order.size()])
 	# Emit hit/wound details
 	_emit_verbose_combat_log(active_shooter_id, dice_data, [], 0, "sequential_hits")
 

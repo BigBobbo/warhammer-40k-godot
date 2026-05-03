@@ -8545,7 +8545,7 @@ func _setup_game_log_panel() -> void:
 	print("Main: Setting up Game Event Log panel (card-based)")
 	game_log_panel = GameLogPanelScript.new()
 	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
-	game_log_panel.setup(self, hud_bottom, 105.0, -305.0)
+	game_log_panel.setup(self, hud_bottom, 105.0, -45.0)
 	game_log_toggle_button = game_log_panel.get_toggle_button()
 	print("Main: Game Event Log panel created (card-based)")
 
@@ -8573,7 +8573,7 @@ func _setup_dice_history_panel() -> void:
 	_dice_history_panel.offset_left = 345.0
 	_dice_history_panel.offset_right = 625.0
 	_dice_history_panel.offset_top = 105.0
-	_dice_history_panel.offset_bottom = -305.0
+	_dice_history_panel.offset_bottom = -45.0
 
 	# Dark semi-transparent background matching game log style
 	var style = StyleBoxFlat.new()

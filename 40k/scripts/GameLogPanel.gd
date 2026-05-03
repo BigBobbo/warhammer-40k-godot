@@ -75,13 +75,17 @@ var _current_combat_details_label: RichTextLabel = null
 var _current_combat_toggle_button: Button = null
 var _current_combat_summary_label: Label = null
 var _current_combat_details_visible: bool = false
+var _current_combat_dice_summary: RichTextLabel = null  # Visible dice roll summary
 
 # Regex for dice roll styling (compiled once)
 var _dice_regex: RegEx
+var _threshold_regex: RegEx
 
 func _ready() -> void:
 	_dice_regex = RegEx.new()
 	_dice_regex.compile("\\[([0-9, ]+)\\]")
+	_threshold_regex = RegEx.new()
+	_threshold_regex.compile("(?:needed |Save |Pain )(\\d+)\\+")
 
 func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 105.0, offset_bottom: float = 0.0) -> void:
 	name = "GameLogPanel"
@@ -180,6 +184,12 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 		for entry in game_event_log.get_all_entries():
 			_create_card(entry.text, entry.type, false)
 
+	# Connect to DiceHistoryPanel for real-time dice display
+	var dice_history = Engine.get_main_loop().root.get_node_or_null("DiceHistoryPanel") if Engine.get_main_loop() else null
+	if dice_history:
+		dice_history.roll_recorded.connect(_on_dice_roll_recorded)
+		print("GameLogPanel: Connected to DiceHistoryPanel.roll_recorded for real-time dice")
+
 	print("GameLogPanel: Setup complete")
 
 func get_toggle_button() -> Button:
@@ -195,6 +205,95 @@ func _on_entry_added(text: String, entry_type: String) -> void:
 	if _scroll:
 		await get_tree().process_frame
 		_scroll.scroll_vertical = int(_scroll.get_v_scroll_bar().max_value)
+
+func _on_dice_roll_recorded(entry: Dictionary) -> void:
+	"""Handle real-time dice roll from DiceHistoryPanel — show immediately in current combat card."""
+	if not _current_combat_card or not is_instance_valid(_current_combat_card):
+		return
+	if not _current_combat_dice_summary:
+		return
+
+	var data = entry.get("data", {})
+	var context = data.get("context", "")
+
+	# Skip non-roll contexts
+	if context in ["resolution_start", "weapon_progress"]:
+		return
+
+	# Format the dice roll line
+	var line = _format_realtime_dice(data, context)
+	if line == "":
+		return
+
+	if _current_combat_dice_summary.get_parsed_text().length() > 0:
+		_current_combat_dice_summary.append_text("\n")
+	_current_combat_dice_summary.append_text(line)
+	_current_combat_dice_summary.visible = true
+
+	# Auto-scroll to bottom
+	if _scroll:
+		await get_tree().process_frame
+		_scroll.scroll_vertical = int(_scroll.get_v_scroll_bar().max_value)
+
+func _format_realtime_dice(data: Dictionary, context: String) -> String:
+	"""Format a dice roll entry for inline display with colored dice badges."""
+	var rolls_raw = data.get("rolls_raw", [])
+	var threshold_str = str(data.get("threshold", ""))
+	var threshold_int = int(threshold_str.replace("+", "")) if threshold_str != "" and threshold_str != "0" else 0
+
+	match context:
+		"to_hit":
+			var successes = data.get("successes", 0)
+			var total = rolls_raw.size()
+			var dice_str = _format_dice_badges(rolls_raw, threshold_int)
+			return "[color=#AACCEE][b]Hit[/b] (%s):[/color] %s [color=#AACCEE]— %d/%d[/color]" % [threshold_str, dice_str, successes, total]
+		"to_wound":
+			var successes = data.get("successes", 0)
+			var total = rolls_raw.size()
+			var dice_str = _format_dice_badges(rolls_raw, threshold_int)
+			return "[color=#EEAA77][b]Wound[/b] (%s):[/color] %s [color=#EEAA77]— %d/%d[/color]" % [threshold_str, dice_str, successes, total]
+		"save_roll":
+			var failed = data.get("failed", 0)
+			var passed = data.get("successes", 0)
+			var using_invuln = data.get("using_invuln", false)
+			var label = "Inv Save" if using_invuln else "Save"
+			var dice_str = _format_dice_badges(rolls_raw, threshold_int)
+			var result_color = "#FF6B6B" if failed > 0 else "#77CC77"
+			return "[color=#BB88FF][b]%s[/b] (%s):[/color] %s [color=%s]— %d failed[/color]" % [label, threshold_str, dice_str, result_color, failed]
+		"feel_no_pain":
+			var prevented = data.get("wounds_prevented", 0)
+			var fnp_val = data.get("fnp_value", 0)
+			var dice_str = _format_dice_badges(rolls_raw, fnp_val)
+			return "[color=#44CC88][b]FNP[/b] (%d+):[/color] %s [color=#44CC88]— %d prevented[/color]" % [fnp_val, dice_str, prevented]
+		"auto_hit":
+			var hits = data.get("successes", 0)
+			return "[color=#FF8844][b]Torrent[/b]:[/color] [color=#88EE88]%d auto-hits[/color]" % hits
+		"charge_roll":
+			var rolls = data.get("rolls", data.get("rolls_raw", []))
+			var total = data.get("total", 0)
+			var charge_failed = data.get("charge_failed", false)
+			var dice_str = _format_dice_badges(rolls, 0)
+			var result_color = "#FF6B6B" if charge_failed else "#77CC77"
+			var result_text = "FAILED" if charge_failed else "SUCCESS"
+			return "[color=#E6CC33][b]Charge[/b]:[/color] %s [color=%s]= %d\" %s[/color]" % [dice_str, result_color, total, result_text]
+		"variable_damage":
+			var dmg_rolls = data.get("rolls", [])
+			var total_dmg = data.get("total_damage", 0)
+			var roll_values = []
+			for r in dmg_rolls:
+				roll_values.append(r.get("value", 0))
+			var dice_str = _format_dice_badges(roll_values, 0)
+			return "[color=#CCAA55][b]Damage[/b]:[/color] %s [color=#CCAA55]= %d[/color]" % [dice_str, total_dmg]
+		_:
+			return ""
+
+func _format_dice_badges(rolls: Array, threshold: int) -> String:
+	"""Format an array of dice values as colored inline badges with good spacing."""
+	var badges = []
+	for r in rolls:
+		var val = int(r)
+		badges.append(_make_die_badge(val, threshold))
+	return "".join(badges)
 
 func _create_card(text: String, entry_type: String, animate: bool = true) -> void:
 	match entry_type:
@@ -251,6 +350,17 @@ func _start_combat_card(header_text: String, animate: bool) -> void:
 	header_label.add_theme_font_size_override("bold_font_size", 12)
 	header_label.append_text("[b][color=#E8C477]%s[/color][/b]" % header_text)
 	header_hbox.add_child(header_label)
+
+	# Visible dice summary — shows key dice roll lines (To Hit, To Wound, Saves) with badges
+	_current_combat_dice_summary = RichTextLabel.new()
+	_current_combat_dice_summary.bbcode_enabled = true
+	_current_combat_dice_summary.fit_content = true
+	_current_combat_dice_summary.scroll_active = false
+	_current_combat_dice_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_current_combat_dice_summary.add_theme_font_size_override("normal_font_size", 10)
+	_current_combat_dice_summary.add_theme_font_size_override("bold_font_size", 11)
+	_current_combat_dice_summary.visible = false
+	card_vbox.add_child(_current_combat_dice_summary)
 
 	# Summary label (shown after combat resolves)
 	_current_combat_summary_label = Label.new()
@@ -346,6 +456,7 @@ func _finalize_combat_card(text: String, animate: bool) -> void:
 		_current_combat_toggle_button = null
 		_current_combat_summary_label = null
 		_current_combat_details_container = null
+		_current_combat_dice_summary = null
 	else:
 		# Orphaned result — create standalone card
 		var card = _make_combat_result_card(text)
@@ -623,22 +734,24 @@ func _refine_category_from_text(text: String, current_category: int) -> int:
 func _style_combat_detail(text: String) -> String:
 	var styled = text
 
-	# Highlight dice roll arrays [1, 3, 5, 6]
+	# Extract threshold from line context (e.g. "needed 3+", "Save 4+", "Pain 5+")
+	var threshold := 0
+	var threshold_match = _threshold_regex.search(text)
+	if threshold_match:
+		threshold = int(threshold_match.get_string(1))
+
+	# Replace dice roll arrays [1, 3, 5, 6] with colored dice badges
 	var dice_results = _dice_regex.search_all(styled)
 	for i in range(dice_results.size() - 1, -1, -1):
 		var m = dice_results[i]
 		var inner = m.get_string(1)
 		var dice_parts = inner.split(", ")
-		var colored_dice = []
+		var dice_badges = []
 		for d in dice_parts:
 			var dval = d.strip_edges()
-			if dval == "6":
-				colored_dice.append("[color=#FFD700]6[/color]")
-			elif dval == "1":
-				colored_dice.append("[color=#FF4444]1[/color]")
-			else:
-				colored_dice.append("[color=#66CCEE]%s[/color]" % dval)
-		var replacement = "[color=#888888][[/color]%s[color=#888888]][/color]" % ", ".join(colored_dice)
+			var num = int(dval)
+			dice_badges.append(_make_die_badge(num, threshold))
+		var replacement = " ".join(dice_badges)
 		styled = styled.substr(0, m.get_start()) + replacement + styled.substr(m.get_end())
 
 	# Highlight keywords
@@ -652,6 +765,36 @@ func _style_combat_detail(text: String) -> String:
 	styled = styled.replace("Torrent", "[color=#FF8844]Torrent[/color]")
 
 	return styled
+
+func _make_die_badge(value: int, threshold: int) -> String:
+	"""Create a colored dice badge using BBCode bgcolor.
+	Natural 6 = gold, natural 1 = red, else success (green) or failure (dark red) based on threshold."""
+	var bg_color: String
+	var text_color: String
+
+	if value == 6:
+		# Critical success — gold
+		bg_color = "#7A6520"
+		text_color = "#FFD700"
+	elif value == 1:
+		# Critical failure — red
+		bg_color = "#6B2222"
+		text_color = "#FF4444"
+	elif threshold > 0 and value >= threshold:
+		# Success — green
+		bg_color = "#2B5B2B"
+		text_color = "#88EE88"
+	elif threshold > 0 and value < threshold:
+		# Failure — dark muted
+		bg_color = "#4A2222"
+		text_color = "#AA6666"
+	else:
+		# No threshold context — neutral cyan
+		bg_color = "#1A3A4A"
+		text_color = "#66CCEE"
+
+	# Compact dice badge with single-space padding
+	return "[font_size=10][bgcolor=%s][color=%s] %d [/color][/bgcolor][/font_size] " % [bg_color, text_color, value]
 
 # ==========================================================================
 # Card trimming

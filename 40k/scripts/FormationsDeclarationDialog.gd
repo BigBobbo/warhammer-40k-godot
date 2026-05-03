@@ -311,10 +311,10 @@ func _get_transport_eligible_units(transport_id: String) -> Array:
 		# Skip other transports
 		if unit.has("transport_data"):
 			continue
-		# Skip CHARACTERs (they attach, not embark)
+		# Skip CHARACTERs that are already attached to a bodyguard (they deploy with their bodyguard)
+		# Unattached characters can still embark in transports independently
 		var keywords = unit.get("meta", {}).get("keywords", [])
-		var leader_data = unit.get("meta", {}).get("leader_data", {})
-		if "CHARACTER" in keywords and leader_data.get("can_lead", []).size() > 0:
+		if "CHARACTER" in keywords and leader_attachments.has(unit_id):
 			continue
 		# Check keyword requirements
 		if capacity_keywords.size() > 0:

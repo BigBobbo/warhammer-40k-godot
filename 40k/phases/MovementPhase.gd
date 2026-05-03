@@ -314,11 +314,15 @@ func _on_phase_exit() -> void:
 func _initialize_movement() -> void:
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
-	
+
 	var can_move = false
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
+			can_move = true
+			break
+		# Embarked units can disembark even if status is incorrect
+		if unit.get("embarked_in", null) != null:
 			can_move = true
 			break
 	
@@ -6062,11 +6066,14 @@ func get_available_actions() -> Array:
 
 	for unit_id in units:
 		var unit = units[unit_id]
-		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+		# Embarked units may have incorrect UNDEPLOYED status due to formations phase;
+		# treat them as deployed so they can disembark
+		var is_embarked = unit.get("embarked_in", null) != null
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED and not is_embarked:
 			continue
 
 		# P3-32: Embarked units get disembark option instead of normal movement
-		if unit.get("embarked_in", null) != null:
+		if is_embarked:
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			var transport_id = unit.embarked_in
 			var transport = get_unit(transport_id)

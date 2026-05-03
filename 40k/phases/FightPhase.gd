@@ -1224,6 +1224,18 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 	# Trigger attack animation on the fighting unit
 	_trigger_unit_animation(active_fighter_id, "attack")
 
+	# VERBOSE COMBAT LOG: Emit combat header BEFORE resolution so dice display in real-time
+	var _rd_fighter_unit = game_state_snapshot.get("units", {}).get(active_fighter_id, {})
+	var _rd_fighter_name = _rd_fighter_unit.get("meta", {}).get("name", active_fighter_id)
+	var _rd_target_names = []
+	for _rd_assignment in confirmed_attacks:
+		var _rd_tid = _rd_assignment.get("target", "")
+		var _rd_target_unit = game_state_snapshot.get("units", {}).get(_rd_tid, {})
+		var _rd_tname = _rd_target_unit.get("meta", {}).get("name", _rd_tid)
+		if _rd_tname not in _rd_target_names:
+			_rd_target_names.append(_rd_tname)
+	GameEventLog.add_combat_header("P%d: %s fights %s" % [get_current_player(), _rd_fighter_name, ", ".join(_rd_target_names)])
+
 	# Emit signal to indicate resolution is starting
 	emit_signal("dice_rolled", {"context": "resolution_start", "message": "Beginning melee combat resolution..."})
 
@@ -4089,15 +4101,8 @@ func advance_to_next_fighter() -> void:
 
 func _emit_verbose_melee_combat_log(fighter_id: String, target_id: String, dice_data: Array,
 		save_dice_blocks: Array, casualties: int) -> void:
-	"""Emit detailed melee combat log entries to GameEventLog from dice_data and save results."""
-	var fighter_unit = game_state_snapshot.get("units", {}).get(fighter_id, {})
-	var fighter_name = fighter_unit.get("meta", {}).get("name", fighter_id)
-	var target_unit = game_state_snapshot.get("units", {}).get(target_id, {})
-	var target_name = target_unit.get("meta", {}).get("name", target_id)
-	var player = get_current_player()
-
-	# Header
-	GameEventLog.add_combat_header("P%d: %s fights %s" % [player, fighter_name, target_name])
+	"""Emit detailed melee combat log entries to GameEventLog from dice_data and save results.
+	Note: Combat header is already created in _process_roll_dice before resolution for real-time dice display."""
 
 	# Extract hit and wound dice blocks
 	for dice_block in dice_data:

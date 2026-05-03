@@ -868,6 +868,12 @@ func _build_formation_changes() -> Array:
 					"path": "units.%s.embarked_in" % unit_id,
 					"value": transport_id
 				})
+				# Embarked units count as deployed (they deploy inside the transport)
+				changes.append({
+					"op": "set",
+					"path": "units.%s.status" % unit_id,
+					"value": GameStateData.UnitStatus.DEPLOYED
+				})
 			# Update transport's embarked_units list
 			var transport = get_unit(transport_id)
 			var current_embarked = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
