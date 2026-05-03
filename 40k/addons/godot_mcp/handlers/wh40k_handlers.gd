@@ -233,9 +233,11 @@ func select_unit(params: Dictionary) -> Dictionary:
 # --- Action dispatch (movement / shooting / etc) ----------------------
 
 func dispatch_action(params: Dictionary) -> Dictionary:
-	# Sends a phase action through PhaseManager's current phase instance.
-	# This is the same path that the in-game UI uses for player actions, so
-	# any validation, state mutation, and UI refresh happens normally.
+	# Sends a phase action through PhaseManager's current phase instance via
+	# BasePhase.execute_action(), which is the same wrapper the UI uses:
+	# validate -> process_action -> PhaseManager.apply_state_changes ->
+	# refresh phase snapshot -> emit `action_taken`. Calling `process_action`
+	# directly skips diff application and silently corrupts phase state.
 	var pm := _autoload("PhaseManager")
 	if pm == null:
 		return {"status": "error", "message": "PhaseManager autoload not found"}
@@ -246,8 +248,27 @@ func dispatch_action(params: Dictionary) -> Dictionary:
 	if typeof(action) != TYPE_DICTIONARY or action.is_empty():
 		return {"status": "error", "message": "Missing 'action' dict"}
 
-	# Many phases expose `validate_action` and `process_action` (see BasePhase).
-	# Fall back gracefully if the phase doesn't.
+	# JSON has no Vector2 so callers send positions as `[x, y]` arrays. Convert
+	# the well-known position-shaped fields to Vector2 before phases see them
+	# (typed `position: Vector2` parameters won't auto-coerce from Array and
+	# silently fail validation).
+	action = _normalize_action_positions(action)
+
+	# Prefer execute_action when available (BasePhase). It returns the
+	# process_action result on success, or {success: false, errors: [...]} on
+	# validation failure — surface either as a structured response.
+	if current.has_method("execute_action"):
+		var result = current.execute_action(action)
+		if typeof(result) == TYPE_DICTIONARY and result.get("success", true) == false:
+			return {
+				"status": "error",
+				"message": "Phase rejected action: %s" % str(result.get("errors", [])),
+				"result": _to_serializable(result),
+			}
+		return {"status": "ok", "result": _to_serializable(result)}
+
+	# Fallback for phases that don't extend BasePhase: validate + process,
+	# but note that diffs won't be applied to GameState in this branch.
 	if current.has_method("validate_action"):
 		var validation = current.validate_action(action)
 		if typeof(validation) == TYPE_DICTIONARY and validation.get("valid", true) == false:
@@ -259,7 +280,49 @@ func dispatch_action(params: Dictionary) -> Dictionary:
 	if current.has_method("process_action"):
 		var result = current.process_action(action)
 		return {"status": "ok", "result": _to_serializable(result)}
-	return {"status": "error", "message": "Active phase has no process_action()"}
+	return {"status": "error", "message": "Active phase has no execute_action() or process_action()"}
+
+
+func _normalize_action_positions(action: Dictionary) -> Dictionary:
+	# Convert JSON-friendly `[x, y]` arrays into Vector2 for the action fields
+	# phases declare with Vector2 types. Returns a shallow copy to avoid
+	# mutating the caller's dict.
+	var out: Dictionary = action.duplicate(true)
+	# Single-position fields
+	for key in ["position", "destination", "dest", "target_position", "stage_position"]:
+		if out.has(key):
+			var v = _coerce_vector2(out[key])
+			if v != null:
+				out[key] = v
+	# Array-of-positions fields
+	if out.has("model_positions") and typeof(out["model_positions"]) == TYPE_ARRAY:
+		var positions: Array = out["model_positions"]
+		var converted: Array = []
+		for p in positions:
+			if p == null:
+				converted.append(null)
+			else:
+				var v = _coerce_vector2(p)
+				converted.append(v if v != null else p)
+		out["model_positions"] = converted
+	return out
+
+
+func _coerce_vector2(value):
+	# Accept Vector2 as-is; convert [x, y] arrays or {"x":_, "y":_} dicts.
+	if typeof(value) == TYPE_VECTOR2:
+		return value
+	if typeof(value) == TYPE_ARRAY and value.size() >= 2:
+		var x = value[0]
+		var y = value[1]
+		if (typeof(x) == TYPE_INT or typeof(x) == TYPE_FLOAT) and (typeof(y) == TYPE_INT or typeof(y) == TYPE_FLOAT):
+			return Vector2(float(x), float(y))
+	if typeof(value) == TYPE_DICTIONARY and value.has("x") and value.has("y"):
+		var x = value["x"]
+		var y = value["y"]
+		if (typeof(x) == TYPE_INT or typeof(x) == TYPE_FLOAT) and (typeof(y) == TYPE_INT or typeof(y) == TYPE_FLOAT):
+			return Vector2(float(x), float(y))
+	return null
 
 
 func move_unit_to(params: Dictionary) -> Dictionary:
