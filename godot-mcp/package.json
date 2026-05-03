@@ -4,7 +4,8 @@
   "description": "MCP server for interfacing with Godot game engine. Provides tools for launching the editor, running projects, and capturing debug output.",
   "type": "module",
   "bin": {
-    "godot-mcp": "./build/index.js"
+    "godot-mcp": "./build/index.js",
+    "godot-mcp-bridge": "./build/runtime_bridge.js"
   },
   "files": [
     "build"
