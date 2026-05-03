@@ -60,6 +60,7 @@ UnitAbilityManager="*res://autoloads/UnitAbilityManager.gd"
 DiceHistoryPanel="*res://autoloads/DiceHistoryPanel.gd"
 DiceSoundManager="*res://autoloads/DiceSoundManager.gd"
 KeybindingManager="*res://autoloads/KeybindingManager.gd"
+MCPServer="*res://addons/godot_mcp/mcp_server.gd"
 
 [display]
 
@@ -75,7 +76,7 @@ theme/custom_font="res://fonts/Rajdhani-SemiBold.ttf"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gut/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg", "res://addons/gut/plugin.cfg")
 
 [global_script_class_icons]
 

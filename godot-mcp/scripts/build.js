@@ -9,6 +9,13 @@ const __dirname = path.dirname(__filename);
 // Make the build/index.js file executable
 fs.chmodSync(path.join(__dirname, '..', 'build', 'index.js'), '755');
 
+// Make the runtime bridge executable too (the WebSocket-style bridge that
+// talks to the Godot addon at 40k/addons/godot_mcp/).
+const bridgePath = path.join(__dirname, '..', 'build', 'runtime_bridge.js');
+if (fs.existsSync(bridgePath)) {
+  fs.chmodSync(bridgePath, '755');
+}
+
 // Copy the scripts directory to the build directory
 try {
   // Ensure the build/scripts directory exists
