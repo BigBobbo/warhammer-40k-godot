@@ -181,10 +181,38 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 - Pipeline structure matches 10e: SELECT_SHOOTER → ASSIGN_TARGET (per weapon, with model_ids and weapon_id in payload) → CONFIRM_TARGETS → reactive stratagem window → RESOLVE_SHOOTING → APPLY_SAVES (interactive save resolution).
 - Hit/wound/save sub-traces are richly detailed — each step returns dice, modifiers, threshold, special-rules flags. Excellent for debugging and audit.
 
+### Charge Phase
+
+| ID | Rule | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| t2.ch1 | Charge declaration with valid target | Telemon at (50, 2000) declares charge on Warboss at (50, 2330) | Engine accepts, offers Fire Overwatch to opponent | ✓ overwatch offered (6 P2 units eligible) | pass | — |
+| t2.ch1b | Charge declaration beyond 12" | Telemon at (50, 1500) declares charge on Warboss (20.75" away) | Reject "Target beyond 12\" charge range" | ✓ exact error returned | pass | — |
+| t2.ch2 | 2D6 charge roll | CHARGE_ROLL action | 2D6 dice, total compared to min_distance (base-aware), Command Re-roll integration | Rolled [6,3]=9, min_distance=5.49"; awaiting_reroll=true ✓ | pass | — |
+| t2.ch3 | Reserves filter (#320 regression) | List eligible chargers and targets | Reserves units (Boyz/Battlewagon/etc) absent | ✓ none of the 10 reserves units appear | pass | — |
+| t2.ch4 | Cannot end in engagement of non-target | Apply charge to position close to WARBOSS_B but also within 1" of WARBOSS_C | Reject | ✓ "Cannot end within engagement range of non-target unit: Warboss" | pass | — |
+| t2.ch5 | Charged unit gets fights_first flag | After successful APPLY_CHARGE_MOVE, check Telemon's flags | flags.charged_this_turn = true, flags.fights_first = true | Both set ✓ + WARBOSS_B.has_been_charged set | pass | — |
+| t2.ch6 | Tank Shock stratagem trigger on vehicle charge | After vehicle charge applied | Engine offers Tank Shock | ✓ trigger_tank_shock=true | pass | — |
+
+### Fight Phase (partial)
+
+| ID | Rule | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| t2.f1 | Charger eligible to fight first | After charge, FIGHT phase shows Telemon as fighter | SELECT_FIGHTER offered for Telemon | ✓ only Telemon (the charger) offered | pass | — |
+| t2.f1b | Custodes Martial Ka'tah stance triggers on melee | SELECT_FIGHTER on Custodes unit | trigger_katah_stance fires, master_of_the_stances_available checked | ✓ both fields returned correctly | pass | — |
+| t2.f1c | Pile-in action | PILE_IN dispatched | Pile-in resolves, attack assignment triggered | ✓ trigger_attack_assignment=true with correct attack_targets | pass | — |
+| t2.f2 | Weapon name disambiguation in ASSIGN_ATTACKS | Assign "Telemon Caestus" (which has both ranged and melee modes with same name) | Engine resolves to melee mode in melee context | "Weapon is not a melee weapon: Telemon Caestus" — engine resolves to ranged variant by name | observation | (potential — needs investigation) |
+
+### Charge / Fight observations
+- **All 7 charge tests pass** — declaration, range validation, 2D6 mechanic, reserves filter (#320 regression intact), engagement-of-non-target rule, fights_first flag wiring, vehicle Tank Shock stratagem. This is one of the cleanest phases in the audit so far.
+- **Heroic Intervention stratagem** correctly offered to opponent at end of charge with 3 eligible P2 character units listed.
+- **Custodes Martial Ka'tah stance** triggers correctly via `trigger_katah_stance` flag on `SELECT_FIGHTER` for Custodes models.
+- **Weapon name collision**: `Telemon Caestus` exists as both a Ranged (12") and Melee weapon entry in army JSON. `ASSIGN_ATTACKS` (melee context) by name resolves to the ranged variant first and fails. May be a minor bug or may require passing weapon index/disambiguator. Worth investigating; not yet filed pending more reproduction cases.
+
 ### Pending phases
-- Charge, Fight, Scoring not yet started
+- Scoring not yet started
 - Movement: t2.m4 (FLY), t2.m6 (base-touching regression) deferred
 - Shooting: t2.s2 (advance-blocks-shoot), t2.s4-s7 (keywords + cover) deferred — most need determinism (#329)
+- Fight: t2.f2 melee attack pipeline blocked by weapon-name-collision; deferred
 
 ---
 
