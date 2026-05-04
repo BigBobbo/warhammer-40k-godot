@@ -73,6 +73,7 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 | `meta.game_ended` and `meta.winner` set | both round-trip live this session | ✅ |
 | Re-verification (live) | full play-through after #330/#331 fixes | ✅ regression intact |
 | ⚠️ side-effect: `PhaseManager.game_ended` is sticky | discovered during this audit | ❌ filed as #330 (fixed in PR #334) |
+| Re-verified post-game-end → new game flow | After Round 5 ended (PhaseManager.game_ended=true), called `initialize_default_state` + `transition_to_phase(FORMATIONS)` | game_ended cleared to false; current_phase_instance instantiated; CONFIRM_FORMATIONS for both players → DEPLOYMENT phase reached cleanly with all 9 P1 deploy options ✓ | pass | — |
 
 ### t1.d — AUTO_PHASE_ADVANCE timing
 | Aspect | Method | Result |
@@ -159,7 +160,7 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 | t2.m1 | Normal move within M" | Blade Champion (M=6"=240px) move from (120,100) to (120,280) = 180px / 4.5" | Position updates, flags.moved=true | Position updated; moved=true ✓ | pass | — |
 | t2.m2 | Over-move rejected with proper error | Custodian Guard m1 from (200,100) to (200,400) = 7.5" > 6" cap | Error "Move exceeds cap: 7.5\" > 6.0\"" | Got exact error ✓ | pass | — |
 | t2.m3 | Advance adds D6 to move cap | BEGIN_ADVANCE on Witchseekers (M=6"); roll D6 | move_cap_inches = 6 + roll | Roll=3, cap=9, advanced=true ✓; supports Command Re-roll integration | pass | — |
-| t2.m4 | FLY ignores terrain | Move Jetbike through ruins | (deferred to next session) | — | deferred | — |
+| t2.m4 | FLY allows ending on/through other models | Move Jetbike (FLY) onto / over a friendly Caladius (FLY) base | FLY allows pass-through; ending on top still rejected | "Cannot end move on top of another model" returned (engine correctly enforces no-end-on-top); pass-through verification deferred (path-overlap test setup needs fine-tuning) | partial | — |
 | t2.m5 | Strategic Reserves blocked Round 1 | PLACE_REINFORCEMENT on Caladius in Round 1 | Reject with appropriate error | "Reserves cannot arrive until Battle Round 2 (currently Round 1)" ✓ | pass | — |
 | t2.m6 | Base-touching tolerance (#321/#327 regression) | 32mm bases at 50.0px (0.4px under touching boundary) | Allowed within 0.5px tolerance | (deferred — needs precise positioning setup) | deferred | — |
 | t2.m7 | Engaged unit restricted to Fall Back / Remain Stationary | WARBOSS_B engaged with Telemon (post-charge from prior turn) shows action menu | Only BEGIN_FALL_BACK and REMAIN_STATIONARY available — no normal move/advance | ✓ exactly those two options offered | pass | — |
