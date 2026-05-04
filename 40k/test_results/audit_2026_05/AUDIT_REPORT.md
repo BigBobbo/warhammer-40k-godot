@@ -22,8 +22,19 @@
 
 - **11 issues filed** during audit: #329, #330, #331, #332, #333, #335, #336, #337, #338, #339 + bridge bug commentary on #333
 - **2 fixes shipped** in PR #334 (this branch): #330 (sticky `PhaseManager.game_ended`), #331 (cascade `phase_completed` emit)
-- **52 distinct test cases** covered (38 pass, 6 fail/issue, 8 deferred)
-- **17 commits** on PR #334 covering audit infrastructure → fixes → Tier 0-5 findings → AUDIT_REPORT.md updates
+- **~60 distinct test cases** covered across all in-scope tiers (~46 pass, 6 fail/issue, ~8 deferred)
+- **27+ commits** on PR #334 covering audit infrastructure → fixes → Tier 0-5 findings → AUDIT_REPORT.md updates
+
+## Notable working features verified
+
+- **Phase machinery** — alternation, transitions, fights_first, fall-back wiring, mandatory consolidation FAQ, END_<predecessor> idempotency, Round-5 game-end
+- **Detachment rules** — Custodes Martial Mastery (round-locked) + Martial Ka'tah (per-fight) + Custodian Guard's Sentinel Storm; Orks War Horde "Get Stuck In" (Sustained Hits 1 on all melee)
+- **Once-per-battle abilities** — Orks Waaagh!, Plant Waaagh Banner, both correctly locked
+- **Stratagems** — CP cost deduction, effect application (Go to Ground invuln+cover), reactive timing windows (Go to Ground after target select, Tank Shock after vehicle charge, Heroic Intervention end-of-charge, Fire Overwatch on charge declaration, Counter-Offensive after fighter, Epic Challenge on melee selection), USE_NEW_ORDERS/DISCARD_SECONDARY for Crucible mission management
+- **Weapon keywords** — Twin-linked re-roll, Sustained Hits (Get Stuck In injection), BLAST (engagement-of-friendlies block), HAZARDOUS (post-attack 1s check)
+- **Movement** — base move cap with measured/cap error, Advance D6 with Command Re-roll integration, Strategic Reserves edge+9" rules, engaged unit Fall Back / Remain Stationary restriction, coherency on CONFIRM
+- **Battle-shock** — auto-detected on below-half-strength units, 2D6 vs Ld test, auto-resolves at end of Command phase
+- **Save/load** — `state.units`, `state.players`, `state.meta`, unit flags all round-trip correctly
 
 ## Baseline
 
