@@ -533,6 +533,19 @@ class RNGService:
 			rolls.append(rng.randi_range(1, 6))
 		return rolls
 
+
+# Test/debug helpers exposing RNGService.test_mode_seed via a method, since
+# Expression.parse (used by the MCP bridge's execute_script) can't perform
+# the static-var assignment directly. Pass -1 to disable test mode and
+# resume normal randomization. The counter is reset so each `set_test_seed`
+# call starts a fresh deterministic sequence.
+static func set_test_seed(seed: int) -> void:
+	RNGService.test_mode_seed = seed
+	RNGService._test_seed_counter = 0
+
+static func get_test_seed() -> int:
+	return RNGService.test_mode_seed
+
 # ==========================================
 # SHOOTING MODIFIERS (Phase 1 MVP)
 # ==========================================
