@@ -913,6 +913,21 @@ func create_snapshot() -> Dictionary:
 			snapshot["secondary_missions"] = secondary_data
 			print("[GameState] Adding secondary mission state to snapshot")
 
+	# Issue #338: Add FactionAbilityManager state (once-per-battle locks,
+	# doctrines, masteries, enhancements, banner). Without this, save/load
+	# drops these and lets save-scumming defeat usage restrictions.
+	var faction_ability_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_ability_mgr:
+		snapshot["faction_ability_manager"] = faction_ability_mgr.get_state_for_save()
+		print("[GameState] Adding FactionAbilityManager state to snapshot")
+
+	# Issue #338: Add StratagemManager usage history and active effects.
+	# Without this, once-per-battle/turn/phase stratagem locks reset on load.
+	var stratagem_mgr = get_node_or_null("/root/StratagemManager")
+	if stratagem_mgr and stratagem_mgr.has_method("get_state_for_save"):
+		snapshot["stratagem_manager"] = stratagem_mgr.get_state_for_save()
+		print("[GameState] Adding StratagemManager state to snapshot")
+
 	# SAVE-7: Add AI turn history to snapshot
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	if ai_player and ai_player.enabled:
@@ -1057,6 +1072,23 @@ func load_from_snapshot(snapshot: Dictionary) -> void:
 	else:
 		if state.has("secondary_missions"):
 			print("[GameState] Has secondary_missions but SecondaryMissionManager not available")
+
+	# Issue #338: Restore FactionAbilityManager state if present.
+	# Guarded by has() so old save files (without this key) still load with defaults.
+	var faction_ability_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if state.has("faction_ability_manager") and faction_ability_mgr:
+		print("[GameState] Found FactionAbilityManager data in save, restoring")
+		faction_ability_mgr.load_state(state["faction_ability_manager"])
+	elif state.has("faction_ability_manager"):
+		print("[GameState] Has faction_ability_manager but FactionAbilityManager not available")
+
+	# Issue #338: Restore StratagemManager state if present.
+	var stratagem_mgr = get_node_or_null("/root/StratagemManager")
+	if state.has("stratagem_manager") and stratagem_mgr and stratagem_mgr.has_method("load_state"):
+		print("[GameState] Found StratagemManager data in save, restoring")
+		stratagem_mgr.load_state(state["stratagem_manager"])
+	elif state.has("stratagem_manager"):
+		print("[GameState] Has stratagem_manager but StratagemManager not available")
 
 	# SAVE-7: Restore AI turn history if present
 	var ai_player = get_node_or_null("/root/AIPlayer")
