@@ -2905,8 +2905,12 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 			print("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — eligible to shoot" % unit.get("id", "unknown"))
 
 	# Check other restriction flags (but skip for advanced units handled above)
+	# fall_back_and_shoot effect (e.g., MULTIPOTENTIALITY) overrides the cannot_shoot lockout from Fall Back
 	if flags.get("cannot_shoot", false):
-		return false
+		if flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_shoot(unit):
+			print("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — overriding cannot_shoot" % unit.get("id", "unknown"))
+		else:
+			return false
 
 	# Check if this is a transport with firing deck capability
 	if unit.has("transport_data") and unit.transport_data.get("firing_deck", 0) > 0:
