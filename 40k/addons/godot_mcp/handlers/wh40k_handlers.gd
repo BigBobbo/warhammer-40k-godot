@@ -305,6 +305,28 @@ func _normalize_action_positions(action: Dictionary) -> Dictionary:
 				var v = _coerce_vector2(p)
 				converted.append(v if v != null else p)
 		out["model_positions"] = converted
+
+	# #361: per_model_paths inside payload — used by APPLY_CHARGE_MOVE,
+	# APPLY_HEROIC_INTERVENTION_MOVE, STAGE_MODEL_MOVE, etc. Each entry is a
+	# {model_id: [pos, pos, ...]} dict; positions need Vector2 conversion or
+	# Measurement.distance_polyline_px silently sums to 0.
+	if out.has("payload") and typeof(out["payload"]) == TYPE_DICTIONARY:
+		var payload: Dictionary = out["payload"]
+		if payload.has("per_model_paths") and typeof(payload["per_model_paths"]) == TYPE_DICTIONARY:
+			var paths: Dictionary = payload["per_model_paths"]
+			var converted_paths: Dictionary = {}
+			for model_id in paths:
+				var path = paths[model_id]
+				if typeof(path) == TYPE_ARRAY:
+					var converted_path: Array = []
+					for p in path:
+						var v = _coerce_vector2(p)
+						converted_path.append(v if v != null else p)
+					converted_paths[model_id] = converted_path
+				else:
+					converted_paths[model_id] = path
+			payload["per_model_paths"] = converted_paths
+			out["payload"] = payload
 	return out
 
 

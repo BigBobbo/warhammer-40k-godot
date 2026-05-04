@@ -3132,8 +3132,12 @@ func _get_rapid_ingress_eligible_units(player: int) -> Array:
 		if unit.is_empty():
 			continue
 
-		# Skip attached characters — they arrive with their bodyguard
-		if unit.get("attached_to", "") != "":
+		# Skip attached characters — they arrive with their bodyguard.
+		# #362: Dictionary.get(key, default) returns the default ONLY when the key
+		# is missing; if the key exists with value null (which is how this project
+		# stores "not attached"), it returns null. Compare for null AND empty.
+		var attached_to = unit.get("attached_to", "")
+		if attached_to != null and attached_to != "":
 			continue
 
 		var reserve_type = unit.get("reserve_type", "strategic_reserves")
