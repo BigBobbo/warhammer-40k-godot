@@ -136,10 +136,23 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 - [#335](https://github.com/BigBobbo/warhammer-40k-godot/issues/335) — `DeploymentPhase._validate_deploy_unit_action()` only validates fields, ownership, and per-model zone containment. The 2" coherency rule (enforced in Movement / Charge / Fight) is missing from deployment. Models can be deployed at any distance and the unit ends up `status: DEPLOYED`. Bug surfaces silently — UI normally gates positions visually so this only manifests via scripted/save-edited deployments.
 - 9" enemy distance rule cannot be exercised in Crucible of Battle (zones don't overlap, are >32" apart at narrowest). Defer testing until Reserves-arrival or Infiltrator audit, where the rule actually fires.
 
-### Pending Tier 2 work
+### Pending Tier 2 work — Deployment
 - Strategic Reserves placement (t2.d5)
-- Post-deployment baseline save (t2.d6)
-- Phases not yet started: Movement, Shooting, Charge, Fight, Command, Scoring
+- ~~Post-deployment baseline save (t2.d6)~~ ✅ saved as `audit_baseline_postdeploy.w40ksave` (16 deployed, 10 in Strategic Reserves; reserves status set via direct mutation as a baseline shortcut due to terrain/zone packing constraints)
+
+### Command Phase
+
+| ID | Rule | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| t2.c1 | CP gain on first Command phase | Drive new game to Round 1 P1 Command, check `players.{1,2}.cp` deltas vs initial state | 10e: Round 1 grants **no** CP | Both players gain +1 CP in Round 1 P1 Command (3 → 4 each) | **fail** | [#336](https://github.com/BigBobbo/warhammer-40k-godot/issues/336) |
+| t2.c1b | CP gain to opponent | Same | Only active player gains CP | Opponent also gains +1 | **fail** | [#336](https://github.com/BigBobbo/warhammer-40k-godot/issues/336) |
+
+### Findings (Tier 2 cumulative)
+- [#335](https://github.com/BigBobbo/warhammer-40k-godot/issues/335) — DeploymentPhase doesn't validate unit coherency
+- [#336](https://github.com/BigBobbo/warhammer-40k-godot/issues/336) — Command Phase CP gain doesn't match 10e (rule wrongly applied to round 1 + opponent)
+
+### Pending phases
+- Movement, Shooting, Charge, Fight, Scoring not yet started
 
 ---
 
