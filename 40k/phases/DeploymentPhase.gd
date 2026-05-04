@@ -123,6 +123,73 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 				if not validation.valid:
 					errors.append_array(validation.errors)
 
+		# Issue #335: Validate unit coherency (2" horizontal / 5" vertical) after per-model zone checks.
+		# Per WH40K 10e core rules, deployed units must be set up in unit coherency:
+		# - 2-6 models: each model within 2" horizontally + 5" vertically of at least 1 sibling
+		# - 7+ models:  each model within 2" horizontally + 5" vertically of at least 2 siblings
+		if not unit.is_empty() and model_positions.size() > 1:
+			var coherency_check = _check_deployment_coherency(model_positions, model_rotations, unit)
+			if not coherency_check.valid:
+				errors.append_array(coherency_check.errors)
+
+	return {"valid": errors.size() == 0, "errors": errors}
+
+func _check_deployment_coherency(model_positions: Array, model_rotations: Array, unit: Dictionary) -> Dictionary:
+	"""Issue #335: Validate that the unit is being deployed in coherency.
+	Mirrors the logic in MovementPhase._check_models_coherency() and
+	DeploymentController._is_unit_coherent(), reusing Measurement.is_within_coherency()
+	(2" horizontal edge-to-edge AND 5" vertical).
+	2-6 models require 1 sibling within range; 7+ models require 2 siblings (chain rule).
+	Single-model units short-circuit as coherent. Models with null positions (not yet placed)
+	are skipped — full coherency is only enforced once all models are placed.
+	Returns {valid: bool, errors: Array}."""
+	var unit_models = unit.get("models", [])
+
+	# Build the list of models with their proposed deployment positions/rotations.
+	# Skip null positions (e.g. partial deployments via composite actions) — those
+	# are flagged by other validators and cannot be coherency-checked.
+	var placed_models: Array = []
+	for i in range(model_positions.size()):
+		var pos = model_positions[i]
+		if pos == null:
+			continue
+		if i >= unit_models.size():
+			# Out-of-range model index — caught by per-model validation.
+			continue
+		var final_model: Dictionary = unit_models[i].duplicate()
+		final_model["position"] = pos
+		if i < model_rotations.size():
+			final_model["rotation"] = model_rotations[i]
+		placed_models.append(final_model)
+
+	# Need at least 2 placed models to enforce coherency.
+	if placed_models.size() <= 1:
+		return {"valid": true, "errors": []}
+
+	# Match the 10e convention used elsewhere in the codebase
+	# (MovementPhase._check_models_coherency, DeploymentController._is_unit_coherent):
+	# 2-6 models -> 1 connection; 7+ models -> 2 connections.
+	var required_connections = 1 if placed_models.size() <= 6 else 2
+	var errors: Array = []
+
+	for i in range(placed_models.size()):
+		var connections = 0
+		for j in range(placed_models.size()):
+			if i == j:
+				continue
+			# Measurement.is_within_coherency enforces 2" horizontal (80px @ 40px/inch)
+			# AND 5" vertical (elevation) using shape-aware edge-to-edge distance.
+			if Measurement.is_within_coherency(placed_models[i], placed_models[j]):
+				connections += 1
+				if connections >= required_connections:
+					break
+
+		if connections < required_connections:
+			var model_id = placed_models[i].get("id", "model %d" % i)
+			var needed_str = "%d model(s)" % required_connections
+			log_phase_message("Deployment coherency check failed: model %s has %d connections, needs %s" % [model_id, connections, needed_str])
+			errors.append("Unit coherency broken: model %s is not within 2\" horizontally and 5\" vertically of %s" % [model_id, needed_str])
+
 	return {"valid": errors.size() == 0, "errors": errors}
 
 func _validate_composite_deploy_action(action: Dictionary) -> Dictionary:
