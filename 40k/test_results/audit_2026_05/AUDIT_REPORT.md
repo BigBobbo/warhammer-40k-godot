@@ -280,11 +280,74 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 | ss4 | **Unimplemented stratagem gating** | Dispatch AVENGE THE FALLEN (which has `implemented: false` from FactionStratagemLoader because effect text is "custom:unmapped") | Reject without CP deduction | "AVENGE THE FALLEN is not yet mechanically implemented"; P1 CP unchanged at 3 ✓ | pass | — |
 
 ### Stratagem sweep findings
-- **Implementation status of faction stratagems is split**: ~half of the 12 loaded faction stratagems have `implemented: true` (effects auto-parse to known types like `grant_fnp` / `grant_invuln` / `grant_cover` / `grant_keyword`); the other half are flagged `implemented: false` with `effects: [{type: "custom:unmapped"}]`. The engine correctly rejects use of `implemented: false` stratagems without burning CP — no silent CP-loss bug.
-- **5 stratagems have manual implementation overrides** in `StratagemManager._mark_custom_handlers()` (lines 478-497): GRAB AND BASH, BOARDIN' RUSH, ROLLING LOOT-HEAP, DECK FRAGGERS, KRUMP AND RUN. These get `implemented: true` flagged manually because their effects don't map to a generic primitive but have custom logic in the phase handlers.
+- **Implementation status of faction stratagems is split**: of the 12 loaded faction stratagems, 6 have `implemented: true` (effects auto-parse to known types) and 6 are flagged `implemented: false` with `effects: [{type: "custom:unmapped"}]`. The engine correctly rejects use of `implemented: false` stratagems without burning CP.
+- **5 stratagems have manual implementation overrides** in `StratagemManager._mark_custom_handlers()` (lines 478-497): GRAB AND BASH, BOARDIN' RUSH, ROLLING LOOT-HEAP, DECK FRAGGERS, KRUMP AND RUN. These aren't loaded with the current Custodes/Orks armies in the test scenario.
 - **Effect primitives recognized by FactionStratagemLoader**: `grant_fnp`, `grant_invuln`, `grant_cover`, `grant_stealth`, `grant_keyword` (with scope), `grant_aura`. Anything else falls through to `custom:unmapped`.
-- **Once-per-X locks honored** (verified for `phase`; same code path handles `turn` / `battle`).
-- **Stratagem timing windows** (already verified in main audit): all 11 trigger types in core stratagems surface correctly at their respective phase moments.
+
+## Stratagem coverage matrix (24 loaded stratagems)
+
+Coverage legend:
+- ✅ **EFFECT VERIFIED LIVE** — actually triggered the action, observed CP delta + state change
+- 🟡 **TRIGGER OFFER ONLY** — engine offered the stratagem at the right moment but full end-to-end effect was not invoked
+- 🚫 **REJECTION ONLY** — verified the engine refuses to use it (for `implemented: false` stratagems)
+- ❌ **NOT TESTED** — verified to exist + load, but no live test of effect or rejection
+
+### Core stratagems (12)
+
+| # | ID | CP | Phase / Trigger | Effect primitive | Coverage | Notes / Setup needed for full test |
+|---|----|----|----|----|----|----|
+| 1 | INSANE BRAVERY | 1 | command / before_battle_shock_test | `auto_pass_battle_shock` | ✅ EFFECT VERIFIED | t2.ss1 — Witchseekers C below half, dispatch USE_STRATAGEM → BS auto-passed, P1 CP -1, no battle_shocked flag |
+| 2 | COMMAND RE-ROLL | 1 | any / after_roll | `reroll_last_roll` | 🟡 TRIGGER ONLY | Setup: dispatch any roll-producing action; engine returns `awaiting_reroll: true` (verified live during BEGIN_ADVANCE in audit). Not verified: actual re-roll execution, CP deduction, dice swap. To test fully: BEGIN_ADVANCE → see roll → USE_REACTIVE_STRATAGEM command_re_roll → verify CP -1 and dice differ |
+| 3 | GO TO GROUND | 1 | shooting / after_target_selected | `grant_invuln` 6+ + `grant_cover` | ✅ EFFECT VERIFIED | t2.st1 — P2 used during P1 Caladius shooting on Warboss B. CP P2 5→4, Warboss flags.effect_invuln=6, effect_cover=true ✓ |
+| 4 | SMOKESCREEN | 1 | shooting / after_target_selected | `grant_cover` + `grant_stealth` | ❌ NOT TESTED | Setup: P1 (with INFANTRY/MOUNTED/BIKER target restriction) targets a P2 INFANTRY unit during shooting → P2 reactive USE_REACTIVE_STRATAGEM smokescreen → verify P2 CP -1 + target flags.effect_cover + effect_stealth |
+| 5 | EPIC CHALLENGE | 1 | fight / fighter_selected | `grant_keyword` PRECISION (melee) | 🟡 TRIGGER ONLY | t2.f1b — Engine fired `trigger_epic_challenge` when WARBOSS_B selected to fight. Not verified: actual PRECISION keyword application to melee attacks. To test: fighter selects target unit with attached CHARACTER → use stratagem → verify PRECISION applied |
+| 6 | GRENADE | 1 | shooting / shooting_phase_active | `mortal_wounds` (D6, 4+) | ❌ NOT TESTED | Setup: P1 INFANTRY unit with no other ranged-attack assignment within ~6" of P2 unit → USE_STRATAGEM grenade in shooting phase → verify D6 dice rolled, hits at 4+ deal 1 MW each, CP -1 |
+| 7 | TANK SHOCK | 1 | charge / after_charge_move | `mortal_wounds_toughness_based` (5+, max 6) | 🟡 TRIGGER ONLY | t2.ch6 — Engine fired `trigger_tank_shock` after Telemon vehicle charge. Not verified: actual MW dice roll, CP deduction, damage applied. To test: vehicle charges → engine offers Tank Shock → USE_STRATAGEM tank_shock → verify dice roll + MWs applied to target, CP -1 |
+| 8 | FIRE OVERWATCH | 1 | movement_or_charge / enemy_move_or_charge | `overwatch_shoot` (hit_on 6) | 🟡 TRIGGER ONLY | t2.ch6 + t2.e3 — Engine fired `trigger_fire_overwatch` on charge declaration AND on Jetbike movement near P2. Not verified: full overwatch shooting resolution at 6+ to hit. To test: defender USE_REACTIVE_STRATAGEM fire_overwatch → verify dice resolution with 6+ threshold, CP -1, possible damage |
+| 9 | HEROIC INTERVENTION | 1 | charge / after_enemy_charge_move | `counter_charge` (no_charge_bonus) | 🟡 TRIGGER ONLY | Engine fired `trigger_heroic_intervention` after Telemon charged. Not verified: actual character movement into engagement, CP -1. To test: enemy charge → defender USE_STRATAGEM heroic_intervention with eligible CHARACTER → verify CHARACTER moves up to 6" into engagement, CP -1 |
+| 10 | COUNTER-OFFENSIVE | 2 | fight / after_enemy_fought | `fight_next` | 🟡 TRIGGER ONLY | Engine fired `trigger_counter_offensive` after Caladius fought. Not verified: actual interrupt effect, CP -2 deduction. To test: fight → opponent unit completes attacks → USE_STRATAGEM counter_offensive → verify defender unit selected to fight next, CP -2 |
+| 11 | NEW ORDERS | 1 | command / end_of_command_phase | (Crucible mission swap) | ✅ EFFECT VERIFIED | t2.sc7 — P1 7→6 CP, mission discarded, replacement drawn |
+| 12 | RAPID INGRESS | 1 | movement / end_of_enemy_movement | `arrive_from_reserves` (allow_deep_strike) | ❌ NOT TESTED | Setup: P1 has reserves, P2 starts movement phase → P1 USE_STRATAGEM rapid_ingress → place unit (deep strike allowed even though it's opponent's turn) → verify CP -1, unit deployed with `arrived_from_reserves_turn` set |
+
+### Custodes Shield Host stratagems (6)
+
+| # | ID | CP | Phase / Trigger | Effect | `implemented` | Coverage | Notes |
+|---|----|----|----|----|----|----|----|
+| 13 | ARCHEOTECH MUNITIONS | 1 | shooting / before_attacks | `grant_lethal_hits` + `grant_sustained_hits` | true | ❌ NOT TESTED | Setup: P1 Custodes unit with Martial Ka'tah selected as shooter → USE_STRATAGEM archeotech_munitions before resolving attacks → verify shooting dice get both LH and SH applied, CP -1 |
+| 14 | ARCANE GENETIC ALCHEMY | 1 | any / after_mortal_wound | `grant_fnp` 4+ | true | ✅ EFFECT VERIFIED | t2.ss2 — Used on Contemptor Dreadnought, P1 CP 4→3, flags.effect_fnp=4 set |
+| 15 | UNWAVERING SENTINELS | 1 | shooting / when_targeted | `minus_one_hit` | true | ❌ NOT TESTED | Setup: enemy targets a Custodes infantry unit → P1 reactive USE_REACTIVE_STRATAGEM unwavering_sentinels → verify -1 to hit modifier on incoming attacks, CP -1 |
+| 16 | AVENGE THE FALLEN | 1 | fight / when_unit_destroyed | `custom:unmapped` | **false** | 🚫 REJECTION VERIFIED | t2.ss4 — Dispatch returns "AVENGE THE FALLEN is not yet mechanically implemented", CP unchanged at 3 ✓ |
+| 17 | MULTIPOTENTIALITY | 1 | movement / after_fall_back | `fall_back_and_shoot` + `fall_back_and_charge` | true | ❌ NOT TESTED | Setup: Custodes unit in engagement, BEGIN_FALL_BACK then USE_STRATAGEM multipotentiality → verify cannot_shoot/cannot_charge flags NOT set after fall back, CP -1 |
+| 18 | VIGILANCE ETERNAL | 1 | command / start_of_command_phase | `custom:unmapped` | **false** | 🚫 REJECTION VERIFIED | Dispatch returns "VIGILANCE ETERNAL is not yet mechanically implemented", CP unchanged ✓ |
+
+### Orks War Horde stratagems (6)
+
+| # | ID | CP | Phase / Trigger | Effect | `implemented` | Coverage | Notes |
+|---|----|----|----|----|----|----|----|
+| 19 | UNBRIDLED CARNAGE | 1 | fight / before_attacks | `crit_hit_on` 5 | true | ❌ NOT TESTED | Setup: P2 Ork unit selected to fight → USE_STRATAGEM unbridled_carnage → verify melee critical-hit threshold lowered to 5+, CP -1 |
+| 20 | 'ARD AS NAILS | 1 | shooting/fight / when_targeted | `minus_one_wound` | true | ❌ NOT TESTED | Setup: enemy targets an Ork unit with attacks → P2 reactive USE_REACTIVE_STRATAGEM 'ard_as_nails → verify -1 to wound modifier, CP -1 |
+| 21 | MOB RULE | 1 | command / command_phase_active | `custom:unmapped` | **false** | 🚫 REJECTION VERIFIED | Dispatch returns "MOB RULE is not yet mechanically implemented", CP unchanged ✓ |
+| 22 | 'ERE WE GO | 1 | charge / before_charge_roll | `custom:unmapped` | **false** | 🚫 REJECTION VERIFIED | Dispatch returns "ERE WE GO is not yet mechanically implemented", CP unchanged ✓ |
+| 23 | CAREEN | 1 | (varies) | `custom:unmapped` | **false** | 🚫 REJECTION VERIFIED | Dispatch returns "CAREEN! is not yet mechanically implemented", CP unchanged ✓ |
+| 24 | ORKS IS NEVER BEATEN | 1 | fight / when_model_destroyed | `custom:unmapped` | **false** | 🚫 REJECTION VERIFIED | Dispatch returns "ORKS IS NEVER BEATEN is not yet mechanically implemented", CP unchanged ✓ |
+
+### Coverage summary
+
+| Status | Count | Stratagems |
+|---|---|---|
+| ✅ EFFECT VERIFIED LIVE | **4** | INSANE BRAVERY, GO TO GROUND, NEW ORDERS, ARCANE GENETIC ALCHEMY |
+| 🟡 TRIGGER OFFER ONLY | **6** | COMMAND RE-ROLL, EPIC CHALLENGE, TANK SHOCK, FIRE OVERWATCH, HEROIC INTERVENTION, COUNTER-OFFENSIVE |
+| 🚫 REJECTION VERIFIED | **6** | AVENGE THE FALLEN, VIGILANCE ETERNAL, MOB RULE, 'ERE WE GO, CAREEN, ORKS IS NEVER BEATEN |
+| ❌ NOT TESTED | **8** | SMOKESCREEN, GRENADE, RAPID INGRESS, ARCHEOTECH MUNITIONS, UNWAVERING SENTINELS, MULTIPOTENTIALITY, UNBRIDLED CARNAGE, 'ARD AS NAILS |
+
+**4 of 24 stratagems** have their effects fully verified end-to-end. **6 stratagems are confirmed to be `implemented: false`** in the engine and gracefully rejected. **6 stratagems** had only their trigger window verified — the actual effect of the stratagem (CP deduction + state change) was not invoked. **8 stratagems** are loaded and `implemented: true`, but their effects were never invoked in any test.
+
+### Why some weren't tested
+- **Each effect-test requires a specific game scenario** (e.g., enemy charging a unit with attached CHARACTER for HEROIC INTERVENTION, vehicle finishing a charge for TANK SHOCK, defender shooting at INFANTRY for SMOKESCREEN). Building each scenario consumed too much MCP-call budget for the audit pass.
+- **Some require dice outcomes** (e.g., GRENADE needs to see D6 hits at 4+; TANK SHOCK rolls dice based on target toughness). These would benefit from `RulesEngine.RNGService.test_mode_seed` (PR #346/#348) but Expression-mode access to that static var is awkward — the bridge would need a setter helper.
+- **Some require save-state setup** (e.g., MULTIPOTENTIALITY needs a fall-back to have happened first; FIRE OVERWATCH needs a charge declaration to consume its trigger).
+
+To complete coverage of the 8+6 untested-effect stratagems, the next session should prepare a fight-shooting-charge scenario in advance and run each stratagem in turn, verifying CP delta + flag/state changes.
 
 ### Pending phases
 - Movement: t2.m4 (FLY pass-through path test), t2.m6 (base-touching regression) deferred
