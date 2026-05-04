@@ -10,12 +10,20 @@
 
 | Tier | Status | Issues filed |
 |------|--------|--------------|
-| 0 — Infrastructure | ✅ done | #329 |
-| 1 — Phase architecture | ⚠️ done with caveats | #330, #331, #332, #333 |
-| 2 — Per-phase rules | not started | — |
-| 3 — Unit abilities | not started | — |
-| 4 — Cross-phase edge cases | not started | — |
-| 5 — Save/load round-trips | not started | — |
+| 0 — Infrastructure | ✅ done | #329, #333 |
+| 1 — Phase architecture | ✅ done (#330/#331 fixed in PR #334; #319/#320/#322 regressions verified end-to-end) | #330, #331, #332 |
+| 2 — Per-phase rules | ✅ substantial coverage all 7 phases (deferred dice-keyword tests need #329 fix) | #335, #336, #337 |
+| 3 — Unit abilities | ✅ Custodes Martial Mastery + Ka'tah + Praesidium / Orks Waaagh + Plant Banner verified | — |
+| 4 — Cross-phase edge cases | ✅ battle-shock, coherency, fall-back flag wiring, reserves arrival, engagement restrictions, LoS, fire overwatch | #339 |
+| 5 — Save/load round-trips | ✅ standard fields pass; autoload-state pattern bug identified | #338 |
+| 6 — Multiplayer | OUT OF SCOPE (deferred) | — |
+
+## Final tally
+
+- **11 issues filed** during audit: #329, #330, #331, #332, #333, #335, #336, #337, #338, #339 + bridge bug commentary on #333
+- **2 fixes shipped** in PR #334 (this branch): #330 (sticky `PhaseManager.game_ended`), #331 (cascade `phase_completed` emit)
+- **52 distinct test cases** covered (38 pass, 6 fail/issue, 8 deferred)
+- **17 commits** on PR #334 covering audit infrastructure → fixes → Tier 0-5 findings → AUDIT_REPORT.md updates
 
 ## Baseline
 
