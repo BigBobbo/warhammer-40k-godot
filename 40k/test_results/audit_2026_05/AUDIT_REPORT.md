@@ -232,6 +232,40 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 
 ---
 
+## Tier 3 — Unit abilities
+
+| ID | Item | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| t3.a1 | Orks Waaagh! once-per-battle | CALL_WAAAGH twice on P2's Command phase | First succeeds, second rejected | "WAAAGH! Called — advance and charge, +1 S/A melee, 5+ invuln active!"; second rejected with "already used or not an Ork player" ✓ | pass | — |
+| t3.a2 | Custodes Martial Mastery surfaces | Inspect P1's Round 1 Command phase | SELECT_MARTIAL_MASTERY actions for crit_on_5 and improve_ap | Both options surfaced with full description ✓ | pass | — |
+| t3.a3 | Custodes Martial Ka'tah trigger on melee | SELECT_FIGHTER on a Custodes unit | trigger_katah_stance flag returned | ✓ flag returned with katah_unit_id and master_of_the_stances_available ✓ | pass | — |
+| t3.a4 | Orks Plant Banner once-per-battle | (deferred — needs second attempt to verify lock) | — | — | deferred | — |
+
+## Tier 5 — Save/load round-trips
+
+| ID | Item | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| t5.sl1 | Position round-trip | Save with Telemon at (10,2200), mutate to (9999,9999), load | Position restored to (10,2200) | ✓ exact match | pass | — |
+| t5.sl1b | Meta round-trip | Same cycle, check phase/active_player/battle_round | All restored | phase=6, active_player=2, round=1 ✓ | pass | — |
+| t5.sl1c | Player CP/VP round-trip | Same | CP/VP restored | P1 cp=5, secondary_vp=5 ✓ | pass | — |
+| t5.sl1d | Unit flags round-trip | Same | flags.charged_this_turn / flags.fights_first restored | Both true ✓ | pass | — |
+| t5.sl2 | FactionAbilityManager round-trip | Save with Waaagh used, mutate `_waaagh_used[2]=false`, load | Waaagh used flag restored to true | **Got false — flag dropped on load** | **fail** | [#338](https://github.com/BigBobbo/warhammer-40k-godot/issues/338) |
+| t5.sl3 | StratagemManager save/load | Search for save/load methods in source | Methods exist and called by SaveLoadManager | **No save/load methods at all** — once-per-battle/turn stratagem locks lost on save/load | **fail (pattern of #338)** | (logged on #338) |
+
+### Findings — autoload state not round-tripped
+- [#338](https://github.com/BigBobbo/warhammer-40k-godot/issues/338) — `FactionAbilityManager.get_state_for_save()` / `load_state()` exist but are **never called**. State lost: Waaagh!, Plant the Banner, Martial Mastery selection, doctrines, enhancements (Da Kaptin / Bionik Workshop / Razgit), loot objective.
+- Same pattern: `StratagemManager` has no save/load API — `_usage_history` (once-per-battle/turn/phase tracking for all stratagems) is never persisted. Save scumming fully resets stratagem locks.
+- Same pattern likely extends to `SecondaryMissionManager` (deck state, drawn missions) and possibly `MissionManager` (objective burn state for Scorched Earth).
+
+### Pattern note
+Per-game state lives in two places:
+1. `GameState.state` dict — round-tripped via `StateSerializer`
+2. Autoload member fields — must be explicitly serialised via `get_state_for_save` / `load_state` calls in `SaveLoadManager`
+
+The audit found at least two autoloads (`FactionAbilityManager`, `StratagemManager`) where (2) is not wired up, plus one where the parallel issue (`PhaseManager.game_ended` surviving `initialize_default_state`) was already filed as [#330](https://github.com/BigBobbo/warhammer-40k-godot/issues/330) and fixed in PR #334. This is a **recurring class of bug** worth a one-pass audit of every autoload.
+
+---
+
 ## Out of scope (this audit)
 
 - Multiplayer / NetworkManager sync (Tier 6 deferred)
