@@ -516,7 +516,9 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	var charge_data = pending_charges[unit_id]
 
 	# Roll 2D6 for charge distance
-	var rng = RulesEngine.RNGService.new()
+	# Issue #329: honor payload.rng_seed (multiplayer + tests); fall back to test_mode_seed
+	var rng_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var rng = RulesEngine.RNGService.new(rng_seed)
 	var rolls = rng.roll_d6(2)
 	var total_distance = rolls[0] + rolls[1]
 
@@ -732,7 +734,9 @@ func _process_use_ability_reroll(action: Dictionary) -> Dictionary:
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 
 	# Re-roll the 2D6 (free — no CP cost)
-	var rng = RulesEngine.RNGService.new()
+	# Issue #329: honor payload.rng_seed
+	var rng_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var rng = RulesEngine.RNGService.new(rng_seed)
 	var new_rolls = rng.roll_d6(2)
 	var new_total = new_rolls[0] + new_rolls[1]
 
@@ -800,7 +804,9 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 			return _resolve_charge_roll(unit_id)
 
 	# Re-roll the 2D6
-	var rng = RulesEngine.RNGService.new()
+	# Issue #329: honor payload.rng_seed
+	var rng_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var rng = RulesEngine.RNGService.new(rng_seed)
 	var new_rolls = rng.roll_d6(2)
 	var new_total = new_rolls[0] + new_rolls[1]
 
@@ -973,7 +979,7 @@ func _unit_has_spiked_ram(unit: Dictionary) -> bool:
 			return true
 	return false
 
-func _apply_spiked_ram_if_applicable(unit_id: String, charge_targets: Array, changes: Array) -> void:
+func _apply_spiked_ram_if_applicable(unit_id: String, charge_targets: Array, changes: Array, rng_seed: int = -1) -> void:
 	"""OA-50: If charging unit has Spiked Ram, roll D6 and deal mortal wounds to first charge target."""
 	var unit = get_unit(unit_id)
 	if not _unit_has_spiked_ram(unit):
@@ -991,7 +997,8 @@ func _apply_spiked_ram_if_applicable(unit_id: String, charge_targets: Array, cha
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
 
-	var rng = RulesEngine.RNGService.new()
+	# Issue #329: route through RNGService; seed forwarded by caller (action.payload.rng_seed)
+	var rng = RulesEngine.RNGService.new(rng_seed)
 	var roll = rng.roll_d6(1)[0]
 
 	var mortal_wounds = 0
@@ -1141,10 +1148,12 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	# SPIKED RAM (OA-50): After charge move, deal mortal wounds to a charge target.
 	# "Each time this model ends a Charge move, select one enemy unit within Engagement Range
 	# and roll D6: on 2-5 = D3 mortal wounds; on 6 = 3 mortal wounds."
-	_apply_spiked_ram_if_applicable(unit_id, charge_data.targets, changes)
+	# Issue #329: forward action.payload.rng_seed for deterministic test replay
+	var apply_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	_apply_spiked_ram_if_applicable(unit_id, charge_data.targets, changes, apply_seed)
 
 	# OA-36: Piston-driven Brutality — after Charge move, auto-resolve mortal wounds
-	_resolve_piston_driven_brutality_after_charge(unit_id, changes)
+	_resolve_piston_driven_brutality_after_charge(unit_id, changes, apply_seed)
 
 	# Check if Tank Shock is available for the charging player
 	# Per 10e rules: "just after a VEHICLE unit ends a Charge move"
@@ -2526,7 +2535,9 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 
 	# Resolve Overwatch shooting using RulesEngine
 	# Overwatch only hits on unmodified 6s (special rule)
-	var overwatch_result = _resolve_overwatch_shooting(unit_id, enemy_unit_id, player)
+	# Issue #329: forward action.payload.rng_seed
+	var ow_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var overwatch_result = _resolve_overwatch_shooting(unit_id, enemy_unit_id, player, ow_seed)
 
 	# P1-59: Clear out-of-phase flag after overwatch resolves
 	if strat_manager:
@@ -2570,7 +2581,7 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 
 	return create_result(true, [])
 
-func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: String, player: int) -> Dictionary:
+func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: String, player: int, rng_seed: int = -1) -> Dictionary:
 	"""
 	Resolve Overwatch shooting. Uses the normal shooting resolution but forces
 	all hit rolls to only succeed on unmodified 6s (per 10e Overwatch rules).
@@ -2618,8 +2629,10 @@ func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: Strin
 	}
 
 	# Use RulesEngine.resolve_shoot for full resolution
+	# Issue #329: forward rng_seed from caller (action.payload.rng_seed)
 	var board = game_state_snapshot
-	var rng = RulesEngine.RNGService.new()
+	shoot_action["payload"]["rng_seed"] = rng_seed
+	var rng = RulesEngine.RNGService.new(rng_seed)
 	var shoot_result = RulesEngine.resolve_shoot(shoot_action, board, rng)
 
 	var total_damage = 0
@@ -2803,7 +2816,9 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 	}
 
 	# Now auto-roll the charge dice (HI uses a normal 2D6 charge roll)
-	var rng = RulesEngine.RNGService.new()
+	# Issue #329: honor payload.rng_seed
+	var rng_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var rng = RulesEngine.RNGService.new(rng_seed)
 	var rolls = rng.roll_d6(2)
 	var total_distance = rolls[0] + rolls[1]
 
@@ -3014,7 +3029,7 @@ func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: i
 # OA-36: PISTON-DRIVEN BRUTALITY — Mortal wounds after Charge move
 # ============================================================================
 
-func _resolve_piston_driven_brutality_after_charge(unit_id: String, changes: Array) -> void:
+func _resolve_piston_driven_brutality_after_charge(unit_id: String, changes: Array, rng_seed: int = -1) -> void:
 	"""OA-36: Check if the charging unit has Piston-driven Brutality.
 	If so, auto-resolve mortal wounds against one enemy in Engagement Range.
 	Roll 1D6: on 2-5, D3 MW; on 6, D3+3 MW; on 1, nothing.
@@ -3054,7 +3069,8 @@ func _resolve_piston_driven_brutality_after_charge(unit_id: String, changes: Arr
 	log_phase_message("PISTON-DRIVEN BRUTALITY: %s targets %s within Engagement Range" % [unit_name, target_name])
 
 	# Resolve via RulesEngine
-	var rng_service = RulesEngine.RNGService.new()
+	# Issue #329: forward seed from action.payload.rng_seed (caller passes it through)
+	var rng_service = RulesEngine.RNGService.new(rng_seed)
 	var result = RulesEngine.resolve_piston_driven_brutality(
 		unit_id, target_id, temp_snapshot, rng_service
 	)
