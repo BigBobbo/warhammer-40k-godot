@@ -331,6 +331,41 @@ Coverage legend:
 | 23 | CAREEN | 1 | (varies) | `custom:unmapped` | **false** | 🚫 REJECTION VERIFIED | Dispatch returns "CAREEN! is not yet mechanically implemented", CP unchanged ✓ |
 | 24 | ORKS IS NEVER BEATEN | 1 | fight / when_model_destroyed | `custom:unmapped` | **false** | 🚫 REJECTION VERIFIED | Dispatch returns "ORKS IS NEVER BEATEN is not yet mechanically implemented", CP unchanged ✓ |
 
+### Methodology caveat: data-layer vs UI-layer verification
+
+**Important scope note about the testing approach used throughout this audit.** All tests were driven via the MCP bridge, which talks to the running Godot process and dispatches actions / reads state through the autoloads (GameState, PhaseManager, FightPhase / ChargePhase / MovementPhase action handlers, StratagemManager, RulesEngine).
+
+The autoloads run regardless of which scene is visible. Therefore:
+
+- ✅ **Data-layer verification is genuine.** Save/load round-trips, action dispatch, validators, trigger emission, CP deduction, dice rolls, state mutations, signal emissions — all of these were really exercised. The 18 ✅ EFFECT VERIFIED LIVE stratagems had real CP move, real dice roll, real flag set.
+- ❌ **UI-layer verification was not performed.** During testing, the Godot window stayed on the project's main_scene (MainMenu). The `BattleScene` (`res://scenes/Main.tscn`) was never loaded into the visible viewport. So UI bugs — a dialog that fails to open, a signal that doesn't reach a controller, a button that throws an error, a click handler that crashes — would have been invisible.
+
+The proper path to load a save into the visible game is in `MainMenu.gd:946-952`:
+```gdscript
+SaveLoadManager.load_game(save_file, owner_id)
+GameState.state.meta["from_save"] = true   # ← critical, otherwise Main re-initializes
+get_tree().change_scene_to_file("res://scenes/Main.tscn")
+```
+Skipping the `from_save` flag causes the Main scene's `_ready()` to discard the loaded state and reinitialize a fresh game.
+
+For the trickiest tests (HI/CO/RAPID INGRESS), one or more of these has now been re-run with the full UI loaded plus screenshots captured at each step — see "End-to-end with UI screenshots" below.
+
+### End-to-end with UI screenshots: COUNTER-OFFENSIVE
+
+Demonstrated 2026-05-04. Full sequence with Godot's BattleScene loaded and visible. Screenshots saved to `screenshots/`.
+
+| Step | Screenshot | What we see |
+|---|---|---|
+| 1 | `co_step1_mainmenu.png` | MainMenu before load — Custodes vs Orks AI on Chapter Approved Layout 1, Take and Hold mission. |
+| 2 | `co_step2_loaded.png` | Battle scene rendered after `SaveLoadManager.load_game` + `from_save=true` + `change_scene_to_file("res://scenes/Main.tscn")`. Board, terrain, deployment zones, units. P1 CP=4, P2 CP=4, both VP=0. R1T1 Command. |
+| 3 | `co_step3_charge_phase.png` | P2 R1 Charge phase. "Units that can charge" panel lists Warboss B (and others). "New Secondary Missions" overlay shows P2's Secondary Missions just drawn (Display of Might, Bring it Down). |
+| 4 | `co_step4_postcharge_engaged.png` | Post-Warboss-charge into engagement. Fight phase begun. "Select Unit to Fight - Player 2" dialog showing FIGHTS_FIRST subphase, Warboss eligible. |
+| 5 | `co_step5_co_opportunity.png` | 🎯 **The natural trigger emission rendered as a UI dialog**: "Counter-Offensive Available - Player 1, Cost 2 CP (You have 4 CP)". Shows "Custodian Guard - Fight Next (2 CP)" button + Decline button + "Auto-declining in 5 seconds…" countdown. This is the integration point I was unable to verify in earlier shortcut tests. |
+| 6 | `co_step6_after_use.png` | After USE_COUNTER_OFFENSIVE dispatch: "Pile in to Custodian Guard" dialog appears, Fight Sequence panel updated to include Custodian Guard. Game log shows "P1: Used COUNTER-OFFENSIVE (2 CP) on Custodian Guard" entry. |
+| 7 | `co_step7_attacks.png` | "Assign Attacks: Custodian Guard" dialog with weapon picker (Guardian spear, Misericordia, Sentinel blade) and Warboss as target. CP shown as 2 (deducted from 4). |
+
+**Bottom line**: the natural trigger emission from `_process_consolidate` in FightPhase fires both the autoload-level state change (verified earlier) AND the proper UI dialog (verified now via screenshots). End-to-end, including UI rendering, signal-to-controller wiring, and game event logging.
+
 ### Coverage summary
 
 Updated 2026-05-04 after option-3 sweep (the remaining 5 ❌ stratagems walked through `use_stratagem` direct invocation; effect-application path verified for all 5; UI eligibility/scenario gates documented separately).
