@@ -133,7 +133,27 @@ func set_node_property(params: Dictionary) -> Dictionary:
 func call_node_method(params: Dictionary) -> Dictionary:
 	var path: String = params.get("path", "")
 	var method: String = params.get("method", "")
-	var args: Array = params.get("args", [])
+	# `args` may arrive as a real JSON Array, as a JSON-encoded String (some
+	# clients/bridges stringify nested arrays), or as a single scalar value.
+	# Normalize all three shapes so a strict-typed Array assignment never
+	# silently fails (see issue #333).
+	var raw_args = params.get("args", [])
+	var args: Array = []
+	if raw_args is Array:
+		args = raw_args
+	elif raw_args is String:
+		var parsed = JSON.parse_string(raw_args)
+		if parsed is Array:
+			args = parsed
+		elif parsed == null and raw_args == "":
+			args = []
+		else:
+			# Either a JSON scalar (e.g. "\"foo\"") or a bare string that
+			# isn't valid JSON. Treat the raw value as a single positional arg.
+			args = [parsed if parsed != null else raw_args]
+	else:
+		# Numbers, bools, dicts, null, etc. — wrap as a single positional arg.
+		args = [raw_args]
 	if path == "" or method == "":
 		return {"status": "error", "message": "Missing 'path' or 'method'"}
 	var node := _resolve_node(path)
