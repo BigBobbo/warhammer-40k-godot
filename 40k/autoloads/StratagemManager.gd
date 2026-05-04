@@ -2399,3 +2399,31 @@ func reset_for_new_game() -> void:
 	_clear_player_faction_stratagems(1)
 	_clear_player_faction_stratagems(2)
 	print("StratagemManager: Reset for new game")
+
+# ============================================================================
+# SAVE/LOAD SUPPORT (Issue #338)
+# Persist per-game member-field state so once-per-battle/turn/phase usage
+# locks survive save/load round-trips. Without this, save-scumming can defeat
+# stratagem usage restrictions.
+# ============================================================================
+
+func get_state_for_save() -> Dictionary:
+	"""Return state data for save games."""
+	return {
+		"usage_history": _usage_history.duplicate(true),
+		"active_effects": active_effects.duplicate(true),
+		"player_faction_stratagems": _player_faction_stratagems.duplicate(true)
+	}
+
+func load_state(data: Dictionary) -> void:
+	"""Restore state from save data. Defaults match initial values for old saves."""
+	_usage_history = data.get("usage_history", {"1": [], "2": []})
+	active_effects = data.get("active_effects", [])
+	_player_faction_stratagems = data.get("player_faction_stratagems", {"1": [], "2": []})
+	print("StratagemManager: State loaded — usage_history sizes: P1=%d P2=%d, active_effects=%d, faction_stratagems: P1=%d P2=%d" % [
+		_usage_history.get("1", []).size(),
+		_usage_history.get("2", []).size(),
+		active_effects.size(),
+		_player_faction_stratagems.get("1", []).size(),
+		_player_faction_stratagems.get("2", []).size()
+	])
