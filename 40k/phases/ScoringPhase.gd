@@ -236,6 +236,12 @@ func _handle_end_turn() -> Dictionary:
 		var battle_round = GameState.get_battle_round()
 		MissionManager.record_vp_snapshot(battle_round)
 
+	# Detect end-of-game: P2 finishing the final battle round (10e: 5 rounds).
+	# Set meta.game_ended/winner in state so saves, replays, MCP queries, and
+	# PhaseManager._handle_game_end() (via is_game_complete()) all observe it.
+	if current_player == 2 and GameState.get_battle_round() >= GameState.MAX_BATTLE_ROUNDS:
+		return _handle_game_end_turn()
+
 	# Reset unit flags for the player whose turn is starting
 	var changes = _create_flag_reset_changes(next_player)
 
@@ -268,6 +274,50 @@ func _handle_end_turn() -> Dictionary:
 		"changes": changes,
 		"message": "Turn ended, control switched to player %d" % next_player
 	}
+
+func _handle_game_end_turn() -> Dictionary:
+	# Score Scorched Earth end-of-game burn bonuses BEFORE determining the winner
+	# so the bonus VP counts toward the result.
+	if MissionManager and MissionManager.has_method("score_end_of_game_burn_bonus"):
+		MissionManager.score_end_of_game_burn_bonus()
+
+	var winner := _determine_winner()
+
+	print("ScoringPhase: Final battle round complete — game ended. Winner: %s" % (
+		"Draw" if winner == 0 else "Player %d" % winner))
+
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var msg = "Game ended after %d battle rounds — %s" % [
+			GameState.MAX_BATTLE_ROUNDS,
+			"Draw" if winner == 0 else "Player %d wins" % winner,
+		]
+		game_event_log.add_info_entry(msg)
+
+	var changes := [
+		{"op": "set", "path": "meta.game_ended", "value": true},
+		{"op": "set", "path": "meta.winner", "value": winner},
+	]
+
+	return {
+		"success": true,
+		"changes": changes,
+		"message": "Game ended after %d battle rounds" % GameState.MAX_BATTLE_ROUNDS,
+		"game_ended": true,
+		"winner": winner,
+	}
+
+func _determine_winner() -> int:
+	if not MissionManager or not MissionManager.has_method("get_vp_summary"):
+		return 0
+	var vp = MissionManager.get_vp_summary()
+	var p1 = int(vp.get("player1", {}).get("total", 0))
+	var p2 = int(vp.get("player2", {}).get("total", 0))
+	if p1 > p2:
+		return 1
+	if p2 > p1:
+		return 2
+	return 0
 
 func _create_flag_reset_changes(player: int) -> Array:
 	"""Create state changes to reset per-turn action flags for a player's units"""
