@@ -1,7 +1,10 @@
 #!/bin/bash
-# Runs the three pretrigger fixture-based regression tests.
-# Each test loads its committed fixture, drives the natural trigger emission
-# code path, and asserts on outcomes (CP delta, awaiting flags, eligible_units).
+# Runs the audit-suite of headless GDScript regression tests:
+#   - 3 pretrigger fixture tests (deferred-action stratagems CO/HI/RI)
+#   - audit-fix verification (#329, #336, #338, #356, #359)
+#   - T2.M6 base-touching regression (#321/#327)
+#   - T2.S4-S6 SUSTAINED/LETHAL/DEVASTATING keyword pipeline
+#   - T2.S7 cover save bonus
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -17,6 +20,10 @@ TESTS=(
     "tests/test_co_pretrigger.gd"
     "tests/test_hi_pretrigger.gd"
     "tests/test_ri_pretrigger.gd"
+    "tests/test_audit_fixes_verification.gd"
+    "tests/test_m6_base_touching_regression.gd"
+    "tests/test_keyword_pipeline.gd"
+    "tests/test_s7_cover_save_bonus.gd"
 )
 
 FAILED=0
@@ -53,7 +60,7 @@ done
 
 echo ""
 echo "================================================"
-echo "Pretrigger fixture tests: $TOTAL_PASSED passed, $TOTAL_FAILED failed across ${#TESTS[@]} tests"
+echo "Audit suite: $TOTAL_PASSED passed, $TOTAL_FAILED failed across ${#TESTS[@]} tests"
 echo "================================================"
 
 exit $([ "$FAILED" -eq 0 ] && echo 0 || echo 1)

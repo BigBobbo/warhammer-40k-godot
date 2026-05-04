@@ -401,15 +401,16 @@ The fixtures are wired into headless GDScript regression tests:
 - `40k/tests/test_co_pretrigger.gd` — 15 assertions
 - `40k/tests/test_hi_pretrigger.gd` — 14 assertions
 - `40k/tests/test_ri_pretrigger.gd` — 14 assertions
-- `40k/tests/run_pretrigger_tests.sh` — runs all three, summary at end
+- `40k/tests/test_audit_fixes_verification.gd` — 24 assertions covering #329 RNG determinism, #336 Command-phase CP rules, #338 autoload save/load, #356 effect_fall_back_and_shoot override, #359 excluding-X parser
+- `40k/tests/run_pretrigger_tests.sh` — runs all four, summary at end
 
-Each test loads its fixture, drives the natural trigger emission code path through real action handlers, and asserts on:
+Each pretrigger test loads its fixture, drives the natural trigger emission code path through real action handlers, and asserts on:
 - saved positions / phase / active player
 - the action handler's response includes `trigger_*=true` + correct eligible_units list
 - the phase instance's `awaiting_*` flag transitions correctly
 - `USE_*` dispatch deducts the correct CP and updates phase state
 
-Current run: **43 passed, 0 failed across 3 tests**. Ready for CI integration. If anyone breaks the trigger emission code in FightPhase / ChargePhase / MovementPhase, these tests fail at the natural-trigger assertion before the dispatch — pinpointing the regression.
+Current run: **67 passed, 0 failed across 4 tests** (43 pretrigger + 24 audit-fix verification). Ready for CI integration. If anyone breaks the trigger emission code in FightPhase / ChargePhase / MovementPhase, these tests fail at the natural-trigger assertion before the dispatch — pinpointing the regression. The audit-fix verification suite gives an automated guard against regression on the seven merged audit fixes (#329/#336/#338/#356/#359/#361/#362).
 
 ### Coverage summary
 
