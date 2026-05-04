@@ -208,11 +208,27 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 - **Custodes Martial Ka'tah stance** triggers correctly via `trigger_katah_stance` flag on `SELECT_FIGHTER` for Custodes models.
 - **Weapon name collision**: `Telemon Caestus` exists as both a Ranged (12") and Melee weapon entry in army JSON. `ASSIGN_ATTACKS` (melee context) by name resolves to the ranged variant first and fails. May be a minor bug or may require passing weapon index/disambiguator. Worth investigating; not yet filed pending more reproduction cases.
 
+### Scoring Phase
+
+| ID | Rule | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| t2.sc1 | Initial VP allocation | Inspect VPs at end of Round 1 P1 scoring | Primary 0 (no objectives held), Secondary 0 (nothing scored yet) | P1 primary=0 ✓, **P1 secondary=5** (unexplained) | observation | (under investigation — possibly initial mission allocation bug) |
+| t2.sc2 | Player swap on END_SCORING | P1 dispatches END_SCORING | active_player → 2, phase → COMMAND, battle_round unchanged | Exactly that ✓ | pass | — |
+| t2.sc3 | Phase machinery cleanup on swap | Check WARBOSS_B.has_been_charged after swap | Should be cleared | ✓ removed via op:remove | pass | — |
+| t2.sc4 | END_<predecessor> idempotency in successor (#322 regression) | END_SCORING dispatched in COMMAND phase | Accept as no-op | success=true, changes=[] ✓ | pass | — |
+| t2.sc5 | END_<two-phases-back> rejected | END_FIGHT dispatched in COMMAND | Reject (FIGHT is not COMMAND's immediate predecessor) | "Unknown action type: END_FIGHT" ✓ | pass | — |
+
+### Scoring observations
+- Player swap on END_SCORING works cleanly. State diff includes both `meta.active_player` flip and unit-flag cleanup (`has_been_charged` reset).
+- **P1 has 5 secondary VP after the first scoring phase** with no kills, no objectives held, and only 1 turn played. This is suspicious — either a free score grant, an automatic mission award, or a real bug. Logged for follow-up; deferred until isolated reproduction.
+- Round 1 had two Command phases (P1's, then P2's), which under #336 means both players gained 2 CP each (now at 5 CP). Per 10e the first Command phase of the game should grant nothing.
+- Custodes detachment options (`SELECT_MARTIAL_MASTERY`) appeared correctly in P1's Command phase. Orks Waaagh! options (`CALL_WAAAGH`, `PLANT_WAAAGH_BANNER`) appeared correctly in P2's. Faction-rule timing is wired.
+
 ### Pending phases
-- Scoring not yet started
 - Movement: t2.m4 (FLY), t2.m6 (base-touching regression) deferred
 - Shooting: t2.s2 (advance-blocks-shoot), t2.s4-s7 (keywords + cover) deferred — most need determinism (#329)
 - Fight: t2.f2 melee attack pipeline blocked by weapon-name-collision; deferred
+- Scoring: P1's 5 secondary VP at Round 1 end needs isolated reproduction
 
 ---
 
