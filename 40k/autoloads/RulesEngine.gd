@@ -3260,14 +3260,17 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 	# Check this BEFORE the cannot_shoot flag, since Advanced units CAN shoot (with restrictions)
 	var actor_advanced = flags.get("advanced", false)
 
-	# Units that Fell Back cannot shoot (unless special rules)
+	# Units that Fell Back cannot shoot (unless special rules like fall_back_and_shoot)
 	if flags.get("fell_back", false):
-		errors.append("Unit cannot shoot (fell back)")
-		return {"valid": false, "errors": errors}
+		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(actor_unit):
+			errors.append("Unit cannot shoot (fell back)")
+			return {"valid": false, "errors": errors}
 
 	# Legacy cannot_shoot flag check - but skip if unit advanced (since advanced units CAN shoot)
+	# or has the fall_back_and_shoot effect overriding the post-Fall-Back lockout
 	if flags.get("cannot_shoot", false) and not actor_advanced:
-		errors.append("Unit cannot shoot")
+		if not (flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_shoot(actor_unit)):
+			errors.append("Unit cannot shoot")
 
 	# PISTOL RULES: Check if actor is in engagement range
 	var actor_in_engagement = flags.get("in_engagement", false)
