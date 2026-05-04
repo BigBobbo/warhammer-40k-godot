@@ -216,6 +216,7 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 | t2.f1b | Custodes Martial Ka'tah stance triggers on melee | SELECT_FIGHTER on Custodes unit | trigger_katah_stance fires, master_of_the_stances_available checked | ✓ both fields returned correctly | pass | — |
 | t2.f1c | Pile-in action | PILE_IN dispatched | Pile-in resolves, attack assignment triggered | ✓ trigger_attack_assignment=true with correct attack_targets | pass | — |
 | t2.f2 | Weapon name disambiguation in ASSIGN_ATTACKS | Assign "Telemon Caestus" (which has both ranged and melee modes with same name) | Engine resolves to melee mode in melee context | "Weapon is not a melee weapon: Telemon Caestus" — engine resolves to ranged variant by name | observation | (potential — needs investigation) |
+| t2.f2b | Melee pipeline (no name collision) | Caladius "Armoured hull" (single, melee-only) on Warboss | Hit→wound→save | 4 attacks WS4+: [6,6,6,1] = 3 hits (3 crits); wound S6 vs T5 = 3+: [3,4,5] = 3 wounds; save data: AP 0, D1, ignores_cover=true ✓ | pass | — |
 
 ### Charge / Fight observations
 - **All 7 charge tests pass** — declaration, range validation, 2D6 mechanic, reserves filter (#320 regression intact), engagement-of-non-target rule, fights_first flag wiring, vehicle Tank Shock stratagem. This is one of the cleanest phases in the audit so far.
