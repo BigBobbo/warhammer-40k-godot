@@ -32,7 +32,7 @@ func _register_routes() -> void:
 	_routes["list_tools"] = [self, "_list_tools"]
 
 	var core_methods := [
-		"get_project_info", "get_project_setting", "list_files",
+		"get_project_info", "get_project_setting", "list_files", "list_scenes",
 		"get_current_scene", "get_node_info", "get_node_property",
 		"set_node_property", "call_node_method",
 		"read_script", "write_script",

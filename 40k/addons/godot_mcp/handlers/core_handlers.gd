@@ -43,6 +43,16 @@ func list_files(params: Dictionary) -> Dictionary:
 	return {"status": "ok", "path": path, "files": results}
 
 
+func list_scenes(params: Dictionary) -> Dictionary:
+	# Recursively enumerate `*.tscn` scene files under the given root. Default
+	# root is `res://`. Implemented runtime-side so it works from a running
+	# game without needing the editor bridge.
+	var path: String = params.get("path", "res://")
+	var results: Array = []
+	_walk(path, "*.tscn", true, results)
+	return {"status": "ok", "path": path, "scenes": results}
+
+
 func _walk(dir_path: String, pattern: String, recursive: bool, out: Array) -> void:
 	var dir := DirAccess.open(dir_path)
 	if dir == null:

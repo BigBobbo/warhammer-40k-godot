@@ -32,6 +32,11 @@ signal grot_oiler_result(unit_id: String, results: Dictionary)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
+# Bases at the touching boundary (W40K base-to-base contact) should not be flagged as
+# overlapping. Strict `<` comparison in shape collision combined with mm→px rounding
+# (e.g. 32mm → 50.39px diameter at 50px spacing) produces sub-pixel false-positives,
+# which surface as phantom rejections when staging adjacent models in formation.
+const OVERLAP_TOLERANCE_PX: float = 0.5
 
 # Movement state tracking
 var active_moves: Dictionary = {}  # unit_id -> move_data
@@ -672,6 +677,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
+		"END_COMMAND":
+			# Idempotent no-op: previous phase auto-advanced before END_COMMAND was dispatched.
+			return {"valid": true}
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -763,6 +771,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_scatter(action)
 		"DECLINE_SCATTER":
 			return _process_decline_scatter(action)
+		"END_COMMAND":
+			return create_result(true, [], "")
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -5885,9 +5895,30 @@ func _position_overlaps_other_models(unit_id: String, model_id: String, position
 
 			# Check for overlap using the Measurement utility
 			if Measurement.models_overlap(check_model, other_model_check):
+				# Reject sub-pixel false-positives at the touching boundary.
+				# For circular-vs-circular we can do an exact tolerance check;
+				# other shape combinations keep strict behavior.
+				if _is_touching_within_tolerance(check_model, other_model_check):
+					continue
 				return true
 
 	return false
+
+func _is_touching_within_tolerance(model_a: Dictionary, model_b: Dictionary) -> bool:
+	if model_a.get("base_type", "circular") != "circular":
+		return false
+	if model_b.get("base_type", "circular") != "circular":
+		return false
+	var pos_a = model_a.get("position", Vector2.ZERO)
+	var pos_b = model_b.get("position", Vector2.ZERO)
+	if pos_a is Dictionary:
+		pos_a = Vector2(pos_a.get("x", 0), pos_a.get("y", 0))
+	if pos_b is Dictionary:
+		pos_b = Vector2(pos_b.get("x", 0), pos_b.get("y", 0))
+	var radius_a = Measurement.base_radius_px(model_a.get("base_mm", 32))
+	var radius_b = Measurement.base_radius_px(model_b.get("base_mm", 32))
+	var center_distance = pos_a.distance_to(pos_b)
+	return center_distance + OVERLAP_TOLERANCE_PX >= (radius_a + radius_b)
 
 func _position_intersects_terrain(pos: Vector2, model: Dictionary, max_passable_height: float = 0.0) -> bool:
 	# Check against terrain polygons using shape-aware bounds

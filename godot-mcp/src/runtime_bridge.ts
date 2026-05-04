@@ -38,7 +38,6 @@ const EDITOR_ONLY_COMMANDS = new Set([
   'play_main_scene',
   'stop_scene',
   'get_edited_scene',
-  'list_scenes',
   'reload_scripts',
 ]);
 
@@ -410,10 +409,10 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: 'list_scenes',
-    description: 'Editor: list all .tscn / .scn files under a directory.',
+    description: 'List all .tscn scene files under a directory (recursive). Default root is res://.',
     inputSchema: {
       type: 'object',
-      properties: { path: { type: 'string', default: 'res://scenes' } },
+      properties: { path: { type: 'string', default: 'res://' } },
     },
   },
   {
@@ -432,7 +431,7 @@ const TOOLS: ToolDef[] = [
   {
     name: 'get_legal_actions',
     description:
-      'WH40K [PRIMARY play tool]: return the contextually-valid action dicts the active player can take RIGHT NOW. Each entry is shaped exactly as `dispatch_action` expects, so you can pick one and forward it. Use this to enumerate legal moves instead of guessing action shapes and getting validation rejections.',
+      "WH40K [PRIMARY play tool]: return the contextually-valid action dicts the active player can take RIGHT NOW. For most phases each entry is shaped exactly as `dispatch_action` expects — pick one and forward it. EXCEPTION: in DEPLOYMENT, DEPLOY_UNIT entries name the deployable unit only; the caller must add `model_positions` (and optional `model_rotations`) before dispatching. Same for STAGE_MODEL_MOVE-style sub-actions in MOVEMENT — get_legal_actions surfaces the openers (BEGIN_NORMAL_MOVE, BEGIN_ADVANCE), not per-model placements.",
     inputSchema: { type: 'object', properties: {} },
   },
   {
@@ -486,7 +485,7 @@ const TOOLS: ToolDef[] = [
   {
     name: 'dispatch_action',
     description:
-      'WH40K [PRIMARY play tool — use this to take any in-game action]: send a phase action dictionary through the active phase instance (validate_action + process_action). This is the canonical way to play the game programmatically — it skips the UI/mouse layer and goes straight through the same code path the UI buttons use, so it is faster, deterministic, and cheap on tokens. Call `get_legal_actions` first to see valid action dict shapes for the current phase.',
+      'WH40K [PRIMARY play tool — use this to take any in-game action]: send a phase action dictionary through `BasePhase.execute_action` on the active phase instance. This validates, processes, applies the resulting state diffs to GameState, refreshes the phase snapshot, and emits `action_taken` — i.e. exactly what the UI does. Position fields (`position`, `destination`, `dest`, `model_positions`, etc.) accept JSON `[x, y]` arrays or `{x, y}` dicts and are converted to Vector2 server-side. Call `get_legal_actions` first to see valid action dict shapes for the current phase.',
     inputSchema: {
       type: 'object',
       properties: { action: { type: 'object' } },

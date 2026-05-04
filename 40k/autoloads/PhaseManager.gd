@@ -50,6 +50,13 @@ func register_phase_classes() -> void:
 func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 	print("[PhaseManager] transition_to_phase called for: ", GameStateData.Phase.keys()[new_phase])
 
+	# Clear sticky end-of-game flag when starting a new game.
+	# `game_ended` is set in `_handle_game_end` and would otherwise survive
+	# `GameState.initialize_default_state` (which only resets `state`, not autoload
+	# member fields), blocking all phase advancement in the new game. See issue #330.
+	if new_phase == GameStateData.Phase.FORMATIONS:
+		game_ended = false
+
 	# Exit current phase if one exists
 	if current_phase_instance != null:
 		print("[PhaseManager] Exiting current phase: ", current_phase_instance.get_class())
@@ -249,17 +256,36 @@ func _handle_game_end() -> void:
 	print("PhaseManager: Game completed after 5 battle rounds!")
 	print("PhaseManager: Final battle round: ", GameState.get_battle_round())
 
-	# Score end-of-game burn bonuses for Scorched Earth before marking game ended
+	# Score end-of-game burn bonuses for Scorched Earth before marking game ended.
+	# Idempotent: ScoringPhase calls this first when it detects the final-turn end,
+	# but trigger again here for paths that reach _handle_game_end without it.
 	if MissionManager:
 		MissionManager.score_end_of_game_burn_bonus()
 
 	game_ended = true
+
+	# Persist end-of-game flags to state so saves/replays/MCP queries observe them.
+	if not GameState.state.get("meta", {}).get("game_ended", false):
+		GameState.state["meta"]["game_ended"] = true
+		GameState.state["meta"]["winner"] = _determine_vp_winner()
 
 	# Commit final phase log
 	GameState.commit_phase_log_to_history()
 
 	# Emit completion signal for any listeners that need to know the game ended
 	emit_signal("phase_completed", GameStateData.Phase.SCORING)
+
+func _determine_vp_winner() -> int:
+	if not MissionManager or not MissionManager.has_method("get_vp_summary"):
+		return 0
+	var vp = MissionManager.get_vp_summary()
+	var p1 = int(vp.get("player1", {}).get("total", 0))
+	var p2 = int(vp.get("player2", {}).get("total", 0))
+	if p1 > p2:
+		return 1
+	if p2 > p1:
+		return 2
+	return 0
 
 func _on_phase_action_taken(action: Dictionary) -> void:
 	if game_ended:

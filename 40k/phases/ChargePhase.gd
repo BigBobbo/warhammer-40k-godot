@@ -203,6 +203,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_tank_shock(action)
 		"DECLINE_TANK_SHOCK":
 			return _validate_decline_tank_shock(action)
+		"END_SHOOTING":
+			# Idempotent no-op: previous phase auto-advanced before END_SHOOTING was dispatched.
+			return {"valid": true}
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -248,6 +251,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_tank_shock(action)
 		"DECLINE_TANK_SHOCK":
 			return _process_decline_tank_shock(action)
+		"END_SHOOTING":
+			return create_result(true, [], "")
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -1431,6 +1436,12 @@ func _get_eligible_targets_for_unit(unit_id: String) -> Dictionary:
 	for target_id in all_units:
 		var target_unit = all_units[target_id]
 		if target_unit.get("owner", 0) != current_player:  # Enemy unit
+			# Issue #320: Skip off-board units (Reserves / not yet deployed).
+			# _get_model_position() coerces null -> Vector2.ZERO, so distance
+			# checks alone treat reserved units as if they were at (0,0).
+			if not _is_unit_on_board(target_unit):
+				continue
+
 			# T2-9: Only FLY units can charge AIRCRAFT targets
 			var target_keywords = target_unit.get("meta", {}).get("keywords", [])
 			if "AIRCRAFT" in target_keywords and not charger_has_fly:
@@ -2032,6 +2043,15 @@ func _get_model_position(model: Dictionary) -> Vector2:
 	elif pos is Vector2:
 		return pos
 	return Vector2.ZERO
+
+func _is_unit_on_board(unit: Dictionary) -> bool:
+	var status = unit.get("status", 0)
+	if status == GameStateData.UnitStatus.IN_RESERVES or status == GameStateData.UnitStatus.UNDEPLOYED:
+		return false
+	var models = unit.get("models", [])
+	if models.is_empty():
+		return false
+	return models[0].get("position") != null
 
 func _get_model_in_unit(unit_id: String, model_id: String) -> Dictionary:
 	var unit = get_unit(unit_id)
