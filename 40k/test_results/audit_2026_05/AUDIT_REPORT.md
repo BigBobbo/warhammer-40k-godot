@@ -245,6 +245,10 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 | t4.e2 | Reserves can't move further after arrival | (covered in T2.M11) | — | **fail** ([#339](https://github.com/BigBobbo/warhammer-40k-godot/issues/339)) | fail | [#339](https://github.com/BigBobbo/warhammer-40k-godot/issues/339) |
 | t4.e3 | Movement triggers Fire Overwatch opportunity | Move Jetbike near P2 units | Engine offers Fire Overwatch | ✓ trigger_fire_overwatch=true with eligible P2 units | pass | — |
 | t4.e4 | Engaged unit fall-back flags reset at turn end | After fall-back unit's turn ends | flags cleared next round | After Round 2 P1's END_SCORING, WARBOSS_B's fell_back / cannot_shoot / cannot_charge / moved all cleared by op:remove ✓ | pass | — |
+| t4.e5 | Coherency enforced on movement CONFIRM | Stage m1 of WITCHSEEKERS_D 6.5" from siblings, CONFIRM_UNIT_MOVE | Reject with coherency error | "Unit coherency broken: model m1 is not within 2\" horizontally and 5\" vertically of 1 model(s)" ✓ | pass | — |
+| t4.e5b | Failed CONFIRM doesn't auto-rollback staged position | (sub-test of t4.e5) | Either rollback or warn | Position stays at staged (900, 50) until RESET_UNIT_MOVE explicitly called | observation | (design: explicit reset required, not a bug) |
+| t4.e6 | Detachment ability application — Custodes | Inspect P1 unit flags after Martial Mastery crit_on_5 selected | All Custodes units flagged | All P1 Custodes units have `martial_mastery_active: "crit_on_5"`, `martial_mastery_crit_5: true` ✓; Custodian Guard also has `effect_reroll_wounds: "ones"` (Sentinel Storm wargear ability) | pass | — |
+| t4.e7 | Charge phase eligibility filter | Inspect available_actions in Round 3 P1 Charge | Units within 12" of enemies should be eligible | CUSTODIAN_GUARD_B excluded despite no `moved` flag and no obvious blocker; possible filtering bug | observation | (potential — needs isolated reproduction) |
 
 ## Tier 3 — Unit abilities
 
