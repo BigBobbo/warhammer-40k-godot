@@ -268,6 +268,24 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 | t2.st1b | Stratagem effect application | Same | unit gets flags.effect_invuln, flags.effect_cover, flags.effect_invuln_source | All three set with values 6, true, "GO TO GROUND" ✓ | pass | — |
 | t2.st1c | Twin-linked re-roll on wound rolls | Caladius's Twin arachnus heavy blaze cannon shoots Warboss | wound rolls re-rolled | `twin_linked_weapon: true`, `wound_modifiers_applied: 2`, re-roll fired ✓ | pass | — |
 
+## Stratagem sweep (2026-05-04)
+
+24 stratagems registered (12 core + 12 faction). Test focus: effect application, CP cost, once-per-X locks, unimplemented gating.
+
+| ID | Item | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| ss1 | **INSANE BRAVERY** (core, before_battle_shock_test) | Witchseekers C below half, dispatch USE_STRATAGEM insane_bravery | CP -1, BS test auto-passed, unit not battle-shocked | "Witchseekers AUTO-PASSED battle-shock test (INSANE BRAVERY - 1 CP)"; P1 CP 5→4; flags clean (no battle_shocked) ✓ | pass | — |
+| ss2 | **ARCANE GENETIC ALCHEMY** (Custodes Shield Host, 1 CP, any phase, after_mortal_wound) | Dispatch USE_STRATAGEM on Contemptor Dreadnought | CP -1, target gets flags.effect_fnp=4 | Diffs applied: P1 CP 4→3, U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H.flags.effect_fnp=4 ✓ | pass | — |
+| ss3 | **Once-per-phase lock** | Re-dispatch ARCANE GENETIC ALCHEMY on a different unit | Reject | "ARCANE GENETIC ALCHEMY can only be used once per phase" ✓ | pass | — |
+| ss4 | **Unimplemented stratagem gating** | Dispatch AVENGE THE FALLEN (which has `implemented: false` from FactionStratagemLoader because effect text is "custom:unmapped") | Reject without CP deduction | "AVENGE THE FALLEN is not yet mechanically implemented"; P1 CP unchanged at 3 ✓ | pass | — |
+
+### Stratagem sweep findings
+- **Implementation status of faction stratagems is split**: ~half of the 12 loaded faction stratagems have `implemented: true` (effects auto-parse to known types like `grant_fnp` / `grant_invuln` / `grant_cover` / `grant_keyword`); the other half are flagged `implemented: false` with `effects: [{type: "custom:unmapped"}]`. The engine correctly rejects use of `implemented: false` stratagems without burning CP — no silent CP-loss bug.
+- **5 stratagems have manual implementation overrides** in `StratagemManager._mark_custom_handlers()` (lines 478-497): GRAB AND BASH, BOARDIN' RUSH, ROLLING LOOT-HEAP, DECK FRAGGERS, KRUMP AND RUN. These get `implemented: true` flagged manually because their effects don't map to a generic primitive but have custom logic in the phase handlers.
+- **Effect primitives recognized by FactionStratagemLoader**: `grant_fnp`, `grant_invuln`, `grant_cover`, `grant_stealth`, `grant_keyword` (with scope), `grant_aura`. Anything else falls through to `custom:unmapped`.
+- **Once-per-X locks honored** (verified for `phase`; same code path handles `turn` / `battle`).
+- **Stratagem timing windows** (already verified in main audit): all 11 trigger types in core stratagems surface correctly at their respective phase moments.
+
 ### Pending phases
 - Movement: t2.m4 (FLY pass-through path test), t2.m6 (base-touching regression) deferred
 - Shooting: t2.s2 (advance-blocks-shoot), t2.s4-s7 (keywords + cover) deferred — most need determinism (#329)
