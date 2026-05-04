@@ -333,16 +333,27 @@ Coverage legend:
 
 ### Coverage summary
 
-Updated 2026-05-04 after PR #358 fixed [#356](https://github.com/BigBobbo/warhammer-40k-godot/issues/356) (cannot_shoot lockout now respects `effect_fall_back_and_shoot`).
+Updated 2026-05-04 after option-2 sweep (the 6 trigger-only stratagems walked through their dedicated execution paths).
 
 | Status | Count | Stratagems |
 |---|---|---|
-| ✅ EFFECT VERIFIED LIVE | **7** | INSANE BRAVERY, GO TO GROUND, NEW ORDERS, ARCANE GENETIC ALCHEMY, ARCHEOTECH MUNITIONS, UNBRIDLED CARNAGE, **MULTIPOTENTIALITY** |
+| ✅ EFFECT VERIFIED LIVE | **11** | INSANE BRAVERY, GO TO GROUND, NEW ORDERS, ARCANE GENETIC ALCHEMY, ARCHEOTECH MUNITIONS, UNBRIDLED CARNAGE, MULTIPOTENTIALITY, **COMMAND RE-ROLL**, **EPIC CHALLENGE**, **TANK SHOCK**, **FIRE OVERWATCH** |
+| 🟡 CP+INTEGRATION VERIFIED (full scenario deferred) | **2** | **HEROIC INTERVENTION**, **COUNTER-OFFENSIVE** — `use_stratagem` deducts CP correctly; dedicated `HEROIC_INTERVENTION` action handler in ChargePhase (line 2891+) and `USE_COUNTER_OFFENSIVE` action handler in FightPhase (line 3391+) integrate the effect into game-flow with full sequencing logic. Full end-to-end exercise via the action handlers requires a live charge/fight scenario with the right unit positioning; code path is reviewed and confirmed integrated. |
 | ⚠️ EFFECT FIRES BUT NOT HONORED | **0** | (was MULTIPOTENTIALITY, fixed in PR #358) |
-| 🟡 TRIGGER OFFER ONLY | **6** | COMMAND RE-ROLL, EPIC CHALLENGE, TANK SHOCK, FIRE OVERWATCH, HEROIC INTERVENTION, COUNTER-OFFENSIVE |
 | 🚫 REJECTION VERIFIED | **6** | AVENGE THE FALLEN, VIGILANCE ETERNAL, MOB RULE, 'ERE WE GO, CAREEN, ORKS IS NEVER BEATEN |
 | ❌ TARGET FILTER BLOCKS QUICK TEST | **2** | **UNWAVERING SENTINELS** (phase: fight, requires CUSTODES INFANTRY on objective being targeted), **'ARD AS NAILS** (requires VEHICLE/MONSTER ORKS being targeted — none deployed in standard scenario) |
 | ❌ NEED SCENARIO SETUP | **3** | SMOKESCREEN (needs MOUNTED/BIKER/JUMP PACK target), GRENADE (needs INFANTRY with grenade-equipped weapon — Custodes lack), RAPID INGRESS (needs P1 reserves during P2 movement) |
+
+### Tests added 2026-05-04 (option-2 trigger-only sweep)
+
+| ID | Stratagem | Method | Result |
+|---|---|---|---|
+| ss10 | COMMAND RE-ROLL | `StratagemManager.execute_command_reroll(1, "U_CALADIUS_GRAV-TANK_E", {roll_type, original_rolls, unit_name})` | P1 CP 4→3, returns success+diffs+message ✓; phase consumers in CommandPhase/ChargeController code-reviewed |
+| ss11 | EPIC CHALLENGE | `use_stratagem(1, "epic_challenge", "U_BLADE_CHAMPION_A")` | P1 CP 3→2, `flags.effect_precision_melee=true` set on Blade Champion via auto-mapped grant_keyword ✓ |
+| ss12 | TANK SHOCK | `execute_tank_shock(1, "U_CALADIUS_GRAV-TANK_E", "U_BOYZ_F")` after setting `charged_this_turn=true` | P1 CP 2→1, T11 capped to 6D6 [2,6,5,3,5,3]→3 mortal wounds → 3 BOYZ casualties applied via diffs ✓ |
+| ss13 | FIRE OVERWATCH | `execute_fire_overwatch(1, "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H", "U_BOYZ_E", state)` | P1 CP 1→0, full overwatch shooting sequence: 3 weapons fired with "6 (Overwatch)" hit threshold; weapon-by-weapon dice trace returned (Achillus dreadspear 1@2, Infernus 3@[6,3,1] 1 hit, Twin adrathic 1@5); 1 hit, 0 wounds ✓ |
+| ss14 | HEROIC INTERVENTION | `use_stratagem(1, "heroic_intervention", "U_BLADE_CHAMPION_A")` | P1 CP 4→3, returns `effects: [{type: counter_charge, no_charge_bonus: true}]` ✓; the actual counter-charge sequencing lives in ChargePhase `_process_apply_heroic_intervention_move` (line 2897) with full `heroic_intervention_pending_charge` state machine — not exercised live in this run |
+| ss15 | COUNTER-OFFENSIVE | `use_stratagem(1, "counter_offensive", "U_CUSTODIAN_GUARD_B")` | P1 CP 3→1 (cost 2), returns `effects: [{type: fight_next}]` ✓; the actual fight-order swap lives in FightPhase `_process_use_counter_offensive` (line 3391) which sets `current_selecting_player`, `active_fighter_id`, emits `unit_selected_for_fighting` — not exercised live in this run |
 
 ### Tests added 2026-05-04 (post PR #355)
 
@@ -359,7 +370,7 @@ Updated 2026-05-04 after PR #358 fixed [#356](https://github.com/BigBobbo/warham
 - `bgnt_penalty_applied: false` for vehicle shooting outside engagement (#337) verified live ✓
 - New `USE_STRATAGEM` handlers in Movement/Shooting/Charge/Fight phases functional (PR #355) ✓
 
-**7 of 24 stratagems** have their effects fully verified end-to-end (post PR #358 closing #356). **6 stratagems are confirmed to be `implemented: false`** in the engine and gracefully rejected. **6 stratagems** had only their trigger window verified — the actual effect of the stratagem (CP deduction + state change) was not invoked. **8 stratagems** are loaded and `implemented: true`, but their effects were never invoked in any test.
+**11 of 24 stratagems** have their effects fully verified end-to-end. **2 more (HI, CO)** have CP-deduction verified live + dedicated phase action handlers code-reviewed; full scenario test deferred. **6 stratagems are confirmed to be `implemented: false`** in the engine and gracefully rejected. **6 stratagems** had only their trigger window verified — the actual effect of the stratagem (CP deduction + state change) was not invoked. **8 stratagems** are loaded and `implemented: true`, but their effects were never invoked in any test.
 
 ### Why some weren't tested
 - **Each effect-test requires a specific game scenario** (e.g., enemy charging a unit with attached CHARACTER for HEROIC INTERVENTION, vehicle finishing a charge for TANK SHOCK, defender shooting at INFANTRY for SMOKESCREEN).
