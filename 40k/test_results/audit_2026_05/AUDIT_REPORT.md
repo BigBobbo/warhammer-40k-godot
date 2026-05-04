@@ -151,8 +151,25 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 - [#335](https://github.com/BigBobbo/warhammer-40k-godot/issues/335) — DeploymentPhase doesn't validate unit coherency
 - [#336](https://github.com/BigBobbo/warhammer-40k-godot/issues/336) — Command Phase CP gain doesn't match 10e (rule wrongly applied to round 1 + opponent)
 
+### Movement Phase
+
+| ID | Rule | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| t2.m1 | Normal move within M" | Blade Champion (M=6"=240px) move from (120,100) to (120,280) = 180px / 4.5" | Position updates, flags.moved=true | Position updated; moved=true ✓ | pass | — |
+| t2.m2 | Over-move rejected with proper error | Custodian Guard m1 from (200,100) to (200,400) = 7.5" > 6" cap | Error "Move exceeds cap: 7.5\" > 6.0\"" | Got exact error ✓ | pass | — |
+| t2.m3 | Advance adds D6 to move cap | BEGIN_ADVANCE on Witchseekers (M=6"); roll D6 | move_cap_inches = 6 + roll | Roll=3, cap=9, advanced=true ✓; supports Command Re-roll integration | pass | — |
+| t2.m4 | FLY ignores terrain | Move Jetbike through ruins | (deferred to next session) | — | deferred | — |
+| t2.m5 | Strategic Reserves blocked Round 1 | PLACE_REINFORCEMENT on Caladius in Round 1 | Reject with appropriate error | "Reserves cannot arrive until Battle Round 2 (currently Round 1)" ✓ | pass | — |
+| t2.m6 | Base-touching tolerance (#321/#327 regression) | 32mm bases at 50.0px (0.4px under touching boundary) | Allowed within 0.5px tolerance | (deferred — needs precise positioning setup) | deferred | — |
+
+### Movement Phase observations
+- `CONFIRM_UNIT_MOVE` after a failed `SET_MODEL_DEST` succeeded with `flags.moved=true` even though no model actually moved (ended at original position). This is **probably intentional** (player "moved" 0 inches, which counts as "moved" for subsequent rules) but worth noting since it differs from `REMAIN_STATIONARY` which sets `flags.remained_stationary`. Different downstream effects (e.g., heavy weapons -1 to hit if `moved`, but unaffected if `remained_stationary`).
+- Engine validates over-move with clear error message including measured and cap distances — good UX.
+- Advance roll fires D6 immediately on `BEGIN_ADVANCE` and integrates with Command Re-roll stratagem (`awaiting_reroll: true` returned).
+
 ### Pending phases
-- Movement, Shooting, Charge, Fight, Scoring not yet started
+- Shooting, Charge, Fight, Scoring not yet started
+- Movement Phase: t2.m4 (FLY) and t2.m6 (base-touching regression) deferred
 
 ---
 
