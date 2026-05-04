@@ -20,10 +20,11 @@
 
 ## Final tally
 
-- **11 issues filed** during audit: #329, #330, #331, #332, #333, #335, #336, #337, #338, #339 + bridge bug commentary on #333
-- **2 fixes shipped** in PR #334 (this branch): #330 (sticky `PhaseManager.game_ended`), #331 (cascade `phase_completed` emit)
-- **~60 distinct test cases** covered across all in-scope tiers (~46 pass, 6 fail/issue, ~8 deferred)
+- **15 audit-discovered issues** filed (#319, #320, #321, #322, #323, #329, #330, #331, #332, #333, #335, #336, #337, #338, #339)
+- **All 15 closed** via 12 PRs: #324, #325, #326, #327, #328, #334, #340, #341, #342, #343, #344, #345, #346, #347, #348
+- **~60 distinct test cases** covered across all in-scope tiers (~46 pass, 6 originally fail then fixed, ~8 deferred)
 - **27+ commits** on PR #334 covering audit infrastructure → fixes → Tier 0-5 findings → AUDIT_REPORT.md updates
+- All fixes verified live in fresh game post-merge except #337 BGNT (code-only, no engagement-distance setup), #346 partial RNG plumbing (already covered by #348), and #348 full RNG plumbing (game still functions; determinism property not tested via multi-run save/restore)
 
 ## Notable working features verified
 
