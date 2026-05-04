@@ -180,6 +180,7 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 | t2.s1 | Eligibility filter (range/visibility) | Try SELECT_SHOOTER on a unit far from any target | "no eligible targets" | Got exact error ✓ | pass | — |
 | t2.s3 | End-to-end attack resolution | Telemon (8 attacks, BS 2+, S6, AP-1, D2) shoots Warboss | Hits → wounds → save data; sub-step traces | All sub-traces present (to_hit, to_wound, save_data); stratagem opportunity offered | pass (with #337 caveat) | — |
 | t2.s3a | BIG GUNS NEVER TIRE gating | Vehicle out of engagement, target out of engagement of friendlies | No -1 to hit penalty | -1 applied unconditionally | **fail** | [#337](https://github.com/BigBobbo/warhammer-40k-godot/issues/337) |
+| t2.s8 | LoS / visibility blocking | Caladius at (200, 580) targets Warboss at (200, 2300) — straight-line ~43" through middle of board (likely crosses ruins terrain) | Engine excludes targets without true line-of-sight | "Unit has no eligible targets to shoot" returned despite range and engagement-clear, likely due to terrain blocking | pass (inferred) | — |
 | t2.s2/s4-s7 | Advance-blocks-shoot, Sustained/Lethal/Devastating, Cover, LOOK OUT SIR | (deferred — needs determinism for keyword tests, more setup for cover/LOS) | — | — | deferred | — |
 
 ### Shooting Phase observations
