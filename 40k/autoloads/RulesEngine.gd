@@ -1543,12 +1543,15 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				hit_modifiers |= HitModifier.PLUS_ONE
 				heavy_bonus_applied = true
 
-		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons when Monster/Vehicle is in Engagement Range
-		if big_guns_never_tire_applies(actor_unit):
+		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons only when shooter
+		# is engaged OR target is engaged with a friendly unit (issue #337). Eligibility
+		# is gated by the new two-arg helper rather than the buggy unit-only check.
+		if big_guns_never_tire_penalty_applies(actor_unit, target_unit, board):
 			# Only apply penalty if this is NOT a Pistol weapon
 			if not is_pistol_weapon(weapon_id, board):
 				hit_modifiers |= HitModifier.MINUS_ONE
 				bgnt_penalty_applied = true
+				print("RulesEngine: BGNT -1 to hit applied for %s (weapon %s)" % [actor_unit_id, weapon_id])
 
 		# STEALTH (T2-1): Check if target unit has Stealth (from effect or base ability)
 		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
@@ -2374,12 +2377,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				hit_modifiers |= HitModifier.PLUS_ONE
 				heavy_bonus_applied = true
 
-		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons when Monster/Vehicle is in Engagement Range
-		if big_guns_never_tire_applies(actor_unit):
+		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons only when shooter
+		# is engaged OR target is engaged with a friendly unit (issue #337).
+		if big_guns_never_tire_penalty_applies(actor_unit, target_unit, board):
 			# Only apply penalty if this is NOT a Pistol weapon
 			if not is_pistol_weapon(weapon_id, board):
 				hit_modifiers |= HitModifier.MINUS_ONE
 				bgnt_penalty_applied = true
+				print("RulesEngine: BGNT -1 to hit (auto-resolve) applied for %s (weapon %s)" % [actor_unit_id, weapon_id])
 
 		# STEALTH (T2-1): Check if target unit has Stealth (from effect or base ability)
 		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
@@ -4775,6 +4780,58 @@ static func big_guns_never_tire_active(unit: Dictionary) -> bool:
 	if not in_engagement:
 		return false
 	return is_monster_or_vehicle(unit)
+
+# Check if Big Guns Never Tire -1 to hit / -1 AP / cover penalty applies to this attack.
+# Per WH40K 10e core rules, the BGNT penalty applies only when EITHER:
+#   (a) the shooter is in engagement range of one or more enemy units, OR
+#   (b) the target is in engagement range of one or more friendly models (other than the shooter).
+# It does NOT apply simply because the shooter is a MONSTER/VEHICLE — that was the bug
+# in the legacy single-arg `big_guns_never_tire_applies(unit)` helper.
+static func big_guns_never_tire_penalty_applies(actor_unit: Dictionary, target_unit: Dictionary, board: Dictionary) -> bool:
+	# Penalty only applies to MONSTER or VEHICLE shooters
+	if not is_monster_or_vehicle(actor_unit):
+		return false
+
+	# Branch (a): shooter is itself in engagement
+	if actor_unit.get("flags", {}).get("in_engagement", false):
+		print("RulesEngine: BGNT penalty applies — shooter is in engagement (branch a)")
+		return true
+
+	# Branch (b): target is in engagement of any friendly unit other than the shooter.
+	# Reuse the existing _is_target_in_friendly_engagement helper which already implements
+	# "any friendly model within 1\" engagement range of any model of target_unit".
+	var units = board.get("units", {})
+	if units.is_empty():
+		return false
+	var actor_owner = actor_unit.get("owner", 0)
+
+	# Resolve target_unit_id by reverse-lookup from the board, since the unit dict
+	# itself does not always carry an explicit "id" key.
+	var target_unit_id = ""
+	for uid in units.keys():
+		if units[uid] == target_unit:
+			target_unit_id = uid
+			break
+	if target_unit_id == "":
+		# Fall back to direct id lookup if present
+		target_unit_id = target_unit.get("id", "")
+	if target_unit_id == "":
+		return false
+
+	# Resolve actor_unit_id similarly so we can exclude the shooter from "friendly" check
+	var actor_unit_id = ""
+	for uid in units.keys():
+		if units[uid] == actor_unit:
+			actor_unit_id = uid
+			break
+	if actor_unit_id == "":
+		actor_unit_id = actor_unit.get("id", "")
+
+	if _is_target_in_friendly_engagement(target_unit_id, actor_unit_id, actor_owner, units, board):
+		print("RulesEngine: BGNT penalty applies — target is engaged with a friendly unit (branch b)")
+		return true
+
+	return false
 
 # Check if a unit has any non-Pistol weapons (for BGNT shooting)
 static func unit_has_non_pistol_weapons(unit_id: String, board: Dictionary = {}) -> bool:
