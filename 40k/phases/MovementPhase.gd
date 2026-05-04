@@ -820,6 +820,12 @@ func _validate_begin_normal_move(action: Dictionary) -> Dictionary:
 	if _is_unit_engaged(unit_id):
 		return {"valid": false, "errors": ["Unit is engaged, must Fall Back instead"]}
 
+	# Issue #339: Units that arrived from Strategic Reserves this turn cannot move further
+	# Per 10e Core Rules, the arrival counts as the unit's move for that turn
+	var arrived_turn = unit.get("arrived_from_reserves_turn", -1)
+	if arrived_turn >= 0 and arrived_turn == GameState.get_battle_round():
+		return {"valid": false, "errors": ["Unit arrived from reserves this turn and cannot move further"]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_begin_advance(action: Dictionary) -> Dictionary:
@@ -853,7 +859,13 @@ func _validate_begin_fall_back(action: Dictionary) -> Dictionary:
 	# Fall Back is only allowed if engaged
 	if not _is_unit_engaged(unit_id):
 		return {"valid": false, "errors": ["Unit is not engaged, use Normal Move instead"]}
-	
+
+	# Issue #339: Units that arrived from Strategic Reserves this turn cannot move further
+	# (Theoretically unreachable since reserves arrive >9" from enemies, but added for robustness)
+	var arrived_turn = unit.get("arrived_from_reserves_turn", -1)
+	if arrived_turn >= 0 and arrived_turn == GameState.get_battle_round():
+		return {"valid": false, "errors": ["Unit arrived from reserves this turn and cannot move further"]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_set_model_dest(action: Dictionary) -> Dictionary:
