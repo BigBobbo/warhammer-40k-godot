@@ -118,6 +118,31 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 
 ---
 
+## Tier 2 — Per-phase rules correctness
+
+### Deployment Phase (in progress)
+
+| ID | Rule | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| t2.d1 | P1/P2 alternation on successful deploy | Deploy Shield-Captain, check `active_player` flip | 1 → 2 | 1 → 2 ✓ | pass | — |
+| t2.d2a | Single-model out of zone rejected | DEPLOY_UNIT with center outside polygon | Validation fails, state unchanged, alternation does not flip | Rejected with "Model must be wholly within deployment zone"; status=UNDEPLOYED; active_player unchanged ✓ | pass | — |
+| t2.d2b | Multi-model with one out-of-zone rejected | Witchseekers ×4, model 4 mid-board | Whole-action rejected, no per-model partial deploy | Rejected; all models stay UNDEPLOYED ✓ | pass | — |
+| t2.d3 | 9" enemy distance rule | Crucible zones too far apart (≥32") to test in-zone; rule is auto-enforced | N/A in Crucible standard deploy | structurally untestable here | skip | — |
+| t2.d4 | Unit coherency on initial deploy | Witchseekers ×4 with model 4 at 7" from siblings | Validation fails | **Deployment succeeded** — coherency not enforced | **fail** | [#335](https://github.com/BigBobbo/warhammer-40k-godot/issues/335) |
+| t2.d5 | Strategic Reserves placement | (deferred — needs formations restart with reserves declared) | — | — | deferred | — |
+| t2.d6 | Post-deploy baseline save | Deploy all 26 units, save | full save | partial — to follow-up session | deferred | — |
+
+### Findings
+- [#335](https://github.com/BigBobbo/warhammer-40k-godot/issues/335) — `DeploymentPhase._validate_deploy_unit_action()` only validates fields, ownership, and per-model zone containment. The 2" coherency rule (enforced in Movement / Charge / Fight) is missing from deployment. Models can be deployed at any distance and the unit ends up `status: DEPLOYED`. Bug surfaces silently — UI normally gates positions visually so this only manifests via scripted/save-edited deployments.
+- 9" enemy distance rule cannot be exercised in Crucible of Battle (zones don't overlap, are >32" apart at narrowest). Defer testing until Reserves-arrival or Infiltrator audit, where the rule actually fires.
+
+### Pending Tier 2 work
+- Strategic Reserves placement (t2.d5)
+- Post-deployment baseline save (t2.d6)
+- Phases not yet started: Movement, Shooting, Charge, Fight, Command, Scoring
+
+---
+
 ## Out of scope (this audit)
 
 - Multiplayer / NetworkManager sync (Tier 6 deferred)
