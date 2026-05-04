@@ -50,6 +50,13 @@ func register_phase_classes() -> void:
 func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 	print("[PhaseManager] transition_to_phase called for: ", GameStateData.Phase.keys()[new_phase])
 
+	# Clear sticky end-of-game flag when starting a new game.
+	# `game_ended` is set in `_handle_game_end` and would otherwise survive
+	# `GameState.initialize_default_state` (which only resets `state`, not autoload
+	# member fields), blocking all phase advancement in the new game. See issue #330.
+	if new_phase == GameStateData.Phase.FORMATIONS:
+		game_ended = false
+
 	# Exit current phase if one exists
 	if current_phase_instance != null:
 		print("[PhaseManager] Exiting current phase: ", current_phase_instance.get_class())

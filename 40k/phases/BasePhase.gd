@@ -113,8 +113,13 @@ func execute_action(action: Dictionary) -> Dictionary:
 		print("[BasePhase] Emitting action_taken signal")
 		emit_signal("action_taken", action)
 
-		# Check if this action completes the phase
-		if _should_complete_phase():
+		# Check if this action completes the phase.
+		# Guard: if process_action already emitted phase_completed (causing PhaseManager
+		# to transition out), don't re-emit — that would cascade as a phantom completion
+		# signal on the next phase. See issue #331.
+		var pm = get_node_or_null("/root/PhaseManager")
+		var still_current: bool = pm == null or pm.current_phase_instance == self
+		if still_current and _should_complete_phase():
 			emit_signal("phase_completed")
 	else:
 		print("[BasePhase] Action processing failed")
