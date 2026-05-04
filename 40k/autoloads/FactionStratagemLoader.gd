@@ -443,8 +443,18 @@ func _parse_target(target_text: String) -> Dictionary:
 
 	var t = target_text.to_lower()
 
-	# Determine owner
-	if "enemy" in t:
+	# #359: split off "excluding X" / "except X" clauses BEFORE keyword matching, so
+	# words like "Vehicle" / "Monster" inside the exclusion don't get parsed as required.
+	# Excluded keywords become "not_keyword:X" conditions checked separately.
+	var split = _strip_excluding_clauses(t)
+	var inclusive_t: String = split.stripped
+	var excluded_keywords: Array = split.excluded_keywords
+	for ek in excluded_keywords:
+		result.conditions.append(ek)
+
+	# Determine owner — only based on inclusive text (the exclusion clause may also
+	# contain words like "enemy" e.g. "excluding enemy CHARACTERS").
+	if "enemy" in inclusive_t:
 		result.owner = "enemy"
 
 	# Look for keyword requirements
@@ -459,36 +469,103 @@ func _parse_target(target_text: String) -> Dictionary:
 	]
 
 	for pattern in keyword_patterns:
-		if pattern[0] in t:
+		if pattern[0] in inclusive_t:
 			result.conditions.append(pattern[1])
 
 	# Faction keyword requirements
-	if "adeptus astartes" in t:
+	if "adeptus astartes" in inclusive_t:
 		result.conditions.append("keyword:ADEPTUS ASTARTES")
-	if "adeptus custodes" in t:
+	if "adeptus custodes" in inclusive_t:
 		result.conditions.append("keyword:ADEPTUS CUSTODES")
-	if "orks" in t:
+	if "orks" in inclusive_t:
 		result.conditions.append("keyword:ORKS")
 
-	# Special conditions
-	if "was selected as the target" in t:
+	# Special conditions — also derived from the inclusive zone only.
+	if "was selected as the target" in inclusive_t:
 		result.conditions.append("is_target_of_attack")
-	if "not been selected to shoot" in t:
+	if "not been selected to shoot" in inclusive_t:
 		result.conditions.append("not_shot")
-	if "not been selected to fight" in t:
+	if "not been selected to fight" in inclusive_t:
 		result.conditions.append("not_fought")
-	if "below half-strength" in t or "below its starting strength" in t:
+	if "below half-strength" in inclusive_t or "below its starting strength" in inclusive_t:
 		result.conditions.append("below_starting_strength")
-	if "fell back this phase" in t:
+	if "fell back this phase" in inclusive_t:
 		result.conditions.append("fell_back_this_phase")
-	if "made a charge move this turn" in t:
+	if "made a charge move this turn" in inclusive_t:
 		result.conditions.append("charged_this_turn")
-	if "within engagement range" in t:
+	if "within engagement range" in inclusive_t:
 		result.conditions.append("in_engagement_range")
-	if "within range of an objective" in t:
+	if "within range of an objective" in inclusive_t:
 		result.conditions.append("on_objective")
 
 	return result
+
+func _strip_excluding_clauses(t: String) -> Dictionary:
+	"""Find 'excluding X' / 'except X' clauses, capture excluded keywords as
+	'not_keyword:X' conditions, and return the text with those clauses removed.
+
+	An exclusion clause runs from the marker word until the next ')', '.', or
+	' that ' (typical clause separators in WH40K rules text). Returns:
+	  { stripped: String, excluded_keywords: Array<String> }
+	"""
+	var keyword_patterns = [
+		["infantry", "INFANTRY"],
+		["vehicle", "VEHICLE"],
+		["monster", "MONSTER"],
+		["character", "CHARACTER"],
+		["battleline", "BATTLELINE"],
+		["terminator", "TERMINATOR"],
+		["mounted", "MOUNTED"],
+		["grots", "GROTS"],
+		["adeptus astartes", "ADEPTUS ASTARTES"],
+		["adeptus custodes", "ADEPTUS CUSTODES"],
+		["orks", "ORKS"],
+		["anathema psykana", "ANATHEMA PSYKANA"],
+	]
+	var stripped: String = t
+	var excluded: Array = []
+
+	for marker in ["excluding", "except"]:
+		while true:
+			var idx = stripped.find(marker)
+			if idx < 0:
+				break
+
+			# Find clause end: nearest of ')', '.', ' that '. Default to end-of-string.
+			var end_idx = stripped.length()
+			var paren = stripped.find(")", idx)
+			var period = stripped.find(".", idx)
+			var that_after = stripped.find(" that ", idx)
+			for cand in [paren, period, that_after]:
+				if cand > idx and cand < end_idx:
+					end_idx = cand
+
+			# Capture clause text and parse excluded keywords from it.
+			var clause = stripped.substr(idx, end_idx - idx)
+			for pat in keyword_patterns:
+				if pat[0] in clause:
+					var cond = "not_keyword:%s" % pat[1]
+					if not excluded.has(cond):
+						excluded.append(cond)
+
+			# Strip the clause AND the leading "(" if there's one immediately before
+			# (so we don't leave a dangling "(" behind).
+			var strip_start = idx
+			# Walk backward past whitespace and an optional '('.
+			var probe = idx - 1
+			while probe >= 0 and stripped[probe] == " ":
+				probe -= 1
+			if probe >= 0 and stripped[probe] == "(":
+				strip_start = probe
+
+			# Include the trailing ')' if the end was a paren.
+			var strip_end = end_idx
+			if end_idx < stripped.length() and stripped[end_idx] == ")":
+				strip_end = end_idx + 1
+
+			stripped = stripped.substr(0, strip_start) + stripped.substr(strip_end)
+
+	return {"stripped": stripped, "excluded_keywords": excluded}
 
 # ============================================================================
 # EFFECT MAPPING
@@ -698,6 +775,14 @@ static func unit_matches_target(unit: Dictionary, target: Dictionary, context: D
 					break
 			if not found:
 				return false
+
+		elif condition.begins_with("not_keyword:"):
+			# #359: "excluding X" clauses become not_keyword:X conditions —
+			# the unit must NOT have this keyword.
+			var excluded_kw = condition.substr(12)
+			for kw in keywords:
+				if kw.to_upper() == excluded_kw.to_upper():
+					return false
 
 		elif condition == "is_target_of_attack":
 			# This is context-dependent; the unit must be a current target
