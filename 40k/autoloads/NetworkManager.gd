@@ -2220,12 +2220,15 @@ func _auto_deploy_remaining_units_on_timeout() -> void:
 
 	for unit_id in units:
 		var unit = units[unit_id]
-		# Skip units that are already deployed, embarked, attached, or in reserves
+		# Issue #323: only convert units that are still UNDEPLOYED. Anything
+		# already on the board (DEPLOYED/MOVED/SHOT/...) or already routed
+		# (IN_RESERVES, embarked, attached) must be left alone, otherwise the
+		# end-of-Round-3 reserves cleanup will destroy on-table units.
 		if unit.get("embarked_in", null) != null:
 			continue
 		if unit.get("attached_to", null) != null:
 			continue
-		if unit.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
+		if int(unit.get("status", -1)) != GameStateData.UnitStatus.UNDEPLOYED:
 			continue
 
 		# Auto-place into strategic reserves
