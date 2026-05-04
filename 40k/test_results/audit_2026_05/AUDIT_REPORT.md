@@ -279,6 +279,7 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 | t3.a3 | Custodes Martial Ka'tah trigger on melee | SELECT_FIGHTER on a Custodes unit | trigger_katah_stance flag returned | ✓ flag returned with katah_unit_id and master_of_the_stances_available ✓ | pass | — |
 | t3.a4 | Orks Plant Banner once-per-battle | (deferred — needs second attempt to verify lock) | — | — | deferred | — |
 | t3.a5 | Custodes Martial Mastery once-per-round lock | SELECT_MARTIAL_MASTERY twice in same Command phase | Second rejected | First (crit_on_5) succeeded with confirmation; second (improve_ap) rejected: "Martial Mastery is not available for player 1" ✓ | pass | — |
+| t3.a7 | **Orks Get Stuck In (War Horde detachment rule)** | Warboss B uses Power klaw and Attack squig in melee | All Orks melee weapons gain Sustained Hits 1 | Both weapons returned `sustained_hits_weapon: true`, `sustained_hits_value: 1` despite no native Sustained Hits in their profiles ✓ | pass | — |
 
 ## Tier 5 — Save/load round-trips
 
