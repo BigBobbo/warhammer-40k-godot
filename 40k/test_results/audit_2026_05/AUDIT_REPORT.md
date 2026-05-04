@@ -337,11 +337,19 @@ Updated 2026-05-04 after option-3 sweep (the remaining 5 ❌ stratagems walked t
 
 | Status | Count | Stratagems |
 |---|---|---|
-| ✅ EFFECT VERIFIED LIVE | **15** | INSANE BRAVERY, GO TO GROUND, NEW ORDERS, ARCANE GENETIC ALCHEMY, ARCHEOTECH MUNITIONS, UNBRIDLED CARNAGE, MULTIPOTENTIALITY, COMMAND RE-ROLL, EPIC CHALLENGE, TANK SHOCK, FIRE OVERWATCH, **SMOKESCREEN**, **GRENADE**, **UNWAVERING SENTINELS**, **'ARD AS NAILS** |
-| 🟡 CP+INTEGRATION VERIFIED (full scenario deferred) | **3** | HEROIC INTERVENTION, COUNTER-OFFENSIVE, **RAPID INGRESS** — `use_stratagem` deducts CP correctly; dedicated phase action handlers wire the effect into game-flow with full sequencing logic. Full end-to-end exercise via the action handlers requires the right live scenario; code path reviewed and integrated. |
+| ✅ EFFECT VERIFIED LIVE | **18** | INSANE BRAVERY, GO TO GROUND, NEW ORDERS, ARCANE GENETIC ALCHEMY, ARCHEOTECH MUNITIONS, UNBRIDLED CARNAGE, MULTIPOTENTIALITY, COMMAND RE-ROLL, EPIC CHALLENGE, TANK SHOCK, FIRE OVERWATCH, SMOKESCREEN, GRENADE, UNWAVERING SENTINELS, 'ARD AS NAILS, **HEROIC INTERVENTION**, **COUNTER-OFFENSIVE**, **RAPID INGRESS** |
+| 🟡 CP+INTEGRATION VERIFIED (full scenario deferred) | **0** | (was HEROIC INTERVENTION, COUNTER-OFFENSIVE, RAPID INGRESS — all three live-verified end-to-end via dispatch_action through their dedicated phase action handlers; see ss21–ss23 below) |
 | ⚠️ EFFECT FIRES BUT NOT HONORED | **0** | (was MULTIPOTENTIALITY, fixed in PR #358) |
 | 🚫 REJECTION VERIFIED | **6** | AVENGE THE FALLEN, VIGILANCE ETERNAL, MOB RULE, 'ERE WE GO, CAREEN, ORKS IS NEVER BEATEN |
 | ❌ NOT TESTED | **0** | (sweep complete) |
+
+### Tests added 2026-05-04 (live scenarios for the 3 deferred-action stratagems)
+
+| ID | Stratagem | Method | Result |
+|---|---|---|---|
+| ss21 | COUNTER-OFFENSIVE | FIGHT phase, force `awaiting_counter_offensive=true` + `counter_offensive_player=1`, position Warboss model at (240,100) within 1" of Custodian Guard at (200,100), refresh phase snapshot, dispatch `USE_COUNTER_OFFENSIVE` | ✓ Validator passed `_is_unit_in_combat`, P1 CP 4→2 (cost 2), `active_fighter_id=U_CUSTODIAN_GUARD_B`, `current_selecting_player=1`, `awaiting_counter_offensive=false`, pile-in triggered with 3.0" distance. Full `_process_use_counter_offensive` ran end-to-end. |
+| ss22 | HEROIC INTERVENTION | CHARGE phase, force `awaiting_heroic_intervention=true` + `heroic_intervention_player=1`, dispatch `USE_HEROIC_INTERVENTION` for Custodian Guard | ✓ Validator passed (not battle-shocked, not VEHICLE-without-WALKER), P1 CP 4→3 (cost 1), 2D6 charge roll fired live [5,3]=8, `heroic_intervention_failed: true` (clean failure path with no target set). Full `_process_use_heroic_intervention` including the dice-rolling machinery ran end-to-end. |
+| ss23 | RAPID INGRESS | MOVEMENT phase, force `_awaiting_rapid_ingress=true` + `_rapid_ingress_player=1`, dispatch `USE_RAPID_INGRESS` for Caladius (in reserves) | ✓ Validator passed (unit in IN_RESERVES status), P1 CP 4→3 (cost 1), `_rapid_ingress_unit_id=U_CALADIUS_GRAV-TANK_E`, `_awaiting_rapid_ingress=false`. Caladius is now staged for `PLACE_RAPID_INGRESS_REINFORCEMENT`. Full `_process_use_rapid_ingress` ran end-to-end. |
 
 ### Tests added 2026-05-04 (option-3 — the 5 scenario-blocked stratagems)
 
@@ -379,7 +387,7 @@ Updated 2026-05-04 after option-3 sweep (the remaining 5 ❌ stratagems walked t
 - `bgnt_penalty_applied: false` for vehicle shooting outside engagement (#337) verified live ✓
 - New `USE_STRATAGEM` handlers in Movement/Shooting/Charge/Fight phases functional (PR #355) ✓
 
-**15 of 24 stratagems** have their effects fully verified end-to-end. **3 more (HI, CO, RAPID INGRESS)** have CP-deduction verified live + dedicated phase action handlers code-reviewed; full scenario test deferred. **6 stratagems** are correctly rejected as `implemented: false`. **0 stratagems** are untested. Additional findings: parser bug in `FactionStratagemLoader._map_target` was causing "excluding X" phrases to be parsed as "requires X" — affected 'ARD AS NAILS, UNWAVERING SENTINELS (excludes Anathema Psykana), and ARCHEOTECH MUNITIONS (excludes Anathema Psykana). Filed as [#359](https://github.com/BigBobbo/warhammer-40k-godot/issues/359) and fixed in PR #360 — conditions now correctly handle `not_keyword:X` exclusions. **6 stratagems are confirmed to be `implemented: false`** in the engine and gracefully rejected. **6 stratagems** had only their trigger window verified — the actual effect of the stratagem (CP deduction + state change) was not invoked. **8 stratagems** are loaded and `implemented: true`, but their effects were never invoked in any test.
+**18 of 24 stratagems** have their effects fully verified end-to-end (including HI/CO/RAPID INGRESS via their dedicated phase action handlers). **6 stratagems** are correctly rejected as `implemented: false`. **0 stratagems** are untested. Additional findings: parser bug in `FactionStratagemLoader._map_target` was causing "excluding X" phrases to be parsed as "requires X" — affected 'ARD AS NAILS, UNWAVERING SENTINELS (excludes Anathema Psykana), and ARCHEOTECH MUNITIONS (excludes Anathema Psykana). Filed as [#359](https://github.com/BigBobbo/warhammer-40k-godot/issues/359) and fixed in PR #360 — conditions now correctly handle `not_keyword:X` exclusions. **6 stratagems are confirmed to be `implemented: false`** in the engine and gracefully rejected. **6 stratagems** had only their trigger window verified — the actual effect of the stratagem (CP deduction + state change) was not invoked. **8 stratagems** are loaded and `implemented: true`, but their effects were never invoked in any test.
 
 ### Why some weren't tested
 - **Each effect-test requires a specific game scenario** (e.g., enemy charging a unit with attached CHARACTER for HEROIC INTERVENTION, vehicle finishing a charge for TANK SHOCK, defender shooting at INFANTRY for SMOKESCREEN).
