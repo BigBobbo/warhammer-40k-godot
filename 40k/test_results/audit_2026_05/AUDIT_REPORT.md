@@ -234,6 +234,7 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 | t2.sc4 | END_<predecessor> idempotency in successor (#322 regression) | END_SCORING dispatched in COMMAND phase | Accept as no-op | success=true, changes=[] ✓ | pass | — |
 | t2.sc5 | END_<two-phases-back> rejected | END_FIGHT dispatched in COMMAND | Reject (FIGHT is not COMMAND's immediate predecessor) | "Unknown action type: END_FIGHT" ✓ | pass | — |
 | t2.sc6 | DISCARD_SECONDARY grants 1 CP | P2 has 5 CP, dispatch DISCARD_SECONDARY mission_index 0 (Display of Might) | CP increases by 1 | cp_gained=1, P2 CP went 5→6 ✓ | pass | — |
+| t2.sc7 | USE_NEW_ORDERS deducts 1 CP and draws new mission | P1 has 7 CP, dispatch USE_NEW_ORDERS mission_index 0 | CP -1, old mission discarded, new mission drawn | discarded="No Prisoners", drawn="Extend Battle Lines", P1 CP 7→6 ✓ | pass | — |
 
 ### Scoring observations
 - Player swap on END_SCORING works cleanly. State diff includes both `meta.active_player` flip and unit-flag cleanup (`has_been_charged` reset).
