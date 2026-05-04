@@ -506,12 +506,24 @@ const UNIT_WEAPONS = {
 
 # RNG Service for deterministic dice rolling
 class RNGService:
+	# Test-only static seed override.
+	# When set to a non-negative value, every unseeded RNGService.new() call
+	# derives a deterministic-but-unique seed via hash([test_mode_seed, _test_seed_counter]).
+	# Default (-1) preserves existing behavior: unseeded constructors call randomize().
+	# Multiplayer is unaffected because it always passes an explicit seed_value.
+	# This unblocks deterministic test coverage across phases that don't yet
+	# plumb payload.rng_seed through to RNGService construction.
+	static var test_mode_seed: int = -1
+	static var _test_seed_counter: int = 0
 	var rng: RandomNumberGenerator
 
 	func _init(seed_value: int = -1):
 		rng = RandomNumberGenerator.new()
 		if seed_value >= 0:
 			rng.seed = seed_value
+		elif test_mode_seed >= 0:
+			_test_seed_counter += 1
+			rng.seed = hash([test_mode_seed, _test_seed_counter])
 		else:
 			rng.randomize()
 
