@@ -231,11 +231,19 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 - Round 1 had two Command phases (P1's, then P2's), which under #336 means both players gained 2 CP each (now at 5 CP). Per 10e the first Command phase of the game should grant nothing.
 - Custodes detachment options (`SELECT_MARTIAL_MASTERY`) appeared correctly in P1's Command phase. Orks Waaagh! options (`CALL_WAAAGH`, `PLANT_WAAAGH_BANNER`) appeared correctly in P2's. Faction-rule timing is wired.
 
+### Stratagem mechanics
+
+| ID | Item | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| t2.st1 | Reactive stratagem CP cost deducted | Use Go to Ground (cost 1) on Warboss B during P1 shooting | P2 CP -1 | P2 CP went 5 → 4 ✓; effects applied (invuln 6+, cover); shooting continued with effects in resolution | pass | — |
+| t2.st1b | Stratagem effect application | Same | unit gets flags.effect_invuln, flags.effect_cover, flags.effect_invuln_source | All three set with values 6, true, "GO TO GROUND" ✓ | pass | — |
+| t2.st1c | Twin-linked re-roll on wound rolls | Caladius's Twin arachnus heavy blaze cannon shoots Warboss | wound rolls re-rolled | `twin_linked_weapon: true`, `wound_modifiers_applied: 2`, re-roll fired ✓ | pass | — |
+
 ### Pending phases
-- Movement: t2.m4 (FLY), t2.m6 (base-touching regression) deferred
+- Movement: t2.m4 (FLY pass-through path test), t2.m6 (base-touching regression) deferred
 - Shooting: t2.s2 (advance-blocks-shoot), t2.s4-s7 (keywords + cover) deferred — most need determinism (#329)
 - Fight: t2.f2 melee attack pipeline blocked by weapon-name-collision; deferred
-- Scoring: P1's 5 secondary VP at Round 1 end needs isolated reproduction
+- Scoring: P1's 5 secondary VP at Round 1 end needs isolated reproduction (likely legitimate Display of Might score)
 
 ---
 
