@@ -394,6 +394,23 @@ Same pattern applied to HEROIC INTERVENTION and RAPID INGRESS.
 
 All three deferred-action stratagems (CO, HI, RI) now have committed fixture saves in `40k/tests/saves/` that replay end-to-end with full UI rendering. The natural trigger emission code path is exercised in each, with visual + data consistency throughout.
 
+### Automated regression tests
+
+The fixtures are wired into headless GDScript regression tests:
+
+- `40k/tests/test_co_pretrigger.gd` — 15 assertions
+- `40k/tests/test_hi_pretrigger.gd` — 14 assertions
+- `40k/tests/test_ri_pretrigger.gd` — 14 assertions
+- `40k/tests/run_pretrigger_tests.sh` — runs all three, summary at end
+
+Each test loads its fixture, drives the natural trigger emission code path through real action handlers, and asserts on:
+- saved positions / phase / active player
+- the action handler's response includes `trigger_*=true` + correct eligible_units list
+- the phase instance's `awaiting_*` flag transitions correctly
+- `USE_*` dispatch deducts the correct CP and updates phase state
+
+Current run: **43 passed, 0 failed across 3 tests**. Ready for CI integration. If anyone breaks the trigger emission code in FightPhase / ChargePhase / MovementPhase, these tests fail at the natural-trigger assertion before the dispatch — pinpointing the regression.
+
 ### Coverage summary
 
 Updated 2026-05-04 after option-3 sweep (the remaining 5 ❌ stratagems walked through `use_stratagem` direct invocation; effect-application path verified for all 5; UI eligibility/scenario gates documented separately).
