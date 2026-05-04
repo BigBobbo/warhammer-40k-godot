@@ -337,19 +337,30 @@ Updated 2026-05-04 after option-3 sweep (the remaining 5 ❌ stratagems walked t
 
 | Status | Count | Stratagems |
 |---|---|---|
-| ✅ EFFECT VERIFIED LIVE | **18** | INSANE BRAVERY, GO TO GROUND, NEW ORDERS, ARCANE GENETIC ALCHEMY, ARCHEOTECH MUNITIONS, UNBRIDLED CARNAGE, MULTIPOTENTIALITY, COMMAND RE-ROLL, EPIC CHALLENGE, TANK SHOCK, FIRE OVERWATCH, SMOKESCREEN, GRENADE, UNWAVERING SENTINELS, 'ARD AS NAILS, **HEROIC INTERVENTION**, **COUNTER-OFFENSIVE**, **RAPID INGRESS** |
-| 🟡 CP+INTEGRATION VERIFIED (full scenario deferred) | **0** | (was HEROIC INTERVENTION, COUNTER-OFFENSIVE, RAPID INGRESS — all three live-verified end-to-end via dispatch_action through their dedicated phase action handlers; see ss21–ss23 below) |
+| ✅ EFFECT VERIFIED LIVE (option-B end-to-end via natural gameplay) | **18** | INSANE BRAVERY, GO TO GROUND, NEW ORDERS, ARCANE GENETIC ALCHEMY, ARCHEOTECH MUNITIONS, UNBRIDLED CARNAGE, MULTIPOTENTIALITY, COMMAND RE-ROLL, EPIC CHALLENGE, TANK SHOCK, FIRE OVERWATCH, SMOKESCREEN, GRENADE, UNWAVERING SENTINELS, 'ARD AS NAILS, **HEROIC INTERVENTION**, **COUNTER-OFFENSIVE**, **RAPID INGRESS** — for HI/CO/RI, the natural trigger emission code in the phase handlers fires through real game-flow actions (CONSOLIDATE for CO, APPLY_CHARGE_MOVE for HI, END_MOVEMENT for RI), not via state mutation shortcuts. See ss21'/ss22'/ss23' below. |
+| 🟡 CP+INTEGRATION VERIFIED (superseded) | **0** | All upgraded to ✅ EFFECT VERIFIED LIVE via option-B real-gameplay tests. |
 | ⚠️ EFFECT FIRES BUT NOT HONORED | **0** | (was MULTIPOTENTIALITY, fixed in PR #358) |
 | 🚫 REJECTION VERIFIED | **6** | AVENGE THE FALLEN, VIGILANCE ETERNAL, MOB RULE, 'ERE WE GO, CAREEN, ORKS IS NEVER BEATEN |
 | ❌ NOT TESTED | **0** | (sweep complete) |
 
-### Tests added 2026-05-04 (live scenarios for the 3 deferred-action stratagems)
+### Tests added 2026-05-04 (TRUE end-to-end via natural gameplay — option B)
+
+These supersede the earlier ss21–ss23 tests, which shortcut the trigger emission by force-setting awaiting flags. The tests below drive ACTUAL phase actions through real handlers, and the awaiting flag is set BY the trigger emission code (not by us). This is the rigorous verification.
 
 | ID | Stratagem | Method | Result |
 |---|---|---|---|
-| ss21 | COUNTER-OFFENSIVE | FIGHT phase, force `awaiting_counter_offensive=true` + `counter_offensive_player=1`, position Warboss model at (240,100) within 1" of Custodian Guard at (200,100), refresh phase snapshot, dispatch `USE_COUNTER_OFFENSIVE` | ✓ Validator passed `_is_unit_in_combat`, P1 CP 4→2 (cost 2), `active_fighter_id=U_CUSTODIAN_GUARD_B`, `current_selecting_player=1`, `awaiting_counter_offensive=false`, pile-in triggered with 3.0" distance. Full `_process_use_counter_offensive` ran end-to-end. |
-| ss22 | HEROIC INTERVENTION | CHARGE phase, force `awaiting_heroic_intervention=true` + `heroic_intervention_player=1`, dispatch `USE_HEROIC_INTERVENTION` for Custodian Guard | ✓ Validator passed (not battle-shocked, not VEHICLE-without-WALKER), P1 CP 4→3 (cost 1), 2D6 charge roll fired live [5,3]=8, `heroic_intervention_failed: true` (clean failure path with no target set). Full `_process_use_heroic_intervention` including the dice-rolling machinery ran end-to-end. |
-| ss23 | RAPID INGRESS | MOVEMENT phase, force `_awaiting_rapid_ingress=true` + `_rapid_ingress_player=1`, dispatch `USE_RAPID_INGRESS` for Caladius (in reserves) | ✓ Validator passed (unit in IN_RESERVES status), P1 CP 4→3 (cost 1), `_rapid_ingress_unit_id=U_CALADIUS_GRAV-TANK_E`, `_awaiting_rapid_ingress=false`. Caladius is now staged for `PLACE_RAPID_INGRESS_REINFORCEMENT`. Full `_process_use_rapid_ingress` ran end-to-end. |
+| ss21' | COUNTER-OFFENSIVE | Drove R1 P1 turn → R1 P2 (END_COMMAND/MOVEMENT/SHOOTING) → P2 CHARGE: DECLARE_CHARGE Warboss→Custodian Guard, DECLINE_FIRE_OVERWATCH, CHARGE_ROLL [5,2]=7 (success at min_distance=1.18"), DECLINE_COMMAND_REROLL → P2 FIGHT: SELECT_FIGHTER Warboss, DECLINE_EPIC_CHALLENGE, **CONSOLIDATE** | 🎯 NATURAL TRIGGER: `_process_consolidate` returned `trigger_counter_offensive: true`, `counter_offensive_player: 1`, eligible_units=[Custodian Guard]. Dispatched USE_COUNTER_OFFENSIVE: CP 4→2, `active_fighter_id=U_CUSTODIAN_GUARD_B`, `current_selecting_player=1`, pile-in triggered. (Caveat: APPLY_CHARGE_MOVE was state-mutated in this test due to #361 — fixed in PR #363; ss22'/ss23' below run with the fix.) |
+| ss22' | HEROIC INTERVENTION | Drove R1 P1→P2 phases → P2 CHARGE: DECLARE_CHARGE Warboss→Custodian Guard, DECLINE_FIRE_OVERWATCH, CHARGE_ROLL [5,2]=7, DECLINE_COMMAND_REROLL, **APPLY_CHARGE_MOVE** with Vector2 paths (PR #363 fix) — Warboss moved to (503,100) base-to-base | 🎯 NATURAL TRIGGER: `_process_apply_charge_move` ran full geometry validation, applied position changes, and emitted `trigger_heroic_intervention: true`, eligible_units=[Contemptor-Achillus, Telemon] (within 6" of Warboss's new position). Dispatched USE_HEROIC_INTERVENTION on Telemon: CP 4→3, 2D6 [5,2]=7, `heroic_intervention_roll_success: true`. |
+| ss23' | RAPID INGRESS | Drove R1 P1 → R1 P2 → R2 P1 (full 12-phase progression via END_X actions) → R2 P2 COMMAND→**MOVEMENT_END** | 🎯 NATURAL TRIGGER: `_continue_end_movement_after_grot_oiler` emitted `trigger_rapid_ingress: true`, `rapid_ingress_player: 1`, eligible_units=[Caladius]. Dispatched USE_RAPID_INGRESS: CP 5→4, `_rapid_ingress_unit_id=Caladius`. Bonus: at P1 R2 movement end, P2's RI offer fired with all 9 P2 reserves listed (was empty before #362 fix). |
+
+### Bugs discovered + fixed during option-B verification
+
+| Issue | Title | Resolution |
+|---|---|---|
+| [#361](https://github.com/BigBobbo/warhammer-40k-godot/issues/361) | MCP bridge: `per_model_paths` positions not converted to Vector2 | Fixed in PR #363. `_normalize_action_positions` now recursively converts position dicts inside `payload.per_model_paths`. Multi-model move actions through MCP now apply correctly. |
+| [#362](https://github.com/BigBobbo/warhammer-40k-godot/issues/362) | RAPID INGRESS never offered: null-handling in `_get_rapid_ingress_eligible_units` skips all reserves | Fixed in PR #363. `null != ""` was true; now properly checks `attached_to != null and attached_to != ""`. RAPID INGRESS now reaches its trigger emission path. |
+
+### Earlier shortcut tests (option-A, superseded)
 
 ### Tests added 2026-05-04 (option-3 — the 5 scenario-blocked stratagems)
 
