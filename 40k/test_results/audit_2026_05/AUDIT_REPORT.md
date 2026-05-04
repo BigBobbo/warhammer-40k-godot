@@ -343,11 +343,16 @@ Coverage legend:
 **4 of 24 stratagems** have their effects fully verified end-to-end. **6 stratagems are confirmed to be `implemented: false`** in the engine and gracefully rejected. **6 stratagems** had only their trigger window verified — the actual effect of the stratagem (CP deduction + state change) was not invoked. **8 stratagems** are loaded and `implemented: true`, but their effects were never invoked in any test.
 
 ### Why some weren't tested
-- **Each effect-test requires a specific game scenario** (e.g., enemy charging a unit with attached CHARACTER for HEROIC INTERVENTION, vehicle finishing a charge for TANK SHOCK, defender shooting at INFANTRY for SMOKESCREEN). Building each scenario consumed too much MCP-call budget for the audit pass.
-- **Some require dice outcomes** (e.g., GRENADE needs to see D6 hits at 4+; TANK SHOCK rolls dice based on target toughness). These would benefit from `RulesEngine.RNGService.test_mode_seed` (PR #346/#348) but Expression-mode access to that static var is awkward — the bridge would need a setter helper.
-- **Some require save-state setup** (e.g., MULTIPOTENTIALITY needs a fall-back to have happened first; FIRE OVERWATCH needs a charge declaration to consume its trigger).
+- **Each effect-test requires a specific game scenario** (e.g., enemy charging a unit with attached CHARACTER for HEROIC INTERVENTION, vehicle finishing a charge for TANK SHOCK, defender shooting at INFANTRY for SMOKESCREEN).
+- **Many active stratagems (in Movement / Shooting / Charge / Fight phases) have no `dispatch_action` route** — see [#353](https://github.com/BigBobbo/warhammer-40k-godot/issues/353). The phase action handlers don't have a `USE_STRATAGEM` case (only `USE_REACTIVE_STRATAGEM` for defender + `USE_GRENADE_STRATAGEM` as a hardcoded carve-out). Affected: ARCHEOTECH MUNITIONS, UNBRIDLED CARNAGE, MULTIPOTENTIALITY, UNWAVERING SENTINELS, 'ARD AS NAILS. They are loaded with `implemented: true` and `StratagemManager.use_stratagem()` would apply their effects, but the dispatcher doesn't route to it.
+- **Determinism unblocked**: PR #352 added `RulesEngine.set_test_seed(seed)` / `get_test_seed()` static helpers. Calling `get_node('/root/RulesEngine').set_test_seed(42)` now makes all unseeded `RNGService.new()` instances deterministic, enabling reproducible dice tests for GRENADE, TANK SHOCK, FIRE OVERWATCH effects.
 
-To complete coverage of the 8+6 untested-effect stratagems, the next session should prepare a fight-shooting-charge scenario in advance and run each stratagem in turn, verifying CP delta + flag/state changes.
+### Verifications added 2026-05-04 (post PR #352)
+- `set_test_seed(42)` / `get_test_seed()` round-trips correctly via the MCP bridge ✓
+- `hash([42, 1])` produces the same value across calls (Expression-level determinism check) ✓
+- `bgnt_penalty_applied: false` observed live during a Caladius shooting attack with no engagement context — **PR #343 fix #337 verified live in fresh game** ✓ (this was previously code-only verified)
+
+To complete coverage of the remaining stratagems, fixing [#353](https://github.com/BigBobbo/warhammer-40k-godot/issues/353) (adding `USE_STRATAGEM` handlers to Movement/Shooting/Charge/Fight phases) would unblock 5 of the 8 ❌ NOT TESTED entries. The other 3 (SMOKESCREEN reactive, RAPID INGRESS, GRENADE) need scenario setup but no engine changes.
 
 ### Pending phases
 - Movement: t2.m4 (FLY pass-through path test), t2.m6 (base-touching regression) deferred
