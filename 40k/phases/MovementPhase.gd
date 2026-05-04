@@ -672,6 +672,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
+		"END_COMMAND":
+			# Idempotent no-op: previous phase auto-advanced before END_COMMAND was dispatched.
+			return {"valid": true}
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -763,6 +766,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_scatter(action)
 		"DECLINE_SCATTER":
 			return _process_decline_scatter(action)
+		"END_COMMAND":
+			return create_result(true, [], "")
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
