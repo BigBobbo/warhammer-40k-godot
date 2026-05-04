@@ -204,6 +204,11 @@ func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
 			return GameStateData.Phase.SCOUT
 		GameStateData.Phase.SCOUT:
 			return GameStateData.Phase.COMMAND
+		# SCOUT_MOVES is not part of the standard phase chain (SCOUT -> COMMAND).
+		# It is only reachable via direct transition_to_phase() calls (e.g. from
+		# MCP execute_script or test harnesses). Kept here so that auto-advance
+		# from a manually-entered SCOUT_MOVES phase still routes to COMMAND.
+		# See issue #332.
 		GameStateData.Phase.SCOUT_MOVES:
 			return GameStateData.Phase.COMMAND
 		GameStateData.Phase.COMMAND:
@@ -228,8 +233,12 @@ func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
 			
 			# Always go to COMMAND phase for the next player (deployment only happens once at game start)
 			return GameStateData.Phase.COMMAND
+		# TODO: deprecate, MORALE is not a 10e phase (battle-shock happens in
+		# the Command phase). MoralePhase.gd is retained for legacy/test paths.
+		# Fallback routes to COMMAND so that a stray MORALE transition does not
+		# kick the game back to DEPLOYMENT mid-game. See issue #332.
 		GameStateData.Phase.MORALE:
-			return GameStateData.Phase.DEPLOYMENT  # Next turn (legacy support)
+			return GameStateData.Phase.COMMAND
 		_:
 			return GameStateData.Phase.DEPLOYMENT
 
