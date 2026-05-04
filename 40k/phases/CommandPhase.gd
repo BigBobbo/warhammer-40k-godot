@@ -6,7 +6,8 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 
 # CommandPhase - Handles Command Phase including CP generation and Battle-shock tests
 # Per 10th edition rules:
-# 1. Generate Command Points (both players gain 1 CP)
+# 1. Generate Command Points (the active player gains 1 CP — but NOT during the
+#    very first Command phase of the game; see issue #336)
 # 2. Clear all battle_shocked flags at the start of the Command Phase
 # 3. Identify units Below Half-strength
 # 4. Each Below Half-strength unit takes a Battle-shock test (2D6 vs Leadership)
@@ -67,8 +68,21 @@ func _on_phase_enter() -> void:
 			print("CommandPhase: Secondary mission deck initialized for Player 2 (tactical mode)")
 
 	# Step 1: Generate Command Points
-	# Per 10th edition rules, both players gain 1 CP at the start of each Command Phase
-	_generate_command_points(current_player)
+	# Per 10th edition core rules (Wahapedia): "At the start of every Command phase
+	# after the first, the player whose Command phase it is gains 1 CP."
+	# So we skip CP generation for the very first Command phase of the game
+	# (Round 1, the player who took the first turn). Every subsequent Command
+	# phase grants +1 CP to the active player only — never the opponent.
+	# See issue #336.
+	var first_turn_player = GameState.state.get("meta", {}).get("first_turn_player", 1)
+	var is_first_command_phase_of_game = (battle_round == 1 and current_player == first_turn_player)
+	if is_first_command_phase_of_game:
+		print("CommandPhase: Skipping CP generation — first Command phase of the game (R1 P%d)" % current_player)
+		var game_event_log_cp = get_node_or_null("/root/GameEventLog")
+		if game_event_log_cp:
+			game_event_log_cp.add_info_entry("No CP gained in the first Command phase of the battle")
+	else:
+		_generate_command_points(current_player)
 
 	# Step 2: Clear all battle_shocked flags for the current player's units
 	_clear_battle_shocked_flags()
@@ -132,7 +146,9 @@ func _on_phase_enter() -> void:
 		print("CommandPhase: %d unit(s) need battle-shock tests" % _units_needing_test.size())
 
 func _generate_command_points(active_player: int) -> void:
-	var opponent = 1 if active_player == 2 else 2
+	# Per WH40K 10e core rules: only the active player (whose Command phase
+	# it is) gains 1 CP. The opponent does NOT gain CP during your Command
+	# phase. See issue #336.
 	var changes = []
 
 	# Active player gains 1 CP
@@ -143,29 +159,20 @@ func _generate_command_points(active_player: int) -> void:
 		"value": active_cp + 1
 	})
 
-	# Opponent also gains 1 CP
-	var opponent_cp = GameState.state.get("players", {}).get(str(opponent), {}).get("cp", 0)
-	changes.append({
-		"op": "set",
-		"path": "players.%s.cp" % str(opponent),
-		"value": opponent_cp + 1
-	})
-
 	# Apply via PhaseManager so changes propagate to network peers
 	PhaseManager.apply_state_changes(changes)
 
 	# Refresh our local snapshot to reflect the CP changes
 	game_state_snapshot = GameState.create_snapshot()
 
-	print("CommandPhase: Generated CP — Player %d: %d → %d, Player %d: %d → %d" % [
-		active_player, active_cp, active_cp + 1,
-		opponent, opponent_cp, opponent_cp + 1
+	print("CommandPhase: Generated CP — Player %d: %d → %d" % [
+		active_player, active_cp, active_cp + 1
 	])
 
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log:
-		game_event_log.add_info_entry("CP generated — P%d: %d CP, P%d: %d CP" % [
-			active_player, active_cp + 1, opponent, opponent_cp + 1])
+		game_event_log.add_info_entry("CP generated — P%d: %d CP" % [
+			active_player, active_cp + 1])
 
 func get_newly_drawn_missions() -> Array:
 	"""Return missions drawn at the start of this command phase (for review dialog)."""
