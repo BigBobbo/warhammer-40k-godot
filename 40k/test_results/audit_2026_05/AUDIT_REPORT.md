@@ -333,12 +333,12 @@ Coverage legend:
 
 ### Coverage summary
 
-Updated 2026-05-04 after PR #355 added `USE_STRATAGEM` dispatch handlers to non-Command phases.
+Updated 2026-05-04 after PR #358 fixed [#356](https://github.com/BigBobbo/warhammer-40k-godot/issues/356) (cannot_shoot lockout now respects `effect_fall_back_and_shoot`).
 
 | Status | Count | Stratagems |
 |---|---|---|
-| ✅ EFFECT VERIFIED LIVE | **6** | INSANE BRAVERY, GO TO GROUND, NEW ORDERS, ARCANE GENETIC ALCHEMY, **ARCHEOTECH MUNITIONS**, **UNBRIDLED CARNAGE** |
-| ⚠️ EFFECT FIRES BUT NOT HONORED | **1** | **MULTIPOTENTIALITY** — CP -1 + `effect_fall_back_and_shoot/charge` flags set, but Shooting/Charge phases still gate on `cannot_shoot`/`cannot_charge` and reject the unit. Filed as [#356](https://github.com/BigBobbo/warhammer-40k-godot/issues/356) |
+| ✅ EFFECT VERIFIED LIVE | **7** | INSANE BRAVERY, GO TO GROUND, NEW ORDERS, ARCANE GENETIC ALCHEMY, ARCHEOTECH MUNITIONS, UNBRIDLED CARNAGE, **MULTIPOTENTIALITY** |
+| ⚠️ EFFECT FIRES BUT NOT HONORED | **0** | (was MULTIPOTENTIALITY, fixed in PR #358) |
 | 🟡 TRIGGER OFFER ONLY | **6** | COMMAND RE-ROLL, EPIC CHALLENGE, TANK SHOCK, FIRE OVERWATCH, HEROIC INTERVENTION, COUNTER-OFFENSIVE |
 | 🚫 REJECTION VERIFIED | **6** | AVENGE THE FALLEN, VIGILANCE ETERNAL, MOB RULE, 'ERE WE GO, CAREEN, ORKS IS NEVER BEATEN |
 | ❌ TARGET FILTER BLOCKS QUICK TEST | **2** | **UNWAVERING SENTINELS** (phase: fight, requires CUSTODES INFANTRY on objective being targeted), **'ARD AS NAILS** (requires VEHICLE/MONSTER ORKS being targeted — none deployed in standard scenario) |
@@ -349,7 +349,7 @@ Updated 2026-05-04 after PR #355 added `USE_STRATAGEM` dispatch handlers to non-
 | ID | Stratagem | Method | Result |
 |---|---|---|---|
 | ss5 | ARCHEOTECH MUNITIONS | USE_STRATAGEM in Shooting phase on Custodes Contemptor | P1 CP 4→3, `effect_lethal_hits=true`, `effect_sustained_hits=true` ✓ |
-| ss6 | MULTIPOTENTIALITY | After Telemon fall-back, USE_STRATAGEM | P1 CP 4→3, `effect_fall_back_and_shoot=true`, `effect_fall_back_and_charge=true` set ✓; **but** subsequent SELECT_SHOOTER on the same unit still rejected with "Unit cannot shoot" → filed [#356](https://github.com/BigBobbo/warhammer-40k-godot/issues/356) |
+| ss6 | MULTIPOTENTIALITY | After Telemon fall-back, USE_STRATAGEM | P1 CP 4→3, `effect_fall_back_and_shoot=true`, `effect_fall_back_and_charge=true` set ✓; initially blocked by `cannot_shoot` gate ([#356](https://github.com/BigBobbo/warhammer-40k-godot/issues/356)). **Fixed in PR #358**: ShootingPhase + RulesEngine.validate_shoot now honor the override flag. Live-verified: with effect set, a `fell_back=true,cannot_shoot=true` Custodian Guard passes the gate (rejection moves to downstream "no eligible targets"); debug log shows new "overriding cannot_shoot" print firing |
 | ss7 | UNBRIDLED CARNAGE | USE_STRATAGEM in Fight phase on Warboss B | P2 CP 5→4, `effect_crit_hit_on=5` ✓ |
 | ss8 | UNWAVERING SENTINELS | (attempted) | Not triggerable from current scenarios — phase=fight + requires `on_objective` |
 | ss9 | 'ARD AS NAILS | (attempted) | Not triggerable — requires VEHICLE/MONSTER ORKS target; current P2 deployed list is INFANTRY-only |
@@ -359,7 +359,7 @@ Updated 2026-05-04 after PR #355 added `USE_STRATAGEM` dispatch handlers to non-
 - `bgnt_penalty_applied: false` for vehicle shooting outside engagement (#337) verified live ✓
 - New `USE_STRATAGEM` handlers in Movement/Shooting/Charge/Fight phases functional (PR #355) ✓
 
-**4 of 24 stratagems** have their effects fully verified end-to-end. **6 stratagems are confirmed to be `implemented: false`** in the engine and gracefully rejected. **6 stratagems** had only their trigger window verified — the actual effect of the stratagem (CP deduction + state change) was not invoked. **8 stratagems** are loaded and `implemented: true`, but their effects were never invoked in any test.
+**7 of 24 stratagems** have their effects fully verified end-to-end (post PR #358 closing #356). **6 stratagems are confirmed to be `implemented: false`** in the engine and gracefully rejected. **6 stratagems** had only their trigger window verified — the actual effect of the stratagem (CP deduction + state change) was not invoked. **8 stratagems** are loaded and `implemented: true`, but their effects were never invoked in any test.
 
 ### Why some weren't tested
 - **Each effect-test requires a specific game scenario** (e.g., enemy charging a unit with attached CHARACTER for HEROIC INTERVENTION, vehicle finishing a charge for TANK SHOCK, defender shooting at INFANTRY for SMOKESCREEN).
