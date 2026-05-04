@@ -167,9 +167,24 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 - Engine validates over-move with clear error message including measured and cap distances — good UX.
 - Advance roll fires D6 immediately on `BEGIN_ADVANCE` and integrates with Command Re-roll stratagem (`awaiting_reroll: true` returned).
 
+### Shooting Phase (in progress)
+
+| ID | Rule | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| t2.s1 | Eligibility filter (range/visibility) | Try SELECT_SHOOTER on a unit far from any target | "no eligible targets" | Got exact error ✓ | pass | — |
+| t2.s3 | End-to-end attack resolution | Telemon (8 attacks, BS 2+, S6, AP-1, D2) shoots Warboss | Hits → wounds → save data; sub-step traces | All sub-traces present (to_hit, to_wound, save_data); stratagem opportunity offered | pass (with #337 caveat) | — |
+| t2.s3a | BIG GUNS NEVER TIRE gating | Vehicle out of engagement, target out of engagement of friendlies | No -1 to hit penalty | -1 applied unconditionally | **fail** | [#337](https://github.com/BigBobbo/warhammer-40k-godot/issues/337) |
+| t2.s2/s4-s7 | Advance-blocks-shoot, Sustained/Lethal/Devastating, Cover, LOOK OUT SIR | (deferred — needs determinism for keyword tests, more setup for cover/LOS) | — | — | deferred | — |
+
+### Shooting Phase observations
+- **Stratagem timing windows work correctly**: After `CONFIRM_TARGETS`, the engine surfaces the opponent's reactive stratagem options ("Go to Ground" was offered on Warboss). Confirms 10e timing trigger `after_target_selected` is honoured.
+- Pipeline structure matches 10e: SELECT_SHOOTER → ASSIGN_TARGET (per weapon, with model_ids and weapon_id in payload) → CONFIRM_TARGETS → reactive stratagem window → RESOLVE_SHOOTING → APPLY_SAVES (interactive save resolution).
+- Hit/wound/save sub-traces are richly detailed — each step returns dice, modifiers, threshold, special-rules flags. Excellent for debugging and audit.
+
 ### Pending phases
-- Shooting, Charge, Fight, Scoring not yet started
-- Movement Phase: t2.m4 (FLY) and t2.m6 (base-touching regression) deferred
+- Charge, Fight, Scoring not yet started
+- Movement: t2.m4 (FLY), t2.m6 (base-touching regression) deferred
+- Shooting: t2.s2 (advance-blocks-shoot), t2.s4-s7 (keywords + cover) deferred — most need determinism (#329)
 
 ---
 
