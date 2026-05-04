@@ -558,6 +558,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"END_COMMAND":
 			# END_COMMAND is always valid in command phase
 			pass
+		"END_SCORING", "END_TURN":
+			# Idempotent no-op: previous phase auto-advanced before END_SCORING was dispatched.
+			pass
 		"BATTLE_SHOCK_TEST":
 			errors = _validate_battle_shock_test(action)
 		"USE_STRATAGEM":
@@ -639,6 +642,8 @@ func process_action(action: Dictionary) -> Dictionary:
 	match action.get("type", ""):
 		"END_COMMAND":
 			return _handle_end_command()
+		"END_SCORING", "END_TURN":
+			return {"success": true, "changes": []}
 		"BATTLE_SHOCK_TEST":
 			return _handle_battle_shock_test(action)
 		"USE_STRATAGEM":

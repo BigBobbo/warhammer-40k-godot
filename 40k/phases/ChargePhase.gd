@@ -203,6 +203,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_tank_shock(action)
 		"DECLINE_TANK_SHOCK":
 			return _validate_decline_tank_shock(action)
+		"END_SHOOTING":
+			# Idempotent no-op: previous phase auto-advanced before END_SHOOTING was dispatched.
+			return {"valid": true}
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -248,6 +251,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_tank_shock(action)
 		"DECLINE_TANK_SHOCK":
 			return _process_decline_tank_shock(action)
+		"END_SHOOTING":
+			return create_result(true, [], "")
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 

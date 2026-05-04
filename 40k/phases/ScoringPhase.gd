@@ -149,6 +149,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 	match action_type:
 		"END_SCORING", "END_TURN":  # Support both for backward compatibility
 			pass
+		"END_FIGHT":
+			# Idempotent no-op: previous phase auto-advanced before END_FIGHT was dispatched.
+			pass
 		"DISCARD_SECONDARY":
 			var mission_index = action.get("mission_index", -1)
 			if mission_index < 0:
@@ -171,6 +174,8 @@ func process_action(action: Dictionary) -> Dictionary:
 	match action.get("type", ""):
 		"END_SCORING", "END_TURN":
 			return _handle_end_turn()
+		"END_FIGHT":
+			return {"success": true, "changes": []}
 		"DISCARD_SECONDARY":
 			return _handle_discard_secondary(action)
 		"ACROBATIC_ESCAPE_VANISH":
