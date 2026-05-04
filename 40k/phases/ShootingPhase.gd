@@ -348,6 +348,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_perform_ritual_action(action)
 		"PERFORM_TERRAFORM_ACTION":  # Terraform: unit terraforms an objective
 			return _validate_perform_terraform_action(action)
+		"END_MOVEMENT":
+			# Idempotent no-op: previous phase auto-advanced before END_MOVEMENT was dispatched.
+			return {"valid": true}
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -456,6 +459,9 @@ func process_action(action: Dictionary) -> Dictionary:
 		"PERFORM_TERRAFORM_ACTION":  # Terraform: terraform an objective
 			print("ShootingPhase: Matched PERFORM_TERRAFORM_ACTION")
 			return _process_perform_terraform_action(action)
+		"END_MOVEMENT":
+			print("ShootingPhase: Matched END_MOVEMENT (no-op, phase already advanced)")
+			return create_result(true, [], "")
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)

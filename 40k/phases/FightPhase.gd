@@ -429,6 +429,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_batch_fight_actions(action)
 		"APPLY_MELEE_SAVES":
 			return _validate_apply_melee_saves(action)
+		"END_CHARGE":
+			# Idempotent no-op: previous phase auto-advanced before END_CHARGE was dispatched.
+			return {"valid": true}
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -478,6 +481,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_batch_fight_actions(action)
 		"APPLY_MELEE_SAVES":
 			return _process_apply_melee_saves(action)
+		"END_CHARGE":
+			return create_result(true, [], "")
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
