@@ -69,9 +69,10 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 ### t1.c — Round 5 game-end (regression on issue #319)
 | Aspect | Method | Result |
 |---|---|---|
-| Game ends at P2's END_SCORING in Round 5 | code review of PR #328 (`MAX_BATTLE_ROUNDS`, `_handle_game_end_turn`, `_determine_vp_winner`) + prior-session live verification | ✅ in place |
-| `meta.game_ended` and `meta.winner` set | prior-session test result confirmed | ✅ |
-| ⚠️ side-effect: `PhaseManager.game_ended` is sticky | discovered during this audit | ❌ filed as #330 |
+| Game ends at P2's END_SCORING in Round 5 | drove fresh game R1→R5, dispatched END_SCORING for P2 in Round 5 | `meta.game_ended=true`, `meta.winner=1`, "Game ended after 5 battle rounds", `battle_round` stayed at 5 (no rollover) ✅ |
+| `meta.game_ended` and `meta.winner` set | both round-trip live this session | ✅ |
+| Re-verification (live) | full play-through after #330/#331 fixes | ✅ regression intact |
+| ⚠️ side-effect: `PhaseManager.game_ended` is sticky | discovered during this audit | ❌ filed as #330 (fixed in PR #334) |
 
 ### t1.d — AUTO_PHASE_ADVANCE timing
 | Aspect | Method | Result |
