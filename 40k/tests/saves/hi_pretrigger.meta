@@ -1,0 +1,81 @@
+{
+	"created_at": 1777930884.31858,
+	"game_state": {
+		"active_player": 2,
+		"game_id": "c02b1ee3-2b22-48a0-b65b-3033f9c810e94c65",
+		"is_multiplayer": false,
+		"phase": 9,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 1
+	},
+	"preview": {
+		"battle_round": 1.0,
+		"players": {
+			"1": {
+				"alive_models": 18,
+				"alive_units": 9,
+				"cp": 4.0,
+				"detachment": "Shield Host",
+				"faction": "Adeptus Custodes",
+				"points": 1000.0,
+				"primary_vp": 0.0,
+				"secondary_vp": 0.0,
+				"total_models": 18,
+				"total_units": 9,
+				"unit_names": [
+					"Blade Champion",
+					"Caladius Grav-tank",
+					"Contemptor-Achillus Dreadnought",
+					"Custodian Guard",
+					"Shield-Captain",
+					"Shield-captain On Dawneagle Jetbike",
+					"Telemon Heavy Dreadnought",
+					"Witchseekers",
+					"Witchseekers"
+				],
+				"vp": 0.0
+			},
+			"2": {
+				"alive_models": 88,
+				"alive_units": 17,
+				"cp": 4.0,
+				"detachment": "War Horde",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 0.0,
+				"secondary_vp": 0.0,
+				"total_models": 88,
+				"total_units": 17,
+				"unit_names": [
+					"Battlewagon",
+					"Boyz",
+					"Boyz",
+					"Boyz",
+					"Ghazghkull Thraka",
+					"Kaptin Badrukk",
+					"Kommandos",
+					"Lootas",
+					"Meganobz",
+					"Nob with Waaagh! Banner",
+					"Painboss",
+					"Strike Force",
+					"Warboss",
+					"Warboss",
+					"Warboss in Mega Armour",
+					"Wazbom Blastajet",
+					"Weirdboy"
+				],
+				"vp": 0.0
+			}
+		}
+	},
+	"save_info": {
+		"description": "",
+		"save_type": "manual",
+		"tags": []
+	},
+	"version": "1.1.0"
+}

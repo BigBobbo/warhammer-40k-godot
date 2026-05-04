@@ -383,6 +383,17 @@ The "2/4 in engagement range" badge is the definitive proof the saved fixture lo
 
 **Methodology verdict**: For tests requiring engagement / charge / specific positioning, the **fixture-save pattern** is the right approach. State-mutation shortcuts via `execute_script` work for testing autoload logic but produce visually-inconsistent boards. The codebase already uses fixture-saves for other tests (`tests/saves/End of Deploy.w40ksave`, `Move Start.w40ksave`, etc.) — `co_pretrigger.w40ksave` joins that family.
 
+### HI + RI fixtures: hi_pretrigger.w40ksave + ri_pretrigger.w40ksave
+
+Same pattern applied to HEROIC INTERVENTION and RAPID INGRESS.
+
+| Fixture | Setup | Test driver | Outcome |
+|---|---|---|---|
+| `hi_pretrigger.w40ksave` | Phase=CHARGE, P2 active. Warboss at (550, 100), Telemon at (491, 350) (within 6" of Warboss's intended end position). Other Custodes at default deploy. | DECLARE_CHARGE Warboss→Custodian Guard → CHARGE_ROLL [2,3]=5 → DECLINE_REROLL → APPLY_CHARGE_MOVE [550,100]→[503,100] | 🎯 `_process_apply_charge_move` natural trigger fired: `awaiting_heroic_intervention=true`, eligible_units=[Contemptor-Achillus, Telemon]. UI dialog rendered with both. USE_HEROIC_INTERVENTION on Telemon → CP 4→3, 2D6=[1,2]=3 (charge failed cleanly because rolled distance < min). Screenshots: `hi_fixture_full.png`, `hi_fixture_dialog.png`. |
+| `ri_pretrigger.w40ksave` | Phase=MOVEMENT, P2 active, battle_round=2. P1's Caladius in IN_RESERVES from baseline. P2 deployed units at default positions. | END_MOVEMENT | 🎯 `_continue_end_movement_after_grot_oiler` natural trigger fired: `awaiting_rapid_ingress=true`, `rapid_ingress_player=1`, eligible_units=[Caladius Grav-tank]. UI dialog rendered: "Select a reserve unit to bring in: [SR] Caladius Grav-tank — Arrive (1 CP)". USE_RAPID_INGRESS on Caladius → CP 4→3. Screenshot: `ri_fixture_dialog.png`. |
+
+All three deferred-action stratagems (CO, HI, RI) now have committed fixture saves in `40k/tests/saves/` that replay end-to-end with full UI rendering. The natural trigger emission code path is exercised in each, with visual + data consistency throughout.
+
 ### Coverage summary
 
 Updated 2026-05-04 after option-3 sweep (the remaining 5 ❌ stratagems walked through `use_stratagem` direct invocation; effect-application path verified for all 5; UI eligibility/scenario gates documented separately).
