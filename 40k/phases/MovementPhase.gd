@@ -445,13 +445,13 @@ func _check_thievin_scavengers() -> void:
 		return
 
 	# Roll 1D6 per qualifying objective
-	var rng = RandomNumberGenerator.new()
-	rng.randomize()
+	# Issue #329: route through RNGService so static test_mode_seed applies
+	var rng = RulesEngine.RNGService.new()
 	var rolls: Array = []
 	var any_success = false
 
 	for obj in qualifying_objectives:
-		var roll = rng.randi_range(1, 6)
+		var roll = rng.rng.randi_range(1, 6)
 		rolls.append({"objective_id": obj.id, "roll": roll, "success": roll >= 4})
 		if roll >= 4:
 			any_success = true
@@ -1546,7 +1546,9 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 		print("MovementPhase: WARNING — StratagemManager not found, cannot deduct CP")
 
 	# Re-roll D6
-	var rng_service = RulesEngine.RNGService.new()
+	# Issue #329: honor payload.rng_seed
+	var reroll_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var rng_service = RulesEngine.RNGService.new(reroll_seed)
 	var new_rolls = rng_service.roll_d6(1)
 	var new_advance = new_rolls[0]
 
@@ -1748,7 +1750,9 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 		strat_manager.set_out_of_phase_active(true, player, unit_id)
 
 	# Resolve Overwatch shooting using RulesEngine
-	var ow_shooting_result = _resolve_overwatch_shooting(unit_id, enemy_unit_id, player)
+	# Issue #329: forward action.payload.rng_seed
+	var mov_ow_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var ow_shooting_result = _resolve_overwatch_shooting(unit_id, enemy_unit_id, player, mov_ow_seed)
 
 	# P1-59: Clear out-of-phase flag after overwatch resolves
 	if strat_manager:
@@ -1938,7 +1942,9 @@ func _process_use_bomb_squigs(action: Dictionary) -> Dictionary:
 		print("║ P2-25: Bomb Squig #%d used" % squig_index)
 
 	# Resolve: roll 1D6, on 3+ the target suffers D3 mortal wounds
-	var result = _resolve_bomb_squigs(unit_id, target_unit_id)
+	# Issue #329: forward action.payload.rng_seed
+	var bs_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var result = _resolve_bomb_squigs(unit_id, target_unit_id, bs_seed)
 
 	var all_changes = cached_changes.duplicate()
 	all_changes.append_array(result.get("diffs", []))
@@ -2047,7 +2053,9 @@ func _process_use_deff_from_above(action: Dictionary) -> Dictionary:
 		return create_result(true, cached_changes, "", {"dice": cached_dice})
 
 	# Resolve: roll D6 per model in unit, on 4+ = 1 mortal wound each
-	var result = _resolve_deff_from_above(unit_id, target_unit_id)
+	# Issue #329: forward action.payload.rng_seed
+	var dfa_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var result = _resolve_deff_from_above(unit_id, target_unit_id, dfa_seed)
 
 	var all_changes = cached_changes.duplicate()
 	all_changes.append_array(result.get("diffs", []))
@@ -2163,11 +2171,11 @@ func _get_units_moved_over(unit_id: String, move_data: Dictionary) -> Array:
 
 	return result
 
-func _resolve_deff_from_above(unit_id: String, target_unit_id: String) -> Dictionary:
+func _resolve_deff_from_above(unit_id: String, target_unit_id: String, rng_seed: int = -1) -> Dictionary:
 	"""Resolve Deff from Above: roll D6 per model in unit, 4+ = 1 mortal wound each.
 	Returns {diffs: Array, mortal_wounds: int, casualties: int, rolls: Array, log_text: String}."""
-	var rng = RandomNumberGenerator.new()
-	rng.randomize()
+	# Issue #329: route through RNGService; seed forwarded by caller (action.payload.rng_seed)
+	var rng = RulesEngine.RNGService.new(rng_seed)
 
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
@@ -2183,7 +2191,7 @@ func _resolve_deff_from_above(unit_id: String, target_unit_id: String) -> Dictio
 	var rolls = []
 	var mortal_wounds = 0
 	for i in range(alive_models):
-		var roll = rng.randi_range(1, 6)
+		var roll = rng.rng.randi_range(1, 6)
 		rolls.append(roll)
 		if roll >= 4:
 			mortal_wounds += 1
@@ -2572,12 +2580,10 @@ func _process_use_mekaniak(action: Dictionary) -> Dictionary:
 	var mekaniak_changes = []
 
 	# Roll D3 for healing
-	var rng = RulesEngine.rng if RulesEngine else null
-	var d3_roll = 0
-	if rng:
-		d3_roll = rng.roll_d3()
-	else:
-		d3_roll = (randi() % 3) + 1
+	# Issue #329: route through RNGService; honor action.payload.rng_seed
+	var mek_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var mek_rng = RulesEngine.RNGService.new(mek_seed)
+	var d3_roll = mek_rng.rng.randi_range(1, 3)
 	print("MovementPhase: Mekaniak D3 heal roll = %d" % d3_roll)
 
 	# Find the target model and heal up to D3 wounds
@@ -2856,7 +2862,10 @@ func _process_use_grot_oiler(action: Dictionary) -> Dictionary:
 	var heal_changes = []
 
 	# Roll D3 for healing amount
-	var d6_roll = randi() % 6 + 1
+	# Issue #329: route through RNGService; honor action.payload.rng_seed
+	var go_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var go_rng = RulesEngine.RNGService.new(go_seed)
+	var d6_roll = go_rng.rng.randi_range(1, 6)
 	var d3_result = int(ceil(float(d6_roll) / 2.0))  # 1-2=1, 3-4=2, 5-6=3
 	print("MovementPhase: Grot Oiler D3 roll — D6=%d → D3=%d" % [d6_roll, d3_result])
 	log_phase_message("GROT OILER: D3 roll — D6=%d → D3=%d wounds to heal" % [d6_roll, d3_result])
@@ -3029,13 +3038,13 @@ func _get_unit_center(unit: Dictionary) -> Variant:
 		center += p
 	return center / positions.size()
 
-func _resolve_bomb_squigs(unit_id: String, target_unit_id: String) -> Dictionary:
+func _resolve_bomb_squigs(unit_id: String, target_unit_id: String, rng_seed: int = -1) -> Dictionary:
 	"""Resolve Bomb Squigs: roll 1D6, on 3+ target suffers D3 mortal wounds.
 	Returns {diffs: Array, mortal_wounds: int, casualties: int, success: bool, roll: int, log_text: String}."""
-	var rng = RandomNumberGenerator.new()
-	rng.randomize()
+	# Issue #329: route through RNGService; seed forwarded by caller (action.payload.rng_seed)
+	var rng = RulesEngine.RNGService.new(rng_seed)
 
-	var roll = rng.randi_range(1, 6)
+	var roll = rng.rng.randi_range(1, 6)
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
 
@@ -3053,7 +3062,7 @@ func _resolve_bomb_squigs(unit_id: String, target_unit_id: String) -> Dictionary
 		}
 
 	# D3 mortal wounds
-	var mortal_wounds = rng.randi_range(1, 3)
+	var mortal_wounds = rng.rng.randi_range(1, 3)
 	print("║ P2-25: Bomb Squigs — HIT! D3 = %d mortal wounds on %s" % [mortal_wounds, target_name])
 
 	# Apply mortal wounds to target
@@ -3483,7 +3492,7 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 	log_phase_message("=== END_MOVEMENT COMPLETE (post-Rapid Ingress) ===")
 	return create_result(true, changes)
 
-func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: String, player: int) -> Dictionary:
+func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: String, player: int, rng_seed: int = -1) -> Dictionary:
 	"""
 	Resolve Overwatch shooting. Uses the normal shooting resolution but forces
 	all hit rolls to only succeed on unmodified 6s (per 10e Overwatch rules).
@@ -3531,8 +3540,10 @@ func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: Strin
 	}
 
 	# Use RulesEngine.resolve_shoot for full resolution
+	# Issue #329: forward rng_seed from caller (action.payload.rng_seed)
 	var board = game_state_snapshot
-	var rng = RulesEngine.RNGService.new()
+	shoot_action["payload"]["rng_seed"] = rng_seed
+	var rng = RulesEngine.RNGService.new(rng_seed)
 	var shoot_result = RulesEngine.resolve_shoot(shoot_action, board, rng)
 
 	log_phase_message("FIRE OVERWATCH result: %s fired at %s — %s" % [

@@ -22,7 +22,7 @@ signal command_reroll_completed(original_rolls: Array, new_rolls: Array, context
 var _units_needing_test: Array = []
 var _units_tested: Array = []
 var _units_auto_passed: Array = []  # Units that auto-passed via Insane Bravery
-var _rng: RandomNumberGenerator
+var _rng  # RulesEngine.RNGService — picks up test_mode_seed via PR #346
 var _awaiting_reroll_decision: bool = false
 var _reroll_pending_unit_id: String = ""
 var _reroll_pending_roll: Dictionary = {}  # Stores {die1, die2, unit_id, leadership}
@@ -30,8 +30,8 @@ var _newly_drawn_missions: Array = []  # Missions drawn this phase, for review d
 var _fix_dat_armour_up_used: Array = []  # Units that used Fix Dat Armour Up this command phase
 
 func _init():
-	_rng = RandomNumberGenerator.new()
-	_rng.randomize()
+	# Issue #329: route through RNGService so static test_mode_seed applies
+	_rng = RulesEngine.RNGService.new()
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.COMMAND
@@ -697,16 +697,19 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	var leadership = unit.get("meta", {}).get("stats", {}).get("leadership", 7)
 
 	# Roll 2D6 (allow override for testing via dice_roll parameter)
+	# Issue #329: honor payload.rng_seed when supplied; otherwise reuse persistent _rng
+	var rng_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var rng_inst = RulesEngine.RNGService.new(rng_seed) if rng_seed >= 0 else _rng
 	var die1: int
 	var die2: int
 	if action.has("dice_roll"):
 		# Accept pre-set roll for deterministic testing
 		var roll = action.get("dice_roll", [])
-		die1 = roll[0] if roll.size() > 0 else _rng.randi_range(1, 6)
-		die2 = roll[1] if roll.size() > 1 else _rng.randi_range(1, 6)
+		die1 = roll[0] if roll.size() > 0 else rng_inst.rng.randi_range(1, 6)
+		die2 = roll[1] if roll.size() > 1 else rng_inst.rng.randi_range(1, 6)
 	else:
-		die1 = _rng.randi_range(1, 6)
-		die2 = _rng.randi_range(1, 6)
+		die1 = rng_inst.rng.randi_range(1, 6)
+		die2 = rng_inst.rng.randi_range(1, 6)
 
 	var roll_total = die1 + die2
 
@@ -919,8 +922,11 @@ func _handle_use_command_reroll(action: Dictionary) -> Dictionary:
 			return _resolve_battle_shock_test(unit_id, old_roll.die1, old_roll.die2)
 
 	# Re-roll 2D6
-	var new_die1 = _rng.randi_range(1, 6)
-	var new_die2 = _rng.randi_range(1, 6)
+	# Issue #329: honor payload.rng_seed; fall back to persistent _rng (RNGService)
+	var reroll_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var reroll_rng = RulesEngine.RNGService.new(reroll_seed) if reroll_seed >= 0 else _rng
+	var new_die1 = reroll_rng.rng.randi_range(1, 6)
+	var new_die2 = reroll_rng.rng.randi_range(1, 6)
 	var new_total = new_die1 + new_die2
 
 	log_phase_message("COMMAND RE-ROLL: Battle-shock re-rolled from %d (%d+%d) → %d (%d+%d)" % [
@@ -1580,9 +1586,10 @@ func _handle_use_grot_orderly(action: Dictionary) -> Dictionary:
 	bodyguard_unit_id = go_info.bodyguard_unit_id
 
 	# Roll D3 to determine how many models to return
-	var rng = RandomNumberGenerator.new()
-	rng.randomize()
-	var d3_roll = rng.randi_range(1, 3)
+	# Issue #329: route through RNGService so payload.rng_seed and test_mode_seed apply
+	var rng_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var rng = RulesEngine.RNGService.new(rng_seed)
+	var d3_roll = rng.rng.randi_range(1, 3)
 	var destroyed_count = go_info.destroyed_count
 	var models_to_return = mini(d3_roll, destroyed_count)
 

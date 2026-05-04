@@ -10,7 +10,7 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 # - If tied, re-roll until there is a winner
 # - The player who goes first is the Attacker; the other is the Defender
 
-var _rng: RandomNumberGenerator
+var _rng  # RulesEngine.RNGService — picks up test_mode_seed via PR #346
 var _player1_roll: int = 0
 var _player2_roll: int = 0
 var _roll_off_winner: int = 0  # Player who won the roll-off (gets to choose)
@@ -19,8 +19,8 @@ var _roll_complete: bool = false
 var _choice_made: bool = false
 
 func _init():
-	_rng = RandomNumberGenerator.new()
-	_rng.randomize()
+	# Issue #329: route through RNGService so static test_mode_seed applies
+	_rng = RulesEngine.RNGService.new()
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.ROLL_OFF
@@ -106,13 +106,16 @@ func _handle_roll_for_first_turn(action: Dictionary) -> Dictionary:
 	var p1_roll: int
 	var p2_roll: int
 
+	# Issue #329: honor payload.rng_seed when provided; fall back to persistent _rng
+	var rng_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var rng_inst = RulesEngine.RNGService.new(rng_seed) if rng_seed >= 0 else _rng
 	if action.has("dice_roll"):
 		var rolls = action.get("dice_roll", [])
-		p1_roll = rolls[0] if rolls.size() > 0 else _rng.randi_range(1, 6)
-		p2_roll = rolls[1] if rolls.size() > 1 else _rng.randi_range(1, 6)
+		p1_roll = rolls[0] if rolls.size() > 0 else rng_inst.rng.randi_range(1, 6)
+		p2_roll = rolls[1] if rolls.size() > 1 else rng_inst.rng.randi_range(1, 6)
 	else:
-		p1_roll = _rng.randi_range(1, 6)
-		p2_roll = _rng.randi_range(1, 6)
+		p1_roll = rng_inst.rng.randi_range(1, 6)
+		p2_roll = rng_inst.rng.randi_range(1, 6)
 
 	_player1_roll = p1_roll
 	_player2_roll = p2_roll

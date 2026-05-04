@@ -1563,9 +1563,9 @@ func use_da_kaptin(player: int, target_unit_id: String) -> Dictionary:
 		return {"success": false, "error": "Target %s is not an eligible Da Kaptin target" % target_unit_id}
 
 	# Roll D3 for mortal wounds
-	var rng = RandomNumberGenerator.new()
-	rng.randomize()
-	var d3_roll = rng.randi_range(1, 3)
+	# Issue #329: route through RNGService so static test_mode_seed applies
+	var rng = RulesEngine.RNGService.new()
+	var d3_roll = rng.rng.randi_range(1, 3)
 
 	# Apply mortal wounds
 	var board = GameState.create_snapshot()
@@ -1645,9 +1645,9 @@ func resolve_bionik_workshop(player: int) -> Dictionary:
 		return {"success": false, "error": "Bionik Workshop already resolved for %s" % bearer_id}
 
 	# Roll D3
-	var rng = RandomNumberGenerator.new()
-	rng.randomize()
-	var d3_roll = rng.randi_range(1, 3)
+	# Issue #329: route through RNGService so static test_mode_seed applies
+	var rng = RulesEngine.RNGService.new()
+	var d3_roll = rng.rng.randi_range(1, 3)
 
 	var bonus_type = ""
 	var bonus_description = ""

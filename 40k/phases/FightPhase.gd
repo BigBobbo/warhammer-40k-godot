@@ -1284,7 +1284,9 @@ func _is_defender_human_player() -> bool:
 
 # P0-58: Interactive path — resolve hits and wounds, then emit saves_required for defender
 func _process_roll_dice_interactive(melee_action: Dictionary) -> Dictionary:
-	var rng_service = RulesEngine.RNGService.new()
+	# Issue #329: honor melee_action.payload.rng_seed
+	var rdi_seed: int = melee_action.get("payload", {}).get("rng_seed", -1)
+	var rng_service = RulesEngine.RNGService.new(rdi_seed)
 	var result = RulesEngine.resolve_melee_attacks_interactive(melee_action, game_state_snapshot, rng_service)
 
 	if not result.success:
@@ -1357,7 +1359,9 @@ func _process_roll_dice_interactive(melee_action: Dictionary) -> Dictionary:
 
 # Original auto-resolve path (for AI defenders)
 func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
-	var rng_service = RulesEngine.RNGService.new()
+	# Issue #329: honor melee_action.payload.rng_seed
+	var rda_seed: int = melee_action.get("payload", {}).get("rng_seed", -1)
+	var rng_service = RulesEngine.RNGService.new(rda_seed)
 	var result = RulesEngine.resolve_melee_attacks(melee_action, game_state_snapshot, rng_service)
 
 	# Debug logging for state changes
@@ -1556,7 +1560,9 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 
 		# Apply damage using RulesEngine
 		if not save_results.is_empty():
-			var fnp_rng = RulesEngine.RNGService.new()
+			# Issue #329: honor action.payload.rng_seed
+			var ams_seed: int = action.get("payload", {}).get("rng_seed", -1)
+			var fnp_rng = RulesEngine.RNGService.new(ams_seed)
 			var damage_result = RulesEngine.apply_save_damage(
 				save_results,
 				save_data,
@@ -1680,7 +1686,9 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 			var hs_target_id = sd.get("target_unit_id", "")
 			var hs_target_name = sd.get("target_unit_name", "Unknown")
 			print("[FightPhase] OA-19: HOLD STILL AND SAY 'AARGH!' — applying %d mortal wounds to %s" % [hs_mw, hs_target_name])
-			var hs_rng = RulesEngine.RNGService.new()
+			# Issue #329: honor action.payload.rng_seed
+			var hs_seed: int = action.get("payload", {}).get("rng_seed", -1)
+			var hs_rng = RulesEngine.RNGService.new(hs_seed)
 			var hs_result = RulesEngine.apply_mortal_wounds(hs_target_id, hs_mw, game_state_snapshot, hs_rng)
 			all_diffs.append_array(hs_result.get("diffs", []))
 			var hs_casualties = hs_result.get("casualties", 0)

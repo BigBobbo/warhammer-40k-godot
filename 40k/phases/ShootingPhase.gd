@@ -55,7 +55,7 @@ var awaiting_pulsa_rokkit: bool = false  # OA-31: True when waiting for Pulsa Ro
 var shooty_power_trip_pending_unit: String = ""  # OA-37: Unit awaiting Shooty Power Trip decision
 var awaiting_shooty_power_trip: bool = false  # OA-37: True when waiting for Shooty Power Trip response
 var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
-var _rng = RandomNumberGenerator.new()  # P1-11: RNG for battle-shock tests
+var _rng = RulesEngine.RNGService.new()  # P1-11: RNG for battle-shock tests (issue #329: routes through test_mode_seed)
 
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
@@ -993,16 +993,20 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	emit_signal("dice_rolled", resolution_start_block)
 
 	# Build full shoot action for RulesEngine
+	# Issue #329: forward action.payload.rng_seed into the dispatched shoot_action so RulesEngine
+	# routes it through RNGService (deterministic when test_mode_seed or explicit seed is set)
+	var rs_seed: int = action.get("payload", {}).get("rng_seed", -1)
 	var shoot_action = {
 		"type": "SHOOT",
 		"actor_unit_id": active_shooter_id,
 		"payload": {
-			"assignments": confirmed_assignments
+			"assignments": confirmed_assignments,
+			"rng_seed": rs_seed
 		}
 	}
 
 	# Resolve with RulesEngine UP TO WOUNDS (interactive saves)
-	var rng_service = RulesEngine.RNGService.new()
+	var rng_service = RulesEngine.RNGService.new(rs_seed)
 	var result = RulesEngine.resolve_shoot_until_wounds(shoot_action, game_state_snapshot, rng_service)
 
 	if not result.success:
@@ -1076,7 +1080,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		var hazardous_weapons_on_miss = result.get("hazardous_weapons", [])
 		if not hazardous_weapons_on_miss.is_empty():
 			print("║ HAZARDOUS: Processing %d hazardous weapon check(s) despite miss" % hazardous_weapons_on_miss.size())
-			var haz_rng = RulesEngine.RNGService.new()
+			var haz_rng = RulesEngine.RNGService.new(rs_seed)  # Issue #329: forward seed
 			for haz_weapon in hazardous_weapons_on_miss:
 				var haz_result = RulesEngine.resolve_hazardous_check(
 					active_shooter_id,
@@ -1796,6 +1800,8 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	# Does NOT emit UI signals (weapon_order_required, next_weapon_confirmation_required,
 	# saves_required) to avoid creating orphaned dialogs during AI play.
 	var unit_id = action.get("actor_unit_id", "")
+	# Issue #329: extract action.payload.rng_seed once for all sub-rolls in this method
+	var ps_seed: int = action.get("payload", {}).get("rng_seed", -1)
 
 	print("╔═══════════════════════════════════════════════════════════════")
 	print("║ AI SHOOT (atomic): Starting for unit %s" % unit_id)
@@ -1873,17 +1879,17 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	# OA-37: AI auto-use Shooty Power Trip if available
 	var ability_mgr_spt_ai = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr_spt_ai and ability_mgr_spt_ai.has_shooty_power_trip(unit_id):
-		var ai_d6_roll = _rng.randi_range(1, 6)
+		var ai_d6_roll = _rng.rng.randi_range(1, 6)
 		var ai_spt_unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 		print("║ AI SHOOT: OA-37 Shooty Power Trip — auto-rolling for %s (D6 = %d)" % [unit_id, ai_d6_roll])
 
 		if ai_d6_roll <= 2:
 			# 1-2: D3 mortal wounds to self
-			var ai_d3_roll = _rng.randi_range(1, 6)
+			var ai_d3_roll = _rng.rng.randi_range(1, 6)
 			var ai_mortal_wounds = ((ai_d3_roll - 1) / 2) + 1
 			print("║ AI SHOOT: OA-37 Shooty Power Trip — D3 mortal wounds to self (D3 = %d, MW = %d)" % [ai_d3_roll, ai_mortal_wounds])
 
-			var ai_rng_service = RulesEngine.RNGService.new()
+			var ai_rng_service = RulesEngine.RNGService.new(ps_seed)  # Issue #329: forward seed
 			var ai_mw_result = RulesEngine.apply_mortal_wounds(unit_id, ai_mortal_wounds, game_state_snapshot, ai_rng_service)
 			var ai_mw_diffs = ai_mw_result.get("diffs", [])
 			if not ai_mw_diffs.is_empty():
@@ -1952,15 +1958,17 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	log_phase_message("AI: Confirmed %d weapon assignments for %s" % [confirmed_assignments.size(), unit_id])
 
 	# Step 3: Resolve shooting (hits + wounds) via RulesEngine
+	# Issue #329: forward action.payload.rng_seed to RulesEngine
 	var shoot_action = {
 		"type": "SHOOT",
 		"actor_unit_id": active_shooter_id,
 		"payload": {
-			"assignments": confirmed_assignments
+			"assignments": confirmed_assignments,
+			"rng_seed": ps_seed
 		}
 	}
 
-	var rng_service = RulesEngine.RNGService.new()
+	var rng_service = RulesEngine.RNGService.new(ps_seed)
 	var result = RulesEngine.resolve_shoot_until_wounds(shoot_action, game_state_snapshot, rng_service)
 
 	if not result.success:
@@ -1997,7 +2005,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	var hazardous_weapons = result.get("hazardous_weapons", [])
 	if not hazardous_weapons.is_empty():
 		print("║ AI SHOOT: Processing %d hazardous weapon check(s)" % hazardous_weapons.size())
-		var haz_rng = RulesEngine.RNGService.new()
+		var haz_rng = RulesEngine.RNGService.new(ps_seed)  # Issue #329: forward seed
 		for haz_weapon in hazardous_weapons:
 			var haz_result = RulesEngine.resolve_hazardous_check(
 				active_shooter_id,
@@ -4044,8 +4052,8 @@ func _resolve_sanctified_flames_battle_shock(shooter_unit_id: String, target_uni
 		return []
 
 	# Roll 2D6 for Battle-shock test
-	var die1 = _rng.randi_range(1, 6)
-	var die2 = _rng.randi_range(1, 6)
+	var die1 = _rng.rng.randi_range(1, 6)
+	var die2 = _rng.rng.randi_range(1, 6)
 	var roll_total = die1 + die2
 	var test_passed = roll_total >= leadership
 
@@ -4260,7 +4268,7 @@ func _resolve_throat_slittas(unit_id: String) -> Dictionary:
 		var rolls: Array = []
 		var mortal_wounds = 0
 		for i in range(models_in_range):
-			var roll = _rng.randi_range(1, 6)
+			var roll = _rng.rng.randi_range(1, 6)
 			rolls.append(roll)
 			if roll >= 5:
 				mortal_wounds += 1
@@ -4740,7 +4748,10 @@ func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
 	shooty_power_trip_pending_unit = ""
 
 	# Roll D6 to determine effect
-	var d6_roll = _rng.randi_range(1, 6)
+	# Issue #329: honor payload.rng_seed; fall back to persistent _rng
+	var spt_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var spt_rng = RulesEngine.RNGService.new(spt_seed) if spt_seed >= 0 else _rng
+	var d6_roll = spt_rng.rng.randi_range(1, 6)
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var diffs = []
 	var effect_name = ""
@@ -4750,13 +4761,13 @@ func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
 	if d6_roll <= 2:
 		# 1-2: D3 mortal wounds to self
 		effect_name = "self_damage"
-		var d3_roll = _rng.randi_range(1, 6)
+		var d3_roll = spt_rng.rng.randi_range(1, 6)
 		var mortal_wounds = ((d3_roll - 1) / 2) + 1  # 1-2→1, 3-4→2, 5-6→3
 		print("║ OA-37: Result 1-2 — D3 mortal wounds to self (D3 roll = %d, MW = %d)" % [d3_roll, mortal_wounds])
 
 		# Apply mortal wounds to the unit
 		var board = game_state_snapshot
-		var rng_service = RulesEngine.RNGService.new()
+		var rng_service = RulesEngine.RNGService.new(spt_seed)
 		var mw_result = RulesEngine.apply_mortal_wounds(unit_id, mortal_wounds, board, rng_service)
 		diffs.append_array(mw_result.get("diffs", []))
 
@@ -4879,6 +4890,8 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 	print("║ resolution_state: ", resolution_state)
 	print("║ pending_save_data.size(): ", pending_save_data.size())
 	print("╚═══════════════════════════════════════════════════════════════")
+	# Issue #329: extract action.payload.rng_seed once for all sub-rolls in this method
+	var pas_seed: int = action.get("payload", {}).get("rng_seed", -1)
 
 	var payload = action.get("payload", {})
 	var save_results_list = payload.get("save_results_list", [])
@@ -4931,7 +4944,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			save_data["devastating_damage"] = devastating_damage
 
 		# Apply damage using RulesEngine (with RNG for Feel No Pain rolls)
-		var fnp_rng = RulesEngine.RNGService.new()
+		var fnp_rng = RulesEngine.RNGService.new(pas_seed)  # Issue #329: forward seed
 		var damage_result = RulesEngine.apply_save_damage(
 			save_results,
 			save_data,
@@ -5091,7 +5104,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		print("╔═══════════════════════════════════════════════════════════════")
 		print("║ HAZARDOUS CHECK — Processing %d hazardous weapon(s)" % pending_hazardous_weapons.size())
 		print("╚═══════════════════════════════════════════════════════════════")
-		var haz_rng = RulesEngine.RNGService.new()
+		var haz_rng = RulesEngine.RNGService.new(pas_seed)  # Issue #329: forward seed
 		for haz_weapon in pending_hazardous_weapons:
 			var haz_result = RulesEngine.resolve_hazardous_check(
 				active_shooter_id,
