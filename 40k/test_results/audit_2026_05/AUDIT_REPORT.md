@@ -366,6 +366,23 @@ Demonstrated 2026-05-04. Full sequence with Godot's BattleScene loaded and visib
 
 **Bottom line**: the natural trigger emission from `_process_consolidate` in FightPhase fires both the autoload-level state change (verified earlier) AND the proper UI dialog (verified now via screenshots). End-to-end, including UI rendering, signal-to-controller wiring, and game event logging.
 
+### Visual-consistent re-run via `co_pretrigger.w40ksave` fixture
+
+**Caveat addressed.** The earlier screenshot run had a known gap: positioning Warboss via direct `state.units[..].position.merge({...})` from `execute_script` mutates `GameState` but doesn't emit the diff signals that the `TokenLayer` UI listens for. So the dialogs and game logic operated on logically-engaged units, but the rendered board still showed Warboss at his initial deployment position. The COUNTER-OFFENSIVE dialog was correct at the data layer, but the visual board was inconsistent.
+
+To address: built `co_pretrigger.w40ksave` by mutating state into the desired pre-CONSOLIDATE position, then calling `SaveLoadManager.save_game("co_pretrigger")`. The save serializes from the now-mutated `GameState`. Restarted Godot fresh, loaded the fixture via the proper `from_save` flow + `change_scene_to_file("res://scenes/Main.tscn")`. The Main scene's `_ready()` now reads positions from the saved file — so the rendered tokens reflect the saved positions.
+
+| Step | Screenshot | What we see |
+|---|---|---|
+| 1 | `co_fixture_loaded.png` | Fight phase loaded, "FIGHTS FIRST" subphase, Warboss eligible, "1 unit remaining". Right panel: Fight Sequence shows Warboss [ACTIVE] + Custodian Guard. State is consistent: positions came from disk. |
+| 2 | `co_fixture_pilein.png` | After SELECT_FIGHTER + DECLINE_EPIC_CHALLENGE: "Pile In to Warboss Alpha" dialog. |
+| 3 | `co_fixture_co_offer.png` | After CONSOLIDATE: 🎯 **Counter-Offensive Available - Player 1** dialog naturally fires. Cost 2 CP (You have 4 CP). Custodian Guard offered as Fight Next. Auto-declining countdown ticking. |
+| 4 | `co_fixture_after_use.png` | After USE_COUNTER_OFFENSIVE: "Assign Attacks: Custodian Guard" dialog opens — and critically, **"Models in engagement range: 2/4"** — the engagement-range geometry check confirms 2 of 4 Custodian Guard models are within 1" of Warboss, proving visual + data consistency. Game log: "P1: Used COUNTER-OFFENSIVE (2 CP) on Custodian Guard". |
+
+The "2/4 in engagement range" badge is the definitive proof the saved fixture loaded with consistent visual + data state. The earlier run's data-layer-only consistency is now upgraded to full visual + data consistency.
+
+**Methodology verdict**: For tests requiring engagement / charge / specific positioning, the **fixture-save pattern** is the right approach. State-mutation shortcuts via `execute_script` work for testing autoload logic but produce visually-inconsistent boards. The codebase already uses fixture-saves for other tests (`tests/saves/End of Deploy.w40ksave`, `Move Start.w40ksave`, etc.) — `co_pretrigger.w40ksave` joins that family.
+
 ### Coverage summary
 
 Updated 2026-05-04 after option-3 sweep (the remaining 5 ❌ stratagems walked through `use_stratagem` direct invocation; effect-application path verified for all 5; UI eligibility/scenario gates documented separately).
