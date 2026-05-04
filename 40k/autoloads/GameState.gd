@@ -7,6 +7,9 @@ class_name GameStateData
 enum Phase { FORMATIONS, DEPLOYMENT, REDEPLOYMENT, ROLL_OFF, SCOUT, SCOUT_MOVES, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
 enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT, IN_RESERVES }
 
+# 10e Core Rules: "The battle lasts five battle rounds."
+const MAX_BATTLE_ROUNDS: int = 5
+
 # The complete game state as a dictionary
 var state: Dictionary = {}
 
@@ -774,7 +777,9 @@ func advance_battle_round() -> void:
 	print("GameState: Advanced to battle round ", get_battle_round())
 
 func is_game_complete() -> bool:
-	return get_battle_round() > 5
+	if state.get("meta", {}).get("game_ended", false):
+		return true
+	return get_battle_round() > MAX_BATTLE_ROUNDS
 
 # CP Cap — Per core rules FAQ:
 # "Outside of the 1CP players gain at the start of the Command phase,
