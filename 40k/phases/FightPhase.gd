@@ -429,6 +429,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_batch_fight_actions(action)
 		"APPLY_MELEE_SAVES":
 			return _validate_apply_melee_saves(action)
+		"USE_STRATAGEM":
+			return _validate_use_stratagem(action)
 		"END_CHARGE":
 			# Idempotent no-op: previous phase auto-advanced before END_CHARGE was dispatched.
 			return {"valid": true}
@@ -481,6 +483,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_batch_fight_actions(action)
 		"APPLY_MELEE_SAVES":
 			return _process_apply_melee_saves(action)
+		"USE_STRATAGEM":
+			return _process_use_stratagem(action)
 		"END_CHARGE":
 			return create_result(true, [], "")
 		_:
@@ -4260,3 +4264,47 @@ func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 				for grandchild in child.get_children():
 					if grandchild.has_method("play_animation"):
 						grandchild.play_animation(anim_name)
+
+# ============================================================================
+# STRATAGEM HANDLING (active stratagems with phase: "fight")
+# Mirrors CommandPhase._validate_use_stratagem / _process_use_stratagem.
+# ============================================================================
+
+func _validate_use_stratagem(action: Dictionary) -> Dictionary:
+	var errors = []
+	var stratagem_id = action.get("stratagem_id", "")
+
+	if stratagem_id == "":
+		errors.append("Missing stratagem_id")
+		return {"valid": false, "errors": errors}
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		errors.append("StratagemManager not available")
+		return {"valid": false, "errors": errors}
+
+	var target_unit_id = action.get("target_unit_id", "")
+	var current_player = get_current_player()
+	var validation = strat_manager.can_use_stratagem(current_player, stratagem_id, target_unit_id)
+	if not validation.can_use:
+		errors.append(validation.reason)
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
+
+func _process_use_stratagem(action: Dictionary) -> Dictionary:
+	var stratagem_id = action.get("stratagem_id", "")
+	var target_unit_id = action.get("target_unit_id", "")
+	var current_player = get_current_player()
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		return create_result(false, [], "StratagemManager not available")
+
+	var result = strat_manager.use_stratagem(current_player, stratagem_id, target_unit_id)
+	if not result.get("success", false):
+		return create_result(false, [], result.get("error", "Stratagem use failed"))
+
+	var strat_name = result.get("stratagem_name", stratagem_id)
+	print("FightPhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id])
+	return create_result(true, result.get("diffs", []), "Used " + strat_name)
