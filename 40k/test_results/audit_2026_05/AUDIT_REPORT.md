@@ -161,6 +161,10 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 | t2.m4 | FLY ignores terrain | Move Jetbike through ruins | (deferred to next session) | — | deferred | — |
 | t2.m5 | Strategic Reserves blocked Round 1 | PLACE_REINFORCEMENT on Caladius in Round 1 | Reject with appropriate error | "Reserves cannot arrive until Battle Round 2 (currently Round 1)" ✓ | pass | — |
 | t2.m6 | Base-touching tolerance (#321/#327 regression) | 32mm bases at 50.0px (0.4px under touching boundary) | Allowed within 0.5px tolerance | (deferred — needs precise positioning setup) | deferred | — |
+| t2.m7 | Engaged unit restricted to Fall Back / Remain Stationary | WARBOSS_B engaged with Telemon (post-charge from prior turn) shows action menu | Only BEGIN_FALL_BACK and REMAIN_STATIONARY available — no normal move/advance | ✓ exactly those two options offered | pass | — |
+| t2.m8 | Fall Back sets cannot_shoot/cannot_charge | BEGIN_FALL_BACK on engaged unit | flags.fell_back / cannot_shoot / cannot_charge all set | All three set ✓ — and Shooting/Charge phases respect the flags (rejected with "Unit cannot shoot" / "Unit cannot charge") | pass | — |
+| t2.m9 | Fall Back gates on actual movement out of engagement | CONFIRM_UNIT_MOVE after failed SET_MODEL_DEST during Fall Back | Fall Back should require leaving engagement | Engine sets fell_back=true even though unit didn't move and is still in engagement | observation | (potential bug — same root cause as movement-without-movement observation) |
+| t2.m10 | Strategic Reserves CAN arrive in Round 2 | PLACE_REINFORCEMENT for Caladius in Round 2 P1 Movement | Position set, status=DEPLOYED, arrived_from_reserves_turn tracked | All three changes applied ✓ | pass | — |
 
 ### Movement Phase observations
 - `CONFIRM_UNIT_MOVE` after a failed `SET_MODEL_DEST` succeeded with `flags.moved=true` even though no model actually moved (ended at original position). This is **probably intentional** (player "moved" 0 inches, which counts as "moved" for subsequent rules) but worth noting since it differs from `REMAIN_STATIONARY` which sets `flags.remained_stationary`. Different downstream effects (e.g., heavy weapons -1 to hit if `moved`, but unaffected if `remained_stationary`).
@@ -212,7 +216,7 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 
 | ID | Rule | Method | Expected | Observed | Status | Issue |
 |----|------|--------|----------|----------|--------|-------|
-| t2.sc1 | Initial VP allocation | Inspect VPs at end of Round 1 P1 scoring | Primary 0 (no objectives held), Secondary 0 (nothing scored yet) | P1 primary=0 ✓, **P1 secondary=5** (unexplained) | observation | (under investigation — possibly initial mission allocation bug) |
+| t2.sc1 | Initial VP allocation | Inspect VPs at end of Round 1 P1 scoring | Primary 0 (no objectives held), Secondary depends on mission state | P1 primary=0 ✓, P1 secondary=5 (resolved: Display of Might mission triggered "more_units_wholly_in_no_mans_land_than_opponent" because Telemon and Jetbike were direct-mutated into no man's land during T2.S3 shooting setup; mission moved to discard, score retained — legitimate scoring) | pass | — |
 | t2.sc2 | Player swap on END_SCORING | P1 dispatches END_SCORING | active_player → 2, phase → COMMAND, battle_round unchanged | Exactly that ✓ | pass | — |
 | t2.sc3 | Phase machinery cleanup on swap | Check WARBOSS_B.has_been_charged after swap | Should be cleared | ✓ removed via op:remove | pass | — |
 | t2.sc4 | END_<predecessor> idempotency in successor (#322 regression) | END_SCORING dispatched in COMMAND phase | Accept as no-op | success=true, changes=[] ✓ | pass | — |
@@ -232,6 +236,16 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 
 ---
 
+## Tier 4 — Cross-phase edge cases
+
+| ID | Item | Method | Expected | Observed | Status | Issue |
+|----|------|--------|----------|----------|--------|-------|
+| t4.e1 | Battle-shock test triggers on below-half unit | Reduce Witchseekers C from 4 → 1 alive, advance to next P1 Command | BATTLE_SHOCK_TEST surfaced for that unit | "Battle-shock test for Witchseekers (Ld 6)" + Insane Bravery (1 CP) stratagem both offered ✓ | pass | — |
+| t4.e1b | Battle-shock test mechanics | Dispatch BATTLE_SHOCK_TEST | 2D6 vs Ld | Rolled 6+4=10 vs Ld 6, "passed" message returned, battle_shocked=false ✓ | pass | — |
+| t4.e2 | Reserves can't move further after arrival | (covered in T2.M11) | — | **fail** ([#339](https://github.com/BigBobbo/warhammer-40k-godot/issues/339)) | fail | [#339](https://github.com/BigBobbo/warhammer-40k-godot/issues/339) |
+| t4.e3 | Movement triggers Fire Overwatch opportunity | Move Jetbike near P2 units | Engine offers Fire Overwatch | ✓ trigger_fire_overwatch=true with eligible P2 units | pass | — |
+| t4.e4 | Engaged unit fall-back flags reset at turn end | After fall-back unit's turn ends | flags cleared next round | After Round 2 P1's END_SCORING, WARBOSS_B's fell_back / cannot_shoot / cannot_charge / moved all cleared by op:remove ✓ | pass | — |
+
 ## Tier 3 — Unit abilities
 
 | ID | Item | Method | Expected | Observed | Status | Issue |
@@ -240,6 +254,7 @@ Until #329 is patched, dice tests use **multi-trial sampling** for distribution 
 | t3.a2 | Custodes Martial Mastery surfaces | Inspect P1's Round 1 Command phase | SELECT_MARTIAL_MASTERY actions for crit_on_5 and improve_ap | Both options surfaced with full description ✓ | pass | — |
 | t3.a3 | Custodes Martial Ka'tah trigger on melee | SELECT_FIGHTER on a Custodes unit | trigger_katah_stance flag returned | ✓ flag returned with katah_unit_id and master_of_the_stances_available ✓ | pass | — |
 | t3.a4 | Orks Plant Banner once-per-battle | (deferred — needs second attempt to verify lock) | — | — | deferred | — |
+| t3.a5 | Custodes Martial Mastery once-per-round lock | SELECT_MARTIAL_MASTERY twice in same Command phase | Second rejected | First (crit_on_5) succeeded with confirmation; second (improve_ap) rejected: "Martial Mastery is not available for player 1" ✓ | pass | — |
 
 ## Tier 5 — Save/load round-trips
 
