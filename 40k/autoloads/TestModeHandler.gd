@@ -847,14 +847,62 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 	# state IS updated via the unit_selected_for_shooting signal handler;
 	# exposing that would require a future get_controller_state action.
 	state_data["active_shooter_id"] = ""
+	# Expose the most recent ShootingPhase.saves_required broadcast id so
+	# multi-peer integration tests can assert the wound-allocation broadcast
+	# pipeline stamped one in (T5-MP4-RELIABILITY).
+	#
+	# Two sources are consulted, host-attacker first (authoritative emit
+	# site), then client-defender second (delivery confirmation):
+	#
+	#   1. ShootingPhase.pending_save_data[0].save_broadcast_id  (HOST)
+	#      Populated immediately before `emit_signal("saves_required", ...)`
+	#      and stays populated until APPLY_SAVES finishes. This is the same
+	#      string the defender would dedupe on and the attacker would track
+	#      in its retry budget — directly readable from the host phase.
+	#   2. ShootingController._shown_save_broadcast_ids[-1]  (CLIENT)
+	#      Each broadcast the client actually received and showed a dialog
+	#      for is appended here for dedupe. The most-recent entry is the id
+	#      the broadcast pipeline successfully delivered. Reading this is
+	#      how a client-side `get_game_state` proves the broadcast crossed
+	#      the wire — the host phase's `pending_save_data` is host-only.
+	#
+	# Both fields stay empty when neither source has anything (no broadcast
+	# has fired this phase yet, or the active phase is not Shooting).
+	state_data["save_broadcast_id"] = ""
+	state_data["pending_save_count"] = 0
 	var phase_mgr = get_node_or_null("/root/PhaseManager")
 	if phase_mgr:
 		var current_phase_inst = phase_mgr.get_current_phase_instance()
 		if current_phase_inst:
 			var script = current_phase_inst.get_script()
 			var script_path = script.resource_path if script else ""
-			if script_path.ends_with("ShootingPhase.gd") and "active_shooter_id" in current_phase_inst:
-				state_data["active_shooter_id"] = current_phase_inst.active_shooter_id
+			if script_path.ends_with("ShootingPhase.gd"):
+				if "active_shooter_id" in current_phase_inst:
+					state_data["active_shooter_id"] = current_phase_inst.active_shooter_id
+				if "pending_save_data" in current_phase_inst:
+					var pending = current_phase_inst.pending_save_data
+					if pending != null and pending is Array and not pending.is_empty():
+						state_data["pending_save_count"] = pending.size()
+						# All entries in a single saves_required emission carry
+						# the same broadcast id (stamped by _stamp_save_broadcast_id).
+						# Read from the first entry.
+						state_data["save_broadcast_id"] = pending[0].get("save_broadcast_id", "")
+
+	# Fallback for the client peer: when the host emitted a broadcast that
+	# was delivered to the client, the client's ShootingController records
+	# the id in `_shown_save_broadcast_ids` for dedupe. If the host-side
+	# read above returned empty (i.e. this is the client and its phase has
+	# no `pending_save_data`), surface the most-recent shown broadcast id
+	# instead so multi-peer tests can verify the broadcast crossed the wire.
+	if state_data["save_broadcast_id"] == "":
+		var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+		if shooting_controller and "_shown_save_broadcast_ids" in shooting_controller:
+			var shown_ids = shooting_controller._shown_save_broadcast_ids
+			if shown_ids != null and shown_ids is Array and not shown_ids.is_empty():
+				state_data["save_broadcast_id"] = str(shown_ids[shown_ids.size() - 1])
+				# `pending_save_count` reflects host-side state only; leave it
+				# at 0 here since the client doesn't track wound-batch size in
+				# this field. The id presence is the protocol-relevant signal.
 
 	return {
 		"success": true,

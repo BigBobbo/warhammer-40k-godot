@@ -35,7 +35,7 @@ Background context that applies to all three:
   Acceptance: file syntax-checks; audit suite still 423/17.
   Files: `40k/tests/integration/test_multiplayer_dice_log_sync.gd`.
 
-- [ ] Upgrade test_multiplayer_save_dialog_retry.gd with one real behavioral assertion
+- [x] Upgrade test_multiplayer_save_dialog_retry.gd with one real behavioral assertion
   Pick the basic-broadcast test method (NOT the retry path — that needs `inject_save_dialog_drop` which is queued separately). The flow:
   1. `await launch_host_and_client()` + `wait_for_connection()`.
   2. Load the shooting fixture.
