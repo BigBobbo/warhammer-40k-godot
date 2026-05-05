@@ -505,6 +505,18 @@ func _execute_command(command: Dictionary) -> Dictionary:
 			return _handle_capture_screenshot(params)
 		"save_game_state":
 			return _handle_save_game_state(params)
+		"select_shooter":
+			return _handle_select_shooter(params)
+		"assign_target":
+			return _handle_assign_target(params)
+		"clear_assignment":
+			return _handle_clear_assignment(params)
+		"confirm_targets":
+			return _handle_confirm_targets(params)
+		"complete_shooting_for_unit":
+			return _handle_complete_shooting_for_unit(params)
+		"use_grenade_stratagem":
+			return _handle_use_grenade_stratagem(params)
 		_:
 			return {
 				"success": false,
@@ -907,6 +919,282 @@ func _handle_capture_screenshot(params: Dictionary) -> Dictionary:
 			"message": "Failed to save screenshot",
 			"error": "SCREENSHOT_FAILED"
 		}
+
+# ============================================================================
+# Shooting-phase action handlers
+# ============================================================================
+#
+# Each shooting handler delegates to the same code path the UI uses by
+# invoking phase.execute_action({"type": "<UPPERCASE>", ...}) on the active
+# ShootingPhase instance. Required-param validation up-front returns a clear
+# error dict; missing/wrong phase type returns INVALID_PHASE.
+#
+# Handler contract: {"success": bool, "result": <phase result>, "message": ...}
+# Mirrors _handle_deploy_unit() above for consistency.
+
+func _get_active_shooting_phase() -> Dictionary:
+	"""Locate the active ShootingPhase instance via PhaseManager.
+
+	Returns a dict {"ok": bool, "phase": ShootingPhase | null,
+	                 "error_dict": Dictionary | null}. On failure, error_dict
+	carries a fully-formed handler-style error response that the caller can
+	return verbatim. On success, phase is the active ShootingPhase node.
+	"""
+	var phase_mgr = get_node_or_null("/root/PhaseManager")
+	if not phase_mgr:
+		return {
+			"ok": false,
+			"phase": null,
+			"error_dict": {
+				"success": false,
+				"message": "PhaseManager not found",
+				"error": "PHASE_MANAGER_NOT_FOUND"
+			}
+		}
+
+	var phase = phase_mgr.get_current_phase_instance()
+	if phase == null:
+		return {
+			"ok": false,
+			"phase": null,
+			"error_dict": {
+				"success": false,
+				"message": "No active phase instance",
+				"error": "NO_PHASE_INSTANCE"
+			}
+		}
+
+	# Verify the phase is actually a ShootingPhase. Match on script path so
+	# subclasses (none today, but guard for future) and stub phases used in
+	# headless tests both pass.
+	var script = phase.get_script()
+	var script_path = script.resource_path if script else ""
+	if not script_path.ends_with("ShootingPhase.gd"):
+		return {
+			"ok": false,
+			"phase": null,
+			"error_dict": {
+				"success": false,
+				"message": "Active phase is not ShootingPhase (got %s)" % script_path,
+				"error": "INVALID_PHASE"
+			}
+		}
+
+	return {"ok": true, "phase": phase, "error_dict": null}
+
+func _handle_select_shooter(params: Dictionary) -> Dictionary:
+	print("TestModeHandler: Handling select_shooter action")
+
+	var actor_unit_id = params.get("actor_unit_id", "")
+	if actor_unit_id == "":
+		return {
+			"success": false,
+			"message": "Missing actor_unit_id parameter",
+			"error": "MISSING_PARAMETER"
+		}
+
+	var lookup = _get_active_shooting_phase()
+	if not lookup.ok:
+		return lookup.error_dict
+
+	var action = {
+		"type": "SELECT_SHOOTER",
+		"actor_unit_id": actor_unit_id
+	}
+	var result = lookup.phase.execute_action(action)
+
+	return {
+		"success": bool(result.get("success", false)),
+		"result": result,
+		"message": "SELECT_SHOOTER dispatched for %s" % actor_unit_id
+	}
+
+func _handle_assign_target(params: Dictionary) -> Dictionary:
+	print("TestModeHandler: Handling assign_target action")
+
+	var actor_unit_id = params.get("actor_unit_id", "")
+	var target_unit_id = params.get("target_unit_id", "")
+	var weapon_id = params.get("weapon_id", "")
+	var model_ids = params.get("model_ids", [])
+
+	if actor_unit_id == "":
+		return {
+			"success": false,
+			"message": "Missing actor_unit_id parameter",
+			"error": "MISSING_PARAMETER"
+		}
+	if target_unit_id == "":
+		return {
+			"success": false,
+			"message": "Missing target_unit_id parameter",
+			"error": "MISSING_PARAMETER"
+		}
+	if weapon_id == "":
+		return {
+			"success": false,
+			"message": "Missing weapon_id parameter",
+			"error": "MISSING_PARAMETER"
+		}
+
+	var lookup = _get_active_shooting_phase()
+	if not lookup.ok:
+		return lookup.error_dict
+
+	var action = {
+		"type": "ASSIGN_TARGET",
+		"actor_unit_id": actor_unit_id,
+		"payload": {
+			"weapon_id": weapon_id,
+			"target_unit_id": target_unit_id,
+			"model_ids": model_ids
+		}
+	}
+	var result = lookup.phase.execute_action(action)
+
+	return {
+		"success": bool(result.get("success", false)),
+		"result": result,
+		"message": "ASSIGN_TARGET dispatched: %s -> %s with %s" % [actor_unit_id, target_unit_id, weapon_id]
+	}
+
+func _handle_clear_assignment(params: Dictionary) -> Dictionary:
+	print("TestModeHandler: Handling clear_assignment action")
+
+	var actor_unit_id = params.get("actor_unit_id", "")
+	if actor_unit_id == "":
+		return {
+			"success": false,
+			"message": "Missing actor_unit_id parameter",
+			"error": "MISSING_PARAMETER"
+		}
+
+	var lookup = _get_active_shooting_phase()
+	if not lookup.ok:
+		return lookup.error_dict
+
+	# CLEAR_ASSIGNMENT clears the assignment for the specified weapon. Allow
+	# the caller to optionally provide weapon_id; otherwise pull the most
+	# recent pending assignment's weapon_id from the phase (the current
+	# weapon being targeted in the UI).
+	var weapon_id = params.get("weapon_id", "")
+	if weapon_id == "":
+		var pending = lookup.phase.get("pending_assignments")
+		if pending != null and pending is Array and not pending.is_empty():
+			weapon_id = pending[pending.size() - 1].get("weapon_id", "")
+	if weapon_id == "":
+		return {
+			"success": false,
+			"message": "No weapon_id provided and no pending assignment to infer one from",
+			"error": "MISSING_PARAMETER"
+		}
+
+	var action = {
+		"type": "CLEAR_ASSIGNMENT",
+		"actor_unit_id": actor_unit_id,
+		"payload": {
+			"weapon_id": weapon_id
+		}
+	}
+	var result = lookup.phase.execute_action(action)
+
+	return {
+		"success": bool(result.get("success", false)),
+		"result": result,
+		"message": "CLEAR_ASSIGNMENT dispatched for %s weapon=%s" % [actor_unit_id, weapon_id]
+	}
+
+func _handle_confirm_targets(params: Dictionary) -> Dictionary:
+	print("TestModeHandler: Handling confirm_targets action")
+
+	var actor_unit_id = params.get("actor_unit_id", "")
+	if actor_unit_id == "":
+		return {
+			"success": false,
+			"message": "Missing actor_unit_id parameter",
+			"error": "MISSING_PARAMETER"
+		}
+
+	var lookup = _get_active_shooting_phase()
+	if not lookup.ok:
+		return lookup.error_dict
+
+	var action = {
+		"type": "CONFIRM_TARGETS",
+		"actor_unit_id": actor_unit_id
+	}
+	var result = lookup.phase.execute_action(action)
+
+	return {
+		"success": bool(result.get("success", false)),
+		"result": result,
+		"message": "CONFIRM_TARGETS dispatched for %s" % actor_unit_id
+	}
+
+func _handle_complete_shooting_for_unit(params: Dictionary) -> Dictionary:
+	print("TestModeHandler: Handling complete_shooting_for_unit action")
+
+	var actor_unit_id = params.get("actor_unit_id", "")
+	if actor_unit_id == "":
+		return {
+			"success": false,
+			"message": "Missing actor_unit_id parameter",
+			"error": "MISSING_PARAMETER"
+		}
+
+	var lookup = _get_active_shooting_phase()
+	if not lookup.ok:
+		return lookup.error_dict
+
+	var action = {
+		"type": "COMPLETE_SHOOTING_FOR_UNIT",
+		"actor_unit_id": actor_unit_id
+	}
+	var result = lookup.phase.execute_action(action)
+
+	return {
+		"success": bool(result.get("success", false)),
+		"result": result,
+		"message": "COMPLETE_SHOOTING_FOR_UNIT dispatched for %s" % actor_unit_id
+	}
+
+func _handle_use_grenade_stratagem(params: Dictionary) -> Dictionary:
+	print("TestModeHandler: Handling use_grenade_stratagem action")
+
+	# USE_GRENADE_STRATAGEM uses a different payload shape than the other
+	# shooting actions: it reads grenade_unit_id and target_unit_id directly
+	# off the action root (see _validate_use_grenade_stratagem).
+	var actor_unit_id = params.get("actor_unit_id", "")
+	var target_unit_id = params.get("target_unit_id", "")
+
+	if actor_unit_id == "":
+		return {
+			"success": false,
+			"message": "Missing actor_unit_id parameter",
+			"error": "MISSING_PARAMETER"
+		}
+	if target_unit_id == "":
+		return {
+			"success": false,
+			"message": "Missing target_unit_id parameter",
+			"error": "MISSING_PARAMETER"
+		}
+
+	var lookup = _get_active_shooting_phase()
+	if not lookup.ok:
+		return lookup.error_dict
+
+	var action = {
+		"type": "USE_GRENADE_STRATAGEM",
+		"grenade_unit_id": actor_unit_id,
+		"target_unit_id": target_unit_id
+	}
+	var result = lookup.phase.execute_action(action)
+
+	return {
+		"success": bool(result.get("success", false)),
+		"result": result,
+		"message": "USE_GRENADE_STRATAGEM dispatched: %s -> %s" % [actor_unit_id, target_unit_id]
+	}
 
 func _handle_save_game_state(params: Dictionary) -> Dictionary:
 	print("TestModeHandler: Handling save_game_state action")

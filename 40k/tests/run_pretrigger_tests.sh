@@ -14,6 +14,7 @@
 #   - T5-UX9 shooting phase summary (per-target hits/wounds/casualties aggregation)
 #   - shooting-phase keyboard shortcut registration (KeybindingManager + dispatch)
 #   - T5-V7 WoundAllocationOverlay priority-pulse Tween lifecycle
+#   - TestModeHandler shooting-phase action handler dispatch (multi-peer infra)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -42,6 +43,7 @@ TESTS=(
     "tests/test_shooting_phase_summary.gd"
     "tests/test_shooting_phase_shortcuts.gd"
     "tests/test_wound_allocation_priority_pulse.gd"
+    "tests/test_test_mode_handler_shooting.gd"
 )
 
 FAILED=0
