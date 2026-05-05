@@ -153,7 +153,7 @@
 - [x] ~~Add range circle visualization showing weapon range and half-range when selecting weapons~~ **COMPLETED — FACT-CHECK 2026-05-05**
   Tagged `T5-V5` in source. `_show_range_indicators()` at `40k/scripts/ShootingController.gd:1223` draws a `RangeCircle` per weapon range from a representative model position; Rapid Fire weapons get a dashed orange half-range circle (`:1271-1276`), Melta weapons get a dashed red half-range circle (`:1281-1285`). The earlier sweep classification of "Node2D ref only, no rendering" was wrong — `range_visual` is the parent container; `RangeCircle.gd` instances are children with real `_draw` shapes. The "color-code eligible targets inside the range" sub-feature is the only sub-piece not implemented; if anyone wants it, file a fresh narrowly-scoped task.
 
-- [ ] Add pulsing highlight on the next-wound priority model in WoundAllocationOverlay (rewritten 2026-05-05)
+- [x] Add pulsing highlight on the next-wound priority model in WoundAllocationOverlay (rewritten 2026-05-05)
   Health color gradient and per-model wound counters are already implemented (T5-V6 in `40k/scripts/WoundAllocationOverlay.gd:614, 666, 1260`). The pulsing-highlight sub-feature on the priority model — "the model that must receive the next wound" — is the only piece still missing (no `pulse`/`tween_pulse` references in the overlay).
   Add a `Tween`-driven scale or alpha pulse on the priority model's highlight sprite when `WoundAllocationOverlay` enters its allocation state. Pulse should stop when allocation completes.
   Acceptance: a unit test (or scene-load smoke test) asserts the pulse tween is created/started when priority allocation begins and freed when it ends.

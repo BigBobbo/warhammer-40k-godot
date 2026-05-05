@@ -34,6 +34,21 @@ var target_unit: Dictionary
 var board_highlighter: WoundAllocationBoardHighlights
 var damage_feedback: Node2D  # T5-V4: DamageFeedbackVisual — damage flash + death animation
 
+# T5-V7 (priority pulse, 2026-05-05): Tween-driven pulse on the priority
+# wounded model — the one that MUST take the next wound per 10e allocation
+# rules. Lifecycle:
+#   * Created/started in _start_priority_pulse() at the tail of
+#     _highlight_valid_models() once we know which model is priority
+#   * Killed and freed in _stop_priority_pulse(), invoked from
+#     _complete_allocation() and _close() so the tween never outlives
+#     the allocation state
+# We track both the Tween itself and the highlight Node2D the tween is
+# bound to so cleanup can restore the sprite's resting scale even if the
+# tween is killed mid-tick.
+var priority_pulse_tween: Tween = null
+var priority_pulse_target: Node2D = null
+var priority_pulse_model_id: String = ""
+
 # UI Nodes
 var overlay_panel: PanelContainer
 var attack_info_label: Label
@@ -581,6 +596,12 @@ func _highlight_valid_models() -> void:
 	if not board_highlighter:
 		return
 
+	# T5-V7: clear_all() in WoundAllocationBoardHighlights frees every
+	# Highlight_* child including the one our priority pulse is bound to.
+	# Tear the tween down BEFORE that happens so we never wave a stale
+	# Tween at a freed Node2D for the rest of the frame.
+	_stop_priority_pulse()
+
 	board_highlighter.clear_all()
 
 	var wounded_models = _get_wounded_models()
@@ -713,6 +734,13 @@ func _highlight_valid_models() -> void:
 						WoundAllocationBoardHighlights.HighlightType.SELECTABLE,
 						composite_id
 					)
+
+	# T5-V7: All highlight sprites for this allocation step now exist in
+	# board_highlighter.active_highlights. Drive the priority pulse on the
+	# wounded model that must take the next wound (if any). When there's
+	# no wounded priority — e.g. fresh full-HP unit — get_priority_model_id()
+	# returns "" and _start_priority_pulse() degrades to _stop_priority_pulse().
+	_start_priority_pulse(get_priority_model_id())
 
 func _input(event: InputEvent) -> void:
 	if not awaiting_selection:
@@ -1378,6 +1406,11 @@ func _complete_allocation() -> void:
 	"""All wounds allocated - show summary"""
 	print("WoundAllocationOverlay: Allocation complete!")
 
+	# T5-V7: priority pulse only makes sense while we're soliciting the
+	# defender's allocation choice. Once allocation is complete, kill the
+	# tween so it doesn't keep pulsing the summary screen.
+	_stop_priority_pulse()
+
 	var summary = _build_summary()
 	emit_signal("allocation_complete", summary)
 
@@ -1445,6 +1478,12 @@ func _close() -> void:
 	"""Clean up and close overlay"""
 	print("WoundAllocationOverlay: Closing")
 
+	# T5-V7: belt-and-braces — _complete_allocation() also kills the pulse,
+	# but _close() can be reached from other paths (early dismiss, error
+	# teardown). Killing here keeps the tween's lifetime strictly bounded
+	# by the overlay's allocation state.
+	_stop_priority_pulse()
+
 	# Clear board highlights
 	if board_highlighter and is_instance_valid(board_highlighter):
 		board_highlighter.clear_all()
@@ -1483,6 +1522,89 @@ func _is_valid_selection(model_id: String) -> bool:
 	# Otherwise, any alive model is valid (non-character bodyguard models, or characters if bodyguard dead)
 	var model = _get_model_by_id(model_id)
 	return model.get("alive", true) if not model.is_empty() else false
+
+func get_priority_model_id() -> String:
+	"""T5-V7: Return the model_id of the "priority wounded" model — the one
+	that MUST take the next wound per 10e allocation rules. This is the
+	first wounded model returned by _get_wounded_models(), or — when a
+	precision wound is active — the first wounded CHARACTER model.
+
+	Returns "" when there is no priority (no wounded models, or allocation
+	has not been driven into its wounded-priority state yet)."""
+	if _is_precision_wound_active():
+		var wounded_chars = _get_wounded_character_models()
+		if not wounded_chars.is_empty():
+			return wounded_chars[0]
+	var wounded = _get_wounded_models()
+	if not wounded.is_empty():
+		return wounded[0]
+	return ""
+
+func _start_priority_pulse(model_id: String) -> void:
+	"""T5-V7: Start a Tween-driven scale pulse on the priority wounded
+	model's highlight sprite to draw the defender's eye. The pulse loops
+	forever; _stop_priority_pulse() kills it once allocation completes
+	or the priority shifts to a different model. Cheap no-op if
+	model_id is empty or the highlight sprite isn't registered yet."""
+	if model_id == "":
+		# No priority right now — make sure any prior pulse is torn down
+		_stop_priority_pulse()
+		return
+
+	# If we're already pulsing the same model with a live tween, leave it
+	# alone — restarting on every _highlight_valid_models() pass would
+	# stutter the animation each click.
+	if priority_pulse_model_id == model_id and priority_pulse_tween != null and priority_pulse_tween.is_valid():
+		return
+
+	# Switching priority (or recreating after invalidation): tear down first.
+	_stop_priority_pulse()
+
+	if board_highlighter == null or not is_instance_valid(board_highlighter):
+		return
+	if not board_highlighter.active_highlights.has(model_id):
+		# The highlight sprite for this model hasn't been created yet — bail.
+		return
+	var highlight: Node2D = board_highlighter.active_highlights[model_id]
+	if highlight == null or not is_instance_valid(highlight):
+		return
+
+	# Capture the resting scale so we pulse around it (the sprite's base
+	# scale is determined by base_mm in WoundAllocationBoardHighlights).
+	var base_scale: Vector2 = highlight.scale
+	highlight.set_meta("priority_base_scale", base_scale)
+
+	# Build a looping scale-pulse tween. Sine ease keeps the motion smooth;
+	# 1.0x → 1.18x → 1.0x over 0.6s gives a clearly perceptible "this is
+	# the model you must select" beat without being distracting.
+	var t := create_tween()
+	t.set_loops()
+	t.set_trans(Tween.TRANS_SINE)
+	t.set_ease(Tween.EASE_IN_OUT)
+	t.tween_property(highlight, "scale", base_scale * 1.18, 0.30)
+	t.tween_property(highlight, "scale", base_scale, 0.30)
+
+	priority_pulse_tween = t
+	priority_pulse_target = highlight
+	priority_pulse_model_id = model_id
+	print("WoundAllocationOverlay: T5-V7 priority pulse started on '%s'" % model_id)
+
+func _stop_priority_pulse() -> void:
+	"""T5-V7: Tear down the priority-pulse tween created by
+	_start_priority_pulse(). Safe to call when no pulse is active."""
+	if priority_pulse_tween != null:
+		if priority_pulse_tween.is_valid():
+			priority_pulse_tween.kill()
+		priority_pulse_tween = null
+
+	# Restore the sprite's resting scale so a killed mid-tick tween
+	# doesn't leave the highlight at 1.18x forever.
+	if priority_pulse_target != null and is_instance_valid(priority_pulse_target):
+		if priority_pulse_target.has_meta("priority_base_scale"):
+			priority_pulse_target.scale = priority_pulse_target.get_meta("priority_base_scale")
+			priority_pulse_target.remove_meta("priority_base_scale")
+	priority_pulse_target = null
+	priority_pulse_model_id = ""
 
 func _get_wounded_models() -> Array:
 	"""Return array of model_ids that have lost wounds"""
