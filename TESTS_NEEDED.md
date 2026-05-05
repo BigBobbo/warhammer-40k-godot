@@ -569,3 +569,43 @@
 - On retry: `Retrying save data broadcast attempt N/3` increments per attempt.
 - On exhaustion: `Retry budget exhausted (3/3) — giving up`.
 - On stale ack: `⚠️ Ack id does not match expected — ignoring stale ack`.
+
+## Remote-player visual feedback for shooting (T5-MP3 — broadcast-pipe contract test added)
+
+**Task:** Add remote player visual feedback for shooting actions (target highlights, range circles, LoS lines).
+**Files changed:**
+- `40k/tests/test_shooting_visual_broadcast.gd` (new — 38 assertions, all passing headless)
+- `40k/tests/run_pretrigger_tests.sh` (registered new test in audit suite; suite now 242/242 across 13 tests)
+
+**Status of local rendering (verified by static-source assertions in the new test):**
+- Range circles + half-range circles — IMPLEMENTED (T5-V5; `ShootingController._show_range_indicators` at line 1223; `RangeCircle.gd` is a real shape).
+- Target highlights — IMPLEMENTED (`ShootingController._create_target_highlight` at line 974).
+- LoS lines — IMPLEMENTED (`ShootingController._visualize_los_to_target` at line 1361 and `los_visual` Line2D).
+- Animated shooting-line tracers — IMPLEMENTED (T5-V2; `ShootingController._create_shooting_line_visual` at line 1166).
+
+**Status of broadcast-to-remote (verified at signal/dictionary level by the new test):**
+- SELECT_SHOOTER → `_emit_client_visual_updates` re-emits `unit_selected_for_shooting` AND `targets_available` on the remote phase (drives range circles + target highlights + LoS lines). PASSING.
+- ASSIGN_TARGET → calls `ShootingController.show_remote_target_assignment(shooter, target, weapon)` (per-assignment shooting line + target highlight). PASSING with stub controller.
+- CLEAR_ASSIGNMENT / CLEAR_ALL_ASSIGNMENTS → calls `ShootingController.clear_remote_target_assignments()`. PASSING.
+- CONFIRM_TARGETS → re-emits `shooting_begun` on remote phase (drives the animated tracer). PASSING.
+- COMPLETE_SHOOTING_FOR_UNIT → re-emits `shooting_resolved` on remote phase (clears per-shooter visuals). PASSING.
+- Host-side relay AND ENet branches both mirror the same controller calls so the host's screen sees the remote client's hints (bidirectional T5-MP3). PASSING via static-source assertions.
+- Allow-list contains all 4 shooting-setup action types (SELECT_SHOOTER, ASSIGN_TARGET, CLEAR_ASSIGNMENT, CLEAR_ALL_ASSIGNMENTS). PASSING.
+- Empty-actor / empty-target / absent-controller guards do not crash the dispatch. PASSING.
+
+**Tests to run locally (multi-peer harness — gated tests cannot drive two real peers):**
+- Host (P1) and Client (P2) connect via LAN ENet OR web relay. Player 1 takes shooting phase.
+- Player 1: select a shooter unit. Verify on Player 2 screen: range circles appear around the shooter (one per weapon range), eligible enemy targets light up green/highlighted, and LoS lines (debug mode) draw to each candidate.
+- Player 1: assign a weapon to a target. Verify on Player 2 screen: a shooting line draws from shooter to target and the target gets a yellow `HIGHLIGHT_COLOR_SELECTED` highlight.
+- Player 1: clear the assignment (or use CLEAR_ALL). Verify on Player 2 screen: the per-assignment shooting line + highlight disappear, but the underlying range circles + eligible-target highlights remain.
+- Player 1: confirm targets and shoot. Verify on Player 2 screen: the animated shooting-line tracer plays (T5-V2) at the same time as the dice log updates.
+- Player 1: end the unit's shooting (Complete-for-unit). Verify on Player 2 screen: per-shooter overlays clear so the next shooter starts with a clean visual state.
+- Repeat with web-relay transport (host as relay client + remote client). Both branches in NetworkManager mirror the same controller calls, so the host's own screen also shows the remote shooter's hints when it's not the active player.
+
+**What to look for in logs (multiplayer debug logs):**
+- `NetworkManager: T5-MP3: Remote ASSIGN_TARGET visual — <shooter> targeting <target> with <weapon>`
+- `NetworkManager: T5-MP3: Remote CONFIRM_TARGETS — emitting shooting_begun for <shooter>`
+- `NetworkManager: T5-MP3: Remote COMPLETE_SHOOTING_FOR_UNIT — emitting shooting_resolved for <unit>`
+- `NetworkManager: T5-MP3: Host (relay) showing remote player's ASSIGN_TARGET visual ...` (host echo branch)
+- `ShootingController: T5-MP3 show_remote_target_assignment — <shooter> → <target> (weapon: <weapon>)`
+- `ShootingController: T5-MP3 clear_remote_target_assignments`
