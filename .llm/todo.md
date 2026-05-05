@@ -31,7 +31,7 @@
   This is a core weapon type for anti-vehicle (e.g., Multi-melta, Meltagun).
   Files: `RulesEngine.gd` — damage application, range checking functions.
 
-- [ ] Implement TWIN-LINKED weapon keyword for re-rolling wound rolls
+- [x] Implement TWIN-LINKED weapon keyword for re-rolling wound rolls
   Rule: TWIN-LINKED allows the attacking player to re-roll all failed wound rolls with that weapon.
   No implementation exists in `RulesEngine.gd`. The wound roll logic at `RulesEngine.gd:714-733` simply compares the raw roll against the threshold with no re-roll support.
   Need to: check if the weapon has the Twin-linked keyword, and if so, re-roll any wound rolls that fail (roll < wound_threshold). Only re-roll once per die (cannot re-roll a re-roll).

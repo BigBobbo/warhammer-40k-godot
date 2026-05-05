@@ -6,6 +6,7 @@
 #   - T2.S4-S6 SUSTAINED/LETHAL/DEVASTATING keyword pipeline
 #   - T2.S7 cover save bonus
 #   - T1-1 MELTA X keyword pipeline (auto-resolve damage bonus at half range)
+#   - T1-2 TWIN-LINKED keyword pipeline (re-roll all failed wound rolls)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -26,6 +27,7 @@ TESTS=(
     "tests/test_keyword_pipeline.gd"
     "tests/test_s7_cover_save_bonus.gd"
     "tests/test_melta_keyword_pipeline.gd"
+    "tests/test_twin_linked_pipeline.gd"
 )
 
 FAILED=0
