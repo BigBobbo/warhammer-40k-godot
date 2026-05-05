@@ -9,7 +9,7 @@
   Acceptance: `bash 40k/tests/run_pretrigger_tests.sh` exits 0 with `s7_cover_save_bonus` showing `Result: 14 passed, 0 failed`. Re-run twice to rule out flakiness.
   Do NOT broaden scope: this task is the cover-cap fix only. If you spot the unrelated flaky test, log it to a new task in `.llm/todo.md` rather than fixing it here.
 
-- [ ] Stabilise `test_hi_pretrigger.gd` — `heroic_intervention_unit_id set to Telemon` flakes
+- [x] Stabilise `test_hi_pretrigger.gd` — `heroic_intervention_unit_id set to Telemon` flakes
   Symptom: across 3 back-to-back validation runs (`bash .claude/scripts/run_validation.sh`) the assertion `FAIL: heroic_intervention_unit_id set to Telemon` appeared in 2/3 runs, causing the audit-suite tally to flicker between `100 passed, 1 failed` and `101 passed, 0 failed`. The other 6 audit tests are stable.
   Logged from the S7 cover-cap fix dry-run (commit 6958cff) — out of scope for that task. The s7 result itself was stable at `14 passed, 0 failed` across all three runs.
   Likely cause: timing/order-of-detection in heroic intervention pretrigger fixture (id resolution may race with unit registration). Investigate whether the test is matching on a unit that hasn't fully loaded, or whether multiple eligible units are being non-deterministically picked.

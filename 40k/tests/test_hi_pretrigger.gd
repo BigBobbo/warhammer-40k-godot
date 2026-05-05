@@ -69,7 +69,14 @@ func _run_tests():
 	})
 	# (Fire Overwatch is auto-declined by AI logic when no eligible shooter)
 
-	phase.execute_action({"type": "CHARGE_ROLL", "actor_unit_id": "U_WARBOSS_B"})
+	# Issue #329: pass deterministic rng_seed so the 2D6 charge roll never flakes.
+	# Warboss only needs ~1.75" to reach engagement range, so any seed works for
+	# this CHARGE_ROLL — but threading a seed makes the test reproducible end-to-end.
+	phase.execute_action({
+		"type": "CHARGE_ROLL",
+		"actor_unit_id": "U_WARBOSS_B",
+		"payload": {"rng_seed": 0},
+	})
 	phase.execute_action({"type": "DECLINE_COMMAND_REROLL"})
 
 	var apply_result = phase.execute_action({
@@ -95,11 +102,20 @@ func _run_tests():
 	_check("ChargePhase.awaiting_heroic_intervention = true",
 		phase.awaiting_heroic_intervention == true)
 
-	# USE_HEROIC_INTERVENTION on Telemon
+	# USE_HEROIC_INTERVENTION on Telemon.
+	# Issue #329: pass deterministic rng_seed so the HI 2D6 charge roll is repeatable.
+	# Telemon at (491, 350) needs to reach engagement range of Warboss at (503, 100) —
+	# straight-line ~6.3" minus 1" engagement range minus base radii ≈ 4-5" needed.
+	# seed=0 yields 2D6 = 6+4 = 10, comfortably sufficient and stable across runs.
+	# Without an explicit seed, RNGService falls back to randomize() and the roll can
+	# come up insufficient (~30% of runs), which clears heroic_intervention_unit_id
+	# and breaks the assertion below. See ChargePhase.gd::_process_use_heroic_intervention
+	# for the cleanup-on-fail path.
 	var use_result = phase.execute_action({
 		"type": "USE_HEROIC_INTERVENTION",
 		"unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
-		"player": 1
+		"player": 1,
+		"payload": {"rng_seed": 0},
 	})
 
 	_check("USE_HEROIC_INTERVENTION succeeded",
@@ -114,8 +130,13 @@ func _run_tests():
 	_check("HI charge dice rolled",
 		use_result.get("dice", []).size() > 0,
 		"got %s" % str(use_result.get("dice", [])))
+	# With rng_seed=0 the 2D6 = 10, well above the ~5" needed — roll must succeed.
+	_check("HI charge roll sufficient (deterministic seed=0 → 10)",
+		use_result.get("heroic_intervention_roll_success") == true,
+		"result keys: %s, dice: %s" % [str(use_result.keys()), str(use_result.get("dice", []))])
 	_check("heroic_intervention_unit_id set to Telemon",
-		phase.heroic_intervention_unit_id == "U_TELEMON_HEAVY_DREADNOUGHT_I")
+		phase.heroic_intervention_unit_id == "U_TELEMON_HEAVY_DREADNOUGHT_I",
+		"got '%s'" % phase.heroic_intervention_unit_id)
 
 	_finish()
 
