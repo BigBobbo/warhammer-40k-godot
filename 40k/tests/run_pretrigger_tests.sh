@@ -7,6 +7,7 @@
 #   - T2.S7 cover save bonus
 #   - T1-1 MELTA X keyword pipeline (auto-resolve damage bonus at half range)
 #   - T1-2 TWIN-LINKED keyword pipeline (re-roll all failed wound rolls)
+#   - T2-1 STEALTH ability pipeline (-1 to hit on ranged attacks vs Stealth target)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -28,6 +29,7 @@ TESTS=(
     "tests/test_s7_cover_save_bonus.gd"
     "tests/test_melta_keyword_pipeline.gd"
     "tests/test_twin_linked_pipeline.gd"
+    "tests/test_stealth_keyword_pipeline.gd"
 )
 
 FAILED=0

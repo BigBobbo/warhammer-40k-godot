@@ -40,7 +40,7 @@
 
 ## Tier 2 — Important Defensive Rules
 
-- [ ] Implement Stealth ability giving -1 to hit for ranged attacks targeting units where all models have Stealth
+- [x] Implement Stealth ability giving -1 to hit for ranged attacks targeting units where all models have Stealth
   Rule: If every model in a unit has the Stealth ability, ranged attacks targeting that unit subtract 1 from their hit rolls.
   No check for the Stealth keyword exists in `RulesEngine.gd`. The `_resolve_assignment_until_wounds()` function checks for Heavy, BGNT, and user-specified modifiers on the attacker's side but never checks the target for defensive abilities.
   Fix: In the hit modifier calculation section of `_resolve_assignment_until_wounds()` (around `RulesEngine.gd:591-601`), check if all alive models in the target unit have the Stealth keyword, and if so, apply `HitModifier.MINUS_ONE`.
