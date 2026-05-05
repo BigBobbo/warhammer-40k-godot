@@ -23,7 +23,7 @@ Background context that applies to all three:
   Acceptance: file syntax-checks (`godot --headless --check-only --script tests/integration/test_multiplayer_shooting_visuals.gd` exits 0); existing audit suite still 423/17.
   Files: `40k/tests/integration/test_multiplayer_shooting_visuals.gd`.
 
-- [ ] Upgrade test_multiplayer_dice_log_sync.gd with one real behavioral assertion
+- [x] Upgrade test_multiplayer_dice_log_sync.gd with one real behavioral assertion
   Pick the grenade test method and upgrade it from connection-only fallback to a real grenade roll over the wire. The flow:
   1. `await launch_host_and_client()` + `wait_for_connection()`.
   2. Load the shooting fixture: `simulate_host_action("load_save", {"save_name": "shooting_phase"})`.

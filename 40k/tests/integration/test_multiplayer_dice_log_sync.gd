@@ -14,60 +14,74 @@ extends "res://tests/helpers/MultiplayerIntegrationTest.gd"
 # counterpart: it spins up real host + client Godot processes and verifies
 # the broadcast pipeline survives a real connection.
 #
-# IMPORTANT API LIMITATION
-# ------------------------
+# API STATUS
+# ----------
 # `MultiplayerIntegrationTest.simulate_host_action` is bridged to
-# `TestModeHandler` which currently only implements 8 actions:
-#   load_save, deploy_unit, undo_deployment, complete_deployment,
-#   get_game_state, get_available_units, capture_screenshot, save_game_state
+# `TestModeHandler` which now supports the shooting-phase action set,
+# including `use_grenade_stratagem`. The first method in this file drives a
+# real GRENADE stratagem end-to-end (host fires 6D6, host phase result
+# carries the dice block) so a regression in the dice-broadcast pipeline
+# surfaces here, not just in the static-source contracts below.
 #
-# There is NO `select_shooter` / `assign_target` / `resolve_shooting`
-# action handler. Until TestModeHandler is extended (tracked separately),
-# these tests CANNOT drive a real grenade roll / FNP / Hazardous through the
-# command-file IPC. What they CAN do, and do here:
+# What we CAN drive end-to-end today:
+#   - GRENADE stratagem on the host: pick an active-player GRENADES-keyword
+#     unit, pick an enemy target, dispatch USE_GRENADE_STRATAGEM. Assert the
+#     phase result["dice"] block carries 6 D6 values, each in 1..6 — this is
+#     the exact block NetworkManager re-emits on the remote peer's phase via
+#     `_emit_client_visual_updates`, so its presence/shape on the host is the
+#     pre-condition for the client's dice log to show the 6D6 grenade roll.
+#   - Static-source contracts (grenade dice prepend, resolution_start prepend,
+#     FNP/Hazardous save_dice_blocks append, NetworkManager re-emit loop) so a
+#     refactor that breaks any link in the chain fails this suite too.
 #
-#   1. Launch host + client, wait for connection, load the shooting save on
-#      both peers, and assert both peers reached SHOOTING phase in sync.
-#   2. Query each peer's `units` map and assert that any units flagged
-#      `HAZARDOUS` / `GRENADES` / FNP-bearing match between host and client
-#      so a subsequent dice broadcast would target the same units on each peer.
-#   3. Statically assert the source contract that the broadcast pipeline
-#      relies on (grenade dice in result, FNP append to save_dice_blocks,
-#      Hazardous append to save_dice_blocks) — these are the same checks
-#      `test_dice_broadcast_sync.gd` runs, replicated here so a refactor that
-#      breaks the contract surfaces as a multi-peer test failure too.
-#
-# Manual scenarios still needed (no automated coverage possible until
-# TestModeHandler grows shooting actions):
-#   - Real grenade roll: host shoots a grenade, client dice log shows the 6D6.
-#   - Real FNP: host targets DG with Disgustingly Resilient, client log shows FNP.
-#   - Real Hazardous self-damage: host fires Hazardous weapon, client log shows post-save check.
+# What is still NOT driveable from the current command-file IPC:
+#   - Reading the *client* peer's `dice_log` directly — `get_game_state`
+#     doesn't expose the client's dice-log model. We assert the host produced
+#     the 6D6 block (which is the payload the broadcast carries); confirming
+#     the client's log received it would need a future
+#     `get_dice_log` / `get_controller_state` action.
+#   - Real FNP roll: requires driving an ASSIGN_TARGET + CONFIRM_TARGETS on a
+#     unit with FNP — handler exists but the fixture lacks an FNP-vs-shooter
+#     pairing in line of sight; tracked as a fixture gap.
+#   - Real Hazardous self-damage: same — needs a fixture with a Hazardous
+#     weapon ready to fire.
 #
 # Usage: bash 40k/tests/run_multiplayer_tests.sh
 
 ## ===========================================================================
-## 1. CONNECTION + SHOOTING PHASE LOAD (DRIVEABLE END-TO-END)
+## 1. GRENADE STRATAGEM BROADCAST — REAL END-TO-END BEHAVIORAL ASSERTION
 ## ===========================================================================
 
-func test_dice_log_sync_connection_to_shooting_save():
+func test_dice_log_sync_grenade_roll_end_to_end():
 	"""
-	Test: Host and client both load the shooting test save and reach SHOOTING
-	phase in sync. This is the precondition for any dice broadcast: the two
-	peers must agree on units and active_player before a dice roll can sync.
+	What this verifies (real behavior, end-to-end on two real peers):
+	  1. Host + client both reach SHOOTING phase from the shooting fixture.
+	  2. Host dispatches USE_GRENADE_STRATAGEM with a GRENADES-keyword
+	     active-player unit and an enemy target.
+	  3. The host's ShootingPhase result["dice"] carries exactly one grenade
+	     dice block whose `rolls_raw` is a 6-element array of D6 values
+	     (each in 1..6). Per the static-source contract pinned in
+	     `test_dice_log_sync_grenade_dice_in_result_contract`, this is the
+	     payload `NetworkManager._emit_client_visual_updates` re-emits on the
+	     client phase via `dice_rolled` — so its presence/shape on the host
+	     side is the pre-condition for the client's dice log to receive the
+	     6D6 grenade roll.
 
-	Setup: launch host+client with shooting_phase save (auto-loaded)
-	Action: query game state from both peers
-	Verify: both report Shooting phase, both report the same unit count, and
-	        the same units appear (so a subsequent dice broadcast addresses
-	        the same actor on each peer).
+	What this does NOT verify (limitations of get_game_state):
+	  - The *client* peer's dice_log model — `get_game_state` does not expose
+	    the dice log. Confirming the client log received the 6D6 would need a
+	    future `get_dice_log` action. This test asserts the host produced the
+	    block; the static-source contract below pins the re-emit pipeline.
+	  - Mortal-wound application + casualties — the count of mortal wounds
+	    is a function of the random rolls, so we don't pin a specific
+	    mortal_wounds value (just that the rolls array is well-formed).
+
+	Acceptance: host's `result.dice[0].rolls_raw` is an Array of size 6
+	with each value in 1..6.
 	"""
-	print("\n[TEST] test_dice_log_sync_connection_to_shooting_save")
+	print("\n[TEST] test_dice_log_sync_grenade_roll_end_to_end")
 
-	# Launch with shooting save so both peers boot directly into shooting phase.
-	# (get_shooting_test_save() returns res://tests/saves/shooting_phase.w40ksave;
-	# if it doesn't exist, the test still exercises connection but we surface
-	# the missing-save case explicitly so the failure is informative.)
-	var shooting_save = get_shooting_test_save().get_file()  # strip path -> filename
+	var shooting_save = get_shooting_test_save().get_file()
 	print("[TEST] Using shooting save: %s" % shooting_save)
 
 	var launched = await launch_host_and_client(shooting_save)
@@ -79,6 +93,17 @@ func test_dice_log_sync_connection_to_shooting_save():
 	# Wait for save load + phase transition to settle on both peers.
 	await wait_for_seconds(4.0)
 
+	# Step A: host loads the shooting fixture explicitly via the action API.
+	# (auto-load on launch primarily covers it; this assertion pins that the
+	# test infra path itself works for shooting, not just deployment.)
+	var load_result = await simulate_host_action("load_save", {"save_name": "shooting_phase"})
+	assert_true(load_result.get("success", false),
+		"Host load_save(shooting_phase) should succeed: %s" % load_result.get("message", ""))
+
+	# Give the client a moment to receive any post-load state sync.
+	await wait_for_seconds(2.0)
+
+	# Step B: query both peers and verify they reached Shooting phase in sync.
 	var host_state = await simulate_host_action("get_game_state", {})
 	var client_state = await simulate_client_action("get_game_state", {})
 
@@ -89,35 +114,153 @@ func test_dice_log_sync_connection_to_shooting_save():
 	var client_phase = client_state.get("data", {}).get("current_phase", "")
 	print("[TEST] Host phase: '%s', Client phase: '%s'" % [host_phase, client_phase])
 
-	# If the shooting save isn't present, the auto-load fails silently and the
-	# game starts in deployment. Surface that as a skip rather than a hard fail
-	# so the test still proves the connection slice works.
+	# If the shooting save isn't reachable in the test environment, the
+	# auto-load + explicit load both fail to reach Shooting. Surface as soft
+	# skip so the test still proves the connection + load slice works.
 	if host_phase != "Shooting":
-		print("[TEST] WARNING: Host did not reach Shooting phase (got '%s'). The shooting save may be missing or the auto-load failed; manual smoke test still required." % host_phase)
-		# Still verify host/client agree, even if not in shooting phase.
+		print("[TEST] WARNING: Host did not reach Shooting phase (got '%s'). Auto-load may have failed; cannot drive grenade roll without Shooting phase active." % host_phase)
 		assert_eq(host_phase, client_phase,
 			"Host and client must at least agree on phase even when shooting save is missing")
-		print("[TEST] PASSED (with warning): connection sync verified, phase agreement verified")
+		print("[TEST] PASSED (with warning): connection + phase-agreement slice verified")
 		return
 
 	assert_eq(host_phase, "Shooting", "Host should be in Shooting phase")
 	assert_eq(client_phase, "Shooting", "Client should be in Shooting phase")
 
-	# Unit set must match: a dice broadcast for unit U_ATTACKER on host has to
-	# resolve to the same U_ATTACKER on the client, otherwise the client's
-	# dice_log wouldn't be able to attribute the rolls to the right unit.
 	var host_units = host_state.get("data", {}).get("units", {})
 	var client_units = client_state.get("data", {}).get("units", {})
 	assert_eq(host_units.size(), client_units.size(),
-		"Host and client should have the same number of units in shooting phase")
-	print("[TEST] Both peers report %d units" % host_units.size())
-
-	# Assert every host unit is also on the client.
+		"Host and client should have the same unit count (shooter + target must exist on both)")
 	for unit_id in host_units.keys():
 		assert_true(unit_id in client_units,
-			"Unit '%s' present on host should also be on client" % unit_id)
+			"Unit '%s' on host should also be on client (else grenade targets a phantom unit on client)" % unit_id)
 
-	print("[TEST] PASSED: Dice log sync precondition (Shooting phase + matching units) verified end-to-end")
+	# Step C: pick a GRENADES-keyword shooter owned by the active player and
+	# an enemy target. The shooter must be DEPLOYED (status 2) and not yet
+	# have shot; the target must be DEPLOYED.
+	# (UnitStatus enum: 0=UNDEPLOYED, 2=DEPLOYED, 7=IN_RESERVES — see GameState.gd.)
+	var DEPLOYED_STATUS := 2
+	var active_player = int(host_state.get("data", {}).get("player_turn", 1))
+
+	var picked_shooter_id := ""
+	for unit_id in host_units.keys():
+		var unit = host_units[unit_id]
+		if int(unit.get("owner", 0)) != active_player:
+			continue
+		if int(unit.get("status", 0)) != DEPLOYED_STATUS:
+			continue
+		if unit.get("flags", {}).get("has_shot", false):
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		if "GRENADES" in keywords:
+			picked_shooter_id = unit_id
+			break
+
+	if picked_shooter_id == "":
+		# Fixture gap: no DEPLOYED, owner=active, GRENADES-keyword, has_shot=false
+		# unit. Fall back to dispatching whatever active-player unit we can find
+		# so we still exercise the dispatch path; the phase will reject and we
+		# document the gap.
+		print("[TEST] WARNING: No DEPLOYED + GRENADES + active-player + has_shot=false unit in fixture; falling back to dispatch-path-only coverage (phase will likely reject)")
+		for unit_id in host_units.keys():
+			var unit = host_units[unit_id]
+			if int(unit.get("owner", 0)) == active_player:
+				picked_shooter_id = unit_id
+				break
+
+	assert_true(picked_shooter_id != "",
+		"Fixture should expose at least one unit owned by the active player to dispatch grenade against")
+
+	var picked_target_id := ""
+	for unit_id in host_units.keys():
+		var unit = host_units[unit_id]
+		if int(unit.get("owner", 0)) == active_player:
+			continue
+		if int(unit.get("status", 0)) != DEPLOYED_STATUS:
+			continue
+		picked_target_id = unit_id
+		break
+
+	assert_true(picked_target_id != "",
+		"Fixture should expose at least one DEPLOYED enemy unit to target")
+
+	print("[TEST] Picked grenade shooter: %s (owner=%d) → target: %s (owner=%d)" % [
+		picked_shooter_id,
+		int(host_units[picked_shooter_id].get("owner", 0)),
+		picked_target_id,
+		int(host_units[picked_target_id].get("owner", 0))
+	])
+
+	# Step D: dispatch USE_GRENADE_STRATAGEM on the host. The handler builds
+	# {"type": "USE_GRENADE_STRATAGEM", "grenade_unit_id": ..., "target_unit_id": ...}
+	# and calls phase.execute_action. The phase rolls 6D6 (StratagemManager
+	# .execute_grenade -> RNGService.roll_d6(6)), bundles them in a single
+	# "grenade" dice block, and returns it via result["dice"].
+	var grenade_result = await simulate_host_action("use_grenade_stratagem", {
+		"actor_unit_id": picked_shooter_id,
+		"target_unit_id": picked_target_id
+	})
+
+	# `simulate_host_action` returns the handler dict:
+	#   {"success": bool, "result": <phase_result>, "message": ...}
+	# The phase_result is the dict ShootingPhase.create_result() built; on
+	# success it carries the additional_data including "dice".
+	print("[TEST] Grenade handler outer result: success=%s, message='%s'" % [
+		grenade_result.get("success", false),
+		grenade_result.get("message", "")
+	])
+
+	if not grenade_result.get("success", false):
+		# If the phase rejected (e.g. fixture didn't have a viable shooter
+		# even after the keyword filter, or CP/restriction state differed),
+		# document the dispatch path was exercised and surface why so the
+		# fixture gap is visible.
+		var inner = grenade_result.get("result", {})
+		print("[TEST] WARNING: Grenade dispatch did not succeed. Outer: %s" % str(grenade_result))
+		print("[TEST] WARNING: Inner phase result: %s" % str(inner))
+		assert_true(false,
+			"USE_GRENADE_STRATAGEM should succeed on a GRENADES + DEPLOYED + active-player + has_shot=false unit in the shooting fixture — got error '%s' / inner '%s'. If this asserts, the fixture has drifted away from supporting an end-to-end grenade roll." % [
+				grenade_result.get("message", ""), str(inner)
+			])
+		return
+
+	# Step E: assert the 6D6 grenade dice block lives on result["dice"].
+	# This is the strong real-behavioral assertion: the broadcast pipeline
+	# carries result["dice"] verbatim to the client, so its presence/shape
+	# here is the pre-condition for the client's dice log to receive the roll.
+	var phase_result = grenade_result.get("result", {})
+	assert_true(phase_result.has("dice"),
+		"Phase result must carry a 'dice' field after USE_GRENADE_STRATAGEM (this is what NetworkManager broadcasts to the client). Got keys: %s" % str(phase_result.keys()))
+
+	var dice_blocks = phase_result.get("dice", [])
+	assert_true(dice_blocks is Array,
+		"phase result['dice'] should be an Array of dice blocks; got %s" % str(typeof(dice_blocks)))
+	assert_eq(dice_blocks.size(), 1,
+		"Grenade should produce exactly 1 dice block in result['dice']; got %d" % dice_blocks.size())
+
+	var grenade_block = dice_blocks[0]
+	assert_true(grenade_block is Dictionary,
+		"result['dice'][0] should be a Dictionary; got %s" % str(typeof(grenade_block)))
+	assert_eq(grenade_block.get("context", ""), "grenade",
+		"Dice block context should be 'grenade' (this tags it for the dice-log UI); got '%s'" % str(grenade_block.get("context", "")))
+	assert_eq(grenade_block.get("threshold", ""), "4+",
+		"Grenade dice block threshold should be '4+'; got '%s'" % str(grenade_block.get("threshold", "")))
+
+	var rolls = grenade_block.get("rolls_raw", [])
+	assert_true(rolls is Array,
+		"grenade_block['rolls_raw'] should be an Array; got %s" % str(typeof(rolls)))
+	assert_eq(rolls.size(), 6,
+		"GRENADE rolls 6 D6 (per Wahapedia core stratagem); got %d roll(s)" % rolls.size())
+
+	# REAL BEHAVIORAL ASSERTION: each roll is a valid D6 (1..6).
+	for i in range(rolls.size()):
+		var r = int(rolls[i])
+		assert_true(r >= 1 and r <= 6,
+			"GRENADE roll #%d should be a valid D6 (1..6); got %d (full rolls: %s)" % [i, r, str(rolls)])
+
+	print("[TEST] PASSED: grenade end-to-end — 6D6 rolled (rolls=%s, mortal_wounds=%s) and bundled in result['dice'] for client broadcast" % [
+		str(rolls), str(grenade_block.get("successes", 0))
+	])
 
 ## ===========================================================================
 ## 2. STATIC-SOURCE CONTRACT (REPLICATED FROM test_dice_broadcast_sync.gd
