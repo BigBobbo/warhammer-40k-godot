@@ -28,14 +28,22 @@ Check if your launch prompt contains a `<task-override>` block. This is used whe
 - Work through the implementation methodically
 - Run appropriate tests and validation
 
-### 3. Handle tests that cannot be run in this environment
+### 3. Write tests that exercise the change
 
-Godot tests cannot be launched in this headless/remote environment. This is a known limitation. If the task involves writing or running Godot tests:
-- Still **write the test code** as part of your implementation
-- Do NOT fail or block the task just because you cannot execute the tests
-- Instead, append an entry to `TESTS_NEEDED.md` in the project root describing what needs to be verified locally
+Headless GDScript regression tests **do** run in this environment via
+`bash 40k/tests/run_pretrigger_tests.sh`. Pattern reference:
+`40k/tests/TESTING_METHODOLOGY.md`.
 
-**Format for `TESTS_NEEDED.md`** (create the file if it doesn't exist, append if it does):
+For tasks that touch gameplay/rules logic:
+- Add or extend a headless test under `40k/tests/test_<area>.gd` that fails
+  before your change and passes after it
+- Wire the new test into `40k/tests/run_pretrigger_tests.sh` so the
+  validation gate (step 4) actually exercises it
+
+For non-gameplay tasks (UI-only, content data, docs) where headless tests
+are not feasible, append an entry to `TESTS_NEEDED.md` describing what to
+verify manually. Use this **only** when headless coverage genuinely doesn't
+fit — not as a way to skip validation. Format:
 
 ```markdown
 ## <Short description of what was implemented>
@@ -43,7 +51,7 @@ Godot tests cannot be launched in this headless/remote environment. This is a kn
 **Task:** <the original task description, condensed to one line>
 **Files changed:** <list of files you created or modified>
 **Tests to run:**
-- <test file path and how to run it, e.g. "Run `test_deployment_phase.gd` via the Godot test runner">
+- <test file path and how to run it>
 - <what each test verifies>
 
 **What to look for:**
@@ -51,25 +59,100 @@ Godot tests cannot be launched in this headless/remote environment. This is a kn
 - <any edge cases or scenarios covered>
 ```
 
-This ensures the user can run the tests locally later.
+### 4. Validation gate (REQUIRED — do not skip)
 
-### 4. Verify and commit
+Run the project's regression suite from the repo root:
 
-- Verify the build/tests pass if applicable (skip Godot test execution — it is sufficient to have written the tests and logged them to `TESTS_NEEDED.md`)
-- Stage and commit your changes to git with a clear commit message describing what was done
-
-### 5. Mark the task complete
-
-**If you received a `<task-key>` block** (parallel mode), use the specific completion script:
 ```bash
-python .claude/scripts/task_complete_specific.py .llm/todo.md --task "<task-key text>"
+bash .claude/scripts/run_validation.sh
 ```
 
-**Otherwise** (sequential mode), use the standard script:
-```bash
-python .claude/scripts/task_complete.py .llm/todo.md
-```
+Interpret the result:
 
-If the task cannot be completed, mark it as blocked instead:
+- **Exit 0 (all tests pass):** proceed to step 5.
+- **Exit non-zero:** treat the task as **failed**. Do NOT commit. Do NOT
+  push. Skip to step 7 and mark the task blocked. Capture the relevant
+  failure output in your final report so the user can see why.
+
+Per project policy (`CLAUDE.md`): never claim a feature works without a
+successful test result. `implemented: true` flags and code-grep are not
+validation — only a green run of the suite is.
+
+### 5. Mark the task in `.llm/todo.md`
+
+This step happens **before** the commit so the task-list state ships in the
+same commit as the code change. That keeps remote/local task state in sync
+and prevents a second agent from re-picking a task whose code was already
+pushed.
+
+**On validation pass:**
+
+- Parallel mode: `python .claude/scripts/task_complete_specific.py .llm/todo.md --task "<task-key text>"`
+- Sequential mode: `python .claude/scripts/task_complete.py .llm/todo.md`
+
+**On validation fail (or any earlier failure):**
+
 - Parallel mode: `python .claude/scripts/task_complete_specific.py .llm/todo.md --task "<task-key text>" --blocked`
 - Sequential mode: `python .claude/scripts/task_complete.py .llm/todo.md --blocked`
+
+### 6. Commit (allow-listed paths only)
+
+The repo's working tree is routinely dirty with files unrelated to your
+task — saved games, screenshots, `.uid` files, `project.godot`,
+in-progress edits to other scripts. These must NEVER end up in your commit.
+
+**Forbidden:** `git add -A`, `git add .`, `git add -u`, or any pattern that
+sweeps in files you didn't intentionally edit. Reviewers cannot un-mix a
+contaminated commit.
+
+**Required:** stage files by explicit path. The complete allowed set is:
+
+1. `.llm/todo.md` (always — it carries the mark from step 5)
+2. The source files you intentionally edited to implement the task
+3. Any new or extended test files (typically under `40k/tests/`)
+4. The `40k/tests/run_pretrigger_tests.sh` runner if you added a new test
+   that needs to be wired in
+
+If the validation gate failed and you have no implementation worth keeping,
+stage **only** `.llm/todo.md` so the `[!]` mark propagates as a "BLOCKED"
+record. Leave any partial implementation in the working tree for the human
+to inspect — do not commit broken code.
+
+Before staging, double-check with `git status` that you understand which
+files are *yours* vs which were already dirty. If unsure, list them in your
+final report and proceed conservatively.
+
+Commit with a HEREDOC message ending in the `Co-Authored-By: Claude`
+trailer per repo convention. Subject line should describe the change in
+imperative mood; on a blocked outcome, prefix with `BLOCKED:`.
+
+### 7. Push to remote (auto-deploy)
+
+This skill is wired to auto-publish each task — both successful commits
+and `BLOCKED:` commits — so remote task-list state stays current.
+
+```bash
+git push origin HEAD
+```
+
+Push runs **unless** `PUSH_DISABLED` is set in the environment (escape
+hatch from the orchestrator's `nopush` flag). If `PUSH_DISABLED=1`, skip
+the push entirely and note "push skipped — nopush mode" in your report.
+
+If the push fails (e.g., remote rejected, non-fast-forward), do NOT force.
+Report the failure verbatim. Do not attempt to resolve a non-fast-forward
+by rebasing or resetting — surface it to the orchestrator and stop.
+
+### 8. Final report
+
+Your final returned message must state:
+
+- Validation result (exit code + which tests passed/failed)
+- Files staged in the commit (list every path explicitly)
+- Commit SHA + subject line
+- Push status (succeeded / skipped / failed-with-reason)
+- Final task status in `.llm/todo.md` (`[x]` or `[!]`)
+- Anything in the working tree that's still dirty and why
+
+The orchestrator uses this report to decide whether to continue the loop
+or abort.

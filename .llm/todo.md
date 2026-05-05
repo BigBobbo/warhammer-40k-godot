@@ -1,5 +1,20 @@
 # Shooting Phase Audit Tasks
 
+## Tier 0 — Validation gate red on main (must clear before /do-all-tasks can land anything)
+
+- [x] Fix S7 cover-save cap regression — Sv3+ AP0 with cover currently returns 2+, must stay at 3+
+  Failing test: `40k/tests/test_s7_cover_save_bonus.gd` — assertion `Sv3+, AP0, cover → 3+ (cover does NOT improve 3+ vs AP0) -- got 2`.
+  Rule: cover gives +1 to the saving throw, but cannot improve the modified save to better than 3+. So a unit with Sv3+ in cover against AP0 keeps a 3+ save (not 2+). The cap also bounds the *improved* save, never the unmodified base; AP-modified saves of 4+ or worse can still be improved to 3+ by cover.
+  Owner of the logic: `40k/scripts/RulesEngine.gd` — search for the save-modifier section that applies the cover bonus. The bug is almost certainly that the +1 from cover is applied without checking the post-modifier ceiling.
+  Acceptance: `bash 40k/tests/run_pretrigger_tests.sh` exits 0 with `s7_cover_save_bonus` showing `Result: 14 passed, 0 failed`. Re-run twice to rule out flakiness.
+  Do NOT broaden scope: this task is the cover-cap fix only. If you spot the unrelated flaky test, log it to a new task in `.llm/todo.md` rather than fixing it here.
+
+- [ ] Stabilise `test_hi_pretrigger.gd` — `heroic_intervention_unit_id set to Telemon` flakes
+  Symptom: across 3 back-to-back validation runs (`bash .claude/scripts/run_validation.sh`) the assertion `FAIL: heroic_intervention_unit_id set to Telemon` appeared in 2/3 runs, causing the audit-suite tally to flicker between `100 passed, 1 failed` and `101 passed, 0 failed`. The other 6 audit tests are stable.
+  Logged from the S7 cover-cap fix dry-run (commit 6958cff) — out of scope for that task. The s7 result itself was stable at `14 passed, 0 failed` across all three runs.
+  Likely cause: timing/order-of-detection in heroic intervention pretrigger fixture (id resolution may race with unit registration). Investigate whether the test is matching on a unit that hasn't fully loaded, or whether multiple eligible units are being non-deterministically picked.
+  Acceptance: 5 consecutive `run_validation.sh` invocations all exit 0, with `test_hi_pretrigger` reporting the same `Result: N passed, 0 failed` line every time.
+
 ## Tier 1 — Core Rules Compliance (Blocking for Accurate Games)
 
 - [x] ~~Implement variable attacks and damage rolling for weapons with D3/D6/D3+3 notation~~ **COMPLETED**
