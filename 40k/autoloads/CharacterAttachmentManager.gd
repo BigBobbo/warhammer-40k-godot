@@ -1,5 +1,6 @@
 extends Node
 const GameStateData = preload("res://autoloads/GameState.gd")
+const RulesEngineData = preload("res://autoloads/RulesEngine.gd")
 
 # CharacterAttachmentManager - Manages CHARACTER leader attachment to bodyguard units
 # Mirrors TransportManager pattern for embark/disembark
@@ -31,6 +32,13 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 	var can_lead = leader_data.get("can_lead", [])
 	if can_lead.is_empty():
 		return {"valid": false, "reason": "Character has no Leader ability"}
+
+	# 10e: Lone Operative units cannot be part of an Attached unit (the ability text says
+	# "Unless part of an Attached unit ... within 12\"" — but the unit's own datasheet rules
+	# normally prohibit attachment; if a Lone Operative also somehow has Leader, the attachment
+	# is still illegal per the standard list-build restrictions).
+	if RulesEngineData.has_lone_operative(character):
+		return {"valid": false, "reason": "Lone Operative units cannot attach to a bodyguard"}
 
 	# Check bodyguard has a matching keyword from can_lead (case-insensitive)
 	var bg_keywords = bodyguard.get("meta", {}).get("keywords", [])

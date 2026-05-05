@@ -679,7 +679,35 @@ func _validate_assign_attacks(action: Dictionary) -> Dictionary:
 		errors.append("Weapon not found: " + weapon_id)
 	elif weapon.get("type", "").to_lower() != "melee":
 		errors.append("Weapon is not a melee weapon: " + weapon_id)
-	
+
+	# Per-model fight eligibility: each model in `attacking_models` must be in engagement range,
+	# OR in base-to-base contact with a friendly model that is in base contact with an enemy
+	# (10e: only models satisfying one of those criteria can fight). RulesEngine returns the
+	# eligible model indices for the unit; validate every requested attacker is eligible.
+	var attacking_models = action.get("attacking_models", [])
+	if not attacking_models.is_empty():
+		var eligible_indices = RulesEngine.get_eligible_melee_model_indices(unit, game_state_snapshot)
+		var unit_models = unit.get("models", [])
+		var eligible_ids: Array = []  # mirror of eligible indices as model_id strings
+		for idx in eligible_indices:
+			if idx >= 0 and idx < unit_models.size():
+				var mid = unit_models[idx].get("id", "")
+				if mid != "":
+					eligible_ids.append(str(mid))
+		for entry in attacking_models:
+			var entry_str = str(entry)
+			# Treat the entry as either a model_id ("m1") or an index ("0").
+			var matched = false
+			if entry_str in eligible_ids:
+				matched = true
+			elif entry_str.is_valid_int():
+				var idx = entry_str.to_int()
+				if idx in eligible_indices:
+					matched = true
+			if not matched:
+				errors.append("Model %s is not eligible to fight (not in engagement range and not in base-to-base contact with a friendly model that is)" % entry_str)
+				break
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:

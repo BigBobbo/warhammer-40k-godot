@@ -180,11 +180,16 @@ func _handle_choose_turn_order(action: Dictionary) -> Dictionary:
 		_roll_off_winner, choice.to_upper(), _first_turn_player
 	])
 
-	# Store the choice and set the active player for the first turn
+	# Store the choice and set the active player for the first turn.
+	# 10e: the player who takes the first turn is the Attacker, the other is the Defender —
+	# some mission rules (e.g. deployment / scoring) reference these roles by name.
+	var defender_player = 3 - _first_turn_player
 	var changes = [
 		{"op": "set", "path": "meta.roll_off_choice", "value": choice},
 		{"op": "set", "path": "meta.first_turn_player", "value": _first_turn_player},
-		{"op": "set", "path": "meta.active_player", "value": _first_turn_player}
+		{"op": "set", "path": "meta.active_player", "value": _first_turn_player},
+		{"op": "set", "path": "meta.attacker", "value": _first_turn_player},
+		{"op": "set", "path": "meta.defender", "value": defender_player}
 	]
 
 	return {

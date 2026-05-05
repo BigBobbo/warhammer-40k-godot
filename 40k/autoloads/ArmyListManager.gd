@@ -1272,6 +1272,37 @@ func validate_army_construction_points(army_data: Dictionary) -> Dictionary:
 	if units_missing_points.size() > 0:
 		result.warnings.append("Units missing points cost: %s" % ", ".join(units_missing_points))
 
+	# --- Enhancement validation (10e: 1 of each per army; 1 per CHARACTER; bearer must be CHARACTER) ---
+	var enhancement_bearers: Dictionary = {}  # enhancement_name -> [bearer_unit_name, ...]
+	for unit_id in army_data.units:
+		var unit = army_data.units[unit_id]
+		if not unit is Dictionary:
+			continue
+		var meta = unit.get("meta", {})
+		var enh_list = meta.get("enhancements", [])
+		if not enh_list is Array or enh_list.is_empty():
+			continue
+		var unit_name = meta.get("name", unit_id)
+		var keywords = meta.get("keywords", [])
+		var has_character_kw = false
+		for kw in keywords:
+			if str(kw).to_upper() == "CHARACTER":
+				has_character_kw = true
+				break
+		if not has_character_kw:
+			result.warnings.append("Unit '%s' (%s) has enhancements but is not a CHARACTER — enhancements may only be carried by CHARACTER models" % [unit_name, unit_id])
+		if enh_list.size() > 1:
+			result.warnings.append("Unit '%s' (%s) carries %d enhancements — a CHARACTER may carry at most one (rule: 1 enhancement per CHARACTER)" % [unit_name, unit_id, enh_list.size()])
+		for enh_name in enh_list:
+			var key = str(enh_name)
+			if not enhancement_bearers.has(key):
+				enhancement_bearers[key] = []
+			enhancement_bearers[key].append(unit_name)
+	for enh_name in enhancement_bearers:
+		var bearers = enhancement_bearers[enh_name]
+		if bearers.size() > 1:
+			result.warnings.append("Enhancement '%s' is taken %d times — each enhancement may be selected only once per army (carried by: %s)" % [enh_name, bearers.size(), ", ".join(bearers)])
+
 	# --- Points limit comparison ---
 	if declared_points >= 0 and units_missing_points.size() == 0:
 		if total_unit_points > declared_points:
