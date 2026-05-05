@@ -6,7 +6,7 @@ Validator for both: `bash 40k/tests/run_multiplayer_tests.sh`. Audit gate (`bash
 
 ---
 
-- [ ] Fix command-file double-execution race in TestModeHandler
+- [x] Fix command-file double-execution race in TestModeHandler
 
   Symptom (verified in the `9d77ed7` commit message and the `/tmp/mp_run4.log` trace): when a TestModeHandler action handler awaits internally — e.g. `_handle_use_grenade_stratagem` running the stratagem flow which yields to NetworkManager / signal handlers — the autoload's command-file scan loop re-picks up the same command file before the handler writes its result. The first execution succeeds and mutates state; the second clobbers the result file with `"No active phase instance"` because the phase has been torn down by the time the duplicate execution runs. Concrete trace from the grenade test (`test_multiplayer_dice_log_sync.gd`):
 

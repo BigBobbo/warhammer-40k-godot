@@ -27,6 +27,15 @@ var _check_interval: float = 0.1  # Check every 100ms
 var _time_since_check: float = 0.0
 var _sequence_counter: int = 0
 var _game_state_cache = null
+# In-flight set: tracks command filenames currently being executed.
+# Prevents the 100ms scanner from re-picking up a command file while an async
+# handler is mid-await (e.g. _handle_use_grenade_stratagem yields to the
+# stratagem flow → NetworkManager → signal handlers, during which time the
+# command file still exists on disk because deletion happens after the await
+# returns). Without this guard, the same command runs twice; the second
+# invocation finds the phase torn down and clobbers the success result with
+# "No active phase instance". See task notes / `/tmp/mp_run4.log`.
+var _commands_in_flight: Dictionary = {}
 const COMMANDS_SUBDIR := "test_results/test_commands/commands"
 const RESULTS_SUBDIR := "test_results/test_commands/results"
 const TEST_ARTIFACTS_SUBDIR := "test_results/test_artifacts"
@@ -441,6 +450,16 @@ func _check_for_commands():
 
 	while file_name != "":
 		if file_name.ends_with(".json") and not file_name.begins_with("."):
+			# Skip if this command is already in flight (handler is mid-await).
+			# Without this, the 100ms scan loop re-enters _execute_command_file
+			# for the same file before the first invocation gets a chance to
+			# delete it after its internal await completes — causing a phantom
+			# second execution that overwrites the real result with a bogus
+			# "No active phase instance" failure (the original phase was torn
+			# down by the time the duplicate runs).
+			if _commands_in_flight.has(file_name):
+				file_name = dir.get_next()
+				continue
 			print("TestModeHandler: Processing command file ", file_name)
 			_execute_command_file(file_name)
 		file_name = dir.get_next()
@@ -448,11 +467,17 @@ func _check_for_commands():
 	dir.list_dir_end()
 
 func _execute_command_file(file_name: String):
+	# Mark this command as in-flight BEFORE any await or early-return paths so
+	# a concurrent _check_for_commands cannot re-enter for the same filename.
+	# Cleanup happens in the cleanup block at the bottom of this function.
+	_commands_in_flight[file_name] = true
+
 	var file_path = _command_dir + "/" + file_name
 	var file = FileAccess.open(file_path, FileAccess.READ)
 
 	if not file:
 		push_error("TestModeHandler: Failed to open command file: " + file_name)
+		_commands_in_flight.erase(file_name)
 		return
 
 	var json_string = file.get_as_text()
@@ -463,6 +488,7 @@ func _execute_command_file(file_name: String):
 
 	if error != OK:
 		push_error("TestModeHandler: Failed to parse command JSON: " + file_name)
+		_commands_in_flight.erase(file_name)
 		return
 
 	var command_data = json.data
@@ -470,7 +496,7 @@ func _execute_command_file(file_name: String):
 
 	print("TestModeHandler: Executing command from file: ", file_name)
 
-	# Execute the command
+	# Execute the command (may internally await across signal handlers)
 	var result = await _execute_command(command_data["command"])
 
 	var execution_time = Time.get_ticks_msec() - start_time
@@ -480,6 +506,11 @@ func _execute_command_file(file_name: String):
 
 	# Delete command file
 	DirAccess.remove_absolute(file_path)
+	# Clear the in-flight marker now that the result is on disk and the
+	# command file is removed. Erasing AFTER deletion guarantees that even if
+	# the OS hasn't fully flushed the unlink yet, the next scanner tick that
+	# might race with this still sees the in-flight marker and skips.
+	_commands_in_flight.erase(file_name)
 	print("TestModeHandler: Command executed and result written")
 
 func _execute_command(command: Dictionary) -> Dictionary:
