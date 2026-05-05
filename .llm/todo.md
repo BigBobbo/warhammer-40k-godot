@@ -11,7 +11,7 @@ Background context that applies to all three:
 
 ---
 
-- [ ] Upgrade test_multiplayer_shooting_visuals.gd with one real behavioral assertion
+- [x] Upgrade test_multiplayer_shooting_visuals.gd with one real behavioral assertion
   Pick the most natural test method (likely the select-shooter or assign-target broadcast test) and upgrade it from connection-only fallback to a real scenario. The flow:
   1. `await launch_host_and_client()` + `wait_for_connection()` (existing pattern).
   2. `simulate_host_action("load_save", {"save_name": "shooting_phase"})` — assert success.

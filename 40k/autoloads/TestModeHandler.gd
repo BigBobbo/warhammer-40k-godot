@@ -834,6 +834,28 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 	if game_state and game_state.state.has("units"):
 		state_data["units"] = game_state.state.get("units", {})
 
+	# Expose ShootingPhase.active_shooter_id when the active phase is a
+	# ShootingPhase. Multi-peer integration tests use this to verify a
+	# host SELECT_SHOOTER actually mutated the host phase. Stays empty
+	# when the active phase is not Shooting (or when no shooter is selected).
+	# NOTE: this reads HOST-side state only. The client's ShootingPhase
+	# instance does NOT currently get its `active_shooter_id` written by
+	# the broadcast pipeline (NetworkManager._emit_client_visual_updates
+	# emits visual signals but does not call _process_select_shooter on the
+	# client phase), so a get_game_state on the client will report "" here
+	# even after the host has selected a shooter. The client-side controller
+	# state IS updated via the unit_selected_for_shooting signal handler;
+	# exposing that would require a future get_controller_state action.
+	state_data["active_shooter_id"] = ""
+	var phase_mgr = get_node_or_null("/root/PhaseManager")
+	if phase_mgr:
+		var current_phase_inst = phase_mgr.get_current_phase_instance()
+		if current_phase_inst:
+			var script = current_phase_inst.get_script()
+			var script_path = script.resource_path if script else ""
+			if script_path.ends_with("ShootingPhase.gd") and "active_shooter_id" in current_phase_inst:
+				state_data["active_shooter_id"] = current_phase_inst.active_shooter_id
+
 	return {
 		"success": true,
 		"message": "Game state retrieved",

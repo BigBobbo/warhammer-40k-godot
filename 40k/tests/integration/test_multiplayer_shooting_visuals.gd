@@ -23,25 +23,34 @@ extends "res://tests/helpers/MultiplayerIntegrationTest.gd"
 # up real host + client Godot processes and verifies the harness preserves
 # the protocol on the wire.
 #
-# IMPORTANT API LIMITATION
-# ------------------------
+# API STATUS
+# ----------
 # `MultiplayerIntegrationTest.simulate_host_action` is bridged to
-# `TestModeHandler` which currently does NOT support shooting actions
-# (no `select_shooter` / `assign_target` / `confirm_targets` /
-# `complete_shooting_for_unit` handlers). Without driving the actions, we
-# cannot:
-#   - Trigger a real SELECT_SHOOTER on the host and inspect the client's
-#     `_range_indicator` / `_target_highlights` Node2D children for renders
-#   - Drive a real ASSIGN_TARGET and observe a `ShootingLineVisual` instance
-#     attached to the client's BoardRoot
+# `TestModeHandler` which now supports the shooting-phase action set:
+# `select_shooter`, `assign_target`, `clear_assignment`, `confirm_targets`,
+# `complete_shooting_for_unit`, `use_grenade_stratagem`. The first method
+# in this file drives a real SELECT_SHOOTER end-to-end (host fires, both
+# peers queried via get_game_state) so a regression in the broadcast
+# pipeline surfaces here, not just in the static-source contracts below.
 #
-# What we CAN do:
-#   1. Launch host + client, load shooting save, assert both reach SHOOTING
-#      phase with matching units (so a SELECT_SHOOTER on host targets a
-#      shooter the client knows about).
-#   2. Static-source assert the protocol contract (allow-list membership,
-#      controller method names, signal re-emission patterns) so a refactor
-#      that breaks the contract fails the multi-peer suite too.
+# What we CAN drive end-to-end:
+#   - SELECT_SHOOTER on host → host's ShootingPhase.active_shooter_id set,
+#     visible via get_game_state.
+#   - The static-source contracts (re-emit signals, controller methods,
+#     allow-list membership) so a refactor that breaks the protocol fails
+#     this suite too.
+#
+# What is still NOT driveable (queued separately):
+#   - Inspecting the client's `_range_indicator` / `_target_highlights`
+#     Node2D children directly — `get_game_state` doesn't expose
+#     ShootingController state. Would need a future `get_controller_state`
+#     action.
+#   - The client's ShootingPhase.active_shooter_id is NOT mutated by the
+#     broadcast pipeline today: `_emit_client_visual_updates` emits visual
+#     signals but does not run `_process_select_shooter` on the client
+#     phase. The client's ShootingController DOES track the shooter (via
+#     the unit_selected_for_shooting signal handler) — exposing that
+#     would also require `get_controller_state`.
 #
 # Manual scenarios still needed (not driveable from the command-file IPC):
 #   - Host selects shooter → client sees range circles + LoS lines + eligible
@@ -53,21 +62,37 @@ extends "res://tests/helpers/MultiplayerIntegrationTest.gd"
 # Usage: bash 40k/tests/run_multiplayer_tests.sh
 
 ## ===========================================================================
-## 1. CONNECTION + SHOOTING PHASE PRECONDITION (DRIVEABLE END-TO-END)
+## 1. SELECT_SHOOTER BROADCAST — REAL END-TO-END BEHAVIORAL ASSERTION
 ## ===========================================================================
 
-func test_shooting_visuals_connection_to_shooting_save():
+func test_shooting_visuals_select_shooter_broadcast_end_to_end():
 	"""
-	Test: Host and client both reach SHOOTING phase in sync. This is the
-	precondition for any shooting visual broadcast: the two peers must
-	agree on units before SELECT_SHOOTER on the host can address a shooter
-	the client recognizes.
+	What this verifies (real behavior, end-to-end on two real peers):
+	  1. Host + client both reach SHOOTING phase from the shooting fixture.
+	  2. After host runs SELECT_SHOOTER, the host's ShootingPhase carries
+	     active_shooter_id == <picked_unit_id> (proves the action mutated
+	     phase state on the host).
+	  3. The host's choice is visible to the client through get_game_state's
+	     observable view: at minimum the host and client agree on phase /
+	     unit set, so a SELECT_SHOOTER does not target a phantom unit on
+	     the client.
 
-	Setup: launch host+client with shooting save (auto-loaded)
-	Action: query game state from both peers
-	Verify: both report Shooting phase, matching unit set.
+	What this does NOT verify (limitations of the get_game_state API):
+	  - The client's *visual* state (range circles, LoS lines, target
+	    highlights) — `get_game_state` does not expose ShootingController
+	    children. Counting `_range_indicator` / `_target_highlights` Node2D
+	    children would need a future `get_controller_state` action.
+	  - The client's ShootingPhase.active_shooter_id — the broadcast
+	    pipeline's `_emit_client_visual_updates` re-emits signals on the
+	    client phase but never runs `_process_select_shooter` there, so the
+	    client phase's `active_shooter_id` stays empty. The client's
+	    ShootingController IS updated via the unit_selected_for_shooting
+	    signal handler, but again that needs `get_controller_state` to read.
+
+	Acceptance: host's `data.active_shooter_id` matches the picked id;
+	host + client agree on phase + unit set.
 	"""
-	print("\n[TEST] test_shooting_visuals_connection_to_shooting_save")
+	print("\n[TEST] test_shooting_visuals_select_shooter_broadcast_end_to_end")
 
 	var shooting_save = get_shooting_test_save().get_file()
 	print("[TEST] Using shooting save: %s" % shooting_save)
@@ -81,6 +106,16 @@ func test_shooting_visuals_connection_to_shooting_save():
 	# Wait for save load + phase transition to settle on both peers.
 	await wait_for_seconds(4.0)
 
+	# Step A: host loads the shooting fixture explicitly via the action API.
+	# (auto-load on launch primarily covers it; this assertion pins that the
+	# test infra path itself works for shooting, not just deployment.)
+	var load_result = await simulate_host_action("load_save", {"save_name": "shooting_phase"})
+	assert_true(load_result.get("success", false),
+		"Host load_save(shooting_phase) should succeed: %s" % load_result.get("message", ""))
+
+	# Give the client a moment to receive any post-load state sync.
+	await wait_for_seconds(2.0)
+
 	var host_state = await simulate_host_action("get_game_state", {})
 	var client_state = await simulate_client_action("get_game_state", {})
 
@@ -91,6 +126,9 @@ func test_shooting_visuals_connection_to_shooting_save():
 	var client_phase = client_state.get("data", {}).get("current_phase", "")
 	print("[TEST] Host phase: '%s', Client phase: '%s'" % [host_phase, client_phase])
 
+	# If the shooting save isn't reachable in the test environment, the
+	# auto-load + explicit load both fail to reach Shooting. Surface that as
+	# a soft skip so the test still proves the connection + load slice works.
 	if host_phase != "Shooting":
 		print("[TEST] WARNING: Host did not reach Shooting phase (got '%s'). Auto-load may have failed; manual smoke required for the actual visual scenarios." % host_phase)
 		assert_eq(host_phase, client_phase,
@@ -110,7 +148,98 @@ func test_shooting_visuals_connection_to_shooting_save():
 		assert_true(unit_id in client_units,
 			"Unit '%s' on host should also be on client (else SELECT_SHOOTER targets a phantom unit on client)" % unit_id)
 
-	print("[TEST] PASSED: Shooting visuals precondition (Shooting phase + matching units) verified end-to-end")
+	# Step B: pick a concrete shooter — any unit owned by the active player
+	# from the host's view. (The host is the source of truth for active
+	# player; the fixture sets active_player=1 / Orks.)
+	var active_player = host_state.get("data", {}).get("player_turn", 1)
+	var picked_shooter_id = ""
+	for unit_id in host_units.keys():
+		var unit = host_units[unit_id]
+		if int(unit.get("owner", 0)) == int(active_player):
+			picked_shooter_id = unit_id
+			break
+
+	if picked_shooter_id == "":
+		# No active-player unit found in the fixture — surface as soft skip
+		# rather than hard fail; this would mean the fixture lost the active
+		# player's units for some reason.
+		print("[TEST] WARNING: No active-player (player %d) unit found in host's view; cannot drive SELECT_SHOOTER" % active_player)
+		assert_true(false, "Fixture should expose at least one unit owned by the active player")
+		return
+
+	print("[TEST] Picked shooter: %s (owner=%d, active_player=%d)" % [
+		picked_shooter_id,
+		int(host_units[picked_shooter_id].get("owner", 0)),
+		int(active_player)
+	])
+
+	# Step C: drive a real SELECT_SHOOTER on the host. The handler dispatches
+	# {"type": "SELECT_SHOOTER", "actor_unit_id": <id>} into the active
+	# ShootingPhase via execute_action.
+	var select_result = await simulate_host_action("select_shooter", {"actor_unit_id": picked_shooter_id})
+	# NOTE: the test handler returns {"success": true, "result": {...}, "message": ...}
+	# where "success" reflects the *phase* result.success. SELECT_SHOOTER may
+	# legitimately surface ability prompts (Throat Slittas, Ammo Runt etc.)
+	# whose results carry a sub-flag rather than failing — so we accept either
+	# outright success or a result that carries one of those prompt flags.
+	var select_inner = select_result.get("result", {})
+	var prompt_keys := ["throat_slittas_available", "ammo_runt_available", "pulsa_rokkit_available", "shooty_power_trip_available"]
+	var has_prompt := false
+	for key in prompt_keys:
+		if select_inner.get(key, false):
+			has_prompt = true
+			break
+	assert_true(
+		select_result.get("success", false) or has_prompt,
+		"Host SELECT_SHOOTER should succeed or surface an ability prompt; got: %s" % str(select_result)
+	)
+
+	# Allow the broadcast time to propagate to the client.
+	await wait_for_seconds(2.0)
+
+	# Step D: re-query both peers. The host's active_shooter_id MUST be the
+	# picked unit id (this is the strong real-behavior assertion).
+	var host_state_after = await simulate_host_action("get_game_state", {})
+	var client_state_after = await simulate_client_action("get_game_state", {})
+
+	assert_true(host_state_after.get("success", false), "Host should return game state after SELECT_SHOOTER")
+	assert_true(client_state_after.get("success", false), "Client should return game state after SELECT_SHOOTER")
+
+	var host_active_shooter = host_state_after.get("data", {}).get("active_shooter_id", "")
+	var client_active_shooter = client_state_after.get("data", {}).get("active_shooter_id", "")
+	print("[TEST] Post-SELECT_SHOOTER — host.active_shooter_id='%s', client.active_shooter_id='%s'" % [
+		host_active_shooter, client_active_shooter
+	])
+
+	# REAL BEHAVIORAL ASSERTION: host's phase recorded the selection.
+	assert_eq(host_active_shooter, picked_shooter_id,
+		"Host's ShootingPhase.active_shooter_id should equal the picked shooter '%s' after SELECT_SHOOTER (got '%s')" % [
+			picked_shooter_id, host_active_shooter
+		])
+
+	# Phases must still agree across peers (no desync caused by SELECT_SHOOTER).
+	var host_phase_after = host_state_after.get("data", {}).get("current_phase", "")
+	var client_phase_after = client_state_after.get("data", {}).get("current_phase", "")
+	assert_eq(host_phase_after, client_phase_after,
+		"Host and client phases must still agree after SELECT_SHOOTER")
+	assert_eq(host_phase_after, "Shooting", "Host must still be in Shooting phase after SELECT_SHOOTER")
+
+	# Soft observation about the client phase: with the current broadcast
+	# implementation, client's ShootingPhase.active_shooter_id stays empty
+	# because `_emit_client_visual_updates` never invokes
+	# `_process_select_shooter` on the client phase. We don't fail the test
+	# on this — we log it so a future fix that DOES propagate it surfaces
+	# here (and we can flip this to assert_eq).
+	if client_active_shooter == picked_shooter_id:
+		print("[TEST] OBSERVATION: client phase active_shooter_id IS now in sync with host — broadcast may have been extended.")
+	elif client_active_shooter == "":
+		print("[TEST] OBSERVATION (expected today): client phase active_shooter_id is empty — broadcast pipeline does not propagate this field. Client controller still tracks the shooter via unit_selected_for_shooting signal handler (not exposed by get_game_state).")
+	else:
+		assert_true(false, "Client active_shooter_id is unexpected: '%s' (expected '' or '%s')" % [
+			client_active_shooter, picked_shooter_id
+		])
+
+	print("[TEST] PASSED: SELECT_SHOOTER end-to-end — host phase mutated, peers stayed in sync")
 
 ## ===========================================================================
 ## 2. CONTROLLER VISUAL METHODS — confirm the local-render API is intact
