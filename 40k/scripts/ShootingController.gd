@@ -35,6 +35,20 @@ var _save_ack_received: bool = false  # Whether defender acknowledged receiving 
 const SAVE_PROCESSING_TIMEOUT_SEC: float = 10.0  # Max time for processing_saves_signal to stay true
 const SAVE_ACK_TIMEOUT_SEC: float = 8.0  # Time to wait for defender acknowledgment before retry
 
+# T5-MP4-RELIABILITY: Multi-attempt retry budget + idempotent dialog dispatch.
+#
+# Previously the attacker did a single retry then cleared the cached save data,
+# so a second lossy round meant the defender simply never saw the dialog and
+# the game stalled. Now we keep retrying up to MAX_SAVE_RETRY_ATTEMPTS, each
+# carrying the original save_broadcast_id so the defender can dedupe.
+const MAX_SAVE_RETRY_ATTEMPTS: int = 3
+var _save_retry_attempts: int = 0  # Number of retries already sent for the current broadcast
+var _expected_save_ack_broadcast_id: String = ""  # Set when attacker starts waiting; matched by ack
+# T5-MP4-RELIABILITY: Defender-side idempotency. Tracks the broadcast ids we've
+# already shown a dialog for, so a re-broadcast (retry) doesn't pop a duplicate.
+var _shown_save_broadcast_ids: Array = []  # Recent broadcast ids the defender has handled
+const SHOWN_SBID_HISTORY_CAP: int = 32  # Trim to last N to keep memory bounded
+
 # UI References
 var board_view: Node2D
 var los_visual: Line2D
@@ -2022,6 +2036,26 @@ func _on_saves_required(save_data_list: Array) -> void:
 		print("╚═══════════════════════════════════════════════════════════════")
 		return
 
+	# T5-MP4-RELIABILITY: idempotent dispatch by broadcast id.
+	# A retry (sent because the attacker didn't get an ack) re-emits this
+	# signal with the SAME save_broadcast_id. We must not show a duplicate
+	# dialog. We also must not regress the existing weapon+target dedupe in
+	# the legacy non-id path, so this only fires when the id is present.
+	if save_data_list.size() > 0:
+		var incoming_sbid = save_data_list[0].get("save_broadcast_id", "")
+		if incoming_sbid != "" and incoming_sbid in _shown_save_broadcast_ids:
+			print("╔═══════════════════════════════════════════════════════════════")
+			print("║ T5-MP4-RELIABILITY: DUPLICATE BROADCAST ID — SKIPPING")
+			print("║ save_broadcast_id: ", incoming_sbid)
+			print("║ Already shown — dialog will not be reopened (idempotent retry)")
+			print("╚═══════════════════════════════════════════════════════════════")
+			# Re-send ack so the attacker stops retrying for this broadcast.
+			if NetworkManager.is_networked():
+				var dup_target = save_data_list[0].get("target_unit_id", "")
+				var dup_weapon = save_data_list[0].get("weapon_name", "")
+				NetworkManager.send_save_dialog_ack(dup_target, dup_weapon, incoming_sbid)
+			return
+
 	processing_saves_signal = true
 
 	# COMPREHENSIVE LOGGING: Track every call to this function
@@ -2129,8 +2163,13 @@ func _on_saves_required(save_data_list: Array) -> void:
 			_awaiting_remote_saves = true
 			_save_ack_received = false
 			_pending_save_data_for_retry = save_data_list.duplicate(true)
+			# T5-MP4-RELIABILITY: reset retry budget for this broadcast and
+			# capture the broadcast id we expect to see in the ack.
+			_save_retry_attempts = 0
+			_expected_save_ack_broadcast_id = save_data.get("save_broadcast_id", "")
 			print("║ T5-MP4: Attacker waiting for defender to make saves")
 			print("║ T5-MP4: Starting ack timeout (%.0fs)" % SAVE_ACK_TIMEOUT_SEC)
+			print("║ T5-MP4-RELIABILITY: Expecting ack for broadcast id: ", _expected_save_ack_broadcast_id)
 			_show_waiting_for_saves_feedback(target, weapon)
 			# Start ack timeout timer — if defender doesn't ack, we'll log a warning
 			if _save_processing_timeout_timer:
@@ -2224,10 +2263,19 @@ func _on_saves_required(save_data_list: Array) -> void:
 	overlay.setup(save_data, defender_player)
 	print("║ Overlay setup complete")
 
+	# T5-MP4-RELIABILITY: Record broadcast id so a retry of the same broadcast
+	# is silently deduped at the top of _on_saves_required.
+	var local_sbid = save_data.get("save_broadcast_id", "")
+	if local_sbid != "":
+		_shown_save_broadcast_ids.append(local_sbid)
+		# Bound the history so we don't grow forever in long games.
+		if _shown_save_broadcast_ids.size() > SHOWN_SBID_HISTORY_CAP:
+			_shown_save_broadcast_ids = _shown_save_broadcast_ids.slice(_shown_save_broadcast_ids.size() - SHOWN_SBID_HISTORY_CAP)
+
 	# T5-MP4: Send acknowledgment to attacker that save dialog is now showing
 	if NetworkManager.is_networked():
-		print("║ T5-MP4: Sending save_dialog_ack to attacker")
-		NetworkManager.send_save_dialog_ack(target_unit_id, weapon)
+		print("║ T5-MP4: Sending save_dialog_ack to attacker (sbid=%s)" % local_sbid)
+		NetworkManager.send_save_dialog_ack(target_unit_id, weapon, local_sbid)
 	print("╚═══════════════════════════════════════════════════════════════")
 
 func _on_weapon_order_required(assignments: Array) -> void:
@@ -4139,6 +4187,7 @@ func _on_save_processing_timeout() -> void:
 	print("║ processing_saves_signal: ", processing_saves_signal)
 	print("║ _awaiting_remote_saves: ", _awaiting_remote_saves)
 	print("║ _save_ack_received: ", _save_ack_received)
+	print("║ _save_retry_attempts: ", _save_retry_attempts, "/", MAX_SAVE_RETRY_ATTEMPTS)
 
 	if _awaiting_remote_saves and not _save_ack_received:
 		# Attacker side: defender didn't acknowledge — try re-sending save data
@@ -4161,36 +4210,90 @@ func _on_save_processing_timeout() -> void:
 		print("╚═══════════════════════════════════════════════════════════════")
 
 func _retry_save_data_broadcast() -> void:
-	"""Re-broadcast save data to defender if ack was not received."""
+	"""Re-broadcast save data to defender if ack was not received.
+
+	T5-MP4-RELIABILITY: this is now a budgeted multi-attempt retry. We keep
+	the cached `_pending_save_data_for_retry` populated until either the ack
+	arrives or the budget is exhausted. Each retry re-arms the ack timer."""
 	if _pending_save_data_for_retry.is_empty():
 		print("T5-MP4: No pending save data to retry")
 		return
 
-	print("T5-MP4: Retrying save data broadcast (%d entries)" % _pending_save_data_for_retry.size())
+	if _save_retry_attempts >= MAX_SAVE_RETRY_ATTEMPTS:
+		# Budget exhausted — give up, surface a clear error, and clear state.
+		print("T5-MP4-RELIABILITY: Retry budget exhausted (%d/%d) — giving up" % [_save_retry_attempts, MAX_SAVE_RETRY_ATTEMPTS])
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_toast(
+				"Save dialog could not reach defender after %d attempts. Check network." % MAX_SAVE_RETRY_ATTEMPTS,
+				Color.RED, 6.0
+			)
+		var main = get_node_or_null("/root/Main")
+		if main and "status_label" in main and main.status_label:
+			main.status_label.text = "ERROR: defender unreachable for saves (network issue)"
+		_pending_save_data_for_retry.clear()
+		_awaiting_remote_saves = false
+		_save_retry_attempts = 0
+		_expected_save_ack_broadcast_id = ""
+		return
 
-	# Ask NetworkManager to re-send the save data via relay
+	_save_retry_attempts += 1
+	var sbid := ""
+	if _pending_save_data_for_retry.size() > 0:
+		sbid = _pending_save_data_for_retry[0].get("save_broadcast_id", "")
+	print("T5-MP4-RELIABILITY: Retrying save data broadcast attempt %d/%d (%d entries, sbid=%s)" % [
+		_save_retry_attempts, MAX_SAVE_RETRY_ATTEMPTS, _pending_save_data_for_retry.size(), sbid
+	])
+
+	# Ask NetworkManager to re-send the save data via relay. The save_data
+	# entries already carry their original save_broadcast_id, so the defender
+	# will dedupe against an already-shown dialog.
 	NetworkManager.retry_save_data_broadcast(_pending_save_data_for_retry)
 
 	# Show updated feedback
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr:
-		toast_mgr.show_toast("Retrying save data to defender...", Color.ORANGE, 3.0)
+		toast_mgr.show_toast(
+			"Retrying save data to defender (attempt %d/%d)..." % [_save_retry_attempts, MAX_SAVE_RETRY_ATTEMPTS],
+			Color.ORANGE, 3.0
+		)
 
-	# Don't retry indefinitely — clear after one retry attempt
-	_pending_save_data_for_retry.clear()
+	# Re-arm the ack timer — if the defender still doesn't ack, we'll retry
+	# again until the budget is exhausted.
+	if _save_processing_timeout_timer:
+		_save_processing_timeout_timer.wait_time = SAVE_ACK_TIMEOUT_SEC
+		_save_processing_timeout_timer.start()
 
-func on_save_dialog_acknowledged(target_unit_id: String, weapon_name: String) -> void:
-	"""Called by NetworkManager when defender acknowledges receiving the save dialog."""
+func on_save_dialog_acknowledged(target_unit_id: String, weapon_name: String, save_broadcast_id: String = "") -> void:
+	"""Called by NetworkManager when defender acknowledges receiving the save dialog.
+
+	T5-MP4-RELIABILITY: when a `save_broadcast_id` is provided, prefer it for
+	matching. We accept an ack if either (a) it matches our expected id, or
+	(b) the legacy empty-id path (older client / pre-MP4 saves) — backward
+	compatible during version skew."""
 	print("╔═══════════════════════════════════════════════════════════════")
 	print("║ T5-MP4: SAVE DIALOG ACKNOWLEDGED BY DEFENDER")
 	print("║ Timestamp: ", Time.get_ticks_msec())
 	print("║ Target: ", target_unit_id)
 	print("║ Weapon: ", weapon_name)
+	print("║ Broadcast ID: ", save_broadcast_id)
+	print("║ Expected Broadcast ID: ", _expected_save_ack_broadcast_id)
+
+	# T5-MP4-RELIABILITY: precise id-based match. If both sides have an id and
+	# they don't match, this ack belongs to a different (likely earlier)
+	# broadcast — ignore it so we don't clear state for the wrong saves.
+	if save_broadcast_id != "" and _expected_save_ack_broadcast_id != "" \
+			and save_broadcast_id != _expected_save_ack_broadcast_id:
+		print("║ ⚠️ Ack id does not match expected — ignoring stale ack")
+		print("╚═══════════════════════════════════════════════════════════════")
+		return
 	print("╚═══════════════════════════════════════════════════════════════")
 
 	_save_ack_received = true
 	_awaiting_remote_saves = false
 	_pending_save_data_for_retry.clear()
+	_save_retry_attempts = 0
+	_expected_save_ack_broadcast_id = ""
 
 	# Stop the ack timeout timer
 	if _save_processing_timeout_timer:
@@ -4211,6 +4314,8 @@ func clear_awaiting_saves_state() -> void:
 	_awaiting_remote_saves = false
 	_save_ack_received = false
 	_pending_save_data_for_retry.clear()
+	_save_retry_attempts = 0
+	_expected_save_ack_broadcast_id = ""
 	if _save_processing_timeout_timer:
 		_save_processing_timeout_timer.stop()
 

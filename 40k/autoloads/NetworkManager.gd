@@ -474,10 +474,11 @@ func _on_web_relay_message(data: Dictionary) -> void:
 			# T5-MP4: Defender acknowledged receiving the save dialog
 			var ack_target = data.get("target_unit_id", "")
 			var ack_weapon = data.get("weapon_name", "")
-			print("NetworkManager: T5-MP4: Received save_dialog_ack — target=%s, weapon=%s" % [ack_target, ack_weapon])
+			var ack_sbid = data.get("save_broadcast_id", "")
+			print("NetworkManager: T5-MP4: Received save_dialog_ack — target=%s, weapon=%s, sbid=%s" % [ack_target, ack_weapon, ack_sbid])
 			var shooting_controller = get_node_or_null("/root/Main/ShootingController")
 			if shooting_controller and shooting_controller.has_method("on_save_dialog_acknowledged"):
-				shooting_controller.on_save_dialog_acknowledged(ack_target, ack_weapon)
+				shooting_controller.on_save_dialog_acknowledged(ack_target, ack_weapon, ack_sbid)
 
 		"save_data_retry":
 			# T5-MP4: Attacker is retrying save data broadcast — re-emit saves_required
@@ -695,29 +696,41 @@ func send_initial_state_via_relay() -> void:
 # T5-MP4: Save dialog timing reliability
 # ====================================================================
 
-func send_save_dialog_ack(target_unit_id: String, weapon_name: String) -> void:
-	"""Send acknowledgment that the save dialog is showing on this client."""
+func send_save_dialog_ack(target_unit_id: String, weapon_name: String, save_broadcast_id: String = "") -> void:
+	"""Send acknowledgment that the save dialog is showing on this client.
+
+	T5-MP4-RELIABILITY: `save_broadcast_id` is the unique id stamped by
+	ShootingPhase on the save_data batch. The attacker uses it to match this
+	ack to the in-flight retry timer precisely (instead of the loose
+	target+weapon match it used previously)."""
 	if not is_networked():
 		return
 
-	print("NetworkManager: T5-MP4: Sending save_dialog_ack — target=%s, weapon=%s" % [target_unit_id, weapon_name])
+	print("NetworkManager: T5-MP4: Sending save_dialog_ack — target=%s, weapon=%s, sbid=%s" % [target_unit_id, weapon_name, save_broadcast_id])
 
 	if web_relay_mode:
 		_send_via_relay({
 			"msg_type": "save_dialog_ack",
 			"target_unit_id": target_unit_id,
-			"weapon_name": weapon_name
+			"weapon_name": weapon_name,
+			"save_broadcast_id": save_broadcast_id
 		})
 	elif multiplayer and multiplayer.has_multiplayer_peer():
 		# ENet mode — send to all peers (host or client)
-		_receive_save_dialog_ack.rpc(target_unit_id, weapon_name)
+		_receive_save_dialog_ack.rpc(target_unit_id, weapon_name, save_broadcast_id)
 
 func retry_save_data_broadcast(save_data_list: Array) -> void:
-	"""Re-broadcast save data to the other player for retry."""
+	"""Re-broadcast save data to the other player for retry.
+
+	T5-MP4-RELIABILITY: save_data_list entries already carry the original
+	`save_broadcast_id`, so the defender can dedupe a duplicate dialog."""
 	if not is_networked():
 		return
 
-	print("NetworkManager: T5-MP4: Retrying save data broadcast (%d entries)" % save_data_list.size())
+	var sbid := ""
+	if save_data_list.size() > 0:
+		sbid = save_data_list[0].get("save_broadcast_id", "")
+	print("NetworkManager: T5-MP4: Retrying save data broadcast (%d entries, sbid=%s)" % [save_data_list.size(), sbid])
 
 	if web_relay_mode:
 		_send_via_relay({
@@ -729,12 +742,12 @@ func retry_save_data_broadcast(save_data_list: Array) -> void:
 		_receive_save_data_retry.rpc(save_data_list)
 
 @rpc("any_peer", "reliable")
-func _receive_save_dialog_ack(target_unit_id: String, weapon_name: String) -> void:
+func _receive_save_dialog_ack(target_unit_id: String, weapon_name: String, save_broadcast_id: String = "") -> void:
 	"""RPC handler for save dialog acknowledgment (ENet mode)."""
-	print("NetworkManager: T5-MP4: Received save_dialog_ack via RPC — target=%s, weapon=%s" % [target_unit_id, weapon_name])
+	print("NetworkManager: T5-MP4: Received save_dialog_ack via RPC — target=%s, weapon=%s, sbid=%s" % [target_unit_id, weapon_name, save_broadcast_id])
 	var shooting_controller = get_node_or_null("/root/Main/ShootingController")
 	if shooting_controller and shooting_controller.has_method("on_save_dialog_acknowledged"):
-		shooting_controller.on_save_dialog_acknowledged(target_unit_id, weapon_name)
+		shooting_controller.on_save_dialog_acknowledged(target_unit_id, weapon_name, save_broadcast_id)
 
 @rpc("any_peer", "reliable")
 func _receive_save_data_retry(save_data_list: Array) -> void:

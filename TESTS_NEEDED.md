@@ -531,3 +531,41 @@
 
 **What the headless test does NOT verify (limitation):**
 - A real Godot multiplayer peer-to-peer dice-log sync. That requires a two-process harness; per project policy, never claim multiplayer features work without a successful two-peer test result. Run the four manual scenarios above against a real host+client pair.
+
+## Save Broadcast Reliability (T5-MP4-RELIABILITY)
+
+**Task:** Improve save dialog timing reliability for defender on remote client with retry/confirmation mechanism
+**Files changed:**
+- `40k/phases/ShootingPhase.gd` — added `_generate_save_broadcast_id` + `_stamp_save_broadcast_id` helpers; both `saves_required` emit sites now stamp every save_data entry with a unique `save_broadcast_id` before emit and bundling into `result["save_data_list"]`.
+- `40k/autoloads/NetworkManager.gd` — `send_save_dialog_ack` / `_receive_save_dialog_ack` RPC + relay dispatcher carry `save_broadcast_id`; `retry_save_data_broadcast` logs the id; relay path forwards id to controller.
+- `40k/scripts/ShootingController.gd` — defender dedupes by `save_broadcast_id` (silent skip + re-ack on duplicate); attacker tracks `_expected_save_ack_broadcast_id` and ignores stale acks; retry replaced with `MAX_SAVE_RETRY_ATTEMPTS=3` budgeted multi-attempt loop that re-arms the ack timer; final exhaustion surfaces a red "defender unreachable" toast.
+- `40k/tests/test_save_broadcast_reliability.gd` — new headless gate test (34 assertions).
+- `40k/tests/run_pretrigger_tests.sh` — registered the new test in the audit suite.
+
+**Tests to run:**
+- Run `bash 40k/tests/run_pretrigger_tests.sh` — full audit suite passes (204 / 204 across 12 tests).
+- Run `godot --headless --path 40k -s tests/test_save_broadcast_reliability.gd` directly: 34 / 34 protocol-invariant assertions.
+
+**What the headless test verifies:**
+- Every save_data entry gets a unique `save_broadcast_id` after the broadcast helper stamps it, and re-stamping is idempotent (retry preserves the original id).
+- Both `_process_resolve_shooting` and `_resolve_next_weapon` stamp before emitting.
+- The defender's `_on_saves_required` dedupes on broadcast id and re-acks on duplicate without showing a second dialog.
+- The attacker's retry loop honors `MAX_SAVE_RETRY_ATTEMPTS`, increments the counter, re-arms the ack timer, and does NOT clear `_pending_save_data_for_retry` on every retry (only on success or budget exhaustion).
+- Both the ENet RPC and web-relay dispatcher carry `save_broadcast_id` end-to-end; `on_save_dialog_acknowledged` accepts it and ignores stale acks (different id) without clearing active retry state.
+
+**What the headless test does NOT verify (limitation, per project policy: never claim a feature works without a successful test):**
+- A real two-peer Godot multiplayer game with packet loss / latency on the wire. The single-process headless harness cannot simulate dropped or delayed RPCs; it can only assert the protocol surface is shaped to support reliability.
+- Manual host+client scenarios to validate locally:
+  - **Happy path**: shoot a weapon that produces wounds; defender's WoundAllocationOverlay appears; attacker sees "Defender is making saves..." status. No retry toast fires.
+  - **Lossy retry path**: kill the relay/peer connection briefly between `RESOLVE_SHOOTING` broadcast and ack; reconnect within 8s. Verify (a) attacker shows "Retrying save data to defender (attempt N/3)..." toast, (b) defender shows the dialog exactly once when the retry arrives, (c) attacker sees ack and clears retry state.
+  - **Budget exhaustion**: keep the relay disconnected for >24s. Verify the attacker shows the red "Save dialog could not reach defender after 3 attempts. Check network." toast and the status label updates accordingly.
+  - **Multi-weapon sequence**: shoot two different weapons that both generate saves. Verify each broadcast gets a distinct `save_broadcast_id` and the defender shows two dialogs in order.
+  - **Same weapon retry**: trigger the lossy-retry path, then the next ack arrives. Verify the dialog only opens once (defender dedupe via broadcast id).
+
+**What to look for in logs (multiplayer debug logs):**
+- Each `SAVES_REQUIRED EMISSION` block prints a `Broadcast ID: sbid-<msec>-<counter>`.
+- Defender print: `Sending save_dialog_ack to attacker (sbid=...)` matches the emitted id.
+- Attacker print on ack receipt: `Expected Broadcast ID: sbid-...` and `Broadcast ID: sbid-...` — they match.
+- On retry: `Retrying save data broadcast attempt N/3` increments per attempt.
+- On exhaustion: `Retry budget exhausted (3/3) — giving up`.
+- On stale ack: `⚠️ Ack id does not match expected — ignoring stale ack`.

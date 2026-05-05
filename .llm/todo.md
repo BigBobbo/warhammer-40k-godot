@@ -167,7 +167,7 @@
 - [x] ~~Add phase transition animation banner when entering Shooting Phase~~ **COMPLETED — FACT-CHECK 2026-05-05**
   Tagged `P3-126` in source. `40k/scripts/PhaseTransitionBanner.gd` is a dedicated banner class with sound integration via `DiceSoundManager:92`; shows phase name, round, active player, and rules brief.
 
-- [ ] Improve save dialog timing reliability for defender on remote client with retry/confirmation mechanism
+- [x] Improve save dialog timing reliability for defender on remote client with retry/confirmation mechanism
   The `saves_required` signal triggers the wound allocation overlay. In multiplayer, save data is broadcast in the action result. If the broadcast is delayed or lost, the defender may not see the save dialog.
   The code has defensive logging at `ShootingPhase.gd:601-619` but no explicit retry or confirmation mechanism.
   Files: `ShootingPhase.gd` — save data broadcast, `NetworkManager` — reliable delivery.

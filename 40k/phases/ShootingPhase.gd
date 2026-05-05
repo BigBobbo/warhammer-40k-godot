@@ -1207,6 +1207,12 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	# ONE SHOT (T4-2): Store one-shot diffs for inclusion in saves result
 	pending_one_shot_diffs = one_shot_diffs
 
+	# T5-MP4-RELIABILITY: stamp every entry with a unique broadcast id BEFORE
+	# emitting locally / bundling into the result, so the defender's controller
+	# and the attacker's ack/retry timer have a precise match key.
+	var broadcast_id := _generate_save_broadcast_id()
+	_stamp_save_broadcast_id(save_data_list, broadcast_id)
+
 	# LOGGING: Track saves_required emission
 	var timestamp = Time.get_ticks_msec()
 	var save_context = {
@@ -1215,7 +1221,8 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		"save_count": save_data_list.size(),
 		"target": save_data_list[0].get("target_unit_id", "unknown") if save_data_list.size() > 0 else "none",
 		"weapon": save_data_list[0].get("weapon_name", "unknown") if save_data_list.size() > 0 else "none",
-		"wounds": save_data_list[0].get("wounds_to_save", 0) if save_data_list.size() > 0 else 0
+		"wounds": save_data_list[0].get("wounds_to_save", 0) if save_data_list.size() > 0 else 0,
+		"broadcast_id": broadcast_id
 	}
 	print("╔═══════════════════════════════════════════════════════════════")
 	print("║ SAVES_REQUIRED EMISSION #1 (from resolve_shooting)")
@@ -1224,6 +1231,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	print("║ Target: ", save_context.target)
 	print("║ Weapon: ", save_context.weapon)
 	print("║ Wounds: ", save_context.wounds)
+	print("║ Broadcast ID: ", broadcast_id)
 	print("║ Save data list size: ", save_data_list.size())
 	print("╚═══════════════════════════════════════════════════════════════")
 
@@ -2810,6 +2818,10 @@ func _resolve_next_weapon() -> Dictionary:
 			"weapon_name": RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		}
 
+	# T5-MP4-RELIABILITY: Stamp broadcast id (see _generate_save_broadcast_id)
+	var broadcast_id := _generate_save_broadcast_id()
+	_stamp_save_broadcast_id(save_data_list, broadcast_id)
+
 	# LOGGING: Track saves_required emission
 	var timestamp = Time.get_ticks_msec()
 	var save_context = {
@@ -2820,7 +2832,8 @@ func _resolve_next_weapon() -> Dictionary:
 		"weapon": save_data_list[0].get("weapon_name", "unknown") if save_data_list.size() > 0 else "none",
 		"wounds": save_data_list[0].get("wounds_to_save", 0) if save_data_list.size() > 0 else 0,
 		"sequence_weapon": current_index + 1,
-		"sequence_total": weapon_order.size()
+		"sequence_total": weapon_order.size(),
+		"broadcast_id": broadcast_id
 	}
 	print("╔═══════════════════════════════════════════════════════════════")
 	print("║ SAVES_REQUIRED EMISSION #2 (from resolve_next_weapon)")
@@ -2829,6 +2842,7 @@ func _resolve_next_weapon() -> Dictionary:
 	print("║ Target: ", save_context.target)
 	print("║ Weapon: ", save_context.weapon, " (", save_context.sequence_weapon, "/", save_context.sequence_total, ")")
 	print("║ Wounds: ", save_context.wounds)
+	print("║ Broadcast ID: ", broadcast_id)
 	print("║ Save data list size: ", save_data_list.size())
 	print("╚═══════════════════════════════════════════════════════════════")
 
@@ -2847,6 +2861,31 @@ func _resolve_next_weapon() -> Dictionary:
 		"save_data_list": save_data_list,
 		"log_text": result.get("log_text", "")
 	})
+
+# T5-MP4-RELIABILITY: Save broadcast identity helpers
+#
+# Each batch of save_data emitted via `saves_required` carries a unique
+# `save_broadcast_id` so the defender's controller (and the attacker's retry
+# logic) can dedupe re-emissions and match acknowledgments precisely. Without
+# the id, the existing dedupe falls back to (target_unit_id + weapon_name),
+# which is ambiguous when the same weapon hits the same target across multiple
+# rounds or after a retry. The id is `<msec_timestamp>-<monotonic-counter>` so
+# it sorts naturally and is unique per broadcast even within the same tick.
+
+static var _save_broadcast_counter: int = 0
+
+static func _generate_save_broadcast_id() -> String:
+	_save_broadcast_counter += 1
+	return "sbid-%d-%d" % [Time.get_ticks_msec(), _save_broadcast_counter]
+
+static func _stamp_save_broadcast_id(save_data_list: Array, broadcast_id: String) -> void:
+	# Mutate each entry in-place so both the locally-emitted signal and the
+	# returned result["save_data_list"] carry the same id. Caller passes the
+	# id it has already generated so the same value flows into logs.
+	for save_data in save_data_list:
+		# Don't overwrite an existing id (retry path re-uses the same id).
+		if save_data.get("save_broadcast_id", "") == "":
+			save_data["save_broadcast_id"] = broadcast_id
 
 # Helper Methods
 
