@@ -7499,6 +7499,15 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.MOVEMENT:
 			action = {"type": "END_MOVEMENT", "player": active_player}
 		GameStateData.Phase.SHOOTING:
+			# T5-UX9: Show end-of-phase shooting summary dialog (skipped for AI)
+			var ai_player_node = get_node_or_null("/root/AIPlayer")
+			var is_ai_active = ai_player_node and ai_player_node.is_ai_player(active_player)
+			if not is_ai_active:
+				print("Main: T5-UX9: Showing shooting phase summary dialog before END_SHOOTING")
+				_show_shooting_phase_summary_dialog(
+					{"type": "END_SHOOTING", "player": active_player},
+					active_player)
+				return
 			action = {"type": "END_SHOOTING", "player": active_player}
 		GameStateData.Phase.CHARGE:
 			action = {"type": "END_CHARGE", "player": active_player}
@@ -7906,6 +7915,18 @@ func _on_shooting_action_requested(action: Dictionary) -> void:
 	print("Main: Received shooting action request: ", action.get("type", ""))
 	print("Main: Full action = ", action)
 
+	# T5-UX9: Intercept END_SHOOTING to show end-of-phase summary panel.
+	# Skip the dialog when the AI is the active player (AI auto-confirms).
+	# Skip the dialog if it has already been confirmed (re-entry from confirm handler).
+	if action.get("type", "") == "END_SHOOTING" and not action.get("_summary_confirmed", false):
+		var active_player = GameState.get_active_player()
+		var ai_player_node = get_node_or_null("/root/AIPlayer")
+		var is_ai_active = ai_player_node and ai_player_node.is_ai_player(active_player)
+		if not is_ai_active:
+			print("Main: T5-UX9: Showing shooting phase summary dialog before END_SHOOTING")
+			_show_shooting_phase_summary_dialog(action, active_player)
+			return
+
 	# Route through NetworkIntegration (handles multiplayer and single-player)
 	print("Main: Routing action through NetworkIntegration...")
 	var result = NetworkIntegration.route_action(action)
@@ -8176,6 +8197,59 @@ func _on_deployment_confirmed(active_player: int) -> void:
 func _on_deployment_cancelled() -> void:
 	"""T5-UX8: Player cancelled ending deployment phase"""
 	print("Main: T5-UX8: Player cancelled end deployment phase, returning to deployment")
+
+func _show_shooting_phase_summary_dialog(end_action: Dictionary, active_player: int) -> void:
+	"""T5-UX9: Show shooting summary dialog before ending the shooting phase.
+	Pulls aggregated per-target totals from ShootingPhase.get_phase_shooting_summary()."""
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	var summary_data: Dictionary = {
+		"by_target": {},
+		"totals": {"hits": 0, "total_attacks": 0, "wounds": 0, "saves_failed": 0, "casualties": 0},
+		"shooters_count": 0,
+		"targets_count": 0,
+		"weapon_entries": 0,
+		"raw_entries": []
+	}
+	if phase_instance and phase_instance.has_method("get_phase_shooting_summary"):
+		summary_data = phase_instance.get_phase_shooting_summary()
+		print("Main: T5-UX9: Pulled summary — %d targets, %d weapon entries" % [
+			int(summary_data.get("targets_count", 0)),
+			int(summary_data.get("weapon_entries", 0))])
+	else:
+		print("Main: T5-UX9: ShootingPhase has no get_phase_shooting_summary; showing empty summary")
+
+	var dialog_script = load("res://dialogs/ShootingPhaseSummaryDialog.gd")
+	if not dialog_script:
+		push_error("Main: T5-UX9: Failed to load ShootingPhaseSummaryDialog.gd; ending phase without dialog")
+		var bypass_action = end_action.duplicate(true)
+		bypass_action["_summary_confirmed"] = true
+		NetworkIntegration.route_action(bypass_action)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(summary_data)
+	dialog.shooting_confirmed.connect(_on_shooting_summary_confirmed.bind(end_action))
+	dialog.shooting_cancelled.connect(_on_shooting_summary_cancelled)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("Main: T5-UX9: Shooting phase summary dialog shown for player %d" % active_player)
+
+func _on_shooting_summary_confirmed(end_action: Dictionary) -> void:
+	"""T5-UX9: Player confirmed ending shooting phase from the summary dialog."""
+	print("Main: T5-UX9: Player confirmed end shooting phase from summary")
+	var routed_action = end_action.duplicate(true)
+	routed_action["_summary_confirmed"] = true  # bypass interception on re-entry
+	var result = NetworkIntegration.route_action(routed_action)
+	if not result.get("success", false):
+		print("Main: T5-UX9: Failed to end shooting phase: ", result.get("error", "Unknown error"))
+		if not NetworkManager.is_networked():
+			print("Main: T5-UX9: Falling back to local phase advance")
+			PhaseManager.advance_to_next_phase()
+
+func _on_shooting_summary_cancelled() -> void:
+	"""T5-UX9: Player cancelled ending shooting phase from the summary dialog."""
+	print("Main: T5-UX9: Player cancelled end shooting phase, returning to shooting")
 
 func _re_request_fight_movement(action: Dictionary, movement_type: String) -> void:
 	"""T5-MP2: Re-emit pile_in_required or consolidate_required so the dialog reopens after server rejection"""

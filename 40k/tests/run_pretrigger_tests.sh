@@ -11,6 +11,7 @@
 #   - T5-MP5 dice broadcast sync (NetworkManager re-emits result["dice"] on remote)
 #   - T5-MP4-RELIABILITY save broadcast id + retry budget + defender dedupe
 #   - T5-MP3 shooting visual broadcast (SELECT_SHOOTER/ASSIGN_TARGET/CONFIRM/COMPLETE)
+#   - T5-UX9 shooting phase summary (per-target hits/wounds/casualties aggregation)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -36,6 +37,7 @@ TESTS=(
     "tests/test_dice_broadcast_sync.gd"
     "tests/test_save_broadcast_reliability.gd"
     "tests/test_shooting_visual_broadcast.gd"
+    "tests/test_shooting_phase_summary.gd"
 )
 
 FAILED=0

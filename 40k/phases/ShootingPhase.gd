@@ -40,6 +40,9 @@ var confirmed_assignments: Array = []  # Assignments ready to resolve
 var resolution_state: Dictionary = {}  # State for step-by-step resolution
 var dice_log: Array = []
 var units_that_shot: Array = []  # Track which units have completed shooting
+var phase_shooting_log: Array = []  # T5-UX9: Per-weapon shot summaries persisted across all units in this phase
+                                    # Each entry: {shooter_unit_id, shooter_unit_name, weapon_id, weapon_name,
+                                    # target_unit_id, target_unit_name, hits, total_attacks, wounds, saves_failed, casualties}
 var pending_save_data: Array = []  # Save data awaiting resolution
 var pending_hazardous_weapons: Array = []  # HAZARDOUS (T2-3): Weapons needing post-save hazardous check
 var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-shot weapons as fired
@@ -68,6 +71,7 @@ func _on_phase_enter() -> void:
 	resolution_state.clear()
 	dice_log.clear()
 	units_that_shot.clear()
+	phase_shooting_log.clear()  # T5-UX9: Reset per-phase shot summary log
 	pending_hazardous_weapons.clear()
 	pending_one_shot_diffs.clear()
 	awaiting_reactive_stratagem = false
@@ -1189,6 +1193,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		units_that_shot.append(active_shooter_id)
 		# Return shooter to idle animation
 		_trigger_unit_animation(active_shooter_id, "idle")
+		_record_completed_weapons_to_phase_log(shooter_id)  # T5-UX9: capture before clearing
 		active_shooter_id = ""
 		confirmed_assignments.clear()
 		resolution_state.clear()
@@ -2135,6 +2140,83 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	})
 	units_that_shot.append(unit_id)
 
+	# T5-UX9: Record per-target shot summary for end-of-phase panel.
+	# AI atomic path doesn't populate completed_weapons, so build entries from
+	# confirmed_assignments + save_data_list + per-target casualties from all_changes.
+	var ai_actor_name = game_state_snapshot.get("units", {}).get(unit_id, {}).get("meta", {}).get("name", unit_id)
+	var per_target_casualties: Dictionary = {}
+	for ch in all_changes:
+		var cpath = ch.get("path", "")
+		if cpath.ends_with(".alive") and ch.get("value") == false:
+			var cparts = cpath.split(".")
+			if cparts.size() >= 2 and cparts[0] == "units":
+				var dead_uid = cparts[1]
+				per_target_casualties[dead_uid] = per_target_casualties.get(dead_uid, 0) + 1
+	# Sum hits/wounds/saves_failed per target by scanning save_data_list and all_dice
+	# (save_data_list groups data per weapon → target)
+	var per_target_aggregate: Dictionary = {}
+	for sd in save_data_list:
+		var sd_tid = sd.get("target_unit_id", "")
+		if sd_tid == "":
+			continue
+		if not per_target_aggregate.has(sd_tid):
+			per_target_aggregate[sd_tid] = {
+				"target_unit_name": sd.get("target_unit_name", sd_tid),
+				"weapons": [],
+				"wounds": 0,
+				"saves_failed": 0
+			}
+		per_target_aggregate[sd_tid].weapons.append(sd.get("weapon_id", ""))
+		per_target_aggregate[sd_tid].wounds += int(sd.get("wounds_to_save", 0))
+	# Pull saves_failed from save dice blocks per target
+	for db in all_dice:
+		if db.get("context", "") == "save_roll":
+			var db_tname = db.get("target_unit_name", "")
+			for tid_key in per_target_aggregate:
+				if per_target_aggregate[tid_key].target_unit_name == db_tname:
+					per_target_aggregate[tid_key].saves_failed += int(db.get("failed", 0))
+					break
+	# Also include targets that got assigned but had 0 wounds caused
+	for a in confirmed_assignments:
+		var a_tid = a.get("target_unit_id", "")
+		if a_tid == "" or per_target_aggregate.has(a_tid):
+			continue
+		var a_target = game_state_snapshot.get("units", {}).get(a_tid, {})
+		var a_target_name = a_target.get("meta", {}).get("name", a_tid)
+		per_target_aggregate[a_tid] = {
+			"target_unit_name": a_target_name,
+			"weapons": [a.get("weapon_id", "")],
+			"wounds": 0,
+			"saves_failed": 0
+		}
+
+	# Approximate hits-per-target: split total_hits proportionally by wounds-per-target.
+	# When total wounds > 0, share by wound ratio; else share evenly across targets.
+	var ai_total_wounds = 0
+	for tid_key2 in per_target_aggregate:
+		ai_total_wounds += per_target_aggregate[tid_key2].wounds
+	for tid_key3 in per_target_aggregate:
+		var bucket = per_target_aggregate[tid_key3]
+		var hits_share = 0
+		if ai_total_wounds > 0:
+			hits_share = int(round(float(total_hits) * float(bucket.wounds) / float(ai_total_wounds)))
+		elif per_target_aggregate.size() > 0:
+			hits_share = int(total_hits / per_target_aggregate.size())
+		_append_phase_shooting_entry({
+			"shooter_unit_id": unit_id,
+			"shooter_unit_name": ai_actor_name,
+			"weapon_id": str(bucket.weapons[0]) if not bucket.weapons.is_empty() else "",
+			"weapon_name": "",  # AI atomic aggregates across weapons; weapon-level breakdown not available
+			"target_unit_id": tid_key3,
+			"target_unit_name": bucket.target_unit_name,
+			"hits": hits_share,
+			"total_attacks": 0,
+			"wounds": bucket.wounds,
+			"saves_failed": bucket.saves_failed,
+			"casualties": int(per_target_casualties.get(tid_key3, 0)),
+			"skipped_target_destroyed": false
+		})
+
 	# Step 7: Clear state
 	var shooter_id = active_shooter_id
 	# Return shooter to idle animation
@@ -2469,6 +2551,9 @@ func _resolve_next_weapon() -> Dictionary:
 		# Return shooter to idle animation
 		_trigger_unit_animation(active_shooter_id, "idle")
 
+		# T5-UX9: capture per-weapon shot results before clearing resolution_state
+		_record_completed_weapons_to_phase_log(shooter_id)
+
 		# Clear state
 		active_shooter_id = ""
 		confirmed_assignments.clear()
@@ -2521,6 +2606,9 @@ func _resolve_next_weapon() -> Dictionary:
 			"path": "units.%s.flags.has_shot" % active_shooter_id,
 			"value": true
 		}]
+
+		# T5-UX9: capture before clearing
+		_record_completed_weapons_to_phase_log(shooter_id)
 
 		active_shooter_id = ""
 		confirmed_assignments.clear()
@@ -2758,6 +2846,9 @@ func _resolve_next_weapon() -> Dictionary:
 			# P1-11: Check for Sanctified Flames before clearing state
 			var sanctified_changes = _check_sanctified_flames(active_shooter_id)
 			auto_changes.append_array(sanctified_changes)
+
+			# T5-UX9: capture before clearing
+			_record_completed_weapons_to_phase_log(shooter_id)
 
 			# Clear state
 			active_shooter_id = ""
@@ -3306,6 +3397,100 @@ func _process_use_grenade_stratagem(action: Dictionary) -> Dictionary:
 			"message": result.get("message", "")
 		}
 	})
+
+# T5-UX9: Persist per-weapon results from the active shooter into the phase-level log.
+# Called at the moment a unit's shooting concludes (before resolution_state is cleared).
+# Each entry retains shooter identity so the end-of-phase summary can attribute hits.
+func _record_completed_weapons_to_phase_log(shooter_id: String) -> void:
+	if shooter_id == "":
+		return
+	var completed = resolution_state.get("completed_weapons", [])
+	if completed.is_empty():
+		return
+	var shooter_unit = get_unit(shooter_id)
+	var shooter_name = shooter_unit.get("meta", {}).get("name", shooter_id)
+	for entry in completed:
+		var weapon_id = entry.get("weapon_id", "")
+		var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
+		var weapon_name = weapon_profile.get("name", weapon_id)
+		phase_shooting_log.append({
+			"shooter_unit_id": shooter_id,
+			"shooter_unit_name": shooter_name,
+			"weapon_id": weapon_id,
+			"weapon_name": weapon_name,
+			"target_unit_id": entry.get("target_unit_id", ""),
+			"target_unit_name": entry.get("target_unit_name", "Unknown"),
+			"hits": entry.get("hits", 0),
+			"total_attacks": entry.get("total_attacks", 0),
+			"wounds": entry.get("wounds", 0),
+			"saves_failed": entry.get("saves_failed", 0),
+			"casualties": entry.get("casualties", 0),
+			"skipped_target_destroyed": entry.get("skipped_target_destroyed", false)
+		})
+	print("ShootingPhase: T5-UX9 recorded %d weapon entries for %s into phase_shooting_log (total: %d)" % [
+		completed.size(), shooter_name, phase_shooting_log.size()])
+
+# T5-UX9: Append a single ad-hoc entry to the phase log. Used by the AI atomic path
+# which doesn't populate resolution_state.completed_weapons.
+func _append_phase_shooting_entry(entry: Dictionary) -> void:
+	phase_shooting_log.append(entry)
+
+# T5-UX9: Aggregate phase_shooting_log into per-target-unit totals for the end-of-phase summary panel.
+# Returns: {
+#   "by_target": { target_unit_id: { target_unit_name, hits, total_attacks, wounds, saves_failed, casualties, shooters: [name,...] } },
+#   "totals": { hits, total_attacks, wounds, saves_failed, casualties },
+#   "shooters_count": int,           # distinct shooter units
+#   "targets_count": int,            # distinct target units
+#   "weapon_entries": int,           # number of recorded weapon resolutions
+#   "raw_entries": Array             # the full phase_shooting_log for debugging / drill-down
+# }
+func get_phase_shooting_summary() -> Dictionary:
+	var by_target: Dictionary = {}
+	var totals = {"hits": 0, "total_attacks": 0, "wounds": 0, "saves_failed": 0, "casualties": 0}
+	var shooter_set: Dictionary = {}
+	for entry in phase_shooting_log:
+		var tid = entry.get("target_unit_id", "")
+		if tid == "":
+			continue
+		if not by_target.has(tid):
+			by_target[tid] = {
+				"target_unit_id": tid,
+				"target_unit_name": entry.get("target_unit_name", tid),
+				"hits": 0,
+				"total_attacks": 0,
+				"wounds": 0,
+				"saves_failed": 0,
+				"casualties": 0,
+				"shooters": []
+			}
+		var bucket = by_target[tid]
+		bucket.hits += int(entry.get("hits", 0))
+		bucket.total_attacks += int(entry.get("total_attacks", 0))
+		bucket.wounds += int(entry.get("wounds", 0))
+		bucket.saves_failed += int(entry.get("saves_failed", 0))
+		bucket.casualties += int(entry.get("casualties", 0))
+		var sname = entry.get("shooter_unit_name", "")
+		if sname != "" and sname not in bucket.shooters:
+			bucket.shooters.append(sname)
+
+		totals.hits += int(entry.get("hits", 0))
+		totals.total_attacks += int(entry.get("total_attacks", 0))
+		totals.wounds += int(entry.get("wounds", 0))
+		totals.saves_failed += int(entry.get("saves_failed", 0))
+		totals.casualties += int(entry.get("casualties", 0))
+
+		var sid = entry.get("shooter_unit_id", "")
+		if sid != "":
+			shooter_set[sid] = true
+
+	return {
+		"by_target": by_target,
+		"totals": totals,
+		"shooters_count": shooter_set.size(),
+		"targets_count": by_target.size(),
+		"weapon_entries": phase_shooting_log.size(),
+		"raw_entries": phase_shooting_log.duplicate(true)
+	}
 
 func _get_last_weapon_result() -> Dictionary:
 	"""Build complete result summary for last weapon"""
@@ -5385,6 +5570,9 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				# P1-11: Check for Sanctified Flames before clearing state
 				var sanctified_changes = _check_sanctified_flames(active_shooter_id)
 				all_diffs.append_array(sanctified_changes)
+
+				# T5-UX9: capture before clearing
+				_record_completed_weapons_to_phase_log(shooter_id)
 
 				# Clear state
 				active_shooter_id = ""

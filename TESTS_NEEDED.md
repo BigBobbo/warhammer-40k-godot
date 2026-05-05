@@ -609,3 +609,28 @@
 - `NetworkManager: T5-MP3: Host (relay) showing remote player's ASSIGN_TARGET visual ...` (host echo branch)
 - `ShootingController: T5-MP3 show_remote_target_assignment — <shooter> → <target> (weapon: <weapon>)`
 - `ShootingController: T5-MP3 clear_remote_target_assignments`
+
+## T5-UX9 — End-of-shooting-phase summary panel
+
+**Task:** Show total hits/wounds/casualties per target before ending the Shooting phase.
+**Files changed:** `40k/phases/ShootingPhase.gd`, `40k/scripts/Main.gd`, `40k/dialogs/ShootingPhaseSummaryDialog.gd`, `40k/tests/test_shooting_phase_summary.gd`, `40k/tests/run_pretrigger_tests.sh`
+**Tests to run:**
+- `bash 40k/tests/run_pretrigger_tests.sh` — runs the new headless assertion (45 PASS) covering the data-layer aggregation: per-shooter copy-to-phase-log, per-target totals (1-shooter:N-targets and N-shooters:1-target), empty-state shape, skipped-target-destroyed entries still counted, and dialog script load + signal exposure.
+- The data-layer test passes; the UI itself can't be visually verified headless. The smoke test below pins what the human player should see.
+
+**What to look for (manual UI smoke):**
+- Start a shooting phase as Player 1. Pick a shooter, fire it at a target, repeat with another shooter at the same OR a different target. Click `End Shooting Phase`.
+- A `Shooting Phase Summary` dialog appears (title in gold) listing:
+  - Header: `N shooter(s) → M target unit(s)  |  K weapon resolution(s)`
+  - Phase-wide totals line: `Totals: H hits | W wounds | F failed saves | C casualties`
+  - Per-target breakdown, sorted by casualties (descending): each target shows its hit/wound/save-failed/casualty totals on a colored stat line (red if any casualties, yellow if any wounds, gray otherwise) and lists the contributing shooter unit names.
+- The dialog has two buttons: `Go Back` (returns to shooting; phase is NOT ended) and `End Shooting Phase` (green text; routes the END_SHOOTING action and advances).
+- AI's turn: the dialog must NOT appear when the active player is the AI — the AI's END_SHOOTING goes through immediately.
+- Edge case: if the player ends shooting having fired NOTHING, the dialog still appears with the empty-state message `No shooting was resolved this phase.`
+- Multiplayer: only the player whose turn it is sees the summary dialog (the dialog runs locally on the active player's client; the remote client is unaffected).
+
+**What to look for in logs:**
+- `Main: T5-UX9: Showing shooting phase summary dialog before END_SHOOTING`
+- `Main: T5-UX9: Pulled summary — N targets, K weapon entries`
+- `ShootingPhase: T5-UX9 recorded N weapon entries for <unit_name> into phase_shooting_log (total: T)` — one line per shooter that finished resolution
+- `ShootingPhaseSummaryDialog: Player confirmed ending shooting phase` (or `Player cancelled ...`)

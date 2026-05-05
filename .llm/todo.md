@@ -93,7 +93,7 @@
 - [x] ~~Implement Go to Ground and Smokescreen stratagems for defender reactions~~ **COMPLETED — FACT-CHECK 2026-05-05**
   Both stratagems registered in `40k/autoloads/StratagemManager.gd` — `go_to_ground` at `:129` (INFANTRY targets, validation at `:2051`), `smokescreen` at `:158` (SMOKE keyword targets, validation at `:2076`); cover-grant flow honored at `40k/autoloads/RulesEngine.gd:3029`.
 
-- [ ] Add shooting phase summary panel showing total hits/wounds/casualties per target after all units have shot
+- [x] Add shooting phase summary panel showing total hits/wounds/casualties per target after all units have shot
   After all units have shot, show a summary panel with total hits/wounds/casualties per target unit before ending the phase.
   This gives both players a clear picture of the phase's outcome.
   Files: New UI panel scene, `ShootingPhase.gd` — trigger display before phase end.
