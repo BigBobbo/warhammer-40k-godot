@@ -483,132 +483,43 @@
 - No infinite loops or stalling during movement phase
 - No regressions in existing movement decisions, objective evaluation, or fall-back behavior
 
-## Wired multiplayer deployment test assertions (host/client sync, positions, coherency)
+## Multiplayer integration suite (T5-MP3 / T5-MP4-RELIABILITY / T5-MP5 + deployment sync)
 
-**Task:** Complete multiplayer deployment test assertions (was: `test_multiplayer_deployment.gd:555-574` plus parallel TODOs in earlier tests)
-**Files changed:** `40k/tests/integration/test_multiplayer_deployment.gd`
-**Tests to run:**
-- Run the multiplayer integration suite the same way the existing CI/local runner runs it. The suite extends `tests/helpers/MultiplayerIntegrationTest.gd`, which spawns a host and a client Godot process and communicates over command files. It cannot run inside the headless single-process GUT pipeline because peer sync needs two real engines.
-- Specifically exercise these tests in that suite:
-  - `test_deployment_single_unit` — must now end with `assert_unit_deployed(test_unit_id)` succeeding (host & client agree on deployed flag, model count, and per-model x/y).
-  - `test_deployment_alternating_turns` — must now assert `player_turn` changed from `initial_turn` after a deploy, AND host & client agree on the new `player_turn`.
-  - `test_deployment_unit_coherency` — must now call `get_unit_model_positions(unit_id)` then `verify_unit_coherency(positions)` (must return true), and same coherency check on the client's view of the same unit.
-  - `test_deployment_completion_both_players` — after only P1 completes: phase must NOT be `Movement`. After both complete: phase must NOT be `Deployment`, and host & client must agree on the new phase.
-  - `test_deployment_undo_action` — must now call `assert_unit_deployed` before undo, then `assert_unit_not_deployed` after undo, then verify the unit is back in `player_1_undeployed`.
+**Status:** Each of the multi-peer slices below now has automated integration coverage in `40k/tests/integration/test_multiplayer_*.gd`. Run `bash 40k/tests/run_multiplayer_tests.sh` locally before release; it spawns real host + client Godot processes and exercises connection/sync end-to-end plus pins the protocol contracts via static-source assertions (so a refactor that breaks the contract surfaces in the multi-peer suite, not just the single-process gate).
 
-**What to look for:**
-- All five tests above pass (they previously printed log lines without enforcing post-conditions, so they could pass while the underlying behavior was broken).
-- If any of the new asserts fire, that surfaces a real sync/coherency bug rather than a missing assertion — investigate whether the failing field (`deployed`, model `position`, `player_turn`, `current_phase`) is a known sync gap in the host-client pipeline.
-- Syntax check passed with `godot --headless --check-only` (project-wide, exit 0) and `godot --headless --check-only --script tests/integration/test_multiplayer_deployment.gd` (exit 0). The assertion-call sites compile but their runtime success requires the two-process harness.
+**Automated multi-peer coverage:**
+- `test_multiplayer_deployment.gd` — deployment sync, alternating turns, coherency, completion, undo (replaces the previous "Wired multiplayer deployment test assertions" entry).
+- `test_multiplayer_dice_log_sync.gd` — T5-MP5 grenade / FNP / Hazardous dice broadcast precondition + protocol-contract assertions.
+- `test_multiplayer_save_dialog_retry.gd` — T5-MP4-RELIABILITY `save_broadcast_id` retry/dedupe protocol-contract assertions + connection precondition.
+- `test_multiplayer_shooting_visuals.gd` — T5-MP3 SELECT_SHOOTER / ASSIGN_TARGET / CLEAR_ASSIGNMENT / CONFIRM_TARGETS / COMPLETE re-emit + controller call contracts + connection precondition.
 
-## T5-MP5: Real-time dice log sync to remote player during shooting resolution
+**Manual two-peer scenarios still required** (TestModeHandler does not yet implement shooting actions; the integration tests cover connection, sync, and protocol contracts but cannot drive a real shoot through the command-file IPC):
 
-**Task:** Sync dice log visibility to remote player in real-time during shooting resolution.
-**Files changed:**
-- `40k/phases/ShootingPhase.gd` — three fixes:
-  1. `_process_use_grenade_stratagem` now bundles the `grenade` dice block into `result["dice"]` (previously emitted locally only — remote dice log silently dropped the 6D6 grenade roll).
-  2. `_process_apply_saves` now appends FNP dice blocks (RulesEngine batch path AND interactive-saves overlay path) to `save_dice_blocks` so they ride along in the APPLY_SAVES `result["dice"]` payload.
-  3. `_process_apply_saves` now appends Hazardous post-save dice to `save_dice_blocks` for the same reason.
-- `40k/tests/test_dice_broadcast_sync.gd` — new headless regression test (20 assertions, all passing).
-- `40k/tests/run_pretrigger_tests.sh` — wired the new test into the audit suite.
+T5-MP5 dice log sync:
+- **Grenade stratagem dice** — Host shoots a grenade, client should see the 6D6 roll in the dice log.
+- **Feel No Pain dice** — Host targets a unit with FNP; client should see FNP roll after saves.
+- **Hazardous self-damage dice** — Host fires a Hazardous weapon; client should see post-save Hazardous check.
+- **Resolution headers** — "Beginning attack resolution..." / "Resolving weapon N of M" should appear on client.
 
-**Tests to run:**
-- Headless gate: `bash .claude/scripts/run_validation.sh` — already green (170 passed, 0 failed, including the new 20 dice-broadcast assertions).
-- Two-peer manual scenarios that the headless gate cannot exercise:
-  1. **Grenade stratagem dice** — Host shoots a grenade, client should see the 6D6 roll appear in the dice log in real time (not just the casualty counter).
-  2. **Feel No Pain dice** — Host shoots a target with FNP (e.g., Death Guard with Disgustingly Resilient), client should see the FNP roll appear after saves.
-  3. **Hazardous self-damage dice** — Host fires a Hazardous weapon (e.g., the test `hazardous_plasma`), client should see the post-save Hazardous check rolls in the dice log.
-  4. **Resolution headers** — Host begins single-weapon and multi-weapon resolutions; client should see "Beginning attack resolution..." and "Resolving weapon N of M" entries appear at the right time (these were T5-MP5 already, just verifying no regression).
+T5-MP4-RELIABILITY save dialog retry/dedupe:
+- **Happy path** — Defender's WoundAllocationOverlay shows once; attacker sees ack; no retry toast.
+- **Lossy retry path** — Disconnect relay between RESOLVE_SHOOTING and ack; reconnect within 8s. Verify "Retrying save data to defender (attempt N/3)" toast on attacker, single dialog on defender (dedupe).
+- **Budget exhaustion** — Keep relay disconnected >24s; verify red "Save dialog could not reach defender after 3 attempts. Check network." toast.
+- **Multi-weapon sequence** — Two weapons each generate distinct sbids; defender shows two dialogs in order.
+- **Same weapon retry** — Trigger lossy-retry; next ack arrives → dialog opens only once (dedupe via sbid).
 
-**What to look for:**
-- The remote (non-host) client's dice log should contain the same dice blocks in the same order as the active player's, with no "missing rolls" gaps for grenade / FNP / hazardous.
-- Confirm that the `NetworkManager: ✅ T5-MP5 Client re-emitting dice_rolled signals for N dice blocks (contexts: [...])` log line appears on the client and the contexts list includes `grenade`, `feel_no_pain`, and any `hazardous_check` blocks where applicable.
+T5-MP3 shooting visuals:
+- **Select shooter** — Player 1 selects a shooter; on Player 2 screen: range circles + half-range circles + eligible-target highlights + LoS lines.
+- **Assign target** — Player 1 assigns a weapon; on Player 2 screen: per-assignment tracer line + yellow `HIGHLIGHT_COLOR_SELECTED` highlight on target.
+- **Clear assignment** — Player 1 clears via CLEAR_ASSIGNMENT or CLEAR_ALL; on Player 2 screen: tracer + highlight disappear; range circles remain.
+- **Confirm + shoot** — Player 1 confirms targets; on Player 2 screen: animated shooting-line tracer plays (T5-V2) alongside dice log updates.
+- **Complete-for-unit** — Player 1 ends shooter's resolution; on Player 2 screen: per-shooter overlays clear.
+- **Web-relay transport repeat** — Repeat all five with host-as-relay-client + remote client; host's screen also mirrors the remote shooter's hints.
 
-**What the headless test DOES verify (gate-friendly slice):**
-- `NetworkManager._emit_client_visual_updates` correctly re-emits every dice block from a synthetic broadcast result onto the receiving phase.
-- `_process_use_grenade_stratagem` returns a result whose `result["dice"]` contains the same `grenade` block that was emitted locally via `dice_rolled`.
-- The structural invariants of the fix (resolution_start/weapon_progress prepend, grenade block in result, FNP/Hazardous appends to `save_dice_blocks`) are present in the source.
-
-**What the headless test does NOT verify (limitation):**
-- A real Godot multiplayer peer-to-peer dice-log sync. That requires a two-process harness; per project policy, never claim multiplayer features work without a successful two-peer test result. Run the four manual scenarios above against a real host+client pair.
-
-## Save Broadcast Reliability (T5-MP4-RELIABILITY)
-
-**Task:** Improve save dialog timing reliability for defender on remote client with retry/confirmation mechanism
-**Files changed:**
-- `40k/phases/ShootingPhase.gd` — added `_generate_save_broadcast_id` + `_stamp_save_broadcast_id` helpers; both `saves_required` emit sites now stamp every save_data entry with a unique `save_broadcast_id` before emit and bundling into `result["save_data_list"]`.
-- `40k/autoloads/NetworkManager.gd` — `send_save_dialog_ack` / `_receive_save_dialog_ack` RPC + relay dispatcher carry `save_broadcast_id`; `retry_save_data_broadcast` logs the id; relay path forwards id to controller.
-- `40k/scripts/ShootingController.gd` — defender dedupes by `save_broadcast_id` (silent skip + re-ack on duplicate); attacker tracks `_expected_save_ack_broadcast_id` and ignores stale acks; retry replaced with `MAX_SAVE_RETRY_ATTEMPTS=3` budgeted multi-attempt loop that re-arms the ack timer; final exhaustion surfaces a red "defender unreachable" toast.
-- `40k/tests/test_save_broadcast_reliability.gd` — new headless gate test (34 assertions).
-- `40k/tests/run_pretrigger_tests.sh` — registered the new test in the audit suite.
-
-**Tests to run:**
-- Run `bash 40k/tests/run_pretrigger_tests.sh` — full audit suite passes (204 / 204 across 12 tests).
-- Run `godot --headless --path 40k -s tests/test_save_broadcast_reliability.gd` directly: 34 / 34 protocol-invariant assertions.
-
-**What the headless test verifies:**
-- Every save_data entry gets a unique `save_broadcast_id` after the broadcast helper stamps it, and re-stamping is idempotent (retry preserves the original id).
-- Both `_process_resolve_shooting` and `_resolve_next_weapon` stamp before emitting.
-- The defender's `_on_saves_required` dedupes on broadcast id and re-acks on duplicate without showing a second dialog.
-- The attacker's retry loop honors `MAX_SAVE_RETRY_ATTEMPTS`, increments the counter, re-arms the ack timer, and does NOT clear `_pending_save_data_for_retry` on every retry (only on success or budget exhaustion).
-- Both the ENet RPC and web-relay dispatcher carry `save_broadcast_id` end-to-end; `on_save_dialog_acknowledged` accepts it and ignores stale acks (different id) without clearing active retry state.
-
-**What the headless test does NOT verify (limitation, per project policy: never claim a feature works without a successful test):**
-- A real two-peer Godot multiplayer game with packet loss / latency on the wire. The single-process headless harness cannot simulate dropped or delayed RPCs; it can only assert the protocol surface is shaped to support reliability.
-- Manual host+client scenarios to validate locally:
-  - **Happy path**: shoot a weapon that produces wounds; defender's WoundAllocationOverlay appears; attacker sees "Defender is making saves..." status. No retry toast fires.
-  - **Lossy retry path**: kill the relay/peer connection briefly between `RESOLVE_SHOOTING` broadcast and ack; reconnect within 8s. Verify (a) attacker shows "Retrying save data to defender (attempt N/3)..." toast, (b) defender shows the dialog exactly once when the retry arrives, (c) attacker sees ack and clears retry state.
-  - **Budget exhaustion**: keep the relay disconnected for >24s. Verify the attacker shows the red "Save dialog could not reach defender after 3 attempts. Check network." toast and the status label updates accordingly.
-  - **Multi-weapon sequence**: shoot two different weapons that both generate saves. Verify each broadcast gets a distinct `save_broadcast_id` and the defender shows two dialogs in order.
-  - **Same weapon retry**: trigger the lossy-retry path, then the next ack arrives. Verify the dialog only opens once (defender dedupe via broadcast id).
-
-**What to look for in logs (multiplayer debug logs):**
-- Each `SAVES_REQUIRED EMISSION` block prints a `Broadcast ID: sbid-<msec>-<counter>`.
-- Defender print: `Sending save_dialog_ack to attacker (sbid=...)` matches the emitted id.
-- Attacker print on ack receipt: `Expected Broadcast ID: sbid-...` and `Broadcast ID: sbid-...` — they match.
-- On retry: `Retrying save data broadcast attempt N/3` increments per attempt.
-- On exhaustion: `Retry budget exhausted (3/3) — giving up`.
-- On stale ack: `⚠️ Ack id does not match expected — ignoring stale ack`.
-
-## Remote-player visual feedback for shooting (T5-MP3 — broadcast-pipe contract test added)
-
-**Task:** Add remote player visual feedback for shooting actions (target highlights, range circles, LoS lines).
-**Files changed:**
-- `40k/tests/test_shooting_visual_broadcast.gd` (new — 38 assertions, all passing headless)
-- `40k/tests/run_pretrigger_tests.sh` (registered new test in audit suite; suite now 242/242 across 13 tests)
-
-**Status of local rendering (verified by static-source assertions in the new test):**
-- Range circles + half-range circles — IMPLEMENTED (T5-V5; `ShootingController._show_range_indicators` at line 1223; `RangeCircle.gd` is a real shape).
-- Target highlights — IMPLEMENTED (`ShootingController._create_target_highlight` at line 974).
-- LoS lines — IMPLEMENTED (`ShootingController._visualize_los_to_target` at line 1361 and `los_visual` Line2D).
-- Animated shooting-line tracers — IMPLEMENTED (T5-V2; `ShootingController._create_shooting_line_visual` at line 1166).
-
-**Status of broadcast-to-remote (verified at signal/dictionary level by the new test):**
-- SELECT_SHOOTER → `_emit_client_visual_updates` re-emits `unit_selected_for_shooting` AND `targets_available` on the remote phase (drives range circles + target highlights + LoS lines). PASSING.
-- ASSIGN_TARGET → calls `ShootingController.show_remote_target_assignment(shooter, target, weapon)` (per-assignment shooting line + target highlight). PASSING with stub controller.
-- CLEAR_ASSIGNMENT / CLEAR_ALL_ASSIGNMENTS → calls `ShootingController.clear_remote_target_assignments()`. PASSING.
-- CONFIRM_TARGETS → re-emits `shooting_begun` on remote phase (drives the animated tracer). PASSING.
-- COMPLETE_SHOOTING_FOR_UNIT → re-emits `shooting_resolved` on remote phase (clears per-shooter visuals). PASSING.
-- Host-side relay AND ENet branches both mirror the same controller calls so the host's screen sees the remote client's hints (bidirectional T5-MP3). PASSING via static-source assertions.
-- Allow-list contains all 4 shooting-setup action types (SELECT_SHOOTER, ASSIGN_TARGET, CLEAR_ASSIGNMENT, CLEAR_ALL_ASSIGNMENTS). PASSING.
-- Empty-actor / empty-target / absent-controller guards do not crash the dispatch. PASSING.
-
-**Tests to run locally (multi-peer harness — gated tests cannot drive two real peers):**
-- Host (P1) and Client (P2) connect via LAN ENet OR web relay. Player 1 takes shooting phase.
-- Player 1: select a shooter unit. Verify on Player 2 screen: range circles appear around the shooter (one per weapon range), eligible enemy targets light up green/highlighted, and LoS lines (debug mode) draw to each candidate.
-- Player 1: assign a weapon to a target. Verify on Player 2 screen: a shooting line draws from shooter to target and the target gets a yellow `HIGHLIGHT_COLOR_SELECTED` highlight.
-- Player 1: clear the assignment (or use CLEAR_ALL). Verify on Player 2 screen: the per-assignment shooting line + highlight disappear, but the underlying range circles + eligible-target highlights remain.
-- Player 1: confirm targets and shoot. Verify on Player 2 screen: the animated shooting-line tracer plays (T5-V2) at the same time as the dice log updates.
-- Player 1: end the unit's shooting (Complete-for-unit). Verify on Player 2 screen: per-shooter overlays clear so the next shooter starts with a clean visual state.
-- Repeat with web-relay transport (host as relay client + remote client). Both branches in NetworkManager mirror the same controller calls, so the host's own screen also shows the remote shooter's hints when it's not the active player.
-
-**What to look for in logs (multiplayer debug logs):**
-- `NetworkManager: T5-MP3: Remote ASSIGN_TARGET visual — <shooter> targeting <target> with <weapon>`
-- `NetworkManager: T5-MP3: Remote CONFIRM_TARGETS — emitting shooting_begun for <shooter>`
-- `NetworkManager: T5-MP3: Remote COMPLETE_SHOOTING_FOR_UNIT — emitting shooting_resolved for <unit>`
-- `NetworkManager: T5-MP3: Host (relay) showing remote player's ASSIGN_TARGET visual ...` (host echo branch)
-- `ShootingController: T5-MP3 show_remote_target_assignment — <shooter> → <target> (weapon: <weapon>)`
-- `ShootingController: T5-MP3 clear_remote_target_assignments`
+**What to look for in multiplayer debug logs:**
+- T5-MP5: `NetworkManager: ✅ T5-MP5 Client re-emitting dice_rolled signals for N dice blocks (contexts: [...])`
+- T5-MP4: `SAVES_REQUIRED EMISSION` block prints `Broadcast ID: sbid-<msec>-<counter>`; `Sending save_dialog_ack to attacker (sbid=...)` on defender; `Expected Broadcast ID: sbid-...` matching the emitted id on attacker. On retry: `Retrying save data broadcast attempt N/3`. On exhaustion: `Retry budget exhausted (3/3) — giving up`. On stale ack: `Ack id does not match expected — ignoring stale ack`.
+- T5-MP3: `NetworkManager: T5-MP3: Remote <ACTION> ...`; `ShootingController: T5-MP3 show_remote_target_assignment ...` / `clear_remote_target_assignments`.
 
 ## T5-UX9 — End-of-shooting-phase summary panel
 
