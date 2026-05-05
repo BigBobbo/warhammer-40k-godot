@@ -23,7 +23,7 @@
 - [x] ~~Implement ANTI-[KEYWORD] X+ weapon keyword for critical wounds against matching unit types~~ **COMPLETED**
   `get_critical_wound_threshold()` and `get_anti_keyword_data()` at `RulesEngine.gd:2317`. Critical wound threshold checks at lines 706, 735, 751, 1067, 1090, 1098. Anti-keyword tracking in dice logs at lines 781, 1120.
 
-- [ ] Implement MELTA X weapon keyword for bonus damage at half range
+- [x] Implement MELTA X weapon keyword for bonus damage at half range
   Rule: MELTA X adds +X to the Damage characteristic when the target is within half the weapon's range.
   No implementation exists in `RulesEngine.gd`.
   Need to: parse the Melta keyword and value from weapon data, check if target is within half range using edge-to-edge measurement, and add the bonus damage when applying damage.

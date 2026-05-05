@@ -5,6 +5,7 @@
 #   - T2.M6 base-touching regression (#321/#327)
 #   - T2.S4-S6 SUSTAINED/LETHAL/DEVASTATING keyword pipeline
 #   - T2.S7 cover save bonus
+#   - T1-1 MELTA X keyword pipeline (auto-resolve damage bonus at half range)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -24,6 +25,7 @@ TESTS=(
     "tests/test_m6_base_touching_regression.gd"
     "tests/test_keyword_pipeline.gd"
     "tests/test_s7_cover_save_bonus.gd"
+    "tests/test_melta_keyword_pipeline.gd"
 )
 
 FAILED=0
