@@ -178,25 +178,20 @@
 - [x] ~~Show game over UI with winner and reason~~ **COMPLETED — FACT-CHECK 2026-05-05**
   Tagged `P3-128` in source. `40k/scripts/GameOverDialog.gd` shows winner, reason, VP summary, and a VP timeline chart per round.
 
-- [ ] Implement Morale Phase stratagem validation
-  `MoralePhase.gd:107` — Stratagem validation during morale is stubbed out.
-  Files: `MoralePhase.gd`.
+- [x] ~~Implement Morale Phase stratagem validation~~ **OBSOLETE — 10E SUPERSEDED 2026-05-05**
+  Task describes 9e morale mechanics. In 10e there are no morale stratagems in the Morale Phase: battle-shock tests run in the Command Phase and the Morale Phase is a pure bookkeeping pass that auto-completes. Battle-shock test implementation lives in `40k/phases/CommandPhase.gd:87-146`; the rewritten 10e `40k/phases/MoralePhase.gd` (107 lines) explicitly documents this in its file header.
 
-- [ ] Remove additional models due to morale failure
-  `MoralePhase.gd:164` — After a failed morale check, additional model removal is not implemented.
-  Files: `MoralePhase.gd`.
+- [x] ~~Remove additional models due to morale failure~~ **OBSOLETE — 10E SUPERSEDED 2026-05-05**
+  Task describes 9e "casualties + D6 vs Leadership, fleeing models" rule. 10e has no model removal in the Morale Phase — battle-shocked units instead have their OC reduced to 0 and trigger debuffs. Flag handled in `40k/autoloads/FactionAbilityManager.gd` and the test runs in `CommandPhase.gd`.
 
-- [ ] Implement actual Morale Phase stratagem effects
-  `MoralePhase.gd:203` — Stratagem effects (e.g., Insane Bravery) are not implemented.
-  Files: `MoralePhase.gd`.
+- [x] ~~Implement actual Morale Phase stratagem effects~~ **OBSOLETE — 10E SUPERSEDED 2026-05-05**
+  Task example (Insane Bravery) is a 9e stratagem; 10e replaced this whole layer with battle-shock. No active morale-phase decisions exist in 10e per the rewritten `MoralePhase.gd` header.
 
-- [ ] Implement morale modifiers based on unit state and abilities
-  `MoralePhase.gd:339` — Morale modifiers from unit abilities, nearby characters, etc. are not applied.
-  Files: `MoralePhase.gd`.
+- [x] ~~Implement morale modifiers based on unit state and abilities~~ **OBSOLETE — 10E SUPERSEDED 2026-05-05**
+  Leadership-modifier mechanics from 9e do not exist in 10e. Battle-shock test is "roll 2D6 ≥ Leadership when below half-strength" with no per-unit modifiers; implemented in `CommandPhase.gd`.
 
-- [ ] Add helper methods for morale mechanics
-  `MoralePhase.gd:357` — Missing utility functions for morale calculations.
-  Files: `MoralePhase.gd`.
+- [x] ~~Add helper methods for morale mechanics~~ **OBSOLETE — 10E SUPERSEDED 2026-05-05**
+  10e Morale Phase is 107 lines of bookkeeping (`_log_battle_shock_status`); the 9e helper functions this task wanted (Leadership lookup, fleeing unit removal, etc.) are not part of 10e.
 
 - [x] ~~Integrate full mathhammer simulation for melee predictions~~ **COMPLETED — FACT-CHECK 2026-05-05**
   `Mathhammer Melee Predictions` block in `40k/phases/FightPhase.gd:1836` (line `947` in the stale task description was pre-implementation). Toggle via keybinding (KEY_H) registered in `KeybindingManager.gd:62`.
