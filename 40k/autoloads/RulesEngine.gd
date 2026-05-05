@@ -3675,21 +3675,15 @@ static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, inv
 	# Calculate armour save with AP and cover
 	var armour_save = base_save + ap  # AP makes saves worse (higher number needed)
 
-	# 10e Benefit of Cover keyword cap: INFANTRY, BEAST, SWARM models cannot improve their
-	# Save characteristic to better than 3+ via cover. (Only these keywords; VEHICLE/MONSTER and
-	# others can improve a 3+ save to 2+ from cover normally.) The cap matters only when AP is 0
-	# — at AP -1+ the modified save can never exceed base, so cover-to-better-than-3+ is impossible.
+	# 10e Benefit of Cover cap: a unit with a Save characteristic of 3+ or better cannot
+	# have its Save improved by Cover against an attack with AP 0. The cap matters only
+	# when AP is 0 — at AP -1+ the modified (post-AP) save is already 4+ or worse, so
+	# cover bringing it back up to base never crosses the 3+ ceiling. (Wahapedia core rules,
+	# "Benefit of Cover".) The rule is universal in 10e core; it is NOT keyword-gated to
+	# INFANTRY/BEAST/SWARM as the previous implementation incorrectly assumed.
 	if has_cover and ap == 0 and base_save <= 3:
-		var keywords = target_unit.get("meta", {}).get("keywords", [])
-		var is_capped_keyword = false
-		for kw in keywords:
-			var ku = str(kw).to_upper()
-			if ku == "INFANTRY" or ku == "BEAST" or ku == "SWARM":
-				is_capped_keyword = true
-				break
-		if is_capped_keyword:
-			# Cover would push save below 3+ for an INFANTRY/BEAST/SWARM model — disallow.
-			has_cover = false
+		# Cover would push save below 3+ — disallow for this attack.
+		has_cover = false
 
 	if has_cover:
 		armour_save -= 1  # Cover improves save by 1
