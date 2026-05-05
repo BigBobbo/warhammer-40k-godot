@@ -166,8 +166,12 @@ func test_deployment_single_unit():
 	print("[TEST] Host units count: ", host_units.size())
 	print("[TEST] Client units count: ", client_units.size())
 
-	# Check that both clients see the deployed unit (implementation depends on game state structure)
-	print("[TEST] PASSED: Unit deployment successful")
+	# Verify the deployed unit appears on both host and client with matching state
+	# (uses the assert_unit_deployed helper at the bottom of this file, which
+	# checks deployed flag, model count parity, and per-model position parity)
+	await assert_unit_deployed(test_unit_id)
+
+	print("[TEST] PASSED: Unit deployment synced on host and client")
 
 func test_deployment_outside_zone():
 	"""
@@ -252,15 +256,34 @@ func test_deployment_alternating_turns():
 		"position": {"x": 100.0, "y": 100.0}  # Safely within deployment zone
 	})
 
-	if deploy_result.get("success", false):
-		await wait_for_seconds(1.0)
+	assert_true(deploy_result.get("success", false),
+		"Deploy should succeed in alternating-turns test: " + deploy_result.get("message", ""))
+	await wait_for_seconds(1.0)
 
-		# Check if turn switched (game logic dependent)
-		var after_result = await simulate_host_action("get_game_state", {})
-		var after_turn = after_result.get("data", {}).get("player_turn", 0)
-		print("[TEST] Turn after deployment: Player ", after_turn)
+	# Check that turn alternated to the other player
+	var after_result = await simulate_host_action("get_game_state", {})
+	assert_true(after_result.get("success", false), "Should retrieve game state after deploy")
+	var after_turn = after_result.get("data", {}).get("player_turn", 0)
+	print("[TEST] Turn after deployment: Player ", after_turn)
 
-	print("[TEST] Turn alternation test completed")
+	# In 10e alternating deployment, after Player 1 deploys it should be Player 2's turn
+	# (and vice versa). The exact value depends on initial_turn; either:
+	#   - Turn switched to the other player, OR
+	#   - The active player has changed in some way
+	# We assert the turn is a valid player number and, if the initial turn was 1 or 2,
+	# that it changed.
+	if initial_turn == 1 or initial_turn == 2:
+		assert_ne(after_turn, initial_turn,
+			"Turn should alternate after deployment (was P%d, still P%d)" % [initial_turn, after_turn])
+
+	# Verify both host and client see the same turn (state sync)
+	var client_state = await simulate_client_action("get_game_state", {})
+	assert_true(client_state.get("success", false), "Client should return game state")
+	var client_turn = client_state.get("data", {}).get("player_turn", -999)
+	assert_eq(after_turn, client_turn,
+		"Host and client should agree on whose turn it is (host=P%d, client=P%d)" % [after_turn, client_turn])
+
+	print("[TEST] PASSED: Turn alternation verified and synced")
 
 func test_deployment_wrong_turn():
 	"""
@@ -479,7 +502,30 @@ func test_deployment_unit_coherency():
 
 		print("[TEST] Unit %s has %d models, all positioned correctly" % [test_unit_id, models.size()])
 
-	print("[TEST] Unit coherency test completed with assertions")
+	# Use the get_unit_model_positions helper to extract positions, then run them
+	# through verify_unit_coherency. This validates the helper-pair end-to-end and
+	# confirms that the deployed unit obeys the 2" coherency rule on the host.
+	var positions = await get_unit_model_positions(test_unit_id)
+	assert_true(positions.size() > 0,
+		"get_unit_model_positions should return at least one position for deployed unit")
+	assert_true(verify_unit_coherency(positions),
+		"Deployed unit should be in coherency (every model within 2\" of another)")
+
+	# Also verify the same unit is coherent on the client (sync check)
+	var client_state = await simulate_client_action("get_game_state", {})
+	assert_true(client_state.get("success", false), "Client should return game state")
+	var client_units = client_state.get("data", {}).get("units", {})
+	if test_unit_id in client_units:
+		var client_models = client_units[test_unit_id].get("models", [])
+		var client_positions: Array = []
+		for m in client_models:
+			var p = m.get("position", {})
+			if p.has("x") and p.has("y"):
+				client_positions.append({"x": p.get("x", 0.0), "y": p.get("y", 0.0)})
+		assert_true(verify_unit_coherency(client_positions),
+			"Unit should also be coherent on the client")
+
+	print("[TEST] PASSED: Unit coherency verified on host and client")
 
 ## ===========================================================================
 ## 6. DEPLOYMENT COMPLETION
@@ -510,8 +556,16 @@ func test_deployment_completion_both_players():
 
 	# Check if still in deployment (waiting for P2)
 	var state1 = await simulate_host_action("get_game_state", {})
+	assert_true(state1.get("success", false), "Should retrieve game state after P1 complete")
 	var phase1 = state1.get("data", {}).get("current_phase", "")
 	print("[TEST] Phase after P1 complete: ", phase1)
+
+	# After only P1 has completed, the phase should not yet have advanced past Deployment.
+	# (If P1 had no remaining undeployed units, the engine may legitimately auto-end the
+	# deployment phase only when *both* players are done — so we assert "not Movement"
+	# rather than "still Deployment" to tolerate a possible "DeploymentWaiting" sub-phase.)
+	assert_ne(phase1, "Movement",
+		"Phase should not advance to Movement until both players complete (was '%s')" % phase1)
 
 	# Player 2 completes deployment
 	var p2_complete = await simulate_client_action("complete_deployment", {
@@ -521,12 +575,27 @@ func test_deployment_completion_both_players():
 
 	await wait_for_seconds(2.0)
 
-	# Check if phase transitioned
+	# Check if phase transitioned to Movement (or whatever the post-Deployment phase is)
 	var state2 = await simulate_host_action("get_game_state", {})
+	assert_true(state2.get("success", false), "Should retrieve game state after both complete")
 	var phase2 = state2.get("data", {}).get("current_phase", "")
 	print("[TEST] Phase after both complete: ", phase2)
 
-	print("[TEST] Deployment completion test finished")
+	# After both players complete deployment, the phase MUST have advanced.
+	# We don't hard-code "Movement" because pre-Movement phases (CommandPhase,
+	# ScoringPhase, etc.) can legitimately come first — but it MUST no longer
+	# be Deployment.
+	assert_ne(phase2, "Deployment",
+		"Phase should advance away from Deployment once both players complete")
+
+	# And both host and client should agree on the new phase
+	var client_state = await simulate_client_action("get_game_state", {})
+	assert_true(client_state.get("success", false), "Client should return game state")
+	var client_phase = client_state.get("data", {}).get("current_phase", "")
+	assert_eq(phase2, client_phase,
+		"Host and client should agree on phase after deployment complete (host='%s', client='%s')" % [phase2, client_phase])
+
+	print("[TEST] PASSED: Deployment completion advances phase and stays synced")
 
 ## ===========================================================================
 ## 7. UNDO FUNCTIONALITY
@@ -568,14 +637,32 @@ func test_deployment_undo_action():
 	assert_true(deploy_result.get("success", false), "Unit should deploy successfully")
 	await wait_for_seconds(1.0)
 
+	# Confirm the unit is deployed on both host and client BEFORE undo
+	# (uses the assert_unit_deployed helper at the bottom of this file)
+	await assert_unit_deployed(test_unit_id)
+
 	# Undo deployment
 	var undo_result = await simulate_host_action("undo_deployment", {})
 
-	# Verify undo result
+	# Verify undo succeeded
 	print("[TEST] Undo result: success=", undo_result.get("success", false), " message=", undo_result.get("message", ""))
+	assert_true(undo_result.get("success", false),
+		"Undo deployment should succeed: " + undo_result.get("message", ""))
 
 	await wait_for_seconds(1.0)
-	print("[TEST] Undo test completed")
+
+	# Verify the unit is no longer deployed on EITHER instance (state synced)
+	# (uses the assert_unit_not_deployed helper at the bottom of this file)
+	await assert_unit_not_deployed(test_unit_id)
+
+	# And confirm the unit is back in the undeployed pool on the host
+	var post_units_result = await simulate_host_action("get_available_units", {})
+	if post_units_result.get("success", false):
+		var post_p1 = post_units_result.get("data", {}).get("player_1_undeployed", [])
+		assert_true(test_unit_id in post_p1,
+			"Undone unit '%s' should be back in player_1_undeployed list" % test_unit_id)
+
+	print("[TEST] PASSED: Undo removed unit and synced state across host and client")
 
 ## ===========================================================================
 ## HELPER FUNCTIONS (to be implemented)

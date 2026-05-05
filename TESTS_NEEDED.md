@@ -482,3 +482,21 @@
 - Movement adjustments do not prevent units from capturing critical objectives (progress is still weighted)
 - No infinite loops or stalling during movement phase
 - No regressions in existing movement decisions, objective evaluation, or fall-back behavior
+
+## Wired multiplayer deployment test assertions (host/client sync, positions, coherency)
+
+**Task:** Complete multiplayer deployment test assertions (was: `test_multiplayer_deployment.gd:555-574` plus parallel TODOs in earlier tests)
+**Files changed:** `40k/tests/integration/test_multiplayer_deployment.gd`
+**Tests to run:**
+- Run the multiplayer integration suite the same way the existing CI/local runner runs it. The suite extends `tests/helpers/MultiplayerIntegrationTest.gd`, which spawns a host and a client Godot process and communicates over command files. It cannot run inside the headless single-process GUT pipeline because peer sync needs two real engines.
+- Specifically exercise these tests in that suite:
+  - `test_deployment_single_unit` — must now end with `assert_unit_deployed(test_unit_id)` succeeding (host & client agree on deployed flag, model count, and per-model x/y).
+  - `test_deployment_alternating_turns` — must now assert `player_turn` changed from `initial_turn` after a deploy, AND host & client agree on the new `player_turn`.
+  - `test_deployment_unit_coherency` — must now call `get_unit_model_positions(unit_id)` then `verify_unit_coherency(positions)` (must return true), and same coherency check on the client's view of the same unit.
+  - `test_deployment_completion_both_players` — after only P1 completes: phase must NOT be `Movement`. After both complete: phase must NOT be `Deployment`, and host & client must agree on the new phase.
+  - `test_deployment_undo_action` — must now call `assert_unit_deployed` before undo, then `assert_unit_not_deployed` after undo, then verify the unit is back in `player_1_undeployed`.
+
+**What to look for:**
+- All five tests above pass (they previously printed log lines without enforcing post-conditions, so they could pass while the underlying behavior was broken).
+- If any of the new asserts fire, that surfaces a real sync/coherency bug rather than a missing assertion — investigate whether the failing field (`deployed`, model `position`, `player_turn`, `current_phase`) is a known sync gap in the host-client pipeline.
+- Syntax check passed with `godot --headless --check-only` (project-wide, exit 0) and `godot --headless --check-only --script tests/integration/test_multiplayer_deployment.gd` (exit 0). The assertion-call sites compile but their runtime success requires the two-process harness.
