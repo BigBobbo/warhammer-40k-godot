@@ -95,6 +95,16 @@ pushed.
 - Parallel mode: `python .claude/scripts/task_complete_specific.py .llm/todo.md --task "<task-key text>" --blocked`
 - Sequential mode: `python .claude/scripts/task_complete.py .llm/todo.md --blocked`
 
+> **CRITICAL — read carefully.** The `task_complete*.py` script edits
+> `.llm/todo.md` in place, leaving it dirty in your working tree. The
+> orchestrator does **not** clean this up for you. **You** must stage
+> `.llm/todo.md` in step 6's commit alongside your code. If your commit
+> ships without `.llm/todo.md`, local and remote task-list state diverge
+> — a second agent can re-pick a task whose code was already pushed.
+> This has happened before; do not let it happen again. After running
+> the script, run `git status .llm/todo.md` and confirm you see ` M`
+> before proceeding.
+
 ### 6. Commit (allow-listed paths only)
 
 The repo's working tree is routinely dirty with files unrelated to your
@@ -107,7 +117,13 @@ contaminated commit.
 
 **Required:** stage files by explicit path. The complete allowed set is:
 
-1. `.llm/todo.md` (always — it carries the mark from step 5)
+1. **`.llm/todo.md` — ALWAYS, NO EXCEPTIONS.** It carries the `[x]`/`[!]`
+   mark that step 5 wrote. The orchestrator does NOT stage this for you.
+   If you skip it, the local/remote task-list state diverges and your
+   commit ships in an invalid half-state. Run `git status .llm/todo.md`
+   first; it must show ` M` before you stage it. The `git add` line
+   for this step MUST literally include `.llm/todo.md` as a path —
+   audit your own bash command before pressing enter.
 2. The source files you intentionally edited to implement the task
 3. Any new or extended test files (typically under `40k/tests/`)
 4. The `40k/tests/run_pretrigger_tests.sh` runner if you added a new test
