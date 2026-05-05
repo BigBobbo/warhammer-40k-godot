@@ -61,6 +61,15 @@ func _register_defaults() -> void:
 	_register("shortcut_overlay", "Shortcut Overlay", CATEGORY_GAMEPLAY, KEY_SLASH, {"shift": true})
 	_register("toggle_mathhammer", "Toggle Mathhammer", CATEGORY_GAMEPLAY, KEY_H)
 
+	# Shooting phase (T5-UX12 → KeybindingManager registration 2026-05-05)
+	# These were previously hardcoded keycode matches in ShootingController; promoting
+	# them to registered actions makes them rebindable + listable in the overlay.
+	_register("shoot_confirm_targets", "Confirm Targets (Shoot)", CATEGORY_GAMEPLAY, KEY_SPACE, {}, KEY_ENTER)
+	_register("shoot_cancel_target", "Cancel Target (Shoot)", CATEGORY_GAMEPLAY, KEY_ESCAPE)
+	_register("shoot_cycle_eligible_unit", "Cycle Eligible Shooter", CATEGORY_GAMEPLAY, KEY_TAB)
+	_register("shoot_skip_unit", "Skip Active Shooter", CATEGORY_GAMEPLAY, KEY_N)
+	_register("shoot_end_phase", "End Shooting Phase", CATEGORY_GAMEPLAY, KEY_E)
+
 	# Model
 	_register("rotate_left", "Rotate Left", CATEGORY_MODEL, KEY_Q)
 	_register("rotate_right", "Rotate Right", CATEGORY_MODEL, KEY_E)

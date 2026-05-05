@@ -3424,41 +3424,74 @@ func _input(event: InputEvent) -> void:
 
 # T5-UX12: Handle keyboard shortcuts for shooting phase actions
 # Returns true if a shortcut was handled, false otherwise
+#
+# 2026-05-05: dispatch via KeybindingManager.matches_action() so each shortcut
+# is rebindable from the keybind settings UI and discoverable in the
+# KeyboardShortcutOverlay. The matched action ids must stay in sync with
+# KeybindingManager._register_defaults() (shoot_*).
 func _handle_shooting_keyboard_shortcut(event: InputEventKey) -> bool:
-	match event.keycode:
-		KEY_SPACE, KEY_ENTER:
-			# Confirm targets — only when we have assignments
-			if active_shooter_id != "" and not weapon_assignments.is_empty():
-				print("T5-UX12: Keyboard shortcut — Confirm Targets (Space/Enter)")
-				_on_confirm_pressed()
-				return true
+	# Defensive: KeybindingManager is an autoload, but if it's somehow missing
+	# (e.g. unit-test harness without autoloads) we preserve the legacy
+	# hardcoded behavior so shortcuts don't silently break.
+	var kbm = _get_keybinding_manager()
 
-		KEY_ESCAPE:
-			# Deselect current shooter / cancel assignments
-			if active_shooter_id != "":
-				print("T5-UX12: Keyboard shortcut — Deselect Shooter (Escape)")
-				_keyboard_deselect_shooter()
-				return true
-
-		KEY_TAB:
-			# Cycle through eligible units that haven't shot yet
-			print("T5-UX12: Keyboard shortcut — Cycle Units (Tab)")
-			_keyboard_cycle_units(event.shift_pressed)
+	if _shoot_action_matches(kbm, event, "shoot_confirm_targets", [KEY_SPACE, KEY_ENTER]):
+		# Confirm targets — only when we have assignments
+		if active_shooter_id != "" and not weapon_assignments.is_empty():
+			print("T5-UX12: Keyboard shortcut — Confirm Targets (shoot_confirm_targets)")
+			_on_confirm_pressed()
 			return true
 
-		KEY_N:
-			# Skip current unit (mark as shot without shooting)
-			if active_shooter_id != "":
-				print("T5-UX12: Keyboard shortcut — Skip Unit (N)")
-				_keyboard_skip_unit()
-				return true
-
-		KEY_E:
-			# End shooting phase
-			print("T5-UX12: Keyboard shortcut — End Phase (E)")
-			_on_end_phase_pressed()
+	if _shoot_action_matches(kbm, event, "shoot_cancel_target", [KEY_ESCAPE]):
+		# Deselect current shooter / cancel assignments
+		if active_shooter_id != "":
+			print("T5-UX12: Keyboard shortcut — Deselect Shooter (shoot_cancel_target)")
+			_keyboard_deselect_shooter()
 			return true
 
+	if _shoot_action_matches(kbm, event, "shoot_cycle_eligible_unit", [KEY_TAB]):
+		# Cycle through eligible units that haven't shot yet
+		print("T5-UX12: Keyboard shortcut — Cycle Units (shoot_cycle_eligible_unit)")
+		_keyboard_cycle_units(event.shift_pressed)
+		return true
+
+	if _shoot_action_matches(kbm, event, "shoot_skip_unit", [KEY_N]):
+		# Skip current unit (mark as shot without shooting)
+		if active_shooter_id != "":
+			print("T5-UX12: Keyboard shortcut — Skip Unit (shoot_skip_unit)")
+			_keyboard_skip_unit()
+			return true
+
+	if _shoot_action_matches(kbm, event, "shoot_end_phase", [KEY_E]):
+		# End shooting phase
+		print("T5-UX12: Keyboard shortcut — End Phase (shoot_end_phase)")
+		_on_end_phase_pressed()
+		return true
+
+	return false
+
+# Lookup the KeybindingManager autoload defensively. Returns null when running
+# in a test harness with autoloads stripped.
+func _get_keybinding_manager() -> Node:
+	var tree = get_tree() if is_inside_tree() else null
+	if tree == null:
+		return null
+	var root = tree.root
+	if root == null:
+		return null
+	return root.get_node_or_null("KeybindingManager")
+
+# Match either via KeybindingManager (preferred) or via the supplied fallback
+# keycodes when the manager is unavailable. The fallback list mirrors the
+# default bindings so behavior is unchanged when KeybindingManager is loaded.
+func _shoot_action_matches(kbm: Node, event: InputEventKey, action_id: String, fallback_keycodes: Array) -> bool:
+	if kbm != null and kbm.has_method("matches_action"):
+		return kbm.matches_action(event, action_id)
+	# Fallback: legacy hardcoded match — only reached when KeybindingManager
+	# autoload is missing (test harness / strict isolation).
+	for kc in fallback_keycodes:
+		if event.keycode == kc:
+			return true
 	return false
 
 # T5-UX12: Deselect the current shooter and clear assignments

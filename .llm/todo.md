@@ -101,7 +101,7 @@
 - [x] ~~Add shooting line animation and tracer effects from attacker to target during resolution~~ **COMPLETED — FACT-CHECK 2026-05-05**
   Tagged `T5-V2` in source. `40k/scripts/ShootingLineVisual.gd` is a dedicated animated-line + muzzle-flash + traveling-tracer system, used for both local and remote feedback.
 
-- [ ] Register shooting-phase keyboard shortcuts in KeybindingManager (rewritten 2026-05-05)
+- [x] Register shooting-phase keyboard shortcuts in KeybindingManager (rewritten 2026-05-05)
   The general `KeybindingManager.gd` autoload exists and registers shortcuts for AI/Mathhammer/etc., but no shooting-phase-specific actions are registered (grep `KeybindingManager.gd` for `shoot` returns nothing).
   Add five actions to `_register()` calls in `KeybindingManager.gd`, then wire them into `ShootingController.gd` via `Input.is_action_pressed()` (or similar) in `_unhandled_input`:
   - `shoot_confirm_targets` → `KEY_SPACE` or `KEY_ENTER` — equivalent to clicking the Confirm Targets button

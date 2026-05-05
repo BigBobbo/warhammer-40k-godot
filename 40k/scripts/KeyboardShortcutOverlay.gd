@@ -109,6 +109,31 @@ func _build_ui() -> void:
 	_add_shortcut(_rb, "Rotate board view")
 	_add_shortcut(_mh, "Toggle Mathhammer")
 
+	# Separator before shooting section (2026-05-05 — task: register shooting shortcuts)
+	var sep_shoot = HSeparator.new()
+	sep_shoot.add_theme_constant_override("separation", 4)
+	sep_shoot.add_theme_stylebox_override("separator", _create_separator_style())
+	_shortcuts_container.add_child(sep_shoot)
+
+	# Shooting phase header
+	var shooting_header = Label.new()
+	shooting_header.text = "Shooting Phase"
+	shooting_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	shooting_header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	shooting_header.add_theme_font_size_override("font_size", 12)
+	_shortcuts_container.add_child(shooting_header)
+
+	var _sct = KeybindingManager.get_key_display_name("shoot_confirm_targets") if KeybindingManager else "Space / Enter"
+	var _scc = KeybindingManager.get_key_display_name("shoot_cancel_target") if KeybindingManager else "Esc"
+	var _scy = KeybindingManager.get_key_display_name("shoot_cycle_eligible_unit") if KeybindingManager else "Tab"
+	var _ssk = KeybindingManager.get_key_display_name("shoot_skip_unit") if KeybindingManager else "N"
+	var _sep_phase = KeybindingManager.get_key_display_name("shoot_end_phase") if KeybindingManager else "E"
+	_add_shortcut(_sct, "Confirm targets (shoot)")
+	_add_shortcut(_scc, "Cancel current shooter")
+	_add_shortcut(_scy, "Cycle eligible shooter")
+	_add_shortcut(_ssk, "Skip active shooter")
+	_add_shortcut(_sep_phase, "End shooting phase")
+
 	# Dismiss hint at bottom
 	var sep4 = HSeparator.new()
 	sep4.add_theme_constant_override("separation", 4)
