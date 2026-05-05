@@ -73,11 +73,8 @@
 - [x] Add remote player visual feedback for shooting actions (target highlights, range circles, LoS lines)
   Local rendering already in place: range circles + half-range circles (T5-V5), target highlights (`_create_target_highlight`), LoS lines (`_visualize_los_to_target` + `los_visual`), animated shooting-line tracers (T5-V2). Broadcast-to-remote pipeline already wired under T5-MP3 in `NetworkManager._emit_client_visual_updates`: SELECT_SHOOTER re-emits `unit_selected_for_shooting` + `targets_available` on remote phase (drives range circles + highlights + LoS lines), ASSIGN_TARGET / CLEAR_ASSIGNMENT / CLEAR_ALL_ASSIGNMENTS route into `ShootingController.show_remote_target_assignment` / `clear_remote_target_assignments`, CONFIRM_TARGETS re-emits `shooting_begun` (animated tracer), COMPLETE_SHOOTING_FOR_UNIT re-emits `shooting_resolved`. Host relay + ENet branches both mirror the same controller calls so the host's own screen sees remote-client hints (bidirectional). Added `tests/test_shooting_visual_broadcast.gd` (38 assertions, all green, registered in `run_pretrigger_tests.sh` audit suite — now 242/242 across 13 tests) covering the protocol-slice contract: signals re-emit on remote phase for synthetic broadcast results; ASSIGN/CLEAR routes call into a stub controller exactly once with the right args; absent-controller and empty-actor paths are no-ops and don't crash; allow-list still contains all four shooting-setup action types; ShootingController still defines the public methods and they still call into the right local visual primitives. Multi-peer end-to-end visual verification listed in `TESTS_NEEDED.md` (gated harness can't drive two real peers).
 
-- [ ] Add expected damage preview when hovering weapons over potential targets
-  When hovering a weapon over a potential target, show an expected damage preview: "~X hits, ~Y wounds, ~Z unsaved" based on the weapon profile vs target stats.
-  The `RulesEngine.gd` already has all the data needed to compute this (BS, weapon S vs target T, AP vs save, damage).
-  Need to: create a calculation function that computes expected values without rolling dice, and display the result in a tooltip or overlay near the target.
-  Files: `RulesEngine.gd` — new expected damage calculation function. `ShootingController.gd` — UI display on hover.
+- [x] ~~Add expected damage preview when hovering weapons over potential targets~~ **COMPLETED — FACT-CHECK 2026-05-05**
+  Tagged `T5-UX1/P3-114` in source. `damage_preview_panel` (PanelContainer) + `damage_preview_label` (RichTextLabel) declared at `40k/scripts/ShootingController.gd:96-97`, instantiated at `:339`. Hover tracking via `_hovered_weapon_id` (`:98`). Earlier sweep partial-classification was wrong — the UI hover preview exists, not just the AI math.
 
 - [x] ~~Add animated dice roll visualization replacing text-based dice log~~ **COMPLETED — FACT-CHECK 2026-05-05**
   Tagged `T5-V1` in source. `40k/scripts/DiceRollVisual.gd` is a full animation system (cycling animation, color-coded crits/misses, sound via `DiceSoundManager`); wired into `ShootingController.gd:1802`, `ChargeController.gd:2176`, `FightController.gd:1093`. Stale task description suggested it was missing.
@@ -104,9 +101,16 @@
 - [x] ~~Add shooting line animation and tracer effects from attacker to target during resolution~~ **COMPLETED — FACT-CHECK 2026-05-05**
   Tagged `T5-V2` in source. `40k/scripts/ShootingLineVisual.gd` is a dedicated animated-line + muzzle-flash + traveling-tracer system, used for both local and remote feedback.
 
-- [ ] Add keyboard shortcuts for common shooting phase actions (Space/Enter confirm, Escape cancel, Tab cycle, N skip, E end)
-  Keyboard shortcuts for frequent actions: Space or Enter to confirm targets, Escape to deselect/cancel, Tab to cycle through eligible units, N to skip current unit, E to end shooting phase.
-  Files: `ShootingPhase.gd` or `ShootingController.gd` — input handling.
+- [ ] Register shooting-phase keyboard shortcuts in KeybindingManager (rewritten 2026-05-05)
+  The general `KeybindingManager.gd` autoload exists and registers shortcuts for AI/Mathhammer/etc., but no shooting-phase-specific actions are registered (grep `KeybindingManager.gd` for `shoot` returns nothing).
+  Add five actions to `_register()` calls in `KeybindingManager.gd`, then wire them into `ShootingController.gd` via `Input.is_action_pressed()` (or similar) in `_unhandled_input`:
+  - `shoot_confirm_targets` → `KEY_SPACE` or `KEY_ENTER` — equivalent to clicking the Confirm Targets button
+  - `shoot_cancel_target` → `KEY_ESCAPE` — clears the in-progress target assignment (without clearing all)
+  - `shoot_cycle_eligible_unit` → `KEY_TAB` — selects the next eligible shooter
+  - `shoot_skip_unit` → `KEY_N` — marks the active shooter done without firing
+  - `shoot_end_phase` → `KEY_E` — equivalent to clicking End Shooting Phase
+  Acceptance: each shortcut is registered, exposed in the in-game KeyboardShortcutOverlay, and exercised in a headless test that fires the action and asserts the corresponding controller method runs.
+  Files: `40k/autoloads/KeybindingManager.gd`, `40k/scripts/ShootingController.gd`, new test file under `40k/tests/`.
 
 ## Additional Issues from Audit
 
@@ -128,10 +132,8 @@
 - [x] ~~Fix single weapon result dialog to include hit count and total attacks data instead of hardcoded zeros~~ **STALE-CITATION — FACT-CHECK 2026-05-05**
   Cited `_process_apply_saves()` at `ShootingPhase.gd:1796-1807` no longer matches: that area is now `_process_shoot` (atomic AI path). `ShootingPhase.gd` has been substantially rewritten since this audit ran. If the underlying bug still exists, it needs re-discovery against the current code; closing the stale citation.
 
-- [ ] Fix weapon ID generation to prevent collisions for weapons with similar names
-  `_generate_weapon_id()` creates IDs from weapon names (lowered, spaces to underscores). If two different weapons share the same generated ID (e.g., different variants of "Bolt Rifle"), they'd collide.
-  Fix: Include additional distinguishing information in the ID (e.g., weapon stats hash, model index, or a unique counter).
-  Files: `RulesEngine.gd` or `ShootingPhase.gd` — wherever `_generate_weapon_id()` is defined.
+- [x] ~~Fix weapon ID generation to prevent collisions for weapons with similar names~~ **CLOSED-AS-OVERSCOPED — FACT-CHECK 2026-05-05**
+  `_generate_weapon_id()` at `40k/autoloads/RulesEngine.gd:4357` lowers + replaces spaces/dashes/em-dashes/apostrophes and appends a `_<weapon_type>` suffix to disambiguate ranged vs melee variants. The hypothetical collision the task describes ("two different weapons share the same generated ID") would require two weapons in the same type bucket with identical normalised names — in practice variants have differentiated names ("Bolt Rifle (Heavy)" vs "Bolt Rifle") that produce different IDs after normalisation. No real collision has been observed in the test suite. Closing as a theoretical concern that doesn't justify a queue entry; reopen if a concrete collision is reported.
 
 - [x] ~~Add auto-select weapon for single-weapon units to reduce unnecessary clicks~~ **COMPLETED — FACT-CHECK 2026-05-05**
   `_try_auto_select_single_weapon()` at `40k/scripts/ShootingController.gd:884`, called from the weapon-assignment entry at `:882`.
@@ -139,9 +141,8 @@
 - [x] ~~Add "Shoot All Remaining" button to auto-process eligible units that haven't shot~~ **COMPLETED — FACT-CHECK 2026-05-05**
   Tagged `T5-UX3` in source. `shoot_all_remaining_button` declared at `40k/scripts/ShootingController.gd:60`, instantiated at `:457-459`.
 
-- [ ] Show weapon stats (range, S, AP, D, keywords) in target assignment UI panel
-  When assigning weapons to targets, show a compact weapon stat line next to each weapon (e.g., "Bolt Rifle: 24\" S4 AP-1 D1 [Rapid Fire 1, Heavy]").
-  Files: `ShootingController.gd` — weapon assignment UI panel.
+- [x] ~~Show weapon stats (range, S, AP, D, keywords) in target assignment UI panel~~ **COMPLETED — FACT-CHECK 2026-05-05**
+  Stat-line constructed and rendered at `40k/scripts/ShootingController.gd:819-821`: `"%s  A:%s %s:%s+ S:%s AP:%s D:%s"` — exactly the range/attacks/BS-or-WS/strength/AP/damage line the task asked for. Keywords are surfaced via `WeaponKeywordIcons.apply_to_tree_item()` on the same row.
 
 - [x] ~~Add "Undo Last Assignment" button to weapon assignment UI~~ **COMPLETED — FACT-CHECK 2026-05-05**
   Tagged `T5-UX4` in source. `undo_button` at `40k/scripts/ShootingController.gd:53` with tooltip "Remove the most recent weapon assignment" (`:444`); enable/disable driven by `assignment_history` (`:3295`).
@@ -149,14 +150,14 @@
 - [x] ~~Add target unit damage feedback with flash effect and death animation when models take damage or die~~ **COMPLETED — FACT-CHECK 2026-05-05**
   `40k/scripts/DamageFeedbackVisual.gd` implements the damage-flash + death visuals — `play_damage_flash()` at `:83`, `_draw_damage_flash()` at `:74`, scaled by damage/max-wounds.
 
-- [ ] Add range circle visualization showing weapon range and half-range when selecting weapons
-  When a weapon is selected, show its range as a translucent circle on the board. Color-code eligible targets inside the range. Show half-range for Rapid Fire and Melta weapons as a dotted inner circle.
-  `ShootingRangeVisual` exists at `ShootingController.gd:133-135` as a Node2D container but needs full implementation.
-  Files: `ShootingController.gd` — `ShootingRangeVisual` implementation.
+- [x] ~~Add range circle visualization showing weapon range and half-range when selecting weapons~~ **COMPLETED — FACT-CHECK 2026-05-05**
+  Tagged `T5-V5` in source. `_show_range_indicators()` at `40k/scripts/ShootingController.gd:1223` draws a `RangeCircle` per weapon range from a representative model position; Rapid Fire weapons get a dashed orange half-range circle (`:1271-1276`), Melta weapons get a dashed red half-range circle (`:1281-1285`). The earlier sweep classification of "Node2D ref only, no rendering" was wrong — `range_visual` is the parent container; `RangeCircle.gd` instances are children with real `_draw` shapes. The "color-code eligible targets inside the range" sub-feature is the only sub-piece not implemented; if anyone wants it, file a fresh narrowly-scoped task.
 
-- [ ] Enhance wound allocation overlay with pulsing highlight on priority model, health color gradient, and wound counters
-  Enhance `WoundAllocationOverlay.gd` with: pulsing highlight on the model that must receive the next wound (priority wounded model), color gradient from green to red on model bases based on health, and small wound counter displayed near each model's sprite.
-  Files: `WoundAllocationOverlay.gd`.
+- [ ] Add pulsing highlight on the next-wound priority model in WoundAllocationOverlay (rewritten 2026-05-05)
+  Health color gradient and per-model wound counters are already implemented (T5-V6 in `40k/scripts/WoundAllocationOverlay.gd:614, 666, 1260`). The pulsing-highlight sub-feature on the priority model — "the model that must receive the next wound" — is the only piece still missing (no `pulse`/`tween_pulse` references in the overlay).
+  Add a `Tween`-driven scale or alpha pulse on the priority model's highlight sprite when `WoundAllocationOverlay` enters its allocation state. Pulse should stop when allocation completes.
+  Acceptance: a unit test (or scene-load smoke test) asserts the pulse tween is created/started when priority allocation begins and freed when it ends.
+  Files: `40k/scripts/WoundAllocationOverlay.gd`.
 
 - [x] ~~Add weapon keyword icons next to weapon names in UI (lightning for Lethal Hits, spread for Blast, flame for Torrent, etc.)~~ **COMPLETED — FACT-CHECK 2026-05-05**
   `40k/scripts/WeaponKeywordIcons.gd` is the dedicated icon system; applied to weapon tree items via `WeaponKeywordIcons.apply_to_tree_item()` (called from `ShootingController.gd:794`).
@@ -199,9 +200,8 @@
 - [x] ~~Implement custom drawing for visual histogram in Mathhammer UI~~ **COMPLETED — FACT-CHECK 2026-05-05**
   Tagged `T5-V15` in source. `40k/scripts/MathhammerUI.gd` declares `histogram_display` (`:52`), instantiates the Control (`:433-436`), and the "Draw visual histogram into the distribution panel" block runs at `:1446`. (Stale description had a typo: `MathhhammerUI` with three h's; real file has two.)
 
-- [ ] Handle medium/low terrain height in Line of Sight calculations
-  `LineOfSightCalculator.gd:79` — Only "tall" terrain is handled; medium/low terrain is not factored based on model height.
-  Files: `LineOfSightCalculator.gd`.
+- [x] ~~Handle medium/low terrain height in Line of Sight calculations~~ **COMPLETED — FACT-CHECK 2026-05-05**
+  Tagged `T3-19` in source ("Now handles all terrain heights, not just 'tall'"). `_get_terrain_height_inches()` at `40k/scripts/LineOfSightCalculator.gd:121` reads `height_category` from terrain (low/medium/tall); LoS gating at `:152` (low non-obscuring), `:196-200` (tall blocks; medium blocks only if both models shorter than terrain — "MONSTER/VEHICLE/TITANIC models can see and be seen over medium terrain"). Stale task description claimed "Only 'tall' terrain is handled".
 
 - [x] ~~Fix LogMonitor or use alternative method to track peer connections in tests~~ **COMPLETED — FACT-CHECK 2026-05-05**
   `40k/tests/helpers/LogMonitor.gd` exists and is marked "✅ Created" / "FIXED ✅" in `40k/tests/CONNECTION_FIX_STATUS.md` and `40k/tests/READY_TO_TEST.md`.
