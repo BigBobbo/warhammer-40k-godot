@@ -617,16 +617,78 @@ func _handle_load_save(params: Dictionary) -> Dictionary:
 			"error": "LOAD_FAILED"
 		}
 
-	# Wait a moment for the save to fully process
-	await get_tree().create_timer(0.5).timeout
-
-	# Verify units were loaded
+	# Mirror the MainMenu load flow (`scripts/MainMenu.gd:945-952`) so the
+	# loaded state actually drives a fresh Main scene with a real phase
+	# instance. Without this, SaveLoadManager populates GameState.state but
+	# PhaseManager never constructs a phase instance for `state.meta.phase`,
+	# so any subsequent shooting/movement/charge handler dispatched against
+	# the active phase fails with "No active phase instance".
+	#
+	# The required flow is the three-step pattern documented in
+	# `40k/tests/TESTING_METHODOLOGY.md`:
+	#   1. SaveLoadManager.load_game(...) — already done above
+	#   2. GameState.state.meta["from_save"] = true — see Main._ready
+	#      at scripts/Main.gd:239 which keys off this flag to restore phase
+	#      state instead of reinitialising a fresh game
+	#   3. change_scene_to_file("res://scenes/Main.tscn") — re-runs
+	#      Main._ready, which calls into PhaseManager to instantiate the
+	#      phase class matching state.meta.phase and registers it as the
+	#      current phase instance
 	var game_state = _gs()
+	if game_state and game_state.state and game_state.state.has("meta"):
+		game_state.state.meta["from_save"] = true
+		game_state.state.meta.erase("from_menu")
+
+	# Trigger the scene reload. change_scene_to_file is deferred to the
+	# next frame; we then poll for the new Main scene to complete its
+	# _ready (which constructs and registers the phase instance).
+	#
+	# Why polling instead of a fixed timer: the IPC layer in
+	# `MultiplayerIntegrationTest._wait_for_result` enforces a hard 5-second
+	# round-trip budget. A naive `await create_timer(2.0).timeout` plus
+	# scene-change + autoload init pushed total round-trip past the limit
+	# and load_save started timing out. Polling lets us return as soon as
+	# the phase instance is ready (typically <500ms total) while still
+	# enforcing a max wait. The TestModeHandler autoload survives the scene
+	# change, so this function continues normally across the change.
+	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+
+	# Wait until PhaseManager has a current phase instance, or 3 seconds
+	# elapse. Three seconds is the hard ceiling we can afford within the
+	# 5-second IPC budget while leaving time for the result-file write and
+	# the test's polling jitter.
+	var phase_mgr_for_wait = null
+	var poll_deadline = Time.get_ticks_msec() + 3000
+	while Time.get_ticks_msec() < poll_deadline:
+		# Yield at least one frame after each poll so the scene-change can
+		# actually progress. At 60fps that's ~16ms per iteration, giving
+		# ~180 polls in the 3s budget.
+		await get_tree().process_frame
+		phase_mgr_for_wait = get_node_or_null("/root/PhaseManager")
+		if phase_mgr_for_wait and phase_mgr_for_wait.has_method("get_current_phase_instance"):
+			if phase_mgr_for_wait.get_current_phase_instance() != null:
+				break
+
+	# Re-fetch game_state after the scene change in case anything was
+	# rewired (the autoload reference is stable but defensive).
+	game_state = _gs()
 	if game_state and game_state.state and game_state.state.has("units"):
 		var unit_count = game_state.state.units.size()
 		var unit_ids = game_state.state.units.keys()
-		print("TestModeHandler: Save loaded, %d units found" % unit_count)
+		print("TestModeHandler: Save loaded + Main scene reloaded, %d units found" % unit_count)
 		print("TestModeHandler: Unit IDs: %s" % str(unit_ids))
+
+		# Surface the active phase class so callers can quickly verify the
+		# scene reload constructed the expected phase instance (ShootingPhase
+		# for a phase=8 save, MovementPhase for phase=7, etc.).
+		var phase_instance_class := ""
+		var phase_mgr = get_node_or_null("/root/PhaseManager")
+		if phase_mgr and phase_mgr.has_method("get_current_phase_instance"):
+			var inst = phase_mgr.get_current_phase_instance()
+			if inst:
+				var script = inst.get_script()
+				if script and script.resource_path != "":
+					phase_instance_class = script.resource_path.get_file().get_basename()
 
 		return {
 			"success": true,
@@ -634,7 +696,8 @@ func _handle_load_save(params: Dictionary) -> Dictionary:
 			"data": {
 				"save_path": save_path,
 				"unit_count": unit_count,
-				"unit_ids": unit_ids
+				"unit_ids": unit_ids,
+				"phase_instance_class": phase_instance_class
 			}
 		}
 	else:
@@ -789,17 +852,28 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 			"error": "GAME_MANAGER_NOT_FOUND"
 		}
 
-	# Get phase information from GameState
+	# Get phase information from GameState. The match must cover every
+	# Phase enum value defined in GameState.gd, otherwise unmatched values
+	# fall through to "Unknown" — that's what was happening for FORMATIONS,
+	# REDEPLOYMENT, SCOUT, and SCOUT_MOVES before this fix. Multi-peer tests
+	# load saves that may legitimately sit in any of these phases.
 	var game_state = _gs()
 	var phase_name = "Unknown"
 	if game_state and game_state.has_method("get_current_phase"):
 		var current_phase = game_state.get_current_phase()
-		# Convert enum to string
 		match current_phase:
+			GameStateData.Phase.FORMATIONS:
+				phase_name = "Formations"
 			GameStateData.Phase.DEPLOYMENT:
 				phase_name = "Deployment"
+			GameStateData.Phase.REDEPLOYMENT:
+				phase_name = "Redeployment"
 			GameStateData.Phase.ROLL_OFF:
 				phase_name = "Roll-Off"
+			GameStateData.Phase.SCOUT:
+				phase_name = "Scout"
+			GameStateData.Phase.SCOUT_MOVES:
+				phase_name = "Scout Moves"
 			GameStateData.Phase.COMMAND:
 				phase_name = "Command"
 			GameStateData.Phase.MOVEMENT:
@@ -815,11 +889,27 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 			GameStateData.Phase.MORALE:
 				phase_name = "Morale"
 
+	# Read turn and active player via the explicit GameState getters. The
+	# previous implementation used `game_state.get("current_turn")` etc.,
+	# which calls Object.get() against the autoload object itself — those
+	# property names don't exist as direct fields, so the calls returned
+	# null and the fallback `else 0` always fired. The real values live in
+	# `state["meta"]` and are surfaced via get_turn_number() /
+	# get_active_player(). Multi-peer integration tests filtering units by
+	# active-player owner depend on these reading correctly.
+	var current_turn := 0
+	var player_turn := 0
+	if game_state:
+		if game_state.has_method("get_turn_number"):
+			current_turn = game_state.get_turn_number()
+		if game_state.has_method("get_active_player"):
+			player_turn = game_state.get_active_player()
+
 	# Collect game state information
 	var state_data = {
 		"current_phase": phase_name,
-		"current_turn": game_state.get("current_turn") if game_state and game_state.get("current_turn") != null else 0,
-		"player_turn": game_state.get("active_player") if game_state and game_state.get("active_player") != null else 0,
+		"current_turn": current_turn,
+		"player_turn": player_turn,
 		"units": {}
 	}
 
