@@ -3237,13 +3237,16 @@ func _process_use_grenade_stratagem(action: Dictionary) -> Dictionary:
 	emit_signal("grenade_result", result)
 
 	# Emit dice rolled for dice log display
-	emit_signal("dice_rolled", {
+	# T5-MP5: Build dice block once, emit locally AND include in result["dice"] so
+	# the remote player's dice log gets the same block via NetworkManager broadcast.
+	var grenade_dice_block = {
 		"context": "grenade",
 		"rolls_raw": result.get("dice_rolls", []),
 		"successes": result.get("mortal_wounds", 0),
 		"threshold": "4+",
 		"message": result.get("message", "")
-	})
+	}
+	emit_signal("dice_rolled", grenade_dice_block)
 
 	# Emit shooting resolved to refresh visuals
 	emit_signal("shooting_resolved", grenade_unit_id, target_unit_id, {
@@ -3254,6 +3257,7 @@ func _process_use_grenade_stratagem(action: Dictionary) -> Dictionary:
 	# Return empty changes since execute_grenade already applied all diffs internally
 	# (BasePhase.execute_action would double-apply if we returned diffs here)
 	return create_result(true, [], result.get("message", ""), {
+		"dice": [grenade_dice_block],
 		"grenade_result": {
 			"dice_rolls": result.get("dice_rolls", []),
 			"mortal_wounds": result.get("mortal_wounds", 0),
@@ -5064,6 +5068,8 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			print("ShootingPhase: Emitted save_roll dice block - %d rolls, %d passed, %d failed" % [save_rolls_raw.size(), saved_count, failed_count])
 
 		# FEEL NO PAIN: Emit FNP dice blocks from RulesEngine batch path
+		# T5-MP5: Append to save_dice_blocks so the FNP dice are included in the
+		# APPLY_SAVES result["dice"] payload and re-emitted on the remote peer.
 		var fnp_rolls_from_engine = damage_result.get("fnp_rolls", [])
 		for fnp_block in fnp_rolls_from_engine:
 			var fnp_dice_block = {
@@ -5078,6 +5084,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				"target_unit_name": target_name
 			}
 			dice_log.append(fnp_dice_block)
+			save_dice_blocks.append(fnp_dice_block)
 			emit_signal("dice_rolled", fnp_dice_block)
 			print("ShootingPhase: Emitted feel_no_pain dice block - %d prevented / %d total" % [fnp_block.get("wounds_prevented", 0), fnp_block.get("total_wounds", 0)])
 
@@ -5105,6 +5112,8 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 					"target_unit_name": target_name
 				}
 				dice_log.append(fnp_overlay_block)
+				# T5-MP5: Include in save_dice_blocks for remote-player sync
+				save_dice_blocks.append(fnp_overlay_block)
 				emit_signal("dice_rolled", fnp_overlay_block)
 				print("ShootingPhase: Emitted feel_no_pain dice block from overlay - %d prevented / %d total" % [total_prevented, fnp_rolls_from_overlay.size()])
 
@@ -5126,6 +5135,9 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				all_diffs.append_array(haz_result.diffs)
 			for haz_dice in haz_result.dice:
 				dice_log.append(haz_dice)
+				# T5-MP5: Include hazardous dice in save_dice_blocks so remote
+				# player sees the post-save hazardous self-damage rolls in real time
+				save_dice_blocks.append(haz_dice)
 				emit_signal("dice_rolled", haz_dice)
 			if haz_result.log_text:
 				log_phase_message(haz_result.log_text)

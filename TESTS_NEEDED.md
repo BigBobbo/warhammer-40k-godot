@@ -500,3 +500,34 @@
 - All five tests above pass (they previously printed log lines without enforcing post-conditions, so they could pass while the underlying behavior was broken).
 - If any of the new asserts fire, that surfaces a real sync/coherency bug rather than a missing assertion — investigate whether the failing field (`deployed`, model `position`, `player_turn`, `current_phase`) is a known sync gap in the host-client pipeline.
 - Syntax check passed with `godot --headless --check-only` (project-wide, exit 0) and `godot --headless --check-only --script tests/integration/test_multiplayer_deployment.gd` (exit 0). The assertion-call sites compile but their runtime success requires the two-process harness.
+
+## T5-MP5: Real-time dice log sync to remote player during shooting resolution
+
+**Task:** Sync dice log visibility to remote player in real-time during shooting resolution.
+**Files changed:**
+- `40k/phases/ShootingPhase.gd` — three fixes:
+  1. `_process_use_grenade_stratagem` now bundles the `grenade` dice block into `result["dice"]` (previously emitted locally only — remote dice log silently dropped the 6D6 grenade roll).
+  2. `_process_apply_saves` now appends FNP dice blocks (RulesEngine batch path AND interactive-saves overlay path) to `save_dice_blocks` so they ride along in the APPLY_SAVES `result["dice"]` payload.
+  3. `_process_apply_saves` now appends Hazardous post-save dice to `save_dice_blocks` for the same reason.
+- `40k/tests/test_dice_broadcast_sync.gd` — new headless regression test (20 assertions, all passing).
+- `40k/tests/run_pretrigger_tests.sh` — wired the new test into the audit suite.
+
+**Tests to run:**
+- Headless gate: `bash .claude/scripts/run_validation.sh` — already green (170 passed, 0 failed, including the new 20 dice-broadcast assertions).
+- Two-peer manual scenarios that the headless gate cannot exercise:
+  1. **Grenade stratagem dice** — Host shoots a grenade, client should see the 6D6 roll appear in the dice log in real time (not just the casualty counter).
+  2. **Feel No Pain dice** — Host shoots a target with FNP (e.g., Death Guard with Disgustingly Resilient), client should see the FNP roll appear after saves.
+  3. **Hazardous self-damage dice** — Host fires a Hazardous weapon (e.g., the test `hazardous_plasma`), client should see the post-save Hazardous check rolls in the dice log.
+  4. **Resolution headers** — Host begins single-weapon and multi-weapon resolutions; client should see "Beginning attack resolution..." and "Resolving weapon N of M" entries appear at the right time (these were T5-MP5 already, just verifying no regression).
+
+**What to look for:**
+- The remote (non-host) client's dice log should contain the same dice blocks in the same order as the active player's, with no "missing rolls" gaps for grenade / FNP / hazardous.
+- Confirm that the `NetworkManager: ✅ T5-MP5 Client re-emitting dice_rolled signals for N dice blocks (contexts: [...])` log line appears on the client and the contexts list includes `grenade`, `feel_no_pain`, and any `hazardous_check` blocks where applicable.
+
+**What the headless test DOES verify (gate-friendly slice):**
+- `NetworkManager._emit_client_visual_updates` correctly re-emits every dice block from a synthetic broadcast result onto the receiving phase.
+- `_process_use_grenade_stratagem` returns a result whose `result["dice"]` contains the same `grenade` block that was emitted locally via `dice_rolled`.
+- The structural invariants of the fix (resolution_start/weapon_progress prepend, grenade block in result, FNP/Hazardous appends to `save_dice_blocks`) are present in the source.
+
+**What the headless test does NOT verify (limitation):**
+- A real Godot multiplayer peer-to-peer dice-log sync. That requires a two-process harness; per project policy, never claim multiplayer features work without a successful two-peer test result. Run the four manual scenarios above against a real host+client pair.

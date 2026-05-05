@@ -172,7 +172,7 @@
   The code has defensive logging at `ShootingPhase.gd:601-619` but no explicit retry or confirmation mechanism.
   Files: `ShootingPhase.gd` — save data broadcast, `NetworkManager` — reliable delivery.
 
-- [ ] Sync dice log visibility to remote player in real-time during shooting resolution
+- [x] Sync dice log visibility to remote player in real-time during shooting resolution
   The `dice_rolled` signal emits dice blocks locally. The remote player receives dice results through action result broadcasts, but real-time dice roll display may not be synchronized.
   Files: `ShootingPhase.gd` — dice_rolled signal, `NetworkManager` — dice result broadcasting.
 
