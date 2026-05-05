@@ -216,6 +216,6 @@
   `MultiplayerIntegrationTest.gd:469` — LogMonitor peer connection tracking is unreliable.
   Files: `tests/helpers/MultiplayerIntegrationTest.gd`.
 
-- [ ] Complete multiplayer deployment test assertions
+- [x] Complete multiplayer deployment test assertions
   `test_multiplayer_deployment.gd:555-574` — Multiple test assertion TODOs for verifying host/client state sync, unit positions, coherency checks, and model position extraction.
   Files: `tests/integration/test_multiplayer_deployment.gd`.
