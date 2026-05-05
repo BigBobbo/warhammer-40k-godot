@@ -63,6 +63,12 @@ func test_state_sync_after_deployment_action():
 	await wait_for_connection()
 	await wait_for_seconds(3.0)
 
+	# Peers boot into FORMATIONS phase per 10e rules. Advance both into
+	# DEPLOYMENT so the deploy_unit action below can actually run (it
+	# fail-closes with INVALID_PHASE outside deployment).
+	var advanced = await advance_to_deployment_phase()
+	assert_true(advanced, "Both peers should reach DEPLOYMENT phase")
+
 	# Verify initial sync
 	var initial_comparison = await assert_game_states_match("Pre-action states should match")
 	if not initial_comparison["match"]:

@@ -15,6 +15,8 @@
 #   - shooting-phase keyboard shortcut registration (KeybindingManager + dispatch)
 #   - T5-V7 WoundAllocationOverlay priority-pulse Tween lifecycle
 #   - TestModeHandler shooting-phase action handler dispatch (multi-peer infra)
+#   - TestModeHandler command-file double-execution race fix (in-flight set)
+#   - TestModeHandler transition_to_phase action (multi-peer boot-phase advance)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -44,6 +46,8 @@ TESTS=(
     "tests/test_shooting_phase_shortcuts.gd"
     "tests/test_wound_allocation_priority_pulse.gd"
     "tests/test_test_mode_handler_shooting.gd"
+    "tests/test_test_mode_handler_command_dedupe.gd"
+    "tests/test_test_mode_handler_transition.gd"
 )
 
 FAILED=0

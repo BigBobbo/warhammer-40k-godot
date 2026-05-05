@@ -548,6 +548,8 @@ func _execute_command(command: Dictionary) -> Dictionary:
 			return _handle_complete_shooting_for_unit(params)
 		"use_grenade_stratagem":
 			return _handle_use_grenade_stratagem(params)
+		"transition_to_phase":
+			return await _handle_transition_to_phase(params)
 		_:
 			return {
 				"success": false,
@@ -1385,6 +1387,114 @@ func _handle_use_grenade_stratagem(params: Dictionary) -> Dictionary:
 		"success": bool(result.get("success", false)),
 		"result": result,
 		"message": "USE_GRENADE_STRATAGEM dispatched: %s -> %s" % [actor_unit_id, target_unit_id]
+	}
+
+func _handle_transition_to_phase(params: Dictionary) -> Dictionary:
+	# Drive PhaseManager.transition_to_phase from a multi-peer test so the
+	# integration tests can advance the host peer past the boot phase
+	# (FORMATIONS) and into whichever phase they need to exercise.
+	#
+	# Why this exists: peers spawned by GameInstance.gd with --auto-host /
+	# --auto-join boot into FORMATIONS (the real-game start phase per 10e
+	# rules), not DEPLOYMENT. Previously the deployment-driving integration
+	# tests asserted "current_phase == Deployment" immediately after
+	# launch_host_and_client(), which silently failed (got "Unknown" pre-
+	# 9d77ed7) or honestly failed (got "Formations" post-9d77ed7). Tests
+	# need an explicit advance step. See task notes / `/tmp/mp_run4.log`.
+	#
+	# Why the host call is enough on its own: PhaseManager.transition_to_phase
+	# already calls NetworkManager.broadcast_phase_change(...) when the host
+	# is networked, which RPCs _receive_phase_change to the client and re-
+	# enters PhaseManager.transition_to_phase on that side. So
+	# simulate_host_action("transition_to_phase", {...}) advances both peers.
+	#
+	# Param: `phase` — accepts either an int (GameStateData.Phase enum value)
+	# or a string ("DEPLOYMENT", "FORMATIONS", etc. — case-insensitive).
+	print("TestModeHandler: Handling transition_to_phase action")
+
+	if not params.has("phase"):
+		return {
+			"success": false,
+			"message": "Missing phase parameter",
+			"error": "MISSING_PARAMETER"
+		}
+
+	var raw_phase = params["phase"]
+	var target_phase: int = -1
+	var phase_keys = GameStateData.Phase.keys()
+
+	# Resolve int or string to a Phase enum int.
+	match typeof(raw_phase):
+		TYPE_INT:
+			target_phase = int(raw_phase)
+		TYPE_FLOAT:
+			# JSON parsers sometimes hand us floats for whole numbers.
+			target_phase = int(raw_phase)
+		TYPE_STRING:
+			var name_upper = String(raw_phase).to_upper()
+			var idx = phase_keys.find(name_upper)
+			if idx >= 0:
+				target_phase = idx
+		_:
+			pass
+
+	if target_phase < 0 or target_phase >= phase_keys.size():
+		return {
+			"success": false,
+			"message": "Invalid phase value: %s (must be int 0..%d or one of %s)" % [
+				str(raw_phase), phase_keys.size() - 1, str(phase_keys)
+			],
+			"error": "INVALID_PARAMETER"
+		}
+
+	var phase_manager = get_node_or_null("/root/PhaseManager")
+	if not phase_manager:
+		return {
+			"success": false,
+			"message": "PhaseManager not found",
+			"error": "PHASE_MANAGER_NOT_FOUND"
+		}
+	if not phase_manager.has_method("transition_to_phase"):
+		return {
+			"success": false,
+			"message": "PhaseManager missing transition_to_phase method",
+			"error": "METHOD_NOT_FOUND"
+		}
+
+	var from_phase = -1
+	if phase_manager.has_method("get_current_phase"):
+		from_phase = phase_manager.get_current_phase()
+
+	# Drive the transition. PhaseManager will:
+	#   - exit any current phase instance
+	#   - call GameState.set_phase(target_phase)
+	#   - broadcast to clients via NetworkManager.broadcast_phase_change
+	#     (when this peer is the networked host)
+	#   - construct + enter the new phase instance
+	phase_manager.transition_to_phase(target_phase)
+
+	# Yield one frame so the new phase instance's enter_phase() runs and
+	# any deferred phase-completion (e.g. FORMATIONS auto-completing because
+	# both players already confirmed) can settle before the result file is
+	# written. This keeps the post-transition get_game_state read accurate.
+	await get_tree().process_frame
+
+	var resolved_phase = -1
+	if phase_manager.has_method("get_current_phase"):
+		resolved_phase = phase_manager.get_current_phase()
+
+	return {
+		"success": true,
+		"message": "Transitioned phase: %s -> %s (resolved %s)" % [
+			phase_keys[from_phase] if from_phase >= 0 and from_phase < phase_keys.size() else str(from_phase),
+			phase_keys[target_phase],
+			phase_keys[resolved_phase] if resolved_phase >= 0 and resolved_phase < phase_keys.size() else str(resolved_phase)
+		],
+		"data": {
+			"from_phase": from_phase,
+			"requested_phase": target_phase,
+			"resolved_phase": resolved_phase
+		}
 	}
 
 func _handle_save_game_state(params: Dictionary) -> Dictionary:

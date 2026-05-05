@@ -44,7 +44,7 @@ Validator for both: `bash 40k/tests/run_multiplayer_tests.sh`. Audit gate (`bash
 
 ---
 
-- [ ] Make multi-peer integration tests advance from FORMATIONS to DEPLOYMENT before deployment assertions
+- [x] Make multi-peer integration tests advance from FORMATIONS to DEPLOYMENT before deployment assertions
 
   Symptom (verified in `/tmp/mp_run4.log`): peers spawned by `GameInstance.gd` with `--auto-host` / `--auto-join` boot into `FORMATIONS` phase (enum value 0 in `GameStateData.Phase`), not `DEPLOYMENT` (enum value 1). The `9d77ed7` fix to `_handle_get_game_state` now reads this correctly and reports `"current_phase": "Formations"`, which surfaces an existing bad assumption in `40k/tests/integration/test_multiplayer_deployment.gd` and `test_multiplayer_network.gd` — the deployment-driving tests assert `expected_to_equal("Deployment")` immediately after `launch_host_and_client()`. Before the get_game_state fix these failed silently as `"Unknown" vs "Deployment"`; now they fail more honestly as `"Formations" vs "Deployment"`. Same underlying issue.
 

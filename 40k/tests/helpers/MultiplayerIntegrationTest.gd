@@ -214,6 +214,56 @@ func get_shooting_test_save() -> String:
 # Utility Functions
 # ============================================================================
 
+func advance_to_deployment_phase(timeout: float = 5.0) -> bool:
+	"""Advance the host (and via broadcast, the client) into DEPLOYMENT.
+
+	Tests that boot into FORMATIONS (the real-game start phase per 10e rules)
+	and then need to drive the deployment phase should call this helper after
+	`launch_host_and_client()` + `wait_for_connection()`.
+
+	The transition_to_phase action handler (added in TestModeHandler) drives
+	PhaseManager.transition_to_phase on the host. PhaseManager already calls
+	NetworkManager.broadcast_phase_change, which RPCs the client and re-enters
+	transition_to_phase there. So a single host call moves both peers.
+
+	Returns true if both peers report `current_phase == "Deployment"` within
+	the timeout, false otherwise. Tests that need to harden this contract
+	(no magic phase advancement, no silent failure) should assert on the
+	returned bool.
+
+	Why this exists: peers boot in FORMATIONS, but deployment tests assert
+	DEPLOYMENT immediately after connection. Without an explicit advance,
+	those assertions failed. See `/tmp/mp_run4.log` and the boot-phase
+	mismatch task in .llm/todo.md.
+	"""
+	print("[Test] Advancing host to DEPLOYMENT phase via transition_to_phase action")
+
+	# GameStateData.Phase.DEPLOYMENT == 1; pass the enum int directly. The
+	# handler also accepts the string "DEPLOYMENT".
+	var transition_result = await simulate_host_action("transition_to_phase", {"phase": 1})
+	if not transition_result.get("success", false):
+		print("[Test] transition_to_phase failed: %s" % transition_result.get("message", ""))
+		return false
+
+	# Poll until both peers report Deployment, or timeout. The host transition
+	# is synchronous on its end; the client transition is RPC-driven and may
+	# take a frame or two to propagate. wait_for_seconds is the existing
+	# integration-test rhythm.
+	var start_time = Time.get_ticks_msec() / 1000.0
+	while (Time.get_ticks_msec() / 1000.0) - start_time < timeout:
+		var host_state = await simulate_host_action("get_game_state", {})
+		var client_state = await simulate_client_action("get_game_state", {})
+		var host_phase = host_state.get("data", {}).get("current_phase", "")
+		var client_phase = client_state.get("data", {}).get("current_phase", "")
+		if host_phase == "Deployment" and client_phase == "Deployment":
+			print("[Test] Both peers in Deployment phase")
+			return true
+		print("[Test] Awaiting deployment sync: host='%s', client='%s'" % [host_phase, client_phase])
+		await wait_for_seconds(0.5)
+
+	print("[Test] Timed out waiting for both peers to reach Deployment")
+	return false
+
 func wait_for_phase(phase_name: String, timeout: float = 10.0) -> bool:
 	print("[Test] Waiting for phase: %s" % phase_name)
 

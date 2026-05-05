@@ -49,6 +49,13 @@ func test_deployment_save_load():
 	# NOTE: Game auto-starts via TestModeHandler, so we're already in game
 	await wait_for_seconds(2.0)
 
+	# Peers boot into FORMATIONS phase per 10e rules (real game starts in
+	# Formations, then Deployment). Advance both to DEPLOYMENT explicitly
+	# so the assertions below can check the deployment-phase contract.
+	# A single host call broadcasts the phase change to the client.
+	var advanced = await advance_to_deployment_phase()
+	assert_true(advanced, "Both peers should reach DEPLOYMENT phase")
+
 	# Verify both in deployment phase using action simulation
 	var host_result = await simulate_host_action("get_game_state", {})
 	var client_result = await simulate_client_action("get_game_state", {})
@@ -88,6 +95,10 @@ func test_deployment_single_unit():
 
 	# Wait for the game to fully initialize
 	await wait_for_seconds(2.0)
+
+	# Advance to DEPLOYMENT (peers boot in FORMATIONS).
+	var advanced = await advance_to_deployment_phase()
+	assert_true(advanced, "Both peers should reach DEPLOYMENT phase")
 
 	# Verify we're in deployment phase using action simulation
 	var phase_check = await simulate_host_action("get_game_state", {})
@@ -187,6 +198,10 @@ func test_deployment_outside_zone():
 	await wait_for_connection()
 	await wait_for_seconds(3.0)
 
+	# Advance to DEPLOYMENT (peers boot in FORMATIONS).
+	var advanced = await advance_to_deployment_phase()
+	assert_true(advanced, "Both peers should reach DEPLOYMENT phase")
+
 	# Get available units dynamically
 	var units_result = await simulate_host_action("get_available_units", {})
 	if not units_result.get("success", false):
@@ -228,6 +243,10 @@ func test_deployment_alternating_turns():
 	await launch_host_and_client()
 	await wait_for_connection()
 	await wait_for_seconds(3.0)
+
+	# Advance to DEPLOYMENT (peers boot in FORMATIONS).
+	var advanced = await advance_to_deployment_phase()
+	assert_true(advanced, "Both peers should reach DEPLOYMENT phase")
 
 	# Get available units dynamically
 	var units_result = await simulate_host_action("get_available_units", {})
@@ -299,6 +318,10 @@ func test_deployment_wrong_turn():
 	await wait_for_connection()
 	await wait_for_seconds(3.0)
 
+	# Advance to DEPLOYMENT (peers boot in FORMATIONS).
+	var advanced = await advance_to_deployment_phase()
+	assert_true(advanced, "Both peers should reach DEPLOYMENT phase")
+
 	# Get available units dynamically
 	var units_result = await simulate_host_action("get_available_units", {})
 	if not units_result.get("success", false):
@@ -356,6 +379,10 @@ func test_deployment_blocked_by_terrain():
 	await launch_host_and_client()
 	await wait_for_connection()
 	await wait_for_seconds(3.0)
+
+	# Advance to DEPLOYMENT (peers boot in FORMATIONS).
+	var advanced = await advance_to_deployment_phase()
+	assert_true(advanced, "Both peers should reach DEPLOYMENT phase")
 
 	# Get available units for both players
 	var units_result = await simulate_host_action("get_available_units", {})
@@ -442,6 +469,10 @@ func test_deployment_unit_coherency():
 	await launch_host_and_client()
 	await wait_for_connection()
 	await wait_for_seconds(3.0)
+
+	# Advance to DEPLOYMENT (peers boot in FORMATIONS).
+	var advanced = await advance_to_deployment_phase()
+	assert_true(advanced, "Both peers should reach DEPLOYMENT phase")
 
 	# Get available units dynamically and try to find a multi-model unit
 	var units_result = await simulate_host_action("get_available_units", {})
@@ -546,6 +577,10 @@ func test_deployment_completion_both_players():
 	await wait_for_connection()
 	await wait_for_seconds(3.0)
 
+	# Advance to DEPLOYMENT (peers boot in FORMATIONS).
+	var advanced = await advance_to_deployment_phase()
+	assert_true(advanced, "Both peers should reach DEPLOYMENT phase")
+
 	# Player 1 completes deployment
 	var p1_complete = await simulate_host_action("complete_deployment", {
 		"player_id": 1
@@ -614,6 +649,10 @@ func test_deployment_undo_action():
 	await launch_host_and_client()
 	await wait_for_connection()
 	await wait_for_seconds(3.0)
+
+	# Advance to DEPLOYMENT (peers boot in FORMATIONS).
+	var advanced = await advance_to_deployment_phase()
+	assert_true(advanced, "Both peers should reach DEPLOYMENT phase")
 
 	# Get available units dynamically
 	var units_result = await simulate_host_action("get_available_units", {})
