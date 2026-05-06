@@ -1,0 +1,125 @@
+name: Windowed Scenario Suite
+
+# Validates the project's player-facing feature gate per CLAUDE.md.
+# Runs the windowed scenario suite under Xvfb (Linux virtual display) so the
+# real rendering pipeline executes — sidesteps macOS backgrounded-window
+# stale-frame issues.
+#
+# Two gates:
+#   1. Headless audit suite (run_pretrigger_tests.sh) — fast inner-loop
+#      validation of pure-state / pure-math / save-load logic.
+#   2. Windowed scenarios (run_scenarios.sh) — required gate per
+#      CLAUDE.md feature-validation rule. Uses Xvfb so the actual UI
+#      rendering and signal pipeline are exercised.
+
+on:
+  push:
+    branches: [ '**' ]
+    paths:
+      - '40k/**'
+      - '.github/workflows/scenarios.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '40k/**'
+  workflow_dispatch:
+
+env:
+  # Bump alongside the local dev binary version. Project's dev machine is on
+  # 4.6.stable; the existing test-suite.yml is on 4.4.1 — we keep the new
+  # scenario suite on its own version pin.
+  GODOT_VERSION: "4.6"
+
+jobs:
+  headless-audit:
+    name: Headless audit suite (run_pretrigger_tests.sh)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
+
+      - name: Verify Godot
+        run: godot --version
+
+      - name: Import project
+        run: |
+          cd 40k
+          timeout 180 godot --headless --import || true
+          timeout 180 godot --headless --import || true
+
+      - name: Run audit suite
+        run: |
+          bash 40k/tests/run_pretrigger_tests.sh
+
+  windowed-scenarios:
+    name: Windowed scenarios (Xvfb)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: headless-audit
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
+
+      - name: Install Xvfb
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb x11-xserver-utils libxinerama1 libxcursor1 libxi6 libxrandr2 libgl1 libglu1-mesa
+
+      - name: Import project
+        run: |
+          cd 40k
+          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+            timeout 180 godot --headless --import || true
+          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+            timeout 180 godot --headless --import || true
+
+      - name: Patch run_scenarios.sh / run_scenario.sh for Xvfb
+        run: |
+          # The runner's `osascript` activation is a Mac-only shim and is
+          # already gated by `[ "$(uname)" = "Darwin" ]`. On Linux the
+          # godot launch happens inside xvfb-run, so we wrap by exporting
+          # an env var the runners can detect. No actual edit needed.
+          echo "GODOT_RUNS_UNDER_XVFB=1" >> $GITHUB_ENV
+
+      - name: Run windowed scenarios under Xvfb
+        run: |
+          # Wrap each godot invocation in xvfb-run by overriding the
+          # godot binary lookup with a shim script.
+          mkdir -p $HOME/.bin
+          cat > $HOME/.bin/godot <<'EOF'
+          #!/bin/bash
+          exec xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+            "$(which -a godot | grep -v "$HOME/.bin/godot" | head -1)" "$@"
+          EOF
+          chmod +x $HOME/.bin/godot
+          export PATH="$HOME/.bin:$PATH"
+          which godot
+          godot --version
+
+          bash 40k/tests/run_scenarios.sh --all
+
+      - name: Upload scenario screenshots + results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scenario-results
+          path: |
+            ~/.local/share/godot/app_userdata/40k/test_results/scenarios/
+          if-no-files-found: ignore

@@ -1,0 +1,65 @@
+#!/bin/bash
+# Pre-commit hook: runs scenarios whose `covers` tags overlap with any
+# changed file. Pure-math / state-only changes can opt out by passing
+# SCENARIO_PRECOMMIT=skip in the environment.
+#
+# To enable this hook in your local clone (one-time setup):
+#   git config core.hooksPath .githooks
+#
+# Or, manually:
+#   ln -sf ../../.githooks/pre-commit .git/hooks/pre-commit
+#
+# CI runs the full suite via .github/workflows/scenarios.yml — this hook
+# is the local fast-path so commits with broken UI wires don't even land
+# in your branch.
+
+set -e
+
+if [ "${SCENARIO_PRECOMMIT:-}" = "skip" ]; then
+    echo "[pre-commit] SCENARIO_PRECOMMIT=skip — skipping scenario suite"
+    exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Detect whether any of the staged files are gameplay-relevant. Configs,
+# docs, and pure asset changes don't need scenario validation.
+GAMEPLAY_PATTERN='40k/(autoloads|phases|scripts|scenes|controllers|dialogs|addons/godot_mcp)/'
+CHANGED_GAMEPLAY=$(git diff --cached --name-only | grep -E "$GAMEPLAY_PATTERN" || true)
+if [ -z "$CHANGED_GAMEPLAY" ]; then
+    echo "[pre-commit] no gameplay files changed; skipping scenario suite"
+    exit 0
+fi
+
+echo "[pre-commit] gameplay files changed:"
+echo "$CHANGED_GAMEPLAY" | sed 's/^/  /'
+echo ""
+
+export PATH="$HOME/bin:$PATH"
+
+# Headless audit suite (fast — pure logic / state / save-load)
+echo "[pre-commit] running headless audit suite..."
+if ! bash 40k/tests/run_pretrigger_tests.sh > /tmp/precommit_audit.log 2>&1; then
+    echo ""
+    echo "FAIL: headless audit suite — see /tmp/precommit_audit.log"
+    tail -40 /tmp/precommit_audit.log
+    exit 1
+fi
+echo "[pre-commit]   audit suite green"
+
+# Windowed scenarios — only those whose covers tags overlap with changes
+echo "[pre-commit] running scenarios for changed files..."
+if ! bash 40k/tests/run_scenarios.sh --changed-only > /tmp/precommit_scenarios.log 2>&1; then
+    echo ""
+    echo "FAIL: scenario suite — see /tmp/precommit_scenarios.log"
+    tail -60 /tmp/precommit_scenarios.log
+    echo ""
+    echo "Set SCENARIO_PRECOMMIT=skip and re-commit if you've already"
+    echo "verified manually and need to bypass."
+    exit 1
+fi
+echo "[pre-commit]   scenarios green"
+
+echo "[pre-commit] all checks passed"
+exit 0
