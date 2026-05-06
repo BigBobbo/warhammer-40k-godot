@@ -13,9 +13,13 @@ Exit codes:
   0 — allow stop
   2 — block; stderr is shown to the assistant as a system reminder
 
-The gate is intentionally narrow: it only fires when BOTH a verification claim
-and a `T-NNN`/`T-NNNa` task ID appear in the assistant's recent text content.
-General responses are unaffected.
+The gate fires only when ALL of the following are true in the current turn:
+  - The assistant text contains a verification claim ("PASSED", "verified",
+    "complete", checkmark, etc.).
+  - The assistant text mentions a T-NNN task id.
+  - The assistant ALSO produced a code change in this turn (Edit / Write /
+    MultiEdit / NotebookEdit, or a Bash `git commit`). Recommendations,
+    summaries, and meta discussion of past audit work do NOT trip the gate.
 """
 
 from __future__ import annotations
@@ -47,6 +51,25 @@ _TASK_ID_PATTERN = re.compile(r"\bT-\d{3}[a-z]?\b")
 _LIVE_EVIDENCE_TOOLS = {
     "mcp__godot-mcp-bridge__capture_screenshot",
 }
+
+# Tools whose presence in this turn marks the response as "code-changing".
+# The gate only applies to code-changing turns; pure summary / recommendation
+# / Q&A turns are not gated even if they reference T-NNN tasks with verb
+# verification language.
+_CODE_CHANGE_TOOLS = {
+    "Edit",
+    "Write",
+    "MultiEdit",
+    "NotebookEdit",
+}
+
+# Bash commands that count as code-changing because they finalize a change
+# (commit) or apply edits via a CLI. Matched against the command string.
+_CODE_CHANGE_BASH_PATTERNS = [
+    re.compile(r"\bgit\s+commit\b"),
+    re.compile(r"\bgit\s+(?:add|rm|mv|restore|reset)\b"),
+    re.compile(r"\bgit\s+(?:apply|am|cherry-pick|rebase|merge)\b"),
+]
 
 # Bridge fallback transport: when the MCP stdio handshake gets dropped (e.g.
 # after auto-compact), the assistant can still drive the same Godot addon
@@ -176,6 +199,18 @@ def _bash_command_matches_bridge(cmd: str) -> bool:
     return False
 
 
+def _bash_command_changes_code(cmd: str) -> bool:
+    """True iff a Bash invocation finalizes or applies code changes (commit,
+    add, apply, etc.). Used to decide whether the current turn is a
+    'code-changing' turn that the audit gate applies to."""
+    if not cmd:
+        return False
+    for pat in _CODE_CHANGE_BASH_PATTERNS:
+        if pat.search(cmd):
+            return True
+    return False
+
+
 def _new_audit_screenshot_since(ts: float) -> bool:
     """True iff at least one .png file under the audit screenshot tree has
     an mtime >= the given epoch timestamp. Cheap to scan: we expect at most
@@ -243,6 +278,10 @@ def main() -> int:
     #      this turn (defensive against future tool renames / new transports).
     saw_evidence = False
     evidence_kind = ""
+    # The gate only applies to code-changing turns. Recommendation /
+    # summary turns are unaffected even if they reference task ids with
+    # verification language.
+    code_changed_this_turn = False
 
     for kind, payload in _iter_assistant_content(turn_rows):
         if kind == "text":
@@ -254,14 +293,26 @@ def main() -> int:
             if name in _LIVE_EVIDENCE_TOOLS:
                 saw_evidence = True
                 evidence_kind = "mcp_tool"
+            if name in _CODE_CHANGE_TOOLS:
+                code_changed_this_turn = True
             elif name == "Bash":
                 cmd = (payload.get("input", {}) or {}).get("command", "")
                 if _bash_command_matches_bridge(cmd):
                     saw_evidence = True
                     evidence_kind = "bash_tcp"
+                if _bash_command_changes_code(cmd):
+                    code_changed_this_turn = True
 
     if not claimed_tasks:
         return 0  # no task verification claim → not gated
+    if not code_changed_this_turn:
+        # Recommendations, summaries, and meta discussion of past audit
+        # work do not require fresh live evidence — only turns that
+        # actually edit / commit code do.
+        sys.stderr.write(
+            "[audit-screenshot-gate] OK (no code change in this turn)\n"
+        )
+        return 0
 
     if not saw_evidence and _new_audit_screenshot_since(turn_start_ts):
         saw_evidence = True
