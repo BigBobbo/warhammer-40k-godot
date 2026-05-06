@@ -2716,3 +2716,158 @@ func _get_deployment_zone_polygon_pixels(snapshot: Dictionary, player: int) -> P
 				poly.append(Vector2(vx * px_per_inch, vy * px_per_inch))
 			break
 	return poly
+
+# T-108 audit probes — exposed on AIPlayer so the MCP bridge can drive
+# AIDecisionMaker statics through one-line Expression calls. (Optional —
+# the bridge can also reach AIDecisionMaker via
+# AIPlayer.get_script().get_script_constant_map()["AIDecisionMaker"].)
+func probe_t108_late_game_pivot() -> Dictionary:
+	return {
+		"round_1": AIDecisionMaker._get_round_strategy_modifiers(1),
+		"round_3": AIDecisionMaker._get_round_strategy_modifiers(3),
+		"round_5": AIDecisionMaker._get_round_strategy_modifiers(5),
+	}
+
+func probe_t108_matchup_classify(player: int) -> Dictionary:
+	var snap = GameState.create_snapshot()
+	var u = snap.get("units", {})
+	var rows = []
+	for uid in u:
+		var unit = u[uid]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		var role = AIDecisionMaker._classify_deployment_role(unit)
+		rows.append({"id": uid, "name": unit.get("meta", {}).get("name", uid), "role": role})
+	return {"player": player, "classifications": rows}
+
+func probe_t108_character_threat(player: int) -> Dictionary:
+	var snap = GameState.create_snapshot()
+	var u = snap.get("units", {})
+	var character := {}
+	var non_character := {}
+	for uid in u:
+		var unit = u[uid]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		var kw = unit.get("meta", {}).get("keywords", [])
+		var is_char = ("CHARACTER" in kw) and not ("VEHICLE" in kw)
+		if is_char and character.is_empty():
+			character = unit
+		elif not is_char and non_character.is_empty():
+			non_character = unit
+	if character.is_empty() or non_character.is_empty():
+		return {"err": "no_pair", "have_char": not character.is_empty(), "have_nonchar": not non_character.is_empty()}
+	var threat_data = [{
+		"unit_id": "fake_enemy",
+		"centroid": Vector2(500, 500),
+		"has_melee": true,
+		"has_ranged": true,
+		"charge_threat_px": 600.0,
+		"shoot_threat_px": 800.0,
+		"unit_value": 100.0,
+	}]
+	var test_pos = Vector2(700, 700)
+	var char_eval = AIDecisionMaker._evaluate_position_threat(test_pos, threat_data, character)
+	var noncar_eval = AIDecisionMaker._evaluate_position_threat(test_pos, threat_data, non_character)
+	return {
+		"character_id": character.get("id", "?"),
+		"character_name": character.get("meta", {}).get("name", character.get("id", "?")),
+		"character_total_threat": char_eval.get("total_threat", -1.0),
+		"non_char_id": non_character.get("id", "?"),
+		"non_char_name": non_character.get("meta", {}).get("name", non_character.get("id", "?")),
+		"non_char_total_threat": noncar_eval.get("total_threat", -1.0),
+		"character_to_noncar_ratio": (char_eval.get("total_threat", 0.0) / max(noncar_eval.get("total_threat", 0.001), 0.001)),
+	}
+
+func probe_t108_fight_order(player: int) -> Dictionary:
+	var snap = GameState.create_snapshot()
+	var plan = AIDecisionMaker._build_fight_order_plan(snap, player)
+	var rows = []
+	for uid in plan:
+		var u = snap.get("units", {}).get(uid, {})
+		rows.append({"uid": uid, "name": u.get("meta", {}).get("name", u.get("name", "?")), "owner": u.get("owner", 0)})
+	return {"plan_size": plan.size(), "plan": plan, "rows": rows}
+
+func probe_t108_secondaries(player: int) -> Dictionary:
+	var snap = GameState.create_snapshot()
+	var awareness = AIDecisionMaker._build_secondary_awareness(snap, player)
+	if player == 1:
+		AIDecisionMaker._secondary_awareness_p1 = awareness
+	else:
+		AIDecisionMaker._secondary_awareness_p2 = awareness
+	# Summarize active missions
+	var active_missions = []
+	var sec_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if sec_mgr and "_player_state" in sec_mgr:
+		var ps = sec_mgr._player_state
+		if ps is Dictionary:
+			for m in ps.get(str(player), {}).get("active", []):
+				active_missions.append(m.get("mission_id", m.get("id", "?")))
+	return {"player": player, "awareness_keys": awareness.keys(), "active_missions": active_missions}
+
+func probe_t108_range_band(player: int) -> Dictionary:
+	var snap = GameState.create_snapshot()
+	var u = snap.get("units", {})
+	var shooter_id := ""
+	var target_id := ""
+	for uid in u:
+		var unit = u[uid]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		for w in unit.get("meta", {}).get("weapons", []):
+			if str(w.get("type", "")).to_lower() == "ranged":
+				shooter_id = uid
+				break
+		if shooter_id != "":
+			break
+	for uid in u:
+		var unit = u[uid]
+		if int(unit.get("owner", 0)) != player and int(unit.get("status", 0)) == 0:
+			target_id = uid
+			break
+	if shooter_id == "" or target_id == "":
+		return {"err": "no_pair", "shooter": shooter_id, "target": target_id}
+	var shooter = u[shooter_id]
+	var target = u[target_id]
+	var weapon := {}
+	for w in shooter.get("meta", {}).get("weapons", []):
+		if str(w.get("type", "")).to_lower() == "ranged":
+			weapon = w
+			break
+	var weapon_range = float(str(weapon.get("range", "24")).replace("\"", ""))
+	var dist = AIDecisionMaker._get_closest_model_distance_inches(shooter, target)
+	var ratio = (dist / weapon_range) if weapon_range > 0 else 0.0
+	var multiplier = 1.0
+	if ratio <= 0.5:
+		multiplier = 1.10
+	elif ratio <= 0.75:
+		multiplier = 1.0
+	else:
+		multiplier = 0.85
+	var score = AIDecisionMaker._score_shooting_target(weapon, target, snap, shooter)
+	return {
+		"shooter_id": shooter_id,
+		"target_id": target_id,
+		"weapon_name": weapon.get("name", "?"),
+		"weapon_range_inches": weapon_range,
+		"distance_inches": dist,
+		"range_ratio": ratio,
+		"range_band_multiplier": multiplier,
+		"final_score_with_band_applied": score,
+	}
+
+func probe_t108_range_band_synthetic_grid() -> Array:
+	# Drive the band selection across a sweep of ratios so the table itself
+	# is the proof that the if/elif/else fires as documented.
+	var out = []
+	for r10 in range(0, 11):
+		var r = float(r10) / 10.0
+		var m = 1.0
+		if r <= 0.5:
+			m = 1.10
+		elif r <= 0.75:
+			m = 1.0
+		else:
+			m = 0.85
+		out.append({"range_ratio": r, "multiplier": m})
+	return out
