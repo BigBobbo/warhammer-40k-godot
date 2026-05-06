@@ -756,6 +756,7 @@ func _update_visuals() -> void:
 	_clear_highlights()
 	_clear_charge_arrow_visuals()  # T7-58: Clear old arrows
 	_clear_charge_trajectory_preview()  # P3-127: Clear old trajectories
+	_clear_charge_range_circle()  # T-092: Clear 12" range overlay
 
 	if active_unit_id == "":
 		return
@@ -766,6 +767,9 @@ func _update_visuals() -> void:
 		return
 
 	var unit_center = _get_unit_center_position(unit)
+
+	# T-092: Show 12" charge-range overlay around active charging unit
+	_show_charge_range_circle(unit_center)
 
 	# Draw lines to selected targets
 	for target_id in selected_targets:
@@ -3063,6 +3067,35 @@ func show_ai_charge_arrows(charger_unit_id: String, target_unit_ids: Array) -> v
 				_create_charge_arrow_visual(from_pos, to_pos, true)
 
 	print("[ChargeController] T7-58: Showing %d AI charge arrow(s) for %s" % [charge_arrow_visuals.size(), charger_unit_id])
+
+# --- T-092: 12" Charge Range Overlay ---
+
+const CHARGE_RANGE_OVERLAY_INCHES: float = 12.0
+const CHARGE_RANGE_OVERLAY_COLOR: Color = Color(1.0, 0.6, 0.1, 0.55)
+const CHARGE_RANGE_OVERLAY_WIDTH: float = 12.0  # Width in board-space px (board scale ~0.3)
+
+func _show_charge_range_circle(center: Vector2) -> void:
+	if not is_instance_valid(range_visual):
+		return
+	_clear_charge_range_circle()
+	var radius_px := Measurement.inches_to_px(CHARGE_RANGE_OVERLAY_INCHES)
+	var circle := Line2D.new()
+	circle.name = "ChargeRangeCircle"
+	circle.width = CHARGE_RANGE_OVERLAY_WIDTH
+	circle.default_color = CHARGE_RANGE_OVERLAY_COLOR
+	circle.closed = true
+	var segments: int = 64
+	for i in range(segments):
+		var theta: float = TAU * float(i) / float(segments)
+		circle.add_point(center + Vector2(cos(theta), sin(theta)) * radius_px)
+	range_visual.add_child(circle)
+
+func _clear_charge_range_circle() -> void:
+	if not is_instance_valid(range_visual):
+		return
+	for child in range_visual.get_children():
+		if child.name == "ChargeRangeCircle":
+			child.queue_free()
 
 # --- P3-127: Charge Trajectory Preview Management ---
 

@@ -75,6 +75,9 @@ var dice_log_display: RichTextLabel
 var dice_roll_visual: DiceRollVisual  # T5-V1: Animated dice roll visualization
 var fight_state_banner: FightPhaseStateBanner = null  # T5-V10: Fight phase state banner
 var damage_feedback: DamageFeedbackVisual = null  # T5-V12: Damage visualization (floating numbers, flash)
+var _phase_wounds_label: Label = null  # T-093: Running phase damage tally
+var _phase_wounds_p1: int = 0  # T-093: Total wounds dealt by P1 this fight phase
+var _phase_wounds_p2: int = 0  # T-093: Total wounds dealt by P2 this fight phase
 
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
@@ -295,7 +298,15 @@ func _setup_right_panel() -> void:
 	
 	# Dice log
 	fight_panel.add_child(HSeparator.new())
-	
+
+	# T-093: Phase wounds tally — running counter of damage dealt this fight phase
+	_phase_wounds_label = Label.new()
+	_phase_wounds_label.name = "PhaseWoundsTally"
+	_phase_wounds_label.text = "Phase Damage — P1: 0 | P2: 0"
+	_phase_wounds_label.add_theme_font_size_override("font_size", 13)
+	fight_panel.add_child(_phase_wounds_label)
+	fight_panel.add_child(HSeparator.new())
+
 	var dice_label = Label.new()
 	dice_label.text = "Combat Log:"
 	fight_panel.add_child(dice_label)
@@ -939,6 +950,11 @@ func _on_fight_resolved(fighter_id: String, results: Dictionary) -> void:
 	_update_ui_state()
 
 # T5-V12: Damage application visualization — floating numbers + flash effects
+func _update_phase_wounds_label() -> void:
+	# T-093: Refresh the running phase damage tally label.
+	if _phase_wounds_label and is_instance_valid(_phase_wounds_label):
+		_phase_wounds_label.text = "Phase Damage — P1: %d | P2: %d" % [_phase_wounds_p1, _phase_wounds_p2]
+
 func _on_attacks_resolved_visual(attacker_id: String, target_id: String, result: Dictionary) -> void:
 	"""Parse fight resolution diffs to show floating damage numbers and flash effects on damaged models.
 	Note: This signal fires BEFORE diffs are applied to GameState (signal emitted inside process_action,
@@ -1024,6 +1040,15 @@ func _on_attacks_resolved_visual(attacker_id: String, target_id: String, result:
 			damage_feedback.play_damage_flash(model_pos, base_px, damage_dealt, max_wounds)
 			damage_feedback.play_floating_number(model_pos, damage_dealt, false)
 			print("[FightController] T5-V12: Model damaged at %s — -%d (%d→%d/%d)" % [str(model_pos), damage_dealt, old_wounds, new_wounds, max_wounds])
+
+		# T-093: Accumulate phase damage tally — attacker's owner gets credit
+		var attacker_unit = GameState.get_unit(attacker_id)
+		var attacker_owner = attacker_unit.get("owner", 0)
+		if attacker_owner == 1:
+			_phase_wounds_p1 += damage_dealt
+		elif attacker_owner == 2:
+			_phase_wounds_p2 += damage_dealt
+		_update_phase_wounds_label()
 
 	# Flash the target unit's token nodes red for immediate visual feedback
 	if not wound_changes.is_empty():

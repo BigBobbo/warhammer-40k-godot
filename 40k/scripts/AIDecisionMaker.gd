@@ -8253,20 +8253,30 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 					_add_thinking_step("Shooting plan: %d units with ranged weapons, evaluating targets" % shooter_unit_ids.size())
 
 		# Pick the first available shooter that has a plan
+		# T-108: Skip battle-shocked units — they cannot shoot per 10e core rules.
 		var selected_unit_id = ""
 		for sa in action_types["SELECT_SHOOTER"]:
 			var sid = sa.get("actor_unit_id", sa.get("unit_id", ""))
-			if sid != "" and _focus_fire_plan.has(sid):
+			if sid == "":
+				continue
+			var sunit = snapshot.get("units", {}).get(sid, {})
+			if sunit.get("flags", {}).get("battle_shocked", false):
+				continue
+			if _focus_fire_plan.has(sid):
 				selected_unit_id = sid
 				break
 
-		# If no unit has a plan, try first available shooter with fallback scoring
+		# If no unit has a plan, try first non-battle-shocked shooter
 		if selected_unit_id == "":
 			for sa in action_types["SELECT_SHOOTER"]:
 				var sid = sa.get("actor_unit_id", sa.get("unit_id", ""))
-				if sid != "":
-					selected_unit_id = sid
-					break
+				if sid == "":
+					continue
+				var sunit = snapshot.get("units", {}).get(sid, {})
+				if sunit.get("flags", {}).get("battle_shocked", false):
+					continue
+				selected_unit_id = sid
+				break
 
 		if selected_unit_id == "":
 			_focus_fire_plan_built = false

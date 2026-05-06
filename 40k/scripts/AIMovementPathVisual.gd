@@ -7,8 +7,8 @@ class_name AIMovementPathVisual
 # Follows ChargeArrowVisual animation pattern.
 
 # Animation timing
-const HOLD_DURATION := 1.5  # How long to hold the trail visible
-const FADE_DURATION := 0.8  # Fade out time
+const HOLD_DURATION := 2.5  # How long to hold the trail visible
+const FADE_DURATION := 1.0  # Fade out time
 
 # Visual settings - player-themed colors
 const P1_TRAIL_COLOR := Color(0.3, 0.5, 0.9, 0.7)  # Blue for player 1

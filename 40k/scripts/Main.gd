@@ -707,6 +707,10 @@ func _on_ai_action_taken(_player: int, action: Dictionary, _description: String)
 	# Movement-related actions that change model positions
 	if action_type in ["CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY", "CHARGE", "PILE_IN", "CONSOLIDATE"]:
 		if unit_id != "":
+			# T-091: Capture pre-move token positions and spawn AI path visual
+			# (token positions still hold the OLD positions; GameState already has the NEW)
+			if action_type == "CONFIRM_UNIT_MOVE":
+				_show_ai_movement_paths(unit_id, _player)
 			update_unit_visuals(unit_id)
 
 	# Phase-ending actions: sync ALL token positions to catch any missed updates
@@ -2660,8 +2664,14 @@ func _apply_white_dwarf_theme() -> void:
 	# Theme labels in HUD_Bottom
 	if phase_label:
 		_WhiteDwarfTheme.apply_to_label(phase_label, true)
+		# T-110: Phase-level tooltip explaining current phase responsibilities
+		phase_label.tooltip_text = "Current phase. Press ? for keyboard shortcuts."
+		phase_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	if active_player_badge:
 		_WhiteDwarfTheme.apply_to_label(active_player_badge)
+		# T-110: tooltip for active player
+		active_player_badge.tooltip_text = "Active player taking actions this turn."
+		active_player_badge.mouse_filter = Control.MOUSE_FILTER_PASS
 	if status_label:
 		_WhiteDwarfTheme.apply_to_label(status_label)
 
@@ -4319,6 +4329,19 @@ func _input(event: InputEvent) -> void:
 	# Army panel toggle - KEY_U
 	if event is InputEventKey and event.pressed and event.keycode == KEY_U:
 		_toggle_army_panel()
+		get_viewport().set_input_as_handled()
+		return
+
+	# T-095/T-110: Hotkey help overlay - KEY_QUESTION (?) or KEY_SLASH with shift
+	if event is InputEventKey and event.pressed and not event.echo and (event.keycode == KEY_QUESTION or (event.keycode == KEY_SLASH and event.shift_pressed)):
+		_toggle_hotkey_help_overlay()
+		get_viewport().set_input_as_handled()
+		return
+
+	# T-109: Grid overlay toggle - KEY_G
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_G \
+			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+		_toggle_grid_overlay()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -7216,6 +7239,10 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	print("Phase changed to: ", GameStateData.Phase.keys()[new_phase])
 	print("Active player: ", GameState.get_active_player())
 
+	# T-110: Update phase label tooltip with phase-specific guidance
+	if phase_label:
+		phase_label.tooltip_text = _get_phase_tooltip_text(new_phase)
+
 	# P1-67: Sync all token positions from GameState on phase transitions
 	# This ensures token visuals match GameState when entering shooting/fight phases
 	_sync_all_token_positions()
@@ -7430,6 +7457,36 @@ func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.SCORING: return "Scoring Phase"
 		GameStateData.Phase.MORALE: return "Morale Phase"
 		_: return "Unknown Phase"
+
+# T-110: Phase-specific tooltip text shown when hovering the phase label.
+func _get_phase_tooltip_text(phase: GameStateData.Phase) -> String:
+	match phase:
+		GameStateData.Phase.FORMATIONS:
+			return "Declare leader attachments and reserves before deployment."
+		GameStateData.Phase.DEPLOYMENT:
+			return "Place your units within your deployment zone. Press G for grid."
+		GameStateData.Phase.REDEPLOYMENT:
+			return "Optional redeployment moves before turn 1."
+		GameStateData.Phase.SCOUT, GameStateData.Phase.SCOUT_MOVES:
+			return "Move SCOUT-keyword units up to 9\" before the first turn."
+		GameStateData.Phase.ROLL_OFF:
+			return "Roll off to determine who takes the first turn."
+		GameStateData.Phase.COMMAND:
+			return "Generate CP, score Command Points, choose Battle Mastery, take command stratagems. Press S for stratagems."
+		GameStateData.Phase.MOVEMENT:
+			return "Move each unit up to its Movement value. Use Advance for D6 extra inches but no shooting/charging."
+		GameStateData.Phase.SHOOTING:
+			return "Pick a unit, declare targets, resolve attacks. Battle-shocked units cannot shoot."
+		GameStateData.Phase.CHARGE:
+			return "Declare charges (12\" max), roll 2D6, end within engagement range to fight."
+		GameStateData.Phase.FIGHT:
+			return "Fights First units fight, then alternate. Pile in 3\", make attacks, consolidate 3\"."
+		GameStateData.Phase.SCORING:
+			return "Score primary (objectives held) and secondary mission VP."
+		GameStateData.Phase.MORALE:
+			return "Battle-shock tests for units below Half-strength."
+		_:
+			return "Current phase. Press ? for keyboard shortcuts."
 
 func _get_phase_button_text(phase: GameStateData.Phase) -> String:
 	match phase:
@@ -8972,6 +9029,46 @@ func _tween_token_to(token: Node2D, target_pos: Vector2) -> void:
 	tween.set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(token, "position", target_pos, dur)
 
+# T-091: Spawn an AIMovementPathVisual showing each model's pre→post path.
+# Called BEFORE update_unit_visuals so token.position still reflects the old pos.
+func _show_ai_movement_paths(unit_id: String, owner_player: int) -> void:
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+	var paths: Array = []
+	var token_layer_node: Node2D = $BoardRoot/TokenLayer
+	if token_layer_node == null:
+		return
+	for model in unit.get("models", []):
+		var model_id = model.get("id", "")
+		var new_pos_data = model.get("position")
+		if new_pos_data == null:
+			continue
+		var new_pos: Vector2
+		if new_pos_data is Dictionary:
+			new_pos = Vector2(new_pos_data.get("x", 0), new_pos_data.get("y", 0))
+		else:
+			new_pos = new_pos_data
+		var token_for_model: Node2D = null
+		for child in token_layer_node.get_children():
+			if child.has_meta("unit_id") and child.has_meta("model_id"):
+				if child.get_meta("unit_id") == unit_id and child.get_meta("model_id") == model_id:
+					token_for_model = child
+					break
+		if token_for_model == null:
+			continue
+		var from_pos = token_for_model.position
+		if from_pos.distance_to(new_pos) < 1.0:
+			continue
+		paths.append({"from": from_pos, "to": new_pos})
+	if paths.is_empty():
+		return
+	var AIMovementPathVisualScript = preload("res://scripts/AIMovementPathVisual.gd")
+	var visual = AIMovementPathVisualScript.new()
+	visual.name = "AIMovementPathVisual_%s_%d" % [unit_id, Time.get_ticks_msec()]
+	$BoardRoot.add_child(visual)
+	visual.show_paths(paths, owner_player)
+
 
 # --- Visual Style Toggle (Key 8) ---
 
@@ -9009,6 +9106,106 @@ func _toggle_army_panel() -> void:
 	_army_panel.panel_closed.connect(_on_army_panel_closed)
 	_army_panel.unit_visual_changed.connect(_on_army_panel_visual_changed)
 	print("Main: Army panel opened")
+
+
+# T-109: Grid overlay (1" tactical grid lines on the board)
+var _grid_overlay: Node2D = null
+
+func _toggle_grid_overlay() -> void:
+	if _grid_overlay and is_instance_valid(_grid_overlay):
+		_grid_overlay.queue_free()
+		_grid_overlay = null
+		print("Main: Grid overlay hidden")
+		return
+	var board_root_node: Node2D = $BoardRoot
+	if board_root_node == null:
+		return
+	_grid_overlay = Node2D.new()
+	_grid_overlay.name = "GridOverlay"
+	_grid_overlay.set_script(GDScript.new())
+	_grid_overlay.z_index = 1
+	# Build grid lines as Line2D children covering a 60"x44" board
+	var INCH_PX: float = Measurement.inches_to_px(1.0) if Measurement else 40.0
+	var board_w_inches: int = 60
+	var board_h_inches: int = 44
+	var line_color := Color(1.0, 1.0, 1.0, 0.18)
+	var major_color := Color(1.0, 1.0, 1.0, 0.32)
+	for x in range(0, board_w_inches + 1):
+		var line := Line2D.new()
+		line.width = 4.0 if (x % 6 == 0) else 1.5
+		line.default_color = major_color if (x % 6 == 0) else line_color
+		line.add_point(Vector2(float(x) * INCH_PX, 0))
+		line.add_point(Vector2(float(x) * INCH_PX, float(board_h_inches) * INCH_PX))
+		_grid_overlay.add_child(line)
+	for y in range(0, board_h_inches + 1):
+		var line := Line2D.new()
+		line.width = 4.0 if (y % 6 == 0) else 1.5
+		line.default_color = major_color if (y % 6 == 0) else line_color
+		line.add_point(Vector2(0, float(y) * INCH_PX))
+		line.add_point(Vector2(float(board_w_inches) * INCH_PX, float(y) * INCH_PX))
+		_grid_overlay.add_child(line)
+	board_root_node.add_child(_grid_overlay)
+	print("Main: Grid overlay shown (1\" lines, 6\" majors)")
+
+
+# T-095/T-110: Hotkey help overlay — listed shortcuts for the current build
+var _hotkey_help_overlay: PanelContainer = null
+
+func _toggle_hotkey_help_overlay() -> void:
+	if _hotkey_help_overlay and is_instance_valid(_hotkey_help_overlay):
+		_hotkey_help_overlay.queue_free()
+		_hotkey_help_overlay = null
+		return
+	_hotkey_help_overlay = PanelContainer.new()
+	_hotkey_help_overlay.name = "HotkeyHelpOverlay"
+	_hotkey_help_overlay.anchor_left = 0.5
+	_hotkey_help_overlay.anchor_top = 0.5
+	_hotkey_help_overlay.anchor_right = 0.5
+	_hotkey_help_overlay.anchor_bottom = 0.5
+	_hotkey_help_overlay.offset_left = -260
+	_hotkey_help_overlay.offset_top = -220
+	_hotkey_help_overlay.offset_right = 260
+	_hotkey_help_overlay.offset_bottom = 220
+	var vbox := VBoxContainer.new()
+	_hotkey_help_overlay.add_child(vbox)
+	var title := Label.new()
+	title.text = "Keyboard Shortcuts"
+	title.add_theme_font_size_override("font_size", 18)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+	vbox.add_child(HSeparator.new())
+	var entries := [
+		["?  /  Shift+/", "Show / hide this help"],
+		["Esc", "Settings menu / close dialogs"],
+		["U", "Toggle army panel"],
+		["S", "Toggle stratagems panel"],
+		["M", "Show secondary missions"],
+		["L", "Toggle LoS debug overlay"],
+		["G", "Toggle 1\" tactical grid overlay"],
+		["8", "Toggle visual style (letter / enhanced)"],
+		["9", "Toggle debug mode"],
+	]
+	for entry in entries:
+		var row := HBoxContainer.new()
+		var key_label := Label.new()
+		key_label.text = entry[0]
+		key_label.custom_minimum_size = Vector2(160, 0)
+		key_label.add_theme_font_size_override("font_size", 14)
+		row.add_child(key_label)
+		var desc_label := Label.new()
+		desc_label.text = entry[1]
+		desc_label.add_theme_font_size_override("font_size", 14)
+		row.add_child(desc_label)
+		vbox.add_child(row)
+	vbox.add_child(HSeparator.new())
+	var hint := Label.new()
+	hint.text = "Press ? again to close"
+	hint.add_theme_font_size_override("font_size", 12)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(hint)
+	add_child(_hotkey_help_overlay)
+	_hotkey_help_overlay.z_index = UI_OVERLAY_Z
+	print("Main: Hotkey help overlay opened")
 
 
 func _on_unit_split_completed(source_unit_id: String, sibling_unit_id: String) -> void:

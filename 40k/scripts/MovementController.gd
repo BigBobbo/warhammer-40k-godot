@@ -50,6 +50,7 @@ var ruler_visual: Line2D
 var ghost_visual: Node2D
 var model_path_visuals: Dictionary = {}  # Dictionary of model_id -> Line2D for individual paths
 var movement_path_preview: Node2D = null  # P3-125: HumanMovementPathVisual for drag-to-plan preview
+var move_range_visual: Node2D = null  # T-094: Container for movement range circle overlay
 var hud_bottom: Control
 var hud_right: Control
 var ui_setup_complete: bool = false  # Flag to prevent duplicate UI creation
@@ -252,6 +253,11 @@ func _create_path_visuals() -> void:
 	selection_visual.name = "MultiSelectionBox"
 	selection_visual.visible = false
 	board_root.add_child(selection_visual)
+
+	# T-094: Movement range overlay (circle showing unit's move cap around active unit)
+	move_range_visual = Node2D.new()
+	move_range_visual.name = "MoveRangeVisual"
+	board_root.add_child(move_range_visual)
 
 func _setup_bottom_hud() -> void:
 	# NOTE: Main.gd now handles the phase action button
@@ -1173,6 +1179,9 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	# Trigger move animation on all models in the unit
 	_trigger_unit_animation(unit_id, "move")
 
+	# T-094: Show movement range overlay around active unit
+	_show_move_range_overlay(unit_id)
+
 	# Get move cap from unit
 	if current_phase:
 		# PRIORITY 1: Read move cap from phase's active_moves (most authoritative)
@@ -1253,6 +1262,7 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 
 	# Clear movement state
 	_clear_unit_highlight()
+	_clear_move_range_overlay()  # T-094
 	active_unit_id = ""
 	active_mode = ""
 	move_cap_inches = 0.0
@@ -4389,3 +4399,53 @@ func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 				for grandchild in child.get_children():
 					if grandchild.has_method("play_animation"):
 						grandchild.play_animation(anim_name)
+
+# T-094: Movement range overlay helpers
+const MOVE_RANGE_OVERLAY_COLOR: Color = Color(0.3, 0.85, 0.4, 0.55)
+const MOVE_RANGE_OVERLAY_WIDTH: float = 12.0  # Width in board-space px (board scale ~0.3)
+
+func _show_move_range_overlay(unit_id: String) -> void:
+	if not is_instance_valid(move_range_visual):
+		return
+	_clear_move_range_overlay()
+	var unit = GameState.get_unit(unit_id) if GameState else {}
+	if unit.is_empty():
+		return
+	var move_inches: float = get_unit_movement(unit)
+	if move_inches <= 0.0:
+		return
+	var center: Vector2 = Vector2.ZERO
+	var count: int = 0
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var pos = model.get("position")
+		if pos == null:
+			continue
+		var p: Vector2
+		if pos is Dictionary:
+			p = Vector2(pos.get("x", 0), pos.get("y", 0))
+		else:
+			p = pos
+		center += p
+		count += 1
+	if count == 0:
+		return
+	center = center / float(count)
+	var radius_px: float = Measurement.inches_to_px(move_inches)
+	var circle := Line2D.new()
+	circle.name = "MoveRangeCircle"
+	circle.width = MOVE_RANGE_OVERLAY_WIDTH
+	circle.default_color = MOVE_RANGE_OVERLAY_COLOR
+	circle.closed = true
+	var segments: int = 64
+	for i in range(segments):
+		var theta: float = TAU * float(i) / float(segments)
+		circle.add_point(center + Vector2(cos(theta), sin(theta)) * radius_px)
+	move_range_visual.add_child(circle)
+
+func _clear_move_range_overlay() -> void:
+	if not is_instance_valid(move_range_visual):
+		return
+	for child in move_range_visual.get_children():
+		child.queue_free()

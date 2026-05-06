@@ -113,6 +113,7 @@ func _draw() -> void:
 
 	if style == "letter" and not debug_mode:
 		_draw_letter_mode()
+		_draw_battle_shock_indicator()  # T-096: also show in letter mode
 		return
 
 	if use_retro and not debug_mode:
@@ -151,6 +152,9 @@ func _draw() -> void:
 
 	# Draw unit name label beneath the token base
 	_draw_unit_name_label()
+
+	# T-096: Battle-shock indicator (red ring + "!" if unit is battle-shocked)
+	_draw_battle_shock_indicator()
 
 func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 	var bounds = base_shape.get_bounds()
@@ -1224,3 +1228,30 @@ func get_current_animation() -> String:
 
 func has_animation(anim_name: String) -> bool:
 	return _animations.has(anim_name)
+
+
+# T-096: Draw a red ring + "!" indicator on tokens of battle-shocked units.
+func _draw_battle_shock_indicator() -> void:
+	if not has_meta("unit_id"):
+		return
+	var unit_id_local: String = get_meta("unit_id")
+	var unit_local = GameState.get_unit(unit_id_local) if GameState else {}
+	if unit_local.is_empty():
+		return
+	if not unit_local.get("flags", {}).get("battle_shocked", false):
+		return
+	if not base_shape:
+		return
+	var bounds = base_shape.get_bounds()
+	var radius_local: float = min(bounds.size.x, bounds.size.y) / 2.0
+	# Red glow ring just outside the base — thick to stay visible at board scale (~0.3)
+	draw_arc(Vector2.ZERO, radius_local + 12.0, 0, TAU, 48, Color(1.0, 0.15, 0.1, 0.95), 14.0)
+	# Inner darker ring for contrast
+	draw_arc(Vector2.ZERO, radius_local + 4.0, 0, TAU, 48, Color(0.6, 0.0, 0.0, 0.95), 8.0)
+	# "!" exclamation badge on the right edge — large enough to be visible at board scale
+	var badge_pos := Vector2(radius_local + 18.0, -radius_local + 6.0)
+	draw_circle(badge_pos, 22.0, Color(1.0, 0.15, 0.1, 1.0))
+	draw_arc(badge_pos, 22.0, 0, TAU, 32, Color(0.0, 0.0, 0.0, 1.0), 4.0)
+	var font := ThemeDB.fallback_font
+	if font:
+		draw_string(font, badge_pos + Vector2(-7.0, 12.0), "!", HORIZONTAL_ALIGNMENT_CENTER, -1, 36, Color.WHITE)
