@@ -72,6 +72,38 @@ jobs:
         run: |
           python3 40k/tests/check_coverage.py
 
+  multipeer-tests:
+    name: Multi-peer integration (GUT)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: headless-audit
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
+
+      - name: Import project
+        run: |
+          cd 40k
+          timeout 180 godot --headless --import || true
+          timeout 180 godot --headless --import || true
+
+      - name: Run multi-peer integration suite
+        run: |
+          # The multi-peer harness spawns subprocesses with --headless and
+          # binds 127.0.0.1:7777 — works on any Linux runner. Multi-peer
+          # tests do not need Xvfb because they run headless across two
+          # peers; UI rendering for the player path is covered separately
+          # by the windowed-scenarios job.
+          bash 40k/tests/run_multiplayer_tests.sh
+
   windowed-scenarios:
     name: Windowed scenarios (Xvfb)
     runs-on: ubuntu-latest

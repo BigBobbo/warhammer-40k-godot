@@ -72,6 +72,9 @@ def main() -> int:
         scenario_index[sid] = data
 
     # 1) Tile -> scenarios reference check
+    # Supports two scenario reference forms:
+    #   "<scenario_id>"            — sp/mp JSON file under tests/scenarios/
+    #   "mp:<path/to/test.gd>"     — multi-peer GUT test file
     for tile in tiles:
         tid = tile["id"]
         status = tile.get("status", "")
@@ -81,8 +84,13 @@ def main() -> int:
                 errors.append(f"tile '{tid}' status=covered but has no scenarios[]")
                 continue
             for sid in scenarios:
-                if sid not in scenario_index:
-                    errors.append(f"tile '{tid}' references scenario '{sid}' but no such file under tests/scenarios/")
+                if sid.startswith("mp:"):
+                    rel = sid[3:]
+                    if not (REPO_ROOT / "40k" / rel).is_file() and not (REPO_ROOT / rel).is_file():
+                        errors.append(f"tile '{tid}' references multi-peer test '{sid}' but file not found")
+                else:
+                    if sid not in scenario_index:
+                        errors.append(f"tile '{tid}' references scenario '{sid}' but no such file under tests/scenarios/")
 
     # 2) Scenario covers -> tile check
     for sid, sd in scenario_index.items():

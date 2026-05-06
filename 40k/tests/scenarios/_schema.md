@@ -174,6 +174,38 @@ On any failure, the runner auto-captures a screenshot to
 Process exit code: 0 if all asserts pass, 1 otherwise. The `run_scenarios.sh`
 runner aggregates exit codes and reports overall pass/fail.
 
+## Multi-peer scenarios
+
+The single-player runner (`ScenarioRunner`) drives one Godot instance
+through `simulate_click` / `dispatch_action`. For multi-peer tests
+(host + client sync, network broadcast assertions, etc.) we leverage
+the existing GUT-based harness:
+
+- Test files live under `40k/tests/integration/test_multiplayer_*.gd`
+- The runner spawns two `--test-mode` subprocesses (host + client) and
+  drives them via the command-file IPC in `TestModeHandler`
+- Run via `bash 40k/tests/run_multiplayer_tests.sh`
+
+**Coverage tile referencing a multi-peer test:**
+
+```json
+{
+  "id": "multiplayer.deployment.host_to_client_sync",
+  "description": "...",
+  "scenarios": ["mp:tests/integration/test_multiplayer_deployment.gd"],
+  "last_verified_commit": "<sha>",
+  "status": "covered"
+}
+```
+
+The `mp:` prefix tells `check_coverage.py` to look for the file at the
+named path rather than expect a JSON scenario id.
+
+CI runs the multi-peer suite as a separate job
+(`multipeer-tests` in `.github/workflows/scenarios.yml`). It does NOT
+need Xvfb because the multi-peer subprocesses run `--headless` and the
+network sync is the unit under test, not the UI rendering.
+
 ## Anti-patterns
 
 - **`dispatch_action` for the player-facing trigger.** If a player would have

@@ -42,6 +42,41 @@
       "scenarios": ["ri_offer_at_end_of_movement"],
       "last_verified_commit": "62824ef",
       "status": "covered"
+    },
+    {
+      "id": "multiplayer.deployment.host_to_client_sync",
+      "description": "Multi-peer deployment sync — host deploys, client mirrors positions and coherency state",
+      "scenarios": ["mp:tests/integration/test_multiplayer_deployment.gd"],
+      "last_verified_commit": "5f90d02",
+      "status": "covered"
+    },
+    {
+      "id": "multiplayer.dice.broadcast_sync",
+      "description": "Multi-peer dice broadcast — defender re-emits result.dice on remote (T5-MP5)",
+      "scenarios": ["mp:tests/integration/test_multiplayer_dice_log_sync.gd"],
+      "last_verified_commit": "45b3446",
+      "status": "covered"
+    },
+    {
+      "id": "multiplayer.save.broadcast_reliability",
+      "description": "Multi-peer save broadcast — broadcast_id + retry budget + dedupe (T5-MP4-RELIABILITY)",
+      "scenarios": ["mp:tests/integration/test_multiplayer_save_dialog_retry.gd"],
+      "last_verified_commit": "9dc9c35",
+      "status": "covered"
+    },
+    {
+      "id": "multiplayer.shooting.visual_broadcast",
+      "description": "Multi-peer shooting visual broadcast — SELECT_SHOOTER/ASSIGN_TARGET/CONFIRM/COMPLETE (T5-MP3)",
+      "scenarios": ["mp:tests/integration/test_multiplayer_shooting_visuals.gd"],
+      "last_verified_commit": "e2f3f51",
+      "status": "covered"
+    },
+    {
+      "id": "multiplayer.network.session",
+      "description": "Multi-peer network session lifecycle — host/join/disconnect, peer registration",
+      "scenarios": ["mp:tests/integration/test_multiplayer_network.gd"],
+      "last_verified_commit": "f67b1ee",
+      "status": "covered"
     }
   ]
 }
