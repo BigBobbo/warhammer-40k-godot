@@ -38,6 +38,16 @@ echo ""
 
 export PATH="$HOME/bin:$PATH"
 
+# Coverage check — fast (sub-second), runs first so a missed coverage entry
+# fails before we burn time on Godot tests.
+if ! python3 40k/tests/check_coverage.py > /tmp/precommit_coverage.log 2>&1; then
+    echo ""
+    echo "FAIL: coverage check"
+    cat /tmp/precommit_coverage.log
+    exit 1
+fi
+echo "[pre-commit]   coverage.json valid"
+
 # Headless audit suite (fast — pure logic / state / save-load)
 echo "[pre-commit] running headless audit suite..."
 if ! bash 40k/tests/run_pretrigger_tests.sh > /tmp/precommit_audit.log 2>&1; then

@@ -60,11 +60,23 @@ jobs:
         run: |
           bash 40k/tests/run_pretrigger_tests.sh
 
+  coverage-validation:
+    name: Coverage matrix validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate coverage.json ↔ scenarios
+        run: |
+          python3 40k/tests/check_coverage.py
+
   windowed-scenarios:
     name: Windowed scenarios (Xvfb)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: headless-audit
+    needs: [headless-audit, coverage-validation]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

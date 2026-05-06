@@ -1,0 +1,47 @@
+{
+  "$schema_version": 1,
+  "description": "Machine-readable coverage matrix for the windowed-scenario gate. Source of truth for what is verified — append-only AUDIT_REPORT.md is a generated narrative view. See SESSION_PLAYBOOK.md for the rules of the road.",
+  "$rules": [
+    "A 'covered' tile must reference at least one scenario file under tests/scenarios/.",
+    "Each tile's scenarios[] entries must exist as files; check_coverage.py enforces this.",
+    "last_verified_commit should be the most recent commit at which the listed scenarios passed.",
+    "Scenarios may cover multiple tiles via their 'covers' array; every cover tag should map to a tile here."
+  ],
+  "tiles": [
+    {
+      "id": "infra.scenario_runner",
+      "description": "ScenarioRunner autoload boot, fixture load, scene swap, RNG seeding, state walking, screenshot capture",
+      "scenarios": ["runner_smoke"],
+      "last_verified_commit": "2e102a3",
+      "status": "covered"
+    },
+    {
+      "id": "fight.stratagem.counter_offensive",
+      "description": "COUNTER-OFFENSIVE post-charge trigger surface, USE_COUNTER_OFFENSIVE effect, CP -2",
+      "scenarios": ["co_offer_after_charge"],
+      "last_verified_commit": "62824ef",
+      "status": "covered"
+    },
+    {
+      "id": "fight.fights_first_pulse",
+      "description": "Fights-first sequence updated when COUNTER-OFFENSIVE used; phase.active_fighter_id, current_selecting_player",
+      "scenarios": ["co_offer_after_charge"],
+      "last_verified_commit": "62824ef",
+      "status": "covered"
+    },
+    {
+      "id": "charge.stratagem.heroic_intervention",
+      "description": "HEROIC INTERVENTION post-charge-into-engagement trigger, USE_HEROIC_INTERVENTION 2D6 charge, CP -1",
+      "scenarios": ["hi_offer_after_charge_into_engagement"],
+      "last_verified_commit": "62824ef",
+      "status": "covered"
+    },
+    {
+      "id": "movement.stratagem.rapid_ingress",
+      "description": "RAPID INGRESS end-of-movement trigger, reserves filter, USE_RAPID_INGRESS, CP -1",
+      "scenarios": ["ri_offer_at_end_of_movement"],
+      "last_verified_commit": "62824ef",
+      "status": "covered"
+    }
+  ]
+}
