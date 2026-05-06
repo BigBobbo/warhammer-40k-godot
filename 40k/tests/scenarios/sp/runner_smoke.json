@@ -1,0 +1,21 @@
+{
+  "id": "runner_smoke",
+  "covers": ["infra.scenario_runner"],
+  "fixture": "co_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "description": "Day 2 proof-of-concept: load fixture, assert known state, screenshot. No UI driving — exercises the runner machinery only. Day 3 will port the actual CO scenario with UI clicks.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.charged_this_turn", "equals": true },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.models.0.position.x", "equals": 503 },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.models.0.position.y", "equals": 100 },
+    { "act": "expect_phase", "equals": 10 },
+    { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B", "timeout_s": 3.0 },
+    { "act": "expect_token_visible", "unit_id": "U_CUSTODIAN_GUARD_B", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "01_loaded" },
+    { "act": "expect_cp", "player": 1, "delta_from_start": 0 }
+  ]
+}

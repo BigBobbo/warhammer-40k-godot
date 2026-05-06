@@ -1,0 +1,189 @@
+# Scenario file format
+
+A scenario describes a player-driven test: a save fixture to load, an optional
+RNG seed for deterministic dice, and an ordered list of steps that simulate
+player input or assert against the game state. Scenarios live under
+`40k/tests/scenarios/sp/` (single-player) or `40k/tests/scenarios/mp/`
+(multi-peer) and are committed to the repo.
+
+The runner is `40k/autoloads/ScenarioRunner.gd` (autoload, activates when
+`--scenario-file=PATH` is on the cmdline). Run via:
+
+```bash
+bash 40k/tests/run_scenario.sh tests/scenarios/sp/<id>.json
+```
+
+## Top-level shape
+
+```json
+{
+  "id": "co_offer_after_charge",
+  "covers": ["fight.stratagem.counter_offensive"],
+  "fixture": "co_pretrigger.w40ksave",
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "steps": [ ... ],
+  "multiplayer": false,
+  "description": "Optional human-readable summary"
+}
+```
+
+| Field | Required | Type | Notes |
+|---|---|---|---|
+| `id` | yes | string | Unique. Used as filename and in coverage.json. |
+| `covers` | yes | string[] | Coverage tile tags, e.g. `"fight.stratagem.counter_offensive"`. |
+| `fixture` | no | string | Save fixture name (without `.w40ksave`). Loaded from `40k/saves/` or `40k/tests/saves/` via `SaveLoadManager.load_game()`. |
+| `rng_seed` | no | int | If present and ≥0, sets `RulesEngine.RNGService.test_mode_seed`. -1 disables. |
+| `transition_to_phase` | no | int | After fixture load + scene swap, drive `PhaseManager.transition_to_phase(N)`. See enum below. |
+| `steps` | yes | array | Ordered list of step objects. |
+| `multiplayer` | no | bool | If true, requires `peers: { host: { steps }, client: { steps } }` instead of top-level `steps`. |
+
+## Phase enum (use these values in `transition_to_phase`)
+
+| Phase | Value |
+|---|---|
+| FORMATIONS | 0 |
+| DEPLOYMENT | 1 |
+| REDEPLOYMENT | 2 |
+| ROLL_OFF | 3 |
+| SCOUT | 4 |
+| SCOUT_MOVES | 5 |
+| COMMAND | 6 |
+| MOVEMENT | 7 |
+| SHOOTING | 8 |
+| CHARGE | 9 |
+| FIGHT | 10 |
+| SCORING | 11 |
+| MORALE | 12 |
+
+## Step types
+
+Each step is a dict with an `act` field plus act-specific keys.
+
+### Programmatic / setup
+
+- `wait_seconds`: pause N seconds
+  ```json
+  { "act": "wait_seconds", "seconds": 0.5 }
+  ```
+
+- `wait_frames`: pause N rendered frames
+  ```json
+  { "act": "wait_frames", "frames": 3 }
+  ```
+
+- `dispatch_action`: drive a phase action through the current phase instance.
+  Use sparingly — bypasses UI. Prefer `click_unit` / `click_button` for player
+  paths. Result captured as `last_action_result` for downstream
+  `expect_action_result`.
+  ```json
+  { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_WARBOSS_B" } }
+  ```
+
+- `screenshot`: save PNG to `user://test_results/scenarios/<scenario_id>_<label>.png`
+  ```json
+  { "act": "screenshot", "label": "01_loaded" }
+  { "act": "screenshot", "label": "02_dialog", "region": [200, 300, 400, 400] }
+  ```
+
+### UI-driving
+
+- `click_unit`: locate the token for `unit_id` in `/root/Main/BoardRoot/TokenLayer`
+  and dispatch a real mouse-button event at its global position.
+  ```json
+  { "act": "click_unit", "unit_id": "U_WARBOSS_B" }
+  ```
+
+- `click_node`: locate a node by NodePath and dispatch a real click at its
+  centre. Buttons should also accept an `emit_pressed: true` shortcut that
+  emits the `pressed` signal directly.
+  ```json
+  { "act": "click_node", "node": "/root/Main/UI/ChargeButton" }
+  { "act": "click_node", "node": "/root/Main/UI/CO/AcceptButton", "emit_pressed": true }
+  ```
+
+- `simulate_key`: dispatch a keypress.
+  ```json
+  { "act": "simulate_key", "keycode": "KEY_ESCAPE" }
+  ```
+
+### State asserts
+
+- `expect_state`: assert against `GameState.state` via dot-separated path.
+  ```json
+  { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.flags.fights_first", "equals": true }
+  ```
+
+- `expect_cp`: shortcut for `players.<N>.cp`.
+  ```json
+  { "act": "expect_cp", "player": 1, "equals": 2 }
+  { "act": "expect_cp", "player": 1, "delta_from_start": -2 }
+  ```
+
+- `expect_action_result`: assert against the dict returned by the most-recent
+  `dispatch_action` step.
+  ```json
+  { "act": "expect_action_result", "path": "trigger_counter_offensive", "equals": true }
+  ```
+
+- `expect_phase`: assert current phase number.
+  ```json
+  { "act": "expect_phase", "equals": 10 }
+  ```
+
+### UI asserts
+
+- `expect_node_visible`: assert a node exists and `is_visible_in_tree()` is true.
+  Polls until `timeout_s` (default 2.0).
+  ```json
+  { "act": "expect_node_visible", "node": "/root/Main/UI/CounterOffensiveDialog", "timeout_s": 2.0 }
+  ```
+
+- `expect_node_property`: assert a property of a node.
+  ```json
+  { "act": "expect_node_property", "node": "/root/Main/UI/CO/AcceptButton", "property": "disabled", "equals": false }
+  ```
+
+- `expect_token_visible`: like `expect_node_visible` but resolves a token by
+  unit_id instead of NodePath.
+  ```json
+  { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B" }
+  ```
+
+## Output
+
+The runner writes a results file to
+`user://test_results/scenarios/<scenario_id>.json`:
+
+```json
+{
+  "scenario_id": "co_offer_after_charge",
+  "passed": 7,
+  "failed": 0,
+  "steps": [
+    { "step": 0, "act": "screenshot", "pass": true, "path": "..." },
+    { "step": 1, "act": "click_unit", "pass": true },
+    ...
+  ]
+}
+```
+
+On any failure, the runner auto-captures a screenshot to
+`user://test_results/scenarios/<scenario_id>_FAIL_step_<n>.png`.
+
+Process exit code: 0 if all asserts pass, 1 otherwise. The `run_scenarios.sh`
+runner aggregates exit codes and reports overall pass/fail.
+
+## Anti-patterns
+
+- **`dispatch_action` for the player-facing trigger.** If a player would have
+  to click a button to trigger this, the scenario MUST use `click_button`
+  (or equivalent) not `dispatch_action`. Past sessions have closed features
+  as "verified" using `dispatch_action` only and the player could not
+  actually reach the button. See `CLAUDE.md` feature-validation rule.
+- **Skipping screenshots on UI flows.** A screenshot every 2-3 steps catches
+  silent visual regressions and gives a human auditor something to check
+  when results look ambiguous.
+- **Hardcoded global positions.** Use NodePath-relative or unit_id-relative
+  resolution; absolute mouse coordinates break when the window is resized
+  or the camera scrolls.

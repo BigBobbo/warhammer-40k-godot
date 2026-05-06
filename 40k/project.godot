@@ -61,6 +61,7 @@ DiceHistoryPanel="*res://autoloads/DiceHistoryPanel.gd"
 DiceSoundManager="*res://autoloads/DiceSoundManager.gd"
 KeybindingManager="*res://autoloads/KeybindingManager.gd"
 MCPServer="*res://addons/godot_mcp/mcp_server.gd"
+ScenarioRunner="*res://autoloads/ScenarioRunner.gd"
 
 [display]
 
@@ -69,10 +70,6 @@ window/size/viewport_height=1080
 window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-
-[gui]
-
-theme/custom_font="res://fonts/Rajdhani-SemiBold.ttf"
 
 [editor_plugins]
 
@@ -447,6 +444,10 @@ global_script_class_52={
 "language": "GDScript",
 "path": "res://scripts/AIDifficultyConfig.gd"
 }
+
+[gui]
+
+theme/custom_font="res://fonts/Rajdhani-SemiBold.ttf"
 
 [input]
 
