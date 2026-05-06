@@ -566,9 +566,11 @@ func _process_supply_drop_removal(battle_round: int, active_player: int) -> void
 			if obj_id not in removed_objectives:
 				available_for_removal.append(obj_id)
 
+		# Issue #329: route through RNGService so RNGService.test_mode_seed applies for deterministic tests
+		var rng = RulesEngine.RNGService.new()
 		for i in range(min(remove_count, available_for_removal.size())):
 			# Pick randomly
-			var idx = randi() % available_for_removal.size()
+			var idx = rng.randi_range(0, available_for_removal.size() - 1)
 			var removed_id = available_for_removal[idx]
 			available_for_removal.remove_at(idx)
 

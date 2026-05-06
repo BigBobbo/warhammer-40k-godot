@@ -533,6 +533,21 @@ class RNGService:
 			rolls.append(rng.randi_range(1, 6))
 		return rolls
 
+	# Pass-through helpers so callers can use RNGService directly without poking
+	# at the inner `rng` field. Used by sites plumbing #329 (TransportManager,
+	# MissionManager Supply Drop, FightPhase Mathhammer prediction).
+	func randi() -> int:
+		return rng.randi()
+
+	func randi_range(from: int, to: int) -> int:
+		return rng.randi_range(from, to)
+
+	func randf() -> float:
+		return rng.randf()
+
+	func randf_range(from: float, to: float) -> float:
+		return rng.randf_range(from, to)
+
 
 # Test/debug helpers exposing RNGService.test_mode_seed via a method, since
 # Expression.parse (used by the MCP bridge's execute_script) can't perform

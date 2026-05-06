@@ -1878,13 +1878,15 @@ func _show_mathhammer_predictions() -> void:
 			rule_toggles["lance_charged"] = true
 
 		# Build mathhammer simulation config
+		# Issue #329: route through RNGService so RNGService.test_mode_seed applies for deterministic UI snapshots
+		var _mh_rng = RulesEngine.RNGService.new()
 		var config = {
 			"trials": 1000,  # Reduced for real-time predictions
 			"attackers": [attacker_config],
 			"defender": {"unit_id": target_id},
 			"rule_toggles": rule_toggles,
 			"phase": "fight",
-			"seed": randi()
+			"seed": _mh_rng.randi()
 		}
 
 		# Run simulation

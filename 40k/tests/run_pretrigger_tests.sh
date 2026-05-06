@@ -48,6 +48,7 @@ TESTS=(
     "tests/test_test_mode_handler_shooting.gd"
     "tests/test_test_mode_handler_command_dedupe.gd"
     "tests/test_test_mode_handler_transition.gd"
+    "tests/test_rng_determinism_extended.gd"
 )
 
 FAILED=0
