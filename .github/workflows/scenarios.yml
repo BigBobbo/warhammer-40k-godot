@@ -5,12 +5,11 @@ name: Windowed Scenario Suite
 # real rendering pipeline executes — sidesteps macOS backgrounded-window
 # stale-frame issues.
 #
-# Two gates:
-#   1. Headless audit suite (run_pretrigger_tests.sh) — fast inner-loop
-#      validation of pure-state / pure-math / save-load logic.
-#   2. Windowed scenarios (run_scenarios.sh) — required gate per
-#      CLAUDE.md feature-validation rule. Uses Xvfb so the actual UI
-#      rendering and signal pipeline are exercised.
+# Four jobs:
+#   1. headless-audit       — run_pretrigger_tests.sh (fast logic gate).
+#   2. coverage-validation  — check_coverage.py (sub-second sanity check).
+#   3. multipeer-tests      — run_multiplayer_tests.sh (host/client sync).
+#   4. windowed-scenarios   — run_scenarios.sh under Xvfb (UI gate).
 
 on:
   push:
@@ -25,14 +24,15 @@ on:
   workflow_dispatch:
 
 env:
-  # Bump alongside the local dev binary version. Project's dev machine is on
-  # 4.6.stable; the existing test-suite.yml is on 4.4.1 — we keep the new
-  # scenario suite on its own version pin.
-  GODOT_VERSION: "4.6"
+  # Pinned to match the existing test-suite.yml. Local dev is on 4.6.stable;
+  # if a scenario or audit test depends on 4.6-only behaviour, bump this.
+  # Both jobs share this version so audit + multipeer + windowed are
+  # consistent.
+  GODOT_VERSION: "4.4.1"
 
 jobs:
   headless-audit:
-    name: Headless audit suite (run_pretrigger_tests.sh)
+    name: Headless audit suite
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -97,10 +97,8 @@ jobs:
 
       - name: Run multi-peer integration suite
         run: |
-          # The multi-peer harness spawns subprocesses with --headless and
-          # binds 127.0.0.1:7777 — works on any Linux runner. Multi-peer
-          # tests do not need Xvfb because they run headless across two
-          # peers; UI rendering for the player path is covered separately
+          # The multi-peer harness spawns --headless subprocesses bound to
+          # 127.0.0.1:7777. Doesn't need a display. UI is covered separately
           # by the windowed-scenarios job.
           bash 40k/tests/run_multiplayer_tests.sh
 
@@ -115,55 +113,83 @@ jobs:
         with:
           lfs: true
 
+      - name: Install Xvfb + GL stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            xvfb \
+            x11-xserver-utils \
+            libxinerama1 libxcursor1 libxi6 libxrandr2 \
+            libgl1 libglu1-mesa \
+            libegl1 libgles2 \
+            mesa-utils
+
       - name: Setup Godot
         uses: chickensoft-games/setup-godot@v2
         with:
           version: ${{ env.GODOT_VERSION }}
           use-dotnet: false
 
-      - name: Install Xvfb
+      - name: Capture real Godot path + build xvfb-run shim
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y xvfb x11-xserver-utils libxinerama1 libxcursor1 libxi6 libxrandr2 libgl1 libglu1-mesa
+          # Capture the real godot path BEFORE adding the shim dir to PATH
+          REAL_GODOT="$(command -v godot)"
+          echo "Real godot: $REAL_GODOT"
+          if [ -z "$REAL_GODOT" ]; then
+            echo "::error::godot not on PATH after chickensoft setup"
+            exit 1
+          fi
+          echo "REAL_GODOT=$REAL_GODOT" >> $GITHUB_ENV
 
-      - name: Import project
-        run: |
-          cd 40k
-          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
-            timeout 180 godot --headless --import || true
-          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
-            timeout 180 godot --headless --import || true
-
-      - name: Patch run_scenarios.sh / run_scenario.sh for Xvfb
-        run: |
-          # The runner's `osascript` activation is a Mac-only shim and is
-          # already gated by `[ "$(uname)" = "Darwin" ]`. On Linux the
-          # godot launch happens inside xvfb-run, so we wrap by exporting
-          # an env var the runners can detect. No actual edit needed.
-          echo "GODOT_RUNS_UNDER_XVFB=1" >> $GITHUB_ENV
-
-      - name: Run windowed scenarios under Xvfb
-        run: |
-          # Wrap each godot invocation in xvfb-run by overriding the
-          # godot binary lookup with a shim script.
-          mkdir -p $HOME/.bin
-          cat > $HOME/.bin/godot <<'EOF'
+          mkdir -p $HOME/.local/bin
+          cat > $HOME/.local/bin/godot <<EOF
           #!/bin/bash
-          exec xvfb-run -a --server-args="-screen 0 1920x1080x24" \
-            "$(which -a godot | grep -v "$HOME/.bin/godot" | head -1)" "$@"
+          # xvfb-run shim — wraps every godot invocation in a virtual
+          # display so windowed scenarios can render. Adds opengl3 +
+          # Dummy audio so we don't fight Vulkan/ALSA on a headless runner.
+          exec xvfb-run -a --server-args="-screen 0 1920x1080x24 +extension RANDR" \\
+            "$REAL_GODOT" \\
+            --rendering-driver opengl3 \\
+            --audio-driver Dummy \\
+            "\$@"
           EOF
-          chmod +x $HOME/.bin/godot
-          export PATH="$HOME/.bin:$PATH"
-          which godot
-          godot --version
+          chmod +x $HOME/.local/bin/godot
+          # Verify the shim works
+          $HOME/.local/bin/godot --version
 
+      - name: Verify shim is on PATH
+        run: |
+          # $HOME/.local/bin is on PATH by default on ubuntu-latest GitHub
+          # runners, but we re-export to be explicit. From here on every
+          # `godot` invocation goes through the xvfb-run shim.
+          export PATH="$HOME/.local/bin:$PATH"
+          which godot
+          # Should print the shim path, not the chickensoft-installed one
+          if [ "$(which godot)" != "$HOME/.local/bin/godot" ]; then
+            echo "::error::shim not first on PATH (got $(which godot))"
+            exit 1
+          fi
+
+      - name: Import project (with rendering)
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          cd 40k
+          # Two import passes — first one resolves dependencies, second
+          # ensures everything is reimported cleanly. Allowed to "fail"
+          # (timeout/exit-code) since import returns non-zero on warnings.
+          timeout 240 godot --headless --import || true
+          timeout 240 godot --headless --import || true
+
+      - name: Run windowed scenarios
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
           bash 40k/tests/run_scenarios.sh --all
 
-      - name: Upload scenario screenshots + results
+      - name: Upload scenario results + screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: scenario-results
           path: |
             ~/.local/share/godot/app_userdata/40k/test_results/scenarios/
-          if-no-files-found: ignore
+          if-no-files-found: warn
