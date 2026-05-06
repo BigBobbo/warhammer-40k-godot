@@ -196,6 +196,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(_do_expect_action_result(step), true)
 		"expect_phase":
 			rec.merge(_do_expect_phase(step), true)
+		"expect_phase_property":
+			rec.merge(_do_expect_phase_property(step), true)
 		"expect_node_visible":
 			rec.merge(await _do_expect_node_visible(step), true)
 		"expect_node_property":
@@ -247,6 +249,12 @@ func _do_dispatch_action(step: Dictionary) -> Dictionary:
 	if phase == null:
 		return {"pass": false, "error": "no current phase instance"}
 	var action = step.get("action", {})
+	# Convert JSON-friendly [x, y] arrays / {x, y} dicts to Vector2 for
+	# action fields that the phase code expects as Vector2. Mirrors the
+	# logic in addons/godot_mcp/handlers/wh40k_handlers._normalize_action_positions.
+	# Without this, per_model_paths arrays sum to 0 inside Measurement and
+	# multi-model moves silently no-op while validators report success.
+	action = _normalize_action_positions(action)
 	if not phase.has_method("execute_action"):
 		return {"pass": false, "error": "phase lacks execute_action"}
 	var result = phase.execute_action(action)
@@ -370,6 +378,26 @@ func _do_expect_phase(step: Dictionary) -> Dictionary:
 	return _compare(step, phase, "meta.phase")
 
 
+func _do_expect_phase_property(step: Dictionary) -> Dictionary:
+	# Assert against a property on the *current phase instance* (e.g.
+	# active_fighter_id, awaiting_counter_offensive). These live on the phase
+	# Node, not in GameState, but are the canonical way to introspect phase
+	# sub-state for tests.
+	var prop: String = str(step.get("property", ""))
+	if prop == "":
+		return {"pass": false, "error": "expect_phase_property needs property"}
+	var phase_mgr = get_node_or_null("/root/PhaseManager")
+	if phase_mgr == null:
+		return {"pass": false, "error": "no PhaseManager"}
+	var phase = phase_mgr.get_current_phase_instance()
+	if phase == null:
+		return {"pass": false, "error": "no current phase instance"}
+	if not (prop in phase):
+		return {"pass": false, "error": "phase has no property '%s' (script=%s)" % [prop, phase.get_script().resource_path if phase.get_script() else "<none>"]}
+	var actual = phase.get(prop)
+	return _compare(step, actual, "phase.%s" % prop)
+
+
 func _do_expect_node_visible(step: Dictionary) -> Dictionary:
 	var node_path: String = str(step.get("node", ""))
 	if node_path == "":
@@ -471,6 +499,63 @@ func _search_node_by_unit_id(node: Node, unit_id: String) -> Node2D:
 		var found := _search_node_by_unit_id(child, unit_id)
 		if found:
 			return found
+	return null
+
+
+func _normalize_action_positions(action: Dictionary) -> Dictionary:
+	# Mirror of wh40k_handlers._normalize_action_positions. Converts
+	# JSON-shaped position fields ([x,y] / {x,y}) into Vector2.
+	if typeof(action) != TYPE_DICTIONARY:
+		return action
+	var out: Dictionary = action.duplicate(true)
+	for key in ["position", "destination", "dest", "target_position", "stage_position"]:
+		if out.has(key):
+			var v = _coerce_vector2(out[key])
+			if v != null:
+				out[key] = v
+	if out.has("model_positions") and typeof(out["model_positions"]) == TYPE_ARRAY:
+		var positions: Array = out["model_positions"]
+		var converted: Array = []
+		for p in positions:
+			if p == null:
+				converted.append(null)
+			else:
+				var v2 = _coerce_vector2(p)
+				converted.append(v2 if v2 != null else p)
+		out["model_positions"] = converted
+	if out.has("payload") and typeof(out["payload"]) == TYPE_DICTIONARY:
+		var payload: Dictionary = out["payload"]
+		if payload.has("per_model_paths") and typeof(payload["per_model_paths"]) == TYPE_DICTIONARY:
+			var paths: Dictionary = payload["per_model_paths"]
+			var converted_paths: Dictionary = {}
+			for model_id in paths:
+				var p2 = paths[model_id]
+				if typeof(p2) == TYPE_ARRAY:
+					var converted_path: Array = []
+					for q in p2:
+						var v3 = _coerce_vector2(q)
+						converted_path.append(v3 if v3 != null else q)
+					converted_paths[model_id] = converted_path
+				else:
+					converted_paths[model_id] = p2
+			payload["per_model_paths"] = converted_paths
+			out["payload"] = payload
+	return out
+
+
+func _coerce_vector2(value):
+	if typeof(value) == TYPE_VECTOR2:
+		return value
+	if typeof(value) == TYPE_ARRAY and value.size() >= 2:
+		var x = value[0]
+		var y = value[1]
+		if (typeof(x) in [TYPE_INT, TYPE_FLOAT]) and (typeof(y) in [TYPE_INT, TYPE_FLOAT]):
+			return Vector2(float(x), float(y))
+	if typeof(value) == TYPE_DICTIONARY and value.has("x") and value.has("y"):
+		var x2 = value["x"]
+		var y2 = value["y"]
+		if (typeof(x2) in [TYPE_INT, TYPE_FLOAT]) and (typeof(y2) in [TYPE_INT, TYPE_FLOAT]):
+			return Vector2(float(x2), float(y2))
 	return null
 
 

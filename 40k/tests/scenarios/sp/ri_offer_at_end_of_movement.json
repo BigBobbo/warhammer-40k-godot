@@ -1,0 +1,30 @@
+{
+  "id": "ri_offer_at_end_of_movement",
+  "covers": ["movement.stratagem.rapid_ingress"],
+  "fixture": "ri_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "description": "RAPID INGRESS end-to-end: P2's MOVEMENT phase ending in Round 2; Caladius is in P1 reserves. Drive END_MOVEMENT, verify trigger_rapid_ingress=true with Caladius eligible. Dispatch USE_RAPID_INGRESS, verify CP delta and phase-state captured. Mirrors test_ri_pretrigger.gd.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "meta.battle_round", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_CALADIUS_GRAV-TANK_E.status", "equals": 7 },
+    { "act": "screenshot", "label": "01_loaded_movement_phase" },
+
+    { "act": "dispatch_action", "action": { "type": "END_MOVEMENT" } },
+    { "act": "expect_action_result", "path": "trigger_rapid_ingress", "equals": true },
+    { "act": "expect_action_result", "path": "rapid_ingress_player", "equals": 1 },
+    { "act": "expect_phase_property", "property": "_awaiting_rapid_ingress", "equals": true },
+    { "act": "screenshot", "label": "02_after_end_movement_ri_offered" },
+
+    { "act": "dispatch_action", "action": { "type": "USE_RAPID_INGRESS", "unit_id": "U_CALADIUS_GRAV-TANK_E", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_phase_property", "property": "_rapid_ingress_unit_id", "equals": "U_CALADIUS_GRAV-TANK_E" },
+    { "act": "expect_phase_property", "property": "_awaiting_rapid_ingress", "equals": false },
+    { "act": "expect_cp", "player": 1, "delta_from_start": -1 },
+    { "act": "screenshot", "label": "03_after_ri_used" }
+  ]
+}

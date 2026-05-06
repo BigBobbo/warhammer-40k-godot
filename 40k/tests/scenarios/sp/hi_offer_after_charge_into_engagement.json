@@ -1,0 +1,38 @@
+{
+  "id": "hi_offer_after_charge_into_engagement",
+  "covers": ["charge.stratagem.heroic_intervention"],
+  "fixture": "hi_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "description": "HEROIC INTERVENTION end-to-end: post-charge fixture loaded; drive DECLARE_CHARGE → CHARGE_ROLL(seed=0) → APPLY_CHARGE_MOVE on Warboss B onto Custodian Guard B. Trigger should surface with U_TELEMON_HEAVY_DREADNOUGHT_I as eligible defender. Dispatch USE_HEROIC_INTERVENTION (seed=0 → 2D6=10), assert CP delta and HI unit captured. Mirrors test_hi_pretrigger.gd in windowed mode.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.models.0.position.x", "equals": 550 },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.models.0.position.y", "equals": 100 },
+    { "act": "expect_state", "path": "units.U_TELEMON_HEAVY_DREADNOUGHT_I.models.0.position.x", "equals": 491 },
+    { "act": "expect_state", "path": "units.U_TELEMON_HEAVY_DREADNOUGHT_I.models.0.position.y", "equals": 350 },
+    { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B", "timeout_s": 3.0 },
+    { "act": "expect_token_visible", "unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "01_loaded_charge_phase" },
+
+    { "act": "dispatch_action", "action": { "type": "DECLARE_CHARGE", "actor_unit_id": "U_WARBOSS_B", "payload": { "target_unit_ids": ["U_CUSTODIAN_GUARD_B"] } } },
+    { "act": "dispatch_action", "action": { "type": "CHARGE_ROLL", "actor_unit_id": "U_WARBOSS_B", "payload": { "rng_seed": 0 } } },
+    { "act": "dispatch_action", "action": { "type": "DECLINE_COMMAND_REROLL" } },
+    { "act": "dispatch_action", "action": { "type": "APPLY_CHARGE_MOVE", "actor_unit_id": "U_WARBOSS_B", "payload": { "per_model_paths": { "m1": [[550, 100], [503, 100]] } } } },
+
+    { "act": "expect_action_result", "path": "trigger_heroic_intervention", "equals": true },
+    { "act": "expect_action_result", "path": "heroic_intervention_player", "equals": 1 },
+    { "act": "expect_phase_property", "property": "awaiting_heroic_intervention", "equals": true },
+    { "act": "screenshot", "label": "02_after_charge_hi_offered" },
+
+    { "act": "dispatch_action", "action": { "type": "USE_HEROIC_INTERVENTION", "unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I", "player": 1, "payload": { "rng_seed": 0 } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_action_result", "path": "heroic_intervention_roll_success", "equals": true },
+    { "act": "expect_phase_property", "property": "heroic_intervention_unit_id", "equals": "U_TELEMON_HEAVY_DREADNOUGHT_I" },
+    { "act": "expect_cp", "player": 1, "delta_from_start": -1 },
+    { "act": "screenshot", "label": "03_after_hi_used" }
+  ]
+}
