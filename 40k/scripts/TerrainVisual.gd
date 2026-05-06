@@ -194,6 +194,10 @@ func _add_terrain_piece(terrain_data: Dictionary) -> void:
 	# Add type-specific decorative details
 	_add_terrain_decorations(container, terrain_data)
 
+	# Add LoS-blocker indicator if terrain blocks line-of-sight
+	if terrain_data.get("blocks_los", false):
+		_add_los_blocker_indicator(container, terrain_data)
+
 	# Add walls if present - tactical map colors
 	var walls = terrain_data.get("walls", [])
 	if walls.size() > 0:
@@ -229,6 +233,51 @@ func _add_terrain_piece(terrain_data: Dictionary) -> void:
 	terrain_pieces.append(container)
 
 	print("[TerrainVisual] Added terrain piece '%s' type=%s height=%s" % [terrain_data.get("id", ""), terrain_type, height_cat])
+
+## Add a "LoS" badge to terrain pieces that block line-of-sight
+## Visible icon helps players read which terrain blocks visibility at a glance
+func _add_los_blocker_indicator(container: Node2D, terrain_data: Dictionary) -> void:
+	var position = terrain_data.get("position", Vector2.ZERO)
+	var size = terrain_data.get("size", Vector2(100, 100))
+
+	# Place badge at top-right corner of terrain piece bounding box
+	var badge_offset = Vector2(size.x * 0.35, -size.y * 0.35)
+	var badge_pos = position + badge_offset
+	var badge_radius = 14.0
+
+	# Dark shaded circle background
+	var bg = Polygon2D.new()
+	var circle_pts = PackedVector2Array()
+	for i in range(20):
+		var angle = i * TAU / 20.0
+		circle_pts.append(badge_pos + Vector2(cos(angle), sin(angle)) * badge_radius)
+	bg.polygon = circle_pts
+	bg.color = Color(0.1, 0.1, 0.12, 0.85)
+	bg.z_index = 3
+	container.add_child(bg)
+
+	# Bright outline ring
+	var ring = Line2D.new()
+	for i in range(21):
+		var angle = i * TAU / 20.0
+		ring.add_point(badge_pos + Vector2(cos(angle), sin(angle)) * badge_radius)
+	ring.default_color = Color(1.0, 0.85, 0.2, 0.95)  # Yellow-gold for visibility
+	ring.width = 1.8
+	ring.joint_mode = Line2D.LINE_JOINT_ROUND
+	ring.z_index = 3
+	container.add_child(ring)
+
+	# "LoS" text label
+	var label = Label.new()
+	label.text = "LoS"
+	label.position = badge_pos - Vector2(11, 9)
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.6, 1.0))
+	label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	label.z_index = 4
+	container.add_child(label)
 
 ## Add decorative visual elements based on terrain type
 func _add_terrain_decorations(container: Node2D, terrain_data: Dictionary) -> void:

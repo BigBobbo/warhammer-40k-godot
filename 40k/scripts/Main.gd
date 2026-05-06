@@ -341,6 +341,9 @@ func _ready() -> void:
 	# Setup player scores and CP display in top bar
 	_setup_score_display()
 
+	# T-102: connect chat signal so messages accumulate even when the panel is closed.
+	_ensure_chat_signal_connected()
+
 	# P3-109: Setup turn/round progress indicator
 	_setup_round_indicator()
 
@@ -2511,6 +2514,9 @@ func _setup_score_display() -> void:
 	_update_score_display()
 	print("Main: P3-120: Score display created in top bar (VP with primary/secondary breakdown)")
 
+var _last_p1_cp: int = -9999  # T-096: track previous CP for change-float
+var _last_p2_cp: int = -9999
+
 func _update_score_display() -> void:
 	if not _p1_score_label or not _p2_score_label:
 		return
@@ -2527,6 +2533,14 @@ func _update_score_display() -> void:
 	var p2_primary = p2_data.get("primary_vp", 0)
 	var p2_secondary = p2_data.get("secondary_vp", 0)
 
+	# T-096: detect CP delta and spawn float
+	if _last_p1_cp != -9999 and p1_cp != _last_p1_cp and _p1_cp_label:
+		_spawn_cp_float(_p1_cp_label, p1_cp - _last_p1_cp, Color(0.4, 0.6, 1.0))
+	if _last_p2_cp != -9999 and p2_cp != _last_p2_cp and _p2_cp_label:
+		_spawn_cp_float(_p2_cp_label, p2_cp - _last_p2_cp, Color(1.0, 0.4, 0.4))
+	_last_p1_cp = p1_cp
+	_last_p2_cp = p2_cp
+
 	var p1_faction = GameState.get_faction_name(1)
 	var p2_faction = GameState.get_faction_name(2)
 
@@ -2536,6 +2550,25 @@ func _update_score_display() -> void:
 	_p2_cp_label.text = "P2 %s CP: %d" % [p2_faction, p2_cp]
 	_p2_score_label.text = "VP: %d (%dP+%dS)" % [p2_vp, p2_primary, p2_secondary]
 	_p2_score_label.tooltip_text = "P2 Victory Points: %d total\nPrimary: %d | Secondary: %d" % [p2_vp, p2_primary, p2_secondary]
+
+
+# T-096: spawn a transient floating "+N CP" label above the given anchor.
+func _spawn_cp_float(anchor: Label, delta: int, color: Color) -> void:
+	if anchor == null or not is_instance_valid(anchor):
+		return
+	var float_label = Label.new()
+	var sign_str = "+" if delta > 0 else ""
+	float_label.text = "%s%d CP" % [sign_str, delta]
+	float_label.add_theme_color_override("font_color", color)
+	float_label.add_theme_font_size_override("font_size", 16)
+	float_label.z_index = UI_OVERLAY_Z
+	float_label.position = anchor.global_position + Vector2(0, -22)
+	add_child(float_label)
+	var tw = float_label.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(float_label, "position:y", float_label.position.y - 36.0, 1.0).set_ease(Tween.EASE_OUT)
+	tw.tween_property(float_label, "modulate:a", 0.0, 1.0).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(float_label.queue_free)
 
 # P3-109: Setup turn/round progress indicator in top bar
 func _setup_round_indicator() -> void:
@@ -2634,6 +2667,10 @@ func _fix_hud_layout() -> void:
 		unit_list_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		unit_list_panel.custom_minimum_size = Vector2(0, 150)  # Minimum height of 150px
 		print("Adjusted unit list: expand/fill with 150px minimum")
+
+	# T-104: install a filter LineEdit just above the unit list so players can
+	# narrow down by name / keyword / model count.
+	_install_unit_list_filter()
 
 func _ensure_ui_panels_on_top() -> void:
 	# Ensure all UI Control nodes that are direct children of Main render above board
@@ -4345,6 +4382,27 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# T-099: VP timeline panel toggle - KEY_V
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_V \
+			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+		_toggle_vp_timeline_panel()
+		get_viewport().set_input_as_handled()
+		return
+
+	# T-102: Chat panel toggle - KEY_T (text/chat). Only shows in networked games.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_T \
+			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+		_toggle_chat_panel()
+		get_viewport().set_input_as_handled()
+		return
+
+	# T-103: Weapon range comparison panel - KEY_W
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_W \
+			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+		_toggle_weapon_range_comparison_panel()
+		get_viewport().set_input_as_handled()
+		return
+
 	# T-023: stratagem panel toggle - KEY_S (skip when text input focused)
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_S \
 			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
@@ -4818,6 +4876,11 @@ func focus_on_position_briefly(world_pos: Vector2, hold_duration: float = 1.5, p
 	print("P2-40: Camera returning to original position")
 
 func refresh_unit_list() -> void:
+	_refresh_unit_list_inner()
+	# T-104: re-apply the unit-list filter so user-typed text persists across refreshes.
+	_apply_unit_list_filter()
+
+func _refresh_unit_list_inner() -> void:
 	# Update the new bottom panel unit lists (always visible for comparison)
 	if unit_stats_panel and unit_stats_panel.has_method("populate_unit_lists"):
 		var phase_name = GameStateData.Phase.keys()[current_phase]
@@ -6859,8 +6922,10 @@ func _on_network_game_started() -> void:
 
 		print("Main: UI refresh complete after network game started")
 
-func _on_score_changed(_player: int, _points: int, _reason: String) -> void:
+func _on_score_changed(player: int, points: int, reason: String) -> void:
 	_update_score_display()
+	# T-099: append entry to VP timeline history
+	_record_vp_timeline_entry(player, points, reason)
 
 func _on_secondary_score_changed(_player: int, _vp: int, _mission_id: String) -> void:
 	_update_score_display()
@@ -9151,6 +9216,341 @@ func _toggle_grid_overlay() -> void:
 # T-095/T-110: Hotkey help overlay — listed shortcuts for the current build
 var _hotkey_help_overlay: PanelContainer = null
 
+# T-099: VP timeline — chronological log of every VP scoring event
+# Each entry: { round: int, player: int, points: int, reason: String }
+var _vp_timeline_history: Array = []
+var _vp_timeline_panel: PanelContainer = null
+var _vp_timeline_list: VBoxContainer = null
+
+# T-102: chat / feed panel for multiplayer games.
+var _chat_panel: PanelContainer = null
+var _chat_log_box: VBoxContainer = null
+var _chat_input: LineEdit = null
+var _chat_history: Array = []  # entries: { player: int, text: String }
+var _chat_signal_connected: bool = false
+
+func _ensure_chat_signal_connected() -> void:
+	if _chat_signal_connected:
+		return
+	if NetworkManager and NetworkManager.has_signal("chat_message_received"):
+		if not NetworkManager.chat_message_received.is_connected(_on_chat_message_received):
+			NetworkManager.chat_message_received.connect(_on_chat_message_received)
+		_chat_signal_connected = true
+
+func _on_chat_message_received(sender_player: int, text: String) -> void:
+	_chat_history.append({"player": sender_player, "text": text})
+	if _chat_history.size() > 100:
+		_chat_history = _chat_history.slice(-100)
+	if _chat_log_box and is_instance_valid(_chat_log_box):
+		_append_chat_row(sender_player, text)
+
+func _append_chat_row(sender_player: int, text: String) -> void:
+	var row := HBoxContainer.new()
+	var who := Label.new()
+	who.text = "P%d:" % sender_player
+	who.add_theme_font_size_override("font_size", 12)
+	if sender_player == 1:
+		who.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	else:
+		who.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	who.custom_minimum_size = Vector2(34, 0)
+	row.add_child(who)
+	var msg := Label.new()
+	msg.text = text
+	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	msg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	msg.add_theme_font_size_override("font_size", 12)
+	row.add_child(msg)
+	_chat_log_box.add_child(row)
+
+func _toggle_chat_panel() -> void:
+	if _chat_panel and is_instance_valid(_chat_panel):
+		_chat_panel.queue_free()
+		_chat_panel = null
+		_chat_log_box = null
+		_chat_input = null
+		print("Main: Chat panel closed")
+		return
+	_ensure_chat_signal_connected()
+	_chat_panel = PanelContainer.new()
+	_chat_panel.name = "ChatPanel"
+	_chat_panel.anchor_left = 0.0
+	_chat_panel.anchor_top = 1.0
+	_chat_panel.anchor_right = 0.0
+	_chat_panel.anchor_bottom = 1.0
+	_chat_panel.offset_left = 16
+	_chat_panel.offset_top = -260
+	_chat_panel.offset_right = 380
+	_chat_panel.offset_bottom = -16
+	var vbox := VBoxContainer.new()
+	_chat_panel.add_child(vbox)
+	var title := Label.new()
+	title.text = "Chat / Feed"
+	title.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(title)
+	vbox.add_child(HSeparator.new())
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+	_chat_log_box = VBoxContainer.new()
+	_chat_log_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_chat_log_box)
+	# Replay history
+	for entry in _chat_history:
+		_append_chat_row(int(entry.get("player", 0)), str(entry.get("text", "")))
+	_chat_input = LineEdit.new()
+	_chat_input.placeholder_text = "Type a message and press Enter…"
+	_chat_input.text_submitted.connect(_on_chat_input_submitted)
+	vbox.add_child(_chat_input)
+	add_child(_chat_panel)
+	_chat_panel.z_index = UI_OVERLAY_Z
+	_chat_input.grab_focus()
+	print("Main: Chat panel opened")
+
+func _on_chat_input_submitted(text: String) -> void:
+	if text.strip_edges() == "":
+		return
+	if NetworkManager:
+		NetworkManager.send_chat_message(text)
+	else:
+		# Local fallback — echo as P1 so the panel still functions in solo testing.
+		_on_chat_message_received(1, text)
+	if _chat_input and is_instance_valid(_chat_input):
+		_chat_input.clear()
+
+
+# T-103: Weapon range comparison panel.
+# Lists every distinct ranged weapon across both players' alive units, sorted by
+# range (longest first). Helps players plan engagement bands at a glance.
+var _weapon_range_panel: PanelContainer = null
+
+func _toggle_weapon_range_comparison_panel() -> void:
+	if _weapon_range_panel and is_instance_valid(_weapon_range_panel):
+		_weapon_range_panel.queue_free()
+		_weapon_range_panel = null
+		print("Main: Weapon range comparison panel closed")
+		return
+	_weapon_range_panel = PanelContainer.new()
+	_weapon_range_panel.name = "WeaponRangePanel"
+	_weapon_range_panel.anchor_left = 1.0
+	_weapon_range_panel.anchor_top = 0.15
+	_weapon_range_panel.anchor_right = 1.0
+	_weapon_range_panel.anchor_bottom = 0.85
+	_weapon_range_panel.offset_left = -380
+	_weapon_range_panel.offset_right = -20
+	var vbox := VBoxContainer.new()
+	_weapon_range_panel.add_child(vbox)
+	var title := Label.new()
+	title.text = "Weapon Range Comparison"
+	title.add_theme_font_size_override("font_size", 16)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+	vbox.add_child(HSeparator.new())
+	var hdr := HBoxContainer.new()
+	for col in [["Range", 60], ["Weapon", 180], ["Owner", 50]]:
+		var l := Label.new()
+		l.text = str(col[0])
+		l.custom_minimum_size = Vector2(int(col[1]), 0)
+		l.add_theme_font_size_override("font_size", 12)
+		l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+		hdr.add_child(l)
+	vbox.add_child(hdr)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(list)
+	# Aggregate weapons across all alive units, both players
+	# Each row: { range_in: int, name: String, owner: int, count: int }
+	var rows: Array = []
+	var seen: Dictionary = {}  # key "owner|name|range" -> row idx
+	if GameState:
+		var units = GameState.state.get("units", {})
+		for uid in units.keys():
+			var u = units[uid]
+			# Skip units with no alive models
+			var alive_count = 0
+			for m in u.get("models", []):
+				if m.get("alive", true):
+					alive_count += 1
+			if alive_count == 0:
+				continue
+			var owner = int(u.get("owner", 1))
+			# Pull weapon profiles from meta or directly from unit
+			var unit_meta = u.get("meta", {})
+			var weapons = unit_meta.get("weapons", [])
+			if weapons.is_empty():
+				weapons = u.get("weapons", [])
+			for w in weapons:
+				var range_str := str(w.get("range", "-"))
+				if range_str == "-" or range_str.to_lower() == "melee":
+					continue
+				var range_in := int(range_str.replace("\"", "").strip_edges())
+				if range_in <= 0:
+					continue
+				var w_name := str(w.get("name", "?"))
+				var key = "%d|%s|%d" % [owner, w_name, range_in]
+				if seen.has(key):
+					rows[seen[key]]["count"] += alive_count
+				else:
+					seen[key] = rows.size()
+					rows.append({
+						"range_in": range_in,
+						"name": w_name,
+						"owner": owner,
+						"count": alive_count,
+					})
+	# Sort by range descending
+	rows.sort_custom(func(a, b): return int(a.get("range_in", 0)) > int(b.get("range_in", 0)))
+	if rows.is_empty():
+		var empty := Label.new()
+		empty.text = "(no ranged weapons in play)"
+		empty.modulate = Color(1, 1, 1, 0.55)
+		list.add_child(empty)
+	else:
+		for row in rows:
+			var hb := HBoxContainer.new()
+			var rng_l := Label.new()
+			rng_l.text = "%d\"" % int(row.range_in)
+			rng_l.custom_minimum_size = Vector2(60, 0)
+			rng_l.add_theme_font_size_override("font_size", 12)
+			hb.add_child(rng_l)
+			var name_l := Label.new()
+			name_l.text = "%s ×%d" % [row.name, int(row.count)]
+			name_l.custom_minimum_size = Vector2(180, 0)
+			name_l.add_theme_font_size_override("font_size", 12)
+			name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			hb.add_child(name_l)
+			var own_l := Label.new()
+			own_l.text = "P%d" % int(row.owner)
+			own_l.add_theme_font_size_override("font_size", 12)
+			if int(row.owner) == 1:
+				own_l.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+			else:
+				own_l.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+			hb.add_child(own_l)
+			list.add_child(hb)
+	var hint := Label.new()
+	hint.text = "Press W to close"
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.modulate = Color(1, 1, 1, 0.6)
+	vbox.add_child(hint)
+	add_child(_weapon_range_panel)
+	_weapon_range_panel.z_index = UI_OVERLAY_Z
+	print("Main: Weapon range comparison panel opened (%d weapons)" % rows.size())
+
+func _record_vp_timeline_entry(player: int, points: int, reason: String) -> void:
+	var battle_round = GameState.get_battle_round() if GameState else 0
+	_vp_timeline_history.append({
+		"round": battle_round,
+		"player": player,
+		"points": points,
+		"reason": reason,
+	})
+	# Cap history at 200 entries to bound memory
+	if _vp_timeline_history.size() > 200:
+		_vp_timeline_history = _vp_timeline_history.slice(-200)
+	# Refresh panel if visible
+	if _vp_timeline_panel and is_instance_valid(_vp_timeline_panel) and _vp_timeline_panel.visible:
+		_refresh_vp_timeline_panel()
+
+func _toggle_vp_timeline_panel() -> void:
+	if _vp_timeline_panel and is_instance_valid(_vp_timeline_panel):
+		_vp_timeline_panel.queue_free()
+		_vp_timeline_panel = null
+		_vp_timeline_list = null
+		print("Main: VP timeline panel closed")
+		return
+	_vp_timeline_panel = PanelContainer.new()
+	_vp_timeline_panel.name = "VPTimelinePanel"
+	_vp_timeline_panel.anchor_left = 1.0
+	_vp_timeline_panel.anchor_top = 0.15
+	_vp_timeline_panel.anchor_right = 1.0
+	_vp_timeline_panel.anchor_bottom = 0.85
+	_vp_timeline_panel.offset_left = -340
+	_vp_timeline_panel.offset_right = -20
+	var vbox := VBoxContainer.new()
+	_vp_timeline_panel.add_child(vbox)
+	var title := Label.new()
+	title.text = "VP Timeline"
+	title.add_theme_font_size_override("font_size", 18)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+	vbox.add_child(HSeparator.new())
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+	_vp_timeline_list = VBoxContainer.new()
+	_vp_timeline_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_vp_timeline_list)
+	var hint := Label.new()
+	hint.text = "Press V to close"
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.modulate = Color(1, 1, 1, 0.6)
+	vbox.add_child(hint)
+	add_child(_vp_timeline_panel)
+	_vp_timeline_panel.z_index = UI_OVERLAY_Z
+	_refresh_vp_timeline_panel()
+	print("Main: VP timeline panel opened, %d entries" % _vp_timeline_history.size())
+
+func _refresh_vp_timeline_panel() -> void:
+	if not _vp_timeline_list or not is_instance_valid(_vp_timeline_list):
+		return
+	for c in _vp_timeline_list.get_children():
+		c.queue_free()
+	if _vp_timeline_history.is_empty():
+		var empty := Label.new()
+		empty.text = "(no VP scored yet)"
+		empty.modulate = Color(1, 1, 1, 0.55)
+		empty.add_theme_font_size_override("font_size", 12)
+		_vp_timeline_list.add_child(empty)
+		return
+	# Show running totals + per-event rows
+	var p1_total = 0
+	var p2_total = 0
+	for entry in _vp_timeline_history:
+		var row := HBoxContainer.new()
+		var round_label := Label.new()
+		round_label.text = "R%d" % entry.get("round", 0)
+		round_label.custom_minimum_size = Vector2(30, 0)
+		round_label.add_theme_font_size_override("font_size", 12)
+		row.add_child(round_label)
+		var p_label := Label.new()
+		p_label.text = "P%d" % entry.get("player", 0)
+		p_label.custom_minimum_size = Vector2(28, 0)
+		p_label.add_theme_font_size_override("font_size", 12)
+		if entry.get("player", 0) == 1:
+			p_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+			p1_total += int(entry.get("points", 0))
+		else:
+			p_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+			p2_total += int(entry.get("points", 0))
+		row.add_child(p_label)
+		var pts_label := Label.new()
+		pts_label.text = "+%d" % int(entry.get("points", 0))
+		pts_label.custom_minimum_size = Vector2(40, 0)
+		pts_label.add_theme_font_size_override("font_size", 12)
+		row.add_child(pts_label)
+		var reason_label := Label.new()
+		reason_label.text = str(entry.get("reason", ""))
+		reason_label.add_theme_font_size_override("font_size", 11)
+		reason_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		reason_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(reason_label)
+		_vp_timeline_list.add_child(row)
+	_vp_timeline_list.add_child(HSeparator.new())
+	var totals := Label.new()
+	totals.text = "Totals — P1: %d   P2: %d" % [p1_total, p2_total]
+	totals.add_theme_font_size_override("font_size", 13)
+	totals.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_vp_timeline_list.add_child(totals)
+
 func _toggle_hotkey_help_overlay() -> void:
 	if _hotkey_help_overlay and is_instance_valid(_hotkey_help_overlay):
 		_hotkey_help_overlay.queue_free()
@@ -10104,3 +10504,48 @@ func _on_settings_save_load_requested() -> void:
 	if save_load_dialog:
 		save_load_dialog.show_dialog()
 		print("Main: Save/Load dialog opened from settings menu")
+
+
+# T-104: Unit-list filter — LineEdit above the right-pane ItemList.
+# Items whose display text doesn't contain the (case-insensitive) filter substring
+# are removed from view. Section separators ("--- … ---") are preserved.
+var _unit_list_filter_edit: LineEdit = null
+var _unit_list_filter_text: String = ""
+
+func _install_unit_list_filter() -> void:
+	if _unit_list_filter_edit and is_instance_valid(_unit_list_filter_edit):
+		return
+	if not unit_list or not is_instance_valid(unit_list):
+		return
+	var parent = unit_list.get_parent()
+	if parent == null:
+		return
+	_unit_list_filter_edit = LineEdit.new()
+	_unit_list_filter_edit.name = "UnitListFilter"
+	_unit_list_filter_edit.placeholder_text = "Filter units…"
+	_unit_list_filter_edit.clear_button_enabled = true
+	_unit_list_filter_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_unit_list_filter_edit.text_changed.connect(_on_unit_list_filter_changed)
+	parent.add_child(_unit_list_filter_edit)
+	parent.move_child(_unit_list_filter_edit, unit_list.get_index())
+	print("Main: T-104 unit-list filter installed")
+
+func _on_unit_list_filter_changed(new_text: String) -> void:
+	_unit_list_filter_text = new_text.strip_edges().to_lower()
+	# Re-run the inner refresh so we restore items, then apply filter
+	_refresh_unit_list_inner()
+	_apply_unit_list_filter()
+
+func _apply_unit_list_filter() -> void:
+	if not unit_list or not is_instance_valid(unit_list):
+		return
+	if _unit_list_filter_text == "":
+		return
+	var i = unit_list.get_item_count() - 1
+	while i >= 0:
+		var t: String = str(unit_list.get_item_text(i)).to_lower()
+		# Preserve disabled section headers ("---") so structure stays readable.
+		var is_section_header: bool = t.begins_with("---")
+		if not is_section_header and t.find(_unit_list_filter_text) == -1:
+			unit_list.remove_item(i)
+		i -= 1

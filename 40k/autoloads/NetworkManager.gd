@@ -14,6 +14,7 @@ signal game_code_received(code: String)  # Emitted when server assigns a game co
 signal game_over(winner: int, reason: String)  # Emitted when game ends (timeout, disconnect, etc.)
 signal peer_disconnect_grace_period(disconnected_player: int)  # P2-41: Emitted to trigger graceful disconnect dialog
 signal load_sync_confirmed(all_confirmed: bool)  # SAVE-2: Emitted when all clients confirm loaded state (or timeout)
+signal chat_message_received(sender_player: int, text: String)  # T-102: chat panel
 
 # Network modes
 enum NetworkMode { OFFLINE, HOST, CLIENT, DEDICATED_SERVER }
@@ -519,6 +520,12 @@ func _on_web_relay_message(data: Dictionary) -> void:
 			print("NetworkManager: SAVE-2: Received loaded_state_ack via relay (success=%s)" % str(ack_success))
 			# In web relay mode, we use peer_id 2 for the guest
 			_process_loaded_state_ack(2, ack_success)
+
+		"chat":
+			# T-102: chat message from peer
+			var chat_sender = int(data.get("sender_player", 0))
+			var chat_text = str(data.get("text", ""))
+			emit_signal("chat_message_received", chat_sender, chat_text)
 
 func _handle_relayed_action(action: Dictionary) -> void:
 	"""Handle an action received from the other player via relay."""
@@ -2505,3 +2512,26 @@ func _update_phase_snapshot() -> void:
 	if current_phase.has_method("update_local_state"):
 		current_phase.update_local_state(new_snapshot)
 		print("NetworkManager: Updated phase snapshot with ", new_snapshot.get("units", {}).size(), " units")
+
+# T-102: chat system — send a chat message from this peer to all peers, render locally too.
+func send_chat_message(text: String) -> void:
+	if text.strip_edges() == "":
+		return
+	var sender_player := get_local_player()
+	# Local echo so the sender immediately sees their own message.
+	emit_signal("chat_message_received", sender_player, text)
+	if not is_networked():
+		return
+	# Use the relay path for online games, RPC otherwise.
+	if transport_type == TransportType.WEB_RELAY:
+		_send_via_relay({
+			"msg_type": "chat",
+			"sender_player": sender_player,
+			"text": text,
+		})
+	else:
+		_rpc_chat_message.rpc(sender_player, text)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_chat_message(sender_player: int, text: String) -> void:
+	emit_signal("chat_message_received", sender_player, text)

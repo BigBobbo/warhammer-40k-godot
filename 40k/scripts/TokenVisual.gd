@@ -38,6 +38,11 @@ func _ready() -> void:
 	z_index = 10
 
 func _process(delta: float) -> void:
+	# T-095 ghost pulse: redraw is_preview tokens every frame so the pulse animates.
+	if is_preview:
+		_pulse_time += delta
+		queue_redraw()
+
 	var style = SettingsService.unit_visual_style if SettingsService else "classic"
 
 	# Letter mode doesn't need continuous redraw (no animations)
@@ -114,6 +119,7 @@ func _draw() -> void:
 	if style == "letter" and not debug_mode:
 		_draw_letter_mode()
 		_draw_battle_shock_indicator()  # T-096: also show in letter mode
+		_draw_colorblind_shape_badge()  # T-097: colorblind-friendly shape badge
 		return
 
 	if use_retro and not debug_mode:
@@ -155,6 +161,20 @@ func _draw() -> void:
 
 	# T-096: Battle-shock indicator (red ring + "!" if unit is battle-shocked)
 	_draw_battle_shock_indicator()
+
+	# T-095: Edge color border for preview tokens (deployment selection)
+	_draw_preview_edge_border()
+
+	# T-097: Colorblind shape badge — when colorblind_mode != "none",
+	# draw a per-player distinguishing shape (triangle = P1, square = P2)
+	# at the lower-right of the base so ownership reads without relying on color.
+	_draw_colorblind_shape_badge()
+
+	# T-101: Damaged-model art — overlay scorch/crack lines when wounded.
+	if not debug_mode:
+		var dmg_bounds = base_shape.get_bounds()
+		var dmg_radius = min(dmg_bounds.size.x, dmg_bounds.size.y) / 2.0
+		_draw_damage_overlay(dmg_radius)
 
 func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 	var bounds = base_shape.get_bounds()
@@ -1230,6 +1250,28 @@ func has_animation(anim_name: String) -> bool:
 	return _animations.has(anim_name)
 
 
+# T-095: Draw a glowing player-colored edge border on preview-mode tokens
+# (the ones being placed during deployment). Reads is_preview flag.
+# T-095 + T-095-ghost-pulse: animated pulse via _process_pulse / queue_redraw.
+func _draw_preview_edge_border() -> void:
+	if not is_preview:
+		return
+	if not base_shape:
+		return
+	var bounds = base_shape.get_bounds()
+	var radius_local: float = min(bounds.size.x, bounds.size.y) / 2.0
+	var glow_color: Color
+	if owner_player == 1:
+		glow_color = Color(0.83, 0.59, 0.38, 0.9)  # Gold
+	else:
+		glow_color = Color(0.85, 0.8, 0.65, 0.9)  # Bone
+	# Pulsing outer ring + steady inner ring
+	var pulse_t: float = (sin(Time.get_ticks_msec() * 0.003) + 1.0) * 0.5
+	var outer_alpha: float = 0.6 + 0.35 * pulse_t
+	draw_arc(Vector2.ZERO, radius_local + 9.0, 0, TAU, 48, Color(glow_color.r, glow_color.g, glow_color.b, outer_alpha), 6.0)
+	draw_arc(Vector2.ZERO, radius_local + 4.0, 0, TAU, 48, glow_color, 3.0)
+
+
 # T-096: Draw a red ring + "!" indicator on tokens of battle-shocked units.
 func _draw_battle_shock_indicator() -> void:
 	if not has_meta("unit_id"):
@@ -1255,3 +1297,103 @@ func _draw_battle_shock_indicator() -> void:
 	var font := ThemeDB.fallback_font
 	if font:
 		draw_string(font, badge_pos + Vector2(-7.0, 12.0), "!", HORIZONTAL_ALIGNMENT_CENTER, -1, 36, Color.WHITE)
+
+
+# T-101: Damaged-model art overlay.
+# When the model has lost wounds, draw a small set of scorch/crack lines on the
+# base whose count and opacity scale with damage_ratio = 1 - current/max.
+# Uses a deterministic offset based on model_id so the lines stay stable
+# frame-to-frame and don't shimmer.
+func _draw_damage_overlay(radius: float) -> void:
+	if not has_meta("unit_id") or not has_meta("model_id"):
+		return
+	var unit_id_local: String = get_meta("unit_id")
+	var model_id_str: String = get_meta("model_id")
+	var unit_local = GameState.get_unit(unit_id_local) if GameState else {}
+	if unit_local.is_empty():
+		return
+	var total_wounds: int = 1
+	var current_wounds: int = 1
+	for m in unit_local.get("models", []):
+		if str(m.get("id", "")) == model_id_str:
+			total_wounds = int(m.get("wounds", 1))
+			current_wounds = int(m.get("current_wounds", total_wounds))
+			break
+	if total_wounds <= 0:
+		return
+	if current_wounds >= total_wounds:
+		return  # Undamaged — skip overlay
+	var damage_ratio: float = clamp(1.0 - float(current_wounds) / float(total_wounds), 0.0, 1.0)
+	# Deterministic seed per model id so cracks don't shimmer
+	var seed_val: int = hash(model_id_str)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_val
+	var n_cracks: int = int(2 + damage_ratio * 4)  # 2-6 lines
+	var alpha: float = 0.45 + 0.45 * damage_ratio   # 0.45-0.9
+	var crack_color := Color(0.05, 0.05, 0.06, alpha)
+	for i in range(n_cracks):
+		var angle: float = rng.randf_range(0.0, TAU)
+		var inner_r: float = radius * rng.randf_range(0.15, 0.45)
+		var outer_r: float = radius * rng.randf_range(0.55, 0.95)
+		var p_inner := Vector2(cos(angle), sin(angle)) * inner_r
+		var jitter: float = rng.randf_range(-0.35, 0.35)
+		var p_outer := Vector2(cos(angle + jitter), sin(angle + jitter)) * outer_r
+		draw_line(p_inner, p_outer, crack_color, 2.0 + damage_ratio * 1.5)
+	# Heavy damage — add a few scorch dots
+	if damage_ratio >= 0.5:
+		var dot_color := Color(0.15, 0.08, 0.05, alpha)
+		var n_dots: int = int(damage_ratio * 4)
+		for i in range(n_dots):
+			var dot_angle: float = rng.randf_range(0.0, TAU)
+			var dot_r: float = radius * rng.randf_range(0.25, 0.85)
+			var dot_pos := Vector2(cos(dot_angle), sin(dot_angle)) * dot_r
+			draw_circle(dot_pos, 1.6 + damage_ratio * 1.8, dot_color)
+
+
+# T-097: Colorblind shape badge.
+# When SettingsService.colorblind_mode != "none", draw a per-player distinct shape
+# at the lower-right of the base so player ownership reads via shape, not just color.
+# P1 = upward triangle, P2 = square. Drawn in a high-contrast neutral palette.
+func _draw_colorblind_shape_badge() -> void:
+	if not SettingsService:
+		return
+	var mode: String = SettingsService.colorblind_mode
+	if mode == "" or mode == "none":
+		return
+	if not base_shape:
+		return
+	var bounds = base_shape.get_bounds()
+	var radius_local: float = min(bounds.size.x, bounds.size.y) / 2.0
+	# Lower-right placement — opposite corner from the battle-shock ! badge
+	var badge_pos := Vector2(radius_local + 14.0, radius_local + 4.0)
+	var s: float = 14.0  # half-size of the badge
+	var fill := Color(0.95, 0.95, 0.95, 0.95)  # near-white
+	var outline := Color(0.05, 0.05, 0.08, 1.0)  # near-black
+
+	if owner_player == 1:
+		# Upward triangle for P1
+		var tri := PackedVector2Array([
+			badge_pos + Vector2(0.0, -s),
+			badge_pos + Vector2(-s, s * 0.85),
+			badge_pos + Vector2(s, s * 0.85),
+		])
+		draw_colored_polygon(tri, fill)
+		var closed := PackedVector2Array()
+		for p in tri:
+			closed.append(p)
+		closed.append(tri[0])
+		draw_polyline(closed, outline, 2.0)
+	else:
+		# Square for P2
+		var rect := PackedVector2Array([
+			badge_pos + Vector2(-s, -s),
+			badge_pos + Vector2(s, -s),
+			badge_pos + Vector2(s, s),
+			badge_pos + Vector2(-s, s),
+		])
+		draw_colored_polygon(rect, fill)
+		var closed := PackedVector2Array()
+		for p in rect:
+			closed.append(p)
+		closed.append(rect[0])
+		draw_polyline(closed, outline, 2.0)

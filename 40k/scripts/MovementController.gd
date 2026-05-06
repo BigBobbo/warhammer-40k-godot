@@ -51,6 +51,8 @@ var ghost_visual: Node2D
 var model_path_visuals: Dictionary = {}  # Dictionary of model_id -> Line2D for individual paths
 var movement_path_preview: Node2D = null  # P3-125: HumanMovementPathVisual for drag-to-plan preview
 var move_range_visual: Node2D = null  # T-094: Container for movement range circle overlay
+var er_overlay_visual: Node2D = null  # T-094: Container for enemy engagement-range rings during move
+var coherency_dots_visual: Node2D = null  # T-094: Container for friendly coherency dots during move
 var hud_bottom: Control
 var hud_right: Control
 var ui_setup_complete: bool = false  # Flag to prevent duplicate UI creation
@@ -258,6 +260,16 @@ func _create_path_visuals() -> void:
 	move_range_visual = Node2D.new()
 	move_range_visual.name = "MoveRangeVisual"
 	board_root.add_child(move_range_visual)
+
+	# T-094: ER overlay container (1" rings around enemy models during movement)
+	er_overlay_visual = Node2D.new()
+	er_overlay_visual.name = "MovementERVisual"
+	board_root.add_child(er_overlay_visual)
+
+	# T-094: Coherency dots container (2" rings around friendly staged positions)
+	coherency_dots_visual = Node2D.new()
+	coherency_dots_visual.name = "MovementCoherencyVisual"
+	board_root.add_child(coherency_dots_visual)
 
 func _setup_bottom_hud() -> void:
 	# NOTE: Main.gd now handles the phase action button
@@ -1181,6 +1193,10 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 
 	# T-094: Show movement range overlay around active unit
 	_show_move_range_overlay(unit_id)
+	# T-094: Show 1" engagement-range rings around enemy units
+	_show_er_overlay(unit_id)
+	# T-094: Show 2" coherency rings around friendly models in this unit
+	_show_coherency_dots(unit_id)
 
 	# Get move cap from unit
 	if current_phase:
@@ -1263,6 +1279,8 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 	# Clear movement state
 	_clear_unit_highlight()
 	_clear_move_range_overlay()  # T-094
+	_clear_er_overlay()  # T-094
+	_clear_coherency_dots()  # T-094
 	active_unit_id = ""
 	active_mode = ""
 	move_cap_inches = 0.0
@@ -1282,6 +1300,29 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 	_update_movement_display()
 	_refresh_unit_list()
 	emit_signal("ui_update_requested")
+
+	# T-094: auto-select next unmoved unit in the list
+	_auto_select_next_unmoved()
+
+
+func _auto_select_next_unmoved() -> void:
+	if not unit_list or not is_instance_valid(unit_list):
+		return
+	for i in range(unit_list.get_item_count()):
+		var entry_unit_id: String = unit_list.get_item_metadata(i)
+		if entry_unit_id == "":
+			continue
+		var unit = GameState.get_unit(entry_unit_id)
+		if unit.is_empty():
+			continue
+		var status = _get_unit_movement_status(entry_unit_id)
+		# Skip if already moved/marked stationary; pick the first that hasn't acted yet
+		if status == "YET TO MOVE" or status == "":
+			unit_list.select(i)
+			unit_list.emit_signal("item_selected", i)
+			print("[T-094] Auto-selected next unmoved unit: %s" % entry_unit_id)
+			return
+
 
 func _show_confirmed_movement_paths(unit_id: String) -> void:
 	"""P3-125: Create a confirmed movement path visual (hold + fade) for the unit that just moved."""
@@ -2330,6 +2371,29 @@ func _update_ghost_position(world_pos: Vector2) -> void:
 		ghost_visual.position = world_pos
 		# Debug: Show cursor and ghost positions
 		print("Updating ghost position to: ", world_pos)
+		# T-094: board-edge warning
+		_update_board_edge_warning(world_pos)
+
+
+# T-094: warn the player if ghost is near the board edge
+const BOARD_EDGE_WARNING_INCHES: float = 1.5
+func _update_board_edge_warning(world_pos: Vector2) -> void:
+	if not coherency_status_label or not is_instance_valid(coherency_status_label):
+		return
+	if not SettingsService:
+		return
+	var board_w_px = SettingsService.get_board_width_px()
+	var board_h_px = SettingsService.get_board_height_px()
+	var warning_px = Measurement.inches_to_px(BOARD_EDGE_WARNING_INCHES)
+	var near_left = world_pos.x < warning_px
+	var near_right = world_pos.x > board_w_px - warning_px
+	var near_top = world_pos.y < warning_px
+	var near_bottom = world_pos.y > board_h_px - warning_px
+	if near_left or near_right or near_top or near_bottom:
+		var existing = coherency_status_label.text
+		if not existing.contains("Edge!"):
+			coherency_status_label.text = existing + (" " if existing else "") + "[Near Edge!]"
+			coherency_status_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.2, 1.0))
 
 func _clear_ghost_visual() -> void:
 	for child in ghost_visual.get_children():
@@ -4448,4 +4512,96 @@ func _clear_move_range_overlay() -> void:
 	if not is_instance_valid(move_range_visual):
 		return
 	for child in move_range_visual.get_children():
+		child.queue_free()
+
+
+# T-094: 1" engagement-range rings around enemy units during movement
+const MOVE_ER_OVERLAY_COLOR: Color = Color(1.0, 0.3, 0.3, 0.45)
+const MOVE_ER_OVERLAY_WIDTH: float = 6.0
+const MOVE_ER_OVERLAY_INCHES: float = 1.0
+
+func _show_er_overlay(unit_id: String) -> void:
+	if not is_instance_valid(er_overlay_visual):
+		return
+	_clear_er_overlay()
+	if not GameState:
+		return
+	var active_unit = GameState.get_unit(unit_id)
+	var owner = int(active_unit.get("owner", 0))
+	var snapshot = GameState.create_snapshot()
+	for uid in snapshot.get("units", {}):
+		var u = snapshot.units[uid]
+		if int(u.get("owner", 0)) == owner:
+			continue
+		for em in u.get("models", []):
+			if not em.get("alive", true):
+				continue
+			var pos_data = em.get("position")
+			if pos_data == null:
+				continue
+			var pos: Vector2
+			if pos_data is Dictionary:
+				pos = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
+			else:
+				pos = pos_data
+			var base_radius = Measurement.base_radius_px(em.get("base_mm", 32))
+			var ring_radius = base_radius + Measurement.inches_to_px(MOVE_ER_OVERLAY_INCHES)
+			var ring = Line2D.new()
+			ring.width = MOVE_ER_OVERLAY_WIDTH
+			ring.default_color = MOVE_ER_OVERLAY_COLOR
+			ring.closed = true
+			var segments: int = 32
+			for i in range(segments):
+				var theta = TAU * float(i) / float(segments)
+				ring.add_point(pos + Vector2(cos(theta), sin(theta)) * ring_radius)
+			er_overlay_visual.add_child(ring)
+
+
+func _clear_er_overlay() -> void:
+	if not is_instance_valid(er_overlay_visual):
+		return
+	for child in er_overlay_visual.get_children():
+		child.queue_free()
+
+
+# T-094: 2" coherency rings around the moving unit's models
+const MOVE_COHERENCY_COLOR: Color = Color(0.3, 0.9, 1.0, 0.4)
+const MOVE_COHERENCY_WIDTH: float = 5.0
+const MOVE_COHERENCY_INCHES: float = 2.0
+
+func _show_coherency_dots(unit_id: String) -> void:
+	if not is_instance_valid(coherency_dots_visual):
+		return
+	_clear_coherency_dots()
+	var unit = GameState.get_unit(unit_id) if GameState else {}
+	if unit.is_empty():
+		return
+	for m in unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		var pos_data = m.get("position")
+		if pos_data == null:
+			continue
+		var pos: Vector2
+		if pos_data is Dictionary:
+			pos = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
+		else:
+			pos = pos_data
+		var base_radius = Measurement.base_radius_px(m.get("base_mm", 32))
+		var ring_radius = base_radius + Measurement.inches_to_px(MOVE_COHERENCY_INCHES)
+		var ring = Line2D.new()
+		ring.width = MOVE_COHERENCY_WIDTH
+		ring.default_color = MOVE_COHERENCY_COLOR
+		ring.closed = true
+		var segments: int = 32
+		for i in range(segments):
+			var theta = TAU * float(i) / float(segments)
+			ring.add_point(pos + Vector2(cos(theta), sin(theta)) * ring_radius)
+		coherency_dots_visual.add_child(ring)
+
+
+func _clear_coherency_dots() -> void:
+	if not is_instance_valid(coherency_dots_visual):
+		return
+	for child in coherency_dots_visual.get_children():
 		child.queue_free()

@@ -28,6 +28,12 @@ var _pending_complete_unit_id: String = ""  # Unit awaiting COMPLETE_UNIT_CHARGE
 # Charge movement tracking
 var models_to_move: Array = []  # Models that still need to move
 var moved_models: Dictionary = {}  # model_id -> new_position
+# T-092: per-model undo state for charge pile-in
+var _moved_model_order: Array = []  # Order in which models were moved (for last-undone)
+var _model_origin_positions: Dictionary = {}  # model_id -> Vector2 pre-charge position
+var _model_origin_rotations: Dictionary = {}  # model_id -> float pre-charge rotation
+var undo_charge_model_button: Button = null
+var auto_path_charge_button: Button = null  # T-092: auto-suggests valid charge positions
 var dragging_model = null  # Currently dragging model
 var ghost_visual: Node2D = null  # Ghost visual for dragging
 var movement_lines: Dictionary = {}  # model_id -> Line2D for movement path
@@ -501,6 +507,13 @@ func set_phase(phase_instance) -> void:
 		if not current_phase.charge_resolved.is_connected(_on_charge_resolved):
 			current_phase.charge_resolved.connect(_on_charge_resolved)
 
+	# T-092: defender-side charge arrows — connect to targets_declared so the
+	# defender's client renders the same arrow-from-charger-to-target visual
+	# whenever ANY player declares a charge (local human / remote human / AI)
+	if current_phase.has_signal("targets_declared"):
+		if not current_phase.targets_declared.is_connected(_on_targets_declared_remote_visual):
+			current_phase.targets_declared.connect(_on_targets_declared_remote_visual)
+
 	if current_phase.has_signal("charge_unit_completed"):
 		if not current_phase.charge_unit_completed.is_connected(_on_charge_unit_completed):
 			current_phase.charge_unit_completed.connect(_on_charge_unit_completed)
@@ -962,19 +975,32 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 	# Clear any previous movement tracking
 	models_to_move.clear()
 	moved_models.clear()
+	_moved_model_order.clear()  # T-092: reset undo stack
+	_model_origin_positions.clear()  # T-092: reset origin cache
+	_model_origin_rotations.clear()  # T-092
 	_clear_movement_visuals()
-	
+
 	# Get all alive models in the unit
 	var unit = GameState.get_unit(unit_id)
 	if unit.is_empty():
 		print("ERROR: Unit ", unit_id, " not found in GameState!")
 		return
-	
+
 	print("DEBUG: Unit has ", unit.get("models", []).size(), " models total")
 	for model in unit.get("models", []):
 		if model.get("alive", true):
 			var model_id = model.get("id", "")
 			models_to_move.append(model_id)
+			# T-092: capture pre-charge origin position + rotation for undo
+			var pos = model.get("position")
+			if pos != null:
+				var p: Vector2
+				if pos is Dictionary:
+					p = Vector2(pos.get("x", 0), pos.get("y", 0))
+				else:
+					p = pos
+				_model_origin_positions[model_id] = p
+				_model_origin_rotations[model_id] = model.get("rotation", 0.0)
 			print("DEBUG: Added model ", model_id, " to models_to_move")
 	
 	print("Models to move: ", models_to_move)
@@ -1092,8 +1118,53 @@ func _add_confirm_button() -> void:
 	# Add confirm button as a separate row in action container
 	var confirm_row = HBoxContainer.new()
 	confirm_row.add_child(confirm_button)
+
+	# T-092: per-model undo button next to confirm
+	undo_charge_model_button = Button.new()
+	undo_charge_model_button.text = "Undo Last Model"
+	undo_charge_model_button.disabled = true
+	_WhiteDwarfTheme.apply_to_button(undo_charge_model_button)
+	undo_charge_model_button.pressed.connect(_on_undo_last_charge_model)
+	confirm_row.add_child(undo_charge_model_button)
+
+	# T-092: auto-path button — suggests valid charge positions for unmoved models
+	auto_path_charge_button = Button.new()
+	auto_path_charge_button.text = "Auto-Path"
+	_WhiteDwarfTheme.apply_to_button(auto_path_charge_button)
+	auto_path_charge_button.pressed.connect(_on_auto_path_charge)
+	confirm_row.add_child(auto_path_charge_button)
+
 	action_container.add_child(confirm_row)
-	print("DEBUG: Confirm button created and added to right panel")
+	print("DEBUG: Confirm button + undo-last-model button created and added to right panel")
+
+# T-092: Undo the most recently placed charge model — restores its origin position
+# and re-adds it to models_to_move so the player can retry that single placement.
+func _on_undo_last_charge_model() -> void:
+	if _moved_model_order.is_empty():
+		return
+	var model_id: String = _moved_model_order.pop_back()
+	moved_models.erase(model_id)
+	if model_id not in models_to_move:
+		models_to_move.append(model_id)
+	# Restore GameState position + rotation
+	var origin_pos: Vector2 = _model_origin_positions.get(model_id, Vector2.ZERO)
+	var origin_rot: float = _model_origin_rotations.get(model_id, 0.0)
+	if origin_pos != Vector2.ZERO and active_unit_id != "":
+		_update_model_position_in_gamestate(active_unit_id, model_id, origin_pos)
+		_move_token_visual(active_unit_id, model_id, origin_pos, origin_rot)
+	# Update charge info label
+	if is_instance_valid(charge_info_label):
+		if models_to_move.is_empty():
+			charge_info_label.text = "All models moved! Click 'Confirm Charge Moves' to complete"
+		else:
+			charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
+	# Disable confirm if nothing has been moved
+	if confirm_button and is_instance_valid(confirm_button):
+		confirm_button.disabled = moved_models.is_empty()
+	# Disable undo button if no more moves to undo
+	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
+		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	print("[T-092] Undid charge model %s, restored to %s" % [model_id, str(origin_pos)])
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")
@@ -1302,6 +1373,13 @@ func _end_model_drag(world_pos: Vector2) -> void:
 			"position": final_pos,
 			"rotation": dragging_model.get("rotation", 0.0)
 		}
+		# T-092: track ordering for per-model undo
+		if model_id in _moved_model_order:
+			_moved_model_order.erase(model_id)
+		_moved_model_order.append(model_id)
+		# Enable undo button now that at least one model has moved
+		if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
+			undo_charge_model_button.disabled = false
 
 		# IMPORTANT: Update GameState FIRST with position and rotation
 		# This ensures GameState has the correct data before we update visuals
@@ -3169,3 +3247,112 @@ func _clear_charge_trajectory_preview() -> void:
 	"""Clear the charge trajectory preview."""
 	if charge_trajectory_preview and is_instance_valid(charge_trajectory_preview):
 		charge_trajectory_preview.clear_now()
+
+# T-092: Auto-path — for each unmoved charging model, suggest the closest
+# valid position adjacent to the nearest target model and stage the move.
+# Uses a simple heuristic: place each model at distance (target_base_radius
+# + own_base_radius + 0.5") from the nearest target model along the
+# straight-line approach.
+func _on_auto_path_charge() -> void:
+	if active_unit_id == "" or models_to_move.is_empty():
+		return
+	var unit = GameState.get_unit(active_unit_id)
+	if unit.is_empty():
+		return
+	var charge_data = current_phase.get("pending_charges", {}).get(active_unit_id, {}) if current_phase else {}
+	# Build a list of candidate target model positions (alive enemies in declared targets)
+	var target_positions: Array = []
+	var charge_targets = []
+	if current_phase and current_phase.has_method("get") and current_phase.get("pending_charges", {}).has(active_unit_id):
+		charge_targets = current_phase.pending_charges[active_unit_id].get("targets", [])
+	for target_id in charge_targets:
+		var target_unit = GameState.get_unit(target_id)
+		for tmodel in target_unit.get("models", []):
+			if not tmodel.get("alive", true):
+				continue
+			var tpos = tmodel.get("position")
+			if tpos == null:
+				continue
+			var t_radius = Measurement.base_radius_px(tmodel.get("base_mm", 32))
+			var tp: Vector2
+			if tpos is Dictionary:
+				tp = Vector2(tpos.get("x", 0), tpos.get("y", 0))
+			else:
+				tp = tpos
+			target_positions.append({"pos": tp, "radius": t_radius})
+	if target_positions.is_empty():
+		print("[T-092 auto-path] No target positions available")
+		return
+	# Iterate models still needing to move, place each adjacent to closest target
+	var to_move_copy = models_to_move.duplicate()
+	for model_id in to_move_copy:
+		var model: Dictionary = {}
+		for m in unit.get("models", []):
+			if m.get("id", "") == model_id:
+				model = m
+				break
+		if model.is_empty():
+			continue
+		var origin: Vector2 = _get_model_position(model)
+		var own_radius: float = Measurement.base_radius_px(model.get("base_mm", 32))
+		# Find closest target model to this charger model
+		var closest_target = target_positions[0]
+		var closest_dist: float = origin.distance_to(closest_target["pos"])
+		for tp_data in target_positions:
+			var d = origin.distance_to(tp_data["pos"])
+			if d < closest_dist:
+				closest_dist = d
+				closest_target = tp_data
+		# Compute placement: 0.5" from target's base on the line origin→target
+		var er_inches: float = 0.5  # Just inside engagement range
+		var er_px: float = Measurement.inches_to_px(er_inches)
+		var dir_vec: Vector2 = (closest_target["pos"] - origin)
+		if dir_vec.length() < 1.0:
+			dir_vec = Vector2(1, 0)
+		dir_vec = dir_vec.normalized()
+		var place_distance_from_target: float = closest_target["radius"] + own_radius + er_px
+		var candidate: Vector2 = closest_target["pos"] - dir_vec * place_distance_from_target
+		# Validate position via existing helper
+		if _validate_charge_position(model, candidate):
+			# Stage the move (mirroring _end_model_drag behavior)
+			moved_models[model_id] = {"position": candidate, "rotation": model.get("rotation", 0.0)}
+			if model_id in _moved_model_order:
+				_moved_model_order.erase(model_id)
+			_moved_model_order.append(model_id)
+			_update_model_position_in_gamestate(active_unit_id, model_id, candidate)
+			_move_token_visual(active_unit_id, model_id, candidate, model.get("rotation", 0.0))
+			models_to_move.erase(model_id)
+			print("[T-092 auto-path] Placed %s at %s (target dist=%.1f\")" % [model_id, str(candidate), Measurement.px_to_inches(candidate.distance_to(closest_target["pos"]))])
+		else:
+			print("[T-092 auto-path] No valid placement found for %s" % model_id)
+	# Refresh button states
+	if confirm_button and is_instance_valid(confirm_button):
+		confirm_button.disabled = moved_models.is_empty()
+	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
+		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	# Refresh info
+	if is_instance_valid(charge_info_label):
+		if models_to_move.is_empty():
+			charge_info_label.text = "All models auto-pathed! Click 'Confirm Charge Moves' to complete"
+		else:
+			charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
+
+
+# T-092: When ANY player (local, remote human, AI) declares a charge,
+# render the charge arrows from charger to target on this client. The
+# arrow visualization auto-fades after the existing hold/fade timing in
+# ChargeArrowVisual. Skips re-drawing if the local player owns the
+# charging unit (the local _update_visuals path already drew them).
+func _on_targets_declared_remote_visual(unit_id: String, target_ids: Array) -> void:
+	if unit_id == "" or target_ids.is_empty():
+		return
+	# Skip if local player owns the charging unit — local UI already drew arrows
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+	var owner_player = int(unit.get("owner", 0))
+	var local_player = GameState.get_active_player() if GameState else 0
+	if owner_player == local_player:
+		# Locally driven; _update_visuals handled it.
+		return
+	show_ai_charge_arrows(unit_id, target_ids)

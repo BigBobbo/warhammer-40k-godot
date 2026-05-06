@@ -78,6 +78,8 @@ var damage_feedback: DamageFeedbackVisual = null  # T5-V12: Damage visualization
 var _phase_wounds_label: Label = null  # T-093: Running phase damage tally
 var _phase_wounds_p1: int = 0  # T-093: Total wounds dealt by P1 this fight phase
 var _phase_wounds_p2: int = 0  # T-093: Total wounds dealt by P2 this fight phase
+var _phase_scoreboard: RichTextLabel = null  # T-093: per-unit fight scoreboard
+var _phase_unit_stats: Dictionary = {}  # T-093: unit_id -> {wounds_dealt, kills_inflicted}
 
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
@@ -293,7 +295,15 @@ func _setup_right_panel() -> void:
 	confirm_button.pressed.connect(_on_confirm_pressed)
 	_WhiteDwarfTheme.apply_to_button(confirm_button)
 	button_container.add_child(confirm_button)
-	
+
+	# T-093: Auto-Fight button — assigns all weapons to first engaged enemy and confirms
+	var auto_fight_button = Button.new()
+	auto_fight_button.text = "Auto-Fight"
+	auto_fight_button.tooltip_text = "Auto-assign all weapons to the first engaged enemy and confirm"
+	auto_fight_button.pressed.connect(_on_auto_fight_pressed)
+	_WhiteDwarfTheme.apply_to_button(auto_fight_button)
+	button_container.add_child(auto_fight_button)
+
 	fight_panel.add_child(button_container)
 	
 	# Dice log
@@ -305,6 +315,14 @@ func _setup_right_panel() -> void:
 	_phase_wounds_label.text = "Phase Damage — P1: 0 | P2: 0"
 	_phase_wounds_label.add_theme_font_size_override("font_size", 13)
 	fight_panel.add_child(_phase_wounds_label)
+	# T-093: per-unit scoreboard (RichTextLabel for color-coding)
+	_phase_scoreboard = RichTextLabel.new()
+	_phase_scoreboard.name = "FightPhaseScoreboard"
+	_phase_scoreboard.bbcode_enabled = true
+	_phase_scoreboard.fit_content = true
+	_phase_scoreboard.custom_minimum_size = Vector2(230, 60)
+	_phase_scoreboard.text = "[i]No fighters yet[/i]"
+	fight_panel.add_child(_phase_scoreboard)
 	fight_panel.add_child(HSeparator.new())
 
 	var dice_label = Label.new()
@@ -955,6 +973,24 @@ func _update_phase_wounds_label() -> void:
 	if _phase_wounds_label and is_instance_valid(_phase_wounds_label):
 		_phase_wounds_label.text = "Phase Damage — P1: %d | P2: %d" % [_phase_wounds_p1, _phase_wounds_p2]
 
+
+func _update_phase_scoreboard() -> void:
+	# T-093: Per-unit scoreboard, color-coded by player.
+	if not _phase_scoreboard or not is_instance_valid(_phase_scoreboard):
+		return
+	if _phase_unit_stats.is_empty():
+		_phase_scoreboard.text = "[i]No fighters yet[/i]"
+		return
+	var lines: Array = []
+	for uid in _phase_unit_stats:
+		var stats = _phase_unit_stats[uid]
+		var unit = GameState.get_unit(uid)
+		var name = unit.get("meta", {}).get("name", uid)
+		var owner = stats.get("owner", 0)
+		var color_tag = "[color=#5070ff]" if owner == 1 else "[color=#ff6060]"
+		lines.append("%s%s[/color]: %dW, %dK" % [color_tag, name, stats.get("wounds_dealt", 0), stats.get("kills_inflicted", 0)])
+	_phase_scoreboard.text = "\n".join(lines)
+
 func _on_attacks_resolved_visual(attacker_id: String, target_id: String, result: Dictionary) -> void:
 	"""Parse fight resolution diffs to show floating damage numbers and flash effects on damaged models.
 	Note: This signal fires BEFORE diffs are applied to GameState (signal emitted inside process_action,
@@ -1048,7 +1084,14 @@ func _on_attacks_resolved_visual(attacker_id: String, target_id: String, result:
 			_phase_wounds_p1 += damage_dealt
 		elif attacker_owner == 2:
 			_phase_wounds_p2 += damage_dealt
+		# T-093: per-unit scoreboard tracking
+		if not _phase_unit_stats.has(attacker_id):
+			_phase_unit_stats[attacker_id] = {"wounds_dealt": 0, "kills_inflicted": 0, "owner": attacker_owner}
+		_phase_unit_stats[attacker_id]["wounds_dealt"] += damage_dealt
+		if is_kill:
+			_phase_unit_stats[attacker_id]["kills_inflicted"] += 1
 		_update_phase_wounds_label()
+		_update_phase_scoreboard()
 
 	# Flash the target unit's token nodes red for immediate visual feedback
 	if not wound_changes.is_empty():
@@ -1201,9 +1244,50 @@ func _on_confirm_pressed() -> void:
 	# Show visual feedback that fighting is resolving
 	if dice_log_display:
 		dice_log_display.append_text("[color=yellow]Rolling melee combat...[/color]\n")
-	
+
 	emit_signal("fight_action_requested", {
 		"type": "CONFIRM_ATTACKS"
+	})
+
+
+# T-093: Auto-fight — assigns all melee weapons to the first engaged enemy
+# unit and immediately requests CONFIRM_ATTACKS, all without opening the
+# AttackAssignmentDialog. Useful for fast resolution.
+func _on_auto_fight_pressed() -> void:
+	if current_fighter_id == "":
+		print("[FightController] Auto-Fight: no active fighter")
+		return
+	if eligible_targets.is_empty():
+		print("[FightController] Auto-Fight: no eligible targets")
+		return
+	# Pick the first eligible target (highest-priority by ordering)
+	var target_id: String = eligible_targets.keys()[0]
+	var unit = current_phase.get_unit(current_fighter_id) if current_phase else GameState.get_unit(current_fighter_id)
+	if unit.is_empty():
+		return
+	var assignments: Array = []
+	for weapon in unit.get("meta", {}).get("weapons", []):
+		if weapon.get("type", "").to_lower() != "melee":
+			continue
+		var weapon_id = RulesEngine._generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
+		assignments.append({
+			"attacker": current_fighter_id,
+			"weapon": weapon_id,
+			"target": target_id,
+		})
+	if assignments.is_empty():
+		print("[FightController] Auto-Fight: unit has no melee weapons")
+		return
+	if dice_log_display:
+		var unit_name = unit.get("meta", {}).get("name", current_fighter_id)
+		dice_log_display.append_text("[color=cyan]Auto-Fight: %s -> %s[/color]\n" % [unit_name, target_id])
+	emit_signal("fight_action_requested", {
+		"type": "ASSIGN_ATTACKS",
+		"unit_id": current_fighter_id,
+		"payload": {"assignments": assignments},
+	})
+	emit_signal("fight_action_requested", {
+		"type": "CONFIRM_ATTACKS",
 	})
 
 func _input(event: InputEvent) -> void:
@@ -2249,6 +2333,58 @@ func _apply_model_positions_to_scene() -> void:
 					token.position = current_model_positions[model_id]
 					break
 
+# T-093: Compute snap-to-base-contact target for the dragging model. Returns
+# Vector2.ZERO if no snap is in effect (no enemy within snap zone).
+const PILEIN_SNAP_ZONE_INCHES: float = 0.6
+func _maybe_snap_to_b2b(candidate_pos: Vector2) -> Vector2:
+	if drag_model_id == "" or pile_in_unit_id == "":
+		return Vector2.ZERO
+	var attacker_unit = GameState.get_unit(pile_in_unit_id) if GameState else {}
+	if attacker_unit.is_empty():
+		return Vector2.ZERO
+	# Find own model's base radius
+	var own_radius_px: float = 25.0
+	for m in attacker_unit.get("models", []):
+		if m.get("id", "") == drag_model_id:
+			own_radius_px = Measurement.base_radius_px(m.get("base_mm", 32))
+			break
+	# Iterate enemy units (units of the OTHER owner) for closest model
+	var owner = int(attacker_unit.get("owner", 0))
+	var snap_zone_px: float = Measurement.inches_to_px(PILEIN_SNAP_ZONE_INCHES)
+	var best_candidate: Vector2 = Vector2.ZERO
+	var best_excess: float = INF
+	var snapshot = GameState.create_snapshot() if GameState else {}
+	for uid in snapshot.get("units", {}):
+		var u = snapshot.units[uid]
+		if int(u.get("owner", 0)) == owner:
+			continue
+		for em in u.get("models", []):
+			if not em.get("alive", true):
+				continue
+			var epos_data = em.get("position")
+			if epos_data == null:
+				continue
+			var epos: Vector2
+			if epos_data is Dictionary:
+				epos = Vector2(epos_data.get("x", 0), epos_data.get("y", 0))
+			else:
+				epos = epos_data
+			var enemy_radius_px: float = Measurement.base_radius_px(em.get("base_mm", 32))
+			var contact_distance: float = own_radius_px + enemy_radius_px
+			var distance: float = candidate_pos.distance_to(epos)
+			# Excess = how far INTO the snap zone the candidate is
+			var excess: float = distance - contact_distance
+			if excess >= 0.0 and excess <= snap_zone_px and excess < best_excess:
+				best_excess = excess
+				# Snap so own center is exactly contact_distance from enemy center
+				var dir_vec: Vector2 = candidate_pos - epos
+				if dir_vec.length() < 0.01:
+					dir_vec = Vector2(1, 0)
+				dir_vec = dir_vec.normalized()
+				best_candidate = epos + dir_vec * (contact_distance + 1.0)
+	return best_candidate
+
+
 func _handle_pile_in_input(event: InputEvent) -> void:
 	"""Handle input events during pile-in mode"""
 	if not board_view:
@@ -2334,6 +2470,13 @@ func _update_model_drag_pile_in(mouse_pos: Vector2) -> void:
 		return
 
 	var new_pos = mouse_pos + drag_offset
+
+	# T-093: snap-to-base-contact — if dragging within snap zone of a closest
+	# enemy model, snap to base-to-base. Snap zone is 0.6" beyond contact
+	# (mirrors charge phase snap behavior).
+	var snap_pos = _maybe_snap_to_b2b(new_pos)
+	if snap_pos != Vector2.ZERO:
+		new_pos = snap_pos
 
 	# Update position tracking
 	current_model_positions[drag_model_id] = new_pos

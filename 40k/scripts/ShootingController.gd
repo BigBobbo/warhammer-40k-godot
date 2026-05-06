@@ -1343,6 +1343,39 @@ func _highlight_enemies_by_range(shooter_unit: Dictionary, weapon_ranges: Dictio
 		else:
 			_create_target_highlight(enemy_id, Color(0.5, 0.5, 0.5, 0.3))  # Gray for out of range
 
+		# T-100: per-target distance label above the enemy unit's first alive model
+		# So players see explicit range without eyeballing the circles.
+		_show_range_label_for_target(enemy_unit, min_distance, is_in_range)
+
+func _show_range_label_for_target(enemy_unit: Dictionary, min_distance_px: float, is_in_range: bool) -> void:
+	if range_visual == null:
+		return
+	if min_distance_px == INF:
+		return
+	# Find first alive model position
+	var anchor_pos := Vector2.ZERO
+	for m in enemy_unit.get("models", []):
+		if m.get("alive", true):
+			anchor_pos = _get_model_position(m)
+			if anchor_pos != Vector2.ZERO:
+				break
+	if anchor_pos == Vector2.ZERO:
+		return
+	var dist_inches := Measurement.px_to_inches(min_distance_px) if Measurement else (min_distance_px / 40.0)
+	var label := Label.new()
+	label.text = "%.1f\"" % dist_inches
+	label.position = anchor_pos + Vector2(-20, -55)
+	label.add_theme_font_size_override("font_size", 13)
+	if is_in_range:
+		label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.5, 1.0))
+	else:
+		label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.4, 1.0))
+	label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	label.z_index = 5
+	range_visual.add_child(label)
+
 func _clear_range_indicators() -> void:
 	if range_visual:
 		for child in range_visual.get_children():

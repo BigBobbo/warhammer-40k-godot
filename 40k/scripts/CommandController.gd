@@ -115,7 +115,15 @@ func _setup_right_panel() -> void:
 	title.text = "Command Phase"
 	title.add_theme_font_size_override("font_size", 16)
 	command_panel.add_child(title)
-	
+
+	# T-096: Phase progress indicator showing 1/3 → 3/3 sub-steps
+	var phase_progress_label = Label.new()
+	phase_progress_label.name = "PhaseProgressLabel"
+	phase_progress_label.text = _compute_command_phase_progress()
+	phase_progress_label.add_theme_font_size_override("font_size", 12)
+	phase_progress_label.add_theme_color_override("font_color", Color(0.85, 0.75, 0.4, 1.0))
+	command_panel.add_child(phase_progress_label)
+
 	command_panel.add_child(HSeparator.new())
 	
 	# Phase information
@@ -1198,3 +1206,24 @@ func _on_tempting_target_resolved(objective_id: String, drawing_player: int) -> 
 		"player": drawing_player,
 		"objective_id": objective_id,
 	})
+
+
+# T-096: compute command phase sub-step progress (1/3 → 3/3)
+# Steps:
+#   1/3 — CP Generation (auto, runs on entry)
+#   2/3 — Battle Mastery selection (Adeptus Custodes only)
+#   3/3 — Stratagems / End Phase
+func _compute_command_phase_progress() -> String:
+	if not GameState:
+		return "Step ?/3"
+	var active_player = GameState.get_active_player()
+	var faction = GameState.get_faction_name(active_player)
+	# Step 1: CP generated (always done by phase entry — assume past step 1)
+	# Step 2: Battle Mastery still needs selection?
+	var meta = GameState.state.get("meta", {})
+	var selected_mastery = meta.get("martial_mastery_choice_p%d" % active_player, "")
+	var requires_mastery = (faction == "Adeptus Custodes")
+	if requires_mastery and selected_mastery == "":
+		return "Step 2/3 — Choose Martial Mastery"
+	# Step 3: stratagems / end phase
+	return "Step 3/3 — Stratagems / End Phase"

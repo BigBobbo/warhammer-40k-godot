@@ -2025,8 +2025,31 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		"durable_shooter": role_desc = "durable ranged unit — positioning for firing lanes"
 		"melee": role_desc = "melee unit — deploying forward"
 		"character": role_desc = "character — hiding behind LoS blockers"
+		"anti_tank": role_desc = "anti-tank — facing vehicle-heavy enemy zone"
 		_: role_desc = "general role"
 	_add_thinking_step("Deploying %s (%s)" % [unit_name, role_desc])
+
+	# T-108: Matchup-aware deployment — count enemy VEHICLE/MONSTER units
+	# already on the table. If many, anti-tank units want to face that zone.
+	var enemy_vehicle_count: int = 0
+	var enemy_horde_count: int = 0
+	for ouid in snapshot.get("units", {}):
+		var ou = snapshot.units[ouid]
+		if int(ou.get("owner", 0)) == player:
+			continue
+		if int(ou.get("status", 0)) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		var oukw = ou.get("meta", {}).get("keywords", [])
+		if "VEHICLE" in oukw or "MONSTER" in oukw:
+			enemy_vehicle_count += 1
+		var alive_models = 0
+		for mm in ou.get("models", []):
+			if mm.get("alive", true):
+				alive_models += 1
+		if alive_models >= 8:
+			enemy_horde_count += 1
+	if unit_role == "anti_tank" and enemy_vehicle_count >= 2:
+		_add_thinking_step("Matchup-aware: %d enemy vehicles/monsters → forward anti-tank deploy" % enemy_vehicle_count)
 
 	# Find best position near an objective
 	var objectives = _get_objectives(snapshot)
@@ -2162,6 +2185,20 @@ static func _classify_deployment_role(unit: Dictionary) -> String:
 	# Pure melee units deploy forward
 	if has_melee and not has_ranged:
 		return "melee"
+
+	# T-108: Anti-tank classifier — any high-S ranged weapon (S >= 9 or AP >= 3)
+	# qualifies the unit as anti-tank, useful for matchup-aware deployment.
+	if has_ranged:
+		for w in meta.get("weapons", []):
+			if w.get("type", "").to_lower() != "ranged":
+				continue
+			var s = int(str(w.get("strength", "4"))) if str(w.get("strength", "4")).is_valid_int() else 4
+			var ap_str = str(w.get("ap", "0"))
+			if ap_str.begins_with("-"):
+				ap_str = ap_str.substr(1)
+			var ap_val = int(ap_str) if ap_str.is_valid_int() else 0
+			if s >= 9 or ap_val >= 3:
+				return "anti_tank"
 
 	# Evaluate fragility: low toughness + low save + low wounds = fragile
 	var toughness = int(stats.get("toughness", 4))
@@ -14580,6 +14617,56 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 
 	var expected_damage = attacks * p_hit * p_wound * p_unsaved * damage
 
+	# --- T-108: Range-band optimization — favor targets within optimal range bracket
+	# (under half-range = bonus reliability, beyond half-range = slight penalty for
+	# move-blocking / over-extension). 0% adjustment if range unknown. ---
+	if dist_inches > 0.0 and weapon_range_inches > 0.0:
+		var range_ratio: float = dist_inches / weapon_range_inches
+		var range_band_multiplier: float = 1.0
+		if range_ratio <= 0.5:
+			# Within half-range: +10% scoring (point-blank reliability)
+			range_band_multiplier = 1.10
+		elif range_ratio <= 0.75:
+			# Mid-range: neutral
+			range_band_multiplier = 1.0
+		else:
+			# Long-range (>75% of max): -15% scoring (less reliable, target may move out)
+			range_band_multiplier = 0.85
+		expected_damage *= range_band_multiplier
+
+	# --- T-108: Secondaries-aware scoring — bonus for targets that score active secondary missions ---
+	if not shooter_unit.is_empty():
+		var shooter_owner = int(shooter_unit.get("owner", 0))
+		var tree = Engine.get_main_loop()
+		if tree and tree is SceneTree and shooter_owner > 0:
+			var sec_mgr = (tree as SceneTree).root.get_node_or_null("SecondaryMissionManager")
+			if sec_mgr and "_player_state" in sec_mgr:
+				var player_state = sec_mgr._player_state
+				if player_state is Dictionary:
+					var active_missions = player_state.get(str(shooter_owner), {}).get("active", [])
+					var target_kw = target_unit.get("meta", {}).get("keywords", [])
+					for mission in active_missions:
+						var mid: String = mission.get("mission_id", mission.get("id", ""))
+						match mid:
+							"bring_it_down":
+								if "VEHICLE" in target_kw or "MONSTER" in target_kw:
+									expected_damage *= 1.20  # +20% favor anti-tank/monster
+							"assassination":
+								if "CHARACTER" in target_kw:
+									expected_damage *= 1.25  # +25% favor characters
+							"cull_the_horde":
+								var alive_count = 0
+								for mm in target_unit.get("models", []):
+									if mm.get("alive", true):
+										alive_count += 1
+								if alive_count >= 6:
+									expected_damage *= 1.15  # +15% favor large units
+							"no_prisoners":
+								if "INFANTRY" in target_kw:
+									expected_damage *= 1.10  # +10% favor infantry kills
+							"overwhelming_force":
+								expected_damage *= 1.05  # mild bonus to all kills
+
 	# --- AI-GAP-4: Factor in target FNP for more accurate scoring ---
 	var target_fnp = AIAbilityAnalyzerData.get_unit_fnp(target_unit)
 	if target_fnp > 0:
@@ -16120,6 +16207,12 @@ static func _evaluate_position_threat(
 	var threats = []  # Details of which enemies threaten this position
 	var is_melee_focused = _unit_has_melee_weapons(own_unit) and not _unit_has_ranged_weapons(own_unit)
 
+	# T-108: AI character hiding — characters value safety more, so apply a
+	# higher threat multiplier to push them toward LoS-blocked / cover positions.
+	var own_kw = own_unit.get("meta", {}).get("keywords", [])
+	var is_character: bool = "CHARACTER" in own_kw and not ("VEHICLE" in own_kw)
+	var character_threat_mult: float = 1.5 if is_character else 1.0
+
 	var close_melee_range_px = THREAT_CLOSE_MELEE_DISTANCE_INCHES * PIXELS_PER_INCH
 
 	for td in threat_data:
@@ -16172,6 +16265,10 @@ static func _evaluate_position_threat(
 			})
 
 	var total_threat = charge_threat + shoot_threat
+
+	# T-108: characters apply higher threat-aversion multiplier so they steer
+	# toward LoS-blocked / cover positions when scoring movements.
+	total_threat *= character_threat_mult
 
 	# Fragile units (low toughness, few wounds) get extra penalty in danger
 	var own_stats = own_unit.get("meta", {}).get("stats", {})

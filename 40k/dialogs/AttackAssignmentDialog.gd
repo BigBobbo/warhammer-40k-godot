@@ -117,22 +117,38 @@ func _build_ui() -> void:
 	weapon_list.name = "WeaponList"
 	weapon_list.custom_minimum_size = Vector2(480, 100)
 
+	# T-093: Compute max-cap (total potential attacks across the unit's regular melee weapons)
+	var unit_max_attacks_total: float = 0.0
 	for i in range(regular_melee_weapons.size()):
 		var weapon = regular_melee_weapons[i]
 		var weapon_name = weapon.get("name", "Unknown")
 		# Generate weapon ID from name using RulesEngine to prevent collisions
 		var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
 
-		weapon_list.add_item("%s (A:%s S:%s AP:%s D:%s)" % [
+		var avg_attacks: float = _average_dice_notation(str(weapon.get("attacks", "1")))
+		var weapon_max_attacks: float = avg_attacks * float(max(1, eligible_indices.size()))
+		unit_max_attacks_total += weapon_max_attacks
+
+		weapon_list.add_item("%s (A:%s S:%s AP:%s D:%s, max ≈%s)" % [
 			weapon_name,
 			weapon.get("attacks", "1"),
 			weapon.get("strength", "User"),
 			weapon.get("ap", "0"),
-			weapon.get("damage", "1")
+			weapon.get("damage", "1"),
+			"%.1f" % weapon_max_attacks if weapon_max_attacks != floor(weapon_max_attacks) else "%d" % int(weapon_max_attacks)
 		])
 		# Store the weapon ID as metadata for creating the attack action
 		weapon_list.set_item_metadata(weapon_list.item_count - 1, weapon_id)
-		print("[AttackAssignmentDialog] Weapon '%s' → ID '%s'" % [weapon_name, weapon_id])
+		print("[AttackAssignmentDialog] Weapon '%s' → ID '%s' (max attacks ≈%.1f)" % [weapon_name, weapon_id, weapon_max_attacks])
+
+	# T-093: max-cap label
+	var max_cap_label = Label.new()
+	max_cap_label.text = "Max total attacks (cap): ≈%s across %d eligible models" % [
+		"%.1f" % unit_max_attacks_total if unit_max_attacks_total != floor(unit_max_attacks_total) else "%d" % int(unit_max_attacks_total),
+		eligible_indices.size()
+	]
+	max_cap_label.add_theme_font_size_override("font_size", 12)
+	container.add_child(max_cap_label)
 
 	container.add_child(weapon_list)
 
@@ -259,15 +275,129 @@ func _update_assignments_display() -> void:
 		return
 
 	assignments_display.clear()
+	var total_expected_damage: float = 0.0
 	for assignment in assignments:
-		assignments_display.append_text("- %s → %s\n" % [assignment.weapon, assignment.target])
+		var ed: float = _estimate_expected_damage(assignment.weapon, assignment.target)
+		total_expected_damage += ed
+		# T-093: include expected damage estimate per assignment
+		assignments_display.append_text("- %s → %s [E[D]≈%.1f]\n" % [assignment.weapon, assignment.target, ed])
 
 	# T3-3: Show Extra Attacks auto-assignments preview
 	if not extra_attacks_weapons.is_empty():
 		var ea_target_id = _get_extra_attacks_target_id()
 		for weapon in extra_attacks_weapons:
 			var weapon_name = weapon.get("name", "Unknown")
-			assignments_display.append_text("- %s → %s [Extra Attacks]\n" % [weapon_name, ea_target_id])
+			var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
+			var ed: float = _estimate_expected_damage(weapon_id, ea_target_id)
+			total_expected_damage += ed
+			assignments_display.append_text("- %s → %s [Extra Attacks, E[D]≈%.1f]\n" % [weapon_name, ea_target_id, ed])
+	if total_expected_damage > 0.0:
+		assignments_display.append_text("[b]Total expected damage: %.1f[/b]\n" % total_expected_damage)
+
+
+# T-093: analytic expected-damage estimator for AttackAssignmentDialog preview.
+# Uses standard Warhammer 10e math: E[D] = A * Phit * Pwound * Punsaved * D
+# where probability functions parse weapon profile + defender stats.
+func _estimate_expected_damage(weapon_id: String, target_id: String) -> float:
+	if phase_reference == null or unit_id == "" or target_id == "":
+		return 0.0
+	var attacker_unit = phase_reference.get_unit(unit_id)
+	var target_unit = phase_reference.get_unit(target_id)
+	if attacker_unit.is_empty() or target_unit.is_empty():
+		return 0.0
+	# Find weapon
+	var weapon: Dictionary = {}
+	for w in attacker_unit.get("meta", {}).get("weapons", []):
+		var wname = w.get("name", "")
+		var wid = RulesEngine._generate_weapon_id(wname, w.get("type", ""))
+		if wid == weapon_id or wname == weapon_id:
+			weapon = w
+			break
+	if weapon.is_empty():
+		return 0.0
+	# Parse weapon stats — strip dice notation by averaging
+	var attacks_str: String = str(weapon.get("attacks", "1"))
+	var strength_int: int = _parse_stat_int(str(weapon.get("strength", "4")))
+	var ap_int: int = _parse_stat_int(str(weapon.get("ap", "0")))
+	var damage_str: String = str(weapon.get("damage", "1"))
+	var attacks_avg: float = _average_dice_notation(attacks_str)
+	var damage_avg: float = _average_dice_notation(damage_str)
+	# Total attacks = per-weapon-attacks * number of models in attacker that have this weapon
+	# Approximation: assume 1 model wields it; refine if multi-wielders evident
+	var alive_count: int = 0
+	for m in attacker_unit.get("models", []):
+		if m.get("alive", true):
+			alive_count += 1
+	# Treat per-model A as a single shooter; UI is a preview not a simulation
+	var total_attacks: float = attacks_avg * float(max(1, alive_count))
+	# Hit probability from WS/BS (weapon's accuracy attribute)
+	var skill_int: int = _parse_stat_int(str(weapon.get("skill", weapon.get("ws", weapon.get("bs", "4")))))
+	var p_hit: float = clampf(float(7 - skill_int) / 6.0, 1.0/6.0, 5.0/6.0)
+	# Wound probability vs target T
+	var target_T: int = _parse_stat_int(str(target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)))
+	var p_wound: float = _wound_probability(strength_int, target_T)
+	# Unsaved probability: target save - AP, capped invuln
+	var target_save: int = _parse_stat_int(str(target_unit.get("meta", {}).get("stats", {}).get("save", 5)))
+	var target_invuln: int = _parse_stat_int(str(target_unit.get("meta", {}).get("stats", {}).get("invuln", 7)))
+	var modified_save: int = max(2, target_save - max(0, ap_int))  # unmodified save min 2+
+	var effective_save: int = min(modified_save, target_invuln)
+	var p_unsaved: float = clampf(float(effective_save - 1) / 6.0, 0.0, 1.0)
+	# FNP not factored (would need to read defender flags); coarse preview.
+	return total_attacks * p_hit * p_wound * p_unsaved * damage_avg
+
+
+func _parse_stat_int(s: String) -> int:
+	# Accept "4", "4+", "S", numeric; defaults to 4 on parse failure
+	s = s.strip_edges()
+	if s.is_empty():
+		return 4
+	if s == "S" or s == "U" or s == "User":
+		return 4
+	# Strip trailing + for save/skill formats
+	if s.ends_with("+"):
+		s = s.substr(0, s.length() - 1)
+	if s.is_valid_int():
+		return int(s)
+	return 4
+
+
+func _average_dice_notation(s: String) -> float:
+	# Handles "1", "3", "D6", "2D3", "D6+1", "2D6"
+	s = s.strip_edges().to_upper().replace(" ", "")
+	if s.is_empty():
+		return 1.0
+	if s.is_valid_int():
+		return float(int(s))
+	# Look for NDX or NDX+M pattern
+	var plus_idx = s.find("+")
+	var bonus: float = 0.0
+	if plus_idx >= 0:
+		var after = s.substr(plus_idx + 1)
+		if after.is_valid_int():
+			bonus = float(int(after))
+		s = s.substr(0, plus_idx)
+	var d_idx = s.find("D")
+	if d_idx < 0:
+		return 1.0 + bonus
+	var n_str = s.substr(0, d_idx)
+	var x_str = s.substr(d_idx + 1)
+	var n: int = int(n_str) if n_str.is_valid_int() else 1
+	var x: int = int(x_str) if x_str.is_valid_int() else 6
+	# Average of 1 die of size x is (x+1)/2
+	return float(n) * (float(x) + 1.0) / 2.0 + bonus
+
+
+func _wound_probability(s: int, t: int) -> float:
+	# 10e wound chart
+	if s >= t * 2:
+		return 5.0 / 6.0
+	if s > t:
+		return 4.0 / 6.0
+	if s == t:
+		return 3.0 / 6.0
+	if s * 2 <= t:
+		return 1.0 / 6.0
+	return 2.0 / 6.0
 
 func _on_confirmed() -> void:
 	print("[AttackAssignmentDialog] Confirmed button pressed")
