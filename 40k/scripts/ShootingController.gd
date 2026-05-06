@@ -1292,9 +1292,10 @@ func _show_range_indicators() -> void:
 func _highlight_enemies_by_range(shooter_unit: Dictionary, weapon_ranges: Dictionary) -> void:
 	if not current_phase:
 		return
-	
+
+	# T-100: players in this codebase are 1 and 2 (not 0/1) — derive enemy id correctly.
 	var current_player = current_phase.get_current_player()
-	var enemy_player = 1 if current_player == 0 else 0
+	var enemy_player = 2 if current_player == 1 else 1
 	var enemy_units = current_phase.get_units_for_player(enemy_player)
 	
 	# Clear existing highlights
