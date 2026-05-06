@@ -77,6 +77,83 @@
       "scenarios": ["mp:tests/integration/test_multiplayer_network.gd"],
       "last_verified_commit": "f67b1ee",
       "status": "covered"
+    },
+    {
+      "id": "rules.rng.determinism_329",
+      "description": "Issue #329 — RNGService.test_mode_seed produces identical dice across runs; new helpers (randi/randi_range/randf) honor it; TransportManager + MissionManager + Mathhammer plumbed",
+      "scenarios": ["mp:tests/test_audit_fixes_verification.gd", "mp:tests/test_rng_determinism_extended.gd"],
+      "last_verified_commit": "f938aba",
+      "status": "covered"
+    },
+    {
+      "id": "rules.command.cp_gain_336",
+      "description": "Issue #336 — no CP on R1 first command phase; otherwise active player only",
+      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
+      "last_verified_commit": "8749eb4",
+      "status": "covered"
+    },
+    {
+      "id": "rules.save_load.autoload_state_338",
+      "description": "Issue #338 — FactionAbilityManager + StratagemManager state round-trips through save/load",
+      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
+      "last_verified_commit": "8749eb4",
+      "status": "covered"
+    },
+    {
+      "id": "rules.shooting.fall_back_and_shoot_override_356",
+      "description": "Issue #356 — Multipotentiality stratagem: effect_fall_back_and_shoot overrides cannot_shoot gate in ShootingPhase + RulesEngine.validate_shoot",
+      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
+      "last_verified_commit": "8749eb4",
+      "status": "covered"
+    },
+    {
+      "id": "rules.stratagem.excluding_keyword_parser_359",
+      "description": "Issue #359 — FactionStratagemLoader._map_target correctly handles 'excluding X' as not_keyword:X (was incorrectly mapping to keyword:X). Affects 'ARD AS NAILS, UNWAVERING SENTINELS, ARCHEOTECH MUNITIONS",
+      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
+      "last_verified_commit": "8749eb4",
+      "status": "covered"
+    },
+    {
+      "id": "rules.keywords.melta_x_t1",
+      "description": "T1-1 — MELTA X auto-resolves damage bonus at half range",
+      "scenarios": ["mp:tests/test_melta_keyword_pipeline.gd"],
+      "last_verified_commit": "e0fcadf",
+      "status": "covered"
+    },
+    {
+      "id": "rules.keywords.twin_linked_t1",
+      "description": "T1-2 — TWIN-LINKED re-rolls all failed wound rolls",
+      "scenarios": ["mp:tests/test_twin_linked_pipeline.gd"],
+      "last_verified_commit": "932d569",
+      "status": "covered"
+    },
+    {
+      "id": "rules.abilities.stealth_t2",
+      "description": "T2-1 — STEALTH ability: -1 to hit on ranged attacks vs Stealth target",
+      "scenarios": ["mp:tests/test_stealth_keyword_pipeline.gd"],
+      "last_verified_commit": "592d0a8",
+      "status": "covered"
+    },
+    {
+      "id": "rules.shooting.cover_save_cap_s7",
+      "description": "T2-S7 — Cover save bonus capped: Sv3+ vs AP0 in cover stays 3+ (was 2+)",
+      "scenarios": ["mp:tests/test_s7_cover_save_bonus.gd"],
+      "last_verified_commit": "6958cff",
+      "status": "covered"
+    },
+    {
+      "id": "rules.movement.base_touching_m6",
+      "description": "T2-M6 — base-touching regression (#321/#327)",
+      "scenarios": ["mp:tests/test_m6_base_touching_regression.gd"],
+      "last_verified_commit": "8749eb4",
+      "status": "covered"
+    },
+    {
+      "id": "rules.shooting.keyword_pipeline",
+      "description": "T2-S4..S6 — SUSTAINED HITS / LETHAL HITS / DEVASTATING WOUNDS keyword pipelines",
+      "scenarios": ["mp:tests/test_keyword_pipeline.gd"],
+      "last_verified_commit": "8749eb4",
+      "status": "covered"
     }
   ]
 }

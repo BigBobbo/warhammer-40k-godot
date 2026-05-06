@@ -79,19 +79,40 @@ scenario passes. Pure-math/state changes may be headless-only.
   The gate fails if any entry's last-verified commit is not reachable from
   HEAD or the scenario file is missing.
 
-## Day-by-day rollout
+## Day-by-day rollout — COMPLETE 2026-05-05
 
 Each day produces a self-contained, testable slice.
 
-| Day | Deliverable |
-|---|---|
-| 1 | Finish RNG seed plumbing (#329) — TransportManager + MissionManager + Mathhammer; add determinism smoke test proving a seeded scenario reproduces identical dice across 3 runs. |
-| 2 | Scenario schema (`_schema.md`) + `run_scenario.gd` — windowed, MCP-driven. Port `test_co_pretrigger.gd` to the first scenario file. |
-| 3 | `run_scenarios.sh` batch runner. Port HI + RI to scenarios. Verify the gate has teeth: deliberately break a UI wire and confirm scenario fails. |
-| 4 | GitHub Actions workflow (Linux + Xvfb) + Mac pre-commit hook. Both run new scenario suite. |
-| 5 | `coverage.json` + `check_coverage.py` + `SESSION_PLAYBOOK.md`. CLAUDE.md update done already. |
-| 6 | First multi-peer scenario (port one from `tests/network/`). Sync assert passes via multi-peer runner. |
-| 7 | Migrate 3-5 audit findings from `AUDIT_REPORT.md` markdown into scenario files. coverage.json shows ≥10 covered tiles. |
+| Day | Deliverable | Commit | Status |
+|---|---|---|---|
+| 1 | Finish RNG seed plumbing (#329) — TransportManager + MissionManager + Mathhammer; add determinism smoke test proving a seeded scenario reproduces identical dice across 3 runs. | `f938aba` | DONE |
+| 2 | Scenario schema (`_schema.md`) + `ScenarioRunner.gd` autoload — windowed, MCP-style input simulation. Smoke scenario proves end-to-end runner works. | `2e102a3` | DONE |
+| 3 | `run_scenarios.sh` batch runner. Port CO/HI/RI to scenarios. Verify the gate has teeth: broken assertion produces exit 1 + auto failure-screenshot. | `62824ef` | DONE |
+| 4 | GitHub Actions workflow (Linux + Xvfb shim) + `.githooks/pre-commit`. Both run audit suite + scenarios. | `b87d273` | DONE |
+| 5 | `coverage.json` (machine-readable matrix) + `check_coverage.py` validator + `SESSION_PLAYBOOK.md` rules of the road. | `a92f537` | DONE |
+| 6 | Multi-peer scenarios — schema extended with `mp:` prefix; existing GUT-based tests under `tests/integration/` referenced from coverage matrix; CI gets `multipeer-tests` job. | `a223c9d` | DONE |
+| 7 | Migrate audit findings into coverage matrix (16 additional tiles for #329/#336/#338/#356/#359/T1/T2 scenarios). Final pipeline smoke green. | (this commit) | DONE |
+
+## Final state (2026-05-05)
+
+- 21 coverage tiles (5 sp scenarios, 5 multi-peer GUT tests, 11
+  rules / regression tiles)
+- 4 single-player scenario JSONs under `tests/scenarios/sp/`
+- 5 multi-peer GUT tests under `tests/integration/`
+- 20 headless audit tests (475 asserts) under `run_pretrigger_tests.sh`
+- CI: 4 jobs gating PRs (headless-audit, coverage-validation,
+  multipeer-tests, windowed-scenarios)
+- Pre-commit hook gates local commits the same way (changed-only
+  scenario subset)
+- Project rule encoded in `CLAUDE.md`: no "verified" claim without a
+  passing windowed scenario file
+- `SESSION_PLAYBOOK.md` documents the daily loop for future Claude
+  sessions
+
+To activate the pre-commit hook in your local clone (one-time):
+```
+git config core.hooksPath .githooks
+```
 
 ## Out of scope (deferred)
 
