@@ -245,7 +245,7 @@ func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 			if not new_is_warboss and not existing_is_warboss:
 				errors.append("Dual-leader attachment requires at least one WARBOSS model")
 			else:
-				print("FormationsPhase: Dual-leader attachment approved - %s joins %s on %s" % [character_id, existing_leaders_on_bg[0], bodyguard_id])
+				DebugLogger.info(str("FormationsPhase: Dual-leader attachment approved - %s joins %s on %s" % [character_id, existing_leaders_on_bg[0], bodyguard_id]))
 
 	# Check character is not declared as embarked or in reserves
 	if _is_unit_declared_embarked(character_id, player):
@@ -502,7 +502,7 @@ func _process_declare_leader_attachment(action: Dictionary) -> Dictionary:
 	var char_name = get_unit(character_id).get("meta", {}).get("name", character_id)
 	var bg_name = get_unit(bodyguard_id).get("meta", {}).get("name", bodyguard_id)
 	log_phase_message("Player %d declares: %s attached to %s" % [player, char_name, bg_name])
-	print("[FormationsPhase] After DECLARE_LEADER_ATTACHMENT — player_formations[%d].leader_attachments = %s" % [player, str(player_formations[player]["leader_attachments"])])
+	DebugLogger.info(str("[FormationsPhase] After DECLARE_LEADER_ATTACHMENT — player_formations[%d].leader_attachments = %s" % [player, str(player_formations[player]["leader_attachments"])]))
 
 	return create_result(true, [])
 
@@ -632,11 +632,11 @@ func _process_confirm_formations(action: Dictionary) -> Dictionary:
 	# (execute_action will apply them and _should_complete_phase triggers phase completion)
 	if _is_player_confirmed(1) and _is_player_confirmed(2):
 		log_phase_message("Both players confirmed — building formation changes")
-		print("[FormationsPhase] CONFIRM_FORMATIONS — player_formations before build:")
+		DebugLogger.info("[FormationsPhase] CONFIRM_FORMATIONS — player_formations before build:")
 		for p in [1, 2]:
-			print("  Player %d leader_attachments: %s" % [p, str(player_formations[p]["leader_attachments"])])
-			print("  Player %d transport_embarkations: %s" % [p, str(player_formations[p]["transport_embarkations"])])
-			print("  Player %d reserves: %s" % [p, str(player_formations[p]["reserves"])])
+			DebugLogger.info(str("  Player %d leader_attachments: %s" % [p, str(player_formations[p]["leader_attachments"])]))
+			DebugLogger.info(str("  Player %d transport_embarkations: %s" % [p, str(player_formations[p]["transport_embarkations"])]))
+			DebugLogger.info(str("  Player %d reserves: %s" % [p, str(player_formations[p]["reserves"])]))
 		changes.append_array(_build_formation_changes())
 
 	return create_result(true, changes)
@@ -957,7 +957,7 @@ func _build_formation_changes() -> Array:
 
 	var leader_count_p1 = player_formations[1]["leader_attachments"].size()
 	var leader_count_p2 = player_formations[2]["leader_attachments"].size()
-	print("[FormationsPhase] _build_formation_changes — P1 leader_attachments: %d, P2 leader_attachments: %d" % [leader_count_p1, leader_count_p2])
+	DebugLogger.info(str("[FormationsPhase] _build_formation_changes — P1 leader_attachments: %d, P2 leader_attachments: %d" % [leader_count_p1, leader_count_p2]))
 	log_phase_message("All formations changes built successfully (%d diffs)" % changes.size())
 	return changes
 
@@ -1141,8 +1141,8 @@ func _should_complete_phase() -> bool:
 				var bg_state = GameState.state["units"].get(bg_id, {})
 				var attached_to = char_state.get("attached_to", null)
 				var bg_attached = bg_state.get("attachment_data", {}).get("attached_characters", [])
-				print("[FormationsPhase] POST-APPLY VERIFY: %s.attached_to = %s (expected %s)" % [char_id, str(attached_to), bg_id])
-				print("[FormationsPhase] POST-APPLY VERIFY: %s.attachment_data.attached_characters = %s" % [bg_id, str(bg_attached)])
+				DebugLogger.info(str("[FormationsPhase] POST-APPLY VERIFY: %s.attached_to = %s (expected %s)" % [char_id, str(attached_to), bg_id]))
+				DebugLogger.info(str("[FormationsPhase] POST-APPLY VERIFY: %s.attachment_data.attached_characters = %s" % [bg_id, str(bg_attached)]))
 				if attached_to != bg_id:
 					push_error("[FormationsPhase] BUG: %s.attached_to is %s, expected %s" % [char_id, str(attached_to), bg_id])
 	return complete

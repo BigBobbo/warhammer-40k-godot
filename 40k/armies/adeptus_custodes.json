@@ -131,7 +131,8 @@
           "save": 2,
           "wounds": 6,
           "leadership": 6,
-          "objective_control": 2
+          "objective_control": 2,
+          "invuln": 4
         },
         "points": 145,
         "is_warlord": false,
@@ -245,7 +246,8 @@
           "save": 2,
           "wounds": 3,
           "leadership": 6,
-          "objective_control": 2
+          "objective_control": 2,
+          "invuln": 4
         },
         "points": 170,
         "is_warlord": false,
@@ -440,9 +442,9 @@
         ],
         "abilities": [
           {
-            "name": "Core",
+            "name": "Scouts 6\"",
             "type": "Core",
-            "description": "",
+            "description": "Some or all models in this unit can make a Scout 6\" move at the end of deployment.",
             "parameter": "6\""
           },
           {
@@ -560,9 +562,9 @@
         ],
         "abilities": [
           {
-            "name": "Core",
+            "name": "Scouts 6\"",
             "type": "Core",
-            "description": "",
+            "description": "Some or all models in this unit can make a Scout 6\" move at the end of deployment.",
             "parameter": "6\""
           },
           {

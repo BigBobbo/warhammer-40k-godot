@@ -212,7 +212,7 @@ static func _build_shoot_action(attacker_config: Dictionary, defender: Dictionar
 				var rf_bonus = rf_value * model_ids.size()
 				effective_attacks += rf_bonus
 				if rf_bonus > 0:
-					print("Mathhammer: Rapid Fire %d on %s — +%d attacks (%d models × RF%d), total: %d" % [rf_value, weapon_id, rf_bonus, model_ids.size(), rf_value, effective_attacks])
+					DebugLogger.info(str("Mathhammer: Rapid Fire %d on %s — +%d attacks (%d models × RF%d), total: %d" % [rf_value, weapon_id, rf_bonus, model_ids.size(), rf_value, effective_attacks]))
 
 			# BLAST KEYWORD (T3-22): Auto-calculate Blast bonus from defender model count
 			# Per 10e rules: +1 attack per 5 models in target unit; minimum 3 attacks vs 6+ model units
@@ -226,14 +226,14 @@ static func _build_shoot_action(attacker_config: Dictionary, defender: Dictionar
 					if blast_min > effective_attacks:
 						effective_attacks = blast_min
 					var model_count = RulesEngine.count_alive_models(target_unit)
-					print("Mathhammer: Blast on %s — +%d bonus attacks (%d defender models), effective min: %d, total: %d" % [weapon_id, blast_bonus, model_count, blast_min, effective_attacks])
+					DebugLogger.info(str("Mathhammer: Blast on %s — +%d bonus attacks (%d defender models), effective min: %d, total: %d" % [weapon_id, blast_bonus, model_count, blast_min, effective_attacks]))
 
 			assignment["attacks_override"] = effective_attacks
 
 			# Apply Torrent toggle (auto-hit, bypasses hit rolls)
 			if rule_toggles.get("torrent", false):
 				assignment["torrent"] = true
-				print("Mathhammer: Applied Torrent to %s — all attacks auto-hit" % weapon_id)
+				DebugLogger.info(str("Mathhammer: Applied Torrent to %s — all attacks auto-hit" % weapon_id))
 
 			# Apply rule toggles that affect wound rolls
 			if rule_toggles.get("twin_linked", false):
@@ -375,7 +375,7 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 				if not fresh_defender["meta"].has("stats"):
 					fresh_defender["meta"]["stats"] = {}
 				fresh_defender["meta"]["stats"]["fnp"] = fnp_value
-				print("Mathhammer: Applied FNP %d+ to defender %s" % [fnp_value, defender_unit_id])
+				DebugLogger.info(str("Mathhammer: Applied FNP %d+ to defender %s" % [fnp_value, defender_unit_id]))
 
 			# Apply invulnerable save from rule toggles to defender models
 			# Invuln is set per-model since RulesEngine reads model.get("invuln", 0)
@@ -389,7 +389,7 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 					var existing_invuln = model.get("invuln", 0)
 					if existing_invuln == 0 or invuln_value < existing_invuln:
 						model["invuln"] = invuln_value
-				print("Mathhammer: Applied invulnerable save %d+ to defender %s" % [invuln_value, defender_unit_id])
+				DebugLogger.info(str("Mathhammer: Applied invulnerable save %d+ to defender %s" % [invuln_value, defender_unit_id]))
 
 			# Apply save roll modifier from rule toggles to defender flags (T4-18)
 			# Per 10e: save roll modifiers are capped at +1/-1 (AP stacks are unlimited)
@@ -403,7 +403,7 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 				if not fresh_defender.has("flags"):
 					fresh_defender["flags"] = {}
 				fresh_defender["flags"]["save_modifier"] = save_modifier
-				print("Mathhammer: Applied save modifier %+d to defender %s (capped at +1/-1 per 10e)" % [save_modifier, defender_unit_id])
+				DebugLogger.info(str("Mathhammer: Applied save modifier %+d to defender %s (capped at +1/-1 per 10e)" % [save_modifier, defender_unit_id]))
 
 			# HALF DAMAGE (T4-17): Apply half-damage defensive ability from rule toggle
 			if rule_toggles.get("half_damage", false):
@@ -412,7 +412,7 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 				if not fresh_defender["meta"].has("stats"):
 					fresh_defender["meta"]["stats"] = {}
 				fresh_defender["meta"]["stats"]["half_damage"] = true
-				print("Mathhammer: Applied Half Damage to defender %s" % defender_unit_id)
+				DebugLogger.info(str("Mathhammer: Applied Half Damage to defender %s" % defender_unit_id))
 
 			trial_board.units[defender_unit_id] = fresh_defender
 
@@ -435,7 +435,7 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 								existing_rules += ", "
 							existing_rules += anti_text
 					weapon["special_rules"] = existing_rules
-				print("Mathhammer: Injected anti-keyword rules [%s] into attacker %s weapons" % [", ".join(anti_keyword_texts), unit_id])
+				DebugLogger.info(str("Mathhammer: Injected anti-keyword rules [%s] into attacker %s weapons" % [", ".join(anti_keyword_texts), unit_id]))
 
 	# CONVERSION X+ (T4-16): Inject conversion text into attacker weapon special_rules
 	# and place models at 12"+ distance so RulesEngine's get_critical_hit_threshold() activates.
@@ -455,7 +455,7 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 							existing_rules += ", "
 						existing_rules += conversion_text
 					weapon["special_rules"] = existing_rules
-				print("Mathhammer: Injected Conversion %d+ into attacker %s weapons" % [conversion_threshold, unit_id])
+				DebugLogger.info(str("Mathhammer: Injected Conversion %d+ into attacker %s weapons" % [conversion_threshold, unit_id]))
 		# Place models at 12"+ apart so Conversion activates
 		_place_models_at_conversion_range(trial_board, attackers, defender)
 
@@ -565,12 +565,12 @@ static func _place_models_at_conversion_range(trial_board: Dictionary, attackers
 		var attacker_models = attacker_unit.get("models", [])
 		for i in range(attacker_models.size()):
 			attacker_models[i]["position"] = {"x": float(i) * 20.0, "y": conversion_distance_px}
-	print("Mathhammer: Placed models at 13\" (520px) apart for Conversion range activation")
+	DebugLogger.info(str("Mathhammer: Placed models at 13\" (520px) apart for Conversion range activation"))
 
 # Apply custom defender stat overrides to the defender unit
 # Modifies toughness, save, wounds, model count based on user input
 static func _apply_defender_overrides(defender: Dictionary, overrides: Dictionary, defender_id: String) -> Dictionary:
-	print("Mathhammer: Applying defender overrides for %s: %s" % [defender_id, str(overrides)])
+	DebugLogger.info(str("Mathhammer: Applying defender overrides for %s: %s" % [defender_id, str(overrides)]))
 
 	# Ensure meta.stats exists
 	if not defender.has("meta"):
@@ -581,19 +581,19 @@ static func _apply_defender_overrides(defender: Dictionary, overrides: Dictionar
 	# Override Toughness
 	if overrides.has("toughness") and overrides.toughness > 0:
 		defender["meta"]["stats"]["toughness"] = overrides.toughness
-		print("Mathhammer: Override toughness = %d for %s" % [overrides.toughness, defender_id])
+		DebugLogger.info(str("Mathhammer: Override toughness = %d for %s" % [overrides.toughness, defender_id]))
 
 	# Override Armor Save
 	if overrides.has("save") and overrides.save > 0:
 		defender["meta"]["stats"]["save"] = overrides.save
-		print("Mathhammer: Override save = %d+ for %s" % [overrides.save, defender_id])
+		DebugLogger.info(str("Mathhammer: Override save = %d+ for %s" % [overrides.save, defender_id]))
 
 	# Override Wounds per model
 	if overrides.has("wounds") and overrides.wounds > 0:
 		for model in defender.get("models", []):
 			model["wounds"] = overrides.wounds
 			model["current_wounds"] = overrides.wounds
-		print("Mathhammer: Override wounds = %d per model for %s" % [overrides.wounds, defender_id])
+		DebugLogger.info(str("Mathhammer: Override wounds = %d per model for %s" % [overrides.wounds, defender_id]))
 
 	# Override Model Count — add or remove models to match desired count
 	if overrides.has("model_count") and overrides.model_count > 0:
@@ -608,11 +608,11 @@ static func _apply_defender_overrides(defender: Dictionary, overrides: Dictionar
 				var new_model = template.duplicate(true)
 				new_model["id"] = "m%d" % (current_count + i)
 				models.append(new_model)
-			print("Mathhammer: Added %d models (now %d) for %s" % [target_count - current_count, models.size(), defender_id])
+			DebugLogger.info(str("Mathhammer: Added %d models (now %d) for %s" % [target_count - current_count, models.size(), defender_id]))
 		elif target_count < current_count:
 			# Remove excess models from the end
 			models.resize(target_count)
-			print("Mathhammer: Removed %d models (now %d) for %s" % [current_count - target_count, models.size(), defender_id])
+			DebugLogger.info(str("Mathhammer: Removed %d models (now %d) for %s" % [current_count - target_count, models.size(), defender_id]))
 
 	return defender
 
@@ -770,11 +770,11 @@ static func _generate_statistical_summary(result: SimulationResult) -> Dictionar
 	}
 
 static func _log_simulation_results(result: SimulationResult, attackers: Array, defender: Dictionary, trials: int) -> void:
-	print("\n=========================================")
-	print("=== MATHHAMMER SIMULATION RESULTS ===")
-	print("=========================================")
-	print("Trials run: %d" % trials)
-	print("Number of attacking units: %d" % attackers.size())
+	DebugLogger.info("\n=========================================")
+	DebugLogger.info("=== MATHHAMMER SIMULATION RESULTS ===")
+	DebugLogger.info("=========================================")
+	DebugLogger.info(str("Trials run: %d" % trials))
+	DebugLogger.info(str("Number of attacking units: %d" % attackers.size()))
 	
 	# Aggregate weapon stats across all trials
 	var weapon_totals = {}
@@ -806,7 +806,7 @@ static func _log_simulation_results(result: SimulationResult, attackers: Array, 
 			total_unsaved_across_trials += trial.weapon_breakdown[weapon_id].saves_failed
 	
 	# Log per-weapon breakdown
-	print("\n--- WEAPON BREAKDOWN ---")
+	DebugLogger.info("\n--- WEAPON BREAKDOWN ---")
 	var weapon_count = 0
 	for weapon_id in weapon_totals:
 		weapon_count += 1
@@ -815,38 +815,38 @@ static func _log_simulation_results(result: SimulationResult, attackers: Array, 
 		var wound_rate = (float(stats.wounds) / float(stats.hits) * 100.0) if stats.hits > 0 else 0.0
 		var unsaved_rate = (float(stats.saves_failed) / float(stats.wounds) * 100.0) if stats.wounds > 0 else 0.0
 		
-		print("\n[Weapon %d] %s:" % [weapon_count, stats.weapon_name])
-		print("  Total Attacks: %d" % stats.attacks_made)
-		print("  Avg Attacks/Trial: %.1f" % (float(stats.attacks_made) / float(trials)))
-		print("  Hits: %d (%.1f%%)" % [stats.hits, hit_rate])
-		print("  Wounds: %d (%.1f%% of hits)" % [stats.wounds, wound_rate])
-		print("  Unsaved: %d (%.1f%% of wounds)" % [stats.saves_failed, unsaved_rate])
-		print("  Total Damage: %d" % stats.damage)
-		print("  Avg Damage/Trial: %.2f" % (float(stats.damage) / float(trials)))
+		DebugLogger.info(str("\n[Weapon %d] %s:" % [weapon_count, stats.weapon_name]))
+		DebugLogger.info(str("  Total Attacks: %d" % stats.attacks_made))
+		DebugLogger.info(str("  Avg Attacks/Trial: %.1f" % (float(stats.attacks_made) / float(trials))))
+		DebugLogger.info(str("  Hits: %d (%.1f%%)" % [stats.hits, hit_rate]))
+		DebugLogger.info(str("  Wounds: %d (%.1f%% of hits)" % [stats.wounds, wound_rate]))
+		DebugLogger.info(str("  Unsaved: %d (%.1f%% of wounds)" % [stats.saves_failed, unsaved_rate]))
+		DebugLogger.info(str("  Total Damage: %d" % stats.damage))
+		DebugLogger.info(str("  Avg Damage/Trial: %.2f" % (float(stats.damage) / float(trials))))
 	
 	# Log aggregated totals
 	if weapon_totals.size() > 1:
-		print("\n--- AGGREGATED TOTALS ---")
-		print("Total Attacks Made: %d" % total_attacks_across_trials)
-		print("Total Hits: %d" % total_hits_across_trials)
-		print("Total Wounds: %d" % total_wounds_across_trials)
-		print("Total Unsaved: %d" % total_unsaved_across_trials)
+		DebugLogger.info("\n--- AGGREGATED TOTALS ---")
+		DebugLogger.info(str("Total Attacks Made: %d" % total_attacks_across_trials))
+		DebugLogger.info(str("Total Hits: %d" % total_hits_across_trials))
+		DebugLogger.info(str("Total Wounds: %d" % total_wounds_across_trials))
+		DebugLogger.info(str("Total Unsaved: %d" % total_unsaved_across_trials))
 		var overall_hit_rate = (float(total_hits_across_trials) / float(total_attacks_across_trials) * 100.0) if total_attacks_across_trials > 0 else 0.0
 		var overall_wound_rate = (float(total_wounds_across_trials) / float(total_hits_across_trials) * 100.0) if total_hits_across_trials > 0 else 0.0
 		var overall_unsaved_rate = (float(total_unsaved_across_trials) / float(total_wounds_across_trials) * 100.0) if total_wounds_across_trials > 0 else 0.0
-		print("Overall Hit Rate: %.1f%%" % overall_hit_rate)
-		print("Overall Wound Rate: %.1f%%" % overall_wound_rate) 
-		print("Overall Unsaved Rate: %.1f%%" % overall_unsaved_rate)
+		DebugLogger.info(str("Overall Hit Rate: %.1f%%" % overall_hit_rate))
+		DebugLogger.info(str("Overall Wound Rate: %.1f%%" % overall_wound_rate)) 
+		DebugLogger.info(str("Overall Unsaved Rate: %.1f%%" % overall_unsaved_rate))
 	
 	# Log overall statistics
-	print("\n--- DAMAGE STATISTICS ---")
-	print("Average Damage: %.2f" % result.get_average_damage())
-	print("Median Damage: %d" % result.get_damage_percentile(0.5))
-	print("25th Percentile: %d" % result.get_damage_percentile(0.25))
-	print("75th Percentile: %d" % result.get_damage_percentile(0.75))
-	print("95th Percentile: %d" % result.get_damage_percentile(0.95))
-	print("Max Damage: %d" % result.get_damage_percentile(1.0))
-	print("Min Damage: %d" % result.get_damage_percentile(0.0))
+	DebugLogger.info("\n--- DAMAGE STATISTICS ---")
+	DebugLogger.info(str("Average Damage: %.2f" % result.get_average_damage()))
+	DebugLogger.info(str("Median Damage: %d" % result.get_damage_percentile(0.5)))
+	DebugLogger.info(str("25th Percentile: %d" % result.get_damage_percentile(0.25)))
+	DebugLogger.info(str("75th Percentile: %d" % result.get_damage_percentile(0.75)))
+	DebugLogger.info(str("95th Percentile: %d" % result.get_damage_percentile(0.95)))
+	DebugLogger.info(str("Max Damage: %d" % result.get_damage_percentile(1.0)))
+	DebugLogger.info(str("Min Damage: %d" % result.get_damage_percentile(0.0)))
 	
 	# Get defender info
 	var defender_name = ""
@@ -859,13 +859,13 @@ static func _log_simulation_results(result: SimulationResult, attackers: Array, 
 		defender_wounds = _get_total_wounds(defender)
 		defender_models = _get_total_models(defender)
 	
-	print("\n--- TARGET INFO ---")
-	print("Defender: %s" % defender_name)
-	print("Total Models: %d" % defender_models)
-	print("Total Wounds: %d" % defender_wounds)
-	print("Kill Probability: %.1f%%" % (result.kill_probability * 100))
-	print("Expected Survivors: %.2f models" % result.expected_survivors)
-	print("=========================================\n")
+	DebugLogger.info("\n--- TARGET INFO ---")
+	DebugLogger.info(str("Defender: %s" % defender_name))
+	DebugLogger.info(str("Total Models: %d" % defender_models))
+	DebugLogger.info(str("Total Wounds: %d" % defender_wounds))
+	DebugLogger.info(str("Kill Probability: %.1f%%" % (result.kill_probability * 100)))
+	DebugLogger.info(str("Expected Survivors: %.2f models" % result.expected_survivors))
+	DebugLogger.info("=========================================\n")
 
 # Validation function for simulation configuration
 static func validate_simulation_config(config: Dictionary) -> Dictionary:

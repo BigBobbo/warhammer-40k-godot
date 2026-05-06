@@ -20,3 +20,33 @@ A feature is **not** considered verified until a **windowed scenario** drives th
 - Any commit that adds or changes player-facing behavior MUST add or update a windowed scenario and prove it passes (`bash 40k/tests/run_scenarios.sh tests/scenarios/<id>.json`) before the commit lands.
 - Pure-math / pure-state changes (RulesEngine internals, save/load round-trips, autoload state) MAY be verified headless-only; everything that has a UI affordance must be windowed.
 - Reference: `40k/tests/TESTING_METHODOLOGY.md` and `SESSION_PLAYBOOK.md`.
+
+## Anti-pattern: pin tests are NOT validation (2026-05-06 lesson)
+
+A "pin test" — a headless `_check("func X defined", "func X" in src)` —
+proves the code shape is present. It is a **regression net** that catches
+silent reverts. It is **not** validation that the feature works.
+
+A screenshot labelled `running_with_patches_loaded` or
+`after_implementation` shows the game window with the patch in memory; if
+the feature was never triggered in that screenshot, it is a **marker**, not
+evidence.
+
+**To claim an audit task is validated, you must:**
+
+1. Drive the feature path live via the MCP bridge:
+   - `dispatch_action({type: "X", ...})` and assert `success: true`
+   - or `execute_script` calling the new helper and read the return
+   - or `simulate_key_press` / panel toggle to open the new UI
+2. Inspect the resulting state via `execute_script` reading the diff /
+   updated flags / spawned dialog / tween-in-progress
+3. Capture a screenshot showing the **feature's effect** — the dialog
+   rendered, the token at the new position, the panel listing real rows.
+   The default game screen does not count.
+
+If the feature has no UI affordance (pure-math helper), step 3 is the
+return value of step 1/2 captured in the conversation transcript; an
+explicit screenshot is optional. Everything with a UI surface needs the
+in-game effect captured.
+
+**Reference**: `~/.claude/projects/-Users-robertocallaghan-Documents-claude-godotv2/memory/feedback_pin_tests_arent_live_validation.md`

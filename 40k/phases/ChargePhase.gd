@@ -143,8 +143,11 @@ func _on_phase_exit() -> void:
 	if strat_manager:
 		strat_manager.on_phase_end(GameStateData.Phase.CHARGE)
 
-	# Clear charge flags
-	_clear_phase_flags()
+	# T-056: deliberately do NOT clear `charged_this_turn` / `fights_first` flags
+	# here. The fight phase reads them to compute fight order; clearing on charge
+	# exit was a bug that made charging units lose Fights First in the very next
+	# subphase. The flags are scoped to the player turn and cleared by
+	# TurnManager / Round transition, not by phase exit.
 
 func _initialize_charge() -> void:
 	var current_player = get_current_player()
@@ -440,7 +443,7 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 		if ability_mgr:
 			ability_mgr.mark_once_per_battle_used(unit_id, "Martial Inspiration")
-			print("ChargePhase: Marked Martial Inspiration as used for unit %s (charged after advancing)" % unit_id)
+			DebugLogger.info(str("ChargePhase: Marked Martial Inspiration as used for unit %s (charged after advancing)" % unit_id))
 
 	# Track the currently charging unit (may not have been set via SELECT_CHARGE_UNIT)
 	current_charging_unit = unit_id
@@ -478,7 +481,7 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 
 	if has_sneaky_surprise:
 		log_phase_message("Sneaky Surprise: %s is immune to Fire Overwatch" % unit_name)
-		print("ChargePhase: Sneaky Surprise — %s cannot be targeted by Fire Overwatch" % unit_name)
+		DebugLogger.info(str("ChargePhase: Sneaky Surprise — %s cannot be targeted by Fire Overwatch" % unit_name))
 	else:
 		var charging_owner = int(unit.get("owner", 0))
 		var defending_player = 2 if charging_owner == 1 else 1
@@ -500,7 +503,7 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 					fire_overwatch_enemy_unit_id = unit_id
 					fire_overwatch_eligible_units = ow_eligible
 					log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against charging %s" % [defending_player, ow_eligible.size(), unit_name])
-					print("ChargePhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
+					DebugLogger.info(str("ChargePhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()]))
 
 					emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
 					emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
@@ -565,7 +568,7 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 			"ability_name": reroll_ability_name,
 		}
 
-		print("ChargePhase: Ability reroll (%s) available for %s — pausing for player decision" % [reroll_ability_name, unit_name])
+		DebugLogger.info(str("ChargePhase: Ability reroll (%s) available for %s — pausing for player decision" % [reroll_ability_name, unit_name]))
 		emit_signal("ability_reroll_opportunity", unit_id, get_current_player(), roll_context)
 
 		return create_result(true, [], "", {
@@ -586,7 +589,7 @@ func _check_command_reroll_or_resolve(unit_id: String) -> Dictionary:
 
 	# Per 10e rules: a dice can only be re-rolled once. If ability reroll was used, skip Command Re-roll.
 	if ability_reroll_used:
-		print("ChargePhase: Ability reroll already used for %s — cannot Command Re-roll (dice re-rolled once rule)" % unit_name)
+		DebugLogger.info(str("ChargePhase: Ability reroll already used for %s — cannot Command Re-roll (dice re-rolled once rule)" % unit_name))
 		return _resolve_charge_roll(unit_id)
 
 	# Check if Command Re-roll is available for the charging player
@@ -616,7 +619,7 @@ func _check_command_reroll_or_resolve(unit_id: String) -> Dictionary:
 			"min_distance": min_distance,
 		}
 
-		print("ChargePhase: Command Re-roll available for %s — pausing for player decision" % unit_name)
+		DebugLogger.info(str("ChargePhase: Command Re-roll available for %s — pausing for player decision" % unit_name))
 		emit_signal("command_reroll_opportunity", unit_id, current_player, roll_context)
 
 		# Return the initial roll result with reroll_available flag
@@ -679,7 +682,7 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 
 	if not roll_sufficient:
 		# Charge roll failed — record structured failure, clean up state, broadcast
-		print("ChargePhase: Charge roll INSUFFICIENT for %s (rolled %d, min dist %.1f\")" % [unit_name, total_distance, min_distance])
+		DebugLogger.info(str("ChargePhase: Charge roll INSUFFICIENT for %s (rolled %d, min dist %.1f\")" % [unit_name, total_distance, min_distance]))
 		record_insufficient_roll_failure(unit_id, total_distance, rolls, target_ids, min_distance)
 
 		# Clean up phase state so unit can't retry
@@ -707,7 +710,7 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 		})
 
 	# Roll sufficient — emit normal signals and allow movement
-	print("ChargePhase: Charge roll SUFFICIENT for %s (rolled %d)" % [unit_name, total_distance])
+	DebugLogger.info(str("ChargePhase: Charge roll SUFFICIENT for %s (rolled %d)" % [unit_name, total_distance]))
 	emit_signal("charge_roll_made", unit_id, total_distance, rolls)
 	emit_signal("charge_path_tools_enabled", unit_id, total_distance)
 	emit_signal("dice_rolled", dice_result)
@@ -752,9 +755,9 @@ func _process_use_ability_reroll(action: Dictionary) -> Dictionary:
 		old_rolls[0] + old_rolls[1], str(old_rolls), new_total, new_rolls[0], new_rolls[1]
 	])
 
-	print("ChargePhase: ABILITY REROLL (Swift Onslaught) — %s charge re-rolled: %s → %s (total %d → %d)" % [
+	DebugLogger.info(str("ChargePhase: ABILITY REROLL (Swift Onslaught) — %s charge re-rolled: %s → %s (total %d → %d)" % [
 		unit_name, str(old_rolls), str(new_rolls), old_rolls[0] + old_rolls[1], new_total
-	])
+	]))
 
 	# Dice already re-rolled once — cannot Command Re-roll per 10e rules
 	return _resolve_charge_roll(unit_id)
@@ -768,7 +771,7 @@ func _process_decline_ability_reroll(action: Dictionary) -> Dictionary:
 	if not pending_charges.has(unit_id):
 		return create_result(false, [], "No pending charge for ability reroll decline")
 
-	print("ChargePhase: Ability reroll DECLINED for %s — checking Command Re-roll" % unit_id)
+	DebugLogger.info(str("ChargePhase: Ability reroll DECLINED for %s — checking Command Re-roll" % unit_id))
 
 	# Player chose not to use ability reroll — check Command Re-roll
 	return _check_command_reroll_or_resolve(unit_id)
@@ -803,7 +806,7 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 		}
 		var strat_result = strat_manager.execute_command_reroll(current_player, unit_id, roll_context)
 		if not strat_result.success:
-			print("ChargePhase: Command Re-roll failed: %s" % strat_result.get("error", ""))
+			DebugLogger.info(str("ChargePhase: Command Re-roll failed: %s" % strat_result.get("error", "")))
 			# Fall through to resolve with original roll
 			return _resolve_charge_roll(unit_id)
 
@@ -823,9 +826,9 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 		old_rolls[0] + old_rolls[1], str(old_rolls), new_total, new_rolls[0], new_rolls[1]
 	])
 
-	print("ChargePhase: COMMAND RE-ROLL — %s charge re-rolled: %s → %s (total %d → %d)" % [
+	DebugLogger.info(str("ChargePhase: COMMAND RE-ROLL — %s charge re-rolled: %s → %s (total %d → %d)" % [
 		unit_name, str(old_rolls), str(new_rolls), old_rolls[0] + old_rolls[1], new_total
-	])
+	]))
 
 	# Now resolve the charge with the new roll
 	return _resolve_charge_roll(unit_id)
@@ -839,7 +842,7 @@ func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
 	if not pending_charges.has(unit_id):
 		return create_result(false, [], "No pending charge for reroll decline")
 
-	print("ChargePhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id)
+	DebugLogger.info(str("ChargePhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id))
 
 	# Resolve with the original roll
 	return _resolve_charge_roll(unit_id)
@@ -893,7 +896,7 @@ func _process_use_tank_shock(action: Dictionary) -> Dictionary:
 	var ts_result = strat_manager.execute_tank_shock(current_player, vehicle_unit_id, target_unit_id)
 
 	if not ts_result.success:
-		print("ChargePhase: Tank Shock failed: %s" % ts_result.get("error", ""))
+		DebugLogger.info(str("ChargePhase: Tank Shock failed: %s" % ts_result.get("error", "")))
 		return _check_heroic_intervention_after_tank_shock(vehicle_unit_id, pending_changes)
 
 	log_phase_message(ts_result.get("message", "Tank Shock executed"))
@@ -911,7 +914,7 @@ func _process_decline_tank_shock(action: Dictionary) -> Dictionary:
 	tank_shock_vehicle_unit_id = ""
 	tank_shock_pending_changes = []
 
-	print("ChargePhase: Tank Shock DECLINED")
+	DebugLogger.info("ChargePhase: Tank Shock DECLINED")
 
 	# Still need to check Heroic Intervention
 	return _check_heroic_intervention_after_tank_shock(vehicle_unit_id, pending_changes)
@@ -1014,7 +1017,7 @@ func _apply_spiked_ram_if_applicable(unit_id: String, charge_targets: Array, cha
 		mortal_wounds = ceili(float(d3_roll) / 2.0)
 
 	log_phase_message("SPIKED RAM: %s rolled %d → %d mortal wound(s) on %s" % [unit_name, roll, mortal_wounds, target_name])
-	print("ChargePhase: SPIKED RAM — %s rolled %d → %d mortal wound(s) on %s" % [unit_name, roll, mortal_wounds, target_name])
+	DebugLogger.info(str("ChargePhase: SPIKED RAM — %s rolled %d → %d mortal wound(s) on %s" % [unit_name, roll, mortal_wounds, target_name]))
 
 	if mortal_wounds <= 0:
 		log_phase_message("SPIKED RAM: %s rolled 1 — no mortal wounds" % unit_name)
@@ -1026,7 +1029,7 @@ func _apply_spiked_ram_if_applicable(unit_id: String, charge_targets: Array, cha
 	if not mw_diffs.is_empty():
 		PhaseManager.apply_state_changes(mw_diffs)
 		changes.append_array(mw_diffs)
-		print("ChargePhase: SPIKED RAM applied %d mortal wound(s) to %s (%d casualties)" % [mortal_wounds, target_unit_id, mw_result.get("casualties", 0)])
+		DebugLogger.info(str("ChargePhase: SPIKED RAM applied %d mortal wound(s) to %s (%d casualties)" % [mortal_wounds, target_unit_id, mw_result.get("casualties", 0)]))
 
 func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -1036,11 +1039,11 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 
 	# Enhanced validation - check for empty per_model_paths
 	if per_model_paths.is_empty():
-		print("ERROR: No model paths provided for charge movement")
+		DebugLogger.info("ERROR: No model paths provided for charge movement")
 		return create_result(false, [], "No model paths provided")
 
 	if not pending_charges.has(unit_id):
-		print("ERROR: No pending charge data found for unit ", unit_id)
+		DebugLogger.info(str("ERROR: No pending charge data found for unit ", unit_id))
 		return create_result(false, [], "No pending charge data found")
 
 	var charge_data = pending_charges[unit_id]
@@ -1067,7 +1070,7 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 			"errors": validation.errors,
 		}
 		failed_charge_attempts.append(failure_record)
-		print("ChargePhase: Recorded structured failure - [%s] %s" % [primary_category, validation.errors[0]])
+		DebugLogger.info(str("ChargePhase: Recorded structured failure - [%s] %s" % [primary_category, validation.errors[0]]))
 
 		# Mark as charged (attempted) but unsuccessful
 		units_that_charged.append(unit_id)
@@ -1087,14 +1090,14 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 		var path = per_model_paths[model_id]
 
 		if not (path is Array and path.size() > 0):
-			print("WARNING: Invalid path for model ", model_id, " - skipping")
+			DebugLogger.info(str("WARNING: Invalid path for model ", model_id, " - skipping"))
 			continue
 
 		var final_pos = path[-1]  # Last position in path
 		var model_index = _get_model_index(unit_id, model_id)
 
 		if model_index < 0:
-			print("ERROR: Invalid model_index for ", model_id, " - model not found in unit")
+			DebugLogger.info(str("ERROR: Invalid model_index for ", model_id, " - model not found in unit"))
 			continue
 
 		var change = {
@@ -1206,9 +1209,9 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 						int(charging_unit.get("meta", {}).get("stats", {}).get("toughness", 4)),
 						ts_targets.size()
 					])
-					print("ChargePhase: Tank Shock opportunity — Player %d, vehicle %s, %d eligible targets" % [
+					DebugLogger.info(str("ChargePhase: Tank Shock opportunity — Player %d, vehicle %s, %d eligible targets" % [
 						charging_owner, vehicle_name, ts_targets.size()
-					])
+					]))
 
 					emit_signal("tank_shock_opportunity", charging_owner, unit_id, ts_targets)
 
@@ -1312,10 +1315,10 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 		var can_override = false
 		if flags.get("advanced", false) and EffectPrimitivesData.has_effect_advance_and_charge(unit):
 			can_override = true
-			print("ChargePhase: Unit %s advanced but has advance_and_charge effect — overriding cannot_charge" % unit.get("id", "unknown"))
+			DebugLogger.info(str("ChargePhase: Unit %s advanced but has advance_and_charge effect — overriding cannot_charge" % unit.get("id", "unknown")))
 		if flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_charge(unit):
 			can_override = true
-			print("ChargePhase: Unit %s fell back but has fall_back_and_charge effect — overriding cannot_charge" % unit.get("id", "unknown"))
+			DebugLogger.info(str("ChargePhase: Unit %s fell back but has fall_back_and_charge effect — overriding cannot_charge" % unit.get("id", "unknown")))
 		if not can_override:
 			return false
 
@@ -1335,13 +1338,13 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 		if not EffectPrimitivesData.has_effect_advance_and_charge(unit):
 			return false
 		else:
-			print("ChargePhase: Unit %s advanced but has advance_and_charge effect — eligible to charge" % unit.get("id", "unknown"))
+			DebugLogger.info(str("ChargePhase: Unit %s advanced but has advance_and_charge effect — eligible to charge" % unit.get("id", "unknown")))
 
 	if flags.get("fell_back", false):
 		if not EffectPrimitivesData.has_effect_fall_back_and_charge(unit):
 			return false
 		else:
-			print("ChargePhase: Unit %s fell back but has fall_back_and_charge effect — eligible to charge" % unit.get("id", "unknown"))
+			DebugLogger.info(str("ChargePhase: Unit %s fell back but has fall_back_and_charge effect — eligible to charge" % unit.get("id", "unknown")))
 
 	if flags.get("charged_this_turn", false):
 		return false
@@ -1519,8 +1522,8 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 			var effective_distance = path_distance + terrain_penalty
 
 			if terrain_penalty > 0.0:
-				print("ChargePhase: Model %s terrain penalty: %.1f\" (FLY=%s), effective distance: %.1f\"" % [
-					model_id, terrain_penalty, str(has_fly), effective_distance])
+				DebugLogger.info(str("ChargePhase: Model %s terrain penalty: %.1f\" (FLY=%s), effective distance: %.1f\"" % [
+					model_id, terrain_penalty, str(has_fly), effective_distance]))
 
 			if effective_distance > rolled_distance + MOVEMENT_CAP_EPSILON:
 				var err = ""
@@ -1947,7 +1950,7 @@ func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, tar
 			var unit = get_unit(unit_id)
 			var model_name = model_id
 			errors.append("Model %s did not end closer to any declared charge target" % model_name)
-			print("ChargePhase: Must-end-closer violation - model %s is not closer to any target after move" % model_id)
+			DebugLogger.info(str("ChargePhase: Must-end-closer violation - model %s is not closer to any target after move" % model_id))
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
@@ -2001,7 +2004,7 @@ func _validate_charge_direction_constraint(unit_id: String, per_model_paths: Dic
 		if not ends_closer_to_any_target:
 			var err = "Model %s must end its charge move closer to at least one charge target" % model_id
 			errors.append(err)
-			print("ChargePhase: Direction constraint - %s" % err)
+			DebugLogger.info(str("ChargePhase: Direction constraint - %s" % err))
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
@@ -2081,14 +2084,6 @@ func _get_model_index(unit_id: String, model_id: String) -> int:
 		if models[i].get("id", "") == model_id:
 			return i
 	return -1
-
-func _clear_phase_flags() -> void:
-	var units = game_state_snapshot.get("units", {})
-	for unit_id in units:
-		var unit = units[unit_id]
-		if unit.has("flags"):
-			unit.flags.erase("charged_this_turn")
-			unit.flags.erase("fights_first")
 
 func get_available_actions() -> Array:
 	var actions = []
@@ -2366,7 +2361,7 @@ func record_insufficient_roll_failure(unit_id: String, rolled_distance: int, dic
 		"errors": [detail],
 	}
 	failed_charge_attempts.append(failure_record)
-	print("ChargePhase: Recorded insufficient roll failure - [INSUFFICIENT_ROLL] %s" % detail)
+	DebugLogger.info(str("ChargePhase: Recorded insufficient roll failure - [INSUFFICIENT_ROLL] %s" % detail))
 
 func has_pending_charge(unit_id: String) -> bool:
 	return pending_charges.has(unit_id)
@@ -2524,7 +2519,7 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 			return create_result(false, [], "Failed to use Fire Overwatch: %s" % strat_result.get("error", "unknown"))
 
 	log_phase_message("Player %d uses FIRE OVERWATCH — %s shoots at charging %s!" % [player, unit_name, enemy_unit_name])
-	print("ChargePhase: Fire Overwatch activated — %s (Player %d) shooting at %s" % [unit_name, player, enemy_unit_name])
+	DebugLogger.info(str("ChargePhase: Fire Overwatch activated — %s (Player %d) shooting at %s" % [unit_name, player, enemy_unit_name]))
 
 	# Log targeting notification to GameEventLog
 	var game_event_log = get_node_or_null("/root/GameEventLog")
@@ -2573,7 +2568,7 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 	var player = action.get("player", fire_overwatch_player)
 	log_phase_message("Player %d declined FIRE OVERWATCH" % player)
-	print("ChargePhase: Fire Overwatch DECLINED by Player %d" % player)
+	DebugLogger.info(str("ChargePhase: Fire Overwatch DECLINED by Player %d" % player))
 
 	# Clear Overwatch state (both local and remote)
 	awaiting_fire_overwatch = false
@@ -2850,7 +2845,7 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 	if not roll_sufficient:
 		# Heroic Intervention charge failed
 		log_phase_message("HEROIC INTERVENTION charge FAILED for %s (rolled %d)" % [unit_name, total_distance])
-		print("ChargePhase: Heroic Intervention charge roll INSUFFICIENT for %s (rolled %d)" % [unit_name, total_distance])
+		DebugLogger.info(str("ChargePhase: Heroic Intervention charge roll INSUFFICIENT for %s (rolled %d)" % [unit_name, total_distance]))
 
 		# Clean up HI state
 		heroic_intervention_unit_id = ""
@@ -2865,7 +2860,7 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 		})
 
 	# Roll sufficient — enable movement
-	print("ChargePhase: Heroic Intervention charge roll SUFFICIENT for %s (rolled %d)" % [unit_name, total_distance])
+	DebugLogger.info(str("ChargePhase: Heroic Intervention charge roll SUFFICIENT for %s (rolled %d)" % [unit_name, total_distance]))
 	emit_signal("charge_path_tools_enabled", unit_id, total_distance)
 
 	return create_result(true, [], "", {
@@ -3020,8 +3015,8 @@ func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: i
 				var effective_distance = distance_to_close + terrain_penalty
 
 				if terrain_penalty > 0.0:
-					print("ChargePhase: HI model terrain penalty: %.1f\" (FLY=%s), effective distance: %.1f\"" % [
-						terrain_penalty, str(has_fly), effective_distance])
+					DebugLogger.info(str("ChargePhase: HI model terrain penalty: %.1f\" (FLY=%s), effective distance: %.1f\"" % [
+						terrain_penalty, str(has_fly), effective_distance]))
 
 				if effective_distance <= rolled_distance:
 					return true
@@ -3064,7 +3059,7 @@ func _resolve_piston_driven_brutality_after_charge(unit_id: String, changes: Arr
 	var targets = _get_piston_brutality_targets(unit_id, temp_snapshot)
 	if targets.is_empty():
 		log_phase_message("PISTON-DRIVEN BRUTALITY: %s has ability but no enemies in Engagement Range" % unit_name)
-		print("ChargePhase: Piston-driven Brutality — %s has no valid targets in Engagement Range" % unit_name)
+		DebugLogger.info(str("ChargePhase: Piston-driven Brutality — %s has no valid targets in Engagement Range" % unit_name))
 		return
 
 	# Auto-select first target (same pattern as Dread Foe)
@@ -3186,7 +3181,7 @@ func _check_kill_diffs_for_deadly_demise(diffs: Array) -> void:
 				if not any_alive:
 					var killed_name = killed_unit.get("meta", {}).get("name", killed_unit_id)
 					log_phase_message("PISTON-DRIVEN BRUTALITY: %s destroyed — checking for Deadly Demise" % killed_name)
-					print("ChargePhase: Piston-driven Brutality destroyed %s — Deadly Demise check may apply" % killed_name)
+					DebugLogger.info(str("ChargePhase: Piston-driven Brutality destroyed %s — Deadly Demise check may apply" % killed_name))
 
 func create_result(success: bool, changes: Array = [], error: String = "", additional_data: Dictionary = {}) -> Dictionary:
 	var result = {
@@ -3245,5 +3240,5 @@ func _process_use_stratagem(action: Dictionary) -> Dictionary:
 		return create_result(false, [], result.get("error", "Stratagem use failed"))
 
 	var strat_name = result.get("stratagem_name", stratagem_id)
-	print("ChargePhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id])
+	DebugLogger.info(str("ChargePhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id]))
 	return create_result(true, result.get("diffs", []), "Used " + strat_name)

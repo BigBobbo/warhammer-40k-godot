@@ -25,6 +25,10 @@ const UI_MODAL_Z: int = 2000     # Modal dialogs (wound allocation, save/load, g
 @onready var status_label: Label = $HUD_Bottom/HBoxContainer/StatusLabel
 @onready var auto_decline_overwatch: CheckButton = $HUD_Bottom/HBoxContainer/AutoDeclineOverwatch
 @onready var phase_action_button: Button = $HUD_Bottom/HBoxContainer/PhaseActionButton
+@onready var stratagem_panel_button: Button = $HUD_Bottom/HBoxContainer/StratagemPanelButton
+
+const StratagemPanelClass := preload("res://scripts/StratagemPanel.gd")
+var _stratagem_panel: AcceptDialog = null
 
 @onready var unit_list: ItemList = $HUD_Right/VBoxContainer/UnitListPanel
 @onready var unit_card: VBoxContainer = $HUD_Right/VBoxContainer/UnitCard
@@ -357,6 +361,10 @@ func _ready() -> void:
 
 	# Setup Transport Panel
 	_setup_transport_panel()
+
+	# T-023: wire StratagemPanel button
+	if stratagem_panel_button and not stratagem_panel_button.pressed.is_connected(_toggle_stratagem_panel):
+		stratagem_panel_button.pressed.connect(_toggle_stratagem_panel)
 
 	# Hide left panel (Mathhammer) by default — toggle with hotkey
 	_hide_left_panel()
@@ -725,7 +733,8 @@ func _on_ai_turn_ended(player: int, _action_summary: Array) -> void:
 	_hide_step_continue_button()
 
 func _sync_all_token_positions() -> void:
-	# Sync all token visual positions from GameState (for after AI plays)
+	# T-049: tween tokens to their state-driven positions instead of snapping
+	# (so opponent / AI moves are visible as smooth animations).
 	for child in token_layer.get_children():
 		if child.has_meta("unit_id") and child.has_meta("model_id"):
 			var unit_id = child.get_meta("unit_id")
@@ -737,10 +746,12 @@ func _sync_all_token_positions() -> void:
 				if model.get("id", "") == model_id:
 					var pos = model.get("position")
 					if pos != null:
+						var target_pos: Vector2
 						if pos is Dictionary:
-							child.position = Vector2(pos.x, pos.y)
+							target_pos = Vector2(pos.x, pos.y)
 						else:
-							child.position = pos
+							target_pos = pos
+						_tween_token_to(child, target_pos)
 					if not model.get("alive", true):
 						child.visible = false
 					break
@@ -3762,6 +3773,9 @@ func setup_deployment_controller() -> void:
 	deployment_controller.unit_confirmed.connect(_on_unit_confirmed)
 	deployment_controller.models_placed_changed.connect(_on_models_placed_changed)
 	deployment_controller.coherency_warning_changed.connect(_on_coherency_warning_changed)
+	# T-026: Combat Squads / Patrol Squad split — refresh undeployed list
+	if deployment_controller.has_signal("unit_split_completed"):
+		deployment_controller.unit_split_completed.connect(_on_unit_split_completed)
 
 	# Setup coherency warning banner
 	_setup_coherency_banner()
@@ -4305,6 +4319,13 @@ func _input(event: InputEvent) -> void:
 	# Army panel toggle - KEY_U
 	if event is InputEventKey and event.pressed and event.keycode == KEY_U:
 		_toggle_army_panel()
+		get_viewport().set_input_as_handled()
+		return
+
+	# T-023: stratagem panel toggle - KEY_S (skip when text input focused)
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_S \
+			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+		_toggle_stratagem_panel()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -6553,7 +6574,7 @@ func update_unit_visuals(unit_id: String) -> void:
 					target_pos = model_pos
 				if token.position.distance_to(target_pos) > 1.0:
 					print("  - P1-67: Syncing token position from (%.1f, %.1f) to (%.1f, %.1f)" % [token.position.x, token.position.y, target_pos.x, target_pos.y])
-					token.position = target_pos
+					_tween_token_to(token, target_pos)
 
 			# Also sync rotation from GameState
 			var model_rotation = model.get("rotation", 0.0)
@@ -8929,6 +8950,29 @@ func _replay_refresh_visuals() -> void:
 	_replay_refresh_pending = false
 
 
+# T-049: animate opponent / state-synced model moves so the token doesn't
+# teleport. Active-player drags use staged path visuals already; this is the
+# fallback when GameState says the model has moved (multiplayer / AI / save
+# load) and the token is being snapped to the new spot.
+const T049_TWEEN_DURATION_S: float = 0.25
+const T049_TWEEN_MAX_DURATION_S: float = 0.6
+
+
+func _tween_token_to(token: Node2D, target_pos: Vector2) -> void:
+	if token == null or not is_instance_valid(token):
+		return
+	var distance = token.position.distance_to(target_pos)
+	if distance < 1.0:
+		token.position = target_pos
+		return
+	# Scale duration with distance, capped, so a 30" charge doesn't take seconds.
+	var dur = clampf(T049_TWEEN_DURATION_S + distance * 0.0005, T049_TWEEN_DURATION_S, T049_TWEEN_MAX_DURATION_S)
+	var tween = token.create_tween()
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(token, "position", target_pos, dur)
+
+
 # --- Visual Style Toggle (Key 8) ---
 
 func _toggle_visual_style() -> void:
@@ -8965,6 +9009,42 @@ func _toggle_army_panel() -> void:
 	_army_panel.panel_closed.connect(_on_army_panel_closed)
 	_army_panel.unit_visual_changed.connect(_on_army_panel_visual_changed)
 	print("Main: Army panel opened")
+
+
+func _on_unit_split_completed(source_unit_id: String, sibling_unit_id: String) -> void:
+	# T-026: refresh the right-pane unit list and re-show the deployment chooser.
+	print("Main: unit %s split into %s + %s — refreshing unit list" % [source_unit_id, source_unit_id, sibling_unit_id])
+	refresh_unit_list()
+	# Re-render the army panel if open so the new sibling shows up.
+	if _army_panel and is_instance_valid(_army_panel) and _army_panel.has_method("refresh_units"):
+		_army_panel.refresh_units()
+
+
+# T-023: open/close stratagem panel listing all eligible stratagems
+func _toggle_stratagem_panel() -> void:
+	if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
+		_stratagem_panel.hide()
+		return
+	if _stratagem_panel == null or not is_instance_valid(_stratagem_panel):
+		_stratagem_panel = StratagemPanelClass.new()
+		add_child(_stratagem_panel)
+		_stratagem_panel.z_index = UI_MODAL_Z
+		_stratagem_panel.stratagem_use_requested.connect(_on_stratagem_panel_use_requested)
+	var active_player = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
+	_stratagem_panel.populate(active_player, current_phase)
+	_stratagem_panel.popup_centered()
+
+
+func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager == null:
+		return
+	var active_player = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
+	var result = strat_manager.use_stratagem(active_player, stratagem_id)
+	print("Main: stratagem panel requested use of %s -> %s" % [stratagem_id, str(result)])
+	# Refresh panel after use to update CP / once-per markers
+	if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
+		_stratagem_panel.populate(active_player, current_phase)
 
 
 func _on_army_panel_closed() -> void:

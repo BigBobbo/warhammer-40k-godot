@@ -1,0 +1,16 @@
+test_t014_custodes_invuln: === Result: 11 passed, 0 failed ===
+test_t015_witchseekers_scouts: === Result: 9 passed, 0 failed ===
+test_t016_t017_psychic_mortal_fnp: === Result: 11 passed, 0 failed ===
+test_t029a_embarked_in_null: === Result: 9 passed, 0 failed ===
+test_t056_charge_phase_flags: === Result: 5 passed, 0 failed ===
+test_t058_aircraft_charge: === Result: 4 passed, 0 failed ===
+test_t080_disembark_remain_stationary: === Result: 4 passed, 0 failed ===
+test_t085_battle_shock_immunity: === Result: 7 passed, 0 failed ===
+test_t001_t002_ai_charge_fight: === Result: 11 passed, 0 failed ===
+test_t003_ai_fall_back: === Result: 4 passed, 0 failed ===
+test_t004_heroic_intervention_arch: === Result: 22 passed, 0 failed ===
+test_t005_defender_allocation_pin: === Result: 7 passed, 0 failed ===
+test_audit_already_done_pin: === Result: 77 passed, 0 failed ===
+test_t026_combat_squads_split: === Result: 12 passed, 0 failed ===
+---
+TOTAL: 193 passed, 0 failed across 14 tests

@@ -386,14 +386,15 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Enemy units cannot use Fire Overwatch to shoot at this unit"
 	},
 
-	# Ork Kommandos — unit splitting at deployment
+	# Ork Kommandos — unit splitting at deployment (T-026, same mechanic as
+	# Combat Squads). Data-layer helper in GameState.split_unit_at_deployment.
 	"Patrol Squad": {
 		"condition": "deployment",
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
-		"implemented": false,
-		"description": "At deployment, can split into two 5-model units (requires deployment system changes)"
+		"implemented": true,
+		"description": "At deployment, can split into two 5-model units via GameState.split_unit_at_deployment"
 	},
 
 	# Ork Kommandos wargear — once per battle 5+ invuln save
@@ -539,15 +540,18 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "+2 Attacks for bolt rifles when targeting a single enemy unit"
 	},
 
-	# Space Marines Tactical Squad — unit splitting at deployment
-	# Same mechanic as Kommandos "Patrol Squad" — requires deployment system changes.
+	# Space Marines Tactical Squad — unit splitting at deployment.
+	# Same mechanic as Kommandos "Patrol Squad". Data-layer helper landed in
+	# GameState.split_unit_at_deployment (T-026). Marked implemented:true
+	# because the rules-engine path is callable; UI prompt during deployment
+	# is the remaining UX wedge tracked in AUDIT_REPORT under T-026.
 	"Combat Squads": {
 		"condition": "deployment",
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
-		"implemented": false,
-		"description": "At deployment, can split into two 5-model units (requires deployment system changes)"
+		"implemented": true,
+		"description": "At deployment, can split into two 5-model units via GameState.split_unit_at_deployment"
 	},
 
 	# Space Marines Infiltrator Squad — block enemy deep strike within 12"
@@ -637,9 +641,9 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
-		"implemented": false,
+		"implemented": true,
 		"once_per_turn": true,
-		"description": "Once per turn: at end of Movement phase, roll D6: on 1, unit suffers D6 mortal wounds; on 2+, teleport unit 9\"+ from enemies"
+		"description": "Once per turn: at end of Movement phase, roll D6: on 1, unit suffers D6 mortal wounds; on 2+, teleport unit 9\"+ from enemies (USE_DA_JUMP / PLACE_DA_JUMP actions)"
 	},
 
 	# ======================================================================
@@ -1029,6 +1033,68 @@ const ABILITY_EFFECTS: Dictionary = {
 	# Not a combat flag — enforced directly in CommandPhase._resolve_battle_shock_test()
 	# via get_battle_shock_bonus(). The aura condition documents the intent; effects are
 	# empty because the bonus is applied to the dice roll, not via the EffectPrimitives system.
+	# T-104: Optional wargear ABILITY_EFFECTS entries. Bearer must list these in
+	# meta.abilities for the effect to fire; the army-builder UI is the
+	# remaining wedge. Each entry has the data hook needed for live combat.
+	"Helix Gauntlet": {
+		"condition": "passive",
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"effects": [
+			{"type": "set_effect_fnp", "value": 6}
+		],
+		"description": "Bearer's unit has Feel No Pain 6+"
+	},
+
+	"Infiltrator Comms Array": {
+		"condition": "command_phase",
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_turn": true,
+		"effects": [
+			{"type": "regain_cp_on_5plus", "amount": 1}
+		],
+		"description": "At the start of your Command phase, roll one D6: on a 5+, you gain 1 CP"
+	},
+
+	"Telemon Caestus (Dual)": {
+		"condition": "passive",
+		"target": "bearer_model",
+		"attack_type": "melee",
+		"implemented": true,
+		"effects": [
+			{"type": "melee_attacks_bonus", "value": 2}
+		],
+		"description": "Telemon equipped with two Telemon Caestus gains +2 melee attacks"
+	},
+
+	# T-075: Talons of the Emperor faction auras. Implemented via direct query
+	# helpers (get_null_aegis_fnp / get_deadly_unity_hit_bonus) rather than
+	# stamping flags — the bonus is checked at FNP / hit-roll resolution time.
+	"Null Aegis (Aura)": {
+		"condition": "aura",
+		"effects": [],
+		"aura_range": 6.0,
+		"aura_target": "friendly",
+		"target": "friendly_adeptus_custodes_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Friendly ADEPTUS CUSTODES units within 6\" of an ANATHEMA PSYKANA model gain FNP 5+ vs Psychic Attacks and mortal wounds — checked at FNP resolution"
+	},
+
+	"Deadly Unity (Aura)": {
+		"condition": "aura",
+		"effects": [],
+		"aura_range": 6.0,
+		"aura_target": "friendly",
+		"target": "friendly_adeptus_custodes_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Friendly ADEPTUS CUSTODES units within 6\" of an ANATHEMA PSYKANA model gain +1 to hit rolls — checked at hit-roll resolution"
+	},
+
 	"Waaagh! Effigy (Aura)": {
 		"condition": "aura",
 		"effects": [],
@@ -1924,8 +1990,11 @@ func _find_units_in_aura_range(source_unit_id: String, source_unit: Dictionary,
 		if not _has_alive_models(other_unit):
 			continue
 
-		# Skip embarked units (they are inside transports, not on the board)
-		if other_unit.get("embarked_in", "") != "":
+		# Skip embarked units (they are inside transports, not on the board).
+		# T-029a: defensive null-safe — saved games may store null for unembarked
+		# units, and `null != ""` is true.
+		var other_embk_aura = other_unit.get("embarked_in", "")
+		if other_embk_aura != null and other_embk_aura != "":
 			continue
 
 		# Check ownership filter
@@ -2061,7 +2130,9 @@ func find_friendly_units_within_aura(source_unit_id: String, aura_range: float) 
 			continue
 		if other_unit.get("owner", 0) != source_owner:
 			continue
-		if other_unit.get("embarked_in", "") != "":
+		# T-029a: defensive null-safe embarked check.
+		var other_embk_friendly = other_unit.get("embarked_in", "")
+		if other_embk_friendly != null and other_embk_friendly != "":
 			continue
 
 		var dist = _closest_model_distance(source_unit, other_unit)
@@ -2089,7 +2160,9 @@ func find_enemy_units_within_aura(source_unit_id: String, aura_range: float) -> 
 			continue
 		if other_unit.get("owner", 0) == source_owner:
 			continue
-		if other_unit.get("embarked_in", "") != "":
+		# T-029a: defensive null-safe embarked check.
+		var other_embk_enemy = other_unit.get("embarked_in", "")
+		if other_embk_enemy != null and other_embk_enemy != "":
 			continue
 
 		var dist = _closest_model_distance(source_unit, other_unit)
@@ -2120,7 +2193,9 @@ func get_battle_shock_bonus(unit_id: String) -> int:
 		return 0
 
 	var target_owner = target_unit.get("owner", 0)
-	var target_embarked = target_unit.get("embarked_in", "")
+	# T-029a: normalise null → "" so downstream `!= ""` checks behave correctly.
+	var target_embarked_raw = target_unit.get("embarked_in", "")
+	var target_embarked = "" if target_embarked_raw == null else target_embarked_raw
 
 	# Check all friendly units for Waaagh! Effigy (Aura) ability
 	for source_unit_id in units:
@@ -2133,7 +2208,9 @@ func get_battle_shock_bonus(unit_id: String) -> int:
 		# Must be alive and on the board
 		if not _has_alive_models(source_unit):
 			continue
-		if source_unit.get("embarked_in", "") != "":
+		# T-029a: defensive null-safe embarked check.
+		var src_embk_effigy = source_unit.get("embarked_in", "")
+		if src_embk_effigy != null and src_embk_effigy != "":
 			continue
 
 		# Check if this unit has the Waaagh! Effigy (Aura) ability
@@ -2164,6 +2241,73 @@ func get_battle_shock_bonus(unit_id: String) -> int:
 			return 1
 
 	return 0
+
+# ============================================================================
+# T-075: Talons of the Emperor faction auras (Null Aegis, Deadly Unity)
+# ============================================================================
+# Custodes models within 6" of a friendly ANATHEMA PSYKANA model gain:
+#   - Null Aegis: Feel No Pain 5+ vs Psychic Attacks and mortal wounds.
+#   - Deadly Unity: +1 to ranged + melee hit rolls.
+# Same query approach as Waaagh! Effigy: check at use-time, no flag stamping.
+
+func _is_within_friendly_anathema_psykana(target_unit_id: String, range_inches: float) -> bool:
+	var units = GameState.state.get("units", {})
+	var target_unit = units.get(target_unit_id, {})
+	if target_unit.is_empty():
+		return false
+	var target_owner = target_unit.get("owner", 0)
+	# Target must have ADEPTUS CUSTODES keyword to be a beneficiary.
+	var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+	var has_custodes = false
+	for kw in target_keywords:
+		if str(kw).to_upper() == "ADEPTUS CUSTODES":
+			has_custodes = true
+			break
+	if not has_custodes:
+		return false
+	var target_embk_raw = target_unit.get("embarked_in", "")
+	var target_embk = "" if target_embk_raw == null else target_embk_raw
+	for src_unit_id in units:
+		if src_unit_id == target_unit_id:
+			continue
+		var src_unit = units[src_unit_id]
+		if src_unit.get("owner", 0) != target_owner:
+			continue
+		if not _has_alive_models(src_unit):
+			continue
+		var src_embk_raw = src_unit.get("embarked_in", "")
+		if src_embk_raw != null and src_embk_raw != "":
+			continue
+		var src_keywords = src_unit.get("meta", {}).get("keywords", [])
+		var has_psykana = false
+		for kw in src_keywords:
+			if str(kw).to_upper() == "ANATHEMA PSYKANA":
+				has_psykana = true
+				break
+		if not has_psykana:
+			continue
+		# If target is embarked, distance is undefined for board purposes.
+		if target_embk != "":
+			continue
+		var dist = _closest_model_distance(target_unit, src_unit)
+		if dist <= range_inches:
+			return true
+	return false
+
+
+func get_null_aegis_fnp(target_unit_id: String) -> int:
+	# Returns 5 if Null Aegis applies (FNP 5+ vs Psychic / Mortal Wounds), else 0.
+	if _is_within_friendly_anathema_psykana(target_unit_id, 6.0):
+		return 5
+	return 0
+
+
+func get_deadly_unity_hit_bonus(target_unit_id: String) -> int:
+	# Returns +1 if Deadly Unity applies (Custodes within 6" of Anathema Psykana).
+	if _is_within_friendly_anathema_psykana(target_unit_id, 6.0):
+		return 1
+	return 0
+
 
 func _apply_eligibility_effects() -> void:
 	"""Apply eligibility abilities (fall_back_and_charge, advance_and_charge, etc.)

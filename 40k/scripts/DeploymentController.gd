@@ -6,6 +6,9 @@ signal deployment_complete()
 signal unit_confirmed()
 signal models_placed_changed()
 signal coherency_warning_changed(is_incoherent: bool, message: String)
+# T-026: emitted after a Combat Squads / Patrol Squad split so the host UI
+# can refresh the undeployed list and re-route the click to either half.
+signal unit_split_completed(source_unit_id: String, sibling_unit_id: String)
 
 var unit_id: String = ""
 var model_idx: int = -1
@@ -182,6 +185,13 @@ func begin_deploy(_unit_id: String) -> void:
 		print("[DeploymentController] Blocking deployment - not your turn")
 		return
 
+	# T-026: offer Combat Squads / Patrol Squad split before deployment for an
+	# eligible undeployed 10-model unit. Skips if user previously declined this
+	# session for this unit, or if the unit was already split.
+	if _maybe_offer_combat_squad_split(_unit_id):
+		# A dialog is open; defer the actual deploy to the dialog's callbacks.
+		return
+
 	unit_id = _unit_id
 	model_idx = 0
 	temp_positions.clear()
@@ -348,6 +358,79 @@ func begin_deploy(_unit_id: String) -> void:
 		var remaining = _get_unplaced_model_indices()
 		if not remaining.is_empty():
 			_create_formation_ghosts(min(formation_size, remaining.size()))
+
+var _split_declined_units: Dictionary = {}
+var _pending_split_unit_id: String = ""
+
+
+func _maybe_offer_combat_squad_split(p_unit_id: String) -> bool:
+	# Returns true if we showed a confirm dialog (caller should defer the deploy).
+	if _split_declined_units.has(p_unit_id):
+		return false
+	var unit = GameState.get_unit(p_unit_id)
+	if unit.is_empty():
+		return false
+	if unit.get("split_from_combat_squads", false):
+		return false  # already a half — don't re-offer
+	if int(unit.get("status", 0)) != GameStateData.UnitStatus.UNDEPLOYED:
+		return false
+	var alive = 0
+	for m in unit.get("models", []):
+		if m.get("alive", true):
+			alive += 1
+	if alive != 10:
+		return false
+	var splittable = false
+	for ab in unit.get("meta", {}).get("abilities", []):
+		var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
+		if ab_name in ["Combat Squads", "Patrol Squad"]:
+			splittable = true
+			break
+	if not splittable:
+		return false
+
+	var dialog = ConfirmationDialog.new()
+	dialog.title = "Split Unit?"
+	var unit_name = unit.get("meta", {}).get("name", p_unit_id)
+	dialog.dialog_text = "%s can be split into two 5-model squads (Combat Squads / Patrol Squad).\nSplit before deployment?" % unit_name
+	dialog.get_ok_button().text = "Split"
+	dialog.get_cancel_button().text = "Deploy as 10"
+	# Wire up handlers BEFORE showing
+	_pending_split_unit_id = p_unit_id
+	dialog.confirmed.connect(_on_combat_squad_split_confirmed.bind(p_unit_id, dialog))
+	dialog.canceled.connect(_on_combat_squad_split_declined.bind(p_unit_id, dialog))
+	# Find a suitable parent so the dialog renders on top
+	var parent = get_tree().current_scene if get_tree() else null
+	if parent == null:
+		parent = self
+	parent.add_child(dialog)
+	dialog.popup_centered()
+	return true
+
+
+func _on_combat_squad_split_confirmed(p_unit_id: String, dialog: ConfirmationDialog) -> void:
+	if dialog and is_instance_valid(dialog):
+		dialog.queue_free()
+	if _pending_split_unit_id != p_unit_id:
+		return
+	_pending_split_unit_id = ""
+	var sibling_id = GameState.split_unit_at_deployment(p_unit_id)
+	if sibling_id == "":
+		print("[DeploymentController] T-026 split failed for %s" % p_unit_id)
+		return
+	emit_signal("unit_split_completed", p_unit_id, sibling_id)
+	# Don't auto-deploy either half — return control to the host UI so the user
+	# can pick which half to deploy first.
+
+
+func _on_combat_squad_split_declined(p_unit_id: String, dialog: ConfirmationDialog) -> void:
+	if dialog and is_instance_valid(dialog):
+		dialog.queue_free()
+	_split_declined_units[p_unit_id] = true
+	_pending_split_unit_id = ""
+	# Re-enter begin_deploy now that the user has declined the split.
+	begin_deploy(p_unit_id)
+
 
 func is_placing() -> bool:
 	return unit_id != ""

@@ -187,13 +187,13 @@ func get_unit_movement(unit: Dictionary) -> float:
 	var bionik_bonus = unit.get("flags", {}).get("bionik_workshop_bonus", "")
 	if bionik_bonus == "move":
 		movement += 1.0
-		print("MovementPhase: Bionik Workshop — movement %d → %d (+1\")" % [int(movement - 1), int(movement)])
+		DebugLogger.info(str("MovementPhase: Bionik Workshop — movement %d → %d (+1\")" % [int(movement - 1), int(movement)]))
 
 	# SPECIAL DOSE: +6" to Move while Waaagh! active (Zodgrod Wortsnagga)
 	if unit.get("flags", {}).get("special_dose_active", false):
 		var old_movement = movement
 		movement += 6.0
-		print("MovementPhase: Special Dose — movement %d → %d (+6\")" % [int(old_movement), int(movement)])
+		DebugLogger.info(str("MovementPhase: Special Dose — movement %d → %d (+6\")" % [int(old_movement), int(movement)]))
 
 	return movement
 
@@ -245,7 +245,7 @@ func _on_phase_enter() -> void:
 	# OA-8: Snapshot engagement state at phase start for Krump and Run eligibility
 	_engagement_at_phase_start = _compute_engagement_snapshot()
 	if not _engagement_at_phase_start.is_empty():
-		print("MovementPhase: OA-8 engagement snapshot — %d units in engagement at phase start" % _engagement_at_phase_start.size())
+		DebugLogger.info(str("MovementPhase: OA-8 engagement snapshot — %d units in engagement at phase start" % _engagement_at_phase_start.size()))
 
 	# Connect to TransportManager to handle disembark completion
 	if TransportManager and not TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
@@ -373,10 +373,10 @@ func _check_thievin_scavengers() -> void:
 		# No units with this ability — skip silently (player doesn't have Gretchin)
 		return
 
-	print("MovementPhase: Thievin' Scavengers — checking %d unit(s) with ability: %s" % [scavenger_units.size(), str(scavenger_units)])
+	DebugLogger.info(str("MovementPhase: Thievin' Scavengers — checking %d unit(s) with ability: %s" % [scavenger_units.size(), str(scavenger_units)]))
 
 	if objectives.is_empty():
-		print("MovementPhase: Thievin' Scavengers — no objectives on board, skipping")
+		DebugLogger.info("MovementPhase: Thievin' Scavengers — no objectives on board, skipping")
 		return
 
 	# Refresh objective control state before checking, so it's current
@@ -396,7 +396,7 @@ func _check_thievin_scavengers() -> void:
 			continue
 		var controller = MissionManager.objective_control_state.get(obj.id, 0)
 		if controller != current_player:
-			print("MovementPhase: Thievin' Scavengers — objective %s controlled by player %d, not current player %d" % [obj.id, controller, current_player])
+			DebugLogger.info(str("MovementPhase: Thievin' Scavengers — objective %s controlled by player %d, not current player %d" % [obj.id, controller, current_player]))
 			continue
 
 		var obj_pos = obj.position
@@ -408,11 +408,11 @@ func _check_thievin_scavengers() -> void:
 		for unit_id in scavenger_units:
 			var unit = units[unit_id]
 			if unit.get("flags", {}).get("battle_shocked", false):
-				print("MovementPhase: Thievin' Scavengers — unit %s is Battle-shocked, skipping" % unit_id)
+				DebugLogger.info(str("MovementPhase: Thievin' Scavengers — unit %s is Battle-shocked, skipping" % unit_id))
 				continue
 			var status = unit.get("status", GameStateData.UnitStatus.UNDEPLOYED)
 			if status == GameStateData.UnitStatus.UNDEPLOYED:
-				print("MovementPhase: Thievin' Scavengers — unit %s is not deployed (status=%s), skipping" % [unit_id, str(status)])
+				DebugLogger.info(str("MovementPhase: Thievin' Scavengers — unit %s is not deployed (status=%s), skipping" % [unit_id, str(status)]))
 				continue
 
 			# Check if any alive model in this unit is within range of the objective
@@ -429,7 +429,7 @@ func _check_thievin_scavengers() -> void:
 					has_ability_unit = true
 					break
 				else:
-					print("MovementPhase: Thievin' Scavengers — model in %s is %.1f\" from objective %s (need <= %.1f\")" % [unit_id, Measurement.px_to_inches(edge_distance), obj.id, Measurement.px_to_inches(control_radius)])
+					DebugLogger.info(str("MovementPhase: Thievin' Scavengers — model in %s is %.1f\" from objective %s (need <= %.1f\")" % [unit_id, Measurement.px_to_inches(edge_distance), obj.id, Measurement.px_to_inches(control_radius)]))
 
 			if has_ability_unit:
 				break
@@ -439,7 +439,7 @@ func _check_thievin_scavengers() -> void:
 
 	if qualifying_objectives.is_empty():
 		var no_qualify_text = "Thievin' Scavengers: No controlled objectives with Gretchin in range — ability does not trigger"
-		print("MovementPhase: %s" % no_qualify_text)
+		DebugLogger.info(str("MovementPhase: %s" % no_qualify_text))
 		if game_event_log:
 			game_event_log.add_info_entry(no_qualify_text)
 		return
@@ -464,7 +464,7 @@ func _check_thievin_scavengers() -> void:
 
 	var rolls_summary = ", ".join(roll_descriptions)
 	var log_text = "Thievin' Scavengers: Rolled for %d objective(s) — %s" % [qualifying_objectives.size(), rolls_summary]
-	print("MovementPhase: %s" % log_text)
+	DebugLogger.info(str("MovementPhase: %s" % log_text))
 	if game_event_log:
 		game_event_log.add_info_entry(log_text)
 
@@ -493,19 +493,19 @@ func _check_thievin_scavengers() -> void:
 
 			var gain_text = "Thievin' Scavengers: Player %d gains 1CP! (now %dCP)" % [current_player, current_cp + 1]
 			notification_text = "Thievin' Scavengers\nRolled: %s\n+1 CP! (now %d CP)" % [rolls_summary, current_cp + 1]
-			print("MovementPhase: %s" % gain_text)
+			DebugLogger.info(str("MovementPhase: %s" % gain_text))
 			if game_event_log:
 				game_event_log.add_info_entry(gain_text)
 		else:
 			var cap_text = "Thievin' Scavengers: Player %d rolled 4+ but already gained bonus CP this round (cap reached)" % current_player
 			notification_text = "Thievin' Scavengers\nRolled: %s\nCP cap reached — no CP gained"  % rolls_summary
-			print("MovementPhase: %s" % cap_text)
+			DebugLogger.info(str("MovementPhase: %s" % cap_text))
 			if game_event_log:
 				game_event_log.add_info_entry(cap_text)
 	else:
 		var fail_text = "Thievin' Scavengers: No rolls of 4+ — no CP gained"
 		notification_text = "Thievin' Scavengers\nRolled: %s\nNo 4+ — no CP gained" % rolls_summary
-		print("MovementPhase: %s" % fail_text)
+		DebugLogger.info(str("MovementPhase: %s" % fail_text))
 		if game_event_log:
 			game_event_log.add_info_entry(fail_text)
 
@@ -676,6 +676,11 @@ func validate_action(action: Dictionary) -> Dictionary:
 			if not _awaiting_scatter:
 				return {"valid": false, "errors": ["Not awaiting Scatter! decision"]}
 			return {"valid": true}
+		"USE_DA_JUMP":
+			# Validation lives in _process_use_da_jump (returns clear errors).
+			return {"valid": true}
+		"PLACE_DA_JUMP":
+			return {"valid": true}
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -775,6 +780,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_scatter(action)
 		"DECLINE_SCATTER":
 			return _process_decline_scatter(action)
+		"USE_DA_JUMP":
+			return _process_use_da_jump(action)
+		"PLACE_DA_JUMP":
+			return _process_place_da_jump(action)
 		"END_COMMAND":
 			return create_result(true, [], "")
 		_:
@@ -985,7 +994,7 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	if model_source_unit_id != "":
 		model = _get_model_in_unit(model_source_unit_id, model_id)
 		if not model.is_empty():
-			print("[MovementPhase] Found model %s in specified source unit %s" % [model_id, model_source_unit_id])
+			DebugLogger.info(str("[MovementPhase] Found model %s in specified source unit %s" % [model_id, model_source_unit_id]))
 	if model.is_empty():
 		model = _get_model_in_unit(unit_id, model_id)
 	if model.is_empty():
@@ -994,7 +1003,7 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 		for char_id in attached_chars:
 			model = _get_model_in_unit(char_id, model_id)
 			if not model.is_empty():
-				print("[MovementPhase] Found model %s in attached character unit %s" % [model_id, char_id])
+				DebugLogger.info(str("[MovementPhase] Found model %s in attached character unit %s" % [model_id, char_id]))
 				break
 	if model.is_empty():
 		return {"valid": false, "errors": ["Model not found in unit"]}
@@ -1368,7 +1377,7 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	if flags.get("effect_boardin_rush", false):
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		log_phase_message("Advance: %s → Boardin' Rush active — skip roll, +6\" to Move" % unit_name)
-		print("MovementPhase: Boardin' Rush — %s advances with flat +6\" (no roll)" % unit_name)
+		DebugLogger.info(str("MovementPhase: Boardin' Rush — %s advances with flat +6\" (no roll)" % unit_name))
 		# Log to GameEventLog
 		var game_event_log = get_node_or_null("/root/GameEventLog")
 		if game_event_log:
@@ -1382,7 +1391,7 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	if EffectPrimitivesData.has_effect_flat_advance(unit) or EffectPrimitivesData.has_effect_auto_advance_6(unit):
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		log_phase_message("Advance: %s → auto advance ability active — skip roll, +6\" to Move" % unit_name)
-		print("MovementPhase: Auto Advance 6 — %s advances with flat +6\" (no roll)" % unit_name)
+		DebugLogger.info(str("MovementPhase: Auto Advance 6 — %s advances with flat +6\" (no roll)" % unit_name))
 		var game_event_log = get_node_or_null("/root/GameEventLog")
 		if game_event_log:
 			var owner = int(unit.get("owner", 0))
@@ -1438,7 +1447,7 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 			"context_text": context_text,
 		}
 
-		print("MovementPhase: Command Re-roll available for %s advance — pausing for decision" % unit_name)
+		DebugLogger.info(str("MovementPhase: Command Re-roll available for %s advance — pausing for decision" % unit_name))
 		emit_signal("command_reroll_opportunity", unit_id, current_player, roll_context)
 
 		return create_result(true, [], "", {
@@ -1540,14 +1549,14 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 		}
 		var strat_result = strat_manager.execute_command_reroll(current_player, unit_id, roll_context)
 		if not strat_result.success:
-			print("MovementPhase: Command Re-roll failed: %s" % strat_result.get("error", ""))
+			DebugLogger.info(str("MovementPhase: Command Re-roll failed: %s" % strat_result.get("error", "")))
 			# Notify user of failure
 			var toast_mgr = get_node_or_null("/root/ToastManager")
 			if toast_mgr:
 				toast_mgr.show_error("Command Re-roll failed: %s" % strat_result.get("error", "Unknown"))
 			return _resolve_advance_roll(unit_id, old_roll)
 	else:
-		print("MovementPhase: WARNING — StratagemManager not found, cannot deduct CP")
+		DebugLogger.info("MovementPhase: WARNING — StratagemManager not found, cannot deduct CP")
 
 	# Re-roll D6
 	# Issue #329: honor payload.rng_seed
@@ -1557,7 +1566,7 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 	var new_advance = new_rolls[0]
 
 	log_phase_message("COMMAND RE-ROLL: Advance re-rolled from %d → %d" % [old_roll, new_advance])
-	print("MovementPhase: COMMAND RE-ROLL — %s advance re-rolled: %d → %d" % [unit_name, old_roll, new_advance])
+	DebugLogger.info(str("MovementPhase: COMMAND RE-ROLL — %s advance re-rolled: %d → %d" % [unit_name, old_roll, new_advance]))
 
 	# P3-118: Emit reroll comparison data for visualization
 	emit_signal("command_reroll_completed", [old_roll], [new_advance], "advance_roll")
@@ -1595,7 +1604,7 @@ func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
 	var move_inches = old_data.get("move_inches", 0)
 	var total_move = int(move_inches) + advance_roll
 
-	print("MovementPhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id)
+	DebugLogger.info(str("MovementPhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id))
 
 	# Show toast with original roll result
 	var toast_mgr = get_node_or_null("/root/ToastManager")
@@ -1631,7 +1640,7 @@ func _check_fire_overwatch_opportunity(unit_id: String, trigger_context: String,
 
 	if _has_sneaky_surprise:
 		log_phase_message("Sneaky Surprise: %s is immune to Fire Overwatch" % unit_name)
-		print("MovementPhase: Sneaky Surprise — %s cannot be targeted by Fire Overwatch" % unit_name)
+		DebugLogger.info(str("MovementPhase: Sneaky Surprise — %s cannot be targeted by Fire Overwatch" % unit_name))
 		return {"triggered": false}
 
 	var moving_owner = int(unit.get("owner", 0))
@@ -1663,7 +1672,7 @@ func _check_fire_overwatch_opportunity(unit_id: String, trigger_context: String,
 	_fire_overwatch_enemy_unit_id = unit_id
 	_fire_overwatch_eligible_units = ow_eligible
 	log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against %s (%s)" % [defending_player, ow_eligible.size(), unit_name, trigger_context])
-	print("MovementPhase: Fire Overwatch opportunity — Player %d has %d eligible units (%s)" % [defending_player, ow_eligible.size(), trigger_context])
+	DebugLogger.info(str("MovementPhase: Fire Overwatch opportunity — Player %d has %d eligible units (%s)" % [defending_player, ow_eligible.size(), trigger_context]))
 
 	emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
 	emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
@@ -1740,7 +1749,7 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 			return create_result(false, [], "Failed to use Fire Overwatch: %s" % strat_result.get("error", "unknown"))
 
 	log_phase_message("Player %d uses FIRE OVERWATCH — %s shoots at moving %s!" % [player, unit_name, enemy_unit_name])
-	print("MovementPhase: Fire Overwatch activated — %s (Player %d) shooting at %s" % [unit_name, player, enemy_unit_name])
+	DebugLogger.info(str("MovementPhase: Fire Overwatch activated — %s (Player %d) shooting at %s" % [unit_name, player, enemy_unit_name]))
 
 	# Log targeting notification to GameEventLog
 	var game_event_log = get_node_or_null("/root/GameEventLog")
@@ -1788,7 +1797,7 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 		_krump_and_run_pending_after_overwatch = false
 		var fell_back_id = _krump_and_run_pending_fell_back_id
 		_krump_and_run_pending_fell_back_id = ""
-		print("MovementPhase: OA-8 Checking deferred Krump and Run after Fire Overwatch used")
+		DebugLogger.info("MovementPhase: OA-8 Checking deferred Krump and Run after Fire Overwatch used")
 		# game_state_snapshot is now updated with fall-back positions
 		var kar_result = _check_krump_and_run_opportunity(fell_back_id)
 		if kar_result.triggered:
@@ -1811,7 +1820,7 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 		_scatter_pending_trigger_id = ""
 		_scatter_pending_changes = []
 		_scatter_pending_dice = []
-		print("MovementPhase: OA-42 Checking deferred Scatter! after Fire Overwatch used")
+		DebugLogger.info("MovementPhase: OA-42 Checking deferred Scatter! after Fire Overwatch used")
 		var sct_result = _check_scatter_opportunity(trigger_id)
 		if sct_result.triggered:
 			var sct_extra_result = create_result(true, ow_shooting_result.get("diffs", []))
@@ -1840,7 +1849,7 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 	var player = action.get("player", _fire_overwatch_player)
 	log_phase_message("Player %d declined FIRE OVERWATCH" % player)
-	print("MovementPhase: Fire Overwatch DECLINED by Player %d" % player)
+	DebugLogger.info(str("MovementPhase: Fire Overwatch DECLINED by Player %d" % player))
 
 	# Clear Overwatch state
 	_awaiting_fire_overwatch = false
@@ -1862,7 +1871,7 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 		_krump_and_run_pending_after_overwatch = false
 		var fell_back_id = _krump_and_run_pending_fell_back_id
 		_krump_and_run_pending_fell_back_id = ""
-		print("MovementPhase: OA-8 Checking deferred Krump and Run after Fire Overwatch declined")
+		DebugLogger.info("MovementPhase: OA-8 Checking deferred Krump and Run after Fire Overwatch declined")
 		var kar_result = _check_krump_and_run_opportunity(fell_back_id)
 		if kar_result.triggered:
 			var result = create_result(true, [])
@@ -1876,7 +1885,7 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 		_scatter_pending_trigger_id = ""
 		_scatter_pending_changes = []
 		_scatter_pending_dice = []
-		print("MovementPhase: OA-42 Checking deferred Scatter! after Fire Overwatch declined")
+		DebugLogger.info("MovementPhase: OA-42 Checking deferred Scatter! after Fire Overwatch declined")
 		var sct_result = _check_scatter_opportunity(trigger_id)
 		if sct_result.triggered:
 			var result = create_result(true, [])
@@ -1915,10 +1924,10 @@ func _process_use_bomb_squigs(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var target_unit_id = action.get("target_unit_id", "")
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P2-25: BOMB SQUIGS — ACTIVATED")
-	print("║ Unit ID: ", unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P2-25: BOMB SQUIGS — ACTIVATED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Get cached movement changes/dice
 	var cached_changes = _bomb_squigs_pending_changes.duplicate()
@@ -1943,7 +1952,7 @@ func _process_use_bomb_squigs(action: Dictionary) -> Dictionary:
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
 		var squig_index = ability_mgr.mark_bomb_squig_used(unit_id)
-		print("║ P2-25: Bomb Squig #%d used" % squig_index)
+		DebugLogger.info(str("║ P2-25: Bomb Squig #%d used" % squig_index))
 
 	# Resolve: roll 1D6, on 3+ the target suffers D3 mortal wounds
 	# Issue #329: forward action.payload.rng_seed
@@ -1964,7 +1973,7 @@ func _process_use_bomb_squigs(action: Dictionary) -> Dictionary:
 		var bomb_targets = _get_bomb_squigs_targets(unit_id)
 		if not bomb_targets.is_empty():
 			var remaining = ability_mgr.get_bomb_squigs_remaining(unit_id)
-			print("MovementPhase: OA-30 Bomb Squigs — %s has %d squig(s) remaining, re-offering" % [unit_name, remaining])
+			DebugLogger.info(str("MovementPhase: OA-30 Bomb Squigs — %s has %d squig(s) remaining, re-offering" % [unit_name, remaining]))
 			_bomb_squigs_pending_unit = unit_id
 			_bomb_squigs_pending_changes = all_changes
 			_bomb_squigs_pending_dice = cached_dice
@@ -1986,10 +1995,10 @@ func _process_decline_bomb_squigs(action: Dictionary) -> Dictionary:
 	"""Player declines Bomb Squigs — proceed normally."""
 	var unit_id = action.get("actor_unit_id", "")
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P2-25: BOMB SQUIGS — DECLINED")
-	print("║ Unit ID: ", unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P2-25: BOMB SQUIGS — DECLINED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	var cached_changes = _bomb_squigs_pending_changes.duplicate()
 	var cached_dice = _bomb_squigs_pending_dice.duplicate()
@@ -2031,10 +2040,10 @@ func _process_use_deff_from_above(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var target_unit_id = action.get("target_unit_id", "")
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-25: DEFF FROM ABOVE — ACTIVATED")
-	print("║ Unit ID: ", unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-25: DEFF FROM ABOVE — ACTIVATED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Get cached movement changes/dice
 	var cached_changes = _deff_from_above_pending_changes.duplicate()
@@ -2072,14 +2081,116 @@ func _process_use_deff_from_above(action: Dictionary) -> Dictionary:
 
 	return create_result(true, all_changes, "Deff from Above resolved", {"dice": cached_dice})
 
+func _process_use_da_jump(action: Dictionary) -> Dictionary:
+	# T-105: Da Jump (Weirdboy psychic). End-of-Movement teleport.
+	# Roll D6: on 1, unit suffers D6 mortal wounds. On 2+, unit is removed and
+	# can be placed anywhere 9"+ horizontally from all enemies (PLACE_DA_JUMP).
+	var unit_id = action.get("actor_unit_id", "")
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return create_result(false, [], "Da Jump: unit not found")
+	if unit.get("flags", {}).get("da_jump_used_this_turn", false):
+		return create_result(false, [], "Da Jump: already used this turn")
+	var has_da_jump = false
+	for ab in unit.get("meta", {}).get("abilities", []):
+		var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
+		if ab_name == "Da Jump":
+			has_da_jump = true
+			break
+	if not has_da_jump:
+		return create_result(false, [], "Da Jump: unit lacks the ability")
+
+	var rng_seed: int = action.get("payload", {}).get("rng_seed", -1)
+	var rng = RulesEngine.RNGService.new(rng_seed)
+	var roll_result = rng.roll_d6(1)
+	var roll_val = int(roll_result[0]) if roll_result.size() > 0 else 1
+
+	var diffs = [
+		{"op": "set", "path": "units.%s.flags.da_jump_used_this_turn" % unit_id, "value": true},
+	]
+	var dice = [{"context": "Da Jump roll", "rolls": [roll_val]}]
+
+	if roll_val == 1:
+		# Mortal wounds: roll D6 for damage count
+		var damage_roll = rng.roll_d6(1)
+		var dmg = int(damage_roll[0]) if damage_roll.size() > 0 else 1
+		dice.append({"context": "Da Jump backlash damage", "rolls": [dmg]})
+		var rules_engine = get_node_or_null("/root/RulesEngine")
+		if rules_engine and rules_engine.has_method("apply_mortal_wounds"):
+			rules_engine.apply_mortal_wounds(unit_id, dmg, false, "psychic", rng_seed)
+		log_phase_message("Da Jump backlash: %s suffers %d mortal wound(s)" % [unit_id, dmg])
+		return create_result(true, diffs, "Da Jump failed (1) — %d MW dealt" % dmg, {"dice": dice})
+
+	# 2+: unit removed and pending placement.
+	# Mark the unit as awaiting Da Jump placement. PLACE_DA_JUMP applies positions.
+	diffs.append({"op": "set", "path": "units.%s.flags.awaiting_da_jump_placement" % unit_id, "value": true})
+	log_phase_message("Da Jump (%d): %s removed and awaiting placement 9\"+ from enemies" % [roll_val, unit_id])
+	return create_result(true, diffs, "Da Jump succeeded — place unit", {"dice": dice})
+
+
+func _process_place_da_jump(action: Dictionary) -> Dictionary:
+	# Player provides model_positions: [{model_id, x, y}, ...] for the Weirdboy unit.
+	# Validates each is 9"+ horizontal from all enemy models.
+	var unit_id = action.get("actor_unit_id", "")
+	var positions = action.get("payload", {}).get("model_positions", [])
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return create_result(false, [], "Da Jump place: unit not found")
+	if not unit.get("flags", {}).get("awaiting_da_jump_placement", false):
+		return create_result(false, [], "Da Jump place: not awaiting placement")
+	if positions.is_empty():
+		return create_result(false, [], "Da Jump place: no model_positions provided")
+
+	# Build enemy model positions list
+	var enemy_positions: Array = []
+	for u_id in game_state_snapshot.get("units", {}):
+		var u = game_state_snapshot["units"][u_id]
+		if int(u.get("owner", 0)) == get_current_player():
+			continue
+		for m in u.get("models", []):
+			if not m.get("alive", true):
+				continue
+			var p = m.get("position")
+			if p == null:
+				continue
+			var pv = p if p is Vector2 else Vector2(p.get("x", 0), p.get("y", 0))
+			enemy_positions.append(pv)
+
+	# Validate each placed model is 9"+ horizontal from every enemy
+	var nine_inches_px = Measurement.inches_to_px(9.0)
+	for pos_entry in positions:
+		var px = float(pos_entry.get("x", 0))
+		var py = float(pos_entry.get("y", 0))
+		var pv = Vector2(px, py)
+		for ev in enemy_positions:
+			if pv.distance_to(ev) < nine_inches_px:
+				return create_result(false, [], "Da Jump place: model would be < 9\" from an enemy")
+
+	var diffs = [
+		{"op": "set", "path": "units.%s.flags.awaiting_da_jump_placement" % unit_id, "value": false},
+	]
+	for pos_entry in positions:
+		var mid = String(pos_entry.get("model_id", ""))
+		var midx = _get_model_index(unit_id, mid)
+		if midx < 0:
+			return create_result(false, [], "Da Jump place: unknown model %s" % mid)
+		diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.position" % [unit_id, midx],
+			"value": {"x": float(pos_entry.get("x", 0)), "y": float(pos_entry.get("y", 0))}
+		})
+	log_phase_message("Da Jump: %s placed (%d models)" % [unit_id, positions.size()])
+	return create_result(true, diffs, "Da Jump placement applied")
+
+
 func _process_decline_deff_from_above(action: Dictionary) -> Dictionary:
 	"""Player declines Deff from Above — proceed normally."""
 	var unit_id = action.get("actor_unit_id", "")
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-25: DEFF FROM ABOVE — DECLINED")
-	print("║ Unit ID: ", unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-25: DEFF FROM ABOVE — DECLINED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	var cached_changes = _deff_from_above_pending_changes.duplicate()
 	var cached_dice = _deff_from_above_pending_dice.duplicate()
@@ -2200,11 +2311,11 @@ func _resolve_deff_from_above(unit_id: String, target_unit_id: String, rng_seed:
 		if roll >= 4:
 			mortal_wounds += 1
 
-	print("║ OA-25: Deff from Above — %d models, rolls: %s, mortal wounds: %d" % [alive_models, str(rolls), mortal_wounds])
+	DebugLogger.info(str("║ OA-25: Deff from Above — %d models, rolls: %s, mortal wounds: %d" % [alive_models, str(rolls), mortal_wounds]))
 
 	if mortal_wounds == 0:
 		var log_text = "Deff from Above: %s → %s — %d dice rolled, no mortal wounds" % [unit_name, target_name, alive_models]
-		print("║ OA-25: %s" % log_text)
+		DebugLogger.info(str("║ OA-25: %s" % log_text))
 		return {
 			"diffs": [],
 			"mortal_wounds": 0,
@@ -2248,7 +2359,7 @@ func _resolve_deff_from_above(unit_id: String, target_unit_id: String, rng_seed:
 		unit_name, target_name, alive_models, mortal_wounds, casualties,
 		"y" if casualties == 1 else "ies"
 	]
-	print("║ OA-25: %s" % log_text)
+	DebugLogger.info(str("║ OA-25: %s" % log_text))
 
 	return {
 		"diffs": diffs,
@@ -2372,11 +2483,11 @@ func _process_activate_kunnin_infiltrator(action: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-24: KUNNIN' INFILTRATOR — ACTIVATED")
-	print("║ Unit: %s (%s)" % [unit_name, unit_id])
-	print("║ Remove from battlefield, awaiting redeployment placement...")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-24: KUNNIN' INFILTRATOR — ACTIVATED")
+	DebugLogger.info(str("║ Unit: %s (%s)" % [unit_name, unit_id]))
+	DebugLogger.info("║ Remove from battlefield, awaiting redeployment placement...")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	_kunnin_infiltrator_pending = true
 	_kunnin_infiltrator_unit_id = unit_id
@@ -2399,11 +2510,11 @@ func _process_place_kunnin_infiltrator(action: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-24: KUNNIN' INFILTRATOR — REDEPLOYING")
-	print("║ Unit: %s (%s)" % [unit_name, unit_id])
-	print("║ Placing %d models at new positions" % model_positions.size())
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-24: KUNNIN' INFILTRATOR — REDEPLOYING")
+	DebugLogger.info(str("║ Unit: %s (%s)" % [unit_name, unit_id]))
+	DebugLogger.info(str("║ Placing %d models at new positions" % model_positions.size()))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	var changes = []
 
@@ -2473,10 +2584,10 @@ func _process_cancel_kunnin_infiltrator(action: Dictionary) -> Dictionary:
 	var unit_id = _kunnin_infiltrator_unit_id
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id) if not get_unit(unit_id).is_empty() else unit_id
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-24: KUNNIN' INFILTRATOR — CANCELLED")
-	print("║ Unit: %s (%s)" % [unit_name, unit_id])
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-24: KUNNIN' INFILTRATOR — CANCELLED")
+	DebugLogger.info(str("║ Unit: %s (%s)" % [unit_name, unit_id]))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	_kunnin_infiltrator_pending = false
 	_kunnin_infiltrator_unit_id = ""
@@ -2494,12 +2605,12 @@ func _process_use_sawbonez(action: Dictionary) -> Dictionary:
 	var target_unit_id = action.get("target_unit_id", "")
 	var target_model_index = action.get("target_model_index", -1)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P3-29: SAWBONEZ — HEALING")
-	print("║ Painboss: ", _sawbonez_painboss_id)
-	print("║ Target Unit: ", target_unit_id)
-	print("║ Target Model Index: ", target_model_index)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P3-29: SAWBONEZ — HEALING")
+	DebugLogger.info(str("║ Painboss: ", _sawbonez_painboss_id))
+	DebugLogger.info(str("║ Target Unit: ", target_unit_id))
+	DebugLogger.info(str("║ Target Model Index: ", target_model_index))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	var cached_changes = _sawbonez_pending_changes.duplicate()
 	var heal_changes = []
@@ -2526,8 +2637,8 @@ func _process_use_sawbonez(action: Dictionary) -> Dictionary:
 				var model_id = model.get("id", "m%d" % (target_model_index + 1))
 				log_phase_message("SAWBONEZ: Painboss heals %s model %s for %d wounds (%d → %d)" % [
 					target_name, model_id, heal_amount, current_wounds, new_wounds])
-				print("MovementPhase: Sawbonez healed %s model %s: %d → %d wounds" % [
-					target_name, model_id, current_wounds, new_wounds])
+				DebugLogger.info(str("MovementPhase: Sawbonez healed %s model %s: %d → %d wounds" % [
+					target_name, model_id, current_wounds, new_wounds]))
 
 	# Clear Sawbonez state
 	_awaiting_sawbonez = false
@@ -2548,10 +2659,10 @@ func _process_use_sawbonez(action: Dictionary) -> Dictionary:
 
 func _process_decline_sawbonez(action: Dictionary) -> Dictionary:
 	"""Player declines Sawbonez healing — proceed with ending movement phase."""
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P3-29: SAWBONEZ — DECLINED")
-	print("║ Painboss: ", _sawbonez_painboss_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P3-29: SAWBONEZ — DECLINED")
+	DebugLogger.info(str("║ Painboss: ", _sawbonez_painboss_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	var cached_changes = _sawbonez_pending_changes.duplicate()
 
@@ -2573,12 +2684,12 @@ func _process_use_mekaniak(action: Dictionary) -> Dictionary:
 	var target_unit_id = action.get("target_unit_id", "")
 	var target_model_index = action.get("target_model_index", -1)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-34: MEKANIAK — HEAL & BUFF")
-	print("║ Mek: ", _mekaniak_mek_id)
-	print("║ Target Unit: ", target_unit_id)
-	print("║ Target Model Index: ", target_model_index)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-34: MEKANIAK — HEAL & BUFF")
+	DebugLogger.info(str("║ Mek: ", _mekaniak_mek_id))
+	DebugLogger.info(str("║ Target Unit: ", target_unit_id))
+	DebugLogger.info(str("║ Target Model Index: ", target_model_index))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	var cached_changes = _mekaniak_pending_changes.duplicate()
 	var mekaniak_changes = []
@@ -2588,7 +2699,7 @@ func _process_use_mekaniak(action: Dictionary) -> Dictionary:
 	var mek_seed: int = action.get("payload", {}).get("rng_seed", -1)
 	var mek_rng = RulesEngine.RNGService.new(mek_seed)
 	var d3_roll = mek_rng.rng.randi_range(1, 3)
-	print("MovementPhase: Mekaniak D3 heal roll = %d" % d3_roll)
+	DebugLogger.info(str("MovementPhase: Mekaniak D3 heal roll = %d" % d3_roll))
 
 	# Find the target model and heal up to D3 wounds
 	var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
@@ -2612,12 +2723,12 @@ func _process_use_mekaniak(action: Dictionary) -> Dictionary:
 				var model_id = model.get("id", "m%d" % (target_model_index + 1))
 				log_phase_message("MEKANIAK: Mek heals %s model %s for %d wounds (%d → %d) [D3 roll: %d]" % [
 					target_name, model_id, heal_amount, current_wounds, new_wounds, d3_roll])
-				print("MovementPhase: Mekaniak healed %s model %s: %d → %d wounds (D3=%d)" % [
-					target_name, model_id, current_wounds, new_wounds, d3_roll])
+				DebugLogger.info(str("MovementPhase: Mekaniak healed %s model %s: %d → %d wounds (D3=%d)" % [
+					target_name, model_id, current_wounds, new_wounds, d3_roll]))
 			else:
 				var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
 				log_phase_message("MEKANIAK: %s at full wounds — no healing needed [D3 roll: %d]" % [target_name, d3_roll])
-				print("MovementPhase: Mekaniak — %s at full wounds, no healing applied" % target_name)
+				DebugLogger.info(str("MovementPhase: Mekaniak — %s at full wounds, no healing applied" % target_name))
 
 		# Set mekaniak_buffed flag on the vehicle unit for +1 Hit
 		mekaniak_changes.append({
@@ -2626,7 +2737,7 @@ func _process_use_mekaniak(action: Dictionary) -> Dictionary:
 			"value": true
 		})
 		log_phase_message("MEKANIAK: +1 to Hit buff applied to %s until start of next Movement phase" % target_unit_id)
-		print("MovementPhase: Mekaniak +1 Hit buff set on vehicle %s" % target_unit_id)
+		DebugLogger.info(str("MovementPhase: Mekaniak +1 Hit buff set on vehicle %s" % target_unit_id))
 
 	# Mark this vehicle as used for Mekaniak this turn (once per vehicle per turn)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -2648,10 +2759,10 @@ func _process_use_mekaniak(action: Dictionary) -> Dictionary:
 
 func _process_decline_mekaniak(action: Dictionary) -> Dictionary:
 	"""Player declines Mekaniak — proceed with checking more Meks or ending movement phase."""
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-34: MEKANIAK — DECLINED")
-	print("║ Mek: ", _mekaniak_mek_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-34: MEKANIAK — DECLINED")
+	DebugLogger.info(str("║ Mek: ", _mekaniak_mek_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	var cached_changes = _mekaniak_pending_changes.duplicate()
 
@@ -2678,7 +2789,7 @@ func _clear_mekaniak_buffs(player: int) -> void:
 				"op": "remove",
 				"path": "units.%s.flags.mekaniak_buffed" % unit_id
 			})
-			print("MovementPhase: Clearing Mekaniak buff from vehicle %s at start of Movement phase" % unit_id)
+			DebugLogger.info(str("MovementPhase: Clearing Mekaniak buff from vehicle %s at start of Movement phase" % unit_id))
 
 	if changes.size() > 0:
 		PhaseManager.apply_state_changes(changes)
@@ -2720,7 +2831,7 @@ func _process_apply_pivot_cost(action: Dictionary) -> Dictionary:
 	var effective_cap = move_data.move_cap_inches - pivot_value
 
 	log_phase_message("PIVOT COST: %s — %.0f\" deducted from movement (effective cap: %.1f\")" % [unit_name, pivot_value, effective_cap])
-	print("MovementPhase: PIVOT COST applied for %s: %.0f\" (cap %.1f\" → effective %.1f\")" % [unit_name, pivot_value, move_data.move_cap_inches, effective_cap])
+	DebugLogger.info(str("MovementPhase: PIVOT COST applied for %s: %.0f\" (cap %.1f\" → effective %.1f\")" % [unit_name, pivot_value, move_data.move_cap_inches, effective_cap]))
 
 	return create_result(true, [], "", {
 		"pivot_cost_applied": true,
@@ -2777,7 +2888,7 @@ func _check_mekaniak_opportunities(changes: Array) -> Dictionary:
 				_mekaniak_pending_changes = changes
 				var mek_name = unit.get("meta", {}).get("name", unit_id)
 				log_phase_message("MEKANIAK available for %s (%s) — %d eligible vehicle targets" % [mek_name, unit_id, targets.size()])
-				print("MovementPhase: Mekaniak opportunity — %s has %d eligible vehicle targets" % [mek_name, targets.size()])
+				DebugLogger.info(str("MovementPhase: Mekaniak opportunity — %s has %d eligible vehicle targets" % [mek_name, targets.size()]))
 
 				var result = create_result(true, changes)
 				result["trigger_mekaniak"] = true
@@ -2837,7 +2948,7 @@ func _check_grot_oiler_opportunity(current_player: int, changes: Array):
 			_grot_oiler_targets = targets
 			_grot_oiler_pending_changes = changes
 			log_phase_message("GROT OILER available for unit %s — %d eligible targets" % [unit_id, targets.size()])
-			print("MovementPhase: Grot Oiler healing opportunity — unit %s has %d eligible targets" % [unit_id, targets.size()])
+			DebugLogger.info(str("MovementPhase: Grot Oiler healing opportunity — unit %s has %d eligible targets" % [unit_id, targets.size()]))
 
 			emit_signal("grot_oiler_available", unit_id, current_player, targets)
 
@@ -2855,12 +2966,12 @@ func _process_use_grot_oiler(action: Dictionary) -> Dictionary:
 	var target_unit_id = action.get("target_unit_id", "")
 	var target_model_index = action.get("target_model_index", -1)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-32: GROT OILER — HEALING")
-	print("║ Bearer: ", _grot_oiler_bearer_id)
-	print("║ Target Unit: ", target_unit_id)
-	print("║ Target Model Index: ", target_model_index)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-32: GROT OILER — HEALING")
+	DebugLogger.info(str("║ Bearer: ", _grot_oiler_bearer_id))
+	DebugLogger.info(str("║ Target Unit: ", target_unit_id))
+	DebugLogger.info(str("║ Target Model Index: ", target_model_index))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	var cached_changes = _grot_oiler_pending_changes.duplicate()
 	var heal_changes = []
@@ -2871,7 +2982,7 @@ func _process_use_grot_oiler(action: Dictionary) -> Dictionary:
 	var go_rng = RulesEngine.RNGService.new(go_seed)
 	var d6_roll = go_rng.rng.randi_range(1, 6)
 	var d3_result = int(ceil(float(d6_roll) / 2.0))  # 1-2=1, 3-4=2, 5-6=3
-	print("MovementPhase: Grot Oiler D3 roll — D6=%d → D3=%d" % [d6_roll, d3_result])
+	DebugLogger.info(str("MovementPhase: Grot Oiler D3 roll — D6=%d → D3=%d" % [d6_roll, d3_result]))
 	log_phase_message("GROT OILER: D3 roll — D6=%d → D3=%d wounds to heal" % [d6_roll, d3_result])
 
 	# Find the target model and heal D3 wounds
@@ -2896,8 +3007,8 @@ func _process_use_grot_oiler(action: Dictionary) -> Dictionary:
 				var model_id = model.get("id", "m%d" % (target_model_index + 1))
 				log_phase_message("GROT OILER: Heals %s model %s for %d wounds (%d → %d)" % [
 					target_name, model_id, heal_amount, current_wounds, new_wounds])
-				print("MovementPhase: Grot Oiler healed %s model %s: %d → %d wounds" % [
-					target_name, model_id, current_wounds, new_wounds])
+				DebugLogger.info(str("MovementPhase: Grot Oiler healed %s model %s: %d → %d wounds" % [
+					target_name, model_id, current_wounds, new_wounds]))
 
 	# Mark Grot Oiler as used (once per battle)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -2928,10 +3039,10 @@ func _process_use_grot_oiler(action: Dictionary) -> Dictionary:
 
 func _process_decline_grot_oiler(action: Dictionary) -> Dictionary:
 	"""OA-32: Player declines Grot Oiler healing — proceed with ending movement phase."""
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-32: GROT OILER — DECLINED")
-	print("║ Bearer: ", _grot_oiler_bearer_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-32: GROT OILER — DECLINED")
+	DebugLogger.info(str("║ Bearer: ", _grot_oiler_bearer_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	var cached_changes = _grot_oiler_pending_changes.duplicate()
 
@@ -2963,7 +3074,7 @@ func _continue_end_movement_after_grot_oiler(changes: Array) -> Dictionary:
 				_rapid_ingress_player = defending_player
 				_rapid_ingress_eligible_units = ri_eligible
 				log_phase_message("RAPID INGRESS available for Player %d (%d eligible reserve units)" % [defending_player, ri_eligible.size()])
-				print("MovementPhase: Rapid Ingress opportunity — Player %d has %d eligible units in reserves" % [defending_player, ri_eligible.size()])
+				DebugLogger.info(str("MovementPhase: Rapid Ingress opportunity — Player %d has %d eligible units in reserves" % [defending_player, ri_eligible.size()]))
 
 				emit_signal("rapid_ingress_opportunity", defending_player, ri_eligible)
 
@@ -3052,10 +3163,10 @@ func _resolve_bomb_squigs(unit_id: String, target_unit_id: String, rng_seed: int
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
 
-	print("║ P2-25: Bomb Squigs roll: %d (need 3+)" % roll)
+	DebugLogger.info(str("║ P2-25: Bomb Squigs roll: %d (need 3+)" % roll))
 
 	if roll < 3:
-		print("║ P2-25: Bomb Squigs — MISS! Roll %d < 3" % roll)
+		DebugLogger.info(str("║ P2-25: Bomb Squigs — MISS! Roll %d < 3" % roll))
 		return {
 			"diffs": [],
 			"mortal_wounds": 0,
@@ -3067,7 +3178,7 @@ func _resolve_bomb_squigs(unit_id: String, target_unit_id: String, rng_seed: int
 
 	# D3 mortal wounds
 	var mortal_wounds = rng.rng.randi_range(1, 3)
-	print("║ P2-25: Bomb Squigs — HIT! D3 = %d mortal wounds on %s" % [mortal_wounds, target_name])
+	DebugLogger.info(str("║ P2-25: Bomb Squigs — HIT! D3 = %d mortal wounds on %s" % [mortal_wounds, target_name]))
 
 	# Apply mortal wounds to target
 	var target = get_unit(target_unit_id)
@@ -3104,7 +3215,7 @@ func _resolve_bomb_squigs(unit_id: String, target_unit_id: String, rng_seed: int
 		unit_name, target_name, roll, mortal_wounds, casualties,
 		"y" if casualties == 1 else "ies"
 	]
-	print("║ P2-25: %s" % log_text)
+	DebugLogger.info(str("║ P2-25: %s" % log_text))
 
 	return {
 		"diffs": diffs,
@@ -3258,7 +3369,7 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 		if not GameState.unit_has_deep_strike(unit_id):
 			errors.append("Unit does not have Deep Strike ability — cannot use Deep Strike placement rules")
 			return {"valid": false, "errors": errors}
-		print("MovementPhase: P2-80 — Rapid Ingress unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id))
+		DebugLogger.info(str("MovementPhase: P2-80 — Rapid Ingress unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id)))
 
 	# Validate model positions — same rules as normal reinforcement placement
 	if model_positions is Array:
@@ -3365,7 +3476,7 @@ func _process_use_rapid_ingress(action: Dictionary) -> Dictionary:
 			return create_result(false, [], "Failed to use Rapid Ingress: %s" % strat_result.get("error", "unknown"))
 
 	log_phase_message("Player %d uses RAPID INGRESS — %s selected to arrive from reserves!" % [player, unit_name])
-	print("MovementPhase: Rapid Ingress activated — %s (Player %d) arriving from reserves" % [unit_name, player])
+	DebugLogger.info(str("MovementPhase: Rapid Ingress activated — %s (Player %d) arriving from reserves" % [unit_name, player]))
 
 	# Mark the selected unit for placement — the player still needs to choose positions
 	_rapid_ingress_unit_id = unit_id
@@ -3383,7 +3494,7 @@ func _process_use_rapid_ingress(action: Dictionary) -> Dictionary:
 func _process_decline_rapid_ingress(action: Dictionary) -> Dictionary:
 	var player = action.get("player", _rapid_ingress_player)
 	log_phase_message("Player %d declined RAPID INGRESS" % player)
-	print("MovementPhase: Rapid Ingress DECLINED by Player %d" % player)
+	DebugLogger.info(str("MovementPhase: Rapid Ingress DECLINED by Player %d" % player))
 
 	# Clear Rapid Ingress state
 	_awaiting_rapid_ingress = false
@@ -3720,7 +3831,7 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	var rotation = payload.get("rotation", 0.0)
 	var dest_vec = Vector2(dest[0], dest[1])
 
-	print("[MovementPhase] Processing STAGE_MODEL_MOVE for model ", model_id, " to ", dest_vec)
+	DebugLogger.info(str("[MovementPhase] Processing STAGE_MODEL_MOVE for model ", model_id, " to ", dest_vec))
 
 	var move_data = active_moves[unit_id]
 	# If model_source_unit_id is provided (attached character), look there first
@@ -3732,7 +3843,7 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 		model = _get_model_in_unit(model_source_unit_id, model_id)
 		if not model.is_empty():
 			model_actual_unit_id = model_source_unit_id
-			print("[MovementPhase] Processing stage move for attached character model %s (source unit %s)" % [model_id, model_source_unit_id])
+			DebugLogger.info(str("[MovementPhase] Processing stage move for attached character model %s (source unit %s)" % [model_id, model_source_unit_id]))
 	if model.is_empty():
 		model = _get_model_in_unit(unit_id, model_id)
 	# Also check attached character units if model not found in the bodyguard unit
@@ -3743,7 +3854,7 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 			model = _get_model_in_unit(char_id, model_id)
 			if not model.is_empty():
 				model_actual_unit_id = char_id
-				print("[MovementPhase] Processing stage move for attached character model %s (unit %s)" % [model_id, char_id])
+				DebugLogger.info(str("[MovementPhase] Processing stage move for attached character model %s (unit %s)" % [model_id, char_id]))
 				break
 
 	# Get current position (may be staged)
@@ -3772,12 +3883,13 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	if move_data.mode == "FALL_BACK":
 		crosses_enemy = _path_crosses_enemy(current_pos, dest_vec, unit_id, model.get("base_mm", 32))
 	
-	# Calculate total distance from original position
+	# T-082 fix: path-summed distance, not Euclidean origin→dest.
+	# Re-staging through a waypoint must accumulate |A→B| + |B→C|, not collapse to |A→C|.
 	var original_pos = move_data.original_positions.get(model_id, current_pos)
-	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
-	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
-	var terrain_penalty = _get_movement_terrain_penalty(original_pos, dest_vec, unit_id)
-	total_distance_for_model += terrain_penalty
+	var prior_total = move_data.model_distances.get(model_id, 0.0)
+	# Per-segment terrain penalty (difficult ground only — flat per piece crossed).
+	var terrain_penalty = _get_movement_terrain_penalty(current_pos, dest_vec, unit_id)
+	var total_distance_for_model = prior_total + distance_inches + terrain_penalty
 
 	# Remove any existing staged move for this model to prevent duplicates
 	var moves_to_remove = []
@@ -3808,11 +3920,11 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	if move_data.get("pivot_cost_applied", false):
 		effective_cap -= move_data.get("pivot_value", 0.0)
 
-	print("  - Distance this segment: ", distance_inches, "\"")
-	print("  - Total distance from origin: ", total_distance_for_model, "\"")
-	print("  - Remaining for this model: ", (effective_cap - total_distance_for_model), "\"")
+	DebugLogger.info(str("  - Distance this segment: ", distance_inches, "\""))
+	DebugLogger.info(str("  - Total distance from origin: ", total_distance_for_model, "\""))
+	DebugLogger.info(str("  - Remaining for this model: ", (effective_cap - total_distance_for_model), "\""))
 	if move_data.get("pivot_cost_applied", false):
-		print("  - Pivot cost applied: ", move_data.get("pivot_value", 0.0), "\"")
+		DebugLogger.info(str("  - Pivot cost applied: ", move_data.get("pivot_value", 0.0), "\""))
 
 	# Emit both signals for visual update
 	# Use model_actual_unit_id so visual tokens (which are keyed by their real unit_id) are found
@@ -3855,7 +3967,7 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 		var model_id = last_staged.model_id
 		var original_pos = move_data.original_positions.get(model_id)
 
-		print("[MovementPhase] Undoing staged move for model %s, restoring to %s" % [model_id, str(original_pos)])
+		DebugLogger.info(str("[MovementPhase] Undoing staged move for model %s, restoring to %s" % [model_id, str(original_pos)]))
 
 		# Check if this model has any remaining staged moves
 		var has_remaining_staged = false
@@ -3881,13 +3993,13 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 						"path": "units.%s.models.%s.rotation" % [owner_info.unit_id, owner_info.index],
 						"value": original_rot
 					})
-					print("[MovementPhase] Restoring rotation for model %s to %.2f" % [model_id, original_rot])
+					DebugLogger.info(str("[MovementPhase] Restoring rotation for model %s to %.2f" % [model_id, original_rot]))
 				original_rotations.erase(model_id)
 
 		# If no more staged moves at all, reset pivot cost
 		if move_data.staged_moves.is_empty():
 			move_data["pivot_cost_applied"] = false
-			print("[MovementPhase] All staged moves undone, resetting pivot cost")
+			DebugLogger.info("[MovementPhase] All staged moves undone, resetting pivot cost")
 
 		# Restore to original position (before any movement this phase)
 		if original_pos:
@@ -3915,7 +4027,7 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 						"path": "units.%s.models.%s.rotation" % [unit_id, model_idx],
 						"value": original_rot
 					})
-					print("[MovementPhase] Restoring rotation-only change for model %s to %.2f" % [rot_model_id, original_rot])
+					DebugLogger.info(str("[MovementPhase] Restoring rotation-only change for model %s to %.2f" % [rot_model_id, original_rot]))
 			original_rotations.clear()
 			move_data["pivot_cost_applied"] = false
 			return create_result(true, rotation_changes)
@@ -3976,7 +4088,7 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 				"path": "units.%s.models.%s.rotation" % [owner_info.unit_id, owner_info.index],
 				"value": original_rot
 			})
-			print("[MovementPhase] Resetting rotation for model %s to %.2f" % [model_id, original_rot])
+			DebugLogger.info(str("[MovementPhase] Resetting rotation for model %s to %.2f" % [model_id, original_rot]))
 
 	# Reset all model positions from permanent moves (if any)
 	for model_move in move_data.model_moves:
@@ -4034,13 +4146,13 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	var changes = []
 	var additional_dice = []
 
-	print("[MovementPhase] Confirming unit move with ", move_data.staged_moves.size(), " staged moves")
+	DebugLogger.info(str("[MovementPhase] Confirming unit move with ", move_data.staged_moves.size(), " staged moves"))
 
 	# Get unique model IDs
 	var unique_models = {}
 	for staged_move in move_data.staged_moves:
 		unique_models[staged_move.model_id] = true
-	print("[MovementPhase] Processing ", unique_models.size(), " unique models")
+	DebugLogger.info(str("[MovementPhase] Processing ", unique_models.size(), " unique models"))
 
 	# Build lookup of attached character IDs for resolving model ownership
 	var _confirm_unit = get_unit(unit_id)
@@ -4048,7 +4160,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 
 	# Convert staged moves to permanent moves
 	for staged_move in move_data.staged_moves:
-		print("  Confirming move for model ", staged_move.model_id, " to ", staged_move.dest)
+		DebugLogger.info(str("  Confirming move for model ", staged_move.model_id, " to ", staged_move.dest))
 		# Add to permanent moves
 		move_data.model_moves.append({
 			"model_id": staged_move.model_id,
@@ -4067,7 +4179,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				model_idx = _get_model_index(char_id, staged_move.model_id)
 				if model_idx >= 0:
 					model_owner_id = char_id
-					print("  Model %s belongs to attached character %s (index %d)" % [staged_move.model_id, char_id, model_idx])
+					DebugLogger.info(str("  Model %s belongs to attached character %s (index %d)" % [staged_move.model_id, char_id, model_idx]))
 					break
 
 		# Update model position in game state
@@ -4153,7 +4265,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				"path": "units.%s.flags.cannot_charge" % char_id,
 				"value": true
 			})
-			print("[MovementPhase] Propagated advance flags to attached character %s" % char_id)
+			DebugLogger.info(str("[MovementPhase] Propagated advance flags to attached character %s" % char_id))
 	elif move_data.mode == "FALL_BACK":
 		# Set fell_back flag - units that Fell Back cannot shoot or charge
 		changes.append({
@@ -4188,7 +4300,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				"path": "units.%s.flags.cannot_charge" % char_id,
 				"value": true
 			})
-			print("[MovementPhase] Propagated fall back flags to attached character %s" % char_id)
+			DebugLogger.info(str("[MovementPhase] Propagated fall back flags to attached character %s" % char_id))
 	elif move_data.mode == "SURGE":
 		# Set surge_moved flag — surge moves don't restrict shooting/charging
 		# but track that a surge happened (P2-71)
@@ -4218,7 +4330,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"value": true
 		})
 		log_phase_message("OA-8: Krump and Run reactive move completed for %s" % unit_id)
-		print("MovementPhase: OA-8 Krump and Run move completed for %s — reactive state cleared" % unit_id)
+		DebugLogger.info(str("MovementPhase: OA-8 Krump and Run move completed for %s — reactive state cleared" % unit_id))
 		move_data["completed"] = true
 		emit_signal("unit_move_confirmed", unit_id, {"mode": "NORMAL", "models_moved": move_data.model_moves.size()})
 		if MissionManager:
@@ -4236,7 +4348,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"value": true
 		})
 		log_phase_message("OA-42: Scatter! reactive move completed for %s" % unit_id)
-		print("MovementPhase: OA-42 Scatter! move completed for %s — reactive state cleared" % unit_id)
+		DebugLogger.info(str("MovementPhase: OA-42 Scatter! move completed for %s — reactive state cleared" % unit_id))
 		move_data["completed"] = true
 		emit_signal("unit_move_confirmed", unit_id, {"mode": "NORMAL", "models_moved": move_data.model_moves.size()})
 		if MissionManager:
@@ -4283,13 +4395,13 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		if move_data.mode == "FALL_BACK":
 			_krump_and_run_pending_after_overwatch = true
 			_krump_and_run_pending_fell_back_id = unit_id
-			print("MovementPhase: OA-8 Krump and Run check deferred — Fire Overwatch triggered first")
+			DebugLogger.info("MovementPhase: OA-8 Krump and Run check deferred — Fire Overwatch triggered first")
 		# OA-42: Defer Scatter! check until overwatch resolves
 		_scatter_pending_after_overwatch = true
 		_scatter_pending_trigger_id = unit_id
 		_scatter_pending_changes = changes.duplicate()
 		_scatter_pending_dice = additional_dice.duplicate() if additional_dice is Array else []
-		print("MovementPhase: OA-42 Scatter! check deferred — Fire Overwatch triggered first")
+		DebugLogger.info("MovementPhase: OA-42 Scatter! check deferred — Fire Overwatch triggered first")
 		var result = create_result(true, changes, "", {"dice": additional_dice})
 		result.merge(ow_result.result_extra)
 		return result
@@ -4316,7 +4428,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		if move_mode == "normal" or move_mode == "":
 			var bomb_targets = _get_bomb_squigs_targets(unit_id)
 			if not bomb_targets.is_empty():
-				print("MovementPhase: P2-25 Bomb Squigs — %s has enemies within 12\" after Normal move" % unit_name)
+				DebugLogger.info(str("MovementPhase: P2-25 Bomb Squigs — %s has enemies within 12\" after Normal move" % unit_name))
 				_bomb_squigs_pending_unit = unit_id
 				_bomb_squigs_pending_changes = changes
 				_bomb_squigs_pending_dice = additional_dice
@@ -4337,7 +4449,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		if move_data.mode == "NORMAL":
 			var dfa_targets = _get_units_moved_over(unit_id, move_data)
 			if not dfa_targets.is_empty():
-				print("MovementPhase: OA-25 Deff from Above — %s moved over %d enemy unit(s)" % [unit_name, dfa_targets.size()])
+				DebugLogger.info(str("MovementPhase: OA-25 Deff from Above — %s moved over %d enemy unit(s)" % [unit_name, dfa_targets.size()]))
 				_deff_from_above_pending_unit = unit_id
 				_deff_from_above_pending_targets = dfa_targets
 				_deff_from_above_pending_changes = changes
@@ -4390,7 +4502,7 @@ func _process_remain_stationary(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.remained_stationary" % char_id,
 			"value": not is_disembarked
 		})
-		print("[MovementPhase] Propagated remain stationary flags to attached character %s" % char_id)
+		DebugLogger.info(str("[MovementPhase] Propagated remain stationary flags to attached character %s" % char_id))
 
 	if is_disembarked:
 		log_phase_message("%s remained stationary (disembarked this phase — no Heavy bonus)" % unit.get("meta", {}).get("name", unit_id))
@@ -4529,7 +4641,7 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 		if not GameState.unit_has_deep_strike(unit_id):
 			errors.append("Unit does not have Deep Strike ability — cannot use Deep Strike placement rules")
 			return {"valid": false, "errors": errors}
-		print("MovementPhase: P2-80 — Unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id))
+		DebugLogger.info(str("MovementPhase: P2-80 — Unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id)))
 
 	# Validate model positions
 	if model_positions is Array:
@@ -4590,7 +4702,7 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 						if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
 							errors.append("Model %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % i)
 					else:
-						print("MovementPhase: OA-27 Outflank — unit %s bypasses opponent deployment zone restriction" % unit_id)
+						DebugLogger.info(str("MovementPhase: OA-27 Outflank — unit %s bypasses opponent deployment zone restriction" % unit_id))
 
 			# Deep Strike: can be placed anywhere on the board (>9" check already done above)
 			# No additional restrictions for deep strike placement
@@ -4809,7 +4921,7 @@ func _process_end_movement(action: Dictionary) -> Dictionary:
 				_sawbonez_targets = targets
 				_sawbonez_pending_changes = changes
 				log_phase_message("SAWBONEZ available for Painboss %s — %d eligible targets" % [unit_id, targets.size()])
-				print("MovementPhase: Sawbonez healing opportunity — Painboss %s has %d eligible targets" % [unit_id, targets.size()])
+				DebugLogger.info(str("MovementPhase: Sawbonez healing opportunity — Painboss %s has %d eligible targets" % [unit_id, targets.size()]))
 
 				var result = create_result(true, changes)
 				result["trigger_sawbonez"] = true
@@ -5044,7 +5156,7 @@ func _check_krump_and_run_opportunity(fell_back_unit_id: String, snapshot_overri
 	# Check basic stratagem availability (CP, restrictions)
 	var basic_check = strat_manager.can_use_stratagem(defending_player, kar_strat_id)
 	if not basic_check.can_use:
-		print("MovementPhase: OA-8 Krump and Run not available: %s" % basic_check.reason)
+		DebugLogger.info(str("MovementPhase: OA-8 Krump and Run not available: %s" % basic_check.reason))
 		return {"triggered": false}
 
 	var check_snapshot = snapshot_override if not snapshot_override.is_empty() else game_state_snapshot
@@ -5088,7 +5200,7 @@ func _check_krump_and_run_opportunity(fell_back_unit_id: String, snapshot_overri
 		eligible.append({"unit_id": unit_id, "unit_name": unit_name})
 
 	if eligible.is_empty():
-		print("MovementPhase: OA-8 Krump and Run — no eligible ORKS units after %s fell back" % fell_back_unit_id)
+		DebugLogger.info(str("MovementPhase: OA-8 Krump and Run — no eligible ORKS units after %s fell back" % fell_back_unit_id))
 		return {"triggered": false}
 
 	# Krump and Run is available!
@@ -5099,7 +5211,7 @@ func _check_krump_and_run_opportunity(fell_back_unit_id: String, snapshot_overri
 
 	var fell_back_name = fell_back_unit.get("meta", {}).get("name", fell_back_unit_id)
 	log_phase_message("KRUMP AND RUN available for Player %d (%d eligible ORKS units) after %s fell back" % [defending_player, eligible.size(), fell_back_name])
-	print("MovementPhase: OA-8 Krump and Run opportunity — Player %d has %d eligible units" % [defending_player, eligible.size()])
+	DebugLogger.info(str("MovementPhase: OA-8 Krump and Run opportunity — Player %d has %d eligible units" % [defending_player, eligible.size()]))
 
 	emit_signal("krump_and_run_opportunity", defending_player, eligible, fell_back_unit_id)
 
@@ -5155,7 +5267,7 @@ func _process_use_krump_and_run(action: Dictionary) -> Dictionary:
 			return create_result(false, [], "Failed to use Krump and Run: %s" % strat_result.get("error", "unknown"))
 
 	log_phase_message("Player %d uses KRUMP AND RUN — %s can make a 6\" Normal move!" % [player, unit_name])
-	print("MovementPhase: OA-8 Krump and Run activated — %s (Player %d) gets 6\" Normal move" % [unit_name, player])
+	DebugLogger.info(str("MovementPhase: OA-8 Krump and Run activated — %s (Player %d) gets 6\" Normal move" % [unit_name, player]))
 
 	# Set up the reactive Normal move with 6" cap
 	_krump_and_run_unit_id = unit_id
@@ -5211,7 +5323,7 @@ func _process_decline_krump_and_run(action: Dictionary) -> Dictionary:
 	"""Process declining the Krump and Run stratagem."""
 	var player = _krump_and_run_player
 	log_phase_message("Player %d declined KRUMP AND RUN" % player)
-	print("MovementPhase: OA-8 Krump and Run DECLINED by Player %d" % player)
+	DebugLogger.info(str("MovementPhase: OA-8 Krump and Run DECLINED by Player %d" % player))
 
 	# Clear state
 	_awaiting_krump_and_run = false
@@ -5287,7 +5399,7 @@ func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dict
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		eligible.append({"unit_id": unit_id, "unit_name": unit_name})
-		print("MovementPhase: OA-42 Scatter! — %s is eligible (%.1f\" from trigger unit)" % [unit_name, dist_inches])
+		DebugLogger.info(str("MovementPhase: OA-42 Scatter! — %s is eligible (%.1f\" from trigger unit)" % [unit_name, dist_inches]))
 
 	if eligible.is_empty():
 		return {"triggered": false}
@@ -5300,7 +5412,7 @@ func _check_scatter_opportunity(trigger_unit_id: String, snapshot_override: Dict
 
 	var trigger_name = trigger_unit.get("meta", {}).get("name", trigger_unit_id)
 	log_phase_message("SCATTER! available for Player %d (%d eligible units) after %s moved within 9\"" % [defending_player, eligible.size(), trigger_name])
-	print("MovementPhase: OA-42 Scatter! opportunity — Player %d has %d eligible units" % [defending_player, eligible.size()])
+	DebugLogger.info(str("MovementPhase: OA-42 Scatter! opportunity — Player %d has %d eligible units" % [defending_player, eligible.size()]))
 
 	emit_signal("scatter_opportunity", defending_player, eligible, trigger_unit_id)
 
@@ -5353,7 +5465,7 @@ func _process_use_scatter(action: Dictionary) -> Dictionary:
 		ability_mgr.mark_scatter_used_this_turn(unit_id)
 
 	log_phase_message("Player %d uses SCATTER! — %s can make a 6\" Normal move!" % [player, unit_name])
-	print("MovementPhase: OA-42 Scatter! activated — %s (Player %d) gets 6\" Normal move" % [unit_name, player])
+	DebugLogger.info(str("MovementPhase: OA-42 Scatter! activated — %s (Player %d) gets 6\" Normal move" % [unit_name, player]))
 
 	# Set up the reactive Normal move with 6" cap
 	_scatter_unit_id = unit_id
@@ -5409,7 +5521,7 @@ func _process_decline_scatter(action: Dictionary) -> Dictionary:
 	"""Process declining the Scatter! ability."""
 	var player = _scatter_player
 	log_phase_message("Player %d declined SCATTER!" % player)
-	print("MovementPhase: OA-42 Scatter! DECLINED by Player %d" % player)
+	DebugLogger.info(str("MovementPhase: OA-42 Scatter! DECLINED by Player %d" % player))
 
 	# Clear state
 	_awaiting_scatter = false
@@ -5749,18 +5861,47 @@ func _get_terrain_height_inches(terrain_piece: Dictionary) -> float:
 			return 6.0  # Default to tall
 
 func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: String) -> float:
-	# Calculate terrain penalty for movement (difficult ground traits only).
-	# Units always stay on the ground floor — no vertical height penalty.
-	# FLY units ignore difficult ground entirely (return 0).
-	# Non-FLY units pay a flat 2" penalty per terrain piece with "difficult_ground" trait.
-	var terrain_manager = get_node_or_null("/root/TerrainManager")
-	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
+	# Calculate terrain penalty for movement.
+	# - Difficult ground: flat 2" per piece crossed (TerrainManager).
+	# - Vertical climb (T-103): per-segment vertical inches added when the
+	#   destination overlaps a multi-floor terrain piece (height_inches > 0)
+	#   and the unit is not on its ground floor already.
+	# FLY units ignore both penalties (return 0).
+	if _unit_has_fly_keyword(unit_id):
 		return 0.0
-	var has_fly = _unit_has_fly_keyword(unit_id)
-	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly)
+	var penalty = 0.0
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if terrain_manager and terrain_manager.has_method("calculate_movement_terrain_penalty"):
+		penalty += float(terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false))
+	# T-103: multi-floor vertical climb cost.
+	penalty += _get_vertical_climb_cost(from_pos, to_pos)
 	if penalty > 0.0:
-		log_phase_message("  Terrain penalty: %.1f\" (FLY=%s)" % [penalty, has_fly])
+		log_phase_message("  Terrain penalty: %.1f\" (incl vertical, FLY=false)" % penalty)
 	return penalty
+
+
+func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2) -> float:
+	# T-103: returns vertical inches the model must climb when moving onto a
+	# multi-floor ruin. Uses TerrainManager.get_terrain_at_position(pos) +
+	# get_height_inches() (height_category → 1.5/3.5/6.0). Descent is free
+	# per 10e (10e treats vertical descent as part of the move at no extra
+	# inches — only ascent costs).
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null:
+		return 0.0
+	if not (tm.has_method("get_terrain_at_position") and tm.has_method("get_height_inches")):
+		return 0.0
+	var from_h = 0.0
+	var to_h = 0.0
+	var from_t = tm.get_terrain_at_position(from_pos)
+	var to_t = tm.get_terrain_at_position(to_pos)
+	if not from_t.is_empty():
+		from_h = float(tm.get_height_inches(from_t))
+	if not to_t.is_empty():
+		to_h = float(tm.get_height_inches(to_t))
+	if to_h <= from_h:
+		return 0.0  # Going level or downward (10e: descent is free)
+	return to_h - from_h
 
 func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary) -> bool:
 	# Check if a movement path crosses any enemy model bases using shape-aware overlap.
@@ -6054,7 +6195,7 @@ func _reset_staged_visuals_if_needed(unit_id: String) -> void:
 		return
 	var move_data = active_moves[unit_id]
 	if move_data.staged_moves.size() > 0:
-		print("[MovementPhase] Resetting staged visuals for %s (had %d staged moves)" % [unit_id, move_data.staged_moves.size()])
+		DebugLogger.info(str("[MovementPhase] Resetting staged visuals for %s (had %d staged moves)" % [unit_id, move_data.staged_moves.size()]))
 		# Reset each staged model's visual back to its GameState position and rotation
 		for staged_move in move_data.staged_moves:
 			var model = _get_model_in_unit(unit_id, staged_move.model_id)
@@ -6115,7 +6256,7 @@ func get_available_actions() -> Array:
 			})
 
 	# Debug: Log all units and their embarked status for transport diagnostics
-	print("MovementPhase: get_available_actions — checking %d units for player %d" % [units.size(), current_player])
+	DebugLogger.info(str("MovementPhase: get_available_actions — checking %d units for player %d" % [units.size(), current_player]))
 	for dbg_id in units:
 		var dbg_unit = units[dbg_id]
 		var dbg_name = dbg_unit.get("meta", {}).get("name", dbg_id)
@@ -6124,7 +6265,7 @@ func get_available_actions() -> Array:
 		var dbg_transport_data = dbg_unit.get("transport_data", {})
 		var dbg_embarked_units = dbg_transport_data.get("embarked_units", []) if dbg_transport_data else []
 		if dbg_embarked != null or dbg_embarked_units.size() > 0:
-			print("MovementPhase:   TRANSPORT-RELATED: %s (id=%s) status=%d embarked_in=%s embarked_units=%s" % [dbg_name, dbg_id, dbg_status, str(dbg_embarked), str(dbg_embarked_units)])
+			DebugLogger.info(str("MovementPhase:   TRANSPORT-RELATED: %s (id=%s) status=%d embarked_in=%s embarked_units=%s" % [dbg_name, dbg_id, dbg_status, str(dbg_embarked), str(dbg_embarked_units)]))
 
 	for unit_id in units:
 		var unit = units[unit_id]
@@ -6140,17 +6281,17 @@ func get_available_actions() -> Array:
 			var transport_id = unit.embarked_in
 			var transport = get_unit(transport_id)
 			var transport_name = transport.get("meta", {}).get("name", transport_id) if transport else transport_id
-			print("MovementPhase: Found embarked unit %s (id=%s) in transport %s (id=%s)" % [unit_name, unit_id, transport_name, transport_id])
+			DebugLogger.info(str("MovementPhase: Found embarked unit %s (id=%s) in transport %s (id=%s)" % [unit_name, unit_id, transport_name, transport_id]))
 			# Check if disembark is valid (transport hasn't Advanced/Fell Back)
 			var can_disembark_result = TransportManager.can_disembark(unit_id)
-			print("MovementPhase: can_disembark result for %s: %s" % [unit_name, str(can_disembark_result)])
+			DebugLogger.info(str("MovementPhase: can_disembark result for %s: %s" % [unit_name, str(can_disembark_result)]))
 			if can_disembark_result.valid:
 				actions.append({
 					"type": "DISEMBARK_UNIT",
 					"actor_unit_id": unit_id,
 					"description": "Disembark %s from %s" % [unit_name, transport_name]
 				})
-				print("MovementPhase: Added DISEMBARK_UNIT action for %s" % unit_name)
+				DebugLogger.info(str("MovementPhase: Added DISEMBARK_UNIT action for %s" % unit_name))
 			else:
 				# Still show the unit in the list so user can see it, but mark as blocked
 				actions.append({
@@ -6158,7 +6299,7 @@ func get_available_actions() -> Array:
 					"actor_unit_id": unit_id,
 					"description": "%s (Embarked in %s — %s)" % [unit_name, transport_name, can_disembark_result.get("reason", "cannot disembark")]
 				})
-				print("MovementPhase: Disembark not valid for %s — reason: %s (still adding to list as blocked)" % [unit_name, can_disembark_result.get("reason", "unknown")])
+				DebugLogger.info(str("MovementPhase: Disembark not valid for %s — reason: %s (still adding to list as blocked)" % [unit_name, can_disembark_result.get("reason", "unknown")]))
 			continue
 
 		# Skip if already moved
@@ -6203,10 +6344,35 @@ func get_available_actions() -> Array:
 				"description": unit_name + " remains stationary"
 			})
 
+			# T-105: Da Jump (Weirdboy psychic) — once per turn at end of Movement.
+			# Surface as long as the unit isn't already in a movement-in-progress
+			# state and hasn't used it this turn.
+			if not unit.get("flags", {}).get("da_jump_used_this_turn", false):
+				var has_da_jump = false
+				for ab in unit.get("meta", {}).get("abilities", []):
+					var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
+					if ab_name == "Da Jump":
+						has_da_jump = true
+						break
+				if has_da_jump:
+					actions.append({
+						"type": "USE_DA_JUMP",
+						"actor_unit_id": unit_id,
+						"description": "Da Jump (psychic) — D6 roll: 1 = D6 MW; 2+ = teleport %s 9\"+ from enemies" % unit_name
+					})
+
+			# T-105: place after a successful Da Jump roll
+			if unit.get("flags", {}).get("awaiting_da_jump_placement", false):
+				actions.append({
+					"type": "PLACE_DA_JUMP",
+					"actor_unit_id": unit_id,
+					"description": "Place %s (Da Jump teleport — must be 9\"+ from all enemies)" % unit_name
+				})
+
 			# OA-24: Offer Kunnin' Infiltrator as alternative to Normal move
 			var _ki_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 			var _ki_has = _ki_ability_mgr.has_kunnin_infiltrator(unit_id) if _ki_ability_mgr else false
-			print("[OA-24] Checking Kunnin' Infiltrator for %s (%s): ability_mgr=%s, has_ability=%s" % [unit_name, unit_id, str(_ki_ability_mgr != null), str(_ki_has)])
+			DebugLogger.info(str("[OA-24] Checking Kunnin' Infiltrator for %s (%s): ability_mgr=%s, has_ability=%s" % [unit_name, unit_id, str(_ki_ability_mgr != null), str(_ki_has)]))
 			if _ki_has:
 				actions.append({
 					"type": "ACTIVATE_KUNNIN_INFILTRATOR",
@@ -6806,7 +6972,7 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 
 	# Get transport position for range check
 	var transport_pos = _get_unit_center_position(transport_id)
-	print("DEBUG MovementPhase: Transport position: ", transport_pos)
+	DebugLogger.info(str("DEBUG MovementPhase: Transport position: ", transport_pos))
 
 	for i in range(positions.size()):
 		if i >= unit.models.size():
@@ -6816,12 +6982,12 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 			continue
 
 		var pos = positions[i]
-		print("DEBUG MovementPhase: Model position: ", pos)
+		DebugLogger.info(str("DEBUG MovementPhase: Model position: ", pos))
 
 		# P3-95: Use centralized shape-aware distance check from TransportManager
 		var pos_vec = pos if pos is Vector2 else Vector2(pos.x, pos.y)
 		var range_result = TransportManager.is_position_within_disembark_range(pos_vec, unit.models[i], transport)
-		print("DEBUG MovementPhase: Edge-to-edge distance (inches): ", range_result.distance_inches)
+		DebugLogger.info(str("DEBUG MovementPhase: Edge-to-edge distance (inches): ", range_result.distance_inches))
 
 		if not range_result.within_range:
 			return {"valid": false, "errors": ["Model must be placed within 3\" of transport (%.1f\" from edge)" % range_result.distance_inches]}
@@ -7165,10 +7331,10 @@ func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, e
 					break
 
 	if not found_delta:
-		print("[MovementPhase] WARNING: Could not determine move delta for attached characters of %s" % bodyguard_id)
+		DebugLogger.info(str("[MovementPhase] WARNING: Could not determine move delta for attached characters of %s" % bodyguard_id))
 		return changes
 
-	print("[MovementPhase] Moving attached characters with delta: %s" % str(move_delta))
+	DebugLogger.info(str("[MovementPhase] Moving attached characters with delta: %s" % str(move_delta)))
 
 	for char_id in attached_char_ids:
 		var char_unit = get_unit(char_id)
@@ -7182,7 +7348,7 @@ func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, e
 
 			# Skip models that were already explicitly moved via staged moves
 			if explicitly_moved_models.has(model_id):
-				print("[MovementPhase] Skipping attached character model %s — already explicitly moved" % model_id)
+				DebugLogger.info(str("[MovementPhase] Skipping attached character model %s — already explicitly moved" % model_id))
 				continue
 
 			var model_pos = model.get("position", null)
@@ -7207,7 +7373,7 @@ func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, e
 		})
 
 		var char_name = char_unit.get("meta", {}).get("name", char_id)
-		print("[MovementPhase] Moved attached character %s with bodyguard %s" % [char_name, bodyguard_id])
+		DebugLogger.info(str("[MovementPhase] Moved attached character %s with bodyguard %s" % [char_name, bodyguard_id]))
 
 	return changes
 
@@ -7252,5 +7418,5 @@ func _process_use_stratagem(action: Dictionary) -> Dictionary:
 		return create_result(false, [], result.get("error", "Stratagem use failed"))
 
 	var strat_name = result.get("stratagem_name", stratagem_id)
-	print("MovementPhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id])
+	DebugLogger.info(str("MovementPhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id]))
 	return create_result(true, result.get("diffs", []), "Used " + strat_name)

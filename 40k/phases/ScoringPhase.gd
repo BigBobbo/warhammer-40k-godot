@@ -40,14 +40,14 @@ func _on_phase_enter() -> void:
 	_acrobatic_escape_vanish_offered = false
 	phase_type = GameStateData.Phase.SCORING
 	var current_player = get_current_player()
-	print("ScoringPhase: Entering scoring phase for player ", current_player)
-	print("ScoringPhase: Current battle round ", GameState.get_battle_round())
+	DebugLogger.info(str("ScoringPhase: Entering scoring phase for player ", current_player))
+	DebugLogger.info(str("ScoringPhase: Current battle round ", GameState.get_battle_round()))
 
 	# Update objective control before scoring (ensures secondary missions
 	# that depend on objective control have accurate data)
 	if MissionManager:
 		MissionManager.check_all_objectives()
-		print("ScoringPhase: Updated objective control for scoring")
+		DebugLogger.info("ScoringPhase: Updated objective control for scoring")
 
 		# T7-57: Track objectives held per round for AI performance summary
 		if AIPlayer and AIPlayer.enabled:
@@ -66,9 +66,9 @@ func _on_phase_enter() -> void:
 		# Score end-of-your-turn missions for active player
 		_secondary_results = secondary_mgr.score_secondary_missions_for_player(current_player)
 		if _secondary_results.size() > 0:
-			print("ScoringPhase: Player %d scored secondary missions:" % current_player)
+			DebugLogger.info(str("ScoringPhase: Player %d scored secondary missions:" % current_player))
 			for result in _secondary_results:
-				print("  - %s: %d VP" % [result["mission_name"], result["vp_earned"]])
+				DebugLogger.info(str("  - %s: %d VP" % [result["mission_name"], result["vp_earned"]]))
 			if game_event_log:
 				for result in _secondary_results:
 					game_event_log.add_player_entry(current_player, "Scored %d VP from %s" % [result["vp_earned"], result["mission_name"]])
@@ -78,9 +78,9 @@ func _on_phase_enter() -> void:
 		if secondary_mgr.is_initialized(opponent):
 			var opponent_results = secondary_mgr.score_secondary_missions_for_player(opponent)
 			if opponent_results.size() > 0:
-				print("ScoringPhase: Player %d scored secondary missions (end of opponent turn):" % opponent)
+				DebugLogger.info(str("ScoringPhase: Player %d scored secondary missions (end of opponent turn):" % opponent))
 				for result in opponent_results:
-					print("  - %s: %d VP" % [result["mission_name"], result["vp_earned"]])
+					DebugLogger.info(str("  - %s: %d VP" % [result["mission_name"], result["vp_earned"]]))
 				if game_event_log:
 					for result in opponent_results:
 						game_event_log.add_player_entry(opponent, "Scored %d VP from %s" % [result["vp_earned"], result["mission_name"]])
@@ -95,7 +95,7 @@ func _on_phase_enter() -> void:
 			p2["total"], p2["primary"], p2["secondary"]])
 
 func _on_phase_exit() -> void:
-	print("ScoringPhase: Exiting scoring phase")
+	DebugLogger.info("ScoringPhase: Exiting scoring phase")
 	_secondary_results.clear()
 
 func get_available_actions() -> Array:
@@ -195,8 +195,8 @@ func _handle_discard_secondary(action: Dictionary) -> Dictionary:
 
 	var result = secondary_mgr.voluntary_discard(current_player, mission_index)
 	if result["success"]:
-		print("ScoringPhase: Player %d discarded %s (gained %d CP)" % [
-			current_player, result["discarded"], result["cp_gained"]])
+		DebugLogger.info(str("ScoringPhase: Player %d discarded %s (gained %d CP)" % [
+			current_player, result["discarded"], result["cp_gained"]]))
 		var game_event_log = get_node_or_null("/root/GameEventLog")
 		if game_event_log:
 			game_event_log.add_player_entry(current_player, "Discarded %s (gained %d CP)" % [result["discarded"], result["cp_gained"]])
@@ -215,7 +215,7 @@ func _handle_end_turn() -> Dictionary:
 		_acrobatic_escape_vanish_pending = ae_eligible.duplicate()
 
 		var first = ae_eligible[0]
-		print("ScoringPhase: ACROBATIC ESCAPE VANISH: %s (player %d) eligible — offering choice" % [first.unit_name, first.player])
+		DebugLogger.info(str("ScoringPhase: ACROBATIC ESCAPE VANISH: %s (player %d) eligible — offering choice" % [first.unit_name, first.player]))
 		emit_signal("acrobatic_escape_vanish_available", first.unit_id, first.unit_name, first.player)
 
 		return {
@@ -229,7 +229,7 @@ func _handle_end_turn() -> Dictionary:
 
 	_turn_ended = true
 
-	print("ScoringPhase: Player %d ending turn, switching to player %d" % [current_player, next_player])
+	DebugLogger.info(str("ScoringPhase: Player %d ending turn, switching to player %d" % [current_player, next_player]))
 
 	# P3-128: Record VP snapshot at end of each player's turn for the timeline chart
 	if MissionManager:
@@ -256,7 +256,7 @@ func _handle_end_turn() -> Dictionary:
 	if current_player == 2:
 		var current_battle_round = GameState.get_battle_round()
 		var new_battle_round = current_battle_round + 1
-		print("ScoringPhase: Completing battle round, advancing to battle round %d" % new_battle_round)
+		DebugLogger.info(str("ScoringPhase: Completing battle round, advancing to battle round %d" % new_battle_round))
 
 		changes.append({
 			"op": "set",
@@ -283,8 +283,8 @@ func _handle_game_end_turn() -> Dictionary:
 
 	var winner := _determine_winner()
 
-	print("ScoringPhase: Final battle round complete — game ended. Winner: %s" % (
-		"Draw" if winner == 0 else "Player %d" % winner))
+	DebugLogger.info(str("ScoringPhase: Final battle round complete — game ended. Winner: %s" % (
+		"Draw" if winner == 0 else "Player %d" % winner)))
 
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log:
@@ -325,7 +325,7 @@ func _create_flag_reset_changes(player: int) -> Array:
 	var units = game_state_snapshot.get("units", {})
 
 	if units.is_empty():
-		print("ScoringPhase: No units found in game state, skipping flag reset")
+		DebugLogger.info("ScoringPhase: No units found in game state, skipping flag reset")
 		return changes
 
 	var reset_count = 0
@@ -368,12 +368,12 @@ func _create_flag_reset_changes(player: int) -> Array:
 		if not reset_flags_for_unit.is_empty():
 			reset_count += 1
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			print("ScoringPhase:   Reset flags for %s: %s" % [unit_name, reset_flags_for_unit])
+			DebugLogger.info(str("ScoringPhase:   Reset flags for %s: %s" % [unit_name, reset_flags_for_unit]))
 
 	if reset_count > 0:
-		print("ScoringPhase: Resetting flags for %d units owned by player %d" % [reset_count, player])
+		DebugLogger.info(str("ScoringPhase: Resetting flags for %d units owned by player %d" % [reset_count, player]))
 	else:
-		print("ScoringPhase: No flags to reset for player %d units" % player)
+		DebugLogger.info(str("ScoringPhase: No flags to reset for player %d units" % player))
 
 	return changes
 
@@ -408,7 +408,7 @@ func _destroy_remaining_reserves() -> Array:
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		var models = unit.get("models", [])
 
-		print("ScoringPhase: P1-37 — Destroying reserves unit '%s' (player %d) — not arrived by end of Round 3" % [unit_name, owner])
+		DebugLogger.info(str("ScoringPhase: P1-37 — Destroying reserves unit '%s' (player %d) — not arrived by end of Round 3" % [unit_name, owner]))
 
 		# Mark all models as dead
 		for i in range(models.size()):
@@ -438,7 +438,7 @@ func _destroy_remaining_reserves() -> Array:
 		if destroyed_names.size() > 0:
 			var names_str = ", ".join(destroyed_names)
 			var msg = "Player %d reserves destroyed (not arrived by Round 3): %s" % [player, names_str]
-			print("ScoringPhase: %s" % msg)
+			DebugLogger.info(str("ScoringPhase: %s" % msg))
 			if game_event_log:
 				game_event_log.add_player_entry(player, "Reserves destroyed (not arrived by Round 3): %s" % names_str)
 
@@ -452,9 +452,9 @@ func _destroy_remaining_reserves() -> Array:
 				for unit_name in destroyed_units_by_player[player]:
 					all_names.append("P%d %s" % [player, unit_name])
 			toast_mgr.show_warning("Reserves destroyed (Round 3 ended): %s" % ", ".join(all_names))
-		print("ScoringPhase: P1-37 — Total %d reserves unit(s) destroyed at end of Round 3" % total_destroyed)
+		DebugLogger.info(str("ScoringPhase: P1-37 — Total %d reserves unit(s) destroyed at end of Round 3" % total_destroyed))
 	else:
-		print("ScoringPhase: P1-37 — No reserves units remaining at end of Round 3")
+		DebugLogger.info("ScoringPhase: P1-37 — No reserves units remaining at end of Round 3")
 
 	return changes
 
@@ -508,7 +508,7 @@ func _get_acrobatic_escape_vanish_eligible(current_player: int) -> Array:
 		# Must NOT be within 3" of any enemy model
 		if _is_unit_within_distance_of_enemies(unit, unit_id, 3.0):
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			print("ScoringPhase: ACROBATIC ESCAPE: %s is within 3\" of enemies — cannot vanish" % unit_name)
+			DebugLogger.info(str("ScoringPhase: ACROBATIC ESCAPE: %s is within 3\" of enemies — cannot vanish" % unit_name))
 			continue
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
@@ -517,7 +517,7 @@ func _get_acrobatic_escape_vanish_eligible(current_player: int) -> Array:
 			"unit_name": unit_name,
 			"player": opponent,
 		})
-		print("ScoringPhase: ACROBATIC ESCAPE: %s (player %d) eligible to vanish" % [unit_name, opponent])
+		DebugLogger.info(str("ScoringPhase: ACROBATIC ESCAPE: %s (player %d) eligible to vanish" % [unit_name, opponent]))
 
 	return eligible
 
@@ -564,7 +564,7 @@ func _handle_acrobatic_escape_vanish(action: Dictionary) -> Dictionary:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var player = int(unit.get("owner", 0))
 
-	print("ScoringPhase: ACROBATIC ESCAPE: %s vanishing from battlefield — moving to reserves" % unit_name)
+	DebugLogger.info(str("ScoringPhase: ACROBATIC ESCAPE: %s vanishing from battlefield — moving to reserves" % unit_name))
 
 	var changes = []
 
@@ -600,7 +600,7 @@ func _handle_acrobatic_escape_vanish(action: Dictionary) -> Dictionary:
 	# Check for more pending units
 	if not _acrobatic_escape_vanish_pending.is_empty():
 		var next = _acrobatic_escape_vanish_pending[0]
-		print("ScoringPhase: ACROBATIC ESCAPE: Next eligible — %s (player %d)" % [next.unit_name, next.player])
+		DebugLogger.info(str("ScoringPhase: ACROBATIC ESCAPE: Next eligible — %s (player %d)" % [next.unit_name, next.player]))
 		emit_signal("acrobatic_escape_vanish_available", next.unit_id, next.unit_name, next.player)
 
 		return {
@@ -630,7 +630,7 @@ func _handle_decline_acrobatic_escape_vanish(action: Dictionary) -> Dictionary:
 	if not unit_id.is_empty():
 		var unit = game_state_snapshot.get("units", {}).get(unit_id, {})
 		unit_name = unit.get("meta", {}).get("name", unit_id)
-	print("ScoringPhase: ACROBATIC ESCAPE: %s declined vanish — staying on battlefield" % unit_name)
+	DebugLogger.info(str("ScoringPhase: ACROBATIC ESCAPE: %s declined vanish — staying on battlefield" % unit_name))
 
 	# Remove from pending list
 	_acrobatic_escape_vanish_pending = _acrobatic_escape_vanish_pending.filter(
@@ -640,7 +640,7 @@ func _handle_decline_acrobatic_escape_vanish(action: Dictionary) -> Dictionary:
 	# Check for more pending units
 	if not _acrobatic_escape_vanish_pending.is_empty():
 		var next = _acrobatic_escape_vanish_pending[0]
-		print("ScoringPhase: ACROBATIC ESCAPE: Next eligible — %s (player %d)" % [next.unit_name, next.player])
+		DebugLogger.info(str("ScoringPhase: ACROBATIC ESCAPE: Next eligible — %s (player %d)" % [next.unit_name, next.player]))
 		emit_signal("acrobatic_escape_vanish_available", next.unit_id, next.unit_name, next.player)
 
 		return {

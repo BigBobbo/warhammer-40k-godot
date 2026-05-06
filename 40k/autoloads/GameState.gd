@@ -742,6 +742,89 @@ func get_omni_scrambler_positions(deploying_player: int) -> Array:
 		print("GameState: Found %d Omni-scrambler model positions blocking player %d deep strike" % [positions.size(), deploying_player])
 	return positions
 
+# T-026: Combat Squads / Patrol Squad — split a 10-model unit into two
+# 5-model halves at deployment. Returns the new sibling unit's id, or "" on
+# failure. Does NOT itself drive the UI prompt — DeploymentController must
+# offer the choice and call this helper when accepted.
+#
+# Constraints:
+#  - Only callable when source unit has exactly 10 alive models in UNDEPLOYED state.
+#  - Only callable when source unit's meta.abilities contains "Combat Squads"
+#    or "Patrol Squad".
+#  - Source unit retains models 0..4; new sibling unit inherits models 5..9
+#    (renamed m1..m5 to keep ids unique within each unit).
+#  - Both halves keep the source unit's meta verbatim (same datasheet, weapons,
+#    keywords, abilities). Faction and owner copied. Status remains UNDEPLOYED
+#    so deployment alternation includes both halves.
+#  - Returns the new sibling unit_id on success.
+func split_unit_at_deployment(source_unit_id: String) -> String:
+	var source = get_unit(source_unit_id)
+	if source.is_empty():
+		push_error("split_unit_at_deployment: unit %s not found" % source_unit_id)
+		return ""
+	# Eligibility: must have one of the splitting abilities.
+	var abilities = source.get("meta", {}).get("abilities", [])
+	var has_split = false
+	for ab in abilities:
+		var ab_name = ""
+		if ab is String:
+			ab_name = ab
+		elif ab is Dictionary:
+			ab_name = ab.get("name", "")
+		if ab_name in ["Combat Squads", "Patrol Squad"]:
+			has_split = true
+			break
+	if not has_split:
+		push_error("split_unit_at_deployment: %s lacks Combat Squads / Patrol Squad ability" % source_unit_id)
+		return ""
+	# Status must be UNDEPLOYED.
+	if int(source.get("status", 0)) != UnitStatus.UNDEPLOYED:
+		push_error("split_unit_at_deployment: %s status is not UNDEPLOYED (got %s)" % [source_unit_id, str(source.get("status"))])
+		return ""
+	# Must have exactly 10 alive models.
+	var models = source.get("models", [])
+	var alive_count = 0
+	for m in models:
+		if m.get("alive", true):
+			alive_count += 1
+	if alive_count != 10:
+		push_error("split_unit_at_deployment: %s has %d alive models, must be exactly 10" % [source_unit_id, alive_count])
+		return ""
+	# Build the sibling unit. Deep-copy the meta so subsequent mutation of the
+	# source's model list doesn't bleed across.
+	var sibling_id = "%s_SPLIT" % source_unit_id
+	var idx_suffix = 1
+	while state["units"].has(sibling_id):
+		sibling_id = "%s_SPLIT%d" % [source_unit_id, idx_suffix]
+		idx_suffix += 1
+	var sibling = _deep_copy_dict(source)
+	sibling["id"] = sibling_id
+	sibling["squad_id"] = sibling_id
+	# Sibling takes models 5..9 of the source, re-numbered.
+	var sibling_models = []
+	var i = 0
+	for m in models.slice(5, 10):
+		i += 1
+		var new_model = _deep_copy_dict(m) if m is Dictionary else m
+		new_model["id"] = "m%d" % i
+		sibling_models.append(new_model)
+	sibling["models"] = sibling_models
+	# Source unit keeps models 0..4 with their existing ids.
+	source["models"] = models.slice(0, 5)
+	# Mark the split on both halves so downstream code can inspect.
+	source["split_from_combat_squads"] = true
+	sibling["split_from_combat_squads"] = true
+	sibling["split_sibling_of"] = source_unit_id
+	source["split_sibling_id"] = sibling_id
+	# Update the meta name for clarity in unit lists.
+	var base_name = source.get("meta", {}).get("name", source_unit_id)
+	source["meta"]["display_name"] = "%s (Combat Squad A)" % base_name
+	sibling["meta"]["display_name"] = "%s (Combat Squad B)" % base_name
+	# Attach to GameState.
+	state["units"][sibling_id] = sibling
+	print("GameState: T-026 split %s into %s + %s (5+5 models)" % [source_unit_id, source_unit_id, sibling_id])
+	return sibling_id
+
 func get_combined_models(unit_id: String) -> Array:
 	var unit = get_unit(unit_id)
 	if unit.is_empty():

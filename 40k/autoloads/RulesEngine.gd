@@ -3490,8 +3490,11 @@ static func get_ded_glowy_ammo_toughness_penalty(target_unit: Dictionary, board:
 		if not source_alive:
 			continue
 
-		# Must be on the board (not embarked in transport)
-		if source_unit.get("embarked_in", "") != "":
+		# Must be on the board (not embarked in transport).
+		# T-029a: defensive null-safe check — saved games may store null for unembarked
+		# units, and `null != ""` is true, which would silently skip every aura source.
+		var src_embk_dga = source_unit.get("embarked_in", "")
+		if src_embk_dga != null and src_embk_dga != "":
 			continue
 
 		# Check if this unit has 'Ded Glowy Ammo (Aura)' ability directly
@@ -3636,8 +3639,10 @@ static func unit_has_waaagh_banner_lethal_hits(attacker_unit: Dictionary, board:
 		if not source_alive:
 			continue
 
-		# Must be on the board (not embarked in transport)
-		if source_unit.get("embarked_in", "") != "":
+		# Must be on the board (not embarked in transport).
+		# T-029a: defensive null-safe check — see note above.
+		var src_embk_wb = source_unit.get("embarked_in", "")
+		if src_embk_wb != null and src_embk_wb != "":
 			continue
 
 		# Must have "Ghazghkull's Waaagh! Banner (Aura)" ability
@@ -4277,19 +4282,29 @@ static func _get_model_effective_save(model: Dictionary, unit: Dictionary, defau
 	return default_save
 
 # MA-12: Get effective invuln for a model, checking stats_override.invuln
-# Returns the model's overridden invuln if available, otherwise falls back to model-level invuln.
+# Returns (in priority order): per-model stats_override invuln, model-level invuln,
+# or unit meta.stats.invuln. T-014: unit-level meta.stats.invuln is the canonical
+# JSON shape — without this fallback, units that only declare invuln at the unit
+# level (e.g. Custodian Guard, Blade Champion) would never roll their invuln save.
 static func _get_model_effective_invuln(model: Dictionary, unit: Dictionary, default_invuln: int) -> int:
-	if model.is_empty():
+	# Per-model stats_override.invuln wins if set
+	if not model.is_empty():
+		var model_type = model.get("model_type", "")
+		if model_type != "":
+			var model_profiles = unit.get("meta", {}).get("model_profiles", {})
+			if model_profiles.has(model_type):
+				var override_invuln = model_profiles[model_type].get("stats_override", {}).get("invuln", -1)
+				if override_invuln > 0:
+					return override_invuln
+	# Caller-supplied default (typically model.get("invuln", 0))
+	if default_invuln > 0:
 		return default_invuln
-	var model_type = model.get("model_type", "")
-	if model_type == "":
-		return default_invuln
-	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
-	if not model_profiles.has(model_type):
-		return default_invuln
-	var override_invuln = model_profiles[model_type].get("stats_override", {}).get("invuln", -1)
-	if override_invuln > 0:
-		return override_invuln
+	# T-014 fallback: read unit meta.stats.invuln (canonical JSON location)
+	var stats_invuln = unit.get("meta", {}).get("stats", {}).get("invuln", 0)
+	if typeof(stats_invuln) == TYPE_STRING:
+		stats_invuln = int(stats_invuln) if stats_invuln.is_valid_int() else 0
+	if stats_invuln > 0:
+		return int(stats_invuln)
 	return default_invuln
 
 # Shared helper: return weapon IDs for a specific model, respecting model_profiles if present.
@@ -8727,32 +8742,36 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	var total_damage = regular_damage + devastating_damage
 
-	# FEEL NO PAIN: Roll FNP separately for devastating wounds and regular damage
+	# FEEL NO PAIN: Roll FNP separately for devastating wounds and regular damage.
+	# T-016: DW deals mortal-wound damage, so the DW FNP roll consults the
+	# `effect_fnp_psychic_mortal` flag (Daughters of the Abyss et al.). Regular
+	# damage uses unconditional FNP only.
 	var fnp_value = get_unit_fnp(target_unit)
+	var dw_fnp_value = get_unit_fnp_for_attack(target_unit, true)
 	var actual_dw_damage = devastating_damage
 	var actual_regular_damage = regular_damage
 	var total_fnp_prevented = 0
 
-	if fnp_value > 0:
+	if fnp_value > 0 or dw_fnp_value > 0:
 		# T2-11: FNP for devastating wound mortal wounds
-		if devastating_damage > 0:
-			var fnp_dw = roll_feel_no_pain(devastating_damage, fnp_value, rng)
+		if devastating_damage > 0 and dw_fnp_value > 0:
+			var fnp_dw = roll_feel_no_pain(devastating_damage, dw_fnp_value, rng)
 			actual_dw_damage = fnp_dw.wounds_remaining
 			total_fnp_prevented += fnp_dw.wounds_prevented
 			result.dice.append({
 				"context": "feel_no_pain",
 				"source": "devastating_wounds",
-				"threshold": str(fnp_value) + "+",
+				"threshold": str(dw_fnp_value) + "+",
 				"rolls_raw": fnp_dw.rolls,
-				"fnp_value": fnp_value,
+				"fnp_value": dw_fnp_value,
 				"wounds_prevented": fnp_dw.wounds_prevented,
 				"wounds_remaining": fnp_dw.wounds_remaining,
 				"total_wounds": devastating_damage
 			})
-			print("RulesEngine: Melee DW FNP %d+ — %d/%d mortal wound damage prevented" % [fnp_value, fnp_dw.wounds_prevented, devastating_damage])
+			print("RulesEngine: Melee DW FNP %d+ — %d/%d mortal wound damage prevented" % [dw_fnp_value, fnp_dw.wounds_prevented, devastating_damage])
 
 		# FNP for regular failed save damage
-		if regular_damage > 0:
+		if regular_damage > 0 and fnp_value > 0:
 			var fnp_reg = roll_feel_no_pain(regular_damage, fnp_value, rng)
 			actual_regular_damage = fnp_reg.wounds_remaining
 			total_fnp_prevented += fnp_reg.wounds_prevented
@@ -9701,16 +9720,19 @@ static func apply_save_damage(
 	if dw_damage > 0:
 		print("RulesEngine: Applying %d devastating wounds damage (unsaveable)" % dw_damage)
 
-		# FEEL NO PAIN: FNP applies even to devastating wounds
+		# FEEL NO PAIN: FNP applies even to devastating wounds.
+		# T-016: DW is mortal-wound damage, so consult the conditional FNP
+		# (Daughters of the Abyss FNP 3+ vs Psychic/MW only).
 		var actual_dw_damage = dw_damage
-		if fnp_value > 0 and rng != null:
-			var fnp_result = roll_feel_no_pain(dw_damage, fnp_value, rng)
+		var dw_fnp_value = get_unit_fnp_for_attack(target_unit, true)
+		if dw_fnp_value > 0 and rng != null:
+			var fnp_result = roll_feel_no_pain(dw_damage, dw_fnp_value, rng)
 			actual_dw_damage = fnp_result.wounds_remaining
 			result.fnp_rolls.append({
 				"context": "feel_no_pain",
 				"source": "devastating_wounds",
 				"rolls": fnp_result.rolls,
-				"fnp_value": fnp_value,
+				"fnp_value": dw_fnp_value,
 				"wounds_prevented": fnp_result.wounds_prevented,
 				"wounds_remaining": fnp_result.wounds_remaining,
 				"total_wounds": dw_damage
@@ -10076,7 +10098,9 @@ static func _find_allocation_target_model(models: Array) -> int:
 # FEEL NO PAIN: Get FNP value for a unit (0 = no FNP)
 static func get_unit_fnp(unit: Dictionary) -> int:
 	"""Returns FNP value (e.g. 5 for 5+), or 0 if unit has no FNP.
-	Checks both base stats and effect-granted FNP, using the better (lower) value."""
+	Checks both base stats and effect-granted FNP, using the better (lower) value.
+	Note: this returns the UNCONDITIONAL FNP only — for psychic/mortal-only FNP
+	(e.g. Daughters of the Abyss) call get_unit_fnp_for_attack(unit, true)."""
 	var base_fnp = unit.get("meta", {}).get("stats", {}).get("fnp", 0)
 	var effect_fnp = EffectPrimitivesData.get_effect_fnp(unit)
 
@@ -10088,6 +10112,32 @@ static func get_unit_fnp(unit: Dictionary) -> int:
 	elif base_fnp > 0:
 		return base_fnp
 	return 0
+
+# T-016: FNP for a specific attack context.
+# If the attack is a Psychic Attack OR a Mortal Wound, also consider the
+# `effect_fnp_psychic_mortal` flag (set by Daughters of the Abyss et al.) and
+# return whichever FNP value is better (lower).
+# `is_psychic_or_mortal_wound` should be true for: mortal wounds (incl. those
+# spilled from Devastating Wounds) and Psychic Attacks. False otherwise.
+static func get_unit_fnp_for_attack(unit: Dictionary, is_psychic_or_mortal_wound: bool) -> int:
+	var unconditional = get_unit_fnp(unit)
+	if not is_psychic_or_mortal_wound:
+		return unconditional
+	var conditional = EffectPrimitivesData.get_effect_fnp_psychic_mortal(unit)
+	# T-075: Null Aegis (Talons of the Emperor) — Custodes within 6" of friendly
+	# ANATHEMA PSYKANA model gain FNP 5+ vs Psychic/MW. Take the better of all.
+	var uam = Engine.get_main_loop().root.get_node_or_null("UnitAbilityManager") if Engine.get_main_loop() else null
+	var null_aegis = 0
+	if uam and uam.has_method("get_null_aegis_fnp"):
+		null_aegis = int(uam.get_null_aegis_fnp(unit.get("id", "")))
+	var best_conditional = conditional
+	if null_aegis > 0 and (best_conditional <= 0 or null_aegis < best_conditional):
+		best_conditional = null_aegis
+	if best_conditional <= 0:
+		return unconditional
+	if unconditional <= 0:
+		return best_conditional
+	return min(unconditional, best_conditional)
 
 # MA-28: Get effective FNP for a specific model, checking stats_override.fnp first.
 # Returns the model's overridden FNP if available, otherwise falls back to unit FNP.
@@ -10159,8 +10209,10 @@ static func apply_mortal_wounds(target_unit_id: String, mortal_wounds: int, boar
 
 	var models = target_unit.get("models", [])
 
-	# Check for Feel No Pain
-	var fnp_value = get_unit_fnp(target_unit)
+	# Check for Feel No Pain.
+	# T-016: mortal wounds count as "psychic-or-mortal" for the conditional FNP check
+	# (e.g. Daughters of the Abyss FNP 3+ vs Psychic/MW only).
+	var fnp_value = get_unit_fnp_for_attack(target_unit, true)
 	var actual_wounds = mortal_wounds
 	var fnp_result = {}
 

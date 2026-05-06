@@ -1,0 +1,443 @@
+Godot Engine v4.6.stable.steam.89cea1439 - https://godotengine.org
+
+TestModeHandler: Args -> ["-s", "tests/test_audit_already_done_pin.gd"]
+[2026-05-06 08:32:30] [INFO.0000000] DebugLogger initialized - Session: 20260506_083230
+[2026-05-06 08:32:30] [INFO.0000000] Log file: user://logs/debug_20260506_083230.log
+[2026-05-06 08:32:30] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20260506_083230.log
+[SettingsService] Settings loaded from user://settings.cfg
+[SettingsService] Created Music audio bus
+[SettingsService] Created SFX audio bus
+[MeasuringTapeManager] Save persistence: false
+SaveLoadManager: autosave_on_round_end = true
+SaveLoadManager: autosave_on_phase_transition = false
+[SettingsService] Ready — ui_scale=1.90, animation_speed=1.00, colorblind=protanopia
+Found armies in res://: ["Orks_Upload_Mar7", "orks", "adeptus_custodes", "Orks_2000_upload", "space_marines", "Orks_2000", "A_C_test", "ORK_test", "Adeptus_Custodes_1995_Mar_7"]
+ArmyListManager initialized with 9 armies: ["Orks_Upload_Mar7", "orks", "adeptus_custodes", "Orks_2000_upload", "space_marines", "Orks_2000", "A_C_test", "ORK_test", "Adeptus_Custodes_1995_Mar_7"]
+[2026-05-06 08:32:30] [INFO.0000000] DebugManager initialized
+[DeploymentZoneData] Loaded zones for 'hammer_anvil' from JSON
+GameState: Loading default armies...
+Loading army list: adeptus_custodes for player 1
+ArmyListManager: Wargear 'Praesidium Shield' on Shield-Captain (U_SHIELD_CAPTAIN_A): wounds 6 -> 7 (+1)
+ArmyListManager: Wargear 'Praesidium Shield' updated model m1 wounds: 6 -> 7
+Processed unit: U_SHIELD_CAPTAIN_A for player 1
+Processed unit: U_BLADE_CHAMPION_A for player 1
+ArmyListManager: Wargear 'Praesidium Shield' on Custodian Guard (U_CUSTODIAN_GUARD_B): wounds 3 -> 4 (+1)
+ArmyListManager: Wargear 'Praesidium Shield' updated model m1 wounds: 3 -> 4
+ArmyListManager: Wargear 'Praesidium Shield' updated model m2 wounds: 3 -> 4
+ArmyListManager: Wargear 'Praesidium Shield' updated model m3 wounds: 3 -> 4
+ArmyListManager: Wargear 'Praesidium Shield' updated model m4 wounds: 3 -> 4
+ArmyListManager: Wargear 'Vexilla' on Custodian Guard (U_CUSTODIAN_GUARD_B): objective_control 2 -> 3 (+1)
+Processed unit: U_CUSTODIAN_GUARD_B for player 1
+Processed unit: U_WITCHSEEKERS_C for player 1
+Processed unit: U_WITCHSEEKERS_D for player 1
+Processed unit: U_CALADIUS_GRAV-TANK_E for player 1
+Processed unit: U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H for player 1
+Processed unit: U_TELEMON_HEAVY_DREADNOUGHT_I for player 1
+Processed unit: U_SHIELD_CAPTAIN_JETBIKE_A for player 1
+ArmyListManager: Duplicate squad labeled: U_WITCHSEEKERS_C -> Witchseekers Alpha
+ArmyListManager: Duplicate squad labeled: U_WITCHSEEKERS_D -> Witchseekers Beta
+ArmyListManager: FactionAbilityManager not available for detachment validation
+ArmyListManager: Army construction validation for 'Adeptus Custodes':
+  Declared points: 1000, Total unit points: 1335, Units: 9
+  Detachment: Shield Host
+  WARNING: Army exceeds declared points limit: 1335 / 1000 pts (+335 over)
+Successfully loaded army: adeptus_custodes with 9 units
+GameState: Loading Adeptus Custodes army for Player 1
+Applying army to game state for player: 1
+Removing 0 existing units for player 1
+Added unit: U_SHIELD_CAPTAIN_A (Shield-Captain)
+Added unit: U_BLADE_CHAMPION_A (Blade Champion)
+Added unit: U_CUSTODIAN_GUARD_B (Custodian Guard)
+Added unit: U_WITCHSEEKERS_C (Witchseekers)
+Added unit: U_WITCHSEEKERS_D (Witchseekers)
+Added unit: U_CALADIUS_GRAV-TANK_E (Caladius Grav-tank)
+Added unit: U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H (Contemptor-Achillus Dreadnought)
+Added unit: U_TELEMON_HEAVY_DREADNOUGHT_I (Telemon Heavy Dreadnought)
+Added unit: U_SHIELD_CAPTAIN_JETBIKE_A (Shield-captain On Dawneagle Jetbike)
+Set faction for player 1: Adeptus Custodes
+FactionStratagemLoader: Loaded 54 faction codes
+StratagemManager: Loading faction stratagems for player 1 — Adeptus Custodes / Shield Host
+FactionStratagemLoader: Loading stratagems for Adeptus Custodes (AC), detachment: 'Shield Host'
+FactionStratagemLoader: Loaded 6 stratagems for Adeptus Custodes / Shield Host
+StratagemManager: Loaded 6 faction stratagems for player 1 (4 mechanically implemented)
+Army applied successfully. Total units in game: 9
+Loading army list: orks for player 2
+Processed unit: U_STRIKE_FORCE_A for player 2
+Processed unit: U_WARBOSS_B for player 2
+Processed unit: U_WARBOSS_C for player 2
+Processed unit: U_WARBOSS_IN_MEGA_ARMOUR_D for player 2
+Processed unit: U_BOYZ_E for player 2
+ArmyListManager: Unit U_BOYZ_F (Boyz) loaded with model_profiles: ["boss_nob", "boy"]
+ArmyListManager: MA-2 Unit U_BOYZ_F (Boyz) model_type breakdown: 1x boss_nob, 19x boy
+ArmyListManager: MA-3/MA-13 model_profiles validation complete for U_BOYZ_F (Boyz)
+Processed unit: U_BOYZ_F for player 2
+[2026-05-06 08:32:31] [DEBUG.0000000] Parsed transport capacity keywords | Context: {"description":"This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models.","keywords":["ORKS","INFANTRY"],"unit_id":"U_BATTLEWAGON_G"}
+ArmyListManager: Parsed transport capacity multiplier: MEGA ARMOUR = 2 spaces
+ArmyListManager: Parsed transport exclusion: JUMP PACK
+ArmyListManager: Wargear ''Ard Case' on Battlewagon (U_BATTLEWAGON_G): toughness 10 -> 12 (+2)
+ArmyListManager: Wargear ''Ard Case' on Battlewagon: removed Firing Deck 11
+Processed unit: U_BATTLEWAGON_G for player 2
+Processed unit: U_KOMMANDOS_H for player 2
+Processed unit: U_PAINBOSS_I for player 2
+Processed unit: U_WEIRDBOY_J for player 2
+Processed unit: U_BOYZ_K for player 2
+ArmyListManager: Unit U_LOOTAS_A (Lootas) loaded with model_profiles: ["loota_deffgun", "loota_kmb", "spanner"]
+ArmyListManager: MA-2 Unit U_LOOTAS_A (Lootas) model_type breakdown: 8x loota_deffgun, 2x loota_kmb, 1x spanner
+ArmyListManager: MA-3/MA-13 model_profiles validation complete for U_LOOTAS_A (Lootas)
+Processed unit: U_LOOTAS_A for player 2
+ArmyListManager: Unit U_MEGANOBZ_L (Meganobz) loaded with model_profiles: ["meganob_klaw", "meganob_saws"]
+ArmyListManager: MA-2 Unit U_MEGANOBZ_L (Meganobz) model_type breakdown: 3x meganob_klaw, 2x meganob_saws
+ArmyListManager: MA-3/MA-13 model_profiles validation complete for U_MEGANOBZ_L (Meganobz)
+Processed unit: U_MEGANOBZ_L for player 2
+Processed unit: U_WAZBOM_BLASTAJET for player 2
+Processed unit: U_KAPTIN_BADRUKK_A for player 2
+Processed unit: U_GHAZGHKULL_THRAKA_A for player 2
+Processed unit: U_NOB_WAAAGH_BANNER_A for player 2
+ArmyListManager: Duplicate squad labeled: U_WARBOSS_B -> Warboss Alpha
+ArmyListManager: Duplicate squad labeled: U_WARBOSS_C -> Warboss Beta
+ArmyListManager: Duplicate squad labeled: U_BOYZ_E -> Boyz Alpha
+ArmyListManager: Duplicate squad labeled: U_BOYZ_F -> Boyz Beta
+ArmyListManager: Duplicate squad labeled: U_BOYZ_K -> Boyz Gamma
+ArmyListManager: FactionAbilityManager not available for detachment validation
+ArmyListManager: Army construction validation for 'Orks':
+  Declared points: 2000, Total unit points: 3840, Units: 17
+  Detachment: War Horde
+  WARNING: Army exceeds declared points limit: 3840 / 2000 pts (+1840 over)
+Successfully loaded army: orks with 17 units
+GameState: Loading Orks army for Player 2
+Applying army to game state for player: 2
+Removing 0 existing units for player 2
+Added unit: U_STRIKE_FORCE_A (Strike Force)
+Added unit: U_WARBOSS_B (Warboss)
+Added unit: U_WARBOSS_C (Warboss)
+Added unit: U_WARBOSS_IN_MEGA_ARMOUR_D (Warboss in Mega Armour)
+Added unit: U_BOYZ_E (Boyz)
+Added unit: U_BOYZ_F (Boyz)
+Added unit: U_BATTLEWAGON_G (Battlewagon)
+Added unit: U_KOMMANDOS_H (Kommandos)
+Added unit: U_PAINBOSS_I (Painboss)
+Added unit: U_WEIRDBOY_J (Weirdboy)
+Added unit: U_BOYZ_K (Boyz)
+Added unit: U_LOOTAS_A (Lootas)
+Added unit: U_MEGANOBZ_L (Meganobz)
+Added unit: U_WAZBOM_BLASTAJET (Wazbom Blastajet)
+Added unit: U_KAPTIN_BADRUKK_A (Kaptin Badrukk)
+Added unit: U_GHAZGHKULL_THRAKA_A (Ghazghkull Thraka)
+Added unit: U_NOB_WAAAGH_BANNER_A (Nob with Waaagh! Banner)
+Set faction for player 2: Orks
+StratagemManager: Loading faction stratagems for player 2 — Orks / War Horde
+FactionStratagemLoader: Loading stratagems for Orks (ORK), detachment: 'War Horde'
+FactionStratagemLoader: Loaded 6 stratagems for Orks / War Horde
+StratagemManager: Loaded 6 faction stratagems for player 2 (2 mechanically implemented)
+Army applied successfully. Total units in game: 26
+GameState: Army loading complete. Total units: 26
+ActionLogger: Started session 20260506_083231
+StateSerializer: Pretty print enabled: true
+StateSerializer: Save format version: 1.1.0 (min migratable: 1.0.0)
+ReplayManager: Connected to GameManager.result_applied
+ReplayManager: Connected to PhaseManager.phase_changed, phase_action_taken, phase_completed
+ReplayManager: Ready (auto_record_ai=true)
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+SaveLoadManager: Connected to PhaseManager for event-driven autosave
+SaveLoadManager: Connected to AIPlayer.ai_turn_ended for deferred autosave (SAVE-6)
+[DeploymentZoneData] Loaded zones for 'hammer_anvil' from JSON
+[BoardState] Initialized deployment zones for: hammer_anvil
+FactionStratagemLoader: Loaded 54 faction codes
+StratagemManager: Loaded 24 core stratagems
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Preloaded metadata for 8 terrain layouts
+[TerrainManager] Loaded layout 'layout_2' from JSON (14 terrain pieces)
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Configured mission ID: take_and_hold
+[DeploymentZoneData] Loaded objectives for 'hammer_anvil' from JSON
+MissionManager: Set up 5 objectives for hammer_anvil deployment
+  - obj_center at position (880.0, 1200.0) (zone: no_mans_land)
+  - obj_nml_1 at position (400.0, 720.0) (zone: no_mans_land)
+  - obj_nml_2 at position (1360.0, 1680.0) (zone: no_mans_land)
+  - obj_home_1 at position (880.0, 240.0) (zone: player1)
+  - obj_home_2 at position (880.0, 2160.0) (zone: player2)
+MissionManager: Initialized 'Take and Hold' mission (scoring_type: hold_objectives)
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'G' to check what can see the cursor position
+TransportManager initialized
+TransportFactory: Loaded local server URL: wss://warhammer-40k-godot.fly.dev
+TransportFactory: Initialized
+CharacterAttachmentManager initialized
+CloudStorage: Using server URL: http://localhost:9080
+CloudStorage: Loaded player ID from file: 93aab3f0...
+CloudStorage: POST /api/players
+WebSocketRelay: Initialized with server URL: wss://warhammer-40k-godot.fly.dev
+NetworkManager: Initialized (platform: desktop)
+[2026-05-06 08:32:31] [INFO.0000000] [SpriteResolver] Found sprite: orks_vehicle -> user://sprites/orks_vehicle.png
+[2026-05-06 08:32:31] [INFO.0000000] [SpriteResolver] Found sprite: adeptus_custodes_infantry -> user://sprites/adeptus_custodes_infantry.png
+[2026-05-06 08:32:31] [INFO.0000000] [SpriteResolver] Found sprite: infantry -> user://sprites/infantry.png
+[2026-05-06 08:32:31] [INFO.0000000] [SpriteResolver] Found sprite: blade_champion -> user://sprites/blade_champion.png
+[2026-05-06 08:32:31] [INFO.0000000] [SpriteResolver] Found sprite: vehicle -> user://sprites/vehicle.png
+[2026-05-06 08:32:31] [INFO.0000000] [SpriteResolver] Found sprite: custodian_guard -> user://sprites/custodian_guard.png
+[2026-05-06 08:32:31] [INFO.0000000] [SpriteResolver] Found sprite: monster -> user://sprites/monster.png
+[2026-05-06 08:32:31] [INFO.0000000] [SpriteResolver] Initialized. Found 7 static sprite(s), 0 animated set(s)
+AIPlayer: Connected to GameManager.result_applied
+AIPlayer: Connected to PhaseManager.phase_changed and phase_action_taken
+AIPlayer: Connected to MissionManager.victory_points_scored
+AIPlayer: Connected to SecondaryMissionManager.when_drawn_requires_interaction
+AIDecisionMaker: No config override file found at user://ai_config.json
+AIPlayer: Ready (disabled until configured)
+GameEventLog: Initialized
+SecondaryMissionManager: Initialized
+FactionAbilityManager: Ready
+UnitAbilityManager: Ready — 101 ability definitions (91 implemented)
+DiceHistoryPanel: Initialized
+[2026-05-06 08:32:31] [INFO.0000000] DiceHistoryPanel: Initialized
+[DiceSoundManager] Ready — 8 procedural streams generated, 8 player pool
+[KeybindingManager] No saved keybindings found, using defaults
+[KeybindingManager] Ready — 42 bindings registered
+WARNING: [GodotMCP] Failed to listen on port 9080: Already in use
+     at: push_warning (core/variant/variant_utility.cpp:1034)
+     GDScript backtrace (most recent call first):
+         [0] _start_server (res://addons/godot_mcp/mcp_server.gd:55)
+         [1] _ready (res://addons/godot_mcp/mcp_server.gd:43)
+
+=== test_audit_already_done_pin ===
+
+
+-- T-006: NetworkManager.sync_loaded_state has client ack + timeout --
+  PASS: sync_loaded_state defined
+  PASS: _load_sync_pending_acks tracking
+  PASS: LOAD_SYNC_TIMEOUT_SECONDS configured
+  PASS: _start_load_sync_timer wired
+
+-- T-007: NetworkManager re-emits COMPLETE_UNIT_CHARGE / SKIP_CHARGE --
+  PASS: COMPLETE_UNIT_CHARGE handled in remote dispatch
+  PASS: SKIP_CHARGE handled in remote dispatch
+
+-- T-008: ChargePhase exposes SELECT_CHARGE_UNIT for next eligible after first completes --
+  PASS: SELECT_CHARGE_UNIT action wired
+  PASS: get_available_actions filters out completed_charges
+
+-- T-011: GameManager + ChargePhase route CHARGE_ROLL action --
+  PASS: GameManager handles CHARGE_ROLL
+  PASS: ChargePhase validates CHARGE_ROLL
+
+-- T-012: validation uses synced GameState flags, not phase-local active_moves (T2-12) --
+  PASS: _validate_end_movement reads flags.movement_active (synced)
+  PASS: BEGIN_NORMAL_MOVE writes flags.movement_active=true (broadcast diff)
+  PASS: T2-12 reference present in source
+
+-- T-013: Disembark routes through CONFIRM_DISEMBARK action (not direct call) --
+  PASS: CONFIRM_DISEMBARK action exists
+
+-- T-018: MELTA X keyword pipeline implemented (T1-1) --
+  PASS: get_melta_value defined
+  PASS: MELTA marker in damage path (T1-1 reference)
+  PASS: melta_value reads weapon keyword
+
+-- T-019/T-020: wound modifier infra + STEALTH (T2-1) --
+  PASS: STEALTH (T2-1) wired
+  PASS: has_stealth_ability defined
+
+-- T-021: Lone Operative 12" enforcement (T2-2) --
+  PASS: has_lone_operative defined
+  PASS: Lone Operative 12" check in eligible-target path
+
+-- T-038: pile-in must end with unit in engagement range (T1-5) --
+  PASS: Pile-in validation enforces engagement range
+
+-- T-052: INDIRECT FIRE keyword (T2-4) --
+  PASS: has_indirect_fire defined
+  PASS: Indirect Fire applies -1 to hit
+  PASS: Indirect Fire grants cover to target
+
+-- T-053: PRECISION keyword (T3-4) --
+  PASS: has_precision defined
+  PASS: Precision allows targeting CHARACTER
+
+-- T-070: aura system — friendly + enemy radius queries --
+  PASS: find_friendly_units_within_aura defined
+  PASS: find_enemy_units_within_aura defined
+
+-- T-040: FIGHTS_LAST subphase exists and is processed --
+  PASS: Subphase enum has FIGHTS_LAST
+  PASS: FightPriority.FIGHTS_LAST handled
+  PASS: fights_last_sequence dict declared
+
+-- T-041: Fights First + Fights Last cancel into Remaining Combats --
+  PASS: _get_fight_priority defined
+  PASS: FF + FL cancellation log present
+
+-- T-042: TransportManager handles transport destruction --
+  PASS: resolve_transport_destroyed defined
+  PASS: transport_destroyed signal declared
+
+-- T-043: pivot values for non-round bases (1" / 2") --
+  PASS: get_pivot_value_for_unit defined
+  PASS: pivot_cost_applied flag tracked
+  PASS: pivot deducted from effective cap
+
+-- T-044: vertical coherency 5" rule --
+  PASS: Coherency check mentions 5" vertical
+
+-- T-045: attached unit half-strength uses combined starting strength --
+  PASS: is_below_half_strength_combined defined
+  PASS: get_combined_models helper defined
+
+-- T-022: 7 named stratagems registered in StratagemManager --
+  PASS: stratagem 'counter_offensive' registered
+  PASS: stratagem 'tank_shock' registered
+  PASS: stratagem 'smokescreen' registered
+  PASS: stratagem 'go_to_ground' registered
+  PASS: stratagem 'insane_bravery' registered
+
+-- T-024: Oath of Moment + Waaagh! wired in FactionAbilityManager --
+  PASS: Oath of Moment definition present
+  PASS: Waaagh! mechanic present
+
+-- T-039: consolidate-into-new-enemy re-runs fight sequence --
+  PASS: _initialize_fight_sequence defined
+  PASS: _process_consolidate defined
+
+-- T-046: out-of-phase action gating in StratagemManager --
+  PASS: _out_of_phase_action_active flag declared
+  PASS: Out-of-phase rule documented in comments
+
+-- T-050: TWIN-LINKED keyword pipeline (T1-2) --
+  PASS: TWIN-LINKED keyword referenced
+  PASS: T1-2 marker present
+
+-- T-051: HAZARDOUS keyword pipeline (T2-3) --
+  PASS: HAZARDOUS keyword referenced
+  PASS: is_hazardous_weapon defined
+  PASS: resolve_hazardous_check defined
+  PASS: T2-3 marker present
+
+-- T-054: cover detection beyond Ruins (woods, barricades, obstacles) --
+  PASS: check_benefit_of_cover defined
+  PASS: Some non-ruins terrain type referenced
+
+-- T-027: save/load with AI player (SAVE-7) --
+  PASS: SAVE-7 marker in GameState
+  PASS: ai_turn_history snapshot field
+  PASS: AIPlayer.get_turn_history defined
+
+-- T-028: autosave defers during AI turn (SAVE-6) --
+  PASS: SAVE-6 marker
+  PASS: _autosave_deferred_event field
+  PASS: _is_ai_thinking helper
+
+-- T-031: AI evaluates and uses Core stratagems --
+  PASS: AI handles USE_COMMAND_REROLL
+  PASS: AI handles USE_FIRE_OVERWATCH
+  PASS: AI handles USE_COUNTER_OFFENSIVE
+  PASS: AI handles USE_HEROIC_INTERVENTION
+  PASS: AI handles USE_TANK_SHOCK
+
+-- T-033: AI scout move decision wired --
+  PASS: _decide_scout defined
+
+-- T-035: FormationsPhase handles leader attachments --
+  PASS: FormationsPhase.gd readable
+  PASS: leader_attachments dict declared
+
+-- T-037: Ruins-specific LoS rules (TER-2) --
+  PASS: TER-2 marker present (LineOfSightManager)
+  PASS: Ruins-specific visibility comment present
+
+-- T-023: StratagemPanel UI status — KNOWN OPEN --
+  KNOWN OPEN: T-023 StratagemPanel.gd does not exist; stratagem prompts are surfaced via per-action dialogs (Counter-Offensive, Rapid Ingress, Heroic Intervention seen live in T-001 evidence) but the omnibus 'list of all eligible stratagems' panel from the audit description is not implemented as a separate UI element.
+
+-- T-025: deterministic action list with seeded RNG (T5-MP9) --
+  PASS: DETERMINISTIC_ACTIONS const declared
+  PASS: BEGIN_ADVANCE in deterministic list (T5-MP9)
+  PASS: optimistic execution scaffolding present
+
+-- T-030: AI target scoring includes survival/expected_damage --
+  PASS: expected_damage assessment used
+  PASS: survival.is_lethal / survival.is_severe gates present
+
+-- T-032: AIAbilityAnalyzer module + tests exist --
+  PASS: AIAbilityAnalyzer.gd exists
+  PASS: test_ai_ability_awareness.gd exists
+
+-- T-036: Wound allocation overlay syncs model positions (P1-67) --
+  PASS: P1-67 marker present
+  PASS: _sync_model_positions_from_tokens helper called
+
+-- T-047: defender reactive stratagems for shoot + fight --
+  PASS: get_reactive_stratagems_for_shooting defined
+  PASS: get_reactive_stratagems_for_fight defined
+
+-- T-055: BONUS_CP_CAP per round + can_gain_bonus_cp gate --
+  PASS: BONUS_CP_CAP_PER_ROUND constant
+  PASS: can_gain_bonus_cp helper
+  PASS: record_bonus_cp_gained recorder
+
+-- T-057: charge path validation against engagement range --
+  PASS: _validate_engagement_range_constraints defined
+
+-- T-060: client UI refreshed after MP load --
+  PASS: _refresh_client_ui_after_load defined
+
+-- T-061: SaveLoadDialog disables Load for MP clients --
+  PASS: SaveLoadDialog reads NetworkManager state
+  PASS: load_button.disabled assigned
+
+-- T-009: multi-model charge positions written as state diffs --
+  PASS: APPLY_CHARGE_MOVE emits per-model position diffs
+
+-- T-010: defender re-emits charge_resolved with actual result --
+  PASS: NetworkManager re-emits charge_resolved on clients
+  PASS: Both ROLL FAILED and SUCCESS paths re-emit
+
+-- T-076: Devastating Wounds spillover via apply_damage_to_unit_pool (T2-11) --
+  PASS: DW uses _apply_damage_to_unit_pool (spillover-aware)
+  PASS: T2-11 marker present
+
+-- T-077: Pistol vs non-Pistol mutual-exclusivity enforced --
+  PASS: Pistol XOR error message present
+
+-- T-082: movement uses path distance vs Euclidean — STILL OPEN --
+  PASS: MovementPhase still uses Measurement.distance_inches (audit-finding marker)
+  KNOWN OPEN: T-082 — model distance is Euclidean rather than path-summed; not exploited in current UI flow because staged_moves are vetted segment-by-segment, but the audit's strict-letter rule isn't enforced. Tracked for future tightening.
+
+-- T-067: Heroic Intervention charge roll applies terrain penalty --
+  PASS: _is_heroic_intervention_roll_sufficient defined
+  PASS: HI roll considers terrain_penalty
+
+-- T-069: Fire Overwatch trigger covers 'starts or ends a move' --
+  PASS: Trigger comment mentions 'starts or ends'
+
+-- T-071: attached unit Toughness uses bodyguard T (P2-90) --
+  PASS: _get_attached_unit_toughness helper defined
+  PASS: P2-90 marker present
+
+-- T-072: Stand Vigil ABILITY_EFFECTS entry exists --
+  PASS: Stand Vigil registered
+
+-- T-081: canonical engagement-range helper exists --
+  PASS: is_in_engagement_range_shape_aware defined
+
+-- T-083: Scorched Earth + The Ritual + Terraform mission state present --
+  PASS: Scorched Earth burn tracking
+  PASS: The Ritual action tracking
+  PASS: Terraform tracking
+
+-- T-085a: per-ability entries from the BLOCKED backlog --
+  PASS: ABILITY_EFFECTS['Sentinel Storm'] entry present
+  PASS: ABILITY_EFFECTS['Sweeping Advance'] entry present
+  PASS: ABILITY_EFFECTS['Master of the Stances'] entry present
+  PASS: ABILITY_EFFECTS['Strategic Mastery'] entry present
+  PASS: ABILITY_EFFECTS['Daughters of the Abyss'] entry present
+  PASS: ABILITY_EFFECTS['Sanctified Flames'] entry present
+  PASS: ABILITY_EFFECTS['Stand Vigil'] entry present
+
+=== Result: 121 passed, 0 failed ===
+NetworkManager: Connected to PhaseManager.phase_action_taken for timer reset (T5-MP8)
+[2026-05-06 08:32:31] [INFO.0000000] DebugLogger shutting down - Session: 20260506_083230
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2641)
+ERROR: 10 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)

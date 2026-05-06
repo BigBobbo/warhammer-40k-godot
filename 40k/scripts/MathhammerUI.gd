@@ -78,7 +78,7 @@ signal simulation_requested(config: Dictionary)
 signal unit_selection_changed(attacker_id: String, defender_id: String)
 
 func _ready() -> void:
-	print("MathhammerUI: Initializing...")
+	DebugLogger.info("MathhammerUI: Initializing...")
 
 	_update_viewport_size()
 	_setup_ui_structure()
@@ -97,7 +97,7 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	# Clean up background simulation thread on node removal (T3-25)
 	if _simulation_thread != null and _simulation_thread.is_started():
-		print("MathhammerUI: Waiting for simulation thread to finish before exit...")
+		DebugLogger.info("MathhammerUI: Waiting for simulation thread to finish before exit...")
 		_simulation_thread.wait_to_finish()
 
 # --- Responsive sizing helpers (T5-MH6) ---
@@ -108,7 +108,7 @@ func _update_viewport_size() -> void:
 		_viewport_size = vp.get_visible_rect().size
 		if _viewport_size.x < 1 or _viewport_size.y < 1:
 			_viewport_size = Vector2(1280, 1024)
-	print("MathhammerUI: Viewport size = %s" % str(_viewport_size))
+	DebugLogger.info(str("MathhammerUI: Viewport size = %s" % str(_viewport_size)))
 
 func _get_panel_width() -> float:
 	return _viewport_size.x * 0.32  # ~31-32% of viewport width
@@ -134,7 +134,7 @@ func _get_comparison_scroll_height() -> float:
 func _on_viewport_size_changed() -> void:
 	_update_viewport_size()
 	_apply_responsive_sizes()
-	print("MathhammerUI: Viewport resized, updated layout to %s" % str(_viewport_size))
+	DebugLogger.info(str("MathhammerUI: Viewport resized, updated layout to %s" % str(_viewport_size)))
 
 func _apply_responsive_sizes() -> void:
 	# Update main structural sizes based on current viewport
@@ -626,15 +626,15 @@ func _populate_multi_defender_panel() -> void:
 	note.add_theme_color_override("font_color", Color.GRAY)
 	multi_defender_panel.add_child(note)
 
-	print("MathhammerUI: Populated multi-defender panel with %d units" % available_units.size())
+	DebugLogger.info(str("MathhammerUI: Populated multi-defender panel with %d units" % available_units.size()))
 
 func _on_multi_defender_toggled(enabled: bool) -> void:
-	print("MathhammerUI: Multi-defender selection toggled: %s" % enabled)
+	DebugLogger.info(str("MathhammerUI: Multi-defender selection toggled: %s" % enabled))
 	multi_defender_panel.visible = enabled
 
 func _on_defender_checkbox_toggled(enabled: bool, unit_id: String) -> void:
 	selected_defenders[unit_id] = enabled
-	print("MathhammerUI: Defender %s toggled: %s" % [unit_id, enabled])
+	DebugLogger.info(str("MathhammerUI: Defender %s toggled: %s" % [unit_id, enabled]))
 
 func _unit_has_ranged_weapons(unit: Dictionary) -> bool:
 	var weapons = unit.get("meta", {}).get("weapons", [])
@@ -927,9 +927,9 @@ func _auto_detect_weapon_rules() -> void:
 			auto_detected_rules[rule_id] = true
 			_set_rule_toggle(rule_id, true, true)
 			detected_names.append(rule_id)
-		print("MathhammerUI: Auto-detected weapon rules: %s" % str(detected_names))
+		DebugLogger.info(str("MathhammerUI: Auto-detected weapon rules: %s" % str(detected_names)))
 	else:
-		print("MathhammerUI: No weapon rules auto-detected from selected weapons")
+		DebugLogger.info("MathhammerUI: No weapon rules auto-detected from selected weapons")
 
 func _auto_detect_defender_rules(defender_id: String) -> void:
 	# Auto-detect defender abilities (invuln saves, FNP) from defender unit data
@@ -963,7 +963,7 @@ func _auto_detect_defender_rules(defender_id: String) -> void:
 			if rule_toggles.has(invuln_rule_id):
 				auto_detected_rules[invuln_rule_id] = true
 				_set_rule_toggle(invuln_rule_id, true, true)
-				print("MathhammerUI: Auto-detected defender invuln save: %s" % invuln_rule_id)
+				DebugLogger.info(str("MathhammerUI: Auto-detected defender invuln save: %s" % invuln_rule_id))
 
 	# Check abilities for Feel No Pain
 	var abilities = unit.get("meta", {}).get("abilities", [])
@@ -973,7 +973,7 @@ func _auto_detect_defender_rules(defender_id: String) -> void:
 			if rule_id.begins_with("feel_no_pain_"):
 				auto_detected_rules[rule_id] = true
 				_set_rule_toggle(rule_id, true, true)
-				print("MathhammerUI: Auto-detected defender ability: %s" % rule_id)
+				DebugLogger.info(str("MathhammerUI: Auto-detected defender ability: %s" % rule_id))
 
 func _set_rule_toggle(rule_id: String, enabled: bool, is_auto: bool) -> void:
 	# Set a rule toggle checkbox and update the rule_toggles dictionary
@@ -998,7 +998,7 @@ func _set_rule_toggle(rule_id: String, enabled: bool, is_auto: bool) -> void:
 func _on_weapon_attack_count_changed(value: float, weapon_key: String) -> void:
 	if selected_weapons.has(weapon_key):
 		selected_weapons[weapon_key]["attack_count"] = int(value)
-		print("MathhammerUI: Weapon attack count changed - %s: %d" % [weapon_key, int(value)])
+		DebugLogger.info(str("MathhammerUI: Weapon attack count changed - %s: %d" % [weapon_key, int(value)]))
 		# T4-20: Re-trigger auto-detection when weapon counts change
 		# (enabling/disabling weapons should update rule toggles)
 		_auto_detect_weapon_rules()
@@ -1013,7 +1013,7 @@ func _on_rule_toggled(rule_id: String, active: bool) -> void:
 			if child is CheckBox and child.has_meta("rule_id") and child.get_meta("rule_id") == rule_id:
 				child.tooltip_text = child.tooltip_text.replace(" [Auto-detected]", "")
 				break
-	print("MathhammerUI: Rule toggle changed - %s: %s (manual)" % [rule_id, active])
+	DebugLogger.info(str("MathhammerUI: Rule toggle changed - %s: %s (manual)" % [rule_id, active]))
 
 func _get_selected_phase() -> String:
 	if phase_toggle and phase_toggle.selected >= 0:
@@ -1022,7 +1022,7 @@ func _get_selected_phase() -> String:
 
 func _on_phase_changed(_index: int) -> void:
 	var phase = _get_selected_phase()
-	print("MathhammerUI: Phase changed to: %s" % phase)
+	DebugLogger.info(str("MathhammerUI: Phase changed to: %s" % phase))
 	# Refresh weapon selection to show only relevant weapons for the phase
 	_update_weapon_selection()
 	# Update rule toggles visibility based on phase
@@ -1030,13 +1030,13 @@ func _on_phase_changed(_index: int) -> void:
 
 func _on_attacker_attack_count_changed(value: float, unit_id: String) -> void:
 	selected_attackers[unit_id] = int(value)
-	print("MathhammerUI: Attacker attack count changed - %s: %d" % [unit_id, int(value)])
+	DebugLogger.info(str("MathhammerUI: Attacker attack count changed - %s: %d" % [unit_id, int(value)]))
 	_update_weapon_selection()
 
 func _on_attacker_toggled(unit_id: String, enabled: bool) -> void:
 	# Legacy function for compatibility
 	selected_attackers[unit_id] = 1 if enabled else 0
-	print("MathhammerUI: Attacker toggled - %s: %s" % [unit_id, enabled])
+	DebugLogger.info(str("MathhammerUI: Attacker toggled - %s: %s" % [unit_id, enabled]))
 	_update_weapon_selection()
 
 func _on_attacker_selection_changed(_index: int) -> void:
@@ -1063,7 +1063,7 @@ func _on_unit_selection_changed(_index: int) -> void:
 
 func _on_swap_attacker_defender_pressed() -> void:
 	# T5-MH5: Swap attacker and defender units
-	print("MathhammerUI: Swap attacker/defender button pressed")
+	DebugLogger.info("MathhammerUI: Swap attacker/defender button pressed")
 
 	# Get current defender unit ID
 	var current_defender_id = ""
@@ -1085,7 +1085,7 @@ func _on_swap_attacker_defender_pressed() -> void:
 		_show_error("No attacker with attacks > 0 to swap")
 		return
 
-	print("MathhammerUI: Swapping attacker '%s' <-> defender '%s'" % [first_attacker_id, current_defender_id])
+	DebugLogger.info(str("MathhammerUI: Swapping attacker '%s' <-> defender '%s'" % [first_attacker_id, current_defender_id]))
 
 	# Step 1: Reset all attacker spinboxes to 0
 	var attacker_container = unit_selector.get_node_or_null("AttackerContainer")
@@ -1131,7 +1131,7 @@ func _on_swap_attacker_defender_pressed() -> void:
 	_populate_override_from_defender(first_attacker_id)
 	_auto_detect_defender_rules(first_attacker_id)
 
-	print("MathhammerUI: Swap complete — attacker: '%s', defender: '%s'" % [current_defender_id, first_attacker_id])
+	DebugLogger.info(str("MathhammerUI: Swap complete — attacker: '%s', defender: '%s'" % [current_defender_id, first_attacker_id]))
 
 func _create_defender_override_fields() -> void:
 	# Helper to create a labeled spinbox row
@@ -1194,7 +1194,7 @@ func _create_defender_override_fields() -> void:
 	defender_override_panel.add_child(note)
 
 func _on_defender_override_toggled(enabled: bool) -> void:
-	print("MathhammerUI: Defender override toggled: %s" % enabled)
+	DebugLogger.info(str("MathhammerUI: Defender override toggled: %s" % enabled))
 	defender_override_panel.visible = enabled
 	# Auto-populate from selected defender when enabling
 	if enabled and defender_selector.selected >= 0:
@@ -1223,10 +1223,10 @@ func _populate_override_from_defender(defender_id: String) -> void:
 	if override_fnp_spinbox:
 		override_fnp_spinbox.value = stats.get("fnp", 0)
 
-	print("MathhammerUI: Populated override fields from %s — T:%d Sv:%d+ W:%d Models:%d Invuln:%d FNP:%d" % [
+	DebugLogger.info(str("MathhammerUI: Populated override fields from %s — T:%d Sv:%d+ W:%d Models:%d Invuln:%d FNP:%d" % [
 		defender_id, int(override_toughness_spinbox.value), int(override_save_spinbox.value),
 		int(override_wounds_spinbox.value), int(override_model_count_spinbox.value),
-		int(override_invuln_spinbox.value), int(override_fnp_spinbox.value)])
+		int(override_invuln_spinbox.value), int(override_fnp_spinbox.value)]))
 
 func _on_run_simulation_pressed() -> void:
 	var defender_id = ""
@@ -1269,7 +1269,7 @@ func _on_run_simulation_pressed() -> void:
 	var attackers = []
 	for unit_id in selected_attacker_ids:
 		var unit_attack_count = selected_attackers.get(unit_id, 0)
-		print("MathhammerUI: Unit %s is making %d attacks" % [unit_id, unit_attack_count])
+		DebugLogger.info(str("MathhammerUI: Unit %s is making %d attacks" % [unit_id, unit_attack_count]))
 		
 		# Add the unit multiple times based on attack count
 		for i in range(unit_attack_count):
@@ -1296,7 +1296,7 @@ func _on_run_simulation_pressed() -> void:
 		return
 	
 	# Run simulation
-	print("MathhammerUI: Running simulation with config: ", config)
+	DebugLogger.info(str("MathhammerUI: Running simulation with config: ", config))
 	_run_simulation_async(config)
 
 func _build_attacker_config(unit_id: String) -> Dictionary:
@@ -1325,7 +1325,7 @@ func _build_attacker_config(unit_id: String) -> Dictionary:
 			weapon_id = weapon_id.replace("-", "_")
 			weapon_id = weapon_id.replace("'", "")
 			
-			print("MathhammerUI: Using weapon '%s' with ID '%s' for %d attacks" % [weapon_name, weapon_id, weapon_data.get("attack_count", 1)])
+			DebugLogger.info(str("MathhammerUI: Using weapon '%s' with ID '%s' for %d attacks" % [weapon_name, weapon_id, weapon_data.get("attack_count", 1)]))
 			
 			weapons.append({
 				"weapon_id": weapon_id,
@@ -1353,14 +1353,14 @@ func _build_defender_config(unit_id: String) -> Dictionary:
 			"invuln": int(override_invuln_spinbox.value),
 			"fnp": int(override_fnp_spinbox.value),
 		}
-		print("MathhammerUI: Defender config with overrides: %s" % str(config))
+		DebugLogger.info(str("MathhammerUI: Defender config with overrides: %s" % str(config)))
 
 	return config
 
 func _run_simulation_async(config: Dictionary) -> void:
 	# Clean up any previous thread before starting a new one
 	if _simulation_thread != null and _simulation_thread.is_started():
-		print("MathhammerUI: Waiting for previous simulation thread to finish...")
+		DebugLogger.info("MathhammerUI: Waiting for previous simulation thread to finish...")
 		_simulation_thread.wait_to_finish()
 
 	run_simulation_button.disabled = true
@@ -1372,27 +1372,27 @@ func _run_simulation_async(config: Dictionary) -> void:
 	_show_progress("Simulating... 0 / %d trials" % int(config.get("trials", 10000)), 0.0)
 
 	# Run simulation on a background thread to avoid freezing the UI (T3-25)
-	print("MathhammerUI: Starting simulation on background thread...")
+	DebugLogger.info("MathhammerUI: Starting simulation on background thread...")
 	_simulation_thread = Thread.new()
 	_simulation_thread.start(_simulation_thread_func.bind(config))
 
 func _simulation_thread_func(config: Dictionary) -> void:
 	# This runs on a background thread — no UI access allowed here
-	print("MathhammerUI: Background thread started, running simulation...")
+	DebugLogger.info("MathhammerUI: Background thread started, running simulation...")
 	var progress_cb = _create_progress_callback()
 	var result = Mathhammer.simulate_combat(config, progress_cb)
-	print("MathhammerUI: Background thread simulation complete, result type: %s" % typeof(result))
+	DebugLogger.info(str("MathhammerUI: Background thread simulation complete, result type: %s" % typeof(result)))
 	# Defer UI update back to the main thread
 	call_deferred("_on_simulation_completed", result)
 
 func _on_simulation_completed(result: Mathhammer.SimulationResult) -> void:
 	# This runs on the main thread via call_deferred — safe to update UI
-	print("MathhammerUI: Simulation completed callback on main thread")
+	DebugLogger.info("MathhammerUI: Simulation completed callback on main thread")
 
 	# Join the background thread to clean up resources
 	if _simulation_thread != null and _simulation_thread.is_started():
 		_simulation_thread.wait_to_finish()
-		print("MathhammerUI: Background thread joined successfully")
+		DebugLogger.info("MathhammerUI: Background thread joined successfully")
 
 	# Hide progress indicator (T5-MH7)
 	_hide_progress()
@@ -1400,9 +1400,9 @@ func _on_simulation_completed(result: Mathhammer.SimulationResult) -> void:
 	current_simulation_result = result
 
 	# Update UI with results
-	print("MathhammerUI: About to display results...")
+	DebugLogger.info("MathhammerUI: About to display results...")
 	_display_simulation_results(result)
-	print("MathhammerUI: Results display completed")
+	DebugLogger.info("MathhammerUI: Results display completed")
 
 	run_simulation_button.disabled = false
 	run_simulation_button.text = "Run Simulation"
@@ -1412,59 +1412,59 @@ func _on_simulation_completed(result: Mathhammer.SimulationResult) -> void:
 		clear_results_button.disabled = false  # T5-MH10: Enable after results are available
 
 func _display_simulation_results(result: Mathhammer.SimulationResult) -> void:
-	print("MathhammerUI: _display_simulation_results called")
+	DebugLogger.info("MathhammerUI: _display_simulation_results called")
 	if not result:
-		print("MathhammerUI: No result data provided")
+		DebugLogger.info("MathhammerUI: No result data provided")
 		return
 	
-	print("MathhammerUI: Result has %d trials, %d detailed trials" % [result.trials_run, result.detailed_trials.size()])
+	DebugLogger.info(str("MathhammerUI: Result has %d trials, %d detailed trials" % [result.trials_run, result.detailed_trials.size()]))
 	
 	# Debug panel states BEFORE clearing
-	print("MathhammerUI: Debugging panel states BEFORE...")
-	print("MathhammerUI: summary_panel exists: %s" % str(summary_panel != null))
-	print("MathhammerUI: breakdown_panel exists: %s" % str(breakdown_panel != null))
+	DebugLogger.info("MathhammerUI: Debugging panel states BEFORE...")
+	DebugLogger.info(str("MathhammerUI: summary_panel exists: %s" % str(summary_panel != null)))
+	DebugLogger.info(str("MathhammerUI: breakdown_panel exists: %s" % str(breakdown_panel != null)))
 	if summary_panel:
-		print("MathhammerUI: summary_panel visible: %s, child_count: %d" % [summary_panel.visible, summary_panel.get_child_count()])
+		DebugLogger.info(str("MathhammerUI: summary_panel visible: %s, child_count: %d" % [summary_panel.visible, summary_panel.get_child_count()]))
 	if breakdown_panel:
-		print("MathhammerUI: breakdown_panel visible: %s, child_count: %d" % [breakdown_panel.visible, breakdown_panel.get_child_count()])
+		DebugLogger.info(str("MathhammerUI: breakdown_panel visible: %s, child_count: %d" % [breakdown_panel.visible, breakdown_panel.get_child_count()]))
 	
 	# Clear existing results first, but don't hide the original label yet
 	_clear_results_display()
-	print("MathhammerUI: Cleared existing results")
+	DebugLogger.info("MathhammerUI: Cleared existing results")
 	
 	# Debug panel states AFTER clearing
-	print("MathhammerUI: Debugging panel states AFTER clearing...")
+	DebugLogger.info("MathhammerUI: Debugging panel states AFTER clearing...")
 	if summary_panel:
-		print("MathhammerUI: summary_panel after clear - visible: %s, child_count: %d" % [summary_panel.visible, summary_panel.get_child_count()])
+		DebugLogger.info(str("MathhammerUI: summary_panel after clear - visible: %s, child_count: %d" % [summary_panel.visible, summary_panel.get_child_count()]))
 	if breakdown_panel:
-		print("MathhammerUI: breakdown_panel after clear - visible: %s, child_count: %d" % [breakdown_panel.visible, breakdown_panel.get_child_count()])
+		DebugLogger.info(str("MathhammerUI: breakdown_panel after clear - visible: %s, child_count: %d" % [breakdown_panel.visible, breakdown_panel.get_child_count()]))
 	
 	# Create comprehensive results display
 	_create_detailed_results_display(result)
-	print("MathhammerUI: Created detailed results display")
+	DebugLogger.info("MathhammerUI: Created detailed results display")
 
 	# T5-V15: Draw visual histogram into the distribution panel
 	_draw_visual_histogram(result)
 
 	# Debug final states
-	print("MathhammerUI: Final debugging...")
+	DebugLogger.info("MathhammerUI: Final debugging...")
 	if summary_panel:
-		print("MathhammerUI: summary_panel final child_count: %d" % summary_panel.get_child_count())
+		DebugLogger.info(str("MathhammerUI: summary_panel final child_count: %d" % summary_panel.get_child_count()))
 		for i in range(summary_panel.get_child_count()):
 			var child = summary_panel.get_child(i)
-			print("MathhammerUI: summary_panel child %d: %s (visible: %s)" % [i, child.name, child.visible])
+			DebugLogger.info(str("MathhammerUI: summary_panel child %d: %s (visible: %s)" % [i, child.name, child.visible]))
 	if breakdown_panel:
-		print("MathhammerUI: breakdown_panel final child_count: %d" % breakdown_panel.get_child_count())
+		DebugLogger.info(str("MathhammerUI: breakdown_panel final child_count: %d" % breakdown_panel.get_child_count()))
 		for i in range(breakdown_panel.get_child_count()):
 			var child = breakdown_panel.get_child(i)
-			print("MathhammerUI: breakdown_panel child %d: %s (visible: %s)" % [i, child.name, child.visible])
+			DebugLogger.info(str("MathhammerUI: breakdown_panel child %d: %s (visible: %s)" % [i, child.name, child.visible]))
 
 func _draw_visual_histogram(result: Mathhammer.SimulationResult) -> void:
 	# T5-V15: Visual histogram with graphical bars replacing text-based display
-	print("MathhammerUI: Drawing visual histogram")
+	DebugLogger.info("MathhammerUI: Drawing visual histogram")
 
 	if not histogram_display:
-		print("MathhammerUI: histogram_display is null, cannot draw histogram")
+		DebugLogger.info("MathhammerUI: histogram_display is null, cannot draw histogram")
 		return
 
 	# Clear existing histogram content
@@ -1472,7 +1472,7 @@ func _draw_visual_histogram(result: Mathhammer.SimulationResult) -> void:
 		child.queue_free()
 
 	if result.damage_distribution.is_empty():
-		print("MathhammerUI: No damage distribution data for histogram")
+		DebugLogger.info("MathhammerUI: No damage distribution data for histogram")
 		return
 
 	# Sort damage keys numerically
@@ -1542,7 +1542,7 @@ func _draw_visual_histogram(result: Mathhammer.SimulationResult) -> void:
 	_add_histogram_legend_item(legend_hbox, Color(1.0, 0.85, 0.0), "Average")
 	_add_histogram_legend_item(legend_hbox, Color(0.2, 0.75, 0.35), "Above avg")
 
-	print("MathhammerUI: Visual histogram drawn with %d bars" % num_bars)
+	DebugLogger.info(str("MathhammerUI: Visual histogram drawn with %d bars" % num_bars))
 
 func _create_vertical_bar_chart(parent: VBoxContainer, display_data: Array, max_count: int, total_trials: float, avg_damage: float, content_width: float, chart_height: float) -> void:
 	# Vertical bar chart — bars grow upward from baseline
@@ -1704,13 +1704,13 @@ func _add_histogram_legend_item(parent: HBoxContainer, color: Color, text: Strin
 	parent.add_child(label)
 
 func _clear_results_display() -> void:
-	print("MathhammerUI: Clearing results display")
+	DebugLogger.info("MathhammerUI: Clearing results display")
 	# Clear all children from results panels except the titles
 	if summary_panel:
-		print("MathhammerUI: Summary panel has %d children" % summary_panel.get_child_count())
+		DebugLogger.info(str("MathhammerUI: Summary panel has %d children" % summary_panel.get_child_count()))
 		for child in summary_panel.get_children():
 			if child.name.begins_with("Results") or child.name == "InitialResultsLabel":
-				print("MathhammerUI: Removing child: %s" % child.name)
+				DebugLogger.info(str("MathhammerUI: Removing child: %s" % child.name))
 				child.queue_free()
 
 	if distribution_panel:
@@ -1726,22 +1726,22 @@ func _clear_results_display() -> void:
 	# T5-MH9: Restore breakdown_panel visibility and clear any comparison content
 	if breakdown_panel:
 		breakdown_panel.visible = true
-		print("MathhammerUI: Breakdown panel has %d children" % breakdown_panel.get_child_count())
+		DebugLogger.info(str("MathhammerUI: Breakdown panel has %d children" % breakdown_panel.get_child_count()))
 		for child in breakdown_panel.get_children():
 			if child.name.begins_with("DetailedBreakdown") or child == breakdown_text:
-				print("MathhammerUI: Removing breakdown child: %s" % child.name)
+				DebugLogger.info(str("MathhammerUI: Removing breakdown child: %s" % child.name))
 				child.queue_free()
 
 	# Also hide/clear the breakdown_text placeholder
 	if breakdown_text and is_instance_valid(breakdown_text):
 		breakdown_text.visible = false
-		print("MathhammerUI: Hidden breakdown_text placeholder")
+		DebugLogger.info("MathhammerUI: Hidden breakdown_text placeholder")
 
-	print("MathhammerUI: Finished clearing results display")
+	DebugLogger.info("MathhammerUI: Finished clearing results display")
 
 # T5-MH10: Handler for the Clear Results button
 func _on_clear_results_pressed() -> void:
-	print("MathhammerUI: Clear Results button pressed")
+	DebugLogger.info("MathhammerUI: Clear Results button pressed")
 	_clear_results_display()
 
 	# Clear the visual histogram (T5-V15)
@@ -1780,10 +1780,10 @@ func _on_clear_results_pressed() -> void:
 	if clear_results_button:
 		clear_results_button.disabled = true
 
-	print("MathhammerUI: Results cleared and display reset")
+	DebugLogger.info("MathhammerUI: Results cleared and display reset")
 
 func _create_detailed_results_display(result: Mathhammer.SimulationResult) -> void:
-	print("MathhammerUI: Creating detailed results display")
+	DebugLogger.info("MathhammerUI: Creating detailed results display")
 	# Create main results scroll container
 	var results_scroll = ScrollContainer.new()
 	results_scroll.name = "ResultsScroll"
@@ -1791,52 +1791,52 @@ func _create_detailed_results_display(result: Mathhammer.SimulationResult) -> vo
 	results_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	if not summary_panel:
-		print("MathhammerUI: ERROR - summary_panel is null!")
+		DebugLogger.info("MathhammerUI: ERROR - summary_panel is null!")
 		return
 		
 	summary_panel.add_child(results_scroll)
-	print("MathhammerUI: Added results_scroll to summary_panel")
+	DebugLogger.info("MathhammerUI: Added results_scroll to summary_panel")
 	
 	var results_vbox = VBoxContainer.new()
 	results_vbox.name = "ResultsVBox"
 	results_vbox.add_theme_constant_override("separation", 15)
 	results_scroll.add_child(results_vbox)
-	print("MathhammerUI: Created results_vbox")
+	DebugLogger.info("MathhammerUI: Created results_vbox")
 	
 	# Overall Statistics Panel
 	_create_overall_stats_panel(results_vbox, result)
-	print("MathhammerUI: Created overall stats panel")
+	DebugLogger.info("MathhammerUI: Created overall stats panel")
 	
 	# Weapon Breakdown Panel
 	_create_weapon_breakdown_panel(results_vbox, result)
-	print("MathhammerUI: Created weapon breakdown panel")
+	DebugLogger.info("MathhammerUI: Created weapon breakdown panel")
 	
 	# Damage Distribution Panel
 	_create_damage_distribution_panel(results_vbox, result)
-	print("MathhammerUI: Created damage distribution panel")
+	DebugLogger.info("MathhammerUI: Created damage distribution panel")
 
 	# Cumulative Probability Panel (T5-MH2)
 	_create_cumulative_probability_panel(results_vbox, result)
-	print("MathhammerUI: Created cumulative probability panel")
+	DebugLogger.info("MathhammerUI: Created cumulative probability panel")
 
 	# T5-MH9: Hide breakdown_panel to avoid duplicating summary_panel content
 	if breakdown_panel:
 		breakdown_panel.visible = false
-		print("MathhammerUI: Hidden breakdown_panel (dedup — all results in summary_panel)")
+		DebugLogger.info("MathhammerUI: Hidden breakdown_panel (dedup — all results in summary_panel)")
 
 func _create_overall_stats_panel(parent: VBoxContainer, result: Mathhammer.SimulationResult) -> void:
-	print("MathhammerUI: Creating overall stats panel")
+	DebugLogger.info("MathhammerUI: Creating overall stats panel")
 	var stats_panel = create_styled_panel("Overall Statistics", Color(0.2, 0.3, 0.5, 0.8))
 	if not stats_panel:
-		print("MathhammerUI: ERROR - failed to create stats_panel!")
+		DebugLogger.info("MathhammerUI: ERROR - failed to create stats_panel!")
 		return
-	print("MathhammerUI: About to add stats_panel to parent")
-	print("MathhammerUI: stats_panel valid: %s" % str(stats_panel != null))
-	print("MathhammerUI: parent valid: %s" % str(parent != null))
-	print("MathhammerUI: parent type: %s" % parent.get_class() if parent else "null")
-	print("MathhammerUI: parent child_count before: %d" % parent.get_child_count())
+	DebugLogger.info("MathhammerUI: About to add stats_panel to parent")
+	DebugLogger.info(str("MathhammerUI: stats_panel valid: %s" % str(stats_panel != null)))
+	DebugLogger.info(str("MathhammerUI: parent valid: %s" % str(parent != null)))
+	DebugLogger.info(str("MathhammerUI: parent type: %s" % parent.get_class() if parent else "null"))
+	DebugLogger.info(str("MathhammerUI: parent child_count before: %d" % parent.get_child_count()))
 	parent.add_child(stats_panel)
-	print("MathhammerUI: Added stats_panel to parent, parent child_count after: %d" % parent.get_child_count())
+	DebugLogger.info(str("MathhammerUI: Added stats_panel to parent, parent child_count after: %d" % parent.get_child_count()))
 
 	var stats_content = stats_panel.get_meta("content_vbox")
 	var stats_grid = GridContainer.new()
@@ -2041,13 +2041,13 @@ func _create_cumulative_probability_panel(parent: VBoxContainer, result: Mathham
 		prob_label.add_theme_color_override("font_color", row_color)
 		table_grid.add_child(prob_label)
 
-	print("MathhammerUI: Cumulative probability table created with %d rows" % rows_to_display.size())
+	DebugLogger.info(str("MathhammerUI: Cumulative probability table created with %d rows" % rows_to_display.size()))
 
 func create_styled_panel(title: String, bg_color: Color) -> VBoxContainer:
-	print("MathhammerUI: create_styled_panel called for title: %s" % title)
+	DebugLogger.info(str("MathhammerUI: create_styled_panel called for title: %s" % title))
 	var panel_container = VBoxContainer.new()
 	panel_container.add_theme_constant_override("separation", 8)
-	print("MathhammerUI: Created panel_container: %s" % str(panel_container != null))
+	DebugLogger.info(str("MathhammerUI: Created panel_container: %s" % str(panel_container != null)))
 
 	# Add background
 	var style_box = StyleBoxFlat.new()
@@ -2079,7 +2079,7 @@ func create_styled_panel(title: String, bg_color: Color) -> VBoxContainer:
 	# Store content_vbox reference so callers can add children inside the styled panel
 	panel_container.set_meta("content_vbox", content_vbox)
 
-	print("MathhammerUI: create_styled_panel returning panel_container with content_vbox inside")
+	DebugLogger.info("MathhammerUI: create_styled_panel returning panel_container with content_vbox inside")
 	return panel_container
 
 func create_weapon_section(weapon_num: int, weapon_name: String, stats: Dictionary, hit_rate: float, wound_rate: float, unsaved_rate: float, avg_dmg: float, trials: int) -> VBoxContainer:
@@ -2231,12 +2231,12 @@ func _on_compare_weapons_pressed() -> void:
 			"unit_id": unit_id
 		})
 
-	print("MathhammerUI: Starting weapon comparison with %d weapons" % configs.size())
+	DebugLogger.info(str("MathhammerUI: Starting weapon comparison with %d weapons" % configs.size()))
 	_run_weapon_comparison_async(configs)
 
 func _run_weapon_comparison_async(configs: Array) -> void:
 	if _simulation_thread != null and _simulation_thread.is_started():
-		print("MathhammerUI: Waiting for previous simulation thread to finish...")
+		DebugLogger.info("MathhammerUI: Waiting for previous simulation thread to finish...")
 		_simulation_thread.wait_to_finish()
 
 	run_simulation_button.disabled = true
@@ -2247,17 +2247,17 @@ func _run_weapon_comparison_async(configs: Array) -> void:
 	# Show progress indicator for comparison (T5-MH7)
 	_show_progress("Comparing weapons... 0 / %d" % configs.size(), 0.0)
 
-	print("MathhammerUI: Starting weapon comparison on background thread...")
+	DebugLogger.info("MathhammerUI: Starting weapon comparison on background thread...")
 	_simulation_thread = Thread.new()
 	_simulation_thread.start(_weapon_comparison_thread_func.bind(configs))
 
 func _weapon_comparison_thread_func(configs: Array) -> void:
-	print("MathhammerUI: Comparison thread started, running %d simulations..." % configs.size())
+	DebugLogger.info(str("MathhammerUI: Comparison thread started, running %d simulations..." % configs.size()))
 	var results = []
 	var total_weapons = configs.size()
 	for i in range(total_weapons):
 		var entry = configs[i]
-		print("MathhammerUI: Running comparison simulation %d/%d: %s" % [i + 1, total_weapons, entry.weapon_name])
+		DebugLogger.info(str("MathhammerUI: Running comparison simulation %d/%d: %s" % [i + 1, total_weapons, entry.weapon_name]))
 		# Update progress for each weapon in comparison (T5-MH7)
 		var pct = float(i) / float(total_weapons) * 100.0
 		call_deferred("_update_progress", "Comparing: %s (%d/%d)" % [entry.weapon_name, i + 1, total_weapons], pct)
@@ -2268,15 +2268,15 @@ func _weapon_comparison_thread_func(configs: Array) -> void:
 			"result": result,
 			"unit_id": entry.get("unit_id", "")
 		})
-	print("MathhammerUI: Comparison thread complete")
+	DebugLogger.info("MathhammerUI: Comparison thread complete")
 	call_deferred("_on_weapon_comparison_completed", results)
 
 func _on_weapon_comparison_completed(results: Array) -> void:
-	print("MathhammerUI: Weapon comparison completed on main thread")
+	DebugLogger.info("MathhammerUI: Weapon comparison completed on main thread")
 
 	if _simulation_thread != null and _simulation_thread.is_started():
 		_simulation_thread.wait_to_finish()
-		print("MathhammerUI: Comparison background thread joined successfully")
+		DebugLogger.info("MathhammerUI: Comparison background thread joined successfully")
 
 	# Hide progress indicator (T5-MH7)
 	_hide_progress()
@@ -2291,7 +2291,7 @@ func _on_weapon_comparison_completed(results: Array) -> void:
 		clear_results_button.disabled = false  # T5-MH10: Enable after comparison results
 
 func _display_comparison_results(results: Array) -> void:
-	print("MathhammerUI: Displaying comparison results for %d weapons" % results.size())
+	DebugLogger.info(str("MathhammerUI: Displaying comparison results for %d weapons" % results.size()))
 	_clear_results_display()
 
 	if not summary_panel:
@@ -2454,7 +2454,7 @@ func _display_comparison_results(results: Array) -> void:
 	# Also populate the breakdown panel with comparison data
 	_populate_comparison_breakdown(results, weapon_stats_list)
 
-	print("MathhammerUI: Comparison display complete")
+	DebugLogger.info("MathhammerUI: Comparison display complete")
 
 func _create_comparison_ranking(parent: VBoxContainer, weapon_stats: Array) -> void:
 	# Sort weapons by average damage (descending)
@@ -2554,7 +2554,7 @@ func _populate_comparison_breakdown(results: Array, weapon_stats_list: Array) ->
 				if title_label is Label:
 					title_label.text = "Cumulative Probability — %s" % weapon_name
 
-	print("MathhammerUI: Populated comparison breakdown panel")
+	DebugLogger.info("MathhammerUI: Populated comparison breakdown panel")
 
 # === T5-MH12: Multi-target comparison matrix ===
 
@@ -2633,7 +2633,7 @@ func _on_compare_targets_pressed() -> void:
 			"defender_stats": defender_stats
 		})
 
-	print("MathhammerUI: Starting target comparison with %d defenders" % configs.size())
+	DebugLogger.info(str("MathhammerUI: Starting target comparison with %d defenders" % configs.size()))
 	_run_target_comparison_async(configs)
 
 func _get_defender_display_stats(defender_id: String) -> Dictionary:
@@ -2660,7 +2660,7 @@ func _get_defender_display_stats(defender_id: String) -> Dictionary:
 
 func _run_target_comparison_async(configs: Array) -> void:
 	if _simulation_thread != null and _simulation_thread.is_started():
-		print("MathhammerUI: Waiting for previous simulation thread to finish...")
+		DebugLogger.info("MathhammerUI: Waiting for previous simulation thread to finish...")
 		_simulation_thread.wait_to_finish()
 
 	run_simulation_button.disabled = true
@@ -2671,17 +2671,17 @@ func _run_target_comparison_async(configs: Array) -> void:
 	# Show progress indicator (T5-MH7)
 	_show_progress("Comparing targets... 0 / %d" % configs.size(), 0.0)
 
-	print("MathhammerUI: Starting target comparison on background thread...")
+	DebugLogger.info("MathhammerUI: Starting target comparison on background thread...")
 	_simulation_thread = Thread.new()
 	_simulation_thread.start(_target_comparison_thread_func.bind(configs))
 
 func _target_comparison_thread_func(configs: Array) -> void:
-	print("MathhammerUI: Target comparison thread started, running %d simulations..." % configs.size())
+	DebugLogger.info(str("MathhammerUI: Target comparison thread started, running %d simulations..." % configs.size()))
 	var results = []
 	var total_defenders = configs.size()
 	for i in range(total_defenders):
 		var entry = configs[i]
-		print("MathhammerUI: Running target comparison %d/%d: vs %s" % [i + 1, total_defenders, entry.defender_name])
+		DebugLogger.info(str("MathhammerUI: Running target comparison %d/%d: vs %s" % [i + 1, total_defenders, entry.defender_name]))
 		var pct = float(i) / float(total_defenders) * 100.0
 		call_deferred("_update_progress", "Comparing: vs %s (%d/%d)" % [entry.defender_name, i + 1, total_defenders], pct)
 		var result = Mathhammer.simulate_combat(entry.config)
@@ -2691,15 +2691,15 @@ func _target_comparison_thread_func(configs: Array) -> void:
 			"defender_stats": entry.defender_stats,
 			"result": result
 		})
-	print("MathhammerUI: Target comparison thread complete")
+	DebugLogger.info("MathhammerUI: Target comparison thread complete")
 	call_deferred("_on_target_comparison_completed", results)
 
 func _on_target_comparison_completed(results: Array) -> void:
-	print("MathhammerUI: Target comparison completed on main thread")
+	DebugLogger.info("MathhammerUI: Target comparison completed on main thread")
 
 	if _simulation_thread != null and _simulation_thread.is_started():
 		_simulation_thread.wait_to_finish()
-		print("MathhammerUI: Target comparison background thread joined successfully")
+		DebugLogger.info("MathhammerUI: Target comparison background thread joined successfully")
 
 	# Hide progress indicator (T5-MH7)
 	_hide_progress()
@@ -2714,7 +2714,7 @@ func _on_target_comparison_completed(results: Array) -> void:
 		clear_results_button.disabled = false  # T5-MH10: Enable after target comparison results
 
 func _display_target_comparison_results(results: Array) -> void:
-	print("MathhammerUI: Displaying target comparison results for %d defenders" % results.size())
+	DebugLogger.info(str("MathhammerUI: Displaying target comparison results for %d defenders" % results.size()))
 	_clear_results_display()
 
 	if not summary_panel:
@@ -2847,7 +2847,7 @@ func _display_target_comparison_results(results: Array) -> void:
 	# Populate breakdown panel with per-target cumulative probability tables
 	_populate_target_comparison_breakdown(results)
 
-	print("MathhammerUI: Target comparison display complete")
+	DebugLogger.info("MathhammerUI: Target comparison display complete")
 
 func _create_target_comparison_ranking(parent: VBoxContainer, target_stats: Array) -> void:
 	# Sort targets by average damage (descending) — highest damage = easiest to kill
@@ -2935,7 +2935,7 @@ func _populate_target_comparison_breakdown(results: Array) -> void:
 				if title_label is Label:
 					title_label.text = "Cumulative Probability — vs %s" % defender_name
 
-	print("MathhammerUI: Populated target comparison breakdown panel")
+	DebugLogger.info("MathhammerUI: Populated target comparison breakdown panel")
 
 # --- Progress indicator helpers (T5-MH7) ---
 
@@ -2954,7 +2954,7 @@ func _show_progress(text: String, percentage: float) -> void:
 		_progress_label.text = text
 	if _progress_bar:
 		_progress_bar.value = percentage
-	print("MathhammerUI: Progress shown — %s (%.0f%%)" % [text, percentage])
+	DebugLogger.info(str("MathhammerUI: Progress shown — %s (%.0f%%)" % [text, percentage]))
 
 func _update_progress(text: String, percentage: float) -> void:
 	# Called on main thread via call_deferred from background thread
@@ -2968,12 +2968,12 @@ func _hide_progress() -> void:
 		_progress_container.visible = false
 	if _progress_bar:
 		_progress_bar.value = 0.0
-	print("MathhammerUI: Progress hidden")
+	DebugLogger.info("MathhammerUI: Progress hidden")
 
 # --- End progress indicator helpers ---
 
 func _show_error(message: String) -> void:
-	print("MathhammerUI Error: ", message)
+	DebugLogger.info(str("MathhammerUI Error: ", message))
 	if results_label:
 		results_label.text = "[color=red][b]Error:[/b] " + message + "[/color]"
 
@@ -2995,5 +2995,5 @@ func _get_selected_attacker_points_cost() -> int:
 		if selected_attackers[unit_id] > 0 and not counted_units.has(unit_id):
 			counted_units[unit_id] = true
 			total_cost += _get_unit_points_cost(unit_id)
-	print("MathhammerUI: Calculated attacker points cost: %d pts (from %d unique units)" % [total_cost, counted_units.size()])
+	DebugLogger.info(str("MathhammerUI: Calculated attacker points cost: %d pts (from %d unique units)" % [total_cost, counted_units.size()]))
 	return total_cost

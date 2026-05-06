@@ -79,17 +79,17 @@ func process_action(action: Dictionary) -> Dictionary:
 
 # Execute an action (validate + process + apply)
 func execute_action(action: Dictionary) -> Dictionary:
-	print("[BasePhase] Executing action: ", action.get("type", "UNKNOWN"))
-	print("[BasePhase] For unit: ", action.get("unit_id", "N/A"))
+	DebugLogger.info(str("[BasePhase] Executing action: ", action.get("type", "UNKNOWN")))
+	DebugLogger.info(str("[BasePhase] For unit: ", action.get("unit_id", "N/A")))
 
 	var validation = validate_action(action)
 	if not validation.valid:
-		print("[BasePhase] Action validation failed: ", validation.errors)
+		DebugLogger.info(str("[BasePhase] Action validation failed: ", validation.errors))
 		return {"success": false, "errors": validation.errors}
 
 	var result = process_action(action)
 	if result.success:
-		print("[BasePhase] Action processed successfully")
+		DebugLogger.info("[BasePhase] Action processed successfully")
 		# Apply the state changes if they exist
 		if result.has("changes") and result.changes is Array:
 			PhaseManager.apply_state_changes(result.changes)
@@ -97,7 +97,7 @@ func execute_action(action: Dictionary) -> Dictionary:
 			# CRITICAL: Update our local snapshot after applying changes
 			# Otherwise get_unit() will read stale data from the old snapshot
 			game_state_snapshot = GameState.create_snapshot()
-			print("[BasePhase] Refreshed game_state_snapshot after applying changes")
+			DebugLogger.info("[BasePhase] Refreshed game_state_snapshot after applying changes")
 
 		# Attach human-readable log_text from result to the action dict
 		if result.has("log_text") and result.log_text != "":
@@ -110,7 +110,7 @@ func execute_action(action: Dictionary) -> Dictionary:
 			action["_replay_diffs"] = result.changes
 
 		# Record the action
-		print("[BasePhase] Emitting action_taken signal")
+		DebugLogger.info("[BasePhase] Emitting action_taken signal")
 		emit_signal("action_taken", action)
 
 		# Check if this action completes the phase.
@@ -122,7 +122,7 @@ func execute_action(action: Dictionary) -> Dictionary:
 		if still_current and _should_complete_phase():
 			emit_signal("phase_completed")
 	else:
-		print("[BasePhase] Action processing failed")
+		DebugLogger.info("[BasePhase] Action processing failed")
 
 	return result
 
@@ -211,4 +211,4 @@ func update_local_state(new_snapshot: Dictionary) -> void:
 
 # Log a message for this phase
 func log_phase_message(message: String, level: String = "INFO") -> void:
-	print("[%s][%s] %s" % [str(phase_type), level, message])
+	DebugLogger.info(str("[%s][%s] %s" % [str(phase_type), level, message]))

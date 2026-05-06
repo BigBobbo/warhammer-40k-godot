@@ -1,0 +1,162 @@
+Godot Engine v4.6.stable.steam.89cea1439 - https://godotengine.org
+
+SCRIPT ERROR: Compile Error: Identifier not found: GameState
+          at: GDScript::reload (res://autoloads/UnitAbilityManager.gd:1438)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+          at: GDScript::reload (res://scripts/AIAbilityAnalyzer.gd:0)
+SCRIPT ERROR: Compile Error: Identifier not found: Measurement
+          at: GDScript::reload (res://scripts/data/DeploymentZoneData.gd:58)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+          at: GDScript::reload (res://autoloads/GameState.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+          at: GDScript::reload (res://scripts/AIDecisionMaker.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+          at: GDScript::reload (res://tests/test_t001_t002_ai_charge_fight.gd:0)
+ERROR: Failed to load script "res://tests/test_t001_t002_ai_charge_fight.gd" with error "Compilation failed".
+   at: load (modules/gdscript/gdscript.cpp:2907)
+TestModeHandler: Args -> ["-s", "tests/test_t001_t002_ai_charge_fight.gd"]
+[2026-05-06 07:19:51] [INFO.0000000] DebugLogger initialized - Session: 20260506_071951
+[2026-05-06 07:19:51] [INFO.0000000] Log file: user://logs/debug_20260506_071951.log
+[2026-05-06 07:19:51] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20260506_071951.log
+[SettingsService] Settings loaded from user://settings.cfg
+[SettingsService] Created Music audio bus
+[SettingsService] Created SFX audio bus
+[MeasuringTapeManager] Save persistence: false
+SaveLoadManager: autosave_on_round_end = true
+SaveLoadManager: autosave_on_phase_transition = false
+[SettingsService] Ready — ui_scale=1.90, animation_speed=1.00, colorblind=protanopia
+Found armies in res://: ["Orks_Upload_Mar7", "orks", "adeptus_custodes", "Orks_2000_upload", "space_marines", "Orks_2000", "A_C_test", "ORK_test", "Adeptus_Custodes_1995_Mar_7"]
+ArmyListManager initialized with 9 armies: ["Orks_Upload_Mar7", "orks", "adeptus_custodes", "Orks_2000_upload", "space_marines", "Orks_2000", "A_C_test", "ORK_test", "Adeptus_Custodes_1995_Mar_7"]
+[2026-05-06 07:19:51] [INFO.0000000] DebugManager initialized
+SCRIPT ERROR: Invalid call. Nonexistent function 'get_zones' in base 'GDScript'.
+          at: GameStateData.initialize_default_state (res://autoloads/GameState.gd:21)
+          GDScript backtrace (most recent call first):
+              [0] initialize_default_state (res://autoloads/GameState.gd:21)
+              [1] _ready (res://autoloads/GameState.gd:17)
+ActionLogger: Started session 20260506_071951
+StateSerializer: Pretty print enabled: true
+StateSerializer: Save format version: 1.1.0 (min migratable: 1.0.0)
+ReplayManager: Connected to GameManager.result_applied
+ReplayManager: Connected to PhaseManager.phase_changed, phase_action_taken, phase_completed
+ReplayManager: Ready (auto_record_ai=true)
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+SaveLoadManager: Connected to PhaseManager for event-driven autosave
+SaveLoadManager: Connected to AIPlayer.ai_turn_ended for deferred autosave (SAVE-6)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get_zones_px' in base 'GDScript'.
+          at: initialize_deployment_zones (res://autoloads/BoardState.gd:22)
+          GDScript backtrace (most recent call first):
+              [0] initialize_deployment_zones (res://autoloads/BoardState.gd:22)
+              [1] _ready (res://autoloads/BoardState.gd:19)
+FactionStratagemLoader: Loaded 54 faction codes
+StratagemManager: Loaded 12 core stratagems
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Preloaded metadata for 8 terrain layouts
+[TerrainManager] Loaded layout 'layout_2' from JSON (14 terrain pieces)
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Configured mission ID: take_and_hold
+SCRIPT ERROR: Invalid call. Nonexistent function 'get_objectives_px' in base 'GDScript'.
+          at: _setup_objectives_for_deployment (res://autoloads/MissionManager.gd:136)
+          GDScript backtrace (most recent call first):
+              [0] _setup_objectives_for_deployment (res://autoloads/MissionManager.gd:136)
+              [1] initialize_mission (res://autoloads/MissionManager.gd:109)
+              [2] initialize_default_mission (res://autoloads/MissionManager.gd:77)
+              [3] _ready (res://autoloads/MissionManager.gd:72)
+SCRIPT ERROR: Invalid access to property or key 'meta' on a base object of type 'Dictionary'.
+          at: initialize_mission (res://autoloads/MissionManager.gd:130)
+          GDScript backtrace (most recent call first):
+              [0] initialize_mission (res://autoloads/MissionManager.gd:130)
+              [1] initialize_default_mission (res://autoloads/MissionManager.gd:77)
+              [2] _ready (res://autoloads/MissionManager.gd:72)
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'G' to check what can see the cursor position
+TransportManager initialized
+TransportFactory: Loaded local server URL: wss://warhammer-40k-godot.fly.dev
+TransportFactory: Initialized
+CharacterAttachmentManager initialized
+CloudStorage: Using server URL: http://localhost:9080
+CloudStorage: Loaded player ID from file: 93aab3f0...
+CloudStorage: POST /api/players
+WebSocketRelay: Initialized with server URL: wss://warhammer-40k-godot.fly.dev
+NetworkManager: Initialized (platform: desktop)
+[2026-05-06 07:19:51] [INFO.0000000] [SpriteResolver] Found sprite: orks_vehicle -> user://sprites/orks_vehicle.png
+[2026-05-06 07:19:51] [INFO.0000000] [SpriteResolver] Found sprite: adeptus_custodes_infantry -> user://sprites/adeptus_custodes_infantry.png
+[2026-05-06 07:19:51] [INFO.0000000] [SpriteResolver] Found sprite: infantry -> user://sprites/infantry.png
+[2026-05-06 07:19:51] [INFO.0000000] [SpriteResolver] Found sprite: blade_champion -> user://sprites/blade_champion.png
+[2026-05-06 07:19:51] [INFO.0000000] [SpriteResolver] Found sprite: vehicle -> user://sprites/vehicle.png
+[2026-05-06 07:19:51] [INFO.0000000] [SpriteResolver] Found sprite: custodian_guard -> user://sprites/custodian_guard.png
+[2026-05-06 07:19:51] [INFO.0000000] [SpriteResolver] Found sprite: monster -> user://sprites/monster.png
+[2026-05-06 07:19:51] [INFO.0000000] [SpriteResolver] Initialized. Found 7 static sprite(s), 0 animated set(s)
+AIPlayer: Connected to GameManager.result_applied
+AIPlayer: Connected to PhaseManager.phase_changed and phase_action_taken
+AIPlayer: Connected to MissionManager.victory_points_scored
+AIPlayer: Connected to SecondaryMissionManager.when_drawn_requires_interaction
+AIDecisionMaker: No config override file found at user://ai_config.json
+AIPlayer: Ready (disabled until configured)
+GameEventLog: Initialized
+SecondaryMissionManager: Initialized
+FactionAbilityManager: Ready
+DiceHistoryPanel: Initialized
+[2026-05-06 07:19:51] [INFO.0000000] DiceHistoryPanel: Initialized
+[DiceSoundManager] Ready — 8 procedural streams generated, 8 player pool
+[KeybindingManager] No saved keybindings found, using defaults
+[KeybindingManager] Ready — 42 bindings registered
+WARNING: [GodotMCP] Failed to listen on port 9080: Already in use
+     at: push_warning (core/variant/variant_utility.cpp:1034)
+     GDScript backtrace (most recent call first):
+         [0] _start_server (res://addons/godot_mcp/mcp_server.gd:55)
+         [1] _ready (res://addons/godot_mcp/mcp_server.gd:43)
+
+=== test_t001_t002_ai_charge_fight ===
+
+
+-- T-001/A: _decide_charge actually evaluates (no longer a stub) --
+AIDecisionMaker: [OVERWATCH-RISK] Warboss faces overwatch risk: 0.1 expected dmg from Marine (risk=low, penalty=1.00)
+[TerrainManager] Terrain penalty for ruins_8: climb down = 3.5" (height=3.5")
+AIDecisionMaker: [CHARGE-TERRAIN] Warboss -> Marine: raw=5.6" terrain_penalty=+3.5" effective=9.1"
+AIDecisionMaker: [KILL-PRIORITY] Charge can likely kill Marine (3.0 dmg vs 2 wounds)
+AIDecisionMaker: [T7-41] Army analysis for player 2: 1 units, 1 models
+AIDecisionMaker: [T7-41]   Melee output: 8.0 (100%), Ranged output: 0.0 (0%)
+AIDecisionMaker: [T7-41]   Melee-only units: 1, Ranged-only units: 0
+AIDecisionMaker: [T7-41]   Avg wounds/model: 6.0, Avg points/model: 0.0
+AIDecisionMaker: [T7-41] Detected MELEE archetype (melee=100%)
+AIDecisionMaker: Charge eval Warboss -> Marine: dist=6.6", prob=17%, target_score=25.9, ow_risk=0.1(low), final=48.3
+AIDecisionMaker: [TEMPO] VP: 0 vs 0 (diff=+0), round=1, modifier=1.00
+AIDecisionMaker: [STRATEGY] Round 1 charge threshold adjusted by 0.38 (strategy=AGGRESSIVE+MELEE)
+AIDecisionMaker: [FACTION] Charge threshold reduced by faction aggression 1.8 (now: 0.42)
+AIDecisionMaker: Best charge: Warboss declares charge against Marine (17% chance, 6.6" away, expected 3.0 melee dmg vs 2 HP, overwatch risk: 0.1 dmg) (score=48.3)
+AIDecisionMaker: [CHARGE-COORD] Recorded charge against U_TARGET (now 1 chargers, 3.0 total expected dmg)
+  PASS: decision returned a non-empty dict
+  PASS: decision.type is a valid charge-phase action
+  PASS: description does NOT contain 'not implemented' (audit-stub regression guard)
+
+-- T-001/B: _decide_charge does not crash when no DECLARE_CHARGE offered --
+  PASS: decision is non-empty
+  PASS: decision is SKIP_CHARGE or END_CHARGE (no crash, no nonsense)
+
+-- T-002/A: _compute_pile_in_movements actually computes movements --
+AIDecisionMaker: Pile-in model m1 already in base contact (dist=-30.4px), holding
+AIDecisionMaker: Pile-in model m2 (idx 1) moves 2.1" toward enemy
+  PASS: movements is a Dictionary
+  PASS: at least one model moves (audit claim refuted)
+
+-- T-002/B: _compute_consolidate_action returns valid CONSOLIDATE shape --
+AIDecisionMaker: Consolidate model m1 already in base contact (dist=-30.4px), holding
+AIDecisionMaker: Boyz consolidates (all models holding position)
+  PASS: action returned
+  PASS: action.type == CONSOLIDATE
+  PASS: action has unit_id == U_BOYZ
+  PASS: action has movements key (Dictionary)
+
+=== Result: 11 passed, 0 failed ===
+NetworkManager: Connected to PhaseManager.phase_action_taken for timer reset (T5-MP8)
+CloudStorage: register - HTTP request failed (result: 13)
+[2026-05-06 07:19:51] [INFO.0000000] DebugLogger shutting down - Session: 20260506_071951
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2641)
+ERROR: 14 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)

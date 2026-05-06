@@ -123,7 +123,7 @@ func _on_phase_exit() -> void:
 	# Units destroyed during shooting can change objective control state.
 	if MissionManager:
 		MissionManager.check_all_objectives()
-		print("ShootingPhase: P3-103 Updated objective control at end of Shooting phase")
+		DebugLogger.info("ShootingPhase: P3-103 Updated objective control at end of Shooting phase")
 
 func execute_action(action: Dictionary) -> Dictionary:
 	"""Override to detect unit kills from diffs (AI/batch shooting path)."""
@@ -185,7 +185,7 @@ func _resolve_transport_destroyed_if_applicable(destroyed_unit_id: String) -> vo
 		return
 
 	var unit_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
-	print("ShootingPhase: P3-32 Transport %s (%s) destroyed — resolving emergency disembark" % [unit_name, destroyed_unit_id])
+	DebugLogger.info(str("ShootingPhase: P3-32 Transport %s (%s) destroyed — resolving emergency disembark" % [unit_name, destroyed_unit_id]))
 	log_phase_message("Transport %s destroyed! Embarked units must emergency disembark!" % unit_name)
 
 	var result = TransportManager.resolve_transport_destroyed(destroyed_unit_id)
@@ -216,7 +216,7 @@ func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> 
 		return
 
 	var transport_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
-	print("ShootingPhase: P1-60 Transport destruction detected — %s (%s) has embarked units" % [transport_name, destroyed_unit_id])
+	DebugLogger.info(str("ShootingPhase: P1-60 Transport destruction detected — %s (%s) has embarked units" % [transport_name, destroyed_unit_id]))
 	log_phase_message("Transport %s destroyed! Embarked units must emergency disembark!" % transport_name)
 
 	var result = RulesEngine.resolve_transport_destruction(destroyed_unit_id, GameState.state)
@@ -249,7 +249,7 @@ func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 		return
 
 	var unit_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
-	print("ShootingPhase: P1-13 Deadly Demise detected on destroyed unit %s (%s) — value: %s" % [unit_name, destroyed_unit_id, dd_value])
+	DebugLogger.info(str("ShootingPhase: P1-13 Deadly Demise detected on destroyed unit %s (%s) — value: %s" % [unit_name, destroyed_unit_id, dd_value]))
 	log_phase_message("Deadly Demise %s triggered for %s!" % [dd_value, unit_name])
 
 	var dd_result = RulesEngine.resolve_deadly_demise(destroyed_unit_id, dd_value, GameState.state)
@@ -361,118 +361,118 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
 func process_action(action: Dictionary) -> Dictionary:
-	print("========================================")
-	print("ShootingPhase: process_action CALLED")
-	print("ShootingPhase: action = ", action)
+	DebugLogger.info("========================================")
+	DebugLogger.info("ShootingPhase: process_action CALLED")
+	DebugLogger.info(str("ShootingPhase: action = ", action))
 
 	var action_type = action.get("type", "")
-	print("ShootingPhase: action_type = ", action_type)
+	DebugLogger.info(str("ShootingPhase: action_type = ", action_type))
 
 	match action_type:
 		"SELECT_SHOOTER":
-			print("ShootingPhase: Matched SELECT_SHOOTER")
+			DebugLogger.info("ShootingPhase: Matched SELECT_SHOOTER")
 			return _process_select_shooter(action)
 		"ASSIGN_TARGET":
-			print("ShootingPhase: Matched ASSIGN_TARGET")
+			DebugLogger.info("ShootingPhase: Matched ASSIGN_TARGET")
 			return _process_assign_target(action)
 		"CLEAR_ASSIGNMENT":
-			print("ShootingPhase: Matched CLEAR_ASSIGNMENT")
+			DebugLogger.info("ShootingPhase: Matched CLEAR_ASSIGNMENT")
 			return _process_clear_assignment(action)
 		"CLEAR_ALL_ASSIGNMENTS":
-			print("ShootingPhase: Matched CLEAR_ALL_ASSIGNMENTS")
+			DebugLogger.info("ShootingPhase: Matched CLEAR_ALL_ASSIGNMENTS")
 			return _process_clear_all_assignments(action)
 		"CONFIRM_TARGETS":
-			print("ShootingPhase: Matched CONFIRM_TARGETS")
+			DebugLogger.info("ShootingPhase: Matched CONFIRM_TARGETS")
 			return _process_confirm_targets(action)
 		"RESOLVE_SHOOTING":
-			print("ShootingPhase: Matched RESOLVE_SHOOTING")
+			DebugLogger.info("ShootingPhase: Matched RESOLVE_SHOOTING")
 			return _process_resolve_shooting(action)
 		"RESOLVE_WEAPON_SEQUENCE":  # Sequential weapon resolution
-			print("ShootingPhase: Matched RESOLVE_WEAPON_SEQUENCE")
+			DebugLogger.info("ShootingPhase: Matched RESOLVE_WEAPON_SEQUENCE")
 			return _process_resolve_weapon_sequence(action)
 		"SKIP_UNIT":
-			print("ShootingPhase: Matched SKIP_UNIT")
+			DebugLogger.info("ShootingPhase: Matched SKIP_UNIT")
 			return _process_skip_unit(action)
 		"END_SHOOTING":
-			print("ShootingPhase: Matched END_SHOOTING")
+			DebugLogger.info("ShootingPhase: Matched END_SHOOTING")
 			return _process_end_shooting(action)
 		"SHOOT":  # Full shooting action
-			print("ShootingPhase: Matched SHOOT")
+			DebugLogger.info("ShootingPhase: Matched SHOOT")
 			return _process_shoot(action)
 		"APPLY_SAVES":  # Interactive save resolution
-			print("ShootingPhase: Matched APPLY_SAVES")
+			DebugLogger.info("ShootingPhase: Matched APPLY_SAVES")
 			return _process_apply_saves(action)
 		"CONTINUE_SEQUENCE":  # Continue to next weapon in sequential mode
-			print("ShootingPhase: Matched CONTINUE_SEQUENCE")
+			DebugLogger.info("ShootingPhase: Matched CONTINUE_SEQUENCE")
 			return _process_continue_sequence(action)
 		"COMPLETE_SHOOTING_FOR_UNIT":  # Complete shooting after final weapon
-			print("ShootingPhase: Matched COMPLETE_SHOOTING_FOR_UNIT")
+			DebugLogger.info("ShootingPhase: Matched COMPLETE_SHOOTING_FOR_UNIT")
 			return _process_complete_shooting_for_unit(action)
 		"USE_REACTIVE_STRATAGEM":  # Defender uses a reactive stratagem
-			print("ShootingPhase: Matched USE_REACTIVE_STRATAGEM")
+			DebugLogger.info("ShootingPhase: Matched USE_REACTIVE_STRATAGEM")
 			return _process_use_reactive_stratagem(action)
 		"DECLINE_REACTIVE_STRATAGEM":  # Defender declines reactive stratagem
-			print("ShootingPhase: Matched DECLINE_REACTIVE_STRATAGEM")
+			DebugLogger.info("ShootingPhase: Matched DECLINE_REACTIVE_STRATAGEM")
 			return _process_decline_reactive_stratagem(action)
 		"USE_GRENADE_STRATAGEM":  # Active player uses GRENADE stratagem
-			print("ShootingPhase: Matched USE_GRENADE_STRATAGEM")
+			DebugLogger.info("ShootingPhase: Matched USE_GRENADE_STRATAGEM")
 			return _process_use_grenade_stratagem(action)
 		"USE_STRATAGEM":  # Active player uses a proactive (non-grenade) stratagem with phase: "shooting"
-			print("ShootingPhase: Matched USE_STRATAGEM")
+			DebugLogger.info("ShootingPhase: Matched USE_STRATAGEM")
 			return _process_use_stratagem(action)
 		"USE_SENTINEL_STORM":  # P1-10: Player uses Sentinel Storm
-			print("ShootingPhase: Matched USE_SENTINEL_STORM")
+			DebugLogger.info("ShootingPhase: Matched USE_SENTINEL_STORM")
 			return _process_use_sentinel_storm(action)
 		"DECLINE_SENTINEL_STORM":  # P1-10: Player declines Sentinel Storm
-			print("ShootingPhase: Matched DECLINE_SENTINEL_STORM")
+			DebugLogger.info("ShootingPhase: Matched DECLINE_SENTINEL_STORM")
 			return _process_decline_sentinel_storm(action)
 		"USE_THROAT_SLITTAS":  # P1-12: Player uses Throat Slittas
-			print("ShootingPhase: Matched USE_THROAT_SLITTAS")
+			DebugLogger.info("ShootingPhase: Matched USE_THROAT_SLITTAS")
 			return _process_use_throat_slittas(action)
 		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
-			print("ShootingPhase: Matched DECLINE_THROAT_SLITTAS")
+			DebugLogger.info("ShootingPhase: Matched DECLINE_THROAT_SLITTAS")
 			return _process_decline_throat_slittas(action)
 		"USE_DISTRACTION_GROT":  # P2-25: Defender activates Distraction Grot
-			print("ShootingPhase: Matched USE_DISTRACTION_GROT")
+			DebugLogger.info("ShootingPhase: Matched USE_DISTRACTION_GROT")
 			return _process_use_distraction_grot(action)
 		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
-			print("ShootingPhase: Matched DECLINE_DISTRACTION_GROT")
+			DebugLogger.info("ShootingPhase: Matched DECLINE_DISTRACTION_GROT")
 			return _process_decline_distraction_grot(action)
 		"USE_AMMO_RUNT":  # OA-10: Player activates Ammo Runt
-			print("ShootingPhase: Matched USE_AMMO_RUNT")
+			DebugLogger.info("ShootingPhase: Matched USE_AMMO_RUNT")
 			return _process_use_ammo_runt(action)
 		"DECLINE_AMMO_RUNT":  # OA-10: Player declines Ammo Runt
-			print("ShootingPhase: Matched DECLINE_AMMO_RUNT")
+			DebugLogger.info("ShootingPhase: Matched DECLINE_AMMO_RUNT")
 			return _process_decline_ammo_runt(action)
 		"USE_PULSA_ROKKIT":  # OA-31: Player activates Pulsa Rokkit
-			print("ShootingPhase: Matched USE_PULSA_ROKKIT")
+			DebugLogger.info("ShootingPhase: Matched USE_PULSA_ROKKIT")
 			return _process_use_pulsa_rokkit(action)
 		"DECLINE_PULSA_ROKKIT":  # OA-31: Player declines Pulsa Rokkit
-			print("ShootingPhase: Matched DECLINE_PULSA_ROKKIT")
+			DebugLogger.info("ShootingPhase: Matched DECLINE_PULSA_ROKKIT")
 			return _process_decline_pulsa_rokkit(action)
 		"USE_SHOOTY_POWER_TRIP":  # OA-37: Player activates Shooty Power Trip
-			print("ShootingPhase: Matched USE_SHOOTY_POWER_TRIP")
+			DebugLogger.info("ShootingPhase: Matched USE_SHOOTY_POWER_TRIP")
 			return _process_use_shooty_power_trip(action)
 		"DECLINE_SHOOTY_POWER_TRIP":  # OA-37: Player declines Shooty Power Trip
-			print("ShootingPhase: Matched DECLINE_SHOOTY_POWER_TRIP")
+			DebugLogger.info("ShootingPhase: Matched DECLINE_SHOOTY_POWER_TRIP")
 			return _process_decline_shooty_power_trip(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission
-			print("ShootingPhase: Matched PERFORM_SECONDARY_ACTION")
+			DebugLogger.info("ShootingPhase: Matched PERFORM_SECONDARY_ACTION")
 			return _process_perform_secondary_action(action)
 		"BURN_OBJECTIVE":  # Scorched Earth: burn objective
-			print("ShootingPhase: Matched BURN_OBJECTIVE")
+			DebugLogger.info("ShootingPhase: Matched BURN_OBJECTIVE")
 			return _process_burn_objective(action)
 		"PERFORM_RITUAL_ACTION":  # The Ritual: perform ritual action
-			print("ShootingPhase: Matched PERFORM_RITUAL_ACTION")
+			DebugLogger.info("ShootingPhase: Matched PERFORM_RITUAL_ACTION")
 			return _process_perform_ritual_action(action)
 		"PERFORM_TERRAFORM_ACTION":  # Terraform: terraform an objective
-			print("ShootingPhase: Matched PERFORM_TERRAFORM_ACTION")
+			DebugLogger.info("ShootingPhase: Matched PERFORM_TERRAFORM_ACTION")
 			return _process_perform_terraform_action(action)
 		"END_MOVEMENT":
-			print("ShootingPhase: Matched END_MOVEMENT (no-op, phase already advanced)")
+			DebugLogger.info("ShootingPhase: Matched END_MOVEMENT (no-op, phase already advanced)")
 			return create_result(true, [], "")
 		_:
-			print("ShootingPhase: NO MATCH - returning error")
+			DebugLogger.info("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
 
 # Validation Methods
@@ -498,7 +498,7 @@ func _validate_select_shooter(action: Dictionary) -> Dictionary:
 	# P3-96: "Unless at least one model in a unit has an eligible target,
 	# that unit cannot be selected to shoot." (SHOOT-7)
 	if not _has_eligible_targets(unit_id):
-		print("ShootingPhase: P3-96 Unit %s cannot be selected to shoot — no eligible targets" % unit_id)
+		DebugLogger.info(str("ShootingPhase: P3-96 Unit %s cannot be selected to shoot — no eligible targets" % unit_id))
 		return {"valid": false, "errors": ["Unit has no eligible targets to shoot"]}
 
 	return {"valid": true, "errors": []}
@@ -673,7 +673,7 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 		if ability_mgr and ability_mgr.has_throat_slittas_ability(unit_id):
 			var ts_targets = _get_throat_slittas_targets(unit_id)
 			if not ts_targets.is_empty():
-				print("ShootingPhase: P1-12 Throat Slittas: Unit %s has enemies within 9\" — prompting" % unit_id)
+				DebugLogger.info(str("ShootingPhase: P1-12 Throat Slittas: Unit %s has enemies within 9\" — prompting" % unit_id))
 				throat_slittas_pending_unit = unit_id
 
 				var current_player = get_current_player()
@@ -693,7 +693,7 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 		if ability_mgr_ar and ability_mgr_ar.has_ammo_runt(unit_id):
 			var remaining = ability_mgr_ar.get_ammo_runts_remaining(unit_id)
 			var total = ability_mgr_ar.get_ammo_runt_count(unit_id)
-			print("ShootingPhase: OA-10 Ammo Runt: Unit %s has %d/%d runts remaining — prompting" % [unit_id, remaining, total])
+			DebugLogger.info(str("ShootingPhase: OA-10 Ammo Runt: Unit %s has %d/%d runts remaining — prompting" % [unit_id, remaining, total]))
 			ammo_runt_pending_unit = unit_id
 			awaiting_ammo_runt = true
 
@@ -714,7 +714,7 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 	if not action.get("payload", {}).get("skip_pulsa_rokkit_check", false):
 		var ability_mgr_pr = get_node_or_null("/root/UnitAbilityManager")
 		if ability_mgr_pr and ability_mgr_pr.has_pulsa_rokkit(unit_id):
-			print("ShootingPhase: OA-31 Pulsa Rokkit: Unit %s has unused Pulsa Rokkit — prompting" % unit_id)
+			DebugLogger.info(str("ShootingPhase: OA-31 Pulsa Rokkit: Unit %s has unused Pulsa Rokkit — prompting" % unit_id))
 			pulsa_rokkit_pending_unit = unit_id
 			awaiting_pulsa_rokkit = true
 
@@ -733,7 +733,7 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 	if not action.get("payload", {}).get("skip_shooty_power_trip_check", false):
 		var ability_mgr_spt = get_node_or_null("/root/UnitAbilityManager")
 		if ability_mgr_spt and ability_mgr_spt.has_shooty_power_trip(unit_id):
-			print("ShootingPhase: OA-37 Shooty Power Trip: Unit %s has Shooty Power Trip — prompting" % unit_id)
+			DebugLogger.info(str("ShootingPhase: OA-37 Shooty Power Trip: Unit %s has Shooty Power Trip — prompting" % unit_id))
 			shooty_power_trip_pending_unit = unit_id
 			awaiting_shooty_power_trip = true
 
@@ -892,14 +892,14 @@ func _continue_after_reactive_stratagems() -> Dictionary:
 		unique_weapons[weapon_id] = true
 
 	var weapon_count = unique_weapons.size()
-	print("ShootingPhase: Merged and confirmed %d assignments with %d unique weapon types" % [confirmed_assignments.size(), weapon_count])
+	DebugLogger.info(str("ShootingPhase: Merged and confirmed %d assignments with %d unique weapon types" % [confirmed_assignments.size(), weapon_count]))
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ WEAPON COUNT CHECK IN _process_confirm_targets")
-	print("║ weapon_count: ", weapon_count)
-	print("║ Will enter sequential mode: ", weapon_count >= 2)
-	print("║ Single weapon path: ", weapon_count == 1)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ WEAPON COUNT CHECK IN _process_confirm_targets")
+	DebugLogger.info(str("║ weapon_count: ", weapon_count))
+	DebugLogger.info(str("║ Will enter sequential mode: ", weapon_count >= 2))
+	DebugLogger.info(str("║ Single weapon path: ", weapon_count == 1))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# If 2+ weapon types, emit signal for weapon ordering dialog
 	if weapon_count >= 2:
@@ -920,12 +920,12 @@ func _continue_after_reactive_stratagems() -> Dictionary:
 		})
 
 	# Single weapon type - proceed with normal resolution
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SINGLE WEAPON PATH - _process_confirm_targets")
-	print("║ Initializing resolution_state with mode: 'ready'")
-	print("║ This is NOT sequential mode")
-	print("║ Calling _process_resolve_shooting() directly")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ SINGLE WEAPON PATH - _process_confirm_targets")
+	DebugLogger.info("║ Initializing resolution_state with mode: 'ready'")
+	DebugLogger.info("║ This is NOT sequential mode")
+	DebugLogger.info("║ Calling _process_resolve_shooting() directly")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Initialize resolution state
 	resolution_state = {
@@ -940,13 +940,13 @@ func _continue_after_reactive_stratagems() -> Dictionary:
 	# Call resolution directly
 	var resolve_result = _process_resolve_shooting({})
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SINGLE WEAPON - _process_resolve_shooting returned")
-	print("║ resolve_result.success: ", resolve_result.success)
-	print("║ resolve_result has save_data_list: ", resolve_result.has("save_data_list"))
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ SINGLE WEAPON - _process_resolve_shooting returned")
+	DebugLogger.info(str("║ resolve_result.success: ", resolve_result.success))
+	DebugLogger.info(str("║ resolve_result has save_data_list: ", resolve_result.has("save_data_list")))
 	if resolve_result.has("save_data_list"):
-		print("║ save_data_list size: ", resolve_result.get("save_data_list", []).size())
-	print("╚═══════════════════════════════════════════════════════════════")
+		DebugLogger.info(str("║ save_data_list size: ", resolve_result.get("save_data_list", []).size()))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Combine results
 	if resolve_result.success:
@@ -964,19 +964,19 @@ func _continue_after_reactive_stratagems() -> Dictionary:
 			initial_result["current_weapon_index"] = resolve_result.get("current_weapon_index", 0)
 			initial_result["total_weapons"] = resolve_result.get("total_weapons", 1)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SINGLE WEAPON - Returning from _process_confirm_targets")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ SINGLE WEAPON - Returning from _process_confirm_targets")
 	if initial_result.has("sequential_pause"):
-		print("║ ✅ sequential_pause INCLUDED in result: ", initial_result.get("sequential_pause", false))
-		print("║ ✅ remaining_weapons size: ", initial_result.get("remaining_weapons", []).size())
-		print("║ ✅ last_weapon_result exists: ", initial_result.has("last_weapon_result"))
+		DebugLogger.info(str("║ ✅ sequential_pause INCLUDED in result: ", initial_result.get("sequential_pause", false)))
+		DebugLogger.info(str("║ ✅ remaining_weapons size: ", initial_result.get("remaining_weapons", []).size()))
+		DebugLogger.info(str("║ ✅ last_weapon_result exists: ", initial_result.has("last_weapon_result")))
 	elif resolve_result.has("save_data_list") and not resolve_result.get("save_data_list", []).is_empty():
-		print("║ Result will trigger saves dialog")
-		print("║ After saves, _process_apply_saves will be called")
+		DebugLogger.info("║ Result will trigger saves dialog")
+		DebugLogger.info("║ After saves, _process_apply_saves will be called")
 	else:
-		print("║ ⚠️  WARNING: No sequential_pause or save_data_list in result!")
-		print("║ This weapon likely missed and dialog won't show!")
-	print("╚═══════════════════════════════════════════════════════════════")
+		DebugLogger.info("║ ⚠️  WARNING: No sequential_pause or save_data_list in result!")
+		DebugLogger.info("║ This weapon likely missed and dialog won't show!")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	return initial_result
 
@@ -1069,7 +1069,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		var resolve_tid = confirmed_assignments[0].get("target_unit_id", "")
 		if resolve_tid != "":
 			_targets_hit_by_shooter[resolve_tid] = _targets_hit_by_shooter.get(resolve_tid, 0) + resolve_hits
-			print("ShootingPhase: P1-11 Sanctified Flames tracking (resolve): %d hit(s) on %s" % [resolve_hits, resolve_tid])
+			DebugLogger.info(str("ShootingPhase: P1-11 Sanctified Flames tracking (resolve): %d hit(s) on %s" % [resolve_hits, resolve_tid]))
 
 	# Check if any saves are needed
 	var save_data_list = result.get("save_data_list", [])
@@ -1077,18 +1077,18 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	if save_data_list.is_empty():
 		# No wounds caused — finalize the combat log card
 		GameEventLog.add_combat_result("  Result: No wounds caused — attack missed")
-		print("╔═══════════════════════════════════════════════════════════════")
-		print("║ NO WOUNDS CAUSED - Weapon missed!")
-		print("║ resolution_state.mode: '", resolution_state.get("mode", ""), "'")
-		print("║ Is single weapon: ", resolution_state.get("mode", "") == "")
-		print("║ active_shooter_id: ", active_shooter_id)
-		print("╚═══════════════════════════════════════════════════════════════")
+		DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+		DebugLogger.info("║ NO WOUNDS CAUSED - Weapon missed!")
+		DebugLogger.info(str("║ resolution_state.mode: '", resolution_state.get("mode", ""), "'"))
+		DebugLogger.info(str("║ Is single weapon: ", resolution_state.get("mode", "") == ""))
+		DebugLogger.info(str("║ active_shooter_id: ", active_shooter_id))
+		DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 		# HAZARDOUS (T2-3): Still process Hazardous check even if weapon missed
 		var haz_diffs_on_miss = []
 		var hazardous_weapons_on_miss = result.get("hazardous_weapons", [])
 		if not hazardous_weapons_on_miss.is_empty():
-			print("║ HAZARDOUS: Processing %d hazardous weapon check(s) despite miss" % hazardous_weapons_on_miss.size())
+			DebugLogger.info(str("║ HAZARDOUS: Processing %d hazardous weapon check(s) despite miss" % hazardous_weapons_on_miss.size()))
 			var haz_rng = RulesEngine.RNGService.new(rs_seed)  # Issue #329: forward seed
 			for haz_weapon in hazardous_weapons_on_miss:
 				var haz_result = RulesEngine.resolve_hazardous_check(
@@ -1110,10 +1110,10 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		var mode = resolution_state.get("mode", "")
 		if mode != "sequential" and active_shooter_id != "":
 			# Single weapon that missed - show results dialog before completing
-			print("╔═══════════════════════════════════════════════════════════════")
-			print("║ 🎯 SINGLE WEAPON MISS - Showing results dialog")
-			print("║ Building last_weapon_result for missed shot...")
-			print("╚═══════════════════════════════════════════════════════════════")
+			DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+			DebugLogger.info("║ 🎯 SINGLE WEAPON MISS - Showing results dialog")
+			DebugLogger.info("║ Building last_weapon_result for missed shot...")
+			DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 			# Build last weapon result for missed shot
 			var last_weapon_result = {}
@@ -1148,18 +1148,18 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 				# P1-11: Track hits for Sanctified Flames (single weapon miss path)
 				if hits > 0 and target_unit_id != "":
 					_targets_hit_by_shooter[target_unit_id] = _targets_hit_by_shooter.get(target_unit_id, 0) + hits
-					print("ShootingPhase: P1-11 Sanctified Flames tracking (single miss): %d hit(s) on %s" % [hits, target_unit_id])
+					DebugLogger.info(str("ShootingPhase: P1-11 Sanctified Flames tracking (single miss): %d hit(s) on %s" % [hits, target_unit_id]))
 
-				print("║ last_weapon_result built:")
-				print("║   weapon: ", last_weapon_result.get("weapon_name", ""))
-				print("║   hits: ", hits, " / ", total_attacks)
-				print("║   wounds: 0 (missed)")
-				print("║   casualties: 0")
+				DebugLogger.info("║ last_weapon_result built:")
+				DebugLogger.info(str("║   weapon: ", last_weapon_result.get("weapon_name", "")))
+				DebugLogger.info(str("║   hits: ", hits, " / ", total_attacks))
+				DebugLogger.info("║   wounds: 0 (missed)")
+				DebugLogger.info("║   casualties: 0")
 
 			# Emit signal with EMPTY remaining_weapons (signals completion)
-			print("║")
-			print("║ 📡 EMITTING next_weapon_confirmation_required SIGNAL (for miss)")
-			print("╚═══════════════════════════════════════════════════════════════")
+			DebugLogger.info("║")
+			DebugLogger.info("║ 📡 EMITTING next_weapon_confirmation_required SIGNAL (for miss)")
+			DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 			emit_signal("next_weapon_confirmation_required", [], 0, last_weapon_result)
 
@@ -1178,7 +1178,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 			})
 
 		# Sequential mode - already handled with dialog
-		print("║ Sequential mode - completing immediately")
+		DebugLogger.info("║ Sequential mode - completing immediately")
 		var shooter_id = active_shooter_id  # Store before clearing
 		var changes = [{
 			"op": "set",
@@ -1229,16 +1229,16 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		"wounds": save_data_list[0].get("wounds_to_save", 0) if save_data_list.size() > 0 else 0,
 		"broadcast_id": broadcast_id
 	}
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SAVES_REQUIRED EMISSION #1 (from resolve_shooting)")
-	print("║ Timestamp: ", timestamp)
-	print("║ Source: ShootingPhase._process_resolve_shooting (line 444)")
-	print("║ Target: ", save_context.target)
-	print("║ Weapon: ", save_context.weapon)
-	print("║ Wounds: ", save_context.wounds)
-	print("║ Broadcast ID: ", broadcast_id)
-	print("║ Save data list size: ", save_data_list.size())
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ SAVES_REQUIRED EMISSION #1 (from resolve_shooting)")
+	DebugLogger.info(str("║ Timestamp: ", timestamp))
+	DebugLogger.info("║ Source: ShootingPhase._process_resolve_shooting (line 444)")
+	DebugLogger.info(str("║ Target: ", save_context.target))
+	DebugLogger.info(str("║ Weapon: ", save_context.weapon))
+	DebugLogger.info(str("║ Wounds: ", save_context.wounds))
+	DebugLogger.info(str("║ Broadcast ID: ", broadcast_id))
+	DebugLogger.info(str("║ Save data list size: ", save_data_list.size()))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Emit signal to show save dialog (handled by ShootingController or Main)
 	emit_signal("saves_required", save_data_list)
@@ -1284,7 +1284,7 @@ func _process_perform_secondary_action(action: Dictionary) -> Dictionary:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var player = get_current_player()
 
-	print("ShootingPhase: %s performs action '%s' (gives up shooting)" % [unit_name, action_name])
+	DebugLogger.info(str("ShootingPhase: %s performs action '%s' (gives up shooting)" % [unit_name, action_name]))
 
 	# Mark unit as having shot (it gave up shooting to perform the action)
 	units_that_shot.append(unit_id)
@@ -1379,7 +1379,7 @@ func _process_burn_objective(action: Dictionary) -> Dictionary:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var player = get_current_player()
 
-	print("ShootingPhase: %s burns objective %s (gives up shooting)" % [unit_name, objective_id])
+	DebugLogger.info(str("ShootingPhase: %s burns objective %s (gives up shooting)" % [unit_name, objective_id]))
 
 	# Mark unit as having shot (it gave up shooting to burn)
 	units_that_shot.append(unit_id)
@@ -1484,7 +1484,7 @@ func _process_perform_ritual_action(action: Dictionary) -> Dictionary:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var player = get_current_player()
 
-	print("ShootingPhase: %s performs ritual action at %s (gives up shooting)" % [unit_name, objective_id])
+	DebugLogger.info(str("ShootingPhase: %s performs ritual action at %s (gives up shooting)" % [unit_name, objective_id]))
 
 	# Mark unit as having shot (it gave up shooting to perform the ritual)
 	units_that_shot.append(unit_id)
@@ -1595,7 +1595,7 @@ func _process_perform_terraform_action(action: Dictionary) -> Dictionary:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var player = get_current_player()
 
-	print("ShootingPhase: %s performs terraform action at %s (gives up shooting)" % [unit_name, objective_id])
+	DebugLogger.info(str("ShootingPhase: %s performs terraform action at %s (gives up shooting)" % [unit_name, objective_id]))
 
 	# Mark unit as having shot (it gave up shooting to perform the terraform)
 	units_that_shot.append(unit_id)
@@ -1709,13 +1709,13 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 
 	var action_missions = SecondaryMissionManager.get_action_missions_for_player(player)
 	if action_missions.is_empty():
-		print("ShootingPhase: _get_secondary_action_options - no action missions for player %d" % player)
+		DebugLogger.info(str("ShootingPhase: _get_secondary_action_options - no action missions for player %d" % player))
 		return options
-	print("ShootingPhase: _get_secondary_action_options - %d action missions for player %d" % [action_missions.size(), player])
+	DebugLogger.info(str("ShootingPhase: _get_secondary_action_options - %d action missions for player %d" % [action_missions.size(), player]))
 
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
-		print("ShootingPhase: _get_secondary_action_options - unit %s is empty" % unit_id)
+		DebugLogger.info(str("ShootingPhase: _get_secondary_action_options - unit %s is empty" % unit_id))
 		return options
 
 	var opponent = 2 if player == 1 else 1
@@ -1780,16 +1780,16 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 				# Check if unit has a model within objective control range (3" + 20mm marker base)
 				var objectives = GameState.state.get("board", {}).get("objectives", [])
 				var control_radius = Measurement.inches_to_px(3.78740157)
-				print("ShootingPhase: Cleanse check - %d objectives, control_radius=%.1fpx, unit=%s" % [objectives.size(), control_radius, unit_id])
+				DebugLogger.info(str("ShootingPhase: Cleanse check - %d objectives, control_radius=%.1fpx, unit=%s" % [objectives.size(), control_radius, unit_id]))
 				var found_cleanse = false
 				for obj in objectives:
 					var obj_pos = obj.get("position", Vector2.ZERO)
 					if obj_pos == Vector2.ZERO:
-						print("ShootingPhase: Cleanse - skipping objective with zero position")
+						DebugLogger.info("ShootingPhase: Cleanse - skipping objective with zero position")
 						continue
 					var in_range = SecondaryMissionManager._has_model_within_range(unit, obj_pos, control_radius)
 					var obj_id = obj.get("id", "unknown")
-					print("ShootingPhase: Cleanse - obj %s at %s, in_range=%s" % [obj_id, obj_pos, in_range])
+					DebugLogger.info(str("ShootingPhase: Cleanse - obj %s at %s, in_range=%s" % [obj_id, obj_pos, in_range]))
 					if in_range:
 						options.append({
 							"action_name": action_name,
@@ -1802,7 +1802,7 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 						found_cleanse = true
 						break  # One cleanse per unit
 				if not found_cleanse:
-					print("ShootingPhase: Cleanse - no objective in range for unit %s" % unit_id)
+					DebugLogger.info(str("ShootingPhase: Cleanse - no objective in range for unit %s" % unit_id))
 
 	return options
 
@@ -1821,9 +1821,9 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	# Issue #329: extract action.payload.rng_seed once for all sub-rolls in this method
 	var ps_seed: int = action.get("payload", {}).get("rng_seed", -1)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ AI SHOOT (atomic): Starting for unit %s" % unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info(str("║ AI SHOOT (atomic): Starting for unit %s" % unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Step 1: Select shooter (skip Throat Slittas prompt for AI — handle automatically)
 	var select_result = _process_select_shooter({"actor_unit_id": unit_id, "payload": {"skip_throat_slittas_check": true}})
@@ -1836,7 +1836,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	if ability_mgr and ability_mgr.has_throat_slittas_ability(unit_id):
 		var ts_targets = _get_throat_slittas_targets(unit_id)
 		if not ts_targets.is_empty():
-			print("║ AI SHOOT: P1-12 Throat Slittas — auto-activating for %s" % unit_id)
+			DebugLogger.info(str("║ AI SHOOT: P1-12 Throat Slittas — auto-activating for %s" % unit_id))
 			var ts_result = _resolve_throat_slittas(unit_id)
 			var ts_changes = ts_result.get("diffs", [])
 			ts_changes.append({
@@ -1861,7 +1861,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	var ability_mgr_ai = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr_ai and ability_mgr_ai.has_ammo_runt(unit_id):
 		var ar_remaining = ability_mgr_ai.get_ammo_runts_remaining(unit_id)
-		print("║ AI SHOOT: OA-10 Ammo Runt — auto-activating for %s (%d remaining)" % [unit_id, ar_remaining])
+		DebugLogger.info(str("║ AI SHOOT: OA-10 Ammo Runt — auto-activating for %s (%d remaining)" % [unit_id, ar_remaining]))
 		var runt_idx = ability_mgr_ai.mark_ammo_runt_used(unit_id)
 
 		# Apply Lethal Hits flag
@@ -1879,7 +1879,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	# OA-31: AI auto-use Pulsa Rokkit if available
 	var ability_mgr_pr_ai = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr_pr_ai and ability_mgr_pr_ai.has_pulsa_rokkit(unit_id):
-		print("║ AI SHOOT: OA-31 Pulsa Rokkit — auto-activating for %s" % unit_id)
+		DebugLogger.info(str("║ AI SHOOT: OA-31 Pulsa Rokkit — auto-activating for %s" % unit_id))
 		ability_mgr_pr_ai.mark_pulsa_rokkit_used(unit_id)
 
 		# Apply Pulsa Rokkit flag (+1S/+1AP to ranged weapons for the phase)
@@ -1899,13 +1899,13 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	if ability_mgr_spt_ai and ability_mgr_spt_ai.has_shooty_power_trip(unit_id):
 		var ai_d6_roll = _rng.rng.randi_range(1, 6)
 		var ai_spt_unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-		print("║ AI SHOOT: OA-37 Shooty Power Trip — auto-rolling for %s (D6 = %d)" % [unit_id, ai_d6_roll])
+		DebugLogger.info(str("║ AI SHOOT: OA-37 Shooty Power Trip — auto-rolling for %s (D6 = %d)" % [unit_id, ai_d6_roll]))
 
 		if ai_d6_roll <= 2:
 			# 1-2: D3 mortal wounds to self
 			var ai_d3_roll = _rng.rng.randi_range(1, 6)
 			var ai_mortal_wounds = ((ai_d3_roll - 1) / 2) + 1
-			print("║ AI SHOOT: OA-37 Shooty Power Trip — D3 mortal wounds to self (D3 = %d, MW = %d)" % [ai_d3_roll, ai_mortal_wounds])
+			DebugLogger.info(str("║ AI SHOOT: OA-37 Shooty Power Trip — D3 mortal wounds to self (D3 = %d, MW = %d)" % [ai_d3_roll, ai_mortal_wounds]))
 
 			var ai_rng_service = RulesEngine.RNGService.new(ps_seed)  # Issue #329: forward seed
 			var ai_mw_result = RulesEngine.apply_mortal_wounds(unit_id, ai_mortal_wounds, game_state_snapshot, ai_rng_service)
@@ -1920,7 +1920,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 			# Check if unit was destroyed
 			var ai_unit_after = get_unit(unit_id)
 			if ai_unit_after.is_empty() or RulesEngine.count_alive_models(ai_unit_after) <= 0:
-				print("║ AI SHOOT: OA-37 Unit %s destroyed by Shooty Power Trip self-damage!" % unit_id)
+				DebugLogger.info(str("║ AI SHOOT: OA-37 Unit %s destroyed by Shooty Power Trip self-damage!" % unit_id))
 				log_phase_message("AI: Shooty Power Trip — %s destroyed by self-inflicted mortal wounds!" % ai_spt_unit_name)
 				return create_result(true, ai_mw_diffs, "AI: Shooty Power Trip — unit destroyed", {
 					"shooty_power_trip_used": true,
@@ -2015,14 +2015,14 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 		total_casualties = save_result.get("casualties", 0)
 		all_dice.append_array(save_result.get("dice_blocks", []))
 
-		print("║ AI SHOOT: Saves resolved - %d casualties" % total_casualties)
+		DebugLogger.info(str("║ AI SHOOT: Saves resolved - %d casualties" % total_casualties))
 	else:
-		print("║ AI SHOOT: No wounds caused (all missed)")
+		DebugLogger.info("║ AI SHOOT: No wounds caused (all missed)")
 
 	# HAZARDOUS (T2-3): Process Hazardous self-damage after saves resolve (AI path)
 	var hazardous_weapons = result.get("hazardous_weapons", [])
 	if not hazardous_weapons.is_empty():
-		print("║ AI SHOOT: Processing %d hazardous weapon check(s)" % hazardous_weapons.size())
+		DebugLogger.info(str("║ AI SHOOT: Processing %d hazardous weapon check(s)" % hazardous_weapons.size()))
 		var haz_rng = RulesEngine.RNGService.new(ps_seed)  # Issue #329: forward seed
 		for haz_weapon in hazardous_weapons:
 			var haz_result = RulesEngine.resolve_hazardous_check(
@@ -2042,7 +2042,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	var ai_one_shot_diffs = result.get("one_shot_diffs", [])
 	if not ai_one_shot_diffs.is_empty():
 		all_changes.append_array(ai_one_shot_diffs)
-		print("║ AI SHOOT: ONE SHOT — included %d one-shot diffs" % ai_one_shot_diffs.size())
+		DebugLogger.info(str("║ AI SHOOT: ONE SHOT — included %d one-shot diffs" % ai_one_shot_diffs.size()))
 
 	# Step 5: Build comprehensive attack summary for game event log
 	var actor_name = game_state_snapshot.get("units", {}).get(unit_id, {}).get("meta", {}).get("name", unit_id)
@@ -2103,7 +2103,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 		"saves_failed": total_saves_failed,
 		"casualties": total_casualties
 	})
-	print("║ T7-38: Emitted ai_shooting_visual for %d target(s)" % ai_target_data.size())
+	DebugLogger.info(str("║ T7-38: Emitted ai_shooting_visual for %d target(s)" % ai_target_data.size()))
 
 	# T7-38: Emit shooting_damage_applied for floating damage numbers (AI path)
 	var damage_diffs = []
@@ -2114,7 +2114,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 				damage_diffs.append(change)
 	if not damage_diffs.is_empty():
 		emit_signal("shooting_damage_applied", unit_id, damage_diffs)
-		print("║ T7-38: Emitted shooting_damage_applied with %d diffs" % damage_diffs.size())
+		DebugLogger.info(str("║ T7-38: Emitted shooting_damage_applied with %d diffs" % damage_diffs.size()))
 
 	# P1-11: Track hits for Sanctified Flames (AI atomic path)
 	# Build _targets_hit_by_shooter from the dice + assignment data
@@ -2230,9 +2230,9 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	# Step 8: Emit shooting_resolved for visual cleanup (non-blocking)
 	emit_signal("shooting_resolved", shooter_id, "", {"casualties": total_casualties})
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ AI SHOOT (atomic): Complete for %s - %d casualties" % [unit_id, total_casualties])
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info(str("║ AI SHOOT (atomic): Complete for %s - %d casualties" % [unit_id, total_casualties]))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	return create_result(true, all_changes, "", {
 		"dice": all_dice,
@@ -2255,7 +2255,7 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 		if _destroyed_units_in_batch.has(target_unit_id):
 			var target_name = save_data.get("target_unit_name", target_unit_id)
 			var weapon_name = save_data.get("weapon_name", "Unknown")
-			print("ShootingPhase: AI SKIP — %s saves skipped, target %s already destroyed" % [weapon_name, target_name])
+			DebugLogger.info(str("ShootingPhase: AI SKIP — %s saves skipped, target %s already destroyed" % [weapon_name, target_name]))
 			log_phase_message("Skipped %s — target %s destroyed" % [weapon_name, target_name])
 			continue
 
@@ -2300,7 +2300,7 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 		var bodyguard_alive = not bodyguard_profiles.is_empty()
 
 		if has_precision and precision_wounds > 0 and not character_profiles.is_empty():
-			print("ShootingPhase: PRECISION — %d wounds can target CHARACTER models" % precision_wounds)
+			DebugLogger.info(str("ShootingPhase: PRECISION — %d wounds can target CHARACTER models" % precision_wounds))
 
 		# Roll all saves at once, then allocate to models in priority order
 		var all_rolls = rng.roll_d6(wounds_to_save)
@@ -2407,7 +2407,7 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 					alive_in_snapshot += 1
 			if alive_in_snapshot > 0 and models_killed_count >= alive_in_snapshot:
 				_destroyed_units_in_batch[target_unit_id] = true
-				print("ShootingPhase: AI — target unit %s fully destroyed, will skip remaining saves" % target_unit_id)
+				DebugLogger.info(str("ShootingPhase: AI — target unit %s fully destroyed, will skip remaining saves" % target_unit_id))
 
 		# Log FNP dice blocks
 		var fnp_rolls = damage_result.get("fnp_rolls", [])
@@ -2439,28 +2439,28 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 
 func _process_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 	"""Process weapon sequence resolution - either fast roll or sequential"""
-	print("========================================")
-	print("ShootingPhase: _process_resolve_weapon_sequence CALLED")
-	print("ShootingPhase: action = ", action)
+	DebugLogger.info("========================================")
+	DebugLogger.info("ShootingPhase: _process_resolve_weapon_sequence CALLED")
+	DebugLogger.info(str("ShootingPhase: action = ", action))
 
 	var payload = action.get("payload", {})
-	print("ShootingPhase: payload = ", payload)
+	DebugLogger.info(str("ShootingPhase: payload = ", payload))
 
 	var weapon_order = payload.get("weapon_order", [])
-	print("ShootingPhase: weapon_order size = ", weapon_order.size())
+	DebugLogger.info(str("ShootingPhase: weapon_order size = ", weapon_order.size()))
 
 	var fast_roll = payload.get("fast_roll", false)
-	print("ShootingPhase: fast_roll = ", fast_roll)
+	DebugLogger.info(str("ShootingPhase: fast_roll = ", fast_roll))
 
 	var is_reorder = payload.get("is_reorder", false)
-	print("ShootingPhase: is_reorder = ", is_reorder)
+	DebugLogger.info(str("ShootingPhase: is_reorder = ", is_reorder))
 
-	print("ShootingPhase: active_shooter_id = ", active_shooter_id)
-	print("ShootingPhase: confirmed_assignments before = ", confirmed_assignments)
+	DebugLogger.info(str("ShootingPhase: active_shooter_id = ", active_shooter_id))
+	DebugLogger.info(str("ShootingPhase: confirmed_assignments before = ", confirmed_assignments))
 
 	# If this is a reorder during sequential resolution, update the weapon_order
 	if is_reorder and resolution_state.get("mode", "") == "sequential":
-		print("ShootingPhase: Updating weapon order for remaining weapons")
+		DebugLogger.info("ShootingPhase: Updating weapon order for remaining weapons")
 		var current_index = resolution_state.get("current_index", 0)
 		var existing_order = resolution_state.get("weapon_order", [])
 
@@ -2474,17 +2474,17 @@ func _process_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 
 		resolution_state["weapon_order"] = new_full_order
 		resolution_state["phase"] = "ready"
-		print("ShootingPhase: Updated weapon_order, continuing to next weapon")
+		DebugLogger.info("ShootingPhase: Updated weapon_order, continuing to next weapon")
 
 		# Continue with next weapon
 		var next_result = _resolve_next_weapon()
-		print("ShootingPhase: _resolve_next_weapon returned = ", next_result)
-		print("========================================")
+		DebugLogger.info(str("ShootingPhase: _resolve_next_weapon returned = ", next_result))
+		DebugLogger.info("========================================")
 		return next_result
 
 	# Update confirmed assignments with the ordered weapons
 	confirmed_assignments = weapon_order.duplicate(true)
-	print("ShootingPhase: confirmed_assignments after = ", confirmed_assignments)
+	DebugLogger.info(str("ShootingPhase: confirmed_assignments after = ", confirmed_assignments))
 
 	if fast_roll:
 		# Fast roll all weapons at once (existing behavior)
@@ -2496,15 +2496,15 @@ func _process_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 		}
 
 		# Call normal resolution
-		print("ShootingPhase: Calling _process_resolve_shooting for fast roll...")
+		DebugLogger.info("ShootingPhase: Calling _process_resolve_shooting for fast roll...")
 		var resolve_result = _process_resolve_shooting({})
-		print("ShootingPhase: Fast roll result = ", resolve_result)
-		print("========================================")
+		DebugLogger.info(str("ShootingPhase: Fast roll result = ", resolve_result))
+		DebugLogger.info("========================================")
 		return resolve_result
 	else:
 		# Sequential resolution - resolve one weapon at a time
 		log_phase_message("Starting sequential weapon resolution")
-		print("ShootingPhase: Starting sequential resolution...")
+		DebugLogger.info("ShootingPhase: Starting sequential resolution...")
 		resolution_state = {
 			"mode": "sequential",
 			"weapon_order": weapon_order,
@@ -2512,31 +2512,31 @@ func _process_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 			"completed_weapons": [],
 			"awaiting_saves": false
 		}
-		print("ShootingPhase: resolution_state = ", resolution_state)
+		DebugLogger.info(str("ShootingPhase: resolution_state = ", resolution_state))
 
 		# Start resolving first weapon
-		print("ShootingPhase: Calling _resolve_next_weapon()...")
+		DebugLogger.info("ShootingPhase: Calling _resolve_next_weapon()...")
 		var next_result = _resolve_next_weapon()
-		print("ShootingPhase: _resolve_next_weapon returned = ", next_result)
-		print("========================================")
+		DebugLogger.info(str("ShootingPhase: _resolve_next_weapon returned = ", next_result))
+		DebugLogger.info("========================================")
 		return next_result
 
 func _resolve_next_weapon() -> Dictionary:
 	"""Resolve the next weapon in the sequence"""
-	print("========================================")
-	print("ShootingPhase: _resolve_next_weapon CALLED")
-	print("ShootingPhase: resolution_state = ", resolution_state)
+	DebugLogger.info("========================================")
+	DebugLogger.info("ShootingPhase: _resolve_next_weapon CALLED")
+	DebugLogger.info(str("ShootingPhase: resolution_state = ", resolution_state))
 
 	var current_index = resolution_state.get("current_index", 0)
 	var weapon_order = resolution_state.get("weapon_order", [])
 
-	print("ShootingPhase: current_index = ", current_index)
-	print("ShootingPhase: weapon_order.size() = ", weapon_order.size())
-	print("ShootingPhase: active_shooter_id = ", active_shooter_id)
+	DebugLogger.info(str("ShootingPhase: current_index = ", current_index))
+	DebugLogger.info(str("ShootingPhase: weapon_order.size() = ", weapon_order.size()))
+	DebugLogger.info(str("ShootingPhase: active_shooter_id = ", active_shooter_id))
 
 	if current_index >= weapon_order.size():
 		# All weapons complete
-		print("ShootingPhase: All weapons complete!")
+		DebugLogger.info("ShootingPhase: All weapons complete!")
 		log_phase_message("All weapons resolved sequentially")
 
 		# Mark shooter as done
@@ -2575,7 +2575,7 @@ func _resolve_next_weapon() -> Dictionary:
 		var skipped_weapon_profile = RulesEngine.get_weapon_profile(skipped_weapon_id)
 		var skipped_weapon_name = skipped_weapon_profile.get("name", skipped_weapon_id)
 		var skipped_target_name = get_unit(next_target_id).get("meta", {}).get("name", next_target_id)
-		print("ShootingPhase: SKIPPING weapon %d (%s) — target unit %s is destroyed" % [current_index + 1, skipped_weapon_name, skipped_target_name])
+		DebugLogger.info(str("ShootingPhase: SKIPPING weapon %d (%s) — target unit %s is destroyed" % [current_index + 1, skipped_weapon_name, skipped_target_name]))
 		log_phase_message("Skipped %s — target %s destroyed" % [skipped_weapon_name, skipped_target_name])
 		resolution_state.completed_weapons.append({
 			"weapon_id": skipped_weapon_id,
@@ -2596,7 +2596,7 @@ func _resolve_next_weapon() -> Dictionary:
 
 	# Re-check if all weapons are now complete (some may have been skipped)
 	if current_index >= weapon_order.size():
-		print("ShootingPhase: All weapons complete (some skipped due to destroyed targets)")
+		DebugLogger.info("ShootingPhase: All weapons complete (some skipped due to destroyed targets)")
 		log_phase_message("All weapons resolved sequentially")
 
 		var shooter_id = active_shooter_id
@@ -2622,7 +2622,7 @@ func _resolve_next_weapon() -> Dictionary:
 	var current_assignment = weapon_order[current_index]
 	var weapon_id = current_assignment.get("weapon_id", "")
 
-	print("ShootingPhase: Resolving weapon %d of %d: %s" % [current_index + 1, weapon_order.size(), weapon_id])
+	DebugLogger.info(str("ShootingPhase: Resolving weapon %d of %d: %s" % [current_index + 1, weapon_order.size(), weapon_id]))
 
 	# VERBOSE COMBAT LOG: Header BEFORE resolution so dice can display in real-time
 	var _seq_shooter = game_state_snapshot.get("units", {}).get(active_shooter_id, {})
@@ -2655,13 +2655,13 @@ func _resolve_next_weapon() -> Dictionary:
 
 	# Resolve with RulesEngine UP TO WOUNDS
 	var rng_service = RulesEngine.RNGService.new()
-	print("ShootingPhase: Calling RulesEngine.resolve_shoot_until_wounds()...")
+	DebugLogger.info("ShootingPhase: Calling RulesEngine.resolve_shoot_until_wounds()...")
 	var result = RulesEngine.resolve_shoot_until_wounds(shoot_action, game_state_snapshot, rng_service)
-	print("ShootingPhase: RulesEngine returned: success=%s" % result.success)
+	DebugLogger.info(str("ShootingPhase: RulesEngine returned: success=%s" % result.success))
 
 	if not result.success:
-		print("ShootingPhase: ❌ Weapon resolution FAILED: ", result.get("log_text", ""))
-		print("========================================")
+		DebugLogger.info(str("ShootingPhase: ❌ Weapon resolution FAILED: ", result.get("log_text", "")))
+		DebugLogger.info("========================================")
 		return create_result(false, [], result.get("log_text", "Weapon resolution failed"))
 
 	# ONE SHOT (T4-2): Collect one-shot diffs from result (weapon marked as fired immediately)
@@ -2672,13 +2672,13 @@ func _resolve_next_weapon() -> Dictionary:
 	# Record dice rolls
 	# T5-MP5: Prepend weapon_progress block so remote player sees it in broadcast
 	var dice_data = [weapon_progress_block] + result.get("dice", [])
-	print("ShootingPhase: Dice blocks returned: %d (including weapon_progress)" % dice_data.size())
+	DebugLogger.info(str("ShootingPhase: Dice blocks returned: %d (including weapon_progress)" % dice_data.size()))
 	for dice_block in result.get("dice", []):
 		dice_log.append(dice_block)
 		emit_signal("dice_rolled", dice_block)
 
 	log_phase_message(result.get("log_text", "Weapon attacks complete"))
-	print("ShootingPhase: Log text: ", result.get("log_text", ""))
+	DebugLogger.info(str("ShootingPhase: Log text: ", result.get("log_text", "")))
 
 	# Emit hit/wound details
 	_emit_verbose_combat_log(active_shooter_id, dice_data, [], 0, "sequential_hits")
@@ -2720,18 +2720,18 @@ func _resolve_next_weapon() -> Dictionary:
 
 	# Check if saves are needed
 	var save_data_list = result.get("save_data_list", [])
-	print("ShootingPhase: save_data_list.size() = %d" % save_data_list.size())
+	DebugLogger.info(str("ShootingPhase: save_data_list.size() = %d" % save_data_list.size()))
 
 	if save_data_list.is_empty():
 		# No wounds - but still PAUSE for attacker to confirm next weapon (sequential mode)
-		print("ShootingPhase: ⚠ No wounds caused by this weapon")
+		DebugLogger.info("ShootingPhase: ⚠ No wounds caused by this weapon")
 
 		# P1-11: Track hits for Sanctified Flames
 		var seq_hits = hit_data.get("successes", 0)
 		if seq_hits > 0:
 			var tid = current_assignment.target_unit_id
 			_targets_hit_by_shooter[tid] = _targets_hit_by_shooter.get(tid, 0) + seq_hits
-			print("ShootingPhase: P1-11 Sanctified Flames tracking: %d hit(s) on %s (total: %d)" % [seq_hits, tid, _targets_hit_by_shooter[tid]])
+			DebugLogger.info(str("ShootingPhase: P1-11 Sanctified Flames tracking: %d hit(s) on %s (total: %d)" % [seq_hits, tid, _targets_hit_by_shooter[tid]]))
 
 		resolution_state.completed_weapons.append({
 			"weapon_id": weapon_id,
@@ -2747,22 +2747,22 @@ func _resolve_next_weapon() -> Dictionary:
 			"wound_data": wound_data
 		})
 		resolution_state.current_index += 1
-		print("ShootingPhase: Incremented current_index to %d" % resolution_state.current_index)
-		print("ShootingPhase: Weapons remaining: %d" % (weapon_order.size() - resolution_state.current_index))
+		DebugLogger.info(str("ShootingPhase: Incremented current_index to %d" % resolution_state.current_index))
+		DebugLogger.info(str("ShootingPhase: Weapons remaining: %d" % (weapon_order.size() - resolution_state.current_index)))
 
 		# ALWAYS PAUSE for attacker to confirm (even if last weapon)
 		# Wait for attacker to confirm before continuing or completing
-		print("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon (no hits)")
-		print("ShootingPhase: Weapons remaining: ", weapon_order.size() - resolution_state.current_index)
+		DebugLogger.info("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon (no hits)")
+		DebugLogger.info(str("ShootingPhase: Weapons remaining: ", weapon_order.size() - resolution_state.current_index))
 
 		# Build remaining weapons with validation (may be empty array if this is the last weapon)
 		var remaining_weapons = []
 
-		print("╔═══════════════════════════════════════════════════════════════")
-		print("║ BUILDING REMAINING WEAPONS (after miss)")
-		print("║ weapon_order.size() = %d" % weapon_order.size())
-		print("║ current_index = %d" % resolution_state.current_index)
-		print("║ Expected remaining = %d" % (weapon_order.size() - resolution_state.current_index))
+		DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+		DebugLogger.info("║ BUILDING REMAINING WEAPONS (after miss)")
+		DebugLogger.info(str("║ weapon_order.size() = %d" % weapon_order.size()))
+		DebugLogger.info(str("║ current_index = %d" % resolution_state.current_index))
+		DebugLogger.info(str("║ Expected remaining = %d" % (weapon_order.size() - resolution_state.current_index)))
 
 		for i in range(resolution_state.current_index, weapon_order.size()):
 			var weapon = weapon_order[i]
@@ -2772,7 +2772,7 @@ func _resolve_next_weapon() -> Dictionary:
 			if miss_target_id != "" and _is_unit_destroyed(miss_target_id):
 				var skipped_wid = weapon.get("weapon_id", "")
 				var skipped_wp = RulesEngine.get_weapon_profile(skipped_wid)
-				print("║ Filtered weapon %d: %s (target %s already destroyed)" % [i, skipped_wp.get("name", skipped_wid), miss_target_id])
+				DebugLogger.info(str("║ Filtered weapon %d: %s (target %s already destroyed)" % [i, skipped_wp.get("name", skipped_wid), miss_target_id]))
 				continue
 
 			remaining_weapons.append(weapon)
@@ -2781,15 +2781,15 @@ func _resolve_next_weapon() -> Dictionary:
 			var remaining_weapon_id = weapon.get("weapon_id", "")
 			if remaining_weapon_id == "":
 				push_error("ShootingPhase: Weapon at index %d has EMPTY weapon_id!" % i)
-				print("║ ⚠️  WARNING: Weapon %d has no weapon_id" % i)
-				print("║   Full weapon object: %s" % str(weapon))
+				DebugLogger.info(str("║ ⚠️  WARNING: Weapon %d has no weapon_id" % i))
+				DebugLogger.info(str("║   Full weapon object: %s" % str(weapon)))
 			else:
-				print("║ Added weapon %d: %s" % [i, remaining_weapon_id])
+				DebugLogger.info(str("║ Added weapon %d: %s" % [i, remaining_weapon_id]))
 
-		print("║ Total remaining weapons: %d" % remaining_weapons.size())
+		DebugLogger.info(str("║ Total remaining weapons: %d" % remaining_weapons.size()))
 		if remaining_weapons.is_empty():
-			print("║ ✓ All remaining weapons skipped or this is the FINAL weapon")
-		print("╚═══════════════════════════════════════════════════════════════")
+			DebugLogger.info("║ ✓ All remaining weapons skipped or this is the FINAL weapon")
+		DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 		# AUTO-COMPLETE: If all remaining weapons target destroyed units, skip them
 		# and complete shooting automatically (no dialog needed)
@@ -2801,8 +2801,8 @@ func _resolve_next_weapon() -> Dictionary:
 				break
 
 		if remaining_weapons.is_empty() and _has_destroyed_targets:
-			print("╔═══════════════════════════════════════════════════════════════")
-			print("║ AUTO-COMPLETE: All remaining targets destroyed (miss path)")
+			DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+			DebugLogger.info("║ AUTO-COMPLETE: All remaining targets destroyed (miss path)")
 
 			var auto_changes = []
 			if not pending_one_shot_diffs.is_empty():
@@ -2817,7 +2817,7 @@ func _resolve_next_weapon() -> Dictionary:
 				var skipped_wp = RulesEngine.get_weapon_profile(skipped_wid)
 				var skipped_wname = skipped_wp.get("name", skipped_wid)
 				var skipped_tname = get_unit(skipped_tid).get("meta", {}).get("name", skipped_tid)
-				print("║ Skipped: %s → %s (target destroyed)" % [skipped_wname, skipped_tname])
+				DebugLogger.info(str("║ Skipped: %s → %s (target destroyed)" % [skipped_wname, skipped_tname]))
 				log_phase_message("Skipped %s — target %s destroyed" % [skipped_wname, skipped_tname])
 				resolution_state.completed_weapons.append({
 					"weapon_id": skipped_wid,
@@ -2860,8 +2860,8 @@ func _resolve_next_weapon() -> Dictionary:
 			# Emit signal to clear visuals
 			emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
 
-			print("║ Shooting auto-completed — all remaining targets destroyed")
-			print("╚═══════════════════════════════════════════════════════════════")
+			DebugLogger.info("║ Shooting auto-completed — all remaining targets destroyed")
+			DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 			return create_result(true, auto_changes, "Sequential weapon resolution complete (remaining targets destroyed)", {
 				"dice": dice_data,
@@ -2881,8 +2881,8 @@ func _resolve_next_weapon() -> Dictionary:
 		if not pending_one_shot_diffs.is_empty():
 			seq_miss_changes.append_array(pending_one_shot_diffs)
 			pending_one_shot_diffs.clear()
-		print("ShootingPhase: Returning result with sequential_pause indicator")
-		print("========================================")
+		DebugLogger.info("ShootingPhase: Returning result with sequential_pause indicator")
+		DebugLogger.info("========================================")
 		return create_result(true, seq_miss_changes, "Weapon %d complete (0 hits) - awaiting confirmation" % (current_index + 1), {
 			"sequential_pause": true,
 			"current_weapon_index": resolution_state.current_index,
@@ -2926,27 +2926,27 @@ func _resolve_next_weapon() -> Dictionary:
 		"sequence_total": weapon_order.size(),
 		"broadcast_id": broadcast_id
 	}
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SAVES_REQUIRED EMISSION #2 (from resolve_next_weapon)")
-	print("║ Timestamp: ", timestamp)
-	print("║ Source: ShootingPhase._resolve_next_weapon (line 750)")
-	print("║ Target: ", save_context.target)
-	print("║ Weapon: ", save_context.weapon, " (", save_context.sequence_weapon, "/", save_context.sequence_total, ")")
-	print("║ Wounds: ", save_context.wounds)
-	print("║ Broadcast ID: ", broadcast_id)
-	print("║ Save data list size: ", save_data_list.size())
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ SAVES_REQUIRED EMISSION #2 (from resolve_next_weapon)")
+	DebugLogger.info(str("║ Timestamp: ", timestamp))
+	DebugLogger.info("║ Source: ShootingPhase._resolve_next_weapon (line 750)")
+	DebugLogger.info(str("║ Target: ", save_context.target))
+	DebugLogger.info(str("║ Weapon: ", save_context.weapon, " (", save_context.sequence_weapon, "/", save_context.sequence_total, ")"))
+	DebugLogger.info(str("║ Wounds: ", save_context.wounds))
+	DebugLogger.info(str("║ Broadcast ID: ", broadcast_id))
+	DebugLogger.info(str("║ Save data list size: ", save_data_list.size()))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Emit signal to show save dialog
-	print("ShootingPhase: ✅ Emitting saves_required signal with %d save data entries" % save_data_list.size())
+	DebugLogger.info(str("ShootingPhase: ✅ Emitting saves_required signal with %d save data entries" % save_data_list.size()))
 	emit_signal("saves_required", save_data_list)
 
 	log_phase_message("Awaiting defender to make saves for weapon %d of %d..." % [current_index + 1, weapon_order.size()])
 
 	# Return success but don't advance to next weapon yet - wait for saves
-	print("ShootingPhase: Returning result with save_data_list for multiplayer broadcast")
-	print("ShootingPhase: Result will include %d dice blocks and %d save data entries" % [dice_data.size(), save_data_list.size()])
-	print("========================================")
+	DebugLogger.info("ShootingPhase: Returning result with save_data_list for multiplayer broadcast")
+	DebugLogger.info(str("ShootingPhase: Result will include %d dice blocks and %d save data entries" % [dice_data.size(), save_data_list.size()]))
+	DebugLogger.info("========================================")
 	return create_result(true, [], "Awaiting save resolution", {
 		"dice": dice_data,
 		"save_data_list": save_data_list,
@@ -3022,7 +3022,7 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	# EXCEPTION: Units with advance_and_shoot effect can shoot with ALL weapons after Advancing
 	if flags.get("advanced", false):
 		if EffectPrimitivesData.has_effect_advance_and_shoot(unit):
-			print("ShootingPhase: Unit %s advanced but has advance_and_shoot effect — eligible to shoot with all weapons" % unit.get("id", "unknown"))
+			DebugLogger.info(str("ShootingPhase: Unit %s advanced but has advance_and_shoot effect — eligible to shoot with all weapons" % unit.get("id", "unknown")))
 		else:
 			# Unit advanced - can only shoot if it has Assault weapons
 			return _unit_has_assault_weapons(unit)
@@ -3032,13 +3032,13 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(unit):
 			return false
 		else:
-			print("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — eligible to shoot" % unit.get("id", "unknown"))
+			DebugLogger.info(str("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — eligible to shoot" % unit.get("id", "unknown")))
 
 	# Check other restriction flags (but skip for advanced units handled above)
 	# fall_back_and_shoot effect (e.g., MULTIPOTENTIALITY) overrides the cannot_shoot lockout from Fall Back
 	if flags.get("cannot_shoot", false):
 		if flags.get("fell_back", false) and EffectPrimitivesData.has_effect_fall_back_and_shoot(unit):
-			print("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — overriding cannot_shoot" % unit.get("id", "unknown"))
+			DebugLogger.info(str("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — overriding cannot_shoot" % unit.get("id", "unknown")))
 		else:
 			return false
 
@@ -3162,11 +3162,11 @@ func _auto_inject_extra_attacks_weapons_shooting() -> void:
 		var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
 
 		if assigned_weapon_ids.has(weapon_id):
-			print("[ShootingPhase] T3-3: Extra Attacks weapon '%s' already assigned, skipping" % weapon_name)
+			DebugLogger.info(str("[ShootingPhase] T3-3: Extra Attacks weapon '%s' already assigned, skipping" % weapon_name))
 			continue
 
 		if default_target.is_empty():
-			print("[ShootingPhase] T3-3: No target available for Extra Attacks weapon '%s'" % weapon_name)
+			DebugLogger.info(str("[ShootingPhase] T3-3: No target available for Extra Attacks weapon '%s'" % weapon_name))
 			continue
 
 		confirmed_assignments.append({
@@ -3174,7 +3174,7 @@ func _auto_inject_extra_attacks_weapons_shooting() -> void:
 			"target_unit_id": default_target,
 			"model_ids": []
 		})
-		print("[ShootingPhase] T3-3: Auto-injected Extra Attacks weapon '%s' → '%s'" % [weapon_name, default_target])
+		DebugLogger.info(str("[ShootingPhase] T3-3: Auto-injected Extra Attacks weapon '%s' → '%s'" % [weapon_name, default_target]))
 
 	log_phase_message("T3-3: Extra Attacks weapons auto-included for %s" % active_shooter_id)
 
@@ -3200,12 +3200,12 @@ func _check_reactive_stratagems() -> Dictionary:
 	var available = StratagemManager.get_reactive_stratagems_for_shooting(defending_player, target_unit_ids)
 
 	if available.is_empty():
-		print("ShootingPhase: No reactive stratagems available for defender (player %d)" % defending_player)
+		DebugLogger.info(str("ShootingPhase: No reactive stratagems available for defender (player %d)" % defending_player))
 		return {"has_opportunities": false}
 
-	print("ShootingPhase: %d reactive stratagem(s) available for defender (player %d)" % [available.size(), defending_player])
+	DebugLogger.info(str("ShootingPhase: %d reactive stratagem(s) available for defender (player %d)" % [available.size(), defending_player]))
 	for entry in available:
-		print("  - %s: eligible units = %s" % [entry.stratagem.name, str(entry.eligible_units)])
+		DebugLogger.info(str("  - %s: eligible units = %s" % [entry.stratagem.name, str(entry.eligible_units)]))
 
 	return {
 		"has_opportunities": true,
@@ -3427,8 +3427,8 @@ func _record_completed_weapons_to_phase_log(shooter_id: String) -> void:
 			"casualties": entry.get("casualties", 0),
 			"skipped_target_destroyed": entry.get("skipped_target_destroyed", false)
 		})
-	print("ShootingPhase: T5-UX9 recorded %d weapon entries for %s into phase_shooting_log (total: %d)" % [
-		completed.size(), shooter_name, phase_shooting_log.size()])
+	DebugLogger.info(str("ShootingPhase: T5-UX9 recorded %d weapon entries for %s into phase_shooting_log (total: %d)" % [
+		completed.size(), shooter_name, phase_shooting_log.size()]))
 
 # T5-UX9: Append a single ad-hoc entry to the phase log. Used by the AI atomic path
 # which doesn't populate resolution_state.completed_weapons.
@@ -3542,19 +3542,19 @@ func _clear_shooting_visuals() -> void:
 	# Get the ShootingController from Main
 	var main = get_node_or_null("/root/Main")
 	if not main:
-		print("ShootingPhase: Warning - Main node not found for visual cleanup")
+		DebugLogger.info("ShootingPhase: Warning - Main node not found for visual cleanup")
 		return
 
 	var shooting_controller = main.get("shooting_controller")
 	if shooting_controller and is_instance_valid(shooting_controller):
-		print("ShootingPhase: Clearing shooting visuals via controller")
+		DebugLogger.info("ShootingPhase: Clearing shooting visuals via controller")
 		# Call controller's cleanup method
 		if shooting_controller.has_method("_clear_visuals"):
 			shooting_controller._clear_visuals()
-		print("ShootingPhase: Shooting visuals cleared")
+		DebugLogger.info("ShootingPhase: Shooting visuals cleared")
 	else:
 		# Fallback: If controller already freed, clean up BoardRoot directly
-		print("ShootingPhase: Controller not available, cleaning BoardRoot directly")
+		DebugLogger.info("ShootingPhase: Controller not available, cleaning BoardRoot directly")
 		_cleanup_boardroot_visuals()
 
 func _cleanup_boardroot_visuals() -> void:
@@ -3574,7 +3574,7 @@ func _cleanup_boardroot_visuals() -> void:
 	for visual_name in visual_names:
 		var visual_node = board_root.get_node_or_null(visual_name)
 		if visual_node and is_instance_valid(visual_node):
-			print("ShootingPhase: Removing ", visual_name, " from BoardRoot")
+			DebugLogger.info(str("ShootingPhase: Removing ", visual_name, " from BoardRoot"))
 			board_root.remove_child(visual_node)
 			visual_node.queue_free()
 
@@ -3582,12 +3582,12 @@ func _clear_death_markers() -> void:
 	"""Clear all death markers from the board at phase end"""
 	var main = get_node_or_null("/root/Main")
 	if not main:
-		print("ShootingPhase: Warning - Main node not found for death marker cleanup")
+		DebugLogger.info("ShootingPhase: Warning - Main node not found for death marker cleanup")
 		return
 
 	var board_view = main.get_node_or_null("BoardRoot/BoardView")
 	if not board_view:
-		print("ShootingPhase: Warning - BoardView not found for death marker cleanup")
+		DebugLogger.info("ShootingPhase: Warning - BoardView not found for death marker cleanup")
 		return
 
 	# Find WoundAllocationBoardHighlights instance
@@ -3595,11 +3595,11 @@ func _clear_death_markers() -> void:
 	if highlighter and is_instance_valid(highlighter):
 		if highlighter.has_method("clear_death_markers"):
 			highlighter.clear_death_markers()
-			print("ShootingPhase: Cleared death markers via highlighter")
+			DebugLogger.info("ShootingPhase: Cleared death markers via highlighter")
 		else:
-			print("ShootingPhase: Warning - highlighter has no clear_death_markers method")
+			DebugLogger.info("ShootingPhase: Warning - highlighter has no clear_death_markers method")
 	else:
-		print("ShootingPhase: No highlighter found to clear death markers")
+		DebugLogger.info("ShootingPhase: No highlighter found to clear death markers")
 
 func get_available_actions() -> Array:
 	var actions = []
@@ -3940,12 +3940,12 @@ func validate_loaded_state() -> bool:
 	if active_shooter_id != "":
 		var shooter = get_unit(active_shooter_id)
 		if shooter.is_empty():
-			print("WARNING: Invalid active shooter after load: ", active_shooter_id)
+			DebugLogger.info(str("WARNING: Invalid active shooter after load: ", active_shooter_id))
 			active_shooter_id = ""
 			return false
 		
 		if not _can_unit_shoot(shooter):
-			print("WARNING: Active shooter cannot shoot after load: ", active_shooter_id) 
+			DebugLogger.info(str("WARNING: Active shooter cannot shoot after load: ", active_shooter_id))
 			active_shooter_id = ""
 			return false
 	
@@ -3953,7 +3953,7 @@ func validate_loaded_state() -> bool:
 	for assignment in pending_assignments:
 		var target = get_unit(assignment.target_unit_id)
 		if target.is_empty():
-			print("WARNING: Invalid target in assignments: ", assignment.target_unit_id)
+			DebugLogger.info(str("WARNING: Invalid target in assignments: ", assignment.target_unit_id))
 			return false
 
 	return true
@@ -4051,11 +4051,11 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	"""Mark shooter as done and clear state. Checks for Sentinel Storm shoot-again ability first."""
 	var unit_id = action.get("actor_unit_id", "")
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SHOOTING PHASE: COMPLETE_SHOOTING_FOR_UNIT")
-	print("║ Unit ID: ", unit_id)
-	print("║ This is triggered when user views final weapon results")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ SHOOTING PHASE: COMPLETE_SHOOTING_FOR_UNIT")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("║ This is triggered when user views final weapon results")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# P1-10: Check for Sentinel Storm shoot-again ability before completing
 	# Skip this check if the unit is already in its shoot-again round (already used Sentinel Storm)
@@ -4066,7 +4066,7 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	if not action.get("payload", {}).get("skip_sentinel_storm_check", false) and not is_out_of_phase:
 		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 		if ability_mgr and ability_mgr.has_shoot_again_ability(unit_id):
-			print("║ SENTINEL STORM: Unit %s has unused Sentinel Storm — prompting player" % unit_id)
+			DebugLogger.info(str("║ SENTINEL STORM: Unit %s has unused Sentinel Storm — prompting player" % unit_id))
 			sentinel_storm_pending_unit = unit_id
 
 			# Clear resolution state but keep active_shooter_id for the decision
@@ -4085,13 +4085,13 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 				"unit_id": unit_id
 			})
 	elif is_out_of_phase:
-		print("║ SENTINEL STORM: Blocked for %s — out-of-phase action active (P1-59)" % unit_id)
+		DebugLogger.info(str("║ SENTINEL STORM: Blocked for %s — out-of-phase action active (P1-59)" % unit_id))
 
 	# P1-11: Check for Sanctified Flames — force Battle-shock test on hit enemy
 	# P1-59: Also skip if out-of-phase action is active
 	var sanctified_changes = _check_sanctified_flames(unit_id) if not is_out_of_phase else []
 	if is_out_of_phase:
-		print("ShootingPhase: Sanctified Flames check skipped — out-of-phase action active (P1-59)")
+		DebugLogger.info("ShootingPhase: Sanctified Flames check skipped — out-of-phase action active (P1-59)")
 
 	var changes = [{
 		"op": "set",
@@ -4145,11 +4145,11 @@ func _process_use_sentinel_storm(action: Dictionary) -> Dictionary:
 	Mark the ability as used, then reset the unit's shooting state so it can shoot again."""
 	var unit_id = action.get("actor_unit_id", "")
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SENTINEL STORM: ACTIVATED")
-	print("║ Unit ID: ", unit_id)
-	print("║ Unit will shoot again this phase")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ SENTINEL STORM: ACTIVATED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("║ Unit will shoot again this phase")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Mark Sentinel Storm as used (once per battle)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -4175,11 +4175,11 @@ func _process_decline_sentinel_storm(action: Dictionary) -> Dictionary:
 	"""Player declines Sentinel Storm — complete shooting normally."""
 	var unit_id = action.get("actor_unit_id", "")
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SENTINEL STORM: DECLINED")
-	print("║ Unit ID: ", unit_id)
-	print("║ Completing shooting normally")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ SENTINEL STORM: DECLINED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("║ Completing shooting normally")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Clear pending state
 	sentinel_storm_pending_unit = ""
@@ -4231,7 +4231,7 @@ func _check_sanctified_flames(shooter_unit_id: String) -> Array:
 	# Get the list of enemy units that were hit
 	var hit_targets = _targets_hit_by_shooter.duplicate()
 	if hit_targets.is_empty():
-		print("ShootingPhase: P1-11 Sanctified Flames: No enemy units were hit — no Battle-shock test triggered")
+		DebugLogger.info("ShootingPhase: P1-11 Sanctified Flames: No enemy units were hit — no Battle-shock test triggered")
 		return []
 
 	# Filter out already-destroyed units
@@ -4249,7 +4249,7 @@ func _check_sanctified_flames(shooter_unit_id: String) -> Array:
 			valid_targets.append(target_id)
 
 	if valid_targets.is_empty():
-		print("ShootingPhase: P1-11 Sanctified Flames: All hit targets destroyed — no Battle-shock test triggered")
+		DebugLogger.info("ShootingPhase: P1-11 Sanctified Flames: All hit targets destroyed — no Battle-shock test triggered")
 		return []
 
 	# Select target: if only one valid target, auto-select. Otherwise select the one
@@ -4264,7 +4264,7 @@ func _check_sanctified_flames(shooter_unit_id: String) -> Array:
 			if t_ld < lowest_ld:
 				lowest_ld = t_ld
 				selected_target_id = tid
-		print("ShootingPhase: P1-11 Sanctified Flames: Multiple targets hit, selecting %s (Ld %d)" % [selected_target_id, lowest_ld])
+		DebugLogger.info(str("ShootingPhase: P1-11 Sanctified Flames: Multiple targets hit, selecting %s (Ld %d)" % [selected_target_id, lowest_ld]))
 
 	# Perform the Battle-shock test on the selected target
 	return _resolve_sanctified_flames_battle_shock(shooter_unit_id, selected_target_id)
@@ -4284,7 +4284,7 @@ func _resolve_sanctified_flames_battle_shock(shooter_unit_id: String, target_uni
 	# Check if already battle-shocked (no need to re-test)
 	var already_shocked = target_unit.get("flags", {}).get("battle_shocked", false)
 	if already_shocked:
-		print("ShootingPhase: P1-11 Sanctified Flames: %s is already Battle-shocked — skipping test" % target_name)
+		DebugLogger.info(str("ShootingPhase: P1-11 Sanctified Flames: %s is already Battle-shocked — skipping test" % target_name))
 		log_phase_message("Sanctified Flames: %s already Battle-shocked — no additional test" % target_name)
 		return []
 
@@ -4294,13 +4294,13 @@ func _resolve_sanctified_flames_battle_shock(shooter_unit_id: String, target_uni
 	var roll_total = die1 + die2
 	var test_passed = roll_total >= leadership
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P1-11: SANCTIFIED FLAMES — Battle-shock Test")
-	print("║ Shooter: %s" % shooter_name)
-	print("║ Target: %s (Ld %d)" % [target_name, leadership])
-	print("║ Roll: 2D6 = %d + %d = %d (need %d+)" % [die1, die2, roll_total, leadership])
-	print("║ Result: %s" % ("PASSED" if test_passed else "FAILED — Battle-shocked!"))
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P1-11: SANCTIFIED FLAMES — Battle-shock Test")
+	DebugLogger.info(str("║ Shooter: %s" % shooter_name))
+	DebugLogger.info(str("║ Target: %s (Ld %d)" % [target_name, leadership]))
+	DebugLogger.info(str("║ Roll: 2D6 = %d + %d = %d (need %d+)" % [die1, die2, roll_total, leadership]))
+	DebugLogger.info(str("║ Result: %s" % ("PASSED" if test_passed else "FAILED — Battle-shocked!")))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	log_phase_message("Sanctified Flames (%s): %s takes Battle-shock test — 2D6 = %d (%d+%d) vs Ld %d — %s" % [
 		shooter_name, target_name, roll_total, die1, die2, leadership,
@@ -4361,11 +4361,11 @@ func _process_use_throat_slittas(action: Dictionary) -> Dictionary:
 	"""Player activates Throat Slittas — roll mortal wounds, unit cannot shoot."""
 	var unit_id = action.get("actor_unit_id", "")
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P1-12: THROAT SLITTAS — ACTIVATED")
-	print("║ Unit ID: ", unit_id)
-	print("║ Unit will deal mortal wounds instead of shooting")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P1-12: THROAT SLITTAS — ACTIVATED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("║ Unit will deal mortal wounds instead of shooting")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Clear the pending state
 	throat_slittas_pending_unit = ""
@@ -4402,11 +4402,11 @@ func _process_decline_throat_slittas(action: Dictionary) -> Dictionary:
 	"""Player declines Throat Slittas — proceed with normal shooting."""
 	var unit_id = action.get("actor_unit_id", "")
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P1-12: THROAT SLITTAS — DECLINED")
-	print("║ Unit ID: ", unit_id)
-	print("║ Proceeding with normal shooting")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P1-12: THROAT SLITTAS — DECLINED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("║ Proceeding with normal shooting")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Clear pending state
 	throat_slittas_pending_unit = ""
@@ -4491,10 +4491,10 @@ func _resolve_throat_slittas(unit_id: String) -> Dictionary:
 	var total_casualties = 0
 	var per_target: Array = []
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P1-12: THROAT SLITTAS — Resolution")
-	print("║ Unit: %s (%s)" % [unit_name, unit_id])
-	print("║ Targets within 9\": %d" % targets.size())
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P1-12: THROAT SLITTAS — Resolution")
+	DebugLogger.info(str("║ Unit: %s (%s)" % [unit_name, unit_id]))
+	DebugLogger.info(str("║ Targets within 9\": %d" % targets.size()))
 
 	for target_info in targets:
 		var target_unit_id = target_info.get("target_unit_id", "")
@@ -4510,9 +4510,9 @@ func _resolve_throat_slittas(unit_id: String) -> Dictionary:
 			if roll >= 5:
 				mortal_wounds += 1
 
-		print("║ Target: %s — %d models in range, rolls: %s → %d mortal wound(s)" % [
+		DebugLogger.info(str("║ Target: %s — %d models in range, rolls: %s → %d mortal wound(s)" % [
 			target_name, models_in_range, str(rolls), mortal_wounds
-		])
+		]))
 
 		var target_result = {
 			"target_unit_id": target_unit_id,
@@ -4537,11 +4537,11 @@ func _resolve_throat_slittas(unit_id: String) -> Dictionary:
 		total_mortal_wounds += mortal_wounds
 		per_target.append(target_result)
 
-	print("║ TOTAL: %d mortal wound(s), %d casualt%s" % [
+	DebugLogger.info(str("║ TOTAL: %d mortal wound(s), %d casualt%s" % [
 		total_mortal_wounds, total_casualties,
 		"y" if total_casualties == 1 else "ies"
-	])
-	print("╚═══════════════════════════════════════════════════════════════")
+	]))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	log_phase_message("Throat Slittas (%s): %d mortal wound(s), %d casualt%s" % [
 		unit_name, total_mortal_wounds, total_casualties,
@@ -4593,9 +4593,9 @@ func _check_distraction_grot() -> Dictionary:
 			continue
 
 		if ability_mgr.has_distraction_grot(target_id):
-			print("ShootingPhase: P2-25 Distraction Grot available for %s (%s)" % [
+			DebugLogger.info(str("ShootingPhase: P2-25 Distraction Grot available for %s (%s)" % [
 				target_unit.get("meta", {}).get("name", target_id), target_id
-			])
+			]))
 			return {
 				"has_opportunity": true,
 				"unit_id": target_id,
@@ -4628,11 +4628,11 @@ func _process_use_distraction_grot(action: Dictionary) -> Dictionary:
 	"""Defender activates Distraction Grot — unit gains 5+ invulnerable save for the phase."""
 	var unit_id = action.get("actor_unit_id", distraction_grot_pending_unit)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P2-25: DISTRACTION GROT — ACTIVATED")
-	print("║ Unit ID: ", unit_id)
-	print("║ Unit gains 5+ invulnerable save until end of phase")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P2-25: DISTRACTION GROT — ACTIVATED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("║ Unit gains 5+ invulnerable save until end of phase")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Clear pending state
 	awaiting_distraction_grot = false
@@ -4697,10 +4697,10 @@ func _process_decline_distraction_grot(action: Dictionary) -> Dictionary:
 	"""Defender declines Distraction Grot — proceed with normal shooting."""
 	var unit_id = action.get("actor_unit_id", distraction_grot_pending_unit)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P2-25: DISTRACTION GROT — DECLINED")
-	print("║ Unit ID: ", unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P2-25: DISTRACTION GROT — DECLINED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Clear pending state
 	awaiting_distraction_grot = false
@@ -4761,10 +4761,10 @@ func _process_use_ammo_runt(action: Dictionary) -> Dictionary:
 	"""Player activates Ammo Runt — unit's ranged weapons gain Lethal Hits for the phase."""
 	var unit_id = action.get("actor_unit_id", ammo_runt_pending_unit)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-10: AMMO RUNT — ACTIVATED")
-	print("║ Unit ID: ", unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-10: AMMO RUNT — ACTIVATED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Clear pending state
 	awaiting_ammo_runt = false
@@ -4817,10 +4817,10 @@ func _process_decline_ammo_runt(action: Dictionary) -> Dictionary:
 	"""Player declines Ammo Runt — proceed with normal shooting."""
 	var unit_id = action.get("actor_unit_id", ammo_runt_pending_unit)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-10: AMMO RUNT — DECLINED")
-	print("║ Unit ID: ", unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-10: AMMO RUNT — DECLINED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Clear pending state
 	awaiting_ammo_runt = false
@@ -4869,10 +4869,10 @@ func _process_use_pulsa_rokkit(action: Dictionary) -> Dictionary:
 	"""Player activates Pulsa Rokkit — unit's ranged weapons gain +1S/+1AP for the phase."""
 	var unit_id = action.get("actor_unit_id", pulsa_rokkit_pending_unit)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-31: PULSA ROKKIT — ACTIVATED")
-	print("║ Unit ID: ", unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-31: PULSA ROKKIT — ACTIVATED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Clear pending state
 	awaiting_pulsa_rokkit = false
@@ -4921,10 +4921,10 @@ func _process_decline_pulsa_rokkit(action: Dictionary) -> Dictionary:
 	"""Player declines Pulsa Rokkit — proceed with normal shooting."""
 	var unit_id = action.get("actor_unit_id", pulsa_rokkit_pending_unit)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-31: PULSA ROKKIT — DECLINED")
-	print("║ Unit ID: ", unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-31: PULSA ROKKIT — DECLINED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Clear pending state
 	awaiting_pulsa_rokkit = false
@@ -4975,10 +4975,10 @@ func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
 	"""Player activates Shooty Power Trip — roll D6 and apply effect."""
 	var unit_id = action.get("actor_unit_id", shooty_power_trip_pending_unit)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-37: SHOOTY POWER TRIP — ACTIVATED")
-	print("║ Unit ID: ", unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-37: SHOOTY POWER TRIP — ACTIVATED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Clear pending state
 	awaiting_shooty_power_trip = false
@@ -4993,14 +4993,14 @@ func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
 	var diffs = []
 	var effect_name = ""
 
-	print("║ OA-37: Shooty Power Trip D6 roll = %d" % d6_roll)
+	DebugLogger.info(str("║ OA-37: Shooty Power Trip D6 roll = %d" % d6_roll))
 
 	if d6_roll <= 2:
 		# 1-2: D3 mortal wounds to self
 		effect_name = "self_damage"
 		var d3_roll = spt_rng.rng.randi_range(1, 6)
 		var mortal_wounds = ((d3_roll - 1) / 2) + 1  # 1-2→1, 3-4→2, 5-6→3
-		print("║ OA-37: Result 1-2 — D3 mortal wounds to self (D3 roll = %d, MW = %d)" % [d3_roll, mortal_wounds])
+		DebugLogger.info(str("║ OA-37: Result 1-2 — D3 mortal wounds to self (D3 roll = %d, MW = %d)" % [d3_roll, mortal_wounds]))
 
 		# Apply mortal wounds to the unit
 		var board = game_state_snapshot
@@ -5028,7 +5028,7 @@ func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
 		# Check if unit was destroyed by self-damage
 		var unit_after = get_unit(unit_id)
 		if unit_after.is_empty() or RulesEngine.count_alive_models(unit_after) <= 0:
-			print("║ OA-37: Unit %s destroyed by Shooty Power Trip self-damage!" % unit_id)
+			DebugLogger.info(str("║ OA-37: Unit %s destroyed by Shooty Power Trip self-damage!" % unit_id))
 			log_phase_message("Shooty Power Trip: %s destroyed by self-inflicted mortal wounds!" % unit_name)
 			return create_result(true, diffs, "Shooty Power Trip — unit destroyed by self-damage", {
 				"shooty_power_trip_used": true,
@@ -5041,7 +5041,7 @@ func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
 	elif d6_roll <= 4:
 		# 3-4: +1 Strength to ranged weapons
 		effect_name = "plus_one_strength"
-		print("║ OA-37: Result 3-4 — +1 Strength to ranged weapons for the phase")
+		DebugLogger.info("║ OA-37: Result 3-4 — +1 Strength to ranged weapons for the phase")
 
 		diffs.append({
 			"op": "set",
@@ -5064,7 +5064,7 @@ func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
 	else:
 		# 5-6: +1 Attacks to ranged weapons
 		effect_name = "plus_one_attacks"
-		print("║ OA-37: Result 5-6 — +1 Attacks to ranged weapons for the phase")
+		DebugLogger.info("║ OA-37: Result 5-6 — +1 Attacks to ranged weapons for the phase")
 
 		diffs.append({
 			"op": "set",
@@ -5099,10 +5099,10 @@ func _process_decline_shooty_power_trip(action: Dictionary) -> Dictionary:
 	"""Player declines Shooty Power Trip — proceed with normal shooting."""
 	var unit_id = action.get("actor_unit_id", shooty_power_trip_pending_unit)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ OA-37: SHOOTY POWER TRIP — DECLINED")
-	print("║ Unit ID: ", unit_id)
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ OA-37: SHOOTY POWER TRIP — DECLINED")
+	DebugLogger.info(str("║ Unit ID: ", unit_id))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Clear pending state
 	awaiting_shooty_power_trip = false
@@ -5121,12 +5121,12 @@ func _process_decline_shooty_power_trip(action: Dictionary) -> Dictionary:
 
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ APPLY_SAVES PROCESSING START")
-	print("║ Timestamp: ", Time.get_ticks_msec())
-	print("║ resolution_state: ", resolution_state)
-	print("║ pending_save_data.size(): ", pending_save_data.size())
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ APPLY_SAVES PROCESSING START")
+	DebugLogger.info(str("║ Timestamp: ", Time.get_ticks_msec()))
+	DebugLogger.info(str("║ resolution_state: ", resolution_state))
+	DebugLogger.info(str("║ pending_save_data.size(): ", pending_save_data.size()))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 	# Issue #329: extract action.payload.rng_seed once for all sub-rolls in this method
 	var pas_seed: int = action.get("payload", {}).get("rng_seed", -1)
 
@@ -5148,12 +5148,12 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		var save_result_summary = save_results_list[i]
 		var save_data = pending_save_data[i]
 
-		print("╔═══════════════════════════════════════════════════════════════")
-		print("║ PROCESSING SAVE RESULT %d" % i)
-		print("║ save_result_summary keys: ", save_result_summary.keys())
-		print("║ Has save_results: ", save_result_summary.has("save_results"))
-		print("║ Has allocation_history: ", save_result_summary.has("allocation_history"))
-		print("╚═══════════════════════════════════════════════════════════════")
+		DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+		DebugLogger.info(str("║ PROCESSING SAVE RESULT %d" % i))
+		DebugLogger.info(str("║ save_result_summary keys: ", save_result_summary.keys()))
+		DebugLogger.info(str("║ Has save_results: ", save_result_summary.has("save_results")))
+		DebugLogger.info(str("║ Has allocation_history: ", save_result_summary.has("allocation_history")))
+		DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 		# Convert allocation_history to save_results format if needed
 		var save_results = []
@@ -5161,7 +5161,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			save_results = save_result_summary.save_results
 		elif save_result_summary.has("allocation_history"):
 			# Convert allocation_history format to save_results format
-			print("║ Converting allocation_history to save_results format")
+			DebugLogger.info("║ Converting allocation_history to save_results format")
 			for alloc in save_result_summary.allocation_history:
 				save_results.append({
 					"saved": alloc.get("saved", false),
@@ -5171,12 +5171,12 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 					"damage": alloc.get("damage", 0),
 					"model_destroyed": alloc.get("model_destroyed", false)
 				})
-			print("║ Converted %d allocation entries to save_results" % save_results.size())
+			DebugLogger.info(str("║ Converted %d allocation entries to save_results" % save_results.size()))
 
 		# DEVASTATING WOUNDS (PRP-012): Get devastating damage from save_result_summary
 		var devastating_damage = save_result_summary.get("devastating_damage", 0)
 		if devastating_damage > 0:
-			print("║ DEVASTATING WOUNDS: %d damage to apply (unsaveable)" % devastating_damage)
+			DebugLogger.info(str("║ DEVASTATING WOUNDS: %d damage to apply (unsaveable)" % devastating_damage))
 			# Update save_data with devastating damage for apply_save_damage
 			save_data["devastating_damage"] = devastating_damage
 
@@ -5289,7 +5289,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			save_dice_blocks.append(save_dice_block)
 			dice_log.append(save_dice_block)
 			emit_signal("dice_rolled", save_dice_block)
-			print("ShootingPhase: Emitted save_roll dice block - %d rolls, %d passed, %d failed" % [save_rolls_raw.size(), saved_count, failed_count])
+			DebugLogger.info(str("ShootingPhase: Emitted save_roll dice block - %d rolls, %d passed, %d failed" % [save_rolls_raw.size(), saved_count, failed_count]))
 
 		# FEEL NO PAIN: Emit FNP dice blocks from RulesEngine batch path
 		# T5-MP5: Append to save_dice_blocks so the FNP dice are included in the
@@ -5310,7 +5310,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			dice_log.append(fnp_dice_block)
 			save_dice_blocks.append(fnp_dice_block)
 			emit_signal("dice_rolled", fnp_dice_block)
-			print("ShootingPhase: Emitted feel_no_pain dice block - %d prevented / %d total" % [fnp_block.get("wounds_prevented", 0), fnp_block.get("total_wounds", 0)])
+			DebugLogger.info(str("ShootingPhase: Emitted feel_no_pain dice block - %d prevented / %d total" % [fnp_block.get("wounds_prevented", 0), fnp_block.get("total_wounds", 0)]))
 
 		# FEEL NO PAIN: Also collect FNP data from WoundAllocationOverlay allocation_history
 		var fnp_rolls_from_overlay = []
@@ -5339,13 +5339,13 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				# T5-MP5: Include in save_dice_blocks for remote-player sync
 				save_dice_blocks.append(fnp_overlay_block)
 				emit_signal("dice_rolled", fnp_overlay_block)
-				print("ShootingPhase: Emitted feel_no_pain dice block from overlay - %d prevented / %d total" % [total_prevented, fnp_rolls_from_overlay.size()])
+				DebugLogger.info(str("ShootingPhase: Emitted feel_no_pain dice block from overlay - %d prevented / %d total" % [total_prevented, fnp_rolls_from_overlay.size()]))
 
 	# HAZARDOUS (T2-3): Process Hazardous self-damage after saves resolve
 	if not pending_hazardous_weapons.is_empty():
-		print("╔═══════════════════════════════════════════════════════════════")
-		print("║ HAZARDOUS CHECK — Processing %d hazardous weapon(s)" % pending_hazardous_weapons.size())
-		print("╚═══════════════════════════════════════════════════════════════")
+		DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+		DebugLogger.info(str("║ HAZARDOUS CHECK — Processing %d hazardous weapon(s)" % pending_hazardous_weapons.size()))
+		DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 		var haz_rng = RulesEngine.RNGService.new(pas_seed)  # Issue #329: forward seed
 		for haz_weapon in pending_hazardous_weapons:
 			var haz_result = RulesEngine.resolve_hazardous_check(
@@ -5377,7 +5377,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 	# handlers to read pre-damage values from GameState (same pattern as FightPhase.attacks_resolved)
 	if not all_diffs.is_empty():
 		emit_signal("shooting_damage_applied", active_shooter_id, all_diffs)
-		print("[ShootingPhase] T7-53: Emitted shooting_damage_applied with %d diffs" % all_diffs.size())
+		DebugLogger.info(str("[ShootingPhase] T7-53: Emitted shooting_damage_applied with %d diffs" % all_diffs.size()))
 
 	# Build combined save log text for game event log
 	var save_log_text = ", ".join(save_log_parts)
@@ -5389,34 +5389,34 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 	var mode = resolution_state.get("mode", "")
 	var is_sequential = (mode == "sequential")
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ MODE CHECK IN _process_apply_saves")
-	print("║ resolution_state keys: ", resolution_state.keys())
-	print("║ mode from resolution_state: '", mode, "'")
-	print("║ is_sequential: ", is_sequential)
-	print("║ active_shooter_id: ", active_shooter_id)
-	print("║ confirmed_assignments.size(): ", confirmed_assignments.size())
-	print("║")
-	print("║ PATH DECISION:")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ MODE CHECK IN _process_apply_saves")
+	DebugLogger.info(str("║ resolution_state keys: ", resolution_state.keys()))
+	DebugLogger.info(str("║ mode from resolution_state: '", mode, "'"))
+	DebugLogger.info(str("║ is_sequential: ", is_sequential))
+	DebugLogger.info(str("║ active_shooter_id: ", active_shooter_id))
+	DebugLogger.info(str("║ confirmed_assignments.size(): ", confirmed_assignments.size()))
+	DebugLogger.info("║")
+	DebugLogger.info("║ PATH DECISION:")
 	if is_sequential:
-		print("║ → Will take SEQUENTIAL path (lines 1401-1508)")
+		DebugLogger.info("║ → Will take SEQUENTIAL path (lines 1401-1508)")
 	else:
-		print("║ → Will take SINGLE WEAPON path (lines 1510+)")
-	print("╚═══════════════════════════════════════════════════════════════")
+		DebugLogger.info("║ → Will take SINGLE WEAPON path (lines 1510+)")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	if is_sequential:
 		# Sequential mode - record results and PAUSE for attacker to confirm next weapon
 		var current_index = resolution_state.get("current_index", 0)
 		var weapon_order = resolution_state.get("weapon_order", [])
 
-		print("========================================")
-		print("ShootingPhase: APPLY_SAVES complete in sequential mode")
-		print("ShootingPhase: current_index = %d, weapon_order.size() = %d" % [current_index, weapon_order.size()])
+		DebugLogger.info("========================================")
+		DebugLogger.info("ShootingPhase: APPLY_SAVES complete in sequential mode")
+		DebugLogger.info(str("ShootingPhase: current_index = %d, weapon_order.size() = %d" % [current_index, weapon_order.size()]))
 
 		if current_index < weapon_order.size():
 			var weapon_id = weapon_order[current_index].get("weapon_id", "")
 			var current_assignment_data = weapon_order[current_index]
-			print("ShootingPhase: Completed weapon %d: %s" % [current_index + 1, weapon_id])
+			DebugLogger.info(str("ShootingPhase: Completed weapon %d: %s" % [current_index + 1, weapon_id]))
 
 			# Calculate saves_failed from save results
 			var saves_failed = 0
@@ -5436,7 +5436,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			# P1-11: Track hits for Sanctified Flames
 			if hits > 0 and target_unit_id != "":
 				_targets_hit_by_shooter[target_unit_id] = _targets_hit_by_shooter.get(target_unit_id, 0) + hits
-				print("ShootingPhase: P1-11 Sanctified Flames tracking: %d hit(s) on %s (total: %d)" % [hits, target_unit_id, _targets_hit_by_shooter[target_unit_id]])
+				DebugLogger.info(str("ShootingPhase: P1-11 Sanctified Flames tracking: %d hit(s) on %s (total: %d)" % [hits, target_unit_id, _targets_hit_by_shooter[target_unit_id]]))
 
 			# Record completed weapon with full data
 			resolution_state.completed_weapons.append({
@@ -5460,13 +5460,13 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			# Clear pending save data
 			pending_save_data.clear()
 
-			print("ShootingPhase: Moving to next weapon index: %d" % resolution_state.current_index)
-			print("ShootingPhase: Weapons remaining: %d" % (weapon_order.size() - resolution_state.current_index))
+			DebugLogger.info(str("ShootingPhase: Moving to next weapon index: %d" % resolution_state.current_index))
+			DebugLogger.info(str("ShootingPhase: Weapons remaining: %d" % (weapon_order.size() - resolution_state.current_index)))
 
 			# ALWAYS PAUSE for attacker to confirm (even if last weapon)
 			# Wait for attacker to confirm before continuing or completing
-			print("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon")
-			print("ShootingPhase: Remaining weapons: ", weapon_order.size() - resolution_state.current_index)
+			DebugLogger.info("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon")
+			DebugLogger.info(str("ShootingPhase: Remaining weapons: ", weapon_order.size() - resolution_state.current_index))
 
 			# Determine which target units are fully destroyed by the pending diffs
 			# (diffs haven't been applied to game state yet, so compute from diff + snapshot)
@@ -5487,17 +5487,17 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 						alive_count += 1
 				if alive_count > 0 and alive_count <= _models_killed_by_unit[uid]:
 					_targets_destroyed_by_diffs[uid] = true
-					print("ShootingPhase: Target unit %s fully destroyed by current saves — will skip remaining weapons targeting it" % uid)
+					DebugLogger.info(str("ShootingPhase: Target unit %s fully destroyed by current saves — will skip remaining weapons targeting it" % uid))
 
 			# Build remaining weapons with validation (may be empty array if this is the last weapon)
 			# Filter out weapons targeting units destroyed by the current save diffs
 			var remaining_weapons = []
 
-			print("╔═══════════════════════════════════════════════════════════════")
-			print("║ BUILDING REMAINING WEAPONS (after saves)")
-			print("║ weapon_order.size() = %d" % weapon_order.size())
-			print("║ current_index = %d" % resolution_state.current_index)
-			print("║ Expected remaining = %d" % (weapon_order.size() - resolution_state.current_index))
+			DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+			DebugLogger.info("║ BUILDING REMAINING WEAPONS (after saves)")
+			DebugLogger.info(str("║ weapon_order.size() = %d" % weapon_order.size()))
+			DebugLogger.info(str("║ current_index = %d" % resolution_state.current_index))
+			DebugLogger.info(str("║ Expected remaining = %d" % (weapon_order.size() - resolution_state.current_index)))
 
 			for i in range(resolution_state.current_index, weapon_order.size()):
 				var weapon = weapon_order[i]
@@ -5508,7 +5508,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				if _targets_destroyed_by_diffs.has(weapon_target_id):
 					var skipped_wid = weapon.get("weapon_id", "")
 					var skipped_wp = RulesEngine.get_weapon_profile(skipped_wid)
-					print("║ Filtered weapon %d: %s (target %s destroyed)" % [i, skipped_wp.get("name", skipped_wid), weapon_target_id])
+					DebugLogger.info(str("║ Filtered weapon %d: %s (target %s destroyed)" % [i, skipped_wp.get("name", skipped_wid), weapon_target_id]))
 					continue
 
 				remaining_weapons.append(weapon)
@@ -5517,21 +5517,21 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				var remaining_weapon_id = weapon.get("weapon_id", "")
 				if remaining_weapon_id == "":
 					push_error("ShootingPhase: Weapon at index %d has EMPTY weapon_id!" % i)
-					print("║ ⚠️  WARNING: Weapon %d has no weapon_id" % i)
-					print("║   Full weapon object: %s" % str(weapon))
+					DebugLogger.info(str("║ ⚠️  WARNING: Weapon %d has no weapon_id" % i))
+					DebugLogger.info(str("║   Full weapon object: %s" % str(weapon)))
 				else:
-					print("║ Added weapon %d: %s" % [i, remaining_weapon_id])
+					DebugLogger.info(str("║ Added weapon %d: %s" % [i, remaining_weapon_id]))
 
-			print("║ Total remaining weapons: %d" % remaining_weapons.size())
+			DebugLogger.info(str("║ Total remaining weapons: %d" % remaining_weapons.size()))
 			if remaining_weapons.is_empty():
-				print("║ ✓ All remaining weapons skipped or this is the FINAL weapon")
-			print("╚═══════════════════════════════════════════════════════════════")
+				DebugLogger.info("║ ✓ All remaining weapons skipped or this is the FINAL weapon")
+			DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 			# AUTO-COMPLETE: If all remaining weapons target destroyed units, skip them
 			# and complete shooting automatically (no dialog needed)
 			if remaining_weapons.is_empty() and not _targets_destroyed_by_diffs.is_empty():
-				print("╔═══════════════════════════════════════════════════════════════")
-				print("║ AUTO-COMPLETE: All remaining targets destroyed — skipping weapons")
+				DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+				DebugLogger.info("║ AUTO-COMPLETE: All remaining targets destroyed — skipping weapons")
 
 				# Record skipped weapons in completed_weapons
 				for i in range(resolution_state.current_index, weapon_order.size()):
@@ -5541,7 +5541,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 					var skipped_wp = RulesEngine.get_weapon_profile(skipped_wid)
 					var skipped_wname = skipped_wp.get("name", skipped_wid)
 					var skipped_tname = get_unit(skipped_tid).get("meta", {}).get("name", skipped_tid)
-					print("║ Skipped: %s → %s (target destroyed)" % [skipped_wname, skipped_tname])
+					DebugLogger.info(str("║ Skipped: %s → %s (target destroyed)" % [skipped_wname, skipped_tname]))
 					log_phase_message("Skipped %s — target %s destroyed" % [skipped_wname, skipped_tname])
 					resolution_state.completed_weapons.append({
 						"weapon_id": skipped_wid,
@@ -5584,8 +5584,8 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				# Emit signal to clear visuals
 				emit_signal("shooting_resolved", shooter_id, "", {"casualties": total_casualties})
 
-				print("║ Shooting auto-completed — all remaining targets destroyed")
-				print("╚═══════════════════════════════════════════════════════════════")
+				DebugLogger.info("║ Shooting auto-completed — all remaining targets destroyed")
+				DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 				return create_result(true, all_diffs, "Sequential weapon resolution complete (remaining targets destroyed)", {
 					"dice": save_dice_blocks,
@@ -5597,12 +5597,12 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 			# Emit signal to show confirmation dialog to attacker
 			# NOTE: remaining_weapons may be EMPTY if this is the final weapon
-			print("╔═══════════════════════════════════════════════════════════════")
-			print("║ EMITTING next_weapon_confirmation_required SIGNAL")
-			print("║ remaining_weapons.size(): ", remaining_weapons.size())
-			print("║ current_index: ", resolution_state.current_index)
-			print("║ last_weapon_result keys: ", last_weapon_result.keys())
-			print("╚═══════════════════════════════════════════════════════════════")
+			DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+			DebugLogger.info("║ EMITTING next_weapon_confirmation_required SIGNAL")
+			DebugLogger.info(str("║ remaining_weapons.size(): ", remaining_weapons.size()))
+			DebugLogger.info(str("║ current_index: ", resolution_state.current_index))
+			DebugLogger.info(str("║ last_weapon_result keys: ", last_weapon_result.keys()))
+			DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 			emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index, last_weapon_result)
 
 			# Return success with pause indicator for multiplayer sync
@@ -5617,40 +5617,40 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				"log_text": save_log_text
 			})
 
-			print("╔═══════════════════════════════════════════════════════════════")
-			print("║ APPLY_SAVES RESULT (with sequential_pause)")
-			print("║ result.sequential_pause: ", result.get("sequential_pause", false))
-			print("║ result.remaining_weapons.size(): ", result.get("remaining_weapons", []).size())
-			print("║ result.current_weapon_index: ", result.get("current_weapon_index", -1))
-			print("╚═══════════════════════════════════════════════════════════════")
+			DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+			DebugLogger.info("║ APPLY_SAVES RESULT (with sequential_pause)")
+			DebugLogger.info(str("║ result.sequential_pause: ", result.get("sequential_pause", false)))
+			DebugLogger.info(str("║ result.remaining_weapons.size(): ", result.get("remaining_weapons", []).size()))
+			DebugLogger.info(str("║ result.current_weapon_index: ", result.get("current_weapon_index", -1)))
+			DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 			return result
 
 	# Normal mode (single weapon) or fast mode - show results dialog before completing
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ 🎯 SINGLE WEAPON PATH REACHED! (Line 1548)")
-	print("║ mode: '", mode, "'")
-	print("║ total_casualties: ", total_casualties)
-	print("║ confirmed_assignments.size(): ", confirmed_assignments.size())
-	print("║ all_diffs.size(): ", all_diffs.size())
-	print("║")
-	print("║ NOW: Building last_weapon_result...")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ 🎯 SINGLE WEAPON PATH REACHED! (Line 1548)")
+	DebugLogger.info(str("║ mode: '", mode, "'"))
+	DebugLogger.info(str("║ total_casualties: ", total_casualties))
+	DebugLogger.info(str("║ confirmed_assignments.size(): ", confirmed_assignments.size()))
+	DebugLogger.info(str("║ all_diffs.size(): ", all_diffs.size()))
+	DebugLogger.info("║")
+	DebugLogger.info("║ NOW: Building last_weapon_result...")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Build last weapon result for single weapon case
 	var last_weapon_result = {}
 	if not confirmed_assignments.is_empty():
-		print("║ ✓ confirmed_assignments NOT empty, building result...")
+		DebugLogger.info("║ ✓ confirmed_assignments NOT empty, building result...")
 		var assignment = confirmed_assignments[0]
 		var weapon_id = assignment.get("weapon_id", "")
-		print("║   weapon_id: ", weapon_id)
+		DebugLogger.info(str("║   weapon_id: ", weapon_id))
 
 		var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
-		print("║   weapon_name: ", weapon_profile.get("name", weapon_id))
+		DebugLogger.info(str("║   weapon_name: ", weapon_profile.get("name", weapon_id)))
 
 		var target_unit_id = assignment.get("target_unit_id", "")
 		var target_unit = get_unit(target_unit_id)
-		print("║   target: ", target_unit.get("meta", {}).get("name", target_unit_id))
+		DebugLogger.info(str("║   target: ", target_unit.get("meta", {}).get("name", target_unit_id)))
 
 		# Build result from save data
 		var saves_failed = 0
@@ -5664,9 +5664,9 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		var sw_hits = sw_hit_data.get("successes", 0)
 		var sw_total_attacks = sw_hit_data.get("total", 0)
 
-		print("║   saves_failed: ", saves_failed)
-		print("║   casualties: ", total_casualties)
-		print("║   hits: ", sw_hits, " / ", sw_total_attacks)
+		DebugLogger.info(str("║   saves_failed: ", saves_failed))
+		DebugLogger.info(str("║   casualties: ", total_casualties))
+		DebugLogger.info(str("║   hits: ", sw_hits, " / ", sw_total_attacks))
 
 		last_weapon_result = {
 			"weapon_id": weapon_id,
@@ -5682,27 +5682,27 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			"hit_data": sw_hit_data,
 			"wound_data": sw_wound_data
 		}
-		print("║ ✓ last_weapon_result built successfully!")
+		DebugLogger.info("║ ✓ last_weapon_result built successfully!")
 	else:
-		print("║ ⚠️  WARNING: confirmed_assignments is EMPTY!")
+		DebugLogger.info("║ ⚠️  WARNING: confirmed_assignments is EMPTY!")
 
 	# Emit signal with EMPTY remaining_weapons (signals completion)
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ 📡 EMITTING next_weapon_confirmation_required SIGNAL")
-	print("║ Signal name: 'next_weapon_confirmation_required'")
-	print("║ Parameter 1 (remaining_weapons): [] (empty array)")
-	print("║ Parameter 2 (current_index): 0")
-	print("║ Parameter 3 (last_weapon_result): ", last_weapon_result)
-	print("║")
-	print("║ This signal should trigger ShootingController to show dialog!")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ 📡 EMITTING next_weapon_confirmation_required SIGNAL")
+	DebugLogger.info("║ Signal name: 'next_weapon_confirmation_required'")
+	DebugLogger.info("║ Parameter 1 (remaining_weapons): [] (empty array)")
+	DebugLogger.info("║ Parameter 2 (current_index): 0")
+	DebugLogger.info(str("║ Parameter 3 (last_weapon_result): ", last_weapon_result))
+	DebugLogger.info("║")
+	DebugLogger.info("║ This signal should trigger ShootingController to show dialog!")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	emit_signal("next_weapon_confirmation_required", [], 0, last_weapon_result)
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ ✅ Signal emitted successfully!")
-	print("║ Returning result with sequential_pause=true")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ ✅ Signal emitted successfully!")
+	DebugLogger.info("║ Returning result with sequential_pause=true")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Return with pause indicator (completion will happen when user clicks "Complete Shooting")
 	var result = create_result(true, all_diffs, "Single weapon complete - awaiting confirmation", {
@@ -5715,93 +5715,93 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		"log_text": save_log_text
 	})
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ 🎬 SINGLE WEAPON PATH COMPLETE")
-	print("║ Returning to caller with result")
-	print("║ User should now see NextWeaponDialog")
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ 🎬 SINGLE WEAPON PATH COMPLETE")
+	DebugLogger.info("║ Returning to caller with result")
+	DebugLogger.info("║ User should now see NextWeaponDialog")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	return result
 
 func _process_continue_sequence(action: Dictionary) -> Dictionary:
 	"""Process continuation to next weapon in sequential mode"""
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SHOOTING PHASE: _process_continue_sequence CALLED")
-	print("║")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ SHOOTING PHASE: _process_continue_sequence CALLED")
+	DebugLogger.info("║")
 
 	var payload = action.get("payload", {})
 	var updated_weapon_order = payload.get("weapon_order", [])
 
-	print("║ CURRENT STATE:")
-	print("║   resolution_state.current_index: ", resolution_state.get("current_index", 0))
-	print("║   resolution_state.weapon_order.size(): ", resolution_state.get("weapon_order", []).size())
-	print("║   resolution_state.completed_weapons: ", resolution_state.get("completed_weapons", []).size())
-	print("║")
-	print("║ ACTION PAYLOAD:")
-	print("║   updated_weapon_order provided: ", not updated_weapon_order.is_empty())
-	print("║   updated_weapon_order.size(): ", updated_weapon_order.size())
+	DebugLogger.info("║ CURRENT STATE:")
+	DebugLogger.info(str("║   resolution_state.current_index: ", resolution_state.get("current_index", 0)))
+	DebugLogger.info(str("║   resolution_state.weapon_order.size(): ", resolution_state.get("weapon_order", []).size()))
+	DebugLogger.info(str("║   resolution_state.completed_weapons: ", resolution_state.get("completed_weapons", []).size()))
+	DebugLogger.info("║")
+	DebugLogger.info("║ ACTION PAYLOAD:")
+	DebugLogger.info(str("║   updated_weapon_order provided: ", not updated_weapon_order.is_empty()))
+	DebugLogger.info(str("║   updated_weapon_order.size(): ", updated_weapon_order.size()))
 	if not updated_weapon_order.is_empty():
-		print("║   First 3 weapons in updated order:")
+		DebugLogger.info("║   First 3 weapons in updated order:")
 		for i in range(min(3, updated_weapon_order.size())):
-			print("║     %d: %s" % [i, updated_weapon_order[i].get("weapon_id", "UNKNOWN")])
-	print("║")
+			DebugLogger.info(str("║     %d: %s" % [i, updated_weapon_order[i].get("weapon_id", "UNKNOWN")]))
+	DebugLogger.info("║")
 
 	# If attacker provided a new weapon order (reordering), update it
 	if not updated_weapon_order.is_empty():
-		print("║ REORDERING: Attacker provided new weapon order")
+		DebugLogger.info("║ REORDERING: Attacker provided new weapon order")
 		# Keep completed weapons, update remaining
 		var current_index = resolution_state.get("current_index", 0)
 		var original_order = resolution_state.get("weapon_order", [])
 
-		print("║   current_index: ", current_index)
-		print("║   original_order.size(): ", original_order.size())
-		print("║   Keeping first %d completed weapons" % current_index)
+		DebugLogger.info(str("║   current_index: ", current_index))
+		DebugLogger.info(str("║   original_order.size(): ", original_order.size()))
+		DebugLogger.info(str("║   Keeping first %d completed weapons" % current_index))
 
 		# Build new complete order: completed weapons + reordered remaining weapons
 		var new_complete_order = []
 		for i in range(current_index):
 			if i < original_order.size():
 				new_complete_order.append(original_order[i])
-				print("║   Kept completed weapon %d: %s" % [i, original_order[i].get("weapon_id", "UNKNOWN")])
+				DebugLogger.info(str("║   Kept completed weapon %d: %s" % [i, original_order[i].get("weapon_id", "UNKNOWN")]))
 
-		print("║   Appending %d reordered weapons" % updated_weapon_order.size())
+		DebugLogger.info(str("║   Appending %d reordered weapons" % updated_weapon_order.size()))
 		new_complete_order.append_array(updated_weapon_order)
 
-		print("║")
-		print("║   NEW COMPLETE ORDER (%d weapons):" % new_complete_order.size())
+		DebugLogger.info("║")
+		DebugLogger.info(str("║   NEW COMPLETE ORDER (%d weapons):" % new_complete_order.size()))
 		for i in range(min(5, new_complete_order.size())):
 			var status = "✓ COMPLETED" if i < current_index else "⏳ PENDING"
-			print("║     %d: %s %s" % [i, new_complete_order[i].get("weapon_id", "UNKNOWN"), status])
+			DebugLogger.info(str("║     %d: %s %s" % [i, new_complete_order[i].get("weapon_id", "UNKNOWN"), status]))
 		if new_complete_order.size() > 5:
-			print("║     ... and %d more weapons" % (new_complete_order.size() - 5))
+			DebugLogger.info(str("║     ... and %d more weapons" % (new_complete_order.size() - 5)))
 
 		resolution_state.weapon_order = new_complete_order
-		print("║   Updated resolution_state.weapon_order")
+		DebugLogger.info("║   Updated resolution_state.weapon_order")
 	else:
-		print("║ NO REORDERING: Using existing weapon order")
+		DebugLogger.info("║ NO REORDERING: Using existing weapon order")
 
-	print("║")
-	print("║ FINAL STATE BEFORE _resolve_next_weapon():")
-	print("║   current_index: ", resolution_state.get("current_index", 0))
-	print("║   weapon_order.size(): ", resolution_state.get("weapon_order", []).size())
-	print("║   Next weapon to resolve: index %d" % resolution_state.get("current_index", 0))
+	DebugLogger.info("║")
+	DebugLogger.info("║ FINAL STATE BEFORE _resolve_next_weapon():")
+	DebugLogger.info(str("║   current_index: ", resolution_state.get("current_index", 0)))
+	DebugLogger.info(str("║   weapon_order.size(): ", resolution_state.get("weapon_order", []).size()))
+	DebugLogger.info(str("║   Next weapon to resolve: index %d" % resolution_state.get("current_index", 0)))
 	if resolution_state.get("current_index", 0) < resolution_state.get("weapon_order", []).size():
 		var next_weapon = resolution_state.get("weapon_order", [])[resolution_state.get("current_index", 0)]
-		print("║   Next weapon ID: %s" % next_weapon.get("weapon_id", "UNKNOWN"))
-	print("║")
-	print("║ Calling _resolve_next_weapon()...")
-	print("╚═══════════════════════════════════════════════════════════════")
+		DebugLogger.info(str("║   Next weapon ID: %s" % next_weapon.get("weapon_id", "UNKNOWN")))
+	DebugLogger.info("║")
+	DebugLogger.info("║ Calling _resolve_next_weapon()...")
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	var next_result = _resolve_next_weapon()
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ _resolve_next_weapon() RETURNED")
-	print("║   success: ", next_result.get("success", false))
-	print("║   log_text: ", next_result.get("log_text", ""))
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ _resolve_next_weapon() RETURNED")
+	DebugLogger.info(str("║   success: ", next_result.get("success", false)))
+	DebugLogger.info(str("║   log_text: ", next_result.get("log_text", "")))
 	if next_result.has("sequential_pause"):
-		print("║   sequential_pause: ", next_result.get("sequential_pause", false))
-		print("║   weapons_remaining: ", next_result.get("weapons_remaining", 0))
-	print("╚═══════════════════════════════════════════════════════════════")
+		DebugLogger.info(str("║   sequential_pause: ", next_result.get("sequential_pause", false)))
+		DebugLogger.info(str("║   weapons_remaining: ", next_result.get("weapons_remaining", 0)))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	return next_result
 
@@ -6054,5 +6054,5 @@ func _process_use_stratagem(action: Dictionary) -> Dictionary:
 		return create_result(false, [], result.get("error", "Stratagem use failed"))
 
 	var strat_name = result.get("stratagem_name", stratagem_id)
-	print("ShootingPhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id])
+	DebugLogger.info(str("ShootingPhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id]))
 	return create_result(true, result.get("diffs", []), "Used " + strat_name)

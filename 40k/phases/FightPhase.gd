@@ -153,7 +153,7 @@ func _on_phase_exit() -> void:
 	# Units destroyed during fighting can change objective control state.
 	if MissionManager:
 		MissionManager.check_all_objectives()
-		print("FightPhase: P3-103 Updated objective control at end of Fight phase")
+		DebugLogger.info("FightPhase: P3-103 Updated objective control at end of Fight phase")
 
 func _initialize_fight_sequence() -> void:
 	# Clear sequences
@@ -301,7 +301,7 @@ func _resolve_transport_destroyed_if_applicable(destroyed_unit_id: String) -> vo
 		return
 
 	var unit_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
-	print("FightPhase: P3-32 Transport %s (%s) destroyed — resolving emergency disembark" % [unit_name, destroyed_unit_id])
+	DebugLogger.info(str("FightPhase: P3-32 Transport %s (%s) destroyed — resolving emergency disembark" % [unit_name, destroyed_unit_id]))
 	log_phase_message("Transport %s destroyed! Embarked units must emergency disembark!" % unit_name)
 
 	var result = TransportManager.resolve_transport_destroyed(destroyed_unit_id)
@@ -330,7 +330,7 @@ func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> 
 		return
 
 	var transport_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
-	print("FightPhase: P1-60 Transport destruction detected — %s (%s) has embarked units" % [transport_name, destroyed_unit_id])
+	DebugLogger.info(str("FightPhase: P1-60 Transport destruction detected — %s (%s) has embarked units" % [transport_name, destroyed_unit_id]))
 	log_phase_message("Transport %s destroyed! Embarked units must emergency disembark!" % transport_name)
 
 	var result = RulesEngine.resolve_transport_destruction(destroyed_unit_id, GameState.state)
@@ -363,7 +363,7 @@ func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 		return
 
 	var unit_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
-	print("FightPhase: P1-13 Deadly Demise detected on destroyed unit %s (%s) — value: %s" % [unit_name, destroyed_unit_id, dd_value])
+	DebugLogger.info(str("FightPhase: P1-13 Deadly Demise detected on destroyed unit %s (%s) — value: %s" % [unit_name, destroyed_unit_id, dd_value]))
 	log_phase_message("Deadly Demise %s triggered for %s!" % [dd_value, unit_name])
 
 	var dd_result = RulesEngine.resolve_deadly_demise(destroyed_unit_id, dd_value, GameState.state)
@@ -1342,7 +1342,7 @@ func _process_roll_dice_interactive(melee_action: Dictionary) -> Dictionary:
 
 	if save_data_list.is_empty():
 		# No wounds caused — proceed directly to consolidate (no saves needed)
-		print("[FightPhase] P0-58: No wounds caused in interactive melee — skipping saves")
+		DebugLogger.info("[FightPhase] P0-58: No wounds caused in interactive melee — skipping saves")
 		# Emit resolution signals
 		for assignment in confirmed_attacks:
 			emit_signal("attacks_resolved", active_fighter_id, assignment.get("target", ""), result)
@@ -1366,14 +1366,14 @@ func _process_roll_dice_interactive(melee_action: Dictionary) -> Dictionary:
 	pending_melee_hit_wound_result = result
 	awaiting_melee_saves = true
 
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P0-58: MELEE SAVES_REQUIRED EMISSION")
-	print("║ Source: FightPhase._process_roll_dice_interactive")
-	print("║ Save data list size: %d" % save_data_list.size())
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P0-58: MELEE SAVES_REQUIRED EMISSION")
+	DebugLogger.info("║ Source: FightPhase._process_roll_dice_interactive")
+	DebugLogger.info(str("║ Save data list size: %d" % save_data_list.size()))
 	for i in range(save_data_list.size()):
 		var sd = save_data_list[i]
-		print("║   [%d] Target: %s, Weapon: %s, Wounds: %d" % [i, sd.get("target_unit_name", "?"), sd.get("weapon_name", "?"), sd.get("wounds_to_save", 0)])
-	print("╚═══════════════════════════════════════════════════════════════")
+		DebugLogger.info(str("║   [%d] Target: %s, Weapon: %s, Wounds: %d" % [i, sd.get("target_unit_name", "?"), sd.get("weapon_name", "?"), sd.get("wounds_to_save", 0)]))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	emit_signal("saves_required", save_data_list)
 
@@ -1398,9 +1398,9 @@ func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
 
 	# Debug logging for state changes
 	if result.has("diffs") and not result.diffs.is_empty():
-		print("[FightPhase] RulesEngine returned %d state changes" % result.diffs.size())
+		DebugLogger.info(str("[FightPhase] RulesEngine returned %d state changes" % result.diffs.size()))
 		for diff in result.diffs:
-			print("  - %s: %s = %s" % [diff.op, diff.path, diff.value])
+			DebugLogger.info(str("  - %s: %s = %s" % [diff.op, diff.path, diff.value]))
 
 	if not result.success:
 		return create_result(false, [], result.get("log_text", "Melee combat failed"))
@@ -1497,7 +1497,7 @@ func _process_batch_fight_actions(action: Dictionary) -> Dictionary:
 	var all_changes = []
 	var last_result = {}
 
-	print("[FightPhase] Processing BATCH_FIGHT_ACTIONS with %d sub-actions" % sub_actions.size())
+	DebugLogger.info(str("[FightPhase] Processing BATCH_FIGHT_ACTIONS with %d sub-actions" % sub_actions.size()))
 
 	for i in range(sub_actions.size()):
 		var sub = sub_actions[i]
@@ -1507,7 +1507,7 @@ func _process_batch_fight_actions(action: Dictionary) -> Dictionary:
 		if not sub.has("timestamp"):
 			sub["timestamp"] = action.get("timestamp", 0)
 
-		print("[FightPhase] Batch sub-action %d: %s" % [i, sub.get("type", "")])
+		DebugLogger.info(str("[FightPhase] Batch sub-action %d: %s" % [i, sub.get("type", "")]))
 		var result = process_action(sub)
 
 		if not result.get("success", false):
@@ -1525,7 +1525,7 @@ func _process_batch_fight_actions(action: Dictionary) -> Dictionary:
 	if not all_changes.is_empty():
 		last_result["changes"] = all_changes
 
-	print("[FightPhase] BATCH_FIGHT_ACTIONS completed successfully")
+	DebugLogger.info("[FightPhase] BATCH_FIGHT_ACTIONS completed successfully")
 	return last_result
 
 # P0-58: Validate APPLY_MELEE_SAVES action
@@ -1537,11 +1537,11 @@ func _validate_apply_melee_saves(action: Dictionary) -> Dictionary:
 # P0-58: Process APPLY_MELEE_SAVES — apply damage from interactive wound allocation
 func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 	"""Process save results from WoundAllocationOverlay and apply melee damage."""
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ P0-58: APPLY_MELEE_SAVES PROCESSING START")
-	print("║ Timestamp: ", Time.get_ticks_msec())
-	print("║ pending_melee_save_data.size(): ", pending_melee_save_data.size())
-	print("╚═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+	DebugLogger.info("║ P0-58: APPLY_MELEE_SAVES PROCESSING START")
+	DebugLogger.info(str("║ Timestamp: ", Time.get_ticks_msec()))
+	DebugLogger.info(str("║ pending_melee_save_data.size(): ", pending_melee_save_data.size()))
+	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	var payload = action.get("payload", {})
 	var save_results_list = payload.get("save_results_list", [])
@@ -1563,18 +1563,18 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 		var target_name = save_data.get("target_unit_name", "Unknown")
 		var target_unit_id = save_data.get("target_unit_id", "")
 
-		print("╔═══════════════════════════════════════════════════════════════")
-		print("║ P0-58: PROCESSING MELEE SAVE RESULT %d" % i)
-		print("║ Target: %s" % target_name)
-		print("║ save_result_summary keys: ", save_result_summary.keys())
-		print("╚═══════════════════════════════════════════════════════════════")
+		DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
+		DebugLogger.info(str("║ P0-58: PROCESSING MELEE SAVE RESULT %d" % i))
+		DebugLogger.info(str("║ Target: %s" % target_name))
+		DebugLogger.info(str("║ save_result_summary keys: ", save_result_summary.keys()))
+		DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 		# Convert allocation_history to save_results format if needed
 		var save_results = []
 		if save_result_summary.has("save_results"):
 			save_results = save_result_summary.save_results
 		elif save_result_summary.has("allocation_history"):
-			print("[FightPhase] P0-58: Converting allocation_history to save_results format")
+			DebugLogger.info("[FightPhase] P0-58: Converting allocation_history to save_results format")
 			for alloc in save_result_summary.allocation_history:
 				save_results.append({
 					"saved": alloc.get("saved", false),
@@ -1588,7 +1588,7 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 		# DEVASTATING WOUNDS: Apply devastating damage
 		var devastating_damage = save_result_summary.get("devastating_damage", 0)
 		if devastating_damage > 0:
-			print("[FightPhase] P0-58: Devastating wounds: %d damage" % devastating_damage)
+			DebugLogger.info(str("[FightPhase] P0-58: Devastating wounds: %d damage" % devastating_damage))
 
 		# Apply damage using RulesEngine
 		if not save_results.is_empty():
@@ -1717,7 +1717,7 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 		if hs_mw > 0:
 			var hs_target_id = sd.get("target_unit_id", "")
 			var hs_target_name = sd.get("target_unit_name", "Unknown")
-			print("[FightPhase] OA-19: HOLD STILL AND SAY 'AARGH!' — applying %d mortal wounds to %s" % [hs_mw, hs_target_name])
+			DebugLogger.info(str("[FightPhase] OA-19: HOLD STILL AND SAY 'AARGH!' — applying %d mortal wounds to %s" % [hs_mw, hs_target_name]))
 			# Issue #329: honor action.payload.rng_seed
 			var hs_seed: int = action.get("payload", {}).get("rng_seed", -1)
 			var hs_rng = RulesEngine.RNGService.new(hs_seed)
@@ -1756,7 +1756,7 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 	final_result["log_text"] = "Melee saves applied — %d casualties" % total_casualties
 	final_result["dice"] = save_dice_blocks
 
-	print("[FightPhase] P0-58: APPLY_MELEE_SAVES complete — %d casualties, %d diffs" % [total_casualties, all_diffs.size()])
+	DebugLogger.info(str("[FightPhase] P0-58: APPLY_MELEE_SAVES complete — %d casualties, %d diffs" % [total_casualties, all_diffs.size()]))
 
 	return final_result
 
@@ -1798,11 +1798,11 @@ func _auto_inject_extra_attacks_weapons() -> void:
 		var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
 
 		if assigned_weapon_ids.has(weapon_id):
-			print("[FightPhase] T3-3: Extra Attacks weapon '%s' already assigned, skipping" % weapon_name)
+			DebugLogger.info(str("[FightPhase] T3-3: Extra Attacks weapon '%s' already assigned, skipping" % weapon_name))
 			continue
 
 		if default_target.is_empty():
-			print("[FightPhase] T3-3: No target available for Extra Attacks weapon '%s'" % weapon_name)
+			DebugLogger.info(str("[FightPhase] T3-3: No target available for Extra Attacks weapon '%s'" % weapon_name))
 			continue
 
 		confirmed_attacks.append({
@@ -1810,7 +1810,7 @@ func _auto_inject_extra_attacks_weapons() -> void:
 			"weapon": weapon_id,
 			"target": default_target
 		})
-		print("[FightPhase] T3-3: Auto-injected Extra Attacks weapon '%s' → '%s'" % [weapon_name, default_target])
+		DebugLogger.info(str("[FightPhase] T3-3: Auto-injected Extra Attacks weapon '%s' → '%s'" % [weapon_name, default_target]))
 
 	log_phase_message("T3-3: Extra Attacks weapons auto-included for %s" % active_fighter_id)
 
@@ -1913,7 +1913,7 @@ func _show_mathhammer_predictions() -> void:
 		)
 
 	var prediction_text = "\n".join(prediction_lines)
-	print("[FightPhase] Mathhammer prediction: %s" % prediction_text)
+	DebugLogger.info(str("[FightPhase] Mathhammer prediction: %s" % prediction_text))
 
 	# Display predictions via dice_rolled signal (like shooting phase)
 	emit_signal("dice_rolled", {
@@ -4336,5 +4336,5 @@ func _process_use_stratagem(action: Dictionary) -> Dictionary:
 		return create_result(false, [], result.get("error", "Stratagem use failed"))
 
 	var strat_name = result.get("stratagem_name", stratagem_id)
-	print("FightPhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id])
+	DebugLogger.info(str("FightPhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id]))
 	return create_result(true, result.get("diffs", []), "Used " + strat_name)

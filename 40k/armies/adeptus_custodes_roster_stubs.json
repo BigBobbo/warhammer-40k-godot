@@ -1,0 +1,141 @@
+{
+  "_README": "T-029 — Custodes/Lions roster stubs. Data-shape skeletons for the 7 audit-flagged missing units. Stat values are PLACEHOLDER PENDING WAHAPEDIA REVIEW (IP_COMPLIANCE_AUDIT separate workstream). The structure mirrors adeptus_custodes.json so the loader can absorb these without code changes once stats are filled in.",
+  "_status": "stub-pending-review",
+  "faction": "Adeptus Custodes",
+  "detachment": "Shield Host",
+  "units": {
+    "U_TRAJANN_VALORIS_STUB": {
+      "id": "U_TRAJANN_VALORIS_STUB",
+      "owner": 0,
+      "status": "STUB",
+      "meta": {
+        "name": "Captain-General Trajann Valoris",
+        "keywords": ["ADEPTUS CUSTODES", "IMPERIUM", "INFANTRY", "CHARACTER", "EPIC HERO"],
+        "stats": {"move": 6, "toughness": 6, "save": 2, "wounds": 6, "leadership": 6, "objective_control": 1, "invuln": 4},
+        "points": 140,
+        "abilities": [
+          {"name": "Auric Aquilas", "type": "Datasheet", "description": "Stats pending Wahapedia review"},
+          {"name": "Moment Shackle", "type": "Datasheet", "description": "Stats pending Wahapedia review"}
+        ]
+      },
+      "models": [{"id": "m1", "wounds": 6, "current_wounds": 6, "base_mm": 40, "alive": true}]
+    },
+    "U_ALLARUS_CUSTODIANS_STUB": {
+      "id": "U_ALLARUS_CUSTODIANS_STUB",
+      "owner": 0,
+      "status": "STUB",
+      "meta": {
+        "name": "Allarus Custodians",
+        "keywords": ["ADEPTUS CUSTODES", "IMPERIUM", "INFANTRY", "TERMINATOR"],
+        "stats": {"move": 5, "toughness": 6, "save": 2, "wounds": 4, "leadership": 6, "objective_control": 2, "invuln": 4},
+        "points": 130,
+        "abilities": [
+          {"name": "Slayers of Tyrants", "type": "Datasheet", "description": "Stats pending Wahapedia review"},
+          {"name": "From Golden Light They Come", "type": "Datasheet", "description": "Stats pending Wahapedia review"}
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 4, "current_wounds": 4, "base_mm": 40, "alive": true},
+        {"id": "m2", "wounds": 4, "current_wounds": 4, "base_mm": 40, "alive": true},
+        {"id": "m3", "wounds": 4, "current_wounds": 4, "base_mm": 40, "alive": true}
+      ]
+    },
+    "U_PROSECUTORS_STUB": {
+      "id": "U_PROSECUTORS_STUB",
+      "owner": 0,
+      "status": "STUB",
+      "meta": {
+        "name": "Prosecutors",
+        "keywords": ["ADEPTUS CUSTODES", "ANATHEMA PSYKANA", "IMPERIUM", "INFANTRY"],
+        "stats": {"move": 6, "toughness": 3, "save": 3, "wounds": 1, "leadership": 6, "objective_control": 1},
+        "points": 60,
+        "abilities": [
+          {"name": "Daughters of the Abyss", "type": "Datasheet", "description": "Stats pending Wahapedia review"}
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "alive": true},
+        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "alive": true},
+        {"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "alive": true},
+        {"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "alive": true},
+        {"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "alive": true}
+      ]
+    },
+    "U_VERTUS_PRAETORS_STUB": {
+      "id": "U_VERTUS_PRAETORS_STUB",
+      "owner": 0,
+      "status": "STUB",
+      "meta": {
+        "name": "Vertus Praetors",
+        "keywords": ["ADEPTUS CUSTODES", "IMPERIUM", "MOUNTED", "FLY"],
+        "stats": {"move": 14, "toughness": 6, "save": 2, "wounds": 4, "leadership": 6, "objective_control": 2, "invuln": 4},
+        "points": 105,
+        "abilities": [
+          {"name": "Turbo-boost", "type": "Datasheet", "description": "Stats pending Wahapedia review"},
+          {"name": "Quicksilver Execution", "type": "Datasheet", "description": "Stats pending Wahapedia review"}
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 4, "current_wounds": 4, "base_mm": 75, "alive": true},
+        {"id": "m2", "wounds": 4, "current_wounds": 4, "base_mm": 75, "alive": true}
+      ]
+    },
+    "U_CALLIDUS_ASSASSIN_STUB": {
+      "id": "U_CALLIDUS_ASSASSIN_STUB",
+      "owner": 0,
+      "status": "STUB",
+      "meta": {
+        "name": "Callidus Assassin",
+        "keywords": ["IMPERIUM", "INFANTRY", "CHARACTER", "ASSASSIN", "OFFICIO ASSASSINORUM"],
+        "stats": {"move": 8, "toughness": 3, "save": 6, "wounds": 4, "leadership": 6, "objective_control": 1, "invuln": 4},
+        "points": 100,
+        "abilities": [
+          {"name": "Lord of Deceit", "type": "Datasheet", "description": "Stats pending Wahapedia review"},
+          {"name": "Acrobatic Escape", "type": "Datasheet", "description": "Stats pending Wahapedia review"}
+        ]
+      },
+      "models": [{"id": "m1", "wounds": 4, "current_wounds": 4, "base_mm": 32, "alive": true}]
+    },
+    "U_INQUISITOR_DRAXUS_STUB": {
+      "id": "U_INQUISITOR_DRAXUS_STUB",
+      "owner": 0,
+      "status": "STUB",
+      "meta": {
+        "name": "Inquisitor Draxus",
+        "keywords": ["IMPERIUM", "INFANTRY", "CHARACTER", "EPIC HERO", "INQUISITION", "PSYKER"],
+        "stats": {"move": 6, "toughness": 3, "save": 6, "wounds": 5, "leadership": 6, "objective_control": 1, "invuln": 4},
+        "points": 75,
+        "abilities": [
+          {"name": "Authority of the Inquisition", "type": "Datasheet", "description": "Stats pending Wahapedia review"},
+          {"name": "Xenos Hunter", "type": "Datasheet", "description": "Stats pending Wahapedia review"},
+          {"name": "Psychic Veil", "type": "Datasheet", "description": "Stats pending Wahapedia review"}
+        ]
+      },
+      "models": [{"id": "m1", "wounds": 5, "current_wounds": 5, "base_mm": 32, "alive": true}]
+    },
+    "U_SHIELD_CAPTAIN_DAWNEAGLE_STUB": {
+      "id": "U_SHIELD_CAPTAIN_DAWNEAGLE_STUB",
+      "owner": 0,
+      "status": "STUB",
+      "meta": {
+        "name": "Shield-Captain on Dawneagle Jetbike",
+        "keywords": ["ADEPTUS CUSTODES", "IMPERIUM", "MOUNTED", "FLY", "CHARACTER"],
+        "stats": {"move": 14, "toughness": 6, "save": 2, "wounds": 6, "leadership": 6, "objective_control": 1, "invuln": 4},
+        "points": 100,
+        "abilities": [
+          {"name": "Turbo-boost", "type": "Datasheet", "description": "Stats pending Wahapedia review"}
+        ]
+      },
+      "models": [{"id": "m1", "wounds": 6, "current_wounds": 6, "base_mm": 75, "alive": true}]
+    }
+  },
+  "stratagems_stubs": {
+    "_note": "Six Shield Host detachment stratagems flagged by T-029 — names + cost shape registered; full text pending Wahapedia review.",
+    "shield_host_strat_1": {"name": "Strategic Mastery (stub)", "cp_cost": 1, "phase": "any", "stub": true},
+    "shield_host_strat_2": {"name": "Master of the Stances (stub)", "cp_cost": 1, "phase": "command", "stub": true},
+    "shield_host_strat_3": {"name": "Sweeping Advance (stub)", "cp_cost": 1, "phase": "fight", "stub": true},
+    "shield_host_strat_4": {"name": "Sentinel Storm (stub)", "cp_cost": 2, "phase": "shooting", "stub": true},
+    "shield_host_strat_5": {"name": "Slayers of Tyrants (stub)", "cp_cost": 1, "phase": "fight", "stub": true},
+    "shield_host_strat_6": {"name": "Purity of Execution (stub)", "cp_cost": 1, "phase": "fight", "stub": true}
+  }
+}

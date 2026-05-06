@@ -37,8 +37,8 @@ func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.COMMAND
 	var current_player = get_current_player()
 	var battle_round = GameState.get_battle_round()
-	print("CommandPhase: Entering command phase for player ", current_player)
-	print("CommandPhase: Battle round ", battle_round)
+	DebugLogger.info(str("CommandPhase: Entering command phase for player ", current_player))
+	DebugLogger.info(str("CommandPhase: Battle round ", battle_round))
 
 	# Reset per-command-phase tracking
 	_fix_dat_armour_up_used = []
@@ -62,10 +62,10 @@ func _on_phase_enter() -> void:
 	if secondary_mgr:
 		if not secondary_mgr.is_initialized(1):
 			secondary_mgr.setup_tactical_deck(1)
-			print("CommandPhase: Secondary mission deck initialized for Player 1 (tactical mode)")
+			DebugLogger.info("CommandPhase: Secondary mission deck initialized for Player 1 (tactical mode)")
 		if not secondary_mgr.is_initialized(2):
 			secondary_mgr.setup_tactical_deck(2)
-			print("CommandPhase: Secondary mission deck initialized for Player 2 (tactical mode)")
+			DebugLogger.info("CommandPhase: Secondary mission deck initialized for Player 2 (tactical mode)")
 
 	# Step 1: Generate Command Points
 	# Per 10th edition core rules (Wahapedia): "At the start of every Command phase
@@ -77,7 +77,7 @@ func _on_phase_enter() -> void:
 	var first_turn_player = GameState.state.get("meta", {}).get("first_turn_player", 1)
 	var is_first_command_phase_of_game = (battle_round == 1 and current_player == first_turn_player)
 	if is_first_command_phase_of_game:
-		print("CommandPhase: Skipping CP generation — first Command phase of the game (R1 P%d)" % current_player)
+		DebugLogger.info(str("CommandPhase: Skipping CP generation — first Command phase of the game (R1 P%d)" % current_player))
 		var game_event_log_cp = get_node_or_null("/root/GameEventLog")
 		if game_event_log_cp:
 			game_event_log_cp.add_info_entry("No CP gained in the first Command phase of the battle")
@@ -109,9 +109,9 @@ func _on_phase_enter() -> void:
 		var drawn = secondary_mgr.draw_missions_to_hand(current_player)
 		if drawn.size() > 0:
 			_newly_drawn_missions = drawn.duplicate()
-			print("CommandPhase: Player %d drew %d secondary mission card(s)" % [current_player, drawn.size()])
+			DebugLogger.info(str("CommandPhase: Player %d drew %d secondary mission card(s)" % [current_player, drawn.size()]))
 			for card in drawn:
-				print("  - %s" % card["name"])
+				DebugLogger.info(str("  - %s" % card["name"]))
 				if game_event_log:
 					game_event_log.add_player_entry(current_player, "Drew secondary mission: %s" % card["name"])
 
@@ -141,9 +141,9 @@ func _on_phase_enter() -> void:
 	_apply_grot_riggers(current_player)
 
 	if _units_needing_test.size() == 0:
-		print("CommandPhase: No units need battle-shock tests")
+		DebugLogger.info("CommandPhase: No units need battle-shock tests")
 	else:
-		print("CommandPhase: %d unit(s) need battle-shock tests" % _units_needing_test.size())
+		DebugLogger.info(str("CommandPhase: %d unit(s) need battle-shock tests" % _units_needing_test.size()))
 
 func _generate_command_points(active_player: int) -> void:
 	# Per WH40K 10e core rules: only the active player (whose Command phase
@@ -165,9 +165,9 @@ func _generate_command_points(active_player: int) -> void:
 	# Refresh our local snapshot to reflect the CP changes
 	game_state_snapshot = GameState.create_snapshot()
 
-	print("CommandPhase: Generated CP — Player %d: %d → %d" % [
+	DebugLogger.info(str("CommandPhase: Generated CP — Player %d: %d → %d" % [
 		active_player, active_cp, active_cp + 1
-	])
+	]))
 
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log:
@@ -183,7 +183,7 @@ func clear_newly_drawn_missions() -> void:
 	_newly_drawn_missions = []
 
 func _on_phase_exit() -> void:
-	print("CommandPhase: Exiting command phase")
+	DebugLogger.info("CommandPhase: Exiting command phase")
 
 	# P3-106: Clear stratagem phase-scoped effects at end of Command phase
 	var strat_manager = get_node_or_null("/root/StratagemManager")
@@ -214,9 +214,9 @@ func _clear_battle_shocked_flags() -> void:
 			if not unit.has("flags"):
 				unit["flags"] = {}
 			unit["flags"]["battle_shocked"] = false
-			print("CommandPhase: Cleared battle-shocked from %s" % unit_id)
+			DebugLogger.info(str("CommandPhase: Cleared battle-shocked from %s" % unit_id))
 
-	print("CommandPhase: Cleared battle-shocked flags for player %d" % current_player)
+	DebugLogger.info(str("CommandPhase: Cleared battle-shocked flags for player %d" % current_player))
 
 func _identify_units_needing_tests() -> void:
 	_units_needing_test.clear()
@@ -233,7 +233,7 @@ func _identify_units_needing_tests() -> void:
 		# Skip characters attached to a bodyguard — they take battle-shock
 		# as part of their bodyguard unit, not separately
 		if unit.get("attached_to", null) != null:
-			print("CommandPhase: Skipping %s (%s) — attached to bodyguard, tests with parent unit" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+			DebugLogger.info(str("CommandPhase: Skipping %s (%s) — attached to bodyguard, tests with parent unit" % [unit.get("meta", {}).get("name", unit_id), unit_id]))
 			continue
 
 		# Skip destroyed units (no alive models)
@@ -255,7 +255,7 @@ func _identify_units_needing_tests() -> void:
 		var unit_abilities = unit.get("meta", {}).get("abilities", [])
 		if _has_battle_shock_immunity(unit_keywords, unit_abilities):
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			print("CommandPhase: Skipping %s (%s) — immune to battle-shock (FEARLESS/ATSKNF)" % [unit_name, unit_id])
+			DebugLogger.info(str("CommandPhase: Skipping %s (%s) — immune to battle-shock (FEARLESS/ATSKNF)" % [unit_name, unit_id]))
 			continue
 
 		# Check if unit is below half-strength
@@ -263,7 +263,7 @@ func _identify_units_needing_tests() -> void:
 		if GameState.is_below_half_strength_combined(unit_id):
 			_units_needing_test.append(unit_id)
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			print("CommandPhase: %s (%s) is below half-strength - needs battle-shock test" % [unit_name, unit_id])
+			DebugLogger.info(str("CommandPhase: %s (%s) is below half-strength - needs battle-shock test" % [unit_name, unit_id]))
 
 func _has_battle_shock_immunity(keywords: Array, abilities: Array) -> bool:
 	"""Check if a unit has FEARLESS or And They Shall Know No Fear keyword/ability,
@@ -760,7 +760,7 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 					"leadership": leadership,
 				}
 
-				print("CommandPhase: Command Re-roll available for %s battle-shock test — pausing for decision" % unit_name)
+				DebugLogger.info(str("CommandPhase: Command Re-roll available for %s battle-shock test — pausing for decision" % unit_name))
 				emit_signal("command_reroll_opportunity", unit_id, current_player, roll_context)
 
 				return {
@@ -816,25 +816,25 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 				if not char_unit.has("flags"):
 					char_unit["flags"] = {}
 				char_unit["flags"]["battle_shocked"] = true
-				print("CommandPhase: Attached character %s also Battle-shocked" % char_id)
+				DebugLogger.info(str("CommandPhase: Attached character %s also Battle-shocked" % char_id))
 
 		if battle_shock_bonus > 0:
-			print("CommandPhase: %s FAILED battle-shock test (rolled %d+%d=%d + Waaagh! Effigy +%d = %d vs Ld %d) - now Battle-shocked!" % [
+			DebugLogger.info(str("CommandPhase: %s FAILED battle-shock test (rolled %d+%d=%d + Waaagh! Effigy +%d = %d vs Ld %d) - now Battle-shocked!" % [
 				unit_name, die1, die2, roll_total, battle_shock_bonus, effective_roll, leadership
-			])
+			]))
 		else:
-			print("CommandPhase: %s FAILED battle-shock test (rolled %d+%d=%d vs Ld %d) - now Battle-shocked!" % [
+			DebugLogger.info(str("CommandPhase: %s FAILED battle-shock test (rolled %d+%d=%d vs Ld %d) - now Battle-shocked!" % [
 				unit_name, die1, die2, roll_total, leadership
-			])
+			]))
 	else:
 		if battle_shock_bonus > 0:
-			print("CommandPhase: %s PASSED battle-shock test (rolled %d+%d=%d + Waaagh! Effigy +%d = %d vs Ld %d)" % [
+			DebugLogger.info(str("CommandPhase: %s PASSED battle-shock test (rolled %d+%d=%d + Waaagh! Effigy +%d = %d vs Ld %d)" % [
 				unit_name, die1, die2, roll_total, battle_shock_bonus, effective_roll, leadership
-			])
+			]))
 		else:
-			print("CommandPhase: %s PASSED battle-shock test (rolled %d+%d=%d vs Ld %d)" % [
+			DebugLogger.info(str("CommandPhase: %s PASSED battle-shock test (rolled %d+%d=%d vs Ld %d)" % [
 				unit_name, die1, die2, roll_total, leadership
-			])
+			]))
 
 	var result = {
 		"success": true,
@@ -918,7 +918,7 @@ func _handle_use_command_reroll(action: Dictionary) -> Dictionary:
 		}
 		var strat_result = strat_manager.execute_command_reroll(current_player, unit_id, roll_context)
 		if not strat_result.success:
-			print("CommandPhase: Command Re-roll failed: %s" % strat_result.get("error", ""))
+			DebugLogger.info(str("CommandPhase: Command Re-roll failed: %s" % strat_result.get("error", "")))
 			return _resolve_battle_shock_test(unit_id, old_roll.die1, old_roll.die2)
 
 	# Re-roll 2D6
@@ -933,9 +933,9 @@ func _handle_use_command_reroll(action: Dictionary) -> Dictionary:
 		old_roll.roll_total, old_roll.die1, old_roll.die2, new_total, new_die1, new_die2
 	])
 
-	print("CommandPhase: COMMAND RE-ROLL — %s battle-shock re-rolled: %d → %d" % [
+	DebugLogger.info(str("CommandPhase: COMMAND RE-ROLL — %s battle-shock re-rolled: %d → %d" % [
 		unit_name, old_roll.roll_total, new_total
-	])
+	]))
 
 	# P3-118: Emit reroll comparison data for visualization
 	emit_signal("command_reroll_completed", [old_roll.die1, old_roll.die2], [new_die1, new_die2], "battle_shock_test")
@@ -950,7 +950,7 @@ func _handle_decline_command_reroll(action: Dictionary) -> Dictionary:
 	_reroll_pending_unit_id = ""
 	_reroll_pending_roll = {}
 
-	print("CommandPhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id)
+	DebugLogger.info(str("CommandPhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id))
 
 	return _resolve_battle_shock_test(unit_id, old_roll.die1, old_roll.die2)
 
@@ -1029,10 +1029,10 @@ func _handle_use_stratagem(action: Dictionary) -> Dictionary:
 			if strat_name_upper == "GRAB AND BASH":
 				var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
 				var unit_name = target_unit.get("meta", {}).get("name", target_unit_id)
-				print("CommandPhase: Grab and Bash — Waaagh! effects applied to %s" % unit_name)
+				DebugLogger.info(str("CommandPhase: Grab and Bash — Waaagh! effects applied to %s" % unit_name))
 				result["message"] = "Grab and Bash: Waaagh! active for %s (5+ invuln, +1S/A melee, advance+charge)" % unit_name
 				return result
-			print("CommandPhase: Stratagem %s used but no phase-specific handler" % stratagem_id)
+			DebugLogger.info(str("CommandPhase: Stratagem %s used but no phase-specific handler" % stratagem_id))
 			return result
 
 func _apply_insane_bravery(unit_id: String, strat_result: Dictionary) -> Dictionary:
@@ -1045,7 +1045,7 @@ func _apply_insane_bravery(unit_id: String, strat_result: Dictionary) -> Diction
 	_units_auto_passed.append(unit_id)
 
 	# Unit passes automatically - no dice rolled, no battle-shocked flag set
-	print("CommandPhase: %s AUTO-PASSED battle-shock test via INSANE BRAVERY!" % unit_name)
+	DebugLogger.info(str("CommandPhase: %s AUTO-PASSED battle-shock test via INSANE BRAVERY!" % unit_name))
 
 	# Log to phase log
 	var log_entry = {
@@ -1522,7 +1522,7 @@ func _apply_grot_riggers(current_player: int) -> void:
 		PhaseManager.apply_state_changes(changes)
 
 		var unit_name = gr_info.unit_name
-		print("CommandPhase: Grot Riggers — %s regains 1 wound (%d → %d/%d)" % [unit_name, gr_info.current_wounds, new_wounds, max_wounds])
+		DebugLogger.info(str("CommandPhase: Grot Riggers — %s regains 1 wound (%d → %d/%d)" % [unit_name, gr_info.current_wounds, new_wounds, max_wounds]))
 		log_phase_message("GROT RIGGERS: %s regains 1 wound (%d → %d)" % [unit_name, gr_info.current_wounds, new_wounds])
 
 		# Log to phase log
@@ -1593,7 +1593,7 @@ func _handle_use_grot_orderly(action: Dictionary) -> Dictionary:
 	var destroyed_count = go_info.destroyed_count
 	var models_to_return = mini(d3_roll, destroyed_count)
 
-	print("CommandPhase: Grot Orderly — rolled D3 = %d, returning %d model(s) to %s" % [d3_roll, models_to_return, bodyguard_unit_id])
+	DebugLogger.info(str("CommandPhase: Grot Orderly — rolled D3 = %d, returning %d model(s) to %s" % [d3_roll, models_to_return, bodyguard_unit_id]))
 
 	# Find destroyed models in the bodyguard unit and revive them
 	var bodyguard_unit = GameState.state.get("units", {}).get(bodyguard_unit_id, {})
@@ -1619,7 +1619,7 @@ func _handle_use_grot_orderly(action: Dictionary) -> Dictionary:
 				"value": max_wounds
 			})
 			returned += 1
-			print("CommandPhase: Grot Orderly — returned model %s (index %d) with %d wounds" % [model.get("id", ""), i, max_wounds])
+			DebugLogger.info(str("CommandPhase: Grot Orderly — returned model %s (index %d) with %d wounds" % [model.get("id", ""), i, max_wounds]))
 
 	# Apply changes
 	if changes.size() > 0:
@@ -1707,7 +1707,7 @@ func _handle_use_fix_dat_armour_up(action: Dictionary) -> Dictionary:
 	bodyguard_unit_id = fda_info.bodyguard_unit_id
 
 	# Fix Dat Armour Up returns exactly 1 destroyed model
-	print("CommandPhase: Fix Dat Armour Up — returning 1 model to %s" % bodyguard_unit_id)
+	DebugLogger.info(str("CommandPhase: Fix Dat Armour Up — returning 1 model to %s" % bodyguard_unit_id))
 
 	var bodyguard_unit = GameState.state.get("units", {}).get(bodyguard_unit_id, {})
 	var models = bodyguard_unit.get("models", [])
@@ -1732,7 +1732,7 @@ func _handle_use_fix_dat_armour_up(action: Dictionary) -> Dictionary:
 				"value": max_wounds
 			})
 			returned += 1
-			print("CommandPhase: Fix Dat Armour Up — returned model %s (index %d) with %d wounds" % [model.get("id", ""), i, max_wounds])
+			DebugLogger.info(str("CommandPhase: Fix Dat Armour Up — returned model %s (index %d) with %d wounds" % [model.get("id", ""), i, max_wounds]))
 
 	# Apply changes
 	if changes.size() > 0:
@@ -1890,8 +1890,8 @@ func _handle_replace_secondary_mission(action: Dictionary) -> Dictionary:
 	}]
 	PhaseManager.apply_state_changes(changes)
 	game_state_snapshot = GameState.create_snapshot()
-	print("CommandPhase: Player %d spent 1 CP to replace secondary mission (CP: %d -> %d)" % [
-		current_player, current_cp, current_cp - 1])
+	DebugLogger.info(str("CommandPhase: Player %d spent 1 CP to replace secondary mission (CP: %d -> %d)" % [
+		current_player, current_cp, current_cp - 1]))
 
 	var result = secondary_mgr.replace_drawn_mission(current_player, mission_index)
 
@@ -2018,8 +2018,8 @@ func _handle_resolve_marked_for_death(action: Dictionary) -> Dictionary:
 
 	secondary_mgr.resolve_marked_for_death(player, alpha_targets, gamma_target)
 
-	print("CommandPhase: Resolved Marked for Death for player %d — Alpha: %s, Gamma: %s" % [
-		player, str(alpha_targets), gamma_target])
+	DebugLogger.info(str("CommandPhase: Resolved Marked for Death for player %d — Alpha: %s, Gamma: %s" % [
+		player, str(alpha_targets), gamma_target]))
 
 	# Log to phase log
 	var log_entry = {
@@ -2046,7 +2046,7 @@ func _handle_resolve_tempting_target(action: Dictionary) -> Dictionary:
 
 	secondary_mgr.resolve_tempting_target(player, objective_id)
 
-	print("CommandPhase: Resolved A Tempting Target for player %d — Objective: %s" % [player, objective_id])
+	DebugLogger.info(str("CommandPhase: Resolved A Tempting Target for player %d — Objective: %s" % [player, objective_id]))
 
 	# Log to phase log
 	var log_entry = {
@@ -2090,7 +2090,7 @@ func _handle_end_command() -> Dictionary:
 			auto_resolved.append(auto_result)
 
 	if auto_resolved.size() > 0:
-		print("CommandPhase: Auto-resolved %d remaining battle-shock test(s)" % auto_resolved.size())
+		DebugLogger.info(str("CommandPhase: Auto-resolved %d remaining battle-shock test(s)" % auto_resolved.size()))
 
 	# Auto-resolve faction abilities (Oath of Moment target selection)
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
@@ -2105,7 +2105,7 @@ func _handle_end_command() -> Dictionary:
 			var state = secondary_mgr._player_state.get(player_key, {})
 			for mission in state.get("active", []):
 				if mission.get("pending_interaction", false):
-					print("CommandPhase: WARNING — Player %d has pending interaction for %s, auto-resolving" % [p, mission["name"]])
+					DebugLogger.info(str("CommandPhase: WARNING — Player %d has pending interaction for %s, auto-resolving" % [p, mission["name"]]))
 					_auto_resolve_pending_interaction(p, mission, secondary_mgr)
 
 	# Apply sticky objective locks at end of Command phase
@@ -2114,7 +2114,7 @@ func _handle_end_command() -> Dictionary:
 	if MissionManager:
 		MissionManager.apply_sticky_objectives(current_player)
 
-	print("CommandPhase: Player %d ending command phase" % current_player)
+	DebugLogger.info(str("CommandPhase: Player %d ending command phase" % current_player))
 
 	# P3-103: Score primary objectives at the end of the Command phase
 	# Per 10e rules: primary mission scoring occurs "at the end of your Command phase"
@@ -2158,7 +2158,7 @@ func _auto_resolve_pending_interaction(player: int, mission: Dictionary, seconda
 			var alpha_targets = opponent_units.slice(0, alpha_count)
 			var gamma_target = opponent_units[alpha_count] if opponent_units.size() > alpha_count else ""
 			secondary_mgr.resolve_marked_for_death(player, alpha_targets, gamma_target)
-			print("CommandPhase: Auto-resolved Marked for Death — Alpha: %s, Gamma: %s" % [str(alpha_targets), gamma_target])
+			DebugLogger.info(str("CommandPhase: Auto-resolved Marked for Death — Alpha: %s, Gamma: %s" % [str(alpha_targets), gamma_target]))
 
 		"a_tempting_target":
 			# Auto-select first NML objective
@@ -2166,12 +2166,12 @@ func _auto_resolve_pending_interaction(player: int, mission: Dictionary, seconda
 			for obj in all_objectives:
 				if obj.get("zone", "") == "no_mans_land":
 					secondary_mgr.resolve_tempting_target(player, obj.get("id", ""))
-					print("CommandPhase: Auto-resolved A Tempting Target — Objective: %s" % obj.get("id", ""))
+					DebugLogger.info(str("CommandPhase: Auto-resolved A Tempting Target — Objective: %s" % obj.get("id", "")))
 					return
-			print("CommandPhase: WARNING — Could not auto-resolve A Tempting Target, no NML objectives found")
+			DebugLogger.info("CommandPhase: WARNING — Could not auto-resolve A Tempting Target, no NML objectives found")
 
 		_:
-			print("CommandPhase: WARNING — Unknown pending interaction type for mission %s" % mission_id)
+			DebugLogger.info(str("CommandPhase: WARNING — Unknown pending interaction type for mission %s" % mission_id))
 
 func _should_complete_phase() -> bool:
 	# Don't auto-complete - phase completion will be triggered by END_COMMAND action

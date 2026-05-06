@@ -48,8 +48,8 @@ func _on_phase_enter() -> void:
 	var p1_scouts = GameState.get_scout_units_for_player(1)
 	var p2_scouts = GameState.get_scout_units_for_player(2)
 
-	print("[ScoutMovesPhase] Player 1 scout units: ", p1_scouts)
-	print("[ScoutMovesPhase] Player 2 scout units: ", p2_scouts)
+	DebugLogger.info(str("[ScoutMovesPhase] Player 1 scout units: ", p1_scouts))
+	DebugLogger.info(str("[ScoutMovesPhase] Player 2 scout units: ", p2_scouts))
 
 	if p1_scouts.is_empty() and p2_scouts.is_empty():
 		# No units have Scout - skip this phase entirely

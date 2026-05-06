@@ -6684,7 +6684,7 @@ static func _get_unit_heavy_weapon_data(unit: Dictionary) -> Dictionary:
 	"""T7-26: Analyze a unit's Heavy weapons and calculate the expected hit probability
 	benefit from remaining stationary (+1 to hit for Heavy keyword).
 	Returns {has_heavy, heavy_weapon_count, total_attacks, avg_hit_improvement,
-	         total_expected_extra_hits, weapons: [{name, attacks, bs, hit_improvement, range_inches}]}
+			 total_expected_extra_hits, weapons: [{name, attacks, bs, hit_improvement, range_inches}]}
 	total_expected_extra_hits = sum across all Heavy weapons of (attacks * hit_improvement_per_attack)
 	"""
 	var weapons = unit.get("meta", {}).get("weapons", [])
@@ -8447,9 +8447,9 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 
 	Two-level priority:
 	  Macro: Rank enemies by _calculate_target_value (threat level, damage output,
-	         objective presence, ability value, points cost).
+			 objective presence, ability value, points cost).
 	  Micro: Iterative marginal value allocation maximizes total expected value
-	         across all weapon-target assignments, not just per-weapon damage.
+			 across all weapon-target assignments, not just per-weapon damage.
 
 	Algorithm:
 	1. Calculate kill threshold (total remaining wounds) for each enemy

@@ -1,0 +1,228 @@
+Godot Engine v4.6.stable.steam.89cea1439 - https://godotengine.org
+
+TestModeHandler: Args -> ["-s", "tests/test_t005_defender_allocation_pin.gd"]
+[2026-05-06 07:30:49] [INFO.0000000] DebugLogger initialized - Session: 20260506_073049
+[2026-05-06 07:30:49] [INFO.0000000] Log file: user://logs/debug_20260506_073049.log
+[2026-05-06 07:30:49] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20260506_073049.log
+[SettingsService] Settings loaded from user://settings.cfg
+[SettingsService] Created Music audio bus
+[SettingsService] Created SFX audio bus
+[MeasuringTapeManager] Save persistence: false
+SaveLoadManager: autosave_on_round_end = true
+SaveLoadManager: autosave_on_phase_transition = false
+[SettingsService] Ready — ui_scale=1.90, animation_speed=1.00, colorblind=protanopia
+Found armies in res://: ["Orks_Upload_Mar7", "orks", "adeptus_custodes", "Orks_2000_upload", "space_marines", "Orks_2000", "A_C_test", "ORK_test", "Adeptus_Custodes_1995_Mar_7"]
+ArmyListManager initialized with 9 armies: ["Orks_Upload_Mar7", "orks", "adeptus_custodes", "Orks_2000_upload", "space_marines", "Orks_2000", "A_C_test", "ORK_test", "Adeptus_Custodes_1995_Mar_7"]
+[2026-05-06 07:30:49] [INFO.0000000] DebugManager initialized
+[DeploymentZoneData] Loaded zones for 'hammer_anvil' from JSON
+GameState: Loading default armies...
+Loading army list: adeptus_custodes for player 1
+ArmyListManager: Wargear 'Praesidium Shield' on Shield-Captain (U_SHIELD_CAPTAIN_A): wounds 6 -> 7 (+1)
+ArmyListManager: Wargear 'Praesidium Shield' updated model m1 wounds: 6 -> 7
+Processed unit: U_SHIELD_CAPTAIN_A for player 1
+Processed unit: U_BLADE_CHAMPION_A for player 1
+ArmyListManager: Wargear 'Praesidium Shield' on Custodian Guard (U_CUSTODIAN_GUARD_B): wounds 3 -> 4 (+1)
+ArmyListManager: Wargear 'Praesidium Shield' updated model m1 wounds: 3 -> 4
+ArmyListManager: Wargear 'Praesidium Shield' updated model m2 wounds: 3 -> 4
+ArmyListManager: Wargear 'Praesidium Shield' updated model m3 wounds: 3 -> 4
+ArmyListManager: Wargear 'Praesidium Shield' updated model m4 wounds: 3 -> 4
+ArmyListManager: Wargear 'Vexilla' on Custodian Guard (U_CUSTODIAN_GUARD_B): objective_control 2 -> 3 (+1)
+Processed unit: U_CUSTODIAN_GUARD_B for player 1
+Processed unit: U_WITCHSEEKERS_C for player 1
+Processed unit: U_WITCHSEEKERS_D for player 1
+Processed unit: U_CALADIUS_GRAV-TANK_E for player 1
+Processed unit: U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H for player 1
+Processed unit: U_TELEMON_HEAVY_DREADNOUGHT_I for player 1
+Processed unit: U_SHIELD_CAPTAIN_JETBIKE_A for player 1
+ArmyListManager: Duplicate squad labeled: U_WITCHSEEKERS_C -> Witchseekers Alpha
+ArmyListManager: Duplicate squad labeled: U_WITCHSEEKERS_D -> Witchseekers Beta
+ArmyListManager: FactionAbilityManager not available for detachment validation
+ArmyListManager: Army construction validation for 'Adeptus Custodes':
+  Declared points: 1000, Total unit points: 1335, Units: 9
+  Detachment: Shield Host
+  WARNING: Army exceeds declared points limit: 1335 / 1000 pts (+335 over)
+Successfully loaded army: adeptus_custodes with 9 units
+GameState: Loading Adeptus Custodes army for Player 1
+Applying army to game state for player: 1
+Removing 0 existing units for player 1
+Added unit: U_SHIELD_CAPTAIN_A (Shield-Captain)
+Added unit: U_BLADE_CHAMPION_A (Blade Champion)
+Added unit: U_CUSTODIAN_GUARD_B (Custodian Guard)
+Added unit: U_WITCHSEEKERS_C (Witchseekers)
+Added unit: U_WITCHSEEKERS_D (Witchseekers)
+Added unit: U_CALADIUS_GRAV-TANK_E (Caladius Grav-tank)
+Added unit: U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H (Contemptor-Achillus Dreadnought)
+Added unit: U_TELEMON_HEAVY_DREADNOUGHT_I (Telemon Heavy Dreadnought)
+Added unit: U_SHIELD_CAPTAIN_JETBIKE_A (Shield-captain On Dawneagle Jetbike)
+Set faction for player 1: Adeptus Custodes
+FactionStratagemLoader: Loaded 54 faction codes
+StratagemManager: Loading faction stratagems for player 1 — Adeptus Custodes / Shield Host
+FactionStratagemLoader: Loading stratagems for Adeptus Custodes (AC), detachment: 'Shield Host'
+FactionStratagemLoader: Loaded 6 stratagems for Adeptus Custodes / Shield Host
+StratagemManager: Loaded 6 faction stratagems for player 1 (4 mechanically implemented)
+Army applied successfully. Total units in game: 9
+Loading army list: orks for player 2
+Processed unit: U_STRIKE_FORCE_A for player 2
+Processed unit: U_WARBOSS_B for player 2
+Processed unit: U_WARBOSS_C for player 2
+Processed unit: U_WARBOSS_IN_MEGA_ARMOUR_D for player 2
+Processed unit: U_BOYZ_E for player 2
+ArmyListManager: Unit U_BOYZ_F (Boyz) loaded with model_profiles: ["boss_nob", "boy"]
+ArmyListManager: MA-2 Unit U_BOYZ_F (Boyz) model_type breakdown: 1x boss_nob, 19x boy
+ArmyListManager: MA-3/MA-13 model_profiles validation complete for U_BOYZ_F (Boyz)
+Processed unit: U_BOYZ_F for player 2
+[2026-05-06 07:30:50] [DEBUG.0000000] Parsed transport capacity keywords | Context: {"description":"This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models.","keywords":["ORKS","INFANTRY"],"unit_id":"U_BATTLEWAGON_G"}
+ArmyListManager: Parsed transport capacity multiplier: MEGA ARMOUR = 2 spaces
+ArmyListManager: Parsed transport exclusion: JUMP PACK
+ArmyListManager: Wargear ''Ard Case' on Battlewagon (U_BATTLEWAGON_G): toughness 10 -> 12 (+2)
+ArmyListManager: Wargear ''Ard Case' on Battlewagon: removed Firing Deck 11
+Processed unit: U_BATTLEWAGON_G for player 2
+Processed unit: U_KOMMANDOS_H for player 2
+Processed unit: U_PAINBOSS_I for player 2
+Processed unit: U_WEIRDBOY_J for player 2
+Processed unit: U_BOYZ_K for player 2
+ArmyListManager: Unit U_LOOTAS_A (Lootas) loaded with model_profiles: ["loota_deffgun", "loota_kmb", "spanner"]
+ArmyListManager: MA-2 Unit U_LOOTAS_A (Lootas) model_type breakdown: 8x loota_deffgun, 2x loota_kmb, 1x spanner
+ArmyListManager: MA-3/MA-13 model_profiles validation complete for U_LOOTAS_A (Lootas)
+Processed unit: U_LOOTAS_A for player 2
+ArmyListManager: Unit U_MEGANOBZ_L (Meganobz) loaded with model_profiles: ["meganob_klaw", "meganob_saws"]
+ArmyListManager: MA-2 Unit U_MEGANOBZ_L (Meganobz) model_type breakdown: 3x meganob_klaw, 2x meganob_saws
+ArmyListManager: MA-3/MA-13 model_profiles validation complete for U_MEGANOBZ_L (Meganobz)
+Processed unit: U_MEGANOBZ_L for player 2
+Processed unit: U_WAZBOM_BLASTAJET for player 2
+Processed unit: U_KAPTIN_BADRUKK_A for player 2
+Processed unit: U_GHAZGHKULL_THRAKA_A for player 2
+Processed unit: U_NOB_WAAAGH_BANNER_A for player 2
+ArmyListManager: Duplicate squad labeled: U_WARBOSS_B -> Warboss Alpha
+ArmyListManager: Duplicate squad labeled: U_WARBOSS_C -> Warboss Beta
+ArmyListManager: Duplicate squad labeled: U_BOYZ_E -> Boyz Alpha
+ArmyListManager: Duplicate squad labeled: U_BOYZ_F -> Boyz Beta
+ArmyListManager: Duplicate squad labeled: U_BOYZ_K -> Boyz Gamma
+ArmyListManager: FactionAbilityManager not available for detachment validation
+ArmyListManager: Army construction validation for 'Orks':
+  Declared points: 2000, Total unit points: 3840, Units: 17
+  Detachment: War Horde
+  WARNING: Army exceeds declared points limit: 3840 / 2000 pts (+1840 over)
+Successfully loaded army: orks with 17 units
+GameState: Loading Orks army for Player 2
+Applying army to game state for player: 2
+Removing 0 existing units for player 2
+Added unit: U_STRIKE_FORCE_A (Strike Force)
+Added unit: U_WARBOSS_B (Warboss)
+Added unit: U_WARBOSS_C (Warboss)
+Added unit: U_WARBOSS_IN_MEGA_ARMOUR_D (Warboss in Mega Armour)
+Added unit: U_BOYZ_E (Boyz)
+Added unit: U_BOYZ_F (Boyz)
+Added unit: U_BATTLEWAGON_G (Battlewagon)
+Added unit: U_KOMMANDOS_H (Kommandos)
+Added unit: U_PAINBOSS_I (Painboss)
+Added unit: U_WEIRDBOY_J (Weirdboy)
+Added unit: U_BOYZ_K (Boyz)
+Added unit: U_LOOTAS_A (Lootas)
+Added unit: U_MEGANOBZ_L (Meganobz)
+Added unit: U_WAZBOM_BLASTAJET (Wazbom Blastajet)
+Added unit: U_KAPTIN_BADRUKK_A (Kaptin Badrukk)
+Added unit: U_GHAZGHKULL_THRAKA_A (Ghazghkull Thraka)
+Added unit: U_NOB_WAAAGH_BANNER_A (Nob with Waaagh! Banner)
+Set faction for player 2: Orks
+StratagemManager: Loading faction stratagems for player 2 — Orks / War Horde
+FactionStratagemLoader: Loading stratagems for Orks (ORK), detachment: 'War Horde'
+FactionStratagemLoader: Loaded 6 stratagems for Orks / War Horde
+StratagemManager: Loaded 6 faction stratagems for player 2 (2 mechanically implemented)
+Army applied successfully. Total units in game: 26
+GameState: Army loading complete. Total units: 26
+ActionLogger: Started session 20260506_073051
+StateSerializer: Pretty print enabled: true
+StateSerializer: Save format version: 1.1.0 (min migratable: 1.0.0)
+ReplayManager: Connected to GameManager.result_applied
+ReplayManager: Connected to PhaseManager.phase_changed, phase_action_taken, phase_completed
+ReplayManager: Ready (auto_record_ai=true)
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+SaveLoadManager: Connected to PhaseManager for event-driven autosave
+SaveLoadManager: Connected to AIPlayer.ai_turn_ended for deferred autosave (SAVE-6)
+[DeploymentZoneData] Loaded zones for 'hammer_anvil' from JSON
+[BoardState] Initialized deployment zones for: hammer_anvil
+FactionStratagemLoader: Loaded 54 faction codes
+StratagemManager: Loaded 24 core stratagems
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Preloaded metadata for 8 terrain layouts
+[TerrainManager] Loaded layout 'layout_2' from JSON (14 terrain pieces)
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Configured mission ID: take_and_hold
+[DeploymentZoneData] Loaded objectives for 'hammer_anvil' from JSON
+MissionManager: Set up 5 objectives for hammer_anvil deployment
+  - obj_center at position (880.0, 1200.0) (zone: no_mans_land)
+  - obj_nml_1 at position (400.0, 720.0) (zone: no_mans_land)
+  - obj_nml_2 at position (1360.0, 1680.0) (zone: no_mans_land)
+  - obj_home_1 at position (880.0, 240.0) (zone: player1)
+  - obj_home_2 at position (880.0, 2160.0) (zone: player2)
+MissionManager: Initialized 'Take and Hold' mission (scoring_type: hold_objectives)
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'G' to check what can see the cursor position
+TransportManager initialized
+TransportFactory: Loaded local server URL: wss://warhammer-40k-godot.fly.dev
+TransportFactory: Initialized
+CharacterAttachmentManager initialized
+CloudStorage: Using server URL: http://localhost:9080
+CloudStorage: Loaded player ID from file: 93aab3f0...
+CloudStorage: POST /api/players
+WebSocketRelay: Initialized with server URL: wss://warhammer-40k-godot.fly.dev
+NetworkManager: Initialized (platform: desktop)
+[2026-05-06 07:30:51] [INFO.0000000] [SpriteResolver] Found sprite: orks_vehicle -> user://sprites/orks_vehicle.png
+[2026-05-06 07:30:51] [INFO.0000000] [SpriteResolver] Found sprite: adeptus_custodes_infantry -> user://sprites/adeptus_custodes_infantry.png
+[2026-05-06 07:30:51] [INFO.0000000] [SpriteResolver] Found sprite: infantry -> user://sprites/infantry.png
+[2026-05-06 07:30:51] [INFO.0000000] [SpriteResolver] Found sprite: blade_champion -> user://sprites/blade_champion.png
+[2026-05-06 07:30:51] [INFO.0000000] [SpriteResolver] Found sprite: vehicle -> user://sprites/vehicle.png
+[2026-05-06 07:30:51] [INFO.0000000] [SpriteResolver] Found sprite: custodian_guard -> user://sprites/custodian_guard.png
+[2026-05-06 07:30:51] [INFO.0000000] [SpriteResolver] Found sprite: monster -> user://sprites/monster.png
+[2026-05-06 07:30:51] [INFO.0000000] [SpriteResolver] Initialized. Found 7 static sprite(s), 0 animated set(s)
+AIPlayer: Connected to GameManager.result_applied
+AIPlayer: Connected to PhaseManager.phase_changed and phase_action_taken
+AIPlayer: Connected to MissionManager.victory_points_scored
+AIPlayer: Connected to SecondaryMissionManager.when_drawn_requires_interaction
+AIDecisionMaker: No config override file found at user://ai_config.json
+AIPlayer: Ready (disabled until configured)
+GameEventLog: Initialized
+SecondaryMissionManager: Initialized
+FactionAbilityManager: Ready
+UnitAbilityManager: Ready — 101 ability definitions (89 implemented)
+DiceHistoryPanel: Initialized
+[2026-05-06 07:30:51] [INFO.0000000] DiceHistoryPanel: Initialized
+[DiceSoundManager] Ready — 8 procedural streams generated, 8 player pool
+[KeybindingManager] No saved keybindings found, using defaults
+[KeybindingManager] Ready — 42 bindings registered
+WARNING: [GodotMCP] Failed to listen on port 9080: Already in use
+     at: push_warning (core/variant/variant_utility.cpp:1034)
+     GDScript backtrace (most recent call first):
+         [0] _start_server (res://addons/godot_mcp/mcp_server.gd:55)
+         [1] _ready (res://addons/godot_mcp/mcp_server.gd:43)
+
+=== test_t005_defender_allocation_pin ===
+
+
+-- T-005/A: WoundAllocationOverlay has defender_player + banner --
+  PASS: WoundAllocationOverlay.gd readable
+  PASS: defender_player: int field declared
+  PASS: defender_banner_label field declared
+  PASS: DEFENDER'S CHOICE label or banner setup present
+
+-- T-005/B: setup() takes defender_player parameter --
+  PASS: setup(p_save_data, p_defender_player) signature exists
+
+-- T-005/C: GameManager has process_allocate_wounds entry-point --
+  PASS: GameManager.gd readable
+  PASS: process_allocate_wounds function exists
+
+=== Result: 7 passed, 0 failed ===
+NetworkManager: Connected to PhaseManager.phase_action_taken for timer reset (T5-MP8)
+CloudStorage: register - HTTP request failed (result: 13)
+[2026-05-06 07:30:51] [INFO.0000000] DebugLogger shutting down - Session: 20260506_073049
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2641)
+ERROR: 10 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)

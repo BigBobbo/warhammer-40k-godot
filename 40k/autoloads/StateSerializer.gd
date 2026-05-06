@@ -789,6 +789,11 @@ func _validate_unit_data(data: Dictionary) -> Dictionary:
 						validation.warnings.append("%s: model_type '%s' references nonexistent profile key (valid keys: %s)" % [m_prefix, m_type, str(model_profiles.keys())])
 
 		# --- Cross-reference validation: embarked_in ---
+		# T-029a: do NOT normalise null → "" here. The codebase has both styles
+		# of check (`get(... , null) != null` AND `get(... , "") != ""`); keeping
+		# the null sentinel preserves all 25+ existing null-pattern call sites.
+		# The 7 buggy `!= ""` sites in RulesEngine + UnitAbilityManager were
+		# fixed defensively at each site to handle null.
 		var embarked_in = unit.get("embarked_in", null)
 		if embarked_in != null and embarked_in is String and embarked_in != "":
 			if not embarked_in in all_unit_ids:
