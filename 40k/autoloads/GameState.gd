@@ -476,18 +476,28 @@ func unit_is_fortification(unit_id: String) -> bool:
 	return false
 
 func _unit_has_scout_own(unit_id: String) -> bool:
-	"""Check if a unit itself (not inherited) has the Scout ability."""
+	"""Check if a unit itself (not inherited) has the Scout ability.
+	Issue #389: also check description for the Scouts text — defends against
+	mis-tagged ability entries where name is "Core" or similar instead of
+	"Scouts". Current Custodes roster JSONs already have name:"Scouts" so
+	the primary check works; this is defense-in-depth."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return false
 	var abilities = unit.get("meta", {}).get("abilities", [])
 	for ability in abilities:
 		var name = ""
+		var description = ""
 		if ability is String:
 			name = ability
 		elif ability is Dictionary:
 			name = ability.get("name", "")
+			description = ability.get("description", "")
 		if name.to_lower().begins_with("scout"):
+			return true
+		# Issue #389 fallback: detect "Scouts X\"" in the description text
+		# even when the name field is mis-tagged.
+		if "scouts " in description.to_lower() and "scouts x" in description.to_lower():
 			return true
 	return false
 
