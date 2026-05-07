@@ -1,0 +1,14 @@
+{
+  "id": "377_defender_deploys_first",
+  "covers": ["deployment.defender_first", "autoloads.TurnManager._handle_deployment_phase_start"],
+  "fixture": "audit_377_defender_first",
+  "transition_to_phase": 1,
+  "description": "Issue #377: Per CA 2025-26, the defender deploys first. Fixture has meta.defender=2. After transition to deployment phase, verify meta.active_player is 2 (the defender), not 1.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "expect_state", "path": "meta.defender", "equals": 2 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "screenshot", "label": "01_defender_p2_deploys_first" }
+  ]
+}
