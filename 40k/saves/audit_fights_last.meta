@@ -1,0 +1,9 @@
+{
+  "save_name": "audit_fights_last",
+  "timestamp": "2026-05-07T16:30:00",
+  "description": "Fights Last validation fix. Two units in engagement range, both with status_effects.fights_last=true. Phase 10 (Fight). Tests that SELECT_FIGHTER works during FIGHTS_LAST subphase.",
+  "player1_army": "Adeptus Custodes",
+  "player2_army": "Orks",
+  "round": 2,
+  "phase": "Fight"
+}

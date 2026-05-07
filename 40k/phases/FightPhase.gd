@@ -516,7 +516,16 @@ func _validate_select_fighter(action: Dictionary) -> Dictionary:
 
 	# Check unit is eligible in current subphase
 	var player_key = str(current_selecting_player)
-	var source_list = fights_first_sequence if current_subphase == Subphase.FIGHTS_FIRST else normal_sequence
+	var source_list: Dictionary
+	match current_subphase:
+		Subphase.FIGHTS_FIRST:
+			source_list = fights_first_sequence
+		Subphase.REMAINING_COMBATS:
+			source_list = normal_sequence
+		Subphase.FIGHTS_LAST:
+			source_list = fights_last_sequence
+		_:
+			source_list = normal_sequence
 
 	if unit_id not in source_list.get(player_key, []):
 		errors.append("Unit not eligible in this subphase")
