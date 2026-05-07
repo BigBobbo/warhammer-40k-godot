@@ -1129,6 +1129,7 @@ func _create_flag_reset_diffs(player: int) -> Array:
 		# also reset as a safety net so a save mid-Da-Jump cannot strand
 		# the unit in placement-pending state across a turn boundary.
 		"da_jump_used_this_turn", "awaiting_da_jump_placement",
+		"heroic_intervention",
 	]
 
 	for unit_id in units:

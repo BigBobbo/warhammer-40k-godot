@@ -345,6 +345,7 @@ func _create_flag_reset_changes(player: int) -> Array:
 		# placement-pending state across a turn boundary. Mirrors the same
 		# entries on the multiplayer path in `GameManager.process_end_scoring`.
 		"da_jump_used_this_turn", "awaiting_da_jump_placement",
+		"heroic_intervention",
 	]
 
 	for unit_id in units:
