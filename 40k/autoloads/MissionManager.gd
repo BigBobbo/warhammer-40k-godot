@@ -1069,3 +1069,57 @@ func get_removed_objectives() -> Array:
 		if obj_id not in all_removed:
 			all_removed.append(obj_id)
 	return all_removed
+
+# ============================================================================
+# Issue #379: SAVE/LOAD SUPPORT
+# ============================================================================
+# Same pattern as PR #347 (FactionAbilityManager / StratagemManager).
+# Without these, mid-game save/load drops sticky objectives, kill counters,
+# burn state, supply-drop, ritual/terraform pending actions, etc.
+
+func get_state_for_save() -> Dictionary:
+	"""Return state data for save games. Covers all 17 runtime state vars."""
+	return {
+		"current_mission": current_mission.duplicate(true),
+		"objective_control_state": objective_control_state.duplicate(true),
+		"sticky_objectives": _sticky_objectives.duplicate(true),
+		"kills_this_round": _kills_this_round.duplicate(true),
+		"burned_objectives_meta": _burned_objectives.duplicate(true),
+		"pending_burns": _pending_burns.duplicate(true),
+		"ritual_objectives": _ritual_objectives.duplicate(true),
+		"pending_rituals": _pending_rituals.duplicate(true),
+		"terraformed_objectives": _terraformed_objectives.duplicate(true),
+		"pending_terraforms": _pending_terraforms.duplicate(true),
+		"vp_timeline": _vp_timeline.duplicate(true),
+		"burn_in_progress": burn_in_progress.duplicate(true),
+		"burned_objectives_arr": burned_objectives.duplicate(true),
+		"removed_objectives": removed_objectives.duplicate(true),
+		"supply_drop_resolved_round_4": supply_drop_resolved_round_4,
+		"kills_per_round": kills_per_round.duplicate(true),
+		"character_claimed_objectives": character_claimed_objectives.duplicate(true),
+		"units_alive_at_round_start": _units_alive_at_round_start.duplicate(true)
+	}
+
+func load_state(data: Dictionary) -> void:
+	"""Restore state from save data."""
+	current_mission = data.get("current_mission", current_mission)
+	objective_control_state = data.get("objective_control_state", {})
+	_sticky_objectives = data.get("sticky_objectives", {})
+	_kills_this_round = data.get("kills_this_round", {"1": 0, "2": 0})
+	_burned_objectives = data.get("burned_objectives_meta", {})
+	_pending_burns = data.get("pending_burns", {})
+	_ritual_objectives = data.get("ritual_objectives", {})
+	_pending_rituals = data.get("pending_rituals", {})
+	_terraformed_objectives = data.get("terraformed_objectives", {})
+	_pending_terraforms = data.get("pending_terraforms", {})
+	_vp_timeline = data.get("vp_timeline", {})
+	burn_in_progress = data.get("burn_in_progress", {})
+	burned_objectives = data.get("burned_objectives_arr", [])
+	removed_objectives = data.get("removed_objectives", [])
+	supply_drop_resolved_round_4 = data.get("supply_drop_resolved_round_4", false)
+	kills_per_round = data.get("kills_per_round", {})
+	character_claimed_objectives = data.get("character_claimed_objectives", {})
+	_units_alive_at_round_start = data.get("units_alive_at_round_start", {})
+	print("MissionManager: Loaded state — %d sticky, %d burned, %d ritual" % [
+		_sticky_objectives.size(), burned_objectives.size(), _ritual_objectives.size()
+	])

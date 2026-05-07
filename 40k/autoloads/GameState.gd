@@ -1011,6 +1011,14 @@ func create_snapshot() -> Dictionary:
 		snapshot["stratagem_manager"] = stratagem_mgr.get_state_for_save()
 		print("[GameState] Adding StratagemManager state to snapshot")
 
+	# Issue #379: Add MissionManager state (sticky objectives, kill counters,
+	# burn/ritual/terraform tracking, supply-drop, VP timeline). Without this,
+	# mid-game save/load drops mission-bearing state.
+	var mission_mgr = get_node_or_null("/root/MissionManager")
+	if mission_mgr and mission_mgr.has_method("get_state_for_save"):
+		snapshot["mission_manager"] = mission_mgr.get_state_for_save()
+		print("[GameState] Adding MissionManager state to snapshot")
+
 	# SAVE-7: Add AI turn history to snapshot
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	if ai_player and ai_player.enabled:
@@ -1172,6 +1180,14 @@ func load_from_snapshot(snapshot: Dictionary) -> void:
 		stratagem_mgr.load_state(state["stratagem_manager"])
 	elif state.has("stratagem_manager"):
 		print("[GameState] Has stratagem_manager but StratagemManager not available")
+
+	# Issue #379: Restore MissionManager state if present.
+	var mission_mgr = get_node_or_null("/root/MissionManager")
+	if state.has("mission_manager") and mission_mgr and mission_mgr.has_method("load_state"):
+		print("[GameState] Found MissionManager data in save, restoring")
+		mission_mgr.load_state(state["mission_manager"])
+	elif state.has("mission_manager"):
+		print("[GameState] Has mission_manager but MissionManager not available")
 
 	# SAVE-7: Restore AI turn history if present
 	var ai_player = get_node_or_null("/root/AIPlayer")
