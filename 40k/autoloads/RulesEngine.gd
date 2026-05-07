@@ -2916,7 +2916,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
 	# FEEL NO PAIN (T3-17): Check if target unit has FNP — mirrors apply_save_damage()
-	var ar_fnp_value = get_unit_fnp(target_unit)
+	# Issue #388: psychic-weapon damage triggers FNP-vs-psychic flag, even when
+	# the damage is NOT a mortal wound.
+	var ar_is_psychic = is_psychic_weapon(weapon_id, board)
+	var ar_fnp_value = get_unit_fnp_for_attack(target_unit, ar_is_psychic)
 
 	# HALF DAMAGE (T4-17): Check if target unit has half-damage defensive ability
 	var ar_has_half_damage = get_unit_half_damage(target_unit)
@@ -6617,6 +6620,26 @@ static func unit_has_rapid_fire_weapons(unit_id: String, board: Dictionary = {})
 				return true
 	return false
 
+static func _profile_is_psychic(profile: Dictionary) -> bool:
+	"""Issue #388: detect PSYCHIC weapon from a profile dict."""
+	var special_rules = String(profile.get("special_rules", "")).to_lower()
+	if "psychic" in special_rules:
+		return true
+	var keywords = profile.get("keywords", [])
+	for kw in keywords:
+		if String(kw).to_upper() == "PSYCHIC":
+			return true
+	return false
+
+static func is_psychic_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	"""Issue #388: detect PSYCHIC weapon ability via special_rules / keywords.
+	Used to gate get_unit_fnp_for_attack() so FNP-vs-psychic (Daughters of the
+	Abyss, Null Aegis) applies to non-mortal psychic damage."""
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+	return _profile_is_psychic(profile)
+
 # Get only Rapid Fire weapons for a unit
 static func get_unit_rapid_fire_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
 	var result = {}
@@ -8801,9 +8824,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	# FEEL NO PAIN: Roll FNP separately for devastating wounds and regular damage.
 	# T-016: DW deals mortal-wound damage, so the DW FNP roll consults the
-	# `effect_fnp_psychic_mortal` flag (Daughters of the Abyss et al.). Regular
-	# damage uses unconditional FNP only.
-	var fnp_value = get_unit_fnp(target_unit)
+	# `effect_fnp_psychic_mortal` flag (Daughters of the Abyss et al.).
+	# Issue #388: regular damage from PSYCHIC weapons also triggers FNP-vs-psychic.
+	var melee_is_psychic = is_psychic_weapon(weapon_id, board)
+	var fnp_value = get_unit_fnp_for_attack(target_unit, melee_is_psychic)
 	var dw_fnp_value = get_unit_fnp_for_attack(target_unit, true)
 	var actual_dw_damage = devastating_damage
 	var actual_regular_damage = regular_damage
@@ -9380,6 +9404,8 @@ static func prepare_save_resolution(
 		"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
 		"shooter_unit_id": shooter_unit_id,
 		"weapon_name": weapon_profile.get("name", "Unknown Weapon"),
+		# Issue #388: stash psychic flag so apply_save_damage can gate FNP-vs-psychic
+		"is_psychic": _profile_is_psychic(weapon_profile),
 		"ap": ap,
 		"damage": damage,
 		"damage_raw": damage_raw,  # Raw string for variable damage rolling (D3, D6, etc.)
@@ -9696,7 +9722,10 @@ static func apply_save_damage(
 		print("RulesEngine: MELTA +%d — %d/%d wounds get melta bonus" % [melta_bonus, melta_wounds_remaining, total_wounds_for_melta])
 
 	# FEEL NO PAIN: Check if target unit has FNP
-	var fnp_value = get_unit_fnp(target_unit)
+	# Issue #388: psychic-weapon damage triggers FNP-vs-psychic, even non-mortal.
+	# Read the is_psychic flag stashed by prepare_save_resolution.
+	var ranged_is_psychic = bool(save_data.get("is_psychic", false))
+	var fnp_value = get_unit_fnp_for_attack(target_unit, ranged_is_psychic)
 
 	# HALF DAMAGE (T4-17): Check if target unit has half-damage defensive ability
 	var has_half_damage = get_unit_half_damage(target_unit)

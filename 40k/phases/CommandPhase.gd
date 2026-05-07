@@ -158,14 +158,13 @@ func _generate_command_points(active_player: int) -> void:
 	# Refresh our local snapshot to reflect the CP changes
 	game_state_snapshot = GameState.create_snapshot()
 
-	DebugLogger.info(str("CommandPhase: Generated CP — Player %d: %d → %d" % [
-		active_player, active_cp, active_cp + 1
-	]))
+	DebugLogger.info(str("CommandPhase: Generated CP — both players +1 (active P%d)" % active_player))
 
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log:
-		game_event_log.add_info_entry("CP generated — P%d: %d CP" % [
-			active_player, active_cp + 1])
+		var p1_cp = GameState.state.get("players", {}).get("1", {}).get("cp", 0)
+		var p2_cp = GameState.state.get("players", {}).get("2", {}).get("cp", 0)
+		game_event_log.add_info_entry("CP generated — P1: %d CP, P2: %d CP" % [p1_cp, p2_cp])
 
 func get_newly_drawn_missions() -> Array:
 	"""Return missions drawn at the start of this command phase (for review dialog)."""
