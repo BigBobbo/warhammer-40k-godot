@@ -2165,6 +2165,25 @@ func _process_place_da_jump(action: Dictionary) -> Dictionary:
 	var unit_for_da_jump = game_state_snapshot.get("units", {}).get(unit_id, {})
 	var unit_models = unit_for_da_jump.get("models", [])
 
+	# Track final placements for coherency validation across all models in
+	# the Weirdboy's unit (06_SYNTHESIS launch-blocker #6: TLV-1 found that
+	# Da Jump placements skipped coherency, allowing the unit to land
+	# fragmented).
+	var post_placement_models: Array = []
+	# Seed with all alive models that ARE NOT being placed this action so
+	# coherency checks the entire surviving unit, not just the placed
+	# subset. Models that ARE in the positions list will be inserted
+	# below with their new coordinates.
+	var placement_ids := {}
+	for pos_entry in positions:
+		placement_ids[String(pos_entry.get("model_id", ""))] = true
+	for m in unit_models:
+		if not m.get("alive", true):
+			continue
+		if placement_ids.has(String(m.get("id", ""))):
+			continue
+		post_placement_models.append(m)
+
 	for pos_entry in positions:
 		var px = float(pos_entry.get("x", 0))
 		var py = float(pos_entry.get("y", 0))
@@ -2191,6 +2210,27 @@ func _process_place_da_jump(action: Dictionary) -> Dictionary:
 			var edge_dist_in = dist_in - model_radius_in - enemy_radius_in
 			if edge_dist_in <= 9.0:
 				return create_result(false, [], "Da Jump place: model would be %.2f\" from an enemy (must be more than 9\")" % edge_dist_in)
+
+		# Build the post-placement model dict for coherency validation
+		var placed_model = {
+			"id": mid_for_base,
+			"alive": true,
+			"position": pv,
+			"base_mm": model_base_mm,
+		}
+		post_placement_models.append(placed_model)
+
+	# 10e Unit Coherency: every model must be within 2" horizontal and 5"
+	# vertical of at least one other model in the unit (two if the unit
+	# has 6+ models). Da Jump placements that fragment the squad are
+	# rejected.
+	var coherency_check = _check_models_coherency(post_placement_models)
+	if not coherency_check.get("valid", true):
+		var first_err = "unknown"
+		var errs = coherency_check.get("errors", [])
+		if errs.size() > 0:
+			first_err = str(errs[0])
+		return create_result(false, [], "Da Jump place: coherency broken — %s" % first_err)
 
 	var diffs = [
 		{"op": "set", "path": "units.%s.flags.awaiting_da_jump_placement" % unit_id, "value": false},

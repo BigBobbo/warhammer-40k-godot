@@ -37,6 +37,7 @@ func _run_tests():
 	_test_movement_phase_surfaces_actions()
 	_test_da_jump_flag_resets_across_turns()
 	_test_da_jump_flag_reset_live()
+	_test_da_jump_placement_hardening()
 	_finish()
 
 
@@ -84,9 +85,16 @@ func _test_movement_phase_dispatches_actions() -> void:
 	# Success path: 2+ marks awaiting placement
 	_check("On 2+, awaiting_da_jump_placement set",
 		"awaiting_da_jump_placement" in src)
-	# Placement: 9" from enemies
+	# Placement: 9" from enemies. Issue #376 replaced the original
+	# Measurement.inches_to_px(9.0) check with an inline edge-to-edge
+	# distance computation so each model's base radius is accounted for.
+	# The detailed source pins in section F (added with launch-blocker
+	# #6) cover the new shape; this check only asserts the >9" semantic
+	# is still wired.
 	_check("PLACE_DA_JUMP enforces 9\" from enemies",
-		"Measurement.inches_to_px(9.0)" in src and "enemy_positions" in src)
+		"edge_dist_in <= 9.0" in src
+			or "Measurement.inches_to_px(9.0)" in src and "enemy_positions" in src,
+		"strict >9 rejection missing — see _process_place_da_jump")
 	# Once-per-turn flag
 	_check("USE_DA_JUMP sets da_jump_used_this_turn",
 		"da_jump_used_this_turn" in src)
@@ -160,6 +168,38 @@ func _test_da_jump_flag_reset_live() -> void:
 		"units.U_TEST_WEIRDBOY.flags.awaiting_da_jump_placement" in removed_paths)
 	_check("remove diff for moved (regression — generic flag still cleared)",
 		"units.U_TEST_WEIRDBOY.flags.moved" in removed_paths)
+
+
+func _test_da_jump_placement_hardening() -> void:
+	print("\n-- T-105/F: _process_place_da_jump validation source pins (issue #376 + #6) --")
+	# 06_SYNTHESIS launch-blocker #6 / TLV-1: original code used center-to-
+	# center distance with strict <, no board-bounds check, no coherency
+	# check. Issue #376 added edge-to-edge >9" + board bounds; this commit
+	# adds the coherency leg.
+	var src = _read("res://phases/MovementPhase.gd")
+	_check("MovementPhase.gd readable", not src.is_empty())
+	# Strict >9" rejection (i.e. <=9.0 fails)
+	_check("strict >9\" rejection (edge_dist_in <= 9.0)",
+		"edge_dist_in <= 9.0" in src,
+		"weak <9 check would let exactly-9 placements through")
+	# Edge-to-edge distance, not center-to-center
+	_check("edge-to-edge distance accounts for both base radii",
+		"model_radius_in" in src and "enemy_radius_in" in src
+			and "edge_dist_in = dist_in - model_radius_in - enemy_radius_in" in src)
+	# Board bounds check
+	_check("board-bounds rejection (off-board placement fails)",
+		"is off the board" in src)
+	# Coherency check
+	_check("coherency check on the post-placement model array",
+		"_check_models_coherency(post_placement_models)" in src,
+		"placements that fragment the squad must be rejected")
+	_check("coherency rejection emits a clear reason",
+		"Da Jump place: coherency broken" in src)
+	# Coherency check should include the un-placed (already-on-board)
+	# alive models too, not just the ones being placed this action.
+	_check("coherency check seeds with un-placed alive models",
+		"placement_ids" in src and "post_placement_models.append(m)" in src,
+		"single-model Weirdboys are fine but multi-model units would mis-validate")
 
 
 func _finish():
