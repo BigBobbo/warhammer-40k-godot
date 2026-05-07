@@ -35,6 +35,8 @@ func _run_tests():
 	_test_ability_marked_implemented()
 	_test_movement_phase_dispatches_actions()
 	_test_movement_phase_surfaces_actions()
+	_test_da_jump_flag_resets_across_turns()
+	_test_da_jump_flag_reset_live()
 	_finish()
 
 
@@ -100,6 +102,64 @@ func _test_movement_phase_surfaces_actions() -> void:
 	_check("PLACE_DA_JUMP appended after pending placement", has_place)
 	_check("guarded by da_jump_used_this_turn",
 		"da_jump_used_this_turn" in src and has_use)
+
+
+func _test_da_jump_flag_resets_across_turns() -> void:
+	print("\n-- T-105/D: GameManager._create_flag_reset_diffs clears Da Jump flags --")
+	# 06_SYNTHESIS launch-blocker #5 — `da_jump_used_this_turn` was set in
+	# MovementPhase._process_use_da_jump but never cleared, so the Weirdboy
+	# was permanently locked after one Da Jump.
+	var src = _read("res://autoloads/GameManager.gd")
+	_check("GameManager.gd readable", not src.is_empty())
+	# Find the flags_to_reset list
+	var idx = src.find("var flags_to_reset")
+	_check("flags_to_reset list exists", idx >= 0)
+	var end_idx = src.find("]", idx)
+	var block = src.substr(idx, end_idx - idx) if idx >= 0 and end_idx > idx else ""
+	_check("flags_to_reset includes da_jump_used_this_turn",
+		"\"da_jump_used_this_turn\"" in block,
+		"flag never reset → Weirdboy locked after first Da Jump")
+	_check("flags_to_reset includes awaiting_da_jump_placement (safety)",
+		"\"awaiting_da_jump_placement\"" in block,
+		"placement-pending state could survive a save/turn boundary")
+
+
+func _test_da_jump_flag_reset_live() -> void:
+	print("\n-- T-105/E: live diff for a unit carrying the Da Jump flag --")
+	# Drive the actual diff producer rather than just grepping source. We
+	# inject a synthetic unit with the flag set and verify the function
+	# returns a `remove` op for both Da Jump flags.
+	var gm = root.get_node_or_null("GameManager")
+	if gm == null:
+		_check("GameManager autoload reachable", false, "autoload missing")
+		return
+	_check("GameManager autoload reachable", true)
+	# Stash + replace the units dict so the test is hermetic
+	var gs = root.get_node("GameState")
+	var prev_units = gs.state.get("units", {}).duplicate(true)
+	gs.state["units"] = {
+		"U_TEST_WEIRDBOY": {
+			"id": "U_TEST_WEIRDBOY",
+			"owner": 2,
+			"flags": {
+				"da_jump_used_this_turn": true,
+				"awaiting_da_jump_placement": true,
+				"moved": true,
+			},
+		},
+	}
+	var diffs: Array = gm._create_flag_reset_diffs(2)
+	var removed_paths := []
+	for d in diffs:
+		if d.get("op", "") == "remove":
+			removed_paths.append(d.get("path", ""))
+	gs.state["units"] = prev_units  # restore
+	_check("remove diff for da_jump_used_this_turn",
+		"units.U_TEST_WEIRDBOY.flags.da_jump_used_this_turn" in removed_paths)
+	_check("remove diff for awaiting_da_jump_placement",
+		"units.U_TEST_WEIRDBOY.flags.awaiting_da_jump_placement" in removed_paths)
+	_check("remove diff for moved (regression — generic flag still cleared)",
+		"units.U_TEST_WEIRDBOY.flags.moved" in removed_paths)
 
 
 func _finish():

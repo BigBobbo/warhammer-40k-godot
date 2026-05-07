@@ -1108,7 +1108,13 @@ func _create_flag_reset_diffs(player: int) -> Array:
 		"moved", "advanced", "fell_back", "remained_stationary",
 		"cannot_shoot", "cannot_charge", "cannot_move",
 		"has_shot", "charged_this_turn", "fights_first",
-		"move_cap_inches"
+		"move_cap_inches",
+		# 06_SYNTHESIS launch-blocker #5: Da Jump (Weirdboy psychic) flag was
+		# never cleared across turn boundaries, permanently locking the
+		# Weirdboy after one Da Jump. `awaiting_da_jump_placement` is also
+		# included as a safety net so a save mid-Da-Jump cannot strand the
+		# unit in placement-pending state across a turn boundary.
+		"da_jump_used_this_turn", "awaiting_da_jump_placement",
 	]
 
 	for unit_id in units:
