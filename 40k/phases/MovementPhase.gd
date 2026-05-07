@@ -195,6 +195,15 @@ func get_unit_movement(unit: Dictionary) -> float:
 		movement += 6.0
 		DebugLogger.info(str("MovementPhase: Special Dose — movement %d → %d (+6\")" % [int(old_movement), int(movement)]))
 
+	# FOLLOW ME LADZ (#394 / War Horde enhancement): +n" to Move characteristic
+	# while bearer leads the unit. Set as effect_plus_move flag on the bearer's
+	# unit by EffectPrimitives when the enhancement is applied.
+	var plus_move = int(unit.get("flags", {}).get("effect_plus_move", 0))
+	if plus_move > 0:
+		var old_move = movement
+		movement += float(plus_move)
+		DebugLogger.info(str("MovementPhase: effect_plus_move — movement %d → %d (+%d\") for %s" % [int(old_move), int(movement), plus_move, unit.get("meta", {}).get("name", "?")]))
+
 	return movement
 
 func _init():

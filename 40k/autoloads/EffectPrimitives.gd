@@ -93,6 +93,9 @@ const MINUS_DAMAGE = "minus_damage"               # value: amount to subtract (m
 
 # Attack count modifiers (persistent flags)
 const PLUS_ATTACKS = "plus_attacks"               # value: amount to add to Attacks characteristic
+# Issue #393 AVENGE THE FALLEN: variant Attacks bonus that overrides PLUS_ATTACKS
+# when the bearer's unit is Below Half-strength at attack time.
+const PLUS_ATTACKS_BELOW_HALF = "plus_attacks_below_half"  # value: amount to add to Attacks while Below Half-strength
 # Issue #374: enhancement primitives.
 const PLUS_MOVE = "plus_move"                     # value: inches to add to Move characteristic
 const PLUS_STRENGTH_MELEE = "plus_strength_melee" # value: amount to add to melee weapon Strength
@@ -177,6 +180,10 @@ const FLAG_PLUS_CHARGE = "effect_plus_charge"             # value: int (amount t
 const FLAG_FLAT_ADVANCE = "effect_flat_advance"
 const FLAG_AUTO_ADVANCE_6 = "effect_auto_advance_6"
 const FLAG_PLUS_ATTACKS = "effect_plus_attacks"            # value: int (amount to add)
+# Issue #393 AVENGE THE FALLEN: applies INSTEAD OF effect_plus_attacks when the
+# bearer's unit is Below Half-strength at attack time. RulesEngine reads both
+# and picks the right one.
+const FLAG_PLUS_ATTACKS_BELOW_HALF = "effect_plus_attacks_below_half"  # value: int (Attacks bonus while Below Half)
 # Issue #374: enhancement flags.
 const FLAG_PLUS_MOVE = "effect_plus_move"                  # value: int (inches added to Move)
 const FLAG_PLUS_STRENGTH_MELEE = "effect_plus_strength_melee"  # value: int (Strength bonus on melee)
@@ -186,6 +193,9 @@ const FLAG_SWING_BACK_BEFORE_REMOVE = "effect_swing_back_before_remove"
 # Issue #375: persistent flag for VIGILANCE ETERNAL — read by ScoringPhase
 # to keep objective control even when no models are within range.
 const FLAG_STICKY_OBJECTIVE_CONTROL = "effect_sticky_objective_control"  # objective_id stored as value
+# Issue #390: CAREEN! — when set on a destroyed VEHICLE, RulesEngine.resolve_deadly_demise
+# performs a Normal/Fall Back move to flags.careen_destination BEFORE rolling mortal wounds.
+const FLAG_CAREEN_PENDING_MOVE = "effect_careen_pending_move"
 
 # MA-29: Weapon-targeted effect filter suffix
 # When an effect has target_weapon_names, a companion flag is stored:
@@ -239,6 +249,8 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	FLAT_ADVANCE: [{"flag": FLAG_FLAT_ADVANCE, "value": true}],
 	AUTO_ADVANCE_6: [{"flag": FLAG_AUTO_ADVANCE_6, "value": true}],
 	PLUS_ATTACKS: [{"flag": FLAG_PLUS_ATTACKS, "value_from": "value"}],
+	# Issue #393: AVENGE THE FALLEN below-half variant.
+	PLUS_ATTACKS_BELOW_HALF: [{"flag": FLAG_PLUS_ATTACKS_BELOW_HALF, "value_from": "value"}],
 	# Issue #375: persistent until end of phase (cleared by phase manager).
 	SWING_BACK_BEFORE_REMOVE: [{"flag": FLAG_SWING_BACK_BEFORE_REMOVE, "value": true}],
 	# Issue #375: persistent on the unit; ScoringPhase reads it.
@@ -742,5 +754,5 @@ static func get_all_persistent_flag_names() -> Array:
 		FLAG_FALL_BACK_AND_SHOOT, FLAG_FALL_BACK_AND_CHARGE,
 		FLAG_ADVANCE_AND_CHARGE, FLAG_ADVANCE_AND_SHOOT,
 		FLAG_REROLL_CHARGE, FLAG_FLAT_ADVANCE, FLAG_AUTO_ADVANCE_6,
-		FLAG_PLUS_ATTACKS, FLAG_PLUS_CHARGE,
+		FLAG_PLUS_ATTACKS, FLAG_PLUS_CHARGE, FLAG_PLUS_ATTACKS_BELOW_HALF,
 	]

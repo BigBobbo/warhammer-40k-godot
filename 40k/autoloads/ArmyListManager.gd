@@ -240,6 +240,9 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
 			_apply_wargear_stat_bonuses(unit_id, unit)
 
+			# Issue #396: enhancement-driven stat bonuses (Auric Mantle +2W).
+			_apply_enhancement_stat_bonuses(unit_id, unit)
+
 			# MA-1: Log model_profiles if present
 			if unit.has("meta") and unit.meta.has("model_profiles"):
 				print("ArmyListManager: Unit %s (%s) loaded with model_profiles: %s" % [unit_id, unit.meta.get("name", "?"), str(unit.meta.model_profiles.keys())])
@@ -780,6 +783,74 @@ func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 					unit.transport_data["firing_deck"] = 0
 					print("ArmyListManager: Wargear '%s' on %s: removed Firing Deck %d" % [
 						ability_name, meta.get("name", unit_id), old_fd
+					])
+
+# ============================================================================
+# ENHANCEMENT STAT BONUSES (Issue #396)
+# ============================================================================
+# Some enhancements modify a list-build characteristic (Wounds, etc.) rather
+# than emitting a runtime flag. Mirror the wargear pipeline at army-build.
+
+const ENHANCEMENT_STAT_BONUSES: Dictionary = {
+	# Custodes Shield Host enhancement: Shield-Captain or Blade Champion only.
+	# Add 2 to the bearer's Wounds characteristic.
+	"Auric Mantle": {
+		"stat": "wounds",
+		"bonus": 2,
+		"apply_to_models": true,
+		"description": "+2 Wounds to bearer (Shield-Captain or Blade Champion only)"
+	}
+}
+
+func _apply_enhancement_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
+	"""For each enhancement on this unit that has a list-build stat bonus,
+	apply it to the unit's stats and (if apply_to_models) every model's wounds
+	field."""
+	if not unit.has("meta"):
+		return
+	var meta = unit.meta
+	var enhancements = meta.get("enhancements", [])
+	if enhancements.is_empty():
+		return
+
+	for enh in enhancements:
+		var enh_name = ""
+		if enh is String:
+			enh_name = enh
+		elif enh is Dictionary:
+			enh_name = enh.get("name", "")
+		if enh_name.is_empty():
+			continue
+		var enh_def = ENHANCEMENT_STAT_BONUSES.get(enh_name, {})
+		if enh_def.is_empty():
+			continue
+
+		var stat_name = enh_def.get("stat", "")
+		var bonus = enh_def.get("bonus", 0)
+		if stat_name.is_empty() or bonus == 0:
+			continue
+
+		if meta.has("stats") and meta.stats.has(stat_name):
+			var old_value = meta.stats[stat_name]
+			meta.stats[stat_name] = old_value + bonus
+			print("ArmyListManager: Enhancement '%s' on %s (%s): %s %d -> %d (+%d)" % [
+				enh_name, meta.get("name", unit_id), unit_id,
+				stat_name, old_value, meta.stats[stat_name], bonus
+			])
+
+		if enh_def.get("apply_to_models", false) and stat_name == "wounds":
+			if unit.has("models"):
+				for model in unit.models:
+					var old_wounds = model.get("wounds", 1)
+					model["wounds"] = old_wounds + bonus
+					var old_current = model.get("current_wounds", old_wounds)
+					if old_current >= old_wounds:
+						# Model is at full wounds — bump current alongside max.
+						model["current_wounds"] = model["wounds"]
+					print("ArmyListManager: Enhancement '%s' on model %s: wounds %d -> %d (current %d -> %d)" % [
+						enh_name, model.get("id", "?"),
+						old_wounds, model["wounds"],
+						old_current, model.get("current_wounds", model["wounds"])
 					])
 
 # ============================================================================

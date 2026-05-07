@@ -277,6 +277,13 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 		if _sticky_objectives.has(obj_id) and _sticky_objectives[obj_id].player != oc_controller:
 			print("MissionManager: Sticky lock on %s broken — Player %d now controls via OC" % [obj_id, oc_controller])
 			_sticky_objectives.erase(obj_id)
+		# Issue #392 VIGILANCE ETERNAL: also clear the per-unit flag for any
+		# unit holding a sticky lock on this objective from the losing side.
+		for unit_id in GameState.state.get("units", {}):
+			var unit = GameState.state.units[unit_id]
+			if unit.get("flags", {}).get("effect_sticky_objective_control", "") == obj_id and int(unit.get("owner", 0)) != oc_controller:
+				unit.flags.erase("effect_sticky_objective_control")
+				print("MissionManager: VIGILANCE ETERNAL flag cleared on %s — Player %d now controls %s" % [unit_id, oc_controller, obj_id])
 		return oc_controller
 
 	# No one has OC presence — check for sticky lock
@@ -300,6 +307,25 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 		else:
 			print("MissionManager: Sticky lock on %s expired — source unit %s is destroyed" % [obj_id, source_unit_id])
 			_sticky_objectives.erase(obj_id)
+
+	# Issue #392 VIGILANCE ETERNAL: also honour the per-unit
+	# effect_sticky_objective_control flag. Survives save/load even when the
+	# in-memory _sticky_objectives dict is empty after a load.
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		var locked_obj_id = unit.get("flags", {}).get("effect_sticky_objective_control", "")
+		if locked_obj_id != obj_id:
+			continue
+		var unit_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				unit_alive = true
+				break
+		if not unit_alive:
+			continue
+		var locking_player = int(unit.get("owner", 0))
+		print("MissionManager: %s remains under Player %d control via VIGILANCE ETERNAL flag (source: %s)" % [obj_id, locking_player, unit_id])
+		return locking_player
 
 	return 0  # Contested or uncontrolled
 
@@ -381,6 +407,56 @@ func clear_sticky_objectives_for_player(player: int) -> void:
 func get_sticky_objectives() -> Dictionary:
 	"""Get current sticky objective state (for save/load and debugging)."""
 	return _sticky_objectives.duplicate(true)
+
+# Issue #392: VIGILANCE ETERNAL stratagem — manual lock by stratagem use.
+# Differs from `apply_sticky_objectives` which scans for units with the
+# has_sticky_objectives_ability datasheet rule; this lets a stratagem set
+# a single objective lock for the named unit.
+func lock_objective_via_stratagem(obj_id: String, player: int, source_unit_id: String) -> bool:
+	"""Lock an objective via a stratagem (e.g. VIGILANCE ETERNAL). Returns true if locked,
+	false if obj_id is empty or the player doesn't currently control the objective."""
+	if obj_id.is_empty():
+		print("MissionManager: lock_objective_via_stratagem — empty obj_id, skipping")
+		return false
+	var current_controller = objective_control_state.get(obj_id, 0)
+	if current_controller != player:
+		print("MissionManager: lock_objective_via_stratagem — Player %d does not control %s (controller=%d)" % [player, obj_id, current_controller])
+		return false
+	_sticky_objectives[obj_id] = {"player": player, "source_unit_id": source_unit_id}
+	print("MissionManager: VIGILANCE ETERNAL — locked %s under Player %d via %s" % [obj_id, player, source_unit_id])
+	return true
+
+func find_nearest_controlled_objective(unit_id: String) -> String:
+	"""Find the objective_id of the nearest objective controlled by this unit's owner
+	that has at least one alive model from the unit within control range. Returns ""
+	if no qualifying objective is found."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return ""
+	var owner = int(unit.get("owner", 0))
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	var objectives = GameState.state.get("board", {}).get("objectives", [])
+	var best_id = ""
+	var best_distance = INF
+	for obj in objectives:
+		var obj_id = obj.get("id", "")
+		if obj_id.is_empty():
+			continue
+		if objective_control_state.get(obj_id, 0) != owner:
+			continue
+		var obj_pos = obj.get("position")
+		if obj_pos == null:
+			continue
+		if obj_pos is Dictionary:
+			obj_pos = Vector2(obj_pos.x, obj_pos.y)
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
+			if edge_distance <= control_radius and edge_distance < best_distance:
+				best_distance = edge_distance
+				best_id = obj_id
+	return best_id
 
 # ============================================================================
 # PRIMARY SCORING — dispatches to mission-specific scoring logic

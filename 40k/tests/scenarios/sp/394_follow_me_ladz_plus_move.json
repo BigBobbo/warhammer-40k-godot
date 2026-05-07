@@ -1,0 +1,16 @@
+{
+  "id": "394_follow_me_ladz_plus_move",
+  "covers": ["movement.enhancement.follow_me_ladz", "phases.MovementPhase.effect_plus_move"],
+  "fixture": "audit_394_followmeladz",
+  "transition_to_phase": 7,
+  "description": "Follow Me Ladz (#394, War Horde enhancement). Fixture has U_BOYZ_E (Boyz, Move 6\") with flags.effect_plus_move=2 pre-set, simulating the bearer Warboss leading the unit. After BEGIN_NORMAL_MOVE, MovementPhase.get_unit_movement must return 8.0 and the unit's move_cap_inches must equal 8. Without the patch the cap is 6 and this scenario fails.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "units.U_BOYZ_E.flags.effect_plus_move", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_BOYZ_E.meta.stats.move", "equals": 6.0 },
+    { "act": "dispatch_action", "action": { "type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "U_BOYZ_E" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_BOYZ_E.flags.move_cap_inches", "equals": 8.0 },
+    { "act": "screenshot", "label": "01_boyz_move_8inch" }
+  ]
+}

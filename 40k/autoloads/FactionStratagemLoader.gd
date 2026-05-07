@@ -628,23 +628,37 @@ func _map_effects(effect_text: String) -> Array:
 	if "subtract 1 from the damage" in t or "subtract 1 from the damage characteristic" in t:
 		effects.append({"type": EffectPrimitivesData.MINUS_DAMAGE, "value": 1})
 
-	# Issue #375 AVENGE THE FALLEN (Shield Host): "add 1 to the Attacks
-	# characteristic of melee weapons" or "add 2 to the Attacks characteristic
-	# of those melee weapons" (variant when target is Below Half-strength).
-	# We emit the higher value when the conditional Below Half clause is
-	# present in the same effect text. Future work should branch on the live
-	# unit's strength when applying.
+	# Issue #393 AVENGE THE FALLEN (Shield Host): "add 1 to the Attacks
+	# characteristic of melee weapons" — and a conditional "add 2 ... instead"
+	# clause when the unit is Below Half-strength. We emit BOTH the default
+	# value AND a Below-Half variant when the conditional clause is present;
+	# RulesEngine picks the right one at attack time based on live unit state.
 	var plus_attacks_regex = RegEx.new()
 	plus_attacks_regex.compile("add (\\d) to the attacks characteristic")
 	var plus_attacks_matches = plus_attacks_regex.search_all(t)
 	if not plus_attacks_matches.is_empty():
-		var max_bonus = 0
+		var values: Array = []
 		for m in plus_attacks_matches:
-			var v = int(m.get_string(1))
-			if v > max_bonus:
-				max_bonus = v
-		if max_bonus > 0:
-			effects.append({"type": EffectPrimitivesData.PLUS_ATTACKS, "value": max_bonus, "scope": "melee"})
+			values.append(int(m.get_string(1)))
+		var has_below_half_clause = ("below half-strength" in t) or ("below half strength" in t)
+		if values.size() == 1:
+			# Single value, no conditional clause — emit as-is.
+			effects.append({"type": EffectPrimitivesData.PLUS_ATTACKS, "value": values[0], "scope": "melee"})
+		elif has_below_half_clause:
+			# Two clauses: default + Below-Half variant. Lower value is the
+			# default; higher is the below-half override.
+			values.sort()
+			effects.append({"type": EffectPrimitivesData.PLUS_ATTACKS, "value": values[0], "scope": "melee"})
+			effects.append({"type": EffectPrimitivesData.PLUS_ATTACKS_BELOW_HALF, "value": values[-1], "scope": "melee"})
+		else:
+			# Multiple values but no conditional clause — fall back to the max
+			# (preserves prior behaviour for unrecognised stratagems).
+			var max_bonus = 0
+			for v in values:
+				if v > max_bonus:
+					max_bonus = v
+			if max_bonus > 0:
+				effects.append({"type": EffectPrimitivesData.PLUS_ATTACKS, "value": max_bonus, "scope": "melee"})
 
 	# --- Keyword Grants ---
 

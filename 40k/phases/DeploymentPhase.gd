@@ -1238,6 +1238,114 @@ func _on_deployment_complete() -> void:
 	log_phase_message("Deployment completed")
 	emit_signal("phase_completed")
 
+# ============================================================================
+# CASTELLAN'S MARK (Issue #397) — post-deployment redeploy of up to 2 units
+# ============================================================================
+# Per Wahapedia (Shield Host enhancement): "Shield-Captain model only. After
+# both players have deployed their armies, you can select up to two Adeptus
+# Custodes units from your army (excluding Anathema Psykana units) and
+# redeploy all of those units. When doing so, any of those units can be
+# placed into Strategic Reserves, regardless of how many units are already
+# in Strategic Reserves."
+
+func find_castellan_mark_bearer_player() -> int:
+	"""Returns 1 or 2 if either player has a unit carrying Castellan's Mark.
+	Returns 0 if no bearer is found."""
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		var enhancements = unit.get("meta", {}).get("enhancements", [])
+		for enh in enhancements:
+			var enh_name = ""
+			if enh is String:
+				enh_name = enh
+			elif enh is Dictionary:
+				enh_name = enh.get("name", "")
+			if enh_name == "Castellan's Mark":
+				return int(unit.get("owner", 0))
+	return 0
+
+func get_castellan_eligible_units(player: int) -> Array:
+	"""List unit_ids the player can redeploy via Castellan's Mark.
+	Eligibility: Adeptus Custodes keyword, owned by player, currently DEPLOYED,
+	NOT Anathema Psykana."""
+	var eligible: Array = []
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if int(unit.get("status", 0)) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var is_custodes = false
+		var is_anathema = false
+		for kw in keywords:
+			var kw_str = str(kw).to_upper()
+			if kw_str == "ADEPTUS CUSTODES":
+				is_custodes = true
+			if kw_str == "ANATHEMA PSYKANA":
+				is_anathema = true
+		if is_custodes and not is_anathema:
+			eligible.append(unit_id)
+	return eligible
+
+func execute_castellan_redeploy(player: int, redeploys: Array) -> Dictionary:
+	"""Apply a Castellan's Mark redeploy decision.
+
+	`redeploys` is an Array of Dictionary entries:
+	  [{unit_id: String, action: "TO_RESERVES"}, ...]
+	  [{unit_id: String, action: "REPLACE_POSITION", positions: [{x, y}, ...]}, ...]
+
+	Returns {success: bool, errors: Array, applied: Array}.
+
+	Caller must enforce the up-to-2 limit; this API will reject more than 2.
+	"""
+	var result = {"success": true, "errors": [], "applied": []}
+	if redeploys.size() > 2:
+		result.success = false
+		result.errors.append("Castellan's Mark allows at most 2 redeploys; received %d" % redeploys.size())
+		return result
+
+	var eligible = get_castellan_eligible_units(player)
+	for entry in redeploys:
+		var unit_id: String = entry.get("unit_id", "")
+		var action: String = entry.get("action", "")
+		if not unit_id in eligible:
+			result.errors.append("%s is not Castellan-eligible (must be deployed Adeptus Custodes, not Anathema Psykana)" % unit_id)
+			continue
+		var unit = GameState.state.units.get(unit_id, {})
+		if action == "TO_RESERVES":
+			# Place unit into Strategic Reserves regardless of cap (the rule
+			# explicitly bypasses the cap for Castellan's Mark moves).
+			unit["status"] = GameStateData.UnitStatus.IN_RESERVES
+			unit["reserve_type"] = "strategic_reserves"
+			# Clear model positions — the unit is off-table.
+			for m in unit.get("models", []):
+				m.erase("position")
+			result.applied.append({"unit_id": unit_id, "action": "TO_RESERVES"})
+			print("DeploymentPhase: Castellan's Mark — %s placed into Strategic Reserves (cap bypassed)" % unit_id)
+		elif action == "REPLACE_POSITION":
+			var positions: Array = entry.get("positions", [])
+			var models = unit.get("models", [])
+			if positions.size() != models.size():
+				result.errors.append("%s: %d positions provided for %d models" % [unit_id, positions.size(), models.size()])
+				continue
+			for i in range(models.size()):
+				var p = positions[i]
+				if p is Vector2:
+					models[i]["position"] = {"x": p.x, "y": p.y}
+				elif p is Dictionary:
+					models[i]["position"] = {"x": p.x, "y": p.y}
+			# Status remains DEPLOYED.
+			result.applied.append({"unit_id": unit_id, "action": "REPLACE_POSITION", "positions": positions})
+			print("DeploymentPhase: Castellan's Mark — %s redeployed to new positions" % unit_id)
+		else:
+			result.errors.append("%s: unknown redeploy action '%s'" % [unit_id, action])
+	if not result.errors.is_empty():
+		result.success = false
+	return result
+
 # Helper methods
 func _has_undeployed_units(player: int) -> bool:
 	var units = get_units_for_player(player)

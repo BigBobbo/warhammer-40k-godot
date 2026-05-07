@@ -1067,6 +1067,33 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 			})
 			break
 
+	# Issue #392 VIGILANCE ETERNAL (Shield Host): the parser-emitted
+	# STICKY_OBJECTIVE_CONTROL effect needs an objective_id to bind to. Find
+	# the bearer's nearest controlled objective at use-time and lock it via
+	# MissionManager. Also write the unit flag so the lock survives save/load
+	# and the per-unit lock can be inspected/cleared.
+	for effect in effects:
+		if effect.get("type", "") == EffectPrimitivesData.STICKY_OBJECTIVE_CONTROL:
+			var mm = get_node_or_null("/root/MissionManager")
+			if mm == null:
+				print("StratagemManager: VIGILANCE ETERNAL — MissionManager unavailable, skipping sticky lock")
+				break
+			var nearest_obj_id: String = mm.find_nearest_controlled_objective(target_unit_id)
+			if nearest_obj_id.is_empty():
+				print("StratagemManager: VIGILANCE ETERNAL — no controlled objective in range of %s" % target_unit_id)
+				break
+			var unit = GameState.get_unit(target_unit_id)
+			var bearer_player = int(unit.get("owner", 0))
+			var locked: bool = mm.lock_objective_via_stratagem(nearest_obj_id, bearer_player, target_unit_id)
+			if locked:
+				diffs.append({
+					"op": "set",
+					"path": "units.%s.flags.effect_sticky_objective_control" % target_unit_id,
+					"value": nearest_obj_id
+				})
+				print("StratagemManager: VIGILANCE ETERNAL — locked %s via %s (Player %d)" % [nearest_obj_id, target_unit_id, bearer_player])
+			break
+
 	# Issue #375 MOB RULE: REMOVE_BATTLE_SHOCK clears the target's battle_shocked
 	# flag instantly. Per Wahapedia: "That ORKS INFANTRY unit is no longer
 	# Battle-shocked." Note that the actual battle-shock target may differ

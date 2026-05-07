@@ -1118,6 +1118,11 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var special = weapon_profile.get("special_rules", "").to_lower()
 		if "ignores cover" in special:
 			weapon_ignores_cover = true
+	# Issue #374 Panoptispex: unit-level effect_ignores_cover flag also makes
+	# the shooter's ranged weapons IGNORE COVER.
+	if not weapon_ignores_cover and shooter_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_IGNORES_COVER, false):
+		weapon_ignores_cover = true
+		print("RulesEngine: Panoptispex (Overwatch) — unit-level effect_ignores_cover applied")
 
 	var allocation_focus_model_id = null
 	var models = target_unit.get("models", [])
@@ -1807,6 +1812,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
 	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
+	# Issue #374 Headwoppa's Killchoppa: unit-level effect_devastating_wounds
+	# grants DEVASTATING WOUNDS to the bearer's melee weapons. Apply at the
+	# unit level here.
+	if not weapon_has_devastating_wounds and actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_DEVASTATING_WOUNDS, false):
+		weapon_has_devastating_wounds = true
+		print("RulesEngine: Headwoppa's Killchoppa — unit-level effect_devastating_wounds applied (until-wounds path)")
 
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
@@ -2652,6 +2663,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
 	var ar_weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
+	# Issue #374 Headwoppa's Killchoppa (auto-resolve path): unit-level
+	# effect_devastating_wounds grants DEVASTATING WOUNDS to the bearer's
+	# melee weapons.
+	if not ar_weapon_has_devastating_wounds and actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_DEVASTATING_WOUNDS, false):
+		ar_weapon_has_devastating_wounds = true
+		print("RulesEngine: Headwoppa's Killchoppa — unit-level effect_devastating_wounds applied (auto-resolve)")
 
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var ar_critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
@@ -2919,6 +2936,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var auto_special = weapon_profile.get("special_rules", "").to_lower()
 		if "ignores cover" in auto_special:
 			auto_weapon_ignores_cover = true
+	# Issue #374 Panoptispex: unit-level effect_ignores_cover flag also makes
+	# the shooter's ranged weapons IGNORE COVER.
+	if not auto_weapon_ignores_cover and actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_IGNORES_COVER, false):
+		auto_weapon_ignores_cover = true
+		print("RulesEngine: Panoptispex — unit-level effect_ignores_cover applied (auto-resolve)")
 
 	# Get target unit's save value
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
@@ -7976,11 +7998,33 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 	
 	# Process each attack assignment
 	for assignment in assignments:
+		# Issue #391 ORKS IS NEVER BEATEN: capture target's alive state BEFORE
+		# this assignment so we can identify models that died this assignment
+		# (and need to swing back before being removed from play).
+		var target_unit_id_pre: String = assignment.get("target", "")
+		var swing_back_pre_alive: Array = []
+		if not target_unit_id_pre.is_empty():
+			var pre_target_unit = units.get(target_unit_id_pre, {})
+			var pre_flags = pre_target_unit.get("flags", {})
+			if pre_flags.get(EffectPrimitivesData.FLAG_SWING_BACK_BEFORE_REMOVE, false):
+				for m in pre_target_unit.get("models", []):
+					swing_back_pre_alive.append(m.get("alive", true))
+
 		var assignment_result = _resolve_melee_assignment(assignment, actor_unit_id, board, rng_service)
 		result.diffs.append_array(assignment_result.diffs)
 		result.dice.append_array(assignment_result.dice)
 		if assignment_result.log_text:
 			result.log_text += assignment_result.log_text + "\n"
+
+		# Issue #391 ORKS IS NEVER BEATEN: now that the original assignment has
+		# resolved (and may have killed models), trigger the deferred swing-back
+		# attack from the dying-but-not-yet-removed models.
+		if not swing_back_pre_alive.is_empty():
+			var sb_diffs_dice = _resolve_swing_back_before_remove(target_unit_id_pre, actor_unit_id, swing_back_pre_alive, board, rng_service)
+			result.diffs.append_array(sb_diffs_dice.get("diffs", []))
+			result.dice.append_array(sb_diffs_dice.get("dice", []))
+			if sb_diffs_dice.get("log_text", "") != "":
+				result.log_text += sb_diffs_dice["log_text"] + "\n"
 
 		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage (melee)
 		var weapon_id = assignment.get("weapon", "")
@@ -7994,6 +8038,82 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 				result.log_text += hazardous_result.log_text + "\n"
 
 	return result
+
+
+# Issue #391 ORKS IS NEVER BEATEN: drive a swing-back attack from models that
+# died this assignment. The dying models temporarily revive so the eligibility
+# / engagement checks in `_resolve_melee_assignment` accept them, then we
+# re-apply alive=false. Models that already fought this phase do NOT swing back
+# (per Wahapedia: "if that model has not fought this phase").
+static func _resolve_swing_back_before_remove(target_unit_id: String, original_attacker_id: String, pre_alive: Array, board: Dictionary, rng: RNGService) -> Dictionary:
+	var sb_result := {"diffs": [], "dice": [], "log_text": ""}
+	var units = board.get("units", {})
+	var defender = units.get(target_unit_id, {})
+	if defender.is_empty():
+		return sb_result
+	var attacker = units.get(original_attacker_id, {})
+	if attacker.is_empty():
+		return sb_result
+
+	# Find models that died this assignment AND haven't fought this phase.
+	var dying_models: Array = []
+	var defender_models: Array = defender.get("models", [])
+	for idx in range(defender_models.size()):
+		if idx >= pre_alive.size():
+			break
+		var was_alive: bool = bool(pre_alive[idx])
+		var is_alive_now: bool = bool(defender_models[idx].get("alive", true))
+		if was_alive and not is_alive_now:
+			# Newly dead. Skip if model already fought this phase.
+			var model_flags = defender_models[idx].get("flags", {})
+			if model_flags.get("fought_this_phase", false):
+				continue
+			dying_models.append(idx)
+
+	if dying_models.is_empty():
+		return sb_result
+
+	# Find the defender's first melee weapon to swing back with.
+	var melee_weapon_name: String = ""
+	for w in defender.get("meta", {}).get("weapons", []):
+		if str(w.get("type", "")).to_lower() == "melee" or str(w.get("range", "")).to_lower() == "melee":
+			melee_weapon_name = w.get("name", "")
+			break
+	if melee_weapon_name.is_empty():
+		print("RulesEngine: ORKS IS NEVER BEATEN — %s has no melee weapon, cannot swing back" % target_unit_id)
+		return sb_result
+
+	print("RulesEngine: ORKS IS NEVER BEATEN — %s swings back %d dying model(s) at %s with '%s'" % [target_unit_id, dying_models.size(), original_attacker_id, melee_weapon_name])
+
+	# Temporarily revive the dying models so the engagement/eligibility checks
+	# in _resolve_melee_assignment accept them. Tag them with pending_swing_back
+	# for downstream visibility. The original assignment-level alive=false diffs
+	# are still in the parent result and will land after our swing-back diffs.
+	for idx in dying_models:
+		defender_models[idx]["alive"] = true
+
+	var sb_assignment := {
+		"attacker": target_unit_id,
+		"target": original_attacker_id,
+		"weapon": melee_weapon_name,
+		"models": dying_models.map(func(i): return str(i))
+	}
+	var sb_assignment_result = _resolve_melee_assignment(sb_assignment, target_unit_id, board, rng)
+
+	# Restore alive=false on the dying models (they're being removed after swing-back).
+	for idx in dying_models:
+		defender_models[idx]["alive"] = false
+		# Mark that the model fought this phase so it doesn't trigger a second
+		# swing-back if a chained mechanic re-checks.
+		if not defender_models[idx].has("flags"):
+			defender_models[idx]["flags"] = {}
+		defender_models[idx]["flags"]["fought_this_phase"] = true
+
+	sb_result.diffs.append_array(sb_assignment_result.diffs)
+	sb_result.dice.append_array(sb_assignment_result.dice)
+	if sb_assignment_result.log_text:
+		sb_result.log_text = sb_assignment_result.log_text
+	return sb_result
 
 # P0-58: Resolve melee attacks but stop before saves for interactive wound allocation.
 # Returns hit/wound dice blocks and save preparation data for WoundAllocationOverlay.
@@ -8227,6 +8347,15 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# MA-29: ABILITY ATTACK BONUS — Check for weapon-targeted +X Attacks from abilities (melee)
 	if model_count > 0 and EffectPrimitivesData.has_effect_plus_attacks(attacker_unit):
 		var melee_bonus_value = EffectPrimitivesData.get_effect_plus_attacks(attacker_unit)
+		# Issue #393 AVENGE THE FALLEN: if a Below-Half-strength variant flag is
+		# set AND the unit is currently Below Half-strength, override the default
+		# bonus with the variant value.
+		var below_half_bonus = int(attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_ATTACKS_BELOW_HALF, 0))
+		if below_half_bonus > 0:
+			var unit_id_for_below_half = attacker_unit.get("id", actor_unit_id)
+			if GameState.is_below_half_strength_combined(unit_id_for_below_half):
+				print("RulesEngine: AVENGE THE FALLEN — unit %s Below Half-strength, attacks bonus %d → %d (variant)" % [unit_id_for_below_half, melee_bonus_value, below_half_bonus])
+				melee_bonus_value = below_half_bonus
 		if EffectPrimitivesData.effect_applies_to_weapon(attacker_unit, EffectPrimitivesData.FLAG_PLUS_ATTACKS, weapon_name):
 			if not is_extra_attacks_weapon:  # Balance Dataslate: skip for Extra Attacks weapons
 				var melee_ability_bonus = melee_bonus_value * model_count
@@ -8259,6 +8388,17 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if bionik_bonus == "strength":
 		strength += 1
 		print("RulesEngine: Bionik Workshop — melee strength %d → %d (+1)" % [strength - 1, strength])
+
+	# FROM THE HALL OF ARMOURIES (#395 / Shield Host enhancement): +n Strength
+	# to melee weapons. Canonical scope is bearer-only, but the flag is applied
+	# unit-wide via EffectPrimitives — same approximation as Bionik Workshop.
+	# Per-model gating would require threading per-attacker-model state through
+	# the resolve loop; tracked as future refactor.
+	var plus_s_melee = int(attacker_unit.get("flags", {}).get("effect_plus_strength_melee", 0))
+	if plus_s_melee > 0:
+		var pre_s_hoa = strength
+		strength += plus_s_melee
+		print("RulesEngine: Hall of Armouries — melee strength %d → %d (+%d)" % [pre_s_hoa, strength, plus_s_melee])
 
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (melee)
@@ -8870,6 +9010,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	# Roll variable damage per regular failed save
 	var melee_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+	# Issue #374 Hall of Armouries: unit-level effect_plus_damage adds to damage
+	# rolls for the bearer's melee weapons.
+	var melee_plus_dmg = int(attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_DAMAGE, 0))
 	var regular_wound_damages = []
 	for _i in range(failed_saves):
 		var dmg_result = roll_variable_characteristic(damage_raw, rng)
@@ -8877,6 +9020,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# DA BIGGER DEY IZ (OA-49): Add conditional damage bonus before defensive modifiers
 		if da_bigger_bonus > 0:
 			wound_dmg_value += da_bigger_bonus
+		# Hall of Armouries: bearer melee +Damage
+		if melee_plus_dmg > 0:
+			var pre_plus_d = wound_dmg_value
+			wound_dmg_value += melee_plus_dmg
+			print("RulesEngine: Hall of Armouries (melee) — damage %d → %d (+%d)" % [pre_plus_d, wound_dmg_value, melee_plus_dmg])
 		# HALF DAMAGE (T4-17): Halve per-wound damage (round up)
 		if melee_has_half_damage:
 			wound_dmg_value = apply_half_damage(wound_dmg_value)
@@ -10422,6 +10570,23 @@ static func apply_mortal_wounds(target_unit_id: String, mortal_wounds: int, boar
 # DEADLY DEMISE (P1-13)
 # ==========================================
 
+# Issue #390 CAREEN! API: arm a Deadly-Demise unit to translate to `dest`
+# (Vector2 in board pixel coordinates) before its mortal wounds resolve. The
+# UI layer should call this after the player picks a destination, between the
+# CAREEN! confirmation and the call to resolve_deadly_demise.
+static func queue_careen_move(unit_id: String, dest: Vector2, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return false
+	if not unit.has("flags"):
+		unit["flags"] = {}
+	unit["flags"][EffectPrimitivesData.FLAG_CAREEN_PENDING_MOVE] = true
+	unit["flags"]["careen_destination"] = {"x": dest.x, "y": dest.y}
+	print("RulesEngine: CAREEN! armed for %s — destination Δ-anchored at (%.1f, %.1f)" % [unit_id, dest.x, dest.y])
+	return true
+
+
 static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
 	"""Resolve Deadly Demise when a model with this ability is destroyed.
 	Rules: Roll 1D6. On a 6, each unit within 6\" suffers 'dd_value' mortal wounds.
@@ -10461,6 +10626,40 @@ static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, b
 		}
 
 	print("║ DEADLY DEMISE TRIGGERED! Rolling mortal wounds for units within 6\"")
+
+	# Issue #390 CAREEN!: if the player used CAREEN! on this unit before the
+	# Deadly Demise mortal-wound roll resolves, slide the unit to the
+	# pre-selected destination FIRST. Per Wahapedia, the unit "can move over
+	# enemy units (excluding MONSTERS and VEHICLES) as if they were not there"
+	# — the player is responsible for selecting a legal destination; we simply
+	# translate every model by the same delta so the relative formation is
+	# preserved.
+	var careen_flags = destroyed_unit.get("flags", {})
+	if careen_flags.get(EffectPrimitivesData.FLAG_CAREEN_PENDING_MOVE, false):
+		var dest = careen_flags.get("careen_destination", null)
+		if dest != null:
+			var anchor_model = null
+			for m in destroyed_unit.get("models", []):
+				if m.has("position"):
+					anchor_model = m
+					break
+			if anchor_model != null:
+				var anchor_pos = anchor_model.get("position")
+				var ax = anchor_pos.x if not (anchor_pos is Dictionary) else anchor_pos.x
+				var ay = anchor_pos.y if not (anchor_pos is Dictionary) else anchor_pos.y
+				var dx = dest.x - ax
+				var dy = dest.y - ay
+				print("║ CAREEN! — translating %s by Δ(%.1f, %.1f) before Deadly Demise resolves" % [destroyed_name, dx, dy])
+				for m2 in destroyed_unit.get("models", []):
+					if m2.has("position"):
+						var p = m2.position
+						if p is Dictionary:
+							m2.position = {"x": p.x + dx, "y": p.y + dy}
+						else:
+							m2.position = Vector2(p.x + dx, p.y + dy)
+		# Clear the careen flag so the move is single-shot.
+		careen_flags.erase(EffectPrimitivesData.FLAG_CAREEN_PENDING_MOVE)
+		careen_flags.erase("careen_destination")
 
 	# Step 2: Find all units within 6" of the destroyed model
 	var destroyed_owner = destroyed_unit.get("owner", 0)

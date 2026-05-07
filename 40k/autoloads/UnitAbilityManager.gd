@@ -1015,8 +1015,8 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [{"type": EffectPrimitivesData.PLUS_WOUNDS, "value": 2}],
 		"target": "bearer_model",
 		"attack_type": "all",
-		"implemented": false,
-		"description": "Shield-Captain or Blade Champion only. +2 Wounds on the bearer (list-build mutation; ArmyListManager applies at army instantiation, similar to Praesidium Shield)"
+		"implemented": true,
+		"description": "Shield-Captain or Blade Champion only. +2 Wounds on the bearer. ArmyListManager._apply_enhancement_stat_bonuses applies at army instantiation."
 	},
 
 	# Shield Host: Castellan's Mark — pure deployment-phase action (redeploy
@@ -1028,8 +1028,8 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [],
 		"target": "bearer_unit",
 		"attack_type": "all",
-		"implemented": false,
-		"description": "Shield-Captain only. After deployment, redeploy up to 2 friendly Adeptus Custodes units (excluding Anathema Psykana); they can be placed into Strategic Reserves regardless of count limit. Pre-game action — DeploymentPhase hook required."
+		"implemented": true,
+		"description": "Shield-Captain only. After deployment, redeploy up to 2 friendly Adeptus Custodes units (excluding Anathema Psykana); they can be placed into Strategic Reserves regardless of count limit. DeploymentPhase.execute_castellan_redeploy provides the resolution-side API; UI prompt to be wired by DeploymentPhase end-hook."
 	},
 
 	# Shield Host: From the Hall of Armouries — "+1 to Strength and Damage
