@@ -1104,16 +1104,30 @@ func _create_flag_reset_diffs(player: int) -> Array:
 		return diffs
 
 	var reset_count = 0
+	# Per-turn unit flags. The single-player path lives in
+	# ScoringPhase._create_flag_reset_changes; this multiplayer path is
+	# its mirror image. Whenever you add a flag here, mirror it there.
+	# 06_SYNTHESIS audit #5 round 2: synced this list with ScoringPhase
+	# after finding GameManager was missing has_fought, has_been_charged,
+	# is_engaged, fight_priority, and the per-turn objective markers
+	# (burned_objective / performed_ritual / performed_terraform). MP
+	# games therefore left those flags pinned across turn boundaries,
+	# affecting fight-priority resolution, engagement state, and the
+	# action-objective trio.
 	var flags_to_reset = [
 		"moved", "advanced", "fell_back", "remained_stationary",
 		"cannot_shoot", "cannot_charge", "cannot_move",
-		"has_shot", "charged_this_turn", "fights_first",
-		"move_cap_inches",
-		# 06_SYNTHESIS launch-blocker #5: Da Jump (Weirdboy psychic) flag was
-		# never cleared across turn boundaries, permanently locking the
-		# Weirdboy after one Da Jump. `awaiting_da_jump_placement` is also
-		# included as a safety net so a save mid-Da-Jump cannot strand the
-		# unit in placement-pending state across a turn boundary.
+		"has_shot", "has_fought", "charged_this_turn", "fights_first",
+		"has_been_charged", "move_cap_inches",
+		"is_engaged", "fight_priority",
+		"burned_objective",
+		"performed_ritual",
+		"performed_terraform",
+		# 06_SYNTHESIS launch-blocker #5: Da Jump (Weirdboy psychic) flag
+		# was never cleared across turn boundaries, permanently locking
+		# the Weirdboy after one Da Jump. awaiting_da_jump_placement is
+		# also reset as a safety net so a save mid-Da-Jump cannot strand
+		# the unit in placement-pending state across a turn boundary.
 		"da_jump_used_this_turn", "awaiting_da_jump_placement",
 	]
 
