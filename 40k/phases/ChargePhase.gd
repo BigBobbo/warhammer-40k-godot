@@ -640,6 +640,19 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var target_ids = charge_data.targets
 
+	# Issue #372: apply persistent +N to charge roll (e.g. 'ERE WE GO grants +2).
+	# The dice rolls themselves remain the raw 2D6 (for display); the total is
+	# what feeds the engagement-range feasibility check and movement budget.
+	var unit_for_charge_bonus = get_unit(unit_id)
+	var charge_bonus = EffectPrimitivesData.get_effect_plus_charge(unit_for_charge_bonus)
+	if charge_bonus > 0:
+		total_distance += charge_bonus
+		charge_data.distance = total_distance
+		log_phase_message("Charge modifier: +%d → %d total" % [charge_bonus, total_distance])
+		DebugLogger.info(str("ChargePhase: PLUS_CHARGE active for %s — base %d + %d = %d" % [
+			unit_name, charge_data.dice_rolls[0] + charge_data.dice_rolls[1], charge_bonus, total_distance
+		]))
+
 	# Server-side feasibility check: can any model reach engagement range?
 	var roll_sufficient = _is_charge_roll_sufficient(unit_id, total_distance)
 	var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
@@ -651,6 +664,7 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 		"unit_name": unit_name,
 		"rolls": rolls,
 		"total": total_distance,
+		"charge_bonus": charge_bonus,
 		"targets": target_ids,
 		"charge_failed": not roll_sufficient,
 		"min_distance": min_distance,

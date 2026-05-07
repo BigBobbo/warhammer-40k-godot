@@ -62,6 +62,17 @@ static func parse_csv_file(file_path: String, delimiter: String = "|") -> Array:
 	file.close()
 	return results
 
+# Normalise a detachment name for comparison: lowercase, replace non-breaking
+# space (U+00A0) with regular space, strip surrounding whitespace. Roster JSONs
+# may have been hand-edited and contain NBSP characters (issue #366); without
+# this normalisation a string compare fails silently and all detachment-gated
+# stratagems are dropped.
+static func _normalise_detachment_name(s: String) -> String:
+	if s == "":
+		return ""
+	# U+00A0 is encoded as the multi-byte sequence " " in GDScript strings.
+	return s.replace(" ", " ").strip_edges().to_lower()
+
 # ============================================================================
 # FACTION CODE LOADING
 # ============================================================================
@@ -146,8 +157,14 @@ func load_faction_stratagems(faction_name: String, detachment_name: String, stra
 
 		var row_detachment = row.get("detachment", "").strip_edges()
 
-		# Filter by detachment if specified
-		if detachment_name != "" and row_detachment != "" and row_detachment != detachment_name:
+		# Filter by detachment if specified.
+		# Issue #366: roster JSONs may store detachment names with NBSP (U+00A0)
+		# instead of regular spaces (e.g. `Adeptus_Custodes_1995_Mar_7.json` had
+		# "Lions of the Emperor"). Plain `==` then fails silently and
+		# every detachment-stratagem load is dropped. Normalise both sides via
+		# `_normalise_detachment_name` (lowercase, NBSP→space, strip edges).
+		if detachment_name != "" and row_detachment != "" and \
+				_normalise_detachment_name(row_detachment) != _normalise_detachment_name(detachment_name):
 			continue
 
 		# Skip Boarding Actions detachment stratagems
@@ -699,6 +716,28 @@ func _map_effects(effect_text: String) -> Array:
 	# Re-roll saves
 	if "re-roll the saving throw" in t or "re-roll saving throws" in t:
 		effects.append({"type": EffectPrimitivesData.REROLL_SAVES, "scope": "all"})
+
+	# Re-roll charge rolls (e.g. Swift Onslaught, Plummeting Descent)
+	# Issue #372: previously routed through ability data only — wire the
+	# stratagem text into the same primitive so 'ERE WE GO and similar
+	# stratagems can grant a charge re-roll via _map_effects.
+	if "re-roll the charge roll" in t or "re-roll charge rolls" in t \
+			or "re-roll its charge roll" in t:
+		effects.append({"type": EffectPrimitivesData.REROLL_CHARGE})
+
+	# +N to charge roll. Wahapedia phrasing varies: "add 2 to that Charge roll",
+	# "add 2 to its Charge roll", "add 2 to the Charge roll", "+2 to charge".
+	# Issue #372 unblocks 'ERE WE GO (+2) and ~12 other faction stratagems.
+	var charge_regex = RegEx.new()
+	charge_regex.compile("(?:add (\\d) to (?:the |its |that )?charge roll|\\+(\\d) to (?:the )?charge)")
+	var charge_match = charge_regex.search(t)
+	if charge_match:
+		var raw = charge_match.get_string(1)
+		if raw == "":
+			raw = charge_match.get_string(2)
+		var bonus = int(raw) if raw != "" else 1
+		if bonus > 0:
+			effects.append({"type": EffectPrimitivesData.PLUS_CHARGE, "value": bonus})
 
 	# --- Movement/Eligibility ---
 

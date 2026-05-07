@@ -12,6 +12,11 @@ var declaring_player: int = 0
 var leader_attachments: Dictionary = {}  # character_id -> bodyguard_id
 var transport_embarkations: Dictionary = {}  # transport_id -> [unit_ids]
 var reserves: Array = []  # [{unit_id, reserve_type}]
+# Issue #367: warlord designation. Empty until the player picks one (or
+# auto-defaulted to the lone CHARACTER when the roster has only one).
+# Required by FormationsPhase._validate_warlord_designation before
+# CONFIRM_FORMATIONS will succeed for multi-CHARACTER rosters.
+var warlord_id: String = ""
 
 # UI references
 var scroll_container: ScrollContainer
@@ -67,6 +72,7 @@ func _build_ui() -> void:
 
 	# Build each section
 	_build_leader_section()
+	_build_warlord_section()
 	_build_transport_section()
 	_build_reserves_section()
 
@@ -152,6 +158,62 @@ func _build_leader_section() -> void:
 		option_button.set_meta("character_id", char_id)
 		option_button.item_selected.connect(_on_leader_option_changed.bind(option_button))
 		row.add_child(option_button)
+
+func _build_warlord_section() -> void:
+	"""Build the warlord designation section.
+	Issue #367: FormationsPhase._validate_warlord_designation requires exactly one
+	CHARACTER to be is_warlord before CONFIRM_FORMATIONS will succeed. Auto-default
+	to the lone CHARACTER when only one exists."""
+	var characters = GameState.get_characters_for_player(declaring_player)
+	if characters.is_empty():
+		return
+
+	var sep = HSeparator.new()
+	content_vbox.add_child(sep)
+
+	var section_label = Label.new()
+	section_label.text = "WARLORD DESIGNATION"
+	section_label.add_theme_font_size_override("font_size", 14)
+	section_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	content_vbox.add_child(section_label)
+
+	var desc_label = Label.new()
+	desc_label.text = "Choose your Warlord (one CHARACTER):"
+	desc_label.add_theme_font_size_override("font_size", 12)
+	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
+	content_vbox.add_child(desc_label)
+
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	content_vbox.add_child(row)
+
+	var warlord_label = Label.new()
+	warlord_label.text = "Warlord:"
+	warlord_label.custom_minimum_size = Vector2(200, 0)
+	warlord_label.add_theme_font_size_override("font_size", 13)
+	row.add_child(warlord_label)
+
+	var option_button = OptionButton.new()
+	option_button.add_item("(Auto-select)", 0)
+	option_button.set_item_metadata(0, "")
+
+	var idx = 1
+	for char_id in characters:
+		var char_unit = GameState.get_unit(char_id)
+		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		option_button.add_item(char_name, idx)
+		option_button.set_item_metadata(idx, char_id)
+		idx += 1
+
+	# Auto-default to the lone CHARACTER if only one exists (mirrors
+	# FormationsPhase._validate_warlord_designation behaviour).
+	if characters.size() == 1:
+		warlord_id = characters[0]
+		option_button.select(1)
+
+	option_button.custom_minimum_size = Vector2(300, 0)
+	option_button.item_selected.connect(_on_warlord_option_changed.bind(option_button))
+	row.add_child(option_button)
 
 func _build_transport_section() -> void:
 	"""Build the transport embarkation section."""
@@ -333,6 +395,13 @@ func _get_transport_eligible_units(transport_id: String) -> Array:
 # Signal Handlers
 # ========================================
 
+func _on_warlord_option_changed(index: int, option_button: OptionButton) -> void:
+	# Issue #367: empty selection ("(Auto-select)") leaves warlord_id blank,
+	# which lets FormationsPhase auto-default to the lone CHARACTER if there
+	# is only one — and otherwise blocks confirm with a clear error.
+	warlord_id = option_button.get_item_metadata(index)
+	_update_summary()
+
 func _on_leader_option_changed(index: int, option_button: OptionButton) -> void:
 	var character_id = option_button.get_meta("character_id")
 	var bodyguard_id = option_button.get_item_metadata(index)
@@ -442,7 +511,8 @@ func _on_confirmed() -> void:
 	var formations = {
 		"leader_attachments": leader_attachments,
 		"transport_embarkations": transport_embarkations,
-		"reserves": reserves
+		"reserves": reserves,
+		"warlord_id": warlord_id
 	}
 	emit_signal("formations_confirmed", declaring_player, formations)
 	queue_free()

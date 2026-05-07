@@ -104,6 +104,7 @@ const FALL_BACK_AND_CHARGE = "fall_back_and_charge"
 const ADVANCE_AND_CHARGE = "advance_and_charge"
 const ADVANCE_AND_SHOOT = "advance_and_shoot"
 const REROLL_CHARGE = "reroll_charge"                   # Re-roll charge rolls (full 2D6)
+const PLUS_CHARGE = "plus_charge"                       # value: amount to add to charge roll total ('ERE WE GO etc.)
 const FLAT_ADVANCE = "flat_advance"                     # Replace Advance roll with flat +6" to Move
 const AUTO_ADVANCE_6 = "auto_advance_6"                 # Skip advance roll, auto +6" to Move
 
@@ -156,6 +157,7 @@ const FLAG_FALL_BACK_AND_CHARGE = "effect_fall_back_and_charge"
 const FLAG_ADVANCE_AND_CHARGE = "effect_advance_and_charge"
 const FLAG_ADVANCE_AND_SHOOT = "effect_advance_and_shoot"
 const FLAG_REROLL_CHARGE = "effect_reroll_charge"
+const FLAG_PLUS_CHARGE = "effect_plus_charge"             # value: int (amount to add to charge roll total)
 const FLAG_FLAT_ADVANCE = "effect_flat_advance"
 const FLAG_AUTO_ADVANCE_6 = "effect_auto_advance_6"
 const FLAG_PLUS_ATTACKS = "effect_plus_attacks"            # value: int (amount to add)
@@ -208,6 +210,7 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	ADVANCE_AND_CHARGE: [{"flag": FLAG_ADVANCE_AND_CHARGE, "value": true}],
 	ADVANCE_AND_SHOOT: [{"flag": FLAG_ADVANCE_AND_SHOOT, "value": true}],
 	REROLL_CHARGE: [{"flag": FLAG_REROLL_CHARGE, "value": true}],
+	PLUS_CHARGE: [{"flag": FLAG_PLUS_CHARGE, "value_from": "value"}],
 	FLAT_ADVANCE: [{"flag": FLAG_FLAT_ADVANCE, "value": true}],
 	AUTO_ADVANCE_6: [{"flag": FLAG_AUTO_ADVANCE_6, "value": true}],
 	PLUS_ATTACKS: [{"flag": FLAG_PLUS_ATTACKS, "value_from": "value"}],
@@ -606,6 +609,12 @@ static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""
 	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false)
 
+static func get_effect_plus_charge(unit: Dictionary) -> int:
+	"""Return the bonus to add to a unit's charge roll total. 0 if no modifier
+	is active. Used by ChargePhase._process_charge_roll for stratagems like
+	'ERE WE GO that add to the rolled distance."""
+	return int(unit.get("flags", {}).get(FLAG_PLUS_CHARGE, 0))
+
 static func has_effect_flat_advance(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted flat advance (replace Advance roll with +6\" to Move)."""
 	return unit.get("flags", {}).get(FLAG_FLAT_ADVANCE, false)
@@ -696,5 +705,5 @@ static func get_all_persistent_flag_names() -> Array:
 		FLAG_FALL_BACK_AND_SHOOT, FLAG_FALL_BACK_AND_CHARGE,
 		FLAG_ADVANCE_AND_CHARGE, FLAG_ADVANCE_AND_SHOOT,
 		FLAG_REROLL_CHARGE, FLAG_FLAT_ADVANCE, FLAG_AUTO_ADVANCE_6,
-		FLAG_PLUS_ATTACKS,
+		FLAG_PLUS_ATTACKS, FLAG_PLUS_CHARGE,
 	]

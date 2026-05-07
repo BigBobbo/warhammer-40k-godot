@@ -2,7 +2,7 @@
   "faction": {
     "name": "Orks",
     "points": 2000,
-    "detachment": "Strike Force",
+    "detachment": "War Horde",
     "player_name": "",
     "team_name": "",
     "created_date": "2025-03-07"
@@ -79,13 +79,13 @@
           {
             "name": "Feel No Pain",
             "type": "Core",
-            "description": "FEEL NO PAINSome warriors refuse to be laid low, even by what should be fatal wounds.Some models have ‘Feel No Pain x+’ listed in their abilities. Each time a model with this ability suffers damage and so would lose a wound (including wounds lost due to mortal wounds), roll one D6: if the result is greater than or equal to the number denoted by ‘x’, that wound is ignored and is not lost. If a model has more than one Feel No Pain ability, you can only use one of those abilities each time that model suffers damage and so would lose a wound.\n- Feel No Pain x+: Each time this model would lose a wound, roll one D6: if the result equals or exceeds ‘x’, that wound is not lost.",
+            "description": "FEEL NO PAINSome warriors refuse to be laid low, even by what should be fatal wounds.Some models have \u2018Feel No Pain x+\u2019 listed in their abilities. Each time a model with this ability suffers damage and so would lose a wound (including wounds lost due to mortal wounds), roll one D6: if the result is greater than or equal to the number denoted by \u2018x\u2019, that wound is ignored and is not lost. If a model has more than one Feel No Pain ability, you can only use one of those abilities each time that model suffers damage and so would lose a wound.\n- Feel No Pain x+: Each time this model would lose a wound, roll one D6: if the result equals or exceeds \u2018x\u2019, that wound is not lost.",
             "parameter": "6+"
           },
           {
             "name": "Leader",
             "type": "Core",
-            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have ‘Leader’ listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead – known as their Bodyguard units – are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader’s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit’s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
+            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have \u2018Leader\u2019 listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead \u2013 known as their Bodyguard units \u2013 are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader\u2019s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit\u2019s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
           },
           {
             "name": "Waaagh!",
@@ -156,7 +156,7 @@
         "is_warlord": false,
         "enhancements": [],
         "wargear": [
-          "1x Mork’s Teeth",
+          "1x Mork\u2019s Teeth",
           "1x Slugga"
         ],
         "weapons": [
@@ -172,7 +172,7 @@
             "special_rules": "pistol"
           },
           {
-            "name": "Mork’s Teeth",
+            "name": "Mork\u2019s Teeth",
             "type": "Melee",
             "range": "Melee",
             "attacks": "6",
@@ -192,7 +192,7 @@
           {
             "name": "Leader",
             "type": "Core",
-            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have ‘Leader’ listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead – known as their Bodyguard units – are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader’s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit’s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
+            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have \u2018Leader\u2019 listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead \u2013 known as their Bodyguard units \u2013 are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader\u2019s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit\u2019s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
           },
           {
             "name": "Lone Operative",
@@ -202,7 +202,7 @@
           {
             "name": "Stealth",
             "type": "Core",
-            "description": "STEALTHSome warriors are masters of disguise and concealment.If every model in a unit has this ability, then each time a ranged attack is made against it, subtract 1 from that attack’s Hit roll."
+            "description": "STEALTHSome warriors are masters of disguise and concealment.If every model in a unit has this ability, then each time a ranged attack is made against it, subtract 1 from that attack\u2019s Hit roll."
           },
           {
             "name": "Waaagh!",
@@ -215,14 +215,14 @@
             "description": "While this model is leading a unit, models in that unit have the Benefit of Cover."
           },
           {
-            "name": "Kunnin’ Infiltrator",
+            "name": "Kunnin\u2019 Infiltrator",
             "type": "Datasheet",
-            "description": "Once per battle, in your Movement phase, instead of making a Normal move with this model’s unit, you can remove it from the battlefield and set it up again anywhere on the battlefield that is more than 9\" horizontally away from all enemy models."
+            "description": "Once per battle, in your Movement phase, instead of making a Normal move with this model\u2019s unit, you can remove it from the battlefield and set it up again anywhere on the battlefield that is more than 9\" horizontally away from all enemy models."
           }
         ],
         "unit_composition": [
           {
-            "description": "1 Boss Snikrot – EPIC HERO",
+            "description": "1 Boss Snikrot \u2013 EPIC HERO",
             "line": 1
           }
         ],
@@ -291,7 +291,7 @@
             "special_rules": "assault"
           },
           {
-            "name": "Killa jet – burna",
+            "name": "Killa jet \u2013 burna",
             "type": "Ranged",
             "range": "12",
             "attacks": "D6",
@@ -302,7 +302,7 @@
             "special_rules": "ignores cover, torrent"
           },
           {
-            "name": "Killa jet – cutta",
+            "name": "Killa jet \u2013 cutta",
             "type": "Ranged",
             "range": "12",
             "attacks": "1",
@@ -327,13 +327,13 @@
           {
             "name": "Deadly Demise",
             "type": "Core",
-            "description": "DEADLY DEMISEFrom detonating ammo stores to corrosive innards or frenzied death throes, some targets are deadly even in defeat.Some models have ‘Deadly Demise x’ listed in their abilities. When such a model is destroyed, roll one D6 before removing it from play (if such a model is a TRANSPORT, roll before any embarked models disembark). On a 6, each unit within 6\" of that model suffers a number of mortal wounds denoted by ‘x’ (if this is a random number, roll separately for each unit within 6\").\nExample: A TRANSPORT model with the Deadly Demise D3 ability is destroyed. Before any models disembark and before removing it from play, its controlling player rolls one D6, getting a 6. There are three units within 6\" of that destroyed model, so its controlling player rolls one D3 for each of them, inflicting mortal wounds accordingly.\n- Deadly Demise x: When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers ‘x’ mortal wounds.",
+            "description": "DEADLY DEMISEFrom detonating ammo stores to corrosive innards or frenzied death throes, some targets are deadly even in defeat.Some models have \u2018Deadly Demise x\u2019 listed in their abilities. When such a model is destroyed, roll one D6 before removing it from play (if such a model is a TRANSPORT, roll before any embarked models disembark). On a 6, each unit within 6\" of that model suffers a number of mortal wounds denoted by \u2018x\u2019 (if this is a random number, roll separately for each unit within 6\").\nExample: A TRANSPORT model with the Deadly Demise D3 ability is destroyed. Before any models disembark and before removing it from play, its controlling player rolls one D6, getting a 6. There are three units within 6\" of that destroyed model, so its controlling player rolls one D3 for each of them, inflicting mortal wounds accordingly.\n- Deadly Demise x: When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers \u2018x\u2019 mortal wounds.",
             "parameter": "1"
           },
           {
             "name": "Leader",
             "type": "Core",
-            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have ‘Leader’ listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead – known as their Bodyguard units – are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader’s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit’s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
+            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have \u2018Leader\u2019 listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead \u2013 known as their Bodyguard units \u2013 are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader\u2019s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit\u2019s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
           },
           {
             "name": "Waaagh!",
@@ -348,7 +348,7 @@
           {
             "name": "Fuel-mixa Grot",
             "type": "Datasheet",
-            "description": "Each time this model’s unit Advances, do not make an Advance roll for it. Instead, until the end of the phase, add 6\" to the Move characteristic of models in this model’s unit."
+            "description": "Each time this model\u2019s unit Advances, do not make an Advance roll for it. Instead, until the end of the phase, add 6\" to the Move characteristic of models in this model\u2019s unit."
           }
         ],
         "unit_composition": [
@@ -425,7 +425,7 @@
           {
             "name": "Leader",
             "type": "Core",
-            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have ‘Leader’ listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead – known as their Bodyguard units – are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader’s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit’s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
+            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have \u2018Leader\u2019 listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead \u2013 known as their Bodyguard units \u2013 are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader\u2019s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit\u2019s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
           },
           {
             "name": "Waaagh!",
@@ -517,7 +517,7 @@
           {
             "name": "Leader",
             "type": "Core",
-            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have ‘Leader’ listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead – known as their Bodyguard units – are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader’s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit’s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
+            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have \u2018Leader\u2019 listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead \u2013 known as their Bodyguard units \u2013 are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader\u2019s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit\u2019s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
           },
           {
             "name": "Waaagh!",
@@ -609,13 +609,13 @@
           {
             "name": "Feel No Pain",
             "type": "Core",
-            "description": "FEEL NO PAINSome warriors refuse to be laid low, even by what should be fatal wounds.Some models have ‘Feel No Pain x+’ listed in their abilities. Each time a model with this ability suffers damage and so would lose a wound (including wounds lost due to mortal wounds), roll one D6: if the result is greater than or equal to the number denoted by ‘x’, that wound is ignored and is not lost. If a model has more than one Feel No Pain ability, you can only use one of those abilities each time that model suffers damage and so would lose a wound.\n- Feel No Pain x+: Each time this model would lose a wound, roll one D6: if the result equals or exceeds ‘x’, that wound is not lost.",
+            "description": "FEEL NO PAINSome warriors refuse to be laid low, even by what should be fatal wounds.Some models have \u2018Feel No Pain x+\u2019 listed in their abilities. Each time a model with this ability suffers damage and so would lose a wound (including wounds lost due to mortal wounds), roll one D6: if the result is greater than or equal to the number denoted by \u2018x\u2019, that wound is ignored and is not lost. If a model has more than one Feel No Pain ability, you can only use one of those abilities each time that model suffers damage and so would lose a wound.\n- Feel No Pain x+: Each time this model would lose a wound, roll one D6: if the result equals or exceeds \u2018x\u2019, that wound is not lost.",
             "parameter": "6+"
           },
           {
             "name": "Leader",
             "type": "Core",
-            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have ‘Leader’ listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead – known as their Bodyguard units – are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader’s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit’s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
+            "description": "LEADERMighty heroes fight at the forefront of battle.Some CHARACTER units have \u2018Leader\u2019 listed on their datasheets. Such CHARACTER units are known as Leaders, and the units they can lead \u2013 known as their Bodyguard units \u2013 are listed on their datasheet.\nDuring the Declare Battle Formations step, for each Leader in your army, if your army also includes one or more of that Leader\u2019s Bodyguard units, you can select one of those Bodyguard units. That Leader will then attach to that Bodyguard unit for the duration of the battle and is said to be leading that unit. Each Bodyguard unit can only have one Leader attached to it.\nWhile a Bodyguard unit contains a Leader, it is known as an Attached unit and, with the exception of rules that are triggered when units are destroyed, it is treated as a single unit for all rules purposes. Each time an attack targets an Attached unit, until the attacking unit has resolved all of its attacks, you must use the Toughness characteristic of the Bodyguard models in that unit, even if a Leader in that unit has a different Toughness characteristic. Each time an attack sucessfully wounds an Attached unit, that attack cannot be allocated to a CHARACTER model in that unit, even if that CHARACTER model has lost one or more wounds or has already had attacks allocated to it this phase. As soon as the last Bodyguard model in an Attached unit has been destroyed, any attacks made against that unit that have yet to be allocated can then be allocated to CHARACTER models in that unit.\nEach time the last model in a Bodyguard unit is destroyed, each CHARACTER unit that is part of that Attached unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks.\nEach time the last model in a CHARACTER unit that is attached to a Bodyguard unit is destroyed and there is not another CHARACTER unit attached, that Attached unit\u2019s Bodyguard unit is no longer part of an Attached unit. It becomes a separate unit, with its original Starting Strength. If this happens as the result of an attack, they become separate units after the attacking unit has resolved all of its attacks. \nEach time a unit that is part of an Attached unit is destroyed, it does not have the keywords of any other units that make up that Attached unit (unless it has those keywords on its own datasheet) for the purposes of any rules that would be triggered when that unit is destroyed.\nExample: If you only destroy the Bodyguard unit that is part of an Attached unit, you have not destroyed a CHARACTER unit. If you only destroy the CHARACTER unit that is part of an Attached unit, or if you destroy the whole Attached unit, you have destroyed one CHARACTER unit.\n- Before the battle, CHARACTER units with the Leader ability can be attached to one of their Bodyguard units to form an Attached unit.\n- Attached units can only contain one Leader.\n- Attacks cannot be allocated to CHARACTER models in Attached units."
           },
           {
             "name": "Waaagh!",
@@ -630,12 +630,12 @@
           {
             "name": "Special Dose",
             "type": "Datasheet",
-            "description": "While the Waaagh! is active for your army, add 6\" to the Move characteristic of models in this model’s unit."
+            "description": "While the Waaagh! is active for your army, add 6\" to the Move characteristic of models in this model\u2019s unit."
           }
         ],
         "unit_composition": [
           {
-            "description": "1 Zodgrod Wortsnagga – EPIC HERO",
+            "description": "1 Zodgrod Wortsnagga \u2013 EPIC HERO",
             "line": 1
           }
         ],
@@ -738,7 +738,7 @@
           {
             "name": "Feel No Pain",
             "type": "Core",
-            "description": "FEEL NO PAINSome warriors refuse to be laid low, even by what should be fatal wounds.Some models have ‘Feel No Pain x+’ listed in their abilities. Each time a model with this ability suffers damage and so would lose a wound (including wounds lost due to mortal wounds), roll one D6: if the result is greater than or equal to the number denoted by ‘x’, that wound is ignored and is not lost. If a model has more than one Feel No Pain ability, you can only use one of those abilities each time that model suffers damage and so would lose a wound.\n- Feel No Pain x+: Each time this model would lose a wound, roll one D6: if the result equals or exceeds ‘x’, that wound is not lost.",
+            "description": "FEEL NO PAINSome warriors refuse to be laid low, even by what should be fatal wounds.Some models have \u2018Feel No Pain x+\u2019 listed in their abilities. Each time a model with this ability suffers damage and so would lose a wound (including wounds lost due to mortal wounds), roll one D6: if the result is greater than or equal to the number denoted by \u2018x\u2019, that wound is ignored and is not lost. If a model has more than one Feel No Pain ability, you can only use one of those abilities each time that model suffers damage and so would lose a wound.\n- Feel No Pain x+: Each time this model would lose a wound, roll one D6: if the result equals or exceeds \u2018x\u2019, that wound is not lost.",
             "parameter": "6+"
           },
           {
@@ -884,9 +884,9 @@
         "wargear": [
           "4x Big shoota",
           "1x Deff rolla",
-          "1x Grabbin’ klaw",
+          "1x Grabbin\u2019 klaw",
           "1x Lobba",
-          "1x Wreckin’ ball",
+          "1x Wreckin\u2019 ball",
           "1x Zzap gun"
         ],
         "weapons": [
@@ -934,7 +934,7 @@
             "weapon_skill": "3"
           },
           {
-            "name": "Grabbin’ klaw",
+            "name": "Grabbin\u2019 klaw",
             "type": "Melee",
             "range": "Melee",
             "attacks": "2",
@@ -945,7 +945,7 @@
             "special_rules": "extra attacks"
           },
           {
-            "name": "Wreckin’ ball",
+            "name": "Wreckin\u2019 ball",
             "type": "Melee",
             "range": "Melee",
             "attacks": "1",
@@ -960,13 +960,13 @@
           {
             "name": "Deadly Demise",
             "type": "Core",
-            "description": "DEADLY DEMISEFrom detonating ammo stores to corrosive innards or frenzied death throes, some targets are deadly even in defeat.Some models have ‘Deadly Demise x’ listed in their abilities. When such a model is destroyed, roll one D6 before removing it from play (if such a model is a TRANSPORT, roll before any embarked models disembark). On a 6, each unit within 6\" of that model suffers a number of mortal wounds denoted by ‘x’ (if this is a random number, roll separately for each unit within 6\").\nExample: A TRANSPORT model with the Deadly Demise D3 ability is destroyed. Before any models disembark and before removing it from play, its controlling player rolls one D6, getting a 6. There are three units within 6\" of that destroyed model, so its controlling player rolls one D3 for each of them, inflicting mortal wounds accordingly.\n- Deadly Demise x: When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers ‘x’ mortal wounds.",
+            "description": "DEADLY DEMISEFrom detonating ammo stores to corrosive innards or frenzied death throes, some targets are deadly even in defeat.Some models have \u2018Deadly Demise x\u2019 listed in their abilities. When such a model is destroyed, roll one D6 before removing it from play (if such a model is a TRANSPORT, roll before any embarked models disembark). On a 6, each unit within 6\" of that model suffers a number of mortal wounds denoted by \u2018x\u2019 (if this is a random number, roll separately for each unit within 6\").\nExample: A TRANSPORT model with the Deadly Demise D3 ability is destroyed. Before any models disembark and before removing it from play, its controlling player rolls one D6, getting a 6. There are three units within 6\" of that destroyed model, so its controlling player rolls one D3 for each of them, inflicting mortal wounds accordingly.\n- Deadly Demise x: When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers \u2018x\u2019 mortal wounds.",
             "parameter": "D6"
           },
           {
             "name": "Firing Deck",
             "type": "Core",
-            "description": "FIRING DECKSome transports have firing hatches, ports or platforms from which embarked passengers can shoot.Some TRANSPORT models have ‘Firing Deck x’ listed in their abilities. Each time such a model is selected to shoot in the Shooting phase, you can select up to ‘x’ models embarked within it whose units have not already shot this phase. Then, for each of those embarked models, you can select one ranged weapon that embarked model is equipped with (excluding weapons with the [ONE SHOT] ability). Until that TRANSPORT model has resolved all of its attacks, it counts as being equipped with all of the weapons you selected in this way, in addition to its other weapons. Until the end of the phase, those selected models’ units are not eligible to shoot.\n- Firing Deck ‘x’: Each time this TRANSPORT shoots, select one weapon (excluding weapons with the [ONE SHOT] ability) from up to ‘x’ models embarked within it whose units have not shot this phase; this TRANSPORT counts as being equipped with those weapons as well. Until the end of the phase, those selected models’ units are not eligible to shoot.",
+            "description": "FIRING DECKSome transports have firing hatches, ports or platforms from which embarked passengers can shoot.Some TRANSPORT models have \u2018Firing Deck x\u2019 listed in their abilities. Each time such a model is selected to shoot in the Shooting phase, you can select up to \u2018x\u2019 models embarked within it whose units have not already shot this phase. Then, for each of those embarked models, you can select one ranged weapon that embarked model is equipped with (excluding weapons with the [ONE SHOT] ability). Until that TRANSPORT model has resolved all of its attacks, it counts as being equipped with all of the weapons you selected in this way, in addition to its other weapons. Until the end of the phase, those selected models\u2019 units are not eligible to shoot.\n- Firing Deck \u2018x\u2019: Each time this TRANSPORT shoots, select one weapon (excluding weapons with the [ONE SHOT] ability) from up to \u2018x\u2019 models embarked within it whose units have not shot this phase; this TRANSPORT counts as being equipped with those weapons as well. Until the end of the phase, those selected models\u2019 units are not eligible to shoot.",
             "parameter": "11"
           },
           {
@@ -980,9 +980,9 @@
             "description": "Each time an attack is allocated to this model, worsen the Armour Penetration characteristic of that attack by 1."
           },
           {
-            "name": "’Ard Case",
+            "name": "\u2019Ard Case",
             "type": "Wargear",
-            "description": "Add 2 to the bearer’s Toughness characteristic, but it no longer has the Firing Deck ability."
+            "description": "Add 2 to the bearer\u2019s Toughness characteristic, but it no longer has the Firing Deck ability."
           },
           {
             "name": "TRANSPORT",
@@ -1042,9 +1042,9 @@
         "wargear": [
           "4x Big shoota",
           "1x Deff rolla",
-          "1x Grabbin’ klaw",
+          "1x Grabbin\u2019 klaw",
           "1x Lobba",
-          "1x Wreckin’ ball",
+          "1x Wreckin\u2019 ball",
           "1x Zzap gun"
         ],
         "weapons": [
@@ -1092,7 +1092,7 @@
             "weapon_skill": "3"
           },
           {
-            "name": "Grabbin’ klaw",
+            "name": "Grabbin\u2019 klaw",
             "type": "Melee",
             "range": "Melee",
             "attacks": "2",
@@ -1103,7 +1103,7 @@
             "special_rules": "extra attacks"
           },
           {
-            "name": "Wreckin’ ball",
+            "name": "Wreckin\u2019 ball",
             "type": "Melee",
             "range": "Melee",
             "attacks": "1",
@@ -1118,13 +1118,13 @@
           {
             "name": "Deadly Demise",
             "type": "Core",
-            "description": "DEADLY DEMISEFrom detonating ammo stores to corrosive innards or frenzied death throes, some targets are deadly even in defeat.Some models have ‘Deadly Demise x’ listed in their abilities. When such a model is destroyed, roll one D6 before removing it from play (if such a model is a TRANSPORT, roll before any embarked models disembark). On a 6, each unit within 6\" of that model suffers a number of mortal wounds denoted by ‘x’ (if this is a random number, roll separately for each unit within 6\").\nExample: A TRANSPORT model with the Deadly Demise D3 ability is destroyed. Before any models disembark and before removing it from play, its controlling player rolls one D6, getting a 6. There are three units within 6\" of that destroyed model, so its controlling player rolls one D3 for each of them, inflicting mortal wounds accordingly.\n- Deadly Demise x: When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers ‘x’ mortal wounds.",
+            "description": "DEADLY DEMISEFrom detonating ammo stores to corrosive innards or frenzied death throes, some targets are deadly even in defeat.Some models have \u2018Deadly Demise x\u2019 listed in their abilities. When such a model is destroyed, roll one D6 before removing it from play (if such a model is a TRANSPORT, roll before any embarked models disembark). On a 6, each unit within 6\" of that model suffers a number of mortal wounds denoted by \u2018x\u2019 (if this is a random number, roll separately for each unit within 6\").\nExample: A TRANSPORT model with the Deadly Demise D3 ability is destroyed. Before any models disembark and before removing it from play, its controlling player rolls one D6, getting a 6. There are three units within 6\" of that destroyed model, so its controlling player rolls one D3 for each of them, inflicting mortal wounds accordingly.\n- Deadly Demise x: When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers \u2018x\u2019 mortal wounds.",
             "parameter": "D6"
           },
           {
             "name": "Firing Deck",
             "type": "Core",
-            "description": "FIRING DECKSome transports have firing hatches, ports or platforms from which embarked passengers can shoot.Some TRANSPORT models have ‘Firing Deck x’ listed in their abilities. Each time such a model is selected to shoot in the Shooting phase, you can select up to ‘x’ models embarked within it whose units have not already shot this phase. Then, for each of those embarked models, you can select one ranged weapon that embarked model is equipped with (excluding weapons with the [ONE SHOT] ability). Until that TRANSPORT model has resolved all of its attacks, it counts as being equipped with all of the weapons you selected in this way, in addition to its other weapons. Until the end of the phase, those selected models’ units are not eligible to shoot.\n- Firing Deck ‘x’: Each time this TRANSPORT shoots, select one weapon (excluding weapons with the [ONE SHOT] ability) from up to ‘x’ models embarked within it whose units have not shot this phase; this TRANSPORT counts as being equipped with those weapons as well. Until the end of the phase, those selected models’ units are not eligible to shoot.",
+            "description": "FIRING DECKSome transports have firing hatches, ports or platforms from which embarked passengers can shoot.Some TRANSPORT models have \u2018Firing Deck x\u2019 listed in their abilities. Each time such a model is selected to shoot in the Shooting phase, you can select up to \u2018x\u2019 models embarked within it whose units have not already shot this phase. Then, for each of those embarked models, you can select one ranged weapon that embarked model is equipped with (excluding weapons with the [ONE SHOT] ability). Until that TRANSPORT model has resolved all of its attacks, it counts as being equipped with all of the weapons you selected in this way, in addition to its other weapons. Until the end of the phase, those selected models\u2019 units are not eligible to shoot.\n- Firing Deck \u2018x\u2019: Each time this TRANSPORT shoots, select one weapon (excluding weapons with the [ONE SHOT] ability) from up to \u2018x\u2019 models embarked within it whose units have not shot this phase; this TRANSPORT counts as being equipped with those weapons as well. Until the end of the phase, those selected models\u2019 units are not eligible to shoot.",
             "parameter": "11"
           },
           {
@@ -1138,9 +1138,9 @@
             "description": "Each time an attack is allocated to this model, worsen the Armour Penetration characteristic of that attack by 1."
           },
           {
-            "name": "’Ard Case",
+            "name": "\u2019Ard Case",
             "type": "Wargear",
-            "description": "Add 2 to the bearer’s Toughness characteristic, but it no longer has the Firing Deck ability."
+            "description": "Add 2 to the bearer\u2019s Toughness characteristic, but it no longer has the Firing Deck ability."
           },
           {
             "name": "TRANSPORT",
@@ -1201,7 +1201,7 @@
           "1x Close combat weapon",
           "4x Burna Boy",
           "4x Burna",
-          "4x Cuttin’ flames"
+          "4x Cuttin\u2019 flames"
         ],
         "weapons": [
           {
@@ -1237,7 +1237,7 @@
             "weapon_skill": "3"
           },
           {
-            "name": "Cuttin’ flames",
+            "name": "Cuttin\u2019 flames",
             "type": "Melee",
             "range": "Melee",
             "attacks": "2",
@@ -1311,7 +1311,7 @@
           "1x Close combat weapon",
           "4x Burna Boy",
           "4x Burna",
-          "4x Cuttin’ flames"
+          "4x Cuttin\u2019 flames"
         ],
         "weapons": [
           {
@@ -1347,7 +1347,7 @@
             "weapon_skill": "3"
           },
           {
-            "name": "Cuttin’ flames",
+            "name": "Cuttin\u2019 flames",
             "type": "Melee",
             "range": "Melee",
             "attacks": "2",
@@ -1480,7 +1480,7 @@
             "description": "While this unit contains one or more Gretchin models, each time an attack targets this unit, Runtherd models in this unit have a Toughness characteristic of 2."
           },
           {
-            "name": "Thievin’ Scavengers",
+            "name": "Thievin\u2019 Scavengers",
             "type": "Datasheet",
             "description": "At the start of your Movement phase, roll one D6 for each objective marker you control that has one or more units from your army with this ability within range of it (excluding Battle-shocked units). If one or more of those rolls is a 4+, you gain 1CP."
           }
@@ -1502,14 +1502,26 @@
         "model_profiles": {
           "runtherd": {
             "label": "Runtherd",
-            "stats_override": {"toughness": 4, "weapon_skill": 3},
-            "weapons": ["Runtherd tools", "Slugga"],
+            "stats_override": {
+              "toughness": 4,
+              "weapon_skill": 3
+            },
+            "weapons": [
+              "Runtherd tools",
+              "Slugga"
+            ],
             "transport_slots": 1
           },
           "gretchin": {
             "label": "Gretchin",
-            "stats_override": {"toughness": 2, "weapon_skill": 5},
-            "weapons": ["Grot blasta", "Close combat weapon"],
+            "stats_override": {
+              "toughness": 2,
+              "weapon_skill": 5
+            },
+            "weapons": [
+              "Grot blasta",
+              "Close combat weapon"
+            ],
             "transport_slots": 1
           }
         }
@@ -1833,7 +1845,7 @@
           {
             "name": "Stealth",
             "type": "Core",
-            "description": "STEALTHSome warriors are masters of disguise and concealment.If every model in a unit has this ability, then each time a ranged attack is made against it, subtract 1 from that attack’s Hit roll."
+            "description": "STEALTHSome warriors are masters of disguise and concealment.If every model in a unit has this ability, then each time a ranged attack is made against it, subtract 1 from that attack\u2019s Hit roll."
           },
           {
             "name": "Waaagh!",
@@ -1843,12 +1855,12 @@
           {
             "name": "Distraction Grot",
             "type": "Wargear",
-            "description": "Once per battle, in your opponent’s Shooting phase, before making a saving throw for a model in this unit, it can deploy the distraction grot. If it does, until the end of the phase, models in this unit have a 5+ invulnerable save.\nDesigner’s Note: Place a Distraction Grot token next to the unit, removing it when this unit uses this ability."
+            "description": "Once per battle, in your opponent\u2019s Shooting phase, before making a saving throw for a model in this unit, it can deploy the distraction grot. If it does, until the end of the phase, models in this unit have a 5+ invulnerable save.\nDesigner\u2019s Note: Place a Distraction Grot token next to the unit, removing it when this unit uses this ability."
           },
           {
             "name": "Bomb Squigs",
             "type": "Wargear",
-            "description": "Once per battle, for each bomb squig this unit has, after this unit ends a Normal move, you can use one Bomb Squig. If you do, select one enemy unit within 12\" and visible to this unit and roll one D6: on a 3+, that enemy unit suffers D3 mortal wounds.\nDesigner’s Note: Place a Bomb Squig token next to the unit, removing it when this unit uses this ability."
+            "description": "Once per battle, for each bomb squig this unit has, after this unit ends a Normal move, you can use one Bomb Squig. If you do, select one enemy unit within 12\" and visible to this unit and roll one D6: on a 3+, that enemy unit suffers D3 mortal wounds.\nDesigner\u2019s Note: Place a Bomb Squig token next to the unit, removing it when this unit uses this ability."
           },
           {
             "name": "Sneaky Surprise",
@@ -1857,8 +1869,8 @@
           },
           {
             "name": "PATROL SQUAD",
-            "type": "Fortification (левая колонка)",
-            "description": "At the start of the Declare Battle Formations step this unit can be split into two units, each containing five models.\n(when splitting a unit in this way, make a note of which models form each of the two new units. If you are splitting a unit that is equipped with 1 bomb squig and/or 1 distraction grot, only one of the new units can use that ability during the battle – make a note of which of the new units this will be)."
+            "type": "Fortification (\u043b\u0435\u0432\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430)",
+            "description": "At the start of the Declare Battle Formations step this unit can be split into two units, each containing five models.\n(when splitting a unit in this way, make a note of which models form each of the two new units. If you are splitting a unit that is equipped with 1 bomb squig and/or 1 distraction grot, only one of the new units can use that ability during the battle \u2013 make a note of which of the new units this will be)."
           }
         ],
         "unit_composition": [
@@ -2037,7 +2049,7 @@
             "description": "If your Army Faction is ORKS, once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase, the Waaagh! is active for your army and:\n- Units from your army with this ability are eligible to declare a charge in a turn in which they Advanced.\n- Add 1 to the Strength and Attacks characteristics of melee weapons equipped by models from your army with this ability.\n- Models from your army with this ability have a 5+ invulnerable save."
           },
           {
-            "name": "Dat’s Our Loot!",
+            "name": "Dat\u2019s Our Loot!",
             "type": "Datasheet",
             "description": "Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1. If that attack targets a unit that is within range of an objective marker, you can re-roll the Hit roll instead."
           }
@@ -2146,7 +2158,7 @@
             "description": "If your Army Faction is ORKS, once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase, the Waaagh! is active for your army and:\n- Units from your army with this ability are eligible to declare a charge in a turn in which they Advanced.\n- Add 1 to the Strength and Attacks characteristics of melee weapons equipped by models from your army with this ability.\n- Models from your army with this ability have a 5+ invulnerable save."
           },
           {
-            "name": "Dat’s Our Loot!",
+            "name": "Dat\u2019s Our Loot!",
             "type": "Datasheet",
             "description": "Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1. If that attack targets a unit that is within range of an objective marker, you can re-roll the Hit roll instead."
           }
@@ -2255,7 +2267,7 @@
             "description": "If your Army Faction is ORKS, once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase, the Waaagh! is active for your army and:\n- Units from your army with this ability are eligible to declare a charge in a turn in which they Advanced.\n- Add 1 to the Strength and Attacks characteristics of melee weapons equipped by models from your army with this ability.\n- Models from your army with this ability have a 5+ invulnerable save."
           },
           {
-            "name": "Dat’s Our Loot!",
+            "name": "Dat\u2019s Our Loot!",
             "type": "Datasheet",
             "description": "Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1. If that attack targets a unit that is within range of an objective marker, you can re-roll the Hit roll instead."
           }
@@ -2561,16 +2573,16 @@
             "name": "Bomb Squigs",
             "type": "Datasheet",
             "count": 2,
-            "description": "Once per battle, for each bomb squig this unit has, after this unit ends a Normal move, you can use one Bomb Squig. If you do, select one enemy unit within 12\" and visible to this unit and roll one D6: on a 3+, that enemy unit suffers D3 mortal wounds.\nDesigner’s Note: Place two Bomb Squig tokens next to the unit, removing one each time this unit uses this ability."
+            "description": "Once per battle, for each bomb squig this unit has, after this unit ends a Normal move, you can use one Bomb Squig. If you do, select one enemy unit within 12\" and visible to this unit and roll one D6: on a 3+, that enemy unit suffers D3 mortal wounds.\nDesigner\u2019s Note: Place two Bomb Squig tokens next to the unit, removing one each time this unit uses this ability."
           },
           {
             "name": "Pulsa Rokkit",
             "type": "Wargear",
-            "description": "Once per battle, when the bearer’s unit is selected to shoot in your Shooting phase, the bearer can use its pulsa rokkit. If it does, until the end of the phase, improve the Strength and Armour Penetration characteristics of ranged weapons equipped by models in the bearer’s unit by 1."
+            "description": "Once per battle, when the bearer\u2019s unit is selected to shoot in your Shooting phase, the bearer can use its pulsa rokkit. If it does, until the end of the phase, improve the Strength and Armour Penetration characteristics of ranged weapons equipped by models in the bearer\u2019s unit by 1."
           },
           {
             "name": "ATTACHED UNIT",
-            "type": "Fortification (левая колонка)",
+            "type": "Fortification (\u043b\u0435\u0432\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430)",
             "description": "If a Character unit from your army with the Leader ability can be attached to a Lootas unit, it can be attached to this unit instead."
           }
         ],
@@ -3037,7 +3049,7 @@
         ],
         "weapons": [
           {
-            "name": "Kannon – frag",
+            "name": "Kannon \u2013 frag",
             "type": "Ranged",
             "range": "36",
             "attacks": "D6",
@@ -3048,7 +3060,7 @@
             "special_rules": "blast"
           },
           {
-            "name": "Kannon – shell",
+            "name": "Kannon \u2013 shell",
             "type": "Ranged",
             "range": "36",
             "attacks": "1",

@@ -6168,6 +6168,21 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 			reserve_action["attached_character_ids"] = attached_chars
 		NetworkIntegration.route_action(reserve_action)
 
+	# Issue #367: Designate warlord if the player picked one. Empty string falls
+	# through to FormationsPhase._validate_warlord_designation auto-default,
+	# which only succeeds when the roster has exactly one CHARACTER.
+	var warlord_id = formations.get("warlord_id", "")
+	if warlord_id != "":
+		var warlord_result = NetworkIntegration.route_action({
+			"type": "DESIGNATE_WARLORD",
+			"unit_id": warlord_id,
+			"player": player
+		})
+		if warlord_result is Dictionary and not warlord_result.get("success", false) and not warlord_result.get("pending", false):
+			push_error("Main: DESIGNATE_WARLORD failed for %s: %s" % [warlord_id, str(warlord_result)])
+		else:
+			print("Main: DESIGNATE_WARLORD succeeded for %s" % warlord_id)
+
 	# Confirm this player's formations
 	var confirm_result = NetworkIntegration.route_action({
 		"type": "CONFIRM_FORMATIONS",
