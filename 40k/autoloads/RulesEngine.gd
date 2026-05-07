@@ -1603,10 +1603,15 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
 		# INDIRECT FIRE (T2-4): Apply -1 to hit modifier for Indirect Fire weapons
-		if is_indirect_fire:
+		# Issue #371: per 10e RAW, the -1 penalty + Benefit of Cover only apply
+		# when the target is NOT visible to any model in the firing unit.
+		var indirect_target_visible = is_indirect_fire and _has_los_to_target_unit(actor_unit_id, target_unit_id, board)
+		if is_indirect_fire and not indirect_target_visible:
 			hit_modifiers |= HitModifier.MINUS_ONE
 			indirect_fire_applied = true
-			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s'" % weapon_profile.get("name", weapon_id))
+			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s' (target not visible)" % weapon_profile.get("name", weapon_id))
+		elif is_indirect_fire and indirect_target_visible:
+			print("RulesEngine: [INDIRECT FIRE] No penalty — target IS visible to firing unit")
 
 		# TANK HUNTERS (OA-11): +1 to Hit when attacking MONSTER or VEHICLE targets
 		if has_tank_hunters_vs_target(actor_unit, target_unit):
@@ -1674,11 +1679,13 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
+			# Issue #371: per 10e RAW, the 1-3-fail rule only applies when target is
+			# NOT visible to the firing unit (same gate as the -1 BS penalty).
 			# CONVERSION X+ (T4-16): Critical hits on unmodified X+ at 12"+ distance
 			if unmodified_roll == 1:
 				pass  # Auto-miss regardless of modifiers
-			elif is_indirect_fire and unmodified_roll <= 3:
-				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
+			elif is_indirect_fire and not indirect_target_visible and unmodified_roll <= 3:
+				pass  # INDIRECT FIRE: Unmodified 1-3 always fail (only when target unseen)
 			elif unmodified_roll >= critical_hit_threshold or final_roll >= attack_bs:
 				hits += 1
 				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
@@ -2436,10 +2443,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
 		# INDIRECT FIRE (T2-4): Apply -1 to hit modifier for Indirect Fire weapons
-		if is_indirect_fire:
+		# Issue #371: per 10e RAW, the -1 penalty + Benefit of Cover only apply
+		# when the target is NOT visible to any model in the firing unit.
+		var indirect_target_visible = is_indirect_fire and _has_los_to_target_unit(actor_unit_id, target_unit_id, board)
+		if is_indirect_fire and not indirect_target_visible:
 			hit_modifiers |= HitModifier.MINUS_ONE
 			indirect_fire_applied = true
-			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s'" % weapon_profile.get("name", weapon_id))
+			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s' (target not visible)" % weapon_profile.get("name", weapon_id))
+		elif is_indirect_fire and indirect_target_visible:
+			print("RulesEngine: [INDIRECT FIRE] No penalty — target IS visible to firing unit")
 
 		# TANK HUNTERS (OA-11): +1 to Hit when attacking MONSTER or VEHICLE targets (auto-resolve)
 		if has_tank_hunters_vs_target(actor_unit, target_unit):
@@ -2508,11 +2520,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
+			# Issue #371: per 10e RAW, the 1-3-fail rule only applies when target is
+			# NOT visible to the firing unit (same gate as the -1 BS penalty).
 			# CONVERSION X+ (T4-16): Critical hits on unmodified X+ at 12"+ distance
 			if unmodified_roll == 1:
 				pass  # Auto-miss regardless of modifiers
-			elif is_indirect_fire and unmodified_roll <= 3:
-				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
+			elif is_indirect_fire and not indirect_target_visible and unmodified_roll <= 3:
+				pass  # INDIRECT FIRE: Unmodified 1-3 always fail (only when target unseen)
 			elif unmodified_roll >= critical_hit_threshold or final_roll >= attack_bs:
 				hits += 1
 				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
@@ -3042,14 +3056,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# Check for cover (IGNORES COVER skips this)
 		# Also check stratagem-granted cover (Go to Ground / Smokescreen)
-		# INDIRECT FIRE (T2-4): Target always gains Benefit of Cover from Indirect Fire
+		# INDIRECT FIRE (T2-4): Target gains Benefit of Cover from Indirect Fire ONLY
+		# when target is not visible to firing unit (Issue #371 — 10e RAW gate).
 		var auto_target_flags = target_unit.get("flags", {})
 		var auto_stratagem_cover = auto_target_flags.get("stratagem_cover", false)
 		var has_cover = false
 		if not auto_weapon_ignores_cover:
-			if is_indirect_fire:
+			if is_indirect_fire and not _has_los_to_target_unit(actor_unit_id, target_unit_id, board):
 				has_cover = true
-				print("RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (auto-resolve)")
+				print("RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (target not visible, auto-resolve)")
 			else:
 				has_cover = _check_model_has_cover(target_model, actor_unit_id, board) or auto_stratagem_cover
 
@@ -3303,7 +3318,9 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 				errors.append("Unknown weapon: " + weapon_id)
 			else:
 				# PISTOL RULES: If in engagement, only Pistol weapons can be used
-				if actor_in_engagement and not is_pistol_weapon(weapon_id, board):
+				# Issue #370 (BGNT): MONSTER and VEHICLE units can fire any weapon in
+				# engagement range per Big Guns Never Tire (BS -1 penalty applies).
+				if actor_in_engagement and not is_pistol_weapon(weapon_id, board) and not is_monster_or_vehicle(actor_unit):
 					errors.append("Non-Pistol weapon '%s' cannot be fired while in engagement range" % weapon_profile.get("name", weapon_id))
 
 				# ASSAULT RULES: If unit Advanced, only Assault weapons can be used
@@ -3364,7 +3381,9 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 						errors.append("Cannot target '%s' — Lone Operative can only be targeted from within 12\" (closest model is %.1f\" away)" % [target_name, min_dist])
 
 			# PISTOL RULES: If in engagement, targets must be within engagement range
-			if actor_in_engagement:
+			# Issue #370 (BGNT): MONSTER and VEHICLE actors firing in ER can target
+			# any visible enemy, not just the unit they're locked with.
+			if actor_in_engagement and not is_monster_or_vehicle(actor_unit):
 				var target_in_er = _is_target_within_engagement_range(actor_unit_id, target_unit_id, board)
 				if not target_in_er:
 					var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
@@ -3736,6 +3755,35 @@ static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, inv
 		"use_invuln": use_invuln,
 		"cap_applied": improvement > 1
 	}
+
+static func _has_los_to_target_unit(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
+	"""Issue #371: returns true if any alive model of actor has LoS to any alive
+	model of target, ignoring weapon range and ignoring Indirect Fire bypass.
+	Used to gate Indirect Fire's -1 BS / Benefit of Cover penalties — per 10e
+	those only apply when the target is NOT visible to any model in the firing
+	unit."""
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	var target_unit = units.get(target_unit_id, {})
+	if actor_unit.is_empty() or target_unit.is_empty():
+		return false
+	var actor_models = actor_unit.get("models", [])
+	var target_models = target_unit.get("models", [])
+	for actor_model in actor_models:
+		if not actor_model.get("alive", true):
+			continue
+		var actor_pos = _get_model_position(actor_model)
+		if not actor_pos:
+			continue
+		for target_model in target_models:
+			if not target_model.get("alive", true):
+				continue
+			var target_pos = _get_model_position(target_model)
+			if not target_pos:
+				continue
+			if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
+				return true
+	return false
 
 static func _check_target_visibility(actor_unit_id: String, target_unit_id: String, weapon_id: String, board: Dictionary) -> Dictionary:
 	var units = board.get("units", {})
@@ -9263,12 +9311,13 @@ static func prepare_save_resolution(
 	for model_info in allocation_info.models:
 		var model = model_info.model
 		# Cover: from terrain OR from stratagem (unless weapon ignores cover)
-		# INDIRECT FIRE (T2-4): Target always gains Benefit of Cover from Indirect Fire
+		# INDIRECT FIRE (T2-4): Target gains Benefit of Cover from Indirect Fire ONLY
+		# when target is not visible to firing unit (Issue #371 — 10e RAW gate).
 		var has_cover = false
 		if not weapon_ignores_cover:
-			if weapon_is_indirect_fire:
+			if weapon_is_indirect_fire and not _has_los_to_target_unit(shooter_unit_id, target_unit_id, board):
 				has_cover = true
-				print("RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (interactive)")
+				print("RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (target not visible)")
 			else:
 				has_cover = _check_model_has_cover(model, shooter_unit_id, board) or effect_cover
 
