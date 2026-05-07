@@ -780,8 +780,15 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		diffs.append_array(effect_diffs)
 
 	# Track active effect for duration management
-	# GRAB AND BASH (OA-4): Effects last until start of next Command phase (= next turn start)
+	# Issue #368: parse duration from the stratagem's effect text. Wahapedia uses
+	# "Until the end of the turn" for whole-turn effects (MULTIPOTENTIALITY,
+	# RELENTLESS PERSECUTION, etc.) and "Until the end of the phase" for
+	# single-phase effects. Default to end_of_phase if neither phrase matches.
+	# GRAB AND BASH (OA-4) is a name-based exception kept for back-compat.
 	var expires = "end_of_phase"
+	var effect_text_lower = str(strat.get("effect_text", "")).to_lower()
+	if "until the end of the turn" in effect_text_lower or "until the end of your turn" in effect_text_lower:
+		expires = "end_of_turn"
 	if strat.get("name", "").to_upper() == "GRAB AND BASH":
 		expires = "end_of_turn"
 	add_active_effect({

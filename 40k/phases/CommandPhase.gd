@@ -690,11 +690,32 @@ func process_action(action: Dictionary) -> Dictionary:
 		_:
 			return {"success": false, "error": "Unknown action type"}
 
+static func _get_effective_leadership(unit_id: String) -> int:
+	"""Issue #369: For Attached units (CHARACTER + bodyguard), the unit's
+	effective Leadership is the highest stat value among any model in it.
+	Per 10e: 'For rules purposes, an Attached unit's Leadership characteristic
+	is the highest among any model in that unit.' In 10e, battle-shock test
+	is `roll >= Ld = pass`, so higher Ld = harder to pass. The audit example:
+	Bodyguard Ld 5 + Character Ld 8 -> use 8."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var ld = int(unit.get("meta", {}).get("stats", {}).get("leadership", 7))
+	var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in attached_chars:
+		var char_unit = GameState.state.get("units", {}).get(char_id, {})
+		if char_unit.is_empty():
+			continue
+		var char_ld = int(char_unit.get("meta", {}).get("stats", {}).get("leadership", 7))
+		if char_ld > ld:
+			ld = char_ld
+	return ld
+
 func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	var leadership = unit.get("meta", {}).get("stats", {}).get("leadership", 7)
+	# Issue #369: use effective leadership (best of attached unit's models),
+	# not just the bodyguard's stat block.
+	var leadership = _get_effective_leadership(unit_id)
 
 	# Roll 2D6 (allow override for testing via dice_roll parameter)
 	# Issue #329: honor payload.rng_seed when supplied; otherwise reuse persistent _rng
@@ -786,7 +807,8 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 	"""Resolve a battle-shock test with the given dice. Called after initial roll or after reroll decision."""
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	var leadership = unit.get("meta", {}).get("stats", {}).get("leadership", 7)
+	# Issue #369: use effective leadership (best of attached unit's models).
+	var leadership = _get_effective_leadership(unit_id)
 	var roll_total = die1 + die2
 
 	# OA-43: Check for Waaagh! Effigy (Aura) — +1 to Battle-shock tests for friendly ORKS within 12"
