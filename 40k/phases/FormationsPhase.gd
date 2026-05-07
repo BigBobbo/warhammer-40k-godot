@@ -193,6 +193,12 @@ func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 	if "CHARACTER" in bg_keywords:
 		errors.append("Cannot attach to another CHARACTER unit")
 
+	# Issue #373: Lone Operative CHARACTERs cannot attach to a bodyguard.
+	# CharacterAttachmentManager.can_attach guards this at deployment time;
+	# Formations is the canonical 10e army-list-time path and must guard it too.
+	if RulesEngine.has_lone_operative(character):
+		errors.append("Lone Operative units cannot attach to a bodyguard")
+
 	# Check keyword compatibility (case-insensitive)
 	if can_lead.size() > 0:
 		var has_match = false
