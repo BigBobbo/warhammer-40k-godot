@@ -1313,6 +1313,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		result.log_text = "Unknown weapon: " + weapon_id
 		return result
 
+	# Issue #387 Waaagh! Energy: 'Eadbanger gains +S/+D per 5 models in led unit
+	# (and HAZARDOUS at 10+). Mutates profile when applicable.
+	weapon_profile = _apply_waaagh_energy_to_profile(weapon_profile, weapon_id, actor_unit_id, board)
+
 	# Calculate total attacks — roll variable attacks per model (D3, D6, etc.)
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
 
@@ -2159,6 +2163,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if weapon_profile.is_empty():
 		result.log_text = "Unknown weapon: " + weapon_id
 		return result
+
+	# Issue #387 Waaagh! Energy: 'Eadbanger gains +S/+D per 5 models in led unit
+	# (and HAZARDOUS at 10+). Mutates profile when applicable.
+	weapon_profile = _apply_waaagh_energy_to_profile(weapon_profile, weapon_id, actor_unit_id, board)
 
 	# Calculate total attacks — roll variable attacks per model (D3, D6, etc.)
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
@@ -4572,6 +4580,90 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 	
 	print("WARNING: Weapon profile not found: ", weapon_id)
 	return {}
+
+# Issue #387 Waaagh! Energy (Weirdboy 'Eadbanger size scaling).
+# Wahapedia (Datasheets_abilities.csv unit 000000004): "While this model is
+# leading a unit, add 1 to the Strength and Damage characteristics of this
+# model's 'Eadbanger weapon for every 5 models in that unit (rounding down),
+# but while that unit contains 10 or more models, that weapon has the
+# [HAZARDOUS] ability."
+static func get_waaagh_energy_eadbanger_bonus(weirdboy_unit_id: String, board: Dictionary) -> Dictionary:
+	var zero = {"strength_bonus": 0, "damage_bonus": 0, "hazardous": false, "led_unit_model_count": 0}
+	var units = board.get("units", {})
+	var weirdboy = units.get(weirdboy_unit_id, {})
+	if weirdboy.is_empty():
+		return zero
+	var has_ability = false
+	for ab in weirdboy.get("abilities", []):
+		var ab_name = ""
+		if typeof(ab) == TYPE_DICTIONARY:
+			ab_name = String(ab.get("name", ""))
+		elif typeof(ab) == TYPE_STRING:
+			ab_name = String(ab)
+		if ab_name == "Waaagh! Energy":
+			has_ability = true
+			break
+	if not has_ability:
+		return zero
+	var bodyguard_id = weirdboy.get("attached_to", null)
+	if bodyguard_id == null or String(bodyguard_id) == "":
+		return zero
+	var bodyguard = units.get(bodyguard_id, {})
+	if bodyguard.is_empty():
+		return zero
+	var count = 0
+	for m in bodyguard.get("models", []):
+		if m.get("alive", true):
+			count += 1
+	var attached = bodyguard.get("attachment_data", {}).get("attached_characters", [])
+	for cid in attached:
+		var c = units.get(cid, {})
+		for cm in c.get("models", []):
+			if cm.get("alive", true):
+				count += 1
+	var bonus = int(count / 5)
+	return {
+		"strength_bonus": bonus,
+		"damage_bonus": bonus,
+		"hazardous": count >= 10,
+		"led_unit_model_count": count,
+	}
+
+# Mutate a weapon profile in-place if Waaagh! Energy applies to this actor +
+# weapon. Returns the (possibly modified) profile. Safe to call on any profile.
+static func _apply_waaagh_energy_to_profile(profile: Dictionary, weapon_id: String, actor_unit_id: String, board: Dictionary) -> Dictionary:
+	var wname = String(profile.get("name", weapon_id)).to_lower()
+	if wname.find("eadbanger") == -1:
+		return profile
+	var bonus = get_waaagh_energy_eadbanger_bonus(actor_unit_id, board)
+	if bonus.strength_bonus == 0 and not bonus.hazardous:
+		return profile
+	var p = profile.duplicate(true)
+	if bonus.strength_bonus > 0:
+		p["strength"] = int(p.get("strength", 4)) + bonus.strength_bonus
+		p["damage"] = int(p.get("damage", 1)) + bonus.damage_bonus
+		var damage_raw = String(p.get("damage_raw", str(p.get("damage", 1))))
+		if damage_raw.is_valid_int():
+			p["damage_raw"] = str(int(damage_raw) + bonus.damage_bonus)
+		else:
+			# Append +N to variable expressions so D6 -> D6+N etc.
+			p["damage_raw"] = damage_raw + "+" + str(bonus.damage_bonus)
+		print("RulesEngine: Waaagh! Energy — 'Eadbanger S +%d, D +%d (led unit has %d models)" % [bonus.strength_bonus, bonus.damage_bonus, bonus.led_unit_model_count])
+	if bonus.hazardous:
+		var keywords = p.get("keywords", []).duplicate()
+		var has_haz = false
+		for kw in keywords:
+			if String(kw).to_upper() == "HAZARDOUS":
+				has_haz = true
+				break
+		if not has_haz:
+			keywords.append("HAZARDOUS")
+		p["keywords"] = keywords
+		var sr = String(p.get("special_rules", ""))
+		if sr.to_lower().find("hazardous") == -1:
+			p["special_rules"] = sr + (", " if sr != "" else "") + "Hazardous"
+		print("RulesEngine: Waaagh! Energy — 'Eadbanger gains HAZARDOUS (led unit has %d models)" % bonus.led_unit_model_count)
+	return p
 
 # Check if a weapon has the PISTOL keyword (case-insensitive)
 static func is_pistol_weapon(weapon_id: String, board: Dictionary = {}) -> bool:

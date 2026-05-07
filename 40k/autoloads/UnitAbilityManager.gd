@@ -658,8 +658,8 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [],
 		"target": "model",
 		"attack_type": "ranged",
-		"implemented": false,
-		"description": "+1 S and +1 D to 'Eadbanger per 5 models in led unit; Hazardous at 10+ models — requires dynamic weapon modification"
+		"implemented": true,
+		"description": "+1 S and +1 D to 'Eadbanger per 5 models in led unit; HAZARDOUS at 10+ models — UnitAbilityManager.get_waaagh_energy_eadbanger_bonus(weirdboy_id)"
 	},
 
 	# ======================================================================
@@ -2422,6 +2422,63 @@ func roll_big_booms_concussive_wave(actor_unit_id: String, target_unit_id: Strin
 		game_event_log.add_player_entry(owner,
 			"Big Booms supa-kannon concussive wave: rolls=%s struck=%s" % [str(results), str(struck_ids)])
 	return results
+
+
+# Issue #387 Waaagh! Energy (Weirdboy 'Eadbanger size scaling).
+# Wahapedia text (Datasheets_abilities.csv unit 000000004):
+# "While this model is leading a unit, add 1 to the Strength and Damage
+# characteristics of this model's 'Eadbanger weapon for every 5 models in that
+# unit (rounding down), but while that unit contains 10 or more models, that
+# weapon has the [HAZARDOUS] ability."
+# Returns {strength_bonus: int, damage_bonus: int, hazardous: bool} — applies
+# only when the weirdboy is leading a unit (attached_to set) and only to the
+# 'Eadbanger weapon. Caller must gate on weapon name.
+func get_waaagh_energy_eadbanger_bonus(weirdboy_unit_id: String) -> Dictionary:
+	var zero = {"strength_bonus": 0, "damage_bonus": 0, "hazardous": false, "led_unit_model_count": 0}
+	var units = GameState.state.get("units", {})
+	var weirdboy = units.get(weirdboy_unit_id, {})
+	if weirdboy.is_empty():
+		return zero
+	# Verify ability present.
+	var has_ability = false
+	for ab in weirdboy.get("abilities", []):
+		var ab_name = ""
+		if typeof(ab) == TYPE_DICTIONARY:
+			ab_name = String(ab.get("name", ""))
+		elif typeof(ab) == TYPE_STRING:
+			ab_name = String(ab)
+		if ab_name == "Waaagh! Energy":
+			has_ability = true
+			break
+	if not has_ability:
+		return zero
+	# Must be leading a unit.
+	var bodyguard_id = weirdboy.get("attached_to", null)
+	if bodyguard_id == null or String(bodyguard_id) == "":
+		return zero
+	var bodyguard = units.get(bodyguard_id, {})
+	if bodyguard.is_empty():
+		return zero
+	# Count alive models in the led unit + alive attached characters (the unit
+	# is the combined entity in 10e).
+	var count = 0
+	for m in bodyguard.get("models", []):
+		if m.get("alive", true):
+			count += 1
+	var attached = bodyguard.get("attachment_data", {}).get("attached_characters", [])
+	for cid in attached:
+		var c = units.get(cid, {})
+		for cm in c.get("models", []):
+			if cm.get("alive", true):
+				count += 1
+	var bonus = int(count / 5)  # +1 per 5 models, rounded down
+	var hazardous = count >= 10
+	return {
+		"strength_bonus": bonus,
+		"damage_bonus": bonus,
+		"hazardous": hazardous,
+		"led_unit_model_count": count,
+	}
 
 
 func _apply_eligibility_effects() -> void:
