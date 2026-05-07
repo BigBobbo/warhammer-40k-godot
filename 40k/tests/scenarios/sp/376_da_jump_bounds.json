@@ -1,0 +1,38 @@
+{
+  "id": "376_da_jump_bounds",
+  "covers": ["movement.da_jump_placement_bounds", "phases.MovementPhase.PLACE_DA_JUMP"],
+  "fixture": "audit_376_da_jump",
+  "transition_to_phase": 7,
+  "description": "Issue #376: Da Jump placement bounds. Weirdboy has awaiting_da_jump_placement=true. PLACE_DA_JUMP too close to enemy (1.76\" edge-to-edge) should be rejected. PLACE_DA_JUMP at valid position (26\"+ from all enemies) should succeed and update model position.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "units.U_WEIRDBOY_J.flags.awaiting_da_jump_placement", "equals": true },
+    { "act": "screenshot", "label": "01_movement_phase_weirdboy_awaiting_placement" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "PLACE_DA_JUMP",
+      "actor_unit_id": "U_WEIRDBOY_J",
+      "payload": {
+        "model_positions": [
+          { "model_id": "m1", "x": 800, "y": 1180 }
+        ]
+      }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "screenshot", "label": "02_placement_too_close_rejected" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "PLACE_DA_JUMP",
+      "actor_unit_id": "U_WEIRDBOY_J",
+      "payload": {
+        "model_positions": [
+          { "model_id": "m1", "x": 100, "y": 100 }
+        ]
+      }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_WEIRDBOY_J.flags.awaiting_da_jump_placement", "equals": false },
+    { "act": "screenshot", "label": "03_valid_placement_accepted" }
+  ]
+}
