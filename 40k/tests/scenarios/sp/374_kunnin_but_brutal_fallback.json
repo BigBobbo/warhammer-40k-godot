@@ -1,0 +1,22 @@
+{
+  "id": "374_kunnin_but_brutal_fallback",
+  "covers": ["movement.enhancement.kunnin_but_brutal", "autoloads.EffectPrimitives.fall_back_and_shoot"],
+  "fixture": "audit_374_kunnin",
+  "transition_to_phase": 7,
+  "description": "Kunnin' But Brutal (#374): Warboss C has flags.effect_fall_back_and_shoot=true and effect_fall_back_and_charge=true (from Kunnin' But Brutal enhancement). Shield Captain A is positioned within engagement range. In movement phase, verify the flags are present and the unit can BEGIN_FALL_BACK (proving the engaged unit with fall_back_and_shoot/charge flags is accepted by the phase).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_WARBOSS_C.flags.effect_fall_back_and_shoot", "equals": true },
+    { "act": "expect_state", "path": "units.U_WARBOSS_C.flags.effect_fall_back_and_charge", "equals": true },
+    { "act": "screenshot", "label": "01_kunnin_flags_set" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_FALL_BACK",
+      "actor_unit_id": "U_WARBOSS_C"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_warboss_c_falling_back" }
+  ]
+}

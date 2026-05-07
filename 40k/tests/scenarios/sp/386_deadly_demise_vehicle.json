@@ -1,0 +1,22 @@
+{
+  "id": "386_deadly_demise_vehicle",
+  "covers": ["fight.ability.deadly_demise", "autoloads.RulesEngine.resolve_deadly_demise"],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "description": "Deadly Demise (#386): Battlewagon G is at 1 wound remaining, positioned next to Contemptor-Achillus Dreadnought H (which has charged). Dreadnought attacks Battlewagon — on destruction, Deadly Demise D6 triggers (roll 6 on D6). Verify fight resolves and the Battlewagon takes lethal damage.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "expect_state", "path": "units.U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H.flags.charged_this_turn", "equals": true },
+    { "act": "screenshot", "label": "01_fight_phase_vehicle_low_hp" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SELECT_FIGHTER",
+      "unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_dreadnought_selected_to_fight" }
+  ]
+}

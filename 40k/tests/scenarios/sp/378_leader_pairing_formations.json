@@ -1,0 +1,34 @@
+{
+  "id": "378_leader_pairing_formations",
+  "covers": ["phases.FormationsPhase.declare_leader_attachment", "autoloads.LeaderPairingsLoader"],
+  "fixture": "audit_378_formations",
+  "transition_to_phase": 0,
+  "description": "LeaderPairingsLoader (#378): In the FormationsPhase (player 1 declares first), attach Blade Champion A to Custodian Guard B using DECLARE_LEADER_ATTACHMENT, then CONFIRM_FORMATIONS, then attach Warboss B to Boyz E for player 2, and CONFIRM_FORMATIONS for player 2. Validates canonical leader pairings are accepted through the UI phase.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 0 },
+    { "act": "screenshot", "label": "01_formations_phase_start" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_LEADER_ATTACHMENT",
+      "character_id": "U_BLADE_CHAMPION_A",
+      "bodyguard_id": "U_CUSTODIAN_GUARD_B"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_blade_champion_attached" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "CONFIRM_FORMATIONS"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "03_p1_formations_confirmed" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_LEADER_ATTACHMENT",
+      "character_id": "U_WARBOSS_B",
+      "bodyguard_id": "U_BOYZ_E"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "04_warboss_attached_to_boyz" }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "387_waaagh_energy_eadbanger",
+  "covers": ["shooting.ability.waaagh_energy", "autoloads.RulesEngine.get_waaagh_energy_eadbanger_bonus"],
+  "fixture": "audit_387_waaagh_energy",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Waaagh! Energy (#387): Weirdboy J is attached to Boyz K (10 alive models). With 11 total models (10 Boyz + 1 Weirdboy), bonus = floor(11/5) = 2 => S6+2=8, D1+2=3 on 'Eadbanger. SELECT_SHOOTER on bodyguard unit U_BOYZ_K (includes Weirdboy's weapons), verify it succeeds. The Waaagh! Energy bonus is applied at resolution time in _apply_waaagh_energy_to_profile.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_WEIRDBOY_J.attached_to", "equals": "U_BOYZ_K" },
+    { "act": "screenshot", "label": "01_shooting_phase_ork_turn" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SELECT_SHOOTER",
+      "actor_unit_id": "U_BOYZ_K"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_boyz_k_selected_with_weirdboy_attached" }
+  ]
+}

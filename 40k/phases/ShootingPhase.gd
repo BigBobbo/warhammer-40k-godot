@@ -3021,6 +3021,8 @@ func _is_unit_destroyed(unit_id: String) -> bool:
 func _can_unit_shoot(unit: Dictionary) -> bool:
 	var status = unit.get("status", 0)
 	var flags = unit.get("flags", {})
+	var unit_name = unit.get("meta", {}).get("name", unit.get("id", "?"))
+	DebugLogger.info(str("ShootingPhase: _can_unit_shoot(%s) — status=%s, destroyed=%s, embarked=%s, has_shot=%s, advanced=%s" % [unit_name, str(status), str(_is_unit_destroyed_check(unit)), str(unit.get("embarked_in", null)), str(flags.get("has_shot", false)), str(flags.get("advanced", false))]))
 
 	# Check if unit is destroyed (all models dead)
 	if _is_unit_destroyed_check(unit):
@@ -3032,6 +3034,7 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 
 	# Check if unit is deployed
 	if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:
+		DebugLogger.info(str("ShootingPhase: _can_unit_shoot(%s) — REJECTED: status %s is not DEPLOYED(%d) or MOVED(%d)" % [unit_name, str(status), GameStateData.UnitStatus.DEPLOYED, GameStateData.UnitStatus.MOVED]))
 		return false
 
 	# Check if unit has already shot
