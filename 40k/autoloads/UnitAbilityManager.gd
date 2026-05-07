@@ -1381,13 +1381,22 @@ const ABILITY_EFFECTS: Dictionary = {
 	# the target unit, each unit struck by the concussive wave suffers D3 mortal wounds.
 	# Requires ShootingPhase integration to roll concussive wave after target selection.
 	"Big Booms": {
+		# Issue #386: Wahapedia text (Kannonwagon datasheet, NOT Battlewagon as audit
+		# said): "In your Shooting phase, just after selecting a target for this
+		# model's supa-kannon, roll one D6 for the target unit and every other unit
+		# within 3 inches of that unit: on a 5+, the unit being rolled for is struck
+		# by a concussive wave. After this model has finished making its attacks
+		# against that target unit this phase, each unit struck by a concussive wave
+		# this phase suffers D3 mortal wounds."
+		# Active Ork rosters field Battlewagon (no supa-kannon), so this path is
+		# unreachable in-scope. Registered for future Kannonwagon rosters.
 		"condition": "on_shooting_target_selection",
 		"effects": [],
 		"target": "enemy_target",
 		"attack_type": "ranged",
 		"weapon_restriction": "supa-kannon",
-		"implemented": false,
-		"description": "When targeting with supa-kannon: roll D6 for target and units within 3\" — 5+=concussive wave; after attack resolves each struck unit suffers D3 MW — requires ShootingPhase integration"
+		"implemented": true,
+		"description": "When targeting with supa-kannon: roll D6 for target+units within 3\" — 5+=concussive wave; D3 MW per struck unit after attacks resolve. Helper: UnitAbilityManager.roll_big_booms_concussive_wave(actor_id, target_id)"
 	},
 
 	# Bonebreaka — +1 to Hit on ranged attacks vs targets within half weapon range
@@ -2307,6 +2316,112 @@ func get_deadly_unity_hit_bonus(target_unit_id: String) -> int:
 	if _is_within_friendly_anathema_psykana(target_unit_id, 6.0):
 		return 1
 	return 0
+
+
+# Issue #386 Big Booms (Kannonwagon supa-kannon).
+# Wahapedia: "In your Shooting phase, just after selecting a target for this
+# model's supa-kannon, roll one D6 for the target unit and every other unit
+# within 3" of that unit: on a 5+, the unit being rolled for is struck by a
+# concussive wave. After this model has finished making its attacks against
+# that target unit this phase, each unit struck by a concussive wave this
+# phase suffers D3 mortal wounds."
+# Returns array of dicts: [{unit_id, roll, struck:bool}].
+# ShootingPhase calls this on target selection if actor has a supa-kannon
+# weapon and Big Booms ability; struck unit ids are queued and D3 MW per unit
+# is applied after attacks against the chosen target finish resolving.
+func roll_big_booms_concussive_wave(actor_unit_id: String, target_unit_id: String, rng_seed: int = -1) -> Array:
+	var units = GameState.state.get("units", {})
+	var actor = units.get(actor_unit_id, {})
+	if actor.is_empty():
+		return []
+	# Verify the actor has Big Booms ability + a supa-kannon weapon. Both are
+	# required by the rule so misconfigurations don't silently fire.
+	var actor_abilities = actor.get("abilities", [])
+	var has_ability = false
+	for ab in actor_abilities:
+		var ab_name = ""
+		if typeof(ab) == TYPE_DICTIONARY:
+			ab_name = String(ab.get("name", ""))
+		elif typeof(ab) == TYPE_STRING:
+			ab_name = String(ab)
+		if ab_name == "Big Booms":
+			has_ability = true
+			break
+	if not has_ability:
+		return []
+	var has_supa_kannon = false
+	# Codebase stores weapons primarily on unit.meta.weapons; some flows attach
+	# them per-model. Check both.
+	var meta_weapons = actor.get("meta", {}).get("weapons", [])
+	for w in meta_weapons:
+		var wname = ""
+		if typeof(w) == TYPE_DICTIONARY:
+			wname = String(w.get("name", ""))
+		elif typeof(w) == TYPE_STRING:
+			wname = String(w)
+		if wname.to_lower().find("supa-kannon") != -1:
+			has_supa_kannon = true
+			break
+	if not has_supa_kannon:
+		for model in actor.get("models", []):
+			for w in model.get("weapons", []):
+				var wname2 = ""
+				if typeof(w) == TYPE_DICTIONARY:
+					wname2 = String(w.get("name", ""))
+				elif typeof(w) == TYPE_STRING:
+					wname2 = String(w)
+				if wname2.to_lower().find("supa-kannon") != -1:
+					has_supa_kannon = true
+					break
+			if has_supa_kannon:
+				break
+	if not has_supa_kannon:
+		return []
+
+	var target_unit = units.get(target_unit_id, {})
+	if target_unit.is_empty():
+		return []
+
+	# Build candidate set: target + every other unit (friend or foe) with at
+	# least one alive model whose closest model is within 3" of any target model.
+	var candidates: Array = [target_unit_id]
+	for uid in units.keys():
+		if uid == target_unit_id or uid == actor_unit_id:
+			continue
+		var u = units[uid]
+		if not _has_alive_models(u):
+			continue
+		var dist = _closest_model_distance(target_unit, u)
+		if dist <= 3.0:
+			candidates.append(uid)
+
+	var rng := RandomNumberGenerator.new()
+	if rng_seed >= 0:
+		rng.seed = rng_seed
+	else:
+		rng.randomize()
+
+	var results: Array = []
+	for uid in candidates:
+		var roll = rng.randi_range(1, 6)
+		var struck = roll >= 5
+		results.append({
+			"unit_id": uid,
+			"roll": roll,
+			"struck": struck,
+		})
+
+	# Optional event-log
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var owner = int(actor.get("owner", 0))
+		var struck_ids: Array = []
+		for r in results:
+			if r["struck"]:
+				struck_ids.append(r["unit_id"])
+		game_event_log.add_player_entry(owner,
+			"Big Booms supa-kannon concussive wave: rolls=%s struck=%s" % [str(results), str(struck_ids)])
+	return results
 
 
 func _apply_eligibility_effects() -> void:

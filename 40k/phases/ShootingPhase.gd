@@ -59,6 +59,9 @@ var shooty_power_trip_pending_unit: String = ""  # OA-37: Unit awaiting Shooty P
 var awaiting_shooty_power_trip: bool = false  # OA-37: True when waiting for Shooty Power Trip response
 var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
 var _rng = RulesEngine.RNGService.new()  # P1-11: RNG for battle-shock tests (issue #329: routes through test_mode_seed)
+# Issue #386 Big Booms: queued struck-unit IDs from a supa-kannon target selection.
+# Resolved after the supa-kannon's attacks against the chosen target finish; D3 MW per struck unit.
+var _big_booms_pending: Array = []  # entries: {target_unit_id: String, struck_unit_ids: Array, rolls: Array}
 
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
@@ -67,6 +70,7 @@ func _on_phase_enter() -> void:
 	log_phase_message("Entering Shooting Phase")
 	active_shooter_id = ""
 	pending_assignments.clear()
+	_big_booms_pending.clear()
 	confirmed_assignments.clear()
 	resolution_state.clear()
 	dice_log.clear()
@@ -774,9 +778,30 @@ func _process_assign_target(action: Dictionary) -> Dictionary:
 		"target_unit_id": target_unit_id,
 		"model_ids": model_ids
 	})
-	
+
 	log_phase_message("Assigned %s to target %s" % [weapon_id, target_unit_id])
-	
+
+	# Issue #386 Big Booms: roll concussive wave on supa-kannon target selection.
+	# Trigger phrase: "just after selecting a target for this model's supa-kannon".
+	if weapon_id.to_lower().find("supa-kannon") != -1 and active_shooter_id != "":
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr and ability_mgr.has_method("roll_big_booms_concussive_wave"):
+			var rolls = ability_mgr.roll_big_booms_concussive_wave(active_shooter_id, target_unit_id)
+			if not rolls.is_empty():
+				var struck_ids: Array = []
+				for r in rolls:
+					if r.get("struck", false):
+						struck_ids.append(r.get("unit_id", ""))
+				if not struck_ids.is_empty():
+					_big_booms_pending.append({
+						"target_unit_id": target_unit_id,
+						"struck_unit_ids": struck_ids,
+						"rolls": rolls,
+					})
+					log_phase_message("Big Booms concussive wave: %d unit(s) struck (rolls=%s)" % [struck_ids.size(), str(rolls)])
+				else:
+					log_phase_message("Big Booms concussive wave: no units struck (rolls=%s)" % [str(rolls)])
+
 	return create_result(true, [])
 
 func _process_clear_assignment(action: Dictionary) -> Dictionary:
@@ -4099,6 +4124,18 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 		"value": true
 	}]
 	changes.append_array(sanctified_changes)
+
+	# Issue #386 Big Booms: apply D3 MW per struck unit after supa-kannon attacks finish.
+	if not _big_booms_pending.is_empty():
+		var bb_board = GameState.create_snapshot()
+		var bb_rng = RulesEngine.RNGService.new()
+		for entry in _big_booms_pending:
+			for struck_uid in entry.get("struck_unit_ids", []):
+				var d3 = bb_rng.randi_range(1, 3)
+				var bb_result = RulesEngine.apply_mortal_wounds(struck_uid, d3, bb_board, bb_rng)
+				changes.append_array(bb_result.get("diffs", []))
+				log_phase_message("Big Booms: %s suffers %d mortal wound(s)" % [struck_uid, d3])
+		_big_booms_pending.clear()
 
 	units_that_shot.append(unit_id)
 
