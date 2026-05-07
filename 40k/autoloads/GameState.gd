@@ -1019,6 +1019,13 @@ func create_snapshot() -> Dictionary:
 		snapshot["mission_manager"] = mission_mgr.get_state_for_save()
 		print("[GameState] Adding MissionManager state to snapshot")
 
+	# Issue #380: Add UnitAbilityManager state (once-per-battle locks etc.).
+	# The methods existed but were never wired through GameState's snapshot.
+	var unit_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if unit_ability_mgr and unit_ability_mgr.has_method("get_state_for_save"):
+		snapshot["unit_ability_manager"] = unit_ability_mgr.get_state_for_save()
+		print("[GameState] Adding UnitAbilityManager state to snapshot")
+
 	# SAVE-7: Add AI turn history to snapshot
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	if ai_player and ai_player.enabled:
@@ -1188,6 +1195,14 @@ func load_from_snapshot(snapshot: Dictionary) -> void:
 		mission_mgr.load_state(state["mission_manager"])
 	elif state.has("mission_manager"):
 		print("[GameState] Has mission_manager but MissionManager not available")
+
+	# Issue #380: Restore UnitAbilityManager state if present.
+	var unit_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if state.has("unit_ability_manager") and unit_ability_mgr and unit_ability_mgr.has_method("load_state"):
+		print("[GameState] Found UnitAbilityManager data in save, restoring")
+		unit_ability_mgr.load_state(state["unit_ability_manager"])
+	elif state.has("unit_ability_manager"):
+		print("[GameState] Has unit_ability_manager but UnitAbilityManager not available")
 
 	# SAVE-7: Restore AI turn history if present
 	var ai_player = get_node_or_null("/root/AIPlayer")
