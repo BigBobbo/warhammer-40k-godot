@@ -337,7 +337,14 @@ func _create_flag_reset_changes(player: int) -> Array:
 		"is_engaged", "fight_priority",
 		"burned_objective",
 		"performed_ritual",
-		"performed_terraform"
+		"performed_terraform",
+		# 06_SYNTHESIS launch-blocker #5 / issue #365: Da Jump (Weirdboy psychic)
+		# flag was never cleared across turn boundaries, permanently locking the
+		# Weirdboy after one Da Jump. `awaiting_da_jump_placement` is also reset
+		# as a safety net so a save mid-Da-Jump cannot strand the unit in
+		# placement-pending state across a turn boundary. Mirrors the same
+		# entries on the multiplayer path in `GameManager.process_end_scoring`.
+		"da_jump_used_this_turn", "awaiting_da_jump_placement",
 	]
 
 	for unit_id in units:
