@@ -1,0 +1,24 @@
+{
+  "id": "397_castellan_mark_redeploy",
+  "covers": ["deployment.castellan_mark_redeploy", "phases.DeploymentPhase.CASTELLAN_REDEPLOY"],
+  "fixture": "audit_397_castellan",
+  "transition_to_phase": 1,
+  "description": "Issue #397: Castellan's Mark post-deployment redeploy. Shield Captain has the enhancement. CASTELLAN_REDEPLOY dispatches TO_RESERVES for Custodian Guard B. Verify action succeeds and unit status changes to IN_RESERVES.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "screenshot", "label": "01_deployment_with_castellan_mark" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "CASTELLAN_REDEPLOY",
+      "payload": {
+        "redeploys": [
+          { "unit_id": "U_CUSTODIAN_GUARD_B", "action": "TO_RESERVES" }
+        ]
+      }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.status", "equals": 7 },
+    { "act": "screenshot", "label": "02_custodian_guard_in_reserves" }
+  ]
+}

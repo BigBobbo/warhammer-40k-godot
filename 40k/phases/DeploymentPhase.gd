@@ -42,10 +42,15 @@ func _setup_deployment_controller() -> void:
 func _initialize_deployment() -> void:
 	# Check if deployment is already complete
 	if _all_units_deployed():
-		log_phase_message("All units already deployed, completing phase")
-		emit_signal("phase_completed")
-		return
-	
+		# Issue #397: if a Castellan's Mark bearer exists, hold the phase
+		# open so the redeploy action can be dispatched before advancing.
+		if find_castellan_mark_bearer_player() > 0:
+			log_phase_message("All units deployed but Castellan's Mark bearer found — awaiting redeploy")
+		else:
+			log_phase_message("All units already deployed, completing phase")
+			emit_signal("phase_completed")
+			return
+
 	# Initial player setting is handled by TurnManager via _handle_deployment_phase_start()
 	log_phase_message("Deployment phase initialized")
 
@@ -72,6 +77,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_embark_units_deployment(action)
 		"ATTACH_CHARACTER_DEPLOYMENT":
 			return _validate_attach_character_deployment(action)
+		"CASTELLAN_REDEPLOY":
+			return _validate_castellan_redeploy(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -530,6 +537,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_embark_units_deployment(action)
 		"ATTACH_CHARACTER_DEPLOYMENT":
 			return _process_attach_character_deployment(action)
+		"CASTELLAN_REDEPLOY":
+			return _process_castellan_redeploy(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -1345,6 +1354,42 @@ func execute_castellan_redeploy(player: int, redeploys: Array) -> Dictionary:
 	if not result.errors.is_empty():
 		result.success = false
 	return result
+
+func _validate_castellan_redeploy(action: Dictionary) -> Dictionary:
+	var payload = action.get("payload", {})
+	var redeploys = payload.get("redeploys", [])
+	if redeploys.is_empty():
+		return {"valid": false, "errors": ["Missing payload.redeploys"]}
+	if redeploys.size() > 2:
+		return {"valid": false, "errors": ["Castellan's Mark allows at most 2 redeploys"]}
+	var bearer_player = find_castellan_mark_bearer_player()
+	if bearer_player == 0:
+		return {"valid": false, "errors": ["No unit carries Castellan's Mark"]}
+	var eligible = get_castellan_eligible_units(bearer_player)
+	for entry in redeploys:
+		var unit_id = entry.get("unit_id", "")
+		if unit_id == "":
+			return {"valid": false, "errors": ["Missing unit_id in redeploy entry"]}
+		if unit_id not in eligible:
+			return {"valid": false, "errors": ["%s is not Castellan-eligible" % unit_id]}
+		var redeploy_action = entry.get("action", "")
+		if redeploy_action not in ["TO_RESERVES", "REPLACE_POSITION"]:
+			return {"valid": false, "errors": ["Unknown redeploy action: %s" % redeploy_action]}
+		if redeploy_action == "REPLACE_POSITION":
+			var positions = entry.get("positions", [])
+			var unit = get_unit(unit_id)
+			if positions.size() != unit.get("models", []).size():
+				return {"valid": false, "errors": ["%s: position count must match model count" % unit_id]}
+	return {"valid": true, "errors": []}
+
+func _process_castellan_redeploy(action: Dictionary) -> Dictionary:
+	var bearer_player = find_castellan_mark_bearer_player()
+	var payload = action.get("payload", {})
+	var redeploys = payload.get("redeploys", [])
+	var result = execute_castellan_redeploy(bearer_player, redeploys)
+	if result.success:
+		return create_result(true, [], "")
+	return create_result(false, [], "; ".join(result.errors))
 
 # Helper methods
 func _has_undeployed_units(player: int) -> bool:
