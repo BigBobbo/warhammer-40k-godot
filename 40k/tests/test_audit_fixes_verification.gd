@@ -66,11 +66,15 @@ func _test_329_rng_determinism() -> void:
 		rules.get_test_seed() == -1)
 
 # ----------------------------------------------------------------------------
-# #336 — Command phase CP rules (no CP on R1 first command phase, otherwise
-# active player only)
+# #336 / #382 — Command phase CP grant. Originally PR #336 wired this to
+# skip the first command phase of R1 for the going-first player and to
+# grant CP to the active player only. PR #382 corrected that against the
+# current Wahapedia 10e text: BOTH players gain 1 CP at the start of every
+# Command phase (subject to the per-round cap). This test asserts the
+# updated #382 rule.
 # ----------------------------------------------------------------------------
 func _test_336_command_cp_rules() -> void:
-	print("\n-- #336: Command phase CP gating --")
+	print("\n-- #382: Command phase CP grant goes to BOTH players --")
 	var game_state = root.get_node("GameState")
 	var phase_mgr = root.get_node("PhaseManager")
 
@@ -82,6 +86,11 @@ func _test_336_command_cp_rules() -> void:
 	game_state.state["meta"]["phase"] = 6  # COMMAND
 	game_state.state["players"]["1"]["cp"] = 3
 	game_state.state["players"]["2"]["cp"] = 3
+	# The per-round cap (bonus_cp_gained_this_round) gates additional grants
+	# beyond the once-per-round +1; clear it so the test asserts the grant
+	# fires cleanly on entry.
+	game_state.state["players"]["1"]["bonus_cp_gained_this_round"] = false
+	game_state.state["players"]["2"]["bonus_cp_gained_this_round"] = false
 
 	phase_mgr.transition_to_phase(6)
 	var phase = phase_mgr.get_current_phase_instance()
@@ -92,26 +101,30 @@ func _test_336_command_cp_rules() -> void:
 	if phase == null:
 		return
 
-	# After phase enter (which happens in transition_to_phase), the CP for the
-	# first-turn player on R1 should NOT have been incremented.
-	_check("R1 first turn: P1 CP unchanged at 3 (#336 — no CP on first command phase)",
-		game_state.state["players"]["1"]["cp"] == 3,
+	# Issue #382: the round-1 first-turn-player skip from #336 was removed
+	# because the source text was stale. Both players gain +1 CP at the
+	# start of every Command phase.
+	_check("R1 P1 command phase: P1 CP +1 (3→4) (#382)",
+		game_state.state["players"]["1"]["cp"] == 4,
 		"got %d" % game_state.state["players"]["1"]["cp"])
-	_check("R1 first turn: P2 CP unchanged at 3 (no CP for opponent)",
-		game_state.state["players"]["2"]["cp"] == 3,
+	_check("R1 P1 command phase: P2 CP +1 (3→4) (#382 — both players)",
+		game_state.state["players"]["2"]["cp"] == 4,
 		"got %d" % game_state.state["players"]["2"]["cp"])
 
-	# Now simulate R2, P1 command phase — P1 should gain +1 CP, P2 should not.
+	# Round 2, P1 Command phase — both players still gain +1 CP, subject to
+	# the once-per-round cap. Reset the cap so this represents a fresh round.
 	game_state.state["meta"]["battle_round"] = 2
 	game_state.state["meta"]["active_player"] = 1
 	game_state.state["players"]["1"]["cp"] = 3
 	game_state.state["players"]["2"]["cp"] = 3
+	game_state.state["players"]["1"]["bonus_cp_gained_this_round"] = false
+	game_state.state["players"]["2"]["bonus_cp_gained_this_round"] = false
 	phase_mgr.transition_to_phase(6)
 	_check("R2 P1: P1 CP gained +1 (3→4)",
 		game_state.state["players"]["1"]["cp"] == 4,
 		"got %d" % game_state.state["players"]["1"]["cp"])
-	_check("R2 P1: P2 CP unchanged at 3 (no opponent CP)",
-		game_state.state["players"]["2"]["cp"] == 3,
+	_check("R2 P1: P2 CP gained +1 (3→4) (#382 — opponent also gains)",
+		game_state.state["players"]["2"]["cp"] == 4,
 		"got %d" % game_state.state["players"]["2"]["cp"])
 
 # ----------------------------------------------------------------------------
