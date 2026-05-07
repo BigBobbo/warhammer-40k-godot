@@ -174,14 +174,18 @@ func _set_active_player(player: int) -> void:
 	emit_signal("deployment_side_changed", player)
 
 func _handle_deployment_phase_start() -> void:
-	# Set initial active player for deployment
-	var player1_has_units = _has_undeployed_units(1)
-	var player2_has_units = _has_undeployed_units(2)
+	# Issue #377: Per Chapter Approved 2025-26, the defender deploys first.
+	# meta.defender is set by RollOffPhase after the pre-deployment roll-off.
+	# Pre-fix this hard-coded P1 first regardless of who won the roll.
+	var defender = int(GameState.state.get("meta", {}).get("defender", 1))
+	if defender != 1 and defender != 2:
+		defender = 1
+	var attacker = 3 - defender
 
-	if player1_has_units:
-		_set_active_player(1)
-	elif player2_has_units:
-		_set_active_player(2)
+	if _has_undeployed_units(defender):
+		_set_active_player(defender)
+	elif _has_undeployed_units(attacker):
+		_set_active_player(attacker)
 
 # Helper methods using new GameState system
 func _has_undeployed_units(player: int) -> bool:
