@@ -998,6 +998,112 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# Issue #374 — P0 enhancements (Custodes Shield Host + Ork War Horde).
+	# Registered with `condition: "enhancement"` so the existing
+	# _apply_enhancement_abilities pipeline picks them up via
+	# unit.meta.enhancements[]. Each enhancement bearer must be a CHARACTER
+	# (validated at army-build).
+	# ======================================================================
+
+	# Shield Host: Auric Mantle — "Add 2 to bearer's Wounds characteristic."
+	# Wounds is a list-build characteristic mutation (similar to Praesidium
+	# Shield), not a runtime flag. Marked implemented:false because the
+	# army-builder handles the +2 wound bump at army instantiation; this
+	# entry exists so the StatsCardPopup can show the rule text.
+	"Auric Mantle": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.PLUS_WOUNDS, "value": 2}],
+		"target": "bearer_model",
+		"attack_type": "all",
+		"implemented": false,
+		"description": "Shield-Captain or Blade Champion only. +2 Wounds on the bearer (list-build mutation; ArmyListManager applies at army instantiation, similar to Praesidium Shield)"
+	},
+
+	# Shield Host: Castellan's Mark — pure deployment-phase action (redeploy
+	# up to 2 units, optionally into Strategic Reserves). No combat flag;
+	# DeploymentPhase needs to recognise the bearer's enhancement to enable
+	# the redeploy UI. Marked implemented:false.
+	"Castellan's Mark": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": false,
+		"description": "Shield-Captain only. After deployment, redeploy up to 2 friendly Adeptus Custodes units (excluding Anathema Psykana); they can be placed into Strategic Reserves regardless of count limit. Pre-game action — DeploymentPhase hook required."
+	},
+
+	# Shield Host: From the Hall of Armouries — "+1 to Strength and Damage
+	# characteristics of the bearer's melee weapons."
+	"From the Hall of Armouries": {
+		"condition": "enhancement",
+		"effects": [
+			{"type": EffectPrimitivesData.PLUS_STRENGTH_MELEE, "value": 1},
+			{"type": EffectPrimitivesData.PLUS_DAMAGE, "value": 1}
+		],
+		"target": "bearer_model",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "Shield-Captain only. +1 Strength and +1 Damage on the bearer's melee weapons (sets effect_plus_strength_melee and effect_plus_damage on the bearer's unit)"
+	},
+
+	# Shield Host: Panoptispex — "While bearer is leading a unit, ranged
+	# weapons in that unit have [IGNORES COVER]."
+	"Panoptispex": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.GRANT_IGNORES_COVER}],
+		"target": "bearer_unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Shield-Captain or Blade Champion only. While leading a unit, ranged weapons in that unit have IGNORES COVER (effect_ignores_cover)"
+	},
+
+	# War Horde: Follow Me Ladz — "While the bearer is leading a unit, add 2\"
+	# to the Move characteristic of models in that unit."
+	"Follow Me Ladz": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.PLUS_MOVE, "value": 2}],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "ORKS only. While leading a unit, +2\" Move on models in that unit (sets effect_plus_move=2; MovementPhase reads it)"
+	},
+
+	# War Horde: Headwoppa's Killchoppa — "Melee weapons (excluding Extra
+	# Attacks weapons) have the [DEVASTATING WOUNDS] ability."
+	"Headwoppa's Killchoppa": {
+		"condition": "enhancement",
+		"effects": [{"type": EffectPrimitivesData.GRANT_DEVASTATING_WOUNDS}],
+		"target": "bearer_model",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "ORKS only. Bearer's melee weapons (excluding Extra Attacks) gain DEVASTATING WOUNDS (effect_devastating_wounds)"
+	},
+
+	# War Horde: Kunnin' But Brutal — "While bearer is leading a unit, that
+	# unit is eligible to shoot and declare a charge in a turn it Fell Back."
+	"Kunnin' But Brutal": {
+		"condition": "enhancement",
+		"effects": [
+			{"type": EffectPrimitivesData.FALL_BACK_AND_SHOOT},
+			{"type": EffectPrimitivesData.FALL_BACK_AND_CHARGE}
+		],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "ORKS only. While leading, the unit is eligible to shoot and charge after Fall Back (sets effect_fall_back_and_shoot + effect_fall_back_and_charge)"
+	},
+
+	# War Horde: Supa-Cybork Body — "The bearer has Feel No Pain 4+."
+	"Supa-Cybork Body": {
+		"condition": "enhancement",
+		"effects": [{"type": "set_effect_fnp", "value": 4}],
+		"target": "bearer_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "ORKS only. Bearer has Feel No Pain 4+ (sets effect_fnp=4)"
+	},
+
+	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
 	# ======================================================================

@@ -93,6 +93,10 @@ const MINUS_DAMAGE = "minus_damage"               # value: amount to subtract (m
 
 # Attack count modifiers (persistent flags)
 const PLUS_ATTACKS = "plus_attacks"               # value: amount to add to Attacks characteristic
+# Issue #374: enhancement primitives.
+const PLUS_MOVE = "plus_move"                     # value: inches to add to Move characteristic
+const PLUS_STRENGTH_MELEE = "plus_strength_melee" # value: amount to add to melee weapon Strength
+const PLUS_WOUNDS = "plus_wounds"                 # value: amount to add to Wounds characteristic (list-build only)
 # Issue #375: instant primitive for MOB RULE — clears the battle_shocked flag
 # on the target unit.
 const REMOVE_BATTLE_SHOCK = "remove_battle_shock"
@@ -173,6 +177,9 @@ const FLAG_PLUS_CHARGE = "effect_plus_charge"             # value: int (amount t
 const FLAG_FLAT_ADVANCE = "effect_flat_advance"
 const FLAG_AUTO_ADVANCE_6 = "effect_auto_advance_6"
 const FLAG_PLUS_ATTACKS = "effect_plus_attacks"            # value: int (amount to add)
+# Issue #374: enhancement flags.
+const FLAG_PLUS_MOVE = "effect_plus_move"                  # value: int (inches added to Move)
+const FLAG_PLUS_STRENGTH_MELEE = "effect_plus_strength_melee"  # value: int (Strength bonus on melee)
 # Issue #375: persistent flag for ORKS IS NEVER BEATEN — read in melee
 # resolution to defer model removal until after the unit's swing-back.
 const FLAG_SWING_BACK_BEFORE_REMOVE = "effect_swing_back_before_remove"
@@ -236,6 +243,9 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	SWING_BACK_BEFORE_REMOVE: [{"flag": FLAG_SWING_BACK_BEFORE_REMOVE, "value": true}],
 	# Issue #375: persistent on the unit; ScoringPhase reads it.
 	STICKY_OBJECTIVE_CONTROL: [{"flag": FLAG_STICKY_OBJECTIVE_CONTROL, "value_from": "objective_id"}],
+	# Issue #374: persistent enhancement flags on the bearer's unit.
+	PLUS_MOVE: [{"flag": FLAG_PLUS_MOVE, "value_from": "value"}],
+	PLUS_STRENGTH_MELEE: [{"flag": FLAG_PLUS_STRENGTH_MELEE, "value_from": "value"}],
 }
 
 # Set of instant effect types that don't set persistent flags
