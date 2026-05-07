@@ -3692,8 +3692,17 @@ static func _unit_has_waaagh_banner(unit: Dictionary) -> bool:
 	return false
 
 static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, invuln: int, target_unit: Dictionary = {}) -> Dictionary:
-	# Calculate armour save with AP and cover
-	var armour_save = base_save + ap  # AP makes saves worse (higher number needed)
+	# Calculate armour save with AP and cover.
+	#
+	# Convention note: weapon profiles in armies/*.json store AP as the
+	# negative magnitude string ("-2" for AP-2) and `get_weapon_profile`
+	# returns it as the same negative int (-2). Older callers (and the
+	# existing s7 unit test) pass AP as a positive magnitude (2). We
+	# normalise via abs() so both conventions produce the correct
+	# "AP makes saves worse" semantic — base_save + |ap| is the modified
+	# armour value before any cover adjustment.
+	var ap_magnitude = abs(ap)
+	var armour_save = base_save + ap_magnitude  # AP makes saves worse (higher number needed)
 
 	# 10e Benefit of Cover cap: a unit with a Save characteristic of 3+ or better cannot
 	# have its Save improved by Cover against an attack with AP 0. The cap matters only
@@ -3701,18 +3710,18 @@ static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, inv
 	# cover bringing it back up to base never crosses the 3+ ceiling. (Wahapedia core rules,
 	# "Benefit of Cover".) The rule is universal in 10e core; it is NOT keyword-gated to
 	# INFANTRY/BEAST/SWARM as the previous implementation incorrectly assumed.
-	if has_cover and ap == 0 and base_save <= 3:
+	if has_cover and ap_magnitude == 0 and base_save <= 3:
 		# Cover would push save below 3+ — disallow for this attack.
 		has_cover = false
 
 	if has_cover:
 		armour_save -= 1  # Cover improves save by 1
-	
+
 	# Cap save improvement at +1 total
 	var improvement = base_save - armour_save
 	if improvement > 1:
 		armour_save = base_save - 1
-	
+
 	# Saves can never be better than 2+
 	armour_save = max(2, armour_save)
 	

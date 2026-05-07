@@ -82,6 +82,23 @@ func _run_tests():
 		inv_better.use_invuln == true,
 		"armour=%d inv=%d" % [inv_better.armour, inv_better.inv])
 
+	# AP-sign regression — weapon profiles produced by `get_weapon_profile`
+	# return the negative magnitude form (ap=-2 for AP-2). The function must
+	# treat both signs identically so the live data path produces the same
+	# result as the magnitude form used elsewhere in this test.
+	_check("Sv2+, AP-2 (neg form), no cover → 4+ (was 2+ pre-fix)",
+		_calc(rules, 2, -2, false) == 4, "got %d" % _calc(rules, 2, -2, false))
+	_check("Sv2+, AP-2 == Sv2+, AP+2 (sign-agnostic)",
+		_calc(rules, 2, -2, false) == _calc(rules, 2, 2, false))
+	_check("Sv3+, AP-1 (neg form), no cover → 4+",
+		_calc(rules, 3, -1, false) == 4, "got %d" % _calc(rules, 3, -1, false))
+	_check("Sv3+, AP-3 (neg form), no cover → 6+",
+		_calc(rules, 3, -3, false) == 6, "got %d" % _calc(rules, 3, -3, false))
+	_check("Sv4+, AP-1 (neg form), cover → 4+ (cover negates AP)",
+		_calc(rules, 4, -1, true) == 4, "got %d" % _calc(rules, 4, -1, true))
+	_check("Sv2+, AP-1 (neg form), cover → 2+ (cover negates AP, floored at cap)",
+		_calc(rules, 2, -1, true) == 2, "got %d" % _calc(rules, 2, -1, true))
+
 	_finish()
 
 func _finish():
