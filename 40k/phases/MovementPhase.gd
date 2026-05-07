@@ -2141,8 +2141,8 @@ func _process_place_da_jump(action: Dictionary) -> Dictionary:
 	if positions.is_empty():
 		return create_result(false, [], "Da Jump place: no model_positions provided")
 
-	# Build enemy model positions list
-	var enemy_positions: Array = []
+	# Issue #376: build enemy positions WITH base size for edge-to-edge distance.
+	var enemy_entries: Array = []
 	for u_id in game_state_snapshot.get("units", {}):
 		var u = game_state_snapshot["units"][u_id]
 		if int(u.get("owner", 0)) == get_current_player():
@@ -2154,17 +2154,43 @@ func _process_place_da_jump(action: Dictionary) -> Dictionary:
 			if p == null:
 				continue
 			var pv = p if p is Vector2 else Vector2(p.get("x", 0), p.get("y", 0))
-			enemy_positions.append(pv)
+			enemy_entries.append({"pos": pv, "base_mm": int(m.get("base_mm", 32))})
 
-	# Validate each placed model is 9"+ horizontal from every enemy
-	var nine_inches_px = Measurement.inches_to_px(9.0)
+	# Issue #376: Da Jump per Wahapedia "more than 9 inches" horizontal — use
+	# strict > 9.0 (i.e. reject distance <= 9.0) and edge-to-edge distance.
+	# Also enforce board bounds: placements off-board are rejected.
+	var board_width_in = float(GameState.state.get("board", {}).get("size", {}).get("width", 44))
+	var board_height_in = float(GameState.state.get("board", {}).get("size", {}).get("height", 60))
+	var px_per_inch = 40.0
+	var unit_for_da_jump = game_state_snapshot.get("units", {}).get(unit_id, {})
+	var unit_models = unit_for_da_jump.get("models", [])
+
 	for pos_entry in positions:
 		var px = float(pos_entry.get("x", 0))
 		var py = float(pos_entry.get("y", 0))
 		var pv = Vector2(px, py)
-		for ev in enemy_positions:
-			if pv.distance_to(ev) < nine_inches_px:
-				return create_result(false, [], "Da Jump place: model would be < 9\" from an enemy")
+
+		# Board-bounds check (off-board rejected)
+		var pos_in_x = px / px_per_inch
+		var pos_in_y = py / px_per_inch
+		if pos_in_x < 0 or pos_in_x > board_width_in or pos_in_y < 0 or pos_in_y > board_height_in:
+			return create_result(false, [], "Da Jump place: position is off the board")
+
+		# Edge-to-edge >9" from every enemy model
+		var mid_for_base = String(pos_entry.get("model_id", ""))
+		var model_base_mm = 32
+		for m in unit_models:
+			if String(m.get("id", "")) == mid_for_base:
+				model_base_mm = int(m.get("base_mm", 32))
+				break
+		var model_radius_in = (model_base_mm / 2.0) / 25.4
+		for entry in enemy_entries:
+			var ev = entry.pos
+			var enemy_radius_in = (entry.base_mm / 2.0) / 25.4
+			var dist_in = pv.distance_to(ev) / px_per_inch
+			var edge_dist_in = dist_in - model_radius_in - enemy_radius_in
+			if edge_dist_in <= 9.0:
+				return create_result(false, [], "Da Jump place: model would be %.2f\" from an enemy (must be more than 9\")" % edge_dist_in)
 
 	var diffs = [
 		{"op": "set", "path": "units.%s.flags.awaiting_da_jump_placement" % unit_id, "value": false},
