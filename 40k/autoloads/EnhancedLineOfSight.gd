@@ -378,7 +378,15 @@ static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dicti
 	# P1-68: Check walls within terrain pieces that didn't block via polygon
 	# Walls (with blocks_los=true) can independently block LoS even when
 	# the polygon itself doesn't (e.g., models inside same ruins but wall between them)
-	if blocking_terrain.is_empty():
+	# Issue #384: AIRCRAFT and TOWERING shooters/targets see over walls per 10e —
+	# the polygon-LoS path already exempts these; the wall fall-back must too.
+	var wall_aircraft_exempt = (
+		LineOfSightCalculator._model_has_aircraft_keyword(shooter_model)
+		or LineOfSightCalculator._model_has_aircraft_keyword(target_model)
+		or LineOfSightCalculator._model_has_towering_keyword(shooter_model)
+		or LineOfSightCalculator._model_has_towering_keyword(target_model)
+	)
+	if blocking_terrain.is_empty() and not wall_aircraft_exempt:
 		for terrain_piece in terrain_features:
 			var walls = terrain_piece.get("walls", [])
 			for wall in walls:
