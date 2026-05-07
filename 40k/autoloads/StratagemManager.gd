@@ -637,6 +637,26 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 			if not RulesEngine.unit_has_keyword(target_unit, "ORKS"):
 				return {"can_use": false, "reason": "Krump and Run can only target ORKS units"}
 
+	# Turn + phase gate: reject stratagems outside their allowed turn/phase.
+	# Synthesis §2 #12: StratagemPanel showed all stratagems regardless of phase.
+	if not context.get("bypass_phase_check", false):
+		var strat_turn = strat.get("timing", {}).get("turn", "either")
+		if strat_turn != "either":
+			var active_player = GameState.get_active_player()
+			var is_your_turn = (player == active_player)
+			if strat_turn == "your" and not is_your_turn:
+				return {"can_use": false, "reason": "%s can only be used on your turn" % strat.get("name", stratagem_id)}
+			if strat_turn == "opponent" and is_your_turn:
+				return {"can_use": false, "reason": "%s can only be used on your opponent's turn" % strat.get("name", stratagem_id)}
+		var strat_phase = strat.get("timing", {}).get("phase", "any")
+		if strat_phase != "any":
+			var current_phase_name = _phase_to_string(GameState.get_current_phase())
+			var phase_match = (strat_phase == current_phase_name)
+			if not phase_match and "_or_" in strat_phase:
+				phase_match = current_phase_name in strat_phase.split("_or_")
+			if not phase_match:
+				return {"can_use": false, "reason": "%s can only be used during the %s phase" % [strat.get("name", stratagem_id), strat_phase.replace("_or_", " or ").replace("_", " ")]}
+
 	return {"can_use": true, "reason": ""}
 
 func _check_usage_restriction(player: int, stratagem_id: String, strat: Dictionary) -> Dictionary:
