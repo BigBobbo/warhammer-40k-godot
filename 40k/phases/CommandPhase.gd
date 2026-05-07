@@ -72,17 +72,11 @@ func _on_phase_enter() -> void:
 	# after the first, the player whose Command phase it is gains 1 CP."
 	# So we skip CP generation for the very first Command phase of the game
 	# (Round 1, the player who took the first turn). Every subsequent Command
-	# phase grants +1 CP to the active player only — never the opponent.
-	# See issue #336.
-	var first_turn_player = GameState.state.get("meta", {}).get("first_turn_player", 1)
-	var is_first_command_phase_of_game = (battle_round == 1 and current_player == first_turn_player)
-	if is_first_command_phase_of_game:
-		DebugLogger.info(str("CommandPhase: Skipping CP generation — first Command phase of the game (R1 P%d)" % current_player))
-		var game_event_log_cp = get_node_or_null("/root/GameEventLog")
-		if game_event_log_cp:
-			game_event_log_cp.add_info_entry("No CP gained in the first Command phase of the battle")
-	else:
-		_generate_command_points(current_player)
+	# Issue #382: per current Wahapedia 10e text, BOTH players gain 1 CP at
+	# the start of every Command phase (subject to the per-round cap). The
+	# round-1 first-turn-player skip from #336 is removed; that interpretation
+	# was based on stale rules text.
+	_generate_command_points(current_player)
 
 	# Step 2: Clear all battle_shocked flags for the current player's units
 	_clear_battle_shocked_flags()
@@ -146,18 +140,17 @@ func _on_phase_enter() -> void:
 		DebugLogger.info(str("CommandPhase: %d unit(s) need battle-shock tests" % _units_needing_test.size()))
 
 func _generate_command_points(active_player: int) -> void:
-	# Per WH40K 10e core rules: only the active player (whose Command phase
-	# it is) gains 1 CP. The opponent does NOT gain CP during your Command
-	# phase. See issue #336.
+	# Issue #382: per current Wahapedia 10e, BOTH players gain 1 CP at the
+	# start of each Command phase. The per-round cap (bonus_cp_gained_this_round)
+	# is already enforced at GameState.gd:867-892.
 	var changes = []
-
-	# Active player gains 1 CP
-	var active_cp = GameState.state.get("players", {}).get(str(active_player), {}).get("cp", 0)
-	changes.append({
-		"op": "set",
-		"path": "players.%s.cp" % str(active_player),
-		"value": active_cp + 1
-	})
+	for player in [1, 2]:
+		var player_cp = GameState.state.get("players", {}).get(str(player), {}).get("cp", 0)
+		changes.append({
+			"op": "set",
+			"path": "players.%s.cp" % str(player),
+			"value": player_cp + 1
+		})
 
 	# Apply via PhaseManager so changes propagate to network peers
 	PhaseManager.apply_state_changes(changes)
