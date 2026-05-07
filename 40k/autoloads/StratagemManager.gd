@@ -774,7 +774,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	})
 
 	# Apply stratagem-specific effects to game state (unit flags for RulesEngine)
-	var effect_diffs = _apply_stratagem_effects(stratagem_id, target_unit_id, strat)
+	var effect_diffs = _apply_stratagem_effects(stratagem_id, target_unit_id, strat, context)
 	if not effect_diffs.is_empty():
 		_safe_apply_state_changes(effect_diffs)
 		diffs.append_array(effect_diffs)
@@ -981,7 +981,7 @@ func _clear_expired_effects(expiry_type: String) -> void:
 # STRATAGEM EFFECT APPLICATION
 # ============================================================================
 
-func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, strat: Dictionary) -> Array:
+func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, strat: Dictionary, context: Dictionary = {}) -> Array:
 	"""
 	Apply stratagem effects to unit flags in game state using EffectPrimitives.
 	Returns an array of diffs that set the appropriate flags.
@@ -1065,6 +1065,22 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 				"path": "units.%s.flags.effect_invuln_source" % target_unit_id,
 				"value": strat.get("name", _stratagem_id)
 			})
+			break
+
+	# Issue #375 MOB RULE: REMOVE_BATTLE_SHOCK clears the target's battle_shocked
+	# flag instantly. Per Wahapedia: "That ORKS INFANTRY unit is no longer
+	# Battle-shocked." Note that the actual battle-shock target may differ
+	# from the stratagem's primary target (the Mob unit); the calling layer
+	# should pass the secondary target as `context.battle_shock_target_id`.
+	for effect in effects:
+		if effect.get("type", "") == EffectPrimitivesData.REMOVE_BATTLE_SHOCK:
+			var bs_target_id = context.get("battle_shock_target_id", target_unit_id) if typeof(context) == TYPE_DICTIONARY else target_unit_id
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.flags.battle_shocked" % bs_target_id,
+				"value": false
+			})
+			print("StratagemManager: REMOVE_BATTLE_SHOCK clears battle_shocked on %s" % bs_target_id)
 			break
 
 	if not diffs.is_empty():

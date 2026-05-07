@@ -93,6 +93,18 @@ const MINUS_DAMAGE = "minus_damage"               # value: amount to subtract (m
 
 # Attack count modifiers (persistent flags)
 const PLUS_ATTACKS = "plus_attacks"               # value: amount to add to Attacks characteristic
+# Issue #375: instant primitive for MOB RULE — clears the battle_shocked flag
+# on the target unit.
+const REMOVE_BATTLE_SHOCK = "remove_battle_shock"
+# Issue #375: instant primitive for VIGILANCE ETERNAL — pins objective control
+# to the targeting player until the opponent contests.
+const STICKY_OBJECTIVE_CONTROL = "sticky_objective_control"
+# Issue #375: instant primitive for CAREEN! — Deadly Demise unit makes a
+# Normal/Fall Back move on the trigger frame.
+const DEADLY_DEMISE_MOVE = "deadly_demise_move"
+# Issue #375: persistent primitive for ORKS IS NEVER BEATEN — until end of
+# phase, models destroyed before fighting still get their swing-back.
+const SWING_BACK_BEFORE_REMOVE = "swing_back_before_remove"
 
 # Critical threshold modifiers (persistent flags)
 const CRIT_HIT_ON = "crit_hit_on"                 # value: threshold (e.g., 5 for 5+)
@@ -161,6 +173,12 @@ const FLAG_PLUS_CHARGE = "effect_plus_charge"             # value: int (amount t
 const FLAG_FLAT_ADVANCE = "effect_flat_advance"
 const FLAG_AUTO_ADVANCE_6 = "effect_auto_advance_6"
 const FLAG_PLUS_ATTACKS = "effect_plus_attacks"            # value: int (amount to add)
+# Issue #375: persistent flag for ORKS IS NEVER BEATEN — read in melee
+# resolution to defer model removal until after the unit's swing-back.
+const FLAG_SWING_BACK_BEFORE_REMOVE = "effect_swing_back_before_remove"
+# Issue #375: persistent flag for VIGILANCE ETERNAL — read by ScoringPhase
+# to keep objective control even when no models are within range.
+const FLAG_STICKY_OBJECTIVE_CONTROL = "effect_sticky_objective_control"  # objective_id stored as value
 
 # MA-29: Weapon-targeted effect filter suffix
 # When an effect has target_weapon_names, a companion flag is stored:
@@ -214,6 +232,10 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	FLAT_ADVANCE: [{"flag": FLAG_FLAT_ADVANCE, "value": true}],
 	AUTO_ADVANCE_6: [{"flag": FLAG_AUTO_ADVANCE_6, "value": true}],
 	PLUS_ATTACKS: [{"flag": FLAG_PLUS_ATTACKS, "value_from": "value"}],
+	# Issue #375: persistent until end of phase (cleared by phase manager).
+	SWING_BACK_BEFORE_REMOVE: [{"flag": FLAG_SWING_BACK_BEFORE_REMOVE, "value": true}],
+	# Issue #375: persistent on the unit; ScoringPhase reads it.
+	STICKY_OBJECTIVE_CONTROL: [{"flag": FLAG_STICKY_OBJECTIVE_CONTROL, "value_from": "objective_id"}],
 }
 
 # Set of instant effect types that don't set persistent flags
@@ -227,6 +249,11 @@ const _INSTANT_EFFECTS: Array = [
 	AUTO_PASS_SHOCK,
 	ARRIVE_FROM_RESERVES,
 	DISCARD_SECONDARY,
+	# Issue #375: MOB RULE clears the target's battle_shocked flag instantly.
+	REMOVE_BATTLE_SHOCK,
+	# Issue #375: CAREEN! triggers a one-shot Normal/Fall Back move on the
+	# destroyed Vehicle before its Deadly Demise resolves.
+	DEADLY_DEMISE_MOVE,
 ]
 
 # ============================================================================

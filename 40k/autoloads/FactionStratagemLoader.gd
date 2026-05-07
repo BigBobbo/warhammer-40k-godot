@@ -628,6 +628,24 @@ func _map_effects(effect_text: String) -> Array:
 	if "subtract 1 from the damage" in t or "subtract 1 from the damage characteristic" in t:
 		effects.append({"type": EffectPrimitivesData.MINUS_DAMAGE, "value": 1})
 
+	# Issue #375 AVENGE THE FALLEN (Shield Host): "add 1 to the Attacks
+	# characteristic of melee weapons" or "add 2 to the Attacks characteristic
+	# of those melee weapons" (variant when target is Below Half-strength).
+	# We emit the higher value when the conditional Below Half clause is
+	# present in the same effect text. Future work should branch on the live
+	# unit's strength when applying.
+	var plus_attacks_regex = RegEx.new()
+	plus_attacks_regex.compile("add (\\d) to the attacks characteristic")
+	var plus_attacks_matches = plus_attacks_regex.search_all(t)
+	if not plus_attacks_matches.is_empty():
+		var max_bonus = 0
+		for m in plus_attacks_matches:
+			var v = int(m.get_string(1))
+			if v > max_bonus:
+				max_bonus = v
+		if max_bonus > 0:
+			effects.append({"type": EffectPrimitivesData.PLUS_ATTACKS, "value": max_bonus, "scope": "melee"})
+
 	# --- Keyword Grants ---
 
 	# Issue #381: Detect "either [X] or [Y]" wording so we don't grant BOTH
@@ -734,10 +752,11 @@ func _map_effects(effect_text: String) -> Array:
 		effects.append({"type": EffectPrimitivesData.REROLL_CHARGE})
 
 	# +N to charge roll. Wahapedia phrasing varies: "add 2 to that Charge roll",
-	# "add 2 to its Charge roll", "add 2 to the Charge roll", "+2 to charge".
+	# "add 2 to its Charge roll", "add 2 to the Charge roll", "+2 to charge",
+	# and (Issue #375 'ERE WE GO) "add 2 to Advance and Charge rolls".
 	# Issue #372 unblocks 'ERE WE GO (+2) and ~12 other faction stratagems.
 	var charge_regex = RegEx.new()
-	charge_regex.compile("(?:add (\\d) to (?:the |its |that )?charge roll|\\+(\\d) to (?:the )?charge)")
+	charge_regex.compile("(?:add (\\d) to (?:the |its |that )?(?:advance and )?charge rolls?|\\+(\\d) to (?:the )?charge)")
 	var charge_match = charge_regex.search(t)
 	if charge_match:
 		var raw = charge_match.get_string(1)
@@ -756,6 +775,26 @@ func _map_effects(effect_text: String) -> Array:
 	# Fall back and charge
 	if "eligible to" in t and "charge" in t and "fell back" in t:
 		effects.append({"type": EffectPrimitivesData.FALL_BACK_AND_CHARGE})
+
+	# Issue #375 MOB RULE (War Horde): "is no longer Battle-shocked" -> clear flag.
+	if "is no longer battle-shocked" in t:
+		effects.append({"type": EffectPrimitivesData.REMOVE_BATTLE_SHOCK})
+
+	# Issue #375 VIGILANCE ETERNAL (Shield Host): keep objective marker control
+	# even if no models within range.
+	if "objective marker remains under your control" in t:
+		effects.append({"type": EffectPrimitivesData.STICKY_OBJECTIVE_CONTROL})
+
+	# Issue #375 CAREEN! (War Horde): "make a Normal or Fall Back move before
+	# its Deadly Demise ability is resolved".
+	if "normal or fall back move" in t and "deadly demise" in t:
+		effects.append({"type": EffectPrimitivesData.DEADLY_DEMISE_MOVE})
+
+	# Issue #375 ORKS IS NEVER BEATEN (War Horde): "do not remove it from play.
+	# The destroyed model can fight after the attacking model's unit has
+	# finished making attacks".
+	if "do not remove it from play" in t and "can fight after" in t:
+		effects.append({"type": EffectPrimitivesData.SWING_BACK_BEFORE_REMOVE})
 
 	# --- If no effects were mapped, mark as custom/unimplemented ---
 
