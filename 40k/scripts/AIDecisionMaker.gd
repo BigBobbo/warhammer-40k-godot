@@ -6604,9 +6604,9 @@ static func _should_unit_advance(
 	if not has_ranged:
 		return true
 
-	# Battle-shocked units can't shoot anyway — advance
-	if unit.get("flags", {}).get("battle_shocked", false):
-		return true
+	# Issue #383: 10e battle-shock does NOT block shooting (9e carryover removed).
+	# Battle-shocked units may still prefer to advance for positioning, but
+	# it's no longer forced — let the objective heuristics below decide.
 
 	# Round 1: aggressive positioning is critical for Round 2 scoring
 	if battle_round == 1:
@@ -8296,21 +8296,15 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			var sid = sa.get("actor_unit_id", sa.get("unit_id", ""))
 			if sid == "":
 				continue
-			var sunit = snapshot.get("units", {}).get(sid, {})
-			if sunit.get("flags", {}).get("battle_shocked", false):
-				continue
 			if _focus_fire_plan.has(sid):
 				selected_unit_id = sid
 				break
 
-		# If no unit has a plan, try first non-battle-shocked shooter
+		# Issue #383: 10e battle-shock does NOT block shooting — removed skip.
 		if selected_unit_id == "":
 			for sa in action_types["SELECT_SHOOTER"]:
 				var sid = sa.get("actor_unit_id", sa.get("unit_id", ""))
 				if sid == "":
-					continue
-				var sunit = snapshot.get("units", {}).get(sid, {})
-				if sunit.get("flags", {}).get("battle_shocked", false):
 					continue
 				selected_unit_id = sid
 				break

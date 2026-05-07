@@ -1,0 +1,29 @@
+{
+  "id": "367_designate_warlord",
+  "covers": ["phases.FormationsPhase.DESIGNATE_WARLORD", "pregame.warlord_designation"],
+  "fixture": "audit_367_warlord",
+  "transition_to_phase": 0,
+  "description": "Issue #367: DESIGNATE_WARLORD action in FormationsPhase. Fixture has 3 P1 CHARACTERs with no warlord set. Dispatch DESIGNATE_WARLORD for Shield-Captain, verify is_warlord=true. Then re-designate Blade Champion and verify warlord switched.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 0 },
+    { "act": "screenshot", "label": "01_formations_phase_no_warlord" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DESIGNATE_WARLORD",
+      "unit_id": "U_SHIELD_CAPTAIN_A"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_SHIELD_CAPTAIN_A.meta.is_warlord", "equals": true },
+    { "act": "screenshot", "label": "02_shield_captain_designated_warlord" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DESIGNATE_WARLORD",
+      "unit_id": "U_BLADE_CHAMPION_A"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_BLADE_CHAMPION_A.meta.is_warlord", "equals": true },
+    { "act": "expect_state", "path": "units.U_SHIELD_CAPTAIN_A.meta.is_warlord", "equals": false },
+    { "act": "screenshot", "label": "03_warlord_switched_to_blade_champion" }
+  ]
+}

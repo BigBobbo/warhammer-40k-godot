@@ -3041,9 +3041,9 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	if flags.get("has_shot", false):
 		return false
 
-	# BATTLE-SHOCKED: Battle-shocked units cannot shoot (10e rules)
-	if flags.get("battle_shocked", false):
-		return false
+	# Issue #383: removed 9e-carryover "battle-shocked cannot shoot" check.
+	# 10e Battle-shock effects are: OC=0, Desperate Escape on Fall Back,
+	# no stratagem use/target. Cannot-shoot is NOT a battle-shock effect.
 
 	# ASSAULT RULES: Units that Advanced can shoot with Assault weapons ONLY
 	# Check this BEFORE cannot_shoot flag since Advanced units CAN shoot (with restrictions)

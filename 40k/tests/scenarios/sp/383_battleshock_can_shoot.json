@@ -1,0 +1,22 @@
+{
+  "id": "383_battleshock_can_shoot",
+  "covers": ["shooting.battleshock_removed_9e_carryover", "phases.ShootingPhase._can_unit_shoot"],
+  "fixture": "audit_383_battleshock_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Issue #383: 10e battle-shock does NOT block shooting (9e carryover removed). Contemptor-Achillus Dreadnought H has battle_shocked=true. In shooting phase, Custodes (P1) selects it — verify SELECT_SHOOTER succeeds, proving battle-shocked units can shoot.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "expect_state", "path": "units.U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H.flags.battle_shocked", "equals": true },
+    { "act": "screenshot", "label": "01_dreadnought_battle_shocked" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SELECT_SHOOTER",
+      "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_battle_shocked_unit_can_shoot" }
+  ]
+}

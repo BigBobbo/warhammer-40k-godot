@@ -1,0 +1,25 @@
+{
+  "id": "372_ere_we_go_charge_modifier",
+  "covers": ["charge.modifier_primitive", "autoloads.EffectPrimitives.PLUS_CHARGE"],
+  "fixture": "audit_372_charge_modifier",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "description": "Issue #372: Charge-roll modifier primitive. Boyz E has effect_plus_charge=2 (from 'ERE WE GO stratagem). Shield Captain is within charge range. Verify the flag is present and DECLARE_CHARGE succeeds, proving the charge phase accepts the unit with the modifier flag.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_BOYZ_E.flags.effect_plus_charge", "equals": 2 },
+    { "act": "screenshot", "label": "01_charge_phase_with_plus_charge_flag" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_CHARGE",
+      "actor_unit_id": "U_BOYZ_E",
+      "payload": {
+        "target_unit_ids": ["U_SHIELD_CAPTAIN_A"]
+      }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_charge_declared_with_modifier" }
+  ]
+}

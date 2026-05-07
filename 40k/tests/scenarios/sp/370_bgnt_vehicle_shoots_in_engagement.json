@@ -1,0 +1,22 @@
+{
+  "id": "370_bgnt_vehicle_shoots_in_engagement",
+  "covers": ["shooting.bgnt_seam", "autoloads.RulesEngine.validate_shoot"],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Issue #370 (BGNT seam): Contemptor-Achillus Dreadnought (VEHICLE keyword) is in engagement range with Boyz. Per Big Guns Never Tire, MONSTER/VEHICLE units can fire any weapon in engagement range at -1 BS. Verify SELECT_SHOOTER succeeds despite the unit being engaged.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "expect_state", "path": "units.U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H.flags.in_engagement", "equals": true },
+    { "act": "screenshot", "label": "01_dreadnought_in_engagement" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SELECT_SHOOTER",
+      "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_vehicle_selected_to_shoot_in_engagement" }
+  ]
+}

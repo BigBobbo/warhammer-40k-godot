@@ -1,0 +1,17 @@
+{
+  "id": "382_cp_grant_both_players",
+  "covers": ["phases.CommandPhase._generate_command_points", "command.cp_grant_rule"],
+  "fixture": "audit_382_cp_grant",
+  "transition_to_phase": 6,
+  "description": "Issue #382: Per 10e Wahapedia, BOTH players gain 1 CP at the start of every Command Phase. Fixture starts at Scoring phase with P1=3 CP, P2=2 CP in round 2. Transition to command phase triggers _on_phase_enter which grants +1 CP to both. Verify P1=4, P2=3 after grant.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "screenshot", "label": "01_command_phase_entered" },
+
+    { "act": "expect_cp", "player": 1, "equals": 4 },
+    { "act": "expect_cp", "player": 2, "equals": 3 },
+    { "act": "screenshot", "label": "02_both_players_gained_1cp" }
+  ]
+}
