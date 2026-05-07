@@ -3281,10 +3281,10 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 	# Check if unit can shoot
 	var flags = actor_unit.get("flags", {})
 
-	# BATTLE-SHOCKED: Battle-shocked units cannot shoot (10e rules)
-	if flags.get("battle_shocked", false):
-		errors.append("Unit cannot shoot (battle-shocked)")
-		return {"valid": false, "errors": errors}
+	# Issue #383: removed 9e-carryover "battle-shocked cannot shoot" check.
+	# Per 10e Wahapedia, battle-shocked effects are: OC=0, Desperate Escape on
+	# Fall Back, no stratagem use/target. Cannot-shoot is NOT a battle-shock
+	# effect in 10e. Stratagem-block enforcement happens elsewhere.
 
 	# ASSAULT RULES: Units that Advanced can shoot, but ONLY with Assault weapons
 	# Check this BEFORE the cannot_shoot flag, since Advanced units CAN shoot (with restrictions)
