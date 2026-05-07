@@ -99,6 +99,15 @@ func load_terrain_layout(layout_name: String) -> void:
 			_:
 				print("[TerrainManager] Unknown layout: ", layout_name)
 
+	# Issue #385: mirror the loaded terrain into GameState.state.board.terrain
+	# so MovementPhase._position_intersects_terrain (which reads from there)
+	# can actually find impassable pieces. Pre-fix this was perpetually empty.
+	if has_node("/root/GameState"):
+		var gs = get_node("/root/GameState")
+		if gs.state.has("board"):
+			gs.state["board"]["terrain"] = terrain_features.duplicate(true)
+			print("[TerrainManager] Mirrored %d terrain pieces into state.board.terrain" % terrain_features.size())
+
 	emit_signal("terrain_loaded", terrain_features)
 
 func _load_layout_from_json(layout_name: String) -> bool:

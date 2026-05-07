@@ -6139,7 +6139,9 @@ func _position_intersects_terrain(pos: Vector2, model: Dictionary, max_passable_
 				var terrain_height = _get_terrain_height_inches(terrain_piece)
 				if terrain_height <= max_passable_height:
 					continue
-			var poly = terrain_piece.get("poly", [])
+			# Issue #385: TerrainManager stores polygon as "polygon"; older code
+			# read "poly". Try both keys for compatibility.
+			var poly = terrain_piece.get("polygon", terrain_piece.get("poly", []))
 			if _point_in_expanded_polygon(pos, poly, expansion):
 				return true
 
