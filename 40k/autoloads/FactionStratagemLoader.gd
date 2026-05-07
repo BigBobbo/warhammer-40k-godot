@@ -630,16 +630,24 @@ func _map_effects(effect_text: String) -> Array:
 
 	# --- Keyword Grants ---
 
+	# Issue #381: Detect "either [X] or [Y]" wording so we don't grant BOTH
+	# LETHAL HITS AND SUSTAINED HITS for ARCHEOTECH MUNITIONS et al. With this
+	# flag set, only the FIRST matching keyword is granted (sensible default;
+	# follow-up should add a UI choice prompt).
+	var has_either_or_choice = ("either" in t) and ("or " in t)
+
 	# Ignores Cover
 	if "[ignores cover]" in t:
 		effects.append({"type": EffectPrimitivesData.GRANT_IGNORES_COVER})
 
 	# Lethal Hits
+	var lethal_hits_granted = false
 	if "[lethal hits]" in t:
 		effects.append({"type": EffectPrimitivesData.GRANT_LETHAL_HITS})
+		lethal_hits_granted = true
 
-	# Sustained Hits
-	if "[sustained hits" in t:
+	# Sustained Hits — skip if either/or already granted Lethal Hits
+	if "[sustained hits" in t and not (has_either_or_choice and lethal_hits_granted):
 		effects.append({"type": EffectPrimitivesData.GRANT_SUSTAINED_HITS})
 
 	# Devastating Wounds
