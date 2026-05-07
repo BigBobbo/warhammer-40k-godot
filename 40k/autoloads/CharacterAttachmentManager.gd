@@ -27,11 +27,30 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 	if "CHARACTER" not in char_keywords:
 		return {"valid": false, "reason": "Unit is not a CHARACTER"}
 
-	# Check leader_data exists with can_lead
+	# Check leader_data exists with can_lead.
+	# Issue #378: fall back to LeaderPairingsLoader (Wahapedia Datasheets_leader.csv,
+	# 1,899 canonical pairings) when the per-roster JSON list is empty or stale.
 	var leader_data = character.get("meta", {}).get("leader_data", {})
-	var can_lead = leader_data.get("can_lead", [])
+	var can_lead = leader_data.get("can_lead", []).duplicate()
+	var canonical_keywords: Array = []
+	var lp_loader = get_node_or_null("/root/LeaderPairingsLoader")
+	if lp_loader:
+		canonical_keywords = lp_loader.get_canonical_can_lead_keywords(character.get("meta", {}).get("name", ""))
 	if can_lead.is_empty():
-		return {"valid": false, "reason": "Character has no Leader ability"}
+		if canonical_keywords.is_empty():
+			return {"valid": false, "reason": "Character has no Leader ability"}
+		can_lead = canonical_keywords
+	else:
+		# Merge canonical keywords into JSON-provided list (additive — JSON wins
+		# only if it specifies extras; canonical entries never get dropped).
+		for kw in canonical_keywords:
+			var already = false
+			for existing in can_lead:
+				if String(existing).to_upper() == String(kw).to_upper():
+					already = true
+					break
+			if not already:
+				can_lead.append(kw)
 
 	# 10e: Lone Operative units cannot be part of an Attached unit (the ability text says
 	# "Unless part of an Attached unit ... within 12\"" — but the unit's own datasheet rules
