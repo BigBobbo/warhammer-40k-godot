@@ -190,8 +190,8 @@ func _validate_set_scout_model_dest(action: Dictionary) -> Dictionary:
 	)
 
 	var dest_pos = Vector2(
-		dest.get("x", dest.x if dest is Vector2 else 0),
-		dest.get("y", dest.y if dest is Vector2 else 0)
+		dest.x if dest is Vector2 else dest.get("x", 0),
+		dest.y if dest is Vector2 else dest.get("y", 0)
 	)
 
 	# Check movement distance
@@ -334,10 +334,10 @@ func _process_set_scout_model_dest(action: Dictionary) -> Dictionary:
 	if not active_scout_moves.has(unit_id):
 		return create_result(false, [], "No active Scout move for unit")
 
-	# Store the staged position
+	# Store the staged position (dest may be Dict or Vector2 after MCP normalization)
 	var dest_pos = {
-		"x": dest.get("x", dest.x if dest is Vector2 else 0),
-		"y": dest.get("y", dest.y if dest is Vector2 else 0)
+		"x": dest.x if dest is Vector2 else dest.get("x", 0),
+		"y": dest.y if dest is Vector2 else dest.get("y", 0)
 	}
 	active_scout_moves[unit_id]["staged_positions"][model_id] = dest_pos
 
