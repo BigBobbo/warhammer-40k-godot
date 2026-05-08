@@ -232,6 +232,33 @@ func _validate_confirm_scout_move(action: Dictionary) -> Dictionary:
 	if model_positions.is_empty():
 		return {"valid": false, "errors": ["Missing model_positions"]}
 
+	# Validate unit coherency after scout move
+	var unit = get_unit(unit_id)
+	var models = unit.get("models", [])
+	var alive_models = []
+	for i in range(models.size()):
+		var model = models[i]
+		if model.get("alive", true):
+			var final_model = model.duplicate()
+			if i < model_positions.size() and model_positions[i] != null:
+				final_model["position"] = model_positions[i]
+			alive_models.append(final_model)
+
+	if alive_models.size() > 1:
+		var required_connections = 1 if alive_models.size() <= 6 else 2
+		for i in range(alive_models.size()):
+			var connections = 0
+			for j in range(alive_models.size()):
+				if i == j:
+					continue
+				if Measurement.is_within_coherency(alive_models[i], alive_models[j]):
+					connections += 1
+					if connections >= required_connections:
+						break
+			if connections < required_connections:
+				var model_id = alive_models[i].get("id", "model %d" % i)
+				return {"valid": false, "errors": ["Unit coherency broken: model %s is not within 2\" of %d model(s)" % [model_id, required_connections]]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_skip_scout_unit(action: Dictionary) -> Dictionary:

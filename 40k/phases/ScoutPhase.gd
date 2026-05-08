@@ -236,16 +236,14 @@ func _validate_confirm_scout_move(action: Dictionary) -> Dictionary:
 
 	var move_data = active_scout_moves[unit_id]
 	var staged_positions = move_data.get("staged_positions", {})
+	var original_positions = move_data.get("original_positions", {})
 
-	# At least one model must have a staged position (or all at original = skip)
-	# Actually, confirming with no moves is fine (unit stays in place)
-
-	# Validate all staged positions pass the >9" enemy distance check
 	var unit = get_unit(unit_id)
 	var owner = unit.get("owner", 0)
 	var model_base_mm = unit.get("models", [{}])[0].get("base_mm", 32)
 	var model_radius_inches = (model_base_mm / 2.0) / 25.4
 
+	# Validate all staged positions pass the >9" enemy distance check
 	for model_id in staged_positions:
 		var pos = staged_positions[model_id]
 		var dest_pos = Vector2(pos.x, pos.y) if pos is Dictionary else pos
@@ -258,6 +256,13 @@ func _validate_confirm_scout_move(action: Dictionary) -> Dictionary:
 			var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
 			if edge_dist < SCOUT_MIN_ENEMY_DISTANCE_INCHES:
 				return {"valid": false, "errors": ["Model %s ends <9\" from enemy models (%.1f\")" % [model_id, edge_dist]]}
+
+	# Validate unit coherency after all staged moves are applied
+	# Each model must be within 2" horizontally and 5" vertically of at least
+	# one other model (2 others for 7+ model units)
+	var coherency_result = _check_scout_coherency(unit, staged_positions, original_positions)
+	if not coherency_result.valid:
+		return {"valid": false, "errors": coherency_result.errors}
 
 	return {"valid": true, "errors": []}
 
@@ -443,6 +448,50 @@ func _check_scout_progression() -> void:
 		else:
 			# All scouts done — BasePhase._should_complete_phase() will emit phase_completed
 			log_phase_message("All Scout moves complete")
+
+func _check_scout_coherency(unit: Dictionary, staged_positions: Dictionary, original_positions: Dictionary) -> Dictionary:
+	"""Check unit coherency for final positions after scout move.
+	Builds final model dicts using staged positions where available, original positions otherwise.
+	Returns {valid: bool, errors: Array}."""
+	var models = unit.get("models", [])
+	var alive_models = []
+	for model in models:
+		if model.get("alive", true):
+			alive_models.append(model)
+
+	if alive_models.size() <= 1:
+		return {"valid": true, "errors": []}
+
+	var final_models = []
+	for model in alive_models:
+		var model_id = model.get("id", "")
+		var final_model = model.duplicate()
+		if staged_positions.has(model_id):
+			final_model["position"] = staged_positions[model_id]
+		elif original_positions.has(model_id):
+			final_model["position"] = original_positions[model_id]
+		final_models.append(final_model)
+
+	var model_count = final_models.size()
+	var required_connections = 1 if model_count <= 6 else 2
+
+	for i in range(final_models.size()):
+		var connections = 0
+		for j in range(final_models.size()):
+			if i == j:
+				continue
+			if Measurement.is_within_coherency(final_models[i], final_models[j]):
+				connections += 1
+				if connections >= required_connections:
+					break
+
+		if connections < required_connections:
+			var model_id = final_models[i].get("id", "model %d" % i)
+			var needed_str = "%d model(s)" % required_connections
+			log_phase_message("Scout coherency check failed: model %s has %d connections, needs %s" % [model_id, connections, needed_str])
+			return {"valid": false, "errors": ["Unit coherency broken: model %s is not within 2\" of %s" % [model_id, needed_str]]}
+
+	return {"valid": true, "errors": []}
 
 func _position_overlaps_other_models(pos: Vector2, base_mm: int, skip_unit_id: String, skip_model_id: String) -> bool:
 	"""Check if a position overlaps with any deployed model."""
