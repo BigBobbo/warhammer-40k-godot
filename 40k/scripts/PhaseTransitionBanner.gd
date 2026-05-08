@@ -194,7 +194,13 @@ func show_phase_banner(phase: GameStateData.Phase, current_round: int = 1, activ
 	_phase_label.text = "%s  %s  %s" % [phase_info.icon, phase_info.name, phase_info.icon]
 
 	# Set round info
-	_round_label.text = "Round %d  \u2022  Player %d Active" % [current_round, active_player]
+	var faction_name = GameState.get_faction_name(active_player) if GameState else ""
+	if faction_name != "":
+		_round_label.text = "Round %d  \u2022  %s" % [current_round, faction_name]
+	else:
+		_round_label.text = "Round %d  \u2022  Player %d" % [current_round, active_player]
+	var player_color = FactionPalettes.get_player_border_color(active_player) if FactionPalettes else WhiteDwarfTheme.WH_GOLD
+	_round_label.add_theme_color_override("font_color", player_color)
 
 	# P3-110: Set phase rules brief
 	var rules_brief = _get_phase_rules_brief(phase)

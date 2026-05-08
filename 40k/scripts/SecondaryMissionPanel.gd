@@ -224,44 +224,58 @@ func _build_player_missions(parent: VBoxContainer, mgr, player: int) -> void:
 func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: Dictionary = {}) -> void:
 	var card = PanelContainer.new()
 	var card_style = StyleBoxFlat.new()
-	card_style.bg_color = Color(0.12, 0.11, 0.09, 0.95)
-	# Highlight border if any condition is currently met
+	card_style.bg_color = Color(0.1, 0.09, 0.07, 0.95)
 	var best_vp = progress.get("best_vp_available", 0)
 	if best_vp > 0:
 		card_style.border_color = Color(0.3, 0.8, 0.3)
+		card_style.set_border_width_all(2)
 	else:
 		card_style.border_color = Color(0.4, 0.35, 0.15)
-	card_style.set_border_width_all(1)
-	card_style.set_corner_radius_all(3)
-	card_style.set_content_margin_all(6)
+		card_style.set_border_width_all(1)
+	card_style.set_corner_radius_all(4)
+	card_style.content_margin_left = 8
+	card_style.content_margin_right = 8
+	card_style.content_margin_top = 6
+	card_style.content_margin_bottom = 6
 	card.add_theme_stylebox_override("panel", card_style)
 	parent.add_child(card)
 
 	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 2)
+	vbox.add_theme_constant_override("separation", 3)
 	card.add_child(vbox)
 
-	# Mission name with progress indicator
+	# Top row: mission name + VP badge
+	var top_row = HBoxContainer.new()
+	top_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(top_row)
+
 	var name_label = Label.new()
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.text = mission.get("name", "Unknown Mission")
+	name_label.add_theme_font_size_override("font_size", 14)
 	if best_vp > 0:
-		name_label.text = "%s [%d VP ready]" % [mission.get("name", "Unknown Mission"), best_vp]
 		name_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 	else:
-		name_label.text = mission.get("name", "Unknown Mission")
-		name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
-	name_label.add_theme_font_size_override("font_size", 13)
-	vbox.add_child(name_label)
+		name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
+	top_row.add_child(name_label)
 
-	# Category + scoring timing
+	if best_vp > 0:
+		var vp_badge = Label.new()
+		vp_badge.text = "%d VP" % best_vp
+		vp_badge.add_theme_font_size_override("font_size", 12)
+		vp_badge.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3))
+		top_row.add_child(vp_badge)
+
+	# Category + scoring timing on one line
 	var scoring = mission.get("scoring", {})
 	var timing_text = _get_timing_display(scoring.get("when", ""))
 	var cat_label = Label.new()
-	cat_label.text = "%s  —  %s" % [mission.get("category", ""), timing_text]
+	cat_label.text = "%s  |  %s" % [mission.get("category", ""), timing_text]
 	cat_label.add_theme_font_size_override("font_size", 10)
-	cat_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
+	cat_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.65))
 	vbox.add_child(cat_label)
 
-	# Condition progress tracking (replaces static VP conditions)
+	# Condition progress tracking
 	var condition_progress = progress.get("conditions", [])
 	if condition_progress.size() > 0:
 		for cond in condition_progress:
@@ -270,24 +284,23 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 			var desc = cond.get("description", cond.get("check", "?"))
 			var cond_label = Label.new()
 			if met:
-				cond_label.text = "  [MET] %d VP - %s" % [vp, desc]
+				cond_label.text = "  %d VP  %s" % [vp, desc]
 				cond_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 			else:
-				cond_label.text = "  [---] %d VP - %s" % [vp, desc]
-				cond_label.add_theme_color_override("font_color", Color(0.6, 0.4, 0.4))
-			cond_label.add_theme_font_size_override("font_size", 10)
+				cond_label.text = "  %d VP  %s" % [vp, desc]
+				cond_label.add_theme_color_override("font_color", Color(0.5, 0.4, 0.4))
+			cond_label.add_theme_font_size_override("font_size", 11)
 			cond_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			vbox.add_child(cond_label)
 	else:
-		# Fallback: show static condition info if no progress data
 		var conditions = scoring.get("conditions", [])
 		for c in conditions:
 			var vp = c.get("vp", 0)
 			var check = c.get("check", "")
 			var cond_label = Label.new()
-			cond_label.text = "  %d VP — %s" % [vp, _humanize_check(check)]
-			cond_label.add_theme_font_size_override("font_size", 10)
-			cond_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
+			cond_label.text = "  %d VP  %s" % [vp, _humanize_check(check)]
+			cond_label.add_theme_font_size_override("font_size", 11)
+			cond_label.add_theme_color_override("font_color", Color(0.5, 0.75, 0.5))
 			cond_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			vbox.add_child(cond_label)
 
@@ -348,24 +361,30 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 # ============================================================================
 
 func _on_mission_event(_player: int, _mission_id: String) -> void:
-	if not is_collapsed:
-		refresh()
+	refresh()
+	_flash_header()
 
 func _on_mission_scored(_player: int, _mission_id: String, _vp: int) -> void:
-	if not is_collapsed:
-		refresh()
+	refresh()
+	_flash_header()
 
 func _on_mission_discard_event(_player: int, _mission_id: String, _reason: String) -> void:
-	if not is_collapsed:
-		refresh()
+	refresh()
 
 func _on_vp_scored(_player: int, _vp: int, _mission_id: String) -> void:
-	if not is_collapsed:
-		refresh()
+	refresh()
+	_flash_header()
 
 # ============================================================================
 # HELPERS
 # ============================================================================
+
+func _flash_header() -> void:
+	if not header_button:
+		return
+	var flash_tween = create_tween()
+	flash_tween.tween_property(header_button, "modulate", Color(1.5, 1.2, 0.5), 0.15)
+	flash_tween.tween_property(header_button, "modulate", Color.WHITE, 0.4)
 
 func _add_label(parent: Control, text: String, font_size: int, color: Color) -> Label:
 	var label = Label.new()

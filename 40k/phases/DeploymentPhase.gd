@@ -113,31 +113,34 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 	if unit.get("owner", 0) != active_player:
 		errors.append("Unit does not belong to active player")
 
-	# Validate model positions
-	if model_positions is Array:
-		var unit_owner = unit.get("owner", 0)
-		var is_infiltrators = GameState.unit_has_infiltrators(unit_id)
-		var deployment_zone = get_deployment_zone_for_player(unit_owner)
-		for i in range(model_positions.size()):
-			var pos = model_positions[i]
-			if pos != null:
-				var rotation = model_rotations[i] if i < model_rotations.size() else 0.0
-				var validation
-				if is_infiltrators:
-					validation = _validate_infiltrators_position(pos, unit, i, unit_owner, rotation)
-				else:
-					validation = _validate_model_position(pos, unit, i, deployment_zone, rotation)
-				if not validation.valid:
-					errors.append_array(validation.errors)
+	# Validate model positions — must be an Array, not a Dictionary or other type
+	if not (model_positions is Array):
+		errors.append("model_positions must be an Array of position objects, got %s" % typeof(model_positions))
+		return {"valid": false, "errors": errors}
 
-		# Issue #335: Validate unit coherency (2" horizontal / 5" vertical) after per-model zone checks.
-		# Per WH40K 10e core rules, deployed units must be set up in unit coherency:
-		# - 2-6 models: each model within 2" horizontally + 5" vertically of at least 1 sibling
-		# - 7+ models:  each model within 2" horizontally + 5" vertically of at least 2 siblings
-		if not unit.is_empty() and model_positions.size() > 1:
-			var coherency_check = _check_deployment_coherency(model_positions, model_rotations, unit)
-			if not coherency_check.valid:
-				errors.append_array(coherency_check.errors)
+	var unit_owner = unit.get("owner", 0)
+	var is_infiltrators = GameState.unit_has_infiltrators(unit_id)
+	var deployment_zone = get_deployment_zone_for_player(unit_owner)
+	for i in range(model_positions.size()):
+		var pos = model_positions[i]
+		if pos != null:
+			var rotation = model_rotations[i] if i < model_rotations.size() else 0.0
+			var validation
+			if is_infiltrators:
+				validation = _validate_infiltrators_position(pos, unit, i, unit_owner, rotation)
+			else:
+				validation = _validate_model_position(pos, unit, i, deployment_zone, rotation)
+			if not validation.valid:
+				errors.append_array(validation.errors)
+
+	# Issue #335: Validate unit coherency (2" horizontal / 5" vertical) after per-model zone checks.
+	# Per WH40K 10e core rules, deployed units must be set up in unit coherency:
+	# - 2-6 models: each model within 2" horizontally + 5" vertically of at least 1 sibling
+	# - 7+ models:  each model within 2" horizontally + 5" vertically of at least 2 siblings
+	if not unit.is_empty() and model_positions.size() > 1:
+		var coherency_check = _check_deployment_coherency(model_positions, model_rotations, unit)
+		if not coherency_check.valid:
+			errors.append_array(coherency_check.errors)
 
 	return {"valid": errors.size() == 0, "errors": errors}
 

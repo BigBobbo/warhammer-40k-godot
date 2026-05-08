@@ -149,11 +149,11 @@ func _create_weapon_checkboxes() -> void:
 
 			var checkbox = CheckBox.new()
 			var weapon_profile = weapon_data.weapon_profile
-			var weapon_text = "Model %s - %s" % [weapon_data.model_id, weapon_data.weapon_name]
+			var weapon_text = "%s - %s" % [weapon_data.model_id, weapon_data.weapon_name]
 
-			# Add weapon stats if available
+			# Add weapon stats in statline format
 			if weapon_profile:
-				weapon_text += " (R:%s\" A:%s BS:%s+ S:%s AP:%s D:%s)" % [
+				weapon_text += "  [%s\" | A:%s | BS:%s+ | S:%s | AP:%s | D:%s]" % [
 					weapon_profile.get("range", "?"),
 					weapon_profile.get("attacks", "?"),
 					weapon_profile.get("ballistic_skill", "?"),

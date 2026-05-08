@@ -350,6 +350,14 @@ func _ready() -> void:
 	# Fix HUD layout to prevent overlap
 	_fix_hud_layout()
 
+	# Accessibility: add tooltips to action buttons
+	if confirm_button:
+		confirm_button.tooltip_text = "Confirm the current action"
+	if undo_button:
+		undo_button.tooltip_text = "Undo the last action"
+	if reset_button:
+		reset_button.tooltip_text = "Reset current selections"
+
 	# Setup Mathhammer UI
 	_setup_mathhammer_ui()
 
@@ -2535,21 +2543,29 @@ func _update_score_display() -> void:
 
 	# T-096: detect CP delta and spawn float
 	if _last_p1_cp != -9999 and p1_cp != _last_p1_cp and _p1_cp_label:
-		_spawn_cp_float(_p1_cp_label, p1_cp - _last_p1_cp, Color(0.4, 0.6, 1.0))
+		_spawn_cp_float(_p1_cp_label, p1_cp - _last_p1_cp, FactionPalettes.get_player_border_color(1))
 	if _last_p2_cp != -9999 and p2_cp != _last_p2_cp and _p2_cp_label:
-		_spawn_cp_float(_p2_cp_label, p2_cp - _last_p2_cp, Color(1.0, 0.4, 0.4))
+		_spawn_cp_float(_p2_cp_label, p2_cp - _last_p2_cp, FactionPalettes.get_player_border_color(2))
 	_last_p1_cp = p1_cp
 	_last_p2_cp = p2_cp
 
 	var p1_faction = GameState.get_faction_name(1)
 	var p2_faction = GameState.get_faction_name(2)
+	var p1_color = FactionPalettes.get_player_border_color(1)
+	var p2_color = FactionPalettes.get_player_border_color(2)
 
-	_p1_cp_label.text = "P1 %s CP: %d" % [p1_faction, p1_cp]
-	_p1_score_label.text = "VP: %d (%dP+%dS)" % [p1_vp, p1_primary, p1_secondary]
-	_p1_score_label.tooltip_text = "P1 Victory Points: %d total\nPrimary: %d | Secondary: %d" % [p1_vp, p1_primary, p1_secondary]
-	_p2_cp_label.text = "P2 %s CP: %d" % [p2_faction, p2_cp]
-	_p2_score_label.text = "VP: %d (%dP+%dS)" % [p2_vp, p2_primary, p2_secondary]
-	_p2_score_label.tooltip_text = "P2 Victory Points: %d total\nPrimary: %d | Secondary: %d" % [p2_vp, p2_primary, p2_secondary]
+	_p1_cp_label.text = "%s  CP:%d" % [p1_faction, p1_cp]
+	_p1_cp_label.add_theme_color_override("font_color", p1_color)
+	_p1_score_label.text = "%dVP" % p1_vp
+	_p1_score_label.add_theme_font_size_override("font_size", 16)
+	_p1_score_label.add_theme_color_override("font_color", p1_color)
+	_p1_score_label.tooltip_text = "%s Victory Points: %d total\nPrimary: %d | Secondary: %d | CP: %d" % [p1_faction, p1_vp, p1_primary, p1_secondary, p1_cp]
+	_p2_cp_label.text = "%s  CP:%d" % [p2_faction, p2_cp]
+	_p2_cp_label.add_theme_color_override("font_color", p2_color)
+	_p2_score_label.text = "%dVP" % p2_vp
+	_p2_score_label.add_theme_font_size_override("font_size", 16)
+	_p2_score_label.add_theme_color_override("font_color", p2_color)
+	_p2_score_label.tooltip_text = "%s Victory Points: %d total\nPrimary: %d | Secondary: %d | CP: %d" % [p2_faction, p2_vp, p2_primary, p2_secondary, p2_cp]
 
 
 # T-096: spawn a transient floating "+N CP" label above the given anchor.
@@ -2580,9 +2596,11 @@ func _setup_round_indicator() -> void:
 	# Create the round indicator label
 	_round_indicator_label = Label.new()
 	_round_indicator_label.name = "RoundIndicator"
-	_round_indicator_label.add_theme_font_size_override("font_size", 14)
-	_round_indicator_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))  # Gold color for visibility
+	_round_indicator_label.add_theme_font_size_override("font_size", 16)
+	_round_indicator_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	_round_indicator_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	if FactionPalettes:
+		_round_indicator_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 
 	# Add separator before round indicator
 	var sep = VSeparator.new()
@@ -2665,8 +2683,8 @@ func _fix_hud_layout() -> void:
 	var unit_list_panel = get_node_or_null("HUD_Right/VBoxContainer/UnitListPanel")
 	if unit_list_panel:
 		unit_list_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		unit_list_panel.custom_minimum_size = Vector2(0, 150)  # Minimum height of 150px
-		print("Adjusted unit list: expand/fill with 150px minimum")
+		unit_list_panel.custom_minimum_size = Vector2(0, 120)
+		print("Adjusted unit list: expand/fill with 120px minimum")
 
 	# T-104: install a filter LineEdit just above the unit list so players can
 	# narrow down by name / keyword / model count.
@@ -2698,10 +2716,10 @@ func _apply_white_dwarf_theme() -> void:
 	if hud_right and hud_right is PanelContainer:
 		_WhiteDwarfTheme.apply_to_panel(hud_right)
 
-	# Theme labels in HUD_Bottom
+	# Theme labels in HUD_Bottom — phase label is the most prominent element
 	if phase_label:
 		_WhiteDwarfTheme.apply_to_label(phase_label, true)
-		# T-110: Phase-level tooltip explaining current phase responsibilities
+		phase_label.add_theme_font_size_override("font_size", 18)
 		phase_label.tooltip_text = "Current phase. Press ? for keyboard shortcuts."
 		phase_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	if active_player_badge:
@@ -2726,9 +2744,9 @@ func _apply_white_dwarf_theme() -> void:
 		_WhiteDwarfTheme.apply_to_label(_p2_cp_label)
 		_p2_cp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 
-	# Theme the phase action button
+	# Phase action button is a primary action — use prominent styling
 	if phase_action_button:
-		_WhiteDwarfTheme.apply_to_button(phase_action_button)
+		_WhiteDwarfTheme.apply_primary_button(phase_action_button)
 
 	# Theme unit list and card labels
 	if unit_list:
@@ -2740,13 +2758,13 @@ func _apply_white_dwarf_theme() -> void:
 	if models_label:
 		_WhiteDwarfTheme.apply_to_label(models_label)
 
-	# Theme buttons in unit card
+	# Theme buttons in unit card — confirm is primary, others secondary
 	if undo_button:
-		_WhiteDwarfTheme.apply_to_button(undo_button)
+		_WhiteDwarfTheme.apply_secondary_button(undo_button)
 	if reset_button:
-		_WhiteDwarfTheme.apply_to_button(reset_button)
+		_WhiteDwarfTheme.apply_secondary_button(reset_button)
 	if confirm_button:
-		_WhiteDwarfTheme.apply_to_button(confirm_button)
+		_WhiteDwarfTheme.apply_primary_button(confirm_button)
 
 	# Theme the UnitStatsPanel if it exists
 	if unit_stats_panel and unit_stats_panel is PanelContainer:
@@ -2826,7 +2844,8 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	# Scroll container for content
 	var scroll = ScrollContainer.new()
 	scroll.name = "ScrollContainer"
-	scroll.custom_minimum_size = Vector2(0, 260)
+	scroll.custom_minimum_size = Vector2(0, 200)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(scroll)
 	
 	# Content VBox
@@ -2860,7 +2879,7 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	
 	var stats_title = Label.new()
 	stats_title.text = "UNIT STATS"
-	stats_title.add_theme_font_size_override("font_size", 14)
+	WhiteDwarfTheme.apply_section_header(stats_title)
 	stats_container.add_child(stats_title)
 	
 	var stats_label = Label.new()
@@ -2879,7 +2898,7 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	
 	var weapons_title = Label.new()
 	weapons_title.text = "WEAPONS"
-	weapons_title.add_theme_font_size_override("font_size", 14)
+	WhiteDwarfTheme.apply_section_header(weapons_title)
 	weapons_container.add_child(weapons_title)
 	
 	var weapons_test = Label.new()
@@ -2979,14 +2998,35 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 
 			if unit_data.has("meta") and unit_data["meta"].has("weapons"):
 				var weapons = unit_data["meta"]["weapons"]
+				# Group weapons by type
+				var ranged_weapons = []
+				var melee_weapons = []
 				for weapon in weapons:
-					var weapon_label = Label.new()
-					var weapon_type = weapon.get("type", "Unknown")
-					var weapon_name = weapon.get("name", "Unknown")
-					var weapon_stats = ""
+					if weapon.get("type", "Unknown") == "Ranged":
+						ranged_weapons.append(weapon)
+					else:
+						melee_weapons.append(weapon)
 
-					if weapon_type == "Ranged":
-						weapon_stats = "Range: %s\" | A: %s | BS: %s+ | S: %s | AP: %s | D: %s" % [
+				# Ranged weapons section
+				if not ranged_weapons.is_empty():
+					var ranged_header = Label.new()
+					ranged_header.text = "RANGED WEAPONS"
+					ranged_header.add_theme_font_size_override("font_size", 10)
+					ranged_header.add_theme_color_override("font_color", Color(0.6, 0.75, 1.0))
+					weapons_container.add_child(ranged_header)
+					# Column header row
+					var col_header = Label.new()
+					col_header.text = "  %-20s %5s %3s %4s %3s %3s %3s" % ["Name", "Range", "A", "BS", "S", "AP", "D"]
+					col_header.add_theme_font_size_override("font_size", 9)
+					col_header.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+					weapons_container.add_child(col_header)
+					for weapon in ranged_weapons:
+						var wl = Label.new()
+						var wname = weapon.get("name", "?")
+						if wname.length() > 20:
+							wname = wname.left(18) + ".."
+						wl.text = "  %-20s %4s\" %3s %3s+ %3s %3s %3s" % [
+							wname,
 							weapon.get("range", "-"),
 							weapon.get("attacks", "-"),
 							weapon.get("ballistic_skill", "-"),
@@ -2994,18 +3034,45 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 							weapon.get("ap", "-"),
 							weapon.get("damage", "-")
 						]
-					else:  # Melee
-						weapon_stats = "Melee | A: %s | WS: %s+ | S: %s | AP: %s | D: %s" % [
+						wl.add_theme_font_size_override("font_size", 11)
+						wl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+						var keywords = weapon.get("keywords", [])
+						if not keywords.is_empty():
+							wl.tooltip_text = ", ".join(keywords)
+						weapons_container.add_child(wl)
+
+				# Melee weapons section
+				if not melee_weapons.is_empty():
+					var melee_header = Label.new()
+					melee_header.text = "MELEE WEAPONS"
+					melee_header.add_theme_font_size_override("font_size", 10)
+					melee_header.add_theme_color_override("font_color", Color(1.0, 0.6, 0.5))
+					weapons_container.add_child(melee_header)
+					var col_header_m = Label.new()
+					col_header_m.text = "  %-20s %5s %3s %4s %3s %3s %3s" % ["Name", "Range", "A", "WS", "S", "AP", "D"]
+					col_header_m.add_theme_font_size_override("font_size", 9)
+					col_header_m.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+					weapons_container.add_child(col_header_m)
+					for weapon in melee_weapons:
+						var wl = Label.new()
+						var wname = weapon.get("name", "?")
+						if wname.length() > 20:
+							wname = wname.left(18) + ".."
+						wl.text = "  %-20s %5s %3s %3s+ %3s %3s %3s" % [
+							wname,
+							"Melee",
 							weapon.get("attacks", "-"),
 							weapon.get("weapon_skill", "-"),
 							weapon.get("strength", "-"),
 							weapon.get("ap", "-"),
 							weapon.get("damage", "-")
 						]
-
-					weapon_label.text = "• %s (%s): %s" % [weapon_name, weapon_type, weapon_stats]
-					weapon_label.add_theme_font_size_override("font_size", 11)
-					weapons_container.add_child(weapon_label)
+						wl.add_theme_font_size_override("font_size", 11)
+						wl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+						var keywords = weapon.get("keywords", [])
+						if not keywords.is_empty():
+							wl.tooltip_text = ", ".join(keywords)
+						weapons_container.add_child(wl)
 
 		print("Unit data display updated")
 
@@ -3277,14 +3344,9 @@ func _setup_measuring_tape() -> void:
 	print("Added MeasuringTapeVisual to BoardRoot")
 	print("Measuring Tape: Hold 't' and drag to measure, press 'y' to clear all measurements")
 	
-	# Add measuring tape save toggle to top HUD
+	# Measuring tape save toggle — hidden in dev tools container (toolbar cleanup)
 	var hud_container = $HUD_Bottom/HBoxContainer
 	if hud_container:
-		# Add separator
-		var separator = VSeparator.new()
-		hud_container.add_child(separator)
-		
-		# Create measuring tape save toggle button
 		var tape_save_button = CheckBox.new()
 		tape_save_button.name = "MeasuringTapeSaveToggle"
 		tape_save_button.text = "Save Measurements"
@@ -3292,9 +3354,9 @@ func _setup_measuring_tape() -> void:
 		tape_save_button.toggled.connect(_on_measuring_tape_save_toggle)
 		tape_save_button.tooltip_text = "Enable to persist measurement lines in save files"
 		tape_save_button.add_theme_font_size_override("font_size", 12)
+		tape_save_button.visible = false
 		hud_container.add_child(tape_save_button)
-		
-		print("Added measuring tape save toggle to HUD")
+		print("Added measuring tape save toggle (hidden, toggle with Shift+D)")
 
 func _setup_terrain() -> void:
 	print("Setting up terrain system...")
@@ -3312,30 +3374,31 @@ func _setup_terrain() -> void:
 	print("Added LineOfSightVisual to BoardRoot")
 	print("Line of Sight: Hold 'V' to check what models can see the cursor position")
 
-	# Add terrain-related controls to HUD
-	var hud_container = $HUD_Bottom/HBoxContainer
-	if hud_container:
-		# Add separator
-		var separator = VSeparator.new()
-		hud_container.add_child(separator)
+	# Dev tools — hidden by default, toggled with Shift+D
+	var hud_container2 = $HUD_Bottom/HBoxContainer
+	if hud_container2:
+		var dev_separator = VSeparator.new()
+		dev_separator.name = "DevToolsSeparator"
+		dev_separator.visible = false
+		hud_container2.add_child(dev_separator)
 
-		# Create terrain info label
 		var terrain_label = Label.new()
 		terrain_label.name = "TerrainInfoLabel"
 		terrain_label.text = "Terrain: Layout 2"
 		terrain_label.add_theme_font_size_override("font_size", 12)
-		hud_container.add_child(terrain_label)
+		terrain_label.visible = false
+		hud_container2.add_child(terrain_label)
 
-		# Add LoS debug toggle button
 		var los_button = Button.new()
 		los_button.name = "LoSDebugButton"
 		los_button.text = "LoS Debug (L)"
 		los_button.toggle_mode = true
-		los_button.button_pressed = false  # Start with debug off (matches LoSDebugVisual default)
+		los_button.button_pressed = false
 		los_button.toggled.connect(func(pressed): _toggle_los_debug())
-		hud_container.add_child(los_button)
+		los_button.visible = false
+		hud_container2.add_child(los_button)
 
-		print("Added terrain UI controls to HUD")
+		print("Added terrain UI controls to HUD (hidden, toggle with Shift+D)")
 
 func _on_measuring_tape_save_toggle(pressed: bool) -> void:
 	SettingsService.set_save_measurements(pressed)
@@ -4522,6 +4585,12 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# Dev tools toggle — Shift+D
+	if event is InputEventKey and event.pressed and event.keycode == KEY_D and event.shift_pressed:
+		_toggle_dev_tools()
+		get_viewport().set_input_as_handled()
+		return
+
 	# Board rotation - 'v' to rotate 90° clockwise
 	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "rotate_board"):
 		rotate_board_view(PI / 2.0)
@@ -4923,9 +4992,8 @@ func _refresh_unit_list_inner() -> void:
 
 				for unit_id in units:
 					var unit_data = GameState.get_unit(unit_id)
-					var unit_name = unit_data["meta"]["name"]
+					var unit_name = unit_data["meta"].get("display_name", unit_data["meta"]["name"])
 					var model_count = unit_data["models"].size()
-					# Add ability indicators for units with special deployment abilities
 					var ability_tag = ""
 					var unit_keywords = unit_data.get("meta", {}).get("keywords", [])
 					if GameState.unit_is_fortification(unit_id):
@@ -5020,7 +5088,7 @@ func _refresh_unit_list_inner() -> void:
 					unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
 					for unit_id in scout_moves_units:
 						var unit_data = GameState.get_unit(unit_id)
-						var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+						var unit_name = unit_data.get("meta", {}).get("display_name", unit_data.get("meta", {}).get("name", unit_id))
 						var model_count = unit_data.get("models", []).size()
 						var scout_range = GameState.get_scout_range(unit_id)
 						var scouted = unit_data.get("flags", {}).get("scouted", false)
@@ -5135,7 +5203,7 @@ func _refresh_unit_list_inner() -> void:
 			var all_units = GameState.get_units_for_player(active_player)
 			for unit_id in all_units:
 				var unit = all_units[unit_id]
-				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				var unit_name = unit.get("meta", {}).get("display_name", unit.get("meta", {}).get("name", unit_id))
 				var model_count = unit.get("models", []).size()
 				var display_text = "%s (%d models)" % [unit_name, model_count]
 				unit_list.add_item(display_text)
@@ -5149,8 +5217,11 @@ func update_ui() -> void:
 		role_label = "Attacker" if active_player == first_turn_player else "Defender"
 	else:
 		role_label = "Defender" if active_player == 1 else "Attacker"
-	var player_text = "Player %d (%s)" % [active_player, role_label]
+	var faction_name = GameState.get_faction_name(active_player)
+	var player_text = "P%d %s (%s)" % [active_player, faction_name, role_label]
 	active_player_badge.text = player_text
+	var player_color = FactionPalettes.get_player_border_color(active_player)
+	active_player_badge.add_theme_color_override("font_color", player_color)
 
 	# Update player scores and CP in top bar
 	_update_score_display()
@@ -5203,7 +5274,7 @@ func update_ui() -> void:
 				if deployment_controller and deployment_controller.is_placing():
 					var unit_id = deployment_controller.get_current_unit()
 					var unit_data = GameState.get_unit(unit_id)
-					var unit_name = unit_data["meta"]["name"]
+					var unit_name = unit_data["meta"].get("display_name", unit_data["meta"]["name"])
 					var placed = deployment_controller.get_placed_count()
 					var total = deployment_controller.get_total_model_count()
 					var mode_info = ""
@@ -6113,6 +6184,7 @@ func _show_formations_dialog(player: int) -> void:
 	var dialog_script = preload("res://scripts/FormationsDeclarationDialog.gd")
 	formations_dialog = AcceptDialog.new()
 	formations_dialog.set_script(dialog_script)
+	formations_dialog.exclusive = true
 	add_child(formations_dialog)
 	formations_dialog.setup(player)
 	formations_dialog.formations_confirmed.connect(_on_formations_dialog_confirmed)
@@ -7309,6 +7381,19 @@ func _toggle_deployment_zones() -> void:
 			p2_zone.set_active(false)
 		ToastManager.show_toast("Deployment zones hidden (Z to show)", Color(0.6, 0.6, 0.8), 2.0)
 
+func _close_stale_review_dialogs() -> void:
+	for child in get_tree().root.get_children():
+		if child is AcceptDialog and is_instance_valid(child) and child.visible:
+			print("Main: Closing stale dialog on phase change: %s" % child.name)
+			child.hide()
+			child.queue_free()
+	for child in get_children():
+		if child is AcceptDialog and is_instance_valid(child) and child.visible:
+			if child.name != "SaveLoadDialog":
+				print("Main: Closing stale child dialog on phase change: %s" % child.name)
+				child.hide()
+				child.queue_free()
+
 # Phase management handlers
 func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	# Stop processing phase changes if the game has ended
@@ -7340,6 +7425,9 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 
 	# Clear transport panel when phase changes
 	update_transport_panel("")
+
+	# Close any lingering SecondaryMissionReviewDialog from command phase
+	_close_stale_review_dialogs()
 
 	# Clean up scout UI state when leaving the scout phase
 	if _scout_active_unit_id != "":
@@ -7425,8 +7513,9 @@ func _show_game_over_dialog(winner: int, reason: String) -> void:
 	var dialog_script = preload("res://scripts/GameOverDialog.gd")
 	game_over_dialog = AcceptDialog.new()
 	game_over_dialog.set_script(dialog_script)
-	add_child(game_over_dialog)
+	game_over_dialog.exclusive = true
 	game_over_dialog.always_on_top = true
+	add_child(game_over_dialog)
 
 	# Determine local player number for networked games
 	var local_player_num = 0
@@ -7585,6 +7674,18 @@ func _get_phase_button_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.MORALE: return "End Morale Phase"
 		_: return "End Phase"
 
+func _get_phase_button_tooltip(phase: GameStateData.Phase) -> String:
+	match phase:
+		GameStateData.Phase.FORMATIONS: return "Lock in your leader attachments and transport embarkations"
+		GameStateData.Phase.DEPLOYMENT: return "Finish placing all units in your deployment zone"
+		GameStateData.Phase.COMMAND: return "End Command phase and begin Movement (Shortcut: Enter)"
+		GameStateData.Phase.MOVEMENT: return "End Movement phase and begin Shooting (Shortcut: Enter)"
+		GameStateData.Phase.SHOOTING: return "End Shooting phase and begin Charge (Shortcut: Enter)"
+		GameStateData.Phase.CHARGE: return "End Charge phase and begin Fight (Shortcut: Enter)"
+		GameStateData.Phase.FIGHT: return "End Fight phase and proceed to scoring"
+		GameStateData.Phase.SCORING: return "End your turn and pass to your opponent"
+		_: return "Advance to the next phase"
+
 func _clear_phase_ui_artifacts() -> void:
 	# Remove any dynamically added phase-specific buttons from HUD_Bottom
 	var hbox = get_node_or_null("HUD_Bottom/HBoxContainer")
@@ -7736,6 +7837,7 @@ func update_ui_for_phase() -> void:
 	# Configure the single action button for current phase
 	phase_action_button.visible = true
 	phase_action_button.text = _get_phase_button_text(current_phase)
+	phase_action_button.tooltip_text = _get_phase_button_tooltip(current_phase)
 
 	# Set initial disabled state based on phase
 	# Deployment phase starts disabled (enabled when all units deployed)
@@ -8747,6 +8849,24 @@ func _on_left_panel_toggle_pressed() -> void:
 	hud_left.visible = is_left_panel_visible
 
 	print("Left panel visibility toggled: ", is_left_panel_visible)
+
+func _toggle_dev_tools() -> void:
+	var hud = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if not hud:
+		return
+	var dev_names = ["DevToolsSeparator", "TerrainInfoLabel", "LoSDebugButton", "MeasuringTapeSaveToggle"]
+	var any_visible = false
+	for dev_name in dev_names:
+		var node = hud.get_node_or_null(dev_name)
+		if node:
+			any_visible = any_visible or node.visible
+	for dev_name in dev_names:
+		var node = hud.get_node_or_null(dev_name)
+		if node:
+			node.visible = not any_visible
+	if ToastManager:
+		var state = "shown" if not any_visible else "hidden"
+		ToastManager.show_toast("Dev tools %s (Shift+D)" % state, Color(0.6, 0.6, 0.8), 1.5)
 
 func _toggle_secondary_mission_panel() -> void:
 	"""Toggle the persistent secondary missions overlay (M key)."""

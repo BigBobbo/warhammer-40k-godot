@@ -121,10 +121,12 @@ func _apply_theme() -> void:
 	var bg = $Background as ColorRect
 	bg.color = WhiteDwarfThemeData.WH_BLACK
 
-	# Title label: gold, 24pt to match other dialogs
+	# Title label: gold, large and prominent
 	var title_label = $ScrollContainer/MenuContainer/TitleLabel as Label
-	title_label.add_theme_font_size_override("font_size", 24)
+	title_label.add_theme_font_size_override("font_size", 32)
 	title_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+	if FactionPalettes:
+		title_label.add_theme_font_override("font", FactionPalettes.FONT_CASLON)
 
 	# Section headers
 	var mission_label = $ScrollContainer/MenuContainer/MissionSection/MissionLabel as Label
@@ -157,9 +159,10 @@ func _apply_theme() -> void:
 			player1_type_dropdown, player1_dropdown, player2_type_dropdown, player2_dropdown]:
 		WhiteDwarfThemeData.apply_to_button(dropdown)
 
-	# Buttons
-	for btn in [start_button, multiplayer_button, load_button, replay_button, settings_button, quit_button]:
-		WhiteDwarfThemeData.apply_to_button(btn)
+	# Buttons — Start Game is primary, rest are secondary
+	WhiteDwarfThemeData.apply_primary_button(start_button)
+	for btn in [multiplayer_button, load_button, replay_button, settings_button, quit_button]:
+		WhiteDwarfThemeData.apply_secondary_button(btn)
 
 func _apply_theme_to_dynamic_elements() -> void:
 	# Style dynamically created dropdowns and buttons
@@ -501,14 +504,15 @@ func _load_available_armies() -> void:
 		army_options.append({"id": "placeholder", "name": "No Armies Available", "date": "", "display": "No Armies Available"})
 		return
 
-	# Convert army IDs to display names with dates
+	# Convert army IDs to display names with points
 	for army_id in available_armies:
 		var base_name = _format_army_name(army_id)
 		var date_str = ArmyListManager.get_army_date(army_id)
+		var points = ArmyListManager.get_army_points(army_id)
 		var display_name = base_name
-		if not date_str.is_empty():
-			display_name = "%s (%s)" % [base_name, _format_date_display(date_str)]
-		army_options.append({"id": army_id, "name": base_name, "date": date_str, "display": display_name})
+		if points > 0:
+			display_name = "%s — %dpts" % [base_name, points]
+		army_options.append({"id": army_id, "name": base_name, "date": date_str, "points": points, "display": display_name})
 
 	# Sort based on current sort mode
 	_sort_army_options()

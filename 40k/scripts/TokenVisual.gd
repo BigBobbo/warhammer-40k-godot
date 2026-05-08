@@ -493,20 +493,28 @@ func _get_letter_label() -> String:
 	var unit_name = unit.get("meta", {}).get("name", "?")
 	var unit_type = _get_unit_type()
 
-	# Vehicles get first word of name
-	if unit_type == "VEHICLE":
+	# Vehicles/monsters get first word (abbreviated if long)
+	if unit_type == "VEHICLE" or unit_type == "MONSTER":
 		var words = unit_name.split(" ")
 		if words.size() > 0:
 			var first_word = words[0]
-			return first_word.substr(0, min(first_word.length(), 6))
+			return first_word.substr(0, min(first_word.length(), 5))
 
-	# Mixed composition units get letter + asterisk
+	# Characters: show first 2-3 chars of first word for better ID
+	if _is_character():
+		var words = unit_name.split(" ")
+		var first_word = words[0] if words.size() > 0 else unit_name
+		if first_word.length() <= 4:
+			return first_word
+		return first_word.substr(0, 3)
+
+	# Mixed composition units get abbreviation + asterisk
 	var composition = unit.get("meta", {}).get("unit_composition", [])
 	if composition.size() > 1:
-		return unit_name.substr(0, 1).to_upper() + "*"
+		return unit_name.substr(0, 2).to_upper() + "*"
 
-	# Default: first letter uppercase
-	return unit_name.substr(0, 1).to_upper()
+	# Default: first 2 chars for better identification
+	return unit_name.substr(0, 2)
 
 func _draw_retro_pixel_art(radius: float, border_color: Color) -> void:
 	# Retro mode: draw top-down pixel art as the primary unit visual (Hotline Miami style)
@@ -703,19 +711,19 @@ func _draw_marked_for_death_indicator(radius: float) -> void:
 			draw_string(font, label_pos, "G", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1.0, 0.8, 0.2))
 
 func _draw_selection_ring(radius: float) -> void:
-	# Pulsing gold ring for selected/hovered state
-	var pulse = (sin(_pulse_time * 4.0) + 1.0) / 2.0  # 0..1 oscillation
+	var pulse = (sin(_pulse_time * 4.0) + 1.0) / 2.0
 	var alpha: float
 	var ring_color: Color
+	var base_color = FactionPalettes.get_player_border_color(owner_player)
 
 	if is_selected:
-		alpha = 0.5 + pulse * 0.5  # 0.5..1.0
-		ring_color = Color(1.0, 0.85, 0.2, alpha)  # Gold
+		alpha = 0.6 + pulse * 0.4
+		ring_color = Color(base_color.r, base_color.g, base_color.b, alpha).lightened(0.3)
 	else:
-		alpha = 0.3 + pulse * 0.3  # 0.3..0.6
-		ring_color = Color(0.9, 0.9, 0.9, alpha)  # White-ish
+		alpha = 0.3 + pulse * 0.3
+		ring_color = Color(0.9, 0.9, 0.9, alpha)
 
-	draw_arc(Vector2.ZERO, radius + 3.0, 0, TAU, 48, ring_color, 2.5)
+	draw_arc(Vector2.ZERO, radius + 3.0, 0, TAU, 48, ring_color, 3.0)
 
 func _draw_model_number() -> void:
 	var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
@@ -868,15 +876,35 @@ func _draw_unit_name_label() -> void:
 	var label_y = base_radius + font_size + 2
 	var text_pos = Vector2(-text_size.x / 2.0, label_y)
 
+	# Add model count badge for first model of multi-model units
+	var count_text = ""
+	if model_number == 1:
+		var models = unit.get("models", [])
+		var total = models.size()
+		if total > 1:
+			var alive = 0
+			for m in models:
+				if m.get("current_wounds", 1) > 0:
+					alive += 1
+			count_text = "%d/%d" % [alive, total]
+
+	# Build combined label
+	var display = unit_name
+	if count_text != "":
+		display = "%s [%s]" % [unit_name, count_text]
+
+	var combined_size = font.get_string_size(display, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+	var combined_pos = Vector2(-combined_size.x / 2.0, label_y)
+
 	# Draw background pill for readability
-	var bg_rect = Rect2(text_pos.x - 3, text_pos.y - font_size, text_size.x + 6, font_size + 4)
+	var bg_rect = Rect2(combined_pos.x - 3, combined_pos.y - font_size, combined_size.x + 6, font_size + 4)
 	draw_rect(bg_rect, Color(0.05, 0.05, 0.05, 0.75), true)
 
 	# Draw text with faction-appropriate color
 	var label_color = _get_faction_accent_color()
 	label_color.a = 0.9
-	draw_string(font, text_pos + Vector2(0.5, 0.5), unit_name, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0, 0, 0, 0.7))
-	draw_string(font, text_pos, unit_name, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, label_color)
+	draw_string(font, combined_pos + Vector2(0.5, 0.5), display, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0, 0, 0, 0.7))
+	draw_string(font, combined_pos, display, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, label_color)
 
 func _resolve_sprite() -> void:
 	_sprite_resolved = true

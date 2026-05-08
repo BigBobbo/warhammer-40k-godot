@@ -6,9 +6,9 @@ class_name DiceRollVisual
 # Gold for critical hits (6s), red for natural 1s, green for successes, gray for failures
 
 # Die visual constants
-const DIE_SIZE := 28.0
-const DIE_MARGIN := 4.0
-const DIE_CORNER_RADIUS := 4.0
+const DIE_SIZE := 32.0
+const DIE_MARGIN := 5.0
+const DIE_CORNER_RADIUS := 5.0
 const MAX_DICE_PER_ROW := 7
 const ROW_HEIGHT := DIE_SIZE + DIE_MARGIN
 const ANIM_DURATION := 0.6  # Total animation time in seconds
@@ -185,35 +185,36 @@ func _draw_dice_set(dice_set: Array, x_offset: float, y_offset: float, alpha: fl
 				pip_color = Color(COLOR_DIE_TEXT, die_alpha)
 			_draw_pixel_pips(x, y, die.display_value, pip_color)
 		else:
+			# Drop shadow for depth
+			var shadow_rect = Rect2(x + 2, y + 2, DIE_SIZE, DIE_SIZE)
+			var shadow_style = StyleBoxFlat.new()
+			shadow_style.bg_color = Color(0.0, 0.0, 0.0, die_alpha * 0.3)
+			shadow_style.set_corner_radius_all(DIE_CORNER_RADIUS)
+			draw_style_box(shadow_style, shadow_rect)
+
+			# Glow for new dice criticals
+			if not is_old and die.settled and die.value == 6:
+				var glow_rect = Rect2(x - 3, y - 3, DIE_SIZE + 6, DIE_SIZE + 6)
+				var glow_style = StyleBoxFlat.new()
+				glow_style.bg_color = Color(1.0, 0.84, 0.0, die_alpha * 0.3)
+				glow_style.set_corner_radius_all(DIE_CORNER_RADIUS + 3)
+				draw_style_box(glow_style, glow_rect)
+
+			# Main die face
 			var style = StyleBoxFlat.new()
 			style.bg_color = bg_color
 			style.set_corner_radius_all(DIE_CORNER_RADIUS)
 			style.set_border_width_all(1)
-			style.border_color = Color(0.0, 0.0, 0.0, die_alpha * 0.5)
+			style.border_color = Color(0.0, 0.0, 0.0, die_alpha * 0.6)
 			draw_style_box(style, rect)
 
-			var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
-			var font_size = 16
-			var text = str(die.display_value)
-			var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-			var text_x = x + (DIE_SIZE - text_size.x) * 0.5
-			var text_y = y + (DIE_SIZE + text_size.y * 0.65) * 0.5
-
-			var text_color: Color
+			# Draw pips (dots) instead of numbers for a more authentic die look
+			var pip_color: Color
 			if not is_old and die.settled and die.value == 6:
-				text_color = Color(COLOR_DIE_TEXT_DARK, die_alpha)
+				pip_color = Color(COLOR_DIE_TEXT_DARK, die_alpha)
 			else:
-				text_color = Color(COLOR_DIE_TEXT, die_alpha)
-
-			# Glow for new dice criticals during animation
-			if not is_old and die.settled and _is_animating and die.value == 6:
-				var glow_rect = Rect2(x - 2, y - 2, DIE_SIZE + 4, DIE_SIZE + 4)
-				var glow_style = StyleBoxFlat.new()
-				glow_style.bg_color = Color(1.0, 0.84, 0.0, die_alpha * 0.3)
-				glow_style.set_corner_radius_all(DIE_CORNER_RADIUS + 2)
-				draw_style_box(glow_style, glow_rect)
-
-			draw_string(font, Vector2(text_x, text_y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
+				pip_color = Color(COLOR_DIE_TEXT, die_alpha)
+			_draw_round_pips(x, y, die.display_value, pip_color)
 
 			# Strikethrough for old dice, X for natural 1s on new dice
 			if is_old:
@@ -224,6 +225,27 @@ func _draw_dice_set(dice_set: Array, x_offset: float, y_offset: float, alpha: fl
 				var line_color = Color(1.0, 1.0, 1.0, die_alpha * 0.3)
 				draw_line(Vector2(x + 4, y + 4), Vector2(x + DIE_SIZE - 4, y + DIE_SIZE - 4), line_color, 1.0)
 				draw_line(Vector2(x + DIE_SIZE - 4, y + 4), Vector2(x + 4, y + DIE_SIZE - 4), line_color, 1.0)
+
+func _draw_round_pips(x: float, y: float, value: int, color: Color) -> void:
+	var pip_radius = 3.5
+	var cx = x + DIE_SIZE * 0.5
+	var cy = y + DIE_SIZE * 0.5
+	var offset = DIE_SIZE * 0.27
+	# Center pip
+	if value == 1 or value == 3 or value == 5:
+		draw_circle(Vector2(cx, cy), pip_radius, color)
+	# Top-left and bottom-right
+	if value >= 2:
+		draw_circle(Vector2(cx - offset, cy - offset), pip_radius, color)
+		draw_circle(Vector2(cx + offset, cy + offset), pip_radius, color)
+	# Top-right and bottom-left
+	if value >= 4:
+		draw_circle(Vector2(cx + offset, cy - offset), pip_radius, color)
+		draw_circle(Vector2(cx - offset, cy + offset), pip_radius, color)
+	# Middle-left and middle-right
+	if value == 6:
+		draw_circle(Vector2(cx - offset, cy), pip_radius, color)
+		draw_circle(Vector2(cx + offset, cy), pip_radius, color)
 
 func _draw_pixel_pips(x: float, y: float, value: int, color: Color) -> void:
 	# Draw pixel-art pip dots on a die face (like real dice pips)

@@ -9,7 +9,7 @@ var terrain_containers: Dictionary = {}  # terrain_id -> Node2D container
 var _ruins_polygons: Array = []  # Track ruins Polygon2D nodes for style changes
 
 # Border width
-const BORDER_WIDTH = 2.5
+const BORDER_WIDTH = 3.0
 
 # Preloaded ruins shaders
 var _ruins_shaders: Dictionary = {
@@ -176,20 +176,28 @@ func _add_terrain_piece(terrain_data: Dictionary) -> void:
 	border.default_color = _get_border_color(terrain_type)
 	border.joint_mode = Line2D.LINE_JOINT_ROUND
 
-	# Add terrain label with type-specific prefix
+	# Add terrain label with type-specific prefix and background
+	var label_panel = PanelContainer.new()
+	var label_style = StyleBoxFlat.new()
+	label_style.bg_color = Color(0.0, 0.0, 0.0, 0.55)
+	label_style.set_corner_radius_all(3)
+	label_style.content_margin_left = 4
+	label_style.content_margin_right = 4
+	label_style.content_margin_top = 1
+	label_style.content_margin_bottom = 1
+	label_panel.add_theme_stylebox_override("panel", label_style)
+	label_panel.position = terrain_data.get("position", Vector2.ZERO) - Vector2(30, 10)
+
 	var label = Label.new()
 	label.text = _get_label_text(terrain_data)
-	label.position = terrain_data.get("position", Vector2.ZERO) - Vector2(30, 10)
-	label.add_theme_font_size_override("font_size", 12)
-	label.add_theme_color_override("font_color", Color.WHITE)
-	label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	label.add_theme_constant_override("shadow_offset_x", 1)
-	label.add_theme_constant_override("shadow_offset_y", 1)
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+	label_panel.add_child(label)
 
 	# Assemble the terrain piece
 	container.add_child(piece)
 	container.add_child(border)
-	container.add_child(label)
+	container.add_child(label_panel)
 
 	# Add type-specific decorative details
 	_add_terrain_decorations(container, terrain_data)

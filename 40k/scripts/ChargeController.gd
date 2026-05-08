@@ -3157,16 +3157,33 @@ func _show_charge_range_circle(center: Vector2) -> void:
 		return
 	_clear_charge_range_circle()
 	var radius_px := Measurement.inches_to_px(CHARGE_RANGE_OVERLAY_INCHES)
-	var circle := Line2D.new()
-	circle.name = "ChargeRangeCircle"
-	circle.width = CHARGE_RANGE_OVERLAY_WIDTH
-	circle.default_color = CHARGE_RANGE_OVERLAY_COLOR
-	circle.closed = true
-	var segments: int = 64
-	for i in range(segments):
-		var theta: float = TAU * float(i) / float(segments)
-		circle.add_point(center + Vector2(cos(theta), sin(theta)) * radius_px)
-	range_visual.add_child(circle)
+	# Dashed circle - alternating visible/invisible arcs
+	var total_arcs: int = 10
+	var arc_length: float = TAU / float(total_arcs)
+	var dash_fraction: float = 0.7
+	for arc_idx in range(total_arcs):
+		var arc_start: float = arc_idx * arc_length
+		var arc_dash_end: float = arc_start + arc_length * dash_fraction
+		var dash := Line2D.new()
+		dash.name = "ChargeRangeCircle"
+		dash.width = CHARGE_RANGE_OVERLAY_WIDTH
+		dash.default_color = CHARGE_RANGE_OVERLAY_COLOR
+		dash.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		dash.end_cap_mode = Line2D.LINE_CAP_ROUND
+		var pts: int = 8
+		for i in range(pts + 1):
+			var theta: float = arc_start + (arc_dash_end - arc_start) * float(i) / float(pts)
+			dash.add_point(center + Vector2(cos(theta), sin(theta)) * radius_px)
+		range_visual.add_child(dash)
+	# Distance label
+	var range_label := Label.new()
+	range_label.name = "ChargeRangeCircle"
+	range_label.text = "12\" charge"
+	range_label.add_theme_font_size_override("font_size", 36)
+	range_label.add_theme_color_override("font_color", CHARGE_RANGE_OVERLAY_COLOR)
+	range_label.position = center + Vector2(-60, -(radius_px + 40))
+	range_label.z_index = 55
+	range_visual.add_child(range_label)
 
 func _clear_charge_range_circle() -> void:
 	if not is_instance_valid(range_visual):

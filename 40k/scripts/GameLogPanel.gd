@@ -7,9 +7,9 @@ class_name GameLogPanel
 
 # --- Configuration ---
 const PANEL_WIDTH := 340.0
-const CARD_GAP := 3
-const CARD_CORNER_RADIUS := 4
-const CARD_PADDING := 6
+const CARD_GAP := 5
+const CARD_CORNER_RADIUS := 5
+const CARD_PADDING := 8
 const MAX_CARDS := 200
 
 # --- Entry Categories ---
@@ -528,7 +528,8 @@ func _make_phase_card(text: String) -> PanelContainer:
 	style.border_width_right = 4
 	style.border_width_top = 1
 	style.border_width_bottom = 1
-	style.border_color = COLOR_GOLD
+	var phase_border = _get_player_color_from_text(text)
+	style.border_color = phase_border
 	style.content_margin_left = 10
 	style.content_margin_right = 10
 	style.content_margin_top = 8
@@ -551,10 +552,19 @@ func _make_phase_card(text: String) -> PanelContainer:
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.add_theme_font_size_override("normal_font_size", 13)
 	label.add_theme_font_size_override("bold_font_size", 13)
-	label.append_text("[b][color=#D49761]%s[/color][/b]" % clean_text)
+	var color_hex = phase_border.to_html(false)
+	label.append_text("[b][color=#%s]%s[/color][/b]" % [color_hex, clean_text])
 	hbox.add_child(label)
 
 	return card
+
+func _get_player_color_from_text(text: String) -> Color:
+	var lower = text.to_lower()
+	if "player 1" in lower or "p1" in lower:
+		return FactionPalettes.get_player_border_color(1)
+	elif "player 2" in lower or "p2" in lower:
+		return FactionPalettes.get_player_border_color(2)
+	return COLOR_GOLD
 
 func _make_simple_entry_card(text: String, entry_type: String, category: int) -> PanelContainer:
 	var accent = BORDER_COLORS.get(category, Color.GRAY)
@@ -587,8 +597,8 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 	label.fit_content = true
 	label.scroll_active = false
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("normal_font_size", 11)
-	label.add_theme_font_size_override("bold_font_size", 12)
+	label.add_theme_font_size_override("normal_font_size", 12)
+	label.add_theme_font_size_override("bold_font_size", 13)
 	label.append_text(_format_entry_text(text, entry_type))
 	hbox.add_child(label)
 

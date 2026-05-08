@@ -25,7 +25,7 @@ var summary_label: RichTextLabel
 
 func _init():
 	title = "Declare Battle Formations"
-	min_size = Vector2(700, 750)
+	min_size = Vector2(600, 500)
 	WhiteDwarfTheme.apply_to_dialog(self)
 
 func setup(player: int) -> void:
@@ -58,10 +58,9 @@ func _build_ui() -> void:
 	var separator = HSeparator.new()
 	main_vbox.add_child(separator)
 
-	# Scrollable content — fixed height that fills most of the dialog while
-	# leaving room for summary + buttons below (dialog is 750px tall)
 	scroll_container = ScrollContainer.new()
-	scroll_container.custom_minimum_size = Vector2(680, 400)
+	scroll_container.custom_minimum_size = Vector2(560, 280)
+	scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	main_vbox.add_child(scroll_container)
 
@@ -81,7 +80,7 @@ func _build_ui() -> void:
 	main_vbox.add_child(summary_sep)
 
 	summary_label = RichTextLabel.new()
-	summary_label.custom_minimum_size = Vector2(680, 60)
+	summary_label.custom_minimum_size = Vector2(560, 40)
 	summary_label.bbcode_enabled = true
 	summary_label.fit_content = true
 	main_vbox.add_child(summary_label)
@@ -98,11 +97,13 @@ func _build_ui() -> void:
 	var skip_button = Button.new()
 	skip_button.text = "Skip (No Declarations)"
 	skip_button.pressed.connect(_on_canceled)
+	WhiteDwarfTheme.apply_secondary_button(skip_button)
 	button_bar.add_child(skip_button)
 
 	var confirm_button = Button.new()
 	confirm_button.text = "Confirm Formations"
 	confirm_button.pressed.connect(_on_confirmed)
+	WhiteDwarfTheme.apply_primary_button(confirm_button)
 	button_bar.add_child(confirm_button)
 
 func _build_leader_section() -> void:

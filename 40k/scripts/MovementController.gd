@@ -214,8 +214,10 @@ func _create_path_visuals() -> void:
 	# Create path visualization line in BoardRoot space
 	path_visual = Line2D.new()
 	path_visual.name = "MovementPathVisual"
-	path_visual.width = 2.0
-	path_visual.default_color = Color.GREEN
+	path_visual.width = 3.0
+	path_visual.default_color = Color(0.2, 1.0, 0.4, 0.85)
+	path_visual.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	path_visual.end_cap_mode = Line2D.LINE_CAP_ROUND
 	path_visual.add_point(Vector2.ZERO)  # Dummy point
 	path_visual.clear_points()
 	board_root.add_child(path_visual)
@@ -223,8 +225,10 @@ func _create_path_visuals() -> void:
 	# Create staged path visualization line (yellow for staged moves)
 	staged_path_visual = Line2D.new()
 	staged_path_visual.name = "StagedMovementPathVisual"
-	staged_path_visual.width = 2.0
-	staged_path_visual.default_color = Color.YELLOW  # Yellow for staged moves
+	staged_path_visual.width = 2.5
+	staged_path_visual.default_color = Color(1.0, 0.85, 0.2, 0.7)
+	staged_path_visual.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	staged_path_visual.end_cap_mode = Line2D.LINE_CAP_ROUND
 	staged_path_visual.add_point(Vector2.ZERO)  # Dummy point
 	staged_path_visual.clear_points()
 	board_root.add_child(staged_path_visual)
@@ -400,31 +404,35 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	
 	# Create radio buttons (CheckBox with ButtonGroup for radio behavior)
 	normal_radio = CheckBox.new()
-	normal_radio.text = "Normal" 
+	normal_radio.text = "Normal Move"
 	normal_radio.toggle_mode = true
 	normal_radio.button_group = mode_button_group
 	normal_radio.pressed.connect(_on_normal_move_pressed)
+	normal_radio.tooltip_text = "Move up to the unit's Move characteristic."
 	button_container.add_child(normal_radio)
-	
+
 	advance_radio = CheckBox.new()
 	advance_radio.text = "Advance"
-	advance_radio.toggle_mode = true  
+	advance_radio.toggle_mode = true
 	advance_radio.button_group = mode_button_group
 	advance_radio.pressed.connect(_on_advance_pressed)
+	advance_radio.tooltip_text = "Move + D6\". Unit cannot shoot or charge this turn."
 	button_container.add_child(advance_radio)
 	
 	fall_back_radio = CheckBox.new()
 	fall_back_radio.text = "Fall Back"
 	fall_back_radio.toggle_mode = true
-	fall_back_radio.button_group = mode_button_group  
+	fall_back_radio.button_group = mode_button_group
 	fall_back_radio.pressed.connect(_on_fall_back_pressed)
+	fall_back_radio.tooltip_text = "Disengage from combat. Unit cannot shoot or charge this turn."
 	button_container.add_child(fall_back_radio)
-	
+
 	stationary_radio = CheckBox.new()
-	stationary_radio.text = "Stay Still" 
+	stationary_radio.text = "Remain Stationary"
 	stationary_radio.toggle_mode = true
 	stationary_radio.button_group = mode_button_group
-	stationary_radio.pressed.connect(_on_remain_stationary_pressed) 
+	stationary_radio.pressed.connect(_on_remain_stationary_pressed)
+	stationary_radio.tooltip_text = "Unit does not move this phase. Counts as having Remained Stationary."
 	button_container.add_child(stationary_radio)
 	
 	section.add_child(button_container)
@@ -2509,15 +2517,18 @@ func _update_movement_display_with_preview(used: float, left: float, valid: bool
 func _update_movement_remaining_label(inches_left: float, valid: bool) -> void:
 	if not movement_remaining_label or not is_instance_valid(movement_remaining_label):
 		return
+	var moved = move_cap_inches - inches_left
 	if inches_left >= 0:
-		movement_remaining_label.text = "%.1f\" left" % inches_left
+		movement_remaining_label.text = "%.1f\" / %.1f\"" % [moved, move_cap_inches]
 	else:
-		movement_remaining_label.text = "%.1f\" over!" % abs(inches_left)
+		movement_remaining_label.text = "%.1f\" OVER" % abs(inches_left)
 	# Green when valid, red when over cap or invalid position
 	if valid and inches_left >= 0:
-		movement_remaining_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3, 0.9))
+		if inches_left < 1.0 and move_cap_inches > 0:
+			movement_remaining_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2, 0.9))
+		else:
+			movement_remaining_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3, 0.9))
 	elif inches_left >= 0:
-		# Position invalid (overlap/out of bounds) but distance ok — orange
 		movement_remaining_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.1, 0.9))
 	else:
 		movement_remaining_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.1, 0.9))
@@ -4497,16 +4508,34 @@ func _show_move_range_overlay(unit_id: String) -> void:
 		return
 	center = center / float(count)
 	var radius_px: float = Measurement.inches_to_px(move_inches)
-	var circle := Line2D.new()
-	circle.name = "MoveRangeCircle"
-	circle.width = MOVE_RANGE_OVERLAY_WIDTH
-	circle.default_color = MOVE_RANGE_OVERLAY_COLOR
-	circle.closed = true
-	var segments: int = 64
-	for i in range(segments):
-		var theta: float = TAU * float(i) / float(segments)
-		circle.add_point(center + Vector2(cos(theta), sin(theta)) * radius_px)
-	move_range_visual.add_child(circle)
+	# Dashed circle - alternating visible/invisible arcs
+	var dash_segments: int = 32
+	var gap_segments: int = 8
+	var total_arcs: int = 8
+	var arc_length: float = TAU / float(total_arcs)
+	var dash_fraction: float = 0.75
+	for arc_idx in range(total_arcs):
+		var arc_start: float = arc_idx * arc_length
+		var arc_dash_end: float = arc_start + arc_length * dash_fraction
+		var dash := Line2D.new()
+		dash.name = "MoveRangeDash_%d" % arc_idx
+		dash.width = MOVE_RANGE_OVERLAY_WIDTH
+		dash.default_color = MOVE_RANGE_OVERLAY_COLOR
+		dash.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		dash.end_cap_mode = Line2D.LINE_CAP_ROUND
+		var pts: int = 8
+		for i in range(pts + 1):
+			var theta: float = arc_start + (arc_dash_end - arc_start) * float(i) / float(pts)
+			dash.add_point(center + Vector2(cos(theta), sin(theta)) * radius_px)
+		move_range_visual.add_child(dash)
+	# Distance label at the top of the circle
+	var range_label := Label.new()
+	range_label.text = "%d\"" % int(move_inches)
+	range_label.add_theme_font_size_override("font_size", 36)
+	range_label.add_theme_color_override("font_color", MOVE_RANGE_OVERLAY_COLOR)
+	range_label.position = center + Vector2(-20, -(radius_px + 40))
+	range_label.z_index = 55
+	move_range_visual.add_child(range_label)
 
 func _clear_move_range_overlay() -> void:
 	if not is_instance_valid(move_range_visual):

@@ -204,11 +204,78 @@ static func apply_to_overlay_panel(panel: PanelContainer) -> void:
 # ── Color Helpers for BBCode ─────────────────────────────────────────
 # Hex color strings for use in RichTextLabel BBCode
 
+static func create_primary_button_normal() -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.6, 0.07, 0.08, 0.95)
+	style.border_color = WH_GOLD
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(10)
+	return style
+
+static func create_primary_button_hover() -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.75, 0.1, 0.1, 0.95)
+	style.border_color = WH_PARCHMENT
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(10)
+	return style
+
+static func apply_primary_button(button: Button) -> void:
+	if not button:
+		return
+	button.add_theme_stylebox_override("normal", create_primary_button_normal())
+	button.add_theme_stylebox_override("hover", create_primary_button_hover())
+	button.add_theme_stylebox_override("pressed", create_button_pressed())
+	button.add_theme_stylebox_override("disabled", create_button_disabled())
+	button.add_theme_stylebox_override("focus", create_button_focus())
+	button.add_theme_color_override("font_color", WH_PARCHMENT)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", WH_GOLD)
+	button.add_theme_color_override("font_disabled_color", Color(0.5, 0.45, 0.35, 0.6))
+	button.add_theme_font_size_override("font_size", 16)
+
+static func apply_secondary_button(button: Button) -> void:
+	if not button:
+		return
+	apply_to_button(button)
+	button.add_theme_font_size_override("font_size", 13)
+
+static func create_player_panel_style(player: int) -> StyleBoxFlat:
+	var style = create_panel_style()
+	var border_color = FactionPalettes.get_player_border_color(player)
+	style.border_color = border_color
+	return style
+
+static func get_player_label_color(player: int) -> Color:
+	return FactionPalettes.get_player_border_color(player)
+
 static func gold_hex() -> String:
 	return WH_GOLD.to_html(false)
 
 static func parchment_hex() -> String:
 	return WH_PARCHMENT.to_html(false)
+
+static func apply_section_header(label: Label) -> void:
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", WH_GOLD)
+	if FactionPalettes:
+		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+
+static func apply_subsection_header(label: Label) -> void:
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", WH_PARCHMENT)
+	if FactionPalettes:
+		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
+
+static func apply_body_text(label: Label) -> void:
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+
+static func apply_caption_text(label: Label) -> void:
+	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 
 static func bone_hex() -> String:
 	return WH_BONE.to_html(false)

@@ -371,6 +371,25 @@ func get_army_date(army_name: String) -> String:
 
 	return ""
 
+func get_army_points(army_name: String) -> int:
+	var file_path = "res://armies/%s.json" % army_name
+	if not FileAccess.file_exists(file_path):
+		file_path = "user://armies/%s.json" % army_name
+	if not FileAccess.file_exists(file_path):
+		return 0
+	var file = FileAccess.open(file_path, FileAccess.READ)
+	if not file:
+		return 0
+	var json_text = file.get_as_text()
+	file.close()
+	var json = JSON.new()
+	if json.parse(json_text) != OK:
+		return 0
+	var data = json.data
+	if data is Dictionary and data.has("faction") and data.faction is Dictionary:
+		return data.faction.get("points", 0)
+	return 0
+
 # ============================================================================
 # Cloud Army Support
 # ============================================================================

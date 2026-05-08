@@ -7,3 +7,7 @@ server_config.local.json
 
 # Export builds
 exports/
+
+# Wahapedia data exports — kept locally, not committed
+data/*.csv
+data/*.csv.import

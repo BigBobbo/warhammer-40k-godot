@@ -49,6 +49,13 @@ func _exit_tree() -> void:
 	if command_controls and is_instance_valid(command_controls):
 		command_controls.queue_free()
 
+	# Clean up the secondary mission review dialog if still open
+	if _active_review_dialog and is_instance_valid(_active_review_dialog):
+		print("CommandController: Cleaning up orphaned SecondaryMissionReviewDialog on exit")
+		_active_review_dialog.hide()
+		_active_review_dialog.queue_free()
+		_active_review_dialog = null
+
 	# Clean up right panel elements
 	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
 	if container and is_instance_valid(container):

@@ -23,6 +23,7 @@ func setup(player: int, drawn_missions: Array, player_cp: int, deck_size: int) -
 	_player_cp = player_cp
 	_deck_size = deck_size
 	_can_replace = player_cp >= 1 and deck_size > 0
+	exclusive = true
 
 	var faction_name = GameState.get_faction_name(player)
 	title = "Secondary Missions Drawn - Player %d (%s)" % [player, faction_name]
@@ -107,6 +108,7 @@ func _build_ui() -> void:
 	done_btn.text = "Continue"
 	done_btn.custom_minimum_size = Vector2(160, 40)
 	done_btn.pressed.connect(_on_done_pressed)
+	WhiteDwarfTheme.apply_primary_button(done_btn)
 	button_container.add_child(done_btn)
 
 	add_child(main_container)

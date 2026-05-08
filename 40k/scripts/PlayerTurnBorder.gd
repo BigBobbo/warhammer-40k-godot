@@ -86,15 +86,18 @@ func _apply_color(base_color: Color) -> void:
 	_left.color = c
 	_right.color = c
 
+func _get_player_color(player: int) -> Color:
+	var faction_color = FactionPalettes.get_player_border_color(player)
+	return faction_color
+
 func set_active_player(player: int) -> void:
-	var new_color = P1_COLOR if player == 1 else P2_COLOR
+	var new_color = _get_player_color(player)
 	_current_color = new_color
 	_apply_color(new_color)
 	print("PlayerTurnBorder: Updated to Player %d color" % player)
 
 func flash_turn_swap(player: int) -> void:
-	# Flash: briefly expand thickness and increase alpha, then settle back
-	var new_color = P1_COLOR if player == 1 else P2_COLOR
+	var new_color = _get_player_color(player)
 	_current_color = new_color
 
 	if _flash_tween and _flash_tween.is_valid():

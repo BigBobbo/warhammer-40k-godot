@@ -33,13 +33,18 @@ func _build_ui() -> void:
 	main_vbox.add_theme_constant_override("separation", 12)
 	add_child(main_vbox)
 
-	# Winner banner
+	# Winner banner - larger and more dramatic
 	var winner_label = Label.new()
 	winner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	winner_label.add_theme_font_size_override("font_size", 24)
+	winner_label.add_theme_font_size_override("font_size", 32)
+	if FactionPalettes:
+		winner_label.add_theme_font_override("font", FactionPalettes.FONT_CASLON)
+
+	var winner_faction = ""
+	if winner_player > 0:
+		winner_faction = GameState.get_faction_name(winner_player)
 
 	if local_player > 0:
-		# Networked game — show win/loss relative to local player
 		if winner_player == local_player:
 			winner_label.text = "VICTORY!"
 			winner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
@@ -47,10 +52,10 @@ func _build_ui() -> void:
 			winner_label.text = "DEFEAT"
 			winner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_RED)
 	elif winner_player > 0:
-		winner_label.text = "Player %d Wins!" % winner_player
-		winner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+		winner_label.text = "%s Wins!" % winner_faction if winner_faction != "" else "Player %d Wins!" % winner_player
+		winner_label.add_theme_color_override("font_color", FactionPalettes.get_player_border_color(winner_player))
 	else:
-		winner_label.text = "Game Over — Draw!"
+		winner_label.text = "DRAW"
 		winner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	main_vbox.add_child(winner_label)
 
@@ -59,7 +64,7 @@ func _build_ui() -> void:
 	reason_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reason_label.add_theme_font_size_override("font_size", 14)
 	reason_label.text = _get_reason_text()
-	reason_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
+	reason_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
 	main_vbox.add_child(reason_label)
 
 	main_vbox.add_child(HSeparator.new())
@@ -79,47 +84,56 @@ func _build_ui() -> void:
 
 func _build_vp_summary(parent: VBoxContainer) -> void:
 	var vp_title = Label.new()
-	vp_title.text = "Victory Points"
+	vp_title.text = "FINAL SCORE"
 	vp_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vp_title.add_theme_font_size_override("font_size", 16)
+	vp_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	parent.add_child(vp_title)
 
 	if not MissionManager:
 		return
 
 	var vp_summary = MissionManager.get_vp_summary()
+	var p1_faction = GameState.get_faction_name(1)
+	var p2_faction = GameState.get_faction_name(2)
+	var p1_color = FactionPalettes.get_player_border_color(1)
+	var p2_color = FactionPalettes.get_player_border_color(2)
 
 	# Player 1 VP
 	var p1_label = Label.new()
-	p1_label.text = "Player 1: %d VP (Primary: %d, Secondary: %d)" % [
+	p1_label.text = "%s: %d VP  (Primary %d + Secondary %d)" % [
+		p1_faction if p1_faction != "" else "Player 1",
 		vp_summary["player1"]["total"],
 		vp_summary["player1"]["primary"],
 		vp_summary["player1"]["secondary"],
 	]
 	p1_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	p1_label.add_theme_color_override("font_color", WhiteDwarfTheme.P1_BORDER)
+	p1_label.add_theme_font_size_override("font_size", 15)
+	p1_label.add_theme_color_override("font_color", p1_color)
 	parent.add_child(p1_label)
 
 	# Player 2 VP
 	var p2_label = Label.new()
-	p2_label.text = "Player 2: %d VP (Primary: %d, Secondary: %d)" % [
+	p2_label.text = "%s: %d VP  (Primary %d + Secondary %d)" % [
+		p2_faction if p2_faction != "" else "Player 2",
 		vp_summary["player2"]["total"],
 		vp_summary["player2"]["primary"],
 		vp_summary["player2"]["secondary"],
 	]
 	p2_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	p2_label.add_theme_color_override("font_color", WhiteDwarfTheme.P2_BORDER)
+	p2_label.add_theme_font_size_override("font_size", 15)
+	p2_label.add_theme_color_override("font_color", p2_color)
 	parent.add_child(p2_label)
 
 	# Battle rounds
 	parent.add_child(HSeparator.new())
 	var rounds_label = Label.new()
 	var battle_round = GameState.get_battle_round()
-	# If game completed normally the round counter will be > 5
 	var display_round = mini(battle_round, 5)
-	rounds_label.text = "Battle Rounds Completed: %d / 5" % display_round
+	rounds_label.text = "Battle Rounds: %d / 5" % display_round
 	rounds_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rounds_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
+	rounds_label.add_theme_font_size_override("font_size", 12)
+	rounds_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	parent.add_child(rounds_label)
 
 # =============================================================================

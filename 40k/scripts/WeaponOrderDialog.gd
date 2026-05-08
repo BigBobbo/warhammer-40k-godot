@@ -44,17 +44,19 @@ func _ready() -> void:
 
 	# Instruction label
 	instruction_label = Label.new()
-	instruction_label.text = "Choose the order to resolve your weapons.\nHigher damage weapons are prioritized by default.\nUse arrows to reorder."
+	instruction_label.text = "Drag or use arrows to set weapon firing order.\nHigher damage weapons are prioritized by default."
 	instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	instruction_label.add_theme_font_size_override("font_size", 12)
+	instruction_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	vbox.add_child(instruction_label)
 
 	vbox.add_child(HSeparator.new())
 
 	# Weapon list section
 	var list_label = Label.new()
-	list_label.text = "Weapon Firing Order:"
-	list_label.add_theme_font_size_override("font_size", 14)
+	list_label.text = "FIRING ORDER"
+	list_label.add_theme_font_size_override("font_size", 13)
+	list_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	vbox.add_child(list_label)
 
 	var scroll_container = ScrollContainer.new()
@@ -73,39 +75,39 @@ func _ready() -> void:
 	vbox.add_child(button_hbox)
 
 	fast_roll_button = Button.new()
-	fast_roll_button.text = "Fast Roll All (Skip Order)"
+	fast_roll_button.text = "Fast Roll All"
+	fast_roll_button.tooltip_text = "Resolve all weapons simultaneously (skip ordering)"
 	fast_roll_button.pressed.connect(_on_fast_roll_pressed)
-	fast_roll_button.custom_minimum_size = Vector2(200, 40)
-	_WhiteDwarfTheme.apply_to_button(fast_roll_button)
+	fast_roll_button.custom_minimum_size = Vector2(160, 42)
+	WhiteDwarfTheme.apply_secondary_button(fast_roll_button)
 	button_hbox.add_child(fast_roll_button)
 
 	start_sequence_button = Button.new()
 	start_sequence_button.text = "Start Sequence"
+	start_sequence_button.tooltip_text = "Resolve weapons one at a time in the order shown"
 	start_sequence_button.pressed.connect(_on_start_sequence_pressed)
-	start_sequence_button.custom_minimum_size = Vector2(150, 40)
-	_WhiteDwarfTheme.apply_to_button(start_sequence_button)
+	start_sequence_button.custom_minimum_size = Vector2(160, 42)
+	WhiteDwarfTheme.apply_primary_button(start_sequence_button)
 	button_hbox.add_child(start_sequence_button)
 
 	close_button = Button.new()
 	close_button.text = "Close"
 	close_button.pressed.connect(_on_close_pressed)
-	close_button.custom_minimum_size = Vector2(100, 40)
-	close_button.visible = false  # Hidden until sequence complete or fast roll
-	_WhiteDwarfTheme.apply_to_button(close_button)
+	close_button.custom_minimum_size = Vector2(100, 42)
+	close_button.visible = false
+	WhiteDwarfTheme.apply_secondary_button(close_button)
 	button_hbox.add_child(close_button)
 
 	# NEW: Continue button for mid-sequence progression
 	# Make it visible by default so user can always progress
 	var continue_button = Button.new()
 	continue_button.name = "ContinueButton"
-	continue_button.text = "Continue to Next Weapon"
+	continue_button.text = "Next Weapon"
 	continue_button.pressed.connect(_on_continue_next_weapon_pressed)
-	continue_button.custom_minimum_size = Vector2(220, 40)
-	_WhiteDwarfTheme.apply_to_button(continue_button)
-	# Make this button prominent with green color
-	continue_button.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	continue_button.custom_minimum_size = Vector2(160, 42)
+	WhiteDwarfTheme.apply_primary_button(continue_button)
 	button_hbox.add_child(continue_button)
-	continue_button.visible = false  # Hidden - users should use "Start Sequence" or "Fast Roll All"
+	continue_button.visible = false
 
 	vbox.add_child(HSeparator.new())
 

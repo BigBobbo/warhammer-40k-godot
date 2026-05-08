@@ -94,6 +94,9 @@ func _draw() -> void:
 	# P3-48: Draw diagonal hatching pattern inside the zone (drawn first, behind edges)
 	_draw_diagonal_hatching(points, pulse_alpha)
 
+	# Player/faction label in center of zone
+	_draw_player_label(points, pulse_alpha)
+
 	# Draw each edge with appropriate styling
 	for i in range(points.size()):
 		var p1 = points[i]
@@ -369,6 +372,30 @@ func _polygon_center(points: PackedVector2Array) -> Vector2:
 	for p in points:
 		center += p
 	return center / float(points.size())
+
+func _draw_player_label(points: PackedVector2Array, pulse_alpha: float) -> void:
+	if not default_font or player_number == 0:
+		return
+	var center = _polygon_center(points)
+	var faction_name = ""
+	if GameState:
+		faction_name = GameState.get_faction_name(player_number)
+	var label_text = "P%d" % player_number
+	if not faction_name.is_empty():
+		label_text = faction_name
+	var font_size_val = 18
+	var text_size = default_font.get_string_size(label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_val)
+	var label_alpha = pulse_alpha * (0.4 if is_dimmed else 0.7)
+	var text_color = Color(border_color.r, border_color.g, border_color.b, label_alpha)
+	draw_string(
+		default_font,
+		center - Vector2(text_size.x / 2.0, -text_size.y / 4.0),
+		label_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		font_size_val,
+		text_color
+	)
 
 func set_active(active: bool) -> void:
 	is_active = active

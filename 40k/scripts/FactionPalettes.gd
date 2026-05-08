@@ -178,3 +178,40 @@ static func get_contrast_text_color(bg_color: Color) -> Color:
 static func get_faction_font(faction_name: String) -> Font:
 	var key = _match_faction(faction_name)
 	return FACTION_FONTS.get(key, FONT_CASLON)
+
+static func get_primary_color(faction_name: String) -> Color:
+	var palette = get_palette(faction_name)
+	return palette[0] if palette.size() > 0 else Color(0.5, 0.5, 0.5)
+
+static func get_secondary_color(faction_name: String) -> Color:
+	var palette = get_palette(faction_name)
+	return palette[1] if palette.size() > 1 else get_primary_color(faction_name)
+
+static func get_player_color(player: int) -> Color:
+	var faction = GameState.get_faction_name(player)
+	return get_primary_color(faction)
+
+static func get_player_border_color(player: int) -> Color:
+	var faction = GameState.get_faction_name(player)
+	var key = _match_faction(faction)
+	match key:
+		"custodes":
+			return Color(0.85, 0.7, 0.2)
+		"orks":
+			return Color(0.2, 0.5, 0.15)
+		"space_marines":
+			return Color(0.15, 0.25, 0.55)
+		"chaos":
+			return Color(0.55, 0.1, 0.1)
+		"necrons":
+			return Color(0.15, 0.5, 0.15)
+		"aeldari":
+			return Color(0.85, 0.85, 0.85)
+		"tau":
+			return Color(0.8, 0.65, 0.4)
+		"tyranids":
+			return Color(0.5, 0.15, 0.4)
+		_:
+			if player == 1:
+				return Color(0.83, 0.59, 0.38)
+			return Color(0.85, 0.8, 0.65)

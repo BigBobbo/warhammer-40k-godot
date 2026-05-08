@@ -31,11 +31,14 @@ var _pile_in_retry_units: Array = []  # Units that already had an empty pile-in 
 var _pending_advance_moves: Dictionary = {}  # unit_id -> decision — awaiting advance roll resolution before staging moves
 var _last_thinking_phase: int = -1  # Track which phase we last logged a "thinking" message for
 var _last_thinking_round: int = -1  # Track which round we last logged a "thinking" message for
+var _watchdog_timer: float = 0.0  # Accumulates idle time when AI should be acting but isn't
+const WATCHDOG_TIMEOUT: float = 2.0  # After 2s of no evaluation while AI should act, force one
 
 # T7-36: AI speed presets — configurable delay between AI actions
 enum AISpeedPreset { FAST, NORMAL, SLOW, STEP_BY_STEP }
+const MIN_ACTION_DELAY: float = 0.05  # Minimum delay between AI actions — ensures main loop (incl. MCP bridge) stays responsive
 const AI_SPEED_DELAYS: Dictionary = {
-	AISpeedPreset.FAST: 0.0,
+	AISpeedPreset.FAST: 0.05,
 	AISpeedPreset.NORMAL: 0.2,
 	AISpeedPreset.SLOW: 0.5,
 	AISpeedPreset.STEP_BY_STEP: 0.0,  # Step-by-step uses manual continue, not timed delays
@@ -140,8 +143,21 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
-	if not _needs_evaluation or not enabled or PhaseManager.game_ended or _processing_turn:
+	if not enabled or PhaseManager.game_ended or _processing_turn:
+		_watchdog_timer = 0.0
 		return
+	if not _needs_evaluation:
+		# Watchdog: if AI should be acting but no evaluation is pending, detect the stall
+		if _is_any_ai_player_active() and not _step_by_step_paused:
+			_watchdog_timer += delta
+			if _watchdog_timer >= WATCHDOG_TIMEOUT:
+				_watchdog_timer = 0.0
+				print("AIPlayer: Watchdog triggered — AI should be acting but no evaluation pending. Forcing evaluation.")
+				_request_evaluation()
+		else:
+			_watchdog_timer = 0.0
+		return
+	_watchdog_timer = 0.0
 	# T7-36: In step-by-step mode, wait for user to continue
 	if _step_by_step_paused:
 		return
@@ -282,6 +298,14 @@ func get_player_profile(player: int) -> String:
 
 func is_ai_player(player: int) -> bool:
 	return enabled and ai_players.get(player, false)
+
+func _is_any_ai_player_active() -> bool:
+	"""Check if any AI-controlled player should currently be acting."""
+	var active = GameState.get_active_player()
+	if is_ai_player(active):
+		return true
+	var fight_player = _get_fight_phase_selecting_player()
+	return fight_player > 0 and is_ai_player(fight_player)
 
 func _get_fight_phase_selecting_player() -> int:
 	"""Get the current selecting player from the fight phase, if we're in fight phase.
@@ -1984,9 +2008,9 @@ func _get_effective_action_delay() -> float:
 	"""Get the action delay, accounting for AI speed preset and spectator mode."""
 	if not _spectator_mode:
 		# T7-36: Use configured speed preset delay
-		return AI_SPEED_DELAYS.get(_ai_speed_preset, 0.2)
+		return maxf(AI_SPEED_DELAYS.get(_ai_speed_preset, 0.2), MIN_ACTION_DELAY)
 	var speed = get_spectator_speed()
-	return SPECTATOR_ACTION_DELAY / speed
+	return maxf(SPECTATOR_ACTION_DELAY / speed, MIN_ACTION_DELAY)
 
 func _track_action_for_summary(player: int, action_type: String, phase: int) -> void:
 	"""Track an action for the spectator phase summary."""

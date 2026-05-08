@@ -23,8 +23,20 @@ func capture_screenshot(params: Dictionary) -> Dictionary:
 	if host == null:
 		return {"status": "error", "message": "MCP host not ready"}
 
-	# Wait until the next post-draw so we capture the most recent frame.
-	await RenderingServer.frame_post_draw
+	# Wait for the next post-draw with a timeout — frame_post_draw may never
+	# fire if the window is unfocused and the renderer is throttled.
+	var got_frame := false
+	var _on_frame := func(): got_frame = true
+	RenderingServer.frame_post_draw.connect(_on_frame, CONNECT_ONE_SHOT)
+	for _i in range(30):  # ~0.5s at 60fps
+		if got_frame:
+			break
+		if host.get_tree():
+			await host.get_tree().process_frame
+		else:
+			break
+	if not got_frame and RenderingServer.frame_post_draw.is_connected(_on_frame):
+		RenderingServer.frame_post_draw.disconnect(_on_frame)
 
 	var viewport := host.get_viewport()
 	if viewport == null:
