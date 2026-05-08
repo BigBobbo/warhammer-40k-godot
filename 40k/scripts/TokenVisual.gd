@@ -867,13 +867,13 @@ func _draw_unit_name_label() -> void:
 		unit_name = unit_name.substr(0, 16) + ".."
 
 	var font = _get_faction_font()
-	var font_size = 9
+	var font_size = 11
 	var bounds = base_shape.get_bounds()
 	var base_radius = min(bounds.size.x, bounds.size.y) / 2.0
 
 	# Position label just below the token base
 	var text_size = font.get_string_size(unit_name, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
-	var label_y = base_radius + font_size + 2
+	var label_y = base_radius + font_size + 3
 	var text_pos = Vector2(-text_size.x / 2.0, label_y)
 
 	# Add model count badge for first model of multi-model units
@@ -896,13 +896,14 @@ func _draw_unit_name_label() -> void:
 	var combined_size = font.get_string_size(display, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
 	var combined_pos = Vector2(-combined_size.x / 2.0, label_y)
 
-	# Draw background pill for readability
-	var bg_rect = Rect2(combined_pos.x - 3, combined_pos.y - font_size, combined_size.x + 6, font_size + 4)
-	draw_rect(bg_rect, Color(0.05, 0.05, 0.05, 0.75), true)
-
 	# Draw text with faction-appropriate color
 	var label_color = _get_faction_accent_color()
 	label_color.a = 0.9
+
+	# Draw background pill for readability
+	var bg_rect = Rect2(combined_pos.x - 4, combined_pos.y - font_size, combined_size.x + 8, font_size + 5)
+	draw_rect(bg_rect, Color(0.05, 0.05, 0.05, 0.8), true)
+	draw_rect(bg_rect, Color(label_color, 0.3), false, 1.0)
 	draw_string(font, combined_pos + Vector2(0.5, 0.5), display, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0, 0, 0, 0.7))
 	draw_string(font, combined_pos, display, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, label_color)
 

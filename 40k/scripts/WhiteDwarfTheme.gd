@@ -242,6 +242,55 @@ static func apply_secondary_button(button: Button) -> void:
 	apply_to_button(button)
 	button.add_theme_font_size_override("font_size", 13)
 
+static func create_tab_button_inactive() -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.1, 0.08, 0.6)
+	style.border_color = Color(WH_GOLD, 0.15)
+	style.set_border_width_all(1)
+	style.border_width_bottom = 2
+	style.border_color = Color(WH_GOLD, 0.2)
+	style.set_corner_radius_all(3)
+	style.corner_radius_bottom_left = 0
+	style.corner_radius_bottom_right = 0
+	style.set_content_margin_all(6)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	return style
+
+static func create_tab_button_active() -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.18, 0.14, 0.1, 0.85)
+	style.border_color = WH_GOLD
+	style.set_border_width_all(1)
+	style.border_width_bottom = 3
+	style.set_corner_radius_all(3)
+	style.corner_radius_bottom_left = 0
+	style.corner_radius_bottom_right = 0
+	style.set_content_margin_all(6)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	return style
+
+static func apply_tab_button(button: Button, is_active: bool = false) -> void:
+	if not button:
+		return
+	if is_active:
+		button.add_theme_stylebox_override("normal", create_tab_button_active())
+		button.add_theme_stylebox_override("hover", create_tab_button_active())
+		button.add_theme_color_override("font_color", WH_GOLD)
+		button.add_theme_color_override("font_hover_color", WH_GOLD)
+	else:
+		button.add_theme_stylebox_override("normal", create_tab_button_inactive())
+		var hover_style = create_tab_button_inactive()
+		hover_style.bg_color = Color(0.16, 0.13, 0.1, 0.75)
+		hover_style.border_color = Color(WH_GOLD, 0.5)
+		button.add_theme_stylebox_override("hover", hover_style)
+		button.add_theme_color_override("font_color", Color(WH_PARCHMENT, 0.7))
+		button.add_theme_color_override("font_hover_color", WH_PARCHMENT)
+	button.add_theme_stylebox_override("pressed", create_tab_button_active())
+	button.add_theme_color_override("font_pressed_color", WH_GOLD)
+	button.add_theme_font_size_override("font_size", 12)
+
 static func create_player_panel_style(player: int) -> StyleBoxFlat:
 	var style = create_panel_style()
 	var border_color = FactionPalettes.get_player_border_color(player)

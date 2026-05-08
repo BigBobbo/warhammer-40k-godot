@@ -244,15 +244,26 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 	vbox.add_theme_constant_override("separation", 3)
 	card.add_child(vbox)
 
-	# Top row: mission name + VP badge
+	# Top row: category icon + mission name + VP badge
 	var top_row = HBoxContainer.new()
 	top_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_row.add_theme_constant_override("separation", 6)
 	vbox.add_child(top_row)
+
+	var cat_icon = Label.new()
+	var category = mission.get("category", "")
+	cat_icon.text = _get_category_icon(category)
+	cat_icon.add_theme_font_size_override("font_size", 16)
+	cat_icon.add_theme_color_override("font_color", _get_category_color(category))
+	cat_icon.custom_minimum_size = Vector2(20, 0)
+	top_row.add_child(cat_icon)
 
 	var name_label = Label.new()
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.text = mission.get("name", "Unknown Mission")
-	name_label.add_theme_font_size_override("font_size", 14)
+	name_label.add_theme_font_size_override("font_size", 13)
+	if FactionPalettes:
+		name_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	if best_vp > 0:
 		name_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 	else:
@@ -261,48 +272,74 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: D
 
 	if best_vp > 0:
 		var vp_badge = Label.new()
-		vp_badge.text = "%d VP" % best_vp
-		vp_badge.add_theme_font_size_override("font_size", 12)
+		vp_badge.text = "+%dVP" % best_vp
+		vp_badge.add_theme_font_size_override("font_size", 13)
 		vp_badge.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3))
+		if FactionPalettes:
+			vp_badge.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 		top_row.add_child(vp_badge)
 
 	# Category + scoring timing on one line
 	var scoring = mission.get("scoring", {})
 	var timing_text = _get_timing_display(scoring.get("when", ""))
 	var cat_label = Label.new()
-	cat_label.text = "%s  |  %s" % [mission.get("category", ""), timing_text]
+	cat_label.text = "%s  |  %s" % [category, timing_text]
 	cat_label.add_theme_font_size_override("font_size", 10)
 	cat_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.65))
 	vbox.add_child(cat_label)
 
-	# Condition progress tracking
+	# Condition progress tracking with checkmark/cross indicators
 	var condition_progress = progress.get("conditions", [])
 	if condition_progress.size() > 0:
 		for cond in condition_progress:
 			var met = cond.get("met", false)
 			var vp = cond.get("vp", 0)
 			var desc = cond.get("description", cond.get("check", "?"))
+			var cond_row = HBoxContainer.new()
+			cond_row.add_theme_constant_override("separation", 4)
+			var icon_lbl = Label.new()
+			icon_lbl.custom_minimum_size = Vector2(16, 0)
+			icon_lbl.add_theme_font_size_override("font_size", 12)
+			if met:
+				icon_lbl.text = "+"
+				icon_lbl.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+			else:
+				icon_lbl.text = "-"
+				icon_lbl.add_theme_color_override("font_color", Color(0.6, 0.3, 0.3))
+			cond_row.add_child(icon_lbl)
 			var cond_label = Label.new()
 			if met:
-				cond_label.text = "  %d VP  %s" % [vp, desc]
+				cond_label.text = "%dVP  %s" % [vp, desc]
 				cond_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 			else:
-				cond_label.text = "  %d VP  %s" % [vp, desc]
+				cond_label.text = "%dVP  %s" % [vp, desc]
 				cond_label.add_theme_color_override("font_color", Color(0.5, 0.4, 0.4))
 			cond_label.add_theme_font_size_override("font_size", 11)
 			cond_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			vbox.add_child(cond_label)
+			cond_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			cond_row.add_child(cond_label)
+			vbox.add_child(cond_row)
 	else:
 		var conditions = scoring.get("conditions", [])
 		for c in conditions:
 			var vp = c.get("vp", 0)
 			var check = c.get("check", "")
+			var cond_row = HBoxContainer.new()
+			cond_row.add_theme_constant_override("separation", 4)
+			var icon_lbl = Label.new()
+			icon_lbl.text = "-"
+			icon_lbl.custom_minimum_size = Vector2(16, 0)
+			icon_lbl.add_theme_font_size_override("font_size", 12)
+			icon_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+			cond_row.add_child(icon_lbl)
 			var cond_label = Label.new()
-			cond_label.text = "  %d VP  %s" % [vp, _humanize_check(check)]
+			cond_label.text = "%dVP  %s" % [vp, _humanize_check(check)]
 			cond_label.add_theme_font_size_override("font_size", 11)
 			cond_label.add_theme_color_override("font_color", Color(0.5, 0.75, 0.5))
 			cond_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			vbox.add_child(cond_label)
+			cond_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			cond_row.add_child(cond_label)
+			vbox.add_child(cond_row)
 
 	# VP scored so far
 	var vp_scored = mission.get("vp_scored", 0)
@@ -409,5 +446,26 @@ func _get_timing_display(timing: String) -> String:
 			return timing
 
 func _humanize_check(check: String) -> String:
-	# Convert snake_case condition IDs into readable text
 	return check.replace("_", " ").capitalize()
+
+func _get_category_icon(category: String) -> String:
+	match category.to_lower():
+		"tactical": return "T"
+		"strategic": return "S"
+		"fixed": return "F"
+		"shadow operations": return "X"
+		"no mercy": return "!"
+		"battlefield supremacy": return "B"
+		"purge the enemy": return "P"
+		_: return "?"
+
+func _get_category_color(category: String) -> Color:
+	match category.to_lower():
+		"tactical": return Color(0.4, 0.7, 1.0)
+		"strategic": return Color(0.8, 0.6, 1.0)
+		"fixed": return Color(1.0, 0.85, 0.3)
+		"shadow operations": return Color(0.6, 0.8, 0.5)
+		"no mercy": return Color(1.0, 0.4, 0.3)
+		"battlefield supremacy": return Color(0.3, 0.9, 0.7)
+		"purge the enemy": return Color(1.0, 0.5, 0.2)
+		_: return Color(0.6, 0.6, 0.6)

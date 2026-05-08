@@ -131,36 +131,40 @@ func _create_visuals() -> void:
 	control_indicator.z_index = 10
 	add_child(control_indicator)
 
-	# Objective ID label - larger with outline
+	# Objective ID label — centered, bold, with outline
 	var id_label = Label.new()
 	id_label.name = "ObjectiveID"
-	id_label.text = objective_data.id.replace("obj_", "").to_upper()
+	var raw_id = objective_data.id.replace("obj_", "").to_upper()
+	var display_id = raw_id.replace("_", " ")
+	id_label.text = display_id
 	id_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	id_label.add_theme_font_size_override("font_size", 15)
+	id_label.add_theme_font_size_override("font_size", 16)
 	id_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8, 1.0))
-	id_label.add_theme_constant_override("outline_size", 3)
-	id_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.8))
-	id_label.position = Vector2(-25, -10)
+	id_label.add_theme_constant_override("outline_size", 4)
+	id_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+	id_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	id_label.size = Vector2(120, 24)
+	id_label.position = Vector2(-60, -12)
 	id_label.z_index = 10
 	add_child(id_label)
 
 func update_control(player: int) -> void:
+	var faction_name = ""
+	if GameState and player > 0:
+		faction_name = GameState.get_faction_name(player)
+	var p_color = FactionPalettes.get_player_border_color(player) if FactionPalettes and player > 0 else Color.WHITE
 	match player:
 		0:
-			control_indicator.text = "Contested"
-			control_indicator.modulate = Color(1.0, 1.0, 0.5, 1.0)  # Yellow
-			objective_circle.default_color = Color(1.0, 1.0, 0.4, 1.0)  # Bright yellow
-			objective_polygon.color = Color(1.0, 1.0, 0.3, 0.4)  # Yellow fill
-		1:
-			control_indicator.text = "Player 1"
-			control_indicator.modulate = Color(0.5, 0.7, 1.0, 1.0)  # Blue
-			objective_circle.default_color = Color(0.4, 0.6, 1.0, 1.0)  # Bright blue
-			objective_polygon.color = Color(0.3, 0.5, 1.0, 0.4)  # Blue fill
-		2:
-			control_indicator.text = "Player 2"
-			control_indicator.modulate = Color(1.0, 0.4, 0.4, 1.0)  # Red
-			objective_circle.default_color = Color(1.0, 0.3, 0.3, 1.0)  # Bright red
-			objective_polygon.color = Color(1.0, 0.3, 0.3, 0.4)  # Red fill
+			control_indicator.text = "CONTESTED"
+			control_indicator.modulate = Color(1.0, 1.0, 0.5, 1.0)
+			objective_circle.default_color = Color(1.0, 1.0, 0.4, 1.0)
+			objective_polygon.color = Color(1.0, 1.0, 0.3, 0.4)
+		1, 2:
+			var label_text = faction_name if faction_name != "" else "Player %d" % player
+			control_indicator.text = label_text
+			control_indicator.modulate = Color(p_color, 1.0)
+			objective_circle.default_color = Color(p_color.r, p_color.g, p_color.b, 1.0)
+			objective_polygon.color = Color(p_color.r, p_color.g, p_color.b, 0.35)
 		_:
 			control_indicator.text = "Uncontrolled"
 			control_indicator.modulate = Color.WHITE

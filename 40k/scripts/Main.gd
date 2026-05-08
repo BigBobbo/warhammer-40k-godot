@@ -193,6 +193,11 @@ var _score_display_container: HBoxContainer = null
 # P3-109: Turn/round progress indicator
 var _round_indicator_label: Label = null
 
+# Phase progress strip
+var _phase_strip_container: HBoxContainer = null
+var _phase_strip_labels: Dictionary = {}
+var _phase_strip_panel: PanelContainer = null
+
 # P3-111: Settings menu instance
 var _settings_menu: SettingsMenu = null
 
@@ -335,6 +340,9 @@ func _ready() -> void:
 	# Setup objectives on the board
 	_setup_objectives()
 
+	# Gothic border ornamentation around board
+	_setup_board_border()
+
 	# Move HUD_Bottom to top and create stats panel at bottom
 	_restructure_ui_layout()
 
@@ -346,6 +354,9 @@ func _ready() -> void:
 
 	# P3-109: Setup turn/round progress indicator
 	_setup_round_indicator()
+
+	# Phase progress strip
+	_setup_phase_strip()
 
 	# Fix HUD layout to prevent overlap
 	_fix_hud_layout()
@@ -2466,61 +2477,66 @@ func _setup_score_display() -> void:
 		print("Main: HUD_Bottom/HBoxContainer not found for score display")
 		return
 
-	# Create a container for the score/CP display
 	_score_display_container = HBoxContainer.new()
 	_score_display_container.name = "ScoreDisplay"
 	_score_display_container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_score_display_container.add_theme_constant_override("separation", 4)
 
-	# Add separator before score display
-	var sep = VSeparator.new()
-	sep.custom_minimum_size = Vector2(2, 0)
-	_score_display_container.add_child(sep)
+	var scoreboard_panel = PanelContainer.new()
+	scoreboard_panel.name = "ScoreboardPanel"
+	var sb_style = StyleBoxFlat.new()
+	sb_style.bg_color = Color(0.06, 0.05, 0.04, 0.9)
+	sb_style.border_color = Color(WhiteDwarfTheme.WH_GOLD, 0.4)
+	sb_style.set_border_width_all(1)
+	sb_style.set_corner_radius_all(3)
+	sb_style.set_content_margin_all(4)
+	sb_style.content_margin_left = 8
+	sb_style.content_margin_right = 8
+	scoreboard_panel.add_theme_stylebox_override("panel", sb_style)
+	var sb_hbox = HBoxContainer.new()
+	sb_hbox.add_theme_constant_override("separation", 6)
+	scoreboard_panel.add_child(sb_hbox)
 
-	# Player 1 info
 	_p1_cp_label = Label.new()
 	_p1_cp_label.name = "P1CPLabel"
-	_p1_cp_label.add_theme_font_size_override("font_size", 14)
-	_p1_cp_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
-	_score_display_container.add_child(_p1_cp_label)
+	_p1_cp_label.add_theme_font_size_override("font_size", 11)
+	sb_hbox.add_child(_p1_cp_label)
 
 	_p1_score_label = Label.new()
 	_p1_score_label.name = "P1ScoreLabel"
-	_p1_score_label.add_theme_font_size_override("font_size", 14)
-	_p1_score_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	_p1_score_label.add_theme_font_size_override("font_size", 20)
 	_p1_score_label.tooltip_text = "Victory Points (Primary + Secondary)"
-	_score_display_container.add_child(_p1_score_label)
+	if FactionPalettes:
+		_p1_score_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	sb_hbox.add_child(_p1_score_label)
 
-	# Divider between players
-	var divider = VSeparator.new()
-	divider.custom_minimum_size = Vector2(2, 0)
-	_score_display_container.add_child(divider)
-
-	# Player 2 info
-	_p2_cp_label = Label.new()
-	_p2_cp_label.name = "P2CPLabel"
-	_p2_cp_label.add_theme_font_size_override("font_size", 14)
-	_p2_cp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
-	_score_display_container.add_child(_p2_cp_label)
+	var vs_label = Label.new()
+	vs_label.text = "vs"
+	vs_label.add_theme_font_size_override("font_size", 12)
+	vs_label.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_PARCHMENT, 0.5))
+	sb_hbox.add_child(vs_label)
 
 	_p2_score_label = Label.new()
 	_p2_score_label.name = "P2ScoreLabel"
-	_p2_score_label.add_theme_font_size_override("font_size", 14)
-	_p2_score_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	_p2_score_label.add_theme_font_size_override("font_size", 20)
 	_p2_score_label.tooltip_text = "Victory Points (Primary + Secondary)"
-	_score_display_container.add_child(_p2_score_label)
+	if FactionPalettes:
+		_p2_score_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	sb_hbox.add_child(_p2_score_label)
 
-	# Add separator after score display
-	var sep2 = VSeparator.new()
-	sep2.custom_minimum_size = Vector2(2, 0)
-	_score_display_container.add_child(sep2)
+	_p2_cp_label = Label.new()
+	_p2_cp_label.name = "P2CPLabel"
+	_p2_cp_label.add_theme_font_size_override("font_size", 11)
+	sb_hbox.add_child(_p2_cp_label)
 
-	# Insert after ActivePlayerBadge (index 1) so scores appear in the middle of the top bar
+	_score_display_container.add_child(scoreboard_panel)
+
 	var badge_idx = active_player_badge.get_index()
 	hud_container.add_child(_score_display_container)
 	hud_container.move_child(_score_display_container, badge_idx + 1)
 
 	_update_score_display()
-	print("Main: P3-120: Score display created in top bar (VP with primary/secondary breakdown)")
+	print("Main: P3-120: Score display created in top bar (VP scoreboard style)")
 
 var _last_p1_cp: int = -9999  # T-096: track previous CP for change-float
 var _last_p2_cp: int = -9999
@@ -2554,16 +2570,14 @@ func _update_score_display() -> void:
 	var p1_color = FactionPalettes.get_player_border_color(1)
 	var p2_color = FactionPalettes.get_player_border_color(2)
 
-	_p1_cp_label.text = "%s  CP:%d" % [p1_faction, p1_cp]
-	_p1_cp_label.add_theme_color_override("font_color", p1_color)
-	_p1_score_label.text = "%dVP" % p1_vp
-	_p1_score_label.add_theme_font_size_override("font_size", 16)
+	_p1_cp_label.text = "%s CP:%d" % [p1_faction, p1_cp]
+	_p1_cp_label.add_theme_color_override("font_color", Color(p1_color, 0.75))
+	_p1_score_label.text = "%d" % p1_vp
 	_p1_score_label.add_theme_color_override("font_color", p1_color)
 	_p1_score_label.tooltip_text = "%s Victory Points: %d total\nPrimary: %d | Secondary: %d | CP: %d" % [p1_faction, p1_vp, p1_primary, p1_secondary, p1_cp]
-	_p2_cp_label.text = "%s  CP:%d" % [p2_faction, p2_cp]
-	_p2_cp_label.add_theme_color_override("font_color", p2_color)
-	_p2_score_label.text = "%dVP" % p2_vp
-	_p2_score_label.add_theme_font_size_override("font_size", 16)
+	_p2_cp_label.text = "CP:%d %s" % [p2_cp, p2_faction]
+	_p2_cp_label.add_theme_color_override("font_color", Color(p2_color, 0.75))
+	_p2_score_label.text = "%d" % p2_vp
 	_p2_score_label.add_theme_color_override("font_color", p2_color)
 	_p2_score_label.tooltip_text = "%s Victory Points: %d total\nPrimary: %d | Secondary: %d | CP: %d" % [p2_faction, p2_vp, p2_primary, p2_secondary, p2_cp]
 
@@ -2615,6 +2629,106 @@ func _setup_round_indicator() -> void:
 
 	_update_round_indicator()
 	print("Main: P3-109: Round indicator created in top bar")
+
+func _setup_phase_strip() -> void:
+	var hud_bottom = get_node_or_null("HUD_Bottom")
+	if not hud_bottom:
+		return
+
+	_phase_strip_panel = PanelContainer.new()
+	_phase_strip_panel.name = "PhaseStrip"
+	_phase_strip_panel.anchor_left = 0.0
+	_phase_strip_panel.anchor_right = 1.0
+	_phase_strip_panel.anchor_top = 1.0
+	_phase_strip_panel.anchor_bottom = 1.0
+	_phase_strip_panel.offset_top = 0.0
+	_phase_strip_panel.offset_bottom = 26.0
+	var strip_style = StyleBoxFlat.new()
+	strip_style.bg_color = Color(0.06, 0.05, 0.04, 0.92)
+	strip_style.border_color = Color(WhiteDwarfTheme.WH_GOLD, 0.3)
+	strip_style.border_width_bottom = 1
+	strip_style.set_content_margin_all(0)
+	strip_style.content_margin_left = 4
+	strip_style.content_margin_right = 4
+	_phase_strip_panel.add_theme_stylebox_override("panel", strip_style)
+	hud_bottom.add_child(_phase_strip_panel)
+
+	_phase_strip_container = HBoxContainer.new()
+	_phase_strip_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	_phase_strip_container.add_theme_constant_override("separation", 0)
+	_phase_strip_panel.add_child(_phase_strip_container)
+
+	var phases = [
+		[GameStateData.Phase.COMMAND, "CMD"],
+		[GameStateData.Phase.MOVEMENT, "MOV"],
+		[GameStateData.Phase.SHOOTING, "SHO"],
+		[GameStateData.Phase.CHARGE, "CHG"],
+		[GameStateData.Phase.FIGHT, "FGT"],
+		[GameStateData.Phase.SCORING, "SCR"],
+	]
+
+	for i in range(phases.size()):
+		var phase_id = phases[i][0]
+		var phase_abbr = phases[i][1]
+
+		if i > 0:
+			var arrow = Label.new()
+			arrow.text = " ▸ "
+			arrow.add_theme_font_size_override("font_size", 10)
+			arrow.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_GOLD, 0.3))
+			arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			_phase_strip_container.add_child(arrow)
+
+		var lbl = Label.new()
+		lbl.text = phase_abbr
+		lbl.add_theme_font_size_override("font_size", 12)
+		lbl.add_theme_color_override("font_color", Color(0.5, 0.45, 0.35, 0.5))
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.custom_minimum_size = Vector2(36, 0)
+		if FactionPalettes:
+			lbl.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+		_phase_strip_container.add_child(lbl)
+		_phase_strip_labels[phase_id] = lbl
+
+	_phase_strip_panel.visible = false
+	print("Main: Phase progress strip created")
+
+func _update_phase_strip() -> void:
+	if not _phase_strip_panel:
+		return
+
+	var current_game_phase = GameState.get_current_phase()
+	var is_battle_phase = current_game_phase in [
+		GameStateData.Phase.COMMAND, GameStateData.Phase.MOVEMENT,
+		GameStateData.Phase.SHOOTING, GameStateData.Phase.CHARGE,
+		GameStateData.Phase.FIGHT, GameStateData.Phase.SCORING,
+	]
+	_phase_strip_panel.visible = is_battle_phase
+
+	if not is_battle_phase:
+		return
+
+	var battle_phases_order = [
+		GameStateData.Phase.COMMAND, GameStateData.Phase.MOVEMENT,
+		GameStateData.Phase.SHOOTING, GameStateData.Phase.CHARGE,
+		GameStateData.Phase.FIGHT, GameStateData.Phase.SCORING,
+	]
+	var current_idx = battle_phases_order.find(current_game_phase)
+
+	for phase_id in _phase_strip_labels:
+		var lbl: Label = _phase_strip_labels[phase_id]
+		var idx = battle_phases_order.find(phase_id)
+
+		if phase_id == current_game_phase:
+			lbl.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+			lbl.add_theme_font_size_override("font_size", 14)
+		elif idx < current_idx:
+			lbl.add_theme_color_override("font_color", Color(0.5, 0.45, 0.35, 0.4))
+			lbl.add_theme_font_size_override("font_size", 12)
+		else:
+			lbl.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_PARCHMENT, 0.5))
+			lbl.add_theme_font_size_override("font_size", 12)
 
 # P3-109: Update the round indicator text
 func _update_round_indicator() -> void:
@@ -2778,9 +2892,14 @@ func _apply_white_dwarf_theme() -> void:
 	if p2_progress_label:
 		_WhiteDwarfTheme.apply_to_label(p2_progress_label)
 
-	# Theme the game log toggle button
+	# Theme top bar toggle buttons as tabs
 	if game_log_toggle_button:
-		_WhiteDwarfTheme.apply_to_button(game_log_toggle_button)
+		_WhiteDwarfTheme.apply_tab_button(game_log_toggle_button, game_log_panel != null and game_log_panel.visible)
+	if stratagem_panel_button:
+		_WhiteDwarfTheme.apply_tab_button(stratagem_panel_button, false)
+	if auto_decline_overwatch:
+		auto_decline_overwatch.add_theme_font_size_override("font_size", 11)
+		auto_decline_overwatch.add_theme_color_override("font_color", Color(_WhiteDwarfTheme.WH_PARCHMENT, 0.7))
 
 	print("Main: White Dwarf theme applied")
 
@@ -5032,7 +5151,10 @@ func _refresh_unit_list_inner() -> void:
 							transport_contents = " [Empty]"
 					var display_text = "%s (%d models)%s%s%s" % [unit_name, model_count, attach_info, transport_contents, ability_tag]
 					unit_list.add_item(display_text)
-					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
+					var idx = unit_list.get_item_count() - 1
+					unit_list.set_item_metadata(idx, unit_id)
+					unit_list.set_item_icon(idx, _get_status_dot(Color(0.3, 0.85, 0.3)))
+					unit_list.set_item_icon_modulate(idx, Color.WHITE)
 
 				# Reserves are declared during Formations phase, not Deployment.
 				# Hide the reserves button during deployment.
@@ -5065,7 +5187,10 @@ func _refresh_unit_list_inner() -> void:
 					var scout_dist = GameState.get_scout_distance(scout_unit_id)
 					var display_text = "%s (%d models) [Scout %d\"]" % [scout_name, model_count, int(scout_dist)]
 					unit_list.add_item(display_text)
-					unit_list.set_item_metadata(unit_list.get_item_count() - 1, scout_unit_id)
+					var idx = unit_list.get_item_count() - 1
+					unit_list.set_item_metadata(idx, scout_unit_id)
+					unit_list.set_item_icon(idx, _get_status_dot(Color(0.3, 0.85, 0.3)))
+					unit_list.set_item_icon_modulate(idx, Color.WHITE)
 
 			print("Refreshing right panel unit list for scout - found ", pending_scouts.size(), " pending scout units")
 
@@ -5095,9 +5220,13 @@ func _refresh_unit_list_inner() -> void:
 						var status = " [SCOUTED]" if scouted else ""
 						var display_text = "%s (%d models) [Scout %d\"]%s" % [unit_name, model_count, int(scout_range), status]
 						unit_list.add_item(display_text)
-						unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
+						var idx = unit_list.get_item_count() - 1
+						unit_list.set_item_metadata(idx, unit_id)
+						var dot_color = Color(0.5, 0.5, 0.5) if scouted else Color(0.3, 0.85, 0.3)
+						unit_list.set_item_icon(idx, _get_status_dot(dot_color))
+						unit_list.set_item_icon_modulate(idx, Color.WHITE)
 						if scouted:
-							unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
+							unit_list.set_item_disabled(idx, true)
 
 		GameStateData.Phase.MOVEMENT:
 			# MovementController manages its own right panel UI, hide the shared unit list
@@ -5139,7 +5268,10 @@ func _refresh_unit_list_inner() -> void:
 						char_suffix = " + " + ", ".join(attached_chars_in_reserves[reserve_id])
 					var display_text = "%s %s%s (%d models) - DEPLOY" % [type_tag, reserve_name, char_suffix, model_count]
 					unit_list.add_item(display_text)
-					unit_list.set_item_metadata(unit_list.get_item_count() - 1, reserve_id)
+					var idx = unit_list.get_item_count() - 1
+					unit_list.set_item_metadata(idx, reserve_id)
+					unit_list.set_item_icon(idx, _get_status_dot(Color(0.4, 0.6, 1.0)))
+					unit_list.set_item_icon_modulate(idx, Color.WHITE)
 				unit_list.add_item("--- DEPLOYED UNITS ---")
 				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
 			elif reserves.size() > 0 and battle_round < 2:
@@ -5172,9 +5304,14 @@ func _refresh_unit_list_inner() -> void:
 								model_count += char_unit.get("models", []).size()
 						if char_names.size() > 0:
 							attach_info = " + " + ", ".join(char_names)
-					var display_text = "%s%s (%d models)%s" % [unit_name, attach_info, model_count, status]
+					var wound_text = _get_unit_wound_summary(unit)
+					var display_text = "%s%s (%d models)%s%s" % [unit_name, attach_info, model_count, wound_text, status]
 					unit_list.add_item(display_text)
-					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
+					var idx = unit_list.get_item_count() - 1
+					unit_list.set_item_metadata(idx, unit_id)
+					var health_color = _get_unit_health_color(unit)
+					unit_list.set_item_icon(idx, _get_status_dot(health_color))
+					unit_list.set_item_icon_modulate(idx, Color.WHITE)
 					deployed_count += 1
 
 			print("Refreshing right panel unit list for movement - found ", deployed_count, " deployed units, ", reserves.size(), " in reserves")
@@ -5205,9 +5342,14 @@ func _refresh_unit_list_inner() -> void:
 				var unit = all_units[unit_id]
 				var unit_name = unit.get("meta", {}).get("display_name", unit.get("meta", {}).get("name", unit_id))
 				var model_count = unit.get("models", []).size()
-				var display_text = "%s (%d models)" % [unit_name, model_count]
+				var wound_text = _get_unit_wound_summary(unit)
+				var display_text = "%s (%d models)%s" % [unit_name, model_count, wound_text]
 				unit_list.add_item(display_text)
-				unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
+				var idx = unit_list.get_item_count() - 1
+				unit_list.set_item_metadata(idx, unit_id)
+				var health_color = _get_unit_health_color(unit)
+				unit_list.set_item_icon(idx, _get_status_dot(health_color))
+				unit_list.set_item_icon_modulate(idx, Color.WHITE)
 
 func update_ui() -> void:
 	var active_player = GameState.get_active_player()
@@ -7441,6 +7583,9 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 
 	update_ui_for_phase()
 
+	# Update phase progress strip
+	_update_phase_strip()
+
 	# T5-V3: Show phase transition animation banner
 	if phase_transition_banner:
 		var banner_round = GameState.state.get("meta", {}).get("round", 1)
@@ -7659,20 +7804,20 @@ func _get_phase_tooltip_text(phase: GameStateData.Phase) -> String:
 
 func _get_phase_button_text(phase: GameStateData.Phase) -> String:
 	match phase:
-		GameStateData.Phase.FORMATIONS: return "Confirm Formations"
-		GameStateData.Phase.DEPLOYMENT: return "End Deployment"
-		GameStateData.Phase.REDEPLOYMENT: return "End Redeployment"
-		GameStateData.Phase.SCOUT: return "End Scout Moves"
-		GameStateData.Phase.SCOUT_MOVES: return "End Scout Moves"
-		GameStateData.Phase.ROLL_OFF: return "Roll for First Turn"
-		GameStateData.Phase.COMMAND: return "End Command Phase"
-		GameStateData.Phase.MOVEMENT: return "End Movement Phase"
-		GameStateData.Phase.SHOOTING: return "End Shooting Phase"
-		GameStateData.Phase.CHARGE: return "End Charge Phase"
-		GameStateData.Phase.FIGHT: return "End Fight Phase"
-		GameStateData.Phase.SCORING: return "End Turn"
-		GameStateData.Phase.MORALE: return "End Morale Phase"
-		_: return "End Phase"
+		GameStateData.Phase.FORMATIONS: return "[Enter] Confirm Formations"
+		GameStateData.Phase.DEPLOYMENT: return "[Enter] End Deployment"
+		GameStateData.Phase.REDEPLOYMENT: return "[Enter] End Redeployment"
+		GameStateData.Phase.SCOUT: return "[Enter] End Scout Moves"
+		GameStateData.Phase.SCOUT_MOVES: return "[Enter] End Scout Moves"
+		GameStateData.Phase.ROLL_OFF: return "[Enter] Roll for First Turn"
+		GameStateData.Phase.COMMAND: return "[Enter] End Command Phase"
+		GameStateData.Phase.MOVEMENT: return "[Enter] End Movement Phase"
+		GameStateData.Phase.SHOOTING: return "[Enter] End Shooting Phase"
+		GameStateData.Phase.CHARGE: return "[Enter] End Charge Phase"
+		GameStateData.Phase.FIGHT: return "[Enter] End Fight Phase"
+		GameStateData.Phase.SCORING: return "[Enter] End Turn"
+		GameStateData.Phase.MORALE: return "[Enter] End Morale Phase"
+		_: return "[Enter] End Phase"
 
 func _get_phase_button_tooltip(phase: GameStateData.Phase) -> String:
 	match phase:
@@ -7813,7 +7958,7 @@ func _on_phase_action_pressed() -> void:
 		# Update button text after successful roll-off (no longer need to roll)
 		if current_phase == GameStateData.Phase.ROLL_OFF and action.get("type") == "ROLL_FOR_FIRST_TURN":
 			if not result.get("tied", false):
-				phase_action_button.text = "Start Game"
+				phase_action_button.text = "[Enter] Start Game"
 				print("Main: Roll-off complete, button text updated to 'Start Game'")
 
 func update_ui_for_phase() -> void:
@@ -9308,6 +9453,167 @@ func _toggle_army_panel() -> void:
 	print("Main: Army panel opened")
 
 
+func _setup_board_border() -> void:
+	var board_root = get_node_or_null("BoardRoot")
+	if not board_root:
+		return
+	var board_w = SettingsService.get_board_width_px()
+	var board_h = SettingsService.get_board_height_px()
+	var gold = Color(WhiteDwarfTheme.WH_GOLD, 0.35)
+	var gold_dim = Color(WhiteDwarfTheme.WH_GOLD, 0.15)
+	var corner_size: float = 40.0
+	var border_width: float = 2.0
+
+	var border_node = Node2D.new()
+	border_node.name = "BoardBorder"
+	border_node.z_index = 0
+
+	# Outer border lines
+	var top_line = Line2D.new()
+	top_line.width = border_width
+	top_line.default_color = gold
+	top_line.add_point(Vector2(0, 0))
+	top_line.add_point(Vector2(board_w, 0))
+	border_node.add_child(top_line)
+
+	var bottom_line = Line2D.new()
+	bottom_line.width = border_width
+	bottom_line.default_color = gold
+	bottom_line.add_point(Vector2(0, board_h))
+	bottom_line.add_point(Vector2(board_w, board_h))
+	border_node.add_child(bottom_line)
+
+	var left_line = Line2D.new()
+	left_line.width = border_width
+	left_line.default_color = gold
+	left_line.add_point(Vector2(0, 0))
+	left_line.add_point(Vector2(0, board_h))
+	border_node.add_child(left_line)
+
+	var right_line = Line2D.new()
+	right_line.width = border_width
+	right_line.default_color = gold
+	right_line.add_point(Vector2(board_w, 0))
+	right_line.add_point(Vector2(board_w, board_h))
+	border_node.add_child(right_line)
+
+	# Corner ornaments — L-shaped brackets
+	var corners = [
+		[Vector2(0, 0), Vector2(1, 1)],
+		[Vector2(board_w, 0), Vector2(-1, 1)],
+		[Vector2(0, board_h), Vector2(1, -1)],
+		[Vector2(board_w, board_h), Vector2(-1, -1)],
+	]
+	for corner in corners:
+		var origin: Vector2 = corner[0]
+		var dir: Vector2 = corner[1]
+		var bracket_h = Line2D.new()
+		bracket_h.width = 3.0
+		bracket_h.default_color = Color(WhiteDwarfTheme.WH_GOLD, 0.6)
+		bracket_h.add_point(origin)
+		bracket_h.add_point(origin + Vector2(corner_size * dir.x, 0))
+		border_node.add_child(bracket_h)
+		var bracket_v = Line2D.new()
+		bracket_v.width = 3.0
+		bracket_v.default_color = Color(WhiteDwarfTheme.WH_GOLD, 0.6)
+		bracket_v.add_point(origin)
+		bracket_v.add_point(origin + Vector2(0, corner_size * dir.y))
+		border_node.add_child(bracket_v)
+		# Inner decorative line
+		var inner_h = Line2D.new()
+		inner_h.width = 1.0
+		inner_h.default_color = gold_dim
+		inner_h.add_point(origin + Vector2(6 * dir.x, 6 * dir.y))
+		inner_h.add_point(origin + Vector2((corner_size - 6) * dir.x, 6 * dir.y))
+		border_node.add_child(inner_h)
+		var inner_v = Line2D.new()
+		inner_v.width = 1.0
+		inner_v.default_color = gold_dim
+		inner_v.add_point(origin + Vector2(6 * dir.x, 6 * dir.y))
+		inner_v.add_point(origin + Vector2(6 * dir.x, (corner_size - 6) * dir.y))
+		border_node.add_child(inner_v)
+
+	# Midpoint tick marks on each edge
+	var mid_mark_size: float = 12.0
+	var mid_marks = [
+		[Vector2(board_w / 2.0, 0), Vector2(0, 1)],
+		[Vector2(board_w / 2.0, board_h), Vector2(0, -1)],
+		[Vector2(0, board_h / 2.0), Vector2(1, 0)],
+		[Vector2(board_w, board_h / 2.0), Vector2(-1, 0)],
+	]
+	for mark in mid_marks:
+		var origin: Vector2 = mark[0]
+		var dir: Vector2 = mark[1]
+		var tick = Line2D.new()
+		tick.width = 2.0
+		tick.default_color = Color(WhiteDwarfTheme.WH_GOLD, 0.45)
+		tick.add_point(origin)
+		tick.add_point(origin + dir * mid_mark_size)
+		border_node.add_child(tick)
+
+	board_root.add_child(border_node)
+	print("Main: Gothic board border ornaments added")
+
+var _status_dot_cache: Dictionary = {}
+
+func _get_status_dot(color: Color, size: int = 12) -> ImageTexture:
+	var key = "%s_%d" % [color.to_html(), size]
+	if _status_dot_cache.has(key):
+		return _status_dot_cache[key]
+	var img = Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var center = Vector2(size / 2.0, size / 2.0)
+	var radius = size / 2.0 - 1.0
+	for x in range(size):
+		for y in range(size):
+			var dist = Vector2(x, y).distance_to(center)
+			if dist <= radius:
+				var alpha = clampf(1.0 - (dist - radius + 1.0), 0.0, 1.0) if dist > radius - 1.0 else 1.0
+				img.set_pixel(x, y, Color(color.r, color.g, color.b, color.a * alpha))
+			else:
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
+	var tex = ImageTexture.create_from_image(img)
+	_status_dot_cache[key] = tex
+	return tex
+
+func _get_unit_health_color(unit_data: Dictionary) -> Color:
+	var models = unit_data.get("models", [])
+	if models.is_empty():
+		return Color(0.5, 0.5, 0.5)
+	var total_max = 0
+	var total_current = 0
+	for model in models:
+		var max_w = model.get("max_wounds", model.get("wounds", 1))
+		var cur_w = model.get("wounds", max_w)
+		total_max += max_w
+		total_current += cur_w
+	if total_max == 0:
+		return Color(0.5, 0.5, 0.5)
+	var ratio = float(total_current) / float(total_max)
+	if ratio >= 0.99:
+		return Color(0.3, 0.85, 0.3)  # green - full health
+	elif ratio >= 0.5:
+		return Color(0.95, 0.75, 0.1)  # yellow - damaged
+	else:
+		return Color(0.9, 0.2, 0.15)  # red - critical
+
+func _get_unit_wound_summary(unit_data: Dictionary) -> String:
+	var models = unit_data.get("models", [])
+	if models.is_empty():
+		return ""
+	var total_max = 0
+	var total_current = 0
+	var alive_count = 0
+	for model in models:
+		var max_w = model.get("max_wounds", model.get("wounds", 1))
+		var cur_w = model.get("wounds", max_w)
+		total_max += max_w
+		total_current += cur_w
+		if cur_w > 0:
+			alive_count += 1
+	if total_current >= total_max:
+		return ""
+	return " [%d/%dW]" % [total_current, total_max]
+
 # T-109: Grid overlay (1" tactical grid lines on the board)
 var _grid_overlay: Node2D = null
 
@@ -9344,8 +9650,27 @@ func _toggle_grid_overlay() -> void:
 		line.add_point(Vector2(0, float(y) * INCH_PX))
 		line.add_point(Vector2(float(board_w_inches) * INCH_PX, float(y) * INCH_PX))
 		_grid_overlay.add_child(line)
+	# Edge ruler markings every 6 inches
+	var ruler_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD if FactionPalettes else ThemeDB.fallback_font
+	var ruler_color = Color(1.0, 0.9, 0.5, 0.45)
+	for x in range(0, board_w_inches + 1, 6):
+		var tick_lbl = Label.new()
+		tick_lbl.text = "%d\"" % x
+		tick_lbl.add_theme_font_override("font", ruler_font)
+		tick_lbl.add_theme_font_size_override("font_size", 10)
+		tick_lbl.add_theme_color_override("font_color", ruler_color)
+		tick_lbl.position = Vector2(float(x) * INCH_PX + 2, 2)
+		_grid_overlay.add_child(tick_lbl)
+	for y in range(6, board_h_inches + 1, 6):
+		var tick_lbl = Label.new()
+		tick_lbl.text = "%d\"" % y
+		tick_lbl.add_theme_font_override("font", ruler_font)
+		tick_lbl.add_theme_font_size_override("font_size", 10)
+		tick_lbl.add_theme_color_override("font_color", ruler_color)
+		tick_lbl.position = Vector2(2, float(y) * INCH_PX + 2)
+		_grid_overlay.add_child(tick_lbl)
 	board_root_node.add_child(_grid_overlay)
-	print("Main: Grid overlay shown (1\" lines, 6\" majors)")
+	print("Main: Grid overlay shown (1\" lines, 6\" majors, edge rulers)")
 
 
 # T-095/T-110: Hotkey help overlay — listed shortcuts for the current build
@@ -9710,6 +10035,7 @@ func _toggle_hotkey_help_overlay() -> void:
 	vbox.add_child(title)
 	vbox.add_child(HSeparator.new())
 	var entries := [
+		["Enter / Return", "Advance phase / confirm action"],
 		["?  /  Shift+/", "Show / hide this help"],
 		["Esc", "Settings menu / close dialogs"],
 		["U", "Toggle army panel"],
@@ -9756,6 +10082,8 @@ func _on_unit_split_completed(source_unit_id: String, sibling_unit_id: String) -
 func _toggle_stratagem_panel() -> void:
 	if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
 		_stratagem_panel.hide()
+		if stratagem_panel_button:
+			_WhiteDwarfTheme.apply_tab_button(stratagem_panel_button, false)
 		return
 	if _stratagem_panel == null or not is_instance_valid(_stratagem_panel):
 		_stratagem_panel = StratagemPanelClass.new()
@@ -9765,6 +10093,8 @@ func _toggle_stratagem_panel() -> void:
 	var active_player = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
 	_stratagem_panel.populate(active_player, current_phase)
 	_stratagem_panel.popup_centered()
+	if stratagem_panel_button:
+		_WhiteDwarfTheme.apply_tab_button(stratagem_panel_button, true)
 
 
 func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:

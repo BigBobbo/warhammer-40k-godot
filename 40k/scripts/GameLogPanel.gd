@@ -697,7 +697,27 @@ func _format_entry_text(text: String, entry_type: String) -> String:
 			else:
 				return "[b][color=#77CC77]%s[/color][/b]" % text
 		_:
-			return "[color=#AAAAAA]%s[/color]" % text
+			return _format_by_content(text)
+
+func _format_by_content(text: String) -> String:
+	var lower = text.to_lower()
+	if "score" in lower or "vp" in lower or "victory" in lower:
+		return "[color=#4DCC66]%s[/color]" % text
+	elif "move" in lower or "advance" in lower or "fall back" in lower:
+		return "[color=#6699EE]%s[/color]" % text
+	elif "shoot" in lower or "hit" in lower or "wound" in lower:
+		return "[color=#EE7766]%s[/color]" % text
+	elif "charge" in lower or "pile in" in lower or "consolidat" in lower:
+		return "[color=#E6CC33]%s[/color]" % text
+	elif "fight" in lower or "melee" in lower:
+		return "[color=#BB66DD]%s[/color]" % text
+	elif "deploy" in lower or "placed" in lower:
+		return "[color=#88BBDD]%s[/color]" % text
+	elif "destroyed" in lower or "slain" in lower or "killed" in lower:
+		return "[b][color=#FF6B6B]%s[/color][/b]" % text
+	elif "stratagem" in lower or "cp" in lower:
+		return "[color=#DDAA44]%s[/color]" % text
+	return "[color=#BBBBBB]%s[/color]" % text
 
 # ==========================================================================
 # Category mapping & refinement (from f4dOz)
@@ -852,12 +872,14 @@ func _on_toggle_pressed() -> void:
 	visible = _is_visible
 	if _toggle_button:
 		_toggle_button.text = "Hide Log" if _is_visible else "Show Log"
+		WhiteDwarfTheme.apply_tab_button(_toggle_button, _is_visible)
 
 func set_panel_visible(v: bool) -> void:
 	_is_visible = v
 	visible = v
 	if _toggle_button:
 		_toggle_button.text = "Hide Log" if v else "Show Log"
+		WhiteDwarfTheme.apply_tab_button(_toggle_button, v)
 
 func is_panel_visible() -> bool:
 	return _is_visible
