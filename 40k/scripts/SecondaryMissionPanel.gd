@@ -177,7 +177,11 @@ func refresh() -> void:
 	# Opponent summary (collapsed)
 	var opponent = 2 if current_player == 1 else 1
 	if secondary_mgr.is_initialized(opponent):
-		content_container.add_child(HSeparator.new())
+		var _gsep1 = ColorRect.new()
+		_gsep1.custom_minimum_size = Vector2(0, 2)
+		_gsep1.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
+		_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content_container.add_child(_gsep1)
 		_add_label(content_container, "Player %d — %d Secondary VP" % [
 			opponent, secondary_mgr.get_secondary_vp(opponent)], 11, Color(0.6, 0.6, 0.6))
 		var opp_active = secondary_mgr.get_active_missions(opponent)
@@ -202,7 +206,11 @@ func _build_summary(parent: VBoxContainer, mgr, player: int) -> void:
 	summary.add_theme_font_size_override("font_size", 11)
 	summary.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	parent.add_child(summary)
-	parent.add_child(HSeparator.new())
+	var _gsep2 = ColorRect.new()
+	_gsep2.custom_minimum_size = Vector2(0, 2)
+	_gsep2.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(_gsep2)
 
 func _build_player_missions(parent: VBoxContainer, mgr, player: int) -> void:
 	var active_missions = mgr.get_active_missions(player)

@@ -17,6 +17,7 @@ var _confirm_button: Button = null
 var _status_label: Label = null
 
 func setup(player: int) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	_player = player
 	_selected_missions.clear()
 

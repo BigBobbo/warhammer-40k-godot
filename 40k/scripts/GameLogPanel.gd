@@ -7,7 +7,7 @@ class_name GameLogPanel
 
 # --- Configuration ---
 const PANEL_WIDTH := 340.0
-const CARD_GAP := 5
+const CARD_GAP := 3
 const CARD_CORNER_RADIUS := 5
 const CARD_PADDING := 8
 const MAX_CARDS := 200
@@ -150,7 +150,10 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 	header.add_child(_collapse_button)
 
 	# Separator
-	var sep = HSeparator.new()
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(COLOR_GOLD.r, COLOR_GOLD.g, COLOR_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(sep)
 
 	# --- Scroll area with card container ---
@@ -580,7 +583,7 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 
 	var card = PanelContainer.new()
 	card.add_theme_stylebox_override("panel", _make_card_style(bg_color, accent, accent_width))
-	card.custom_minimum_size = Vector2(0, 28)
+	card.custom_minimum_size = Vector2(0, 24)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var hbox = HBoxContainer.new()
@@ -591,15 +594,35 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 	var icon = _create_icon(category)
 	hbox.add_child(icon)
 
-	# Text label
+	# Text label — truncate long entries with expand on click
+	var display_text = text
+	var is_truncated = false
+	var max_chars = 120
+	if entry_type != "phase_header" and text.length() > max_chars:
+		display_text = text.substr(0, max_chars).strip_edges() + "..."
+		is_truncated = true
+
 	var label = RichTextLabel.new()
 	label.bbcode_enabled = true
 	label.fit_content = true
 	label.scroll_active = false
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("normal_font_size", 12)
-	label.add_theme_font_size_override("bold_font_size", 13)
-	label.append_text(_format_entry_text(text, entry_type))
+	label.add_theme_font_size_override("normal_font_size", 11)
+	label.add_theme_font_size_override("bold_font_size", 12)
+	label.append_text(_format_entry_text(display_text, entry_type))
+
+	if is_truncated:
+		var full_text = text
+		var fmt_type = entry_type
+		label.meta_clicked.connect(func(_meta): pass)
+		label.gui_input.connect(func(event):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				label.text = ""
+				label.append_text(_format_entry_text(full_text, fmt_type))
+		)
+		label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		label.tooltip_text = "Click to expand"
+
 	hbox.add_child(label)
 
 	return card

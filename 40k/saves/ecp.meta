@@ -1,0 +1,95 @@
+{
+	"created_at": 1773973128.66735,
+	"description": "ecp",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "c14cce5f-afd2-ff8d-868a--27351f548b7d8e50",
+		"is_multiplayer": false,
+		"phase": 6,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": 1,
+		"player2_type": "AI",
+		"turn": 1
+	},
+	"preview": {
+		"battle_round": 2,
+		"players": {
+			"1": {
+				"alive_models": 107,
+				"alive_units": 20,
+				"cp": 5,
+				"detachment": "Strike Force",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 0,
+				"secondary_vp": 0,
+				"total_models": 112,
+				"total_units": 21,
+				"unit_names": [
+					"Beastboss",
+					"Boss Snikrot",
+					"Deffkilla Wartrike",
+					"Mek",
+					"Mek",
+					"Zodgrod Wortsnagga",
+					"Beast Snagga Boyz",
+					"Battlewagon",
+					"Battlewagon",
+					"Burna Boyz",
+					"Burna Boyz",
+					"Gretchin",
+					"Kommandos",
+					"Lootas",
+					"Lootas",
+					"Stormboyz",
+					"Tankbustas",
+					"Warbikers",
+					"Warbikers",
+					"Big Gunz",
+					"Mek Gunz"
+				],
+				"vp": 0
+			},
+			"2": {
+				"alive_models": 88,
+				"alive_units": 17,
+				"cp": 4,
+				"detachment": "War Horde",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 0,
+				"secondary_vp": 5,
+				"total_models": 88,
+				"total_units": 17,
+				"unit_names": [
+					"Lootas",
+					"Strike Force",
+					"Warboss",
+					"Warboss",
+					"Warboss in Mega Armour",
+					"Boyz",
+					"Boyz",
+					"Battlewagon",
+					"Kommandos",
+					"Painboss",
+					"Weirdboy",
+					"Boyz",
+					"Meganobz",
+					"Wazbom Blastajet",
+					"Kaptin Badrukk",
+					"Ghazghkull Thraka",
+					"Nob with Waaagh! Banner"
+				],
+				"vp": 5
+			}
+		}
+	},
+	"save_info": {
+		"description": "ecp",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.1.0"
+}

@@ -50,7 +50,7 @@ func _ready() -> void:
 	instruction_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	vbox.add_child(instruction_label)
 
-	vbox.add_child(HSeparator.new())
+	_add_weapon_order_gold_separator(vbox)
 
 	# Weapon list section
 	var list_label = Label.new()
@@ -67,7 +67,7 @@ func _ready() -> void:
 	weapon_list_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll_container.add_child(weapon_list_container)
 
-	vbox.add_child(HSeparator.new())
+	_add_weapon_order_gold_separator(vbox)
 
 	# Action buttons
 	button_hbox = HBoxContainer.new()
@@ -109,7 +109,7 @@ func _ready() -> void:
 	button_hbox.add_child(continue_button)
 	continue_button.visible = false
 
-	vbox.add_child(HSeparator.new())
+	_add_weapon_order_gold_separator(vbox)
 
 	# Dice log section
 	var log_label = Label.new()
@@ -459,3 +459,11 @@ func _add_to_dice_log(text: String, color: Color) -> void:
 	if is_resolving and not close_button.visible:
 		# Show close button after first dice roll (user can close anytime during resolution)
 		close_button.visible = true
+
+
+func _add_weapon_order_gold_separator(parent: Control) -> void:
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(sep)

@@ -39,7 +39,10 @@ func _ready() -> void:
 	vbox.add_child(title_label)
 
 	# Separator
-	var sep = HSeparator.new()
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(sep)
 
 	# Button container

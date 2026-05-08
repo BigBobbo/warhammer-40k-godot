@@ -7,6 +7,7 @@ class_name GrenadeResultDialog
 signal result_acknowledged()
 
 func setup(result: Dictionary) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	title = "GRENADE Result"
 	min_size = DialogConstants.SMALL
 	get_ok_button().text = "OK"

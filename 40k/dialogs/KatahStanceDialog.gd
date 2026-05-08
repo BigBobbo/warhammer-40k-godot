@@ -20,6 +20,7 @@ var unit_name: String = ""
 var master_of_stances_available: bool = false
 
 func setup(p_unit_id: String, p_player: int, p_master_available: bool = false) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	unit_id = p_unit_id
 	player = p_player
 	master_of_stances_available = p_master_available

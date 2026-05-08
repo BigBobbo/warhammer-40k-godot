@@ -328,32 +328,49 @@ func _setup_right_panel() -> void:
 	
 	# Unit selector
 	var unit_label = Label.new()
-	unit_label.text = "Units that can charge:"
+	unit_label.text = "UNITS THAT CAN CHARGE"
+	unit_label.add_theme_font_size_override("font_size", 13)
+	unit_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		unit_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	charge_panel.add_child(unit_label)
 	
 	unit_selector = ItemList.new()
 	unit_selector.custom_minimum_size = Vector2(200, 150)
 	unit_selector.item_selected.connect(_on_unit_selected)
+	_WhiteDwarfTheme.apply_to_item_list(unit_selector)
 	charge_panel.add_child(unit_selector)
-	
+
+	_add_charge_gold_separator(charge_panel)
+
 	# Target list
 	var target_label = Label.new()
-	target_label.text = "Eligible targets (click to select):"
+	target_label.text = "ELIGIBLE TARGETS"
+	target_label.add_theme_font_size_override("font_size", 13)
+	target_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		target_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	charge_panel.add_child(target_label)
 	
 	target_list = ItemList.new()
 	target_list.custom_minimum_size = Vector2(200, 100)
 	target_list.select_mode = ItemList.SELECT_MULTI
 	target_list.item_selected.connect(_on_target_selected)
-	target_list.mouse_filter = Control.MOUSE_FILTER_PASS  # Ensure mouse input is received
-	# Add mouse click detection for debugging
+	target_list.mouse_filter = Control.MOUSE_FILTER_PASS
 	target_list.gui_input.connect(_on_target_list_input)
+	_WhiteDwarfTheme.apply_to_item_list(target_list)
 	print("DEBUG: Created target_list with signal connected to _on_target_selected")
 	charge_panel.add_child(target_list)
-	
+
+	_add_charge_gold_separator(charge_panel)
+
 	# Dice log display
 	var dice_label = Label.new()
-	dice_label.text = "Dice Log:"
+	dice_label.text = "DICE LOG"
+	dice_label.add_theme_font_size_override("font_size", 13)
+	dice_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		dice_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	charge_panel.add_child(dice_label)
 	
 	# T5-V1: Animated dice roll visualization
@@ -367,13 +384,15 @@ func _setup_right_panel() -> void:
 	dice_log_display.bbcode_enabled = true
 	charge_panel.add_child(dice_log_display)
 
-	# ADD: Action buttons section after dice log
-	charge_panel.add_child(HSeparator.new())
-	
-	# Charge status display (moved from top bar)
+	_add_charge_gold_separator(charge_panel)
+
+	# Charge status display
 	var status_label = Label.new()
-	status_label.text = "Charge Actions:"
-	status_label.add_theme_font_size_override("font_size", 14)
+	status_label.text = "CHARGE ACTIONS"
+	status_label.add_theme_font_size_override("font_size", 13)
+	status_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		status_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	charge_panel.add_child(status_label)
 	
 	# Charge info label (moved from top bar)
@@ -393,14 +412,14 @@ func _setup_right_panel() -> void:
 	declare_button.text = "Declare Charge"
 	declare_button.disabled = true
 	declare_button.pressed.connect(_on_declare_charge_pressed)
-	_WhiteDwarfTheme.apply_to_button(declare_button)
+	_WhiteDwarfTheme.apply_primary_button(declare_button)
 	main_buttons.add_child(declare_button)
 
 	roll_button = Button.new()
 	roll_button.text = "Roll 2D6"
 	roll_button.disabled = true
 	roll_button.pressed.connect(_on_roll_charge_pressed)
-	_WhiteDwarfTheme.apply_to_button(roll_button)
+	_WhiteDwarfTheme.apply_primary_button(roll_button)
 	main_buttons.add_child(roll_button)
 	
 	action_button_container.add_child(main_buttons)
@@ -462,13 +481,15 @@ func _setup_right_panel() -> void:
 	charge_status_label.add_theme_font_size_override("font_size", 12)
 	charge_panel.add_child(charge_status_label)
 
-	# Failed Charges section - displays structured failure tooltips
-	var failed_separator = HSeparator.new()
-	charge_panel.add_child(failed_separator)
+	_add_charge_gold_separator(charge_panel)
 
+	# Failed Charges section
 	var failed_header = Label.new()
-	failed_header.text = "Failed Charges:"
+	failed_header.text = "FAILED CHARGES"
 	failed_header.add_theme_font_size_override("font_size", 13)
+	failed_header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		failed_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	charge_panel.add_child(failed_header)
 
 	failed_charges_container = VBoxContainer.new()
@@ -482,6 +503,18 @@ func _setup_right_panel() -> void:
 	no_failures_label.add_theme_font_size_override("font_size", 11)
 	no_failures_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 	failed_charges_container.add_child(no_failures_label)
+
+func _add_charge_gold_separator(parent: VBoxContainer) -> void:
+	var spacer_top = Control.new()
+	spacer_top.custom_minimum_size = Vector2(0, 2)
+	parent.add_child(spacer_top)
+	var sep = ColorRect.new()
+	sep.color = Color(_WhiteDwarfTheme.WH_GOLD, 0.3)
+	sep.custom_minimum_size = Vector2(0, 1)
+	parent.add_child(sep)
+	var spacer_bot = Control.new()
+	spacer_bot.custom_minimum_size = Vector2(0, 2)
+	parent.add_child(spacer_bot)
 
 func set_phase(phase_instance) -> void:
 	current_phase = phase_instance

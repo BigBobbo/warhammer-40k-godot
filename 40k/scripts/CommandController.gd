@@ -119,8 +119,12 @@ func _setup_right_panel() -> void:
 	
 	# Title
 	var title = Label.new()
-	title.text = "Command Phase"
-	title.add_theme_font_size_override("font_size", 16)
+	title.text = "COMMAND PHASE"
+	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	command_panel.add_child(title)
 
 	# T-096: Phase progress indicator showing 1/3 → 3/3 sub-steps
@@ -129,30 +133,58 @@ func _setup_right_panel() -> void:
 	phase_progress_label.text = _compute_command_phase_progress()
 	phase_progress_label.add_theme_font_size_override("font_size", 12)
 	phase_progress_label.add_theme_color_override("font_color", Color(0.85, 0.75, 0.4, 1.0))
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		phase_progress_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	command_panel.add_child(phase_progress_label)
 
-	command_panel.add_child(HSeparator.new())
-	
+	# End Command Phase button — prominent CTA near the top of the panel
+	var end_phase_btn = Button.new()
+	end_phase_btn.name = "EndCommandPhaseButton"
+	end_phase_btn.text = "End Command Phase  [Enter]"
+	end_phase_btn.custom_minimum_size = Vector2(230, 40)
+	end_phase_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_WhiteDwarfTheme.apply_primary_button(end_phase_btn)
+	end_phase_btn.add_theme_font_size_override("font_size", 14)
+	end_phase_btn.pressed.connect(_on_end_command_pressed)
+	command_panel.add_child(end_phase_btn)
+
+	_add_command_gold_separator(command_panel)
+
 	# Phase information
-	var info_label = Label.new()
 	var current_player = GameState.get_active_player()
 	var battle_round = GameState.get_battle_round()
 	var faction_name = GameState.get_faction_name(current_player)
-	info_label.text = "Battle Round: %d\nActive Player: %d (%s)" % [battle_round, current_player, faction_name]
-	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	command_panel.add_child(info_label)
 
-	command_panel.add_child(HSeparator.new())
+	var round_label = Label.new()
+	round_label.text = "BATTLE ROUND %d" % battle_round
+	round_label.add_theme_font_size_override("font_size", 13)
+	round_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		round_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	command_panel.add_child(round_label)
+
+	var player_label = Label.new()
+	player_label.text = "Active: Player %d (%s)" % [current_player, faction_name]
+	player_label.add_theme_font_size_override("font_size", 12)
+	player_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(current_player))
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		player_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
+	command_panel.add_child(player_label)
+
+	_add_command_gold_separator(command_panel)
 
 	# Command Points display
+	var cp_header = Label.new()
+	cp_header.text = "COMMAND POINTS"
+	cp_header.add_theme_font_size_override("font_size", 13)
+	cp_header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		cp_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	command_panel.add_child(cp_header)
+
 	var cp_section = VBoxContainer.new()
 	cp_section.name = "CPSection"
 	command_panel.add_child(cp_section)
-
-	var cp_title = Label.new()
-	cp_title.text = "Command Points"
-	cp_title.add_theme_font_size_override("font_size", 14)
-	cp_section.add_child(cp_title)
 
 	var p1_cp = GameState.state.get("players", {}).get("1", {}).get("cp", 0)
 	var p2_cp = GameState.state.get("players", {}).get("2", {}).get("cp", 0)
@@ -160,13 +192,17 @@ func _setup_right_panel() -> void:
 	var p1_cp_label = Label.new()
 	p1_cp_label.name = "P1CPLabel"
 	p1_cp_label.text = "Player 1 (%s): %d CP" % [GameState.get_faction_name(1), p1_cp]
-	p1_cp_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	p1_cp_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(1))
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		p1_cp_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	cp_section.add_child(p1_cp_label)
 
 	var p2_cp_label = Label.new()
 	p2_cp_label.name = "P2CPLabel"
 	p2_cp_label.text = "Player 2 (%s): %d CP" % [GameState.get_faction_name(2), p2_cp]
-	p2_cp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	p2_cp_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(2))
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		p2_cp_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	cp_section.add_child(p2_cp_label)
 
 	var cp_note = Label.new()
@@ -174,20 +210,22 @@ func _setup_right_panel() -> void:
 	cp_note.add_theme_font_size_override("font_size", 11)
 	cp_note.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
 	cp_section.add_child(cp_note)
-	
-	# Add objective status section
-	command_panel.add_child(HSeparator.new())
-	
+
+	_add_command_gold_separator(command_panel)
+
+	# Objective control section
+	var obj_header = Label.new()
+	obj_header.text = "OBJECTIVE CONTROL"
+	obj_header.add_theme_font_size_override("font_size", 13)
+	obj_header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		obj_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	command_panel.add_child(obj_header)
+
 	var objectives_section = VBoxContainer.new()
 	objectives_section.name = "ObjectivesSection"
 	command_panel.add_child(objectives_section)
-	
-	var obj_title = Label.new()
-	obj_title.text = "Objectives"
-	obj_title.add_theme_font_size_override("font_size", 14)
-	objectives_section.add_child(obj_title)
-	
-	# Show objective control status
+
 	if MissionManager:
 		var control_summary = MissionManager.get_objective_control_summary()
 		for obj_id in control_summary.objectives:
@@ -196,17 +234,19 @@ func _setup_right_panel() -> void:
 			var control_text = "Uncontrolled"
 			var text_color = Color(0.7, 0.7, 0.7)
 			if controller == 1:
-				control_text = "Player 1"
-				text_color = Color(0.4, 0.6, 1.0)  # Blue
+				control_text = GameState.get_faction_name(1)
+				text_color = FactionPalettes.get_player_color(1)
 			elif controller == 2:
-				control_text = "Player 2"
-				text_color = Color(1.0, 0.4, 0.4)  # Red
+				control_text = GameState.get_faction_name(2)
+				text_color = FactionPalettes.get_player_color(2)
 			else:
 				control_text = "Contested"
-				text_color = Color(1.0, 1.0, 0.5)  # Yellow
-			
+				text_color = Color(1.0, 1.0, 0.5)
+
 			obj_label.text = "%s: %s" % [obj_id.replace("obj_", "").to_upper(), control_text]
 			obj_label.add_theme_color_override("font_color", text_color)
+			if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+				obj_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 			objectives_section.add_child(obj_label)
 	
 	# Battle-shock tests and Stratagems section
@@ -216,16 +256,19 @@ func _setup_right_panel() -> void:
 	_setup_faction_abilities_section(command_panel)
 
 	# Show VP status
-	command_panel.add_child(HSeparator.new())
+	_add_command_gold_separator(command_panel)
+
+	var vp_header = Label.new()
+	vp_header.text = "VICTORY POINTS"
+	vp_header.add_theme_font_size_override("font_size", 13)
+	vp_header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		vp_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	command_panel.add_child(vp_header)
 
 	var vp_section = VBoxContainer.new()
 	vp_section.name = "VPSection"
 	command_panel.add_child(vp_section)
-
-	var vp_title = Label.new()
-	vp_title.text = "Victory Points"
-	vp_title.add_theme_font_size_override("font_size", 14)
-	vp_section.add_child(vp_title)
 
 	if MissionManager:
 		var vp_summary = MissionManager.get_vp_summary()
@@ -235,7 +278,9 @@ func _setup_right_panel() -> void:
 			vp_summary.player1.total,
 			vp_summary.player1.primary
 		]
-		p1_vp_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+		p1_vp_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(1))
+		if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+			p1_vp_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 		vp_section.add_child(p1_vp_label)
 
 		var p2_vp_label = Label.new()
@@ -243,7 +288,9 @@ func _setup_right_panel() -> void:
 			vp_summary.player2.total,
 			vp_summary.player2.primary
 		]
-		p2_vp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+		p2_vp_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(2))
+		if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+			p2_vp_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 		vp_section.add_child(p2_vp_label)
 
 	# P3-118: Add dice roll visual for reroll comparisons
@@ -269,7 +316,7 @@ func _setup_secondary_missions_section(command_panel: VBoxContainer) -> void:
 		print("CommandController: Secondary missions not initialized for player %d - skipping section" % current_player)
 		return
 
-	command_panel.add_child(HSeparator.new())
+	_add_command_gold_separator(command_panel)
 
 	var section = VBoxContainer.new()
 	section.name = "SecondaryMissionsSection"
@@ -278,9 +325,11 @@ func _setup_secondary_missions_section(command_panel: VBoxContainer) -> void:
 
 	# Section header
 	var section_title = Label.new()
-	section_title.text = "Secondary Missions"
-	section_title.add_theme_font_size_override("font_size", 14)
-	section_title.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
+	section_title.text = "SECONDARY MISSIONS"
+	section_title.add_theme_font_size_override("font_size", 13)
+	section_title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		section_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	section.add_child(section_title)
 
 	# Deck info
@@ -426,7 +475,7 @@ func _add_new_orders_button(parent: VBoxContainer, player: int, active_missions:
 	var player_cp = strat_manager.get_player_cp(player)
 	var deck_empty = secondary_mgr.get_deck_size(player) == 0
 
-	parent.add_child(HSeparator.new())
+	_add_command_gold_separator(parent)
 
 	var orders_container = VBoxContainer.new()
 	orders_container.add_theme_constant_override("separation", 2)
@@ -523,16 +572,18 @@ func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
 	if shock_tests.size() == 0:
 		return
 
-	command_panel.add_child(HSeparator.new())
+	_add_command_gold_separator(command_panel)
 
 	var shock_section = VBoxContainer.new()
 	shock_section.name = "BattleShockSection"
 	command_panel.add_child(shock_section)
 
 	var shock_title = Label.new()
-	shock_title.text = "Battle-shock Tests"
-	shock_title.add_theme_font_size_override("font_size", 14)
-	shock_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))
+	shock_title.text = "BATTLE-SHOCK TESTS"
+	shock_title.add_theme_font_size_override("font_size", 13)
+	shock_title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		shock_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	shock_section.add_child(shock_title)
 
 	var shock_note = Label.new()
@@ -578,7 +629,7 @@ func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
 			strat_btn.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
 			unit_box.add_child(strat_btn)
 
-		unit_box.add_child(HSeparator.new())
+		_add_command_gold_separator(unit_box)
 
 func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 	"""Build faction abilities display (Oath of Moment, Waaagh!, etc.)."""
@@ -594,7 +645,7 @@ func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 	if not has_oath and not has_waaagh and plant_eligible.size() == 0:
 		return
 
-	command_panel.add_child(HSeparator.new())
+	_add_command_gold_separator(command_panel)
 
 	var section = VBoxContainer.new()
 	section.name = "FactionAbilitiesSection"
@@ -645,7 +696,7 @@ func _setup_waaagh_subsection(section: VBoxContainer, faction_mgr, current_playe
 		btn.pressed.connect(_on_call_waaagh_pressed)
 		section.add_child(btn)
 
-	section.add_child(HSeparator.new())
+	_add_command_gold_separator(section)
 
 func _setup_plant_waaagh_banner_subsection(section: VBoxContainer, plant_eligible: Array, current_player: int) -> void:
 	"""Build the Plant the Waaagh! Banner UI for eligible Nob units."""
@@ -673,7 +724,7 @@ func _setup_plant_waaagh_banner_subsection(section: VBoxContainer, plant_eligibl
 		btn.pressed.connect(_on_plant_waaagh_banner_pressed.bind(target.unit_id))
 		section.add_child(btn)
 
-	section.add_child(HSeparator.new())
+	_add_command_gold_separator(section)
 
 func _setup_oath_of_moment_subsection(section: VBoxContainer, faction_mgr, current_player: int) -> void:
 	"""Build the Oath of Moment target selection UI for Space Marines."""
@@ -766,6 +817,13 @@ func _on_insane_bravery_pressed(unit_id: String) -> void:
 		"stratagem_id": "insane_bravery",
 		"target_unit_id": unit_id
 	})
+
+func _add_command_gold_separator(parent: Control) -> void:
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(sep)
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
@@ -982,6 +1040,12 @@ func _show_drawn_missions_review_dialog() -> void:
 	_active_review_dialog = dialog
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
+	# Cap dialog to viewport so the Continue button stays reachable
+	var vp_size = get_tree().root.size
+	var max_h = vp_size.y - 40
+	if dialog.size.y > max_h:
+		dialog.size = Vector2i(dialog.size.x, max_h)
+		dialog.position = Vector2i(dialog.position.x, 20)
 
 func _on_mission_replacement_requested(mission_id: String) -> void:
 	"""Handle player requesting to replace a drawn mission (spend 1 CP)."""

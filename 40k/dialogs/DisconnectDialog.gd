@@ -23,6 +23,7 @@ func _init():
 	min_size = DialogConstants.MEDIUM
 
 func setup(p_disconnected_player: int) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	disconnected_player = p_disconnected_player
 	seconds_remaining = RECONNECT_GRACE_SECONDS
 	_waiting_for_reconnect = true

@@ -37,7 +37,10 @@ func _ready() -> void:
 	vbox.add_child(capacity_label)
 
 	# Add separator
-	var separator = HSeparator.new()
+	var separator = ColorRect.new()
+	separator.custom_minimum_size = Vector2(0, 2)
+	separator.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	separator.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(separator)
 
 	# Instructions

@@ -344,8 +344,11 @@ func _create_section1_unit_list(parent: VBoxContainer) -> void:
 	section.name = "Section1_UnitList"
 
 	var label = Label.new()
-	label.text = "Units (Move / Disembark)"
-	label.add_theme_font_size_override("font_size", 14)
+	label.text = "UNITS (MOVE / DISEMBARK)"
+	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	section.add_child(label)
 
 	# Always create a fresh ItemList for the movement panel
@@ -353,6 +356,7 @@ func _create_section1_unit_list(parent: VBoxContainer) -> void:
 	unit_list.name = "MovementUnitList"
 	unit_list.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	unit_list.custom_minimum_size = Vector2(0, 120)
+	_WhiteDwarfTheme.apply_to_item_list(unit_list)
 
 	# Connect unit selection signal
 	if not unit_list.item_selected.is_connected(_on_unit_selected):
@@ -364,25 +368,32 @@ func _create_section1_unit_list(parent: VBoxContainer) -> void:
 func _create_section2_unit_details(parent: VBoxContainer) -> void:
 	var section = VBoxContainer.new()
 	section.name = "Section2_UnitDetails"
-	
+
+	_add_movement_gold_separator(parent)
+
 	var label = Label.new()
-	label.text = "Selected Unit Details"
-	label.add_theme_font_size_override("font_size", 14) 
+	label.text = "SELECTED UNIT"
+	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	section.add_child(label)
-	
+
 	selected_unit_label = Label.new()
 	selected_unit_label.text = "Unit: None Selected"
+	selected_unit_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	section.add_child(selected_unit_label)
 
 	unit_mode_label = Label.new()
 	unit_mode_label.text = "Mode: Normal Move (Default)"
+	unit_mode_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	section.add_child(unit_mode_label)
 
 	# Add helpful hint
 	var hint_label = Label.new()
 	hint_label.text = "Drag models to move, or select a different mode below"
 	hint_label.add_theme_font_size_override("font_size", 11)
-	hint_label.modulate = Color(0.7, 0.7, 0.7)  # Slightly dimmed hint text
+	hint_label.add_theme_color_override("font_color", Color(0.5, 0.48, 0.4))
 	section.add_child(hint_label)
 
 	parent.add_child(section)
@@ -390,10 +401,15 @@ func _create_section2_unit_details(parent: VBoxContainer) -> void:
 func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	var section = VBoxContainer.new()
 	section.name = "Section3_ModeSelection"
-	
+
+	_add_movement_gold_separator(parent)
+
 	var label = Label.new()
-	label.text = "Movement Mode"
-	label.add_theme_font_size_override("font_size", 14)
+	label.text = "MOVEMENT MODE"
+	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	section.add_child(label)
 	
 	# Create radio button group
@@ -409,6 +425,9 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	normal_radio.button_group = mode_button_group
 	normal_radio.pressed.connect(_on_normal_move_pressed)
 	normal_radio.tooltip_text = "Move up to the unit's Move characteristic."
+	normal_radio.add_theme_font_size_override("font_size", 13)
+	normal_radio.add_theme_color_override("font_color", Color(0.5, 0.7, 1.0))
+	normal_radio.add_theme_color_override("font_pressed_color", Color(0.6, 0.85, 1.0))
 	button_container.add_child(normal_radio)
 
 	advance_radio = CheckBox.new()
@@ -417,22 +436,31 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	advance_radio.button_group = mode_button_group
 	advance_radio.pressed.connect(_on_advance_pressed)
 	advance_radio.tooltip_text = "Move + D6\". Unit cannot shoot or charge this turn."
+	advance_radio.add_theme_font_size_override("font_size", 13)
+	advance_radio.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
+	advance_radio.add_theme_color_override("font_pressed_color", Color(0.5, 1.0, 0.5))
 	button_container.add_child(advance_radio)
-	
+
 	fall_back_radio = CheckBox.new()
 	fall_back_radio.text = "Fall Back"
 	fall_back_radio.toggle_mode = true
 	fall_back_radio.button_group = mode_button_group
 	fall_back_radio.pressed.connect(_on_fall_back_pressed)
 	fall_back_radio.tooltip_text = "Disengage from combat. Unit cannot shoot or charge this turn."
+	fall_back_radio.add_theme_font_size_override("font_size", 13)
+	fall_back_radio.add_theme_color_override("font_color", Color(1.0, 0.5, 0.4))
+	fall_back_radio.add_theme_color_override("font_pressed_color", Color(1.0, 0.6, 0.5))
 	button_container.add_child(fall_back_radio)
 
 	stationary_radio = CheckBox.new()
-	stationary_radio.text = "Remain Stationary"
+	stationary_radio.text = "Remain Still"
 	stationary_radio.toggle_mode = true
 	stationary_radio.button_group = mode_button_group
 	stationary_radio.pressed.connect(_on_remain_stationary_pressed)
 	stationary_radio.tooltip_text = "Unit does not move this phase. Counts as having Remained Stationary."
+	stationary_radio.add_theme_font_size_override("font_size", 13)
+	stationary_radio.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	stationary_radio.add_theme_color_override("font_pressed_color", Color(0.8, 0.8, 0.8))
 	button_container.add_child(stationary_radio)
 	
 	section.add_child(button_container)
@@ -455,33 +483,45 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	parent.add_child(section)
 
 func _create_section4_actions(parent: VBoxContainer) -> void:
-	var section = VBoxContainer.new()  
+	var section = VBoxContainer.new()
 	section.name = "Section4_Actions"
-	
+
+	_add_movement_gold_separator(parent)
+
 	var label = Label.new()
-	label.text = "Movement Actions"
-	label.add_theme_font_size_override("font_size", 14)
+	label.text = "MOVEMENT ACTIONS"
+	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	section.add_child(label)
 	
-	# Distance information (moved from top panel)
+	# Distance information
 	var distance_info = VBoxContainer.new()
 	distance_info.name = "DistanceInfo"
-	
+
 	move_cap_label = Label.new()
 	move_cap_label.text = "Move: 0\""
+	move_cap_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	move_cap_label.add_theme_font_size_override("font_size", 12)
 	distance_info.add_child(move_cap_label)
-	
-	inches_used_label = Label.new()  
+
+	inches_used_label = Label.new()
 	inches_used_label.text = "Used: 0\""
+	inches_used_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	inches_used_label.add_theme_font_size_override("font_size", 12)
 	distance_info.add_child(inches_used_label)
-	
+
 	inches_left_label = Label.new()
-	inches_left_label.text = "Left: 0\"" 
+	inches_left_label.text = "Left: 0\""
+	inches_left_label.add_theme_color_override("font_color", Color(0.5, 0.85, 0.5))
+	inches_left_label.add_theme_font_size_override("font_size", 12)
 	distance_info.add_child(inches_left_label)
-	
+
 	illegal_reason_label = Label.new()
 	illegal_reason_label.text = ""
-	illegal_reason_label.modulate = Color.RED
+	illegal_reason_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	illegal_reason_label.add_theme_font_size_override("font_size", 11)
 	distance_info.add_child(illegal_reason_label)
 	
 	section.add_child(distance_info)
@@ -493,23 +533,35 @@ func _create_section4_actions(parent: VBoxContainer) -> void:
 	var undo_button = Button.new()
 	undo_button.text = "Undo Model"
 	undo_button.pressed.connect(_on_undo_model_pressed)
-	_WhiteDwarfTheme.apply_to_button(undo_button)
+	_WhiteDwarfTheme.apply_secondary_button(undo_button)
 	button_container.add_child(undo_button)
 
 	var reset_button = Button.new()
 	reset_button.text = "Reset Unit"
 	reset_button.pressed.connect(_on_reset_unit_pressed)
-	_WhiteDwarfTheme.apply_to_button(reset_button)
+	_WhiteDwarfTheme.apply_secondary_button(reset_button)
 	button_container.add_child(reset_button)
 
 	var confirm_button = Button.new()
 	confirm_button.text = "Confirm Move"
 	confirm_button.pressed.connect(_on_confirm_move_pressed)
-	_WhiteDwarfTheme.apply_to_button(confirm_button)
+	_WhiteDwarfTheme.apply_primary_button(confirm_button)
 	button_container.add_child(confirm_button)
 	
 	section.add_child(button_container)
 	parent.add_child(section)
+
+func _add_movement_gold_separator(parent: VBoxContainer) -> void:
+	var spacer_top = Control.new()
+	spacer_top.custom_minimum_size = Vector2(0, 2)
+	parent.add_child(spacer_top)
+	var sep = ColorRect.new()
+	sep.color = Color(_WhiteDwarfTheme.WH_GOLD, 0.3)
+	sep.custom_minimum_size = Vector2(0, 1)
+	parent.add_child(sep)
+	var spacer_bot = Control.new()
+	spacer_bot.custom_minimum_size = Vector2(0, 2)
+	parent.add_child(spacer_bot)
 
 func _create_dice_log_display(parent: VBoxContainer) -> void:
 	# Create dice log display only if it doesn't exist
@@ -518,6 +570,10 @@ func _create_dice_log_display(parent: VBoxContainer) -> void:
 		if not existing_dice_log:
 			var dice_label = Label.new()
 			dice_label.text = "Dice Log:"
+			dice_label.add_theme_font_size_override("font_size", 12)
+			dice_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+			if FactionPalettes.FONT_RAJDHANI_BOLD:
+				dice_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 			parent.add_child(dice_label)
 
 			dice_log_display = RichTextLabel.new()

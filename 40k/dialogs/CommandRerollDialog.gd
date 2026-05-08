@@ -22,6 +22,7 @@ var roll_total: int = 0
 var roll_context_text: String = ""
 
 func setup(p_unit_id: String, p_player: int, p_roll_type: String, p_original_rolls: Array, p_context_text: String = "") -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	unit_id = p_unit_id
 	player = p_player
 	roll_type = p_roll_type

@@ -19,6 +19,7 @@ var eligible_units: Array = []  # Array of { unit_id: String, unit_name: String 
 var fell_back_unit_id: String = ""
 
 func setup(p_player: int, p_eligible_units: Array, p_fell_back_unit_id: String) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	player = p_player
 	eligible_units = p_eligible_units
 	fell_back_unit_id = p_fell_back_unit_id

@@ -7,6 +7,7 @@ class_name TankShockResultDialog
 signal result_acknowledged()
 
 func setup(result: Dictionary) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	title = "TANK SHOCK Result"
 	min_size = DialogConstants.SMALL
 	get_ok_button().text = "OK"

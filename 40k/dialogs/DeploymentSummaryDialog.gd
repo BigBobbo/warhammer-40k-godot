@@ -12,6 +12,7 @@ signal deployment_cancelled()
 var deployment_data: Dictionary = {}
 
 func setup(p_deployment_data: Dictionary) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	deployment_data = p_deployment_data
 
 	title = "Deployment Summary"

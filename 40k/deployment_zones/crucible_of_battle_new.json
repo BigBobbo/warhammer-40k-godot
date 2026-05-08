@@ -1,0 +1,88 @@
+{
+	"id": "crucible_of_battle",
+	"name": "Crucible of Battle",
+	"description": "Stepped zones along short edges",
+	"zones": [
+		{
+			"player": 1,
+			"poly": [
+				{
+					"x": 0,
+					"y": 0
+				},
+				{
+					"x": 44,
+					"y": 0
+				},
+				{
+					"x": 0,
+					"y": 30
+				}
+			]
+		},
+		{
+			"player": 2,
+			"poly": [
+				{
+					"x": 44,
+					"y": 33
+				},
+				{
+					"x": 44,
+					"y": 60
+				},
+				{
+					"x": 0,
+					"y": 60
+				}
+			]
+		}
+	],
+	"objectives": [
+		{
+			"id": "obj_center",
+			"position": [
+				22,
+				30
+			],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_nml_1",
+			"position": [
+				8,
+				40
+			],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_nml_2",
+			"position": [
+				36,
+				20
+			],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_home_1",
+			"position": [
+				14,
+				10
+			],
+			"radius_mm": 40,
+			"zone": "player1"
+		},
+		{
+			"id": "obj_home_2",
+			"position": [
+				30,
+				50
+			],
+			"radius_mm": 40,
+			"zone": "player2"
+		}
+	]
+}

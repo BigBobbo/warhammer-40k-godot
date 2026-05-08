@@ -25,7 +25,11 @@ func _setup_ui() -> void:
 	add_theme_constant_override("separation", 5)
 
 	# Add separator at the top
-	add_child(HSeparator.new())
+	var _gsep1 = ColorRect.new()
+	_gsep1.custom_minimum_size = Vector2(0, 2)
+	_gsep1.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(_gsep1)
 
 	# Title
 	var title = Label.new()

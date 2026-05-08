@@ -17,6 +17,7 @@ var selecting_player: int = 0
 var objective_list_container: VBoxContainer
 
 func setup(player: int, available_objectives: Array) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	selecting_player = player
 	objectives = available_objectives
 

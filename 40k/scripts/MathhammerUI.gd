@@ -188,6 +188,7 @@ func _create_ui_structure() -> void:
 	toggle_button = Button.new()
 	toggle_button.name = "ToggleButton"
 	toggle_button.text = "🎲 Mathhammer Analysis"
+	WhiteDwarfTheme.apply_secondary_button(toggle_button)
 	header.add_child(toggle_button)
 
 	# Scroll container for content - viewport-relative sizing (T5-MH6)
@@ -220,6 +221,9 @@ func _create_content_sections() -> void:
 	var selector_label = Label.new()
 	selector_label.text = "Unit Selection"
 	selector_label.add_theme_font_size_override("font_size", 16)
+	selector_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		selector_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	unit_selector.add_child(selector_label)
 
 	# Phase selector (Shooting/Melee)
@@ -228,6 +232,9 @@ func _create_content_sections() -> void:
 	var phase_label = Label.new()
 	phase_label.text = "Phase:"
 	phase_label.custom_minimum_size.x = 80
+	phase_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		phase_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	phase_hbox.add_child(phase_label)
 	phase_toggle = OptionButton.new()
 	phase_toggle.add_item("Shooting")
@@ -241,6 +248,9 @@ func _create_content_sections() -> void:
 	var attacker_label = Label.new()
 	attacker_label.text = "Attackers (select multiple):"
 	attacker_label.add_theme_font_size_override("font_size", 14)
+	attacker_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		attacker_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	unit_selector.add_child(attacker_label)
 	
 	# Create a scrollable container for attacker checkboxes
@@ -253,6 +263,7 @@ func _create_content_sections() -> void:
 	swap_attacker_defender_button.text = "⇅ Swap Attacker / Defender"
 	swap_attacker_defender_button.tooltip_text = "Swap the current attacker and defender units"
 	swap_attacker_defender_button.add_theme_font_size_override("font_size", 12)
+	WhiteDwarfTheme.apply_secondary_button(swap_attacker_defender_button)
 	unit_selector.add_child(swap_attacker_defender_button)
 
 	# Defender selection
@@ -261,13 +272,19 @@ func _create_content_sections() -> void:
 	var defender_label = Label.new()
 	defender_label.text = "Defender:"
 	defender_label.custom_minimum_size.x = 80
+	defender_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		defender_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	defender_hbox.add_child(defender_label)
 	defender_selector = OptionButton.new()
 	defender_hbox.add_child(defender_selector)
 	
 	# Defender Stats Override Section
-	var override_separator = HSeparator.new()
-	unit_selector.add_child(override_separator)
+	var _gsep1 = ColorRect.new()
+	_gsep1.custom_minimum_size = Vector2(0, 2)
+	_gsep1.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	unit_selector.add_child(_gsep1)
 
 	defender_override_checkbox = CheckBox.new()
 	defender_override_checkbox.text = "Custom Defender Stats"
@@ -285,12 +302,18 @@ func _create_content_sections() -> void:
 	_create_defender_override_fields()
 
 	# Weapon Selection Section
-	var weapon_separator = HSeparator.new()
-	unit_selector.add_child(weapon_separator)
+	var _gsep2 = ColorRect.new()
+	_gsep2.custom_minimum_size = Vector2(0, 2)
+	_gsep2.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	unit_selector.add_child(_gsep2)
 
 	var weapon_label = Label.new()
 	weapon_label.text = "Weapon Selection"
 	weapon_label.add_theme_font_size_override("font_size", 14)
+	weapon_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		weapon_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	unit_selector.add_child(weapon_label)
 	
 	weapon_selection_panel = VBoxContainer.new()
@@ -300,14 +323,20 @@ func _create_content_sections() -> void:
 	unit_selector.add_child(weapon_selection_panel)
 	
 	# Trial count selection
-	var trials_separator = HSeparator.new()
-	unit_selector.add_child(trials_separator)
+	var _gsep3 = ColorRect.new()
+	_gsep3.custom_minimum_size = Vector2(0, 2)
+	_gsep3.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep3.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	unit_selector.add_child(_gsep3)
 	
 	var trials_hbox = HBoxContainer.new()
 	unit_selector.add_child(trials_hbox)
 	var trials_label = Label.new()
 	trials_label.text = "Trials:"
 	trials_label.custom_minimum_size.x = 80
+	trials_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		trials_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	trials_hbox.add_child(trials_label)
 	trials_spinbox = SpinBox.new()
 	trials_spinbox.min_value = 100
@@ -341,8 +370,11 @@ func _create_content_sections() -> void:
 	unit_selector.add_child(clear_results_button)
 
 	# Multi-defender selection panel (T5-MH12)
-	var defender_multi_separator = HSeparator.new()
-	unit_selector.add_child(defender_multi_separator)
+	var _gsep4 = ColorRect.new()
+	_gsep4.custom_minimum_size = Vector2(0, 2)
+	_gsep4.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep4.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	unit_selector.add_child(_gsep4)
 
 	multi_defender_checkbox = CheckBox.new()
 	multi_defender_checkbox.text = "Select Multiple Defenders"
@@ -391,6 +423,9 @@ func _create_content_sections() -> void:
 	var rules_label = Label.new()
 	rules_label.text = "Rule Modifiers"
 	rules_label.add_theme_font_size_override("font_size", 16)
+	rules_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		rules_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	rule_toggles_panel.add_child(rules_label)
 	
 	# Add spacer before results
@@ -408,6 +443,9 @@ func _create_content_sections() -> void:
 	var summary_label = Label.new()
 	summary_label.text = "Results Summary"
 	summary_label.add_theme_font_size_override("font_size", 16)
+	summary_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		summary_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	summary_panel.add_child(summary_label)
 	
 	results_label = RichTextLabel.new()
@@ -443,6 +481,9 @@ func _create_content_sections() -> void:
 	var breakdown_label = Label.new()
 	breakdown_label.text = "Detailed Breakdown"
 	breakdown_label.add_theme_font_size_override("font_size", 16)
+	breakdown_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		breakdown_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	breakdown_panel.add_child(breakdown_label)
 	
 	breakdown_text = RichTextLabel.new()
@@ -2109,8 +2150,11 @@ func create_weapon_section(weapon_num: int, weapon_name: String, stats: Dictiona
 	add_stat_row(weapon_grid, "  Avg Damage/Trial:", "%.2f wounds" % avg_dmg)
 	
 	# Add separator
-	var separator = HSeparator.new()
-	weapon_vbox.add_child(separator)
+	var _gsep5 = ColorRect.new()
+	_gsep5.custom_minimum_size = Vector2(0, 2)
+	_gsep5.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep5.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	weapon_vbox.add_child(_gsep5)
 	
 	return weapon_vbox
 

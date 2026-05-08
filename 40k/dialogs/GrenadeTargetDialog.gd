@@ -27,6 +27,7 @@ var confirm_btn: Button
 var back_btn: Button
 
 func setup(active_player: int, units: Array) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	player = active_player
 	eligible_units = units
 

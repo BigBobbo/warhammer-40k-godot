@@ -279,28 +279,40 @@ func _setup_right_panel() -> void:
 	print("ShootingController: Creating shooting UI elements")
 	# Title
 	var title = Label.new()
-	title.text = "Shooting Controls"
-	title.add_theme_font_size_override("font_size", 16)
+	title.text = "SHOOTING CONTROLS"
+	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	shooting_panel.add_child(title)
 	print("ShootingController: Added title to shooting panel")
-	
-	shooting_panel.add_child(HSeparator.new())
-	
+
+	_add_shooting_gold_separator(shooting_panel)
+
 	# Unit selector
 	var unit_label = Label.new()
-	unit_label.text = "Select Shooter:"
+	unit_label.text = "SELECT SHOOTER"
+	unit_label.add_theme_font_size_override("font_size", 12)
+	unit_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		unit_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	shooting_panel.add_child(unit_label)
-	
+
 	unit_selector = ItemList.new()
 	unit_selector.custom_minimum_size = Vector2(230, 80)
 	unit_selector.item_selected.connect(_on_unit_selected)
+	_WhiteDwarfTheme.apply_to_item_list(unit_selector)
 	shooting_panel.add_child(unit_selector)
+
+	_add_shooting_gold_separator(shooting_panel)
 	
-	shooting_panel.add_child(HSeparator.new())
-	
-	# Weapon assignments tree
+	# Weapon assignments section header
 	var weapon_label = Label.new()
-	weapon_label.text = "Weapon Assignments:"
+	weapon_label.text = "WEAPON ASSIGNMENTS"
+	weapon_label.add_theme_font_size_override("font_size", 13)
+	weapon_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		weapon_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	shooting_panel.add_child(weapon_label)
 
 	# Create "Apply to All" button container (initially hidden)
@@ -310,14 +322,18 @@ func _setup_right_panel() -> void:
 
 	var auto_target_label = Label.new()
 	auto_target_label.text = "Same target for all:"
+	auto_target_label.add_theme_font_size_override("font_size", 11)
+	auto_target_label.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		auto_target_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	auto_target_button_container.add_child(auto_target_label)
 
 	var apply_to_all_button = Button.new()
 	apply_to_all_button.name = "ApplyToAllButton"
 	apply_to_all_button.text = "Apply to All Weapons"
-	apply_to_all_button.custom_minimum_size = Vector2(150, 30)
+	apply_to_all_button.custom_minimum_size = Vector2(150, 28)
 	apply_to_all_button.pressed.connect(_on_apply_to_all_pressed)
-	_WhiteDwarfTheme.apply_to_button(apply_to_all_button)
+	_WhiteDwarfTheme.apply_secondary_button(apply_to_all_button)
 	auto_target_button_container.add_child(apply_to_all_button)
 
 	shooting_panel.add_child(auto_target_button_container)
@@ -330,9 +346,26 @@ func _setup_right_panel() -> void:
 	weapon_tree.hide_root = true
 	weapon_tree.item_selected.connect(_on_weapon_tree_item_selected)
 	weapon_tree.button_clicked.connect(_on_weapon_tree_button_clicked)
-	# T5-UX1: Connect gui_input for hover detection and mouse_exited for cleanup
 	weapon_tree.gui_input.connect(_on_weapon_tree_gui_input)
 	weapon_tree.mouse_exited.connect(_on_weapon_tree_mouse_exited)
+	# Style the tree with dark panel bg and gold accents
+	var tree_panel_style = StyleBoxFlat.new()
+	tree_panel_style.bg_color = Color(0.08, 0.08, 0.10, 0.95)
+	tree_panel_style.border_color = Color(0.833, 0.588, 0.376, 0.4)
+	tree_panel_style.set_border_width_all(1)
+	tree_panel_style.set_corner_radius_all(3)
+	tree_panel_style.set_content_margin_all(4)
+	weapon_tree.add_theme_stylebox_override("panel", tree_panel_style)
+	var tree_selected_style = StyleBoxFlat.new()
+	tree_selected_style.bg_color = Color(0.2, 0.35, 0.2, 0.6)
+	tree_selected_style.set_corner_radius_all(2)
+	weapon_tree.add_theme_stylebox_override("selected", tree_selected_style)
+	weapon_tree.add_theme_stylebox_override("selected_focus", tree_selected_style)
+	weapon_tree.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	weapon_tree.add_theme_color_override("font_selected_color", Color.WHITE)
+	weapon_tree.add_theme_font_size_override("font_size", 12)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		weapon_tree.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	shooting_panel.add_child(weapon_tree)
 
 	# T5-UX1: Expected damage preview panel (shown on weapon hover/select)
@@ -382,16 +415,23 @@ func _setup_right_panel() -> void:
 	quick_assign_container.name = "QuickAssignContainer"
 	quick_assign_container.visible = false  # Hidden until eligible targets are available
 	var quick_assign_label = Label.new()
-	quick_assign_label.text = "Quick Assign All Weapons:"
-	quick_assign_label.add_theme_font_size_override("font_size", 12)
+	quick_assign_label.text = "QUICK ASSIGN"
+	quick_assign_label.add_theme_font_size_override("font_size", 11)
+	quick_assign_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		quick_assign_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	quick_assign_container.add_child(quick_assign_label)
 	shooting_panel.add_child(quick_assign_container)
 
-	shooting_panel.add_child(HSeparator.new())
+	_add_shooting_gold_separator(shooting_panel)
 
-	# Modifier panel (Phase 1 MVP)
+	# Modifier panel
 	modifier_label = Label.new()
-	modifier_label.text = "Hit Modifiers:"
+	modifier_label.text = "HIT MODIFIERS"
+	modifier_label.add_theme_font_size_override("font_size", 12)
+	modifier_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		modifier_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	shooting_panel.add_child(modifier_label)
 
 	modifier_panel = VBoxContainer.new()
@@ -418,7 +458,7 @@ func _setup_right_panel() -> void:
 	modifier_panel.visible = false
 	modifier_label.visible = false
 
-	shooting_panel.add_child(HSeparator.new())
+	_add_shooting_gold_separator(shooting_panel)
 
 	# GRENADE stratagem button
 	grenade_button = Button.new()
@@ -431,15 +471,20 @@ func _setup_right_panel() -> void:
 	shooting_panel.add_child(grenade_button)
 	_update_grenade_button_visibility()
 
-	shooting_panel.add_child(HSeparator.new())
+	_add_shooting_gold_separator(shooting_panel)
 
 	# Target basket
 	var basket_label = Label.new()
-	basket_label.text = "Current Targets:"
+	basket_label.text = "CURRENT TARGETS"
+	basket_label.add_theme_font_size_override("font_size", 12)
+	basket_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		basket_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	shooting_panel.add_child(basket_label)
-	
+
 	target_basket = ItemList.new()
 	target_basket.custom_minimum_size = Vector2(230, 80)
+	_WhiteDwarfTheme.apply_to_item_list(target_basket)
 	shooting_panel.add_child(target_basket)
 	
 	# Action buttons
@@ -448,7 +493,7 @@ func _setup_right_panel() -> void:
 	clear_button = Button.new()
 	clear_button.text = "Clear All"
 	clear_button.pressed.connect(_on_clear_pressed)
-	_WhiteDwarfTheme.apply_to_button(clear_button)
+	_WhiteDwarfTheme.apply_secondary_button(clear_button)
 	button_container.add_child(clear_button)
 
 	# T5-UX4: Undo last assignment button
@@ -457,26 +502,26 @@ func _setup_right_panel() -> void:
 	undo_button.pressed.connect(_on_undo_last_pressed)
 	undo_button.tooltip_text = "Remove the most recent weapon assignment"
 	undo_button.disabled = true
-	_WhiteDwarfTheme.apply_to_button(undo_button)
+	_WhiteDwarfTheme.apply_secondary_button(undo_button)
 	button_container.add_child(undo_button)
 
 	confirm_button = Button.new()
 	confirm_button.text = "Confirm Targets"
 	confirm_button.pressed.connect(_on_confirm_pressed)
-	_WhiteDwarfTheme.apply_to_button(confirm_button)
+	_WhiteDwarfTheme.apply_primary_button(confirm_button)
 	button_container.add_child(confirm_button)
 	
 	shooting_panel.add_child(button_container)
 
 	# T5-UX3: "Shoot All Remaining" button
-	shooting_panel.add_child(HSeparator.new())
+	_add_shooting_gold_separator(shooting_panel)
 	shoot_all_remaining_button = Button.new()
 	shoot_all_remaining_button.name = "ShootAllRemainingButton"
 	shoot_all_remaining_button.text = "Shoot All Remaining"
 	shoot_all_remaining_button.custom_minimum_size = Vector2(230, 35)
 	shoot_all_remaining_button.pressed.connect(_on_shoot_all_remaining_pressed)
 	shoot_all_remaining_button.tooltip_text = "Auto-shoot all remaining eligible units at their nearest targets"
-	_WhiteDwarfTheme.apply_to_button(shoot_all_remaining_button)
+	_WhiteDwarfTheme.apply_primary_button(shoot_all_remaining_button)
 	shooting_panel.add_child(shoot_all_remaining_button)
 	_update_shoot_all_remaining_button()
 
@@ -504,10 +549,14 @@ func _setup_right_panel() -> void:
 	burn_objective_button.visible = false  # Hidden until a unit qualifies
 
 	# Dice log
-	shooting_panel.add_child(HSeparator.new())
+	_add_shooting_gold_separator(shooting_panel)
 	
 	var dice_label = Label.new()
-	dice_label.text = "Dice Log:"
+	dice_label.text = "DICE LOG"
+	dice_label.add_theme_font_size_override("font_size", 12)
+	dice_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		dice_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	shooting_panel.add_child(dice_label)
 	
 	# T5-V1: Animated dice roll visualization
@@ -529,6 +578,13 @@ func _setup_right_panel() -> void:
 	print("  - scroll_container visible: ", scroll_container.visible)
 	print("  - container visible: ", container.visible)
 	print("  - hud_right visible: ", hud_right.visible if hud_right else "hud_right is null")
+
+func _add_shooting_gold_separator(parent: Control) -> void:
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(sep)
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
@@ -798,16 +854,16 @@ func _refresh_weapon_tree() -> void:
 		var is_one_shot = RulesEngine.is_one_shot_weapon(weapon_id)
 		var weapon_name = weapon_profile.get("name", weapon_id)
 
-		# Build display name — keyword indicators are now shown as icons (T5-V7)
-		var display_name = "%s (x%d)" % [weapon_name, weapon_counts[weapon_id]]
+		var display_name = "%s  ×%d" % [weapon_name, weapon_counts[weapon_id]]
 
 		weapon_item.set_text(0, display_name)
 		weapon_item.set_metadata(0, weapon_id)
+		weapon_item.set_custom_color(0, Color(0.922, 0.882, 0.780))  # WH_PARCHMENT for weapon names
 
 		# T5-V7: Apply keyword icon badges and tooltip to the weapon tree item
 		WeaponKeywordIcons.apply_to_tree_item(weapon_item, weapon_id)
 
-		# T5-UX6: Show weapon stats as compact sub-line beneath each weapon
+		# Stat line beneath each weapon — pipe-separated for readability
 		var _wp_range = weapon_profile.get("range", 0)
 		var _range_display = "Melee" if (weapon_profile.get("type", "") == "Melee" or _wp_range == 0) else str(_wp_range) + "\""
 		var _atk_display = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
@@ -816,14 +872,14 @@ func _refresh_weapon_tree() -> void:
 		var _s_display = str(weapon_profile.get("strength", 3))
 		var _ap_display = str(weapon_profile.get("ap", 0))
 		var _dmg_display = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
-		var stat_line = "%s  A:%s %s:%s+ S:%s AP:%s D:%s" % [_range_display, _atk_display, _skill_key, str(_skill_val), _s_display, _ap_display, _dmg_display]
+		var stat_line = "%s | A:%s  %s:%s+  S:%s  AP:%s  D:%s" % [_range_display, _atk_display, _skill_key, str(_skill_val), _s_display, _ap_display, _dmg_display]
 		var stats_item = weapon_tree.create_item(weapon_item)
 		stats_item.set_text(0, stat_line)
 		stats_item.set_selectable(0, false)
 		stats_item.set_selectable(1, false)
-		stats_item.set_custom_color(0, Color(0.7, 0.65, 0.4))  # Muted gold for stat line
+		stats_item.set_custom_color(0, Color(0.55, 0.52, 0.35))  # Dim gold for stat line
 		stats_item.set_metadata(0, weapon_id)  # Same weapon_id so hover triggers damage preview
-		weapon_item.set_disable_folding(true)  # Always show stats, no collapse arrow
+		weapon_item.set_disable_folding(true)
 
 		# PISTOL RULES: Disable non-Pistol weapons when in engagement
 		# ASSAULT RULES: Disable non-Assault weapons when unit has advanced
@@ -868,12 +924,12 @@ func _refresh_weapon_tree() -> void:
 
 		# Add target selector in second column
 		if eligible_targets.size() > 0:
-			# AUTO-TARGET: If only one eligible target, auto-assign it (Phase 1 MVP)
 			if eligible_targets.size() == 1:
 				var only_target_id = eligible_targets.keys()[0]
 				var only_target_name = eligible_targets[only_target_id].unit_name
-				weapon_item.set_text(1, only_target_name + " [AUTO]")
-				weapon_item.set_custom_bg_color(1, Color(0.2, 0.6, 0.2, 0.3))  # Green tint
+				weapon_item.set_text(1, "→ " + only_target_name)
+				weapon_item.set_custom_color(1, Color(0.5, 0.85, 0.5))
+				weapon_item.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
 
 				# Show feedback in dice log
 				if dice_log_display:
@@ -883,12 +939,10 @@ func _refresh_weapon_tree() -> void:
 				# Auto-assign this target
 				_auto_assign_target(weapon_id, only_target_id)
 			else:
-				weapon_item.set_text(1, "[Click to Select]")
-				weapon_item.set_selectable(0, true)  # Make the weapon selectable
-				weapon_item.set_selectable(1, false) # Don't make column 1 selectable
-
-				# REMOVED: Icon button that was making rows too tall
-				# Users can select weapon, then click enemy unit to assign target
+				weapon_item.set_text(1, "(Click to Select)")
+				weapon_item.set_custom_color(1, Color(0.6, 0.6, 0.6, 0.7))
+				weapon_item.set_selectable(0, true)
+				weapon_item.set_selectable(1, false)
 
 	# T5-UX2: Auto-select weapon for single-weapon units
 	# If only one weapon type is usable (not disabled), auto-select it in the tree
@@ -932,7 +986,8 @@ func _try_auto_select_single_weapon() -> void:
 
 	# Visual feedback - highlight the auto-selected weapon
 	single_weapon_item.set_custom_bg_color(0, Color(0.2, 0.4, 0.2, 0.5))
-	single_weapon_item.set_text(1, "[Click enemy to assign]")
+	single_weapon_item.set_text(1, "(Click to Select)")
+	single_weapon_item.set_custom_color(1, Color(0.6, 0.6, 0.6, 0.7))
 
 	# Show modifier panel for this weapon
 	if modifier_panel and modifier_label:
@@ -2879,8 +2934,9 @@ func _on_weapon_tree_item_selected() -> void:
 
 		# FIX: Only update instruction text if weapon doesn't have a target assigned yet
 		if not weapon_assignments.has(weapon_id):
-			print("║ Setting text to '[Click enemy to assign]' (no assignment)")
-			selected.set_text(1, "[Click enemy to assign]")
+			print("║ Setting text to '(Click to Select)' (no assignment)")
+			selected.set_text(1, "(Click to Select)")
+			selected.set_custom_color(1, Color(0.6, 0.6, 0.6, 0.7))
 		else:
 			print("║ Keeping existing assignment text (weapon already assigned)")
 
@@ -2959,7 +3015,8 @@ func _on_undo_last_pressed() -> void:
 			var child = root.get_first_child()
 			while child:
 				if child.get_metadata(0) == weapon_id:
-					child.set_text(1, "[Click enemy to assign]")
+					child.set_text(1, "(Click to Select)")
+					child.set_custom_color(1, Color(0.6, 0.6, 0.6, 0.7))
 					child.clear_custom_bg_color(1)
 					break
 				child = child.get_next()
@@ -3754,10 +3811,11 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 		"payload": payload
 	})
 
-	# Update UI
+	# Update UI — show assigned target with arrow and green tint
 	var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
-	selected.set_text(1, target_name)
-	selected.set_custom_bg_color(1, Color(0.4, 0.2, 0.2, 0.5))  # Red background for assigned target
+	selected.set_text(1, "→ " + target_name)
+	selected.set_custom_color(1, Color(0.5, 0.85, 0.5))
+	selected.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
 
 	# NEW: Show "Apply to All" button if there are unassigned weapons remaining
 	var unassigned_count = _count_unassigned_weapons()
@@ -3944,8 +4002,9 @@ func _on_apply_to_all_pressed() -> void:
 			assignment_history.push_back(weapon_id)
 
 			# Update UI for this weapon
-			child.set_text(1, target_name)
-			child.set_custom_bg_color(1, Color(0.4, 0.2, 0.2, 0.5))
+			child.set_text(1, "→ " + target_name)
+			child.set_custom_color(1, Color(0.5, 0.85, 0.5))
+			child.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
 
 			# Build payload for network sync
 			var payload = {
@@ -4011,9 +4070,10 @@ func _refresh_quick_assign_buttons() -> void:
 		var target_name = eligible_targets[target_id].get("unit_name", target_id)
 		var btn = Button.new()
 		btn.text = "All Weapons → %s" % target_name
-		btn.custom_minimum_size = Vector2(230, 30)
+		btn.custom_minimum_size = Vector2(230, 28)
 		btn.tooltip_text = "Assign all usable weapons to %s" % target_name
-		WhiteDwarfTheme.apply_to_button(btn)
+		_WhiteDwarfTheme.apply_secondary_button(btn)
+		btn.add_theme_font_size_override("font_size", 12)
 		btn.pressed.connect(_on_quick_assign_all_to_target.bind(target_id))
 		quick_assign_container.add_child(btn)
 
@@ -4056,8 +4116,9 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 			assignment_history.push_back(weapon_id)
 
 			# Update UI for this weapon
-			child.set_text(1, target_name)
-			child.set_custom_bg_color(1, Color(0.4, 0.2, 0.2, 0.5))
+			child.set_text(1, "→ " + target_name)
+			child.set_custom_color(1, Color(0.5, 0.85, 0.5))
+			child.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
 
 			# Build payload for network sync
 			var payload = {
@@ -4445,31 +4506,36 @@ func _update_damage_preview(weapon_id: String) -> void:
 		_hide_damage_preview()
 		return
 
-	# Build preview BBCode text
+	# Build forecast card BBCode text — Fire Emblem inspired
 	var preview_text = ""
-	preview_text += "[color=#D49761]── Expected vs %s ──[/color]\n" % result.target_name
-	preview_text += "[color=#B0B0B0]T%d | Sv%d+" % [result.toughness, result.save_stat]
+	preview_text += "[color=#D49761][b]⚔ FORECAST[/b][/color]\n"
+	preview_text += "[color=#EBE1C7][b]%s[/b][/color] vs [color=#CC8888][b]%s[/b][/color]\n" % [result.weapon_name, result.target_name]
+	preview_text += "[color=#666666]─────────────────────[/color]\n"
+
+	# Defender stats line
+	preview_text += "[color=#888888]DEF:[/color] "
+	preview_text += "[color=#B0B0B0]T%d  Sv%d+" % [result.toughness, result.save_stat]
 	if result.invuln > 0:
-		preview_text += " | Inv%d+" % result.invuln
+		preview_text += "  Inv%d+" % result.invuln
 	if result.fnp > 0:
-		preview_text += " | FNP%d+" % result.fnp
+		preview_text += "  FNP%d+" % result.fnp
 	preview_text += "[/color]\n"
 
-	# Pipeline: Attacks → Hits → Wounds → Unsaved → Damage
-	preview_text += "[color=#EBE1C7]Atk: %.1f[/color]" % result.total_attacks
-	preview_text += " → [color=#88CC88]Hit: %.1f[/color]" % result.expected_hits
-	preview_text += " → [color=#CCCC88]Wnd: %.1f[/color]\n" % result.expected_wounds
-	preview_text += "[color=#CC8888]Unsaved: %.1f[/color]" % result.expected_unsaved
-	preview_text += " → [color=#FF8866]Dmg: %.1f[/color]\n" % result.expected_damage
+	# Damage pipeline with visual bars
+	var max_val = max(result.total_attacks, 1.0)
+	var hit_pct = result.expected_hits / max_val
+	var wnd_pct = result.expected_wounds / max_val
+	var unsaved_pct = result.expected_unsaved / max_val
+	preview_text += "[color=#EBE1C7]Atk  %4.1f[/color]  %s\n" % [result.total_attacks, _make_bar(1.0, "#EBE1C7")]
+	preview_text += "[color=#88CC88]Hit  %4.1f[/color]  %s\n" % [result.expected_hits, _make_bar(hit_pct, "#88CC88")]
+	preview_text += "[color=#CCCC88]Wnd  %4.1f[/color]  %s\n" % [result.expected_wounds, _make_bar(wnd_pct, "#CCCC88")]
+	preview_text += "[color=#CC8888]Fail %4.1f[/color]  %s\n" % [result.expected_unsaved, _make_bar(unsaved_pct, "#CC8888")]
+	preview_text += "[color=#666666]─────────────────────[/color]\n"
 
-	# Models killed estimate
+	# Final result — prominent
+	preview_text += "[color=#FF8866][b]%.1f avg damage[/b][/color]" % result.expected_damage
 	if result.expected_models_killed >= 0.1:
-		preview_text += "[color=#D49761]~%.1f models killed[/color]" % result.expected_models_killed
-	else:
-		preview_text += "[color=#888888]<0.1 models killed[/color]"
-
-	# Show hit/wound/save thresholds on a compact line
-	preview_text += "\n[color=#666666]Hit:%s Wnd:%s Sv:%d+[/color]" % [result.hit_display, result.wound_display, result.best_save if result.best_save <= 6 else 7]
+		preview_text += "  [color=#D49761]≈%.1f kills[/color]" % result.expected_models_killed
 
 	# Show active modifiers/keywords as tags
 	if not result.active_tags.is_empty():
@@ -4891,20 +4957,25 @@ func _update_aggregate_damage_preview() -> void:
 		if td.wounds_per_model > 0:
 			td.total_kills = min(td.total_dmg / td.wounds_per_model, td.alive)
 
-	# Build aggregate preview text
-	var agg_text = "[color=#6699CC]── Total Expected Damage ──[/color]\n"
+	# Build aggregate forecast text
+	var agg_text = "[color=#6699CC][b]⚔ COMBINED FORECAST[/b][/color]\n"
 	var grand_total_dmg = 0.0
+	var grand_total_kills = 0.0
 	for target_id in target_damage:
 		var td = target_damage[target_id]
 		grand_total_dmg += td.total_dmg
-		agg_text += "[color=#B0B0B0]%s:[/color] " % td.name
-		agg_text += "[color=#FF8866]%.1f dmg[/color]" % td.total_dmg
+		grand_total_kills += td.total_kills
+		agg_text += "[color=#CC8888]%s:[/color] " % td.name
+		agg_text += "[color=#FF8866][b]%.1f dmg[/b][/color]" % td.total_dmg
 		if td.total_kills >= 0.1:
-			agg_text += " [color=#D49761](~%.1f kills)[/color]" % td.total_kills
+			agg_text += "  [color=#D49761]≈%.1f kills[/color]" % td.total_kills
 		agg_text += "\n"
 
 	if target_damage.size() > 1:
-		agg_text += "[color=#6699CC]Grand total: [/color][color=#FF8866]%.1f dmg[/color]" % grand_total_dmg
+		agg_text += "[color=#666666]─────────────────────[/color]\n"
+		agg_text += "[color=#FF8866][b]Total: %.1f dmg[/b][/color]" % grand_total_dmg
+		if grand_total_kills >= 0.1:
+			agg_text += "  [color=#D49761]≈%.1f kills[/color]" % grand_total_kills
 
 	aggregate_preview_label.text = ""
 	aggregate_preview_label.append_text(agg_text)
@@ -4912,6 +4983,11 @@ func _update_aggregate_damage_preview() -> void:
 
 	print("P3-114: Aggregate damage preview — %d weapons assigned, %.1f total expected damage" % [
 		weapon_assignments.size(), grand_total_dmg])
+
+func _make_bar(pct: float, color: String) -> String:
+	var filled = int(clamp(pct, 0.0, 1.0) * 8)
+	var empty = 8 - filled
+	return "[color=%s]%s[/color][color=#333333]%s[/color]" % [color, "█".repeat(filled), "░".repeat(empty)]
 
 func _hide_damage_preview() -> void:
 	"""Hide the damage preview panel"""

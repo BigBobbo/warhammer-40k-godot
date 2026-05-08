@@ -574,8 +574,10 @@ func _create_detachment_ability_section(unit_data: Dictionary, abilities_contain
 		return
 
 	# Separator before detachment section
-	var separator = HSeparator.new()
-	separator.add_theme_constant_override("separation", 4)
+	var separator = ColorRect.new()
+	separator.custom_minimum_size = Vector2(0, 2)
+	separator.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	separator.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	abilities_container.add_child(separator)
 
 	var det_header = Label.new()
@@ -752,8 +754,10 @@ func _create_model_profiles_breakdown(container: VBoxContainer, model_profiles: 
 		container.add_child(unk_label)
 
 	# Separator + overall totals
-	var separator = HSeparator.new()
-	separator.add_theme_constant_override("separation", 4)
+	var separator = ColorRect.new()
+	separator.custom_minimum_size = Vector2(0, 2)
+	separator.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	separator.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	container.add_child(separator)
 
 	var total_alive = 0

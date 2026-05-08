@@ -67,7 +67,7 @@ func _build_ui() -> void:
 	reason_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
 	main_vbox.add_child(reason_label)
 
-	main_vbox.add_child(HSeparator.new())
+	_add_game_over_gold_separator(main_vbox)
 
 	# VP Summary
 	_build_vp_summary(main_vbox)
@@ -79,7 +79,7 @@ func _build_ui() -> void:
 	if AIPlayer and AIPlayer.enabled:
 		var ai_summary = AIPlayer.get_performance_summary()
 		if not ai_summary.is_empty():
-			main_vbox.add_child(HSeparator.new())
+			_add_game_over_gold_separator(main_vbox)
 			_build_ai_performance_summary(main_vbox, ai_summary)
 
 func _build_vp_summary(parent: VBoxContainer) -> void:
@@ -126,7 +126,7 @@ func _build_vp_summary(parent: VBoxContainer) -> void:
 	parent.add_child(p2_label)
 
 	# Battle rounds
-	parent.add_child(HSeparator.new())
+	_add_game_over_gold_separator(parent)
 	var rounds_label = Label.new()
 	var battle_round = GameState.get_battle_round()
 	var display_round = mini(battle_round, 5)
@@ -149,7 +149,7 @@ func _build_vp_timeline_chart(parent: VBoxContainer) -> void:
 		print("GameOverDialog: P3-128 No VP timeline data available, skipping chart")
 		return
 
-	parent.add_child(HSeparator.new())
+	_add_game_over_gold_separator(parent)
 
 	var chart_title = Label.new()
 	chart_title.text = "VP Progression"
@@ -392,7 +392,7 @@ func _build_player_ai_card(parent: VBoxContainer, player: int, data: Dictionary)
 	# Key moments
 	var key_moments = data.get("key_moments", [])
 	if not key_moments.is_empty():
-		parent.add_child(HSeparator.new())
+		_add_game_over_gold_separator(parent)
 		var moments_label = Label.new()
 		moments_label.text = "Key Moments:"
 		moments_label.add_theme_font_size_override("font_size", 12)
@@ -418,7 +418,14 @@ func _build_player_ai_card(parent: VBoxContainer, player: int, data: Dictionary)
 			parent.add_child(more_label)
 
 	# Separator between player cards
-	parent.add_child(HSeparator.new())
+	_add_game_over_gold_separator(parent)
+
+func _add_game_over_gold_separator(parent: Control) -> void:
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(sep)
 
 func _add_stat_row(grid: GridContainer, label_text: String, value_text: String, value_color: Color) -> void:
 	var label = Label.new()

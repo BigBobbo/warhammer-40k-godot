@@ -1,0 +1,82 @@
+{
+	"created_at": 1773626737.65318,
+	"description": "ork test M",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "771e20f3-1b3b-d27c-ac04--5bbebaceb5987fd",
+		"is_multiplayer": false,
+		"phase": 7,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": 1,
+		"player2_type": "AI",
+		"turn": 1
+	},
+	"preview": {
+		"battle_round": 1,
+		"players": {
+			"1": {
+				"alive_models": 122,
+				"alive_units": 22,
+				"cp": 3,
+				"detachment": "Strike Force",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 0,
+				"secondary_vp": 0,
+				"total_models": 122,
+				"total_units": 22,
+				"unit_names": [
+					"Beastboss",
+					"Boss Snikrot",
+					"Deffkilla Wartrike",
+					"Mek",
+					"Mek",
+					"Zodgrod Wortsnagga",
+					"Beast Snagga Boyz",
+					"Battlewagon",
+					"Battlewagon",
+					"Burna Boyz",
+					"Burna Boyz",
+					"Gretchin",
+					"Kommandos",
+					"Lootas",
+					"Lootas",
+					"Lootas",
+					"Stormboyz",
+					"Tankbustas",
+					"Warbikers",
+					"Warbikers",
+					"Big Gunz",
+					"Mek Gunz"
+				],
+				"vp": 0
+			},
+			"2": {
+				"alive_models": 6,
+				"alive_units": 3,
+				"cp": 4,
+				"detachment": "Shield Host",
+				"faction": "Adeptus Custodes",
+				"points": 1000.0,
+				"primary_vp": 0,
+				"secondary_vp": 0,
+				"total_models": 6,
+				"total_units": 3,
+				"unit_names": [
+					"Blade Champion",
+					"Witchseekers",
+					"Caladius Grav-tank"
+				],
+				"vp": 0
+			}
+		}
+	},
+	"save_info": {
+		"description": "ork test M",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.1.0"
+}

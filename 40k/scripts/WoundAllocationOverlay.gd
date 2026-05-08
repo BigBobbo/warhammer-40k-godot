@@ -271,7 +271,11 @@ func _build_ui() -> void:
 	defender_banner_label.scroll_active = false
 	defender_banner_panel.add_child(defender_banner_label)
 
-	main_vbox.add_child(HSeparator.new())
+	var _gsep1 = ColorRect.new()
+	_gsep1.custom_minimum_size = Vector2(0, 2)
+	_gsep1.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_vbox.add_child(_gsep1)
 
 	# Header - Attack Info
 	var header_hbox = HBoxContainer.new()
@@ -282,7 +286,11 @@ func _build_ui() -> void:
 	attack_info_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header_hbox.add_child(attack_info_label)
 
-	main_vbox.add_child(HSeparator.new())
+	var _gsep2 = ColorRect.new()
+	_gsep2.custom_minimum_size = Vector2(0, 2)
+	_gsep2.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_vbox.add_child(_gsep2)
 
 	# Status
 	status_label = Label.new()
@@ -304,7 +312,11 @@ func _build_ui() -> void:
 	save_info_label.scroll_active = false
 	main_vbox.add_child(save_info_label)
 
-	main_vbox.add_child(HSeparator.new())
+	var _gsep3 = ColorRect.new()
+	_gsep3.custom_minimum_size = Vector2(0, 2)
+	_gsep3.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep3.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_vbox.add_child(_gsep3)
 
 	# Instructions Panel
 	var instruction_panel = PanelContainer.new()
@@ -344,7 +356,11 @@ func _build_ui() -> void:
 	outcome_label.scroll_active = false
 	dice_vbox.add_child(outcome_label)
 
-	main_vbox.add_child(HSeparator.new())
+	var _gsep4 = ColorRect.new()
+	_gsep4.custom_minimum_size = Vector2(0, 2)
+	_gsep4.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep4.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_vbox.add_child(_gsep4)
 
 	# Action buttons
 	var action_hbox = HBoxContainer.new()

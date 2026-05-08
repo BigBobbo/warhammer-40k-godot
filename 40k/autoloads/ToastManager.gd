@@ -102,6 +102,9 @@ func _create_toast_panel(message: String, color: Color) -> PanelContainer:
 	label.add_theme_constant_override("shadow_offset_y", 1)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var rajdhani_bold = load("res://fonts/Rajdhani-Bold.ttf")
+	if rajdhani_bold:
+		label.add_theme_font_override("font", rajdhani_bold)
 
 	panel.add_child(label)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL

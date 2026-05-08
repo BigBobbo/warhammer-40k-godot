@@ -18,6 +18,7 @@ var _scroll_vbox: VBoxContainer = null
 var _replace_info_label: Label = null
 
 func setup(player: int, drawn_missions: Array, player_cp: int, deck_size: int) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	_player = player
 	_drawn_missions = drawn_missions
 	_player_cp = player_cp
@@ -38,45 +39,52 @@ func setup(player: int, drawn_missions: Array, player_cp: int, deck_size: int) -
 
 func _build_ui() -> void:
 	min_size = DialogConstants.LARGE
+
+	# Outer scroll ensures all content (including Continue button) is reachable
+	var outer_scroll = ScrollContainer.new()
+	outer_scroll.name = "OuterScroll"
+	outer_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	outer_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+
 	var main_container = VBoxContainer.new()
 	main_container.name = "MainContainer"
-	main_container.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 20, 0)
+	main_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_container.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 0)
 
 	# Header
 	var header = Label.new()
 	header.text = "NEW SECONDARY MISSIONS"
 	header.add_theme_font_size_override("font_size", 20)
-	header.add_theme_color_override("font_color", Color.GOLD)
+	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	main_container.add_child(header)
 
 	# Subheader
 	var subheader = Label.new()
 	subheader.text = "Your secondary objectives for this turn"
 	subheader.add_theme_font_size_override("font_size", 12)
-	subheader.add_theme_color_override("font_color", Color.GRAY)
+	subheader.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		subheader.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	main_container.add_child(subheader)
 
-	main_container.add_child(HSeparator.new())
-
-	# Scrollable area for mission cards
-	var scroll = ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(0, 300)
-	main_container.add_child(scroll)
+	_add_dialog_gold_separator(main_container)
 
 	_scroll_vbox = VBoxContainer.new()
 	_scroll_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll_vbox.add_theme_constant_override("separation", 8)
-	scroll.add_child(_scroll_vbox)
+	main_container.add_child(_scroll_vbox)
 
 	# Show each drawn mission
 	for i in range(_drawn_missions.size()):
 		var mission = _drawn_missions[i]
 		_add_mission_card(_scroll_vbox, mission, i)
 
-	main_container.add_child(HSeparator.new())
+	_add_dialog_gold_separator(main_container)
 
 	# Replacement info
 	_replace_info_label = Label.new()
@@ -96,7 +104,7 @@ func _build_ui() -> void:
 	_replace_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(_replace_info_label)
 
-	main_container.add_child(HSeparator.new())
+	_add_dialog_gold_separator(main_container)
 
 	# Done button
 	var button_container = HBoxContainer.new()
@@ -111,16 +119,17 @@ func _build_ui() -> void:
 	WhiteDwarfTheme.apply_primary_button(done_btn)
 	button_container.add_child(done_btn)
 
-	add_child(main_container)
+	outer_scroll.add_child(main_container)
+	add_child(outer_scroll)
 
 func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -> void:
 	"""Add a single mission card display with optional replace button."""
 	var card_container = PanelContainer.new()
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.12, 0.12, 0.18, 0.95)
-	style.border_color = Color(0.5, 0.4, 0.15)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(6)
+	style.bg_color = Color(0.08, 0.08, 0.10, 0.95)
+	style.border_color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.5)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
 	style.set_content_margin_all(10)
 	card_container.add_theme_stylebox_override("panel", style)
 	parent.add_child(card_container)
@@ -133,7 +142,9 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 	var name_label = Label.new()
 	name_label.text = mission.get("name", "Unknown Mission")
 	name_label.add_theme_font_size_override("font_size", 16)
-	name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
+	name_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		name_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	card_vbox.add_child(name_label)
 
 	# Category
@@ -155,7 +166,7 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 		instructions_label.custom_minimum_size = Vector2(0, 0)
 		card_vbox.add_child(instructions_label)
 
-	card_vbox.add_child(HSeparator.new())
+	_add_dialog_gold_separator(card_vbox)
 
 	# Scoring info with human-readable conditions
 	var scoring = mission.get("scoring", {})
@@ -164,7 +175,9 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 	var scoring_header = Label.new()
 	scoring_header.text = "SCORING:"
 	scoring_header.add_theme_font_size_override("font_size", 11)
-	scoring_header.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
+	scoring_header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		scoring_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	card_vbox.add_child(scoring_header)
 
 	for condition in conditions:
@@ -216,7 +229,15 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 		replace_btn.add_theme_font_size_override("font_size", 12)
 		replace_btn.tooltip_text = "Spend 1 CP to put this mission back in your deck and draw a different one"
 		replace_btn.pressed.connect(_on_replace_pressed.bind(mission_id))
+		WhiteDwarfTheme.apply_secondary_button(replace_btn)
 		card_vbox.add_child(replace_btn)
+
+func _add_dialog_gold_separator(parent: Control) -> void:
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(sep)
 
 func _get_timing_display(timing: String) -> String:
 	match timing:

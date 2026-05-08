@@ -29,6 +29,7 @@ var back_btn: Button
 var flavour_label: Label
 
 func setup(drawing: int, opponent: int, units: Array, details: Dictionary) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	drawing_player = drawing
 	opponent_player = opponent
 	opponent_units = units

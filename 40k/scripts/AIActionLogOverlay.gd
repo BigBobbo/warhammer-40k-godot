@@ -93,9 +93,11 @@ func _build_ui() -> void:
 	vbox.add_child(_header_label)
 
 	# Thin separator
-	var sep = HSeparator.new()
-	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(sep)
+	var _gsep1 = ColorRect.new()
+	_gsep1.custom_minimum_size = Vector2(0, 2)
+	_gsep1.color = Color(WhiteDwarfThemeData.WH_GOLD.r, WhiteDwarfThemeData.WH_GOLD.g, WhiteDwarfThemeData.WH_GOLD.b, 0.4)
+	_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_gsep1)
 
 	# Scroll container for log entries
 	_scroll_container = ScrollContainer.new()

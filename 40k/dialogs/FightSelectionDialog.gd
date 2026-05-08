@@ -8,6 +8,7 @@ var dialog_data: Dictionary = {}
 var selected_unit_id: String = ""
 
 func setup(data: Dictionary, phase) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	dialog_data = data
 	phase_reference = phase
 

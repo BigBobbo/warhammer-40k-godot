@@ -1,0 +1,7108 @@
+{
+  "summary": {
+    "distinct_keywords": 1420,
+    "total_keyword_assignments": 15539
+  },
+  "keywords": [
+    {
+      "keyword": "Vehicle",
+      "datasheet_uses": 1048,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaos",
+      "datasheet_uses": 1045,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Infantry",
+      "datasheet_uses": 935,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Imperium",
+      "datasheet_uses": 756,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Character",
+      "datasheet_uses": 682,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grenades",
+      "datasheet_uses": 579,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Smoke",
+      "datasheet_uses": 540,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fly",
+      "datasheet_uses": 482,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Transport",
+      "datasheet_uses": 318,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Adeptus Astartes",
+      "datasheet_uses": 298,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Shadow Legion",
+      "datasheet_uses": 267,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Walker",
+      "datasheet_uses": 239,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Astra Militarum",
+      "datasheet_uses": 233,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Nurgle",
+      "datasheet_uses": 225,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Titanic",
+      "datasheet_uses": 223,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Epic Hero",
+      "datasheet_uses": 220,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Undivided",
+      "datasheet_uses": 216,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aircraft",
+      "datasheet_uses": 211,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tzeentch",
+      "datasheet_uses": 194,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Khorne",
+      "datasheet_uses": 185,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Psyker",
+      "datasheet_uses": 184,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Heretic Astartes",
+      "datasheet_uses": 167,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Daemon",
+      "datasheet_uses": 161,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aeldari",
+      "datasheet_uses": 144,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Mounted",
+      "datasheet_uses": 143,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Genestealer Cults",
+      "datasheet_uses": 138,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Damned",
+      "datasheet_uses": 126,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Monster",
+      "datasheet_uses": 111,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Legiones Daemonica",
+      "datasheet_uses": 106,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Dreadnought",
+      "datasheet_uses": 101,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Great Devourer",
+      "datasheet_uses": 101,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Battleline",
+      "datasheet_uses": 92,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Orks",
+      "datasheet_uses": 87,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Squadron",
+      "datasheet_uses": 87,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Asuryani",
+      "datasheet_uses": 84,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Tacticus",
+      "datasheet_uses": 71,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dedicated Transport",
+      "datasheet_uses": 70,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tyranids",
+      "datasheet_uses": 69,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Terminator",
+      "datasheet_uses": 68,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Necrons",
+      "datasheet_uses": 64,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Towering",
+      "datasheet_uses": 63,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "T\u2019au Empire",
+      "datasheet_uses": 63,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Death Guard",
+      "datasheet_uses": 62,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Artillery",
+      "datasheet_uses": 58,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaos Lord",
+      "datasheet_uses": 58,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Slaanesh",
+      "datasheet_uses": 58,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Regiment",
+      "datasheet_uses": 57,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Thousand Sons",
+      "datasheet_uses": 55,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "World Eaters",
+      "datasheet_uses": 54,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Jump Pack",
+      "datasheet_uses": 53,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Drukhari",
+      "datasheet_uses": 47,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Agents of the Imperium",
+      "datasheet_uses": 47,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Fortification",
+      "datasheet_uses": 45,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Adeptus Mechanicus",
+      "datasheet_uses": 44,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Space Wolves",
+      "datasheet_uses": 41,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Ravenwing",
+      "datasheet_uses": 40,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sorcerer",
+      "datasheet_uses": 39,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathwing",
+      "datasheet_uses": 38,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vanguard Invader",
+      "datasheet_uses": 38,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Adepta Sororitas",
+      "datasheet_uses": 38,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Chaos Knights",
+      "datasheet_uses": 37,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Sokar-pattern Stormbird",
+      "datasheet_uses": 33,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Captain",
+      "datasheet_uses": 32,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grey Knights",
+      "datasheet_uses": 31,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Adeptus Custodes",
+      "datasheet_uses": 31,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Storm Eagle Gunship",
+      "datasheet_uses": 29,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Leviathan Dreadnought",
+      "datasheet_uses": 29,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deredeo Dreadnought",
+      "datasheet_uses": 29,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Imperial Knights",
+      "datasheet_uses": 28,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Blood Angels",
+      "datasheet_uses": 26,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Officer",
+      "datasheet_uses": 26,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skitarii",
+      "datasheet_uses": 26,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mastodon",
+      "datasheet_uses": 25,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fire Raptor Gunship",
+      "datasheet_uses": 25,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Relic Contemptor Dreadnought",
+      "datasheet_uses": 25,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Xiphon Interceptor",
+      "datasheet_uses": 25,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Speed Freeks",
+      "datasheet_uses": 24,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ordo Xenos",
+      "datasheet_uses": 24,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathwatch",
+      "datasheet_uses": 23,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Synapse",
+      "datasheet_uses": 23,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Terrax-pattern Termite",
+      "datasheet_uses": 22,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Leagues of Votann",
+      "datasheet_uses": 22,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Kill Team",
+      "datasheet_uses": 22,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Summoned",
+      "datasheet_uses": 22,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Beast",
+      "datasheet_uses": 21,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Raider Achilles",
+      "datasheet_uses": 21,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Raider Proteus",
+      "datasheet_uses": 21,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Falchion",
+      "datasheet_uses": 21,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Spartan",
+      "datasheet_uses": 21,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fellblade",
+      "datasheet_uses": 21,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Unaligned",
+      "datasheet_uses": 20,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Disc of Tzeentch",
+      "datasheet_uses": 20,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dark Angels",
+      "datasheet_uses": 19,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Unaligned Forces",
+      "datasheet_uses": 19,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Palanquin of Nurgle",
+      "datasheet_uses": 19,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Black Templars",
+      "datasheet_uses": 19,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Emperor\u2019s Children",
+      "datasheet_uses": 19,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Battlesuit",
+      "datasheet_uses": 18,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Anhrathe",
+      "datasheet_uses": 18,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Retinue",
+      "datasheet_uses": 18,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sicaran Venator",
+      "datasheet_uses": 17,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Typhon",
+      "datasheet_uses": 17,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rapier Carrier",
+      "datasheet_uses": 17,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sicaran Punisher",
+      "datasheet_uses": 17,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cerberus",
+      "datasheet_uses": 17,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kratos",
+      "datasheet_uses": 17,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sicaran Battle Tank",
+      "datasheet_uses": 17,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Whirlwind Scorpius",
+      "datasheet_uses": 17,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Steed of Slaanesh",
+      "datasheet_uses": 16,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hell Blade",
+      "datasheet_uses": 16,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hell Talon",
+      "datasheet_uses": 16,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Platoon",
+      "datasheet_uses": 16,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Harlequins",
+      "datasheet_uses": 16,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Cult Mechanicus",
+      "datasheet_uses": 15,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Jump Packs",
+      "datasheet_uses": 15,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Phobos",
+      "datasheet_uses": 14,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Beasts",
+      "datasheet_uses": 14,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ultramarines",
+      "datasheet_uses": 13,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Swarm",
+      "datasheet_uses": 13,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Raider",
+      "datasheet_uses": 12,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gravis",
+      "datasheet_uses": 11,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Markerlight",
+      "datasheet_uses": 11,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kroot",
+      "datasheet_uses": 11,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ynnari",
+      "datasheet_uses": 11,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Chapter Master",
+      "datasheet_uses": 10,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Canoptek",
+      "datasheet_uses": 10,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wraith Construct",
+      "datasheet_uses": 10,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Command Squad",
+      "datasheet_uses": 10,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tech-Priest",
+      "datasheet_uses": 10,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Questoris",
+      "datasheet_uses": 10,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cult Demagogue",
+      "datasheet_uses": 10,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dark Commune",
+      "datasheet_uses": 10,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kill Team Cassius",
+      "datasheet_uses": 10,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warboss",
+      "datasheet_uses": 9,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grots",
+      "datasheet_uses": 9,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaplain",
+      "datasheet_uses": 9,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Possessed",
+      "datasheet_uses": 9,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Beast Snagga",
+      "datasheet_uses": 9,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Company",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rhino",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Phoenix Lord",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aspect Warriors",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cerastus",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Inquisitor",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Juggernaut",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cultist Mob",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warp Talons",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rogue Psyker",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Destroyer Cult",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Traitor Enforcer",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mutoid Vermin",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gellerpox Infected",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Renegade Enforcer",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cultist Firebrand",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cultist Mob with Firearms",
+      "datasheet_uses": 8,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Noble",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cryptek",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aspect Warrior",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kabal",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wall of Martyrs",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaos Lord in Terminator Armour",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Daemon Prince",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sorcerer in Terminator Armour",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Raptors",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Abhorrent",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ancient",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fellgor Beastmen",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Traitor Guardsmen Squad",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Renegade Heavy Weapons Squad",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Renegade Plague Ogryns",
+      "datasheet_uses": 7,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lieutenant",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Librarian",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Primarch",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Trygon",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mawloc",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Haemonculus Covens",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Penitent",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaos Undivided",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dark Apostle",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mutant",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Master of Possession",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Negavolt Cultists",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "War Dog",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Anathema Psykana",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Voidfarers",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Legionaries",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Accursed Cultists",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Renegade Ogryn Beast Handler",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Renegade Ogryn Brutes",
+      "datasheet_uses": 6,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Plague Legions",
+      "datasheet_uses": 6,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Scintillating Legions",
+      "datasheet_uses": 6,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Mek",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Endless Multitude",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Harvester",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wych Cult",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Blades for Hire",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ordo Hereticus",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaos Terminator Squad",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chosen",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Predator Destructor",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Defiler",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Predator Annihilator",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Terminator Squad",
+      "datasheet_uses": 5,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Legions of Excess",
+      "datasheet_uses": 5,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Blood Legions",
+      "datasheet_uses": 5,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Sanguinary Priest",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wulfen",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wolf Guard",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Crisis",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hive Tyrant",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Burrowers",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ogryn",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tauros",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dominus",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Acastus",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Adeptus Titanicus",
+      "datasheet_uses": 4,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Officio Assassinorum",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Helbrute",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaos Spawn",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Heldrake",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Havocs",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Maulerfiend",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Thunderhawk",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Shield-Captain",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Horrors",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Blue",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Brimstone",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hernkyn",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cadian",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Unbound Adversaries",
+      "datasheet_uses": 4,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mega Armour",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Big Mek",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Apothecary",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Techmarine",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ethereal",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Triarch",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stalker",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Farseer",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Prince Yriel",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rangers",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Archon",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Succubus",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Militarum Tempestus",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sydonian",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vindicator",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Forgefiend",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rubricae",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ministorum Priest",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Armiger",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Imperial Fists",
+      "datasheet_uses": 3,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Marshal",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cthonian",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Adeptus Arbites",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Daemon Prince with Wings",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Pack Leader",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Shaper",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Support Weapon",
+      "datasheet_uses": 3,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Painboy",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mob",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Raider Crusader",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stormhawk Interceptor",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Iron Hands",
+      "datasheet_uses": 2,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Razorback",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Thunderhawk Gunship",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vanguard Veteran Squad",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Company Dreadnought",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wolf Priest",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Iron Priest",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wolf Scouts",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scout Squad",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Corvus Blackstar",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Servitors",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stormraven Gunship",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Venerable Dreadnought",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fire Warrior",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lictor",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathleaper",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Raveners",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gargoyles",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tyrannocyte",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Burrower",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Acolyte Hybrids",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Overlord",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chronomancer",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Autarch",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warlocks",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Guardians",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Corsair Cloud Dancer Band",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Corsair Reaver Band",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Corsair Skyreaver Band",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Haemonculus",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kabalite Warriors",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wyches",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Incubi",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Raider",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Venom",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Reavers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scourges",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Leman Russ Commander",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cadian Heavy Weapons Squad",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scout Sentinels",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Armoured Sentinels",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chimera",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Taurox",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hellhound",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Basilisk",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hydra",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wyvern",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Manticore",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathstrike",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Leman Russ Battle Tank",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Leman Russ Demolisher",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Baneblade",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Banehammer",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Banesword",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Doomhammer",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hellhammer",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Shadowsword",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stormlord",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stormsword",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Taurox Prime",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Loyal Protector",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Atlas Recovery Vehicle",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Salamander Command Vehicle",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hades Breaching Drill",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Centaur Light Carrier",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Trojan Support Vehicle",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Salamander Scout Vehicle",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tauros Assault Vehicle",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tauros Venator",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Armageddon-pattern Medusa",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Colossus",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cyclops Demolition Vehicle",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Earthshaker Carriage Battery",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Griffon Mortar Carrier",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Heavy Mortar Team",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Heavy Quad Launcher Team",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hydra Platform",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Malcador Annihilator",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Malcador Defender",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Malcador",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Malcador Infernus",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Manticore Platform",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Medusa Carriage Battery",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rapier Laser Destroyer Battery",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sabre Weapons Battery",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sentinel Powerlifter",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stygies Destroyer Tank Hunter",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tarantula Battery",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stormblade",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Arkurian Stormhammer",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Crassus",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dominus Armoured Siege Bombard",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gorgon Heavy Transport",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Macharius",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Macharius Omega",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Macharius Vanquisher",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Macharius Vulcan",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Minotaur",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Praetor",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Valdor",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kataphron",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Electro-Priests",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Legio Cybernetica",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vanguard",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sicarian",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Porphyrion",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Acheron",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Atrapos",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Castigator",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Lancer",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Magaera",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Styrix",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ordo Malleus",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Primaris Psyker",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Canoness",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Immolator",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mutilators",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord of Skulls",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rubric Marines",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Exalted Sorcerer",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Plague Marines",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Karanak",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skarbrand",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Flesh Hounds",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bloodletters",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bloodcrushers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kairos Fateweaver",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord of Change",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Flamers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Screamers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Great Unclean One",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Plaguebearers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nurglings",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Beasts of Nurgle",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Plague Drones",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Keeper of Secrets",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Daemonettes",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fiends",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Seekers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stormtalon Gunship",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Centurion",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Blood Slaughterer",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Greater Blight Drone",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kytan Ravager",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Greater Brass Scorpion",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deimos Predator",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mukaali Riders",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Munitorum Servitors",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rotigus",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tzaangor Enlightened",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Manipulus",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Master of Executions",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Shalaxi Helbane",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Asterius",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Moirax",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gladiator Reaper",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gladiator Valiant",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Da Red Gobbo",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Carnodon",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Pteraxii",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Salamanders",
+      "datasheet_uses": 2,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Sternguard Veteran Squad",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Korps Grenadier Squad",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Quartermaster Cadre Squad",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Elysian Sniper Squad",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Rider Commissar",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Storm Chimera",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Winged Hive Tyrant",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Parasite of Mortrex",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Corsair Voidreavers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Corsair Voidscarred",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Troupe Master",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Shadowseer",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Troupe",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Jester",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Solitaire",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skyweavers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Voidweaver",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Starweaver",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Impulsor",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bloodthirster",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Pink",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "K\u00e2hl",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Exoarmour",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Br\u00f4khyr",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cadian Castellan",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Regimental Attach\u00e9s",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cadian Shock Troops",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Korps of Krieg",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Catachan Jungle Fighters",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kasrkin",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Attilan Rough Riders",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rogal Dorn Battle Tank",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aegis Defence Line",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Berzerkers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Von Ryan\u2019s Leapers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Winged Tyranid Prime",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gladiator Lancer",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Judiciar",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Raven Guard",
+      "datasheet_uses": 2,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "White Scars",
+      "datasheet_uses": 2,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Relic Razorback",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Repulsor",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Repulsor Executioner",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Earthshaker Platform",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Elysian Drop Sentinel",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Leman Russ Eradicator",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Leman Russ Executioner",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Leman Russ Exterminator",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Leman Russ Punisher",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Leman Russ Vanquisher",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Neurolictor",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Spectrus Kill Team",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fortis Kill Team",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Indomitor Kill Team",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Crusader Squad",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Requisitioned",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Watch Captain Artemis",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Watch Master",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Krieg",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Catachan",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rogal Dorn Commander",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Krieg Combat Engineers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Catachan Heavy Weapons Squad",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Krieg Heavy Weapons Squad",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Artillery Team",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Field Ordnance Battery",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Riders",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hell\u2019s Last",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sanctifiers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Noise Marines",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hyperadapted Raveners",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ironkin Steeljacks",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kapricus",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Blood Ravens",
+      "datasheet_uses": 2,
+      "is_faction_keyword": true
+    },
+    {
+      "keyword": "Kharseth",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Starfangs",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Corsair Skyreavers",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hastarii",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hippogriff AFV",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Centaur RSV",
+      "datasheet_uses": 2,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warboss in Mega Armour",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Weirdboy",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Big Mek in Mega Armour",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Big Mek on Warbike",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ghazghkull Thraka",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kaptin Badrukk",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Boss Zagstruk",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Boss Snikrot",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Painboy on Warbike",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mad Dok Grotsnik",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Boyz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gretchin",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Burna Boyz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tankbustas",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nobz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nob with Waaagh! Banner",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nobz on Warbikes",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Meganobz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kommandos",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Trukk",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stormboyz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deffkoptas",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dakkajet",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Burna-bommer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Blitza-bommer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wazbom Blastajet",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warbikers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wartrakks",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skorchas",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warbuggies",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Big Gunz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mek Gunz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Battlewagon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deff Dread",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Killa Kans",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Morkanaut",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gorkanaut",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lootas",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Flash Gitz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stompa",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grot Tanks",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grot Mega-tank",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Squiggoth",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Meka-Dread",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lifta Wagon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Big Trakk",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kannonwagon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kill Tank",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chinork Warkopta",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gargantuan Squiggoth",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Biologis",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Assault Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Assault Squad with Jump Packs",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Raider Excelsior",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Suppressor Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tactical Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bladeguard Veteran Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Caestus Assault Ram",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lieutenant with Combi-weapon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rhino Primaris",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Firestrike Servo-turrets",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Drop Pod",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ballistus Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Honour Guard",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Carab Culln the Risen",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hammerfall Bunker",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tarantula Sentry Battery",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tarantula Air Defence Battery",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Eradicator Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Relic Terminator Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Javelin Attack Speeder",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mortis Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Storm Speeder Hammerstrike",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bike Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Terminator Assault Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Terminators",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Venerable",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Uriel Ventris",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dreadnought Drop Pod",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Storm Speeder Hailstrike",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Inceptor Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Infernus Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Iron Father Feirros",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Infiltrator Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Speeder Storm",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Astartes Servitors",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Brutalis Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scout Bike Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Roboute Guilliman",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hunter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vanguard Veteran Squad with Jump Packs",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Imperial Space Marine",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Commander Dante",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tycho",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tycho the Lost",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Librarian Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chief Librarian Mephiston",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "The Sanguinor",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Astorath",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Brother Corbulo",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lemartes",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sanguinary Guard",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Furioso Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Baal Predator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gabriel Seth",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Azrael",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Belial",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Asmodai",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ezekiel",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathwing Terminator Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathwing Knights",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ravenwing Darkshroud",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nephilim Jetfighter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dark Talon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ravenwing Black Knights",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Speeder Vengeance",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fortress of Redemption",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Logan Grimnar",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Logan Grimnar on Stormrider",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wolf Lord on Thunderwolf",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ragnar Blackmane",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Krom Dragongaze",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Harald Deathwolf",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Canis Wolfborn",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Njal Stormcaller",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ulrik the Slayer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wolf Guard Battle Leader in Terminator Armour",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wolf Guard Battle Leader on Thunderwolf",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bjorn the Fell-handed",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Blood Claws",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lukas the Trickster",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grey Hunters",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Murderfang",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Arjac Rockfist",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wolf Guard Terminators",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stormwolf",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Thunderwolf Cavalry",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fenrisian Wolves",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skyclaws",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stormfang Gunship",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Long Fangs",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kaldor Draigo",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grand Master Voldus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grand Master",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Brother-Captain",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Brother-Captain Stern",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Brotherhood Champion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Castellan Crowe",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Strike Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Brotherhood Terminator Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Purifier Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Paladin Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Interceptor Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Purgation Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nemesis Dreadknight",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Crusader",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Redeemer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Brotherhood Techmarine",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Commander in Coldstar Battlesuit",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tactical Drones",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Drone",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cadre Fireblade",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Commander Farsight",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Commander Shadowsun",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aun\u2019Shi",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aun\u2019Va",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Darkstrider",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Strike Team",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Breacher Team",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Carnivores",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Krootox Riders",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hounds",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stealth",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ghostkeel",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Riptide",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Pathfinder Team",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Piranhas",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Devilfish",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Razorshark Strike Fighter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sun Shark Bomber",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vespid Stingwings",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Firesight Team",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sky Ray Gunship",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Longstrike",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hammerhead Gunship",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Broadside",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Stormsurge",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tidewall Droneport",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tidewall Shieldline",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tidewall Gunrig",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Shas'o R'alai",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "XV9 Hazard",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Y\u2019vahra",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "R\u2019varna",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ta\u2019unar Supremacy Armour",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tetras",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "TX42 Piranha",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Heavy Gun Drones",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Remora Stealth Drones",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Barracuda",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tiger Shark",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "AX-1-0 Tiger Shark",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Orca Dropship",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Manta",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Remote sensor tower",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Drone Sentry Turret",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "The Swarmlord",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Old One Eye",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Broodlord",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tervigon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Genestealers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Termagants",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hormagaunts",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ripper Swarms",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tyrant Guard",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hive Guard",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Maleceptor",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Zoanthropes",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Venomthropes",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Pyrovores",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Haruspex",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sky-slasher Swarms",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Harpy",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hive Crone",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mucolid Spores",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Spore Mines",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Carnifexes",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Biovores",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Exocrine",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tyrannofex",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Toxicrene",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sporocyst",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Malanthrope",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dimachaeron",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Barbed Hierodule",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Harridan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hierophant",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scythed Hierodule",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Patriarch",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Magus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Primus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Acolyte Iconward",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Acolyte Hybrids With Autopistols",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Neophyte Hybrids",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hybrid Metamorphs",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aberrants",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Purestrain Genestealers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Goliath Truck",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Goliath Rockgrinder",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Imotekh the Stormlord",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nemesor Zahndrekh",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vargard Obyron",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Orikan the Diviner",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Anrakyr the Traveller",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Trazyn the Infinite",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Catacomb Command Barge",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Necron Warriors",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Immortals",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lychguard",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathmarks",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Flayed Ones",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Praetorians",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "C\u2019tan Shard of the Nightbringer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "C\u2019tan Shard of the Deceiver",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ghost Ark",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Night Scythe",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Doom Scythe",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wraiths",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tomb Blades",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Spyders",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Monolith",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Annihilation Barge",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Doomsday Ark",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Transcendent C\u2019tan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tesseract Vault",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Obelisk",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tomb Stalker",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Acanthrites",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tomb Sentinel",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Night Shroud",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sentry Pylon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tesseract Ark",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gauss Pylon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Eldrad Ulthran",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Illic Nightspear",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Asurmen",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Jain Zar",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Karandras",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fuegan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Baharroth",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Maugan Ra",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Autarch Skyrunner",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Avatar of Khaine",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Farseer Skyrunner",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warlock Conclave",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warlock",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warlock Skyrunners",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Spiritseer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Guardian Defenders",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Storm Guardians",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Windriders",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dire Avengers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Howling Banshees",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Striking Scorpions",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fire Dragons",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wraithguard",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wraithblades",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wave Serpent",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Swooping Hawks",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warp Spiders",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Shining Spears",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Crimson Hunter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vypers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hemlock Wraithfighter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dark Reapers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Falcon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fire Prism",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Night Spinner",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "War Walkers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wraithlord",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wraithknight",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Shadow Spectres",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wasp Assault Walker",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wraithseer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hornet",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warp Hunter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lynx",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scorpion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cobra",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nightwing",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Phoenix",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vampire Raider",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vampire Hunter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skathach Wraithknight",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Revenant Titan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Irillyth",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Phantom Titan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lelith Hesperax",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Urien Rakarth",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Drazhar",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mandrakes",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wracks",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grotesques",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Beastmaster",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hellions",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Razorwing Jetfighter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Voidraven Bomber",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scourges with Heavy Weapons",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Talos",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cronos",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ravager",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Reaper",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tantalus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "\u2018Iron Hand\u2019 Straken",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sergeant Harker",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Commissar",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ogryn Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bullgryn Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ratlings",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nork Deddog",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Valkyrie",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Marauder Bomber",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Marauder Destroyer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aquila Lander",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Arvus Lighter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Avenger Strike Fighter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Voss-pattern Lightning",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vendetta Gunship",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vulture Gunship",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Imperial Fortress Walls",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Primaris Redoubt",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Belisarius Cawl",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Enginseer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Breachers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Destroyers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fulgurite",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Corpuscarii",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kastelan Robots",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cybernetica Datasmith",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Infiltrators",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ruststalkers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ironstrider Ballistarii",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dragoons With Taser Lances",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Onager Dunecrawler",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Paladin",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Errant",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Warden",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Gallant",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Crusader",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warhound Titan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Reaver Titan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warlord Titan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vindicare Assassin",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Callidus Assassin",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Eversor Assassin",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Culexus Assassin",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Greyfax",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Karamazov",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Coteaz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Custodian Guard",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Venerable Contemptor Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Venerable Land Raider",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Crusaders",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Cult Assassins",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Arco-flagellants",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Penitent Engines",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Saint Celestine",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Imagifier",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hospitaller",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dialogus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Battle Sisters Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Seraphim Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Repentia Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Retributor Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dominion Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sororitas Rhino",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Exorcist",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bastion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vengeance Weapon Battery",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Firestorm Redoubt",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Plasma Obliterator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Macro-cannon Aquila Strongpoint",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vortex Missile Strongpoint",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Void Shield Generator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skyshield Landing Pad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Abaddon the Despoiler",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Huron Blackheart",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fallen",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cypher",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fabius Bile",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaos Lord on Bike",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sorcerer on Bike",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warpsmith",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaos Bikers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Obliterators",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Magnus the Red",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ahriman",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tzaangors",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scarab Occult",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cultists",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Typhus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord of Contagion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Malignant Plaguecaster",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Poxwalkers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Foetid Bloat-drone",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Noxious Blightbringer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skulltaker",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rendmaster on Blood throne",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skull Cannon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "The Changeling",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "The Blue Scribes",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Exalted Flamer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Burning Chariot",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Epidemius",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "The Masque of Slaanesh",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tranceweaver",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Herald of Slaanesh",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tormentbringer on Exalted Seeker Chariot",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hellflayers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Seeker Chariot",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Exalted Seeker Chariot",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Be\u2019lakor",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Daemon Prince of Chaos",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Furies",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Soul Grinder",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Invictor Tactical Warsuit",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Intercessor Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Invader ATV",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Incursor Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sicaran Arcus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sergeant Telion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sicaran Omega",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Thunderfire Cannon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bladeguard Ancient",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Company Veterans",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Company Champion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Speeder Tempest",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Speeder Tornado",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Heavy Intercessor Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vindicator Laser Destroyer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Terminus Ultra",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaplain Venerable Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Centurion Devastator Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Repressor",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Valkyrie Sky Talon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Decimator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dreadclaw Drop Pod",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kharybdis Assault Claw",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "An'ggrath the Unbound",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Zarakynel",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aetaos'rau'keres",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Plague Toads",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Pox Riders",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Spined Chaos Beast",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Giant Chaos Spawn",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scabeiathrax the Bloated",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lieutenant in Reiver Armour",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Raider Prometheus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Exalted Champion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grand Master in Nemesis Dreadknight",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Brotherhood Librarian",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Brotherhood Chaplain",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Foul Blightspawn",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Biologus Putrifier",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Plague Surgeon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tallyman",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathshroud Terminators",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Blightlord Terminators",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Myphitic Blight-hauler",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Plagueburst Crawler",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mortarion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grot Bomm Launcha",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Attack Fighta",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fighta-bommer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deff Rolla Battle Fortress",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kill Krusha",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Raven Strike Fighter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knarloc Riders",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Great Knarloc",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Firestorm",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tech-Priest Enginseer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bodyguard",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bonesinger",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sly Marbo",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ravenwing Talonmaster",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Trajann Valoris",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dawneagle Jetbike",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Custodian Wardens",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Allarus Custodians",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vertus Praetors",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bloodmaster",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skullmaster",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Contemptor-Achillus Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Caladius Grav-tank",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Coronus Grav-carrier",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Changecaster",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fateskimmer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fluxmaster",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Horticulous Slimux",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Poxbringer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sloppity Bilepiper",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Spoilpox Scrivener",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Feculent Gnarlmaw",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tzaangor Shaman",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mutalith Vortex Beast",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Commander in Crisis Battlesuit",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Commander in Enforcer Battlesuit",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Telemon Heavy Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Helverin",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warglaive",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Preceptor",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Canis Rex",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Castellan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Valiant",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scout Sniper Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sergeant Chronus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Secutarii Hoplites",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Secutarii Peltasts",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Big Mek with Shokk Attack Gun",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deffkilla Wartrike",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kustom Boosta-blasta",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Shokkjump Dragsta",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Boomdakka Snazzwagon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Megatrakk Scrapjet",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rukkatrukk Squigbuggy",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mekboy Workshop",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Abominant",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Haarken Worldclaimer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Contemptor-Galatus Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aquilon Custodians",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Custodian Guard with Adrasite and Pyrithite Spears",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Agamatus Custodians",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Venatari Custodians",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Pallas Grav-attack",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sagittarum Custodians",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Orion Assault Dropship",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Jackal Alphus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Clamavus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Locus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sanctus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kelermorph",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nexos",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Biophagus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Achilles Ridgerunners",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Atalan Jackals",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tectonic Fragdrill",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Seraptek Heavy Construct",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Eisenhorn",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord Discordant",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Venomcrawler",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Noctilith Crown",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skull Altar",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Infernal Enrapturess",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rein and Raus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Amallyn Shadowguide",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Spindle Drones",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Assault Intercessor Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Storm Speeder Thunderstrike",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chief Librarian Tigurius",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ambull",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Contorted Epitome",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Syll\u2019Esske",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skorpius Dunerider",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skorpius Disintegrator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Despoiler",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Tyrant",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Desecrator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Rampager",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Eliminator Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ares Gunship",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "X-101",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Company Marines",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Triumph of Saint Katherine",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Junith Eruita",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Zephyrim Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mortifiers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Battle Sanctum",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Attack Bike Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Warbringer Nemesis Titan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Big Mek with Kustom Force Field",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Serberys Sulphurhounds",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Serberys Raiders",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sterylizors",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skystalkers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Archaeopter Transvector",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Archaeopter Stratoraptor",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Archaeopter Fusilave",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aleya",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Draxus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Illuminor Szeras",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "The Archivist",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hellblaster Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aggressor Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Adrax Agatone",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Speeder Typhoon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Darnath Lysander",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Plasmancer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skorpekh Lord",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skorpekh Destroyers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cryptothralls",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Reanimator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scarab Swarms",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Doomstalker",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lokhust Heavy Destroyers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Raider Redeemer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Devastator Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Primaris Company Champion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathstorm Drop Pod",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Desolation Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Company Marines with Bolt Rifles",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sammael",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lazarus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathwing Command Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Royal Warden",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lokhust Lord",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Technomancer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Psychomancer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hexmark Destroyer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "C\u2019tan Shard of the Void Dragon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ophydian Destroyers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lokhust Destroyers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "The Silent King",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Convergence of Dominion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tomb Citadel",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Guardian Drone",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mega Dread",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Webway Gate",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord of Virulence",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Miasmic Malignifier",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathwing Strikemaster",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Court of the Archon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Palatine",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tor Garadon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Technoarcheologist",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Morvenn Vahl",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aestred Thurga",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Agathae Dolan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Celestian Sacresants",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dogmata",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Paragon Warsuits",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Castigator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Gaunt\u2019s Ghosts",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Zodgrod Wortsnagga",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Beastboss",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Beastboss on Squigosaur",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Painboss",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wurrboy",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Mozrog Skragbad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Beast Snagga Boyz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Squighog Boyz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kill Rig",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hunta Rig",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Big\u2019ed Bossbunka",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Infernal Master",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sisters Novitiate Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Voidsmen-at-Arms",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Blade Champion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Valerian",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight-Centura",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Prosecutors",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vigilators",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Witchseekers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Reductus Saboteur",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Shroud Runners",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Yvraine",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "The Visarch",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "The Yncarne",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Executioner",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Karnivore",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Brigand",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Huntsman",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Abominant",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Imperial Navy Breachers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Farstalkers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "\u00dbthar the Destined",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Einhyr Champion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grimnyr",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Iron-master",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hearthkyn Warriors",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Einhyr Hearthguard",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Beserks",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Pioneers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sagitaur",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Exoframe",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Thunderkyn",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hekaton Land Fortress",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord Solar Leontus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ursula Creed",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Angron",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kh\u00e2rn the Betrayer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord Invocatus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord on Juggernaut",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Jakhals",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Eightbound",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Exalted Eightbound",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Spawn",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaplain Cassius",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vashtorr the Arkifane",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lion El\u2019Jonson",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vigilant Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Subductor Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Exaction Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Barbgaunts",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Neurogaunts",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Neurotyrant",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Psychophage",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Screamer-Killer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tyranid Warriors with Melee Bio-weapons",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tyranid Warriors with Ranged Bio-weapons",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Astraeus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Centurion Assault Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ironclad Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kayvaan Shrike",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kor\u2019sarro Khan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Raider Helios",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Land Speeder",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Outrider Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Pedro Kantor",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Redemptor Dreadnought",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Reiver Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Thunderhawk Transporter",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tyrannic War Veterans",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vulkan He\u2019stan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Whirlwind",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deffkoptas with Big Shootas",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Company Marines with Jump Packs",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tempestus Scions",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ravenwing Command Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Icon Bearer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Norn Emissary",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Norn Assimilator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Daemon Prince of Chaos with Wings",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Autarch Wayleaper",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Damned Legionnaires",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Rogue Trader Entourage",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Janus Draik",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Neyam Shai Murad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Navigator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "UR-025",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Inquisitorial Agents",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sir Hekhtur",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Daemonifuge",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Company Heroes",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Assault Intercessors With Jump Packs",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathwatch Veterans",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Chaplain Grimaldus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Castellan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "High Marshal Helbrecht",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Emperor\u2019s Champion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sword Brethren Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wolf Guard Pack Leader with Jump Pack",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wolf Guard Pack Leader in Terminator Armour",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wolf Guard Pack Leader",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cyberwolf",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hounds of Morkai",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Castellum Stronghold",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bunker",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Defence Line",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Defence Emplacement",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aegis Defence Line with Weapon Emplacement",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Overlord with translocation shroud",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Dragoons With Radium Jezzails",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Skatros",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Inner Circle Companions",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sunforge",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fireknife",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Starscythe",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Trail Shaper",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "War shaper",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Flesh Shaper",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lone-Spear",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Krootox Rampagers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ufthak Blackhawk",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Yaegirs",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Benefictus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Acolyte Hybrids With Hand Flamers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Celestian Sacresant Aveline",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Grey Knights Terminator Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sisters of Battle Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Inquisitorial Chimera",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Veteran Bike Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Proteus Kill Team",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Daemonhost",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Jokaero Weaponsmith",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Imperial Rhino",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tempestus Aquilons",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Company Marines with Boltguns",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Death Company Marines with boltguns and Jump Packs",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Breaka Boyz",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Deathwatch Terminator Squad",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Talonstrike Kill Team",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nemesis Claw",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord Marshal Dreir",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lhykhis",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "D-cannon Platform",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Shadow Weaver Platform",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Vibro Cannon Platform",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wraithknight with Ghostglaive",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Provisionally Prepared",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Goremongers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fulgrim",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord Exultant",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tormentors",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Infractors",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lucius the Eternal",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord Kakophonist",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Flawless Blades",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tormentbringer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hellflayer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Slaughterbound",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lord of Poxes",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Foetid Bloat-drone with Heavy Blight Launcher",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Servitor Battleclade",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sekhetar Robots",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tzaangor Enlightened with Fatecaster Greatbows",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Battle Leader",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Headtakers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hunting Wolves",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wulfen with Storm Shields",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Ruinator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Execrator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Crusade Ancient",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Buri Aegnirssen",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Memnyr Strategist",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Arkanyst Evaluator",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ironkin Steeljacks with Heavy Volkanite Disintegrators",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ironkin Steeljacks with Melee Weapons",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Earthshakers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Defenders",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Carrier",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aethon Shaan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Defender",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Greater Daemon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lesser Daemon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Abomination",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Daemonic Beasts",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Lady Malys",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Hand of the Archon",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Scourges with Shardcarbines",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Caanok Var",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Suboden Khan",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Inquisitor Ostromandeus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Aquila Kill Team",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Decimus Kill Team",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Macrocytes",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tomb Crawlers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Geomancer",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Xacharus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kastiel",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Marneus Calgar",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Sicarius",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Cato",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Victrix Honour Guard",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Champion",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Nekrosor Ammentar",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Titus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wardens of Ultramar",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Celestian Insidiants",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Masters of the Maelstrom",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Red Corsairs Raiders",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Red Corsairs Reave-captain",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Berehk Stornbr\u00f6w",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Tyranid Prime with Lash Whip",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "The Twin Lance",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Ferren Areios",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kravek Morne",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Thulia Ghuld",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Exterminators",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Fusiliers",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Knight Destrier",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Bellatus",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Kroyle",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Intranzia Fraye",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Commissar Yarrick",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Commissar Graves",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Commissar Graves on Foot",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    },
+    {
+      "keyword": "Wazdakka Gutsmek",
+      "datasheet_uses": 1,
+      "is_faction_keyword": false
+    }
+  ]
+}

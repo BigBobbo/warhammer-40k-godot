@@ -16,6 +16,7 @@ var unit_id: String = ""
 var unit_name: String = ""
 
 func setup(p_unit_id: String, p_unit_name: String) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	unit_id = p_unit_id
 	unit_name = p_unit_name
 

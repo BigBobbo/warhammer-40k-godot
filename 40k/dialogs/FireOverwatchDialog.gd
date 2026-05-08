@@ -27,6 +27,7 @@ var _countdown_label: Label = null
 var _time_remaining: float = AUTO_DECLINE_SECONDS
 
 func setup(p_player: int, p_target_unit_id: String, p_eligible_units: Array) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	player = p_player
 	target_unit_id = p_target_unit_id
 	eligible_units = p_eligible_units

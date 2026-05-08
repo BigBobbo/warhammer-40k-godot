@@ -15,6 +15,7 @@ var opponent_player: int = 0
 var objective_list_container: VBoxContainer
 
 func setup(opponent: int, objectives: Array) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	opponent_player = opponent
 	nml_objectives = objectives
 

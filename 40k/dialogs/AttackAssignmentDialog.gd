@@ -15,6 +15,7 @@ var extra_attacks_target_list: ItemList = null  # T3-3: Target selector for Extr
 var all_to_target_button: Button = null  # T5-UX5: "All to Target" shortcut button
 
 func setup(fighter_id: String, targets: Dictionary, phase) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	print("[AttackAssignmentDialog] Setup called for unit: ", fighter_id)
 	print("[AttackAssignmentDialog] Targets: ", targets.keys())
 

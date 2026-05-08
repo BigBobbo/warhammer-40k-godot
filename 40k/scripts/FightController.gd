@@ -239,27 +239,39 @@ func _setup_right_panel() -> void:
 	
 	# Title
 	var title = Label.new()
-	title.text = "Fight Controls"
-	title.add_theme_font_size_override("font_size", 16)
+	title.text = "FIGHT CONTROLS"
+	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	fight_panel.add_child(title)
-	
-	fight_panel.add_child(HSeparator.new())
-	
+
+	_add_fight_gold_separator(fight_panel)
+
 	# Fight sequence display
 	var sequence_label = Label.new()
-	sequence_label.text = "Fight Sequence:"
+	sequence_label.text = "FIGHT SEQUENCE"
+	sequence_label.add_theme_font_size_override("font_size", 13)
+	sequence_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		sequence_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	fight_panel.add_child(sequence_label)
 	
 	unit_selector = ItemList.new()
 	unit_selector.custom_minimum_size = Vector2(230, 100)
 	unit_selector.item_selected.connect(_on_unit_selected)
+	_WhiteDwarfTheme.apply_to_item_list(unit_selector)
 	fight_panel.add_child(unit_selector)
-	
-	fight_panel.add_child(HSeparator.new())
-	
+
+	_add_fight_gold_separator(fight_panel)
+
 	# Attack assignments tree
 	var attack_label = Label.new()
-	attack_label.text = "Melee Attacks:"
+	attack_label.text = "MELEE ATTACKS"
+	attack_label.add_theme_font_size_override("font_size", 13)
+	attack_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		attack_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	fight_panel.add_child(attack_label)
 	
 	attack_tree = Tree.new()
@@ -272,13 +284,20 @@ func _setup_right_panel() -> void:
 	attack_tree.button_clicked.connect(_on_attack_tree_button_clicked)
 	fight_panel.add_child(attack_tree)
 	
+	_add_fight_gold_separator(fight_panel)
+
 	# Target basket
 	var basket_label = Label.new()
-	basket_label.text = "Current Targets:"
+	basket_label.text = "CURRENT TARGETS"
+	basket_label.add_theme_font_size_override("font_size", 13)
+	basket_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		basket_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	fight_panel.add_child(basket_label)
-	
+
 	target_basket = ItemList.new()
 	target_basket.custom_minimum_size = Vector2(230, 80)
+	_WhiteDwarfTheme.apply_to_item_list(target_basket)
 	fight_panel.add_child(target_basket)
 	
 	# Action buttons
@@ -287,13 +306,13 @@ func _setup_right_panel() -> void:
 	clear_button = Button.new()
 	clear_button.text = "Clear All"
 	clear_button.pressed.connect(_on_clear_pressed)
-	_WhiteDwarfTheme.apply_to_button(clear_button)
+	_WhiteDwarfTheme.apply_secondary_button(clear_button)
 	button_container.add_child(clear_button)
 
 	confirm_button = Button.new()
 	confirm_button.text = "Fight!"
 	confirm_button.pressed.connect(_on_confirm_pressed)
-	_WhiteDwarfTheme.apply_to_button(confirm_button)
+	_WhiteDwarfTheme.apply_primary_button(confirm_button)
 	button_container.add_child(confirm_button)
 
 	# T-093: Auto-Fight button — assigns all weapons to first engaged enemy and confirms
@@ -301,19 +320,21 @@ func _setup_right_panel() -> void:
 	auto_fight_button.text = "Auto-Fight"
 	auto_fight_button.tooltip_text = "Auto-assign all weapons to the first engaged enemy and confirm"
 	auto_fight_button.pressed.connect(_on_auto_fight_pressed)
-	_WhiteDwarfTheme.apply_to_button(auto_fight_button)
+	_WhiteDwarfTheme.apply_primary_button(auto_fight_button)
 	button_container.add_child(auto_fight_button)
 
 	fight_panel.add_child(button_container)
 	
-	# Dice log
-	fight_panel.add_child(HSeparator.new())
+	_add_fight_gold_separator(fight_panel)
 
-	# T-093: Phase wounds tally — running counter of damage dealt this fight phase
+	# T-093: Phase wounds tally
 	_phase_wounds_label = Label.new()
 	_phase_wounds_label.name = "PhaseWoundsTally"
-	_phase_wounds_label.text = "Phase Damage — P1: 0 | P2: 0"
+	_phase_wounds_label.text = "PHASE DAMAGE — P1: 0 | P2: 0"
 	_phase_wounds_label.add_theme_font_size_override("font_size", 13)
+	_phase_wounds_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		_phase_wounds_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	fight_panel.add_child(_phase_wounds_label)
 	# T-093: per-unit scoreboard (RichTextLabel for color-coding)
 	_phase_scoreboard = RichTextLabel.new()
@@ -323,10 +344,14 @@ func _setup_right_panel() -> void:
 	_phase_scoreboard.custom_minimum_size = Vector2(230, 60)
 	_phase_scoreboard.text = "[i]No fighters yet[/i]"
 	fight_panel.add_child(_phase_scoreboard)
-	fight_panel.add_child(HSeparator.new())
+	_add_fight_gold_separator(fight_panel)
 
 	var dice_label = Label.new()
-	dice_label.text = "Combat Log:"
+	dice_label.text = "COMBAT LOG"
+	dice_label.add_theme_font_size_override("font_size", 13)
+	dice_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		dice_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	fight_panel.add_child(dice_label)
 	
 	# T5-V1: Animated dice roll visualization
@@ -341,13 +366,15 @@ func _setup_right_panel() -> void:
 	dice_log_display.scroll_following = true
 	fight_panel.add_child(dice_log_display)
 
-	# ADD: Action buttons section (moved from top bar)
-	fight_panel.add_child(HSeparator.new())
-	
-	# Fight status display (moved from top bar)
+	_add_fight_gold_separator(fight_panel)
+
+	# Fight status display
 	var status_section_label = Label.new()
-	status_section_label.text = "Fight Status:"
-	status_section_label.add_theme_font_size_override("font_size", 14)
+	status_section_label.text = "FIGHT STATUS"
+	status_section_label.add_theme_font_size_override("font_size", 13)
+	status_section_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		status_section_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	fight_panel.add_child(status_section_label)
 	
 	# Fight sequence status (moved from top bar)
@@ -358,8 +385,11 @@ func _setup_right_panel() -> void:
 	
 	# Action buttons container
 	var action_section_label = Label.new()
-	action_section_label.text = "Movement Actions:"
-	action_section_label.add_theme_font_size_override("font_size", 14)
+	action_section_label.text = "MOVEMENT ACTIONS"
+	action_section_label.add_theme_font_size_override("font_size", 13)
+	action_section_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		action_section_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	fight_panel.add_child(action_section_label)
 	
 	var action_button_container = HBoxContainer.new()
@@ -382,6 +412,18 @@ func _setup_right_panel() -> void:
 	action_button_container.add_child(consolidate_button)
 	
 	fight_panel.add_child(action_button_container)
+
+func _add_fight_gold_separator(parent: VBoxContainer) -> void:
+	var spacer_top = Control.new()
+	spacer_top.custom_minimum_size = Vector2(0, 2)
+	parent.add_child(spacer_top)
+	var sep = ColorRect.new()
+	sep.color = Color(_WhiteDwarfTheme.WH_GOLD, 0.3)
+	sep.custom_minimum_size = Vector2(0, 1)
+	parent.add_child(sep)
+	var spacer_bot = Control.new()
+	spacer_bot.custom_minimum_size = Vector2(0, 2)
+	parent.add_child(spacer_bot)
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase

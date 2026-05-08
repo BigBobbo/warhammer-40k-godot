@@ -26,6 +26,7 @@ var summary_label: RichTextLabel
 func _init():
 	title = "Declare Battle Formations"
 	min_size = Vector2(600, 500)
+	max_size = Vector2(700, 720)
 	WhiteDwarfTheme.apply_to_dialog(self)
 
 func setup(player: int) -> void:
@@ -38,6 +39,10 @@ func setup(player: int) -> void:
 
 	# Hide AcceptDialog's built-in OK button — we add our own inside the layout
 	get_ok_button().visible = false
+
+	# Wire the X (close) button to skip, so closing doesn't leave the game stuck
+	if not close_requested.is_connected(_on_canceled):
+		close_requested.connect(_on_canceled)
 
 	# Build the UI (includes custom confirm/skip buttons)
 	_build_ui()
@@ -53,9 +58,15 @@ func _build_ui() -> void:
 	instructions.text = "Declare your battle formations before deployment begins.\nThese choices are locked in before either player deploys."
 	instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	instructions.add_theme_font_size_override("font_size", 13)
+	instructions.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		instructions.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	main_vbox.add_child(instructions)
 
-	var separator = HSeparator.new()
+	var separator = ColorRect.new()
+	separator.custom_minimum_size = Vector2(0, 2)
+	separator.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	separator.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	main_vbox.add_child(separator)
 
 	scroll_container = ScrollContainer.new()
@@ -76,7 +87,10 @@ func _build_ui() -> void:
 	_build_reserves_section()
 
 	# Summary section
-	var summary_sep = HSeparator.new()
+	var summary_sep = ColorRect.new()
+	summary_sep.custom_minimum_size = Vector2(0, 2)
+	summary_sep.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	summary_sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	main_vbox.add_child(summary_sep)
 
 	summary_label = RichTextLabel.new()
@@ -169,7 +183,10 @@ func _build_warlord_section() -> void:
 	if characters.is_empty():
 		return
 
-	var sep = HSeparator.new()
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content_vbox.add_child(sep)
 
 	var section_label = Label.new()
@@ -222,7 +239,10 @@ func _build_transport_section() -> void:
 	if transports.is_empty():
 		return
 
-	var sep = HSeparator.new()
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content_vbox.add_child(sep)
 
 	var section_label = Label.new()
@@ -279,7 +299,10 @@ func _build_reserves_section() -> void:
 	"""Build the reserves declaration section.
 	Characters attached to bodyguards are shown as part of the bodyguard entry.
 	Unattached characters appear as independent entries."""
-	var sep = HSeparator.new()
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sep.set_meta("reserves_section", true)
 	content_vbox.add_child(sep)
 

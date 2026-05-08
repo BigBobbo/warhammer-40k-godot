@@ -18,6 +18,7 @@ var player: int = 0
 var unit_name: String = ""
 
 func setup(p_unit_id: String, p_player: int) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	unit_id = p_unit_id
 	player = p_player
 

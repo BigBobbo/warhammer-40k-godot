@@ -79,21 +79,32 @@ func _setup_bottom_hud() -> void:
 			controls_container.remove_child(child)
 			child.free()
 
-	# Battle round info
+	# Battle round info — styled
 	battle_round_label = Label.new()
-	battle_round_label.text = "Battle Round " + str(GameState.get_battle_round())
+	battle_round_label.text = "Round " + str(GameState.get_battle_round()) + "/5"
 	battle_round_label.name = "BattleRoundLabel"
-	battle_round_label.add_theme_font_size_override("font_size", 14)
+	battle_round_label.add_theme_font_size_override("font_size", 13)
+	battle_round_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		battle_round_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	controls_container.add_child(battle_round_label)
 
 	# Separator
 	controls_container.add_child(VSeparator.new())
 
-	# Turn info
+	# Turn info — show faction name
 	turn_info_label = Label.new()
 	var current_player = GameState.get_active_player()
-	turn_info_label.text = "Player %d Turn" % current_player
+	var faction = GameState.get_faction_name(current_player)
+	if faction == "":
+		faction = "Player %d" % current_player
+	turn_info_label.text = "%s Turn" % faction
 	turn_info_label.name = "TurnInfoLabel"
+	turn_info_label.add_theme_font_size_override("font_size", 13)
+	var player_color = FactionPalettes.get_player_border_color(current_player) if FactionPalettes else WhiteDwarfTheme.WH_PARCHMENT
+	turn_info_label.add_theme_color_override("font_color", player_color)
+	if FactionPalettes:
+		turn_info_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	controls_container.add_child(turn_info_label)
 
 func _setup_right_panel() -> void:
@@ -116,42 +127,54 @@ func _setup_right_panel() -> void:
 	scoring_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll_container.add_child(scoring_panel)
 
-	# Title
+	# Title — uppercase gold gothic header
 	var title = Label.new()
-	title.text = "Scoring Phase"
-	title.add_theme_font_size_override("font_size", 16)
+	title.text = "SCORING PHASE"
+	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	scoring_panel.add_child(title)
 
-	scoring_panel.add_child(HSeparator.new())
+	_add_gold_separator(scoring_panel)
 
 	var battle_round = GameState.get_battle_round()
 	var current_player = GameState.get_active_player()
 	var total_rounds = 5
 
-	# VP Summary
-	var vp_summary = MissionManager.get_vp_summary()
-	var vp_label = Label.new()
-	vp_label.text = "Battle Round: %d/%d\n\nVP Summary:\n  Player 1: %d VP (Primary: %d, Secondary: %d)\n  Player 2: %d VP (Primary: %d, Secondary: %d)" % [
-		battle_round, total_rounds,
-		vp_summary["player1"]["total"], vp_summary["player1"]["primary"], vp_summary["player1"]["secondary"],
-		vp_summary["player2"]["total"], vp_summary["player2"]["primary"], vp_summary["player2"]["secondary"],
-	]
-	vp_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	scoring_panel.add_child(vp_label)
+	# Round indicator
+	var round_label = Label.new()
+	round_label.text = "BATTLE ROUND %d/%d" % [battle_round, total_rounds]
+	round_label.add_theme_font_size_override("font_size", 13)
+	round_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		round_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	scoring_panel.add_child(round_label)
 
-	scoring_panel.add_child(HSeparator.new())
+	scoring_panel.add_child(_create_spacer(4))
+
+	# VP Summary — visual scoreboard with bars
+	var vp_summary = MissionManager.get_vp_summary()
+	_build_vp_scoreboard(scoring_panel, vp_summary)
+
+	_add_gold_separator(scoring_panel)
 
 	# Objective Control display
 	_build_objective_control_section(scoring_panel, current_player)
 
-	scoring_panel.add_child(HSeparator.new())
+	_add_gold_separator(scoring_panel)
 
 	# Secondary Missions display with discard buttons and progress tracking
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		var missions_title = Label.new()
-		missions_title.text = "Player %d - Active Secondary Missions" % current_player
-		missions_title.add_theme_font_size_override("font_size", 14)
+		missions_title.text = "ACTIVE SECONDARY MISSIONS"
+		missions_title.add_theme_font_size_override("font_size", 13)
+		missions_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+		if FactionPalettes:
+			missions_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 		scoring_panel.add_child(missions_title)
 
 		var active_missions = secondary_mgr.get_active_missions(current_player)
@@ -173,30 +196,48 @@ func _setup_right_panel() -> void:
 
 		# Deck info
 		var deck_label = Label.new()
-		deck_label.text = "\n  Deck: %d cards remaining | Discarded: %d" % [
+		deck_label.text = "Deck: %d remaining | Discarded: %d" % [
 			secondary_mgr.get_deck_size(current_player),
 			secondary_mgr.get_discard_size(current_player)]
+		deck_label.add_theme_font_size_override("font_size", 11)
+		deck_label.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 		scoring_panel.add_child(deck_label)
 
-		scoring_panel.add_child(HSeparator.new())
+		_add_gold_separator(scoring_panel)
 
 	# Game end check
 	if GameState.get_battle_round() > 5:
 		var game_end_label = Label.new()
-		game_end_label.text = "GAME COMPLETE!\n5 Battle Rounds finished!"
+		game_end_label.text = "GAME COMPLETE!"
+		game_end_label.add_theme_font_size_override("font_size", 18)
+		game_end_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+		if FactionPalettes:
+			game_end_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+		game_end_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		game_end_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		scoring_panel.add_child(game_end_label)
+		var sub_label = Label.new()
+		sub_label.text = "5 Battle Rounds finished"
+		sub_label.add_theme_font_size_override("font_size", 12)
+		sub_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
+		sub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		scoring_panel.add_child(sub_label)
 	else:
 		var instruction_label = Label.new()
-		var cp_note = "+1 CP" if GameState.can_gain_bonus_cp(GameState.get_active_player()) else "+0 CP (bonus cap reached)"
-		instruction_label.text = "Press a Discard button above to discard\na secondary for %s, or End Turn below." % cp_note
+		var cp_note = "+1 CP" if GameState.can_gain_bonus_cp(GameState.get_active_player()) else "+0 CP (cap reached)"
+		instruction_label.text = "Discard a secondary for %s, or End Turn." % cp_note
+		instruction_label.add_theme_font_size_override("font_size", 11)
+		instruction_label.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 		instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		scoring_panel.add_child(instruction_label)
 
 func _build_objective_control_section(panel: VBoxContainer, _current_player: int) -> void:
 	var obj_title = Label.new()
-	obj_title.text = "Objective Control"
-	obj_title.add_theme_font_size_override("font_size", 14)
+	obj_title.text = "OBJECTIVE CONTROL"
+	obj_title.add_theme_font_size_override("font_size", 13)
+	obj_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		obj_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	panel.add_child(obj_title)
 
 	var objectives = GameState.state.board.get("objectives", [])
@@ -204,13 +245,17 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 
 	if objectives.size() == 0:
 		var no_obj = Label.new()
-		no_obj.text = "  No objectives on the board"
+		no_obj.text = "No objectives on the board"
+		no_obj.add_theme_font_size_override("font_size", 11)
+		no_obj.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 		panel.add_child(no_obj)
 		return
 
 	var p1_controlled = 0
 	var p2_controlled = 0
 	var contested = 0
+	var p1_color = FactionPalettes.get_player_border_color(1) if FactionPalettes else Color(0.4, 0.6, 1.0)
+	var p2_color = FactionPalettes.get_player_border_color(2) if FactionPalettes else Color(1.0, 0.4, 0.4)
 
 	for obj in objectives:
 		var obj_id = obj.get("id", "unknown")
@@ -218,36 +263,149 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 		var controller = control_state.get(obj_id, 0)
 
 		var controller_text = "Contested"
+		var obj_color = Color(0.8, 0.8, 0.3)
 		if controller == 1:
-			controller_text = "Player 1"
+			controller_text = GameState.get_faction_name(1) if GameState.get_faction_name(1) != "" else "Player 1"
 			p1_controlled += 1
+			obj_color = p1_color
 		elif controller == 2:
-			controller_text = "Player 2"
+			controller_text = GameState.get_faction_name(2) if GameState.get_faction_name(2) != "" else "Player 2"
 			p2_controlled += 1
+			obj_color = p2_color
 		else:
 			contested += 1
 
 		var zone_text = ""
 		match zone:
-			"player1": zone_text = "P1 Zone"
-			"player2": zone_text = "P2 Zone"
+			"player1": zone_text = "P1"
+			"player2": zone_text = "P2"
 			"no_mans_land": zone_text = "NML"
 			_: zone_text = zone
 
+		var display_id = obj_id.replace("obj_", "").to_upper().replace("_", " ")
 		var obj_label = Label.new()
-		obj_label.text = "  %s [%s]: %s" % [obj_id, zone_text, controller_text]
+		obj_label.text = "%s [%s]: %s" % [display_id, zone_text, controller_text]
+		obj_label.add_theme_font_size_override("font_size", 11)
+		obj_label.add_theme_color_override("font_color", obj_color)
 		panel.add_child(obj_label)
 
-	# Summary line
-	var summary = Label.new()
-	summary.text = "\n  P1: %d | P2: %d | Contested: %d" % [p1_controlled, p2_controlled, contested]
-	panel.add_child(summary)
+	# Summary line with faction colors
+	panel.add_child(_create_spacer(2))
+	var summary_hbox = HBoxContainer.new()
+	summary_hbox.add_theme_constant_override("separation", 8)
+	var p1_sum = Label.new()
+	p1_sum.text = "P1: %d" % p1_controlled
+	p1_sum.add_theme_font_size_override("font_size", 12)
+	p1_sum.add_theme_color_override("font_color", p1_color)
+	if FactionPalettes:
+		p1_sum.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	summary_hbox.add_child(p1_sum)
+	var p2_sum = Label.new()
+	p2_sum.text = "P2: %d" % p2_controlled
+	p2_sum.add_theme_font_size_override("font_size", 12)
+	p2_sum.add_theme_color_override("font_color", p2_color)
+	if FactionPalettes:
+		p2_sum.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	summary_hbox.add_child(p2_sum)
+	if contested > 0:
+		var cont_sum = Label.new()
+		cont_sum.text = "Contested: %d" % contested
+		cont_sum.add_theme_font_size_override("font_size", 12)
+		cont_sum.add_theme_color_override("font_color", Color(0.8, 0.8, 0.3))
+		summary_hbox.add_child(cont_sum)
+	panel.add_child(summary_hbox)
 
-	# Show current mission scoring info
+	# Mission info
 	var mission_name = MissionManager.get_current_mission_name()
 	var mission_info = Label.new()
-	mission_info.text = "  Mission: %s" % mission_name
+	mission_info.text = "Mission: %s" % mission_name
+	mission_info.add_theme_font_size_override("font_size", 11)
+	mission_info.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 	panel.add_child(mission_info)
+
+func _add_gold_separator(parent: VBoxContainer) -> void:
+	var sep = ColorRect.new()
+	sep.color = Color(WhiteDwarfTheme.WH_GOLD, 0.3)
+	sep.custom_minimum_size = Vector2(0, 1)
+	parent.add_child(sep)
+	parent.add_child(_create_spacer(2))
+
+func _create_spacer(height: float) -> Control:
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(0, height)
+	return spacer
+
+func _build_vp_scoreboard(parent: VBoxContainer, vp_summary: Dictionary) -> void:
+	var p1_total = vp_summary["player1"]["total"]
+	var p1_primary = vp_summary["player1"]["primary"]
+	var p1_secondary = vp_summary["player1"]["secondary"]
+	var p2_total = vp_summary["player2"]["total"]
+	var p2_primary = vp_summary["player2"]["primary"]
+	var p2_secondary = vp_summary["player2"]["secondary"]
+
+	var p1_color = FactionPalettes.get_player_border_color(1) if FactionPalettes else Color(0.4, 0.6, 1.0)
+	var p2_color = FactionPalettes.get_player_border_color(2) if FactionPalettes else Color(1.0, 0.4, 0.4)
+	var p1_faction = GameState.get_faction_name(1) if GameState else "Player 1"
+	var p2_faction = GameState.get_faction_name(2) if GameState else "Player 2"
+	if p1_faction == "": p1_faction = "Player 1"
+	if p2_faction == "": p2_faction = "Player 2"
+
+	var vp_title = Label.new()
+	vp_title.text = "VP SUMMARY"
+	vp_title.add_theme_font_size_override("font_size", 12)
+	vp_title.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_GOLD, 0.7))
+	if FactionPalettes:
+		vp_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	parent.add_child(vp_title)
+
+	_add_vp_player_row(parent, p1_faction, p1_total, p1_primary, p1_secondary, p1_color)
+	_add_vp_player_row(parent, p2_faction, p2_total, p2_primary, p2_secondary, p2_color)
+
+func _add_vp_player_row(parent: VBoxContainer, faction: String, total: int, primary: int, secondary: int, color: Color) -> void:
+	var card = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(color.r, color.g, color.b, 0.08)
+	style.border_color = Color(color.r, color.g, color.b, 0.3)
+	style.border_width_left = 3
+	style.set_corner_radius_all(3)
+	style.set_content_margin_all(4)
+	style.content_margin_left = 8
+	card.add_theme_stylebox_override("panel", style)
+	parent.add_child(card)
+
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 6)
+	card.add_child(hbox)
+
+	var name_label = Label.new()
+	name_label.text = faction
+	name_label.add_theme_font_size_override("font_size", 12)
+	name_label.add_theme_color_override("font_color", color)
+	if FactionPalettes:
+		name_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(name_label)
+
+	var vp_label = Label.new()
+	vp_label.text = "%d VP" % total
+	vp_label.add_theme_font_size_override("font_size", 16)
+	vp_label.add_theme_color_override("font_color", color)
+	if FactionPalettes:
+		vp_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	hbox.add_child(vp_label)
+
+	# VP breakdown below the main row
+	var breakdown = Label.new()
+	breakdown.text = "Primary: %d | Secondary: %d" % [primary, secondary]
+	breakdown.add_theme_font_size_override("font_size", 10)
+	breakdown.add_theme_color_override("font_color", Color(color.r, color.g, color.b, 0.6))
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 0)
+	vbox.add_child(hbox)
+	vbox.add_child(breakdown)
+	card.add_child(vbox)
+	# Remove the hbox from card, add vbox instead
+	card.remove_child(hbox)
 
 func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, progress: Dictionary = {}) -> void:
 	var card_container = PanelContainer.new()
@@ -332,13 +490,14 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, p
 		pending_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
 		card_vbox.add_child(pending_label)
 
-	# Discard button — show CP gain status based on bonus CP cap
+	# Discard button — styled with WhiteDwarf theme
 	var discard_btn = Button.new()
 	var can_gain_cp = GameState.can_gain_bonus_cp(GameState.get_active_player())
-	var cp_label = "+1 CP" if can_gain_cp else "+0 CP (cap)"
-	discard_btn.text = "Discard \"%s\" (%s)" % [mission.get("name", "?"), cp_label]
-	discard_btn.custom_minimum_size = Vector2(0, 28)
+	var cp_label_text = "+1 CP" if can_gain_cp else "+0 CP (cap)"
+	discard_btn.text = "Discard (%s)" % cp_label_text
+	discard_btn.custom_minimum_size = Vector2(0, 26)
 	discard_btn.add_theme_font_size_override("font_size", 11)
+	WhiteDwarfTheme.apply_secondary_button(discard_btn)
 	var tooltip = "Voluntarily discard this mission and gain 1 CP." if can_gain_cp else "Voluntarily discard this mission (bonus CP cap reached this round — no CP gained)."
 	discard_btn.tooltip_text = tooltip
 	discard_btn.pressed.connect(_on_discard_pressed.bind(index))
@@ -456,7 +615,11 @@ func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, p
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(desc)
 
-	content.add_child(HSeparator.new())
+	var _gsep1 = ColorRect.new()
+	_gsep1.custom_minimum_size = Vector2(0, 2)
+	_gsep1.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_child(_gsep1)
 
 	var timer_label = Label.new()
 	timer_label.text = "Auto-declining in 15 seconds..."

@@ -12,6 +12,7 @@ signal end_command_cancelled()
 var untested_units: Array = []
 
 func setup(p_untested_units: Array) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	untested_units = p_untested_units
 
 	title = "End Command Phase?"

@@ -20,7 +20,10 @@ var _empty_label: Label = null
 func _ready() -> void:
 	title = "Stratagems"
 	min_size = Vector2(560, 480)
-	get_ok_button().text = "Close"
+	WhiteDwarfTheme.apply_to_dialog(self)
+	var ok_btn = get_ok_button()
+	ok_btn.text = "Close"
+	WhiteDwarfTheme.apply_secondary_button(ok_btn)
 	_build_ui()
 
 
@@ -35,10 +38,12 @@ func _build_ui() -> void:
 	var vb = VBoxContainer.new()
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vb.add_theme_constant_override("separation", 6)
 	scroll.add_child(vb)
 	_list_container = vb
 	_empty_label = Label.new()
 	_empty_label.text = "No stratagems available."
+	_empty_label.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
 	_empty_label.visible = false
 	_list_container.add_child(_empty_label)
 
@@ -62,7 +67,8 @@ func populate(player: int, phase_id: int = -1) -> void:
 	var cp = 0
 	if strat_manager.has_method("get_player_cp"):
 		cp = strat_manager.get_player_cp(player)
-	title = "Stratagems — Player %d (%d CP)" % [player, cp]
+	var faction_name = GameState.get_faction_name(player)
+	title = "Stratagems — Player %d (%s) — %d CP" % [player, faction_name, cp]
 
 	var stratagems_dict: Dictionary = strat_manager.get("stratagems")
 	if stratagems_dict == null or stratagems_dict.is_empty():
@@ -88,9 +94,14 @@ func populate(player: int, phase_id: int = -1) -> void:
 		var ids = groups[group_name]
 		if ids.is_empty():
 			continue
+		_add_stratagem_gold_separator(_list_container)
 		var header = Label.new()
-		header.text = "── %s ──" % group_name
-		header.add_theme_color_override("font_color", Color(0.9, 0.85, 0.5))
+		header.text = group_name.to_upper()
+		header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+		header.add_theme_font_size_override("font_size", 14)
+		if FactionPalettes.FONT_RAJDHANI_BOLD:
+			header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+		header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_list_container.add_child(header)
 		for sid in ids:
 			var strat = stratagems_dict[sid]
@@ -103,30 +114,48 @@ func populate(player: int, phase_id: int = -1) -> void:
 
 
 func _build_row(strat_manager: Node, sid: String, strat: Dictionary, current_cp: int) -> Control:
-	var row = HBoxContainer.new()
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var card = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.10, 0.95)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(8)
+	card.add_theme_stylebox_override("panel", style)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var validation = {"can_use": false, "reason": ""}
 	if strat_manager.has_method("can_use_stratagem"):
 		validation = strat_manager.can_use_stratagem(_player, sid)
 	var can_use = bool(validation.get("can_use", false))
 
+	style.border_color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.3 if not can_use else 0.6)
+	style.set_border_width_all(1)
+
+	var row = HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.add_child(row)
+
 	var name_label = Label.new()
 	var display = strat.get("name", sid)
 	var cost = int(strat.get("cp_cost", strat.get("cost", 0)))
 	name_label.text = "%s (%d CP)" % [display, cost]
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		name_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
+	name_label.add_theme_font_size_override("font_size", 13)
 	row.add_child(name_label)
 
 	var status_label = Label.new()
+	status_label.add_theme_font_size_override("font_size", 11)
 	if can_use:
 		status_label.text = "ELIGIBLE"
-		name_label.add_theme_color_override("font_color", Color(1, 1, 1))
-		status_label.add_theme_color_override("font_color", Color(0.5, 1.0, 0.5))
+		name_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
+		status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+		if FactionPalettes.FONT_RAJDHANI_BOLD:
+			status_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	else:
 		var reason = String(validation.get("reason", "ineligible"))
 		status_label.text = reason
-		var grey = Color(0.55, 0.55, 0.55)
+		var grey = Color(0.45, 0.42, 0.38)
 		name_label.add_theme_color_override("font_color", grey)
 		status_label.add_theme_color_override("font_color", grey)
 	status_label.custom_minimum_size = Vector2(180, 0)
@@ -136,9 +165,19 @@ func _build_row(strat_manager: Node, sid: String, strat: Dictionary, current_cp:
 	use_btn.text = "Use"
 	use_btn.disabled = not can_use or current_cp < cost
 	use_btn.pressed.connect(func(): emit_signal("stratagem_use_requested", sid))
+	WhiteDwarfTheme.apply_primary_button(use_btn)
+	use_btn.custom_minimum_size = Vector2(60, 28)
 	row.add_child(use_btn)
 
-	return row
+	return card
+
+
+func _add_stratagem_gold_separator(parent: Control) -> void:
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(sep)
 
 
 func _unhandled_input(event: InputEvent) -> void:

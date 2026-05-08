@@ -13,6 +13,7 @@ var active_missions: Array = []
 var can_gain_cp: bool = false
 
 func setup(p_active_missions: Array, p_can_gain_cp: bool) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	active_missions = p_active_missions
 	can_gain_cp = p_can_gain_cp
 

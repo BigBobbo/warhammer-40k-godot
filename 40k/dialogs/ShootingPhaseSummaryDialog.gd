@@ -23,6 +23,7 @@ signal shooting_cancelled()
 var summary_data: Dictionary = {}
 
 func setup(p_summary_data: Dictionary) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	summary_data = p_summary_data
 
 	title = "Shooting Phase Summary"

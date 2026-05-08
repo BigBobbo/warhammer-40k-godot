@@ -1,0 +1,745 @@
+{
+  "summary": {
+    "total_weapon_profiles": 9341,
+    "melee_profiles": 2963,
+    "ranged_profiles": 6378,
+    "distinct_tokens": 37
+  },
+  "tokens": [
+    {
+      "token": "pistol",
+      "weapon_uses": 1065,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TS",
+        "TYR",
+        "UN",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "rapid fire",
+      "weapon_uses": 950,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TS",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "blast",
+      "weapon_uses": 859,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TL",
+        "TS",
+        "TYR",
+        "UN",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "twin-linked",
+      "weapon_uses": 833,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TS",
+        "TYR",
+        "UN",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "anti-X",
+      "weapon_uses": 726,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TL",
+        "TS",
+        "TYR",
+        "UN",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "devastating wounds",
+      "weapon_uses": 684,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TS",
+        "TYR",
+        "UN",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "sustained hits",
+      "weapon_uses": 647,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TL",
+        "TS",
+        "TYR",
+        "UN",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "ignores cover",
+      "weapon_uses": 633,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TL",
+        "TS",
+        "TYR",
+        "UN",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "torrent",
+      "weapon_uses": 601,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TL",
+        "TS",
+        "TYR",
+        "UN",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "heavy",
+      "weapon_uses": 452,
+      "factions": [
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TL",
+        "TS",
+        "TYR",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "hazardous",
+      "weapon_uses": 404,
+      "factions": [
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TL",
+        "TS",
+        "UN",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "assault",
+      "weapon_uses": 402,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TYR",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "melta",
+      "weapon_uses": 371,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TL",
+        "TS",
+        "TYR",
+        "UN",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "psychic",
+      "weapon_uses": 343,
+      "factions": [
+        "AE",
+        "AM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "ORK",
+        "QT",
+        "SM",
+        "TS",
+        "TYR"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "lethal hits",
+      "weapon_uses": 263,
+      "factions": [
+        "AE",
+        "AS",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "LoV",
+        "NEC",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TS",
+        "TYR"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "precision",
+      "weapon_uses": 200,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TS",
+        "TYR",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "one shot",
+      "weapon_uses": 200,
+      "factions": [
+        "AC",
+        "AM",
+        "AS",
+        "AoI",
+        "CSM",
+        "DG",
+        "DRU",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "SM",
+        "TAU",
+        "TS",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "extra attacks",
+      "weapon_uses": 160,
+      "factions": [
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DG",
+        "DRU",
+        "EC",
+        "GC",
+        "GK",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QT",
+        "SM",
+        "TAU",
+        "TS",
+        "TYR",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "indirect fire",
+      "weapon_uses": 139,
+      "factions": [
+        "AE",
+        "AM",
+        "AS",
+        "AdM",
+        "CD",
+        "CSM",
+        "DG",
+        "GC",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TL",
+        "TS",
+        "TYR",
+        "UN",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "lance",
+      "weapon_uses": 57,
+      "factions": [
+        "AC",
+        "AE",
+        "AM",
+        "AdM",
+        "AoI",
+        "CD",
+        "CSM",
+        "DRU",
+        "EC",
+        "GC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TAU",
+        "TS",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "sustained hits d3",
+      "weapon_uses": 29,
+      "factions": [
+        "AE",
+        "CSM",
+        "DG",
+        "LoV",
+        "NEC",
+        "ORK",
+        "QI",
+        "QT",
+        "SM",
+        "TS",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "conversion",
+      "weapon_uses": 16,
+      "factions": [
+        "CSM",
+        "DG",
+        "LoV",
+        "QI",
+        "QT",
+        "SM",
+        "TS",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "rapid fire d3",
+      "weapon_uses": 8,
+      "factions": [
+        "AoI",
+        "SM",
+        "WE"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "rapid fire d6+3",
+      "weapon_uses": 4,
+      "factions": [
+        "QI",
+        "QT"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "bubblechukka",
+      "weapon_uses": 3,
+      "factions": [
+        "ORK"
+      ],
+      "is_known_core": false
+    },
+    {
+      "token": "c'tan power",
+      "weapon_uses": 3,
+      "factions": [
+        "NEC"
+      ],
+      "is_known_core": false
+    },
+    {
+      "token": "plasma warhead",
+      "weapon_uses": 2,
+      "factions": [
+        "AM",
+        "GC"
+      ],
+      "is_known_core": false
+    },
+    {
+      "token": "reverberating summons",
+      "weapon_uses": 2,
+      "factions": [
+        "CD",
+        "DG"
+      ],
+      "is_known_core": false
+    },
+    {
+      "token": "impaled",
+      "weapon_uses": 2,
+      "factions": [
+        "CSM",
+        "WE"
+      ],
+      "is_known_core": false
+    },
+    {
+      "token": "snagged",
+      "weapon_uses": 2,
+      "factions": [
+        "ORK"
+      ],
+      "is_known_core": false
+    },
+    {
+      "token": "dead choppy",
+      "weapon_uses": 1,
+      "factions": [
+        "ORK"
+      ],
+      "is_known_core": false
+    },
+    {
+      "token": "rapid fire d6",
+      "weapon_uses": 1,
+      "factions": [
+        "SM"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "linked fire",
+      "weapon_uses": 1,
+      "factions": [
+        "AE"
+      ],
+      "is_known_core": false
+    },
+    {
+      "token": "psychic assassin",
+      "weapon_uses": 1,
+      "factions": [
+        "AoI"
+      ],
+      "is_known_core": true
+    },
+    {
+      "token": "hooked",
+      "weapon_uses": 1,
+      "factions": [
+        "TAU"
+      ],
+      "is_known_core": false
+    },
+    {
+      "token": "harpooned",
+      "weapon_uses": 1,
+      "factions": [
+        "TYR"
+      ],
+      "is_known_core": false
+    },
+    {
+      "token": "overcharge",
+      "weapon_uses": 1,
+      "factions": [
+        "LoV"
+      ],
+      "is_known_core": false
+    }
+  ]
+}

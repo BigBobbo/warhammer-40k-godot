@@ -25,6 +25,7 @@ var status_label: Label = null
 var reset_button: Button = null
 
 func setup(p_unit_id: String, p_in_engagement: bool, p_move_distance: float, phase, controller = null) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	unit_id = p_unit_id
 	in_engagement = p_in_engagement
 	move_distance = p_move_distance

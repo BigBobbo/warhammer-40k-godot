@@ -12,6 +12,7 @@ signal end_fight_cancelled()
 var unfought_units: Array = []
 
 func setup(p_unfought_units: Array) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	unfought_units = p_unfought_units
 
 	title = "End Fight Phase?"

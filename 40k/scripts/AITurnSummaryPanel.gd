@@ -109,8 +109,11 @@ func _build_ui() -> void:
 	title_bar.add_child(_close_button)
 
 	# Separator
-	var sep = HSeparator.new()
-	vbox.add_child(sep)
+	var _gsep1 = ColorRect.new()
+	_gsep1.custom_minimum_size = Vector2(0, 2)
+	_gsep1.color = Color(WhiteDwarfThemeData.WH_GOLD.r, WhiteDwarfThemeData.WH_GOLD.g, WhiteDwarfThemeData.WH_GOLD.b, 0.4)
+	_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_gsep1)
 
 	# Scroll container for summary content
 	_scroll_container = ScrollContainer.new()
@@ -131,8 +134,11 @@ func _build_ui() -> void:
 	_scroll_container.add_child(_summary_label)
 
 	# Bottom separator
-	var sep2 = HSeparator.new()
-	vbox.add_child(sep2)
+	var _gsep2 = ColorRect.new()
+	_gsep2.custom_minimum_size = Vector2(0, 2)
+	_gsep2.color = Color(WhiteDwarfThemeData.WH_GOLD.r, WhiteDwarfThemeData.WH_GOLD.g, WhiteDwarfThemeData.WH_GOLD.b, 0.4)
+	_gsep2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_gsep2)
 
 	# Dismiss button at bottom
 	_dismiss_button = Button.new()

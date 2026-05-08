@@ -15,6 +15,7 @@ var status_label: Label = null
 var reset_button: Button = null
 
 func setup(fighter_id: String, max_dist: float, phase, controller = null) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	unit_id = fighter_id
 	max_distance = max_dist
 	phase_reference = phase

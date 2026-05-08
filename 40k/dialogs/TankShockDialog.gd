@@ -21,6 +21,7 @@ var vehicle_unit_id: String = ""
 var eligible_targets: Array = []  # Array of { unit_id, unit_name, model_count }
 
 func setup(p_player: int, p_vehicle_unit_id: String, p_eligible_targets: Array) -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	player = p_player
 	vehicle_unit_id = p_vehicle_unit_id
 	eligible_targets = p_eligible_targets
