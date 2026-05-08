@@ -133,6 +133,30 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 			if not validation.valid:
 				errors.append_array(validation.errors)
 
+	# Check intra-unit overlap: no two models in the same deployment should overlap
+	if not unit.is_empty() and model_positions.size() > 1:
+		var models = unit.get("models", [])
+		for i in range(model_positions.size()):
+			if model_positions[i] == null:
+				continue
+			var model_i = models[i] if i < models.size() else {}
+			var shape_i = Measurement.create_base_shape(model_i)
+			if not shape_i:
+				continue
+			var rot_i = model_rotations[i] if i < model_rotations.size() else 0.0
+			for j in range(i + 1, model_positions.size()):
+				if model_positions[j] == null:
+					continue
+				var model_j = models[j] if j < models.size() else {}
+				var shape_j = Measurement.create_base_shape(model_j)
+				if not shape_j:
+					continue
+				var rot_j = model_rotations[j] if j < model_rotations.size() else 0.0
+				if shape_i.overlaps_with(shape_j, model_positions[i], rot_i, model_positions[j], rot_j):
+					var id_i = model_i.get("id", "model %d" % i)
+					var id_j = model_j.get("id", "model %d" % j)
+					errors.append("Models %s and %s overlap each other" % [id_i, id_j])
+
 	# Issue #335: Validate unit coherency (2" horizontal / 5" vertical) after per-model zone checks.
 	# Per WH40K 10e core rules, deployed units must be set up in unit coherency:
 	# - 2-6 models: each model within 2" horizontally + 5" vertically of at least 1 sibling
