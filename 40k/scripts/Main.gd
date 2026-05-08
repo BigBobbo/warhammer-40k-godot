@@ -164,6 +164,14 @@ var _hovered_deploy_unit_id: String = ""
 var _deploy_hover_tooltip: PanelContainer = null
 var _deploy_hover_tooltip_label: RichTextLabel = null
 
+# Board token hover tooltip
+var _token_hover_tooltip: PanelContainer = null
+var _token_hover_label: RichTextLabel = null
+var _token_hover_unit_id: String = ""
+
+var _aura_rings_layer: Node2D = null
+var _aura_rings_visible: bool = false
+
 # P3-54: Keyboard shortcut reference overlay during deployment
 var _keyboard_shortcut_overlay: KeyboardShortcutOverlay = null
 
@@ -192,6 +200,8 @@ var _score_display_container: HBoxContainer = null
 
 # P3-109: Turn/round progress indicator
 var _round_indicator_label: Label = null
+var _round_player_label: Label = null
+var _round_indicator_panel: PanelContainer = null
 
 # Phase progress strip
 var _phase_strip_container: HBoxContainer = null
@@ -441,6 +451,12 @@ func _ready() -> void:
 
 	# Setup deployment hover tooltip (T5-UX11)
 	_setup_deploy_hover_tooltip()
+
+	# Board token hover tooltip
+	_setup_token_hover_tooltip()
+
+	# Aura range rings layer
+	_setup_aura_rings_layer()
 
 	# Setup Game Event Log panel
 	_setup_game_log_panel()
@@ -797,6 +813,13 @@ func _setup_deployment_progress_indicator() -> void:
 	deployment_progress_container.offset_top = 100.0
 	deployment_progress_container.offset_bottom = 160.0
 	deployment_progress_container.visible = false
+	var dp_style = StyleBoxFlat.new()
+	dp_style.bg_color = Color(0.06, 0.05, 0.04, 0.95)
+	dp_style.border_color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	dp_style.set_border_width_all(1)
+	dp_style.set_corner_radius_all(3)
+	dp_style.set_content_margin_all(4)
+	deployment_progress_container.add_theme_stylebox_override("panel", dp_style)
 	add_child(deployment_progress_container)
 
 	var margin = MarginContainer.new()
@@ -818,6 +841,10 @@ func _setup_deployment_progress_indicator() -> void:
 
 	p1_progress_label = Label.new()
 	p1_progress_label.text = "Player 1 (Defender): 0/0 units deployed"
+	p1_progress_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(1))
+	p1_progress_label.add_theme_font_size_override("font_size", 13)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		p1_progress_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	p1_vbox.add_child(p1_progress_label)
 
 	p1_progress_bar = ProgressBar.new()
@@ -836,6 +863,10 @@ func _setup_deployment_progress_indicator() -> void:
 
 	p2_progress_label = Label.new()
 	p2_progress_label.text = "Player 2 (Attacker): 0/0 units deployed"
+	p2_progress_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(2))
+	p2_progress_label.add_theme_font_size_override("font_size", 13)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		p2_progress_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	p2_vbox.add_child(p2_progress_label)
 
 	p2_progress_bar = ProgressBar.new()
@@ -1895,22 +1926,8 @@ func _setup_reserves_button() -> void:
 	reserves_button.visible = false
 	reserves_button.disabled = true
 	reserves_button.custom_minimum_size = Vector2(0, 36)
-
-	# Style the button
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.2, 0.15, 0.3, 0.9)  # Dark purple for reserves
-	style.border_color = Color(0.6, 0.4, 0.8)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(4)
-	style.set_content_margin_all(8)
-	reserves_button.add_theme_stylebox_override("normal", style)
-
-	var hover_style = style.duplicate()
-	hover_style.bg_color = Color(0.3, 0.2, 0.4, 0.95)
-	reserves_button.add_theme_stylebox_override("hover", hover_style)
-
+	_WhiteDwarfTheme.apply_secondary_button(reserves_button)
 	reserves_button.add_theme_color_override("font_color", Color(0.85, 0.7, 1.0))
-	reserves_button.add_theme_font_size_override("font_size", 13)
 
 	reserves_button.pressed.connect(_on_reserves_button_pressed)
 
@@ -2460,7 +2477,27 @@ func _restructure_ui_layout() -> void:
 		hud_bottom.offset_top = 0.0
 		hud_bottom.offset_bottom = 100.0
 		print("Moved HUD_Bottom to top of screen")
-	
+
+	# Reparent the phase action button out of the crowded HBoxContainer
+	# and position it as a standalone element in the top-right corner
+	if phase_action_button:
+		var old_parent = phase_action_button.get_parent()
+		if old_parent:
+			old_parent.remove_child(phase_action_button)
+		add_child(phase_action_button)
+		phase_action_button.anchor_left = 1.0
+		phase_action_button.anchor_right = 1.0
+		phase_action_button.anchor_top = 0.0
+		phase_action_button.anchor_bottom = 0.0
+		phase_action_button.offset_left = -260
+		phase_action_button.offset_right = -8
+		phase_action_button.offset_top = 8
+		phase_action_button.offset_bottom = 52
+		phase_action_button.custom_minimum_size = Vector2(200, 40)
+		phase_action_button.z_index = 200
+		_WhiteDwarfTheme.apply_primary_button(phase_action_button)
+		print("Reparented PhaseActionButton to top-right corner")
+
 	# Create unit stats panel at bottom
 	_setup_unit_stats_panel()
 
@@ -2607,14 +2644,40 @@ func _setup_round_indicator() -> void:
 		print("Main: HUD_Bottom/HBoxContainer not found for round indicator")
 		return
 
-	# Create the round indicator label
+	# Styled panel container for round indicator
+	_round_indicator_panel = PanelContainer.new()
+	_round_indicator_panel.name = "RoundIndicatorPanel"
+	var ri_style = StyleBoxFlat.new()
+	ri_style.bg_color = Color(0.06, 0.05, 0.04, 0.95)
+	ri_style.border_color = Color(_WhiteDwarfTheme.WH_GOLD, 0.5)
+	ri_style.set_border_width_all(1)
+	ri_style.set_corner_radius_all(3)
+	ri_style.set_content_margin_all(2)
+	ri_style.content_margin_left = 8
+	ri_style.content_margin_right = 8
+	_round_indicator_panel.add_theme_stylebox_override("panel", ri_style)
+
+	var ri_hbox = HBoxContainer.new()
+	ri_hbox.add_theme_constant_override("separation", 6)
+	_round_indicator_panel.add_child(ri_hbox)
+
+	# Round number label
 	_round_indicator_label = Label.new()
 	_round_indicator_label.name = "RoundIndicator"
-	_round_indicator_label.add_theme_font_size_override("font_size", 16)
-	_round_indicator_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_round_indicator_label.add_theme_font_size_override("font_size", 14)
+	_round_indicator_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	_round_indicator_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if FactionPalettes:
-		_round_indicator_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
+		_round_indicator_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	ri_hbox.add_child(_round_indicator_label)
+
+	# Active player/faction label
+	_round_player_label = Label.new()
+	_round_player_label.name = "RoundPlayerLabel"
+	_round_player_label.add_theme_font_size_override("font_size", 13)
+	if FactionPalettes:
+		_round_player_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
+	ri_hbox.add_child(_round_player_label)
 
 	# Add separator before round indicator
 	var sep = VSeparator.new()
@@ -2624,11 +2687,11 @@ func _setup_round_indicator() -> void:
 	# Insert at the beginning of the HBox (before PhaseLabel) so it's always visible
 	hud_container.add_child(sep)
 	hud_container.move_child(sep, 0)
-	hud_container.add_child(_round_indicator_label)
-	hud_container.move_child(_round_indicator_label, 0)
+	hud_container.add_child(_round_indicator_panel)
+	hud_container.move_child(_round_indicator_panel, 0)
 
 	_update_round_indicator()
-	print("Main: P3-109: Round indicator created in top bar")
+	print("Main: P3-109: Round indicator created in top bar (enhanced)")
 
 func _setup_phase_strip() -> void:
 	var hud_bottom = get_node_or_null("HUD_Bottom")
@@ -2642,7 +2705,7 @@ func _setup_phase_strip() -> void:
 	_phase_strip_panel.anchor_top = 1.0
 	_phase_strip_panel.anchor_bottom = 1.0
 	_phase_strip_panel.offset_top = 0.0
-	_phase_strip_panel.offset_bottom = 26.0
+	_phase_strip_panel.offset_bottom = 30.0
 	var strip_style = StyleBoxFlat.new()
 	strip_style.bg_color = Color(0.06, 0.05, 0.04, 0.92)
 	strip_style.border_color = Color(WhiteDwarfTheme.WH_GOLD, 0.3)
@@ -2659,33 +2722,33 @@ func _setup_phase_strip() -> void:
 	_phase_strip_panel.add_child(_phase_strip_container)
 
 	var phases = [
-		[GameStateData.Phase.COMMAND, "CMD"],
-		[GameStateData.Phase.MOVEMENT, "MOV"],
-		[GameStateData.Phase.SHOOTING, "SHO"],
-		[GameStateData.Phase.CHARGE, "CHG"],
-		[GameStateData.Phase.FIGHT, "FGT"],
-		[GameStateData.Phase.SCORING, "SCR"],
+		[GameStateData.Phase.COMMAND, "Command"],
+		[GameStateData.Phase.MOVEMENT, "Movement"],
+		[GameStateData.Phase.SHOOTING, "Shooting"],
+		[GameStateData.Phase.CHARGE, "Charge"],
+		[GameStateData.Phase.FIGHT, "Fight"],
+		[GameStateData.Phase.SCORING, "Score"],
 	]
 
 	for i in range(phases.size()):
 		var phase_id = phases[i][0]
-		var phase_abbr = phases[i][1]
+		var phase_name = phases[i][1]
 
 		if i > 0:
 			var arrow = Label.new()
-			arrow.text = " ▸ "
-			arrow.add_theme_font_size_override("font_size", 10)
-			arrow.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_GOLD, 0.3))
+			arrow.text = "  ▸  "
+			arrow.add_theme_font_size_override("font_size", 11)
+			arrow.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_GOLD, 0.25))
 			arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			_phase_strip_container.add_child(arrow)
 
 		var lbl = Label.new()
-		lbl.text = phase_abbr
-		lbl.add_theme_font_size_override("font_size", 12)
+		lbl.text = phase_name
+		lbl.add_theme_font_size_override("font_size", 13)
 		lbl.add_theme_color_override("font_color", Color(0.5, 0.45, 0.35, 0.5))
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.custom_minimum_size = Vector2(36, 0)
+		lbl.custom_minimum_size = Vector2(60, 0)
 		if FactionPalettes:
 			lbl.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 		_phase_strip_container.add_child(lbl)
@@ -2722,15 +2785,15 @@ func _update_phase_strip() -> void:
 
 		if phase_id == current_game_phase:
 			lbl.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
-			lbl.add_theme_font_size_override("font_size", 14)
+			lbl.add_theme_font_size_override("font_size", 15)
 		elif idx < current_idx:
 			lbl.add_theme_color_override("font_color", Color(0.5, 0.45, 0.35, 0.4))
-			lbl.add_theme_font_size_override("font_size", 12)
+			lbl.add_theme_font_size_override("font_size", 13)
 		else:
 			lbl.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_PARCHMENT, 0.5))
-			lbl.add_theme_font_size_override("font_size", 12)
+			lbl.add_theme_font_size_override("font_size", 13)
 
-# P3-109: Update the round indicator text
+# P3-109: Update the round indicator text and player faction display
 func _update_round_indicator() -> void:
 	if not _round_indicator_label:
 		return
@@ -2743,9 +2806,29 @@ func _update_round_indicator() -> void:
 	if current_game_phase in [GameStateData.Phase.FORMATIONS, GameStateData.Phase.DEPLOYMENT,
 							  GameStateData.Phase.REDEPLOYMENT, GameStateData.Phase.SCOUT,
 							  GameStateData.Phase.ROLL_OFF]:
-		_round_indicator_label.text = "Setup"
+		_round_indicator_label.text = "SETUP"
+		if _round_player_label:
+			_round_player_label.text = ""
+			_round_player_label.visible = false
+		if _round_indicator_panel:
+			var style = _round_indicator_panel.get_theme_stylebox("panel") as StyleBoxFlat
+			if style:
+				style.border_color = Color(_WhiteDwarfTheme.WH_GOLD, 0.5)
 	else:
-		_round_indicator_label.text = "Round %d/5 - Player %d Turn" % [battle_round, active_player]
+		_round_indicator_label.text = "ROUND %d/5" % battle_round
+		if _round_player_label:
+			var faction_name = GameState.get_faction_name(active_player)
+			if faction_name == "":
+				faction_name = "Player %d" % active_player
+			_round_player_label.text = faction_name
+			_round_player_label.visible = true
+			var player_color = FactionPalettes.get_player_border_color(active_player) if FactionPalettes else _WhiteDwarfTheme.WH_PARCHMENT
+			_round_player_label.add_theme_color_override("font_color", player_color)
+		if _round_indicator_panel:
+			var player_color = FactionPalettes.get_player_border_color(active_player) if FactionPalettes else _WhiteDwarfTheme.WH_GOLD
+			var style = _round_indicator_panel.get_theme_stylebox("panel") as StyleBoxFlat
+			if style:
+				style.border_color = Color(player_color.r, player_color.g, player_color.b, 0.5)
 
 func _fix_hud_layout() -> void:
 	# Fix z-ordering: BoardRoot children (tokens z=10, effects up to z=102) would render
@@ -2780,12 +2863,24 @@ func _fix_hud_layout() -> void:
 		hud_right.anchor_top = 0.0
 		hud_right.offset_top = top_height  # Leave space for top panel
 		hud_right.z_index = UI_PANEL_Z
+		var right_style = StyleBoxFlat.new()
+		right_style.bg_color = Color(0.06, 0.05, 0.04, 0.92)
+		right_style.border_color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.5)
+		right_style.border_width_left = 2
+		right_style.set_content_margin_all(4)
+		hud_right.add_theme_stylebox_override("panel", right_style)
 		print("Fixed HUD layout: HUD_Right adjusted for new layout (full height, panel hidden)")
 
 	# Set z_index on HUD_Bottom
 	var hud_bottom = get_node_or_null("HUD_Bottom")
 	if hud_bottom:
 		hud_bottom.z_index = UI_PANEL_Z
+		var bottom_style = StyleBoxFlat.new()
+		bottom_style.bg_color = Color(0.06, 0.05, 0.04, 0.95)
+		bottom_style.border_color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.5)
+		bottom_style.border_width_top = 2
+		bottom_style.set_content_margin_all(4)
+		hud_bottom.add_theme_stylebox_override("panel", bottom_style)
 
 	# Set z_index on unit stats and secondary mission panels
 	if unit_stats_panel:
@@ -2844,19 +2939,19 @@ func _apply_white_dwarf_theme() -> void:
 	if status_label:
 		_WhiteDwarfTheme.apply_to_label(status_label)
 
-	# Theme score/CP display labels (preserve player colors)
+	# Theme score/CP display labels with faction colors
 	if _p1_score_label:
 		_WhiteDwarfTheme.apply_to_label(_p1_score_label)
-		_p1_score_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+		_p1_score_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(1))
 	if _p1_cp_label:
 		_WhiteDwarfTheme.apply_to_label(_p1_cp_label)
-		_p1_cp_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+		_p1_cp_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(1))
 	if _p2_score_label:
 		_WhiteDwarfTheme.apply_to_label(_p2_score_label)
-		_p2_score_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+		_p2_score_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(2))
 	if _p2_cp_label:
 		_WhiteDwarfTheme.apply_to_label(_p2_cp_label)
-		_p2_cp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+		_p2_cp_label.add_theme_color_override("font_color", FactionPalettes.get_player_color(2))
 
 	# Phase action button is a primary action — use prominent styling
 	if phase_action_button:
@@ -2898,8 +2993,28 @@ func _apply_white_dwarf_theme() -> void:
 	if stratagem_panel_button:
 		_WhiteDwarfTheme.apply_tab_button(stratagem_panel_button, false)
 	if auto_decline_overwatch:
-		auto_decline_overwatch.add_theme_font_size_override("font_size", 11)
+		auto_decline_overwatch.add_theme_font_size_override("font_size", 12)
 		auto_decline_overwatch.add_theme_color_override("font_color", Color(_WhiteDwarfTheme.WH_PARCHMENT, 0.7))
+	if status_label:
+		status_label.add_theme_font_size_override("font_size", 13)
+		status_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+		if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+			status_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
+	if active_player_badge:
+		active_player_badge.add_theme_font_size_override("font_size", 14)
+		if FactionPalettes.FONT_RAJDHANI_BOLD:
+			active_player_badge.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	if phase_label:
+		phase_label.add_theme_font_size_override("font_size", 13)
+		phase_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+		if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+			phase_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
+	var _terrain_lbl = get_node_or_null("HUD_Bottom/HBoxContainer/TerrainInfoLabel")
+	if _terrain_lbl:
+		_terrain_lbl.add_theme_font_size_override("font_size", 11)
+		_terrain_lbl.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
+		if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+			_terrain_lbl.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 
 	print("Main: White Dwarf theme applied")
 
@@ -2953,6 +3068,7 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	toggle_button.text = "▲ Unit Stats"
 	toggle_button.custom_minimum_size = Vector2(120, 30)
 	toggle_button.add_theme_font_size_override("font_size", 14)
+	_WhiteDwarfTheme.apply_secondary_button(toggle_button)
 	header.add_child(toggle_button)
 	
 	# Spacer
@@ -2980,17 +3096,27 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	var keywords_title = Label.new()
 	keywords_title.text = "Keywords: "
 	keywords_title.add_theme_font_size_override("font_size", 12)
+	keywords_title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		keywords_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	keywords_container.add_child(keywords_title)
 
 	var keywords_label = Label.new()
 	keywords_label.name = "KeywordsLabel"
 	keywords_label.text = "TEST KEYWORDS - Panel Working!"
 	keywords_label.add_theme_font_size_override("font_size", 12)
+	keywords_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		keywords_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	keywords_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	keywords_container.add_child(keywords_label)
 	
 	# Separator
-	content.add_child(HSeparator.new())
+	var _gsep1 = ColorRect.new()
+	_gsep1.custom_minimum_size = Vector2(0, 2)
+	_gsep1.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_child(_gsep1)
 	
 	# Stats section
 	var stats_container = VBoxContainer.new()
@@ -3005,10 +3131,17 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	stats_label.name = "StatsLabel"
 	stats_label.text = "M6\" | T4 | Sv3+ | W2 | Ld6+ | OC2 (PROGRAMMATIC TEST)"
 	stats_label.add_theme_font_size_override("font_size", 16)
+	stats_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		stats_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	stats_container.add_child(stats_label)
 	
 	# Separator
-	content.add_child(HSeparator.new())
+	var _gsep2 = ColorRect.new()
+	_gsep2.custom_minimum_size = Vector2(0, 2)
+	_gsep2.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_child(_gsep2)
 	
 	# Weapons section
 	var weapons_container = VBoxContainer.new()
@@ -3023,6 +3156,9 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	var weapons_test = Label.new()
 	weapons_test.text = "✓ Toggle button should be visible above\n✓ This content should be visible\n✓ Panel should be at screen bottom"
 	weapons_test.add_theme_font_size_override("font_size", 12)
+	weapons_test.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		weapons_test.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	weapons_container.add_child(weapons_test)
 	
 	# Store collapsed state as a property of the panel
@@ -3130,14 +3266,18 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 				if not ranged_weapons.is_empty():
 					var ranged_header = Label.new()
 					ranged_header.text = "RANGED WEAPONS"
-					ranged_header.add_theme_font_size_override("font_size", 10)
+					ranged_header.add_theme_font_size_override("font_size", 11)
 					ranged_header.add_theme_color_override("font_color", Color(0.6, 0.75, 1.0))
+					if FactionPalettes.FONT_RAJDHANI_BOLD:
+						ranged_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 					weapons_container.add_child(ranged_header)
 					# Column header row
 					var col_header = Label.new()
 					col_header.text = "  %-20s %5s %3s %4s %3s %3s %3s" % ["Name", "Range", "A", "BS", "S", "AP", "D"]
 					col_header.add_theme_font_size_override("font_size", 9)
-					col_header.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+					col_header.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
+					if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+						col_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 					weapons_container.add_child(col_header)
 					for weapon in ranged_weapons:
 						var wl = Label.new()
@@ -3154,7 +3294,9 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 							weapon.get("damage", "-")
 						]
 						wl.add_theme_font_size_override("font_size", 11)
-						wl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+						wl.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+						if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+							wl.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 						var keywords = weapon.get("keywords", [])
 						if not keywords.is_empty():
 							wl.tooltip_text = ", ".join(keywords)
@@ -3164,13 +3306,17 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 				if not melee_weapons.is_empty():
 					var melee_header = Label.new()
 					melee_header.text = "MELEE WEAPONS"
-					melee_header.add_theme_font_size_override("font_size", 10)
+					melee_header.add_theme_font_size_override("font_size", 11)
 					melee_header.add_theme_color_override("font_color", Color(1.0, 0.6, 0.5))
+					if FactionPalettes.FONT_RAJDHANI_BOLD:
+						melee_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 					weapons_container.add_child(melee_header)
 					var col_header_m = Label.new()
 					col_header_m.text = "  %-20s %5s %3s %4s %3s %3s %3s" % ["Name", "Range", "A", "WS", "S", "AP", "D"]
 					col_header_m.add_theme_font_size_override("font_size", 9)
-					col_header_m.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+					col_header_m.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
+					if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+						col_header_m.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 					weapons_container.add_child(col_header_m)
 					for weapon in melee_weapons:
 						var wl = Label.new()
@@ -3187,7 +3333,9 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 							weapon.get("damage", "-")
 						]
 						wl.add_theme_font_size_override("font_size", 11)
-						wl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+						wl.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+						if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+							wl.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 						var keywords = weapon.get("keywords", [])
 						if not keywords.is_empty():
 							wl.tooltip_text = ", ".join(keywords)
@@ -3547,10 +3695,17 @@ func _setup_transport_panel() -> void:
 	title_label.name = "TransportTitle"
 	title_label.text = "Transport Status"
 	title_label.add_theme_font_size_override("font_size", 14)
+	title_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		title_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	vbox.add_child(title_label)
 
 	# Separator
-	vbox.add_child(HSeparator.new())
+	var _gsep3 = ColorRect.new()
+	_gsep3.custom_minimum_size = Vector2(0, 2)
+	_gsep3.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep3.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_gsep3)
 
 	# Transport info label
 	var info_label = RichTextLabel.new()
@@ -3571,6 +3726,7 @@ func _setup_transport_panel() -> void:
 	embark_button.text = "Embark"
 	embark_button.visible = false
 	embark_button.pressed.connect(_on_embark_button_pressed)
+	_WhiteDwarfTheme.apply_secondary_button(embark_button)
 	button_container.add_child(embark_button)
 
 	# Disembark button (for embarked units)
@@ -3579,6 +3735,7 @@ func _setup_transport_panel() -> void:
 	disembark_button.text = "Disembark"
 	disembark_button.visible = false
 	disembark_button.pressed.connect(_on_disembark_button_pressed)
+	_WhiteDwarfTheme.apply_secondary_button(disembark_button)
 	button_container.add_child(disembark_button)
 
 	# Add panel to HUD_Right
@@ -4557,6 +4714,13 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# Aura rings toggle - KEY_A
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_A \
+			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+		_toggle_aura_rings()
+		get_viewport().set_input_as_handled()
+		return
+
 	# T-109: Grid overlay toggle - KEY_G
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_G \
 			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
@@ -4775,7 +4939,11 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and MeasuringTapeManager.is_measuring:
 		var world_pos = screen_to_world_position(event.position)
 		MeasuringTapeManager.update_measurement(world_pos)
-	
+
+	# Board token hover tooltip
+	if event is InputEventMouseMotion:
+		_check_token_hover(event.position)
+
 	# Don't process other input while dialog is open
 	if save_load_dialog and save_load_dialog.visible:
 		return
@@ -5641,6 +5809,103 @@ func _hide_deploy_hover_tooltip() -> void:
 # END T5-UX11
 # ═══════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════
+# Board token hover tooltip
+# ═══════════════════════════════════════════════════════
+
+func _setup_token_hover_tooltip() -> void:
+	_token_hover_tooltip = PanelContainer.new()
+	_token_hover_tooltip.name = "TokenHoverTooltip"
+	_token_hover_tooltip.visible = false
+	_token_hover_tooltip.z_index = UI_OVERLAY_Z
+	_token_hover_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.05, 0.04, 0.95)
+	style.border_color = Color(WhiteDwarfTheme.WH_GOLD, 0.6)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(8)
+	_token_hover_tooltip.add_theme_stylebox_override("panel", style)
+	_token_hover_label = RichTextLabel.new()
+	_token_hover_label.bbcode_enabled = true
+	_token_hover_label.fit_content = true
+	_token_hover_label.scroll_active = false
+	_token_hover_label.custom_minimum_size = Vector2(180, 0)
+	_token_hover_label.add_theme_font_size_override("normal_font_size", 11)
+	_token_hover_label.add_theme_font_size_override("bold_font_size", 12)
+	_token_hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_token_hover_tooltip.add_child(_token_hover_label)
+	add_child(_token_hover_tooltip)
+
+func _check_token_hover(mouse_pos: Vector2) -> void:
+	if not token_layer or not is_instance_valid(token_layer):
+		return
+	var board_pos = camera.get_global_transform().affine_inverse() * mouse_pos
+	var best_token: Node2D = null
+	var best_dist: float = 40.0
+	for child in token_layer.get_children():
+		if not child.visible:
+			continue
+		var dist = child.global_position.distance_to(board_pos)
+		if dist < best_dist:
+			best_dist = dist
+			best_token = child
+	if best_token and best_token.has_meta("unit_id"):
+		var uid = best_token.get_meta("unit_id")
+		if uid != _token_hover_unit_id:
+			_token_hover_unit_id = uid
+			_show_token_hover(uid, mouse_pos)
+		elif _token_hover_tooltip:
+			_token_hover_tooltip.position = Vector2(mouse_pos.x + 16, mouse_pos.y - 10)
+	elif _token_hover_unit_id != "":
+		_hide_token_hover()
+
+func _show_token_hover(unit_id: String, screen_pos: Vector2) -> void:
+	if not _token_hover_tooltip:
+		_setup_token_hover_tooltip()
+	var units = GameState.state.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		_hide_token_hover()
+		return
+	var name = unit.get("name", "Unknown")
+	var stats = unit.get("stats", {})
+	var m = stats.get("M", "?")
+	var t = stats.get("T", "?")
+	var sv = stats.get("Sv", "?")
+	var w = stats.get("W", "?")
+	var oc = stats.get("OC", "?")
+	var models = unit.get("models", [])
+	var alive = 0
+	var total_w_current = 0
+	var total_w_max = 0
+	for mdl in models:
+		if mdl.get("alive", true):
+			alive += 1
+			total_w_current += mdl.get("wounds_remaining", 0)
+			total_w_max += mdl.get("wounds_max", mdl.get("wounds_remaining", 0))
+	var total_models = models.size()
+	var player = unit.get("player", 0)
+	var player_color = "#6699CC" if player == 1 else "#CC6666"
+	var keywords = unit.get("keywords", [])
+	var kw_short = ", ".join(keywords.slice(0, 3))
+	if keywords.size() > 3:
+		kw_short += "..."
+	var text = "[b][color=%s]%s[/color][/b]\n" % [player_color, name]
+	text += "[color=#D49761]M[/color]:%s  [color=#D49761]T[/color]:%s  [color=#D49761]Sv[/color]:%s  [color=#D49761]W[/color]:%s  [color=#D49761]OC[/color]:%s\n" % [str(m), str(t), str(sv), str(w), str(oc)]
+	text += "[color=#AAAAAA]Models: %d/%d  Wounds: %d/%d[/color]" % [alive, total_models, total_w_current, total_w_max]
+	if kw_short != "":
+		text += "\n[color=#888888][i]%s[/i][/color]" % kw_short
+	_token_hover_label.text = ""
+	_token_hover_label.append_text(text)
+	_token_hover_tooltip.position = Vector2(screen_pos.x + 16, screen_pos.y - 10)
+	_token_hover_tooltip.visible = true
+
+func _hide_token_hover() -> void:
+	_token_hover_unit_id = ""
+	if _token_hover_tooltip:
+		_token_hover_tooltip.visible = false
+
 func _on_unit_selected(index: int) -> void:
 	# Hide hover tooltip when a unit is selected for deployment
 	_hide_deploy_hover_tooltip()
@@ -6245,9 +6510,11 @@ func _create_deployment_log_panel() -> void:
 	vbox.add_child(header)
 
 	# Separator
-	var sep = HSeparator.new()
-	sep.add_theme_constant_override("separation", 2)
-	vbox.add_child(sep)
+	var _gsep4 = ColorRect.new()
+	_gsep4.custom_minimum_size = Vector2(0, 2)
+	_gsep4.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep4.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_gsep4)
 
 	# Scrollable log content
 	var scroll = ScrollContainer.new()
@@ -7885,6 +8152,12 @@ func _on_phase_action_pressed() -> void:
 						var skip_action = {"type": "SKIP_SCOUT_MOVE", "unit_id": pending_uid, "player": active_player}
 						NetworkIntegration.route_action(skip_action)
 			_scout_cleanup_after_move()
+			# The skip loop above may have auto-completed the scout phase
+			# (BasePhase emits phase_completed when _should_complete_phase() returns true).
+			# If we're no longer in SCOUT, the phase already advanced — don't dispatch
+			# END_SCOUT_PHASE or the fallback at line 8223 will skip the Command Phase.
+			if GameState.get_current_phase() != GameStateData.Phase.SCOUT:
+				return
 			action = {"type": "END_SCOUT_PHASE", "player": active_player}
 		GameStateData.Phase.SCOUT_MOVES:
 			action = {"type": "END_SCOUT_MOVES", "player": active_player}
@@ -7983,6 +8256,7 @@ func update_ui_for_phase() -> void:
 	phase_action_button.visible = true
 	phase_action_button.text = _get_phase_button_text(current_phase)
 	phase_action_button.tooltip_text = _get_phase_button_tooltip(current_phase)
+	_WhiteDwarfTheme.apply_primary_button(phase_action_button)
 
 	# Set initial disabled state based on phase
 	# Deployment phase starts disabled (enabled when all units deployed)
@@ -8031,6 +8305,10 @@ func update_ui_for_phase() -> void:
 		if current_phase == GameStateData.Phase.DEPLOYMENT:
 			_update_deployment_progress()
 
+	# Only show auto-decline overwatch during phases where overwatch is relevant
+	if auto_decline_overwatch:
+		var overwatch_phases = [GameStateData.Phase.MOVEMENT, GameStateData.Phase.SHOOTING, GameStateData.Phase.CHARGE]
+		auto_decline_overwatch.visible = current_phase in overwatch_phases
 
 	# Show/hide waiting-for-opponent overlay based on phase (T5-MP6 + T5-MP8)
 	_update_waiting_for_opponent_overlay()
@@ -9095,9 +9373,11 @@ func _setup_dice_history_panel() -> void:
 	vbox.add_child(header)
 
 	var title = Label.new()
-	title.text = "Dice History"
+	title.text = "DICE HISTORY"
 	title.add_theme_font_size_override("font_size", 14)
-	title.add_theme_color_override("font_color", Color(0.7, 0.5, 0.9))  # Purple
+	title.add_theme_color_override("font_color", Color(0.7, 0.5, 0.9))
+	if FactionPalettes.FONT_RAJDHANI_BOLD:
+		title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 
@@ -9106,6 +9386,7 @@ func _setup_dice_history_panel() -> void:
 	clear_btn.custom_minimum_size = Vector2(45, 25)
 	clear_btn.add_theme_font_size_override("font_size", 11)
 	clear_btn.pressed.connect(_on_dice_history_clear_pressed)
+	_WhiteDwarfTheme.apply_secondary_button(clear_btn)
 	header.add_child(clear_btn)
 
 	var collapse_btn = Button.new()
@@ -9113,11 +9394,15 @@ func _setup_dice_history_panel() -> void:
 	collapse_btn.custom_minimum_size = Vector2(30, 25)
 	collapse_btn.add_theme_font_size_override("font_size", 12)
 	collapse_btn.pressed.connect(_on_dice_history_collapse_pressed)
+	_WhiteDwarfTheme.apply_secondary_button(collapse_btn)
 	header.add_child(collapse_btn)
 
 	# Separator
-	var sep = HSeparator.new()
-	vbox.add_child(sep)
+	var _gsep5 = ColorRect.new()
+	_gsep5.custom_minimum_size = Vector2(0, 2)
+	_gsep5.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep5.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_gsep5)
 
 	# Scroll container for dice history entries
 	_dice_history_scroll = ScrollContainer.new()
@@ -9153,6 +9438,7 @@ func _setup_dice_history_panel() -> void:
 		_dice_history_toggle_button.name = "DiceHistoryToggle"
 		_dice_history_toggle_button.text = "Dice History"
 		_dice_history_toggle_button.pressed.connect(_on_dice_history_toggle_pressed)
+		_WhiteDwarfTheme.apply_tab_button(_dice_history_toggle_button, false)
 		hud_bottom.add_child(_dice_history_toggle_button)
 		# Position after the game log toggle button
 		var log_toggle_idx = game_log_toggle_button.get_index() if game_log_toggle_button else 1
@@ -9614,6 +9900,95 @@ func _get_unit_wound_summary(unit_data: Dictionary) -> String:
 		return ""
 	return " [%d/%dW]" % [total_current, total_max]
 
+# Aura range rings for characters with aura abilities
+func _setup_aura_rings_layer() -> void:
+	var board_root_node = get_node_or_null("BoardRoot")
+	if board_root_node == null:
+		return
+	_aura_rings_layer = Node2D.new()
+	_aura_rings_layer.name = "AuraRingsLayer"
+	_aura_rings_layer.z_index = 1
+	_aura_rings_layer.visible = false
+	board_root_node.add_child(_aura_rings_layer)
+	print("Main: Aura rings layer created")
+
+func _toggle_aura_rings() -> void:
+	_aura_rings_visible = not _aura_rings_visible
+	if _aura_rings_visible:
+		_refresh_aura_rings()
+		if _aura_rings_layer:
+			_aura_rings_layer.visible = true
+		print("Main: Aura rings shown (A)")
+	else:
+		if _aura_rings_layer:
+			_aura_rings_layer.visible = false
+		print("Main: Aura rings hidden (A)")
+
+func _refresh_aura_rings() -> void:
+	if not _aura_rings_layer:
+		return
+	for child in _aura_rings_layer.get_children():
+		child.queue_free()
+
+	# Scan both players' units for aura abilities
+	for player in [1, 2]:
+		var units = GameState.get_units_for_player(player)
+		for unit_id in units:
+			var unit = units[unit_id]
+			var meta = unit.get("meta", {})
+			var abilities = meta.get("abilities", [])
+
+			# Collect aura abilities: check each ability's name against ABILITY_EFFECTS
+			# and also detect "(Aura)" in the name as a fallback
+			var aura_abilities: Array = []  # [{name, range}]
+			for ability in abilities:
+				var aname = ""
+				if ability is Dictionary:
+					aname = ability.get("name", "")
+				elif ability is String:
+					aname = ability
+				if aname == "" or aname == "Core":
+					continue
+
+				var effect = UnitAbilityManager.get_ability_effect_definition(aname)
+				if not effect.is_empty():
+					var aura_range = effect.get("aura_range", 0.0)
+					if aura_range > 0.0:
+						aura_abilities.append({"name": aname, "range": aura_range})
+						continue
+
+				# Fallback: detect "(Aura)" in name
+				if "(Aura)" in aname:
+					aura_abilities.append({"name": aname, "range": 6.0})
+
+			for aura in aura_abilities:
+				var ability_name = aura.name
+				var aura_range = aura.range
+
+				var anchor_pos = Vector2.ZERO
+				for model in unit.get("models", []):
+					if model.get("alive", true) or model.get("wounds", 1) > 0:
+						var pos = model.get("position")
+						if pos is Dictionary:
+							anchor_pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+						elif pos is Vector2:
+							anchor_pos = pos
+						if anchor_pos != Vector2.ZERO:
+							break
+
+				if anchor_pos == Vector2.ZERO:
+					continue
+
+				var range_px = Measurement.inches_to_px(aura_range)
+				var faction_color = FactionPalettes.get_player_color(player)
+				var circle = preload("res://scripts/RangeCircle.gd").new()
+				circle.position = anchor_pos
+				circle.setup(range_px, ability_name, Color(faction_color.r, faction_color.g, faction_color.b, 0.5), true)
+				circle.pulse_enabled = true
+				_aura_rings_layer.add_child(circle)
+
+	print("Main: Refreshed aura rings — %d children" % _aura_rings_layer.get_child_count())
+
 # T-109: Grid overlay (1" tactical grid lines on the board)
 var _grid_overlay: Node2D = null
 
@@ -9748,7 +10123,11 @@ func _toggle_chat_panel() -> void:
 	title.text = "Chat / Feed"
 	title.add_theme_font_size_override("font_size", 14)
 	vbox.add_child(title)
-	vbox.add_child(HSeparator.new())
+	var _gsep6 = ColorRect.new()
+	_gsep6.custom_minimum_size = Vector2(0, 2)
+	_gsep6.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep6.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_gsep6)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -9806,7 +10185,11 @@ func _toggle_weapon_range_comparison_panel() -> void:
 	title.add_theme_font_size_override("font_size", 16)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
-	vbox.add_child(HSeparator.new())
+	var _gsep7 = ColorRect.new()
+	_gsep7.custom_minimum_size = Vector2(0, 2)
+	_gsep7.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep7.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_gsep7)
 	var hdr := HBoxContainer.new()
 	for col in [["Range", 60], ["Weapon", 180], ["Owner", 50]]:
 		var l := Label.new()
@@ -9940,7 +10323,11 @@ func _toggle_vp_timeline_panel() -> void:
 	title.add_theme_font_size_override("font_size", 18)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
-	vbox.add_child(HSeparator.new())
+	var _gsep8 = ColorRect.new()
+	_gsep8.custom_minimum_size = Vector2(0, 2)
+	_gsep8.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep8.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_gsep8)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -10004,7 +10391,11 @@ func _refresh_vp_timeline_panel() -> void:
 		reason_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(reason_label)
 		_vp_timeline_list.add_child(row)
-	_vp_timeline_list.add_child(HSeparator.new())
+	var _gsep9 = ColorRect.new()
+	_gsep9.custom_minimum_size = Vector2(0, 2)
+	_gsep9.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep9.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_vp_timeline_list.add_child(_gsep9)
 	var totals := Label.new()
 	totals.text = "Totals — P1: %d   P2: %d" % [p1_total, p2_total]
 	totals.add_theme_font_size_override("font_size", 13)
@@ -10033,7 +10424,11 @@ func _toggle_hotkey_help_overlay() -> void:
 	title.add_theme_font_size_override("font_size", 18)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
-	vbox.add_child(HSeparator.new())
+	var _gsep10 = ColorRect.new()
+	_gsep10.custom_minimum_size = Vector2(0, 2)
+	_gsep10.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep10.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_gsep10)
 	var entries := [
 		["Enter / Return", "Advance phase / confirm action"],
 		["?  /  Shift+/", "Show / hide this help"],
@@ -10058,7 +10453,11 @@ func _toggle_hotkey_help_overlay() -> void:
 		desc_label.add_theme_font_size_override("font_size", 14)
 		row.add_child(desc_label)
 		vbox.add_child(row)
-	vbox.add_child(HSeparator.new())
+	var _gsep11 = ColorRect.new()
+	_gsep11.custom_minimum_size = Vector2(0, 2)
+	_gsep11.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
+	_gsep11.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_gsep11)
 	var hint := Label.new()
 	hint.text = "Press ? again to close"
 	hint.add_theme_font_size_override("font_size", 12)
@@ -10334,7 +10733,9 @@ func _refresh_tokens_for_unit(uid: String) -> void:
 
 func _scout_find_model_at_position(world_pos: Vector2) -> Dictionary:
 	"""Find a model belonging to the active scout unit at the given world position.
-	Returns full model data from GameState for proper ghost visual creation."""
+	Returns full model data from GameState for proper ghost visual creation.
+	Checks both direct children and grandchildren of TokenLayer because
+	DeploymentController creates wrapper Node2D -> TokenVisual (metadata on child)."""
 	if not token_layer or _scout_active_unit_id == "":
 		return {}
 
@@ -10342,22 +10743,32 @@ func _scout_find_model_at_position(world_pos: Vector2) -> Dictionary:
 	var closest_distance = INF
 
 	for child in token_layer.get_children():
+		# The metadata node may be the direct child OR a grandchild
+		# (DeploymentController nests TokenVisual inside a wrapper Node2D)
+		var meta_node = child
+		var visual_pos = child.position
 		if not child.has_meta("unit_id") or not child.has_meta("model_id"):
-			continue
-		if child.get_meta("unit_id") != _scout_active_unit_id:
+			# Check first child for nested deployment tokens
+			if child.get_child_count() > 0:
+				var inner = child.get_child(0)
+				if inner.has_meta("unit_id") and inner.has_meta("model_id"):
+					meta_node = inner
+				else:
+					continue
+			else:
+				continue
+		if meta_node.get_meta("unit_id") != _scout_active_unit_id:
 			continue
 
-		var model_id = child.get_meta("model_id")
-		var visual_pos = child.position
+		var model_id = meta_node.get_meta("model_id")
 		var distance = world_pos.distance_to(visual_pos)
 
 		var base_radius = 16.0
-		if child.has_meta("base_mm"):
-			base_radius = Measurement.base_radius_px(child.get_meta("base_mm"))
+		if meta_node.has_meta("base_mm"):
+			base_radius = Measurement.base_radius_px(meta_node.get_meta("base_mm"))
 
 		if distance <= base_radius and distance < closest_distance:
 			closest_distance = distance
-			# Fetch complete model data from GameState (same as MovementController)
 			var unit = GameState.get_unit(_scout_active_unit_id)
 			if not unit.is_empty():
 				var models = unit.get("models", [])
@@ -10368,13 +10779,12 @@ func _scout_find_model_at_position(world_pos: Vector2) -> Dictionary:
 						closest_model["model_id"] = model_id
 						closest_model["position"] = visual_pos
 						break
-			# Fallback if GameState lookup fails
 			if closest_model.is_empty():
 				closest_model = {
 					"unit_id": _scout_active_unit_id,
 					"model_id": model_id,
 					"position": visual_pos,
-					"base_mm": child.get_meta("base_mm") if child.has_meta("base_mm") else 32
+					"base_mm": meta_node.get_meta("base_mm") if meta_node.has_meta("base_mm") else 32
 				}
 
 	return closest_model
@@ -10590,11 +11000,14 @@ func _scout_handle_mouse_motion(screen_pos: Vector2) -> void:
 
 	var world_pos = screen_to_world_position(screen_pos)
 
-	# Move the visual token (same as before)
+	# Move the visual token — handle both flat and nested (deployment) token structures
 	if token_layer:
 		for child in token_layer.get_children():
-			if child.has_meta("unit_id") and child.get_meta("unit_id") == _scout_active_unit_id \
-			   and child.has_meta("model_id") and child.get_meta("model_id") == _scout_drag_model_id:
+			var meta_node = child
+			if not child.has_meta("unit_id") and child.get_child_count() > 0:
+				meta_node = child.get_child(0)
+			if meta_node.has_meta("unit_id") and meta_node.get_meta("unit_id") == _scout_active_unit_id \
+			   and meta_node.has_meta("model_id") and meta_node.get_meta("model_id") == _scout_drag_model_id:
 				child.position = world_pos
 				break
 
@@ -10664,8 +11077,11 @@ func _scout_handle_mouse_release(screen_pos: Vector2) -> void:
 		status_label.text = "Invalid: " + str(result.get("errors", ["Move rejected"]))
 		if token_layer:
 			for child in token_layer.get_children():
-				if child.has_meta("unit_id") and child.get_meta("unit_id") == _scout_active_unit_id \
-				   and child.has_meta("model_id") and child.get_meta("model_id") == _scout_drag_model_id:
+				var meta_node = child
+				if not child.has_meta("unit_id") and child.get_child_count() > 0:
+					meta_node = child.get_child(0)
+				if meta_node.has_meta("unit_id") and meta_node.get_meta("unit_id") == _scout_active_unit_id \
+				   and meta_node.has_meta("model_id") and meta_node.get_meta("model_id") == _scout_drag_model_id:
 					child.position = _scout_drag_start_pos
 					break
 
@@ -10731,8 +11147,11 @@ func _on_scout_confirm_pressed() -> void:
 		refresh_unit_list()
 		status_label.text = "Scout move confirmed. Select next unit."
 	else:
-		print("Main: Scout confirm failed: ", result.get("errors", []))
-		status_label.text = "Error: " + str(result.get("errors", ["Confirm failed"]))
+		var errors = result.get("errors", ["Confirm failed"])
+		print("Main: Scout confirm failed: ", errors)
+		status_label.text = "Error: " + str(errors)
+		if has_node("/root/ToastManager"):
+			get_node("/root/ToastManager").show_toast(str(errors[0]) if errors.size() > 0 else "Confirm failed", "error")
 
 func _scout_show_confirmed_paths() -> void:
 	"""Show confirmed movement paths (hold + fade) for the scout move that was just confirmed.
@@ -10834,8 +11253,11 @@ func _scout_reset_previous_unit(previous_unit_id: String) -> void:
 			# Restore visual token positions
 			if token_layer:
 				for child in token_layer.get_children():
-					if child.has_meta("unit_id") and child.get_meta("unit_id") == previous_unit_id:
-						var model_id = child.get_meta("model_id") if child.has_meta("model_id") else ""
+					var meta_node = child
+					if not child.has_meta("unit_id") and child.get_child_count() > 0:
+						meta_node = child.get_child(0)
+					if meta_node.has_meta("unit_id") and meta_node.get_meta("unit_id") == previous_unit_id:
+						var model_id = meta_node.get_meta("model_id") if meta_node.has_meta("model_id") else ""
 						if original_positions.has(model_id):
 							var orig = original_positions[model_id]
 							child.position = Vector2(orig.x, orig.y)
@@ -10868,13 +11290,16 @@ func _scout_highlight_active_unit(unit_id: String, scout_distance: float) -> voi
 	var range_px = scout_distance * 40.0  # PX_PER_INCH = 40.0
 
 	for child in token_layer.get_children():
-		if not child.has_meta("unit_id") or child.get_meta("unit_id") != unit_id:
+		var meta_node = child
+		if not child.has_meta("unit_id") and child.get_child_count() > 0:
+			meta_node = child.get_child(0)
+		if not meta_node.has_meta("unit_id") or meta_node.get_meta("unit_id") != unit_id:
 			continue
 
 		# Use set_selected for the pulsing gold ring (same as MovementController)
-		if child.has_method("set_selected"):
-			child.set_selected(true)
-			child.set_meta("scout_was_selected", true)
+		if meta_node.has_method("set_selected"):
+			meta_node.set_selected(true)
+			meta_node.set_meta("scout_was_selected", true)
 
 		# Add a movement range circle around each model (improved style)
 		var range_circle = _scout_create_range_circle(range_px)
@@ -10939,11 +11364,18 @@ func _scout_clear_highlights() -> void:
 		return
 
 	for child in token_layer.get_children():
+		# Check both the direct child and its inner node for nested tokens
+		var meta_node = child
+		if not child.has_meta("scout_was_selected") and child.get_child_count() > 0:
+			var inner = child.get_child(0)
+			if inner.has_meta("scout_was_selected"):
+				meta_node = inner
+
 		# Deselect models (remove pulsing gold ring)
-		if child.has_meta("scout_was_selected"):
-			if child.has_method("set_selected"):
-				child.set_selected(false)
-			child.remove_meta("scout_was_selected")
+		if meta_node.has_meta("scout_was_selected"):
+			if meta_node.has_method("set_selected"):
+				meta_node.set_selected(false)
+			meta_node.remove_meta("scout_was_selected")
 
 		# Remove range circle children
 		var to_remove = []
@@ -10991,6 +11423,23 @@ func _install_unit_list_filter() -> void:
 	_unit_list_filter_edit.clear_button_enabled = true
 	_unit_list_filter_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_unit_list_filter_edit.text_changed.connect(_on_unit_list_filter_changed)
+	# WhiteDwarf theme styling
+	var filter_style = StyleBoxFlat.new()
+	filter_style.bg_color = Color(0.08, 0.08, 0.10, 0.95)
+	filter_style.border_color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.5)
+	filter_style.set_border_width_all(1)
+	filter_style.set_corner_radius_all(3)
+	filter_style.set_content_margin_all(4)
+	_unit_list_filter_edit.add_theme_stylebox_override("normal", filter_style)
+	var filter_focus_style = filter_style.duplicate()
+	filter_focus_style.border_color = WhiteDwarfTheme.WH_GOLD
+	_unit_list_filter_edit.add_theme_stylebox_override("focus", filter_focus_style)
+	_unit_list_filter_edit.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
+	_unit_list_filter_edit.add_theme_color_override("font_placeholder_color", Color(0.55, 0.52, 0.45))
+	_unit_list_filter_edit.add_theme_color_override("caret_color", WhiteDwarfTheme.WH_GOLD)
+	_unit_list_filter_edit.add_theme_font_size_override("font_size", 12)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		_unit_list_filter_edit.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	parent.add_child(_unit_list_filter_edit)
 	parent.move_child(_unit_list_filter_edit, unit_list.get_index())
 	print("Main: T-104 unit-list filter installed")
