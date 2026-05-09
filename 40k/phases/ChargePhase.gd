@@ -1425,10 +1425,14 @@ func _is_target_within_charge_range(unit_id: String, target_id: String) -> bool:
 	var target = get_unit(target_id)
 
 	if unit.is_empty() or target.is_empty():
+		DebugLogger.info(str("[ChargePhase] _is_target_within_charge_range: %s or %s is EMPTY" % [unit_id, target_id]))
 		return false
 
 	# Find closest edge-to-edge distance between any models using shape-aware calculations
 	var min_distance = INF
+	var checked_pairs = 0
+	var skipped_null_charger = 0
+	var skipped_null_target = 0
 
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
@@ -1436,6 +1440,7 @@ func _is_target_within_charge_range(unit_id: String, target_id: String) -> bool:
 
 		var model_pos = _get_model_position(model)
 		if model_pos == null:
+			skipped_null_charger += 1
 			continue
 
 		for target_model in target.get("models", []):
@@ -1444,14 +1449,24 @@ func _is_target_within_charge_range(unit_id: String, target_id: String) -> bool:
 
 			var target_pos = _get_model_position(target_model)
 			if target_pos == null:
+				skipped_null_target += 1
 				continue
 
 			# Use shape-aware distance calculation
 			var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
+			checked_pairs += 1
 
-			min_distance = min(min_distance, distance_inches)
+			if distance_inches < min_distance:
+				min_distance = distance_inches
+				if distance_inches <= CHARGE_RANGE_INCHES:
+					DebugLogger.info(str("[ChargePhase] CHARGE IN RANGE: %s model %s (pos %s) -> %s model %s (pos %s) = %.2f\"" % [unit_id, model.get("id","?"), str(model_pos), target_id, target_model.get("id","?"), str(target_pos), distance_inches]))
 
-	return min_distance <= CHARGE_RANGE_INCHES
+	if checked_pairs == 0:
+		DebugLogger.info(str("[ChargePhase] _is_target_within_charge_range: %s -> %s — 0 pairs checked (null_charger=%d, null_target=%d)" % [unit_id, target_id, skipped_null_charger, skipped_null_target]))
+
+	var result = min_distance <= CHARGE_RANGE_INCHES
+	DebugLogger.info(str("[ChargePhase] _is_target_within_charge_range: %s -> %s, min_dist=%.2f\", range=%.1f\", eligible=%s" % [unit_id, target_id, min_distance, CHARGE_RANGE_INCHES, str(result)]))
+	return result
 
 func _get_eligible_targets_for_unit(unit_id: String) -> Dictionary:
 	var eligible = {}
@@ -2200,11 +2215,14 @@ func get_available_actions() -> Array:
 	# Units that can declare charges
 	for unit_id in units:
 		var unit = units[unit_id]
-		if _can_unit_charge(unit) and unit_id not in completed_charges:
+		var can_charge = _can_unit_charge(unit)
+		var not_completed = unit_id not in completed_charges
+		if can_charge and not_completed:
 
 			# If no charge declared, can declare charge
 			if not pending_charges.has(unit_id):
 				var eligible_targets = _get_eligible_targets_for_unit(unit_id)
+				DebugLogger.info(str("[ChargePhase] get_available_actions: %s can_charge=%s, eligible_targets=%d" % [unit_id, str(can_charge), eligible_targets.size()]))
 				for target_id in eligible_targets:
 					actions.append({
 						"type": "DECLARE_CHARGE",

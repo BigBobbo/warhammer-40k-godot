@@ -41,10 +41,10 @@ static func _terrain_manager():
 
 # Estimate terrain penalty (in inches) for a charge path between two positions.
 # Uses TerrainManager.calculate_charge_terrain_penalty() if available.
-static func _estimate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool) -> float:
+static func _estimate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool, unit_keywords: Array = []) -> float:
 	var tm = _terrain_manager()
 	if tm and tm.has_method("calculate_charge_terrain_penalty"):
-		return tm.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
+		return tm.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly, unit_keywords)
 	return 0.0
 
 # Check if a shooter unit can see (has LoS to) a target unit for at least one weapon.
@@ -687,7 +687,7 @@ static func _get_nearest_enemy_for_charge(unit: Dictionary, enemies: Dictionary)
 		var raw_dist_px = centroid.distance_to(ec)
 		var raw_dist_inches = raw_dist_px / PIXELS_PER_INCH
 		# Add terrain penalty to effective distance so we prefer unobstructed charge paths
-		var terrain_penalty = _estimate_charge_terrain_penalty(centroid, ec, has_fly)
+		var terrain_penalty = _estimate_charge_terrain_penalty(centroid, ec, has_fly, unit_keywords)
 		var effective_dist_inches = raw_dist_inches + terrain_penalty
 		if effective_dist_inches < best_effective_dist:
 			best_effective_dist = effective_dist_inches
@@ -711,7 +711,7 @@ static func _find_flank_around_terrain(from_pos: Vector2, target_pos: Vector2, u
 	# the lowest terrain penalty while still making progress toward the target.
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 	var has_fly = "FLY" in unit_keywords
-	var direct_penalty = _estimate_charge_terrain_penalty(from_pos, target_pos, has_fly)
+	var direct_penalty = _estimate_charge_terrain_penalty(from_pos, target_pos, has_fly, unit_keywords)
 	if direct_penalty <= 0.0:
 		return Vector2.INF  # No terrain in the way
 
@@ -732,9 +732,9 @@ static func _find_flank_around_terrain(from_pos: Vector2, target_pos: Vector2, u
 		if waypoint.x < 0 or waypoint.y < 0 or waypoint.x > 1760 or waypoint.y > 2400:
 			continue
 		# Check terrain penalty from waypoint to target
-		var wp_to_target_penalty = _estimate_charge_terrain_penalty(waypoint, target_pos, has_fly)
+		var wp_to_target_penalty = _estimate_charge_terrain_penalty(waypoint, target_pos, has_fly, unit_keywords)
 		# Also check penalty from us to waypoint
-		var us_to_wp_penalty = _estimate_charge_terrain_penalty(from_pos, waypoint, has_fly)
+		var us_to_wp_penalty = _estimate_charge_terrain_penalty(from_pos, waypoint, has_fly, unit_keywords)
 		# Total penalty for this route should be less than going direct
 		var total_penalty = us_to_wp_penalty + wp_to_target_penalty
 		if total_penalty < best_penalty:
@@ -2938,7 +2938,7 @@ static func _try_scout_move_with_checks(
 
 		# Check overlap with deployed models and already-placed models
 		var all_obstacles = deployed_models + placed_models
-		if _position_collides_with_deployed(dest, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+		if _position_collides_with_deployed(dest, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
 			# Try small perpendicular offsets to avoid the collision
 			var orig_pos = original_positions.get(model_id, model_pos)
 			var resolved_dest = _resolve_scout_collision(
@@ -3011,7 +3011,7 @@ static func _resolve_scout_collision(
 				continue
 
 		# Check model overlap
-		if _position_collides_with_deployed(candidate, base_mm, obstacles, 4.0, base_type, base_dimensions):
+		if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions):
 			continue
 
 		# Check >9" from enemies
@@ -3570,7 +3570,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 	var objectives = _get_objectives(snapshot)
 	var enemies = _get_enemy_units(snapshot, player)
 	var friendly_units = _get_units_for_player(snapshot, player)
-	var battle_round = snapshot.get("battle_round", 1)
+	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 
 	# =========================================================================
 	# T7-23: BUILD MULTI-PHASE PLAN (once per movement phase)
@@ -3676,9 +3676,22 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		if not decision.is_empty():
 			return decision
 
-	# --- Sort assigned units by priority (highest assignment score first) ---
-	# T7-40: Apply difficulty noise to assignment scores for ordering
+	# --- Sort assigned units front-to-back then by priority ---
+	# Front units (closest to enemy) move first to clear space for units behind.
+	# This prevents large squads getting stuck behind other friendly units.
+	# P1 moves toward higher y, P2 moves toward lower y.
 	assigned_units.sort_custom(func(a, b):
+		var unit_a = snapshot.get("units", {}).get(a, {})
+		var unit_b = snapshot.get("units", {}).get(b, {})
+		var centroid_a = _get_unit_centroid(unit_a)
+		var centroid_b = _get_unit_centroid(unit_b)
+		if centroid_a != Vector2.INF and centroid_b != Vector2.INF:
+			if player == 2:
+				if abs(centroid_a.y - centroid_b.y) > 80.0:
+					return centroid_a.y < centroid_b.y
+			else:
+				if abs(centroid_a.y - centroid_b.y) > 80.0:
+					return centroid_a.y > centroid_b.y
 		var score_a = _apply_difficulty_noise(assignments.get(a, {}).get("score", 0.0))
 		var score_b = _apply_difficulty_noise(assignments.get(b, {}).get("score", 0.0))
 		return score_a > score_b
@@ -4018,6 +4031,11 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			# is far away and we'd lose all targets.
 			var has_ranged_weapons = _unit_has_ranged_weapons(unit)
 			var max_weapon_range_inches = _get_max_weapon_range(unit) if has_ranged_weapons else 0.0
+			# Loaded transports should prioritize cargo delivery over shooting
+			var is_loaded_transport = unit.get("transport_data", {}).get("embarked_units", []).size() > 0
+			if is_loaded_transport:
+				max_weapon_range_inches = 0.0
+				has_ranged_weapons = false
 			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types:
 				if _should_hold_for_shooting(unit, centroid, target_pos, max_weapon_range_inches, enemies, move_inches, assignment):
 					var enemies_in_range = _get_enemies_in_weapon_range(centroid, max_weapon_range_inches, enemies)
@@ -4784,7 +4802,7 @@ static func _decide_transport_disembark(snapshot: Dictionary, player: int) -> Di
 	var all_units = snapshot.get("units", {})
 	var objectives = _get_objectives(snapshot)
 	var enemies = _get_enemy_units(snapshot, player)
-	var battle_round = snapshot.get("battle_round", 1)
+	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 
 	# Find all embarked units belonging to the player
 	var embarked_units = []
@@ -4913,13 +4931,14 @@ static func _score_disembark_benefit(unit: Dictionary, unit_id: String, transpor
 					print("AIDecisionMaker: [MOV-7]   %s: enemy in charge range after disembark (%.1f\")" % [unit_name, dist_inches])
 					break
 
-	# Factor 4: Battle round — later rounds favor disembarking more
-	# Round 1: prefer staying embarked for protection
-	# Round 2+: objectives matter, start disembarking
+	# Factor 4: Battle round — later rounds strongly favor disembarking
+	# Units sitting in transports aren't scoring objectives or fighting
 	if battle_round == 1:
-		score -= 0.3  # Penalty for early disembark (protection is valuable Turn 1)
+		score -= 0.2  # Mild penalty for early disembark
+	elif battle_round == 2:
+		score += 0.3  # Start disembarking — can't sit in transport forever
 	elif battle_round >= 3:
-		score += 0.2  # Bonus for late game (objectives are critical)
+		score += 0.8  # Must disembark — objectives are critical, units will be destroyed if transport dies
 
 	# Factor 5: Transport safety — if transport is in danger, disembark to avoid losing contents
 	for enemy_id in enemies:
@@ -4928,8 +4947,7 @@ static func _score_disembark_benefit(unit: Dictionary, unit_id: String, transpor
 		if enemy_pos == Vector2.INF:
 			continue
 		var dist_inches = transport_pos.distance_to(enemy_pos) / PIXELS_PER_INCH
-		if dist_inches <= 12.0:
-			# Enemy close enough to threaten the transport
+		if dist_inches <= 24.0:
 			var enemy_weapons = enemy.get("meta", {}).get("weapons", [])
 			for w in enemy_weapons:
 				if w.get("type", "").to_lower() == "ranged":
@@ -4938,6 +4956,41 @@ static func _score_disembark_benefit(unit: Dictionary, unit_id: String, transpor
 						score += 0.25
 						print("AIDecisionMaker: [MOV-7]   %s: transport threatened by S%d weapon (%.1f\" away)" % [unit_name, strength, dist_inches])
 						break
+
+	# Factor 6: High-value cargo — elite/character units contribute more on the board
+	var unit_points = int(unit.get("meta", {}).get("points", 0))
+	if unit_points >= 200:
+		score += 0.3
+	elif unit_points >= 100:
+		score += 0.15
+
+	# Factor 7: Aggressive factions (Orks, World Eaters, etc.) should disembark earlier
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	for kw in keywords:
+		if kw in ["ORKS", "WORLD EATERS", "TYRANIDS"]:
+			score += 0.2
+			break
+
+	# Factor 8: Transport has 'Ard Case or no Firing Deck — units can't shoot while
+	# embarked, so there's no benefit to staying inside
+	var transport_abilities = transport.get("meta", {}).get("abilities", [])
+	var has_firing_deck = false
+	var has_ard_case = false
+	for ability in transport_abilities:
+		var aname = ability.get("name", "").to_lower()
+		if "firing deck" in aname:
+			has_firing_deck = true
+		if "'ard case" in aname or "ard case" in aname:
+			has_ard_case = true
+	if has_ard_case or not has_firing_deck:
+		score += 0.4
+		print("AIDecisionMaker: [MOV-7]   %s: transport has no Firing Deck — no benefit to staying embarked" % [unit_name])
+
+	# Factor 9: Transport remained stationary last turn — if stuck, disembark immediately
+	var transport_remained_stationary = transport.get("flags", {}).get("remained_stationary", false)
+	if transport_remained_stationary and battle_round >= 2:
+		score += 0.3
+		print("AIDecisionMaker: [MOV-7]   %s: transport stuck (remained stationary) — disembark urgency" % [unit_name])
 
 	return score
 
@@ -4951,8 +5004,21 @@ static func _compute_disembark_positions(unit: Dictionary, transport: Dictionary
 		return []
 
 	var transport_model = transport.get("models", [{}])[0] if transport.get("models", []).size() > 0 else {}
-	var transport_base_mm = transport_model.get("base_mm", 100)  # Transports typically have large bases
-	var transport_radius_px = (transport_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+	var transport_base_mm = int(transport_model.get("base_mm", 32))
+	var transport_base_type = transport_model.get("base_type", "circular")
+	var transport_base_dims = transport_model.get("base_dimensions", {})
+	var transport_radius_px = _model_bounding_radius_px(transport_base_mm, transport_base_type, transport_base_dims)
+
+	# For rectangular transports, use the minimum half-dimension as edge distance.
+	# The bounding circle (diagonal/2) vastly overestimates edge distance in narrow
+	# directions, causing disembark positions to fail the 3" edge-to-edge validation.
+	var transport_edge_radius_px: float
+	if transport_base_type == "rectangular" or transport_base_type == "oval":
+		var length_mm = transport_base_dims.get("length", transport_base_mm)
+		var width_mm = transport_base_dims.get("width", transport_base_mm * 0.6)
+		transport_edge_radius_px = (min(length_mm, width_mm) / 2.0) * (PIXELS_PER_INCH / 25.4)
+	else:
+		transport_edge_radius_px = transport_radius_px
 
 	# Disembark range: within 3" of transport edge
 	var disembark_range_px = 3.0 * PIXELS_PER_INCH  # 3 inches
@@ -4972,10 +5038,9 @@ static func _compute_disembark_positions(unit: Dictionary, transport: Dictionary
 	var unit_radius_px = (unit_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
 
 	# Max distance from transport center: transport edge + 3" + model edge
-	# Use a very conservative margin so shape-aware validation still passes.
-	# Vehicles often have non-circular footprints, so the radius underestimates
-	# edge distance in narrow directions. Use a large safety margin.
-	var max_center_dist_px = transport_radius_px + disembark_range_px + unit_radius_px - 20.0
+	# Uses the minimum edge radius for rectangular transports to guarantee
+	# all models pass shape-aware edge-to-edge validation regardless of direction.
+	var max_center_dist_px = transport_edge_radius_px + disembark_range_px + unit_radius_px - 10.0
 
 	# Build list of occupied positions (to avoid overlaps)
 	var occupied_positions = []
@@ -5021,62 +5086,101 @@ static func _compute_disembark_positions(unit: Dictionary, transport: Dictionary
 				if dist > 1.0:
 					preferred_dir = (obj_pos - transport_pos).normalized()
 
-	# Start placement offset from transport center in preferred direction
-	var base_offset_dist = transport_radius_px + unit_radius_px + 8.0  # Just outside transport base
-	var base_pos = transport_pos + preferred_dir * base_offset_dist
-	var spacing = unit_radius_px * 2.0 + 6.0  # Base diameter + small gap
-
+	var base_offset_dist = transport_edge_radius_px + unit_radius_px + 20.0
+	var spacing = unit_radius_px * 2.0 + 6.0
 	var cols = mini(5, alive_count)
+	var board_margin = unit_radius_px + 10.0
 
-	# Create a perpendicular direction for the grid layout
-	var perp_dir = Vector2(-preferred_dir.y, preferred_dir.x)
+	# Try multiple placement directions: left side, right side, behind, forward
+	var side_left = Vector2(-preferred_dir.y, preferred_dir.x)
+	var side_right = Vector2(preferred_dir.y, -preferred_dir.x)
+	var behind = -preferred_dir
+	var forward = preferred_dir
+	var placement_dirs = [side_left, side_right, behind, forward]
 
-	# Build positions for alive models first, then map to model array indices
 	var alive_positions = []
-	var alive_idx = 0
-	for model in all_models:
-		if not model.get("alive", true):
-			continue
+	var best_placement = []
 
-		var row = alive_idx / cols
-		var col = alive_idx % cols
+	for placement_dir in placement_dirs:
+		var base_pos = transport_pos + placement_dir * base_offset_dist
+		var perp_dir = Vector2(-placement_dir.y, placement_dir.x)
 
-		# Calculate grid position
-		var col_offset = (col - (cols - 1) / 2.0) * spacing
-		var row_offset = row * spacing
-		var candidate = base_pos + perp_dir * col_offset + preferred_dir * row_offset
+		var trial_positions = []
+		var trial_occupied = occupied_positions.duplicate()
+		var all_on_board = true
+		var trial_idx = 0
 
-		# Validate: within disembark range (center-to-center)
-		var center_dist = candidate.distance_to(transport_pos)
-		if center_dist > max_center_dist_px:
-			var dir_to_transport = (transport_pos - candidate).normalized()
-			candidate = candidate + dir_to_transport * (center_dist - max_center_dist_px + 4.0)
+		for model in all_models:
+			if not model.get("alive", true):
+				continue
 
-		# Validate: not in engagement range of enemies (1" edge-to-edge)
-		var in_engagement = _is_pos_in_engagement(candidate, unit_radius_px, enemy_positions)
+			var row = trial_idx / cols
+			var col = trial_idx % cols
 
-		if in_engagement:
-			candidate = _find_non_engaged_position(transport_pos, base_offset_dist,
-				preferred_dir, perp_dir, col, cols, spacing, max_center_dist_px,
-				unit_radius_px, enemy_positions)
-			if candidate == Vector2.INF:
-				return []
+			var col_offset = (col - (cols - 1) / 2.0) * spacing
+			var row_offset = row * spacing
+			var candidate = base_pos + perp_dir * col_offset + placement_dir * row_offset
 
-		# Validate: not overlapping other models
-		var overlaps = _pos_overlaps_any(candidate, unit_radius_px, occupied_positions, alive_positions)
-		if overlaps:
-			candidate = _find_non_overlapping_position(candidate, transport_pos, max_center_dist_px,
-				unit_radius_px, spacing, occupied_positions, alive_positions, enemy_positions)
-			if candidate == Vector2.INF:
-				return []
+			var center_dist = candidate.distance_to(transport_pos)
+			if center_dist > max_center_dist_px:
+				var dir_to_transport = (transport_pos - candidate).normalized()
+				candidate = candidate + dir_to_transport * (center_dist - max_center_dist_px + 4.0)
 
-		# Clamp to board bounds
-		candidate.x = clamp(candidate.x, unit_radius_px + 2.0, BOARD_WIDTH_PX - unit_radius_px - 2.0)
-		candidate.y = clamp(candidate.y, unit_radius_px + 2.0, BOARD_HEIGHT_PX - unit_radius_px - 2.0)
+			var in_engagement = _is_pos_in_engagement(candidate, unit_radius_px, enemy_positions)
+			if in_engagement:
+				candidate = _find_non_engaged_position(transport_pos, base_offset_dist,
+					placement_dir, perp_dir, col, cols, spacing, max_center_dist_px,
+					unit_radius_px, enemy_positions)
+				if candidate == Vector2.INF:
+					all_on_board = false
+					break
 
-		alive_positions.append(candidate)
-		occupied_positions.append({"position": candidate, "base_mm": unit_base_mm})
-		alive_idx += 1
+			var overlaps = _pos_overlaps_any(candidate, unit_radius_px, trial_occupied, trial_positions)
+			if overlaps:
+				candidate = _find_non_overlapping_position(candidate, transport_pos, max_center_dist_px,
+					unit_radius_px, spacing, trial_occupied, trial_positions, enemy_positions)
+				if candidate == Vector2.INF:
+					all_on_board = false
+					break
+
+			# Check board bounds BEFORE clamping — if any model would be off-board, try next direction
+			if candidate.x < board_margin or candidate.x > BOARD_WIDTH_PX - board_margin \
+				or candidate.y < board_margin or candidate.y > BOARD_HEIGHT_PX - board_margin:
+				all_on_board = false
+				break
+
+			trial_positions.append(candidate)
+			trial_occupied.append({"position": candidate, "base_mm": unit_base_mm})
+			trial_idx += 1
+
+		if all_on_board and trial_positions.size() == alive_count:
+			best_placement = trial_positions
+			break
+
+	if best_placement.is_empty():
+		# Fallback: use first direction with clamping (may still fail validation)
+		var side_dir = side_left
+		var base_pos = transport_pos + side_dir * base_offset_dist
+		var perp_dir = preferred_dir
+		var alive_idx_fb = 0
+		best_placement = []
+		for model in all_models:
+			if not model.get("alive", true):
+				continue
+			var row = alive_idx_fb / cols
+			var col = alive_idx_fb % cols
+			var col_offset = (col - (cols - 1) / 2.0) * spacing
+			var row_offset = row * spacing
+			var candidate = base_pos + perp_dir * col_offset + side_dir * row_offset
+			candidate.x = clamp(candidate.x, board_margin, BOARD_WIDTH_PX - board_margin)
+			candidate.y = clamp(candidate.y, board_margin, BOARD_HEIGHT_PX - board_margin)
+			best_placement.append(candidate)
+			alive_idx_fb += 1
+
+	alive_positions = best_placement
+	# Update occupied_positions with placed models
+	for pos in alive_positions:
+		occupied_positions.append({"position": pos, "base_mm": unit_base_mm})
 
 	if alive_positions.size() != alive_count:
 		return []
@@ -5403,17 +5507,27 @@ static func _assign_units_to_objectives(
 			# Already on the objective: big bonus for holding
 			# T13-1: Scale bonus by round — staying put becomes more valuable as game progresses
 			if already_on_obj:
+				var stay_bonus = 0.0
 				if battle_round >= 4:
-					score += 7.0  # Late game: staying on objective is critical for VP
+					stay_bonus = 7.0  # Late game: staying on objective is critical for VP
 				elif battle_round >= 2:
-					score += 6.0  # Scoring rounds: don't leave scored objectives
+					stay_bonus = 6.0  # Scoring rounds: don't leave scored objectives
 				else:
-					score += 5.0  # Round 1: still good to hold early positions
+					stay_bonus = 5.0  # Round 1: still good to hold early positions
+				# Aggressive factions should not camp home objectives — reduce stay bonus
+				# Orks (1.8 aggression) get only ~33% of the home stay bonus in early rounds
+				var faction_agg = _get_faction_aggression(snapshot, player)
+				if eval.is_home and faction_agg > 1.0 and battle_round <= 3:
+					stay_bonus /= faction_agg
+				score += stay_bonus
 				# T16-1: Horde OC advantage — multi-model units contribute more OC
 				# and are harder to shift off objectives. Give extra stay bonus for model count.
+				# But not for aggressive factions on home objectives — they should advance
 				var alive_models = _get_alive_models(unit).size()
-				if alive_models >= 10:
-					score += 2.0  # Large squad (Ork Boyz 10-20 models) — very hard to contest
+				if eval.is_home and faction_agg > 1.0 and battle_round <= 3:
+					pass  # Skip horde bonus for aggressive factions on home objectives
+				elif alive_models >= 10:
+					score += 2.0  # Large squad — very hard to contest
 				elif alive_models >= 5:
 					score += 1.0  # Medium squad — decent presence
 
@@ -5682,9 +5796,22 @@ static func _assign_units_to_objectives(
 		elif obj_state == "held_threatened":
 			should_hold = true  # Threatened, keep defender
 		elif units_on_obj.get(oid, 0) <= 1:
-			# Only one unit on this objective — always hold to maintain control
-			# Don't abandon a controlled objective
-			should_hold = true
+			# Only one unit on this objective — generally hold to maintain control.
+			# EXCEPTION: aggressive faction melee hordes on HOME objectives in early game
+			# should advance rather than camp. Their OC is wasted when they could be
+			# fighting and a smaller unit or character can hold a home objective later.
+			var hold_unit_data = snapshot.get("units", {}).get(uid, {})
+			var hold_alive = _get_alive_models(hold_unit_data).size()
+			var hold_is_home = eval_for_obj.get("is_home", false)
+			var hold_fag = _get_faction_aggression(snapshot, player)
+			var hold_round = snapshot.get("battle_round", 1)
+			var hold_unit_kw = hold_unit_data.get("meta", {}).get("keywords", [])
+			var hold_is_rv = not _is_melee_focused_unit(hold_unit_data) and ("VEHICLE" in hold_unit_kw) and _unit_has_ranged_weapons(hold_unit_data)
+			var hold_has_melee_role = _is_melee_focused_unit(hold_unit_data) or (hold_fag >= 1.5 and _unit_has_melee_weapons(hold_unit_data) and not hold_is_rv)
+			if hold_is_home and hold_alive >= 10 and hold_has_melee_role and hold_round <= 2:
+				print("AIDecisionMaker: [AGGRO-FREE] Freeing %s from home objective %s (horde melee unit, round %d)" % [uid, oid, hold_round])
+			else:
+				should_hold = true
 		# If multiple units on same held_safe objective, let extras move elsewhere
 
 		if should_hold:
@@ -6497,7 +6624,7 @@ static func _try_fall_back_positions(
 
 		# Check overlap with deployed models and already-placed models
 		var all_obstacles = deployed_models + placed_models
-		if _position_collides_with_deployed(dest, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+		if _position_collides_with_deployed(dest, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
 			var resolved = _resolve_fall_back_position(
 				dest, move_vector, base_mm, base_type, base_dimensions,
 				all_obstacles, enemies, unit, orig_pos, move_cap_px
@@ -6528,7 +6655,7 @@ static func _resolve_fall_back_position(
 	if perp == Vector2.ZERO:
 		# move_vector is zero, try cardinal directions
 		perp = Vector2(1, 0)
-	var base_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	var base_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions)
 	# Try wider range of offsets for fall-back (more aggressive positioning)
 	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0, -4.0]
 
@@ -6552,7 +6679,7 @@ static func _resolve_fall_back_position(
 			continue
 
 		# Must not collide with other models
-		if _position_collides_with_deployed(candidate, base_mm, obstacles, 4.0, base_type, base_dimensions):
+		if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions):
 			continue
 
 		return candidate
@@ -7327,6 +7454,9 @@ static func _compute_movement_toward_target(
 		return {}
 
 	var alive_models = _get_alive_models_with_positions(unit)
+	# NOTE: Do NOT add attached character models here — their model IDs (e.g. "m1")
+	# clash with bodyguard model IDs and corrupt the destinations dict.
+	# MovementPhase auto-moves characters via _move_attached_characters.
 	if alive_models.is_empty():
 		return {}
 
@@ -7360,7 +7490,7 @@ static func _compute_movement_toward_target(
 	var has_fly_move = "FLY" in unit_keywords
 	if not has_fly_move:
 		var dest_candidate = centroid + final_move_vector
-		var terrain_move_penalty = _estimate_charge_terrain_penalty(centroid, dest_candidate, false)
+		var terrain_move_penalty = _estimate_charge_terrain_penalty(centroid, dest_candidate, false, unit_keywords)
 		if terrain_move_penalty > 0.0:
 			var raw_move_inches = final_move_vector.length() / PIXELS_PER_INCH
 			var allowed_raw_inches = move_inches - terrain_move_penalty
@@ -7383,7 +7513,7 @@ static func _compute_movement_toward_target(
 					var alt_dest = centroid + alt_vector
 					if alt_dest.x < BASE_MARGIN_PX or alt_dest.y < BASE_MARGIN_PX or alt_dest.x > BOARD_WIDTH_PX - BASE_MARGIN_PX or alt_dest.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
 						continue
-					var alt_penalty = _estimate_charge_terrain_penalty(centroid, alt_dest, false)
+					var alt_penalty = _estimate_charge_terrain_penalty(centroid, alt_dest, false, unit_keywords)
 					# Progress toward target = dot product of move direction with target direction
 					var target_dir = (target_pos - centroid).normalized()
 					var progress_ratio = alt_dir.dot(target_dir)  # 1.0 = straight toward, 0 = perpendicular
@@ -7402,15 +7532,18 @@ static func _compute_movement_toward_target(
 					raw_move_inches = final_move_vector.length() / PIXELS_PER_INCH
 					allowed_raw_inches = move_inches - terrain_move_penalty
 			# Apply remaining terrain penalty by scaling down movement
+			# Cap terrain penalty to leave at least 2" of effective movement — units stuck
+			# IN terrain (e.g., deployed in ruins) would otherwise never escape
 			if terrain_move_penalty > 0.0:
-				allowed_raw_inches = move_inches - terrain_move_penalty
-				if allowed_raw_inches <= 0.5:
-					final_move_vector *= 0.1
-					print("AIDecisionMaker: Terrain penalty %.1f\" blocks most of %.1f\" move — minimal movement" % [terrain_move_penalty, move_inches])
-				elif allowed_raw_inches < raw_move_inches:
+				var min_effective_inches = 2.0
+				var effective_penalty = minf(terrain_move_penalty, move_inches - min_effective_inches)
+				if effective_penalty < 0.0:
+					effective_penalty = 0.0
+				allowed_raw_inches = move_inches - effective_penalty
+				if allowed_raw_inches < raw_move_inches:
 					var scale = allowed_raw_inches / raw_move_inches
 					final_move_vector *= scale
-					print("AIDecisionMaker: Terrain penalty %.1f\" reduces effective move from %.1f\" to %.1f\"" % [terrain_move_penalty, raw_move_inches, allowed_raw_inches])
+					print("AIDecisionMaker: Terrain penalty %.1f\" (capped to %.1f\") reduces effective move from %.1f\" to %.1f\"" % [terrain_move_penalty, effective_penalty, raw_move_inches, allowed_raw_inches])
 
 	# --- MOV-1: Clamp movement to maintain weapon range on current targets ---
 	if max_weapon_range > 0.0:
@@ -7438,6 +7571,14 @@ static func _compute_movement_toward_target(
 	var base_type = first_model.get("base_type", "circular")
 	var base_dimensions = first_model.get("base_dimensions", {})
 
+	# Build Monster/Vehicle model list for path-crossing checks (reuses unit_keywords from above)
+	var has_fly = false
+	for kw in unit_keywords:
+		if kw.to_upper() == "FLY":
+			has_fly = true
+			break
+	var mv_models = [] if has_fly else _get_monster_vehicle_models(snapshot, unit_id)
+
 	# Build original positions map for movement cap checking during collision resolution
 	var original_positions = {}
 	for model in alive_models:
@@ -7445,20 +7586,103 @@ static func _compute_movement_toward_target(
 		if mid != "":
 			original_positions[mid] = _get_model_position(model)
 
+	# Safety margin on move cap to account for terrain penalties and floating-point
+	var safe_move_px = move_px * 0.95
+
 	# Try the full move first, then progressively shorter moves
-	var fractions_to_try = [1.0, 0.75, 0.5, 0.25]
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	DebugLogger.info("AI_MOVE_DEBUG %s: centroid=(%.0f,%.0f) target=(%.0f,%.0f) move_px=%.1f safe_move_px=%.1f final_vec_len=%.1f" % [
+		unit_name, centroid.x, centroid.y, target_pos.x, target_pos.y, move_px, safe_move_px, final_move_vector.length()])
+	var fractions_to_try = [1.0, 0.75, 0.5, 0.25, 0.15, 0.1]
 	for fraction in fractions_to_try:
 		var try_vector = final_move_vector * fraction
 		var destinations = _try_move_with_collision_check(
 			alive_models, try_vector, enemies, unit, deployed_models,
-			base_mm, base_type, base_dimensions, original_positions, move_px
+			base_mm, base_type, base_dimensions, original_positions, safe_move_px,
+			mv_models
 		)
 		if not destinations.is_empty():
 			if fraction < 1.0:
 				print("AIDecisionMaker: Using %.0f%% move to avoid model overlap" % (fraction * 100))
+			var max_dist = 0.0
+			for mid in destinations:
+				var orig = original_positions.get(mid, Vector2.INF)
+				if orig != Vector2.INF:
+					var d = orig.distance_to(Vector2(destinations[mid][0], destinations[mid][1]))
+					if d > max_dist:
+						max_dist = d
+			DebugLogger.info("AI_MOVE_DEBUG %s: returning %d dests, fraction=%.2f, max_dist=%.1fpx (%.1fin), cap=%.1fpx" % [
+				unit_name, destinations.size(), fraction, max_dist, max_dist / PIXELS_PER_INCH, safe_move_px])
 			return destinations
 
-	# All fractions failed
+	# Individual placement failed at all fractions — try formation move (maintains spacing)
+	DebugLogger.info("AI_MOVE_DEBUG %s: individual placement failed, trying formation move" % [unit_name])
+	for fraction in fractions_to_try:
+		var try_vector = final_move_vector * fraction
+		var destinations = _try_formation_move(
+			alive_models, try_vector, enemies, unit, deployed_models,
+			base_mm, base_type, base_dimensions, original_positions, safe_move_px,
+			mv_models
+		)
+		if not destinations.is_empty():
+			var max_dist = 0.0
+			for mid in destinations:
+				var orig = original_positions.get(mid, Vector2.INF)
+				if orig != Vector2.INF:
+					var d = orig.distance_to(Vector2(destinations[mid][0], destinations[mid][1]))
+					if d > max_dist:
+						max_dist = d
+			DebugLogger.info("AI_MOVE_DEBUG %s: formation move succeeded, fraction=%.2f, max_dist=%.1fpx (%.1fin)" % [
+				unit_name, fraction, max_dist, max_dist / PIXELS_PER_INCH])
+			return destinations
+
+	# All fractions failed in the original direction — try alternate angles
+	# This helps large bases (Ghazghkull's 100mm) navigate around dense formations
+	var alt_angles = [deg_to_rad(45), deg_to_rad(-45), deg_to_rad(90), deg_to_rad(-90)]
+	DebugLogger.info("AI_MOVE_DEBUG %s: trying %d alternate angles" % [unit_name, alt_angles.size()])
+	for angle in alt_angles:
+		var rotated_vector = final_move_vector.rotated(angle)
+		for fraction in [0.75, 0.25]:
+			var try_vector = rotated_vector * fraction
+			var destinations = _try_move_with_collision_check(
+				alive_models, try_vector, enemies, unit, deployed_models,
+				base_mm, base_type, base_dimensions, original_positions, safe_move_px,
+				mv_models
+			)
+			if not destinations.is_empty():
+				var max_dist = 0.0
+				for mid in destinations:
+					var orig = original_positions.get(mid, Vector2.INF)
+					if orig != Vector2.INF:
+						var d = orig.distance_to(Vector2(destinations[mid][0], destinations[mid][1]))
+						if d > max_dist:
+							max_dist = d
+				DebugLogger.info("AI_MOVE_DEBUG %s: alternate angle %.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
+					unit_name, rad_to_deg(angle), fraction, max_dist, max_dist / PIXELS_PER_INCH])
+				return destinations
+
+	DebugLogger.info("AI_MOVE_DEBUG %s: ALL fractions AND angles failed — trying relaxed collision (0.85x radius)" % [unit_name])
+	# Last resort: try with relaxed collision radius (allows models to be slightly closer)
+	for fraction in [0.5, 0.25]:
+		var try_vector = final_move_vector * fraction
+		var destinations = _try_move_with_collision_check(
+			alive_models, try_vector, enemies, unit, deployed_models,
+			base_mm, base_type, base_dimensions, original_positions, safe_move_px,
+			mv_models, 0.85
+		)
+		if not destinations.is_empty():
+			var max_dist = 0.0
+			for mid in destinations:
+				var orig = original_positions.get(mid, Vector2.INF)
+				if orig != Vector2.INF:
+					var d = orig.distance_to(Vector2(destinations[mid][0], destinations[mid][1]))
+					if d > max_dist:
+						max_dist = d
+			DebugLogger.info("AI_MOVE_DEBUG %s: relaxed mode succeeded at fraction=%.2f, max_dist=%.1fpx (%.1fin)" % [
+				unit_name, fraction, max_dist, max_dist / PIXELS_PER_INCH])
+			return destinations
+
+	DebugLogger.info("AI_MOVE_DEBUG %s: relaxed mode also failed" % [unit_name])
 	return {}
 
 static func _find_unblocked_move_enhanced(
@@ -7466,39 +7690,63 @@ static func _find_unblocked_move_enhanced(
 	unit_keywords: Array, terrain_features: Array,
 	enemies: Dictionary, unit: Dictionary
 ) -> Vector2:
-	# Enhanced version with terrain-aware pathing (Task 8)
-	# Try the direct path first
 	if not _path_blocked_by_terrain(centroid, centroid + move_vector, unit_keywords, terrain_features):
-		# Task 8: Check if a path through cover would be better
 		var cover_path = _find_cover_path(centroid, move_vector, move_distance_px, unit_keywords, terrain_features, enemies)
 		if cover_path != Vector2.ZERO:
 			return cover_path
 		return move_vector
 
-	print("AIDecisionMaker: Direct path blocked, trying alternate directions")
+	print("AIDecisionMaker: Direct path blocked for %s, trying %d angle/distance combos" % [
+		unit.get("meta", {}).get("unit_name", "unknown"), 20 * 4])
 
-	# Try angled alternatives: +/-30, +/-60, +/-90
 	var base_direction = move_vector.normalized()
-	var angles_to_try = [
-		deg_to_rad(30), deg_to_rad(-30),
-		deg_to_rad(60), deg_to_rad(-60),
-		deg_to_rad(90), deg_to_rad(-90)
-	]
+	var angles_to_try = []
+	for deg_val in [15, -15, 30, -30, 45, -45, 60, -60, 75, -75, 90, -90,
+					 120, -120, 135, -135, 150, -150, 165, -165]:
+		angles_to_try.append(deg_to_rad(deg_val))
 
+	var distance_fractions = [1.0, 0.75, 0.5, 0.25]
+
+	# Score each unblocked alternative by forward progress toward original target
+	var best_vector = Vector2.ZERO
+	var best_score = -INF
+	var blocked_count = 0
+	var checked_count = 0
 	for angle in angles_to_try:
 		var rotated_dir = base_direction.rotated(angle)
-		var alt_vector = rotated_dir * move_distance_px
-		if not _path_blocked_by_terrain(centroid, centroid + alt_vector, unit_keywords, terrain_features):
-			print("AIDecisionMaker: Found unblocked path at %.0f degrees" % rad_to_deg(angle))
-			return alt_vector
+		for frac in distance_fractions:
+			var alt_dist = move_distance_px * frac
+			var alt_vector = rotated_dir * alt_dist
+			var dest = centroid + alt_vector
+			checked_count += 1
+			if not _path_blocked_by_terrain(centroid, dest, unit_keywords, terrain_features):
+				var forward_progress = alt_vector.dot(base_direction)
+				var score = forward_progress
+				if score > best_score:
+					best_score = score
+					best_vector = alt_vector
+			else:
+				blocked_count += 1
+				if checked_count <= 4 or (int(angle * 10) % 15 == 0 and frac == 1.0):
+					var blocking_terrain = _identify_blocking_terrain(centroid, dest, unit_keywords, terrain_features)
+					print("AIDecisionMaker: BLOCKED deg=%.0f frac=%.2f dest=(%.0f,%.0f) by: %s" % [
+						rad_to_deg(angle), frac, dest.x, dest.y, blocking_terrain])
 
-	# Try moving at half distance in the original direction
-	var half_vector = move_vector * 0.5
-	if not _path_blocked_by_terrain(centroid, centroid + half_vector, unit_keywords, terrain_features):
-		print("AIDecisionMaker: Moving at half distance to avoid terrain")
-		return half_vector
+	# Also try direct path at reduced distances
+	for frac in [0.75, 0.5, 0.25]:
+		var short_vector = move_vector * frac
+		if not _path_blocked_by_terrain(centroid, centroid + short_vector, unit_keywords, terrain_features):
+			var forward_progress = short_vector.dot(base_direction)
+			if forward_progress > best_score:
+				best_score = forward_progress
+				best_vector = short_vector
 
-	# All paths blocked
+	if best_vector != Vector2.ZERO:
+		print("AIDecisionMaker: Found unblocked path, forward progress=%.1fpx (%.1fin)" % [
+			best_score, best_score / PIXELS_PER_INCH])
+		return best_vector
+
+	print("AIDecisionMaker: All %d paths blocked" % (len(angles_to_try) * len(distance_fractions) + 3))
 	return Vector2.ZERO
 
 # =============================================================================
@@ -7879,6 +8127,47 @@ static func _nearest_objective_distance(pos: Vector2, objectives: Array) -> floa
 # _compute_movement_toward_objective: REMOVED - replaced by _compute_movement_toward_target
 # _find_unblocked_move: REMOVED - replaced by _find_unblocked_move_enhanced
 
+static func _any_edge_intersects(from: Vector2, to: Vector2, polygon: PackedVector2Array) -> bool:
+	for i in range(polygon.size()):
+		var edge_start = polygon[i]
+		var edge_end = polygon[(i + 1) % polygon.size()]
+		if Geometry2D.segment_intersects_segment(from, to, edge_start, edge_end):
+			return true
+	return false
+
+static func _identify_blocking_terrain(
+	from: Vector2, to: Vector2, unit_keywords: Array, terrain_features: Array
+) -> String:
+	var blockers = []
+	for i in range(terrain_features.size()):
+		var terrain = terrain_features[i]
+		var can_move_through = terrain.get("can_move_through", {})
+		var unit_can_pass = false
+		for keyword in unit_keywords:
+			if can_move_through.get(keyword, false):
+				unit_can_pass = true
+				break
+		if "FLY" in unit_keywords:
+			unit_can_pass = true
+		if unit_can_pass:
+			continue
+		var polygon = terrain.get("polygon", [])
+		var packed = PackedVector2Array()
+		if polygon is PackedVector2Array:
+			packed = polygon
+		elif polygon is Array:
+			for p in polygon:
+				if p is Vector2:
+					packed.append(p)
+				elif p is Dictionary:
+					packed.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
+		if packed.size() >= 3 and _line_intersects_polygon(from, to, packed):
+			var bounds = "x%.0f-%.0f y%.0f-%.0f" % [packed[0].x, packed[2].x, packed[0].y, packed[2].y]
+			blockers.append("T%d(%s %s seg=%s pip=%s)" % [i, terrain.get("type", "?"), bounds,
+				str(_any_edge_intersects(from, to, packed)),
+				str(Geometry2D.is_point_in_polygon(to, packed))])
+	return ", ".join(blockers) if blockers.size() > 0 else "NONE?!"
+
 static func _path_blocked_by_terrain(
 	from: Vector2, to: Vector2, unit_keywords: Array, terrain_features: Array
 ) -> bool:
@@ -7899,19 +8188,28 @@ static func _path_blocked_by_terrain(
 
 		# Check if the line intersects this terrain polygon
 		var polygon = terrain.get("polygon", [])
+		var packed = PackedVector2Array()
 		if polygon is PackedVector2Array:
-			if _line_intersects_polygon(from, to, polygon):
-				return true
+			packed = polygon
 		elif polygon is Array and polygon.size() >= 3:
-			# Convert Array to points for checking
-			var packed = PackedVector2Array()
 			for p in polygon:
 				if p is Vector2:
 					packed.append(p)
 				elif p is Dictionary:
 					packed.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
-			if _line_intersects_polygon(from, to, packed):
+
+		if packed.size() < 3:
+			continue
+
+		# If the unit starts INSIDE this terrain, allow it to move out
+		if Geometry2D.is_point_in_polygon(from, packed):
+			# Only block if destination is ALSO inside (staying in terrain)
+			if Geometry2D.is_point_in_polygon(to, packed):
 				return true
+			continue
+
+		if _line_intersects_polygon(from, to, packed):
+			return true
 
 	return false
 
@@ -7961,47 +8259,122 @@ static func _try_move_with_collision_check(
 	alive_models: Array, move_vector: Vector2, enemies: Dictionary,
 	unit: Dictionary, deployed_models: Array, base_mm: int,
 	base_type: String, base_dimensions: Dictionary,
-	original_positions: Dictionary = {}, move_cap_px: float = 0.0
+	original_positions: Dictionary = {}, move_cap_px: float = 0.0,
+	mv_models: Array = [], radius_factor: float = 1.0
 ) -> Dictionary:
-	# Try moving all models by move_vector, checking both enemy ER and model overlap
+	# Try moving all models by move_vector, checking enemy ER, model overlap, and MV path crossing
 	var destinations = {}
-	# Track models we've placed in this move for intra-unit collision
 	var placed_models: Array = []
+	var failed_models: Array = []
+	var model_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions)
 
-	for model in alive_models:
+	# Build intra-unit obstacles: original positions of same-unit models that
+	# haven't been placed yet. MovementPhase checks staged models against
+	# unstaged same-unit models at their original positions, so the AI must too.
+	var intra_unit_obstacles: Array = []
+	for m in alive_models:
+		var mid = m.get("id", "")
+		var mpos = _get_model_position(m)
+		if mid != "" and mpos != Vector2.INF:
+			intra_unit_obstacles.append({
+				"id": mid,
+				"position": mpos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions
+			})
+
+	# Sort models so those closest to the target (furthest along move_vector)
+	# are processed first. This lets front models vacate their positions before
+	# back models need those spots.
+	var sorted_models = alive_models.duplicate()
+	var move_dir = move_vector.normalized()
+	sorted_models.sort_custom(func(a, b):
+		var pa = _get_model_position(a)
+		var pb = _get_model_position(b)
+		if pa == Vector2.INF: return false
+		if pb == Vector2.INF: return true
+		return pa.dot(move_dir) > pb.dot(move_dir)
+	)
+
+	var _unit_name = unit.get("meta", {}).get("name", "")
+	DebugLogger.info("INTRA_OBSTACLE_DEBUG %s: built %d intra-unit obstacles, %d deployed, move_cap=%.0f" % [
+		_unit_name, intra_unit_obstacles.size(), deployed_models.size(), move_cap_px])
+
+	for model in sorted_models:
 		var model_id = model.get("id", "")
 		if model_id == "":
 			continue
 		var model_pos = _get_model_position(model)
 		if model_pos == Vector2.INF:
 			continue
+
+		# Remove this model's original position from intra-unit obstacles
+		# (it's vacating that spot)
+		for i in range(intra_unit_obstacles.size() - 1, -1, -1):
+			if intra_unit_obstacles[i].id == model_id:
+				intra_unit_obstacles.remove_at(i)
+				break
+
 		var dest = model_pos + move_vector
 
-		# Clamp to board bounds with margin
+		# Enforce move cap on initial placement, accounting for per-model terrain penalty.
+		# MovementPhase validates: raw_distance + terrain_penalty <= move_cap.
+		# The centroid terrain check may differ from individual model paths, so we
+		# must check each model's path separately.
+		if move_cap_px > 0.0:
+			var orig_pos = original_positions.get(model_id, model_pos)
+			var unit_kw = unit.get("meta", {}).get("keywords", [])
+			var model_has_fly = "FLY" in unit_kw
+			var per_model_terrain = _estimate_charge_terrain_penalty(orig_pos, dest, model_has_fly, unit_kw)
+			var effective_cap_px = move_cap_px - (per_model_terrain * PIXELS_PER_INCH)
+			if effective_cap_px < PIXELS_PER_INCH:
+				effective_cap_px = PIXELS_PER_INCH
+			if orig_pos.distance_to(dest) > effective_cap_px:
+				var dir_from_orig = (dest - orig_pos).normalized()
+				dest = orig_pos + dir_from_orig * effective_cap_px
+
 		dest.x = clamp(dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
 		dest.y = clamp(dest.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
 
-		# Check overlap with deployed models and already-placed models in this move
-		var all_obstacles = deployed_models + placed_models
+		var all_obstacles = deployed_models + placed_models + intra_unit_obstacles
 		var needs_resolve = false
 
-		# Check enemy engagement range
 		if _is_position_near_enemy(dest, enemies, unit):
 			needs_resolve = true
 
-		# Check overlap with deployed models
-		if not needs_resolve and _position_collides_with_deployed(dest, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+		if not needs_resolve and _position_collides_with_deployed(dest, base_mm, all_obstacles, 1.0, base_type, base_dimensions, radius_factor):
 			needs_resolve = true
+			DebugLogger.info("INTRA_OBSTACLE_DEBUG %s.%s dest (%.0f,%.0f) collides (intra=%d, placed=%d, deployed=%d)" % [
+				_unit_name, model_id, dest.x, dest.y, intra_unit_obstacles.size(), placed_models.size(), deployed_models.size()])
+
+		if not needs_resolve and not mv_models.is_empty():
+			if _path_crosses_monster_vehicle(model_pos, dest, model_radius, mv_models):
+				needs_resolve = true
 
 		if needs_resolve:
-			# Try small perpendicular offsets to avoid enemy engagement and/or collision
 			var orig_pos = original_positions.get(model_id, model_pos)
 			var resolved_dest = _resolve_movement_collision(
 				dest, move_vector, base_mm, base_type, base_dimensions,
-				all_obstacles, enemies, unit, orig_pos, move_cap_px
+				all_obstacles, enemies, unit, orig_pos, move_cap_px, mv_models, radius_factor
 			)
 			if resolved_dest == Vector2.INF:
-				return {}  # Could not resolve engagement/collision
+				failed_models.append({"model": model, "intended_dest": dest})
+				DebugLogger.info("INTRA_OBSTACLE_DEBUG %s.%s FAILED to resolve collision" % [_unit_name, model_id])
+				# Re-add to intra_unit_obstacles — this model stays at its original
+				# position, so subsequent models must still avoid it.
+				intra_unit_obstacles.append({
+					"id": model_id, "position": model_pos,
+					"base_mm": base_mm, "base_type": base_type,
+					"base_dimensions": base_dimensions
+				})
+				# Early bailout for congested scenarios — if too many models are failing,
+				# don't waste time on the rest (this move direction won't work)
+				if failed_models.size() >= 3 and float(failed_models.size()) / float(sorted_models.size()) > 0.4:
+					DebugLogger.info("INTRA_OBSTACLE_DEBUG %s: early bailout — %d/%d models failed (>40%%)" % [
+						_unit_name, failed_models.size(), sorted_models.size()])
+					return {}
+				continue
 			dest = resolved_dest
 
 		destinations[model_id] = [dest.x, dest.y]
@@ -8012,47 +8385,350 @@ static func _try_move_with_collision_check(
 			"base_dimensions": base_dimensions
 		})
 
+	# Place failed models near already-placed ones using spiral search
+	if not failed_models.is_empty() and not placed_models.is_empty():
+		var base_radius_inches = (base_mm / 2.0) / 25.4
+		var coherency_max_px = (2.0 + base_radius_inches * 2.0) * PIXELS_PER_INCH
+		var step = model_radius * 2.0 + 8.0
+
+		for fm in failed_models:
+			var model = fm.model
+			var model_id = model.get("id", "")
+			var anchor = fm.intended_dest
+			var orig_pos = original_positions.get(model_id, _get_model_position(model))
+			var found = false
+
+			# Remove this model from intra-unit obstacles (it's vacating)
+			for i in range(intra_unit_obstacles.size() - 1, -1, -1):
+				if intra_unit_obstacles[i].id == model_id:
+					intra_unit_obstacles.remove_at(i)
+					break
+
+			for ring in range(1, 15):
+				var ring_radius = step * ring
+				var points_in_ring = maxi(8, ring * 8)
+				for p_idx in range(points_in_ring):
+					var angle = (2.0 * PI * p_idx) / points_in_ring
+					var candidate = Vector2(anchor.x + cos(angle) * ring_radius, anchor.y + sin(angle) * ring_radius)
+					candidate.x = clamp(candidate.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+					candidate.y = clamp(candidate.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+					# Check movement cap
+					if orig_pos != Vector2.INF and move_cap_px > 0.0:
+						if orig_pos.distance_to(candidate) > move_cap_px:
+							continue
+
+					var all_obstacles = deployed_models + placed_models + intra_unit_obstacles
+					if _position_collides_with_deployed(candidate, base_mm, all_obstacles, 1.0, base_type, base_dimensions, radius_factor):
+						continue
+					if _is_position_near_enemy(candidate, enemies, unit):
+						continue
+					if not mv_models.is_empty() and orig_pos != Vector2.INF:
+						if _path_crosses_monster_vehicle(orig_pos, candidate, model_radius, mv_models):
+							continue
+
+					# Check coherency with placed models
+					var coherent_count = 0
+					for pm in placed_models:
+						if candidate.distance_to(pm.position) <= coherency_max_px:
+							coherent_count += 1
+					var required = 1 if (destinations.size() + failed_models.size()) <= 6 else 2
+					if coherent_count >= mini(required, destinations.size()):
+						destinations[model_id] = [candidate.x, candidate.y]
+						placed_models.append({
+							"position": candidate,
+							"base_mm": base_mm,
+							"base_type": base_type,
+							"base_dimensions": base_dimensions
+						})
+						found = true
+						break
+				if found:
+					break
+
+			if not found:
+				print("AIDecisionMaker: Could not place model %s near formation" % model_id)
+				return {}  # Can't place all models — fail this move attempt
+
+	elif not failed_models.is_empty() and placed_models.is_empty():
+		# Every model failed — try full formation placement
+		print("AIDecisionMaker: All %d models failed collision check, trying formation placement" % alive_models.size())
+		return _try_formation_move(alive_models, move_vector, enemies, unit, deployed_models, base_mm, base_type, base_dimensions, original_positions, move_cap_px, mv_models)
+
 	return destinations
+
+static func _try_formation_move(
+	alive_models: Array, move_vector: Vector2, enemies: Dictionary,
+	unit: Dictionary, deployed_models: Array, base_mm: int,
+	base_type: String, base_dimensions: Dictionary,
+	original_positions: Dictionary = {}, move_cap_px: float = 0.0,
+	mv_models: Array = []
+) -> Dictionary:
+	# Place models in a coherent formation around the destination centroid
+	var centroid = Vector2.ZERO
+	var valid_count = 0
+	for model in alive_models:
+		var pos = _get_model_position(model)
+		if pos != Vector2.INF:
+			centroid += pos
+			valid_count += 1
+	if valid_count == 0:
+		return {}
+	centroid /= valid_count
+	var dest_centroid = centroid + move_vector
+	dest_centroid.x = clamp(dest_centroid.x, BASE_MARGIN_PX * 2, BOARD_WIDTH_PX - BASE_MARGIN_PX * 2)
+	dest_centroid.y = clamp(dest_centroid.y, BASE_MARGIN_PX * 2, BOARD_HEIGHT_PX - BASE_MARGIN_PX * 2)
+
+	var model_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions)
+	var model_count = alive_models.size()
+	var base_radius_inches = (base_mm / 2.0) / 25.4
+	var coherency_max_px = (2.0 + base_radius_inches * 2.0) * PIXELS_PER_INCH
+	var required_connections = 1 if model_count <= 6 else 2
+	var step = model_radius * 2.0 + 8.0
+
+	# Sort models by distance to dest_centroid (closest first)
+	# This ensures models nearest to the destination get placed first,
+	# and models farther away get placed at the edges of the formation
+	var move_dir = move_vector.normalized()
+	var sorted_models = alive_models.duplicate()
+	sorted_models.sort_custom(func(a, b):
+		var pos_a = _get_model_position(a)
+		var pos_b = _get_model_position(b)
+		if pos_a == Vector2.INF:
+			return false
+		if pos_b == Vector2.INF:
+			return true
+		# Sort by projection along movement direction (front models first)
+		return pos_a.dot(move_dir) > pos_b.dot(move_dir)
+	)
+
+	# Build intra-unit obstacles: same-unit models at original positions
+	var fm_intra_obstacles: Array = []
+	for m in alive_models:
+		var mid = m.get("id", "")
+		var mpos = _get_model_position(m)
+		if mid != "" and mpos != Vector2.INF:
+			fm_intra_obstacles.append({
+				"id": mid,
+				"position": mpos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions
+			})
+
+	# Greedy placement: place models one by one in a spiral from dest_centroid
+	var destinations = {}
+	var placed_positions: Array = []
+	var placed_obstacles: Array = []
+
+	for model in sorted_models:
+		var model_id = model.get("id", "")
+		if model_id == "":
+			continue
+		var orig_pos = original_positions.get(model_id, _get_model_position(model))
+		var found = false
+		var best_pos = Vector2.INF
+
+		# Remove this model from intra-unit obstacles (it's vacating)
+		for i in range(fm_intra_obstacles.size() - 1, -1, -1):
+			if fm_intra_obstacles[i].id == model_id:
+				fm_intra_obstacles.remove_at(i)
+				break
+
+		# Search from the model's own destination (orig + move_vector)
+		# This keeps each model near where it would naturally end up
+		var model_dest = orig_pos + move_vector if orig_pos != Vector2.INF else dest_centroid
+		model_dest.x = clamp(model_dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		model_dest.y = clamp(model_dest.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		var max_rings = 40
+		for ring in range(0, max_rings):
+			var ring_radius = step * ring
+			var points = 1 if ring == 0 else maxi(8, ring * 6)
+			for p_idx in range(points):
+				var candidate: Vector2
+				if ring == 0:
+					candidate = model_dest
+				else:
+					var angle = (2.0 * PI * p_idx) / points
+					candidate = Vector2(model_dest.x + cos(angle) * ring_radius, model_dest.y + sin(angle) * ring_radius)
+
+				candidate.x = clamp(candidate.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+				candidate.y = clamp(candidate.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+				if orig_pos != Vector2.INF and move_cap_px > 0.0:
+					if orig_pos.distance_to(candidate) > move_cap_px:
+						continue
+
+				var all_obstacles = deployed_models + placed_obstacles + fm_intra_obstacles
+				if _position_collides_with_deployed(candidate, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
+					continue
+
+				if _is_position_near_enemy(candidate, enemies, unit):
+					continue
+
+				if not mv_models.is_empty() and orig_pos != Vector2.INF:
+					if _path_crosses_monster_vehicle(orig_pos, candidate, model_radius, mv_models):
+						continue
+
+				if not placed_positions.is_empty():
+					var coh_count = 0
+					for pp in placed_positions:
+						if candidate.distance_to(pp) <= coherency_max_px:
+							coh_count += 1
+					if coh_count < mini(required_connections, placed_positions.size()):
+						continue
+
+				best_pos = candidate
+				found = true
+				break
+			if found:
+				break
+
+		if not found:
+			print("AIDecisionMaker: Could not place model %s near formation (tried %d rings from %.0f,%.0f)" % [model_id, max_rings, model_dest.x, model_dest.y])
+			return {}
+
+		destinations[model_id] = [best_pos.x, best_pos.y]
+		placed_positions.append(best_pos)
+		placed_obstacles.append({
+			"position": best_pos,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions
+		})
+
+	if destinations.size() < alive_models.size():
+		return {}
+
+	print("AIDecisionMaker: Formation placement succeeded — %d models placed around (%.0f, %.0f)" % [destinations.size(), dest_centroid.x, dest_centroid.y])
+	return destinations
+
+static func _get_monster_vehicle_models(snapshot: Dictionary, exclude_unit_id: String) -> Array:
+	var models = []
+	var exclude_unit = snapshot.get("units", {}).get(exclude_unit_id, {})
+	var exclude_ids = {exclude_unit_id: true}
+	for cid in exclude_unit.get("attachment_data", {}).get("attached_characters", []):
+		exclude_ids[cid] = true
+	for uid in snapshot.get("units", {}):
+		if exclude_ids.has(uid):
+			continue
+		var u = snapshot.units[uid]
+		var status = u.get("status", 0)
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		var keywords = u.get("meta", {}).get("keywords", [])
+		var is_mv = false
+		for kw in keywords:
+			var kw_upper = kw.to_upper()
+			if kw_upper == "MONSTER" or kw_upper == "VEHICLE":
+				is_mv = true
+				break
+		if not is_mv:
+			continue
+		for model in u.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos = model.get("position", null)
+			if pos == null:
+				continue
+			var p: Vector2
+			if pos is Vector2:
+				p = pos
+			else:
+				p = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+			models.append({
+				"position": p,
+				"base_mm": model.get("base_mm", 32),
+				"base_type": model.get("base_type", "circular"),
+				"base_dimensions": model.get("base_dimensions", {})
+			})
+	return models
+
+static func _path_crosses_monster_vehicle(from_pos: Vector2, to_pos: Vector2,
+	model_radius: float, mv_models: Array) -> bool:
+	var path_length = from_pos.distance_to(to_pos)
+	if path_length < 1.0:
+		return false
+	var num_samples = maxi(2, int(path_length / 10.0))
+	for i in range(num_samples + 1):
+		var t = float(i) / float(num_samples)
+		var sample_pos = from_pos.lerp(to_pos, t)
+		for mv in mv_models:
+			var mv_radius = _model_movement_radius_px(
+				mv.get("base_mm", 32), mv.get("base_type", "circular"), mv.get("base_dimensions", {}))
+			var min_dist = model_radius + mv_radius
+			if sample_pos.distance_to(mv.position) < min_dist:
+				return true
+	return false
 
 static func _resolve_movement_collision(
 	dest: Vector2, move_vector: Vector2, base_mm: int,
 	base_type: String, base_dimensions: Dictionary,
 	obstacles: Array, enemies: Dictionary, unit: Dictionary,
-	original_pos: Vector2 = Vector2.INF, move_cap_px: float = 0.0
+	original_pos: Vector2 = Vector2.INF, move_cap_px: float = 0.0,
+	mv_models: Array = [], radius_factor: float = 1.0
 ) -> Vector2:
-	# Try perpendicular offsets to avoid collision while staying close to intended destination
 	var perp = Vector2(-move_vector.y, move_vector.x).normalized()
-	var base_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
-	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0]
+	var base_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions)
+	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0, -4.0, 5.0, -5.0]
 
 	for multiplier in offsets:
 		var offset = perp * base_radius * multiplier
 		var candidate = dest + offset
 
-		# Check board bounds
 		if candidate.x < BASE_MARGIN_PX or candidate.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
 			continue
 		if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
 			continue
 
-		# Check movement cap: offset must not push model beyond its movement distance
 		if original_pos != Vector2.INF and move_cap_px > 0.0:
-			var offset_dist = original_pos.distance_to(candidate)
-			if offset_dist > move_cap_px:
+			if original_pos.distance_to(candidate) > move_cap_px:
 				continue
 
-		if not _position_collides_with_deployed(candidate, base_mm, obstacles, 4.0, base_type, base_dimensions):
-			if not _is_position_near_enemy(candidate, enemies, unit):
-				return candidate
+		if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions, radius_factor):
+			continue
+		if _is_position_near_enemy(candidate, enemies, unit):
+			continue
+		if not mv_models.is_empty() and original_pos != Vector2.INF:
+			if _path_crosses_monster_vehicle(original_pos, candidate, base_radius, mv_models):
+				continue
+		return candidate
 
-	return Vector2.INF  # No valid offset found
+	var back_dir = -move_vector.normalized()
+	for multiplier in [1.0, -1.0, 2.0, -2.0, 3.0, -3.0]:
+		for back_mult in [0.5, 1.0, 1.5]:
+			var offset = perp * base_radius * multiplier + back_dir * base_radius * back_mult
+			var candidate = dest + offset
+			if candidate.x < BASE_MARGIN_PX or candidate.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+				continue
+			if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+				continue
+			if original_pos != Vector2.INF and move_cap_px > 0.0:
+				if original_pos.distance_to(candidate) > move_cap_px:
+					continue
+			if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions, radius_factor):
+				continue
+			if _is_position_near_enemy(candidate, enemies, unit):
+				continue
+			if not mv_models.is_empty() and original_pos != Vector2.INF:
+				if _path_crosses_monster_vehicle(original_pos, candidate, base_radius, mv_models):
+					continue
+			return candidate
+
+	return Vector2.INF
 
 static func _get_deployed_models_excluding_unit(snapshot: Dictionary, exclude_unit_id: String) -> Array:
-	# Returns model positions for all on-board units except the specified one
-	# Includes DEPLOYED, MOVED, SHOT, CHARGED statuses (any unit physically on the board)
+	# Returns model positions for all on-board units except the specified one.
+	# Includes DEPLOYED, MOVED, SHOT, CHARGED statuses (any unit physically on the board).
+	# IMPORTANT: Do NOT exclude attached character units — MovementPhase checks staged
+	# model positions against attached characters during STAGE_MODEL_MOVE validation.
+	# Characters are auto-moved at CONFIRM_UNIT_MOVE time, but during staging they're
+	# still at their original positions and count as obstacles.
+	var exclude_ids = {exclude_unit_id: true}
 	var deployed = []
 	for uid in snapshot.get("units", {}):
-		if uid == exclude_unit_id:
+		if exclude_ids.has(uid):
 			continue
 		var u = snapshot.units[uid]
 		var status = u.get("status", 0)
@@ -9775,11 +10451,14 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var target_name = target_unit.get("meta", {}).get("name", target_id)
 
 			# Calculate charge probability (2D6 must meet or exceed distance - ER)
-			# Include terrain penalties — charging through tall terrain adds climb distance
+			# Include terrain penalties — charging through tall terrain adds climb distance.
+			# Use closest model pair positions (not centroids) so the terrain check
+			# matches the actual shortest charge path.
 			var has_fly = "FLY" in unit_keywords
-			var charger_pos_for_terrain = _get_unit_centroid(unit)
-			var target_pos_for_terrain = _get_unit_centroid(target_unit)
-			var terrain_penalty = _estimate_charge_terrain_penalty(charger_pos_for_terrain, target_pos_for_terrain, has_fly)
+			var pair_info = _get_closest_model_pair_info(unit, target_unit)
+			var charger_pos_for_terrain = pair_info.pos_a
+			var target_pos_for_terrain = pair_info.pos_b
+			var terrain_penalty = _estimate_charge_terrain_penalty(charger_pos_for_terrain, target_pos_for_terrain, has_fly, unit_keywords)
 			var charge_distance_needed = max(0.0, dist - 1.0) + terrain_penalty  # minus 1" engagement range, plus terrain
 			if terrain_penalty > 0.0:
 				print("AIDecisionMaker: [CHARGE-TERRAIN] %s -> %s: raw=%.1f\" terrain_penalty=+%.1f\" effective=%.1f\"" % [
@@ -10606,7 +11285,14 @@ static func _unit_has_melee_weapons(unit: Dictionary) -> bool:
 static func _get_closest_model_distance_inches(unit_a: Dictionary, unit_b: Dictionary) -> float:
 	"""Get the minimum edge-to-edge distance in inches between any two models of two units.
 	Uses pixel-based position calculation since Measurement autoload may not be available statically."""
+	var info = _get_closest_model_pair_info(unit_a, unit_b)
+	return info.distance_inches
+
+static func _get_closest_model_pair_info(unit_a: Dictionary, unit_b: Dictionary) -> Dictionary:
+	"""Get the closest model pair between two units: {distance_inches, pos_a, pos_b}."""
 	var min_dist_px = INF
+	var best_pos_a = Vector2.INF
+	var best_pos_b = Vector2.INF
 	for model_a in unit_a.get("models", []):
 		if not model_a.get("alive", true):
 			continue
@@ -10628,11 +11314,14 @@ static func _get_closest_model_distance_inches(unit_a: Dictionary, unit_b: Dicti
 			# Edge-to-edge distance in pixels
 			var center_dist = pos_a.distance_to(pos_b)
 			var edge_dist_px = center_dist - base_a_radius_px - base_b_radius_px
-			min_dist_px = min(min_dist_px, edge_dist_px)
+			if edge_dist_px < min_dist_px:
+				min_dist_px = edge_dist_px
+				best_pos_a = pos_a
+				best_pos_b = pos_b
 
 	if min_dist_px == INF:
-		return INF
-	return max(0.0, min_dist_px) / PIXELS_PER_INCH
+		return {"distance_inches": INF, "pos_a": Vector2.INF, "pos_b": Vector2.INF}
+	return {"distance_inches": max(0.0, min_dist_px) / PIXELS_PER_INCH, "pos_a": best_pos_a, "pos_b": best_pos_b}
 
 # =============================================================================
 # CHARGE MOVEMENT COMPUTATION
@@ -11022,7 +11711,7 @@ static func _adjust_charge_position(
 
 	# 3. Check for overlap with deployed models
 	var all_obstacles = deployed_models + placed_positions
-	if _position_collides_with_deployed(pos, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+	if _position_collides_with_deployed(pos, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
 		# Spiral search for nearest free position
 		var step = my_base_radius_px * 2.0 + 8.0
 		for ring in range(1, 6):
@@ -11041,7 +11730,7 @@ static func _adjust_charge_position(
 				test_pos.x = clamp(test_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
 				test_pos.y = clamp(test_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
 				# Check no collision
-				if not _position_collides_with_deployed(test_pos, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+				if not _position_collides_with_deployed(test_pos, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
 					# Check no non-target ER violation
 					var nte_ok = true
 					for nte in non_target_enemies:
@@ -13981,15 +14670,36 @@ static func _model_bounding_radius_px(base_mm: int, base_type: String = "circula
 		_:
 			return (base_mm / 2.0) * mm_to_px
 
-static func _position_collides_with_deployed(pos: Vector2, base_mm: int, deployed_models: Array, min_gap_px: float = 4.0, base_type: String = "circular", base_dimensions: Dictionary = {}) -> bool:
-	"""Check if a position would collide with any deployed model using bounding-circle approximation."""
-	var my_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+static func _model_movement_radius_px(base_mm: int, base_type: String = "circular", base_dimensions: Dictionary = {}) -> float:
+	"""Returns a tighter collision radius for movement checks. For rectangular bases,
+	uses max(length, width)/2 instead of diagonal/2. This is less conservative but
+	prevents large vehicles (e.g. Battlewagon 180x110mm) from getting stuck because
+	their diagonal-based bounding circle is ~40% larger than their actual footprint.
+	MovementPhase uses shape-aware collision, so the AI's bounding circle only needs
+	to be a reasonable approximation, not an exact bound."""
+	var mm_to_px = PIXELS_PER_INCH / 25.4
+	match base_type:
+		"circular":
+			return (base_mm / 2.0) * mm_to_px
+		"rectangular", "oval":
+			var length_mm = base_dimensions.get("length", base_mm)
+			var width_mm = base_dimensions.get("width", base_mm * 0.6)
+			return (max(length_mm, width_mm) / 2.0) * mm_to_px
+		_:
+			return (base_mm / 2.0) * mm_to_px
+
+static func _position_collides_with_deployed(pos: Vector2, base_mm: int, deployed_models: Array, min_gap_px: float = 1.0, base_type: String = "circular", base_dimensions: Dictionary = {}, radius_factor: float = 1.0) -> bool:
+	"""Check if a position would collide with any deployed model.
+	Uses the tighter movement radius for rectangular bases to avoid
+	false positives that prevent large vehicles from moving.
+	radius_factor < 1.0 shrinks both collision circles (relaxed mode)."""
+	var my_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions) * radius_factor
 	for dm in deployed_models:
-		var other_radius = _model_bounding_radius_px(
+		var other_radius = _model_movement_radius_px(
 			dm.get("base_mm", 32),
 			dm.get("base_type", "circular"),
 			dm.get("base_dimensions", {})
-		)
+		) * radius_factor
 		var min_dist = my_radius + other_radius + min_gap_px
 		if pos.distance_to(dm.position) < min_dist:
 			return true
@@ -14014,7 +14724,7 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 		# Combine deployed models + already-placed formation models for collision
 		var all_obstacles = deployed_models + formation_placed
 
-		if not _position_collides_with_deployed(pos, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+		if not _position_collides_with_deployed(pos, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
 			# No collision — but check coherency with already-placed models
 			var coherent = resolved.is_empty()
 			if not coherent:
@@ -14047,7 +14757,7 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 				candidate.x = clamp(candidate.x, zone_bounds.get("min_x", margin) + margin, zone_bounds.get("max_x", BOARD_WIDTH_PX - margin) - margin)
 				candidate.y = clamp(candidate.y, zone_bounds.get("min_y", margin) + margin, zone_bounds.get("max_y", BOARD_HEIGHT_PX - margin) - margin)
 
-				if not _position_collides_with_deployed(candidate, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+				if not _position_collides_with_deployed(candidate, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
 					# Also check coherency with already-placed formation models
 					var is_coherent = resolved.is_empty()
 					if not is_coherent:

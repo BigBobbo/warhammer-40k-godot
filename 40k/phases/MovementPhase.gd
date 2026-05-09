@@ -6147,6 +6147,10 @@ func _position_overlaps_other_models(unit_id: String, model_id: String, position
 				# other shape combinations keep strict behavior.
 				if _is_touching_within_tolerance(check_model, other_model_check):
 					continue
+				var _op = other_position if other_position is Vector2 else Vector2(other_position.get("x", 0), other_position.get("y", 0))
+				DebugLogger.info("OVERLAP_DEBUG %s.%s at (%.0f,%.0f) overlaps %s.%s at (%.0f,%.0f) dist=%.1fpx" % [
+					unit_id, model_id, position.x, position.y,
+					check_unit_id, other_model_id, _op.x, _op.y, position.distance_to(_op)])
 				return true
 
 	return false
@@ -6294,8 +6298,10 @@ func get_available_actions() -> Array:
 
 	# Add reinforcement actions for units in reserves (from Turn 2 onwards)
 	var battle_round = GameState.get_battle_round()
+	print("MovementPhase: get_available_actions — battle_round=%d, current_player=%d" % [battle_round, current_player])
 	if battle_round >= 2:
 		var reserves = GameState.get_reserves_for_player(current_player)
+		print("MovementPhase: Found %d reserve units for player %d: %s" % [reserves.size(), current_player, str(reserves)])
 		for reserve_unit_id in reserves:
 			var reserve_unit = get_unit(reserve_unit_id)
 

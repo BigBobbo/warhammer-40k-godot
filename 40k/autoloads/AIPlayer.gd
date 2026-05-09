@@ -1198,7 +1198,10 @@ func _get_target_pos_for_unit(unit: Dictionary, snapshot: Dictionary, objectives
 	var centroid = AIDecisionMaker._get_unit_centroid(unit)
 	if centroid == Vector2.INF:
 		return Vector2.INF
-	return AIDecisionMaker._nearest_objective_pos(centroid, objectives)
+	var parsed_objectives = AIDecisionMaker._get_objectives(snapshot)
+	if parsed_objectives.is_empty():
+		return Vector2.INF
+	return AIDecisionMaker._nearest_objective_pos(centroid, parsed_objectives)
 
 # --- Submit reactive action ---
 
@@ -1717,12 +1720,76 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 					origin_positions[mid] = Vector2(pos.get("x", 0), pos.get("y", 0))
 				elif pos is Vector2:
 					origin_positions[mid] = pos
+	# Try staging with computed destinations
+	var move_type = decision.get("type", "BEGIN_NORMAL_MOVE")
+	var result = _try_stage_and_confirm(player, unit_id, destinations, description, origin_positions, unit_name)
+	if result == "success":
+		return
 
+	# Full-scale staging failed — re-compute with fresh snapshot at shorter move caps
+	# (blind scaling squeezes models together without re-validating collisions)
+	var unit_fresh = GameState.get_unit(unit_id)
+	var move_stat = float(unit_fresh.get("meta", {}).get("stats", {}).get("move", 6))
+
+	for recompute_scale in [0.75, 0.5, 0.25]:
+		_current_phase_actions += 1
+		var rebegin = NetworkIntegration.route_action({
+			"type": move_type,
+			"actor_unit_id": unit_id,
+			"player": player
+		})
+		if rebegin == null or not rebegin.get("success", false):
+			break
+
+		var snapshot = GameState.create_snapshot()
+		var enemies = _get_enemies_for_recompute(player, snapshot)
+		var parsed_objectives = AIDecisionMaker._get_objectives(snapshot)
+		var target_pos = _get_target_pos_for_unit(unit_fresh, snapshot, parsed_objectives)
+		var scaled_move = move_stat * recompute_scale
+
+		var new_dests = AIDecisionMaker._compute_movement_toward_target(
+			unit_fresh, unit_id, target_pos, scaled_move, snapshot, enemies,
+			0.0, [], parsed_objectives
+		)
+
+		if new_dests.is_empty():
+			continue
+
+		result = _try_stage_and_confirm(player, unit_id, new_dests, description, origin_positions, unit_name)
+		if result == "success":
+			print("AIPlayer: Movement succeeded at recomputed %.0f%% scale for %s" % [recompute_scale * 100, unit_id])
+			return
+		elif result != "staging_failed":
+			break
+
+	# All attempts failed — remain stationary
+	print("AIPlayer: All movement attempts failed for %s, remaining stationary" % unit_id)
+	_current_phase_actions += 1
+	NetworkIntegration.route_action({
+		"type": "REMAIN_STATIONARY",
+		"actor_unit_id": unit_id,
+		"player": player,
+		"_ai_description": "%s remains stationary (all move attempts failed)" % [unit_name]
+	})
+
+func _scale_destinations(destinations: Dictionary, origin_positions: Dictionary, scale: float) -> Dictionary:
+	var scaled = {}
+	for model_id in destinations:
+		var dest = destinations[model_id]
+		var orig = origin_positions.get(model_id, null)
+		if orig != null:
+			var delta = Vector2(dest[0] - orig.x, dest[1] - orig.y) * scale
+			scaled[model_id] = [orig.x + delta.x, orig.y + delta.y]
+		else:
+			scaled[model_id] = dest
+	return scaled
+
+func _try_stage_and_confirm(player: int, unit_id: String, destinations: Dictionary,
+	description: String, origin_positions: Dictionary, unit_name: String) -> String:
 	var staged_count = 0
 	var failed_count = 0
 	var failure_reasons = []
 
-	# Stage each model's destination
 	for model_id in destinations:
 		var dest = destinations[model_id]
 		var stage_action = {
@@ -1731,7 +1798,7 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 			"player": player,
 			"payload": {
 				"model_id": model_id,
-				"dest": dest,  # [x, y] array
+				"dest": dest,
 				"rotation": 0.0
 			}
 		}
@@ -1741,7 +1808,6 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 
 		if stage_result != null and stage_result.get("success", false):
 			staged_count += 1
-			print("AIPlayer: Staged model %s to (%.0f, %.0f)" % [model_id, dest[0], dest[1]])
 		else:
 			failed_count += 1
 			var errors = stage_result.get("errors", []) if stage_result != null else []
@@ -1749,64 +1815,58 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 			failure_reasons.append(error_msg)
 			print("AIPlayer: Failed to stage model %s: %s" % [model_id, error_msg])
 
-	# Confirm the unit move (even if some models failed — partial moves are valid)
-	if staged_count > 0:
-		var confirm_action = {
-			"type": "CONFIRM_UNIT_MOVE",
-			"actor_unit_id": unit_id,
-			"player": player
-		}
-
-		_current_phase_actions += 1
-		var confirm_result = NetworkIntegration.route_action(confirm_action)
-
-		if confirm_result != null and confirm_result.get("success", false):
-			print("AIPlayer: Confirmed movement for %s (%d/%d models staged)" % [
-				unit_id, staged_count, staged_count + failed_count])
-			_action_log.append({
-				"phase": GameState.get_current_phase(),
-				"action_type": "CONFIRM_UNIT_MOVE",
-				"description": "%s (moved %d models)" % [description, staged_count],
-				"player": player
-			})
-			# T7-21: Show movement path visualization
-			_show_ai_movement_paths(origin_positions, destinations, player)
-		else:
-			var error_msg = "" if confirm_result == null else confirm_result.get("error", confirm_result.get("errors", ""))
-			push_error("AIPlayer: Failed to confirm movement for %s: %s" % [unit_id, error_msg])
-			# Try to reset the move to recover
-			_current_phase_actions += 1
-			NetworkIntegration.route_action({
-				"type": "RESET_UNIT_MOVE",
-				"actor_unit_id": unit_id,
-				"player": player
-			})
-			# Fall back to remain stationary — _ai_description will be logged by GameEventLog
-			_current_phase_actions += 1
-			NetworkIntegration.route_action({
-				"type": "REMAIN_STATIONARY",
-				"actor_unit_id": unit_id,
-				"player": player,
-				"_ai_description": "%s remains stationary (confirm failed: %s)" % [unit_name, error_msg]
-			})
-	else:
-		# No models could be staged — reset and remain stationary
-		var reason = failure_reasons[0] if failure_reasons.size() > 0 else "unknown"
-		print("AIPlayer: No models staged for %s, resetting move" % unit_id)
+	if staged_count == 0:
 		_current_phase_actions += 1
 		NetworkIntegration.route_action({
 			"type": "RESET_UNIT_MOVE",
 			"actor_unit_id": unit_id,
 			"player": player
 		})
-		# Fall back to remain stationary — _ai_description will be logged by GameEventLog
+		return "staging_failed"
+
+	if failed_count > 0:
+		if staged_count == 0:
+			_current_phase_actions += 1
+			NetworkIntegration.route_action({
+				"type": "RESET_UNIT_MOVE",
+				"actor_unit_id": unit_id,
+				"player": player
+			})
+			return "staging_failed"
+		# Partial staging: some models failed (usually terrain penalty mismatch).
+		# Try to confirm with the models that succeeded — un-staged models stay in place.
+		print("AIPlayer: %d/%d models failed staging for %s, confirming partial move" % [
+			failed_count, staged_count + failed_count, unit_id])
+
+	var confirm_action = {
+		"type": "CONFIRM_UNIT_MOVE",
+		"actor_unit_id": unit_id,
+		"player": player
+	}
+
+	_current_phase_actions += 1
+	var confirm_result = NetworkIntegration.route_action(confirm_action)
+
+	if confirm_result != null and confirm_result.get("success", false):
+		print("AIPlayer: Confirmed movement for %s (%d models staged)" % [unit_id, staged_count])
+		_action_log.append({
+			"phase": GameState.get_current_phase(),
+			"action_type": "CONFIRM_UNIT_MOVE",
+			"description": "%s (moved %d models)" % [description, staged_count],
+			"player": player
+		})
+		_show_ai_movement_paths(origin_positions, destinations, player)
+		return "success"
+	else:
+		var error_msg = "" if confirm_result == null else confirm_result.get("error", confirm_result.get("errors", ""))
+		print("AIPlayer: Confirm failed for %s: %s, resetting" % [unit_id, error_msg])
 		_current_phase_actions += 1
 		NetworkIntegration.route_action({
-			"type": "REMAIN_STATIONARY",
+			"type": "RESET_UNIT_MOVE",
 			"actor_unit_id": unit_id,
-			"player": player,
-			"_ai_description": "%s remains stationary (move failed: %s)" % [unit_name, reason]
+			"player": player
 		})
+		return "confirm_failed"
 
 # --- AI Scout Movement execution ---
 

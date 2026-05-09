@@ -381,8 +381,9 @@ func is_terrain_obscuring(terrain_piece: Dictionary) -> bool:
 ## FLY units measure diagonally instead of climbing; FLY units ignore difficult ground.
 ##
 ## Returns the extra distance in inches that must be added to the path distance.
-func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool) -> float:
+func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool, unit_keywords: Array = []) -> float:
 	var total_penalty: float = 0.0
+	var is_infantry = "INFANTRY" in unit_keywords
 
 	for terrain in terrain_features:
 		var polygon = terrain.get("polygon", PackedVector2Array())
@@ -390,48 +391,45 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 		var ends_inside = is_point_in_polygon(to_pos, polygon)
 		var crosses_edge = check_line_intersects_terrain(from_pos, to_pos, terrain)
 
-		# Skip terrain that the path doesn't interact with at all
 		if not crosses_edge and not starts_inside and not ends_inside:
 			continue
 
-		var from_inside = not polygon.is_empty() and starts_inside
-		var to_inside = not polygon.is_empty() and ends_inside
+		var can_move_through = terrain.get("can_move_through", {})
+		var unit_can_traverse = false
+		if is_infantry and can_move_through.get("INFANTRY", false):
+			unit_can_traverse = true
 
-		var height_inches = get_height_inches(terrain)
-
-		# Height penalty: terrain 2" or less has no climb penalty
-		if height_inches > 2.0:
-			if has_fly:
-				# FLY units measure diagonally through the air
-				# The diagonal distance through a terrain piece of height h
-				# is sqrt(horizontal_cross^2 + h^2) - horizontal_cross
-				# This is less than the vertical climb (up + down = 2*h)
-				# For simplicity, we use the diagonal penalty: sqrt(h^2 + cross^2) - cross
-				# where cross is the horizontal distance through the terrain
-				var cross_distance_px = _get_terrain_crossing_distance(from_pos, to_pos, polygon)
-				var cross_distance_inches = cross_distance_px / Measurement.PX_PER_INCH
-				var diagonal = sqrt(height_inches * height_inches + cross_distance_inches * cross_distance_inches)
-				var fly_penalty = diagonal - cross_distance_inches
-				total_penalty += fly_penalty
-				print("[TerrainManager] FLY terrain penalty for %s: diagonal=%.1f\" cross=%.1f\" penalty=%.1f\"" % [
-					terrain.get("id", "unknown"), diagonal, cross_distance_inches, fly_penalty])
-			else:
-				# Determine climb multiplier based on start/end position relative to terrain:
-				#   - Moving through (both outside): climb up + climb down = height * 2
-				#   - Moving onto (start outside, end inside): climb up only = height * 1
-				#   - Moving off (start inside, end outside): climb down only = height * 1
-				var climb_multiplier: float
-				if from_inside or to_inside:
-					climb_multiplier = 1.0
-				else:
-					climb_multiplier = 2.0
-				var height_penalty = height_inches * climb_multiplier
-				total_penalty += height_penalty
-				var climb_desc = "climb up + down" if climb_multiplier == 2.0 else ("climb up" if not from_inside else "climb down")
-				print("[TerrainManager] Terrain penalty for %s: %s = %.1f\" (height=%.1f\")" % [
-					terrain.get("id", "unknown"), climb_desc, height_penalty, height_inches])
+		# Units that can move through terrain at ground level (e.g. Infantry through ruins)
+		# don't pay height climbing penalties — same as movement phase rules.
+		if unit_can_traverse:
+			print("[TerrainManager] Charge: %s traversable by INFANTRY — no height penalty (ground floor)" % terrain.get("id", "unknown"))
 		else:
-			print("[TerrainManager] Charge path interacts with %s: no height penalty (height <= 2\")" % terrain.get("id", "unknown"))
+			var from_inside = not polygon.is_empty() and starts_inside
+			var to_inside = not polygon.is_empty() and ends_inside
+			var height_inches = get_height_inches(terrain)
+
+			if height_inches > 2.0:
+				if has_fly:
+					var cross_distance_px = _get_terrain_crossing_distance(from_pos, to_pos, polygon)
+					var cross_distance_inches = cross_distance_px / Measurement.PX_PER_INCH
+					var diagonal = sqrt(height_inches * height_inches + cross_distance_inches * cross_distance_inches)
+					var fly_penalty = diagonal - cross_distance_inches
+					total_penalty += fly_penalty
+					print("[TerrainManager] FLY terrain penalty for %s: diagonal=%.1f\" cross=%.1f\" penalty=%.1f\"" % [
+						terrain.get("id", "unknown"), diagonal, cross_distance_inches, fly_penalty])
+				else:
+					var climb_multiplier: float
+					if from_inside or to_inside:
+						climb_multiplier = 1.0
+					else:
+						climb_multiplier = 2.0
+					var height_penalty = height_inches * climb_multiplier
+					total_penalty += height_penalty
+					var climb_desc = "climb up + down" if climb_multiplier == 2.0 else ("climb up" if not from_inside else "climb down")
+					print("[TerrainManager] Terrain penalty for %s: %s = %.1f\" (height=%.1f\")" % [
+						terrain.get("id", "unknown"), climb_desc, height_penalty, height_inches])
+			else:
+				print("[TerrainManager] Charge path interacts with %s: no height penalty (height <= 2\")" % terrain.get("id", "unknown"))
 
 		# T3-16: Difficult ground trait penalty — flat 2" per terrain piece crossed
 		# FLY units ignore difficult ground
