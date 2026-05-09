@@ -1621,6 +1621,7 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 	for target_id in target_ids:
 		var target_unit = all_units.get(target_id, {})
 		if target_unit.is_empty():
+			print("ChargePhase ER_DEBUG: target_id=%s not found in units" % target_id)
 			continue
 
 		var unit_in_er_of_target = false
@@ -1630,6 +1631,11 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 			if path is Array and path.size() > 0:
 				var final_pos = Vector2(path[-1][0], path[-1][1])
 				var model = _get_model_in_unit(unit_id, model_id)
+
+				if model.is_empty():
+					print("ChargePhase ER_DEBUG: model_id=%s NOT FOUND in unit %s — using empty dict" % [model_id, unit_id])
+				else:
+					print("ChargePhase ER_DEBUG: model_id=%s found, base_mm=%s base_type=%s pos=%s" % [model_id, model.get("base_mm", "?"), model.get("base_type", "?"), str(final_pos)])
 
 				# Create a temporary model dict with the final position for shape-aware checks
 				var model_at_final_pos = model.duplicate()
@@ -1646,6 +1652,11 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 
 					# T3-9: Use barricade-aware engagement range (2" through barricades)
 					var effective_er = _get_effective_engagement_range(final_pos, target_pos)
+					var dist_px = Measurement.model_to_model_distance_px(model_at_final_pos, target_model)
+					var er_px = Measurement.inches_to_px(effective_er)
+					print("ChargePhase ER_DEBUG: model %s→target_model %s: dist_px=%.1f er_px=%.1f (%.2f\") center_dist=%.1f target_base=%s target_type=%s" % [
+						model_id, target_model.get("id", "?"), dist_px, er_px, dist_px / 40.0,
+						final_pos.distance_to(target_pos), target_model.get("base_mm", "?"), target_model.get("base_type", "?")])
 					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, target_model, effective_er):
 						unit_in_er_of_target = true
 						break
@@ -1655,6 +1666,7 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 
 		if not unit_in_er_of_target:
 			var target_name = target_unit.get("meta", {}).get("name", target_id)
+			print("ChargePhase ER_DEBUG: FAILED — no model of %s reached ER of target %s (%s)" % [unit_id, target_id, target_name])
 			errors.append("Must end within engagement range of all targets: " + target_name)
 
 	# Check that unit does NOT end in ER of non-target enemies

@@ -1,0 +1,15 @@
+{
+  "id": "charge_congestion",
+  "covers": ["charge.placement_congestion"],
+  "fixture": "test_charge_congestion",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "description": "Validates that multiple units can charge the same target without placement failures. Three P2 charger units (3 models each) charge a single P1 Shield Captain from different angles.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "screenshot", "label": "01_charge_phase_start" },
+    { "act": "wait_seconds", "seconds": 10.0 },
+    { "act": "screenshot", "label": "02_after_charges" }
+  ]
+}

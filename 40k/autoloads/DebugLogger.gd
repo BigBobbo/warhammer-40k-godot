@@ -23,8 +23,9 @@ enum LogLevel {
 # File management
 var log_file_path: String = ""
 var session_id: String = ""
-var max_log_size: int = 10 * 1024 * 1024  # 10 MB
+var max_log_size: int = 50 * 1024 * 1024  # 50 MB
 var current_log_size: int = 0
+var _is_rotating: bool = false
 
 # Performance optimization
 var log_buffer: Array[String] = []
@@ -176,7 +177,8 @@ func _flush_buffer() -> void:
 	log_buffer.clear()
 
 func _write_to_file_immediate(content: String) -> void:
-	# Check if log rotation needed
+	if _is_rotating:
+		return
 	if current_log_size > max_log_size:
 		_rotate_log()
 
@@ -195,10 +197,9 @@ func _write_to_file_immediate(content: String) -> void:
 		push_error("DebugLogger: Failed to open log file: " + log_file_path)
 
 func _rotate_log() -> void:
-	# Rename current log to archived name
+	_is_rotating = true
 	var archived_path = log_file_path.replace(".log", "_archived.log")
 
-	# Copy current log to archive
 	var file = FileAccess.open(log_file_path, FileAccess.READ)
 	if file:
 		var content = file.get_as_text()
@@ -209,10 +210,15 @@ func _rotate_log() -> void:
 			archive.store_string(content)
 			archive = null
 
-	# Start fresh log
+	# Truncate the original file
+	var truncated = FileAccess.open(log_file_path, FileAccess.WRITE)
+	if truncated:
+		truncated = null
 	current_log_size = 0
+	log_buffer.clear()
+	_is_rotating = false
 	_write_log_header()
-	info("Log rotated - Previous log archived to: %s" % archived_path)
+	print("Log rotated - Previous log archived to: %s" % archived_path)
 
 # Utility functions
 func get_log_file_path() -> String:

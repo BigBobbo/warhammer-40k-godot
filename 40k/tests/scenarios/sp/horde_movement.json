@@ -1,0 +1,13 @@
+{
+  "id": "horde_movement",
+  "covers": ["movement.horde_congestion"],
+  "fixture": "test_horde_movement",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "description": "Validates that a 20-model horde unit can successfully move toward a target even when blocking units create congestion. P2 Boyz (20 models) move toward P1 Shield-Captain with P1 Guardsmen blocking the path.",
+  "steps": [
+    { "act": "screenshot", "label": "01_movement_phase_start" },
+    { "act": "wait_seconds", "seconds": 12.0 },
+    { "act": "screenshot", "label": "02_after_horde_movement" }
+  ]
+}
