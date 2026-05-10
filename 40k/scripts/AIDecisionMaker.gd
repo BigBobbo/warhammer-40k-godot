@@ -13698,6 +13698,17 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 			"_ai_description": "Acrobatic Escape: vanish from battlefield"
 		}
 
+	if action_types_map.has("END_TURN_REDEPLOY"):
+		var rd_action = action_types_map["END_TURN_REDEPLOY"][0]
+		var rd_unit_id = rd_action.get("unit_id", "")
+		print("AIDecisionMaker: [SCORING] End-of-turn redeploy — moving %s to reserves" % rd_unit_id)
+		return {
+			"type": "END_TURN_REDEPLOY",
+			"unit_id": rd_unit_id,
+			"player": rd_action.get("player", player),
+			"_ai_description": "End-of-turn redeploy: move to Strategic Reserves"
+		}
+
 	# T7-47: Evaluate active secondary missions and discard unachievable ones for +1 CP
 	var discard_actions = []
 	for action in available_actions:

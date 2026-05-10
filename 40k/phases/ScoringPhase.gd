@@ -33,11 +33,29 @@ var _acrobatic_escape_vanish_offered: bool = false  # Prevents re-checking after
 
 signal acrobatic_escape_vanish_available(unit_id: String, unit_name: String, player: int)
 
+# Generic end-of-turn redeploy to reserves (From Golden Light, Guerrilla Tactics, etc.)
+# Each entry: { ability_name, distance_check (inches), once_per_battle }
+const END_TURN_REDEPLOY_ABILITIES = [
+	{"ability_name": "From Golden Light", "distance_check": 1.0, "once_per_battle": true},
+	{"ability_name": "Guerrilla Tactics", "distance_check": 1.0, "once_per_battle": true},
+	{"ability_name": "Webway Shunt Generator", "distance_check": 1.0, "once_per_battle": true},
+	{"ability_name": "Teleportation Matrix", "distance_check": 1.0, "once_per_battle": true},
+]
+
+var _awaiting_end_turn_redeploy: bool = false
+var _end_turn_redeploy_pending: Array = []  # [{unit_id, unit_name, player, ability_name}]
+var _end_turn_redeploy_offered: bool = false
+
+signal end_turn_redeploy_available(unit_id: String, unit_name: String, player: int, ability_name: String)
+
 func _on_phase_enter() -> void:
 	_turn_ended = false
 	_awaiting_acrobatic_escape_vanish = false
 	_acrobatic_escape_vanish_pending.clear()
 	_acrobatic_escape_vanish_offered = false
+	_awaiting_end_turn_redeploy = false
+	_end_turn_redeploy_pending.clear()
+	_end_turn_redeploy_offered = false
 	phase_type = GameStateData.Phase.SCORING
 	var current_player = get_current_player()
 	DebugLogger.info(str("ScoringPhase: Entering scoring phase for player ", current_player))
@@ -103,20 +121,44 @@ func get_available_actions() -> Array:
 	var current_player = get_current_player()
 
 	# Acrobatic Escape vanish actions when awaiting
+	# Only list these if the pending unit is AI-controlled — human players
+	# interact via the dialog (which dispatches the action directly).
+	# Returning empty blocks the AI from ending the turn while the dialog is open.
 	if _awaiting_acrobatic_escape_vanish and not _acrobatic_escape_vanish_pending.is_empty():
 		var ae_unit = _acrobatic_escape_vanish_pending[0]
-		actions.append({
-			"type": "ACROBATIC_ESCAPE_VANISH",
-			"unit_id": ae_unit.unit_id,
-			"description": "Acrobatic Escape: Remove %s from battlefield" % ae_unit.unit_name,
-			"player": ae_unit.player,
-		})
-		actions.append({
-			"type": "DECLINE_ACROBATIC_ESCAPE_VANISH",
-			"unit_id": ae_unit.unit_id,
-			"description": "Keep %s on the battlefield" % ae_unit.unit_name,
-			"player": ae_unit.player,
-		})
+		var ai_player_node = get_node_or_null("/root/AIPlayer")
+		if ai_player_node and ai_player_node.is_ai_player(ae_unit.player):
+			actions.append({
+				"type": "ACROBATIC_ESCAPE_VANISH",
+				"unit_id": ae_unit.unit_id,
+				"description": "Acrobatic Escape: Remove %s from battlefield" % ae_unit.unit_name,
+				"player": ae_unit.player,
+			})
+			actions.append({
+				"type": "DECLINE_ACROBATIC_ESCAPE_VANISH",
+				"unit_id": ae_unit.unit_id,
+				"description": "Keep %s on the battlefield" % ae_unit.unit_name,
+				"player": ae_unit.player,
+			})
+		return actions
+
+	# End-of-turn redeploy to reserves actions (From Golden Light, etc.)
+	if _awaiting_end_turn_redeploy and not _end_turn_redeploy_pending.is_empty():
+		var rd_unit = _end_turn_redeploy_pending[0]
+		var ai_player_node = get_node_or_null("/root/AIPlayer")
+		if ai_player_node and ai_player_node.is_ai_player(rd_unit.player):
+			actions.append({
+				"type": "END_TURN_REDEPLOY",
+				"unit_id": rd_unit.unit_id,
+				"description": "%s: Remove %s to Strategic Reserves" % [rd_unit.ability_name, rd_unit.unit_name],
+				"player": rd_unit.player,
+			})
+			actions.append({
+				"type": "DECLINE_END_TURN_REDEPLOY",
+				"unit_id": rd_unit.unit_id,
+				"description": "Keep %s on the battlefield" % rd_unit.unit_name,
+				"player": rd_unit.player,
+			})
 		return actions
 
 	# Offer voluntary discard of active secondary missions (tactical mode only — fixed missions cannot be discarded)
@@ -162,6 +204,12 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"DECLINE_ACROBATIC_ESCAPE_VANISH":
 			if not _awaiting_acrobatic_escape_vanish:
 				errors.append("No Acrobatic Escape vanish is pending")
+		"END_TURN_REDEPLOY":
+			if not _awaiting_end_turn_redeploy:
+				errors.append("No end-of-turn redeploy is pending")
+		"DECLINE_END_TURN_REDEPLOY":
+			if not _awaiting_end_turn_redeploy:
+				errors.append("No end-of-turn redeploy is pending")
 		_:
 			errors.append("Unknown action type: %s" % action_type)
 
@@ -182,6 +230,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_acrobatic_escape_vanish(action)
 		"DECLINE_ACROBATIC_ESCAPE_VANISH":
 			return _handle_decline_acrobatic_escape_vanish(action)
+		"END_TURN_REDEPLOY":
+			return _handle_end_turn_redeploy(action)
+		"DECLINE_END_TURN_REDEPLOY":
+			return _handle_decline_end_turn_redeploy(action)
 		_:
 			return {"success": false, "error": "Unknown action type"}
 
@@ -225,6 +277,27 @@ func _handle_end_turn() -> Dictionary:
 			"trigger_acrobatic_escape_vanish": true,
 			"acrobatic_escape_vanish_unit_id": first.unit_id,
 			"acrobatic_escape_vanish_player": first.player,
+		}
+
+	# Check for end-of-turn redeploy abilities (From Golden Light, etc.)
+	var rd_eligible = _get_end_turn_redeploy_eligible(current_player)
+	if not rd_eligible.is_empty() and not _awaiting_end_turn_redeploy and not _end_turn_redeploy_offered:
+		_awaiting_end_turn_redeploy = true
+		_end_turn_redeploy_offered = true
+		_end_turn_redeploy_pending = rd_eligible.duplicate()
+
+		var first = rd_eligible[0]
+		DebugLogger.info(str("ScoringPhase: END-TURN REDEPLOY: %s (player %d) eligible via %s — offering choice" % [first.unit_name, first.player, first.ability_name]))
+		emit_signal("end_turn_redeploy_available", first.unit_id, first.unit_name, first.player, first.ability_name)
+
+		return {
+			"success": true,
+			"changes": [],
+			"message": "%s: %s can redeploy to Strategic Reserves" % [first.ability_name, first.unit_name],
+			"trigger_end_turn_redeploy": true,
+			"end_turn_redeploy_unit_id": first.unit_id,
+			"end_turn_redeploy_player": first.player,
+			"end_turn_redeploy_ability": first.ability_name,
 		}
 
 	_turn_ended = true
@@ -664,4 +737,177 @@ func _handle_decline_acrobatic_escape_vanish(action: Dictionary) -> Dictionary:
 	_awaiting_acrobatic_escape_vanish = false
 
 	# Process the actual end turn
+	return _handle_end_turn()
+
+# ============================================================================
+# END-OF-TURN REDEPLOY TO RESERVES (From Golden Light, Guerrilla Tactics, etc.)
+# ============================================================================
+
+func _get_end_turn_redeploy_eligible(current_player: int) -> Array:
+	var eligible = []
+	var all_units = game_state_snapshot.get("units", {})
+	var opponent = 2 if current_player == 1 else 1
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if int(unit.get("owner", 0)) != opponent:
+			continue
+
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+
+		var models = unit.get("models", [])
+		var has_alive = false
+		for model in models:
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		for ability_def in END_TURN_REDEPLOY_ABILITIES:
+			var ability_name = ability_def["ability_name"]
+			var has_ability = false
+			for ability in abilities:
+				if ability is Dictionary and ability.get("name", "") == ability_name:
+					has_ability = true
+					break
+				elif ability is String and ability == ability_name:
+					has_ability = true
+					break
+
+			if not has_ability:
+				continue
+
+			# Check once-per-battle usage
+			if ability_def["once_per_battle"] and ability_mgr:
+				if ability_mgr.is_once_per_battle_used(unit_id, ability_name):
+					DebugLogger.info(str("ScoringPhase: END-TURN REDEPLOY: %s already used %s this battle" % [unit.get("meta", {}).get("name", unit_id), ability_name]))
+					continue
+
+			# Must NOT be within Engagement Range of enemies
+			if _is_unit_within_distance_of_enemies(unit, unit_id, ability_def["distance_check"]):
+				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				DebugLogger.info(str("ScoringPhase: END-TURN REDEPLOY: %s is within Engagement Range — cannot use %s" % [unit_name, ability_name]))
+				continue
+
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			eligible.append({
+				"unit_id": unit_id,
+				"unit_name": unit_name,
+				"player": opponent,
+				"ability_name": ability_name,
+			})
+			DebugLogger.info(str("ScoringPhase: END-TURN REDEPLOY: %s (player %d) eligible via %s" % [unit_name, opponent, ability_name]))
+			break  # One ability per unit is enough
+
+	return eligible
+
+func _handle_end_turn_redeploy(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var unit = game_state_snapshot.get("units", {}).get(unit_id, {})
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var player = int(unit.get("owner", 0))
+
+	# Find the ability name from pending list
+	var ability_name = ""
+	for pending in _end_turn_redeploy_pending:
+		if pending.unit_id == unit_id:
+			ability_name = pending.ability_name
+			break
+
+	DebugLogger.info(str("ScoringPhase: END-TURN REDEPLOY: %s using %s — moving to Strategic Reserves" % [unit_name, ability_name]))
+
+	var changes = []
+
+	changes.append({
+		"op": "set",
+		"path": "units.%s.status" % unit_id,
+		"value": GameStateData.UnitStatus.IN_RESERVES
+	})
+
+	changes.append({
+		"op": "set",
+		"path": "units.%s.reserve_type" % unit_id,
+		"value": "strategic_reserves"
+	})
+
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.strategic_reserves_redeploy" % unit_id,
+		"value": true
+	})
+
+	# Mark once-per-battle used
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.mark_once_per_battle_used(unit_id, ability_name)
+
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_player_entry(player, "%s: %s removed to Strategic Reserves" % [ability_name, unit_name])
+
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_info("%s: %s moved to Strategic Reserves — will return next Movement phase" % [ability_name, unit_name])
+
+	# Remove from pending list
+	_end_turn_redeploy_pending = _end_turn_redeploy_pending.filter(
+		func(u): return u.unit_id != unit_id
+	)
+
+	# Check for more pending units
+	if not _end_turn_redeploy_pending.is_empty():
+		var next = _end_turn_redeploy_pending[0]
+		DebugLogger.info(str("ScoringPhase: END-TURN REDEPLOY: Next eligible — %s (player %d) via %s" % [next.unit_name, next.player, next.ability_name]))
+		emit_signal("end_turn_redeploy_available", next.unit_id, next.unit_name, next.player, next.ability_name)
+
+		return {
+			"success": true,
+			"changes": changes,
+			"message": "%s: %s moved to Strategic Reserves" % [ability_name, unit_name],
+			"trigger_end_turn_redeploy": true,
+			"end_turn_redeploy_unit_id": next.unit_id,
+			"end_turn_redeploy_player": next.player,
+			"end_turn_redeploy_ability": next.ability_name,
+		}
+
+	_awaiting_end_turn_redeploy = false
+
+	var end_turn_result = _handle_end_turn()
+	var all_changes = changes.duplicate()
+	all_changes.append_array(end_turn_result.get("changes", []))
+	end_turn_result["changes"] = all_changes
+	return end_turn_result
+
+func _handle_decline_end_turn_redeploy(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var unit_name = ""
+	if not unit_id.is_empty():
+		var unit = game_state_snapshot.get("units", {}).get(unit_id, {})
+		unit_name = unit.get("meta", {}).get("name", unit_id)
+	DebugLogger.info(str("ScoringPhase: END-TURN REDEPLOY: %s declined — staying on battlefield" % unit_name))
+
+	_end_turn_redeploy_pending = _end_turn_redeploy_pending.filter(
+		func(u): return u.unit_id != unit_id
+	)
+
+	if not _end_turn_redeploy_pending.is_empty():
+		var next = _end_turn_redeploy_pending[0]
+		DebugLogger.info(str("ScoringPhase: END-TURN REDEPLOY: Next eligible — %s (player %d) via %s" % [next.unit_name, next.player, next.ability_name]))
+		emit_signal("end_turn_redeploy_available", next.unit_id, next.unit_name, next.player, next.ability_name)
+
+		return {
+			"success": true,
+			"changes": [],
+			"message": "%s stays on the battlefield" % unit_name,
+			"trigger_end_turn_redeploy": true,
+			"end_turn_redeploy_unit_id": next.unit_id,
+			"end_turn_redeploy_player": next.player,
+			"end_turn_redeploy_ability": next.ability_name,
+		}
+
+	_awaiting_end_turn_redeploy = false
 	return _handle_end_turn()

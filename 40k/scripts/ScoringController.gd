@@ -554,6 +554,10 @@ func set_phase(phase: BasePhase) -> void:
 		if phase.has_signal("acrobatic_escape_vanish_available") and not phase.acrobatic_escape_vanish_available.is_connected(_on_acrobatic_escape_vanish_available):
 			phase.acrobatic_escape_vanish_available.connect(_on_acrobatic_escape_vanish_available)
 
+		# Connect end-of-turn redeploy signal (From Golden Light, etc.)
+		if phase.has_signal("end_turn_redeploy_available") and not phase.end_turn_redeploy_available.is_connected(_on_end_turn_redeploy_available):
+			phase.end_turn_redeploy_available.connect(_on_end_turn_redeploy_available)
+
 		# Update UI elements with current game state
 		_refresh_ui()
 		show()
@@ -600,38 +604,41 @@ func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, p
 		print("[ScoringController] Skipping Acrobatic Escape vanish dialog for AI player %d" % player)
 		return
 
-	var dialog = ConfirmationDialog.new()
+	var dialog = AcceptDialog.new()
 	dialog.title = "Acrobatic Escape: %s" % unit_name
-	dialog.ok_button_text = "Vanish"
-	dialog.cancel_button_text = "Stay"
 	dialog.min_size = DialogConstants.MEDIUM
+	dialog.get_ok_button().visible = false
+	WhiteDwarfTheme.apply_to_dialog(dialog)
 
-	# Build custom content with timer countdown
 	var content = VBoxContainer.new()
-	content.add_theme_constant_override("separation", 6)
+	content.add_theme_constant_override("separation", 8)
+	content.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
+
+	var header = Label.new()
+	header.text = "ACROBATIC ESCAPE"
+	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(header)
+
+	content.add_child(HSeparator.new())
 
 	var desc = Label.new()
-	desc.text = "ACROBATIC ESCAPE\n\n%s is not within 3\" of any enemy units.\n\nRemove this model from the battlefield?\nIt will return in the Reinforcements step of your next Movement phase (more than 9\" from all enemies).\n\nWARNING: If the battle ends while this model is off the battlefield, it is destroyed." % unit_name
+	desc.text = "%s is not within 3\" of any enemy units.\n\nRemove this model from the battlefield?\nIt will return in the Reinforcements step of your next Movement phase (more than 9\" from all enemies).\n\nWARNING: If the battle ends while this model is off the battlefield, it is destroyed." % unit_name
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(desc)
 
-	var _gsep1 = ColorRect.new()
-	_gsep1.custom_minimum_size = Vector2(0, 2)
-	_gsep1.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
-	_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_child(_gsep1)
+	content.add_child(HSeparator.new())
 
 	var timer_label = Label.new()
 	timer_label.text = "Auto-declining in 15 seconds..."
 	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	timer_label.add_theme_font_size_override("font_size", 12)
-	timer_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))  # Orange
+	timer_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
 	content.add_child(timer_label)
 
-	dialog.add_child(content)
-
 	# Track whether dialog has been resolved to prevent double-fire
-	var resolved = [false]  # Array so lambda can mutate
+	var resolved = [false]
 
 	var on_confirmed = func():
 		if resolved[0]:
@@ -643,6 +650,7 @@ func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, p
 			"unit_id": unit_id,
 			"player": player,
 		})
+		dialog.hide()
 		dialog.queue_free()
 
 	var on_declined = func():
@@ -655,10 +663,30 @@ func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, p
 			"unit_id": unit_id,
 			"player": player,
 		})
+		dialog.hide()
 		dialog.queue_free()
 
-	dialog.confirmed.connect(on_confirmed)
-	dialog.canceled.connect(on_declined)
+	var button_container = HBoxContainer.new()
+	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	var vanish_button = Button.new()
+	vanish_button.text = "Vanish"
+	vanish_button.custom_minimum_size = Vector2(180, 45)
+	vanish_button.pressed.connect(on_confirmed)
+	button_container.add_child(vanish_button)
+
+	var btn_spacer = Control.new()
+	btn_spacer.custom_minimum_size = Vector2(20, 0)
+	button_container.add_child(btn_spacer)
+
+	var stay_button = Button.new()
+	stay_button.text = "Stay"
+	stay_button.custom_minimum_size = Vector2(150, 45)
+	stay_button.pressed.connect(on_declined)
+	button_container.add_child(stay_button)
+
+	content.add_child(button_container)
+	dialog.add_child(content)
 
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
@@ -672,11 +700,126 @@ func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, p
 		time_remaining[0] -= 1.0
 		if timer_label and is_instance_valid(timer_label):
 			if time_remaining[0] <= 5:
-				timer_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))  # Red
+				timer_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
 			timer_label.text = "Auto-declining in %d seconds..." % int(time_remaining[0])
 		if time_remaining[0] <= 0:
 			countdown_timer.stop()
 			print("[ScoringController] Timer expired — auto-declining vanish for %s" % unit_id)
+			on_declined.call()
+	)
+	dialog.add_child(countdown_timer)
+
+# ============================================================================
+# END-OF-TURN REDEPLOY (From Golden Light, Guerrilla Tactics, etc.)
+# ============================================================================
+
+func _on_end_turn_redeploy_available(unit_id: String, unit_name: String, player: int, ability_name: String) -> void:
+	print("[ScoringController] End-of-turn redeploy available for %s (player %d) via %s" % [unit_name, player, ability_name])
+
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("[ScoringController] Skipping end-of-turn redeploy dialog for AI player %d" % player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.title = "%s: %s" % [ability_name, unit_name]
+	dialog.min_size = DialogConstants.MEDIUM
+	dialog.get_ok_button().visible = false
+	WhiteDwarfTheme.apply_to_dialog(dialog)
+
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 8)
+	content.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
+
+	var header = Label.new()
+	header.text = ability_name.to_upper()
+	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(header)
+
+	content.add_child(HSeparator.new())
+
+	var desc = Label.new()
+	desc.text = "%s is not within Engagement Range of any enemy units.\n\nRemove this unit from the battlefield and place into Strategic Reserves?\nIt will return in the Reinforcements step of your next Movement phase (more than 9\" from all enemies).\n\nThis ability can only be used once per battle." % unit_name
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(desc)
+
+	content.add_child(HSeparator.new())
+
+	var timer_label = Label.new()
+	timer_label.text = "Auto-declining in 15 seconds..."
+	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	timer_label.add_theme_font_size_override("font_size", 12)
+	timer_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2))
+	content.add_child(timer_label)
+
+	var resolved = [false]
+
+	var on_confirmed = func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		print("[ScoringController] End-of-turn redeploy confirmed for %s via %s" % [unit_id, ability_name])
+		emit_signal("scoring_action_requested", {
+			"type": "END_TURN_REDEPLOY",
+			"unit_id": unit_id,
+			"player": player,
+		})
+		dialog.hide()
+		dialog.queue_free()
+
+	var on_declined = func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		print("[ScoringController] End-of-turn redeploy declined for %s" % unit_id)
+		emit_signal("scoring_action_requested", {
+			"type": "DECLINE_END_TURN_REDEPLOY",
+			"unit_id": unit_id,
+			"player": player,
+		})
+		dialog.hide()
+		dialog.queue_free()
+
+	var button_container = HBoxContainer.new()
+	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	var redeploy_button = Button.new()
+	redeploy_button.text = "Redeploy to Reserves"
+	redeploy_button.custom_minimum_size = Vector2(200, 45)
+	redeploy_button.pressed.connect(on_confirmed)
+	button_container.add_child(redeploy_button)
+
+	var btn_spacer = Control.new()
+	btn_spacer.custom_minimum_size = Vector2(20, 0)
+	button_container.add_child(btn_spacer)
+
+	var stay_button = Button.new()
+	stay_button.text = "Stay on Battlefield"
+	stay_button.custom_minimum_size = Vector2(180, 45)
+	stay_button.pressed.connect(on_declined)
+	button_container.add_child(stay_button)
+
+	content.add_child(button_container)
+	dialog.add_child(content)
+
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+	var time_remaining = [15.0]
+	var countdown_timer = Timer.new()
+	countdown_timer.wait_time = 1.0
+	countdown_timer.autostart = true
+	countdown_timer.timeout.connect(func():
+		time_remaining[0] -= 1.0
+		if timer_label and is_instance_valid(timer_label):
+			if time_remaining[0] <= 5:
+				timer_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
+			timer_label.text = "Auto-declining in %d seconds..." % int(time_remaining[0])
+		if time_remaining[0] <= 0:
+			countdown_timer.stop()
+			print("[ScoringController] Timer expired — auto-declining redeploy for %s" % unit_id)
 			on_declined.call()
 	)
 	dialog.add_child(countdown_timer)

@@ -1316,15 +1316,16 @@ func _evaluate_and_act() -> void:
 	# Safety check - prevent infinite action loops
 	if _current_phase_actions >= MAX_ACTIONS_PER_PHASE:
 		push_error("AIPlayer: Hit max actions (%d) for current phase! Attempting to end phase." % MAX_ACTIONS_PER_PHASE)
-		var pm = get_node("/root/PhaseManager")
-		var fallback_actions = pm.get_available_actions()
-		for fa in fallback_actions:
-			var ft = fa.get("type", "")
-			if ft.begins_with("END_") or ft == "GAME_OVER":
-				print("AIPlayer: Max actions fallback — sending %s to end phase" % ft)
-				pm.execute_action(fa)
-				_end_ai_thinking()
-				return
+		var pm = get_node_or_null("/root/PhaseManager")
+		if pm:
+			var fallback_actions = pm.get_available_actions()
+			for fa in fallback_actions:
+				var ft = fa.get("type", "")
+				if ft.begins_with("END_") or ft == "GAME_OVER":
+					print("AIPlayer: Max actions fallback — sending %s to end phase" % ft)
+					NetworkIntegration.route_action(fa)
+					_end_ai_thinking()
+					return
 		_end_ai_thinking()
 		return
 

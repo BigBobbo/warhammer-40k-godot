@@ -4911,6 +4911,13 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.acrobatic_escape_reserves" % unit_id
 		})
 
+	# Clear strategic reserves redeploy flag (From Golden Light, etc. returning from reserves)
+	if unit_pre.get("flags", {}).get("strategic_reserves_redeploy", false):
+		changes.append({
+			"op": "remove",
+			"path": "units.%s.flags.strategic_reserves_redeploy" % unit_id
+		})
+
 	# Apply changes through PhaseManager
 	if get_parent() and get_parent().has_method("apply_state_changes"):
 		get_parent().apply_state_changes(changes)
