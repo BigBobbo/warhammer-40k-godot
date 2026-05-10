@@ -716,6 +716,25 @@ func _refresh_unit_list() -> void:
 			dbg_action.get("description", "")
 		])
 
+	# Show reinforcement units (PLACE_REINFORCEMENT actions use "unit_id" not "actor_unit_id")
+	var has_reinforcements = false
+	for action in actions:
+		if action.get("type", "") == "PLACE_REINFORCEMENT":
+			var reserve_unit_id = action.get("unit_id", "")
+			if reserve_unit_id != "" and not added_units.has(reserve_unit_id):
+				if not has_reinforcements:
+					unit_list.add_item("--- REINFORCEMENTS (Click to Deploy) ---")
+					unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
+					has_reinforcements = true
+				var desc = action.get("description", reserve_unit_id)
+				unit_list.add_item(desc)
+				unit_list.set_item_metadata(unit_list.get_item_count() - 1, reserve_unit_id)
+				added_units[reserve_unit_id] = true
+
+	if has_reinforcements:
+		unit_list.add_item("--- DEPLOYED UNITS ---")
+		unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
+
 	# OA-24: Build a set of unit_ids that have special movement actions
 	var _special_action_types = ["ACTIVATE_KUNNIN_INFILTRATOR"]
 	var units_with_special_actions = {}
@@ -795,9 +814,16 @@ func _on_unit_selected(index: int) -> void:
 	if not unit:
 		return
 
-	# Skip reserve units - reinforcement placement is handled by Main._begin_reinforcement_placement
+	# Route reserve units to Main's reinforcement placement flow
 	if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
-		print("MovementController: Skipping reserve unit %s (handled by Main)" % unit_id)
+		print("MovementController: Reserve unit %s selected — routing to Main for reinforcement placement" % unit_id)
+		var main_node = get_node_or_null("/root/Main")
+		if main_node:
+			var reserve_type = unit.get("reserve_type", "strategic_reserves")
+			if reserve_type == "strategic_reserves" and GameState.unit_has_deep_strike(unit_id):
+				main_node._show_deep_strike_placement_dialog(unit_id)
+			else:
+				main_node._begin_reinforcement_placement(unit_id)
 		return
 
 	active_unit_id = unit_id

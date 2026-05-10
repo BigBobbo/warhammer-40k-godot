@@ -339,7 +339,14 @@ func _initialize_movement() -> void:
 		if unit.get("embarked_in", null) != null:
 			can_move = true
 			break
-	
+
+	# Also check for reserve units that can be deployed (Turn 2+)
+	if not can_move and game_state_snapshot.get("battle_round", 1) >= 2:
+		var reserves = GameState.get_reserves_for_player(current_player)
+		if reserves.size() > 0:
+			can_move = true
+			log_phase_message("No deployed units can move, but %d reserve units available for reinforcement" % reserves.size())
+
 	if not can_move:
 		log_phase_message("No units available for movement, completing phase")
 		emit_signal("phase_completed")
@@ -6313,7 +6320,8 @@ func get_available_actions() -> Array:
 			var reserve_unit = get_unit(reserve_unit_id)
 
 			# Skip attached characters — they arrive with their bodyguard automatically
-			if reserve_unit.get("attached_to", "") != "":
+			var attached_to = reserve_unit.get("attached_to", "")
+			if attached_to != null and attached_to != "":
 				continue
 
 			var reserve_name = reserve_unit.get("meta", {}).get("name", reserve_unit_id)

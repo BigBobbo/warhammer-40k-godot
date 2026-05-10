@@ -5412,7 +5412,7 @@ func _refresh_unit_list_inner() -> void:
 			for reserve_id in reserves:
 				var reserve_unit = GameState.get_unit(reserve_id)
 				var attached_to = reserve_unit.get("attached_to", "")
-				if attached_to != "":
+				if attached_to != null and attached_to != "":
 					# This is an attached character — don't show separately
 					if not attached_chars_in_reserves.has(attached_to):
 						attached_chars_in_reserves[attached_to] = []
@@ -7025,9 +7025,9 @@ func _recreate_unit_visuals() -> void:
 			print("    Unit is embarked - skipping visual creation")
 			continue
 
-		# Render units that are deployed or have moved/acted
+		# Render units that are deployed or have moved/acted (but NOT in reserves)
 		var status = unit.get("status", 0)
-		if status >= GameStateData.UnitStatus.DEPLOYED:
+		if status >= GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.IN_RESERVES:
 			var models = unit.get("models", [])
 			print("    Unit has ", models.size(), " models")
 			
@@ -9023,10 +9023,11 @@ func _on_scoring_ui_update_requested() -> void:
 		update_ui()
 
 func update_after_scoring_action() -> void:
-	# Refresh UI after a scoring action (mainly for turn switching)
+	# Refresh visuals and UI after a scoring action (units may move to reserves)
+	_recreate_unit_visuals()
 	refresh_unit_list()
 	update_ui()
-	
+
 	# Update scoring controller state
 	if scoring_controller:
 		scoring_controller._refresh_ui()
