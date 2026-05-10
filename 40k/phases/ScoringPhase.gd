@@ -671,7 +671,7 @@ func _handle_acrobatic_escape_vanish(action: Dictionary) -> Dictionary:
 	# Show toast
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr:
-		toast_mgr.show_info("Acrobatic Escape: %s vanished — will return next Movement phase" % unit_name)
+		toast_mgr.show_toast("Acrobatic Escape: %s vanished — will return next Movement phase" % unit_name)
 
 	# Remove from pending list
 	_acrobatic_escape_vanish_pending = _acrobatic_escape_vanish_pending.filter(
@@ -851,7 +851,7 @@ func _handle_end_turn_redeploy(action: Dictionary) -> Dictionary:
 
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr:
-		toast_mgr.show_info("%s: %s moved to Strategic Reserves — will return next Movement phase" % [ability_name, unit_name])
+		toast_mgr.show_toast("%s: %s moved to Strategic Reserves — will return next Movement phase" % [ability_name, unit_name])
 
 	# Remove from pending list
 	_end_turn_redeploy_pending = _end_turn_redeploy_pending.filter(
