@@ -639,7 +639,8 @@ func _handle_load_save(params: Dictionary) -> Dictionary:
 				"message": "SaveLoadManager doesn't have load_game method",
 				"error": "METHOD_NOT_FOUND"
 			}
-		load_success = save_load_manager.load_game(save_name)  # Use original name without path/extension
+		var bare_name = save_name.get_file().get_basename() if save_name.contains("/") else save_name
+		load_success = save_load_manager.load_game(bare_name)
 		print("TestModeHandler: Called SaveLoadManager.load_game(%s), result: %s" % [save_name, load_success])
 
 	# Check if load was successful

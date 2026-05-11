@@ -1007,9 +1007,11 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	# to avoid model ID collisions (e.g. both units having "m1")
 	var model_source_unit_id = payload.get("model_source_unit_id", "")
 	var model = {}
+	var model_actual_unit_id = unit_id
 	if model_source_unit_id != "":
 		model = _get_model_in_unit(model_source_unit_id, model_id)
 		if not model.is_empty():
+			model_actual_unit_id = model_source_unit_id
 			DebugLogger.info(str("[MovementPhase] Found model %s in specified source unit %s" % [model_id, model_source_unit_id]))
 	if model.is_empty():
 		model = _get_model_in_unit(unit_id, model_id)
@@ -1019,26 +1021,29 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 		for char_id in attached_chars:
 			model = _get_model_in_unit(char_id, model_id)
 			if not model.is_empty():
+				model_actual_unit_id = char_id
 				DebugLogger.info(str("[MovementPhase] Found model %s in attached character unit %s" % [model_id, char_id]))
 				break
 	if model.is_empty():
 		return {"valid": false, "errors": ["Model not found in unit"]}
-	
+
+	var model_key = "%s:%s" % [model_actual_unit_id, model_id]
+
 	# Check staged position if model has one
 	var current_pos = null
 	for staged_move in move_data.staged_moves:
-		if staged_move.model_id == model_id:
+		if staged_move.model_id == model_id and staged_move.get("model_source_unit_id", unit_id) == model_actual_unit_id:
 			current_pos = staged_move.dest
 			break
-	
+
 	# If no staged position, use actual position
 	if current_pos == null:
 		current_pos = _get_model_position(model)
 		if current_pos == null:
 			return {"valid": false, "errors": ["Model has no current position"]}
-	
+
 	# Get the model's original position
-	var original_pos = move_data.original_positions.get(model_id, current_pos)
+	var original_pos = move_data.original_positions.get(model_key, current_pos)
 	log_phase_message("DEBUG: Validating move for model %s" % model_id)
 	log_phase_message("  Original pos: %s, Current pos: %s, Dest: %s" % [original_pos, current_pos, dest_vec])
 
@@ -3939,36 +3944,39 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 				DebugLogger.info(str("[MovementPhase] Processing stage move for attached character model %s (unit %s)" % [model_id, char_id]))
 				break
 
+	# Composite key to avoid collisions when bodyguard and character share model IDs (e.g. both "m1")
+	var model_key = "%s:%s" % [model_actual_unit_id, model_id]
+
 	# Get current position (may be staged)
 	var current_pos = null
 	for staged_move in move_data.staged_moves:
-		if staged_move.model_id == model_id:
+		if staged_move.model_id == model_id and staged_move.get("model_source_unit_id", unit_id) == model_actual_unit_id:
 			current_pos = staged_move.dest
 			break
-	
+
 	# If no staged position, use actual position
 	if current_pos == null:
 		current_pos = _get_model_position(model)
 		# Store original position and rotation if this is the first move for this model
-		if not move_data.original_positions.has(model_id):
-			move_data.original_positions[model_id] = current_pos
-		if not move_data.get("original_rotations", {}).has(model_id):
+		if not move_data.original_positions.has(model_key):
+			move_data.original_positions[model_key] = current_pos
+		if not move_data.get("original_rotations", {}).has(model_key):
 			if not move_data.has("original_rotations"):
 				move_data["original_rotations"] = {}
-			move_data["original_rotations"][model_id] = model.get("rotation", 0.0)
-	
+			move_data["original_rotations"][model_key] = model.get("rotation", 0.0)
+
 	# Calculate distance for this stage
 	var distance_inches = Measurement.distance_inches(current_pos, dest_vec)
-	
+
 	# Check for enemy crossing (Fall Back)
 	var crosses_enemy = false
 	if move_data.mode == "FALL_BACK":
 		crosses_enemy = _path_crosses_enemy(current_pos, dest_vec, unit_id, model.get("base_mm", 32))
-	
+
 	# T-082 fix: path-summed distance, not Euclidean origin→dest.
 	# Re-staging through a waypoint must accumulate |A→B| + |B→C|, not collapse to |A→C|.
-	var original_pos = move_data.original_positions.get(model_id, current_pos)
-	var prior_total = move_data.model_distances.get(model_id, 0.0)
+	var original_pos = move_data.original_positions.get(model_key, current_pos)
+	var prior_total = move_data.model_distances.get(model_key, 0.0)
 	# Per-segment terrain penalty (difficult ground only — flat per piece crossed).
 	var terrain_penalty = _get_movement_terrain_penalty(current_pos, dest_vec, unit_id)
 	var total_distance_for_model = prior_total + distance_inches + terrain_penalty
@@ -3976,7 +3984,7 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	# Remove any existing staged move for this model to prevent duplicates
 	var moves_to_remove = []
 	for i in range(move_data.staged_moves.size()):
-		if move_data.staged_moves[i].model_id == model_id:
+		if move_data.staged_moves[i].model_id == model_id and move_data.staged_moves[i].get("model_source_unit_id", unit_id) == model_actual_unit_id:
 			moves_to_remove.append(i)
 
 	# Remove in reverse order to maintain indices
@@ -3986,6 +3994,7 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	# Add the new staged move
 	move_data.staged_moves.append({
 		"model_id": model_id,
+		"model_source_unit_id": model_actual_unit_id,
 		"from": current_pos,
 		"dest": dest_vec,
 		"rotation": rotation,  # Preserve rotation
@@ -3993,9 +4002,9 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 		"total_distance": total_distance_for_model,  # Track total from origin
 		"crosses_enemy": crosses_enemy
 	})
-	
+
 	# Update per-model distance tracking
-	move_data.model_distances[model_id] = total_distance_for_model
+	move_data.model_distances[model_key] = total_distance_for_model
 	
 	# Calculate effective cap accounting for pivot cost
 	var effective_cap = move_data.move_cap_inches
@@ -4032,8 +4041,13 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 	var undo_unit = get_unit(unit_id)
 	var undo_attached_chars = undo_unit.get("attachment_data", {}).get("attached_characters", [])
 
-	# Helper to resolve which unit owns a model
-	var _resolve_undo_owner = func(mid: String) -> Dictionary:
+	# Helper to resolve which unit owns a model (checks source hint first to avoid
+	# model ID collisions when bodyguard and character share IDs like "m1")
+	var _resolve_undo_owner = func(mid: String, source_hint: String = "") -> Dictionary:
+		if source_hint != "" and source_hint != unit_id:
+			var idx = _get_model_index(source_hint, mid)
+			if idx >= 0:
+				return {"unit_id": source_hint, "index": idx}
 		var idx = _get_model_index(unit_id, mid)
 		if idx >= 0:
 			return {"unit_id": unit_id, "index": idx}
@@ -4047,28 +4061,31 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 	if not move_data.staged_moves.is_empty():
 		var last_staged = move_data.staged_moves.pop_back()
 		var model_id = last_staged.model_id
-		var original_pos = move_data.original_positions.get(model_id)
+		var undo_source = last_staged.get("model_source_unit_id", "")
+		var undo_source_resolved = undo_source if undo_source != "" else unit_id
+		var model_key = "%s:%s" % [undo_source_resolved, model_id]
+		var original_pos = move_data.original_positions.get(model_key)
 
-		DebugLogger.info(str("[MovementPhase] Undoing staged move for model %s, restoring to %s" % [model_id, str(original_pos)]))
+		DebugLogger.info(str("[MovementPhase] Undoing staged move for model %s (key %s), restoring to %s" % [model_id, model_key, str(original_pos)]))
 
 		# Check if this model has any remaining staged moves
 		var has_remaining_staged = false
 		for staged_move in move_data.staged_moves:
-			if staged_move.model_id == model_id:
+			if staged_move.model_id == model_id and staged_move.get("model_source_unit_id", unit_id) == undo_source_resolved:
 				has_remaining_staged = true
 				break
 
 		# If no more staged moves for this model, clear its tracking data and restore rotation
 		var changes = []
 		if not has_remaining_staged:
-			move_data.model_distances.erase(model_id)
-			move_data.original_positions.erase(model_id)
+			move_data.model_distances.erase(model_key)
+			move_data.original_positions.erase(model_key)
 
 			# Restore original rotation for this model
 			var original_rotations = move_data.get("original_rotations", {})
-			if original_rotations.has(model_id):
-				var original_rot = original_rotations[model_id]
-				var owner_info = _resolve_undo_owner.call(model_id)
+			if original_rotations.has(model_key):
+				var original_rot = original_rotations[model_key]
+				var owner_info = _resolve_undo_owner.call(model_id, undo_source)
 				if owner_info.index >= 0:
 					changes.append({
 						"op": "set",
@@ -4076,7 +4093,7 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 						"value": original_rot
 					})
 					DebugLogger.info(str("[MovementPhase] Restoring rotation for model %s to %.2f" % [model_id, original_rot]))
-				original_rotations.erase(model_id)
+				original_rotations.erase(model_key)
 
 		# If no more staged moves at all, reset pivot cost
 		if move_data.staged_moves.is_empty():
@@ -4086,7 +4103,7 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 		# Restore to original position (before any movement this phase)
 		if original_pos:
 			# Resolve the actual unit that owns this model for visual update
-			var owner_info = _resolve_undo_owner.call(model_id)
+			var owner_info = _resolve_undo_owner.call(model_id, undo_source)
 			var actual_unit_id = owner_info.unit_id if owner_info.index >= 0 else unit_id
 			var model = _get_model_in_unit(actual_unit_id, model_id)
 			var original_rotation = model.get("rotation", 0.0)
@@ -4100,16 +4117,19 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 		var rotation_changes = []
 		var original_rotations = move_data.get("original_rotations", {})
 		if not original_rotations.is_empty():
-			for rot_model_id in original_rotations.keys():
-				var original_rot = original_rotations[rot_model_id]
-				var model_idx = _get_model_index(unit_id, rot_model_id)
+			for rot_composite_key in original_rotations.keys():
+				var original_rot = original_rotations[rot_composite_key]
+				var rot_parts = rot_composite_key.split(":")
+				var rot_source_uid = rot_parts[0] if rot_parts.size() > 1 else unit_id
+				var rot_mid = rot_parts[rot_parts.size() - 1]
+				var model_idx = _get_model_index(rot_source_uid, rot_mid)
 				if model_idx >= 0:
 					rotation_changes.append({
 						"op": "set",
-						"path": "units.%s.models.%s.rotation" % [unit_id, model_idx],
+						"path": "units.%s.models.%s.rotation" % [rot_source_uid, model_idx],
 						"value": original_rot
 					})
-					DebugLogger.info(str("[MovementPhase] Restoring rotation-only change for model %s to %.2f" % [rot_model_id, original_rot]))
+					DebugLogger.info(str("[MovementPhase] Restoring rotation-only change for model %s to %.2f" % [rot_mid, original_rot]))
 			original_rotations.clear()
 			move_data["pivot_cost_applied"] = false
 			return create_result(true, rotation_changes)
@@ -4136,50 +4156,58 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 	var reset_unit = get_unit(unit_id)
 	var reset_attached_chars = reset_unit.get("attachment_data", {}).get("attached_characters", [])
 
-	# Helper to resolve which unit owns a model
-	var _resolve_model_owner = func(mid: String) -> Dictionary:
-		var idx = _get_model_index(unit_id, mid)
-		if idx >= 0:
-			return {"unit_id": unit_id, "index": idx}
-		for cid in reset_attached_chars:
-			idx = _get_model_index(cid, mid)
-			if idx >= 0:
-				return {"unit_id": cid, "index": idx}
-		return {"unit_id": unit_id, "index": -1}
-
 	# Reset models from staged moves to their original positions
-	for model_id in move_data.original_positions:
-		var original_pos = move_data.original_positions[model_id]
+	# original_positions uses composite keys "source_unit_id:model_id"
+	for composite_key in move_data.original_positions:
+		var original_pos = move_data.original_positions[composite_key]
 		if original_pos:
-			var owner_info = _resolve_model_owner.call(model_id)
-			if owner_info.index >= 0:
+			var parts = composite_key.split(":")
+			var source_uid = parts[0] if parts.size() > 1 else unit_id
+			var mid = parts[parts.size() - 1]
+			var idx = _get_model_index(source_uid, mid)
+			if idx >= 0:
 				changes.append({
 					"op": "set",
-					"path": "units.%s.models.%s.position" % [owner_info.unit_id, owner_info.index],
+					"path": "units.%s.models.%s.position" % [source_uid, idx],
 					"value": {"x": original_pos.x, "y": original_pos.y}
 				})
 
 	# Reset model rotations to their original values
 	var original_rotations = move_data.get("original_rotations", {})
-	for model_id in original_rotations:
-		var original_rot = original_rotations[model_id]
-		var owner_info = _resolve_model_owner.call(model_id)
-		if owner_info.index >= 0:
+	for composite_key in original_rotations:
+		var original_rot = original_rotations[composite_key]
+		var parts = composite_key.split(":")
+		var source_uid = parts[0] if parts.size() > 1 else unit_id
+		var mid = parts[parts.size() - 1]
+		var idx = _get_model_index(source_uid, mid)
+		if idx >= 0:
 			changes.append({
 				"op": "set",
-				"path": "units.%s.models.%s.rotation" % [owner_info.unit_id, owner_info.index],
+				"path": "units.%s.models.%s.rotation" % [source_uid, idx],
 				"value": original_rot
 			})
-			DebugLogger.info(str("[MovementPhase] Resetting rotation for model %s to %.2f" % [model_id, original_rot]))
+			DebugLogger.info(str("[MovementPhase] Resetting rotation for model %s to %.2f" % [mid, original_rot]))
 
 	# Reset all model positions from permanent moves (if any)
 	for model_move in move_data.model_moves:
 		var from_pos = model_move.from
-		var owner_info = _resolve_model_owner.call(model_move.model_id)
-		if owner_info.index >= 0:
+		var source = model_move.get("model_source_unit_id", unit_id)
+		var mid = model_move.model_id
+		var owner_uid = source if source != "" else unit_id
+		var idx = _get_model_index(owner_uid, mid)
+		if idx < 0:
+			idx = _get_model_index(unit_id, mid)
+			owner_uid = unit_id
+		if idx < 0:
+			for cid in reset_attached_chars:
+				idx = _get_model_index(cid, mid)
+				if idx >= 0:
+					owner_uid = cid
+					break
+		if idx >= 0:
 			changes.append({
 				"op": "set",
-				"path": "units.%s.models.%s.position" % [owner_info.unit_id, owner_info.index],
+				"path": "units.%s.models.%s.position" % [owner_uid, idx],
 				"value": {"x": from_pos.x, "y": from_pos.y} if from_pos else null
 			})
 
@@ -4243,9 +4271,10 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	# Convert staged moves to permanent moves
 	for staged_move in move_data.staged_moves:
 		DebugLogger.info(str("  Confirming move for model ", staged_move.model_id, " to ", staged_move.dest))
-		# Add to permanent moves
+		# Add to permanent moves (include source unit for model ID collision resolution)
 		move_data.model_moves.append({
 			"model_id": staged_move.model_id,
+			"model_source_unit_id": staged_move.get("model_source_unit_id", unit_id),
 			"from": staged_move.get("from"),
 			"dest": staged_move.dest,
 			"rotation": staged_move.get("rotation", 0.0),
@@ -4253,10 +4282,21 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		})
 
 		# Resolve which unit actually owns this model (bodyguard or attached character)
+		# Use model_source_unit_id from staging to avoid model ID collisions (e.g. both
+		# bodyguard and character having "m1")
+		var staged_source = staged_move.get("model_source_unit_id", "")
 		var model_owner_id = unit_id
-		var model_idx = _get_model_index(unit_id, staged_move.model_id)
+		var model_idx = -1
+
+		if staged_source != "" and staged_source != unit_id:
+			model_idx = _get_model_index(staged_source, staged_move.model_id)
+			if model_idx >= 0:
+				model_owner_id = staged_source
+				DebugLogger.info(str("  Model %s belongs to source unit %s (index %d)" % [staged_move.model_id, staged_source, model_idx]))
+
 		if model_idx < 0:
-			# Model not in bodyguard unit — check attached characters
+			model_idx = _get_model_index(unit_id, staged_move.model_id)
+		if model_idx < 0:
 			for char_id in _confirm_attached_chars:
 				model_idx = _get_model_index(char_id, staged_move.model_id)
 				if model_idx >= 0:
@@ -4282,21 +4322,80 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	move_data.staged_moves.clear()
 	move_data.accumulated_distance = 0.0
 
+	# Build lookup of explicitly moved models using unit_id:model_id keys to avoid
+	# collision when bodyguard and character units share model IDs like "m1"
+	var explicitly_moved_model_keys = {}
+	for mm in move_data.model_moves:
+		var source = mm.get("model_source_unit_id", unit_id)
+		explicitly_moved_model_keys["%s:%s" % [source, mm.model_id]] = true
+
+	var bg_models = _confirm_unit.get("models", [])
+	var bg_model_ids = {}
+	for bg_m in bg_models:
+		if bg_m.get("alive", true):
+			bg_model_ids[bg_m.get("id", "")] = true
+
+	# Check if any bodyguard model was explicitly moved (using source unit to disambiguate)
+	var any_bg_model_moved = false
+	for mm in move_data.model_moves:
+		var source = mm.get("model_source_unit_id", unit_id)
+		if source == unit_id and mm.model_id in bg_model_ids:
+			any_bg_model_moved = true
+			break
+
+	# If only character models were moved, auto-move bodyguard models by the same delta
+	if not any_bg_model_moved and move_data.model_moves.size() > 0:
+		var first_move = move_data.model_moves[0]
+		var from_pos = first_move.get("from", null)
+		var to_pos = first_move.get("dest", null)
+		if from_pos != null and to_pos != null:
+			var from_vec = Vector2(from_pos.x if from_pos is Vector2 else from_pos.get("x", 0), from_pos.y if from_pos is Vector2 else from_pos.get("y", 0))
+			var to_vec = Vector2(to_pos.x if to_pos is Vector2 else to_pos.get("x", 0), to_pos.y if to_pos is Vector2 else to_pos.get("y", 0))
+			var move_delta = to_vec - from_vec
+			DebugLogger.info(str("[MovementPhase] No bodyguard models explicitly moved — auto-moving bodyguard with character delta: %s" % str(move_delta)))
+			for bg_m in bg_models:
+				if not bg_m.get("alive", true):
+					continue
+				var bg_mid = bg_m.get("id", "")
+				var bg_key = "%s:%s" % [unit_id, bg_mid]
+				if explicitly_moved_model_keys.has(bg_key):
+					continue
+				var model_pos = bg_m.get("position", null)
+				if model_pos == null:
+					continue
+				var pos_x = model_pos.get("x", 0) if model_pos is Dictionary else model_pos.x
+				var pos_y = model_pos.get("y", 0) if model_pos is Dictionary else model_pos.y
+				var new_pos = Vector2(pos_x + move_delta.x, pos_y + move_delta.y)
+				var bg_idx = _get_model_index(unit_id, bg_mid)
+				if bg_idx >= 0:
+					changes.append({
+						"op": "set",
+						"path": "units.%s.models.%d.position" % [unit_id, bg_idx],
+						"value": {"x": new_pos.x, "y": new_pos.y}
+					})
+					DebugLogger.info(str("[MovementPhase] Auto-moved bodyguard model %s by delta %s" % [bg_mid, str(move_delta)]))
+
 	# Move attached character models with the bodyguard unit
 	# Skip character models that were already explicitly moved via staged moves
-	var explicitly_moved_model_ids = {}
-	for mm in move_data.model_moves:
-		explicitly_moved_model_ids[mm.model_id] = true
 	var attached_chars = _confirm_unit.get("attachment_data", {}).get("attached_characters", [])
 	if attached_chars.size() > 0:
-		changes.append_array(_move_attached_characters(unit_id, attached_chars, explicitly_moved_model_ids))
+		changes.append_array(_move_attached_characters(unit_id, attached_chars, explicitly_moved_model_keys))
+
+	# Ensure all attached characters are marked as moved even if _move_attached_characters
+	# returned early (e.g. no bodyguard delta found because only character models were staged)
+	for char_id in attached_chars:
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.moved" % char_id,
+			"value": true
+		})
 
 	# Handle Desperate Escape for Fall Back
 	if move_data.mode == "FALL_BACK":
 		var desperate_escape_result = _process_desperate_escape(unit_id, move_data)
 		changes.append_array(desperate_escape_result.changes)
 		additional_dice.append_array(desperate_escape_result.dice)
-	
+
 	# Mark unit as moved
 	changes.append({
 		"op": "set",
@@ -5386,13 +5485,14 @@ func _process_use_krump_and_run(action: Dictionary) -> Dictionary:
 		"reactive_source": "krump_and_run"
 	}
 
-	# Store original positions for potential reset
+	# Store original positions for potential reset (composite keys for consistency)
 	for model in unit.get("models", []):
 		if model.get("alive", true):
 			var model_id = model.get("id", "")
+			var model_key = "%s:%s" % [unit_id, model_id]
 			var pos = _get_model_position(model)
-			active_moves[unit_id]["original_positions"][model_id] = pos
-			active_moves[unit_id]["original_rotations"][model_id] = model.get("rotation", 0.0)
+			active_moves[unit_id]["original_positions"][model_key] = pos
+			active_moves[unit_id]["original_rotations"][model_key] = model.get("rotation", 0.0)
 
 	emit_signal("unit_move_begun", unit_id, "NORMAL")
 
@@ -5584,13 +5684,14 @@ func _process_use_scatter(action: Dictionary) -> Dictionary:
 		"reactive_source": "scatter"
 	}
 
-	# Store original positions for potential reset
+	# Store original positions for potential reset (composite keys for consistency)
 	for model in unit.get("models", []):
 		if model.get("alive", true):
 			var model_id = model.get("id", "")
+			var model_key = "%s:%s" % [unit_id, model_id]
 			var pos = _get_model_position(model)
-			active_moves[unit_id]["original_positions"][model_id] = pos
-			active_moves[unit_id]["original_rotations"][model_id] = model.get("rotation", 0.0)
+			active_moves[unit_id]["original_positions"][model_key] = pos
+			active_moves[unit_id]["original_rotations"][model_key] = model.get("rotation", 0.0)
 
 	emit_signal("unit_move_begun", unit_id, "NORMAL")
 
@@ -6702,7 +6803,9 @@ func _process_group_movement(selected_models: Array, drag_vector: Vector2, unit_
 
 	for model_data in selected_models:
 		var model_id = model_data.model_id
-		var original_pos = move_data.original_positions.get(model_id, model_data.position)
+		var model_source = model_data.get("unit_id", unit_id)
+		var model_key = "%s:%s" % [model_source, model_id]
+		var original_pos = move_data.original_positions.get(model_key, model_data.position)
 		var new_pos = model_data.position + drag_vector
 
 		# Calculate individual distance
@@ -6789,8 +6892,18 @@ func _validate_individual_move_internal(unit_id: String, model_id: String, dest_
 	if not model:
 		return false
 
-	# Check distance limit
-	var original_pos = move_data.original_positions.get(model_id, _get_model_position(model))
+	# Check distance limit (try composite key with unit_id, then attached chars)
+	var validate_model_key = "%s:%s" % [unit_id, model_id]
+	var original_pos = move_data.original_positions.get(validate_model_key)
+	if original_pos == null:
+		var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+		for cid in attached_chars:
+			var char_key = "%s:%s" % [cid, model_id]
+			original_pos = move_data.original_positions.get(char_key)
+			if original_pos != null:
+				break
+	if original_pos == null:
+		original_pos = _get_model_position(model)
 	var total_distance = Measurement.distance_inches(original_pos, dest_pos)
 	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
 	total_distance += _get_movement_terrain_penalty(original_pos, dest_pos, unit_id)
@@ -7249,14 +7362,15 @@ func _initialize_movement_for_disembarked_unit(unit_id: String) -> void:
 		"accumulated_distance": 0.0  # Track distance moved
 	}
 
-	# Store original positions for reset capability
+	# Store original positions for reset capability (composite keys for consistency)
 	log_phase_message("Storing original positions for %s models" % unit_id)
 	for i in range(unit.models.size()):
 		var model = unit.models[i]
 		if model.alive and model.position:
 			var pos = Vector2(model.position.x, model.position.y)
-			active_moves[unit_id]["original_positions"][model.id] = pos
-			active_moves[unit_id]["model_distances"][model.id] = 0.0
+			var model_key = "%s:%s" % [unit_id, model.id]
+			active_moves[unit_id]["original_positions"][model_key] = pos
+			active_moves[unit_id]["model_distances"][model_key] = 0.0
 			log_phase_message("  Model %s original position: %s" % [model.id, pos])
 
 	# Apply movement capability state changes
@@ -7445,7 +7559,9 @@ func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array, e
 			var model_id = model.get("id", "m%d" % (i + 1))
 
 			# Skip models that were already explicitly moved via staged moves
-			if explicitly_moved_models.has(model_id):
+			# Uses unit_id:model_id key to handle model ID collisions (e.g. "m1" in both units)
+			var model_key = "%s:%s" % [char_id, model_id]
+			if explicitly_moved_models.has(model_key):
 				DebugLogger.info(str("[MovementPhase] Skipping attached character model %s — already explicitly moved" % model_id))
 				continue
 

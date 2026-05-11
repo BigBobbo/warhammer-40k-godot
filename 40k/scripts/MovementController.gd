@@ -1430,22 +1430,26 @@ func _show_confirmed_movement_paths(unit_id: String) -> void:
 	# Build paths from original positions to final destinations
 	var confirmed_paths: Array = []
 
-	# Collect the final destination for each model (last move wins)
+	# Collect the final destination for each model (last move wins, keyed by composite key)
 	var final_destinations: Dictionary = {}
 	for model_move in model_moves:
 		var model_id = model_move.get("model_id", "")
 		if model_id != "":
-			final_destinations[model_id] = model_move.get("dest", Vector2.ZERO)
+			var source = model_move.get("model_source_unit_id", unit_id)
+			var mk = "%s:%s" % [source, model_id]
+			final_destinations[mk] = model_move.get("dest", Vector2.ZERO)
 
 	# Also include staged moves that haven't been converted yet
 	for staged_move in move_data.get("staged_moves", []):
 		var model_id = staged_move.get("model_id", "")
 		if model_id != "":
-			final_destinations[model_id] = staged_move.get("dest", Vector2.ZERO)
+			var source = staged_move.get("model_source_unit_id", unit_id)
+			var mk = "%s:%s" % [source, model_id]
+			final_destinations[mk] = staged_move.get("dest", Vector2.ZERO)
 
-	for model_id in final_destinations:
-		var from_pos = original_positions.get(model_id, Vector2.ZERO)
-		var to_pos = final_destinations[model_id]
+	for mk in final_destinations:
+		var from_pos = original_positions.get(mk, Vector2.ZERO)
+		var to_pos = final_destinations[mk]
 		if from_pos == Vector2.ZERO:
 			continue
 		if from_pos.distance_to(to_pos) > 5.0:
@@ -1489,7 +1493,14 @@ func _on_unit_move_reset(unit_id: String) -> void:
 	if main_node and main_node.has_method("_recreate_unit_visuals"):
 		main_node._recreate_unit_visuals()
 
+	# After reset, the phase erased active_moves for this unit.
+	# Clear controller state so the user can cleanly re-select the unit.
+	if unit_id == active_unit_id:
+		active_unit_id = ""
+		active_mode = ""
+
 	_update_movement_display()
+	_refresh_unit_list()
 	emit_signal("ui_update_requested")
 
 func _on_movement_mode_locked(unit_id: String, mode: String) -> void:
@@ -2307,16 +2318,18 @@ func _update_staged_moves_visual() -> void:
 		if active_moves.has(active_unit_id):
 			var move_data = active_moves[active_unit_id]
 			
-			# Group staged moves by model to build complete paths
+			# Group staged moves by model to build complete paths (composite key to avoid collision)
 			var models_with_segments = {}
-			
+
 			# Collect all segments for each model
 			for staged_move in move_data.get("staged_moves", []):
 				var model_id = staged_move.get("model_id", "")
 				if model_id != "" and staged_move.has("from") and staged_move.has("dest"):
-					if not models_with_segments.has(model_id):
-						models_with_segments[model_id] = []
-					models_with_segments[model_id].append(staged_move)
+					var source = staged_move.get("model_source_unit_id", active_unit_id)
+					var mk = "%s:%s" % [source, model_id]
+					if not models_with_segments.has(mk):
+						models_with_segments[mk] = []
+					models_with_segments[mk].append(staged_move)
 			
 			# Create or update Line2D for each model with segments
 			for model_id in models_with_segments:
@@ -2329,7 +2342,7 @@ func _update_staged_moves_visual() -> void:
 					line.clear_points()
 				else:
 					line = Line2D.new()
-					line.name = "Path_" + model_id
+					line.name = "Path_" + model_id.replace(":", "_")
 					line.width = 2.0
 					line.default_color = Color.YELLOW
 					board_root.add_child(line)
@@ -2495,24 +2508,26 @@ func _get_accumulated_distance() -> float:
 	# Get distance for the currently selected model
 	if not current_phase or not active_unit_id or selected_model.is_empty():
 		return 0.0
-	
+
 	var model_id = selected_model.get("model_id", "")
 	if model_id == "":
 		return 0.0
-	
+
+	var model_source = selected_model.get("unit_id", active_unit_id)
+	var mk = "%s:%s" % [model_source, model_id]
+
 	# Check if phase has active_moves data
 	if current_phase.has_method("get_active_move_data"):
 		var move_data = current_phase.get_active_move_data(active_unit_id)
 		if move_data and move_data.has("model_distances"):
-			# Return the distance for this specific model
-			return move_data.model_distances.get(model_id, 0.0)
+			return move_data.model_distances.get(mk, 0.0)
 	elif current_phase != null and "active_moves" in current_phase:
 		var active_moves = current_phase.active_moves
 		if active_moves.has(active_unit_id):
 			var move_data = active_moves[active_unit_id]
 			if move_data.has("model_distances"):
-				return move_data.model_distances.get(model_id, 0.0)
-	
+				return move_data.model_distances.get(mk, 0.0)
+
 	return 0.0
 
 func _update_movement_display() -> void:
@@ -2534,7 +2549,7 @@ func _update_movement_display() -> void:
 		# Single model from multi-selection
 		var model_data = selected_models[0]
 		var model_id = model_data.get("model_id", "")
-		var accumulated = _get_model_accumulated_distance(model_id)
+		var accumulated = _get_model_accumulated_distance(model_id, model_data.get("unit_id", ""))
 
 		if inches_used_label:
 			inches_used_label.text = "%s Used: %.1f\"" % [model_id, accumulated]
@@ -2556,22 +2571,24 @@ func _update_movement_display() -> void:
 		if inches_left_label:
 			inches_left_label.text = "Left: -"
 
-func _get_model_accumulated_distance(model_id: String) -> float:
+func _get_model_accumulated_distance(model_id: String, source_unit_id: String = "") -> float:
 	"""Get accumulated distance for a specific model"""
 	if not current_phase or not active_unit_id or model_id == "":
 		return 0.0
+
+	var mk = "%s:%s" % [source_unit_id if source_unit_id != "" else active_unit_id, model_id]
 
 	# Check if phase has active_moves data
 	if current_phase.has_method("get_active_move_data"):
 		var move_data = current_phase.get_active_move_data(active_unit_id)
 		if move_data and move_data.has("model_distances"):
-			return move_data.model_distances.get(model_id, 0.0)
+			return move_data.model_distances.get(mk, 0.0)
 	elif current_phase != null and "active_moves" in current_phase:
 		var active_moves = current_phase.active_moves
 		if active_moves.has(active_unit_id):
 			var move_data = active_moves[active_unit_id]
 			if move_data.has("model_distances"):
-				return move_data.model_distances.get(model_id, 0.0)
+				return move_data.model_distances.get(mk, 0.0)
 
 	return 0.0
 
@@ -3352,8 +3369,8 @@ func _select_models_in_box() -> void:
 
 			if visual_pos.x >= min_pos.x and visual_pos.x <= max_pos.x and \
 			   visual_pos.y >= min_pos.y and visual_pos.y <= max_pos.y:
-				# Skip duplicates (TokenLayer may have duplicate tokens)
-				if _find_selected_model_index(model_id) >= 0:
+				# Skip duplicates (TokenLayer may have duplicate tokens for same unit)
+				if _find_selected_model_index(model_id, token_unit_id) >= 0:
 					continue
 				var model = _get_model_by_id(token_unit_id, model_id)
 				if model.is_empty():
@@ -3412,11 +3429,12 @@ func _select_models_in_box() -> void:
 				selected_models.append(model_data)
 				print("  Selected model ", model_id, " at GameState position ", model_pos)
 
-func _find_selected_model_index(model_id: String) -> int:
+func _find_selected_model_index(model_id: String, unit_id: String = "") -> int:
 	"""Find the index of a model in the selected_models array"""
 	for i in range(selected_models.size()):
 		if selected_models[i].get("model_id", "") == model_id:
-			return i
+			if unit_id == "" or selected_models[i].get("unit_id", "") == unit_id:
+				return i
 	return -1
 
 func _clear_selection() -> void:
@@ -3564,12 +3582,14 @@ func _update_group_movement_display() -> void:
 
 	for model_data in selected_models:
 		var model_id = model_data.model_id
+		var model_source = model_data.get("unit_id", active_unit_id)
+		var mk = "%s:%s" % [model_source, model_id]
 		var used = 0.0
 
 		# Get distance from current move data if available
 		if current_phase and current_phase.active_moves.has(active_unit_id):
 			var move_data = current_phase.active_moves[active_unit_id]
-			used = move_data.model_distances.get(model_id, 0.0)
+			used = move_data.model_distances.get(mk, 0.0)
 
 		var remaining = _get_effective_move_cap() - used
 		min_remaining = min(min_remaining, remaining)
@@ -3658,6 +3678,8 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 
 		for model_data in selected_models:
 			var model_id = model_data.model_id
+			var model_source = model_data.get("unit_id", active_unit_id)
+			var mk = "%s:%s" % [model_source, model_id]
 			var start_pos = group_drag_start_positions.get(model_id, model_data.position)
 			var new_pos = start_pos + drag_vector
 
@@ -3665,7 +3687,7 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 			var drag_distance = Measurement.distance_inches(start_pos, new_pos)
 
 			# Get previously accumulated distance
-			var previous_distance = move_data.model_distances.get(model_id, 0.0)
+			var previous_distance = move_data.model_distances.get(mk, 0.0)
 
 			# Total distance would be previous + current drag
 			var total_distance = previous_distance + drag_distance
