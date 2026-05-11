@@ -193,11 +193,9 @@ func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 	if "CHARACTER" in bg_keywords:
 		errors.append("Cannot attach to another CHARACTER unit")
 
-	# Issue #373: Lone Operative CHARACTERs cannot attach to a bodyguard.
-	# CharacterAttachmentManager.can_attach guards this at deployment time;
-	# Formations is the canonical 10e army-list-time path and must guard it too.
-	if RulesEngine.has_lone_operative(character):
-		errors.append("Lone Operative units cannot attach to a bodyguard")
+	# 10e: Lone Operative is a targeting restriction ("unless part of an Attached unit,
+	# can only be targeted within 12\""). It does NOT prevent attachment.
+	# Characters with both Leader and Lone Operative (e.g. Boss Snikrot) CAN attach.
 
 	# Check keyword compatibility (case-insensitive)
 	if can_lead.size() > 0:

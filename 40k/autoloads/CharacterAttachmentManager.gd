@@ -52,12 +52,11 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 			if not already:
 				can_lead.append(kw)
 
-	# 10e: Lone Operative units cannot be part of an Attached unit (the ability text says
-	# "Unless part of an Attached unit ... within 12\"" — but the unit's own datasheet rules
-	# normally prohibit attachment; if a Lone Operative also somehow has Leader, the attachment
-	# is still illegal per the standard list-build restrictions).
-	if RulesEngineData.has_lone_operative(character):
-		return {"valid": false, "reason": "Lone Operative units cannot attach to a bodyguard"}
+	# 10e: Lone Operative says "Unless part of an Attached unit, this unit can only
+	# be selected as the target of a ranged attack if the attacking model is within 12\"."
+	# This is a targeting restriction, NOT an attachment restriction.
+	# Characters with both Leader and Lone Operative (e.g. Boss Snikrot) CAN attach;
+	# the Lone Operative protection simply becomes inactive while attached.
 
 	# Check bodyguard has a matching keyword from can_lead (case-insensitive)
 	var bg_keywords = bodyguard.get("meta", {}).get("keywords", [])

@@ -1181,6 +1181,23 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 				DebugLogger.info("║   wounds: 0 (missed)")
 				DebugLogger.info("║   casualties: 0")
 
+				# Record completed weapon so phase_shooting_log captures single-weapon miss
+				if not resolution_state.has("completed_weapons"):
+					resolution_state["completed_weapons"] = []
+				resolution_state.completed_weapons.append({
+					"weapon_id": weapon_id,
+					"target_unit_id": target_unit_id,
+					"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+					"wounds": 0,
+					"casualties": 0,
+					"hits": hits,
+					"total_attacks": total_attacks,
+					"saves_failed": 0,
+					"dice_rolls": dice_data,
+					"hit_data": miss_hit_data,
+					"wound_data": miss_wound_data
+				})
+
 			# Emit signal with EMPTY remaining_weapons (signals completion)
 			DebugLogger.info("║")
 			DebugLogger.info("║ 📡 EMITTING next_weapon_confirmation_required SIGNAL (for miss)")
@@ -4144,6 +4161,10 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 
 	# Clear state
 	var shooter_id = active_shooter_id  # Store before clearing
+
+	# T5-UX9: capture per-weapon shot results before clearing resolution_state
+	_record_completed_weapons_to_phase_log(shooter_id)
+
 	active_shooter_id = ""
 	confirmed_assignments.clear()
 	resolution_state.clear()
@@ -5723,6 +5744,23 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			"wound_data": sw_wound_data
 		}
 		DebugLogger.info("║ ✓ last_weapon_result built successfully!")
+
+		# Record completed weapon so phase_shooting_log captures single-weapon results
+		if not resolution_state.has("completed_weapons"):
+			resolution_state["completed_weapons"] = []
+		resolution_state.completed_weapons.append({
+			"weapon_id": weapon_id,
+			"target_unit_id": target_unit_id,
+			"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+			"wounds": pending_save_data.size() if not pending_save_data.is_empty() else 0,
+			"casualties": total_casualties,
+			"hits": sw_hits,
+			"total_attacks": sw_total_attacks,
+			"saves_failed": saves_failed,
+			"dice_rolls": sw_dice_data,
+			"hit_data": sw_hit_data,
+			"wound_data": sw_wound_data
+		})
 	else:
 		DebugLogger.info("║ ⚠️  WARNING: confirmed_assignments is EMPTY!")
 

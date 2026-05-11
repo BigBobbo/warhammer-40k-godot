@@ -1,23 +1,23 @@
 extends SceneTree
 
-# 06_SYNTHESIS launch-blocker #10 / TLV-3 / issue #373:
-# Lone Operative attachment guard at the army-list-time path.
+# 06_SYNTHESIS launch-blocker #10 / TLV-3 / issue #373 (CORRECTED):
+# Lone Operative targeting restriction — does NOT prevent attachment.
 #
-# Wahapedia 10e: a unit with the Lone Operative ability cannot be part of
-# an Attached unit. Two paths must enforce this:
-#   1) `CharacterAttachmentManager.can_attach()` — runtime declaration
-#   2) `FormationsPhase._validate_declare_leader_attachment()` — pre-game
-#       formation declaration
+# Wahapedia 10e: "Unless part of an Attached unit (see Leader), this unit
+# can only be selected as the target of a ranged attack if the attacking
+# model is within 12\"."
+#
+# Lone Operative is a TARGETING restriction that is inactive when attached.
+# Characters with both Leader and Lone Operative (e.g. Boss Snikrot) CAN
+# attach to their valid bodyguard units.
 #
 # This pin verifies:
 #   A) `RulesEngine.has_lone_operative(unit)` recognises both string and
 #      dict ability storage (per its 10e-T2-2 contract).
-#   B) `CharacterAttachmentManager.can_attach()` rejects a Lone Operative
-#      character with a Wahapedia-aligned reason string.
-#   C) `FormationsPhase._validate_declare_leader_attachment()` rejects the
-#      same character with a reason string the UI can show.
-#   D) Both paths share the SAME underlying check (have_lone_operative).
-#      Catches drift if someone refactors one without the other.
+#   B) `CharacterAttachmentManager.can_attach()` ALLOWS a Lone Operative
+#      character to attach (Lone Operative does not block attachment).
+#   C) `RulesEngine` targeting code only applies Lone Operative protection
+#      when the unit is NOT attached (attached_to == null).
 #
 # Usage: godot --headless --path . -s tests/test_t010_lone_operative_attachment_pin.gd
 
@@ -46,9 +46,8 @@ func _run_tests():
 		return
 	print("\n=== test_t010_lone_operative_attachment_pin ===\n")
 	_test_has_lone_operative()
-	_test_character_attachment_manager_rejects()
-	_test_formations_phase_rejects()
-	_test_paths_share_check()
+	_test_character_attachment_manager_allows()
+	_test_lone_operative_targeting_when_unattached()
 	_finish()
 
 func _test_has_lone_operative() -> void:
@@ -77,8 +76,8 @@ func _test_has_lone_operative() -> void:
 	_check("missing abilities returns false",
 		root.get_node("RulesEngine").has_lone_operative(u6) == false)
 
-func _test_character_attachment_manager_rejects() -> void:
-	print("\n-- B: CharacterAttachmentManager.can_attach() rejects Lone Operative --")
+func _test_character_attachment_manager_allows() -> void:
+	print("\n-- B: CharacterAttachmentManager.can_attach() ALLOWS Lone Operative with Leader --")
 	var cam = root.get_node("CharacterAttachmentManager")
 	if cam == null:
 		_check("CharacterAttachmentManager autoload reachable", false, "got null")
@@ -90,15 +89,13 @@ func _test_character_attachment_manager_rejects() -> void:
 		return
 	_check("CharacterAttachmentManager exposes can_attach", true)
 	var gs = root.get_node("GameState")
-	# Stash and inject a synthetic pair: a Lone Operative character + a
-	# bodyguard with the right keyword to lead.
 	var prev_units = gs.state.get("units", {}).duplicate(true)
 	gs.state["units"] = {
 		"U_LONE_CHAR": {
 			"id": "U_LONE_CHAR",
 			"owner": 1,
 			"meta": {
-				"name": "Lone Op Test",
+				"name": "Lone Op Leader Test",
 				"keywords": ["CHARACTER", "INFANTRY"],
 				"abilities": ["Lone Operative"],
 				"leader_data": {"can_lead": ["INFANTRY"]},
@@ -115,50 +112,24 @@ func _test_character_attachment_manager_rejects() -> void:
 	}
 	var result = cam.call("can_attach", "U_LONE_CHAR", "U_TEST_BG")
 	gs.state["units"] = prev_units  # restore
-	_check("can_attach returns valid=false",
-		result is Dictionary and result.get("valid", true) == false,
+	_check("can_attach returns valid=true for Lone Operative with Leader",
+		result is Dictionary and result.get("valid", false) == true,
 		"got %s" % str(result))
-	if result is Dictionary:
-		_check("can_attach reason mentions Lone Operative",
-			"Lone Operative" in str(result.get("reason", "")),
-			"got reason=%s" % str(result.get("reason", "")))
 
-func _test_formations_phase_rejects() -> void:
-	print("\n-- C: FormationsPhase._validate_declare_leader_attachment() rejects Lone Op --")
-	# Source-pin: confirm the validator delegates to has_lone_operative.
-	# (We can't easily instantiate FormationsPhase headless without a full
-	# game state init, so the source pin is the most stable proof.)
-	var f = FileAccess.open("res://phases/FormationsPhase.gd", FileAccess.READ)
+func _test_lone_operative_targeting_when_unattached() -> void:
+	print("\n-- C: RulesEngine targeting checks only apply LO when unattached --")
+	var f = FileAccess.open("res://autoloads/RulesEngine.gd", FileAccess.READ)
 	if f == null:
-		_check("FormationsPhase.gd readable", false)
+		_check("RulesEngine.gd readable", false)
 		return
 	var src = f.get_as_text()
 	f.close()
-	_check("FormationsPhase.gd readable", not src.is_empty())
-	_check("_validate_declare_leader_attachment defined",
-		"func _validate_declare_leader_attachment" in src)
-	_check("validator calls RulesEngine.has_lone_operative",
-		"RulesEngine.has_lone_operative" in src,
-		"validator must reuse the same canonical check as CharacterAttachmentManager")
-	_check("validator emits 'Lone Operative' reason string",
-		"Lone Operative units cannot attach" in src,
-		"reason string drift will silently break the UI error")
-
-func _test_paths_share_check() -> void:
-	print("\n-- D: both paths share the canonical check --")
-	# Both files must reference RulesEngine(Data).has_lone_operative — drift
-	# (e.g. if one path inlines the abilities loop) would cause silent
-	# divergence between deployment and Formations enforcement.
-	var f1 = FileAccess.open("res://phases/FormationsPhase.gd", FileAccess.READ)
-	var s1 = f1.get_as_text() if f1 else ""
-	if f1: f1.close()
-	var f2 = FileAccess.open("res://autoloads/CharacterAttachmentManager.gd", FileAccess.READ)
-	var s2 = f2.get_as_text() if f2 else ""
-	if f2: f2.close()
-	_check("FormationsPhase reuses has_lone_operative",
-		"has_lone_operative" in s1)
-	_check("CharacterAttachmentManager reuses has_lone_operative",
-		"has_lone_operative" in s2)
+	_check("RulesEngine.gd readable", not src.is_empty())
+	_check("has_lone_operative defined",
+		"func has_lone_operative" in src)
+	_check("targeting checks attached_to guard",
+		'attached_to' in src and 'has_lone_operative' in src,
+		"Lone Operative targeting must only apply when not attached")
 
 func _finish():
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])

@@ -1605,7 +1605,7 @@ func _is_unit_wholly_in_rect(unit: Dictionary, rect_min: Vector2, rect_max: Vect
 	return true
 
 func _is_unit_far_from_point(unit: Dictionary, point: Vector2, min_distance: float) -> bool:
-	"""Check if ALL alive models are farther than min_distance from a point."""
+	"""Check if ALL alive models' base edges are farther than min_distance from a point."""
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
@@ -1614,12 +1614,15 @@ func _is_unit_far_from_point(unit: Dictionary, point: Vector2, min_distance: flo
 			return false
 		if pos is Dictionary:
 			pos = Vector2(pos.x, pos.y)
-		if pos.distance_to(point) <= min_distance:
+		var base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		var edge_dist = max(0.0, pos.distance_to(point) - base_radius)
+		if edge_dist <= min_distance:
 			return false
 	return true
 
 func _has_model_within_range(unit: Dictionary, point: Vector2, max_range: float) -> bool:
-	"""Check if ANY alive model is within range of a point."""
+	"""Check if ANY alive model's base edge is within range of a point.
+	Range is measured from closest part of the base, not center."""
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
@@ -1628,7 +1631,9 @@ func _has_model_within_range(unit: Dictionary, point: Vector2, max_range: float)
 			continue
 		if pos is Dictionary:
 			pos = Vector2(pos.x, pos.y)
-		if pos.distance_to(point) <= max_range:
+		var base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		var edge_dist = max(0.0, pos.distance_to(point) - base_radius)
+		if edge_dist <= max_range:
 			return true
 	return false
 
