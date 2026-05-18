@@ -1420,14 +1420,13 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		print("RulesEngine: [MA-14] Rapid Fire %d — %d/%d assigned models in half range (+%d attacks)" % [rapid_fire_value, models_in_half_range, model_ids.size(), rapid_fire_attacks])
 
 	# BLAST KEYWORD (PRP-013): Add bonus attacks based on target unit size
-	var blast_bonus_attacks = calculate_blast_bonus(weapon_id, target_unit, board)
+	# Per 10e rules, Blast adds to the Attacks characteristic per model
+	var blast_bonus_per_model = calculate_blast_bonus(weapon_id, target_unit, board)
 	# DECK FRAGGERS (OA-7): Also add BLAST bonus attacks if stratagem grants BLAST
 	if deck_fraggers_blast:
 		var df_target_count = count_alive_models(target_unit)
-		if df_target_count >= 11:
-			blast_bonus_attacks += 2
-		elif df_target_count >= 6:
-			blast_bonus_attacks += 1
+		blast_bonus_per_model += int(df_target_count / 5)
+	var blast_bonus_attacks = blast_bonus_per_model * model_ids.size()
 	var target_model_count = count_alive_models(target_unit)
 	# MA-10: Blast bonus attacks use weapon's default BS (not model-specific)
 	var default_bs = weapon_profile.get("bs", 4)
@@ -2310,14 +2309,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		print("RulesEngine: [MA-14][auto-resolve] Rapid Fire %d — %d/%d assigned models in half range (+%d attacks)" % [rapid_fire_value, models_in_half_range, model_ids.size(), rapid_fire_attacks])
 
 	# BLAST KEYWORD (PRP-013): Add bonus attacks based on target unit size
-	var blast_bonus_attacks = calculate_blast_bonus(weapon_id, target_unit, board)
+	# Per 10e rules, Blast adds to the Attacks characteristic per model
+	var blast_bonus_per_model = calculate_blast_bonus(weapon_id, target_unit, board)
 	# DECK FRAGGERS (OA-7): Also add BLAST bonus attacks if stratagem grants BLAST (auto-resolve)
 	if deck_fraggers_blast:
 		var df_target_count = count_alive_models(target_unit)
-		if df_target_count >= 11:
-			blast_bonus_attacks += 2
-		elif df_target_count >= 6:
-			blast_bonus_attacks += 1
+		blast_bonus_per_model += int(df_target_count / 5)
+	var blast_bonus_attacks = blast_bonus_per_model * model_ids.size()
 	var target_model_count = count_alive_models(target_unit)
 	# MA-10: Blast bonus attacks use weapon's default BS (not model-specific)
 	var default_bs = weapon_profile.get("bs", 4)
@@ -6348,16 +6346,8 @@ static func calculate_blast_bonus(weapon_id: String, target_unit: Dictionary, bo
 
 	var model_count = count_alive_models(target_unit)
 
-	# Per 10e Blast rules:
-	# - 5 or fewer models: no bonus
-	# - 6-10 models: +1 attack
-	# - 11+ models: +2 attacks (D3 simplified to flat 2 for predictability)
-	if model_count >= 11:
-		return 2
-	elif model_count >= 6:
-		return 1
-	else:
-		return 0
+	# Per 10e Blast rules: +1 attack for every 5 models in the target unit (rounding down)
+	return int(model_count / 5)
 
 # Calculate minimum attacks for Blast
 # Per 10e rules: Blast weapons make minimum 3 attacks vs units with 6+ models

@@ -105,6 +105,9 @@ func _on_phase_enter() -> void:
 	# Refresh snapshot after ability effects mutated GameState flags
 	game_state_snapshot = GameState.create_snapshot()
 
+	# Compute in_engagement flags from actual model positions
+	_compute_engagement_flags()
+
 	_initialize_shooting()
 
 func _on_phase_exit() -> void:
@@ -281,6 +284,34 @@ func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 		log_phase_message("Deadly Demise %s: roll of %d — did not trigger (needed 6)" % [
 			dd_value, dd_result.get("trigger_roll", 0)
 		])
+
+func _compute_engagement_flags() -> void:
+	var units = game_state_snapshot.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("status", 0) != 2:
+			continue
+		var owner = unit.get("owner", 0)
+		var in_engagement = false
+		for other_id in units:
+			if other_id == unit_id:
+				continue
+			var other = units[other_id]
+			if other.get("owner", 0) == owner:
+				continue
+			if other.get("status", 0) != 2:
+				continue
+			if RulesEngine._check_units_in_engagement_range(unit, other, game_state_snapshot):
+				in_engagement = true
+				break
+		var gs_unit = GameState.state["units"].get(unit_id, {})
+		if not gs_unit.is_empty():
+			if not gs_unit.has("flags"):
+				gs_unit["flags"] = {}
+			gs_unit["flags"]["in_engagement"] = in_engagement
+			if in_engagement:
+				log_phase_message("Unit %s is in engagement range" % unit_id)
+	game_state_snapshot = GameState.create_snapshot()
 
 func _initialize_shooting() -> void:
 	var current_player = get_current_player()
@@ -599,7 +630,19 @@ func _validate_clear_all_assignments(action: Dictionary) -> Dictionary:
 func _validate_confirm_targets(action: Dictionary) -> Dictionary:
 	if pending_assignments.is_empty():
 		return {"valid": false, "errors": ["No targets assigned"]}
-	
+
+	# Enforce engagement range restrictions (Pistol-only, engaged targets only)
+	var shooter_unit = get_unit(active_shooter_id)
+	if shooter_unit.get("flags", {}).get("in_engagement", false):
+		var is_monster_vehicle = RulesEngine.is_monster_or_vehicle(shooter_unit)
+		for assignment in pending_assignments:
+			var wid = assignment.get("weapon_id", "")
+			var tid = assignment.get("target_unit_id", "")
+			if not is_monster_vehicle and not RulesEngine.is_pistol_weapon(wid, game_state_snapshot):
+				return {"valid": false, "errors": ["Unit is in engagement — only Pistol weapons can fire"]}
+			if not RulesEngine._check_units_in_engagement_range(shooter_unit, get_unit(tid), game_state_snapshot):
+				return {"valid": false, "errors": ["Unit is in engagement — can only target engaged units"]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_resolve_shooting(action: Dictionary) -> Dictionary:
