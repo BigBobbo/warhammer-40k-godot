@@ -973,6 +973,7 @@ func _refresh_weapon_tree() -> void:
 		stats_item.set_tooltip_text(0, stat_line)
 		stats_item.set_selectable(0, false)
 		stats_item.set_selectable(1, false)
+		stats_item.set_custom_font_size(0, 12)
 		stats_item.set_custom_color(0, Color(0.75, 0.70, 0.50))  # Brighter gold for stat line readability
 		stats_item.set_metadata(0, weapon_id)  # Same weapon_id so hover triggers damage preview
 		weapon_item.set_disable_folding(true)
