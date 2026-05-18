@@ -4432,10 +4432,13 @@ static func _get_model_effective_invuln(model: Dictionary, unit: Dictionary, def
 	# Caller-supplied default (typically model.get("invuln", 0))
 	if default_invuln > 0:
 		return default_invuln
-	# T-014 fallback: read unit meta.stats.invuln (canonical JSON location)
-	var stats_invuln = unit.get("meta", {}).get("stats", {}).get("invuln", 0)
+	# T-014 fallback: read unit meta.stats.invuln or invulnerable_save
+	var unit_stats = unit.get("meta", {}).get("stats", {})
+	var stats_invuln = unit_stats.get("invuln", unit_stats.get("invulnerable_save", 0))
 	if typeof(stats_invuln) == TYPE_STRING:
 		stats_invuln = int(stats_invuln) if stats_invuln.is_valid_int() else 0
+	elif typeof(stats_invuln) == TYPE_FLOAT:
+		stats_invuln = int(stats_invuln)
 	if stats_invuln > 0:
 		return int(stats_invuln)
 	return default_invuln
@@ -9767,8 +9770,8 @@ static func prepare_save_resolution(
 			"has_cover": has_cover,
 			"save_needed": save_result.inv if save_result.use_invuln else save_result.armour,
 			"using_invuln": save_result.use_invuln,
-			"invuln_value": save_result.inv if save_result.use_invuln else 0,
-			"invuln_source": invuln_source if save_result.use_invuln else "",
+			"invuln_value": save_result.inv,
+			"invuln_source": invuln_source,
 			"armour_value": save_result.armour,
 			"model_type": model.get("model_type", "")  # MA-21: Model type for wound allocation UI display
 		})
@@ -9925,8 +9928,8 @@ static func prepare_melee_save_resolution(
 			"has_cover": false,  # No cover in melee
 			"save_needed": save_result.inv if save_result.use_invuln else save_result.armour,
 			"using_invuln": save_result.use_invuln,
-			"invuln_value": save_result.inv if save_result.use_invuln else 0,
-			"invuln_source": invuln_source if save_result.use_invuln else "",
+			"invuln_value": save_result.inv,
+			"invuln_source": invuln_source,
 			"armour_value": save_result.armour,
 			"model_type": model.get("model_type", "")  # MA-21: Model type for wound allocation UI display
 		})

@@ -580,7 +580,6 @@ func _update_ui_for_current_wound() -> void:
 	var invuln_val = example_profile.get("invuln_value", 0)
 
 	var save_text = "[b]Save Required:[/b] %d+" % save_needed
-	# Show derivation: base save modified by AP
 	var ap_abs = abs(ap)
 	if using_invuln:
 		var invuln_source = example_profile.get("invuln_source", "")
@@ -593,13 +592,14 @@ func _update_ui_for_current_wound() -> void:
 	else:
 		if ap_abs > 0:
 			save_text += "\n[color=#888888](%d+ base, AP-%d)[/color]" % [base_save, ap_abs]
+		if invuln_val > 0 and invuln_val < 7:
+			save_text += "\n[color=#666666]Invuln %d+ available (armour save is better)[/color]" % invuln_val
 	if has_cover:
 		save_text += " [color=#88CC88]+1 cover[/color]"
 
-	# Show FNP if present
-	var fnp = example_profile.get("fnp", 0)
-	if fnp > 0:
-		save_text += "\n[color=#CC88CC]Feel No Pain: %d+[/color]" % fnp
+	var fnp_val_display = RulesEngine.get_unit_fnp(target_unit)
+	if fnp_val_display > 0:
+		save_text += "\n[color=#CC88CC]Feel No Pain: %d+[/color]" % fnp_val_display
 
 	save_info_label.text = save_text
 
