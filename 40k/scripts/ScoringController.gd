@@ -691,8 +691,8 @@ func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, p
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
 
-	# 15-second countdown timer
-	var time_remaining = [15.0]
+	# 60-second countdown timer
+	var time_remaining = [60.0]
 	var countdown_timer = Timer.new()
 	countdown_timer.wait_time = 1.0
 	countdown_timer.autostart = true
@@ -807,7 +807,7 @@ func _on_end_turn_redeploy_available(unit_id: String, unit_name: String, player:
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
 
-	var time_remaining = [15.0]
+	var time_remaining = [60.0]
 	var countdown_timer = Timer.new()
 	countdown_timer.wait_time = 1.0
 	countdown_timer.autostart = true

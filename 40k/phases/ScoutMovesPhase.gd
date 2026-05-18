@@ -174,13 +174,19 @@ func _validate_set_scout_model_dest(action: Dictionary) -> Dictionary:
 	if dest == null:
 		return {"valid": false, "errors": ["Missing destination"]}
 
+	# Normalize destination — MCP bridge converts to Vector2, but code uses .get()
+	var dest_x: float = dest.x if dest is Vector2 else float(dest.get("x", 0))
+	var dest_y: float = dest.y if dest is Vector2 else float(dest.get("y", 0))
+
 	# Validate destination is within scout range of original position
 	var original_pos = active_scout_move.original_positions[model_index]
 	if original_pos == null:
 		return {"valid": false, "errors": ["Model has no original position"]}
 
-	var dx = float(dest.get("x", 0)) - float(original_pos.get("x", 0))
-	var dy = float(dest.get("y", 0)) - float(original_pos.get("y", 0))
+	var orig_x: float = original_pos.x if original_pos is Vector2 else float(original_pos.get("x", 0))
+	var orig_y: float = original_pos.y if original_pos is Vector2 else float(original_pos.get("y", 0))
+	var dx = dest_x - orig_x
+	var dy = dest_y - orig_y
 	var distance_px = sqrt(dx * dx + dy * dy)
 	var distance_inches = distance_px / PX_PER_INCH
 
@@ -202,8 +208,8 @@ func _validate_set_scout_model_dest(action: Dictionary) -> Dictionary:
 		var enemy_base_mm = enemy.get("base_mm", 32)
 		var enemy_base_inches = enemy_base_mm / 25.4
 
-		var edx = float(dest.get("x", 0)) - ex
-		var edy = float(dest.get("y", 0)) - ey
+		var edx = dest_x - ex
+		var edy = dest_y - ey
 		var center_dist_px = sqrt(edx * edx + edy * edy)
 		var center_dist_inches = center_dist_px / PX_PER_INCH
 
@@ -216,8 +222,6 @@ func _validate_set_scout_model_dest(action: Dictionary) -> Dictionary:
 	var board = game_state_snapshot.get("board", {})
 	var board_width = board.get("size", {}).get("width", 44) * PX_PER_INCH
 	var board_height = board.get("size", {}).get("height", 60) * PX_PER_INCH
-	var dest_x = float(dest.get("x", 0))
-	var dest_y = float(dest.get("y", 0))
 	if dest_x < 0 or dest_x > board_width or dest_y < 0 or dest_y > board_height:
 		return {"valid": false, "errors": ["Destination is off the board"]}
 
@@ -321,8 +325,8 @@ func _process_confirm_scout_move(action: Dictionary) -> Dictionary:
 	for i in range(model_positions.size()):
 		var pos = model_positions[i]
 		if pos != null:
-			var x = float(pos.get("x", pos.x if pos is Vector2 else 0))
-			var y = float(pos.get("y", pos.y if pos is Vector2 else 0))
+			var x: float = pos.x if pos is Vector2 else float(pos.get("x", 0))
+			var y: float = pos.y if pos is Vector2 else float(pos.get("y", 0))
 			changes.append({
 				"op": "set",
 				"path": "units.%s.models.%d.position" % [unit_id, i],

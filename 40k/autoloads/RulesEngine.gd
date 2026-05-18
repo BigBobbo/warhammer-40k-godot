@@ -760,7 +760,8 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 	var hazardous_weapons = []
 
 	# Process each weapon assignment up to wounds
-	for assignment in assignments:
+	for _ai in range(assignments.size()):
+		var assignment = assignments[_ai]
 		var assignment_result = _resolve_assignment_until_wounds(assignment, actor_unit_id, board, rng_service)
 
 		if assignment_result.has("dice"):
@@ -1666,6 +1667,21 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: BLASTAJET ATTACK RUN — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
+		# XENOS HUNTER: +1 to Hit vs non-IMPERIUM/CHAOS targets (Inquisitor Draxus while leading)
+		if has_xenos_hunter_vs_target(actor_unit, target_unit):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: XENOS HUNTER — +1 to hit for %s (target lacks IMPERIUM/CHAOS)" % actor_unit_id)
+
+		# AGAINST ALL ODDS: +1 to Hit when no friendly units within 6" (Lions of the Emperor)
+		if FactionAbilityManager.check_against_all_odds(actor_unit, board):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: AGAINST ALL ODDS — +1 to hit for %s (no friendlies within 6\")" % actor_unit_id)
+
+		# CAPTAIN-GENERAL: Ignore all numeric hit modifiers (Trajann while leading)
+		if has_captain_general(actor_unit):
+			hit_modifiers = hit_modifiers & ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
+			print("RulesEngine: CAPTAIN-GENERAL — ignoring all hit roll modifiers for %s" % actor_unit_id)
+
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -1819,6 +1835,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		weapon_has_devastating_wounds = true
 		print("RulesEngine: Headwoppa's Killchoppa — unit-level effect_devastating_wounds applied (until-wounds path)")
 
+	# PURITY OF EXECUTION: Ranged attacks vs PSYKER gain [DEVASTATING WOUNDS]
+	var purity_of_execution_active = has_purity_of_execution_vs_target(actor_unit, target_unit)
+	if purity_of_execution_active:
+		weapon_has_devastating_wounds = true
+		print("RulesEngine: PURITY OF EXECUTION — Devastating Wounds vs PSYKER target %s" % target_unit_id)
+
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
 
@@ -1898,6 +1920,16 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	elif pyromaniaks_scope == "ones":
 		wound_modifiers |= WoundModifier.REROLL_ONES
 		print("RulesEngine: PYROMANIAKS — re-roll wound rolls of 1 for %s (Torrent weapon, target within 6\")" % actor_unit_id)
+
+	# SLAYERS OF TYRANTS: Re-roll Wound rolls vs CHARACTER/MONSTER/VEHICLE
+	if has_slayers_of_tyrants_vs_target(actor_unit, target_unit):
+		wound_modifiers |= WoundModifier.REROLL_FAILED
+		print("RulesEngine: SLAYERS OF TYRANTS — re-roll wound rolls for %s (target is CHARACTER/MONSTER/VEHICLE)" % actor_unit_id)
+
+	# AGAINST ALL ODDS: +1 to Wound when no friendly units within 6" (Lions of the Emperor)
+	if FactionAbilityManager.check_against_all_odds(actor_unit, board):
+		wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: AGAINST ALL ODDS — +1 to wound for %s (no friendlies within 6\")" % actor_unit_id)
 
 	var wound_modifier_net = 0
 	if wound_modifiers & WoundModifier.PLUS_ONE:
@@ -2063,6 +2095,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# PRECISION (T3-4): Check if weapon has Precision keyword
 	# Critical hits (unmodified 6 to hit) from Precision weapons allow wound allocation to CHARACTER models
 	var weapon_has_precision = has_precision(weapon_id, board)
+	# PURITY OF EXECUTION: Ranged attacks vs PSYKER gain [PRECISION]
+	if not weapon_has_precision and purity_of_execution_active:
+		weapon_has_precision = true
+		print("RulesEngine: PURITY OF EXECUTION — Precision vs PSYKER target %s" % target_unit_id)
 	var precision_data = {}
 	if weapon_has_precision:
 		# Number of precision wounds = min(critical_hits, wounds_caused)
@@ -4200,6 +4236,13 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 					print("RulesEngine: Lone Operative — target '%s' cannot be targeted (closest actor model is %.1f\" away, must be within 12\")" % [target_unit.get("meta", {}).get("name", target_unit_id), min_dist])
 					continue
 
+		# PSYCHIC VEIL: Unit can only be targeted by ranged attacks within 18"
+		if target_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PSYCHIC_VEIL, false):
+			var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
+			if min_dist > 18.0:
+				print("RulesEngine: Psychic Veil — target '%s' cannot be targeted (closest actor model is %.1f\" away, must be within 18\")" % [target_unit.get("meta", {}).get("name", target_unit_id), min_dist])
+				continue
+
 		# Check if target is within engagement range (needed for Pistol targeting)
 		var target_in_er = false
 		if actor_in_engagement:
@@ -5684,6 +5727,66 @@ static func has_monster_hunters_vs_target(actor_unit: Dictionary, target_unit: D
 
 	# Check if target is MONSTER or VEHICLE
 	return is_monster_or_vehicle(target_unit)
+
+static func has_slayers_of_tyrants_vs_target(actor_unit: Dictionary, target_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Slayers of Tyrants":
+			has_ability = true
+			break
+	if not has_ability:
+		return false
+	return unit_has_keyword(target_unit, "CHARACTER") or unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE")
+
+static func has_captain_general(actor_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Captain-General":
+			return true
+	return false
+
+static func has_xenos_hunter_vs_target(actor_unit: Dictionary, target_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Xenos Hunter":
+			has_ability = true
+			break
+	if not has_ability:
+		return false
+	return not unit_has_keyword(target_unit, "IMPERIUM") and not unit_has_keyword(target_unit, "CHAOS")
+
+static func has_purity_of_execution_vs_target(actor_unit: Dictionary, target_unit: Dictionary) -> bool:
+	var abilities = actor_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Purity of Execution":
+			has_ability = true
+			break
+	if not has_ability:
+		return false
+	return unit_has_keyword(target_unit, "PSYKER")
 
 # DA BIGGER DEY IZ (OA-49): Mozrog Skragbad — +1 Damage to melee attacks vs MONSTER/VEHICLE,
 # +2 Damage vs TITANIC. Returns the damage bonus (0, 1, or 2).
@@ -7998,17 +8101,20 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 	
 	# Process each attack assignment
 	for assignment in assignments:
-		# Issue #391 ORKS IS NEVER BEATEN: capture target's alive state BEFORE
-		# this assignment so we can identify models that died this assignment
+		# Issue #391 ORKS IS NEVER BEATEN / DEFIANT TO THE LAST: capture target's
+		# alive state BEFORE this assignment so we can identify models that died
 		# (and need to swing back before being removed from play).
 		var target_unit_id_pre: String = assignment.get("target", "")
 		var swing_back_pre_alive: Array = []
+		var swing_back_is_defiant: bool = false
 		if not target_unit_id_pre.is_empty():
 			var pre_target_unit = units.get(target_unit_id_pre, {})
 			var pre_flags = pre_target_unit.get("flags", {})
-			if pre_flags.get(EffectPrimitivesData.FLAG_SWING_BACK_BEFORE_REMOVE, false):
+			if pre_flags.get(EffectPrimitivesData.FLAG_SWING_BACK_BEFORE_REMOVE, false) \
+					or pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false):
 				for m in pre_target_unit.get("models", []):
 					swing_back_pre_alive.append(m.get("alive", true))
+				swing_back_is_defiant = pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false)
 
 		var assignment_result = _resolve_melee_assignment(assignment, actor_unit_id, board, rng_service)
 		result.diffs.append_array(assignment_result.diffs)
@@ -8016,11 +8122,11 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 		if assignment_result.log_text:
 			result.log_text += assignment_result.log_text + "\n"
 
-		# Issue #391 ORKS IS NEVER BEATEN: now that the original assignment has
-		# resolved (and may have killed models), trigger the deferred swing-back
-		# attack from the dying-but-not-yet-removed models.
+		# Issue #391 ORKS IS NEVER BEATEN / DEFIANT TO THE LAST: now that the
+		# original assignment has resolved (and may have killed models), trigger
+		# the deferred swing-back attack from the dying-but-not-yet-removed models.
 		if not swing_back_pre_alive.is_empty():
-			var sb_diffs_dice = _resolve_swing_back_before_remove(target_unit_id_pre, actor_unit_id, swing_back_pre_alive, board, rng_service)
+			var sb_diffs_dice = _resolve_swing_back_before_remove(target_unit_id_pre, actor_unit_id, swing_back_pre_alive, board, rng_service, swing_back_is_defiant)
 			result.diffs.append_array(sb_diffs_dice.get("diffs", []))
 			result.dice.append_array(sb_diffs_dice.get("dice", []))
 			if sb_diffs_dice.get("log_text", "") != "":
@@ -8045,7 +8151,7 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 # / engagement checks in `_resolve_melee_assignment` accept them, then we
 # re-apply alive=false. Models that already fought this phase do NOT swing back
 # (per Wahapedia: "if that model has not fought this phase").
-static func _resolve_swing_back_before_remove(target_unit_id: String, original_attacker_id: String, pre_alive: Array, board: Dictionary, rng: RNGService) -> Dictionary:
+static func _resolve_swing_back_before_remove(target_unit_id: String, original_attacker_id: String, pre_alive: Array, board: Dictionary, rng: RNGService, is_defiant: bool = false) -> Dictionary:
 	var sb_result := {"diffs": [], "dice": [], "log_text": ""}
 	var units = board.get("units", {})
 	var defender = units.get(target_unit_id, {})
@@ -8064,11 +8170,30 @@ static func _resolve_swing_back_before_remove(target_unit_id: String, original_a
 		var was_alive: bool = bool(pre_alive[idx])
 		var is_alive_now: bool = bool(defender_models[idx].get("alive", true))
 		if was_alive and not is_alive_now:
-			# Newly dead. Skip if model already fought this phase.
 			var model_flags = defender_models[idx].get("flags", {})
 			if model_flags.get("fought_this_phase", false):
 				continue
-			dying_models.append(idx)
+			if is_defiant:
+				# DEFIANT TO THE LAST: roll D6, +2 if CHARACTER, need 4+
+				var roll = rng.randi_range(1, 6)
+				var model_keywords = defender_models[idx].get("keywords", [])
+				if model_keywords.is_empty():
+					model_keywords = defender.get("meta", {}).get("keywords", [])
+				var is_character = false
+				for kw in model_keywords:
+					if kw.to_upper() == "CHARACTER":
+						is_character = true
+						break
+				var modifier = 2 if is_character else 0
+				var total = roll + modifier
+				sb_result.dice.append({"type": "defiant_to_the_last", "roll": roll, "modifier": modifier, "total": total, "passed": total >= 4})
+				if total >= 4:
+					dying_models.append(idx)
+					print("RulesEngine: DEFIANT TO THE LAST — model %d rolled %d+%d=%d (4+ needed), PASSES — will swing back" % [idx, roll, modifier, total])
+				else:
+					print("RulesEngine: DEFIANT TO THE LAST — model %d rolled %d+%d=%d (4+ needed), FAILS — removed normally" % [idx, roll, modifier, total])
+			else:
+				dying_models.append(idx)
 
 	if dying_models.is_empty():
 		return sb_result
@@ -8080,10 +8205,12 @@ static func _resolve_swing_back_before_remove(target_unit_id: String, original_a
 			melee_weapon_name = w.get("name", "")
 			break
 	if melee_weapon_name.is_empty():
-		print("RulesEngine: ORKS IS NEVER BEATEN — %s has no melee weapon, cannot swing back" % target_unit_id)
+		var strat_label = "DEFIANT TO THE LAST" if is_defiant else "ORKS IS NEVER BEATEN"
+		print("RulesEngine: %s — %s has no melee weapon, cannot swing back" % [strat_label, target_unit_id])
 		return sb_result
 
-	print("RulesEngine: ORKS IS NEVER BEATEN — %s swings back %d dying model(s) at %s with '%s'" % [target_unit_id, dying_models.size(), original_attacker_id, melee_weapon_name])
+	var strat_label = "DEFIANT TO THE LAST" if is_defiant else "ORKS IS NEVER BEATEN"
+	print("RulesEngine: %s — %s swings back %d dying model(s) at %s with '%s'" % [strat_label, target_unit_id, dying_models.size(), original_attacker_id, melee_weapon_name])
 
 	# Temporarily revive the dying models so the engagement/eligibility checks
 	# in _resolve_melee_assignment accept them. Tag them with pending_swing_back
@@ -8318,6 +8445,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# Roll variable attacks for each model separately (per 10e rules)
 		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
 		var model_attacks = attacks_result.value
+
+		# MOMENT SHACKLE: Watcher's Axe gets 12 Attacks
+		if attacker_unit.get("flags", {}).get("moment_shackle_attacks_12", false):
+			if "Watcher" in weapon_name and "Axe" in weapon_name:
+				model_attacks = 12
+				print("RulesEngine: MOMENT SHACKLE — Watcher's Axe overridden to 12 Attacks")
 
 		# WAAAGH! BONUS: +1 Attack to melee weapons
 		# BALANCE DATASLATE (P2-75): Skip for Extra Attacks weapons — Waaagh! doesn't name specific weapons
@@ -8581,6 +8714,16 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			melee_hit_modifiers |= HitModifier.PLUS_ONE
 			print("RulesEngine: BIG AN' STOMPY — +1 to hit (melee) for %s (Waaagh! active)" % attacker_id)
 
+		# XENOS HUNTER: +1 to Hit vs non-IMPERIUM/CHAOS targets (melee)
+		if has_xenos_hunter_vs_target(attacker_unit, target_unit):
+			melee_hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: XENOS HUNTER (melee) — +1 to hit for %s (target lacks IMPERIUM/CHAOS)" % attacker_id)
+
+		# CAPTAIN-GENERAL: Ignore all numeric hit modifiers (melee)
+		if has_captain_general(attacker_unit):
+			melee_hit_modifiers = melee_hit_modifiers & ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
+			print("RulesEngine: CAPTAIN-GENERAL (melee) — ignoring all hit roll modifiers for %s" % attacker_id)
+
 		var melee_hit_reroll_data = []
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
@@ -8716,6 +8859,16 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if melee_da_boss_ladz_mod != WoundModifier.NONE:
 		melee_wound_modifiers |= melee_da_boss_ladz_mod
 		print("RulesEngine: DA BOSS' LADZ (melee) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_id, strength, toughness])
+
+	# SLAYERS OF TYRANTS: Re-roll Wound rolls vs CHARACTER/MONSTER/VEHICLE (melee)
+	if has_slayers_of_tyrants_vs_target(attacker_unit, target_unit):
+		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+		print("RulesEngine: SLAYERS OF TYRANTS (melee) — re-roll wound rolls for %s (target is CHARACTER/MONSTER/VEHICLE)" % attacker_id)
+
+	# AGAINST ALL ODDS: +1 to Wound when no friendly units within 6" (melee, Lions of the Emperor)
+	if FactionAbilityManager.check_against_all_odds(attacker_unit, board):
+		melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: AGAINST ALL ODDS (melee) — +1 to wound for %s (no friendlies within 6\")" % attacker_id)
 
 	var melee_wound_modifier_net = 0
 	if melee_wound_modifiers & WoundModifier.PLUS_ONE:

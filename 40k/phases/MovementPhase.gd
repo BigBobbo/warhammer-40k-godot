@@ -112,6 +112,12 @@ var _deff_from_above_pending_targets: Array = []    # Eligible enemy units moved
 var _deff_from_above_pending_changes: Array = []    # Pending movement changes
 var _deff_from_above_pending_dice: Array = []       # Pending dice
 
+# Quicksilver Execution state tracking (Vertus Praetors)
+var _quicksilver_pending_unit: String = ""
+var _quicksilver_pending_targets: Array = []
+var _quicksilver_pending_changes: Array = []
+var _quicksilver_pending_dice: Array = []
+
 # OA-42: Scatter! state tracking (Grot Tanks reactive move)
 var _awaiting_scatter: bool = false
 var _scatter_player: int = 0                        # Defending player offered Scatter!
@@ -274,6 +280,11 @@ func _on_phase_enter() -> void:
 
 		# OA-42: Clear Scatter! per-unit tracking for new turn
 		ability_mgr.clear_scatter_turn_tracking()
+
+	# Refresh snapshot after ability effects mutated GameState flags
+	# (e.g. effect_auto_advance_6 from Turbo-boost, advance_and_charge from
+	# Martial Inspiration). Without this, get_unit() reads stale data.
+	game_state_snapshot = GameState.create_snapshot()
 
 	_initialize_movement()
 
@@ -686,6 +697,16 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_deff_from_above(action)
 		"DECLINE_DEFF_FROM_ABOVE":
 			return _validate_decline_deff_from_above(action)
+		"USE_QUICKSILVER_EXECUTION":
+			var qs_uid = action.get("unit_id", "")
+			if _quicksilver_pending_unit == "" or _quicksilver_pending_unit != qs_uid:
+				return {"valid": false, "errors": ["No Quicksilver Execution pending for this unit"]}
+			return {"valid": true}
+		"DECLINE_QUICKSILVER_EXECUTION":
+			var qs_uid2 = action.get("unit_id", "")
+			if _quicksilver_pending_unit == "" or _quicksilver_pending_unit != qs_uid2:
+				return {"valid": false, "errors": ["No Quicksilver Execution pending for this unit"]}
+			return {"valid": true}
 		"USE_SCATTER":
 			return _validate_use_scatter(action)
 		"DECLINE_SCATTER":
@@ -792,6 +813,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_deff_from_above(action)
 		"DECLINE_DEFF_FROM_ABOVE":
 			return _process_decline_deff_from_above(action)
+		"USE_QUICKSILVER_EXECUTION":
+			return _process_use_quicksilver_execution(action)
+		"DECLINE_QUICKSILVER_EXECUTION":
+			return _process_decline_quicksilver_execution(action)
 		"USE_SCATTER":
 			return _process_use_scatter(action)
 		"DECLINE_SCATTER":
@@ -2101,6 +2126,57 @@ func _process_use_deff_from_above(action: Dictionary) -> Dictionary:
 	emit_signal("deff_from_above_result", unit_id, result)
 
 	return create_result(true, all_changes, "Deff from Above resolved", {"dice": cached_dice})
+
+func _process_use_quicksilver_execution(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", _quicksilver_pending_unit)
+	var target_unit_id = action.get("target_unit_id", "")
+	var cached_changes = _quicksilver_pending_changes.duplicate()
+	var cached_dice = _quicksilver_pending_dice.duplicate()
+	var pending_targets = _quicksilver_pending_targets.duplicate()
+	_quicksilver_pending_unit = ""
+	_quicksilver_pending_targets = []
+	_quicksilver_pending_changes = []
+	_quicksilver_pending_dice = []
+
+	if target_unit_id == "" and not pending_targets.is_empty():
+		target_unit_id = pending_targets[0].get("unit_id", pending_targets[0].get("target_unit_id", ""))
+	if target_unit_id == "":
+		return create_result(true, cached_changes, "", {"dice": cached_dice})
+
+	cached_changes.append({"op": "set", "path": "units.%s.flags.quicksilver_execution_used" % unit_id, "value": true})
+
+	var rng = RulesEngine.RNGService.new(action.get("payload", {}).get("rng_seed", -1))
+	var unit = get_unit(unit_id)
+	var model_count = 0
+	for m in unit.get("models", []):
+		if m.get("alive", true):
+			model_count += 1
+	var rolls = rng.roll_d6(model_count)
+	var successes = 0
+	for r in rolls:
+		if r >= 2:
+			successes += 1
+	var total_mw = successes * 2
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
+
+	if total_mw > 0:
+		var mw_result = RulesEngine.apply_mortal_wounds(target_unit_id, total_mw, GameState.state, rng)
+		cached_changes.append_array(mw_result.get("diffs", []))
+
+	log_phase_message("Quicksilver Execution: %s targets %s — %d models, rolls %s, %d successes (2+) = %d mortal wounds" % [unit_name, target_name, model_count, str(rolls), successes, total_mw])
+	DebugLogger.info("[7][INFO] Quicksilver Execution: %s → %s, %d MW" % [unit_name, target_name, total_mw])
+	return create_result(true, cached_changes, "Quicksilver Execution resolved", {"dice": cached_dice})
+
+func _process_decline_quicksilver_execution(action: Dictionary) -> Dictionary:
+	var cached_changes = _quicksilver_pending_changes.duplicate()
+	var cached_dice = _quicksilver_pending_dice.duplicate()
+	_quicksilver_pending_unit = ""
+	_quicksilver_pending_targets = []
+	_quicksilver_pending_changes = []
+	_quicksilver_pending_dice = []
+	log_phase_message("Quicksilver Execution declined")
+	return create_result(true, cached_changes, "", {"dice": cached_dice})
 
 func _process_use_da_jump(action: Dictionary) -> Dictionary:
 	# T-105: Da Jump (Weirdboy psychic). End-of-Movement teleport.
@@ -4647,6 +4723,39 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				result["eligible_targets"] = dfa_targets
 				return result
 
+	# Quicksilver Execution: after Normal/Advance move, select enemy moved over (excl. MONSTER/VEHICLE)
+	if move_data.mode in ["NORMAL", "ADVANCE"]:
+		var qs_unit = get_unit(unit_id)
+		if not qs_unit.get("flags", {}).get("quicksilver_execution_used", false):
+			var qs_abilities = qs_unit.get("meta", {}).get("abilities", [])
+			var has_qs = false
+			for ab in qs_abilities:
+				var aname = ab.get("name", "") if ab is Dictionary else str(ab)
+				if aname == "Quicksilver Execution":
+					has_qs = true
+					break
+			if has_qs:
+				var qs_targets = _get_units_moved_over(unit_id, move_data)
+				var qs_valid = []
+				for t in qs_targets:
+					var t_unit = get_unit(t.get("unit_id", ""))
+					if t_unit.is_empty():
+						continue
+					if RulesEngine.unit_has_keyword(t_unit, "MONSTER") or RulesEngine.unit_has_keyword(t_unit, "VEHICLE"):
+						continue
+					qs_valid.append(t)
+				if not qs_valid.is_empty():
+					_quicksilver_pending_unit = unit_id
+					_quicksilver_pending_targets = qs_valid
+					_quicksilver_pending_changes = changes
+					_quicksilver_pending_dice = additional_dice
+					log_phase_message("Quicksilver Execution available for %s — %d eligible target(s)" % [unit_name, qs_valid.size()])
+					var result = create_result(true, changes, "", {"dice": additional_dice})
+					result["quicksilver_execution_available"] = true
+					result["unit_id"] = unit_id
+					result["eligible_targets"] = qs_valid
+					return result
+
 	return create_result(true, changes, "", {"dice": additional_dice})
 
 func _process_remain_stationary(action: Dictionary) -> Dictionary:
@@ -6626,6 +6735,26 @@ func get_available_actions() -> Array:
 			"type": "DECLINE_DEFF_FROM_ABOVE",
 			"actor_unit_id": _deff_from_above_pending_unit,
 			"description": "Decline Deff from Above — %s" % dfa_name
+		})
+		return actions  # Block other actions until resolved
+
+	# Quicksilver Execution pending — offer use/decline with target selection
+	if _quicksilver_pending_unit != "":
+		var qs_unit = get_unit(_quicksilver_pending_unit)
+		var qs_name = qs_unit.get("meta", {}).get("name", _quicksilver_pending_unit) if not qs_unit.is_empty() else _quicksilver_pending_unit
+		for target in _quicksilver_pending_targets:
+			var t_id = target.get("unit_id", target.get("target_unit_id", ""))
+			var t_name = target.get("name", target.get("target_name", t_id))
+			actions.append({
+				"type": "USE_QUICKSILVER_EXECUTION",
+				"unit_id": _quicksilver_pending_unit,
+				"target_unit_id": t_id,
+				"description": "Quicksilver Execution: %s targets %s — D6 per model, 2+ = 2 MW each" % [qs_name, t_name]
+			})
+		actions.append({
+			"type": "DECLINE_QUICKSILVER_EXECUTION",
+			"unit_id": _quicksilver_pending_unit,
+			"description": "Decline Quicksilver Execution — %s" % qs_name
 		})
 		return actions  # Block other actions until resolved
 

@@ -18,7 +18,7 @@ var controller_reference = null
 var model_movements: Dictionary = {}
 
 # Timer
-const DECISION_TIMEOUT: float = 15.0
+const DECISION_TIMEOUT: float = 60.0
 var _timer: Timer = null
 var _time_remaining: float = DECISION_TIMEOUT
 var _timer_label: Label = null

@@ -229,6 +229,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Feel No Pain 3+ against Psychic Attacks and mortal wounds only"
 	},
 
+	# Custodes Trajann Valoris — Feel No Pain 5+ (permanent, unconditional)
+	"Feel No Pain": {
+		"condition": "always",
+		"effects": [{"type": "grant_fnp", "value": 5}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Feel No Pain 5+ — each time this model would lose a wound, roll D6: on 5+ that wound is not lost"
+	},
+
 	# Custodes Blade Champion — once per battle advance and charge
 	"Martial Inspiration": {
 		"condition": "while_leading",
@@ -478,6 +488,110 @@ const ABILITY_EFFECTS: Dictionary = {
 		"implemented": true,
 		"once_per_battle_round": true,
 		"description": "Once per battle round: reduce CP cost of a Stratagem targeting this unit by 1"
+	},
+
+	# Custodes Trajann Valoris — ignore hit/wound modifiers while leading
+	# Resolved directly in RulesEngine.has_captain_general() during hit modifier assembly.
+	"Captain-General": {
+		"condition": "while_leading",
+		"effects": [],
+		"target": "led_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While leading, ignore any/all modifiers to BS/WS and Hit roll"
+	},
+
+	# Custodes Trajann Valoris — once per battle, 12 attacks OR 2+ invuln
+	# Resolved directly in FightPhase at start of Fight phase.
+	"Moment Shackle": {
+		"condition": "start_of_fight",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle at start of Fight: Watcher's Axe gets 12 Attacks OR model gets 2+ invuln"
+	},
+
+	# Custodes Allarus — re-roll wounds vs CHARACTER/MONSTER/VEHICLE
+	# Resolved directly in RulesEngine.has_slayers_of_tyrants_vs_target().
+	"Slayers of Tyrants": {
+		"condition": "always",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Re-roll Wound rolls when targeting CHARACTER, MONSTER or VEHICLE units"
+	},
+
+	# Custodes Prosecutors — Precision + Devastating Wounds vs PSYKER (ranged only)
+	# Resolved directly in RulesEngine.has_purity_of_execution_vs_target().
+	"Purity of Execution": {
+		"condition": "always",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Ranged attacks vs PSYKER have [PRECISION] and [DEVASTATING WOUNDS]"
+	},
+
+	# Custodes Vertus Praetors — once per battle, mortal wounds on fly-over
+	# Resolved directly in MovementPhase after Normal/Advance move.
+	"Quicksilver Execution": {
+		"condition": "after_normal_move",
+		"effects": [],
+		"target": "enemy_moved_over",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: after Normal/Advance move, select enemy unit moved over (excl. MONSTER/VEHICLE) — each model rolls D6, 2+ = 2 mortal wounds"
+	},
+
+	# Callidus Assassin — aura: +1 CP to enemy stratagems within 12"
+	# Resolved directly in StratagemManager.get_lord_of_deceit_cp_increase().
+	"Lord of Deceit (Aura)": {
+		"condition": "aura",
+		"effects": [],
+		"aura_range": 12.0,
+		"aura_target": "enemy",
+		"target": "enemy_units",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Enemy stratagems targeting units within 12\" of this model cost +1 CP"
+	},
+
+	# Inquisitor Draxus — +1 to Hit vs non-IMPERIUM/CHAOS while leading
+	# Resolved directly in RulesEngine.has_xenos_hunter_vs_target().
+	"Xenos Hunter": {
+		"condition": "while_leading",
+		"effects": [],
+		"target": "led_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "While leading, +1 to Hit rolls when targeting non-IMPERIUM/CHAOS enemies"
+	},
+
+	# Inquisitor Draxus — command phase targeting restriction (psychic)
+	# Resolved in CommandPhase.
+	"Psychic Veil (Psychic)": {
+		"condition": "start_of_command",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_turn": true,
+		"description": "Command phase: roll D6. On 1, D3 mortal wounds. On 2+, unit can only be targeted by ranged within 18\" until next Command phase."
+	},
+
+	# Inquisitor Draxus — can embark in bodyguard's transport while leading
+	# N/A for current army list (no transports for led units).
+	"Authority of the Inquisition": {
+		"condition": "while_leading",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": false,
+		"description": "While leading, can embark in any TRANSPORT the bodyguard can. N/A: no transports in current list."
 	},
 
 	# Custodes Contemptor-Achillus Dreadnought — mortal wounds on fight selection

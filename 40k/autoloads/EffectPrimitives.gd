@@ -196,6 +196,8 @@ const FLAG_STICKY_OBJECTIVE_CONTROL = "effect_sticky_objective_control"  # objec
 # Issue #390: CAREEN! — when set on a destroyed VEHICLE, RulesEngine.resolve_deadly_demise
 # performs a Normal/Fall Back move to flags.careen_destination BEFORE rolling mortal wounds.
 const FLAG_CAREEN_PENDING_MOVE = "effect_careen_pending_move"
+const FLAG_PSYCHIC_VEIL = "effect_psychic_veil"  # Can only be targeted by ranged attacks within 18"
+const FLAG_DEFIANT_TO_THE_LAST = "effect_defiant_to_the_last"  # D6 roll per dying model, +2 CHARACTER, 4+ to swing back
 
 # MA-29: Weapon-targeted effect filter suffix
 # When an effect has target_weapon_names, a companion flag is stored:

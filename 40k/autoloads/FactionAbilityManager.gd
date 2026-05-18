@@ -93,6 +93,13 @@ const DETACHMENT_ABILITIES = {
 				"effect": "improve_ap_1_melee"
 			}
 		}
+	},
+	"Lions of the Emperor": {
+		"faction_keyword": "ADEPTUS CUSTODES",
+		"ability_name": "Against All Odds",
+		"trigger": "passive",
+		"effect": "plus_one_hit_wound_when_isolated",
+		"description": "Each time a model in a non-VEHICLE unit makes an attack, if no other friendly units within 6\", add 1 to the Hit roll and add 1 to the Wound roll."
 	}
 }
 
@@ -1769,6 +1776,83 @@ func mark_razgit_redeploy_used(player: int) -> void:
 func is_razgit_redeploy_available(player: int) -> bool:
 	"""Check if Razgit's Magik Map redeployment slots are still available."""
 	return has_razgit_magik_map(player) and get_razgit_redeploys_remaining(player) > 0
+
+# ============================================================================
+# AGAINST ALL ODDS — LIONS OF THE EMPEROR
+# ============================================================================
+
+static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary) -> bool:
+	"""Check if Against All Odds grants +1 Hit and +1 Wound.
+	Condition: non-VEHICLE ADEPTUS CUSTODES unit with no other friendly units within 6\"."""
+	var owner = attacker_unit.get("owner", -1)
+	if owner < 0:
+		return false
+	var keywords = attacker_unit.get("meta", {}).get("keywords", [])
+	var is_custodes = false
+	var is_vehicle = false
+	for kw in keywords:
+		var upper = kw.to_upper()
+		if upper == "ADEPTUS CUSTODES":
+			is_custodes = true
+		if upper == "VEHICLE":
+			is_vehicle = true
+	if not is_custodes or is_vehicle:
+		return false
+	var attacker_id = attacker_unit.get("id", "")
+	var units = board.get("units", {})
+	var attacker_models = attacker_unit.get("models", [])
+	for other_id in units:
+		if other_id == attacker_id:
+			continue
+		var other_unit = units[other_id]
+		if other_unit.get("owner", -1) != owner:
+			continue
+		var other_alive = false
+		for m in other_unit.get("models", []):
+			if m.get("alive", true):
+				other_alive = true
+				break
+		if not other_alive:
+			continue
+		var min_dist = INF
+		for a_model in attacker_models:
+			if not a_model.get("alive", true):
+				continue
+			var a_pos = a_model.get("position", null)
+			if a_pos == null:
+				continue
+			var ax = 0.0
+			var ay = 0.0
+			if a_pos is Vector2:
+				ax = a_pos.x
+				ay = a_pos.y
+			elif a_pos is Dictionary:
+				ax = float(a_pos.get("x", 0))
+				ay = float(a_pos.get("y", 0))
+			for o_model in other_unit.get("models", []):
+				if not o_model.get("alive", true):
+					continue
+				var o_pos = o_model.get("position", null)
+				if o_pos == null:
+					continue
+				var ox = 0.0
+				var oy = 0.0
+				if o_pos is Vector2:
+					ox = o_pos.x
+					oy = o_pos.y
+				elif o_pos is Dictionary:
+					ox = float(o_pos.get("x", 0))
+					oy = float(o_pos.get("y", 0))
+				var dx = ax - ox
+				var dy = ay - oy
+				var a_base = float(a_model.get("base_size_mm", 32)) / 2.0 * 40.0 / 25.4
+				var o_base = float(o_model.get("base_size_mm", 32)) / 2.0 * 40.0 / 25.4
+				var edge_dist = (sqrt(dx * dx + dy * dy) - a_base - o_base) / 40.0
+				if edge_dist < min_dist:
+					min_dist = edge_dist
+		if min_dist <= 6.0:
+			return false
+	return true
 
 # ============================================================================
 # PHASE LIFECYCLE

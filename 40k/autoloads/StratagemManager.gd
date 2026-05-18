@@ -495,6 +495,18 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if name_upper == "KRUMP AND RUN":
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# DEFIANT TO THE LAST (Lions): D6 roll per dying model, +2 CHARACTER, 4+ swing back
+		if name_upper == "DEFIANT TO THE LAST":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# SWIFT AS THE EAGLE (Lions): D6" Normal move after being shot at
+		if name_upper == "SWIFT AS THE EAGLE":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
+		# UNLEASH THE LIONS (Lions): Split Allarus/Aquilon into single-model units
+		if name_upper == "UNLEASH THE LIONS":
+			strat["implemented"] = true
+			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
 func load_all_faction_stratagems() -> void:
 	"""Load faction stratagems for both players. Call after armies are loaded."""
@@ -546,6 +558,65 @@ func get_implemented_faction_stratagems_for_player(player: int) -> Array:
 	return result
 
 # ============================================================================
+# LORD OF DECEIT — CALLIDUS ASSASSIN AURA
+# ============================================================================
+
+func get_lord_of_deceit_cp_increase(player: int, target_unit_id: String) -> int:
+	"""Check if Lord of Deceit aura increases stratagem cost.
+	Returns 1 if the target unit is within 12\" of an enemy Callidus with the aura, else 0."""
+	var board = GameState.state
+	var units = board.get("units", {})
+	var target_unit = units.get(target_unit_id, {})
+	if target_unit.is_empty():
+		return 0
+	var target_owner = target_unit.get("owner", -1)
+	if target_owner != player:
+		return 0
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", -1) == player:
+			continue
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		var has_aura = false
+		for ability in abilities:
+			var name = ability.get("name", "") if ability is Dictionary else str(ability)
+			if "Lord of Deceit" in name:
+				has_aura = true
+				break
+		if not has_aura:
+			continue
+		var has_alive_model = false
+		for m in unit.get("models", []):
+			if m.get("alive", true):
+				has_alive_model = true
+				break
+		if not has_alive_model:
+			continue
+		var min_dist = INF
+		for t_model in target_unit.get("models", []):
+			if not t_model.get("alive", true):
+				continue
+			var t_pos = t_model.get("position", {})
+			var tx = float(t_pos.get("x", t_pos.x if t_pos is Vector2 else 0))
+			var ty = float(t_pos.get("y", t_pos.y if t_pos is Vector2 else 0))
+			for a_model in unit.get("models", []):
+				if not a_model.get("alive", true):
+					continue
+				var a_pos = a_model.get("position", {})
+				var ax = float(a_pos.get("x", a_pos.x if a_pos is Vector2 else 0))
+				var ay = float(a_pos.get("y", a_pos.y if a_pos is Vector2 else 0))
+				var dx = tx - ax
+				var dy = ty - ay
+				var dist_px = sqrt(dx * dx + dy * dy)
+				var dist_inches = dist_px / 40.0
+				if dist_inches < min_dist:
+					min_dist = dist_inches
+		if min_dist <= 12.0:
+			print("StratagemManager: LORD OF DECEIT — target %s is within 12\" of Callidus (%.1f\"), +1 CP" % [target_unit_id, min_dist])
+			return 1
+	return 0
+
+# ============================================================================
 # VALIDATION
 # ============================================================================
 
@@ -568,13 +639,16 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		if not strat.get("implemented", false):
 			return {"can_use": false, "reason": "%s is not yet mechanically implemented" % strat.name}
 
-	# Check CP (account for possible Strategic Mastery discount)
+	# Check CP (account for possible Strategic Mastery discount and Lord of Deceit increase)
 	var effective_cost = strat.cp_cost
 	if target_unit_id != "" and effective_cost > 0:
 		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 		if ability_mgr and ability_mgr.has_strategic_mastery(target_unit_id):
 			if not ability_mgr.is_once_per_round_used(player, "Strategic Mastery"):
 				effective_cost = maxi(effective_cost - 1, 0)
+	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus with Lord of Deceit aura
+	if target_unit_id != "":
+		effective_cost += get_lord_of_deceit_cp_increase(player, target_unit_id)
 	var player_cp = _get_player_cp(player)
 	if player_cp < effective_cost:
 		return {"can_use": false, "reason": "Not enough CP (need %d, have %d)" % [effective_cost, player_cp]}
@@ -725,7 +799,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	var strat = stratagems[stratagem_id]
 	var diffs = []
 
-	# Calculate effective CP cost (check for Strategic Mastery discount)
+	# Calculate effective CP cost (check for Strategic Mastery discount and Lord of Deceit increase)
 	var effective_cp_cost = strat.cp_cost
 	var strategic_mastery_applied = false
 	if target_unit_id != "" and effective_cp_cost > 0:
@@ -736,6 +810,13 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 				strategic_mastery_applied = true
 				ability_mgr.mark_once_per_round_used(player, "Strategic Mastery")
 				print("StratagemManager: Strategic Mastery reduces CP cost of %s by 1 (was %d, now %d)" % [strat.name, strat.cp_cost, effective_cp_cost])
+	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus
+	var lord_of_deceit_increase = 0
+	if target_unit_id != "":
+		lord_of_deceit_increase = get_lord_of_deceit_cp_increase(player, target_unit_id)
+		if lord_of_deceit_increase > 0:
+			effective_cp_cost += lord_of_deceit_increase
+			print("StratagemManager: Lord of Deceit increases CP cost of %s by %d (now %d)" % [strat.name, lord_of_deceit_increase, effective_cp_cost])
 
 	# Deduct CP
 	var current_cp = _get_player_cp(player)
@@ -1074,6 +1155,39 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		print("StratagemManager: Applied Krump and Run to %s (reactive 6\" Normal move)" % target_unit_id)
 		return []
 
+	# DEFIANT TO THE LAST (Lions): D6 per dying model, +2 for CHARACTER, 4+ to swing back.
+	# Uses a separate flag from ORKS IS NEVER BEATEN so RulesEngine applies the roll.
+	if strat.get("name", "").to_upper() == "DEFIANT TO THE LAST":
+		var diffs = [{
+			"op": "set",
+			"path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST],
+			"value": true
+		}]
+		print("StratagemManager: Applied Defiant to the Last to %s (D6 roll per dying model, +2 CHARACTER, 4+ swing back)" % target_unit_id)
+		return diffs
+
+	# SWIFT AS THE EAGLE (Lions): D6" Normal move after being shot at.
+	# Sets a flag so the shooting resolution can trigger the reactive move.
+	if strat.get("name", "").to_upper() == "SWIFT AS THE EAGLE":
+		var diffs = [{
+			"op": "set",
+			"path": "units.%s.flags.effect_swift_as_the_eagle" % target_unit_id,
+			"value": true
+		}]
+		print("StratagemManager: Applied Swift as the Eagle to %s (D6\" Normal move after being shot)" % target_unit_id)
+		return diffs
+
+	# UNLEASH THE LIONS (Lions): Split unit into single-model units.
+	# The actual splitting is handled by CommandPhase; we just set the flag here.
+	if strat.get("name", "").to_upper() == "UNLEASH THE LIONS":
+		var diffs = [{
+			"op": "set",
+			"path": "units.%s.flags.effect_unleash_the_lions" % target_unit_id,
+			"value": true
+		}]
+		print("StratagemManager: Applied Unleash the Lions to %s (unit will be split)" % target_unit_id)
+		return diffs
+
 	var effects = strat.get("effects", [])
 	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
 
@@ -1184,6 +1298,27 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 		if flags.has("effect_deck_fraggers"):
 			flags.erase("effect_deck_fraggers")
 			print("StratagemManager: Cleared effect_deck_fraggers from %s" % unit_id)
+		return
+
+	# DEFIANT TO THE LAST (Lions): Clear D6 swing-back flag
+	if strat.get("name", "").to_upper() == "DEFIANT TO THE LAST":
+		if flags.has(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST):
+			flags.erase(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST)
+			print("StratagemManager: Cleared %s from %s" % [EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, unit_id])
+		return
+
+	# SWIFT AS THE EAGLE (Lions): Clear reactive move flag
+	if strat.get("name", "").to_upper() == "SWIFT AS THE EAGLE":
+		if flags.has("effect_swift_as_the_eagle"):
+			flags.erase("effect_swift_as_the_eagle")
+			print("StratagemManager: Cleared effect_swift_as_the_eagle from %s" % unit_id)
+		return
+
+	# UNLEASH THE LIONS (Lions): Clear split flag
+	if strat.get("name", "").to_upper() == "UNLEASH THE LIONS":
+		if flags.has("effect_unleash_the_lions"):
+			flags.erase("effect_unleash_the_lions")
+			print("StratagemManager: Cleared effect_unleash_the_lions from %s" % unit_id)
 		return
 
 	var effects = strat.get("effects", [])

@@ -43,6 +43,17 @@ func _on_phase_enter() -> void:
 	# Reset per-command-phase tracking
 	_fix_dat_armour_up_used = []
 
+	# Clear Psychic Veil flags from previous turn
+	var all_units_pv_clear = GameState.state.get("units", {})
+	for uid in all_units_pv_clear:
+		var u = all_units_pv_clear[uid]
+		if u.get("owner", 0) != current_player:
+			continue
+		if u.get("flags", {}).get("psychic_veil_used_this_turn", false):
+			GameState.apply_state_changes([{"op": "remove", "path": "units.%s.flags.psychic_veil_used_this_turn" % uid}])
+		if u.get("flags", {}).get(EffectPrimitivesData.FLAG_PSYCHIC_VEIL, false):
+			GameState.apply_state_changes([{"op": "remove", "path": "units.%s.flags.%s" % [uid, EffectPrimitivesData.FLAG_PSYCHIC_VEIL]}])
+
 	# Step 0a: Reset per-round tracking at start of each battle round (Player 1's turn)
 	if current_player == 1:
 		if MissionManager:
@@ -534,6 +545,66 @@ func get_available_actions() -> Array:
 					"player": current_player
 				})
 
+	# UNLEASH THE LIONS (Lions of the Emperor stratagem): split Allarus/Aquilon into single-model units
+	var strat_mgr_utl = get_node_or_null("/root/StratagemManager")
+	if strat_mgr_utl:
+		var utl_strat_id = strat_mgr_utl.find_faction_stratagem_by_name(current_player, "UNLEASH THE LIONS")
+		if utl_strat_id != "":
+			var utl_val = strat_mgr_utl.can_use_stratagem(current_player, utl_strat_id)
+			if utl_val.can_use:
+				var all_units_utl = GameState.state.get("units", {})
+				for unit_id in all_units_utl:
+					var unit = all_units_utl[unit_id]
+					if unit.get("owner", 0) != current_player:
+						continue
+					if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+						continue
+					var unit_name_raw = unit.get("meta", {}).get("name", "").to_upper()
+					if "ALLARUS" not in unit_name_raw and "AQUILON" not in unit_name_raw:
+						continue
+					var alive_count = 0
+					for m in unit.get("models", []):
+						if m.get("alive", true):
+							alive_count += 1
+					if alive_count < 2:
+						continue
+					var uname = unit.get("meta", {}).get("name", unit_id)
+					actions.append({
+						"type": "USE_UNLEASH_THE_LIONS",
+						"unit_id": unit_id,
+						"description": "Unleash the Lions: split %s into %d single-model units (1 CP)" % [uname, alive_count],
+						"player": current_player
+					})
+
+	# Psychic Veil — Inquisitor Draxus: roll D6, 1 = D3 MW, 2+ = 18" ranged targeting restriction
+	var ability_mgr_pv = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr_pv:
+		var all_units_pv = GameState.state.get("units", {})
+		for unit_id in all_units_pv:
+			var unit = all_units_pv[unit_id]
+			if unit.get("owner", 0) != current_player:
+				continue
+			if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+				continue
+			var abilities = unit.get("meta", {}).get("abilities", [])
+			var has_psychic_veil = false
+			for ability in abilities:
+				var aname = ability.get("name", "") if ability is Dictionary else str(ability)
+				if "Psychic Veil" in aname:
+					has_psychic_veil = true
+					break
+			if not has_psychic_veil:
+				continue
+			if unit.get("flags", {}).get("psychic_veil_used_this_turn", false):
+				continue
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			actions.append({
+				"type": "USE_PSYCHIC_VEIL",
+				"unit_id": unit_id,
+				"description": "Psychic Veil: %s — D6: 1=D3 MW, 2+=only targetable within 18\"" % unit_name,
+				"player": current_player
+			})
+
 	# Always allow ending command phase (but warn if tests remain)
 	actions.append({
 		"type": "END_COMMAND",
@@ -594,6 +665,29 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_use_grot_orderly(action)
 		"USE_FIX_DAT_ARMOUR_UP":
 			errors = _validate_use_fix_dat_armour_up(action)
+		"USE_PSYCHIC_VEIL":
+			var pv_unit_id = action.get("unit_id", "")
+			if pv_unit_id == "":
+				errors.append("Missing unit_id")
+			else:
+				var pv_unit = GameState.state.get("units", {}).get(pv_unit_id, {})
+				if pv_unit.get("flags", {}).get("psychic_veil_used_this_turn", false):
+					errors.append("Psychic Veil already used this turn")
+		"USE_UNLEASH_THE_LIONS":
+			var utl_uid = action.get("unit_id", "")
+			if utl_uid == "":
+				errors.append("Missing unit_id")
+			else:
+				var utl_unit = GameState.state.get("units", {}).get(utl_uid, {})
+				if utl_unit.is_empty():
+					errors.append("Unit not found")
+				else:
+					var alive_ct = 0
+					for m in utl_unit.get("models", []):
+						if m.get("alive", true):
+							alive_ct += 1
+					if alive_ct < 2:
+						errors.append("Unit must have 2+ alive models to split")
 		"RESOLVE_MARKED_FOR_DEATH":
 			errors = _validate_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -675,6 +769,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_use_grot_orderly(action)
 		"USE_FIX_DAT_ARMOUR_UP":
 			return _handle_use_fix_dat_armour_up(action)
+		"USE_PSYCHIC_VEIL":
+			return _handle_use_psychic_veil(action)
+		"USE_UNLEASH_THE_LIONS":
+			return _handle_use_unleash_the_lions(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			return _handle_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -2186,6 +2284,124 @@ func _auto_resolve_pending_interaction(player: int, mission: Dictionary, seconda
 
 		_:
 			DebugLogger.info(str("CommandPhase: WARNING — Unknown pending interaction type for mission %s" % mission_id))
+
+func _handle_use_psychic_veil(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var rng = RulesEngine.RNGService.new(-1)
+	var roll = rng.roll_d6(1)[0]
+	var diffs = []
+	var dice_data = [{"context": "psychic_veil", "roll": roll, "unit_id": unit_id}]
+
+	diffs.append({"op": "set", "path": "units.%s.flags.psychic_veil_used_this_turn" % unit_id, "value": true})
+
+	if roll == 1:
+		var mortal_wounds = rng.randi_range(1, 3)
+		log_phase_message("%s used Psychic Veil — rolled %d! Suffers %d mortal wounds" % [unit_name, roll, mortal_wounds])
+		DebugLogger.info("[6][INFO] Psychic Veil: %s rolled %d — D3=%d mortal wounds" % [unit_name, roll, mortal_wounds])
+		var mw_result = RulesEngine.apply_mortal_wounds(unit_id, mortal_wounds, GameState.state, rng)
+		diffs.append_array(mw_result.get("diffs", []))
+		dice_data[0]["mortal_wounds"] = mortal_wounds
+	else:
+		diffs.append({"op": "set", "path": "units.%s.flags.effect_psychic_veil" % unit_id, "value": true})
+		log_phase_message("%s used Psychic Veil — rolled %d! Unit can only be targeted within 18\" until next Command phase" % [unit_name, roll])
+		DebugLogger.info("[6][INFO] Psychic Veil: %s rolled %d — 18\" targeting restriction active" % [unit_name, roll])
+
+	return create_result(true, diffs)
+
+# ============================================================================
+# UNLEASH THE LIONS — Split Allarus/Aquilon into single-model units
+# ============================================================================
+
+func _handle_use_unleash_the_lions(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return create_result(false, [], "Unit not found")
+
+	var current_player = get_current_player()
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	var strat_mgr = get_node_or_null("/root/StratagemManager")
+	if not strat_mgr:
+		return create_result(false, [], "StratagemManager not available")
+
+	var strat_id = strat_mgr.find_faction_stratagem_by_name(current_player, "UNLEASH THE LIONS")
+	if strat_id == "":
+		return create_result(false, [], "Unleash the Lions stratagem not found")
+
+	var use_result = strat_mgr.use_stratagem(current_player, strat_id, unit_id)
+	if not use_result.get("success", false):
+		return create_result(false, [], use_result.get("error", "Stratagem use failed"))
+
+	var models = unit.get("models", [])
+	var meta = unit.get("meta", {})
+	var diffs: Array = []
+	var new_unit_ids: Array = []
+	var alive_idx = 0
+
+	for i in range(models.size()):
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+
+		if alive_idx == 0:
+			alive_idx += 1
+			continue
+
+		var new_id = "%s_lion_%d" % [unit_id, alive_idx]
+		new_unit_ids.append(new_id)
+
+		var new_meta = meta.duplicate(true)
+		new_meta["name"] = "%s (Lion %d)" % [unit_name, alive_idx + 1]
+		new_meta["starting_strength"] = 1
+
+		var new_model = model.duplicate(true)
+
+		diffs.append({
+			"op": "set",
+			"path": "units.%s" % new_id,
+			"value": {
+				"owner": current_player,
+				"status": unit.get("status", GameStateData.UnitStatus.DEPLOYED),
+				"meta": new_meta,
+				"models": [new_model],
+				"flags": {}
+			}
+		})
+
+		diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.alive" % [unit_id, i],
+			"value": false
+		})
+
+		alive_idx += 1
+
+	if meta.has("starting_strength"):
+		diffs.append({
+			"op": "set",
+			"path": "units.%s.meta.starting_strength" % unit_id,
+			"value": 1
+		})
+	else:
+		diffs.append({
+			"op": "set",
+			"path": "units.%s.meta.starting_strength" % unit_id,
+			"value": 1
+		})
+
+	diffs.append({
+		"op": "set",
+		"path": "units.%s.meta.name" % unit_id,
+		"value": "%s (Lion 1)" % unit_name
+	})
+
+	log_phase_message("UNLEASH THE LIONS: %s split into %d single-model units (1 CP)" % [unit_name, alive_idx])
+	DebugLogger.info("[6][INFO] Unleash the Lions: %s -> %d units (%s)" % [unit_id, alive_idx, str(new_unit_ids)])
+
+	return create_result(true, diffs)
 
 func _should_complete_phase() -> bool:
 	# Don't auto-complete - phase completion will be triggered by END_COMMAND action

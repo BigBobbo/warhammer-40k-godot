@@ -96,6 +96,9 @@ var sweeping_advance_pending_units: Array = []  # Units eligible for Sweeping Ad
 var awaiting_acrobatic_escape: bool = false
 var acrobatic_escape_pending_units: Array = []  # Units eligible for Acrobatic Escape at end of fight phase
 
+# Moment Shackle tracking (Trajann Valoris)
+var _moment_shackle_pending_units: Array = []  # Unit IDs with Moment Shackle available this phase
+
 func _init():
 	phase_type = GameStateData.Phase.FIGHT
 
@@ -119,11 +122,30 @@ func _on_phase_enter() -> void:
 	sweeping_advance_pending_units.clear()
 	awaiting_acrobatic_escape = false
 	acrobatic_escape_pending_units.clear()
+	_moment_shackle_pending_units.clear()
+
+	# Detect Moment Shackle eligible units
+	var ms_units = GameState.state.get("units", {})
+	for ms_uid in ms_units:
+		var ms_unit = ms_units[ms_uid]
+		if ms_unit.get("owner", 0) != get_current_player():
+			continue
+		if ms_unit.get("flags", {}).get("moment_shackle_used", false):
+			continue
+		var ms_abilities = ms_unit.get("meta", {}).get("abilities", [])
+		for ms_ab in ms_abilities:
+			var ms_name = ms_ab.get("name", "") if ms_ab is Dictionary else str(ms_ab)
+			if ms_name == "Moment Shackle":
+				_moment_shackle_pending_units.append(ms_uid)
+				break
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
 		ability_mgr.on_phase_start(GameStateData.Phase.FIGHT)
+
+	# Refresh snapshot after ability effects mutated GameState flags
+	game_state_snapshot = GameState.create_snapshot()
 
 	_initialize_fight_sequence()
 	_check_for_combats()
@@ -429,6 +451,19 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_batch_fight_actions(action)
 		"APPLY_MELEE_SAVES":
 			return _validate_apply_melee_saves(action)
+		"USE_MOMENT_SHACKLE":
+			var ms_uid = action.get("unit_id", "")
+			if ms_uid not in _moment_shackle_pending_units:
+				return {"valid": false, "errors": ["Unit does not have Moment Shackle pending"]}
+			var ms_choice = action.get("choice", "")
+			if ms_choice not in ["attacks_12", "invuln_2"]:
+				return {"valid": false, "errors": ["Invalid Moment Shackle choice: %s" % ms_choice]}
+			return {"valid": true}
+		"DECLINE_MOMENT_SHACKLE":
+			var ms_uid2 = action.get("unit_id", "")
+			if ms_uid2 not in _moment_shackle_pending_units:
+				return {"valid": false, "errors": ["Unit does not have Moment Shackle pending"]}
+			return {"valid": true}
 		"USE_STRATAGEM":
 			return _validate_use_stratagem(action)
 		"END_CHARGE":
@@ -483,6 +518,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_batch_fight_actions(action)
 		"APPLY_MELEE_SAVES":
 			return _process_apply_melee_saves(action)
+		"USE_MOMENT_SHACKLE":
+			return _process_use_moment_shackle(action)
+		"DECLINE_MOMENT_SHACKLE":
+			return _process_decline_moment_shackle(action)
 		"USE_STRATAGEM":
 			return _process_use_stratagem(action)
 		"END_CHARGE":
@@ -2040,13 +2079,15 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 	# the signal so we can send it to clients
 	var dialog_data = _build_fight_selection_dialog_data()
 
-	# Request next fight selection on host
-	emit_signal("fight_selection_required", dialog_data)
+	# Request next fight selection on host (only if there are units to select)
+	if not dialog_data.is_empty():
+		emit_signal("fight_selection_required", dialog_data)
 
 	# Add flag and data to result for NetworkManager to trigger on clients
 	var result = create_result(true, changes)
-	result["trigger_fight_selection"] = true
-	result["fight_selection_data"] = dialog_data
+	if not dialog_data.is_empty():
+		result["trigger_fight_selection"] = true
+		result["fight_selection_data"] = dialog_data
 	if not newly_eligible.is_empty():
 		result["newly_eligible_units"] = newly_eligible
 
@@ -2097,7 +2138,8 @@ func _get_fight_priority(unit: Dictionary) -> int:
 	if not has_fights_first:
 		var abilities = unit.get("meta", {}).get("abilities", [])
 		for ability in abilities:
-			if "fights_first" in str(ability).to_lower():
+			var ability_str = str(ability).to_lower().replace(" ", "_")
+			if "fights_first" in ability_str:
 				has_fights_first = true
 				break
 
@@ -2644,6 +2686,30 @@ func get_available_actions() -> Array:
 	log_phase_message("current_fight_index: %d" % current_fight_index)
 	log_phase_message("fight_sequence.size(): %d" % fight_sequence.size())
 	log_phase_message("fight_sequence: %s" % str(fight_sequence))
+
+	# Moment Shackle: offer choice before any fighting starts
+	if _moment_shackle_pending_units.size() > 0:
+		for ms_uid in _moment_shackle_pending_units:
+			var ms_unit = game_state_snapshot.get("units", {}).get(ms_uid, {})
+			var ms_name = ms_unit.get("meta", {}).get("name", ms_uid)
+			actions.append({
+				"type": "USE_MOMENT_SHACKLE",
+				"unit_id": ms_uid,
+				"choice": "attacks_12",
+				"description": "Moment Shackle (%s): Watcher's Axe gets 12 Attacks" % ms_name
+			})
+			actions.append({
+				"type": "USE_MOMENT_SHACKLE",
+				"unit_id": ms_uid,
+				"choice": "invuln_2",
+				"description": "Moment Shackle (%s): 2+ invulnerable save" % ms_name
+			})
+			actions.append({
+				"type": "DECLINE_MOMENT_SHACKLE",
+				"unit_id": ms_uid,
+				"description": "Decline Moment Shackle for %s" % ms_name
+			})
+		return actions
 
 	# P0-58: If awaiting melee saves, only allow APPLY_MELEE_SAVES
 	if awaiting_melee_saves:
@@ -3545,9 +3611,9 @@ func _get_sweeping_advance_eligible_units() -> Array:
 		if unit.is_empty():
 			continue
 
-		# Check if unit has Sweeping Advance ability
-		var abilities = unit.get("meta", {}).get("abilities", [])
+		# Check if unit or its attached characters have Sweeping Advance ability
 		var has_sweeping_advance = false
+		var abilities = unit.get("meta", {}).get("abilities", [])
 		for ability in abilities:
 			if ability is Dictionary and ability.get("name", "") == "Sweeping Advance":
 				has_sweeping_advance = true
@@ -3555,6 +3621,22 @@ func _get_sweeping_advance_eligible_units() -> Array:
 			elif ability is String and ability == "Sweeping Advance":
 				has_sweeping_advance = true
 				break
+
+		# Also check attached characters (e.g. Shield-Captain attached to Vertus Praetors)
+		if not has_sweeping_advance:
+			var attached_ids = unit.get("attachment_data", {}).get("attached_characters", [])
+			for char_id in attached_ids:
+				var char_unit = all_units.get(char_id, {})
+				var char_abilities = char_unit.get("meta", {}).get("abilities", [])
+				for ability in char_abilities:
+					if ability is Dictionary and ability.get("name", "") == "Sweeping Advance":
+						has_sweeping_advance = true
+						break
+					elif ability is String and ability == "Sweeping Advance":
+						has_sweeping_advance = true
+						break
+				if has_sweeping_advance:
+					break
 
 		if not has_sweeping_advance:
 			continue
@@ -3623,8 +3705,10 @@ func _validate_sweeping_advance(action: Dictionary) -> Dictionary:
 			errors.append("Cannot move destroyed model %s" % model_idx)
 			continue
 
-		var old_pos = Vector2(model.position.x, model.position.y)
-		var distance = Measurement.distance_inches(old_pos, new_pos)
+		var mpos = model.get("position", {})
+		var old_pos = Vector2(mpos.x, mpos.y) if mpos is Vector2 else Vector2(float(mpos.get("x", 0)), float(mpos.get("y", 0)))
+		var npos = new_pos if new_pos is Vector2 else Vector2(float(new_pos.get("x", 0)), float(new_pos.get("y", 0)))
+		var distance = Measurement.distance_inches(old_pos, npos)
 		if distance > move_distance + 0.1:  # Small tolerance
 			errors.append("Model %s exceeds move distance (%.1f\" > %.0f\")" % [model_idx, distance, move_distance])
 
@@ -3650,10 +3734,11 @@ func _process_sweeping_advance(action: Dictionary) -> Dictionary:
 	# Apply model position changes
 	for model_idx in movements:
 		var new_pos = movements[model_idx]
+		var np = new_pos if new_pos is Vector2 else Vector2(float(new_pos.get("x", 0)), float(new_pos.get("y", 0)))
 		changes.append({
 			"op": "set",
 			"path": "units.%s.models.%s.position" % [unit_id, model_idx],
-			"value": {"x": new_pos.x, "y": new_pos.y}
+			"value": {"x": np.x, "y": np.y}
 		})
 
 	# If this was a Fall Back move, mark the unit as having fallen back
@@ -3864,8 +3949,10 @@ func _validate_acrobatic_escape(action: Dictionary) -> Dictionary:
 			errors.append("Cannot move destroyed model %s" % model_idx)
 			continue
 
-		var old_pos = Vector2(model.position.x, model.position.y)
-		var distance = Measurement.distance_inches(old_pos, new_pos)
+		var mpos = model.get("position", {})
+		var old_pos = Vector2(mpos.x, mpos.y) if mpos is Vector2 else Vector2(float(mpos.get("x", 0)), float(mpos.get("y", 0)))
+		var npos = new_pos if new_pos is Vector2 else Vector2(float(new_pos.get("x", 0)), float(new_pos.get("y", 0)))
+		var distance = Measurement.distance_inches(old_pos, npos)
 		if distance > move_distance + 0.1:  # Small tolerance
 			errors.append("Model %s exceeds Acrobatic Escape distance (%.1f\" > %.0f\")" % [model_idx, distance, move_distance])
 
@@ -3884,10 +3971,11 @@ func _process_acrobatic_escape(action: Dictionary) -> Dictionary:
 	# Apply model position changes
 	for model_idx in movements:
 		var new_pos = movements[model_idx]
+		var np = new_pos if new_pos is Vector2 else Vector2(float(new_pos.get("x", 0)), float(new_pos.get("y", 0)))
 		changes.append({
 			"op": "set",
 			"path": "units.%s.models.%s.position" % [unit_id, model_idx],
-			"value": {"x": new_pos.x, "y": new_pos.y}
+			"value": {"x": np.x, "y": np.y}
 		})
 
 	# Mark the unit as having fallen back
@@ -4347,3 +4435,33 @@ func _process_use_stratagem(action: Dictionary) -> Dictionary:
 	var strat_name = result.get("stratagem_name", stratagem_id)
 	DebugLogger.info(str("FightPhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id]))
 	return create_result(true, result.get("diffs", []), "Used " + strat_name)
+
+func _process_use_moment_shackle(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var choice = action.get("choice", "")
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var diffs = []
+
+	diffs.append({"op": "set", "path": "units.%s.flags.moment_shackle_used" % unit_id, "value": true})
+	_moment_shackle_pending_units.erase(unit_id)
+
+	if choice == "attacks_12":
+		diffs.append({"op": "set", "path": "units.%s.flags.moment_shackle_attacks_12" % unit_id, "value": true})
+		log_phase_message("Moment Shackle: %s — Watcher's Axe gets 12 Attacks this phase" % unit_name)
+		DebugLogger.info("[10][INFO] Moment Shackle: %s chose 12 Attacks on Watcher's Axe" % unit_name)
+	elif choice == "invuln_2":
+		diffs.append({"op": "set", "path": "units.%s.flags.effect_invuln" % unit_id, "value": 2})
+		diffs.append({"op": "set", "path": "units.%s.flags.effect_invuln_source" % unit_id, "value": "Moment Shackle"})
+		log_phase_message("Moment Shackle: %s — 2+ invulnerable save this phase" % unit_name)
+		DebugLogger.info("[10][INFO] Moment Shackle: %s chose 2+ invulnerable save" % unit_name)
+
+	return create_result(true, diffs)
+
+func _process_decline_moment_shackle(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	_moment_shackle_pending_units.erase(unit_id)
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	log_phase_message("Moment Shackle: %s declined" % unit_name)
+	return create_result(true, [])

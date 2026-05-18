@@ -306,6 +306,16 @@ func _normalize_action_positions(action: Dictionary) -> Dictionary:
 				converted.append(v if v != null else p)
 		out["model_positions"] = converted
 
+	# movements dict — used by SWEEPING_ADVANCE, CONSOLIDATE, PILE_IN, etc.
+	# Each entry is {model_index: position}; positions need Vector2 conversion.
+	if out.has("movements") and typeof(out["movements"]) == TYPE_DICTIONARY:
+		var movements: Dictionary = out["movements"]
+		var converted_movements: Dictionary = {}
+		for model_idx in movements:
+			var v = _coerce_vector2(movements[model_idx])
+			converted_movements[model_idx] = v if v != null else movements[model_idx]
+		out["movements"] = converted_movements
+
 	# #361: per_model_paths inside payload — used by APPLY_CHARGE_MOVE,
 	# APPLY_HEROIC_INTERVENTION_MOVE, STAGE_MODEL_MOVE, etc. Each entry is a
 	# {model_id: [pos, pos, ...]} dict; positions need Vector2 conversion or
@@ -483,7 +493,9 @@ func _node2d_to_screen(node: Node2D) -> Vector2:
 	return canvas_xform * node.global_position
 
 
-func _to_serializable(value):
+func _to_serializable(value, _depth: int = 0):
+	if _depth > 40:
+		return "<MAX_DEPTH>"
 	match typeof(value):
 		TYPE_VECTOR2, TYPE_VECTOR2I:
 			return [value.x, value.y]
@@ -492,12 +504,12 @@ func _to_serializable(value):
 		TYPE_DICTIONARY:
 			var out := {}
 			for k in value.keys():
-				out[str(k)] = _to_serializable(value[k])
+				out[str(k)] = _to_serializable(value[k], _depth + 1)
 			return out
 		TYPE_ARRAY:
 			var out_arr := []
 			for v in value:
-				out_arr.append(_to_serializable(v))
+				out_arr.append(_to_serializable(v, _depth + 1))
 			return out_arr
 		TYPE_OBJECT:
 			if value == null:

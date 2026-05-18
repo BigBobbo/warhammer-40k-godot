@@ -128,6 +128,9 @@ func _on_phase_enter() -> void:
 	if ability_mgr:
 		ability_mgr.on_phase_start(GameStateData.Phase.CHARGE)
 
+	# Refresh snapshot after ability effects mutated GameState flags
+	game_state_snapshot = GameState.create_snapshot()
+
 	_initialize_charge()
 
 func _on_phase_exit() -> void:
