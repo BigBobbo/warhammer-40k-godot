@@ -2068,11 +2068,12 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 
 		# Show summary
 		if prevented > 0:
-			log_text += "  [color=green]%d/%d wounds prevented[/color]" % [prevented, total]
+			log_text += "  [color=green]%d/%d wound%s prevented[/color]" % [prevented, total, "" if total == 1 else "s"]
 		else:
 			log_text += "  [color=red]No wounds prevented[/color]"
 		if remaining > 0:
-			log_text += ", [color=red]%d wounds get through[/color]" % remaining
+			var w_label = "wound gets" if remaining == 1 else "wounds get"
+			log_text += ", [color=red]%d %s through[/color]" % [remaining, w_label]
 		log_text += "\n"
 
 		dice_log_display.append_text(log_text)
@@ -2721,8 +2722,9 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 	if dice_log_display:
 		var weapon_name = last_weapon_result.get("weapon_name", "Unknown")
 		var casualties = last_weapon_result.get("casualties", 0)
-		dice_log_display.append_text("[b][color=yellow]>>> %s complete: %d casualties <<<[/color][/b]\n" %
-			[weapon_name, casualties])
+		var cas_label = "casualty" if casualties == 1 else "casualties"
+		dice_log_display.append_text("[b][color=yellow]>>> %s complete: %d %s <<<[/color][/b]\n" %
+			[weapon_name, casualties, cas_label])
 
 	# Close any existing dialogs
 	var root_children = get_tree().root.get_children()

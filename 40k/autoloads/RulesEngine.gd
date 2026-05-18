@@ -9741,7 +9741,7 @@ static func prepare_save_resolution(
 		var model_invuln = _get_model_effective_invuln(model, target_unit, model.get("invuln", 0))
 		var invuln_source = "Native" if model_invuln > 0 else ""
 		if model_invuln != model.get("invuln", 0) and model_invuln > 0:
-			invuln_source = "Model Profile"
+			invuln_source = "Wargear"
 			print("RulesEngine: MA-12 per-model invuln override — model %s invuln %d+ (model default %d+)" % [model_info.model_id, model_invuln, model.get("invuln", 0)])
 		if effect_invuln > 0:
 			if model_invuln == 0 or effect_invuln < model_invuln:
@@ -9899,7 +9899,7 @@ static func prepare_melee_save_resolution(
 		var model_invuln = _get_model_effective_invuln(model, target_unit, model.get("invuln", 0))
 		var invuln_source = "Native" if model_invuln > 0 else ""
 		if model_invuln != model.get("invuln", 0) and model_invuln > 0:
-			invuln_source = "Model Profile"
+			invuln_source = "Wargear"
 			print("RulesEngine: MA-12 per-model invuln override (melee) — model %s invuln %d+ (model default %d+)" % [model_info.model_id, model_invuln, model.get("invuln", 0)])
 		if effect_invuln > 0:
 			if model_invuln == 0 or effect_invuln < model_invuln:
