@@ -200,7 +200,8 @@ func _resolve_transport_destroyed_if_applicable(destroyed_unit_id: String) -> vo
 	if not TransportManager.is_transport_with_embarked(destroyed_unit_id):
 		return
 
-	var unit_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
+	var _tx_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
+	var unit_name = _tx_meta.get("display_name", _tx_meta.get("name", destroyed_unit_id))
 	DebugLogger.info(str("ShootingPhase: P3-32 Transport %s (%s) destroyed — resolving emergency disembark" % [unit_name, destroyed_unit_id]))
 	log_phase_message("Transport %s destroyed! Embarked units must emergency disembark!" % unit_name)
 
@@ -233,7 +234,8 @@ func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> 
 	if not transport_mgr.is_transport_with_embarked_units(destroyed_unit_id):
 		return
 
-	var transport_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
+	var _tx2_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
+	var transport_name = _tx2_meta.get("display_name", _tx2_meta.get("name", destroyed_unit_id))
 	DebugLogger.info(str("ShootingPhase: P1-60 Transport destruction detected — %s (%s) has embarked units" % [transport_name, destroyed_unit_id]))
 	log_phase_message("Transport %s destroyed! Embarked units must emergency disembark!" % transport_name)
 
@@ -268,7 +270,8 @@ func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 	if dd_value == "":
 		return
 
-	var unit_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
+	var _dd_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
+	var unit_name = _dd_meta.get("display_name", _dd_meta.get("name", destroyed_unit_id))
 	DebugLogger.info(str("ShootingPhase: P1-13 Deadly Demise detected on destroyed unit %s (%s) — value: %s" % [unit_name, destroyed_unit_id, dd_value]))
 	log_phase_message("Deadly Demise %s triggered for %s!" % [dd_value, unit_name])
 
@@ -1239,11 +1242,12 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 				var hits = miss_hit_data.get("successes", 0)
 				var total_attacks = miss_hit_data.get("total", 0)
 
+				var _dice_tgt_meta = target_unit.get("meta", {})
 				last_weapon_result = {
 					"weapon_id": weapon_id,
 					"weapon_name": weapon_profile.get("name", weapon_id),
 					"target_unit_id": target_unit_id,
-					"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+					"target_unit_name": _dice_tgt_meta.get("display_name", _dice_tgt_meta.get("name", target_unit_id)),
 					"hits": hits,
 					"wounds": 0,  # No wounds caused
 					"saves_failed": 0,
@@ -1268,10 +1272,11 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 				# Record completed weapon so phase_shooting_log captures single-weapon miss
 				if not resolution_state.has("completed_weapons"):
 					resolution_state["completed_weapons"] = []
+				var _miss_tgt_meta = target_unit.get("meta", {})
 				resolution_state.completed_weapons.append({
 					"weapon_id": weapon_id,
 					"target_unit_id": target_unit_id,
-					"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+					"target_unit_name": _miss_tgt_meta.get("display_name", _miss_tgt_meta.get("name", target_unit_id)),
 					"wounds": 0,
 					"casualties": 0,
 					"hits": hits,
@@ -1530,10 +1535,11 @@ func _process_burn_objective(action: Dictionary) -> Dictionary:
 
 	# Register the burn with MissionManager
 	var success = MissionManager.register_burn_action(unit_id, objective_id)
+	var obj_label = _friendly_objective_name(objective_id)
 	if success:
-		log_phase_message("SCORCHED EARTH: %s burned %s for Player %d" % [unit_name, objective_id, player])
+		log_phase_message("SCORCHED EARTH: %s burned %s for Player %d" % [unit_name, obj_label, player])
 	else:
-		log_phase_message("ERROR: Burn action failed for %s on %s" % [unit_name, objective_id])
+		log_phase_message("ERROR: Burn action failed for %s on %s" % [unit_name, obj_label])
 
 	return create_result(true, changes)
 
@@ -1635,10 +1641,11 @@ func _process_perform_ritual_action(action: Dictionary) -> Dictionary:
 
 	# Register the ritual with MissionManager
 	var success = MissionManager.register_ritual_action(unit_id, objective_id)
+	var _ritual_obj_label = _friendly_objective_name(objective_id)
 	if success:
-		log_phase_message("THE RITUAL: %s performed ritual at %s for Player %d" % [unit_name, objective_id, player])
+		log_phase_message("THE RITUAL: %s performed ritual at %s for Player %d" % [unit_name, _ritual_obj_label, player])
 	else:
-		log_phase_message("ERROR: Ritual action failed for %s at %s" % [unit_name, objective_id])
+		log_phase_message("ERROR: Ritual action failed for %s at %s" % [unit_name, _ritual_obj_label])
 
 	return create_result(true, changes)
 
@@ -1746,14 +1753,15 @@ func _process_perform_terraform_action(action: Dictionary) -> Dictionary:
 
 	# Register the terraform with MissionManager
 	var success = MissionManager.register_terraform_action(unit_id, objective_id)
+	var _tf_obj_label = _friendly_objective_name(objective_id)
 	if success:
 		var is_flip = action.get("is_flip", false)
 		if is_flip:
-			log_phase_message("TERRAFORM: %s flipped %s for Player %d" % [unit_name, objective_id, player])
+			log_phase_message("TERRAFORM: %s flipped %s for Player %d" % [unit_name, _tf_obj_label, player])
 		else:
-			log_phase_message("TERRAFORM: %s terraformed %s for Player %d" % [unit_name, objective_id, player])
+			log_phase_message("TERRAFORM: %s terraformed %s for Player %d" % [unit_name, _tf_obj_label, player])
 	else:
-		log_phase_message("ERROR: Terraform action failed for %s at %s" % [unit_name, objective_id])
+		log_phase_message("ERROR: Terraform action failed for %s at %s" % [unit_name, _tf_obj_label])
 
 	return create_result(true, changes)
 
@@ -1917,10 +1925,11 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 					var obj_id = obj.get("id", "unknown")
 					DebugLogger.info(str("ShootingPhase: Cleanse - obj %s at %s, in_range=%s" % [obj_id, obj_pos, in_range]))
 					if in_range:
+						var obj_label = _friendly_objective_name(obj_id)
 						options.append({
 							"action_name": action_name,
 							"location": "objective",
-							"description": "Cleanse %s (2-5 VP)" % obj_id,
+							"description": "Cleanse %s (2-5 VP)" % obj_label,
 							"mission_id": mission_id,
 							"vp_value": 2,
 							"objective_id": obj_id
@@ -1931,6 +1940,16 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 					DebugLogger.info(str("ShootingPhase: Cleanse - no objective in range for unit %s" % unit_id))
 
 	return options
+
+static func _friendly_objective_name(obj_id: String) -> String:
+	match obj_id:
+		"obj_center": return "Centre"
+		_:
+			if obj_id.begins_with("obj_nml_"):
+				return "No Man's Land %s" % obj_id.trim_prefix("obj_nml_")
+			elif obj_id.begins_with("obj_home_"):
+				return "Home %s" % obj_id.trim_prefix("obj_home_")
+			return obj_id.replace("obj_", "").replace("_", " ").capitalize()
 
 func _process_end_shooting(action: Dictionary) -> Dictionary:
 	var changes = []
@@ -3964,13 +3983,13 @@ func get_available_actions() -> Array:
 				actions.append({
 					"type": "SELECT_SHOOTER",
 					"actor_unit_id": unit_id,
-					"description": "Select %s for shooting" % unit.get("meta", {}).get("name", unit_id)
+					"description": "Select %s for shooting" % unit.get("meta", {}).get("display_name", unit.get("meta", {}).get("name", unit_id))
 				})
 
 				actions.append({
 					"type": "SKIP_UNIT",
 					"actor_unit_id": unit_id,
-					"description": "Skip shooting for %s" % unit.get("meta", {}).get("name", unit_id)
+					"description": "Skip shooting for %s" % unit.get("meta", {}).get("display_name", unit.get("meta", {}).get("name", unit_id))
 				})
 
 			# Check if unit qualifies for a secondary action
@@ -3985,7 +4004,7 @@ func get_available_actions() -> Array:
 						"mission_id": opt.mission_id,
 						"vp_value": opt.get("vp_value", 0),
 					},
-					"description": "%s: %s" % [unit.get("meta", {}).get("name", unit_id), opt.description]
+					"description": "%s: %s" % [unit.get("meta", {}).get("display_name", unit.get("meta", {}).get("name", unit_id)), opt.description]
 				})
 
 			# Check if unit can burn an objective (Scorched Earth mission)

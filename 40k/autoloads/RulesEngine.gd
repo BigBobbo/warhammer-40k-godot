@@ -4280,7 +4280,7 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 		if not weapons_in_range.is_empty():
 			eligible[target_unit_id] = {
 				"weapons_in_range": weapons_in_range,
-				"unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+				"unit_name": target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id)),
 				"in_engagement_range": actor_in_engagement,  # Include flag for UI
 				"is_bgnt": actor_is_monster_vehicle and actor_in_engagement  # Flag for BGNT status
 			}
@@ -9787,7 +9787,7 @@ static func prepare_save_resolution(
 		"wounds_to_save": wounds_needing_saves,  # Only non-critical wounds need saves
 		"total_wounds": wounds_caused,  # Total wounds caused (for logging)
 		"target_unit_id": target_unit_id,
-		"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+		"target_unit_name": target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id)),
 		"shooter_unit_id": shooter_unit_id,
 		"weapon_name": weapon_profile.get("name", "Unknown Weapon"),
 		# Issue #388: stash psychic flag so apply_save_damage can gate FNP-vs-psychic
@@ -9947,7 +9947,7 @@ static func prepare_melee_save_resolution(
 		"wounds_to_save": wounds_needing_saves,
 		"total_wounds": wounds_caused,
 		"target_unit_id": target_unit_id,
-		"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+		"target_unit_name": target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id)),
 		"shooter_unit_id": attacker_unit_id,
 		"weapon_name": weapon_profile.get("name", "Unknown Weapon"),
 		"ap": ap,
@@ -11312,7 +11312,7 @@ static func get_grenade_eligible_targets(actor_unit_id: String, board: Dictionar
 		if in_range_and_visible:
 			eligible.append({
 				"unit_id": target_unit_id,
-				"unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+				"unit_name": target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id)),
 				"model_count": alive_count
 			})
 

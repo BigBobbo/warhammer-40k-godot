@@ -752,8 +752,9 @@ func _restore_state_after_load() -> void:
 		
 		# Show feedback in dice log
 		if dice_log_display:
-			dice_log_display.append_text("[color=blue]Restored shooting state for %s[/color]\n" % 
-				current_phase.get_unit(active_shooter_id).get("meta", {}).get("name", active_shooter_id))
+			var _restore_meta = current_phase.get_unit(active_shooter_id).get("meta", {})
+			dice_log_display.append_text("[color=blue]Restored shooting state for %s[/color]\n" %
+				_restore_meta.get("display_name", _restore_meta.get("name", active_shooter_id)))
 	
 	# Update unit list to reflect units that have already shot
 	_refresh_unit_list()
@@ -773,7 +774,8 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 	for unit_id in units:
 		var unit = units[unit_id]
 		if current_phase._can_unit_shoot(unit) or unit_id in units_shot:
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			var _unit_meta = unit.get("meta", {})
+			var unit_name = _unit_meta.get("display_name", _unit_meta.get("name", unit_id))
 			var alive_count = RulesEngine.count_alive_models(unit)
 			unit_name += " (%d)" % alive_count
 
@@ -1826,7 +1828,8 @@ func _on_shooting_begun(unit_id: String) -> void:
 		var shooter_name = ""
 		if current_phase:
 			var shooter = current_phase.get_unit(unit_id)
-			shooter_name = shooter.get("meta", {}).get("name", unit_id)
+			var _shooter_meta = shooter.get("meta", {})
+			shooter_name = _shooter_meta.get("display_name", _shooter_meta.get("name", unit_id))
 		dice_log_display.append_text("[color=orange]%s is shooting...[/color]\n" % shooter_name)
 
 # T7-53: Floating damage numbers and kill notifications for shooting phase
@@ -1917,7 +1920,8 @@ func _on_shooting_damage_visual(shooter_id: String, diffs: Array) -> void:
 					alive_count += 1
 		if alive_count == 0:
 			# Entire unit destroyed — show kill notification
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			var _kill_meta = unit.get("meta", {})
+			var unit_name = _kill_meta.get("display_name", _kill_meta.get("name", unit_id))
 			var center_pos = _get_unit_center_for_feedback(unit)
 			if center_pos != Vector2.ZERO:
 				damage_feedback.play_kill_notification(center_pos, unit_name)
@@ -3046,7 +3050,8 @@ func _on_throat_slittas_available(unit_id: String, player: int, eligible_targets
 	# Build a simple confirmation dialog
 	var dialog = ConfirmationDialog.new()
 	var unit = current_phase.get_unit(unit_id) if current_phase else {}
-	var unit_name = unit.get("meta", {}).get("name", unit_id) if not unit.is_empty() else unit_id
+	var _dialog_meta = unit.get("meta", {}) if not unit.is_empty() else {}
+	var unit_name = _dialog_meta.get("display_name", _dialog_meta.get("name", unit_id)) if not unit.is_empty() else unit_id
 
 	# Build target info text
 	var target_text = ""
@@ -3356,7 +3361,8 @@ func _build_auto_shoot_plan() -> Array:
 		if assignments.is_empty():
 			continue
 
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var _auto_meta = unit.get("meta", {})
+		var unit_name = _auto_meta.get("display_name", _auto_meta.get("name", unit_id))
 		var target_name = eligible[nearest_target_id].get("unit_name", nearest_target_id)
 
 		plan.append({
@@ -3440,7 +3446,8 @@ func _dispatch_next_auto_shoot() -> void:
 	var unit_name = ""
 	if current_phase:
 		var unit = current_phase.get_unit(unit_id)
-		unit_name = unit.get("meta", {}).get("name", unit_id)
+		var _auto_shoot_meta = unit.get("meta", {})
+		unit_name = _auto_shoot_meta.get("display_name", _auto_shoot_meta.get("name", unit_id))
 
 	print("T5-UX3: Auto-shooting unit %s (%s), %d remaining in queue" % [unit_id, unit_name, _auto_shoot_queue.size()])
 
@@ -4480,9 +4487,11 @@ func _on_grenade_confirmed(grenade_unit_id: String, target_unit_id: String) -> v
 	if dice_log_display:
 		var grenade_unit = GameState.get_unit(grenade_unit_id)
 		var target_unit = GameState.get_unit(target_unit_id)
+		var _g_meta = grenade_unit.get("meta", {})
+		var _gt_meta = target_unit.get("meta", {})
 		dice_log_display.append_text("[color=orange]GRENADE: %s throws at %s...[/color]\n" % [
-			grenade_unit.get("meta", {}).get("name", grenade_unit_id),
-			target_unit.get("meta", {}).get("name", target_unit_id)
+			_g_meta.get("display_name", _g_meta.get("name", grenade_unit_id)),
+			_gt_meta.get("display_name", _gt_meta.get("name", target_unit_id))
 		])
 
 	emit_signal("shoot_action_requested", {
@@ -4550,7 +4559,8 @@ func _on_grenade_result_acknowledged() -> void:
 func _show_waiting_for_saves_feedback(target_id: String, weapon_name: String) -> void:
 	"""Show attacker-side feedback while waiting for defender to make saves."""
 	var target_unit = GameState.get_unit(target_id)
-	var target_name = target_unit.get("meta", {}).get("name", target_id) if not target_unit.is_empty() else target_id
+	var _wait_meta = target_unit.get("meta", {}) if not target_unit.is_empty() else {}
+	var target_name = _wait_meta.get("display_name", _wait_meta.get("name", target_id)) if not target_unit.is_empty() else target_id
 
 	# Update status label via Main
 	var main = get_node_or_null("/root/Main")
@@ -4686,7 +4696,8 @@ func on_save_dialog_acknowledged(target_unit_id: String, weapon_name: String, sa
 
 	# Update attacker feedback
 	var target_unit = GameState.get_unit(target_unit_id)
-	var target_name = target_unit.get("meta", {}).get("name", target_unit_id) if not target_unit.is_empty() else target_unit_id
+	var _ack_meta = target_unit.get("meta", {}) if not target_unit.is_empty() else {}
+	var target_name = _ack_meta.get("display_name", _ack_meta.get("name", target_unit_id)) if not target_unit.is_empty() else target_unit_id
 
 	var main = get_node_or_null("/root/Main")
 	if main and "status_label" in main and main.status_label:
@@ -4827,8 +4838,9 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dicti
 	if attacker_unit.is_empty():
 		return {}
 
-	var target_name = target_unit.get("meta", {}).get("name", target_id)
-	var target_stats = target_unit.get("meta", {}).get("stats", {})
+	var _forecast_meta = target_unit.get("meta", {})
+	var target_name = _forecast_meta.get("display_name", _forecast_meta.get("name", target_id))
+	var target_stats = _forecast_meta.get("stats", {})
 	var toughness = target_stats.get("toughness", 4)
 	var save_stat = target_stats.get("save", 4)
 	var weapon_name = weapon_profile.get("name", weapon_id)
