@@ -549,7 +549,7 @@ func _update_ui_for_current_wound() -> void:
 	var damage_display = damage_raw if not damage_raw.is_valid_int() else str(damage)
 	if attack_info_label:
 		var precision_tag = " [PRECISION]" if _is_precision_wound_active() else ""
-		attack_info_label.text = "⚔ %s (AP%d, D%s)%s" % [weapon_name, ap, damage_display, precision_tag]
+		attack_info_label.text = "⚔ %s (AP-%d, D%s)%s" % [weapon_name, abs(ap), damage_display, precision_tag]
 		print("  - Set attack_info_label.text: ", attack_info_label.text)
 	else:
 		push_error("WoundAllocationOverlay: attack_info_label is NULL in _update_ui_for_current_wound!")
@@ -576,16 +576,30 @@ func _update_ui_for_current_wound() -> void:
 	var using_invuln = example_profile.get("using_invuln", false)
 	var has_cover = example_profile.get("has_cover", false)
 
+	var base_save = save_data.get("base_save", save_needed)
+	var invuln_val = example_profile.get("invuln_value", 0)
+
 	var save_text = "[b]Save Required:[/b] %d+" % save_needed
+	# Show derivation: base save modified by AP
+	var ap_abs = abs(ap)
 	if using_invuln:
-		# P3-97: Show invuln source (native vs effect-granted)
 		var invuln_source = example_profile.get("invuln_source", "")
 		if invuln_source != "" and invuln_source != "Native":
-			save_text += " [color=cyan](invuln — %s)[/color]" % invuln_source
+			save_text += " [color=cyan](invuln %d+ — %s)[/color]" % [invuln_val if invuln_val > 0 else save_needed, invuln_source]
 		else:
-			save_text += " (invulnerable)"
+			save_text += " [color=cyan](invuln %d+)[/color]" % [invuln_val if invuln_val > 0 else save_needed]
+		if ap_abs > 0:
+			save_text += "\n[color=#888888]Normal: %d+ base, AP-%d = %d+ (worse)[/color]" % [base_save, ap_abs, base_save + ap_abs]
+	else:
+		if ap_abs > 0:
+			save_text += "\n[color=#888888](%d+ base, AP-%d)[/color]" % [base_save, ap_abs]
 	if has_cover:
-		save_text += " [+1 from cover]"
+		save_text += " [color=#88CC88]+1 cover[/color]"
+
+	# Show FNP if present
+	var fnp = example_profile.get("fnp", 0)
+	if fnp > 0:
+		save_text += "\n[color=#CC88CC]Feel No Pain: %d+[/color]" % fnp
 
 	save_info_label.text = save_text
 
@@ -916,6 +930,11 @@ func _roll_save_for_model(model_id: String) -> void:
 	if continue_button == null:
 		push_error("WoundAllocationOverlay: continue_button is null!")
 	else:
+		var remaining = total_wounds - current_wound_index - 1
+		if remaining > 0:
+			continue_button.text = "Next Wound (%d left)" % remaining
+		else:
+			continue_button.text = "Finish"
 		continue_button.disabled = false
 		print("WoundAllocationOverlay: Continue button enabled")
 

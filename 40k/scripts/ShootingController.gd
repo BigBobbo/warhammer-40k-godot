@@ -103,6 +103,9 @@ var _last_preview_target_id: String = ""  # Cache target for recalculation check
 var aggregate_preview_panel: PanelContainer
 var aggregate_preview_label: RichTextLabel
 
+# Shooter status info (model count, abilities, stationary)
+var shooter_status_label: RichTextLabel
+
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
 const HIGHLIGHT_COLOR_INELIGIBLE = Color.GRAY
@@ -304,8 +307,20 @@ func _setup_right_panel() -> void:
 	_WhiteDwarfTheme.apply_to_item_list(unit_selector)
 	shooting_panel.add_child(unit_selector)
 
+	# Shooter status info (abilities, stationary, model count)
+	shooter_status_label = RichTextLabel.new()
+	shooter_status_label.bbcode_enabled = true
+	shooter_status_label.fit_content = true
+	shooter_status_label.scroll_active = false
+	shooter_status_label.custom_minimum_size = Vector2(230, 0)
+	shooter_status_label.add_theme_font_size_override("normal_font_size", 12)
+	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
+		shooter_status_label.add_theme_font_override("normal_font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
+	shooter_status_label.visible = false
+	shooting_panel.add_child(shooter_status_label)
+
 	_add_shooting_gold_separator(shooting_panel)
-	
+
 	# Weapon assignments section header
 	var weapon_label = Label.new()
 	weapon_label.text = "WEAPON ASSIGNMENTS"
@@ -363,7 +378,7 @@ func _setup_right_panel() -> void:
 	weapon_tree.add_theme_stylebox_override("selected_focus", tree_selected_style)
 	weapon_tree.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	weapon_tree.add_theme_color_override("font_selected_color", Color.WHITE)
-	weapon_tree.add_theme_font_size_override("font_size", 12)
+	weapon_tree.add_theme_font_size_override("font_size", 14)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		weapon_tree.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	shooting_panel.add_child(weapon_tree)
@@ -566,7 +581,7 @@ func _setup_right_panel() -> void:
 	shooting_panel.add_child(dice_roll_visual)
 
 	dice_log_display = RichTextLabel.new()
-	dice_log_display.custom_minimum_size = Vector2(230, 100)
+	dice_log_display.custom_minimum_size = Vector2(230, 180)
 	dice_log_display.bbcode_enabled = true
 	dice_log_display.scroll_following = true
 	shooting_panel.add_child(dice_log_display)
@@ -758,7 +773,9 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 		var unit = units[unit_id]
 		if current_phase._can_unit_shoot(unit) or unit_id in units_shot:
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			
+			var alive_count = RulesEngine.count_alive_models(unit)
+			unit_name += " (%d)" % alive_count
+
 			# Show status for units that have shot or performed an action
 			if unit_id in units_shot:
 				var unit_flags = unit.get("flags", {})
@@ -794,6 +811,67 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 	# T5-UX3: Update shoot all remaining button when unit list refreshes
 	_update_shoot_all_remaining_button()
 	_update_perform_action_button()
+
+func _refresh_shooter_status() -> void:
+	if not shooter_status_label or active_shooter_id == "":
+		shooter_status_label.visible = false if shooter_status_label else null
+		return
+
+	var unit = GameState.get_unit(active_shooter_id)
+	if unit.is_empty():
+		shooter_status_label.visible = false
+		return
+
+	var flags = unit.get("flags", {})
+	var meta = unit.get("meta", {})
+	var alive_count = RulesEngine.count_alive_models(unit)
+	var total_count = unit.get("models", []).size()
+	var status_parts: Array = []
+
+	# Model count
+	status_parts.append("[color=#B0B0B0]%d/%d models[/color]" % [alive_count, total_count])
+
+	# Stationary indicator (affects HEAVY weapons)
+	if flags.get("remained_stationary", false):
+		status_parts.append("[color=#88CC88]⊛ Stationary[/color]")
+
+	# Advanced indicator (restricts to ASSAULT only)
+	if flags.get("advanced", false):
+		status_parts.append("[color=#CC8888]↗ Advanced[/color]")
+
+	# In engagement (restricts to PISTOL only)
+	if flags.get("in_engagement", false):
+		status_parts.append("[color=#CC8888]⚔ Engaged[/color]")
+
+	# Active abilities from unit flags
+	var ability_tags: Array = []
+	if flags.get("effect_reroll_wounds", "") != "":
+		var rr_type = flags.get("effect_reroll_wounds", "")
+		if rr_type == "ones":
+			ability_tags.append("Re-roll wound 1s")
+		elif rr_type == "all":
+			ability_tags.append("Re-roll all wounds")
+	if flags.get("effect_reroll_hits", "") != "":
+		var rr_type = flags.get("effect_reroll_hits", "")
+		if rr_type == "ones":
+			ability_tags.append("Re-roll hit 1s")
+		elif rr_type == "all":
+			ability_tags.append("Re-roll all hits")
+	if flags.get("effect_plus_one_to_hit", false):
+		ability_tags.append("+1 to Hit")
+	if flags.get("effect_plus_one_to_wound", false):
+		ability_tags.append("+1 to Wound")
+	if flags.get("effect_lethal_hits", false):
+		ability_tags.append("Lethal Hits")
+	if flags.get("effect_sustained_hits", false):
+		ability_tags.append("Sustained Hits")
+
+	if not ability_tags.is_empty():
+		status_parts.append("[color=#8888CC]▸ %s[/color]" % ", ".join(ability_tags))
+
+	shooter_status_label.text = ""
+	shooter_status_label.append_text("  ".join(status_parts) if status_parts.size() <= 2 else "\n".join(status_parts))
+	shooter_status_label.visible = true
 
 func _refresh_weapon_tree() -> void:
 	if not weapon_tree or active_shooter_id == "":
@@ -872,12 +950,22 @@ func _refresh_weapon_tree() -> void:
 		var _s_display = str(weapon_profile.get("strength", 3))
 		var _ap_display = str(weapon_profile.get("ap", 0))
 		var _dmg_display = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
-		var stat_line = "%s | A:%s  %s:%s+  S:%s  AP:%s  D:%s" % [_range_display, _atk_display, _skill_key, str(_skill_val), _s_display, _ap_display, _dmg_display]
+		var stat_line = "%s  A:%s  %s:%s+  S:%s  AP:%s  D:%s" % [_range_display, _atk_display, _skill_key, str(_skill_val), _s_display, _ap_display, _dmg_display]
+		# Contextual bonus hints based on unit state
+		var bonus_hints: Array = []
+		if is_heavy and shooter_unit.get("flags", {}).get("remained_stationary", false):
+			bonus_hints.append("+1 hit")
+		if rapid_fire_value > 0:
+			bonus_hints.append("RF%d" % rapid_fire_value)
+		if is_torrent:
+			bonus_hints.append("auto-hit")
+		if not bonus_hints.is_empty():
+			stat_line += "  [%s]" % ", ".join(bonus_hints)
 		var stats_item = weapon_tree.create_item(weapon_item)
 		stats_item.set_text(0, stat_line)
 		stats_item.set_selectable(0, false)
 		stats_item.set_selectable(1, false)
-		stats_item.set_custom_color(0, Color(0.55, 0.52, 0.35))  # Dim gold for stat line
+		stats_item.set_custom_color(0, Color(0.75, 0.70, 0.50))  # Brighter gold for stat line readability
 		stats_item.set_metadata(0, weapon_id)  # Same weapon_id so hover triggers damage preview
 		weapon_item.set_disable_folding(true)
 
@@ -1046,10 +1134,9 @@ func _create_target_highlight(unit_id: String, color: Color) -> void:
 		# Create a circle highlight indicator
 		var highlight = Node2D.new()
 		highlight.position = pos
-		highlight.set_script(GDScript.new())
 		highlight.set_meta("highlight_color", color)
 		highlight.set_meta("base_radius", 30.0)
-		
+
 		# Add custom draw script for the highlight
 		var script_source = """
 extends Node2D
@@ -1060,23 +1147,24 @@ func _ready():
 func _draw():
 	var color = get_meta("highlight_color", Color.GREEN)
 	var radius = get_meta("base_radius", 30.0)
-	
+
 	# Draw outer ring
 	draw_arc(Vector2.ZERO, radius, 0, TAU, 32, color, 3.0, true)
-	
+
 	# Draw inner filled circle with transparency
 	var fill_color = color
 	fill_color.a = 0.3
 	draw_circle(Vector2.ZERO, radius - 2, fill_color)
-	
+
 	# Draw pulsing effect
 	if color == Color.GREEN:  # In range - add extra emphasis
 		draw_arc(Vector2.ZERO, radius + 5, 0, TAU, 32, color, 1.0, true)
 """
-		highlight.set_script(GDScript.new())
-		highlight.get_script().source_code = script_source
-		highlight.get_script().reload()
-		
+		var highlight_script = GDScript.new()
+		highlight_script.source_code = script_source
+		highlight_script.reload()
+		highlight.set_script(highlight_script)
+
 		target_highlights.add_child(highlight)
 
 func _clear_target_highlights() -> void:
@@ -1084,6 +1172,25 @@ func _clear_target_highlights() -> void:
 		for child in target_highlights.get_children():
 			child.queue_free()
 
+
+func _get_closest_range_inches(from_unit_id: String, to_unit_id: String) -> float:
+	var from_unit = current_phase.get_unit(from_unit_id) if current_phase else GameState.get_unit(from_unit_id)
+	var to_unit = current_phase.get_unit(to_unit_id) if current_phase else GameState.get_unit(to_unit_id)
+	if from_unit.is_empty() or to_unit.is_empty():
+		return -1.0
+	var min_dist = INF
+	for fm in from_unit.get("models", []):
+		if not fm.get("alive", true):
+			continue
+		for tm in to_unit.get("models", []):
+			if not tm.get("alive", true):
+				continue
+			var d = Measurement.model_to_model_distance_px(fm, tm)
+			if d < min_dist:
+				min_dist = d
+	if min_dist == INF:
+		return -1.0
+	return Measurement.px_to_inches(min_dist)
 
 func _draw_los_line(from_unit_id: String, to_unit_id: String) -> void:
 	if not los_visual or not current_phase:
@@ -1639,6 +1746,7 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	# Request targets and trigger LoS visualization
 	eligible_targets = RulesEngine.get_eligible_targets(unit_id, GameState.create_snapshot())
 	_highlight_targets()
+	_refresh_shooter_status()
 	_refresh_weapon_tree()
 	_refresh_quick_assign_buttons()  # P3-113: Update quick-assign buttons for new targets
 	_update_ui_state()
@@ -2015,7 +2123,12 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	var threshold = dice_data.get("threshold", "")
 
 	# Format the display text with modifier effects
-	var log_text = "[b]%s[/b] (need %s):\n" % [context.capitalize().replace("_", " "), threshold]
+	var display_context = context.capitalize().replace("_", " ")
+	var save_weapon_name = dice_data.get("weapon_name", "")
+	var save_target_name = dice_data.get("target_unit_name", "")
+	if context == "save_roll" and save_target_name != "":
+		display_context = "Save" if save_weapon_name == "" else "%s saves" % save_target_name
+	var log_text = "[b]%s[/b] (need %s):\n" % [display_context, threshold]
 
 	# Show Heavy bonus if applied
 	var heavy_bonus_applied = dice_data.get("heavy_bonus_applied", false)
@@ -2065,6 +2178,20 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		var sh_display = "D%d" % sh_value if sh_is_dice else str(sh_value)
 		log_text += "  [color=cyan][SUSTAINED HITS %s] Critical hits (6s) generate +%s extra hits![/color]\n" % [sh_display, sh_display]
 
+	# Show wound modifier summary for to_wound rolls
+	if context == "to_wound":
+		var wm_net = dice_data.get("wound_modifier_net", 0)
+		if wm_net != 0:
+			var sign_str = "+%d" % wm_net if wm_net > 0 else "%d" % wm_net
+			log_text += "  [color=cyan]Wound modifier: %s[/color]\n" % sign_str
+
+	# Show hit modifier summary for to_hit rolls
+	if context == "to_hit":
+		var hm = dice_data.get("modifiers_applied", 0)
+		if hm != 0:
+			var sign_str = "+%d" % hm if hm > 0 else "%d" % hm
+			log_text += "  [color=cyan]Hit modifier: %s[/color]\n" % sign_str
+
 	# Show re-rolls if any occurred
 	if not rerolls.is_empty():
 		log_text += "  [color=yellow]Re-rolled:[/color] "
@@ -2072,9 +2199,26 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 			log_text += "[s]%d[/s]→%d " % [reroll.original, reroll.rerolled_to]
 		log_text += "\n"
 
-	# Show rolls (use modified if available, otherwise raw)
+	# Show rolls with per-die pass/fail coloring
 	var display_rolls = rolls_modified if not rolls_modified.is_empty() else rolls_raw
-	log_text += "  Rolls: %s" % str(display_rolls)
+	var threshold_num = threshold.replace("+", "").to_int() if threshold != "" else 0
+	var critical_hit_threshold = dice_data.get("critical_hit_threshold", 6)
+
+	if threshold_num > 0 and not display_rolls.is_empty():
+		log_text += "  Rolls: ["
+		for i in range(display_rolls.size()):
+			var roll_val = display_rolls[i]
+			if context == "to_hit" and (roll_val >= 7 or (rolls_raw.size() > i and rolls_raw[i] >= critical_hit_threshold)):
+				log_text += "[color=magenta][b]%d[/b][/color]" % roll_val
+			elif roll_val >= threshold_num:
+				log_text += "[color=green]%d[/color]" % roll_val
+			else:
+				log_text += "[color=red]%d[/color]" % roll_val
+			if i < display_rolls.size() - 1:
+				log_text += ", "
+		log_text += "]"
+	else:
+		log_text += "  Rolls: %s" % str(display_rolls)
 
 	# CRITICAL HIT TRACKING (PRP-031): Show critical hits for to_hit rolls
 	var critical_hits = dice_data.get("critical_hits", 0)
@@ -2107,6 +2251,11 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		var using_invuln_save = dice_data.get("using_invuln", false)
 		if using_invuln_save:
 			log_text += "\n  [color=cyan](Using Invulnerable Save)[/color]"
+		else:
+			var original_save = dice_data.get("original_save", 0)
+			var save_ap = dice_data.get("ap", 0)
+			if original_save > 0 and save_ap != 0:
+				log_text += "\n  [color=#888888](%d+ base, AP-%d)[/color]" % [original_save, abs(save_ap)]
 
 	log_text += "\n"
 
@@ -2310,6 +2459,28 @@ func _on_saves_required(save_data_list: Array) -> void:
 
 		print("║ Action built: ", apply_saves_action)
 		print("║ Emitting shoot_action_requested signal...")
+
+		# Log save summary to dice log
+		if dice_log_display:
+			var s_passed = summary.get("saves_passed", 0)
+			var s_failed = summary.get("saves_failed", 0)
+			var s_dmg = summary.get("total_damage", 0)
+			var s_killed = summary.get("models_destroyed", 0)
+			var s_total = summary.get("total_wounds", 0)
+			var save_summary = ""
+			if s_passed + s_failed > 0:
+				save_summary = "  Saves: [color=green]%d passed[/color], [color=red]%d failed[/color]" % [s_passed, s_failed]
+			elif s_total > 0:
+				save_summary = "  Saves: %d wound(s) allocated" % s_total
+			else:
+				save_summary = "  Saves: none required"
+			if s_dmg > 0:
+				save_summary += " → [color=red]%d damage[/color]" % s_dmg
+			if s_killed > 0:
+				save_summary += ", [color=red][b]%d killed[/b][/color]" % s_killed
+			elif s_failed == 0 and s_passed > 0:
+				save_summary += " [color=green](all saved!)[/color]"
+			dice_log_display.append_text(save_summary + "\n")
 
 		# Submit action through Main (which routes through NetworkManager)
 		emit_signal("shoot_action_requested", apply_saves_action)
@@ -2783,6 +2954,12 @@ func _on_sentinel_storm_available(unit_id: String, player: int) -> void:
 			"actor_unit_id": unit_id
 		})
 		return
+
+	# Dismiss any lingering dialogs (e.g. NextWeaponDialog/attack summary)
+	for child in get_tree().root.get_children():
+		if child is AcceptDialog and child.visible:
+			child.hide()
+			child.queue_free()
 
 	var dialog = preload("res://dialogs/SentinelStormDialog.gd").new()
 	dialog.setup(unit_id, player)
@@ -3428,6 +3605,14 @@ func _update_ui_state() -> void:
 
 	if confirm_button:
 		confirm_button.disabled = weapon_assignments.is_empty()
+		if weapon_assignments.is_empty():
+			confirm_button.text = "Confirm Targets"
+		else:
+			var unassigned = _count_unassigned_weapons()
+			if unassigned > 0:
+				confirm_button.text = "Confirm (%d weapons, %d unassigned)" % [weapon_assignments.size(), unassigned]
+			else:
+				confirm_button.text = "Confirm (%d weapons)" % weapon_assignments.size()
 	if clear_button:
 		clear_button.disabled = weapon_assignments.is_empty()
 	if undo_button:
@@ -3445,7 +3630,9 @@ func _update_ui_state() -> void:
 			var target_id = weapon_assignments[weapon_id]
 			var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
 			var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
-			var display_text = "%s → %s" % [weapon_profile.get("name", weapon_id), target_name]
+			var wp_ap = weapon_profile.get("ap", 0)
+			var ap_str = "AP%s" % str(wp_ap) if wp_ap != 0 else "AP0"
+			var display_text = "%s (%s) → %s" % [weapon_profile.get("name", weapon_id), ap_str, target_name]
 			target_basket.add_item(display_text)
 			print("║   Added to basket: ", display_text)
 
@@ -4068,10 +4255,22 @@ func _refresh_quick_assign_buttons() -> void:
 
 	for target_id in eligible_targets:
 		var target_name = eligible_targets[target_id].get("unit_name", target_id)
+		var target_unit = GameState.get_unit(target_id)
+		var target_stats = target_unit.get("meta", {}).get("stats", {})
+		var t_val = target_stats.get("toughness", 4)
+		var sv_val = target_stats.get("save", 4)
+		var alive = RulesEngine.count_alive_models(target_unit)
+		var inv_val = target_stats.get("invulnerable_save", 0)
+		var stat_suffix = "T%d Sv%d+" % [t_val, sv_val]
+		if inv_val > 0:
+			stat_suffix += " Inv%d+" % inv_val
+		stat_suffix += " (%d)" % alive
+		var range_inches = _get_closest_range_inches(active_shooter_id, target_id)
+		var range_str = "%.0f\"" % range_inches if range_inches >= 0 else "?"
 		var btn = Button.new()
-		btn.text = "All Weapons → %s" % target_name
+		btn.text = "All → %s  [%s %s]" % [target_name, range_str, stat_suffix]
 		btn.custom_minimum_size = Vector2(230, 28)
-		btn.tooltip_text = "Assign all usable weapons to %s" % target_name
+		btn.tooltip_text = "Assign all usable weapons to %s (%.1f\" away, %d models, T%d, Sv%d+)" % [target_name, max(range_inches, 0.0), alive, t_val, sv_val]
 		_WhiteDwarfTheme.apply_secondary_button(btn)
 		btn.add_theme_font_size_override("font_size", 12)
 		btn.pressed.connect(_on_quick_assign_all_to_target.bind(target_id))
@@ -4094,6 +4293,9 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 
 	var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
 	var assigned_count = 0
+	var skipped_pistol_names = []
+	var has_assigned_pistol = false
+	var has_assigned_non_pistol = false
 	var child = root.get_first_child()
 
 	while child:
@@ -4101,6 +4303,19 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 
 		# Only assign weapons that are selectable (not disabled) and are top-level items (not stat sub-lines)
 		if weapon_id and child.is_selectable(0):
+			# Check Pistol/non-Pistol conflict before assigning
+			var is_pistol = RulesEngine.is_pistol_weapon(weapon_id)
+			if is_pistol and has_assigned_non_pistol:
+				var wp = RulesEngine.get_weapon_profile(weapon_id)
+				skipped_pistol_names.append(wp.get("name", weapon_id) + " (Pistol)")
+				child = child.get_next()
+				continue
+			if not is_pistol and has_assigned_pistol:
+				var wp = RulesEngine.get_weapon_profile(weapon_id)
+				skipped_pistol_names.append(wp.get("name", weapon_id))
+				child = child.get_next()
+				continue
+
 			# Get model IDs for this weapon
 			var model_ids = []
 			var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
@@ -4110,6 +4325,12 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 
 			# Assign target
 			weapon_assignments[weapon_id] = target_id
+
+			# Track Pistol/non-Pistol state for subsequent weapons
+			if is_pistol:
+				has_assigned_pistol = true
+			else:
+				has_assigned_non_pistol = true
 
 			# Track in assignment history for undo
 			assignment_history.erase(weapon_id)
@@ -4150,10 +4371,13 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 
 	# Show feedback
 	if dice_log_display:
-		dice_log_display.append_text("[color=green]✓ Quick-assigned all %d weapons to %s[/color]\n" %
+		dice_log_display.append_text("[color=green]✓ Quick-assigned %d weapon(s) to %s[/color]\n" %
 			[assigned_count, target_name])
+		if not skipped_pistol_names.is_empty():
+			dice_log_display.append_text("[color=yellow]⚠ Skipped %s — cannot mix Pistol and non-Pistol weapons[/color]\n" %
+				", ".join(skipped_pistol_names))
 
-	print("[ShootingController] P3-113: Quick-assigned %d weapons to %s (%s)" % [assigned_count, target_name, target_id])
+	print("[ShootingController] P3-113: Quick-assigned %d weapons to %s (%s), skipped %d (pistol conflict)" % [assigned_count, target_name, target_id, skipped_pistol_names.size()])
 
 	# P3-114: Update aggregate preview after quick-assign
 	_update_aggregate_damage_preview()
@@ -4924,36 +5148,52 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dicti
 	}
 
 func _update_aggregate_damage_preview() -> void:
-	"""P3-114: Show aggregate expected damage across all weapon assignments, grouped by target."""
+	"""P3-114: Show aggregate expected damage across all weapon assignments, grouped by target.
+	Enhanced to show per-weapon breakdown and target defensive profile."""
 	if not aggregate_preview_panel or not aggregate_preview_label:
 		return
 
-	if weapon_assignments.size() < 2:
+	if weapon_assignments.is_empty():
 		aggregate_preview_panel.visible = false
 		return
 
-	# Group assignments by target
-	var target_damage: Dictionary = {}  # target_id -> {name, total_dmg, total_kills, alive}
+	# Group assignments by target, tracking per-weapon results
+	var target_data: Dictionary = {}  # target_id -> {name, weapons: [{name, dmg, kills}], total_dmg, ...}
 	for weapon_id in weapon_assignments:
 		var target_id = weapon_assignments[weapon_id]
 		var result = _calc_weapon_expected_damage(weapon_id, target_id)
 		if result.is_empty():
 			continue
 
-		if not target_damage.has(target_id):
-			target_damage[target_id] = {
+		if not target_data.has(target_id):
+			var target_unit = GameState.get_unit(target_id)
+			var target_stats = target_unit.get("meta", {}).get("stats", {})
+			target_data[target_id] = {
 				"name": result.target_name,
 				"total_dmg": 0.0,
 				"total_kills": 0.0,
-				"alive": RulesEngine.count_alive_models(GameState.get_unit(target_id)),
-				"wounds_per_model": GameState.get_unit(target_id).get("meta", {}).get("stats", {}).get("wounds", 1),
+				"alive": RulesEngine.count_alive_models(target_unit),
+				"wounds_per_model": target_stats.get("wounds", 1),
+				"toughness": target_stats.get("toughness", 4),
+				"save": target_stats.get("save", 4),
+				"invuln": target_stats.get("invulnerable_save", 0),
+				"fnp": target_stats.get("fnp", 0),
+				"weapons": [],
 			}
 
-		target_damage[target_id].total_dmg += result.expected_damage
+		target_data[target_id].total_dmg += result.expected_damage
+		target_data[target_id].weapons.append({
+			"name": result.weapon_name,
+			"dmg": result.expected_damage,
+			"kills": result.expected_models_killed,
+			"hits": result.expected_hits,
+			"wounds": result.expected_wounds,
+			"tags": result.active_tags,
+		})
 
 	# Calculate kills per target (capped by alive models)
-	for target_id in target_damage:
-		var td = target_damage[target_id]
+	for target_id in target_data:
+		var td = target_data[target_id]
 		if td.wounds_per_model > 0:
 			td.total_kills = min(td.total_dmg / td.wounds_per_model, td.alive)
 
@@ -4961,19 +5201,41 @@ func _update_aggregate_damage_preview() -> void:
 	var agg_text = "[color=#6699CC][b]⚔ COMBINED FORECAST[/b][/color]\n"
 	var grand_total_dmg = 0.0
 	var grand_total_kills = 0.0
-	for target_id in target_damage:
-		var td = target_damage[target_id]
+	for target_id in target_data:
+		var td = target_data[target_id]
 		grand_total_dmg += td.total_dmg
 		grand_total_kills += td.total_kills
-		agg_text += "[color=#CC8888]%s:[/color] " % td.name
-		agg_text += "[color=#FF8866][b]%.1f dmg[/b][/color]" % td.total_dmg
+
+		# Target header with defensive stats
+		agg_text += "[color=#CC8888][b]%s[/b][/color]" % td.name
+		var def_parts: Array = []
+		def_parts.append("T%d" % td.toughness)
+		def_parts.append("Sv%d+" % td.save)
+		if td.invuln > 0:
+			def_parts.append("Inv%d+" % td.invuln)
+		if td.fnp > 0:
+			def_parts.append("FNP%d+" % td.fnp)
+		def_parts.append("%dW" % td.wounds_per_model)
+		def_parts.append("%d alive" % td.alive)
+		agg_text += "  [color=#888888](%s)[/color]\n" % " ".join(def_parts)
+
+		# Per-weapon breakdown
+		for w in td.weapons:
+			agg_text += "[color=#B0B0B0]  ▸ %s:[/color] " % w.name
+			agg_text += "[color=#FF8866]%.1f dmg[/color]" % w.dmg
+			if w.kills >= 0.1:
+				agg_text += " [color=#D49761]≈%.0f kills[/color]" % w.kills
+			agg_text += "\n"
+
+		# Target total
+		agg_text += "[color=#FF8866][b]  → %.1f total dmg[/b][/color]" % td.total_dmg
 		if td.total_kills >= 0.1:
-			agg_text += "  [color=#D49761]≈%.1f kills[/color]" % td.total_kills
+			agg_text += "  [color=#D49761][b]≈%.1f kills[/b][/color]" % td.total_kills
 		agg_text += "\n"
 
-	if target_damage.size() > 1:
+	if target_data.size() > 1:
 		agg_text += "[color=#666666]─────────────────────[/color]\n"
-		agg_text += "[color=#FF8866][b]Total: %.1f dmg[/b][/color]" % grand_total_dmg
+		agg_text += "[color=#FF8866][b]Grand Total: %.1f dmg[/b][/color]" % grand_total_dmg
 		if grand_total_kills >= 0.1:
 			agg_text += "  [color=#D49761]≈%.1f kills[/color]" % grand_total_kills
 

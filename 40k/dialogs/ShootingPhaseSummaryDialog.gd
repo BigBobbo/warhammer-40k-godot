@@ -141,8 +141,29 @@ func _build_ui() -> void:
 				stat_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 			content_list.add_child(stat_label)
 
-			# Shooters that contributed (best-effort)
-			if shooters.size() > 0:
+			# Per-weapon breakdown within this target
+			var raw_entries = summary_data.get("raw_entries", [])
+			var target_weapons: Array = []
+			for re in raw_entries:
+				if re.get("target_unit_id", "") == tid:
+					target_weapons.append(re)
+			if target_weapons.size() > 1:
+				for tw in target_weapons:
+					var tw_name = tw.get("weapon_name", "?")
+					var tw_shooter = tw.get("shooter_unit_name", "")
+					var tw_hits = int(tw.get("hits", 0))
+					var tw_wounds = int(tw.get("wounds", 0))
+					var tw_cas = int(tw.get("casualties", 0))
+					var tw_text = "      %s" % tw_name
+					if tw_shooter != "":
+						tw_text += " (%s)" % tw_shooter
+					tw_text += ": %dH / %dW / %dK" % [tw_hits, tw_wounds, tw_cas]
+					var tw_label = Label.new()
+					tw_label.text = tw_text
+					tw_label.add_theme_font_size_override("font_size", 11)
+					tw_label.add_theme_color_override("font_color", Color.DARK_GRAY)
+					content_list.add_child(tw_label)
+			elif shooters.size() > 0:
 				var shooters_text = "    Shot by: %s" % ", ".join(shooters)
 				var shooters_label = Label.new()
 				shooters_label.text = shooters_text
