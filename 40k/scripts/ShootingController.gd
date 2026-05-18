@@ -22,6 +22,7 @@ var weapon_assignments: Dictionary = {}  # weapon_id -> target_unit_id
 var weapon_modifiers: Dictionary = {}  # weapon_id -> {hit: {reroll_ones: bool, plus_one: bool, minus_one: bool}}
 var assignment_history: Array = []  # T5-UX4: Stack of weapon_ids in assignment order for undo
 var selected_weapon_id: String = ""  # Currently selected weapon for modifier display
+var _auto_assign_logged: bool = false  # Prevent duplicate auto-assign log messages
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
 var current_save_context: Dictionary = {}  # Track what we're showing dialog for (weapon, target)
 var active_allocation_overlay: WoundAllocationOverlay = null  # Track active overlay instance
@@ -354,7 +355,7 @@ func _setup_right_panel() -> void:
 	shooting_panel.add_child(auto_target_button_container)
 
 	weapon_tree = Tree.new()
-	weapon_tree.custom_minimum_size = Vector2(230, 120)
+	weapon_tree.custom_minimum_size = Vector2(230, 180)
 	weapon_tree.columns = 2
 	weapon_tree.set_column_title(0, "Weapon")
 	weapon_tree.set_column_title(1, "Target")
@@ -950,19 +951,26 @@ func _refresh_weapon_tree() -> void:
 		var _s_display = str(weapon_profile.get("strength", 3))
 		var _ap_display = str(weapon_profile.get("ap", 0))
 		var _dmg_display = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
-		var stat_line = "%s  A:%s  %s:%s+  S:%s  AP:%s  D:%s" % [_range_display, _atk_display, _skill_key, str(_skill_val), _s_display, _ap_display, _dmg_display]
-		# Contextual bonus hints based on unit state
 		var bonus_hints: Array = []
+		if is_torrent:
+			bonus_hints.append("AUTO-HIT")
+		if is_blast:
+			bonus_hints.append("BLAST")
 		if is_heavy and shooter_unit.get("flags", {}).get("remained_stationary", false):
 			bonus_hints.append("+1 hit")
 		if rapid_fire_value > 0:
 			bonus_hints.append("RF%d" % rapid_fire_value)
-		if is_torrent:
-			bonus_hints.append("auto-hit")
+		if has_lethal_hits:
+			bonus_hints.append("LETHAL")
+		if has_devastating_wounds:
+			bonus_hints.append("DEV.W")
+		var stat_line = ""
 		if not bonus_hints.is_empty():
-			stat_line += "  [%s]" % ", ".join(bonus_hints)
+			stat_line += "[%s] " % ", ".join(bonus_hints)
+		stat_line += "%s A:%s %s:%s+ S:%s AP:%s D:%s" % [_range_display, _atk_display, _skill_key, str(_skill_val), _s_display, _ap_display, _dmg_display]
 		var stats_item = weapon_tree.create_item(weapon_item)
 		stats_item.set_text(0, stat_line)
+		stats_item.set_tooltip_text(0, stat_line)
 		stats_item.set_selectable(0, false)
 		stats_item.set_selectable(1, false)
 		stats_item.set_custom_color(0, Color(0.75, 0.70, 0.50))  # Brighter gold for stat line readability
@@ -1019,12 +1027,7 @@ func _refresh_weapon_tree() -> void:
 				weapon_item.set_custom_color(1, Color(0.5, 0.85, 0.5))
 				weapon_item.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
 
-				# Show feedback in dice log
-				if dice_log_display:
-					dice_log_display.append_text("[color=cyan]Auto-selected %s for %s (only eligible target)[/color]\n" %
-						[only_target_name, weapon_profile.get("name", weapon_id)])
-
-				# Auto-assign this target
+				# Auto-assign this target (log message shown once after loop)
 				_auto_assign_target(weapon_id, only_target_id)
 			else:
 				weapon_item.set_text(1, "(Click to Select)")
@@ -1730,9 +1733,12 @@ func _cleanup_existing_ui() -> void:
 
 func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	print("ShootingController: Unit selected for shooting: ", unit_id)
+	var shooter_changed = (unit_id != active_shooter_id)
 	active_shooter_id = unit_id
 	weapon_assignments.clear()
 	assignment_history.clear()  # T5-UX4: Clear undo history for new shooter
+	if shooter_changed:
+		_auto_assign_logged = false
 
 	# NEW: Hide auto-target button when selecting new shooter
 	if auto_target_button_container:
@@ -1752,6 +1758,14 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	_update_ui_state()
 	_update_perform_action_button()
 	_show_range_indicators()
+
+	# Show consolidated auto-assign message once per shooter selection
+	if dice_log_display and not weapon_assignments.is_empty() and eligible_targets.size() == 1 and not _auto_assign_logged:
+		_auto_assign_logged = true
+		var only_target_name = eligible_targets[eligible_targets.keys()[0]].unit_name
+		var auto_count = weapon_assignments.size()
+		dice_log_display.append_text("[color=cyan]Auto-assigned %d weapon(s) → %s (only eligible target)[/color]\n" %
+			[auto_count, only_target_name])
 
 	# Visualize LoS to all eligible targets
 	if los_debug_visual and los_debug_visual.debug_enabled:
@@ -2119,6 +2133,8 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	var rolls_raw = dice_data.get("rolls_raw", [])
 	var rolls_modified = dice_data.get("rolls_modified", [])
 	var rerolls = dice_data.get("rerolls", [])
+	if rerolls.is_empty() and context == "to_wound":
+		rerolls = dice_data.get("wound_rerolls", [])
 	var successes = dice_data.get("successes", -1)
 	var threshold = dice_data.get("threshold", "")
 
@@ -2185,12 +2201,21 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 			var sign_str = "+%d" % wm_net if wm_net > 0 else "%d" % wm_net
 			log_text += "  [color=cyan]Wound modifier: %s[/color]\n" % sign_str
 
-	# Show hit modifier summary for to_hit rolls
+	# Show hit modifier summary for to_hit rolls (modifiers_applied is a bitmask)
 	if context == "to_hit":
-		var hm = dice_data.get("modifiers_applied", 0)
-		if hm != 0:
-			var sign_str = "+%d" % hm if hm > 0 else "%d" % hm
-			log_text += "  [color=cyan]Hit modifier: %s[/color]\n" % sign_str
+		var hm_bitmask = dice_data.get("modifiers_applied", 0)
+		if hm_bitmask != 0:
+			var hm_parts: Array = []
+			if hm_bitmask & 2:  # PLUS_ONE
+				hm_parts.append("+1 to hit")
+			if hm_bitmask & 4:  # MINUS_ONE
+				hm_parts.append("-1 to hit")
+			if hm_bitmask & 1:  # REROLL_ONES
+				hm_parts.append("re-roll 1s")
+			if hm_bitmask & 8:  # REROLL_FAILED
+				hm_parts.append("re-roll failed")
+			if not hm_parts.is_empty():
+				log_text += "  [color=cyan]%s[/color]\n" % ", ".join(hm_parts)
 
 	# Show re-rolls if any occurred
 	if not rerolls.is_empty():
@@ -2200,25 +2225,28 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		log_text += "\n"
 
 	# Show rolls with per-die pass/fail coloring
-	var display_rolls = rolls_modified if not rolls_modified.is_empty() else rolls_raw
+	# Always display raw d6 values; color based on modified pass/fail
+	var check_rolls = rolls_modified if not rolls_modified.is_empty() else rolls_raw
+	var show_rolls = rolls_raw if not rolls_raw.is_empty() else check_rolls
 	var threshold_num = threshold.replace("+", "").to_int() if threshold != "" else 0
 	var critical_hit_threshold = dice_data.get("critical_hit_threshold", 6)
 
-	if threshold_num > 0 and not display_rolls.is_empty():
+	if threshold_num > 0 and not show_rolls.is_empty():
 		log_text += "  Rolls: ["
-		for i in range(display_rolls.size()):
-			var roll_val = display_rolls[i]
-			if context == "to_hit" and (roll_val >= 7 or (rolls_raw.size() > i and rolls_raw[i] >= critical_hit_threshold)):
-				log_text += "[color=magenta][b]%d[/b][/color]" % roll_val
-			elif roll_val >= threshold_num:
-				log_text += "[color=green]%d[/color]" % roll_val
+		for i in range(show_rolls.size()):
+			var raw_val = show_rolls[i]
+			var mod_val = check_rolls[i] if i < check_rolls.size() else raw_val
+			if context == "to_hit" and raw_val >= critical_hit_threshold:
+				log_text += "[color=magenta][b]%d[/b][/color]" % raw_val
+			elif mod_val >= threshold_num:
+				log_text += "[color=green]%d[/color]" % raw_val
 			else:
-				log_text += "[color=red]%d[/color]" % roll_val
-			if i < display_rolls.size() - 1:
+				log_text += "[color=red]%d[/color]" % raw_val
+			if i < show_rolls.size() - 1:
 				log_text += ", "
 		log_text += "]"
 	else:
-		log_text += "  Rolls: %s" % str(display_rolls)
+		log_text += "  Rolls: %s" % str(show_rolls)
 
 	# CRITICAL HIT TRACKING (PRP-031): Show critical hits for to_hit rolls
 	var critical_hits = dice_data.get("critical_hits", 0)

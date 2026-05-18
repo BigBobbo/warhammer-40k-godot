@@ -62,6 +62,9 @@ var _rng = RulesEngine.RNGService.new()  # P1-11: RNG for battle-shock tests (is
 # Issue #386 Big Booms: queued struck-unit IDs from a supa-kannon target selection.
 # Resolved after the supa-kannon's attacks against the chosen target finish; D3 MW per struck unit.
 var _big_booms_pending: Array = []  # entries: {target_unit_id: String, struck_unit_ids: Array, rolls: Array}
+var swift_as_eagle_pending_unit: String = ""
+var swift_as_eagle_move_inches: int = 0
+var awaiting_swift_as_eagle: bool = false
 
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
@@ -89,12 +92,18 @@ func _on_phase_enter() -> void:
 	awaiting_pulsa_rokkit = false
 	shooty_power_trip_pending_unit = ""
 	awaiting_shooty_power_trip = false
+	swift_as_eagle_pending_unit = ""
+	swift_as_eagle_move_inches = 0
+	awaiting_swift_as_eagle = false
 	_targets_hit_by_shooter.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
 		ability_mgr.on_phase_start(GameStateData.Phase.SHOOTING)
+
+	# Refresh snapshot after ability effects mutated GameState flags
+	game_state_snapshot = GameState.create_snapshot()
 
 	_initialize_shooting()
 
@@ -358,6 +367,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_perform_ritual_action(action)
 		"PERFORM_TERRAFORM_ACTION":  # Terraform: unit terraforms an objective
 			return _validate_perform_terraform_action(action)
+		"USE_SWIFT_AS_THE_EAGLE":
+			return _validate_use_swift_as_the_eagle(action)
+		"DECLINE_SWIFT_AS_THE_EAGLE":
+			return _validate_decline_swift_as_the_eagle(action)
 		"END_MOVEMENT":
 			# Idempotent no-op: previous phase auto-advanced before END_MOVEMENT was dispatched.
 			return {"valid": true}
@@ -472,6 +485,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"PERFORM_TERRAFORM_ACTION":  # Terraform: terraform an objective
 			DebugLogger.info("ShootingPhase: Matched PERFORM_TERRAFORM_ACTION")
 			return _process_perform_terraform_action(action)
+		"USE_SWIFT_AS_THE_EAGLE":
+			DebugLogger.info("ShootingPhase: Matched USE_SWIFT_AS_THE_EAGLE")
+			return _process_use_swift_as_the_eagle(action)
+		"DECLINE_SWIFT_AS_THE_EAGLE":
+			DebugLogger.info("ShootingPhase: Matched DECLINE_SWIFT_AS_THE_EAGLE")
+			return _process_decline_swift_as_the_eagle(action)
 		"END_MOVEMENT":
 			DebugLogger.info("ShootingPhase: Matched END_MOVEMENT (no-op, phase already advanced)")
 			return create_result(true, [], "")
@@ -1023,7 +1042,15 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 			get_current_player(), _vcl_shooter_name, _vcl_target_name, _vcl_weapon_name])
 
 	# T5-MP5: Build resolution_start block and emit locally + include in result for remote sync
-	var resolution_start_block = {"context": "resolution_start", "message": "Beginning attack resolution..."}
+	var _rs_weapon_name = ""
+	var _rs_target_name = ""
+	if not confirmed_assignments.is_empty():
+		var _rs_wid = confirmed_assignments[0].get("weapon_id", "")
+		_rs_weapon_name = RulesEngine.get_weapon_profile(_rs_wid).get("name", _rs_wid)
+		var _rs_tid = confirmed_assignments[0].get("target_unit_id", "")
+		_rs_target_name = game_state_snapshot.get("units", {}).get(_rs_tid, {}).get("meta", {}).get("name", _rs_tid)
+	var _rs_msg = "%s → %s" % [_rs_weapon_name, _rs_target_name] if _rs_weapon_name != "" else "Beginning attack resolution..."
+	var resolution_start_block = {"context": "resolution_start", "message": _rs_msg}
 	emit_signal("dice_rolled", resolution_start_block)
 
 	# Build full shoot action for RulesEngine
@@ -1067,7 +1094,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	var wound_data = {}
 	for dice_block in dice_data:
 		var context = dice_block.get("context", "")
-		if context == "hit_roll":
+		if context == "hit_roll" or context == "to_hit":
 			hit_data = {
 				"rolls": dice_block.get("rolls_raw", []),
 				"modified_rolls": dice_block.get("rolls_modified", []),
@@ -1076,7 +1103,17 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 				"rerolls": dice_block.get("rerolls", []),
 				"threshold": dice_block.get("threshold", "")
 			}
-		elif context == "wound_roll":
+		elif context == "auto_hit":
+			hit_data = {
+				"rolls": [],
+				"modified_rolls": [],
+				"successes": dice_block.get("successes", 0),
+				"total": dice_block.get("total_attacks", 0),
+				"rerolls": [],
+				"threshold": "auto",
+				"torrent": true
+			}
+		elif context == "wound_roll" or context == "to_wound":
 			wound_data = {
 				"rolls": dice_block.get("rolls_raw", []),
 				"modified_rolls": dice_block.get("rolls_modified", []),
@@ -1849,9 +1886,16 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 	return options
 
 func _process_end_shooting(action: Dictionary) -> Dictionary:
+	var changes = []
+	# P1-11: Check Sanctified Flames for the last shooter before ending phase
+	if active_shooter_id != "":
+		var sanctified_changes = _check_sanctified_flames(active_shooter_id)
+		changes.append_array(sanctified_changes)
+		_targets_hit_by_shooter.clear()
+		active_shooter_id = ""
 	log_phase_message("Ending Shooting Phase")
 	emit_signal("phase_completed")
-	return create_result(true, [])
+	return create_result(true, changes)
 
 func _process_shoot(action: Dictionary) -> Dictionary:
 	# Full atomic shoot action - used exclusively by AI
@@ -2533,7 +2577,11 @@ func _process_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 		log_phase_message("Fast rolling all weapons")
 		resolution_state = {
 			"mode": "fast",
+			"weapon_order": weapon_order,
 			"current_assignment": 0,
+			"current_index": 0,
+			"completed_weapons": [],
+			"awaiting_saves": false,
 			"phase": "ready"
 		}
 
@@ -3669,6 +3717,25 @@ func get_available_actions() -> Array:
 			"description": "Resolve shooting"
 		})
 
+	# SWIFT AS THE EAGLE pending — offer use/decline (defender's choice)
+	if awaiting_swift_as_eagle and swift_as_eagle_pending_unit != "":
+		var sae_unit = get_unit(swift_as_eagle_pending_unit)
+		var sae_name = sae_unit.get("meta", {}).get("name", swift_as_eagle_pending_unit) if not sae_unit.is_empty() else swift_as_eagle_pending_unit
+		var sae_player = int(sae_unit.get("owner", 0))
+		actions.append({
+			"type": "USE_SWIFT_AS_THE_EAGLE",
+			"actor_unit_id": swift_as_eagle_pending_unit,
+			"player": sae_player,
+			"description": "Swift as the Eagle — %s makes a Normal move of up to %d\"" % [sae_name, swift_as_eagle_move_inches]
+		})
+		actions.append({
+			"type": "DECLINE_SWIFT_AS_THE_EAGLE",
+			"actor_unit_id": swift_as_eagle_pending_unit,
+			"player": sae_player,
+			"description": "Decline Swift as the Eagle — %s" % sae_name
+		})
+		return actions
+
 	# P2-25: Distraction Grot pending — offer use/decline (defender's choice)
 	if awaiting_distraction_grot and distraction_grot_pending_unit != "":
 		var dg_unit = get_unit(distraction_grot_pending_unit)
@@ -4159,11 +4226,25 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 
 	units_that_shot.append(unit_id)
 
+	# Capture target IDs before clearing for post-shooting checks (Swift as the Eagle)
+	var targeted_unit_ids_for_post: Array = []
+	for ca in confirmed_assignments:
+		var tid = ca.get("target_unit_id", "")
+		if tid != "" and tid not in targeted_unit_ids_for_post:
+			targeted_unit_ids_for_post.append(tid)
+
 	# Clear state
 	var shooter_id = active_shooter_id  # Store before clearing
 
 	# T5-UX9: capture per-weapon shot results before clearing resolution_state
 	_record_completed_weapons_to_phase_log(shooter_id)
+
+	# Also capture targets from phase log for multi-weapon shots
+	for entry in phase_shooting_log:
+		if entry.get("shooter_unit_id", "") == shooter_id:
+			var tid = entry.get("target_unit_id", "")
+			if tid != "" and tid not in targeted_unit_ids_for_post:
+				targeted_unit_ids_for_post.append(tid)
 
 	active_shooter_id = ""
 	confirmed_assignments.clear()
@@ -4176,6 +4257,23 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 
 	# Emit signal to clear visuals
 	emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
+
+	# SWIFT AS THE EAGLE: After enemy finishes shooting, check if a targeted
+	# Custodes non-VEHICLE unit can make a reactive D6" Normal move.
+	# Only on opponent's turn (active player is the shooter, defending Custodes player reacts).
+	var swift_check = _check_swift_as_the_eagle(shooter_id, targeted_unit_ids_for_post)
+	if swift_check.available:
+		PhaseManager.apply_state_changes(changes)
+		awaiting_swift_as_eagle = true
+		swift_as_eagle_pending_unit = swift_check.unit_id
+		swift_as_eagle_move_inches = swift_check.move_inches
+		log_phase_message("SWIFT AS THE EAGLE available for %s — D6\" Normal move (rolled %d\")" % [swift_check.unit_name, swift_check.move_inches])
+		return create_result(true, changes, "Swift as the Eagle available", {
+			"swift_as_eagle_available": true,
+			"unit_id": swift_check.unit_id,
+			"move_inches": swift_check.move_inches,
+			"unit_name": swift_check.unit_name
+		})
 
 	return create_result(true, changes, "Shooting complete")
 
@@ -5448,7 +5546,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 	# Check if we're in sequential weapon resolution mode
 	var mode = resolution_state.get("mode", "")
-	var is_sequential = (mode == "sequential")
+	var is_sequential = (mode == "sequential" or mode == "fast")
 
 	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
 	DebugLogger.info("║ MODE CHECK IN _process_apply_saves")
@@ -5494,6 +5592,13 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			var hits = hit_data.get("successes", 0)
 			var total_attacks = hit_data.get("total", 0)
 
+			# Torrent/auto-hit weapons have empty hit_data — count from dice_data entries
+			if hits == 0 and not dice_data.is_empty():
+				for dice_entry in dice_data:
+					if dice_entry is Dictionary and dice_entry.get("context", "") == "auto_hit":
+						hits += dice_entry.get("successes", 0)
+						total_attacks += dice_entry.get("total_attacks", 0)
+
 			# P1-11: Track hits for Sanctified Flames
 			if hits > 0 and target_unit_id != "":
 				_targets_hit_by_shooter[target_unit_id] = _targets_hit_by_shooter.get(target_unit_id, 0) + hits
@@ -5504,7 +5609,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				"weapon_id": weapon_id,
 				"target_unit_id": target_unit_id,
 				"target_unit_name": target_unit_name,
-				"wounds": pending_save_data.size() if not pending_save_data.is_empty() else 0,
+				"wounds": pending_save_data[0].get("wounds_to_save", 0) if not pending_save_data.is_empty() else 0,
 				"casualties": total_casualties,
 				"hits": hits,
 				"total_attacks": total_attacks,
@@ -5725,6 +5830,13 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		var sw_hits = sw_hit_data.get("successes", 0)
 		var sw_total_attacks = sw_hit_data.get("total", 0)
 
+		# Torrent/auto-hit weapons have empty hit_data — count from dice_data entries
+		if sw_hits == 0 and not sw_dice_data.is_empty():
+			for dice_entry in sw_dice_data:
+				if dice_entry is Dictionary and dice_entry.get("context", "") == "auto_hit":
+					sw_hits += dice_entry.get("successes", 0)
+					sw_total_attacks += dice_entry.get("total_attacks", 0)
+
 		DebugLogger.info(str("║   saves_failed: ", saves_failed))
 		DebugLogger.info(str("║   casualties: ", total_casualties))
 		DebugLogger.info(str("║   hits: ", sw_hits, " / ", sw_total_attacks))
@@ -5735,7 +5847,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			"target_unit_id": target_unit_id,
 			"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
 			"hits": sw_hits,
-			"wounds": pending_save_data.size() if not pending_save_data.is_empty() else 0,
+			"wounds": pending_save_data[0].get("wounds_to_save", 0) if not pending_save_data.is_empty() else 0,
 			"saves_failed": saves_failed,
 			"casualties": total_casualties,
 			"total_attacks": sw_total_attacks,
@@ -5745,6 +5857,11 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		}
 		DebugLogger.info("║ ✓ last_weapon_result built successfully!")
 
+		# P1-11: Track hits for Sanctified Flames (single-weapon path)
+		if sw_hits > 0 and target_unit_id != "":
+			_targets_hit_by_shooter[target_unit_id] = _targets_hit_by_shooter.get(target_unit_id, 0) + sw_hits
+			DebugLogger.info(str("ShootingPhase: P1-11 Sanctified Flames tracking: %d hit(s) on %s (total: %d)" % [sw_hits, target_unit_id, _targets_hit_by_shooter[target_unit_id]]))
+
 		# Record completed weapon so phase_shooting_log captures single-weapon results
 		if not resolution_state.has("completed_weapons"):
 			resolution_state["completed_weapons"] = []
@@ -5752,7 +5869,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			"weapon_id": weapon_id,
 			"target_unit_id": target_unit_id,
 			"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
-			"wounds": pending_save_data.size() if not pending_save_data.is_empty() else 0,
+			"wounds": pending_save_data[0].get("wounds_to_save", 0) if not pending_save_data.is_empty() else 0,
 			"casualties": total_casualties,
 			"hits": sw_hits,
 			"total_attacks": sw_total_attacks,
@@ -6134,3 +6251,109 @@ func _process_use_stratagem(action: Dictionary) -> Dictionary:
 	var strat_name = result.get("stratagem_name", stratagem_id)
 	DebugLogger.info(str("ShootingPhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id]))
 	return create_result(true, result.get("diffs", []), "Used " + strat_name)
+
+# ============================================================================
+# SWIFT AS THE EAGLE — Reactive D6" Normal move after being shot at
+# ============================================================================
+
+func _check_swift_as_the_eagle(shooter_id: String, targeted_unit_ids: Array) -> Dictionary:
+	var result = {"available": false, "unit_id": "", "unit_name": "", "move_inches": 0}
+	if targeted_unit_ids.is_empty():
+		return result
+
+	var strat_mgr = get_node_or_null("/root/StratagemManager")
+	if not strat_mgr:
+		return result
+
+	var shooter_unit = GameState.get_unit(shooter_id)
+	if shooter_unit.is_empty():
+		return result
+	var shooter_owner = int(shooter_unit.get("owner", 0))
+	var defending_player = 1 if shooter_owner == 2 else 2
+
+	var strat_id = strat_mgr.find_faction_stratagem_by_name(defending_player, "SWIFT AS THE EAGLE")
+	if strat_id == "":
+		return result
+
+	var validation = strat_mgr.can_use_stratagem(defending_player, strat_id)
+	if not validation.can_use:
+		return result
+
+	for tid in targeted_unit_ids:
+		var unit = GameState.get_unit(tid)
+		if unit.is_empty():
+			continue
+		if int(unit.get("owner", 0)) != defending_player:
+			continue
+		if unit.get("flags", {}).get("battle_shocked", false):
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var is_custodes = false
+		var is_vehicle = false
+		for kw in keywords:
+			var kw_upper = kw.to_upper()
+			if kw_upper == "ADEPTUS CUSTODES":
+				is_custodes = true
+			if kw_upper == "VEHICLE":
+				is_vehicle = true
+		if is_custodes and not is_vehicle:
+			var has_alive = false
+			for m in unit.get("models", []):
+				if m.get("alive", true):
+					has_alive = true
+					break
+			if has_alive:
+				var d6 = _rng.randi_range(1, 6)
+				result.available = true
+				result.unit_id = tid
+				result.unit_name = unit.get("meta", {}).get("name", tid)
+				result.move_inches = d6
+				return result
+	return result
+
+func _validate_use_swift_as_the_eagle(action: Dictionary) -> Dictionary:
+	if not awaiting_swift_as_eagle or swift_as_eagle_pending_unit == "":
+		return {"valid": false, "errors": ["No Swift as the Eagle pending"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_swift_as_the_eagle(action: Dictionary) -> Dictionary:
+	if not awaiting_swift_as_eagle or swift_as_eagle_pending_unit == "":
+		return {"valid": false, "errors": ["No Swift as the Eagle pending"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_swift_as_the_eagle(action: Dictionary) -> Dictionary:
+	var unit_id = swift_as_eagle_pending_unit
+	var move_inches = swift_as_eagle_move_inches
+	var unit = GameState.get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_owner = int(unit.get("owner", 0))
+
+	var strat_mgr = get_node_or_null("/root/StratagemManager")
+	if strat_mgr:
+		var strat_id = strat_mgr.find_faction_stratagem_by_name(unit_owner, "SWIFT AS THE EAGLE")
+		if strat_id != "":
+			strat_mgr.use_stratagem(unit_owner, strat_id, unit_id)
+
+	var changes: Array = [{
+		"op": "set",
+		"path": "units.%s.flags.effect_swift_as_the_eagle" % unit_id,
+		"value": true
+	}, {
+		"op": "set",
+		"path": "units.%s.flags.swift_eagle_move_remaining" % unit_id,
+		"value": move_inches
+	}]
+
+	log_phase_message("SWIFT AS THE EAGLE: %s can make a Normal move of up to %d\" (D6 rolled %d)" % [unit_name, move_inches, move_inches])
+	awaiting_swift_as_eagle = false
+	swift_as_eagle_pending_unit = ""
+	swift_as_eagle_move_inches = 0
+	return create_result(true, changes, "Swift as the Eagle activated — %d\" move" % move_inches)
+
+func _process_decline_swift_as_the_eagle(action: Dictionary) -> Dictionary:
+	var unit_name = GameState.get_unit(swift_as_eagle_pending_unit).get("meta", {}).get("name", swift_as_eagle_pending_unit)
+	log_phase_message("SWIFT AS THE EAGLE: %s declines reactive move" % unit_name)
+	awaiting_swift_as_eagle = false
+	swift_as_eagle_pending_unit = ""
+	swift_as_eagle_move_inches = 0
+	return create_result(true, [], "Swift as the Eagle declined")
