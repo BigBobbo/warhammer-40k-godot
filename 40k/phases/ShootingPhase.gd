@@ -215,11 +215,13 @@ func _resolve_transport_destroyed_if_applicable(destroyed_unit_id: String) -> vo
 			var msg = "%s: %d models disembarked (rolls: %s)" % [
 				unit_result.unit_name, unit_result.models_disembarked, str(unit_result.rolls)]
 			if unit_result.casualties > 0:
-				msg += " — %d model(s) destroyed!" % unit_result.casualties
+				var _cas_label = "model" if unit_result.casualties == 1 else "models"
+				msg += " — %d %s destroyed!" % [unit_result.casualties, _cas_label]
 			log_phase_message(msg)
 
 		if result.total_casualties > 0:
-			log_phase_message("Emergency disembark: %d total casualty(ies) from transport destruction" % result.total_casualties)
+			var _tca_label = "casualty" if result.total_casualties == 1 else "casualties"
+			log_phase_message("Emergency disembark: %d total %s from transport destruction" % [result.total_casualties, _tca_label])
 			# Check if any disembarked units were fully destroyed
 			_check_kill_diffs(diffs)
 
@@ -245,7 +247,9 @@ func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> 
 			var destroyed_models = unit_info.get("models_destroyed", 0)
 			var unit_name = unit_info.get("unit_name", "Unknown")
 			if mw > 0:
-				log_phase_message("  %s: %d mortal wound(s), %d model(s) destroyed" % [unit_name, mw, destroyed_models])
+				var _mw_label = "mortal wound" if mw == 1 else "mortal wounds"
+				var _md_label = "model" if destroyed_models == 1 else "models"
+				log_phase_message("  %s: %d %s, %d %s destroyed" % [unit_name, mw, _mw_label, destroyed_models, _md_label])
 			else:
 				log_phase_message("  %s: disembarked safely" % unit_name)
 
@@ -3757,6 +3761,7 @@ func get_available_actions() -> Array:
 	if not confirmed_assignments.is_empty():
 		actions.append({
 			"type": "RESOLVE_SHOOTING",
+			"actor_unit_id": active_shooter_id,
 			"description": "Resolve shooting"
 		})
 
@@ -6079,7 +6084,8 @@ func _emit_verbose_combat_log(shooter_id: String, dice_data: Array, save_dice_bl
 	# Final result line — only show after saves are resolved (not for hit/wound-only phases)
 	if phase_type == "shooting_saves":
 		if casualties > 0:
-			GameEventLog.add_combat_result("  Result: %d model(s) destroyed" % casualties)
+			var _cas_label2 = "model" if casualties == 1 else "models"
+			GameEventLog.add_combat_result("  Result: %d %s destroyed" % [casualties, _cas_label2])
 		else:
 			GameEventLog.add_combat_result("  Result: No models destroyed")
 

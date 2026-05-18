@@ -109,6 +109,9 @@ func execute_action(action: Dictionary) -> Dictionary:
 		if result.has("changes") and result.changes is Array:
 			action["_replay_diffs"] = result.changes
 
+		if not action.has("player"):
+			action["player"] = get_current_player()
+
 		# Record the action
 		DebugLogger.info("[BasePhase] Emitting action_taken signal")
 		emit_signal("action_taken", action)

@@ -380,10 +380,12 @@ func add_shooting_combat_log(shooter_name: String, target_name: String, weapon_n
 	var wounds_inflicted = result_info.get("wounds_inflicted", 0)
 	var models_destroyed = result_info.get("models_destroyed", 0)
 	var dmg_per = result_info.get("damage_per_wound", 1)
-	var result_line = "  Result: %d wound(s) inflicted" % wounds_inflicted
+	var wound_label = "wound" if wounds_inflicted == 1 else "wounds"
+	var result_line = "  Result: %d %s inflicted" % [wounds_inflicted, wound_label]
 	if dmg_per > 1:
 		result_line += " (%d damage each)" % dmg_per
-	result_line += " — %d model(s) destroyed" % models_destroyed
+	var model_label = "model" if models_destroyed == 1 else "models"
+	result_line += " — %d %s destroyed" % [models_destroyed, model_label]
 	add_combat_result(result_line)
 
 func _format_dice_rolls(rolls: Array) -> String:

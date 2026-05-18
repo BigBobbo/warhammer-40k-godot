@@ -136,17 +136,17 @@ func _populate_last_weapon_summary() -> void:
 	var casualties = last_weapon_result.get("casualties", 0)
 
 	# Hit Rolls Row
-	_add_summary_row("🎲 Hit Rolls:", "%d hits / %d shots" % [hits, total_attacks],
+	_add_summary_row("🎲 Hit Rolls:", "%d %s / %d %s" % [hits, "hit" if hits == 1 else "hits", total_attacks, "shot" if total_attacks == 1 else "shots"],
 		Color.GREEN if hits > 0 else Color.RED)
 
 	# Wound Rolls Row (only if hits > 0)
 	if hits > 0:
-		_add_summary_row("🎯 Wound Rolls:", "%d wounds / %d hits" % [wounds, hits],
+		_add_summary_row("🎯 Wound Rolls:", "%d %s / %d %s" % [wounds, "wound" if wounds == 1 else "wounds", hits, "hit" if hits == 1 else "hits"],
 			Color.GREEN if wounds > 0 else Color.YELLOW)
 
 	# Saves Row (only if wounds > 0)
 	if wounds > 0:
-		_add_summary_row("🛡️ Saves:", "%d failed / %d wounds" % [saves_failed, wounds],
+		_add_summary_row("🛡️ Saves:", "%d failed / %d %s" % [saves_failed, wounds, "wound" if wounds == 1 else "wounds"],
 			Color.ORANGE if saves_failed > 0 else Color.GREEN)
 
 	# Casualties Row

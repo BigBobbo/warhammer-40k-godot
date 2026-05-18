@@ -3052,7 +3052,9 @@ func _on_throat_slittas_available(unit_id: String, player: int, eligible_targets
 	var total_models = 0
 	for t in eligible_targets:
 		total_models += t.get("models_in_range", 0)
-		target_text += "  %s: %d model(s) in range\n" % [t.get("target_name", "?"), t.get("models_in_range", 0)]
+		var _mir = t.get("models_in_range", 0)
+		var _mir_label = "model" if _mir == 1 else "models"
+		target_text += "  %s: %d %s in range\n" % [t.get("target_name", "?"), _mir, _mir_label]
 
 	dialog.title = "Throat Slittas"
 	dialog.dialog_text = "%s can use Throat Slittas!\n\nRoll %d dice (1 per model in range), 5+ = mortal wound.\nUnit cannot shoot this phase if used.\n\n%s\nUse Throat Slittas?" % [
