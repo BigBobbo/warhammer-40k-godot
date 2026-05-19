@@ -1,17 +1,17 @@
 {
-  "scenario_id": "T04_phase_bar",
+  "scenario_id": "T25_edge_tint",
   "pixel_diff_steps": [
     {
       "act": "pixel_diff",
-      "diff_pct": 4.17522321428571,
+      "diff_pct": 100.0,
       "pass": true,
       "result": {
         "regions": {
-          "phase_bar": 4.17522321428571
+          "top_edge": 100.0
         },
-        "total_diff_pct": 43.5741222993827
+        "total_diff_pct": 44.7360146604938
       },
-      "step": 24
+      "step": 10
     }
   ],
   "summary": {

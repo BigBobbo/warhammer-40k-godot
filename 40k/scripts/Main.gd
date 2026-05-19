@@ -247,6 +247,9 @@ func _ready() -> void:
 	if board_root != null:
 		board_root.add_child(preload("res://scripts/TerrainCoverOverlay.gd").new())
 
+	# T25: active-player edge tint. Full-rect Control with a 4px ring.
+	add_child(preload("res://scripts/ActivePlayerEdgeTint.gd").new())
+
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
 	if GameEventLog:
