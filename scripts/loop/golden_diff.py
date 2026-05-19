@@ -322,16 +322,23 @@ def main() -> int:
             continue
 
         if args.bless:
-            # Downsample to quarter resolution and re-encode with max PNG
-            # compression. PHASH (which downsamples to 32×32 internally) is
-            # unaffected — empirically Hamming-distance-0 vs the full-size
-            # source. The Agent reading the PNG sees less detail but still
-            # plenty for the visual-regression categories the critic
-            # prompt targets.
+            # Downsample to half resolution (960×540 from a 1920×1080
+            # screenshot) and re-encode with max PNG compression.
+            # Previous bless used quarter resolution (480×270) which
+            # was a file-size optimisation that cost real signal:
+            # - critic agent could not read small text crisply
+            #   ("validation_2026-05-19.md" — hallucinated "garbled
+            #   title" finding)
+            # - 1-2px border colour regressions were sub-pixel and
+            #   invisible to pHash ("validation_unattended_2026-05-19.md"
+            #   — WH_GOLD swap missed)
+            # Half resolution (4× the area of quarter resolution) gives
+            # the critic readable text + pHash 4× more signal at the
+            # cost of ~71 MB total golden corpus (217 × ~327 KB).
             from PIL import Image as _Image
             with _Image.open(shot_abs) as _src:
                 w, h = _src.size
-                _src.resize((max(1, w // 4), max(1, h // 4)),
+                _src.resize((max(1, w // 2), max(1, h // 2)),
                             _Image.LANCZOS).save(
                     golden_abs, optimize=True, compress_level=9)
             entry["status"] = "blessed"

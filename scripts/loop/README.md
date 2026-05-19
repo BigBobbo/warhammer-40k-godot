@@ -4,21 +4,45 @@ Per-scenario "run windowed → critique → fix → re-run" loop. One cloud
 Claude session per scenario, parallel by default. See
 `.llm/visual-regression-loop-plan.md` for full design.
 
+## Quick start
+
+```bash
+# Run the diff prefilter on one scenario
+bash scripts/loop/run_one_scenario_loop.sh 40k/tests/scenarios/sp/367_designate_warlord.json
+
+# Run all scenarios in parallel locally (no critic/fixer agents)
+bash scripts/loop/run_parallel_local.sh --concurrency 4
+
+# Generate per-scenario kickoff prompts for the parallel cloud sweep
+python3 scripts/loop/generate_kickoff_prompts.py --top 10 --dir /tmp/loop_prompts
+
+# Post a loop result to a PR as a comment (CI workflow does this automatically)
+python3 scripts/loop/post_critique_to_pr.py \
+  --scenario-id 367_designate_warlord --pr 412 \
+  --user-dir ~/.local/share/godot/app_userdata/40k
+```
+
 ## Status
 
 | Piece | Status | Notes |
 |---|---|---|
-| Per-step screenshot mode in `ScenarioRunner` | done (Phase 1) | `SCENARIO_SCREENSHOT_EVERY_STEP=1` env var |
-| Driver script | done (Phase 1) | `run_one_scenario_loop.sh` |
-| Critic | **stub + live-tested** (Phase 1, 5) | `critic_stub.py` validates I/O contract; real critic is an Agent invocation documented in `playbook.md`, live-validated against runner_smoke (`agent_runs/runner_smoke_critique.json`) |
-| Critic prompt for real run | done (Phase 1) | `critic_prompt.md` (consumed by the Agent tool inside a cloud Claude session) |
-| Fixer prompt for real run | done (Phase 1) | `fixer_prompt.md` (same) |
-| Host-session playbook | done (Phase 5) | `playbook.md` — runbook for the cloud Claude session driving one scenario |
-| Golden screenshot PHASH diff | done (Phase 2) | `golden_diff.py`, goldens under `40k/tests/scenarios/goldens/` |
-| Selector preflight | done (Phase 3) | `SCENARIO_SELECTOR_DRY_RUN=1` in `ScenarioRunner`, integrated into driver |
-| Determinism check | done (Phase 3) | `determinism_check.sh`, standalone tool |
-| Pre-commit guardrails | done (Phase 6) | `.githooks/pre-commit-loop` — fires on `loop/*` branches, enforces scenario-immutability, forbidden paths, diff cap, Justification |
-| Parallel kickoff | done (Phase 7) | `kickoff_parallel.md` + `list_scenarios_by_priority.py` (orphans → top, then by oldest commit) |
+| Per-step screenshot mode in `ScenarioRunner` | done | `SCENARIO_SCREENSHOT_EVERY_STEP=1` env var |
+| Driver (single scenario) | done | `run_one_scenario_loop.sh` |
+| Driver (local parallel) | done | `run_parallel_local.sh` — bounded-concurrency local runner |
+| Critic agent | validated | `critic_prompt.md` + invocation per `playbook.md`. Validated in `validation_2026-05-19.md` |
+| Fixer agent | validated | `fixer_prompt.md` + invocation per `playbook.md`. Validated in `validation_2026-05-19.md` |
+| Host-session playbook | done | `playbook.md` — runbook for the cloud Claude session driving one scenario |
+| Unattended end-to-end | validated | `validation_unattended_2026-05-19.md` — full pipeline closes in ~6 min |
+| Golden diff (grid pHash + per-platform) | done | `golden_diff.py`, goldens under `40k/tests/scenarios/goldens/<platform>/` |
+| skip_diff for non-deterministic scenarios | done | `_thresholds.json:skip_diff` list |
+| `wait_for_tweens` step type | done | Lets non-deterministic scenarios opt back into diffing |
+| Selector preflight | done | `SCENARIO_SELECTOR_DRY_RUN=1` in `ScenarioRunner` |
+| Determinism check | done | `determinism_check.sh`, standalone tool |
+| Pre-commit guardrails | done | `.githooks/pre-commit-loop` |
+| Parallel kickoff (prompts) | done | `generate_kickoff_prompts.py` — emits per-scenario web-UI prompts |
+| Priority lister | done | `list_scenarios_by_priority.py` (orphans → top, then by oldest commit) |
+| PR-comment integration | done | `post_critique_to_pr.py` — formats + posts to GitHub |
+| CI workflow | done | `.github/workflows/loop-prefilter.yml` — runs on every PR |
 
 ## How to drive one scenario locally
 
