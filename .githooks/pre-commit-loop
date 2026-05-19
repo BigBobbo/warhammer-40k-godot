@@ -1,0 +1,130 @@
+#!/bin/bash
+# Pre-commit guardrails for the visual-regression loop's auto-generated
+# branches (loop/*). Enforces the caps documented in
+# .llm/visual-regression-loop-plan.md so a runaway fixer agent cannot:
+#
+#   - Edit scenario JSONs (scenarios are the test, not the SUT)
+#   - Touch fragile autoloads, save/load, or static data
+#   - Land a megacommit that's hard to review or bisect
+#   - Skip the required Justification: paragraph in the commit body
+#
+# Invoked by .githooks/pre-commit when the current branch matches loop/*.
+# Standalone-runnable for testing:
+#
+#   GIT_LOOP_DRY_RUN_COMMIT_MSG=/path/to/msg.txt \
+#       bash .githooks/pre-commit-loop
+#
+# Caps (mirror the design doc; bump only by editing this file):
+#
+#   max staged diff lines:    200
+#   forbidden paths (regex):  see FORBIDDEN_PATHS
+#   commit body must contain: "Justification:"
+#   scenarios immutable:      no diff under 40k/tests/scenarios/**
+#
+# Exit codes:
+#   0  all guardrails pass
+#   1  at least one guardrail tripped
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Branch gate — only enforce on loop/* branches. Allow override via
+# GIT_LOOP_FORCE=1 for testing.
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [ "${GIT_LOOP_FORCE:-0}" != "1" ]; then
+    case "$BRANCH" in
+        loop/*) ;;
+        *) exit 0 ;;
+    esac
+fi
+
+echo "[pre-commit-loop] branch=$BRANCH — enforcing loop guardrails"
+
+# === Cap 1: scenarios immutable ===
+SCENARIO_DIFF=$(git diff --cached --name-only -- '40k/tests/scenarios/*.json' \
+                                                 '40k/tests/scenarios/sp/*.json' \
+                                                 '40k/tests/scenarios/mp/*.json' || true)
+if [ -n "$SCENARIO_DIFF" ]; then
+    echo ""
+    echo "FAIL: scenarios are immutable inside the loop"
+    echo "      The loop runs against the existing scenarios; it does not"
+    echo "      get to rewrite them to make itself pass. Move these edits"
+    echo "      to a hand-authored branch off main."
+    echo "      Offending files:"
+    echo "$SCENARIO_DIFF" | sed 's/^/        /'
+    exit 1
+fi
+
+# Goldens directory IS editable on loop/* — fixer + --bless can update
+# blessed frames after an intentional UI change is verified.
+
+# === Cap 2: forbidden paths ===
+# Files the fixer should never need to touch when fixing a scenario
+# regression. If a real bug points here, halt and let a human take over.
+FORBIDDEN_PATHS=(
+    "40k/autoloads/GameState.gd"
+    "40k/scripts/SaveLoadManager.gd"
+    "40k/data/"
+    "40k/project.godot"
+    "scripts/loop/"           # the loop must not edit itself
+    ".githooks/"              # nor its guardrails
+    ".llm/visual-regression-loop-plan.md"
+)
+STAGED=$(git diff --cached --name-only)
+FORBIDDEN_HITS=""
+for path in "${FORBIDDEN_PATHS[@]}"; do
+    HITS=$(echo "$STAGED" | grep -F "$path" || true)
+    if [ -n "$HITS" ]; then
+        FORBIDDEN_HITS+="$HITS"$'\n'
+    fi
+done
+if [ -n "$FORBIDDEN_HITS" ]; then
+    echo ""
+    echo "FAIL: edits to forbidden paths on a loop/* branch"
+    echo "      Forbidden roots:"
+    for path in "${FORBIDDEN_PATHS[@]}"; do
+        echo "        $path"
+    done
+    echo "      Offending files:"
+    echo "$FORBIDDEN_HITS" | grep -v '^$' | sed 's/^/        /'
+    exit 1
+fi
+
+# === Cap 3: max diff lines ===
+MAX_DIFF_LINES="${LOOP_MAX_DIFF_LINES:-200}"
+# Count added + removed lines (excluding context); --numstat sums per file
+DIFF_LINES=$(git diff --cached --numstat \
+             | awk '{ added+=$1; removed+=$2 } END { print added+removed }')
+DIFF_LINES=${DIFF_LINES:-0}
+if [ "$DIFF_LINES" -gt "$MAX_DIFF_LINES" ]; then
+    echo ""
+    echo "FAIL: diff is $DIFF_LINES lines, cap is $MAX_DIFF_LINES"
+    echo "      Loop fixes are meant to be minimal. If this fix really"
+    echo "      needs more, split it across iterations or escalate to a"
+    echo "      human branch off main."
+    exit 1
+fi
+
+# === Cap 4: Justification paragraph in commit body ===
+# git invokes us BEFORE the editor; we read the prepared message from
+# the standard path. Honour GIT_LOOP_DRY_RUN_COMMIT_MSG for tests.
+COMMIT_MSG_FILE="${GIT_LOOP_DRY_RUN_COMMIT_MSG:-$REPO_ROOT/.git/COMMIT_EDITMSG}"
+if [ -f "$COMMIT_MSG_FILE" ]; then
+    BODY=$(grep -v '^#' "$COMMIT_MSG_FILE" || true)
+    if ! echo "$BODY" | grep -qE '^Justification:[[:space:]]*\S'; then
+        echo ""
+        echo "FAIL: commit body missing a non-empty 'Justification:' line"
+        echo "      The loop's fixer prompt requires one. It explains:"
+        echo "        - which critique entry this change addresses"
+        echo "        - why this is the minimal fix"
+        echo "        - what other critique entries are deferred and why"
+        echo "      Add a line starting with 'Justification: ' to your"
+        echo "      commit message and try again."
+        exit 1
+    fi
+fi
+
+echo "[pre-commit-loop] all guardrails pass  (diff=$DIFF_LINES/$MAX_DIFF_LINES lines)"
+exit 0
