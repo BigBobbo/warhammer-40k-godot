@@ -128,6 +128,19 @@ func _run_scenario() -> void:
 				for i in range(4):
 					await get_tree().process_frame
 
+	# 5b) Disable AI if the scenario opts in. Many audit fixtures save with
+	# the AI-controlled player as the active player; without this, the AI
+	# auto-processes that player's turn before the scenario's first
+	# dispatch_action can run, marking units as "completed" and rejecting
+	# the scenario's intended action with success=false. Scenarios that
+	# specifically test AI behaviour (e.g. fight_self_targeting) leave
+	# this unset to preserve the AI.
+	if _scenario.get("disable_ai", false):
+		var ai_player = get_node_or_null("/root/AIPlayer")
+		if ai_player != null:
+			ai_player.enabled = false
+			print("[ScenarioRunner] AI disabled (disable_ai=true)")
+
 	# 6) Capture starting CP for delta_from_start asserts
 	_start_cp = _capture_cp_snapshot()
 
