@@ -277,6 +277,12 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_click_node(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
+		"simulate_joy_button":
+			rec.merge(await _do_simulate_joy_button(step), true)
+		"simulate_joy_motion":
+			rec.merge(await _do_simulate_joy_motion(step), true)
+		"set_gamepad_enabled":
+			rec.merge(_do_set_gamepad_enabled(step), true)
 		"expect_state":
 			rec.merge(_do_expect_state(step), true)
 		"expect_cp":
@@ -417,6 +423,109 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 	Input.parse_input_event(release)
 	await get_tree().process_frame
 	return {"pass": true}
+
+
+# --- Joypad injection -------------------------------------------------------
+# Scenario JSON:
+#   {"act": "set_gamepad_enabled", "enabled": true}
+#   {"act": "simulate_joy_button", "button": "JOY_BUTTON_A", "device": 0}
+#   {"act": "simulate_joy_motion", "axis":   "JOY_AXIS_RIGHT_X",
+#    "value": 0.9, "device": 0, "duration_s": 0.2}
+# Buttons/axes accept either the int constant or the GDScript constant name
+# as a string. Motion can stay held for `duration_s` (default 0.1s) before
+# being released to 0.
+
+func _do_set_gamepad_enabled(step: Dictionary) -> Dictionary:
+	var adapter = get_node_or_null("/root/GamepadInputAdapter")
+	if adapter == null:
+		return {"pass": false, "error": "GamepadInputAdapter autoload missing"}
+	if not adapter.has_method("set_enabled_for_tests"):
+		return {"pass": false, "error": "adapter lacks set_enabled_for_tests"}
+	var v: bool = bool(step.get("enabled", true))
+	adapter.set_enabled_for_tests(v)
+	return {"pass": true, "enabled": v}
+
+func _resolve_joy_constant(value, prefix: String) -> int:
+	# Accept either an int or a string like "JOY_BUTTON_A".
+	if typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT:
+		return int(value)
+	if typeof(value) != TYPE_STRING:
+		return -1
+	var s := String(value)
+	# Strip optional "JOY_BUTTON_" / "JOY_AXIS_" prefix tolerance.
+	if not s.begins_with(prefix):
+		s = prefix + s
+	# Map by name via the global ClassDB constant table. Godot exposes joy
+	# button / axis names as Global enums; we resolve by string compare.
+	var enum_table := {
+		"JOY_BUTTON_A": JOY_BUTTON_A,
+		"JOY_BUTTON_B": JOY_BUTTON_B,
+		"JOY_BUTTON_X": JOY_BUTTON_X,
+		"JOY_BUTTON_Y": JOY_BUTTON_Y,
+		"JOY_BUTTON_BACK": JOY_BUTTON_BACK,
+		"JOY_BUTTON_GUIDE": JOY_BUTTON_GUIDE,
+		"JOY_BUTTON_START": JOY_BUTTON_START,
+		"JOY_BUTTON_LEFT_STICK": JOY_BUTTON_LEFT_STICK,
+		"JOY_BUTTON_RIGHT_STICK": JOY_BUTTON_RIGHT_STICK,
+		"JOY_BUTTON_LEFT_SHOULDER": JOY_BUTTON_LEFT_SHOULDER,
+		"JOY_BUTTON_RIGHT_SHOULDER": JOY_BUTTON_RIGHT_SHOULDER,
+		"JOY_BUTTON_DPAD_UP": JOY_BUTTON_DPAD_UP,
+		"JOY_BUTTON_DPAD_DOWN": JOY_BUTTON_DPAD_DOWN,
+		"JOY_BUTTON_DPAD_LEFT": JOY_BUTTON_DPAD_LEFT,
+		"JOY_BUTTON_DPAD_RIGHT": JOY_BUTTON_DPAD_RIGHT,
+		"JOY_AXIS_LEFT_X": JOY_AXIS_LEFT_X,
+		"JOY_AXIS_LEFT_Y": JOY_AXIS_LEFT_Y,
+		"JOY_AXIS_RIGHT_X": JOY_AXIS_RIGHT_X,
+		"JOY_AXIS_RIGHT_Y": JOY_AXIS_RIGHT_Y,
+		"JOY_AXIS_TRIGGER_LEFT": JOY_AXIS_TRIGGER_LEFT,
+		"JOY_AXIS_TRIGGER_RIGHT": JOY_AXIS_TRIGGER_RIGHT,
+	}
+	if enum_table.has(s):
+		return int(enum_table[s])
+	return -1
+
+func _do_simulate_joy_button(step: Dictionary) -> Dictionary:
+	var button := _resolve_joy_constant(step.get("button", -1), "JOY_BUTTON_")
+	if button < 0:
+		return {"pass": false, "error": "could not resolve button: %s" % str(step.get("button"))}
+	var device := int(step.get("device", 0))
+	var press := InputEventJoypadButton.new()
+	press.device = device
+	press.button_index = button
+	press.pressed = true
+	press.pressure = 1.0
+	Input.parse_input_event(press)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var release := InputEventJoypadButton.new()
+	release.device = device
+	release.button_index = button
+	release.pressed = false
+	release.pressure = 0.0
+	Input.parse_input_event(release)
+	await get_tree().process_frame
+	return {"pass": true, "button": button, "device": device}
+
+func _do_simulate_joy_motion(step: Dictionary) -> Dictionary:
+	var axis := _resolve_joy_constant(step.get("axis", -1), "JOY_AXIS_")
+	if axis < 0:
+		return {"pass": false, "error": "could not resolve axis: %s" % str(step.get("axis"))}
+	var device := int(step.get("device", 0))
+	var value := float(step.get("value", 0.0))
+	var duration_s := float(step.get("duration_s", 0.1))
+	var motion := InputEventJoypadMotion.new()
+	motion.device = device
+	motion.axis = axis
+	motion.axis_value = value
+	Input.parse_input_event(motion)
+	await get_tree().create_timer(duration_s).timeout
+	var release := InputEventJoypadMotion.new()
+	release.device = device
+	release.axis = axis
+	release.axis_value = 0.0
+	Input.parse_input_event(release)
+	await get_tree().process_frame
+	return {"pass": true, "axis": axis, "value": value, "device": device}
 
 
 func _do_expect_state(step: Dictionary) -> Dictionary:

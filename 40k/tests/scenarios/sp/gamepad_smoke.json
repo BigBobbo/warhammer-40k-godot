@@ -1,0 +1,15 @@
+{
+  "id": "gamepad_smoke",
+  "covers": ["input.gamepad.phase0_seam"],
+  "description": "Phase 0 smoke test: GamepadInputAdapter autoload exists, ScenarioRunner can inject joypad events, and the adapter records them when enabled. No game-state side effects — this only verifies the input seam.",
+  "steps": [
+    { "act": "expect_node_visible", "node": "/root/GamepadInputAdapter", "timeout_s": 2.0 },
+    { "act": "set_gamepad_enabled", "enabled": true },
+    { "act": "expect_node_property", "node": "/root/GamepadInputAdapter", "property": "enabled", "equals": true },
+    { "act": "simulate_joy_button", "button": "JOY_BUTTON_A", "device": 0 },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_node_property", "node": "/root/GamepadInputAdapter", "property": "enabled", "equals": true },
+    { "act": "simulate_joy_motion", "axis": "JOY_AXIS_RIGHT_X", "value": 0.85, "duration_s": 0.15 },
+    { "act": "wait_frames", "frames": 2 }
+  ]
+}

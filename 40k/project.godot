@@ -61,6 +61,7 @@ UnitAbilityManager="*res://autoloads/UnitAbilityManager.gd"
 DiceHistoryPanel="*res://autoloads/DiceHistoryPanel.gd"
 DiceSoundManager="*res://autoloads/DiceSoundManager.gd"
 KeybindingManager="*res://autoloads/KeybindingManager.gd"
+GamepadInputAdapter="*res://autoloads/GamepadInputAdapter.gd"
 MCPServer="*res://addons/godot_mcp/mcp_server.gd"
 ScenarioRunner="*res://autoloads/ScenarioRunner.gd"
 
