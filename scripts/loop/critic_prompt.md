@@ -64,3 +64,38 @@ If nothing is wrong, emit `[]` exactly.
 - "No dialog visible" after a `wait_seconds` or `expect_state` step is
   NOT a finding by itself — those steps don't change the UI. Only flag
   when the scenario clearly intends a dialog to appear.
+
+## Known limitations (be conservative)
+
+The validation runs (`validation_2026-05-19.md`,
+`validation_unattended_2026-05-19.md`) surfaced two recurring
+failure modes for the critic — flag these in your own output by
+defaulting to lower severity when uncertain:
+
+1. **Multimodal Claude is unreliable at fine color discrimination
+   on downsampled screenshots.** Goldens are saved at 480×270.
+   Distinguishing parchment-amber from peach-orange or gold-blue
+   from sky-blue at that resolution is genuinely hard. If you
+   think you see a color regression but cannot name the specific
+   colors confidently, downgrade severity to `medium` and frame
+   the observation in luminance terms ("brighter/darker") not hue
+   terms ("red vs orange").
+
+2. **Hallucinated findings on clean runs.** When the diff prefilter
+   reports no drift, your sanity-check critique should default to
+   `[]`. Only emit findings when you can point at a SPECIFIC pixel
+   region (use the per-tile-distance hint from the goldens report
+   when present) that differs from the golden in a way the
+   scenario JSON's intent would notice. "The dialog title looks
+   garbled" without supporting evidence in the goldens-report
+   per-tile distances is the hallucination class to avoid.
+
+## Severity discipline
+
+The fixer prompt instructs the fixer to address `high` first,
+then `medium`, and to ignore `low` on the first iteration. So:
+- Be generous with `low` — they cost nothing.
+- Be strict with `high` — only when a player would visibly notice
+  the feature is broken.
+- `medium` is the catch-all for "this looks off but doesn't block
+  play."
