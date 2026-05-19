@@ -1,0 +1,60 @@
+{
+  "id": "T07_terrain_cover_icons",
+  "covers": ["design_guidelines.T07", "board.terrain.cover_icons"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 6,
+  "description": "Per-tile cover icons rendered on top of every terrain piece. Each icon node named TerrainCoverIcon_<terrain_id> with a Label whose text matches the derived cover_type (+1 / +2 / LB). Asserts overlay node tree, at least one icon present, the label text matches, and the centroid position is within tolerance of the terrain piece's center. pixel_diff confirms the board region differs from a baseline where the overlay is hidden.",
+
+  "regions": {
+    "board": [0, 0, 1920, 1080]
+  },
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/BoardRoot/TerrainCoverOverlay\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.size()",
+      "expect_min": 1 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").get_child_count() == TerrainManager.terrain_features.size()",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_ruins_1\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_ruins_1\").modulate.a",
+      "expect_min": 0.8 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_ruins_1/Label\").text",
+      "equals": "LB" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay/TerrainCoverIcon_ruins_1\").position.distance_to(TerrainManager.terrain_features[0].position)",
+      "expect_max": 8.0 },
+
+    { "act": "screenshot", "label": "T07_overlay_on" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").set(\"visible\", false)" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "screenshot", "label": "T07_overlay_off" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/TerrainCoverOverlay\").set(\"visible\", true)" },
+
+    { "act": "pixel_diff",
+      "before": "T07_overlay_off",
+      "after":  "T07_overlay_on",
+      "expect_min_pct": 0.01 },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

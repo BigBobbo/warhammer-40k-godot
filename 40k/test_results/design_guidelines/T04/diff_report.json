@@ -3,13 +3,13 @@
   "pixel_diff_steps": [
     {
       "act": "pixel_diff",
-      "diff_pct": 4.265625,
+      "diff_pct": 4.22209821428571,
       "pass": true,
       "result": {
         "regions": {
-          "phase_bar": 4.265625
+          "phase_bar": 4.22209821428571
         },
-        "total_diff_pct": 43.7209683641975
+        "total_diff_pct": 43.7251639660494
       },
       "step": 24
     }

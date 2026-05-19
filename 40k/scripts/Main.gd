@@ -236,6 +236,12 @@ func _ready() -> void:
 	# T04: phase bar (top-center HUD). Self-installs as PanelContainer child.
 	add_child(preload("res://scripts/PhaseBar.gd").new())
 
+	# T07: per-tile cover icons. Lives under BoardRoot so it transforms
+	# with the board (camera/zoom).
+	var board_root = get_node_or_null("BoardRoot")
+	if board_root != null:
+		board_root.add_child(preload("res://scripts/TerrainCoverOverlay.gd").new())
+
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
 	if GameEventLog:

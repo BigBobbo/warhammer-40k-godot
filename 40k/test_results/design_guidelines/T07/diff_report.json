@@ -1,0 +1,19 @@
+{
+  "scenario_id": "T07_terrain_cover_icons",
+  "pixel_diff_steps": [
+    {
+      "act": "pixel_diff",
+      "diff_pct": 0.0201099537037037,
+      "pass": true,
+      "result": {
+        "regions": {},
+        "total_diff_pct": 0.0201099537037037
+      },
+      "step": 13
+    }
+  ],
+  "summary": {
+    "step_count": 1,
+    "all_passed": true
+  }
+}
