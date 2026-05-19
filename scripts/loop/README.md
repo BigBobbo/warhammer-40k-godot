@@ -10,9 +10,10 @@ Claude session per scenario, parallel by default. See
 |---|---|---|
 | Per-step screenshot mode in `ScenarioRunner` | done (Phase 1) | `SCENARIO_SCREENSHOT_EVERY_STEP=1` env var |
 | Driver script | done (Phase 1) | `run_one_scenario_loop.sh` |
-| Critic | **stub** (Phase 1) | `critic_stub.py` returns `[]`, validates I/O contract only |
+| Critic | **stub + live-tested** (Phase 1, 5) | `critic_stub.py` validates I/O contract; real critic is an Agent invocation documented in `playbook.md`, live-validated against runner_smoke (`agent_runs/runner_smoke_critique.json`) |
 | Critic prompt for real run | done (Phase 1) | `critic_prompt.md` (consumed by the Agent tool inside a cloud Claude session) |
 | Fixer prompt for real run | done (Phase 1) | `fixer_prompt.md` (same) |
+| Host-session playbook | done (Phase 5) | `playbook.md` — runbook for the cloud Claude session driving one scenario |
 | Golden screenshot PHASH diff | done (Phase 2) | `golden_diff.py`, goldens under `40k/tests/scenarios/goldens/` |
 | Selector preflight | done (Phase 3) | `SCENARIO_SELECTOR_DRY_RUN=1` in `ScenarioRunner`, integrated into driver |
 | Determinism check | done (Phase 3) | `determinism_check.sh`, standalone tool |
