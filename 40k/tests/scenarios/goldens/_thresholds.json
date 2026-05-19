@@ -1,15 +1,24 @@
 {
   "$schema_version": 1,
-  "$description": "Per-scenario perceptual-hash tolerance for the visual-regression loop. Values are Hamming-distance thresholds on a 64-bit PHASH; pairs with distance > threshold count as drift. Default applied when a scenario id is absent from this map.",
+  "$description": "Per-scenario perceptual-hash tolerance for the visual-regression loop. Values are Hamming-distance thresholds on a 3×3 grid pHash; pairs with max-tile distance > threshold count as drift. Default applied when a scenario id is absent from this map.",
   "$rules": [
     "Bumping a threshold to silence drift is a code smell. Prefer to fix the regression, or bless the new screenshot via `bash scripts/loop/run_one_scenario_loop.sh --bless <scenario.json>`.",
     "Per-step overrides (`<scenario_id>.<step_idx>`) take precedence over the per-scenario value.",
-    "Threshold semantics: 0 = identical, 64 = totally different. Empirical baseline for unrelated UI changes is ~12-18; subpixel differences are typically 0-3."
+    "Threshold semantics (post-grid-pHash): 0 = identical, 64 = totally different per tile. Empirical baseline for clean runs is 0 across all tiles. The 3×3 grid takes max-tile distance, so a single drifted region trips drift.",
+    "skip_diff is for scenarios whose visual output is intrinsically non-deterministic (multi-token tween settling, mid-tween dispatch sequences). They still run and still capture per-step screenshots for the critic agent to read — only the perceptual-hash diff is suppressed."
   ],
   "default": 4,
   "per_scenario": {
     "runner_smoke": 4
   },
   "per_step": {
+  },
+  "skip_diff": [
+    "horde_movement",
+    "co_offer_after_charge"
+  ],
+  "$skip_diff_rationale": {
+    "horde_movement": "20 Boyz models move toward a target with congestion blocking. Empirically run-to-run drift is hd=32 max-tile even with rng_seed=42 — the per-model tween destinations depend on continuous physics interactions that don't quantize to identical pixels. The scenario validates engine state (models reach the target despite congestion), not visual fidelity.",
+    "co_offer_after_charge": "Four dispatch_actions fire in rapid succession (SELECT_FIGHTER, DECLINE_EPIC_CHALLENGE, PILE_IN, CONSOLIDATE) with no inter-action settle frames. The per-step screenshot after each step captures the engine mid-tween (camera pan, token reposition, dialog opening). Run-to-run drift is hd~20 on different steps each run, so neither blessing nor threshold-bumping gives a stable signal. The scenario validates the counter-offensive trigger fires correctly, asserted via expect_action_result and expect_phase_property — visual diff adds no signal."
   }
 }

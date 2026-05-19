@@ -198,6 +198,41 @@ def main() -> int:
               file=sys.stderr)
         return 2
 
+    # Scenarios with intrinsically non-deterministic visuals
+    # (multi-token tween settling, mid-tween dispatch sequences) opt
+    # out of perceptual-hash comparison via the "skip_diff" list in
+    # _thresholds.json. They still run, still take per-step
+    # screenshots (for the critic agent's reading), but the diff
+    # short-circuits to "skipped" status instead of producing noise.
+    skip_diff = set(thresholds.get("skip_diff", []))
+    if scenario_id in skip_diff and not args.bless:
+        report = {
+            "scenario_id": scenario_id,
+            "mode": "diff",
+            "threshold_default": thresholds.get("default", 4),
+            "results": [
+                {
+                    "step_idx": s.get("step", -1),
+                    "act": s.get("act", ""),
+                    "screenshot": s.get("per_step_screenshot", ""),
+                    "status": "skipped_diff",
+                    "reason": "scenario_id is in _thresholds.json:skip_diff",
+                }
+                for s in steps if s.get("per_step_screenshot")
+            ],
+            "summary": {"match": 0, "drift": 0, "missing_golden": 0,
+                        "blessed": 0, "skipped": len(steps),
+                        "drifted_steps": []},
+        }
+        report_path = args.report or os.path.join(
+            args.user_dir, "test_results/scenarios/goldens_report.json")
+        with open(report_path, "w") as f:
+            json.dump(report, f, indent=2)
+        print(f"[golden_diff] scenario:   {scenario_id}")
+        print(f"[golden_diff] mode:       diff (skipped — non-deterministic visual)")
+        print(f"[golden_diff] report:     {report_path}")
+        return 0
+
     os.makedirs(args.goldens_dir, exist_ok=True)
 
     report_results = []
