@@ -1,0 +1,174 @@
+name: Visual-regression loop (prefilter)
+
+# Runs the visual-regression diff prefilter on every PR that touches
+# UI-rendering code (40k/scripts/ or 40k/scenes/), and posts the
+# goldens_report.json summary as a PR comment. This is the first-pass
+# detection layer documented in scripts/loop/playbook.md.
+#
+# The critic and fixer agents are NOT invoked here — those are
+# operator-driven cloud sessions, kicked off via
+# scripts/loop/generate_kickoff_prompts.py when this prefilter flags
+# drift that warrants automated remediation.
+#
+# Non-blocking by design: this workflow MUST NOT block merges. It's
+# signal, not gate. Real regressions still need human triage.
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '40k/scripts/**'
+      - '40k/scenes/**'
+      - '40k/autoloads/**'
+      - '40k/tests/scenarios/**'
+      - 'scripts/loop/**'
+      - '.github/workflows/loop-prefilter.yml'
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: "4.4.1"
+
+jobs:
+  loop-prefilter:
+    name: Loop prefilter (diff + PR comment)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      pull-requests: write   # for the post_critique_to_pr.py PR comment
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 2  # need HEAD + base for `git diff`
+
+      - name: Install Xvfb + GL stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            xvfb x11-xserver-utils \
+            libxinerama1 libxcursor1 libxi6 libxrandr2 \
+            libgl1 libglu1-mesa libegl1 libgles2 mesa-utils
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
+
+      - name: Build xvfb-run shim
+        run: |
+          REAL_GODOT="$(command -v godot)"
+          mkdir -p $HOME/.local/bin
+          cat > $HOME/.local/bin/godot <<EOF
+          #!/bin/bash
+          exec xvfb-run -a --server-args="-screen 0 1920x1080x24 +extension RANDR" \\
+            "$REAL_GODOT" \\
+            --rendering-driver opengl3 \\
+            --audio-driver Dummy \\
+            "\$@"
+          EOF
+          chmod +x $HOME/.local/bin/godot
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install loop dependencies (Pillow, imagehash)
+        run: |
+          python3 -m pip install --user --quiet Pillow imagehash
+
+      - name: Import project
+        run: |
+          cd 40k
+          timeout 240 godot --headless --import || true
+          timeout 240 godot --headless --import || true
+
+      - name: Pick affected scenarios
+        id: pick
+        run: |
+          # Determine which scenarios to run.
+          # Strategy: if the PR touches scenario files, run those.
+          # Otherwise run a representative subset.
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          CHANGED_SCEN=$(git diff --name-only "$BASE_SHA"..."$HEAD_SHA" \
+            | grep -E '^40k/tests/scenarios/sp/.*\.json$' || true)
+
+          if [ -n "$CHANGED_SCEN" ]; then
+            echo "scenarios<<EOF" >> $GITHUB_OUTPUT
+            echo "$CHANGED_SCEN" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "Mode: changed scenarios only"
+          else
+            # Default subset: a fast representative sample. Adjust to
+            # match coverage priorities.
+            cat <<EOF >> $GITHUB_OUTPUT
+          scenarios<<MARKER
+          40k/tests/scenarios/sp/runner_smoke.json
+          40k/tests/scenarios/sp/367_designate_warlord.json
+          40k/tests/scenarios/sp/378_leader_pairing_formations.json
+          MARKER
+          EOF
+            echo "Mode: representative subset"
+          fi
+
+      - name: Run loop prefilter on affected scenarios
+        id: prefilter
+        env:
+          LOOP_SKIP_PREFLIGHT: "1"
+        run: |
+          ANY_DRIFT=0
+          mkdir -p /tmp/loop_artefacts
+          while IFS= read -r SCENARIO; do
+            [ -z "$SCENARIO" ] && continue
+            SID=$(basename "$SCENARIO" .json)
+            echo "::group::$SID"
+            if bash scripts/loop/run_one_scenario_loop.sh "$SCENARIO" \
+                > /tmp/loop_artefacts/${SID}.driver.log 2>&1; then
+              echo "  OK: $SID"
+            else
+              echo "  DRIFT: $SID"
+              ANY_DRIFT=1
+            fi
+            # Copy artefacts to a stable path for upload
+            cp -r ~/.local/share/godot/app_userdata/40k/test_results/scenarios/* \
+              /tmp/loop_artefacts/ 2>/dev/null || true
+            echo "::endgroup::"
+
+            # Post PR comment for this scenario
+            python3 scripts/loop/post_critique_to_pr.py \
+              --scenario-id "$SID" \
+              --user-dir "$HOME/.local/share/godot/app_userdata/40k" \
+              --owner "${GITHUB_REPOSITORY%/*}" \
+              --repo "${GITHUB_REPOSITORY#*/}" \
+              --pr "${{ github.event.pull_request.number }}" \
+              || echo "  post-comment failed (non-fatal)"
+          done <<< "${{ steps.pick.outputs.scenarios }}"
+          echo "any_drift=$ANY_DRIFT" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loop-prefilter-artefacts
+          path: /tmp/loop_artefacts/
+          if-no-files-found: warn
+
+      - name: Summary
+        if: always()
+        run: |
+          DRIFT="${{ steps.prefilter.outputs.any_drift }}"
+          if [ "$DRIFT" = "1" ]; then
+            echo "## ⚠️ Loop prefilter flagged drift" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "See the per-scenario PR comments for details. To run" >> $GITHUB_STEP_SUMMARY
+            echo "the full critic+fixer loop on a drifted scenario, follow" >> $GITHUB_STEP_SUMMARY
+            echo "\`scripts/loop/kickoff_parallel.md\`." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ✅ Loop prefilter clean" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All scanned scenarios passed visual diff." >> $GITHUB_STEP_SUMMARY
+          fi
+          # Always exit 0 — this job is signal, not gate.
+          exit 0
