@@ -100,6 +100,30 @@ func _run_scenario() -> void:
 			rules.set_test_seed(rng_seed)
 			print("[ScenarioRunner] rng_seed=%d" % rng_seed)
 
+	# 3b) Disable AI if the scenario opts in. Must neutralise BOTH the
+	# AIPlayer.enabled flag AND the player_type fields in the loaded
+	# game_config — otherwise the change_scene_to_file below triggers
+	# AIPlayer.Reconfigured-after-load, which reads game_config and
+	# re-enables AI for any "AI"-typed player, undoing a flag-only
+	# disable. By overwriting player1_type/player2_type to HUMAN in
+	# GameState before the scene change, the reconfigure path sets
+	# ai_players[...] = false naturally. Scenarios that specifically
+	# test AI behaviour (e.g. fight_self_targeting) leave this unset.
+	if _scenario.get("disable_ai", false):
+		var ai_player = get_node_or_null("/root/AIPlayer")
+		var gs = get_node_or_null("/root/GameState")
+		if gs != null:
+			var meta = gs.state.get("meta", {})
+			var gc = meta.get("game_config", {})
+			gc["player1_type"] = "HUMAN"
+			gc["player2_type"] = "HUMAN"
+			meta["game_config"] = gc
+			gs.state["meta"] = meta
+		if ai_player != null:
+			ai_player.enabled = false
+			ai_player.ai_players = {1: false, 2: false}
+			print("[ScenarioRunner] AI disabled (disable_ai=true; player_types→HUMAN)")
+
 	# 4) Switch to the live battle scene so the UI / TokenLayer renders the
 	#    loaded fixture — this is the rendering pipeline that headless
 	#    state-mutation tests bypassed.
@@ -128,18 +152,17 @@ func _run_scenario() -> void:
 				for i in range(4):
 					await get_tree().process_frame
 
-	# 5b) Disable AI if the scenario opts in. Many audit fixtures save with
-	# the AI-controlled player as the active player; without this, the AI
-	# auto-processes that player's turn before the scenario's first
-	# dispatch_action can run, marking units as "completed" and rejecting
-	# the scenario's intended action with success=false. Scenarios that
-	# specifically test AI behaviour (e.g. fight_self_targeting) leave
-	# this unset to preserve the AI.
+	# 5b) Re-disable AI after the scene change. The scene-change-to-Main
+	# above triggers AIPlayer.Reconfigured (which reads game_config and
+	# sets enabled=true if any player is AI), undoing the 3b disable.
+	# We re-apply here so AI is off for the actual step walk. This is
+	# belt-and-braces: 3b suppresses AI during scene init, 5b
+	# suppresses for the steps.
 	if _scenario.get("disable_ai", false):
-		var ai_player = get_node_or_null("/root/AIPlayer")
-		if ai_player != null:
-			ai_player.enabled = false
-			print("[ScenarioRunner] AI disabled (disable_ai=true)")
+		var ai_player2 = get_node_or_null("/root/AIPlayer")
+		if ai_player2 != null and ai_player2.enabled:
+			ai_player2.enabled = false
+			print("[ScenarioRunner] AI re-disabled after scene reconfigure")
 
 	# 6) Capture starting CP for delta_from_start asserts
 	_start_cp = _capture_cp_snapshot()
