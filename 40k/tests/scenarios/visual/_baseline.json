@@ -1,0 +1,10 @@
+{
+  "_comment": "Regression baseline for the design-guidelines task suite. The `passing` array lists scenario IDs that are known to pass on this branch; `count` MUST match its length. run_scenarios.sh exits with code 3 if the live passing-count drops below `count`. Tighten this floor (raise the count, add IDs) only when a clean run actually proves the additions pass. NEVER lower the floor to make a failing task green — that is the regression we are trying to prevent.",
+  "_last_refreshed_commit": "T02 — initial snapshot",
+  "_refresh_policy": "Bump only after a clean `bash 40k/tests/run_scenarios.sh` AND a clean visual-suite run. T45 (final design-guidelines audit) is the canonical refresh point.",
+  "_environment_note": "This baseline was snapshotted in a cloud session where several existing sp/ scenarios (runner_smoke and others) cannot run because the Godot project needs an editor pass to resolve class_name dependencies (EffectPrimitivesData, DeploymentZoneData, etc.). In a dev session those scenarios should pass — re-snapshot from there as part of T03 or T45.",
+  "count": 1,
+  "passing": [
+    "T02_harness_self_check"
+  ]
+}

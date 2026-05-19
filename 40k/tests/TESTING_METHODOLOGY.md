@@ -220,3 +220,89 @@ If you write new actions with nested position fields, extend `_normalize_action_
 - Runner: `tests/run_pretrigger_tests.sh`
 - Save generator pattern: `tests/helpers/TestSaveGenerator.gd` + `tests/run_save_generator.gd`
 - Audit narrative: `test_results/audit_2026_05/AUDIT_REPORT.md`
+
+---
+
+## Design-guidelines visual tasks (T01–T45)
+
+Tasks T01 through T45 (see `.llm/todo.md`) implement
+`docs/design_guidelines_2d_topdown.md`. They use a stricter scenario format
+that requires every claim to be falsifiable — *no* screenshot-only acceptance,
+*no* pin-tests masquerading as validation. Three Tier-A step types added in
+T02 enforce this.
+
+### Three new step types
+
+1. **`execute_script`** — evaluate a GDScript expression with access to every
+   autoload by name (plus `main` = current_scene). Supports `equals`,
+   `not_equals`, `exists`, `expect_min`, `expect_max`.
+   ```json
+   { "act": "execute_script",
+     "script": "MovementController.current_drag_segments[-1].color_slot",
+     "equals": "MARGINAL_YELLOW" }
+   ```
+   Use this to read state the feature exposes — every task in `.llm/todo.md`
+   declares the property/method it adds for this purpose. If a task can't be
+   asserted, the task is rejected — design the change so the relevant state
+   IS observable.
+
+2. **`pixel_diff`** — compare two screenshots captured earlier in the same
+   scenario, optionally clipped to a named region declared at the scenario
+   top level. Requires `expect_min_pct` or `expect_max_pct` — a diff without
+   a bound is a screenshot in disguise and is banned.
+   ```json
+   { "act": "pixel_diff",
+     "before": "T03_at_M", "after": "T03_at_advance",
+     "region": "drag_path", "expect_min_pct": 3.0 }
+   ```
+
+3. **`expect_baseline_unchanged`** — sanity-check that
+   `tests/scenarios/visual/_baseline.json` is well-formed. The cross-scenario
+   regression check (passing-count vs baseline.count) lives in
+   `run_scenarios.sh` because it needs cross-scenario visibility.
+
+See `tests/scenarios/visual/_schema.md` for the full reference and
+`tests/scenarios/visual/_template.json` for the copy-paste starting point.
+
+### Running
+
+```bash
+# Just the visual suite
+bash 40k/tests/run_scenarios.sh --visual
+
+# Single task
+bash 40k/tests/run_scenarios.sh tests/scenarios/visual/T03_drag_ruler.json
+```
+
+Exit codes for visual runs:
+- 0: all pass
+- 1: assertion failure
+- 2: infra error
+- **3: regression — passing count fell below `_baseline.json.count`**
+
+When any `visual/T##_*.json` ran in the batch, screenshots and the per-scenario
+result JSON are copied to `40k/test_results/design_guidelines/T##/` for stable
+review locations.
+
+### Unit-testing the pixel-diff helper
+
+The math in `tests/tools/pixel_diff.gd` has its own headless self-test:
+
+```bash
+godot --headless --path 40k --script tests/tools/pixel_diff_unit_test.gd
+```
+
+Exercises identical-images = 0%, black-vs-white > 95%, region clipping, and
+error paths. Run before changing the diff implementation.
+
+### Banned anti-patterns (per the playbook)
+
+- Screenshot-only acceptance.
+- `pixel_diff` without an `expect_*_pct` bound.
+- "Node exists" / "child count > N" without a paired property read of the
+  thing that actually controls the pixel.
+- Subjective adjectives in Tier A (`readable`, `smooth`, `performant`).
+- Lowering `_baseline.json.count` to make a failing task green.
+
+The playbook
+(`docs/design_guidelines_implementation_plan.md`) is the canonical reference.

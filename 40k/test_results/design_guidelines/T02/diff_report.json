@@ -1,0 +1,31 @@
+{
+  "scenario_id": "T02_harness_self_check",
+  "pixel_diff_steps": [
+    {
+      "act": "pixel_diff",
+      "diff_pct": 0.0,
+      "pass": true,
+      "result": {
+        "regions": {},
+        "total_diff_pct": 0.0
+      },
+      "step": 7
+    },
+    {
+      "act": "pixel_diff",
+      "diff_pct": 0.0,
+      "pass": true,
+      "result": {
+        "regions": {
+          "full_viewport": 0.0
+        },
+        "total_diff_pct": 0.0
+      },
+      "step": 8
+    }
+  ],
+  "summary": {
+    "step_count": 2,
+    "all_passed": true
+  }
+}

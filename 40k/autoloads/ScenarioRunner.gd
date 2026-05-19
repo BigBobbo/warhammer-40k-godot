@@ -204,6 +204,12 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(_do_expect_node_property(step), true)
 		"expect_token_visible":
 			rec.merge(await _do_expect_token_visible(step), true)
+		"execute_script":
+			rec.merge(_do_execute_script(step), true)
+		"pixel_diff":
+			rec.merge(_do_pixel_diff(step), true)
+		"expect_baseline_unchanged":
+			rec.merge(_do_expect_baseline_unchanged(step), true)
 		_:
 			rec["pass"] = false
 			rec["error"] = "unknown act: %s" % act
@@ -446,6 +452,176 @@ func _do_expect_token_visible(step: Dictionary) -> Dictionary:
 			return {"pass": true}
 		await get_tree().process_frame
 	return {"pass": false, "error": "no visible token for %s within %ss" % [unit_id, str(timeout_s)]}
+
+
+# ----------------------------------------------------------------------------
+# Tier-A step types (added in T02 for design-guidelines tasks).
+#
+# These three step types let visual scenarios make falsifiable claims about
+# state, rendered pixels, and the regression-baseline file. See
+# tests/scenarios/visual/_schema.md.
+# ----------------------------------------------------------------------------
+
+func _do_execute_script(step: Dictionary) -> Dictionary:
+	# Evaluate a GDScript expression and compare its result against
+	# equals / not_equals / exists / expect_min / expect_max.
+	#
+	# The expression has access to:
+	#   - autoloads by name (GameState, PhaseManager, RulesEngine, ...)
+	#   - the helper `main` referring to /root/Main if present
+	#
+	# Example:
+	#   { "act": "execute_script",
+	#     "script": "MovementController.current_drag_segments[-1].color_slot",
+	#     "equals": "MARGINAL_YELLOW" }
+	var code: String = str(step.get("script", ""))
+	if code == "":
+		return {"pass": false, "error": "execute_script needs `script`"}
+
+	# Build input name/value pairs:
+	#   - every autoload child of /root (referenced by node name)
+	#   - common engine singletons (Engine, OS, Time, Input, RenderingServer)
+	#   - `main` -> the live battle scene root, if loaded
+	var input_names: Array = []
+	var input_values: Array = []
+	var root := get_tree().root
+	for child in root.get_children():
+		input_names.append(child.name)
+		input_values.append(child)
+	input_names.append_array(["Engine", "OS", "Time", "Input", "RenderingServer", "ProjectSettings", "main"])
+	input_values.append_array([Engine, OS, Time, Input, RenderingServer, ProjectSettings, get_tree().current_scene])
+
+	var expr := Expression.new()
+	var parse_err := expr.parse(code, input_names)
+	if parse_err != OK:
+		return {"pass": false, "error": "parse failed: %s" % expr.get_error_text()}
+	# Pass self as base instance so `self.foo` works and any singletons not in
+	# input_names fall through to the runner's context.
+	var actual = expr.execute(input_values, self, true)
+	if expr.has_execute_failed():
+		return {"pass": false, "error": "execute failed: %s" % expr.get_error_text()}
+
+	# Tolerate "no expectation" — caller may just want to drive a side effect.
+	if not (step.has("equals") or step.has("not_equals") or step.has("exists")
+			or step.has("expect_min") or step.has("expect_max")):
+		return {"pass": true, "actual": actual}
+
+	# Numeric bounds
+	if step.has("expect_min"):
+		var lo = float(step["expect_min"])
+		if typeof(actual) in [TYPE_INT, TYPE_FLOAT]:
+			var ok = float(actual) >= lo
+			return {"pass": ok, "actual": actual, "expect_min": lo,
+					"error": "" if ok else "expected >= %s, got %s" % [str(lo), str(actual)]}
+		return {"pass": false, "error": "expect_min requires numeric actual, got %s" % typeof(actual)}
+	if step.has("expect_max"):
+		var hi = float(step["expect_max"])
+		if typeof(actual) in [TYPE_INT, TYPE_FLOAT]:
+			var ok2 = float(actual) <= hi
+			return {"pass": ok2, "actual": actual, "expect_max": hi,
+					"error": "" if ok2 else "expected <= %s, got %s" % [str(hi), str(actual)]}
+		return {"pass": false, "error": "expect_max requires numeric actual, got %s" % typeof(actual)}
+
+	# equals / not_equals / exists -> reuse _compare
+	return _compare(step, actual, "script[%s]" % code.substr(0, 60))
+
+
+func _do_pixel_diff(step: Dictionary) -> Dictionary:
+	# Compare two previously-captured screenshots (by `label`, matching the
+	# `screenshot` step's label argument). Optionally clipped to a named region
+	# from the scenario-level `regions` dict.
+	#
+	# Example:
+	#   { "act": "pixel_diff",
+	#     "before": "T03_at_M", "after": "T03_at_advance",
+	#     "region": "drag_path",
+	#     "expect_min_pct": 3.0 }
+	var before_label: String = str(step.get("before", ""))
+	var after_label: String = str(step.get("after", ""))
+	if before_label == "" or after_label == "":
+		return {"pass": false, "error": "pixel_diff needs `before` and `after` labels"}
+
+	var scenario_id: String = str(_scenario.get("id", "unnamed"))
+	var before_rel := "%s/%s_%s.png" % [RESULTS_SUBDIR, scenario_id, before_label]
+	var after_rel := "%s/%s_%s.png" % [RESULTS_SUBDIR, scenario_id, after_label]
+	var before_abs := ProjectSettings.globalize_path("user://" + before_rel)
+	var after_abs := ProjectSettings.globalize_path("user://" + after_rel)
+
+	# Optional region resolution against scenario-level dict
+	var regions := {}
+	if step.has("region"):
+		var region_name: String = str(step["region"])
+		var scenario_regions: Dictionary = _scenario.get("regions", {})
+		if not scenario_regions.has(region_name):
+			return {"pass": false, "error": "scenario has no region named '%s'" % region_name}
+		regions[region_name] = scenario_regions[region_name]
+
+	# Load the static utility class. Cannot use class_name PixelDiff here
+	# without forcing it into the global namespace at parse time; load by path.
+	var pd = load("res://tests/tools/pixel_diff.gd")
+	if pd == null:
+		return {"pass": false, "error": "could not load pixel_diff.gd"}
+	var result: Dictionary = pd.diff(before_abs, after_abs, regions)
+	if result.has("error"):
+		return {"pass": false, "error": "pixel_diff: %s" % result["error"]}
+
+	# Pick the pct to compare against: region if specified, else total
+	var pct: float
+	if step.has("region"):
+		var region_name2: String = str(step["region"])
+		var rr = result.get("regions", {}).get(region_name2, null)
+		if typeof(rr) == TYPE_FLOAT or typeof(rr) == TYPE_INT:
+			pct = float(rr)
+		else:
+			return {"pass": false, "error": "region '%s' diff failed: %s" % [region_name2, str(rr)]}
+	else:
+		pct = float(result.get("total_diff_pct", -1.0))
+
+	# Always emit the diff to the results record so reviewers can see the
+	# numbers without re-running.
+	var record := {"pass": true, "diff_pct": pct, "result": result}
+
+	if step.has("expect_min_pct"):
+		var lo = float(step["expect_min_pct"])
+		if pct < lo:
+			record["pass"] = false
+			record["error"] = "pixel_diff: expected >= %.2f%%, got %.2f%%" % [lo, pct]
+	if step.has("expect_max_pct"):
+		var hi = float(step["expect_max_pct"])
+		if pct > hi:
+			record["pass"] = false
+			record["error"] = "pixel_diff: expected <= %.2f%%, got %.2f%%" % [hi, pct]
+	if not (step.has("expect_min_pct") or step.has("expect_max_pct")):
+		record["pass"] = false
+		record["error"] = "pixel_diff needs expect_min_pct or expect_max_pct"
+	return record
+
+
+func _do_expect_baseline_unchanged(_step: Dictionary) -> Dictionary:
+	# Asserts the regression baseline file exists and is non-empty. The
+	# suite-level regression check (PASSED count >= baseline count) is
+	# performed by run_scenarios.sh because it has cross-scenario visibility;
+	# this step is the in-scenario sanity check that the baseline machinery is
+	# wired up at all.
+	var baseline_path := "res://tests/scenarios/visual/_baseline.json"
+	var abs := ProjectSettings.globalize_path(baseline_path)
+	if not FileAccess.file_exists(abs):
+		return {"pass": false, "error": "baseline file missing: %s" % baseline_path}
+	var f := FileAccess.open(abs, FileAccess.READ)
+	if f == null:
+		return {"pass": false, "error": "could not open baseline file"}
+	var text := f.get_as_text()
+	f.close()
+	var parsed = JSON.parse_string(text)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return {"pass": false, "error": "baseline JSON malformed"}
+	var passing: Array = parsed.get("passing", [])
+	var count: int = int(parsed.get("count", -1))
+	if passing.is_empty() or count <= 0:
+		return {"pass": false, "error": "baseline is empty (count=%d, passing=%d)" % [count, passing.size()]}
+	if passing.size() != count:
+		return {"pass": false, "error": "baseline count (%d) != passing array length (%d)" % [count, passing.size()]}
+	return {"pass": true, "baseline_count": count}
 
 
 # ============================================================================

@@ -1,0 +1,42 @@
+{
+  "id": "T02_harness_self_check",
+  "covers": ["design_guidelines.T02", "infra.visual_harness"],
+  "description": "Self-test for the visual-scenario harness. Captures two identical frames and asserts pixel_diff returns near-zero. Exercises execute_script with bounds. Asserts the baseline file is well-formed. This scenario is the gate that proves T02's three new step types work before any T## task relies on them.",
+
+  "regions": {
+    "full_viewport": [0, 0, 1280, 720]
+  },
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "screenshot", "label": "T02_before" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "screenshot", "label": "T02_after" },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/PhaseManager\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_child_count()",
+      "expect_min": 5 },
+
+    { "act": "execute_script",
+      "script": "Engine.get_frames_drawn()",
+      "expect_min": 1 },
+
+    { "act": "pixel_diff",
+      "before": "T02_before",
+      "after":  "T02_after",
+      "expect_max_pct": 5.0 },
+
+    { "act": "pixel_diff",
+      "before": "T02_before",
+      "after":  "T02_after",
+      "region": "full_viewport",
+      "expect_max_pct": 5.0 },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}
