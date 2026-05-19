@@ -3,7 +3,7 @@
   "covers": ["phases.FormationsPhase.lone_operative_attachment_guard"],
   "fixture": "audit_373_lone_op",
   "transition_to_phase": 0,
-  "description": "Issue #373: Lone Operative CHARACTERs cannot attach to a bodyguard in FormationsPhase. Blade Champion has Lone Operative ability. DECLARE_LEADER_ATTACHMENT should be rejected. Then verify Shield Captain (non-LO) can still attach normally.",
+  "description": "Issue #373: 10th-edition rule clarification — Lone Operative is a targeting restriction (cannot be targeted at >12\" unless part of an Attached unit), NOT an attachment ban. Blade Champion has Lone Operative and should be ALLOWED to attach to a bodyguard. Verifies the engine permits LO+Leader characters to attach normally (e.g. Boss Snikrot pattern).",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 0 },
@@ -14,8 +14,14 @@
       "character_id": "U_BLADE_CHAMPION_A",
       "bodyguard_id": "U_CUSTODIAN_GUARD_B"
     }},
-    { "act": "expect_action_result", "path": "success", "equals": false },
-    { "act": "screenshot", "label": "02_lone_op_attachment_rejected" },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_lone_op_attached" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "UNDECLARE_LEADER_ATTACHMENT",
+      "character_id": "U_BLADE_CHAMPION_A"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
 
     { "act": "dispatch_action", "action": {
       "type": "DECLARE_LEADER_ATTACHMENT",
@@ -23,6 +29,6 @@
       "bodyguard_id": "U_CUSTODIAN_GUARD_B"
     }},
     { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "screenshot", "label": "03_non_lone_op_attachment_accepted" }
+    { "act": "screenshot", "label": "03_non_lone_op_attached" }
   ]
 }

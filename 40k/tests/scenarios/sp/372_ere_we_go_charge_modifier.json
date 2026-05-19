@@ -4,6 +4,7 @@
   "fixture": "audit_372_charge_modifier",
   "rng_seed": 42,
   "transition_to_phase": 9,
+  "disable_ai": true,
   "description": "Issue #372: Charge-roll modifier primitive. Boyz E has effect_plus_charge=2 (from 'ERE WE GO stratagem). Shield Captain is within charge range. Verify the flag is present and DECLARE_CHARGE succeeds, proving the charge phase accepts the unit with the modifier flag.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },

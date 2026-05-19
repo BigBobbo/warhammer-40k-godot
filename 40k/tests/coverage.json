@@ -1,6 +1,6 @@
 {
   "$schema_version": 1,
-  "description": "Machine-readable coverage matrix for the windowed-scenario gate. Source of truth for what is verified — append-only AUDIT_REPORT.md is a generated narrative view. See SESSION_PLAYBOOK.md for the rules of the road.",
+  "description": "Machine-readable coverage matrix for the windowed-scenario gate. Source of truth for what is verified \u2014 append-only AUDIT_REPORT.md is a generated narrative view. See SESSION_PLAYBOOK.md for the rules of the road.",
   "$rules": [
     "A 'covered' tile must reference at least one scenario file under tests/scenarios/.",
     "Each tile's scenarios[] entries must exist as files; check_coverage.py enforces this.",
@@ -11,148 +11,227 @@
     {
       "id": "infra.scenario_runner",
       "description": "ScenarioRunner autoload boot, fixture load, scene swap, RNG seeding, state walking, screenshot capture",
-      "scenarios": ["runner_smoke"],
+      "scenarios": [
+        "runner_smoke"
+      ],
       "last_verified_commit": "2e102a3",
       "status": "covered"
     },
     {
       "id": "fight.stratagem.counter_offensive",
       "description": "COUNTER-OFFENSIVE post-charge trigger surface, USE_COUNTER_OFFENSIVE effect, CP -2",
-      "scenarios": ["co_offer_after_charge"],
+      "scenarios": [
+        "co_offer_after_charge"
+      ],
       "last_verified_commit": "62824ef",
       "status": "covered"
     },
     {
       "id": "fight.fights_first_pulse",
       "description": "Fights-first sequence updated when COUNTER-OFFENSIVE used; phase.active_fighter_id, current_selecting_player",
-      "scenarios": ["co_offer_after_charge"],
+      "scenarios": [
+        "co_offer_after_charge"
+      ],
       "last_verified_commit": "62824ef",
       "status": "covered"
     },
     {
       "id": "charge.stratagem.heroic_intervention",
       "description": "HEROIC INTERVENTION post-charge-into-engagement trigger, USE_HEROIC_INTERVENTION 2D6 charge, CP -1",
-      "scenarios": ["hi_offer_after_charge_into_engagement"],
+      "scenarios": [
+        "hi_offer_after_charge_into_engagement"
+      ],
       "last_verified_commit": "62824ef",
       "status": "covered"
     },
     {
       "id": "movement.stratagem.rapid_ingress",
       "description": "RAPID INGRESS end-of-movement trigger, reserves filter, USE_RAPID_INGRESS, CP -1",
-      "scenarios": ["ri_offer_at_end_of_movement"],
+      "scenarios": [
+        "ri_offer_at_end_of_movement"
+      ],
       "last_verified_commit": "62824ef",
       "status": "covered"
     },
     {
       "id": "multiplayer.deployment.host_to_client_sync",
-      "description": "Multi-peer deployment sync — host deploys, client mirrors positions and coherency state",
-      "scenarios": ["mp:tests/integration/test_multiplayer_deployment.gd"],
+      "description": "Multi-peer deployment sync \u2014 host deploys, client mirrors positions and coherency state",
+      "scenarios": [
+        "mp:tests/integration/test_multiplayer_deployment.gd"
+      ],
       "last_verified_commit": "5f90d02",
       "status": "covered"
     },
     {
       "id": "multiplayer.dice.broadcast_sync",
-      "description": "Multi-peer dice broadcast — defender re-emits result.dice on remote (T5-MP5)",
-      "scenarios": ["mp:tests/integration/test_multiplayer_dice_log_sync.gd"],
+      "description": "Multi-peer dice broadcast \u2014 defender re-emits result.dice on remote (T5-MP5)",
+      "scenarios": [
+        "mp:tests/integration/test_multiplayer_dice_log_sync.gd"
+      ],
       "last_verified_commit": "45b3446",
       "status": "covered"
     },
     {
       "id": "multiplayer.save.broadcast_reliability",
-      "description": "Multi-peer save broadcast — broadcast_id + retry budget + dedupe (T5-MP4-RELIABILITY)",
-      "scenarios": ["mp:tests/integration/test_multiplayer_save_dialog_retry.gd"],
+      "description": "Multi-peer save broadcast \u2014 broadcast_id + retry budget + dedupe (T5-MP4-RELIABILITY)",
+      "scenarios": [
+        "mp:tests/integration/test_multiplayer_save_dialog_retry.gd"
+      ],
       "last_verified_commit": "9dc9c35",
       "status": "covered"
     },
     {
       "id": "multiplayer.shooting.visual_broadcast",
-      "description": "Multi-peer shooting visual broadcast — SELECT_SHOOTER/ASSIGN_TARGET/CONFIRM/COMPLETE (T5-MP3)",
-      "scenarios": ["mp:tests/integration/test_multiplayer_shooting_visuals.gd"],
+      "description": "Multi-peer shooting visual broadcast \u2014 SELECT_SHOOTER/ASSIGN_TARGET/CONFIRM/COMPLETE (T5-MP3)",
+      "scenarios": [
+        "mp:tests/integration/test_multiplayer_shooting_visuals.gd"
+      ],
       "last_verified_commit": "e2f3f51",
       "status": "covered"
     },
     {
       "id": "multiplayer.network.session",
-      "description": "Multi-peer network session lifecycle — host/join/disconnect, peer registration",
-      "scenarios": ["mp:tests/integration/test_multiplayer_network.gd"],
+      "description": "Multi-peer network session lifecycle \u2014 host/join/disconnect, peer registration",
+      "scenarios": [
+        "mp:tests/integration/test_multiplayer_network.gd"
+      ],
       "last_verified_commit": "f67b1ee",
       "status": "covered"
     },
     {
       "id": "rules.rng.determinism_329",
-      "description": "Issue #329 — RNGService.test_mode_seed produces identical dice across runs; new helpers (randi/randi_range/randf) honor it; TransportManager + MissionManager + Mathhammer plumbed",
-      "scenarios": ["mp:tests/test_audit_fixes_verification.gd", "mp:tests/test_rng_determinism_extended.gd"],
+      "description": "Issue #329 \u2014 RNGService.test_mode_seed produces identical dice across runs; new helpers (randi/randi_range/randf) honor it; TransportManager + MissionManager + Mathhammer plumbed",
+      "scenarios": [
+        "mp:tests/test_audit_fixes_verification.gd",
+        "mp:tests/test_rng_determinism_extended.gd"
+      ],
       "last_verified_commit": "f938aba",
       "status": "covered"
     },
     {
       "id": "rules.command.cp_gain_336",
-      "description": "Issue #336 — no CP on R1 first command phase; otherwise active player only",
-      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
+      "description": "Issue #336 \u2014 no CP on R1 first command phase; otherwise active player only",
+      "scenarios": [
+        "mp:tests/test_audit_fixes_verification.gd"
+      ],
       "last_verified_commit": "8749eb4",
       "status": "covered"
     },
     {
       "id": "rules.save_load.autoload_state_338",
-      "description": "Issue #338 — FactionAbilityManager + StratagemManager state round-trips through save/load",
-      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
+      "description": "Issue #338 \u2014 FactionAbilityManager + StratagemManager state round-trips through save/load",
+      "scenarios": [
+        "mp:tests/test_audit_fixes_verification.gd"
+      ],
       "last_verified_commit": "8749eb4",
       "status": "covered"
     },
     {
       "id": "rules.shooting.fall_back_and_shoot_override_356",
-      "description": "Issue #356 — Multipotentiality stratagem: effect_fall_back_and_shoot overrides cannot_shoot gate in ShootingPhase + RulesEngine.validate_shoot",
-      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
+      "description": "Issue #356 \u2014 Multipotentiality stratagem: effect_fall_back_and_shoot overrides cannot_shoot gate in ShootingPhase + RulesEngine.validate_shoot",
+      "scenarios": [
+        "mp:tests/test_audit_fixes_verification.gd"
+      ],
       "last_verified_commit": "8749eb4",
       "status": "covered"
     },
     {
       "id": "rules.stratagem.excluding_keyword_parser_359",
-      "description": "Issue #359 — FactionStratagemLoader._map_target correctly handles 'excluding X' as not_keyword:X (was incorrectly mapping to keyword:X). Affects 'ARD AS NAILS, UNWAVERING SENTINELS, ARCHEOTECH MUNITIONS",
-      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
+      "description": "Issue #359 \u2014 FactionStratagemLoader._map_target correctly handles 'excluding X' as not_keyword:X (was incorrectly mapping to keyword:X). Affects 'ARD AS NAILS, UNWAVERING SENTINELS, ARCHEOTECH MUNITIONS",
+      "scenarios": [
+        "mp:tests/test_audit_fixes_verification.gd"
+      ],
       "last_verified_commit": "8749eb4",
       "status": "covered"
     },
     {
       "id": "rules.keywords.melta_x_t1",
-      "description": "T1-1 — MELTA X auto-resolves damage bonus at half range",
-      "scenarios": ["mp:tests/test_melta_keyword_pipeline.gd"],
+      "description": "T1-1 \u2014 MELTA X auto-resolves damage bonus at half range",
+      "scenarios": [
+        "mp:tests/test_melta_keyword_pipeline.gd"
+      ],
       "last_verified_commit": "e0fcadf",
       "status": "covered"
     },
     {
       "id": "rules.keywords.twin_linked_t1",
-      "description": "T1-2 — TWIN-LINKED re-rolls all failed wound rolls",
-      "scenarios": ["mp:tests/test_twin_linked_pipeline.gd"],
+      "description": "T1-2 \u2014 TWIN-LINKED re-rolls all failed wound rolls",
+      "scenarios": [
+        "mp:tests/test_twin_linked_pipeline.gd"
+      ],
       "last_verified_commit": "932d569",
       "status": "covered"
     },
     {
       "id": "rules.abilities.stealth_t2",
-      "description": "T2-1 — STEALTH ability: -1 to hit on ranged attacks vs Stealth target",
-      "scenarios": ["mp:tests/test_stealth_keyword_pipeline.gd"],
+      "description": "T2-1 \u2014 STEALTH ability: -1 to hit on ranged attacks vs Stealth target",
+      "scenarios": [
+        "mp:tests/test_stealth_keyword_pipeline.gd"
+      ],
       "last_verified_commit": "592d0a8",
       "status": "covered"
     },
     {
       "id": "rules.shooting.cover_save_cap_s7",
-      "description": "T2-S7 — Cover save bonus capped: Sv3+ vs AP0 in cover stays 3+ (was 2+)",
-      "scenarios": ["mp:tests/test_s7_cover_save_bonus.gd"],
+      "description": "T2-S7 \u2014 Cover save bonus capped: Sv3+ vs AP0 in cover stays 3+ (was 2+)",
+      "scenarios": [
+        "mp:tests/test_s7_cover_save_bonus.gd"
+      ],
       "last_verified_commit": "6958cff",
       "status": "covered"
     },
     {
       "id": "rules.movement.base_touching_m6",
-      "description": "T2-M6 — base-touching regression (#321/#327)",
-      "scenarios": ["mp:tests/test_m6_base_touching_regression.gd"],
+      "description": "T2-M6 \u2014 base-touching regression (#321/#327)",
+      "scenarios": [
+        "mp:tests/test_m6_base_touching_regression.gd"
+      ],
       "last_verified_commit": "8749eb4",
       "status": "covered"
     },
     {
       "id": "rules.shooting.keyword_pipeline",
-      "description": "T2-S4..S6 — SUSTAINED HITS / LETHAL HITS / DEVASTATING WOUNDS keyword pipelines",
-      "scenarios": ["mp:tests/test_keyword_pipeline.gd"],
+      "description": "T2-S4..S6 \u2014 SUSTAINED HITS / LETHAL HITS / DEVASTATING WOUNDS keyword pipelines",
+      "scenarios": [
+        "mp:tests/test_keyword_pipeline.gd"
+      ],
       "last_verified_commit": "8749eb4",
+      "status": "covered"
+    },
+    {
+      "id": "charge.modifier_primitive",
+      "description": "Charge-roll modifier flag (effect_plus_charge) honoured by DECLARE_CHARGE \u2014 'ERE WE GO stratagem path",
+      "scenarios": [
+        "372_ere_we_go_charge_modifier"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.EffectPrimitives.PLUS_CHARGE",
+      "description": "EffectPrimitives PLUS_CHARGE effect \u2014 sets effect_plus_charge flag on a unit",
+      "scenarios": [
+        "372_ere_we_go_charge_modifier"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FormationsPhase.lone_operative_attachment_guard",
+      "description": "10e: Lone Operative is a targeting restriction (not an attachment ban). LO+Leader characters CAN attach to bodyguards. FormationsPhase _validate_declare_leader_attachment honours this",
+      "scenarios": [
+        "373_lone_operative_guard"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.self_targeting_fix",
+      "description": "Fight-phase AI does not select own units as melee targets \u2014 observational scenario captures before/after screenshots of AI fight decisions",
+      "scenarios": [
+        "fight_self_targeting"
+      ],
+      "last_verified_commit": "HEAD",
       "status": "covered"
     }
   ]

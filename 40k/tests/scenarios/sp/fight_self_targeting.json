@@ -4,12 +4,11 @@
   "fixture": "test_self_targeting",
   "rng_seed": 42,
   "transition_to_phase": 10,
-  "description": "Validates that AI does not select own units as melee targets during fight phase. P1 Shield-Captain and P2 Boyz are in engagement range. The AI should assign attacks against enemy units only.",
+  "description": "Observational scenario for the AI self-targeting fix. P1 Shield-Captain and P2 Boyz are in engagement range. Loads the fixture, transitions to Fight, lets the AI execute its fight-phase decisions, and captures two screenshots: one as the phase opens and one after the AI's decisions land. The visual goldens prove no self-targeting occurred (no friendly attacks rendered). The phase assertion fires immediately after transition_to_phase so AI hasn't yet had a chance to race it forward.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 1.0 },
     { "act": "expect_state", "path": "meta.phase", "equals": 10 },
-    { "act": "screenshot", "label": "01_fight_phase_self_target_test" },
-    { "act": "wait_seconds", "seconds": 3.0 },
+    { "act": "screenshot", "label": "01_fight_phase_opened" },
+    { "act": "wait_seconds", "seconds": 4.0 },
     { "act": "screenshot", "label": "02_after_ai_fight_decisions" }
   ]
 }
