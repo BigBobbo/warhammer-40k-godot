@@ -1,0 +1,21 @@
+{
+  "scenario_id": "T04_phase_bar",
+  "pixel_diff_steps": [
+    {
+      "act": "pixel_diff",
+      "diff_pct": 4.265625,
+      "pass": true,
+      "result": {
+        "regions": {
+          "phase_bar": 4.265625
+        },
+        "total_diff_pct": 43.7209683641975
+      },
+      "step": 24
+    }
+  ],
+  "summary": {
+    "step_count": 1,
+    "all_passed": true
+  }
+}

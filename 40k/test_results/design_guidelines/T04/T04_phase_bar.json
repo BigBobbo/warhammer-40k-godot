@@ -1,0 +1,215 @@
+{
+  "failed": 0,
+  "passed": 26,
+  "scenario_id": "T04_phase_bar",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar\") != null]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAN]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_MOVEME]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_SHOOTI]",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_CHARGE]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_FIGHT\"]",
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_MORALE]",
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T04_phase_bar_T04_command.png",
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": "e633b3ff",
+      "error": "",
+      "expected": "e633b3ff",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAND\").modu]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[is_equal_approx(get_node(\"/root/Main/PhaseBar/Pills/PhasePil]",
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[is_equal_approx(get_node(\"/root/Main/PhaseBar/Pills/PhasePil]",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T04_phase_bar_T04_movement.png",
+      "step": 14
+    },
+    {
+      "act": "execute_script",
+      "actual": "808080ff",
+      "error": "",
+      "expected": "808080ff",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAND\").modu]",
+      "pass": true,
+      "step": 15
+    },
+    {
+      "act": "execute_script",
+      "actual": "e633b3ff",
+      "error": "",
+      "expected": "e633b3ff",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_MOVEMENT\").mod]",
+      "pass": true,
+      "step": 16
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[is_equal_approx(get_node(\"/root/Main/PhaseBar/Pills/PhasePil]",
+      "pass": true,
+      "step": 17
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 18
+    },
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 19
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T04_phase_bar_T04_shooting.png",
+      "step": 20
+    },
+    {
+      "act": "execute_script",
+      "actual": "808080ff",
+      "error": "",
+      "expected": "808080ff",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAND\").modu]",
+      "pass": true,
+      "step": 21
+    },
+    {
+      "act": "execute_script",
+      "actual": "808080ff",
+      "error": "",
+      "expected": "808080ff",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_MOVEMENT\").mod]",
+      "pass": true,
+      "step": 22
+    },
+    {
+      "act": "execute_script",
+      "actual": "e633b3ff",
+      "error": "",
+      "expected": "e633b3ff",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_SHOOTING\").mod]",
+      "pass": true,
+      "step": 23
+    },
+    {
+      "act": "pixel_diff",
+      "diff_pct": 4.265625,
+      "pass": true,
+      "result": {
+        "regions": {
+          "phase_bar": 4.265625
+        },
+        "total_diff_pct": 43.7209683641975
+      },
+      "step": 24
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 3,
+      "pass": true,
+      "step": 25
+    }
+  ],
+  "total_steps": 26
+}
