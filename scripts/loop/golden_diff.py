@@ -100,6 +100,66 @@ def _phash(path: str):
         return imagehash.phash(img)
 
 
+# Grid pHash — splits the image into ROWS×COLS tiles, hashes each
+# independently, and returns the list. The 64-bit pHash applied to a
+# full game screenshot was empirically too coarse to catch
+# dialog-section-scale regressions (the unchanged battlefield
+# dominated the low-frequency signature). Computing one pHash per
+# tile means a regression in any one region produces a high
+# per-tile distance even if 8/9 tiles still match.
+GRID_ROWS = 3
+GRID_COLS = 3
+
+
+def _phash_grid(path: str, target_size: tuple = None):
+    """Return a list of GRID_ROWS*GRID_COLS pHashes, one per tile.
+
+    If target_size is provided, the image is resized to that size
+    BEFORE tiling — this gives resolution parity between the current
+    screenshot (1920×1080) and the blessed golden (480×270, see bless
+    branch below). Without this the tile boundaries fall at different
+    image content and the hashes are not comparable.
+    """
+    from PIL import Image
+    import imagehash
+    with Image.open(path) as src:
+        if target_size and src.size != target_size:
+            img = src.resize(target_size, Image.LANCZOS)
+        else:
+            img = src.copy()
+        w, h = img.size
+        tw = w // GRID_COLS
+        th = h // GRID_ROWS
+        hashes = []
+        for r in range(GRID_ROWS):
+            for c in range(GRID_COLS):
+                left = c * tw
+                top = r * th
+                right = w if c == GRID_COLS - 1 else left + tw
+                bottom = h if r == GRID_ROWS - 1 else top + th
+                tile = img.crop((left, top, right, bottom))
+                hashes.append(imagehash.phash(tile))
+        return hashes
+
+
+def _grid_distance(g1: list, g2: list) -> tuple:
+    """Return (max_tile_distance, per_tile_distances).
+
+    Max is the worst tile's Hamming distance — any single tile
+    drifting trips the threshold. The per-tile list is recorded in
+    the report for diagnostics.
+    """
+    per_tile = [int(a - b) for a, b in zip(g1, g2)]
+    return max(per_tile), per_tile
+
+
+def _golden_size(golden_abs: str) -> tuple:
+    """Return the (w, h) of the golden image, for resolution parity."""
+    from PIL import Image
+    with Image.open(golden_abs) as img:
+        return img.size
+
+
 def _golden_name(scenario_id: str, step: dict) -> str:
     rel = step.get("per_step_screenshot", "")
     return os.path.basename(rel)
@@ -137,6 +197,41 @@ def main() -> int:
         print(f"[golden_diff] FAIL no steps in results JSON",
               file=sys.stderr)
         return 2
+
+    # Scenarios with intrinsically non-deterministic visuals
+    # (multi-token tween settling, mid-tween dispatch sequences) opt
+    # out of perceptual-hash comparison via the "skip_diff" list in
+    # _thresholds.json. They still run, still take per-step
+    # screenshots (for the critic agent's reading), but the diff
+    # short-circuits to "skipped" status instead of producing noise.
+    skip_diff = set(thresholds.get("skip_diff", []))
+    if scenario_id in skip_diff and not args.bless:
+        report = {
+            "scenario_id": scenario_id,
+            "mode": "diff",
+            "threshold_default": thresholds.get("default", 4),
+            "results": [
+                {
+                    "step_idx": s.get("step", -1),
+                    "act": s.get("act", ""),
+                    "screenshot": s.get("per_step_screenshot", ""),
+                    "status": "skipped_diff",
+                    "reason": "scenario_id is in _thresholds.json:skip_diff",
+                }
+                for s in steps if s.get("per_step_screenshot")
+            ],
+            "summary": {"match": 0, "drift": 0, "missing_golden": 0,
+                        "blessed": 0, "skipped": len(steps),
+                        "drifted_steps": []},
+        }
+        report_path = args.report or os.path.join(
+            args.user_dir, "test_results/scenarios/goldens_report.json")
+        with open(report_path, "w") as f:
+            json.dump(report, f, indent=2)
+        print(f"[golden_diff] scenario:   {scenario_id}")
+        print(f"[golden_diff] mode:       diff (skipped — non-deterministic visual)")
+        print(f"[golden_diff] report:     {report_path}")
+        return 0
 
     os.makedirs(args.goldens_dir, exist_ok=True)
 
@@ -191,9 +286,18 @@ def main() -> int:
             entry["hamming_distance"] = None
             summary["missing_golden"] += 1
         else:
-            d = _phash(shot_abs) - _phash(golden_abs)
-            entry["hamming_distance"] = int(d)
-            if d <= threshold:
+            # Resolution parity: bless saves goldens at 1/4 resolution
+            # (see bless branch above). Resize the current screenshot
+            # down to match before hashing — otherwise the tile-grid
+            # boundaries fall at different image content and tile
+            # hashes are not comparable.
+            target = _golden_size(golden_abs)
+            cur_grid = _phash_grid(shot_abs, target_size=target)
+            gold_grid = _phash_grid(golden_abs)
+            max_d, per_tile = _grid_distance(cur_grid, gold_grid)
+            entry["hamming_distance"] = max_d
+            entry["per_tile_distances"] = per_tile
+            if max_d <= threshold:
                 entry["status"] = "match"
                 summary["match"] += 1
             else:
