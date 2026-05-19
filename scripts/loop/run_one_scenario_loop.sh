@@ -76,10 +76,23 @@ rm -f "$RESULTS_DIR/${SCENARIO_ID}_selectors_report.json" 2>/dev/null || true
 # any click_node / click_unit / expect_node_* / expect_token_visible
 # step has a selector that doesn't resolve. Cheaper than a full xvfb
 # run and surfaces "scenario silently no-ops because a button moved"
-# before the screenshot loop wastes its turn.
+# before the screenshot loop wastes its turn. Skipped when the
+# scenario JSON has no selector-using acts — ~30s saved per scenario.
+SCENARIO_HAS_SELECTORS=$(python3 -c "
+import json
+with open('$SCENARIO_PATH') as f:
+    s = json.load(f)
+selectors = {'click_node', 'click_unit', 'expect_node_visible',
+             'expect_node_property', 'expect_token_visible'}
+has = any(step.get('act') in selectors for step in s.get('steps', []))
+print('1' if has else '0')
+")
 if [ "${LOOP_SKIP_SELECTOR_PREFLIGHT:-0}" = "1" ]; then
     echo ""
     echo "[loop] selector preflight: SKIPPED (LOOP_SKIP_SELECTOR_PREFLIGHT=1)"
+elif [ "$SCENARIO_HAS_SELECTORS" = "0" ]; then
+    echo ""
+    echo "[loop] selector preflight: SKIPPED (scenario has no selector-using acts)"
 else
     echo ""
     echo "[loop] selector preflight: dry-run scenario for selector resolution"
@@ -149,21 +162,33 @@ fi
 # time and would clobber the per-step screenshots the golden diff needs.
 # Run it on demand when a scenario is suspected of flaking.
 
-# 5. Golden PHASH diff.
-echo ""
-echo "[loop] running golden diff"
-GOLDEN_ARGS=(--results "$RESULTS_JSON" --user-dir "$USER_DIR"
-             --goldens-dir "$GOLDENS_DIR")
-[ "$BLESS_MODE" = "1" ] && GOLDEN_ARGS+=(--bless)
-
-set +e
-python3 scripts/loop/golden_diff.py "${GOLDEN_ARGS[@]}"
-GOLDEN_EXIT=$?
-set -e
+# 5. Golden PHASH diff. In bless mode, refuse to bless if the scenario
+# itself failed — we never want broken-state screenshots as goldens.
+if [ "$BLESS_MODE" = "1" ] && [ "$SCENARIO_EXIT" -ne 0 ]; then
+    echo ""
+    echo "[loop] REFUSE to bless: scenario exit was $SCENARIO_EXIT (not 0)."
+    echo "       Blessing now would record a broken state as the visual"
+    echo "       baseline. Fix the scenario's failing steps first, then"
+    echo "       re-run --bless."
+    GOLDEN_EXIT=2
+else
+    echo ""
+    echo "[loop] running golden diff"
+    GOLDEN_ARGS=(--results "$RESULTS_JSON" --user-dir "$USER_DIR"
+                 --goldens-dir "$GOLDENS_DIR")
+    [ "$BLESS_MODE" = "1" ] && GOLDEN_ARGS+=(--bless)
+    set +e
+    python3 scripts/loop/golden_diff.py "${GOLDEN_ARGS[@]}"
+    GOLDEN_EXIT=$?
+    set -e
+fi
 
 # 6. Summary.
 CRITIQUE_COUNT=$(python3 -c "import json; print(len(json.load(open('$CRITIQUE_JSON'))))")
 SCREENSHOT_COUNT=$(ls -1 "$RESULTS_DIR/${SCENARIO_ID}_step_"*.png 2>/dev/null | wc -l | tr -d ' ')
+GOLDENS_REPORT="$RESULTS_DIR/goldens_report.json"
+MISSING_GOLDENS=$(python3 -c "import json; print(json.load(open('$GOLDENS_REPORT'))['summary']['missing_golden'])" 2>/dev/null || echo 0)
+MATCH_GOLDENS=$(python3 -c "import json; print(json.load(open('$GOLDENS_REPORT'))['summary']['match'])" 2>/dev/null || echo 0)
 echo ""
 echo "[loop] === summary ==="
 echo "  scenario:          $SCENARIO_ID"
@@ -171,9 +196,15 @@ echo "  scenario exit:     $SCENARIO_EXIT"
 echo "  per-step shots:    $SCREENSHOT_COUNT"
 echo "  results JSON:      $RESULTS_JSON"
 echo "  critique JSON:     $CRITIQUE_JSON  ($CRITIQUE_COUNT entries)"
-echo "  goldens report:    $RESULTS_DIR/goldens_report.json"
+echo "  goldens report:    $GOLDENS_REPORT"
 echo "  golden diff exit:  $GOLDEN_EXIT"
 echo "  run log:           $RUN_LOG"
+if [ "$MISSING_GOLDENS" -gt 0 ] && [ "$BLESS_MODE" != "1" ]; then
+    echo ""
+    echo "[loop] WARNING $MISSING_GOLDENS step(s) have no golden — scenario has no"
+    echo "       visual regression baseline. Re-run with --bless to bootstrap:"
+    echo "         bash scripts/loop/run_one_scenario_loop.sh --bless $SCENARIO_PATH"
+fi
 
 # Combined exit: any non-zero wins.
 if [ $SCENARIO_EXIT -ne 0 ]; then

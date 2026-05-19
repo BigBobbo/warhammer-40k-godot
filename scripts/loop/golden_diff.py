@@ -171,7 +171,18 @@ def main() -> int:
             continue
 
         if args.bless:
-            shutil.copyfile(shot_abs, golden_abs)
+            # Downsample to quarter resolution and re-encode with max PNG
+            # compression. PHASH (which downsamples to 32×32 internally) is
+            # unaffected — empirically Hamming-distance-0 vs the full-size
+            # source. The Agent reading the PNG sees less detail but still
+            # plenty for the visual-regression categories the critic
+            # prompt targets.
+            from PIL import Image as _Image
+            with _Image.open(shot_abs) as _src:
+                w, h = _src.size
+                _src.resize((max(1, w // 4), max(1, h // 4)),
+                            _Image.LANCZOS).save(
+                    golden_abs, optimize=True, compress_level=9)
             entry["status"] = "blessed"
             entry["hamming_distance"] = 0
             summary["blessed"] += 1
