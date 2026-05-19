@@ -26,10 +26,19 @@ var _enabled := true
 
 
 func _ready() -> void:
-	if OS.has_feature("editor") == false and OS.get_environment("GODOT_MCP_DISABLED") == "1":
-		_enabled = false
-		print("[GodotMCP] Disabled via GODOT_MCP_DISABLED=1")
-		return
+	# Disable in exports unless we're a debug build OR explicitly opted
+	# in via env. Without this guard the dev MCP bridge listens on every
+	# shipped Linux/Deck build, which is both unnecessary and a minor
+	# attack surface. Debug exports still get the bridge so scenario
+	# automation works against them.
+	if OS.has_feature("editor") == false:
+		var explicitly_disabled := OS.get_environment("GODOT_MCP_DISABLED") == "1"
+		var explicitly_enabled := OS.get_environment("GODOT_MCP_ENABLED") == "1"
+		if explicitly_disabled or (not OS.is_debug_build() and not explicitly_enabled):
+			_enabled = false
+			var reason := "GODOT_MCP_DISABLED=1" if explicitly_disabled else "release build"
+			print("[GodotMCP] Disabled (%s)" % reason)
+			return
 
 	# Allow the port to be overridden via env or project setting for CI.
 	var env_port := OS.get_environment("GODOT_MCP_PORT")

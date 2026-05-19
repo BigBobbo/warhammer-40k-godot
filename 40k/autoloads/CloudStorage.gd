@@ -18,15 +18,18 @@ signal game_participation_registered(game_id: String)
 const PRODUCTION_URL = "https://warhammer-40k-godot.fly.dev"
 const LOCAL_URL = "http://localhost:9080"
 const REQUEST_TIMEOUT = 15.0  # Covers fly.io cold start
+const LOCAL_PROBE_TIMEOUT_S = 0.5  # Quick reachability check on localhost
 
 var base_url: String = ""
 var player_id: String = ""
 var http_request: HTTPRequest = null
 var request_queue: Array = []
 var is_processing: bool = false
+var offline: bool = false  # True when the configured server is unreachable.
 
 func _ready() -> void:
 	# Determine server URL
+	var using_localhost_fallback := false
 	if OS.has_feature("web"):
 		base_url = PRODUCTION_URL
 	else:
@@ -42,8 +45,20 @@ func _ready() -> void:
 				file.close()
 		if base_url.is_empty():
 			base_url = LOCAL_URL
+			using_localhost_fallback = true
 
 	print("CloudStorage: Using server URL: ", base_url)
+
+	# On Deck / non-dev launches we fall back to localhost:9080 even
+	# though nothing is listening there. The 15s REQUEST_TIMEOUT then
+	# delays every queued call. Do a quick TCP probe up-front; if the
+	# fallback localhost server is unreachable, flip to offline mode
+	# and short-circuit every request. Explicitly-configured base_urls
+	# (server_config.json, web production) bypass the probe.
+	if using_localhost_fallback and _probe_localhost_unreachable():
+		offline = true
+		push_warning("CloudStorage: localhost:9080 unreachable; running offline")
+		print("CloudStorage: offline mode (no local server)")
 
 	# Setup HTTP request node
 	http_request = HTTPRequest.new()
@@ -54,8 +69,29 @@ func _ready() -> void:
 	# Initialize player ID
 	_init_player_id()
 
-	# Register with server
-	_register_player()
+	# Register with server (skipped if offline)
+	if not offline:
+		_register_player()
+
+func _probe_localhost_unreachable() -> bool:
+	# Quick TCP connect attempt with a short deadline. Returns true if
+	# nothing answers on localhost:9080 within LOCAL_PROBE_TIMEOUT_S.
+	var peer := StreamPeerTCP.new()
+	var err := peer.connect_to_host("127.0.0.1", 9080)
+	if err != OK:
+		return true
+	var deadline := Time.get_ticks_msec() + int(LOCAL_PROBE_TIMEOUT_S * 1000.0)
+	while Time.get_ticks_msec() < deadline:
+		peer.poll()
+		var s := peer.get_status()
+		if s == StreamPeerTCP.STATUS_CONNECTED:
+			peer.disconnect_from_host()
+			return false
+		if s == StreamPeerTCP.STATUS_ERROR:
+			return true
+		OS.delay_msec(10)
+	peer.disconnect_from_host()
+	return true
 
 func _init_player_id() -> void:
 	if OS.has_feature("web"):
@@ -156,6 +192,12 @@ func delete_army(army_name: String) -> void:
 # ============================================================================
 
 func _enqueue_request(method: String, path: String, body, operation: String, context: Dictionary, public_request: bool = false) -> void:
+	if offline:
+		# Short-circuit cleanly: emit the matching failure signal so any
+		# UI awaiting a response unblocks instead of waiting on a 15s
+		# HTTP timeout that will never resolve.
+		emit_signal("request_failed", operation, "offline: no cloud server reachable")
+		return
 	request_queue.append({
 		"method": method,
 		"path": path,

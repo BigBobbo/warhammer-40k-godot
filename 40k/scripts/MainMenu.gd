@@ -90,6 +90,15 @@ var _cloud_fetch_count: int = 0  # How many cloud armies still need fetching
 func _ready() -> void:
 	print("MainMenu: Initializing main menu")
 
+	# Steam Deck (and any Linux export tagged "deck" / "gamepad"): go
+	# fullscreen automatically. Project default is mode=3 (Maximized)
+	# which on Gaming Mode renders with a title bar; we want true
+	# fullscreen. Desktop launches keep the windowed default.
+	if OS.has_feature("deck") or OS.has_feature("gamepad"):
+		if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+			print("MainMenu: forced fullscreen (deck/gamepad feature present)")
+
 	# Ensure network state is clean when returning to menu (e.g. after leaving a multiplayer game)
 	if NetworkManager.is_networked():
 		print("MainMenu: Cleaning up stale network state")
@@ -125,7 +134,42 @@ func _ready() -> void:
 			start_button.grab_focus()
 		gamepad.device_changed.connect(_on_input_device_changed)
 
+	# Phase 0 / Deck bring-up: diagnostics button. Visible in debug
+	# builds and on builds tagged "deck"/"gamepad" (set by the Linux
+	# preset). Hidden in shipping desktop builds so it doesn't surface
+	# to normal players. One press writes a report under user://
+	# that the user can scp back for triage.
+	if OS.is_debug_build() or OS.has_feature("deck") or OS.has_feature("gamepad"):
+		_install_diagnostics_button()
+
 	print("MainMenu: Ready with default selections")
+
+func _install_diagnostics_button() -> void:
+	var section := $ScrollContainer/MenuContainer/ButtonSection as VBoxContainer
+	if section == null:
+		return
+	var btn := Button.new()
+	btn.name = "DiagnosticsButton"
+	btn.text = "Diagnostics (write report)"
+	btn.custom_minimum_size = Vector2(200, 40)
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	btn.pressed.connect(_on_diagnostics_pressed)
+	# Insert before Quit so it sits with the other system actions.
+	section.add_child(btn)
+	if quit_button != null and quit_button.get_parent() == section:
+		section.move_child(btn, quit_button.get_index())
+
+func _on_diagnostics_pressed() -> void:
+	var path := DeckDiagnostics.write_report()
+	if path == "":
+		push_warning("MainMenu: diagnostics write failed")
+		return
+	# Surface via the existing toast manager if available; otherwise
+	# just log. The path is what the user actually needs.
+	var toast = get_node_or_null("/root/ToastManager")
+	if toast != null and toast.has_method("show_toast"):
+		toast.show_toast("Diagnostics written:\n%s" % path, 6.0)
+	print("[MainMenu] diagnostics report: %s" % path)
 
 func _on_input_device_changed(kind: String) -> void:
 	if kind == "gamepad" and is_inside_tree():
