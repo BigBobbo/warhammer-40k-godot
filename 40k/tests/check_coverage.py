@@ -49,8 +49,11 @@ def main() -> int:
         errors.append("coverage.json has no tiles")
     tile_ids = {t["id"] for t in tiles}
 
-    # Index every committed scenario file
-    all_scenario_files = list(SCENARIOS_DIR.rglob("*.json"))
+    # Index every committed scenario file. Restrict to sp/ and mp/ subdirs
+    # so non-scenario JSONs (agent_runs/, goldens/, etc.) don't trip the
+    # scanner.
+    all_scenario_files = list(SCENARIOS_DIR.glob("sp/*.json")) + \
+        list(SCENARIOS_DIR.glob("mp/*.json"))
     # Skip schema doc + any underscore-prefixed (private/test) files
     scenario_files = [p for p in all_scenario_files if not p.name.startswith("_")]
     scenario_index: dict[str, dict] = {}

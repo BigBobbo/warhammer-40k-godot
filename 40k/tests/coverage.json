@@ -1,6 +1,6 @@
 {
   "$schema_version": 1,
-  "description": "Machine-readable coverage matrix for the windowed-scenario gate. Source of truth for what is verified — append-only AUDIT_REPORT.md is a generated narrative view. See SESSION_PLAYBOOK.md for the rules of the road.",
+  "description": "Machine-readable coverage matrix for the windowed-scenario gate. Source of truth for what is verified \u2014 append-only AUDIT_REPORT.md is a generated narrative view. See SESSION_PLAYBOOK.md for the rules of the road.",
   "$rules": [
     "A 'covered' tile must reference at least one scenario file under tests/scenarios/.",
     "Each tile's scenarios[] entries must exist as files; check_coverage.py enforces this.",
@@ -9,150 +9,535 @@
   ],
   "tiles": [
     {
-      "id": "infra.scenario_runner",
-      "description": "ScenarioRunner autoload boot, fixture load, scene swap, RNG seeding, state walking, screenshot capture",
-      "scenarios": ["runner_smoke"],
-      "last_verified_commit": "2e102a3",
+      "id": "autoloads.EffectPrimitives.PLUS_CHARGE",
+      "description": "EffectPrimitives PLUS_CHARGE effect \u2014 sets effect_plus_charge flag on a unit",
+      "scenarios": [
+        "372_ere_we_go_charge_modifier"
+      ],
+      "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
-      "id": "fight.stratagem.counter_offensive",
-      "description": "COUNTER-OFFENSIVE post-charge trigger surface, USE_COUNTER_OFFENSIVE effect, CP -2",
-      "scenarios": ["co_offer_after_charge"],
-      "last_verified_commit": "62824ef",
+      "id": "autoloads.EffectPrimitives.effect_fnp",
+      "description": "EffectPrimitives: Feel No Pain (effect_fnp=N) flag triggers an FNP roll for each wound before damage applies. Validated by Supa-Cybork Body enhancement (#374).",
+      "scenarios": [
+        "374_supa_cybork_fnp"
+      ],
+      "last_verified_commit": "1f48cc6",
       "status": "covered"
     },
     {
-      "id": "fight.fights_first_pulse",
-      "description": "Fights-first sequence updated when COUNTER-OFFENSIVE used; phase.active_fighter_id, current_selecting_player",
-      "scenarios": ["co_offer_after_charge"],
-      "last_verified_commit": "62824ef",
+      "id": "autoloads.EffectPrimitives.fall_back_and_shoot",
+      "description": "EffectPrimitives: effect_fall_back_and_shoot=true overrides the rule that a unit which Fell Back cannot shoot/charge that turn. Validated by Kunnin' But Brutal enhancement (#374).",
+      "scenarios": [
+        "374_kunnin_but_brutal_fallback"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.LeaderPairingsLoader",
+      "description": "LeaderPairingsLoader: data-driven lookup of which CHARACTER units can be attached to which bodyguard units. Loaded from data/leader_pairings.csv and queried by FormationsPhase during DECLARE_LEADER_ATTACHMENT (#378).",
+      "scenarios": [
+        "378_leader_pairing_formations"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.RulesEngine.effect_devastating_wounds",
+      "description": "RulesEngine: weapons with effect_devastating_wounds=true convert critical wounds (unmodified 6 to wound) into mortal wounds that bypass saves. Validated by Headwoppa's Killchoppa (#374).",
+      "scenarios": [
+        "374_headwoppa_devastating_wounds"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.RulesEngine.effect_ignores_cover",
+      "description": "RulesEngine: weapons with effect_ignores_cover=true neutralize the +1 cover save modifier. Validated by Panoptispex enhancement (#374).",
+      "scenarios": [
+        "374_panoptispex_ignores_cover"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.RulesEngine.get_waaagh_energy_eadbanger_bonus",
+      "description": "RulesEngine: returns the per-shot damage bonus from the WAAAGH!-energy 'Eadbanger ability. Validated by '387_waaagh_energy_eadbanger.",
+      "scenarios": [
+        "387_waaagh_energy_eadbanger"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.RulesEngine.resolve_deadly_demise",
+      "description": "RulesEngine: when a unit with the Deadly Demise ability is destroyed, rolls the demise dice and applies mortal-wound damage to nearby units. Validated by '386_deadly_demise_vehicle.",
+      "scenarios": [
+        "386_deadly_demise_vehicle"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.RulesEngine.validate_shoot",
+      "description": "RulesEngine: validates a SHOOT action against the current shooter state \u2014 eligibility, target legality, weapon assignments. Validated by '370_bgnt_vehicle_shoots_in_engagement (Big Guns Never Tire seam).",
+      "scenarios": [
+        "370_bgnt_vehicle_shoots_in_engagement"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.TurnManager._handle_deployment_phase_start",
+      "description": "TurnManager: chooses which player deploys first when the deployment phase opens. The defender always deploys first per the 10e rules. Validated by '377_defender_deploys_first.",
+      "scenarios": [
+        "377_defender_deploys_first"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "charge.modifier_primitive",
+      "description": "Charge-roll modifier flag (effect_plus_charge) honoured by DECLARE_CHARGE \u2014 'ERE WE GO stratagem path",
+      "scenarios": [
+        "372_ere_we_go_charge_modifier"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.placement_congestion",
+      "description": "CHARGE phase: when the charging unit's destination is congested by friendly/enemy tokens, models still attempt to reach engagement range via the closest legal positioning. Validated by 'charge_congestion.",
+      "scenarios": [
+        "charge_congestion"
+      ],
+      "last_verified_commit": "1f48cc6",
       "status": "covered"
     },
     {
       "id": "charge.stratagem.heroic_intervention",
       "description": "HEROIC INTERVENTION post-charge-into-engagement trigger, USE_HEROIC_INTERVENTION 2D6 charge, CP -1",
-      "scenarios": ["hi_offer_after_charge_into_engagement"],
+      "scenarios": [
+        "hi_offer_after_charge_into_engagement"
+      ],
       "last_verified_commit": "62824ef",
+      "status": "covered"
+    },
+    {
+      "id": "command.cp_grant_rule",
+      "description": "CommandPhase: at the start of each player's command phase, both players gain CP per the 10e rules (1 CP each, capped at 15). Validated by '382_cp_grant_both_players.",
+      "scenarios": [
+        "382_cp_grant_both_players"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "deployment.castellan_mark_redeploy",
+      "description": "DeploymentPhase: a unit marked by the Castellan's mark stratagem may be redeployed once before the first turn begins. Validated by '397_castellan_mark_redeploy.",
+      "scenarios": [
+        "397_castellan_mark_redeploy"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "deployment.defender_first",
+      "description": "DeploymentPhase: per the 10e rules, the player chosen as defender deploys first. Validated by '377_defender_deploys_first.",
+      "scenarios": [
+        "377_defender_deploys_first"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "fight.ability.deadly_demise",
+      "description": "FIGHT phase: the Deadly Demise ability fires when a unit is destroyed during fight, rolling demise dice and dealing mortal wounds to nearby units. Validated by '386_deadly_demise_vehicle.",
+      "scenarios": [
+        "386_deadly_demise_vehicle"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "fight.enhancement.headwoppa_killchoppa",
+      "description": "FIGHT phase: the Headwoppa's Killchoppa enhancement grants devastating-wounds and charged_this_turn to the bearer. Validated by '374_headwoppa_devastating_wounds.",
+      "scenarios": [
+        "374_headwoppa_devastating_wounds"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "fight.fights_first_pulse",
+      "description": "Fights-first sequence updated when COUNTER-OFFENSIVE used; phase.active_fighter_id, current_selecting_player",
+      "scenarios": [
+        "co_offer_after_charge"
+      ],
+      "last_verified_commit": "62824ef",
+      "status": "covered"
+    },
+    {
+      "id": "fight.fights_last_validation",
+      "description": "FIGHT phase: when a unit has fights_last=true, the subphase rules require all non-fights-last units to fight first. Validated by 'fights_last_select_fighter.",
+      "scenarios": [
+        "fights_last_select_fighter"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "fight.self_targeting_fix",
+      "description": "Fight-phase AI does not select own units as melee targets \u2014 observational scenario captures before/after screenshots of AI fight decisions",
+      "scenarios": [
+        "fight_self_targeting"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.stratagem.counter_offensive",
+      "description": "COUNTER-OFFENSIVE post-charge trigger surface, USE_COUNTER_OFFENSIVE effect, CP -2",
+      "scenarios": [
+        "co_offer_after_charge"
+      ],
+      "last_verified_commit": "62824ef",
+      "status": "covered"
+    },
+    {
+      "id": "fight.subphase_transition",
+      "description": "FIGHT phase: subphases (fights-first \u2192 normal \u2192 fights-last) transition correctly when no eligible fighters remain in the current subphase. Validated by 'fights_last_select_fighter.",
+      "scenarios": [
+        "fights_last_select_fighter"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "infra.scenario_runner",
+      "description": "ScenarioRunner autoload boot, fixture load, scene swap, RNG seeding, state walking, screenshot capture",
+      "scenarios": [
+        "runner_smoke"
+      ],
+      "last_verified_commit": "2e102a3",
+      "status": "covered"
+    },
+    {
+      "id": "movement.da_jump_placement_bounds",
+      "description": "MOVEMENT phase: Da Jump teleports a unit to within 9\" of the warlord and \u22659\" from enemies. Bounds check rejects invalid placements. Validated by '376_da_jump_bounds.",
+      "scenarios": [
+        "376_da_jump_bounds"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "movement.enhancement.follow_me_ladz",
+      "description": "MOVEMENT phase: Follow Me Ladz enhancement grants +2 to the bearer's Move characteristic (effect_plus_move). Validated by '394_follow_me_ladz_plus_move.",
+      "scenarios": [
+        "394_follow_me_ladz_plus_move"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "movement.enhancement.kunnin_but_brutal",
+      "description": "MOVEMENT phase: Kunnin' But Brutal enhancement grants effect_fall_back_and_shoot and effect_fall_back_and_charge to the bearer. Validated by '374_kunnin_but_brutal_fallback.",
+      "scenarios": [
+        "374_kunnin_but_brutal_fallback"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "movement.horde_congestion",
+      "description": "MOVEMENT phase: a 20-model horde unit successfully moves toward a target despite congestion from blocking units. Validated by 'horde_movement.",
+      "scenarios": [
+        "horde_movement"
+      ],
+      "last_verified_commit": "1f48cc6",
       "status": "covered"
     },
     {
       "id": "movement.stratagem.rapid_ingress",
       "description": "RAPID INGRESS end-of-movement trigger, reserves filter, USE_RAPID_INGRESS, CP -1",
-      "scenarios": ["ri_offer_at_end_of_movement"],
+      "scenarios": [
+        "ri_offer_at_end_of_movement"
+      ],
       "last_verified_commit": "62824ef",
       "status": "covered"
     },
     {
       "id": "multiplayer.deployment.host_to_client_sync",
-      "description": "Multi-peer deployment sync — host deploys, client mirrors positions and coherency state",
-      "scenarios": ["mp:tests/integration/test_multiplayer_deployment.gd"],
+      "description": "Multi-peer deployment sync \u2014 host deploys, client mirrors positions and coherency state",
+      "scenarios": [
+        "mp:tests/integration/test_multiplayer_deployment.gd"
+      ],
       "last_verified_commit": "5f90d02",
       "status": "covered"
     },
     {
       "id": "multiplayer.dice.broadcast_sync",
-      "description": "Multi-peer dice broadcast — defender re-emits result.dice on remote (T5-MP5)",
-      "scenarios": ["mp:tests/integration/test_multiplayer_dice_log_sync.gd"],
+      "description": "Multi-peer dice broadcast \u2014 defender re-emits result.dice on remote (T5-MP5)",
+      "scenarios": [
+        "mp:tests/integration/test_multiplayer_dice_log_sync.gd"
+      ],
       "last_verified_commit": "45b3446",
       "status": "covered"
     },
     {
+      "id": "multiplayer.network.session",
+      "description": "Multi-peer network session lifecycle \u2014 host/join/disconnect, peer registration",
+      "scenarios": [
+        "mp:tests/integration/test_multiplayer_network.gd"
+      ],
+      "last_verified_commit": "f67b1ee",
+      "status": "covered"
+    },
+    {
       "id": "multiplayer.save.broadcast_reliability",
-      "description": "Multi-peer save broadcast — broadcast_id + retry budget + dedupe (T5-MP4-RELIABILITY)",
-      "scenarios": ["mp:tests/integration/test_multiplayer_save_dialog_retry.gd"],
+      "description": "Multi-peer save broadcast \u2014 broadcast_id + retry budget + dedupe (T5-MP4-RELIABILITY)",
+      "scenarios": [
+        "mp:tests/integration/test_multiplayer_save_dialog_retry.gd"
+      ],
       "last_verified_commit": "9dc9c35",
       "status": "covered"
     },
     {
       "id": "multiplayer.shooting.visual_broadcast",
-      "description": "Multi-peer shooting visual broadcast — SELECT_SHOOTER/ASSIGN_TARGET/CONFIRM/COMPLETE (T5-MP3)",
-      "scenarios": ["mp:tests/integration/test_multiplayer_shooting_visuals.gd"],
+      "description": "Multi-peer shooting visual broadcast \u2014 SELECT_SHOOTER/ASSIGN_TARGET/CONFIRM/COMPLETE (T5-MP3)",
+      "scenarios": [
+        "mp:tests/integration/test_multiplayer_shooting_visuals.gd"
+      ],
       "last_verified_commit": "e2f3f51",
       "status": "covered"
     },
     {
-      "id": "multiplayer.network.session",
-      "description": "Multi-peer network session lifecycle — host/join/disconnect, peer registration",
-      "scenarios": ["mp:tests/integration/test_multiplayer_network.gd"],
-      "last_verified_commit": "f67b1ee",
+      "id": "phases.CommandPhase._generate_command_points",
+      "description": "CommandPhase._generate_command_points: grants the per-turn CP to both players according to the 10e rules. Validated by '382_cp_grant_both_players.",
+      "scenarios": [
+        "382_cp_grant_both_players"
+      ],
+      "last_verified_commit": "1f48cc6",
       "status": "covered"
     },
     {
-      "id": "rules.rng.determinism_329",
-      "description": "Issue #329 — RNGService.test_mode_seed produces identical dice across runs; new helpers (randi/randi_range/randf) honor it; TransportManager + MissionManager + Mathhammer plumbed",
-      "scenarios": ["mp:tests/test_audit_fixes_verification.gd", "mp:tests/test_rng_determinism_extended.gd"],
-      "last_verified_commit": "f938aba",
+      "id": "phases.DeploymentPhase.CASTELLAN_REDEPLOY",
+      "description": "DeploymentPhase.CASTELLAN_REDEPLOY action: applies the Castellan's mark redeploy effect, moving the marked unit to a new valid deployment position. Validated by '397_castellan_mark_redeploy.",
+      "scenarios": [
+        "397_castellan_mark_redeploy"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FormationsPhase.DESIGNATE_WARLORD",
+      "description": "FormationsPhase.DESIGNATE_WARLORD action: marks one CHARACTER as the player's warlord (is_warlord=true) and clears the flag on any prior warlord. Validated by '367_designate_warlord.",
+      "scenarios": [
+        "367_designate_warlord"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FormationsPhase.declare_leader_attachment",
+      "description": "FormationsPhase.DECLARE_LEADER_ATTACHMENT action: pairs a CHARACTER leader with a bodyguard unit for the duration of the battle. Validated by '378_leader_pairing_formations.",
+      "scenarios": [
+        "378_leader_pairing_formations"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FormationsPhase.lone_operative_attachment_guard",
+      "description": "10e: Lone Operative is a targeting restriction (not an attachment ban). LO+Leader characters CAN attach to bodyguards. FormationsPhase _validate_declare_leader_attachment honours this",
+      "scenarios": [
+        "373_lone_operative_guard"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.PLACE_DA_JUMP",
+      "description": "MovementPhase.PLACE_DA_JUMP action: handles the Da Jump teleport, checking 9\" warlord and 9\" enemy bounds. Validated by '376_da_jump_bounds.",
+      "scenarios": [
+        "376_da_jump_bounds"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.effect_plus_move",
+      "description": "MovementPhase: applies effect_plus_move to the unit's Move characteristic during the movement step. Validated by '394_follow_me_ladz_plus_move.",
+      "scenarios": [
+        "394_follow_me_ladz_plus_move"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ShootingPhase._can_unit_shoot",
+      "description": "ShootingPhase._can_unit_shoot: returns true unless the unit has a hard blocker (Fell Back without override, etc.). Battle-shock no longer blocks shooting in 10e. Validated by '383_battleshock_can_shoot.",
+      "scenarios": [
+        "383_battleshock_can_shoot"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "pregame.warlord_designation",
+      "description": "Pre-game warlord designation: each player picks one CHARACTER as their warlord during the formations phase. Required by FormationsPhase._validate_warlord_designation before CONFIRM_FORMATIONS will succeed. Validated by '367_designate_warlord.",
+      "scenarios": [
+        "367_designate_warlord"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "rules.abilities.stealth_t2",
+      "description": "T2-1 \u2014 STEALTH ability: -1 to hit on ranged attacks vs Stealth target",
+      "scenarios": [
+        "mp:tests/test_stealth_keyword_pipeline.gd"
+      ],
+      "last_verified_commit": "592d0a8",
       "status": "covered"
     },
     {
       "id": "rules.command.cp_gain_336",
-      "description": "Issue #336 — no CP on R1 first command phase; otherwise active player only",
-      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
-      "last_verified_commit": "8749eb4",
-      "status": "covered"
-    },
-    {
-      "id": "rules.save_load.autoload_state_338",
-      "description": "Issue #338 — FactionAbilityManager + StratagemManager state round-trips through save/load",
-      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
-      "last_verified_commit": "8749eb4",
-      "status": "covered"
-    },
-    {
-      "id": "rules.shooting.fall_back_and_shoot_override_356",
-      "description": "Issue #356 — Multipotentiality stratagem: effect_fall_back_and_shoot overrides cannot_shoot gate in ShootingPhase + RulesEngine.validate_shoot",
-      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
-      "last_verified_commit": "8749eb4",
-      "status": "covered"
-    },
-    {
-      "id": "rules.stratagem.excluding_keyword_parser_359",
-      "description": "Issue #359 — FactionStratagemLoader._map_target correctly handles 'excluding X' as not_keyword:X (was incorrectly mapping to keyword:X). Affects 'ARD AS NAILS, UNWAVERING SENTINELS, ARCHEOTECH MUNITIONS",
-      "scenarios": ["mp:tests/test_audit_fixes_verification.gd"],
+      "description": "Issue #336 \u2014 no CP on R1 first command phase; otherwise active player only",
+      "scenarios": [
+        "mp:tests/test_audit_fixes_verification.gd"
+      ],
       "last_verified_commit": "8749eb4",
       "status": "covered"
     },
     {
       "id": "rules.keywords.melta_x_t1",
-      "description": "T1-1 — MELTA X auto-resolves damage bonus at half range",
-      "scenarios": ["mp:tests/test_melta_keyword_pipeline.gd"],
+      "description": "T1-1 \u2014 MELTA X auto-resolves damage bonus at half range",
+      "scenarios": [
+        "mp:tests/test_melta_keyword_pipeline.gd"
+      ],
       "last_verified_commit": "e0fcadf",
       "status": "covered"
     },
     {
       "id": "rules.keywords.twin_linked_t1",
-      "description": "T1-2 — TWIN-LINKED re-rolls all failed wound rolls",
-      "scenarios": ["mp:tests/test_twin_linked_pipeline.gd"],
+      "description": "T1-2 \u2014 TWIN-LINKED re-rolls all failed wound rolls",
+      "scenarios": [
+        "mp:tests/test_twin_linked_pipeline.gd"
+      ],
       "last_verified_commit": "932d569",
       "status": "covered"
     },
     {
-      "id": "rules.abilities.stealth_t2",
-      "description": "T2-1 — STEALTH ability: -1 to hit on ranged attacks vs Stealth target",
-      "scenarios": ["mp:tests/test_stealth_keyword_pipeline.gd"],
-      "last_verified_commit": "592d0a8",
+      "id": "rules.movement.base_touching_m6",
+      "description": "T2-M6 \u2014 base-touching regression (#321/#327)",
+      "scenarios": [
+        "mp:tests/test_m6_base_touching_regression.gd"
+      ],
+      "last_verified_commit": "8749eb4",
+      "status": "covered"
+    },
+    {
+      "id": "rules.rng.determinism_329",
+      "description": "Issue #329 \u2014 RNGService.test_mode_seed produces identical dice across runs; new helpers (randi/randi_range/randf) honor it; TransportManager + MissionManager + Mathhammer plumbed",
+      "scenarios": [
+        "mp:tests/test_audit_fixes_verification.gd",
+        "mp:tests/test_rng_determinism_extended.gd"
+      ],
+      "last_verified_commit": "f938aba",
+      "status": "covered"
+    },
+    {
+      "id": "rules.save_load.autoload_state_338",
+      "description": "Issue #338 \u2014 FactionAbilityManager + StratagemManager state round-trips through save/load",
+      "scenarios": [
+        "mp:tests/test_audit_fixes_verification.gd"
+      ],
+      "last_verified_commit": "8749eb4",
       "status": "covered"
     },
     {
       "id": "rules.shooting.cover_save_cap_s7",
-      "description": "T2-S7 — Cover save bonus capped: Sv3+ vs AP0 in cover stays 3+ (was 2+)",
-      "scenarios": ["mp:tests/test_s7_cover_save_bonus.gd"],
+      "description": "T2-S7 \u2014 Cover save bonus capped: Sv3+ vs AP0 in cover stays 3+ (was 2+)",
+      "scenarios": [
+        "mp:tests/test_s7_cover_save_bonus.gd"
+      ],
       "last_verified_commit": "6958cff",
       "status": "covered"
     },
     {
-      "id": "rules.movement.base_touching_m6",
-      "description": "T2-M6 — base-touching regression (#321/#327)",
-      "scenarios": ["mp:tests/test_m6_base_touching_regression.gd"],
+      "id": "rules.shooting.fall_back_and_shoot_override_356",
+      "description": "Issue #356 \u2014 Multipotentiality stratagem: effect_fall_back_and_shoot overrides cannot_shoot gate in ShootingPhase + RulesEngine.validate_shoot",
+      "scenarios": [
+        "mp:tests/test_audit_fixes_verification.gd"
+      ],
       "last_verified_commit": "8749eb4",
       "status": "covered"
     },
     {
       "id": "rules.shooting.keyword_pipeline",
-      "description": "T2-S4..S6 — SUSTAINED HITS / LETHAL HITS / DEVASTATING WOUNDS keyword pipelines",
-      "scenarios": ["mp:tests/test_keyword_pipeline.gd"],
+      "description": "T2-S4..S6 \u2014 SUSTAINED HITS / LETHAL HITS / DEVASTATING WOUNDS keyword pipelines",
+      "scenarios": [
+        "mp:tests/test_keyword_pipeline.gd"
+      ],
       "last_verified_commit": "8749eb4",
+      "status": "covered"
+    },
+    {
+      "id": "rules.stratagem.excluding_keyword_parser_359",
+      "description": "Issue #359 \u2014 FactionStratagemLoader._map_target correctly handles 'excluding X' as not_keyword:X (was incorrectly mapping to keyword:X). Affects 'ARD AS NAILS, UNWAVERING SENTINELS, ARCHEOTECH MUNITIONS",
+      "scenarios": [
+        "mp:tests/test_audit_fixes_verification.gd"
+      ],
+      "last_verified_commit": "8749eb4",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.ability.waaagh_energy",
+      "description": "SHOOTING phase: the WAAAGH!-energy 'Eadbanger ability grants a per-shot damage bonus during a Waaagh!-active turn. Validated by '387_waaagh_energy_eadbanger.",
+      "scenarios": [
+        "387_waaagh_energy_eadbanger"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.battleshock_removed_9e_carryover",
+      "description": "SHOOTING phase: in 10e, battle-shock units can still shoot (the 9e carryover that blocked shooting was removed). Validated by '383_battleshock_can_shoot.",
+      "scenarios": [
+        "383_battleshock_can_shoot"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.bgnt_seam",
+      "description": "SHOOTING phase: Big Guns Never Tire allows monster/vehicle units to shoot ranged weapons while in engagement range (at -1 to hit). Validated by '370_bgnt_vehicle_shoots_in_engagement.",
+      "scenarios": [
+        "370_bgnt_vehicle_shoots_in_engagement"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.enhancement.panoptispex",
+      "description": "SHOOTING phase: the Panoptispex enhancement gives the bearer's ranged attacks effect_ignores_cover. Validated by '374_panoptispex_ignores_cover.",
+      "scenarios": [
+        "374_panoptispex_ignores_cover"
+      ],
+      "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.enhancement.supa_cybork_body",
+      "description": "SHOOTING phase: the Supa-Cybork Body enhancement grants effect_fnp=4 (Feel No Pain 4+) to the bearer. Validated by '374_supa_cybork_fnp.",
+      "scenarios": [
+        "374_supa_cybork_fnp"
+      ],
+      "last_verified_commit": "1f48cc6",
       "status": "covered"
     }
   ]

@@ -72,6 +72,16 @@ Each step is a dict with an `act` field plus act-specific keys.
   { "act": "wait_frames", "frames": 3 }
   ```
 
+- `wait_for_tweens`: block until all SceneTree-managed Tweens finish
+  (or `timeout_s` elapses, default 10s). Use between rapid
+  `dispatch_action` steps when the per-step screenshot would otherwise
+  capture mid-tween state (camera pans, token reposition, dialog open).
+  Pass records `tween_clear_at` (seconds elapsed before clear) on
+  success. Fail is non-fatal but logged.
+  ```json
+  { "act": "wait_for_tweens", "timeout_s": 5.0 }
+  ```
+
 - `dispatch_action`: drive a phase action through the current phase instance.
   Use sparingly — bypasses UI. Prefer `click_unit` / `click_button` for player
   paths. Result captured as `last_action_result` for downstream

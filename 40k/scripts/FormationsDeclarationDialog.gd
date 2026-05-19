@@ -35,6 +35,18 @@ func setup(player: int) -> void:
 	transport_embarkations.clear()
 	reserves.clear()
 
+	# Issue #367 fix: Main.gd instantiates this dialog via `AcceptDialog.new()`
+	# + `set_script()`, which means `_init()` above never fires (the object was
+	# constructed before the script was attached). Re-apply the window-level
+	# setup here so the dialog actually has a min_size, max_size, themed title,
+	# and gold-on-parchment chrome. Without this the dialog renders as a tiny
+	# grey rectangle with an unstyled (garbled-looking) title and the children
+	# added by `_build_ui()` are clipped, producing the empty-body symptom in
+	# critique steps 2/6/11.
+	min_size = Vector2(600, 500)
+	max_size = Vector2(700, 720)
+	WhiteDwarfTheme.apply_to_dialog(self)
+
 	title = "Player %d — Declare Battle Formations" % player
 
 	# Hide AcceptDialog's built-in OK button — we add our own inside the layout
