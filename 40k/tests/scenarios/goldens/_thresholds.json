@@ -1,0 +1,15 @@
+{
+  "$schema_version": 1,
+  "$description": "Per-scenario perceptual-hash tolerance for the visual-regression loop. Values are Hamming-distance thresholds on a 64-bit PHASH; pairs with distance > threshold count as drift. Default applied when a scenario id is absent from this map.",
+  "$rules": [
+    "Bumping a threshold to silence drift is a code smell. Prefer to fix the regression, or bless the new screenshot via `bash scripts/loop/run_one_scenario_loop.sh --bless <scenario.json>`.",
+    "Per-step overrides (`<scenario_id>.<step_idx>`) take precedence over the per-scenario value.",
+    "Threshold semantics: 0 = identical, 64 = totally different. Empirical baseline for unrelated UI changes is ~12-18; subpixel differences are typically 0-3."
+  ],
+  "default": 4,
+  "per_scenario": {
+    "runner_smoke": 4
+  },
+  "per_step": {
+  }
+}
