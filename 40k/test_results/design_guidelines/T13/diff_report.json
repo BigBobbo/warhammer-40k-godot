@@ -1,13 +1,13 @@
 {
-  "scenario_id": "T07_terrain_cover_icons",
+  "scenario_id": "T13_fit_board",
   "pixel_diff_steps": [
     {
       "act": "pixel_diff",
-      "diff_pct": 0.0163966049382716,
+      "diff_pct": 18.5417631172839,
       "pass": true,
       "result": {
         "regions": {},
-        "total_diff_pct": 0.0163966049382716
+        "total_diff_pct": 18.5417631172839
       },
       "step": 13
     }

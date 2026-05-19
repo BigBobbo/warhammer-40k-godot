@@ -75,6 +75,11 @@ var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
 var view_rotation: float = 0.0  # Board rotation in radians (multiples of PI/2)
 
+# T13/T14: track which camera-fit action ran most recently so scenarios can
+# assert the keybind produced the expected behavior. "" = none, "board" = F,
+# "selection" = Shift+F, "decision" = auto-zoom on side panel open.
+var last_camera_fit_action: String = ""
+
 # Replay mode
 var is_replay_mode: bool = false
 var replay_ui: Node = null
@@ -4744,6 +4749,13 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# T13: fit-to-board camera keybind - KEY_F (no modifier)
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F \
+			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+		fit_view_to_board()
+		get_viewport().set_input_as_handled()
+		return
+
 	# T-102: Chat panel toggle - KEY_T (text/chat). Only shows in networked games.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_T \
 			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
@@ -5101,6 +5113,37 @@ func reset_camera() -> void:
 	camera.zoom = Vector2(0.3, 0.3)
 	view_rotation = 0.0
 	print("Camera reset to position: ", camera.position, " zoom: ", camera.zoom)
+
+
+# T13: synthesize the F key press and route through _input. Used by the
+# T13 scenario to verify the keybind wiring without depending on the
+# host input pipeline (which can be flaky in headless+xvfb runs).
+func t13_synthesize_f_press() -> String:
+	var ev := InputEventKey.new()
+	ev.keycode = KEY_F
+	ev.pressed = true
+	_input(ev)
+	return last_camera_fit_action
+
+
+# T13: fit the whole board into the viewport with 32px margin per edge. Sets
+# both Camera2D (rendering source of truth) and view_offset/view_zoom (used by
+# the WASD/+ pan-zoom helpers) so subsequent input is consistent.
+func fit_view_to_board() -> void:
+	var board_w: float = float(SettingsService.get_board_width_px())
+	var board_h: float = float(SettingsService.get_board_height_px())
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size
+	const MARGIN_PX := 32.0
+	var zoom_x: float = vp_size.x / (board_w + MARGIN_PX * 2.0)
+	var zoom_y: float = vp_size.y / (board_h + MARGIN_PX * 2.0)
+	var z: float = min(zoom_x, zoom_y)
+	var board_center := Vector2(board_w * 0.5, board_h * 0.5)
+	camera.position = board_center
+	camera.zoom = Vector2(z, z)
+	view_zoom = z
+	view_offset = board_center - vp_size / (2.0 * z)
+	last_camera_fit_action = "board"
+	update_view_transform()
 
 func rotate_board_view(angle: float) -> void:
 	view_rotation = fmod(view_rotation + angle, TAU)

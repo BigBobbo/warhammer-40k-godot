@@ -1,0 +1,135 @@
+{
+  "failed": 0,
+  "passed": 18,
+  "scenario_id": "T13_fit_board",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": "",
+      "error": "",
+      "expected": "",
+      "label": "script[main.last_camera_fit_action]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T13_fit_board_T13_before.png",
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T13_fit_board_T13_after.png",
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": "board",
+      "error": "",
+      "expected": "board",
+      "label": "script[main.last_camera_fit_action]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": 0.0,
+      "error": "",
+      "expect_max": 8.0,
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": 0.0000000077408629506337,
+      "error": "",
+      "expect_max": 0.02,
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[is_equal_approx(main.camera.zoom.x, main.camera.zoom.y)]",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "pixel_diff",
+      "diff_pct": 18.5417631172839,
+      "pass": true,
+      "result": {
+        "regions": {
+
+        },
+        "total_diff_pct": 18.5417631172839
+      },
+      "step": 13
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 14
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 15
+    },
+    {
+      "act": "execute_script",
+      "actual": "board",
+      "error": "",
+      "expected": "board",
+      "label": "script[main.t13_synthesize_f_press()]",
+      "pass": true,
+      "step": 16
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 5,
+      "pass": true,
+      "step": 17
+    }
+  ],
+  "total_steps": 18
+}
