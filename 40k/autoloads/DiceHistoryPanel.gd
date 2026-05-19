@@ -11,8 +11,14 @@ signal roll_recorded(entry: Dictionary)
 # Maximum number of entries to keep (prevent unbounded memory growth)
 const MAX_HISTORY_ENTRIES := 500
 
-# All recorded dice roll entries
+# All recorded dice roll entries (raw, per-phase shape)
 var history: Array = []
+
+# T35: structured entries for the persistent right-side roll log. Each
+# entry has the shape {timestamp: int, attacker: String, target: String,
+# result: String, phase: String}. Populated by record_roll alongside
+# history. Read by RollLogPanel and by T35 scenarios.
+var entries: Array = []
 
 func _ready() -> void:
 	print("DiceHistoryPanel: Initialized")
@@ -42,6 +48,34 @@ func record_roll(dice_data: Dictionary, phase_name: String) -> void:
 
 	history.append(entry)
 
+	# T35: also append a normalized {timestamp, attacker, target, result, phase}
+	# entry for the persistent roll log. Field extraction is best-effort —
+	# missing keys default to "—" so downstream UI never crashes.
+	var attacker_str: String = "—"
+	var target_str: String = "—"
+	var result_str: String = ""
+	for key in ["attacker_id", "attacker", "shooter_id", "shooter"]:
+		if dice_data.has(key):
+			attacker_str = str(dice_data[key])
+			break
+	for key in ["target_id", "target", "defender_id"]:
+		if dice_data.has(key):
+			target_str = str(dice_data[key])
+			break
+	for key in ["result", "outcome", "summary", "context"]:
+		if dice_data.has(key):
+			result_str = str(dice_data[key])
+			break
+	entries.append({
+		"timestamp": entry.timestamp,
+		"attacker": attacker_str,
+		"target": target_str,
+		"result": result_str,
+		"phase": phase_name,
+	})
+	if entries.size() > MAX_HISTORY_ENTRIES:
+		entries = entries.slice(entries.size() - MAX_HISTORY_ENTRIES)
+
 	# Trim if over limit
 	if history.size() > MAX_HISTORY_ENTRIES:
 		history = history.slice(history.size() - MAX_HISTORY_ENTRIES)
@@ -54,6 +88,7 @@ func get_history() -> Array:
 
 func clear() -> void:
 	history.clear()
+	entries.clear()
 	print("DiceHistoryPanel: History cleared")
 
 func format_entry_bbcode(entry: Dictionary) -> String:

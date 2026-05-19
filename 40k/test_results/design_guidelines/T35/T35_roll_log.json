@@ -1,0 +1,147 @@
+{
+  "failed": 0,
+  "passed": 18,
+  "scenario_id": "T35_roll_log",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": 0,
+      "error": "",
+      "expected": 0.0,
+      "label": "script[DiceHistoryPanel.entries.size()]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/RollLogPanel\") != null]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/RollLogPanel\").visible]",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T35_roll_log_T35_empty.png",
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T35_roll_log_T35_two_entries.png",
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": 2,
+      "error": "",
+      "expected": 2.0,
+      "label": "script[DiceHistoryPanel.entries.size()]",
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": "U_WARBOSS_B",
+      "error": "",
+      "expected": "U_WARBOSS_B",
+      "label": "script[DiceHistoryPanel.entries[0].attacker]",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": "U_CUSTODIAN_GUARD_B",
+      "error": "",
+      "expected": "U_CUSTODIAN_GUARD_B",
+      "label": "script[DiceHistoryPanel.entries[0].target]",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "execute_script",
+      "actual": "4 hits",
+      "error": "",
+      "expected": "4 hits",
+      "label": "script[DiceHistoryPanel.entries[0].result]",
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "execute_script",
+      "actual": "2 wounds",
+      "error": "",
+      "expected": "2 wounds",
+      "label": "script[DiceHistoryPanel.entries[1].result]",
+      "pass": true,
+      "step": 14
+    },
+    {
+      "act": "execute_script",
+      "actual": 2,
+      "error": "",
+      "expected": 2.0,
+      "label": "script[get_node(\"/root/Main/RollLogPanel/Scroll/Entries\").get_child]",
+      "pass": true,
+      "step": 15
+    },
+    {
+      "act": "pixel_diff",
+      "diff_pct": 0.752314814814815,
+      "pass": true,
+      "result": {
+        "regions": {
+          "right_panel": 0.752314814814815
+        },
+        "total_diff_pct": 0.180796682098765
+      },
+      "step": 16
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 10,
+      "pass": true,
+      "step": 17
+    }
+  ],
+  "total_steps": 18
+}

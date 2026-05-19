@@ -1,17 +1,17 @@
 {
-  "scenario_id": "T04_phase_bar",
+  "scenario_id": "T35_roll_log",
   "pixel_diff_steps": [
     {
       "act": "pixel_diff",
-      "diff_pct": 4.1796875,
+      "diff_pct": 0.752314814814815,
       "pass": true,
       "result": {
         "regions": {
-          "phase_bar": 4.1796875
+          "right_panel": 0.752314814814815
         },
-        "total_diff_pct": 38.7726658950617
+        "total_diff_pct": 0.180796682098765
       },
-      "step": 24
+      "step": 16
     }
   ],
   "summary": {

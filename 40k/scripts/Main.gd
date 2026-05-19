@@ -255,6 +255,9 @@ func _ready() -> void:
 	if board_root != null:
 		board_root.add_child(preload("res://scripts/RulerTool.gd").new())
 
+	# T35: persistent right-side roll log. Always visible.
+	add_child(preload("res://scripts/RollLogPanel.gd").new())
+
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
 	if GameEventLog:

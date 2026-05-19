@@ -1,0 +1,65 @@
+{
+  "id": "T35_roll_log",
+  "covers": ["design_guidelines.T35", "hud.roll_log"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 8,
+  "description": "Persistent right-side roll log. The RollLogPanel Control is visible at idle. Recording two synthetic rolls via DiceHistoryPanel.record_roll appends two entries with the {timestamp, attacker, target, result, phase} shape; the panel renders a Label per entry.",
+
+  "regions": {
+    "right_panel": [1600, 0, 320, 1080]
+  },
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.clear()" },
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.entries.size()",
+      "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/RollLogPanel\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/RollLogPanel\").visible",
+      "equals": true },
+
+    { "act": "screenshot", "label": "T35_empty" },
+
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.record_roll({\"context\": \"hit\", \"attacker_id\": \"U_WARBOSS_B\", \"target_id\": \"U_CUSTODIAN_GUARD_B\", \"result\": \"4 hits\"}, \"Shooting\")" },
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.record_roll({\"context\": \"wound\", \"attacker_id\": \"U_WARBOSS_B\", \"target_id\": \"U_CUSTODIAN_GUARD_B\", \"result\": \"2 wounds\"}, \"Shooting\")" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "screenshot", "label": "T35_two_entries" },
+
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.entries.size()",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.entries[0].attacker",
+      "equals": "U_WARBOSS_B" },
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.entries[0].target",
+      "equals": "U_CUSTODIAN_GUARD_B" },
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.entries[0].result",
+      "equals": "4 hits" },
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.entries[1].result",
+      "equals": "2 wounds" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/RollLogPanel/Scroll/Entries\").get_child_count()",
+      "equals": 2 },
+
+    { "act": "pixel_diff",
+      "before": "T35_empty",
+      "after":  "T35_two_entries",
+      "region": "right_panel",
+      "expect_min_pct": 0.1 },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}
