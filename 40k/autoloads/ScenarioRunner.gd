@@ -135,6 +135,12 @@ func _run_scenario() -> void:
 	var steps = _scenario.get("steps", [])
 	var passed := 0
 	var failed := 0
+	# Per-step screenshot mode: when SCENARIO_SCREENSHOT_EVERY_STEP=1 the
+	# runner takes a screenshot after every step (not just explicit
+	# 'screenshot' acts) and records the path + original step input in the
+	# result record. Powers the visual-regression-loop critic, which needs a
+	# frame per step to judge "did the UI render what the scenario intended."
+	var screenshot_every := OS.get_environment("SCENARIO_SCREENSHOT_EVERY_STEP") == "1"
 	for i in range(steps.size()):
 		var step = steps[i]
 		var act = str(step.get("act", ""))
@@ -149,6 +155,11 @@ func _run_scenario() -> void:
 			var detail = rec.get("error", "")
 			print("  FAIL  %s" % detail)
 			_capture_failure_screenshot(scenario_id, i)
+		if screenshot_every:
+			var shot_rel := await _capture_per_step_screenshot(scenario_id, i, act)
+			if shot_rel != "":
+				rec["per_step_screenshot"] = shot_rel
+			rec["step_input"] = step
 
 	# 8) Reset RNG so subsequent normal play is unaffected
 	var rules2 = get_node_or_null("/root/RulesEngine")
@@ -647,6 +658,29 @@ func _summarize_result(result) -> Variant:
 				summary[k] = v
 		return summary
 	return result
+
+
+func _capture_per_step_screenshot(scenario_id: String, step_idx: int, act: String) -> String:
+	# Returns the relative-to-user:// path of the screenshot, or "" on failure.
+	# Named files are zero-padded so an alpha sort matches step order.
+	var d = DirAccess.open("user://")
+	if d != null:
+		d.make_dir_recursive(RESULTS_SUBDIR)
+	await get_tree().process_frame
+	var vp := get_viewport()
+	if vp == null:
+		return ""
+	var img := vp.get_texture().get_image()
+	if img == null:
+		return ""
+	var safe_act := act if act != "" else "noop"
+	var rel := "%s/%s_step_%02d_%s.png" % [RESULTS_SUBDIR, scenario_id, step_idx, safe_act]
+	var abs := ProjectSettings.globalize_path("user://" + rel)
+	var err := img.save_png(abs)
+	if err != OK:
+		print("[ScenarioRunner] per-step screenshot save failed (%d): %s" % [err, abs])
+		return ""
+	return rel
 
 
 func _capture_failure_screenshot(scenario_id: String, step_idx: int) -> void:
