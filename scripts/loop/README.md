@@ -17,7 +17,7 @@ Claude session per scenario, parallel by default. See
 | Golden screenshot PHASH diff | done (Phase 2) | `golden_diff.py`, goldens under `40k/tests/scenarios/goldens/` |
 | Selector preflight | done (Phase 3) | `SCENARIO_SELECTOR_DRY_RUN=1` in `ScenarioRunner`, integrated into driver |
 | Determinism check | done (Phase 3) | `determinism_check.sh`, standalone tool |
-| Pre-commit guardrails | TODO | Phase 6 |
+| Pre-commit guardrails | done (Phase 6) | `.githooks/pre-commit-loop` — fires on `loop/*` branches, enforces scenario-immutability, forbidden paths, diff cap, Justification |
 | Parallel kickoff | TODO | Phase 7 |
 
 ## How to drive one scenario locally
@@ -107,6 +107,30 @@ The cloud Claude session is briefed with the scenario name. It:
    re-judges.
 6. Up to `LOOP_MAX_ITERATIONS=4` rounds. On green, commits to
    `loop/<scenario>-<timestamp>` and opens a PR.
+
+## Loop-branch guardrails
+
+Auto-fix commits land on `loop/<scenario>-<timestamp>` branches. The
+existing `.githooks/pre-commit` chains into `.githooks/pre-commit-loop`
+when the current branch matches `loop/*` and enforces:
+
+| Cap | Where |
+|---|---|
+| Scenarios immutable | any diff under `40k/tests/scenarios/*.json` (top-level, `sp/`, `mp/`) → reject |
+| Forbidden paths | `40k/autoloads/GameState.gd`, `40k/scripts/SaveLoadManager.gd`, `40k/data/`, `40k/project.godot`, `scripts/loop/`, `.githooks/`, the design doc → reject |
+| Max diff lines | added + removed > 200 → reject. Override per-commit via `LOOP_MAX_DIFF_LINES=N` |
+| Justification: paragraph | commit body without a non-empty `Justification:` line → reject |
+
+The hook is a no-op on non-`loop/*` branches. Enable in your local
+clone with `git config core.hooksPath .githooks`.
+
+Standalone testing:
+```bash
+git checkout -b loop/test-temp
+git add <file>
+GIT_LOOP_DRY_RUN_COMMIT_MSG=/path/to/msg.txt bash .githooks/pre-commit-loop
+git branch -D loop/test-temp
+```
 
 ## Why a stub critic in Phase 1
 

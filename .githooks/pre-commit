@@ -15,13 +15,24 @@
 
 set -e
 
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Loop-branch guardrails — only fire on loop/* branches. Run before any
+# other checks so a runaway fixer-agent commit can't smuggle a megadiff
+# past the slower scenario suite.
+if [ -x "$REPO_ROOT/.githooks/pre-commit-loop" ]; then
+    if ! "$REPO_ROOT/.githooks/pre-commit-loop"; then
+        echo ""
+        echo "Aborting commit: loop guardrails failed."
+        exit 1
+    fi
+fi
+
 if [ "${SCENARIO_PRECOMMIT:-}" = "skip" ]; then
     echo "[pre-commit] SCENARIO_PRECOMMIT=skip — skipping scenario suite"
     exit 0
 fi
-
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-cd "$REPO_ROOT"
 
 # Detect whether any of the staged files are gameplay-relevant. Configs,
 # docs, and pure asset changes don't need scenario validation.
