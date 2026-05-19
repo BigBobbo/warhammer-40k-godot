@@ -8,7 +8,7 @@ class_name WhiteDwarfTheme
 const WH_RED = Color(0.604, 0.067, 0.082)        # #9A1115
 const WH_BLACK = Color(0.1, 0.09, 0.07)           # Near-black warm
 const WH_GOLD = Color(0.833, 0.588, 0.376)        # #D49761
-const WH_PARCHMENT = Color(0.2, 0.7, 0.3)         # GREEN (regression: parchment→green)
+const WH_PARCHMENT = Color(0.922, 0.882, 0.780)   # #EBE1C7
 const WH_BONE = Color(0.85, 0.8, 0.65)            # Bone/ivory
 
 # Player colors
