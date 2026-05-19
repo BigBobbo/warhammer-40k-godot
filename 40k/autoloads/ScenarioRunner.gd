@@ -241,6 +241,32 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			for j in range(n):
 				await get_tree().process_frame
 			rec["pass"] = true
+		"wait_for_tweens":
+			# Wait until all active Tweens on the current scene complete,
+			# or until timeout_s elapses (default 5s). Use this between
+			# dispatch_actions in scenarios where the per-step screenshot
+			# would otherwise capture mid-tween state — e.g. camera pans,
+			# token repositioning, dialog opens. Returns pass with the
+			# observed tween-clear time, fail on timeout.
+			var timeout_s := float(step.get("timeout_s", 10.0))
+			var elapsed := 0.0
+			var poll_s := 0.05
+			var tree := get_tree()
+			while elapsed < timeout_s:
+				var any_running := false
+				for tw in tree.get_processed_tweens():
+					if tw.is_valid() and tw.is_running():
+						any_running = true
+						break
+				if not any_running:
+					rec["pass"] = true
+					rec["tween_clear_at"] = elapsed
+					break
+				await tree.create_timer(poll_s).timeout
+				elapsed += poll_s
+			if not rec.has("pass"):
+				rec["pass"] = false
+				rec["error"] = "wait_for_tweens: %.2fs elapsed, tweens still running" % elapsed
 		"screenshot":
 			rec.merge(await _do_screenshot(step), true)
 		"dispatch_action":
