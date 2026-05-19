@@ -18,6 +18,28 @@ isolated — no shared workspace, no cross-contamination.
   - 30-min wall clock budget
 - An anti-cycle log of `{iteration, edited_files}` accumulated as you go
 
+## Preserving regressed state between phases
+
+Critical: **the regressed state must be committed to the loop
+branch before the critic is invoked.** Lesson from
+`validation_2026-05-19.md`: the fixer agent may run against an
+already-clean working directory if the host session leaves the
+regression uncommitted between critic and fixer phases (linters
+and other tooling can revert uncommitted changes). When that
+happens the fixer can't find what it's fixing and either
+hallucinates a fix or correctly diagnoses a different latent bug.
+
+Workflow:
+1. If iteration 1 begins on a branch with uncommitted changes:
+   commit them first (as `[loop] state for critic round` or
+   similar) so the critic and fixer both work against committed
+   state.
+2. Fixer commits its fix on top.
+3. If the loop fails, the regression-commit and fixer-commit stay
+   on the loop branch as the audit trail.
+4. If the loop succeeds, the regression-commit and fixer-commit
+   net to zero and can be squashed before PR creation if desired.
+
 ## Per-scenario loop
 
 ```
@@ -45,7 +67,16 @@ while iter < LOOP_MAX_ITERATIONS:
          If goldens missing for this scenario: --bless run, commit goldens
          Else: scenario is clean — exit the loop, open PR if any
          intermediate fixer commits exist
-       Else:
+       Else, before going to FIXER, filter the critique:
+       - If any entries have severity == "high": pass ONLY the high
+         entries to the fixer. The validation runs
+         (validation_unattended_2026-05-19.md) showed the critic
+         can mis-describe medium-severity findings; high-severity
+         findings have been more reliable.
+       - If no high entries but some medium: pass medium entries.
+       - If ONLY low entries: treat as clean and exit the loop.
+         `low` entries are nits (off-by-1px, capitalisation) that
+         don't justify a code commit in iteration 1.
        → FIXER round, iter += 1
 
     4. FIXER round — invoke the fixer subagent (see below).
