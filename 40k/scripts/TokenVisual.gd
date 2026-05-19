@@ -20,6 +20,12 @@ var _sprite_texture: Texture2D = null
 # Faction font cache (for letter mode)
 var _faction_font: Font = null
 
+# T09: per-phase exhaustion flag. When set, the token modulates to a dim
+# grey to signal "has acted this phase". Cleared by PhaseManager.phase_changed.
+var is_exhausted_this_phase: bool = false
+const T09_EXHAUSTION_MODULATE := Color(0.6, 0.6, 0.6, 1.0)
+const T09_NORMAL_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
+
 # Animated sprite system
 var _anim_resolved: bool = false
 var _animations: Dictionary = {}               # animation_name -> SpriteAnimationData
@@ -36,6 +42,24 @@ const ANIM_DEATH := "death"
 
 func _ready() -> void:
 	z_index = 10
+	# T16: add a child Label that shows the model identifier and is hidden
+	# by t16_apply_zoom() when zoom falls below the threshold.
+	var lbl := Label.new()
+	lbl.name = "Label"
+	lbl.text = str(model_number)
+	lbl.position = Vector2(-6, 12)  # under the base
+	lbl.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
+	lbl.add_theme_font_size_override("font_size", 10)
+	add_child(lbl)
+	# T15: silhouette child (procedural). Drawn first so rings render on top.
+	var silhouette := _t15_make_silhouette()
+	if silhouette != null:
+		add_child(silhouette)
+	# T09: reset exhaustion on phase boundary.
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm != null and pm.has_signal("phase_changed"):
+		if not pm.is_connected("phase_changed", _t09_on_phase_changed):
+			pm.connect("phase_changed", _t09_on_phase_changed)
 	# T08: two concentric rings expose faction vs player-slot color so
 	# scenarios can assert per-ring modulate. FactionRing draws inner ring;
 	# SlotRing draws a slightly larger thin outer ring. Both render on top
@@ -47,6 +71,158 @@ func _ready() -> void:
 	add_child(slot)
 
 
+func _t09_on_phase_changed(_new_phase) -> void:
+	if is_exhausted_this_phase:
+		set_exhausted_this_phase(false)
+
+
+# T19: pulse the outer SlotRing's alpha between 0.7 and 1.0 to indicate the
+# active actor. Looped at UIConstants.MOTION_PULSE_LOOP_S (2.0s).
+var is_pulsing: bool = false
+var _t19_tween: Tween = null
+
+
+func start_pulse() -> void:
+	if is_pulsing:
+		return
+	is_pulsing = true
+	var slot = get_node_or_null("SlotRing")
+	if slot == null:
+		return
+	var loop_s: float = 2.0
+	var uic = get_node_or_null("/root/UIConstants")
+	if uic != null and "MOTION_PULSE_LOOP_S" in uic:
+		loop_s = float(uic.MOTION_PULSE_LOOP_S)
+	if _t19_tween != null and _t19_tween.is_valid():
+		_t19_tween.kill()
+	_t19_tween = create_tween()
+	_t19_tween.set_loops()
+	_t19_tween.tween_property(slot, "modulate:a", 1.0, loop_s * 0.5).from(0.7)
+	_t19_tween.tween_property(slot, "modulate:a", 0.7, loop_s * 0.5)
+
+
+func stop_pulse() -> void:
+	is_pulsing = false
+	if _t19_tween != null and _t19_tween.is_valid():
+		_t19_tween.kill()
+		_t19_tween = null
+	var slot = get_node_or_null("SlotRing")
+	if slot != null:
+		var c: Color = slot.modulate
+		c.a = 0.7
+		slot.modulate = c
+
+
+# T18: wound chip at base edge. wound_chip_text is "" for hidden, "W/Wmax"
+# format otherwise. Multi-wound models call update_wound_chip(current, max);
+# single-wound models call update_wound_chip(1, 1) which hides the chip.
+var wound_chip_text: String = ""
+var _t18_chip: Label = null
+
+
+func _t18_ensure_chip() -> void:
+	if _t18_chip != null:
+		return
+	_t18_chip = Label.new()
+	_t18_chip.name = "WoundChip"
+	_t18_chip.position = Vector2(10, 22)  # base edge, lower right
+	_t18_chip.add_theme_font_size_override("font_size", 11)
+	_t18_chip.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
+	_t18_chip.visible = false
+	add_child(_t18_chip)
+
+
+# T18: update the wound chip. Single-wound models hide it.
+func update_wound_chip(current_wounds: int, max_wounds: int) -> void:
+	_t18_ensure_chip()
+	if max_wounds <= 1:
+		wound_chip_text = ""
+		_t18_chip.visible = false
+		return
+	wound_chip_text = "%d/%d" % [current_wounds, max_wounds]
+	_t18_chip.text = wound_chip_text
+	_t18_chip.visible = true
+
+
+# T17: status icon slots (TL, TR, BR) + overflow chip (BL). Capped at 3
+# visible icons; the rest are summarized in the chip "+N".
+const T17_MAX_VISIBLE_ICONS := 3
+
+var visible_status_icon_count: int = 0
+var overflow_chip_count: int = 0
+var _t17_slot_tl: Label = null
+var _t17_slot_tr: Label = null
+var _t17_slot_br: Label = null
+var _t17_chip_bl: Label = null
+
+
+func _t17_ensure_status_slots() -> void:
+	if _t17_slot_tl != null:
+		return
+	var positions := {
+		"StatusTL": Vector2(-18, -18),
+		"StatusTR": Vector2(10, -18),
+		"StatusBR": Vector2(10, 10),
+		"OverflowChip": Vector2(-18, 10),
+	}
+	for slot_name in positions:
+		var lbl := Label.new()
+		lbl.name = slot_name
+		lbl.position = positions[slot_name]
+		lbl.add_theme_font_size_override("font_size", 9)
+		lbl.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
+		lbl.visible = false
+		add_child(lbl)
+		match slot_name:
+			"StatusTL": _t17_slot_tl = lbl
+			"StatusTR": _t17_slot_tr = lbl
+			"StatusBR": _t17_slot_br = lbl
+			"OverflowChip": _t17_chip_bl = lbl
+
+
+# T17: replace the visible status set. The first three items in `statuses`
+# occupy TL/TR/BR slots; the rest collapse into the BL "+N" overflow chip.
+func set_active_statuses(statuses: Array) -> void:
+	_t17_ensure_status_slots()
+	var slots := [_t17_slot_tl, _t17_slot_tr, _t17_slot_br]
+	visible_status_icon_count = 0
+	for i in range(slots.size()):
+		if i < statuses.size():
+			slots[i].text = str(statuses[i])
+			slots[i].visible = true
+			visible_status_icon_count += 1
+		else:
+			slots[i].visible = false
+	overflow_chip_count = max(0, statuses.size() - T17_MAX_VISIBLE_ICONS)
+	if overflow_chip_count > 0:
+		_t17_chip_bl.text = "+%d" % overflow_chip_count
+		_t17_chip_bl.visible = true
+	else:
+		_t17_chip_bl.visible = false
+
+
+# T16: hide the Label child if camera zoom < threshold. Caller (Main) walks
+# all tokens on zoom change. Returns the resulting visibility.
+const T16_ZOOM_HIDE_THRESHOLD := 0.6
+
+
+func t16_apply_zoom(zoom: float) -> bool:
+	var lbl = get_node_or_null("Label")
+	if lbl == null:
+		return false
+	lbl.visible = zoom >= T16_ZOOM_HIDE_THRESHOLD
+	return lbl.visible
+
+
+# T09: set the per-phase exhaustion flag and refresh modulate.
+func set_exhausted_this_phase(value: bool) -> void:
+	is_exhausted_this_phase = value
+	if value:
+		modulate = T09_EXHAUSTION_MODULATE
+	else:
+		modulate = T09_NORMAL_MODULATE
+
+
 # T08: live-rebind modulate when needed (called by external systems if
 # faction or active player changes).
 func t08_refresh_ring_colors() -> void:
@@ -56,6 +232,111 @@ func t08_refresh_ring_colors() -> void:
 	var slot = get_node_or_null("SlotRing")
 	if slot != null:
 		slot.modulate = _t08_slot_color()
+
+
+# T15: procedural silhouette node. silhouette_category is one of
+# {"infantry", "tank", "walker", "beast", "character", "aircraft", "mounted"}
+# derived from the unit's keywords. The Sprite2D gets a small procedurally-
+# generated ImageTexture so scenarios can assert texture != null without
+# needing art assets to land first.
+var silhouette_category: String = ""
+
+
+func _t15_make_silhouette() -> Sprite2D:
+	silhouette_category = _t15_category_from_keywords()
+	if silhouette_category == "":
+		return null
+	var s := Sprite2D.new()
+	s.name = "Silhouette"
+	s.texture = _t15_make_silhouette_texture(silhouette_category)
+	s.modulate = Color(1, 1, 1, 0.85)
+	s.position = Vector2(0, 0)
+	s.z_index = 1
+	return s
+
+
+func _t15_category_from_keywords() -> String:
+	var keywords: Array = []
+	if "model_data" in self and typeof(model_data) == TYPE_DICTIONARY:
+		var raw = model_data.get("keywords", [])
+		if typeof(raw) == TYPE_ARRAY:
+			keywords = raw
+	if keywords.is_empty():
+		var gs = get_node_or_null("/root/GameState")
+		if gs != null:
+			# Walk all units to find one whose model contains this TokenVisual's
+			# unit_id via meta lookup; cheap because TokenVisual.name is the unit_id.
+			var uid: String = name
+			var u = gs.get_unit(uid)
+			if typeof(u) == TYPE_DICTIONARY:
+				var k2 = u.get("meta", {}).get("keywords", [])
+				if typeof(k2) == TYPE_ARRAY:
+					keywords = k2
+	var upper: Array = []
+	for k in keywords:
+		upper.append(str(k).to_upper())
+	if upper.has("AIRCRAFT") or upper.has("FLY"):
+		return "aircraft"
+	if upper.has("VEHICLE"):
+		return "tank"
+	if upper.has("WALKER"):
+		return "walker"
+	if upper.has("MOUNTED") or upper.has("CAVALRY"):
+		return "mounted"
+	if upper.has("BEAST") or upper.has("MONSTER"):
+		return "beast"
+	if upper.has("CHARACTER"):
+		return "character"
+	if upper.has("INFANTRY"):
+		return "infantry"
+	return "infantry"  # default; non-empty so Silhouette is added
+
+
+func _t15_make_silhouette_texture(category: String) -> ImageTexture:
+	# 32x32 white-on-transparent shape; modulate handles color tinting.
+	var img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	match category:
+		"infantry":
+			_t15_fill_disc(img, Vector2i(16, 16), 8)
+		"character":
+			_t15_fill_disc(img, Vector2i(16, 12), 5)
+			_t15_fill_rect(img, Rect2i(11, 16, 10, 12))
+		"tank":
+			_t15_fill_rect(img, Rect2i(6, 10, 20, 12))
+		"walker":
+			# Triangle pointing up
+			for y in range(8, 28):
+				var width: int = (y - 8)
+				_t15_fill_rect(img, Rect2i(16 - width / 2, y, max(1, width), 1))
+		"beast":
+			_t15_fill_disc(img, Vector2i(16, 18), 10)
+		"aircraft":
+			_t15_fill_rect(img, Rect2i(4, 14, 24, 4))
+			_t15_fill_rect(img, Rect2i(14, 6, 4, 20))
+		"mounted":
+			_t15_fill_disc(img, Vector2i(12, 18), 6)
+			_t15_fill_disc(img, Vector2i(22, 14), 5)
+		_:
+			_t15_fill_disc(img, Vector2i(16, 16), 8)
+	return ImageTexture.create_from_image(img)
+
+
+func _t15_fill_disc(img: Image, center: Vector2i, radius: int) -> void:
+	var sz: Vector2i = img.get_size()
+	for y in range(max(0, center.y - radius), min(sz.y, center.y + radius + 1)):
+		for x in range(max(0, center.x - radius), min(sz.x, center.x + radius + 1)):
+			var dx: int = x - center.x
+			var dy: int = y - center.y
+			if dx * dx + dy * dy <= radius * radius:
+				img.set_pixel(x, y, Color(1, 1, 1, 1))
+
+
+func _t15_fill_rect(img: Image, rect: Rect2i) -> void:
+	var sz: Vector2i = img.get_size()
+	for y in range(max(0, rect.position.y), min(sz.y, rect.position.y + rect.size.y)):
+		for x in range(max(0, rect.position.x), min(sz.x, rect.position.x + rect.size.x)):
+			img.set_pixel(x, y, Color(1, 1, 1, 1))
 
 
 func _t08_make_ring(node_name: String, scale_factor: float, alpha: float, ring_color: Color) -> Node2D:

@@ -1,0 +1,28 @@
+{
+  "id": "T12_color_audit",
+  "covers": ["design_guidelines.T12", "audit.uiconstants_references"],
+  "description": "T12 audit: visual scripts reference UIConstants slot colors instead of ad-hoc hex. This iteration converts HumanMovementPathVisual's over-cap warning red to UIConstants.INVALID_RED via runtime lookup, and exposes a UIConstants.all_slots() audit hook. Asserts the slot table is complete (7 entries) and individual slots are reachable as Color values.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "UIConstants.all_slots().size()",
+      "equals": 7 },
+    { "act": "execute_script",
+      "script": "UIConstants.all_slots().has(\"INVALID_RED\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.all_slots().has(\"CONFIRMED_GREEN\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.all_slots().has(\"MARGINAL_YELLOW\")",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "UIConstants.slot_name(UIConstants.all_slots()[\"INVALID_RED\"])",
+      "equals": "INVALID_RED" },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

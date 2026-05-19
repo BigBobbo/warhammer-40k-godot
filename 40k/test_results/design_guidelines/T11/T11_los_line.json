@@ -1,0 +1,123 @@
+{
+  "failed": 0,
+  "passed": 14,
+  "scenario_id": "T11_los_line",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/BoardRoot/LOSLineVisual\") != nu]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line ]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/BoardRoot/LOSLineVisual\").compute_line(]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": 503.0,
+      "error": "",
+      "expect_min": 0.0,
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[[\"CONFIRMED_GREEN\", \"MARGINAL_YELLOW\", \"INVALID_RED\"].has(ge]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[[\"clear\", \"obscured\", \"blocked\"].has(get_node(\"/root/Main/Bo]",
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/BoardRoot/LOSLineVisual/Line\").visible]",
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line ]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/BoardRoot/LOSLineVisual/Line\").visible]",
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/BoardRoot/LOSLineVisual\").compute_line(]",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/BoardRoot/LOSLineVisual\").compute_line(]",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 26,
+      "pass": true,
+      "step": 13
+    }
+  ],
+  "total_steps": 14
+}

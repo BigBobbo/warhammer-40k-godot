@@ -1,0 +1,158 @@
+{
+  "failed": 0,
+  "passed": 19,
+  "scenario_id": "T17_status_overflow",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "expect_token_visible",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": 0,
+      "error": "",
+      "expected": 0.0,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).visible_s]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": 0,
+      "error": "",
+      "expected": 0.0,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).overflow_]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": 3,
+      "error": "",
+      "expected": 3.0,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).visible_s]",
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": 2,
+      "error": "",
+      "expected": 2.0,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).overflow_]",
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": "+2",
+      "error": "",
+      "expected": "+2",
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "execute_script",
+      "actual": 2,
+      "error": "",
+      "expected": 2.0,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).visible_s]",
+      "pass": true,
+      "step": 14
+    },
+    {
+      "act": "execute_script",
+      "actual": 0,
+      "error": "",
+      "expected": 0.0,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).overflow_]",
+      "pass": true,
+      "step": 15
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 16
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 17
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 26,
+      "pass": true,
+      "step": 18
+    }
+  ],
+  "total_steps": 19
+}

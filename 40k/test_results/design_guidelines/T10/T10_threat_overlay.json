@@ -1,0 +1,147 @@
+{
+  "failed": 0,
+  "passed": 18,
+  "scenario_id": "T10_threat_overlay",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/BoardRoot/ThreatOverlay\") != nu]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": 0,
+      "error": "",
+      "expected": 0.0,
+      "label": "script[get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_ring]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active]",
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": 16,
+      "error": "",
+      "expect_min": 2.0,
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": "MARGINAL_YELLOW",
+      "error": "",
+      "expected": "MARGINAL_YELLOW",
+      "label": "script[get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_ring]",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": "INVALID_RED",
+      "error": "",
+      "expected": "INVALID_RED",
+      "label": "script[get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_ring]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": "charge",
+      "error": "",
+      "expected": "charge",
+      "label": "script[get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_ring]",
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": "shoot",
+      "error": "",
+      "expected": "shoot",
+      "label": "script[get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_ring]",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": 16,
+      "error": "",
+      "expect_min": 2.0,
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 14
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active]",
+      "pass": true,
+      "step": 15
+    },
+    {
+      "act": "execute_script",
+      "actual": 0,
+      "error": "",
+      "expected": 0.0,
+      "label": "script[get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_ring]",
+      "pass": true,
+      "step": 16
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 26,
+      "pass": true,
+      "step": 17
+    }
+  ],
+  "total_steps": 18
+}

@@ -187,7 +187,11 @@ func _draw_distance_label(from: Vector2, to: Vector2, distance_inches: float, ba
 	# Border and text color based on distance vs cap
 	var text_color: Color
 	if _move_cap_inches > 0 and distance_inches > _move_cap_inches:
-		text_color = Color(1.0, 0.4, 0.2, alpha)  # Red-orange for over cap
+		# T12: reference UIConstants.INVALID_RED for the over-cap warning
+		# instead of the ad-hoc red-orange literal.
+		var uic = Engine.get_main_loop().root.get_node_or_null("UIConstants") if Engine.get_main_loop() else null
+		var base_red: Color = uic.INVALID_RED if uic != null else Color(0.9, 0.2, 0.2, 1.0)
+		text_color = Color(base_red.r, base_red.g, base_red.b, alpha)
 	else:
 		text_color = Color(base_color.r, base_color.g, base_color.b, alpha)
 

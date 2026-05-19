@@ -1,0 +1,64 @@
+{
+  "id": "T17_status_overflow",
+  "covers": ["design_guidelines.T17", "tokens.status_overflow"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 10,
+  "description": "TokenVisual caps active status icons at 3 (TL, TR, BR). Beyond that, BL renders an overflow chip '+N'. Empty-list resets all to invisible.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B", "timeout_s": 3.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).visible_status_icon_count",
+      "equals": 0 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).overflow_chip_count",
+      "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).set_active_statuses([\"A\", \"B\", \"C\", \"D\", \"E\"])" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).visible_status_icon_count",
+      "equals": 3 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).overflow_chip_count",
+      "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"StatusTL\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"StatusTR\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"StatusBR\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"OverflowChip\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"OverflowChip\").text",
+      "equals": "+2" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).set_active_statuses([\"A\", \"B\"])" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).visible_status_icon_count",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).overflow_chip_count",
+      "equals": 0 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"OverflowChip\").visible",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"StatusBR\").visible",
+      "equals": false },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

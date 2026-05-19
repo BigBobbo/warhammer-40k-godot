@@ -1,0 +1,90 @@
+{
+  "failed": 0,
+  "passed": 11,
+  "scenario_id": "T18_wound_chip",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "expect_token_visible",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": "",
+      "error": "",
+      "expected": "",
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).wound_chi]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": "3/5",
+      "error": "",
+      "expected": "3/5",
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).wound_chi]",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": "3/5",
+      "error": "",
+      "expected": "3/5",
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": "",
+      "error": "",
+      "expected": "",
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).wound_chi]",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 26,
+      "pass": true,
+      "step": 10
+    }
+  ],
+  "total_steps": 11
+}

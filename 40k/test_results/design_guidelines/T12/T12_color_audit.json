@@ -1,0 +1,64 @@
+{
+  "failed": 0,
+  "passed": 7,
+  "scenario_id": "T12_color_audit",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": 7,
+      "error": "",
+      "expected": 7.0,
+      "label": "script[UIConstants.all_slots().size()]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[UIConstants.all_slots().has(\"INVALID_RED\")]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[UIConstants.all_slots().has(\"CONFIRMED_GREEN\")]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[UIConstants.all_slots().has(\"MARGINAL_YELLOW\")]",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": "INVALID_RED",
+      "error": "",
+      "expected": "INVALID_RED",
+      "label": "script[UIConstants.slot_name(UIConstants.all_slots()[\"INVALID_RED\"]]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 26,
+      "pass": true,
+      "step": 6
+    }
+  ],
+  "total_steps": 7
+}

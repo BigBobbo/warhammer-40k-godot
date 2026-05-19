@@ -1,0 +1,32 @@
+{
+  "id": "T15_silhouettes",
+  "covers": ["design_guidelines.T15", "tokens.silhouettes"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 10,
+  "description": "Every TokenVisual gains a Silhouette child Sprite2D with a procedural ImageTexture and a silhouette_category string derived from the unit's keywords (infantry/tank/walker/beast/character/aircraft/mounted). Default is 'infantry' for keyword sets that don't match any category.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B", "timeout_s": 3.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).silhouette_category.length()",
+      "expect_min": 5 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node_or_null(\"Silhouette\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"Silhouette\").texture != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"Silhouette\").texture.get_width()",
+      "equals": 32 },
+
+    { "act": "execute_script",
+      "script": "[\"infantry\", \"tank\", \"walker\", \"beast\", \"character\", \"aircraft\", \"mounted\"].has(main.get_node(\"BoardRoot/TokenLayer\").get_child(0).silhouette_category)",
+      "equals": true },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

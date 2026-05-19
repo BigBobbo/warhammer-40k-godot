@@ -255,6 +255,14 @@ func _ready() -> void:
 	if board_root != null:
 		board_root.add_child(preload("res://scripts/PersistentEngagementOverlay.gd").new())
 
+	# T10: held-key (Tab) threat overlay.
+	if board_root != null:
+		board_root.add_child(preload("res://scripts/ThreatOverlay.gd").new())
+
+	# T11: LOS line visual.
+	if board_root != null:
+		board_root.add_child(preload("res://scripts/LOSLineVisual.gd").new())
+
 	# T31: standalone ruler tool. Lives under BoardRoot so its line is
 	# rendered in world coordinates.
 	if board_root != null:
@@ -4794,6 +4802,14 @@ func _input(event: InputEvent) -> void:
 		if ruler != null:
 			ruler.set_active(true)
 			ruler.is_private = event.shift_pressed
+			get_viewport().set_input_as_handled()
+			return
+
+	# T10: Tab held -> threat overlay on; release -> off.
+	if event is InputEventKey and event.keycode == KEY_TAB and not event.echo:
+		var to = get_node_or_null("BoardRoot/ThreatOverlay")
+		if to != null:
+			to.set_active(event.pressed)
 			get_viewport().set_input_as_handled()
 			return
 

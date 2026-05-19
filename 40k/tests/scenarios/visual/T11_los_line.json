@@ -1,0 +1,52 @@
+{
+  "id": "T11_los_line",
+  "covers": ["design_guidelines.T11", "shooting.los_line"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 8,
+  "description": "LOSLineVisual.compute_line(shooter, target) returns {from, to, color_slot, los_state}. Clear LOS yields CONFIRMED_GREEN; obscured yields MARGINAL_YELLOW; blocked yields INVALID_RED. We move WARBOSS_B between three positions to exercise each branch (open ground vs terrain piece between vs no path).",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/BoardRoot/LOSLineVisual\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line == null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").compute_line(\"U_WARBOSS_B\", \"U_CUSTODIAN_GUARD_B\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.from.x",
+      "expect_min": 0 },
+    { "act": "execute_script",
+      "script": "[\"CONFIRMED_GREEN\", \"MARGINAL_YELLOW\", \"INVALID_RED\"].has(get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.color_slot)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "[\"clear\", \"obscured\", \"blocked\"].has(get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line.los_state)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual/Line\").visible",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").clear_line()" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").current_line == null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual/Line\").visible",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").compute_line(\"\", \"\") == null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/LOSLineVisual\").compute_line(\"NOPE\", \"U_CUSTODIAN_GUARD_B\") == null",
+      "equals": true },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

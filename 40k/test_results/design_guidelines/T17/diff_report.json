@@ -1,0 +1,8 @@
+{
+  "scenario_id": "T17_status_overflow",
+  "pixel_diff_steps": [],
+  "summary": {
+    "step_count": 0,
+    "all_passed": true
+  }
+}
