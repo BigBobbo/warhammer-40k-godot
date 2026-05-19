@@ -165,6 +165,52 @@ def _golden_name(scenario_id: str, step: dict) -> str:
     return os.path.basename(rel)
 
 
+def _platform_id() -> str:
+    """Return a short stable identifier for the current rendering platform.
+
+    Goldens captured on Linux+xvfb (cloud runner / CI) have different
+    font-hinting and rendering than goldens captured on macOS Metal or
+    Windows D3D. Comparing across platforms produces drift everywhere
+    that does not reflect any real regression — so goldens live in
+    per-platform subdirectories of `40k/tests/scenarios/goldens/<id>/`.
+
+    Override with GOLDENS_PLATFORM env var if the auto-detected id is
+    wrong for your environment (e.g. a Linux dev running on a native
+    display, not xvfb).
+    """
+    override = os.environ.get("GOLDENS_PLATFORM")
+    if override:
+        return override
+    if sys.platform.startswith("linux"):
+        # xvfb in the cloud runner sets DISPLAY but no real session type.
+        # A local Linux dev typically has XDG_SESSION_TYPE=x11 or wayland.
+        if os.environ.get("XDG_SESSION_TYPE"):
+            return "linux-native"
+        return "linux-xvfb"
+    if sys.platform == "darwin":
+        return "darwin"
+    if sys.platform.startswith("win"):
+        return "win32"
+    return sys.platform
+
+
+def _resolve_golden_path(goldens_dir: str, golden_name: str) -> tuple:
+    """Resolve a golden's absolute path, with platform-specific lookup.
+
+    Returns (resolved_path, is_platform_specific). Preference order:
+      1. <goldens_dir>/<platform>/<golden_name>     (preferred new layout)
+      2. <goldens_dir>/<golden_name>                (legacy / shared)
+
+    The fallback to legacy lets repos with un-migrated goldens keep
+    working until they bless on each platform.
+    """
+    platform_path = os.path.join(goldens_dir, _platform_id(), golden_name)
+    if os.path.isfile(platform_path):
+        return (platform_path, True)
+    legacy_path = os.path.join(goldens_dir, golden_name)
+    return (legacy_path, False)
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -247,7 +293,16 @@ def main() -> int:
         act = step.get("act", "")
         shot_abs = os.path.join(args.user_dir, rel)
         golden_name = _golden_name(scenario_id, step)
-        golden_abs = os.path.join(args.goldens_dir, golden_name)
+        if args.bless:
+            # Always bless to the platform-specific directory. Legacy
+            # platform-agnostic goldens are read-fallback only.
+            platform_dir = os.path.join(args.goldens_dir, _platform_id())
+            os.makedirs(platform_dir, exist_ok=True)
+            golden_abs = os.path.join(platform_dir, golden_name)
+            is_platform_specific = True
+        else:
+            golden_abs, is_platform_specific = _resolve_golden_path(
+                args.goldens_dir, golden_name)
         threshold = _threshold_for(thresholds, scenario_id, step_idx)
 
         entry = {
@@ -255,6 +310,7 @@ def main() -> int:
             "act": act,
             "screenshot": rel,
             "golden": os.path.relpath(golden_abs),
+            "golden_is_platform_specific": is_platform_specific,
             "threshold": threshold,
         }
 
@@ -310,6 +366,7 @@ def main() -> int:
     report = {
         "scenario_id": scenario_id,
         "mode": "bless" if args.bless else "diff",
+        "platform": _platform_id(),
         "threshold_default": thresholds.get("default", 4),
         "results": report_results,
         "summary": summary,
@@ -320,6 +377,7 @@ def main() -> int:
         json.dump(report, f, indent=2)
 
     print(f"[golden_diff] scenario:   {scenario_id}")
+    print(f"[golden_diff] platform:   {_platform_id()}")
     print(f"[golden_diff] mode:       {report['mode']}")
     print(f"[golden_diff] match:      {summary['match']}")
     print(f"[golden_diff] drift:      {summary['drift']}"
