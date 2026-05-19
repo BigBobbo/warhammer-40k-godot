@@ -1,0 +1,51 @@
+{
+  "id": "T03_drag_ruler",
+  "covers": ["design_guidelines.T03", "movement.drag_ruler"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 7,
+  "description": "Drag-ruler with budget coloring. compute_drag_segments(unit, from, to) returns colored segments: CONFIRMED_GREEN within M, MARGINAL_YELLOW within M+Advance, INVALID_RED beyond. WARBOSS_B has move=6 so M=6\", M+Advance=12\".",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/MovementController\").compute_drag_segments(\"U_WARBOSS_B\", Vector2(0, 0), Vector2(5 * Measurement.PX_PER_INCH, 0)).size()",
+      "expect_min": 1 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/MovementController\").current_drag_segments[-1].color_slot",
+      "equals": "CONFIRMED_GREEN" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/MovementController\").compute_drag_segments(\"U_WARBOSS_B\", Vector2(0, 0), Vector2(9 * Measurement.PX_PER_INCH, 0))" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/MovementController\").current_drag_segments[-1].color_slot",
+      "equals": "MARGINAL_YELLOW" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/MovementController\").current_drag_segments.size()",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/MovementController\").current_drag_segments[0].color_slot",
+      "equals": "CONFIRMED_GREEN" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/MovementController\").compute_drag_segments(\"U_WARBOSS_B\", Vector2(0, 0), Vector2(14 * Measurement.PX_PER_INCH, 0))" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/MovementController\").current_drag_segments[-1].color_slot",
+      "equals": "INVALID_RED" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/MovementController\").current_drag_segments.size()",
+      "equals": 3 },
+
+    { "act": "execute_script",
+      "script": "abs(get_node(\"/root/Main/MovementController\").current_drag_segments[0].distance_inches - 6.0)",
+      "expect_max": 0.1 },
+    { "act": "execute_script",
+      "script": "abs(get_node(\"/root/Main/MovementController\").current_drag_segments[1].distance_inches - 6.0)",
+      "expect_max": 0.1 },
+    { "act": "execute_script",
+      "script": "abs(get_node(\"/root/Main/MovementController\").current_drag_segments[2].distance_inches - 2.0)",
+      "expect_max": 0.1 },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

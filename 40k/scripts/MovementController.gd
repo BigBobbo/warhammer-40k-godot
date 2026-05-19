@@ -23,6 +23,14 @@ var selected_model: Dictionary = {}
 var dragging_model: bool = false
 var drag_start_pos: Vector2
 
+# T03: drag-ruler segments. Computed by compute_drag_segments() so scenarios
+# can assert color_slot per cursor position. Schema:
+#   [{from: Vector2, to: Vector2, color_slot: String, distance_inches: float}]
+# color_slot is one of CONFIRMED_GREEN / MARGINAL_YELLOW / INVALID_RED.
+var current_drag_segments: Array = []
+
+const T03_ADVANCE_INCHES := 6.0  # 40k 10e advance: M + d6, capped here at 6"
+
 # Rotation and pivot state
 var rotating_model: bool = false
 var rotation_start_angle: float = 0.0
@@ -116,6 +124,59 @@ func get_unit_movement(unit: Dictionary) -> float:
 		print("MovementController: Special Dose — movement %d → %d (+6\")" % [int(old_movement), int(movement)])
 
 	return movement
+
+# T03: compute the colored drag-ruler segments for a model being moved from
+# from_pt to to_pt. Reads the unit's M from get_unit_movement and applies a
+# fixed Advance budget of T03_ADVANCE_INCHES inches. Returns an array of
+# {from, to, color_slot, distance_inches} dicts. Always also stores into
+# current_drag_segments so scenarios can read the latest result.
+func compute_drag_segments(unit_id: String, from_pt: Vector2, to_pt: Vector2) -> Array:
+	current_drag_segments = []
+	var gs = get_node_or_null("/root/GameState")
+	if gs == null:
+		return current_drag_segments
+	var unit = gs.get_unit(unit_id)
+	if typeof(unit) != TYPE_DICTIONARY or unit.is_empty():
+		return current_drag_segments
+	var move_inches: float = get_unit_movement(unit)
+	var advance_inches: float = T03_ADVANCE_INCHES
+	var px_per_inch: float = float(Measurement.PX_PER_INCH)
+	var move_px: float = move_inches * px_per_inch
+	var advance_px: float = (move_inches + advance_inches) * px_per_inch
+	var total_px: float = from_pt.distance_to(to_pt)
+	if total_px <= 0.0:
+		return current_drag_segments
+	var dir: Vector2 = (to_pt - from_pt) / total_px
+
+	var cuts: Array = [0.0]
+	if move_px < total_px:
+		cuts.append(move_px)
+	if advance_px < total_px:
+		cuts.append(advance_px)
+	cuts.append(total_px)
+	for i in range(cuts.size() - 1):
+		var t0: float = cuts[i]
+		var t1: float = cuts[i + 1]
+		if t1 <= t0:
+			continue
+		var seg_from: Vector2 = from_pt + dir * t0
+		var seg_to: Vector2 = from_pt + dir * t1
+		var mid: float = (t0 + t1) * 0.5
+		var color_slot: String
+		if mid <= move_px:
+			color_slot = "CONFIRMED_GREEN"
+		elif mid <= advance_px:
+			color_slot = "MARGINAL_YELLOW"
+		else:
+			color_slot = "INVALID_RED"
+		current_drag_segments.append({
+			"from": seg_from,
+			"to": seg_to,
+			"color_slot": color_slot,
+			"distance_inches": (t1 - t0) / px_per_inch,
+		})
+	return current_drag_segments
+
 
 func _ready() -> void:
 	# Add to group so DisembarkController can find us

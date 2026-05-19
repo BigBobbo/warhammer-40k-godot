@@ -126,19 +126,19 @@
     },
     {
       "act": "pixel_diff",
-      "diff_pct": 0.75462962962963,
+      "diff_pct": 0.744791666666667,
       "pass": true,
       "result": {
         "regions": {
-          "right_panel": 0.75462962962963
+          "right_panel": 0.744791666666667
         },
-        "total_diff_pct": 0.189863040123457
+        "total_diff_pct": 0.124131944444444
       },
       "step": 16
     },
     {
       "act": "expect_baseline_unchanged",
-      "baseline_count": 13,
+      "baseline_count": 14,
       "pass": true,
       "step": 17
     }

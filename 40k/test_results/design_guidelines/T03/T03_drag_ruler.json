@@ -1,0 +1,149 @@
+{
+  "failed": 0,
+  "passed": 14,
+  "scenario_id": "T03_drag_ruler",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": 1,
+      "error": "",
+      "expect_min": 1.0,
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": "CONFIRMED_GREEN",
+      "error": "",
+      "expected": "CONFIRMED_GREEN",
+      "label": "script[get_node(\"/root/Main/MovementController\").current_drag_segme]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": [
+        {
+          "color_slot": "CONFIRMED_GREEN",
+          "distance_inches": 6.0,
+          "from": "(0.0, 0.0)",
+          "to": "(240.0, 0.0)"
+        },
+        {
+          "color_slot": "MARGINAL_YELLOW",
+          "distance_inches": 3.0,
+          "from": "(240.0, 0.0)",
+          "to": "(360.0, 0.0)"
+        }
+      ],
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": "MARGINAL_YELLOW",
+      "error": "",
+      "expected": "MARGINAL_YELLOW",
+      "label": "script[get_node(\"/root/Main/MovementController\").current_drag_segme]",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": 2,
+      "error": "",
+      "expected": 2.0,
+      "label": "script[get_node(\"/root/Main/MovementController\").current_drag_segme]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": "CONFIRMED_GREEN",
+      "error": "",
+      "expected": "CONFIRMED_GREEN",
+      "label": "script[get_node(\"/root/Main/MovementController\").current_drag_segme]",
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": [
+        {
+          "color_slot": "CONFIRMED_GREEN",
+          "distance_inches": 6.0,
+          "from": "(0.0, 0.0)",
+          "to": "(240.0, 0.0)"
+        },
+        {
+          "color_slot": "MARGINAL_YELLOW",
+          "distance_inches": 6.0,
+          "from": "(240.0, 0.0)",
+          "to": "(480.0, 0.0)"
+        },
+        {
+          "color_slot": "INVALID_RED",
+          "distance_inches": 2.0,
+          "from": "(480.0, 0.0)",
+          "to": "(560.0, 0.0)"
+        }
+      ],
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": "INVALID_RED",
+      "error": "",
+      "expected": "INVALID_RED",
+      "label": "script[get_node(\"/root/Main/MovementController\").current_drag_segme]",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": 3,
+      "error": "",
+      "expected": 3.0,
+      "label": "script[get_node(\"/root/Main/MovementController\").current_drag_segme]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": 0.0,
+      "error": "",
+      "expect_max": 0.1,
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": 0.0,
+      "error": "",
+      "expect_max": 0.1,
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": 0.0,
+      "error": "",
+      "expect_max": 0.1,
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 14,
+      "pass": true,
+      "step": 13
+    }
+  ],
+  "total_steps": 14
+}
