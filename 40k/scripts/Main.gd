@@ -233,6 +233,7 @@ var _pre_pan_offset: Vector2 = Vector2.ZERO
 var _pre_pan_zoom: float = 1.0
 
 func _ready() -> void:
+	print("[DEBUG-VALIDATION] WH_GOLD = ", WhiteDwarfTheme.WH_GOLD)
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
 	if GameEventLog:
