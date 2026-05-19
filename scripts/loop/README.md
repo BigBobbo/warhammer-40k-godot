@@ -18,7 +18,7 @@ Claude session per scenario, parallel by default. See
 | Selector preflight | done (Phase 3) | `SCENARIO_SELECTOR_DRY_RUN=1` in `ScenarioRunner`, integrated into driver |
 | Determinism check | done (Phase 3) | `determinism_check.sh`, standalone tool |
 | Pre-commit guardrails | done (Phase 6) | `.githooks/pre-commit-loop` — fires on `loop/*` branches, enforces scenario-immutability, forbidden paths, diff cap, Justification |
-| Parallel kickoff | TODO | Phase 7 |
+| Parallel kickoff | done (Phase 7) | `kickoff_parallel.md` + `list_scenarios_by_priority.py` (orphans → top, then by oldest commit) |
 
 ## How to drive one scenario locally
 
