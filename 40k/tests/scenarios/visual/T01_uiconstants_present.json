@@ -1,0 +1,72 @@
+{
+  "id": "T01_uiconstants_present",
+  "covers": ["design_guidelines.T01", "infra.ui_constants"],
+  "description": "Asserts the UIConstants autoload exposes the seven color slots with their canonical hex values, that slot_name() round-trips, and that striped_pattern() returns a non-null Texture2D. No UI driving — exercises the autoload contract that T03+ visual scripts depend on.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "screenshot", "label": "T01_before" },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/UIConstants\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "UIConstants.FRIENDLY_PLAYER_TEAL.to_html(true)",
+      "equals": "00b3b3ff" },
+    { "act": "execute_script",
+      "script": "UIConstants.ENEMY_PLAYER_MAGENTA.to_html(true)",
+      "equals": "e633b3ff" },
+    { "act": "execute_script",
+      "script": "UIConstants.WARNING_ORANGE.to_html(true)",
+      "equals": "ff8c00ff" },
+    { "act": "execute_script",
+      "script": "UIConstants.CONFIRMED_GREEN.to_html(true)",
+      "equals": "33d94dff" },
+    { "act": "execute_script",
+      "script": "UIConstants.MARGINAL_YELLOW.to_html(true)",
+      "equals": "f2d926ff" },
+    { "act": "execute_script",
+      "script": "UIConstants.INVALID_RED.to_html(true)",
+      "equals": "e63333ff" },
+    { "act": "execute_script",
+      "script": "UIConstants.NEUTRAL_UI_PALE_WHITE.to_html(true)",
+      "equals": "f2f2f2ff" },
+
+    { "act": "execute_script",
+      "script": "UIConstants.FRIENDLY_PLAYER_TEAL.a",
+      "equals": 1.0 },
+
+    { "act": "execute_script",
+      "script": "UIConstants.slot_name(UIConstants.WARNING_ORANGE)",
+      "equals": "WARNING_ORANGE" },
+    { "act": "execute_script",
+      "script": "UIConstants.slot_name(UIConstants.CONFIRMED_GREEN)",
+      "equals": "CONFIRMED_GREEN" },
+    { "act": "execute_script",
+      "script": "UIConstants.slot_name(Color(0.1, 0.2, 0.3, 1.0))",
+      "equals": "" },
+
+    { "act": "execute_script",
+      "script": "UIConstants.all_slots().size()",
+      "equals": 7 },
+
+    { "act": "execute_script",
+      "script": "UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)) != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_class()",
+      "equals": "ImageTexture" },
+
+    { "act": "execute_script",
+      "script": "UIConstants.MOTION_DICE_MAX_S",
+      "equals": 1.5 },
+    { "act": "execute_script",
+      "script": "UIConstants.MOTION_PULSE_LOOP_S",
+      "equals": 2.0 },
+
+    { "act": "screenshot", "label": "T01_after" },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

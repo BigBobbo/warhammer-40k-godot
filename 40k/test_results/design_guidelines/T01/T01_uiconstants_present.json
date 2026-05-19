@@ -1,0 +1,184 @@
+{
+  "failed": 0,
+  "passed": 21,
+  "scenario_id": "T01_uiconstants_present",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T01_uiconstants_present_T01_before.png",
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/UIConstants\") != null]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": "00b3b3ff",
+      "error": "",
+      "expected": "00b3b3ff",
+      "label": "script[UIConstants.FRIENDLY_PLAYER_TEAL.to_html(true)]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": "e633b3ff",
+      "error": "",
+      "expected": "e633b3ff",
+      "label": "script[UIConstants.ENEMY_PLAYER_MAGENTA.to_html(true)]",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": "ff8c00ff",
+      "error": "",
+      "expected": "ff8c00ff",
+      "label": "script[UIConstants.WARNING_ORANGE.to_html(true)]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": "33d94dff",
+      "error": "",
+      "expected": "33d94dff",
+      "label": "script[UIConstants.CONFIRMED_GREEN.to_html(true)]",
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": "f2d926ff",
+      "error": "",
+      "expected": "f2d926ff",
+      "label": "script[UIConstants.MARGINAL_YELLOW.to_html(true)]",
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": "e63333ff",
+      "error": "",
+      "expected": "e63333ff",
+      "label": "script[UIConstants.INVALID_RED.to_html(true)]",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": "f2f2f2ff",
+      "error": "",
+      "expected": "f2f2f2ff",
+      "label": "script[UIConstants.NEUTRAL_UI_PALE_WHITE.to_html(true)]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": 1.0,
+      "error": "",
+      "expected": 1.0,
+      "label": "script[UIConstants.FRIENDLY_PLAYER_TEAL.a]",
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": "WARNING_ORANGE",
+      "error": "",
+      "expected": "WARNING_ORANGE",
+      "label": "script[UIConstants.slot_name(UIConstants.WARNING_ORANGE)]",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": "CONFIRMED_GREEN",
+      "error": "",
+      "expected": "CONFIRMED_GREEN",
+      "label": "script[UIConstants.slot_name(UIConstants.CONFIRMED_GREEN)]",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "execute_script",
+      "actual": "",
+      "error": "",
+      "expected": "",
+      "label": "script[UIConstants.slot_name(Color(0.1, 0.2, 0.3, 1.0))]",
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "execute_script",
+      "actual": 7,
+      "error": "",
+      "expected": 7.0,
+      "label": "script[UIConstants.all_slots().size()]",
+      "pass": true,
+      "step": 14
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)) != null]",
+      "pass": true,
+      "step": 15
+    },
+    {
+      "act": "execute_script",
+      "actual": "ImageTexture",
+      "error": "",
+      "expected": "ImageTexture",
+      "label": "script[UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_class(]",
+      "pass": true,
+      "step": 16
+    },
+    {
+      "act": "execute_script",
+      "actual": 1.5,
+      "error": "",
+      "expected": 1.5,
+      "label": "script[UIConstants.MOTION_DICE_MAX_S]",
+      "pass": true,
+      "step": 17
+    },
+    {
+      "act": "execute_script",
+      "actual": 2.0,
+      "error": "",
+      "expected": 2.0,
+      "label": "script[UIConstants.MOTION_PULSE_LOOP_S]",
+      "pass": true,
+      "step": 18
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T01_uiconstants_present_T01_after.png",
+      "step": 19
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 2,
+      "pass": true,
+      "step": 20
+    }
+  ],
+  "total_steps": 21
+}
