@@ -141,11 +141,24 @@ func _run_scenario() -> void:
 	# result record. Powers the visual-regression-loop critic, which needs a
 	# frame per step to judge "did the UI render what the scenario intended."
 	var screenshot_every := OS.get_environment("SCENARIO_SCREENSHOT_EVERY_STEP") == "1"
+	# Selector dry-run mode: when SCENARIO_SELECTOR_DRY_RUN=1 the runner
+	# walks steps but only resolves selectors (click_node, click_unit,
+	# expect_node_*, expect_token_visible) without clicking, dispatching,
+	# or screenshotting. Each step records selector_status: resolved /
+	# not_found / n/a. Catches "scenario silently no-ops because a button
+	# moved" before the screenshot loop wastes a turn.
+	var selector_dry_run := OS.get_environment("SCENARIO_SELECTOR_DRY_RUN") == "1"
+	if selector_dry_run:
+		print("[ScenarioRunner] SELECTOR DRY-RUN mode — no UI mutation, only resolution checks")
 	for i in range(steps.size()):
 		var step = steps[i]
 		var act = str(step.get("act", ""))
 		print("[ScenarioRunner] step %d/%d: %s" % [i, steps.size() - 1, act])
-		var rec: Dictionary = await _execute_step(i, act, step)
+		var rec: Dictionary
+		if selector_dry_run:
+			rec = _dry_run_resolve_step(i, act, step)
+		else:
+			rec = await _execute_step(i, act, step)
 		_step_results.append(rec)
 		if rec.get("pass", false):
 			passed += 1
@@ -154,8 +167,9 @@ func _run_scenario() -> void:
 			failed += 1
 			var detail = rec.get("error", "")
 			print("  FAIL  %s" % detail)
-			_capture_failure_screenshot(scenario_id, i)
-		if screenshot_every:
+			if not selector_dry_run:
+				_capture_failure_screenshot(scenario_id, i)
+		if screenshot_every and not selector_dry_run:
 			var shot_rel := await _capture_per_step_screenshot(scenario_id, i, act)
 			if shot_rel != "":
 				rec["per_step_screenshot"] = shot_rel
@@ -166,7 +180,9 @@ func _run_scenario() -> void:
 	if rules2 != null:
 		rules2.set_test_seed(-1)
 
-	# 9) Write results
+	# 9) Write results (and selectors_report.json in dry-run mode)
+	if selector_dry_run:
+		_write_selectors_report(scenario_id, passed, failed)
 	_write_results(scenario_id, passed, failed)
 	print("[ScenarioRunner] === %s: %d passed, %d failed ===" % [scenario_id, passed, failed])
 	emit_signal("scenario_finished", scenario_id, passed, failed)
@@ -658,6 +674,89 @@ func _summarize_result(result) -> Variant:
 				summary[k] = v
 		return summary
 	return result
+
+
+func _dry_run_resolve_step(i: int, act: String, step: Dictionary) -> Dictionary:
+	# Selector dry-run: resolve any node-path / unit-id selectors in this
+	# step without performing the action. Steps without selectors get
+	# selector_status = 'n/a' and pass automatically. Steps with a
+	# selector that fails to resolve get pass=false + selector_status =
+	# 'not_found'. The driver halts the loop when any selector is missing.
+	var rec := {"step": i, "act": act, "step_input": step}
+	match act:
+		"click_node", "expect_node_visible", "expect_node_property":
+			var node_path := str(step.get("node", ""))
+			rec["selector_kind"] = "node_path"
+			rec["selector_value"] = node_path
+			if node_path == "":
+				rec["pass"] = false
+				rec["selector_status"] = "not_found"
+				rec["error"] = "%s step missing 'node' field" % act
+			elif get_node_or_null(node_path) == null:
+				rec["pass"] = false
+				rec["selector_status"] = "not_found"
+				rec["error"] = "no node at path %s" % node_path
+			else:
+				rec["pass"] = true
+				rec["selector_status"] = "resolved"
+		"click_unit", "expect_token_visible":
+			var unit_id := str(step.get("unit_id", ""))
+			rec["selector_kind"] = "unit_id"
+			rec["selector_value"] = unit_id
+			if unit_id == "":
+				rec["pass"] = false
+				rec["selector_status"] = "not_found"
+				rec["error"] = "%s step missing 'unit_id' field" % act
+			elif _find_unit_token(unit_id) == null:
+				rec["pass"] = false
+				rec["selector_status"] = "not_found"
+				rec["error"] = "no token found for unit %s" % unit_id
+			else:
+				rec["pass"] = true
+				rec["selector_status"] = "resolved"
+		_:
+			rec["pass"] = true
+			rec["selector_status"] = "n/a"
+	return rec
+
+
+func _write_selectors_report(scenario_id: String, passed: int, failed: int) -> void:
+	var d = DirAccess.open("user://")
+	if d != null:
+		d.make_dir_recursive(RESULTS_SUBDIR)
+	var rel := "%s/%s_selectors_report.json" % [RESULTS_SUBDIR, scenario_id]
+	var abs := ProjectSettings.globalize_path("user://" + rel)
+	var f = FileAccess.open(abs, FileAccess.WRITE)
+	if f == null:
+		print("[ScenarioRunner] could not write selectors_report: %s" % abs)
+		return
+	# Project just the selector-relevant fields, keep the file small.
+	var rows := []
+	var resolved := 0
+	var not_found := 0
+	var na := 0
+	for r in _step_results:
+		rows.append({
+			"step": r.get("step"),
+			"act": r.get("act"),
+			"selector_status": r.get("selector_status", "n/a"),
+			"selector_kind": r.get("selector_kind", null),
+			"selector_value": r.get("selector_value", null),
+			"error": r.get("error", null),
+		})
+		match r.get("selector_status", "n/a"):
+			"resolved": resolved += 1
+			"not_found": not_found += 1
+			_: na += 1
+	var out := {
+		"scenario_id": scenario_id,
+		"mode": "selector_dry_run",
+		"summary": {"resolved": resolved, "not_found": not_found, "n/a": na},
+		"steps": rows,
+	}
+	f.store_string(JSON.stringify(out, "  "))
+	f.close()
+	print("[ScenarioRunner] selectors_report: %s  (resolved=%d not_found=%d n/a=%d)" % [abs, resolved, not_found, na])
 
 
 func _capture_per_step_screenshot(scenario_id: String, step_idx: int, act: String) -> String:

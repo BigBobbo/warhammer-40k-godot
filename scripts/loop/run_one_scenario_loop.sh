@@ -70,8 +70,49 @@ fi
 # Clear stale per-step screenshots from a previous run of this scenario.
 rm -f "$RESULTS_DIR/${SCENARIO_ID}_step_"*.png 2>/dev/null || true
 rm -f "$RESULTS_DIR/critique.json" "$RESULTS_DIR/goldens_report.json" 2>/dev/null || true
+rm -f "$RESULTS_DIR/${SCENARIO_ID}_selectors_report.json" 2>/dev/null || true
 
-# 2. Run the scenario windowed with per-step screenshots enabled.
+# 2. Selector preflight — run the scenario in dry-run mode and bail if
+# any click_node / click_unit / expect_node_* / expect_token_visible
+# step has a selector that doesn't resolve. Cheaper than a full xvfb
+# run and surfaces "scenario silently no-ops because a button moved"
+# before the screenshot loop wastes its turn.
+if [ "${LOOP_SKIP_SELECTOR_PREFLIGHT:-0}" = "1" ]; then
+    echo ""
+    echo "[loop] selector preflight: SKIPPED (LOOP_SKIP_SELECTOR_PREFLIGHT=1)"
+else
+    echo ""
+    echo "[loop] selector preflight: dry-run scenario for selector resolution"
+    SELECTOR_LOG=/tmp/loop_selector_${SCENARIO_ID}.log
+    set +e
+    SCENARIO_SELECTOR_DRY_RUN=1 \
+        xvfb-run -a godot --path 40k --scenario-file="$PRESERVE_PATH" \
+            > "$SELECTOR_LOG" 2>&1
+    SELECTOR_EXIT=$?
+    set -e
+    SELECTORS_JSON="$RESULTS_DIR/${SCENARIO_ID}_selectors_report.json"
+    if [ ! -f "$SELECTORS_JSON" ]; then
+        echo "[loop] HALT selector preflight produced no report; tail of log:"
+        tail -30 "$SELECTOR_LOG"
+        exit 1
+    fi
+    NOT_FOUND=$(python3 -c "import json; print(json.load(open('$SELECTORS_JSON'))['summary']['not_found'])")
+    RESOLVED=$(python3 -c "import json; print(json.load(open('$SELECTORS_JSON'))['summary']['resolved'])")
+    echo "[loop] selector preflight: resolved=$RESOLVED not_found=$NOT_FOUND"
+    if [ "$NOT_FOUND" -gt 0 ]; then
+        echo "[loop] HALT $NOT_FOUND selectors did not resolve:"
+        python3 -c "
+import json
+report = json.load(open('$SELECTORS_JSON'))
+for s in report['steps']:
+    if s.get('selector_status') == 'not_found':
+        print(f\"  step {s['step']:2d} ({s['act']}): {s.get('selector_kind')}={s.get('selector_value')!r}  err={s.get('error')}\")
+"
+        exit 1
+    fi
+fi
+
+# 3. Run the scenario windowed with per-step screenshots enabled.
 echo ""
 echo "[loop] running scenario windowed (xvfb)"
 export SCENARIO_SCREENSHOT_EVERY_STEP=1
@@ -102,6 +143,11 @@ if ! python3 scripts/loop/critic_stub.py "$RESULTS_JSON" "$USER_DIR" "$CRITIQUE_
     echo "[loop] HALT critic stub failed"
     exit 1
 fi
+
+# Determinism check runs as a standalone tool — `bash
+# scripts/loop/determinism_check.sh <scenario>` — because it doubles wall
+# time and would clobber the per-step screenshots the golden diff needs.
+# Run it on demand when a scenario is suspected of flaking.
 
 # 5. Golden PHASH diff.
 echo ""

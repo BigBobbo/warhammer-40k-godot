@@ -14,7 +14,8 @@ Claude session per scenario, parallel by default. See
 | Critic prompt for real run | done (Phase 1) | `critic_prompt.md` (consumed by the Agent tool inside a cloud Claude session) |
 | Fixer prompt for real run | done (Phase 1) | `fixer_prompt.md` (same) |
 | Golden screenshot PHASH diff | done (Phase 2) | `golden_diff.py`, goldens under `40k/tests/scenarios/goldens/` |
-| Selector preflight | TODO | Phase 3 |
+| Selector preflight | done (Phase 3) | `SCENARIO_SELECTOR_DRY_RUN=1` in `ScenarioRunner`, integrated into driver |
+| Determinism check | done (Phase 3) | `determinism_check.sh`, standalone tool |
 | Pre-commit guardrails | TODO | Phase 6 |
 | Parallel kickoff | TODO | Phase 7 |
 
@@ -39,6 +40,41 @@ per-step match / drift / missing_golden status.
 
 Driver exits 0 only when scenario steps all pass AND all per-step
 screenshots match their goldens under the configured PHASH threshold.
+
+## Selector preflight
+
+Before the windowed run, the driver does a `SCENARIO_SELECTOR_DRY_RUN=1`
+pass: it loads the fixture and walks the steps, but only resolves
+selectors (`click_node` / `click_unit` / `expect_node_*` /
+`expect_token_visible`). Steps without selectors get
+`selector_status: n/a` and pass automatically.
+
+If any selector misses, the driver halts with an itemized list and
+exits 1 BEFORE the expensive windowed run. This catches "scenario
+silently no-ops because a button moved" — a class of bug that
+previously surfaced as a flaky screenshot rather than a clear error.
+
+The dry-run also writes `<scenario_id>_selectors_report.json` to the
+results dir for debugging.
+
+`LOOP_SKIP_SELECTOR_PREFLIGHT=1` bypasses it (use sparingly).
+
+## Determinism check
+
+`determinism_check.sh` runs a scenario twice and PHASH-compares every
+per-step screenshot pair. Non-zero Hamming distance between runs of
+the same step means the scenario isn't deterministic under the RNG
+seed it claims to use — typically a real bug (un-seeded animation,
+tween jitter, unordered dict walk) that will flake the golden diff
+downstream.
+
+Not wired into `run_one_scenario_loop.sh` because it doubles wall time
+and would clobber the per-step PNGs the golden diff needs. Run it
+separately when a scenario is suspected of flaking:
+
+```bash
+bash scripts/loop/determinism_check.sh 40k/tests/scenarios/sp/runner_smoke.json
+```
 
 ## Golden screenshots
 
