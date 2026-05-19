@@ -1,7 +1,7 @@
 {
   "failed": 0,
-  "passed": 18,
-  "scenario_id": "T13_fit_board",
+  "passed": 17,
+  "scenario_id": "T14_fit_selection",
   "steps": [
     {
       "act": "wait_seconds",
@@ -10,10 +10,7 @@
     },
     {
       "act": "execute_script",
-      "actual": "",
-      "error": "",
-      "expected": "",
-      "label": "script[main.last_camera_fit_action]",
+      "actual": null,
       "pass": true,
       "step": 1
     },
@@ -24,63 +21,52 @@
       "step": 2
     },
     {
-      "act": "execute_script",
-      "actual": null,
+      "act": "wait_frames",
       "pass": true,
       "step": 3
     },
     {
-      "act": "wait_frames",
+      "act": "screenshot",
       "pass": true,
+      "path": "test_results/scenarios/T14_fit_selection_T14_before.png",
       "step": 4
     },
     {
-      "act": "screenshot",
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.fit_view_to_selection(\"U_WARBOSS_B\")]",
       "pass": true,
-      "path": "test_results/scenarios/T13_fit_board_T13_before.png",
       "step": 5
     },
     {
-      "act": "execute_script",
-      "actual": null,
+      "act": "wait_frames",
       "pass": true,
       "step": 6
     },
     {
-      "act": "wait_frames",
+      "act": "screenshot",
       "pass": true,
+      "path": "test_results/scenarios/T14_fit_selection_T14_after.png",
       "step": 7
     },
     {
-      "act": "screenshot",
-      "pass": true,
-      "path": "test_results/scenarios/T13_fit_board_T13_after.png",
-      "step": 8
-    },
-    {
       "act": "execute_script",
-      "actual": "board",
+      "actual": "selection",
       "error": "",
-      "expected": "board",
+      "expected": "selection",
       "label": "script[main.last_camera_fit_action]",
       "pass": true,
-      "step": 9
+      "step": 8
     },
     {
       "act": "execute_script",
       "actual": 0.0,
       "error": "",
-      "expect_max": 8.0,
+      "expect_max": 10.0,
       "pass": true,
-      "step": 10
-    },
-    {
-      "act": "execute_script",
-      "actual": 0.0000000077408629506337,
-      "error": "",
-      "expect_max": 0.02,
-      "pass": true,
-      "step": 11
+      "step": 9
     },
     {
       "act": "execute_script",
@@ -89,47 +75,59 @@
       "expected": true,
       "label": "script[is_equal_approx(main.camera.zoom.x, main.camera.zoom.y)]",
       "pass": true,
-      "step": 12
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.camera.zoom.x > 0.0]",
+      "pass": true,
+      "step": 11
     },
     {
       "act": "pixel_diff",
-      "diff_pct": 18.5417148919753,
+      "diff_pct": 17.4477237654321,
       "pass": true,
       "result": {
         "regions": {
 
         },
-        "total_diff_pct": 18.5417148919753
+        "total_diff_pct": 17.4477237654321
       },
-      "step": 13
+      "step": 12
     },
     {
       "act": "execute_script",
       "actual": null,
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[main.fit_view_to_selection(\"\")]",
       "pass": true,
       "step": 14
     },
     {
       "act": "execute_script",
-      "actual": null,
+      "actual": "",
+      "error": "",
+      "expected": "",
+      "label": "script[main.last_camera_fit_action]",
       "pass": true,
       "step": 15
-    },
-    {
-      "act": "execute_script",
-      "actual": "board",
-      "error": "",
-      "expected": "board",
-      "label": "script[main.t13_synthesize_f_press()]",
-      "pass": true,
-      "step": 16
     },
     {
       "act": "expect_baseline_unchanged",
       "baseline_count": 6,
       "pass": true,
-      "step": 17
+      "step": 16
     }
   ],
-  "total_steps": 18
+  "total_steps": 17
 }

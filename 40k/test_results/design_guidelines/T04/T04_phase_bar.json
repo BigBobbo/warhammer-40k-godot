@@ -194,19 +194,19 @@
     },
     {
       "act": "pixel_diff",
-      "diff_pct": 4.171875,
+      "diff_pct": 4.17857142857143,
       "pass": true,
       "result": {
         "regions": {
-          "phase_bar": 4.171875
+          "phase_bar": 4.17857142857143
         },
-        "total_diff_pct": 45.3502604166667
+        "total_diff_pct": 43.6801215277778
       },
       "step": 24
     },
     {
       "act": "expect_baseline_unchanged",
-      "baseline_count": 5,
+      "baseline_count": 6,
       "pass": true,
       "step": 25
     }

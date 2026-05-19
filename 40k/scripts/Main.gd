@@ -4756,6 +4756,15 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# T14: fit-to-selection camera keybind - Shift+F
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F \
+			and event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+		var sel_id := _selected_unit_id_or_empty()
+		if sel_id != "":
+			fit_view_to_selection(sel_id)
+		get_viewport().set_input_as_handled()
+		return
+
 	# T-102: Chat panel toggle - KEY_T (text/chat). Only shows in networked games.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_T \
 			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
@@ -5124,6 +5133,78 @@ func t13_synthesize_f_press() -> String:
 	ev.pressed = true
 	_input(ev)
 	return last_camera_fit_action
+
+
+# T14: synthesize Shift+F. Same pattern as t13_synthesize_f_press.
+func t14_synthesize_shift_f_press() -> String:
+	var ev := InputEventKey.new()
+	ev.keycode = KEY_F
+	ev.shift_pressed = true
+	ev.pressed = true
+	_input(ev)
+	return last_camera_fit_action
+
+
+# T14: zoom + center the camera on a unit's bounding box (all its models).
+# Returns true on success, false if the unit can't be resolved or has no
+# models. Sets last_camera_fit_action = "selection" on success.
+func fit_view_to_selection(unit_id: String) -> bool:
+	if unit_id == "":
+		return false
+	var unit = GameState.get_unit(unit_id)
+	if typeof(unit) != TYPE_DICTIONARY or not unit.has("models"):
+		return false
+	var models = unit.get("models", [])
+	if typeof(models) != TYPE_ARRAY or models.is_empty():
+		return false
+	var min_pt := Vector2(INF, INF)
+	var max_pt := Vector2(-INF, -INF)
+	var any: bool = false
+	for m in models:
+		if typeof(m) != TYPE_DICTIONARY:
+			continue
+		var pos = m.get("position", null)
+		var p: Vector2 = Vector2.ZERO
+		if typeof(pos) == TYPE_VECTOR2:
+			p = pos
+		elif typeof(pos) == TYPE_DICTIONARY and pos.has("x") and pos.has("y"):
+			p = Vector2(float(pos.x), float(pos.y))
+		else:
+			continue
+		min_pt = Vector2(min(min_pt.x, p.x), min(min_pt.y, p.y))
+		max_pt = Vector2(max(max_pt.x, p.x), max(max_pt.y, p.y))
+		any = true
+	if not any:
+		return false
+	var box_w: float = max(max_pt.x - min_pt.x, 1.0)
+	var box_h: float = max(max_pt.y - min_pt.y, 1.0)
+	# Pad the box so the unit isn't tight against viewport edges, and cap zoom
+	# so a single model doesn't fill the screen.
+	const PAD_PX := 200.0
+	const MAX_ZOOM := 1.2
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size
+	var zx: float = vp_size.x / (box_w + PAD_PX * 2.0)
+	var zy: float = vp_size.y / (box_h + PAD_PX * 2.0)
+	var z: float = min(min(zx, zy), MAX_ZOOM)
+	var center := (min_pt + max_pt) * 0.5
+	camera.position = center
+	camera.zoom = Vector2(z, z)
+	view_zoom = z
+	view_offset = center - vp_size / (2.0 * z)
+	last_camera_fit_action = "selection"
+	update_view_transform()
+	return true
+
+
+func _selected_unit_id_or_empty() -> String:
+	# Best-effort lookup of the currently-selected unit across the various
+	# controller autoloads / scene nodes that track selection. Returns "" if
+	# nothing is selected.
+	for path in ["MovementController", "ShootingController", "ChargeController", "FightController"]:
+		var c = get_node_or_null(path)
+		if c != null and "active_unit_id" in c and str(c.get("active_unit_id")) != "":
+			return str(c.get("active_unit_id"))
+	return ""
 
 
 # T13: fit the whole board into the viewport with 32px margin per edge. Sets

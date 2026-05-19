@@ -1,15 +1,15 @@
 {
-  "scenario_id": "T13_fit_board",
+  "scenario_id": "T14_fit_selection",
   "pixel_diff_steps": [
     {
       "act": "pixel_diff",
-      "diff_pct": 18.5417148919753,
+      "diff_pct": 17.4477237654321,
       "pass": true,
       "result": {
         "regions": {},
-        "total_diff_pct": 18.5417148919753
+        "total_diff_pct": 17.4477237654321
       },
-      "step": 13
+      "step": 12
     }
   ],
   "summary": {
