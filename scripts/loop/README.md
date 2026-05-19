@@ -4,16 +4,16 @@ Per-scenario "run windowed → critique → fix → re-run" loop. One cloud
 Claude session per scenario, parallel by default. See
 `.llm/visual-regression-loop-plan.md` for full design.
 
-## Phase 1 status (this directory)
+## Status
 
 | Piece | Status | Notes |
 |---|---|---|
-| Per-step screenshot mode in `ScenarioRunner` | done | `SCENARIO_SCREENSHOT_EVERY_STEP=1` env var |
-| Driver script | done | `run_one_scenario_loop.sh` |
-| Critic | **stub** | `critic_stub.py` returns `[]`, validates I/O contract only |
-| Critic prompt for real run | done | `critic_prompt.md` (consumed by the Agent tool inside a cloud Claude session) |
-| Fixer prompt for real run | done | `fixer_prompt.md` (same) |
-| Golden screenshot diff | TODO | Phase 2 |
+| Per-step screenshot mode in `ScenarioRunner` | done (Phase 1) | `SCENARIO_SCREENSHOT_EVERY_STEP=1` env var |
+| Driver script | done (Phase 1) | `run_one_scenario_loop.sh` |
+| Critic | **stub** (Phase 1) | `critic_stub.py` returns `[]`, validates I/O contract only |
+| Critic prompt for real run | done (Phase 1) | `critic_prompt.md` (consumed by the Agent tool inside a cloud Claude session) |
+| Fixer prompt for real run | done (Phase 1) | `fixer_prompt.md` (same) |
+| Golden screenshot PHASH diff | done (Phase 2) | `golden_diff.py`, goldens under `40k/tests/scenarios/goldens/` |
 | Selector preflight | TODO | Phase 3 |
 | Pre-commit guardrails | TODO | Phase 6 |
 | Parallel kickoff | TODO | Phase 7 |
@@ -21,14 +21,38 @@ Claude session per scenario, parallel by default. See
 ## How to drive one scenario locally
 
 ```bash
+# Diff mode (default): compare per-step screenshots to blessed goldens
 bash scripts/loop/run_one_scenario_loop.sh 40k/tests/scenarios/sp/runner_smoke.json
+
+# Bless mode: overwrite goldens with the current screenshots. Run only
+# after manual sign-off, e.g. for a brand-new scenario or an intentional
+# UI change.
+bash scripts/loop/run_one_scenario_loop.sh --bless 40k/tests/scenarios/sp/runner_smoke.json
 ```
 
 Expected output: per-step screenshots written to
 `~/.local/share/godot/app_userdata/40k/test_results/scenarios/runner_smoke_step_NN_<act>.png`,
 results JSON at `runner_smoke.json` in the same directory with each
-step's record carrying `per_step_screenshot` + `step_input`, and an
-empty `critique.json` from the stub critic.
+step's record carrying `per_step_screenshot` + `step_input`, an empty
+`critique.json` from the stub critic, and `goldens_report.json` with
+per-step match / drift / missing_golden status.
+
+Driver exits 0 only when scenario steps all pass AND all per-step
+screenshots match their goldens under the configured PHASH threshold.
+
+## Golden screenshots
+
+Pinned reference frames live in `40k/tests/scenarios/goldens/`.
+Filenames mirror the runner output: `<scenario_id>_step_NN_<act>.png`.
+Per-scenario PHASH tolerance is configured in `_thresholds.json`
+alongside the goldens. Default tolerance is Hamming distance ≤ 4 on a
+64-bit hash (empirically: 0-3 for subpixel rendering jitter, 12-18 for
+genuine UI changes).
+
+When a scenario or step changes intentionally, bless the new frames
+with `--bless` and review the diff in PR. The goldens directory is the
+record of "what the player should see"; never bump thresholds to
+silence drift.
 
 ## How the cloud session uses it (Phase 5 onward)
 
