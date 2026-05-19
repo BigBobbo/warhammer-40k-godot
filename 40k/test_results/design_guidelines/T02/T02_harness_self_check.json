@@ -44,7 +44,7 @@
     },
     {
       "act": "execute_script",
-      "actual": 20,
+      "actual": 21,
       "error": "",
       "expect_min": 1.0,
       "pass": true,
@@ -76,7 +76,7 @@
     },
     {
       "act": "expect_baseline_unchanged",
-      "baseline_count": 12,
+      "baseline_count": 13,
       "pass": true,
       "step": 9
     }

@@ -17,17 +17,17 @@
       "equals": "" },
 
     { "act": "execute_script",
-      "script": "get_node(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAND\").tooltip_text",
+      "script": "get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_COMMAND\").tooltip_text",
       "equals": "completed" },
     { "act": "execute_script",
-      "script": "get_node(\"/root/Main/PhaseBar/Pills/PhasePill_SHOOTING\").tooltip_text",
+      "script": "get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_SHOOTING\").tooltip_text",
       "equals": "current phase" },
     { "act": "execute_script",
-      "script": "get_node(\"/root/Main/PhaseBar/Pills/PhasePill_CHARGE\").tooltip_text",
+      "script": "get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_CHARGE\").tooltip_text",
       "equals": "resolve current phase first" },
 
     { "act": "click_node",
-      "node": "/root/Main/PhaseBar/Pills/PhasePill_COMMAND" },
+      "node": "/root/Main/PhaseBar/Stack/Pills/PhasePill_COMMAND" },
     { "act": "wait_frames", "frames": 2 },
 
     { "act": "execute_script",
@@ -38,7 +38,7 @@
       "equals": 8 },
 
     { "act": "click_node",
-      "node": "/root/Main/PhaseBar/Pills/PhasePill_CHARGE" },
+      "node": "/root/Main/PhaseBar/Stack/Pills/PhasePill_CHARGE" },
     { "act": "wait_frames", "frames": 2 },
 
     { "act": "execute_script",
@@ -49,7 +49,7 @@
       "equals": 8 },
 
     { "act": "click_node",
-      "node": "/root/Main/PhaseBar/Pills/PhasePill_SHOOTING" },
+      "node": "/root/Main/PhaseBar/Stack/Pills/PhasePill_SHOOTING" },
     { "act": "wait_frames", "frames": 2 },
     { "act": "execute_script",
       "script": "get_node(\"/root/Main/PhaseBar\").last_pill_click_result",

@@ -22,7 +22,7 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAN]",
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_]",
       "pass": true,
       "step": 2
     },
@@ -31,7 +31,7 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_MOVEME]",
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_]",
       "pass": true,
       "step": 3
     },
@@ -40,7 +40,7 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_SHOOTI]",
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_]",
       "pass": true,
       "step": 4
     },
@@ -49,7 +49,7 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_CHARGE]",
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_]",
       "pass": true,
       "step": 5
     },
@@ -58,7 +58,7 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_FIGHT\"]",
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_]",
       "pass": true,
       "step": 6
     },
@@ -67,7 +67,7 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Pills/PhasePill_MORALE]",
+      "label": "script[get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_]",
       "pass": true,
       "step": 7
     },
@@ -82,7 +82,7 @@
       "actual": "e633b3ff",
       "error": "",
       "expected": "e633b3ff",
-      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAND\").modu]",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_COMMAND\"]",
       "pass": true,
       "step": 9
     },
@@ -91,7 +91,7 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[is_equal_approx(get_node(\"/root/Main/PhaseBar/Pills/PhasePil]",
+      "label": "script[is_equal_approx(get_node(\"/root/Main/PhaseBar/Stack/Pills/Ph]",
       "pass": true,
       "step": 10
     },
@@ -100,7 +100,7 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[is_equal_approx(get_node(\"/root/Main/PhaseBar/Pills/PhasePil]",
+      "label": "script[is_equal_approx(get_node(\"/root/Main/PhaseBar/Stack/Pills/Ph]",
       "pass": true,
       "step": 11
     },
@@ -126,7 +126,7 @@
       "actual": "808080ff",
       "error": "",
       "expected": "808080ff",
-      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAND\").modu]",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_COMMAND\"]",
       "pass": true,
       "step": 15
     },
@@ -135,7 +135,7 @@
       "actual": "e633b3ff",
       "error": "",
       "expected": "e633b3ff",
-      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_MOVEMENT\").mod]",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_MOVEMENT]",
       "pass": true,
       "step": 16
     },
@@ -144,7 +144,7 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[is_equal_approx(get_node(\"/root/Main/PhaseBar/Pills/PhasePil]",
+      "label": "script[is_equal_approx(get_node(\"/root/Main/PhaseBar/Stack/Pills/Ph]",
       "pass": true,
       "step": 17
     },
@@ -170,7 +170,7 @@
       "actual": "808080ff",
       "error": "",
       "expected": "808080ff",
-      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAND\").modu]",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_COMMAND\"]",
       "pass": true,
       "step": 21
     },
@@ -179,7 +179,7 @@
       "actual": "808080ff",
       "error": "",
       "expected": "808080ff",
-      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_MOVEMENT\").mod]",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_MOVEMENT]",
       "pass": true,
       "step": 22
     },
@@ -188,25 +188,25 @@
       "actual": "e633b3ff",
       "error": "",
       "expected": "e633b3ff",
-      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_SHOOTING\").mod]",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_SHOOTING]",
       "pass": true,
       "step": 23
     },
     {
       "act": "pixel_diff",
-      "diff_pct": 4.13392857142857,
+      "diff_pct": 4.21986607142857,
       "pass": true,
       "result": {
         "regions": {
-          "phase_bar": 4.13392857142857
+          "phase_bar": 4.21986607142857
         },
-        "total_diff_pct": 38.7803819444444
+        "total_diff_pct": 38.7744020061728
       },
       "step": 24
     },
     {
       "act": "expect_baseline_unchanged",
-      "baseline_count": 12,
+      "baseline_count": 13,
       "pass": true,
       "step": 25
     }

@@ -31,7 +31,7 @@
       "actual": "completed",
       "error": "",
       "expected": "completed",
-      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAND\").tool]",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_COMMAND\"]",
       "pass": true,
       "step": 3
     },
@@ -40,7 +40,7 @@
       "actual": "current phase",
       "error": "",
       "expected": "current phase",
-      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_SHOOTING\").too]",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_SHOOTING]",
       "pass": true,
       "step": 4
     },
@@ -49,7 +49,7 @@
       "actual": "resolve current phase first",
       "error": "",
       "expected": "resolve current phase first",
-      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_CHARGE\").toolt]",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_CHARGE\")]",
       "pass": true,
       "step": 5
     },
@@ -142,7 +142,7 @@
     },
     {
       "act": "expect_baseline_unchanged",
-      "baseline_count": 12,
+      "baseline_count": 13,
       "pass": true,
       "step": 17
     }

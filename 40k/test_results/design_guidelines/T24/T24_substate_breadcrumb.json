@@ -1,0 +1,156 @@
+{
+  "failed": 0,
+  "passed": 19,
+  "scenario_id": "T24_substate_breadcrumb",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb\").visible]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": 0,
+      "error": "",
+      "expected": 0.0,
+      "label": "script[get_node(\"/root/Main/PhaseBar\").substates.size()]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T24_substate_breadcrumb_T24_no_breadcrumb.png",
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T24_substate_breadcrumb_T24_with_breadcrumb.png",
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": 4,
+      "error": "",
+      "expected": 4.0,
+      "label": "script[get_node(\"/root/Main/PhaseBar\").substates.size()]",
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": 1,
+      "error": "",
+      "expected": 1.0,
+      "label": "script[get_node(\"/root/Main/PhaseBar\").current_substate_index]",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb\").visible]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": 4,
+      "error": "",
+      "expected": 4.0,
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb\").get_child_c]",
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": "Select Unit",
+      "error": "",
+      "expected": "Select Unit",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb/Crumb_0/Pad/L]",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": "Select Target",
+      "error": "",
+      "expected": "Select Target",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb/Crumb_1/Pad/L]",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "execute_script",
+      "actual": "808080ff",
+      "error": "",
+      "expected": "808080ff",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb/Crumb_0\").mod]",
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "execute_script",
+      "actual": "e633b3ff",
+      "error": "",
+      "expected": "e633b3ff",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb/Crumb_1\").mod]",
+      "pass": true,
+      "step": 14
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[is_equal_approx(get_node(\"/root/Main/PhaseBar/Stack/Breadcru]",
+      "pass": true,
+      "step": 15
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 16
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb\").visible]",
+      "pass": true,
+      "step": 17
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 13,
+      "pass": true,
+      "step": 18
+    }
+  ],
+  "total_steps": 19
+}

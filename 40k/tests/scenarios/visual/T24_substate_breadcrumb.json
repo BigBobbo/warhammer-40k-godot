@@ -1,0 +1,67 @@
+{
+  "id": "T24_substate_breadcrumb",
+  "covers": ["design_guidelines.T24", "hud.phase_bar.breadcrumb"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 8,
+  "description": "Substate breadcrumb row under the active phase pill. Hidden when no substates set. set_substates(list, index) populates Crumb_<i> nodes with a Label child; modulate follows the past/active/future palette. co_pretrigger has active_player=2 so active crumb modulate is MAGENTA.",
+
+  "regions": {
+    "phase_bar": [400, 0, 1120, 120]
+  },
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb\").visible",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar\").substates.size()",
+      "equals": 0 },
+
+    { "act": "screenshot", "label": "T24_no_breadcrumb" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar\").set_substates([\"Select Unit\", \"Select Target\", \"Resolve Hits\", \"Allocate Wounds\"], 1)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "T24_with_breadcrumb" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar\").substates.size()",
+      "equals": 4 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar\").current_substate_index",
+      "equals": 1 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb\").get_child_count()",
+      "equals": 4 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb/Crumb_0/Pad/Label\").text",
+      "equals": "Select Unit" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb/Crumb_1/Pad/Label\").text",
+      "equals": "Select Target" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb/Crumb_0\").modulate.to_html(true)",
+      "equals": "808080ff" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb/Crumb_1\").modulate.to_html(true)",
+      "equals": "e633b3ff" },
+    { "act": "execute_script",
+      "script": "is_equal_approx(get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb/Crumb_2\").modulate.a, 0.4)",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar\").set_substates([], -1)" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar/Stack/Breadcrumb\").visible",
+      "equals": false },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}
