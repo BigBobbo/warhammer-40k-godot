@@ -14,6 +14,12 @@ var mode: int = Mode.ENGAGEMENT_RANGE
 var pulse_enabled: bool = true
 var _pulse_time: float = 0.0
 
+# T29: when true, this ring is being shown by the PersistentEngagementOverlay
+# rather than as a transient selection / hover affordance. The flag itself
+# does not change rendering — it lets scenarios distinguish "ambient
+# engaged" vs "ephemeral selection" rings.
+var is_persistent: bool = false
+
 func setup_engagement_range(radius: float, color: Color = Color.ORANGE) -> void:
 	circle_radius = radius
 	circle_color = color

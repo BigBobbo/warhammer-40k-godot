@@ -250,6 +250,11 @@ func _ready() -> void:
 	# T25: active-player edge tint. Full-rect Control with a 4px ring.
 	add_child(preload("res://scripts/ActivePlayerEdgeTint.gd").new())
 
+	# T29: persistent engagement rings overlay. Walks units and shows a
+	# ring per engaged unit. Refreshes on GameState change signals.
+	if board_root != null:
+		board_root.add_child(preload("res://scripts/PersistentEngagementOverlay.gd").new())
+
 	# T31: standalone ruler tool. Lives under BoardRoot so its line is
 	# rendered in world coordinates.
 	if board_root != null:

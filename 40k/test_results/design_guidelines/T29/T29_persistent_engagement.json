@@ -1,7 +1,7 @@
 {
   "failed": 0,
   "passed": 13,
-  "scenario_id": "T25_edge_tint",
+  "scenario_id": "T29_persistent_engagement",
   "steps": [
     {
       "act": "wait_seconds",
@@ -13,83 +13,82 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[get_node_or_null(\"/root/Main/EdgeTint\") != null]",
+      "label": "script[get_node_or_null(\"/root/Main/BoardRoot/PersistentEngagementO]",
       "pass": true,
       "step": 1
     },
     {
       "act": "execute_script",
-      "actual": 1920.0,
-      "error": "",
-      "expect_min": 100.0,
+      "actual": true,
       "pass": true,
       "step": 2
     },
     {
       "act": "execute_script",
-      "actual": "e633b3ff",
-      "error": "",
-      "expected": "e633b3ff",
-      "label": "script[get_node(\"/root/Main/EdgeTint\").modulate.to_html(true)]",
+      "actual": true,
       "pass": true,
       "step": 3
     },
     {
-      "act": "screenshot",
+      "act": "execute_script",
+      "actual": null,
       "pass": true,
-      "path": "test_results/scenarios/T25_edge_tint_T25_p2_active.png",
       "step": 4
     },
     {
-      "act": "execute_script",
-      "actual": true,
+      "act": "wait_frames",
       "pass": true,
       "step": 5
     },
     {
       "act": "execute_script",
-      "actual": 0,
+      "actual": 2,
+      "error": "",
+      "expect_min": 2.0,
       "pass": true,
       "step": 6
     },
     {
-      "act": "wait_frames",
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/BoardRoot/PersistentEngagementO]",
       "pass": true,
       "step": 7
     },
     {
-      "act": "screenshot",
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/BoardRoot/PersistentEngagementO]",
       "pass": true,
-      "path": "test_results/scenarios/T25_edge_tint_T25_p1_active.png",
       "step": 8
     },
     {
       "act": "execute_script",
-      "actual": "00b3b3ff",
+      "actual": true,
       "error": "",
-      "expected": "00b3b3ff",
-      "label": "script[get_node(\"/root/Main/EdgeTint\").modulate.to_html(true)]",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/BoardRoot/PersistentEngagementOverlay/E]",
       "pass": true,
       "step": 9
     },
     {
-      "act": "pixel_diff",
-      "diff_pct": 100.0,
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/BoardRoot/PersistentEngagementOverlay/E]",
       "pass": true,
-      "result": {
-        "regions": {
-          "top_edge": 100.0
-        },
-        "total_diff_pct": 37.3996431327161
-      },
       "step": 10
     },
     {
       "act": "execute_script",
-      "actual": 2,
+      "actual": 40.0,
       "error": "",
-      "expected": 2.0,
-      "label": "script[get_node(\"/root/Main/EdgeTint\").mouse_filter]",
+      "expect_min": 1.0,
       "pass": true,
       "step": 11
     },
