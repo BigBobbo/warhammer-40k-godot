@@ -1,0 +1,151 @@
+{
+  "failed": 0,
+  "passed": 18,
+  "scenario_id": "T26_phase_pill_clicks",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": 8,
+      "error": "",
+      "expected": 8.0,
+      "label": "script[GameState.state.meta.phase]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": "",
+      "error": "",
+      "expected": "",
+      "label": "script[get_node(\"/root/Main/PhaseBar\").last_pill_click_result]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": "completed",
+      "error": "",
+      "expected": "completed",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAND\").tool]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": "current phase",
+      "error": "",
+      "expected": "current phase",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_SHOOTING\").too]",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": "resolve current phase first",
+      "error": "",
+      "expected": "resolve current phase first",
+      "label": "script[get_node(\"/root/Main/PhaseBar/Pills/PhasePill_CHARGE\").toolt]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "click_node",
+      "pass": true,
+      "screen_position": [
+        -197.0,
+        22.5
+      ],
+      "step": 6
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": "past_inert",
+      "error": "",
+      "expected": "past_inert",
+      "label": "script[get_node(\"/root/Main/PhaseBar\").last_pill_click_result]",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": 8,
+      "error": "",
+      "expected": 8.0,
+      "label": "script[GameState.state.meta.phase]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "click_node",
+      "pass": true,
+      "screen_position": [
+        72.0,
+        22.5
+      ],
+      "step": 10
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": "future_blocked",
+      "error": "",
+      "expected": "future_blocked",
+      "label": "script[get_node(\"/root/Main/PhaseBar\").last_pill_click_result]",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "execute_script",
+      "actual": 8,
+      "error": "",
+      "expected": 8.0,
+      "label": "script[GameState.state.meta.phase]",
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "click_node",
+      "pass": true,
+      "screen_position": [
+        -9.0,
+        22.5
+      ],
+      "step": 14
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 15
+    },
+    {
+      "act": "execute_script",
+      "actual": "active",
+      "error": "",
+      "expected": "active",
+      "label": "script[get_node(\"/root/Main/PhaseBar\").last_pill_click_result]",
+      "pass": true,
+      "step": 16
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 8,
+      "pass": true,
+      "step": 17
+    }
+  ],
+  "total_steps": 18
+}

@@ -1,0 +1,60 @@
+{
+  "id": "T26_phase_pill_clicks",
+  "covers": ["design_guidelines.T26", "hud.phase_bar.click_affordance"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 8,
+  "description": "Phase-pill click affordance. With SHOOTING active: clicking a past pill (COMMAND) records last_pill_click_result == 'past_inert'; clicking a future pill (CHARGE) records 'future_blocked'. Both clicks must NOT change the current phase. Tooltips are set per state.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.meta.phase",
+      "equals": 8 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar\").last_pill_click_result",
+      "equals": "" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar/Pills/PhasePill_COMMAND\").tooltip_text",
+      "equals": "completed" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar/Pills/PhasePill_SHOOTING\").tooltip_text",
+      "equals": "current phase" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar/Pills/PhasePill_CHARGE\").tooltip_text",
+      "equals": "resolve current phase first" },
+
+    { "act": "click_node",
+      "node": "/root/Main/PhaseBar/Pills/PhasePill_COMMAND" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar\").last_pill_click_result",
+      "equals": "past_inert" },
+    { "act": "execute_script",
+      "script": "GameState.state.meta.phase",
+      "equals": 8 },
+
+    { "act": "click_node",
+      "node": "/root/Main/PhaseBar/Pills/PhasePill_CHARGE" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar\").last_pill_click_result",
+      "equals": "future_blocked" },
+    { "act": "execute_script",
+      "script": "GameState.state.meta.phase",
+      "equals": 8 },
+
+    { "act": "click_node",
+      "node": "/root/Main/PhaseBar/Pills/PhasePill_SHOOTING" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseBar\").last_pill_click_result",
+      "equals": "active" },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}
