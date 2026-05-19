@@ -1,17 +1,15 @@
 {
-  "scenario_id": "T25_edge_tint",
+  "scenario_id": "T39_datasheet_modal",
   "pixel_diff_steps": [
     {
       "act": "pixel_diff",
-      "diff_pct": 100.0,
+      "diff_pct": 17.1480516975309,
       "pass": true,
       "result": {
-        "regions": {
-          "top_edge": 100.0
-        },
-        "total_diff_pct": 41.0043402777778
+        "regions": {},
+        "total_diff_pct": 17.1480516975309
       },
-      "step": 10
+      "step": 23
     }
   ],
   "summary": {

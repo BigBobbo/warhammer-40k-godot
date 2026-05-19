@@ -3,11 +3,11 @@
   "pixel_diff_steps": [
     {
       "act": "pixel_diff",
-      "diff_pct": 18.5418113425926,
+      "diff_pct": 18.5417631172839,
       "pass": true,
       "result": {
         "regions": {},
-        "total_diff_pct": 18.5418113425926
+        "total_diff_pct": 18.5417631172839
       },
       "step": 13
     }

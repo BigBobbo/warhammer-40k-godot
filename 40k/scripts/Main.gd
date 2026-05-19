@@ -258,6 +258,9 @@ func _ready() -> void:
 	# T35: persistent right-side roll log. Always visible.
 	add_child(preload("res://scripts/RollLogPanel.gd").new())
 
+	# T39: datasheet modal. Hidden until KEY_I opens it.
+	add_child(preload("res://scripts/DatasheetModal.gd").new())
+
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
 	if GameEventLog:
@@ -4785,10 +4788,28 @@ func _input(event: InputEvent) -> void:
 			ruler.is_private = event.shift_pressed
 			get_viewport().set_input_as_handled()
 			return
+
+	# T39: datasheet modal — KEY_I opens for selected unit
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_I \
+			and not event.shift_pressed and not event.ctrl_pressed and not event.meta_pressed:
+		var ds = get_node_or_null("DatasheetModal")
+		if ds != null:
+			var sel_id := _selected_unit_id_or_empty()
+			if sel_id != "":
+				ds.open_for(sel_id)
+				get_viewport().set_input_as_handled()
+				return
+
+	# Shared ESC: dismiss ruler tool first, then close datasheet modal.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		var ruler2 = get_node_or_null("BoardRoot/RulerTool")
 		if ruler2 != null and ruler2.active:
 			ruler2.set_active(false)
+			get_viewport().set_input_as_handled()
+			return
+		var ds2 = get_node_or_null("DatasheetModal")
+		if ds2 != null and ds2.visible:
+			ds2.close()
 			get_viewport().set_input_as_handled()
 			return
 
