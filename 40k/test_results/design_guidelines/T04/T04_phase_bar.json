@@ -200,13 +200,13 @@
         "regions": {
           "phase_bar": 4.27008928571429
         },
-        "total_diff_pct": 40.078125
+        "total_diff_pct": 40.0567611882716
       },
       "step": 24
     },
     {
       "act": "expect_baseline_unchanged",
-      "baseline_count": 26,
+      "baseline_count": 45,
       "pass": true,
       "step": 25
     }

@@ -1,0 +1,111 @@
+{
+  "failed": 0,
+  "passed": 15,
+  "scenario_id": "T23_end_phase_position",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/EndPhaseButton\") != null]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": 0.0,
+      "error": "",
+      "expect_max": 4.0,
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": "End Phase",
+      "error": "",
+      "expected": "End Phase",
+      "label": "script[get_node(\"/root/Main/EndPhaseButton\").text]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/EndPhaseButton\") != null]",
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": 0.0,
+      "error": "",
+      "expect_max": 4.0,
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": 0.0,
+      "error": "",
+      "expect_max": 4.0,
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "execute_script",
+      "actual": 0.0,
+      "error": "",
+      "expect_max": 4.0,
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 45,
+      "pass": true,
+      "step": 14
+    }
+  ],
+  "total_steps": 15
+}

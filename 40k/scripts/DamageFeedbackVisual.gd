@@ -40,11 +40,47 @@ const KILL_NOTIFY_COLOR := Color(0.9, 0.05, 0.0, 1.0)  # Deep red for unit destr
 # Internal state
 var _effects: Array = []  # Active effects list [{type, pos, radius, elapsed, duration, ...}]
 
+# T34: floating damage labels exposed for scenarios.
+# Schema: [{text, position, duration: float, elapsed: float}, ...]
+var active_floats: Array = []
+
+
+# T34: spawn a -NW and -N models pair of floats over a target. Both float
+# upward and fade after duration. active_floats reflects live entries.
+func spawn_damage_floats(target_pos: Vector2, wounds: int, models_lost: int,
+		duration: float = 2.0) -> void:
+	active_floats.append({
+		"text": "-%dW" % wounds,
+		"position": target_pos,
+		"duration": duration,
+		"elapsed": 0.0,
+	})
+	if models_lost > 0:
+		active_floats.append({
+			"text": "-%d models" % models_lost,
+			"position": target_pos + Vector2(0, -24),
+			"duration": duration,
+			"elapsed": 0.0,
+		})
+
+
+# Driven from _process — advance elapsed and reap expired entries. Called
+# below in the existing _process if present, or via call_deferred.
+func _t34_tick_floats(delta: float) -> void:
+	var survivors: Array = []
+	for f in active_floats:
+		f["elapsed"] = float(f.get("elapsed", 0.0)) + delta
+		if float(f.get("elapsed", 0.0)) < float(f.get("duration", 2.0)):
+			survivors.append(f)
+	active_floats = survivors
+
 func _ready() -> void:
 	z_index = 55  # Above board highlights (50), below UI
 	print("[DamageFeedbackVisual] T5-V4: Ready")
 
 func _process(delta: float) -> void:
+	if not active_floats.is_empty():
+		_t34_tick_floats(delta)
 	if _effects.is_empty():
 		return
 

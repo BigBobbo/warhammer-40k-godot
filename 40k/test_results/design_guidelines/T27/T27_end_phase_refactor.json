@@ -1,0 +1,71 @@
+{
+  "failed": 0,
+  "passed": 8,
+  "scenario_id": "T27_end_phase_refactor",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/EndPhaseButton\") != null]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": "End Phase",
+      "error": "",
+      "expected": "End Phase",
+      "label": "script[get_node(\"/root/Main/EndPhaseButton\").text]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": 160.0,
+      "error": "",
+      "expect_min": 100.0,
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": 0.0,
+      "error": "",
+      "expect_max": 4.0,
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": 200,
+      "error": "",
+      "expected": 200.0,
+      "label": "script[get_node(\"/root/Main/EndPhaseButton\").REFERENCE_OFFSET_FROM_]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": 60,
+      "error": "",
+      "expected": 60.0,
+      "label": "script[get_node(\"/root/Main/EndPhaseButton\").REFERENCE_OFFSET_FROM_]",
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 45,
+      "pass": true,
+      "step": 7
+    }
+  ],
+  "total_steps": 8
+}

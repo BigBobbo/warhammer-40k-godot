@@ -1,0 +1,32 @@
+{
+  "id": "T41_faction_vs_slot",
+  "covers": ["design_guidelines.T41", "audit.faction_vs_slot"],
+  "description": "T41 audit: UIConstants.player_slot_color(p) returns the perspective-independent slot color; UIConstants.faction_color_for_player(p) returns the army's palette color (falls back to gold/bone). Slot and faction are distinct lookups so the two concepts don't collide.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "UIConstants.player_slot_color(1).to_html(true)",
+      "equals": "00b3b3ff" },
+    { "act": "execute_script",
+      "script": "UIConstants.player_slot_color(2).to_html(true)",
+      "equals": "e633b3ff" },
+
+    { "act": "execute_script",
+      "script": "UIConstants.faction_color_for_player(1) != UIConstants.player_slot_color(1)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.faction_color_for_player(2) != UIConstants.player_slot_color(2)",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "UIConstants.faction_color_for_player(1).a",
+      "equals": 1.0 },
+    { "act": "execute_script",
+      "script": "UIConstants.faction_color_for_player(2).a",
+      "equals": 1.0 },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

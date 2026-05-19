@@ -1,0 +1,124 @@
+{
+  "failed": 0,
+  "passed": 15,
+  "scenario_id": "T38_filter_chips",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": "all",
+      "error": "",
+      "expected": "all",
+      "label": "script[get_node(\"/root/Main/LeftRoster\").active_filter]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/LeftRoster\").visible_unit_ids.size() ==]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": "can_act",
+      "error": "",
+      "expected": "can_act",
+      "label": "script[get_node(\"/root/Main/LeftRoster\").active_filter]",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/LeftRoster\").visible_unit_ids.size() <=]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": "engaged",
+      "error": "",
+      "expected": "engaged",
+      "label": "script[get_node(\"/root/Main/LeftRoster\").active_filter]",
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/LeftRoster\").visible_unit_ids.size() <=]",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": "below_half",
+      "error": "",
+      "expected": "below_half",
+      "label": "script[get_node(\"/root/Main/LeftRoster\").active_filter]",
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/LeftRoster\").visible_unit_ids.size() <=]",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/LeftRoster\").visible_unit_ids.size() ==]",
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 45,
+      "pass": true,
+      "step": 14
+    }
+  ],
+  "total_steps": 15
+}

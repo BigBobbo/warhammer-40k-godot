@@ -1,0 +1,60 @@
+{
+  "id": "T36_explicit_commit",
+  "covers": ["design_guidelines.T36", "shooting.explicit_commit"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 8,
+  "description": "ShootingController add_pending_target() queues a target without firing; commit_targets() flips targets_committed=true to start resolution. clear_pending_targets() resets both.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").pending_targets.size()",
+      "equals": 0 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").targets_committed",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").add_pending_target(\"U_CUSTODIAN_GUARD_B\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").pending_targets.size()",
+      "equals": 1 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").targets_committed",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").add_pending_target(\"U_CUSTODIAN_GUARD_B\")",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").pending_targets.size()",
+      "equals": 1 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").commit_targets()",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").targets_committed",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").clear_pending_targets()" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").pending_targets.size()",
+      "equals": 0 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").targets_committed",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").commit_targets()",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/ShootingController\").add_pending_target(\"\")",
+      "equals": false },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

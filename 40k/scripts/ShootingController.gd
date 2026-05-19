@@ -127,6 +127,31 @@ const LOS_LINE_WIDTH = 2.0
 const SHOOTING_LINE_COLOR = Color(1.0, 0.5, 0.0, 0.8)  # Orange for shooting lines
 const SHOOTING_LINE_WIDTH = 3.0
 
+# T36: pending-target add/clear/commit. Click-only adds to pending_targets
+# without firing. ENTER (or commit_targets()) marks targets_committed = true
+# and would trigger the real resolution downstream. Idempotent on duplicate
+# adds.
+func add_pending_target(target_id: String) -> bool:
+	if target_id == "":
+		return false
+	if pending_targets.has(target_id):
+		return false
+	pending_targets.append(target_id)
+	return true
+
+
+func clear_pending_targets() -> void:
+	pending_targets = []
+	targets_committed = false
+
+
+func commit_targets() -> bool:
+	if pending_targets.is_empty():
+		return false
+	targets_committed = true
+	return true
+
+
 # T05: compute the predicted-damage forecast for shooter -> target with the
 # given weapon. Returns a Dictionary or null. Reads cover via
 # EnhancedLineOfSight when available; falls back to no-cover math.

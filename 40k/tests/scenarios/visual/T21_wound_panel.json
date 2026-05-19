@@ -1,0 +1,46 @@
+{
+  "id": "T21_wound_panel",
+  "covers": ["design_guidelines.T21", "hud.wound_allocation_panel"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 8,
+  "description": "Side-anchored Wound Allocation panel. anchor_left ratio >= 0.6; Commit button present.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/WoundAllocationPanel\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WoundAllocationPanel\").visible",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WoundAllocationPanel\").open_for(\"U_CUSTODIAN_GUARD_B\", 3)" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WoundAllocationPanel\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WoundAllocationPanel\").t21_anchor_left_ratio()",
+      "expect_min": 0.6 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WoundAllocationPanel\").target_unit_id",
+      "equals": "U_CUSTODIAN_GUARD_B" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WoundAllocationPanel\").wounds_to_allocate",
+      "equals": 3 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WoundAllocationPanel/Body/Buttons/Commit\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WoundAllocationPanel\").close()" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WoundAllocationPanel\").visible",
+      "equals": false },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

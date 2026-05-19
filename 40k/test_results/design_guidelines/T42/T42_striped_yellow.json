@@ -1,0 +1,64 @@
+{
+  "failed": 0,
+  "passed": 7,
+  "scenario_id": "T42_striped_yellow",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)) != null]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": "ImageTexture",
+      "error": "",
+      "expected": "ImageTexture",
+      "label": "script[UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_class(]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": 16,
+      "error": "",
+      "expected": 16.0,
+      "label": "script[UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_width(]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": 16,
+      "error": "",
+      "expected": 16.0,
+      "label": "script[UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_height]",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_image(]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 45,
+      "pass": true,
+      "step": 6
+    }
+  ],
+  "total_steps": 7
+}

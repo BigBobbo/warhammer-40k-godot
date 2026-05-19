@@ -54,6 +54,40 @@ func all_slots() -> Dictionary:
 	return _SLOT_TABLE.duplicate()
 
 
+# T41: canonical player-SLOT color lookup. Slot colors are perspective-
+# independent: player 1 is always TEAL ("friendly active"), player 2 is
+# always MAGENTA ("enemy"). Faction colors are read separately, per army,
+# via FactionPalettes — do NOT use this for faction tint.
+func player_slot_color(player: int) -> Color:
+	if player == 1:
+		return FRIENDLY_PLAYER_TEAL
+	return ENEMY_PLAYER_MAGENTA
+
+
+# T43: canonical primary-CTA color. Use this exactly ONCE per screen for
+# the single highest-priority call to action; other clickable controls
+# revert to the default chrome. The audit policy is documented in
+# 40k/docs/design_guidelines_2d_topdown.md §9. This helper exists so
+# every CTA in the codebase references one named slot rather than ad-hoc
+# orange literals — making future grep audits possible.
+func primary_cta_color() -> Color:
+	return WARNING_ORANGE  # WARNING_ORANGE is already the canonical CTA hue
+
+
+# T41: canonical faction color lookup. Reads from FactionPalettes
+# autoload if loaded; otherwise returns a per-player gold/bone fallback
+# matching the legacy chrome. Faction colors stay distinct from slot.
+func faction_color_for_player(player: int) -> Color:
+	var fp = get_node_or_null("/root/FactionPalettes")
+	if fp != null and fp.has_method("color_for_player"):
+		var c = fp.color_for_player(player)
+		if typeof(c) == TYPE_COLOR:
+			return c
+	if player == 1:
+		return Color(0.83, 0.59, 0.38, 1.0)  # gold
+	return Color(0.85, 0.8, 0.65, 1.0)  # bone
+
+
 # ---------------------------------------------------------------------------
 # striped_pattern — diagonal hatched fill for the semantic-yellow-vs-faction-
 # yellow collision case (doc §9 anti-pattern). Returns an ImageTexture of a

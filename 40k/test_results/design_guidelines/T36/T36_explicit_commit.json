@@ -1,0 +1,142 @@
+{
+  "failed": 0,
+  "passed": 16,
+  "scenario_id": "T36_explicit_commit",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": 0,
+      "error": "",
+      "expected": 0.0,
+      "label": "script[get_node(\"/root/Main/ShootingController\").pending_targets.si]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/ShootingController\").targets_committed]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/ShootingController\").add_pending_target]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": 1,
+      "error": "",
+      "expected": 1.0,
+      "label": "script[get_node(\"/root/Main/ShootingController\").pending_targets.si]",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/ShootingController\").targets_committed]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/ShootingController\").add_pending_target]",
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": 1,
+      "error": "",
+      "expected": 1.0,
+      "label": "script[get_node(\"/root/Main/ShootingController\").pending_targets.si]",
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/ShootingController\").commit_targets()]",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/ShootingController\").targets_committed]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": 0,
+      "error": "",
+      "expected": 0.0,
+      "label": "script[get_node(\"/root/Main/ShootingController\").pending_targets.si]",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/ShootingController\").targets_committed]",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/ShootingController\").commit_targets()]",
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/ShootingController\").add_pending_target]",
+      "pass": true,
+      "step": 14
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 45,
+      "pass": true,
+      "step": 15
+    }
+  ],
+  "total_steps": 16
+}

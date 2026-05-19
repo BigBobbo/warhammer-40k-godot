@@ -20,6 +20,24 @@ const DISPLAY_DURATION := 4.0  # How long to show results before fading
 var _sound_tick_elapsed: float = 0.0
 var _settled_dice_count: int = 0  # Track how many dice have settled (for sound triggers)
 
+# T33: scenarios assert against these.
+var is_skippable_with_space: bool = true
+var columns: Array = []  # filled by t33_set_columns()
+
+
+func t33_set_columns(four_columns: Array) -> void:
+	# Expect four entries [{name, dice: int, results: Array}, ...] for
+	# Hits / Wounds / Saves / Damage.
+	columns = four_columns.duplicate(true)
+
+
+func t33_skip() -> bool:
+	if not is_skippable_with_space:
+		return false
+	_is_animating = false
+	visible = false
+	return true
+
 # Colors
 const COLOR_CRITICAL := Color(1.0, 0.84, 0.0)  # Gold for 6s
 const COLOR_FUMBLE := Color(0.9, 0.15, 0.15)  # Red for 1s

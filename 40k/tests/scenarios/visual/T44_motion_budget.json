@@ -1,0 +1,31 @@
+{
+  "id": "T44_motion_budget",
+  "covers": ["design_guidelines.T44", "motion.budget"],
+  "description": "Motion budget constants are exposed on UIConstants. T01 introduced them; T44 confirms downstream tweens reference them rather than ad-hoc durations.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "UIConstants.MOTION_DICE_MAX_S",
+      "equals": 1.5 },
+    { "act": "execute_script",
+      "script": "UIConstants.MOTION_SLIDE_PER_INCH_S",
+      "equals": 0.4 },
+    { "act": "execute_script",
+      "script": "is_equal_approx(UIConstants.MOTION_FADE_S, 0.15)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.MOTION_PULSE_LOOP_S",
+      "equals": 2.0 },
+
+    { "act": "execute_script",
+      "script": "UIConstants.MOTION_DICE_MAX_S <= 1.5",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.MOTION_FADE_S < UIConstants.MOTION_SLIDE_PER_INCH_S",
+      "equals": true },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

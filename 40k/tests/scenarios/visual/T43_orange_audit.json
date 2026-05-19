@@ -1,0 +1,22 @@
+{
+  "id": "T43_orange_audit",
+  "covers": ["design_guidelines.T43", "audit.cta_orange"],
+  "description": "T43 audit: UIConstants.primary_cta_color() returns the canonical CTA color (WARNING_ORANGE). Per-screen audits enforce 'at most one' visually but the helper exists so all CTAs reference a named slot rather than ad-hoc orange literals.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "UIConstants.primary_cta_color() == UIConstants.WARNING_ORANGE",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.primary_cta_color().to_html(true)",
+      "equals": "ff8c00ff" },
+
+    { "act": "execute_script",
+      "script": "UIConstants.slot_name(UIConstants.primary_cta_color())",
+      "equals": "WARNING_ORANGE" },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

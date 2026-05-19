@@ -1,0 +1,49 @@
+{
+  "id": "T23_end_phase_position",
+  "covers": ["design_guidelines.T23", "hud.end_phase_button"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 6,
+  "description": "Canonical End-Phase button at fixed bottom-right pixel offset (200 right, 60 bottom). Present in every phase. Has reference name EndPhaseButton at /root/Main/EndPhaseButton.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/EndPhaseButton\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EndPhaseButton\").t23_anchor_offset().distance_to(Vector2(200, 60))",
+      "expect_max": 4.0 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EndPhaseButton\").text",
+      "equals": "End Phase" },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/EndPhaseButton\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EndPhaseButton\").t23_anchor_offset().distance_to(Vector2(200, 60))",
+      "expect_max": 4.0 },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(8)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EndPhaseButton\").t23_anchor_offset().distance_to(Vector2(200, 60))",
+      "expect_max": 4.0 },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(9)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EndPhaseButton\").t23_anchor_offset().distance_to(Vector2(200, 60))",
+      "expect_max": 4.0 },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "id": "T28_two_layer_range",
+  "covers": ["design_guidelines.T28", "movement.two_layer_range"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 7,
+  "description": "MovementRangeVisual.set_from(unit, weapon_range_inches) sets inner_fill_radius_px (M * px/in) and outer_outline_radius_px ((M + weapon_range_inches) * px/in). WARBOSS_B has move=6; with weapon range 12, outer is at 18 inches.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/BoardRoot/MovementRangeVisual\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/MovementRangeVisual\").inner_fill_radius_px",
+      "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/MovementRangeVisual\").set_from(\"U_WARBOSS_B\", 12.0)",
+      "equals": true },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "abs(get_node(\"/root/Main/BoardRoot/MovementRangeVisual\").inner_fill_radius_px - 6.0 * Measurement.PX_PER_INCH)",
+      "expect_max": 1.0 },
+    { "act": "execute_script",
+      "script": "abs(get_node(\"/root/Main/BoardRoot/MovementRangeVisual\").outer_outline_radius_px - 18.0 * Measurement.PX_PER_INCH)",
+      "expect_max": 1.0 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/MovementRangeVisual\").set_from(\"U_WARBOSS_B\", 24.0)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "abs(get_node(\"/root/Main/BoardRoot/MovementRangeVisual\").outer_outline_radius_px - 30.0 * Measurement.PX_PER_INCH)",
+      "expect_max": 1.0 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/MovementRangeVisual\").clear()" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/MovementRangeVisual\").inner_fill_radius_px",
+      "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/MovementRangeVisual\").set_from(\"NOPE\", 12.0)",
+      "equals": false },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

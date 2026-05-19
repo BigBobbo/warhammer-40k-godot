@@ -1,0 +1,29 @@
+{
+  "id": "T42_striped_yellow",
+  "covers": ["design_guidelines.T42", "ui.striped_yellow"],
+  "description": "UIConstants.striped_pattern(yellow) returns an ImageTexture that is NOT a uniform solid color — the diagonal hatching is what distinguishes semantic yellow from a faction yellow.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)) != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_class()",
+      "equals": "ImageTexture" },
+
+    { "act": "execute_script",
+      "script": "UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_width()",
+      "equals": 16 },
+    { "act": "execute_script",
+      "script": "UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_height()",
+      "equals": 16 },
+
+    { "act": "execute_script",
+      "script": "UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_image().get_pixel(0, 0).a + UIConstants.striped_pattern(Color(1.0, 1.0, 0.0)).get_image().get_pixel(0, 4).a < 1.5",
+      "equals": true },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "id": "T37_roster_strip",
+  "covers": ["design_guidelines.T37", "hud.left_roster"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 10,
+  "description": "Left-edge roster strip with a UnitCard_<unit_id> per unit. Single click pans+selects (last_camera_fit_action='selection'); double click opens DatasheetModal.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/LeftRoster\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/LeftRoster\").visible_unit_ids.size()",
+      "expect_min": 1 },
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/LeftRoster/Scroll/Cards/UnitCard_U_WARBOSS_B\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/LeftRoster\").position.x",
+      "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "main.set(\"last_camera_fit_action\", \"\")" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/LeftRoster\").t37_synthesize_card_click(\"U_WARBOSS_B\", false)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script",
+      "script": "main.last_camera_fit_action",
+      "equals": "selection" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/DatasheetModal\").close()" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/LeftRoster\").t37_synthesize_card_click(\"U_WARBOSS_B\", true)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/DatasheetModal\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/DatasheetModal\").current_unit_id",
+      "equals": "U_WARBOSS_B" },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

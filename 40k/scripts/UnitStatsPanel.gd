@@ -33,6 +33,38 @@ var selected_enemy_unit: Dictionary = {}
 var current_phase: String = ""
 var tween: Tween
 
+# T40: prospective stats. When an enemy is hovered while a friendly is
+# selected, the panel recomputes modified BS / S-vs-T / AP-vs-Sv / expected
+# wounds. The new state below is what scenarios assert against.
+var prospective_target_id: String = ""
+var displayed_bs: int = -1
+var displayed_modified_save: int = -1
+var displayed_expected_wounds: float = 0.0
+
+
+# T40: recompute the prospective stats for shooter -> target.
+func set_prospective(shooter_id: String, target_id: String, in_cover: bool) -> bool:
+	prospective_target_id = ""
+	displayed_bs = -1
+	displayed_modified_save = -1
+	displayed_expected_wounds = 0.0
+	if target_id == "":
+		return false
+	var sc = get_node_or_null("/root/Main/ShootingController")
+	if sc == null or not sc.has_method("compute_hover_forecast"):
+		return false
+	var forecast = sc.compute_hover_forecast(shooter_id, target_id)
+	if forecast == null:
+		return false
+	prospective_target_id = target_id
+	displayed_bs = int(forecast.get("bs", -1))
+	displayed_modified_save = int(forecast.get("modified_save", -1))
+	if in_cover:
+		# BS is unchanged by cover in 10e — only modified save shifts -1.
+		displayed_modified_save = max(2, displayed_modified_save - 1)
+	displayed_expected_wounds = float(forecast.get("expected_wounds", 0.0))
+	return true
+
 # Signals
 signal unit_selected(unit_id: String, is_enemy: bool)
 

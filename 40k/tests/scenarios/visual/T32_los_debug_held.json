@@ -1,0 +1,35 @@
+{
+  "id": "T32_los_debug_held",
+  "covers": ["design_guidelines.T32", "debug.los_held_key"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 8,
+  "description": "LoS debug is now a held-key (L) power-user mode. los_debug_active reflects state; persistent LoSDebugButton in HUD_Bottom/HBoxContainer is gone (get_node_or_null returns null). t32_synthesize_l(true/false) routes events through _input.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "main.los_debug_active",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "main.get_node_or_null(\"HUD_Bottom/HBoxContainer/LoSDebugButton\") == null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.t32_synthesize_l(true)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.los_debug_active",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.t32_synthesize_l(false)",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "main.los_debug_active",
+      "equals": false },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

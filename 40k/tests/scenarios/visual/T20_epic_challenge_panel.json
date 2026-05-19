@@ -1,0 +1,46 @@
+{
+  "id": "T20_epic_challenge_panel",
+  "covers": ["design_guidelines.T20", "hud.epic_challenge_panel"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 10,
+  "description": "Side-anchored Epic Challenge panel. anchor_left ratio >= 0.6; Use/Decline buttons; close() hides.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/EpicChallengePanel\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EpicChallengePanel\").visible",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EpicChallengePanel\").open_for(\"U_WARBOSS_B\", \"U_CUSTODIAN_GUARD_B\", \"Heroic intervention: +1 to hit this combat.\")" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EpicChallengePanel\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EpicChallengePanel\").t20_anchor_left_ratio()",
+      "expect_min": 0.6 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EpicChallengePanel/Body/Effect\").text.contains(\"Heroic\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EpicChallengePanel/Body/Buttons/Use\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EpicChallengePanel/Body/Buttons/Decline\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EpicChallengePanel\").close()" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/EpicChallengePanel\").visible",
+      "equals": false },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

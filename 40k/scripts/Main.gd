@@ -80,6 +80,10 @@ var view_rotation: float = 0.0  # Board rotation in radians (multiples of PI/2)
 # "selection" = Shift+F, "decision" = auto-zoom on side panel open.
 var last_camera_fit_action: String = ""
 
+# T32: LoS debug is now a held-key power-user mode rather than a persistent
+# top-bar toggle. los_debug_active mirrors the debug state for scenarios.
+var los_debug_active: bool = false
+
 # Replay mode
 var is_replay_mode: bool = false
 var replay_ui: Node = null
@@ -263,6 +267,10 @@ func _ready() -> void:
 	if board_root != null:
 		board_root.add_child(preload("res://scripts/LOSLineVisual.gd").new())
 
+	# T28: two-layer movement range visual.
+	if board_root != null:
+		board_root.add_child(preload("res://scripts/MovementRangeVisual.gd").new())
+
 	# T31: standalone ruler tool. Lives under BoardRoot so its line is
 	# rendered in world coordinates.
 	if board_root != null:
@@ -271,11 +279,35 @@ func _ready() -> void:
 	# T35: persistent right-side roll log. Always visible.
 	add_child(preload("res://scripts/RollLogPanel.gd").new())
 
+	# T37: left-edge vertical roster strip.
+	add_child(preload("res://scripts/LeftRosterStrip.gd").new())
+
 	# T39: datasheet modal. Hidden until KEY_I opens it.
 	add_child(preload("res://scripts/DatasheetModal.gd").new())
 
 	# T06: side-anchored Weapon Order panel. Hidden until open_for().
 	add_child(preload("res://scripts/WeaponOrderPanel.gd").new())
+
+	# T20: side-anchored Epic Challenge decision panel. Hidden until open_for().
+	add_child(preload("res://scripts/EpicChallengePanel.gd").new())
+
+	# T21: side-anchored Wound Allocation panel. Hidden until open_for().
+	add_child(preload("res://scripts/WoundAllocationPanel.gd").new())
+
+	# T23: canonical bottom-right End-Phase button.
+	add_child(preload("res://scripts/EndPhaseButton.gd").new())
+
+	# T33: canonical center-top dice resolution surface. Hidden until used.
+	var drv := preload("res://scripts/DiceRollVisual.gd").new()
+	drv.name = "DiceRollVisual"
+	drv.visible = false
+	add_child(drv)
+
+	# T34: canonical damage feedback layer (floating numbers).
+	if board_root != null:
+		var dfb := preload("res://scripts/DamageFeedbackVisual.gd").new()
+		dfb.name = "DamageFeedbackVisual"
+		board_root.add_child(dfb)
 
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
@@ -3700,16 +3732,11 @@ func _setup_terrain() -> void:
 		terrain_label.visible = false
 		hud_container2.add_child(terrain_label)
 
-		var los_button = Button.new()
-		los_button.name = "LoSDebugButton"
-		los_button.text = "LoS Debug (L)"
-		los_button.toggle_mode = true
-		los_button.button_pressed = false
-		los_button.toggled.connect(func(pressed): _toggle_los_debug())
-		los_button.visible = false
-		hud_container2.add_child(los_button)
-
-		print("Added terrain UI controls to HUD (hidden, toggle with Shift+D)")
+		# T32: removed persistent LoSDebugButton — L is now a held-key
+		# power-user mode handled in Main._input. The dev-tools submenu
+		# (Shift+D) can re-add the button if needed; the default HUD has
+		# no LoSDebugButton.
+		print("Added terrain UI controls to HUD (T32: LoSDebugButton removed)")
 
 func _on_measuring_tape_save_toggle(pressed: bool) -> void:
 	SettingsService.set_save_measurements(pressed)
@@ -4871,10 +4898,12 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	
-	# LoS debug toggle - KEY_L
-	if event is InputEventKey and event.pressed and event.keycode == KEY_L:
-		print("LoS debug toggle key (L) pressed!")
-		_toggle_los_debug()
+	# T32: LoS debug — held-key power-user mode (was: persistent top-bar toggle)
+	if event is InputEventKey and event.keycode == KEY_L and not event.echo:
+		var want_on: bool = event.pressed
+		if want_on != los_debug_active:
+			_toggle_los_debug()
+			los_debug_active = want_on
 		get_viewport().set_input_as_handled()
 		return
 	
@@ -5196,6 +5225,16 @@ func reset_camera() -> void:
 	print("Camera reset to position: ", camera.position, " zoom: ", camera.zoom)
 
 
+# T32 test seam: synthesize KEY_L press/release. Returns los_debug_active
+# after the event is processed.
+func t32_synthesize_l(pressed: bool) -> bool:
+	var ev := InputEventKey.new()
+	ev.keycode = KEY_L
+	ev.pressed = pressed
+	_input(ev)
+	return los_debug_active
+
+
 # T13: synthesize the F key press and route through _input. Used by the
 # T13 scenario to verify the keybind wiring without depending on the
 # host input pipeline (which can be flaky in headless+xvfb runs).
@@ -5215,6 +5254,57 @@ func t14_synthesize_shift_f_press() -> String:
 	ev.pressed = true
 	_input(ev)
 	return last_camera_fit_action
+
+
+# T22: fit the camera to the union of bounding boxes for the given unit
+# ids. Sets last_camera_fit_action = "decision". Called by side panel
+# openers (T06/T20/T21) so the board stays centered on the relevant
+# tokens while the decision dialog is up.
+func fit_view_to_decision(unit_ids: Array) -> bool:
+	if unit_ids.is_empty():
+		return false
+	var gs = get_node_or_null("/root/GameState")
+	if gs == null:
+		return false
+	var min_pt := Vector2(INF, INF)
+	var max_pt := Vector2(-INF, -INF)
+	var any: bool = false
+	for uid in unit_ids:
+		var u = gs.get_unit(str(uid))
+		if typeof(u) != TYPE_DICTIONARY:
+			continue
+		for m in u.get("models", []):
+			if typeof(m) != TYPE_DICTIONARY:
+				continue
+			var pos = m.get("position", null)
+			var p: Vector2 = Vector2.ZERO
+			if typeof(pos) == TYPE_VECTOR2:
+				p = pos
+			elif typeof(pos) == TYPE_DICTIONARY and pos.has("x") and pos.has("y"):
+				p = Vector2(float(pos.x), float(pos.y))
+			else:
+				continue
+			min_pt = Vector2(min(min_pt.x, p.x), min(min_pt.y, p.y))
+			max_pt = Vector2(max(max_pt.x, p.x), max(max_pt.y, p.y))
+			any = true
+	if not any:
+		return false
+	const PAD_PX := 250.0
+	const MAX_ZOOM := 1.0
+	var box_w: float = max(max_pt.x - min_pt.x, 1.0)
+	var box_h: float = max(max_pt.y - min_pt.y, 1.0)
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size
+	var zx: float = vp_size.x / (box_w + PAD_PX * 2.0)
+	var zy: float = vp_size.y / (box_h + PAD_PX * 2.0)
+	var z: float = min(min(zx, zy), MAX_ZOOM)
+	var center := (min_pt + max_pt) * 0.5
+	camera.position = center
+	camera.zoom = Vector2(z, z)
+	view_zoom = z
+	view_offset = center - vp_size / (2.0 * z)
+	last_camera_fit_action = "decision"
+	update_view_transform()
+	return true
 
 
 # T14: zoom + center the camera on a unit's bounding box (all its models).

@@ -48,6 +48,48 @@ var _min_charge_needed: float = 0.0  # Minimum inches needed to reach engagement
 var _charger_center: Vector2 = Vector2.ZERO  # For summary label positioning
 var _active: bool = false
 
+# T30: dashed/solid charge rings exposed for scenarios.
+# Schema: [{radius_px: float, label: String, style: String}]
+# label is "max" / "expected" / "rolled"
+# style is "dashed" / "solid"
+var rings: Array = []
+const T30_MAX_CHARGE_INCHES := 12.0
+const T30_EXPECTED_CHARGE_INCHES := 7.0
+
+
+# T30: switch to declaration state — two dashed rings (max + expected).
+func t30_declare_charge_rings() -> void:
+	var px_per_inch: float = float(Measurement.PX_PER_INCH)
+	rings = [
+		{
+			"radius_px": T30_MAX_CHARGE_INCHES * px_per_inch,
+			"label": "max",
+			"style": "dashed",
+		},
+		{
+			"radius_px": T30_EXPECTED_CHARGE_INCHES * px_per_inch,
+			"label": "expected",
+			"style": "dashed",
+		},
+	]
+
+
+# T30: switch to rolled state — single solid ring at the rolled distance.
+func t30_set_rolled_ring(rolled_inches: float) -> void:
+	var px_per_inch: float = float(Measurement.PX_PER_INCH)
+	rings = [
+		{
+			"radius_px": rolled_inches * px_per_inch,
+			"label": "rolled",
+			"style": "solid",
+		},
+	]
+
+
+func t30_clear_rings() -> void:
+	rings = []
+
+
 var default_font: Font = null
 
 func _ready() -> void:
