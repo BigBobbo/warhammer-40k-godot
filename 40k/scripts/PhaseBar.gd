@@ -1,4 +1,5 @@
 extends PanelContainer
+class_name PhaseBar
 
 # PhaseBar — top-center HUD showing the six in-game-turn phases (T04).
 #

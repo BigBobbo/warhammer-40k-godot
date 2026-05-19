@@ -1,4 +1,5 @@
 extends PanelContainer
+class_name WeaponOrderPanel
 
 # WeaponOrderPanel — side-anchored variant of WeaponOrderDialog (T06, doc §3).
 #

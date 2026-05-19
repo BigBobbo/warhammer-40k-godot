@@ -1,4 +1,5 @@
 extends Node2D
+class_name MovementRangeVisual
 
 # MovementRangeVisual — two-layer range shading for a selected unit (T28,
 # doc §5).

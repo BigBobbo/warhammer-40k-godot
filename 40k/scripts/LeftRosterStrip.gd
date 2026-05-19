@@ -1,4 +1,5 @@
 extends PanelContainer
+class_name LeftRosterStrip
 
 # LeftRosterStrip — vertical card-per-unit strip on the left edge of the
 # screen (T37, doc §8).

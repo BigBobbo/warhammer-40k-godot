@@ -53,7 +53,7 @@
     { "act": "pixel_diff",
       "before": "T07_overlay_off",
       "after":  "T07_overlay_on",
-      "expect_min_pct": 0.01 },
+      "expect_min_pct": 0.015 },
 
     { "act": "expect_baseline_unchanged" }
   ]

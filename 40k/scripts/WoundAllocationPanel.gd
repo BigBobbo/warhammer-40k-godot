@@ -1,4 +1,5 @@
 extends PanelContainer
+class_name WoundAllocationPanel
 
 # WoundAllocationPanel — side-anchored variant of WoundAllocationOverlay
 # (T21, doc §3). Same pattern as T06/T20.

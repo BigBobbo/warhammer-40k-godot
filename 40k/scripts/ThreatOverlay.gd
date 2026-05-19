@@ -1,4 +1,5 @@
 extends Node2D
+class_name ThreatOverlay
 
 # ThreatOverlay — held-key (Tab) power-user mode showing enemy threat
 # ranges (T10, doc §6).

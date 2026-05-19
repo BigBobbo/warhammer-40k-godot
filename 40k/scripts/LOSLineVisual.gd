@@ -1,4 +1,5 @@
 extends Node2D
+class_name LOSLineVisual
 
 # LOSLineVisual — single LOS line between shooter and target with color
 # coded by visibility state (T11, doc §6).

@@ -106,6 +106,35 @@ regression checks live in the shell wrapper.
 
 Example: `T03_drag_ruler.json`, `T07_terrain_cover_icons.json`.
 
+## Test-seam convention (`tNN_*` helpers)
+
+Many T## tasks expose small "test-seam" methods on the script they're
+extending. These follow a strict naming convention so reviewers can
+distinguish them from production API:
+
+| Pattern | Purpose | Example |
+| --- | --- | --- |
+| `tNN_synthesize_<action>(args)` | Synthesize a user-input event and route it through `_input` directly. Used because headless+xvfb can't reliably deliver synthetic key events through `Input.parse_input_event` (Control nodes consume them before they reach the target). | `t13_synthesize_f_press()` builds an `InputEventKey`, sets `keycode = KEY_F`, calls `_input(ev)`, returns `last_camera_fit_action`. |
+| `tNN_set_<state>(args)` | Inject scenario-driven state into a system that normally derives it from gameplay. | `t33_set_columns([{"name":"Hits",...}, ...])` populates `DiceRollVisual.columns` without running a real combat resolution. |
+| `tNN_<query>()` | Read derived state that's not a plain property. | `t06_anchor_left_ratio()` computes `position.x / viewport.size.x` so scenarios can assert layout without simulating a viewport resize. |
+
+Rules:
+
+1. Test seams are NEVER called from user code or other production code —
+   only from `tests/scenarios/visual/T##_*.json` step scripts.
+2. The `tNN_` prefix is mandatory. Reviewers grep `t[0-9]+_` to find them.
+3. Seams must be additive — they may NOT change behavior of production
+   paths. If production needs the same logic, refactor the production
+   path so the seam can call it.
+4. Document any seam in its host script with a comment `# T## test seam:`
+   explaining what it bypasses and why.
+
+Rationale: the playbook bans pin tests and screenshot-only acceptance.
+Some tasks need to drive UI from JSON scenarios where the input
+pipeline is unreliable in headless mode. The test-seam pattern lets us
+keep Tier A falsifiable (we read the *property the user would see*,
+just synthesized through a controlled path).
+
 ## Banned patterns
 
 These produce false positives and are rejected on review:

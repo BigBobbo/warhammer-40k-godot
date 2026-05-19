@@ -1,4 +1,5 @@
 extends PanelContainer
+class_name RollLogPanel
 
 # RollLogPanel — persistent right-side roll log (T35, doc §7).
 #

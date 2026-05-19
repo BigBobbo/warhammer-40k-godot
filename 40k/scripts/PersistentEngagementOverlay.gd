@@ -1,4 +1,5 @@
 extends Node2D
+class_name PersistentEngagementOverlay
 
 # PersistentEngagementOverlay — always-on engagement rings (T29, doc §5).
 #

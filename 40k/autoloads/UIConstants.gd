@@ -74,15 +74,14 @@ func primary_cta_color() -> Color:
 	return WARNING_ORANGE  # WARNING_ORANGE is already the canonical CTA hue
 
 
-# T41: canonical faction color lookup. Reads from FactionPalettes
-# autoload if loaded; otherwise returns a per-player gold/bone fallback
-# matching the legacy chrome. Faction colors stay distinct from slot.
+# T41: canonical faction color lookup. Delegates to the existing
+# FactionPalettes static API (40k/scripts/FactionPalettes.gd) so this
+# autoload doesn't fork the palette model. Falls back to gold/bone if
+# the static lookup yields something invalid.
 func faction_color_for_player(player: int) -> Color:
-	var fp = get_node_or_null("/root/FactionPalettes")
-	if fp != null and fp.has_method("color_for_player"):
-		var c = fp.color_for_player(player)
-		if typeof(c) == TYPE_COLOR:
-			return c
+	var c: Color = FactionPalettes.get_player_color(player)
+	if typeof(c) == TYPE_COLOR and c.a > 0.0:
+		return c
 	if player == 1:
 		return Color(0.83, 0.59, 0.38, 1.0)  # gold
 	return Color(0.85, 0.8, 0.65, 1.0)  # bone

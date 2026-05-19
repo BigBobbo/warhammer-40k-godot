@@ -1,4 +1,5 @@
 extends PanelContainer
+class_name DatasheetModal
 
 # DatasheetModal — read-only full datasheet view (T39, doc §8).
 #

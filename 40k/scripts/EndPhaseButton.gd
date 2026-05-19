@@ -1,4 +1,5 @@
 extends Button
+class_name EndPhaseButton
 
 # EndPhaseButton — canonical bottom-right End-Phase action (T23, doc §3/§4).
 #

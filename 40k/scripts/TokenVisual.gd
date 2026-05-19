@@ -350,14 +350,12 @@ func _t08_make_ring(node_name: String, scale_factor: float, alpha: float, ring_c
 
 
 func _t08_faction_color() -> Color:
-	# Best-effort: read faction color from army data via FactionPalettes if
-	# loaded; otherwise use the existing per-player border color stand-in.
-	var fp = get_node_or_null("/root/FactionPalettes")
-	if fp != null and fp.has_method("color_for_unit"):
-		var u_color = fp.color_for_unit(self)
-		if typeof(u_color) == TYPE_COLOR:
-			return u_color
-	# Fallback: gold for P1, bone for P2 (matches existing token chrome).
+	# T41: route through UIConstants.faction_color_for_player so every
+	# caller of "faction color" goes through one path.
+	var uic = get_node_or_null("/root/UIConstants")
+	if uic != null and uic.has_method("faction_color_for_player"):
+		return uic.faction_color_for_player(owner_player)
+	# Final fallback (matches UIConstants's own fallback).
 	if owner_player == 1:
 		return Color(0.83, 0.59, 0.38, 1.0)
 	return Color(0.85, 0.8, 0.65, 1.0)

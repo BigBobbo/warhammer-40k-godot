@@ -242,72 +242,9 @@ var _pre_pan_offset: Vector2 = Vector2.ZERO
 var _pre_pan_zoom: float = 1.0
 
 func _ready() -> void:
-	# T04: phase bar (top-center HUD). Self-installs as PanelContainer child.
-	add_child(preload("res://scripts/PhaseBar.gd").new())
-
-	# T07: per-tile cover icons. Lives under BoardRoot so it transforms
-	# with the board (camera/zoom).
-	var board_root = get_node_or_null("BoardRoot")
-	if board_root != null:
-		board_root.add_child(preload("res://scripts/TerrainCoverOverlay.gd").new())
-
-	# T25: active-player edge tint. Full-rect Control with a 4px ring.
-	add_child(preload("res://scripts/ActivePlayerEdgeTint.gd").new())
-
-	# T29: persistent engagement rings overlay. Walks units and shows a
-	# ring per engaged unit. Refreshes on GameState change signals.
-	if board_root != null:
-		board_root.add_child(preload("res://scripts/PersistentEngagementOverlay.gd").new())
-
-	# T10: held-key (Tab) threat overlay.
-	if board_root != null:
-		board_root.add_child(preload("res://scripts/ThreatOverlay.gd").new())
-
-	# T11: LOS line visual.
-	if board_root != null:
-		board_root.add_child(preload("res://scripts/LOSLineVisual.gd").new())
-
-	# T28: two-layer movement range visual.
-	if board_root != null:
-		board_root.add_child(preload("res://scripts/MovementRangeVisual.gd").new())
-
-	# T31: standalone ruler tool. Lives under BoardRoot so its line is
-	# rendered in world coordinates.
-	if board_root != null:
-		board_root.add_child(preload("res://scripts/RulerTool.gd").new())
-
-	# T35: persistent right-side roll log. Always visible.
-	add_child(preload("res://scripts/RollLogPanel.gd").new())
-
-	# T37: left-edge vertical roster strip.
-	add_child(preload("res://scripts/LeftRosterStrip.gd").new())
-
-	# T39: datasheet modal. Hidden until KEY_I opens it.
-	add_child(preload("res://scripts/DatasheetModal.gd").new())
-
-	# T06: side-anchored Weapon Order panel. Hidden until open_for().
-	add_child(preload("res://scripts/WeaponOrderPanel.gd").new())
-
-	# T20: side-anchored Epic Challenge decision panel. Hidden until open_for().
-	add_child(preload("res://scripts/EpicChallengePanel.gd").new())
-
-	# T21: side-anchored Wound Allocation panel. Hidden until open_for().
-	add_child(preload("res://scripts/WoundAllocationPanel.gd").new())
-
-	# T23: canonical bottom-right End-Phase button.
-	add_child(preload("res://scripts/EndPhaseButton.gd").new())
-
-	# T33: canonical center-top dice resolution surface. Hidden until used.
-	var drv := preload("res://scripts/DiceRollVisual.gd").new()
-	drv.name = "DiceRollVisual"
-	drv.visible = false
-	add_child(drv)
-
-	# T34: canonical damage feedback layer (floating numbers).
-	if board_root != null:
-		var dfb := preload("res://scripts/DamageFeedbackVisual.gd").new()
-		dfb.name = "DamageFeedbackVisual"
-		board_root.add_child(dfb)
+	# Design-guidelines overlays / panels (T01-T45). Factored into a helper
+	# so this _ready stays scannable.
+	_install_design_guidelines_overlays()
 
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
@@ -11759,3 +11696,42 @@ func _apply_unit_list_filter() -> void:
 		if not is_section_header and t.find(_unit_list_filter_text) == -1:
 			unit_list.remove_item(i)
 		i -= 1
+
+
+# ============================================================================
+# Design-guidelines overlay installer (T01-T45).
+# Installs every HUD overlay / panel / canonical button introduced by the
+# design-guidelines task list. Factored out of _ready() so the bootstrap
+# block stays scannable. Each entry is one preload + one add_child, plus
+# any one-line configuration the overlay needs (visibility default, name).
+# ============================================================================
+func _install_design_guidelines_overlays() -> void:
+	var board_root = get_node_or_null("BoardRoot")
+
+	# Direct children of Main (CanvasLayer-anchored HUD elements).
+	add_child(preload("res://scripts/PhaseBar.gd").new())                  # T04
+	add_child(preload("res://scripts/ActivePlayerEdgeTint.gd").new())      # T25
+	add_child(preload("res://scripts/RollLogPanel.gd").new())              # T35
+	add_child(preload("res://scripts/LeftRosterStrip.gd").new())           # T37
+	add_child(preload("res://scripts/DatasheetModal.gd").new())            # T39
+	add_child(preload("res://scripts/WeaponOrderPanel.gd").new())          # T06
+	add_child(preload("res://scripts/EpicChallengePanel.gd").new())        # T20
+	add_child(preload("res://scripts/WoundAllocationPanel.gd").new())      # T21
+	add_child(preload("res://scripts/EndPhaseButton.gd").new())            # T23
+
+	var drv := preload("res://scripts/DiceRollVisual.gd").new()
+	drv.name = "DiceRollVisual"
+	drv.visible = false
+	add_child(drv)                                                          # T33
+
+	# Children of BoardRoot (world-space, transforms with the board).
+	if board_root != null:
+		board_root.add_child(preload("res://scripts/TerrainCoverOverlay.gd").new())          # T07
+		board_root.add_child(preload("res://scripts/PersistentEngagementOverlay.gd").new())  # T29
+		board_root.add_child(preload("res://scripts/ThreatOverlay.gd").new())                # T10
+		board_root.add_child(preload("res://scripts/LOSLineVisual.gd").new())                # T11
+		board_root.add_child(preload("res://scripts/MovementRangeVisual.gd").new())          # T28
+		board_root.add_child(preload("res://scripts/RulerTool.gd").new())                    # T31
+		var dfb := preload("res://scripts/DamageFeedbackVisual.gd").new()
+		dfb.name = "DamageFeedbackVisual"
+		board_root.add_child(dfb)                                                            # T34

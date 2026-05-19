@@ -1,4 +1,5 @@
 extends PanelContainer
+class_name EpicChallengePanel
 
 # EpicChallengePanel — side-anchored variant of the Epic Challenge decision
 # dialog (T20, doc §3). Mirrors T06's WeaponOrderPanel pattern.

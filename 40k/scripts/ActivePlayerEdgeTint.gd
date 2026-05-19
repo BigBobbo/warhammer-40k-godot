@@ -1,4 +1,5 @@
 extends Control
+class_name ActivePlayerEdgeTint
 
 # ActivePlayerEdgeTint — outer 4px frame of the play area tinted in the
 # active player's UIConstants slot color (T25, doc §4).

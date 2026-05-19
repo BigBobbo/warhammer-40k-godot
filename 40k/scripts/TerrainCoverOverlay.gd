@@ -1,4 +1,5 @@
 extends Node2D
+class_name TerrainCoverOverlay
 
 # TerrainCoverOverlay — renders a small shield glyph + cover-type label at
 # the centroid of every terrain piece (T07, doc §6).

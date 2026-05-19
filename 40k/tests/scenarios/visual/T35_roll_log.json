@@ -58,7 +58,7 @@
       "before": "T35_empty",
       "after":  "T35_two_entries",
       "region": "right_panel",
-      "expect_min_pct": 0.1 },
+      "expect_min_pct": 0.5 },
 
     { "act": "expect_baseline_unchanged" }
   ]
