@@ -64,10 +64,11 @@ func _add_toast(message: String, color: Color, duration: float) -> void:
 	toast_container.add_child(toast_panel)
 	active_toasts.append(toast_panel)
 
-	# Fade in
+	# Fade in. T44: duration sourced from UIConstants.MOTION_FADE_S
+	# (canonical 150ms fade per design_guidelines doc §9 motion budget).
 	toast_panel.modulate.a = 0.0
 	var tween = create_tween()
-	tween.tween_property(toast_panel, "modulate:a", 1.0, 0.15)
+	tween.tween_property(toast_panel, "modulate:a", 1.0, UIConstants.MOTION_FADE_S)
 
 	# Schedule removal
 	_schedule_removal(toast_panel, duration)
