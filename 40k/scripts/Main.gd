@@ -250,6 +250,11 @@ func _ready() -> void:
 	# T25: active-player edge tint. Full-rect Control with a 4px ring.
 	add_child(preload("res://scripts/ActivePlayerEdgeTint.gd").new())
 
+	# T31: standalone ruler tool. Lives under BoardRoot so its line is
+	# rendered in world coordinates.
+	if board_root != null:
+		board_root.add_child(preload("res://scripts/RulerTool.gd").new())
+
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
 	if GameEventLog:
@@ -4767,6 +4772,22 @@ func _input(event: InputEvent) -> void:
 			fit_view_to_selection(sel_id)
 		get_viewport().set_input_as_handled()
 		return
+
+	# T31: ruler tool R (public) / Shift+R (private) / ESC exits
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_R \
+			and not event.ctrl_pressed and not event.meta_pressed:
+		var ruler = get_node_or_null("BoardRoot/RulerTool")
+		if ruler != null:
+			ruler.set_active(true)
+			ruler.is_private = event.shift_pressed
+			get_viewport().set_input_as_handled()
+			return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		var ruler2 = get_node_or_null("BoardRoot/RulerTool")
+		if ruler2 != null and ruler2.active:
+			ruler2.set_active(false)
+			get_viewport().set_input_as_handled()
+			return
 
 	# T-102: Chat panel toggle - KEY_T (text/chat). Only shows in networked games.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_T \

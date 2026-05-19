@@ -1,0 +1,80 @@
+{
+  "id": "T31_ruler_tool",
+  "covers": ["design_guidelines.T31", "tools.ruler"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 7,
+  "description": "Standalone ruler tool. R activates; drag draws a measured line with inches label; ESC exits. Shift+R sets is_private. Asserts distance_inches matches geometric distance via Measurement.PX_PER_INCH.",
+
+  "regions": {
+    "ruler_area": [0, 0, 1920, 1080]
+  },
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "main.fit_view_to_board()" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/BoardRoot/RulerTool\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool\").active",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool\").is_private",
+      "equals": false },
+
+    { "act": "screenshot", "label": "T31_idle" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool\").t31_synthesize_r_press(false)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool\").is_private",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool\").begin_drag(main.camera.position)" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool\").update_drag(main.camera.position + Vector2(4 * Measurement.PX_PER_INCH, 0))" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "T31_drawn" },
+
+    { "act": "execute_script",
+      "script": "abs(get_node(\"/root/Main/BoardRoot/RulerTool\").current_line.distance_inches - 4.0)",
+      "expect_max": 0.1 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool/Line\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool/Label\").text",
+      "equals": "4.0\"" },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool\").t31_synthesize_r_press(true)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool\").is_private",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool\").t31_synthesize_escape()",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool\").active",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/RulerTool/Line\").visible",
+      "equals": false },
+
+    { "act": "pixel_diff",
+      "before": "T31_idle",
+      "after":  "T31_drawn",
+      "expect_min_pct": 0.001 },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}
