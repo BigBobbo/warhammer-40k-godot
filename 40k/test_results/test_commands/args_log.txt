@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["--scenario-file=tests/scenarios/sp/runner_smoke.json"]
