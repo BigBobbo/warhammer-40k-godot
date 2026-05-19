@@ -1,0 +1,8 @@
+{
+  "scenario_id": "T05_hover_forecast",
+  "pixel_diff_steps": [],
+  "summary": {
+    "step_count": 0,
+    "all_passed": true
+  }
+}

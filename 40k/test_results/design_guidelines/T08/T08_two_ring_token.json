@@ -1,0 +1,83 @@
+{
+  "failed": 0,
+  "passed": 10,
+  "scenario_id": "T08_two_ring_token",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "expect_token_visible",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "expect_token_visible",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.get_node_or_null(\"BoardRoot/TokenLayer\") != null]",
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node_]",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node_]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(]",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 17,
+      "pass": true,
+      "step": 9
+    }
+  ],
+  "total_steps": 10
+}

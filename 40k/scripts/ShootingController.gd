@@ -18,6 +18,17 @@ var current_phase = null  # Can be ShootingPhase or null
 var active_shooter_id: String = ""
 var eligible_targets: Dictionary = {}  # target_unit_id -> target_data
 var selected_target_id: String = ""
+
+# T05: hover-forecast for the (shooter, weapon, target) currently under the
+# mouse. null when nothing eligible is hovered. Schema:
+#   {weapon_id, weapon_name, target_id, attacks, bs, s, t, ap, d,
+#    expected_wounds: float}
+var current_hover_forecast = null
+
+# T36: target-commit gate. Targets are added to pending_targets on click
+# but the actual roll is not started until ENTER (or commit_targets()).
+var pending_targets: Array = []
+var targets_committed: bool = false
 var weapon_assignments: Dictionary = {}  # weapon_id -> target_unit_id
 var weapon_modifiers: Dictionary = {}  # weapon_id -> {hit: {reroll_ones: bool, plus_one: bool, minus_one: bool}}
 var assignment_history: Array = []  # T5-UX4: Stack of weapon_ids in assignment order for undo
@@ -115,6 +126,108 @@ const LOS_LINE_COLOR = Color.RED
 const LOS_LINE_WIDTH = 2.0
 const SHOOTING_LINE_COLOR = Color(1.0, 0.5, 0.0, 0.8)  # Orange for shooting lines
 const SHOOTING_LINE_WIDTH = 3.0
+
+# T05: compute the predicted-damage forecast for shooter -> target with the
+# given weapon. Returns a Dictionary or null. Reads cover via
+# EnhancedLineOfSight when available; falls back to no-cover math.
+# expected_wounds = attacks * P(hit) * P(wound) * (1 - P(save)) * damage.
+# Stored on current_hover_forecast.
+#
+# This is a static helper for hover preview; the real combat math lives in
+# RulesEngine. Approximations are fine here — the tooltip is informational.
+func compute_hover_forecast(shooter_id: String, target_id: String, weapon_id: String = "") -> Variant:
+	current_hover_forecast = null
+	var gs = get_node_or_null("/root/GameState")
+	if gs == null:
+		return null
+	var shooter = gs.get_unit(shooter_id)
+	var target = gs.get_unit(target_id)
+	if typeof(shooter) != TYPE_DICTIONARY or shooter.is_empty():
+		return null
+	if typeof(target) != TYPE_DICTIONARY or target.is_empty():
+		return null
+
+	var weapons: Array = shooter.get("meta", {}).get("weapons", [])
+	var weapon = null
+	for w in weapons:
+		if typeof(w) != TYPE_DICTIONARY:
+			continue
+		if weapon_id == "" or str(w.get("id", w.get("name", ""))) == weapon_id:
+			weapon = w
+			break
+	if weapon == null:
+		return null
+
+	var attacks: int = _t05_to_int(weapon.get("attacks", 1), 1)
+	var bs: int = _t05_to_int(weapon.get("ballistic_skill", weapon.get("bs", 4)), 4)
+	var s: int = _t05_to_int(weapon.get("strength", 4), 4)
+	var ap: int = _t05_to_int(weapon.get("ap", 0), 0)
+	var d: int = _t05_to_int(weapon.get("damage", 1), 1)
+	var t: int = _t05_to_int(target.get("meta", {}).get("stats", {}).get("toughness", 4), 4)
+	var sv: int = _t05_to_int(target.get("meta", {}).get("stats", {}).get("save", 5), 5)
+
+	# Cover detection: best-effort via EnhancedLineOfSight if present.
+	var in_cover: bool = false
+	var elos = get_node_or_null("/root/EnhancedLineOfSight")
+	if elos != null and elos.has_method("has_cover_between_units"):
+		in_cover = bool(elos.has_cover_between_units(shooter_id, target_id))
+	var modified_sv: int = max(2, sv - ap)
+	if in_cover:
+		modified_sv = max(2, modified_sv - 1)
+
+	var p_hit: float = (7.0 - float(bs)) / 6.0
+	var p_wound: float = _t05_wound_prob(s, t)
+	var p_save: float = (7.0 - float(modified_sv)) / 6.0
+	var expected_wounds: float = float(attacks) * p_hit * p_wound * (1.0 - p_save) * float(d)
+
+	current_hover_forecast = {
+		"weapon_id": str(weapon.get("id", weapon.get("name", ""))),
+		"weapon_name": str(weapon.get("name", "?")),
+		"target_id": target_id,
+		"attacks": attacks,
+		"bs": bs,
+		"s": s,
+		"t": t,
+		"ap": ap,
+		"d": d,
+		"in_cover": in_cover,
+		"modified_save": modified_sv,
+		"expected_wounds": expected_wounds,
+	}
+	return current_hover_forecast
+
+
+func _t05_to_int(v, fallback: int) -> int:
+	if typeof(v) == TYPE_INT:
+		return int(v)
+	if typeof(v) == TYPE_FLOAT:
+		return int(v)
+	if typeof(v) == TYPE_STRING:
+		var s = String(v).strip_edges()
+		s = s.replace("+", "")
+		if s.is_valid_int():
+			return int(s)
+		if s.is_valid_float():
+			return int(float(s))
+	return fallback
+
+
+func _t05_wound_prob(s: int, t: int) -> float:
+	# 10e wound table: double-T 5+, >T 4+, =T 5+ technically, =T 4+ in 10e simplification.
+	# Use the common simplification: need on roll = depends on s vs t.
+	var needed: int = 4
+	if s >= t * 2:
+		needed = 2
+	elif s > t:
+		needed = 3
+	elif s == t:
+		needed = 4
+	elif s * 2 <= t:
+		needed = 6
+	else:
+		needed = 5
+	return (7.0 - float(needed)) / 6.0
+
 
 func _ready() -> void:
 	set_process_input(true)

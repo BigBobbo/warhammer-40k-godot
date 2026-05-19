@@ -266,6 +266,9 @@ func _ready() -> void:
 	# T39: datasheet modal. Hidden until KEY_I opens it.
 	add_child(preload("res://scripts/DatasheetModal.gd").new())
 
+	# T06: side-anchored Weapon Order panel. Hidden until open_for().
+	add_child(preload("res://scripts/WeaponOrderPanel.gd").new())
+
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
 	if GameEventLog:

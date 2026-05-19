@@ -1,7 +1,7 @@
 {
   "failed": 0,
-  "passed": 13,
-  "scenario_id": "T29_persistent_engagement",
+  "passed": 12,
+  "scenario_id": "T05_hover_forecast",
   "steps": [
     {
       "act": "wait_seconds",
@@ -13,36 +13,48 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[get_node_or_null(\"/root/Main/BoardRoot/PersistentEngagementO]",
+      "label": "script[get_node_or_null(\"/root/Main/ShootingController\") != null]",
       "pass": true,
       "step": 1
     },
     {
       "act": "execute_script",
       "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/ShootingController\").current_hover_fore]",
       "pass": true,
       "step": 2
     },
     {
       "act": "execute_script",
       "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/ShootingController\").compute_hover_fore]",
       "pass": true,
       "step": 3
     },
     {
       "act": "execute_script",
-      "actual": null,
+      "actual": "U_CUSTODIAN_GUARD_B",
+      "error": "",
+      "expected": "U_CUSTODIAN_GUARD_B",
+      "label": "script[get_node(\"/root/Main/ShootingController\").current_hover_fore]",
       "pass": true,
       "step": 4
     },
     {
-      "act": "wait_frames",
+      "act": "execute_script",
+      "actual": 1,
+      "error": "",
+      "expect_min": 1.0,
       "pass": true,
       "step": 5
     },
     {
       "act": "execute_script",
-      "actual": 2,
+      "actual": 5,
       "error": "",
       "expect_min": 2.0,
       "pass": true,
@@ -50,10 +62,9 @@
     },
     {
       "act": "execute_script",
-      "actual": true,
+      "actual": 5,
       "error": "",
-      "expected": true,
-      "label": "script[get_node_or_null(\"/root/Main/BoardRoot/PersistentEngagementO]",
+      "expect_max": 6.0,
       "pass": true,
       "step": 7
     },
@@ -62,42 +73,34 @@
       "actual": true,
       "error": "",
       "expected": true,
-      "label": "script[get_node_or_null(\"/root/Main/BoardRoot/PersistentEngagementO]",
+      "label": "script[get_node(\"/root/Main/ShootingController\").current_hover_fore]",
       "pass": true,
       "step": 8
     },
     {
       "act": "execute_script",
-      "actual": true,
+      "actual": null,
       "error": "",
-      "expected": true,
-      "label": "script[get_node(\"/root/Main/BoardRoot/PersistentEngagementOverlay/E]",
+      "expected": null,
+      "label": "script[get_node(\"/root/Main/ShootingController\").compute_hover_fore]",
       "pass": true,
       "step": 9
     },
     {
       "act": "execute_script",
-      "actual": true,
+      "actual": null,
       "error": "",
-      "expected": true,
-      "label": "script[get_node(\"/root/Main/BoardRoot/PersistentEngagementOverlay/E]",
+      "expected": null,
+      "label": "script[get_node(\"/root/Main/ShootingController\").compute_hover_fore]",
       "pass": true,
       "step": 10
-    },
-    {
-      "act": "execute_script",
-      "actual": 40.0,
-      "error": "",
-      "expect_min": 1.0,
-      "pass": true,
-      "step": 11
     },
     {
       "act": "expect_baseline_unchanged",
       "baseline_count": 17,
       "pass": true,
-      "step": 12
+      "step": 11
     }
   ],
-  "total_steps": 13
+  "total_steps": 12
 }

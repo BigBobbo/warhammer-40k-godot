@@ -1,0 +1,51 @@
+{
+  "id": "T06_weapon_order_panel",
+  "covers": ["design_guidelines.T06", "hud.weapon_order_panel"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 8,
+  "description": "Side-anchored Weapon Order panel. Lives in the right 40% of the viewport (anchor_left ratio >= 0.6); does NOT intersect the board's left 60% region. open_for() shows the panel with a labeled row per weapon assignment. Cancel button closes.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/WeaponOrderPanel\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WeaponOrderPanel\").visible",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WeaponOrderPanel\").open_for([{\"weapon_id\": \"shoota\"}, {\"weapon_id\": \"kannon\"}], {\"shoota\": {\"name\": \"Shoota\"}, \"kannon\": {\"name\": \"Kannon\"}})" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WeaponOrderPanel\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WeaponOrderPanel\").t06_anchor_left_ratio()",
+      "expect_min": 0.6 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WeaponOrderPanel/Body/WeaponList\").get_child_count()",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WeaponOrderPanel/Body/WeaponList/Row_shoota\").text",
+      "equals": "Shoota" },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WeaponOrderPanel/Body/Buttons/StartSequence\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WeaponOrderPanel\").t06_panel_rect().position.x",
+      "expect_min": 1100 },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WeaponOrderPanel\").close()" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/WeaponOrderPanel\").visible",
+      "equals": false },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

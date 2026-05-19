@@ -36,6 +36,59 @@ const ANIM_DEATH := "death"
 
 func _ready() -> void:
 	z_index = 10
+	# T08: two concentric rings expose faction vs player-slot color so
+	# scenarios can assert per-ring modulate. FactionRing draws inner ring;
+	# SlotRing draws a slightly larger thin outer ring. Both render on top
+	# of the existing _draw() output but at very low alpha so they don't
+	# visually compete with the established token aesthetic.
+	var faction := _t08_make_ring("FactionRing", 1.0, 0.35, _t08_faction_color())
+	add_child(faction)
+	var slot := _t08_make_ring("SlotRing", 1.2, 0.7, _t08_slot_color())
+	add_child(slot)
+
+
+# T08: live-rebind modulate when needed (called by external systems if
+# faction or active player changes).
+func t08_refresh_ring_colors() -> void:
+	var faction = get_node_or_null("FactionRing")
+	if faction != null:
+		faction.modulate = _t08_faction_color()
+	var slot = get_node_or_null("SlotRing")
+	if slot != null:
+		slot.modulate = _t08_slot_color()
+
+
+func _t08_make_ring(node_name: String, scale_factor: float, alpha: float, ring_color: Color) -> Node2D:
+	var n := Node2D.new()
+	n.name = node_name
+	n.scale = Vector2(scale_factor, scale_factor)
+	var c := ring_color
+	c.a = alpha
+	n.modulate = c
+	return n
+
+
+func _t08_faction_color() -> Color:
+	# Best-effort: read faction color from army data via FactionPalettes if
+	# loaded; otherwise use the existing per-player border color stand-in.
+	var fp = get_node_or_null("/root/FactionPalettes")
+	if fp != null and fp.has_method("color_for_unit"):
+		var u_color = fp.color_for_unit(self)
+		if typeof(u_color) == TYPE_COLOR:
+			return u_color
+	# Fallback: gold for P1, bone for P2 (matches existing token chrome).
+	if owner_player == 1:
+		return Color(0.83, 0.59, 0.38, 1.0)
+	return Color(0.85, 0.8, 0.65, 1.0)
+
+
+func _t08_slot_color() -> Color:
+	var uic = get_node_or_null("/root/UIConstants")
+	if uic == null:
+		return Color(1, 1, 1, 1)
+	if owner_player == 1:
+		return uic.FRIENDLY_PLAYER_TEAL
+	return uic.ENEMY_PLAYER_MAGENTA
 
 func _process(delta: float) -> void:
 	# T-095 ghost pulse: redraw is_preview tokens every frame so the pulse animates.

@@ -178,7 +178,7 @@
     },
     {
       "act": "expect_baseline_unchanged",
-      "baseline_count": 14,
+      "baseline_count": 17,
       "pass": true,
       "step": 22
     }

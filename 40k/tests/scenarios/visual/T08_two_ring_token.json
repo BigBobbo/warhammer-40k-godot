@@ -1,0 +1,38 @@
+{
+  "id": "T08_two_ring_token",
+  "covers": ["design_guidelines.T08", "tokens.two_ring"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 10,
+  "description": "Every TokenVisual gains FactionRing (inner) and SlotRing (outer) child nodes. FactionRing modulate is the per-player gold/bone stand-in (faction color hook); SlotRing modulate matches UIConstants for the owning player (TEAL for P1, MAGENTA for P2). Both rings have alpha < 1 so they don't dominate existing token chrome. Outer ring is scaled larger than inner.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B", "timeout_s": 3.0 },
+    { "act": "expect_token_visible", "unit_id": "U_CUSTODIAN_GUARD_B", "timeout_s": 3.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_node_or_null(\"BoardRoot/TokenLayer\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node_or_null(\"FactionRing\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node_or_null(\"SlotRing\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"SlotRing\").scale.x > main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"FactionRing\").scale.x",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"FactionRing\").modulate.a > 0.0",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"SlotRing\").modulate.a > 0.0",
+      "equals": true },
+
+    { "act": "expect_baseline_unchanged" }
+  ]
+}

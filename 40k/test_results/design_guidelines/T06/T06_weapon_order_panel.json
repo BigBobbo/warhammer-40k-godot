@@ -1,0 +1,120 @@
+{
+  "failed": 0,
+  "passed": 15,
+  "scenario_id": "T06_weapon_order_panel",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "pass": true,
+      "step": 0
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node_or_null(\"/root/Main/WeaponOrderPanel\") != null]",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/WeaponOrderPanel\").visible]",
+      "pass": true,
+      "step": 2
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 3
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 4
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/WeaponOrderPanel\").visible]",
+      "pass": true,
+      "step": 5
+    },
+    {
+      "act": "execute_script",
+      "actual": 0.8125,
+      "error": "",
+      "expect_min": 0.6,
+      "pass": true,
+      "step": 6
+    },
+    {
+      "act": "execute_script",
+      "actual": 2,
+      "error": "",
+      "expected": 2.0,
+      "label": "script[get_node(\"/root/Main/WeaponOrderPanel/Body/WeaponList\").get_]",
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "execute_script",
+      "actual": "Shoota",
+      "error": "",
+      "expected": "Shoota",
+      "label": "script[get_node(\"/root/Main/WeaponOrderPanel/Body/WeaponList/Row_sh]",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "execute_script",
+      "actual": true,
+      "error": "",
+      "expected": true,
+      "label": "script[get_node(\"/root/Main/WeaponOrderPanel/Body/Buttons/StartSequ]",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "execute_script",
+      "actual": 1560.0,
+      "error": "",
+      "expect_min": 1100.0,
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "execute_script",
+      "actual": false,
+      "error": "",
+      "expected": false,
+      "label": "script[get_node(\"/root/Main/WeaponOrderPanel\").visible]",
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "expect_baseline_unchanged",
+      "baseline_count": 17,
+      "pass": true,
+      "step": 14
+    }
+  ],
+  "total_steps": 15
+}
