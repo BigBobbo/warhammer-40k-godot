@@ -231,19 +231,60 @@ verification pass when a real device is available.
 
 ### Phase 1 — UI focus & glyphs (~60–100h)
 
-- [ ] Audit every `Control` in `scenes/` and `dialogs/`, set
-      `focus_mode = FOCUS_ALL` on interactive ones, wire
-      `focus_neighbor_*` chains.
+**Foundation landed (~3h):**
+
+- [x] Joypad bindings installed programmatically on Godot's built-in
+      `ui_accept` / `ui_cancel` / `ui_up` / `ui_down` / `ui_left` /
+      `ui_right` / `ui_focus_next` / `ui_focus_prev` actions, from
+      `GamepadInputAdapter._install_ui_action_joypad_bindings()`. Done
+      via `InputMap.action_add_event()` rather than editing
+      `project.godot` directly, so the change is idempotent and
+      reversible. Verified with `expect_input_map_has_joypad_button`
+      in `gamepad_smoke.json` (16/16 PASS).
+- [x] `InputDeviceTracker` capability folded into `GamepadInputAdapter`:
+      `active_device` property + `device_changed(kind)` signal.
+      Swap-on-use: mouse motion >5px or click → "mouse"; any joypad
+      event → "gamepad". Drives focus-grab and (future) glyph swap.
+- [x] `expect_focus_owner` + `expect_input_map_has_joypad_button`
+      scenario step types so subsequent menu scenarios can assert the
+      *visible* effect, not just that the event reached the engine.
+- [x] **MainMenu pilot**: grabs focus on StartButton when gamepad
+      becomes the active device (only if no other Control owns
+      focus). Pattern documented for replication across other
+      menus / dialogs.
+- [x] `gamepad_mainmenu_nav.json` scenario asserts D-pad-down moves
+      focus through StartButton → MultiplayerButton → LoadButton →
+      ReplayButton, with screenshots between. **Awaiting dev-machine
+      verification** — see "Sandbox verification caveat" below.
+
+**Remaining for Phase 1 completion:**
+
+- [ ] Audit every interactive `Control` in `scenes/` and `dialogs/`
+      and confirm `focus_mode = FOCUS_ALL` (Button + OptionButton +
+      LineEdit + Tree default to this, but custom Control subclasses
+      may not). Wire `focus_neighbor_*` chains where the implicit
+      visual order isn't right (vertical VBox is usually fine; nested
+      HBox layouts need explicit chains).
+- [ ] Replicate the MainMenu pilot pattern across: SaveLoadDialog,
+      MultiplayerLobby, WebLobby, the mission-objectives panel, the
+      shortcut overlay, the pause menu, the army-builder dropdowns.
+      Each is ~30 min if structure is uniform, longer if nested
+      dialogs / dropdowns need focus-restoration handling.
 - [ ] `ControllerGlyph` component + glyph atlas (start with Xbox+Deck;
-      add PS5 later).
-- [ ] `InputDeviceTracker` signal + theme hookup to show/hide glyphs.
-- [ ] Map dpad `focus_*` actions to Godot's built-in `ui_focus_*`.
-- [ ] Wire `A` to `ui_accept`, `B` to `ui_cancel` in `project.godot`'s
-      input map (the joypad bindings, in addition to the existing
-      keyboard ones).
-- [ ] Pause menu, save/load dialog, multiplayer lobby, mission panel
-      all controller-navigable.
-- [ ] Per-screen windowed scenario coverage.
+      add PS5 later). Driven by `GamepadInputAdapter.active_device`.
+- [ ] Per-screen windowed scenarios (one per pilot above) following
+      the `gamepad_mainmenu_nav` pattern.
+
+**Sandbox verification caveat**: this dev environment ships Godot
+4.4.1 but the project targets 4.6. The project's `class_name`
+globals (FactionPalettes, DeploymentZoneData) don't register on
+4.4.1, which prevents `MainMenu.gd` from loading, which prevents the
+`gamepad_mainmenu_nav` scenario's focus-traversal assertions from
+running here. The *infrastructure* (joypad bindings on ui_* actions,
+device tracking, scenario-runner extensions) IS validated headless
+via `gamepad_smoke` and is environment-independent. The MainMenu
+pilot must run once on the user's 4.6 dev machine to confirm focus
+actually moves before the next slice merges.
 
 **Off-ramp value**: every menu fully controller-navigable. Even if
 in-game still needs a mouse, the menus stop being a Verified blocker.

@@ -297,6 +297,10 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_expect_node_visible(step), true)
 		"expect_node_property":
 			rec.merge(_do_expect_node_property(step), true)
+		"expect_focus_owner":
+			rec.merge(_do_expect_focus_owner(step), true)
+		"expect_input_map_has_joypad_button":
+			rec.merge(_do_expect_input_map_has_joypad_button(step), true)
 		"expect_token_visible":
 			rec.merge(await _do_expect_token_visible(step), true)
 		_:
@@ -630,6 +634,48 @@ func _do_expect_node_property(step: Dictionary) -> Dictionary:
 		return {"pass": false, "error": "node %s has no property %s" % [node_path, prop]}
 	var actual = node.get(prop)
 	return _compare(step, actual, "%s.%s" % [node_path, prop])
+
+
+func _do_expect_input_map_has_joypad_button(step: Dictionary) -> Dictionary:
+	# Assert that a named action has a JoypadButton event with the given
+	# button_index. Phase 1 uses this to prove GamepadInputAdapter
+	# installed JOY_BUTTON_B on ui_cancel, JOY_BUTTON_A on ui_accept,
+	# dpad on ui_up/down/left/right, etc. — without relying on a UI scene
+	# loading correctly.
+	var action: String = str(step.get("action", ""))
+	if action == "":
+		return {"pass": false, "error": "expect_input_map_has_joypad_button needs action"}
+	if not InputMap.has_action(action):
+		return {"pass": false, "error": "InputMap has no action: %s" % action}
+	var expected_button := _resolve_joy_constant(step.get("button", -1), "JOY_BUTTON_")
+	if expected_button < 0:
+		return {"pass": false, "error": "could not resolve button: %s" % str(step.get("button"))}
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventJoypadButton and (ev as InputEventJoypadButton).button_index == expected_button:
+			return {"pass": true, "action": action, "button": expected_button}
+	return {"pass": false, "action": action, "expected_button": expected_button,
+			"error": "action has no JoypadButton event for button %d" % expected_button}
+
+
+func _do_expect_focus_owner(step: Dictionary) -> Dictionary:
+	# Validate which Control currently owns keyboard/gamepad focus. Used
+	# for controller-navigation scenarios where the player-visible effect
+	# is "the focus ring moved to button X". Without this we'd only be
+	# proving the input event reached the engine — not that the UI
+	# responded.
+	var expected: String = str(step.get("node", ""))
+	if expected == "":
+		return {"pass": false, "error": "expect_focus_owner needs node"}
+	var vp := get_viewport()
+	if vp == null:
+		return {"pass": false, "error": "no viewport"}
+	var owner = vp.gui_get_focus_owner()
+	if owner == null:
+		return {"pass": false, "error": "no Control has focus", "expected": expected}
+	var actual_path: String = String(owner.get_path())
+	var ok := actual_path == expected
+	return {"pass": ok, "expected": expected, "actual": actual_path,
+			"error": "" if ok else "focus owner mismatch"}
 
 
 func _do_expect_token_visible(step: Dictionary) -> Dictionary:

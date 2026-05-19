@@ -10,6 +10,14 @@
     { "act": "wait_frames", "frames": 2 },
     { "act": "expect_node_property", "node": "/root/GamepadInputAdapter", "property": "enabled", "equals": true },
     { "act": "simulate_joy_motion", "axis": "JOY_AXIS_RIGHT_X", "value": 0.85, "duration_s": 0.15 },
-    { "act": "wait_frames", "frames": 2 }
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_input_map_has_joypad_button", "action": "ui_accept", "button": "JOY_BUTTON_A" },
+    { "act": "expect_input_map_has_joypad_button", "action": "ui_cancel", "button": "JOY_BUTTON_B" },
+    { "act": "expect_input_map_has_joypad_button", "action": "ui_up",     "button": "JOY_BUTTON_DPAD_UP" },
+    { "act": "expect_input_map_has_joypad_button", "action": "ui_down",   "button": "JOY_BUTTON_DPAD_DOWN" },
+    { "act": "expect_input_map_has_joypad_button", "action": "ui_left",   "button": "JOY_BUTTON_DPAD_LEFT" },
+    { "act": "expect_input_map_has_joypad_button", "action": "ui_right",  "button": "JOY_BUTTON_DPAD_RIGHT" },
+    { "act": "expect_input_map_has_joypad_button", "action": "ui_focus_next", "button": "JOY_BUTTON_RIGHT_SHOULDER" },
+    { "act": "expect_input_map_has_joypad_button", "action": "ui_focus_prev", "button": "JOY_BUTTON_LEFT_SHOULDER" }
   ]
 }

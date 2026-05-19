@@ -28,6 +28,7 @@ signal enabled_changed(now: bool)
 signal action_pressed(action: String, device: int)
 signal action_released(action: String, device: int)
 signal stick_moved(stick_name: String, value: Vector2, device: int)
+signal device_changed(kind: String)  # "mouse" | "gamepad"
 
 # --- Bindings ---------------------------------------------------------------
 # button_bindings[button_index] = action_id
@@ -60,15 +61,51 @@ var _last_button_seen: Dictionary = {}  # device -> last button int (debug)
 var _left_stick: Vector2 = Vector2.ZERO
 var _right_stick: Vector2 = Vector2.ZERO
 
+# Active-device tracking. Phase 1: swaps based on actual use, not on
+# connection. Mouse motion above MOUSE_SWAP_THRESHOLD_PX or any mouse
+# button click swaps to "mouse"; any joypad event swaps to "gamepad".
+# Scenes listen via `device_changed(kind)` to grab focus, swap glyphs,
+# show/hide the cursor, etc.
+const MOUSE_SWAP_THRESHOLD_PX := 5.0
+var active_device: String = "mouse"
+
 func _ready() -> void:
 	set_process(true)
 	set_process_input(true)
+	_install_ui_action_joypad_bindings()
 	_refresh_enabled()
 	# Hot-plug
 	Input.joy_connection_changed.connect(_on_joy_connection_changed)
-	print("[GamepadInputAdapter] ready (enabled=%s, joypads=%s)" % [
-		str(enabled), str(Input.get_connected_joypads())
+	print("[GamepadInputAdapter] ready (enabled=%s, joypads=%s, active=%s)" % [
+		str(enabled), str(Input.get_connected_joypads()), active_device
 	])
+
+# Wire JOY_BUTTON_* events into the built-in ui_* actions Godot already
+# uses for Control focus navigation. The project's `ui_cancel` override
+# in project.godot drops the default JOY_BUTTON_B binding, so we add it
+# back here. We also add LB/RB to ui_focus_next/prev for menu paging.
+# Idempotent: only adds an event if the action doesn't already have one
+# of that exact button.
+func _install_ui_action_joypad_bindings() -> void:
+	_ensure_joy_action("ui_accept",      JOY_BUTTON_A)
+	_ensure_joy_action("ui_cancel",      JOY_BUTTON_B)
+	_ensure_joy_action("ui_up",          JOY_BUTTON_DPAD_UP)
+	_ensure_joy_action("ui_down",        JOY_BUTTON_DPAD_DOWN)
+	_ensure_joy_action("ui_left",        JOY_BUTTON_DPAD_LEFT)
+	_ensure_joy_action("ui_right",       JOY_BUTTON_DPAD_RIGHT)
+	_ensure_joy_action("ui_focus_next",  JOY_BUTTON_RIGHT_SHOULDER)
+	_ensure_joy_action("ui_focus_prev",  JOY_BUTTON_LEFT_SHOULDER)
+
+func _ensure_joy_action(action: String, button: int) -> void:
+	if not InputMap.has_action(action):
+		InputMap.add_action(action)
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventJoypadButton and (ev as InputEventJoypadButton).button_index == button:
+			return
+	var bind := InputEventJoypadButton.new()
+	bind.button_index = button
+	bind.device = -1  # any device
+	InputMap.action_add_event(action, bind)
 
 func _refresh_enabled() -> void:
 	var wanted := _resolve_enabled_flag()
@@ -98,10 +135,28 @@ func _on_joy_connection_changed(device: int, connected: bool) -> void:
 # --- Input pump -------------------------------------------------------------
 
 func _input(event: InputEvent) -> void:
+	# Active-device tracking runs even when the adapter is disabled, so
+	# scenes can already toggle behaviour based on the user's intent
+	# before we flip the rest of the gamepad code paths on.
+	_track_active_device(event)
 	if not enabled:
 		return
 	if event is InputEventJoypadButton:
 		_handle_button(event as InputEventJoypadButton)
+
+func _track_active_device(event: InputEvent) -> void:
+	var new_kind := active_device
+	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+		new_kind = "gamepad"
+	elif event is InputEventMouseButton:
+		new_kind = "mouse"
+	elif event is InputEventMouseMotion:
+		if (event as InputEventMouseMotion).relative.length() >= MOUSE_SWAP_THRESHOLD_PX:
+			new_kind = "mouse"
+	if new_kind != active_device:
+		active_device = new_kind
+		emit_signal("device_changed", active_device)
+		print("[GamepadInputAdapter] active_device -> %s" % active_device)
 	# Axis motion is read in _process via Input.get_joy_axis() rather than
 	# event-driven, because we need a stable per-frame value for cursor /
 	# camera integration. Phase 0 still emits a debug stick_moved signal

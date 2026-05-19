@@ -114,7 +114,26 @@ func _ready() -> void:
 	# Apply theme to dynamically created dropdowns
 	_apply_theme_to_dynamic_elements()
 
+	# Phase 1 — controller navigation. If a gamepad is the active input
+	# device (or becomes the active input device later), grab focus on
+	# Start so D-pad / left-stick navigation has somewhere to begin.
+	# Mouse users are unaffected — Godot only renders the focus ring
+	# while focus is held, and we never grab it for them.
+	var gamepad := get_node_or_null("/root/GamepadInputAdapter")
+	if gamepad != null:
+		if gamepad.active_device == "gamepad":
+			start_button.grab_focus()
+		gamepad.device_changed.connect(_on_input_device_changed)
+
 	print("MainMenu: Ready with default selections")
+
+func _on_input_device_changed(kind: String) -> void:
+	if kind == "gamepad" and is_inside_tree():
+		# Re-grab focus only if nothing else (a dropdown popup, the
+		# save/load dialog) currently owns it.
+		var owner := get_viewport().gui_get_focus_owner()
+		if owner == null:
+			start_button.grab_focus()
 
 func _apply_theme() -> void:
 	# Background: warm near-black to match WhiteDwarf theme

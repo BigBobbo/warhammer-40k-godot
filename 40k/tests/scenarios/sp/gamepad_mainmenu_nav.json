@@ -1,0 +1,22 @@
+{
+  "id": "gamepad_mainmenu_nav",
+  "covers": ["input.gamepad.menu_navigation", "input.gamepad.ui_actions"],
+  "description": "Phase 1: Joypad events drive Godot's built-in ui_* actions on MainMenu, and focus actually moves. Confirms (1) the adapter installs joypad bindings on ui_accept / ui_cancel / ui_down / ui_focus_next, (2) device_changed swaps to 'gamepad' on first joypad event, (3) MainMenu grabs focus on StartButton when gamepad becomes active, (4) D-pad down moves focus to MultiplayerButton (or LoadButton if Multiplayer is hidden), (5) on-screen focus ring is visible in the captured screenshot.",
+  "steps": [
+    { "act": "expect_node_visible", "node": "/root/GamepadInputAdapter", "timeout_s": 2.0 },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton", "timeout_s": 2.0 },
+    { "act": "set_gamepad_enabled", "enabled": true },
+    { "act": "simulate_joy_button", "button": "JOY_BUTTON_DPAD_DOWN", "device": 0 },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "expect_node_property", "node": "/root/GamepadInputAdapter", "property": "active_device", "equals": "gamepad" },
+    { "act": "expect_focus_owner", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/MultiplayerButton" },
+    { "act": "screenshot", "label": "after_dpad_down_1" },
+    { "act": "simulate_joy_button", "button": "JOY_BUTTON_DPAD_DOWN", "device": 0 },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "expect_focus_owner", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/LoadButton" },
+    { "act": "simulate_joy_button", "button": "JOY_BUTTON_DPAD_DOWN", "device": 0 },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "expect_focus_owner", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/ReplayButton" },
+    { "act": "screenshot", "label": "after_dpad_down_3" }
+  ]
+}
