@@ -18,9 +18,11 @@ extends SceneTree
 #      — the overlay should NOT pulse anything in that state.
 #   3. _start_priority_pulse(model_id) creates a live Tween bound to the
 #      highlight sprite registered in board_highlighter.active_highlights.
-#   4. _stop_priority_pulse() kills the tween (is_valid() → false) and
+#   4. _stop_priority_pulse() kills the tween (is_running() → false) and
 #      clears the priority_pulse_target reference so allocation cleanup
-#      doesn't leave a dangling reference behind.
+#      doesn't leave a dangling reference behind. Note: in Godot 4.4,
+#      Tween.kill() stops the tween but does NOT change is_valid() — we
+#      check is_running() instead.
 #   5. _start_priority_pulse("") with no priority is a no-op — does NOT
 #      create a tween (otherwise we'd burn cycles pulsing nothing).
 #   6. _start_priority_pulse() called twice for the same model_id reuses
@@ -193,8 +195,8 @@ func _test_stop_pulse_kills_tween() -> void:
 	_check("priority_pulse_tween is null after stop",
 		overlay.priority_pulse_tween == null,
 		"tween reference was not cleared")
-	_check("captured tween reference is no longer valid",
-		tween_ref == null or not tween_ref.is_valid(),
+	_check("captured tween reference is no longer running",
+		tween_ref == null or not tween_ref.is_running(),
 		"the tween we created is still running after _stop_priority_pulse")
 	_check("priority_pulse_target is null after stop",
 		overlay.priority_pulse_target == null,
@@ -262,9 +264,9 @@ func _test_start_pulse_different_model_replaces_tween() -> void:
 	_check("new tween is a different instance",
 		first != second,
 		"_start_priority_pulse re-used the old tween across model switch")
-	_check("old tween was killed when priority shifted",
-		first == null or not first.is_valid(),
-		"old m1 tween is still live after switching priority to m2")
+	_check("old tween was stopped when priority shifted",
+		first == null or not first.is_running(),
+		"old m1 tween is still running after switching priority to m2")
 	_check("target switched to m2's highlight",
 		overlay.priority_pulse_target == ctx["highlights"]["m2"])
 
