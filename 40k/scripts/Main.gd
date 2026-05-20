@@ -4120,6 +4120,8 @@ func setup_phase_controllers() -> void:
 	match current_phase:
 		GameStateData.Phase.FORMATIONS:
 			_setup_formations_phase()
+		GameStateData.Phase.ROLL_OFF:
+			_setup_roll_off_phase()
 		GameStateData.Phase.DEPLOYMENT:
 			setup_deployment_controller()
 		GameStateData.Phase.SCOUT_MOVES:
@@ -6831,6 +6833,87 @@ func _show_formations_dialog(player: int) -> void:
 	formations_dialog.formations_confirmed.connect(_on_formations_dialog_confirmed)
 	formations_dialog.popup_centered()
 	print("Main: Showed formations dialog for Player %d" % player)
+
+# ========================================
+# Pre-deployment Roll-off UI (issue #85)
+# ========================================
+
+var roll_off_dialog: Node = null
+
+func _setup_roll_off_phase() -> void:
+	"""Set up the pre-deployment roll-off — show the dialog for the local player."""
+	print("Main: Setting up Roll-Off phase (pre-deployment, issue #85)")
+	# AI-vs-AI or AI player active: skip the modal, the AI auto-dispatches
+	# ROLL_FOR_FIRST_TURN + CHOOSE_TURN_ORDER via AIDecisionMaker._decide_roll_off.
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	var active: int = int(GameState.get_active_player())
+	if ai_player and ai_player.is_ai_player(active):
+		print("Main: Roll-off — active player is AI, no dialog needed")
+		return
+	var local_player: int = active
+	if NetworkIntegration.is_multiplayer_active():
+		local_player = int(NetworkManager.get_local_player())
+	_show_roll_off_dialog(local_player)
+
+func _show_roll_off_dialog(local_player: int) -> void:
+	if roll_off_dialog and is_instance_valid(roll_off_dialog):
+		roll_off_dialog.queue_free()
+		roll_off_dialog = null
+
+	var dialog_script = preload("res://dialogs/RollOffDialog.gd")
+	roll_off_dialog = AcceptDialog.new()
+	roll_off_dialog.set_script(dialog_script)
+	roll_off_dialog.exclusive = true
+	add_child(roll_off_dialog)
+	roll_off_dialog.setup(local_player)
+	roll_off_dialog.roll_initiated.connect(_on_roll_off_roll_pressed)
+	roll_off_dialog.choice_made.connect(_on_roll_off_choice_made)
+	roll_off_dialog.reroll_requested.connect(_on_roll_off_roll_pressed)
+	roll_off_dialog.popup_centered()
+	print("Main: Showed roll-off dialog for Player %d" % local_player)
+
+func _on_roll_off_roll_pressed() -> void:
+	print("Main: Roll-off dialog — Roll pressed")
+	var action := {"type": "ROLL_FOR_FIRST_TURN",
+		"player": GameState.get_active_player()}
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false):
+		print("Main: Roll-off failed: ", result.get("error", "unknown"))
+		return
+	# The phase emitted result fields p1/p2 rolls + winner OR tied=true.
+	# Update the dialog to show what happened.
+	if not (roll_off_dialog and is_instance_valid(roll_off_dialog)):
+		return
+	var p1: int = int(result.get("player1_roll", 0))
+	var p2: int = int(result.get("player2_roll", 0))
+	if result.get("tied", false):
+		roll_off_dialog.show_tie(p1, p2)
+	else:
+		var winner: int = int(result.get("winner", 0))
+		roll_off_dialog.show_result(p1, p2, winner)
+		# If the winner is an AI, the AI's next decision will dispatch
+		# CHOOSE_TURN_ORDER automatically. Otherwise wait for the dialog's
+		# choice_made signal.
+		var ai_player = get_node_or_null("/root/AIPlayer")
+		if ai_player and ai_player.is_ai_player(winner):
+			print("Main: Roll-off — winner is AI; AI will choose")
+
+func _on_roll_off_choice_made(choice: String) -> void:
+	# choice is "first" (deploy second) or "second" (deploy first). The
+	# RollOffPhase expects CHOOSE_TURN_ORDER with choice tied to turn
+	# order; the dialog already mapped deploy-order to turn-order.
+	print("Main: Roll-off dialog — choice=%s" % choice)
+	var action := {"type": "CHOOSE_TURN_ORDER",
+		"choice": choice,
+		"player": GameState.get_active_player()}
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false):
+		print("Main: Roll-off choice failed: ", result.get("error", "unknown"))
+		return
+	# Close the dialog — phase will auto-advance to DEPLOYMENT.
+	if roll_off_dialog and is_instance_valid(roll_off_dialog):
+		roll_off_dialog.queue_free()
+		roll_off_dialog = null
 
 func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> void:
 	"""Handle formations dialog confirmation — apply declarations through the network-aware action system."""

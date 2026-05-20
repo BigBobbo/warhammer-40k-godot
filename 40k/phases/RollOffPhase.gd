@@ -3,12 +3,20 @@ class_name RollOffPhase
 
 const BasePhase = preload("res://phases/BasePhase.gd")
 
-# RollOffPhase - Determines which player takes the first turn
-# Per 10th edition rules:
-# - After deployment (and Scout moves), players roll off (each rolls 1D6)
-# - The winner chooses who takes the first turn
-# - If tied, re-roll until there is a winner
-# - The player who goes first is the Attacker; the other is the Defender
+# RollOffPhase - Pre-deployment roll-off (issue #85)
+#
+# 10th edition: BEFORE any models are deployed both players roll a D6.
+# The winner chooses to be the Attacker or the Defender:
+#   - Defender deploys first (and takes the second turn).
+#   - Attacker deploys second (and takes the first turn).
+# In 10e the choice "deploy first / deploy second" and "go first /
+# go second" are the same choice: defender = deploy first = second turn,
+# attacker = deploy second = first turn. The phase exposes
+# CHOOSE_TURN_ORDER with `choice: first | second` (legacy action name
+# referring to turn order) and the dialog/UI maps it to deploy order
+# for the player.
+#
+# If the dice tie, players must re-roll (per the core rules).
 
 var _rng  # RulesEngine.RNGService — picks up test_mode_seed via PR #346
 var _player1_roll: int = 0
@@ -47,16 +55,19 @@ func get_available_actions() -> Array:
 		})
 	elif not _choice_made:
 		# Roll-off done, winner needs to choose
+		# Pre-deployment context: "first" (turn order) = "deploy second"
+		# (attacker); "second" (turn order) = "deploy first" (defender).
+		# Descriptions present the deploy-order framing per #85.
 		actions.append({
 			"type": "CHOOSE_TURN_ORDER",
-			"choice": "first",
-			"description": "Player %d chooses to go FIRST" % _roll_off_winner,
+			"choice": "second",
+			"description": "Player %d chooses to DEPLOY FIRST (defender)" % _roll_off_winner,
 			"player": _roll_off_winner
 		})
 		actions.append({
 			"type": "CHOOSE_TURN_ORDER",
-			"choice": "second",
-			"description": "Player %d chooses to go SECOND" % _roll_off_winner,
+			"choice": "first",
+			"description": "Player %d chooses to DEPLOY SECOND (attacker)" % _roll_off_winner,
 			"player": _roll_off_winner
 		})
 

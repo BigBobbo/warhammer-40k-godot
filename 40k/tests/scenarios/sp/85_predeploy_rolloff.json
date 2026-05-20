@@ -1,0 +1,36 @@
+{
+  "id": "85_predeploy_rolloff",
+  "covers": [
+    "deployment.predeploy_roll_off",
+    "phases.RollOffPhase.ROLL_FOR_FIRST_TURN",
+    "phases.RollOffPhase.CHOOSE_TURN_ORDER"
+  ],
+  "fixture": "audit_367_warlord",
+  "transition_to_phase": 3,
+  "disable_ai": true,
+  "description": "Issue #85: Pre-deployment roll-off shows a dialog with both players' dice rolls. The winner picks Deploy First (defender) or Deploy Second (attacker). Drive the path with a fixed dice_roll=[5,3] (P1 wins) and choice='second' (P1 deploys first = defender), then verify meta.defender=1.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 3 },
+    { "act": "screenshot", "label": "01_rolloff_dialog_visible" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "ROLL_FOR_FIRST_TURN",
+      "dice_roll": [5, 3]
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_action_result", "path": "winner", "equals": 1 },
+    { "act": "expect_state", "path": "meta.roll_off_winner", "equals": 1 },
+    { "act": "screenshot", "label": "02_rolloff_p1_wins_5v3" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "CHOOSE_TURN_ORDER",
+      "choice": "second"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "meta.defender", "equals": 1 },
+    { "act": "expect_state", "path": "meta.attacker", "equals": 2 },
+    { "act": "expect_state", "path": "meta.first_turn_player", "equals": 2 },
+    { "act": "screenshot", "label": "03_p1_chose_deploy_first" }
+  ]
+}

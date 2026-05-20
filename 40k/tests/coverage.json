@@ -153,6 +153,15 @@
       "status": "covered"
     },
     {
+      "id": "deployment.predeploy_roll_off",
+      "description": "Pre-deployment roll-off (issue #85): both players roll a D6. The winner chooses to be Attacker or Defender \u2014 Defender deploys first and takes the second turn, Attacker deploys second and takes the first turn.",
+      "scenarios": [
+        "85_predeploy_rolloff"
+      ],
+      "last_verified_commit": "c2781b7",
+      "status": "covered"
+    },
+    {
       "id": "fight.ability.deadly_demise",
       "description": "FIGHT phase: the Deadly Demise ability fires when a unit is destroyed during fight, rolling demise dice and dealing mortal wounds to nearby units. Validated by '386_deadly_demise_vehicle.",
       "scenarios": [
@@ -375,6 +384,24 @@
         "394_follow_me_ladz_plus_move"
       ],
       "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "phases.RollOffPhase.CHOOSE_TURN_ORDER",
+      "description": "RollOffPhase.CHOOSE_TURN_ORDER action: the roll-off winner picks first or second; sets meta.attacker / meta.defender / meta.first_turn_player accordingly so TurnManager._handle_deployment_phase_start gives the defender first deploy.",
+      "scenarios": [
+        "85_predeploy_rolloff"
+      ],
+      "last_verified_commit": "c2781b7",
+      "status": "covered"
+    },
+    {
+      "id": "phases.RollOffPhase.ROLL_FOR_FIRST_TURN",
+      "description": "RollOffPhase.ROLL_FOR_FIRST_TURN action: roll a D6 for each player, declare a winner, or report a tie that triggers a re-roll. Supports dice_roll override for deterministic testing.",
+      "scenarios": [
+        "85_predeploy_rolloff"
+      ],
+      "last_verified_commit": "c2781b7",
       "status": "covered"
     },
     {

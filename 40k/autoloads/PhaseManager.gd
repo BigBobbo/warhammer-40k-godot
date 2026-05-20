@@ -191,16 +191,27 @@ func advance_to_next_phase() -> void:
 		transition_to_phase(GameStateData.Phase.DEPLOYMENT)
 
 func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
-	# Define the standard 40k phase order with Command and Scoring phases
-	# Roll-off determines first turn, then Scout moves happen before the first Command phase
+	# Define the standard 40k phase order with Command and Scoring phases.
+	#
+	# Issue #85: per Chapter Approved 2025-26 + the current 10e core rules,
+	# the pre-deployment roll-off determines the attacker / defender (and
+	# therefore who deploys first). Previously ROLL_OFF ran after
+	# REDEPLOYMENT — but that left issue #377's defender-first logic
+	# (TurnManager._handle_deployment_phase_start reads meta.defender) with
+	# no value to read, because meta.defender wasn't set until after
+	# deployment was already done. Moving ROLL_OFF to between FORMATIONS
+	# and DEPLOYMENT activates that path.
+	#
+	# Scout moves happen before the first Command phase, after deployment +
+	# redeployment.
 	match current:
 		GameStateData.Phase.FORMATIONS:
+			return GameStateData.Phase.ROLL_OFF
+		GameStateData.Phase.ROLL_OFF:
 			return GameStateData.Phase.DEPLOYMENT
 		GameStateData.Phase.DEPLOYMENT:
 			return GameStateData.Phase.REDEPLOYMENT
 		GameStateData.Phase.REDEPLOYMENT:
-			return GameStateData.Phase.ROLL_OFF
-		GameStateData.Phase.ROLL_OFF:
 			return GameStateData.Phase.SCOUT
 		GameStateData.Phase.SCOUT:
 			return GameStateData.Phase.COMMAND
