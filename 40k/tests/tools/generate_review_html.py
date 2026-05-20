@@ -92,13 +92,17 @@ DEMO_COMMANDS = {
 # Known-incomplete behaviors — Tier B items that WILL fail. Mirror of
 # REVIEW_GUIDE.md so reviewers don't waste time investigating each.
 KNOWN_GAPS = {
+    "T03": "compute_drag_segments() returns the colored segments array, but the live drag preview rendering isn't wired into MovementController's _draw — Tier B will fail because no path is visible on screen. File T03b to wire the renderer.",
+    "T05": "compute_hover_forecast() returns the forecast dict, but no tooltip widget is mounted — Tier B will fail because no tooltip appears on hover. File T05b for the HoverForecast Control.",
     "T06": "ESC dismissal not wired (Cancel button works; ESC binding missing in Main._input)",
     "T09": "Roster card dim not implemented — only TokenVisual modulate is wired",
     "T13": "Camera fit is instant — no tween animation",
     "T17": "Overflow chip is a static Label — no hover-expand behavior",
     "T20": "ESC dismissal not wired",
     "T21": "Commit button is a stub — no real allocation logic",
+    "T33": "DiceRollVisual.columns Array is populated, but the four-column animated surface isn't rendered — Tier B will fail. File T33b to build the actual surface.",
     "T36": "ENTER fires commit_targets() but doesn't trigger resolution downstream",
+    "T40": "set_prospective() stores the recomputed BS/Save/wounds, but UnitStatsPanel doesn't re-render to show them — Tier B will fail. File T40b to wire the panel.",
     "T42": "striped_pattern() exists but isn't applied to any overlay",
 }
 
@@ -243,6 +247,19 @@ def render_html(tasks: list[dict],
   .progress {{ background: #eee; height: 22px; border-radius: 4px; overflow: hidden; }}
   .progress > div {{ background: #4a4; height: 100%; }}
   .closed-section {{ opacity: 0.55; }}
+  textarea.notes {{ width: 100%; min-height: 2.5em; font-family: inherit;
+                    border: 1px solid #ccc; padding: 0.3em; margin-top: 0.3em;
+                    border-radius: 3px; }}
+  .export-bar {{ position: fixed; bottom: 0; left: 0; right: 0;
+                 background: #333; color: #fff; padding: 0.6em 1em;
+                 display: flex; gap: 0.8em; align-items: center;
+                 font-size: 0.9em; z-index: 20; }}
+  .export-bar button {{ padding: 0.4em 0.9em; font-size: 0.9em;
+                        border-radius: 3px; border: 0; cursor: pointer;
+                        background: #4a4; color: #fff; }}
+  .export-bar button.secondary {{ background: #777; }}
+  .export-bar #counter {{ margin-left: auto; font-family: monospace; }}
+  body {{ padding-bottom: 60px; }}
 </style></head>
 <body>
 <h1>Tier B visual review — T01–T45</h1>
@@ -285,6 +302,13 @@ def render_html(tasks: list[dict],
         parts.append(f'<p class="meta">Demo:</p>\n<div class="demo">{_html_escape(cmd)}</div>\n')
 
         shots = find_screenshots(t["id"])
+        if not shots and t["id"] in {"T12", "T41", "T42", "T43", "T44"}:
+            parts.append(
+                '<p class="meta"><i><b>No visual surface.</b> This task '
+                'is a code-only audit (constant lookups, no fixture, no '
+                'rendering). Tier B is verified by reading the relevant '
+                'GD file rather than a screenshot.</i></p>\n'
+            )
         if shots:
             parts.append(
                 f'<p class="meta">Cloud screenshots ({len(shots)}, embedded):</p>\n'
@@ -304,24 +328,113 @@ def render_html(tasks: list[dict],
                 cls = ' class="preticked"' if b["ticked"] else ''
                 tag = " <small>(verified from artifacts)</small>" if b["ticked"] else ""
                 parts.append(
-                    f'<li{cls}><input type="checkbox" id="{t["id"]}_{i}"{pre}>'
+                    f'<li{cls}><input type="checkbox" class="tier-b" '
+                    f'data-task="{t["id"]}" data-item="{i}" id="{t["id"]}_{i}"{pre}>'
                     f'<label for="{t["id"]}_{i}">{_html_escape(b["text"])}{tag}</label></li>\n'
                 )
             parts.append('</ul>\n')
         else:
             parts.append('<p class="meta"><i>No Tier B items — Tier A only.</i></p>\n')
 
+        parts.append(
+            f'<p class="meta">Notes (optional — refinement details, T##b filings):</p>\n'
+            f'<textarea class="notes" data-task="{t["id"]}" '
+            f'placeholder="e.g. rings too thick, file T08b"></textarea>\n'
+        )
+
         parts.append('</section>\n')
 
     parts.append("""
 <hr>
-<h2>Exporting your ticks</h2>
-<p>When done, open <code>.llm/todo.md</code> and flip <code>- [ ]</code> →
-<code>- [x]</code> for items you ticked in this page. Commit as
-<code>tick T## ...</code>. When every Tier B box is ticked, the design-
-guidelines closure is complete.</p>
-<p>Generator: <code>40k/tests/tools/generate_review_html.py</code> — re-run after editing
-<code>.llm/todo.md</code> to refresh this page.</p>
+<h2>How feedback flows back to me</h2>
+<p>Browser checkboxes <b>do</b> persist between reloads in this file
+(via localStorage, keyed per task+item). They do <b>not</b> persist if
+you send this HTML file to someone else — localStorage is browser-only.</p>
+<p>To round-trip your decisions back to the codebase:</p>
+<ol>
+  <li>Tick boxes and fill in any per-task notes as you review.</li>
+  <li>Click <b>Download review.json</b> in the bar at the bottom. You'll
+      get a small JSON file with your ticks and notes.</li>
+  <li>Send <code>review.json</code> back to me. I'll run
+      <code>python3 40k/tests/tools/apply_review_ticks.py review.json</code>
+      which mirrors the ticks into <code>.llm/todo.md</code> and emits
+      a draft list of <code>T##b</code> refinement tasks from your notes.</li>
+  <li>I commit + push the updates.</li>
+</ol>
+<p>If you'd rather just describe results in chat ("T08 1,2 pass, 3 fails
+because rings too thick"), that works too — but the JSON round-trip is
+faster and lossless.</p>
+<p><b>Generator</b>:
+<code>python3 40k/tests/tools/generate_review_html.py --chunks 5</code></p>
+
+<div class="export-bar">
+  <button onclick="downloadReview()">Download review.json</button>
+  <button class="secondary" onclick="clearAll()">Clear all ticks</button>
+  <button class="secondary" onclick="document.location.reload()">Reload</button>
+  <span id="counter">0 ticks / 0 notes</span>
+</div>
+
+<script>
+const STORE_KEY = 'designguidelines_review_v1';
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); }
+  catch(_) { return {}; }
+}
+function save(state) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+}
+function updateCounter() {
+  const s = load();
+  let ticks = 0, notes = 0;
+  for (const t of Object.values(s.ticks || {})) {
+    if (t) for (const v of Object.values(t)) if (v) ticks++;
+  }
+  for (const v of Object.values(s.notes || {})) if (v && v.trim()) notes++;
+  document.getElementById('counter').textContent = ticks + ' ticks / ' + notes + ' notes';
+}
+function init() {
+  const s = load();
+  s.ticks = s.ticks || {};
+  s.notes = s.notes || {};
+  document.querySelectorAll('input.tier-b').forEach(cb => {
+    if (cb.disabled) return;  // pre-ticked from artifacts
+    const t = cb.dataset.task, i = cb.dataset.item;
+    if (s.ticks[t] && s.ticks[t][i]) cb.checked = true;
+    cb.addEventListener('change', () => {
+      s.ticks[t] = s.ticks[t] || {};
+      s.ticks[t][i] = cb.checked;
+      save(s);
+      updateCounter();
+    });
+  });
+  document.querySelectorAll('textarea.notes').forEach(ta => {
+    const t = ta.dataset.task;
+    if (s.notes[t]) ta.value = s.notes[t];
+    ta.addEventListener('input', () => {
+      s.notes[t] = ta.value;
+      save(s);
+      updateCounter();
+    });
+  });
+  updateCounter();
+}
+function downloadReview() {
+  const s = load();
+  s.exported_at = new Date().toISOString();
+  s.version = 1;
+  const blob = new Blob([JSON.stringify(s, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'review.json';
+  a.click();
+}
+function clearAll() {
+  if (!confirm('Clear all ticks and notes? This cannot be undone.')) return;
+  localStorage.removeItem(STORE_KEY);
+  document.location.reload();
+}
+init();
+</script>
 </body></html>
 """)
     return "".join(parts)

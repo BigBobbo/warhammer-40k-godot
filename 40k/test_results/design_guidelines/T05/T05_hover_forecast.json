@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 12,
+  "passed": 14,
   "scenario_id": "T05_hover_forecast",
   "steps": [
     {
@@ -96,11 +96,22 @@
       "step": 10
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T05_hover_forecast_T05_review.png",
+      "step": 12
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 11
+      "step": 13
     }
   ],
-  "total_steps": 12
+  "total_steps": 14
 }

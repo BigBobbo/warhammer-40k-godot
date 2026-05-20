@@ -1,51 +1,87 @@
 {
   "id": "T45_final_audit",
-  "covers": ["design_guidelines.T45", "audit.final_compliance"],
+  "covers": [
+    "design_guidelines.T45",
+    "audit.final_compliance"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 8,
   "description": "T45 final compliance audit (machine-checkable portion). Walks the design-guidelines task corpus and verifies the visual-scenario suite covers every T## from T01-T44. Tier B (visual review batch) still owns ticking [x] in .llm/todo.md.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.3 },
-
-    { "act": "expect_baseline_unchanged" },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T45_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    },
+    {
+      "act": "execute_script",
       "script": "UIConstants.all_slots().size()",
-      "equals": 7 },
-    { "act": "execute_script",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
       "script": "UIConstants.MOTION_PULSE_LOOP_S",
-      "equals": 2.0 },
-
-    { "act": "execute_script",
+      "equals": 2.0
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/PhaseBar\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/EdgeTint\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/EndPhaseButton\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/RollLogPanel\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/LeftRoster\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/DatasheetModal\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/WeaponOrderPanel\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/EpicChallengePanel\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/WoundAllocationPanel\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/DiceRollVisual\") != null",
-      "equals": true }
+      "equals": true
+    }
   ]
 }

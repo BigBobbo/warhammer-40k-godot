@@ -1,37 +1,61 @@
 {
   "id": "T33_resolution_surface",
-  "covers": ["design_guidelines.T33", "shooting.resolution_surface"],
+  "covers": [
+    "design_guidelines.T33",
+    "shooting.resolution_surface"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 8,
   "description": "DiceRollVisual exposes is_skippable_with_space (true) and a columns Array. t33_set_columns([...]) populates it; t33_skip() ends any in-flight animation and hides the surface.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DiceRollVisual\").is_skippable_with_space",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DiceRollVisual\").columns.size()",
-      "equals": 0 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/DiceRollVisual\").t33_set_columns([{\"name\":\"Hits\",\"dice\":10}, {\"name\":\"Wounds\",\"dice\":6}, {\"name\":\"Saves\",\"dice\":4}, {\"name\":\"Damage\",\"dice\":3}])" },
-
-    { "act": "execute_script",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/DiceRollVisual\").t33_set_columns([{\"name\":\"Hits\",\"dice\":10}, {\"name\":\"Wounds\",\"dice\":6}, {\"name\":\"Saves\",\"dice\":4}, {\"name\":\"Damage\",\"dice\":3}])"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DiceRollVisual\").columns.size()",
-      "equals": 4 },
-    { "act": "execute_script",
+      "equals": 4
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DiceRollVisual\").columns[0].name",
-      "equals": "Hits" },
-    { "act": "execute_script",
+      "equals": "Hits"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DiceRollVisual\").columns[3].name",
-      "equals": "Damage" },
-
-    { "act": "execute_script",
+      "equals": "Damage"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DiceRollVisual\").t33_skip()",
-      "equals": true },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T33_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

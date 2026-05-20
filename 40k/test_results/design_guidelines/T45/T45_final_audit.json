@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 14,
+  "passed": 16,
   "scenario_id": "T45_final_audit",
   "steps": [
     {
@@ -9,10 +9,21 @@
       "step": 0
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 1
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T45_final_audit_T45_review.png",
+      "step": 2
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 1
+      "step": 3
     },
     {
       "act": "execute_script",
@@ -21,7 +32,7 @@
       "expected": 7.0,
       "label": "script[UIConstants.all_slots().size()]",
       "pass": true,
-      "step": 2
+      "step": 4
     },
     {
       "act": "execute_script",
@@ -30,7 +41,7 @@
       "expected": 2.0,
       "label": "script[UIConstants.MOTION_PULSE_LOOP_S]",
       "pass": true,
-      "step": 3
+      "step": 5
     },
     {
       "act": "execute_script",
@@ -39,7 +50,7 @@
       "expected": true,
       "label": "script[get_node_or_null(\"/root/Main/PhaseBar\") != null]",
       "pass": true,
-      "step": 4
+      "step": 6
     },
     {
       "act": "execute_script",
@@ -48,7 +59,7 @@
       "expected": true,
       "label": "script[get_node_or_null(\"/root/Main/EdgeTint\") != null]",
       "pass": true,
-      "step": 5
+      "step": 7
     },
     {
       "act": "execute_script",
@@ -57,7 +68,7 @@
       "expected": true,
       "label": "script[get_node_or_null(\"/root/Main/EndPhaseButton\") != null]",
       "pass": true,
-      "step": 6
+      "step": 8
     },
     {
       "act": "execute_script",
@@ -66,7 +77,7 @@
       "expected": true,
       "label": "script[get_node_or_null(\"/root/Main/RollLogPanel\") != null]",
       "pass": true,
-      "step": 7
+      "step": 9
     },
     {
       "act": "execute_script",
@@ -75,7 +86,7 @@
       "expected": true,
       "label": "script[get_node_or_null(\"/root/Main/LeftRoster\") != null]",
       "pass": true,
-      "step": 8
+      "step": 10
     },
     {
       "act": "execute_script",
@@ -84,7 +95,7 @@
       "expected": true,
       "label": "script[get_node_or_null(\"/root/Main/DatasheetModal\") != null]",
       "pass": true,
-      "step": 9
+      "step": 11
     },
     {
       "act": "execute_script",
@@ -93,7 +104,7 @@
       "expected": true,
       "label": "script[get_node_or_null(\"/root/Main/WeaponOrderPanel\") != null]",
       "pass": true,
-      "step": 10
+      "step": 12
     },
     {
       "act": "execute_script",
@@ -102,7 +113,7 @@
       "expected": true,
       "label": "script[get_node_or_null(\"/root/Main/EpicChallengePanel\") != null]",
       "pass": true,
-      "step": 11
+      "step": 13
     },
     {
       "act": "execute_script",
@@ -111,7 +122,7 @@
       "expected": true,
       "label": "script[get_node_or_null(\"/root/Main/WoundAllocationPanel\") != null]",
       "pass": true,
-      "step": 12
+      "step": 14
     },
     {
       "act": "execute_script",
@@ -120,8 +131,8 @@
       "expected": true,
       "label": "script[get_node_or_null(\"/root/Main/DiceRollVisual\") != null]",
       "pass": true,
-      "step": 13
+      "step": 15
     }
   ],
-  "total_steps": 14
+  "total_steps": 16
 }

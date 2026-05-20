@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 9,
+  "passed": 11,
   "scenario_id": "T33_resolution_surface",
   "steps": [
     {
@@ -69,11 +69,22 @@
       "step": 7
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T33_resolution_surface_T33_review.png",
+      "step": 9
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 8
+      "step": 10
     }
   ],
-  "total_steps": 9
+  "total_steps": 11
 }

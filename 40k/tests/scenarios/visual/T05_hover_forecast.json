@@ -1,48 +1,77 @@
 {
   "id": "T05_hover_forecast",
-  "covers": ["design_guidelines.T05", "shooting.hover_forecast"],
+  "covers": [
+    "design_guidelines.T05",
+    "shooting.hover_forecast"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 8,
   "description": "Hover forecast: ShootingController.compute_hover_forecast(shooter, target) returns a Dictionary {attacks, bs, s, t, ap, d, expected_wounds} for the first weapon of the shooter against the target. Verified for WARBOSS_B shooting CUSTODIAN_GUARD_B in co_pretrigger.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/ShootingController\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast == null",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").compute_hover_forecast(\"U_WARBOSS_B\", \"U_CUSTODIAN_GUARD_B\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.target_id",
-      "equals": "U_CUSTODIAN_GUARD_B" },
-    { "act": "execute_script",
+      "equals": "U_CUSTODIAN_GUARD_B"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.attacks",
-      "expect_min": 1 },
-    { "act": "execute_script",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.bs",
-      "expect_min": 2 },
-    { "act": "execute_script",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.bs",
-      "expect_max": 6 },
-    { "act": "execute_script",
+      "expect_max": 6
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").current_hover_forecast.expected_wounds > 0.0",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").compute_hover_forecast(\"\", \"\")",
-      "equals": null },
-    { "act": "execute_script",
+      "equals": null
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/ShootingController\").compute_hover_forecast(\"NOPE\", \"U_CUSTODIAN_GUARD_B\")",
-      "equals": null },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": null
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T05_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

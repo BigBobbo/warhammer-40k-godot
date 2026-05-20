@@ -1,50 +1,82 @@
 {
   "id": "T40_prospective_panel",
-  "covers": ["design_guidelines.T40", "hud.prospective_stats"],
+  "covers": [
+    "design_guidelines.T40",
+    "hud.prospective_stats"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 8,
   "description": "UnitStatsPanel.set_prospective(shooter, target, in_cover) recomputes via ShootingController.compute_hover_forecast and stores displayed_bs / displayed_modified_save / displayed_expected_wounds / prospective_target_id. in_cover toggles save -1.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/UnitStatsPanel\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/UnitStatsPanel\").prospective_target_id",
-      "equals": "" },
-
-    { "act": "execute_script",
+      "equals": ""
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/UnitStatsPanel\").set_prospective(\"U_WARBOSS_B\", \"U_CUSTODIAN_GUARD_B\", false)",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/UnitStatsPanel\").prospective_target_id",
-      "equals": "U_CUSTODIAN_GUARD_B" },
-    { "act": "execute_script",
+      "equals": "U_CUSTODIAN_GUARD_B"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/UnitStatsPanel\").displayed_bs",
-      "expect_min": 2 },
-    { "act": "execute_script",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/UnitStatsPanel\").displayed_bs",
-      "expect_max": 6 },
-    { "act": "execute_script",
+      "expect_max": 6
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/UnitStatsPanel\").displayed_expected_wounds > 0.0",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/UnitStatsPanel\").set_prospective(\"U_WARBOSS_B\", \"U_CUSTODIAN_GUARD_B\", true)",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/UnitStatsPanel\").displayed_modified_save",
-      "expect_min": 2 },
-
-    { "act": "execute_script",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/UnitStatsPanel\").set_prospective(\"\", \"\", false)",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/UnitStatsPanel\").prospective_target_id",
-      "equals": "" },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": ""
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T40_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

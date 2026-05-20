@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 14,
+  "passed": 16,
   "scenario_id": "T03_drag_ruler",
   "steps": [
     {
@@ -139,11 +139,22 @@
       "step": 12
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T03_drag_ruler_T03_review.png",
+      "step": 14
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 13
+      "step": 15
     }
   ],
-  "total_steps": 14
+  "total_steps": 16
 }

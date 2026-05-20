@@ -22,20 +22,18 @@ NEEDS_FIT = {
     "T28", "T29", "T30", "T32", "T34",
 }
 
-# Tasks where a "review" screenshot adds no information (pure-property
-# tests). These get skipped.
+# Tasks where a "review" screenshot adds no information (pure code
+# audits — constant lookups, no visual surface, no fixture context).
+# Tasks with a visual surface but unfinished rendering (T03, T05, T33,
+# T36, T40) are NOT in this set — they get a fixture-context screenshot
+# so the reviewer sees the scene where the feature WOULD render, and
+# a known-gap warning explains the missing rendering.
 SKIP = {
-    "T03",  # drag-ruler — compute_drag_segments returns segments; no rendering
-    "T05",  # compute_hover_forecast — no tooltip UI driven
-    "T12",  # constant lookups
-    "T33",  # set_columns is data-only; no dice surface rendered
-    "T36",  # commit flags only
-    "T40",  # set_prospective is data; no panel rendering
-    "T41",  # constant lookups
-    "T42",  # helper return values
-    "T43",  # constant lookups
-    "T44",  # constant lookups
-    "T45",  # node-existence checks already covered by Tier A
+    "T12",  # constant-only audit (UIConstants references)
+    "T41",  # constant-only audit (faction vs slot)
+    "T42",  # constant-only helper (striped_pattern return value)
+    "T43",  # constant-only (primary_cta_color)
+    "T44",  # constant-only (motion budget constants)
 }
 
 

@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 16,
+  "passed": 18,
   "scenario_id": "T36_explicit_commit",
   "steps": [
     {
@@ -132,11 +132,22 @@
       "step": 14
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 15
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T36_explicit_commit_T36_review.png",
+      "step": 16
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 15
+      "step": 17
     }
   ],
-  "total_steps": 16
+  "total_steps": 18
 }
