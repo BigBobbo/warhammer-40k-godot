@@ -22,7 +22,12 @@ var _scroll: ScrollContainer = null
 
 func _ready() -> void:
 	name = "RollLogPanel"
-	mouse_filter = Control.MOUSE_FILTER_PASS
+	# IGNORE (not PASS) — the panel is a passive read-out covering the
+	# right 320px of the viewport from y=80 down. PASS would still make
+	# Godot pick this control for input and only propagate to ancestors,
+	# never to lower-z siblings like HUD_Right (where the Undo / Reset /
+	# Confirm buttons live).
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(PANEL_WIDTH, 0)
 	_sync_viewport_size()
 	var vp := get_viewport()
@@ -32,12 +37,17 @@ func _ready() -> void:
 	_scroll = ScrollContainer.new()
 	_scroll.name = "Scroll"
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# Roll log is a passive read-out; without IGNORE, the inner ScrollContainer
+	# (default MOUSE_FILTER_STOP) eats clicks on whatever sits under the right
+	# 320px of the viewport — e.g. the Confirm button in HUD_Right.
+	_scroll.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_scroll)
 
 	_vbox = VBoxContainer.new()
 	_vbox.name = "Entries"
 	_vbox.add_theme_constant_override("separation", 2)
 	_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_scroll.add_child(_vbox)
 
 	var dh = get_node_or_null("/root/DiceHistoryPanel")
@@ -74,6 +84,7 @@ func _append_entry_label(entry: Dictionary) -> void:
 	lbl.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
 	lbl.add_theme_font_size_override("font_size", 12)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_vbox.add_child(lbl)
 
 
