@@ -156,7 +156,7 @@
       "step": 18
     },
     {
-      "act": "wait_frames",
+      "act": "wait_seconds",
       "pass": true,
       "step": 19
     },

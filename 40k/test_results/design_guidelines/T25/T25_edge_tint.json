@@ -80,7 +80,7 @@
         "regions": {
           "top_edge": 100.0
         },
-        "total_diff_pct": 42.7588734567901
+        "total_diff_pct": 42.7585841049383
       },
       "step": 10
     },
@@ -94,7 +94,7 @@
       "step": 11
     },
     {
-      "act": "wait_frames",
+      "act": "wait_seconds",
       "pass": true,
       "step": 12
     },

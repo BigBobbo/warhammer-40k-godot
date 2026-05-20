@@ -72,8 +72,8 @@
       "equals": "U_WARBOSS_B"
     },
     {
-      "act": "wait_frames",
-      "frames": 3
+      "act": "wait_seconds",
+      "seconds": 3.0
     },
     {
       "act": "screenshot",

@@ -175,7 +175,7 @@ def find_screenshots(task_id: str) -> list[Path]:
     return pngs
 
 
-def png_as_data_uri(path: Path, max_width: int = 960, jpeg_quality: int = 78) -> str:
+def png_as_data_uri(path: Path, max_width: int = 1280, jpeg_quality: int = 90) -> str:
     """Inline an image as a base64 data URI. Downscales (Pillow) and converts
     to JPEG to keep the embedded HTML small enough to share via email/chat.
     Falls back to raw PNG embed if Pillow isn't installed."""

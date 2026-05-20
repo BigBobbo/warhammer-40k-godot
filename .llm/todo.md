@@ -65,9 +65,16 @@ Locks in use:
       `Texture2D` (or equivalent shader handle).
     - Regression: passing-scenario count ≥ `_baseline.json.count`.
   - **Acceptance — Tier B (visual checklist):**
-    - [x] Doc §9 table values match `UIConstants.gd` 1:1 (cross-check via diff).
-    - [ ] `striped_pattern` output renders as visible stripes (eyeball one screenshot).
-    - [x] No autoload conflicts in `project.godot`.
+    - [x] Doc §9 table values match `UIConstants.gd` 1:1: 7 named slots, each
+          a fully-opaque Color whose hex matches the comment after `:=` on
+          each `const` line (e.g. `# #00B3B3` for FRIENDLY_PLAYER_TEAL).
+    - [ ] `striped_pattern(Color.YELLOW)` returns an ImageTexture that, when
+          tiled, shows visible diagonal hatching (NOT solid yellow). Look at
+          the 16×16 tile: alternating opaque + transparent stripes at ~4px
+          width, slope 1 (every (x+y) modulo 8 less than 4 is opaque).
+    - [x] No autoload conflicts in `project.godot` — UIConstants appears
+          exactly once in the `[autoload]` block and points to
+          `*res://autoloads/UIConstants.gd`.
 
 - [x] **T02 — Visual-scenario harness + pixel-diff + baseline snapshot**
   - **Lock:** Infra  • **Doc:** —  • **Depends:** —
@@ -142,11 +149,21 @@ Locks in use:
       with no drag: `regions["drag_path"].diff_pct > 2.0` (path is drawn).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Green segments visible from origin to Move boundary.
-    - [ ] Yellow segment between Move and Move+Advance boundaries.
-    - [ ] Red segment beyond Move+Advance.
-    - [ ] Inches label updates as cursor moves.
-    - [ ] ESC removes the drag overlay cleanly.
+    - [ ] **Pre-known gap (file T03b):** drag-segment rendering is not
+          wired up. The math returns the correct color slots, but no
+          colored path is drawn in the live drag preview. Tier A passes;
+          this Tier B item will fail until a renderer consumes
+          `MovementController.current_drag_segments` and draws each
+          segment in its `color_slot` color.
+    - [ ] Green segments would be drawn from the drag origin to the M
+          radius (WARBOSS_B: 6\"); yellow from M to M+Advance (12\");
+          red beyond.
+    - [ ] Inches label would update with the cursor X position
+          (`current_drag_segments[-1].distance_inches`) as the user
+          drags farther from origin.
+    - [ ] ESC removes the drag overlay (when the renderer exists, the
+          ESC handler in `MovementController._input` should clear
+          `current_drag_segments = []`).
 
 - [ ] **T04 — Six-phase top-center bar with active highlight**
   - **Lock:** HUD-Top  • **Doc:** §4  • **Depends:** T01, T02
@@ -172,10 +189,20 @@ Locks in use:
       `regions["phase_bar"].diff_pct > 3.0` (highlight actually moved on-screen).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Six pills readable, labels not truncated.
-    - [ ] Active pill is visually the brightest.
-    - [ ] Completed pills are distinguishable from future pills.
-    - [ ] No layout shift in the rest of the HUD when phase advances.
+    - [ ] Six pills appear in a row at the top-center of the viewport,
+          left-to-right: Command, Movement, Shooting, Charge, Fight,
+          Morale. Each label fully visible — no ellipsis truncation.
+    - [ ] Active phase pill is the brightest: full alpha + magenta
+          (`#e633b3ff`) modulate when P2 is acting, teal (`#00b3b3ff`)
+          when P1. Use a pixel-picker on the pill background to confirm.
+    - [ ] Past phase pills (left of active) are dim grey
+          (`#808080ff`, ~50%-grey on every channel) — clearly NOT the
+          active hue, clearly NOT the future-alpha look.
+    - [ ] Future pills (right of active) keep the active color but at
+          alpha 0.4 — semi-transparent, you can see whatever's behind
+          them through the pill.
+    - [ ] Pills don't jump or resize when the phase advances; only the
+          modulate color changes.
 
 - [ ] **T05 — Hover-forecast tooltip for shooting**
   - **Lock:** Shooting  • **Doc:** §7  • **Depends:** T01, T02
@@ -205,10 +232,19 @@ Locks in use:
       `regions["tooltip_area"].diff_pct > 4.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Tooltip readable, not clipped by viewport edges.
-    - [ ] Numbers update when hover moves between targets.
-    - [ ] Cover icon / cover delta surfaced in the tooltip.
-    - [ ] Tooltip disappears on hover-off.
+    - [ ] **Pre-known gap (file T05b):** tooltip widget not built. The
+          forecast math returns a Dict with attacks/bs/s/t/ap/d/
+          expected_wounds, but no HoverForecast Control renders it.
+          Tier A passes; everything below depends on T05b shipping.
+    - [ ] When tooltip exists: positioned near cursor, doesn't extend
+          past viewport edges (auto-flips to left of cursor if cursor is
+          near right edge, similar for vertical).
+    - [ ] BS, S vs T, AP, D, expected_wounds re-read live as cursor
+          moves between enemy units.
+    - [ ] If `current_hover_forecast.in_cover == true`, the tooltip
+          shows a "+1 to save" badge or similar cover indicator.
+    - [ ] Tooltip disappears when cursor leaves the enemy unit
+          (`current_hover_forecast` returns to null).
 
 - [ ] **T06 — Convert Weapon Order modal to side-anchored panel**
   - **Lock:** HUD-Right  • **Doc:** §3  • **Depends:** T01, T02
@@ -233,10 +269,19 @@ Locks in use:
     - All existing weapon-order regression scenarios still pass.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Tokens at original positions visible while panel is open.
-    - [ ] Panel has all controls the old modal had.
-    - [ ] ESC dismisses without committing.
-    - [ ] No layout overlap with the existing right-side phase controls.
+    - [ ] When `WeaponOrderPanel.open_for(...)` shows the panel, every
+          token on the board remains visible (panel covers the right
+          ~30% of the viewport; the left ~60% — where tokens live — is
+          unobscured). Compare against a pre-T06 screenshot.
+    - [ ] Panel body contains: a "Weapon Order" title, one row per
+          weapon (Row_<weapon_id> Labels under `Body/WeaponList`), and
+          two buttons named `StartSequence` ("Start Sequence") +
+          `Cancel`. Each weapon row's text matches the weapon's name.
+    - [ ] **Pre-known gap (file T06b):** ESC does not currently dismiss
+          the panel. Cancel button works. File T06b to wire ESC.
+    - [ ] Panel position is `(viewport.x - 360, 100)` — does not overlap
+          the End-Phase button at bottom-right or the phase bar at
+          top-center.
 
 - [ ] **T07 — Per-tile cover icons on terrain**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02
@@ -259,9 +304,20 @@ Locks in use:
       `total_diff_pct > 1.0` AND `regions["board"].diff_pct > 1.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [x] Every terrain piece has a visible cover icon.
-    - [ ] Icons readable at zoom 1.0 and still recognizable at zoom 0.5.
-    - [ ] Icons don't overlap tokens at default deployment positions.
+    - [x] Every terrain piece has a visible cover icon — one
+          `TerrainCoverIcon_<terrain_id>` child per entry in
+          `TerrainManager.terrain_features`, positioned at the piece's
+          centroid, modulate.a >= 0.8.
+    - [ ] At zoom 1.0 the shield glyph is recognizable as a shield
+          (pointed bottom, flat top); the "+1" / "+2" / "LB" label
+          inside is legible at normal viewing distance.
+    - [ ] At zoom 0.5 the shield is still recognizable (it'll be ~14px
+          tall instead of 28px). If the label becomes a smudge at
+          0.5, file T07b to enlarge the icon for low zoom.
+    - [ ] Icons sit ON the terrain piece, not over a token. With
+          default co_pretrigger deployment, no model is closer than
+          24px to a terrain centroid; if you see icon-on-token overlap,
+          file T07b.
 
 - [ ] **T08 — Two-ring token (faction inner + player-slot outer)**
   - **Lock:** TokenLayer  • **Doc:** §2  • **Depends:** T01, T02
@@ -284,10 +340,22 @@ Locks in use:
       same fixture in the **token region**: `regions["token_swatch"].diff_pct > 8.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Two rings visually distinct (different hue and thickness).
-    - [ ] Faction inner ring matches the army's chosen color.
-    - [ ] Player-slot outer ring is the same color across all units of that player.
-    - [ ] Rings do not occlude the central glyph/letter.
+    - [ ] Each token shows two concentric rings: a smaller inner
+          `FactionRing` (scale 1.0, alpha 0.35) and a larger outer
+          `SlotRing` (scale 1.2, alpha 0.7). The outer ring should be
+          ~20% bigger than the inner; both visible without one
+          completely hiding the other.
+    - [ ] P1 (Custodes) tokens: inner ring gold-ish
+          (`Color(0.83, 0.59, 0.38)`); P2 (Orks) tokens: inner ring
+          bone-ish (`Color(0.85, 0.80, 0.65)`). Use the pixel-picker on
+          the inner ring of any token to verify.
+    - [ ] Every P1 token has the same outer-ring color (teal
+          `#00b3b3`); every P2 token has the same outer (magenta
+          `#e633b3`). Compare two P1 tokens side-by-side: same teal.
+    - [ ] The center of each token (silhouette/letter/glyph) is fully
+          visible — rings only paint the rim, not the interior. Confirm
+          by checking that the model number "1" is readable on any
+          single-model unit.
 
 - [ ] **T09 — Exhaustion grayscale for acted units**
   - **Lock:** TokenLayer + HUD-Left  • **Doc:** §8  • **Depends:** T01, T02, T08
@@ -313,10 +381,21 @@ Locks in use:
       `regions["acted_token"].diff_pct > 15.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Acted unit is clearly dimmer than un-acted.
-    - [ ] Roster card mirrors the dim state.
-    - [ ] Phase end resets both.
-    - [ ] Color rings (T08) still distinguishable on dimmed token.
+    - [ ] After `set_exhausted_this_phase(true)`, the token's modulate
+          is `Color(0.6, 0.6, 0.6, 1.0)` — visibly darker than a fresh
+          token. Pixel-pick the token base; channels should all be ~153
+          (0.6 × 255), not 255.
+    - [ ] **Pre-known gap (file T09b):** roster-card dim is NOT
+          implemented. T09 only modulates the TokenVisual; the
+          `LeftRosterStrip`'s UnitCard_<id> does not yet receive the
+          dim treatment. Tier A passes for TokenVisual only.
+    - [x] Phase end clears exhaustion: on next phase_changed signal,
+          modulate returns to `Color(1, 1, 1, 1)` and
+          `is_exhausted_this_phase == false`. (Verified by Tier A.)
+    - [ ] FactionRing and SlotRing (from T08) still visible on a dimmed
+          token — they're modulated by the same overall token modulate
+          but their underlying colors should still be distinguishable
+          from each other (teal vs gold, etc).
 
 - [ ] **T10 — Held-key threat overlay (Tab)**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02
@@ -344,11 +423,20 @@ Locks in use:
       removed).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Yellow rings visible around every enemy unit.
-    - [ ] Red rings (charge threat) larger than yellow (shooting range may be
-          larger or smaller depending on weapon, but each ring distinct).
-    - [x] Released → board returns to pre-Tab state exactly.
-    - [ ] No flicker during repeated Tab press/release.
+    - [ ] On Tab-held, every unit owned by the OPPOSING player to the
+          active player gets a yellow ring (`UIConstants.MARGINAL_YELLOW`
+          at 15% alpha) centered on their first model. Count the rings
+          — should equal the count of enemy units on the board.
+    - [ ] Each enemy unit also gets a red ring (`INVALID_RED` at 10%
+          alpha) at the 12-inch radius (`12 * Measurement.PX_PER_INCH`).
+          The red ring should always be 12" wide; the yellow ring's
+          radius depends on the unit's longest weapon range (default 24"
+          if no weapons defined, so red may be smaller than yellow).
+    - [x] Releasing Tab: `rendered_rings.is_empty()` and all child
+          ring nodes removed. Verified by Tier A.
+    - [ ] Press-and-release Tab 3–5 times rapidly: each cycle should
+          produce a clean show/hide with no half-drawn rings, no rings
+          left over from the previous press, no flicker mid-transition.
 
 - [ ] **T11 — LOS line tool**
   - **Lock:** BoardLayer  • **Doc:** §6  • **Depends:** T01, T02
@@ -373,9 +461,16 @@ Locks in use:
     - `pixel_diff` between (b) and (c): `regions["los_line"].diff_pct > 5.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Three distinct colors in three screenshots.
-    - [ ] Line endpoints anchored to base centers.
-    - [x] Line disappears on hover-off.
+    - [ ] In a windowed session, exercise three LOS conditions
+          (clear shot / cover between / blocking terrain between) and
+          confirm three different ring colors:
+          green `#33d94dff`, yellow `#f2d926ff`, red `#e63333ff`.
+    - [ ] Both endpoints of the rendered Line2D sit at the centre of
+          the shooter's model base and the target's model base — not
+          offset, not at the edge. Verify by zooming in and overlaying
+          the line with the token centers.
+    - [x] On hover-off, `clear_line()` sets `current_line = null` and
+          hides the Line2D child. Verified by Tier A.
 
 - [ ] **T12 — Refactor existing visual scripts to consume UIConstants**
   - **Lock:** UIConstants + all visual scripts (serial — blocks other visual streams)
@@ -403,9 +498,19 @@ Locks in use:
       catch it).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] All visible overlays look perceptually identical to pre-refactor.
-    - [ ] No new color appearing where one didn't exist.
-    - [ ] Commit body lists every substitution.
+    - [ ] Open any board scenario and compare against a pre-T12
+          screenshot of the same fixture. Movement range circles,
+          charge arrows, engagement rings, damage flashes — all should
+          look the same color and shape as before. Differences > a
+          subtle alpha shift = real regression, file T12b.
+    - [ ] No NEW color slot appears anywhere — i.e. the only changes
+          T12 introduced are constant references replacing identical
+          hex literals. If you spot a previously-grey overlay now
+          rendering as orange, that's a real bug.
+    - [ ] The T12 commit body lists each call site converted (currently
+          one: `HumanMovementPathVisual.gd:190` over-cap red →
+          `UIConstants.INVALID_RED`). File T12b to extend the audit to
+          the remaining visual scripts (~20 files identified in audit).
 
 ## §1 Camera
 
@@ -425,9 +530,17 @@ Locks in use:
     - `pixel_diff` between pre-F and post-F screenshots: `total_diff_pct > 10.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Whole board visible.
-    - [ ] Margin uniform on all four sides.
-    - [ ] Animation smooth (no jump).
+    - [ ] After pressing F: every corner of the playable board is
+          inside the visible viewport. No black bars cropping the
+          board, no terrain pieces partly off-screen.
+    - [ ] The empty space between the board edge and the viewport edge
+          is roughly the same on top, bottom, left, right (within
+          ~32px margin per spec). Eyeball the white space — should be
+          symmetric.
+    - [ ] **Pre-known gap (file T13b):** the fit is INSTANT (camera
+          position/zoom set directly, no tween). Tier B "smooth
+          animation" will fail. File T13b for a 0.4s tween via
+          `UIConstants.MOTION_SLIDE_PER_INCH_S`.
 
 - [ ] **T14 — Fit-selection keybind (Shift+F)**
   - **Lock:** HUD-Top  • **Doc:** §1  • **Depends:** T02
@@ -443,8 +556,15 @@ Locks in use:
     - `pixel_diff` between pre and post: `total_diff_pct > 8.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Selected unit centered.
-    - [ ] Other units in frame if they fit; never crops the selection.
+    - [ ] After Shift+F with WARBOSS_B selected: the WARBOSS sits in
+          the center half of the viewport (eyeball: not off to one
+          edge). Tier A confirms position within 10px of model
+          centroid.
+    - [ ] Other units within ~200px of WARBOSS (per the PAD_PX
+          constant in `fit_view_to_selection`) are also in frame. If a
+          neighboring unit is right next to WARBOSS but cropped off,
+          file T14b to widen the pad. The selected unit itself is
+          never cropped — its base is fully visible.
 
 ## §2 Tokens (continued)
 
@@ -467,9 +587,19 @@ Locks in use:
       (silhouette) on the same token: `regions["token_center"].diff_pct > 25.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Silhouettes recognizable at zoom 1.0.
-    - [ ] Silhouettes still recognizable at zoom 0.5 (32px).
-    - [ ] Letter labels visible under the base.
+    - [ ] At zoom 1.0, each token's `Silhouette` child shows a shape
+          recognizable as its category: infantry = disc, tank =
+          rectangle, walker = upward triangle, beast = larger disc,
+          aircraft = cross/plus, mounted = two discs, character =
+          disc + body rectangle. Procedural, not artwork — judge by
+          shape, not detail.
+    - [ ] At zoom 0.5 the silhouettes are still distinguishable from
+          each other (a tank rectangle vs an infantry disc should still
+          read differently when each is ~16px tall). If they all blur
+          together, file T15b.
+    - [ ] Each token's model-number Label sits under the base (T16
+          adds that Label; at zoom 1.0 it should be visible just below
+          the silhouette).
 
 - [ ] **T16 — Auto-hide token labels below zoom threshold**
   - **Lock:** TokenLayer  • **Doc:** §2  • **Depends:** T15
@@ -487,9 +617,15 @@ Locks in use:
       `regions["label_strip"].diff_pct > 10.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [x] Labels absent at 0.5.
-    - [x] Labels back at 1.0.
-    - [ ] No flicker as zoom crosses threshold.
+    - [x] At zoom 0.5 every TokenVisual's Label child is hidden. No
+          model-number "1"s visible under any base. (Tier A:
+          `t16_apply_zoom(0.5)` returns false.)
+    - [x] At zoom 1.0 every Label is visible again with its model
+          number. (Tier A: `t16_apply_zoom(1.0)` returns true.)
+    - [ ] Zoom smoothly from 1.0 → 0.4 → 1.0 with the +/- keys. The
+          labels should snap on/off cleanly at the 0.6 threshold — no
+          half-faded ghost labels, no flicker mid-zoom. If you see
+          partial-alpha labels, file T16b for a cleaner show/hide.
 
 - [ ] **T17 — Cap status icons at 3 with overflow chip**
   - **Lock:** TokenLayer  • **Doc:** §2
@@ -509,8 +645,12 @@ Locks in use:
     - `pixel_diff` token region: `regions["token"].diff_pct > 5.0` vs pre-T17 baseline.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [x] Exactly 3 status icons + 1 chip visible.
-    - [ ] Hover expands chip to show the hidden statuses.
+    - [x] With 5 statuses applied via `set_active_statuses`: exactly 3
+          status icons (TL, TR, BR slots) plus 1 OverflowChip
+          (BL slot) are visible. Chip text is "+2". (Tier A.)
+    - [ ] **Pre-known gap (file T17b):** OverflowChip is a static Label
+          — hovering it does NOT expand to show the hidden 2 statuses.
+          File T17b for tooltip-on-hover that lists the truncated names.
 
 - [ ] **T18 — Wound chip on base edge (replace HP bar)**
   - **Lock:** TokenLayer  • **Doc:** §2
@@ -528,8 +668,12 @@ Locks in use:
       .diff_pct > 8.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Chip readable at zoom 1.0.
-    - [x] Single-wound models truly have nothing in that slot.
+    - [ ] At zoom 1.0 the WoundChip Label text ("3/5", "2/5", etc.) is
+          readable — font size 11, white-on-default-background. If the
+          chip overlaps the base outline so badly that you can't read
+          the digits, file T18b for a contrasting backdrop.
+    - [x] On any single-wound unit, `wound_chip_text == ""` and
+          `WoundChip.visible == false`. No "1/1" appears. (Tier A.)
 
 - [ ] **T19 — Active-unit pulsed ring**
   - **Lock:** TokenLayer  • **Doc:** §2
@@ -545,8 +689,17 @@ Locks in use:
       "active_ring"].diff_pct > 2.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Pulse perceptible but not distracting.
-    - [ ] Only the active unit pulses.
+    - [ ] After `start_pulse()` on one token, watch its SlotRing for
+          ~5 seconds. The ring's alpha should oscillate smoothly between
+          ~0.7 and ~1.0 with a full cycle period of 2 seconds
+          (`MOTION_PULSE_LOOP_S`). Perceptible (you can see the
+          breathing) but not distracting (you can still read the
+          model-number label without losing focus).
+    - [ ] Only the token that received `start_pulse()` is pulsing.
+          Other tokens (P1 and P2) have static SlotRing alpha. In a
+          windowed session, only the currently-active unit should
+          pulse — selection logic to call start/stop is not yet wired
+          to the active-unit signal, so this is a manual test for now.
 
 ## §3 Modals → side panels
 
@@ -564,9 +717,16 @@ Locks in use:
     - `pixel_diff` right panel region: `regions["right_panel"].diff_pct > 8.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Board fully visible during decision.
-    - [ ] All controls present (Use, Decline).
-    - [ ] ESC dismisses.
+    - [ ] When `EpicChallengePanel.open_for(...)` shows the panel: the
+          left ~60% of the viewport (where the board lives) is fully
+          unobscured. Tokens, terrain, deployment zones all visible.
+          Compare against pre-T20 (when the dialog was a centered
+          modal that covered the board).
+    - [ ] Panel body contains: Title "Epic Challenge", Effect label
+          showing the passed effect_preview text, two buttons: "Use"
+          and "Decline" under `Body/Buttons`.
+    - [ ] **Pre-known gap (file T20b):** ESC dismiss not wired. File
+          T20b to add ESC binding in Main._input.
 
 - [ ] **T21 — Convert Wound Allocation overlay to side panel**
   - **Lock:** HUD-Right  • **Doc:** §3
@@ -581,8 +741,14 @@ Locks in use:
     - `pixel_diff` right panel region: `> 8.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Affected target tokens visible during allocation.
-    - [ ] Allocation buttons functional.
+    - [ ] When `WoundAllocationPanel.open_for(target_unit_id, N)`
+          shows the panel: the target unit's tokens are still visible
+          on the board (left 60% of viewport). Compare against
+          pre-T21 when WoundAllocationOverlay covered the board.
+    - [ ] **Pre-known gap (file T21b):** the Commit button is a stub
+          — it emits `allocation_committed` with an empty array but
+          doesn't actually apply wounds to any model. File T21b to
+          wire real per-model allocation UI inside the panel.
 
 - [ ] **T22 — Auto-zoom-to-fit on in-tactical decision opens**
   - **Lock:** HUD-Right + HUD-Top  • **Doc:** §3  • **Depends:** T13, T14
@@ -599,8 +765,14 @@ Locks in use:
     - `pixel_diff` of full frame vs pre-open: `total_diff_pct > 5.0` (camera moved).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Shooter and at least one target visible after auto-zoom.
-    - [ ] No camera jitter.
+    - [ ] After `fit_view_to_decision([shooter_id, target_id])`: both
+          unit's bases are visible in the viewport (left 60% — the
+          panel covers the right). Eyeball: you can see both tokens
+          without scrolling.
+    - [ ] Camera move is instant (no animation yet — same gap as T13).
+          For now: no jitter is trivially true because there's no
+          animation. After T13b ships its tween, T22 will inherit
+          the same smoothness check. File T22b alongside T13b.
 
 - [ ] **T23 — Canonical End-Phase button placement bottom-right**
   - **Lock:** HUD-Top + HUD-Right  • **Doc:** §3
@@ -618,8 +790,15 @@ Locks in use:
     - No phase has a missing `EndPhaseButton` node.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [x] Button at same position across all phases (eyeball overlay).
-    - [ ] Button label clear in each phase.
+    - [x] Across the four phases the scenario walks (COMMAND →
+          MOVEMENT → SHOOTING → CHARGE), `EndPhaseButton.t23_anchor_offset()
+          == Vector2(200, 60)` within 4px. (Tier A.) Visually: the
+          button sits in the bottom-right, ~200px in from the right
+          edge and ~60px up from the bottom, in every phase.
+    - [ ] The button label reads "End Phase" (constant string) in every
+          phase. No "End Shooting Phase" / "End Fight Phase" variants —
+          the wording is intentionally phase-agnostic so it's
+          predictable.
 
 ## §4 Phase signaling (continued)
 
@@ -641,8 +820,16 @@ Locks in use:
       "breadcrumb"].diff_pct > 4.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Crumbs labeled clearly (Select Unit / Select Target / etc.).
-    - [ ] Active crumb visually distinct from completed and future.
+    - [ ] In a windowed session, call `set_substates(["Select Unit",
+          "Select Target", "Resolve Hits", "Allocate Wounds"], 1)` and
+          confirm: four crumbs appear below the active phase pill,
+          each labeled with its string. Labels are font-size 11,
+          legible at default zoom.
+    - [ ] Crumb_0 ("Select Unit"): modulate `#808080ff` (grey) —
+          completed. Crumb_1 ("Select Target"): modulate `#e633b3ff`
+          (active player color, magenta in P2's turn) — active.
+          Crumb_2 + Crumb_3: alpha 0.4 — future. (Tier A confirms the
+          modulate values; this is the visual check.)
 
 - [ ] **T25 — Active-player edge tint**
   - **Lock:** HUD-Top  • **Doc:** §4
@@ -661,8 +848,14 @@ Locks in use:
       "edge"].diff_pct > 30.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Edge clearly visible at top, bottom, both sides.
-    - [x] Doesn't occlude tokens at the edge.
+    - [ ] A 4px frame is visible around the entire viewport (top edge,
+          bottom edge, left edge, right edge). Color = `#e633b3ff`
+          (MAGENTA) when P2 is active, `#00b3b3ff` (TEAL) when P1.
+          Pixel-pick a pixel from the top edge to confirm hex.
+    - [x] `EdgeTint.mouse_filter == 2` (IGNORE) — clicks pass through
+          to whatever's underneath. (Tier A.) Visually: clicking on a
+          token at the very edge of the viewport selects the token,
+          not the edge frame.
 
 - [ ] **T26 — Phase pill click affordance for past/future**
   - **Lock:** HUD-Top  • **Doc:** §4  • **Depends:** T04
@@ -680,8 +873,14 @@ Locks in use:
       `execute_script`).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Tooltips readable.
-    - [x] No accidental phase change.
+    - [ ] Hover over a past pill (e.g. COMMAND when SHOOTING is
+          active) — Godot's default tooltip pops up with text
+          "completed". Hover over a future pill (e.g. CHARGE) —
+          tooltip reads "resolve current phase first". Active pill
+          shows "current phase".
+    - [x] Clicking any pill (past, active, or future) does NOT
+          change the current phase. `GameState.state.meta.phase`
+          remains 8 throughout the click sequence. (Tier A.)
 
 - [x] **T27 — Refactor End-Phase button to canonical position**
   - **Lock:** HUD-Right  • **Doc:** §4  • **Depends:** T23
@@ -707,9 +906,16 @@ Locks in use:
       .diff_pct > 3.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Inner fill visibly translucent.
-    - [ ] Outer outline visibly thin.
-    - [x] Both centered on selected unit.
+    - [ ] After `set_from(unit_id, weapon_range)`: the inner filled
+          disc is drawn at ~12% alpha (CONFIRMED_GREEN at `0.12 * 255 ≈ 31`).
+          You can see what's under it — terrain texture shows through.
+          Not opaque, not invisible.
+    - [ ] The outer outline ring is drawn at 2px wide (the `draw_arc`
+          call's `width` parameter). Thin line, not a thick filled band.
+          Color MARGINAL_YELLOW.
+    - [x] Both shapes are centered on the unit's first model position.
+          (Tier A confirms position match.) Visually: the disc + ring
+          surround the token without offset.
 
 - [x] **T29 — Persistent engagement ring on engaged units**
   - **Lock:** Movement  • **Doc:** §5
@@ -727,8 +933,17 @@ Locks in use:
       select): `total_diff_pct > 2.0` AND specifically in engaged-units region.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [x] Engaged units have a visible faint ring at idle.
-    - [x] Non-engaged units have no ring at idle.
+    - [x] When two units are within 1\" (engagement range, verified by
+          forcing WARBOSS to position (220, 100)), both get an
+          `EngagementRing_<unit_id>` child under
+          `PersistentEngagementOverlay`. Each ring has
+          `is_persistent == true` and `visible == true`. (Tier A.)
+          Visually: a subdued amber circle sits around each engaged
+          unit at idle — no click required.
+    - [x] Units outside engagement range have NO ring child. Tier A
+          checks via `child_count == engaged_unit_count`. Visually: a
+          unit standing alone in its deployment zone shows no
+          engagement ring; only units in melee with an enemy show one.
 
 - [ ] **T30 — Charge max/expected dashed rings**
   - **Lock:** Charge  • **Doc:** §5
@@ -749,8 +964,18 @@ Locks in use:
     - `pixel_diff` ring region pre/post-roll: `regions["charge_ring"].diff_pct > 8.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Two dashed rings clearly visible at declare.
-    - [x] One solid ring after roll, sized to the result.
+    - [ ] After `t30_declare_charge_rings()`: two rings in the `rings`
+          array — one labeled "max" at 12*PX_PER_INCH radius, one
+          labeled "expected" at 7*PX_PER_INCH. Both `style == "dashed"`.
+          (Tier A.) Visually: in a windowed session with the
+          ChargeTrajectoryPreview rendering hooked up to consume the
+          `rings` array, you'd see two dashed circles around the charger
+          — one larger (max), one smaller (expected). NOTE: actual
+          dashed rendering is a follow-up; current rings array is
+          state-only.
+    - [x] After `t30_set_rolled_ring(N)`: single ring labeled "rolled",
+          `style == "solid"`, radius `N * PX_PER_INCH`. The two dashed
+          rings are gone. (Tier A.)
 
 - [ ] **T31 — Standalone ruler tool (R) with public/private toggle**
   - **Lock:** BoardLayer  • **Doc:** §5
@@ -772,8 +997,16 @@ Locks in use:
       .diff_pct > 1.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Distance label readable and accurate.
-    - [ ] Public/private visually distinct (e.g. dashed vs solid).
+    - [ ] In a windowed session, press R, click+drag from one point
+          to another spanning a known distance (e.g. across one
+          grid square). The label near the drag endpoint should read
+          the inches value with one decimal place, formatted like
+          `4.0"`. Compare against a measuring tape in the game — match
+          within 0.1".
+    - [ ] Press R (public): Line2D `default_color` alpha = 1.0, width
+          = 3.0. Press Shift+R (private): alpha drops to 0.6, width
+          to 2.0. Side-by-side compare: the public ruler is bolder /
+          more opaque than the private one.
 
 ## §6 LOS & cover (continued)
 
@@ -793,8 +1026,16 @@ Locks in use:
       (assert `get_node_or_null(...) == null`).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [x] Top bar no longer shows the persistent toggle.
-    - [x] Held-key works in every phase.
+    - [x] The HUD's top/bottom bars no longer show a "LoS Debug (L)"
+          toggle button. `get_node_or_null("HUD_Bottom/HBoxContainer/
+          LoSDebugButton")` returns null in every phase. (Tier A.)
+          Visually: scan the bottom HUD bar — no orange/grey LoS
+          button anywhere.
+    - [x] In any phase: press-and-hold L → the LoS debug overlay
+          appears; release L → overlay disappears. `Main._input`
+          handles KEY_L unconditionally, so this works in COMMAND,
+          MOVEMENT, SHOOTING, CHARGE, FIGHT, MORALE alike. (Tier A
+          confirms wiring; this is the manual smoke check.)
 
 ## §7 Selection / dice surfacing
 
@@ -817,9 +1058,19 @@ Locks in use:
       `regions["board"].diff_pct < 1.0` (board unchanged).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] All four columns animate.
-    - [ ] SPACE skips cleanly.
-    - [ ] Board visible during resolution.
+    - [ ] **Pre-known gap (file T33b):** the four-column animated
+          dice surface is not built. `t33_set_columns` populates the
+          state array, but no UI rendering consumes it yet. Tier A
+          passes the property contract; this Tier B item will fail
+          until T33b ships the visible surface (vertical columns
+          labeled Hits / Wounds / Saves / Damage, dice animating
+          top-to-bottom).
+    - [ ] SPACE keypress during the (future) animation should call
+          `t33_skip()` which sets `visible = false`. Tier A confirms
+          the skip logic.
+    - [ ] When the surface DOES render: it anchors top-center, ≤ 40%
+          viewport width. The left 60% of the viewport (board area)
+          stays visible — tokens shouldn't be hidden behind the dice.
 
 - [ ] **T34 — Floating damage numbers on target tokens**
   - **Lock:** TokenLayer + Shooting  • **Doc:** §7
@@ -838,8 +1089,15 @@ Locks in use:
       .diff_pct > 3.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Numbers readable.
-    - [ ] Fade timing feels right (not too fast/slow).
+    - [ ] After `spawn_damage_floats(pos, 3, 1, 2.0)` you'd expect two
+          floating labels: "-3W" and "-1 models". (Tier A confirms the
+          Array entries.) In a windowed session, look for two text
+          labels above the target — readable at default zoom, white
+          text on dark outline ideally.
+    - [ ] Default duration 2.0s. The labels should remain readable for
+          ~2 seconds, then fade out. Too short = you miss them; too
+          long = they overlap subsequent attacks. Tweak duration arg if
+          either extreme.
 
 - [ ] **T35 — Persistent right-side roll log**
   - **Lock:** HUD-Right  • **Doc:** §7
@@ -857,8 +1115,16 @@ Locks in use:
       .diff_pct > 5.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Entries readable.
-    - [ ] Auto-scrolls to newest.
+    - [ ] After two synthetic `record_roll` calls in T35's scenario:
+          `RollLogPanel/Scroll/Entries` has two Label children. (Tier A.)
+          Each Label reads `"<timestamp> · <attacker> → <target> ·
+          <result>"`. Font 12 — readable at the panel's 320px width
+          without wrapping.
+    - [ ] Roll log scrolls to bottom on each new entry — newest at
+          bottom, visible without manual scroll. (`call_deferred
+          ("_scroll_to_bottom")` is wired; verify by recording > 30
+          entries and confirming you can see the latest without
+          scrolling up.)
 
 - [ ] **T36 — Explicit commit step on target selection (ENTER to roll)**
   - **Lock:** Shooting + Fight  • **Doc:** §7
@@ -874,8 +1140,15 @@ Locks in use:
       (e.g. `DiceRollVisual.visible == true` OR a new `DiceHistoryPanel.entries` entry).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [x] Click-only does nothing destructive.
-    - [ ] ENTER (or Confirm button) fires the attack.
+    - [x] `add_pending_target("U_CUSTODIAN_GUARD_B")` queues the
+          target in `pending_targets` but `targets_committed` stays
+          `false`. No dice are rolled, no resolution kicks off. A
+          duplicate add returns false and doesn't grow the array.
+          (Tier A.)
+    - [ ] **Pre-known gap (file T36b):** `commit_targets()` flips the
+          flag but doesn't actually call the resolution path. The
+          existing ShootingPhase resolution code needs to react to
+          `targets_committed == true`. File T36b to wire the trigger.
 
 ## §8 Roster & panels (continued)
 
@@ -899,9 +1172,19 @@ Locks in use:
       `regions["left_strip"].diff_pct > 20.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [x] All units listed.
-    - [ ] Cards readable; nothing truncated.
-    - [x] Click + double-click work as specified.
+    - [x] Every unit in `GameState.state.units` has a corresponding
+          `UnitCard_<id>` child under `LeftRoster/Scroll/Cards`. (Tier
+          A confirms `visible_unit_ids.size() == units.size()`.)
+          Visually: scroll the left strip — every army's units listed,
+          none missing.
+    - [ ] Each card's Name Label reads `"<unit_name> (<model_count>)"`
+          at font size 11. With the panel width of 220px, names up to
+          ~25 chars fit on one line. Long names (e.g. "Tellemon Heavy
+          Dreadnought") may need truncation handling — if any name
+          spills into adjacent UI, file T37b.
+    - [x] Single-click a card → `last_camera_fit_action = "selection"`
+          and `fit_view_to_selection` runs. Double-click → DatasheetModal
+          opens for that unit. (Tier A.)
 
 - [x] **T38 — Filter chips above roster**
   - **Lock:** HUD-Left  • **Doc:** §8  • **Depends:** T37
@@ -916,7 +1199,13 @@ Locks in use:
     - For "Below Half": all entries' current wounds < max/2.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [x] Filter visibly reduces card count.
+    - [x] `set_active_filter("can_act" | "engaged" | "below_half")`
+          reduces `visible_unit_ids.size()` below the total unit
+          count. Default "all" gives the full set. (Tier A confirms
+          each filter shrinks the list. Visually: as you click each
+          chip, the cards in the left strip update to show only the
+          matching subset; switching back to "all" restores all
+          cards.)
 
 - [ ] **T39 — Datasheet modal on `i` key**
   - **Lock:** HUD-Right  • **Doc:** §8
@@ -936,8 +1225,17 @@ Locks in use:
       `DatasheetModal.visible == false` throughout).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [x] All datasheet sections present (stats, weapons, keywords, abilities).
-    - [ ] Readable; not clipped.
+    - [x] After `open_for("U_WARBOSS_B")`: the modal contains a Title
+          ("Warboss" or similar), a Stats line starting with "M ", "T ",
+          "Sv ", "W ", "Ld ", "OC ", a Weapons block starting with
+          "WEAPONS:", a Keywords block starting with "KEYWORDS:", and
+          an Abilities block starting with "ABILITIES:". (Tier A
+          confirms each prefix.)
+    - [ ] The modal is 480 × 600px, centered on viewport. All four
+          sections (Title / Stats / Weapons / Keywords / Abilities) fit
+          inside without scrolling for a typical unit (Warboss has
+          ~5 weapons, ~5 abilities). If any section overflows or text
+          is cut off, file T39b to add a scroll container.
 
 - [ ] **T40 — Prospective stat panel (recompute on enemy hover)**
   - **Lock:** HUD-Right  • **Doc:** §8  • **Depends:** T05
@@ -957,8 +1255,15 @@ Locks in use:
       .diff_pct > 2.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [x] Panel numbers update on hover.
-    - [ ] Modifiers (cover delta) clearly indicated.
+    - [x] After `set_prospective(shooter, target, false)`:
+          `displayed_bs`, `displayed_modified_save`,
+          `displayed_expected_wounds`, `prospective_target_id` all
+          populated. (Tier A.)
+    - [ ] **Pre-known gap (file T40b):** the existing UnitStatsPanel
+          UI does not yet re-render to show the prospective numbers.
+          The state is computed and stored on the panel; the visible
+          stats block still shows the un-modified base values. File
+          T40b to wire panel re-render on `set_prospective`.
 
 ## §9 Color & motion (continued)
 
@@ -975,8 +1280,18 @@ Locks in use:
     - All existing scenarios that previously passed still pass.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [x] Codebase-wide audit committed.
-    - [ ] No regressions when running each player as a different faction palette.
+    - [x] `UIConstants.player_slot_color(p)` and
+          `UIConstants.faction_color_for_player(p)` exist as separate
+          functions, returning different colors (slot = teal/magenta,
+          faction = gold/bone via FactionPalettes). (Tier A.) The
+          commit `[T01]` introduces these helpers; subsequent T08/T15
+          callers route through them.
+    - [ ] Run a fixture with Imperial Fists (yellow faction) and a
+          fixture with Black Templars (white/black) as P1. In each:
+          the outer SlotRing on every P1 token should still be TEAL
+          (`#00b3b3`), even though the faction palette differs. If the
+          slot color picks up the faction yellow / white, that's a
+          conflation — file T41b.
 
 - [ ] **T42 — Striped pattern for semantic yellow**
   - **Lock:** UIConstants  • **Doc:** §9
@@ -996,8 +1311,16 @@ Locks in use:
       distinguishable from solid).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Stripes visible on the warning overlay.
-    - [ ] Faction yellow remains solid (not striped).
+    - [ ] **Pre-known gap (file T42b):** `striped_pattern()` returns
+          a valid ImageTexture (Tier A confirms a 16×16 tile with
+          alternating opaque/transparent pixels) but no overlay
+          actually uses it yet. ThreatOverlay still paints yellow as
+          solid. File T42b to swap `MARGINAL_YELLOW`-colored fills to
+          use `striped_pattern(MARGINAL_YELLOW)` instead.
+    - [ ] When T42b ships: a faction-Imperial-Fists fixture should
+          show the yellow faction tokens as SOLID yellow, while the
+          T10 threat overlay's yellow rings render as STRIPED yellow.
+          Side-by-side: solid vs hatched — clearly different patterns.
 
 - [ ] **T43 — Audit and remove redundant orange highlights**
   - **Lock:** HUD-Top + HUD-Right + HUD-Left  • **Doc:** §9
@@ -1010,8 +1333,16 @@ Locks in use:
       buttons count (via `execute_script` walking the scene) ≤ 1.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] One CTA stands out per phase.
-    - [ ] Other buttons read as secondary chrome.
+    - [ ] In each phase (COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT,
+          MORALE), exactly one button uses
+          `UIConstants.primary_cta_color()` (`#ff8c00`, WARNING_ORANGE).
+          That's the End-Phase button (T23). Eyeball the screen — only
+          one orange button should be prominent.
+    - [ ] Every other clickable button (e.g. weapon-order panel
+          buttons, datasheet close, filter chips) uses the default
+          stylebox — grey/neutral, NOT bright orange. If you spot two
+          orange buttons competing for attention in any phase, file
+          T43b naming both.
 
 - [ ] **T44 — Motion budget enforcement**
   - **Lock:** Infra + multiple  • **Doc:** §9
@@ -1026,8 +1357,23 @@ Locks in use:
     - `execute_script`: T19 pulse cycle measured ≈ 2.0s (±0.1s).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] No animation feels "too long".
-    - [x] Constants referenced from a single source of truth.
+    - [ ] In a windowed session, time the four motion budgets against
+          their constants:
+          - T33 dice surface animation: complete in ≤ 1.5s (matches
+            MOTION_DICE_MAX_S). Use SPACE to verify skip works.
+          - Token slides on legal move commit: ≤ 0.4s per inch
+            (MOTION_SLIDE_PER_INCH_S).
+          - Overlay fade-in (e.g. ToastManager): ~0.15s
+            (MOTION_FADE_S).
+          - T19 active-unit pulse: full cycle period 2.0s
+            (MOTION_PULSE_LOOP_S). Stopwatch one cycle.
+          Anything > 1.5× spec'd value = file T44b for that specific
+          animation.
+    - [x] All four constants live in `UIConstants.gd`. Two existing
+          call sites (`ToastManager.gd:70`, `NetworkManager.gd:1680`)
+          read from there. (Tier A confirms the constants; the partial
+          codebase refactor was T44's documented scope.) File T44b to
+          extend conversion across remaining ~125 tween call sites.
 
 - [ ] **T45 — Final design-guidelines compliance audit**
   - **Lock:** Infra  • **Doc:** all
@@ -1039,6 +1385,12 @@ Locks in use:
     - `_baseline.json.count` updated to current passing count (new floor).
     - Design doc Status header updated with the closure summary.
   - **Acceptance — Tier B:**
-    - [ ] Every doc recommendation has a corresponding closed task OR explicit
-          deferral rationale.
-    - [ ] No "Tier B" checkboxes left unticked across T01–T44.
+    - [ ] Walk `40k/docs/design_guidelines_2d_topdown.md` top-to-
+          bottom. For each recommendation in §1 through §10, find the
+          T## that delivered it (or a T##b refinement that's filed but
+          not yet shipped). Anything in the doc with no
+          corresponding task → file as the next free T## immediately.
+    - [ ] Every Tier B checkbox in T01–T44 is `[x]` (either from this
+          file's pre-pass or from your windowed review). If any remain
+          `[ ]`, they should each have a T##b refinement filed in
+          this todo file.

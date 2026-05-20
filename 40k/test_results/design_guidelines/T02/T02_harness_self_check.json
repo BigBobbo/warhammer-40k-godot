@@ -44,7 +44,7 @@
     },
     {
       "act": "execute_script",
-      "actual": 28,
+      "actual": 29,
       "error": "",
       "expect_min": 1.0,
       "pass": true,
@@ -75,7 +75,7 @@
       "step": 8
     },
     {
-      "act": "wait_frames",
+      "act": "wait_seconds",
       "pass": true,
       "step": 9
     },

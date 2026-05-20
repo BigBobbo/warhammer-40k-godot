@@ -93,13 +93,13 @@
     },
     {
       "act": "pixel_diff",
-      "diff_pct": 18.5448013117284,
+      "diff_pct": 18.5499614197531,
       "pass": true,
       "result": {
         "regions": {
 
         },
-        "total_diff_pct": 18.5448013117284
+        "total_diff_pct": 18.5499614197531
       },
       "step": 13
     },
@@ -125,7 +125,7 @@
       "step": 16
     },
     {
-      "act": "wait_frames",
+      "act": "wait_seconds",
       "pass": true,
       "step": 17
     },
