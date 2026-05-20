@@ -7,6 +7,29 @@ the per-task observables in `.llm/todo.md`, and confirms the on-screen result
 matches the design doc intent. This file is the walkthrough script for that
 session.
 
+## Pre-known refinement gaps (read before starting)
+
+A cloud-session pre-pass through the artifacts identified objectively-
+verifiable Tier B items and ticked 29 of 114 boxes in `.llm/todo.md`, plus
+fully closed 5 tasks (T02, T27, T29, T32, T38). The remaining 85 items need
+windowed eyes, including these known-incomplete behaviors that **will
+fail review** unless implemented as follow-up `T##b` tasks:
+
+| Task | Failing Tier B item | What's missing |
+| --- | --- | --- |
+| T06 | "ESC dismisses without committing" | WeaponOrderPanel has a Cancel button but no ESC binding in Main._input |
+| T09 | "Roster card mirrors the dim state" | T09 ships TokenVisual modulate only — ArmyPanel/roster card dim is not wired |
+| T13 | "Animation smooth (no jump)" | fit_view_to_board sets camera position/zoom instantly; no tween |
+| T17 | "Hover expands chip to show the hidden statuses" | OverflowChip is a static Label; no hover-expand behavior |
+| T20 | "ESC dismisses" | EpicChallengePanel has no ESC binding |
+| T21 | "Allocation buttons functional" | WoundAllocationPanel.Commit is a stub — no real allocation logic |
+| T36 | "ENTER fires the attack" | commit_targets() flips targets_committed=true but doesn't trigger resolution downstream |
+| T42 | "Stripes visible on the warning overlay" | striped_pattern() exists but isn't applied to any overlay (ThreatOverlay still uses solid yellow) |
+
+For each, file `T##b` in `.llm/todo.md` during the review and proceed.
+Do NOT revert the parent commit — the Tier A is intact and the gap is
+additive scope.
+
 ## Setup
 
 ```bash

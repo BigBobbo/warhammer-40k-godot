@@ -65,11 +65,11 @@ Locks in use:
       `Texture2D` (or equivalent shader handle).
     - Regression: passing-scenario count ≥ `_baseline.json.count`.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Doc §9 table values match `UIConstants.gd` 1:1 (cross-check via diff).
+    - [x] Doc §9 table values match `UIConstants.gd` 1:1 (cross-check via diff).
     - [ ] `striped_pattern` output renders as visible stripes (eyeball one screenshot).
-    - [ ] No autoload conflicts in `project.godot`.
+    - [x] No autoload conflicts in `project.godot`.
 
-- [ ] **T02 — Visual-scenario harness + pixel-diff + baseline snapshot**
+- [x] **T02 — Visual-scenario harness + pixel-diff + baseline snapshot**
   - **Lock:** Infra  • **Doc:** —  • **Depends:** —
   - **Touches:**
     - new `40k/tests/scenarios/visual/_schema.md`
@@ -110,9 +110,9 @@ Locks in use:
     - `test_results/design_guidelines/T02/diff_report.json` is produced and parses
       as JSON.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] `_schema.md` enumerates every required scenario step type with example.
-    - [ ] `_template.json` runs end-to-end as a copy-paste starting point.
-    - [ ] `TESTING_METHODOLOGY.md` gained a "Design-guidelines visual tasks" section.
+    - [x] `_schema.md` enumerates every required scenario step type with example.
+    - [x] `_template.json` runs end-to-end as a copy-paste starting point.
+    - [x] `TESTING_METHODOLOGY.md` gained a "Design-guidelines visual tasks" section.
 
 ## Top-10 quick wins (parallelizable after T02 if locks are disjoint)
 
@@ -259,7 +259,7 @@ Locks in use:
       `total_diff_pct > 1.0` AND `regions["board"].diff_pct > 1.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B (visual checklist):**
-    - [ ] Every terrain piece has a visible cover icon.
+    - [x] Every terrain piece has a visible cover icon.
     - [ ] Icons readable at zoom 1.0 and still recognizable at zoom 0.5.
     - [ ] Icons don't overlap tokens at default deployment positions.
 
@@ -347,7 +347,7 @@ Locks in use:
     - [ ] Yellow rings visible around every enemy unit.
     - [ ] Red rings (charge threat) larger than yellow (shooting range may be
           larger or smaller depending on weapon, but each ring distinct).
-    - [ ] Released → board returns to pre-Tab state exactly.
+    - [x] Released → board returns to pre-Tab state exactly.
     - [ ] No flicker during repeated Tab press/release.
 
 - [ ] **T11 — LOS line tool**
@@ -375,7 +375,7 @@ Locks in use:
   - **Acceptance — Tier B (visual checklist):**
     - [ ] Three distinct colors in three screenshots.
     - [ ] Line endpoints anchored to base centers.
-    - [ ] Line disappears on hover-off.
+    - [x] Line disappears on hover-off.
 
 - [ ] **T12 — Refactor existing visual scripts to consume UIConstants**
   - **Lock:** UIConstants + all visual scripts (serial — blocks other visual streams)
@@ -487,8 +487,8 @@ Locks in use:
       `regions["label_strip"].diff_pct > 10.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Labels absent at 0.5.
-    - [ ] Labels back at 1.0.
+    - [x] Labels absent at 0.5.
+    - [x] Labels back at 1.0.
     - [ ] No flicker as zoom crosses threshold.
 
 - [ ] **T17 — Cap status icons at 3 with overflow chip**
@@ -509,7 +509,7 @@ Locks in use:
     - `pixel_diff` token region: `regions["token"].diff_pct > 5.0` vs pre-T17 baseline.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Exactly 3 status icons + 1 chip visible.
+    - [x] Exactly 3 status icons + 1 chip visible.
     - [ ] Hover expands chip to show the hidden statuses.
 
 - [ ] **T18 — Wound chip on base edge (replace HP bar)**
@@ -529,7 +529,7 @@ Locks in use:
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
     - [ ] Chip readable at zoom 1.0.
-    - [ ] Single-wound models truly have nothing in that slot.
+    - [x] Single-wound models truly have nothing in that slot.
 
 - [ ] **T19 — Active-unit pulsed ring**
   - **Lock:** TokenLayer  • **Doc:** §2
@@ -618,7 +618,7 @@ Locks in use:
     - No phase has a missing `EndPhaseButton` node.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Button at same position across all phases (eyeball overlay).
+    - [x] Button at same position across all phases (eyeball overlay).
     - [ ] Button label clear in each phase.
 
 ## §4 Phase signaling (continued)
@@ -662,7 +662,7 @@ Locks in use:
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
     - [ ] Edge clearly visible at top, bottom, both sides.
-    - [ ] Doesn't occlude tokens at the edge.
+    - [x] Doesn't occlude tokens at the edge.
 
 - [ ] **T26 — Phase pill click affordance for past/future**
   - **Lock:** HUD-Top  • **Doc:** §4  • **Depends:** T04
@@ -681,9 +681,9 @@ Locks in use:
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
     - [ ] Tooltips readable.
-    - [ ] No accidental phase change.
+    - [x] No accidental phase change.
 
-- [ ] **T27 — Refactor End-Phase button to canonical position**
+- [x] **T27 — Refactor End-Phase button to canonical position**
   - **Lock:** HUD-Right  • **Doc:** §4  • **Depends:** T23
   - **Change:** Implementation of the T23 audit findings.
   - **Acceptance — Tier A:** identical to T23.
@@ -709,9 +709,9 @@ Locks in use:
   - **Acceptance — Tier B:**
     - [ ] Inner fill visibly translucent.
     - [ ] Outer outline visibly thin.
-    - [ ] Both centered on selected unit.
+    - [x] Both centered on selected unit.
 
-- [ ] **T29 — Persistent engagement ring on engaged units**
+- [x] **T29 — Persistent engagement ring on engaged units**
   - **Lock:** Movement  • **Doc:** §5
   - **Touches:** `40k/scripts/EngagementRangeVisual.gd`
   - **Change:** Always-on (not just when relevant action selected) for any unit
@@ -727,8 +727,8 @@ Locks in use:
       select): `total_diff_pct > 2.0` AND specifically in engaged-units region.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Engaged units have a visible faint ring at idle.
-    - [ ] Non-engaged units have no ring at idle.
+    - [x] Engaged units have a visible faint ring at idle.
+    - [x] Non-engaged units have no ring at idle.
 
 - [ ] **T30 — Charge max/expected dashed rings**
   - **Lock:** Charge  • **Doc:** §5
@@ -750,7 +750,7 @@ Locks in use:
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
     - [ ] Two dashed rings clearly visible at declare.
-    - [ ] One solid ring after roll, sized to the result.
+    - [x] One solid ring after roll, sized to the result.
 
 - [ ] **T31 — Standalone ruler tool (R) with public/private toggle**
   - **Lock:** BoardLayer  • **Doc:** §5
@@ -777,7 +777,7 @@ Locks in use:
 
 ## §6 LOS & cover (continued)
 
-- [ ] **T32 — Move LOS Debug to held-key power-user mode**
+- [x] **T32 — Move LOS Debug to held-key power-user mode**
   - **Lock:** BoardLayer  • **Doc:** §6
   - **Touches:** wherever the `LoS Debug (L)` toggle lives
   - **Change:** Demote from always-visible top-bar toggle to held-key (hold `L`)
@@ -793,8 +793,8 @@ Locks in use:
       (assert `get_node_or_null(...) == null`).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Top bar no longer shows the persistent toggle.
-    - [ ] Held-key works in every phase.
+    - [x] Top bar no longer shows the persistent toggle.
+    - [x] Held-key works in every phase.
 
 ## §7 Selection / dice surfacing
 
@@ -874,7 +874,7 @@ Locks in use:
       (e.g. `DiceRollVisual.visible == true` OR a new `DiceHistoryPanel.entries` entry).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Click-only does nothing destructive.
+    - [x] Click-only does nothing destructive.
     - [ ] ENTER (or Confirm button) fires the attack.
 
 ## §8 Roster & panels (continued)
@@ -899,11 +899,11 @@ Locks in use:
       `regions["left_strip"].diff_pct > 20.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] All units listed.
+    - [x] All units listed.
     - [ ] Cards readable; nothing truncated.
-    - [ ] Click + double-click work as specified.
+    - [x] Click + double-click work as specified.
 
-- [ ] **T38 — Filter chips above roster**
+- [x] **T38 — Filter chips above roster**
   - **Lock:** HUD-Left  • **Doc:** §8  • **Depends:** T37
   - **Change:** Chips `All / Can Act / Engaged / Below Half`. Expose
     `LeftRoster.active_filter : String` and `LeftRoster.visible_unit_ids : Array`.
@@ -916,7 +916,7 @@ Locks in use:
     - For "Below Half": all entries' current wounds < max/2.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Filter visibly reduces card count.
+    - [x] Filter visibly reduces card count.
 
 - [ ] **T39 — Datasheet modal on `i` key**
   - **Lock:** HUD-Right  • **Doc:** §8
@@ -936,7 +936,7 @@ Locks in use:
       `DatasheetModal.visible == false` throughout).
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] All datasheet sections present (stats, weapons, keywords, abilities).
+    - [x] All datasheet sections present (stats, weapons, keywords, abilities).
     - [ ] Readable; not clipped.
 
 - [ ] **T40 — Prospective stat panel (recompute on enemy hover)**
@@ -957,7 +957,7 @@ Locks in use:
       .diff_pct > 2.0`.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Panel numbers update on hover.
+    - [x] Panel numbers update on hover.
     - [ ] Modifiers (cover delta) clearly indicated.
 
 ## §9 Color & motion (continued)
@@ -975,7 +975,7 @@ Locks in use:
     - All existing scenarios that previously passed still pass.
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
-    - [ ] Codebase-wide audit committed.
+    - [x] Codebase-wide audit committed.
     - [ ] No regressions when running each player as a different faction palette.
 
 - [ ] **T42 — Striped pattern for semantic yellow**
@@ -1027,7 +1027,7 @@ Locks in use:
     - Regression count ≥ baseline.
   - **Acceptance — Tier B:**
     - [ ] No animation feels "too long".
-    - [ ] Constants referenced from a single source of truth.
+    - [x] Constants referenced from a single source of truth.
 
 - [ ] **T45 — Final design-guidelines compliance audit**
   - **Lock:** Infra  • **Doc:** all
