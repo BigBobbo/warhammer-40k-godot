@@ -478,6 +478,17 @@ func try_place_at(world_pos: Vector2) -> void:
 	if ghost_sprite and ghost_sprite.has_method("get_base_rotation"):
 		rotation = ghost_sprite.get_base_rotation()
 
+	# Issue #87: no part of any model's base may extend off the
+	# battlefield. Applies to all placement modes (normal / reinforcement /
+	# infiltrators) — normal deployment zones are already on-board so this
+	# is a safety net, but reinforcement and infiltrators modes can place
+	# anywhere the rule allows, including the board edge.
+	var edge_check_model: Dictionary = model_data.duplicate()
+	edge_check_model["rotation"] = rotation
+	if Measurement.model_outside_board(world_pos, edge_check_model):
+		_show_toast("Models cannot be placed off the board")
+		return
+
 	# Check placement validity
 	if is_reinforcement_mode:
 		# Reinforcement mode: validate >9" from enemies, on the board

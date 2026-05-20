@@ -3108,23 +3108,9 @@ func _check_position_would_overlap(position: Vector2) -> bool:
 	return false
 
 func _is_position_outside_board(pos: Vector2, model: Dictionary) -> bool:
-	# Check if any part of the model's base would extend beyond the board edges
-	var board_width_px = SettingsService.get_board_width_px()
-	var board_height_px = SettingsService.get_board_height_px()
-
-	# Get the model's base bounds
-	var base_shape = Measurement.create_base_shape(model)
-	var bounds = base_shape.get_bounds()
-	var half_width = bounds.size.x / 2.0
-	var half_height = bounds.size.y / 2.0
-
-	# Check if any edge of the base extends beyond the board
-	if pos.x - half_width < 0 or pos.x + half_width > board_width_px:
-		return true
-	if pos.y - half_height < 0 or pos.y + half_height > board_height_px:
-		return true
-
-	return false
+	# Issue #87: delegate to the shared Measurement helper so deployment,
+	# movement, charge, and fight all use the same rule.
+	return Measurement.model_outside_board(pos, model)
 
 func _update_ghost_validity(is_valid: bool) -> void:
 	# Update the ghost visual to show if position is valid

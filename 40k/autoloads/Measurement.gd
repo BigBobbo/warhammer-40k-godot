@@ -216,6 +216,39 @@ func model_overlaps_any_wall(model: Dictionary) -> bool:
 				return true
 	return false
 
+# Issue #87: returns true if any part of the model's base at `pos`
+# would extend beyond the battlefield rectangle (0,0)-(board_w_px,
+# board_h_px). Single source of truth for the "models cannot move
+# off the board" rule — DeploymentController / MovementController /
+# ChargeController / FightController all call this.
+#
+# If SettingsService isn't available (early test boot, headless audit
+# without autoloads) the function returns false so existing tests
+# that don't supply a board don't trip a board-edge check that
+# wasn't there before.
+func model_outside_board(pos: Vector2, model: Dictionary) -> bool:
+	if not SettingsService:
+		return false
+	var board_w_px := SettingsService.get_board_width_px()
+	var board_h_px := SettingsService.get_board_height_px()
+	if board_w_px <= 0.0 or board_h_px <= 0.0:
+		return false
+	# Build a base shape at the candidate position and check its bbox
+	# against the board rectangle. Works for circles, ovals, hulls.
+	var test_model: Dictionary = model.duplicate()
+	test_model["position"] = pos
+	# Pull rotation if set; create_base_shape uses model["rotation"]
+	var shape := create_base_shape(test_model)
+	var bounds := shape.get_bounds()
+	# get_bounds() returns a Rect2 in WORLD coordinates around `pos`
+	if bounds.position.x < 0.0 or bounds.position.y < 0.0:
+		return true
+	if bounds.position.x + bounds.size.x > board_w_px:
+		return true
+	if bounds.position.y + bounds.size.y > board_h_px:
+		return true
+	return false
+
 # Shape-aware engagement range check
 # This is the recommended function for all engagement range checks throughout the codebase
 # 10th Edition rules: Engagement Range = within er_inches horizontally AND within 5" vertically
