@@ -11,3 +11,8 @@ exports/
 # Wahapedia data exports — kept locally, not committed
 data/*.csv
 data/*.csv.import
+
+# Tier B review HTML — generated locally from .llm/todo.md + per-task
+# screenshots by 40k/tests/tools/generate_review_html.py; large (~18MB
+# of base64-embedded PNGs) and reproducible, so not committed.
+test_results/design_guidelines/review.html

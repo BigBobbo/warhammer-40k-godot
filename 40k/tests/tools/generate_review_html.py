@@ -26,6 +26,7 @@ import os
 import re
 import json
 import sys
+import base64
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -153,21 +154,28 @@ def parse_todo() -> list[dict]:
     return tasks
 
 
-def find_screenshots(task_id: str) -> list[str]:
-    """Return file:// relative paths to all PNGs for this task, after-state first."""
+def find_screenshots(task_id: str) -> list[Path]:
+    """Return Paths to all PNGs for this task, after-state first."""
     task_dir = ARTIFACT_DIR / task_id
     if not task_dir.is_dir():
         return []
-    pngs = sorted(p.name for p in task_dir.glob("*.png"))
-    # Prefer files containing "_after" or "_open" or "_on" — those are post-state.
-    def score(name: str) -> int:
+    pngs = sorted(task_dir.glob("*.png"))
+    def score(p: Path) -> int:
+        name = p.name
         for tag in ("_after", "_open", "_drawn", "_p2_active", "_p1_active",
                    "_two_entries", "_movement", "_with_breadcrumb", "_overlay_on"):
             if tag in name:
                 return 0
         return 1
     pngs.sort(key=score)
-    return [f"./{task_id}/{p}" for p in pngs]
+    return pngs
+
+
+def png_as_data_uri(path: Path) -> str:
+    """Inline a PNG as a base64 data URI so the HTML is fully self-contained."""
+    with path.open("rb") as f:
+        b64 = base64.b64encode(f.read()).decode("ascii")
+    return f"data:image/png;base64,{b64}"
 
 
 def render_html(tasks: list[dict]) -> str:
@@ -241,9 +249,18 @@ def render_html(tasks: list[dict]) -> str:
 
         shots = find_screenshots(t["id"])
         if shots:
-            parts.append('<p class="meta">Cloud screenshot(s) (after-state first):</p>\n')
-            for shot in shots[:3]:  # cap at 3 to keep page light
-                parts.append(f'<img class="shot" src="{shot}" alt="{t["id"]} screenshot">\n')
+            parts.append('<p class="meta">Cloud screenshot(s) (after-state first; embedded base64):</p>\n')
+            # Cap at 2 embedded images per task to keep total HTML size sane.
+            for shot in shots[:2]:
+                uri = png_as_data_uri(shot)
+                parts.append(
+                    f'<img class="shot" src="{uri}" alt="{t["id"]} {shot.name}">\n'
+                )
+            if len(shots) > 2:
+                parts.append(
+                    f'<p class="meta"><i>+{len(shots)-2} more in '
+                    f'<code>40k/test_results/design_guidelines/{t["id"]}/</code></i></p>\n'
+                )
 
         if t["tier_b"]:
             parts.append('<p class="meta">Tier B checklist:</p>\n<ul class="checklist">\n')
