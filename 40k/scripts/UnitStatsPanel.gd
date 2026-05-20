@@ -73,6 +73,24 @@ signal panel_visibility_changed(is_visible: bool)
 func _ready() -> void:
 	print("UnitStatsPanel: _ready() called with 4-section layout")
 
+	# The panel is anchored BOTTOM_WIDE and sits on top of HUD_Right's
+	# bottom edge (which holds Undo / Reset / Confirm). With the default
+	# MOUSE_FILTER_STOP on the panel and its passive containers, clicks
+	# on the Confirm button get eaten by the Spacer/Header inside this
+	# panel before they can reach HUD_Right. Mark the empty
+	# layout-only containers IGNORE so Godot's input pick walks past
+	# them; the ToggleButton keeps its own STOP and stays clickable.
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var _vbox := get_node_or_null("VBox") as Control
+	if _vbox:
+		_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var _header := get_node_or_null("VBox/Header") as Control
+	if _header:
+		_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var _spacer := get_node_or_null("VBox/Header/Spacer") as Control
+	if _spacer:
+		_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	# Apply gothic panel styling
 	_apply_gothic_theme()
 

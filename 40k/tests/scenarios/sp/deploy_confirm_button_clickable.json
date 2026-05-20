@@ -1,0 +1,36 @@
+{
+  "id": "deploy_confirm_button_clickable",
+  "covers": [
+    "deployment.confirm_button_input_path",
+    "ui.overlays.RollLogPanel_no_input_blocking",
+    "ui.overlays.UnitStatsPanel_no_input_blocking"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Regression guard: after the player places a unit's models in their deployment zone, the Undo / Reset / Confirm buttons in HUD_Right must accept real mouse clicks. Two later-z overlays cover the right-bottom corner of the viewport where those buttons live: T35 RollLogPanel (right 320px, y=80..bottom) and UnitStatsPanel (full width, bottom 40-44px). With the default mouse_filter, either overlay (or its inner ScrollContainer / Spacer) consumes the click and confirm() never fires. This scenario drives the full UI path: begin_deploy -> try_place_at -> click_node(ConfirmButton via simulated mouse press) -> expect status=DEPLOYED.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "expect_state", "path": "units.U_BLADE_CHAMPION_A.status", "equals": 0 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/RollLogPanel", "timeout_s": 2.0 },
+    { "act": "expect_node_property", "node": "/root/Main/RollLogPanel", "property": "mouse_filter", "equals": 2 },
+    { "act": "expect_node_property", "node": "/root/Main/UnitStatsPanel", "property": "mouse_filter", "equals": 2 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_BLADE_CHAMPION_A')" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(880, 240))" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "str(Main.deployment_controller.temp_positions[0])", "equals": "(880.0, 240.0)" },
+    { "act": "screenshot", "label": "01_model_placed_ready_to_confirm" },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton", "timeout_s": 2.0 },
+    { "act": "expect_node_property", "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton", "property": "disabled", "equals": false },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton" },
+    { "act": "wait_frames", "frames": 30 },
+
+    { "act": "expect_state", "path": "units.U_BLADE_CHAMPION_A.status", "equals": 2 },
+    { "act": "screenshot", "label": "02_confirm_clicked_unit_deployed" }
+  ]
+}
