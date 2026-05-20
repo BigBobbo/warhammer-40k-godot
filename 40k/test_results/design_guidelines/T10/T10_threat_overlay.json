@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 18,
+  "passed": 21,
   "scenario_id": "T10_threat_overlay",
   "steps": [
     {
@@ -137,11 +137,28 @@
       "step": 16
     },
     {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 17
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 18
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T10_threat_overlay_T10_review.png",
+      "step": 19
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 17
+      "step": 20
     }
   ],
-  "total_steps": 18
+  "total_steps": 21
 }

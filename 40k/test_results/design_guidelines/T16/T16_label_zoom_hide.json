@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 10,
+  "passed": 13,
   "scenario_id": "T16_label_zoom_hide",
   "steps": [
     {
@@ -77,11 +77,28 @@
       "step": 8
     },
     {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T16_label_zoom_hide_T16_review.png",
+      "step": 11
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 9
+      "step": 12
     }
   ],
-  "total_steps": 10
+  "total_steps": 13
 }

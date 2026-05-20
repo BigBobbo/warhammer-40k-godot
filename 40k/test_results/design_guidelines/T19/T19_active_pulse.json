@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 11,
+  "passed": 14,
   "scenario_id": "T19_active_pulse",
   "steps": [
     {
@@ -76,11 +76,28 @@
       "step": 9
     },
     {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 10
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 11
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T19_active_pulse_T19_review.png",
+      "step": 12
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 10
+      "step": 13
     }
   ],
-  "total_steps": 11
+  "total_steps": 14
 }

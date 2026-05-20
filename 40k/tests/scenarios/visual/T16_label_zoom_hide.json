@@ -1,41 +1,71 @@
 {
   "id": "T16_label_zoom_hide",
-  "covers": ["design_guidelines.T16", "tokens.label_zoom_hide"],
+  "covers": [
+    "design_guidelines.T16",
+    "tokens.label_zoom_hide"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 10,
   "description": "TokenVisual gains a Label child. t16_apply_zoom(z) hides it when z < 0.6, shows when z >= 0.6.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B", "timeout_s": 3.0 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_WARBOSS_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node_or_null(\"Label\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).t16_apply_zoom(0.5)",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"Label\").visible",
-      "equals": false },
-
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).t16_apply_zoom(1.0)",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"Label\").visible",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).t16_apply_zoom(0.6)",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).t16_apply_zoom(0.59)",
-      "equals": false },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T16_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

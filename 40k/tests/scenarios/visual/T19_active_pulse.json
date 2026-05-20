@@ -1,39 +1,73 @@
 {
   "id": "T19_active_pulse",
-  "covers": ["design_guidelines.T19", "tokens.active_pulse"],
+  "covers": [
+    "design_guidelines.T19",
+    "tokens.active_pulse"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 10,
   "description": "TokenVisual.start_pulse() begins a 2s loop varying SlotRing modulate.a between 0.7 and 1.0. is_pulsing flips true. stop_pulse() restores 0.7 alpha and resets the flag.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "expect_token_visible", "unit_id": "U_WARBOSS_B", "timeout_s": 3.0 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_token_visible",
+      "unit_id": "U_WARBOSS_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).is_pulsing",
-      "equals": false },
-
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).start_pulse()" },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).start_pulse()"
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).is_pulsing",
-      "equals": true },
-
-    { "act": "wait_seconds", "seconds": 0.6 },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"SlotRing\").modulate.a > 0.65",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).stop_pulse()" },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).stop_pulse()"
+    },
+    {
+      "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/TokenLayer\").get_child(0).is_pulsing",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "is_equal_approx(main.get_node(\"BoardRoot/TokenLayer\").get_child(0).get_node(\"SlotRing\").modulate.a, 0.7)",
-      "equals": true },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T19_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

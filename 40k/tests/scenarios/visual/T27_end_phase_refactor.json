@@ -1,33 +1,57 @@
 {
   "id": "T27_end_phase_refactor",
-  "covers": ["design_guidelines.T27", "hud.end_phase_refactor"],
+  "covers": [
+    "design_guidelines.T27",
+    "hud.end_phase_refactor"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 10,
   "description": "T27 is the implementation of the T23 audit. Re-asserts the canonical EndPhaseButton properties in a different phase (Fight) to catch phase-specific regressions.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/EndPhaseButton\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/EndPhaseButton\").text",
-      "equals": "End Phase" },
-    { "act": "execute_script",
+      "equals": "End Phase"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/EndPhaseButton\").custom_minimum_size.x",
-      "expect_min": 100 },
-    { "act": "execute_script",
+      "expect_min": 100
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/EndPhaseButton\").t23_anchor_offset().distance_to(Vector2(200, 60))",
-      "expect_max": 4.0 },
-
-    { "act": "execute_script",
+      "expect_max": 4.0
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/EndPhaseButton\").REFERENCE_OFFSET_FROM_RIGHT",
-      "equals": 200 },
-    { "act": "execute_script",
+      "equals": 200
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/EndPhaseButton\").REFERENCE_OFFSET_FROM_BOTTOM",
-      "equals": 60 },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": 60
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T27_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

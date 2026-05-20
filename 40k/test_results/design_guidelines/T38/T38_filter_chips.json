@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 15,
+  "passed": 17,
   "scenario_id": "T38_filter_chips",
   "steps": [
     {
@@ -114,11 +114,22 @@
       "step": 13
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 14
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T38_filter_chips_T38_review.png",
+      "step": 15
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 14
+      "step": 16
     }
   ],
-  "total_steps": 15
+  "total_steps": 17
 }

@@ -1,38 +1,65 @@
 {
   "id": "T22_auto_zoom_decision",
-  "covers": ["design_guidelines.T22", "camera.fit_decision"],
+  "covers": [
+    "design_guidelines.T22",
+    "camera.fit_decision"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 10,
   "description": "Main.fit_view_to_decision(unit_ids) zooms+centers the camera on the union bbox of the affected units. last_camera_fit_action = 'decision' on success; false on empty input.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "execute_script",
-      "script": "main.camera.set(\"position\", Vector2(0, 0))" },
-    { "act": "execute_script",
-      "script": "main.set(\"last_camera_fit_action\", \"\")" },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "main.camera.set(\"position\", Vector2(0, 0))"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.set(\"last_camera_fit_action\", \"\")"
+    },
+    {
+      "act": "execute_script",
       "script": "main.fit_view_to_decision([\"U_WARBOSS_B\", \"U_CUSTODIAN_GUARD_B\"])",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "main.last_camera_fit_action",
-      "equals": "decision" },
-    { "act": "execute_script",
+      "equals": "decision"
+    },
+    {
+      "act": "execute_script",
       "script": "main.camera.position.distance_to(Vector2(351.5, 100.0))",
-      "expect_max": 20.0 },
-    { "act": "execute_script",
+      "expect_max": 20.0
+    },
+    {
+      "act": "execute_script",
       "script": "is_equal_approx(main.camera.zoom.x, main.camera.zoom.y)",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "main.fit_view_to_decision([])",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "main.fit_view_to_decision([\"NOPE\"])",
-      "equals": false },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": false
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T22_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

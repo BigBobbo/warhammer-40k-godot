@@ -1,88 +1,150 @@
 {
   "id": "T04_phase_bar",
-  "covers": ["design_guidelines.T04", "hud.phase_bar"],
+  "covers": [
+    "design_guidelines.T04",
+    "hud.phase_bar"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 6,
   "description": "Six-pill phase bar in the top-center. Active pill modulates by active player's slot color; completed pills go dim grey (0.5,0.5,0.5,1); future pills go alpha 0.4. co_pretrigger has active_player=2 so active color is ENEMY_PLAYER_MAGENTA. Drives COMMAND -> MOVEMENT -> SHOOTING via PhaseManager.transition_to_phase and asserts modulate at each step.",
-
   "regions": {
-    "phase_bar": [400, 0, 1120, 80]
+    "phase_bar": [
+      400,
+      0,
+      1120,
+      80
+    ]
   },
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/PhaseBar\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_COMMAND\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_MOVEMENT\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_SHOOTING\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_CHARGE\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_FIGHT\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_MORALE\") != null",
-      "equals": true },
-
-    { "act": "screenshot", "label": "T04_command" },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "T04_command"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_COMMAND\").modulate.to_html(true)",
-      "equals": "e633b3ff" },
-    { "act": "execute_script",
+      "equals": "e633b3ff"
+    },
+    {
+      "act": "execute_script",
       "script": "is_equal_approx(get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_MOVEMENT\").modulate.a, 0.4)",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "is_equal_approx(get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_SHOOTING\").modulate.a, 0.4)",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "PhaseManager.transition_to_phase(7)" },
-    { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "screenshot", "label": "T04_movement" },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "screenshot",
+      "label": "T04_movement"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_COMMAND\").modulate.to_html(true)",
-      "equals": "808080ff" },
-    { "act": "execute_script",
+      "equals": "808080ff"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_MOVEMENT\").modulate.to_html(true)",
-      "equals": "e633b3ff" },
-    { "act": "execute_script",
+      "equals": "e633b3ff"
+    },
+    {
+      "act": "execute_script",
       "script": "is_equal_approx(get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_SHOOTING\").modulate.a, 0.4)",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "PhaseManager.transition_to_phase(8)" },
-    { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "screenshot", "label": "T04_shooting" },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(8)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "screenshot",
+      "label": "T04_shooting"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_COMMAND\").modulate.to_html(true)",
-      "equals": "808080ff" },
-    { "act": "execute_script",
+      "equals": "808080ff"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_MOVEMENT\").modulate.to_html(true)",
-      "equals": "808080ff" },
-    { "act": "execute_script",
+      "equals": "808080ff"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/PhaseBar/Stack/Pills/PhasePill_SHOOTING\").modulate.to_html(true)",
-      "equals": "e633b3ff" },
-
-    { "act": "pixel_diff",
+      "equals": "e633b3ff"
+    },
+    {
+      "act": "pixel_diff",
       "before": "T04_command",
-      "after":  "T04_shooting",
+      "after": "T04_shooting",
       "region": "phase_bar",
-      "expect_min_pct": 1.0 },
-
-    { "act": "expect_baseline_unchanged" }
+      "expect_min_pct": 1.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T04_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

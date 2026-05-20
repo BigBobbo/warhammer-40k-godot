@@ -1,46 +1,83 @@
 {
   "id": "T34_floating_damage",
-  "covers": ["design_guidelines.T34", "shooting.floating_damage"],
+  "covers": [
+    "design_guidelines.T34",
+    "shooting.floating_damage"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 8,
   "description": "DamageFeedbackVisual.spawn_damage_floats(pos, wounds, models_lost, duration) appends entries to active_floats. Entries auto-prune after duration via _t34_tick_floats in _process.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/BoardRoot/DamageFeedbackVisual\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/DamageFeedbackVisual\").active_floats.size()",
-      "equals": 0 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/DamageFeedbackVisual\").spawn_damage_floats(Vector2(200, 100), 3, 1, 2.0)" },
-    { "act": "execute_script",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/DamageFeedbackVisual\").spawn_damage_floats(Vector2(200, 100), 3, 1, 2.0)"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/DamageFeedbackVisual\").active_floats.size()",
-      "equals": 2 },
-    { "act": "execute_script",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/DamageFeedbackVisual\").active_floats[0].text",
-      "equals": "-3W" },
-    { "act": "execute_script",
+      "equals": "-3W"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/DamageFeedbackVisual\").active_floats[1].text",
-      "equals": "-1 models" },
-    { "act": "execute_script",
+      "equals": "-1 models"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/DamageFeedbackVisual\").active_floats[0].position.distance_to(Vector2(200, 100))",
-      "expect_max": 1.0 },
-
-    { "act": "wait_seconds", "seconds": 2.3 },
-    { "act": "execute_script",
+      "expect_max": 1.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.3
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/DamageFeedbackVisual\").active_floats.size()",
-      "equals": 0 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/DamageFeedbackVisual\").spawn_damage_floats(Vector2(0, 0), 2, 0, 2.0)" },
-    { "act": "execute_script",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/DamageFeedbackVisual\").spawn_damage_floats(Vector2(0, 0), 2, 0, 2.0)"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/DamageFeedbackVisual\").active_floats.size()",
-      "equals": 1 },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T34_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

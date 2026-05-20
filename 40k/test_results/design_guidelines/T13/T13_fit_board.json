@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 18,
+  "passed": 20,
   "scenario_id": "T13_fit_board",
   "steps": [
     {
@@ -93,13 +93,13 @@
     },
     {
       "act": "pixel_diff",
-      "diff_pct": 18.5481288580247,
+      "diff_pct": 18.5466820987654,
       "pass": true,
       "result": {
         "regions": {
 
         },
-        "total_diff_pct": 18.5481288580247
+        "total_diff_pct": 18.5466820987654
       },
       "step": 13
     },
@@ -125,11 +125,22 @@
       "step": 16
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 17
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T13_fit_board_T13_review.png",
+      "step": 18
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 17
+      "step": 19
     }
   ],
-  "total_steps": 18
+  "total_steps": 20
 }

@@ -1,65 +1,113 @@
 {
   "id": "T30_charge_dashed_rings",
-  "covers": ["design_guidelines.T30", "charge.dashed_rings"],
+  "covers": [
+    "design_guidelines.T30",
+    "charge.dashed_rings"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 9,
   "description": "ChargeTrajectoryPreview.rings drives the dashed/solid ring schema for T30. t30_declare_charge_rings() yields [{max, dashed, 12*ppi}, {expected, dashed, 7*ppi}]. t30_set_rolled_ring(N) yields [{rolled, solid, N*ppi}]. t30_clear_rings() empties it.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.6 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings.size()",
-      "equals": 0 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").t30_declare_charge_rings()" },
-    { "act": "execute_script",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").t30_declare_charge_rings()"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings.size()",
-      "equals": 2 },
-    { "act": "execute_script",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings[0].label",
-      "equals": "max" },
-    { "act": "execute_script",
+      "equals": "max"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings[1].label",
-      "equals": "expected" },
-    { "act": "execute_script",
+      "equals": "expected"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings[0].style",
-      "equals": "dashed" },
-    { "act": "execute_script",
+      "equals": "dashed"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings[1].style",
-      "equals": "dashed" },
-    { "act": "execute_script",
+      "equals": "dashed"
+    },
+    {
+      "act": "execute_script",
       "script": "abs(get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings[0].radius_px - 12.0 * Measurement.PX_PER_INCH)",
-      "expect_max": 1.0 },
-    { "act": "execute_script",
+      "expect_max": 1.0
+    },
+    {
+      "act": "execute_script",
       "script": "abs(get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings[1].radius_px - 7.0 * Measurement.PX_PER_INCH)",
-      "expect_max": 1.0 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").t30_set_rolled_ring(9.5)" },
-    { "act": "execute_script",
+      "expect_max": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").t30_set_rolled_ring(9.5)"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings.size()",
-      "equals": 1 },
-    { "act": "execute_script",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings[0].label",
-      "equals": "rolled" },
-    { "act": "execute_script",
+      "equals": "rolled"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings[0].style",
-      "equals": "solid" },
-    { "act": "execute_script",
+      "equals": "solid"
+    },
+    {
+      "act": "execute_script",
       "script": "abs(get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings[0].radius_px - 9.5 * Measurement.PX_PER_INCH)",
-      "expect_max": 1.0 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").t30_clear_rings()" },
-    { "act": "execute_script",
+      "expect_max": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").t30_clear_rings()"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ChargeTrajectoryPreview\").rings.size()",
-      "equals": 0 },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T30_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 8,
+  "passed": 11,
   "scenario_id": "T32_los_debug_held",
   "steps": [
     {
@@ -63,11 +63,28 @@
       "step": 6
     },
     {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 7
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 8
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T32_los_debug_held_T32_review.png",
+      "step": 9
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 7
+      "step": 10
     }
   ],
-  "total_steps": 8
+  "total_steps": 11
 }

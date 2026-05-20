@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 26,
+  "passed": 28,
   "scenario_id": "T04_phase_bar",
   "steps": [
     {
@@ -194,22 +194,33 @@
     },
     {
       "act": "pixel_diff",
-      "diff_pct": 4.27008928571429,
+      "diff_pct": 4.26674107142857,
       "pass": true,
       "result": {
         "regions": {
-          "phase_bar": 4.27008928571429
+          "phase_bar": 4.26674107142857
         },
-        "total_diff_pct": 40.2901234567901
+        "total_diff_pct": 38.8265817901235
       },
       "step": 24
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 25
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T04_phase_bar_T04_review.png",
+      "step": 26
     },
     {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 25
+      "step": 27
     }
   ],
-  "total_steps": 26
+  "total_steps": 28
 }

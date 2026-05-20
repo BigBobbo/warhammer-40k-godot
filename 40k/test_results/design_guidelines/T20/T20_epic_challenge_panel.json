@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 13,
+  "passed": 15,
   "scenario_id": "T20_epic_challenge_panel",
   "steps": [
     {
@@ -97,11 +97,22 @@
       "step": 11
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T20_epic_challenge_panel_T20_review.png",
+      "step": 13
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 12
+      "step": 14
     }
   ],
-  "total_steps": 13
+  "total_steps": 15
 }

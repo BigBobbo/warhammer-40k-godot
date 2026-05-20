@@ -1,53 +1,88 @@
 {
   "id": "T38_filter_chips",
-  "covers": ["design_guidelines.T38", "hud.roster_filters"],
+  "covers": [
+    "design_guidelines.T38",
+    "hud.roster_filters"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 10,
   "description": "LeftRoster.set_active_filter exposes the four T38 filters: all, can_act, engaged, below_half. visible_unit_ids reflects the filtered subset.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.6 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/LeftRoster\").active_filter",
-      "equals": "all" },
-    { "act": "execute_script",
+      "equals": "all"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/LeftRoster\").visible_unit_ids.size() == GameState.state.units.size()",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/LeftRoster\").set_active_filter(\"can_act\")" },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/LeftRoster\").set_active_filter(\"can_act\")"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/LeftRoster\").active_filter",
-      "equals": "can_act" },
-    { "act": "execute_script",
+      "equals": "can_act"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/LeftRoster\").visible_unit_ids.size() <= GameState.state.units.size()",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/LeftRoster\").set_active_filter(\"engaged\")" },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/LeftRoster\").set_active_filter(\"engaged\")"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/LeftRoster\").active_filter",
-      "equals": "engaged" },
-    { "act": "execute_script",
+      "equals": "engaged"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/LeftRoster\").visible_unit_ids.size() <= GameState.state.units.size()",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/LeftRoster\").set_active_filter(\"below_half\")" },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/LeftRoster\").set_active_filter(\"below_half\")"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/LeftRoster\").active_filter",
-      "equals": "below_half" },
-    { "act": "execute_script",
+      "equals": "below_half"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/LeftRoster\").visible_unit_ids.size() <= GameState.state.units.size()",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/LeftRoster\").set_active_filter(\"all\")" },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/LeftRoster\").set_active_filter(\"all\")"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/LeftRoster\").visible_unit_ids.size() == GameState.state.units.size()",
-      "equals": true },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T38_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 10,
+  "passed": 12,
   "scenario_id": "T02_harness_self_check",
   "steps": [
     {
@@ -44,7 +44,7 @@
     },
     {
       "act": "execute_script",
-      "actual": 33,
+      "actual": 26,
       "error": "",
       "expect_min": 1.0,
       "pass": true,
@@ -75,11 +75,22 @@
       "step": 8
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T02_harness_self_check_T02_review.png",
+      "step": 10
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 9
+      "step": 11
     }
   ],
-  "total_steps": 10
+  "total_steps": 12
 }

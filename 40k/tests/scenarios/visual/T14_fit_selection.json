@@ -1,56 +1,96 @@
 {
   "id": "T14_fit_selection",
-  "covers": ["design_guidelines.T14", "camera.fit_selection"],
+  "covers": [
+    "design_guidelines.T14",
+    "camera.fit_selection"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 10,
   "description": "Shift+F zooms + centers the camera on the selected unit's bounding box (all its models). Asserts last_camera_fit_action transitions to 'selection', camera position within 10px of the unit centroid, zoom isotropic, and pixel_diff confirms the frame changed. Tests both the direct fit_view_to_selection(unit_id) call and the Shift+F keybind path via t14_synthesize_shift_f_press.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-
-    { "act": "execute_script",
-      "script": "main.camera.set(\"position\", Vector2(0, 0))" },
-    { "act": "execute_script",
-      "script": "main.camera.set(\"zoom\", Vector2(0.1, 0.1))" },
-    { "act": "wait_frames", "frames": 2 },
-    { "act": "screenshot", "label": "T14_before" },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.camera.set(\"position\", Vector2(0, 0))"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.camera.set(\"zoom\", Vector2(0.1, 0.1))"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "T14_before"
+    },
+    {
+      "act": "execute_script",
       "script": "main.fit_view_to_selection(\"U_WARBOSS_B\")",
-      "equals": true },
-    { "act": "wait_frames", "frames": 4 },
-    { "act": "screenshot", "label": "T14_after" },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "T14_after"
+    },
+    {
+      "act": "execute_script",
       "script": "main.last_camera_fit_action",
-      "equals": "selection" },
-
-    { "act": "execute_script",
+      "equals": "selection"
+    },
+    {
+      "act": "execute_script",
       "script": "main.camera.position.distance_to(Vector2(GameState.state.units.U_WARBOSS_B.models[0].position.x, GameState.state.units.U_WARBOSS_B.models[0].position.y))",
-      "expect_max": 10.0 },
-
-    { "act": "execute_script",
+      "expect_max": 10.0
+    },
+    {
+      "act": "execute_script",
       "script": "is_equal_approx(main.camera.zoom.x, main.camera.zoom.y)",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "main.camera.zoom.x > 0.0",
-      "equals": true },
-
-    { "act": "pixel_diff",
+      "equals": true
+    },
+    {
+      "act": "pixel_diff",
       "before": "T14_before",
-      "after":  "T14_after",
-      "expect_min_pct": 8.0 },
-
-    { "act": "execute_script",
-      "script": "main.set(\"last_camera_fit_action\", \"\")" },
-    { "act": "execute_script",
+      "after": "T14_after",
+      "expect_min_pct": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.set(\"last_camera_fit_action\", \"\")"
+    },
+    {
+      "act": "execute_script",
       "script": "main.fit_view_to_selection(\"\")",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "main.last_camera_fit_action",
-      "equals": "" },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": ""
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T14_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

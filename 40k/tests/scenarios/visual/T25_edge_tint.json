@@ -1,52 +1,87 @@
 {
   "id": "T25_edge_tint",
-  "covers": ["design_guidelines.T25", "hud.active_player_edge"],
+  "covers": [
+    "design_guidelines.T25",
+    "hud.active_player_edge"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 10,
   "description": "Active-player edge tint. Outer 4px frame of the play area is modulated in the active player's UIConstants slot color (TEAL P1 / MAGENTA P2). co_pretrigger has active_player=2 so initial color is ENEMY_PLAYER_MAGENTA. Flipping active_player and emitting phase_changed should update the modulate to TEAL.",
-
   "regions": {
-    "top_edge": [0, 0, 1920, 16]
+    "top_edge": [
+      0,
+      0,
+      1920,
+      16
+    ]
   },
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 1.0 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/EdgeTint\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/EdgeTint\").size.x",
-      "expect_min": 100 },
-
-    { "act": "execute_script",
+      "expect_min": 100
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/EdgeTint\").modulate.to_html(true)",
-      "equals": "e633b3ff" },
-
-    { "act": "screenshot", "label": "T25_p2_active" },
-
-    { "act": "execute_script",
-      "script": "GameState.state.meta.set(\"active_player\", 1)" },
-    { "act": "execute_script",
-      "script": "PhaseManager.emit_signal(\"phase_changed\", 6)" },
-    { "act": "wait_frames", "frames": 6 },
-    { "act": "screenshot", "label": "T25_p1_active" },
-
-    { "act": "execute_script",
+      "equals": "e633b3ff"
+    },
+    {
+      "act": "screenshot",
+      "label": "T25_p2_active"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.meta.set(\"active_player\", 1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.emit_signal(\"phase_changed\", 6)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "screenshot",
+      "label": "T25_p1_active"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/EdgeTint\").modulate.to_html(true)",
-      "equals": "00b3b3ff" },
-
-    { "act": "pixel_diff",
+      "equals": "00b3b3ff"
+    },
+    {
+      "act": "pixel_diff",
       "before": "T25_p2_active",
-      "after":  "T25_p1_active",
+      "after": "T25_p1_active",
       "region": "top_edge",
-      "expect_min_pct": 5.0 },
-
-    { "act": "execute_script",
+      "expect_min_pct": 5.0
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/EdgeTint\").mouse_filter",
-      "equals": 2 },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": 2
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T25_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

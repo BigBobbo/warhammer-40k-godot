@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 17,
+  "passed": 19,
   "scenario_id": "T14_fit_selection",
   "steps": [
     {
@@ -123,11 +123,22 @@
       "step": 15
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 16
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T14_fit_selection_T14_review.png",
+      "step": 17
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 16
+      "step": 18
     }
   ],
-  "total_steps": 17
+  "total_steps": 19
 }

@@ -1,58 +1,99 @@
 {
   "id": "T13_fit_board",
-  "covers": ["design_guidelines.T13", "camera.fit_board"],
+  "covers": [
+    "design_guidelines.T13",
+    "camera.fit_board"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 6,
   "description": "Press F to fit the whole board into the viewport with 32px margin. Asserts Camera2D position is within 8px of board-center, zoom is within 0.02 of the computed fit-zoom, and Main.last_camera_fit_action == 'board'. pixel_diff confirms the frame changed.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
       "script": "main.last_camera_fit_action",
-      "equals": "" },
-
-    { "act": "execute_script",
-      "script": "main.camera.set(\"position\", Vector2(0, 0))" },
-    { "act": "execute_script",
-      "script": "main.camera.set(\"zoom\", Vector2(0.1, 0.1))" },
-    { "act": "wait_frames", "frames": 2 },
-    { "act": "screenshot", "label": "T13_before" },
-
-    { "act": "execute_script",
-      "script": "main.fit_view_to_board()" },
-    { "act": "wait_frames", "frames": 4 },
-    { "act": "screenshot", "label": "T13_after" },
-
-    { "act": "execute_script",
+      "equals": ""
+    },
+    {
+      "act": "execute_script",
+      "script": "main.camera.set(\"position\", Vector2(0, 0))"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.camera.set(\"zoom\", Vector2(0.1, 0.1))"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "T13_before"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "T13_after"
+    },
+    {
+      "act": "execute_script",
       "script": "main.last_camera_fit_action",
-      "equals": "board" },
-
-    { "act": "execute_script",
+      "equals": "board"
+    },
+    {
+      "act": "execute_script",
       "script": "main.camera.position.distance_to(Vector2(SettingsService.get_board_width_px() * 0.5, SettingsService.get_board_height_px() * 0.5))",
-      "expect_max": 8.0 },
-
-    { "act": "execute_script",
+      "expect_max": 8.0
+    },
+    {
+      "act": "execute_script",
       "script": "abs(main.camera.zoom.x - min(get_viewport().get_visible_rect().size.x / (SettingsService.get_board_width_px() + 64.0), get_viewport().get_visible_rect().size.y / (SettingsService.get_board_height_px() + 64.0)))",
-      "expect_max": 0.02 },
-
-    { "act": "execute_script",
+      "expect_max": 0.02
+    },
+    {
+      "act": "execute_script",
       "script": "is_equal_approx(main.camera.zoom.x, main.camera.zoom.y)",
-      "equals": true },
-
-    { "act": "pixel_diff",
+      "equals": true
+    },
+    {
+      "act": "pixel_diff",
       "before": "T13_before",
-      "after":  "T13_after",
-      "expect_min_pct": 10.0 },
-
-    { "act": "execute_script",
-      "script": "main.set(\"last_camera_fit_action\", \"\")" },
-    { "act": "execute_script",
-      "script": "main.camera.set(\"position\", Vector2(0, 0))" },
-    { "act": "execute_script",
+      "after": "T13_after",
+      "expect_min_pct": 10.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.set(\"last_camera_fit_action\", \"\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.camera.set(\"position\", Vector2(0, 0))"
+    },
+    {
+      "act": "execute_script",
       "script": "main.t13_synthesize_f_press()",
-      "equals": "board" },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": "board"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T13_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

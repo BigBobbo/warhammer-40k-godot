@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 23,
+  "passed": 25,
   "scenario_id": "T31_ruler_tool",
   "steps": [
     {
@@ -177,11 +177,22 @@
       "step": 21
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 22
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T31_ruler_tool_T31_review.png",
+      "step": 23
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 22
+      "step": 24
     }
   ],
-  "total_steps": 23
+  "total_steps": 25
 }

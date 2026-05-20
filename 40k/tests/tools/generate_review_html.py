@@ -171,11 +171,28 @@ def find_screenshots(task_id: str) -> list[Path]:
     return pngs
 
 
-def png_as_data_uri(path: Path) -> str:
-    """Inline a PNG as a base64 data URI so the HTML is fully self-contained."""
-    with path.open("rb") as f:
-        b64 = base64.b64encode(f.read()).decode("ascii")
-    return f"data:image/png;base64,{b64}"
+def png_as_data_uri(path: Path, max_width: int = 960, jpeg_quality: int = 78) -> str:
+    """Inline an image as a base64 data URI. Downscales (Pillow) and converts
+    to JPEG to keep the embedded HTML small enough to share via email/chat.
+    Falls back to raw PNG embed if Pillow isn't installed."""
+    try:
+        from PIL import Image  # type: ignore
+    except ImportError:
+        with path.open("rb") as f:
+            b64 = base64.b64encode(f.read()).decode("ascii")
+        return f"data:image/png;base64,{b64}"
+
+    img = Image.open(path)
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    if img.width > max_width:
+        h = int(img.height * (max_width / img.width))
+        img = img.resize((max_width, h), Image.Resampling.LANCZOS)
+    import io
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=jpeg_quality, optimize=True)
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{b64}"
 
 
 def render_html(tasks: list[dict]) -> str:
@@ -249,17 +266,20 @@ def render_html(tasks: list[dict]) -> str:
 
         shots = find_screenshots(t["id"])
         if shots:
-            parts.append('<p class="meta">Cloud screenshot(s) (after-state first; embedded base64):</p>\n')
-            # Cap at 2 embedded images per task to keep total HTML size sane.
-            for shot in shots[:2]:
-                uri = png_as_data_uri(shot)
+            # Pick the best single shot: prefer "_review" (post-T44 capture
+            # taken specifically for this report), else first-by-score.
+            best = next((s for s in shots if "_review" in s.name), shots[0])
+            uri = png_as_data_uri(best)
+            parts.append(
+                f'<p class="meta">Cloud screenshot ({best.name}, embedded):</p>\n'
+                f'<img class="shot" src="{uri}" alt="{t["id"]} {best.name}">\n'
+            )
+            if len(shots) > 1:
+                others = ", ".join(s.name for s in shots if s != best)
                 parts.append(
-                    f'<img class="shot" src="{uri}" alt="{t["id"]} {shot.name}">\n'
-                )
-            if len(shots) > 2:
-                parts.append(
-                    f'<p class="meta"><i>+{len(shots)-2} more in '
-                    f'<code>40k/test_results/design_guidelines/{t["id"]}/</code></i></p>\n'
+                    f'<p class="meta"><i>Other captures in <code>'
+                    f'40k/test_results/design_guidelines/{t["id"]}/</code>: '
+                    f'{_html_escape(others)}</i></p>\n'
                 )
 
         if t["tier_b"]:

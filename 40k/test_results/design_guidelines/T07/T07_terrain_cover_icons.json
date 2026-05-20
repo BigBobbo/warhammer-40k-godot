@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 15,
+  "passed": 17,
   "scenario_id": "T07_terrain_cover_icons",
   "steps": [
     {
@@ -99,22 +99,33 @@
     },
     {
       "act": "pixel_diff",
-      "diff_pct": 0.0225212191358025,
+      "diff_pct": 0.0200617283950617,
       "pass": true,
       "result": {
         "regions": {
 
         },
-        "total_diff_pct": 0.0225212191358025
+        "total_diff_pct": 0.0200617283950617
       },
       "step": 13
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 14
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T07_terrain_cover_icons_T07_review.png",
+      "step": 15
     },
     {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 14
+      "step": 16
     }
   ],
-  "total_steps": 15
+  "total_steps": 17
 }

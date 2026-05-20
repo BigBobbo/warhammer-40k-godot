@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 25,
+  "passed": 27,
   "scenario_id": "T39_datasheet_modal",
   "steps": [
     {
@@ -209,11 +209,22 @@
       "step": 23
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 24
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T39_datasheet_modal_T39_review.png",
+      "step": 25
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 24
+      "step": 26
     }
   ],
-  "total_steps": 25
+  "total_steps": 27
 }

@@ -1,59 +1,107 @@
 {
   "id": "T10_threat_overlay",
-  "covers": ["design_guidelines.T10", "board.threat_overlay"],
+  "covers": [
+    "design_guidelines.T10",
+    "board.threat_overlay"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 8,
   "description": "Held-Tab threat overlay. active=false at idle; set_active(true) spawns two rings per enemy unit (shoot=MARGINAL_YELLOW, charge=INVALID_RED). set_active(false) tears down. co_pretrigger has active_player=2, so all P1 units are enemies and contribute rings.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.4 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/BoardRoot/ThreatOverlay\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings.size()",
-      "equals": 0 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").set_active(true)" },
-    { "act": "wait_frames", "frames": 3 },
-
-    { "act": "execute_script",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").set_active(true)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings.size()",
-      "expect_min": 2 },
-    { "act": "execute_script",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings[0].color_slot",
-      "equals": "MARGINAL_YELLOW" },
-    { "act": "execute_script",
+      "equals": "MARGINAL_YELLOW"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings[1].color_slot",
-      "equals": "INVALID_RED" },
-    { "act": "execute_script",
+      "equals": "INVALID_RED"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings[1].kind",
-      "equals": "charge" },
-    { "act": "execute_script",
+      "equals": "charge"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings[0].kind",
-      "equals": "shoot" },
-    { "act": "execute_script",
+      "equals": "shoot"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").get_child_count()",
-      "expect_min": 2 },
-
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").set_active(false)" },
-    { "act": "wait_frames", "frames": 3 },
-    { "act": "execute_script",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").set_active(false)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").active",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/ThreatOverlay\").rendered_rings.size()",
-      "equals": 0 },
-
-    { "act": "expect_baseline_unchanged" }
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T10_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 10,
+  "passed": 12,
   "scenario_id": "T22_auto_zoom_decision",
   "steps": [
     {
@@ -74,11 +74,22 @@
       "step": 8
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 9
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T22_auto_zoom_decision_T22_review.png",
+      "step": 10
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 9
+      "step": 11
     }
   ],
-  "total_steps": 10
+  "total_steps": 12
 }

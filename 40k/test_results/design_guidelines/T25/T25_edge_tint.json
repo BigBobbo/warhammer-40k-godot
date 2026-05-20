@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 13,
+  "passed": 15,
   "scenario_id": "T25_edge_tint",
   "steps": [
     {
@@ -80,7 +80,7 @@
         "regions": {
           "top_edge": 100.0
         },
-        "total_diff_pct": 42.758487654321
+        "total_diff_pct": 42.7587287808642
       },
       "step": 10
     },
@@ -94,11 +94,22 @@
       "step": 11
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 12
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T25_edge_tint_T25_review.png",
+      "step": 13
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 12
+      "step": 14
     }
   ],
-  "total_steps": 13
+  "total_steps": 15
 }

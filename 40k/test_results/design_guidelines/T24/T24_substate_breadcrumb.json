@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 19,
+  "passed": 21,
   "scenario_id": "T24_substate_breadcrumb",
   "steps": [
     {
@@ -146,11 +146,22 @@
       "step": 17
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 18
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T24_substate_breadcrumb_T24_review.png",
+      "step": 19
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 18
+      "step": 20
     }
   ],
-  "total_steps": 19
+  "total_steps": 21
 }

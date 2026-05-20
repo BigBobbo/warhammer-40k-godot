@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 19,
+  "passed": 22,
   "scenario_id": "T17_status_overflow",
   "steps": [
     {
@@ -148,11 +148,28 @@
       "step": 17
     },
     {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 18
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 19
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T17_status_overflow_T17_review.png",
+      "step": 20
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 18
+      "step": 21
     }
   ],
-  "total_steps": 19
+  "total_steps": 22
 }

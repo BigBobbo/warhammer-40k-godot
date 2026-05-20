@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 14,
+  "passed": 17,
   "scenario_id": "T09_exhaustion_grayscale",
   "steps": [
     {
@@ -103,11 +103,28 @@
       "step": 12
     },
     {
+      "act": "execute_script",
+      "actual": null,
+      "pass": true,
+      "step": 13
+    },
+    {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 14
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T09_exhaustion_grayscale_T09_review.png",
+      "step": 15
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 13
+      "step": 16
     }
   ],
-  "total_steps": 14
+  "total_steps": 17
 }

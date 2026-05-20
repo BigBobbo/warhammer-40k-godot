@@ -1,47 +1,82 @@
 {
   "id": "T29_persistent_engagement",
-  "covers": ["design_guidelines.T29", "board.persistent_engagement"],
+  "covers": [
+    "design_guidelines.T29",
+    "board.persistent_engagement"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 10,
   "description": "Persistent engagement rings. Walks units and creates an EngagementRangeVisual per engaged unit (any model within 1\" of an enemy). co_pretrigger has WARBOSS charged into CUSTODIAN_GUARD so both should be engaged at idle. Each ring is named EngagementRing_<unit_id> with is_persistent=true.",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.7 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/BoardRoot/PersistentEngagementOverlay\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
-      "script": "GameState.state.units.U_WARBOSS_B.models[0].position.set(\"x\", 220)" },
-    { "act": "execute_script",
-      "script": "GameState.state.units.U_WARBOSS_B.models[0].position.set(\"y\", 100)" },
-    { "act": "execute_script",
-      "script": "get_node(\"/root/Main/BoardRoot/PersistentEngagementOverlay\").refresh()" },
-    { "act": "wait_frames", "frames": 3 },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units.U_WARBOSS_B.models[0].position.set(\"x\", 220)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units.U_WARBOSS_B.models[0].position.set(\"y\", 100)"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_node(\"/root/Main/BoardRoot/PersistentEngagementOverlay\").refresh()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/PersistentEngagementOverlay\").get_child_count()",
-      "expect_min": 2 },
-
-    { "act": "execute_script",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/BoardRoot/PersistentEngagementOverlay/EngagementRing_U_WARBOSS_B\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/BoardRoot/PersistentEngagementOverlay/EngagementRing_U_CUSTODIAN_GUARD_B\") != null",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/PersistentEngagementOverlay/EngagementRing_U_WARBOSS_B\").is_persistent",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/PersistentEngagementOverlay/EngagementRing_U_WARBOSS_B\").visible",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/BoardRoot/PersistentEngagementOverlay/EngagementRing_U_WARBOSS_B\").circle_radius",
-      "expect_min": 1 },
-
-    { "act": "expect_baseline_unchanged" }
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T29_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

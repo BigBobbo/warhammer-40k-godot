@@ -1,86 +1,140 @@
 {
   "id": "T39_datasheet_modal",
-  "covers": ["design_guidelines.T39", "hud.datasheet_modal"],
+  "covers": [
+    "design_guidelines.T39",
+    "hud.datasheet_modal"
+  ],
   "fixture": "co_pretrigger",
   "transition_to_phase": 7,
   "description": "Datasheet modal on 'i' key. Read-only view of M/T/Sv/W/Ld/OC + weapons + keywords + abilities for the selected unit. Hidden by default; opens via open_for(unit_id); ESC dismisses. Asserts it does NOT auto-open during normal phase load (would be a regression).",
-
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/DatasheetModal\") != null",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal\").visible",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal\").current_unit_id",
-      "equals": "" },
-
-    { "act": "screenshot", "label": "T39_closed" },
-
-    { "act": "execute_script",
+      "equals": ""
+    },
+    {
+      "act": "screenshot",
+      "label": "T39_closed"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal\").open_for(\"U_WARBOSS_B\")",
-      "equals": true },
-    { "act": "wait_frames", "frames": 3 },
-    { "act": "screenshot", "label": "T39_open" },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T39_open"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal\").visible",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal\").current_unit_id",
-      "equals": "U_WARBOSS_B" },
-
-    { "act": "execute_script",
+      "equals": "U_WARBOSS_B"
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal/Body/Stats\").text.contains(\"M \")",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal/Body/Stats\").text.contains(\"T \")",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal/Body/Stats\").text.contains(\"Sv \")",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal/Body/Stats\").text.contains(\"W \")",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal/Body/Stats\").text.contains(\"Ld \")",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal/Body/Stats\").text.contains(\"OC \")",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal/Body/Weapons\").text.begins_with(\"WEAPONS\")",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal/Body/Keywords\").text.begins_with(\"KEYWORDS\")",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal/Body/Abilities\").text.begins_with(\"ABILITIES\")",
-      "equals": true },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal\").t39_synthesize_escape()",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal\").visible",
-      "equals": false },
-
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal\").open_for(\"\")",
-      "equals": false },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
       "script": "get_node(\"/root/Main/DatasheetModal\").open_for(\"NOPE_NOT_A_UNIT\")",
-      "equals": false },
-
-    { "act": "pixel_diff",
+      "equals": false
+    },
+    {
+      "act": "pixel_diff",
       "before": "T39_closed",
-      "after":  "T39_open",
-      "expect_min_pct": 1.0 },
-
-    { "act": "expect_baseline_unchanged" }
+      "after": "T39_open",
+      "expect_min_pct": 1.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "T39_review"
+    },
+    {
+      "act": "expect_baseline_unchanged"
+    }
   ]
 }

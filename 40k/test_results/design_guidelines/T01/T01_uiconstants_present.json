@@ -1,6 +1,6 @@
 {
   "failed": 0,
-  "passed": 21,
+  "passed": 23,
   "scenario_id": "T01_uiconstants_present",
   "steps": [
     {
@@ -174,11 +174,22 @@
       "step": 19
     },
     {
+      "act": "wait_frames",
+      "pass": true,
+      "step": 20
+    },
+    {
+      "act": "screenshot",
+      "pass": true,
+      "path": "test_results/scenarios/T01_uiconstants_present_T01_review.png",
+      "step": 21
+    },
+    {
       "act": "expect_baseline_unchanged",
       "baseline_count": 45,
       "pass": true,
-      "step": 20
+      "step": 22
     }
   ],
-  "total_steps": 21
+  "total_steps": 23
 }
