@@ -46,9 +46,10 @@
     },
     {
       "id": "autoloads.Measurement.model_outside_board",
-      "description": "Measurement.model_outside_board(pos, model): single source of truth for the off-board rule. Builds a base shape at pos, checks the bounding rect against the battlefield (SettingsService.get_board_width_px/get_board_height_px). Returns false safely if SettingsService is missing.",
+      "description": "Measurement.model_outside_board(pos, model): single source of truth for the off-board rule. Builds a base shape at pos, translates the local bounds by pos, and checks the resulting world-space bounding rect against the battlefield (SettingsService.get_board_width_px/get_board_height_px). Returns false safely if SettingsService is missing.",
       "scenarios": [
-        "87_no_offboard_deploy"
+        "87_no_offboard_deploy",
+        "blade_champion_in_zone_deploy"
       ],
       "last_verified_commit": "4c0f14f",
       "status": "covered"
@@ -165,9 +166,28 @@
       "id": "deployment.no_offboard_placement",
       "description": "Issue #87: no part of any model may extend off the battlefield. Enforced via Measurement.model_outside_board, called from DeploymentController/MovementController/ChargeController/FightController and from DeploymentPhase._validate_model_position as defence-in-depth against dispatched DEPLOY_UNIT actions.",
       "scenarios": [
-        "87_no_offboard_deploy"
+        "87_no_offboard_deploy",
+        "blade_champion_in_zone_deploy"
       ],
       "last_verified_commit": "4c0f14f",
+      "status": "covered"
+    },
+    {
+      "id": "deployment.in_zone_placement_succeeds",
+      "description": "Inverse of deployment.no_offboard_placement: a model whose base lies wholly inside the active player's deployment zone must be placed without tripping the off-board check. Regression guard for the Blade Champion bug where Measurement.model_outside_board treated shape.get_bounds() (local-space, centered on origin) as world coords and so rejected every placement.",
+      "scenarios": [
+        "blade_champion_in_zone_deploy"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "deployment.ui_try_place_at",
+      "description": "DeploymentController.try_place_at(world_pos): the controller entry point invoked by the player's click on the board during the Deployment phase. Verifies that a valid in-zone click populates temp_positions / spawns the preview token instead of being silently rejected by an upstream guard (e.g. Measurement.model_outside_board).",
+      "scenarios": [
+        "blade_champion_in_zone_deploy"
+      ],
+      "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
