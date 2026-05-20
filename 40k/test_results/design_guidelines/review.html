@@ -1,0 +1,565 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Tier B visual review — T01-T45</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 1100px;
+         margin: 1em auto; padding: 0 1em; line-height: 1.5; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: 0.3em; }
+  h2 { margin-top: 2em; padding-top: 0.5em; border-top: 1px solid #ccc; }
+  h2 .closed { color: #888; text-decoration: line-through; }
+  .meta { font-size: 0.9em; color: #666; }
+  .gap { background: #fee; border-left: 4px solid #c33; padding: 0.5em 1em;
+          margin: 0.5em 0; }
+  .gap b { color: #c33; }
+  .demo { background: #f4f4f4; padding: 0.4em 0.8em; font-family: monospace;
+           font-size: 0.85em; border-radius: 3px; user-select: all; }
+  ul.checklist { list-style: none; padding-left: 0.5em; }
+  ul.checklist li { margin: 0.3em 0; }
+  ul.checklist input { margin-right: 0.5em; transform: scale(1.2); }
+  ul.checklist li.preticked { color: #060; }
+  img.shot { max-width: 100%; border: 1px solid #888; display: block;
+              margin: 0.5em 0; }
+  .nav { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #ccc;
+          padding: 0.5em; font-size: 0.85em; z-index: 10; }
+  .nav a { margin-right: 0.6em; }
+  .progress { background: #eee; height: 22px; border-radius: 4px; overflow: hidden; }
+  .progress > div { background: #4a4; height: 100%; }
+  .closed-section { opacity: 0.55; }
+</style></head>
+<body>
+<h1>Tier B visual review — T01–T45</h1>
+<p class="meta">
+  Cloud-session shipped <b>45 tasks</b> with Tier A passing 45/45.
+  Pre-pass closed <b>5</b> tasks (29/114 Tier B items).
+  Walk through the remaining tasks below, exercising each in a windowed
+  Godot session (commands inlined). Tick boxes in the browser to keep
+  place, then mirror confirmed ticks to <code>.llm/todo.md</code> by hand.
+</p>
+<div class="progress"><div style="width: 11%"></div></div>
+
+<div class="nav">
+<a class="" href="#T01">T01</a><a class="closed" href="#T02">T02</a><a class="" href="#T03">T03</a><a class="" href="#T04">T04</a><a class="" href="#T05">T05</a><a class="" href="#T06">T06</a><a class="" href="#T07">T07</a><a class="" href="#T08">T08</a><a class="" href="#T09">T09</a><a class="" href="#T10">T10</a><a class="" href="#T11">T11</a><a class="" href="#T12">T12</a><a class="" href="#T13">T13</a><a class="" href="#T14">T14</a><a class="" href="#T15">T15</a><a class="" href="#T16">T16</a><a class="" href="#T17">T17</a><a class="" href="#T18">T18</a><a class="" href="#T19">T19</a><a class="" href="#T20">T20</a><a class="" href="#T21">T21</a><a class="" href="#T22">T22</a><a class="" href="#T23">T23</a><a class="" href="#T24">T24</a><a class="" href="#T25">T25</a><a class="" href="#T26">T26</a><a class="closed" href="#T27">T27</a><a class="" href="#T28">T28</a><a class="closed" href="#T29">T29</a><a class="" href="#T30">T30</a><a class="" href="#T31">T31</a><a class="closed" href="#T32">T32</a><a class="" href="#T33">T33</a><a class="" href="#T34">T34</a><a class="" href="#T35">T35</a><a class="" href="#T36">T36</a><a class="" href="#T37">T37</a><a class="closed" href="#T38">T38</a><a class="" href="#T39">T39</a><a class="" href="#T40">T40</a><a class="" href="#T41">T41</a><a class="" href="#T42">T42</a><a class="" href="#T43">T43</a><a class="" href="#T44">T44</a><a class="" href="#T45">T45</a></div>
+<section id="T01" class="">
+<h2><span class="">T01 — UIConstants color slot autoload</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T01_uiconstants_present.json</div>
+<p class="meta">Cloud screenshot(s) (after-state first):</p>
+<img class="shot" src="./T01/T01_uiconstants_present_T01_after.png" alt="T01 screenshot">
+<img class="shot" src="./T01/T01_uiconstants_present_T01_before.png" alt="T01 screenshot">
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T01_0" checked disabled><label for="T01_0">Doc §9 table values match `UIConstants.gd` 1:1 (cross-check via diff). <small>(verified from artifacts)</small></label></li>
+<li><input type="checkbox" id="T01_1"><label for="T01_1">`striped_pattern` output renders as visible stripes (eyeball one screenshot).</label></li>
+<li class="preticked"><input type="checkbox" id="T01_2" checked disabled><label for="T01_2">No autoload conflicts in `project.godot`. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T02" class="closed-section">
+<h2><span class="closed">T02 — Visual-scenario harness + pixel-diff + baseline snapshot</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">bash 40k/tests/run_scenarios.sh --visual  # 45/45 expected</div>
+<p class="meta">Cloud screenshot(s) (after-state first):</p>
+<img class="shot" src="./T02/T02_harness_self_check_T02_after.png" alt="T02 screenshot">
+<img class="shot" src="./T02/T02_harness_self_check_T02_before.png" alt="T02 screenshot">
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T02_0" checked disabled><label for="T02_0">`_schema.md` enumerates every required scenario step type with example. <small>(verified from artifacts)</small></label></li>
+<li class="preticked"><input type="checkbox" id="T02_1" checked disabled><label for="T02_1">`_template.json` runs end-to-end as a copy-paste starting point. <small>(verified from artifacts)</small></label></li>
+<li class="preticked"><input type="checkbox" id="T02_2" checked disabled><label for="T02_2">`TESTING_METHODOLOGY.md` gained a "Design-guidelines visual tasks" section. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T03" class="">
+<h2><span class="">T03 — Drag-ruler with budget coloring during movement</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # then load co_pretrigger, enter movement phase, drag any model</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T03_0"><label for="T03_0">Green segments visible from origin to Move boundary.</label></li>
+<li><input type="checkbox" id="T03_1"><label for="T03_1">Yellow segment between Move and Move+Advance boundaries.</label></li>
+<li><input type="checkbox" id="T03_2"><label for="T03_2">Red segment beyond Move+Advance.</label></li>
+<li><input type="checkbox" id="T03_3"><label for="T03_3">Inches label updates as cursor moves.</label></li>
+<li><input type="checkbox" id="T03_4"><label for="T03_4">ESC removes the drag overlay cleanly.</label></li>
+</ul>
+</section>
+<section id="T04" class="">
+<h2><span class="">T04 — Six-phase top-center bar with active highlight</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T04_phase_bar.json</div>
+<p class="meta">Cloud screenshot(s) (after-state first):</p>
+<img class="shot" src="./T04/T04_phase_bar_T04_movement.png" alt="T04 screenshot">
+<img class="shot" src="./T04/T04_phase_bar_T04_command.png" alt="T04 screenshot">
+<img class="shot" src="./T04/T04_phase_bar_T04_shooting.png" alt="T04 screenshot">
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T04_0"><label for="T04_0">Six pills readable, labels not truncated.</label></li>
+<li><input type="checkbox" id="T04_1"><label for="T04_1">Active pill is visually the brightest.</label></li>
+<li><input type="checkbox" id="T04_2"><label for="T04_2">Completed pills are distinguishable from future pills.</label></li>
+<li><input type="checkbox" id="T04_3"><label for="T04_3">No layout shift in the rest of the HUD when phase advances.</label></li>
+</ul>
+</section>
+<section id="T05" class="">
+<h2><span class="">T05 — Hover-forecast tooltip for shooting</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load co_pretrigger phase 8, select shooter, hover enemy</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T05_0"><label for="T05_0">Tooltip readable, not clipped by viewport edges.</label></li>
+<li><input type="checkbox" id="T05_1"><label for="T05_1">Numbers update when hover moves between targets.</label></li>
+<li><input type="checkbox" id="T05_2"><label for="T05_2">Cover icon / cover delta surfaced in the tooltip.</label></li>
+<li><input type="checkbox" id="T05_3"><label for="T05_3">Tooltip disappears on hover-off.</label></li>
+</ul>
+</section>
+<section id="T06" class="">
+<h2><span class="">T06 — Convert Weapon Order modal to side-anchored panel</span></h2>
+<div class="gap"><b>Pre-known gap:</b> ESC dismissal not wired (Cancel button works; ESC binding missing in Main._input) — file as T06b during review, do not revert the parent commit.</div>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T06_weapon_order_panel.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T06_0"><label for="T06_0">Tokens at original positions visible while panel is open.</label></li>
+<li><input type="checkbox" id="T06_1"><label for="T06_1">Panel has all controls the old modal had.</label></li>
+<li><input type="checkbox" id="T06_2"><label for="T06_2">ESC dismisses without committing.</label></li>
+<li><input type="checkbox" id="T06_3"><label for="T06_3">No layout overlap with the existing right-side phase controls.</label></li>
+</ul>
+</section>
+<section id="T07" class="">
+<h2><span class="">T07 — Per-tile cover icons on terrain</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T07_terrain_cover_icons.json</div>
+<p class="meta">Cloud screenshot(s) (after-state first):</p>
+<img class="shot" src="./T07/T07_terrain_cover_icons_T07_overlay_on.png" alt="T07 screenshot">
+<img class="shot" src="./T07/T07_terrain_cover_icons_T07_overlay_off.png" alt="T07 screenshot">
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T07_0" checked disabled><label for="T07_0">Every terrain piece has a visible cover icon. <small>(verified from artifacts)</small></label></li>
+<li><input type="checkbox" id="T07_1"><label for="T07_1">Icons readable at zoom 1.0 and still recognizable at zoom 0.5.</label></li>
+<li><input type="checkbox" id="T07_2"><label for="T07_2">Icons don't overlap tokens at default deployment positions.</label></li>
+</ul>
+</section>
+<section id="T08" class="">
+<h2><span class="">T08 — Two-ring token (faction inner + player-slot outer)</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T08_two_ring_token.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T08_0"><label for="T08_0">Two rings visually distinct (different hue and thickness).</label></li>
+<li><input type="checkbox" id="T08_1"><label for="T08_1">Faction inner ring matches the army's chosen color.</label></li>
+<li><input type="checkbox" id="T08_2"><label for="T08_2">Player-slot outer ring is the same color across all units of that player.</label></li>
+<li><input type="checkbox" id="T08_3"><label for="T08_3">Rings do not occlude the central glyph/letter.</label></li>
+</ul>
+</section>
+<section id="T09" class="">
+<h2><span class="">T09 — Exhaustion grayscale for acted units</span></h2>
+<div class="gap"><b>Pre-known gap:</b> Roster card dim not implemented — only TokenVisual modulate is wired — file as T09b during review, do not revert the parent commit.</div>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T09_exhaustion_grayscale.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T09_0"><label for="T09_0">Acted unit is clearly dimmer than un-acted.</label></li>
+<li><input type="checkbox" id="T09_1"><label for="T09_1">Roster card mirrors the dim state.</label></li>
+<li><input type="checkbox" id="T09_2"><label for="T09_2">Phase end resets both.</label></li>
+<li><input type="checkbox" id="T09_3"><label for="T09_3">Color rings (T08) still distinguishable on dimmed token.</label></li>
+</ul>
+</section>
+<section id="T10" class="">
+<h2><span class="">T10 — Held-key threat overlay (Tab)</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load co_pretrigger phase 8, hold Tab</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T10_0"><label for="T10_0">Yellow rings visible around every enemy unit.</label></li>
+<li><input type="checkbox" id="T10_1"><label for="T10_1">Red rings (charge threat) larger than yellow (shooting range may be</label></li>
+<li class="preticked"><input type="checkbox" id="T10_2" checked disabled><label for="T10_2">Released → board returns to pre-Tab state exactly. <small>(verified from artifacts)</small></label></li>
+<li><input type="checkbox" id="T10_3"><label for="T10_3">No flicker during repeated Tab press/release.</label></li>
+</ul>
+</section>
+<section id="T11" class="">
+<h2><span class="">T11 — LOS line tool</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T11_los_line.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T11_0"><label for="T11_0">Three distinct colors in three screenshots.</label></li>
+<li><input type="checkbox" id="T11_1"><label for="T11_1">Line endpoints anchored to base centers.</label></li>
+<li class="preticked"><input type="checkbox" id="T11_2" checked disabled><label for="T11_2">Line disappears on hover-off. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T12" class="">
+<h2><span class="">T12 — Refactor existing visual scripts to consume UIConstants</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load any fixture, compare with pre-T12 screenshots</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T12_0"><label for="T12_0">All visible overlays look perceptually identical to pre-refactor.</label></li>
+<li><input type="checkbox" id="T12_1"><label for="T12_1">No new color appearing where one didn't exist.</label></li>
+<li><input type="checkbox" id="T12_2"><label for="T12_2">Commit body lists every substitution.</label></li>
+</ul>
+</section>
+<section id="T13" class="">
+<h2><span class="">T13 — Fit-board keybind (F)</span></h2>
+<div class="gap"><b>Pre-known gap:</b> Camera fit is instant — no tween animation — file as T13b during review, do not revert the parent commit.</div>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load co_pretrigger, pan camera, press F</div>
+<p class="meta">Cloud screenshot(s) (after-state first):</p>
+<img class="shot" src="./T13/T13_fit_board_T13_after.png" alt="T13 screenshot">
+<img class="shot" src="./T13/T13_fit_board_T13_before.png" alt="T13 screenshot">
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T13_0"><label for="T13_0">Whole board visible.</label></li>
+<li><input type="checkbox" id="T13_1"><label for="T13_1">Margin uniform on all four sides.</label></li>
+<li><input type="checkbox" id="T13_2"><label for="T13_2">Animation smooth (no jump).</label></li>
+</ul>
+</section>
+<section id="T14" class="">
+<h2><span class="">T14 — Fit-selection keybind (Shift+F)</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load co_pretrigger, select unit, Shift+F</div>
+<p class="meta">Cloud screenshot(s) (after-state first):</p>
+<img class="shot" src="./T14/T14_fit_selection_T14_after.png" alt="T14 screenshot">
+<img class="shot" src="./T14/T14_fit_selection_T14_before.png" alt="T14 screenshot">
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T14_0"><label for="T14_0">Selected unit centered.</label></li>
+<li><input type="checkbox" id="T14_1"><label for="T14_1">Other units in frame if they fit; never crops the selection.</label></li>
+</ul>
+</section>
+<section id="T15" class="">
+<h2><span class="">T15 — Unit-type silhouette glyphs</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T15_silhouettes.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T15_0"><label for="T15_0">Silhouettes recognizable at zoom 1.0.</label></li>
+<li><input type="checkbox" id="T15_1"><label for="T15_1">Silhouettes still recognizable at zoom 0.5 (32px).</label></li>
+<li><input type="checkbox" id="T15_2"><label for="T15_2">Letter labels visible under the base.</label></li>
+</ul>
+</section>
+<section id="T16" class="">
+<h2><span class="">T16 — Auto-hide token labels below zoom threshold</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load co_pretrigger, zoom out below 0.6</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T16_0" checked disabled><label for="T16_0">Labels absent at 0.5. <small>(verified from artifacts)</small></label></li>
+<li class="preticked"><input type="checkbox" id="T16_1" checked disabled><label for="T16_1">Labels back at 1.0. <small>(verified from artifacts)</small></label></li>
+<li><input type="checkbox" id="T16_2"><label for="T16_2">No flicker as zoom crosses threshold.</label></li>
+</ul>
+</section>
+<section id="T17" class="">
+<h2><span class="">T17 — Cap status icons at 3 with overflow chip</span></h2>
+<div class="gap"><b>Pre-known gap:</b> Overflow chip is a static Label — no hover-expand behavior — file as T17b during review, do not revert the parent commit.</div>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T17_status_overflow.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T17_0" checked disabled><label for="T17_0">Exactly 3 status icons + 1 chip visible. <small>(verified from artifacts)</small></label></li>
+<li><input type="checkbox" id="T17_1"><label for="T17_1">Hover expands chip to show the hidden statuses.</label></li>
+</ul>
+</section>
+<section id="T18" class="">
+<h2><span class="">T18 — Wound chip on base edge (replace HP bar)</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T18_wound_chip.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T18_0"><label for="T18_0">Chip readable at zoom 1.0.</label></li>
+<li class="preticked"><input type="checkbox" id="T18_1" checked disabled><label for="T18_1">Single-wound models truly have nothing in that slot. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T19" class="">
+<h2><span class="">T19 — Active-unit pulsed ring</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load co_pretrigger, select unit, observe SlotRing pulse</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T19_0"><label for="T19_0">Pulse perceptible but not distracting.</label></li>
+<li><input type="checkbox" id="T19_1"><label for="T19_1">Only the active unit pulses.</label></li>
+</ul>
+</section>
+<section id="T20" class="">
+<h2><span class="">T20 — Convert Epic Challenge modal to side panel</span></h2>
+<div class="gap"><b>Pre-known gap:</b> ESC dismissal not wired — file as T20b during review, do not revert the parent commit.</div>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T20_epic_challenge_panel.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T20_0"><label for="T20_0">Board fully visible during decision.</label></li>
+<li><input type="checkbox" id="T20_1"><label for="T20_1">All controls present (Use, Decline).</label></li>
+<li><input type="checkbox" id="T20_2"><label for="T20_2">ESC dismisses.</label></li>
+</ul>
+</section>
+<section id="T21" class="">
+<h2><span class="">T21 — Convert Wound Allocation overlay to side panel</span></h2>
+<div class="gap"><b>Pre-known gap:</b> Commit button is a stub — no real allocation logic — file as T21b during review, do not revert the parent commit.</div>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T21_wound_panel.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T21_0"><label for="T21_0">Affected target tokens visible during allocation.</label></li>
+<li><input type="checkbox" id="T21_1"><label for="T21_1">Allocation buttons functional.</label></li>
+</ul>
+</section>
+<section id="T22" class="">
+<h2><span class="">T22 — Auto-zoom-to-fit on in-tactical decision opens</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T22_auto_zoom_decision.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T22_0"><label for="T22_0">Shooter and at least one target visible after auto-zoom.</label></li>
+<li><input type="checkbox" id="T22_1"><label for="T22_1">No camera jitter.</label></li>
+</ul>
+</section>
+<section id="T23" class="">
+<h2><span class="">T23 — Canonical End-Phase button placement bottom-right</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T23_end_phase_position.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T23_0" checked disabled><label for="T23_0">Button at same position across all phases (eyeball overlay). <small>(verified from artifacts)</small></label></li>
+<li><input type="checkbox" id="T23_1"><label for="T23_1">Button label clear in each phase.</label></li>
+</ul>
+</section>
+<section id="T24" class="">
+<h2><span class="">T24 — Sub-state breadcrumb under active phase pill</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T24_substate_breadcrumb.json</div>
+<p class="meta">Cloud screenshot(s) (after-state first):</p>
+<img class="shot" src="./T24/T24_substate_breadcrumb_T24_with_breadcrumb.png" alt="T24 screenshot">
+<img class="shot" src="./T24/T24_substate_breadcrumb_T24_no_breadcrumb.png" alt="T24 screenshot">
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T24_0"><label for="T24_0">Crumbs labeled clearly (Select Unit / Select Target / etc.).</label></li>
+<li><input type="checkbox" id="T24_1"><label for="T24_1">Active crumb visually distinct from completed and future.</label></li>
+</ul>
+</section>
+<section id="T25" class="">
+<h2><span class="">T25 — Active-player edge tint</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T25_edge_tint.json</div>
+<p class="meta">Cloud screenshot(s) (after-state first):</p>
+<img class="shot" src="./T25/T25_edge_tint_T25_p1_active.png" alt="T25 screenshot">
+<img class="shot" src="./T25/T25_edge_tint_T25_p2_active.png" alt="T25 screenshot">
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T25_0"><label for="T25_0">Edge clearly visible at top, bottom, both sides.</label></li>
+<li class="preticked"><input type="checkbox" id="T25_1" checked disabled><label for="T25_1">Doesn't occlude tokens at the edge. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T26" class="">
+<h2><span class="">T26 — Phase pill click affordance for past/future</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T26_phase_pill_clicks.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T26_0"><label for="T26_0">Tooltips readable.</label></li>
+<li class="preticked"><input type="checkbox" id="T26_1" checked disabled><label for="T26_1">No accidental phase change. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T27" class="closed-section">
+<h2><span class="closed">T27 — Refactor End-Phase button to canonical position</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T27_end_phase_refactor.json</div>
+<p class="meta"><i>No Tier B items — Tier A only.</i></p>
+</section>
+<section id="T28" class="">
+<h2><span class="">T28 — Two-layer movement range shading</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T28_two_layer_range.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T28_0"><label for="T28_0">Inner fill visibly translucent.</label></li>
+<li><input type="checkbox" id="T28_1"><label for="T28_1">Outer outline visibly thin.</label></li>
+<li class="preticked"><input type="checkbox" id="T28_2" checked disabled><label for="T28_2">Both centered on selected unit. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T29" class="closed-section">
+<h2><span class="closed">T29 — Persistent engagement ring on engaged units</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T29_persistent_engagement.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T29_0" checked disabled><label for="T29_0">Engaged units have a visible faint ring at idle. <small>(verified from artifacts)</small></label></li>
+<li class="preticked"><input type="checkbox" id="T29_1" checked disabled><label for="T29_1">Non-engaged units have no ring at idle. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T30" class="">
+<h2><span class="">T30 — Charge max/expected dashed rings</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T30_charge_dashed_rings.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T30_0"><label for="T30_0">Two dashed rings clearly visible at declare.</label></li>
+<li class="preticked"><input type="checkbox" id="T30_1" checked disabled><label for="T30_1">One solid ring after roll, sized to the result. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T31" class="">
+<h2><span class="">T31 — Standalone ruler tool (R) with public/private toggle</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load any fixture, press R, drag a line</div>
+<p class="meta">Cloud screenshot(s) (after-state first):</p>
+<img class="shot" src="./T31/T31_ruler_tool_T31_drawn.png" alt="T31 screenshot">
+<img class="shot" src="./T31/T31_ruler_tool_T31_idle.png" alt="T31 screenshot">
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T31_0"><label for="T31_0">Distance label readable and accurate.</label></li>
+<li><input type="checkbox" id="T31_1"><label for="T31_1">Public/private visually distinct (e.g. dashed vs solid).</label></li>
+</ul>
+</section>
+<section id="T32" class="closed-section">
+<h2><span class="closed">T32 — Move LOS Debug to held-key power-user mode</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load any fixture, hold L; release</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T32_0" checked disabled><label for="T32_0">Top bar no longer shows the persistent toggle. <small>(verified from artifacts)</small></label></li>
+<li class="preticked"><input type="checkbox" id="T32_1" checked disabled><label for="T32_1">Held-key works in every phase. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T33" class="">
+<h2><span class="">T33 — Center-screen resolution surface (compact, non-blocking)</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # resolve a shooting attack; observe dice surface</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T33_0"><label for="T33_0">All four columns animate.</label></li>
+<li><input type="checkbox" id="T33_1"><label for="T33_1">SPACE skips cleanly.</label></li>
+<li><input type="checkbox" id="T33_2"><label for="T33_2">Board visible during resolution.</label></li>
+</ul>
+</section>
+<section id="T34" class="">
+<h2><span class="">T34 — Floating damage numbers on target tokens</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # apply wounds; observe floating -NW / -N models</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T34_0"><label for="T34_0">Numbers readable.</label></li>
+<li><input type="checkbox" id="T34_1"><label for="T34_1">Fade timing feels right (not too fast/slow).</label></li>
+</ul>
+</section>
+<section id="T35" class="">
+<h2><span class="">T35 — Persistent right-side roll log</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T35_roll_log.json</div>
+<p class="meta">Cloud screenshot(s) (after-state first):</p>
+<img class="shot" src="./T35/T35_roll_log_T35_two_entries.png" alt="T35 screenshot">
+<img class="shot" src="./T35/T35_roll_log_T35_empty.png" alt="T35 screenshot">
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T35_0"><label for="T35_0">Entries readable.</label></li>
+<li><input type="checkbox" id="T35_1"><label for="T35_1">Auto-scrolls to newest.</label></li>
+</ul>
+</section>
+<section id="T36" class="">
+<h2><span class="">T36 — Explicit commit step on target selection (ENTER to roll)</span></h2>
+<div class="gap"><b>Pre-known gap:</b> ENTER fires commit_targets() but doesn't trigger resolution downstream — file as T36b during review, do not revert the parent commit.</div>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load co_pretrigger phase 8, click an enemy (should not fire); press ENTER</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T36_0" checked disabled><label for="T36_0">Click-only does nothing destructive. <small>(verified from artifacts)</small></label></li>
+<li><input type="checkbox" id="T36_1"><label for="T36_1">ENTER (or Confirm button) fires the attack.</label></li>
+</ul>
+</section>
+<section id="T37" class="">
+<h2><span class="">T37 — Left-edge vertical roster strip</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T37_roster_strip.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T37_0" checked disabled><label for="T37_0">All units listed. <small>(verified from artifacts)</small></label></li>
+<li><input type="checkbox" id="T37_1"><label for="T37_1">Cards readable; nothing truncated.</label></li>
+<li class="preticked"><input type="checkbox" id="T37_2" checked disabled><label for="T37_2">Click + double-click work as specified. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T38" class="closed-section">
+<h2><span class="closed">T38 — Filter chips above roster</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T38_filter_chips.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T38_0" checked disabled><label for="T38_0">Filter visibly reduces card count. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T39" class="">
+<h2><span class="">T39 — Datasheet modal on `i` key</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load co_pretrigger, select unit, press i</div>
+<p class="meta">Cloud screenshot(s) (after-state first):</p>
+<img class="shot" src="./T39/T39_datasheet_modal_T39_open.png" alt="T39 screenshot">
+<img class="shot" src="./T39/T39_datasheet_modal_T39_closed.png" alt="T39 screenshot">
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T39_0" checked disabled><label for="T39_0">All datasheet sections present (stats, weapons, keywords, abilities). <small>(verified from artifacts)</small></label></li>
+<li><input type="checkbox" id="T39_1"><label for="T39_1">Readable; not clipped.</label></li>
+</ul>
+</section>
+<section id="T40" class="">
+<h2><span class="">T40 — Prospective stat panel (recompute on enemy hover)</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load co_pretrigger phase 8, select friendly, hover enemy</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T40_0" checked disabled><label for="T40_0">Panel numbers update on hover. <small>(verified from artifacts)</small></label></li>
+<li><input type="checkbox" id="T40_1"><label for="T40_1">Modifiers (cover delta) clearly indicated.</label></li>
+</ul>
+</section>
+<section id="T41" class="">
+<h2><span class="">T41 — Separate faction vs. player-slot color throughout codebase</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # any fixture; eyeball that faction vs slot colors don't conflate</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li class="preticked"><input type="checkbox" id="T41_0" checked disabled><label for="T41_0">Codebase-wide audit committed. <small>(verified from artifacts)</small></label></li>
+<li><input type="checkbox" id="T41_1"><label for="T41_1">No regressions when running each player as a different faction palette.</label></li>
+</ul>
+</section>
+<section id="T42" class="">
+<h2><span class="">T42 — Striped pattern for semantic yellow</span></h2>
+<div class="gap"><b>Pre-known gap:</b> striped_pattern() exists but isn't applied to any overlay — file as T42b during review, do not revert the parent commit.</div>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # load fixture w/ Imperial Fists; hold Tab — yellow should be striped</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T42_0"><label for="T42_0">Stripes visible on the warning overlay.</label></li>
+<li><input type="checkbox" id="T42_1"><label for="T42_1">Faction yellow remains solid (not striped).</label></li>
+</ul>
+</section>
+<section id="T43" class="">
+<h2><span class="">T43 — Audit and remove redundant orange highlights</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # walk each phase; count orange CTAs (target: 1 per phase)</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T43_0"><label for="T43_0">One CTA stands out per phase.</label></li>
+<li><input type="checkbox" id="T43_1"><label for="T43_1">Other buttons read as secondary chrome.</label></li>
+</ul>
+</section>
+<section id="T44" class="">
+<h2><span class="">T44 — Motion budget enforcement</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k  # exercise pulse, fade, slide; time the animations</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T44_0"><label for="T44_0">No animation feels "too long".</label></li>
+<li class="preticked"><input type="checkbox" id="T44_1" checked disabled><label for="T44_1">Constants referenced from a single source of truth. <small>(verified from artifacts)</small></label></li>
+</ul>
+</section>
+<section id="T45" class="">
+<h2><span class="">T45 — Final design-guidelines compliance audit</span></h2>
+<p class="meta">Demo:</p>
+<div class="demo">godot --path 40k --scenario-file=tests/scenarios/visual/T45_final_audit.json</div>
+<p class="meta">Tier B checklist:</p>
+<ul class="checklist">
+<li><input type="checkbox" id="T45_0"><label for="T45_0">Every doc recommendation has a corresponding closed task OR explicit</label></li>
+<li><input type="checkbox" id="T45_1"><label for="T45_1">No "Tier B" checkboxes left unticked across T01–T44.</label></li>
+</ul>
+</section>
+
+<hr>
+<h2>Exporting your ticks</h2>
+<p>When done, open <code>.llm/todo.md</code> and flip <code>- [ ]</code> →
+<code>- [x]</code> for items you ticked in this page. Commit as
+<code>tick T## ...</code>. When every Tier B box is ticked, the design-
+guidelines closure is complete.</p>
+<p>Generator: <code>40k/tests/tools/generate_review_html.py</code> — re-run after editing
+<code>.llm/todo.md</code> to refresh this page.</p>
+</body></html>
