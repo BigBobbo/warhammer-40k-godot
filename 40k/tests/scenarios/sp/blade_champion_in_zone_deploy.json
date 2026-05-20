@@ -1,0 +1,53 @@
+{
+  "id": "blade_champion_in_zone_deploy",
+  "covers": [
+    "deployment.in_zone_placement_succeeds",
+    "deployment.ui_try_place_at",
+    "autoloads.Measurement.model_outside_board"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Bug repro: deploying a 40mm-base CHARACTER (Blade Champion) at a position fully INSIDE Player 1's hammer_anvil zone must succeed. Before the fix, Measurement.model_outside_board treated shape.get_bounds() (local coords centered on origin) as world coords, so every model's min-x/min-y was negative and the off-board check fired for any placement — the user could not deploy anywhere. Validates both the UI path (DeploymentController.try_place_at, what the player's click invokes — produces a 'Models cannot be placed off the board' toast on regression) and the engine path (DEPLOY_UNIT action).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "expect_state", "path": "units.U_BLADE_CHAMPION_A.status", "equals": 0 },
+
+    { "act": "screenshot", "label": "00_before_deploy" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_BLADE_CHAMPION_A')" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "Main.deployment_controller.unit_id", "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(880, 240))" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "str(Main.deployment_controller.temp_positions[0])", "equals": "(880.0, 240.0)" },
+    { "act": "screenshot", "label": "01_blade_champion_ghost_placed_via_ui" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DEPLOY_UNIT",
+      "unit_id": "U_BLADE_CHAMPION_A",
+      "model_positions": [{ "x": 880, "y": 240 }],
+      "model_rotations": [0]
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_BLADE_CHAMPION_A.status", "equals": 2 },
+    { "act": "screenshot", "label": "02_blade_champion_committed" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DEPLOY_UNIT",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_positions": [
+        { "x": -50, "y": 240 },
+        { "x":  60, "y": 240 },
+        { "x": 120, "y": 240 },
+        { "x": 180, "y": 240 },
+        { "x": 240, "y": 240 }
+      ],
+      "model_rotations": [0, 0, 0, 0, 0]
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "screenshot", "label": "03_offboard_still_rejected" }
+  ]
+}

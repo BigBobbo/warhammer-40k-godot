@@ -239,13 +239,19 @@ func model_outside_board(pos: Vector2, model: Dictionary) -> bool:
 	test_model["position"] = pos
 	# Pull rotation if set; create_base_shape uses model["rotation"]
 	var shape := create_base_shape(test_model)
-	var bounds := shape.get_bounds()
-	# get_bounds() returns a Rect2 in WORLD coordinates around `pos`
-	if bounds.position.x < 0.0 or bounds.position.y < 0.0:
+	# get_bounds() returns a Rect2 in LOCAL coordinates centered around the
+	# origin (e.g. circle of radius r → Rect2(-r, -r, 2r, 2r)). Translate by
+	# `pos` to compare against the board rectangle in world space.
+	var local_bounds := shape.get_bounds()
+	var world_min_x := local_bounds.position.x + pos.x
+	var world_min_y := local_bounds.position.y + pos.y
+	var world_max_x := world_min_x + local_bounds.size.x
+	var world_max_y := world_min_y + local_bounds.size.y
+	if world_min_x < 0.0 or world_min_y < 0.0:
 		return true
-	if bounds.position.x + bounds.size.x > board_w_px:
+	if world_max_x > board_w_px:
 		return true
-	if bounds.position.y + bounds.size.y > board_h_px:
+	if world_max_y > board_h_px:
 		return true
 	return false
 
