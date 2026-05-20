@@ -45,6 +45,15 @@
       "status": "covered"
     },
     {
+      "id": "autoloads.Measurement.model_outside_board",
+      "description": "Measurement.model_outside_board(pos, model): single source of truth for the off-board rule. Builds a base shape at pos, checks the bounding rect against the battlefield (SettingsService.get_board_width_px/get_board_height_px). Returns false safely if SettingsService is missing.",
+      "scenarios": [
+        "87_no_offboard_deploy"
+      ],
+      "last_verified_commit": "4c0f14f",
+      "status": "covered"
+    },
+    {
       "id": "autoloads.RulesEngine.effect_devastating_wounds",
       "description": "RulesEngine: weapons with effect_devastating_wounds=true convert critical wounds (unmodified 6 to wound) into mortal wounds that bypass saves. Validated by Headwoppa's Killchoppa (#374).",
       "scenarios": [
@@ -150,6 +159,15 @@
         "377_defender_deploys_first"
       ],
       "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "deployment.no_offboard_placement",
+      "description": "Issue #87: no part of any model may extend off the battlefield. Enforced via Measurement.model_outside_board, called from DeploymentController/MovementController/ChargeController/FightController and from DeploymentPhase._validate_model_position as defence-in-depth against dispatched DEPLOY_UNIT actions.",
+      "scenarios": [
+        "87_no_offboard_deploy"
+      ],
+      "last_verified_commit": "4c0f14f",
       "status": "covered"
     },
     {

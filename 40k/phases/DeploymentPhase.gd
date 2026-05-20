@@ -294,6 +294,13 @@ func _validate_model_position(position: Vector2, unit: Dictionary, model_index: 
 	if Measurement.model_overlaps_any_wall(test_model):
 		errors.append("Model cannot overlap with walls")
 
+	# Issue #87: defence-in-depth. Reject any model whose base extends
+	# off the battlefield (the controller already enforces this for
+	# clicks; this also catches dispatched DEPLOY_UNIT actions from
+	# scripts / AI / multipeer).
+	if Measurement.model_outside_board(position, test_model):
+		errors.append("Model cannot be placed off the board")
+
 	return {"valid": errors.size() == 0, "errors": errors}
 
 func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_index: int, unit_owner: int, rotation: float = 0.0) -> Dictionary:
@@ -358,6 +365,13 @@ func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_
 	test_model["rotation"] = rotation
 	if Measurement.model_overlaps_any_wall(test_model):
 		errors.append("Model cannot overlap with walls")
+
+	# Issue #87: defence-in-depth. Reject any model whose base extends
+	# off the battlefield (the controller already enforces this for
+	# clicks; this also catches dispatched DEPLOY_UNIT actions from
+	# scripts / AI / multipeer).
+	if Measurement.model_outside_board(position, test_model):
+		errors.append("Model cannot be placed off the board")
 
 	return {"valid": errors.size() == 0, "errors": errors}
 

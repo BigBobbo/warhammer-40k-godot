@@ -2564,6 +2564,13 @@ func _end_model_drag_pile_in() -> void:
 		if dragging_model:
 			dragging_model.position = original_pos
 		reverted = true
+	elif _model_off_board(drag_model_id, final_pos):
+		# Issue #87: pile-in / consolidate cannot push a model off-board.
+		print("[FightController] Pile-in/consolidate would place model off the board - reverting")
+		current_model_positions[drag_model_id] = original_pos
+		if dragging_model:
+			dragging_model.position = original_pos
+		reverted = true
 	else:
 		# Validate final position
 		var distance = Measurement.distance_inches(original_pos, final_pos)
@@ -2679,6 +2686,20 @@ func _enable_consolidate_mode(unit_id: String, dialog: Node) -> void:
 func _on_consolidate_dialog_closed() -> void:
 	"""Handle consolidate dialog being closed"""
 	_disable_pile_in_mode()
+
+func _model_off_board(moving_model_id: String, new_pos: Vector2) -> bool:
+	"""Issue #87: returns true if `moving_model_id` placed at `new_pos`
+	would extend beyond the battlefield. Wraps the shared Measurement
+	helper with the model lookup."""
+	if not current_phase or pile_in_unit_id == "":
+		return false
+	var unit = current_phase.get_unit(pile_in_unit_id)
+	if unit.is_empty():
+		return false
+	for m in unit.get("models", []):
+		if m.get("id", "") == moving_model_id:
+			return Measurement.model_outside_board(new_pos, m)
+	return false
 
 func _check_model_overlaps(moving_model_id: String, new_pos: Vector2) -> bool:
 	"""Check if a model at the given position would overlap with any other models"""

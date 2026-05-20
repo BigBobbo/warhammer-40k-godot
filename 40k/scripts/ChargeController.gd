@@ -1754,6 +1754,12 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 		print("Position would overlap with another model")
 		return false
 
+	# Check 2b (issue #87): no part of the model's base may extend off
+	# the battlefield during a charge move.
+	if Measurement.model_outside_board(new_pos, model):
+		print("Charge move would place model off the board")
+		return false
+
 	# Check 3: Must end closer to at least one declared target (10e rule)
 	# This gives live feedback during drag - final enforcement is in ChargePhase
 	var model_at_old = model.duplicate()

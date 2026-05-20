@@ -1,0 +1,27 @@
+{
+  "id": "87_no_offboard_deploy",
+  "covers": [
+    "deployment.no_offboard_placement",
+    "autoloads.Measurement.model_outside_board"
+  ],
+  "fixture": "audit_377_defender_first",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Issue #87: a DEPLOY_UNIT action that places any model with its base extending off the battlefield must be rejected. Drives the engine path with an x=-100 position (clearly off the left edge for a 180mm-base model) and asserts the action fails with the off-board error.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+    { "act": "screenshot", "label": "01_deployment_phase_loaded" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DEPLOY_UNIT",
+      "unit_id": "U_BATTLEWAGON_G",
+      "model_positions": [{ "x": -100, "y": 1200 }],
+      "model_rotations": [0]
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+
+    { "act": "expect_state", "path": "units.U_BATTLEWAGON_G.status", "equals": 0 },
+    { "act": "screenshot", "label": "02_offboard_rejected_unit_still_undeployed" }
+  ]
+}
