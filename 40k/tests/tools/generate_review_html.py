@@ -195,16 +195,24 @@ def png_as_data_uri(path: Path, max_width: int = 960, jpeg_quality: int = 78) ->
     return f"data:image/jpeg;base64,{b64}"
 
 
-def render_html(tasks: list[dict]) -> str:
-    closed_count = sum(1 for t in tasks if t["closed"])
-    total = len(tasks)
+def render_html(tasks: list[dict],
+                chunk_label: str | None = None,
+                sibling_files: list[tuple[str, str]] | None = None,
+                global_closed: int | None = None,
+                global_total: int | None = None) -> str:
+    """Render an HTML chunk. `tasks` is the slice this chunk covers.
+    `sibling_files` is a list of (label, filename) tuples for the chunk
+    navigation. `global_*` override the header counts when chunked."""
+    closed_count = global_closed if global_closed is not None else sum(1 for t in tasks if t["closed"])
+    total = global_total if global_total is not None else len(tasks)
     items_ticked = sum(1 for t in tasks for b in t["tier_b"] if b["ticked"])
     items_total = sum(len(t["tier_b"]) for t in tasks)
 
     parts: list[str] = []
+    title_suffix = f" — {chunk_label}" if chunk_label else ""
     parts.append(f"""<!doctype html>
 <html><head><meta charset="utf-8">
-<title>Tier B visual review — T01-T45</title>
+<title>Tier B visual review — T01-T45{title_suffix}</title>
 <style>
   body {{ font-family: -apple-system, system-ui, sans-serif; max-width: 1100px;
          margin: 1em auto; padding: 0 1em; line-height: 1.5; }}
@@ -221,8 +229,14 @@ def render_html(tasks: list[dict]) -> str:
   ul.checklist li {{ margin: 0.3em 0; }}
   ul.checklist input {{ margin-right: 0.5em; transform: scale(1.2); }}
   ul.checklist li.preticked {{ color: #060; }}
-  img.shot {{ max-width: 100%; border: 1px solid #888; display: block;
-              margin: 0.5em 0; }}
+  img.shot {{ max-width: 100%; border: 1px solid #888; display: block; }}
+  .shot-wrap {{ margin: 0.8em 0; }}
+  .shot-caption {{ font-size: 0.8em; color: #777; font-family: monospace;
+                   margin-top: 0.2em; }}
+  .chunk-nav {{ background: #eef; padding: 0.5em 1em; border-radius: 4px;
+                margin-bottom: 1em; }}
+  .chunk-nav a {{ margin-right: 0.8em; font-weight: bold; }}
+  .chunk-nav .current {{ color: #c33; }}
   .nav {{ position: sticky; top: 0; background: #fff; border-bottom: 1px solid #ccc;
           padding: 0.5em; font-size: 0.85em; z-index: 10; }}
   .nav a {{ margin-right: 0.6em; }}
@@ -240,9 +254,15 @@ def render_html(tasks: list[dict]) -> str:
   place, then mirror confirmed ticks to <code>.llm/todo.md</code> by hand.
 </p>
 <div class="progress"><div style="width: {(closed_count/total)*100:.0f}%"></div></div>
-
-<div class="nav">
 """)
+    # Chunk navigation: links to sibling HTML chunks if present.
+    if sibling_files:
+        parts.append('<div class="chunk-nav">Chunks: ')
+        for label, fname in sibling_files:
+            cls = ' class="current"' if label == chunk_label else ''
+            parts.append(f'<a href="{fname}"{cls}>{_html_escape(label)}</a>')
+        parts.append('</div>\n')
+    parts.append('<div class="nav">\n')
     # TOC
     for t in tasks:
         cls = "closed" if t["closed"] else ""
@@ -266,20 +286,15 @@ def render_html(tasks: list[dict]) -> str:
 
         shots = find_screenshots(t["id"])
         if shots:
-            # Pick the best single shot: prefer "_review" (post-T44 capture
-            # taken specifically for this report), else first-by-score.
-            best = next((s for s in shots if "_review" in s.name), shots[0])
-            uri = png_as_data_uri(best)
             parts.append(
-                f'<p class="meta">Cloud screenshot ({best.name}, embedded):</p>\n'
-                f'<img class="shot" src="{uri}" alt="{t["id"]} {best.name}">\n'
+                f'<p class="meta">Cloud screenshots ({len(shots)}, embedded):</p>\n'
             )
-            if len(shots) > 1:
-                others = ", ".join(s.name for s in shots if s != best)
+            for shot in shots:
+                uri = png_as_data_uri(shot)
                 parts.append(
-                    f'<p class="meta"><i>Other captures in <code>'
-                    f'40k/test_results/design_guidelines/{t["id"]}/</code>: '
-                    f'{_html_escape(others)}</i></p>\n'
+                    f'<div class="shot-wrap"><img class="shot" src="{uri}" '
+                    f'alt="{t["id"]} {shot.name}"><div class="shot-caption">'
+                    f'{_html_escape(shot.name)}</div></div>\n'
                 )
 
         if t["tier_b"]:
@@ -317,6 +332,12 @@ def _html_escape(s: str) -> str:
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--chunks", type=int, default=1,
+                    help="Split output into N HTML files (default 1 = single review.html)")
+    args = ap.parse_args()
+
     if not TODO_MD.exists():
         print(f"ERROR: missing {TODO_MD}", file=sys.stderr)
         return 1
@@ -324,13 +345,44 @@ def main() -> int:
     if not tasks:
         print("ERROR: no tasks parsed from .llm/todo.md", file=sys.stderr)
         return 2
-    html = render_html(tasks)
-    OUTPUT_HTML.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_HTML.write_text(html)
+
     closed = sum(1 for t in tasks if t["closed"])
     items_ticked = sum(1 for t in tasks for b in t["tier_b"] if b["ticked"])
     items_total = sum(len(t["tier_b"]) for t in tasks)
-    print(f"Wrote {OUTPUT_HTML.relative_to(REPO_ROOT)}")
+    OUTPUT_HTML.parent.mkdir(parents=True, exist_ok=True)
+
+    if args.chunks <= 1:
+        html = render_html(tasks)
+        OUTPUT_HTML.write_text(html)
+        print(f"Wrote {OUTPUT_HTML.relative_to(REPO_ROOT)}")
+    else:
+        # Slice tasks roughly evenly across N chunks.
+        n = args.chunks
+        chunk_size = (len(tasks) + n - 1) // n
+        chunks: list[tuple[str, str, list[dict]]] = []
+        for i in range(n):
+            slice_ = tasks[i * chunk_size : (i + 1) * chunk_size]
+            if not slice_:
+                continue
+            first = slice_[0]["id"]
+            last = slice_[-1]["id"]
+            label = f"{first}–{last}"
+            fname = f"review-{i + 1}of{n}.html"
+            chunks.append((label, fname, slice_))
+
+        sibling_files = [(lbl, fname) for lbl, fname, _ in chunks]
+        for label, fname, slice_ in chunks:
+            html = render_html(
+                slice_,
+                chunk_label=label,
+                sibling_files=sibling_files,
+                global_closed=closed,
+                global_total=len(tasks),
+            )
+            out = OUTPUT_HTML.parent / fname
+            out.write_text(html)
+            print(f"Wrote {out.relative_to(REPO_ROOT)}  ({len(slice_)} tasks)")
+
     print(f"  Tasks: {closed}/{len(tasks)} fully closed")
     print(f"  Tier B items: {items_ticked}/{items_total} ticked")
     return 0

@@ -13,6 +13,12 @@ data/*.csv
 data/*.csv.import
 
 # Tier B review HTML — generated locally from .llm/todo.md + per-task
-# screenshots by 40k/tests/tools/generate_review_html.py; large (~18MB
-# of base64-embedded PNGs) and reproducible, so not committed.
+# screenshots by 40k/tests/tools/generate_review_html.py; reproducible,
+# so not committed. Covers single-file and --chunks N output.
 test_results/design_guidelines/review.html
+test_results/design_guidelines/review-*of*.html
+
+# Per-invocation telemetry — gets rewritten on every godot run. Was
+# tracked historically; untracking + ignoring stops it from dirtying
+# the tree on every scenario invocation.
+test_results/test_commands/args_log.txt
