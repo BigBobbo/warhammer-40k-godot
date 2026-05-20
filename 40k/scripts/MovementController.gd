@@ -540,7 +540,22 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	advance_roll_label.text = "Advance Roll: -"
 	advance_roll_label.visible = false
 	section.add_child(advance_roll_label)
-	
+
+	# Issue #51: "Confirm movement mode" button. Once pressed, locks
+	# the mode for this unit so the player must finish moving it
+	# before switching to another mode or selecting another unit.
+	# Wires to the existing _on_confirm_mode_pressed handler (which
+	# dispatches LOCK_MOVEMENT_MODE, handles ADVANCE roll and
+	# REMAIN_STATIONARY auto-complete, and disables mode radios).
+	confirm_mode_button = Button.new()
+	confirm_mode_button.name = "ConfirmModeButton"
+	confirm_mode_button.text = "Confirm Movement Mode"
+	confirm_mode_button.tooltip_text = "Lock the selected movement mode and begin moving this unit. Cannot be undone for this unit this turn."
+	confirm_mode_button.disabled = true   # enabled once a mode is selected
+	confirm_mode_button.pressed.connect(_on_confirm_mode_pressed)
+	_WhiteDwarfTheme.apply_to_button(confirm_mode_button)
+	section.add_child(confirm_mode_button)
+
 	parent.add_child(section)
 
 func _create_section4_actions(parent: VBoxContainer) -> void:
@@ -1069,6 +1084,7 @@ func _on_normal_move_pressed() -> void:
 	print("Emitting move_action_requested signal with action: ", action)
 	emit_signal("move_action_requested", action)
 	print("Signal emitted, waiting for phase response...")
+	_refresh_confirm_mode_button_enable()  # issue #51
 
 func _on_advance_pressed() -> void:
 	# Ignore if we're setting the radio programmatically
@@ -1087,6 +1103,7 @@ func _on_advance_pressed() -> void:
 	}
 	print("Emitting advance action: ", action)
 	emit_signal("move_action_requested", action)
+	_refresh_confirm_mode_button_enable()  # issue #51
 
 	# The advance dice roll is handled by MovementPhase._process_begin_advance()
 	# The result is read back in _on_unit_move_begun() to update the UI
@@ -1105,6 +1122,7 @@ func _on_fall_back_pressed() -> void:
 		"payload": {}
 	}
 	emit_signal("move_action_requested", action)
+	_refresh_confirm_mode_button_enable()  # issue #51
 
 func _on_remain_stationary_pressed() -> void:
 	# Ignore if we're setting the radio programmatically
@@ -1120,6 +1138,7 @@ func _on_remain_stationary_pressed() -> void:
 		"payload": {}
 	}
 	emit_signal("move_action_requested", action)
+	_refresh_confirm_mode_button_enable()  # issue #51
 
 	# Mark as completed immediately (no dragging needed)
 	# Clear active unit since this unit is done
@@ -1238,6 +1257,28 @@ func _update_mode_buttons_state(enabled: bool) -> void:
 		fall_back_radio.disabled = not enabled
 	if stationary_radio:
 		stationary_radio.disabled = not enabled
+	# Issue #51: when the radios disable (mode is locked), the confirm
+	# button has done its job and should disable too.
+	if confirm_mode_button:
+		confirm_mode_button.disabled = not enabled or _get_selected_movement_mode() == ""
+
+func _refresh_confirm_mode_button_enable() -> void:
+	# Issue #51: enable the Confirm Movement Mode button only when a
+	# mode radio is currently selected and the radios themselves are
+	# still enabled (i.e. mode not yet locked).
+	if not confirm_mode_button:
+		return
+	var any_radio_enabled := false
+	if normal_radio and not normal_radio.disabled:
+		any_radio_enabled = true
+	elif advance_radio and not advance_radio.disabled:
+		any_radio_enabled = true
+	elif fall_back_radio and not fall_back_radio.disabled:
+		any_radio_enabled = true
+	elif stationary_radio and not stationary_radio.disabled:
+		any_radio_enabled = true
+	var has_selection := _get_selected_movement_mode() != ""
+	confirm_mode_button.disabled = not (any_radio_enabled and has_selection)
 
 func _update_fall_back_visibility() -> void:
 	if not fall_back_radio or not active_unit_id or not current_phase:

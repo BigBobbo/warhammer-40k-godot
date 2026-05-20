@@ -1,0 +1,38 @@
+{
+  "id": "51_confirm_movement_mode",
+  "covers": [
+    "movement.confirm_movement_mode_button",
+    "phases.MovementPhase.LOCK_MOVEMENT_MODE"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Issue #51: the Confirm Movement Mode button locks the mode for the active unit. Drives the engine path: BEGIN_NORMAL_MOVE (mirrors radio click) → LOCK_MOVEMENT_MODE (mirrors new button) → a second LOCK attempt should fail because the mode is already locked.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "screenshot", "label": "01_movement_phase_loaded" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_NORMAL_MOVE",
+      "actor_unit_id": "U_BLADE_CHAMPION_A"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "LOCK_MOVEMENT_MODE",
+      "actor_unit_id": "U_BLADE_CHAMPION_A",
+      "payload": { "mode": "NORMAL" }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_after_mode_locked" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "LOCK_MOVEMENT_MODE",
+      "actor_unit_id": "U_BLADE_CHAMPION_A",
+      "payload": { "mode": "ADVANCE" }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "screenshot", "label": "03_second_lock_rejected" }
+  ]
+}

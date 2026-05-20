@@ -252,6 +252,15 @@
       "status": "covered"
     },
     {
+      "id": "movement.confirm_movement_mode_button",
+      "description": "Issue #51: the Movement Phase right panel section 3 now exposes a Confirm Movement Mode button that dispatches LOCK_MOVEMENT_MODE for the active unit. Once locked, mode-radio CheckBoxes disable and the unit cannot switch mode until movement completes.",
+      "scenarios": [
+        "51_confirm_movement_mode"
+      ],
+      "last_verified_commit": "2c12ea5",
+      "status": "covered"
+    },
+    {
       "id": "movement.da_jump_placement_bounds",
       "description": "MOVEMENT phase: Da Jump teleports a unit to within 9\" of the warlord and \u22659\" from enemies. Bounds check rejects invalid placements. Validated by '376_da_jump_bounds.",
       "scenarios": [
@@ -384,6 +393,15 @@
         "373_lone_operative_guard"
       ],
       "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.LOCK_MOVEMENT_MODE",
+      "description": "MovementPhase.LOCK_MOVEMENT_MODE action: marks active_moves[unit].mode_locked=true so subsequent mode-change attempts are rejected for that unit this turn. Emits movement_mode_locked signal which MovementController listens for to disable mode radios.",
+      "scenarios": [
+        "51_confirm_movement_mode"
+      ],
+      "last_verified_commit": "2c12ea5",
       "status": "covered"
     },
     {
