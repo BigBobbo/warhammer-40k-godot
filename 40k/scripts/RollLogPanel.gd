@@ -3,17 +3,18 @@ class_name RollLogPanel
 
 # RollLogPanel — persistent right-side roll log (T35, doc §7).
 #
-# Subscribes to DiceHistoryPanel.roll_recorded and renders each entry in a
-# scrolling VBox. Always visible by default (the spec calls for persistent
-# visibility, no toggle).
-#
-# Format: <timestamp> · <attacker> → <target> · <result>
+# Subscribes to DiceHistoryPanel.roll_recorded and renders each entry as a
+# rich BBCode line via DiceHistoryPanel.format_entry_bbcode(). Hidden when
+# no rolls have been recorded yet, so the right column isn't taken up by an
+# empty dark box during phases like Deployment / Movement / Command.
 #
 # Self-installs as /root/Main/RollLogPanel via Main._ready().
 
 const PANEL_WIDTH := 320.0
 const PANEL_TOP_OFFSET := 80.0
 const MAX_VISIBLE := 30
+const ENTRY_FONT_SIZE := 12
+const ENTRY_MIN_HEIGHT := 32.0
 
 
 var _vbox: VBoxContainer = null
@@ -22,13 +23,13 @@ var _scroll: ScrollContainer = null
 
 func _ready() -> void:
 	name = "RollLogPanel"
-	# IGNORE (not PASS) — the panel is a passive read-out covering the
-	# right 320px of the viewport from y=80 down. PASS would still make
-	# Godot pick this control for input and only propagate to ancestors,
-	# never to lower-z siblings like HUD_Right (where the Undo / Reset /
-	# Confirm buttons live).
+	# IGNORE so this passive read-out never eats clicks on whatever sits
+	# under the right 320px of the viewport (e.g. HUD_Right's buttons).
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(PANEL_WIDTH, 0)
+	# Hidden until the first roll lands — avoids an empty dark column
+	# during phases that don't roll (Deployment / Command / Movement).
+	visible = false
 	_sync_viewport_size()
 	var vp := get_viewport()
 	if vp != null and not vp.is_connected("size_changed", _sync_viewport_size):
@@ -37,9 +38,6 @@ func _ready() -> void:
 	_scroll = ScrollContainer.new()
 	_scroll.name = "Scroll"
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	# Roll log is a passive read-out; without IGNORE, the inner ScrollContainer
-	# (default MOUSE_FILTER_STOP) eats clicks on whatever sits under the right
-	# 320px of the viewport — e.g. the Confirm button in HUD_Right.
 	_scroll.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_scroll)
 
@@ -54,38 +52,48 @@ func _ready() -> void:
 	if dh != null:
 		if dh.has_signal("roll_recorded") and not dh.is_connected("roll_recorded", _on_roll_recorded):
 			dh.connect("roll_recorded", _on_roll_recorded)
-		# Backfill from existing entries.
-		for entry in dh.entries:
-			_append_entry_label(entry)
+		# Backfill any history that already exists (e.g. after a load).
+		for entry in dh.get_history():
+			_append_entry(entry, dh)
+		_refresh_visibility()
 
 
-func _on_roll_recorded(_raw: Dictionary) -> void:
-	# Re-pull the latest structured entry from the autoload — the raw
-	# dict has phase-specific keys; entries[-1] is the normalized view.
+func _on_roll_recorded(entry: Dictionary) -> void:
 	var dh = get_node_or_null("/root/DiceHistoryPanel")
-	if dh == null or dh.entries.is_empty():
+	if dh == null:
 		return
-	_append_entry_label(dh.entries[-1])
+	_append_entry(entry, dh)
 	# Trim to MAX_VISIBLE
 	while _vbox.get_child_count() > MAX_VISIBLE:
 		_vbox.get_child(0).queue_free()
-	# Defer scroll-to-bottom to next frame after layout.
+	_refresh_visibility()
 	call_deferred("_scroll_to_bottom")
 
 
-func _append_entry_label(entry: Dictionary) -> void:
-	var lbl := Label.new()
-	lbl.text = "%d · %s → %s · %s" % [
-		int(entry.get("timestamp", 0)),
-		str(entry.get("attacker", "—")),
-		str(entry.get("target", "—")),
-		str(entry.get("result", "")),
-	]
-	lbl.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
-	lbl.add_theme_font_size_override("font_size", 12)
+func _append_entry(entry: Dictionary, dh) -> void:
+	# Use the autoload's BBCode formatter so the line matches the in-game
+	# dice log everywhere else (colored dice, R/P/phase header, etc.).
+	var bbcode := ""
+	if dh != null and dh.has_method("format_entry_bbcode"):
+		bbcode = dh.format_entry_bbcode(entry)
+	if bbcode.is_empty():
+		return  # Skip non-roll contexts (formatter returns "" for filtered noise).
+	var lbl := RichTextLabel.new()
+	lbl.bbcode_enabled = true
+	lbl.fit_content = true
+	lbl.scroll_active = false
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.add_theme_font_size_override("normal_font_size", ENTRY_FONT_SIZE)
+	lbl.add_theme_font_size_override("bold_font_size", ENTRY_FONT_SIZE)
+	lbl.custom_minimum_size = Vector2(0, ENTRY_MIN_HEIGHT)
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.text = bbcode
 	_vbox.add_child(lbl)
+
+
+func _refresh_visibility() -> void:
+	visible = _vbox != null and _vbox.get_child_count() > 0
 
 
 func _scroll_to_bottom() -> void:

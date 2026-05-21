@@ -14,7 +14,6 @@
     { "act": "expect_state", "path": "meta.phase", "equals": 1 },
     { "act": "expect_state", "path": "units.U_BLADE_CHAMPION_A.status", "equals": 0 },
 
-    { "act": "expect_node_visible", "node": "/root/Main/RollLogPanel", "timeout_s": 2.0 },
     { "act": "expect_node_property", "node": "/root/Main/RollLogPanel", "property": "mouse_filter", "equals": 2 },
     { "act": "expect_node_property", "node": "/root/Main/UnitStatsPanel", "property": "mouse_filter", "equals": 2 },
 
