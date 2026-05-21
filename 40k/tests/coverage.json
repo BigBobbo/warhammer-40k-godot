@@ -209,6 +209,24 @@
       "status": "covered"
     },
     {
+      "id": "ui.overlays.RollLogPanel_hidden_when_empty",
+      "description": "RollLogPanel hides itself when no dice rolls have been recorded so the right column isn't an empty dark strip during phases that don't roll (Deployment / Movement / Command). visible flips to true on the first roll_recorded signal and back to false if entries are cleared.",
+      "scenarios": [
+        "roll_log_panel_hidden_until_roll"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.overlays.RollLogPanel_uses_rich_format",
+      "description": "RollLogPanel renders each entry via DiceHistoryPanel.format_entry_bbcode (per-die colors, R<round> P<player> <phase> header, attacker / unit name, dice values, SUCCESS / FAILED outcome) — not the bare {timestamp, attacker, target, result} normalized fields, which surface as '<msec> · — → — · charge_roll' and are useless to the player.",
+      "scenarios": [
+        "roll_log_panel_hidden_until_roll"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "ui.overlays.UnitStatsPanel_no_input_blocking",
       "description": "UnitStatsPanel is anchored BOTTOM_WIDE and overlaps the bottom strip of HUD_Right where the deployment buttons live. The panel and its layout-only descendants (VBox, Header, Spacer) must be MOUSE_FILTER_IGNORE so the deployment buttons remain reachable; the ToggleButton keeps its own STOP so the panel still toggles.",
       "scenarios": [
