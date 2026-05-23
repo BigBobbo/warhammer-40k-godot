@@ -60,14 +60,12 @@ PATH = sys.argv[1] if len(sys.argv) > 1 else \
 #   The wall is on the upper-right side of this axis = local north.
 
 WALLS_TOP_HALF = {
-    # tall_01 (top-mid small, rot_h=0): C-shape opening east (right in world).
-    # Long base on local west (= world LEFT) PLUS two perpendicular arms
-    # extending from the west corners eastward along the north and south
-    # edges. Arms are at the corners (no inset for this piece).
+    # tall_01 (top-mid small, rot_h=0): L-shape. Long wall on local west
+    # (= world LEFT) PLUS a single perpendicular arm extending from the
+    # north-west corner east along the north edge.
     "tall_01": [
         ("west", ["full"]),
         ("arm_north_from_west", []),
-        ("arm_south_from_west", []),
     ],
     # tall_03 (top-left vertical L, rot_h=-90): L on world top-right corner.
     "tall_03": [

@@ -47,19 +47,6 @@
           ],
           "type": "solid",
           "blocks_los": true
-        },
-        {
-          "id": "wall_arm_south",
-          "local_start": [
-            -3.15,
-            2.35
-          ],
-          "local_end": [
-            1.35,
-            2.35
-          ],
-          "type": "solid",
-          "blocks_los": true
         }
       ],
       "traits": [
@@ -102,19 +89,6 @@
           "local_end": [
             -1.35,
             2.35
-          ],
-          "type": "solid",
-          "blocks_los": true
-        },
-        {
-          "id": "wall_arm_north",
-          "local_start": [
-            3.15,
-            -2.35
-          ],
-          "local_end": [
-            -1.35,
-            -2.35
           ],
           "type": "solid",
           "blocks_los": true
