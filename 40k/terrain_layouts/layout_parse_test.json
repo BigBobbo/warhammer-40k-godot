@@ -1,0 +1,230 @@
+{
+	"id": "layout_parse_test",
+	"name": "Parse Test (Layout 2 from image)",
+	"description": "Generated from the GW Chapter Approved Layout 2 image. Horizontal source rotated 90 CCW to vertical board. Blue rectangles = low ruins (<=2 inch), gray hatched = tall ruins (>=4 inch). Positions are approximate, derived from the labelled red dimensions and pixel-measurement of the source image.",
+	"recommended_deployments": ["hammer_anvil", "dawn_of_war", "crucible_of_battle"],
+	"pieces": [
+		{
+			"id": "ruins_tl_l",
+			"type": "ruins",
+			"position": [7.0, 54.0],
+			"size": [5.0, 9.0],
+			"height": "tall",
+			"rotation": 90.0,
+			"traits": ["obscuring"],
+			"walls": [
+				{
+					"id": "wall_long",
+					"local_start": [-2.5, -4.5],
+					"local_end": [-2.5, 4.5],
+					"type": "solid",
+					"blocks_los": true
+				},
+				{
+					"id": "wall_short",
+					"local_start": [-2.5, 4.5],
+					"local_end": [2.5, 4.5],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "low_tl_below",
+			"type": "ruins",
+			"position": [15.0, 54.0],
+			"size": [5.0, 4.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		},
+		{
+			"id": "low_tc_top",
+			"type": "ruins",
+			"position": [3.0, 40.0],
+			"size": [4.0, 3.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		},
+		{
+			"id": "ruins_tc_small",
+			"type": "ruins",
+			"position": [9.0, 38.0],
+			"size": [5.0, 6.0],
+			"height": "tall",
+			"rotation": 90.0,
+			"traits": ["obscuring"],
+			"walls": [
+				{
+					"id": "wall_north",
+					"local_start": [-2.5, -3.0],
+					"local_end": [2.5, -3.0],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "low_tc_right",
+			"type": "ruins",
+			"position": [13.0, 32.0],
+			"size": [5.0, 4.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		},
+		{
+			"id": "ruins_tr_l_big",
+			"type": "ruins",
+			"position": [9.0, 8.0],
+			"size": [14.0, 6.0],
+			"height": "tall",
+			"rotation": 90.0,
+			"traits": ["obscuring"],
+			"walls": [
+				{
+					"id": "wall_south",
+					"local_start": [-7.0, 3.0],
+					"local_end": [7.0, 3.0],
+					"type": "solid",
+					"blocks_los": true
+				},
+				{
+					"id": "wall_east",
+					"local_start": [7.0, -3.0],
+					"local_end": [7.0, 3.0],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "low_tr_corner",
+			"type": "ruins",
+			"position": [3.0, 3.0],
+			"size": [4.0, 4.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		},
+		{
+			"id": "low_tr_below",
+			"type": "ruins",
+			"position": [19.0, 2.0],
+			"size": [4.0, 4.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		},
+		{
+			"id": "ruins_center_left_tilted",
+			"type": "ruins",
+			"position": [22.0, 38.0],
+			"size": [14.0, 6.0],
+			"height": "tall",
+			"rotation": 60.0,
+			"traits": ["obscuring"],
+			"walls": [
+				{
+					"id": "wall_north",
+					"local_start": [-7.0, -3.0],
+					"local_end": [7.0, -3.0],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "ruins_center_right_tilted",
+			"type": "ruins",
+			"position": [22.0, 20.0],
+			"size": [14.0, 6.0],
+			"height": "tall",
+			"rotation": 120.0,
+			"traits": ["obscuring"],
+			"walls": [
+				{
+					"id": "wall_south",
+					"local_start": [-7.0, 3.0],
+					"local_end": [7.0, 3.0],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "low_bl",
+			"type": "ruins",
+			"position": [28.0, 57.0],
+			"size": [4.0, 5.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		},
+		{
+			"id": "ruins_bl_tilted",
+			"type": "ruins",
+			"position": [35.0, 49.0],
+			"size": [14.0, 6.0],
+			"height": "tall",
+			"rotation": 120.0,
+			"traits": ["obscuring"],
+			"walls": [
+				{
+					"id": "wall_north",
+					"local_start": [-7.0, -3.0],
+					"local_end": [7.0, -3.0],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "low_bc",
+			"type": "ruins",
+			"position": [31.0, 38.0],
+			"size": [4.0, 4.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		},
+		{
+			"id": "ruins_bc_small",
+			"type": "ruins",
+			"position": [37.0, 30.0],
+			"size": [7.0, 4.0],
+			"height": "tall",
+			"rotation": 90.0,
+			"traits": ["obscuring"],
+			"walls": []
+		},
+		{
+			"id": "ruins_br_vertical",
+			"type": "ruins",
+			"position": [35.0, 8.0],
+			"size": [5.0, 11.0],
+			"height": "tall",
+			"rotation": 90.0,
+			"traits": ["obscuring"],
+			"walls": [
+				{
+					"id": "wall_west",
+					"local_start": [-2.5, -5.5],
+					"local_end": [-2.5, 5.5],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "low_br",
+			"type": "ruins",
+			"position": [28.0, 10.0],
+			"size": [4.0, 4.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		}
+	]
+}
