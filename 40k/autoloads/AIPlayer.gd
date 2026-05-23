@@ -1668,6 +1668,22 @@ func _execute_next_action(player: int) -> void:
 			var reinf_unit_name = _get_unit_name(reinf_unit_id)
 			_log_ai_event(player, "%s reinforcement failed (%s) — retrying" % [reinf_unit_name, _format_error_concise(error_msg)])
 			_handle_failed_reinforcement(player, decision)
+
+		# Formations phase failures: log and re-evaluate so the AI doesn't silently
+		# loop on the same invalid action (e.g. CONFIRM_FORMATIONS failing because
+		# no warlord is designated). The decision maker will pick something else on
+		# retry now that DESIGNATE_WARLORD is handled.
+		elif decision.get("type") in [
+			"DECLARE_LEADER_ATTACHMENT",
+			"DECLARE_RESERVES",
+			"UNDECLARE_RESERVES",
+			"UNDECLARE_LEADER_ATTACHMENT",
+			"UNDECLARE_TRANSPORT_EMBARKATION",
+			"DESIGNATE_WARLORD",
+			"CONFIRM_FORMATIONS",
+		]:
+			_log_ai_event(player, "%s failed (%s) — re-evaluating" % [decision.get("type", "?"), _format_error_concise(error_msg)])
+			_request_evaluation()
 	else:
 		# Track successful transport embarkation to prevent re-embarkation of same transport
 		if decision.get("type") == "DECLARE_TRANSPORT_EMBARKATION":

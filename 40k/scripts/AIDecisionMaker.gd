@@ -1400,6 +1400,7 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 	var transport_actions = []
 	var reserves_actions = []
 	var undeclare_reserves_actions = []
+	var warlord_actions = []
 	var has_confirm = false
 
 	for action in available_actions:
@@ -1412,6 +1413,8 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 				reserves_actions.append(action)
 			"UNDECLARE_RESERVES":
 				undeclare_reserves_actions.append(action)
+			"DESIGNATE_WARLORD":
+				warlord_actions.append(action)
 			"CONFIRM_FORMATIONS":
 				has_confirm = true
 
@@ -1435,6 +1438,14 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 		if not reserves_decision.is_empty():
 			return reserves_decision
 
+	# Warlord designation is required before CONFIRM_FORMATIONS will validate when
+	# the player has more than one CHARACTER. Pick the highest-points CHARACTER as
+	# the warlord (epic heroes / named characters tend to outscore generic ones).
+	if not warlord_actions.is_empty():
+		var warlord_decision = _evaluate_warlord_designation(snapshot, warlord_actions, player)
+		if not warlord_decision.is_empty():
+			return warlord_decision
+
 	# No more attachments, embarkations, or reserves to declare — confirm formations
 	if has_confirm:
 		return {
@@ -1443,6 +1454,25 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 			"_ai_description": "AI confirms battle formations (all declarations done)"
 		}
 	return {}
+
+static func _evaluate_warlord_designation(snapshot: Dictionary, warlord_actions: Array, _player: int) -> Dictionary:
+	"""Pick the best CHARACTER to designate as Warlord.
+	Heuristic: highest-points CHARACTER (epic heroes outscore generic characters)."""
+	var all_units = snapshot.get("units", {})
+	var best_points = -1
+	var best_action = {}
+	for action in warlord_actions:
+		var unit_id = action.get("unit_id", "")
+		var unit = all_units.get(unit_id, {})
+		var points = int(unit.get("meta", {}).get("points", 0))
+		if points > best_points:
+			best_points = points
+			best_action = action.duplicate(true)
+	if best_action.is_empty():
+		return {}
+	var warlord_name = all_units.get(best_action.get("unit_id", ""), {}).get("meta", {}).get("name", "unknown")
+	best_action["_ai_description"] = "AI designates %s as Warlord (%d pts)" % [warlord_name, best_points]
+	return best_action
 
 static func _evaluate_best_leader_attachment(snapshot: Dictionary, attachment_actions: Array, player: int) -> Dictionary:
 	"""Score all available leader-bodyguard pairings and return the best one.
