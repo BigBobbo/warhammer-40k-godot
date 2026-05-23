@@ -27,56 +27,53 @@ import math
 
 
 def snap_pair(tall_match, low_match):
-    """Move the low piece so it touches the tall piece on their shared
-    edge (canonical 6" for 8x6+4x6, canonical 5" for 6.5x5+3.5x5).
-    Both pieces are rectangles (possibly rotated). Determine which side
-    of the tall the low is on (based on relative position), then place
-    the low's appropriate edge against the tall's corresponding edge.
+    """Move and rotate the low piece so it touches the tall on their
+    shared 6"/5" edge.
+
+    Canonical pairings (per tools/catalog.py):
+      tall_8x6  + low_4x6  share a 6" edge -> combined 12x6 footprint.
+      tall_6.5x5 + low_3.5x5 share a 5" edge -> combined 10x5 footprint.
+
+    Geometry:
+      The shared edge length (6" or 5") equals the SHORT dimension of
+      the tall AND the LONG dimension of the low. So the low's long axis
+      must be PERPENDICULAR to the tall's long axis, and the low sits
+      against the tall's east or west face (the face perpendicular to
+      the tall's long axis).
     """
     tx, ty = tall_match['cx_in'], tall_match['cy_in']
     lx, ly = low_match['cx_in'], low_match['cy_in']
     dx, dy = lx - tx, ly - ty
-    # In the piece-local frame of the TALL piece, place the low along
-    # the side closest to the current low position.
+
+    # Project (dx, dy) onto tall's local axes
     rad = math.radians(tall_match['angle'])
     ca, sa = math.cos(rad), math.sin(rad)
-    # Project (dx, dy) onto tall's local axes
-    local_dx = ca * dx + sa * dy
-    local_dy = -sa * dx + ca * dy
-    # Tall's long axis = local +x, half-length = long/2
-    t_hw = tall_match['long'] / 2
-    t_hh = tall_match['short'] / 2
-    # Low's dimensions (assume same orientation as tall - they share an edge)
+    local_dx = ca * dx + sa * dy   # along tall's long axis
+    local_dy = -sa * dx + ca * dy  # perpendicular to tall's long axis
+
+    t_long_half = tall_match['long'] / 2   # extent along long axis
+    t_short_half = tall_match['short'] / 2  # extent along short axis
     l_long = low_match['long']
     l_short = low_match['short']
-    # Determine which face of the tall is closest to the low.
-    # Tall is paired with low on either: east face (+x), west (-x),
-    # north (-y), or south (+y) in tall's local frame.
-    # The shared edge dimension determines which low-side touches.
-    # For 8x6+4x6: shared 6" edge is the SHORT side of the tall (6 = short).
-    #   So low touches tall on the east or west face (local x = +/- t_hw).
-    #   The low's matching edge is also length 6, which is its LONG side (4x6).
-    # For 6.5x5+3.5x5: shared 5" edge is the SHORT side of tall (5 = short).
-    #   Low touches tall on east or west face. Low's matching edge = 5 = long.
-    # In both cases: low touches tall on the +/- x face (long axis ends).
-    if abs(local_dx) >= abs(local_dy):
-        # Low is to east or west of tall (along tall's long axis)
-        sign = 1 if local_dx > 0 else -1
-        # Tall's east/west face is at local x = +/- t_hw
-        # Low's centre should be at local x = sign * (t_hw + l_long/2)
-        new_local_x = sign * (t_hw + l_long / 2)
-        new_local_y = 0.0  # share full extent along short axis
-    else:
-        sign = 1 if local_dy > 0 else -1
-        new_local_x = 0.0
-        new_local_y = sign * (t_hh + l_short / 2)
-    # Convert local back to world
+
+    # The low pairs at the tall's east (+local_x) or west (-local_x) face.
+    # Its centre is offset by (t_long_half + l_short/2) along that direction
+    # (because the low's SHORT dimension extends from the shared edge into
+    # the world; its LONG dimension runs PARALLEL to the tall's short axis).
+    sign = 1 if local_dx >= 0 else -1
+    new_local_x = sign * (t_long_half + l_short / 2)
+    new_local_y = 0.0
+
+    # Convert local offset back to world
     new_dx = ca * new_local_x - sa * new_local_y
     new_dy = sa * new_local_x + ca * new_local_y
     low_match['cx_in'] = round(tx + new_dx, 2)
     low_match['cy_in'] = round(ty + new_dy, 2)
-    # When sharing a face, the low piece inherits the tall's rotation
-    low_match['angle'] = tall_match['angle']
+
+    # CRITICAL: low's long axis is perpendicular to tall's long axis.
+    # If tall is at angle theta, low is at angle theta + 90 (mod 180 since
+    # rectangles are 180-symmetric).
+    low_match['angle'] = (tall_match['angle'] + 90.0) % 180.0
 
 
 def horizontal_to_vertical(cx_h, cy_h, angle_h, board_w=60.0, board_h=44.0):
