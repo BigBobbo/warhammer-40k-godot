@@ -25,6 +25,11 @@ var _vbox: VBoxContainer = null
 func _ready() -> void:
 	name = "LeftRoster"
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	# Hidden by default — HUD_Right already lists every unit, and the
+	# left-edge strip was overlapping GameLogPanel. Press L (or hit the
+	# toolbar toggle Main wires in _install_design_guidelines_overlays)
+	# to bring it in.
+	visible = false
 	_sync_viewport_size()
 	var vp := get_viewport()
 	if vp != null and not vp.is_connected("size_changed", _sync_viewport_size):
@@ -42,6 +47,24 @@ func _ready() -> void:
 
 	# Build cards on first frame so GameState is populated by SAL load.
 	call_deferred("refresh")
+
+
+func toggle_visible() -> void:
+	visible = not visible
+	if visible:
+		# GameLogPanel is added after LeftRoster in Main._ready, so it
+		# sits on top. Raise the roster when shown so its cards aren't
+		# hidden behind the log.
+		move_to_front()
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not (event is InputEventKey):
+		return
+	var k := event as InputEventKey
+	if k.pressed and not k.echo and k.keycode == KEY_L:
+		toggle_visible()
+		get_viewport().set_input_as_handled()
 
 
 func _sync_viewport_size() -> void:

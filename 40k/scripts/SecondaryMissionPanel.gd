@@ -22,15 +22,18 @@ func _ready() -> void:
 	name = "SecondaryMissionPanel"
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# Position: top-left, offset from edges to avoid overlap with HUD
-	anchor_left = 0.0
-	anchor_top = 0.0
-	anchor_right = 0.0
-	anchor_bottom = 0.0
-	offset_left = 8
-	offset_top = 8
-	offset_right = 8 + PANEL_WIDTH
-	offset_bottom = 8 + HEADER_HEIGHT
+	# Hidden by default — opened via the toolbar toggle wired in Main
+	# (_setup_secondary_mission_toggle) or the 'M' key. Position the
+	# panel just below the top HUD bar (HUD_Bottom is anchored to the
+	# top of the screen at offset 0..100) and re-sync on viewport
+	# resize so it stays anchored under the HUD even after layout
+	# changes. Previously this panel anchored at (8, 8) which floated
+	# over LeftRoster and GameLogPanel.
+	visible = false
+	_sync_panel_position()
+	var vp := get_viewport()
+	if vp != null and not vp.is_connected("size_changed", _sync_panel_position):
+		vp.connect("size_changed", _sync_panel_position)
 	custom_minimum_size = Vector2(PANEL_WIDTH, HEADER_HEIGHT)
 
 	# Apply gothic panel style
@@ -140,6 +143,28 @@ func set_collapsed(collapsed: bool) -> void:
 
 	if not collapsed:
 		refresh()
+
+
+func toggle_visible() -> void:
+	visible = not visible
+	if visible:
+		set_collapsed(false)
+
+
+func _sync_panel_position() -> void:
+	var vp := get_viewport()
+	if vp == null:
+		return
+	var vp_size := vp.get_visible_rect().size
+	# Top-center, just below the HUD top bar (~100px tall).
+	anchor_left = 0.0
+	anchor_top = 0.0
+	anchor_right = 0.0
+	anchor_bottom = 0.0
+	offset_left = (vp_size.x - PANEL_WIDTH) / 2.0
+	offset_top = 108
+	offset_right = offset_left + PANEL_WIDTH
+	offset_bottom = offset_top + (HEADER_HEIGHT if is_collapsed else EXPANDED_HEIGHT)
 
 # ============================================================================
 # CONTENT REFRESH

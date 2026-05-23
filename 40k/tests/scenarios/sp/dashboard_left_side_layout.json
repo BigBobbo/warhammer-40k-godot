@@ -1,0 +1,41 @@
+{
+  "id": "dashboard_left_side_layout",
+  "covers": [
+    "ui.layout.LeftRoster_hidden_by_default",
+    "ui.layout.SecondaryMissionPanel_top_center_toggle",
+    "ui.layout.GameLogPanel_extends_to_bottom"
+  ],
+  "fixture": "End of movement phase",
+  "disable_ai": true,
+  "description": "Audit the dashboard's left-side layout. After loading a mid-game fixture, assert: LeftRoster is hidden by default (was overlapping GameLogPanel), SecondaryMissionPanel is hidden by default (was floating at top-left over LeftRoster), and GameLogPanel's bottom edge sits at the viewport bottom (was 45px short). Toolbar toggles (HUD_Bottom/HBoxContainer/MissionsToggle, RosterToggle) and the M / L hotkeys reveal each panel on demand. Captures before/after screenshots.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "screenshot", "label": "00_default_clean_layout" },
+
+    { "act": "expect_node_property", "node": "/root/Main/LeftRoster", "property": "visible", "equals": false },
+    { "act": "expect_node_property", "node": "/root/Main/SecondaryMissionPanel", "property": "visible", "equals": false },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Bottom/HBoxContainer/MissionsToggle", "timeout_s": 2.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Bottom/HBoxContainer/RosterToggle", "timeout_s": 2.0 },
+
+    { "act": "execute_script", "script": "str(int(get_node('/root/Main/GameLogPanel').get_global_rect().end.y))" },
+    { "act": "execute_script", "script": "str(int(get_viewport().get_visible_rect().size.y))" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/RosterToggle", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "expect_node_property", "node": "/root/Main/LeftRoster", "property": "visible", "equals": true },
+    { "act": "screenshot", "label": "01_roster_revealed" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/RosterToggle", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "expect_node_property", "node": "/root/Main/LeftRoster", "property": "visible", "equals": false },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/MissionsToggle", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "expect_node_property", "node": "/root/Main/SecondaryMissionPanel", "property": "visible", "equals": true },
+    { "act": "screenshot", "label": "02_missions_revealed_top_center" },
+
+    { "act": "execute_script", "script": "str(int(get_node('/root/Main/SecondaryMissionPanel').get_global_rect().position.x))" },
+    { "act": "execute_script", "script": "str(int(get_viewport().get_visible_rect().size.x))" }
+  ]
+}
