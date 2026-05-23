@@ -60,11 +60,36 @@ PATH = sys.argv[1] if len(sys.argv) > 1 else \
 #   The wall is on the upper-right side of this axis = local north.
 
 WALLS_TOP_HALF = {
-    "tall_01": [("west",  ["full"])],
-    "tall_03": [("south", ["full"])],
-    "tall_05": [("south", ["full"]), ("west", ["full"])],
-    "tall_07": [("north", ["full"])],
+    # tall_01 (top-mid small, rot_h=0): single wall on world LEFT = local west.
+    "tall_01": [("west", ["full"])],
+    # tall_03 (top-left vertical L, rot_h=-90):
+    #   world RIGHT = local south, world TOP = local east.
+    #   Source shows L-shape: full wall on world RIGHT (= local south) PLUS
+    #   partial wall on world TOP (= local east) starting at the top-right
+    #   corner (= local +hw, +hh) and extending toward top-left.
+    "tall_03": [
+        ("south", ["full"]),
+        ("east_from_south", []),  # partial wall on east edge from south corner
+    ],
+    # tall_05 (top-right big L, rot_h=-90):
+    #   Source shows L-shape: full wall on world LEFT (= local north) PLUS
+    #   partial wall on world TOP (= local east) starting at the top-left
+    #   corner (= local +hw, -hh) and extending toward top-right.
+    "tall_05": [
+        ("north", ["full"]),
+        ("east_from_north", []),
+    ],
+    # tall_07 (left diagonal, rot_h=42): U-shape opening south.
+    "tall_07": [
+        ("north", ["full"]),
+        ("arm_west", []),
+        ("arm_east", []),
+    ],
 }
+
+ARM_INSET_FROM_END = 1.5
+ARM_LENGTH = 3.0
+L_CORNER_ARM_LENGTH = 3.0  # length of the perpendicular arm on L-shape pieces
 
 
 def make_wall(edge, w_long, h_short):
@@ -90,12 +115,77 @@ def make_wall(edge, w_long, h_short):
                 "local_start": [hw, -hh],
                 "local_end":   [hw,  hh],
                 "type": "solid", "blocks_los": True}
+    # U-shape arms for the diagonals: perpendicular walls extending from
+    # the long edge toward the opposite side, located 1.5" from each end.
+    if edge == "arm_west":
+        x = -hw + ARM_INSET_FROM_END
+        return {"id": "wall_arm_west",
+                "local_start": [x, -hh],
+                "local_end":   [x, -hh + ARM_LENGTH],
+                "type": "solid", "blocks_los": True}
+    if edge == "arm_east":
+        x = hw - ARM_INSET_FROM_END
+        return {"id": "wall_arm_east",
+                "local_start": [x, -hh],
+                "local_end":   [x, -hh + ARM_LENGTH],
+                "type": "solid", "blocks_los": True}
+    # L-shape perpendicular walls for orthogonal pieces.
+    # The "east_from_south" wall sits on the local east edge (x=+hw) starting
+    # at the south corner (y=+hh) and extending toward north for
+    # L_CORNER_ARM_LENGTH inches. Used by pieces whose L corner is at the
+    # local east-south corner of the piece-local frame.
+    if edge == "east_from_south":
+        return {"id": "wall_east_partial",
+                "local_start": [hw, hh],
+                "local_end":   [hw, hh - L_CORNER_ARM_LENGTH],
+                "type": "solid", "blocks_los": True}
+    if edge == "east_from_north":
+        return {"id": "wall_east_partial",
+                "local_start": [hw, -hh],
+                "local_end":   [hw, -hh + L_CORNER_ARM_LENGTH],
+                "type": "solid", "blocks_los": True}
     raise ValueError(edge)
 
 
 # 180-rotated edge mapping: a wall on local "north" of piece A becomes
 # a wall on local "south" of piece B (the 180-mirror).
-ROT180 = {"north": "south", "south": "north", "west": "east", "east": "west"}
+ROT180 = {"north": "south", "south": "north", "west": "east", "east": "west",
+          "arm_west": "arm_east_south", "arm_east": "arm_west_south",
+          "east_from_south": "west_from_north",
+          "east_from_north": "west_from_south"}
+
+
+def make_wall_mirror(edge, w_long, h_short):
+    """Build the wall that's the 180-rotated counterpart in local coords.
+    180 rotation in local frame maps (x, y) -> (-x, -y)."""
+    hw = w_long / 2
+    hh = h_short / 2
+    if edge == "arm_east_south":
+        x = hw - ARM_INSET_FROM_END
+        return {"id": "wall_arm_east",
+                "local_start": [x, hh],
+                "local_end":   [x, hh - ARM_LENGTH],
+                "type": "solid", "blocks_los": True}
+    if edge == "arm_west_south":
+        x = -hw + ARM_INSET_FROM_END
+        return {"id": "wall_arm_west",
+                "local_start": [x, hh],
+                "local_end":   [x, hh - ARM_LENGTH],
+                "type": "solid", "blocks_los": True}
+    # L-shape partial-arm mirrors: 180-rotate the corresponding wall.
+    # east_from_south (start at +hw,+hh, end at +hw, +hh - len) ->
+    # mirror (start at -hw,-hh, end at -hw, -hh + len)
+    if edge == "west_from_north":
+        return {"id": "wall_west_partial",
+                "local_start": [-hw, -hh],
+                "local_end":   [-hw, -hh + L_CORNER_ARM_LENGTH],
+                "type": "solid", "blocks_los": True}
+    if edge == "west_from_south":
+        return {"id": "wall_west_partial",
+                "local_start": [-hw, hh],
+                "local_end":   [-hw, hh - L_CORNER_ARM_LENGTH],
+                "type": "solid", "blocks_los": True}
+    return make_wall(edge, w_long, h_short)
 
 PAIRS = {
     "tall_01": "tall_02",
@@ -119,7 +209,7 @@ for top_id, mirror_id in PAIRS.items():
     mir_walls = []
     for edge, _spec in WALLS_TOP_HALF.get(top_id, []):
         top_walls.append(make_wall(edge, w_long, h_short))
-        mir_walls.append(make_wall(ROT180[edge], w_long, h_short))
+        mir_walls.append(make_wall_mirror(ROT180[edge], w_long, h_short))
     p_top["walls"] = top_walls
     p_mir["walls"] = mir_walls
 
