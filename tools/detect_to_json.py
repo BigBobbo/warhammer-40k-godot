@@ -23,10 +23,11 @@ DETECTED = [
     # Top-center blue at top edge
     ("low",  29.4,  3.1,  5.5,  3.6,  90.0),
     # Top-left vertical tall ruin
-    ("tall",  8.4, 11.1, 12.7,  6.4,  90.0),
-    # Top-right big L: vertical arm (left side of L) + horizontal arm (top)
-    ("tall", 38.0, 12.7, 14.3,  5.5,  90.0),
-    ("tall", 47.0,  8.0, 13.0,  5.0,   0.0),
+    ("tall",  8.0,  9.5, 11.0,  6.0,  90.0),
+    # Top-right: TWO separate pieces - a vertical "[" -shaped ruin plus an
+    # adjacent horizontal rectangle (NOT a single L).
+    ("tall", 40.0,  9.5, 11.0,  6.0,  90.0),  # vertical (long axis vertical)
+    ("tall", 46.0, 19.5,  8.0,  5.0,   0.0),  # horizontal below/right of it
     # Small tilted blue near top-center
     ("low",  21.8, 13.0,  4.6,  3.4, -45.0),
     # Small tilted gray square top-center
@@ -43,11 +44,11 @@ DETECTED = [
     ("tall", 33.9, 27.6,  5.9,  4.6,  45.0),
     # Small tilted blue near bottom-center (mirror)
     ("low",  36.8, 31.1,  4.6,  3.4, -45.0),
-    # Bottom-left big L: vertical arm + horizontal arm (mirror of top-right L)
-    ("tall", 22.0, 31.3, 14.3,  5.5,  90.0),
-    ("tall", 13.0, 36.0, 13.0,  5.0,   0.0),
+    # Bottom-left: TWO separate pieces (180-mirror of top-right pair).
+    ("tall", 20.0, 34.5, 11.0,  6.0,  90.0),  # vertical (mirror)
+    ("tall", 14.0, 24.5,  8.0,  5.0,   0.0),  # horizontal (mirror)
     # Bottom-right vertical tall ruin (mirror of top-left)
-    ("tall", 51.6, 32.9, 12.7,  6.4,  90.0),
+    ("tall", 52.0, 34.5, 11.0,  6.0,  90.0),
     # Bottom-center blue at bottom edge (mirror of top-center)
     ("low",  30.6, 40.9,  5.5,  3.6,  90.0),
 ]
