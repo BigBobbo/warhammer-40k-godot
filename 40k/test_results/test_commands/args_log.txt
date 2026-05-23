@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["--scenario-file=tests/scenarios/visual/parse_test_terrain_screenshot.json"]
