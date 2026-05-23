@@ -60,28 +60,32 @@ PATH = sys.argv[1] if len(sys.argv) > 1 else \
 #   The wall is on the upper-right side of this axis = local north.
 
 WALLS_TOP_HALF = {
-    # tall_01 (top-mid small, rot_h=0): single wall on world LEFT = local west.
-    "tall_01": [("west", ["full"])],
-    # tall_03 (top-left vertical L, rot_h=-90):
-    #   world RIGHT = local south, world TOP = local east.
-    #   Source shows L-shape: full wall on world RIGHT (= local south) PLUS
-    #   partial wall on world TOP (= local east) starting at the top-right
-    #   corner (= local +hw, +hh) and extending toward top-left.
+    # tall_01 (top-mid small, rot_h=0): C-shape opening east (right in world).
+    # Long base on local west (= world LEFT) PLUS two perpendicular arms
+    # extending from the west corners eastward along the north and south
+    # edges. Arms are at the corners (no inset for this piece).
+    "tall_01": [
+        ("west", ["full"]),
+        ("arm_north_from_west", []),
+        ("arm_south_from_west", []),
+    ],
+    # tall_03 (top-left vertical L, rot_h=-90): L on world top-right corner.
     "tall_03": [
         ("south", ["full"]),
-        ("east_from_south", []),  # partial wall on east edge from south corner
+        ("east_from_south", []),
     ],
-    # tall_05 (top-right big L, rot_h=-90):
-    #   Source shows L-shape: full wall on world LEFT (= local north) PLUS
-    #   partial wall on world TOP (= local east) starting at the top-left
-    #   corner (= local +hw, -hh) and extending toward top-right.
+    # tall_05 (top-right big L, rot_h=-90): L on world top-left corner.
     "tall_05": [
         ("north", ["full"]),
         ("east_from_north", []),
     ],
-    # tall_07 (left diagonal, rot_h=42): U-shape opening south.
+    # tall_07 (left diagonal, rot_h=42): C-shape opening south.
+    # Long base on north edge but ONLY between the arms (per user feedback:
+    # "the walls do not continue to the corners on the long edge, they stop
+    # where they turn"). Arms are 1.5" inset from each end and extend 3"
+    # toward the opposite edge.
     "tall_07": [
-        ("north", ["full"]),
+        ("north_between_arms", []),
         ("arm_west", []),
         ("arm_east", []),
     ],
@@ -89,7 +93,8 @@ WALLS_TOP_HALF = {
 
 ARM_INSET_FROM_END = 1.5
 ARM_LENGTH = 3.0
-L_CORNER_ARM_LENGTH = 3.0  # length of the perpendicular arm on L-shape pieces
+L_CORNER_ARM_LENGTH = 3.0
+C_ORTHO_ARM_LENGTH = 4.5  # arm length for the C-shape on small ortho pieces
 
 
 def make_wall(edge, w_long, h_short):
@@ -144,6 +149,30 @@ def make_wall(edge, w_long, h_short):
                 "local_start": [hw, -hh],
                 "local_end":   [hw, -hh + L_CORNER_ARM_LENGTH],
                 "type": "solid", "blocks_los": True}
+    # C-shape base wall on the diagonals: runs along the north edge but
+    # only between the two arm positions (no extension to the corners).
+    if edge == "north_between_arms":
+        return {"id": "wall_north",
+                "local_start": [-hw + ARM_INSET_FROM_END, -hh],
+                "local_end":   [ hw - ARM_INSET_FROM_END, -hh],
+                "type": "solid", "blocks_los": True}
+    if edge == "south_between_arms":
+        return {"id": "wall_south",
+                "local_start": [-hw + ARM_INSET_FROM_END, hh],
+                "local_end":   [ hw - ARM_INSET_FROM_END, hh],
+                "type": "solid", "blocks_los": True}
+    # C-shape arms on orthogonal pieces (e.g., tall_01): arms start AT
+    # the west corners and extend east along the north/south edges.
+    if edge == "arm_north_from_west":
+        return {"id": "wall_arm_north",
+                "local_start": [-hw, -hh],
+                "local_end":   [-hw + C_ORTHO_ARM_LENGTH, -hh],
+                "type": "solid", "blocks_los": True}
+    if edge == "arm_south_from_west":
+        return {"id": "wall_arm_south",
+                "local_start": [-hw, hh],
+                "local_end":   [-hw + C_ORTHO_ARM_LENGTH, hh],
+                "type": "solid", "blocks_los": True}
     raise ValueError(edge)
 
 
@@ -152,7 +181,10 @@ def make_wall(edge, w_long, h_short):
 ROT180 = {"north": "south", "south": "north", "west": "east", "east": "west",
           "arm_west": "arm_east_south", "arm_east": "arm_west_south",
           "east_from_south": "west_from_north",
-          "east_from_north": "west_from_south"}
+          "east_from_north": "west_from_south",
+          "north_between_arms": "south_between_arms",
+          "arm_north_from_west": "arm_south_from_east",
+          "arm_south_from_west": "arm_north_from_east"}
 
 
 def make_wall_mirror(edge, w_long, h_short):
@@ -184,6 +216,19 @@ def make_wall_mirror(edge, w_long, h_short):
         return {"id": "wall_west_partial",
                 "local_start": [-hw, hh],
                 "local_end":   [-hw, hh - L_CORNER_ARM_LENGTH],
+                "type": "solid", "blocks_los": True}
+    # 180-rotated mirror of arm_north_from_west (which was at
+    # (-hw,-hh) -> (-hw+L, -hh)) -> (hw, hh) -> (hw-L, hh) which sits on
+    # south edge, starting at east corner, extending west.
+    if edge == "arm_south_from_east":
+        return {"id": "wall_arm_south",
+                "local_start": [hw, hh],
+                "local_end":   [hw - C_ORTHO_ARM_LENGTH, hh],
+                "type": "solid", "blocks_los": True}
+    if edge == "arm_north_from_east":
+        return {"id": "wall_arm_north",
+                "local_start": [hw, -hh],
+                "local_end":   [hw - C_ORTHO_ARM_LENGTH, -hh],
                 "type": "solid", "blocks_los": True}
     return make_wall(edge, w_long, h_short)
 

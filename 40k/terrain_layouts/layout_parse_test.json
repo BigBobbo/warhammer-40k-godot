@@ -34,6 +34,32 @@
           ],
           "type": "solid",
           "blocks_los": true
+        },
+        {
+          "id": "wall_arm_north",
+          "local_start": [
+            -3.15,
+            -2.35
+          ],
+          "local_end": [
+            1.35,
+            -2.35
+          ],
+          "type": "solid",
+          "blocks_los": true
+        },
+        {
+          "id": "wall_arm_south",
+          "local_start": [
+            -3.15,
+            2.35
+          ],
+          "local_end": [
+            1.35,
+            2.35
+          ],
+          "type": "solid",
+          "blocks_los": true
         }
       ],
       "traits": [
@@ -63,6 +89,32 @@
           "local_end": [
             3.15,
             2.35
+          ],
+          "type": "solid",
+          "blocks_los": true
+        },
+        {
+          "id": "wall_arm_south",
+          "local_start": [
+            3.15,
+            2.35
+          ],
+          "local_end": [
+            -1.35,
+            2.35
+          ],
+          "type": "solid",
+          "blocks_los": true
+        },
+        {
+          "id": "wall_arm_north",
+          "local_start": [
+            3.15,
+            -2.35
+          ],
+          "local_end": [
+            -1.35,
+            -2.35
           ],
           "type": "solid",
           "blocks_los": true
@@ -389,11 +441,11 @@
         {
           "id": "wall_north",
           "local_start": [
-            -6.25,
+            -4.75,
             -3.25
           ],
           "local_end": [
-            6.25,
+            4.75,
             -3.25
           ],
           "type": "solid",
@@ -447,11 +499,11 @@
         {
           "id": "wall_south",
           "local_start": [
-            -6.25,
+            -4.75,
             3.25
           ],
           "local_end": [
-            6.25,
+            4.75,
             3.25
           ],
           "type": "solid",
