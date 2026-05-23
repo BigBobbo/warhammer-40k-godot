@@ -14,8 +14,7 @@ var available_armies: Array = []
 var cloud_army_names: Array = []  # Names of armies available in cloud storage
 var cloud_army_cache: Dictionary = {}  # Cache of downloaded cloud army data: army_name -> army_data
 var _cloud_armies_connected: bool = false  # Whether CloudStorage signals are connected
-var _pending_cloud_fetch: String = ""  # Army name currently being fetched
-var _pending_cloud_player: int = 1  # Player for pending cloud fetch
+var _pending_cloud_fetches: Dictionary = {}  # army_name -> player for all in-flight cloud fetches
 
 func _ready() -> void:
 	scan_available_armies()
@@ -443,8 +442,7 @@ func fetch_cloud_army(army_name: String, player: int = 1) -> void:
 		CloudStorage.request_failed.connect(_on_cloud_request_failed)
 		_cloud_armies_connected = true
 
-	_pending_cloud_fetch = army_name
-	_pending_cloud_player = player
+	_pending_cloud_fetches[army_name] = player
 	print("ArmyListManager: Fetching cloud army '%s' for player %d" % [army_name, player])
 	CloudStorage.get_army(army_name)
 
@@ -485,20 +483,24 @@ func _on_cloud_army_downloaded(army_name: String, army_data: Dictionary) -> void
 	cloud_army_cache[army_name] = army_data
 
 	# If this was a pending fetch, process and emit
-	if army_name == _pending_cloud_fetch:
-		var processed = _process_army_data(army_data.duplicate(true), _pending_cloud_player)
-		_pending_cloud_fetch = ""
+	if _pending_cloud_fetches.has(army_name):
+		var player = _pending_cloud_fetches[army_name]
+		_pending_cloud_fetches.erase(army_name)
+		var processed = _process_army_data(army_data.duplicate(true), player)
 		cloud_army_fetched.emit(army_name, processed)
 
 func _on_cloud_request_failed(operation: String, error: String) -> void:
 	if operation == "list_armies":
 		print("ArmyListManager: Failed to list cloud armies: %s" % error)
 		cloud_armies_loaded.emit([])
-	elif operation == "get_army" and not _pending_cloud_fetch.is_empty():
-		var army_name = _pending_cloud_fetch
-		_pending_cloud_fetch = ""
-		print("ArmyListManager: Failed to fetch cloud army '%s': %s" % [army_name, error])
-		cloud_army_fetch_failed.emit(army_name, error)
+	elif operation == "get_army" and not _pending_cloud_fetches.is_empty():
+		# CloudStorage.request_failed does not include the failing army name; fail all
+		# currently in-flight cloud army fetches so waiting callers don't hang.
+		var pending_names = _pending_cloud_fetches.keys()
+		_pending_cloud_fetches.clear()
+		for army_name in pending_names:
+			print("ArmyListManager: Failed to fetch cloud army '%s': %s" % [army_name, error])
+			cloud_army_fetch_failed.emit(army_name, error)
 
 func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 	## Process raw army JSON data the same way load_army_list does (set owner, status, flags, etc.)
