@@ -16,41 +16,42 @@ import sys
 from collections import defaultdict
 
 
-# Layout 1 pieces.
-# Big L-shape pieces decomposed into two rectangles each (vertical + horizontal
-# arm) because their bbox overstates the footprint.
+# Layout 1 pieces - PRECISE values from tools/detect_pieces_precise.py.
+# Each tuple: (kind, cx_h, cy_h, w_long, h_short, angle_h_deg)
+# For tilted squares (45 deg): actual side = AABB / sqrt(2) ~ AABB * 0.707
 DETECTED = [
-    # Top-center blue at top edge
-    ("low",  29.4,  3.1,  5.5,  3.6,  90.0),
+    # Top-center blue (narrow vertical)
+    ("low",  29.62,  2.90,  5.73,  3.76,  90.0),
+    # Top-right vertical tall ruin
+    ("tall", 40.77,  9.90, 12.14,  6.17,  90.0),
     # Top-left vertical tall ruin
-    ("tall",  8.0,  9.5, 11.0,  6.0,  90.0),
-    # Top-right: TWO separate pieces - a vertical "[" -shaped ruin plus an
-    # adjacent horizontal rectangle (NOT a single L).
-    ("tall", 40.0,  9.5, 11.0,  6.0,  90.0),  # vertical (long axis vertical)
-    ("tall", 46.0, 19.5,  8.0,  5.0,   0.0),  # horizontal below/right of it
-    # Small tilted blue near top-center
-    ("low",  21.8, 13.0,  4.6,  3.4, -45.0),
-    # Small tilted gray square top-center
-    ("tall", 24.9, 16.5,  5.9,  4.4,  45.0),
-    # Right-side blue
-    ("low",  53.4, 19.1,  5.7,  3.9,  90.0),
-    # Left center blue tilted
-    ("low",  22.4, 21.3,  5.7,  3.6, -45.0),
-    # Right center blue tilted (mirror of above)
-    ("low",  36.3, 23.0,  5.6,  3.6, -45.0),
+    ("tall",  8.36, 10.94, 12.14,  6.25,  90.0),
+    # Top tilted blue (square at ~45 deg)
+    ("low",  22.02, 12.88,  4.00,  4.00,  45.0),
+    # Top tilted gray (square at 45 deg, side ~5.75)
+    ("tall", 25.60, 16.42,  5.75,  5.75,  45.0),
+    # Right-side blue (vertical)
+    ("low",  53.86, 18.95,  5.81,  4.07,  90.0),
+    # Top-right horizontal gray
+    ("tall", 47.80, 18.95,  8.21,  6.10,   0.0),
+    # Middle-left tilted blue (square at 45 deg, side ~4.71)
+    ("low",  22.58, 21.14,  4.71,  4.71,  45.0),
+    # Middle-right tilted blue (mirror of middle-left)
+    ("low",  37.42, 22.86,  4.71,  4.71,  45.0),
+    # Bottom-left horizontal gray (mirror of top-right horizontal)
+    ("tall", 12.20, 25.05,  8.21,  6.10,   0.0),
     # Left-side blue (mirror of right-side)
-    ("low",   5.4, 25.2,  5.7,  3.9,  90.0),
-    # Small tilted gray square bottom-center (mirror)
-    ("tall", 33.9, 27.6,  5.9,  4.6,  45.0),
-    # Small tilted blue near bottom-center (mirror)
-    ("low",  36.8, 31.1,  4.6,  3.4, -45.0),
-    # Bottom-left: TWO separate pieces (180-mirror of top-right pair).
-    ("tall", 20.0, 34.5, 11.0,  6.0,  90.0),  # vertical (mirror)
-    ("tall", 14.0, 24.5,  8.0,  5.0,   0.0),  # horizontal (mirror)
-    # Bottom-right vertical tall ruin (mirror of top-left)
-    ("tall", 52.0, 34.5, 11.0,  6.0,  90.0),
-    # Bottom-center blue at bottom edge (mirror of top-center)
-    ("low",  30.6, 40.9,  5.5,  3.6,  90.0),
+    ("low",   6.14, 25.05,  5.81,  4.07,  90.0),
+    # Bottom tilted gray (mirror of top tilted gray)
+    ("tall", 34.40, 27.58,  5.75,  5.75,  45.0),
+    # Bottom tilted blue (mirror)
+    ("low",  37.98, 31.12,  4.00,  4.00,  45.0),
+    # Bottom-right vertical tall (mirror of top-left)
+    ("tall", 51.64, 33.06, 12.14,  6.25,  90.0),
+    # Bottom-left vertical tall (mirror of top-right)
+    ("tall", 19.23, 34.10, 12.14,  6.17,  90.0),
+    # Bottom-center blue (mirror of top-center)
+    ("low",  30.38, 41.10,  5.73,  3.76,  90.0),
 ]
 
 
