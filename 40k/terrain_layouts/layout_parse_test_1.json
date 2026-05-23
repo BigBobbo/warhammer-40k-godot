@@ -1,0 +1,276 @@
+{
+  "id": "layout_parse_test",
+  "name": "Parse Test (Layout 2 image-detected)",
+  "description": "Generated from layout2_reference.jpg via tools/detect_pieces.py + tools/detect_to_json.py. Pieces detected by color segmentation, paired with their 180-degree mirror counterparts, then positions/sizes averaged to force exact rotational symmetry around (22, 30). 16 pieces total: 8 gray hatched (tall ruins) and 8 blue (low ruins).",
+  "recommended_deployments": [
+    "hammer_anvil",
+    "dawn_of_war",
+    "crucible_of_battle"
+  ],
+  "pieces": [
+    {
+      "id": "low_01",
+      "type": "ruins",
+      "position": [
+        3.1,
+        30.6
+      ],
+      "size": [
+        5.5,
+        3.6
+      ],
+      "height": "low",
+      "rotation": 0.0,
+      "walls": []
+    },
+    {
+      "id": "low_02",
+      "type": "ruins",
+      "position": [
+        40.9,
+        29.4
+      ],
+      "size": [
+        5.5,
+        3.6
+      ],
+      "height": "low",
+      "rotation": 0.0,
+      "walls": []
+    },
+    {
+      "id": "tall_01",
+      "type": "ruins",
+      "position": [
+        11.1,
+        51.6
+      ],
+      "size": [
+        12.7,
+        6.4
+      ],
+      "height": "tall",
+      "rotation": 0.0,
+      "walls": [],
+      "traits": [
+        "obscuring"
+      ]
+    },
+    {
+      "id": "tall_02",
+      "type": "ruins",
+      "position": [
+        32.9,
+        8.4
+      ],
+      "size": [
+        12.7,
+        6.4
+      ],
+      "height": "tall",
+      "rotation": 0.0,
+      "walls": [],
+      "traits": [
+        "obscuring"
+      ]
+    },
+    {
+      "id": "tall_03",
+      "type": "ruins",
+      "position": [
+        12.7,
+        22.0
+      ],
+      "size": [
+        14.3,
+        5.5
+      ],
+      "height": "tall",
+      "rotation": 0.0,
+      "walls": [],
+      "traits": [
+        "obscuring"
+      ]
+    },
+    {
+      "id": "tall_04",
+      "type": "ruins",
+      "position": [
+        31.3,
+        38.0
+      ],
+      "size": [
+        14.3,
+        5.5
+      ],
+      "height": "tall",
+      "rotation": 0.0,
+      "walls": [],
+      "traits": [
+        "obscuring"
+      ]
+    },
+    {
+      "id": "tall_05",
+      "type": "ruins",
+      "position": [
+        8.0,
+        13.0
+      ],
+      "size": [
+        13.0,
+        5.0
+      ],
+      "height": "tall",
+      "rotation": 90.0,
+      "walls": [],
+      "traits": [
+        "obscuring"
+      ]
+    },
+    {
+      "id": "tall_06",
+      "type": "ruins",
+      "position": [
+        36.0,
+        47.0
+      ],
+      "size": [
+        13.0,
+        5.0
+      ],
+      "height": "tall",
+      "rotation": 90.0,
+      "walls": [],
+      "traits": [
+        "obscuring"
+      ]
+    },
+    {
+      "id": "low_03",
+      "type": "ruins",
+      "position": [
+        12.95,
+        37.5
+      ],
+      "size": [
+        4.6,
+        3.4
+      ],
+      "height": "low",
+      "rotation": 45.0,
+      "walls": []
+    },
+    {
+      "id": "low_04",
+      "type": "ruins",
+      "position": [
+        31.05,
+        22.5
+      ],
+      "size": [
+        4.6,
+        3.4
+      ],
+      "height": "low",
+      "rotation": 45.0,
+      "walls": []
+    },
+    {
+      "id": "tall_07",
+      "type": "ruins",
+      "position": [
+        16.45,
+        34.5
+      ],
+      "size": [
+        5.9,
+        4.5
+      ],
+      "height": "tall",
+      "rotation": 135.0,
+      "walls": [],
+      "traits": [
+        "obscuring"
+      ]
+    },
+    {
+      "id": "tall_08",
+      "type": "ruins",
+      "position": [
+        27.55,
+        25.5
+      ],
+      "size": [
+        5.9,
+        4.5
+      ],
+      "height": "tall",
+      "rotation": 135.0,
+      "walls": [],
+      "traits": [
+        "obscuring"
+      ]
+    },
+    {
+      "id": "low_05",
+      "type": "ruins",
+      "position": [
+        18.95,
+        6.0
+      ],
+      "size": [
+        5.7,
+        3.9
+      ],
+      "height": "low",
+      "rotation": 0.0,
+      "walls": []
+    },
+    {
+      "id": "low_06",
+      "type": "ruins",
+      "position": [
+        25.05,
+        54.0
+      ],
+      "size": [
+        5.7,
+        3.9
+      ],
+      "height": "low",
+      "rotation": 0.0,
+      "walls": []
+    },
+    {
+      "id": "low_07",
+      "type": "ruins",
+      "position": [
+        21.15,
+        36.95
+      ],
+      "size": [
+        5.65,
+        3.6
+      ],
+      "height": "low",
+      "rotation": 45.0,
+      "walls": []
+    },
+    {
+      "id": "low_08",
+      "type": "ruins",
+      "position": [
+        22.85,
+        23.05
+      ],
+      "size": [
+        5.65,
+        3.6
+      ],
+      "height": "low",
+      "rotation": 45.0,
+      "walls": []
+    }
+  ]
+}

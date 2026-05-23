@@ -16,25 +16,40 @@ import sys
 from collections import defaultdict
 
 
-# 16 pieces detected in horizontal source image (60x44 in).
-# Each entry: (kind, cx, cy, w_long, h_short, angle_h_deg)
+# Layout 1 pieces.
+# Big L-shape pieces decomposed into two rectangles each (vertical + horizontal
+# arm) because their bbox overstates the footprint.
 DETECTED = [
-    ("tall", 26.5,  6.3,  6.3,  4.6,   0.0),
-    ("low",  21.2,  6.6,  4.6,  3.3,  90.0),
-    ("tall",  7.0,  8.0,  8.5,  5.7,  90.0),
-    ("tall", 48.4,  9.9, 12.4,  6.4,  90.0),
-    ("low",  32.3, 11.2,  5.5,  3.6,   0.0),
-    ("low",   7.3, 14.0,  5.7,  3.9,   0.0),
-    ("low",  54.4, 18.0,  5.7,  3.6,   0.0),
-    ("tall", 18.8, 21.9, 12.5,  6.5,  42.1),
-    ("tall", 39.9, 22.4, 12.5,  6.5,  42.0),
-    ("low",   4.2, 26.1,  5.5,  3.6,   0.0),
-    ("low",  51.4, 30.2,  5.7,  3.9,   0.0),
-    ("low",  26.4, 33.2,  5.7,  3.6,   0.0),
-    ("tall", 10.3, 34.2, 12.7,  6.3,  90.0),
-    ("tall", 51.8, 36.1,  8.2,  5.8,  90.0),
-    ("low",  37.6, 37.6,  4.6,  3.3,  90.0),
-    ("tall", 32.2, 37.9,  6.3,  4.8,   0.0),
+    # Top-center blue at top edge
+    ("low",  29.4,  3.1,  5.5,  3.6,  90.0),
+    # Top-left vertical tall ruin
+    ("tall",  8.4, 11.1, 12.7,  6.4,  90.0),
+    # Top-right big L: vertical arm (left side of L) + horizontal arm (top)
+    ("tall", 38.0, 12.7, 14.3,  5.5,  90.0),
+    ("tall", 47.0,  8.0, 13.0,  5.0,   0.0),
+    # Small tilted blue near top-center
+    ("low",  21.8, 13.0,  4.6,  3.4, -45.0),
+    # Small tilted gray square top-center
+    ("tall", 24.9, 16.5,  5.9,  4.4,  45.0),
+    # Right-side blue
+    ("low",  53.4, 19.1,  5.7,  3.9,  90.0),
+    # Left center blue tilted
+    ("low",  22.4, 21.3,  5.7,  3.6, -45.0),
+    # Right center blue tilted (mirror of above)
+    ("low",  36.3, 23.0,  5.6,  3.6, -45.0),
+    # Left-side blue (mirror of right-side)
+    ("low",   5.4, 25.2,  5.7,  3.9,  90.0),
+    # Small tilted gray square bottom-center (mirror)
+    ("tall", 33.9, 27.6,  5.9,  4.6,  45.0),
+    # Small tilted blue near bottom-center (mirror)
+    ("low",  36.8, 31.1,  4.6,  3.4, -45.0),
+    # Bottom-left big L: vertical arm + horizontal arm (mirror of top-right L)
+    ("tall", 22.0, 31.3, 14.3,  5.5,  90.0),
+    ("tall", 13.0, 36.0, 13.0,  5.0,   0.0),
+    # Bottom-right vertical tall ruin (mirror of top-left)
+    ("tall", 51.6, 32.9, 12.7,  6.4,  90.0),
+    # Bottom-center blue at bottom edge (mirror of top-center)
+    ("low",  30.6, 40.9,  5.5,  3.6,  90.0),
 ]
 
 
