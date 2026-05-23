@@ -1,106 +1,76 @@
 {
 	"id": "layout_parse_test",
 	"name": "Parse Test (Layout 2 from image)",
-	"description": "Generated from the GW Chapter Approved Layout 2 image. Horizontal source rotated 90 CCW to vertical board. Blue rectangles = low ruins (<=2 inch), gray hatched = tall ruins (>=4 inch). Positions are approximate, derived from the labelled red dimensions and pixel-measurement of the source image.",
+	"description": "Re-derived from the GW Chapter Approved Layout 2 image with 180-degree rotational symmetry enforced. Pieces in the bottom half are the 180-degree image of the top half through the board center (22, 30). Blue rectangles = low ruins (<=2 inch), gray hatched = tall ruins (>=4 inch).",
 	"recommended_deployments": ["hammer_anvil", "dawn_of_war", "crucible_of_battle"],
 	"pieces": [
 		{
-			"id": "ruins_tl_l",
+			"id": "ruins_top_left_l",
 			"type": "ruins",
-			"position": [7.0, 54.0],
-			"size": [5.0, 9.0],
+			"position": [8.0, 54.5],
+			"size": [5.0, 11.0],
 			"height": "tall",
 			"rotation": 90.0,
 			"traits": ["obscuring"],
 			"walls": [
-				{
-					"id": "wall_long",
-					"local_start": [-2.5, -4.5],
-					"local_end": [-2.5, 4.5],
-					"type": "solid",
-					"blocks_los": true
-				},
-				{
-					"id": "wall_short",
-					"local_start": [-2.5, 4.5],
-					"local_end": [2.5, 4.5],
-					"type": "solid",
-					"blocks_los": true
-				}
+				{"id": "wall_east", "local_start": [-2.5, -5.5], "local_end": [-2.5, 5.5], "type": "solid", "blocks_los": true},
+				{"id": "wall_north", "local_start": [-2.5, 5.5], "local_end": [2.5, 5.5], "type": "solid", "blocks_los": true}
 			]
 		},
 		{
-			"id": "low_tl_below",
+			"id": "low_top_left_below",
 			"type": "ruins",
-			"position": [15.0, 54.0],
+			"position": [16.0, 54.5],
 			"size": [5.0, 4.0],
 			"height": "low",
 			"rotation": 90.0,
 			"walls": []
 		},
 		{
-			"id": "low_tc_top",
+			"id": "low_top_center_edge",
 			"type": "ruins",
-			"position": [3.0, 40.0],
+			"position": [2.5, 38.0],
 			"size": [4.0, 3.0],
 			"height": "low",
 			"rotation": 90.0,
 			"walls": []
 		},
 		{
-			"id": "ruins_tc_small",
+			"id": "ruins_top_center_small",
 			"type": "ruins",
-			"position": [9.0, 38.0],
+			"position": [8.0, 38.0],
 			"size": [5.0, 6.0],
 			"height": "tall",
 			"rotation": 90.0,
 			"traits": ["obscuring"],
 			"walls": [
-				{
-					"id": "wall_north",
-					"local_start": [-2.5, -3.0],
-					"local_end": [2.5, -3.0],
-					"type": "solid",
-					"blocks_los": true
-				}
+				{"id": "wall_north", "local_start": [-2.5, -3.0], "local_end": [2.5, -3.0], "type": "solid", "blocks_los": true}
 			]
 		},
 		{
-			"id": "low_tc_right",
+			"id": "low_top_center_right",
 			"type": "ruins",
-			"position": [13.0, 32.0],
-			"size": [5.0, 4.0],
+			"position": [12.0, 32.0],
+			"size": [4.0, 4.0],
 			"height": "low",
 			"rotation": 90.0,
 			"walls": []
 		},
 		{
-			"id": "ruins_tr_l_big",
+			"id": "ruins_top_right_big_l",
 			"type": "ruins",
-			"position": [9.0, 8.0],
+			"position": [9.0, 9.0],
 			"size": [14.0, 6.0],
 			"height": "tall",
 			"rotation": 90.0,
 			"traits": ["obscuring"],
 			"walls": [
-				{
-					"id": "wall_south",
-					"local_start": [-7.0, 3.0],
-					"local_end": [7.0, 3.0],
-					"type": "solid",
-					"blocks_los": true
-				},
-				{
-					"id": "wall_east",
-					"local_start": [7.0, -3.0],
-					"local_end": [7.0, 3.0],
-					"type": "solid",
-					"blocks_los": true
-				}
+				{"id": "wall_south", "local_start": [-7.0, 3.0], "local_end": [7.0, 3.0], "type": "solid", "blocks_los": true},
+				{"id": "wall_east", "local_start": [7.0, -3.0], "local_end": [7.0, 3.0], "type": "solid", "blocks_los": true}
 			]
 		},
 		{
-			"id": "low_tr_corner",
+			"id": "low_top_right_corner",
 			"type": "ruins",
 			"position": [3.0, 3.0],
 			"size": [4.0, 4.0],
@@ -109,7 +79,7 @@
 			"walls": []
 		},
 		{
-			"id": "low_tr_below",
+			"id": "low_top_right_below_l",
 			"type": "ruins",
 			"position": [19.0, 2.0],
 			"size": [4.0, 4.0],
@@ -118,113 +88,111 @@
 			"walls": []
 		},
 		{
-			"id": "ruins_center_left_tilted",
+			"id": "ruins_center_diag_a",
 			"type": "ruins",
 			"position": [22.0, 38.0],
 			"size": [14.0, 6.0],
 			"height": "tall",
-			"rotation": 60.0,
-			"traits": ["obscuring"],
-			"walls": [
-				{
-					"id": "wall_north",
-					"local_start": [-7.0, -3.0],
-					"local_end": [7.0, -3.0],
-					"type": "solid",
-					"blocks_los": true
-				}
-			]
-		},
-		{
-			"id": "ruins_center_right_tilted",
-			"type": "ruins",
-			"position": [22.0, 20.0],
-			"size": [14.0, 6.0],
-			"height": "tall",
 			"rotation": 120.0,
 			"traits": ["obscuring"],
 			"walls": [
-				{
-					"id": "wall_south",
-					"local_start": [-7.0, 3.0],
-					"local_end": [7.0, 3.0],
-					"type": "solid",
-					"blocks_los": true
-				}
+				{"id": "wall_north", "local_start": [-7.0, -3.0], "local_end": [7.0, -3.0], "type": "solid", "blocks_los": true}
 			]
 		},
 		{
-			"id": "low_bl",
+			"id": "ruins_bot_right_l",
 			"type": "ruins",
-			"position": [28.0, 57.0],
-			"size": [4.0, 5.0],
-			"height": "low",
-			"rotation": 90.0,
-			"walls": []
-		},
-		{
-			"id": "ruins_bl_tilted",
-			"type": "ruins",
-			"position": [35.0, 49.0],
-			"size": [14.0, 6.0],
-			"height": "tall",
-			"rotation": 120.0,
-			"traits": ["obscuring"],
-			"walls": [
-				{
-					"id": "wall_north",
-					"local_start": [-7.0, -3.0],
-					"local_end": [7.0, -3.0],
-					"type": "solid",
-					"blocks_los": true
-				}
-			]
-		},
-		{
-			"id": "low_bc",
-			"type": "ruins",
-			"position": [31.0, 38.0],
-			"size": [4.0, 4.0],
-			"height": "low",
-			"rotation": 90.0,
-			"walls": []
-		},
-		{
-			"id": "ruins_bc_small",
-			"type": "ruins",
-			"position": [37.0, 30.0],
-			"size": [7.0, 4.0],
-			"height": "tall",
-			"rotation": 90.0,
-			"traits": ["obscuring"],
-			"walls": []
-		},
-		{
-			"id": "ruins_br_vertical",
-			"type": "ruins",
-			"position": [35.0, 8.0],
+			"position": [36.0, 5.5],
 			"size": [5.0, 11.0],
 			"height": "tall",
 			"rotation": 90.0,
 			"traits": ["obscuring"],
 			"walls": [
-				{
-					"id": "wall_west",
-					"local_start": [-2.5, -5.5],
-					"local_end": [-2.5, 5.5],
-					"type": "solid",
-					"blocks_los": true
-				}
+				{"id": "wall_west", "local_start": [2.5, 5.5], "local_end": [2.5, -5.5], "type": "solid", "blocks_los": true},
+				{"id": "wall_south", "local_start": [2.5, -5.5], "local_end": [-2.5, -5.5], "type": "solid", "blocks_los": true}
 			]
 		},
 		{
-			"id": "low_br",
+			"id": "low_bot_right_above",
 			"type": "ruins",
-			"position": [28.0, 10.0],
+			"position": [28.0, 5.5],
+			"size": [5.0, 4.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		},
+		{
+			"id": "low_bot_center_edge",
+			"type": "ruins",
+			"position": [41.5, 22.0],
+			"size": [4.0, 3.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		},
+		{
+			"id": "ruins_bot_center_small",
+			"type": "ruins",
+			"position": [36.0, 22.0],
+			"size": [5.0, 6.0],
+			"height": "tall",
+			"rotation": 90.0,
+			"traits": ["obscuring"],
+			"walls": [
+				{"id": "wall_south", "local_start": [2.5, 3.0], "local_end": [-2.5, 3.0], "type": "solid", "blocks_los": true}
+			]
+		},
+		{
+			"id": "low_bot_center_left",
+			"type": "ruins",
+			"position": [32.0, 28.0],
 			"size": [4.0, 4.0],
 			"height": "low",
 			"rotation": 90.0,
 			"walls": []
+		},
+		{
+			"id": "ruins_bot_left_big_l",
+			"type": "ruins",
+			"position": [35.0, 51.0],
+			"size": [14.0, 6.0],
+			"height": "tall",
+			"rotation": 90.0,
+			"traits": ["obscuring"],
+			"walls": [
+				{"id": "wall_north", "local_start": [7.0, -3.0], "local_end": [-7.0, -3.0], "type": "solid", "blocks_los": true},
+				{"id": "wall_west", "local_start": [-7.0, 3.0], "local_end": [-7.0, -3.0], "type": "solid", "blocks_los": true}
+			]
+		},
+		{
+			"id": "low_bot_left_corner",
+			"type": "ruins",
+			"position": [41.0, 57.0],
+			"size": [4.0, 4.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		},
+		{
+			"id": "low_bot_left_above_l",
+			"type": "ruins",
+			"position": [25.0, 58.0],
+			"size": [4.0, 4.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		},
+		{
+			"id": "ruins_center_diag_b",
+			"type": "ruins",
+			"position": [22.0, 22.0],
+			"size": [14.0, 6.0],
+			"height": "tall",
+			"rotation": 120.0,
+			"traits": ["obscuring"],
+			"walls": [
+				{"id": "wall_south", "local_start": [7.0, 3.0], "local_end": [-7.0, 3.0], "type": "solid", "blocks_los": true}
+			]
 		}
 	]
 }
