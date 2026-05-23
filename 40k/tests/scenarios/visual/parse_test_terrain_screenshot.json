@@ -1,0 +1,23 @@
+{
+  "id": "parse_test_terrain_screenshot",
+  "covers": ["terrain.parse_test"],
+  "fixture": "audit_baseline_postdeploy",
+  "description": "Loads a post-deployment baseline fixture (Main scene with terrain visible), swaps the active terrain layout to layout_parse_test, and captures a screenshot of the board.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "TerrainManager.load_terrain_layout(\"layout_parse_test\")" },
+
+    { "act": "wait_frames", "frames": 8 },
+
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.size()",
+      "expect_min": 16 },
+
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "screenshot", "label": "parse_test_board" }
+  ]
+}
