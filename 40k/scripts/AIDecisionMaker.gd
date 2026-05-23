@@ -1400,6 +1400,7 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 	var transport_actions = []
 	var reserves_actions = []
 	var undeclare_reserves_actions = []
+	var warlord_actions = []
 	var has_confirm = false
 
 	for action in available_actions:
@@ -1412,6 +1413,8 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 				reserves_actions.append(action)
 			"UNDECLARE_RESERVES":
 				undeclare_reserves_actions.append(action)
+			"DESIGNATE_WARLORD":
+				warlord_actions.append(action)
 			"CONFIRM_FORMATIONS":
 				has_confirm = true
 
@@ -1435,6 +1438,12 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 		if not reserves_decision.is_empty():
 			return reserves_decision
 
+	# Designate a warlord before confirming (required by validation)
+	if not warlord_actions.is_empty():
+		var best_warlord = _choose_warlord(snapshot, warlord_actions, player)
+		if not best_warlord.is_empty():
+			return best_warlord
+
 	# No more attachments, embarkations, or reserves to declare — confirm formations
 	if has_confirm:
 		return {
@@ -1443,6 +1452,46 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 			"_ai_description": "AI confirms battle formations (all declarations done)"
 		}
 	return {}
+
+static func _choose_warlord(snapshot: Dictionary, warlord_actions: Array, player: int) -> Dictionary:
+	"""Pick the best warlord from available CHARACTER units.
+	Only acts if no warlord is currently designated for this player.
+	Prefers characters attached to a bodyguard (protected by Bodyguard rule),
+	then highest wounds as a tiebreaker."""
+	var all_units = snapshot.get("units", {})
+
+	# Check if a warlord is already designated — skip if so
+	for uid in all_units:
+		var u = all_units[uid]
+		if int(u.get("owner", 0)) == player and u.get("meta", {}).get("is_warlord", false):
+			return {}
+
+	var best_action = {}
+	var best_score = -1.0
+
+	for action in warlord_actions:
+		var unit_id = action.get("unit_id", "")
+		var unit = all_units.get(unit_id, {})
+		var stats = unit.get("meta", {}).get("stats", {})
+		var wounds = float(stats.get("wounds", 4))
+		var score = wounds
+
+		# Prefer characters already attached to a bodyguard
+		var attachment = unit.get("attachment_data", {})
+		if not attachment.get("attached_to", "").is_empty():
+			score += 10.0
+
+		if score > best_score:
+			best_score = score
+			best_action = action
+
+	if best_action.is_empty():
+		return {}
+
+	var char_name = all_units.get(best_action.get("unit_id", ""), {}).get("meta", {}).get("name", "unknown")
+	best_action["_ai_description"] = "AI designates %s as Warlord" % char_name
+	print("AIDecisionMaker: Warlord designation — %s (score=%.1f)" % [char_name, best_score])
+	return best_action
 
 static func _evaluate_best_leader_attachment(snapshot: Dictionary, attachment_actions: Array, player: int) -> Dictionary:
 	"""Score all available leader-bodyguard pairings and return the best one.
