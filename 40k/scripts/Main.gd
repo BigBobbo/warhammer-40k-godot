@@ -2518,8 +2518,49 @@ func _restructure_ui_layout() -> void:
 	secondary_mission_panel = get_node_or_null("SecondaryMissionPanel")
 	if secondary_mission_panel:
 		print("Main: SecondaryMissionPanel found in scene")
+		_setup_dashboard_toggle_buttons()
 	else:
 		print("Main: WARNING — SecondaryMissionPanel not found in scene")
+
+
+func _setup_dashboard_toggle_buttons() -> void:
+	# Adds two small toolbar buttons to HUD_Bottom that toggle the side
+	# panels which used to sit on top of the dashboard:
+	#   • Missions — opens / closes SecondaryMissionPanel (now hidden by
+	#     default, anchored top-center under the HUD bar).
+	#   • Roster — toggles the LeftRoster card strip (hidden by default,
+	#     also bound to KEY_L by the panel itself).
+	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if hud_container == null:
+		return
+
+	if not hud_container.has_node("MissionsToggle"):
+		var missions_btn := Button.new()
+		missions_btn.name = "MissionsToggle"
+		missions_btn.text = "Missions"
+		missions_btn.tooltip_text = "Show / hide the Secondary Missions panel (M)"
+		missions_btn.pressed.connect(_on_missions_toggle_pressed)
+		hud_container.add_child(missions_btn)
+
+	if not hud_container.has_node("RosterToggle"):
+		var roster_btn := Button.new()
+		roster_btn.name = "RosterToggle"
+		roster_btn.text = "Roster"
+		roster_btn.tooltip_text = "Show / hide the left-side unit roster strip (L)"
+		roster_btn.pressed.connect(_on_roster_toggle_pressed)
+		hud_container.add_child(roster_btn)
+
+
+func _on_missions_toggle_pressed() -> void:
+	var p = get_node_or_null("SecondaryMissionPanel")
+	if p != null and p.has_method("toggle_visible"):
+		p.toggle_visible()
+
+
+func _on_roster_toggle_pressed() -> void:
+	var r = get_node_or_null("LeftRoster")
+	if r != null and r.has_method("toggle_visible"):
+		r.toggle_visible()
 
 func _setup_score_display() -> void:
 	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
@@ -9636,7 +9677,7 @@ func _setup_game_log_panel() -> void:
 	print("Main: Setting up Game Event Log panel (card-based)")
 	game_log_panel = GameLogPanelScript.new()
 	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
-	game_log_panel.setup(self, hud_bottom, 105.0, -45.0)
+	game_log_panel.setup(self, hud_bottom, 105.0, 0.0)
 	game_log_toggle_button = game_log_panel.get_toggle_button()
 	print("Main: Game Event Log panel created (card-based)")
 
