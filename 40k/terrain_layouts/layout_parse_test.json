@@ -21,7 +21,21 @@
       ],
       "height": "tall",
       "rotation": 90.0,
-      "walls": [],
+      "walls": [
+        {
+          "id": "wall_west",
+          "local_start": [
+            -3.15,
+            -2.35
+          ],
+          "local_end": [
+            -3.15,
+            2.35
+          ],
+          "type": "solid",
+          "blocks_los": true
+        }
+      ],
       "traits": [
         "obscuring"
       ]
@@ -39,7 +53,21 @@
       ],
       "height": "tall",
       "rotation": 90.0,
-      "walls": [],
+      "walls": [
+        {
+          "id": "wall_east",
+          "local_start": [
+            3.15,
+            -2.35
+          ],
+          "local_end": [
+            3.15,
+            2.35
+          ],
+          "type": "solid",
+          "blocks_los": true
+        }
+      ],
       "traits": [
         "obscuring"
       ]
@@ -87,7 +115,21 @@
       ],
       "height": "tall",
       "rotation": 0.0,
-      "walls": [],
+      "walls": [
+        {
+          "id": "wall_south",
+          "local_start": [
+            -4.175,
+            2.85
+          ],
+          "local_end": [
+            4.175,
+            2.85
+          ],
+          "type": "solid",
+          "blocks_los": true
+        }
+      ],
       "traits": [
         "obscuring"
       ]
@@ -105,7 +147,21 @@
       ],
       "height": "tall",
       "rotation": 0.0,
-      "walls": [],
+      "walls": [
+        {
+          "id": "wall_north",
+          "local_start": [
+            -4.175,
+            -2.85
+          ],
+          "local_end": [
+            4.175,
+            -2.85
+          ],
+          "type": "solid",
+          "blocks_los": true
+        }
+      ],
       "traits": [
         "obscuring"
       ]
@@ -123,7 +179,34 @@
       ],
       "height": "tall",
       "rotation": 0.0,
-      "walls": [],
+      "walls": [
+        {
+          "id": "wall_south",
+          "local_start": [
+            -6.275,
+            3.175
+          ],
+          "local_end": [
+            6.275,
+            3.175
+          ],
+          "type": "solid",
+          "blocks_los": true
+        },
+        {
+          "id": "wall_west",
+          "local_start": [
+            -6.275,
+            -3.175
+          ],
+          "local_end": [
+            -6.275,
+            3.175
+          ],
+          "type": "solid",
+          "blocks_los": true
+        }
+      ],
       "traits": [
         "obscuring"
       ]
@@ -141,7 +224,34 @@
       ],
       "height": "tall",
       "rotation": 0.0,
-      "walls": [],
+      "walls": [
+        {
+          "id": "wall_north",
+          "local_start": [
+            -6.275,
+            -3.175
+          ],
+          "local_end": [
+            6.275,
+            -3.175
+          ],
+          "type": "solid",
+          "blocks_los": true
+        },
+        {
+          "id": "wall_east",
+          "local_start": [
+            6.275,
+            -3.175
+          ],
+          "local_end": [
+            6.275,
+            3.175
+          ],
+          "type": "solid",
+          "blocks_los": true
+        }
+      ],
       "traits": [
         "obscuring"
       ]
@@ -249,7 +359,21 @@
       ],
       "height": "tall",
       "rotation": 132.0,
-      "walls": [],
+      "walls": [
+        {
+          "id": "wall_north",
+          "local_start": [
+            -6.25,
+            -3.25
+          ],
+          "local_end": [
+            6.25,
+            -3.25
+          ],
+          "type": "solid",
+          "blocks_los": true
+        }
+      ],
       "traits": [
         "obscuring"
       ]
@@ -267,7 +391,21 @@
       ],
       "height": "tall",
       "rotation": 132.0,
-      "walls": [],
+      "walls": [
+        {
+          "id": "wall_south",
+          "local_start": [
+            -6.25,
+            3.25
+          ],
+          "local_end": [
+            6.25,
+            3.25
+          ],
+          "type": "solid",
+          "blocks_los": true
+        }
+      ],
       "traits": [
         "obscuring"
       ]

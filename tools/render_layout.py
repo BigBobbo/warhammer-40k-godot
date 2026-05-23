@@ -24,8 +24,8 @@ COLOR_GRID = (60, 50, 40)
 COLOR_TALL_FILL = (60, 60, 65)      # gray hatched in source
 COLOR_LOW_FILL = (60, 110, 170)     # blue rectangles in source
 COLOR_MED_FILL = (110, 110, 60)
-COLOR_OUTLINE = (200, 200, 200)
-COLOR_WALL = (220, 220, 220)
+COLOR_OUTLINE = (120, 120, 120)
+COLOR_WALL = (255, 240, 100)  # bright yellow so it stands out from outline
 COLOR_CENTER = (255, 50, 50)
 COLOR_TEXT = (255, 255, 255)
 
@@ -116,7 +116,7 @@ def render(json_path, out_path, horizontal=False):
             draw.line(
                 [(sx_in * PX_PER_IN, sy_in * PX_PER_IN),
                  (ex_in * PX_PER_IN, ey_in * PX_PER_IN)],
-                fill=COLOR_WALL, width=3)
+                fill=COLOR_WALL, width=5)
 
         label = piece.get("id", "")
         draw.text((cx_in * PX_PER_IN, cy_in * PX_PER_IN),
