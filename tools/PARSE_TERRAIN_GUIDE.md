@@ -6,14 +6,82 @@ a `40k/terrain_layouts/layout_*.json` file. Written after building
 
 ## Tools (in `tools/`)
 
+### Catalog-based pipeline (preferred — use this for new layouts)
+
 | Tool | Purpose |
 |---|---|
-| `render_layout.py` | Render a layout JSON to PNG. `--horizontal` rotates to match the source image orientation for side-by-side comparison. |
-| `detect_pieces.py` | Color-segment a reference image to find piece footprints. Outputs centers/sizes/angles in inches. |
-| `detect_to_json.py` | Hard-coded list of detected pieces → symmetrized JSON. Edit the `DETECTED` list at the top. |
-| `align_pieces.py` | Targeted edge-alignment edits in horizontal coords; auto-propagates to the 180-degree mirror. |
-| `apply_walls.py` | Hand-encodes walls per top-half tall piece, mirrors to the bottom half. Edit `WALLS_TOP_HALF` dict. |
-| `detect_walls.py` | Attempted automated wall detection. Use only as a hint; the hatching defeats it on larger pieces. |
+| `catalog.py` | Defines the canonical set of 18 pieces every layout uses. |
+| `detect_pieces_precise.py` | Background-segmentation blob detector. Calibrates px/inch from board pixel dimensions. Emits clean JSON with `--json-out`. |
+| `match_to_catalog.py` | Snaps each detected blob to a canonical piece. Filters annotations by score/edge/fill. Merges fragments. Fills gaps via 180-deg symmetry. Pairs adjacent (8x6 + 4x6) and (6.5x5 + 3.5x5). Relabels lows by pairing. |
+| `matches_to_json.py` | Snaps paired pieces to share their canonical edge, converts to vertical board coords, applies walls per slot. Outputs a complete layout JSON. |
+| `render_layout.py` | Renders a layout JSON to PNG. `--horizontal` rotates to match the source. |
+
+### Legacy / supplementary
+
+| Tool | Purpose |
+|---|---|
+| `detect_pieces.py` | Older color-segmentation detector (kept for reference). |
+| `detect_to_json.py` | Older hand-coded DETECTED list → JSON. Useful when you want to override the matcher's auto-output. |
+| `align_pieces.py` | Targeted edge-alignment edits with auto 180-mirror propagation. |
+| `apply_walls.py` | Hand-encodes walls per piece. Use this when you want non-canonical wall layouts (e.g. partial walls). |
+| `detect_walls.py` | Attempted automated wall detection — defeated by hatching on larger pieces. Kept for reference. |
+
+## The canonical catalog (every layout uses these 18 pieces)
+
+| Slot | Height | Size | Count | Wall style | Paired with |
+|---|---|---|---|---|---|
+| `low_6x4` | low | 6×4 | 6 | none | standalone |
+| `tall_12x6_C` | tall | 12×6 | 2 | C-shape (long base + 2 arms) | standalone |
+| `tall_12x6_L` | tall | 12×6 | 2 | L-shape (2 perpendicular walls) | standalone |
+| `tall_8x6` | tall | 8×6 | 2 | L-shape | `low_4x6` (shared 6″ edge → combined 12×6) |
+| `low_4x6` | low | 6×4 | 2 | none | `tall_8x6` |
+| `tall_6.5x5` | tall | 6.5×5 | 2 | L-shape | `low_3.5x5` (shared 5″ edge → combined 10×5) |
+| `low_3.5x5` | low | 5×3.5 | 2 | none | `tall_6.5x5` |
+
+Per layout: 8 tall + 10 low = 18 pieces in 9 symmetric pairs.
+
+## Catalog-based workflow (the new way)
+
+```bash
+# 1. Save source image
+cp /path/to/layout_X.png 40k/terrain_layouts/source/layoutX_reference.png
+
+# 2. Detect blobs
+python3 tools/detect_pieces_precise.py \
+    40k/terrain_layouts/source/layoutX_reference.png \
+    --json-out /tmp/blobs.json --out /tmp/detect_debug.png
+
+# 3. Match blobs to canonical pieces
+python3 tools/match_to_catalog.py /tmp/blobs.json > /tmp/matches.json 2>&1
+
+# 4. Convert to layout JSON
+python3 tools/matches_to_json.py /tmp/matches.json \
+    40k/terrain_layouts/layout_parse_test_X.json \
+    --id layout_parse_test_X --name "Layout X"
+
+# 5. Render and compare
+python3 tools/render_layout.py \
+    40k/terrain_layouts/layout_parse_test_X.json \
+    /tmp/render.png --horizontal
+
+# 6. Iterate: if blobs are wrong, refine match_to_catalog.py thresholds.
+#    If walls are wrong, override in matches_to_json.py's make_walls()
+#    or use the legacy apply_walls.py to hand-encode.
+```
+
+Why this is dramatically better than the old eyeball workflow:
+- Sizes are EXACTLY canonical (12×6, 8×6, etc.) — not noisy AABB measurements.
+- Rotation is inferred deterministically: square AABB → 45-deg rotated rect; otherwise axis-aligned.
+- Walls applied automatically by slot, no hand-encoding.
+- Paired pieces snap to their canonical shared edge (no drift).
+- Per-layout effort: ~5 minutes vs ~1 hour of iteration.
+
+### What you still might need to override
+
+- **Wall style for the four 12×6 tall pieces**: matcher defaults all to C. The catalog says 2 are C and 2 are L. Look at the source and edit the slot of two pieces from `tall_12x6_C` → `tall_12x6_L` in the matcher output before the JSON conversion (or post-edit the JSON directly).
+- **Wall orientation**: `make_walls()` produces walls in a canonical orientation (e.g. C facing south). The bottom-half mirrors may need 180-rotated walls. Easiest fix: post-edit individual pieces if their walls look wrong in the comparison render.
+
+## Coordinate Systems
 
 ## Coordinate Systems (these MUST stay straight)
 

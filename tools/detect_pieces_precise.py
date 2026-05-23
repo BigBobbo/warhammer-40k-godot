@@ -111,6 +111,9 @@ def main():
     ap.add_argument('--out', default='/tmp/precise_detect.png')
     ap.add_argument('--min-area-in', type=float, default=4.0,
                     help='Minimum component area in square inches')
+    ap.add_argument('--json-out', default=None,
+                    help='Path to write a clean JSON of detected blobs '
+                         '(suitable for piping to match_to_catalog.py)')
     args = ap.parse_args()
 
     img = Image.open(args.image).convert('RGB')
@@ -220,9 +223,10 @@ def main():
     debug.save(args.out)
     print(f"\nDebug overlay: {args.out}")
 
-    # Also emit detected pieces as JSON for piping
-    print("\nJSON output:")
-    print(json.dumps(pieces, indent=2))
+    if args.json_out:
+        with open(args.json_out, 'w') as f:
+            json.dump(pieces, f, indent=2)
+        print(f"\nClean JSON of {len(pieces)} blobs: {args.json_out}")
 
 
 if __name__ == '__main__':
