@@ -388,3 +388,28 @@ func test_charge_off_tall_terrain_half_penalty():
 
 	var penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false)
 	assert_eq(penalty, 6.0, "Charging off tall terrain should only pay climb down = 6\" (not 12\")")
+
+# ==========================================
+# Bug fix: INFANTRY charging through traversable ruins pays no climb penalty.
+# Reproduces the user-reported bug where a Custodian Guard rolled 11" against a
+# target 9.5" away and was told the charge failed. The pre-fix path called
+# calculate_charge_terrain_penalty without passing unit_keywords, so INFANTRY
+# was treated as non-INFANTRY and charged a phantom climb penalty.
+# ==========================================
+
+func test_infantry_charge_through_ruins_no_climb_penalty():
+	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
+
+	var from_pos = Vector2(0, 0)
+	var to_pos = Vector2(400, 0)
+
+	var penalty_with_infantry = terrain_manager.calculate_charge_terrain_penalty(
+		from_pos, to_pos, false, ["INFANTRY"])
+	assert_eq(penalty_with_infantry, 0.0,
+		"INFANTRY charging through ruins should pay no climb penalty (they traverse at ground level)")
+
+	# Sanity check the contrast: a non-INFANTRY unit on the same path still pays it.
+	var penalty_no_keywords = terrain_manager.calculate_charge_terrain_penalty(
+		from_pos, to_pos, false, [])
+	assert_eq(penalty_no_keywords, 12.0,
+		"Non-INFANTRY (or missing keywords) should still pay the climb penalty")
