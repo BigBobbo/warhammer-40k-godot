@@ -83,23 +83,63 @@ jobs:
         with:
           lfs: true
 
+      - name: Install Xvfb + GL stack
+        run: |
+          # The multi-peer harness drives the game via TestModeHandler's
+          # UI navigation (clicks the multiplayer button, host button, etc.),
+          # so spawned host/client peers need a real display. Mirror the
+          # windowed-scenarios job's display stack.
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            xvfb \
+            x11-xserver-utils \
+            libxinerama1 libxcursor1 libxi6 libxrandr2 \
+            libgl1 libglu1-mesa \
+            libegl1 libgles2 \
+            mesa-utils
+
       - name: Setup Godot
         uses: chickensoft-games/setup-godot@v2
         with:
           version: ${{ env.GODOT_VERSION }}
           use-dotnet: false
 
-      - name: Import project
+      - name: Capture real Godot path + build xvfb-run shim
         run: |
+          REAL_GODOT="$(command -v godot)"
+          echo "Real godot: $REAL_GODOT"
+          if [ -z "$REAL_GODOT" ]; then
+            echo "::error::godot not on PATH after chickensoft setup"
+            exit 1
+          fi
+
+          mkdir -p $HOME/.local/bin
+          cat > $HOME/.local/bin/godot <<EOF
+          #!/bin/bash
+          # xvfb-run shim — wraps every godot invocation in a virtual
+          # display. The harness's auto-host / auto-join flow drives real
+          # menu navigation (MainMenu → MultiplayerLobby) which needs a
+          # display server even though the test asserts hit the underlying
+          # GameState via TestModeHandler IPC.
+          exec xvfb-run -a --server-args="-screen 0 1920x1080x24 +extension RANDR" \\
+            "$REAL_GODOT" \\
+            --rendering-driver opengl3 \\
+            --audio-driver Dummy \\
+            "\$@"
+          EOF
+          chmod +x $HOME/.local/bin/godot
+          $HOME/.local/bin/godot --version
+
+      - name: Import project (with rendering)
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
           cd 40k
-          timeout 180 godot --headless --import || true
-          timeout 180 godot --headless --import || true
+          timeout 240 godot --headless --import || true
+          timeout 240 godot --headless --import || true
 
       - name: Run multi-peer integration suite
         run: |
-          # The multi-peer harness spawns --headless subprocesses bound to
-          # 127.0.0.1:7777. Doesn't need a display. UI is covered separately
-          # by the windowed-scenarios job.
+          export PATH="$HOME/.local/bin:$PATH"
           bash 40k/tests/run_multiplayer_tests.sh
 
   windowed-scenarios:
