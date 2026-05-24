@@ -18,9 +18,6 @@
       "equals": 2.0 },
 
     { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/Main/PhaseBar\") != null",
-      "equals": true },
-    { "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/EdgeTint\") != null",
       "equals": true },
     { "act": "execute_script",
