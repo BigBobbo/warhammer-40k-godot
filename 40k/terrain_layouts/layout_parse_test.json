@@ -246,13 +246,13 @@
           "blocks_los": true
         },
         {
-          "id": "wall_east_partial",
+          "id": "wall_west_partial",
           "local_start": [
-            6.275,
+            -6.275,
             -3.175
           ],
           "local_end": [
-            6.275,
+            -6.275,
             -0.17499999999999982
           ],
           "type": "solid",
@@ -291,13 +291,13 @@
           "blocks_los": true
         },
         {
-          "id": "wall_west_partial",
+          "id": "wall_east_partial",
           "local_start": [
-            -6.275,
+            6.275,
             3.175
           ],
           "local_end": [
-            -6.275,
+            6.275,
             0.17499999999999982
           ],
           "type": "solid",
