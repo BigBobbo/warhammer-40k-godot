@@ -130,15 +130,15 @@
       "id": "low_01",
       "type": "ruins",
       "position": [
-        12.35,
-        38.47
+        12.88,
+        37.94
       ],
       "size": [
         5.0,
         3.5
       ],
       "height": "low",
-      "rotation": 135.0,
+      "rotation": 45.0,
       "walls": [],
       "_slot": "low_3.5x5"
     },
@@ -348,15 +348,15 @@
       "id": "low_06",
       "type": "ruins",
       "position": [
-        31.65,
-        21.53
+        31.12,
+        22.06
       ],
       "size": [
         5.0,
         3.5
       ],
       "height": "low",
-      "rotation": 135.0,
+      "rotation": 45.0,
       "walls": [],
       "_slot": "low_3.5x5"
     },

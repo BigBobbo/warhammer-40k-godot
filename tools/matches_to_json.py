@@ -76,15 +76,15 @@ def snap_pair(tall_match, low_match):
         new_local_y = 0.0
         low_match['angle'] = (tall_match['angle'] + 90.0) % 180.0
     elif slot == 'tall_6.5x5':
-        # Case (B): parallel placement, low at tall's east/west face.
-        # Source images show the (3.5x5) low extending past one end of
-        # the (6.5x5) tall along the tall's long axis, both at the same
-        # rotation. Their short edges touch (low_short=3.5 against
-        # tall_short=5, partial overlap).
+        # Case (B): PERPENDICULAR placement, low at tall's east/west face.
+        # The low's LONG edge (5") touches the tall's SHORT edge (5") in
+        # a full overlap. The low's long axis is perpendicular to tall's
+        # long axis. Combined footprint: 10x5 (6.5 + 3.5 along tall's long
+        # axis, 5 perpendicular).
         sign = 1 if local_dx >= 0 else -1
-        new_local_x = sign * (t_long_half + l_long / 2)
+        new_local_x = sign * (t_long_half + l_short / 2)
         new_local_y = 0.0
-        low_match['angle'] = tall_match['angle']  # parallel
+        low_match['angle'] = (tall_match['angle'] + 90.0) % 180.0
     else:
         # Default: perpendicular
         sign = 1 if local_dx >= 0 else -1
