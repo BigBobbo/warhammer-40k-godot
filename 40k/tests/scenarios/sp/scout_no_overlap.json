@@ -3,12 +3,23 @@
   "covers": [
     "phases.ScoutPhase.SET_SCOUT_MODEL_DEST.overlap_rejected"
   ],
-  "fixture": "scout_overlap_fixture",
-  "transition_to_phase": 4,
+  "fixture": "audit_baseline_postdeploy",
   "disable_ai": true,
-  "description": "Issue: Scout phase let the player drop one model on top of another. After the fix, _validate_set_scout_model_dest must reject (a) a destination that overlaps a sibling's staged scout-move position and (b) a destination that overlaps an unmoved sibling's original position. A clearly non-overlapping destination must still succeed. Uses Witchseekers (Scouts 6\") from audit_baseline_postdeploy: m1=(850,50) m2=(910,50) m3=(970,50) m4=(1030,50), 32mm bases (~50.4 px diameter at 40 px/in).",
+  "description": "Issue: Scout phase let the player drop one model on top of another. After the fix, _validate_set_scout_model_dest must reject (a) a destination that overlaps a sibling's staged scout-move position and (b) a destination that overlaps an unmoved sibling's original position. A clearly non-overlapping destination must still succeed. Uses Witchseekers (Scouts 6\") from audit_baseline_postdeploy: m1=(850,50) m2=(910,50) m3=(970,50) m4=(1030,50), 32mm bases (~50.4 px diameter at 40 px/in). The fixture predates the T-015 ability-name fix (its Witchseekers still have the old 'Core' name), so the first steps inject 'Scouts 6\"' and manually transition to SCOUT to avoid duplicating a 6k-line save fixture.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_D.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script",
+      "script": "GameState.unit_has_scout('U_WITCHSEEKERS_C')",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 2 },
     { "act": "expect_phase", "equals": 4 },
     { "act": "screenshot", "label": "01_scout_phase_entered" },
 
