@@ -10,6 +10,11 @@ const FONT_ORBITRON = preload("res://fonts/Orbitron-Bold.ttf")
 const FONT_RAJDHANI_BOLD = preload("res://fonts/Rajdhani-Bold.ttf")
 const FONT_RAJDHANI_SEMIBOLD = preload("res://fonts/Rajdhani-SemiBold.ttf")
 
+# Symbols fallback - covers Block Elements (U+2580-259F), Misc Symbols (U+2600-26FF),
+# and other glyphs Rajdhani/Godot defaults lack. Used as a fallback so UI labels
+# that render bar-glyphs (█ ░) or icon glyphs (⚔) don't draw .notdef boxes.
+const FONT_SYMBOLS_FALLBACK = preload("res://fonts/DejaVuSans.ttf")
+
 # Mapping from faction key to font resource
 const FACTION_FONTS: Dictionary = {
 	"space_marines": FONT_CASLON,
