@@ -1400,6 +1400,7 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 	var transport_actions = []
 	var reserves_actions = []
 	var undeclare_reserves_actions = []
+	var warlord_actions = []
 	var has_confirm = false
 
 	for action in available_actions:
@@ -1412,6 +1413,8 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 				reserves_actions.append(action)
 			"UNDECLARE_RESERVES":
 				undeclare_reserves_actions.append(action)
+			"DESIGNATE_WARLORD":
+				warlord_actions.append(action)
 			"CONFIRM_FORMATIONS":
 				has_confirm = true
 
@@ -1435,6 +1438,12 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 		if not reserves_decision.is_empty():
 			return reserves_decision
 
+	# Designate a warlord before confirming (required by validation)
+	if not warlord_actions.is_empty():
+		var best_warlord = _choose_warlord(snapshot, warlord_actions, player)
+		if not best_warlord.is_empty():
+			return best_warlord
+
 	# No more attachments, embarkations, or reserves to declare — confirm formations
 	if has_confirm:
 		return {
@@ -1443,6 +1452,46 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 			"_ai_description": "AI confirms battle formations (all declarations done)"
 		}
 	return {}
+
+static func _choose_warlord(snapshot: Dictionary, warlord_actions: Array, player: int) -> Dictionary:
+	"""Pick the best warlord from available CHARACTER units.
+	Only acts if no warlord is currently designated for this player.
+	Prefers characters attached to a bodyguard (protected by Bodyguard rule),
+	then highest wounds as a tiebreaker."""
+	var all_units = snapshot.get("units", {})
+
+	# Check if a warlord is already designated — skip if so
+	for uid in all_units:
+		var u = all_units[uid]
+		if int(u.get("owner", 0)) == player and u.get("meta", {}).get("is_warlord", false):
+			return {}
+
+	var best_action = {}
+	var best_score = -1.0
+
+	for action in warlord_actions:
+		var unit_id = action.get("unit_id", "")
+		var unit = all_units.get(unit_id, {})
+		var stats = unit.get("meta", {}).get("stats", {})
+		var wounds = float(stats.get("wounds", 4))
+		var score = wounds
+
+		# Prefer characters already attached to a bodyguard
+		var attachment = unit.get("attachment_data", {})
+		if not attachment.get("attached_to", "").is_empty():
+			score += 10.0
+
+		if score > best_score:
+			best_score = score
+			best_action = action
+
+	if best_action.is_empty():
+		return {}
+
+	var char_name = all_units.get(best_action.get("unit_id", ""), {}).get("meta", {}).get("name", "unknown")
+	best_action["_ai_description"] = "AI designates %s as Warlord" % char_name
+	print("AIDecisionMaker: Warlord designation — %s (score=%.1f)" % [char_name, best_score])
+	return best_action
 
 static func _evaluate_best_leader_attachment(snapshot: Dictionary, attachment_actions: Array, player: int) -> Dictionary:
 	"""Score all available leader-bodyguard pairings and return the best one.
@@ -2016,6 +2065,7 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	# T7-18: Classify unit role for terrain-aware deployment
 	var unit_role = _classify_deployment_role(unit)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_keywords: Array = unit.get("meta", {}).get("keywords", [])
 	print("AIDecisionMaker: Deploying %s (role=%s)" % [unit_name, unit_role])
 
 	# Log deployment thinking step with role classification
@@ -2139,7 +2189,7 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 			var test_model = first_model.duplicate()
 			test_model["position"] = pos
 			test_model["rotation"] = 0.0
-			if measurement.model_overlaps_any_wall(test_model):
+			if measurement.model_overlaps_any_wall(test_model, unit_keywords):
 				has_wall_overlap = true
 				break
 
@@ -2147,7 +2197,7 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		print("AIDecisionMaker: Initial positions for %s overlap walls, searching for wall-free positions" % unit_name)
 		# Get the actual zone polygon for point-in-polygon testing
 		var zone_poly_pixels = _get_deployment_zone_polygon_pixels(snapshot, player)
-		var wall_free_center = _find_wall_free_center(first_model, zone_bounds, zone_poly_pixels)
+		var wall_free_center = _find_wall_free_center(first_model, zone_bounds, zone_poly_pixels, unit_keywords)
 		if wall_free_center != Vector2.ZERO:
 			positions = _generate_formation_positions(wall_free_center, models.size(), base_mm, zone_bounds)
 			positions = _resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions)
@@ -15178,8 +15228,9 @@ static func _get_deployment_zone_polygon_pixels(snapshot: Dictionary, player: in
 			break
 	return poly
 
-static func _find_wall_free_center(model_template: Dictionary, zone_bounds: Dictionary, zone_poly_pixels: PackedVector2Array) -> Vector2:
-	"""Sample random positions within the deployment zone to find one that doesn't overlap walls."""
+static func _find_wall_free_center(model_template: Dictionary, zone_bounds: Dictionary, zone_poly_pixels: PackedVector2Array, unit_keywords: Array = []) -> Vector2:
+	"""Sample random positions within the deployment zone to find one that doesn't overlap walls
+	the unit can't cross (e.g. INFANTRY can pass through ruin walls per 10e rules)."""
 	var measurement = _measurement()
 	if not measurement:
 		return Vector2.ZERO
@@ -15202,7 +15253,7 @@ static func _find_wall_free_center(model_template: Dictionary, zone_bounds: Dict
 		var test_model = model_template.duplicate()
 		test_model["position"] = test_pos
 		test_model["rotation"] = 0.0
-		if not measurement.model_overlaps_any_wall(test_model):
+		if not measurement.model_overlaps_any_wall(test_model, unit_keywords):
 			return test_pos
 
 	return Vector2.ZERO

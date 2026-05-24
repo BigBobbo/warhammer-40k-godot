@@ -4736,6 +4736,16 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and _is_text_input_focused():
 		return
 
+	# Release Control focus on arrow / WASD presses so HUD buttons don't
+	# swallow camera-pan keys for focus navigation. Text inputs are exempt
+	# (handled by the early return above).
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D:
+				var focused = get_viewport().gui_get_focus_owner()
+				if focused != null:
+					focused.release_focus()
+
 	# Handle mouse clicks for scout move placement (ScoutMovesPhase)
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if current_phase == GameStateData.Phase.SCOUT_MOVES and _current_scout_unit_id != "":

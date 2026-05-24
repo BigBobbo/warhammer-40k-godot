@@ -1,0 +1,85 @@
+{
+  "id": "scout_no_overlap",
+  "covers": [
+    "phases.ScoutPhase.SET_SCOUT_MODEL_DEST.overlap_rejected"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "Issue: Scout phase let the player drop one model on top of another. After the fix, _validate_set_scout_model_dest must reject (a) a destination that overlaps a sibling's staged scout-move position and (b) a destination that overlaps an unmoved sibling's original position. A clearly non-overlapping destination must still succeed. Uses Witchseekers (Scouts 6\") from audit_baseline_postdeploy: m1=(850,50) m2=(910,50) m3=(970,50) m4=(1030,50), 32mm bases (~50.4 px diameter at 40 px/in). The fixture predates the T-015 ability-name fix (its Witchseekers still have the old 'Core' name), so the first steps inject 'Scouts 6\"' and manually transition to SCOUT to avoid duplicating a 6k-line save fixture.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_D.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script",
+      "script": "GameState.unit_has_scout('U_WITCHSEEKERS_C')",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_phase", "equals": 4 },
+    { "act": "screenshot", "label": "01_scout_phase_entered" },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x",
+      "equals": 850.0 },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().scout_units_pending.get(1, []).has('U_WITCHSEEKERS_C')",
+      "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_SCOUT_MOVE",
+      "unit_id": "U_WITCHSEEKERS_C"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_scout_moves.has('U_WITCHSEEKERS_C')",
+      "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m1",
+      "destination": { "x": 900.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_scout_moves['U_WITCHSEEKERS_C']['staged_positions'].get('m1', {}).get('x', -1)",
+      "equals": 900.0 },
+    { "act": "screenshot", "label": "02_m1_staged" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m2",
+      "destination": { "x": 900.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().active_scout_moves['U_WITCHSEEKERS_C']['staged_positions'].has('m2'))",
+      "equals": "false" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m2",
+      "destination": { "x": 970.0, "y": 50.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m2",
+      "destination": { "x": 960.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_scout_moves['U_WITCHSEEKERS_C']['staged_positions'].get('m2', {}).get('x', -1)",
+      "equals": 960.0 },
+    { "act": "screenshot", "label": "03_m2_staged_no_overlap" }
+  ]
+}

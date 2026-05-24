@@ -83,23 +83,67 @@ jobs:
         with:
           lfs: true
 
+      - name: Install Xvfb + GL stack
+        run: |
+          # The multi-peer harness drives the game via TestModeHandler's
+          # UI navigation (clicks the multiplayer button, host button, etc.),
+          # so spawned host/client peers need a real display. Mirror the
+          # windowed-scenarios job's display stack.
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            xvfb \
+            x11-xserver-utils \
+            libxinerama1 libxcursor1 libxi6 libxrandr2 \
+            libgl1 libglu1-mesa \
+            libegl1 libgles2 \
+            mesa-utils
+
       - name: Setup Godot
         uses: chickensoft-games/setup-godot@v2
         with:
           version: ${{ env.GODOT_VERSION }}
           use-dotnet: false
 
-      - name: Import project
+      - name: Capture real Godot path + build xvfb-run shim
+        run: |
+          REAL_GODOT="$(command -v godot)"
+          echo "Real godot: $REAL_GODOT"
+          if [ -z "$REAL_GODOT" ]; then
+            echo "::error::godot not on PATH after chickensoft setup"
+            exit 1
+          fi
+
+          # IMPORTANT: chickensoft installs godot to $HOME/bin/godot, and
+          # run_multiplayer_tests.sh prepends $HOME/bin to PATH (line 19),
+          # which would override any shim placed in $HOME/.local/bin.
+          # Replace the binary in-place: move the real binary aside and
+          # write the xvfb-run shim where the script expects to find godot.
+          REAL_RENAMED="${REAL_GODOT}.real"
+          mv "$REAL_GODOT" "$REAL_RENAMED"
+          cat > "$REAL_GODOT" <<EOF
+          #!/bin/bash
+          # xvfb-run shim — wraps every godot invocation in a virtual
+          # display. The harness's auto-host / auto-join flow drives real
+          # menu navigation (MainMenu → MultiplayerLobby) which needs a
+          # display server even though the test asserts hit the underlying
+          # GameState via TestModeHandler IPC.
+          exec xvfb-run -a --server-args="-screen 0 1920x1080x24 +extension RANDR" \\
+            "$REAL_RENAMED" \\
+            --rendering-driver opengl3 \\
+            --audio-driver Dummy \\
+            "\$@"
+          EOF
+          chmod +x "$REAL_GODOT"
+          "$REAL_GODOT" --version
+
+      - name: Import project (with rendering)
         run: |
           cd 40k
-          timeout 180 godot --headless --import || true
-          timeout 180 godot --headless --import || true
+          timeout 240 godot --headless --import || true
+          timeout 240 godot --headless --import || true
 
       - name: Run multi-peer integration suite
         run: |
-          # The multi-peer harness spawns --headless subprocesses bound to
-          # 127.0.0.1:7777. Doesn't need a display. UI is covered separately
-          # by the windowed-scenarios job.
           bash 40k/tests/run_multiplayer_tests.sh
 
   windowed-scenarios:
@@ -132,47 +176,36 @@ jobs:
 
       - name: Capture real Godot path + build xvfb-run shim
         run: |
-          # Capture the real godot path BEFORE adding the shim dir to PATH
           REAL_GODOT="$(command -v godot)"
           echo "Real godot: $REAL_GODOT"
           if [ -z "$REAL_GODOT" ]; then
             echo "::error::godot not on PATH after chickensoft setup"
             exit 1
           fi
-          echo "REAL_GODOT=$REAL_GODOT" >> $GITHUB_ENV
 
-          mkdir -p $HOME/.local/bin
-          cat > $HOME/.local/bin/godot <<EOF
+          # IMPORTANT: chickensoft installs godot to $HOME/bin/godot, and
+          # run_scenarios.sh prepends $HOME/bin to PATH (line 24), which
+          # would override any shim placed in $HOME/.local/bin. Replace
+          # the binary in-place: move the real binary aside and write the
+          # xvfb-run shim where the script expects to find godot.
+          REAL_RENAMED="${REAL_GODOT}.real"
+          mv "$REAL_GODOT" "$REAL_RENAMED"
+          cat > "$REAL_GODOT" <<EOF
           #!/bin/bash
           # xvfb-run shim — wraps every godot invocation in a virtual
           # display so windowed scenarios can render. Adds opengl3 +
           # Dummy audio so we don't fight Vulkan/ALSA on a headless runner.
           exec xvfb-run -a --server-args="-screen 0 1920x1080x24 +extension RANDR" \\
-            "$REAL_GODOT" \\
+            "$REAL_RENAMED" \\
             --rendering-driver opengl3 \\
             --audio-driver Dummy \\
             "\$@"
           EOF
-          chmod +x $HOME/.local/bin/godot
-          # Verify the shim works
-          $HOME/.local/bin/godot --version
-
-      - name: Verify shim is on PATH
-        run: |
-          # $HOME/.local/bin is on PATH by default on ubuntu-latest GitHub
-          # runners, but we re-export to be explicit. From here on every
-          # `godot` invocation goes through the xvfb-run shim.
-          export PATH="$HOME/.local/bin:$PATH"
-          which godot
-          # Should print the shim path, not the chickensoft-installed one
-          if [ "$(which godot)" != "$HOME/.local/bin/godot" ]; then
-            echo "::error::shim not first on PATH (got $(which godot))"
-            exit 1
-          fi
+          chmod +x "$REAL_GODOT"
+          "$REAL_GODOT" --version
 
       - name: Import project (with rendering)
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
           cd 40k
           # Two import passes — first one resolves dependencies, second
           # ensures everything is reimported cleanly. Allowed to "fail"
@@ -182,7 +215,6 @@ jobs:
 
       - name: Run windowed scenarios
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
           bash 40k/tests/run_scenarios.sh --all
 
       - name: Upload scenario results + screenshots

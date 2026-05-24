@@ -1,1 +1,1 @@
-ARGS: ["--scenario-file=tests/scenarios/visual/parse_test_terrain_screenshot.json"]
+ARGS: ["--scenario-file=tests/scenarios/sp/charge_infantry_through_ruins.json"]

@@ -551,7 +551,8 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	confirm_mode_button.name = "ConfirmModeButton"
 	confirm_mode_button.text = "Confirm Movement Mode"
 	confirm_mode_button.tooltip_text = "Lock the selected movement mode and begin moving this unit. Cannot be undone for this unit this turn."
-	confirm_mode_button.disabled = true   # enabled once a mode is selected
+	confirm_mode_button.disabled = true
+	confirm_mode_button.visible = false  # Only shown for Advance / Remain Still
 	confirm_mode_button.pressed.connect(_on_confirm_mode_pressed)
 	_WhiteDwarfTheme.apply_to_button(confirm_mode_button)
 	section.add_child(confirm_mode_button)
@@ -1067,24 +1068,16 @@ func _on_normal_move_pressed() -> void:
 	if setting_radio_programmatically:
 		return
 
-	print("Normal move button pressed for unit: ", active_unit_id)
+	print("Normal move radio pressed for unit: ", active_unit_id)
 	if active_unit_id == "":
 		print("No unit selected!")
 		# Try to help the user
 		if unit_list and unit_list.get_item_count() > 0:
 			print("Please select a unit from the list first")
 		return
-	
-	print("Creating BEGIN_NORMAL_MOVE action for unit: ", active_unit_id)
-	var action = {
-		"type": "BEGIN_NORMAL_MOVE",
-		"actor_unit_id": active_unit_id,
-		"payload": {}
-	}
-	print("Emitting move_action_requested signal with action: ", action)
-	emit_signal("move_action_requested", action)
-	print("Signal emitted, waiting for phase response...")
-	_refresh_confirm_mode_button_enable()  # issue #51
+
+	# Don't dispatch BEGIN_NORMAL_MOVE yet — wait for "Confirm Movement Mode" button
+	_refresh_confirm_mode_button_enable()
 
 func _on_advance_pressed() -> void:
 	# Ignore if we're setting the radio programmatically
@@ -1095,18 +1088,9 @@ func _on_advance_pressed() -> void:
 	if active_unit_id == "":
 		print("No unit selected for advance!")
 		return
-	
-	var action = {
-		"type": "BEGIN_ADVANCE",
-		"actor_unit_id": active_unit_id,
-		"payload": {}
-	}
-	print("Emitting advance action: ", action)
-	emit_signal("move_action_requested", action)
-	_refresh_confirm_mode_button_enable()  # issue #51
 
-	# The advance dice roll is handled by MovementPhase._process_begin_advance()
-	# The result is read back in _on_unit_move_begun() to update the UI
+	# Don't dispatch BEGIN_ADVANCE yet — wait for "Confirm Movement Mode" button
+	_refresh_confirm_mode_button_enable()
 
 func _on_fall_back_pressed() -> void:
 	# Ignore if we're setting the radio programmatically
@@ -1131,24 +1115,9 @@ func _on_remain_stationary_pressed() -> void:
 
 	if active_unit_id == "":
 		return
-	
-	var action = {
-		"type": "REMAIN_STATIONARY",
-		"actor_unit_id": active_unit_id,
-		"payload": {}
-	}
-	emit_signal("move_action_requested", action)
-	_refresh_confirm_mode_button_enable()  # issue #51
 
-	# Mark as completed immediately (no dragging needed)
-	# Clear active unit since this unit is done
-	_clear_unit_highlight()
-	active_unit_id = ""
-	call_deferred("_update_selected_unit_display")
-
-	# Refresh unit list to show this unit as moved
-	if unit_list:
-		call_deferred("_populate_unit_list")
+	# Don't dispatch REMAIN_STATIONARY yet — wait for "Confirm Movement Mode" button
+	_refresh_confirm_mode_button_enable()
 
 func _on_kunnin_infiltrator_button_pressed() -> void:
 	"""Handle the Kunnin' Infiltrator button press in the mode selection panel."""
@@ -1203,28 +1172,45 @@ func _on_end_phase_pressed() -> void:
 func _on_confirm_mode_pressed() -> void:
 	if not active_unit_id:
 		return
-	
+
 	var selected_mode = _get_selected_movement_mode()
 	if selected_mode == "":
 		print("No movement mode selected!")
 		return
-	
+
+	# Dispatch the actual movement action based on selected mode
+	match selected_mode:
+		"NORMAL":
+			emit_signal("move_action_requested", {
+				"type": "BEGIN_NORMAL_MOVE",
+				"actor_unit_id": active_unit_id,
+				"payload": {}
+			})
+		"ADVANCE":
+			emit_signal("move_action_requested", {
+				"type": "BEGIN_ADVANCE",
+				"actor_unit_id": active_unit_id,
+				"payload": {}
+			})
+		"REMAIN_STATIONARY":
+			emit_signal("move_action_requested", {
+				"type": "REMAIN_STATIONARY",
+				"actor_unit_id": active_unit_id,
+				"payload": {}
+			})
+			_clear_unit_highlight()
+			active_unit_id = ""
+			call_deferred("_update_selected_unit_display")
+			if unit_list:
+				call_deferred("_populate_unit_list")
+
 	# Lock the mode
 	emit_signal("move_action_requested", {
 		"type": "LOCK_MOVEMENT_MODE",
 		"actor_unit_id": active_unit_id,
 		"payload": {"mode": selected_mode}
 	})
-	
-	# Handle mode-specific actions
-	match selected_mode:
-		"ADVANCE":
-			# Advance dice roll is handled by MovementPhase._process_begin_advance()
-			# UI is updated in _on_unit_move_begun() from the phase's active_moves data
-			pass
-		"REMAIN_STATIONARY":
-			_complete_stationary_move()
-	
+
 	# Update UI state
 	_update_mode_buttons_state(false)  # Disable mode changes
 
@@ -1257,28 +1243,27 @@ func _update_mode_buttons_state(enabled: bool) -> void:
 		fall_back_radio.disabled = not enabled
 	if stationary_radio:
 		stationary_radio.disabled = not enabled
-	# Issue #51: when the radios disable (mode is locked), the confirm
-	# button has done its job and should disable too.
 	if confirm_mode_button:
-		confirm_mode_button.disabled = not enabled or _get_selected_movement_mode() == ""
+		if not enabled:
+			confirm_mode_button.visible = false
+			confirm_mode_button.disabled = true
+		else:
+			_refresh_confirm_mode_button_enable()
 
 func _refresh_confirm_mode_button_enable() -> void:
-	# Issue #51: enable the Confirm Movement Mode button only when a
-	# mode radio is currently selected and the radios themselves are
-	# still enabled (i.e. mode not yet locked).
 	if not confirm_mode_button:
 		return
+	var selected_mode = _get_selected_movement_mode()
+	var needs_confirm = selected_mode in ["NORMAL", "ADVANCE", "REMAIN_STATIONARY"]
 	var any_radio_enabled := false
 	if normal_radio and not normal_radio.disabled:
 		any_radio_enabled = true
 	elif advance_radio and not advance_radio.disabled:
 		any_radio_enabled = true
-	elif fall_back_radio and not fall_back_radio.disabled:
-		any_radio_enabled = true
 	elif stationary_radio and not stationary_radio.disabled:
 		any_radio_enabled = true
-	var has_selection := _get_selected_movement_mode() != ""
-	confirm_mode_button.disabled = not (any_radio_enabled and has_selection)
+	confirm_mode_button.visible = needs_confirm
+	confirm_mode_button.disabled = not (any_radio_enabled and needs_confirm)
 
 func _update_fall_back_visibility() -> void:
 	if not fall_back_radio or not active_unit_id or not current_phase:
@@ -1337,6 +1322,9 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 			normal_radio.button_pressed = true
 			setting_radio_programmatically = false
 
+		# Refresh the Confirm Movement Mode button now that NORMAL is selected
+		_refresh_confirm_mode_button_enable()
+
 		# Hide advance roll label
 		if advance_roll_label:
 			advance_roll_label.visible = false
@@ -1379,6 +1367,7 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	print("MovementController: Unit move begun - ", unit_id, " mode: ", mode)
 	active_unit_id = unit_id
 	active_mode = mode
+	_update_selected_unit_display()
 
 	# Trigger move animation on all models in the unit
 	_trigger_unit_animation(unit_id, "move")
@@ -1807,7 +1796,7 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 			# Check which type of overlap it is
 			var test_model = selected_model.duplicate()
 			test_model["position"] = world_pos
-			if Measurement.model_overlaps_any_wall(test_model):
+			if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
 				overlap_reason = "Cannot overlap with walls"
 			else:
 				overlap_reason = "Cannot overlap other models"
@@ -1873,22 +1862,30 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	var accumulated = _get_accumulated_distance()
 	var total_distance = accumulated + distance_inches
 	var effective_cap = _get_effective_move_cap()
-	var valid = total_distance <= effective_cap + MOVEMENT_CAP_EPSILON
 
-	# Also check for model overlap
-	var overlap_detected = false
-	if valid and current_phase:
-		overlap_detected = _check_position_would_overlap(world_pos)
-		if overlap_detected:
-			valid = false
-			print("Move rejected: position would overlap with another model")
+	# Build a single rejection-reason string for the toast so silent reverts
+	# don't leave the player guessing why the model snapped back.
+	var rejection_reason: String = ""
+	if total_distance > effective_cap + MOVEMENT_CAP_EPSILON:
+		rejection_reason = "Movement exceeds %.1f\" cap (would be %.1f\")" % [effective_cap, total_distance]
+	elif current_phase and selected_model and _is_position_outside_board(world_pos, selected_model):
+		rejection_reason = "Cannot place model beyond the board edge"
+	elif current_phase and _check_position_would_overlap(world_pos):
+		# Distinguish wall overlap from model overlap so the player knows
+		# whether to find a different lane or just nudge sideways.
+		var test_model = selected_model.duplicate()
+		test_model["position"] = world_pos
+		if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
+			rejection_reason = "Cannot place model overlapping a wall this unit can't cross"
+		else:
+			rejection_reason = "Cannot place model overlapping another model"
 
-	if valid:
+	if rejection_reason == "":
 		print("Move is valid, sending STAGE_MODEL_MOVE action")
 		print("  From: ", drag_start_pos, " To: ", world_pos)
 		print("  Distance: ", distance_inches, " inches")
 		print("  Total staged: ", total_distance, " inches")
-		
+
 		# Send STAGE_MODEL_MOVE action instead of SET_MODEL_DEST
 		var payload = {
 			"model_id": selected_model.model_id,
@@ -1907,10 +1904,10 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 		print("  Action: ", action)
 		emit_signal("move_action_requested", action)
 	else:
-		if overlap_detected:
-			print("Move invalid: position would overlap with another model")
-		else:
-			print("Move invalid: total staged movement exceeds cap (", total_distance, " > ", effective_cap, ")")
+		print("Move invalid: %s" % rejection_reason)
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_error"):
+			toast_mgr.show_error(rejection_reason)
 	
 	# Clear drag state
 	dragging_model = false
@@ -3110,18 +3107,19 @@ func _update_model_token_visual(model: Dictionary) -> void:
 				child.queue_redraw()
 			break
 
+func _get_active_unit_keywords() -> Array:
+	if active_unit_id == "":
+		return []
+	var unit = GameState.get_unit(active_unit_id)
+	return unit.get("meta", {}).get("keywords", [])
+
 func _get_terrain_penalty_for_move(from_pos: Vector2, to_pos: Vector2) -> float:
 	"""Calculate terrain penalty via TerrainManager.
 	Units always stay on ground floor — no height penalty. Only difficult ground applies."""
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
 		return 0.0
-	# Check if the active unit has FLY keyword
-	var has_fly = false
-	if active_unit_id != "":
-		var unit = GameState.get_unit(active_unit_id)
-		var keywords = unit.get("meta", {}).get("keywords", [])
-		has_fly = "FLY" in keywords
+	var has_fly = "FLY" in _get_active_unit_keywords()
 	return terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly)
 
 func _check_position_would_overlap(position: Vector2) -> bool:
@@ -3139,11 +3137,12 @@ func _check_position_would_overlap(position: Vector2) -> bool:
 		if current_phase._position_overlaps_other_models(unit_id, model_id, position, model_copy):
 			return true
 
-	# Also check wall overlap
+	# Also check wall overlap, honoring the unit's per-keyword traversal rules
+	# (e.g. INFANTRY can pass through ruin walls in 10e).
 	if selected_model:
 		var test_model = selected_model.duplicate()
 		test_model["position"] = position
-		if Measurement.model_overlaps_any_wall(test_model):
+		if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
 			return true
 
 	return false
@@ -3811,7 +3810,7 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 			var test_model = full_model.duplicate()
 			test_model["position"] = new_pos
 
-			if Measurement.model_overlaps_any_wall(test_model):
+			if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
 				any_wall_collision = true
 				if illegal_reason_label:
 					illegal_reason_label.text = "Cannot overlap with walls"
@@ -3905,7 +3904,7 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 			var test_model = full_model.duplicate()
 			test_model["position"] = new_pos
 
-			if Measurement.model_overlaps_any_wall(test_model):
+			if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
 				all_moves_valid = false
 				invalid_reason = "Model %s would overlap with walls" % model_id
 				print("ERROR: ", invalid_reason)
