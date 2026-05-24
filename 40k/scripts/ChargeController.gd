@@ -2631,14 +2631,15 @@ func _calculate_terrain_penalty_for_path(from_pos: Vector2, to_pos: Vector2) -> 
 	if not terrain_manager:
 		return 0.0
 
-	# Check if the charging unit has FLY keyword
+	# Check the charging unit's keywords (FLY skips climb diff; INFANTRY traverses ruins)
 	var has_fly = false
+	var keywords: Array = []
 	if active_unit_id != "":
 		var unit = GameState.get_unit(active_unit_id)
-		var keywords = unit.get("meta", {}).get("keywords", [])
+		keywords = unit.get("meta", {}).get("keywords", [])
 		has_fly = "FLY" in keywords
 
-	return terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
+	return terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly, keywords)
 
 func _rotate_dragging_model(angle: float) -> void:
 	if not dragging_model:
