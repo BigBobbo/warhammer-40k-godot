@@ -300,6 +300,11 @@ func begin_deploy(_unit_id: String) -> void:
 		temp_rotations.fill(0.0)
 
 	formation_rotation = 0.0  # Reset formation rotation for new unit
+	# Reset to SINGLE so controller state matches the UI (the formation buttons
+	# in Main are recreated per-unit with "Single" pre-pressed; without this
+	# reset the controller would still think TIGHT/SPREAD is active and
+	# clicking the already-pressed "Single" button wouldn't fire any signal).
+	formation_mode = "SINGLE"
 
 	# MA-15: Reset model type picker state
 	has_model_type_picker = false
@@ -756,6 +761,7 @@ func reset_unit() -> void:
 	selected_model_type = ""
 	_hide_model_type_picker()
 	unit_id = ""
+	formation_mode = "SINGLE"  # Match UI default so next unit starts cleanly
 	_clear_formation_ghosts()  # Clear any formation ghosts
 	_remove_ghost()  # Also removes coherency distance label
 	emit_signal("coherency_warning_changed", false, "")
