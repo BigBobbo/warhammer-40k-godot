@@ -98,3 +98,30 @@ chmod +x "$SHIM"
 
 echo "[hook] godot shim: $SHIM -> $GODOT_BIN"
 "$SHIM" --version
+
+# Godot 4 stores the project's import cache + global script class index
+# under .godot/ which is gitignored. On a fresh container that folder
+# doesn't exist, so the FIRST run of an autoload that references a
+# `class_name` from a non-autoload script (e.g. UIConstants ->
+# FactionPalettes, UnitAbilityManager -> EffectPrimitivesData) fails
+# with "Identifier 'X' not declared in the current scope" — autoloads
+# compile before the class-name index is populated.
+#
+# Run the editor in headless mode once to scan the filesystem and write
+# .godot/global_script_class_cache.cfg. Subsequent headless runs (game,
+# scenario runner, pre-commit hooks) then resolve global class names
+# normally. This step is a no-op on every run after the first because
+# .godot/ persists in the container layer.
+PROJECT_DIR="$CLAUDE_PROJECT_DIR/40k"
+if [ -f "$PROJECT_DIR/project.godot" ] && [ ! -f "$PROJECT_DIR/.godot/global_script_class_cache.cfg" ]; then
+  echo "[hook] priming Godot .godot/ cache (one-time editor scan)"
+  # The editor scan exits on its own once first_scan_filesystem completes;
+  # --quit guarantees we don't block here. Output is noisy on stderr
+  # (resource import warnings) but harmless — swallow it.
+  "$SHIM" --editor --path "$PROJECT_DIR" --quit >/dev/null 2>&1 || true
+  if [ -f "$PROJECT_DIR/.godot/global_script_class_cache.cfg" ]; then
+    echo "[hook] .godot/ cache ready"
+  else
+    echo "[hook] WARNING: .godot/ cache did not generate — autoloads referencing class_name globals may fail" >&2
+  fi
+fi
