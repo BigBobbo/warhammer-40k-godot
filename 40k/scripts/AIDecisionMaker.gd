@@ -2065,6 +2065,7 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	# T7-18: Classify unit role for terrain-aware deployment
 	var unit_role = _classify_deployment_role(unit)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_keywords: Array = unit.get("meta", {}).get("keywords", [])
 	print("AIDecisionMaker: Deploying %s (role=%s)" % [unit_name, unit_role])
 
 	# Log deployment thinking step with role classification
@@ -2188,7 +2189,7 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 			var test_model = first_model.duplicate()
 			test_model["position"] = pos
 			test_model["rotation"] = 0.0
-			if measurement.model_overlaps_any_wall(test_model):
+			if measurement.model_overlaps_any_wall(test_model, unit_keywords):
 				has_wall_overlap = true
 				break
 
@@ -2196,7 +2197,7 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		print("AIDecisionMaker: Initial positions for %s overlap walls, searching for wall-free positions" % unit_name)
 		# Get the actual zone polygon for point-in-polygon testing
 		var zone_poly_pixels = _get_deployment_zone_polygon_pixels(snapshot, player)
-		var wall_free_center = _find_wall_free_center(first_model, zone_bounds, zone_poly_pixels)
+		var wall_free_center = _find_wall_free_center(first_model, zone_bounds, zone_poly_pixels, unit_keywords)
 		if wall_free_center != Vector2.ZERO:
 			positions = _generate_formation_positions(wall_free_center, models.size(), base_mm, zone_bounds)
 			positions = _resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions)
@@ -15227,8 +15228,9 @@ static func _get_deployment_zone_polygon_pixels(snapshot: Dictionary, player: in
 			break
 	return poly
 
-static func _find_wall_free_center(model_template: Dictionary, zone_bounds: Dictionary, zone_poly_pixels: PackedVector2Array) -> Vector2:
-	"""Sample random positions within the deployment zone to find one that doesn't overlap walls."""
+static func _find_wall_free_center(model_template: Dictionary, zone_bounds: Dictionary, zone_poly_pixels: PackedVector2Array, unit_keywords: Array = []) -> Vector2:
+	"""Sample random positions within the deployment zone to find one that doesn't overlap walls
+	the unit can't cross (e.g. INFANTRY can pass through ruin walls per 10e rules)."""
 	var measurement = _measurement()
 	if not measurement:
 		return Vector2.ZERO
@@ -15251,7 +15253,7 @@ static func _find_wall_free_center(model_template: Dictionary, zone_bounds: Dict
 		var test_model = model_template.duplicate()
 		test_model["position"] = test_pos
 		test_model["rotation"] = 0.0
-		if not measurement.model_overlaps_any_wall(test_model):
+		if not measurement.model_overlaps_any_wall(test_model, unit_keywords):
 			return test_pos
 
 	return Vector2.ZERO

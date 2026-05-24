@@ -2454,6 +2454,7 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 		return
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var unit_keywords: Array = unit.get("meta", {}).get("keywords", [])
 	print("AIPlayer: Deployment retry for %s (player %d)" % [unit_name, player])
 
 	var zone_bounds = AIDecisionMaker._get_deployment_zone_bounds(snapshot, player)
@@ -2491,7 +2492,7 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 			var test_model = first_model.duplicate()
 			test_model["position"] = test_center
 			test_model["rotation"] = 0.0
-			if not Measurement.model_overlaps_any_wall(test_model):
+			if not Measurement.model_overlaps_any_wall(test_model, unit_keywords):
 				best_center = test_center
 				found_wall_free = true
 				break
@@ -2509,7 +2510,7 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 			var test_model = first_model.duplicate()
 			test_model["position"] = pos
 			test_model["rotation"] = 0.0
-			if Measurement.model_overlaps_any_wall(test_model):
+			if Measurement.model_overlaps_any_wall(test_model, unit_keywords):
 				all_wall_free = false
 				break
 		if not all_wall_free:

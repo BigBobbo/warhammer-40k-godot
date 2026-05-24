@@ -519,12 +519,13 @@ func try_place_at(world_pos: Vector2) -> void:
 		_show_toast("Cannot overlap with existing models")
 		return
 
-	# Check for overlap with walls
+	# Check for overlap with walls, honoring the deploying unit's traversal keywords
+	# (e.g. INFANTRY can pass through ruin walls in 10e).
 	var test_model = model_data.duplicate()
 	test_model["position"] = world_pos
 	test_model["rotation"] = rotation
-	if Measurement.model_overlaps_any_wall(test_model):
-		_show_toast("Cannot overlap with walls")
+	if Measurement.model_overlaps_any_wall(test_model, _get_deploying_unit_keywords()):
+		_show_toast("Cannot overlap with walls this unit can't cross")
 		return
 
 	# Store position and rotation (rotation already captured above)
@@ -1809,6 +1810,11 @@ func _overlaps_with_existing_models(pos: Vector2, radius: float) -> bool:
 	
 	return false
 
+func _get_deploying_unit_keywords() -> Array:
+	if unit_id == "":
+		return []
+	return GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
+
 func _show_toast(message: String, color: Color = Color.RED) -> void:
 	print("[%s] %s" % ["WARNING" if color == Color.YELLOW else "ERROR", message])
 	# Show on-screen toast via ToastManager
@@ -1902,12 +1908,12 @@ func _process(delta: float) -> void:
 			else:
 				is_valid = _shape_wholly_in_polygon(mouse_pos, model_data, rotation, zone) and not _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation)
 
-		# Also check wall collision
+		# Also check wall collision, honoring the deploying unit's traversal keywords.
 		if is_valid:
 			var test_model = model_data.duplicate()
 			test_model["position"] = mouse_pos
 			test_model["rotation"] = rotation
-			if Measurement.model_overlaps_any_wall(test_model):
+			if Measurement.model_overlaps_any_wall(test_model, _get_deploying_unit_keywords()):
 				is_valid = false
 
 		if ghost_sprite.has_method("set_validity"):
@@ -2248,11 +2254,11 @@ func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: Pa
 			if _overlaps_with_existing_models_shape(pos, model_data, model_rotation):
 				return false
 
-	# Check wall collision
+	# Check wall collision, honoring the deploying unit's traversal keywords.
 	var test_model = model_data.duplicate()
 	test_model["position"] = pos
 	test_model["rotation"] = model_rotation
-	if Measurement.model_overlaps_any_wall(test_model):
+	if Measurement.model_overlaps_any_wall(test_model, _get_deploying_unit_keywords()):
 		return false
 
 	return true
