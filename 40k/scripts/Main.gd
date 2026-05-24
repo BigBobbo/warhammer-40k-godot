@@ -11843,7 +11843,6 @@ func _install_design_guidelines_overlays() -> void:
 	var board_root = get_node_or_null("BoardRoot")
 
 	# Direct children of Main (CanvasLayer-anchored HUD elements).
-	add_child(preload("res://scripts/PhaseBar.gd").new())                  # T04
 	add_child(preload("res://scripts/ActivePlayerEdgeTint.gd").new())      # T25
 	add_child(preload("res://scripts/RollLogPanel.gd").new())              # T35
 	add_child(preload("res://scripts/LeftRosterStrip.gd").new())           # T37
