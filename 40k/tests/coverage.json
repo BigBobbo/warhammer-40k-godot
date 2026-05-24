@@ -290,6 +290,15 @@
       "status": "covered"
     },
     {
+      "id": "deployment.terrain.infantry_ruin_traversal",
+      "description": "Regression guard (#431): Measurement.model_overlaps_any_wall consults unit keywords so that INFANTRY models can be deployed straddling a ruin wall, while VEHICLE/MONSTER (or any non-INFANTRY unit) is still rejected. Validated by 'infantry_enters_ruin_wall.",
+      "scenarios": [
+        "infantry_enters_ruin_wall"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "fight.ability.deadly_demise",
       "description": "FIGHT phase: the Deadly Demise ability fires when a unit is destroyed during fight, rolling demise dice and dealing mortal wounds to nearby units. Validated by '386_deadly_demise_vehicle.",
       "scenarios": [
@@ -413,6 +422,15 @@
         "ri_offer_at_end_of_movement"
       ],
       "last_verified_commit": "62824ef",
+      "status": "covered"
+    },
+    {
+      "id": "movement.terrain.infantry_ruin_traversal",
+      "description": "Regression guard (#431): MovementPhase accepts INFANTRY model drops on top of ruin walls (Measurement.model_overlaps_any_wall respects unit keywords). Non-INFANTRY drops are still rejected and surface a toast. Validated by 'infantry_enters_ruin_wall.",
+      "scenarios": [
+        "infantry_enters_ruin_wall"
+      ],
+      "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
