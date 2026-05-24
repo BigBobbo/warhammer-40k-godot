@@ -1796,7 +1796,7 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 			# Check which type of overlap it is
 			var test_model = selected_model.duplicate()
 			test_model["position"] = world_pos
-			if Measurement.model_overlaps_any_wall(test_model):
+			if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
 				overlap_reason = "Cannot overlap with walls"
 			else:
 				overlap_reason = "Cannot overlap other models"
@@ -1862,22 +1862,30 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	var accumulated = _get_accumulated_distance()
 	var total_distance = accumulated + distance_inches
 	var effective_cap = _get_effective_move_cap()
-	var valid = total_distance <= effective_cap + MOVEMENT_CAP_EPSILON
 
-	# Also check for model overlap
-	var overlap_detected = false
-	if valid and current_phase:
-		overlap_detected = _check_position_would_overlap(world_pos)
-		if overlap_detected:
-			valid = false
-			print("Move rejected: position would overlap with another model")
+	# Build a single rejection-reason string for the toast so silent reverts
+	# don't leave the player guessing why the model snapped back.
+	var rejection_reason: String = ""
+	if total_distance > effective_cap + MOVEMENT_CAP_EPSILON:
+		rejection_reason = "Movement exceeds %.1f\" cap (would be %.1f\")" % [effective_cap, total_distance]
+	elif current_phase and selected_model and _is_position_outside_board(world_pos, selected_model):
+		rejection_reason = "Cannot place model beyond the board edge"
+	elif current_phase and _check_position_would_overlap(world_pos):
+		# Distinguish wall overlap from model overlap so the player knows
+		# whether to find a different lane or just nudge sideways.
+		var test_model = selected_model.duplicate()
+		test_model["position"] = world_pos
+		if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
+			rejection_reason = "Cannot place model overlapping a wall this unit can't cross"
+		else:
+			rejection_reason = "Cannot place model overlapping another model"
 
-	if valid:
+	if rejection_reason == "":
 		print("Move is valid, sending STAGE_MODEL_MOVE action")
 		print("  From: ", drag_start_pos, " To: ", world_pos)
 		print("  Distance: ", distance_inches, " inches")
 		print("  Total staged: ", total_distance, " inches")
-		
+
 		# Send STAGE_MODEL_MOVE action instead of SET_MODEL_DEST
 		var payload = {
 			"model_id": selected_model.model_id,
@@ -1896,10 +1904,10 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 		print("  Action: ", action)
 		emit_signal("move_action_requested", action)
 	else:
-		if overlap_detected:
-			print("Move invalid: position would overlap with another model")
-		else:
-			print("Move invalid: total staged movement exceeds cap (", total_distance, " > ", effective_cap, ")")
+		print("Move invalid: %s" % rejection_reason)
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_error"):
+			toast_mgr.show_error(rejection_reason)
 	
 	# Clear drag state
 	dragging_model = false
@@ -3099,18 +3107,19 @@ func _update_model_token_visual(model: Dictionary) -> void:
 				child.queue_redraw()
 			break
 
+func _get_active_unit_keywords() -> Array:
+	if active_unit_id == "":
+		return []
+	var unit = GameState.get_unit(active_unit_id)
+	return unit.get("meta", {}).get("keywords", [])
+
 func _get_terrain_penalty_for_move(from_pos: Vector2, to_pos: Vector2) -> float:
 	"""Calculate terrain penalty via TerrainManager.
 	Units always stay on ground floor — no height penalty. Only difficult ground applies."""
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
 		return 0.0
-	# Check if the active unit has FLY keyword
-	var has_fly = false
-	if active_unit_id != "":
-		var unit = GameState.get_unit(active_unit_id)
-		var keywords = unit.get("meta", {}).get("keywords", [])
-		has_fly = "FLY" in keywords
+	var has_fly = "FLY" in _get_active_unit_keywords()
 	return terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly)
 
 func _check_position_would_overlap(position: Vector2) -> bool:
@@ -3128,11 +3137,12 @@ func _check_position_would_overlap(position: Vector2) -> bool:
 		if current_phase._position_overlaps_other_models(unit_id, model_id, position, model_copy):
 			return true
 
-	# Also check wall overlap
+	# Also check wall overlap, honoring the unit's per-keyword traversal rules
+	# (e.g. INFANTRY can pass through ruin walls in 10e).
 	if selected_model:
 		var test_model = selected_model.duplicate()
 		test_model["position"] = position
-		if Measurement.model_overlaps_any_wall(test_model):
+		if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
 			return true
 
 	return false
@@ -3800,7 +3810,7 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 			var test_model = full_model.duplicate()
 			test_model["position"] = new_pos
 
-			if Measurement.model_overlaps_any_wall(test_model):
+			if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
 				any_wall_collision = true
 				if illegal_reason_label:
 					illegal_reason_label.text = "Cannot overlap with walls"
@@ -3894,7 +3904,7 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 			var test_model = full_model.duplicate()
 			test_model["position"] = new_pos
 
-			if Measurement.model_overlaps_any_wall(test_model):
+			if Measurement.model_overlaps_any_wall(test_model, _get_active_unit_keywords()):
 				all_moves_valid = false
 				invalid_reason = "Model %s would overlap with walls" % model_id
 				print("ERROR: ", invalid_reason)

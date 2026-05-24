@@ -1,0 +1,46 @@
+{
+  "id": "infantry_enters_ruin_wall",
+  "covers": ["movement.terrain.infantry_ruin_traversal", "deployment.terrain.infantry_ruin_traversal"],
+  "fixture": "audit_baseline_postdeploy",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Regression: INFANTRY models that the player drops on top of a ruin wall must be accepted, while VEHICLE/MONSTER (and anything without INFANTRY) must still be blocked. Before the fix, Measurement.model_overlaps_any_wall ignored the unit's keywords and rejected every wall straddle, so the drag silently reverted whenever a player tried to put an Infantry model inside a ruin. After the fix it honors the wall's per-keyword blocks_movement map (DEFAULT_WALL_BLOCKS_MOVEMENT.INFANTRY = false for ruin walls).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.size()",
+      "expect_min": 1
+    },
+
+    { "act": "screenshot", "label": "01_movement_phase_loaded" },
+
+    { "act": "execute_script",
+      "script": "Measurement.model_overlaps_any_wall({\"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 400, \"y\": 440}, \"rotation\": 0.0}, [])",
+      "equals": true
+    },
+    { "act": "execute_script",
+      "script": "Measurement.model_overlaps_any_wall({\"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 400, \"y\": 440}, \"rotation\": 0.0}, [\"VEHICLE\"])",
+      "equals": true
+    },
+    { "act": "execute_script",
+      "script": "Measurement.model_overlaps_any_wall({\"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 400, \"y\": 440}, \"rotation\": 0.0}, [\"MONSTER\"])",
+      "equals": true
+    },
+    { "act": "execute_script",
+      "script": "Measurement.model_overlaps_any_wall({\"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 400, \"y\": 440}, \"rotation\": 0.0}, [\"INFANTRY\"])",
+      "equals": false
+    },
+    { "act": "execute_script",
+      "script": "Measurement.model_overlaps_any_wall({\"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 400, \"y\": 440}, \"rotation\": 0.0}, [\"INFANTRY\", \"CHARACTER\"])",
+      "equals": false
+    },
+    { "act": "execute_script",
+      "script": "Measurement.model_overlaps_any_wall({\"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 400, \"y\": 440}, \"rotation\": 0.0}, [\"FLY\"])",
+      "equals": false
+    },
+    { "act": "screenshot", "label": "02_wall_keyword_assertions_passed" }
+  ]
+}

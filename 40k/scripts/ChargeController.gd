@@ -2617,8 +2617,12 @@ func _check_position_would_overlap(model: Dictionary, new_pos: Vector2) -> bool:
 			if Measurement.models_overlap(test_model, other_model_check):
 				return true
 
-	# Also check wall collision
-	if Measurement.model_overlaps_any_wall(test_model):
+	# Also check wall collision, honoring the charging unit's traversal keywords
+	# (e.g. INFANTRY can pass through ruin walls in 10e).
+	var charger_keywords: Array = []
+	if active_unit_id != "":
+		charger_keywords = GameState.get_unit(active_unit_id).get("meta", {}).get("keywords", [])
+	if Measurement.model_overlaps_any_wall(test_model, charger_keywords):
 		return true
 
 	return false
