@@ -68,15 +68,15 @@ def match_blob(blob):
     for slot, c_long, c_short, paired in candidates:
         if is_rotated:
             # 45-deg rotation: AABB is square with side (long+short)/sqrt(2).
-            # Score by L1 distance between expected and measured.
             expected_aabb = aabb_45(c_long, c_short)
-            # Use the larger of w_aabb, h_aabb as the rotated AABB measurement
-            # since they should be equal.
             measured = (w_aabb + h_aabb) / 2
             score = abs(expected_aabb - measured)
+            # Use detector's angle_hint if it determined +45 or -45 from
+            # the rightmost-pixel test. Default to +45 otherwise.
+            angle = blob.get('angle_hint', 45.0) or 45.0
             cand = {
                 'long': c_long, 'short': c_short,
-                'angle': 45.0, 'slot_hint': slot, 'score': score,
+                'angle': angle, 'slot_hint': slot, 'score': score,
             }
         else:
             # Axis-aligned. Determine orientation: which AABB dim is the long?

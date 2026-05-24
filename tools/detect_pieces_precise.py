@@ -176,6 +176,31 @@ def main():
                     w_in = w_px / px_per_in_w
                     h_in = h_px / px_per_in_h
                     fill = len(pts) / (w_px * h_px)
+                    # For tilted pieces (fill ~0.5, square-ish AABB), determine
+                    # +45 vs -45 by projecting all blob pixels onto the two
+                    # diagonals and picking the direction with the larger
+                    # spread (the long axis).
+                    #   diag_a = (px-cx + py-cy)/sqrt(2): along (1, 1) = \
+                    #   diag_b = (px-cx - (py-cy))/sqrt(2): along (1, -1) = /
+                    # If diag_a has larger spread, long axis is along \ -> +45.
+                    # If diag_b has larger spread, long axis is along / -> -45.
+                    angle_hint = 0.0
+                    if 0.35 < fill < 0.65:
+                        sum_a = 0.0; sum_a2 = 0.0
+                        sum_b = 0.0; sum_b2 = 0.0
+                        n = len(pts)
+                        for px, py in pts:
+                            dx = px - cx_px; dy = py - cy_px
+                            a = dx + dy
+                            b = dx - dy
+                            sum_a += a; sum_a2 += a * a
+                            sum_b += b; sum_b2 += b * b
+                        var_a = sum_a2 / n - (sum_a / n) ** 2
+                        var_b = sum_b2 / n - (sum_b / n) ** 2
+                        if var_a > var_b * 1.05:
+                            angle_hint = 45.0
+                        elif var_b > var_a * 1.05:
+                            angle_hint = -45.0
                     pieces.append({
                         'kind': kind,
                         'cx_in': round(cx_in, 2),
@@ -188,6 +213,7 @@ def main():
                         'h_px': h_px,
                         'area_px': len(pts),
                         'fill': round(fill, 2),
+                        'angle_hint': angle_hint,
                     })
 
     pieces.sort(key=lambda p: (p['cy_in'], p['cx_in']))
