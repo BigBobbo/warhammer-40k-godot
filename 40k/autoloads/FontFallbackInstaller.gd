@@ -19,11 +19,20 @@ extends Node
 
 func _ready() -> void:
 	var symbols_fallback: FontFile = FactionPalettes.FONT_SYMBOLS_FALLBACK
-	if symbols_fallback == null:
-		push_warning("FontFallbackInstaller: FONT_SYMBOLS_FALLBACK is null, skipping")
+	var emoji_fallback: FontFile = FactionPalettes.FONT_EMOJI_FALLBACK
+	if symbols_fallback == null and emoji_fallback == null:
+		push_warning("FontFallbackInstaller: no fallback fonts available, skipping")
 		return
 
-	var fallback_chain: Array[Font] = [symbols_fallback]
+	# Order matters: DejaVu Sans first so monochrome glyphs (✓ ✗ ★ ⚔ → …)
+	# render in the UI palette, then Noto Color Emoji as last resort for
+	# codepoints DejaVu doesn't cover (🎯 🎲 💀 🎉 …).
+	var fallback_chain: Array[Font] = []
+	if symbols_fallback != null:
+		fallback_chain.append(symbols_fallback)
+	if emoji_fallback != null:
+		fallback_chain.append(emoji_fallback)
+
 	var targets: Array[Font] = [
 		FactionPalettes.FONT_RAJDHANI_BOLD,
 		FactionPalettes.FONT_RAJDHANI_SEMIBOLD,
@@ -32,12 +41,12 @@ func _ready() -> void:
 		FactionPalettes.FONT_ORBITRON,
 	]
 	for font in targets:
-		if font != null and font != symbols_fallback:
+		if font != null and not fallback_chain.has(font):
 			font.fallbacks = fallback_chain
 
 	# ThemeDB.fallback_font is the engine-built-in font that Controls use
 	# when neither their own theme override nor any ancestor theme provides
 	# one. Anything that slips past the Rajdhani default still gets the
-	# symbols fallback.
+	# fallback chain.
 	if ThemeDB.fallback_font != null:
 		ThemeDB.fallback_font.fallbacks = fallback_chain
