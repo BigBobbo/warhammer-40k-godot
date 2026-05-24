@@ -159,27 +159,34 @@ def make_walls(slot, long_, short, wall_corner='nw'):
 
 
 def pick_wall_corner(cx_v, cy_v, rot_v, board_w=44.0, board_h=60.0):
-    """Pick the local corner where walls should meet so they face the
-    board centre. Returns one of 'nw', 'ne', 'sw', 'se'.
+    """Pick the local corner where the L (or C base) should sit.
 
-    Steps:
-      1. Compute world direction from piece centre to board centre.
-      2. Convert that direction into the piece's LOCAL frame using rot_v.
-      3. The local corner FACING the board centre is the one with the
-         same sign as the local direction in both x and y.
+    Observed rule from source images:
+      - The L's LONG WALL sits along the piece's SHORT-AXIS SIDE that
+        is TOWARD the board centre (so the wall runs parallel to the
+        long axis and faces inward).
+      - The L's SHORT WALL sits at the LONG-AXIS END that is FAR FROM
+        the board centre (closing off the "outside" end of the piece).
+      - For C pieces: only the short-axis side matters; the base sits
+        on the side TOWARD the board centre.
+
+    So the corner sign rule is:
+      wall_x = OPPOSITE sign of (direction-to-centre).x  (long-axis far)
+      wall_y = SAME sign of (direction-to-centre).y     (short-axis toward)
+
+    Returns one of 'nw', 'ne', 'sw', 'se'.
     """
     cx_b, cy_b = board_w / 2, board_h / 2
-    dx_w = cx_b - cx_v  # world direction from piece to centre
+    dx_w = cx_b - cx_v
     dy_w = cy_b - cy_v
     rad = math.radians(rot_v)
     ca, sa = math.cos(rad), math.sin(rad)
-    # World -> local: local = R(-rot) * world
-    lx = ca * dx_w + sa * dy_w
-    ly = -sa * dx_w + ca * dy_w
-    if lx >= 0 and ly < 0: return 'ne'
-    if lx >= 0 and ly >= 0: return 'se'
-    if lx < 0 and ly < 0: return 'nw'
-    return 'sw'
+    lx_to = ca * dx_w + sa * dy_w
+    ly_to = -sa * dx_w + ca * dy_w
+    if lx_to >= 0 and ly_to < 0: return 'nw'  # x=-hw (far), y=-hh (toward)
+    if lx_to >= 0 and ly_to >= 0: return 'sw'  # x=-hw (far), y=+hh (toward)
+    if lx_to < 0 and ly_to < 0: return 'ne'   # x=+hw (far), y=-hh (toward)
+    return 'se'                                # x=+hw (far), y=+hh (toward)
 
 
 def main():
