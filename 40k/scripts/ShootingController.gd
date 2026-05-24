@@ -540,7 +540,6 @@ func _setup_right_panel() -> void:
 	damage_preview_label.scroll_active = false
 	damage_preview_label.custom_minimum_size = Vector2(218, 0)
 	damage_preview_label.add_theme_font_size_override("normal_font_size", 11)
-	_apply_forecast_font(damage_preview_label)
 	damage_preview_panel.add_child(damage_preview_label)
 	shooting_panel.add_child(damage_preview_panel)
 
@@ -562,7 +561,6 @@ func _setup_right_panel() -> void:
 	aggregate_preview_label.scroll_active = false
 	aggregate_preview_label.custom_minimum_size = Vector2(218, 0)
 	aggregate_preview_label.add_theme_font_size_override("normal_font_size", 11)
-	_apply_forecast_font(aggregate_preview_label)
 	aggregate_preview_panel.add_child(aggregate_preview_label)
 	shooting_panel.add_child(aggregate_preview_panel)
 
@@ -5435,23 +5433,6 @@ func _make_bar(pct: float, color: String) -> String:
 	var filled = int(clamp(pct, 0.0, 1.0) * 8)
 	var empty = 8 - filled
 	return "[color=%s]%s[/color][color=#333333]%s[/color]" % [color, "█".repeat(filled), "░".repeat(empty)]
-
-func _apply_forecast_font(label: RichTextLabel) -> void:
-	# The forecast cards render Block Elements (█ ░) and the ⚔ icon, which
-	# Godot's default UI font lacks - they fall back to .notdef hex boxes.
-	# Set Rajdhani as the primary face (matches the rest of the WH40K UI)
-	# with DejaVu Sans as an explicit fallback that does have those glyphs.
-	# Duplicate so we don't mutate the shared preloaded resource.
-	if not FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
-		return
-	var forecast_font: FontFile = FactionPalettes.FONT_RAJDHANI_SEMIBOLD.duplicate()
-	if FactionPalettes.FONT_SYMBOLS_FALLBACK:
-		forecast_font.fallbacks = [FactionPalettes.FONT_SYMBOLS_FALLBACK]
-	label.add_theme_font_override("normal_font", forecast_font)
-	label.add_theme_font_override("bold_font", forecast_font)
-	label.add_theme_font_override("italics_font", forecast_font)
-	label.add_theme_font_override("bold_italics_font", forecast_font)
-	label.add_theme_font_override("mono_font", forecast_font)
 
 func _hide_damage_preview() -> void:
 	"""Hide the damage preview panel"""
