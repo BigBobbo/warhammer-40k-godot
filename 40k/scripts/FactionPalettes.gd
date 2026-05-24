@@ -15,6 +15,12 @@ const FONT_RAJDHANI_SEMIBOLD = preload("res://fonts/Rajdhani-SemiBold.ttf")
 # that render bar-glyphs (█ ░) or icon glyphs (⚔) don't draw .notdef boxes.
 const FONT_SYMBOLS_FALLBACK = preload("res://fonts/DejaVuSans.ttf")
 
+# Color emoji fallback - last-resort fallback for emoji codepoints (🎯 🎲 💀 …)
+# that neither Rajdhani nor DejaVu Sans cover. Placed after the symbols
+# fallback so monochrome glyphs (✓ ✗ ★ ⚔) still render in the UI palette
+# and only true emoji codepoints reach this font.
+const FONT_EMOJI_FALLBACK = preload("res://fonts/NotoColorEmoji.ttf")
+
 # Mapping from faction key to font resource
 const FACTION_FONTS: Dictionary = {
 	"space_marines": FONT_CASLON,
