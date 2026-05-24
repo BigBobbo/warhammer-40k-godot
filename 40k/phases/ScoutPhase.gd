@@ -14,6 +14,7 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 
 const SCOUT_MIN_ENEMY_DISTANCE_INCHES: float = 9.0
 const PX_PER_INCH: float = 40.0
+const OVERLAP_TOLERANCE_PX: float = 0.5
 
 # Track which units have completed their Scout move
 var scout_units_pending: Dictionary = {}  # player -> [unit_ids]
@@ -220,9 +221,16 @@ func _validate_set_scout_model_dest(action: Dictionary) -> Dictionary:
 	if dest_pos.x < 0 or dest_pos.x > board_width_px or dest_pos.y < 0 or dest_pos.y > board_height_px:
 		return {"valid": false, "errors": ["Model must stay on the battlefield"]}
 
-	# Check overlap with other models
-	if _position_overlaps_other_models(dest_pos, model_base_mm, unit_id, model_id):
+	# Check overlap with other models on the board (shape-aware, ignores other models
+	# in the scouting unit since they will also move).
+	if _scout_position_overlaps_other_units(dest_pos, model, unit_id):
 		return {"valid": false, "errors": ["Model cannot overlap with other models"]}
+
+	# Check overlap against already-staged sibling models in this scout move.
+	# Without this, two models in the same unit could be dropped on the same spot.
+	var staged_positions = move_data.get("staged_positions", {})
+	if _scout_position_overlaps_staged_siblings(dest_pos, model, model_id, staged_positions, models):
+		return {"valid": false, "errors": ["Model cannot overlap with another model in this unit"]}
 
 	return {"valid": true, "errors": []}
 
@@ -256,6 +264,38 @@ func _validate_confirm_scout_move(action: Dictionary) -> Dictionary:
 			var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
 			if edge_dist < SCOUT_MIN_ENEMY_DISTANCE_INCHES:
 				return {"valid": false, "errors": ["Model %s ends <9\" from enemy models (%.1f\")" % [model_id, edge_dist]]}
+
+	# Validate no overlap between final positions and other models (shape-aware).
+	# Models in the scouting unit are checked against each other and against everything else.
+	var models = unit.get("models", [])
+	var final_models_by_id := {}
+	for m in models:
+		var mid = m.get("id", "")
+		if mid == "":
+			continue
+		if not m.get("alive", true):
+			continue
+		var final_model = m.duplicate()
+		if staged_positions.has(mid):
+			final_model["position"] = staged_positions[mid]
+		final_models_by_id[mid] = final_model
+
+	# Sibling-vs-sibling overlap within the scouting unit.
+	var sibling_ids = final_models_by_id.keys()
+	for i in range(sibling_ids.size()):
+		for j in range(i + 1, sibling_ids.size()):
+			var m1 = final_models_by_id[sibling_ids[i]]
+			var m2 = final_models_by_id[sibling_ids[j]]
+			if Measurement.models_overlap(m1, m2) and not _scout_is_touching_within_tolerance(m1, m2):
+				return {"valid": false, "errors": ["Models %s and %s overlap" % [sibling_ids[i], sibling_ids[j]]]}
+
+	# Final-position-vs-other-units overlap.
+	for mid in final_models_by_id:
+		var m = final_models_by_id[mid]
+		var m_pos = m.get("position")
+		var m_pos_v = Vector2(m_pos.x, m_pos.y) if m_pos is Dictionary else m_pos
+		if _scout_position_overlaps_other_units(m_pos_v, m, unit_id):
+			return {"valid": false, "errors": ["Model %s overlaps another model" % mid]}
 
 	# Validate unit coherency after all staged moves are applied
 	# Each model must be within 2" horizontally and 5" vertically of at least
@@ -493,39 +533,81 @@ func _check_scout_coherency(unit: Dictionary, staged_positions: Dictionary, orig
 
 	return {"valid": true, "errors": []}
 
-func _position_overlaps_other_models(pos: Vector2, base_mm: int, skip_unit_id: String, skip_model_id: String) -> bool:
-	"""Check if a position overlaps with any deployed model."""
-	var model_radius_px = (base_mm / 2.0) / 25.4 * PX_PER_INCH
+func _scout_position_overlaps_other_units(pos: Vector2, model_data: Dictionary, scout_unit_id: String) -> bool:
+	# Shape-aware overlap check against every model that is NOT part of the
+	# scouting unit. Models in the scouting unit are skipped because they will
+	# also move; sibling overlap is validated separately via staged positions.
+	var moving_model = model_data.duplicate()
+	moving_model["position"] = pos
 	var units = game_state_snapshot.get("units", {})
 
 	for unit_id in units:
+		if unit_id == scout_unit_id:
+			continue
 		var unit = units[unit_id]
 		var status = unit.get("status", 0)
 		if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:
 			continue
 
-		var models = unit.get("models", [])
-		for model in models:
-			if not model.get("alive", true):
+		for other in unit.get("models", []):
+			if not other.get("alive", true):
 				continue
-			# Skip the model being moved
-			if unit_id == skip_unit_id and model.get("id", "") == skip_model_id:
+			if other.get("position", null) == null:
 				continue
-
-			var model_pos_dict = model.get("position", null)
-			if model_pos_dict == null:
-				continue
-
-			var model_pos = Vector2(
-				model_pos_dict.get("x", 0) if model_pos_dict is Dictionary else model_pos_dict.x,
-				model_pos_dict.get("y", 0) if model_pos_dict is Dictionary else model_pos_dict.y
-			)
-			var other_radius_px = (model.get("base_mm", 32) / 2.0) / 25.4 * PX_PER_INCH
-			var distance = pos.distance_to(model_pos)
-			if distance < (model_radius_px + other_radius_px):
+			if Measurement.models_overlap(moving_model, other):
+				if _scout_is_touching_within_tolerance(moving_model, other):
+					continue
 				return true
 
 	return false
+
+func _scout_position_overlaps_staged_siblings(pos: Vector2, model_data: Dictionary, model_id: String, staged_positions: Dictionary, unit_models: Array) -> bool:
+	# Shape-aware overlap check against the staged final positions of other
+	# models in the same scouting unit. For siblings that have NOT been staged
+	# yet, fall back to their original positions so a model cannot be dropped on
+	# a still-unmoved teammate either.
+	var moving_model = model_data.duplicate()
+	moving_model["position"] = pos
+
+	for other in unit_models:
+		var other_id = other.get("id", "")
+		if other_id == "" or other_id == model_id:
+			continue
+		if not other.get("alive", true):
+			continue
+
+		var other_pos = staged_positions.get(other_id, null)
+		if other_pos == null:
+			other_pos = other.get("position", null)
+		if other_pos == null:
+			continue
+
+		var other_copy = other.duplicate()
+		other_copy["position"] = other_pos
+		if Measurement.models_overlap(moving_model, other_copy):
+			if _scout_is_touching_within_tolerance(moving_model, other_copy):
+				continue
+			return true
+
+	return false
+
+func _scout_is_touching_within_tolerance(model_a: Dictionary, model_b: Dictionary) -> bool:
+	# Mirror of MovementPhase._is_touching_within_tolerance: when two circular bases
+	# are placed exactly touching, sub-pixel float error can register as overlap.
+	if model_a.get("base_type", "circular") != "circular":
+		return false
+	if model_b.get("base_type", "circular") != "circular":
+		return false
+	var pos_a = model_a.get("position", Vector2.ZERO)
+	var pos_b = model_b.get("position", Vector2.ZERO)
+	if pos_a is Dictionary:
+		pos_a = Vector2(pos_a.get("x", 0), pos_a.get("y", 0))
+	if pos_b is Dictionary:
+		pos_b = Vector2(pos_b.get("x", 0), pos_b.get("y", 0))
+	var radius_a = Measurement.base_radius_px(model_a.get("base_mm", 32))
+	var radius_b = Measurement.base_radius_px(model_b.get("base_mm", 32))
+	var center_distance = pos_a.distance_to(pos_b)
+	return center_distance + OVERLAP_TOLERANCE_PX >= (radius_a + radius_b)
 
 func _apply_changes_to_local_state(changes: Array) -> void:
 	for change in changes:
