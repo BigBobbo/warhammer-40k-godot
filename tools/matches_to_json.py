@@ -28,52 +28,74 @@ import math
 
 def snap_pair(tall_match, low_match):
     """Move and rotate the low piece so it touches the tall on their
-    shared 6"/5" edge.
+    canonical shared edge.
 
-    Canonical pairings (per tools/catalog.py):
-      tall_8x6  + low_4x6  share a 6" edge -> combined 12x6 footprint.
-      tall_6.5x5 + low_3.5x5 share a 5" edge -> combined 10x5 footprint.
+    Two different pairings exist with DIFFERENT geometric orientations:
 
-    Geometry:
-      The shared edge length (6" or 5") equals the SHORT dimension of
-      the tall AND the LONG dimension of the low. So the low's long axis
-      must be PERPENDICULAR to the tall's long axis, and the low sits
-      against the tall's east or west face (the face perpendicular to
-      the tall's long axis).
+    (A) tall_8x6 + low_4x6 share a 6" edge -> combined 12x6 footprint.
+        Tall is 8 along long axis, 6 perpendicular.
+        Low is 6 along its long axis, 4 perpendicular.
+        Combined long axis = 8 (tall) + 4 (low's short) = 12.
+        So LOW's SHORT dim extends along tall's long axis.
+        -> LOW's long axis is PERPENDICULAR to tall's long axis.
+        -> LOW sits at tall's east/west face (along tall's long axis).
+        -> Offset = tall_long/2 + low_short/2.
+
+    (B) tall_6.5x5 + low_3.5x5 share a 5" edge -> combined 10x5 footprint
+        OR adjacent with parallel orientation (user clarified low's long
+        edge should touch tall's long edge here).
+        Tall is 6.5 along long axis, 5 perpendicular.
+        Low is 5 along its long axis, 3.5 perpendicular.
+        Combined: pieces are PARALLEL, low sits at tall's north/south face
+        (perpendicular to tall's long axis). The low's long edge (length 5)
+        runs along the tall's long edge.
+        -> LOW's long axis is PARALLEL to tall's long axis (same angle).
+        -> LOW sits at tall's north/south face.
+        -> Offset = tall_short/2 + low_short/2 perpendicular to long axis.
     """
     tx, ty = tall_match['cx_in'], tall_match['cy_in']
     lx, ly = low_match['cx_in'], low_match['cy_in']
     dx, dy = lx - tx, ly - ty
 
-    # Project (dx, dy) onto tall's local axes
     rad = math.radians(tall_match['angle'])
     ca, sa = math.cos(rad), math.sin(rad)
     local_dx = ca * dx + sa * dy   # along tall's long axis
     local_dy = -sa * dx + ca * dy  # perpendicular to tall's long axis
 
-    t_long_half = tall_match['long'] / 2   # extent along long axis
-    t_short_half = tall_match['short'] / 2  # extent along short axis
+    t_long_half = tall_match['long'] / 2
+    t_short_half = tall_match['short'] / 2
     l_long = low_match['long']
     l_short = low_match['short']
 
-    # The low pairs at the tall's east (+local_x) or west (-local_x) face.
-    # Its centre is offset by (t_long_half + l_short/2) along that direction
-    # (because the low's SHORT dimension extends from the shared edge into
-    # the world; its LONG dimension runs PARALLEL to the tall's short axis).
-    sign = 1 if local_dx >= 0 else -1
-    new_local_x = sign * (t_long_half + l_short / 2)
-    new_local_y = 0.0
+    slot = tall_match.get('slot_hint', '')
 
-    # Convert local offset back to world
+    if slot == 'tall_8x6':
+        # Case (A): perpendicular placement
+        sign = 1 if local_dx >= 0 else -1
+        new_local_x = sign * (t_long_half + l_short / 2)
+        new_local_y = 0.0
+        low_match['angle'] = (tall_match['angle'] + 90.0) % 180.0
+    elif slot == 'tall_6.5x5':
+        # Case (B): parallel placement, low at tall's east/west face.
+        # Source images show the (3.5x5) low extending past one end of
+        # the (6.5x5) tall along the tall's long axis, both at the same
+        # rotation. Their short edges touch (low_short=3.5 against
+        # tall_short=5, partial overlap).
+        sign = 1 if local_dx >= 0 else -1
+        new_local_x = sign * (t_long_half + l_long / 2)
+        new_local_y = 0.0
+        low_match['angle'] = tall_match['angle']  # parallel
+    else:
+        # Default: perpendicular
+        sign = 1 if local_dx >= 0 else -1
+        new_local_x = sign * (t_long_half + l_short / 2)
+        new_local_y = 0.0
+        low_match['angle'] = (tall_match['angle'] + 90.0) % 180.0
+
     new_dx = ca * new_local_x - sa * new_local_y
     new_dy = sa * new_local_x + ca * new_local_y
     low_match['cx_in'] = round(tx + new_dx, 2)
     low_match['cy_in'] = round(ty + new_dy, 2)
-
-    # CRITICAL: low's long axis is perpendicular to tall's long axis.
-    # If tall is at angle theta, low is at angle theta + 90 (mod 180 since
-    # rectangles are 180-symmetric).
-    low_match['angle'] = (tall_match['angle'] + 90.0) % 180.0
 
 
 def horizontal_to_vertical(cx_h, cy_h, angle_h, board_w=60.0, board_h=44.0):
