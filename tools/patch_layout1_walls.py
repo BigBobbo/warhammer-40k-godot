@@ -53,7 +53,7 @@ def make_walls(slot, long_, short, corner):
 OVERRIDES_LAYOUT_1 = {
     'tall_01': 'nw',  # C on local NORTH (user: "C on the left side")
     'tall_02': 'se',  # L on local SE (user: "L on the top right")
-    'tall_03': 'sw',  # L on local SW (user-confirmed correct, "left 2 diagonal walls")
+    'tall_03': 'ne',  # 180-mirror of tall_08's SW
     'tall_04': 'sw',  # 180-mirror of tall_05 (NE -> SW)
     'tall_05': 'ne',  # L on local NE (user: "L on the top right")
     'tall_06': 'sw',  # C on local SOUTH (180-mirror of tall_01)
