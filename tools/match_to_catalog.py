@@ -144,24 +144,26 @@ def pair_adjacent(matches, max_distance_in=8.0):
     return pairs
 
 
-def assign_wall_style(matches, c_count_target=2):
-    """For 12x6 tall pieces (matched to slot_hint == 'tall_12x6_C' or _L,
-    treated equivalently by the matcher), assign half to C-walls and half
-    to L-walls. By default, the most-tilted (45-deg) ones get C-walls and
-    the axis-aligned ones get L-walls (this matches Layout 2's pattern).
-    Caller can override this by setting `wall_style` on a piece manually."""
+def assign_wall_style(matches, board_w=60.0, board_h=44.0):
+    """For the four (12x6) tall pieces, half are C-walled and half are
+    L-walled (per the canonical catalog).
+
+    Heuristic: pieces CLOSER to the board centre get C-walls; pieces
+    FARTHER from centre get L-walls. This matches both Layout 1 (where
+    the 4 verticals split into a near-centre C pair and a far-corner L
+    pair) and Layout 2 (centre diagonals = C, outer horizontals = L).
+    """
     twelve_six = [m for m in matches
                   if m['slot_hint'] in ('tall_12x6_C', 'tall_12x6_L')]
-    if not twelve_six:
+    if len(twelve_six) < 2:
         return
-    # Sort: rotated (45deg) first, then axis-aligned. Among ties, by position.
-    twelve_six.sort(key=lambda m: (
-        0 if m['is_rotated'] else 1,
-        m['cy_in'], m['cx_in'],
-    ))
+    cx_b, cy_b = board_w / 2, board_h / 2
+    twelve_six.sort(key=lambda m: math.hypot(m['cx_in'] - cx_b,
+                                              m['cy_in'] - cy_b))
+    # Half closest get C, half farthest get L. Round half size.
+    half = len(twelve_six) // 2
     for i, m in enumerate(twelve_six):
-        # First c_count_target * 2 get C-walls; rest get L-walls
-        if i < c_count_target * 2:
+        if i < half:
             m['slot_hint'] = 'tall_12x6_C'
         else:
             m['slot_hint'] = 'tall_12x6_L'

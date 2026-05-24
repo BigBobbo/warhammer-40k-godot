@@ -107,38 +107,79 @@ def horizontal_to_vertical(cx_h, cy_h, angle_h, board_w=60.0, board_h=44.0):
     return x_v, y_v, angle_v
 
 
-def make_walls(slot, long_, short):
-    """Generate walls for a piece based on its slot. Returns a list of
-    wall dicts in piece-local inches."""
+def make_walls(slot, long_, short, wall_corner='nw'):
+    """Generate walls for a piece based on its slot and the local corner
+    that should host the L-shape (for L pieces) or the C base orientation.
+
+    wall_corner: one of 'nw', 'ne', 'sw', 'se' (piece-local frame).
+    """
     hw = long_ / 2
     hh = short / 2
 
     if slot == 'tall_12x6_C':
-        # C-shape: long base on local north, between two arms inset 1.5"
-        # from each end. Arms extend 3" toward south (opposite edge).
+        # C-shape: long base on one edge with two perpendicular arms.
+        # The base sits on the LOCAL EDGE indicated by wall_corner:
+        #   'nw' or 'ne' -> base on north (y=-hh), arms going south
+        #   'sw' or 'se' -> base on south (y=+hh), arms going north
         inset = 1.5
         arm_len = 3.0
+        if wall_corner in ('nw', 'ne'):
+            y_base = -hh; arm_dy = arm_len
+        else:
+            y_base = +hh; arm_dy = -arm_len
         return [
-            {'id': 'wall_north', 'type': 'solid', 'blocks_los': True,
-             'local_start': [-hw + inset, -hh],
-             'local_end':   [ hw - inset, -hh]},
+            {'id': 'wall_base', 'type': 'solid', 'blocks_los': True,
+             'local_start': [-hw + inset, y_base],
+             'local_end':   [ hw - inset, y_base]},
             {'id': 'wall_arm_west', 'type': 'solid', 'blocks_los': True,
-             'local_start': [-hw + inset, -hh],
-             'local_end':   [-hw + inset, -hh + arm_len]},
+             'local_start': [-hw + inset, y_base],
+             'local_end':   [-hw + inset, y_base + arm_dy]},
             {'id': 'wall_arm_east', 'type': 'solid', 'blocks_los': True,
-             'local_start': [ hw - inset, -hh],
-             'local_end':   [ hw - inset, -hh + arm_len]},
+             'local_start': [ hw - inset, y_base],
+             'local_end':   [ hw - inset, y_base + arm_dy]},
         ]
-    if slot == 'tall_12x6_L' or slot == 'tall_8x6' or slot == 'tall_6.5x5':
+    if slot in ('tall_12x6_L', 'tall_8x6', 'tall_6.5x5'):
         # L-shape: two full-length perpendicular walls meeting at the
-        # local north-west corner. (Caller can mirror to bottom-half pieces.)
+        # specified local corner.
+        if wall_corner == 'nw':
+            x_v, y_h = -hw, -hh
+        elif wall_corner == 'ne':
+            x_v, y_h = +hw, -hh
+        elif wall_corner == 'sw':
+            x_v, y_h = -hw, +hh
+        else:  # 'se'
+            x_v, y_h = +hw, +hh
         return [
-            {'id': 'wall_north', 'type': 'solid', 'blocks_los': True,
-             'local_start': [-hw, -hh], 'local_end': [hw, -hh]},
-            {'id': 'wall_west', 'type': 'solid', 'blocks_los': True,
-             'local_start': [-hw, -hh], 'local_end': [-hw, hh]},
+            {'id': 'wall_h', 'type': 'solid', 'blocks_los': True,
+             'local_start': [-hw, y_h], 'local_end': [hw, y_h]},
+            {'id': 'wall_v', 'type': 'solid', 'blocks_los': True,
+             'local_start': [x_v, -hh], 'local_end': [x_v, hh]},
         ]
     return []
+
+
+def pick_wall_corner(cx_v, cy_v, rot_v, board_w=44.0, board_h=60.0):
+    """Pick the local corner where walls should meet so they face the
+    board centre. Returns one of 'nw', 'ne', 'sw', 'se'.
+
+    Steps:
+      1. Compute world direction from piece centre to board centre.
+      2. Convert that direction into the piece's LOCAL frame using rot_v.
+      3. The local corner FACING the board centre is the one with the
+         same sign as the local direction in both x and y.
+    """
+    cx_b, cy_b = board_w / 2, board_h / 2
+    dx_w = cx_b - cx_v  # world direction from piece to centre
+    dy_w = cy_b - cy_v
+    rad = math.radians(rot_v)
+    ca, sa = math.cos(rad), math.sin(rad)
+    # World -> local: local = R(-rot) * world
+    lx = ca * dx_w + sa * dy_w
+    ly = -sa * dx_w + ca * dy_w
+    if lx >= 0 and ly < 0: return 'ne'
+    if lx >= 0 and ly >= 0: return 'se'
+    if lx < 0 and ly < 0: return 'nw'
+    return 'sw'
 
 
 def main():
@@ -172,6 +213,10 @@ def main():
         counters[m['kind']] += 1
         idx = counters[m['kind']]
         pid = f"{m['kind']}_{idx:02d}"
+        wall_corner = 'nw'
+        if m['kind'] == 'tall':
+            wall_corner = pick_wall_corner(round(x_v, 2), round(y_v, 2),
+                                            round(angle_v, 1))
         piece = {
             'id': pid,
             'type': 'ruins',
@@ -179,7 +224,8 @@ def main():
             'size': [m['long'], m['short']],
             'height': 'tall' if m['kind'] == 'tall' else 'low',
             'rotation': round(angle_v, 1),
-            'walls': make_walls(m['slot_hint'], m['long'], m['short']),
+            'walls': make_walls(m['slot_hint'], m['long'], m['short'],
+                                 wall_corner=wall_corner),
         }
         if m['kind'] == 'tall':
             piece['traits'] = ['obscuring']

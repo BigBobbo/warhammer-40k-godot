@@ -23,16 +23,16 @@
       "rotation": 0.0,
       "walls": [
         {
-          "id": "wall_north",
+          "id": "wall_base",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
             -4.5,
-            -3.0
+            3.0
           ],
           "local_end": [
             4.5,
-            -3.0
+            3.0
           ]
         },
         {
@@ -41,7 +41,7 @@
           "blocks_los": true,
           "local_start": [
             -4.5,
-            -3.0
+            3.0
           ],
           "local_end": [
             -4.5,
@@ -54,7 +54,7 @@
           "blocks_los": true,
           "local_start": [
             4.5,
-            -3.0
+            3.0
           ],
           "local_end": [
             4.5,
@@ -82,49 +82,36 @@
       "rotation": 0.0,
       "walls": [
         {
-          "id": "wall_north",
+          "id": "wall_h",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.5,
+            -6.0,
             -3.0
           ],
           "local_end": [
-            4.5,
+            6.0,
             -3.0
           ]
         },
         {
-          "id": "wall_arm_west",
+          "id": "wall_v",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.5,
+            6.0,
             -3.0
           ],
           "local_end": [
-            -4.5,
-            0.0
-          ]
-        },
-        {
-          "id": "wall_arm_east",
-          "type": "solid",
-          "blocks_los": true,
-          "local_start": [
-            4.5,
-            -3.0
-          ],
-          "local_end": [
-            4.5,
-            0.0
+            6.0,
+            3.0
           ]
         }
       ],
       "traits": [
         "obscuring"
       ],
-      "_slot": "tall_12x6_C"
+      "_slot": "tall_12x6_L"
     },
     {
       "id": "low_01",
@@ -157,7 +144,7 @@
       "rotation": 135.0,
       "walls": [
         {
-          "id": "wall_north",
+          "id": "wall_h",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
@@ -170,7 +157,7 @@
           ]
         },
         {
-          "id": "wall_west",
+          "id": "wall_v",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
@@ -203,7 +190,7 @@
       "rotation": 90.0,
       "walls": [
         {
-          "id": "wall_north",
+          "id": "wall_h",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
@@ -216,15 +203,15 @@
           ]
         },
         {
-          "id": "wall_west",
+          "id": "wall_v",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.0,
+            4.0,
             -3.0
           ],
           "local_end": [
-            -4.0,
+            4.0,
             3.0
           ]
         }
@@ -297,20 +284,20 @@
       "rotation": 90.0,
       "walls": [
         {
-          "id": "wall_north",
+          "id": "wall_h",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
             -4.0,
-            -3.0
+            3.0
           ],
           "local_end": [
             4.0,
-            -3.0
+            3.0
           ]
         },
         {
-          "id": "wall_west",
+          "id": "wall_v",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
@@ -375,7 +362,7 @@
       "rotation": 0.0,
       "walls": [
         {
-          "id": "wall_north",
+          "id": "wall_base",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
@@ -450,49 +437,36 @@
       "rotation": 0.0,
       "walls": [
         {
-          "id": "wall_north",
+          "id": "wall_h",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.5,
-            -3.0
+            -6.0,
+            3.0
           ],
           "local_end": [
-            4.5,
-            -3.0
+            6.0,
+            3.0
           ]
         },
         {
-          "id": "wall_arm_west",
+          "id": "wall_v",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.5,
+            -6.0,
             -3.0
           ],
           "local_end": [
-            -4.5,
-            0.0
-          ]
-        },
-        {
-          "id": "wall_arm_east",
-          "type": "solid",
-          "blocks_los": true,
-          "local_start": [
-            4.5,
-            -3.0
-          ],
-          "local_end": [
-            4.5,
-            0.0
+            -6.0,
+            3.0
           ]
         }
       ],
       "traits": [
         "obscuring"
       ],
-      "_slot": "tall_12x6_C"
+      "_slot": "tall_12x6_L"
     },
     {
       "id": "tall_08",
@@ -509,28 +483,28 @@
       "rotation": 135.0,
       "walls": [
         {
-          "id": "wall_north",
+          "id": "wall_h",
           "type": "solid",
           "blocks_los": true,
           "local_start": [
             -3.25,
+            2.5
+          ],
+          "local_end": [
+            3.25,
+            2.5
+          ]
+        },
+        {
+          "id": "wall_v",
+          "type": "solid",
+          "blocks_los": true,
+          "local_start": [
+            3.25,
             -2.5
           ],
           "local_end": [
             3.25,
-            -2.5
-          ]
-        },
-        {
-          "id": "wall_west",
-          "type": "solid",
-          "blocks_los": true,
-          "local_start": [
-            -3.25,
-            -2.5
-          ],
-          "local_end": [
-            -3.25,
             2.5
           ]
         }
