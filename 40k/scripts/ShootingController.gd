@@ -30,9 +30,8 @@ var current_hover_forecast = null
 var pending_targets: Array = []
 var targets_committed: bool = false
 var weapon_assignments: Dictionary = {}  # weapon_id -> target_unit_id
-var weapon_modifiers: Dictionary = {}  # weapon_id -> {hit: {reroll_ones: bool, plus_one: bool, minus_one: bool}}
 var assignment_history: Array = []  # T5-UX4: Stack of weapon_ids in assignment order for undo
-var selected_weapon_id: String = ""  # Currently selected weapon for modifier display
+var selected_weapon_id: String = ""  # Currently selected weapon (drives damage preview)
 var _auto_assign_logged: bool = false  # Prevent duplicate auto-assign log messages
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
 var current_save_context: Dictionary = {}  # Track what we're showing dialog for (weapon, target)
@@ -89,13 +88,6 @@ var burn_objective_button: Button  # Scorched Earth burn objective button
 var _auto_shoot_queue: Array = []  # T5-UX3: Queue of SHOOT actions to dispatch sequentially
 var _auto_shoot_in_progress: bool = false  # T5-UX3: Whether auto-shoot sequence is active
 var damage_feedback: DamageFeedbackVisual = null  # T7-53: Floating damage numbers for shooting
-
-# Modifier UI elements (Phase 1 MVP)
-var modifier_panel: VBoxContainer
-var modifier_label: Label
-var reroll_ones_checkbox: CheckBox
-var plus_one_checkbox: CheckBox
-var minus_one_checkbox: CheckBox
 
 # T5-MP3: Remote player visual feedback
 var shooting_lines_container: Node2D  # Container for shooter-to-target visual lines
@@ -578,41 +570,6 @@ func _setup_right_panel() -> void:
 		quick_assign_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	quick_assign_container.add_child(quick_assign_label)
 	shooting_panel.add_child(quick_assign_container)
-
-	_add_shooting_gold_separator(shooting_panel)
-
-	# Modifier panel
-	modifier_label = Label.new()
-	modifier_label.text = "HIT MODIFIERS"
-	modifier_label.add_theme_font_size_override("font_size", 12)
-	modifier_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
-	if FactionPalettes.FONT_RAJDHANI_BOLD:
-		modifier_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	shooting_panel.add_child(modifier_label)
-
-	modifier_panel = VBoxContainer.new()
-	modifier_panel.name = "ModifierPanel"
-
-	reroll_ones_checkbox = CheckBox.new()
-	reroll_ones_checkbox.text = "Re-roll 1s to Hit"
-	reroll_ones_checkbox.toggled.connect(_on_reroll_ones_toggled)
-	modifier_panel.add_child(reroll_ones_checkbox)
-
-	plus_one_checkbox = CheckBox.new()
-	plus_one_checkbox.text = "+1 To Hit"
-	plus_one_checkbox.toggled.connect(_on_plus_one_toggled)
-	modifier_panel.add_child(plus_one_checkbox)
-
-	minus_one_checkbox = CheckBox.new()
-	minus_one_checkbox.text = "-1 To Hit"
-	minus_one_checkbox.toggled.connect(_on_minus_one_toggled)
-	modifier_panel.add_child(minus_one_checkbox)
-
-	shooting_panel.add_child(modifier_panel)
-
-	# Initially hide modifiers until a weapon is selected
-	modifier_panel.visible = false
-	modifier_label.visible = false
 
 	_add_shooting_gold_separator(shooting_panel)
 
@@ -1222,12 +1179,6 @@ func _try_auto_select_single_weapon() -> void:
 	single_weapon_item.set_custom_bg_color(0, Color(0.2, 0.4, 0.2, 0.5))
 	single_weapon_item.set_text(1, "(Click to Select)")
 	single_weapon_item.set_custom_color(1, Color(0.6, 0.6, 0.6, 0.7))
-
-	# Show modifier panel for this weapon
-	if modifier_panel and modifier_label:
-		modifier_panel.visible = true
-		modifier_label.visible = true
-		_load_modifiers_for_weapon(weapon_id)
 
 	# T5-UX1: Show damage preview for auto-selected weapon
 	_update_damage_preview(weapon_id)
@@ -3298,12 +3249,6 @@ func _on_weapon_tree_item_selected() -> void:
 		print("║ After update, tree text column 1: ", selected.get_text(1))
 		print("╚═══════════════════════════════════════════════════════════════")
 
-		# Show modifier panel and load modifiers for this weapon
-		if modifier_panel and modifier_label:
-			modifier_panel.visible = true
-			modifier_label.visible = true
-			_load_modifiers_for_weapon(weapon_id)
-
 		# T5-UX1: Update damage preview for selected weapon
 		_update_damage_preview(weapon_id)
 
@@ -3978,10 +3923,6 @@ func _keyboard_deselect_shooter() -> void:
 	if aggregate_preview_panel:
 		aggregate_preview_panel.visible = false
 
-	# Hide modifier panel
-	if modifier_panel:
-		modifier_panel.visible = false
-
 	# Refresh unit list to remove [ACTIVE] marker
 	# MA-36: Pass auto_select=false to prevent immediate re-selection after ESC deselect
 	_refresh_unit_list(false)
@@ -4162,16 +4103,11 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 		if weapon_id in unit_weapons[model_id]:
 			model_ids.append(model_id)
 
-	# Include modifiers in the assignment (Phase 1 MVP)
 	var payload = {
 		"weapon_id": weapon_id,
 		"target_unit_id": target_id,
 		"model_ids": model_ids
 	}
-
-	# Add modifiers if they exist for this weapon
-	if weapon_modifiers.has(weapon_id):
-		payload["modifiers"] = weapon_modifiers[weapon_id]
 
 	emit_signal("shoot_action_requested", {
 		"type": "ASSIGN_TARGET",
@@ -4205,77 +4141,6 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 
 	_update_ui_state()
 
-# ==========================================
-# MODIFIER SYSTEM (Phase 1 MVP)
-# ==========================================
-
-func _load_modifiers_for_weapon(weapon_id: String) -> void:
-	"""Load existing modifiers for a weapon into the UI checkboxes"""
-	# Initialize modifiers if they don't exist
-	if not weapon_modifiers.has(weapon_id):
-		weapon_modifiers[weapon_id] = {
-			"hit": {
-				"reroll_ones": false,
-				"plus_one": false,
-				"minus_one": false
-			}
-		}
-	
-	var mods = weapon_modifiers[weapon_id].hit
-	
-	# Update checkboxes without triggering signals
-	if reroll_ones_checkbox:
-		reroll_ones_checkbox.set_pressed_no_signal(mods.reroll_ones)
-	if plus_one_checkbox:
-		plus_one_checkbox.set_pressed_no_signal(mods.plus_one)
-	if minus_one_checkbox:
-		minus_one_checkbox.set_pressed_no_signal(mods.minus_one)
-
-func _on_reroll_ones_toggled(button_pressed: bool) -> void:
-	"""Handle re-roll 1s to hit checkbox toggle"""
-	if selected_weapon_id == "":
-		return
-	
-	if not weapon_modifiers.has(selected_weapon_id):
-		weapon_modifiers[selected_weapon_id] = {"hit": {}}
-	
-	weapon_modifiers[selected_weapon_id].hit["reroll_ones"] = button_pressed
-	
-	if dice_log_display:
-		var status = "enabled" if button_pressed else "disabled"
-		dice_log_display.append_text("[color=cyan]Re-roll 1s to Hit %s for %s[/color]\n" % 
-			[status, RulesEngine.get_weapon_profile(selected_weapon_id).get("name", selected_weapon_id)])
-
-func _on_plus_one_toggled(button_pressed: bool) -> void:
-	"""Handle +1 to hit checkbox toggle"""
-	if selected_weapon_id == "":
-		return
-	
-	if not weapon_modifiers.has(selected_weapon_id):
-		weapon_modifiers[selected_weapon_id] = {"hit": {}}
-	
-	weapon_modifiers[selected_weapon_id].hit["plus_one"] = button_pressed
-	
-	if dice_log_display:
-		var status = "enabled" if button_pressed else "disabled"
-		dice_log_display.append_text("[color=cyan]+1 To Hit %s for %s[/color]\n" % 
-			[status, RulesEngine.get_weapon_profile(selected_weapon_id).get("name", selected_weapon_id)])
-
-func _on_minus_one_toggled(button_pressed: bool) -> void:
-	"""Handle -1 to hit checkbox toggle"""
-	if selected_weapon_id == "":
-		return
-	
-	if not weapon_modifiers.has(selected_weapon_id):
-		weapon_modifiers[selected_weapon_id] = {"hit": {}}
-	
-	weapon_modifiers[selected_weapon_id].hit["minus_one"] = button_pressed
-	
-	if dice_log_display:
-		var status = "enabled" if button_pressed else "disabled"
-		dice_log_display.append_text("[color=cyan]-1 To Hit %s for %s[/color]\n" % 
-			[status, RulesEngine.get_weapon_profile(selected_weapon_id).get("name", selected_weapon_id)])
-
 func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 	"""Auto-assign a target to a weapon (used when only one eligible target exists)"""
 	# Mark as assigned
@@ -4292,16 +4157,11 @@ func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 		if weapon_id in unit_weapons[model_id]:
 			model_ids.append(model_id)
 
-	# Include modifiers in the assignment
 	var payload = {
 		"weapon_id": weapon_id,
 		"target_unit_id": target_id,
 		"model_ids": model_ids
 	}
-
-	# Add modifiers if they exist for this weapon
-	if weapon_modifiers.has(weapon_id):
-		payload["modifiers"] = weapon_modifiers[weapon_id]
 
 	# Emit assignment action
 	emit_signal("shoot_action_requested", {
@@ -4379,10 +4239,6 @@ func _on_apply_to_all_pressed() -> void:
 				"target_unit_id": last_assigned_target_id,
 				"model_ids": model_ids
 			}
-
-			# Add modifiers if they exist
-			if weapon_modifiers.has(weapon_id):
-				payload["modifiers"] = weapon_modifiers[weapon_id]
 
 			# Emit assignment action
 			emit_signal("shoot_action_requested", {
@@ -4527,10 +4383,6 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 				"target_unit_id": target_id,
 				"model_ids": model_ids
 			}
-
-			# Add modifiers if they exist
-			if weapon_modifiers.has(weapon_id):
-				payload["modifiers"] = weapon_modifiers[weapon_id]
 
 			# Emit assignment action
 			emit_signal("shoot_action_requested", {
@@ -5019,18 +4871,6 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dicti
 
 	if is_torrent:
 		active_tags.append("Torrent")
-
-	# Check user-applied modifiers from modifier panel
-	if weapon_modifiers.has(weapon_id):
-		var mods = weapon_modifiers[weapon_id].get("hit", {})
-		if mods.get("reroll_ones", false):
-			hit_reroll_type = max(hit_reroll_type, 1)
-		if mods.get("reroll_failed", false):
-			hit_reroll_type = max(hit_reroll_type, 2)
-		if mods.get("plus_one", false):
-			hit_modifier += 1
-		if mods.get("minus_one", false):
-			hit_modifier -= 1
 
 	# Faction: Oath of Moment reroll all failed hits
 	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
