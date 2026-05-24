@@ -44,7 +44,9 @@ var terrain_options = [
 	{"id": "layout_5", "name": "Chapter Approved Layout 5"},
 	{"id": "layout_6", "name": "Chapter Approved Layout 6"},
 	{"id": "layout_7", "name": "Chapter Approved Layout 7"},
-	{"id": "layout_8", "name": "Chapter Approved Layout 8"}
+	{"id": "layout_8", "name": "Chapter Approved Layout 8"},
+	{"id": "layout_parse_test", "name": "Parse Test — Layout 2"},
+	{"id": "layout_parse_test_1", "name": "Parse Test — Layout 1"}
 ]
 
 var mission_options = [

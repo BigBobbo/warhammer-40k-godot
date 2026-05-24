@@ -49,8 +49,13 @@ func _ready() -> void:
 
 func _preload_layout_metadata() -> void:
 	# Load metadata (name, description, recommended deployments) from all layout JSON files
+	var ids_to_load: Array = []
 	for i in range(1, 9):
-		var layout_id = "layout_%d" % i
+		ids_to_load.append("layout_%d" % i)
+	# Parse-test layouts (catalog-based parser output, see tools/PARSE_TERRAIN_GUIDE.md)
+	ids_to_load.append("layout_parse_test")
+	ids_to_load.append("layout_parse_test_1")
+	for layout_id in ids_to_load:
 		var json_path = "res://terrain_layouts/%s.json" % layout_id
 		if FileAccess.file_exists(json_path):
 			var file = FileAccess.open(json_path, FileAccess.READ)
@@ -62,7 +67,7 @@ func _preload_layout_metadata() -> void:
 					var data = json.data
 					_layout_metadata[layout_id] = {
 						"id": data.get("id", layout_id),
-						"name": data.get("name", "Layout %d" % i),
+						"name": data.get("name", layout_id),
 						"description": data.get("description", ""),
 						"recommended_deployments": data.get("recommended_deployments", [])
 					}
@@ -77,6 +82,9 @@ func get_all_layout_ids() -> Array:
 		var layout_id = "layout_%d" % i
 		if _layout_metadata.has(layout_id):
 			ids.append(layout_id)
+	for extra_id in ["layout_parse_test", "layout_parse_test_1"]:
+		if _layout_metadata.has(extra_id):
+			ids.append(extra_id)
 	return ids
 
 func get_recommended_deployments(layout_id: String) -> Array:
