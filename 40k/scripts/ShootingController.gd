@@ -4060,19 +4060,20 @@ func _handle_board_click(position: Vector2) -> void:
 	# First check if we have a weapon selected
 	if not weapon_tree:
 		return
-		
+
 	var selected_weapon = weapon_tree.get_selected()
 	if not selected_weapon:
 		if dice_log_display:
 			dice_log_display.append_text("[color=red]Please select a weapon first![/color]\n")
+		ToastManager.show_warning("Select a weapon in the right-hand panel before clicking a target")
 		return
-	
+
 	# Check if click is on an eligible target
 	var closest_target = ""
 	var closest_distance = INF
 	var closest_model_pos = Vector2.ZERO
-	
-	
+
+
 	for target_id in eligible_targets:
 		var unit = current_phase.get_unit(target_id)
 		for model in unit.get("models", []):
@@ -4084,17 +4085,69 @@ func _handle_board_click(position: Vector2) -> void:
 				closest_distance = distance
 				closest_target = target_id
 				closest_model_pos = model_pos
-	
+
 	# Use a larger click threshold to make selection easier
-	if closest_target != "" and closest_distance < 500:  # Very large threshold for testing
+	const CLICK_THRESHOLD := 500.0
+	if closest_target != "" and closest_distance < CLICK_THRESHOLD:
 		print("[ShootingController] Click detected - assigning target: %s (distance: %.1f)" % [closest_target, closest_distance])
 		_select_target_for_current_weapon(closest_target)
-	else:
-		# REMOVED FALLBACK: Don't auto-assign first target if click misses
-		# This was causing weapons to be incorrectly reassigned
-		print("[ShootingController] Click missed all targets (closest: %s at %.1f px). Please click directly on enemy model." % [closest_target if closest_target != "" else "none", closest_distance])
+		return
+
+	# The click didn't land on an eligible target. Find the closest *any-owner*
+	# model — if it was on an enemy unit, explain why that unit can't be picked;
+	# if it was a friendly unit, say that; otherwise tell the player they missed.
+	_report_ineligible_target_click(position, selected_weapon, closest_target, closest_distance)
+
+func _report_ineligible_target_click(position: Vector2, selected_weapon, closest_eligible_target: String, closest_eligible_distance: float) -> void:
+	var any_unit_id := ""
+	var any_distance := INF
+	var any_owner := -1
+	var units = current_phase.game_state_snapshot.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var dist = _get_model_position(model).distance_to(position)
+			if dist < any_distance:
+				any_distance = dist
+				any_unit_id = unit_id
+				any_owner = unit.get("owner", 0)
+
+	if any_unit_id == "" or any_distance >= 500.0:
+		print("[ShootingController] Click missed all units (closest: %s at %.1f px)." % [closest_eligible_target if closest_eligible_target != "" else "none", closest_eligible_distance])
 		if dice_log_display:
-			dice_log_display.append_text("[color=red]Click missed - please click directly on an enemy model[/color]\n")
+			dice_log_display.append_text("[color=red]Click missed — please click directly on an enemy model[/color]\n")
+		ToastManager.show_warning("Click missed — click directly on an enemy model")
+		return
+
+	var current_player = current_phase.get_current_player() if current_phase else -1
+	if any_owner == current_player:
+		var friendly_name = units[any_unit_id].get("meta", {}).get("display_name", units[any_unit_id].get("meta", {}).get("name", any_unit_id))
+		var msg_friend = "Cannot target friendly unit %s" % friendly_name
+		print("[ShootingController] " + msg_friend)
+		if dice_log_display:
+			dice_log_display.append_text("[color=red]%s[/color]\n" % msg_friend)
+		ToastManager.show_error(msg_friend)
+		return
+
+	# Enemy unit that isn't in eligible_targets — fetch a reason scoped to the
+	# currently-selected weapon so the player sees the exact rule that blocks it.
+	var weapon_id = selected_weapon.get_metadata(0) if selected_weapon else ""
+	var reason = RulesEngine.get_target_ineligibility_reason(
+		active_shooter_id,
+		any_unit_id,
+		current_phase.game_state_snapshot,
+		weapon_id if weapon_id else ""
+	)
+	if reason == "":
+		# Defensive fallback: target looks eligible from the rules side but
+		# wasn't in eligible_targets (stale cache?). Treat as a missed click.
+		reason = "Target is not currently eligible"
+	print("[ShootingController] Ineligible target %s: %s" % [any_unit_id, reason])
+	if dice_log_display:
+		dice_log_display.append_text("[color=red]%s[/color]\n" % reason)
+	ToastManager.show_error(reason)
 
 func _handle_board_hover(position: Vector2) -> void:
 	# Show LoS line to hovered target
