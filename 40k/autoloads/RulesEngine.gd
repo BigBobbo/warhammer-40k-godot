@@ -7055,7 +7055,7 @@ static func validate_charge_paths(unit_id: String, targets: Array, roll: int, pa
 			var path_distance = Measurement.distance_polyline_inches(path)
 
 			# T2-8: Calculate terrain vertical distance penalty
-			var terrain_penalty = _calculate_charge_terrain_penalty_rules(path, has_fly, board)
+			var terrain_penalty = _calculate_charge_terrain_penalty_rules(path, has_fly, board, unit_keywords)
 			var effective_distance = path_distance + terrain_penalty
 
 			if effective_distance > roll:
@@ -7209,7 +7209,7 @@ static func _get_model_position_rules(model: Dictionary) -> Vector2:
 # Units are always assumed to stay on the ground floor, so there is no
 # vertical climbing penalty for terrain height.
 # Difficult ground penalties are handled by TerrainManager when available.
-static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, board: Dictionary) -> float:
+static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, board: Dictionary, unit_keywords: Array = []) -> float:
 	var total_penalty: float = 0.0
 	var terrain_features = board.get("terrain_features", [])
 	if terrain_features.is_empty():
@@ -7223,12 +7223,13 @@ static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, 
 				if root:
 					terrain_manager = root.get_node_or_null("TerrainManager")
 		if terrain_manager and terrain_manager.has_method("calculate_charge_terrain_penalty"):
-			# Delegate to TerrainManager for each path segment
+			# Delegate to TerrainManager for each path segment.
+			# Pass unit_keywords so INFANTRY can traverse ruins without paying the climb penalty.
 			for i in range(1, path.size()):
 				var from_pos = _path_point_to_vector2(path[i - 1])
 				var to_pos = _path_point_to_vector2(path[i])
 				if from_pos != null and to_pos != null:
-					total_penalty += terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
+					total_penalty += terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly, unit_keywords)
 			return total_penalty
 
 	# No height/climbing penalty — units always stay on the ground floor.

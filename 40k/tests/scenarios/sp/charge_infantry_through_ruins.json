@@ -1,0 +1,63 @@
+{
+  "id": "charge_infantry_through_ruins",
+  "covers": ["charge.terrain.infantry_traversal", "charge.bug.infantry_climb_penalty"],
+  "fixture": "audit_372_charge_modifier",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Regression: INFANTRY charging through a ruin must not pay the phantom climb penalty (callers used to forget to pass unit_keywords to TerrainManager.calculate_charge_terrain_penalty). Mirrors the user-reported bug: Warboss C (INFANTRY, ORKS) is 9.50\" from Shield-Captain A; a tall 6\" ruin is injected between them. Before fix: climb penalty 12\" makes the required charge 8.5+12 = 20.5\" (impossible on 2D6). After fix: INFANTRY traversal -> 0\" penalty, so a 2D6 >= 9 succeeds.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.append({\"id\": \"injected_tall_ruin\", \"type\": \"ruins\", \"polygon\": PackedVector2Array([Vector2(1080, 1475), Vector2(1200, 1475), Vector2(1200, 1595), Vector2(1080, 1595)]), \"height_category\": \"tall\", \"position\": Vector2(1140, 1535), \"size\": Vector2(120, 120), \"rotation\": 0.0, \"can_move_through\": {\"INFANTRY\": true, \"VEHICLE\": false, \"MONSTER\": false}})"
+    },
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.size()",
+      "expect_min": 1
+    },
+    { "act": "execute_script",
+      "script": "TerrainManager.calculate_charge_terrain_penalty(Vector2(1340, 1440), Vector2(940, 1630), false, [])",
+      "expect_min": 12.0
+    },
+    { "act": "execute_script",
+      "script": "TerrainManager.calculate_charge_terrain_penalty(Vector2(1340, 1440), Vector2(940, 1630), false, [\"INFANTRY\"])",
+      "equals": 0.0
+    },
+    { "act": "screenshot", "label": "01_charge_phase_with_injected_ruin" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_CHARGE",
+      "actor_unit_id": "U_WARBOSS_C",
+      "payload": { "target_unit_ids": ["U_SHIELD_CAPTAIN_A"] }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_charge_declared" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "CHARGE_ROLL",
+      "actor_unit_id": "U_WARBOSS_C",
+      "payload": { "rng_seed": 99 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "DECLINE_COMMAND_REROLL" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "03_charge_roll_result" },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_charge_distance(\"U_WARBOSS_C\")",
+      "expect_min": 9
+    },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_charge(\"U_WARBOSS_C\")",
+      "equals": true
+    },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_failed_charge_attempts().size()",
+      "equals": 0
+    },
+    { "act": "screenshot", "label": "04_charge_succeeded_no_penalty" }
+  ]
+}
