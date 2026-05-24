@@ -22,14 +22,11 @@ func _ready() -> void:
 	name = "SecondaryMissionPanel"
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# Hidden by default — opened via the toolbar toggle wired in Main
-	# (_setup_secondary_mission_toggle) or the 'M' key. Position the
-	# panel just below the top HUD bar (HUD_Bottom is anchored to the
-	# top of the screen at offset 0..100) and re-sync on viewport
-	# resize so it stays anchored under the HUD even after layout
-	# changes. Previously this panel anchored at (8, 8) which floated
-	# over LeftRoster and GameLogPanel.
-	visible = false
+	# Anchored to the TOP-LEFT corner of the screen so it owns the top
+	# slot of the left-side panel column (GameLogPanel starts just
+	# below it). Visible by default — the player toggles only the
+	# expanded/collapsed state via the header button or the 'M' key.
+	visible = true
 	_sync_panel_position()
 	var vp := get_viewport()
 	if vp != null and not vp.is_connected("size_changed", _sync_panel_position):
@@ -152,17 +149,16 @@ func toggle_visible() -> void:
 
 
 func _sync_panel_position() -> void:
-	var vp := get_viewport()
-	if vp == null:
-		return
-	var vp_size := vp.get_visible_rect().size
-	# Top-center, just below the HUD top bar (~100px tall).
+	# Top-LEFT corner. The left-side panel column reserves the first
+	# 340px of the viewport: this panel owns y=8..40 (collapsed) and
+	# expands DOWN over GameLogPanel when opened. Width matches the
+	# GameLogPanel column (PANEL_WIDTH=300, fitting inside 340px col).
 	anchor_left = 0.0
 	anchor_top = 0.0
 	anchor_right = 0.0
 	anchor_bottom = 0.0
-	offset_left = (vp_size.x - PANEL_WIDTH) / 2.0
-	offset_top = 108
+	offset_left = 8
+	offset_top = 8
 	offset_right = offset_left + PANEL_WIDTH
 	offset_bottom = offset_top + (HEADER_HEIGHT if is_collapsed else EXPANDED_HEIGHT)
 

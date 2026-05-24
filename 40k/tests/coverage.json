@@ -236,8 +236,17 @@
       "status": "covered"
     },
     {
-      "id": "ui.layout.SecondaryMissionPanel_top_center_toggle",
-      "description": "SecondaryMissionPanel used to anchor at top-left (8, 8) and float over LeftRoster / GameLogPanel as a 300x32 collapsed bar. It now anchors at top-center under the HUD top bar, is hidden by default, and a 'Missions' button in HUD_Bottom/HBoxContainer plus the M hotkey reveal it. Reveal also auto-expands the panel so the player sees mission content immediately.",
+      "id": "ui.layout.SecondaryMissionPanel_top_left_always_visible",
+      "description": "SecondaryMissionPanel owns the top slot of the left-side panel column. Anchored at top-left (offset_left=8, offset_top=8) with a 300x32 collapsed header that's always visible — the player toggles only expand/collapse via the header button or the M key. Previously it floated at top-center where it could be obscured by the PhaseBar substates row during the movement phase.",
+      "scenarios": [
+        "dashboard_left_side_layout"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.layout.left_column_no_overlap",
+      "description": "The left-side dashboard column is reserved 340px wide and panels stack without overlap. SecondaryMissionPanel: x=8..308, y=8..40 (collapsed header). GameLogPanel: x=0..340, y=48..bottom (always visible). LeftRoster: hidden by default; positions at x=340 (right of GameLogPanel) when toggled on. HUD_Left (Mathhammer simulation): hidden by default; offset_left=340, offset_right=740 so it sits to the right of GameLogPanel when toggled on, never overlapping the log.",
       "scenarios": [
         "dashboard_left_side_layout"
       ],

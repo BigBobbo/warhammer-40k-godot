@@ -9687,7 +9687,9 @@ func _setup_game_log_panel() -> void:
 	print("Main: Setting up Game Event Log panel (card-based)")
 	game_log_panel = GameLogPanelScript.new()
 	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
-	game_log_panel.setup(self, hud_bottom, 105.0, 0.0)
+	# offset_top=48 leaves room for the SecondaryMissionPanel header
+	# (collapsed: y=8..40) that owns the top of the left-side column.
+	game_log_panel.setup(self, hud_bottom, 48.0, 0.0)
 	game_log_toggle_button = game_log_panel.get_toggle_button()
 	print("Main: Game Event Log panel created (card-based)")
 

@@ -72,7 +72,9 @@ func _sync_viewport_size() -> void:
 	if vp == null:
 		return
 	var vp_size := vp.get_visible_rect().size
-	position = Vector2(0, 80)
+	# Sit to the right of GameLogPanel (which owns x=0..340 in the
+	# left-side column) so the roster strip never overlaps the log.
+	position = Vector2(340, 80)
 	size = Vector2(PANEL_WIDTH, vp_size.y - 200.0)
 
 
