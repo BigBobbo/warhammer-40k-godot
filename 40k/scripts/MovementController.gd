@@ -1068,24 +1068,16 @@ func _on_normal_move_pressed() -> void:
 	if setting_radio_programmatically:
 		return
 
-	print("Normal move button pressed for unit: ", active_unit_id)
+	print("Normal move radio pressed for unit: ", active_unit_id)
 	if active_unit_id == "":
 		print("No unit selected!")
 		# Try to help the user
 		if unit_list and unit_list.get_item_count() > 0:
 			print("Please select a unit from the list first")
 		return
-	
-	print("Creating BEGIN_NORMAL_MOVE action for unit: ", active_unit_id)
-	var action = {
-		"type": "BEGIN_NORMAL_MOVE",
-		"actor_unit_id": active_unit_id,
-		"payload": {}
-	}
-	print("Emitting move_action_requested signal with action: ", action)
-	emit_signal("move_action_requested", action)
-	print("Signal emitted, waiting for phase response...")
-	_refresh_confirm_mode_button_enable()  # issue #51
+
+	# Don't dispatch BEGIN_NORMAL_MOVE yet — wait for "Confirm Movement Mode" button
+	_refresh_confirm_mode_button_enable()
 
 func _on_advance_pressed() -> void:
 	# Ignore if we're setting the radio programmatically
@@ -1188,6 +1180,12 @@ func _on_confirm_mode_pressed() -> void:
 
 	# Dispatch the actual movement action based on selected mode
 	match selected_mode:
+		"NORMAL":
+			emit_signal("move_action_requested", {
+				"type": "BEGIN_NORMAL_MOVE",
+				"actor_unit_id": active_unit_id,
+				"payload": {}
+			})
 		"ADVANCE":
 			emit_signal("move_action_requested", {
 				"type": "BEGIN_ADVANCE",
@@ -1256,9 +1254,11 @@ func _refresh_confirm_mode_button_enable() -> void:
 	if not confirm_mode_button:
 		return
 	var selected_mode = _get_selected_movement_mode()
-	var needs_confirm = selected_mode in ["ADVANCE", "REMAIN_STATIONARY"]
+	var needs_confirm = selected_mode in ["NORMAL", "ADVANCE", "REMAIN_STATIONARY"]
 	var any_radio_enabled := false
-	if advance_radio and not advance_radio.disabled:
+	if normal_radio and not normal_radio.disabled:
+		any_radio_enabled = true
+	elif advance_radio and not advance_radio.disabled:
 		any_radio_enabled = true
 	elif stationary_radio and not stationary_radio.disabled:
 		any_radio_enabled = true
@@ -1321,6 +1321,9 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 			setting_radio_programmatically = true
 			normal_radio.button_pressed = true
 			setting_radio_programmatically = false
+
+		# Refresh the Confirm Movement Mode button now that NORMAL is selected
+		_refresh_confirm_mode_button_enable()
 
 		# Hide advance roll label
 		if advance_roll_label:
