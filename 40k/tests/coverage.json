@@ -109,10 +109,28 @@
       "status": "covered"
     },
     {
+      "id": "charge.bug.infantry_climb_penalty",
+      "description": "Regression guard for #426 \u2014 INFANTRY units charging through ruins must not pay the climb penalty (TerrainManager.calculate_charge_terrain_penalty receives unit_keywords).",
+      "scenarios": [
+        "charge_infantry_through_ruins"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "charge.modifier_primitive",
       "description": "Charge-roll modifier flag (effect_plus_charge) honoured by DECLARE_CHARGE \u2014 'ERE WE GO stratagem path",
       "scenarios": [
         "372_ere_we_go_charge_modifier"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "charge.terrain.infantry_traversal",
+      "description": "TerrainManager.calculate_charge_terrain_penalty: INFANTRY keyword grants 0\" traversal penalty across ruins (no climb cost). Validated by charge_infantry_through_ruins.",
+      "scenarios": [
+        "charge_infantry_through_ruins"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -530,6 +548,15 @@
         "85_predeploy_rolloff"
       ],
       "last_verified_commit": "c2781b7",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.SET_SCOUT_MODEL_DEST.overlap_rejected",
+      "description": "Regression guard for #425 — ScoutPhase._validate_set_scout_model_dest must reject destinations that overlap a sibling's staged scout-move position OR an unmoved sibling's original position. Uses shape-aware Measurement.models_overlap with OVERLAP_TOLERANCE_PX.",
+      "scenarios": [
+        "scout_no_overlap"
+      ],
+      "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
