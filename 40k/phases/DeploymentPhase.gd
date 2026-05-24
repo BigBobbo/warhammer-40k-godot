@@ -287,12 +287,14 @@ func _validate_model_position(position: Vector2, unit: Dictionary, model_index: 
 	if _position_overlaps_existing_models_shape(position, model, rotation, unit.get("id", "")):
 		errors.append("Model cannot overlap with existing models")
 
-	# Check overlap with walls
+	# Check overlap with walls, honoring the unit's traversal keywords
+	# (e.g. INFANTRY can be deployed inside ruins per 10e).
 	var test_model = model.duplicate()
 	test_model["position"] = position
 	test_model["rotation"] = rotation
-	if Measurement.model_overlaps_any_wall(test_model):
-		errors.append("Model cannot overlap with walls")
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	if Measurement.model_overlaps_any_wall(test_model, unit_keywords):
+		errors.append("Model cannot overlap with walls this unit can't cross")
 
 	# Issue #87: defence-in-depth. Reject any model whose base extends
 	# off the battlefield (the controller already enforces this for
@@ -359,12 +361,14 @@ func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_
 	if _position_overlaps_existing_models_shape(position, model, rotation, unit.get("id", "")):
 		errors.append("Model cannot overlap with existing models")
 
-	# Check overlap with walls
+	# Check overlap with walls, honoring the unit's traversal keywords
+	# (e.g. INFANTRY can be deployed inside ruins per 10e).
 	var test_model = model.duplicate()
 	test_model["position"] = position
 	test_model["rotation"] = rotation
-	if Measurement.model_overlaps_any_wall(test_model):
-		errors.append("Model cannot overlap with walls")
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	if Measurement.model_overlaps_any_wall(test_model, unit_keywords):
+		errors.append("Model cannot overlap with walls this unit can't cross")
 
 	# Issue #87: defence-in-depth. Reject any model whose base extends
 	# off the battlefield (the controller already enforces this for

@@ -3151,6 +3151,7 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 	# Get unit and models
 	var unit = all_units.get(unit_id, {})
 	var models = unit.get("models", [])
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 
 	# Check each model's new position
 	for model_id in movements:
@@ -3197,8 +3198,8 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 						if Measurement.models_overlap(check_model, other_model_check):
 							errors.append("Model %s would overlap with %s/%d" % [model_id, check_unit_id, i])
 
-				# Check for wall collision
-				if Measurement.model_overlaps_any_wall(check_model):
+				# Check for wall collision, honoring the unit's traversal keywords.
+				if Measurement.model_overlaps_any_wall(check_model, unit_keywords):
 					errors.append("Model %s would overlap with walls" % model_id)
 
 	return {"valid": errors.is_empty(), "errors": errors}

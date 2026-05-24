@@ -287,11 +287,12 @@ func _validate_disembark_position(pos: Vector2, model_idx: int) -> Dictionary:
 	if _check_model_overlap(pos, model_idx):
 		return {"valid": false, "reason": "Model would overlap"}
 
-	# Check wall overlaps
+	# Check wall overlaps, honoring the disembarking unit's traversal keywords.
 	var test_model = model.duplicate()
 	test_model["position"] = {"x": pos.x, "y": pos.y}
-	if Measurement.model_overlaps_any_wall(test_model):
-		return {"valid": false, "reason": "Model cannot overlap with walls"}
+	var unit_keywords = unit_data.get("meta", {}).get("keywords", [])
+	if Measurement.model_overlaps_any_wall(test_model, unit_keywords):
+		return {"valid": false, "reason": "Model cannot overlap with walls this unit can't cross"}
 
 	# Check terrain overlap if needed
 	# ... add terrain checks here if needed ...

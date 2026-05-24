@@ -110,11 +110,20 @@
     },
     {
       "id": "charge.bug.infantry_climb_penalty",
-      "description": "Regression guard for #426 \u2014 INFANTRY units charging through ruins must not pay the climb penalty (TerrainManager.calculate_charge_terrain_penalty receives unit_keywords).",
+      "description": "Regression guard (#426): INFANTRY charging through a ruin must not pay the climb penalty. Callers of TerrainManager.calculate_charge_terrain_penalty used to omit unit_keywords, so the helper defaulted to applying the climb cost even to INFANTRY (which can traverse ruins freely). Validated by 'charge_infantry_through_ruins.",
       "scenarios": [
         "charge_infantry_through_ruins"
       ],
-      "last_verified_commit": "HEAD",
+      "last_verified_commit": "bb98da0",
+      "status": "covered"
+    },
+    {
+      "id": "charge.terrain.infantry_traversal",
+      "description": "CHARGE phase: TerrainManager.calculate_charge_terrain_penalty returns 0\" extra distance when the charging unit has the INFANTRY keyword and the intervening terrain is traversable (e.g. ruins), regardless of height_category. Validated by 'charge_infantry_through_ruins.",
+      "scenarios": [
+        "charge_infantry_through_ruins"
+      ],
+      "last_verified_commit": "bb98da0",
       "status": "covered"
     },
     {
@@ -122,15 +131,6 @@
       "description": "Charge-roll modifier flag (effect_plus_charge) honoured by DECLARE_CHARGE \u2014 'ERE WE GO stratagem path",
       "scenarios": [
         "372_ere_we_go_charge_modifier"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered"
-    },
-    {
-      "id": "charge.terrain.infantry_traversal",
-      "description": "TerrainManager.calculate_charge_terrain_penalty: INFANTRY keyword grants 0\" traversal penalty across ruins (no climb cost). Validated by charge_infantry_through_ruins.",
-      "scenarios": [
-        "charge_infantry_through_ruins"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -290,6 +290,15 @@
       "status": "covered"
     },
     {
+      "id": "deployment.terrain.infantry_ruin_traversal",
+      "description": "Regression guard (#431): Measurement.model_overlaps_any_wall consults unit keywords so that INFANTRY models can be deployed straddling a ruin wall, while VEHICLE/MONSTER (or any non-INFANTRY unit) is still rejected. Validated by 'infantry_enters_ruin_wall.",
+      "scenarios": [
+        "infantry_enters_ruin_wall"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "fight.ability.deadly_demise",
       "description": "FIGHT phase: the Deadly Demise ability fires when a unit is destroyed during fight, rolling demise dice and dealing mortal wounds to nearby units. Validated by '386_deadly_demise_vehicle.",
       "scenarios": [
@@ -413,6 +422,15 @@
         "ri_offer_at_end_of_movement"
       ],
       "last_verified_commit": "62824ef",
+      "status": "covered"
+    },
+    {
+      "id": "movement.terrain.infantry_ruin_traversal",
+      "description": "Regression guard (#431): MovementPhase accepts INFANTRY model drops on top of ruin walls (Measurement.model_overlaps_any_wall respects unit keywords). Non-INFANTRY drops are still rejected and surface a toast. Validated by 'infantry_enters_ruin_wall.",
+      "scenarios": [
+        "infantry_enters_ruin_wall"
+      ],
+      "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
@@ -552,11 +570,11 @@
     },
     {
       "id": "phases.ScoutPhase.SET_SCOUT_MODEL_DEST.overlap_rejected",
-      "description": "Regression guard for #425 — ScoutPhase._validate_set_scout_model_dest must reject destinations that overlap a sibling's staged scout-move position OR an unmoved sibling's original position. Uses shape-aware Measurement.models_overlap with OVERLAP_TOLERANCE_PX.",
+      "description": "Regression guard (#425): ScoutPhase._validate_set_scout_model_dest rejects a destination that overlaps a sibling model — either a sibling's already-staged scout-move position or an unmoved sibling's original position. A clearly non-overlapping destination still succeeds. Validated by 'scout_no_overlap.",
       "scenarios": [
         "scout_no_overlap"
       ],
-      "last_verified_commit": "HEAD",
+      "last_verified_commit": "817e914",
       "status": "covered"
     },
     {
