@@ -1,1 +1,1 @@
-ARGS: ["--check-only"]
+ARGS: []
