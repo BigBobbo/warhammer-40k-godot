@@ -158,35 +158,87 @@ def make_walls(slot, long_, short, wall_corner='nw'):
     return []
 
 
-def pick_wall_corner(cx_v, cy_v, rot_v, board_w=44.0, board_h=60.0):
-    """Pick the local corner where the L (or C base) should sit.
+def pick_wall_corner_from_pixels(cx_v, cy_v, rot_v, long_, short,
+                                  source_image_path):
+    """Detect the wall corner by sampling the SOURCE IMAGE pixels in each
+    of the 4 piece-local quadrants and returning the quadrant with the
+    most "wall" pixels (very dark gray, RGB < ~95)."""
+    import numpy as np
+    from PIL import Image
 
-    Observed rule from source images:
-      - The L's LONG WALL sits along the piece's SHORT-AXIS SIDE that
-        is TOWARD the board centre (so the wall runs parallel to the
-        long axis and faces inward).
-      - The L's SHORT WALL sits at the LONG-AXIS END that is FAR FROM
-        the board centre (closing off the "outside" end of the piece).
-      - For C pieces: only the short-axis side matters; the base sits
-        on the side TOWARD the board centre.
+    img = Image.open(source_image_path).convert('RGB')
+    arr = np.array(img); H_full, W_full, _ = arr.shape
+    L = int(W_full * 0.06); arr = arr[:, L:, :]
+    gray = arr.mean(axis=2)
+    bg = (gray > 200) & (gray < 245)
+    rows = np.where(bg.any(axis=1))[0]
+    cols = np.where(bg.any(axis=0))[0]
+    x0 = cols.min(); y0 = rows.min()
+    ppx_w = (cols.max()-x0+1)/60; ppx_h = (rows.max()-y0+1)/44
 
-    So the corner sign rule is:
-      wall_x = OPPOSITE sign of (direction-to-centre).x  (long-axis far)
-      wall_y = SAME sign of (direction-to-centre).y     (short-axis toward)
+    # Convert vertical board pos to horizontal source image pos
+    cx_h = 60.0 - cy_v
+    cy_h = cx_v
+    rot_h = rot_v - 90.0
+    cx_px = x0 + cx_h * ppx_w
+    cy_px = y0 + cy_h * ppx_h
+    rad = math.radians(rot_h)
+    ca, sa = math.cos(rad), math.sin(rad)
 
-    Returns one of 'nw', 'ne', 'sw', 'se'.
+    r = arr[..., 0].astype(np.int16)
+    g = arr[..., 1].astype(np.int16)
+    b = arr[..., 2].astype(np.int16)
+    wall = (r < 95) & (g < 95) & (b < 95) & \
+           (np.abs(r - g) < 15) & (np.abs(g - b) < 15)
+    H, W = wall.shape
+
+    hw = long_ / 2; hh = short / 2
+    counts = {'nw': 0, 'ne': 0, 'sw': 0, 'se': 0}
+    step = 0.1
+    lx = -hw + 0.2
+    while lx < hw - 0.2:
+        ly = -hh + 0.2
+        while ly < hh - 0.2:
+            wx = lx * ca - ly * sa
+            wy = lx * sa + ly * ca
+            px = int(cx_px + wx * ppx_w)
+            py = int(cy_px + wy * ppx_h)
+            if 0 <= px < W and 0 <= py < H and wall[py, px]:
+                if lx < 0 and ly < 0: counts['nw'] += 1
+                elif lx >= 0 and ly < 0: counts['ne'] += 1
+                elif lx < 0 and ly >= 0: counts['sw'] += 1
+                else: counts['se'] += 1
+            ly += step
+        lx += step
+
+    best = max(counts, key=counts.get)
+    return best, counts
+
+
+def pick_wall_corner(cx_v, cy_v, rot_v, long_=12.0, short=6.0,
+                     source_image_path=None, board_w=44.0, board_h=60.0):
+    """Pick the local corner where the L (or C base) should sit. If a
+    source image is provided, detect it from the wall pixels; otherwise
+    fall back to a (less reliable) geometric heuristic.
     """
+    if source_image_path is not None:
+        try:
+            corner, counts = pick_wall_corner_from_pixels(
+                cx_v, cy_v, rot_v, long_, short, source_image_path)
+            return corner
+        except Exception as e:
+            print(f"  warn: pixel wall-corner detection failed: {e}")
+    # Geometric fallback (unreliable)
     cx_b, cy_b = board_w / 2, board_h / 2
-    dx_w = cx_b - cx_v
-    dy_w = cy_b - cy_v
+    dx_w = cx_b - cx_v; dy_w = cy_b - cy_v
     rad = math.radians(rot_v)
     ca, sa = math.cos(rad), math.sin(rad)
     lx_to = ca * dx_w + sa * dy_w
     ly_to = -sa * dx_w + ca * dy_w
-    if lx_to >= 0 and ly_to < 0: return 'nw'  # x=-hw (far), y=-hh (toward)
-    if lx_to >= 0 and ly_to >= 0: return 'sw'  # x=-hw (far), y=+hh (toward)
-    if lx_to < 0 and ly_to < 0: return 'ne'   # x=+hw (far), y=-hh (toward)
-    return 'se'                                # x=+hw (far), y=+hh (toward)
+    if lx_to >= 0 and ly_to < 0: return 'nw'
+    if lx_to >= 0 and ly_to >= 0: return 'sw'
+    if lx_to < 0 and ly_to < 0: return 'ne'
+    return 'se'
 
 
 def main():
@@ -195,6 +247,10 @@ def main():
     ap.add_argument('out_json')
     ap.add_argument('--id', default='layout_parse_test')
     ap.add_argument('--name', default='Parsed Layout')
+    ap.add_argument('--source-image', default=None,
+                    help='Path to the source layout image. If provided, '
+                         'wall corners are auto-detected by sampling wall '
+                         'pixels per quadrant of each tall piece.')
     args = ap.parse_args()
 
     with open(args.matches_json) as f:
@@ -222,8 +278,10 @@ def main():
         pid = f"{m['kind']}_{idx:02d}"
         wall_corner = 'nw'
         if m['kind'] == 'tall':
-            wall_corner = pick_wall_corner(round(x_v, 2), round(y_v, 2),
-                                            round(angle_v, 1))
+            wall_corner = pick_wall_corner(
+                round(x_v, 2), round(y_v, 2), round(angle_v, 1),
+                long_=m['long'], short=m['short'],
+                source_image_path=args.source_image)
         piece = {
             'id': pid,
             'type': 'ruins',

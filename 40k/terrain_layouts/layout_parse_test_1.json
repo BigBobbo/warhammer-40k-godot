@@ -149,11 +149,11 @@
           "blocks_los": true,
           "local_start": [
             -3.25,
-            -2.5
+            2.5
           ],
           "local_end": [
             3.25,
-            -2.5
+            2.5
           ]
         },
         {
@@ -161,11 +161,11 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            3.25,
+            -3.25,
             -2.5
           ],
           "local_end": [
-            3.25,
+            -3.25,
             2.5
           ]
         }
@@ -207,11 +207,11 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.0,
+            4.0,
             -3.0
           ],
           "local_end": [
-            -4.0,
+            4.0,
             3.0
           ]
         }
@@ -301,11 +301,11 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            4.0,
+            -4.0,
             -3.0
           ],
           "local_end": [
-            4.0,
+            -4.0,
             3.0
           ]
         }
@@ -500,11 +500,11 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -3.25,
+            3.25,
             -2.5
           ],
           "local_end": [
-            -3.25,
+            3.25,
             2.5
           ]
         }
