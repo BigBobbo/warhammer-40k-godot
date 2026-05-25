@@ -2748,27 +2748,29 @@ func _setup_round_indicator() -> void:
 	print("Main: P3-109: Round indicator created in top bar (enhanced)")
 
 func _setup_phase_strip() -> void:
-	var hud_bottom = get_node_or_null("HUD_Bottom")
-	if not hud_bottom:
-		return
-
+	# Place the phase progress strip flush with the bottom of the screen,
+	# sandwiched horizontally between the GameLogPanel (340 px on the left)
+	# and the HUD_Right phase-actions panel (400 px on the right).
 	_phase_strip_panel = PanelContainer.new()
 	_phase_strip_panel.name = "PhaseStrip"
 	_phase_strip_panel.anchor_left = 0.0
 	_phase_strip_panel.anchor_right = 1.0
 	_phase_strip_panel.anchor_top = 1.0
 	_phase_strip_panel.anchor_bottom = 1.0
-	_phase_strip_panel.offset_top = 0.0
-	_phase_strip_panel.offset_bottom = 30.0
+	_phase_strip_panel.offset_left = GameLogPanelScript.PANEL_WIDTH
+	_phase_strip_panel.offset_right = -400.0
+	_phase_strip_panel.offset_top = -30.0
+	_phase_strip_panel.offset_bottom = 0.0
+	_phase_strip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var strip_style = StyleBoxFlat.new()
 	strip_style.bg_color = Color(0.06, 0.05, 0.04, 0.92)
 	strip_style.border_color = Color(WhiteDwarfTheme.WH_GOLD, 0.3)
-	strip_style.border_width_bottom = 1
+	strip_style.border_width_top = 1
 	strip_style.set_content_margin_all(0)
 	strip_style.content_margin_left = 4
 	strip_style.content_margin_right = 4
 	_phase_strip_panel.add_theme_stylebox_override("panel", strip_style)
-	hud_bottom.add_child(_phase_strip_panel)
+	add_child(_phase_strip_panel)
 
 	_phase_strip_container = HBoxContainer.new()
 	_phase_strip_container.alignment = BoxContainer.ALIGNMENT_CENTER
