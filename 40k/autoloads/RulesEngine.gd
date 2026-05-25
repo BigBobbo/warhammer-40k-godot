@@ -4287,6 +4287,130 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 
 	return eligible
 
+# Returns a human-readable reason why the given target cannot be shot at by
+# the actor unit. Empty string means the target IS eligible.
+# Mirrors the eligibility checks in get_eligible_targets so the UI can explain
+# why a clicked enemy unit is greyed out (out of range, no LoS, Lone Operative, etc.).
+static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> String:
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	var target_unit = units.get(target_unit_id, {})
+
+	if actor_unit.is_empty():
+		return "No active shooter"
+	if target_unit.is_empty():
+		return "Invalid target"
+
+	if target_unit.get("owner", 0) == actor_unit.get("owner", 0):
+		return "Cannot target a friendly unit"
+
+	if target_unit.get("attached_to", null) != null:
+		return "Cannot target an attached character — shoot the bodyguard unit"
+
+	var has_alive = false
+	for model in target_unit.get("models", []):
+		if model.get("alive", true):
+			has_alive = true
+			break
+	if not has_alive:
+		return "Target unit is destroyed"
+
+	var target_name = target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id))
+	var actor_owner = actor_unit.get("owner", 0)
+	var target_is_monster_vehicle = is_monster_or_vehicle(target_unit)
+
+	# Cannot target enemies within engagement range of friendly units
+	# (unless the target is a Monster/Vehicle — Big Guns Never Tire applies to the *shooter*,
+	# but the broader rule is that engaged enemies of friends are off-limits to other shooters
+	# except when the target is a Monster/Vehicle, since they can also be targeted normally.)
+	if not target_is_monster_vehicle:
+		if _is_target_in_friendly_engagement(target_unit_id, actor_unit_id, actor_owner, units, board):
+			return "%s is in engagement range with a friendly unit" % target_name
+
+	# Lone Operative
+	if has_lone_operative(target_unit) and target_unit.get("attached_to", null) == null:
+		var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+		if attached_chars.is_empty():
+			var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
+			if min_dist > 12.0:
+				return "%s has Lone Operative — must be within 12\" (currently %.1f\")" % [target_name, min_dist]
+
+	# Psychic Veil
+	if target_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PSYCHIC_VEIL, false):
+		var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
+		if min_dist > 18.0:
+			return "%s has Psychic Veil — must be within 18\" (currently %.1f\")" % [target_name, min_dist]
+
+	# Per-weapon analysis: figure out if it's a range issue, LoS issue, or engagement issue
+	var actor_in_engagement = actor_unit.get("flags", {}).get("in_engagement", false)
+	var actor_is_monster_vehicle = is_monster_or_vehicle(actor_unit)
+	var target_in_er = false
+	if actor_in_engagement:
+		target_in_er = _is_target_within_engagement_range(actor_unit_id, target_unit_id, board)
+
+	var unit_weapons = get_unit_weapons(actor_unit_id, board)
+	var has_any_weapon = false
+	var any_weapon_passed_er_filter = false
+	var any_in_range = false
+	var any_in_los = false
+
+	for model_id in unit_weapons:
+		var actor_model = _get_model_by_id(actor_unit, model_id)
+		if actor_model.is_empty() or not actor_model.get("alive", true):
+			continue
+
+		for weapon_id in unit_weapons[model_id]:
+			has_any_weapon = true
+			var is_pistol = is_pistol_weapon(weapon_id, board)
+
+			# Engagement-range weapon eligibility
+			if actor_in_engagement:
+				if is_pistol:
+					if not target_in_er:
+						continue
+				else:
+					if not actor_is_monster_vehicle:
+						continue
+			any_weapon_passed_er_filter = true
+
+			var weapon_profile = get_weapon_profile(weapon_id, board)
+			var weapon_range = weapon_profile.get("range", 12)
+			var range_px = Measurement.inches_to_px(weapon_range)
+			var is_indirect = has_indirect_fire(weapon_id, board)
+
+			for actor_m in actor_unit.get("models", []):
+				if not actor_m.get("alive", true):
+					continue
+				for target_m in target_unit.get("models", []):
+					if not target_m.get("alive", true):
+						continue
+					var distance = Measurement.model_to_model_distance_px(actor_m, target_m)
+					if distance <= range_px:
+						any_in_range = true
+						if is_indirect:
+							any_in_los = true
+						else:
+							var a_pos = _get_model_position(actor_m)
+							var t_pos = _get_model_position(target_m)
+							if _check_line_of_sight(a_pos, t_pos, board, actor_m, target_m):
+								any_in_los = true
+
+	if not has_any_weapon:
+		return "%s has no usable weapons" % actor_unit.get("meta", {}).get("display_name", actor_unit_id)
+
+	if actor_in_engagement and not any_weapon_passed_er_filter:
+		if actor_is_monster_vehicle:
+			return "No weapons can reach %s while in engagement range" % target_name
+		else:
+			return "Your unit is in engagement range — only Pistols can shoot, and %s is not in your engagement range" % target_name
+
+	if not any_in_range:
+		return "%s is out of range" % target_name
+	if not any_in_los:
+		return "No line of sight to %s" % target_name
+
+	return ""
+
 # Check if target unit is within engagement range (1", or 2" through barricades) of actor unit
 static func _is_target_within_engagement_range(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
 	var units = board.get("units", {})
