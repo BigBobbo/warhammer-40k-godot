@@ -8938,6 +8938,18 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 		if result.has("errors"):
 			for error in result.errors:
 				print("  - ", error)
+		# Surface a toast so the player isn't left guessing why a drop snapped
+		# back (e.g. validation errors from STAGE_MODEL_MOVE that the controller
+		# preview didn't catch — like the destination exceeding the unit's move
+		# cap, engagement-range violations, or terrain checks the server adds).
+		var toast_msg: String = ""
+		if result.has("errors") and result.errors is Array and result.errors.size() > 0:
+			toast_msg = str(result.errors[0])
+		else:
+			toast_msg = str(result.get("error", "Action failed"))
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_error"):
+			toast_mgr.show_error(toast_msg)
 		# Show error in status label
 		status_label.text = "Error: " + result.get("error", "Action failed")
 
