@@ -4008,14 +4008,25 @@ func _handle_board_click(position: Vector2) -> void:
 			dice_log_display.append_text("[color=red]Please select a weapon first![/color]\n")
 		return
 	
-	# Check if click is on an eligible target
+	# Find the closest enemy unit model to the click — across ALL enemy units,
+	# not just eligible ones. This lets us distinguish "the player clicked on
+	# an ineligible enemy" from "the player clicked on an eligible enemy".
 	var closest_target = ""
 	var closest_distance = INF
 	var closest_model_pos = Vector2.ZERO
-	
-	
-	for target_id in eligible_targets:
-		var unit = current_phase.get_unit(target_id)
+
+	var actor_unit = GameState.get_unit(active_shooter_id)
+	var actor_owner = actor_unit.get("owner", 0)
+	var all_units = GameState.state.get("units", {})
+
+	for target_id in all_units:
+		var unit = all_units[target_id]
+		# Only consider enemy units that have at least one alive model
+		if unit.get("owner", 0) == actor_owner:
+			continue
+		if unit.get("attached_to", null) != null:
+			# Attached characters are shot through their bodyguard
+			continue
 		for model in unit.get("models", []):
 			if not model.get("alive", true):
 				continue
@@ -4025,11 +4036,22 @@ func _handle_board_click(position: Vector2) -> void:
 				closest_distance = distance
 				closest_target = target_id
 				closest_model_pos = model_pos
-	
+
 	# Use a larger click threshold to make selection easier
 	if closest_target != "" and closest_distance < 500:  # Very large threshold for testing
-		print("[ShootingController] Click detected - assigning target: %s (distance: %.1f)" % [closest_target, closest_distance])
-		_select_target_for_current_weapon(closest_target)
+		if eligible_targets.has(closest_target):
+			print("[ShootingController] Click detected - assigning target: %s (distance: %.1f)" % [closest_target, closest_distance])
+			_select_target_for_current_weapon(closest_target)
+		else:
+			# Player clicked on an ineligible enemy unit — explain why instead of
+			# silently switching to a different unit.
+			var reason = RulesEngine.get_target_ineligibility_reason(active_shooter_id, closest_target, GameState.create_snapshot())
+			if reason == "":
+				reason = "Target cannot be shot"
+			print("[ShootingController] Click on ineligible target %s: %s" % [closest_target, reason])
+			if dice_log_display:
+				dice_log_display.append_text("[color=red]%s[/color]\n" % reason)
+			ToastManager.show_warning(reason)
 	else:
 		# REMOVED FALLBACK: Don't auto-assign first target if click misses
 		# This was causing weapons to be incorrectly reassigned
