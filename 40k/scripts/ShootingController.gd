@@ -836,13 +836,23 @@ func _restore_state_after_load() -> void:
 		_show_range_indicators()
 		
 		# Update assignment display from phase state
+		# SPLIT-FIRE: weapon_assignments is a flat weapon→last-target map (kept
+		# for legacy callers). The tree row text is authoritative via
+		# _refresh_weapon_row_split_text, which reads the full
+		# pending_assignments list and renders splits.
 		weapon_assignments.clear()
+		var weapons_seen := {}
 		for assignment in shooting_state.pending_assignments:
 			weapon_assignments[assignment.weapon_id] = assignment.target_unit_id
-		
+			weapons_seen[assignment.weapon_id] = true
+
 		for assignment in shooting_state.confirmed_assignments:
 			weapon_assignments[assignment.weapon_id] = assignment.target_unit_id
-		
+			weapons_seen[assignment.weapon_id] = true
+
+		for wid in weapons_seen.keys():
+			_refresh_weapon_row_split_text(wid)
+
 		_update_ui_state()
 		
 		# Show feedback in dice log
@@ -3288,41 +3298,57 @@ func _on_clear_pressed() -> void:
 	_update_ui_state()
 
 # T5-UX4: Undo the most recent weapon assignment
+# SPLIT-FIRE: History entries are now dictionaries {weapon_id, target_unit_id,
+# model_ids} so undo reverses one specific (weapon → target) slice, not every
+# allocation made for that weapon. Tolerant of legacy String entries.
 func _on_undo_last_pressed() -> void:
 	if assignment_history.is_empty():
 		return
 
-	# Pop the most recent weapon_id from the history
-	var weapon_id = assignment_history.pop_back()
+	var last_entry = assignment_history.pop_back()
 
-	print("T5-UX4: Undoing last assignment for weapon: ", weapon_id)
+	# Normalise history-entry shape
+	var weapon_id: String = ""
+	var target_unit_id: String = ""
+	if typeof(last_entry) == TYPE_DICTIONARY:
+		weapon_id = last_entry.get("weapon_id", "")
+		target_unit_id = last_entry.get("target_unit_id", "")
+	else:
+		weapon_id = str(last_entry)
 
-	# Remove from local tracking
-	weapon_assignments.erase(weapon_id)
+	print("ShootingController: [SPLIT-FIRE] Undoing assignment for weapon=%s target=%s" % [weapon_id, target_unit_id])
 
-	# Tell the phase to clear this assignment
+	# Tell the phase to clear this specific slice (or all slices for the weapon
+	# if the legacy entry didn't carry a target).
+	var payload: Dictionary = {"weapon_id": weapon_id}
+	if target_unit_id != "":
+		payload["target_unit_id"] = target_unit_id
 	emit_signal("shoot_action_requested", {
 		"type": "CLEAR_ASSIGNMENT",
-		"payload": {"weapon_id": weapon_id}
+		"payload": payload
 	})
 
-	# Update weapon tree to clear the target text for this weapon
-	if weapon_tree:
-		var root = weapon_tree.get_root()
-		if root:
-			var child = root.get_first_child()
-			while child:
-				if child.get_metadata(0) == weapon_id:
-					child.set_text(1, "(Click to Select)")
-					child.set_custom_color(1, Color(0.6, 0.6, 0.6, 0.7))
-					child.clear_custom_bg_color(1)
-					break
-				child = child.get_next()
+	# Local bookkeeping: if no allocations remain for this weapon, drop it from
+	# weapon_assignments. Otherwise leave it (still has at least one target).
+	var still_has_alloc := false
+	if current_phase and "pending_assignments" in current_phase:
+		for a in current_phase.pending_assignments:
+			if a.get("weapon_id", "") == weapon_id and a.get("target_unit_id", "") != target_unit_id:
+				still_has_alloc = true
+				break
+	if not still_has_alloc:
+		weapon_assignments.erase(weapon_id)
+
+	# Refresh the tree row to reflect the new pending state
+	_refresh_weapon_row_split_text(weapon_id)
 
 	# Update last_assigned_target_id from the remaining history
 	if not assignment_history.is_empty():
-		var prev_weapon = assignment_history.back()
-		last_assigned_target_id = weapon_assignments.get(prev_weapon, "")
+		var prev = assignment_history.back()
+		if typeof(prev) == TYPE_DICTIONARY:
+			last_assigned_target_id = prev.get("target_unit_id", "")
+		else:
+			last_assigned_target_id = weapon_assignments.get(str(prev), "")
 	else:
 		last_assigned_target_id = ""
 		if auto_target_button_container:
@@ -3331,7 +3357,11 @@ func _on_undo_last_pressed() -> void:
 	# Show feedback
 	if dice_log_display:
 		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
-		dice_log_display.append_text("[color=orange]↩ Undid assignment for %s[/color]\n" % weapon_name)
+		if target_unit_id != "":
+			var target_name = eligible_targets.get(target_unit_id, {}).get("unit_name", target_unit_id)
+			dice_log_display.append_text("[color=orange]↩ Undid %s → %s[/color]\n" % [weapon_name, target_name])
+		else:
+			dice_log_display.append_text("[color=orange]↩ Undid assignment for %s[/color]\n" % weapon_name)
 
 	_update_aggregate_damage_preview()  # P3-114: Refresh aggregate after undo
 	_update_ui_state()
@@ -4088,78 +4118,270 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 	if not weapon_id:
 		return
 
-	# DEBUG: Log target assignment
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ TARGET ASSIGNMENT")
-	print("║ Weapon ID: ", weapon_id)
-	print("║ Weapon Name: ", RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id))
-	print("║ Target ID: ", target_id)
-	print("║ Target Name: ", eligible_targets.get(target_id, {}).get("unit_name", "Unknown"))
-	print("║ Previous assignment: ", weapon_assignments.get(weapon_id, "None"))
+	# SPLIT-FIRE: Compute which of this weapon's bearers can fire at this target
+	# RIGHT NOW (per-model range + LoS), minus any bearers already committed to
+	# other targets in pending_assignments.
+	var split = _compute_split_fire_options(weapon_id, target_id)
+	# split = {
+	#   "total_bearers": N,
+	#   "already_allocated": Array[model_id],
+	#   "eligible_remaining": Array[model_id],   # eligible AND not already allocated
+	#   "distances_inches": { model_id: float }, # to nearest target model
+	#   "reasons": { model_id: "out_of_range"|"no_los"|"dead" }
+	# }
+	var eligible_remaining: Array = split.eligible_remaining
 
-	# Assign target
-	weapon_assignments[weapon_id] = target_id
+	if eligible_remaining.is_empty():
+		var weapon_name_for_log = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
+		var target_name_for_log = eligible_targets.get(target_id, {}).get("unit_name", target_id)
+		if dice_log_display:
+			dice_log_display.append_text("[color=red]✗ No %s bearers can fire on %s (range/LoS).[/color]\n" % [weapon_name_for_log, target_name_for_log])
+		print("ShootingController: [SPLIT-FIRE] No eligible remaining bearers for %s → %s (reasons=%s)" % [weapon_id, target_id, str(split.reasons)])
+		return
 
-	# T5-UX4: Track assignment in history for undo (remove if re-assigned, then push)
-	assignment_history.erase(weapon_id)
-	assignment_history.push_back(weapon_id)
+	# If exactly one eligible bearer remains, skip the picker for speed.
+	# Otherwise show the "how many to this target?" picker.
+	if eligible_remaining.size() == 1:
+		_commit_split_assignment(weapon_id, target_id, eligible_remaining, split.reasons)
+	else:
+		_open_split_fire_picker(weapon_id, target_id, split)
 
-	print("║ Assignment stored in weapon_assignments dictionary")
-	print("║ Current weapon_assignments state:")
-	for wpn_id in weapon_assignments:
-		var wpn_name = RulesEngine.get_weapon_profile(wpn_id).get("name", wpn_id)
-		var tgt_id = weapon_assignments[wpn_id]
-		var tgt_name = eligible_targets.get(tgt_id, {}).get("unit_name", "Unknown")
-		print("║   - %s → %s" % [wpn_name, tgt_name])
-	print("╚═══════════════════════════════════════════════════════════════")
+	_update_ui_state()
 
-	# NEW: Store last assigned target for "Apply to All" feature
-	last_assigned_target_id = target_id
-
-	# Get model IDs for this weapon
-	var model_ids = []
-	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
-	for model_id in unit_weapons:
-		if weapon_id in unit_weapons[model_id]:
-			model_ids.append(model_id)
-
-	var payload = {
-		"weapon_id": weapon_id,
-		"target_unit_id": target_id,
-		"model_ids": model_ids
+# SPLIT-FIRE: Compute the picker state for (weapon, target).
+# Reads pending_assignments from the phase to know which bearers are already
+# committed elsewhere, and calls RulesEngine.get_eligible_shooter_models to
+# determine which living bearers can actually reach the target with LoS.
+func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictionary:
+	var result := {
+		"total_bearers": 0,
+		"already_allocated": [],
+		"eligible_remaining": [],
+		"distances_inches": {},
+		"reasons": {}
 	}
 
-	emit_signal("shoot_action_requested", {
-		"type": "ASSIGN_TARGET",
-		"payload": payload
+	if active_shooter_id == "":
+		return result
+
+	# All living bearers of this weapon in the active unit
+	var bearers: Array = []
+	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+	var shooter_unit = GameState.get_unit(active_shooter_id)
+	for model_id in unit_weapons:
+		if not (weapon_id in unit_weapons[model_id]):
+			continue
+		var m = RulesEngine._get_model_by_id(shooter_unit, model_id)
+		if m.is_empty() or not m.get("alive", true):
+			continue
+		bearers.append(model_id)
+	result.total_bearers = bearers.size()
+
+	# Bearers already committed to other (or same) targets in pending_assignments
+	var already: Array = []
+	if current_phase and "pending_assignments" in current_phase:
+		for a in current_phase.pending_assignments:
+			if a.get("weapon_id", "") != weapon_id:
+				continue
+			# Bearers already allocated to ANY pending target for this weapon
+			# (including the same target, so re-clicking adds new bearers, not
+			# duplicates of existing ones)
+			for mid in a.get("model_ids", []):
+				if mid not in already:
+					already.append(mid)
+	result.already_allocated = already
+
+	# Per-model eligibility for THIS target
+	var snapshot: Dictionary = current_phase.game_state_snapshot if current_phase else {}
+	var eligibility = RulesEngine.get_eligible_shooter_models(active_shooter_id, weapon_id, target_id, snapshot)
+	result.distances_inches = eligibility.distances
+	result.reasons = eligibility.reasons
+
+	var eligible_set := {}
+	for mid in eligibility.eligible:
+		eligible_set[mid] = true
+
+	# eligible AND a living bearer AND not already allocated elsewhere
+	for mid in bearers:
+		if mid in already:
+			continue
+		if eligible_set.has(mid):
+			result.eligible_remaining.append(mid)
+
+	return result
+
+# SPLIT-FIRE: Open a modal dialog asking "how many of N bearers to send at this target?"
+# Default N = max (all eligible remaining). On Confirm, slices the N closest models
+# from eligible_remaining (closest by edge-to-edge distance) and dispatches ASSIGN_TARGET.
+func _open_split_fire_picker(weapon_id: String, target_id: String, split: Dictionary) -> void:
+	var eligible_remaining: Array = split.eligible_remaining
+	var max_n: int = eligible_remaining.size()
+	var total_bearers: int = split.total_bearers
+	var already_count: int = split.already_allocated.size()
+	var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
+	var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
+
+	# Count "not eligible at this target" remaining bearers (alive, not yet allocated,
+	# but out of range / no LoS for THIS target). Surfacing this helps the player
+	# understand why the picker caps below the unit-wide weapon count.
+	var ineligible_remaining_count := 0
+	for mid in split.reasons.keys():
+		if mid in split.already_allocated:
+			continue
+		ineligible_remaining_count += 1
+
+	var dialog := AcceptDialog.new()
+	dialog.name = "SplitFirePicker"
+	dialog.title = "Split Fire: %s → %s" % [weapon_name, target_name]
+	dialog.dialog_hide_on_ok = true
+
+	var vbox := VBoxContainer.new()
+	dialog.add_child(vbox)
+
+	var info_text := "%d of %d %s bearer(s) can fire at %s." % [max_n, total_bearers - already_count, weapon_name, target_name]
+	if ineligible_remaining_count > 0:
+		info_text += "\n%d bearer(s) ineligible (range/LoS)." % ineligible_remaining_count
+	if already_count > 0:
+		info_text += "\n%d bearer(s) already assigned to other targets." % already_count
+	var info_label := Label.new()
+	info_label.text = info_text
+	vbox.add_child(info_label)
+
+	var spin_row := HBoxContainer.new()
+	vbox.add_child(spin_row)
+	var spin_label := Label.new()
+	spin_label.text = "Send:"
+	spin_row.add_child(spin_label)
+	var spin := SpinBox.new()
+	spin.name = "SplitFireSpin"
+	spin.min_value = 1
+	spin.max_value = max_n
+	spin.step = 1
+	spin.value = max_n
+	spin_row.add_child(spin)
+	var of_label := Label.new()
+	of_label.text = " of %d" % max_n
+	spin_row.add_child(of_label)
+
+	# Wire confirm
+	dialog.confirmed.connect(func():
+		var n := int(spin.value)
+		if n < 1:
+			n = 1
+		if n > max_n:
+			n = max_n
+		var chosen := _pick_closest_n(eligible_remaining, split.distances_inches, n)
+		_commit_split_assignment(weapon_id, target_id, chosen, split.reasons)
+		dialog.queue_free()
+	)
+	# Also queue_free on cancel/close
+	dialog.canceled.connect(func(): dialog.queue_free())
+
+	add_child(dialog)
+	dialog.popup_centered()
+
+# SPLIT-FIRE: Of the given model_ids, return the n closest by the distances map.
+# Distances are edge-to-edge inches to the nearest target model.
+func _pick_closest_n(model_ids: Array, distances: Dictionary, n: int) -> Array:
+	var sorted := model_ids.duplicate()
+	sorted.sort_custom(func(a, b):
+		return distances.get(a, INF) < distances.get(b, INF)
+	)
+	if n >= sorted.size():
+		return sorted
+	return sorted.slice(0, n)
+
+# SPLIT-FIRE: Dispatch ASSIGN_TARGET with the explicit per-instance slice and
+# update controller-side bookkeeping (weapon_assignments display map, undo
+# history, tree row text, damage preview).
+func _commit_split_assignment(weapon_id: String, target_id: String, chosen_model_ids: Array, reasons: Dictionary) -> void:
+	if chosen_model_ids.is_empty():
+		return
+
+	# Track in display-map (legacy single-target map kept for code that reads it;
+	# tree row text is rewritten below to show the full split).
+	weapon_assignments[weapon_id] = target_id
+	last_assigned_target_id = target_id
+
+	# Undo history: push a richer record so undo can reverse this exact slice.
+	# Older records may be plain strings (weapon_id); the undo handler is
+	# tolerant of both shapes.
+	assignment_history.push_back({
+		"weapon_id": weapon_id,
+		"target_unit_id": target_id,
+		"model_ids": chosen_model_ids.duplicate()
 	})
 
-	# Update UI — show assigned target with arrow and green tint
-	var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
-	selected.set_text(1, "→ " + target_name)
-	selected.set_custom_color(1, Color(0.5, 0.85, 0.5))
-	selected.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
+	# Dispatch to the phase
+	emit_signal("shoot_action_requested", {
+		"type": "ASSIGN_TARGET",
+		"payload": {
+			"weapon_id": weapon_id,
+			"target_unit_id": target_id,
+			"model_ids": chosen_model_ids
+		}
+	})
 
-	# NEW: Show "Apply to All" button if there are unassigned weapons remaining
+	# Update weapon-row text to reflect ALL current splits for this weapon
+	_refresh_weapon_row_split_text(weapon_id)
+
+	# Show "Apply to All" if there are still weapons with unassigned bearers
 	var unassigned_count = _count_unassigned_weapons()
 	if unassigned_count > 0 and auto_target_button_container:
 		auto_target_button_container.visible = true
-
-		# Update button text to show how many weapons will be affected
 		var apply_button = auto_target_button_container.get_node_or_null("ApplyToAllButton")
 		if apply_button:
 			apply_button.text = "Apply to %d Remaining Weapons" % unassigned_count
 
-	# Show feedback
+	# Feedback to the dice log
 	if dice_log_display:
 		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
-		dice_log_display.append_text("[color=green]✓ Assigned %s to target %s[/color]\n" % [weapon_name, target_name])
+		var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
+		dice_log_display.append_text("[color=green]✓ %d × %s → %s[/color]\n" % [chosen_model_ids.size(), weapon_name, target_name])
 
-	# T5-UX1: Refresh damage preview with newly assigned target
-	_last_preview_target_id = ""  # Force recalculation
+	# Refresh damage preview
+	_last_preview_target_id = ""
 	_update_damage_preview(weapon_id)
 
-	_update_ui_state()
+# SPLIT-FIRE: Re-render the column-2 text of a weapon row to show every pending
+# (target → count) entry for that weapon. Called after every assign / undo /
+# clear so the tree stays in sync with the phase's pending_assignments.
+func _refresh_weapon_row_split_text(weapon_id: String) -> void:
+	if not weapon_tree:
+		return
+	var root = weapon_tree.get_root()
+	if not root:
+		return
+
+	# Collect all pending allocations for this weapon
+	var allocations: Array = []
+	if current_phase and "pending_assignments" in current_phase:
+		for a in current_phase.pending_assignments:
+			if a.get("weapon_id", "") != weapon_id:
+				continue
+			allocations.append({
+				"target_unit_id": a.get("target_unit_id", ""),
+				"count": a.get("model_ids", []).size()
+			})
+
+	# Find the weapon row
+	var child = root.get_first_child()
+	while child:
+		if child.get_metadata(0) == weapon_id:
+			if allocations.is_empty():
+				child.set_text(1, "(Click to Select)")
+				child.set_custom_color(1, Color(0.6, 0.6, 0.6, 0.7))
+				child.clear_custom_bg_color(1)
+			else:
+				var parts: Array = []
+				for alloc in allocations:
+					var tname = eligible_targets.get(alloc.target_unit_id, {}).get("unit_name", alloc.target_unit_id)
+					parts.append("%d→%s" % [alloc.count, tname])
+				child.set_text(1, ", ".join(parts))
+				child.set_custom_color(1, Color(0.5, 0.85, 0.5))
+				child.set_custom_bg_color(1, Color(0.15, 0.35, 0.15, 0.4))
+			return
+		child = child.get_next()
 
 func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 	"""Auto-assign a target to a weapon (used when only one eligible target exists)"""
@@ -4197,7 +4419,10 @@ func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 # ==========================================
 
 func _count_unassigned_weapons() -> int:
-	"""Count how many weapons don't have targets assigned yet"""
+	"""SPLIT-FIRE: Count weapons that still have at least one bearer with no
+	pending allocation. A weapon counts as 'unassigned' if any of its living
+	bearers is not yet committed to a pending target, since that bearer could
+	still be sent at one."""
 	var root = weapon_tree.get_root()
 	if not root:
 		return 0
@@ -4205,10 +4430,37 @@ func _count_unassigned_weapons() -> int:
 	var unassigned = 0
 	var child = root.get_first_child()
 
+	# Bearers already allocated per weapon (across all pending targets)
+	var allocated_per_weapon: Dictionary = {}
+	if current_phase and "pending_assignments" in current_phase:
+		for a in current_phase.pending_assignments:
+			var wid: String = a.get("weapon_id", "")
+			if not allocated_per_weapon.has(wid):
+				allocated_per_weapon[wid] = {}
+			for mid in a.get("model_ids", []):
+				allocated_per_weapon[wid][mid] = true
+
+	var unit_weapons: Dictionary = {}
+	var shooter_unit: Dictionary = {}
+	if active_shooter_id != "":
+		unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+		shooter_unit = GameState.get_unit(active_shooter_id)
+
 	while child:
 		var weapon_id = child.get_metadata(0)
-		if weapon_id and not weapon_assignments.has(weapon_id):
-			unassigned += 1
+		if weapon_id:
+			# Count living bearers for this weapon
+			var living := 0
+			for model_id in unit_weapons:
+				if not (weapon_id in unit_weapons[model_id]):
+					continue
+				var m = RulesEngine._get_model_by_id(shooter_unit, model_id)
+				if m.is_empty() or not m.get("alive", true):
+					continue
+				living += 1
+			var allocated = allocated_per_weapon.get(weapon_id, {}).size()
+			if living > allocated:
+				unassigned += 1
 		child = child.get_next()
 
 	return unassigned

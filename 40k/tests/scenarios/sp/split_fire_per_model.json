@@ -1,0 +1,101 @@
+{
+  "id": "split_fire_per_model",
+  "covers": [
+    "shooting.split_fire_picker_ui",
+    "autoloads.RulesEngine.get_eligible_shooter_models",
+    "phases.ShootingPhase.assign_target_split"
+  ],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Split-fire: Custodian Guard B (3 Guardian Spears) splits across two Ork targets — 2 spears at Battlewagon, 1 spear at Kommandos. Drives the picker dialog through the live UI: opens picker via the controller, sets the SpinBox value to 2, confirms via the dialog's OK button, then assigns the last spear (auto-skip path: 1 eligible bearer left). Verifies both pending assignments survive CONFIRM_TARGETS as two distinct confirmed_assignments.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "screenshot", "label": "01_shooting_phase_loaded" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SELECT_SHOOTER",
+      "actor_unit_id": "U_CUSTODIAN_GUARD_B"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "expect_node_visible",
+      "node": "/root/Main/ShootingController",
+      "timeout_s": 2.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.get_root().get_first_child().get_metadata(0)",
+      "equals": "guardian_spear_ranged" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.get_root().get_first_child().select(0)" },
+
+    { "act": "execute_script",
+      "script": "RulesEngine.get_eligible_shooter_models(\"U_CUSTODIAN_GUARD_B\", \"guardian_spear_ranged\", \"U_BATTLEWAGON_G\", GameState.state).eligible.size()",
+      "equals": 3 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._select_target_for_current_weapon(\"U_BATTLEWAGON_G\")" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "expect_node_visible",
+      "node": "/root/Main/ShootingController/SplitFirePicker",
+      "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "02_picker_open_for_battlewagon" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFireSpin\", true, false).max_value",
+      "equals": 3.0 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFireSpin\", true, false).set_value(2)" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFireSpin\", true, false).value",
+      "equals": 2.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFirePicker\", true, false).get_ok_button().emit_signal(\"pressed\")" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments.size()",
+      "equals": 1 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments[0].model_ids.size()",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments[0].target_unit_id",
+      "equals": "U_BATTLEWAGON_G" },
+    { "act": "screenshot", "label": "03_first_slice_committed" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.get_root().get_first_child().select(0)" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._select_target_for_current_weapon(\"U_KOMMANDOS_H\")" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments.size()",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments[1].model_ids.size()",
+      "equals": 1 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments[1].target_unit_id",
+      "equals": "U_KOMMANDOS_H" },
+    { "act": "screenshot", "label": "04_split_complete" },
+
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.confirmed_assignments.size()",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments.size()",
+      "equals": 0 },
+    { "act": "screenshot", "label": "05_after_confirm_targets_split_preserved" }
+  ]
+}
