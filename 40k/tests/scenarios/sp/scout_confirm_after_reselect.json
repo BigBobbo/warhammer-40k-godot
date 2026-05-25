@@ -1,0 +1,94 @@
+{
+  "id": "scout_confirm_after_reselect",
+  "covers": [
+    "phases.ScoutPhase.UI.confirm_works_after_reselect_clears_active_unit"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "Bug repro: in the original Main.gd, re-selecting the same scout unit while it already had an active scout move caused BEGIN_SCOUT_MOVE to fail validation ('Unit already has a Scout move in progress'), and the failure handler reset _scout_active_unit_id to ''. A subsequent click on Confirm Move then hit the `if _scout_active_unit_id == '': return` guard in _on_scout_confirm_pressed and silently no-op'd — the staged positions never moved into GameState, leaving the model visually at the new spot but with stale state (the user's reported bug). The fix is: (a) treat 'already active' as success and keep _scout_active_unit_id set, and (b) make _on_scout_confirm_pressed recover the active unit from PhaseManager.active_scout_moves if our cached id is empty. This scenario drives that exact path.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_phase", "equals": 4 },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').set('_scout_active_unit_id', 'U_WITCHSEEKERS_C')" },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').set('_scout_move_distance', 6.0)" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_SCOUT_MOVE",
+      "unit_id": "U_WITCHSEEKERS_C"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._setup_scout_unit_card_buttons('U_WITCHSEEKERS_C')" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m1",
+      "destination": { "x": 900.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m2",
+      "destination": { "x": 960.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m3",
+      "destination": { "x": 1020.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m4",
+      "destination": { "x": 1080.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_SCOUT_MOVE",
+      "unit_id": "U_WITCHSEEKERS_C"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').set('_scout_active_unit_id', '')" },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._scout_active_unit_id",
+      "equals": "" },
+
+    { "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
+      "emit_pressed": true },
+    { "act": "wait_frames", "frames": 5 },
+
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x)",
+      "equals": 900.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[1].position.x)",
+      "equals": 960.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[2].position.x)",
+      "equals": 1020.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[3].position.x)",
+      "equals": 1080.0 },
+    { "act": "screenshot", "label": "scout_confirm_after_reselect_succeeded" }
+  ]
+}

@@ -6275,7 +6275,9 @@ func _on_unit_selected(index: int) -> void:
 			"player": GameState.get_active_player()
 		}
 		var scout_result = NetworkIntegration.route_action(scout_action)
-		if scout_result.get("success", false):
+		var phase_inst = PhaseManager.get_current_phase_instance()
+		var already_active = phase_inst and phase_inst.get("active_scout_moves") and phase_inst.active_scout_moves.has(unit_id)
+		if scout_result.get("success", false) or already_active:
 			status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist)
 			# Show confirm/skip buttons
 			_setup_scout_unit_card_buttons(unit_id)
@@ -6284,9 +6286,10 @@ func _on_unit_selected(index: int) -> void:
 		else:
 			print("Main: BEGIN_SCOUT_MOVE failed: ", scout_result.get("errors", ["Scout move failed"]))
 			status_label.text = "Error: " + str(scout_result.get("errors", ["Scout move failed"]))
+			# Only clear cached unit id if the phase truly has no active scout
+			# for it. Otherwise we'd silently break Confirm/Skip for a unit
+			# the phase still considers "in progress".
 			_scout_active_unit_id = ""
-
-	elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
 		# Check if this is a reserve unit arriving as reinforcement
 		var selected_unit = GameState.get_unit(unit_id)
 		if selected_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
@@ -6374,7 +6377,9 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 				"player": GameState.get_active_player()
 			}
 			var scout_result_bp = NetworkIntegration.route_action(scout_action_bp)
-			if scout_result_bp.get("success", false):
+			var phase_inst_bp = PhaseManager.get_current_phase_instance()
+			var already_active_bp = phase_inst_bp and phase_inst_bp.get("active_scout_moves") and phase_inst_bp.active_scout_moves.has(unit_id)
+			if scout_result_bp.get("success", false) or already_active_bp:
 				status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist_bp)
 				_setup_scout_unit_card_buttons(unit_id)
 				_scout_highlight_active_unit(unit_id, scout_dist_bp)
@@ -11508,7 +11513,22 @@ func _setup_scout_unit_card_buttons(unit_id: String) -> void:
 func _on_scout_confirm_pressed() -> void:
 	"""Confirm the scout move for the active unit.
 	Shows confirmed path visual before cleanup (same as MovementController)."""
-	if _scout_active_unit_id == "":
+	# If our cached active-unit was cleared (e.g. by a re-select that hit a
+	# BEGIN_SCOUT_MOVE rejection), recover it from the phase before bailing.
+	# Without this, the click is a silent no-op while the player's tokens
+	# remain visually moved — producing the "visual ≠ state" bug.
+	var unit_id := _scout_active_unit_id
+	if unit_id == "":
+		var phase_instance = PhaseManager.get_current_phase_instance()
+		if phase_instance and phase_instance.get("active_scout_moves"):
+			var moves: Dictionary = phase_instance.active_scout_moves
+			if not moves.is_empty():
+				unit_id = str(moves.keys()[0])
+				_scout_active_unit_id = unit_id
+				print("Main: Recovered _scout_active_unit_id from phase: ", unit_id)
+	if unit_id == "":
+		print("Main: Scout confirm pressed with no active unit; snapping visuals back to state to avoid visual/state drift.")
+		_sync_all_token_positions()
 		return
 
 	# Show confirmed movement paths before cleanup (same as MovementController._show_confirmed_movement_paths)
@@ -11516,13 +11536,13 @@ func _on_scout_confirm_pressed() -> void:
 
 	var action = {
 		"type": "CONFIRM_SCOUT_MOVE",
-		"unit_id": _scout_active_unit_id,
+		"unit_id": unit_id,
 		"player": GameState.get_active_player()
 	}
 
 	var result = NetworkIntegration.route_action(action)
 	if result.get("success", false):
-		print("Main: Scout move confirmed for ", _scout_active_unit_id)
+		print("Main: Scout move confirmed for ", unit_id)
 		_scout_cleanup_after_move()
 		_recreate_unit_visuals()
 		refresh_unit_list()
@@ -11533,6 +11553,10 @@ func _on_scout_confirm_pressed() -> void:
 		status_label.text = "Error: " + str(errors)
 		if has_node("/root/ToastManager"):
 			get_node("/root/ToastManager").show_toast(str(errors[0]) if errors.size() > 0 else "Confirm failed", "error")
+		# Critical: roll visual tokens back to authoritative state so the
+		# player cannot drift into the "model appears at new spot but game
+		# still targets old spot" state described in the scout bug report.
+		_sync_all_token_positions()
 
 func _scout_show_confirmed_paths() -> void:
 	"""Show confirmed movement paths (hold + fade) for the scout move that was just confirmed.
@@ -11577,18 +11601,30 @@ func _scout_show_confirmed_paths() -> void:
 
 func _on_scout_skip_pressed() -> void:
 	"""Skip the scout move for the active unit."""
-	if _scout_active_unit_id == "":
+	# Mirror _on_scout_confirm_pressed: recover the active unit from the phase
+	# if our cached id was cleared, and always re-sync visuals to state on
+	# the way out so a skipped unit can't be left visually offset.
+	var unit_id := _scout_active_unit_id
+	if unit_id == "":
+		var phase_instance = PhaseManager.get_current_phase_instance()
+		if phase_instance and phase_instance.get("active_scout_moves"):
+			var moves: Dictionary = phase_instance.active_scout_moves
+			if not moves.is_empty():
+				unit_id = str(moves.keys()[0])
+				_scout_active_unit_id = unit_id
+	if unit_id == "":
+		_sync_all_token_positions()
 		return
 
 	var action = {
 		"type": "SKIP_SCOUT_MOVE",
-		"unit_id": _scout_active_unit_id,
+		"unit_id": unit_id,
 		"player": GameState.get_active_player()
 	}
 
 	var result = NetworkIntegration.route_action(action)
 	if result.get("success", false):
-		print("Main: Scout move skipped for ", _scout_active_unit_id)
+		print("Main: Scout move skipped for ", unit_id)
 		_scout_cleanup_after_move()
 		_recreate_unit_visuals()
 		refresh_unit_list()
@@ -11596,6 +11632,7 @@ func _on_scout_skip_pressed() -> void:
 	else:
 		print("Main: Scout skip failed: ", result.get("errors", []))
 		status_label.text = "Error: " + str(result.get("errors", ["Skip failed"]))
+		_sync_all_token_positions()
 
 func _scout_cleanup_after_move() -> void:
 	"""Clean up scout state after a move is confirmed or skipped."""

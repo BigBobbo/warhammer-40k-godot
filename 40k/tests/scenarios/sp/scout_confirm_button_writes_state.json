@@ -1,0 +1,108 @@
+{
+  "id": "scout_confirm_button_writes_state",
+  "covers": [
+    "phases.ScoutPhase.UI.confirm_button_persists_position_to_state"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "Bug repro via UI: player selects a scout unit, the unit card's Confirm button is wired to _on_scout_confirm_pressed, and clicking that real button must commit staged positions into GameState.state. This exercises the click-through path (button.pressed signal → handler → CONFIRM_SCOUT_MOVE action) — the dispatch-only test scout_confirm_persists_to_state.json wouldn't catch a bug where the button isn't wired or fires the wrong handler.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_phase", "equals": 4 },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').set('_scout_active_unit_id', 'U_WITCHSEEKERS_C')" },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').set('_scout_move_distance', 6.0)" },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._scout_active_unit_id",
+      "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_SCOUT_MOVE",
+      "unit_id": "U_WITCHSEEKERS_C"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._scout_active_unit_id",
+      "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._setup_scout_unit_card_buttons('U_WITCHSEEKERS_C')" },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._scout_active_unit_id",
+      "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m1",
+      "destination": { "x": 900.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m2",
+      "destination": { "x": 960.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m3",
+      "destination": { "x": 1020.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m4",
+      "destination": { "x": 1080.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x)",
+      "equals": 850.0 },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._scout_active_unit_id",
+      "equals": "U_WITCHSEEKERS_C" },
+    { "act": "execute_script",
+      "script": "str(get_node('/root/Main').confirm_button.pressed.is_connected(get_node('/root/Main')._on_scout_confirm_pressed))",
+      "equals": "true" },
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().active_scout_moves.has('U_WITCHSEEKERS_C'))",
+      "equals": "true" },
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().active_scout_moves['U_WITCHSEEKERS_C']['staged_positions'].size())",
+      "equals": "4" },
+
+    { "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
+      "emit_pressed": true },
+    { "act": "wait_frames", "frames": 5 },
+
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x)",
+      "equals": 900.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[1].position.x)",
+      "equals": 960.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[2].position.x)",
+      "equals": 1020.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[3].position.x)",
+      "equals": 1080.0 },
+    { "act": "screenshot", "label": "after_ui_confirm_button_pressed" }
+  ]
+}
