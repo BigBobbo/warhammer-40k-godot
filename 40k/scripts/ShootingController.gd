@@ -4209,6 +4209,7 @@ func _open_split_fire_picker(weapon_id: String, target_id: String, split: Dictio
 		ineligible_remaining_count += 1
 
 	var dialog := AcceptDialog.new()
+	dialog.name = "SplitFirePicker"
 	dialog.title = "Split Fire: %s → %s" % [weapon_name, target_name]
 	dialog.dialog_hide_on_ok = true
 
@@ -4230,6 +4231,7 @@ func _open_split_fire_picker(weapon_id: String, target_id: String, split: Dictio
 	spin_label.text = "Send:"
 	spin_row.add_child(spin_label)
 	var spin := SpinBox.new()
+	spin.name = "SplitFireSpin"
 	spin.min_value = 1
 	spin.max_value = max_n
 	spin.step = 1
