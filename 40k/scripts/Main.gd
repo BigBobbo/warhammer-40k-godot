@@ -225,13 +225,6 @@ var game_log_panel = null  # GameLogPanel instance
 var game_log_toggle_button: Button
 var _current_combat_card = null  # GameLogEntry - Tracks active combat card for grouping
 
-# P3-117: Dice Roll History panel UI elements
-var _dice_history_panel: PanelContainer = null
-var _dice_history_label: RichTextLabel = null
-var _dice_history_scroll: ScrollContainer = null
-var _is_dice_history_visible: bool = false
-var _dice_history_toggle_button: Button = null
-
 # P2-40: Deployment log panel — tracks all deployments in order for multiplayer visibility
 var _deployment_log_panel: PanelContainer = null
 var _deployment_log_label: RichTextLabel = null
@@ -473,9 +466,6 @@ func _ready() -> void:
 
 	# Setup Game Event Log panel
 	_setup_game_log_panel()
-
-	# P3-117: Setup Dice Roll History panel
-	_setup_dice_history_panel()
 
 	# T5-V3: Setup phase transition animation banner
 	_setup_phase_transition_banner()
@@ -9698,161 +9688,6 @@ func _prune_old_log_entries() -> void:
 	pass
 
 # ============================================================================
-# P3-117: Dice Roll History Panel
-# ============================================================================
-
-func _setup_dice_history_panel() -> void:
-	print("Main: Setting up Dice Roll History panel")
-
-	# Create panel anchored to the left side, offset from game log
-	_dice_history_panel = PanelContainer.new()
-	_dice_history_panel.name = "DiceHistoryPanel"
-	add_child(_dice_history_panel)
-
-	# Position to the right of the game log panel (280px) with a small gap
-	_dice_history_panel.anchor_left = 0.0
-	_dice_history_panel.anchor_right = 0.0
-	_dice_history_panel.anchor_top = 0.0
-	_dice_history_panel.anchor_bottom = 1.0
-	_dice_history_panel.offset_left = 345.0
-	_dice_history_panel.offset_right = 625.0
-	_dice_history_panel.offset_top = 105.0
-	_dice_history_panel.offset_bottom = -45.0
-
-	# Dark semi-transparent background matching game log style
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.12, 0.85)
-	style.border_width_left = 0
-	style.border_width_right = 2
-	style.border_width_top = 0
-	style.border_width_bottom = 0
-	style.border_color = Color(0.7, 0.5, 0.9, 0.6)  # Purple accent to distinguish from game log
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_right = 4
-	_dice_history_panel.add_theme_stylebox_override("panel", style)
-
-	# Main VBox
-	var vbox = VBoxContainer.new()
-	vbox.name = "VBox"
-	_dice_history_panel.add_child(vbox)
-
-	# Header with title and close button
-	var header = HBoxContainer.new()
-	header.custom_minimum_size = Vector2(0, 30)
-	vbox.add_child(header)
-
-	var title = Label.new()
-	title.text = "DICE HISTORY"
-	title.add_theme_font_size_override("font_size", 14)
-	title.add_theme_color_override("font_color", Color(0.7, 0.5, 0.9))
-	if FactionPalettes.FONT_RAJDHANI_BOLD:
-		title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
-
-	var clear_btn = Button.new()
-	clear_btn.text = "Clear"
-	clear_btn.custom_minimum_size = Vector2(45, 25)
-	clear_btn.add_theme_font_size_override("font_size", 11)
-	clear_btn.pressed.connect(_on_dice_history_clear_pressed)
-	_WhiteDwarfTheme.apply_secondary_button(clear_btn)
-	header.add_child(clear_btn)
-
-	var collapse_btn = Button.new()
-	collapse_btn.text = "X"
-	collapse_btn.custom_minimum_size = Vector2(30, 25)
-	collapse_btn.add_theme_font_size_override("font_size", 12)
-	collapse_btn.pressed.connect(_on_dice_history_collapse_pressed)
-	_WhiteDwarfTheme.apply_secondary_button(collapse_btn)
-	header.add_child(collapse_btn)
-
-	# Separator
-	var _gsep5 = ColorRect.new()
-	_gsep5.custom_minimum_size = Vector2(0, 2)
-	_gsep5.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
-	_gsep5.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(_gsep5)
-
-	# Scroll container for dice history entries
-	_dice_history_scroll = ScrollContainer.new()
-	_dice_history_scroll.name = "DiceHistoryScroll"
-	_dice_history_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_dice_history_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	vbox.add_child(_dice_history_scroll)
-
-	# RichTextLabel for color-coded dice entries
-	_dice_history_label = RichTextLabel.new()
-	_dice_history_label.name = "DiceHistoryLabel"
-	_dice_history_label.bbcode_enabled = true
-	_dice_history_label.fit_content = true
-	_dice_history_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_dice_history_label.scroll_active = false  # We use our own scroll container
-	_dice_history_label.add_theme_font_size_override("normal_font_size", 10)
-	_dice_history_label.add_theme_font_size_override("bold_font_size", 11)
-	_dice_history_scroll.add_child(_dice_history_label)
-
-	# Connect to DiceHistoryPanel autoload signal
-	if DiceHistoryPanel:
-		DiceHistoryPanel.roll_recorded.connect(_on_dice_history_roll_recorded)
-		print("Main: Connected to DiceHistoryPanel.roll_recorded")
-
-		# Populate any entries that were added before we connected
-		for entry_item in DiceHistoryPanel.get_history():
-			_append_dice_history_entry(entry_item)
-
-	# Add toggle button to HUD_Bottom
-	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
-	if hud_bottom:
-		_dice_history_toggle_button = Button.new()
-		_dice_history_toggle_button.name = "DiceHistoryToggle"
-		_dice_history_toggle_button.text = "Dice History"
-		_dice_history_toggle_button.pressed.connect(_on_dice_history_toggle_pressed)
-		_WhiteDwarfTheme.apply_tab_button(_dice_history_toggle_button, false)
-		hud_bottom.add_child(_dice_history_toggle_button)
-		# Position after the game log toggle button
-		var log_toggle_idx = game_log_toggle_button.get_index() if game_log_toggle_button else 1
-		hud_bottom.move_child(_dice_history_toggle_button, log_toggle_idx + 1)
-
-	# Start hidden — user opens via toggle button
-	_dice_history_panel.visible = false
-
-	print("Main: Dice Roll History panel created")
-
-func _on_dice_history_roll_recorded(entry: Dictionary) -> void:
-	_append_dice_history_entry(entry)
-
-	# Auto-scroll to bottom
-	if _dice_history_scroll:
-		await get_tree().process_frame
-		_dice_history_scroll.scroll_vertical = int(_dice_history_scroll.get_v_scroll_bar().max_value)
-
-func _append_dice_history_entry(entry: Dictionary) -> void:
-	if not _dice_history_label:
-		return
-	var bbcode = DiceHistoryPanel.format_entry_bbcode(entry)
-	_dice_history_label.append_text(bbcode + "\n")
-
-func _on_dice_history_collapse_pressed() -> void:
-	_is_dice_history_visible = false
-	if _dice_history_panel:
-		_dice_history_panel.visible = false
-	if _dice_history_toggle_button:
-		_dice_history_toggle_button.text = "Dice History"
-
-func _on_dice_history_toggle_pressed() -> void:
-	_is_dice_history_visible = !_is_dice_history_visible
-	if _dice_history_panel:
-		_dice_history_panel.visible = _is_dice_history_visible
-	if _dice_history_toggle_button:
-		_dice_history_toggle_button.text = "Hide Dice" if _is_dice_history_visible else "Dice History"
-
-func _on_dice_history_clear_pressed() -> void:
-	if DiceHistoryPanel:
-		DiceHistoryPanel.clear()
-	if _dice_history_label:
-		_dice_history_label.clear()
-
-# ============================================================================
 # Replay Mode
 # ============================================================================
 
@@ -9925,8 +9760,6 @@ func _initialize_replay_mode() -> void:
 
 	# Setup Game Event Log panel (useful for replay too)
 	_setup_game_log_panel()
-	# P3-117: Setup Dice Roll History panel
-	_setup_dice_history_panel()
 	_apply_white_dwarf_theme()
 
 	# Ensure all UI panels render above board elements in replay mode too
