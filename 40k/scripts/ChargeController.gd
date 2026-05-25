@@ -26,17 +26,18 @@ var last_processed_charge_roll: Dictionary = {}  # Tracks last processed roll to
 var _pending_complete_unit_id: String = ""  # Unit awaiting COMPLETE_UNIT_CHARGE after charge_resolved
 
 # Charge movement tracking
-var models_to_move: Array = []  # Models that still need to move
-var moved_models: Dictionary = {}  # model_id -> new_position
+var models_to_move: Array = []  # Composite "unit_id:model_id" keys that still need to move
+var moved_models: Dictionary = {}  # "unit_id:model_id" -> {unit_id, model_id, position, rotation}
 # T-092: per-model undo state for charge pile-in
-var _moved_model_order: Array = []  # Order in which models were moved (for last-undone)
-var _model_origin_positions: Dictionary = {}  # model_id -> Vector2 pre-charge position
-var _model_origin_rotations: Dictionary = {}  # model_id -> float pre-charge rotation
+var _moved_model_order: Array = []  # Composite keys, in placement order
+var _model_origin_positions: Dictionary = {}  # "unit_id:model_id" -> Vector2 pre-charge position
+var _model_origin_rotations: Dictionary = {}  # "unit_id:model_id" -> float pre-charge rotation
 var undo_charge_model_button: Button = null
 var auto_path_charge_button: Button = null  # T-092: auto-suggests valid charge positions
 var dragging_model = null  # Currently dragging model
+var dragging_model_unit_id: String = ""  # Owning unit of dragging_model (may be attached character, not active_unit_id)
 var ghost_visual: Node2D = null  # Ghost visual for dragging
-var movement_lines: Dictionary = {}  # model_id -> Line2D for movement path
+var movement_lines: Dictionary = {}  # "unit_id:model_id" -> Line2D for movement path
 var confirm_button: Button = null  # Button to confirm charge moves
 var charge_direction_visual: Node2D = null  # P3-99: Live direction validation feedback
 
@@ -179,6 +180,7 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 		return
 
 	print("DEBUG: Models to move: ", models_to_move)
+	var group_uids = _charge_group_unit_ids()
 
 	# Check each token in the layer
 	for child in token_layer.get_children():
@@ -188,8 +190,12 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 		var unit_id = child.get_meta("unit_id")
 		var model_id = child.get_meta("model_id")
 
-		# Check if this is our charging unit and a model we need to move
-		if unit_id != active_unit_id or model_id not in models_to_move:
+		# Accept any model in the charge group (bodyguard or attached character)
+		# that still needs to move.
+		if unit_id not in group_uids:
+			continue
+		var key = _model_key(unit_id, model_id)
+		if key not in models_to_move:
 			continue
 
 		# Check if the click is on this token
@@ -197,19 +203,19 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 		var token_radius = 25.2  # Standard token radius in pixels
 
 		var distance = token_global_pos.distance_to(global_pos)
-		print("DEBUG: Token ", model_id, " at global ", token_global_pos, " distance from click: ", distance)
+		print("DEBUG: Token ", key, " at global ", token_global_pos, " distance from click: ", distance)
 
 		if distance <= token_radius:
-			print("DEBUG: Clicked on model ", model_id)
+			print("DEBUG: Clicked on model ", key)
 
-			# Get the model data from GameState
-			var unit = GameState.get_unit(active_unit_id)
+			# Get the model data from the owning unit (may be attached character).
+			var unit = GameState.get_unit(unit_id)
 			print("DEBUG: Retrieved unit from GameState: ", unit.get("meta", {}).get("name", "unknown"))
 
 			for model in unit.get("models", []):
 				if model.get("id", "") == model_id:
-					# Log the complete model data from GameState
 					print("DEBUG: Model data from GameState:")
+					print("  unit_id: ", unit_id)
 					print("  id: ", model.get("id", "NOT SET"))
 					print("  base_mm: ", model.get("base_mm", "NOT SET"))
 					print("  base_type: ", model.get("base_type", "NOT SET"))
@@ -219,6 +225,7 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 					print("  Full model keys: ", model.keys())
 
 					dragging_model = model
+					dragging_model_unit_id = unit_id
 					# Convert token position to BoardRoot local coordinates
 					var board_root = get_node_or_null("/root/Main/BoardRoot")
 					if board_root:
@@ -1013,29 +1020,38 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 	_model_origin_rotations.clear()  # T-092
 	_clear_movement_visuals()
 
-	# Get all alive models in the unit
-	var unit = GameState.get_unit(unit_id)
-	if unit.is_empty():
-		print("ERROR: Unit ", unit_id, " not found in GameState!")
+	# Include the bodyguard's models AND any attached character models so the
+	# player can explicitly place every model in the charging group, matching
+	# how MovementController treats bodyguard + leader as one unit. Keys are
+	# composite "unit_id:model_id" to disambiguate model_id collisions.
+	var group_uids = _charge_group_unit_ids()
+	if group_uids.is_empty():
+		print("ERROR: No active charge group for unit ", unit_id, "!")
 		return
 
-	print("DEBUG: Unit has ", unit.get("models", []).size(), " models total")
-	for model in unit.get("models", []):
-		if model.get("alive", true):
-			var model_id = model.get("id", "")
-			models_to_move.append(model_id)
-			# T-092: capture pre-charge origin position + rotation for undo
-			var pos = model.get("position")
-			if pos != null:
-				var p: Vector2
-				if pos is Dictionary:
-					p = Vector2(pos.get("x", 0), pos.get("y", 0))
-				else:
-					p = pos
-				_model_origin_positions[model_id] = p
-				_model_origin_rotations[model_id] = model.get("rotation", 0.0)
-			print("DEBUG: Added model ", model_id, " to models_to_move")
-	
+	for grp_uid in group_uids:
+		var grp_unit = GameState.get_unit(grp_uid)
+		if grp_unit.is_empty():
+			print("ERROR: Charge-group unit ", grp_uid, " not found in GameState!")
+			continue
+		print("DEBUG: Charge-group unit ", grp_uid, " has ", grp_unit.get("models", []).size(), " models")
+		for model in grp_unit.get("models", []):
+			if model.get("alive", true):
+				var model_id = model.get("id", "")
+				var key = _model_key(grp_uid, model_id)
+				models_to_move.append(key)
+				# T-092: capture pre-charge origin position + rotation for undo
+				var pos = model.get("position")
+				if pos != null:
+					var p: Vector2
+					if pos is Dictionary:
+						p = Vector2(pos.get("x", 0), pos.get("y", 0))
+					else:
+						p = pos
+					_model_origin_positions[key] = p
+					_model_origin_rotations[key] = model.get("rotation", 0.0)
+				print("DEBUG: Added ", key, " to models_to_move")
+
 	print("Models to move: ", models_to_move)
 
 	# Show engagement range circles around charge target models
@@ -1175,16 +1191,19 @@ func _add_confirm_button() -> void:
 func _on_undo_last_charge_model() -> void:
 	if _moved_model_order.is_empty():
 		return
-	var model_id: String = _moved_model_order.pop_back()
-	moved_models.erase(model_id)
-	if model_id not in models_to_move:
-		models_to_move.append(model_id)
-	# Restore GameState position + rotation
-	var origin_pos: Vector2 = _model_origin_positions.get(model_id, Vector2.ZERO)
-	var origin_rot: float = _model_origin_rotations.get(model_id, 0.0)
-	if origin_pos != Vector2.ZERO and active_unit_id != "":
-		_update_model_position_in_gamestate(active_unit_id, model_id, origin_pos)
-		_move_token_visual(active_unit_id, model_id, origin_pos, origin_rot)
+	var key: String = _moved_model_order.pop_back()
+	var decoded = _decode_model_key(key)
+	var owner_unit_id: String = decoded.unit_id
+	var model_id: String = decoded.model_id
+	moved_models.erase(key)
+	if key not in models_to_move:
+		models_to_move.append(key)
+	# Restore GameState position + rotation in the model's actual owning unit
+	var origin_pos: Vector2 = _model_origin_positions.get(key, Vector2.ZERO)
+	var origin_rot: float = _model_origin_rotations.get(key, 0.0)
+	if origin_pos != Vector2.ZERO and owner_unit_id != "":
+		_update_model_position_in_gamestate(owner_unit_id, model_id, origin_pos)
+		_move_token_visual(owner_unit_id, model_id, origin_pos, origin_rot)
 	# Update charge info label
 	if is_instance_valid(charge_info_label):
 		if models_to_move.is_empty():
@@ -1197,7 +1216,7 @@ func _on_undo_last_charge_model() -> void:
 	# Disable undo button if no more moves to undo
 	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
 		undo_charge_model_button.disabled = _moved_model_order.is_empty()
-	print("[T-092] Undid charge model %s, restored to %s" % [model_id, str(origin_pos)])
+	print("[T-092] Undid charge model %s, restored to %s" % [key, str(origin_pos)])
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")
@@ -1208,6 +1227,45 @@ func _get_model_position(model: Dictionary) -> Vector2:
 	elif pos is Vector2:
 		return pos
 	return Vector2.ZERO
+
+# Composite-key helpers — used to disambiguate models from the active bodyguard
+# unit vs. any attached character unit during charge moves (both can share
+# model IDs like "m1"). Mirrors MovementController.
+func _model_key(unit_id: String, model_id: String) -> String:
+	return "%s:%s" % [unit_id, model_id]
+
+func _decode_model_key(key: String) -> Dictionary:
+	var idx = key.find(":")
+	if idx < 0:
+		# Back-compat: bare model_id, assume bodyguard
+		return {"unit_id": active_unit_id, "model_id": key}
+	return {"unit_id": key.substr(0, idx), "model_id": key.substr(idx + 1)}
+
+func _charge_group_unit_ids() -> Array:
+	# Returns [active_unit_id, ...attached_characters]. These are the units
+	# whose models the player is allowed to place during the current charge.
+	var group: Array = []
+	if active_unit_id == "":
+		return group
+	group.append(active_unit_id)
+	var unit = GameState.get_unit(active_unit_id)
+	if unit.is_empty():
+		return group
+	var attached = unit.get("attachment_data", {}).get("attached_characters", [])
+	for cid in attached:
+		group.append(cid)
+	return group
+
+func _find_model_in_group(unit_id: String, model_id: String) -> Dictionary:
+	if unit_id not in _charge_group_unit_ids():
+		return {}
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return {}
+	for model in unit.get("models", []):
+		if model.get("id", "") == model_id:
+			return model
+	return {}
 
 func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 	# Find model under the cursor
@@ -1269,7 +1327,9 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 
 		# Use GhostVisual for consistent ghost rendering across all controllers
 		var ghost_token = preload("res://scripts/GhostVisual.gd").new()
-		var unit = GameState.get_unit(active_unit_id)
+		# Use the dragging model's actual owning unit (may be an attached character).
+		var owning_unit_id = dragging_model_unit_id if dragging_model_unit_id != "" else active_unit_id
+		var unit = GameState.get_unit(owning_unit_id)
 		ghost_token.owner_player = unit.get("owner", 1)
 		# Set the complete model data for shape handling
 		ghost_token.set_model_data(model)
@@ -1290,7 +1350,7 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 		line.add_point(original_pos)
 		line.add_point(world_pos)
 		board_root.add_child(line)
-		movement_lines[model_id] = line
+		movement_lines[_model_key(owning_unit_id, model_id)] = line
 
 		# P3-99: Create direction validation visual
 		if not charge_direction_visual or not is_instance_valid(charge_direction_visual):
@@ -1305,6 +1365,7 @@ func _update_model_drag(world_pos: Vector2) -> void:
 		return
 
 	var model_id = dragging_model.get("id", "")
+	var drag_key = _model_key(dragging_model_unit_id, model_id)
 	var effective_pos = world_pos  # Position that may be adjusted by snap
 
 	# Base-to-base snap: check if cursor is close enough to snap to a target
@@ -1333,8 +1394,8 @@ func _update_model_drag(world_pos: Vector2) -> void:
 		ghost_visual.position = effective_pos
 
 	# Update movement line
-	if model_id in movement_lines:
-		var line = movement_lines[model_id]
+	if drag_key in movement_lines:
+		var line = movement_lines[drag_key]
 		if line.get_point_count() > 1:
 			line.set_point_position(1, effective_pos)
 
@@ -1374,12 +1435,14 @@ func _end_model_drag(world_pos: Vector2) -> void:
 		return
 
 	var model_id = dragging_model.get("id", "")
+	var drag_unit_id = dragging_model_unit_id if dragging_model_unit_id != "" else active_unit_id
+	var drag_key = _model_key(drag_unit_id, model_id)
 
 	# Use snapped position if snap is active
 	var final_pos = world_pos
 	if snap_active:
 		final_pos = snap_position
-		print("DEBUG: Using snapped position for model ", model_id, " at ", final_pos)
+		print("DEBUG: Using snapped position for model ", drag_key, " at ", final_pos)
 
 	# Reset snap state
 	snap_active = false
@@ -1388,8 +1451,8 @@ func _end_model_drag(world_pos: Vector2) -> void:
 
 	# Validate final position
 	if _validate_charge_position(dragging_model, final_pos):
-		print("Model ", model_id, " moved to valid position")
-		
+		print("Model ", drag_key, " moved to valid position")
+
 		# Calculate and store distance moved
 		var start_pos = _get_model_position(dragging_model)
 		if start_pos:
@@ -1401,15 +1464,18 @@ func _end_model_drag(world_pos: Vector2) -> void:
 			# Update distance display for this model (with terrain breakdown)
 			_update_charge_distance_display(model_id, distance_moved_inches, terrain_penalty)
 
-		# Store the new position AND rotation
-		moved_models[model_id] = {
+		# Store the new position AND rotation, keyed by composite "unit_id:model_id"
+		# so attached-character models with colliding model_ids stay distinct.
+		moved_models[drag_key] = {
+			"unit_id": drag_unit_id,
+			"model_id": model_id,
 			"position": final_pos,
 			"rotation": dragging_model.get("rotation", 0.0)
 		}
 		# T-092: track ordering for per-model undo
-		if model_id in _moved_model_order:
-			_moved_model_order.erase(model_id)
-		_moved_model_order.append(model_id)
+		if drag_key in _moved_model_order:
+			_moved_model_order.erase(drag_key)
+		_moved_model_order.append(drag_key)
 		# Enable undo button now that at least one model has moved
 		if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
 			undo_charge_model_button.disabled = false
@@ -1417,16 +1483,16 @@ func _end_model_drag(world_pos: Vector2) -> void:
 		# IMPORTANT: Update GameState FIRST with position and rotation
 		# This ensures GameState has the correct data before we update visuals
 		print("DEBUG: Updating GameState position and rotation FIRST")
-		_update_model_position_in_gamestate(active_unit_id, model_id, final_pos)
+		_update_model_position_in_gamestate(drag_unit_id, model_id, final_pos)
 
 		# NOW update the visual token (after GameState has been updated)
 		print("DEBUG: Moving token visual after GameState update")
 		var model_rotation = dragging_model.get("rotation", 0.0)
-		_move_token_visual(active_unit_id, model_id, final_pos, model_rotation)
-		
+		_move_token_visual(drag_unit_id, model_id, final_pos, model_rotation)
+
 		# Remove from models to move
-		models_to_move.erase(model_id)
-		
+		models_to_move.erase(drag_key)
+
 		# Update button state
 		if moved_models.size() > 0 and is_instance_valid(confirm_button):
 			confirm_button.disabled = false
@@ -1436,7 +1502,7 @@ func _end_model_drag(world_pos: Vector2) -> void:
 			print("DEBUG: Confirm button visible: ", confirm_button.visible)
 		else:
 			print("DEBUG: Confirm button not enabled - moved_models.size() = ", moved_models.size(), " confirm_button valid = ", is_instance_valid(confirm_button))
-		
+
 		# Update info
 		if is_instance_valid(charge_info_label):
 			if models_to_move.is_empty():
@@ -1444,40 +1510,41 @@ func _end_model_drag(world_pos: Vector2) -> void:
 			else:
 				charge_info_label.text = "Move remaining %d models into engagement range" % models_to_move.size()
 	else:
-		print("Model ", model_id, " position invalid - reverting")
+		print("Model ", drag_key, " position invalid - reverting")
 		if is_instance_valid(charge_info_label):
 			charge_info_label.text = "Invalid position! Must be within %d\" and reach engagement range" % charge_distance
-		
+
 		# Revert token to original position and rotation if drag was invalid
 		var original_pos = dragging_model.get("original_position")
 		if original_pos:
-			# Get original rotation from GameState
+			# Get original rotation from the model's actual owning unit
 			var original_rotation = 0.0
-			var unit = GameState.get_unit(active_unit_id)
+			var unit = GameState.get_unit(drag_unit_id)
 			for model in unit.get("models", []):
 				if model.get("id", "") == model_id:
 					original_rotation = model.get("rotation", 0.0)
 					break
-			_move_token_visual(active_unit_id, model_id, original_pos, original_rotation)
-			print("DEBUG: Reverted token ", model_id, " to original position ", original_pos, " and rotation ", rad_to_deg(original_rotation), " degrees")
-	
+			_move_token_visual(drag_unit_id, model_id, original_pos, original_rotation)
+			print("DEBUG: Reverted token ", drag_key, " to original position ", original_pos, " and rotation ", rad_to_deg(original_rotation), " degrees")
+
 	# Clean up ghost visual and movement line
 	if ghost_visual:
 		ghost_visual.queue_free()
 		ghost_visual = null
 
 	# Clean up movement line
-	if model_id in movement_lines:
-		var line = movement_lines[model_id]
+	if drag_key in movement_lines:
+		var line = movement_lines[drag_key]
 		if is_instance_valid(line):
 			line.queue_free()
-		movement_lines.erase(model_id)
+		movement_lines.erase(drag_key)
 
 	# P3-99: Deactivate direction visual (hide but keep for next drag)
 	if charge_direction_visual and is_instance_valid(charge_direction_visual):
 		charge_direction_visual.deactivate()
 
 	dragging_model = null
+	dragging_model_unit_id = ""
 
 func _move_token_visual(unit_id: String, model_id: String, new_pos: Vector2, rotation: float = 0.0) -> void:
 	# Find and move the actual token visual on screen
@@ -1800,29 +1867,33 @@ func _on_confirm_charge_moves() -> void:
 	print("DEBUG: _on_confirm_charge_moves called!")
 	print("Confirming charge moves for ", active_unit_id)
 
-	# Build the per-model paths and rotations for the charge action
+	# Build per-model paths/rotations for the charge action. Bodyguard models go
+	# in under plain model_id keys (back-compat with existing tests/replays);
+	# attached-character models go in under composite "unit_id:model_id" keys so
+	# ChargePhase can route them to the correct unit. True pre-charge start
+	# positions come from _model_origin_positions, because GameState was
+	# updated in-place during each drag (so reading it here would yield the
+	# already-final position).
 	var per_model_paths = {}
 	var per_model_rotations = {}
 	print("DEBUG: Building per_model_paths from moved_models: ", moved_models.keys())
-	for model_id in moved_models:
-		var move_data = moved_models[model_id]
-		var new_pos = move_data["position"] if move_data is Dictionary else move_data
-		var new_rotation = move_data["rotation"] if move_data is Dictionary and move_data.has("rotation") else 0.0
-		print("DEBUG: Processing moved model ", model_id, " to position ", new_pos, " with rotation ", rad_to_deg(new_rotation), " degrees")
-		# For charge moves, we just need start and end positions
-		var unit = GameState.get_unit(active_unit_id)
-		var old_pos = null
-		for model in unit.get("models", []):
-			if model.get("id", "") == model_id:
-				old_pos = _get_model_position(model)
-				break
+	for key in moved_models:
+		var move_data = moved_models[key]
+		if not (move_data is Dictionary):
+			continue
+		var owner_unit_id: String = move_data.get("unit_id", active_unit_id)
+		var model_id: String = move_data.get("model_id", "")
+		var new_pos: Vector2 = move_data.get("position", Vector2.ZERO)
+		var new_rotation: float = move_data.get("rotation", 0.0)
+		var old_pos: Vector2 = _model_origin_positions.get(key, Vector2.ZERO)
+		print("DEBUG: Processing moved model ", key, " from ", old_pos, " to ", new_pos, " rot ", rad_to_deg(new_rotation), " deg")
 
-		if old_pos and new_pos:
-			per_model_paths[model_id] = [[old_pos.x, old_pos.y], [new_pos.x, new_pos.y]]
-			per_model_rotations[model_id] = new_rotation
-			print("DEBUG: Created path for ", model_id, ": ", per_model_paths[model_id], " with rotation: ", rad_to_deg(new_rotation))
-		else:
-			print("DEBUG: Failed to create path for ", model_id, " - old_pos: ", old_pos, " new_pos: ", new_pos)
+		# Use composite key for attached characters; plain model_id for the
+		# bodyguard (preserves existing payload shape that tests rely on).
+		var payload_key: String = model_id if owner_unit_id == active_unit_id else key
+		per_model_paths[payload_key] = [[old_pos.x, old_pos.y], [new_pos.x, new_pos.y]]
+		per_model_rotations[payload_key] = new_rotation
+		print("DEBUG: Created path for ", payload_key, ": ", per_model_paths[payload_key], " rot ", rad_to_deg(new_rotation))
 
 	# Store the unit_id so the charge_resolved handler can send COMPLETE_UNIT_CHARGE
 	_pending_complete_unit_id = active_unit_id
@@ -2596,11 +2667,13 @@ func _check_position_would_overlap(model: Dictionary, new_pos: Vector2) -> bool:
 			if not check_model.get("alive", true):
 				continue
 
-			# Get the current position of the other model
-			# For other charging models in same unit, check their moved positions
+			# Get the current position of the other model.
+			# For other models in the charge group (bodyguard + attached chars),
+			# prefer the staged moved position if the player has already placed it.
 			var other_position = _get_model_position(check_model)
-			if check_unit_id == unit_id and moved_models.has(check_model_id):
-				var moved_data = moved_models[check_model_id]
+			var other_key = _model_key(check_unit_id, check_model_id)
+			if check_unit_id in _charge_group_unit_ids() and moved_models.has(other_key):
+				var moved_data = moved_models[other_key]
 				if moved_data is Dictionary and moved_data.has("position"):
 					other_position = moved_data["position"]
 				elif moved_data is Vector2:
@@ -3344,11 +3417,19 @@ func _on_auto_path_charge() -> void:
 	if target_positions.is_empty():
 		print("[T-092 auto-path] No target positions available")
 		return
-	# Iterate models still needing to move, place each adjacent to closest target
+	# Iterate models still needing to move, place each adjacent to closest target.
+	# Keys are composite "unit_id:model_id" — auto-path handles the bodyguard
+	# AND any attached character models that haven't been explicitly placed.
 	var to_move_copy = models_to_move.duplicate()
-	for model_id in to_move_copy:
+	for key in to_move_copy:
+		var decoded = _decode_model_key(key)
+		var owner_unit_id: String = decoded.unit_id
+		var model_id: String = decoded.model_id
+		var owner_unit = GameState.get_unit(owner_unit_id)
+		if owner_unit.is_empty():
+			continue
 		var model: Dictionary = {}
-		for m in unit.get("models", []):
+		for m in owner_unit.get("models", []):
 			if m.get("id", "") == model_id:
 				model = m
 				break
@@ -3376,16 +3457,21 @@ func _on_auto_path_charge() -> void:
 		# Validate position via existing helper
 		if _validate_charge_position(model, candidate):
 			# Stage the move (mirroring _end_model_drag behavior)
-			moved_models[model_id] = {"position": candidate, "rotation": model.get("rotation", 0.0)}
-			if model_id in _moved_model_order:
-				_moved_model_order.erase(model_id)
-			_moved_model_order.append(model_id)
-			_update_model_position_in_gamestate(active_unit_id, model_id, candidate)
-			_move_token_visual(active_unit_id, model_id, candidate, model.get("rotation", 0.0))
-			models_to_move.erase(model_id)
-			print("[T-092 auto-path] Placed %s at %s (target dist=%.1f\")" % [model_id, str(candidate), Measurement.px_to_inches(candidate.distance_to(closest_target["pos"]))])
+			moved_models[key] = {
+				"unit_id": owner_unit_id,
+				"model_id": model_id,
+				"position": candidate,
+				"rotation": model.get("rotation", 0.0)
+			}
+			if key in _moved_model_order:
+				_moved_model_order.erase(key)
+			_moved_model_order.append(key)
+			_update_model_position_in_gamestate(owner_unit_id, model_id, candidate)
+			_move_token_visual(owner_unit_id, model_id, candidate, model.get("rotation", 0.0))
+			models_to_move.erase(key)
+			print("[T-092 auto-path] Placed %s at %s (target dist=%.1f\")" % [key, str(candidate), Measurement.px_to_inches(candidate.distance_to(closest_target["pos"]))])
 		else:
-			print("[T-092 auto-path] No valid placement found for %s" % model_id)
+			print("[T-092 auto-path] No valid placement found for %s" % key)
 	# Refresh button states
 	if confirm_button and is_instance_valid(confirm_button):
 		confirm_button.disabled = moved_models.is_empty()

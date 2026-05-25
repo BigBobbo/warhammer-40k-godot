@@ -118,6 +118,67 @@ func _run_tests():
 	_check("No changes emitted when per_model_paths is empty",
 		empty_changes.is_empty(), "got %d" % empty_changes.size())
 
+	# 6. Explicit-placement: when the player explicitly drags the leader, its
+	#    composite "char_uid:model_id" entry should override the auto-follow
+	#    delta and the main position-write loop should send the change.
+	var explicit_paths := {
+		"m1": [[100, 100], [300, 100]],
+		"m2": [[140, 100], [340, 100]],
+		"m3": [[180, 100], [380, 100]],
+		"%s:m1" % leader_id: [[140, 140], [350, 160]],  # leader placed offset from delta-follow position
+	}
+
+	var explicit_finals = phase._get_attached_character_final_models(bodyguard_id, explicit_paths)
+	_check("Explicit char placement used as final position",
+		explicit_finals.size() == 1 and explicit_finals[0].get("position") == Vector2(350, 160),
+		"got %s" % str(explicit_finals))
+
+	var explicit_auto_changes = phase._build_attached_character_charge_changes(bodyguard_id, explicit_paths)
+	_check("Auto-follow skips explicitly-placed leader (no auto change)",
+		explicit_auto_changes.is_empty(), "got %d" % explicit_auto_changes.size())
+
+	# 7. Key parser back-compat: plain "m1" defaults to actor unit; composite
+	#    "U_X:m1" decodes properly.
+	var plain = phase._parse_charge_model_key("m1", bodyguard_id)
+	_check("Plain key defaults to actor unit",
+		plain.get("unit_id") == bodyguard_id and plain.get("model_id") == "m1",
+		"got %s" % str(plain))
+	var comp = phase._parse_charge_model_key("%s:m1" % leader_id, bodyguard_id)
+	_check("Composite key decodes to leader unit",
+		comp.get("unit_id") == leader_id and comp.get("model_id") == "m1",
+		"got %s" % str(comp))
+
+	# 8. Direction validator must accept explicit leader placements (lookup
+	#    must use leader unit_id, not bodyguard's).
+	game_state.state["units"]["U_ENEMY_TARGET"] = {
+		"owner": 2,
+		"status": 3,
+		"meta": {"name": "Enemy", "keywords": []},
+		"models": [make_model.call("e1", px.call(800, 100))],
+		"flags": {},
+	}
+	phase.game_state_snapshot = game_state.state.duplicate(true)
+	var dir_paths := {
+		"m1": [[100, 100], [300, 100]],
+		"%s:m1" % leader_id: [[140, 140], [340, 140]],  # leader moves 200px right toward target
+	}
+	var dir_result = phase._validate_charge_direction_constraint(bodyguard_id, dir_paths, ["U_ENEMY_TARGET"])
+	_check("Direction validator passes for both bodyguard and leader explicit move",
+		dir_result.get("valid", false),
+		"errors: %s" % str(dir_result.get("errors", [])))
+
+	# 9. Overlap validator must distinguish leader and bodyguard final positions.
+	#    Place leader on top of bodyguard m2's final position → overlap detected.
+	var ovl_paths := {
+		"m1": [[100, 100], [300, 100]],
+		"m2": [[140, 100], [340, 100]],
+		"%s:m1" % leader_id: [[140, 140], [340, 100]],  # same spot as m2 final → overlap
+	}
+	var ovl_result = phase._validate_no_model_overlaps(bodyguard_id, ovl_paths)
+	_check("Overlap validator catches leader placed on bodyguard final position",
+		not ovl_result.get("valid", true),
+		"errors: %s" % str(ovl_result.get("errors", [])))
+
 	phase.free()
 	_finish()
 

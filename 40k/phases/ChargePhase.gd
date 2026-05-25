@@ -1102,40 +1102,50 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	# Apply successful charge movement
 	var changes = []
 
-	# Update model positions
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	# Update model positions. Keys in per_model_paths are either plain "model_id"
+	# (bodyguard models, back-compat with existing tests/replays) or composite
+	# "unit_id:model_id" (attached-character models the player explicitly placed).
+	for key in per_model_paths:
+		var path = per_model_paths[key]
 
 		if not (path is Array and path.size() > 0):
-			DebugLogger.info(str("WARNING: Invalid path for model ", model_id, " - skipping"))
+			DebugLogger.info(str("WARNING: Invalid path for model ", key, " - skipping"))
 			continue
+
+		var parsed = _parse_charge_model_key(key, unit_id)
+		var target_unit_id: String = parsed.unit_id
+		var target_model_id: String = parsed.model_id
 
 		var final_pos = path[-1]  # Last position in path
-		var model_index = _get_model_index(unit_id, model_id)
+		var model_index = _get_model_index(target_unit_id, target_model_id)
 
 		if model_index < 0:
-			DebugLogger.info(str("ERROR: Invalid model_index for ", model_id, " - model not found in unit"))
+			DebugLogger.info(str("ERROR: Invalid model_index for ", key, " (unit=%s, model=%s) - model not found" % [target_unit_id, target_model_id]))
 			continue
 
+		# final_pos may be [x, y], Vector2, or {x, y}
+		var fx = final_pos[0] if final_pos is Array else (final_pos.x if final_pos is Vector2 else final_pos.get("x", 0))
+		var fy = final_pos[1] if final_pos is Array else (final_pos.y if final_pos is Vector2 else final_pos.get("y", 0))
 		var change = {
 			"op": "set",
-			"path": "units.%s.models.%d.position" % [unit_id, model_index],
-			"value": {"x": final_pos[0], "y": final_pos[1]}
+			"path": "units.%s.models.%d.position" % [target_unit_id, model_index],
+			"value": {"x": fx, "y": fy}
 		}
 		changes.append(change)
 
 		# Also apply rotation if provided
-		if per_model_rotations.has(model_id):
-			var rotation = per_model_rotations[model_id]
+		if per_model_rotations.has(key):
+			var rotation = per_model_rotations[key]
 			var rotation_change = {
 				"op": "set",
-				"path": "units.%s.models.%d.rotation" % [unit_id, model_index],
+				"path": "units.%s.models.%d.rotation" % [target_unit_id, model_index],
 				"value": rotation
 			}
 			changes.append(rotation_change)
 
-	# Move any attached characters with the bodyguard so they don't get left
-	# behind and break coherency. Mirrors MovementPhase._move_attached_characters.
+	# Auto-move any attached-character models the player did NOT explicitly
+	# place. Without this the leader gets left behind and breaks coherency.
+	# Mirrors MovementPhase._move_attached_characters.
 	changes.append_array(_build_attached_character_charge_changes(unit_id, per_model_paths))
 
 	# Mark unit as charged and grant Fights First
@@ -1633,16 +1643,19 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 
 		var unit_in_er_of_target = false
 
-		for model_id in per_model_paths:
-			var path = per_model_paths[model_id]
+		for key in per_model_paths:
+			var path = per_model_paths[key]
 			if path is Array and path.size() > 0:
+				var parsed = _parse_charge_model_key(key, unit_id)
+				var ent_unit_id: String = parsed.unit_id
+				var ent_model_id: String = parsed.model_id
 				var final_pos = Vector2(path[-1][0], path[-1][1])
-				var model = _get_model_in_unit(unit_id, model_id)
+				var model = _get_model_in_unit(ent_unit_id, ent_model_id)
 
 				if model.is_empty():
-					print("ChargePhase ER_DEBUG: model_id=%s NOT FOUND in unit %s — using empty dict" % [model_id, unit_id])
+					print("ChargePhase ER_DEBUG: model_id=%s NOT FOUND in unit %s — using empty dict" % [ent_model_id, ent_unit_id])
 				else:
-					print("ChargePhase ER_DEBUG: model_id=%s found, base_mm=%s base_type=%s pos=%s" % [model_id, model.get("base_mm", "?"), model.get("base_type", "?"), str(final_pos)])
+					print("ChargePhase ER_DEBUG: model_id=%s found in %s, base_mm=%s base_type=%s pos=%s" % [ent_model_id, ent_unit_id, model.get("base_mm", "?"), model.get("base_type", "?"), str(final_pos)])
 
 				# Create a temporary model dict with the final position for shape-aware checks
 				var model_at_final_pos = model.duplicate()
@@ -1662,7 +1675,7 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 					var dist_px = Measurement.model_to_model_distance_px(model_at_final_pos, target_model)
 					var er_px = Measurement.inches_to_px(effective_er)
 					print("ChargePhase ER_DEBUG: model %s→target_model %s: dist_px=%.1f er_px=%.1f (%.2f\") center_dist=%.1f target_base=%s target_type=%s" % [
-						model_id, target_model.get("id", "?"), dist_px, er_px, dist_px / 40.0,
+						ent_model_id, target_model.get("id", "?"), dist_px, er_px, dist_px / 40.0,
 						final_pos.distance_to(target_pos), target_model.get("base_mm", "?"), target_model.get("base_type", "?")])
 					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, target_model, effective_er):
 						unit_in_er_of_target = true
@@ -1686,11 +1699,12 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 			continue  # Skip declared targets
 
 		# Check if any charging model ends in ER of this non-target
-		for model_id in per_model_paths:
-			var path = per_model_paths[model_id]
+		for key in per_model_paths:
+			var path = per_model_paths[key]
 			if path is Array and path.size() > 0:
+				var parsed = _parse_charge_model_key(key, unit_id)
 				var final_pos = Vector2(path[-1][0], path[-1][1])
-				var model = _get_model_in_unit(unit_id, model_id)
+				var model = _get_model_in_unit(parsed.unit_id, parsed.model_id)
 
 				# Create a temporary model dict with the final position for shape-aware checks
 				var model_at_final_pos = model.duplicate()
@@ -1716,19 +1730,24 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
 	var errors = []
 
-	# Build model dicts with final positions for shape-aware distance checks
+	# Build model dicts with final positions for shape-aware distance checks.
+	# Only consider bodyguard models here; explicit attached-character entries
+	# and any auto-followed attached models are added below via the helper.
 	var final_models = []
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for key in per_model_paths:
+		var path = per_model_paths[key]
 		if path is Array and path.size() > 0:
-			var model = _get_model_in_unit(unit_id, model_id)
+			var parsed = _parse_charge_model_key(key, unit_id)
+			if parsed.unit_id != unit_id:
+				continue  # Attached-character entry — handled by helper below
+			var model = _get_model_in_unit(parsed.unit_id, parsed.model_id)
 			var model_at_final = model.duplicate()
 			model_at_final["position"] = Vector2(path[-1][0], path[-1][1])
 			final_models.append(model_at_final)
 
-	# Include attached character models at their post-delta positions so the
-	# coherency check sees the whole charging group (bodyguard + attached
-	# characters), matching how MovementPhase keeps the group together.
+	# Include attached character models at their final positions (explicit
+	# placements use their path's final point; remaining ones follow the
+	# bodyguard delta), matching how MovementPhase keeps the group together.
 	final_models.append_array(_get_attached_character_final_models(unit_id, per_model_paths))
 
 	if final_models.size() < 2:
@@ -1751,15 +1770,28 @@ func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dicti
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
+func _parse_charge_model_key(key: String, default_unit_id: String) -> Dictionary:
+	# Charge action keys are either plain "model_id" (bodyguard, back-compat)
+	# or composite "unit_id:model_id" (attached character).
+	if not (key is String):
+		return {"unit_id": default_unit_id, "model_id": str(key)}
+	var idx = key.find(":")
+	if idx < 0:
+		return {"unit_id": default_unit_id, "model_id": key}
+	return {"unit_id": key.substr(0, idx), "model_id": key.substr(idx + 1)}
+
 func _compute_bodyguard_move_delta(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
 	# Returns {found: bool, delta: Vector2}. The delta is taken from the first
 	# bodyguard model (by unit-model order) that has a path entry, mirroring
-	# MovementPhase._move_attached_characters.
+	# MovementPhase._move_attached_characters. Only bodyguard models contribute
+	# the delta — character-keyed entries are explicit placements and don't
+	# define a group-wide delta.
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return {"found": false, "delta": Vector2.ZERO}
 	for bg_model in unit.get("models", []):
 		var bg_id = bg_model.get("id", "")
+		# Bodyguard entries use plain model_id keys (per controller convention).
 		if not per_model_paths.has(bg_id):
 			continue
 		var path = per_model_paths[bg_id]
@@ -1774,49 +1806,89 @@ func _compute_bodyguard_move_delta(unit_id: String, per_model_paths: Dictionary)
 		return {"found": true, "delta": Vector2(to_x - from_x, to_y - from_y)}
 	return {"found": false, "delta": Vector2.ZERO}
 
+func _attached_models_explicitly_placed(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
+	# Returns {char_uid -> {model_id: true}} for character models that the
+	# player explicitly placed via composite-key entries.
+	var explicit: Dictionary = {}
+	var attached = GameState.get_attached_characters(unit_id)
+	if attached.is_empty():
+		return explicit
+	for key in per_model_paths:
+		var parsed = _parse_charge_model_key(key, unit_id)
+		var uid: String = parsed.unit_id
+		if uid == unit_id:
+			continue  # Bodyguard, not relevant here
+		if uid not in attached:
+			continue  # Not in this group
+		if not explicit.has(uid):
+			explicit[uid] = {}
+		explicit[uid][parsed.model_id] = true
+	return explicit
+
 func _get_attached_character_final_models(unit_id: String, per_model_paths: Dictionary) -> Array:
-	# Compute the post-delta positions of each attached character model so
-	# validators (e.g. coherency) can see where the character will end up
-	# after _process_apply_charge_move auto-moves it with the bodyguard.
+	# Compute the final positions of every attached character model for
+	# coherency checks. Explicitly placed character models (composite-key
+	# entries in per_model_paths) use their path's final position; remaining
+	# character models use the bodyguard delta as a fallback.
 	var result: Array = []
 	var attached_chars = GameState.get_attached_characters(unit_id)
 	if attached_chars.is_empty():
 		return result
 
+	var explicit = _attached_models_explicitly_placed(unit_id, per_model_paths)
 	var delta_info = _compute_bodyguard_move_delta(unit_id, per_model_paths)
-	if not delta_info.found:
-		return result
+	var have_delta: bool = delta_info.found
 	var move_delta: Vector2 = delta_info.delta
 
 	for char_id in attached_chars:
 		var char_unit = get_unit(char_id)
 		if char_unit.is_empty():
 			continue
+		var char_explicit = explicit.get(char_id, {})
 		for char_model in char_unit.get("models", []):
 			if not char_model.get("alive", true):
 				continue
-			var pos = char_model.get("position")
-			if pos == null:
+			var model_id = char_model.get("id", "")
+			var final_pos: Vector2
+			if char_explicit.has(model_id):
+				var key = "%s:%s" % [char_id, model_id]
+				var path = per_model_paths.get(key, [])
+				if not (path is Array) or path.is_empty():
+					continue
+				var to_pt = path[-1]
+				var fx = to_pt[0] if to_pt is Array else (to_pt.x if to_pt is Vector2 else to_pt.get("x", 0))
+				var fy = to_pt[1] if to_pt is Array else (to_pt.y if to_pt is Vector2 else to_pt.get("y", 0))
+				final_pos = Vector2(fx, fy)
+			elif have_delta:
+				var pos = char_model.get("position")
+				if pos == null:
+					continue
+				var char_x = pos.x if pos is Vector2 else pos.get("x", 0)
+				var char_y = pos.y if pos is Vector2 else pos.get("y", 0)
+				final_pos = Vector2(char_x + move_delta.x, char_y + move_delta.y)
+			else:
 				continue
-			var char_x = pos.x if pos is Vector2 else pos.get("x", 0)
-			var char_y = pos.y if pos is Vector2 else pos.get("y", 0)
 			var model_at_final = char_model.duplicate()
-			model_at_final["position"] = Vector2(char_x + move_delta.x, char_y + move_delta.y)
+			model_at_final["position"] = final_pos
 			result.append(model_at_final)
 	return result
 
 func _build_attached_character_charge_changes(unit_id: String, per_model_paths: Dictionary) -> Array:
-	# Build state-diff changes that move every attached character model by the
-	# bodyguard's first-model delta, mirroring MovementPhase._move_attached_characters.
-	# Without this the leader is left behind after a charge, breaking coherency.
+	# Auto-move character models that were NOT explicitly placed by the player.
+	# Models that have a composite "char_uid:model_id" entry in per_model_paths
+	# are already being written by the main position loop in
+	# _process_apply_charge_move, so we skip them here. Remaining character
+	# models follow the bodyguard delta (mirrors MovementPhase._move_attached_characters).
 	var changes: Array = []
 	var attached_chars = GameState.get_attached_characters(unit_id)
 	if attached_chars.is_empty():
 		return changes
 
+	var explicit = _attached_models_explicitly_placed(unit_id, per_model_paths)
+
 	var delta_info = _compute_bodyguard_move_delta(unit_id, per_model_paths)
 	if not delta_info.found:
-		DebugLogger.info(str("[ChargePhase] WARNING: Could not determine charge move delta for attached characters of %s" % unit_id))
+		# No bodyguard move recorded — nothing to follow.
 		return changes
 	var move_delta: Vector2 = delta_info.delta
 
@@ -1824,11 +1896,16 @@ func _build_attached_character_charge_changes(unit_id: String, per_model_paths: 
 		var char_unit = get_unit(char_id)
 		if char_unit.is_empty():
 			continue
+		var char_explicit = explicit.get(char_id, {})
 		var char_models = char_unit.get("models", [])
+		var any_followed := false
 		for i in range(char_models.size()):
 			var model = char_models[i]
 			if not model.get("alive", true):
 				continue
+			var model_id = model.get("id", "")
+			if char_explicit.has(model_id):
+				continue  # Player explicitly placed this model — main loop handles it.
 			var pos = model.get("position")
 			if pos == null:
 				continue
@@ -1840,8 +1917,10 @@ func _build_attached_character_charge_changes(unit_id: String, per_model_paths: 
 				"path": "units.%s.models.%d.position" % [char_id, i],
 				"value": {"x": new_pos.x, "y": new_pos.y}
 			})
-		var char_name = char_unit.get("meta", {}).get("name", char_id)
-		DebugLogger.info(str("[ChargePhase] Moved attached character %s with charging bodyguard %s (delta=%s)" % [char_name, unit_id, str(move_delta)]))
+			any_followed = true
+		if any_followed:
+			var char_name = char_unit.get("meta", {}).get("name", char_id)
+			DebugLogger.info(str("[ChargePhase] Auto-moved unplaced attached-character models of %s with bodyguard %s (delta=%s)" % [char_name, unit_id, str(move_delta)]))
 	return changes
 
 func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionary, target_ids: Array, rolled_distance: int) -> Dictionary:
@@ -1856,17 +1935,20 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 	const B2B_THRESHOLD_INCHES = 0.1
 	const ENGAGEMENT_RANGE_INCHES = 1.0
 
-	# Build final position model dicts for all charging models
-	var final_models = {}  # model_id -> model dict at final position
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	# Build final position model dicts for all charging models (bodyguard +
+	# any explicitly-placed attached-character models). Keys are kept as the
+	# original per_model_paths key so we can look up the path again below.
+	var final_models = {}  # key -> model dict at final position
+	for key in per_model_paths:
+		var path = per_model_paths[key]
 		if path is Array and path.size() > 0:
-			var model = _get_model_in_unit(unit_id, model_id)
+			var parsed = _parse_charge_model_key(key, unit_id)
+			var model = _get_model_in_unit(parsed.unit_id, parsed.model_id)
 			if model.is_empty():
 				continue
 			var model_at_final = model.duplicate()
 			model_at_final["position"] = Vector2(path[-1][0], path[-1][1])
-			final_models[model_id] = model_at_final
+			final_models[key] = model_at_final
 
 	if final_models.is_empty():
 		return {"valid": true, "errors": []}
@@ -1883,8 +1965,8 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 		return {"valid": true, "errors": []}
 
 	# Check if ANY charging model already has B2B with any target model
-	for model_id in final_models:
-		var final_model = final_models[model_id]
+	for key in final_models:
+		var final_model = final_models[key]
 		for target_entry in target_models:
 			var distance = Measurement.model_to_model_distance_inches(final_model, target_entry.model)
 			if distance <= B2B_THRESHOLD_INCHES:
@@ -1895,13 +1977,14 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 	if rolled_distance <= 0:
 		return {"valid": true, "errors": []}
 
-	for model_id in final_models:
-		var path = per_model_paths[model_id]
+	for key in final_models:
+		var path = per_model_paths[key]
 		if not (path is Array and path.size() > 0):
 			continue
 
 		var start_pos = Vector2(path[0][0], path[0][1])
-		var model = _get_model_in_unit(unit_id, model_id)
+		var parsed = _parse_charge_model_key(key, unit_id)
+		var model = _get_model_in_unit(parsed.unit_id, parsed.model_id)
 		if model.is_empty():
 			continue
 
@@ -1938,10 +2021,10 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 			var coherency_ok = true
 			if final_models.size() > 1:
 				var has_nearby = false
-				for other_model_id in final_models:
-					if other_model_id == model_id:
+				for other_key in final_models:
+					if other_key == key:
 						continue
-					var dist = Measurement.model_to_model_distance_inches(b2b_model, final_models[other_model_id])
+					var dist = Measurement.model_to_model_distance_inches(b2b_model, final_models[other_key])
 					if dist <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES:
 						has_nearby = true
 						break
@@ -1980,13 +2063,17 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 					if not check_model.get("alive", true):
 						continue
 					var check_model_id = check_model.get("id", "")
-					if check_unit_id == unit_id and check_model_id == model_id:
-						continue  # Skip self
+					# Skip the model being tested itself
+					if check_unit_id == parsed.unit_id and check_model_id == parsed.model_id:
+						continue
 
-					# For other models in the charging unit, use their final positions
+					# For other models in the charging group (bodyguard + attached
+					# chars), use their final placed positions, not their current
+					# pre-charge positions.
 					var check_pos_model = check_model
-					if check_unit_id == unit_id and final_models.has(check_model_id):
-						check_pos_model = final_models[check_model_id]
+					var check_key = "%s:%s" % [check_unit_id, check_model_id]
+					if final_models.has(check_key):
+						check_pos_model = final_models[check_key]
 					if Measurement.models_overlap(b2b_model, check_pos_model):
 						no_overlap = false
 						break
@@ -2006,10 +2093,10 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 					continue
 
 				var target_covered = false
-				for other_model_id in final_models:
+				for other_key in final_models:
 					# Use B2B position for the model being tested, final position for others
-					var check_charging_model = final_models[other_model_id]
-					if other_model_id == model_id:
+					var check_charging_model = final_models[other_key]
+					if other_key == key:
 						check_charging_model = b2b_model
 
 					for check_tm in check_target_unit.get("models", []):
@@ -2044,8 +2131,8 @@ func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, tar
 	var errors = []
 	var all_units = game_state_snapshot.get("units", {})
 
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for key in per_model_paths:
+		var path = per_model_paths[key]
 		if not (path is Array and path.size() >= 2):
 			continue
 
@@ -2056,7 +2143,8 @@ func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, tar
 		if start_pos.distance_to(final_pos) < 0.5:
 			continue
 
-		var model = _get_model_in_unit(unit_id, model_id)
+		var parsed = _parse_charge_model_key(key, unit_id)
+		var model = _get_model_in_unit(parsed.unit_id, parsed.model_id)
 		if model.is_empty():
 			continue
 
@@ -2093,10 +2181,8 @@ func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, tar
 				break
 
 		if not ends_closer_to_any_target:
-			var unit = get_unit(unit_id)
-			var model_name = model_id
-			errors.append("Model %s did not end closer to any declared charge target" % model_name)
-			DebugLogger.info(str("ChargePhase: Must-end-closer violation - model %s is not closer to any target after move" % model_id))
+			errors.append("Model %s did not end closer to any declared charge target" % parsed.model_id)
+			DebugLogger.info(str("ChargePhase: Must-end-closer violation - model %s of unit %s is not closer to any target after move" % [parsed.model_id, parsed.unit_id]))
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
@@ -2106,12 +2192,14 @@ func _validate_charge_direction_constraint(unit_id: String, per_model_paths: Dic
 	var errors = []
 	var all_units = game_state_snapshot.get("units", {})
 
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for key in per_model_paths:
+		var path = per_model_paths[key]
 		if not (path is Array and path.size() > 0):
 			continue
 
-		var model = _get_model_in_unit(unit_id, model_id)
+		var parsed = _parse_charge_model_key(key, unit_id)
+		var model_id: String = parsed.model_id
+		var model = _get_model_in_unit(parsed.unit_id, parsed.model_id)
 		if model.is_empty():
 			continue
 
@@ -2417,14 +2505,27 @@ func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -
 	var unit = all_units.get(unit_id, {})
 	var models = unit.get("models", [])
 
+	# Build a quick lookup from (unit_id, model_id) → final position for every
+	# moved model in the charge group (bodyguard + attached chars), so the
+	# overlap check sees their post-charge positions.
+	var moved_lookup: Dictionary = {}
+	for k in per_model_paths:
+		var p = per_model_paths[k]
+		if p is Array and p.size() > 0:
+			var pd = _parse_charge_model_key(k, unit_id)
+			moved_lookup["%s:%s" % [pd.unit_id, pd.model_id]] = Vector2(p[-1][0], p[-1][1])
+
 	# Check each model's final position
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for key in per_model_paths:
+		var path = per_model_paths[key]
 		if not (path is Array and path.size() > 0):
 			continue
 
+		var parsed = _parse_charge_model_key(key, unit_id)
+		var owner_unit_id: String = parsed.unit_id
+		var model_id: String = parsed.model_id
 		var final_pos = Vector2(path[-1][0], path[-1][1])
-		var model = _get_model_in_unit(unit_id, model_id)
+		var model = _get_model_in_unit(owner_unit_id, model_id)
 		if model.is_empty():
 			continue
 
@@ -2442,20 +2543,20 @@ func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -
 				var other_model_id = other_model.get("id", "m%d" % (i+1))
 
 				# Skip self
-				if check_unit_id == unit_id and other_model_id == model_id:
+				if check_unit_id == owner_unit_id and other_model_id == model_id:
 					continue
 
 				# Skip dead models
 				if not other_model.get("alive", true):
 					continue
 
-				# Get the current position of the other model
-				# For other charging models in same unit, use their final positions
+				# Get the current position of the other model. For models in
+				# the moving charge group, use their final placement so we
+				# don't false-positive against their pre-charge positions.
 				var other_position = _get_model_position(other_model)
-				if check_unit_id == unit_id and per_model_paths.has(other_model_id):
-					var other_path = per_model_paths[other_model_id]
-					if other_path is Array and other_path.size() > 0:
-						other_position = Vector2(other_path[-1][0], other_path[-1][1])
+				var other_key = "%s:%s" % [check_unit_id, other_model_id]
+				if moved_lookup.has(other_key):
+					other_position = moved_lookup[other_key]
 
 				if other_position == null:
 					continue
@@ -3072,28 +3173,38 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 	# Apply successful HI charge movement
 	var changes = []
 
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	for key in per_model_paths:
+		var path = per_model_paths[key]
 		if not (path is Array and path.size() > 0):
 			continue
 
+		var parsed = _parse_charge_model_key(key, unit_id)
+		var target_unit_id: String = parsed.unit_id
+		var target_model_id: String = parsed.model_id
+
 		var final_pos = path[-1]
-		var model_index = _get_model_index(unit_id, model_id)
+		var model_index = _get_model_index(target_unit_id, target_model_id)
 		if model_index < 0:
 			continue
 
+		var fx = final_pos[0] if final_pos is Array else (final_pos.x if final_pos is Vector2 else final_pos.get("x", 0))
+		var fy = final_pos[1] if final_pos is Array else (final_pos.y if final_pos is Vector2 else final_pos.get("y", 0))
 		changes.append({
 			"op": "set",
-			"path": "units.%s.models.%d.position" % [unit_id, model_index],
-			"value": {"x": final_pos[0], "y": final_pos[1]}
+			"path": "units.%s.models.%d.position" % [target_unit_id, model_index],
+			"value": {"x": fx, "y": fy}
 		})
 
-		if per_model_rotations.has(model_id):
+		if per_model_rotations.has(key):
 			changes.append({
 				"op": "set",
-				"path": "units.%s.models.%d.rotation" % [unit_id, model_index],
-				"value": per_model_rotations[model_id]
+				"path": "units.%s.models.%d.rotation" % [target_unit_id, model_index],
+				"value": per_model_rotations[key]
 			})
+
+	# Also auto-follow any attached characters not explicitly placed (so the
+	# leader doesn't get left behind during a Heroic Intervention either).
+	changes.append_array(_build_attached_character_charge_changes(unit_id, per_model_paths))
 
 	# Mark unit as charged BUT NOT fights_first (key difference for Heroic Intervention)
 	# Per 10e rules: Heroic Intervention does NOT grant Fights First
