@@ -1,1 +1,1 @@
-ARGS: ["--scenario-file=tests/scenarios/sp/87_no_offboard_deploy.json"]
+ARGS: ["-s", "tests/test_rng_determinism_extended.gd"]
