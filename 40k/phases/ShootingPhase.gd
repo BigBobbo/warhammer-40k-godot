@@ -837,18 +837,47 @@ func _process_assign_target(action: Dictionary) -> Dictionary:
 	var weapon_id = payload.get("weapon_id", "")
 	var target_unit_id = payload.get("target_unit_id", "")
 	var model_ids = payload.get("model_ids", [])
-	
-	# Remove any existing assignment for this weapon
-	pending_assignments = pending_assignments.filter(func(a): return a.weapon_id != weapon_id)
-	
-	# Add new assignment
-	pending_assignments.append({
-		"weapon_id": weapon_id,
-		"target_unit_id": target_unit_id,
-		"model_ids": model_ids
-	})
 
-	log_phase_message("Assigned %s to target %s" % [weapon_id, target_unit_id])
+	# SPLIT-FIRE: A single weapon_id may now have multiple pending assignments
+	# (different targets). Enforce the invariant that no physical model_id is
+	# assigned twice for the same weapon_id — strip any model_ids that already
+	# appear in another pending assignment of the same weapon.
+	var already_assigned_models: Array = []
+	for a in pending_assignments:
+		if a.get("weapon_id", "") == weapon_id and a.get("target_unit_id", "") != target_unit_id:
+			for mid in a.get("model_ids", []):
+				if mid not in already_assigned_models:
+					already_assigned_models.append(mid)
+
+	var filtered_model_ids: Array = []
+	for mid in model_ids:
+		if mid not in already_assigned_models:
+			filtered_model_ids.append(mid)
+
+	# If an assignment already exists for this (weapon, target), merge into it
+	# rather than appending a duplicate.
+	var existing_index := -1
+	for i in range(pending_assignments.size()):
+		var a = pending_assignments[i]
+		if a.get("weapon_id", "") == weapon_id and a.get("target_unit_id", "") == target_unit_id:
+			existing_index = i
+			break
+
+	if existing_index >= 0:
+		var existing = pending_assignments[existing_index]
+		var combined: Array = existing.get("model_ids", []).duplicate()
+		for mid in filtered_model_ids:
+			if mid not in combined:
+				combined.append(mid)
+		existing["model_ids"] = combined
+	else:
+		pending_assignments.append({
+			"weapon_id": weapon_id,
+			"target_unit_id": target_unit_id,
+			"model_ids": filtered_model_ids
+		})
+
+	log_phase_message("Assigned %s × %d to target %s" % [weapon_id, filtered_model_ids.size(), target_unit_id])
 
 	# Issue #386 Big Booms: roll concussive wave on supa-kannon target selection.
 	# Trigger phrase: "just after selecting a target for this model's supa-kannon".
@@ -876,11 +905,20 @@ func _process_assign_target(action: Dictionary) -> Dictionary:
 func _process_clear_assignment(action: Dictionary) -> Dictionary:
 	var payload = action.get("payload", {})
 	var weapon_id = payload.get("weapon_id", "")
-	
-	pending_assignments = pending_assignments.filter(func(a): return a.weapon_id != weapon_id)
-	
-	log_phase_message("Cleared assignment for %s" % weapon_id)
-	
+	var target_unit_id = payload.get("target_unit_id", "")
+
+	# SPLIT-FIRE: If target_unit_id is given, clear only the matching
+	# (weapon, target) pending assignment; otherwise clear every assignment
+	# for that weapon (legacy "clear weapon" semantics).
+	if target_unit_id != "":
+		pending_assignments = pending_assignments.filter(
+			func(a): return not (a.weapon_id == weapon_id and a.target_unit_id == target_unit_id)
+		)
+		log_phase_message("Cleared assignment for %s → %s" % [weapon_id, target_unit_id])
+	else:
+		pending_assignments = pending_assignments.filter(func(a): return a.weapon_id != weapon_id)
+		log_phase_message("Cleared all assignments for %s" % weapon_id)
+
 	return create_result(true, [])
 
 func _process_clear_all_assignments(action: Dictionary) -> Dictionary:
