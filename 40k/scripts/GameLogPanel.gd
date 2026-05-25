@@ -238,6 +238,20 @@ func _on_dice_roll_recorded(entry: Dictionary) -> void:
 		await get_tree().process_frame
 		_scroll.scroll_vertical = int(_scroll.get_v_scroll_bar().max_value)
 
+func dice_row_has_visual(row_index: int) -> bool:
+	# Test introspection helper: returns true if the dice-container row at
+	# `row_index` contains a DiceRowVisual child. Used by windowed scenarios
+	# that validate inline dice graphics are mounted.
+	if not _current_combat_dice_container or not is_instance_valid(_current_combat_dice_container):
+		return false
+	if row_index < 0 or row_index >= _current_combat_dice_container.get_child_count():
+		return false
+	var row = _current_combat_dice_container.get_child(row_index)
+	for c in row.get_children():
+		if c is DiceRowVisualScript:
+			return true
+	return false
+
 func _build_realtime_dice_row(data: Dictionary, context: String) -> Control:
 	"""Build an HBox row containing prefix label + graphical dice + suffix label."""
 	var rolls_raw = data.get("rolls_raw", [])
