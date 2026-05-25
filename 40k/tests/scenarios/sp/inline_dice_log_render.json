@@ -1,0 +1,59 @@
+{
+  "id": "inline_dice_log_render",
+  "covers": ["ui.log.inline_dice_graphics"],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Verify dice rolls render as graphical DiceRowVisual nodes inside the GameLogPanel's combat card (not just BBCode text badges). The scenario starts a synthetic combat card via the same _create_card entry point used by real shooting events, then dispatches three real dice-roll signals through DiceHistoryPanel.roll_recorded (to_hit, to_wound, save_roll) — the exact signal real shooting resolution emits. After dispatch, asserts that the combat card's dice container holds three rows and that each row contains a DiceRowVisual instance via dice_row_has_visual(). Captures a screenshot showing the inline graphics in the log card.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._create_card('Test Shooter shoots Test Target', 'combat_header', false)" },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._current_combat_dice_container != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.roll_recorded.emit({'data': {'context': 'to_hit', 'rolls_raw': [1, 3, 4, 6, 5], 'threshold': '3+', 'successes': 4}})" },
+
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.roll_recorded.emit({'data': {'context': 'to_wound', 'rolls_raw': [2, 4, 5, 6], 'threshold': '4+', 'successes': 3}})" },
+
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.roll_recorded.emit({'data': {'context': 'save_roll', 'rolls_raw': [2, 5, 4], 'threshold': '4+', 'failed': 1, 'successes': 2, 'using_invuln': false}})" },
+
+    { "act": "wait_frames", "frames": 5 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._current_combat_dice_container.get_child_count()",
+      "equals": 3 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._current_combat_dice_container.visible",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.dice_row_has_visual(0)",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.dice_row_has_visual(1)",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.dice_row_has_visual(2)",
+      "equals": true },
+
+    { "act": "screenshot", "label": "inline_dice_rendered_in_log" }
+  ]
+}
