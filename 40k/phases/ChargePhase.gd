@@ -1133,7 +1133,11 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 				"value": rotation
 			}
 			changes.append(rotation_change)
-	
+
+	# Move any attached characters with the bodyguard so they don't get left
+	# behind and break coherency. Mirrors MovementPhase._move_attached_characters.
+	changes.append_array(_build_attached_character_charge_changes(unit_id, per_model_paths))
+
 	# Mark unit as charged and grant Fights First
 	changes.append({
 		"op": "set",
@@ -1722,6 +1726,11 @@ func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dicti
 			model_at_final["position"] = Vector2(path[-1][0], path[-1][1])
 			final_models.append(model_at_final)
 
+	# Include attached character models at their post-delta positions so the
+	# coherency check sees the whole charging group (bodyguard + attached
+	# characters), matching how MovementPhase keeps the group together.
+	final_models.append_array(_get_attached_character_final_models(unit_id, per_model_paths))
+
 	if final_models.size() < 2:
 		return {"valid": true, "errors": []}  # Single model or no movement
 
@@ -1741,6 +1750,99 @@ func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dicti
 			errors.append("Unit coherency broken: model %d too far from other models" % i)
 
 	return {"valid": errors.is_empty(), "errors": errors}
+
+func _compute_bodyguard_move_delta(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
+	# Returns {found: bool, delta: Vector2}. The delta is taken from the first
+	# bodyguard model (by unit-model order) that has a path entry, mirroring
+	# MovementPhase._move_attached_characters.
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"found": false, "delta": Vector2.ZERO}
+	for bg_model in unit.get("models", []):
+		var bg_id = bg_model.get("id", "")
+		if not per_model_paths.has(bg_id):
+			continue
+		var path = per_model_paths[bg_id]
+		if not (path is Array) or path.size() < 2:
+			continue
+		var from_pt = path[0]
+		var to_pt = path[-1]
+		var from_x = from_pt[0] if from_pt is Array else (from_pt.x if from_pt is Vector2 else from_pt.get("x", 0))
+		var from_y = from_pt[1] if from_pt is Array else (from_pt.y if from_pt is Vector2 else from_pt.get("y", 0))
+		var to_x = to_pt[0] if to_pt is Array else (to_pt.x if to_pt is Vector2 else to_pt.get("x", 0))
+		var to_y = to_pt[1] if to_pt is Array else (to_pt.y if to_pt is Vector2 else to_pt.get("y", 0))
+		return {"found": true, "delta": Vector2(to_x - from_x, to_y - from_y)}
+	return {"found": false, "delta": Vector2.ZERO}
+
+func _get_attached_character_final_models(unit_id: String, per_model_paths: Dictionary) -> Array:
+	# Compute the post-delta positions of each attached character model so
+	# validators (e.g. coherency) can see where the character will end up
+	# after _process_apply_charge_move auto-moves it with the bodyguard.
+	var result: Array = []
+	var attached_chars = GameState.get_attached_characters(unit_id)
+	if attached_chars.is_empty():
+		return result
+
+	var delta_info = _compute_bodyguard_move_delta(unit_id, per_model_paths)
+	if not delta_info.found:
+		return result
+	var move_delta: Vector2 = delta_info.delta
+
+	for char_id in attached_chars:
+		var char_unit = get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+		for char_model in char_unit.get("models", []):
+			if not char_model.get("alive", true):
+				continue
+			var pos = char_model.get("position")
+			if pos == null:
+				continue
+			var char_x = pos.x if pos is Vector2 else pos.get("x", 0)
+			var char_y = pos.y if pos is Vector2 else pos.get("y", 0)
+			var model_at_final = char_model.duplicate()
+			model_at_final["position"] = Vector2(char_x + move_delta.x, char_y + move_delta.y)
+			result.append(model_at_final)
+	return result
+
+func _build_attached_character_charge_changes(unit_id: String, per_model_paths: Dictionary) -> Array:
+	# Build state-diff changes that move every attached character model by the
+	# bodyguard's first-model delta, mirroring MovementPhase._move_attached_characters.
+	# Without this the leader is left behind after a charge, breaking coherency.
+	var changes: Array = []
+	var attached_chars = GameState.get_attached_characters(unit_id)
+	if attached_chars.is_empty():
+		return changes
+
+	var delta_info = _compute_bodyguard_move_delta(unit_id, per_model_paths)
+	if not delta_info.found:
+		DebugLogger.info(str("[ChargePhase] WARNING: Could not determine charge move delta for attached characters of %s" % unit_id))
+		return changes
+	var move_delta: Vector2 = delta_info.delta
+
+	for char_id in attached_chars:
+		var char_unit = get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+		var char_models = char_unit.get("models", [])
+		for i in range(char_models.size()):
+			var model = char_models[i]
+			if not model.get("alive", true):
+				continue
+			var pos = model.get("position")
+			if pos == null:
+				continue
+			var px = pos.x if pos is Vector2 else pos.get("x", 0)
+			var py = pos.y if pos is Vector2 else pos.get("y", 0)
+			var new_pos = Vector2(px + move_delta.x, py + move_delta.y)
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.position" % [char_id, i],
+				"value": {"x": new_pos.x, "y": new_pos.y}
+			})
+		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		DebugLogger.info(str("[ChargePhase] Moved attached character %s with charging bodyguard %s (delta=%s)" % [char_name, unit_id, str(move_delta)]))
+	return changes
 
 func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionary, target_ids: Array, rolled_distance: int) -> Dictionary:
 	# Per 10e core rules: if a charging model CAN make base-to-base contact
