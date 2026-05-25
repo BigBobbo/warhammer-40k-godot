@@ -56,7 +56,10 @@ def render(json_path, out_path, horizontal=False):
 
     if horizontal:
         # Rotate vertical (44x60) -> horizontal (60x44) by 90 CW:
-        #   (x_v, y_v) -> (60 - y_v, x_v),  rotation -= 90
+        #   (x_v, y_v) -> (60 - y_v, x_v),  rotation += 90
+        # NOTE: the rotation adjustment is +90, not -90. For axis-aligned
+        # rectangles both look the same (180-symmetric), but for walls
+        # (line segments inside) -90 puts them on opposite corners.
         board_w_in = 60.0
         board_h_in = 44.0
     else:
@@ -94,7 +97,7 @@ def render(json_path, out_path, horizontal=False):
         height = piece.get("height", "tall")
         if horizontal:
             cx_in, cy_in = 60.0 - cy_in, cx_in
-            rot_deg -= 90.0
+            rot_deg += 90.0
 
         fill = {
             "tall": COLOR_TALL_FILL,
