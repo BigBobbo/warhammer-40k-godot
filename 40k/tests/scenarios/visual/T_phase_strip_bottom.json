@@ -30,10 +30,10 @@
       "equals": -400.0 },
     { "act": "execute_script",
       "script": "get_node(\"/root/Main/PhaseStrip\").offset_top",
-      "equals": -70.0 },
+      "equals": -30.0 },
     { "act": "execute_script",
       "script": "get_node(\"/root/Main/PhaseStrip\").offset_bottom",
-      "equals": -40.0 },
+      "equals": 0.0 },
 
     { "act": "execute_script",
       "script": "String(get_node(\"/root/Main/PhaseStrip\").get_parent().name)",

@@ -2748,10 +2748,9 @@ func _setup_round_indicator() -> void:
 	print("Main: P3-109: Round indicator created in top bar (enhanced)")
 
 func _setup_phase_strip() -> void:
-	# Place the phase progress strip at the bottom of the screen, sandwiched
-	# horizontally between the GameLogPanel (340 px on the left) and the
-	# HUD_Right phase-actions panel (400 px on the right). It sits just above
-	# the UnitStatsPanel header (40 px tall) at the very bottom.
+	# Place the phase progress strip flush with the bottom of the screen,
+	# sandwiched horizontally between the GameLogPanel (340 px on the left)
+	# and the HUD_Right phase-actions panel (400 px on the right).
 	_phase_strip_panel = PanelContainer.new()
 	_phase_strip_panel.name = "PhaseStrip"
 	_phase_strip_panel.anchor_left = 0.0
@@ -2760,8 +2759,8 @@ func _setup_phase_strip() -> void:
 	_phase_strip_panel.anchor_bottom = 1.0
 	_phase_strip_panel.offset_left = GameLogPanelScript.PANEL_WIDTH
 	_phase_strip_panel.offset_right = -400.0
-	_phase_strip_panel.offset_top = -70.0
-	_phase_strip_panel.offset_bottom = -40.0
+	_phase_strip_panel.offset_top = -30.0
+	_phase_strip_panel.offset_bottom = 0.0
 	_phase_strip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var strip_style = StyleBoxFlat.new()
 	strip_style.bg_color = Color(0.06, 0.05, 0.04, 0.92)
