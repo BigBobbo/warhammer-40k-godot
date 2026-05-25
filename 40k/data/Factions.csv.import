@@ -3,6 +3,7 @@
 importer="csv_translation"
 type="Translation"
 uid="uid://bbbvd0348gjwe"
+valid=false
 
 [deps]
 
@@ -12,5 +13,3 @@ source_file="res://data/Factions.csv"
 
 compress=1
 delimiter=0
-unescape_keys=false
-unescape_translations=true

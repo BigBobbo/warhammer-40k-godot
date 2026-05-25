@@ -1,0 +1,51 @@
+{
+  "id": "infantry_tall_ruin_traversal",
+  "covers": ["movement.terrain.infantry_tall_ruin_traversal", "movement.terrain.no_phantom_climb_cost"],
+  "fixture": "audit_baseline_postdeploy",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Regression: INFANTRY units must be able to stage a move INTO a tall ruin without paying a phantom vertical climb cost. Before the fix, MovementPhase._get_vertical_climb_cost added the full terrain height (6\" for TALL) to the move distance regardless of the unit's keywords, so a 4.1\" move onto a tall ruin became 10.1\" and was rejected as 'exceeds cap' — the model snapped back silently. After the fix, units that can_move_through the destination terrain (INFANTRY through ruins per 10e ground-floor rule) skip the climb cost. Drives a live STAGE_MODEL_MOVE so any rejection surfaces as expect_action_result success=false. Witchseekers D m4 starts at (1280, 50); ruins_7 is TALL at (1360, 320), bounds x:1120-1600 y:200-440. Moving to (1280, 215) lands the model inside ruins_7 ~165 px = ~4.1\" away (within the 6\" cap as long as the phantom 6\" climb is gone).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script",
+      "script": "Measurement.model_overlaps_any_wall({\"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 1280, \"y\": 215}, \"rotation\": 0.0}, [\"ADEPTUS CUSTODES\", \"ANATHEMA PSYKANA\", \"IMPERIUM\", \"INFANTRY\", \"WITCHSEEKERS\"])",
+      "equals": false
+    },
+    { "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance._position_intersects_terrain(Vector2(1280, 215), {\"id\": \"m4\", \"base_mm\": 32, \"base_type\": \"circular\", \"position\": Vector2(1280, 215), \"rotation\": 0.0})",
+      "equals": false
+    },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance._get_vertical_climb_cost(Vector2(1280, 50), Vector2(1280, 215), \"U_WITCHSEEKERS_D\")",
+      "equals": 0.0
+    },
+    { "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance._get_vertical_climb_cost(Vector2(1280, 50), Vector2(1280, 215), \"\")",
+      "expect_min": 5.99
+    },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_NORMAL_MOVE",
+      "actor_unit_id": "U_WITCHSEEKERS_D",
+      "payload": {}
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "STAGE_MODEL_MOVE",
+      "actor_unit_id": "U_WITCHSEEKERS_D",
+      "payload": {
+        "model_id": "m4",
+        "dest": [1280, 215],
+        "rotation": 0.0
+      }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "screenshot", "label": "01_infantry_model_staged_inside_tall_ruin" }
+  ]
+}

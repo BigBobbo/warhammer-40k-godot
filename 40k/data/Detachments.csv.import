@@ -3,6 +3,7 @@
 importer="csv_translation"
 type="Translation"
 uid="uid://bqh4aaoa1c6x8"
+valid=false
 
 [deps]
 
@@ -12,5 +13,3 @@ source_file="res://data/Detachments.csv"
 
 compress=1
 delimiter=0
-unescape_keys=false
-unescape_translations=true
