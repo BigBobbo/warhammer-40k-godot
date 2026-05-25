@@ -119,7 +119,6 @@ phase 7/8/9/10). All overlays self-install on Main._ready.
 | T32 | Hold L → LoS debug visible; release → gone. Top bar has no LoS button | T32/T32_los_debug_held_T32_after.png |
 | T33 | Resolve shooting → compact top-center dice surface, board visible | T33/T33_resolution_surface_T33_after.png |
 | T34 | Wounds applied → "-NW" / "-N models" floats over target | T34/T34_floating_damage_T34_after.png |
-| T35 | Right-column roll log always visible; new entries append | T35/T35_roll_log_T35_two_entries.png |
 | T36 | Click enemy → highlighted as pending; ENTER → resolution fires | T36/T36_explicit_commit_T36_after.png |
 
 ### Roster & datasheet

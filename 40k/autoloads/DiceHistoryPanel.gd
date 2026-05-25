@@ -14,10 +14,8 @@ const MAX_HISTORY_ENTRIES := 500
 # All recorded dice roll entries (raw, per-phase shape)
 var history: Array = []
 
-# T35: structured entries for the persistent right-side roll log. Each
-# entry has the shape {timestamp: int, attacker: String, target: String,
-# result: String, phase: String}. Populated by record_roll alongside
-# history. Read by RollLogPanel and by T35 scenarios.
+# Structured entries with shape {timestamp, attacker, target, result,
+# phase}. Populated by record_roll alongside history.
 var entries: Array = []
 
 func _ready() -> void:
