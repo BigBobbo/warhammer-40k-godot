@@ -31,6 +31,12 @@ var pending_targets: Array = []
 var targets_committed: bool = false
 var weapon_assignments: Dictionary = {}  # weapon_id -> target_unit_id
 var assignment_history: Array = []  # T5-UX4: Stack of weapon_ids in assignment order for undo
+# SPLIT-FIRE: Local display state — weapon_id -> Array of {target_unit_id, count}
+# This is the source of truth for the right-panel tree row text, so the row
+# updates reflect what the player just confirmed even before the phase has
+# round-tripped through Main → NetworkIntegration → BasePhase.execute_action.
+# Kept in sync with pending_assignments by every assign/clear/undo path.
+var weapon_split_allocations: Dictionary = {}
 var selected_weapon_id: String = ""  # Currently selected weapon (drives damage preview)
 var _auto_assign_logged: bool = false  # Prevent duplicate auto-assign log messages
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
@@ -835,15 +841,19 @@ func _restore_state_after_load() -> void:
 		_refresh_weapon_tree()
 		_show_range_indicators()
 		
-		# Update assignment display from phase state
-		# SPLIT-FIRE: weapon_assignments is a flat weapon→last-target map (kept
-		# for legacy callers). The tree row text is authoritative via
-		# _refresh_weapon_row_split_text, which reads the full
-		# pending_assignments list and renders splits.
-		weapon_assignments.clear()
+		# Update assignment display from phase state. weapon_assignments is the
+		# legacy flat map; weapon_split_allocations is the SPLIT-FIRE local
+		# source-of-truth used by the tree row text.
+		_clear_local_assignment_state()
 		var weapons_seen := {}
 		for assignment in shooting_state.pending_assignments:
 			weapon_assignments[assignment.weapon_id] = assignment.target_unit_id
+			if not weapon_split_allocations.has(assignment.weapon_id):
+				weapon_split_allocations[assignment.weapon_id] = []
+			weapon_split_allocations[assignment.weapon_id].append({
+				"target_unit_id": assignment.target_unit_id,
+				"count": assignment.get("model_ids", []).size()
+			})
 			weapons_seen[assignment.weapon_id] = true
 
 		for assignment in shooting_state.confirmed_assignments:
@@ -1837,7 +1847,7 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	print("ShootingController: Unit selected for shooting: ", unit_id)
 	var shooter_changed = (unit_id != active_shooter_id)
 	active_shooter_id = unit_id
-	weapon_assignments.clear()
+	_clear_local_assignment_state()
 	assignment_history.clear()  # T5-UX4: Clear undo history for new shooter
 	if shooter_changed:
 		_auto_assign_logged = false
@@ -2109,7 +2119,7 @@ func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictio
 	_clear_visuals()
 	active_shooter_id = ""
 	eligible_targets.clear()
-	weapon_assignments.clear()
+	_clear_local_assignment_state()
 	assignment_history.clear()  # T5-UX4: Clear undo history
 	if quick_assign_container:  # P3-113
 		quick_assign_container.visible = false
@@ -3060,7 +3070,7 @@ func _on_shooting_complete() -> void:
 
 	# Clear local state
 	active_shooter_id = ""
-	weapon_assignments.clear()
+	_clear_local_assignment_state()
 	_clear_visuals()
 
 	# Show feedback in dice log
@@ -3120,7 +3130,7 @@ func _on_sentinel_storm_chosen(unit_id: String, use_ability: bool) -> void:
 		})
 		# Clear local state since shooting is complete
 		active_shooter_id = ""
-		weapon_assignments.clear()
+		_clear_local_assignment_state()
 		_clear_visuals()
 
 # ============================================================================
@@ -3285,7 +3295,8 @@ func _on_clear_pressed() -> void:
 	emit_signal("shoot_action_requested", {
 		"type": "CLEAR_ALL_ASSIGNMENTS"
 	})
-	weapon_assignments.clear()
+	_clear_local_assignment_state()
+	weapon_split_allocations.clear()  # SPLIT-FIRE: also drop local split tracker
 	assignment_history.clear()  # T5-UX4: Clear undo history
 
 	# NEW: Hide auto-target button when clearing assignments
@@ -3328,16 +3339,21 @@ func _on_undo_last_pressed() -> void:
 		"payload": payload
 	})
 
-	# Local bookkeeping: if no allocations remain for this weapon, drop it from
-	# weapon_assignments. Otherwise leave it (still has at least one target).
-	var still_has_alloc := false
-	if current_phase and "pending_assignments" in current_phase:
-		for a in current_phase.pending_assignments:
-			if a.get("weapon_id", "") == weapon_id and a.get("target_unit_id", "") != target_unit_id:
-				still_has_alloc = true
+	# Local bookkeeping: pop the (target, count) entry we just undid from the
+	# local split-allocation tracker. If no allocations remain for this weapon,
+	# also clear the legacy weapon_assignments entry.
+	if weapon_split_allocations.has(weapon_id):
+		var alloc_list: Array = weapon_split_allocations[weapon_id]
+		# Pop the LAST matching entry — preserves correct order if the same
+		# (weapon, target) pair was somehow assigned twice (shouldn't happen,
+		# but defensive).
+		for j in range(alloc_list.size() - 1, -1, -1):
+			if alloc_list[j].get("target_unit_id", "") == target_unit_id:
+				alloc_list.remove_at(j)
 				break
-	if not still_has_alloc:
-		weapon_assignments.erase(weapon_id)
+		if alloc_list.is_empty():
+			weapon_split_allocations.erase(weapon_id)
+			weapon_assignments.erase(weapon_id)
 
 	# Refresh the tree row to reflect the new pending state
 	_refresh_weapon_row_split_text(weapon_id)
@@ -3569,7 +3585,7 @@ func _dispatch_next_auto_shoot() -> void:
 
 	# Clear active shooter state before dispatching (so SHOOT atomic path starts fresh)
 	active_shooter_id = ""
-	weapon_assignments.clear()
+	_clear_local_assignment_state()
 
 	emit_signal("shoot_action_requested", action)
 
@@ -3708,7 +3724,7 @@ func _on_perform_action_pressed() -> void:
 
 	# Reset shooter state
 	active_shooter_id = ""
-	weapon_assignments.clear()
+	_clear_local_assignment_state()
 	assignment_history.clear()
 	eligible_targets.clear()
 	selected_target_id = ""
@@ -3742,7 +3758,7 @@ func _on_burn_objective_pressed() -> void:
 
 	# Reset shooter state
 	active_shooter_id = ""
-	weapon_assignments.clear()
+	_clear_local_assignment_state()
 	assignment_history.clear()
 	eligible_targets.clear()
 	selected_target_id = ""
@@ -3935,7 +3951,7 @@ func _keyboard_deselect_shooter() -> void:
 	var prev_shooter = active_shooter_id
 	active_shooter_id = ""
 	eligible_targets.clear()
-	weapon_assignments.clear()
+	_clear_local_assignment_state()
 	assignment_history.clear()
 	selected_weapon_id = ""
 	last_assigned_target_id = ""
@@ -4018,7 +4034,7 @@ func _keyboard_skip_unit() -> void:
 	# Clear local state
 	active_shooter_id = ""
 	eligible_targets.clear()
-	weapon_assignments.clear()
+	_clear_local_assignment_state()
 	assignment_history.clear()
 	_clear_visuals()
 	_refresh_weapon_tree()
@@ -4281,6 +4297,22 @@ func _commit_split_assignment(weapon_id: String, target_id: String, chosen_model
 	weapon_assignments[weapon_id] = target_id
 	last_assigned_target_id = target_id
 
+	# SPLIT-FIRE: Record this allocation locally BEFORE dispatching so the
+	# tree row update reflects the player's choice immediately, without waiting
+	# for the action to round-trip through the phase. Merge into an existing
+	# (weapon, target) entry if one exists.
+	if not weapon_split_allocations.has(weapon_id):
+		weapon_split_allocations[weapon_id] = []
+	var alloc_list: Array = weapon_split_allocations[weapon_id]
+	var merged_existing := false
+	for entry in alloc_list:
+		if entry.get("target_unit_id", "") == target_id:
+			entry["count"] = int(entry.get("count", 0)) + chosen_model_ids.size()
+			merged_existing = true
+			break
+	if not merged_existing:
+		alloc_list.append({"target_unit_id": target_id, "count": chosen_model_ids.size()})
+
 	# Undo history: push a richer record so undo can reverse this exact slice.
 	# Older records may be plain strings (weapon_id); the undo handler is
 	# tolerant of both shapes.
@@ -4301,6 +4333,8 @@ func _commit_split_assignment(weapon_id: String, target_id: String, chosen_model
 	})
 
 	# Update weapon-row text to reflect ALL current splits for this weapon
+	# (reads from weapon_split_allocations, populated above — so the row updates
+	# whether or not the phase dispatch has settled yet).
 	_refresh_weapon_row_split_text(weapon_id)
 
 	# Show "Apply to All" if there are still weapons with unassigned bearers
@@ -4321,9 +4355,17 @@ func _commit_split_assignment(weapon_id: String, target_id: String, chosen_model
 	_last_preview_target_id = ""
 	_update_damage_preview(weapon_id)
 
-# SPLIT-FIRE: Re-render the column-2 text of a weapon row to show every pending
-# (target → count) entry for that weapon. Called after every assign / undo /
-# clear so the tree stays in sync with the phase's pending_assignments.
+# SPLIT-FIRE: Drop all local assignment-display state in one place. Called
+# from every site that previously did weapon_assignments.clear() — keeps the
+# legacy single-target map AND the new split-allocations map in lock-step.
+func _clear_local_assignment_state() -> void:
+	weapon_assignments.clear()
+	weapon_split_allocations.clear()
+
+# SPLIT-FIRE: Re-render the column-2 text of a weapon row to show every
+# allocation for that weapon. Reads from weapon_split_allocations (the local
+# source of truth) so the row text updates the instant the player confirms a
+# slice — no dependency on the phase round-trip completing first.
 func _refresh_weapon_row_split_text(weapon_id: String) -> void:
 	if not weapon_tree:
 		return
@@ -4331,16 +4373,7 @@ func _refresh_weapon_row_split_text(weapon_id: String) -> void:
 	if not root:
 		return
 
-	# Collect all pending allocations for this weapon
-	var allocations: Array = []
-	if current_phase and "pending_assignments" in current_phase:
-		for a in current_phase.pending_assignments:
-			if a.get("weapon_id", "") != weapon_id:
-				continue
-			allocations.append({
-				"target_unit_id": a.get("target_unit_id", ""),
-				"count": a.get("model_ids", []).size()
-			})
+	var allocations: Array = weapon_split_allocations.get(weapon_id, [])
 
 	# Find the weapon row
 	var child = root.get_first_child()
