@@ -6290,6 +6290,8 @@ func _on_unit_selected(index: int) -> void:
 			# for it. Otherwise we'd silently break Confirm/Skip for a unit
 			# the phase still considers "in progress".
 			_scout_active_unit_id = ""
+
+	elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
 		# Check if this is a reserve unit arriving as reinforcement
 		var selected_unit = GameState.get_unit(unit_id)
 		if selected_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
