@@ -2789,12 +2789,24 @@ func _advance_model_type_placement() -> void:
 	"""After placing a model, advance to the next model of the same type or wait for picker."""
 	var effective_models = _get_effective_models()
 	if effective_models.is_empty():
+		print("[DeploymentController] MA-15-DEBUG: _advance called but effective_models is empty")
 		return
 
 	# Update the picker panel
 	_update_model_type_picker()
 
 	# Try to find next unplaced model of the same type
+	var _dbg_placed_mask := ""
+	for i in range(temp_positions.size()):
+		_dbg_placed_mask += ("X" if temp_positions[i] != null else ".")
+	print("[DeploymentController] MA-15-DEBUG: _advance entry — selected_model_type='%s' model_idx=%d placed_mask='%s'" % [
+		selected_model_type, model_idx, _dbg_placed_mask
+	])
+	for i in range(effective_models.size()):
+		print("[DeploymentController] MA-15-DEBUG:   model[%d] model_type='%s' placed=%s" % [
+			i, str(effective_models[i].get("model_type", "")), str(temp_positions[i] != null)
+		])
+
 	var next_idx = _find_next_unplaced_of_type(effective_models, selected_model_type)
 	if next_idx >= 0:
 		model_idx = next_idx
@@ -2804,6 +2816,8 @@ func _advance_model_type_placement() -> void:
 	# No more of this type — check remaining types
 	var placed = _get_placed_indices()
 	var remaining_types = _get_distinct_unplaced_types(effective_models, placed)
+
+	print("[DeploymentController] MA-15-DEBUG: _find_next returned -1 — remaining_types=%s" % str(remaining_types))
 
 	if remaining_types.size() == 0:
 		# All models placed
