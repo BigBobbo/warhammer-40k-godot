@@ -6173,13 +6173,13 @@ func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: 
 	if terrain_manager and terrain_manager.has_method("calculate_movement_terrain_penalty"):
 		penalty += float(terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false))
 	# T-103: multi-floor vertical climb cost.
-	penalty += _get_vertical_climb_cost(from_pos, to_pos)
+	penalty += _get_vertical_climb_cost(from_pos, to_pos, unit_id)
 	if penalty > 0.0:
 		log_phase_message("  Terrain penalty: %.1f\" (incl vertical, FLY=false)" % penalty)
 	return penalty
 
 
-func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2) -> float:
+func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2, unit_id: String = "") -> float:
 	# T-103: returns vertical inches the model must climb when moving onto a
 	# multi-floor ruin. Uses TerrainManager.get_terrain_at_position(pos) +
 	# get_height_inches() (height_category → 1.5/3.5/6.0). Descent is free
@@ -6190,10 +6190,19 @@ func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2) -> float:
 		return 0.0
 	if not (tm.has_method("get_terrain_at_position") and tm.has_method("get_height_inches")):
 		return 0.0
-	var from_h = 0.0
-	var to_h = 0.0
 	var from_t = tm.get_terrain_at_position(from_pos)
 	var to_t = tm.get_terrain_at_position(to_pos)
+	# 10e: units that can traverse the destination terrain (INFANTRY through
+	# ruins per can_move_through) stay on the ground floor — no climb cost.
+	# Without this, a 4" move onto a tall (6") ruin was inflated by +6" and
+	# rejected as "exceeds cap", silently snapping the model back.
+	if unit_id != "" and not to_t.is_empty() and tm.has_method("can_unit_move_through_terrain"):
+		var unit = get_unit(unit_id)
+		var keywords = unit.get("meta", {}).get("keywords", []) if not unit.is_empty() else []
+		if tm.can_unit_move_through_terrain(keywords, to_t):
+			return 0.0
+	var from_h = 0.0
+	var to_h = 0.0
 	if not from_t.is_empty():
 		from_h = float(tm.get_height_inches(from_t))
 	if not to_t.is_empty():

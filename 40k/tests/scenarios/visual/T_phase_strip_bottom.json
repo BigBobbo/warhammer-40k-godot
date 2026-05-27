@@ -1,0 +1,44 @@
+{
+  "id": "T_phase_strip_bottom",
+  "covers": ["ui.phase_strip_position"],
+  "fixture": "co_pretrigger",
+  "transition_to_phase": 7,
+  "description": "Phase progress strip (Command -> Movement -> ... -> Score) is anchored at the bottom of the screen, sandwiched horizontally between the GameLogPanel (340px on the left) and the HUD_Right phase-actions panel (400px on the right), instead of spanning the full width at the top.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script",
+      "script": "get_node_or_null(\"/root/Main/PhaseStrip\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip\").visible",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip\").anchor_top",
+      "equals": 1.0 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip\").anchor_bottom",
+      "equals": 1.0 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip\").offset_left",
+      "equals": 340.0 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip\").offset_right",
+      "equals": -400.0 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip\").offset_top",
+      "equals": -30.0 },
+    { "act": "execute_script",
+      "script": "get_node(\"/root/Main/PhaseStrip\").offset_bottom",
+      "equals": 0.0 },
+
+    { "act": "execute_script",
+      "script": "String(get_node(\"/root/Main/PhaseStrip\").get_parent().name)",
+      "equals": "Main" },
+
+    { "act": "screenshot", "label": "phase_strip_at_bottom" }
+  ]
+}

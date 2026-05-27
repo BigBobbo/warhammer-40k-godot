@@ -2748,27 +2748,29 @@ func _setup_round_indicator() -> void:
 	print("Main: P3-109: Round indicator created in top bar (enhanced)")
 
 func _setup_phase_strip() -> void:
-	var hud_bottom = get_node_or_null("HUD_Bottom")
-	if not hud_bottom:
-		return
-
+	# Place the phase progress strip flush with the bottom of the screen,
+	# sandwiched horizontally between the GameLogPanel (340 px on the left)
+	# and the HUD_Right phase-actions panel (400 px on the right).
 	_phase_strip_panel = PanelContainer.new()
 	_phase_strip_panel.name = "PhaseStrip"
 	_phase_strip_panel.anchor_left = 0.0
 	_phase_strip_panel.anchor_right = 1.0
 	_phase_strip_panel.anchor_top = 1.0
 	_phase_strip_panel.anchor_bottom = 1.0
-	_phase_strip_panel.offset_top = 0.0
-	_phase_strip_panel.offset_bottom = 30.0
+	_phase_strip_panel.offset_left = GameLogPanelScript.PANEL_WIDTH
+	_phase_strip_panel.offset_right = -400.0
+	_phase_strip_panel.offset_top = -30.0
+	_phase_strip_panel.offset_bottom = 0.0
+	_phase_strip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var strip_style = StyleBoxFlat.new()
 	strip_style.bg_color = Color(0.06, 0.05, 0.04, 0.92)
 	strip_style.border_color = Color(WhiteDwarfTheme.WH_GOLD, 0.3)
-	strip_style.border_width_bottom = 1
+	strip_style.border_width_top = 1
 	strip_style.set_content_margin_all(0)
 	strip_style.content_margin_left = 4
 	strip_style.content_margin_right = 4
 	_phase_strip_panel.add_theme_stylebox_override("panel", strip_style)
-	hud_bottom.add_child(_phase_strip_panel)
+	add_child(_phase_strip_panel)
 
 	_phase_strip_container = HBoxContainer.new()
 	_phase_strip_container.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -6273,7 +6275,9 @@ func _on_unit_selected(index: int) -> void:
 			"player": GameState.get_active_player()
 		}
 		var scout_result = NetworkIntegration.route_action(scout_action)
-		if scout_result.get("success", false):
+		var phase_inst = PhaseManager.get_current_phase_instance()
+		var already_active = phase_inst and phase_inst.get("active_scout_moves") and phase_inst.active_scout_moves.has(unit_id)
+		if scout_result.get("success", false) or already_active:
 			status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist)
 			# Show confirm/skip buttons
 			_setup_scout_unit_card_buttons(unit_id)
@@ -6282,6 +6286,9 @@ func _on_unit_selected(index: int) -> void:
 		else:
 			print("Main: BEGIN_SCOUT_MOVE failed: ", scout_result.get("errors", ["Scout move failed"]))
 			status_label.text = "Error: " + str(scout_result.get("errors", ["Scout move failed"]))
+			# Only clear cached unit id if the phase truly has no active scout
+			# for it. Otherwise we'd silently break Confirm/Skip for a unit
+			# the phase still considers "in progress".
 			_scout_active_unit_id = ""
 
 	elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
@@ -6372,7 +6379,9 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 				"player": GameState.get_active_player()
 			}
 			var scout_result_bp = NetworkIntegration.route_action(scout_action_bp)
-			if scout_result_bp.get("success", false):
+			var phase_inst_bp = PhaseManager.get_current_phase_instance()
+			var already_active_bp = phase_inst_bp and phase_inst_bp.get("active_scout_moves") and phase_inst_bp.active_scout_moves.has(unit_id)
+			if scout_result_bp.get("success", false) or already_active_bp:
 				status_label.text = "Scout move: Drag models up to %d\" (must end >9\" from enemies)" % int(scout_dist_bp)
 				_setup_scout_unit_card_buttons(unit_id)
 				_scout_highlight_active_unit(unit_id, scout_dist_bp)
@@ -8938,6 +8947,18 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 		if result.has("errors"):
 			for error in result.errors:
 				print("  - ", error)
+		# Surface a toast so the player isn't left guessing why a drop snapped
+		# back (e.g. validation errors from STAGE_MODEL_MOVE that the controller
+		# preview didn't catch — like the destination exceeding the unit's move
+		# cap, engagement-range violations, or terrain checks the server adds).
+		var toast_msg: String = ""
+		if result.has("errors") and result.errors is Array and result.errors.size() > 0:
+			toast_msg = str(result.errors[0])
+		else:
+			toast_msg = str(result.get("error", "Action failed"))
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr and toast_mgr.has_method("show_error"):
+			toast_mgr.show_error(toast_msg)
 		# Show error in status label
 		status_label.text = "Error: " + result.get("error", "Action failed")
 
@@ -11494,7 +11515,22 @@ func _setup_scout_unit_card_buttons(unit_id: String) -> void:
 func _on_scout_confirm_pressed() -> void:
 	"""Confirm the scout move for the active unit.
 	Shows confirmed path visual before cleanup (same as MovementController)."""
-	if _scout_active_unit_id == "":
+	# If our cached active-unit was cleared (e.g. by a re-select that hit a
+	# BEGIN_SCOUT_MOVE rejection), recover it from the phase before bailing.
+	# Without this, the click is a silent no-op while the player's tokens
+	# remain visually moved — producing the "visual ≠ state" bug.
+	var unit_id := _scout_active_unit_id
+	if unit_id == "":
+		var phase_instance = PhaseManager.get_current_phase_instance()
+		if phase_instance and phase_instance.get("active_scout_moves"):
+			var moves: Dictionary = phase_instance.active_scout_moves
+			if not moves.is_empty():
+				unit_id = str(moves.keys()[0])
+				_scout_active_unit_id = unit_id
+				print("Main: Recovered _scout_active_unit_id from phase: ", unit_id)
+	if unit_id == "":
+		print("Main: Scout confirm pressed with no active unit; snapping visuals back to state to avoid visual/state drift.")
+		_sync_all_token_positions()
 		return
 
 	# Show confirmed movement paths before cleanup (same as MovementController._show_confirmed_movement_paths)
@@ -11502,13 +11538,13 @@ func _on_scout_confirm_pressed() -> void:
 
 	var action = {
 		"type": "CONFIRM_SCOUT_MOVE",
-		"unit_id": _scout_active_unit_id,
+		"unit_id": unit_id,
 		"player": GameState.get_active_player()
 	}
 
 	var result = NetworkIntegration.route_action(action)
 	if result.get("success", false):
-		print("Main: Scout move confirmed for ", _scout_active_unit_id)
+		print("Main: Scout move confirmed for ", unit_id)
 		_scout_cleanup_after_move()
 		_recreate_unit_visuals()
 		refresh_unit_list()
@@ -11519,6 +11555,10 @@ func _on_scout_confirm_pressed() -> void:
 		status_label.text = "Error: " + str(errors)
 		if has_node("/root/ToastManager"):
 			get_node("/root/ToastManager").show_toast(str(errors[0]) if errors.size() > 0 else "Confirm failed", "error")
+		# Critical: roll visual tokens back to authoritative state so the
+		# player cannot drift into the "model appears at new spot but game
+		# still targets old spot" state described in the scout bug report.
+		_sync_all_token_positions()
 
 func _scout_show_confirmed_paths() -> void:
 	"""Show confirmed movement paths (hold + fade) for the scout move that was just confirmed.
@@ -11563,18 +11603,30 @@ func _scout_show_confirmed_paths() -> void:
 
 func _on_scout_skip_pressed() -> void:
 	"""Skip the scout move for the active unit."""
-	if _scout_active_unit_id == "":
+	# Mirror _on_scout_confirm_pressed: recover the active unit from the phase
+	# if our cached id was cleared, and always re-sync visuals to state on
+	# the way out so a skipped unit can't be left visually offset.
+	var unit_id := _scout_active_unit_id
+	if unit_id == "":
+		var phase_instance = PhaseManager.get_current_phase_instance()
+		if phase_instance and phase_instance.get("active_scout_moves"):
+			var moves: Dictionary = phase_instance.active_scout_moves
+			if not moves.is_empty():
+				unit_id = str(moves.keys()[0])
+				_scout_active_unit_id = unit_id
+	if unit_id == "":
+		_sync_all_token_positions()
 		return
 
 	var action = {
 		"type": "SKIP_SCOUT_MOVE",
-		"unit_id": _scout_active_unit_id,
+		"unit_id": unit_id,
 		"player": GameState.get_active_player()
 	}
 
 	var result = NetworkIntegration.route_action(action)
 	if result.get("success", false):
-		print("Main: Scout move skipped for ", _scout_active_unit_id)
+		print("Main: Scout move skipped for ", unit_id)
 		_scout_cleanup_after_move()
 		_recreate_unit_visuals()
 		refresh_unit_list()
@@ -11582,6 +11634,7 @@ func _on_scout_skip_pressed() -> void:
 	else:
 		print("Main: Scout skip failed: ", result.get("errors", []))
 		status_label.text = "Error: " + str(result.get("errors", ["Skip failed"]))
+		_sync_all_token_positions()
 
 func _scout_cleanup_after_move() -> void:
 	"""Clean up scout state after a move is confirmed or skipped."""
@@ -11844,7 +11897,6 @@ func _install_design_guidelines_overlays() -> void:
 
 	# Direct children of Main (CanvasLayer-anchored HUD elements).
 	add_child(preload("res://scripts/ActivePlayerEdgeTint.gd").new())      # T25
-	add_child(preload("res://scripts/RollLogPanel.gd").new())              # T35
 	add_child(preload("res://scripts/LeftRosterStrip.gd").new())           # T37
 	add_child(preload("res://scripts/DatasheetModal.gd").new())            # T39
 	add_child(preload("res://scripts/WeaponOrderPanel.gd").new())          # T06

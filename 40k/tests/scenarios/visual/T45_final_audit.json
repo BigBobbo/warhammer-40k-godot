@@ -24,7 +24,7 @@
       "script": "get_node_or_null(\"/root/Main/EndPhaseButton\") != null",
       "equals": true },
     { "act": "execute_script",
-      "script": "get_node_or_null(\"/root/Main/RollLogPanel\") != null",
+      "script": "get_node_or_null(\"/root/Main/RollLogPanel\") == null",
       "equals": true },
     { "act": "execute_script",
       "script": "get_node_or_null(\"/root/Main/LeftRoster\") != null",

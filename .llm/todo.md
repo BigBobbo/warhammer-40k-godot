@@ -841,24 +841,10 @@ Locks in use:
     - [ ] Numbers readable.
     - [ ] Fade timing feels right (not too fast/slow).
 
-- [ ] **T35 — Persistent right-side roll log**
-  - **Lock:** HUD-Right  • **Doc:** §7
-  - **Touches:** `40k/autoloads/DiceHistoryPanel.gd`
-  - **Change:** Make persistently visible on right column. Format:
-    `<timestamp> · <attacker> → <target> · <result>`. Expose
-    `DiceHistoryPanel.entries : Array[Dictionary]`.
-  - **Scenario:** `tests/scenarios/visual/T35_roll_log.json` — drive two
-    resolutions; assert log entries.
-  - **Acceptance — Tier A (machine):**
-    - `DiceHistoryPanel.visible == true` at idle (post-load).
-    - After two resolutions: `entries.size() == 2`.
-    - Each entry has keys `{timestamp, attacker, target, result}` all non-null.
-    - `pixel_diff` log region after resolutions vs at idle: `regions["log"]
-      .diff_pct > 5.0`.
-    - Regression count ≥ baseline.
-  - **Acceptance — Tier B:**
-    - [ ] Entries readable.
-    - [ ] Auto-scrolls to newest.
+- [x] **T35 — Persistent right-side roll log** *(removed — superseded by
+  per-phase `dice_log_display` in ShootingController / FightController /
+  MovementController, which render the same `DiceHistoryPanel` rolls
+  inline. RollLogPanel was redundant.)*
 
 - [ ] **T36 — Explicit commit step on target selection (ENTER to roll)**
   - **Lock:** Shooting + Fight  • **Doc:** §7

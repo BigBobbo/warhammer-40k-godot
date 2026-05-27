@@ -808,7 +808,7 @@ func _test_t103_vertical_movement_open() -> void:
 	print("\n-- T-103: multi-floor vertical movement cost (FIXED 2026-05-06) --")
 	var src = _read("res://phases/MovementPhase.gd")
 	_check("_get_vertical_climb_cost helper present",
-		"func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2)" in src)
+		"func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2" in src)
 	_check("vertical cost added to terrain penalty",
 		"penalty += _get_vertical_climb_cost" in src)
 

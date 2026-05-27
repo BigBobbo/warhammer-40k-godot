@@ -1319,6 +1319,20 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		result.log_text = "Unknown weapon: " + weapon_id
 		return result
 
+	# SPLIT-FIRE / PER-MODEL LOS+RANGE: Re-validate eligibility at resolve time.
+	# Drops models that became ineligible after the player confirmed targets
+	# (deaths, reactive movement, LoS changes).
+	if not model_ids.is_empty():
+		var filt = _filter_eligible_model_ids(model_ids, actor_unit_id, weapon_id, target_unit_id, board)
+		if not filt.dropped.is_empty():
+			print("RulesEngine: [SPLIT-FIRE] Dropped %d ineligible model(s) at resolve time for %s → %s: %s (reasons=%s)" % [
+				filt.dropped.size(), weapon_id, target_unit_id, str(filt.dropped), str(filt.reasons)
+			])
+		model_ids = filt.kept
+		if model_ids.is_empty():
+			result.log_text = "No eligible models in range/LoS for %s → %s" % [weapon_id, target_unit_id]
+			return result
+
 	# Issue #387 Waaagh! Energy: 'Eadbanger gains +S/+D per 5 models in led unit
 	# (and HAZARDOUS at 10+). Mutates profile when applicable.
 	weapon_profile = _apply_waaagh_energy_to_profile(weapon_profile, weapon_id, actor_unit_id, board)
@@ -2209,6 +2223,19 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if weapon_profile.is_empty():
 		result.log_text = "Unknown weapon: " + weapon_id
 		return result
+
+	# SPLIT-FIRE / PER-MODEL LOS+RANGE: Re-validate eligibility at resolve time.
+	# (Auto-resolve path — same safety-net as the dice-by-dice resolve path.)
+	if not model_ids.is_empty():
+		var filt = _filter_eligible_model_ids(model_ids, actor_unit_id, weapon_id, target_unit_id, board)
+		if not filt.dropped.is_empty():
+			print("RulesEngine: [SPLIT-FIRE][auto-resolve] Dropped %d ineligible model(s) for %s → %s: %s (reasons=%s)" % [
+				filt.dropped.size(), weapon_id, target_unit_id, str(filt.dropped), str(filt.reasons)
+			])
+		model_ids = filt.kept
+		if model_ids.is_empty():
+			result.log_text = "No eligible models in range/LoS for %s → %s" % [weapon_id, target_unit_id]
+			return result
 
 	# Issue #387 Waaagh! Energy: 'Eadbanger gains +S/+D per 5 models in led unit
 	# (and HAZARDOUS at 10+). Mutates profile when applicable.
@@ -4286,6 +4313,130 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 			}
 
 	return eligible
+
+# Returns a human-readable reason why the given target cannot be shot at by
+# the actor unit. Empty string means the target IS eligible.
+# Mirrors the eligibility checks in get_eligible_targets so the UI can explain
+# why a clicked enemy unit is greyed out (out of range, no LoS, Lone Operative, etc.).
+static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> String:
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	var target_unit = units.get(target_unit_id, {})
+
+	if actor_unit.is_empty():
+		return "No active shooter"
+	if target_unit.is_empty():
+		return "Invalid target"
+
+	if target_unit.get("owner", 0) == actor_unit.get("owner", 0):
+		return "Cannot target a friendly unit"
+
+	if target_unit.get("attached_to", null) != null:
+		return "Cannot target an attached character — shoot the bodyguard unit"
+
+	var has_alive = false
+	for model in target_unit.get("models", []):
+		if model.get("alive", true):
+			has_alive = true
+			break
+	if not has_alive:
+		return "Target unit is destroyed"
+
+	var target_name = target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id))
+	var actor_owner = actor_unit.get("owner", 0)
+	var target_is_monster_vehicle = is_monster_or_vehicle(target_unit)
+
+	# Cannot target enemies within engagement range of friendly units
+	# (unless the target is a Monster/Vehicle — Big Guns Never Tire applies to the *shooter*,
+	# but the broader rule is that engaged enemies of friends are off-limits to other shooters
+	# except when the target is a Monster/Vehicle, since they can also be targeted normally.)
+	if not target_is_monster_vehicle:
+		if _is_target_in_friendly_engagement(target_unit_id, actor_unit_id, actor_owner, units, board):
+			return "%s is in engagement range with a friendly unit" % target_name
+
+	# Lone Operative
+	if has_lone_operative(target_unit) and target_unit.get("attached_to", null) == null:
+		var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+		if attached_chars.is_empty():
+			var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
+			if min_dist > 12.0:
+				return "%s has Lone Operative — must be within 12\" (currently %.1f\")" % [target_name, min_dist]
+
+	# Psychic Veil
+	if target_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PSYCHIC_VEIL, false):
+		var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
+		if min_dist > 18.0:
+			return "%s has Psychic Veil — must be within 18\" (currently %.1f\")" % [target_name, min_dist]
+
+	# Per-weapon analysis: figure out if it's a range issue, LoS issue, or engagement issue
+	var actor_in_engagement = actor_unit.get("flags", {}).get("in_engagement", false)
+	var actor_is_monster_vehicle = is_monster_or_vehicle(actor_unit)
+	var target_in_er = false
+	if actor_in_engagement:
+		target_in_er = _is_target_within_engagement_range(actor_unit_id, target_unit_id, board)
+
+	var unit_weapons = get_unit_weapons(actor_unit_id, board)
+	var has_any_weapon = false
+	var any_weapon_passed_er_filter = false
+	var any_in_range = false
+	var any_in_los = false
+
+	for model_id in unit_weapons:
+		var actor_model = _get_model_by_id(actor_unit, model_id)
+		if actor_model.is_empty() or not actor_model.get("alive", true):
+			continue
+
+		for weapon_id in unit_weapons[model_id]:
+			has_any_weapon = true
+			var is_pistol = is_pistol_weapon(weapon_id, board)
+
+			# Engagement-range weapon eligibility
+			if actor_in_engagement:
+				if is_pistol:
+					if not target_in_er:
+						continue
+				else:
+					if not actor_is_monster_vehicle:
+						continue
+			any_weapon_passed_er_filter = true
+
+			var weapon_profile = get_weapon_profile(weapon_id, board)
+			var weapon_range = weapon_profile.get("range", 12)
+			var range_px = Measurement.inches_to_px(weapon_range)
+			var is_indirect = has_indirect_fire(weapon_id, board)
+
+			for actor_m in actor_unit.get("models", []):
+				if not actor_m.get("alive", true):
+					continue
+				for target_m in target_unit.get("models", []):
+					if not target_m.get("alive", true):
+						continue
+					var distance = Measurement.model_to_model_distance_px(actor_m, target_m)
+					if distance <= range_px:
+						any_in_range = true
+						if is_indirect:
+							any_in_los = true
+						else:
+							var a_pos = _get_model_position(actor_m)
+							var t_pos = _get_model_position(target_m)
+							if _check_line_of_sight(a_pos, t_pos, board, actor_m, target_m):
+								any_in_los = true
+
+	if not has_any_weapon:
+		return "%s has no usable weapons" % actor_unit.get("meta", {}).get("display_name", actor_unit_id)
+
+	if actor_in_engagement and not any_weapon_passed_er_filter:
+		if actor_is_monster_vehicle:
+			return "No weapons can reach %s while in engagement range" % target_name
+		else:
+			return "Your unit is in engagement range — only Pistols can shoot, and %s is not in your engagement range" % target_name
+
+	if not any_in_range:
+		return "%s is out of range" % target_name
+	if not any_in_los:
+		return "No line of sight to %s" % target_name
+
+	return ""
 
 # Check if target unit is within engagement range (1", or 2" through barricades) of actor unit
 static func _is_target_within_engagement_range(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
@@ -6900,6 +7051,160 @@ static func count_models_in_half_range(
 			models_in_half_range += 1
 
 	return models_in_half_range
+
+# SPLIT-FIRE / PER-MODEL LOS+RANGE (Issue #split-fire):
+# For a given (actor_unit, weapon, target_unit), determine which individual
+# alive models carrying that weapon can legally fire it at the target right
+# now — i.e. they are within weapon range AND have Line of Sight (or the
+# weapon is Indirect Fire). Engagement-range / Pistol restrictions are
+# unit-level and are gated upstream by get_eligible_targets; this helper
+# trusts that and only checks per-model range + LoS.
+#
+# Returns a dictionary with the shape:
+#   {
+#     "eligible": Array[String],   # model_ids that can fire this weapon at the target
+#     "reasons":  Dictionary       # { model_id: "out_of_range" | "no_los" | "dead" }
+#                                  # (only carriers of this weapon appear in reasons)
+#     "distances": Dictionary      # { model_id: edge-to-edge distance in inches to nearest target model }
+#   }
+#
+# Used by:
+#  - ShootingController/ShootingPhase to cap the split-fire "how many to this target?" picker
+#  - _resolve_assignment_until_wounds to re-validate at resolve time (drops models that
+#    became ineligible between assignment and resolve)
+static func get_eligible_shooter_models(
+	actor_unit_id: String,
+	weapon_id: String,
+	target_unit_id: String,
+	board: Dictionary
+) -> Dictionary:
+	var result := {"eligible": [], "reasons": {}, "distances": {}}
+
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	var target_unit = units.get(target_unit_id, {})
+	if actor_unit.is_empty() or target_unit.is_empty():
+		return result
+
+	var weapon_profile = get_weapon_profile(weapon_id, board)
+	if weapon_profile.is_empty():
+		return result
+
+	var weapon_range_inches = float(weapon_profile.get("range", 12))
+	var is_indirect = has_indirect_fire(weapon_id, board)
+
+	var unit_weapons = get_unit_weapons(actor_unit_id, board)
+	var target_models = target_unit.get("models", [])
+
+	# Pre-compute alive target models so we don't repeat the filter per shooter
+	var alive_targets: Array = []
+	for tm in target_models:
+		if tm.get("alive", true):
+			alive_targets.append(tm)
+
+	for model_id in unit_weapons:
+		# Only consider models that actually carry this weapon
+		if not (weapon_id in unit_weapons[model_id]):
+			continue
+
+		var actor_model = _get_model_by_id(actor_unit, model_id)
+		if actor_model.is_empty():
+			continue
+		if not actor_model.get("alive", true):
+			result.reasons[model_id] = "dead"
+			continue
+
+		var actor_pos = _get_model_position(actor_model)
+		# EnhancedLineOfSight treats Vector2.ZERO as "invalid position"
+		# project-wide. Real game state never places a model at the board
+		# origin, but test fixtures sometimes do — when actor_pos is unset,
+		# we still do the range check below but skip per-model LoS so we
+		# don't false-positive a "no LoS" reason.
+		var actor_pos_unset: bool = (actor_pos == Vector2.ZERO)
+
+		# Find nearest alive target model by edge-to-edge distance
+		var nearest_inches := INF
+		var nearest_target: Dictionary = {}
+		for tm in alive_targets:
+			var edge_px = Measurement.model_to_model_distance_px(actor_model, tm)
+			var edge_inches = Measurement.px_to_inches(edge_px)
+			if edge_inches < nearest_inches:
+				nearest_inches = edge_inches
+				nearest_target = tm
+
+		if nearest_target.is_empty():
+			result.reasons[model_id] = "out_of_range"
+			continue
+
+		result.distances[model_id] = nearest_inches
+
+		# Range check
+		if nearest_inches > weapon_range_inches:
+			result.reasons[model_id] = "out_of_range"
+			continue
+
+		# LoS check (skipped for Indirect Fire weapons OR when actor position
+		# is the engine's invalid-position sentinel)
+		if is_indirect or actor_pos_unset:
+			result.eligible.append(model_id)
+			continue
+
+		# Per-model LoS: this specific actor model must see at least one alive
+		# target model (we test against the nearest first since it's likeliest
+		# to be visible; if not, sweep the rest).
+		var target_pos = _get_model_position(nearest_target)
+		var has_los := false
+		if target_pos != Vector2.ZERO:
+			has_los = _check_line_of_sight(actor_pos, target_pos, board, actor_model, nearest_target)
+		if not has_los:
+			for tm in alive_targets:
+				if tm == nearest_target:
+					continue
+				var tpos = _get_model_position(tm)
+				if tpos == Vector2.ZERO:
+					continue
+				if _check_line_of_sight(actor_pos, tpos, board, actor_model, tm):
+					has_los = true
+					break
+
+		if has_los:
+			result.eligible.append(model_id)
+		else:
+			result.reasons[model_id] = "no_los"
+
+	return result
+
+# SPLIT-FIRE / PER-MODEL LOS+RANGE: Resolve-time filter. Returns the subset of
+# the requested model_ids that are still eligible to fire weapon_id at
+# target_unit_id, plus the list that was dropped (for logging).
+static func _filter_eligible_model_ids(
+	model_ids: Array,
+	actor_unit_id: String,
+	weapon_id: String,
+	target_unit_id: String,
+	board: Dictionary
+) -> Dictionary:
+	var eligibility = get_eligible_shooter_models(actor_unit_id, weapon_id, target_unit_id, board)
+
+	# DEFENSIVE FALLBACK: If eligibility returned zero candidates AND zero
+	# reasons, the unit has no weapon-carrier data the engine can parse
+	# (common in headless test fixtures that don't populate unit.meta.weapons).
+	# In that case the caller's model_ids are the source of truth — trust them
+	# and don't filter, so legacy code paths and fixtures keep working.
+	if eligibility.eligible.is_empty() and eligibility.reasons.is_empty():
+		return {"kept": model_ids.duplicate(), "dropped": [], "reasons": {}}
+
+	var eligible_set := {}
+	for mid in eligibility.eligible:
+		eligible_set[mid] = true
+	var kept: Array = []
+	var dropped: Array = []
+	for mid in model_ids:
+		if eligible_set.has(mid):
+			kept.append(mid)
+		else:
+			dropped.append(mid)
+	return {"kept": kept, "dropped": dropped, "reasons": eligibility.reasons}
 
 # Validation function to check if unit has weapons
 static func unit_has_weapons(unit_id: String) -> bool:

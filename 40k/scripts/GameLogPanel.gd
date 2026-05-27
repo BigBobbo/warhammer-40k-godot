@@ -1,6 +1,8 @@
 extends PanelContainer
 class_name GameLogPanel
 
+const DiceRowVisualScript := preload("res://scripts/DiceRowVisual.gd")
+
 ## GameLogPanel — Self-contained card-based game event log UI.
 ## Combines: xBfRG's self-contained architecture + f4dOz's collapsible combat cards,
 ## animations, icon badges, and category refinement + xBfRG's AI filter toggle.
@@ -75,7 +77,8 @@ var _current_combat_details_label: RichTextLabel = null
 var _current_combat_toggle_button: Button = null
 var _current_combat_summary_label: Label = null
 var _current_combat_details_visible: bool = false
-var _current_combat_dice_summary: RichTextLabel = null  # Visible dice roll summary
+var _current_combat_dice_summary: RichTextLabel = null  # Visible dice roll summary (legacy / unused after inline-graphics refactor)
+var _current_combat_dice_container: VBoxContainer = null  # Container of per-roll HBoxes with DiceRowVisual graphics
 
 # Regex for dice roll styling (compiled once)
 var _dice_regex: RegEx
@@ -210,10 +213,10 @@ func _on_entry_added(text: String, entry_type: String) -> void:
 		_scroll.scroll_vertical = int(_scroll.get_v_scroll_bar().max_value)
 
 func _on_dice_roll_recorded(entry: Dictionary) -> void:
-	"""Handle real-time dice roll from DiceHistoryPanel — show immediately in current combat card."""
+	"""Handle real-time dice roll from DiceHistoryPanel — append a graphical row to the current combat card."""
 	if not _current_combat_card or not is_instance_valid(_current_combat_card):
 		return
-	if not _current_combat_dice_summary:
+	if not _current_combat_dice_container or not is_instance_valid(_current_combat_dice_container):
 		return
 
 	var data = entry.get("data", {})
@@ -223,23 +226,34 @@ func _on_dice_roll_recorded(entry: Dictionary) -> void:
 	if context in ["resolution_start", "weapon_progress"]:
 		return
 
-	# Format the dice roll line
-	var line = _format_realtime_dice(data, context)
-	if line == "":
+	var row := _build_realtime_dice_row(data, context)
+	if row == null:
 		return
 
-	if _current_combat_dice_summary.get_parsed_text().length() > 0:
-		_current_combat_dice_summary.append_text("\n")
-	_current_combat_dice_summary.append_text(line)
-	_current_combat_dice_summary.visible = true
+	_current_combat_dice_container.add_child(row)
+	_current_combat_dice_container.visible = true
 
 	# Auto-scroll to bottom
 	if _scroll:
 		await get_tree().process_frame
 		_scroll.scroll_vertical = int(_scroll.get_v_scroll_bar().max_value)
 
-func _format_realtime_dice(data: Dictionary, context: String) -> String:
-	"""Format a dice roll entry for inline display with colored dice badges."""
+func dice_row_has_visual(row_index: int) -> bool:
+	# Test introspection helper: returns true if the dice-container row at
+	# `row_index` contains a DiceRowVisual child. Used by windowed scenarios
+	# that validate inline dice graphics are mounted.
+	if not _current_combat_dice_container or not is_instance_valid(_current_combat_dice_container):
+		return false
+	if row_index < 0 or row_index >= _current_combat_dice_container.get_child_count():
+		return false
+	var row = _current_combat_dice_container.get_child(row_index)
+	for c in row.get_children():
+		if c is DiceRowVisualScript:
+			return true
+	return false
+
+func _build_realtime_dice_row(data: Dictionary, context: String) -> Control:
+	"""Build an HBox row containing prefix label + graphical dice + suffix label."""
 	var rolls_raw = data.get("rolls_raw", [])
 	var threshold_str = str(data.get("threshold", ""))
 	var threshold_int = int(threshold_str.replace("+", "")) if threshold_str != "" and threshold_str != "0" else 0
@@ -248,47 +262,102 @@ func _format_realtime_dice(data: Dictionary, context: String) -> String:
 		"to_hit":
 			var successes = data.get("successes", 0)
 			var total = rolls_raw.size()
-			var dice_str = _format_dice_badges(rolls_raw, threshold_int)
-			return "[color=#AACCEE][b]Hit[/b] (%s):[/color] %s [color=#AACCEE]— %d/%d[/color]" % [threshold_str, dice_str, successes, total]
+			return _make_dice_row(
+				"[color=#AACCEE][b]Hit[/b] (%s):[/color]" % threshold_str,
+				rolls_raw, threshold_int, true,
+				"[color=#AACCEE]— %d/%d[/color]" % [successes, total]
+			)
 		"to_wound":
 			var successes = data.get("successes", 0)
 			var total = rolls_raw.size()
-			var dice_str = _format_dice_badges(rolls_raw, threshold_int)
-			return "[color=#EEAA77][b]Wound[/b] (%s):[/color] %s [color=#EEAA77]— %d/%d[/color]" % [threshold_str, dice_str, successes, total]
+			return _make_dice_row(
+				"[color=#EEAA77][b]Wound[/b] (%s):[/color]" % threshold_str,
+				rolls_raw, threshold_int, true,
+				"[color=#EEAA77]— %d/%d[/color]" % [successes, total]
+			)
 		"save_roll":
 			var failed = data.get("failed", 0)
-			var passed = data.get("successes", 0)
 			var using_invuln = data.get("using_invuln", false)
 			var label = "Inv Save" if using_invuln else "Save"
-			var dice_str = _format_dice_badges(rolls_raw, threshold_int)
 			var result_color = "#FF6B6B" if failed > 0 else "#77CC77"
-			return "[color=#BB88FF][b]%s[/b] (%s):[/color] %s [color=%s]— %d failed[/color]" % [label, threshold_str, dice_str, result_color, failed]
+			return _make_dice_row(
+				"[color=#BB88FF][b]%s[/b] (%s):[/color]" % [label, threshold_str],
+				rolls_raw, threshold_int, true,
+				"[color=%s]— %d failed[/color]" % [result_color, failed]
+			)
 		"feel_no_pain":
 			var prevented = data.get("wounds_prevented", 0)
 			var fnp_val = data.get("fnp_value", 0)
-			var dice_str = _format_dice_badges(rolls_raw, fnp_val)
-			return "[color=#44CC88][b]FNP[/b] (%d+):[/color] %s [color=#44CC88]— %d prevented[/color]" % [fnp_val, dice_str, prevented]
+			return _make_dice_row(
+				"[color=#44CC88][b]FNP[/b] (%d+):[/color]" % fnp_val,
+				rolls_raw, fnp_val, true,
+				"[color=#44CC88]— %d prevented[/color]" % prevented
+			)
 		"auto_hit":
+			# No dice — text-only line via dice-less row.
 			var hits = data.get("successes", 0)
-			return "[color=#FF8844][b]Torrent[/b]:[/color] [color=#88EE88]%d auto-hits[/color]" % hits
+			return _make_dice_row(
+				"[color=#FF8844][b]Torrent[/b]:[/color]",
+				[], 0, true,
+				"[color=#88EE88]%d auto-hits[/color]" % hits
+			)
 		"charge_roll":
 			var rolls = data.get("rolls", data.get("rolls_raw", []))
 			var total = data.get("total", 0)
 			var charge_failed = data.get("charge_failed", false)
-			var dice_str = _format_dice_badges(rolls, 0)
 			var result_color = "#FF6B6B" if charge_failed else "#77CC77"
 			var result_text = "FAILED" if charge_failed else "SUCCESS"
-			return "[color=#E6CC33][b]Charge[/b]:[/color] %s [color=%s]= %d\" %s[/color]" % [dice_str, result_color, total, result_text]
+			return _make_dice_row(
+				"[color=#E6CC33][b]Charge[/b]:[/color]",
+				rolls, 0, false,
+				"[color=%s]= %d\" %s[/color]" % [result_color, total, result_text]
+			)
 		"variable_damage":
 			var dmg_rolls = data.get("rolls", [])
 			var total_dmg = data.get("total_damage", 0)
 			var roll_values = []
 			for r in dmg_rolls:
 				roll_values.append(r.get("value", 0))
-			var dice_str = _format_dice_badges(roll_values, 0)
-			return "[color=#CCAA55][b]Damage[/b]:[/color] %s [color=#CCAA55]= %d[/color]" % [dice_str, total_dmg]
+			return _make_dice_row(
+				"[color=#CCAA55][b]Damage[/b]:[/color]",
+				roll_values, 0, false,
+				"[color=#CCAA55]= %d[/color]" % total_dmg
+			)
 		_:
-			return ""
+			return null
+
+func _make_dice_row(prefix_bbcode: String, rolls: Array, threshold: int, use_threshold_colors: bool, suffix_bbcode: String) -> Control:
+	"""Build a single HBox row: [prefix RichTextLabel] [DiceRowVisual] [suffix RichTextLabel]."""
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 4)
+	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var prefix := RichTextLabel.new()
+	prefix.bbcode_enabled = true
+	prefix.fit_content = true
+	prefix.scroll_active = false
+	prefix.add_theme_font_size_override("normal_font_size", 10)
+	prefix.add_theme_font_size_override("bold_font_size", 11)
+	prefix.append_text(prefix_bbcode)
+	hbox.add_child(prefix)
+
+	if not rolls.is_empty():
+		var dice := DiceRowVisualScript.new()
+		dice.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		dice.set_dice(rolls, threshold, use_threshold_colors)
+		hbox.add_child(dice)
+
+	var suffix := RichTextLabel.new()
+	suffix.bbcode_enabled = true
+	suffix.fit_content = true
+	suffix.scroll_active = false
+	suffix.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	suffix.add_theme_font_size_override("normal_font_size", 10)
+	suffix.add_theme_font_size_override("bold_font_size", 11)
+	suffix.append_text(suffix_bbcode)
+	hbox.add_child(suffix)
+
+	return hbox
 
 func _format_dice_badges(rolls: Array, threshold: int) -> String:
 	"""Format an array of dice values as colored inline badges with good spacing."""
@@ -354,16 +423,13 @@ func _start_combat_card(header_text: String, animate: bool) -> void:
 	header_label.append_text("[b][color=#E8C477]%s[/color][/b]" % header_text)
 	header_hbox.add_child(header_label)
 
-	# Visible dice summary — shows key dice roll lines (To Hit, To Wound, Saves) with badges
-	_current_combat_dice_summary = RichTextLabel.new()
-	_current_combat_dice_summary.bbcode_enabled = true
-	_current_combat_dice_summary.fit_content = true
-	_current_combat_dice_summary.scroll_active = false
-	_current_combat_dice_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_current_combat_dice_summary.add_theme_font_size_override("normal_font_size", 10)
-	_current_combat_dice_summary.add_theme_font_size_override("bold_font_size", 11)
-	_current_combat_dice_summary.visible = false
-	card_vbox.add_child(_current_combat_dice_summary)
+	# Visible dice summary — VBox of per-roll rows, each row = prefix label + DiceRowVisual + suffix label
+	_current_combat_dice_container = VBoxContainer.new()
+	_current_combat_dice_container.add_theme_constant_override("separation", 2)
+	_current_combat_dice_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_current_combat_dice_container.visible = false
+	card_vbox.add_child(_current_combat_dice_container)
+	_current_combat_dice_summary = null  # legacy field; kept declared for type-safety, unused at runtime
 
 	# Summary label (shown after combat resolves)
 	_current_combat_summary_label = Label.new()
@@ -460,6 +526,7 @@ func _finalize_combat_card(text: String, animate: bool) -> void:
 		_current_combat_summary_label = null
 		_current_combat_details_container = null
 		_current_combat_dice_summary = null
+		_current_combat_dice_container = null
 	else:
 		# Orphaned result — create standalone card
 		var card = _make_combat_result_card(text)

@@ -3924,6 +3924,12 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 			if illegal_reason_label:
 				illegal_reason_label.text = invalid_reason
 				illegal_reason_label.modulate = Color.RED
+			# Also surface a toast so the player sees the reason even if the
+			# illegal_reason_label is off-screen (group drags are dragged from
+			# the unit body, not the HUD where the label lives).
+			var toast_mgr = get_node_or_null("/root/ToastManager")
+			if toast_mgr and toast_mgr.has_method("show_error"):
+				toast_mgr.show_error(invalid_reason)
 
 			# Clear the drag but don't move anything
 			group_dragging = false

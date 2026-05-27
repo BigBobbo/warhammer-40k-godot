@@ -1,0 +1,107 @@
+{
+  "id": "scout_confirm_persists_to_state",
+  "covers": [
+    "phases.ScoutPhase.CONFIRM_SCOUT_MOVE.position_writes_to_state"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "Bug repro: after a Scout move is confirmed, the staged position must be committed into GameState.state.units[uid].models[i].position. Player reported the model appears at the new spot visually but click/drag in the Movement phase still targets the OLD pre-scout position, implying the state mutation never landed. This scenario sets up a known scout unit, dispatches BEGIN/SET/CONFIRM, then asserts state.position matches the staged dest (and is NOT the original 850/910). Mirrors scout_no_overlap.json's setup.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script",
+      "script": "GameState.unit_has_scout('U_WITCHSEEKERS_C')",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_phase", "equals": 4 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x",
+      "equals": 850.0 },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_SCOUT_MOVE",
+      "unit_id": "U_WITCHSEEKERS_C"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m1",
+      "destination": { "x": 900.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_scout_moves['U_WITCHSEEKERS_C']['staged_positions'].get('m1', {}).get('x', -1)",
+      "equals": 900.0 },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m2",
+      "destination": { "x": 960.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m3",
+      "destination": { "x": 1020.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m4",
+      "destination": { "x": 1080.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "CONFIRM_SCOUT_MOVE",
+      "unit_id": "U_WITCHSEEKERS_C"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x)",
+      "equals": 900.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.y)",
+      "equals": 200.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[1].position.x)",
+      "equals": 960.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[2].position.x)",
+      "equals": 1020.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[3].position.x)",
+      "equals": 1080.0 },
+    { "act": "screenshot", "label": "after_confirm_positions_committed" },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "expect_phase", "equals": 7 },
+
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x)",
+      "equals": 900.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[1].position.x)",
+      "equals": 960.0 },
+    { "act": "execute_script",
+      "script": "float(PhaseManager.get_current_phase_instance().game_state_snapshot.units.U_WITCHSEEKERS_C.models[0].position.x)",
+      "equals": 900.0 },
+    { "act": "screenshot", "label": "after_phase_transition_positions_intact" }
+  ]
+}

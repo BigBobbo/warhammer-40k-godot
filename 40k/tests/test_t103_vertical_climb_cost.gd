@@ -45,9 +45,12 @@ func _test_helper_present() -> void:
 	var src = _read("res://phases/MovementPhase.gd")
 	_check("MovementPhase.gd readable", not src.is_empty())
 	_check("_get_vertical_climb_cost helper defined",
-		"func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2)" in src)
+		"func _get_vertical_climb_cost(from_pos: Vector2, to_pos: Vector2" in src)
 	_check("vertical penalty added to terrain penalty",
 		"penalty += _get_vertical_climb_cost" in src)
+	# Infantry through ruins should not pay climb cost (10e ground floor rule).
+	_check("traversable terrain bypasses climb cost",
+		"can_unit_move_through_terrain" in src and "return 0.0" in src)
 	_check("FLY units bypass vertical cost",
 		"if _unit_has_fly_keyword(unit_id):" in src and "_get_movement_terrain_penalty" in src)
 	_check("descent (to_h <= from_h) is free",

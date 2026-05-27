@@ -27,12 +27,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.5,
-            -3.0
+            4.5,
+            3.0
           ],
           "local_end": [
-            4.5,
-            -3.0
+            -4.5,
+            3.0
           ]
         },
         {
@@ -40,12 +40,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.5,
-            -3.0
+            4.5,
+            3.0
           ],
           "local_end": [
-            -4.5,
-            0.0
+            4.5,
+            -0.0
           ]
         },
         {
@@ -53,12 +53,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            4.5,
-            -3.0
+            -4.5,
+            3.0
           ],
           "local_end": [
-            4.5,
-            0.0
+            -4.5,
+            -0.0
           ]
         }
       ],
@@ -86,12 +86,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            6.0,
-            3.0
+            -6.0,
+            -3.0
           ],
           "local_end": [
-            0.0,
-            3.0
+            -0.0,
+            -3.0
           ]
         },
         {
@@ -99,12 +99,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            6.0,
-            3.0
+            -6.0,
+            -3.0
           ],
           "local_end": [
-            6.0,
-            -3.0
+            -6.0,
+            3.0
           ]
         }
       ],
@@ -148,12 +148,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            3.25,
-            -2.5
+            -3.25,
+            2.5
           ],
           "local_end": [
-            -3.25,
-            -2.5
+            3.25,
+            2.5
           ]
         },
         {
@@ -161,12 +161,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            3.25,
-            -2.5
+            -3.25,
+            2.5
           ],
           "local_end": [
-            3.25,
-            2.5
+            -3.25,
+            -2.5
           ]
         }
       ],
@@ -194,12 +194,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.0,
-            3.0
+            4.0,
+            -3.0
           ],
           "local_end": [
-            3.0,
-            3.0
+            -3.0,
+            -3.0
           ]
         },
         {
@@ -207,12 +207,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.0,
-            3.0
+            4.0,
+            -3.0
           ],
           "local_end": [
-            -4.0,
-            -2.0
+            4.0,
+            2.0
           ]
         }
       ],
@@ -288,12 +288,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            4.0,
-            -3.0
+            -4.0,
+            3.0
           ],
           "local_end": [
-            -3.0,
-            -3.0
+            3.0,
+            3.0
           ]
         },
         {
@@ -301,12 +301,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            4.0,
-            -3.0
+            -4.0,
+            3.0
           ],
           "local_end": [
-            4.0,
-            2.0
+            -4.0,
+            -2.0
           ]
         }
       ],
@@ -366,12 +366,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.5,
-            3.0
+            4.5,
+            -3.0
           ],
           "local_end": [
-            4.5,
-            3.0
+            -4.5,
+            -3.0
           ]
         },
         {
@@ -379,12 +379,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -4.5,
-            3.0
+            4.5,
+            -3.0
           ],
           "local_end": [
-            -4.5,
-            0.0
+            4.5,
+            -0.0
           ]
         },
         {
@@ -392,12 +392,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            4.5,
-            3.0
+            -4.5,
+            -3.0
           ],
           "local_end": [
-            4.5,
-            0.0
+            -4.5,
+            -0.0
           ]
         }
       ],
@@ -441,12 +441,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -6.0,
-            -3.0
+            6.0,
+            3.0
           ],
           "local_end": [
-            0.0,
-            -3.0
+            -0.0,
+            3.0
           ]
         },
         {
@@ -454,12 +454,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -6.0,
-            -3.0
+            6.0,
+            3.0
           ],
           "local_end": [
-            -6.0,
-            3.0
+            6.0,
+            -3.0
           ]
         }
       ],
@@ -487,12 +487,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -3.25,
-            2.5
+            3.25,
+            -2.5
           ],
           "local_end": [
-            3.25,
-            2.5
+            -3.25,
+            -2.5
           ]
         },
         {
@@ -500,12 +500,12 @@
           "type": "solid",
           "blocks_los": true,
           "local_start": [
-            -3.25,
-            2.5
+            3.25,
+            -2.5
           ],
           "local_end": [
-            -3.25,
-            -2.5
+            3.25,
+            2.5
           ]
         }
       ],

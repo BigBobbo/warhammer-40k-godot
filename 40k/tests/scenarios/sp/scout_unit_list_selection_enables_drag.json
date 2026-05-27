@@ -1,0 +1,84 @@
+{
+  "id": "scout_unit_list_selection_enables_drag",
+  "covers": [
+    "phases.ScoutPhase.UI.unit_list_selection_enables_drag"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "Regression for: a stray edit in _on_unit_selected (the right-panel unit list handler at Main.gd:6196) collapsed the SCOUT branch into the MOVEMENT branch by deleting the elif separator. After selecting a scout unit from the list, control fell through into the MOVEMENT branch's reserve-unit / movement-controller logic — which sets movement_controller.active_unit_id on a null reference during scout phase and never wires the scout state, leaving _scout_active_unit_id technically set but the unit card / drag input in a broken state. Player report: 'when I select scout units and try to drag them, nothing happens'. This scenario refreshes the scout-phase unit list, then drives _on_unit_selected(0) — the same path the unit-list 'item_selected' signal takes — and asserts (a) _scout_active_unit_id is set, (b) phase has an active scout move, (c) Confirm button is wired and visible, and (d) Confirm click commits state. If the elif is missing, _on_unit_selected will explode or no-op on the scout unit.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_phase", "equals": 4 },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').refresh_unit_list()" },
+    { "act": "wait_frames", "frames": 1 },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').unit_list.get_item_metadata(0)",
+      "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._on_unit_selected(0)" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._scout_active_unit_id",
+      "equals": "U_WITCHSEEKERS_C" },
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().active_scout_moves.has('U_WITCHSEEKERS_C'))",
+      "equals": "true" },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').confirm_button.visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "str(get_node('/root/Main').confirm_button.pressed.is_connected(get_node('/root/Main')._on_scout_confirm_pressed))",
+      "equals": "true" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m1",
+      "destination": { "x": 900.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m2",
+      "destination": { "x": 960.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m3",
+      "destination": { "x": 1020.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m4",
+      "destination": { "x": 1080.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
+      "emit_pressed": true },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x)",
+      "equals": 900.0 },
+    { "act": "screenshot", "label": "scout_unit_list_selection_full_flow" }
+  ]
+}

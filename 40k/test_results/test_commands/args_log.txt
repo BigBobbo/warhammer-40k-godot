@@ -1,1 +1,1 @@
-ARGS: ["--scenario-file=tests/scenarios/sp/regression_single_after_tight_same_unit.json"]
+ARGS: ["--scenario-file=tests/scenarios/sp/87_no_offboard_deploy.json"]

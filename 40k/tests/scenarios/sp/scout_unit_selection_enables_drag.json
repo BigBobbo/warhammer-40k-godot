@@ -1,0 +1,82 @@
+{
+  "id": "scout_unit_selection_enables_drag",
+  "covers": [
+    "phases.ScoutPhase.UI.unit_selection_from_panel_enables_drag"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "Bug repro: previously a stray edit collapsed the SCOUT and MOVEMENT branches of _on_unit_selected / _on_unit_stats_panel_unit_selected, so selecting a scout unit fell through into the MOVEMENT branch and either crashed (movement_controller null) or never finished wiring scout state. Result: clicking a scout unit in the list appeared to succeed but you couldn't drag any models. This scenario drives the real unit-selection handler and asserts that immediately afterward (a) _scout_active_unit_id is set, (b) the phase has an active scout move for that unit, and (c) the input guard at line 5114 ('current_phase == SCOUT and _scout_active_unit_id != \"\"') would let drag input through.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_phase", "equals": 4 },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._scout_active_unit_id",
+      "equals": "" },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._on_unit_stats_panel_unit_selected('U_WITCHSEEKERS_C', false)" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._scout_active_unit_id",
+      "equals": "U_WITCHSEEKERS_C" },
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().active_scout_moves.has('U_WITCHSEEKERS_C'))",
+      "equals": "true" },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._on_unit_stats_panel_unit_selected('U_WITCHSEEKERS_C', false)" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main')._scout_active_unit_id",
+      "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m1",
+      "destination": { "x": 900.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m2",
+      "destination": { "x": 960.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m3",
+      "destination": { "x": 1020.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m4",
+      "destination": { "x": 1080.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
+      "emit_pressed": true },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x)",
+      "equals": 900.0 },
+    { "act": "screenshot", "label": "scout_select_drag_confirm_intact" }
+  ]
+}
