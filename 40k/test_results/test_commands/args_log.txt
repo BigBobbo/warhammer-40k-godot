@@ -1,1 +1,1 @@
-ARGS: ["--scenario-file=tests/scenarios/sp/charge_infantry_through_ruins.json"]
+ARGS: ["--scenario-file=tests/scenarios/sp/regression_single_after_tight_same_unit.json"]

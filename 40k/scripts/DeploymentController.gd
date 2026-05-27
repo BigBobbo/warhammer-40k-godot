@@ -1951,6 +1951,18 @@ func set_formation_mode(mode: String) -> void:
 	if is_placing():
 		if mode == "SINGLE":
 			_clear_formation_ghosts()
+			# If a previous TIGHT/SPREAD placement filled the unit (or left
+			# model_idx pointing at an already-placed slot), the cached
+			# model_idx is stale. _create_ghost() needs a valid index to
+			# attach model_data, otherwise the ghost is added to the layer
+			# with no shape and _process skips its position updates — the
+			# user sees no ghost and clicks fall through.
+			var remaining = _get_unplaced_model_indices()
+			if remaining.is_empty():
+				_remove_ghost()
+				return
+			if model_idx >= temp_positions.size() or temp_positions[model_idx] != null:
+				model_idx = remaining[0]
 			if not ghost_sprite:
 				_create_ghost()
 		else:

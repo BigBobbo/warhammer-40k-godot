@@ -1,0 +1,38 @@
+{
+  "id": "regression_single_after_tight_same_unit",
+  "covers": [
+    "deployment.formation_mode.same_unit_tight_then_single"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "User-reported bug: deploy a multi-model unit, click TIGHT and place all models in one formation click, then click SINGLE to switch back. With the unit fully placed, set_formation_mode('SINGLE') calls _create_ghost() while model_idx == temp_positions.size(), so the new ghost has no model data (invisible) and try_place_at returns early because model_idx is out of range.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "Main.show_unit_card('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.set_formation_mode('TIGHT')" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_formation_at(Vector2(880, 240))" },
+    { "act": "wait_frames", "frames": 8 },
+
+    { "act": "execute_script", "script": "'after_tight=placed=' + str(Main.deployment_controller.get_placed_count()) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' total=' + str(Main.deployment_controller.get_total_model_count()) + ' ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' fmt_ghosts=' + str(Main.deployment_controller.formation_preview_ghosts.size())" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.set_formation_mode('SINGLE')" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "'after_single_switch=mode=' + str(Main.deployment_controller.formation_mode) + ' ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' total=' + str(Main.deployment_controller.get_total_model_count())" },
+
+    { "act": "screenshot", "label": "01_after_switch_to_single" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(600, 240))" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "'after_click=placed=' + str(Main.deployment_controller.get_placed_count())" },
+
+    { "act": "screenshot", "label": "02_after_click_in_single_mode" }
+  ]
+}
