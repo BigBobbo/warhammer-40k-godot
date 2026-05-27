@@ -1,0 +1,40 @@
+{
+  "id": "regression_single_after_partial_tight",
+  "covers": [
+    "deployment.formation_mode.single_after_partial_tight"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Companion to regression_single_after_tight_same_unit: places 1 model of a 3-model unit in SINGLE, switches to TIGHT (places remaining 2 models in formation), then switches back to SINGLE. After my fix, set_formation_mode('SINGLE') with a fully-placed unit must NOT spawn an invisible no-data ghost and must NOT leave clicks broken.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "Main.show_unit_card('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(400, 240))" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "str(Main.deployment_controller.get_placed_count())", "equals": "1" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.set_formation_mode('TIGHT')" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_formation_at(Vector2(900, 240))" },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script", "script": "str(Main.deployment_controller.get_placed_count())", "equals": "3" },
+    { "act": "execute_script", "script": "'after_tight=model_idx=' + str(Main.deployment_controller.model_idx) + ' total=' + str(Main.deployment_controller.get_total_model_count())" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.set_formation_mode('SINGLE')" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "'after_single=ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' fmt_ghosts=' + str(Main.deployment_controller.formation_preview_ghosts.size()) + ' model_idx=' + str(Main.deployment_controller.model_idx)" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(800, 240))" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "str(Main.deployment_controller.get_placed_count())", "equals": "3" },
+
+    { "act": "screenshot", "label": "single_after_full_tight" }
+  ]
+}
