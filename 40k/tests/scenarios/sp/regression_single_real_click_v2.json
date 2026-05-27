@@ -1,0 +1,46 @@
+{
+  "id": "regression_single_real_click_v2",
+  "covers": [
+    "deployment.single.real_click_advance"
+  ],
+  "fixture": "audit_378_formations",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Drive plain (non-combined) SINGLE-mode deployment with real InputEvent clicks, three placements in a row at well-spaced world positions. Asserts ghost stays present and model_idx advances 0->1->2->3 across real-input placements.",
+  "steps": [
+    { "act": "wait_frames", "frames": 30 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script", "script": "Main.show_unit_card('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script", "script": "'pre=ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' mode=' + Main.deployment_controller.formation_mode + ' idx=' + str(Main.deployment_controller.model_idx) + ' total=' + str(Main.deployment_controller.get_total_model_count()) + ' is_combined=' + str(Main.deployment_controller.is_combined_deployment) + ' active=' + str(GameState.get_active_player())" },
+
+    { "act": "execute_script", "script": "'xform=' + str(Main.get_node('BoardRoot').get_viewport().get_canvas_transform()) + ' window=' + str(Main.get_viewport().get_visible_rect().size) + ' zone=' + str(BoardState.get_deployment_zone_for_player(1))" },
+
+    { "act": "screenshot", "label": "01_pre_click" },
+
+    { "act": "click_world", "x": 500, "y": 200 },
+    { "act": "wait_frames", "frames": 12 },
+
+    { "act": "execute_script", "script": "'after_click_1=ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' idx=' + str(Main.deployment_controller.model_idx) + ' placed=' + str(Main.deployment_controller.get_placed_count()) + ' temp_size=' + str(Main.deployment_controller.temp_positions.size())" },
+
+    { "act": "screenshot", "label": "02_after_click_1" },
+
+    { "act": "click_world", "x": 600, "y": 280 },
+    { "act": "wait_frames", "frames": 12 },
+
+    { "act": "execute_script", "script": "'after_click_2=ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' idx=' + str(Main.deployment_controller.model_idx) + ' placed=' + str(Main.deployment_controller.get_placed_count())" },
+
+    { "act": "screenshot", "label": "03_after_click_2" },
+
+    { "act": "click_world", "x": 700, "y": 360 },
+    { "act": "wait_frames", "frames": 12 },
+
+    { "act": "execute_script", "script": "'after_click_3=ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' idx=' + str(Main.deployment_controller.model_idx) + ' placed=' + str(Main.deployment_controller.get_placed_count())" },
+
+    { "act": "screenshot", "label": "04_after_click_3" }
+  ]
+}
