@@ -1,0 +1,44 @@
+{
+  "id": "investigate_combined_real_click",
+  "covers": [
+    "deployment.combined.investigation"
+  ],
+  "fixture": "audit_378_formations",
+  "transition_to_phase": 0,
+  "disable_ai": true,
+  "description": "Replays user's flow with REAL mouse click after picking Custodian Guard chip, then inspects ghost state and selected_model_type. Question: does _advance_model_type_placement leave ghost intact?",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "dispatch_action", "action": {"type": "DECLARE_LEADER_ATTACHMENT", "character_id": "U_BLADE_CHAMPION_A", "bodyguard_id": "U_CUSTODIAN_GUARD_B"}},
+    { "act": "dispatch_action", "action": {"type": "CONFIRM_FORMATIONS"}},
+    { "act": "dispatch_action", "action": {"type": "DECLARE_LEADER_ATTACHMENT", "character_id": "U_WARBOSS_B", "bodyguard_id": "U_BOYZ_E"}},
+    { "act": "dispatch_action", "action": {"type": "CONFIRM_FORMATIONS"}},
+    { "act": "wait_frames", "frames": 30 },
+    { "act": "dispatch_action", "action": {"type": "ROLL_FOR_FIRST_TURN", "dice_roll": [6, 1]}},
+    { "act": "dispatch_action", "action": {"type": "CHOOSE_TURN_ORDER", "choice": "second"}},
+    { "act": "wait_frames", "frames": 30 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script", "script": "Main.show_unit_card('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script", "script": "'post_begin: model_idx=' + str(Main.deployment_controller.model_idx) + ' ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' selected_type=' + str(Main.deployment_controller.selected_model_type) + ' has_picker=' + str(Main.deployment_controller.has_model_type_picker)" },
+
+    { "act": "execute_script", "script": "'cm[1].model_type=' + str(Main.deployment_controller.combined_models[1].get('model_type','MISSING')) + ' cm[1].md.model_type=' + str(Main.deployment_controller.combined_models[1].model_data.get('model_type','MISSING')) + ' cm[4].model_type=' + str(Main.deployment_controller.combined_models[4].get('model_type','MISSING'))" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller._on_model_type_selected('bg_U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script", "script": "'post_pick: model_idx=' + str(Main.deployment_controller.model_idx) + ' ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' selected_type=' + str(Main.deployment_controller.selected_model_type)" },
+
+    { "act": "click_world", "x": 880, "y": 240 },
+    { "act": "wait_frames", "frames": 12 },
+
+    { "act": "execute_script", "script": "'post_click1: model_idx=' + str(Main.deployment_controller.model_idx) + ' ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' selected_type=' + str(Main.deployment_controller.selected_model_type) + ' placed=' + str(Main.deployment_controller.get_placed_count())" },
+
+    { "act": "screenshot", "label": "01_post_click1" }
+  ]
+}

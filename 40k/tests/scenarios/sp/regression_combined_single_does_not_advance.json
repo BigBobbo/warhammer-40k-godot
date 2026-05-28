@@ -1,0 +1,73 @@
+{
+  "id": "regression_combined_single_does_not_advance",
+  "covers": [
+    "deployment.combined.single_advances_after_place"
+  ],
+  "fixture": "audit_378_formations",
+  "transition_to_phase": 0,
+  "disable_ai": true,
+  "description": "User-reported bug: Custodian Guard with attached character (combined deployment) — after placing one bodyguard model in SINGLE mode the ghost disappears, even though more bodyguard models remain. Reproduces by declaring Blade Champion → Custodian Guard, transitioning to deployment, and walking the placement loop.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_LEADER_ATTACHMENT",
+      "character_id": "U_BLADE_CHAMPION_A",
+      "bodyguard_id": "U_CUSTODIAN_GUARD_B"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_FORMATIONS" }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_LEADER_ATTACHMENT",
+      "character_id": "U_WARBOSS_B",
+      "bodyguard_id": "U_BOYZ_E"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_FORMATIONS" }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_frames", "frames": 30 },
+
+    { "act": "dispatch_action", "action": { "type": "ROLL_FOR_FIRST_TURN", "dice_roll": [6, 1] }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "CHOOSE_TURN_ORDER", "choice": "second" }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_frames", "frames": 30 },
+
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script", "script": "Main.show_unit_card('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "'after_begin=is_combined=' + str(Main.deployment_controller.is_combined_deployment) + ' has_picker=' + str(Main.deployment_controller.has_model_type_picker) + ' combined_size=' + str(Main.deployment_controller.combined_models.size()) + ' temp_pos_size=' + str(Main.deployment_controller.temp_positions.size()) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' ghost=' + str(Main.deployment_controller.ghost_sprite != null)" },
+
+    { "act": "screenshot", "label": "01_after_begin_deploy_combined" },
+
+    { "act": "execute_script", "script": "str(Main.deployment_controller._combined_profiles.keys())" },
+    { "act": "execute_script", "script": "Main.deployment_controller._on_model_type_selected(\"bg_U_CUSTODIAN_GUARD_B\")" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script", "script": "'after_picker_select=selected_type=' + str(Main.deployment_controller.selected_model_type) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' active_player=' + str(GameState.get_active_player())" },
+
+    { "act": "screenshot", "label": "02_after_picker_select_bodyguard" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(880, 240))" },
+    { "act": "wait_frames", "frames": 8 },
+
+    { "act": "execute_script", "script": "'after_place_1=ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' ghost_valid=' + str(Main.deployment_controller.ghost_sprite != null and is_instance_valid(Main.deployment_controller.ghost_sprite)) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' placed=' + str(Main.deployment_controller.get_placed_count()) + ' selected_type=' + str(Main.deployment_controller.selected_model_type)" },
+
+    { "act": "screenshot", "label": "03_after_first_combined_place" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(1000, 320))" },
+    { "act": "wait_frames", "frames": 8 },
+
+    { "act": "execute_script", "script": "'after_place_2=ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' placed=' + str(Main.deployment_controller.get_placed_count())" },
+
+    { "act": "screenshot", "label": "04_after_second_combined_place" }
+  ]
+}

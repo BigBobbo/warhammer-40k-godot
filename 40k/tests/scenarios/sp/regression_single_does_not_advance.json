@@ -1,0 +1,56 @@
+{
+  "id": "regression_single_does_not_advance",
+  "covers": [
+    "deployment.formation_mode.single_advances_to_next_model"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "After placing one model in SINGLE mode, the ghost should remain visible for the next model so the player can keep clicking. Drives: deploy unit A in TIGHT + confirm, select unit B, click Single, place one model, then check that ghost_sprite is still present and model_idx has advanced.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "Main.show_unit_card('U_CUSTODIAN_GUARD_B')" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.set_formation_mode('TIGHT')" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_formation_at(Vector2(880, 240))" },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script", "script": "Main.deployment_controller.confirm()" },
+    { "act": "wait_frames", "frames": 30 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_WARBOSS_B')" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(880, 2200))" },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script", "script": "Main.deployment_controller.confirm()" },
+    { "act": "wait_frames", "frames": 30 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_WITCHSEEKERS_C')" },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script", "script": "Main.show_unit_card('U_WITCHSEEKERS_C')" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "Main._on_formation_mode_changed('SINGLE')" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "'before_place=mode=' + str(Main.deployment_controller.formation_mode) + ' ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' placed=' + str(Main.deployment_controller.get_placed_count())" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(400, 240))" },
+    { "act": "wait_frames", "frames": 8 },
+
+    { "act": "execute_script", "script": "'after_place=mode=' + str(Main.deployment_controller.formation_mode) + ' ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' ghost_valid=' + str(Main.deployment_controller.ghost_sprite != null and is_instance_valid(Main.deployment_controller.ghost_sprite)) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' placed=' + str(Main.deployment_controller.get_placed_count())" },
+
+    { "act": "screenshot", "label": "01_after_first_single_place" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(520, 320))" },
+    { "act": "wait_frames", "frames": 8 },
+
+    { "act": "execute_script", "script": "'after_second_place=ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' placed=' + str(Main.deployment_controller.get_placed_count())" },
+
+    { "act": "screenshot", "label": "02_after_second_single_place" }
+  ]
+}

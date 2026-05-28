@@ -295,6 +295,10 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_expect_token_visible(step), true)
 		"execute_script":
 			rec.merge(_do_execute_script(step), true)
+		"click_screen":
+			rec.merge(await _do_click_screen(step), true)
+		"click_world":
+			rec.merge(await _do_click_world(step), true)
 		"pixel_diff":
 			rec.merge(_do_pixel_diff(step), true)
 		"expect_baseline_unchanged":
@@ -717,7 +721,49 @@ func _do_expect_baseline_unchanged(_step: Dictionary) -> Dictionary:
 # HELPERS
 # ============================================================================
 
+func _do_click_world(step: Dictionary) -> Dictionary:
+	var x = step.get("x", null)
+	var y = step.get("y", null)
+	if x == null or y == null:
+		return {"pass": false, "error": "click_world needs x and y"}
+	var world_pos := Vector2(float(x), float(y))
+	var current_scene := get_tree().current_scene
+	var screen_pos: Vector2
+	if current_scene and current_scene.has_method("screen_to_world_position"):
+		# Inverse of Main.screen_to_world_position — apply BoardRoot.transform.
+		var board := current_scene.get_node_or_null("BoardRoot")
+		if board and board is Node2D:
+			screen_pos = (board as Node2D).transform * world_pos
+		else:
+			return {"pass": false, "error": "BoardRoot not found"}
+	else:
+		return {"pass": false, "error": "current scene has no screen_to_world_position"}
+	await _send_click(screen_pos)
+	return {"pass": true, "world_position": [world_pos.x, world_pos.y], "screen_position": [screen_pos.x, screen_pos.y]}
+
+
+func _do_click_screen(step: Dictionary) -> Dictionary:
+	var x = step.get("x", null)
+	var y = step.get("y", null)
+	if x == null or y == null:
+		return {"pass": false, "error": "click_screen needs x and y"}
+	var sp := Vector2(float(x), float(y))
+	await _send_click(sp)
+	return {"pass": true, "screen_position": [sp.x, sp.y]}
+
+
 func _send_click(screen_pos: Vector2) -> void:
+	# Warp the OS cursor so get_viewport().get_mouse_position() agrees with our event.
+	# Many input consumers read live cursor position rather than event.position.
+	Input.warp_mouse(screen_pos)
+	# Also send a mouse-motion event so anything listening for motion (and any
+	# internal mouse-position caches in the viewport) update before the click.
+	var motion := InputEventMouseMotion.new()
+	motion.position = screen_pos
+	motion.global_position = screen_pos
+	Input.parse_input_event(motion)
+	await get_tree().process_frame
+	await get_tree().process_frame
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
 	press.position = screen_pos

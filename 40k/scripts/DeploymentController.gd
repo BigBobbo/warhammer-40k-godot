@@ -2650,22 +2650,40 @@ func _get_placed_indices() -> Array:
 	return placed
 
 func _show_model_type_picker(model_profiles: Dictionary, models: Array) -> void:
-	"""Create and display the model type picker panel."""
-	_hide_model_type_picker()
+	"""Create and display the model type picker panel.
 
-	# Create a CanvasLayer so the panel is in screen space (not world space)
-	model_type_picker_canvas = CanvasLayer.new()
-	model_type_picker_canvas.name = "ModelTypePickerCanvas"
-	model_type_picker_canvas.layer = 10  # Above game elements
-	get_tree().root.add_child(model_type_picker_canvas)
+	Embeds the picker inside the unit-card panel on the right (right after
+	the Deploy Formation buttons). Falls back to a left-side CanvasLayer if
+	the unit-card node isn't reachable for some reason — that preserves the
+	picker's discoverability even outside the Main scene.
+	"""
+	_hide_model_type_picker()
 
 	var PickerScript = load("res://scripts/ModelTypePickerPanel.gd")
 	model_type_picker_panel = PickerScript.new()
 	model_type_picker_panel.name = "ModelTypePickerPanel"
-	model_type_picker_canvas.add_child(model_type_picker_panel)
 
-	# Position on left side of screen
-	model_type_picker_panel.position = Vector2(20, 200)
+	var unit_card := _find_unit_card()
+	if unit_card != null:
+		# Embed in the right-hand unit card, immediately after the
+		# FormationControls (Single/Spread/Tight) row so the picker reads
+		# as part of the same panel rather than floating elsewhere.
+		unit_card.add_child(model_type_picker_panel)
+		var formation_controls := unit_card.get_node_or_null("FormationControls")
+		var insert_idx := 0
+		if formation_controls != null:
+			insert_idx = formation_controls.get_index() + 1
+		else:
+			insert_idx = mini(2, unit_card.get_child_count() - 1)
+		unit_card.move_child(model_type_picker_panel, insert_idx)
+	else:
+		# Defensive fallback: float at top-left in its own CanvasLayer.
+		model_type_picker_canvas = CanvasLayer.new()
+		model_type_picker_canvas.name = "ModelTypePickerCanvas"
+		model_type_picker_canvas.layer = 10
+		get_tree().root.add_child(model_type_picker_canvas)
+		model_type_picker_canvas.add_child(model_type_picker_panel)
+		model_type_picker_panel.position = Vector2(20, 200)
 
 	# Setup with current data
 	var placed = _get_placed_indices()
@@ -2674,7 +2692,16 @@ func _show_model_type_picker(model_profiles: Dictionary, models: Array) -> void:
 	# Connect selection signal
 	model_type_picker_panel.model_type_selected.connect(_on_model_type_selected)
 
-	print("[DeploymentController] MA-15: Model type picker shown")
+	print("[DeploymentController] MA-15: Model type picker shown (embedded=%s)" % str(unit_card != null))
+
+func _find_unit_card() -> Node:
+	"""Locate the right-hand UnitCard VBoxContainer that hosts the formation
+	buttons. Returns null if the scene tree doesn't expose it (e.g. test
+	scenes that swap Main for a minimal stub)."""
+	var scene := get_tree().current_scene
+	if scene == null:
+		return null
+	return scene.get_node_or_null("HUD_Right/VBoxContainer/UnitCard")
 
 func _hide_model_type_picker() -> void:
 	"""Remove the model type picker panel."""
@@ -2789,12 +2816,24 @@ func _advance_model_type_placement() -> void:
 	"""After placing a model, advance to the next model of the same type or wait for picker."""
 	var effective_models = _get_effective_models()
 	if effective_models.is_empty():
+		print("[DeploymentController] MA-15-DEBUG: _advance called but effective_models is empty")
 		return
 
 	# Update the picker panel
 	_update_model_type_picker()
 
 	# Try to find next unplaced model of the same type
+	var _dbg_placed_mask := ""
+	for i in range(temp_positions.size()):
+		_dbg_placed_mask += ("X" if temp_positions[i] != null else ".")
+	print("[DeploymentController] MA-15-DEBUG: _advance entry — selected_model_type='%s' model_idx=%d placed_mask='%s'" % [
+		selected_model_type, model_idx, _dbg_placed_mask
+	])
+	for i in range(effective_models.size()):
+		print("[DeploymentController] MA-15-DEBUG:   model[%d] model_type='%s' placed=%s" % [
+			i, str(effective_models[i].get("model_type", "")), str(temp_positions[i] != null)
+		])
+
 	var next_idx = _find_next_unplaced_of_type(effective_models, selected_model_type)
 	if next_idx >= 0:
 		model_idx = next_idx
@@ -2804,6 +2843,8 @@ func _advance_model_type_placement() -> void:
 	# No more of this type — check remaining types
 	var placed = _get_placed_indices()
 	var remaining_types = _get_distinct_unplaced_types(effective_models, placed)
+
+	print("[DeploymentController] MA-15-DEBUG: _find_next returned -1 — remaining_types=%s" % str(remaining_types))
 
 	if remaining_types.size() == 0:
 		# All models placed

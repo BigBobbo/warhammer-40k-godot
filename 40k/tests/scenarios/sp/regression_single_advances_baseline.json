@@ -1,0 +1,36 @@
+{
+  "id": "regression_single_advances_baseline",
+  "covers": [
+    "deployment.formation_mode.single_baseline_advances"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Baseline: a fresh multi-model unit in SINGLE mode should advance the ghost after each placement without re-clicking Single.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_WITCHSEEKERS_C')" },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script", "script": "Main.show_unit_card('U_WITCHSEEKERS_C')" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script", "script": "'before=mode=' + str(Main.deployment_controller.formation_mode) + ' ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' model_idx=' + str(Main.deployment_controller.model_idx)" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(400, 240))" },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script", "script": "'after_1=ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' placed=' + str(Main.deployment_controller.get_placed_count())" },
+
+    { "act": "screenshot", "label": "01_after_first_place" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(520, 320))" },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script", "script": "'after_2=ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' placed=' + str(Main.deployment_controller.get_placed_count())" },
+
+    { "act": "screenshot", "label": "02_after_second_place" },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(640, 400))" },
+    { "act": "wait_frames", "frames": 8 },
+    { "act": "execute_script", "script": "'after_3=ghost=' + str(Main.deployment_controller.ghost_sprite != null) + ' model_idx=' + str(Main.deployment_controller.model_idx) + ' placed=' + str(Main.deployment_controller.get_placed_count())" }
+  ]
+}
