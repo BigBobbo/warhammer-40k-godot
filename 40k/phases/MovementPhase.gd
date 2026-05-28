@@ -1004,6 +1004,16 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
 		return {"valid": false, "errors": ["Cannot end move on top of another model"]}
 
+	# Check wall overlap — no model may end its move overlapping a wall segment
+	# (path-traversal honors per-keyword blocks_movement separately). Mirrors
+	# the client-side gate in MovementController._end_model_drag; required
+	# here so SET_MODEL_DEST actions dispatched without the drag UI
+	# (multiplayer, tests, AI) still hit the same rule.
+	var _wall_test_model_smd = model.duplicate(true)
+	_wall_test_model_smd["position"] = dest_vec
+	if Measurement.model_overlaps_any_wall(_wall_test_model_smd):
+		return {"valid": false, "errors": ["Cannot end move overlapping a wall"]}
+
 	# Check board edge - no part of model base can extend beyond the battlefield
 	if _position_outside_board_bounds(dest_vec, model):
 		return {"valid": false, "errors": ["Model cannot be placed beyond the board edge"]}
@@ -1139,6 +1149,17 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	# Check model overlap
 	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
 		return {"valid": false, "errors": ["Cannot end move on top of another model"]}
+
+	# Check wall overlap — no model may end its move overlapping a wall segment
+	# (path-traversal honors per-keyword blocks_movement separately). Mirrors
+	# the client-side gate in MovementController._end_model_drag; required
+	# here so STAGE_MODEL_MOVE actions dispatched without the drag UI
+	# (multiplayer, tests, AI) still hit the same rule.
+	var _wall_test_model_stage = model.duplicate(true)
+	_wall_test_model_stage["position"] = dest_vec
+	if Measurement.model_overlaps_any_wall(_wall_test_model_stage):
+		log_phase_message("  FAILED: Model would end move overlapping a wall")
+		return {"valid": false, "errors": ["Cannot end move overlapping a wall"]}
 
 	# Check board edge - no part of model base can extend beyond the battlefield
 	if _position_outside_board_bounds(dest_vec, model):

@@ -1,1 +1,1 @@
-ARGS: ["--scenario-file=tests/scenarios/sp/infantry_enters_ruin_wall.json"]
+ARGS: ["--scenario-file=tests/scenarios/sp/infantry_tall_ruin_traversal.json"]

@@ -41,6 +41,26 @@
       "script": "Measurement.model_overlaps_any_wall({\"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 400, \"y\": 440}, \"rotation\": 0.0}, [\"FLY\"])",
       "equals": true
     },
-    { "act": "screenshot", "label": "02_wall_endpoint_block_universal" }
+    { "act": "screenshot", "label": "02_wall_endpoint_block_universal" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_NORMAL_MOVE",
+      "actor_unit_id": "U_WITCHSEEKERS_D",
+      "payload": {}
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "STAGE_MODEL_MOVE",
+      "actor_unit_id": "U_WITCHSEEKERS_D",
+      "payload": {
+        "model_id": "m4",
+        "dest": [1280, 200],
+        "rotation": 0.0
+      }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+
+    { "act": "screenshot", "label": "03_stage_move_onto_wall_rejected" }
   ]
 }
