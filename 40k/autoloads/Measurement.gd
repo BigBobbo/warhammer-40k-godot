@@ -207,19 +207,17 @@ func model_overlaps_wall(model: Dictionary, wall: Dictionary) -> bool:
 	# Delegate to shape-specific collision check
 	return shape.overlaps_with_segment(pos, rotation, wall_start, wall_end)
 
-# Check if model overlaps with any walls in terrain.
-# Pass `unit_keywords` to honor each wall's per-keyword `blocks_movement` map
-# (e.g. INFANTRY can pass through ruin walls per 10e rules). Missing keywords
-# falls back to "every wall blocks", preserving the strictest legacy behavior.
-func model_overlaps_any_wall(model: Dictionary, unit_keywords: Array = []) -> bool:
+# Check if model overlaps with any wall in terrain. This is an ENDPOINT check —
+# units may pass *through* walls during movement (path-traversal honors each
+# wall's per-keyword `blocks_movement` map via TerrainManager.can_unit_cross_wall),
+# but no unit may *end* its movement / deployment / pile-in overlapping a wall.
+# The `unit_keywords` argument is retained for callsite compatibility but is no
+# longer consulted: wall overlap at a final position is universally rejected.
+func model_overlaps_any_wall(model: Dictionary, _unit_keywords: Array = []) -> bool:
 	for terrain in TerrainManager.terrain_features:
 		var walls = terrain.get("walls", [])
 		for wall in walls:
-			if not model_overlaps_wall(model, wall):
-				continue
-			if unit_keywords.is_empty():
-				return true
-			if not TerrainManager.can_unit_cross_wall(unit_keywords, wall):
+			if model_overlaps_wall(model, wall):
 				return true
 	return false
 

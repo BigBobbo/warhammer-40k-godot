@@ -264,7 +264,7 @@
     },
     {
       "id": "deployment.terrain.infantry_ruin_traversal",
-      "description": "Regression guard (#431): Measurement.model_overlaps_any_wall consults unit keywords so that INFANTRY models can be deployed straddling a ruin wall, while VEHICLE/MONSTER (or any non-INFANTRY unit) is still rejected. Validated by 'infantry_enters_ruin_wall.",
+      "description": "Regression guard: Measurement.model_overlaps_any_wall rejects every model (INFANTRY/VEHICLE/MONSTER/FLY alike) whose base overlaps a wall segment at deployment time. Path-traversal continues to honor unit keywords (infantry may pass through walls during movement); this guard covers only the endpoint rule. Reverses prior #431 interpretation that let INFANTRY end deployment overlapping walls. Validated by 'infantry_enters_ruin_wall.",
       "scenarios": [
         "infantry_enters_ruin_wall"
       ],
@@ -399,7 +399,7 @@
     },
     {
       "id": "movement.terrain.infantry_ruin_traversal",
-      "description": "Regression guard (#431): MovementPhase accepts INFANTRY model drops on top of ruin walls (Measurement.model_overlaps_any_wall respects unit keywords). Non-INFANTRY drops are still rejected and surface a toast. Validated by 'infantry_enters_ruin_wall.",
+      "description": "Regression guard: MovementPhase rejects ANY model drop whose base overlaps a wall segment at the final position — no unit may end its movement on top of a wall. Infantry may still pass through walls mid-move (path-traversal honors unit keywords); this guard covers only the endpoint rule. Reverses prior #431 interpretation that let INFANTRY end movement overlapping walls (observed broken in-game: Witchseekers sitting on the north wall of Grey Ruins). Validated by 'infantry_enters_ruin_wall.",
       "scenarios": [
         "infantry_enters_ruin_wall"
       ],
