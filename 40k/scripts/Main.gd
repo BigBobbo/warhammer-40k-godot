@@ -11902,7 +11902,6 @@ func _install_design_guidelines_overlays() -> void:
 	add_child(preload("res://scripts/WeaponOrderPanel.gd").new())          # T06
 	add_child(preload("res://scripts/EpicChallengePanel.gd").new())        # T20
 	add_child(preload("res://scripts/WoundAllocationPanel.gd").new())      # T21
-	add_child(preload("res://scripts/EndPhaseButton.gd").new())            # T23
 
 	var drv := preload("res://scripts/DiceRollVisual.gd").new()
 	drv.name = "DiceRollVisual"
