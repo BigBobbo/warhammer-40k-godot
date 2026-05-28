@@ -77,6 +77,7 @@ const FAIL_OVERLAP = "OVERLAP"
 const FAIL_BASE_CONTACT = "BASE_CONTACT"
 const FAIL_DIRECTION = "DIRECTION"
 const FAIL_MUST_END_CLOSER = "MUST_END_CLOSER"
+const FAIL_WALL = "WALL"
 
 # Human-readable explanations for each failure category (teaches players the rules)
 const FAIL_CATEGORY_TOOLTIPS = {
@@ -89,6 +90,7 @@ const FAIL_CATEGORY_TOOLTIPS = {
 	FAIL_BASE_CONTACT: "If a charging model CAN make base-to-base contact with an enemy model while still satisfying all other charge conditions, it MUST do so (10e core rule).",
 	FAIL_DIRECTION: "Each model making a charge move must end that move closer to at least one of the charge target units than it started. Reposition the model so it ends nearer to a declared target.",
 	FAIL_MUST_END_CLOSER: "Each model making a charge move must end closer to at least one declared charge target than it started. Models cannot move laterally or away from all targets during a charge.",
+	FAIL_WALL: "Models cannot end their charge movement overlapping a terrain wall. Models may move through walls during the charge (per their keywords), but the final position must be clear of every wall segment.",
 }
 
 func _init():
@@ -1581,6 +1583,18 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 		for err in overlap_validation.errors:
 			categorized_errors.append({"category": FAIL_OVERLAP, "detail": err})
 
+	# 3b. Validate no model ends overlapping a wall. Charging models may move
+	# *through* walls during the charge (path-traversal honors keywords), but
+	# no model may *end* on a wall segment — mirrors the movement-phase
+	# endpoint rule and the client-side ChargeController drag gate. Required
+	# server-side so APPLY_CHARGE_MOVE / heroic-intervention actions dispatched
+	# without the drag UI (multiplayer, tests, AI) still hit the rule.
+	var wall_validation = _validate_no_wall_overlaps(unit_id, per_model_paths)
+	if not wall_validation.valid:
+		errors.append_array(wall_validation.errors)
+		for err in wall_validation.errors:
+			categorized_errors.append({"category": FAIL_WALL, "detail": err})
+
 	# 5. Validate engagement range with ALL targets
 	var engagement_validation = _validate_engagement_range_constraints(unit_id, per_model_paths, target_ids)
 	if not engagement_validation.valid:
@@ -2365,6 +2379,27 @@ func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -
 				# Check for overlap
 				if Measurement.models_overlap(check_model, other_model_check):
 					errors.append("Model %s would overlap with %s/%s" % [model_id, check_unit_id, other_model_id])
+
+	return {"valid": errors.is_empty(), "errors": errors}
+
+func _validate_no_wall_overlaps(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
+	var errors = []
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() > 0):
+			continue
+
+		var final_pos = Vector2(path[-1][0], path[-1][1])
+		var model = _get_model_in_unit(unit_id, model_id)
+		if model.is_empty():
+			continue
+
+		var check_model = model.duplicate(true)
+		check_model["position"] = final_pos
+
+		if Measurement.model_overlaps_any_wall(check_model):
+			errors.append("Model %s would end its charge overlapping a wall" % model_id)
 
 	return {"valid": errors.is_empty(), "errors": errors}
 

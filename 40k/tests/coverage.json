@@ -127,6 +127,15 @@
       "status": "covered"
     },
     {
+      "id": "charge.terrain.cannot_end_on_wall",
+      "description": "Regression guard: ChargePhase._validate_charge_movement_constraints rejects any charge whose final per-model position overlaps a terrain wall (FAIL_WALL via _validate_no_wall_overlaps). Charging models may pass through walls during the move but may not end on one. Closes the server-side client/server divergence (drag UI gated it, but server-authoritative APPLY_CHARGE_MOVE / heroic-intervention did not). Validated by 'charge_cannot_end_on_wall.",
+      "scenarios": [
+        "charge_cannot_end_on_wall"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "charge.modifier_primitive",
       "description": "Charge-roll modifier flag (effect_plus_charge) honoured by DECLARE_CHARGE \u2014 'ERE WE GO stratagem path",
       "scenarios": [
