@@ -41,8 +41,8 @@ func initialize_default_state(deployment_type: String = "hammer_anvil") -> void:
 		},
 		"units": {},  # Start empty, will be populated by army loading
 		"players": {
-			"1": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0},
-			"2": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0}
+			"1": {"cp": 0, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0},
+			"2": {"cp": 0, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0}
 		},
 		"factions": {},  # New field for faction data
 		"unit_visuals": {},  # Maps unit_id -> {"color": "RRGGBB", "label": ""}
