@@ -1,1 +1,1 @@
-ARGS: ["--scenario-file=tests/scenarios/sp/87_no_offboard_deploy.json"]
+ARGS: ["--scenario-file=tests/scenarios/sp/infantry_enters_ruin_wall.json"]
