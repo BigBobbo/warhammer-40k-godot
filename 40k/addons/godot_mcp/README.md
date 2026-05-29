@@ -94,7 +94,9 @@ The wire protocol is one JSON object per line:
 - `get_project_info`, `get_project_setting`, `list_files`
 - `get_current_scene`, `get_node_info`, `get_node_property`, `set_node_property`,
   `call_node_method`
-- `read_script`, `write_script` (refuses paths outside `res://`)
+- `read_script`, `write_script` — `write_script` refuses paths outside `res://`
+  (and outside `GODOT_MCP_ALLOWED_WRITE_PATHS` when that env is set), and
+  refuses to overwrite an existing file unless `overwrite: true` is passed.
 
 ### Core testing
 - `capture_screenshot` — PNG to `user://test_screenshots/<label>.png` plus an
@@ -106,11 +108,27 @@ The wire protocol is one JSON object per line:
   `simulate_key_press`, `simulate_action`
 - `get_scene_state` — recursive tree dump with positions, visibility, and
   script-defined properties
-- `execute_script` — evaluate a one-line GDScript expression against an
-  optional target node
+- `execute_script` — evaluate GDScript against an optional target node.
+  Single-line code uses an `Expression` (node visible as `self`); multi-line
+  code, or any call with `multiline: true`, is compiled into a throwaway
+  script so full statements work (`var`/`if`/`for`/`return`, method calls,
+  autoloads by global name). In compiled mode the node is the `node` param;
+  `return <value>` to send a result back.
 - `wait_frames`, `wait_seconds`
 - `get_log_path` — returns absolute paths of `user://logs` and
   `user://test_screenshots`
+- `read_debug_log` — read the newest `user://logs/debug_*.log` bucketed into
+  errors/warnings/info/debug so you can assert "no errors fired" after driving
+  a feature. Supports `tail`, `since_marker` (only lines after a marker's last
+  occurrence), and `levels` filtering. Flushes DebugLogger's buffer first.
+- `scene_snapshot` / `diff_snapshot` — capture a compact path→state index of
+  the live tree to `user://mcp_snapshots/<label>.json`, then diff two
+  snapshots (or one snapshot vs. the live tree) to prove only the intended
+  nodes moved. Reports added / removed / changed nodes with field-level diffs.
+- `chain_verify` — anti-overconfidence gate: given a `claim`, returns 5
+  adversarial challenge questions plus live log error/warning counts to
+  reconcile before closing a task. Encodes the "pin tests aren't validation"
+  rule from `CLAUDE.md`.
 
 ### Editor-only (port 9081)
 - `play_scene`, `play_main_scene`, `stop_scene`, `get_edited_scene`,
@@ -125,6 +143,30 @@ The wire protocol is one JSON object per line:
 - `dispatch_action` — runs a phase action through `validate_action` /
   `process_action` on the active phase instance
 - `move_unit_to` — convenience wrapper that builds a `MOVE_UNIT` action
+- `verify_delivery` — one-call end-to-end gate. Checks (1) scene-tree
+  integrity, (2) `GameState` + required autoloads present, (3) the debug log
+  has no `ERROR` lines (optionally `since_marker`), and (4) caller
+  `assertions` — GDScript expressions evaluated over live state (autoloads
+  reachable by name; bare expressions auto-returned; pass `expect` for
+  equality or rely on truthiness). Returns `passed: false` if any required
+  check fails. Use it as the final gate after driving a feature live.
+
+## Security model
+
+The addon's threat model is **trusted localhost** — the only client is the
+MCP bridge on `127.0.0.1`, and requests are correlated to responses by `id`
+over a private TCP socket, so there is no response-forgery vector to defend
+against (this is why the addon does *not* need the random output markers that
+stdout-scraping MCP servers like `godot-mcp-enhanced` use). The applicable
+hardening, borrowed from that project's security model, is:
+
+- **Path confinement.** `write_script` only writes under `res://`, and under
+  `GODOT_MCP_ALLOWED_WRITE_PATHS` (comma-separated `res://` prefixes) when set
+  — mirroring `ALLOWED_PROJECT_PATHS`. Unset = all `res://` allowed.
+- **Overwrite confirmation.** `write_script` refuses to clobber an existing
+  file unless `overwrite: true` — the "confirmation token for destructive
+  operations" pattern. Overwriting source is the main destructive risk the
+  bridge exposes.
 
 ## Implementation notes
 

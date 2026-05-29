@@ -180,17 +180,45 @@ func read_script(params: Dictionary) -> Dictionary:
 
 
 func write_script(params: Dictionary) -> Dictionary:
-	# Note: only allowed within `res://` so we don't write outside the project.
+	# Guarded write. The addon's threat model is trusted-localhost, but two
+	# cheap guards (borrowed from godot-mcp-enhanced's security model) prevent
+	# the most common foot-guns:
+	#   * res:// confinement + optional GODOT_MCP_ALLOWED_WRITE_PATHS allow-list
+	#     (mirrors ALLOWED_PROJECT_PATHS — when unset, all res:// paths allowed).
+	#   * overwrite confirmation: refuse to clobber an existing file unless the
+	#     caller passes overwrite:true (the "confirmation token for destructive
+	#     operations" pattern). Overwriting source is the main destructive risk
+	#     this bridge exposes.
 	var path: String = params.get("path", "")
 	var content: String = params.get("content", "")
 	if path == "" or not path.begins_with("res://"):
 		return {"status": "error", "message": "Path must be under res://"}
+
+	var allow_env := OS.get_environment("GODOT_MCP_ALLOWED_WRITE_PATHS")
+	if allow_env != "":
+		var allowed := false
+		for prefix in allow_env.split(",", false):
+			var p := prefix.strip_edges()
+			if p != "" and path.begins_with(p):
+				allowed = true
+				break
+		if not allowed:
+			return {"status": "error", "message": "Path %s is outside GODOT_MCP_ALLOWED_WRITE_PATHS" % path}
+
+	var exists := FileAccess.file_exists(path)
+	if exists and not bool(params.get("overwrite", false)):
+		return {
+			"status": "error",
+			"message": "Refusing to overwrite existing file without overwrite:true — %s" % path,
+			"exists": true,
+		}
+
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		return {"status": "error", "message": "Cannot open file for writing: %s" % path}
 	f.store_string(content)
 	f.close()
-	return {"status": "ok", "path": path, "bytes_written": content.length()}
+	return {"status": "ok", "path": path, "bytes_written": content.length(), "overwritten": exists}
 
 
 # --- Helpers --------------------------------------------------------------
