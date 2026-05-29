@@ -1,0 +1,59 @@
+{
+  "id": "charge_cannot_end_on_wall",
+  "covers": ["charge.terrain.cannot_end_on_wall"],
+  "fixture": "audit_372_charge_modifier",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Regression: no charging model may END its charge move overlapping a terrain wall, even though it may pass *through* walls during the charge. Before the fix, ChargePhase._validate_charge_movement_constraints never called Measurement.model_overlaps_any_wall, so APPLY_CHARGE_MOVE dispatched server-side (multiplayer authoritative replay, tests, AI) silently landed the model on a wall — the same client/server divergence flagged in .llm/audit_2026_launch/findings/03_06_charge.md. After the fix, _validate_no_wall_overlaps rejects any final position overlapping a wall segment (FAIL_WALL). Warboss C (INFANTRY, ORKS) m1 starts at (1340, 1440); Shield-Captain A m1 is at (940, 1630). A ruin wall is injected on the segment (980,1560)-(1120,1560); a 40mm base centered at (1030, 1560) straddles it.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.append({\"id\": \"injected_wall_ruin\", \"type\": \"ruins\", \"polygon\": PackedVector2Array([Vector2(980, 1540), Vector2(1120, 1540), Vector2(1120, 1580), Vector2(980, 1580)]), \"height_category\": \"medium\", \"position\": Vector2(1050, 1560), \"size\": Vector2(140, 40), \"rotation\": 0.0, \"can_move_through\": {\"INFANTRY\": true, \"VEHICLE\": false, \"MONSTER\": false}, \"walls\": [{\"id\": \"injected_wall_seg\", \"type\": \"solid\", \"blocks_los\": true, \"start\": Vector2(980, 1560), \"end\": Vector2(1120, 1560), \"blocks_movement\": {\"INFANTRY\": false, \"VEHICLE\": true, \"MONSTER\": true}}]})"
+    },
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.size()",
+      "expect_min": 1
+    },
+    { "act": "screenshot", "label": "01_charge_phase_with_injected_wall" },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._validate_no_wall_overlaps(\"U_WARBOSS_C\", {\"m1\": [[1340, 1440], [1030, 1560]]}).valid",
+      "equals": false
+    },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._validate_no_wall_overlaps(\"U_WARBOSS_C\", {\"m1\": [[1340, 1440], [1030, 1450]]}).valid",
+      "equals": true
+    },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_CHARGE",
+      "actor_unit_id": "U_WARBOSS_C",
+      "payload": { "target_unit_ids": ["U_SHIELD_CAPTAIN_A"] }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "CHARGE_ROLL",
+      "actor_unit_id": "U_WARBOSS_C",
+      "payload": { "rng_seed": 99 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "DECLINE_COMMAND_REROLL" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "APPLY_CHARGE_MOVE",
+      "actor_unit_id": "U_WARBOSS_C",
+      "payload": {
+        "per_model_paths": { "m1": [[1340, 1440], [1030, 1560]] },
+        "per_model_rotations": { "m1": 0.0 }
+      }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "screenshot", "label": "02_charge_onto_wall_rejected" }
+  ]
+}
