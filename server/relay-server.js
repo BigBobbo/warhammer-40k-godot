@@ -89,8 +89,19 @@ const stmts = {
     ORDER BY gs.updated_at DESC
   `),
   getSave: db.prepare(`
-    SELECT save_name, metadata, game_data, created_at, updated_at
+    SELECT save_name, metadata, game_data, created_at, updated_at, player_id AS owner_id
     FROM game_saves WHERE player_id = ? AND save_name = ?
+  `),
+  // Shared/central saves: every save is visible to every player (see handleSaves).
+  // The user has opted into a public save store, so listing and loading are not
+  // scoped to the player_id that created the save.
+  listAllSaves: db.prepare(`
+    SELECT save_name, metadata, created_at, updated_at, player_id AS owner_id
+    FROM game_saves ORDER BY updated_at DESC
+  `),
+  getSaveByName: db.prepare(`
+    SELECT save_name, metadata, game_data, created_at, updated_at, player_id AS owner_id
+    FROM game_saves WHERE save_name = ? ORDER BY updated_at DESC LIMIT 1
   `),
   getSharedSave: db.prepare(`
     SELECT gs.save_name, gs.metadata, gs.game_data, gs.created_at, gs.updated_at
@@ -209,6 +220,17 @@ function authenticatePlayer(req, res) {
     return null;
   }
   // Upsert player record
+  const now = Date.now();
+  stmts.upsertPlayer.run(playerId, now, now);
+  return playerId;
+}
+
+// Like authenticatePlayer but never rejects the request. Returns the player id
+// when a valid one is supplied (so we can label ownership), otherwise null.
+// Used for read-only endpoints that are public/shared.
+function optionalPlayer(req) {
+  const playerId = req.headers['x-player-id'];
+  if (!playerId || playerId.length < 8) return null;
   const now = Date.now();
   stmts.upsertPlayer.run(playerId, now, now);
   return playerId;
@@ -371,56 +393,61 @@ function handlePlayers(req, res) {
 }
 
 async function handleSaves(req, res, saveName) {
-  const playerId = authenticatePlayer(req, res);
-  if (!playerId) return;
+  // Reads are public/shared: every save is listable and loadable by anyone,
+  // regardless of which player_id created it. This keeps saves usable on the
+  // itch.io web build, where the browser may partition/clear the per-session
+  // player_id (third-party iframe storage), which previously made saves
+  // "disappear" between sessions. A player_id is still used to label ownership
+  // when one is supplied. Writes (PUT/DELETE) still require a player_id.
+  if (req.method === 'GET') {
+    const requesterId = optionalPlayer(req);
 
-  if (!saveName) {
-    // GET /api/saves - list all saves (own + shared)
-    if (req.method !== 'GET') {
-      sendError(res, 405, 'Method not allowed');
+    if (!saveName) {
+      // GET /api/saves - list every save in the shared store
+      const allSaves = stmts.listAllSaves.all();
+      const result = allSaves.map((s) => ({
+        save_name: s.save_name,
+        metadata: JSON.parse(s.metadata),
+        created_at: s.created_at,
+        updated_at: s.updated_at,
+        ownership: (requesterId && s.owner_id === requesterId) ? 'own' : 'shared',
+        owner_id: s.owner_id,
+      }));
+      sendJSON(res, 200, { saves: result });
       return;
     }
-    const ownSaves = stmts.listOwnSaves.all(playerId);
-    const sharedSaves = stmts.listSharedSaves.all(playerId, playerId);
-    const allSaves = [...ownSaves, ...sharedSaves];
-    // Parse metadata JSON for each save
-    const result = allSaves.map((s) => ({
-      save_name: s.save_name,
-      metadata: JSON.parse(s.metadata),
-      created_at: s.created_at,
-      updated_at: s.updated_at,
-      ownership: s.ownership,
-      owner_id: s.owner_id,
-    }));
-    sendJSON(res, 200, { saves: result });
+
+    // GET /api/saves/:name - load a save by name.
+    // If owner_id is supplied, load that player's exact copy; otherwise load
+    // the most recently updated save with this name across all players.
+    const urlObj = new URL(req.url, `http://${req.headers.host}`);
+    const ownerId = urlObj.searchParams.get('owner_id');
+    let save;
+    if (ownerId) {
+      save = stmts.getSave.get(ownerId, saveName);
+    } else {
+      save = stmts.getSaveByName.get(saveName);
+    }
+    if (!save) {
+      sendError(res, 404, 'Save not found');
+      return;
+    }
+    sendJSON(res, 200, {
+      save_name: save.save_name,
+      metadata: JSON.parse(save.metadata),
+      game_data: save.game_data,
+      created_at: save.created_at,
+      updated_at: save.updated_at,
+      owner_id: save.owner_id,
+    });
     return;
   }
 
+  // Writes require a registered player_id.
+  const playerId = authenticatePlayer(req, res);
+  if (!playerId) return;
+
   switch (req.method) {
-    case 'GET': {
-      // Check for owner_id query param (shared save access)
-      const urlObj = new URL(req.url, `http://${req.headers.host}`);
-      const ownerId = urlObj.searchParams.get('owner_id');
-      let save;
-      if (ownerId && ownerId !== playerId) {
-        // Loading a shared save — verify participation
-        save = stmts.getSharedSave.get(playerId, ownerId, saveName);
-      } else {
-        save = stmts.getSave.get(playerId, saveName);
-      }
-      if (!save) {
-        sendError(res, 404, 'Save not found');
-        return;
-      }
-      sendJSON(res, 200, {
-        save_name: save.save_name,
-        metadata: JSON.parse(save.metadata),
-        game_data: save.game_data,
-        created_at: save.created_at,
-        updated_at: save.updated_at,
-      });
-      break;
-    }
     case 'PUT': {
       const body = await parseBody(req);
       if (!body || !body.metadata || !body.game_data) {
