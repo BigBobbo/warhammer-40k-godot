@@ -1,0 +1,92 @@
+{
+  "id": "split_fire_spinbox_commit",
+  "covers": [
+    "shooting.split_fire_picker_ui",
+    "phases.ShootingPhase.assign_target_split"
+  ],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Regression: when the player TYPES an amount into the Split Fire picker's SpinBox and clicks OK WITHOUT pressing Enter, the typed amount must be honoured. Previously the SpinBox only wrote typed text back to `value` on Enter/focus-loss, so clicking OK used the default (all bearers) and the whole unit fired at one target. The fix sets `update_on_text_changed = true` so the value tracks typing live. This scenario simulates typing '2' (set line edit text + emit text_changed, exactly what real keystrokes do), asserts the value follows to 2, then OK commits 2 spears — not 3 — and the remaining spear goes to a second target, surviving CONFIRM_TARGETS as two assignments.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SELECT_SHOOTER",
+      "actor_unit_id": "U_CUSTODIAN_GUARD_B"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.get_root().get_first_child().get_metadata(0)",
+      "equals": "guardian_spear_ranged" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.get_root().get_first_child().select(0)" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._select_target_for_current_weapon(\"U_BATTLEWAGON_G\")" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "expect_node_visible",
+      "node": "/root/Main/ShootingController/SplitFirePicker",
+      "timeout_s": 2.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFireSpin\", true, false).update_on_text_changed",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFireSpin\", true, false).value",
+      "equals": 3.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFireSpin\", true, false).get_line_edit().set_text(\"2\")" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFireSpin\", true, false).get_line_edit().emit_signal(\"text_changed\", \"2\")" },
+    { "act": "wait_seconds", "seconds": 0.2 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFireSpin\", true, false).value",
+      "equals": 2.0 },
+    { "act": "screenshot", "label": "01_typed_2_value_tracks" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").find_child(\"SplitFirePicker\", true, false).get_ok_button().emit_signal(\"pressed\")" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments.size()",
+      "equals": 1 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments[0].model_ids.size()",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments[0].target_unit_id",
+      "equals": "U_BATTLEWAGON_G" },
+    { "act": "screenshot", "label": "02_two_committed_not_three" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.get_root().get_first_child().select(0)" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._select_target_for_current_weapon(\"U_KOMMANDOS_H\")" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments.size()",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.pending_assignments[1].model_ids.size()",
+      "equals": 1 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").weapon_tree.get_root().get_first_child().get_text(1)",
+      "equals": "2→Battlewagon, 1→Kommandos" },
+    { "act": "screenshot", "label": "03_split_displayed" },
+
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").current_phase.confirmed_assignments.size()",
+      "equals": 2 }
+  ]
+}
