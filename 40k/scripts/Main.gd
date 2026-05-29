@@ -6923,6 +6923,7 @@ func _show_roll_off_dialog(local_player: int) -> void:
 	var dialog_script = preload("res://dialogs/RollOffDialog.gd")
 	roll_off_dialog = AcceptDialog.new()
 	roll_off_dialog.set_script(dialog_script)
+	roll_off_dialog.name = "RollOffDialog"
 	roll_off_dialog.exclusive = true
 	add_child(roll_off_dialog)
 	roll_off_dialog.setup(local_player)

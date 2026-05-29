@@ -49,6 +49,8 @@ TESTS=(
     "tests/test_test_mode_handler_command_dedupe.gd"
     "tests/test_test_mode_handler_transition.gd"
     "tests/test_rng_determinism_extended.gd"
+    "tests/test_roll_off_first_turn_applied.gd"
+    "tests/test_roll_off_dialog.gd"
 )
 
 FAILED=0

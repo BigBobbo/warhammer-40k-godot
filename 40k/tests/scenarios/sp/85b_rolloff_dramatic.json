@@ -1,0 +1,30 @@
+{
+  "id": "85b_rolloff_dramatic",
+  "covers": [
+    "deployment.predeploy_roll_off",
+    "ui.RollOffDialog.animated_dice",
+    "ui.RollOffDialog.RollButton",
+    "phases.RollOffPhase.ROLL_FOR_FIRST_TURN",
+    "phases.RollOffPhase.CHOOSE_TURN_ORDER"
+  ],
+  "fixture": "audit_367_warlord",
+  "transition_to_phase": 3,
+  "disable_ai": true,
+  "rng_seed": 2,
+  "description": "Issue: validate the pre-deployment roll-off is driven by the REAL player path (clicking the on-screen 'Roll for First Turn' button) and that the dramatic animated dice render and settle on the rolled values. Capture the result, then have the winner pick a turn order via the real button.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 3 },
+    { "act": "screenshot", "label": "01_dice_awaiting" },
+
+    { "act": "click_node", "node": "/root/Main/RollOffDialog/Content/ButtonBar/RollButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.6 },
+    { "act": "expect_state", "path": "meta.roll_off_winner", "equals": 1 },
+    { "act": "screenshot", "label": "02_dice_settled_winner" },
+
+    { "act": "click_node", "node": "/root/Main/RollOffDialog/Content/ButtonBar/DeploySecondButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "expect_state", "path": "meta.first_turn_player", "equals": 1 },
+    { "act": "screenshot", "label": "03_p1_goes_first" }
+  ]
+}
