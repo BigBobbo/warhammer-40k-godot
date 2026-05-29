@@ -41,6 +41,14 @@ var colorblind_mode: String = "none"
 # Unit label visibility — toggle the name text shown underneath models
 var show_unit_labels: bool = true
 
+# Gameplay settings
+# When true, the computer automatically chooses which wounded/destroyed models
+# are removed during wound allocation instead of prompting the local player.
+# Per 10e rules the *defending* player makes this choice; until a proper
+# defender-driven flow exists, this lets the player delegate the choice to the
+# computer so the attacker isn't forced to pick the opponent's casualties.
+var auto_allocate_wounds: bool = false
+
 # Board texture style: "grass", "mud", "desert", "stone", "felt", "tilepack", "none"
 var board_style: String = "grass"
 
@@ -55,6 +63,7 @@ signal audio_settings_changed()
 signal unit_labels_visibility_changed(visible: bool)
 signal board_style_changed(new_style: String)
 signal ruins_style_changed(new_style: String)
+signal auto_allocate_wounds_changed(enabled: bool)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -247,6 +256,15 @@ func set_ruins_style(style: String) -> void:
 	_save_settings()
 	print("[SettingsService] Ruins style set to %s" % style)
 
+func get_auto_allocate_wounds() -> bool:
+	return auto_allocate_wounds
+
+func set_auto_allocate_wounds(enabled: bool) -> void:
+	auto_allocate_wounds = enabled
+	auto_allocate_wounds_changed.emit(auto_allocate_wounds)
+	_save_settings()
+	print("[SettingsService] auto_allocate_wounds set to %s" % str(enabled))
+
 func set_unit_visual_style_setting(style: String) -> void:
 	if style not in ["letter", "enhanced", "style_a", "style_b", "classic"]:
 		print("[SettingsService] Invalid visual style: %s" % style)
@@ -285,6 +303,9 @@ func _save_settings() -> void:
 	config.set_value("save_load", "autosave_on_round_end", autosave_on_round_end)
 	config.set_value("save_load", "autosave_on_phase_transition", autosave_on_phase_transition)
 
+	# Gameplay
+	config.set_value("gameplay", "auto_allocate_wounds", auto_allocate_wounds)
+
 	var err = config.save(SETTINGS_FILE_PATH)
 	if err != OK:
 		print("[SettingsService] Failed to save settings: error %d" % err)
@@ -320,5 +341,8 @@ func _load_settings() -> void:
 	save_measurements = config.get_value("save_load", "save_measurements", false)
 	autosave_on_round_end = config.get_value("save_load", "autosave_on_round_end", true)
 	autosave_on_phase_transition = config.get_value("save_load", "autosave_on_phase_transition", false)
+
+	# Gameplay
+	auto_allocate_wounds = config.get_value("gameplay", "auto_allocate_wounds", false)
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)
