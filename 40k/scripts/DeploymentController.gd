@@ -2650,22 +2650,31 @@ func _get_placed_indices() -> Array:
 	return placed
 
 func _show_model_type_picker(model_profiles: Dictionary, models: Array) -> void:
-	"""Create and display the model type picker panel."""
+	"""Create and display the model type picker panel inside the right-hand unit card,
+	next to the Deploy Formation controls."""
 	_hide_model_type_picker()
-
-	# Create a CanvasLayer so the panel is in screen space (not world space)
-	model_type_picker_canvas = CanvasLayer.new()
-	model_type_picker_canvas.name = "ModelTypePickerCanvas"
-	model_type_picker_canvas.layer = 10  # Above game elements
-	get_tree().root.add_child(model_type_picker_canvas)
 
 	var PickerScript = load("res://scripts/ModelTypePickerPanel.gd")
 	model_type_picker_panel = PickerScript.new()
 	model_type_picker_panel.name = "ModelTypePickerPanel"
-	model_type_picker_canvas.add_child(model_type_picker_panel)
 
-	# Position on left side of screen
-	model_type_picker_panel.position = Vector2(20, 200)
+	# Try to host the picker inside the right-hand unit card (next to FormationControls).
+	# Fall back to a screen-space CanvasLayer if the unit card isn't available.
+	var unit_card = _get_unit_card_node()
+	if unit_card:
+		unit_card.add_child(model_type_picker_panel)
+		# Place the picker immediately after the FormationControls row if present.
+		var formation_controls = unit_card.get_node_or_null("FormationControls")
+		if formation_controls:
+			var target_idx = formation_controls.get_index() + 1
+			unit_card.move_child(model_type_picker_panel, target_idx)
+	else:
+		model_type_picker_canvas = CanvasLayer.new()
+		model_type_picker_canvas.name = "ModelTypePickerCanvas"
+		model_type_picker_canvas.layer = 10
+		get_tree().root.add_child(model_type_picker_canvas)
+		model_type_picker_canvas.add_child(model_type_picker_panel)
+		model_type_picker_panel.position = Vector2(20, 200)
 
 	# Setup with current data
 	var placed = _get_placed_indices()
@@ -2674,7 +2683,14 @@ func _show_model_type_picker(model_profiles: Dictionary, models: Array) -> void:
 	# Connect selection signal
 	model_type_picker_panel.model_type_selected.connect(_on_model_type_selected)
 
-	print("[DeploymentController] MA-15: Model type picker shown")
+	print("[DeploymentController] MA-15: Model type picker shown (parented to %s)" % ("UnitCard" if unit_card else "CanvasLayer"))
+
+func _get_unit_card_node() -> Node:
+	"""Locate the right-hand UnitCard VBox in the Main scene, if available."""
+	var main_scene = get_tree().current_scene
+	if main_scene == null:
+		return null
+	return main_scene.get_node_or_null("HUD_Right/VBoxContainer/UnitCard")
 
 func _hide_model_type_picker() -> void:
 	"""Remove the model type picker panel."""
