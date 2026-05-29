@@ -11388,16 +11388,11 @@ func _scout_handle_mouse_motion(screen_pos: Vector2) -> void:
 
 	var world_pos = screen_to_world_position(screen_pos)
 
-	# Move the visual token — handle both flat and nested (deployment) token structures
-	if token_layer:
-		for child in token_layer.get_children():
-			var meta_node = child
-			if not child.has_meta("unit_id") and child.get_child_count() > 0:
-				meta_node = child.get_child(0)
-			if meta_node.has_meta("unit_id") and meta_node.get_meta("unit_id") == _scout_active_unit_id \
-			   and meta_node.has_meta("model_id") and meta_node.get_meta("model_id") == _scout_drag_model_id:
-				child.position = world_pos
-				break
+	# NOTE: the real token is intentionally NOT moved during the drag. Only the
+	# translucent ghost follows the cursor (mirrors MovementController). The token
+	# is committed to its new position only after SET_SCOUT_MODEL_DEST is accepted
+	# (see _scout_handle_end_drag). This prevents a visual/state desync where the
+	# token appears moved even though the server rejected the destination.
 
 	# Calculate distance
 	var distance_px = _scout_drag_start_pos.distance_to(world_pos)
@@ -11457,12 +11452,8 @@ func _scout_handle_mouse_release(screen_pos: Vector2) -> void:
 	if result.get("success", false):
 		print("Main: Scout model %s moved to %s" % [_scout_drag_model_id, str(world_pos)])
 		status_label.text = "Scout move: Model placed. Drag more models or Confirm/Skip."
-		# Update staged moves visualization (shows dashed paths for placed models)
-		_scout_update_staged_moves_visual()
-	else:
-		# Move visual token back to original position on failure
-		print("Main: Scout model move failed: ", result.get("errors", []))
-		status_label.text = "Invalid: " + str(result.get("errors", ["Move rejected"]))
+		# Move accepted: commit the real token to the new position now (the token
+		# was left at its origin during the drag — only the ghost followed the cursor).
 		if token_layer:
 			for child in token_layer.get_children():
 				var meta_node = child
@@ -11470,8 +11461,15 @@ func _scout_handle_mouse_release(screen_pos: Vector2) -> void:
 					meta_node = child.get_child(0)
 				if meta_node.has_meta("unit_id") and meta_node.get_meta("unit_id") == _scout_active_unit_id \
 				   and meta_node.has_meta("model_id") and meta_node.get_meta("model_id") == _scout_drag_model_id:
-					child.position = _scout_drag_start_pos
+					child.position = world_pos
 					break
+		# Update staged moves visualization (shows dashed paths for placed models)
+		_scout_update_staged_moves_visual()
+	else:
+		# Move rejected: the real token never moved (only the ghost did), so there is
+		# nothing to revert — just surface the error. This is the desync fix.
+		print("Main: Scout model move failed: ", result.get("errors", []))
+		status_label.text = "Invalid: " + str(result.get("errors", ["Move rejected"]))
 
 	_scout_drag_model_id = ""
 	_scout_selected_model_data = {}

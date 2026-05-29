@@ -560,6 +560,15 @@
       "status": "covered"
     },
     {
+      "id": "phases.ScoutPhase.SET_SCOUT_MODEL_DEST.wall_rejected",
+      "description": "Regression guard: ScoutPhase._validate_set_scout_model_dest (and _validate_confirm_scout_move) reject a scout destination whose base overlaps a terrain wall, matching the movement/charge/deployment endpoint rule. Scout moves may pass through walls but may not end on one. Closes the server-side gap that, combined with the Main.gd drag handler moving the real token live, produced a visual/state desync. Validated by 'scout_cannot_end_on_wall.",
+      "scenarios": [
+        "scout_cannot_end_on_wall"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "phases.ShootingPhase._can_unit_shoot",
       "description": "ShootingPhase._can_unit_shoot: returns true unless the unit has a hard blocker (Fell Back without override, etc.). Battle-shock no longer blocks shooting in 10e. Validated by '383_battleshock_can_shoot.",
       "scenarios": [
