@@ -252,6 +252,22 @@ func dice_row_has_visual(row_index: int) -> bool:
 			return true
 	return false
 
+func combat_detail_row_has_visual(row_index: int) -> bool:
+	# Test introspection helper: returns true if the collapsible details row at
+	# `row_index` contains a DiceRowVisual child (i.e. the dice array was rendered
+	# as grouped icons instead of inline number badges).
+	if not _current_combat_details_container or not is_instance_valid(_current_combat_details_container):
+		return false
+	if row_index < 0 or row_index >= _current_combat_details_container.get_child_count():
+		return false
+	var row = _current_combat_details_container.get_child(row_index)
+	if row is DiceRowVisualScript:
+		return true
+	for c in row.get_children():
+		if c is DiceRowVisualScript:
+			return true
+	return false
+
 func _build_realtime_dice_row(data: Dictionary, context: String) -> Control:
 	"""Build an HBox row containing prefix label + graphical dice + suffix label."""
 	var rolls_raw = data.get("rolls_raw", [])
@@ -452,20 +468,13 @@ func _start_combat_card(header_text: String, animate: bool) -> void:
 	var toggle_btn = _current_combat_toggle_button
 	card_vbox.add_child(toggle_btn)
 
-	# Collapsible details container
+	# Collapsible details container — holds one row Control per detail line
+	# (text-only or a grouped DiceRowVisual row). Populated by _append_combat_detail.
 	_current_combat_details_container = VBoxContainer.new()
+	_current_combat_details_container.add_theme_constant_override("separation", 2)
 	_current_combat_details_container.visible = false
 	card_vbox.add_child(_current_combat_details_container)
-
-	# Details RichTextLabel
-	_current_combat_details_label = RichTextLabel.new()
-	_current_combat_details_label.bbcode_enabled = true
-	_current_combat_details_label.fit_content = true
-	_current_combat_details_label.scroll_active = false
-	_current_combat_details_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_current_combat_details_label.add_theme_font_size_override("normal_font_size", 10)
-	_current_combat_details_label.add_theme_font_size_override("bold_font_size", 11)
-	_current_combat_details_container.add_child(_current_combat_details_label)
+	_current_combat_details_label = null  # legacy single-label model retired; rows added directly
 
 	# Wire up toggle — capture references for the closure
 	var details_cont = _current_combat_details_container
@@ -485,13 +494,12 @@ func _start_combat_card(header_text: String, animate: bool) -> void:
 		_animate_card_in(card)
 
 func _append_combat_detail(text: String, animate: bool) -> void:
-	if _current_combat_card and is_instance_valid(_current_combat_card) and _current_combat_details_label:
-		# Append to current combat card's collapsible section
-		if _current_combat_details_text != "":
-			_current_combat_details_text += "\n"
-		_current_combat_details_text += _style_combat_detail(text.strip_edges())
-		_current_combat_details_label.text = ""
-		_current_combat_details_label.append_text("[color=#B0B8C0]%s[/color]" % _current_combat_details_text)
+	if _current_combat_card and is_instance_valid(_current_combat_card) and _current_combat_details_container and is_instance_valid(_current_combat_details_container):
+		# Append a per-line row to the current combat card's collapsible section.
+		# Lines containing a dice array [..] render the dice as grouped icons via
+		# DiceRowVisual; other lines render as styled text.
+		var row := _build_combat_detail_line(text.strip_edges())
+		_current_combat_details_container.add_child(row)
 	else:
 		# Orphaned detail — create standalone card
 		var card = _make_simple_entry_card(text, "combat_detail", EntryCategory.COMBAT)
@@ -499,6 +507,38 @@ func _append_combat_detail(text: String, animate: bool) -> void:
 		_card_count += 1
 		if animate:
 			_animate_card_in(card)
+
+func _build_combat_detail_line(text: String) -> Control:
+	"""Build a Control for one combat-detail line. If the line contains a dice
+	array (e.g. 'rolled [1, 1, 2, 6]'), render the array as a grouped DiceRowVisual
+	(one die icon per value + xN count); otherwise render styled text."""
+	var dice_match = _dice_regex.search(text)
+	if dice_match == null:
+		# No dice — single styled label.
+		var label := RichTextLabel.new()
+		label.bbcode_enabled = true
+		label.fit_content = true
+		label.scroll_active = false
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.add_theme_font_size_override("normal_font_size", 10)
+		label.add_theme_font_size_override("bold_font_size", 11)
+		label.append_text("[color=#B0B8C0]%s[/color]" % _highlight_keywords(text))
+		return label
+
+	# Split the line around the dice array: [prefix] [dice icons] [suffix]
+	var threshold := _extract_threshold(text)
+	var prefix_text := text.substr(0, dice_match.get_start()).strip_edges()
+	var suffix_text := text.substr(dice_match.get_end()).strip_edges()
+
+	var rolls := []
+	for d in dice_match.get_string(1).split(","):
+		var dval := d.strip_edges()
+		if dval != "":
+			rolls.append(int(dval))
+
+	var prefix_bbcode := "[color=#B0B8C0]%s[/color]" % _highlight_keywords(prefix_text) if prefix_text != "" else ""
+	var suffix_bbcode := "[color=#B0B8C0]%s[/color]" % _highlight_keywords(suffix_text) if suffix_text != "" else ""
+	return _make_dice_row(prefix_bbcode, rolls, threshold, threshold > 0, suffix_bbcode)
 
 func _finalize_combat_card(text: String, animate: bool) -> void:
 	if _current_combat_card and is_instance_valid(_current_combat_card) and _current_combat_summary_label:
@@ -855,10 +895,7 @@ func _style_combat_detail(text: String) -> String:
 	var styled = text
 
 	# Extract threshold from line context (e.g. "needed 3+", "Save 4+", "Pain 5+")
-	var threshold := 0
-	var threshold_match = _threshold_regex.search(text)
-	if threshold_match:
-		threshold = int(threshold_match.get_string(1))
+	var threshold := _extract_threshold(text)
 
 	# Replace dice roll arrays [1, 3, 5, 6] with colored dice badges
 	var dice_results = _dice_regex.search_all(styled)
@@ -874,7 +911,18 @@ func _style_combat_detail(text: String) -> String:
 		var replacement = " ".join(dice_badges)
 		styled = styled.substr(0, m.get_start()) + replacement + styled.substr(m.get_end())
 
-	# Highlight keywords
+	return _highlight_keywords(styled)
+
+func _extract_threshold(text: String) -> int:
+	"""Pull the success threshold out of a detail line (e.g. 'needed 3+' -> 3)."""
+	var threshold_match = _threshold_regex.search(text)
+	if threshold_match:
+		return int(threshold_match.get_string(1))
+	return 0
+
+func _highlight_keywords(text: String) -> String:
+	"""Apply BBCode color highlights to combat keywords (no dice substitution)."""
+	var styled = text
 	styled = styled.replace("DEVASTATING WOUNDS", "[color=#FF4444]DEVASTATING WOUNDS[/color]")
 	styled = styled.replace("DEVASTATING", "[color=#FF4444]DEVASTATING[/color]")
 	styled = styled.replace("Lethal Hits", "[color=#FF8844]Lethal Hits[/color]")
@@ -883,7 +931,6 @@ func _style_combat_detail(text: String) -> String:
 	styled = styled.replace("Invulnerable Save", "[color=#BB88FF]Invulnerable Save[/color]")
 	styled = styled.replace("Re-rolls:", "[color=#88BBFF]Re-rolls:[/color]")
 	styled = styled.replace("Torrent", "[color=#FF8844]Torrent[/color]")
-
 	return styled
 
 func _make_die_badge(value: int, threshold: int) -> String:

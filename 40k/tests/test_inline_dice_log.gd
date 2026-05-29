@@ -21,8 +21,11 @@ func _initialize() -> void:
 	_test_dice_row_visual_basic()
 	_test_dice_row_visual_empty()
 	_test_dice_row_visual_threshold_colors()
-	_test_dice_row_visual_wrap_size()
+	_test_dice_row_visual_grouping()
+	_test_dice_row_visual_grouped_single_row()
+	_test_dice_row_visual_ungrouped_wrap_size()
 	_test_game_log_panel_records_dice_row()
+	_test_game_log_panel_detail_dice_row()
 	_test_game_log_panel_skips_when_no_combat()
 
 	print("\n=== Result: %d passed / %d failed ===" % [_passed, _failed])
@@ -60,16 +63,41 @@ func _test_dice_row_visual_threshold_colors() -> void:
 	_check("die value 2 (<threshold 3) -> FAIL gray", d._get_die_color(2) == DiceRowVisualScript.COLOR_FAIL)
 	d.free()
 
-func _test_dice_row_visual_wrap_size() -> void:
+func _test_dice_row_visual_grouping() -> void:
+	# [1, 1, 2, 6] -> three groups: (1 x2), (2 x1), (6 x1), sorted ascending.
 	var d = DiceRowVisualScript.new()
-	# 25 dice should wrap to 3 rows (MAX_DICE_PER_ROW=10)
+	d.set_dice([1, 1, 2, 6], 3, true)
+	var groups = d.get_value_groups()
+	_check("grouping yields 3 distinct values", groups.size() == 3,
+		"got %s" % str(groups))
+	_check("group order/values/counts correct",
+		groups == [[1, 2], [2, 1], [6, 1]],
+		"got %s" % str(groups))
+	d.free()
+
+func _test_dice_row_visual_grouped_single_row() -> void:
+	# 25 identical dice collapse to one group -> a single-row (DIE_SIZE tall) icon.
+	var d = DiceRowVisualScript.new()
 	var rolls := []
 	for i in range(25):
 		rolls.append(4)
 	d.set_dice(rolls, 3, true)
+	_check("25 identical dice -> 1 group", d.get_value_groups() == [[4, 25]],
+		"got %s" % str(d.get_value_groups()))
+	_check("grouped row is one die tall", d.custom_minimum_size.y == DiceRowVisualScript.DIE_SIZE,
+		"got y=%s expected %s" % [str(d.custom_minimum_size.y), str(DiceRowVisualScript.DIE_SIZE)])
+	d.free()
+
+func _test_dice_row_visual_ungrouped_wrap_size() -> void:
+	# Legacy ungrouped mode still wraps 25 dice to 3 rows (MAX_DICE_PER_ROW=10).
+	var d = DiceRowVisualScript.new()
+	var rolls := []
+	for i in range(25):
+		rolls.append(4)
+	d.set_dice(rolls, 3, true, false)
 	var expected_rows := 3
 	var expected_h := expected_rows * DiceRowVisualScript.DIE_SIZE + (expected_rows - 1) * DiceRowVisualScript.ROW_SPACING
-	_check("25 dice -> 3-row min height", d.custom_minimum_size.y == expected_h,
+	_check("ungrouped 25 dice -> 3-row min height", d.custom_minimum_size.y == expected_h,
 		"got y=%s expected %s" % [str(d.custom_minimum_size.y), str(expected_h)])
 	d.free()
 
@@ -112,6 +140,33 @@ func _test_game_log_panel_records_dice_row() -> void:
 			has_dice_visual = true
 			break
 	_check("appended row contains a DiceRowVisual", has_dice_visual)
+
+	panel.queue_free()
+
+func _test_game_log_panel_detail_dice_row() -> void:
+	# A combat-detail line containing a dice array must render the array as a
+	# grouped DiceRowVisual row in the collapsible details container — NOT as a
+	# plain "[1, 1, 2, 6]" number array.
+	var panel = GameLogPanelScript.new()
+	get_root().add_child(panel)
+	panel._ready()
+	panel._create_card("Test shooter shoots Target", "combat_header", false)
+
+	if panel._current_combat_details_container == null:
+		_check("combat card creates details container", false, "container is null")
+		panel.queue_free()
+		return
+	_check("combat card creates details container", true)
+
+	# A dice-bearing detail line -> grouped DiceRowVisual row.
+	panel._create_card("  To Hit: needed 3+ — rolled [1, 1, 2, 6] — 2/4 hit", "combat_detail", false)
+	# A text-only detail line -> plain label (no DiceRowVisual).
+	panel._create_card("    Modifiers: +1 to hit", "combat_detail", false)
+
+	_check("two detail rows added", panel._current_combat_details_container.get_child_count() == 2,
+		"got %d" % panel._current_combat_details_container.get_child_count())
+	_check("dice detail line rendered as grouped DiceRowVisual", panel.combat_detail_row_has_visual(0))
+	_check("text-only detail line has no DiceRowVisual", not panel.combat_detail_row_has_visual(1))
 
 	panel.queue_free()
 
