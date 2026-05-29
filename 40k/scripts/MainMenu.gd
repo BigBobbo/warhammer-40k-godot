@@ -45,7 +45,7 @@ var terrain_options = [
 	{"id": "layout_6", "name": "Chapter Approved Layout 6"},
 	{"id": "layout_7", "name": "Chapter Approved Layout 7"},
 	{"id": "layout_8", "name": "Chapter Approved Layout 8"},
-	{"id": "layout_parse_test", "name": "Parse Test — Layout 2"},
+	{"id": "layout_parse_test", "name": "CA2025 02 Layout"},
 	{"id": "layout_parse_test_1", "name": "Parse Test — Layout 1"}
 ]
 
@@ -103,9 +103,9 @@ func _ready() -> void:
 	_setup_save_load_dialog()
 
 	# Set defaults
-	terrain_dropdown.selected = 0
+	terrain_dropdown.selected = _find_option_index(terrain_options, "layout_parse_test")
 	mission_dropdown.selected = 0
-	deployment_dropdown.selected = 0
+	deployment_dropdown.selected = _find_option_index(deployment_options, "search_and_destroy")
 
 	# Set default army selections based on available armies
 	_set_default_army_selections()
@@ -296,6 +296,13 @@ func _create_difficulty_dropdowns() -> void:
 	player2_type_dropdown.item_selected.connect(_on_player2_type_changed)
 
 	print("MainMenu: AI difficulty dropdowns created")
+
+func _find_option_index(options: Array, target_id: String) -> int:
+	"""Return the index of the option with the given id, or 0 if not found."""
+	for i in range(options.size()):
+		if options[i].get("id", "") == target_id:
+			return i
+	return 0
 
 func _get_child_index(parent: Node, child_name: String) -> int:
 	"""Get the index of a child node by name."""
@@ -693,7 +700,7 @@ func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
 
 func _apply_preferred_cloud_defaults(p1_current_id: String, p2_current_id: String) -> void:
 	# Preferred cloud army display names (without the trailing date suffix)
-	var p1_preferred_name = "Adeptes Custodes 500 (Cloud)"
+	var p1_preferred_name = "Adeptus Custodes 500 (Cloud)"
 	var p2_preferred_name = "Orks 500 (Cloud)"
 
 	var p1_cloud_index = _find_cloud_army_index_by_name(p1_preferred_name)
