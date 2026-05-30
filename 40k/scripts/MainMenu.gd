@@ -103,7 +103,9 @@ func _ready() -> void:
 	_setup_save_load_dialog()
 
 	# Set defaults
-	terrain_dropdown.selected = _find_option_index(terrain_options, "layout_parse_test")
+	# Default to the hand-authored Chapter Approved Layout 2 rather than the
+	# auto-generated layout_parse_test (a tools/detect_pieces.py artifact).
+	terrain_dropdown.selected = _find_option_index(terrain_options, "layout_2")
 	mission_dropdown.selected = 0
 	deployment_dropdown.selected = _find_option_index(deployment_options, "search_and_destroy")
 

@@ -83,6 +83,21 @@ const HEIGHT_ALPHA = {
 	"tall": 0.7,
 }
 
+# Wall rendering — bright fills over a dark outline halo so walls read clearly
+# against any terrain fill, drawn at an ABSOLUTE z that sits above the
+# deployment-zone overlay (z=-5) and infiltrator exclusion (z=-4) but below
+# tokens (z=10). Previously walls were dark, low-contrast, and at effective z=-6,
+# so the blue deployment-zone tint painted over them and players couldn't see the
+# wall a model was reported to be overlapping.
+const WALL_Z: int = -3
+const WALL_OUTLINE_COLOR := Color(0.05, 0.04, 0.03, 0.95)
+const WALL_OUTLINE_PAD: float = 4.0  # extra width of the dark halo under each wall
+const WALL_STYLES := {
+	"solid":  {"color": Color(0.93, 0.88, 0.76, 1.0), "width": 7.0},   # bright cream stone
+	"window": {"color": Color(0.50, 0.78, 1.0, 0.95), "width": 5.5},   # bright cyan-blue
+	"door":   {"color": Color(0.95, 0.70, 0.30, 1.0), "width": 6.0},   # warm amber
+}
+
 func _ready() -> void:
 	z_index = -8  # Above board (-10), below deployment zones (-5)
 	name = "TerrainVisual"
@@ -206,33 +221,11 @@ func _add_terrain_piece(terrain_data: Dictionary) -> void:
 	if terrain_data.get("blocks_los", false):
 		_add_los_blocker_indicator(container, terrain_data)
 
-	# Add walls if present - tactical map colors
+	# Add walls if present — high-contrast outline + bright fill, above the
+	# deployment-zone overlay so the player can always see them (see _add_wall_line).
 	var walls = terrain_data.get("walls", [])
-	if walls.size() > 0:
-		# Add walls directly to the TerrainVisual, not the container
-		for wall in walls:
-			var line = Line2D.new()
-			line.add_point(wall.get("start", Vector2.ZERO))
-			line.add_point(wall.get("end", Vector2.ZERO))
-			# Set wall thickness and tactical-map colors
-			match wall.get("type", "solid"):
-				"solid":
-					line.default_color = Color(0.25, 0.25, 0.22, 1.0)  # Dark gray-brown
-					line.width = 6.0
-				"window":
-					line.default_color = Color(0.4, 0.5, 0.6, 0.8)  # Blue-gray
-					line.width = 4.0
-				"door":
-					line.default_color = Color(0.45, 0.35, 0.2, 0.9)  # Warm brown
-					line.width = 5.0
-
-			line.z_index = 2  # Above terrain fill (0) but stays within parent sort group
-			line.visible = true
-
-			# Add directly to TerrainVisual (self), not container
-			add_child(line)
-
-			print("[TerrainVisual] Added wall line from ", wall.get("start"), " to ", wall.get("end"), " type: ", wall.get("type", "solid"))
+	for wall in walls:
+		_add_wall_line(wall)
 
 	add_child(container)
 
@@ -241,6 +234,42 @@ func _add_terrain_piece(terrain_data: Dictionary) -> void:
 	terrain_pieces.append(container)
 
 	print("[TerrainVisual] Added terrain piece '%s' type=%s height=%s" % [terrain_data.get("id", ""), terrain_type, height_cat])
+
+## Draw a single wall as a dark outline halo + bright colored line.
+## Both Line2D nodes are added directly to TerrainVisual (not the per-piece
+## container) so _clear_terrain_visuals frees them, and use ABSOLUTE z so the
+## deployment-zone tint and terrain fill can't wash the wall out.
+func _add_wall_line(wall: Dictionary) -> void:
+	var wstart: Vector2 = wall.get("start", Vector2.ZERO)
+	var wend: Vector2 = wall.get("end", Vector2.ZERO)
+	var wtype: String = wall.get("type", "solid")
+	var style: Dictionary = WALL_STYLES.get(wtype, WALL_STYLES["solid"])
+
+	# Dark outline underlay for contrast against any terrain fill
+	var outline := Line2D.new()
+	outline.add_point(wstart)
+	outline.add_point(wend)
+	outline.default_color = WALL_OUTLINE_COLOR
+	outline.width = float(style.width) + WALL_OUTLINE_PAD
+	outline.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	outline.end_cap_mode = Line2D.LINE_CAP_ROUND
+	outline.z_index = WALL_Z
+	outline.z_as_relative = false
+	add_child(outline)
+
+	# Bright colored wall on top
+	var line := Line2D.new()
+	line.add_point(wstart)
+	line.add_point(wend)
+	line.default_color = style.color
+	line.width = float(style.width)
+	line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	line.end_cap_mode = Line2D.LINE_CAP_ROUND
+	line.z_index = WALL_Z + 1
+	line.z_as_relative = false
+	add_child(line)
+
+	print("[TerrainVisual] Added wall line from ", wstart, " to ", wend, " type: ", wtype)
 
 ## Add a "LoS" badge to terrain pieces that block line-of-sight
 ## Visible icon helps players read which terrain blocks visibility at a glance
