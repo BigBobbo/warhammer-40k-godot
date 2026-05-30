@@ -2901,6 +2901,23 @@ func _update_movement_display_with_advance(dice_result: int) -> void:
 		inches_left_label.text = "Left: %.1f\"" % total_movement
 		inches_left_label.modulate = Color.WHITE
 
+	# T-094 (revised): an Advance roll raises the move cap, so any reach circle
+	# already on screen must grow to the new distance rather than show the stale,
+	# smaller value. (A circle picked up after this point already reads the new
+	# cap via _start_model_drag, so this only matters for a circle drawn before
+	# the roll resolved.)
+	_refresh_model_range_overlay()
+
+func _refresh_model_range_overlay() -> void:
+	# Redraw the currently-displayed per-model reach circle(s) using the latest
+	# move cap. No-op when nothing is being dragged.
+	if not is_instance_valid(move_range_visual):
+		return
+	if group_dragging:
+		_show_group_range_overlay()
+	elif dragging_model and not selected_model.is_empty():
+		_show_model_range_overlay(selected_model, drag_start_pos)
+
 func _update_dice_log_display(dice_log: Array) -> void:
 	if not dice_log_display:
 		return
