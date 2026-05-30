@@ -4742,13 +4742,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		# Open settings menu
-		_settings_menu = SettingsMenu.new()
-		_settings_menu.show_return_to_menu = true
-		_settings_menu.settings_closed.connect(_on_settings_menu_closed)
-		_settings_menu.save_load_requested.connect(_on_settings_save_load_requested)
-		add_child(_settings_menu)
-		_settings_menu.z_index = UI_MODAL_Z
-		print("Main: Settings menu opened via Escape")
+		_open_settings_menu()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -11885,6 +11879,20 @@ func _scout_clear_highlights() -> void:
 
 func _unhandled_input(_event: InputEvent) -> void:
 	pass
+
+func _open_settings_menu() -> void:
+	# Shared entry point for opening the in-game settings menu (used by the
+	# Escape key handler and by windowed scenarios). Idempotent: no-op if a
+	# menu is already open.
+	if _settings_menu and is_instance_valid(_settings_menu):
+		return
+	_settings_menu = SettingsMenu.new()
+	_settings_menu.show_return_to_menu = true
+	_settings_menu.settings_closed.connect(_on_settings_menu_closed)
+	_settings_menu.save_load_requested.connect(_on_settings_save_load_requested)
+	add_child(_settings_menu)
+	_settings_menu.z_index = UI_MODAL_Z
+	print("Main: Settings menu opened")
 
 func _on_settings_menu_closed() -> void:
 	_settings_menu = null
