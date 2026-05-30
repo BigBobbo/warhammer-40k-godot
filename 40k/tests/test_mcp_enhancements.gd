@@ -104,5 +104,12 @@ func _test_compiled_execute() -> void:
 	_check("compiled execute: status ok", res.get("status", "") == "ok")
 	_check("compiled execute: sum(0..4) == 10", res.get("result", null) == 10)
 
+	# `tree` binding: node/tree methods resolve through the params, not bare.
+	var tree_res = th.execute_script({
+		"code": "return tree.get_node_count() > 0",
+		"multiline": true, "node_path": "/root",
+	})
+	_check("compiled execute: tree param usable", tree_res.get("status", "") == "ok" and tree_res.get("result", false) == true)
+
 	var bad = th.execute_script({"code": "this is not valid gdscript ::", "multiline": true})
 	_check("compiled execute: parse error surfaced", bad.get("status", "") == "error" and bad.get("error_type", "") == "parse")

@@ -387,14 +387,19 @@ func execute_script(params: Dictionary) -> Dictionary:
 
 func _execute_script_compiled(code: String, target: Object) -> Dictionary:
 	# Wrap the user code in a function body so multi-line statements compile.
-	# `node` is the resolved target; autoloads are reachable by their global
-	# names. The body may `return <value>`; with no return the result is null.
+	# The wrapper extends RefCounted (no tree mutation), so the snippet gets the
+	# context it needs via parameters rather than `self`:
+	#   * `node` — the resolved target node
+	#   * `tree` — the SceneTree (so `tree.get_node_count()`, `tree.root` work)
+	# Autoloads are reachable by their global names. Node methods must be called
+	# on `node` (e.g. `node.get_node(...)`), not bare. `return <value>` to send a
+	# result back; with no return the result is null.
 	var indented := ""
 	for line in code.split("\n"):
 		indented += "\t" + line + "\n"
 	if indented.strip_edges() == "":
 		indented = "\treturn null\n"
-	var src := "extends RefCounted\nfunc _run(node):\n" + indented
+	var src := "extends RefCounted\nfunc _run(node, tree):\n" + indented
 
 	var script := GDScript.new()
 	script.source_code = src
@@ -403,7 +408,7 @@ func _execute_script_compiled(code: String, target: Object) -> Dictionary:
 		return {
 			"status": "error",
 			"error_type": "parse",
-			"message": "GDScript compile failed (error %d). Check syntax/indentation." % reload_err,
+			"message": "GDScript compile failed (error %d). Note: call node methods on `node`/`tree`, not bare. Check syntax/indentation." % reload_err,
 			"source": src,
 		}
 	var instance = script.new()
@@ -412,7 +417,8 @@ func _execute_script_compiled(code: String, target: Object) -> Dictionary:
 	# Runtime errors inside the snippet cannot be caught in GDScript; they push
 	# an error to the debug log (read it back with read_debug_log) and return
 	# null. The return value is surfaced here either way.
-	var result = instance.call("_run", target)
+	var scene_tree = host.get_tree() if host else null
+	var result = instance.call("_run", target, scene_tree)
 	return {"status": "ok", "result": _serialize(result), "multiline": true}
 
 

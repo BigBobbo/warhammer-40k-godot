@@ -111,9 +111,10 @@ The wire protocol is one JSON object per line:
 - `execute_script` — evaluate GDScript against an optional target node.
   Single-line code uses an `Expression` (node visible as `self`); multi-line
   code, or any call with `multiline: true`, is compiled into a throwaway
-  script so full statements work (`var`/`if`/`for`/`return`, method calls,
-  autoloads by global name). In compiled mode the node is the `node` param;
-  `return <value>` to send a result back.
+  script so full statements work (`var`/`if`/`for`/`return`, autoloads by
+  global name). In compiled mode the target is the `node` param and the scene
+  tree is the `tree` param — call node/tree methods on those (e.g.
+  `tree.get_node_count()`), not bare. `return <value>` to send a result back.
 - `wait_frames`, `wait_seconds`
 - `get_log_path` — returns absolute paths of `user://logs` and
   `user://test_screenshots`

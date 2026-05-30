@@ -235,7 +235,7 @@ const TOOLS: ToolDef[] = [
   {
     name: 'execute_script',
     description:
-      'Evaluate GDScript against an optional target node. Single-line code uses an Expression (the node is visible as `self`). Multi-line code — or any code with `multiline:true` — is compiled into a throwaway script so full statements work: `var`, `if`, `for`, `return`, method calls, and autoloads (GameState, PhaseManager, …) by their global names. In compiled mode the resolved node is the `node` parameter; `return <value>` to send a result back. Runtime errors inside compiled code are not catchable — read them back with read_debug_log.',
+      'Evaluate GDScript against an optional target node. Single-line code uses an Expression (the node is visible as `self`). Multi-line code — or any code with `multiline:true` — is compiled into a throwaway script so full statements work: `var`, `if`, `for`, `return`, and autoloads (GameState, PhaseManager, …) by their global names. In compiled mode the resolved node is the `node` parameter and the scene tree is the `tree` parameter — call node/tree methods on those (e.g. `tree.get_node_count()`), not bare. `return <value>` to send a result back. Runtime errors inside compiled code are not catchable — read them back with read_debug_log.',
     inputSchema: {
       type: 'object',
       properties: {
