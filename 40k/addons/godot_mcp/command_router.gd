@@ -46,7 +46,8 @@ func _register_routes() -> void:
 		"simulate_key_press", "simulate_action",
 		"get_scene_state", "execute_script",
 		"wait_frames", "wait_seconds",
-		"get_log_path",
+		"get_log_path", "read_debug_log",
+		"scene_snapshot", "diff_snapshot", "chain_verify",
 	]
 	for m in testing_methods:
 		_routes[m] = [_testing, m]
@@ -56,6 +57,7 @@ func _register_routes() -> void:
 		"get_current_phase", "get_legal_actions",
 		"advance_phase", "transition_to_phase",
 		"select_unit", "dispatch_action", "move_unit_to",
+		"verify_delivery",
 	]
 	for m in wh40k_methods:
 		_routes[m] = [_wh40k, m]

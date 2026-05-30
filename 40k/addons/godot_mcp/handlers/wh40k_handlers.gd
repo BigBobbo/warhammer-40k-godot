@@ -10,6 +10,103 @@ extends RefCounted
 
 var host: Node = null
 
+const TestingHandlers := preload("res://addons/godot_mcp/handlers/testing_handlers.gd")
+
+
+# --- Delivery verification (end-to-end gate) --------------------------
+
+func verify_delivery(params: Dictionary) -> Dictionary:
+	# One-call gate-check mirroring the project rule that a feature is not
+	# verified until it has been driven end-to-end. Four dimensions:
+	#   1. scene-tree integrity   (current scene present)
+	#   2. game-state health      (GameState + required autoloads present)
+	#   3. debug-log cleanliness  (no ERROR lines, optionally since a marker)
+	#   4. caller assertions      (GDScript expressions over live state)
+	# Returns passed=false if ANY required check fails.
+	var checks: Array = []
+	var passed := true
+
+	# --- 1. Scene tree integrity ---
+	var scene_ok: bool = host != null and host.get_tree() != null and host.get_tree().current_scene != null
+	checks.append({"name": "scene_tree.current_scene_present", "passed": scene_ok})
+	if not scene_ok:
+		passed = false
+
+	# --- 2. Game-state health ---
+	var gs := _autoload("GameState")
+	var gs_ok: bool = gs != null and typeof(gs.state) == TYPE_DICTIONARY and gs.state.has("units")
+	checks.append({"name": "game_state.present", "passed": gs_ok})
+	if not gs_ok:
+		passed = false
+
+	var required: Array = params.get("required_autoloads", ["GameState", "PhaseManager", "TurnManager"])
+	for al in required:
+		var present: bool = _autoload(String(al)) != null
+		checks.append({"name": "autoload.%s" % al, "passed": present})
+		if not present:
+			passed = false
+
+	if params.has("expected_phase") and gs_ok:
+		var want := String(params["expected_phase"]).to_upper()
+		var have := _phase_name(gs.state.get("meta", {}).get("phase", -1))
+		var ph_ok: bool = have == want
+		checks.append({"name": "phase.is_%s" % want, "passed": ph_ok, "actual": have})
+		if not ph_ok:
+			passed = false
+
+	# --- 3. Debug-log cleanliness + 4. caller assertions (share one helper) ---
+	var th = TestingHandlers.new()
+	th.host = host
+
+	var log_summary := {}
+	var fail_on_error: bool = params.get("fail_on_log_error", true)
+	var log_params := {"tail": int(params.get("log_tail", 500)), "include_lines": false}
+	if params.get("since_marker", "") != "":
+		log_params["since_marker"] = params["since_marker"]
+	var log_res = th.read_debug_log(log_params)
+	if log_res.get("status", "") == "ok":
+		log_summary = log_res.get("counts", {})
+		var err_count := int(log_res.get("counts", {}).get("error", 0))
+		var errs: Array = log_res.get("errors", [])
+		if errs.size() > 0:
+			log_summary["sample_errors"] = errs.slice(maxi(0, errs.size() - 5))
+		if fail_on_error:
+			checks.append({"name": "log.no_errors", "passed": err_count == 0, "error_count": err_count})
+			if err_count != 0:
+				passed = false
+
+	var assertions: Array = params.get("assertions", [])
+	for a in assertions:
+		if typeof(a) != TYPE_DICTIONARY:
+			continue
+		var expr_src: String = a.get("expr", "")
+		var desc: String = a.get("description", expr_src if expr_src != "" else "assertion")
+		var a_passed := false
+		var value = null
+		if expr_src != "":
+			# Auto-wrap a bare single-line expression so it returns a value.
+			var code := expr_src
+			if expr_src.find("\n") == -1 and expr_src.find("return") == -1:
+				code = "return (%s)" % expr_src
+			var res = th.execute_script({"code": code, "multiline": true, "node_path": a.get("node_path", "/root")})
+			if res.get("status", "") == "ok":
+				value = res.get("result", null)
+				if a.has("expect"):
+					a_passed = value == a["expect"]
+				else:
+					a_passed = bool(value)
+		checks.append({"name": "assertion.%s" % desc, "passed": a_passed, "value": value})
+		if not a_passed:
+			passed = false
+
+	return {
+		"status": "ok",
+		"passed": passed,
+		"verdict": "PASS" if passed else "FAIL",
+		"checks": checks,
+		"log_summary": log_summary,
+	}
+
 
 # --- Board / overall state --------------------------------------------
 

@@ -56,6 +56,8 @@ get_viewport().get_texture().get_image().save_png(absolute_path)
 
 This is more reliable than the addons/godot_mcp `capture_screenshot` tool, which awaits `RenderingServer.frame_post_draw` and times out (30s default) when the engine isn't drawing.
 
+**Verified 2026-05-30:** when the game is actually running and drawing, `capture_screenshot` works fine and returns a full-res PNG plus an inline image — including in a **headless Linux/remote container** under the `godot` shim's auto-`xvfb` + Mesa llvmpipe software renderer. The "times out" caveat above applies to the backgrounded-window / not-drawing case, not to a normally-running game. See "Running the game in a remote / headless container" below and `CLAUDE.md`.
+
 **macOS gotcha (verified):** when the Godot window is backgrounded, macOS suspends rendering for that window. `viewport.get_texture()` then returns the last-rendered frame, which can be **md5-identical to a frame from minutes earlier**. Before any screenshot:
 
 ```bash
@@ -83,6 +85,38 @@ get_tree().get_root().get_node("Main/BoardRoot/TokenLayer").get_child(N).set("mo
 To find a specific unit's token, iterate `TokenLayer.get_children()` and match `get_meta("unit_id")` against the unit_id you're looking for.
 
 ---
+
+## Running the game in a remote / headless container (you CAN do this)
+
+Do not assume the game can only be run on the local Mac. In the remote
+container the `godot` shim on `$HOME/bin` auto-wraps the binary with `xvfb-run`
+(1920×1080) and the GL-compatibility renderer over Mesa **llvmpipe** software
+rendering — no GPU needed. Verified 2026-05-30: the full MainMenu rendered, the
+MCP bridge came up, and live `capture_screenshot` / `scene_snapshot` /
+`diff_snapshot` / `verify_delivery` all worked end-to-end.
+
+```bash
+export PATH="$HOME/bin:$PATH"
+godot --headless --import                                   # once per fresh clone: builds global-class cache
+godot --path . --rendering-method gl_compatibility > /tmp/game.log 2>&1 &
+until grep -q "GodotMCP] Listening" /tmp/game.log; do sleep 0.5; done   # bridge on :9080
+```
+
+Then drive `127.0.0.1:9080` from an MCP host (`godot-mcp/build/runtime_bridge.js`)
+or a small NDJSON-over-TCP client: send `{"id":N,"command":"...","params":{}}\n`,
+read one JSON line per response. If you try this and it genuinely fails, **say so
+explicitly to the user and show what you tried** — never silently fall back to
+headless-only and call a UI feature "verified."
+
+### Updated MCP commands for live validation
+
+- `verify_delivery` — gate: scene-tree integrity + autoloads + `log.no_errors`
+  (optionally `since_marker`) + GDScript `assertions`; returns `verdict: PASS|FAIL`.
+- `read_debug_log` — newest `debug_*.log` bucketed into error/warning/info/debug.
+- `scene_snapshot` / `diff_snapshot` — capture and diff node state before/after.
+- `chain_verify` — adversarial challenge questions + live log evidence for a `claim`.
+- `execute_script` (multi-line) — `multiline:true`; target is `node`, tree is
+  `tree`, autoloads by global name; `return` a value.
 
 ## Headless GDScript regression tests
 
