@@ -47,7 +47,9 @@ var show_unit_labels: bool = true
 # Per 10e rules the *defending* player makes this choice; until a proper
 # defender-driven flow exists, this lets the player delegate the choice to the
 # computer so the attacker isn't forced to pick the opponent's casualties.
-var auto_allocate_wounds: bool = false
+# Defaults ON: per 10e the *defending* player picks casualties, so by default
+# we let the computer pick rather than forcing the attacker to choose them.
+var auto_allocate_wounds: bool = true
 
 # Board texture style: "grass", "mud", "desert", "stone", "felt", "tilepack", "none"
 var board_style: String = "grass"
