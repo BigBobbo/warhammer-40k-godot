@@ -301,11 +301,29 @@ func is_ai_player(player: int) -> bool:
 
 func _is_any_ai_player_active() -> bool:
 	"""Check if any AI-controlled player should currently be acting."""
+	# The pre-deployment roll-off is presented to the human as a modal dialog
+	# they must dismiss. While a human is in the game the AI must NOT auto-drive
+	# the roll-off — otherwise it resolves the mutual roll before the human ever
+	# sees it (the reported "Player 1 always goes first / no roll-off shown" bug).
+	if _ai_suppressed_for_roll_off():
+		return false
 	var active = GameState.get_active_player()
 	if is_ai_player(active):
 		return true
 	var fight_player = _get_fight_phase_selecting_player()
 	return fight_player > 0 and is_ai_player(fight_player)
+
+func _ai_suppressed_for_roll_off() -> bool:
+	"""True when the current phase is the pre-deployment roll-off AND at least
+	one human player is in the game. In that case the human drives the roll-off
+	via the modal dialog and the AI stays out of it. AI-vs-AI is not suppressed
+	(there is no human to show the dialog to)."""
+	if GameState.get_current_phase() != GameStateData.Phase.ROLL_OFF:
+		return false
+	for p in [1, 2]:
+		if not is_ai_player(p):
+			return true
+	return false
 
 func _get_fight_phase_selecting_player() -> int:
 	"""Get the current selecting player from the fight phase, if we're in fight phase.
@@ -1273,6 +1291,12 @@ func _evaluate_and_act() -> void:
 	if _processing_turn:
 		DebugLogger.info("AIPlayer._evaluate_and_act - skipped (already processing)", {})
 		return  # Already processing, avoid re-entrancy
+
+	# Roll-off is human-driven via the modal dialog while a human is present.
+	if _ai_suppressed_for_roll_off():
+		DebugLogger.info("AIPlayer._evaluate_and_act - suppressed for roll-off (human drives it)", {})
+		_end_ai_thinking()
+		return
 
 	var active_player = GameState.get_active_player()
 

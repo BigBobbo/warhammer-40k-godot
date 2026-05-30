@@ -6960,6 +6960,7 @@ func _show_roll_off_dialog(local_player: int) -> void:
 	roll_off_dialog.roll_initiated.connect(_on_roll_off_roll_pressed)
 	roll_off_dialog.choice_made.connect(_on_roll_off_choice_made)
 	roll_off_dialog.reroll_requested.connect(_on_roll_off_roll_pressed)
+	roll_off_dialog.acknowledged.connect(_on_roll_off_acknowledged)
 	roll_off_dialog.popup_centered()
 	print("Main: Showed roll-off dialog for Player %d" % local_player)
 
@@ -6981,26 +6982,28 @@ func _on_roll_off_roll_pressed() -> void:
 		roll_off_dialog.show_tie(p1, p2)
 		return
 	var winner: int = int(result.get("winner", 0))
-	# Decide whether the local human gets to pick the turn order. They do when
-	# they won (single-player), or when their own network seat won (MP). If the
-	# AI won, it always elects to take the first turn and we auto-apply it after
-	# a beat so the human still sees the dramatic result.
+	# Decide what the local human does at the result screen:
+	#   "choose"      — they won and pick Attacker/Defender (single-player, or
+	#                   their own network seat won in MP)
+	#   "acknowledge" — the AI won; they must click Continue to start the game
+	#                   (the AI always elects to take the first turn)
+	#   "wait"        — a remote human (MP) is choosing
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	var winner_is_ai: bool = ai_player != null and ai_player.is_ai_player(winner)
-	var local_can_choose: bool
+	var local_action: String
 	if NetworkIntegration.is_multiplayer_active():
-		local_can_choose = (winner == int(NetworkManager.get_local_player()))
+		local_action = "choose" if winner == int(NetworkManager.get_local_player()) else "wait"
+	elif winner_is_ai:
+		local_action = "acknowledge"
 	else:
-		local_can_choose = not winner_is_ai
-	roll_off_dialog.show_result(p1, p2, winner, local_can_choose)
-	if winner_is_ai:
-		print("Main: Roll-off — AI (Player %d) won; auto-applying its choice" % winner)
-		await get_tree().create_timer(2.2).timeout
-		if roll_off_dialog and is_instance_valid(roll_off_dialog) \
-				and GameState.get_current_phase() == GameStateData.Phase.ROLL_OFF:
-			# The AI elects to go first (attacker). CHOOSE_TURN_ORDER 'first'
-			# maps the winner to the first turn regardless of the player field.
-			_on_roll_off_choice_made("first")
+		local_action = "choose"
+	roll_off_dialog.show_result(p1, p2, winner, local_action)
+
+func _on_roll_off_acknowledged() -> void:
+	# The human dismissed an AI-won result. Apply the AI's choice (it elects to
+	# take the first turn) and let the game proceed to deployment.
+	print("Main: Roll-off — human acknowledged AI result; applying AI's choice")
+	_on_roll_off_choice_made("first")
 
 func _on_roll_off_choice_made(choice: String) -> void:
 	# choice is "first" (deploy second) or "second" (deploy first). The
