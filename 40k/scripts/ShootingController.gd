@@ -4258,6 +4258,12 @@ func _open_split_fire_picker(weapon_id: String, target_id: String, split: Dictio
 	spin.max_value = max_n
 	spin.step = 1
 	spin.value = max_n
+	# Commit typed input immediately. Without this, Godot's SpinBox only writes
+	# the typed text back to `value` on Enter / focus-loss — clicking the dialog's
+	# OK button does NOT reliably trigger that commit, so the default (all bearers)
+	# was being used and the whole unit fired at one target instead of the split
+	# the player chose.
+	spin.update_on_text_changed = true
 	spin_row.add_child(spin)
 	var of_label := Label.new()
 	of_label.text = " of %d" % max_n

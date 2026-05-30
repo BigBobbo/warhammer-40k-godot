@@ -1,0 +1,68 @@
+{
+  "id": "move_range_per_model_circle",
+  "covers": [
+    "movement.per_model_move_range_circle",
+    "movement.advance_distance_circle",
+    "phases.MovementPhase.UI.move_range_overlay"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "T-094 (revised): the movement-reach circle is per-model, anchored at the picked-up model's position, and is NOT a unit-wide bubble. (1) After BEGIN_NORMAL_MOVE no circle is drawn into MoveRangeVisual (no unit-centre-of-mass bubble). (2) When a model is picked up, _show_model_range_overlay draws one dashed circle (8 dash segments + 1 label = 9 children) whose radius equals the unit's Move characteristic in px. (3) Raising move_cap_inches (mirroring an Advance) grows the circle to the advance distance and relabels it, proving the circle tracks the advance distance rather than base Move.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_NORMAL_MOVE",
+      "actor_unit_id": "U_BLADE_CHAMPION_A"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child_count()",
+      "equals": 0 },
+    { "act": "screenshot", "label": "01_no_unit_bubble_on_begin" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\").set(\"active_unit_id\", \"U_BLADE_CHAMPION_A\")" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\").set(\"move_cap_inches\", 6.0)" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\")._show_model_range_overlay(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0], Vector2(0, 0))" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child_count()",
+      "equals": 9 },
+    { "act": "execute_script",
+      "script": "abs(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0, 0)) - Measurement.inches_to_px(6.0))",
+      "expect_max": 1.5 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(8).text",
+      "equals": "6\"" },
+    { "act": "screenshot", "label": "02_per_model_circle_move_6in" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\").set(\"move_cap_inches\", 10.0)" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\")._show_model_range_overlay(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0], Vector2(0, 0))" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "abs(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0, 0)) - Measurement.inches_to_px(10.0))",
+      "expect_max": 1.5 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(8).text",
+      "equals": "10\"" },
+    { "act": "screenshot", "label": "03_advance_distance_circle_10in" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\")._clear_move_range_overlay()" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child_count()",
+      "equals": 0 }
+  ]
+}

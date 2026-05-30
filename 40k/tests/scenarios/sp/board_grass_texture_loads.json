@@ -1,0 +1,54 @@
+{
+  "id": "board_grass_texture_loads",
+  "covers": ["visual.board_style.grass_texture_loads"],
+  "fixture": "audit_baseline_postdeploy",
+  "description": "Regression: the default 'grass' board style must load its tiled image texture via the resource system so it ships in exported builds (the old Image.load(globalize_path()) path only resolved when running from the project source tree). Asserts the live BoardBackground material has the grass shader with a non-null 128x128 Texture2D bound, drives a player-facing board-style switch (grass -> felt -> grass) through SettingsService.set_board_style (same call the Settings dropdown makes), and re-asserts the grass texture re-binds. Captures the rendered grass board.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "SettingsService.board_style",
+      "equals": "grass" },
+
+    { "act": "execute_script",
+      "script": "main.board_view.board_style",
+      "equals": "grass" },
+
+    { "act": "execute_script",
+      "script": "main.board_view.get_node(\"BoardBackground\").material.shader.resource_path",
+      "equals": "res://shaders/grass_board.gdshader" },
+
+    { "act": "execute_script",
+      "script": "main.board_view.get_node(\"BoardBackground\").material.get_shader_parameter(\"grass_texture\") != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.board_view.get_node(\"BoardBackground\").material.get_shader_parameter(\"grass_texture\").get_width()",
+      "equals": 128 },
+
+    { "act": "screenshot", "label": "01_grass_board" },
+
+    { "act": "execute_script",
+      "script": "SettingsService.set_board_style(\"felt\")" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script",
+      "script": "main.board_view.board_style",
+      "equals": "felt" },
+    { "act": "screenshot", "label": "02_felt_board" },
+
+    { "act": "execute_script",
+      "script": "SettingsService.set_board_style(\"grass\")" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script",
+      "script": "main.board_view.board_style",
+      "equals": "grass" },
+    { "act": "execute_script",
+      "script": "main.board_view.get_node(\"BoardBackground\").material.get_shader_parameter(\"grass_texture\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.board_view.get_node(\"BoardBackground\").material.get_shader_parameter(\"grass_texture\").get_width()",
+      "equals": 128 },
+    { "act": "screenshot", "label": "03_grass_reapplied" }
+  ]
+}

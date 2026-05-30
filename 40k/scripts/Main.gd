@@ -791,9 +791,26 @@ func _sync_all_token_positions() -> void:
 	# T-049: tween tokens to their state-driven positions instead of snapping
 	# (so opponent / AI moves are visible as smooth animations).
 	for child in token_layer.get_children():
-		if child.has_meta("unit_id") and child.has_meta("model_id"):
-			var unit_id = child.get_meta("unit_id")
-			var model_id = child.get_meta("model_id")
+		# Resolve the node carrying unit/model metadata. Flat tokens (created by
+		# _recreate_unit_visuals) carry the meta on the child itself; NESTED
+		# deployment tokens (wrapper Node2D -> TokenVisual, created by
+		# DeploymentController._create_token_visual) carry it on the first
+		# grandchild. Scout-phase tokens are the nested deployment tokens
+		# because nothing recreates them as flat between deployment and scout,
+		# so we must handle both forms here — otherwise an uncommitted/invalid
+		# scout drag leaves the nested token stranded at the moved position
+		# while GameState keeps the original, and the movement phase then
+		# targets the stale coordinate. We always reposition the direct child
+		# (the wrapper for nested tokens), matching how the drag/reset code
+		# repositions tokens.
+		var meta_node = child
+		if not (child.has_meta("unit_id") and child.has_meta("model_id")) and child.get_child_count() > 0:
+			var inner = child.get_child(0)
+			if inner.has_meta("unit_id") and inner.has_meta("model_id"):
+				meta_node = inner
+		if meta_node.has_meta("unit_id") and meta_node.has_meta("model_id"):
+			var unit_id = meta_node.get_meta("unit_id")
+			var model_id = meta_node.get_meta("model_id")
 			var unit = GameState.get_unit(unit_id)
 			if unit.is_empty():
 				continue
@@ -6923,6 +6940,7 @@ func _show_roll_off_dialog(local_player: int) -> void:
 	var dialog_script = preload("res://dialogs/RollOffDialog.gd")
 	roll_off_dialog = AcceptDialog.new()
 	roll_off_dialog.set_script(dialog_script)
+	roll_off_dialog.name = "RollOffDialog"
 	roll_off_dialog.exclusive = true
 	add_child(roll_off_dialog)
 	roll_off_dialog.setup(local_player)

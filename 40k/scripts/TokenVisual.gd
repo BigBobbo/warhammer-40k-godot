@@ -252,6 +252,13 @@ func _t15_make_silhouette() -> Sprite2D:
 	s.modulate = Color(1, 1, 1, 0.85)
 	s.position = Vector2(0, 0)
 	s.z_index = 1
+	# The procedural silhouette is a placeholder that renders as a white shape
+	# (a disc for infantry, etc.) at the model center. It exists purely so the
+	# T15 scenario can assert the node/texture/category are wired up; it was
+	# never meant to be a visible gameplay element. Keep the node (with its
+	# texture + silhouette_category) for those assertions but don't render it,
+	# so it no longer shows a white circle in the middle of every model.
+	s.visible = false
 	return s
 
 
