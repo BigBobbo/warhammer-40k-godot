@@ -2,13 +2,13 @@
   "id": "auto_allocate_wounds_settings_ui",
   "covers": [
     "scripts.SettingsMenu.gameplay_tab",
-    "settings.auto_allocate_wounds",
-    "autoloads.SettingsService.auto_allocate_wounds"
+    "scripts.Main._open_settings_menu",
+    "settings.auto_allocate_wounds"
   ],
   "fixture": "audit_386_deadly_demise",
   "rng_seed": 42,
   "transition_to_phase": 8,
-  "description": "Settings UI: the SettingsMenu (the exact class the Escape key opens via SettingsMenu.new()) builds a Gameplay tab containing the 'Computer allocates wounds' toggle, and the setting defaults ON. With no settings.cfg present, asserts the default is true, instantiates the real SettingsMenu, switches to the Gameplay tab, and verifies the checkbox exists, is visible-in-tree, is labelled correctly, and is checked by default.",
+  "description": "Settings UI: opening the in-game settings menu (the exact creator the Escape key uses, Main._open_settings_menu) builds a Gameplay tab containing the 'Computer allocates wounds' toggle, and the setting defaults ON. With no settings.cfg present, asserts the default is true, opens the menu, switches to the Gameplay tab, and verifies the checkbox exists, is visible-in-tree, is labelled correctly, and is checked by default.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
 
@@ -16,38 +16,34 @@
       "script": "SettingsService.auto_allocate_wounds",
       "equals": true },
 
-    { "act": "execute_script",
-      "script": "main.add_child(load(\"res://scripts/SettingsMenu.gd\").new())" },
-    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main._open_settings_menu()" },
+    { "act": "wait_seconds", "seconds": 0.6 },
 
     { "act": "execute_script",
-      "script": "main.find_children(\"*\", \"SettingsMenu\", true, false).size()",
-      "equals": 1 },
+      "script": "is_instance_valid(main._settings_menu)",
+      "equals": true },
     { "act": "execute_script",
-      "script": "main.find_children(\"*\", \"SettingsMenu\", true, false)[0].set(\"z_index\", 4096)" },
-
-    { "act": "execute_script",
-      "script": "main.find_children(\"*\", \"SettingsMenu\", true, false)[0]._tab_buttons.size()",
+      "script": "main._settings_menu._tab_buttons.size()",
       "equals": 4 },
     { "act": "execute_script",
-      "script": "main.find_children(\"*\", \"SettingsMenu\", true, false)[0]._tab_buttons[2].text",
+      "script": "main._settings_menu._tab_buttons[2].text",
       "equals": "Gameplay" },
 
     { "act": "execute_script",
-      "script": "main.find_children(\"*\", \"SettingsMenu\", true, false)[0]._on_tab_pressed(2)" },
+      "script": "main._settings_menu._on_tab_pressed(2)" },
     { "act": "wait_seconds", "seconds": 0.4 },
 
     { "act": "execute_script",
-      "script": "is_instance_valid(main.find_children(\"*\", \"SettingsMenu\", true, false)[0]._auto_allocate_checkbox)",
+      "script": "is_instance_valid(main._settings_menu._auto_allocate_checkbox)",
       "equals": true },
     { "act": "execute_script",
-      "script": "main.find_children(\"*\", \"SettingsMenu\", true, false)[0]._auto_allocate_checkbox.is_visible_in_tree()",
+      "script": "main._settings_menu._auto_allocate_checkbox.is_visible_in_tree()",
       "equals": true },
     { "act": "execute_script",
-      "script": "main.find_children(\"*\", \"SettingsMenu\", true, false)[0]._auto_allocate_checkbox.text",
+      "script": "main._settings_menu._auto_allocate_checkbox.text",
       "equals": "Computer allocates wounds (auto-remove models)" },
     { "act": "execute_script",
-      "script": "main.find_children(\"*\", \"SettingsMenu\", true, false)[0]._auto_allocate_checkbox.button_pressed",
+      "script": "main._settings_menu._auto_allocate_checkbox.button_pressed",
       "equals": true },
     { "act": "screenshot", "label": "01_gameplay_tab_with_auto_allocate_toggle" }
   ]
