@@ -7238,13 +7238,32 @@ static func debug_unit_weapons(unit_id: String) -> void:
 # ==========================================
 
 # Check if unit is eligible to charge
+# Return the unit_ids that charge together as one "Attached unit": the primary
+# (bodyguard) unit followed by any attached CHARACTER leaders. Mirrors
+# ChargePhase._get_charge_unit_group so the UI eligibility/range checks agree with
+# the authoritative phase logic.
+static func get_charge_unit_group(unit_id: String, board: Dictionary) -> Array:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	var ids := [unit_id]
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		var cid := str(char_id)
+		if cid != unit_id and not ids.has(cid) and units.has(cid):
+			ids.append(cid)
+	return ids
+
 static func eligible_to_charge(unit_id: String, board: Dictionary) -> bool:
 	var units = board.get("units", {})
 	var unit = units.get(unit_id, {})
-	
+
 	if unit.is_empty():
 		return false
-	
+
+	# An attached CHARACTER leader charges as part of its bodyguard's Attached unit,
+	# never independently. The bodyguard is the unit that declares the charge.
+	if unit.get("attached_to", null) != null and unit.get("attached_to", "") != "":
+		return false
+
 	var status = unit.get("status", 0)
 	var flags = unit.get("flags", {})
 	
@@ -7282,17 +7301,21 @@ static func eligible_to_charge(unit_id: String, board: Dictionary) -> bool:
 	if "AIRCRAFT" in keywords:
 		return false
 	
-	# Check if already in engagement range (cannot declare charges)
-	if _is_unit_in_engagement_range_charge(unit, board):
-		return false
-	
+	# Check if already in engagement range (cannot declare charges). Consider the
+	# whole Attached unit — if any model (incl. an attached leader) is in ER, the
+	# combined unit cannot declare a charge.
+	for group_uid in get_charge_unit_group(unit_id, board):
+		var group_unit = units.get(group_uid, {})
+		if _is_unit_in_engagement_range_charge(group_unit, board):
+			return false
+
 	# Check if unit has any alive models
 	var has_alive = false
 	for model in unit.get("models", []):
 		if model.get("alive", true):
 			has_alive = true
 			break
-	
+
 	return has_alive
 
 # Get eligible charge targets within 12" for a unit
@@ -7446,56 +7469,63 @@ static func _is_target_within_charge_range_rules(unit_id: String, target_id: Str
 	if unit.is_empty() or target.is_empty():
 		return false
 
-	# Find closest edge-to-edge distance between any models using shape-aware calculations
+	# Find closest edge-to-edge distance between any models using shape-aware
+	# calculations. Iterate the whole Attached unit (bodyguard + attached leaders)
+	# so a target is in declaration range when the closest model is the leader.
 	var min_distance = INF
 
-	for model in unit.get("models", []):
-		if not model.get("alive", true):
-			continue
-
-		var model_pos = _get_model_position_rules(model)
-		if model_pos == null:
-			continue
-
-		for target_model in target.get("models", []):
-			if not target_model.get("alive", true):
+	for group_uid in get_charge_unit_group(unit_id, board):
+		var group_unit = units.get(group_uid, {})
+		for model in group_unit.get("models", []):
+			if not model.get("alive", true):
 				continue
 
-			var target_pos = _get_model_position_rules(target_model)
-			if target_pos == null:
+			var model_pos = _get_model_position_rules(model)
+			if model_pos == null:
 				continue
 
-			var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
-			min_distance = min(min_distance, distance_inches)
+			for target_model in target.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var target_pos = _get_model_position_rules(target_model)
+				if target_pos == null:
+					continue
+
+				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
+				min_distance = min(min_distance, distance_inches)
 
 	return min_distance <= CHARGE_RANGE_INCHES
 
 # Get minimum distance to target
 static func _get_min_distance_to_target_rules(unit_id: String, target_id: String, board: Dictionary) -> float:
 	var units = board.get("units", {})
-	var unit = units.get(unit_id, {})
 	var target = units.get(target_id, {})
 	var min_distance = INF
 
-	for model in unit.get("models", []):
-		if not model.get("alive", true):
-			continue
-
-		var model_pos = _get_model_position_rules(model)
-		if model_pos == null:
-			continue
-
-		for target_model in target.get("models", []):
-			if not target_model.get("alive", true):
+	# Include attached-character models so the displayed distance reflects the
+	# closest model of the combined Attached unit.
+	for group_uid in get_charge_unit_group(unit_id, board):
+		var group_unit = units.get(group_uid, {})
+		for model in group_unit.get("models", []):
+			if not model.get("alive", true):
 				continue
 
-			var target_pos = _get_model_position_rules(target_model)
-			if target_pos == null:
+			var model_pos = _get_model_position_rules(model)
+			if model_pos == null:
 				continue
 
-			# Use shape-aware edge-to-edge distance for non-circular bases
-			var distance = Measurement.model_to_model_distance_inches(model, target_model)
-			min_distance = min(min_distance, distance)
+			for target_model in target.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var target_pos = _get_model_position_rules(target_model)
+				if target_pos == null:
+					continue
+
+				# Use shape-aware edge-to-edge distance for non-circular bases
+				var distance = Measurement.model_to_model_distance_inches(model, target_model)
+				min_distance = min(min_distance, distance)
 
 	return min_distance
 

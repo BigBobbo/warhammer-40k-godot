@@ -34,6 +34,15 @@ signal piston_driven_brutality_resolved(unit_id: String, result: Dictionary)  # 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
 
+# When a CHARACTER leader is attached to a bodyguard unit, the two are separate
+# units in GameState (linked via attachment_data / attached_to) but form ONE
+# "Attached unit" that charges together. Model IDs ("m1", "m2", …) are only unique
+# WITHIN a unit, so a bodyguard model and an attached character model can share an
+# ID. Charge model paths are therefore namespaced as "<source_unit_id>::<model_id>"
+# whenever the move involves an attached character; a plain "m1" key still means a
+# model of the primary (bodyguard) unit, keeping single-unit charges byte-compatible.
+const CHARGE_GROUP_KEY_SEP: String = "::"
+
 # Charge state tracking
 var active_charges: Dictionary = {}     # unit_id -> charge_data
 var pending_charges: Dictionary = {}    # units awaiting resolution
@@ -1104,49 +1113,55 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	# Apply successful charge movement
 	var changes = []
 
-	# Update model positions
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	# Update model positions. Keys may be namespaced ("<source_unit_id>::<model_id>")
+	# when an attached CHARACTER charged with its bodyguard, so resolve each one to
+	# its true owning unit before writing the position change.
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
 
 		if not (path is Array and path.size() > 0):
-			DebugLogger.info(str("WARNING: Invalid path for model ", model_id, " - skipping"))
+			DebugLogger.info(str("WARNING: Invalid path for model ", path_key, " - skipping"))
 			continue
 
 		var final_pos = path[-1]  # Last position in path
-		var model_index = _get_model_index(unit_id, model_id)
+		var ref = _resolve_charge_model_ref(path_key, unit_id)
+		var owner_unit_id = ref["unit_id"]
+		var model_index = ref["index"]
 
 		if model_index < 0:
-			DebugLogger.info(str("ERROR: Invalid model_index for ", model_id, " - model not found in unit"))
+			DebugLogger.info(str("ERROR: Invalid model_index for ", path_key, " - model not found in unit"))
 			continue
 
 		var change = {
 			"op": "set",
-			"path": "units.%s.models.%d.position" % [unit_id, model_index],
+			"path": "units.%s.models.%d.position" % [owner_unit_id, model_index],
 			"value": {"x": final_pos[0], "y": final_pos[1]}
 		}
 		changes.append(change)
 
 		# Also apply rotation if provided
-		if per_model_rotations.has(model_id):
-			var rotation = per_model_rotations[model_id]
+		if per_model_rotations.has(path_key):
+			var rotation = per_model_rotations[path_key]
 			var rotation_change = {
 				"op": "set",
-				"path": "units.%s.models.%d.rotation" % [unit_id, model_index],
+				"path": "units.%s.models.%d.rotation" % [owner_unit_id, model_index],
 				"value": rotation
 			}
 			changes.append(rotation_change)
-	
-	# Mark unit as charged and grant Fights First
-	changes.append({
-		"op": "set",
-		"path": "units.%s.flags.charged_this_turn" % unit_id,
-		"value": true
-	})
-	changes.append({
-		"op": "set",
-		"path": "units.%s.flags.fights_first" % unit_id,
-		"value": true
-	})
+
+	# Mark the whole Attached unit (bodyguard + attached leaders) as charged and grant
+	# Fights First, so an attached character is also flagged as having charged.
+	for group_unit_id in _get_charge_unit_group(unit_id):
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.charged_this_turn" % group_unit_id,
+			"value": true
+		})
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.fights_first" % group_unit_id,
+			"value": true
+		})
 
 	# Mark target units as "has been charged" (10e rule: target units gain this
 	# status until end of turn, relevant for ability interactions)
@@ -1321,6 +1336,14 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	if _is_unit_destroyed_check(unit):
 		return false
 
+	# An attached CHARACTER leader does not charge independently — it charges as
+	# part of its bodyguard's Attached unit. The bodyguard is the unit that
+	# declares and resolves the charge (its models[] are extended with the
+	# character's via _get_charge_unit_group), so the character must not appear as
+	# a separately selectable charger.
+	if unit.get("attached_to", null) != null and unit.get("attached_to", "") != "":
+		return false
+
 	# Check if unit is deployed
 	if not (status == GameStateData.UnitStatus.DEPLOYED or
 			status == GameStateData.UnitStatus.MOVED or
@@ -1392,11 +1415,13 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 
 func _is_unit_in_engagement_range(unit: Dictionary) -> bool:
 	var unit_id = unit.get("id", "")
-	var models = unit.get("models", [])
 	var current_player = get_current_player()
 	var all_units = game_state_snapshot.get("units", {})
 
-	for model in models:
+	# Consider the whole Attached unit (bodyguard + attached leaders): if ANY model
+	# is already in engagement range, the combined unit cannot declare a charge.
+	for entry in _get_charge_group_models(unit_id):
+		var model = entry["model"]
 		if not model.get("alive", true):
 			continue
 
@@ -1433,13 +1458,16 @@ func _is_target_within_charge_range(unit_id: String, target_id: String) -> bool:
 		DebugLogger.info(str("[ChargePhase] _is_target_within_charge_range: %s or %s is EMPTY" % [unit_id, target_id]))
 		return false
 
-	# Find closest edge-to-edge distance between any models using shape-aware calculations
+	# Find closest edge-to-edge distance between any models using shape-aware calculations.
+	# Iterate the whole Attached unit (bodyguard + attached leaders) so a charge is in
+	# range when the closest model is the attached character.
 	var min_distance = INF
 	var checked_pairs = 0
 	var skipped_null_charger = 0
 	var skipped_null_target = 0
 
-	for model in unit.get("models", []):
+	for entry in _get_charge_group_models(unit_id):
+		var model = entry["model"]
 		if not model.get("alive", true):
 			continue
 
@@ -1506,11 +1534,13 @@ func _get_eligible_targets_for_unit(unit_id: String) -> Dictionary:
 	return eligible
 
 func _get_min_distance_to_target(unit_id: String, target_id: String) -> float:
-	var unit = get_unit(unit_id)
 	var target = get_unit(target_id)
 	var min_distance = INF
 
-	for model in unit.get("models", []):
+	# Include attached-character models so the reported distance reflects the
+	# closest model of the combined Attached unit.
+	for entry in _get_charge_group_models(unit_id):
+		var model = entry["model"]
 		if not model.get("alive", true):
 			continue
 
@@ -1647,7 +1677,7 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 			var path = per_model_paths[model_id]
 			if path is Array and path.size() > 0:
 				var final_pos = Vector2(path[-1][0], path[-1][1])
-				var model = _get_model_in_unit(unit_id, model_id)
+				var model = _resolve_charge_model_ref(model_id, unit_id)["model"]
 
 				if model.is_empty():
 					print("ChargePhase ER_DEBUG: model_id=%s NOT FOUND in unit %s — using empty dict" % [model_id, unit_id])
@@ -1700,7 +1730,7 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 			var path = per_model_paths[model_id]
 			if path is Array and path.size() > 0:
 				var final_pos = Vector2(path[-1][0], path[-1][1])
-				var model = _get_model_in_unit(unit_id, model_id)
+				var model = _resolve_charge_model_ref(model_id, unit_id)["model"]
 
 				# Create a temporary model dict with the final position for shape-aware checks
 				var model_at_final_pos = model.duplicate()
@@ -1731,7 +1761,7 @@ func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dicti
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
 		if path is Array and path.size() > 0:
-			var model = _get_model_in_unit(unit_id, model_id)
+			var model = _resolve_charge_model_ref(model_id, unit_id)["model"]
 			var model_at_final = model.duplicate()
 			model_at_final["position"] = Vector2(path[-1][0], path[-1][1])
 			final_models.append(model_at_final)
@@ -1773,7 +1803,7 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
 		if path is Array and path.size() > 0:
-			var model = _get_model_in_unit(unit_id, model_id)
+			var model = _resolve_charge_model_ref(model_id, unit_id)["model"]
 			if model.is_empty():
 				continue
 			var model_at_final = model.duplicate()
@@ -1813,7 +1843,7 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 			continue
 
 		var start_pos = Vector2(path[0][0], path[0][1])
-		var model = _get_model_in_unit(unit_id, model_id)
+		var model = _resolve_charge_model_ref(model_id, unit_id)["model"]
 		if model.is_empty():
 			continue
 
@@ -1968,7 +1998,7 @@ func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, tar
 		if start_pos.distance_to(final_pos) < 0.5:
 			continue
 
-		var model = _get_model_in_unit(unit_id, model_id)
+		var model = _resolve_charge_model_ref(model_id, unit_id)["model"]
 		if model.is_empty():
 			continue
 
@@ -2023,7 +2053,7 @@ func _validate_charge_direction_constraint(unit_id: String, per_model_paths: Dic
 		if not (path is Array and path.size() > 0):
 			continue
 
-		var model = _get_model_in_unit(unit_id, model_id)
+		var model = _resolve_charge_model_ref(model_id, unit_id)["model"]
 		if model.is_empty():
 			continue
 
@@ -2144,6 +2174,58 @@ func _get_model_index(unit_id: String, model_id: String) -> int:
 		if models[i].get("id", "") == model_id:
 			return i
 	return -1
+
+# Return the unit_ids that charge together as one "Attached unit": the primary
+# (bodyguard) unit followed by any attached CHARACTER leaders. For a normal unit
+# with no attachments this is just [unit_id], so all callers stay backward-compatible.
+func _get_charge_unit_group(unit_id: String) -> Array:
+	var ids := [unit_id]
+	var unit = get_unit(unit_id)
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		var cid := str(char_id)
+		if cid != unit_id and not ids.has(cid) and not get_unit(cid).is_empty():
+			ids.append(cid)
+	return ids
+
+# Yield [{unit_id, model}] for every model across the combined charging unit.
+# Callers filter for alive/position as needed.
+func _get_charge_group_models(unit_id: String) -> Array:
+	var out := []
+	for uid in _get_charge_unit_group(unit_id):
+		for model in get_unit(uid).get("models", []):
+			out.append({"unit_id": uid, "model": model})
+	return out
+
+# Build the namespaced key for a charge model path. Models of the primary unit keep
+# their plain model_id; attached-character models are prefixed with their unit id.
+func _make_charge_key(source_unit_id: String, model_id: String, primary_unit_id: String) -> String:
+	if source_unit_id == "" or source_unit_id == primary_unit_id:
+		return model_id
+	return source_unit_id + CHARGE_GROUP_KEY_SEP + model_id
+
+# Resolve a per_model_paths key back to its owner. Returns
+# {unit_id, model_id, index, model}; index == -1 / model == {} if not found.
+func _resolve_charge_model_ref(key: String, primary_unit_id: String) -> Dictionary:
+	var source_unit_id := primary_unit_id
+	var model_id := key
+	var sep := key.find(CHARGE_GROUP_KEY_SEP)
+	if sep != -1:
+		source_unit_id = key.substr(0, sep)
+		model_id = key.substr(sep + CHARGE_GROUP_KEY_SEP.length())
+	var idx := _get_model_index(source_unit_id, model_id)
+	if idx < 0:
+		# Defensive fallback: search the whole group if the encoded unit didn't own it
+		# (e.g. a plain "m1" key for a model that actually belongs to an attached leader).
+		for uid in _get_charge_unit_group(primary_unit_id):
+			var i := _get_model_index(uid, model_id)
+			if i >= 0:
+				source_unit_id = uid
+				idx = i
+				break
+	var model := {}
+	if idx >= 0:
+		model = get_unit(source_unit_id).get("models", [])[idx]
+	return {"unit_id": source_unit_id, "model_id": model_id, "index": idx, "model": model}
 
 func get_available_actions() -> Array:
 	var actions = []
@@ -2325,20 +2407,33 @@ func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -
 	var errors = []
 	var all_units = game_state_snapshot.get("units", {})
 
-	# Get all models from the charging unit
-	var unit = all_units.get(unit_id, {})
-	var models = unit.get("models", [])
+	# The combined Attached unit (bodyguard + attached leaders) charges together, so
+	# any of its models may have a moved (final) position. Build a lookup keyed by
+	# "<owner_unit_id>/<model_id>" so other models in the group are compared against
+	# their final position too, not the stale pre-charge one.
+	var group_unit_ids = _get_charge_unit_group(unit_id)
+	var moved_final_positions = {}  # "owner/model_id" -> Vector2
+	for path_key in per_model_paths:
+		var p = per_model_paths[path_key]
+		if not (p is Array and p.size() > 0):
+			continue
+		var pref = _resolve_charge_model_ref(path_key, unit_id)
+		if pref["index"] >= 0:
+			moved_final_positions["%s/%s" % [pref["unit_id"], pref["model_id"]]] = Vector2(p[-1][0], p[-1][1])
 
-	# Check each model's final position
-	for model_id in per_model_paths:
-		var path = per_model_paths[model_id]
+	# Check each moved model's final position against every other model on the board.
+	for path_key in per_model_paths:
+		var path = per_model_paths[path_key]
 		if not (path is Array and path.size() > 0):
 			continue
 
 		var final_pos = Vector2(path[-1][0], path[-1][1])
-		var model = _get_model_in_unit(unit_id, model_id)
+		var ref = _resolve_charge_model_ref(path_key, unit_id)
+		var model = ref["model"]
 		if model.is_empty():
 			continue
+		var moving_owner_id = ref["unit_id"]
+		var moving_model_id = ref["model_id"]
 
 		# Build model dict with final position
 		var check_model = model.duplicate()
@@ -2354,20 +2449,20 @@ func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -
 				var other_model_id = other_model.get("id", "m%d" % (i+1))
 
 				# Skip self
-				if check_unit_id == unit_id and other_model_id == model_id:
+				if check_unit_id == moving_owner_id and other_model_id == moving_model_id:
 					continue
 
 				# Skip dead models
 				if not other_model.get("alive", true):
 					continue
 
-				# Get the current position of the other model
-				# For other charging models in same unit, use their final positions
+				# Get the position of the other model. For other models of the combined
+				# charging unit, use their final (moved) position when one was supplied.
 				var other_position = _get_model_position(other_model)
-				if check_unit_id == unit_id and per_model_paths.has(other_model_id):
-					var other_path = per_model_paths[other_model_id]
-					if other_path is Array and other_path.size() > 0:
-						other_position = Vector2(other_path[-1][0], other_path[-1][1])
+				if check_unit_id in group_unit_ids:
+					var other_lookup = "%s/%s" % [check_unit_id, other_model_id]
+					if moved_final_positions.has(other_lookup):
+						other_position = moved_final_positions[other_lookup]
 
 				if other_position == null:
 					continue
@@ -2378,7 +2473,7 @@ func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -
 
 				# Check for overlap
 				if Measurement.models_overlap(check_model, other_model_check):
-					errors.append("Model %s would overlap with %s/%s" % [model_id, check_unit_id, other_model_id])
+					errors.append("Model %s would overlap with %s/%s" % [moving_model_id, check_unit_id, other_model_id])
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
@@ -2391,7 +2486,7 @@ func _validate_no_wall_overlaps(unit_id: String, per_model_paths: Dictionary) ->
 			continue
 
 		var final_pos = Vector2(path[-1][0], path[-1][1])
-		var model = _get_model_in_unit(unit_id, model_id)
+		var model = _resolve_charge_model_ref(model_id, unit_id)["model"]
 		if model.is_empty():
 			continue
 
@@ -2466,13 +2561,17 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 	if target_ids.is_empty():
 		return false
 
-	# T2-8: Check FLY keyword for terrain penalty calculation
-	var unit_keywords = unit.get("meta", {}).get("keywords", [])
-	var has_fly = "FLY" in unit_keywords
-
-	for model in unit.get("models", []):
+	# Iterate the whole Attached unit (bodyguard + attached leaders). Terrain/FLY is
+	# evaluated per the owning unit of each model, since an attached leader may have
+	# different keywords than its bodyguard.
+	for entry in _get_charge_group_models(unit_id):
+		var model = entry["model"]
 		if not model.get("alive", true):
 			continue
+
+		var owner_unit = get_unit(entry["unit_id"])
+		var unit_keywords = owner_unit.get("meta", {}).get("keywords", [])
+		var has_fly = "FLY" in unit_keywords
 
 		var model_pos = _get_model_position(model)
 
@@ -2514,13 +2613,15 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:
-	"""Get the minimum edge-to-edge distance (inches) from any charging model to any target model."""
+	"""Get the minimum edge-to-edge distance (inches) from any charging model to any target model.
+	Includes attached-character models so the combined Attached unit's closest model is used."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return INF
 
 	var min_dist = INF
-	for model in unit.get("models", []):
+	for entry in _get_charge_group_models(unit_id):
+		var model = entry["model"]
 		if not model.get("alive", true):
 			continue
 		for target_id in target_ids:
