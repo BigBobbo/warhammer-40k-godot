@@ -2120,6 +2120,42 @@ func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictio
 	# Update grenade button (unit may have shot, reducing eligible units)
 	_update_grenade_button_visibility()
 
+func _dice_icon_bg(raw: int, mod: int, threshold_num: int, context: String, crit_threshold: int) -> Color:
+	# Color for a die face in the resolution log: crit (gold) for to-hit 6s,
+	# else pass (green) / fail (red) by threshold, else neutral.
+	if context == "to_hit" and raw >= crit_threshold:
+		return DiceFaceIcons.COLOR_CRITICAL
+	if threshold_num > 0:
+		return DiceFaceIcons.COLOR_SUCCESS if mod >= threshold_num else DiceFaceIcons.COLOR_FAIL
+	return DiceFaceIcons.COLOR_NEUTRAL
+
+func _append_dice_icons(rolls: Array, threshold_num: int, context: String, crit_threshold: int = 6, modified: Array = []) -> void:
+	# Render `rolls` as grouped inline d6 icons in the resolution log: one icon
+	# per distinct value, with an "xN" count when more than one was rolled.
+	if not dice_log_display:
+		return
+	if rolls.is_empty():
+		dice_log_display.append_text("—")
+		return
+	var counts := {}
+	var mod_for := {}
+	for i in range(rolls.size()):
+		var v := int(rolls[i])
+		counts[v] = int(counts.get(v, 0)) + 1
+		if not mod_for.has(v):
+			mod_for[v] = int(modified[i]) if i < modified.size() else v
+	var values := counts.keys()
+	values.sort()
+	for idx in range(values.size()):
+		var v := int(values[idx])
+		var count := int(counts[v])
+		var bg := _dice_icon_bg(v, int(mod_for[v]), threshold_num, context, crit_threshold)
+		dice_log_display.add_image(DiceFaceIcons.get_face(v, bg), 18, 18, Color.WHITE, INLINE_ALIGNMENT_CENTER)
+		if count > 1:
+			dice_log_display.append_text(" [color=#cfd6dd]x%d[/color]" % count)
+		if idx < values.size() - 1:
+			dice_log_display.append_text("  ")
+
 func _on_dice_rolled(dice_data: Dictionary) -> void:
 	# P3-117: Record roll in centralized dice history
 	if DiceHistoryPanel:
@@ -2159,16 +2195,13 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		var log_text = "[b][color=cyan]Feel No Pain %d+[/color][/b]" % fnp_val
 		if not target_name.is_empty():
 			log_text += " (%s)" % target_name
-		log_text += "\n"
+		log_text += "\n  Rolls: "
 
-		# Show individual dice
-		var dice_str = "  Rolls: "
-		for fnp_roll in fnp_rolls:
-			if fnp_roll >= fnp_val:
-				dice_str += "[color=green]%d[/color] " % fnp_roll
-			else:
-				dice_str += "[color=red]%d[/color] " % fnp_roll
-		log_text += dice_str + "\n"
+		# Flush header, then render FNP dice as inline icons.
+		dice_log_display.append_text(log_text)
+		_append_dice_icons(fnp_rolls, fnp_val, "feel_no_pain", 7)
+		dice_log_display.append_text("\n")
+		log_text = ""
 
 		# Show summary
 		if prevented > 0:
@@ -2188,12 +2221,13 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		var notation = dice_data.get("notation", "")
 		var total_dmg = dice_data.get("total_damage", 0)
 		var dmg_rolls = dice_data.get("rolls", [])
-		var log_text = "[b][color=yellow]Variable Damage (%s)[/color][/b]\n" % notation
-		var roll_values = []
-		for r in dmg_rolls:
-			roll_values.append(str(r.get("value", 0)))
-		log_text += "  Rolled: [%s] = %d total damage\n" % [", ".join(roll_values), total_dmg]
+		var log_text = "[b][color=yellow]Variable Damage (%s)[/color][/b]\n  Rolled: " % notation
 		dice_log_display.append_text(log_text)
+		var dmg_values := []
+		for r in dmg_rolls:
+			dmg_values.append(int(r.get("value", 0)))
+		_append_dice_icons(dmg_values, 0, "damage", 7)
+		dice_log_display.append_text(" = %d total damage\n" % total_dmg)
 		return
 
 	# TORRENT (PRP-014): Handle auto_hit context for Torrent weapons
@@ -2262,10 +2296,15 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		var attacks_notation = dice_data.get("attacks_notation", "")
 		var attacks_rolls = dice_data.get("attacks_rolls", [])
 		var base_attacks = dice_data.get("base_attacks", 0)
-		var roll_values = []
+		# Flush text so far, then render the attack dice as inline icons.
+		log_text += "  [color=yellow][VARIABLE ATTACKS] %s per model → rolled [/color]" % attacks_notation
+		dice_log_display.append_text(log_text)
+		log_text = ""
+		var attack_values := []
 		for r in attacks_rolls:
-			roll_values.append(str(r.get("value", 0)))
-		log_text += "  [color=yellow][VARIABLE ATTACKS] %s per model → rolled [%s] = %d attacks[/color]\n" % [attacks_notation, ", ".join(roll_values), base_attacks]
+			attack_values.append(int(r.get("value", 0)))
+		_append_dice_icons(attack_values, 0, "attacks", 7)
+		dice_log_display.append_text("[color=yellow] = %d attacks[/color]\n" % base_attacks)
 
 	# Show Rapid Fire bonus if applied
 	var rapid_fire_bonus = dice_data.get("rapid_fire_bonus", 0)
@@ -2337,21 +2376,16 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	var critical_hit_threshold = dice_data.get("critical_hit_threshold", 6)
 
 	if threshold_num > 0 and not show_rolls.is_empty():
-		log_text += "  Rolls: ["
-		for i in range(show_rolls.size()):
-			var raw_val = show_rolls[i]
-			var mod_val = check_rolls[i] if i < check_rolls.size() else raw_val
-			if context == "to_hit" and raw_val >= critical_hit_threshold:
-				log_text += "[color=magenta][b]%d[/b][/color]" % raw_val
-			elif mod_val >= threshold_num:
-				log_text += "[color=green]%d[/color]" % raw_val
-			else:
-				log_text += "[color=red]%d[/color]" % raw_val
-			if i < show_rolls.size() - 1:
-				log_text += ", "
-		log_text += "]"
+		# Flush text accumulated so far, then render the dice as inline icons.
+		log_text += "  Rolls: "
+		dice_log_display.append_text(log_text)
+		log_text = ""
+		_append_dice_icons(show_rolls, threshold_num, context, critical_hit_threshold, check_rolls)
 	else:
-		log_text += "  Rolls: %s" % str(show_rolls)
+		log_text += "  Rolls: "
+		dice_log_display.append_text(log_text)
+		log_text = ""
+		_append_dice_icons(show_rolls, 0, context, critical_hit_threshold)
 
 	# CRITICAL HIT TRACKING (PRP-031): Show critical hits for to_hit rolls
 	var critical_hits = dice_data.get("critical_hits", 0)
