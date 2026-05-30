@@ -327,14 +327,30 @@ func _validate_skip_scout_move(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _validate_end_scout_phase(action: Dictionary) -> Dictionary:
-	# Can only end if no units remain pending for any player
-	var total_pending = 0
+	# Allow ending the scout phase as long as every still-pending unit is in a
+	# resolvable state: either it has no active scout move (we can implicitly
+	# skip it) or its staged_positions are valid (we'll commit them in
+	# _process_end_scout_phase). This way the player can finish the phase
+	# without first clicking "Confirm Move" for every unit they dragged —
+	# matching the on-screen visual (the model already moved) instead of
+	# silently snapping it back to the deployed spot.
 	for player in scout_units_pending:
-		total_pending += scout_units_pending[player].size()
-
-	if total_pending > 0:
-		return {"valid": false, "errors": ["Scout units still pending: %d" % total_pending]}
-
+		for unit_id in scout_units_pending[player]:
+			if not active_scout_moves.has(unit_id):
+				continue  # nothing staged → implicit skip on end
+			var move_data = active_scout_moves[unit_id]
+			if move_data.get("staged_positions", {}).is_empty():
+				continue  # began the move but never dragged → implicit skip
+			# Has staged positions: validate them as if a CONFIRM was issued so
+			# we don't silently commit an illegal layout. If validation fails
+			# the player gets a clear error and can fix it before ending.
+			var dry_run = _validate_confirm_scout_move({"unit_id": unit_id})
+			if not dry_run.get("valid", false):
+				var unit = get_unit(unit_id)
+				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				return {"valid": false, "errors": [
+					"Staged scout move for %s is invalid: %s" % [unit_name, ", ".join(dry_run.get("errors", []))]
+				]}
 	return {"valid": true, "errors": []}
 
 # ========================================
@@ -449,9 +465,33 @@ func _process_skip_scout_move(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_end_scout_phase(action: Dictionary) -> Dictionary:
+	# Commit any leftover staged moves before completing the phase. Without
+	# this, units the player dragged but never explicitly confirmed lose their
+	# staged_positions when the phase ends — the visual stays at the moved
+	# spot during scout but GameState reverts to the deployed coordinates, so
+	# the model appears to snap back once the movement phase starts.
+	# Any unit without staged_positions is implicitly skipped (matches the
+	# previous SKIP_SCOUT_MOVE behavior).
+	var aggregated_changes: Array = []
+	var pending_snapshot: Array = []
+	for player in scout_units_pending:
+		pending_snapshot.append_array(scout_units_pending[player].duplicate())
+	for unit_id in pending_snapshot:
+		if active_scout_moves.has(unit_id) and not active_scout_moves[unit_id].get("staged_positions", {}).is_empty():
+			var commit_result = _process_confirm_scout_move({"unit_id": unit_id})
+			if commit_result.get("success", false):
+				aggregated_changes.append_array(commit_result.get("changes", []))
+				continue
+			# Validation should have caught this; fall through to skip so the
+			# phase can still complete instead of getting stuck.
+			log_phase_message("End scout: failed to commit staged move for %s, skipping" % unit_id)
+		# Implicit skip — clear any half-state and mark complete.
+		if active_scout_moves.has(unit_id):
+			active_scout_moves.erase(unit_id)
+		_mark_scout_complete(unit_id)
 	log_phase_message("Scout phase ending")
 	emit_signal("phase_completed")
-	return create_result(true, [])
+	return create_result(true, aggregated_changes)
 
 # ========================================
 # Helper Methods

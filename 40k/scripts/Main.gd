@@ -6918,19 +6918,32 @@ func _show_formations_dialog(player: int) -> void:
 var roll_off_dialog: Node = null
 
 func _setup_roll_off_phase() -> void:
-	"""Set up the pre-deployment roll-off — show the dialog for the local player."""
+	"""Set up the pre-deployment roll-off — show the dramatic dialog to the human.
+
+	The roll-off is a MUTUAL pre-game step: both players roll. The human must
+	always see it, even in a Player-vs-AI game where the nominal active player
+	is the AI. Only a fully AI-vs-AI game skips the dialog (the AI then
+	auto-dispatches ROLL_FOR_FIRST_TURN + CHOOSE_TURN_ORDER itself)."""
 	print("Main: Setting up Roll-Off phase (pre-deployment, issue #85)")
-	# AI-vs-AI or AI player active: skip the modal, the AI auto-dispatches
-	# ROLL_FOR_FIRST_TURN + CHOOSE_TURN_ORDER via AIDecisionMaker._decide_roll_off.
 	var ai_player = get_node_or_null("/root/AIPlayer")
-	var active: int = int(GameState.get_active_player())
-	if ai_player and ai_player.is_ai_player(active):
-		print("Main: Roll-off — active player is AI, no dialog needed")
+	var local_player: int = _roll_off_local_human(ai_player)
+	if local_player == 0:
+		# AI-vs-AI (or spectator) — no human to show the dialog to.
+		print("Main: Roll-off — no human player, AI auto-resolves (no dialog)")
 		return
-	var local_player: int = active
-	if NetworkIntegration.is_multiplayer_active():
-		local_player = int(NetworkManager.get_local_player())
 	_show_roll_off_dialog(local_player)
+
+func _roll_off_local_human(ai_player) -> int:
+	"""Return the player number of the local human who should drive the roll-off,
+	or 0 if there is no human (AI-vs-AI)."""
+	if NetworkIntegration.is_multiplayer_active():
+		return int(NetworkManager.get_local_player())
+	# Single-player: the human is whichever player the AI is NOT playing.
+	# (Hotseat = both human → returns Player 1, who drives both rolls.)
+	for p in [1, 2]:
+		if ai_player == null or not ai_player.is_ai_player(p):
+			return p
+	return 0
 
 func _show_roll_off_dialog(local_player: int) -> void:
 	if roll_off_dialog and is_instance_valid(roll_off_dialog):
@@ -6947,6 +6960,7 @@ func _show_roll_off_dialog(local_player: int) -> void:
 	roll_off_dialog.roll_initiated.connect(_on_roll_off_roll_pressed)
 	roll_off_dialog.choice_made.connect(_on_roll_off_choice_made)
 	roll_off_dialog.reroll_requested.connect(_on_roll_off_roll_pressed)
+	roll_off_dialog.acknowledged.connect(_on_roll_off_acknowledged)
 	roll_off_dialog.popup_centered()
 	print("Main: Showed roll-off dialog for Player %d" % local_player)
 
@@ -6966,15 +6980,30 @@ func _on_roll_off_roll_pressed() -> void:
 	var p2: int = int(result.get("player2_roll", 0))
 	if result.get("tied", false):
 		roll_off_dialog.show_tie(p1, p2)
+		return
+	var winner: int = int(result.get("winner", 0))
+	# Decide what the local human does at the result screen:
+	#   "choose"      — they won and pick Attacker/Defender (single-player, or
+	#                   their own network seat won in MP)
+	#   "acknowledge" — the AI won; they must click Continue to start the game
+	#                   (the AI always elects to take the first turn)
+	#   "wait"        — a remote human (MP) is choosing
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	var winner_is_ai: bool = ai_player != null and ai_player.is_ai_player(winner)
+	var local_action: String
+	if NetworkIntegration.is_multiplayer_active():
+		local_action = "choose" if winner == int(NetworkManager.get_local_player()) else "wait"
+	elif winner_is_ai:
+		local_action = "acknowledge"
 	else:
-		var winner: int = int(result.get("winner", 0))
-		roll_off_dialog.show_result(p1, p2, winner)
-		# If the winner is an AI, the AI's next decision will dispatch
-		# CHOOSE_TURN_ORDER automatically. Otherwise wait for the dialog's
-		# choice_made signal.
-		var ai_player = get_node_or_null("/root/AIPlayer")
-		if ai_player and ai_player.is_ai_player(winner):
-			print("Main: Roll-off — winner is AI; AI will choose")
+		local_action = "choose"
+	roll_off_dialog.show_result(p1, p2, winner, local_action)
+
+func _on_roll_off_acknowledged() -> void:
+	# The human dismissed an AI-won result. Apply the AI's choice (it elects to
+	# take the first turn) and let the game proceed to deployment.
+	print("Main: Roll-off — human acknowledged AI result; applying AI's choice")
+	_on_roll_off_choice_made("first")
 
 func _on_roll_off_choice_made(choice: String) -> void:
 	# choice is "first" (deploy second) or "second" (deploy first). The
@@ -8532,50 +8561,12 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.REDEPLOYMENT:
 			action = {"type": "END_REDEPLOYMENT_PHASE", "player": active_player}
 		GameStateData.Phase.SCOUT:
-			# Resolve all remaining pending scout moves before ending the phase.
-			# A unit the player dragged but never explicitly confirmed still has
-			# staged_positions in the phase's active_scout_moves. Committing those
-			# on phase-end (instead of blindly skipping) is what the player
-			# expects — otherwise the model snaps back to its deployed spot once
-			# the game starts (the reported scout bug). Units with no staged move
-			# are skipped as before; an invalid staged config falls back to skip
-			# with a toast so the phase can still advance.
-			var scout_phase = PhaseManager.get_current_phase_instance()
-			if scout_phase:
-				var scout_pending = scout_phase.get("scout_units_pending")
-				if scout_pending:
-					# Collect all pending unit IDs across all players
-					var all_pending = []
-					for p in scout_pending:
-						all_pending.append_array(scout_pending[p].duplicate())
-					for pending_uid in all_pending:
-						# Confirming the last pending unit can auto-complete the
-						# phase; stop issuing actions once we've left SCOUT.
-						if GameState.get_current_phase() != GameStateData.Phase.SCOUT:
-							break
-						var active_moves = scout_phase.get("active_scout_moves")
-						var has_staged: bool = active_moves != null \
-							and active_moves.has(pending_uid) \
-							and not active_moves[pending_uid].get("staged_positions", {}).is_empty()
-						if has_staged:
-							var confirm_action = {"type": "CONFIRM_SCOUT_MOVE", "unit_id": pending_uid, "player": active_player}
-							var confirm_result = NetworkIntegration.route_action(confirm_action)
-							if confirm_result.get("success", false):
-								continue
-							# Staged move was invalid (coherency/overlap/etc.) —
-							# discard it, tell the player, then skip the unit.
-							if has_node("/root/ToastManager"):
-								var unit_name = GameState.get_unit(pending_uid).get("meta", {}).get("name", pending_uid)
-								get_node("/root/ToastManager").show_toast("Scout move for %s was invalid and discarded" % unit_name, "error")
-						var skip_action = {"type": "SKIP_SCOUT_MOVE", "unit_id": pending_uid, "player": active_player}
-						NetworkIntegration.route_action(skip_action)
+			# END_SCOUT_PHASE now commits any in-progress staged scout moves and
+			# implicitly skips units the player never touched (handled in
+			# ScoutPhase._process_end_scout_phase). The player no longer has to
+			# click "Confirm Move" for every dragged unit before ending the phase
+			# — what they see on screen is what gets persisted.
 			_scout_cleanup_after_move()
-			# The skip loop above may have auto-completed the scout phase
-			# (BasePhase emits phase_completed when _should_complete_phase() returns true).
-			# If we're no longer in SCOUT, the phase already advanced — don't dispatch
-			# END_SCOUT_PHASE or the fallback at line 8223 will skip the Command Phase.
-			if GameState.get_current_phase() != GameStateData.Phase.SCOUT:
-				return
 			action = {"type": "END_SCOUT_PHASE", "player": active_player}
 		GameStateData.Phase.SCOUT_MOVES:
 			action = {"type": "END_SCOUT_MOVES", "player": active_player}
@@ -8641,6 +8632,14 @@ func _on_phase_action_pressed() -> void:
 
 	if not result.get("success", false):
 		print("Main: Failed to end phase: ", result.get("error", "Unknown error"))
+		# Don't auto-advance on a scout-end validation failure: the player has a
+		# staged scout move that's invalid (coherency/overlap/range). Surface the
+		# error so they can fix it instead of silently losing the move.
+		if action.get("type") == "END_SCOUT_PHASE":
+			var scout_errors = result.get("errors", [result.get("error", "Cannot end scout phase")])
+			if has_node("/root/ToastManager") and not scout_errors.is_empty():
+				get_node("/root/ToastManager").show_toast(str(scout_errors[0]), "error")
+			return
 		# If network routing fails, try local advance as fallback for single player
 		if not NetworkManager.is_networked():
 			print("Main: Falling back to local phase advance")
