@@ -1,0 +1,29 @@
+{
+  "id": "85d_rolloff_vs_ai",
+  "covers": [
+    "deployment.predeploy_roll_off",
+    "ui.RollOffDialog.shown_vs_ai",
+    "phases.TurnManager.roll_off_human_active",
+    "phases.RollOffPhase.ROLL_FOR_FIRST_TURN"
+  ],
+  "fixture": "audit_367_warlord",
+  "rng_seed": 4,
+  "description": "User report: in a Player-vs-AI game the roll-off dialog was never shown (active player at roll-off was the AI, so Main skipped it) and Player 1 always went first. With P2 configured as AI, entering ROLL_OFF must (a) make the HUMAN (P1) active so the dramatic dialog is shown, and (b) let the human roll and the roll-off actually complete (first_turn_player set) instead of stalling/defaulting to P1.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(3)" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "expect_node_visible", "node": "/root/Main/RollOffDialog", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_rolloff_shown_vs_ai" },
+
+    { "act": "click_node", "node": "/root/Main/RollOffDialog/Content/ButtonBar/RollButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 4.0 },
+
+    { "act": "expect_state", "path": "meta.roll_off_winner", "equals": 2 },
+    { "act": "expect_state", "path": "meta.first_turn_player", "equals": 2 },
+    { "act": "screenshot", "label": "02_rolloff_resolved_vs_ai" }
+  ]
+}
