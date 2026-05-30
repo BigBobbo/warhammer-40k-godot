@@ -511,6 +511,22 @@ func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 
 func _start_wound_allocation() -> void:
 	"""Begin allocation for current_wound_index"""
+
+	# BUGFIX: When the target unit is wiped out before all wounds are
+	# allocated (i.e. there are more wounds to save than the unit has models),
+	# there are no valid models left to select. Excess wounds are simply lost
+	# per 10e — wounds do not spill over to other units. Without this guard the
+	# manual-selection path would highlight nothing, keep awaiting a click that
+	# can never come, and the overlay would appear frozen while still showing
+	# "Wound X of Y — click a model". Detect the wiped-out case and finish the
+	# allocation instead of soliciting an impossible selection. (The
+	# auto-allocate path already short-circuits via _auto_allocate_current_wound;
+	# this covers the manual path too.)
+	if _auto_pick_model_id() == "":
+		print("WoundAllocationOverlay: No allocatable models remain (unit wiped) — completing allocation early")
+		_complete_allocation()
+		return
+
 	awaiting_selection = true
 
 	# Update UI labels
