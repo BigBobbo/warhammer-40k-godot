@@ -173,6 +173,22 @@ function sendError(res, statusCode, message) {
   sendJSON(res, statusCode, { error: message });
 }
 
+// Parse JSON that was read out of the database. A single legacy/corrupt row
+// (e.g. a save with empty or malformed metadata) must never throw here:
+// listing endpoints now parse EVERY player's rows in the shared store, so one
+// bad row would otherwise blow up the whole request — and, because the
+// handlers are async, crash the process and take every endpoint (armies
+// included) down with it. Fall back to a default instead of throwing.
+function safeParseJSON(str, fallback) {
+  if (str === null || str === undefined) return fallback;
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    console.error('safeParseJSON: skipping malformed DB JSON:', e.message);
+    return fallback;
+  }
+}
+
 // ============================================================================
 // Body Parser
 // ============================================================================
@@ -341,28 +357,42 @@ async function handleHTTPRequest(req, res) {
   const resource = parts[1];
   const param = parts[2] ? decodeURIComponent(parts[2]) : null;
 
+  // NOTE: the handlers are async, so we must `await` them here. Returning the
+  // promise directly would let any error thrown inside a handler escape this
+  // try/catch as an unhandled rejection, which crashes the whole process and
+  // takes every endpoint down (this is exactly how one malformed save in the
+  // shared store previously knocked out cloud army loading).
   try {
     switch (resource) {
       case 'health':
-        return handleHealth(req, res);
+        await handleHealth(req, res);
+        break;
       case 'players':
-        return handlePlayers(req, res);
+        await handlePlayers(req, res);
+        break;
       case 'saves':
-        return handleSaves(req, res, param);
+        await handleSaves(req, res, param);
+        break;
       case 'armies':
-        return handleArmies(req, res, param);
+        await handleArmies(req, res, param);
+        break;
       case 'local-armies':
-        return handleLocalArmies(req, res, param);
+        await handleLocalArmies(req, res, param);
+        break;
       case 'game-player-id':
-        return handleGamePlayerId(req, res);
+        await handleGamePlayerId(req, res);
+        break;
       case 'games':
-        return handleGames(req, res, param, parts[3]);
+        await handleGames(req, res, param, parts[3]);
+        break;
       default:
         sendError(res, 404, 'Not found');
     }
   } catch (err) {
     console.error('HTTP error:', err.message);
-    sendError(res, 500, 'Internal server error');
+    if (!res.headersSent) {
+      sendError(res, 500, 'Internal server error');
+    }
   }
 }
 
@@ -407,7 +437,7 @@ async function handleSaves(req, res, saveName) {
       const allSaves = stmts.listAllSaves.all();
       const result = allSaves.map((s) => ({
         save_name: s.save_name,
-        metadata: JSON.parse(s.metadata),
+        metadata: safeParseJSON(s.metadata, {}),
         created_at: s.created_at,
         updated_at: s.updated_at,
         ownership: (requesterId && s.owner_id === requesterId) ? 'own' : 'shared',
@@ -434,7 +464,7 @@ async function handleSaves(req, res, saveName) {
     }
     sendJSON(res, 200, {
       save_name: save.save_name,
-      metadata: JSON.parse(save.metadata),
+      metadata: safeParseJSON(save.metadata, {}),
       game_data: save.game_data,
       created_at: save.created_at,
       updated_at: save.updated_at,
@@ -501,7 +531,7 @@ async function handleArmies(req, res, armyName) {
       }
       sendJSON(res, 200, {
         army_name: army.army_name,
-        army_data: JSON.parse(army.army_data),
+        army_data: safeParseJSON(army.army_data, {}),
         created_at: army.created_at,
         updated_at: army.updated_at,
       });
@@ -831,6 +861,20 @@ server.listen(PORT, () => {
 setInterval(() => {
   console.log(`Stats: ${wss.clients.size} clients, ${games.size} games`);
 }, 60000);
+
+// Last-resort safety net: the relay server is a shared/central store, so a
+// single bad request (or one corrupt DB row) must never be allowed to crash
+// the whole process and knock every player offline. Log and keep running
+// rather than exiting on an otherwise-unhandled error.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection (keeping server alive):',
+    reason && reason.stack ? reason.stack : reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception (keeping server alive):',
+    err && err.stack ? err.stack : err);
+});
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
