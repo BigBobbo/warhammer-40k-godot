@@ -1,0 +1,48 @@
+{
+  "id": "auto_allocate_wounds_settings_ui",
+  "covers": [
+    "scripts.SettingsMenu.gameplay_tab",
+    "settings.auto_allocate_wounds",
+    "autoloads.SettingsService.auto_allocate_wounds"
+  ],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Settings UI: the in-game Escape settings menu exposes a Gameplay tab with the 'Computer allocates wounds' toggle, and the setting defaults ON. Asserts the default (no settings.cfg present), opens the real Escape menu via a simulated ESC key, switches to the Gameplay tab, and verifies the checkbox exists, is visible, and is checked by default.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "SettingsService.auto_allocate_wounds",
+      "equals": true },
+
+    { "act": "simulate_key", "key": "ESCAPE" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible",
+      "node": "/root/Main/SettingsMenu",
+      "timeout_s": 2.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"SettingsMenu\")._tab_buttons.size()",
+      "equals": 4 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"SettingsMenu\")._tab_buttons[2].text",
+      "equals": "Gameplay" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"SettingsMenu\")._on_tab_pressed(2)" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "is_instance_valid(main.get_node(\"SettingsMenu\")._auto_allocate_checkbox)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"SettingsMenu\")._auto_allocate_checkbox.is_visible_in_tree()",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"SettingsMenu\")._auto_allocate_checkbox.button_pressed",
+      "equals": true },
+    { "act": "screenshot", "label": "01_gameplay_tab_with_auto_allocate_toggle" }
+  ]
+}
