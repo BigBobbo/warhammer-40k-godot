@@ -6901,19 +6901,32 @@ func _show_formations_dialog(player: int) -> void:
 var roll_off_dialog: Node = null
 
 func _setup_roll_off_phase() -> void:
-	"""Set up the pre-deployment roll-off — show the dialog for the local player."""
+	"""Set up the pre-deployment roll-off — show the dramatic dialog to the human.
+
+	The roll-off is a MUTUAL pre-game step: both players roll. The human must
+	always see it, even in a Player-vs-AI game where the nominal active player
+	is the AI. Only a fully AI-vs-AI game skips the dialog (the AI then
+	auto-dispatches ROLL_FOR_FIRST_TURN + CHOOSE_TURN_ORDER itself)."""
 	print("Main: Setting up Roll-Off phase (pre-deployment, issue #85)")
-	# AI-vs-AI or AI player active: skip the modal, the AI auto-dispatches
-	# ROLL_FOR_FIRST_TURN + CHOOSE_TURN_ORDER via AIDecisionMaker._decide_roll_off.
 	var ai_player = get_node_or_null("/root/AIPlayer")
-	var active: int = int(GameState.get_active_player())
-	if ai_player and ai_player.is_ai_player(active):
-		print("Main: Roll-off — active player is AI, no dialog needed")
+	var local_player: int = _roll_off_local_human(ai_player)
+	if local_player == 0:
+		# AI-vs-AI (or spectator) — no human to show the dialog to.
+		print("Main: Roll-off — no human player, AI auto-resolves (no dialog)")
 		return
-	var local_player: int = active
-	if NetworkIntegration.is_multiplayer_active():
-		local_player = int(NetworkManager.get_local_player())
 	_show_roll_off_dialog(local_player)
+
+func _roll_off_local_human(ai_player) -> int:
+	"""Return the player number of the local human who should drive the roll-off,
+	or 0 if there is no human (AI-vs-AI)."""
+	if NetworkIntegration.is_multiplayer_active():
+		return int(NetworkManager.get_local_player())
+	# Single-player: the human is whichever player the AI is NOT playing.
+	# (Hotseat = both human → returns Player 1, who drives both rolls.)
+	for p in [1, 2]:
+		if ai_player == null or not ai_player.is_ai_player(p):
+			return p
+	return 0
 
 func _show_roll_off_dialog(local_player: int) -> void:
 	if roll_off_dialog and is_instance_valid(roll_off_dialog):
@@ -6949,15 +6962,28 @@ func _on_roll_off_roll_pressed() -> void:
 	var p2: int = int(result.get("player2_roll", 0))
 	if result.get("tied", false):
 		roll_off_dialog.show_tie(p1, p2)
+		return
+	var winner: int = int(result.get("winner", 0))
+	# Decide whether the local human gets to pick the turn order. They do when
+	# they won (single-player), or when their own network seat won (MP). If the
+	# AI won, it always elects to take the first turn and we auto-apply it after
+	# a beat so the human still sees the dramatic result.
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	var winner_is_ai: bool = ai_player != null and ai_player.is_ai_player(winner)
+	var local_can_choose: bool
+	if NetworkIntegration.is_multiplayer_active():
+		local_can_choose = (winner == int(NetworkManager.get_local_player()))
 	else:
-		var winner: int = int(result.get("winner", 0))
-		roll_off_dialog.show_result(p1, p2, winner)
-		# If the winner is an AI, the AI's next decision will dispatch
-		# CHOOSE_TURN_ORDER automatically. Otherwise wait for the dialog's
-		# choice_made signal.
-		var ai_player = get_node_or_null("/root/AIPlayer")
-		if ai_player and ai_player.is_ai_player(winner):
-			print("Main: Roll-off — winner is AI; AI will choose")
+		local_can_choose = not winner_is_ai
+	roll_off_dialog.show_result(p1, p2, winner, local_can_choose)
+	if winner_is_ai:
+		print("Main: Roll-off — AI (Player %d) won; auto-applying its choice" % winner)
+		await get_tree().create_timer(2.2).timeout
+		if roll_off_dialog and is_instance_valid(roll_off_dialog) \
+				and GameState.get_current_phase() == GameStateData.Phase.ROLL_OFF:
+			# The AI elects to go first (attacker). CHOOSE_TURN_ORDER 'first'
+			# maps the winner to the first turn regardless of the player field.
+			_on_roll_off_choice_made("first")
 
 func _on_roll_off_choice_made(choice: String) -> void:
 	# choice is "first" (deploy second) or "second" (deploy first). The

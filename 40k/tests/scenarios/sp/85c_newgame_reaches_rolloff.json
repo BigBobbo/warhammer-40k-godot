@@ -1,0 +1,26 @@
+{
+  "id": "85c_newgame_reaches_rolloff",
+  "covers": [
+    "deployment.predeploy_roll_off",
+    "phases.PhaseManager.formations_to_rolloff",
+    "ui.RollOffDialog.appears_in_new_game"
+  ],
+  "fixture": "audit_367_warlord",
+  "disable_ai": true,
+  "description": "Reproduce the player report: a NEW game (fixture saved at FORMATIONS, no forced phase) must pass through the pre-deployment ROLL_OFF and actually SHOW the roll-off dialog before deployment. Drive formations to completion the way the engine does, then assert the phase becomes ROLL_OFF (3) and the RollOffDialog is visible.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 0 },
+    { "act": "screenshot", "label": "01_formations" },
+
+    { "act": "dispatch_action", "action": { "type": "DESIGNATE_WARLORD", "player": 1, "unit_id": "U_SHIELD_CAPTAIN_A" } },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_FORMATIONS", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "DESIGNATE_WARLORD", "player": 2, "unit_id": "U_GHAZGHKULL_THRAKA_A" } },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_FORMATIONS", "player": 2 } },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_state", "path": "meta.phase", "equals": 3 },
+    { "act": "expect_node_visible", "node": "/root/Main/RollOffDialog", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "02_rolloff_dialog_appears" }
+  ]
+}

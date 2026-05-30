@@ -40,8 +40,8 @@ func _run_tests():
 	_check("RollButton present before rolling",
 		dialog.find_child("RollButton", true, false) != null)
 
-	# --- P1 wins 5 vs 3 -----------------------------------------------------
-	dialog.show_result(5, 3, 1)
+	# --- P1 wins 5 vs 3 (local human may choose) ----------------------------
+	dialog.show_result(5, 3, 1, true)
 	await create_timer(1.4).timeout
 
 	_check("After settle: P1 die shows 5",
@@ -63,6 +63,16 @@ func _run_tests():
 	dialog.find_child("DeploySecondButton", true, false).emit_signal("pressed")
 	_check("Go-first button emits choice_made('first')",
 		got_choice.v == "first", "got=%s" % got_choice.v)
+
+	# --- AI wins: local human cannot choose (waiting, no buttons) -----------
+	dialog.show_result(2, 6, 2, false)
+	await create_timer(1.4).timeout
+	_check("AI win (local_can_choose=false): no Deploy First button shown",
+		dialog.find_child("DeployFirstButton", true, false) == null)
+	_check("AI win: no Go First button shown",
+		dialog.find_child("DeploySecondButton", true, false) == null)
+	_check("AI win: winning die (P2=6) highlighted as WINNER",
+		dialog._p2_die.highlight == dialog._p2_die.Highlight.WINNER)
 
 	# --- Tie 4 vs 4 ---------------------------------------------------------
 	dialog.show_tie(4, 4)

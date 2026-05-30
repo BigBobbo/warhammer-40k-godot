@@ -78,6 +78,8 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 		GameStateData.Phase.DEPLOYMENT:
 			_titanic_skip_turns.clear()
 			_handle_deployment_phase_start()
+		GameStateData.Phase.ROLL_OFF:
+			_handle_roll_off_phase_start()
 
 func _on_phase_action_taken(action: Dictionary) -> void:
 	var action_type = action.get("type", "")
@@ -182,6 +184,26 @@ func alternate_active_player() -> void:
 func _set_active_player(player: int) -> void:
 	GameState.set_active_player(player)
 	emit_signal("deployment_side_changed", player)
+
+func _handle_roll_off_phase_start() -> void:
+	# The pre-deployment roll-off is a mutual step that BOTH players take part
+	# in. Make a human player active so (a) Main shows the dramatic roll-off
+	# dialog to a human, and (b) the AIPlayer — which only acts when the active
+	# player is AI — does not silently auto-resolve the roll-off out from under
+	# the human. In a Player-vs-AI game the active player is otherwise the AI
+	# (it became active during Formations), which is why the human never saw
+	# the roll-off and Player 1 appeared to always go first.
+	#
+	# Multiplayer keeps its existing active-player handling (each client shows
+	# the dialog for its own network seat). In an AI-vs-AI game there is no
+	# human, so the AI stays active and drives the roll-off automatically.
+	if has_node("/root/NetworkManager") and get_node("/root/NetworkManager").is_networked():
+		return
+	var ai = get_node_or_null("/root/AIPlayer")
+	for p in [1, 2]:
+		if ai == null or not ai.is_ai_player(p):
+			_set_active_player(p)
+			return
 
 func _apply_first_turn_player() -> void:
 	# Set the active player to whoever won the right to the first turn in the

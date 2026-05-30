@@ -39,6 +39,7 @@ const ROLL_TICK_INTERVAL := 0.06
 var _mode: int = Mode.AWAITING_ROLL
 var _winner: int = 0
 var _local_player: int = 0
+var _local_can_choose: bool = false  # may the local human pick the turn order?
 var _p1_roll: int = 0
 var _p2_roll: int = 0
 var _pending_tie: bool = false  # true while animating toward a tied result
@@ -76,10 +77,11 @@ func show_awaiting() -> void:
 	_refresh_for_mode()
 
 
-func show_result(p1_roll: int, p2_roll: int, winner: int) -> void:
+func show_result(p1_roll: int, p2_roll: int, winner: int, local_can_choose: bool = false) -> void:
 	_p1_roll = p1_roll
 	_p2_roll = p2_roll
 	_winner = winner
+	_local_can_choose = local_can_choose
 	_pending_tie = false
 	_begin_roll_animation()
 
@@ -215,7 +217,7 @@ func _refresh_for_mode() -> void:
 				"[center][color=%s][b]Player %d wins the roll-off — %d vs %d![/b][/color][/center]"
 				% [winner_color, _winner, _p1_roll, _p2_roll]
 			)
-			if _winner == _local_player:
+			if _local_can_choose:
 				var first_button := Button.new()
 				first_button.name = "DeployFirstButton"
 				first_button.text = "Deploy first (Defender)"
