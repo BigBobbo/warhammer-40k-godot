@@ -70,6 +70,7 @@ const FILTERED_ACTIONS = [
 const PHASE_NAMES = {
 	GameStateData.Phase.DEPLOYMENT: "Deployment",
 	GameStateData.Phase.ROLL_OFF: "Roll-Off",
+	GameStateData.Phase.FIRST_TURN_ROLLOFF: "First-Turn Roll-Off",
 	GameStateData.Phase.COMMAND: "Command",
 	GameStateData.Phase.MOVEMENT: "Movement",
 	GameStateData.Phase.SHOOTING: "Shooting",

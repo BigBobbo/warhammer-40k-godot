@@ -5,11 +5,11 @@
     "ui.RollOffDialog.shown_vs_ai",
     "ui.RollOffDialog.acknowledge_required",
     "ai.AIPlayer.roll_off_suppressed",
-    "phases.RollOffPhase.ROLL_FOR_FIRST_TURN"
+    "phases.RollOffPhase.ROLL_OFF_DEPLOYMENT"
   ],
   "fixture": "audit_367_warlord",
   "rng_seed": 4,
-  "description": "User report: in a Player-vs-AI game the AI silently resolved the roll-off and Player 1 always went first; the human never saw it. This drives the real path: P2 is AI and IS made the active player at roll-off, yet (a) the AI must NOT auto-resolve the mutual roll (it is suppressed while a human is present), (b) the dramatic dialog is shown to the human, (c) the human rolls, and (d) because the AI won, the human must click Continue before first_turn_player is set and the game proceeds.",
+  "description": "Deployment roll-off vs AI. P2 is AI and is made active at the roll-off, yet (a) the AI must NOT auto-resolve the mutual roll (suppressed while a human is present), (b) the dramatic dialog is shown to the human, (c) the human rolls (seed 4 → AI wins 6 vs 1), and (d) the human must click Continue. The AI then deploys SECOND (Attacker): meta.attacker=2, meta.defender=1. The first turn is NOT decided here (first_turn_player stays unset).",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.4 },
     { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
@@ -25,14 +25,16 @@
     { "act": "wait_seconds", "seconds": 1.6 },
 
     { "act": "expect_state", "path": "meta.roll_off_winner", "equals": 2 },
-    { "act": "expect_state", "path": "meta.first_turn_player", "exists": false },
+    { "act": "expect_state", "path": "meta.attacker", "exists": false },
     { "act": "expect_node_visible", "node": "/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton", "timeout_s": 2.0 },
     { "act": "screenshot", "label": "02_ai_won_continue_required" },
 
     { "act": "click_node", "node": "/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.5 },
 
-    { "act": "expect_state", "path": "meta.first_turn_player", "equals": 2 },
+    { "act": "expect_state", "path": "meta.attacker", "equals": 2 },
+    { "act": "expect_state", "path": "meta.defender", "equals": 1 },
+    { "act": "expect_state", "path": "meta.first_turn_player", "exists": false },
     { "act": "screenshot", "label": "03_resolved_after_ack" }
   ]
 }

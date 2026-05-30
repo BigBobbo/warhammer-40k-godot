@@ -206,9 +206,10 @@ func _test_invalid_param_errors() -> void:
 	if test_handler == null:
 		return
 
-	# 13 phases as of this writing (FORMATIONS..MORALE). Keep in sync with
-	# autoloads/GameState.gd:7 — adding a phase there means bumping this.
-	var phase_count = 13
+	# 14 phases as of this writing (FORMATIONS..MORALE, FIRST_TURN_ROLLOFF).
+	# Keep in sync with autoloads/GameState.gd:7 — adding a phase there means
+	# bumping this. The first out-of-range index is therefore 14.
+	var phase_count = 14
 
 	# Negative int.
 	var r = await test_handler._execute_command({

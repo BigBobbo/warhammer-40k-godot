@@ -47,25 +47,22 @@ func _run_tests():
 # RollOffPhase: a P2 win followed by "go first" must set first_turn_player = 2
 # ----------------------------------------------------------------------------
 func _test_rolloff_phase_computes_first_turn() -> void:
-	print("\n-- RollOffPhase computes first_turn_player from the dice --")
-	var RollOffPhase = load("res://phases/RollOffPhase.gd")
-	var phase = RollOffPhase.new()
+	print("\n-- FirstTurnRollOffPhase computes first_turn_player from the dice --")
+	var FirstTurnRollOffPhase = load("res://phases/FirstTurnRollOffPhase.gd")
+	var phase = FirstTurnRollOffPhase.new()
 	phase._on_phase_enter()
 
-	# Force P2 to win the roll (3 vs 5).
-	var roll_result = phase.process_action({"type": "ROLL_FOR_FIRST_TURN", "dice_roll": [3, 5]})
-	_check("Roll-off with [3,5] → P2 wins",
+	# Force P2 to win the roll (3 vs 5). The winner takes the first turn — no choice.
+	var roll_result = phase.process_action({"type": "ROLL_OFF_FIRST_TURN", "dice_roll": [3, 5]})
+	_check("First-turn roll-off [3,5] → P2 wins",
 		roll_result.get("winner", 0) == 2,
 		"winner=%s" % str(roll_result.get("winner")))
-
-	# Winner chooses to go first (attacker / deploy second).
-	var choice_result = phase.process_action({"type": "CHOOSE_TURN_ORDER", "choice": "first"})
-	_check("Winner P2 chooses 'first' → first_turn_player = 2",
-		choice_result.get("first_turn_player", 0) == 2,
-		"first_turn_player=%s" % str(choice_result.get("first_turn_player")))
+	_check("Winner takes first turn → first_turn_player = 2",
+		roll_result.get("first_turn_player", 0) == 2,
+		"first_turn_player=%s" % str(roll_result.get("first_turn_player")))
 
 	# The emitted changes must set meta.first_turn_player = 2.
-	var changes = choice_result.get("changes", [])
+	var changes = roll_result.get("changes", [])
 	var found_ftp := false
 	for c in changes:
 		if c.get("path", "") == "meta.first_turn_player":

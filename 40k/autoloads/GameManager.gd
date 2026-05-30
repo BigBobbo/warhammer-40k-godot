@@ -189,10 +189,15 @@ func process_action(action: Dictionary) -> Dictionary:
 		"BATCH_FIGHT_ACTIONS":
 			return _delegate_to_current_phase(action)
 
-		# Roll-off actions
-		"ROLL_FOR_FIRST_TURN":
+		# Roll-off actions — deployment-order roll-off (pre-deployment) and the
+		# separate first-turn roll-off (post-deployment).
+		"ROLL_OFF_DEPLOYMENT":
 			return _delegate_to_current_phase(action)
-		"CHOOSE_TURN_ORDER":
+		"CHOOSE_DEPLOYMENT":
+			return _delegate_to_current_phase(action)
+		"ROLL_OFF_FIRST_TURN":
+			return _delegate_to_current_phase(action)
+		"CONFIRM_FIRST_TURN":
 			return _delegate_to_current_phase(action)
 
 		# Command actions
@@ -882,10 +887,16 @@ func _get_next_phase(current: int) -> int:
 	"""
 	match current:
 		GameStateData.Phase.FORMATIONS:
-			return GameStateData.Phase.DEPLOYMENT
-		GameStateData.Phase.DEPLOYMENT:
 			return GameStateData.Phase.ROLL_OFF
 		GameStateData.Phase.ROLL_OFF:
+			return GameStateData.Phase.DEPLOYMENT
+		GameStateData.Phase.DEPLOYMENT:
+			return GameStateData.Phase.REDEPLOYMENT
+		GameStateData.Phase.REDEPLOYMENT:
+			return GameStateData.Phase.FIRST_TURN_ROLLOFF
+		GameStateData.Phase.FIRST_TURN_ROLLOFF:
+			return GameStateData.Phase.SCOUT
+		GameStateData.Phase.SCOUT:
 			return GameStateData.Phase.COMMAND
 		GameStateData.Phase.SCOUT_MOVES:
 			return GameStateData.Phase.COMMAND

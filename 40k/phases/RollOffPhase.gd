@@ -3,26 +3,27 @@ class_name RollOffPhase
 
 const BasePhase = preload("res://phases/BasePhase.gd")
 
-# RollOffPhase - Pre-deployment roll-off (issue #85)
+# RollOffPhase — Pre-deployment "Determine Attacker/Defender" roll-off.
 #
-# 10th edition: BEFORE any models are deployed both players roll a D6.
-# The winner chooses to be the Attacker or the Defender:
-#   - Defender deploys first (and takes the second turn).
-#   - Attacker deploys second (and takes the first turn).
-# In 10e the choice "deploy first / deploy second" and "go first /
-# go second" are the same choice: defender = deploy first = second turn,
-# attacker = deploy second = first turn. The phase exposes
-# CHOOSE_TURN_ORDER with `choice: first | second` (legacy action name
-# referring to turn order) and the dialog/UI maps it to deploy order
-# for the player.
+# 10th edition has TWO independent pre-battle roll-offs:
+#   1. THIS phase (before deployment): both players roll a D6; the winner
+#      chooses to DEPLOY FIRST (Defender) or DEPLOY SECOND (Attacker). This
+#      decides the deployment order ONLY.
+#   2. FirstTurnRollOffPhase (after deployment): a separate roll-off whose
+#      winner TAKES THE FIRST TURN, with no choice.
+#
+# Historically this phase did both jobs at once (9th-edition style, where the
+# winner's deploy choice also fixed the first turn). That coupling has been
+# removed: this phase now sets meta.attacker / meta.defender only and never
+# touches meta.first_turn_player.
 #
 # If the dice tie, players must re-roll (per the core rules).
 
 var _rng  # RulesEngine.RNGService — picks up test_mode_seed via PR #346
 var _player1_roll: int = 0
 var _player2_roll: int = 0
-var _roll_off_winner: int = 0  # Player who won the roll-off (gets to choose)
-var _first_turn_player: int = 0  # Player who will actually go first
+var _roll_off_winner: int = 0  # Player who won the roll-off (gets to choose deploy order)
+var _defender: int = 0         # Player who deploys first
 var _roll_complete: bool = false
 var _choice_made: bool = false
 
@@ -35,39 +36,38 @@ func _on_phase_enter() -> void:
 	_player1_roll = 0
 	_player2_roll = 0
 	_roll_off_winner = 0
-	_first_turn_player = 0
+	_defender = 0
 	_roll_complete = false
 	_choice_made = false
-	log_phase_message("Entering Roll-Off Phase — determining first turn")
+	log_phase_message("Entering Roll-Off Phase — determining who deploys first")
 
 func _on_phase_exit() -> void:
-	log_phase_message("Exiting Roll-Off Phase — Player %d will go first" % _first_turn_player)
+	log_phase_message("Exiting Roll-Off Phase — Player %d deploys first (Defender)" % _defender)
 
 func get_available_actions() -> Array:
 	var actions = []
 
 	if not _roll_complete:
-		# Roll-off hasn't happened yet
+		# Roll-off hasn't happened yet.
 		actions.append({
-			"type": "ROLL_FOR_FIRST_TURN",
-			"description": "Roll off to determine first turn",
+			"type": "ROLL_OFF_DEPLOYMENT",
+			"description": "Roll off to determine who deploys first",
 			"player": get_current_player()
 		})
 	elif not _choice_made:
-		# Roll-off done, winner needs to choose
-		# Pre-deployment context: "first" (turn order) = "deploy second"
-		# (attacker); "second" (turn order) = "deploy first" (defender).
-		# Descriptions present the deploy-order framing per #85.
+		# Roll-off done — winner picks their deployment role.
+		#   choice "first"  = deploy first  = Defender
+		#   choice "second" = deploy second = Attacker
 		actions.append({
-			"type": "CHOOSE_TURN_ORDER",
-			"choice": "second",
-			"description": "Player %d chooses to DEPLOY FIRST (defender)" % _roll_off_winner,
+			"type": "CHOOSE_DEPLOYMENT",
+			"choice": "first",
+			"description": "Player %d chooses to DEPLOY FIRST (Defender)" % _roll_off_winner,
 			"player": _roll_off_winner
 		})
 		actions.append({
-			"type": "CHOOSE_TURN_ORDER",
-			"choice": "first",
-			"description": "Player %d chooses to DEPLOY SECOND (attacker)" % _roll_off_winner,
+			"type": "CHOOSE_DEPLOYMENT",
+			"choice": "second",
+			"description": "Player %d chooses to DEPLOY SECOND (Attacker)" % _roll_off_winner,
 			"player": _roll_off_winner
 		})
 
@@ -84,17 +84,17 @@ func validate_action(action: Dictionary) -> Dictionary:
 	var errors = []
 
 	match action_type:
-		"ROLL_FOR_FIRST_TURN":
+		"ROLL_OFF_DEPLOYMENT":
 			if _roll_complete:
-				errors.append("Roll-off has already been completed")
-		"CHOOSE_TURN_ORDER":
+				errors.append("Deployment roll-off has already been completed")
+		"CHOOSE_DEPLOYMENT":
 			if not _roll_complete:
 				errors.append("Roll-off has not been completed yet")
 			if _choice_made:
-				errors.append("Turn order choice has already been made")
+				errors.append("Deployment choice has already been made")
 			var choice = action.get("choice", "")
 			if choice != "first" and choice != "second":
-				errors.append("Invalid choice: must be 'first' or 'second'")
+				errors.append("Invalid choice: must be 'first' (deploy first) or 'second' (deploy second)")
 		_:
 			errors.append("Unknown action type for Roll-Off phase: %s" % action_type)
 
@@ -105,14 +105,14 @@ func validate_action(action: Dictionary) -> Dictionary:
 
 func process_action(action: Dictionary) -> Dictionary:
 	match action.get("type", ""):
-		"ROLL_FOR_FIRST_TURN":
-			return _handle_roll_for_first_turn(action)
-		"CHOOSE_TURN_ORDER":
-			return _handle_choose_turn_order(action)
+		"ROLL_OFF_DEPLOYMENT":
+			return _handle_roll_off(action)
+		"CHOOSE_DEPLOYMENT":
+			return _handle_choose_deployment(action)
 		_:
 			return {"success": false, "error": "Unknown action type"}
 
-func _handle_roll_for_first_turn(action: Dictionary) -> Dictionary:
+func _handle_roll_off(action: Dictionary) -> Dictionary:
 	# Allow overriding rolls for deterministic testing
 	var p1_roll: int
 	var p2_roll: int
@@ -131,11 +131,11 @@ func _handle_roll_for_first_turn(action: Dictionary) -> Dictionary:
 	_player1_roll = p1_roll
 	_player2_roll = p2_roll
 
-	log_phase_message("Roll-off: Player 1 rolled %d, Player 2 rolled %d" % [p1_roll, p2_roll])
+	log_phase_message("Deployment roll-off: Player 1 rolled %d, Player 2 rolled %d" % [p1_roll, p2_roll])
 
 	if p1_roll == p2_roll:
 		# Tie — must re-roll per the rules
-		log_phase_message("Roll-off tied at %d — players must re-roll" % p1_roll)
+		log_phase_message("Deployment roll-off tied at %d — players must re-roll" % p1_roll)
 		_player1_roll = 0
 		_player2_roll = 0
 		_roll_complete = false
@@ -146,7 +146,7 @@ func _handle_roll_for_first_turn(action: Dictionary) -> Dictionary:
 			"player2_roll": p2_roll,
 			"tied": true,
 			"message": "Roll-off tied at %d! Re-roll required." % p1_roll,
-			"log_text": "Roll-off: Player 1 = %d, Player 2 = %d — TIED, re-roll!" % [p1_roll, p2_roll]
+			"log_text": "Deployment roll-off: Player 1 = %d, Player 2 = %d — TIED, re-roll!" % [p1_roll, p2_roll]
 		}
 
 	# Determine winner
@@ -157,7 +157,7 @@ func _handle_roll_for_first_turn(action: Dictionary) -> Dictionary:
 
 	_roll_complete = true
 
-	log_phase_message("Player %d wins the roll-off (%d vs %d)" % [_roll_off_winner, p1_roll, p2_roll])
+	log_phase_message("Player %d wins the deployment roll-off (%d vs %d)" % [_roll_off_winner, p1_roll, p2_roll])
 
 	# Store roll-off results in game state meta
 	var changes = [
@@ -173,45 +173,48 @@ func _handle_roll_for_first_turn(action: Dictionary) -> Dictionary:
 		"player2_roll": p2_roll,
 		"winner": _roll_off_winner,
 		"tied": false,
-		"message": "Player %d wins the roll-off (%d vs %d) and chooses who goes first!" % [_roll_off_winner, p1_roll, p2_roll],
-		"log_text": "Roll-off: Player 1 = %d, Player 2 = %d — Player %d wins!" % [p1_roll, p2_roll, _roll_off_winner]
+		"message": "Player %d wins the roll-off (%d vs %d) and chooses who deploys first!" % [_roll_off_winner, p1_roll, p2_roll],
+		"log_text": "Deployment roll-off: Player 1 = %d, Player 2 = %d — Player %d wins!" % [p1_roll, p2_roll, _roll_off_winner]
 	}
 
-func _handle_choose_turn_order(action: Dictionary) -> Dictionary:
+func _handle_choose_deployment(action: Dictionary) -> Dictionary:
+	# choice "first"  = winner deploys first  → winner is the Defender
+	# choice "second" = winner deploys second → winner is the Attacker
 	var choice = action.get("choice", "first")
 
 	if choice == "first":
-		_first_turn_player = _roll_off_winner
+		_defender = _roll_off_winner            # winner deploys first
 	else:
-		_first_turn_player = 3 - _roll_off_winner  # The other player
+		_defender = 3 - _roll_off_winner        # winner deploys second → opponent deploys first
 
+	var attacker_player = 3 - _defender
 	_choice_made = true
 
-	log_phase_message("Player %d chose to go %s — Player %d takes the first turn" % [
-		_roll_off_winner, choice.to_upper(), _first_turn_player
+	log_phase_message("Player %d chose to DEPLOY %s — Player %d (Defender) deploys first, Player %d (Attacker) deploys second" % [
+		_roll_off_winner, ("FIRST" if choice == "first" else "SECOND"), _defender, attacker_player
 	])
 
-	# Store the choice and set the active player for the first turn.
-	# 10e: the player who takes the first turn is the Attacker, the other is the Defender —
-	# some mission rules (e.g. deployment / scoring) reference these roles by name.
-	var defender_player = 3 - _first_turn_player
+	# Set deployment roles ONLY. The first turn is decided later by the
+	# separate FirstTurnRollOffPhase, so meta.first_turn_player is NOT set here.
+	# TurnManager._handle_deployment_phase_start reads meta.defender to seat the
+	# first deployer.
 	var changes = [
 		{"op": "set", "path": "meta.roll_off_choice", "value": choice},
-		{"op": "set", "path": "meta.first_turn_player", "value": _first_turn_player},
-		{"op": "set", "path": "meta.active_player", "value": _first_turn_player},
-		{"op": "set", "path": "meta.attacker", "value": _first_turn_player},
-		{"op": "set", "path": "meta.defender", "value": defender_player}
+		{"op": "set", "path": "meta.attacker", "value": attacker_player},
+		{"op": "set", "path": "meta.defender", "value": _defender},
+		{"op": "set", "path": "meta.active_player", "value": _defender}
 	]
 
 	return {
 		"success": true,
 		"changes": changes,
-		"first_turn_player": _first_turn_player,
+		"defender": _defender,
+		"attacker": attacker_player,
 		"choice": choice,
-		"message": "Player %d will take the first turn!" % _first_turn_player,
-		"log_text": "Player %d chose %s — Player %d takes the first turn" % [_roll_off_winner, choice, _first_turn_player]
+		"message": "Player %d (Defender) will deploy first." % _defender,
+		"log_text": "Player %d chose to deploy %s — Player %d deploys first" % [_roll_off_winner, choice, _defender]
 	}
 
 func _should_complete_phase() -> bool:
-	# Phase completes when both the roll and choice are done
+	# Phase completes when both the roll and the deploy-order choice are done
 	return _roll_complete and _choice_made

@@ -4,14 +4,14 @@
     "deployment.predeploy_roll_off",
     "ui.RollOffDialog.animated_dice",
     "ui.RollOffDialog.RollButton",
-    "phases.RollOffPhase.ROLL_FOR_FIRST_TURN",
-    "phases.RollOffPhase.CHOOSE_TURN_ORDER"
+    "phases.RollOffPhase.ROLL_OFF_DEPLOYMENT",
+    "phases.RollOffPhase.CHOOSE_DEPLOYMENT"
   ],
   "fixture": "audit_367_warlord",
   "transition_to_phase": 3,
   "disable_ai": true,
   "rng_seed": 2,
-  "description": "Issue: validate the pre-deployment roll-off is driven by the REAL player path (clicking the on-screen 'Roll for First Turn' button) and that the dramatic animated dice render and settle on the rolled values. Capture the result, then have the winner pick a turn order via the real button.",
+  "description": "Deployment roll-off via the REAL player path: click the on-screen Roll button, watch the dramatic animated dice settle (seed 2 → P1 4 vs 3 wins), then the winner clicks 'Deploy second (Attacker)'. Verify P1 becomes the Attacker, P2 the Defender, and that the first turn is NOT decided here (meta.first_turn_player stays unset).",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "expect_state", "path": "meta.phase", "equals": 3 },
@@ -24,7 +24,9 @@
 
     { "act": "click_node", "node": "/root/Main/RollOffDialog/Content/ButtonBar/DeploySecondButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.4 },
-    { "act": "expect_state", "path": "meta.first_turn_player", "equals": 1 },
-    { "act": "screenshot", "label": "03_p1_goes_first" }
+    { "act": "expect_state", "path": "meta.attacker", "equals": 1 },
+    { "act": "expect_state", "path": "meta.defender", "equals": 2 },
+    { "act": "expect_state", "path": "meta.first_turn_player", "exists": false },
+    { "act": "screenshot", "label": "03_p1_deploys_second_attacker" }
   ]
 }

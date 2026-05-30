@@ -56,9 +56,12 @@ func _test_roll_off_phase_writes_meta() -> void:
 		"\"path\": \"meta.attacker\"" in src or "meta.attacker" in src)
 	_check("writes meta.defender",
 		"\"path\": \"meta.defender\"" in src or "meta.defender" in src)
-	_check("uses 3 - first_turn_player to compute defender",
-		"3 - _first_turn_player" in src or "3 - first_turn_player" in src,
-		"defender = the OTHER player from whoever won the roll-off")
+	# 10e: the deployment roll-off decides Attacker/Defender independently of the
+	# first turn. Defender is derived from the winner's deploy choice (the winner
+	# is Defender if they choose to deploy first, otherwise the opponent is).
+	_check("derives defender/attacker as the opposite player (3 - x)",
+		"3 - _roll_off_winner" in src or "3 - _defender" in src,
+		"defender/attacker computed from the deploy-order choice")
 
 func _test_turn_manager_reads_defender() -> void:
 	print("\n-- B: TurnManager reads meta.defender at deployment start --")

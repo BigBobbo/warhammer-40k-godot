@@ -1,0 +1,37 @@
+{
+  "id": "85f_first_turn_vs_ai",
+  "covers": [
+    "deployment.first_turn_roll_off",
+    "ui.RollOffDialog.first_turn_context",
+    "ai.AIPlayer.roll_off_suppressed",
+    "phases.FirstTurnRollOffPhase.ROLL_OFF_FIRST_TURN"
+  ],
+  "fixture": "audit_367_warlord",
+  "rng_seed": 4,
+  "description": "First-turn roll-off vs AI. P2 is AI and is made active at the first-turn roll-off, yet the AI must NOT auto-resolve it (suppressed while a human is present). The dramatic dialog is shown, the human rolls, and (because the winner just takes the first turn) the human must click Continue to start the battle. Verify the roll-off does not resolve until the human rolls, and first_turn_player is set after Continue.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(13)" },
+    { "act": "execute_script", "script": "GameState.set_active_player(2)" },
+    { "act": "wait_seconds", "seconds": 2.0 },
+
+    { "act": "expect_state", "path": "meta.first_turn_player", "exists": false },
+    { "act": "expect_node_visible", "node": "/root/Main/RollOffDialog", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_first_turn_shown_ai_suppressed" },
+
+    { "act": "click_node", "node": "/root/Main/RollOffDialog/Content/ButtonBar/RollButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.6 },
+
+    { "act": "expect_state", "path": "meta.first_turn_player", "equals": 2 },
+    { "act": "expect_node_visible", "node": "/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "02_ai_first_turn_continue" },
+
+    { "act": "click_node", "node": "/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_state", "path": "meta.first_turn_player", "equals": 2 },
+    { "act": "expect_state", "path": "meta.phase", "not_equals": 13 },
+    { "act": "screenshot", "label": "03_ai_goes_first" }
+  ]
+}

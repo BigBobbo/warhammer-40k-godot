@@ -533,19 +533,42 @@
       "status": "covered"
     },
     {
-      "id": "phases.RollOffPhase.CHOOSE_TURN_ORDER",
-      "description": "RollOffPhase.CHOOSE_TURN_ORDER action: the roll-off winner picks first or second; sets meta.attacker / meta.defender / meta.first_turn_player accordingly so TurnManager._handle_deployment_phase_start gives the defender first deploy.",
+      "id": "phases.RollOffPhase.CHOOSE_DEPLOYMENT",
+      "description": "RollOffPhase.CHOOSE_DEPLOYMENT action: the pre-deployment roll-off winner chooses to deploy first (Defender) or second (Attacker); sets meta.attacker / meta.defender so TurnManager._handle_deployment_phase_start gives the defender first deploy. Does NOT set meta.first_turn_player (that is the separate first-turn roll-off).",
       "scenarios": [
-        "85_predeploy_rolloff"
+        "85_predeploy_rolloff",
+        "85b_rolloff_dramatic",
+        "85d_rolloff_vs_ai"
       ],
       "last_verified_commit": "c2781b7",
       "status": "covered"
     },
     {
-      "id": "phases.RollOffPhase.ROLL_FOR_FIRST_TURN",
-      "description": "RollOffPhase.ROLL_FOR_FIRST_TURN action: roll a D6 for each player, declare a winner, or report a tie that triggers a re-roll. Supports dice_roll override for deterministic testing.",
+      "id": "phases.RollOffPhase.ROLL_OFF_DEPLOYMENT",
+      "description": "RollOffPhase.ROLL_OFF_DEPLOYMENT action: roll a D6 for each player to decide who deploys first, declare a winner, or report a tie that triggers a re-roll. Supports dice_roll override for deterministic testing.",
       "scenarios": [
-        "85_predeploy_rolloff"
+        "85_predeploy_rolloff",
+        "85b_rolloff_dramatic"
+      ],
+      "last_verified_commit": "c2781b7",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FirstTurnRollOffPhase.ROLL_OFF_FIRST_TURN",
+      "description": "FirstTurnRollOffPhase.ROLL_OFF_FIRST_TURN action (10e roll-off #2, post-deployment): both players roll a D6; the higher roll TAKES THE FIRST TURN (no choice) and is stored in meta.first_turn_player; ties re-roll.",
+      "scenarios": [
+        "85e_first_turn_rolloff",
+        "85f_first_turn_vs_ai"
+      ],
+      "last_verified_commit": "c2781b7",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FirstTurnRollOffPhase.CONFIRM_FIRST_TURN",
+      "description": "FirstTurnRollOffPhase.CONFIRM_FIRST_TURN action: acknowledgement that completes the first-turn roll-off phase (the human clicks Continue; the AI auto-confirms in AI-vs-AI). Keeps the dramatic result on screen until dismissed.",
+      "scenarios": [
+        "85e_first_turn_rolloff",
+        "85f_first_turn_vs_ai"
       ],
       "last_verified_commit": "c2781b7",
       "status": "covered"

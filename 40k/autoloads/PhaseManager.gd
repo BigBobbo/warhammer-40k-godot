@@ -39,6 +39,7 @@ func register_phase_classes() -> void:
 	phase_classes[GameStateData.Phase.SCOUT] = preload("res://phases/ScoutPhase.gd")
 	phase_classes[GameStateData.Phase.SCOUT_MOVES] = preload("res://phases/ScoutMovesPhase.gd")
 	phase_classes[GameStateData.Phase.ROLL_OFF] = preload("res://phases/RollOffPhase.gd")
+	phase_classes[GameStateData.Phase.FIRST_TURN_ROLLOFF] = preload("res://phases/FirstTurnRollOffPhase.gd")
 	phase_classes[GameStateData.Phase.COMMAND] = preload("res://phases/CommandPhase.gd")
 	phase_classes[GameStateData.Phase.MOVEMENT] = preload("res://phases/MovementPhase.gd")
 	phase_classes[GameStateData.Phase.SHOOTING] = preload("res://phases/ShootingPhase.gd")
@@ -212,6 +213,10 @@ func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
 		GameStateData.Phase.DEPLOYMENT:
 			return GameStateData.Phase.REDEPLOYMENT
 		GameStateData.Phase.REDEPLOYMENT:
+			# 10e: after armies are deployed (and redeployment abilities resolved),
+			# the separate "Determine First Turn" roll-off happens, then Scout moves.
+			return GameStateData.Phase.FIRST_TURN_ROLLOFF
+		GameStateData.Phase.FIRST_TURN_ROLLOFF:
 			return GameStateData.Phase.SCOUT
 		GameStateData.Phase.SCOUT:
 			return GameStateData.Phase.COMMAND
