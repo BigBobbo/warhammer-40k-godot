@@ -1,0 +1,79 @@
+{
+  "id": "scout_drag_then_end_phase_persists",
+  "covers": [
+    "phases.ScoutPhase.e2e.drag_then_end_phase_commits_staged_move"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Reproduces the user's actual flow: deploy a unit, enter scout, drag every model to a valid coherent spot (SET succeeds, visual moves), then END the scout phase via the phase-action button WITHOUT clicking 'Confirm Move'. The player expects the move to stick. Before the fix, the end handler SKIPs the still-pending unit and discards the staged positions, so GameState reverts to the deployed coordinates (the bug: scout looks moved, then snaps back to the deployed spot once the game starts). After the fix, ending the phase commits valid staged moves. Asserts GameState holds the moved y=400 after ending the phase and entering movement.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_WITCHSEEKERS_C')" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(840, 240))" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(900, 240))" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(960, 240))" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "Main.deployment_controller.confirm()" },
+    { "act": "wait_frames", "frames": 10 },
+    { "act": "expect_state", "path": "units.U_WITCHSEEKERS_C.status", "equals": 2 },
+    { "act": "screenshot", "label": "01_deployed_y240" },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "expect_phase", "equals": 4 },
+
+    { "act": "execute_script", "script": "Main._on_unit_stats_panel_unit_selected('U_WITCHSEEKERS_C', false)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "Main._scout_active_unit_id", "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "execute_script", "script": "Main.set('_scout_dragging_model', true)" },
+    { "act": "execute_script", "script": "Main.set('_scout_drag_model_id', 'm1')" },
+    { "act": "execute_script", "script": "Main.set('_scout_drag_start_pos', Vector2(840, 240))" },
+    { "act": "execute_script", "script": "Main._scout_handle_mouse_motion(get_node('/root/Main/BoardRoot').transform * Vector2(840, 400))" },
+    { "act": "execute_script", "script": "Main._scout_handle_mouse_release(get_node('/root/Main/BoardRoot').transform * Vector2(840, 400))" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script", "script": "Main.set('_scout_dragging_model', true)" },
+    { "act": "execute_script", "script": "Main.set('_scout_drag_model_id', 'm2')" },
+    { "act": "execute_script", "script": "Main.set('_scout_drag_start_pos', Vector2(900, 240))" },
+    { "act": "execute_script", "script": "Main._scout_handle_mouse_motion(get_node('/root/Main/BoardRoot').transform * Vector2(900, 400))" },
+    { "act": "execute_script", "script": "Main._scout_handle_mouse_release(get_node('/root/Main/BoardRoot').transform * Vector2(900, 400))" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script", "script": "Main.set('_scout_dragging_model', true)" },
+    { "act": "execute_script", "script": "Main.set('_scout_drag_model_id', 'm3')" },
+    { "act": "execute_script", "script": "Main.set('_scout_drag_start_pos', Vector2(960, 240))" },
+    { "act": "execute_script", "script": "Main._scout_handle_mouse_motion(get_node('/root/Main/BoardRoot').transform * Vector2(960, 400))" },
+    { "act": "execute_script", "script": "Main._scout_handle_mouse_release(get_node('/root/Main/BoardRoot').transform * Vector2(960, 400))" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "int(PhaseManager.get_current_phase_instance().active_scout_moves['U_WITCHSEEKERS_C']['staged_positions'].size())",
+      "equals": 3 },
+    { "act": "screenshot", "label": "02_dragged_to_y400_not_confirmed" },
+
+    { "act": "execute_script", "script": "Main._on_phase_action_pressed()" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "screenshot", "label": "03_after_end_scout_phase" },
+
+    { "act": "execute_script", "script": "round(float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.y))", "equals": 400 },
+    { "act": "execute_script", "script": "round(float(GameState.state.units.U_WITCHSEEKERS_C.models[1].position.y))", "equals": 400 },
+    { "act": "execute_script", "script": "round(float(GameState.state.units.U_WITCHSEEKERS_C.models[2].position.y))", "equals": 400 },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(7)" },
+    { "act": "wait_seconds", "seconds": 3.5 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "screenshot", "label": "04_movement_phase_tokens_at_moved_pos" },
+
+    { "act": "execute_script", "script": "round(float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.y))", "equals": 400 },
+    { "act": "execute_script", "script": "round(float(get_node('/root/Main/BoardRoot/TokenLayer/Token_U_WITCHSEEKERS_C_0').position.y))", "equals": 400 }
+  ]
+}
