@@ -343,6 +343,6 @@ func _load_settings() -> void:
 	autosave_on_phase_transition = config.get_value("save_load", "autosave_on_phase_transition", false)
 
 	# Gameplay
-	auto_allocate_wounds = config.get_value("gameplay", "auto_allocate_wounds", false)
+	auto_allocate_wounds = config.get_value("gameplay", "auto_allocate_wounds", true)
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)
