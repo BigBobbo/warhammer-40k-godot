@@ -1,6 +1,6 @@
 {
   "id": "layout_parse_test",
-  "name": "Parse Test (Layout 2 image-detected)",
+  "name": "CA2025 02 Layout",
   "description": "Generated from layout2_reference.jpg via tools/detect_pieces.py + tools/detect_to_json.py. Pieces detected by color segmentation, paired with their 180-degree mirror counterparts, then positions/sizes averaged to force exact rotational symmetry around (22, 30). 16 pieces total: 8 gray hatched (tall ruins) and 8 blue (low ruins).",
   "recommended_deployments": [
     "hammer_anvil",

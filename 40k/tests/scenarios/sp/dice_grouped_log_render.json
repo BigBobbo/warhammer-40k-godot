@@ -1,0 +1,62 @@
+{
+  "id": "dice_grouped_log_render",
+  "covers": ["ui.log.inline_dice_graphics", "ui.log.grouped_dice_icons"],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Verify dice rolls in the GameLogPanel render as GROUPED die icons (one icon per distinct value plus an 'xN' count) instead of a flat array of numbers. Drives both the real-time roll path (DiceHistoryPanel.roll_recorded -> _current_combat_dice_container) and the combat-detail text path (a 'rolled [1, 1, 2, 6]' line -> _current_combat_details_container). Asserts each path mounts a DiceRowVisual whose get_value_groups() collapses duplicate values, then reveals the details and captures a screenshot of the grouped icons.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._create_card('Test Shooter shoots Test Target', 'combat_header', false)" },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._current_combat_dice_container != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "DiceHistoryPanel.roll_recorded.emit({'data': {'context': 'to_hit', 'rolls_raw': [1, 1, 2, 6], 'threshold': '3+', 'successes': 1}})" },
+
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._current_combat_dice_container.get_child_count()",
+      "equals": 1 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.dice_row_has_visual(0)",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._create_card('  To Hit: needed 3+ — rolled [1, 1, 2, 6] — 1/4 hit', 'combat_detail', false)" },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._create_card('    Modifiers: +1 to hit', 'combat_detail', false)" },
+
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._current_combat_details_container.get_child_count()",
+      "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.combat_detail_row_has_visual(0)",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.combat_detail_row_has_visual(1)",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._current_combat_details_container.set_visible(true)" },
+
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "screenshot", "label": "grouped_dice_icons_in_log" }
+  ]
+}

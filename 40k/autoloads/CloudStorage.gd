@@ -59,15 +59,37 @@ func _ready() -> void:
 
 func _init_player_id() -> void:
 	if OS.has_feature("web"):
-		# Web: use localStorage for player ID persistence
+		# Web: try localStorage first for player ID persistence. On itch.io the game
+		# runs in a third-party iframe where the browser may partition or block
+		# localStorage, so we keep a user:// (IndexedDB-backed) copy as a fallback.
+		# Note: saves are now a shared/central store, so a fresh/unstable player ID
+		# no longer hides previously-saved games — it only affects ownership labels.
 		var stored_id = JavaScriptBridge.eval("localStorage.getItem('w40k_player_id')")
 		if stored_id != null and str(stored_id) != "null" and str(stored_id).length() > 8:
 			player_id = str(stored_id)
 			print("CloudStorage: Loaded player ID from localStorage: ", player_id.substr(0, 8), "...")
 		else:
-			player_id = _generate_uuid()
-			JavaScriptBridge.eval("localStorage.setItem('w40k_player_id', '%s')" % player_id)
-			print("CloudStorage: Generated new player ID: ", player_id.substr(0, 8), "...")
+			# Fall back to a user:// copy if localStorage was empty/blocked
+			var id_path = "user://player_id.txt"
+			if FileAccess.file_exists(id_path):
+				var file = FileAccess.open(id_path, FileAccess.READ)
+				if file:
+					var file_id = file.get_as_text().strip_edges()
+					file.close()
+					if file_id.length() > 8:
+						player_id = file_id
+						print("CloudStorage: Loaded player ID from user:// fallback: ", player_id.substr(0, 8), "...")
+
+			if player_id.is_empty():
+				player_id = _generate_uuid()
+				print("CloudStorage: Generated new player ID: ", player_id.substr(0, 8), "...")
+
+			# Persist to both localStorage and user:// (each is best-effort)
+			JavaScriptBridge.eval("try { localStorage.setItem('w40k_player_id', '%s'); } catch (e) {}" % player_id)
+			var out_file = FileAccess.open(id_path, FileAccess.WRITE)
+			if out_file:
+				out_file.store_string(player_id)
+				out_file.close()
 	else:
 		# Desktop: use file for player ID persistence
 		var id_path = "user://player_id.txt"

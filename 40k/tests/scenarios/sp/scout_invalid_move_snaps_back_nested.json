@@ -1,0 +1,82 @@
+{
+  "id": "scout_invalid_move_snaps_back_nested",
+  "covers": [
+    "phases.ScoutPhase.UI.invalid_move_snaps_back_nested_token",
+    "Main._sync_all_token_positions.handles_nested_deployment_tokens"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Bug repro + fix proof. Real-play scout tokens are the NESTED deployment tokens (wrapper Node2D -> TokenVisual, meta on the child) created by DeploymentController and never recreated as flat before the scout phase. When a scout move is invalid (per-model SET passes but CONFIRM fails coherency), _on_scout_confirm_pressed shows a toast and calls _sync_all_token_positions() to roll the visual back. Before the fix, _sync_all_token_positions only read unit_id/model_id meta off the DIRECT child, so it skipped nested tokens entirely and left the model stranded at the invalid spot while GameState kept the original position (the user's report: scout looks moved, but movement phase targets the old spot). This scenario deploys U_WITCHSEEKERS_C interactively (producing genuine nested tokens), grants Scouts, stages a coherency-breaking move while moving the real nested token to the invalid spot (mirroring the drag), drives the real confirm handler, and asserts the nested token snaps back to the deployed/state position and GameState is unchanged.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
+
+    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_WITCHSEEKERS_C')" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(880, 240))" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(920, 240))" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "Main.deployment_controller.try_place_at(Vector2(960, 240))" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "script": "Main.deployment_controller.confirm()" },
+    { "act": "wait_frames", "frames": 10 },
+
+    { "act": "expect_state", "path": "units.U_WITCHSEEKERS_C.status", "equals": 2 },
+    { "act": "execute_script", "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x)", "equals": 880.0 },
+
+    { "act": "execute_script",
+      "script": "str(get_node('/root/Main/BoardRoot/TokenLayer/Token_U_WITCHSEEKERS_C_0').get_child(0).has_meta('model_id'))",
+      "equals": "true" },
+    { "act": "execute_script",
+      "script": "str(get_node('/root/Main/BoardRoot/TokenLayer/Token_U_WITCHSEEKERS_C_0').has_meta('model_id'))",
+      "equals": "false" },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script", "script": "str(GameState.unit_has_scout('U_WITCHSEEKERS_C'))", "equals": "true" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "expect_phase", "equals": 4 },
+
+    { "act": "execute_script", "script": "Main.set('_scout_active_unit_id', 'U_WITCHSEEKERS_C')" },
+    { "act": "execute_script", "script": "Main.set('_scout_move_distance', 6.0)" },
+
+    { "act": "dispatch_action", "action": { "type": "BEGIN_SCOUT_MOVE", "unit_id": "U_WITCHSEEKERS_C" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m1",
+      "destination": { "x": 880.0, "y": 470.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main/BoardRoot/TokenLayer/Token_U_WITCHSEEKERS_C_0').set('position', Vector2(880, 470))" },
+    { "act": "execute_script",
+      "script": "float(get_node('/root/Main/BoardRoot/TokenLayer/Token_U_WITCHSEEKERS_C_0').position.y)",
+      "equals": 470.0 },
+
+    { "act": "execute_script", "script": "Main._on_scout_confirm_pressed()" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x)",
+      "equals": 880.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.y)",
+      "equals": 240.0 },
+
+    { "act": "execute_script",
+      "script": "float(get_node('/root/Main/BoardRoot/TokenLayer/Token_U_WITCHSEEKERS_C_0').position.x)",
+      "equals": 880.0 },
+    { "act": "execute_script",
+      "script": "float(get_node('/root/Main/BoardRoot/TokenLayer/Token_U_WITCHSEEKERS_C_0').position.y)",
+      "equals": 240.0 },
+    { "act": "screenshot", "label": "nested_token_snapped_back_after_invalid_scout" }
+  ]
+}

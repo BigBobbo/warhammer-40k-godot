@@ -19,13 +19,13 @@ var _shaders: Dictionary = {
 	"tilepack": preload("res://shaders/tilepack_board.gdshader"),
 }
 
-# Grass textures loaded at runtime (bypasses import system)
-var _grass_basecolor: ImageTexture = null
-var _grass_normal: ImageTexture = null
+# Grass textures (loaded via the resource system so they ship in exports)
+var _grass_basecolor: Texture2D = null
+var _grass_normal: Texture2D = null
 
 # Tilepack textures (two grass tile variants)
-var _tilepack_1: ImageTexture = null
-var _tilepack_2: ImageTexture = null
+var _tilepack_1: Texture2D = null
+var _tilepack_2: Texture2D = null
 
 func _ready() -> void:
 	z_index = -10
@@ -51,16 +51,22 @@ func _load_grass_textures() -> void:
 	else:
 		print("[BoardVisual] WARNING: Failed to load grass normal texture")
 
-func _load_png_as_texture(res_path: String) -> ImageTexture:
-	# Convert res:// path to absolute filesystem path
+func _load_png_as_texture(res_path: String) -> Texture2D:
+	# Prefer the resource system: the imported texture is packed into exported
+	# builds, so it resolves everywhere (editor, headless, and shipped games).
+	var tex := load(res_path) as Texture2D
+	if tex != null:
+		return tex
+	# Fallback: read the raw file from disk. This only works when running from
+	# the project source tree, but keeps grass working if the import is missing.
+	print("[BoardVisual] WARNING: load(%s) returned null, falling back to raw file read" % res_path)
 	var abs_path = ProjectSettings.globalize_path(res_path)
 	var img = Image.new()
 	var err = img.load(abs_path)
 	if err != OK:
 		print("[BoardVisual] ERROR: Could not load image at %s (error %d)" % [abs_path, err])
 		return null
-	var tex = ImageTexture.create_from_image(img)
-	return tex
+	return ImageTexture.create_from_image(img)
 
 func _load_tilepack_textures() -> void:
 	_tilepack_1 = _load_png_as_texture("res://textures/tilepack/tileGrass1.png")

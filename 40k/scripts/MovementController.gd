@@ -1372,8 +1372,9 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	# Trigger move animation on all models in the unit
 	_trigger_unit_animation(unit_id, "move")
 
-	# T-094: Show movement range overlay around active unit
-	_show_move_range_overlay(unit_id)
+	# T-094 (revised): the movement-reach circle is now drawn per-model when a
+	# model is picked up (see _start_model_drag / _start_group_movement), not as a
+	# unit-wide bubble centred on the unit's centre of mass.
 	# T-094: Show 1" engagement-range rings around enemy units
 	_show_er_overlay(unit_id)
 	# T-094: Show 2" coherency rings around friendly models in this unit
@@ -1745,6 +1746,9 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 	_show_ghost_visual(model)
 	# Set initial ghost position to the cursor position
 	_update_ghost_position(world_pos)
+	# T-094 (revised): show this model's movement-reach circle anchored at its
+	# pickup position (reflects Advance distance and any remaining staged budget).
+	_show_model_range_overlay(model, drag_start_pos)
 
 func _update_model_drag(mouse_pos: Vector2) -> void:
 	if not dragging_model:
@@ -1916,6 +1920,7 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	_clear_ghost_visual()
 	_clear_path_visual()
 	_clear_ruler_visual()
+	_clear_move_range_overlay()  # T-094 (revised): remove per-model reach circle
 	
 	# Update visual to show all staged moves
 	_update_staged_moves_visual()
@@ -2605,14 +2610,18 @@ func _clear_ghost_visual() -> void:
 
 func _get_accumulated_distance() -> float:
 	# Get distance for the currently selected model
-	if not current_phase or not active_unit_id or selected_model.is_empty():
+	return _get_accumulated_distance_for_model(selected_model)
+
+func _get_accumulated_distance_for_model(model: Dictionary) -> float:
+	# Get the distance already staged this phase for an arbitrary model.
+	if not current_phase or not active_unit_id or model.is_empty():
 		return 0.0
 
-	var model_id = selected_model.get("model_id", "")
+	var model_id = model.get("model_id", model.get("id", ""))
 	if model_id == "":
 		return 0.0
 
-	var model_source = selected_model.get("unit_id", active_unit_id)
+	var model_source = model.get("unit_id", active_unit_id)
 	var mk = "%s:%s" % [model_source, model_id]
 
 	# Check if phase has active_moves data
@@ -2891,6 +2900,23 @@ func _update_movement_display_with_advance(dice_result: int) -> void:
 	if inches_left_label:
 		inches_left_label.text = "Left: %.1f\"" % total_movement
 		inches_left_label.modulate = Color.WHITE
+
+	# T-094 (revised): an Advance roll raises the move cap, so any reach circle
+	# already on screen must grow to the new distance rather than show the stale,
+	# smaller value. (A circle picked up after this point already reads the new
+	# cap via _start_model_drag, so this only matters for a circle drawn before
+	# the roll resolved.)
+	_refresh_model_range_overlay()
+
+func _refresh_model_range_overlay() -> void:
+	# Redraw the currently-displayed per-model reach circle(s) using the latest
+	# move cap. No-op when nothing is being dragged.
+	if not is_instance_valid(move_range_visual):
+		return
+	if group_dragging:
+		_show_group_range_overlay()
+	elif dragging_model and not selected_model.is_empty():
+		_show_model_range_overlay(selected_model, drag_start_pos)
 
 func _update_dice_log_display(dice_log: Array) -> void:
 	if not dice_log_display:
@@ -3624,6 +3650,9 @@ func _start_group_movement(mouse_pos: Vector2) -> void:
 	# Hide selection indicators during drag - ghosts show the new positions
 	_clear_selection_indicators()
 
+	# T-094 (revised): per-model reach circles for each model in the group
+	_show_group_range_overlay()
+
 	# Create ghost visuals for all selected models
 	_create_group_ghost_visuals()
 
@@ -3988,6 +4017,7 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 
 	# Clear ghost visuals
 	_clear_ghost_visual()
+	_clear_move_range_overlay()  # T-094 (revised): remove per-model reach circles
 
 	# Update displays
 	_update_movement_display()
@@ -4676,38 +4706,11 @@ func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 const MOVE_RANGE_OVERLAY_COLOR: Color = Color(0.3, 0.85, 0.4, 0.55)
 const MOVE_RANGE_OVERLAY_WIDTH: float = 12.0  # Width in board-space px (board scale ~0.3)
 
-func _show_move_range_overlay(unit_id: String) -> void:
-	if not is_instance_valid(move_range_visual):
+func _draw_dashed_range_circle(center: Vector2, radius_px: float, label_text: String) -> void:
+	# Draws a dashed circle (with optional distance label) into move_range_visual.
+	# Shared by the per-model movement-reach overlays.
+	if not is_instance_valid(move_range_visual) or radius_px <= 0.0:
 		return
-	_clear_move_range_overlay()
-	var unit = GameState.get_unit(unit_id) if GameState else {}
-	if unit.is_empty():
-		return
-	var move_inches: float = get_unit_movement(unit)
-	if move_inches <= 0.0:
-		return
-	var center: Vector2 = Vector2.ZERO
-	var count: int = 0
-	for model in unit.get("models", []):
-		if not model.get("alive", true):
-			continue
-		var pos = model.get("position")
-		if pos == null:
-			continue
-		var p: Vector2
-		if pos is Dictionary:
-			p = Vector2(pos.get("x", 0), pos.get("y", 0))
-		else:
-			p = pos
-		center += p
-		count += 1
-	if count == 0:
-		return
-	center = center / float(count)
-	var radius_px: float = Measurement.inches_to_px(move_inches)
-	# Dashed circle - alternating visible/invisible arcs
-	var dash_segments: int = 32
-	var gap_segments: int = 8
 	var total_arcs: int = 8
 	var arc_length: float = TAU / float(total_arcs)
 	var dash_fraction: float = 0.75
@@ -4715,7 +4718,7 @@ func _show_move_range_overlay(unit_id: String) -> void:
 		var arc_start: float = arc_idx * arc_length
 		var arc_dash_end: float = arc_start + arc_length * dash_fraction
 		var dash := Line2D.new()
-		dash.name = "MoveRangeDash_%d" % arc_idx
+		dash.name = "MoveRangeDash_%d_%d_%d" % [int(center.x), int(center.y), arc_idx]
 		dash.width = MOVE_RANGE_OVERLAY_WIDTH
 		dash.default_color = MOVE_RANGE_OVERLAY_COLOR
 		dash.begin_cap_mode = Line2D.LINE_CAP_ROUND
@@ -4725,14 +4728,51 @@ func _show_move_range_overlay(unit_id: String) -> void:
 			var theta: float = arc_start + (arc_dash_end - arc_start) * float(i) / float(pts)
 			dash.add_point(center + Vector2(cos(theta), sin(theta)) * radius_px)
 		move_range_visual.add_child(dash)
-	# Distance label at the top of the circle
-	var range_label := Label.new()
-	range_label.text = "%d\"" % int(move_inches)
-	range_label.add_theme_font_size_override("font_size", 36)
-	range_label.add_theme_color_override("font_color", MOVE_RANGE_OVERLAY_COLOR)
-	range_label.position = center + Vector2(-20, -(radius_px + 40))
-	range_label.z_index = 55
-	move_range_visual.add_child(range_label)
+	if label_text != "":
+		# Distance label at the top of the circle
+		var range_label := Label.new()
+		range_label.text = label_text
+		range_label.add_theme_font_size_override("font_size", 36)
+		range_label.add_theme_color_override("font_color", MOVE_RANGE_OVERLAY_COLOR)
+		range_label.position = center + Vector2(-20, -(radius_px + 40))
+		range_label.z_index = 55
+		move_range_visual.add_child(range_label)
+
+func _format_range_label(inches: float) -> String:
+	# Whole numbers (the common case: M, or M+Advance) render without a decimal;
+	# a fractional remainder left after a staged partial move keeps one decimal.
+	if abs(inches - round(inches)) > 0.05:
+		return "%.1f\"" % inches
+	return "%d\"" % int(round(inches))
+
+func _show_model_range_overlay(model: Dictionary, center: Vector2) -> void:
+	# T-094 (revised): per-model movement-reach circle, anchored at the model's
+	# pickup position. Radius is the *remaining* distance this model may move, so
+	# it automatically reflects the Advance distance during an Advance, and shrinks
+	# to the leftover allowance when continuing a staged move.
+	if not is_instance_valid(move_range_visual) or model.is_empty():
+		return
+	_clear_move_range_overlay()
+	var remaining: float = _get_effective_move_cap() - _get_accumulated_distance_for_model(model)
+	if remaining <= 0.0:
+		return
+	_draw_dashed_range_circle(center, Measurement.inches_to_px(remaining), _format_range_label(remaining))
+
+func _show_group_range_overlay() -> void:
+	# Per-model reach circles for every model in a group drag (labels omitted to
+	# avoid clutter when several circles overlap).
+	if not is_instance_valid(move_range_visual) or selected_models.is_empty():
+		return
+	_clear_move_range_overlay()
+	var cap: float = _get_effective_move_cap()
+	for model_data in selected_models:
+		var start_pos = group_drag_start_positions.get(model_data.get("model_id", ""), model_data.get("position", Vector2.ZERO))
+		if start_pos is Dictionary:
+			start_pos = Vector2(start_pos.get("x", 0), start_pos.get("y", 0))
+		var remaining: float = cap - _get_accumulated_distance_for_model(model_data)
+		if remaining <= 0.0:
+			continue
+		_draw_dashed_range_circle(start_pos, Measurement.inches_to_px(remaining), "")
 
 func _clear_move_range_overlay() -> void:
 	if not is_instance_valid(move_range_visual):
