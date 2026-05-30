@@ -1676,7 +1676,9 @@ func _animate_fight_movement_tokens(unit_id: String, movements: Dictionary) -> v
 			if token.has_meta("unit_id") and token.has_meta("model_id"):
 				if token.get_meta("unit_id") == unit_id and token.get_meta("model_id") == model_id:
 					print("NetworkManager: T5-MP1: Animating token %s/%s from %s to %s" % [unit_id, model_id, token.position, target_pos])
-					var tween = create_tween()
+					# Bind to the token (node-bound) so freeing/recreating tokens
+					# can't abort a not-yet-started tween and flood the console.
+					var tween = token.create_tween()
 					tween.tween_property(token, "position", target_pos, 0.4).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 					break
 

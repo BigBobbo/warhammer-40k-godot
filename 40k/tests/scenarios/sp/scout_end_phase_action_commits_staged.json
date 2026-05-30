@@ -1,0 +1,209 @@
+{
+  "id": "scout_end_phase_action_commits_staged",
+  "covers": [
+    "phases.ScoutPhase.END_SCOUT_PHASE.commits_staged_moves_directly"
+  ],
+  "fixture": "New Game",
+  "transition_to_phase": 1,
+  "disable_ai": true,
+  "description": "Bug repro via the data-layer END_SCOUT_PHASE action (the same path used by AI, MCP, and any non-button caller). Stages a valid scout move via SET_SCOUT_MODEL_DEST, then dispatches END_SCOUT_PHASE directly. Before the fix, the validator rejects END (pending > 0) and even if you bypassed it, _process_end_scout_phase just signals completed without committing staged moves -> the model snaps back to the deployed position. After the fix, END_SCOUT_PHASE commits any staged moves before completing.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.deployment_controller.begin_deploy('U_WITCHSEEKERS_C')"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.deployment_controller.try_place_at(Vector2(840, 240))"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.deployment_controller.try_place_at(Vector2(900, 240))"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.deployment_controller.try_place_at(Vector2(960, 240))"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.deployment_controller.confirm()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WITCHSEEKERS_C.status",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_phase",
+      "equals": 4
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_SCOUT_MOVE",
+        "unit_id": "U_WITCHSEEKERS_C"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SET_SCOUT_MODEL_DEST",
+        "unit_id": "U_WITCHSEEKERS_C",
+        "model_id": "m1",
+        "destination": {
+          "x": 840.0,
+          "y": 400.0
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SET_SCOUT_MODEL_DEST",
+        "unit_id": "U_WITCHSEEKERS_C",
+        "model_id": "m2",
+        "destination": {
+          "x": 900.0,
+          "y": 400.0
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SET_SCOUT_MODEL_DEST",
+        "unit_id": "U_WITCHSEEKERS_C",
+        "model_id": "m3",
+        "destination": {
+          "x": 960.0,
+          "y": 400.0
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "int(PhaseManager.get_current_phase_instance().active_scout_moves['U_WITCHSEEKERS_C']['staged_positions'].size())",
+      "equals": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_dragged_before_end_dispatch"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SCOUT_PHASE"
+      }
+    },
+    {
+      "act": "screenshot",
+      "label": "02_after_end_dispatch"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "round(float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.y))",
+      "equals": 400
+    },
+    {
+      "act": "execute_script",
+      "script": "round(float(GameState.state.units.U_WITCHSEEKERS_C.models[1].position.y))",
+      "equals": 400
+    },
+    {
+      "act": "execute_script",
+      "script": "round(float(GameState.state.units.U_WITCHSEEKERS_C.models[2].position.y))",
+      "equals": 400
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(7)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "screenshot",
+      "label": "03_movement_phase_after_end"
+    },
+    {
+      "act": "execute_script",
+      "script": "round(float(get_node('/root/Main/BoardRoot/TokenLayer/Token_U_WITCHSEEKERS_C_0').position.y))",
+      "equals": 400
+    }
+  ]
+}

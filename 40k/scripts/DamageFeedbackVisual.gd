@@ -149,12 +149,18 @@ func play_floating_number(model_pos: Vector2, damage: int, is_kill: bool = false
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(label)
 
-	# Tween 1: Rise upward with ease-out
-	var rise_tween = create_tween()
+	# Tween 1: Rise upward with ease-out.
+	# NOTE: bind the tween to the label (label.create_tween()), NOT to this
+	# persistent visual (create_tween()). A node-bound tween is auto-killed when
+	# its node frees, so tearing down these transient labels (e.g. on phase
+	# change / load while an AI horde turn spawned hundreds of them) cannot emit
+	# "Target object freed before starting, aborting Tweener" — which previously
+	# flooded the web console and froze the itch build on load.
+	var rise_tween = label.create_tween()
 	rise_tween.tween_property(label, "position:y", label.position.y - FLOAT_NUMBER_RISE_PX, FLOAT_NUMBER_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 
 	# Tween 2: Fade out in second half, then clean up
-	var fade_tween = create_tween()
+	var fade_tween = label.create_tween()
 	fade_tween.tween_property(label, "theme_override_colors/font_color:a", 0.0, FLOAT_NUMBER_DURATION * 0.5).set_delay(FLOAT_NUMBER_DURATION * 0.5)
 	fade_tween.tween_callback(label.queue_free)
 
@@ -208,8 +214,9 @@ func play_death_animation(model_pos: Vector2, base_radius_px: float) -> void:
 	skull_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(skull_label)
 
-	# Animate skull: fade in during ring, hold, then fade out
-	var tween = create_tween()
+	# Animate skull: fade in during ring, hold, then fade out.
+	# Bind to skull_label so the tween is auto-killed when the label frees.
+	var tween = skull_label.create_tween()
 	tween.tween_property(skull_label, "theme_override_colors/font_color:a", 1.0, DEATH_RING_DURATION * 0.5).set_delay(DEATH_RING_DURATION * 0.5)
 	tween.tween_interval(DEATH_SKULL_DURATION)
 	tween.tween_property(skull_label, "theme_override_colors/font_color:a", 0.0, 0.5)
@@ -241,18 +248,19 @@ func play_kill_notification(unit_center_pos: Vector2, unit_name: String) -> void
 	add_child(bg)
 	add_child(label)
 
-	# Tween: Rise upward
-	var rise_tween = create_tween()
+	# Tween: Rise upward. Bind each tween to the node it animates so torn-down
+	# transient labels/backgrounds can't emit "freed before starting" floods.
+	var rise_tween = label.create_tween()
 	rise_tween.tween_property(label, "position:y", label.position.y - KILL_NOTIFY_RISE_PX, KILL_NOTIFY_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-	var bg_rise = create_tween()
+	var bg_rise = bg.create_tween()
 	bg_rise.tween_property(bg, "position:y", bg.position.y - KILL_NOTIFY_RISE_PX, KILL_NOTIFY_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 
 	# Tween: Fade out in second half, then clean up
-	var fade_tween = create_tween()
+	var fade_tween = label.create_tween()
 	fade_tween.tween_property(label, "theme_override_colors/font_color:a", 0.0, KILL_NOTIFY_DURATION * 0.4).set_delay(KILL_NOTIFY_DURATION * 0.6)
 	fade_tween.tween_callback(label.queue_free)
 
-	var bg_fade = create_tween()
+	var bg_fade = bg.create_tween()
 	bg_fade.tween_property(bg, "color:a", 0.0, KILL_NOTIFY_DURATION * 0.4).set_delay(KILL_NOTIFY_DURATION * 0.6)
 	bg_fade.tween_callback(bg.queue_free)
 
@@ -281,18 +289,19 @@ func play_result_summary(target_pos: Vector2, summary_text: String) -> void:
 	add_child(bg)
 	add_child(label)
 
-	# Rise and fade
+	# Rise and fade. Bind each tween to the node it animates (node-bound tweens
+	# are auto-killed on free) so mass teardown can't flood the console.
 	var duration := 2.5
-	var rise_tween = create_tween()
+	var rise_tween = label.create_tween()
 	rise_tween.tween_property(label, "position:y", label.position.y - 50.0, duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-	var bg_rise = create_tween()
+	var bg_rise = bg.create_tween()
 	bg_rise.tween_property(bg, "position:y", bg.position.y - 50.0, duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 
-	var fade_tween = create_tween()
+	var fade_tween = label.create_tween()
 	fade_tween.tween_property(label, "theme_override_colors/font_color:a", 0.0, duration * 0.4).set_delay(duration * 0.6)
 	fade_tween.tween_callback(label.queue_free)
 
-	var bg_fade = create_tween()
+	var bg_fade = bg.create_tween()
 	bg_fade.tween_property(bg, "color:a", 0.0, duration * 0.4).set_delay(duration * 0.6)
 	bg_fade.tween_callback(bg.queue_free)
 

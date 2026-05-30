@@ -692,12 +692,12 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 			target_name_list.append(get_unit(tid).get("meta", {}).get("name", tid))
 		if roll_sufficient:
 			charge_event_log.add_player_entry(charge_owner,
-				"%s charge roll: 2D6 = %d (%d + %d) vs %.1f\" needed - SUCCESS" % [
-					unit_name, total_distance, rolls[0], rolls[1], min_distance])
+				"%s charge roll: [%d, %d] = %d\" vs %.1f\" needed - SUCCESS" % [
+					unit_name, rolls[0], rolls[1], total_distance, min_distance])
 		else:
 			charge_event_log.add_player_entry(charge_owner,
-				"%s charge roll: 2D6 = %d (%d + %d) vs %.1f\" needed - FAILED" % [
-					unit_name, total_distance, rolls[0], rolls[1], min_distance])
+				"%s charge roll: [%d, %d] = %d\" vs %.1f\" needed - FAILED" % [
+					unit_name, rolls[0], rolls[1], total_distance, min_distance])
 
 	if not roll_sufficient:
 		# Charge roll failed — record structured failure, clean up state, broadcast
@@ -3174,7 +3174,7 @@ func _resolve_piston_driven_brutality_after_charge(unit_id: String, changes: Arr
 	if game_event_log:
 		var owner = int(unit.get("owner", 0))
 		game_event_log.add_player_entry(owner,
-			"Piston-driven Brutality: %s rolled %d — %d mortal wound(s) to %s (%d casualt(y/ies))" % [
+			"Piston-driven Brutality: %s rolled [%d] — %d mortal wound(s) to %s (%d casualt(y/ies))" % [
 				unit_name, result.get("roll", 0), result.get("mortal_wounds", 0),
 				target_name, result.get("casualties", 0)
 			])

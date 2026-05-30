@@ -1,0 +1,55 @@
+{
+  "id": "resolution_log_dice_icons",
+  "covers": ["ui.shooting.resolution_log_dice_icons", "ui.log.grouped_dice_icons"],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Verify the shooting phase sequential-resolution log (ShootingController.dice_log_display) renders dice rolls as inline grouped d6 icons via DiceFaceIcons/add_image, not as [2, 5, 6, 6] number arrays. Drives _on_dice_rolled with real to_hit / to_wound / feel_no_pain dice blocks and asserts the RichTextLabel now contains inline images (get_parsed_text drops the [n,...] arrays). Captures a screenshot of the icon-rendered log.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller.dice_log_display != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller.dice_log_display.clear()" },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller.dice_log_display.append_text('Resolution Log:\nStarting sequential weapon resolution...\n>>> Resolving weapon 1 of 1 <<<\n')" },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller._on_dice_rolled({'context': 'to_hit', 'rolls_raw': [2, 5, 6, 6], 'rolls_modified': [2, 5, 6, 6], 'threshold': '2+', 'successes': 4, 'weapon_name': 'Bolt Rifle', 'critical_hit_threshold': 6})" },
+
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller._on_dice_rolled({'context': 'to_wound', 'rolls_raw': [1, 2, 3, 6], 'rolls_modified': [1, 2, 3, 6], 'threshold': '2+', 'successes': 4})" },
+
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller._on_dice_rolled({'context': 'feel_no_pain', 'fnp_value': 5, 'rolls_raw': [5, 2, 6, 1], 'wounds_prevented': 2, 'wounds_remaining': 2, 'total_wounds': 4, 'target_unit_name': 'Boyz'})" },
+
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script",
+      "script": "'[2, 5, 6, 6]' in main.shooting_controller.dice_log_display.get_parsed_text()",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller.dice_log_display.get_parsed_text().contains('successes')",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller.dice_log_display.get_parent().get_parent().ensure_control_visible(main.shooting_controller.dice_log_display)" },
+
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "screenshot", "label": "resolution_log_dice_icons" }
+  ]
+}
