@@ -1320,8 +1320,10 @@ func _show_game_loaded_overlay() -> void:
 	label.add_theme_font_size_override("font_size", 28)
 	center.add_child(label)
 
-	# Pulse animation on the label
-	var pulse_tween = create_tween().set_loops()
+	# Pulse animation on the label. Bind to the label (node-bound) so dismissing
+	# the overlay (which frees the label) auto-kills the looping tween instead of
+	# leaving a Main-bound tween whose target was freed.
+	var pulse_tween = label.create_tween().set_loops()
 	pulse_tween.tween_property(label, "modulate", Color(1, 1, 1, 0.5), 1.0).set_trans(Tween.TRANS_SINE)
 	pulse_tween.tween_property(label, "modulate", Color(1, 1, 1, 1.0), 1.0).set_trans(Tween.TRANS_SINE)
 
