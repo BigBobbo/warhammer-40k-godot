@@ -66,9 +66,14 @@ func _init() -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
 
 
-func setup(local_player: int) -> void:
+# context: "deploy"     — pre-deployment roll-off; winner chooses deploy order
+#          "first_turn" — post-deployment roll-off; winner takes the first turn
+var _context: String = "deploy"
+
+func setup(local_player: int, context: String = "deploy") -> void:
 	_local_player = local_player
-	title = "Determine First Turn"
+	_context = context
+	title = "Determine First Turn" if context == "first_turn" else "Determine Deployment"
 	min_size = DialogConstants.MEDIUM
 	get_ok_button().visible = false
 	if not close_requested.is_connected(_on_close_requested):
@@ -195,8 +200,12 @@ func _refresh_for_mode() -> void:
 
 	match _mode:
 		Mode.AWAITING_ROLL:
-			_heading_label.text = "WHO SEIZES THE INITIATIVE?"
-			_status_label.text = "Both players roll a D6. Winner chooses to be Attacker (go first) or Defender (deploy first)."
+			if _context == "first_turn":
+				_heading_label.text = "WHO TAKES THE FIRST TURN?"
+				_status_label.text = "Both players roll a D6. The winner takes the first turn — no choice."
+			else:
+				_heading_label.text = "WHO DEPLOYS FIRST?"
+				_status_label.text = "Both players roll a D6. The winner chooses to deploy first (Defender) or second (Attacker)."
 			_result_banner.text = ""
 			_p1_die.value = 1
 			_p2_die.value = 1
@@ -206,7 +215,7 @@ func _refresh_for_mode() -> void:
 			_p2_die.modulate = Color.WHITE
 			var roll_button := Button.new()
 			roll_button.name = "RollButton"
-			roll_button.text = "⚄  Roll for First Turn"
+			roll_button.text = "⚄  Roll the dice"
 			roll_button.pressed.connect(_on_roll_pressed)
 			WhiteDwarfTheme.apply_primary_button(roll_button)
 			_button_bar.add_child(roll_button)
@@ -215,14 +224,17 @@ func _refresh_for_mode() -> void:
 			_status_label.text = "The dice are cast!"
 			_result_banner.text = ""
 		Mode.SHOWING_RESULT:
-			_heading_label.text = "FIRST TURN DECIDED"
+			var first_turn_ctx := _context == "first_turn"
+			_heading_label.text = "FIRST TURN DECIDED" if first_turn_ctx else "DEPLOYMENT DECIDED"
 			_status_label.text = "Roll-off result"
 			var winner_color := "#D49761"
+			var banner_tail := "takes the first turn" if first_turn_ctx else "won the roll-off"
 			_result_banner.text = (
-				"[center][color=%s][b]Player %d wins the roll-off — %d vs %d![/b][/color][/center]"
-				% [winner_color, _winner, _p1_roll, _p2_roll]
+				"[center][color=%s][b]Player %d %s — %d vs %d![/b][/color][/center]"
+				% [winner_color, _winner, banner_tail, _p1_roll, _p2_roll]
 			)
 			if _local_action == "choose":
+				# Deploy-order roll-off only: the winning human picks their role.
 				_status_label.text = "You won the roll-off — choose your deployment role."
 				var first_button := Button.new()
 				first_button.name = "DeployFirstButton"
@@ -233,14 +245,19 @@ func _refresh_for_mode() -> void:
 
 				var second_button := Button.new()
 				second_button.name = "DeploySecondButton"
-				second_button.text = "Go first (Attacker)"
+				second_button.text = "Deploy second (Attacker)"
 				second_button.pressed.connect(_on_deploy_second_pressed)
 				WhiteDwarfTheme.apply_primary_button(second_button)
 				_button_bar.add_child(second_button)
 			elif _local_action == "acknowledge":
-				# The AI won and will take the first turn. The human must
-				# explicitly dismiss this before the game starts.
-				_status_label.text = "Player %d won the roll-off and will take the first turn." % _winner
+				# Either the first-turn roll-off (no choice for anyone) or the
+				# deploy roll-off where the AI won. The human must explicitly
+				# dismiss the result before the game proceeds.
+				if first_turn_ctx:
+					_status_label.text = "Player %d takes the first turn." % _winner
+				else:
+					# Deploy roll-off, AI won: it elects to deploy second (Attacker).
+					_status_label.text = "Player %d won and will deploy second (Attacker)." % _winner
 				var continue_button := Button.new()
 				continue_button.name = "ContinueButton"
 				continue_button.text = "Continue ▶"
@@ -249,7 +266,7 @@ func _refresh_for_mode() -> void:
 				_button_bar.add_child(continue_button)
 			else:
 				var waiting := Label.new()
-				waiting.text = "Waiting for Player %d to choose…" % _winner
+				waiting.text = "Waiting for Player %d…" % _winner
 				waiting.add_theme_color_override("font_color",
 					WhiteDwarfTheme.WH_BONE)
 				_button_bar.add_child(waiting)
@@ -335,14 +352,13 @@ func _on_roll_pressed() -> void:
 
 
 func _on_deploy_first_pressed() -> void:
-	# "Deploy first" = defender = CHOOSE_TURN_ORDER choice "second" (go
-	# second in turn order). Map to the action contract the phase expects.
-	emit_signal("choice_made", "second")
+	# "Deploy first (Defender)" → CHOOSE_DEPLOYMENT choice "first".
+	emit_signal("choice_made", "first")
 
 
 func _on_deploy_second_pressed() -> void:
-	# "Deploy second / go first" = attacker = CHOOSE_TURN_ORDER choice "first".
-	emit_signal("choice_made", "first")
+	# "Deploy second (Attacker)" → CHOOSE_DEPLOYMENT choice "second".
+	emit_signal("choice_made", "second")
 
 
 func _on_reroll_pressed() -> void:

@@ -2584,6 +2584,7 @@ func _phase_to_string(phase: int) -> String:
 	match phase:
 		GameStateData.Phase.DEPLOYMENT: return "deployment"
 		GameStateData.Phase.ROLL_OFF: return "roll_off"
+		GameStateData.Phase.FIRST_TURN_ROLLOFF: return "first_turn_rolloff"
 		GameStateData.Phase.COMMAND: return "command"
 		GameStateData.Phase.MOVEMENT: return "movement"
 		GameStateData.Phase.SHOOTING: return "shooting"

@@ -40,17 +40,37 @@ func _run():
 			break
 
 	print("\nPhases seen: %s" % str(phases_seen.map(func(p): return _pname(p))))
-	var saw_rolloff := phases_seen.has(GSD.Phase.ROLL_OFF)
-	print("Reached ROLL_OFF in a new game: %s" % str(saw_rolloff))
+	# 10e has TWO pre-battle roll-offs: the deployment roll-off (ROLL_OFF,
+	# before deployment) and the first-turn roll-off (FIRST_TURN_ROLLOFF, after
+	# deployment). A new game must pass through BOTH, in that order.
+	var saw_deploy := phases_seen.has(GSD.Phase.ROLL_OFF)
+	var saw_first_turn := phases_seen.has(GSD.Phase.FIRST_TURN_ROLLOFF)
+	var deploy_before_first_turn := (
+		saw_deploy and saw_first_turn
+		and phases_seen.find(GSD.Phase.ROLL_OFF) < phases_seen.find(GSD.Phase.FIRST_TURN_ROLLOFF)
+	)
+	# The deployment roll-off must come before DEPLOYMENT; the first-turn one after.
+	var deploy_rolloff_pre_deploy := (
+		saw_deploy and phases_seen.has(GSD.Phase.DEPLOYMENT)
+		and phases_seen.find(GSD.Phase.ROLL_OFF) < phases_seen.find(GSD.Phase.DEPLOYMENT)
+	)
+	var first_turn_post_deploy := (
+		saw_first_turn and phases_seen.has(GSD.Phase.DEPLOYMENT)
+		and phases_seen.find(GSD.Phase.FIRST_TURN_ROLLOFF) > phases_seen.find(GSD.Phase.DEPLOYMENT)
+	)
+	print("saw ROLL_OFF: %s, saw FIRST_TURN_ROLLOFF: %s" % [str(saw_deploy), str(saw_first_turn)])
 	print("Final phase: %s, active_player=%d" % [_pname(gs.get_current_phase()), gs.get_active_player()])
 
-	# Emit a runner-compatible result line.
-	if saw_rolloff:
+	var ok := saw_deploy and saw_first_turn and deploy_before_first_turn \
+		and deploy_rolloff_pre_deploy and first_turn_post_deploy
+	if ok:
 		print("\n=== Result: 1 passed, 0 failed ===")
 	else:
-		print("  FAIL: new game did not pass through ROLL_OFF")
+		print("  FAIL: new game did not pass through both roll-offs in order")
+		print("    deploy(pre-deploy)=%s, first_turn(post-deploy)=%s, deploy<first_turn=%s"
+			% [str(deploy_rolloff_pre_deploy), str(first_turn_post_deploy), str(deploy_before_first_turn)])
 		print("\n=== Result: 0 passed, 1 failed ===")
-	quit(0 if saw_rolloff else 1)
+	quit(0 if ok else 1)
 
 func _pname(p) -> String:
 	return GSD.Phase.keys()[p]

@@ -21,7 +21,8 @@ static func _get_phase_display(phase: GameStateData.Phase) -> Dictionary:
 		GameStateData.Phase.DEPLOYMENT: return {"name": "DEPLOYMENT PHASE", "icon": "\u2693"}
 		GameStateData.Phase.REDEPLOYMENT: return {"name": "REDEPLOYMENT", "icon": "\u21C6"}
 		GameStateData.Phase.SCOUT: return {"name": "SCOUT MOVES", "icon": "\u21E8"}
-		GameStateData.Phase.ROLL_OFF: return {"name": "ROLL OFF", "icon": "\u2684"}
+		GameStateData.Phase.ROLL_OFF: return {"name": "DETERMINE DEPLOYMENT", "icon": "\u2684"}
+		GameStateData.Phase.FIRST_TURN_ROLLOFF: return {"name": "DETERMINE FIRST TURN", "icon": "\u2684"}
 		GameStateData.Phase.COMMAND: return {"name": "COMMAND PHASE", "icon": "\u2655"}
 		GameStateData.Phase.MOVEMENT: return {"name": "MOVEMENT PHASE", "icon": "\u21C4"}
 		GameStateData.Phase.SHOOTING: return {"name": "SHOOTING PHASE", "icon": "\u2316"}
@@ -43,7 +44,9 @@ static func _get_phase_rules_brief(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.SCOUT:
 			return "Units with Scout make a pre-game move up to their Scout distance."
 		GameStateData.Phase.ROLL_OFF:
-			return "Both players roll off — winner chooses to go first or second."
+			return "Both players roll off — the winner chooses to deploy first (Defender) or second (Attacker)."
+		GameStateData.Phase.FIRST_TURN_ROLLOFF:
+			return "Both players roll off — the winner takes the first turn."
 		GameStateData.Phase.COMMAND:
 			return "Gain 1CP. Battle-shock test for Below Half-strength units (2D6 vs Ld). Use Command phase abilities."
 		GameStateData.Phase.MOVEMENT:

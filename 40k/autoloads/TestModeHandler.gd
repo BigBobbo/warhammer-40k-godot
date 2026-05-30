@@ -904,6 +904,8 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 				phase_name = "Redeployment"
 			GameStateData.Phase.ROLL_OFF:
 				phase_name = "Roll-Off"
+			GameStateData.Phase.FIRST_TURN_ROLLOFF:
+				phase_name = "First-Turn Roll-Off"
 			GameStateData.Phase.SCOUT:
 				phase_name = "Scout"
 			GameStateData.Phase.SCOUT_MOVES:

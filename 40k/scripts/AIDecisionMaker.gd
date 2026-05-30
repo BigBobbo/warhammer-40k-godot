@@ -912,6 +912,8 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 			result = _decide_scout(snapshot, available_actions, player)
 		GameStateData.Phase.ROLL_OFF:
 			result = _decide_roll_off(snapshot, available_actions, player)
+		GameStateData.Phase.FIRST_TURN_ROLLOFF:
+			result = _decide_first_turn_roll_off(snapshot, available_actions, player)
 		GameStateData.Phase.COMMAND:
 			result = _decide_command(snapshot, available_actions, player)
 		GameStateData.Phase.MOVEMENT:
@@ -1010,6 +1012,10 @@ static func _decide_random(phase: int, snapshot: Dictionary, available_actions: 
 	# Roll-off — use normal logic (not tactical)
 	if phase == GameStateData.Phase.ROLL_OFF:
 		return _decide_roll_off(snapshot, available_actions, player)
+
+	# First-turn roll-off — use normal logic
+	if phase == GameStateData.Phase.FIRST_TURN_ROLLOFF:
+		return _decide_first_turn_roll_off(snapshot, available_actions, player)
 
 	# Command phase — use normal logic (just CP/Battle-shock, not tactical)
 	if phase == GameStateData.Phase.COMMAND:
@@ -3077,21 +3083,25 @@ static func _resolve_scout_collision(
 # =============================================================================
 
 static func _decide_roll_off(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
-	# Step 1: If ROLL_FOR_FIRST_TURN is available, roll
+	# Pre-deployment "Determine Attacker/Defender" roll-off. This decides
+	# deployment order ONLY (it does NOT decide the first turn).
+
+	# Step 1: If the roll is available, roll.
 	for action in available_actions:
-		if action.get("type") == "ROLL_FOR_FIRST_TURN":
+		if action.get("type") == "ROLL_OFF_DEPLOYMENT":
 			return {
-				"type": "ROLL_FOR_FIRST_TURN",
-				"_ai_description": "Rolling for first turn"
+				"type": "ROLL_OFF_DEPLOYMENT",
+				"_ai_description": "Rolling off to determine who deploys first"
 			}
 
-	# Step 2: If CHOOSE_TURN_ORDER is available, AI chooses to go first
+	# Step 2: If the AI won and must choose a deploy role, deploy SECOND
+	# (be the Attacker) so it can react to the opponent's deployment.
 	for action in available_actions:
-		if action.get("type") == "CHOOSE_TURN_ORDER" and action.get("choice") == "first":
+		if action.get("type") == "CHOOSE_DEPLOYMENT" and action.get("choice") == "second":
 			return {
-				"type": "CHOOSE_TURN_ORDER",
-				"choice": "first",
-				"_ai_description": "AI chooses to go first"
+				"type": "CHOOSE_DEPLOYMENT",
+				"choice": "second",
+				"_ai_description": "AI chooses to deploy second (Attacker)"
 			}
 
 	# Fallback: pick any available action
@@ -3101,6 +3111,32 @@ static func _decide_roll_off(snapshot: Dictionary, available_actions: Array, pla
 			"type": a.get("type", ""),
 			"choice": a.get("choice", ""),
 			"_ai_description": "Roll-off fallback action"
+		}
+
+	return {}
+
+static func _decide_first_turn_roll_off(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	# Post-deployment "Determine First Turn" roll-off. The winner takes the
+	# first turn — there is no choice — so the AI just rolls and then confirms.
+	for action in available_actions:
+		if action.get("type") == "ROLL_OFF_FIRST_TURN":
+			return {
+				"type": "ROLL_OFF_FIRST_TURN",
+				"_ai_description": "Rolling off for the first turn"
+			}
+
+	for action in available_actions:
+		if action.get("type") == "CONFIRM_FIRST_TURN":
+			return {
+				"type": "CONFIRM_FIRST_TURN",
+				"_ai_description": "Confirming the first turn"
+			}
+
+	if not available_actions.is_empty():
+		var a = available_actions[0]
+		return {
+			"type": a.get("type", ""),
+			"_ai_description": "First-turn roll-off fallback action"
 		}
 
 	return {}

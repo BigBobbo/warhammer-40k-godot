@@ -52,6 +52,7 @@ TESTS=(
     "tests/test_roll_off_first_turn_applied.gd"
     "tests/test_roll_off_dialog.gd"
     "tests/test_new_game_reaches_rolloff.gd"
+    "tests/test_two_rolloffs.gd"
 )
 
 FAILED=0

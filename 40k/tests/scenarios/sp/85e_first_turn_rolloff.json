@@ -1,0 +1,34 @@
+{
+  "id": "85e_first_turn_rolloff",
+  "covers": [
+    "deployment.first_turn_roll_off",
+    "ui.RollOffDialog.first_turn_context",
+    "phases.FirstTurnRollOffPhase.ROLL_OFF_FIRST_TURN",
+    "phases.FirstTurnRollOffPhase.CONFIRM_FIRST_TURN"
+  ],
+  "fixture": "audit_367_warlord",
+  "transition_to_phase": 13,
+  "disable_ai": true,
+  "rng_seed": 2,
+  "description": "10e roll-off #2 (post-deployment): the separate 'Determine First Turn' roll-off. The winner TAKES the first turn — there is NO choice. Drive the real UI: the human clicks Roll, the dramatic dice settle, the winner is shown, and the human MUST click Continue (no Deploy choice buttons) to start the battle. Verify meta.first_turn_player is set and the phase advances.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 13 },
+    { "act": "expect_node_visible", "node": "/root/Main/RollOffDialog", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_first_turn_awaiting" },
+
+    { "act": "click_node", "node": "/root/Main/RollOffDialog/Content/ButtonBar/RollButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.6 },
+
+    { "act": "expect_state", "path": "meta.first_turn_player", "equals": 1 },
+    { "act": "expect_node_visible", "node": "/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "02_first_turn_decided_continue" },
+
+    { "act": "click_node", "node": "/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_state", "path": "meta.first_turn_player", "equals": 1 },
+    { "act": "expect_state", "path": "meta.phase", "not_equals": 13 },
+    { "act": "screenshot", "label": "03_battle_begins" }
+  ]
+}

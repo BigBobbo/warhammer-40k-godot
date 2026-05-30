@@ -314,11 +314,13 @@ func _is_any_ai_player_active() -> bool:
 	return fight_player > 0 and is_ai_player(fight_player)
 
 func _ai_suppressed_for_roll_off() -> bool:
-	"""True when the current phase is the pre-deployment roll-off AND at least
-	one human player is in the game. In that case the human drives the roll-off
-	via the modal dialog and the AI stays out of it. AI-vs-AI is not suppressed
-	(there is no human to show the dialog to)."""
-	if GameState.get_current_phase() != GameStateData.Phase.ROLL_OFF:
+	"""True when the current phase is EITHER pre-battle roll-off (the
+	deployment-order roll-off OR the first-turn roll-off) AND at least one human
+	player is in the game. In that case the human drives the roll-off via the
+	modal dialog and the AI stays out of it. AI-vs-AI is not suppressed (there is
+	no human to show the dialog to)."""
+	var phase = GameState.get_current_phase()
+	if phase != GameStateData.Phase.ROLL_OFF and phase != GameStateData.Phase.FIRST_TURN_ROLLOFF:
 		return false
 	for p in [1, 2]:
 		if not is_ai_player(p):
@@ -2405,6 +2407,7 @@ const PHASE_DISPLAY_NAMES: Dictionary = {
 	GameStateData.Phase.DEPLOYMENT: "Deployment",
 	GameStateData.Phase.SCOUT: "Scout Moves",
 	GameStateData.Phase.ROLL_OFF: "Roll-Off",
+	GameStateData.Phase.FIRST_TURN_ROLLOFF: "First-Turn Roll-Off",
 	GameStateData.Phase.COMMAND: "Command",
 	GameStateData.Phase.MOVEMENT: "Movement",
 	GameStateData.Phase.SHOOTING: "Shooting",

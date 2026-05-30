@@ -4,7 +4,12 @@ class_name GameStateData
 # Modular Game State for Warhammer 40k
 # This class represents the complete game state that can be serialized and passed between phases
 
-enum Phase { FORMATIONS, DEPLOYMENT, REDEPLOYMENT, ROLL_OFF, SCOUT, SCOUT_MOVES, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
+# NOTE: FIRST_TURN_ROLLOFF is intentionally appended LAST so existing phase
+# int values (saved games, scenarios) are not renumbered. 10th edition has TWO
+# pre-battle roll-offs: ROLL_OFF (pre-deployment) decides who DEPLOYS first
+# (Attacker/Defender), and FIRST_TURN_ROLLOFF (after deployment) decides who
+# TAKES the first turn. They are independent.
+enum Phase { FORMATIONS, DEPLOYMENT, REDEPLOYMENT, ROLL_OFF, SCOUT, SCOUT_MOVES, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE, FIRST_TURN_ROLLOFF }
 enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT, IN_RESERVES }
 
 # 10e Core Rules: "The battle lasts five battle rounds."

@@ -80,6 +80,10 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 			_handle_deployment_phase_start()
 		GameStateData.Phase.ROLL_OFF:
 			_handle_roll_off_phase_start()
+		GameStateData.Phase.FIRST_TURN_ROLLOFF:
+			# Same as the deployment roll-off: seat a human so the dramatic
+			# dialog is shown and the AI does not auto-resolve the mutual roll.
+			_handle_roll_off_phase_start()
 
 func _on_phase_action_taken(action: Dictionary) -> void:
 	var action_type = action.get("type", "")

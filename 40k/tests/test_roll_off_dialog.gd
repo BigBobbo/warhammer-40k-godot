@@ -54,15 +54,15 @@ func _run_tests():
 		dialog._p2_die.highlight == dialog._p2_die.Highlight.LOSER)
 	_check("Local winner offered Deploy First",
 		dialog.find_child("DeployFirstButton", true, false) != null)
-	_check("Local winner offered Go First (attacker)",
+	_check("Local winner offered Deploy Second",
 		dialog.find_child("DeploySecondButton", true, false) != null)
 
-	# choice_made('first') must be emitted when "Go first (Attacker)" pressed.
+	# "Deploy second (Attacker)" must emit choice_made('second').
 	var got_choice := {"v": ""}
 	dialog.choice_made.connect(func(c): got_choice.v = c)
 	dialog.find_child("DeploySecondButton", true, false).emit_signal("pressed")
-	_check("Go-first button emits choice_made('first')",
-		got_choice.v == "first", "got=%s" % got_choice.v)
+	_check("Deploy-second button emits choice_made('second')",
+		got_choice.v == "second", "got=%s" % got_choice.v)
 
 	# --- AI wins: human must acknowledge (Continue button, no choice) --------
 	dialog.show_result(2, 6, 2, "acknowledge")
@@ -92,6 +92,24 @@ func _run_tests():
 		dialog._p1_die.highlight == dialog._p1_die.Highlight.TIE)
 
 	dialog.queue_free()
+
+	# --- First-turn context: winner goes first, NO choice (Continue only) ----
+	var ft := AcceptDialog.new()
+	ft.set_script(dialog_script)
+	root.add_child(ft)
+	ft.setup(1, "first_turn")
+	_check("first_turn: RollButton present before rolling",
+		ft.find_child("RollButton", true, false) != null)
+	# Even when the LOCAL player wins, there is no choice — only acknowledge.
+	ft.show_result(6, 2, 1, "acknowledge")
+	await create_timer(1.4).timeout
+	_check("first_turn: winner shown no Deploy choice buttons",
+		ft.find_child("DeployFirstButton", true, false) == null \
+		and ft.find_child("DeploySecondButton", true, false) == null)
+	_check("first_turn: Continue button shown (must dismiss to start)",
+		ft.find_child("ContinueButton", true, false) != null)
+	ft.queue_free()
+
 	_finish()
 
 func _finish() -> void:

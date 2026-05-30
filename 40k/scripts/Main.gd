@@ -2880,7 +2880,7 @@ func _update_round_indicator() -> void:
 	# During pre-game phases (before actual battle rounds), show setup indicator
 	if current_game_phase in [GameStateData.Phase.FORMATIONS, GameStateData.Phase.DEPLOYMENT,
 							  GameStateData.Phase.REDEPLOYMENT, GameStateData.Phase.SCOUT,
-							  GameStateData.Phase.ROLL_OFF]:
+							  GameStateData.Phase.ROLL_OFF, GameStateData.Phase.FIRST_TURN_ROLLOFF]:
 		_round_indicator_label.text = "SETUP"
 		if _round_player_label:
 			_round_player_label.text = ""
@@ -4183,6 +4183,8 @@ func setup_phase_controllers() -> void:
 		GameStateData.Phase.FORMATIONS:
 			_setup_formations_phase()
 		GameStateData.Phase.ROLL_OFF:
+			_setup_roll_off_phase()
+		GameStateData.Phase.FIRST_TURN_ROLLOFF:
 			_setup_roll_off_phase()
 		GameStateData.Phase.DEPLOYMENT:
 			setup_deployment_controller()
@@ -5905,11 +5907,11 @@ func update_ui() -> void:
 						status_label.text = "Select a unit to deploy (or place in reserves)"
 
 		GameStateData.Phase.ROLL_OFF:
-			var ai_rolloff = get_node_or_null("/root/AIPlayer")
-			if ai_rolloff and ai_rolloff.is_ai_player(active_player):
-				status_label.text = "AI Player %d is rolling for first turn..." % active_player
-			else:
-				status_label.text = "Click 'Roll for First Turn' to determine who goes first"
+			status_label.text = "Roll off to determine who deploys first"
+			phase_action_button.disabled = false
+
+		GameStateData.Phase.FIRST_TURN_ROLLOFF:
+			status_label.text = "Roll off to determine who takes the first turn"
 			phase_action_button.disabled = false
 
 		GameStateData.Phase.MOVEMENT:
@@ -6914,13 +6916,15 @@ func _show_formations_dialog(player: int) -> void:
 var roll_off_dialog: Node = null
 
 func _setup_roll_off_phase() -> void:
-	"""Set up the pre-deployment roll-off — show the dramatic dialog to the human.
+	"""Set up a pre-battle roll-off — show the dramatic dialog to the human.
 
-	The roll-off is a MUTUAL pre-game step: both players roll. The human must
-	always see it, even in a Player-vs-AI game where the nominal active player
-	is the AI. Only a fully AI-vs-AI game skips the dialog (the AI then
-	auto-dispatches ROLL_FOR_FIRST_TURN + CHOOSE_TURN_ORDER itself)."""
-	print("Main: Setting up Roll-Off phase (pre-deployment, issue #85)")
+	Used for BOTH roll-offs: the pre-deployment "who deploys first" roll-off
+	(ROLL_OFF) and the post-deployment "who takes the first turn" roll-off
+	(FIRST_TURN_ROLLOFF). The roll-off is a MUTUAL step: both players roll. The
+	human must always see it, even in a Player-vs-AI game where the nominal
+	active player is the AI. Only a fully AI-vs-AI game skips the dialog (the AI
+	then auto-dispatches the roll-off actions itself)."""
+	print("Main: Setting up %s roll-off phase" % _roll_off_context())
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	var local_player: int = _roll_off_local_human(ai_player)
 	if local_player == 0:
@@ -6952,18 +6956,28 @@ func _show_roll_off_dialog(local_player: int) -> void:
 	roll_off_dialog.name = "RollOffDialog"
 	roll_off_dialog.exclusive = true
 	add_child(roll_off_dialog)
-	roll_off_dialog.setup(local_player)
+	roll_off_dialog.setup(local_player, _roll_off_context())
 	roll_off_dialog.roll_initiated.connect(_on_roll_off_roll_pressed)
 	roll_off_dialog.choice_made.connect(_on_roll_off_choice_made)
 	roll_off_dialog.reroll_requested.connect(_on_roll_off_roll_pressed)
 	roll_off_dialog.acknowledged.connect(_on_roll_off_acknowledged)
 	roll_off_dialog.popup_centered()
-	print("Main: Showed roll-off dialog for Player %d" % local_player)
+	print("Main: Showed %s roll-off dialog for Player %d" % [_roll_off_context(), local_player])
+
+func _roll_off_context() -> String:
+	# "first_turn" for the post-deployment "who goes first" roll-off,
+	# "deploy" for the pre-deployment "who deploys first" roll-off.
+	if GameState.get_current_phase() == GameStateData.Phase.FIRST_TURN_ROLLOFF:
+		return "first_turn"
+	return "deploy"
 
 func _on_roll_off_roll_pressed() -> void:
 	print("Main: Roll-off dialog — Roll pressed")
-	var action := {"type": "ROLL_FOR_FIRST_TURN",
-		"player": GameState.get_active_player()}
+	var is_first_turn := _roll_off_context() == "first_turn"
+	var action := {
+		"type": "ROLL_OFF_FIRST_TURN" if is_first_turn else "ROLL_OFF_DEPLOYMENT",
+		"player": GameState.get_active_player()
+	}
 	var result = NetworkIntegration.route_action(action)
 	if not result.get("success", false):
 		print("Main: Roll-off failed: ", result.get("error", "unknown"))
@@ -6979,15 +6993,18 @@ func _on_roll_off_roll_pressed() -> void:
 		return
 	var winner: int = int(result.get("winner", 0))
 	# Decide what the local human does at the result screen:
-	#   "choose"      — they won and pick Attacker/Defender (single-player, or
-	#                   their own network seat won in MP)
-	#   "acknowledge" — the AI won; they must click Continue to start the game
-	#                   (the AI always elects to take the first turn)
-	#   "wait"        — a remote human (MP) is choosing
+	#   "choose"      — (deploy roll-off only) they won and pick deploy order
+	#   "acknowledge" — they must click Continue to proceed: the first-turn
+	#                   roll-off (no choice for anyone), or the deploy roll-off
+	#                   where the AI won (it picks for itself)
+	#   "wait"        — a remote human (MP) is choosing the deploy order
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	var winner_is_ai: bool = ai_player != null and ai_player.is_ai_player(winner)
 	var local_action: String
-	if NetworkIntegration.is_multiplayer_active():
+	if is_first_turn:
+		# The winner takes the first turn — nobody chooses, everyone acknowledges.
+		local_action = "acknowledge"
+	elif NetworkIntegration.is_multiplayer_active():
 		local_action = "choose" if winner == int(NetworkManager.get_local_player()) else "wait"
 	elif winner_is_ai:
 		local_action = "acknowledge"
@@ -6996,24 +7013,32 @@ func _on_roll_off_roll_pressed() -> void:
 	roll_off_dialog.show_result(p1, p2, winner, local_action)
 
 func _on_roll_off_acknowledged() -> void:
-	# The human dismissed an AI-won result. Apply the AI's choice (it elects to
-	# take the first turn) and let the game proceed to deployment.
-	print("Main: Roll-off — human acknowledged AI result; applying AI's choice")
-	_on_roll_off_choice_made("first")
+	# The human dismissed a result that needed no choice from them.
+	if _roll_off_context() == "first_turn":
+		# Confirm the first turn and start the battle.
+		print("Main: First-turn roll-off — human acknowledged; confirming first turn")
+		_dispatch_roll_off_completion({"type": "CONFIRM_FIRST_TURN",
+			"player": GameState.get_active_player()})
+	else:
+		# Deploy roll-off, AI won: apply the AI's choice (it deploys second / Attacker).
+		print("Main: Deploy roll-off — human acknowledged AI result; AI deploys second")
+		_dispatch_roll_off_completion({"type": "CHOOSE_DEPLOYMENT", "choice": "second",
+			"player": GameState.get_active_player()})
 
 func _on_roll_off_choice_made(choice: String) -> void:
-	# choice is "first" (deploy second) or "second" (deploy first). The
-	# RollOffPhase expects CHOOSE_TURN_ORDER with choice tied to turn
-	# order; the dialog already mapped deploy-order to turn-order.
-	print("Main: Roll-off dialog — choice=%s" % choice)
-	var action := {"type": "CHOOSE_TURN_ORDER",
-		"choice": choice,
-		"player": GameState.get_active_player()}
+	# Deploy roll-off only: the winning human picked their deploy role.
+	#   choice "first"  = deploy first  (Defender)
+	#   choice "second" = deploy second (Attacker)
+	print("Main: Deploy roll-off — choice=%s" % choice)
+	_dispatch_roll_off_completion({"type": "CHOOSE_DEPLOYMENT", "choice": choice,
+		"player": GameState.get_active_player()})
+
+func _dispatch_roll_off_completion(action: Dictionary) -> void:
 	var result = NetworkIntegration.route_action(action)
 	if not result.get("success", false):
-		print("Main: Roll-off choice failed: ", result.get("error", "unknown"))
+		print("Main: Roll-off completion failed: ", result.get("error", "unknown"))
 		return
-	# Close the dialog — phase will auto-advance to DEPLOYMENT.
+	# Close the dialog — phase will auto-advance.
 	if roll_off_dialog and is_instance_valid(roll_off_dialog):
 		roll_off_dialog.queue_free()
 		roll_off_dialog = null
@@ -8447,7 +8472,8 @@ func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.REDEPLOYMENT: return "Redeployment"
 		GameStateData.Phase.SCOUT: return "Scout Moves"
 		GameStateData.Phase.SCOUT_MOVES: return "Scout Moves"
-		GameStateData.Phase.ROLL_OFF: return "Roll Off — First Turn"
+		GameStateData.Phase.ROLL_OFF: return "Determine Deployment"
+		GameStateData.Phase.FIRST_TURN_ROLLOFF: return "Determine First Turn"
 		GameStateData.Phase.COMMAND: return "Command Phase"
 		GameStateData.Phase.MOVEMENT: return "Movement Phase"
 		GameStateData.Phase.SHOOTING: return "Shooting Phase"
@@ -8469,6 +8495,8 @@ func _get_phase_tooltip_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.SCOUT, GameStateData.Phase.SCOUT_MOVES:
 			return "Move SCOUT-keyword units up to 9\" before the first turn."
 		GameStateData.Phase.ROLL_OFF:
+			return "Roll off to determine who deploys first (Attacker/Defender)."
+		GameStateData.Phase.FIRST_TURN_ROLLOFF:
 			return "Roll off to determine who takes the first turn."
 		GameStateData.Phase.COMMAND:
 			return "Generate CP, score Command Points, choose Battle Mastery, take command stratagems. Press S for stratagems."
@@ -8494,7 +8522,8 @@ func _get_phase_button_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.REDEPLOYMENT: return "[Enter] End Redeployment"
 		GameStateData.Phase.SCOUT: return "[Enter] End Scout Moves"
 		GameStateData.Phase.SCOUT_MOVES: return "[Enter] End Scout Moves"
-		GameStateData.Phase.ROLL_OFF: return "[Enter] Roll for First Turn"
+		GameStateData.Phase.ROLL_OFF: return "[Enter] Roll the dice"
+		GameStateData.Phase.FIRST_TURN_ROLLOFF: return "[Enter] Roll the dice"
 		GameStateData.Phase.COMMAND: return "[Enter] End Command Phase"
 		GameStateData.Phase.MOVEMENT: return "[Enter] End Movement Phase"
 		GameStateData.Phase.SHOOTING: return "[Enter] End Shooting Phase"
@@ -8567,7 +8596,9 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.SCOUT_MOVES:
 			action = {"type": "END_SCOUT_MOVES", "player": active_player}
 		GameStateData.Phase.ROLL_OFF:
-			action = {"type": "ROLL_FOR_FIRST_TURN", "player": active_player}
+			action = {"type": "ROLL_OFF_DEPLOYMENT", "player": active_player}
+		GameStateData.Phase.FIRST_TURN_ROLLOFF:
+			action = {"type": "ROLL_OFF_FIRST_TURN", "player": active_player}
 		GameStateData.Phase.COMMAND:
 			# P3-94: Check for untested battle-shock units and show confirmation dialog
 			var command_phase_instance = PhaseManager.get_current_phase_instance()
@@ -8641,11 +8672,11 @@ func _on_phase_action_pressed() -> void:
 			print("Main: Falling back to local phase advance")
 			PhaseManager.advance_to_next_phase()
 	else:
-		# Update button text after successful roll-off (no longer need to roll)
-		if current_phase == GameStateData.Phase.ROLL_OFF and action.get("type") == "ROLL_FOR_FIRST_TURN":
+		# Update button text after a successful roll-off (no longer need to roll)
+		if action.get("type") == "ROLL_OFF_DEPLOYMENT" or action.get("type") == "ROLL_OFF_FIRST_TURN":
 			if not result.get("tied", false):
-				phase_action_button.text = "[Enter] Start Game"
-				print("Main: Roll-off complete, button text updated to 'Start Game'")
+				phase_action_button.text = "[Enter] Continue"
+				print("Main: Roll-off complete, button text updated to 'Continue'")
 
 func update_ui_for_phase() -> void:
 	# Clear any phase-specific UI artifacts first
@@ -8779,13 +8810,13 @@ func update_ui_for_phase() -> void:
 			# Button is always enabled (player can skip all scouts)
 			phase_action_button.disabled = false
 
-		GameStateData.Phase.ROLL_OFF:
-			# Hide deployment zones during roll-off
+		GameStateData.Phase.ROLL_OFF, GameStateData.Phase.FIRST_TURN_ROLLOFF:
+			# Hide deployment zones during the roll-offs
 			p1_zone.visible = false
 			p2_zone.visible = false
 			# Hide movement action buttons
 			_show_movement_action_buttons(false)
-			# Hide unit list and unit card during roll-off
+			# Hide unit list and unit card during the roll-off
 			unit_list.visible = false
 			unit_card.visible = false
 			# Button enabled — triggers the roll
