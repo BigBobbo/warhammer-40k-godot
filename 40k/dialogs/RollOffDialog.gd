@@ -24,6 +24,7 @@ extends AcceptDialog
 signal roll_initiated()
 signal choice_made(choice: String)  # "first" (deploy second) or "second" (deploy first)
 signal reroll_requested()
+signal acknowledged()  # human dismissed an AI-decided result to start the game
 
 enum Mode {
 	AWAITING_ROLL,
@@ -39,7 +40,11 @@ const ROLL_TICK_INTERVAL := 0.06
 var _mode: int = Mode.AWAITING_ROLL
 var _winner: int = 0
 var _local_player: int = 0
-var _local_can_choose: bool = false  # may the local human pick the turn order?
+# What the local human does at the result screen:
+#   "choose"      — they won and pick Attacker/Defender (also dismisses)
+#   "acknowledge" — the AI won; they must click Continue to start the game
+#   "wait"        — a remote human (MP) is choosing; just wait
+var _local_action: String = "wait"
 var _p1_roll: int = 0
 var _p2_roll: int = 0
 var _pending_tie: bool = false  # true while animating toward a tied result
@@ -77,11 +82,11 @@ func show_awaiting() -> void:
 	_refresh_for_mode()
 
 
-func show_result(p1_roll: int, p2_roll: int, winner: int, local_can_choose: bool = false) -> void:
+func show_result(p1_roll: int, p2_roll: int, winner: int, local_action: String = "wait") -> void:
 	_p1_roll = p1_roll
 	_p2_roll = p2_roll
 	_winner = winner
-	_local_can_choose = local_can_choose
+	_local_action = local_action
 	_pending_tie = false
 	_begin_roll_animation()
 
@@ -217,7 +222,8 @@ func _refresh_for_mode() -> void:
 				"[center][color=%s][b]Player %d wins the roll-off — %d vs %d![/b][/color][/center]"
 				% [winner_color, _winner, _p1_roll, _p2_roll]
 			)
-			if _local_can_choose:
+			if _local_action == "choose":
+				_status_label.text = "You won the roll-off — choose your deployment role."
 				var first_button := Button.new()
 				first_button.name = "DeployFirstButton"
 				first_button.text = "Deploy first (Defender)"
@@ -231,6 +237,16 @@ func _refresh_for_mode() -> void:
 				second_button.pressed.connect(_on_deploy_second_pressed)
 				WhiteDwarfTheme.apply_primary_button(second_button)
 				_button_bar.add_child(second_button)
+			elif _local_action == "acknowledge":
+				# The AI won and will take the first turn. The human must
+				# explicitly dismiss this before the game starts.
+				_status_label.text = "Player %d won the roll-off and will take the first turn." % _winner
+				var continue_button := Button.new()
+				continue_button.name = "ContinueButton"
+				continue_button.text = "Continue ▶"
+				continue_button.pressed.connect(_on_continue_pressed)
+				WhiteDwarfTheme.apply_primary_button(continue_button)
+				_button_bar.add_child(continue_button)
 			else:
 				var waiting := Label.new()
 				waiting.text = "Waiting for Player %d to choose…" % _winner
@@ -331,6 +347,10 @@ func _on_deploy_second_pressed() -> void:
 
 func _on_reroll_pressed() -> void:
 	emit_signal("reroll_requested")
+
+
+func _on_continue_pressed() -> void:
+	emit_signal("acknowledged")
 
 
 func _on_close_requested() -> void:
