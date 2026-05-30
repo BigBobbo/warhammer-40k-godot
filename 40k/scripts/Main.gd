@@ -8558,7 +8558,14 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.REDEPLOYMENT:
 			action = {"type": "END_REDEPLOYMENT_PHASE", "player": active_player}
 		GameStateData.Phase.SCOUT:
-			# Skip all remaining pending scout moves before ending the phase
+			# Resolve all remaining pending scout moves before ending the phase.
+			# A unit the player dragged but never explicitly confirmed still has
+			# staged_positions in the phase's active_scout_moves. Committing those
+			# on phase-end (instead of blindly skipping) is what the player
+			# expects — otherwise the model snaps back to its deployed spot once
+			# the game starts (the reported scout bug). Units with no staged move
+			# are skipped as before; an invalid staged config falls back to skip
+			# with a toast so the phase can still advance.
 			var scout_phase = PhaseManager.get_current_phase_instance()
 			if scout_phase:
 				var scout_pending = scout_phase.get("scout_units_pending")
@@ -8568,6 +8575,24 @@ func _on_phase_action_pressed() -> void:
 					for p in scout_pending:
 						all_pending.append_array(scout_pending[p].duplicate())
 					for pending_uid in all_pending:
+						# Confirming the last pending unit can auto-complete the
+						# phase; stop issuing actions once we've left SCOUT.
+						if GameState.get_current_phase() != GameStateData.Phase.SCOUT:
+							break
+						var active_moves = scout_phase.get("active_scout_moves")
+						var has_staged: bool = active_moves != null \
+							and active_moves.has(pending_uid) \
+							and not active_moves[pending_uid].get("staged_positions", {}).is_empty()
+						if has_staged:
+							var confirm_action = {"type": "CONFIRM_SCOUT_MOVE", "unit_id": pending_uid, "player": active_player}
+							var confirm_result = NetworkIntegration.route_action(confirm_action)
+							if confirm_result.get("success", false):
+								continue
+							# Staged move was invalid (coherency/overlap/etc.) —
+							# discard it, tell the player, then skip the unit.
+							if has_node("/root/ToastManager"):
+								var unit_name = GameState.get_unit(pending_uid).get("meta", {}).get("name", pending_uid)
+								get_node("/root/ToastManager").show_toast("Scout move for %s was invalid and discarded" % unit_name, "error")
 						var skip_action = {"type": "SKIP_SCOUT_MOVE", "unit_id": pending_uid, "player": active_player}
 						NetworkIntegration.route_action(skip_action)
 			_scout_cleanup_after_move()
