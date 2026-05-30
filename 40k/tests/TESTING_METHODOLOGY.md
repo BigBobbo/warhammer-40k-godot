@@ -337,6 +337,17 @@ error paths. Run before changing the diff implementation.
   thing that actually controls the pixel.
 - Subjective adjectives in Tier A (`readable`, `smooth`, `performant`).
 - Lowering `_baseline.json.count` to make a failing task green.
+- **Declaring a harness/bridge limitation without proving it.** If a scenario
+  step behaves unexpectedly (e.g. `dispatch_action` returns `success:true` but
+  the state you expected is empty), that is a lead — read the phase handler and
+  find the real cause (a reroll/overwatch pause needing a follow-up DECLINE
+  action, a different storage key, etc.). Do NOT write "the harness can't drive
+  this" until you have the failing output and the root cause. The scenario
+  runner can drive multi-step interrupt flows (e.g. `BEGIN_ADVANCE` →
+  `DECLINE_COMMAND_REROLL`) — chain the steps.
+- **Manual-setup masquerading as a live test.** Setting a value by hand
+  (`controller.set("move_cap_inches", 10)`) validates the *draw math*, not the
+  *real flow*. If you stub, label it as partial and then drive the real path.
 
 The playbook
 (`docs/design_guidelines_implementation_plan.md`) is the canonical reference.

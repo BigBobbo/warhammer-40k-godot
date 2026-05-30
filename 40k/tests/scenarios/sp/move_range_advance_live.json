@@ -1,0 +1,54 @@
+{
+  "id": "move_range_advance_live",
+  "covers": [
+    "movement.advance_distance_circle",
+    "phases.MovementPhase.BEGIN_ADVANCE",
+    "phases.MovementPhase.DECLINE_COMMAND_REROLL"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 7,
+  "description": "FULLY LIVE advance flow (no manual cap): dispatch the real BEGIN_ADVANCE (which pauses awaiting a Command Re-roll decision because the player has CP), then dispatch the real DECLINE_COMMAND_REROLL which calls _resolve_advance_roll, populating active_moves with the engine-rolled move cap (M + D6) and emitting unit_move_begun -> the MovementController's _on_unit_move_begun sets its move_cap_inches. Finally call the real pickup draw fn _show_model_range_overlay and assert the per-model circle radius equals the engine's advanced cap (NOT base Move 6).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "dispatch_action", "action": { "type": "BEGIN_ADVANCE", "actor_unit_id": "U_BLADE_CHAMPION_A" }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._awaiting_reroll_decision",
+      "equals": true },
+
+    { "act": "dispatch_action", "action": { "type": "DECLINE_COMMAND_REROLL" }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script",
+      "script": "float(PhaseManager.get_current_phase_instance().active_moves[\"U_BLADE_CHAMPION_A\"][\"move_cap_inches\"])",
+      "expect_min": 7.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\").active_mode",
+      "equals": "ADVANCE" },
+    { "act": "execute_script",
+      "script": "abs(main.get_node(\"MovementController\").move_cap_inches - float(PhaseManager.get_current_phase_instance().active_moves[\"U_BLADE_CHAMPION_A\"][\"move_cap_inches\"]))",
+      "expect_max": 0.01 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\")._show_model_range_overlay(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0], Vector2(0, 0))" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child_count()",
+      "expect_min": 9 },
+    { "act": "execute_script",
+      "script": "abs(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0,0)) - Measurement.inches_to_px(float(PhaseManager.get_current_phase_instance().active_moves[\"U_BLADE_CHAMPION_A\"][\"move_cap_inches\"])))",
+      "expect_max": 1.5 },
+    { "act": "execute_script",
+      "script": "(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0,0)) / Measurement.PX_PER_INCH) > 6.5",
+      "equals": true },
+    { "act": "screenshot", "label": "advance_circle_live" }
+  ]
+}
