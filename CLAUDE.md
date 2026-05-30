@@ -50,3 +50,36 @@ explicit screenshot is optional. Everything with a UI surface needs the
 in-game effect captured.
 
 **Reference**: `~/.claude/projects/-Users-robertocallaghan-Documents-claude-godotv2/memory/feedback_pin_tests_arent_live_validation.md`
+
+## Anti-pattern: do NOT assume — validate, and never claim a limitation you haven't proven (2026-05-30 lesson)
+
+Stating something as fact without running it is the single most frustrating
+failure mode in this project. It has happened repeatedly. STOP.
+
+**Rules — these are non-negotiable:**
+
+1. **Never report a tool/harness/engine limitation you have not reproduced and
+   root-caused.** "The MCP bridge can't drive X", "the test harness can't do
+   Y", "this isn't reachable headless" are CLAIMS, not facts, until you have
+   the failing output AND the reason. If a call returns an unexpected result
+   (e.g. `success:true` but empty state), that is a lead to investigate, not a
+   conclusion — read the handler source and find out *why* before reporting.
+   (Real example: `BEGIN_ADVANCE` returned `success:true` with empty
+   `active_moves`; the real cause was a `_awaiting_reroll_decision` pause that
+   needed a follow-up `DECLINE_COMMAND_REROLL` — the harness was fully capable.)
+
+2. **Trace the code path before declaring how something behaves.** If you find
+   yourself writing "should", "probably", "I believe", or "likely" about
+   behaviour you could just run, you are guessing. Run it.
+
+3. **When you simplify or stub to make a test pass** (e.g. setting a value
+   manually instead of driving the real flow), say so explicitly AND treat it
+   as incomplete validation. Then go drive the real flow. Do not present a
+   manual-setup test as proof the real path works.
+
+4. **If you genuinely cannot validate something, say "I have not validated
+   this" plainly** — do not dress an assumption up as a finding. An honest
+   "unverified" is acceptable; a confident wrong claim is not.
+
+Before writing "X can't be done" or "X works", ask: *did I actually run it and
+read the result?* If not, do that first.
