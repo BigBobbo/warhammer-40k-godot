@@ -5285,7 +5285,7 @@ func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
 		if game_event_log:
 			var owner = int(get_unit(unit_id).get("owner", 0))
 			game_event_log.add_player_entry(owner,
-				"Shooty Power Trip: %s rolled %d — suffers %d mortal wounds (%d casualties)" % [unit_name, d6_roll, mortal_wounds, casualties])
+				"Shooty Power Trip: %s rolled [%d] — suffers %d mortal wounds (%d casualties)" % [unit_name, d6_roll, mortal_wounds, casualties])
 
 		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "self_damage")
 
@@ -5321,7 +5321,7 @@ func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
 		if game_event_log:
 			var owner = int(get_unit(unit_id).get("owner", 0))
 			game_event_log.add_player_entry(owner,
-				"Shooty Power Trip: %s rolled %d — ranged weapons gain [+1 STRENGTH]" % [unit_name, d6_roll])
+				"Shooty Power Trip: %s rolled [%d] — ranged weapons gain [+1 STRENGTH]" % [unit_name, d6_roll])
 
 		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "plus_one_strength")
 
@@ -5344,7 +5344,7 @@ func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
 		if game_event_log:
 			var owner = int(get_unit(unit_id).get("owner", 0))
 			game_event_log.add_player_entry(owner,
-				"Shooty Power Trip: %s rolled %d — ranged weapons gain [+1 ATTACKS]" % [unit_name, d6_roll])
+				"Shooty Power Trip: %s rolled [%d] — ranged weapons gain [+1 ATTACKS]" % [unit_name, d6_roll])
 
 		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "plus_one_attacks")
 

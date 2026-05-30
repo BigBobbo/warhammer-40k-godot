@@ -1,0 +1,55 @@
+{
+  "id": "dice_icons_simple_cards",
+  "covers": ["ui.log.inline_dice_graphics", "ui.log.grouped_dice_icons", "ui.log.simple_card_dice"],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Verify that non-combat log lines (advance / charge / battle-shock style rolls logged as p1_action/p2_action) render their [n, ...] dice arrays as grouped die icons in their simple cards, not as plain number arrays. A single-die roll (advance) shows just the icon with no 'x1' label. Drives real player-action log entries through _create_card and asserts last_simple_card_has_dice_visual(), then captures a screenshot of the icons.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._create_card('Intercessors advances: rolled [4] - total move = 10 inches', 'p1_action', false)" },
+
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.last_simple_card_has_dice_visual()",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._create_card('Boyz charge roll: [5, 3] = 8 inches vs 6.0 inches needed - SUCCESS', 'p2_action', false)" },
+
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.last_simple_card_has_dice_visual()",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._create_card('Warboss passed Battle-shock test: [6, 2] = 8 vs Ld 7', 'p1_action', false)" },
+
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.last_simple_card_has_dice_visual()",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel._create_card('Intercessors holds position on the objective', 'p1_action', false)" },
+
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.last_simple_card_has_dice_visual()",
+      "equals": false },
+
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "screenshot", "label": "simple_card_dice_icons" }
+  ]
+}

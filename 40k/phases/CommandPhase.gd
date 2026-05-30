@@ -991,21 +991,21 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 		if test_passed:
 			if battle_shock_bonus > 0:
 				game_event_log.add_player_entry(owner,
-					"%s passed Battle-shock test: 2D6 = %d (%d + %d) + Waaagh! Effigy +%d = %d vs Ld %d" % [
-						unit_name, roll_total, die1, die2, battle_shock_bonus, effective_roll, leadership])
+					"%s passed Battle-shock test: [%d, %d] = %d + Waaagh! Effigy +%d = %d vs Ld %d" % [
+						unit_name, die1, die2, roll_total, battle_shock_bonus, effective_roll, leadership])
 			else:
 				game_event_log.add_player_entry(owner,
-					"%s passed Battle-shock test: 2D6 = %d (%d + %d) vs Ld %d" % [
-						unit_name, roll_total, die1, die2, leadership])
+					"%s passed Battle-shock test: [%d, %d] = %d vs Ld %d" % [
+						unit_name, die1, die2, roll_total, leadership])
 		else:
 			if battle_shock_bonus > 0:
 				game_event_log.add_player_entry(owner,
-					"%s FAILED Battle-shock test: 2D6 = %d (%d + %d) + Waaagh! Effigy +%d = %d vs Ld %d — now Battle-shocked!" % [
-						unit_name, roll_total, die1, die2, battle_shock_bonus, effective_roll, leadership])
+					"%s FAILED Battle-shock test: [%d, %d] = %d + Waaagh! Effigy +%d = %d vs Ld %d — now Battle-shocked!" % [
+						unit_name, die1, die2, roll_total, battle_shock_bonus, effective_roll, leadership])
 			else:
 				game_event_log.add_player_entry(owner,
-					"%s FAILED Battle-shock test: 2D6 = %d (%d + %d) vs Ld %d — now Battle-shocked!" % [
-						unit_name, roll_total, die1, die2, leadership])
+					"%s FAILED Battle-shock test: [%d, %d] = %d vs Ld %d — now Battle-shocked!" % [
+						unit_name, die1, die2, roll_total, leadership])
 
 	return result
 

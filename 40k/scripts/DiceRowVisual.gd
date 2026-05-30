@@ -56,14 +56,27 @@ func _get_font() -> Font:
 	return ThemeDB.fallback_font
 
 func _count_text(count: int) -> String:
+	# A count of 1 is implied by the lone die icon, so no "xN" label is drawn.
+	if count <= 1:
+		return ""
 	return "x%d" % count
 
 func _measure_count(count: int) -> float:
+	var text := _count_text(count)
+	if text == "":
+		return 0.0
 	var font := _get_font()
 	if font == null:
 		# Fallback estimate if no font is available (shouldn't happen at runtime)
-		return float(_count_text(count).length()) * 6.0
-	return font.get_string_size(_count_text(count), HORIZONTAL_ALIGNMENT_LEFT, -1, COUNT_FONT_SIZE).x
+		return float(text.length()) * 6.0
+	return font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, COUNT_FONT_SIZE).x
+
+func _group_width(count: int) -> float:
+	# Width of one value-group cell: die icon, plus gap + count label when shown.
+	var cw := _measure_count(count)
+	if cw <= 0.0:
+		return DIE_SIZE
+	return DIE_SIZE + COUNT_GAP + cw
 
 func get_value_groups() -> Array:
 	# Returns an Array of [value, count] pairs for the distinct values present,
@@ -86,7 +99,7 @@ func _update_min_size() -> void:
 		var groups := get_value_groups()
 		var total_w := 0.0
 		for i in range(groups.size()):
-			total_w += DIE_SIZE + COUNT_GAP + _measure_count(groups[i][1])
+			total_w += _group_width(groups[i][1])
 			if i < groups.size() - 1:
 				total_w += GROUP_SPACING
 		custom_minimum_size = Vector2(total_w, DIE_SIZE)
@@ -126,16 +139,17 @@ func _draw_grouped() -> void:
 		var count: int = g[1]
 		_draw_die(x, 0.0, value)
 
-		# "xN" count label, vertically centred against the die.
+		# "xN" count label, vertically centred against the die. A count of 1
+		# yields an empty label (the lone die already implies a single roll).
 		var count_str := _count_text(count)
-		var tx := x + DIE_SIZE + COUNT_GAP
-		if font != null:
+		if count_str != "" and font != null:
+			var tx := x + DIE_SIZE + COUNT_GAP
 			var text_h := font.get_height(COUNT_FONT_SIZE)
 			var ascent := font.get_ascent(COUNT_FONT_SIZE)
 			var ty := (DIE_SIZE - text_h) * 0.5 + ascent
 			draw_string(font, Vector2(tx, ty), count_str, HORIZONTAL_ALIGNMENT_LEFT, -1, COUNT_FONT_SIZE, COLOR_COUNT_TEXT)
 
-		x += DIE_SIZE + COUNT_GAP + _measure_count(count) + GROUP_SPACING
+		x += _group_width(count) + GROUP_SPACING
 
 func _draw_ungrouped() -> void:
 	for i in range(_rolls.size()):
