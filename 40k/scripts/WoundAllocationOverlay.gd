@@ -511,6 +511,22 @@ func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 
 func _start_wound_allocation() -> void:
 	"""Begin allocation for current_wound_index"""
+
+	# BUGFIX: When the target unit is wiped out before all wounds are
+	# allocated (i.e. there are more wounds to save than the unit has models),
+	# there are no valid models left to select. Excess wounds are simply lost
+	# per 10e — wounds do not spill over to other units. Without this guard the
+	# manual-selection path would highlight nothing, keep awaiting a click that
+	# can never come, and the overlay would appear frozen while still showing
+	# "Wound X of Y — click a model". Detect the wiped-out case and finish the
+	# allocation instead of soliciting an impossible selection. (The
+	# auto-allocate path already short-circuits via _auto_allocate_current_wound;
+	# this covers the manual path too.)
+	if _auto_pick_model_id() == "":
+		print("WoundAllocationOverlay: No allocatable models remain (unit wiped) — completing allocation early")
+		_complete_allocation()
+		return
+
 	awaiting_selection = true
 
 	# Update UI labels
@@ -521,6 +537,13 @@ func _start_wound_allocation() -> void:
 
 	# Enable input
 	set_process_input(true)
+
+	# Auto-allocation: when the player has opted to let the computer choose which
+	# models are removed, pick a valid target and resolve the wound automatically
+	# instead of waiting for a manual click on the board.
+	if _is_auto_allocate_enabled():
+		_auto_allocate_current_wound()
+		return
 
 	print("WoundAllocationOverlay: Wound allocation started - awaiting input")
 	print("  - Overlay visible: ", visible)
@@ -1557,6 +1580,78 @@ func _is_valid_selection(model_id: String) -> bool:
 	# Otherwise, any alive model is valid (non-character bodyguard models, or characters if bodyguard dead)
 	var model = _get_model_by_id(model_id)
 	return model.get("alive", true) if not model.is_empty() else false
+
+func _is_auto_allocate_enabled() -> bool:
+	"""Whether the local player has opted to let the computer allocate wounds.
+	Per 10e the defending player chooses casualties; this setting delegates that
+	choice to the computer so the player isn't forced to pick models one-by-one."""
+	var settings = get_node_or_null("/root/SettingsService")
+	if settings == null:
+		return false
+	return settings.get("auto_allocate_wounds") == true
+
+func _auto_allocate_current_wound() -> void:
+	"""Computer picks a valid model for the current wound and resolves it.
+	Mirrors a defender click: priority wounded model first, otherwise the first
+	selectable model (lowest index), respecting CHARACTER protection / precision."""
+	var model_id = _auto_pick_model_id()
+
+	if model_id == "":
+		# No valid model remains (unit wiped) — nothing left to allocate.
+		print("WoundAllocationOverlay: Auto-allocate found no valid model — completing allocation")
+		_complete_allocation()
+		return
+
+	# Reflect that the computer is making the choice in the UI.
+	if instruction_label:
+		instruction_label.text = "[center][b][color=cyan]Computer is allocating wounds…[/color][/b]\n[color=white]Auto-selecting %s[/color][/center]" % _get_model_display_name(model_id)
+
+	# Brief pause so the highlighted target is visible before the save is rolled,
+	# then drive the same path a manual click would take.
+	await get_tree().create_timer(0.4).timeout
+	if not is_inside_tree():
+		return
+	if not awaiting_selection:
+		# State changed underneath us (e.g. overlay closed) — bail.
+		return
+	_on_model_clicked(model_id)
+
+func _auto_pick_model_id() -> String:
+	"""Return the model_id the computer should allocate the next wound to, or ""
+	if no valid model exists. Honours 10e priority: a wounded model that must
+	take the next wound is selected first; otherwise the first selectable model."""
+	# Priority wounded model (and precision-targeted characters) are forced.
+	var priority = get_priority_model_id()
+	if priority != "" and _is_valid_selection(priority):
+		return priority
+
+	# Otherwise pick the first selectable bodyguard model (lowest index).
+	var models = target_unit.get("models", [])
+	for i in range(models.size()):
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+		var mid = model.get("id", "m%d" % i)
+		if _is_valid_selection(mid):
+			return mid
+
+	# Finally, consider attached character models (selectable once bodyguard is
+	# dead, or during precision wounds).
+	var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in attached_chars:
+		var char_unit = GameState.get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+		var char_models = char_unit.get("models", [])
+		for j in range(char_models.size()):
+			var char_model = char_models[j]
+			if not char_model.get("alive", true):
+				continue
+			var composite_id = "%s:%s" % [char_id, char_model.get("id", "m%d" % j)]
+			if _is_valid_selection(composite_id):
+				return composite_id
+
+	return ""
 
 func get_priority_model_id() -> String:
 	"""T5-V7: Return the model_id of the "priority wounded" model — the one

@@ -157,6 +157,29 @@ uploaded as artifacts even on failure.
 | `40k/tests/scenarios/_schema.md` | Scenario format spec. |
 | `.llm/scaled-testing-plan.md` | Living design doc — read first if you're new to this. |
 
+## Validating via the MCP bridge (updated set)
+
+Windowed validation works in the **remote container too**, not just locally:
+the `godot` shim auto-wraps with `xvfb-run` + Mesa llvmpipe, so the UI renders
+and `addons/godot_mcp` comes up on `127.0.0.1:9080`. Run `godot --headless
+--import` once per fresh clone first (builds the global-class cache). If you
+genuinely can't run the game after trying, **flag it to the user** — don't
+quietly drop to headless-only. See `CLAUDE.md` for the launch recipe.
+
+When driving the bridge directly (live validation, ad-hoc repro), prefer:
+
+| Command | Purpose |
+|---|---|
+| `verify_delivery` | One-call gate: scene-tree integrity + autoloads + `log.no_errors` + your GDScript `assertions`. Returns `verdict: PASS\|FAIL`. Run after driving a feature. |
+| `read_debug_log` | Newest `debug_*.log` bucketed into error/warning/info/debug. Assert "no errors fired" with `since_marker` to scope to your action. |
+| `scene_snapshot` / `diff_snapshot` | Before/after node-state diff; proves only the intended nodes changed (field-level, e.g. `visible:[true,false]`). |
+| `chain_verify` | Pass your `claim`; returns adversarial questions + live log evidence. Answer before closing. |
+| `execute_script` (multi-line) | `multiline:true` for full statements; target is `node`, scene tree is `tree`, autoloads by global name. |
+
+These complement — they do **not** replace — the scenario runner. A
+player-facing change still needs a passing `run_scenario.sh` scenario; the
+bridge commands above are for live inspection and the `verify_delivery` gate.
+
 ## File locations
 
 - Scenarios: `40k/tests/scenarios/sp/*.json` and `40k/tests/scenarios/mp/*.json`

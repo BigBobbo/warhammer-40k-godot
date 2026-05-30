@@ -1,0 +1,44 @@
+{
+  "id": "auto_allocate_wounds_off",
+  "covers": [
+    "settings.auto_allocate_wounds",
+    "scripts.WoundAllocationOverlay.auto_allocate",
+    "autoloads.SettingsService.set_auto_allocate_wounds"
+  ],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Auto-allocate wounds OFF (default behaviour): with the setting disabled the WoundAllocationOverlay must wait for the player to click models — it must NOT auto-resolve. Disables the setting, drives ShootingController._on_saves_required with a 4-wound attack against Boyz F, waits, and verifies the overlay is still awaiting selection with no wounds allocated and no casualties applied.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "execute_script",
+      "script": "SettingsService.set_auto_allocate_wounds(false)" },
+    { "act": "execute_script",
+      "script": "SettingsService.auto_allocate_wounds",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "RulesEngine.count_alive_models(GameState.get_unit(\"U_BOYZ_F\"))",
+      "equals": 20 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._on_saves_required([RulesEngine.prepare_save_resolution(4, \"U_BOYZ_F\", \"U_CUSTODIAN_GUARD_B\", {\"name\": \"Auto-Alloc Test Gun\", \"ap\": -3, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"\"}, GameState.state)])" },
+    { "act": "wait_seconds", "seconds": 3.0 },
+
+    { "act": "execute_script",
+      "script": "is_instance_valid(main.get_node(\"ShootingController\").active_allocation_overlay)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").active_allocation_overlay.awaiting_selection",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").active_allocation_overlay.allocation_history.size()",
+      "equals": 0 },
+    { "act": "execute_script",
+      "script": "RulesEngine.count_alive_models(GameState.get_unit(\"U_BOYZ_F\"))",
+      "equals": 20 },
+    { "act": "screenshot", "label": "01_overlay_waiting_for_player_no_auto" }
+  ]
+}

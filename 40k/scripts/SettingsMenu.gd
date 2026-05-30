@@ -29,6 +29,8 @@ var _colorblind_dropdown: OptionButton
 var _board_style_dropdown: OptionButton
 var _ruins_style_dropdown: OptionButton
 
+var _auto_allocate_checkbox: CheckBox
+
 var _close_button: Button
 var _return_to_menu_button: Button
 var _save_load_button: Button
@@ -105,7 +107,7 @@ func _build_ui() -> void:
 	tab_bar.add_theme_constant_override("separation", 5)
 	vbox.add_child(tab_bar)
 
-	var tab_names = ["Audio", "Visual", "Controls"]
+	var tab_names = ["Audio", "Visual", "Gameplay", "Controls"]
 	for i in range(tab_names.size()):
 		var tab_btn = Button.new()
 		tab_btn.text = tab_names[i]
@@ -159,6 +161,23 @@ func _build_ui() -> void:
 	_animation_speed_slider = _add_slider_row(visual_content, "Animation Speed:", 0.25, 3.0, 0.25, "_on_animation_speed_changed")
 	_animation_speed_label = _get_last_value_label()
 	_colorblind_dropdown = _add_dropdown_row(visual_content, "Colorblind Mode:", ["None", "Protanopia (Red-Green)", "Deuteranopia (Green-Red)", "Tritanopia (Blue-Yellow)"], "_on_colorblind_changed")
+
+	# ── Gameplay Tab ──
+	var gameplay_scroll = _create_tab_scroll()
+	gameplay_scroll.visible = false
+	content_area.add_child(gameplay_scroll)
+	_tab_containers.append(gameplay_scroll)
+
+	var gameplay_content = gameplay_scroll.get_child(0) as VBoxContainer
+	_add_section_header(gameplay_content, "Wound Allocation")
+	_auto_allocate_checkbox = _add_checkbox_row(gameplay_content, "Computer allocates wounds (auto-remove models)", "_on_auto_allocate_wounds_toggled")
+	var auto_alloc_help = Label.new()
+	auto_alloc_help.text = "When enabled, the computer chooses which wounded models are removed instead of asking you to click each one. The defending player normally makes this choice."
+	auto_alloc_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	auto_alloc_help.custom_minimum_size = Vector2(620, 0)
+	auto_alloc_help.add_theme_font_size_override("font_size", 12)
+	auto_alloc_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	gameplay_content.add_child(auto_alloc_help)
 
 	# ── Controls Tab ──
 	var controls_scroll = _create_tab_scroll()
@@ -463,6 +482,10 @@ func _load_current_settings() -> void:
 	if cb_index >= 0:
 		_colorblind_dropdown.selected = cb_index
 
+	# Gameplay
+	if _auto_allocate_checkbox:
+		_auto_allocate_checkbox.button_pressed = SettingsService.auto_allocate_wounds
+
 func _connect_signals() -> void:
 	# Update in-game-only button visibility
 	_return_to_menu_button.visible = show_return_to_menu
@@ -536,6 +559,13 @@ func _on_colorblind_changed(index: int) -> void:
 	var modes = ["none", "protanopia", "deuteranopia", "tritanopia"]
 	if index >= 0 and index < modes.size():
 		SettingsService.set_colorblind_mode(modes[index])
+
+# ============================================================================
+# Gameplay Callbacks
+# ============================================================================
+
+func _on_auto_allocate_wounds_toggled(pressed: bool) -> void:
+	SettingsService.set_auto_allocate_wounds(pressed)
 
 # ============================================================================
 # Button Callbacks

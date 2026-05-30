@@ -235,16 +235,73 @@ const TOOLS: ToolDef[] = [
   {
     name: 'execute_script',
     description:
-      'Parse and evaluate a one-line GDScript expression against an optional target node. The expression sees the node as `self`.',
+      'Evaluate GDScript against an optional target node. Single-line code uses an Expression (the node is visible as `self`). Multi-line code — or any code with `multiline:true` — is compiled into a throwaway script so full statements work: `var`, `if`, `for`, `return`, and autoloads (GameState, PhaseManager, …) by their global names. In compiled mode the resolved node is the `node` parameter and the scene tree is the `tree` parameter — call node/tree methods on those (e.g. `tree.get_node_count()`), not bare. `return <value>` to send a result back. Runtime errors inside compiled code are not catchable — read them back with read_debug_log.',
     inputSchema: {
       type: 'object',
       properties: {
         code: { type: 'string' },
         node_path: { type: 'string', default: '/root' },
-        input_names: { type: 'array', items: { type: 'string' } },
-        input_values: { type: 'array' },
+        multiline: {
+          type: 'boolean',
+          description: 'Force compiled multi-line mode. Auto-enabled when code contains a newline.',
+        },
+        input_names: { type: 'array', items: { type: 'string' }, description: 'Single-line Expression mode only.' },
+        input_values: { type: 'array', description: 'Single-line Expression mode only.' },
       },
       required: ['code'],
+    },
+  },
+  {
+    name: 'read_debug_log',
+    description:
+      'Read the running game\'s debug log bucketed into errors/warnings/info/debug. Use this to assert "no errors fired" after driving a feature instead of grepping raw text. Reads the newest user://logs/debug_*.log by default; `since_marker` keeps only lines after a marker\'s last occurrence (log a unique marker before your action to scope the read).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absolute or user:// path. Default: newest debug log.' },
+        tail: { type: 'number', default: 200, description: 'Keep only the last N non-empty lines (0 = all).' },
+        since_marker: { type: 'string', description: "Keep only lines after this marker's last occurrence." },
+        levels: { type: 'array', items: { type: 'string' }, description: 'Filter returned lines, e.g. ["ERROR"].' },
+        include_lines: { type: 'boolean', default: true },
+      },
+    },
+  },
+  {
+    name: 'scene_snapshot',
+    description:
+      'Capture a compact, diff-friendly index of the live scene tree (path -> type/position/visibility/size/script-properties) and persist it under user://mcp_snapshots/<label>.json. Take one before and one after a change, then diff_snapshot to prove only the intended nodes moved.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        label: { type: 'string' },
+        root: { type: 'string', description: 'Subtree root path. Default: current scene.' },
+        max_depth: { type: 'number', default: 12 },
+      },
+    },
+  },
+  {
+    name: 'diff_snapshot',
+    description:
+      'Diff two scene snapshots and report added / removed / changed nodes (with field-level changes). `before` is a label captured via scene_snapshot; `after` is another label, or omit / "__live__" to diff against the current live tree.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        before: { type: 'string' },
+        after: { type: 'string', description: 'Label, or "__live__" / omitted to diff the live tree.' },
+        root: { type: 'string' },
+        max_depth: { type: 'number', default: 12 },
+      },
+      required: ['before'],
+    },
+  },
+  {
+    name: 'chain_verify',
+    description:
+      "Anti-overconfidence gate. Given a `claim` describing what you believe you delivered, returns 5 adversarial challenge questions plus automated evidence (live log error/warning counts) you must reconcile before closing the task. Mirrors the project rule that pin tests / markers are not validation.",
+    inputSchema: {
+      type: 'object',
+      properties: { claim: { type: 'string' } },
+      required: ['claim'],
     },
   },
   {
@@ -372,10 +429,15 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: 'write_script',
-    description: 'Write text to a res:// path. Refuses paths outside res://.',
+    description:
+      'Write text to a res:// path. Refuses paths outside res:// (and outside GODOT_MCP_ALLOWED_WRITE_PATHS when that env is set). Refuses to overwrite an existing file unless `overwrite:true` is passed.',
     inputSchema: {
       type: 'object',
-      properties: { path: { type: 'string' }, content: { type: 'string' } },
+      properties: {
+        path: { type: 'string' },
+        content: { type: 'string' },
+        overwrite: { type: 'boolean', default: false, description: 'Required to clobber an existing file.' },
+      },
       required: ['path', 'content'],
     },
   },
@@ -505,6 +567,30 @@ const TOOLS: ToolDef[] = [
         model_id: { type: 'string' },
       },
       required: ['unit_id', 'dest_x', 'dest_y'],
+    },
+  },
+  {
+    name: 'verify_delivery',
+    description:
+      'WH40K [GATE]: one-call end-to-end verification mirroring the rule that a feature is not done until driven live. Checks (1) scene-tree integrity, (2) GameState + required autoloads present, (3) debug log has no ERROR lines (optionally since a marker), and (4) caller `assertions` — GDScript expressions evaluated over live state (autoloads reachable by name). Returns passed=false if any required check fails.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        required_autoloads: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Default ["GameState","PhaseManager","TurnManager"].',
+        },
+        expected_phase: { type: 'string', description: 'e.g. "MOVEMENT" — fails if the current phase differs.' },
+        fail_on_log_error: { type: 'boolean', default: true },
+        since_marker: { type: 'string', description: 'Only scan log lines after this marker.' },
+        log_tail: { type: 'number', default: 500 },
+        assertions: {
+          type: 'array',
+          description: 'Each: { expr, description?, node_path?, expect? }. expr is GDScript; bare expressions are auto-returned. Passes if expr == expect (when given) else truthy.',
+          items: { type: 'object' },
+        },
+      },
     },
   },
 ];

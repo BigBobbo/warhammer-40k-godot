@@ -28,12 +28,22 @@ func _on_phase_completed(completed_phase: GameStateData.Phase) -> void:
 			_titanic_skip_turns.clear()
 			emit_signal("deployment_phase_complete")
 		GameStateData.Phase.SCOUT:
-			# Scout phase complete - roll-off phase will determine who goes first
-			print("TurnManager: Scout phase complete, advancing to Roll-Off phase")
+			# Scout phase is the last pre-game step before battle round 1's
+			# Command phase. The roll-off (which runs back before Deployment)
+			# decided who takes the first turn and stored it in
+			# meta.first_turn_player. Apply it here so the correct player is
+			# active for the first Command phase.
+			#
+			# This is the fix for "Player 1 always goes first": the active
+			# player is otherwise left over from deployment alternation (which
+			# tends to default to Player 1) and the roll-off result is ignored.
+			_apply_first_turn_player()
 		GameStateData.Phase.SCOUT_MOVES:
-			# Scout Moves complete - ensure Player 1 starts the first Command phase
+			# Scout Moves complete - apply the roll-off result so the player
+			# who won the right to the first turn starts the first Command phase
+			# (previously this hard-coded Player 1, ignoring the roll-off).
 			print("TurnManager: Scout Moves phase complete")
-			GameState.set_active_player(1)
+			_apply_first_turn_player()
 		GameStateData.Phase.ROLL_OFF:
 			# Roll-off phase complete - active player was set by the roll-off choice
 			var first_turn_player = GameState.state.get("meta", {}).get("first_turn_player", 1)
@@ -68,6 +78,8 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 		GameStateData.Phase.DEPLOYMENT:
 			_titanic_skip_turns.clear()
 			_handle_deployment_phase_start()
+		GameStateData.Phase.ROLL_OFF:
+			_handle_roll_off_phase_start()
 
 func _on_phase_action_taken(action: Dictionary) -> void:
 	var action_type = action.get("type", "")
@@ -172,6 +184,36 @@ func alternate_active_player() -> void:
 func _set_active_player(player: int) -> void:
 	GameState.set_active_player(player)
 	emit_signal("deployment_side_changed", player)
+
+func _handle_roll_off_phase_start() -> void:
+	# The pre-deployment roll-off is a mutual step that BOTH players take part
+	# in. Make a human player active so (a) Main shows the dramatic roll-off
+	# dialog to a human, and (b) the AIPlayer — which only acts when the active
+	# player is AI — does not silently auto-resolve the roll-off out from under
+	# the human. In a Player-vs-AI game the active player is otherwise the AI
+	# (it became active during Formations), which is why the human never saw
+	# the roll-off and Player 1 appeared to always go first.
+	#
+	# Multiplayer keeps its existing active-player handling (each client shows
+	# the dialog for its own network seat). In an AI-vs-AI game there is no
+	# human, so the AI stays active and drives the roll-off automatically.
+	if has_node("/root/NetworkManager") and get_node("/root/NetworkManager").is_networked():
+		return
+	var ai = get_node_or_null("/root/AIPlayer")
+	for p in [1, 2]:
+		if ai == null or not ai.is_ai_player(p):
+			_set_active_player(p)
+			return
+
+func _apply_first_turn_player() -> void:
+	# Set the active player to whoever won the right to the first turn in the
+	# pre-deployment roll-off (meta.first_turn_player, set by RollOffPhase).
+	# Falls back to Player 1 if the roll-off never ran or stored a bad value.
+	var first_turn_player = int(GameState.state.get("meta", {}).get("first_turn_player", 1))
+	if first_turn_player != 1 and first_turn_player != 2:
+		first_turn_player = 1
+	print("TurnManager: Applying roll-off result — Player %d takes the first turn" % first_turn_player)
+	_set_active_player(first_turn_player)
 
 func _handle_deployment_phase_start() -> void:
 	# Issue #377: Per Chapter Approved 2025-26, the defender deploys first.

@@ -1,0 +1,54 @@
+{
+  "id": "move_range_advance_grows",
+  "covers": [
+    "movement.advance_distance_circle",
+    "phases.MovementPhase.UI.advance_refreshes_range_overlay"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "T-094 (revised): when an Advance roll raises the move cap while a per-model reach circle is already displayed, the circle must grow to the new distance in place (not stay at the stale base-Move size). Sets up an in-progress drag with move_cap=6 (circle drawn at 6\"), then calls _update_movement_display_with_advance(4) (base 6 + advance 4 = 10) and asserts the SAME overlay redrew to a 10\" radius with a '10\"' label, with no re-pickup.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\").set(\"active_unit_id\", \"U_BLADE_CHAMPION_A\")" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\").set(\"move_cap_inches\", 6.0)" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\").set(\"drag_start_pos\", Vector2(0, 0))" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\").set(\"selected_model\", GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0])" },
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\").set(\"dragging_model\", true)" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\")._refresh_model_range_overlay()" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script",
+      "script": "(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0,0)) / Measurement.PX_PER_INCH)",
+      "expect_max": 6.3 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(8).text",
+      "equals": "6\"" },
+    { "act": "screenshot", "label": "01_circle_before_advance_6in" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\")._update_movement_display_with_advance(4)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"MovementController\").move_cap_inches",
+      "equals": 10.0 },
+    { "act": "execute_script",
+      "script": "(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0,0)) / Measurement.PX_PER_INCH)",
+      "expect_min": 9.7 },
+    { "act": "execute_script",
+      "script": "(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0,0)) / Measurement.PX_PER_INCH)",
+      "expect_max": 10.3 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(8).text",
+      "equals": "10\"" },
+    { "act": "screenshot", "label": "02_circle_after_advance_10in" }
+  ]
+}
