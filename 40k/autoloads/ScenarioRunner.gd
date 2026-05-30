@@ -412,13 +412,25 @@ func _do_simulate_key(step: Dictionary) -> Dictionary:
 		kc = int(keycode)
 	if kc == 0:
 		return {"pass": false, "error": "could not resolve keycode: %s" % str(keycode)}
+	# Optional `unicode`: required for text controls (LineEdit/TextEdit) to insert
+	# a character — they ignore key events whose unicode is 0. Accepts an int code
+	# point or a single-character string.
+	var uni: int = 0
+	if step.has("unicode"):
+		var u = step.get("unicode")
+		if typeof(u) == TYPE_STRING and (u as String).length() > 0:
+			uni = (u as String).unicode_at(0)
+		elif typeof(u) == TYPE_INT or typeof(u) == TYPE_FLOAT:
+			uni = int(u)
 	var press := InputEventKey.new()
 	press.keycode = kc
+	press.unicode = uni
 	press.pressed = true
 	Input.parse_input_event(press)
 	await get_tree().process_frame
 	var release := InputEventKey.new()
 	release.keycode = kc
+	release.unicode = uni
 	release.pressed = false
 	Input.parse_input_event(release)
 	await get_tree().process_frame
