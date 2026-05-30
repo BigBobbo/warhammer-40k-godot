@@ -88,7 +88,7 @@ func _ready() -> void:
 	_dice_regex = RegEx.new()
 	_dice_regex.compile("\\[([0-9, ]+)\\]")
 	_threshold_regex = RegEx.new()
-	_threshold_regex.compile("(?:needed |Save |Pain )(\\d+)\\+")
+	_threshold_regex.compile("(?:needed |Save |Pain |vs )(\\d+)\\+")
 
 func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 105.0, offset_bottom: float = 0.0) -> void:
 	name = "GameLogPanel"
@@ -268,6 +268,23 @@ func combat_detail_row_has_visual(row_index: int) -> bool:
 			return true
 	return false
 
+func _node_has_dice_visual(node: Node) -> bool:
+	# Recursively search a node subtree for a DiceRowVisual instance.
+	if node is DiceRowVisualScript:
+		return true
+	for c in node.get_children():
+		if _node_has_dice_visual(c):
+			return true
+	return false
+
+func last_simple_card_has_dice_visual() -> bool:
+	# Test introspection helper: true if the most recently added card in the main
+	# card container renders dice icons (e.g. an advance/charge roll line).
+	if _card_container == null or _card_container.get_child_count() == 0:
+		return false
+	var last = _card_container.get_child(_card_container.get_child_count() - 1)
+	return _node_has_dice_visual(last)
+
 func _build_realtime_dice_row(data: Dictionary, context: String) -> Control:
 	"""Build an HBox row containing prefix label + graphical dice + suffix label."""
 	var rolls_raw = data.get("rolls_raw", [])
@@ -342,7 +359,7 @@ func _build_realtime_dice_row(data: Dictionary, context: String) -> Control:
 		_:
 			return null
 
-func _make_dice_row(prefix_bbcode: String, rolls: Array, threshold: int, use_threshold_colors: bool, suffix_bbcode: String) -> Control:
+func _make_dice_row(prefix_bbcode: String, rolls: Array, threshold: int, use_threshold_colors: bool, suffix_bbcode: String, normal_size: int = 10, bold_size: int = 11) -> Control:
 	"""Build a single HBox row: [prefix RichTextLabel] [DiceRowVisual] [suffix RichTextLabel]."""
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 4)
@@ -352,8 +369,13 @@ func _make_dice_row(prefix_bbcode: String, rolls: Array, threshold: int, use_thr
 	prefix.bbcode_enabled = true
 	prefix.fit_content = true
 	prefix.scroll_active = false
-	prefix.add_theme_font_size_override("normal_font_size", 10)
-	prefix.add_theme_font_size_override("bold_font_size", 11)
+	# The prefix is non-expanding, so leaving autowrap on lets it collapse to a
+	# 1px-wide column and grow absurdly tall. Disable autowrap so it sizes to its
+	# natural single-line width.
+	prefix.autowrap_mode = TextServer.AUTOWRAP_OFF
+	prefix.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	prefix.add_theme_font_size_override("normal_font_size", normal_size)
+	prefix.add_theme_font_size_override("bold_font_size", bold_size)
 	prefix.append_text(prefix_bbcode)
 	hbox.add_child(prefix)
 
@@ -368,8 +390,8 @@ func _make_dice_row(prefix_bbcode: String, rolls: Array, threshold: int, use_thr
 	suffix.fit_content = true
 	suffix.scroll_active = false
 	suffix.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	suffix.add_theme_font_size_override("normal_font_size", 10)
-	suffix.add_theme_font_size_override("bold_font_size", 11)
+	suffix.add_theme_font_size_override("normal_font_size", normal_size)
+	suffix.add_theme_font_size_override("bold_font_size", bold_size)
 	suffix.append_text(suffix_bbcode)
 	hbox.add_child(suffix)
 
@@ -512,17 +534,28 @@ func _build_combat_detail_line(text: String) -> Control:
 	"""Build a Control for one combat-detail line. If the line contains a dice
 	array (e.g. 'rolled [1, 1, 2, 6]'), render the array as a grouped DiceRowVisual
 	(one die icon per value + xN count); otherwise render styled text."""
+	return _build_dice_aware_line(text, "#B0B8C0", 10, 11)
+
+func line_has_dice_array(text: String) -> bool:
+	"""True if a log line contains a [n, n, ...] dice array that should render as
+	dice icons. Used to route simple cards through the dice-aware builder."""
+	return _dice_regex.search(text) != null
+
+func _build_dice_aware_line(text: String, color_hex: String, normal_size: int, bold_size: int) -> Control:
+	"""Generic builder shared by combat details and simple cards. A line with a
+	dice array renders as [prefix label][grouped DiceRowVisual][suffix label];
+	otherwise it renders as a single styled label. Keyword highlighting and the
+	supplied text color/font size are applied to the surrounding text either way."""
 	var dice_match = _dice_regex.search(text)
 	if dice_match == null:
-		# No dice — single styled label.
 		var label := RichTextLabel.new()
 		label.bbcode_enabled = true
 		label.fit_content = true
 		label.scroll_active = false
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.add_theme_font_size_override("normal_font_size", 10)
-		label.add_theme_font_size_override("bold_font_size", 11)
-		label.append_text("[color=#B0B8C0]%s[/color]" % _highlight_keywords(text))
+		label.add_theme_font_size_override("normal_font_size", normal_size)
+		label.add_theme_font_size_override("bold_font_size", bold_size)
+		label.append_text("[color=%s]%s[/color]" % [color_hex, _highlight_keywords(text)])
 		return label
 
 	# Split the line around the dice array: [prefix] [dice icons] [suffix]
@@ -536,9 +569,9 @@ func _build_combat_detail_line(text: String) -> Control:
 		if dval != "":
 			rolls.append(int(dval))
 
-	var prefix_bbcode := "[color=#B0B8C0]%s[/color]" % _highlight_keywords(prefix_text) if prefix_text != "" else ""
-	var suffix_bbcode := "[color=#B0B8C0]%s[/color]" % _highlight_keywords(suffix_text) if suffix_text != "" else ""
-	return _make_dice_row(prefix_bbcode, rolls, threshold, threshold > 0, suffix_bbcode)
+	var prefix_bbcode := "[color=%s]%s[/color]" % [color_hex, _highlight_keywords(prefix_text)] if prefix_text != "" else ""
+	var suffix_bbcode := "[color=%s]%s[/color]" % [color_hex, _highlight_keywords(suffix_text)] if suffix_text != "" else ""
+	return _make_dice_row(prefix_bbcode, rolls, threshold, threshold > 0, suffix_bbcode, normal_size, bold_size)
 
 func _finalize_combat_card(text: String, animate: bool) -> void:
 	if _current_combat_card and is_instance_valid(_current_combat_card) and _current_combat_summary_label:
@@ -701,6 +734,14 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 	var icon = _create_icon(category)
 	hbox.add_child(icon)
 
+	# Dice-bearing lines (e.g. advance/charge/overwatch rolls) render their
+	# dice array as grouped icons instead of plain numbers — same treatment as
+	# combat details, but tinted to the entry's color.
+	if line_has_dice_array(text):
+		var dice_content = _build_dice_aware_line(text, _entry_text_color(entry_type), 11, 12)
+		hbox.add_child(dice_content)
+		return card
+
 	# Text label — truncate long entries with expand on click
 	var display_text = text
 	var is_truncated = false
@@ -808,6 +849,23 @@ func _animate_card_in(card: Control) -> void:
 # ==========================================================================
 # Text formatting
 # ==========================================================================
+
+func _entry_text_color(entry_type: String) -> String:
+	"""Base text color (hex with leading #) used for a simple-card entry type.
+	Mirrors the colors in _format_entry_text so dice-aware lines stay on-palette."""
+	match entry_type:
+		"phase_header":
+			return "#D49761"
+		"p1_action":
+			return "#6699CC"
+		"p2_action":
+			return "#CC6666"
+		"ai_thinking":
+			return "#8899AA"
+		"overwatch":
+			return "#FF6600"
+		_:
+			return "#B0B8C0"
 
 func _format_entry_text(text: String, entry_type: String) -> String:
 	match entry_type:

@@ -1572,7 +1572,7 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	if game_event_log:
 		var owner = int(unit.get("owner", 0))
 		game_event_log.add_player_entry(owner,
-			"%s advances: D6 = %d, total move = %d\" (M %d\" + %d\")" % [
+			"%s advances: rolled [%d] — total move = %d\" (M %d\" + %d\")" % [
 				unit_name, advance_roll, total_move, int(move_inches), advance_roll])
 
 	return create_result(true, [
@@ -5978,7 +5978,7 @@ func _process_begin_surge_move(action: Dictionary) -> Dictionary:
 	if game_event_log:
 		var owner = int(unit.get("owner", 0))
 		game_event_log.add_player_entry(owner,
-			"%s makes a surge move: D6 = %d, move up to %d\"" % [unit_name, surge_distance, surge_distance])
+			"%s makes a surge move: rolled [%d] — move up to %d\"" % [unit_name, surge_distance, surge_distance])
 
 	return create_result(true, [
 		{

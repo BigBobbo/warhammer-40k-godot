@@ -23,9 +23,11 @@ func _initialize() -> void:
 	_test_dice_row_visual_threshold_colors()
 	_test_dice_row_visual_grouping()
 	_test_dice_row_visual_grouped_single_row()
+	_test_dice_row_visual_single_die_no_count()
 	_test_dice_row_visual_ungrouped_wrap_size()
 	_test_game_log_panel_records_dice_row()
 	_test_game_log_panel_detail_dice_row()
+	_test_game_log_panel_simple_card_dice_icons()
 	_test_game_log_panel_skips_when_no_combat()
 
 	print("\n=== Result: %d passed / %d failed ===" % [_passed, _failed])
@@ -87,6 +89,28 @@ func _test_dice_row_visual_grouped_single_row() -> void:
 	_check("grouped row is one die tall", d.custom_minimum_size.y == DiceRowVisualScript.DIE_SIZE,
 		"got y=%s expected %s" % [str(d.custom_minimum_size.y), str(DiceRowVisualScript.DIE_SIZE)])
 	d.free()
+
+func _test_dice_row_visual_single_die_no_count() -> void:
+	# A single die (e.g. an Advance roll) shows just the icon, no "x1" label.
+	var single = DiceRowVisualScript.new()
+	single.set_dice([4], 0, false)
+	_check("single die width == DIE_SIZE (no x1 label)",
+		single.custom_minimum_size.x == DiceRowVisualScript.DIE_SIZE,
+		"got x=%s expected %s" % [str(single.custom_minimum_size.x), str(DiceRowVisualScript.DIE_SIZE)])
+	single.free()
+
+	# Count-of-1 groups inside a multi-die roll also drop the "x1" label, so the
+	# row is narrower than if every group carried a count.
+	var mixed = DiceRowVisualScript.new()
+	mixed.set_dice([1, 1, 2, 6], 3, true)
+	# Groups: (1 x2 -> labelled), (2 -> bare), (6 -> bare). Width = labelled cell
+	# + 2 bare die cells + 2 group gaps.
+	var labelled_w = DiceRowVisualScript.DIE_SIZE + DiceRowVisualScript.COUNT_GAP + mixed._measure_count(2)
+	var expected_w = labelled_w + DiceRowVisualScript.DIE_SIZE + DiceRowVisualScript.DIE_SIZE \
+		+ 2 * DiceRowVisualScript.GROUP_SPACING
+	_check("singleton groups omit x1 in width", mixed.custom_minimum_size.x == expected_w,
+		"got x=%s expected %s" % [str(mixed.custom_minimum_size.x), str(expected_w)])
+	mixed.free()
 
 func _test_dice_row_visual_ungrouped_wrap_size() -> void:
 	# Legacy ungrouped mode still wraps 25 dice to 3 rows (MAX_DICE_PER_ROW=10).
@@ -167,6 +191,35 @@ func _test_game_log_panel_detail_dice_row() -> void:
 		"got %d" % panel._current_combat_details_container.get_child_count())
 	_check("dice detail line rendered as grouped DiceRowVisual", panel.combat_detail_row_has_visual(0))
 	_check("text-only detail line has no DiceRowVisual", not panel.combat_detail_row_has_visual(1))
+
+	panel.queue_free()
+
+func _test_game_log_panel_simple_card_dice_icons() -> void:
+	# Non-combat log lines (advance/charge/overwatch) that contain a [n, ...]
+	# dice array must render the array as dice icons in their simple card.
+	var panel = GameLogPanelScript.new()
+	get_root().add_child(panel)
+	panel._ready()
+	# setup() builds the card container as part of the full UI; for this unit
+	# test we just need the container the simple cards are appended to.
+	panel._card_container = VBoxContainer.new()
+	panel.add_child(panel._card_container)
+
+	# Advance line — single die, no count label.
+	panel._create_card("Intercessors advances: rolled [4] — total move = 10\"", "p1_action", false)
+	_check("advance simple card renders dice icon", panel.last_simple_card_has_dice_visual())
+
+	# Charge line — two dice.
+	panel._create_card("Boyz charge roll: [5, 3] = 8\" vs 6.0\" needed - SUCCESS", "p2_action", false)
+	_check("charge simple card renders dice icons", panel.last_simple_card_has_dice_visual())
+
+	# Plain line — no dice array -> no DiceRowVisual.
+	panel._create_card("Intercessors holds position", "p1_action", false)
+	_check("plain simple card has no dice icon", not panel.last_simple_card_has_dice_visual())
+
+	# line_has_dice_array helper sanity.
+	_check("line_has_dice_array true for [4]", panel.line_has_dice_array("rolled [4]"))
+	_check("line_has_dice_array false for [+1 STRENGTH]", not panel.line_has_dice_array("gain [+1 STRENGTH]"))
 
 	panel.queue_free()
 
