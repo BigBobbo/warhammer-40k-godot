@@ -226,6 +226,14 @@ func _validate_set_scout_model_dest(action: Dictionary) -> Dictionary:
 	if _scout_position_overlaps_other_units(dest_pos, model, unit_id):
 		return {"valid": false, "errors": ["Model cannot overlap with other models"]}
 
+	# Check wall overlap — a scout move may pass through walls but may not END
+	# overlapping a wall segment (endpoint rule, universal across keywords; same
+	# as movement/charge/deployment). Path-traversal honors keywords separately.
+	var wall_check_model = model.duplicate(true)
+	wall_check_model["position"] = dest_pos
+	if Measurement.model_overlaps_any_wall(wall_check_model):
+		return {"valid": false, "errors": ["Scout move cannot end overlapping a wall"]}
+
 	# Check overlap against already-staged sibling models in this scout move.
 	# Without this, two models in the same unit could be dropped on the same spot.
 	var staged_positions = move_data.get("staged_positions", {})
@@ -296,6 +304,8 @@ func _validate_confirm_scout_move(action: Dictionary) -> Dictionary:
 		var m_pos_v = Vector2(m_pos.x, m_pos.y) if m_pos is Dictionary else m_pos
 		if _scout_position_overlaps_other_units(m_pos_v, m, unit_id):
 			return {"valid": false, "errors": ["Model %s overlaps another model" % mid]}
+		if Measurement.model_overlaps_any_wall(m):
+			return {"valid": false, "errors": ["Model %s ends its scout move overlapping a wall" % mid]}
 
 	# Validate unit coherency after all staged moves are applied
 	# Each model must be within 2" horizontally and 5" vertically of at least
