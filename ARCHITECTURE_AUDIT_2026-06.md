@@ -80,8 +80,10 @@ string-path diffs (`PhaseManager.gd:328-444`), explicit setters
 (`GameState.set_phase()` etc.), and convenience methods (`advance_turn()`).
 Direct writes are invisible to replay, undo, and multiplayer. The diff system itself
 navigates `"units.U_1.models.0.current_wounds"` by `split(".")` — magic strings with no
-existence validation. GameManager builds reverse diffs into `undo_history` that nothing
-ever pops (undo is dead code).
+existence validation. (Correction vs. an earlier draft: undo is *not* dead code —
+`GameManager.undo_last_action()` at GameManager.gd:975 pops and applies reverse diffs —
+but its correctness depends on every mutation flowing through the diff pipeline, which
+the direct writes above break.)
 
 ### P2. Rules math duplicated across actors
 - RulesEngine has parallel ~1,000-line ranged (`_resolve_assignment`, ~line 2202) and
@@ -137,9 +139,10 @@ the longer it waits.
 
 ### P9. State duplicated across layers
 Model positions live in `GameState`, in `TokenVisual.model_data`, and in controller-local
-drag state (`MovementController.gd:3590,3607`); `BoardState` (5,142 lines) overlaps
-GameState's board data; each phase keeps a `game_state_snapshot` shallow copy that can go
-stale (`BasePhase.gd:13,99`).
+drag state (`MovementController.gd:3590,3607`); `BoardState` (161 lines — a small shadow
+of GameState's board data, sizes corrected from an earlier draft) overlaps GameState;
+each phase keeps a `game_state_snapshot` shallow copy that can go stale
+(`BasePhase.gd:13,99`).
 
 ### P10. Repo and test hygiene
 152MB of committed screenshots/test artifacts; root directory full of one-off status
@@ -193,7 +196,7 @@ changes, mapped to the systems they hit:
 | **Shooting types**: normal / assault / **close-quarters** (replaces PISTOL & Big Guns Never Tire; M/V get -1 hit vs engaged) / indirect (core: 1-5 fails unless stationary + spotter, then 1-3) / snap shooting (10, 15.09, 17.03, 24.07) | Pistol + BGNT special cases | ShootingPhase, RulesEngine targeting/modifiers, AI |
 | **Charge: targets ≤12" AND ≤roll; must engage all targets, none else; charging grants the Fights First *ability*** (11) | Similar but 1" completion, "charged" flag ordering | ChargePhase, FightPhase ordering |
 | **Fight phase restructured: global Pile In step (both players) → Fight step (alternate Fights First, then remaining, with pass rules) → global Consolidate step; overrun fights; consolidation modes (ongoing/engaging/objective)** (12) | Pile-in → attacks → consolidate *per activation* | FightPhase (4.5k lines) — near rewrite |
-| **Terrain: categories (exposed/light/dense) + terrain *areas*; benefit of cover = worsen BS by 1; Hidden (15" detection); Obscuring areas; Solid (no LoS through ≤3" gaps); Plunging Fire (+1 BS); MOBILE keyword** (13, 22.05) | Ruins/obscuring walls, cover = save modifier | TerrainManager, `EnhancedLineOfSight` (22.6k-line autoload), cover checks in RulesEngine, terrain layouts, AI cover logic |
+| **Terrain: categories (exposed/light/dense) + terrain *areas*; benefit of cover = worsen BS by 1; Hidden (15" detection); Obscuring areas; Solid (no LoS through ≤3" gaps); Plunging Fire (+1 BS); MOBILE keyword** (13, 22.05) | Ruins/obscuring walls, cover = save modifier | TerrainManager, `EnhancedLineOfSight`/`LineOfSightManager` autoloads, cover checks in RulesEngine, terrain layouts, AI cover logic |
 | **Objectives: terrain areas as objectives; 40mm marker fallback (3" horiz/5" vert); control evaluated end of each phase; Secured ("sticky") objectives core** (14) | 40mm markers, end-of-turn checks | MissionManager, ScoringPhase |
 | **Stratagem rules: same stratagem 1×/phase AND ≤1 stratagem per unit per phase; new core set** — Explosives, Crushing Impact, Fire Overwatch (snap shooting, end of opponent's Movement only), Heroic Intervention (a real charge with modes), Counteroffensive (2CP +1CP option), Rapid Ingress, Smokescreen, Epic Challenge, Insane Bravery (1×/battle), Command Re-roll (single die; charge rolls in full) (15) | 10th core set, Grenade/Tank Shock | StratagemManager, AI stratagem heuristics |
 | **Actions system** (start/complete, eligibility, OC/battle-shock interplay) (16) | n/a | New subsystem; missions will depend on it |
