@@ -1,1 +1,0 @@
-ARGS: ["--scenario-file=tests/scenarios/sp/372_ere_we_go_charge_modifier.json"]
