@@ -15,7 +15,16 @@ enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT,
 # 10e Core Rules: "The battle lasts five battle rounds."
 const MAX_BATTLE_ROUNDS: int = 5
 
-# The complete game state as a dictionary
+# The complete game state as a dictionary.
+# MUTATION RULE (ISS-001): during a game, `state` must only be modified
+# through the action pipeline — phase handlers return diffs and
+# PhaseManager.apply_state_changes() applies them — or through GameState's
+# own setters. Direct `GameState.state[...] = ...` writes are invisible to
+# replay, undo, and multiplayer sync.
+# Whitelisted exceptions (pre-game initialization only, before any actions):
+#   - ArmyListManager.gd (army load populates units/factions)
+#   - MultiplayerLobby.gd / WebLobby.gd (lobby resets meta before game start)
+# Enforced by tests/test_iss001_pipeline_mutations.gd (static scan).
 var state: Dictionary = {}
 
 func _ready() -> void:

@@ -53,6 +53,8 @@ TESTS=(
     "tests/test_roll_off_dialog.gd"
     "tests/test_new_game_reaches_rolloff.gd"
     "tests/test_two_rolloffs.gd"
+    "tests/test_t011_designate_warlord_pin.gd"
+    "tests/test_iss001_pipeline_mutations.gd"
 )
 
 FAILED=0

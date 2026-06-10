@@ -290,9 +290,12 @@ func _handle_game_end() -> void:
 	game_ended = true
 
 	# Persist end-of-game flags to state so saves/replays/MCP queries observe them.
+	# ISS-001: applied through the diff pipeline so replay/undo/network record it.
 	if not GameState.state.get("meta", {}).get("game_ended", false):
-		GameState.state["meta"]["game_ended"] = true
-		GameState.state["meta"]["winner"] = _determine_vp_winner()
+		apply_state_changes([
+			{"op": "set", "path": "meta.game_ended", "value": true},
+			{"op": "set", "path": "meta.winner", "value": _determine_vp_winner()}
+		])
 
 	# Commit final phase log
 	GameState.commit_phase_log_to_history()

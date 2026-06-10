@@ -218,21 +218,28 @@ func begin_deploy(_unit_id: String) -> void:
 		var player_formations = formations_meta.get(str(owner), {})
 		var leader_attachments = player_formations.get("leader_attachments", {})
 		# Check if any character is declared attached to this unit
-		var repaired_chars = []
+		var needs_repair = false
 		for char_id in leader_attachments:
 			if leader_attachments[char_id] == _unit_id:
-				repaired_chars.append(char_id)
-		if repaired_chars.size() > 0:
-			print("[DeploymentController] STATE REPAIR: Found %d unlinked attachment(s) in meta.formations for bodyguard %s" % [repaired_chars.size(), _unit_id])
-			# Apply the missing attachment state directly
-			if not unit_data.has("attachment_data"):
-				unit_data["attachment_data"] = {}
-			unit_data["attachment_data"]["attached_characters"] = repaired_chars
-			GameState.state["units"][_unit_id]["attachment_data"] = unit_data["attachment_data"]
-			for char_id in repaired_chars:
-				GameState.state["units"][char_id]["attached_to"] = _unit_id
+				needs_repair = true
+				break
+		if needs_repair:
+			print("[DeploymentController] STATE REPAIR: dispatching REPAIR_FORMATION_ATTACHMENT for bodyguard %s" % _unit_id)
+			# ISS-001: route the repair through the action pipeline (DeploymentPhase
+			# returns diffs) instead of writing GameState from the UI layer, so the
+			# repair is recorded for replay/undo and synced in multiplayer. On a
+			# multiplayer client this may resolve asynchronously via host broadcast;
+			# this selection then proceeds un-combined, same as the pre-repair state.
+			var repair_result = NetworkIntegration.route_action({
+				"type": "REPAIR_FORMATION_ATTACHMENT",
+				"unit_id": _unit_id
+			})
+			if repair_result is Dictionary and not repair_result.get("success", false) and not repair_result.get("pending", false):
+				push_error("[DeploymentController] STATE REPAIR failed for %s: %s" % [_unit_id, str(repair_result)])
+			unit_data = GameState.get_unit(unit_id)
+			attached_char_ids = unit_data.get("attachment_data", {}).get("attached_characters", [])
+			for char_id in attached_char_ids:
 				print("[DeploymentController] STATE REPAIR: Set %s.attached_to = %s" % [char_id, _unit_id])
-			attached_char_ids = repaired_chars
 
 	if GameState.formations_declared() and attached_char_ids.size() > 0:
 		is_combined_deployment = true

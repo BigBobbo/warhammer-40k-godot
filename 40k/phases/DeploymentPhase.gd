@@ -79,6 +79,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_attach_character_deployment(action)
 		"CASTELLAN_REDEPLOY":
 			return _validate_castellan_redeploy(action)
+		"REPAIR_FORMATION_ATTACHMENT":
+			return _validate_repair_formation_attachment(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -584,8 +586,52 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_attach_character_deployment(action)
 		"CASTELLAN_REDEPLOY":
 			return _process_castellan_redeploy(action)
+		"REPAIR_FORMATION_ATTACHMENT":
+			return _process_repair_formation_attachment(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
+
+func _validate_repair_formation_attachment(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	if unit_id == "" or not game_state_snapshot.get("units", {}).has(unit_id):
+		return {"valid": false, "errors": ["Unknown unit: " + str(unit_id)]}
+	if not GameState.formations_declared():
+		return {"valid": false, "errors": ["Formations have not been declared"]}
+	return {"valid": true, "errors": []}
+
+func _process_repair_formation_attachment(action: Dictionary) -> Dictionary:
+	# ISS-001: repair declared-but-unlinked leader attachments through the
+	# diff pipeline. Previously DeploymentController wrote attachment_data and
+	# attached_to into GameState directly, invisible to replay/undo/network.
+	var unit_id = action.get("unit_id", "")
+	var unit_data = get_unit(unit_id)
+	var owner = unit_data.get("owner", unit_data.get("meta", {}).get("player", 0))
+	var formations_meta = game_state_snapshot.get("meta", {}).get("formations", {})
+	var leader_attachments = formations_meta.get(str(owner), {}).get("leader_attachments", {})
+
+	var repaired_chars = []
+	for char_id in leader_attachments:
+		if leader_attachments[char_id] == unit_id:
+			repaired_chars.append(char_id)
+
+	var changes = []
+	if repaired_chars.size() > 0:
+		var attachment_data = unit_data.get("attachment_data", {}).duplicate(true)
+		attachment_data["attached_characters"] = repaired_chars
+		changes.append({
+			"op": "set",
+			"path": "units.%s.attachment_data" % unit_id,
+			"value": attachment_data
+		})
+		for char_id in repaired_chars:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.attached_to" % char_id,
+				"value": unit_id
+			})
+		log_phase_message("Repaired %d unlinked attachment(s) from meta.formations for bodyguard %s" % [repaired_chars.size(), unit_id])
+
+	return create_result(true, changes)
 
 func _process_deploy_unit(action: Dictionary) -> Dictionary:
 	var unit_id = action.unit_id

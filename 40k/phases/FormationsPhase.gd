@@ -587,22 +587,33 @@ func _process_designate_warlord(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var player = action.get("player", get_current_player())
 
+	# ISS-001: return diffs instead of writing GameState directly so the
+	# change is visible to replay/undo/network. execute_action applies the
+	# changes and refreshes game_state_snapshot for us.
+	var changes = []
+
 	# Clear existing warlord designation for this player
 	var characters = _get_all_characters_for_player(player)
 	for char_id in characters:
-		GameState.state["units"][char_id]["meta"]["is_warlord"] = false
-		if game_state_snapshot.has("units") and game_state_snapshot["units"].has(char_id):
-			game_state_snapshot["units"][char_id]["meta"]["is_warlord"] = false
+		if char_id == unit_id:
+			continue
+		changes.append({
+			"op": "set",
+			"path": "units.%s.meta.is_warlord" % char_id,
+			"value": false
+		})
 
 	# Designate new warlord
-	GameState.state["units"][unit_id]["meta"]["is_warlord"] = true
-	if game_state_snapshot.has("units") and game_state_snapshot["units"].has(unit_id):
-		game_state_snapshot["units"][unit_id]["meta"]["is_warlord"] = true
+	changes.append({
+		"op": "set",
+		"path": "units.%s.meta.is_warlord" % unit_id,
+		"value": true
+	})
 
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	log_phase_message("Player %d designates %s (%s) as Warlord" % [player, unit_name, unit_id])
 
-	return create_result(true, [])
+	return create_result(true, changes)
 
 func _process_confirm_formations(action: Dictionary) -> Dictionary:
 	var player = action.get("player", get_current_player())
@@ -611,6 +622,19 @@ func _process_confirm_formations(action: Dictionary) -> Dictionary:
 	log_phase_message("Player %d confirmed their battle formations" % player)
 
 	var changes = []
+
+	# ISS-001: auto-designate the sole CHARACTER as Warlord via diffs.
+	# Validation (_validate_warlord_designation) only checks that this is
+	# possible; the actual state change happens here, in the pipeline.
+	var auto_warlord_id = _get_auto_warlord_id(player)
+	if auto_warlord_id != "":
+		var auto_name = get_unit(auto_warlord_id).get("meta", {}).get("name", auto_warlord_id)
+		log_phase_message("Player %d: Auto-designating %s (%s) as Warlord (only CHARACTER)" % [player, auto_name, auto_warlord_id])
+		changes.append({
+			"op": "set",
+			"path": "units.%s.meta.is_warlord" % auto_warlord_id,
+			"value": true
+		})
 
 	# Sync confirmation state to GameState via diffs so clients see it
 	changes.append({
@@ -757,16 +781,14 @@ func _validate_warlord_designation(player: int) -> Dictionary:
 			"Player %d has multiple warlords designated (%s). Exactly one CHARACTER must be the Warlord." % [player, ", ".join(names)]
 		]}
 
-	# No warlord designated — try auto-designating
+	# No warlord designated — auto-designation possible?
 	if characters.size() == 1:
-		# Exactly one CHARACTER: auto-designate as Warlord
+		# Exactly one CHARACTER: validation passes; the auto-designation is
+		# applied as a diff in _process_confirm_formations (ISS-001: validation
+		# must not mutate state).
 		var char_id = characters[0]
 		var char_name = get_unit(char_id).get("meta", {}).get("name", char_id)
-		log_phase_message("Player %d: Auto-designating %s (%s) as Warlord (only CHARACTER)" % [player, char_name, char_id])
-		# Apply the fix to GameState so it persists
-		GameState.state["units"][char_id]["meta"]["is_warlord"] = true
-		# Also update our local snapshot
-		game_state_snapshot["units"][char_id]["meta"]["is_warlord"] = true
+		log_phase_message("Player %d: %s (%s) will be auto-designated as Warlord (only CHARACTER)" % [player, char_name, char_id])
 		return {"valid": true, "errors": []}
 
 	# Multiple CHARACTERs, none designated
@@ -810,6 +832,18 @@ func _validate_army_construction_points(player: int) -> void:
 
 	if detachment.is_empty():
 		log_phase_message("WARNING: Player %d has no detachment declared" % player)
+
+func _get_auto_warlord_id(player: int) -> String:
+	"""If the player has exactly one CHARACTER and no designated Warlord,
+	return that unit id for auto-designation (mirrors the auto-designate
+	branch of _validate_warlord_designation). Returns "" otherwise."""
+	var characters = _get_all_characters_for_player(player)
+	for char_id in characters:
+		if get_unit(char_id).get("meta", {}).get("is_warlord", false):
+			return ""
+	if characters.size() == 1:
+		return characters[0]
+	return ""
 
 func _get_all_characters_for_player(player: int) -> Array:
 	"""Get all units with the CHARACTER keyword for a player (regardless of Leader ability)."""

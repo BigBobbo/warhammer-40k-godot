@@ -28,7 +28,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** `40k/phases/FormationsPhase.gd`, `40k/scripts/DeploymentController.gd`, `40k/autoloads/PhaseManager.gd`, `40k/autoloads/GameState.gd` (whitelist doc), new test file
 - **Acceptance criteria:** grep finds no in-game direct writes outside the documented whitelist; warlord designation and attachment repair still function (action dispatched headless, state asserted, diffs present in result); existing formation/deployment tests pass.
-- **Status:** TODO
+- **Status:** DONE — warlord designation/auto-designation and end-of-game flags now return diffs through the pipeline; attachment repair moved into a new `REPAIR_FORMATION_ATTACHMENT` DeploymentPhase action; whitelist documented in GameState.gd and enforced by `tests/test_iss001_pipeline_mutations.gd` (static scan + behavioral, 9/9); full pretrigger suite 562/562; windowed scenarios 367 + 378 pass.
 
 ### ISS-002 — Centralize rule constants in a GameConstants module with an edition switch
 - **Location:** engagement range `1.0` literals: `40k/phases/MovementPhase.gd:33`, `40k/phases/ChargePhase.gd:34,1769`, `40k/autoloads/RulesEngine.gd:7598,7782`, `40k/autoloads/TerrainManager.gd:298`, `40k/scripts/PersistentEngagementOverlay.gd:15`, `40k/scripts/FightController.gd:91` (mm), `40k/scripts/AIDecisionMaker.gd:12` (px), `40k/autoloads/Measurement.gd:266` (default param); coherency/detection distances similarly inlined
@@ -788,7 +788,7 @@ Conventions:
 
 | ID | Title | Severity | Status | Dependencies |
 |---|---|---|---|---|
-| ISS-001 | Route all in-game state mutations through pipeline | high | TODO | — |
+| ISS-001 | Route all in-game state mutations through pipeline | high | DONE | — |
 | ISS-002 | GameConstants module + edition switch | high | TODO | — |
 | ISS-003 | Structured ability schema + registry | high | TODO | — |
 | ISS-004 | Uniform per-action RNG seeding | high | TODO | — |
