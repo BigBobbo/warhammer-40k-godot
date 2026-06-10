@@ -347,7 +347,7 @@ func resolve_transport_destroyed(transport_id: String) -> Dictionary:
 
 		# Roll D6 for each disembarking model — on a 1, one model is destroyed
 		# Issue #329: route through RNGService so RNGService.test_mode_seed applies for deterministic tests
-		var rng = RulesEngine.RNGService.new()
+		var rng = RulesEngine.make_rng()
 		var casualties = 0
 		var rolls = []
 		for model_idx in alive_models:

@@ -31,7 +31,7 @@ var _fix_dat_armour_up_used: Array = []  # Units that used Fix Dat Armour Up thi
 
 func _init():
 	# Issue #329: route through RNGService so static test_mode_seed applies
-	_rng = RulesEngine.RNGService.new()
+	_rng = RulesEngine.make_rng()
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.COMMAND

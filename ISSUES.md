@@ -64,7 +64,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** all 30 call sites (`grep -rn "RNGService.new()"`), `40k/autoloads/RulesEngine.gd`, `40k/autoloads/NetworkManager.gd`, lint test
 - **Acceptance criteria:** grep finds no unseeded constructions outside the helper; replaying a recorded action sequence twice yields identical final state hash; existing tests pass.
-- **Status:** TODO
+- **Status:** DONE — two sanctioned factories in RulesEngine: `rng_for_action(action)` (honors `payload.rng_seed`, else generates one and **records it back into the action** for the log) and `make_rng()` (non-action contexts; NetworkManager session seed when hosting, test_mode_seed-aware, else randomize). All 19 unseeded sites outside RulesEngine converted (phases incl. the 4 `_init`-time members, StratagemManager ×3, TransportManager, MissionManager, FactionAbilityManager ×2, WoundAllocationOverlay) + 9 internal RulesEngine fallbacks; the big-booms handler (action in scope) uses `rng_for_action`. Lint enforced by `test_iss004_rng_seeding.gd` (16/16, incl. end-to-end: a logged SHOOT action replays with identical dice + diffs). Three #329 source-shape pins updated to assert the factory. Suite 617/617; windowed FNP scenario passes. Note: whole-game replay-hash proof lands with ISS-021's action log; this issue delivers the per-action seed plumbing it requires.
 
 ### ISS-005 — Extract PhaseControllerBase for the five phase controllers
 - **Location:** identical `_setup_ui_references()` at `40k/scripts/ShootingController.gd:307`, `MovementController.gd:252`, `ChargeController.gd:255`, `FightController.gd:130`; same lifecycle pattern in `DeploymentController.gd`
@@ -791,7 +791,7 @@ Conventions:
 | ISS-001 | Route all in-game state mutations through pipeline | high | DONE | — |
 | ISS-002 | GameConstants module + edition switch | high | DONE | — |
 | ISS-003 | Structured ability schema + registry | high | DONE | — |
-| ISS-004 | Uniform per-action RNG seeding | high | TODO | — |
+| ISS-004 | Uniform per-action RNG seeding | high | DONE | — |
 | ISS-005 | PhaseControllerBase extraction | high | TODO | — |
 | ISS-006 | Remove committed artifacts from git | medium | TODO | — |
 | ISS-007 | Guard freed-node access in cleanup | medium | TODO | — |

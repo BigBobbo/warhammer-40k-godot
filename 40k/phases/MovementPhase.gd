@@ -474,7 +474,7 @@ func _check_thievin_scavengers() -> void:
 
 	# Roll 1D6 per qualifying objective
 	# Issue #329: route through RNGService so static test_mode_seed applies
-	var rng = RulesEngine.RNGService.new()
+	var rng = RulesEngine.make_rng()
 	var rolls: Array = []
 	var any_success = false
 

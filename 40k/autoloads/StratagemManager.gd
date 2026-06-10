@@ -1582,7 +1582,7 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 	})
 
 	# Roll 6D6
-	var rng = RulesEngine.RNGService.new()
+	var rng = RulesEngine.make_rng()
 	var rolls = rng.roll_d6(6)
 
 	# Count successes (4+)
@@ -1946,7 +1946,7 @@ func execute_tank_shock(player: int, vehicle_unit_id: String, target_unit_id: St
 	})
 
 	# Roll D6 equal to Toughness (max 6)
-	var rng = RulesEngine.RNGService.new()
+	var rng = RulesEngine.make_rng()
 	var rolls = rng.roll_d6(dice_count)
 
 	# Count successes (5+)
@@ -2495,7 +2495,7 @@ func execute_fire_overwatch(player: int, shooter_unit_id: String, target_unit_id
 
 	# Build an action for RulesEngine.resolve_overwatch_shooting()
 	var board = GameState.create_snapshot()
-	var rng = RulesEngine.RNGService.new()
+	var rng = RulesEngine.make_rng()
 	var shooting_result = RulesEngine.resolve_overwatch_shooting(shooter_unit_id, target_unit_id, board, rng)
 
 	# Apply the diffs from shooting

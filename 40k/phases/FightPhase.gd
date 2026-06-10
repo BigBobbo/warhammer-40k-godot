@@ -1932,7 +1932,7 @@ func _show_mathhammer_predictions() -> void:
 
 		# Build mathhammer simulation config
 		# Issue #329: route through RNGService so RNGService.test_mode_seed applies for deterministic UI snapshots
-		var _mh_rng = RulesEngine.RNGService.new()
+		var _mh_rng = RulesEngine.make_rng()
 		var config = {
 			"trials": 1000,  # Reduced for real-time predictions
 			"attackers": [attacker_config],
@@ -3319,7 +3319,7 @@ func _resolve_dread_foe_then_pile_in(unit_id: String) -> Dictionary:
 			var charged_this_turn = flags.get("charged_this_turn", false)
 
 			# Resolve Dread Foe via RulesEngine
-			var rng_service = RulesEngine.RNGService.new()
+			var rng_service = RulesEngine.make_rng()
 			var dread_foe_result = RulesEngine.resolve_dread_foe(
 				unit_id, target_id, charged_this_turn, GameState.state, rng_service
 			)
@@ -3902,7 +3902,7 @@ func _get_acrobatic_escape_eligible_units() -> Array:
 		var player = int(unit.get("owner", 0))
 
 		# Roll D6 for move distance
-		var rng = RulesEngine.RNGService.new()
+		var rng = RulesEngine.make_rng()
 		var d6_roll = rng.roll_d6(1)[0]
 
 		eligible.append({

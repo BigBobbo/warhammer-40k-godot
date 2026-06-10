@@ -57,6 +57,7 @@ TESTS=(
     "tests/test_iss001_pipeline_mutations.gd"
     "tests/test_iss002_game_constants.gd"
     "tests/test_iss003_ability_schema.gd"
+    "tests/test_iss004_rng_seeding.gd"
 )
 
 FAILED=0

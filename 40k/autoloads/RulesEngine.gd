@@ -507,7 +507,7 @@ const UNIT_WEAPONS = {
 # RNG Service for deterministic dice rolling
 class RNGService:
 	# Test-only static seed override.
-	# When set to a non-negative value, every unseeded RNGService.new() call
+	# When set to a non-negative value, every unseeded make_rng() call
 	# derives a deterministic-but-unique seed via hash([test_mode_seed, _test_seed_counter]).
 	# Default (-1) preserves existing behavior: unseeded constructors call randomize().
 	# Multiplayer is unaffected because it always passes an explicit seed_value.
@@ -547,6 +547,49 @@ class RNGService:
 
 	func randf_range(from: float, to: float) -> float:
 		return rng.randf_range(from, to)
+
+
+# ── ISS-004: sanctioned RNG factories ────────────────────────────────
+# Every dice-rolling code path must obtain its RNGService from one of these
+# two factories (enforced by tests/test_iss004_rng_seeding.gd). Bare
+# `RNGService.new()` outside this file is a lint failure.
+
+## Factory for ACTION HANDLERS. Honors an explicit payload.rng_seed
+## (multiplayer / replay); otherwise generates a seed and RECORDS it back
+## into action.payload.rng_seed so the action log can reproduce the rolls.
+## Test mode (set_test_seed) takes the legacy deterministic-counter path.
+static func rng_for_action(action: Dictionary) -> RNGService:
+	var payload = action.get("payload", {})
+	var seed_val: int = -1
+	if payload is Dictionary:
+		seed_val = int(payload.get("rng_seed", -1))
+	if seed_val >= 0:
+		return RNGService.new(seed_val)
+	if RNGService.test_mode_seed >= 0:
+		return RNGService.new()
+	seed_val = randi() & 0x7FFFFFFF
+	if not (action.get("payload") is Dictionary):
+		action["payload"] = {}
+	action["payload"]["rng_seed"] = seed_val
+	return RNGService.new(seed_val)
+
+## Factory for NON-ACTION contexts (managers, UI overlays, phase helpers
+## that have no action dict in scope yet). Uses the session-deterministic
+## NetworkManager seed when hosting a networked game; preserves the
+## test_mode_seed path; otherwise falls back to randomize(). Sites using
+## this factory become replay-deterministic once their flows are converted
+## to actions (ISS-021).
+static func make_rng(_context: String = "") -> RNGService:
+	if RNGService.test_mode_seed >= 0:
+		return RNGService.new()
+	var ml = Engine.get_main_loop()
+	if ml != null and ml.root != null:
+		var nm = ml.root.get_node_or_null("NetworkManager")
+		if nm != null and nm.has_method("get_next_rng_seed"):
+			var s: int = nm.get_next_rng_seed()
+			if s >= 0:
+				return RNGService.new(s)
+	return RNGService.new()
 
 
 # Test/debug helpers exposing RNGService.test_mode_seed via a method, since
@@ -669,7 +712,7 @@ static func apply_wound_modifiers(roll: int, modifiers: int, wound_threshold: in
 # Main shooting resolution entry point
 static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
 	if not rng_service:
-		rng_service = RNGService.new()
+		rng_service = make_rng()
 
 	var result = {
 		"success": true,
@@ -730,7 +773,7 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 # Shooting resolution that stops before saves (for interactive save system)
 static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
 	if not rng_service:
-		rng_service = RNGService.new()
+		rng_service = make_rng()
 
 	var result = {
 		"success": true,
@@ -812,7 +855,7 @@ static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: 
 	Returns { success, diffs, dice, log_text, total_hits, total_wounds, total_damage, total_casualties, weapon_results }
 	"""
 	if not rng_service:
-		rng_service = RNGService.new()
+		rng_service = make_rng()
 
 	var result = {
 		"success": true,
@@ -8381,7 +8424,7 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 # Main melee combat resolution entry point
 static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
 	if not rng_service:
-		rng_service = RNGService.new()
+		rng_service = make_rng()
 	
 	var result = {
 		"success": true,
@@ -8556,7 +8599,7 @@ static func resolve_melee_attacks_interactive(action: Dictionary, board: Diction
 	"""Resolve melee hit and wound rolls only, returning save data for interactive allocation.
 	Used when the defending player is human and should choose wound allocation."""
 	if not rng_service:
-		rng_service = RNGService.new()
+		rng_service = make_rng()
 
 	var result = {
 		"success": true,
@@ -11060,7 +11103,7 @@ static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, b
 	Returns: { triggered: bool, trigger_roll: int, diffs: Array, per_target: Array, total_mortal_wounds: int, total_casualties: int }
 	"""
 	if rng == null:
-		rng = RNGService.new()
+		rng = make_rng()
 
 	var units = board.get("units", {})
 	var destroyed_unit = units.get(destroyed_unit_id, {})
@@ -11189,7 +11232,7 @@ static func resolve_transport_destruction(transport_unit_id: String, board: Dict
 	Returns: { embarked_unit_ids: Array, per_unit: Array[{unit_id, unit_name, model_rolls: Array, mortal_wounds: int, models_destroyed: int, diffs: Array}], total_mortal_wounds: int, total_models_destroyed: int, all_diffs: Array }
 	"""
 	if rng == null:
-		rng = RNGService.new()
+		rng = make_rng()
 
 	var units = board.get("units", {})
 	var transport = units.get(transport_unit_id, {})
@@ -11379,7 +11422,7 @@ static func resolve_dread_foe(attacker_unit_id: String, target_unit_id: String, 
 	Returns: { roll: int, modified_roll: int, mortal_wounds: int, diffs: Array, casualties: int }
 	"""
 	if rng == null:
-		rng = RNGService.new()
+		rng = make_rng()
 
 	var units = board.get("units", {})
 	var attacker_unit = units.get(attacker_unit_id, {})
@@ -11451,7 +11494,7 @@ static func resolve_piston_driven_brutality(attacker_unit_id: String, target_uni
 	Returns: { roll: int, mortal_wounds: int, diffs: Array, casualties: int }
 	"""
 	if rng == null:
-		rng = RNGService.new()
+		rng = make_rng()
 
 	var units = board.get("units", {})
 	var attacker_unit = units.get(attacker_unit_id, {})

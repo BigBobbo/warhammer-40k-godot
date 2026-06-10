@@ -58,7 +58,7 @@ var awaiting_pulsa_rokkit: bool = false  # OA-31: True when waiting for Pulsa Ro
 var shooty_power_trip_pending_unit: String = ""  # OA-37: Unit awaiting Shooty Power Trip decision
 var awaiting_shooty_power_trip: bool = false  # OA-37: True when waiting for Shooty Power Trip response
 var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
-var _rng = RulesEngine.RNGService.new()  # P1-11: RNG for battle-shock tests (issue #329: routes through test_mode_seed)
+var _rng = RulesEngine.make_rng()  # P1-11: RNG for battle-shock tests (issue #329: routes through test_mode_seed)
 # Issue #386 Big Booms: queued struck-unit IDs from a supa-kannon target selection.
 # Resolved after the supa-kannon's attacks against the chosen target finish; D3 MW per struck unit.
 var _big_booms_pending: Array = []  # entries: {target_unit_id: String, struck_unit_ids: Array, rolls: Array}
@@ -2456,7 +2456,7 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 			continue
 
 		# Roll saves: allocate wounds to models in priority order (wounded first)
-		var rng = RulesEngine.RNGService.new()
+		var rng = RulesEngine.make_rng()
 		var save_results = []
 		var saves_passed = 0
 		var saves_failed = 0
@@ -2565,7 +2565,7 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 			emit_signal("dice_rolled", save_dice_block)
 
 		# Apply damage using RulesEngine
-		var fnp_rng = RulesEngine.RNGService.new()
+		var fnp_rng = RulesEngine.make_rng()
 		var damage_result = RulesEngine.apply_save_damage(
 			save_results,
 			save_data,
@@ -2848,7 +2848,7 @@ func _resolve_next_weapon() -> Dictionary:
 	}
 
 	# Resolve with RulesEngine UP TO WOUNDS
-	var rng_service = RulesEngine.RNGService.new()
+	var rng_service = RulesEngine.make_rng()
 	DebugLogger.info("ShootingPhase: Calling RulesEngine.resolve_shoot_until_wounds()...")
 	var result = RulesEngine.resolve_shoot_until_wounds(shoot_action, game_state_snapshot, rng_service)
 	DebugLogger.info(str("ShootingPhase: RulesEngine returned: success=%s" % result.success))
@@ -4320,7 +4320,9 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	# Issue #386 Big Booms: apply D3 MW per struck unit after supa-kannon attacks finish.
 	if not _big_booms_pending.is_empty():
 		var bb_board = GameState.create_snapshot()
-		var bb_rng = RulesEngine.RNGService.new()
+		# ISS-004: action is in scope — honor/record payload.rng_seed so the
+		# action log can replay these rolls.
+		var bb_rng = RulesEngine.rng_for_action(action)
 		for entry in _big_booms_pending:
 			for struck_uid in entry.get("struck_unit_ids", []):
 				var d3 = bb_rng.randi_range(1, 3)

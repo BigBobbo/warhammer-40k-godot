@@ -456,7 +456,7 @@ func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 
 	print("WoundAllocationOverlay: [SETUP STEP 3] Creating RNG service...")
 	# Initialize RNG service
-	rng_service = RulesEngine.RNGService.new()
+	rng_service = RulesEngine.make_rng()
 	print("WoundAllocationOverlay: [SETUP STEP 4] RNG service created")
 
 	# Get target unit
