@@ -88,7 +88,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** `.gitignore`, removed artifact paths
 - **Acceptance criteria:** fresh clone size drops by ~150MB; `run_scenarios.sh` and pretrigger tests still pass (no test reads a deleted artifact); `git status` stays clean after a game run.
-- **Status:** TODO
+- **Status:** DONE — untracked 3,589 files (~165MB): `40k/test_results` (152MB), `40k/saves` (11MB dev saves; live dir kept via .gitkeep — test fixtures in `40k/tests/saves/` untouched), `.godot_home`/`.tmp_home`, `logs/`, root `test_results/`, ai-loop iteration logs/trackers. `test_results/test_commands/commands/` structure kept via .gitkeep (TestModeHandler exchanges files there); `tests/scenarios/goldens/` (500 curated images) deliberately kept tracked. Verified: tests + windowed scenario pass and `git status` is clean afterwards.
 
 ### ISS-007 — Guard freed-node access during phase controller cleanup
 - **Location:** `40k/scripts/Main.gd:4159-4161` (calls `shooting_controller._clear_visuals()` then `queue_free()` without `is_instance_valid` check); same pattern for other controllers in `Main.gd:4104-4172`
@@ -793,7 +793,7 @@ Conventions:
 | ISS-003 | Structured ability schema + registry | high | DONE | — |
 | ISS-004 | Uniform per-action RNG seeding | high | DONE | — |
 | ISS-005 | PhaseControllerBase extraction | high | DONE | — |
-| ISS-006 | Remove committed artifacts from git | medium | TODO | — |
+| ISS-006 | Remove committed artifacts from git | medium | DONE | — |
 | ISS-007 | Guard freed-node access in cleanup | medium | TODO | — |
 | ISS-008 | Standardize controller input handling | medium | TODO | (005) |
 | ISS-009 | Replace hardcoded /root/ paths | low | TODO | 005 |
