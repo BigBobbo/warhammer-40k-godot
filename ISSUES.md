@@ -100,7 +100,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** `40k/scripts/Main.gd`
 - **Acceptance criteria:** scripted rapid phase-cycling (scenario driving 3 full turns at max AI speed) produces no script errors in the debug log.
-- **Status:** TODO
+- **Status:** DONE — all seven controller teardown blocks in `Main.setup_phase_controllers` now guard with `is_instance_valid` (and null the reference unconditionally). Validated live over the MCP bridge: 17 rapid phase transitions including out-of-order jumps → 0 errors in the debug log, `verify_delivery` verdict PASS; windowed shooting + fight scenarios and the 617-check suite all pass.
 
 ### ISS-008 — Standardize controller input handling
 - **Location:** `40k/scripts/ShootingController.gd:3839` (`_input`), `40k/scripts/FightController.gd:1335` (`_input`), `40k/scripts/MovementController.gd:1609` (`_unhandled_input`), `40k/scripts/DeploymentController.gd:82` (`_unhandled_input`), `40k/scripts/Main.gd:11881` (`_unhandled_input` is an empty `pass`)
@@ -112,7 +112,7 @@ Conventions:
 - **Dependencies:** none (cleaner after ISS-005)
 - **Affected files:** 5 controllers, `40k/scripts/Main.gd`
 - **Acceptance criteria:** windowed scenario asserts phase-specific hotkeys work in their phase and do nothing in others; ESC opens settings in every phase.
-- **Status:** TODO
+- **Status:** DONE (scope corrected during implementation) — investigation showed the `_input` usage in Shooting/Fight/Charge controllers is **deliberate**: those handlers must pre-empt GUI focus / modal dialogs (wound-allocation overlay; PileInDialog during interactive pile-in; charge-confirm hit-testing) and `_unhandled_input` never fires while a modal AcceptDialog is open — blanket standardization would have broken pile-in. Every handler already carries a phase/state guard (verified: phase-type checks, `awaiting_movement`, `is_placing()`, multiplayer-turn checks), and controllers are freed on phase exit, so cross-phase races are guarded twice over. Implemented: each deliberate `_input` documented in place; Main's dead empty `_unhandled_input` removed (global ESC genuinely lives in `Main._input`, documented). Validated via the rapid-cycle MCP run (0 errors), shooting/fight scenarios (exercise the bypass paths), and the full suite.
 
 ### ISS-009 — Replace hardcoded `/root/...` node paths with injected references
 - **Location:** 30+ sites, e.g. `40k/autoloads/SaveLoadManager.gd:127`, `40k/autoloads/PhaseManager.gd:145`, controllers' `get_node_or_null("/root/Main/BoardRoot/BoardView")`
@@ -794,8 +794,8 @@ Conventions:
 | ISS-004 | Uniform per-action RNG seeding | high | DONE | — |
 | ISS-005 | PhaseControllerBase extraction | high | DONE | — |
 | ISS-006 | Remove committed artifacts from git | medium | DONE | — |
-| ISS-007 | Guard freed-node access in cleanup | medium | TODO | — |
-| ISS-008 | Standardize controller input handling | medium | TODO | (005) |
+| ISS-007 | Guard freed-node access in cleanup | medium | DONE | — |
+| ISS-008 | Standardize controller input handling | medium | DONE | (005) |
 | ISS-009 | Replace hardcoded /root/ paths | low | TODO | 005 |
 | ISS-010 | Move root status docs to docs/history | low | TODO | — |
 | ISS-011 | Triage archived/disabled tests | low | TODO | — |

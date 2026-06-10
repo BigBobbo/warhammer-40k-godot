@@ -127,6 +127,9 @@ func _exit_tree() -> void:
 				container.remove_child(node)
 				node.queue_free()
 
+# ISS-008: deliberately _input (not _unhandled_input) — the charge-move
+# confirm button is hit-tested at input level so confirming works even while
+# overlays/dialogs hold GUI focus. Guarded by awaiting_movement.
 func _input(event: InputEvent) -> void:
 	if not awaiting_movement:
 		return

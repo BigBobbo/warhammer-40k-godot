@@ -3821,6 +3821,9 @@ func _update_ui_state() -> void:
 			child = child.get_next()
 	print("╚═══════════════════════════════════════════════════════════════")
 
+# ISS-008: deliberately _input (not _unhandled_input) — shooting hotkeys must
+# keep working while the wound-allocation overlay/dialogs hold GUI focus.
+# Guarded below by save_dialog_showing + phase-type + multiplayer-turn checks.
 func _input(event: InputEvent) -> void:
 	# CRITICAL: Skip ALL input handling if wound allocation dialog is showing
 	if save_dialog_showing:

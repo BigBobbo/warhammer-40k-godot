@@ -1323,6 +1323,9 @@ func _on_auto_fight_pressed() -> void:
 		"type": "CONFIRM_ATTACKS",
 	})
 
+# ISS-008: deliberately _input (not _unhandled_input) — interactive pile-in /
+# consolidate must receive mouse events while the PileInDialog (a modal
+# AcceptDialog) is open; _unhandled_input would never fire then.
 func _input(event: InputEvent) -> void:
 	if not current_phase or not current_phase is FightPhase:
 		return

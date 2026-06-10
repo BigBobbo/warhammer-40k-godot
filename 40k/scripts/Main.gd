@@ -4101,22 +4101,24 @@ func setup_phase_controllers() -> void:
 	_clear_right_panel_phase_ui()
 
 	# Clean up existing controllers
-	if deployment_controller:
+	# ISS-007: guard every access with is_instance_valid — async signals can
+	# fire during teardown and a freed-but-non-null reference must not crash.
+	if deployment_controller and is_instance_valid(deployment_controller):
 		deployment_controller.queue_free()
-		deployment_controller = null
+	deployment_controller = null
 	if coherency_banner and is_instance_valid(coherency_banner):
 		coherency_banner.queue_free()
 		coherency_banner = null
-	if command_controller:
+	if command_controller and is_instance_valid(command_controller):
 		command_controller.queue_free()
-		command_controller = null
+	command_controller = null
 	# Clean up scout phase visuals
 	_scout_destroy_visuals()
 	_scout_clear_highlights()
-	if movement_controller:
+	if movement_controller and is_instance_valid(movement_controller):
 		movement_controller.queue_free()
-		movement_controller = null
-	if shooting_controller:
+	movement_controller = null
+	if shooting_controller and is_instance_valid(shooting_controller):
 		# CRITICAL: Disconnect ALL signals before freeing to prevent lingering connections
 		print("Main: Cleaning up shooting_controller instance ID: ", shooting_controller.get_instance_id())
 		var phase_instance = PhaseManager.get_current_phase_instance()
@@ -4161,15 +4163,15 @@ func setup_phase_controllers() -> void:
 		shooting_controller.queue_free()
 		shooting_controller = null
 		print("Main: Shooting controller queued for deletion")
-	if charge_controller:
+	if charge_controller and is_instance_valid(charge_controller):
 		charge_controller.queue_free()
-		charge_controller = null
-	if fight_controller:
+	charge_controller = null
+	if fight_controller and is_instance_valid(fight_controller):
 		fight_controller.queue_free()
-		fight_controller = null
-	if scoring_controller:
+	fight_controller = null
+	if scoring_controller and is_instance_valid(scoring_controller):
 		scoring_controller.queue_free()
-		scoring_controller = null
+	scoring_controller = null
 	
 	# Wait TWO frames for complete cleanup
 	await get_tree().process_frame
@@ -11878,8 +11880,10 @@ func _scout_clear_highlights() -> void:
 # P3-111: In-game Settings Menu (Escape key)
 # ============================================================================
 
-func _unhandled_input(_event: InputEvent) -> void:
-	pass
+# NOTE (ISS-008): global hotkeys (ESC etc.) are handled in Main._input on
+# purpose — they must pre-empt GUI focus and modal dialogs. Controllers
+# handle their phase input in _unhandled_input unless they need to bypass a
+# modal dialog (see ShootingController/FightController/ChargeController).
 
 func _open_settings_menu() -> void:
 	# Shared entry point for opening the in-game settings menu (used by the
