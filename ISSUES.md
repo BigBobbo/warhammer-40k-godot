@@ -124,7 +124,7 @@ Conventions:
 - **Dependencies:** ISS-005
 - **Affected files:** controllers, `40k/autoloads/SaveLoadManager.gd`, `40k/autoloads/PhaseManager.gd`, `40k/scripts/Main.gd`
 - **Acceptance criteria:** no `get_node("/root/Main/...")` string paths in controllers; game boots and a full turn plays with no errors.
-- **Status:** TODO
+- **Status:** TODO (rides with ISS-013 as planned — PhaseControllerBase centralized the three main lookups; the lifecycle manager built in ISS-013 will inject board/HUD references at construction, removing the remaining string paths)
 
 ### ISS-010 — Move root-level status/plan documents into docs/history
 - **Location:** repo root: ~40 files (`MASTER_AUDIT.md`, `FEB21_AUDIT.md`, `DEPLOYMENT_FIX_STATUS.md`, `ai_fix_loop_log.txt`, `scrap.md`, …)
@@ -136,7 +136,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** root `.md`/log files, possibly links in CLAUDE.md
 - **Acceptance criteria:** root contains only living documents; `git grep` finds no broken references to moved files.
-- **Status:** TODO
+- **Status:** DONE — 36 dated status/audit/plan docs (plus claude_dev_eval.pptx) moved to `docs/history/`. Kept at root because they are living or referenced by tooling/tests: CLAUDE.md, SESSION_PLAYBOOK.md, ISSUES.md, PRD.md, ARCHITECTURE_AUDIT_2026-06.md, INITIAL.md, PRP_Best_Practices_for_Claude.md, ai_fix_loop_prompt.md (ai_fix_loop.sh input), AI_STALL_FIXES.md / AI_IMPROVEMENT.md (loop-script inputs), TESTS_NEEDED.md (.claude do-task workflow), CONSOLIDATED_AUDIT_TASKS.md (read by test_audit_already_done_pin.gd). Reference check done before moving.
 
 ### ISS-011 — Delete or reinstate archived/disabled tests
 - **Location:** `40k/tests_archived_disabled/` (11 entries), `40k/tests/disabled_tests/` (e.g. `test_fight_phase_alternation.gd`)
@@ -797,8 +797,8 @@ Conventions:
 | ISS-007 | Guard freed-node access in cleanup | medium | DONE | — |
 | ISS-008 | Standardize controller input handling | medium | DONE | (005) |
 | ISS-009 | Replace hardcoded /root/ paths | low | TODO | 005 |
-| ISS-010 | Move root status docs to docs/history | low | TODO | — |
-| ISS-011 | Triage archived/disabled tests | low | TODO | — |
+| ISS-010 | Move root status docs to docs/history | low | DONE | — |
+| ISS-011 | Triage archived/disabled tests | low | DONE | — |
 | ISS-012 | Unified AttackSequence (dedupe ranged/melee) | high | TODO | 002, 003 |
 | ISS-013 | Signal registry + phase lifecycle out of Main | high | TODO | 005 |
 | ISS-014 | AI consumes shared rules math | high | TODO | 012 |
