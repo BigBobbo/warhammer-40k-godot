@@ -47,7 +47,12 @@
             "strength": "7",
             "ap": "-2",
             "damage": "2",
-            "special_rules": "precision"
+            "special_rules": "precision",
+            "abilities": [
+              {
+                "id": "precision"
+              }
+            ]
           },
           {
             "name": "Vaultswords – Hurricanus",
@@ -58,7 +63,13 @@
             "strength": "5",
             "ap": "-1",
             "damage": "1",
-            "special_rules": "sustained hits 1"
+            "special_rules": "sustained hits 1",
+            "abilities": [
+              {
+                "id": "sustained_hits",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Vaultswords – Victus",
@@ -69,7 +80,12 @@
             "strength": "6",
             "ap": "-3",
             "damage": "3",
-            "special_rules": "devastating wounds"
+            "special_rules": "devastating wounds",
+            "abilities": [
+              {
+                "id": "devastating_wounds"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -162,7 +178,15 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "ignores cover, torrent"
+            "special_rules": "ignores cover, torrent",
+            "abilities": [
+              {
+                "id": "ignores_cover"
+              },
+              {
+                "id": "torrent"
+              }
+            ]
           },
           {
             "name": "Close combat weapon",
@@ -279,7 +303,12 @@
             "strength": "12",
             "ap": "-3",
             "damage": "D6+2",
-            "special_rules": "twin-linked"
+            "special_rules": "twin-linked",
+            "abilities": [
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Twin iliastus accelerator cannon",
@@ -290,7 +319,16 @@
             "strength": "10",
             "ap": "-1",
             "damage": "3",
-            "special_rules": "rapid fire 4, twin-linked"
+            "special_rules": "rapid fire 4, twin-linked",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 4
+              },
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Twin lastrum bolt cannon",
@@ -301,7 +339,13 @@
             "strength": "6",
             "ap": "-1",
             "damage": "1",
-            "special_rules": "sustained hits 1"
+            "special_rules": "sustained hits 1",
+            "abilities": [
+              {
+                "id": "sustained_hits",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Armoured hull",

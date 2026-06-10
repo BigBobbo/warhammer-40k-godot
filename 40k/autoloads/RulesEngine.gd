@@ -4691,6 +4691,10 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 			profile["attacks_raw"] = str(profile.get("attacks", 1))
 		if not profile.has("damage_raw"):
 			profile["damage_raw"] = str(profile.get("damage", 1))
+		# ISS-003: attach the structured ability list (derived from the
+		# legacy keywords/special_rules if no structured data is present)
+		if not profile.has("abilities"):
+			profile["abilities"] = AbilityRegistry.from_weapon(profile)
 		return profile
 	
 	# Search through all units for matching weapon
@@ -4758,6 +4762,14 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 				
 				# Parse keywords from special_rules string (e.g., "Pistol, Rapid Fire 1")
 				var special_rules = weapon.get("special_rules", "")
+				# ISS-003: structured abilities are authoritative. When the
+				# weapon carries them, the engine-facing special_rules string
+				# is synthesized from the structured data so every downstream
+				# matcher consumes what the structured entries describe.
+				var abilities = AbilityRegistry.from_weapon(weapon)
+				var raw_abilities = weapon.get("abilities", [])
+				if raw_abilities is Array and not raw_abilities.is_empty():
+					special_rules = AbilityRegistry.to_display_string(abilities)
 				var keywords = weapon.get("keywords", [])
 
 				# If keywords array is empty but special_rules has content, extract keywords
@@ -4792,7 +4804,8 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 					"damage": damage_value,  # Convert to int for calculations
 					"damage_raw": damage_str,  # Keep raw string for variable rolling (D3, D6, etc.)
 					"special_rules": special_rules,
-					"keywords": keywords
+					"keywords": keywords,
+					"abilities": abilities
 				}
 	
 	print("WARNING: Weapon profile not found: ", weapon_id)

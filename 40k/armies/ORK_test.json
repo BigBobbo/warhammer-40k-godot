@@ -1,441 +1,514 @@
 {
-    "faction": {
-      "name": "Orks",
-      "points": 2000,
-      "detachment": "War Horde",
-      "player_name": "",
-      "team_name": "",
-      "created_date": "2025-02-10"
-    },
-    "units": {
-      "U_WARBOSS_B": {
-        "id": "U_WARBOSS_B",
-        "squad_id": "U_WARBOSS_B",
-        "owner": 2,
-        "status": "UNDEPLOYED",
-        "meta": {
-          "name": "Warboss",
-          "keywords": [
-            "CHARACTER",
-            "GRENADES",
-            "INFANTRY",
-            "ORKS",
-            "WARBOSS"
-          ],
-          "stats": {
-            "move": 6,
-            "toughness": 5,
-            "save": 4,
-            "wounds": 6,
-            "leadership": 6,
-            "objective_control": 1
-          },
-          "points": 75,
-          "is_warlord": true,
-          "enhancements": [],
-          "wargear": [
-            "1x Kombi-weapon",
-            "1x Power klaw",
-            "1x Twin sluggas"
-          ],
-          "weapons": [
-            {
-              "name": "Kombi-weapon",
-              "type": "Ranged",
-              "range": "24",
-              "attacks": "1",
-              "ballistic_skill": "5",
-              "strength": "4",
-              "ap": "0",
-              "damage": "1",
-              "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1"
-            },
-            {
-              "name": "Twin slugga",
-              "type": "Ranged",
-              "range": "12",
-              "attacks": "2",
-              "ballistic_skill": "5",
-              "strength": "4",
-              "ap": "0",
-              "damage": "1",
-              "special_rules": "pistol, twin-linked"
-            },
-            {
-              "name": "Attack squig",
-              "type": "Melee",
-              "range": "Melee",
-              "attacks": "2",
-              "weapon_skill": "4",
-              "strength": "4",
-              "ap": "0",
-              "damage": "1",
-              "special_rules": "extra attacks"
-            },
-            {
-              "name": "Big choppa",
-              "type": "Melee",
-              "range": "Melee",
-              "attacks": "5",
-              "weapon_skill": "2",
-              "strength": "8",
-              "ap": "-1",
-              "damage": "2"
-            },
-            {
-              "name": "Power klaw",
-              "type": "Melee",
-              "range": "Melee",
-              "attacks": "4",
-              "weapon_skill": "3",
-              "strength": "10",
-              "ap": "-2",
-              "damage": "2"
-            }
-          ],
-          "abilities": [
-            {
-              "name": "Core",
-              "type": "Core",
-              "description": ""
-            },
-            {
-              "name": "Waaagh!",
-              "type": "Faction",
-              "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
-            },
-            {
-              "name": "Might is Right",
-              "type": "Datasheet",
-              "description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll."
-            },
-            {
-              "name": "Da Biggest and da Best",
-              "type": "Datasheet",
-              "description": "While the Waaagh! is active for your army, add 4 to the Attacks characteristic of this model's melee weapons."
-            }
-          ],
-          "unit_composition": [
-            {
-              "description": "1 Warboss",
-              "line": 1
-            }
-          ],
-          "leader_data": {
-            "can_lead": ["BOYZ"]
-          }
+  "faction": {
+    "name": "Orks",
+    "points": 2000,
+    "detachment": "War Horde",
+    "player_name": "",
+    "team_name": "",
+    "created_date": "2025-02-10"
+  },
+  "units": {
+    "U_WARBOSS_B": {
+      "id": "U_WARBOSS_B",
+      "squad_id": "U_WARBOSS_B",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Warboss",
+        "keywords": [
+          "CHARACTER",
+          "GRENADES",
+          "INFANTRY",
+          "ORKS",
+          "WARBOSS"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 5,
+          "save": 4,
+          "wounds": 6,
+          "leadership": 6,
+          "objective_control": 1
         },
-        "models": [
+        "points": 75,
+        "is_warlord": true,
+        "enhancements": [],
+        "wargear": [
+          "1x Kombi-weapon",
+          "1x Power klaw",
+          "1x Twin sluggas"
+        ],
+        "weapons": [
           {
-            "id": "m1",
-            "wounds": 6,
-            "current_wounds": 6,
-            "base_mm": 40,
-            "position": null,
-            "alive": true,
-            "status_effects": []
-          }
-        ]
-      },
-      "U_WARBOSS_IN_MEGA_ARMOUR_D": {
-        "id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
-        "squad_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
-        "owner": 2,
-        "status": "UNDEPLOYED",
-        "meta": {
-          "name": "Warboss in Mega Armour",
-          "keywords": [
-            "CHARACTER",
-            "INFANTRY",
-            "MEGA ARMOUR",
-            "ORKS",
-            "WARBOSS",
-            "WARBOSS IN MEGA ARMOUR"
-          ],
-          "stats": {
-            "move": 5,
-            "toughness": 6,
-            "save": 2,
-            "wounds": 7,
-            "leadership": 6,
-            "objective_control": 1,
-            "fnp": 5
+            "name": "Kombi-weapon",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "1",
+            "ballistic_skill": "5",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+            "abilities": [
+              {
+                "id": "anti",
+                "keyword": "INFANTRY",
+                "threshold": 4
+              },
+              {
+                "id": "devastating_wounds"
+              },
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
-          "points": 115,
-          "is_warlord": false,
-          "enhancements": [
-            "Tellyporta"
-          ],
-          "wargear": [
-            "1x 'Uge choppa"
-          ],
-          "weapons": [
-            {
-              "name": "Big shoota",
-              "type": "Ranged",
-              "range": "36",
-              "attacks": "3",
-              "ballistic_skill": "4",
-              "strength": "5",
-              "ap": "0",
-              "damage": "1",
-              "special_rules": "rapid fire 2"
-            },
-            {
-              "name": "'Uge choppa",
-              "type": "Melee",
-              "range": "Melee",
-              "attacks": "4",
-              "weapon_skill": "2",
-              "strength": "12",
-              "ap": "-2",
-              "damage": "2"
-            }
-          ],
-          "abilities": [
-            {
-              "name": "Core",
-              "type": "Core",
-              "description": ""
-            },
-            {
-              "name": "Waaagh!",
-              "type": "Faction",
-              "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
-            },
-            {
-              "name": "Might is Right",
-              "type": "Datasheet",
-              "description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll."
-            },
-            {
-              "name": "Dead Brutal",
-              "type": "Datasheet",
-              "description": "While the Waaagh! is active for your army, this model's 'uge choppa has a Damage characteristic of 3."
-            }
-          ],
-          "unit_composition": [
-            {
-              "description": "1 Warboss in Mega Armour",
-              "line": 1
-            }
-          ],
-          "leader_data": {
-            "can_lead": ["BOYZ"]
-          }
-        },
-        "models": [
           {
-            "id": "m1",
-            "wounds": 7,
-            "current_wounds": 7,
-            "base_mm": 50,
-            "position": null,
-            "alive": true,
-            "status_effects": []
-          }
-        ]
-      },
-      "U_BATTLEWAGON_G": {
-        "id": "U_BATTLEWAGON_G",
-        "squad_id": "U_BATTLEWAGON_G",
-        "owner": 2,
-        "status": "UNDEPLOYED",
-        "meta": {
-          "name": "Battlewagon",
-          "keywords": [
-            "BATTLEWAGON",
-            "ORKS",
-            "TRANSPORT",
-            "VEHICLE"
-          ],
-          "stats": {
-            "move": 10,
-            "toughness": 10,
-            "save": 3,
-            "wounds": 16,
-            "leadership": 7,
-            "objective_control": 5
+            "name": "Twin slugga",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "2",
+            "ballistic_skill": "5",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "pistol, twin-linked",
+            "abilities": [
+              {
+                "id": "pistol"
+              },
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
-          "points": 160,
-          "is_warlord": false,
-          "enhancements": [],
-          "wargear": [
-            "1x Deff rolla",
-            "1x Grabbin' klaw",
-            "1x Kannon",
-            "1x Lobba",
-            "1x Wreckin' ball",
-            "1x 'Ard Case"
-          ],
-          "weapons": [
-            {
-              "name": "Big shoota",
-              "type": "Ranged",
-              "range": "36",
-              "attacks": "3",
-              "ballistic_skill": "5",
-              "strength": "5",
-              "ap": "0",
-              "damage": "1",
-              "special_rules": "rapid fire 2"
-            },
-            {
-              "name": "Kannon – frag",
-              "type": "Ranged",
-              "range": "36",
-              "attacks": "D6+3",
-              "ballistic_skill": "5",
-              "strength": "6",
-              "ap": "0",
-              "damage": "1",
-              "special_rules": "blast"
-            },
-            {
-              "name": "Kannon – shell",
-              "type": "Ranged",
-              "range": "36",
-              "attacks": "1",
-              "ballistic_skill": "5",
-              "strength": "10",
-              "ap": "-2",
-              "damage": "D6"
-            },
-            {
-              "name": "Killkannon",
-              "type": "Ranged",
-              "range": "24",
-              "attacks": "D6+1",
-              "ballistic_skill": "5",
-              "strength": "9",
-              "ap": "-2",
-              "damage": "2"
-            },
-            {
-              "name": "Lobba",
-              "type": "Ranged",
-              "range": "48",
-              "attacks": "D6",
-              "ballistic_skill": "5",
-              "strength": "5",
-              "ap": "0",
-              "damage": "1",
-              "special_rules": "blast, indirect fire"
-            },
-            {
-              "name": "Zzap gun",
-              "type": "Ranged",
-              "range": "36",
-              "attacks": "1",
-              "ballistic_skill": "5",
-              "strength": "D6+6",
-              "ap": "-3",
-              "damage": "5",
-              "special_rules": "anti-vehicle 4+"
-            },
-            {
-              "name": "Deff rolla",
-              "type": "Melee",
-              "range": "Melee",
-              "attacks": "6",
-              "weapon_skill": "3",
-              "strength": "9",
-              "ap": "-1",
-              "damage": "2"
-            },
-            {
-              "name": "Grabbin' klaw",
-              "type": "Melee",
-              "range": "Melee",
-              "attacks": "2",
-              "weapon_skill": "3",
-              "strength": "8",
-              "ap": "-2",
-              "damage": "2",
-              "special_rules": "extra attacks"
-            },
-            {
-              "name": "Tracks and wheels",
-              "type": "Melee",
-              "range": "Melee",
-              "attacks": "6",
-              "weapon_skill": "4",
-              "strength": "8",
-              "ap": "0",
-              "damage": "1"
-            },
-            {
-              "name": "Wreckin' ball",
-              "type": "Melee",
-              "range": "Melee",
-              "attacks": "1",
-              "weapon_skill": "4",
-              "strength": "10",
-              "ap": "0",
-              "damage": "D6",
-              "special_rules": "extra attacks"
-            }
-          ],
-          "abilities": [
-            {
-              "name": "Deadly Demise D6",
-              "type": "Core",
-              "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D6 mortal wounds."
-            },
-            {
-              "name": "FIRING DECK",
-              "type": "Core",
-              "description": "Firing Deck 11. Each time this transport shoots, up to 11 models embarked within it can be selected to shoot as well. Each time such a model makes a ranged attack, it is treated as if it were not embarked, except that it cannot use any abilities that require it to be on the battlefield."
-            },
-            {
-              "name": "Waaagh!",
-              "type": "Faction",
-              "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
-            },
-            {
-              "name": "Ramshackle",
-              "type": "Datasheet",
-              "description": "Each time this model loses one or more wounds, roll one D6: on a 6, this model does not lose a wound."
-            },
-            {
-              "name": "Damaged: 1-5 Wounds Remaining",
-              "type": "Datasheet",
-              "description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
-            },
-            {
-              "name": "'Ard Case",
-              "type": "Wargear",
-              "description": "Add 2 to this model's Toughness characteristic. If this model is equipped with this wargear, it loses the Firing Deck ability."
-            },
-            {
-              "name": "TRANSPORT",
-              "type": "Special",
-              "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models."
-            }
-          ],
-          "unit_composition": [
-            {
-              "description": "1 Battlewagon",
-              "line": 1
-            }
+          {
+            "name": "Attack squig",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "2",
+            "weapon_skill": "4",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "extra attacks",
+            "abilities": [
+              {
+                "id": "extra_attacks"
+              }
+            ]
+          },
+          {
+            "name": "Big choppa",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "5",
+            "weapon_skill": "2",
+            "strength": "8",
+            "ap": "-1",
+            "damage": "2"
+          },
+          {
+            "name": "Power klaw",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "4",
+            "weapon_skill": "3",
+            "strength": "10",
+            "ap": "-2",
+            "damage": "2"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Core",
+            "type": "Core",
+            "description": ""
+          },
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
+          },
+          {
+            "name": "Might is Right",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll."
+          },
+          {
+            "name": "Da Biggest and da Best",
+            "type": "Datasheet",
+            "description": "While the Waaagh! is active for your army, add 4 to the Attacks characteristic of this model's melee weapons."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Warboss",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": [
+            "BOYZ"
           ]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 6,
+          "current_wounds": 6,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_WARBOSS_IN_MEGA_ARMOUR_D": {
+      "id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+      "squad_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Warboss in Mega Armour",
+        "keywords": [
+          "CHARACTER",
+          "INFANTRY",
+          "MEGA ARMOUR",
+          "ORKS",
+          "WARBOSS",
+          "WARBOSS IN MEGA ARMOUR"
+        ],
+        "stats": {
+          "move": 5,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 7,
+          "leadership": 6,
+          "objective_control": 1,
+          "fnp": 5
         },
-        "models": [
+        "points": 115,
+        "is_warlord": false,
+        "enhancements": [
+          "Tellyporta"
+        ],
+        "wargear": [
+          "1x 'Uge choppa"
+        ],
+        "weapons": [
           {
-            "id": "m1",
-            "wounds": 16,
-            "current_wounds": 16,
-            "base_mm": 180,
-            "base_type": "rectangular",
-            "base_dimensions": {
-              "length": 180,
-              "width": 110
-            },
-            "position": null,
-            "alive": true,
-            "status_effects": []
+            "name": "Big shoota",
+            "type": "Ranged",
+            "range": "36",
+            "attacks": "3",
+            "ballistic_skill": "4",
+            "strength": "5",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "rapid fire 2",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 2
+              }
+            ]
+          },
+          {
+            "name": "'Uge choppa",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "4",
+            "weapon_skill": "2",
+            "strength": "12",
+            "ap": "-2",
+            "damage": "2"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Core",
+            "type": "Core",
+            "description": ""
+          },
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
+          },
+          {
+            "name": "Might is Right",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll."
+          },
+          {
+            "name": "Dead Brutal",
+            "type": "Datasheet",
+            "description": "While the Waaagh! is active for your army, this model's 'uge choppa has a Damage characteristic of 3."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Warboss in Mega Armour",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": [
+            "BOYZ"
+          ]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 7,
+          "current_wounds": 7,
+          "base_mm": 50,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_BATTLEWAGON_G": {
+      "id": "U_BATTLEWAGON_G",
+      "squad_id": "U_BATTLEWAGON_G",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Battlewagon",
+        "keywords": [
+          "BATTLEWAGON",
+          "ORKS",
+          "TRANSPORT",
+          "VEHICLE"
+        ],
+        "stats": {
+          "move": 10,
+          "toughness": 10,
+          "save": 3,
+          "wounds": 16,
+          "leadership": 7,
+          "objective_control": 5
+        },
+        "points": 160,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "1x Deff rolla",
+          "1x Grabbin' klaw",
+          "1x Kannon",
+          "1x Lobba",
+          "1x Wreckin' ball",
+          "1x 'Ard Case"
+        ],
+        "weapons": [
+          {
+            "name": "Big shoota",
+            "type": "Ranged",
+            "range": "36",
+            "attacks": "3",
+            "ballistic_skill": "5",
+            "strength": "5",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "rapid fire 2",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 2
+              }
+            ]
+          },
+          {
+            "name": "Kannon – frag",
+            "type": "Ranged",
+            "range": "36",
+            "attacks": "D6+3",
+            "ballistic_skill": "5",
+            "strength": "6",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "blast",
+            "abilities": [
+              {
+                "id": "blast"
+              }
+            ]
+          },
+          {
+            "name": "Kannon – shell",
+            "type": "Ranged",
+            "range": "36",
+            "attacks": "1",
+            "ballistic_skill": "5",
+            "strength": "10",
+            "ap": "-2",
+            "damage": "D6"
+          },
+          {
+            "name": "Killkannon",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "D6+1",
+            "ballistic_skill": "5",
+            "strength": "9",
+            "ap": "-2",
+            "damage": "2"
+          },
+          {
+            "name": "Lobba",
+            "type": "Ranged",
+            "range": "48",
+            "attacks": "D6",
+            "ballistic_skill": "5",
+            "strength": "5",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "blast, indirect fire",
+            "abilities": [
+              {
+                "id": "blast"
+              },
+              {
+                "id": "indirect_fire"
+              }
+            ]
+          },
+          {
+            "name": "Zzap gun",
+            "type": "Ranged",
+            "range": "36",
+            "attacks": "1",
+            "ballistic_skill": "5",
+            "strength": "D6+6",
+            "ap": "-3",
+            "damage": "5",
+            "special_rules": "anti-vehicle 4+",
+            "abilities": [
+              {
+                "id": "anti",
+                "keyword": "VEHICLE",
+                "threshold": 4
+              }
+            ]
+          },
+          {
+            "name": "Deff rolla",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "6",
+            "weapon_skill": "3",
+            "strength": "9",
+            "ap": "-1",
+            "damage": "2"
+          },
+          {
+            "name": "Grabbin' klaw",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "2",
+            "weapon_skill": "3",
+            "strength": "8",
+            "ap": "-2",
+            "damage": "2",
+            "special_rules": "extra attacks",
+            "abilities": [
+              {
+                "id": "extra_attacks"
+              }
+            ]
+          },
+          {
+            "name": "Tracks and wheels",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "6",
+            "weapon_skill": "4",
+            "strength": "8",
+            "ap": "0",
+            "damage": "1"
+          },
+          {
+            "name": "Wreckin' ball",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "1",
+            "weapon_skill": "4",
+            "strength": "10",
+            "ap": "0",
+            "damage": "D6",
+            "special_rules": "extra attacks",
+            "abilities": [
+              {
+                "id": "extra_attacks"
+              }
+            ]
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deadly Demise D6",
+            "type": "Core",
+            "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D6 mortal wounds."
+          },
+          {
+            "name": "FIRING DECK",
+            "type": "Core",
+            "description": "Firing Deck 11. Each time this transport shoots, up to 11 models embarked within it can be selected to shoot as well. Each time such a model makes a ranged attack, it is treated as if it were not embarked, except that it cannot use any abilities that require it to be on the battlefield."
+          },
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
+          },
+          {
+            "name": "Ramshackle",
+            "type": "Datasheet",
+            "description": "Each time this model loses one or more wounds, roll one D6: on a 6, this model does not lose a wound."
+          },
+          {
+            "name": "Damaged: 1-5 Wounds Remaining",
+            "type": "Datasheet",
+            "description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
+          },
+          {
+            "name": "'Ard Case",
+            "type": "Wargear",
+            "description": "Add 2 to this model's Toughness characteristic. If this model is equipped with this wargear, it loses the Firing Deck ability."
+          },
+          {
+            "name": "TRANSPORT",
+            "type": "Special",
+            "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Battlewagon",
+            "line": 1
           }
         ]
-      }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 16,
+          "current_wounds": 16,
+          "base_mm": 180,
+          "base_type": "rectangular",
+          "base_dimensions": {
+            "length": 180,
+            "width": 110
+          },
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
     }
   }
+}

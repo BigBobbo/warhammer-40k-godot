@@ -52,7 +52,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** `40k/armies/*.json`, `40k/autoloads/RulesEngine.gd`, `40k/autoloads/ArmyListManager.gd`, new `AbilityRegistry.gd`, converter script, tests
 - **Acceptance criteria:** converted JSONs load with zero validation errors; an intentionally misspelled ability id fails loading with a clear error; full test suite passes; one end-to-end shoot action produces identical results pre/post conversion (golden comparison).
-- **Status:** TODO
+- **Status:** DONE — new `40k/scripts/rules/AbilityRegistry.gd` (22 registered ids incl. 11e-forward cleave/close_quarters/one_shot; parse/validate/display round-trip); 236 weapons across 10 army files converted to structured `abilities` (Python converter, content verified identical apart from added arrays); `RulesEngine.get_weapon_profile` attaches `profile.abilities` and synthesizes the engine-facing string from structured data when present (structured = authoritative); ArmyListManager fails the load on unknown ids/params. Validated by `test_iss003_ability_schema.gd` 26/26 — incl. converter parity for all 236 weapons and a golden `resolve_shoot` (structured-only weapon → identical dice + diffs vs string-defined twin); pretrigger suite 601/601; windowed scenario 374 (devastating wounds from converted data) passes.
 
 ### ISS-004 — Uniform per-action RNG seeding (eliminate unseeded RNGService sites)
 - **Location:** 30 unseeded `RulesEngine.RNGService.new()` sites, e.g. `40k/phases/MovementPhase.gd:476`, `40k/phases/ShootingPhase.gd:61,2459,2568,2851`; seeded pattern already exists (`MovementPhase.gd:1473-1481` honors `payload.rng_seed`, `NetworkManager.get_next_rng_seed()` at `NetworkManager.gd:2369-2378`)
@@ -790,7 +790,7 @@ Conventions:
 |---|---|---|---|---|
 | ISS-001 | Route all in-game state mutations through pipeline | high | DONE | — |
 | ISS-002 | GameConstants module + edition switch | high | DONE | — |
-| ISS-003 | Structured ability schema + registry | high | TODO | — |
+| ISS-003 | Structured ability schema + registry | high | DONE | — |
 | ISS-004 | Uniform per-action RNG seeding | high | TODO | — |
 | ISS-005 | PhaseControllerBase extraction | high | TODO | — |
 | ISS-006 | Remove committed artifacts from git | medium | TODO | — |

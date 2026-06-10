@@ -107,7 +107,18 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 		print("ERROR: ", error_msg)
 		emit_signal("army_load_failed", error_msg)
 		return {}
-	
+
+	# ISS-003: validate structured weapon abilities against the registry.
+	# Unknown ability ids / bad params are LOAD ERRORS — a typo must fail the
+	# load, not silently never fire in game.
+	var ability_errors = _validate_weapon_abilities(army_data, army_name)
+	if not ability_errors.is_empty():
+		var error_msg = "Army '%s' has invalid weapon abilities:\n  %s" % [army_name, "\n  ".join(ability_errors)]
+		print("ERROR: ", error_msg)
+		push_error(error_msg)
+		emit_signal("army_load_failed", error_msg)
+		return {}
+
 	# Process units to set owner
 	if army_data.has("units"):
 		for unit_id in army_data.units:
@@ -1158,6 +1169,23 @@ func _normalize_model_name(name: String) -> String:
 	return name
 
 # Validate army structure
+## ISS-003: validate every weapon's structured `abilities` entries against
+## AbilityRegistry. Returns an array of error strings (empty = valid).
+func _validate_weapon_abilities(army_data: Dictionary, army_name: String) -> Array:
+	var errors: Array = []
+	var units = army_data.get("units", {})
+	for unit_id in units:
+		var weapons = units[unit_id].get("meta", {}).get("weapons", [])
+		for weapon in weapons:
+			if not weapon is Dictionary:
+				continue
+			var abilities = weapon.get("abilities", [])
+			if not abilities is Array or abilities.is_empty():
+				continue
+			for err in AbilityRegistry.validate(abilities):
+				errors.append("%s / %s / %s: %s" % [army_name, unit_id, weapon.get("name", "?"), err])
+	return errors
+
 func validate_army_structure(army_data: Dictionary) -> Dictionary:
 	var result = {"valid": true, "errors": []}
 	

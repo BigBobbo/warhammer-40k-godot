@@ -15,7 +15,12 @@
       "status": "UNDEPLOYED",
       "meta": {
         "name": "Intercessor Squad",
-        "keywords": ["INFANTRY", "PRIMARIS", "IMPERIUM", "ADEPTUS ASTARTES"],
+        "keywords": [
+          "INFANTRY",
+          "PRIMARIS",
+          "IMPERIUM",
+          "ADEPTUS ASTARTES"
+        ],
         "stats": {
           "move": 6,
           "toughness": 4,
@@ -38,7 +43,15 @@
             "strength": "4",
             "ap": "-1",
             "damage": "1",
-            "special_rules": "assault, heavy"
+            "special_rules": "assault, heavy",
+            "abilities": [
+              {
+                "id": "assault"
+              },
+              {
+                "id": "heavy"
+              }
+            ]
           },
           {
             "name": "Bolt pistol",
@@ -49,7 +62,12 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "pistol"
+            "special_rules": "pistol",
+            "abilities": [
+              {
+                "id": "pistol"
+              }
+            ]
           },
           {
             "name": "Close combat weapon",
@@ -103,23 +121,79 @@
           "intercessor": {
             "label": "Intercessor",
             "stats_override": {},
-            "weapons": ["Bolt rifle", "Bolt pistol", "Close combat weapon"],
+            "weapons": [
+              "Bolt rifle",
+              "Bolt pistol",
+              "Close combat weapon"
+            ],
             "transport_slots": 1
           },
           "intercessor_sergeant": {
             "label": "Intercessor Sergeant",
-            "stats_override": {"leadership": 6, "attacks": 4},
-            "weapons": ["Bolt rifle", "Bolt pistol", "Power fist"],
+            "stats_override": {
+              "leadership": 6,
+              "attacks": 4
+            },
+            "weapons": [
+              "Bolt rifle",
+              "Bolt pistol",
+              "Power fist"
+            ],
             "transport_slots": 1
           }
         }
       },
       "models": [
-        {"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "intercessor_sergeant"},
-        {"id": "m2", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "intercessor"},
-        {"id": "m3", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "intercessor"},
-        {"id": "m4", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "intercessor"},
-        {"id": "m5", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "intercessor"}
+        {
+          "id": "m1",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "intercessor_sergeant"
+        },
+        {
+          "id": "m2",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "intercessor"
+        },
+        {
+          "id": "m3",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "intercessor"
+        },
+        {
+          "id": "m4",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "intercessor"
+        },
+        {
+          "id": "m5",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "intercessor"
+        }
       ]
     },
     "U_TACTICAL_A": {
@@ -129,7 +203,11 @@
       "status": "UNDEPLOYED",
       "meta": {
         "name": "Tactical Squad",
-        "keywords": ["INFANTRY", "IMPERIUM", "ADEPTUS ASTARTES"],
+        "keywords": [
+          "INFANTRY",
+          "IMPERIUM",
+          "ADEPTUS ASTARTES"
+        ],
         "stats": {
           "move": 6,
           "toughness": 4,
@@ -152,7 +230,13 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "rapid fire 1"
+            "special_rules": "rapid fire 1",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Bolt pistol",
@@ -163,7 +247,12 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "pistol"
+            "special_rules": "pistol",
+            "abilities": [
+              {
+                "id": "pistol"
+              }
+            ]
           },
           {
             "name": "Close combat weapon",
@@ -196,11 +285,51 @@
         ]
       },
       "models": [
-        {"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m2", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m3", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m4", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m5", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+        {
+          "id": "m1",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
       ]
     },
     "U_INFILTRATORS_A": {
@@ -210,7 +339,13 @@
       "status": "UNDEPLOYED",
       "meta": {
         "name": "Infiltrator Squad",
-        "keywords": ["INFANTRY", "PRIMARIS", "PHOBOS", "IMPERIUM", "ADEPTUS ASTARTES"],
+        "keywords": [
+          "INFANTRY",
+          "PRIMARIS",
+          "PHOBOS",
+          "IMPERIUM",
+          "ADEPTUS ASTARTES"
+        ],
         "stats": {
           "move": 6,
           "toughness": 4,
@@ -233,7 +368,12 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "pistol"
+            "special_rules": "pistol",
+            "abilities": [
+              {
+                "id": "pistol"
+              }
+            ]
           },
           {
             "name": "Marksman bolt carbine",
@@ -244,7 +384,15 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "heavy, ignores cover"
+            "special_rules": "heavy, ignores cover",
+            "abilities": [
+              {
+                "id": "heavy"
+              },
+              {
+                "id": "ignores_cover"
+              }
+            ]
           },
           {
             "name": "Close combat weapon",
@@ -294,11 +442,51 @@
         ]
       },
       "models": [
-        {"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m2", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m3", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m4", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m5", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+        {
+          "id": "m1",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 2,
+          "current_wounds": 2,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
       ]
     }
   }

@@ -47,7 +47,15 @@
             "strength": "4",
             "ap": "-1",
             "damage": "2",
-            "special_rules": "assault, pistol"
+            "special_rules": "assault, pistol",
+            "abilities": [
+              {
+                "id": "assault"
+              },
+              {
+                "id": "pistol"
+              }
+            ]
           },
           {
             "name": "Sentinel blade",
@@ -150,7 +158,12 @@
             "strength": "7",
             "ap": "-2",
             "damage": "2",
-            "special_rules": "precision"
+            "special_rules": "precision",
+            "abilities": [
+              {
+                "id": "precision"
+              }
+            ]
           },
           {
             "name": "Vaultswords – Hurricanus",
@@ -161,7 +174,13 @@
             "strength": "5",
             "ap": "-1",
             "damage": "1",
-            "special_rules": "sustained hits 1"
+            "special_rules": "sustained hits 1",
+            "abilities": [
+              {
+                "id": "sustained_hits",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Vaultswords – Victus",
@@ -172,7 +191,12 @@
             "strength": "6",
             "ap": "-3",
             "damage": "3",
-            "special_rules": "devastating wounds"
+            "special_rules": "devastating wounds",
+            "abilities": [
+              {
+                "id": "devastating_wounds"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -266,7 +290,12 @@
             "strength": "4",
             "ap": "-1",
             "damage": "2",
-            "special_rules": "assault"
+            "special_rules": "assault",
+            "abilities": [
+              {
+                "id": "assault"
+              }
+            ]
           },
           {
             "name": "Sentinel blade",
@@ -277,7 +306,15 @@
             "strength": "4",
             "ap": "-1",
             "damage": "2",
-            "special_rules": "assault, pistol"
+            "special_rules": "assault, pistol",
+            "abilities": [
+              {
+                "id": "assault"
+              },
+              {
+                "id": "pistol"
+              }
+            ]
           },
           {
             "name": "Guardian spear",
@@ -427,7 +464,15 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "ignores cover, torrent"
+            "special_rules": "ignores cover, torrent",
+            "abilities": [
+              {
+                "id": "ignores_cover"
+              },
+              {
+                "id": "torrent"
+              }
+            ]
           },
           {
             "name": "Close combat weapon",
@@ -547,7 +592,15 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "ignores cover, torrent"
+            "special_rules": "ignores cover, torrent",
+            "abilities": [
+              {
+                "id": "ignores_cover"
+              },
+              {
+                "id": "torrent"
+              }
+            ]
           },
           {
             "name": "Close combat weapon",
@@ -664,7 +717,12 @@
             "strength": "12",
             "ap": "-3",
             "damage": "D6+2",
-            "special_rules": "twin-linked"
+            "special_rules": "twin-linked",
+            "abilities": [
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Twin iliastus accelerator cannon",
@@ -675,7 +733,16 @@
             "strength": "10",
             "ap": "-1",
             "damage": "3",
-            "special_rules": "rapid fire 4, twin-linked"
+            "special_rules": "rapid fire 4, twin-linked",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 4
+              },
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Twin lastrum bolt cannon",
@@ -686,7 +753,13 @@
             "strength": "6",
             "ap": "-1",
             "damage": "1",
-            "special_rules": "sustained hits 1"
+            "special_rules": "sustained hits 1",
+            "abilities": [
+              {
+                "id": "sustained_hits",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Armoured hull",
@@ -791,7 +864,15 @@
             "strength": "6",
             "ap": "-1",
             "damage": "1",
-            "special_rules": "torrent, ignores cover"
+            "special_rules": "torrent, ignores cover",
+            "abilities": [
+              {
+                "id": "torrent"
+              },
+              {
+                "id": "ignores_cover"
+              }
+            ]
           },
           {
             "name": "Twin adrathic destructor",
@@ -802,7 +883,12 @@
             "strength": "6",
             "ap": "-2",
             "damage": "3",
-            "special_rules": "twin-linked"
+            "special_rules": "twin-linked",
+            "abilities": [
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Achillus dreadspear",
@@ -813,7 +899,12 @@
             "strength": "12",
             "ap": "-2",
             "damage": "D6+1",
-            "special_rules": "lance"
+            "special_rules": "lance",
+            "abilities": [
+              {
+                "id": "lance"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -888,7 +979,12 @@
             "strength": "7",
             "ap": "-1",
             "damage": "2",
-            "special_rules": "twin-linked"
+            "special_rules": "twin-linked",
+            "abilities": [
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Spiculus bolt launcher",
@@ -943,7 +1039,12 @@
             "strength": "14",
             "ap": "-4",
             "damage": "D6+1",
-            "special_rules": "twin-linked"
+            "special_rules": "twin-linked",
+            "abilities": [
+              {
+                "id": "twin_linked"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -1026,7 +1127,12 @@
             "strength": "10",
             "ap": "-3",
             "damage": "D6+1",
-            "special_rules": "twin-linked"
+            "special_rules": "twin-linked",
+            "abilities": [
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Interceptor lance",
@@ -1037,7 +1143,12 @@
             "strength": "7",
             "ap": "-2",
             "damage": "2",
-            "special_rules": "lance"
+            "special_rules": "lance",
+            "abilities": [
+              {
+                "id": "lance"
+              }
+            ]
           }
         ],
         "abilities": [
