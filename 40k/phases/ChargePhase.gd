@@ -31,7 +31,8 @@ signal tank_shock_result(vehicle_unit_id: String, target_unit_id: String, result
 signal ability_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
 signal piston_driven_brutality_resolved(unit_id: String, result: Dictionary)  # OA-36: Piston-driven Brutality mortal wounds result
 
-const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
+# ISS-002: engagement range comes from GameConstants.engagement_range_inches()
+# (edition-dependent). Do not re-declare it as a local constant.
 const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
 
 # Charge state tracking
@@ -559,7 +560,7 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 		var reroll_ability_name = _get_charge_reroll_ability_name(unit_id)
 
 		var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
-		var needed = max(0.0, min_distance - ENGAGEMENT_RANGE_INCHES)
+		var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
 		var context_text = "Need %.1f\" to reach engagement range (nearest target %.1f\" away)" % [needed, min_distance]
 
 		var roll_context = {
@@ -611,7 +612,7 @@ func _check_command_reroll_or_resolve(unit_id: String) -> Dictionary:
 		reroll_pending_unit_id = unit_id
 
 		var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
-		var needed = max(0.0, min_distance - ENGAGEMENT_RANGE_INCHES)
+		var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
 		var context_text = "Need %.1f\" to reach engagement range (nearest target %.1f\" away)" % [needed, min_distance]
 
 		var roll_context = {
@@ -1766,7 +1767,6 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 	# Threshold for considering models in base-to-base contact (inches)
 	# Accounts for floating-point imprecision in shape-aware distance calculations
 	const B2B_THRESHOLD_INCHES = 0.1
-	const ENGAGEMENT_RANGE_INCHES = 1.0
 
 	# Build final position model dicts for all charging models
 	var final_models = {}  # model_id -> model dict at final position
@@ -1874,7 +1874,7 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 				for enemy_model in enemy_unit.get("models", []):
 					if not enemy_model.get("alive", true):
 						continue
-					if Measurement.is_in_engagement_range_shape_aware(b2b_model, enemy_model, ENGAGEMENT_RANGE_INCHES):
+					if Measurement.is_in_engagement_range_shape_aware(b2b_model, enemy_model, GameConstants.engagement_range_inches()):
 						non_target_er_ok = false
 						break
 
@@ -1927,7 +1927,7 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 					for check_tm in check_target_unit.get("models", []):
 						if not check_tm.get("alive", true):
 							continue
-						if Measurement.is_in_engagement_range_shape_aware(check_charging_model, check_tm, ENGAGEMENT_RANGE_INCHES):
+						if Measurement.is_in_engagement_range_shape_aware(check_charging_model, check_tm, GameConstants.engagement_range_inches()):
 							target_covered = true
 							break
 
@@ -2104,11 +2104,11 @@ func _calculate_path_terrain_penalty(path: Array, has_fly: bool, unit_keywords: 
 ## accounting for barricade terrain (2" instead of 1" if barricade is between them).
 func _get_effective_engagement_range(model1_pos: Vector2, model2_pos: Vector2) -> float:
 	if not is_inside_tree():
-		return ENGAGEMENT_RANGE_INCHES
+		return GameConstants.engagement_range_inches()
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
 		return terrain_manager.get_engagement_range_for_positions(model1_pos, model2_pos)
-	return ENGAGEMENT_RANGE_INCHES
+	return GameConstants.engagement_range_inches()
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")

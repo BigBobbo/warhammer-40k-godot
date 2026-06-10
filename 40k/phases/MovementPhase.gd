@@ -30,7 +30,8 @@ signal scatter_opportunity(player: int, eligible_units: Array, trigger_unit_id: 
 signal grot_oiler_available(unit_id: String, player: int, eligible_targets: Array)
 signal grot_oiler_result(unit_id: String, results: Dictionary)
 
-const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
+# ISS-002: engagement range comes from GameConstants.engagement_range_inches()
+# (edition-dependent). Do not re-declare it as a local constant.
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
 # Bases at the touching boundary (W40K base-to-base contact) should not be flagged as
 # overlapping. Strict `<` comparison in shape collision combined with mm→px rounding
@@ -6047,11 +6048,11 @@ func _is_unit_engaged(unit_id: String) -> bool:
 ## accounting for barricade terrain (2" instead of 1" if barricade is between them).
 func _get_effective_engagement_range(pos1: Vector2, pos2: Vector2) -> float:
 	if not is_inside_tree():
-		return ENGAGEMENT_RANGE_INCHES
+		return GameConstants.engagement_range_inches()
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
 		return terrain_manager.get_engagement_range_for_positions(pos1, pos2)
-	return ENGAGEMENT_RANGE_INCHES
+	return GameConstants.engagement_range_inches()
 
 func _is_position_in_engagement_range(unit_id: String, model_id: String, pos: Vector2) -> bool:
 	var model = _get_model_in_unit(unit_id, model_id)

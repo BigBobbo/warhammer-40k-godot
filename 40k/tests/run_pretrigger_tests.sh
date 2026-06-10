@@ -55,6 +55,7 @@ TESTS=(
     "tests/test_two_rolloffs.gd"
     "tests/test_t011_designate_warlord_pin.gd"
     "tests/test_iss001_pipeline_mutations.gd"
+    "tests/test_iss002_game_constants.gd"
 )
 
 FAILED=0

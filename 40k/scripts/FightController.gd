@@ -88,7 +88,8 @@ const HIGHLIGHT_COLOR_SELECTED = Color.YELLOW
 const HIGHLIGHT_COLOR_ACTIVE_FIGHTER = Color.ORANGE
 const MOVEMENT_LINE_COLOR = Color.BLUE
 const MOVEMENT_LINE_WIDTH = 3.0
-const ENGAGEMENT_RANGE_MM = 25.4  # 1 inch in mm
+# ISS-002: engagement range comes from GameConstants.engagement_range_inches()
+# (edition-dependent). Do not re-declare it as a local constant.
 
 func _ready() -> void:
 	set_process_input(true)
@@ -644,7 +645,7 @@ func _show_engagement_indicators() -> void:
 		var circle = Node2D.new()
 		circle.set_script(EngagementRangeVisualScript)
 		circle.position = model_pos
-		circle.setup_engagement_range(ENGAGEMENT_RANGE_MM, Color.ORANGE)
+		circle.setup_engagement_range(Measurement.inches_to_px(GameConstants.engagement_range_inches()), Color.ORANGE)
 
 		range_visual.add_child(circle)
 	
@@ -680,7 +681,7 @@ func _highlight_enemies_by_engagement(fighter_unit: Dictionary) -> void:
 					continue
 
 				# Use shape-aware edge-to-edge engagement range check
-				if Measurement.is_in_engagement_range_shape_aware(fighter_model, enemy_model, 1.0):
+				if Measurement.is_in_engagement_range_shape_aware(fighter_model, enemy_model):
 					is_in_engagement = true
 					break
 

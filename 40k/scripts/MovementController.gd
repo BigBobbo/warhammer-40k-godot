@@ -4833,7 +4833,7 @@ func _clear_er_overlay() -> void:
 # T-094: 2" coherency rings around the moving unit's models
 const MOVE_COHERENCY_COLOR: Color = Color(0.3, 0.9, 1.0, 0.4)
 const MOVE_COHERENCY_WIDTH: float = 5.0
-const MOVE_COHERENCY_INCHES: float = 2.0
+# ISS-002: coherency distance comes from GameConstants.coherency_distance_inches().
 
 func _show_coherency_dots(unit_id: String) -> void:
 	if not is_instance_valid(coherency_dots_visual):
@@ -4854,7 +4854,7 @@ func _show_coherency_dots(unit_id: String) -> void:
 		else:
 			pos = pos_data
 		var base_radius = Measurement.base_radius_px(m.get("base_mm", 32))
-		var ring_radius = base_radius + Measurement.inches_to_px(MOVE_COHERENCY_INCHES)
+		var ring_radius = base_radius + Measurement.inches_to_px(GameConstants.coherency_distance_inches())
 		var ring = Line2D.new()
 		ring.width = MOVE_COHERENCY_WIDTH
 		ring.default_color = MOVE_COHERENCY_COLOR

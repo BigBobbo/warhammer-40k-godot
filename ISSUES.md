@@ -40,7 +40,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** all files listed in Location, plus `40k/project.godot` (autoload), new `GameConstants.gd`, tests
 - **Acceptance criteria:** grep for `= 1.0` engagement-range literals returns nothing; all tests pass with edition=10 (behavior unchanged); flipping edition=11 changes `engagement_range_inches()` to 2.0 in a unit test.
-- **Status:** TODO
+- **Status:** DONE — new `40k/scripts/rules/GameConstants.gd` (static class, deliberately not an autoload so RulesEngine/AI static functions can use it); replaced 9 const declarations + 6 hidden literal-`1.0` call sites + 2 extra nests the audit missed (`RulesEngine._get_effective_engagement_range_rules` locals, AI's composed "3"+ER" check range); coherency 2.0" literals centralized too; `Measurement.is_in_engagement_range_shape_aware` default is now edition-aware. Bug found & fixed: FightController's ER ring passed 25.4 (mm) to a px API, rendering at 0.635" — now `inches_to_px(...)`. Enforced by `tests/test_iss002_game_constants.gd` (13/13, incl. live ER flip at edition 11); pretrigger suite 575/575; windowed charge scenario 372 passes. Charge declare range (12", edition-stable) left in place.
 
 ### ISS-003 — Structured weapon/unit ability schema + ability registry (replace regex parsing)
 - **Location:** `40k/autoloads/RulesEngine.gd:5389` (`_parse_sustained_hits_from_string`), `:5701` (`_parse_anti_keywords_from_string`), `:4759-4764` (comma-split of `special_rules`); `40k/armies/*.json` (`"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1"`)
@@ -142,7 +142,7 @@ Conventions:
 - **Location:** `40k/tests_archived_disabled/` (11 entries), `40k/tests/disabled_tests/` (e.g. `test_fight_phase_alternation.gd`)
 - **Category:** tech-debt
 - **Severity:** low
-- **Description:** Disabled tests rot and mislead coverage estimates. The fight-phase alternation test is exactly the area 11e rewrites (ISS-050) — it should either guard the current behavior until then or be deleted.
+- **Description:** Disabled tests rot and mislead coverage estimates. The fight-phase alternation test is exactly the area 11e rewrites (ISS-050) — it should either guard the current behavior until then or be deleted. Confirmed during ISS-002: the GUT suite under `tests/unit/` is also rotten — running it yields ~94 `[Failed]` assertions (error-ordering/wording drift vs. current RulesEngine) and the run hangs on network listeners (relay HTTP noise) until timeout; it is not part of any runner script. Triage it under this issue too.
 - **Root cause:** Tests disabled during past refactors and never revisited.
 - **Proposed fix:** Triage each: reinstate (fix), or delete with a note in the commit. No third state.
 - **Dependencies:** none
@@ -789,7 +789,7 @@ Conventions:
 | ID | Title | Severity | Status | Dependencies |
 |---|---|---|---|---|
 | ISS-001 | Route all in-game state mutations through pipeline | high | DONE | — |
-| ISS-002 | GameConstants module + edition switch | high | TODO | — |
+| ISS-002 | GameConstants module + edition switch | high | DONE | — |
 | ISS-003 | Structured ability schema + registry | high | TODO | — |
 | ISS-004 | Uniform per-action RNG seeding | high | TODO | — |
 | ISS-005 | PhaseControllerBase extraction | high | TODO | — |

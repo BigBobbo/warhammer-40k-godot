@@ -9,9 +9,12 @@ extends RefCounted
 const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const PIXELS_PER_INCH: float = 40.0
-const ENGAGEMENT_RANGE_PX: float = 40.0  # 1 inch
 const CHARGE_RANGE_PX: float = 480.0     # 12 inches
-const COHERENCY_RANGE_PX: float = 80.0   # 2 inches
+
+# ISS-002: engagement range comes from GameConstants (edition-dependent).
+# Do not re-declare it as a local constant.
+static func _engagement_range_px() -> float:
+	return GameConstants.engagement_range_inches() * PIXELS_PER_INCH
 const BOARD_WIDTH_PX: float = 1760.0     # 44 inches
 const BOARD_HEIGHT_PX: float = 2400.0    # 60 inches
 const OBJECTIVE_RANGE_PX: float = 120.0  # 3 inches - objective control range in 10e
@@ -1289,7 +1292,7 @@ static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
 
 			# Can this unit plausibly reach the enemy after moving + charging?
 			# Use total reach + engagement range for generous estimate
-			if dist_px > total_reach_px + ENGAGEMENT_RANGE_PX:
+			if dist_px > total_reach_px + _engagement_range_px():
 				continue
 
 			# Score the charge: melee damage * target value
@@ -4029,7 +4032,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			var screen_target = assigned_obj_pos
 			if screen_target != Vector2.INF and screen_centroid != Vector2.INF:
 				# If already within 1" of screen position, remain stationary
-				if screen_centroid.distance_to(screen_target) <= ENGAGEMENT_RANGE_PX:
+				if screen_centroid.distance_to(screen_target) <= _engagement_range_px():
 					if "REMAIN_STATIONARY" in move_types:
 						var reason = assignment.get("reason", "screening position reached")
 						print("AIDecisionMaker: [SCREEN] %s at screening position (%.1f\" away)" % [unit_name, screen_centroid.distance_to(screen_target) / PIXELS_PER_INCH])
@@ -5329,7 +5332,7 @@ static func _is_pos_in_engagement(pos: Vector2, unit_radius_px: float, enemy_pos
 		var enemy_pos = enemy_data.position
 		var enemy_radius_px = (enemy_data.base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
 		var edge_dist_px = pos.distance_to(enemy_pos) - unit_radius_px - enemy_radius_px
-		if edge_dist_px < ENGAGEMENT_RANGE_PX:
+		if edge_dist_px < _engagement_range_px():
 			return true
 	return false
 
@@ -6488,7 +6491,7 @@ static func _get_engaging_enemy_centroid(unit: Dictionary, unit_id: String, enem
 				continue
 			var enemy_base_mm = enemy_model.get("base_mm", 32)
 			var enemy_radius_px = (enemy_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
-			var er_threshold = own_radius_px + enemy_radius_px + ENGAGEMENT_RANGE_PX
+			var er_threshold = own_radius_px + enemy_radius_px + _engagement_range_px()
 
 			# Check if this enemy model is within ER of any of our models
 			for own_model in alive_models:
@@ -6533,7 +6536,7 @@ static func _get_engaging_enemy_units(unit: Dictionary, unit_id: String, enemies
 				continue
 			var enemy_base_mm = enemy_model.get("base_mm", 32)
 			var enemy_radius_px = (enemy_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
-			var er_threshold = own_radius_px + enemy_radius_px + ENGAGEMENT_RANGE_PX
+			var er_threshold = own_radius_px + enemy_radius_px + _engagement_range_px()
 			for own_model in alive_models:
 				var own_pos = _get_model_position(own_model)
 				if own_pos == Vector2.INF:
@@ -6646,7 +6649,7 @@ static func _pick_fall_back_target(
 		# Skip objectives at or very near our current position — can't retreat
 		# TO where we already are (would produce a zero retreat direction)
 		var dist_to_obj = centroid.distance_to(obj_pos)
-		if dist_to_obj < ENGAGEMENT_RANGE_PX:
+		if dist_to_obj < _engagement_range_px():
 			continue
 
 		# Skip objectives that are closer to the engaging enemy than to us
@@ -8241,7 +8244,7 @@ static func _calculate_corridor_blocking_positions(
 			var dist_to_obj = enemy_centroid.distance_to(obj_pos)
 			if dist_to_obj > threat_range_px:
 				continue  # Enemy too far to be a realistic threat
-			if dist_to_obj < ENGAGEMENT_RANGE_PX * 3:
+			if dist_to_obj < _engagement_range_px() * 3:
 				continue  # Enemy already at the objective — blocking won't help
 
 			# Calculate blocking position along the corridor
@@ -8424,7 +8427,7 @@ static func _is_position_near_enemy(pos: Vector2, enemies: Dictionary, own_unit:
 			# Use engagement range + base radii for proper edge-to-edge check
 			var enemy_base_mm = model.get("base_mm", 32)
 			var enemy_radius_px = (enemy_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
-			var min_dist = own_radius_px + enemy_radius_px + ENGAGEMENT_RANGE_PX
+			var min_dist = own_radius_px + enemy_radius_px + _engagement_range_px()
 			if dist < min_dist:
 				return true
 	return false
@@ -11154,7 +11157,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 				var funit_centroid = _get_unit_centroid(funit)
 				var target_centroid = _get_unit_centroid(target)
 				if funit_centroid != Vector2.INF and target_centroid != Vector2.INF:
-					if funit_centroid.distance_to(target_centroid) <= ENGAGEMENT_RANGE_PX * 2.0:
+					if funit_centroid.distance_to(target_centroid) <= _engagement_range_px() * 2.0:
 						score += 3.0  # Big bonus for concentrating attacks
 						print("AIDecisionMaker: [FOCUS-CHARGE] Bonus for %s — friendly unit already fighting target %s" % [
 							charger.get("meta", {}).get("name", ""), target.get("meta", {}).get("name", "")])
@@ -11698,7 +11701,7 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 		model_distances.append({"model": model, "id": mid, "pos": mpos, "dist": dist})
 	model_distances.sort_custom(func(a, b): return a.dist < b.dist)
 
-	var engagement_range_px = ENGAGEMENT_RANGE_PX  # 1" = 40px
+	var engagement_range_px = _engagement_range_px()  # 1" = 40px
 	var any_model_in_er = {}  # target_id -> bool (track if we've gotten a model in ER per target)
 	for tid in target_ids:
 		any_model_in_er[tid] = false
@@ -12021,7 +12024,7 @@ static func _adjust_charge_position(
 		pos = start_pos + dir * move_budget_px
 
 	# 2. Check for non-target enemy engagement range violation
-	var er_px = ENGAGEMENT_RANGE_PX
+	var er_px = _engagement_range_px()
 	for nte in non_target_enemies:
 		var edge_dist = pos.distance_to(nte.position) - my_base_radius_px - nte.base_radius_px
 		if edge_dist <= er_px:
@@ -12048,7 +12051,7 @@ static func _adjust_charge_position(
 		var best_any: Vector2 = Vector2.INF
 		var best_in_er_dist := INF
 		var best_any_dist := INF
-		var target_er_px = ENGAGEMENT_RANGE_PX
+		var target_er_px = _engagement_range_px()
 
 		# Search around the closest target position (not the candidate) so we
 		# find positions that stay within engagement range even under congestion
@@ -12568,7 +12571,7 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 					continue
 				# Check if this friendly unit is also engaged with the same target
 				var f_centroid = _get_unit_centroid(funit)
-				if f_centroid != Vector2.INF and f_centroid.distance_to(gang_target_centroid) <= ENGAGEMENT_RANGE_PX * 2.0:
+				if f_centroid != Vector2.INF and f_centroid.distance_to(gang_target_centroid) <= _engagement_range_px() * 2.0:
 					other_engaged_count += 1
 					other_engaged_total_models += f_alive
 			if other_engaged_count > 0:
@@ -13176,7 +13179,7 @@ static func _determine_ai_consolidate_mode(snapshot: Dictionary, unit: Dictionar
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 	var has_fly = "FLY" in unit_keywords
 
-	var engagement_check_range_px = 4.0 * PIXELS_PER_INCH  # 3" move + 1" ER
+	var engagement_check_range_px = (3.0 + GameConstants.engagement_range_inches()) * PIXELS_PER_INCH  # 3" pile-in move + ER
 	# T7-43: Tighter range for "firmly engaged" — enemy within 2" means we should stay
 	var firm_engagement_range_px = 2.0 * PIXELS_PER_INCH
 
@@ -13314,7 +13317,7 @@ static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit
 		var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
 		for ei in all_enemy_models_info:
 			var edge_dist = mpos.distance_to(ei.position) - mbr - ei.base_radius_px
-			if edge_dist <= ENGAGEMENT_RANGE_PX:
+			if edge_dist <= _engagement_range_px():
 				engaged_enemy_unit_ids[ei.enemy_unit_id] = true
 
 	# Find taggable enemy units (within 4" range but NOT currently engaged)
@@ -13330,7 +13333,7 @@ static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit
 			var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
 			for ei in enemy_units_info[euid]:
 				var edge_dist = mpos.distance_to(ei.position) - mbr - ei.base_radius_px
-				if edge_dist <= consolidate_range_px + ENGAGEMENT_RANGE_PX:
+				if edge_dist <= consolidate_range_px + _engagement_range_px():
 					taggable_enemy_units[euid] = enemy_units_info[euid]
 					break
 			if taggable_enemy_units.has(euid):
@@ -13372,7 +13375,7 @@ static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit
 			for euid in taggable_enemy_units:
 				for ei in taggable_enemy_units[euid]:
 					var edge_dist = mpos.distance_to(ei.position) - mbr - ei.base_radius_px
-					if edge_dist <= consolidate_range_px + ENGAGEMENT_RANGE_PX and edge_dist < tag_target_dist:
+					if edge_dist <= consolidate_range_px + _engagement_range_px() and edge_dist < tag_target_dist:
 						tag_target_dist = edge_dist
 						tag_target_pos = ei.position
 						tag_target_radius = ei.base_radius_px
@@ -15235,7 +15238,7 @@ static func _check_formation_coherency(positions: Array, base_mm: int) -> bool:
 		return true
 	var required_connections = 1 if positions.size() <= 6 else 2
 	var base_radius_inches = (base_mm / 2.0) / 25.4
-	var coherency_threshold_px = (2.0 + base_radius_inches * 2.0) * PIXELS_PER_INCH  # 2" edge-to-edge = 2" + both radii center-to-center
+	var coherency_threshold_px = (GameConstants.coherency_distance_inches() + base_radius_inches * 2.0) * PIXELS_PER_INCH  # 2" edge-to-edge = 2" + both radii center-to-center
 	for i in range(positions.size()):
 		var connections = 0
 		for j in range(positions.size()):

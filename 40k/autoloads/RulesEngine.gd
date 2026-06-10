@@ -7554,8 +7554,6 @@ static func _path_point_to_vector2(point) -> Vector2:
 ## Returns 2" if a barricade terrain feature lies between the two positions, 1" otherwise.
 ## Uses board terrain_features data when available, falls back to TerrainManager autoload.
 static func _get_effective_engagement_range_rules(pos1: Vector2, pos2: Vector2, board: Dictionary) -> float:
-	const STANDARD_ER = 1.0
-	const BARRICADE_ER = 2.0
 
 	var terrain_features = board.get("terrain_features", [])
 	if terrain_features.is_empty():
@@ -7563,7 +7561,7 @@ static func _get_effective_engagement_range_rules(pos1: Vector2, pos2: Vector2, 
 		var terrain_manager = _get_terrain_manager_node()
 		if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
 			return terrain_manager.get_engagement_range_for_positions(pos1, pos2)
-		return STANDARD_ER
+		return GameConstants.engagement_range_inches()
 
 	# Check if any barricade terrain lies between the two positions
 	for terrain in terrain_features:
@@ -7580,9 +7578,9 @@ static func _get_effective_engagement_range_rules(pos1: Vector2, pos2: Vector2, 
 			var edge_end = polygon[(i + 1) % polygon.size()]
 			if Geometry2D.segment_intersects_segment(pos1, pos2, edge_start, edge_end) != null:
 				print("[RulesEngine] T3-9: Barricade '%s' between models — engagement range is 2\"" % terrain.get("id", "unknown"))
-				return BARRICADE_ER
+				return GameConstants.barricade_engagement_range_inches()
 
-	return STANDARD_ER
+	return GameConstants.engagement_range_inches()
 
 ## Helper to get TerrainManager node from static context.
 static func _get_terrain_manager_node():
@@ -7595,9 +7593,8 @@ static func _get_terrain_manager_node():
 
 # Validate engagement range constraints for charge
 static func _validate_engagement_range_constraints_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary) -> Dictionary:
-	const ENGAGEMENT_RANGE_INCHES = 1.0
 	var errors = []
-	var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
+	var er_px = Measurement.inches_to_px(GameConstants.engagement_range_inches())
 	var units = board.get("units", {})
 	var unit = units.get(unit_id, {})
 	var unit_owner = unit.get("owner", 0)
@@ -7779,7 +7776,6 @@ static func _validate_base_to_base_possible_rules(unit_id: String, per_model_pat
 	var unit_owner = unit.get("owner", 0)
 
 	const B2B_THRESHOLD_INCHES = 0.1
-	const ENGAGEMENT_RANGE_INCHES = 1.0
 
 	if unit.is_empty():
 		return {"valid": true, "errors": []}
@@ -7886,7 +7882,7 @@ static func _validate_base_to_base_possible_rules(unit_id: String, per_model_pat
 				for enemy_model in enemy_unit.get("models", []):
 					if not enemy_model.get("alive", true):
 						continue
-					if Measurement.is_in_engagement_range_shape_aware(b2b_model, enemy_model, ENGAGEMENT_RANGE_INCHES):
+					if Measurement.is_in_engagement_range_shape_aware(b2b_model, enemy_model, GameConstants.engagement_range_inches()):
 						non_target_er_ok = false
 						break
 
@@ -7935,7 +7931,7 @@ static func _validate_base_to_base_possible_rules(unit_id: String, per_model_pat
 					for check_tm in check_target_unit.get("models", []):
 						if not check_tm.get("alive", true):
 							continue
-						if Measurement.is_in_engagement_range_shape_aware(check_charging_model, check_tm, ENGAGEMENT_RANGE_INCHES):
+						if Measurement.is_in_engagement_range_shape_aware(check_charging_model, check_tm, GameConstants.engagement_range_inches()):
 							target_covered = true
 							break
 
@@ -9796,7 +9792,7 @@ static func is_in_engagement_range(model1_pos: Vector2, model2_pos: Vector2, bas
 	# Legacy position-based check - create temporary model dicts for shape-aware calculation
 	var model1 = {"position": model1_pos, "base_mm": base1_mm}
 	var model2 = {"position": model2_pos, "base_mm": base2_mm}
-	return Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0)
+	return Measurement.is_in_engagement_range_shape_aware(model1, model2)
 
 # Check if any models from two units are in engagement range
 static func units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
@@ -9812,7 +9808,7 @@ static func units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> b
 				continue
 
 			# Use shape-aware engagement range check
-			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2):
 				return true
 
 	return false
@@ -11701,7 +11697,7 @@ static func validate_surge_move_eligibility(unit: Dictionary, unit_id: String, h
 					epos = Vector2(enemy_pos.get("x", 0), enemy_pos.get("y", 0))
 
 				# Use standard 1" engagement range check
-				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, 1.0):
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model):
 					return {"valid": false, "errors": ["Units within Engagement Range cannot make surge moves"]}
 
 	# Unit must have alive models

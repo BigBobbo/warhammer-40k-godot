@@ -1832,7 +1832,7 @@ func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 			if pos2_data == null:
 				continue
 
-			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2):
 				return true
 
 	return false
@@ -2568,7 +2568,7 @@ func _is_unit_in_engagement_range(unit: Dictionary, all_units: Dictionary, owner
 				if not other_model.get("alive", true):
 					continue
 
-				if Measurement.is_in_engagement_range_shape_aware(model, other_model, 1.0):
+				if Measurement.is_in_engagement_range_shape_aware(model, other_model):
 					return true
 
 	return false
