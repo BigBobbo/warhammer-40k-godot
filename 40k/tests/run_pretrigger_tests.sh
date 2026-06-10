@@ -59,6 +59,7 @@ TESTS=(
     "tests/test_iss003_ability_schema.gd"
     "tests/test_iss004_rng_seeding.gd"
     "tests/test_iss012_attack_goldens.gd"
+    "tests/test_iss013_signal_registry.gd"
 )
 
 FAILED=0

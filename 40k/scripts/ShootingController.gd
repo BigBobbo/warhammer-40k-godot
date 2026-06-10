@@ -682,6 +682,27 @@ func _add_shooting_gold_separator(parent: Control) -> void:
 	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parent.add_child(sep)
 
+## ISS-013: every ShootingPhase signal this controller consumes.
+## attach_phase()/detach_phase() (PhaseControllerBase) connect/disconnect
+## these symmetrically; signals absent on the phase instance are skipped.
+func phase_signal_map() -> Dictionary:
+	return {
+		"unit_selected_for_shooting": _on_unit_selected_for_shooting,
+		"targets_available": _on_targets_available,
+		"shooting_resolved": _on_shooting_resolved,
+		"dice_rolled": _on_dice_rolled,
+		"saves_required": _on_saves_required,
+		"weapon_order_required": _on_weapon_order_required,
+		"shooting_begun": _on_shooting_begun,  # T5-MP3 remote visual feedback
+		"next_weapon_confirmation_required": _on_next_weapon_confirmation_required,
+		"reactive_stratagem_opportunity": _on_reactive_stratagem_opportunity,
+		"grenade_result": _on_grenade_result,
+		"shooting_damage_applied": _on_shooting_damage_visual,  # T7-53
+		"ai_shooting_visual": _on_ai_shooting_visual,  # T7-38
+		"sentinel_storm_available": _on_sentinel_storm_available,  # P1-10
+		"throat_slittas_available": _on_throat_slittas_available,  # P1-12
+	}
+
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
 
@@ -692,89 +713,9 @@ func set_phase(phase: BasePhase) -> void:
 		print("║ Phase Instance ID: ", phase.get_instance_id())
 		print("╚═══════════════════════════════════════════════════════════════")
 
-		# CRITICAL FIX: Disconnect before connecting to prevent duplicate signal connections
-		# The is_connected() check was unreliable, so we guarantee single connection by
-		# disconnecting first (harmless if not connected)
-
-		if phase.unit_selected_for_shooting.is_connected(_on_unit_selected_for_shooting):
-			phase.unit_selected_for_shooting.disconnect(_on_unit_selected_for_shooting)
-			print("║ Disconnected existing unit_selected_for_shooting connection")
-		phase.unit_selected_for_shooting.connect(_on_unit_selected_for_shooting)
-
-		if phase.targets_available.is_connected(_on_targets_available):
-			phase.targets_available.disconnect(_on_targets_available)
-			print("║ Disconnected existing targets_available connection")
-		phase.targets_available.connect(_on_targets_available)
-
-		if phase.shooting_resolved.is_connected(_on_shooting_resolved):
-			phase.shooting_resolved.disconnect(_on_shooting_resolved)
-			print("║ Disconnected existing shooting_resolved connection")
-		phase.shooting_resolved.connect(_on_shooting_resolved)
-
-		if phase.dice_rolled.is_connected(_on_dice_rolled):
-			phase.dice_rolled.disconnect(_on_dice_rolled)
-			print("║ Disconnected existing dice_rolled connection")
-		phase.dice_rolled.connect(_on_dice_rolled)
-
-		if phase.saves_required.is_connected(_on_saves_required):
-			phase.saves_required.disconnect(_on_saves_required)
-			print("║ Disconnected existing saves_required connection from instance ", get_instance_id())
-		phase.saves_required.connect(_on_saves_required)
-		print("║ Connected saves_required signal to instance ", get_instance_id())
-
-		if phase.weapon_order_required.is_connected(_on_weapon_order_required):
-			phase.weapon_order_required.disconnect(_on_weapon_order_required)
-			print("║ Disconnected existing weapon_order_required connection")
-		phase.weapon_order_required.connect(_on_weapon_order_required)
-
-		# T5-MP3: Connect shooting_begun for remote player visual feedback
-		if phase.shooting_begun.is_connected(_on_shooting_begun):
-			phase.shooting_begun.disconnect(_on_shooting_begun)
-			print("║ Disconnected existing shooting_begun connection")
-		phase.shooting_begun.connect(_on_shooting_begun)
-
-		if phase.next_weapon_confirmation_required.is_connected(_on_next_weapon_confirmation_required):
-			phase.next_weapon_confirmation_required.disconnect(_on_next_weapon_confirmation_required)
-			print("║ Disconnected existing next_weapon_confirmation_required connection")
-		phase.next_weapon_confirmation_required.connect(_on_next_weapon_confirmation_required)
-
-		if phase.reactive_stratagem_opportunity.is_connected(_on_reactive_stratagem_opportunity):
-			phase.reactive_stratagem_opportunity.disconnect(_on_reactive_stratagem_opportunity)
-			print("║ Disconnected existing reactive_stratagem_opportunity connection")
-		phase.reactive_stratagem_opportunity.connect(_on_reactive_stratagem_opportunity)
-
-		if phase.grenade_result.is_connected(_on_grenade_result):
-			phase.grenade_result.disconnect(_on_grenade_result)
-			print("║ Disconnected existing grenade_result connection")
-		phase.grenade_result.connect(_on_grenade_result)
-
-		# T7-53: Connect shooting_damage_applied for floating damage numbers
-		if phase.has_signal("shooting_damage_applied"):
-			if phase.shooting_damage_applied.is_connected(_on_shooting_damage_visual):
-				phase.shooting_damage_applied.disconnect(_on_shooting_damage_visual)
-			phase.shooting_damage_applied.connect(_on_shooting_damage_visual)
-			print("║ T7-53: Connected shooting_damage_applied signal")
-
-		# T7-38: Connect ai_shooting_visual for AI targeting lines and result text
-		if phase.has_signal("ai_shooting_visual"):
-			if phase.ai_shooting_visual.is_connected(_on_ai_shooting_visual):
-				phase.ai_shooting_visual.disconnect(_on_ai_shooting_visual)
-			phase.ai_shooting_visual.connect(_on_ai_shooting_visual)
-			print("║ T7-38: Connected ai_shooting_visual signal")
-
-		# P1-10: Connect sentinel_storm_available for shoot-again prompt
-		if phase.has_signal("sentinel_storm_available"):
-			if phase.sentinel_storm_available.is_connected(_on_sentinel_storm_available):
-				phase.sentinel_storm_available.disconnect(_on_sentinel_storm_available)
-			phase.sentinel_storm_available.connect(_on_sentinel_storm_available)
-			print("║ P1-10: Connected sentinel_storm_available signal")
-
-		# P1-12: Connect throat_slittas_available for mortal wounds prompt
-		if phase.has_signal("throat_slittas_available"):
-			if phase.throat_slittas_available.is_connected(_on_throat_slittas_available):
-				phase.throat_slittas_available.disconnect(_on_throat_slittas_available)
-			phase.throat_slittas_available.connect(_on_throat_slittas_available)
-			print("║ P1-12: Connected throat_slittas_available signal")
+		# ISS-013: phase signals declared in phase_signal_map(); attach_phase
+		# guarantees single connections and detach_phase mirrors it on teardown.
+		attach_phase(phase)
 
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()

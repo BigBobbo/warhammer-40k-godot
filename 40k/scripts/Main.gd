@@ -4119,43 +4119,10 @@ func setup_phase_controllers() -> void:
 		movement_controller.queue_free()
 	movement_controller = null
 	if shooting_controller and is_instance_valid(shooting_controller):
-		# CRITICAL: Disconnect ALL signals before freeing to prevent lingering connections
+		# ISS-013: signal teardown is symmetric with attach_phase — the
+		# controller disconnects everything its phase_signal_map declared.
 		print("Main: Cleaning up shooting_controller instance ID: ", shooting_controller.get_instance_id())
-		var phase_instance = PhaseManager.get_current_phase_instance()
-		if phase_instance and phase_instance is ShootingPhase:
-			# Disconnect all phase signals
-			if phase_instance.unit_selected_for_shooting.is_connected(shooting_controller._on_unit_selected_for_shooting):
-				phase_instance.unit_selected_for_shooting.disconnect(shooting_controller._on_unit_selected_for_shooting)
-				print("Main: Disconnected unit_selected_for_shooting")
-			if phase_instance.targets_available.is_connected(shooting_controller._on_targets_available):
-				phase_instance.targets_available.disconnect(shooting_controller._on_targets_available)
-				print("Main: Disconnected targets_available")
-			if phase_instance.shooting_resolved.is_connected(shooting_controller._on_shooting_resolved):
-				phase_instance.shooting_resolved.disconnect(shooting_controller._on_shooting_resolved)
-				print("Main: Disconnected shooting_resolved")
-			if phase_instance.dice_rolled.is_connected(shooting_controller._on_dice_rolled):
-				phase_instance.dice_rolled.disconnect(shooting_controller._on_dice_rolled)
-				print("Main: Disconnected dice_rolled")
-			if phase_instance.saves_required.is_connected(shooting_controller._on_saves_required):
-				phase_instance.saves_required.disconnect(shooting_controller._on_saves_required)
-				print("Main: Disconnected saves_required")
-			if phase_instance.weapon_order_required.is_connected(shooting_controller._on_weapon_order_required):
-				phase_instance.weapon_order_required.disconnect(shooting_controller._on_weapon_order_required)
-				print("Main: Disconnected weapon_order_required")
-			if phase_instance.next_weapon_confirmation_required.is_connected(shooting_controller._on_next_weapon_confirmation_required):
-				phase_instance.next_weapon_confirmation_required.disconnect(shooting_controller._on_next_weapon_confirmation_required)
-				print("Main: Disconnected next_weapon_confirmation_required")
-			if phase_instance.reactive_stratagem_opportunity.is_connected(shooting_controller._on_reactive_stratagem_opportunity):
-				phase_instance.reactive_stratagem_opportunity.disconnect(shooting_controller._on_reactive_stratagem_opportunity)
-				print("Main: Disconnected reactive_stratagem_opportunity")
-			if phase_instance.grenade_result.is_connected(shooting_controller._on_grenade_result):
-				phase_instance.grenade_result.disconnect(shooting_controller._on_grenade_result)
-				print("Main: Disconnected grenade_result")
-			# T7-53: Disconnect shooting_damage_applied
-			if phase_instance.has_signal("shooting_damage_applied") and shooting_controller.has_method("_on_shooting_damage_visual"):
-				if phase_instance.shooting_damage_applied.is_connected(shooting_controller._on_shooting_damage_visual):
-					phase_instance.shooting_damage_applied.disconnect(shooting_controller._on_shooting_damage_visual)
-					print("Main: Disconnected shooting_damage_applied")
+		shooting_controller.detach_phase()
 
 		# ENHANCEMENT: Clear visuals before freeing controller
 		if shooting_controller.has_method("_clear_visuals"):

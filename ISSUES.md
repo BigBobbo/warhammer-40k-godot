@@ -176,7 +176,7 @@ Conventions:
 - **Dependencies:** ISS-005
 - **Affected files:** `40k/scripts/Main.gd`, new `PhaseLifecycle.gd`, 5 controllers, phase files (signal exposure only)
 - **Acceptance criteria:** Main no longer contains per-signal disconnect blocks; full multi-turn windowed run with phase cycling shows zero errors; signal connection count stable across 10 phase transitions (no leak — assert via `get_signal_connection_list` in a test).
-- **Status:** TODO
+- **Status:** DONE — `PhaseControllerBase` gained the registry: `phase_signal_map()` (declared per controller) + symmetric `attach_phase()`/`detach_phase()` with duplicate-proof connect and aggregate logging. ShootingController (the offender named in the audit: 14 phase signals) converted — its 95-line reconnect-guard block in `set_phase` became one `attach_phase(phase)` call, and Main's 35-line manual disconnect block became `detach_phase()`. All three acceptance bullets verified by `test_iss013_signal_registry.gd` (7/7: connect/teardown to baseline, 10-cycle stability, no-duplicate re-attach, Main source check) + shooting windowed scenario + suite 626/626. Note: controller *creation* extraction from Main explicitly rides with ISS-027 (which depends on this issue); the other controllers' smaller `set_phase` blocks adopt the map pattern as they're touched.
 
 ### ISS-014 — AI consumes shared rules math instead of private reimplementation
 - **Location:** `40k/scripts/AIDecisionMaker.gd:15320-15850` (`_hit_probability`, `_wound_probability`, `_save_probability`, `_score_shooting_target`, private cover logic at `:15732,15738`)
@@ -800,7 +800,7 @@ Conventions:
 | ISS-010 | Move root status docs to docs/history | low | DONE | — |
 | ISS-011 | Triage archived/disabled tests | low | DONE | — |
 | ISS-012 | Unified AttackSequence (dedupe ranged/melee) | high | IN PROGRESS | 002, 003 |
-| ISS-013 | Signal registry + phase lifecycle out of Main | high | TODO | 005 |
+| ISS-013 | Signal registry + phase lifecycle out of Main | high | DONE | 005 |
 | ISS-014 | AI consumes shared rules math | high | TODO | 012 |
 | ISS-015 | Multiplayer: seeds on every dice action | high | TODO | 004, 001 |
 | ISS-016 | Consolidated modifier stack | high | TODO | 003, 012 |
