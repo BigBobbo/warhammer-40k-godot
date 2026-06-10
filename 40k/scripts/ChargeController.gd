@@ -1,4 +1,4 @@
-extends Node2D
+extends PhaseControllerBase
 class_name ChargeController
 
 const GameStateData = preload("res://autoloads/GameState.gd")
@@ -48,13 +48,10 @@ const SNAP_ZONE_INCHES: float = 1.5  # How close (beyond base contact) to trigge
 const SNAP_BREAK_INCHES: float = 2.0  # How far to drag away from snap point to break out
 var target_engagement_visuals: Array = []  # Engagement range circles around charge targets
 
-# UI References
-var board_view: Node2D
+# UI References (board_view / hud_bottom / hud_right live in PhaseControllerBase)
 var charge_line_visual: Line2D
 var range_visual: Node2D
 var target_highlights: Node2D
-var hud_bottom: Control
-var hud_right: Control
 
 # T7-58: Charge arrow visuals - animated arrows from charger to targets
 var charge_arrow_visuals: Array = []  # Array of ChargeArrowVisual instances
@@ -251,18 +248,6 @@ func _handle_mouse_release(global_pos: Vector2) -> void:
 	
 	var local_pos = board_root.to_local(global_pos)
 	_end_model_drag(local_pos)
-
-func _setup_ui_references() -> void:
-	# Get references to UI nodes
-	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
-	hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
-	hud_right = get_node_or_null("/root/Main/HUD_Right")
-	
-	# Setup charge-specific UI elements
-	if hud_bottom:
-		_setup_bottom_hud()
-	if hud_right:
-		_setup_right_panel()
 
 func _create_charge_visuals() -> void:
 	var board_root = get_node_or_null("/root/Main/BoardRoot")

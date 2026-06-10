@@ -1,4 +1,4 @@
-extends Node2D
+extends PhaseControllerBase
 class_name MovementController
 
 const GameStateData = preload("res://autoloads/GameState.gd")
@@ -50,8 +50,7 @@ var group_dragging: bool = false
 var group_drag_start_positions: Dictionary = {}  # model_id -> Vector2
 var group_formation_offsets: Dictionary = {}  # model_id -> Vector2 (relative to group center)
 
-# UI References
-var board_view: Node2D
+# UI References (board_view / hud_bottom / hud_right live in PhaseControllerBase)
 var path_visual: Line2D
 var staged_path_visual: Line2D  # NEW: Visual for staged movements
 var ruler_visual: Line2D
@@ -61,8 +60,6 @@ var movement_path_preview: Node2D = null  # P3-125: HumanMovementPathVisual for 
 var move_range_visual: Node2D = null  # T-094: Container for movement range circle overlay
 var er_overlay_visual: Node2D = null  # T-094: Container for enemy engagement-range rings during move
 var coherency_dots_visual: Node2D = null  # T-094: Container for friendly coherency dots during move
-var hud_bottom: Control
-var hud_right: Control
 var ui_setup_complete: bool = false  # Flag to prevent duplicate UI creation
 
 # Floating movement indicator (shown near model during drag)
@@ -249,22 +246,6 @@ func _exit_tree() -> void:
 	# Reset UI setup flag
 	ui_setup_complete = false
 
-func _setup_ui_references() -> void:
-	# Get references to UI nodes
-	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
-	hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
-	hud_right = get_node_or_null("/root/Main/HUD_Right")
-
-	# Do NOT grab the persistent UnitListPanel — the movement controller creates
-	# its own ItemList in _create_section1_unit_list(). Reusing the persistent
-	# one causes an "already has a parent" error when add_child is called.
-
-	# Setup movement-specific UI elements
-	if hud_bottom:
-		_setup_bottom_hud()
-	if hud_right:
-		_setup_right_panel()
-
 func _create_path_visuals() -> void:
 	# Get references to the proper layers in BoardRoot
 	var board_root = get_node_or_null("/root/Main/BoardRoot")
@@ -341,6 +322,9 @@ func _setup_bottom_hud() -> void:
 	# MovementController only manages movement-specific UI in the right panel
 	pass
 
+# NOTE: do NOT grab the persistent UnitListPanel — the movement controller
+# creates its own ItemList in _create_section1_unit_list(). Reusing the
+# persistent one causes an "already has a parent" error on add_child.
 func _setup_right_panel() -> void:
 	# Prevent duplicate UI creation
 	if ui_setup_complete:

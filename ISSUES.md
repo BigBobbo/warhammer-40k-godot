@@ -76,7 +76,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** 5 controller files, new `40k/scripts/PhaseControllerBase.gd`, `40k/scripts/Main.gd` (instantiation), windowed scenarios for each phase
 - **Acceptance criteria:** all five controllers extend the base; duplicated `_setup_ui_references` removed; each phase's windowed scenario passes (`40k/tests/run_scenarios.sh`); no `ERROR` lines in debug log during a full phase cycle (verify via `verify_delivery`).
-- **Status:** TODO
+- **Status:** DONE — new `40k/scripts/PhaseControllerBase.gd` (extends Node2D) owning `board_view`/`hud_bottom`/`hud_right` + `_setup_ui_references()` with `_on_ui_references_ready` / `_setup_bottom_hud` / `_setup_right_panel` hooks. All five controllers migrated: Shooting/Movement/Charge dropped their copy-pasted lookup + duplicate member vars; FightController's divergent version became an `_on_ui_references_ready` override (damage feedback + state banner); DeploymentController switched from bare Node onto the base. Validated: windowed scenarios across all five phases pass (377 deployment, 51 movement, 374 shooting, 372 charge, fight_self_targeting); pretrigger suite 617/617. Deeper consolidation (signal registry, UI container, input gating) follows in ISS-013/018/008 as planned.
 
 ### ISS-006 — Remove committed artifacts from git and ignore them
 - **Location:** `40k/test_results/` (152MB), `logs/` (1.4MB), `40k/saves/` (11MB), `ai_fix_loop_*` outputs, `test_results/` at root
@@ -792,7 +792,7 @@ Conventions:
 | ISS-002 | GameConstants module + edition switch | high | DONE | — |
 | ISS-003 | Structured ability schema + registry | high | DONE | — |
 | ISS-004 | Uniform per-action RNG seeding | high | DONE | — |
-| ISS-005 | PhaseControllerBase extraction | high | TODO | — |
+| ISS-005 | PhaseControllerBase extraction | high | DONE | — |
 | ISS-006 | Remove committed artifacts from git | medium | TODO | — |
 | ISS-007 | Guard freed-node access in cleanup | medium | TODO | — |
 | ISS-008 | Standardize controller input handling | medium | TODO | (005) |

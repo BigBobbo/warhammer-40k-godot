@@ -1,4 +1,4 @@
-extends Node2D
+extends PhaseControllerBase
 class_name ShootingController
 
 const BasePhase = preload("res://phases/BasePhase.gd")
@@ -60,14 +60,11 @@ var _expected_save_ack_broadcast_id: String = ""  # Set when attacker starts wai
 var _shown_save_broadcast_ids: Array = []  # Recent broadcast ids the defender has handled
 const SHOWN_SBID_HISTORY_CAP: int = 32  # Trim to last N to keep memory bounded
 
-# UI References
-var board_view: Node2D
+# UI References (board_view / hud_bottom / hud_right live in PhaseControllerBase)
 var los_visual: Line2D
 var range_visual: Node2D
 var target_highlights: Node2D
 var los_debug_visual: Node2D  # New LoS debug visualization
-var hud_bottom: Control
-var hud_right: Control
 
 # UI Elements
 var unit_selector: ItemList
@@ -303,18 +300,6 @@ func _exit_tree() -> void:
 		shooting_scroll.queue_free()
 	
 	# DON'T restore UnitListPanel/UnitCard visibility here - let Main.gd handle it
-
-func _setup_ui_references() -> void:
-	# Get references to UI nodes
-	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
-	hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
-	hud_right = get_node_or_null("/root/Main/HUD_Right")
-	
-	# Setup shooting-specific UI elements
-	if hud_bottom:
-		_setup_bottom_hud()
-	if hud_right:
-		_setup_right_panel()
 
 func _create_shooting_visuals() -> void:
 	var board_root = get_node_or_null("/root/Main/BoardRoot")

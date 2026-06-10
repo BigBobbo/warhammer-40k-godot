@@ -1,4 +1,4 @@
-extends Node
+extends PhaseControllerBase
 # All classes (GameStateData, BaseShape, CircularBase, OvalBase) are available via class_name
 # No preloads needed - using global class names to avoid web export reload issues
 

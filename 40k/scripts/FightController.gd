@@ -1,4 +1,4 @@
-extends Node2D
+extends PhaseControllerBase
 class_name FightController
 
 const BasePhase = preload("res://phases/BasePhase.gd")
@@ -37,12 +37,10 @@ var drag_offset: Vector2 = Vector2.ZERO
 var drag_start_pos: Vector2 = Vector2.ZERO
 var locked_base_contact_models: Dictionary = {}  # T4-5: model_id -> true for models already in base contact
 
-# UI References
-var board_view: Node2D
+# UI References (board_view / hud_bottom / hud_right live in PhaseControllerBase)
 var movement_visual: Line2D
 var range_visual: Node2D
 var target_highlights: Node2D
-var hud_right: Control
 
 # T5-MP1: Drag preview sync throttle
 var _last_drag_preview_time: float = 0.0
@@ -128,11 +126,7 @@ func _exit_tree() -> void:
 				container.remove_child(node)
 				node.queue_free()
 
-func _setup_ui_references() -> void:
-	# Get references to UI nodes
-	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
-	hud_right = get_node_or_null("/root/Main/HUD_Right")
-
+func _on_ui_references_ready() -> void:
 	# T5-V12: Create damage feedback visual for floating numbers + flash effects
 	if board_view and not (damage_feedback and is_instance_valid(damage_feedback)):
 		damage_feedback = DamageFeedbackVisualScript.new()
@@ -142,10 +136,6 @@ func _setup_ui_references() -> void:
 
 	# T5-V10: Setup fight phase state banner (anchored below HUD_Top)
 	_setup_fight_state_banner()
-
-	# Setup fight-specific UI in right panel
-	if hud_right:
-		_setup_right_panel()
 
 func _setup_fight_state_banner() -> void:
 	# T5-V10: Create the persistent fight phase state banner below HUD_Top
