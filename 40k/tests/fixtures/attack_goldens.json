@@ -1,0 +1,6116 @@
+{
+  "melee|devastating wounds|seed11": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 4,
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3,
+          3
+        ],
+        "successes": 4,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 4,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 1,
+        "devastating_wounds_weapon": true,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          1,
+          3,
+          6,
+          1
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 1,
+        "devastating_wounds_bypassed": 1,
+        "failed": 0,
+        "original_save": 4,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "successes": 1,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      }
+    ],
+    "success": true
+  },
+  "melee|devastating wounds|seed22": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5,
+          1
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": true,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          2,
+          4
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 2,
+        "original_save": 4,
+        "rolls_raw": [
+          2,
+          2
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "melee|devastating wounds|seed33": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 2,
+        "devastating_wounds_weapon": true,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          6,
+          6,
+          5
+        ],
+        "strength": 5,
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 2,
+        "devastating_wounds_bypassed": 2,
+        "failed": 1,
+        "original_save": 4,
+        "rolls_raw": [
+          4
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.1.current_wounds",
+        "value": 1
+      }
+    ],
+    "success": true
+  },
+  "melee|lance|seed11": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 4,
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3,
+          3
+        ],
+        "successes": 4,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 4,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          1,
+          3,
+          6,
+          1
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 1,
+        "wound_modifiers_applied": 4,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 0,
+        "original_save": 4,
+        "rolls_raw": [
+          5,
+          5
+        ],
+        "save_modifier": 0,
+        "successes": 2,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "melee|lance|seed22": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5,
+          1
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 3,
+        "rolls_raw": [
+          5,
+          2,
+          4
+        ],
+        "strength": 5,
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 1,
+        "wound_modifiers_applied": 4,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 2,
+        "original_save": 4,
+        "rolls_raw": [
+          2,
+          2,
+          6
+        ],
+        "save_modifier": 0,
+        "successes": 1,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "melee|lance|seed33": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 3,
+        "rolls_raw": [
+          6,
+          6,
+          5
+        ],
+        "strength": 5,
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 1,
+        "wound_modifiers_applied": 4,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 3,
+        "original_save": 4,
+        "rolls_raw": [
+          4,
+          3,
+          2
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.1.current_wounds",
+        "value": 1
+      }
+    ],
+    "success": true
+  },
+  "melee|lethal hits|seed11": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": true,
+        "precision_weapon": false,
+        "regular_hits": 4,
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3,
+          3
+        ],
+        "successes": 4,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 4,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": true,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          1,
+          3,
+          6,
+          1
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 0,
+        "original_save": 4,
+        "rolls_raw": [
+          5,
+          5
+        ],
+        "save_modifier": 0,
+        "successes": 2,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "melee|lethal hits|seed22": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": true,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5,
+          1
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": true,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          2,
+          4
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 2,
+        "original_save": 4,
+        "rolls_raw": [
+          2,
+          2
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "melee|lethal hits|seed33": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": true,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": true,
+        "regular_wounds": 3,
+        "rolls_raw": [
+          6,
+          6,
+          5
+        ],
+        "strength": 5,
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 3,
+        "original_save": 4,
+        "rolls_raw": [
+          4,
+          3,
+          2
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.1.current_wounds",
+        "value": 1
+      }
+    ],
+    "success": true
+  },
+  "melee|plain|seed11": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 4,
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3,
+          3
+        ],
+        "successes": 4,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 4,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          1,
+          3,
+          6,
+          1
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 0,
+        "original_save": 4,
+        "rolls_raw": [
+          5,
+          5
+        ],
+        "save_modifier": 0,
+        "successes": 2,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "melee|plain|seed22": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5,
+          1
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          2,
+          4
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 2,
+        "original_save": 4,
+        "rolls_raw": [
+          2,
+          2
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "melee|plain|seed33": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 3,
+        "rolls_raw": [
+          6,
+          6,
+          5
+        ],
+        "strength": 5,
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 3,
+        "original_save": 4,
+        "rolls_raw": [
+          4,
+          3,
+          2
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.1.current_wounds",
+        "value": 1
+      }
+    ],
+    "success": true
+  },
+  "melee|precision|seed11": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": true,
+        "regular_hits": 4,
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3,
+          3
+        ],
+        "successes": 4,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 4,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          1,
+          3,
+          6,
+          1
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 0,
+        "original_save": 4,
+        "rolls_raw": [
+          5,
+          5
+        ],
+        "save_modifier": 0,
+        "successes": 2,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "melee|precision|seed22": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": true,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5,
+          1
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          2,
+          4
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 2,
+        "original_save": 4,
+        "rolls_raw": [
+          2,
+          2
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "melee|precision|seed33": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": true,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 3,
+        "rolls_raw": [
+          6,
+          6,
+          5
+        ],
+        "strength": 5,
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 3,
+        "original_save": 4,
+        "rolls_raw": [
+          4,
+          3,
+          2
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.1.current_wounds",
+        "value": 1
+      }
+    ],
+    "success": true
+  },
+  "melee|sustained hits 1|seed11": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 4,
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3,
+          3
+        ],
+        "successes": 4,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 1,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 4,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          1,
+          3,
+          6,
+          1
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 0,
+        "original_save": 4,
+        "rolls_raw": [
+          5,
+          5
+        ],
+        "save_modifier": 0,
+        "successes": 2,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "melee|sustained hits 1|seed22": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5,
+          1
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 1,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          2,
+          4
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 2,
+        "original_save": 4,
+        "rolls_raw": [
+          2,
+          2
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "melee|sustained hits 1|seed33": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 1,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 3,
+        "rolls_raw": [
+          6,
+          6,
+          5
+        ],
+        "strength": 5,
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 3,
+        "original_save": 4,
+        "rolls_raw": [
+          4,
+          3,
+          2
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.1.current_wounds",
+        "value": 1
+      }
+    ],
+    "success": true
+  },
+  "melee|twin-linked|seed11": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 4,
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3,
+          3
+        ],
+        "successes": 4,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 4,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 4,
+        "rolls_raw": [
+          1,
+          3,
+          6,
+          1
+        ],
+        "strength": 5,
+        "successes": 4,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": true,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 2,
+        "wound_rerolls": [
+          {
+            "original": 1,
+            "rerolled_to": 5
+          },
+          {
+            "original": 1,
+            "rerolled_to": 5
+          }
+        ],
+        "wounds_from_rolls": 4
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 2,
+        "original_save": 4,
+        "rolls_raw": [
+          6,
+          3,
+          4,
+          6
+        ],
+        "save_modifier": 0,
+        "successes": 2,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "melee|twin-linked|seed22": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5,
+          1
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          2,
+          4
+        ],
+        "strength": 5,
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": true,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 2,
+        "wound_rerolls": [
+          {
+            "original": 2,
+            "rerolled_to": 2
+          }
+        ],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 1,
+        "original_save": 4,
+        "rolls_raw": [
+          2,
+          6
+        ],
+        "save_modifier": 0,
+        "successes": 1,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      }
+    ],
+    "success": true
+  },
+  "melee|twin-linked|seed33": {
+    "dice": [
+      {
+        "context": "hit_roll_melee",
+        "critical_hits": 0,
+        "lethal_hits_weapon": false,
+        "precision_weapon": false,
+        "regular_hits": 3,
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "threshold": "3+",
+        "total_attacks": 6,
+        "total_hits_for_wounds": 3,
+        "weapon": "Golden Test Blade"
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "wound_roll_melee",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 3,
+        "rolls_raw": [
+          6,
+          6,
+          5
+        ],
+        "strength": 5,
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "toughness": 4,
+        "twin_linked_weapon": true,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 2,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save_roll_melee",
+        "devastating_damage": 0,
+        "devastating_wounds_bypassed": 0,
+        "failed": 3,
+        "original_save": 4,
+        "rolls_raw": [
+          4,
+          3,
+          2
+        ],
+        "save_modifier": 0,
+        "successes": 0,
+        "threshold": "5+",
+        "using_invuln": true
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 1
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.0.alive",
+        "value": false
+      },
+      {
+        "op": "set",
+        "path": "units.U_DEFENDER.models.1.current_wounds",
+        "value": 1
+      }
+    ],
+    "success": true
+  },
+  "ranged|anti-infantry 4+, devastating wounds|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": true,
+        "context": "to_wound",
+        "critical_wound_threshold": 4,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": true,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|anti-infantry 4+, devastating wounds|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": true,
+        "context": "to_wound",
+        "critical_wound_threshold": 4,
+        "critical_wounds": 1,
+        "devastating_wounds_weapon": true,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 0,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 1,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 1
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|anti-infantry 4+, devastating wounds|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": true,
+        "context": "to_wound",
+        "critical_wound_threshold": 4,
+        "critical_wounds": 2,
+        "devastating_wounds_weapon": true,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 0,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.1.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.1.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|anti-infantry 4+|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": true,
+        "context": "to_wound",
+        "critical_wound_threshold": 4,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|anti-infantry 4+|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": true,
+        "context": "to_wound",
+        "critical_wound_threshold": 4,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 1,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 1
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          4
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|anti-infantry 4+|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": true,
+        "context": "to_wound",
+        "critical_wound_threshold": 4,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "ranged|blast|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 9,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": true,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|blast|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 9,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": true,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 1,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 1
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          4
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|blast|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 9,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": true,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "ranged|devastating wounds|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": true,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|devastating wounds|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": true,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 1,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 1
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          4
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|devastating wounds|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 1,
+        "devastating_wounds_weapon": true,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|heavy|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|heavy|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 1,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 1
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          4
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|heavy|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "ranged|lethal hits|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": true,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": true,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|lethal hits|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": true,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": true,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 1,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 1
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          4
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|lethal hits|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": true,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": true,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "ranged|melta 2|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|melta 2|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 1,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 1
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          4
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|melta 2|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "ranged|plain|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|plain|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 1,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 1
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          4
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|plain|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "ranged|rapid fire 1|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 3,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 1,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|rapid fire 1|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 3,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 1,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 1,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 1
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          4
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|rapid fire 1|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 3,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 1,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "ranged|sustained hits 1, lethal hits, twin-linked|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": true,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 1,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": true,
+        "regular_wounds": 3,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": true,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 2,
+        "wound_rerolls": [
+          {
+            "original": 1,
+            "rerolled_to": 6
+          }
+        ],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|sustained hits 1, lethal hits, twin-linked|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": true,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 1,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": true,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": true,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 2,
+        "wound_rerolls": [
+          {
+            "original": 1,
+            "rerolled_to": 4
+          },
+          {
+            "original": 2,
+            "rerolled_to": 2
+          }
+        ],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          2
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|sustained hits 1, lethal hits, twin-linked|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": true,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 1,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": true,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": true,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 2,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "ranged|sustained hits 1|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 1,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|sustained hits 1|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 1,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 1,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 1
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          4
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|sustained hits 1|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 1,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "ranged|sustained hits d3|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": true,
+        "sustained_hits_value": 3,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|sustained hits d3|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": true,
+        "sustained_hits_value": 3,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 1,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 1,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 1
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          4
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|sustained hits d3|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": true,
+        "sustained_hits_value": 3,
+        "sustained_hits_weapon": true,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "ranged|torrent|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "auto_hit",
+        "deck_fraggers_blast": false,
+        "lethal_hits_weapon": false,
+        "message": "Torrent: 5 automatic hits",
+        "models_in_half_range": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "successes": 5,
+        "sustained_hits_note": "N/A - no hit roll for Torrent",
+        "sustained_hits_weapon": false,
+        "target_model_count": 7,
+        "torrent_weapon": true,
+        "total_attacks": 5,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 3,
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          3
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          3
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|torrent|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "auto_hit",
+        "deck_fraggers_blast": false,
+        "lethal_hits_weapon": false,
+        "message": "Torrent: 5 automatic hits",
+        "models_in_half_range": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "successes": 5,
+        "sustained_hits_note": "N/A - no hit roll for Torrent",
+        "sustained_hits_weapon": false,
+        "target_model_count": 7,
+        "torrent_weapon": true,
+        "total_attacks": 5,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 3,
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          2
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|torrent|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "auto_hit",
+        "deck_fraggers_blast": false,
+        "lethal_hits_weapon": false,
+        "message": "Torrent: 5 automatic hits",
+        "models_in_half_range": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "successes": 5,
+        "sustained_hits_note": "N/A - no hit roll for Torrent",
+        "sustained_hits_weapon": false,
+        "target_model_count": 7,
+        "torrent_weapon": true,
+        "total_attacks": 5,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": false,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 0,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  },
+  "ranged|twin-linked|seed11": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "rolls_raw": [
+          2,
+          3,
+          1,
+          3,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 3,
+        "rolls_raw": [
+          3,
+          1,
+          3
+        ],
+        "successes": 3,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": true,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 2,
+        "wound_rerolls": [
+          {
+            "original": 1,
+            "rerolled_to": 6
+          }
+        ],
+        "wounds_from_rolls": 3
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          1
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|twin-linked|seed22": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 3,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "rolls_raw": [
+          1,
+          5,
+          4,
+          1,
+          5
+        ],
+        "successes": 3,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 3,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          1,
+          5,
+          2
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": true,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 2,
+        "wound_rerolls": [
+          {
+            "original": 1,
+            "rerolled_to": 4
+          },
+          {
+            "original": 2,
+            "rerolled_to": 2
+          }
+        ],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 1,
+        "rolls_raw": [
+          2
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.current_wounds",
+        "value": 0
+      },
+      {
+        "op": "set",
+        "path": "units.U_TARGET.models.0.alive",
+        "value": false
+      }
+    ],
+    "success": true
+  },
+  "ranged|twin-linked|seed33": {
+    "dice": [
+      {
+        "attacks_notation": "",
+        "attacks_rolls": [],
+        "base_attacks": 6,
+        "bgnt_penalty_applied": false,
+        "blast_bonus_attacks": 0,
+        "blast_weapon": false,
+        "context": "to_hit",
+        "conversion_active": false,
+        "critical_hit_threshold": 6,
+        "critical_hits": 0,
+        "dakkastorm_active": false,
+        "deck_fraggers_blast": false,
+        "heavy_bonus_applied": false,
+        "indirect_fire_applied": false,
+        "lethal_hits_weapon": false,
+        "models_in_half_range": 0,
+        "modifiers_applied": 0,
+        "rapid_fire_bonus": 0,
+        "rapid_fire_value": 0,
+        "regular_hits": 2,
+        "rerolls": [],
+        "rolls_modified": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "rolls_raw": [
+          1,
+          2,
+          3,
+          1,
+          4
+        ],
+        "successes": 2,
+        "sustained_bonus_hits": 0,
+        "sustained_hits_is_dice": false,
+        "sustained_hits_value": 0,
+        "sustained_hits_weapon": false,
+        "sustained_rolls": [],
+        "target_model_count": 7,
+        "threshold": "3+",
+        "total_hits_for_wounds": 2,
+        "variable_attacks": false
+      },
+      {
+        "anti_keyword_active": false,
+        "context": "to_wound",
+        "critical_wound_threshold": 6,
+        "critical_wounds": 0,
+        "devastating_wounds_weapon": false,
+        "lethal_hits_auto_wounds": 0,
+        "lethal_hits_weapon": false,
+        "regular_wounds": 2,
+        "rolls_raw": [
+          5,
+          6
+        ],
+        "successes": 2,
+        "sustained_bonus_hits_rolled": 0,
+        "threshold": "3+",
+        "twin_linked_weapon": true,
+        "wound_modifier_net": 0,
+        "wound_modifiers_applied": 2,
+        "wound_rerolls": [],
+        "wounds_from_rolls": 2
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          6
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      },
+      {
+        "ap": -1,
+        "context": "save",
+        "cover": "none",
+        "fails": 0,
+        "rolls_raw": [
+          5
+        ],
+        "save_modifier": 0,
+        "sv": "4+"
+      }
+    ],
+    "diffs": [],
+    "success": true
+  }
+}
