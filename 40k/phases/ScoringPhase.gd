@@ -304,6 +304,11 @@ func _handle_end_turn() -> Dictionary:
 
 	DebugLogger.info(str("ScoringPhase: Player %d ending turn, switching to player %d" % [current_player, next_player]))
 
+	# ISS-038: End of Turn step (07.02) — run registered hooks in 07.03
+	# order (non-mission rules, then mission rules) before the player-switch
+	# diffs are built.
+	PhaseManager.run_turn_ending_hooks(current_player)
+
 	# P3-128: Record VP snapshot at end of each player's turn for the timeline chart
 	if MissionManager:
 		var battle_round = GameState.get_battle_round()
@@ -328,6 +333,8 @@ func _handle_end_turn() -> Dictionary:
 	# If Player 2 just finished their turn, advance battle round
 	if current_player == 2:
 		var current_battle_round = GameState.get_battle_round()
+		# ISS-038: End of Battle Round step (07.03).
+		PhaseManager.emit_signal("battle_round_ending", current_battle_round)
 		var new_battle_round = current_battle_round + 1
 		DebugLogger.info(str("ScoringPhase: Completing battle round, advancing to battle round %d" % new_battle_round))
 

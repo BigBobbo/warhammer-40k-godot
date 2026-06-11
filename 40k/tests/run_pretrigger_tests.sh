@@ -74,6 +74,7 @@ TESTS=(
     "tests/test_iss039_engagement_range_11e.gd"
     "tests/test_iss044_hazard_rolls.gd"
     "tests/test_iss043_battleshock_11e.gd"
+    "tests/test_iss038_turn_hooks.gd"
 )
 
 FAILED=0

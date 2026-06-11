@@ -9,9 +9,44 @@ signal phase_changed(new_phase: GameStateData.Phase)
 signal phase_completed(phase: GameStateData.Phase)
 signal phase_action_taken(action: Dictionary)
 
+# ── ISS-038: 11e battle-round / turn step events (core rules 07) ────
+# Emitted at the structural seams so rules can hook the Start/End of Turn
+# and Battle Round steps (coherency enforcement ISS-042, action completion
+# ISS-057, battle-shock step wiring ISS-043, mission timing ISS-051/055).
+signal turn_started(player: int)
+signal turn_ending(player: int)
+signal battle_round_started(round: int)
+signal battle_round_ending(round: int)
+
 var current_phase_instance: BasePhase = null
 var phase_classes: Dictionary = {}
 var game_ended: bool = false
+
+# ISS-038: registered End of Turn hooks. Per 07.03 ordering, non-mission
+# rules resolve before mission rules; registration order is preserved
+# within each class. Hooks receive (player: int) and run BEFORE the
+# player-switch diffs are built in ScoringPhase.
+var _turn_ending_hooks: Array = []
+var _hook_seq: int = 0
+var _last_round_started: int = -1
+
+func register_turn_ending_hook(cb: Callable, is_mission_rule: bool = false) -> void:
+	_hook_seq += 1
+	_turn_ending_hooks.append({"cb": cb, "mission": is_mission_rule, "order": _hook_seq})
+
+func unregister_turn_ending_hook(cb: Callable) -> void:
+	_turn_ending_hooks = _turn_ending_hooks.filter(func(h): return h.cb != cb)
+
+func run_turn_ending_hooks(player: int) -> void:
+	var hooks = _turn_ending_hooks.duplicate()
+	hooks.sort_custom(func(a, b):
+		if a.mission != b.mission:
+			return not a.mission  # non-mission rules first (07.03)
+		return a.order < b.order)
+	for h in hooks:
+		if h.cb.is_valid():
+			h.cb.call(player)
+	emit_signal("turn_ending", player)
 
 func _ready() -> void:
 	# Register all available phase classes
@@ -113,6 +148,14 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 			print("[PhaseManager] Unit IDs: ", snapshot.units.keys())
 
 		current_phase_instance.enter_phase(snapshot)
+
+		# ISS-038: a player turn begins with its Command phase (07.02).
+		if new_phase == GameStateData.Phase.COMMAND:
+			var round_now = GameState.get_battle_round()
+			if round_now != _last_round_started:
+				_last_round_started = round_now
+				emit_signal("battle_round_started", round_now)
+			emit_signal("turn_started", GameState.get_active_player())
 
 		emit_signal("phase_changed", new_phase)
 	else:

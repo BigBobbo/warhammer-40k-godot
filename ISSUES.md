@@ -480,7 +480,7 @@ Conventions:
 - **Dependencies:** ISS-001, ISS-025, ISS-034
 - **Affected files:** `PhaseManager.gd`, `TurnManager.gd`, `MissionManager.gd`, phases
 - **Acceptance criteria:** scenario log shows the full 11e step sequence for two battle rounds; mission scoring fires at end-of-turn/round per 07.03 ordering.
-- **Status:** TODO
+- **Status:** DONE (hooks layer; consumers wire in their issues) — PhaseManager now exposes the 11e structural step events: `turn_started`/`battle_round_started` (emitted on COMMAND entry, round-started deduped per round), `turn_ending`/`battle_round_ending` (driven from ScoringPhase's END_TURN boundary), plus a registerable End-of-Turn hook API (`register_turn_ending_hook(cb, is_mission_rule)`) enforcing 07.03 ordering: non-mission rules before mission rules, registration order within class, hooks running BEFORE the player-switch diffs. Verified by `test_iss038_turn_hooks.gd` (7/7: ordering, full END_TURN drive with round advancement, once-per-round started events); suite 751/751; command-phase windowed scenario passes. Consumers: ISS-042 (coherency removal), ISS-057 (action completion), ISS-043 wiring, ISS-051/055 (mission timing). TurnManager's dead MORALE arm noted for ISS-025's ownership cleanup.
 
 ### ISS-039 — Engagement range 2" horizontal / 5" vertical
 - **Location:** all sites consolidated by ISS-002; rules: 03.04
@@ -825,7 +825,7 @@ Conventions:
 | ISS-035 | Autosave deferral (verify then fix) | low | TODO | — |
 | ISS-036 | Disconnect grace period (verify then fix) | low | TODO | 026 |
 | ISS-037 | 11e datasheet/army schema + converter | high | DONE | 003 |
-| ISS-038 | 11e battle-round/turn structure hooks | high | TODO | 001, 025, 034 |
+| ISS-038 | 11e battle-round/turn structure hooks | high | DONE | 001, 025, 034 |
 | ISS-039 | Engagement range 2"/5" | high | DONE | 002 |
 | ISS-040 | 11e move-type framework | high | TODO | 001, 002, 038 |
 | ISS-041 | 11e attack core: allocation groups | blocker | TODO | 012, 037 |
