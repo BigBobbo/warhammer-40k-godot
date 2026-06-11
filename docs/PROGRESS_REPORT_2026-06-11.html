@@ -49,132 +49,105 @@
 
 <header>
   <h1>Warhammer 40k (Godot) — Architecture Overhaul &amp; 11th Edition Migration</h1>
-  <div class="sub">Progress report · 2026-06-11 · branch <code>claude/wh40k-architecture-audit-n69bqn</code> ·
+  <div class="sub">Progress report · 2026-06-11 (updated) · branch <code>claude/wh40k-architecture-audit-n69bqn</code> ·
   tracker <code>ISSUES.md</code> · spec <code>PRD.md</code> · findings <code>ARCHITECTURE_AUDIT_2026-06.md</code></div>
 </header>
 
 <div class="cards">
-  <div class="card"><div class="n done">28</div><div class="l">Issues done</div></div>
-  <div class="card"><div class="n prog">2</div><div class="l">In progress</div></div>
-  <div class="card"><div class="n todo">33</div><div class="l">Planned</div></div>
-  <div class="card"><div class="n">759</div><div class="l">Test checks green</div></div>
-  <div class="card"><div class="n">47</div><div class="l">Headless tests</div></div>
-  <div class="card"><div class="n">32</div><div class="l">Commits pushed</div></div>
+  <div class="card"><div class="n done">31</div><div class="l">Issues done</div></div>
+  <div class="card"><div class="n prog">13</div><div class="l">In progress</div></div>
+  <div class="card"><div class="n todo">19</div><div class="l">Planned</div></div>
+  <div class="card"><div class="n">943</div><div class="l">Test checks green</div></div>
+  <div class="card"><div class="n">61</div><div class="l">Headless tests</div></div>
+  <div class="card"><div class="n">~50</div><div class="l">Session commits</div></div>
 </div>
 
 <div class="note">
-<b>Method.</b> Every issue is worked in dependency order from <code>ISSUES.md</code>, lands with its own
-regression tests (the suite grew from 562 → 759 checks), is verified against windowed scenarios over
-the in-game MCP bridge where player-facing, and is committed individually. The 63-entry
-<b>golden-master corpus</b> pins the exact dice and state-diffs of both attack-resolution paths, so
-every refactor is proven byte-identical. The <b>edition switch</b> (<code>GameConstants.edition</code>,
-default 10) lets 11th-edition behavior land incrementally and provably without breaking the playable game.
+<b>Method.</b> Issues are worked in dependency order from <code>ISSUES.md</code>; every change lands with
+its own regression tests (the gate grew from 562 → <b>943 checks</b>), windowed-scenario validation over
+the in-game MCP bridge where player-facing, and an individual commit. The <b>63-entry golden corpus</b>
+pins both attack-resolution paths byte-for-byte, and the <b>edition switch</b>
+(<code>GameConstants.edition</code>, default 10) lets every 11th-edition behavior land provably without
+touching the playable 10e game. <b>The rulebook's own worked examples are the acceptance fixtures</b> —
+seven of them now reproduce exactly in tests.
 </div>
 
-<h2>Completed — Tier 1: Foundations</h2>
+<h2>Completed — Tier 1 &amp; 2: Foundations and Consolidation (24 issues)</h2>
 <table>
-<tr><th>ID</th><th>What landed</th><th>Validation</th></tr>
-<tr><td class="id">ISS-001</td><td>All in-game state mutations routed through the action/diff pipeline (warlord designation, attachment repair → new <code>REPAIR_FORMATION_ATTACHMENT</code> action, end-of-game flags); pre-game whitelist documented and lint-enforced.</td><td>Static scan + behavioral tests; windowed scenarios 367 &amp; 378</td></tr>
-<tr><td class="id">ISS-002</td><td><code>GameConstants</code> with the <b>edition switch</b> — 9 duplicate constant declarations + 6 hidden literals centralized (engagement range, coherency, detection).</td><td>13 checks incl. live ER flip at edition 11; charge scenario</td></tr>
-<tr><td class="id">ISS-003</td><td>Structured weapon-ability schema + <code>AbilityRegistry</code>: 236 weapons across 10 army files converted; a typo'd ability id now <b>fails the load</b> instead of silently never firing.</td><td>26 checks incl. golden resolve_shoot parity; devastating-wounds scenario</td></tr>
-<tr><td class="id">ISS-004</td><td>Sanctioned RNG factories: <code>rng_for_action</code> (records its seed into the action for replay) and <code>make_rng</code>; all 28 unseeded construction sites converted; lint-enforced.</td><td>16 checks incl. a logged action replaying with identical dice</td></tr>
-<tr><td class="id">ISS-005</td><td><code>PhaseControllerBase</code> — all five phase controllers share one UI lifecycle.</td><td>Windowed scenarios across all five phases</td></tr>
-<tr><td class="id">ISS-006</td><td>~165&nbsp;MB of generated artifacts untracked from git (3,589 files); goldens kept; tree stays clean after test runs.</td><td>Suite + scenario + clean <code>git status</code></td></tr>
-<tr><td class="id">ISS-007/008</td><td>Teardown guarded with <code>is_instance_valid</code>; input-routing investigation showed the <code>_input</code> usage is deliberate (modal-dialog bypass for pile-in / wound allocation) — documented, dead handler removed.</td><td>17 rapid phase transitions via MCP → 0 errors, verify_delivery PASS</td></tr>
-<tr><td class="id">ISS-010/011</td><td>36 dated docs archived to <code>docs/history/</code> (reference-checked); dead test directories deleted; legacy GUT suite status documented.</td><td>Suite re-verified after deletions</td></tr>
+<tr><th>Area</th><th>What landed</th></tr>
+<tr><td><b>State integrity</b></td><td>All in-game mutations through the action/diff pipeline (lint-enforced); loud failures on bad diff paths; <code>StateSchema</code> validation + canonical path builders; BoardState reduced to a storage-free facade; undo machinery proven with the dual-execute-path gaps documented. <span class="id">ISS-001/017/022/031</span></td></tr>
+<tr><td><b>Rules core</b></td><td><code>GameConstants</code> + edition switch (9 duplicate constants + 6 hidden literals centralized); structured weapon abilities on 236 weapons with load-time validation (typos = load errors); per-roll hit/wound evaluation unified in <code>AttackSequence</code> across all nine duplicated loops — proven byte-identical by the golden corpus; one S-vs-T chart in the codebase; public RulesEngine API with lint. <span class="id">ISS-002/003/012/014/019/020</span></td></tr>
+<tr><td><b>Determinism</b></td><td>Sanctioned RNG factories (seeds recorded into actions); every multiplayer action seeded with canonical state-hash desync detection; deterministic replay proven end-to-end (record → scramble → replay → identical hash); save-migration fixtures for three schema versions. <span class="id">ISS-004/015/021/028</span></td></tr>
+<tr><td><b>UI architecture</b></td><td><code>PhaseControllerBase</code> for all five controllers; symmetric signal attach/detach replacing 130 lines of manual blocks; teardown guards; deliberate input routing documented (pile-in's modal bypass preserved). <span class="id">ISS-005/007/008/013</span></td></tr>
+<tr><td><b>Hygiene</b></td><td>~165&nbsp;MB of artifacts untracked; 36 dated docs archived; dead test dirs deleted; deprecated SCOUT_MOVES/MORALE phases removed with save-safe enum slots; MP load-sync failures now block + retry; AI caches reset-by-design on load. <span class="id">ISS-006/010/011/026/032/034</span></td></tr>
 </table>
 
-<h2>Completed — Tier 2: Consolidation</h2>
+<h2>Completed — Tier 3: 11th Edition (7 issues fully done)</h2>
 <table>
-<tr><th>ID</th><th>What landed</th><th>Validation</th></tr>
-<tr><td class="id">ISS-012</td><td><b>Attack resolution unified:</b> 63-entry golden corpus pins both paths; per-roll hit/wound evaluation extracted to <code>AttackSequence</code> across all nine duplicated loop bodies. Melee schema asymmetries + silent-success trap documented for ISS-041.</td><td>All 63 goldens byte-identical post-extraction</td></tr>
-<tr><td class="id">ISS-013</td><td>Phase signal registry: <code>attach_phase</code>/<code>detach_phase</code> — ShootingController's 95-line connect block and Main's 35-line disconnect block each became one call.</td><td>7 checks incl. 10-cycle leak stability</td></tr>
-<tr><td class="id">ISS-014</td><td>AI probability math delegates to <code>AttackSequence</code>; the S-vs-T chart now exists exactly once in the codebase.</td><td>18 hand-computed cases + wrapper equivalence</td></tr>
-<tr><td class="id">ISS-015</td><td>Multiplayer: every submitted action carries an RNG seed; result broadcasts carry a canonical state hash → <b>silent desync is no longer possible</b>.</td><td>7 checks; existing MP broadcast tests still green</td></tr>
-<tr><td class="id">ISS-017</td><td>Diff paths fail loudly instead of silently dropping; <code>StateSchema</code> validation + canonical path builders; loaded saves validated.</td><td>7 checks incl. bad-path diffs leaving state untouched</td></tr>
-<tr><td class="id">ISS-019</td><td><code>UnitAbilities</code> unified query — datasheet <i>and</i> dynamically-granted abilities answer through one call (stealth gained the dynamic path).</td><td>9 checks + lone-operative scenario</td></tr>
-<tr><td class="id">ISS-020</td><td>Public RulesEngine API; 11 private-access call sites migrated; lint enforced. Bonus: the test runner gained a per-test timeout after a hang was diagnosed.</td><td>5 checks + suite</td></tr>
-<tr><td class="id">ISS-021</td><td><b>Deterministic replay:</b> ActionLogger bundles (snapshot + seeded action stream) + <code>ReplayVerifier</code>. Proven: record → scramble state → replay → identical hash.</td><td>7 checks end-to-end</td></tr>
-<tr><td class="id">ISS-022</td><td>Undo machinery proven (stacked multi-diff round-trips); coverage gaps documented (dual execute paths; latent double-apply of delegated diffs) and attached to ISS-025.</td><td>8 checks</td></tr>
-<tr><td class="id">ISS-026</td><td>Failed multiplayer load-sync now <b>blocks play</b>, retries the snapshot ×3, and surfaces loudly — no more silently continuing on divergent states.</td><td>4 checks</td></tr>
-<tr><td class="id">ISS-028</td><td>Save-migration fixtures for all three schema versions; chain + registry-only extension proven.</td><td>8 checks</td></tr>
-<tr><td class="id">ISS-031</td><td>BoardState slimmed from 161 → 34 lines: write-only shadow unit state deleted; GameState is the single source of truth.</td><td>Suite + deployment scenario</td></tr>
-<tr><td class="id">ISS-032</td><td>AI strategy caches: reset-by-design on every load, wired directly to <code>load_completed</code>.</td><td>4 checks</td></tr>
-<tr><td class="id">ISS-034</td><td>Deprecated SCOUT_MOVES and MORALE phases deleted; transitions remap; enum slots kept so old saves stay valid.</td><td>Suite + pregame scenarios</td></tr>
+<tr><th>ID</th><th>What landed</th><th>Rulebook fixture</th></tr>
+<tr><td class="id">ISS-037</td><td>Schema-2 army data: invuln normalization (35 units), <code>needs_11e_review</code> flags, save format 1.2.0 + migration.</td><td>—</td></tr>
+<tr><td class="id">ISS-038</td><td>Turn-structure events (<code>turn_started/ending</code>, <code>battle_round_started/ending</code>) + ordered end-of-turn hooks enforcing 07.03 (non-mission rules before mission rules).</td><td>07.02-07.03 sequencing</td></tr>
+<tr><td class="id">ISS-039</td><td>Engagement range 2"/5" with engaged/unengaged predicates, proven per edition.</td><td>03.04 boundaries (1.9"/2.1")</td></tr>
+<tr><td class="id">ISS-042</td><td>Coherency: the 2"+9"-envelope check <i>and</i> end-of-turn enforcement (most-isolated model removed via the pipeline, destroyed without triggers).</td><td>03.03 — incl. proof the envelope closes the 10e "split islands" quirk</td></tr>
+<tr><td class="id">ISS-043</td><td>Battle-shock rework wired into CommandPhase: flags persist, shocked units retest and <b>recover</b> on a pass; the shocked-stratagem ban confirmed pre-existing in both editions.</td><td>08.03 recovery; 01.07 ban</td></tr>
+<tr><td class="id">ISS-044</td><td>Hazard rolls: simultaneous batch, 1-2 fails, 3&nbsp;MW for all-MONSTER/VEHICLE units.</td><td>06.03 exactly</td></tr>
+<tr><td class="id">ISS-046</td><td>Mortal wounds with the 06.02 selection priority + the devastating-wounds one-model-per-crit cap.</td><td><b>pg-80 Intercessor example reproduces</b></td></tr>
 </table>
 
-<h2>Completed — Tier 3: 11th Edition Foundations</h2>
+<h2>In progress — Tier 3 engine modules (13 issues, each with a landed, tested core)</h2>
 <table>
-<tr><th>ID</th><th>What landed</th><th>Validation</th></tr>
-<tr><td class="id">ISS-037</td><td><b>Schema-2 army data:</b> invuln spelling normalized (35 units), <code>needs_11e_review</code> flags for the manual datasheet pass, save format 1.2.0 with chained migration + fixture.</td><td>8 checks; suite; FNP scenario</td></tr>
-<tr><td class="id">ISS-038</td><td><b>11e turn structure:</b> <code>turn_started/ending</code>, <code>battle_round_started/ending</code> events + ordered end-of-turn hook registry enforcing rule 07.03 (non-mission rules before mission rules).</td><td>7 checks incl. full END_TURN drive</td></tr>
-<tr><td class="id">ISS-039</td><td><b>Engagement range 2"</b>: engaged/unengaged predicates (the gates 11e templates use), proven per edition — 1.9" engaged / 2.1" not at edition 11; edition 10 unchanged.</td><td>8 checks</td></tr>
-<tr><td class="id">ISS-044</td><td><b>Hazard rolls</b> (06.03): simultaneous batch, 1-2 fails, 3&nbsp;MW for all-MONSTER/VEHICLE units.</td><td>8 checks incl. distribution + determinism</td></tr>
+<tr><th>ID</th><th>Landed core</th><th>Remaining</th></tr>
+<tr><td class="id">ISS-041 <span class="chip blocker">BLOCKER</span></td><td>The allocation-groups engine (05.03-05.04): group partitioning, all three ordering constraints, lowest-roll-first damage, invuln-vs-AP, excess lost — <b>the Celestine worked example (pp. 22-23) reproduces exactly</b>.</td><td>Edition-gated resolution-flow wiring in RulesEngine (identical-attack gathering, 04.03) against the golden corpus.</td></tr>
+<tr><td class="id">ISS-040</td><td>The move-type framework (<code>ELIGIBLE IF / BEFORE / WHILE / AFTER</code> + ordered modes) with <b>nine instances</b>: stationary, normal, advance, fall-back (with 11e desperate-escape hazard rolls), ingress, surge, disembark, emergency disembark, charge.</td><td>MovementPhase drives the instances (windowed-scenario gate).</td></tr>
+<tr><td class="id">ISS-049</td><td>11e charge: roll-then-target selection, engage-all-targets/no-non-targets conditions, Fights First ability grant — <b>pg-37 example semantics reproduce</b>.</td><td>ChargePhase wiring (path validation, overwatch interplay).</td></tr>
+<tr><td class="id">ISS-057</td><td>The Actions system: every 16.01 gate, locks, movement cancellation, trigger completion — <b>the Deploy Device example (pg 58) is the fixture</b>.</td><td>Phase eligibility consults the locks; mission-pack definitions.</td></tr>
+<tr><td class="id">ISS-058</td><td>Disembark modes (rapid/tactical/combat, mandatory by transport state) + emergency disembark with per-model hazard rolls.</td><td>TransportManager wiring + the 24.08 destruction ordering.</td></tr>
+<tr><td class="id">ISS-060</td><td>Ingress move (edge/enemy/DZ-by-round validation) + Deep Strike relaxation; round-3 reserves destruction pre-existed.</td><td>Reinforcement-step wiring; AIRCRAFT reserve cycle.</td></tr>
+<tr><td class="id">ISS-061</td><td>Surge move (closest-enemy targeting, non-target voiding) + FLY take-to-the-skies modifier (-2", HOVER exempt).</td><td>Pathing behavior in movement execution; SUPER-HEAVY WALKER.</td></tr>
+<tr><td class="id">ISS-051/052/053</td><td>Terrain categories + area/crossing queries; the Hidden rule with its 15" detection boundary; cover qualification (every-model + Stealth) and Plunging Fire.</td><td>Fully-visible/Solid visibility; BS application via the resolution flow; layout area authoring.</td></tr>
+<tr><td class="id">ISS-055</td><td>Per-phase control evaluation (14.02) + army-level Secured objectives (14.03) riding the proven sticky mechanism.</td><td>Terrain-area objectives.</td></tr>
+<tr><td class="id">ISS-056</td><td>The 15.01 per-unit stratagem restriction, edition-gated.</td><td>The reworked 11e core stratagem set.</td></tr>
+<tr><td class="id">ISS-047</td><td>Keyword-scoped abilities (24.01) + BLAST/CLEAVE dice math — <b>both worked examples reproduce</b>.</td><td>Resolution hooks; LETHAL-HITS choice; PRECISION group selection.</td></tr>
 </table>
 
 <h2>Bugs found &amp; fixed along the way</h2>
-<div class="bug"><b>Fight-phase engagement ring rendered at 0.635"</b> instead of 1" — millimeters passed to a pixel API (found during ISS-002, fixed).</div>
-<div class="bug"><b>AI scored impossible probabilities</b>: skill ≤1 as P=1.0 (true cap 5/6 — a natural 1 always misses) and skill ≥7 as P=0.0 (true floor 1/6 — a natural 6 always hits). Overwatch evaluation was the worst affected (fixed in ISS-014).</div>
-<div class="bug"><b>Silent multiplayer divergence</b>: only advance rolls were seed-synced; a dropped result RPC desynced peers undetectably (fixed in ISS-015 with per-action seeds + state-hash verification).</div>
-<div class="bug"><b>Typo'd weapon abilities silently never fired</b> — regex parsing ignored unknown tokens; now a load error (ISS-003).</div>
-<div class="bug"><b>Documented latent issues</b>: delegated actions double-apply their diffs (idempotent for sets, would double-append adds); formations actions bypass undo entirely; melee resolution returns success:true with empty dice on invalid assignments; a model at exactly (0,0) is treated as unpositioned. All recorded in the tracker against their owning issues.</div>
+<div class="bug"><b>Fight-phase engagement ring at 0.635"</b> (mm passed to a px API) · <b>AI scored impossible probabilities</b> (P=1.0 at skill≤1, P=0.0 at skill≥7 — overwatch worst hit) · <b>silent multiplayer desync</b> (now hash-verified) · <b>typo'd abilities silently ignored</b> (now load errors) · documented latent issues: delegated-action double-apply, formations bypassing undo, melee silent-success, the (0,0)-position footgun — all parked against their owning issues in the tracker.</div>
 
-<h2>In progress</h2>
-<table>
-<tr><th>ID</th><th>Landed</th><th>Remaining</th></tr>
-<tr><td class="id">ISS-042 <span class="chip prog">IN&nbsp;PROGRESS</span></td><td>Edition-aware coherency check — 11e's 2"+9"-envelope rule (03.03), incl. proof it closes the 10e "split islands" RAW quirk.</td><td>After-move validation (via ISS-040 templates) and the end-of-turn model-removal flow (dialog + AI auto-pick, destroyed-without-triggers).</td></tr>
-<tr><td class="id">ISS-043 <span class="chip prog">IN&nbsp;PROGRESS</span></td><td>Leadership roll (2D6 ≥ Ld) + edition-gated battle-shock eligibility (11e: shocked units retest and recover, at-half tests).</td><td>CommandPhase step wiring; while-shocked effects (stratagem-target ban, action eligibility, OC '-' display); half-strength bookkeeping edge cases.</td></tr>
-</table>
+<h2>Plan — remaining 19 issues</h2>
 
-<h2>Plan — remaining work in dependency order</h2>
-
-<div class="roadphase"><b>Phase A — the structural keystone (next up)</b>
+<div class="roadphase"><b>Next up (combat-flow completion)</b>
 <ul>
-<li><span class="id">ISS-040</span> <span class="chip blocker">KEYSTONE</span> Move-type framework: the 11e <code>ELIGIBLE&nbsp;IF / BEFORE / WHILE / AFTER</code> template with mutually-exclusive modes. Nine downstream issues consume it (fall-back modes, disembark modes, ingress, surge, pile-in/consolidation, charge).</li>
-<li><span class="id">ISS-041</span> <span class="chip blocker">BLOCKER</span> 11e attack core: identical-attack gathering + <b>defender allocation groups</b> (lowest→highest save application) — built on the golden corpus and AttackSequence seam; must reproduce the rulebook's worked examples (pp. 20-23).</li>
-<li><span class="id">ISS-016</span> Modifier stack — lands together with 041/053, which create its query points (cover/plunging-fire become BS modifiers in 11e).</li>
+<li><span class="id">ISS-041 step 2</span> — wire the 11e resolution flow (identical-attack gathering + allocation groups) into RulesEngine behind the edition switch, verified against the golden corpus.</li>
+<li><span class="id">ISS-045</span> — the defender-side allocation-groups UI (replaces the per-wound overlay). <span class="id">ISS-016</span> — ModifierStack, landing with the resolution flow that consumes it. <span class="id">ISS-048</span> — shooting types (normal/assault/close-quarters/indirect/snap; retires PISTOL &amp; Big Guns Never Tire). <span class="id">ISS-050</span> <span class="chip blocker">BLOCKER</span> — the fight-phase restructure (global Pile In → Fights First alternation → global Consolidate, overrun fights, consolidation modes).</li>
 </ul></div>
 
-<div class="roadphase"><b>Phase B — combat-flow rewrites</b>
+<div class="roadphase"><b>Battlefield &amp; units completion</b>
 <ul>
-<li><span class="id">ISS-045</span> Wound-allocation UI rework for allocation groups (defender decides; PRECISION prompt). <span class="id">ISS-046</span> 11e mortal wounds + devastating-wounds cap (excess lost). <span class="id">ISS-047</span> New/changed weapon abilities (CLEAVE, CLOSE-QUARTERS, keyword-scoped, LETHAL HITS as a choice).</li>
-<li><span class="id">ISS-048</span> Shooting types (normal/assault/close-quarters/indirect/snap — retires PISTOL &amp; Big Guns Never Tire). <span class="id">ISS-049</span> Charge rework (targets after the roll; chargers gain Fights First).</li>
-<li><span class="id">ISS-050</span> <span class="chip blocker">BLOCKER</span> Fight phase restructure: global Pile In → alternating Fights First combats → global Consolidate, with overrun fights and consolidation modes — near rewrite of FightPhase.</li>
+<li><span class="id">ISS-054</span> terrain movement + MOBILE keyword · <span class="id">ISS-059</span> attached units (Support slot, ability persistence — the bodyguard-toughness rule was found already correct) · step-2 wirings for visibility (fully-visible/Solid), cover-as-BS, transports, reserves/aircraft.</li>
 </ul></div>
 
-<div class="roadphase"><b>Phase C — battlefield rewrites</b>
+<div class="roadphase"><b>Intelligence &amp; verification</b>
 <ul>
-<li><span class="id">ISS-051</span> <span class="chip blocker">BLOCKER</span> Terrain data model: categories (exposed/light/dense) + terrain areas; layout migration.</li>
-<li><span class="id">ISS-052</span> Visibility: fully-visible, Hidden (15" detection), Obscuring areas, Solid rule. <span class="id">ISS-053</span> Cover &amp; Plunging Fire as BS modifiers. <span class="id">ISS-054</span> Terrain movement + MOBILE keyword.</li>
-<li><span class="id">ISS-055</span> Objectives: terrain objectives, per-phase control checks, Secured ("sticky") objectives.</li>
+<li><span class="id">ISS-062</span> AI for 11e (legality via the shared eligibility APIs, then competence) · <span class="id">ISS-063</span> the 11e windowed-scenario suite (worked examples as scenario specs) · <span class="id">ISS-029</span> golden-master full-game replays (foundation landed in ISS-021).</li>
 </ul></div>
 
-<div class="roadphase"><b>Phase D — systems &amp; units</b>
+<div class="roadphase"><b>Quality items (interleaved as their areas are touched)</b>
 <ul>
-<li><span class="id">ISS-056</span> 11e core stratagem set + one-stratagem-per-unit-per-phase. <span class="id">ISS-057</span> The new Actions system (missions depend on it). <span class="id">ISS-058</span> Transports: rapid/tactical/combat disembark modes + emergency disembark. <span class="id">ISS-059</span> Attached units: Support slot, bodyguard toughness, ability persistence. <span class="id">ISS-060</span> Reserves/ingress/deep strike/aircraft cycle (round-3 reserves destruction already exists). <span class="id">ISS-061</span> FLY "take to the skies", surge moves, HOVER.</li>
-</ul></div>
-
-<div class="roadphase"><b>Phase E — intelligence &amp; verification</b>
-<ul>
-<li><span class="id">ISS-062</span> AI updated for 11e (legality first, then competence — consuming the shared math from ISS-014). <span class="id">ISS-063</span> Windowed scenario suite for 11e (the rulebook's worked examples are the scenario specs). <span class="id">ISS-029</span> Golden-master full-game replays (foundation landed in ISS-021).</li>
-</ul></div>
-
-<div class="roadphase"><b>Phase F — remaining quality items (interleaved as touched)</b>
-<ul>
-<li><span class="id">ISS-023</span> Position single-source-of-truth (drag previews never write shared state). <span class="id">ISS-024</span> Phase-snapshot staleness. <span class="id">ISS-025</span> TurnManager/PhaseManager ownership + unify the dual execute paths (undo gap + double-apply). <span class="id">ISS-027</span> Main.gd decomposition (absorbs ISS-009 &amp; ISS-018). <span class="id">ISS-030</span> AIDecisionMaker split into per-phase planners. <span class="id">ISS-033</span> Dialog base class. <span class="id">ISS-035/036</span> Autosave-deferral &amp; disconnect-grace (reproduce first, then fix).</li>
+<li><span class="id">ISS-023/024/025/027/030/033</span> — position SSOT, snapshot staleness, manager ownership + dual-execute-path unification, Main.gd decomposition (absorbs <span class="id">ISS-009/018</span>), AI planner split, dialog base · <span class="id">ISS-035/036</span> — autosave-deferral &amp; disconnect-grace (reproduce first).</li>
 </ul></div>
 
 <h2>Open decisions (from PRD.md)</h2>
 <ul>
-<li><b>Edition coexistence:</b> keep a playable 10e mode after 11e ships, or delete the dual paths once stable? (Recommend delete; affects how much dual-path code ISS-041/050 carry.)</li>
-<li><b>11e datasheet values:</b> the uploaded core rules contain no datasheets — converted armies carry <code>needs_11e_review</code> flags awaiting an official 11e datasheet source.</li>
+<li><b>Edition coexistence:</b> keep playable 10e after the migration or delete the dual paths once stable (recommend delete).</li>
+<li><b>11e datasheet values:</b> the uploaded core rules contain no datasheets — converted armies carry <code>needs_11e_review</code> flags awaiting an official source.</li>
 <li><b>Mission pack:</b> 11e missions/secondaries (and most Actions) live outside the core rules; current missions stay mechanically ported until a source is provided.</li>
 </ul>
 
 <footer>
-Generated 2026-06-11 · 32 commits on <code>claude/wh40k-architecture-audit-n69bqn</code> ·
-gate: <code>40k/tests/run_pretrigger_tests.sh</code> (759 checks / 47 tests, all green) +
-windowed scenarios via the MCP bridge · live state always in <code>ISSUES.md</code>.
+Generated 2026-06-11 (updated) · branch <code>claude/wh40k-architecture-audit-n69bqn</code> ·
+gate: <code>40k/tests/run_pretrigger_tests.sh</code> (943 checks / 61 tests, all green) +
+windowed scenarios via the MCP bridge · seven rulebook worked examples reproduce exactly in tests ·
+live state always in <code>ISSUES.md</code>.
 </footer>
 
 </div>
