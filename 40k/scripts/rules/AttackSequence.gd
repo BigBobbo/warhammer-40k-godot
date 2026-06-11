@@ -23,8 +23,20 @@ extends RefCounted
 ##   (1 normally; 3 for INDIRECT FIRE at an unseen target).
 ## RNG consumption is identical to the legacy inline bodies: exactly the
 ## re-roll inside RulesEngine.apply_hit_modifiers.
+## Runtime autoload lookup: referencing the RulesEngine identifier at
+## compile time fails when this class_name script is compiled in bare
+## `godot -s` contexts before autoloads register (benign in-game, but the
+## ERROR line trips the no-errors validation gate).
+static func _rules() -> Node:
+	return Engine.get_main_loop().root.get_node("/root/RulesEngine")
+
+
+static func _measurement() -> Node:
+	return Engine.get_main_loop().root.get_node("/root/Measurement")
+
+
 static func evaluate_hit_roll(raw_roll: int, threshold: int, modifiers: int, crit_threshold: int, rng, fail_unmodified_at_or_below: int = 1) -> Dictionary:
-	var mod = RulesEngine.apply_hit_modifiers(raw_roll, modifiers, rng, threshold)
+	var mod = _rules().apply_hit_modifiers(raw_roll, modifiers, rng, threshold)
 	var unmodified: int = mod.reroll_value if mod.rerolled else raw_roll
 	var out := {
 		"final_roll": mod.modified_roll,
@@ -52,7 +64,7 @@ static func evaluate_hit_roll(raw_roll: int, threshold: int, modifiers: int, cri
 ## Unmodified 1 always fails (auto_fail). Critical wounds are checked on
 ## the unmodified roll per 10e rules.
 static func evaluate_wound_roll(raw_roll: int, modifiers: int, wound_threshold: int, crit_threshold: int, rng) -> Dictionary:
-	var mod = RulesEngine.apply_wound_modifiers(raw_roll, modifiers, wound_threshold, rng)
+	var mod = _rules().apply_wound_modifiers(raw_roll, modifiers, wound_threshold, rng)
 	var unmodified: int = mod.reroll_value if mod.rerolled else raw_roll
 	var out := {
 		"final_roll": mod.modified_roll,
@@ -194,3 +206,44 @@ static func battleshock_test_required(is_battle_shocked: bool, below_half: bool,
 ## occur there.
 static func battleshock_outcome(roll_success: bool) -> bool:
 	return not roll_success
+
+
+# ── Unit coherency (ISS-042, 10e rules / 11e 03.03) ─────────────────
+## Edition-aware coherency check for a unit's alive, positioned models.
+## 10e: every model within 2" (5" vertical) of at least 1 other model
+##      (2 other models when the unit has 7+ models).
+## 11e (03.03): every model within 2"/5" of at least ONE other model AND
+##      within 9" (horizontal) of EVERY other model in the unit.
+## Returns {coherent: bool, offenders: [model ids]}. Single-model units
+## are always coherent.
+static func check_unit_coherency(unit: Dictionary) -> Dictionary:
+	var models: Array = []
+	for m in unit.get("models", []):
+		if m.get("alive", true) and m.get("position") != null:
+			models.append(m)
+	if models.size() <= 1:
+		return {"coherent": true, "offenders": []}
+
+	var coh_px = _measurement().inches_to_px(GameConstants.coherency_distance_inches())
+	var required_neighbors := 1
+	if GameConstants.edition < 11 and models.size() >= 7:
+		required_neighbors = 2
+	var envelope_px := 0.0
+	if GameConstants.edition >= 11:
+		envelope_px = _measurement().inches_to_px(GameConstants.coherency_envelope_inches())
+
+	var offenders: Array = []
+	for i in range(models.size()):
+		var neighbors := 0
+		var envelope_ok := true
+		for j in range(models.size()):
+			if i == j:
+				continue
+			var dist_px = _measurement().model_to_model_distance_px(models[i], models[j])
+			if dist_px <= coh_px:
+				neighbors += 1
+			if envelope_px > 0.0 and dist_px > envelope_px:
+				envelope_ok = false
+		if neighbors < required_neighbors or not envelope_ok:
+			offenders.append(str(models[i].get("id", i)))
+	return {"coherent": offenders.is_empty(), "offenders": offenders}

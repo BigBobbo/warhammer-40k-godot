@@ -75,6 +75,7 @@ TESTS=(
     "tests/test_iss044_hazard_rolls.gd"
     "tests/test_iss043_battleshock_11e.gd"
     "tests/test_iss038_turn_hooks.gd"
+    "tests/test_iss042_coherency_11e.gd"
 )
 
 FAILED=0
