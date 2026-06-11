@@ -89,6 +89,7 @@ TESTS=(
     "tests/test_iss061_surge_fly_11e.gd"
     "tests/test_iss057_actions_11e.gd"
     "tests/test_iss058_disembark_11e.gd"
+    "tests/test_iss049_charge_11e.gd"
 )
 
 FAILED=0

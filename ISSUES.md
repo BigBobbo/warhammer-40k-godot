@@ -612,7 +612,7 @@ Conventions:
 - **Dependencies:** ISS-039, ISS-040
 - **Affected files:** `ChargePhase.gd`, `ChargeController.gd`, `RulesEngine.gd` charge validation, AI charge eval
 - **Acceptance criteria:** scenario reproduces the pg 37 example (target beyond roll distance unselectable; multi-target charge must engage all); charged unit shows Fights First in the fight phase.
-- **Status:** TODO
+- **Status:** IN PROGRESS (template landed; ChargePhase wiring pending) — `ChargeMove11e` joins the MoveType registry implementing the 11e deltas: eligibility per 11.02 (within 12", unengaged, no advance/fall-back), the 2D6 roll as the maximum distance with targets selected AFTER the roll (within 12" AND within the roll — the pg-37 example's semantics reproduce in test: at a roll of 7, the 5" enemy is selectable, the 10" and 20" ones are not), after-conditions (engaged with EVERY target and NO non-targets, edition-aware 2" ER), and the Fights First ABILITY grant (11.04/24.13, consumed by ISS-050's fight ordering). `test_iss049_charge_11e.gd` 12/12; suite 943/943. Remaining: ChargePhase drives the template at edition 11 (path validation, per-model closer/1"-if-possible constraints, overwatch interplay) + the windowed scenario.
 
 ### ISS-050 — 11e fight phase restructure
 - **Location:** `40k/phases/FightPhase.gd` (4,474 lines), `FightController.gd`; rules: 12.01-12.09, appendix pass rules (pg 87)
@@ -836,7 +836,7 @@ Conventions:
 | ISS-046 | 11e mortal wounds + dev-wounds cap | high | DONE | 041 |
 | ISS-047 | 11e weapon abilities | high | IN PROGRESS | 003, 041 |
 | ISS-048 | 11e shooting types | high | TODO | 040, 037, 047 |
-| ISS-049 | 11e charge phase | high | TODO | 039, 040 |
+| ISS-049 | 11e charge phase | high | IN PROGRESS | 039, 040 |
 | ISS-050 | 11e fight phase restructure | blocker | TODO | 039, 040, 049 |
 | ISS-051 | 11e terrain data model | blocker | IN PROGRESS | 002 |
 | ISS-052 | 11e visibility (Hidden/Obscuring/Solid) | blocker | IN PROGRESS | 051 |
