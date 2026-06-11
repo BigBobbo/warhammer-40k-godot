@@ -248,7 +248,7 @@ Conventions:
 - **Dependencies:** ISS-003
 - **Affected files:** `40k/autoloads/RulesEngine.gd`, `40k/autoloads/UnitAbilityManager.gd`, `40k/autoloads/FactionAbilityManager.gd`
 - **Acceptance criteria:** no direct `meta.abilities` string searches in RulesEngine (grep); stealth/lone-operative behavior covered by tests incl. a dynamically granted case.
-- **Status:** TODO
+- **Status:** DONE (incremental) — new `scripts/rules/UnitAbilities.gd`: `unit_has(unit, name)` answers from datasheet `meta.abilities` (String or dict entries, case-insensitive) AND dynamically granted effect flags (`_EFFECT_FLAGS` table, starting with stealth). The three checkers named in the audit (stealth, lone operative, hold-still) now delegate — and `has_stealth_ability` gained a real capability: it now sees effect-granted stealth (previously call sites had to check `EffectPrimitivesData.has_effect_stealth` separately). Verified by `test_iss019_unit_abilities.gd` (9/9, incl. the dynamic-grant case) + lone-operative windowed scenario + suite 687/687. Remaining `meta.abilities` searches in RulesEngine (~27 faction-specific ones) migrate opportunistically as they're touched — the service is the documented pattern now.
 
 ### ISS-020 — Formalize RulesEngine public API (phases stop calling privates)
 - **Location:** `40k/phases/ShootingPhase.gd:311` (`RulesEngine._check_units_in_engagement_range`), `:2569` (`RulesEngine._apply_damage_to_unit_pool`), `40k/phases/FightPhase.gd` (`RulesEngine._generate_weapon_id`)
@@ -806,7 +806,7 @@ Conventions:
 | ISS-016 | Consolidated modifier stack | high | TODO | 003, 012 |
 | ISS-017 | State accessors + diff-path hardening | medium | DONE | 001 |
 | ISS-018 | Per-phase UI container teardown | medium | TODO | 005, 013 |
-| ISS-019 | Unify ability checks through ability layer | medium | TODO | 003 |
+| ISS-019 | Unify ability checks through ability layer | medium | DONE | 003 |
 | ISS-020 | RulesEngine public API for phases | medium | DONE | — |
 | ISS-021 | Action log + deterministic replay | medium | DONE | 001, 004 |
 | ISS-022 | Verify/extend undo coverage | medium | DONE | 001 |

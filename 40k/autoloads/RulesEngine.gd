@@ -5717,30 +5717,14 @@ static func unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
 # of a ranged attack if the attacking model is within 12"
 # Abilities can be stored as strings ("Lone Operative") or dicts ({"name": "Lone Operative", ...})
 static func has_lone_operative(unit: Dictionary) -> bool:
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = ""
-		if ability is String:
-			ability_name = ability
-		elif ability is Dictionary:
-			ability_name = ability.get("name", "")
-		if ability_name.to_lower() == "lone operative":
-			return true
-	return false
+	# ISS-019: unified query (datasheet + future dynamic grants).
+	return UnitAbilities.unit_has(unit, "lone operative")
 
 # OA-19: "Hold Still and Say 'Aargh!'" — Check if unit has this ability (Painboy)
 # On Critical Wound with 'urty syringe vs non-VEHICLE, target suffers D6 mortal wounds
 static func _has_hold_still_ability(unit: Dictionary) -> bool:
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = ""
-		if ability is String:
-			ability_name = ability
-		elif ability is Dictionary:
-			ability_name = ability.get("name", "")
-		if ability_name == "Hold Still and Say 'Aargh!'":
-			return true
-	return false
+	# ISS-019: unified query.
+	return UnitAbilities.has_datasheet_ability(unit, "Hold Still and Say 'Aargh!'")
 
 # Check if `target_unit_id` is the closest enemy unit to `actor_unit_id`.
 # Used by Gun-Crazy Show-offs (Ork) — the snazzgun gets +1 Attack when shooting the closest enemy.
@@ -6300,16 +6284,9 @@ static func get_pyromaniaks_reroll_scope(actor_unit: Dictionary, target_unit: Di
 # Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit
 # Abilities can be stored as strings ("Stealth") or dicts ({"name": "Stealth", ...})
 static func has_stealth_ability(unit: Dictionary) -> bool:
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = ""
-		if ability is String:
-			ability_name = ability
-		elif ability is Dictionary:
-			ability_name = ability.get("name", "")
-		if ability_name.to_lower() == "stealth":
-			return true
-	return false
+	# ISS-019: unified query — covers datasheet abilities AND the
+	# effect_stealth flag (dynamically granted, e.g. Smokescreen-likes).
+	return UnitAbilities.unit_has(unit, "stealth")
 
 # DAMAGED PROFILE (P1-14): Check if a unit's Damaged profile is active
 # Per 10e rules: When a model with a Damaged profile has wounds remaining at or below
