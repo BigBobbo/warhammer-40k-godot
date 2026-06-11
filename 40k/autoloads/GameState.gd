@@ -9,6 +9,10 @@ class_name GameStateData
 # pre-battle roll-offs: ROLL_OFF (pre-deployment) decides who DEPLOYS first
 # (Attacker/Defender), and FIRST_TURN_ROLLOFF (after deployment) decides who
 # TAKES the first turn. They are independent.
+# ISS-034: SCOUT_MOVES and MORALE are DEPRECATED — their phase classes are
+# deleted and PhaseManager remaps transitions to COMMAND. The enum slots
+# remain so phase ints in saved games stay valid (same reasoning as the
+# FIRST_TURN_ROLLOFF note above).
 enum Phase { FORMATIONS, DEPLOYMENT, REDEPLOYMENT, ROLL_OFF, SCOUT, SCOUT_MOVES, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE, FIRST_TURN_ROLLOFF }
 enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT, IN_RESERVES }
 

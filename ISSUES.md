@@ -428,7 +428,7 @@ Conventions:
 - **Dependencies:** none (do before ISS-038)
 - **Affected files:** `40k/phases/ScoutPhase.gd` or `ScoutMovesPhase.gd`, `MoralePhase.gd`, `PhaseManager.gd`, save migrations if phase ids persisted
 - **Acceptance criteria:** one scout phase remains; saves from before the removal still load; full game cycle passes.
-- **Status:** TODO
+- **Status:** DONE — `ScoutMovesPhase.gd` and `MoralePhase.gd` deleted (git history preserves them); PhaseManager remaps any SCOUT_MOVES/MORALE transition to COMMAND with a deprecation log, and the enum slots remain (documented) so phase ints in saved games stay valid — no renumbering, no save migration needed. The one rotten-suite reference (`test_e2e_workflow.gd` morale section) converted to a documented skip. Verified: import clean, suite 695/695, pre-deploy roll-off + deployment windowed scenarios pass (the pregame chain that traversed SCOUT).
 
 ### ISS-035 — Autosave deferral robustness (verify, then fix)
 - **Location:** `40k/autoloads/SaveLoadManager.gd:53,132-145` (deferred autosave in a module var; `_is_ai_thinking()` reportedly relies on an AIPlayer method that may not exist)
@@ -821,7 +821,7 @@ Conventions:
 | ISS-031 | BoardState: merge away or document | low | DONE | 017 |
 | ISS-032 | AI cache save/load policy | low | DONE | — |
 | ISS-033 | Shared dialog base class | low | TODO | — |
-| ISS-034 | Remove duplicate/legacy phases | low | TODO | — |
+| ISS-034 | Remove duplicate/legacy phases | low | DONE | — |
 | ISS-035 | Autosave deferral (verify then fix) | low | TODO | — |
 | ISS-036 | Disconnect grace period (verify then fix) | low | TODO | 026 |
 | ISS-037 | 11e datasheet/army schema + converter | high | TODO | 003 |

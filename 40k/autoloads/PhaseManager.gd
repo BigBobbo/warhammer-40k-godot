@@ -37,7 +37,6 @@ func register_phase_classes() -> void:
 	phase_classes[GameStateData.Phase.DEPLOYMENT] = preload("res://phases/DeploymentPhase.gd")
 	phase_classes[GameStateData.Phase.REDEPLOYMENT] = preload("res://phases/RedeploymentPhase.gd")
 	phase_classes[GameStateData.Phase.SCOUT] = preload("res://phases/ScoutPhase.gd")
-	phase_classes[GameStateData.Phase.SCOUT_MOVES] = preload("res://phases/ScoutMovesPhase.gd")
 	phase_classes[GameStateData.Phase.ROLL_OFF] = preload("res://phases/RollOffPhase.gd")
 	phase_classes[GameStateData.Phase.FIRST_TURN_ROLLOFF] = preload("res://phases/FirstTurnRollOffPhase.gd")
 	phase_classes[GameStateData.Phase.COMMAND] = preload("res://phases/CommandPhase.gd")
@@ -46,9 +45,14 @@ func register_phase_classes() -> void:
 	phase_classes[GameStateData.Phase.CHARGE] = preload("res://phases/ChargePhase.gd")
 	phase_classes[GameStateData.Phase.FIGHT] = preload("res://phases/FightPhase.gd")
 	phase_classes[GameStateData.Phase.SCORING] = preload("res://phases/ScoringPhase.gd")
-	phase_classes[GameStateData.Phase.MORALE] = preload("res://phases/MoralePhase.gd")
 
 func transition_to_phase(new_phase: GameStateData.Phase) -> void:
+	# ISS-034: SCOUT_MOVES and MORALE are deprecated phases (scout moves run
+	# through SCOUT; battle-shock lives in COMMAND per 10e/11e). Their enum
+	# slots are kept so saved phase ints stay valid; transitions remap.
+	if new_phase == GameStateData.Phase.SCOUT_MOVES or new_phase == GameStateData.Phase.MORALE:
+		print("[PhaseManager] Deprecated phase %s requested — remapping to COMMAND (ISS-034)" % GameStateData.Phase.keys()[new_phase])
+		new_phase = GameStateData.Phase.COMMAND
 	print("[PhaseManager] transition_to_phase called for: ", GameStateData.Phase.keys()[new_phase])
 
 	# Clear sticky end-of-game flag when starting a new game.
