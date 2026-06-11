@@ -116,6 +116,30 @@ static func collect_hit_context_11e(attacker_unit: Dictionary, target_unit: Dict
 			if all_qualify:
 				stack.add("bs", -1, "plunging_fire")
 
+	# Close-quarters shooting (10.06) + engaged MONSTER/VEHICLE targets
+	# (17.03) — these replace 10e's Big Guns Never Tire / pistol rules.
+	var rules := _rules()
+	if rules != null:
+		var attacker_id := str(attacker_unit.get("id", ""))
+		var target_id := str(target_unit.get("id", ""))
+		var is_cq: bool = AbilityRegistry.has_ability(abilities, "close_quarters") \
+			or AbilityRegistry.has_ability(abilities, "pistol")  # 24.27
+		var engaged_with_target: bool = rules.check_units_in_engagement_range(attacker_unit, target_unit, board)
+		# 10.06: an engaged MONSTER/VEHICLE shooter takes -1 unless the
+		# attack is a [CLOSE-QUARTERS] weapon against an engaged target.
+		var atk_keywords: Array = attacker_unit.get("meta", {}).get("keywords", [])
+		if ("MONSTER" in atk_keywords or "VEHICLE" in atk_keywords) \
+				and rules.is_unit_engaged(attacker_id, board) \
+				and not (is_cq and engaged_with_target):
+			stack.add("hit_roll", -1, "close_quarters_monster_vehicle")
+		# 17.03: shooting an ENGAGED MONSTER/VEHICLE is -1 to hit, except
+		# [CLOSE-QUARTERS] attacks from a unit engaged with the target.
+		var tgt_keywords: Array = target_unit.get("meta", {}).get("keywords", [])
+		if ("MONSTER" in tgt_keywords or "VEHICLE" in tgt_keywords) \
+				and rules.is_unit_engaged(target_id, board) \
+				and not (is_cq and engaged_with_target):
+			stack.add("hit_roll", -1, "engaged_monster_vehicle_target")
+
 	# [HEAVY] (24.16): +1 to the hit roll while the attacking unit is
 	# unengaged, was not set up this turn, and remained stationary (the
 	# 3" movement allowance refines this once move distance is tracked —

@@ -600,7 +600,7 @@ Conventions:
 - **Dependencies:** ISS-040, ISS-037, ISS-047
 - **Affected files:** `ShootingPhase.gd`, `ShootingController.gd` (type picker UI), `RulesEngine.gd`, AI targeting
 - **Acceptance criteria:** scenario per type incl. the engaged-vehicle FAQ cases (pg 88: no BLAST vs engaged units in either direction); indirect hit-caps verified with and without spotter.
-- **Status:** TODO
+- **Status:** IN PROGRESS (strategy objects + engine modifiers landed; ShootingPhase/Controller type-picker wiring + per-type windowed scenarios = step 2) — new `40k/scripts/rules/shootingtypes/`: `ShootingType` base (ELIGIBLE IF / WHILE weapon+target constraints / hit consequences / AFTER cannot-start-action) with the baseline 17.03 target rule (engaged non-M/V untargetable, engaged M/V targetable, [BLAST] never vs engaged), `ShootingTypes` registry (`available_for` per 10.02), and Normal (10.04), Assault (10.05, [ASSAULT]-only weapons), Close-Quarters (10.06: engaged+CQ-or-M/V; non-M/V locked to CQ weapons vs engaged targets; M/V -1 unless CQ-vs-engaged; BLAST still barred; [PISTOL]=[CLOSE-QUARTERS] per 24.27), Indirect (10.07: non-visible targeting, cover, no hit re-rolls, unmodified 1-5 fails → 1-3 with remained-stationary + friendly spotter LoS), Snap (15.09: rule-granted only, ≤24" visible target, unmodified 6s, no re-rolls). ModifierStack now carries the 10.06 M/V -1 and 17.03 engaged-M/V-target -1 into BOTH resolve paths at edition≥11, and the 10e BGNT inline penalty is gated <11 (retired at 11e). `test_iss048_shooting_types_11e.gd` 29/29 — **both pg-88 FAQ cases reproduce** (no BLAST vs engaged units in either direction) and **the indirect hit-caps verify with and without the spotter**. Discovery: EnhancedLineOfSight falls back to the LIVE TerrainManager terrain when a board carries no `terrain_features` — synthetic fixtures must pass a non-empty list (documented in the test). Step 2: ShootingPhase select-shooting-type flow + type picker UI + per-type windowed scenarios; pistol special-cases in weapon eligibility retire with that wiring.
 
 ### ISS-049 — 11e charge phase
 - **Location:** `40k/phases/ChargePhase.gd` (3,328 lines), `ChargeController.gd`; rules: 11.01-11.04
@@ -835,7 +835,7 @@ Conventions:
 | ISS-045 | Wound-allocation UI for groups | high | DONE | 041 |
 | ISS-046 | 11e mortal wounds + dev-wounds cap | high | DONE | 041 |
 | ISS-047 | 11e weapon abilities | high | IN PROGRESS | 003, 041 |
-| ISS-048 | 11e shooting types | high | TODO | 040, 037, 047 |
+| ISS-048 | 11e shooting types | high | IN PROGRESS | 040, 037, 047 |
 | ISS-049 | 11e charge phase | high | IN PROGRESS | 039, 040 |
 | ISS-050 | 11e fight phase restructure | blocker | TODO | 039, 040, 049 |
 | ISS-051 | 11e terrain data model | blocker | IN PROGRESS | 002 |

@@ -1675,7 +1675,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons only when shooter
 		# is engaged OR target is engaged with a friendly unit (issue #337). Eligibility
 		# is gated by the new two-arg helper rather than the buggy unit-only check.
-		if big_guns_never_tire_penalty_applies(actor_unit, target_unit, board):
+		# (10e only — 11e replaces BGNT with close-quarters shooting 10.06 +
+		# engaged-M/V targeting 17.03, applied via ModifierStack below)
+		if GameConstants.edition < 11 and big_guns_never_tire_penalty_applies(actor_unit, target_unit, board):
 			# Only apply penalty if this is NOT a Pistol weapon
 			if not is_pistol_weapon(weapon_id, board):
 				hit_modifiers |= HitModifier.MINUS_ONE
@@ -2862,7 +2864,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons only when shooter
 		# is engaged OR target is engaged with a friendly unit (issue #337).
-		if big_guns_never_tire_penalty_applies(actor_unit, target_unit, board):
+		# (10e only — 11e replaces BGNT with close-quarters shooting 10.06 +
+		# engaged-M/V targeting 17.03, applied via ModifierStack below)
+		if GameConstants.edition < 11 and big_guns_never_tire_penalty_applies(actor_unit, target_unit, board):
 			# Only apply penalty if this is NOT a Pistol weapon
 			if not is_pistol_weapon(weapon_id, board):
 				hit_modifiers |= HitModifier.MINUS_ONE
