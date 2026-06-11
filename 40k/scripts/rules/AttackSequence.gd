@@ -71,3 +71,46 @@ static func evaluate_wound_roll(raw_roll: int, modifiers: int, wound_threshold: 
 		out.is_wound = true
 		out.is_crit = is_crit
 	return out
+
+
+# ── Analytic expectations (ISS-014) ─────────────────────────────────
+# Single source for the probability math the AI (and any forecaster) uses.
+# Semantics match the live evaluators above: an unmodified 1 always fails,
+# and an unmodified critical (6) always hits/wounds — so hit/wound
+# probabilities are clamped to [1/6, 5/6]. Save rolls have no auto-success,
+# so P(save) ranges [0, 5/6].
+
+## The 10e/11e S-vs-T wound chart (2..6). RulesEngine._calculate_wound_threshold
+## delegates here so the chart exists exactly once.
+static func wound_threshold(strength: int, toughness: int) -> int:
+	if strength >= toughness * 2:
+		return 2
+	elif strength > toughness:
+		return 3
+	elif strength == toughness:
+		return 4
+	elif strength * 2 <= toughness:
+		return 6
+	else:
+		return 5
+
+
+## P(hit) for an attack needing `threshold`+ (engine-true: nat 1 misses,
+## nat 6 hits, so clamped to [1/6, 5/6]).
+static func hit_probability(threshold: int) -> float:
+	return clampf((7.0 - threshold) / 6.0, 1.0 / 6.0, 5.0 / 6.0)
+
+
+## P(wound) for strength vs toughness (engine-true clamp as above).
+static func wound_probability(strength: int, toughness: int) -> float:
+	return clampf((7.0 - wound_threshold(strength, toughness)) / 6.0, 1.0 / 6.0, 5.0 / 6.0)
+
+
+## P(save PASSES) for armour `save_val` modified by `ap`, using an
+## invulnerable save instead when better (invulns ignore AP). A natural 1
+## always fails, so the ceiling is 5/6; an impossible save is 0.
+static func save_probability(save_val: int, ap: int, invuln: int = 0) -> float:
+	var modified_save = save_val + abs(ap)
+	if invuln > 0 and invuln < modified_save:
+		modified_save = invuln
+	return clampf((7.0 - modified_save) / 6.0, 0.0, 5.0 / 6.0)

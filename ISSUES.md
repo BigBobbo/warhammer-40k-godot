@@ -188,7 +188,7 @@ Conventions:
 - **Dependencies:** ISS-012
 - **Affected files:** `40k/scripts/AIDecisionMaker.gd`, `40k/scripts/MathhammerUI.gd`, `AttackSequence.gd`, tests
 - **Acceptance criteria:** grep finds no `_wound_probability` in AIDecisionMaker; an AI-vs-AI headless game completes; expected-damage unit tests match hand-computed cases (incl. cover, anti-X, melta).
-- **Status:** TODO
+- **Status:** DONE (scope note below) — probability math now exists once in `AttackSequence` (`hit_probability` / `wound_probability` / `save_probability` / `wound_threshold`); `RulesEngine._calculate_wound_threshold` delegates (one S-vs-T chart in the codebase), and AIDecisionMaker's three local implementations became one-line delegating wrappers (34 call sites untouched). **Two AI math bugs fixed by the engine-true semantics:** skill ≤1 scored P=1.0 (real cap 5/6 — nat 1 misses) and skill ≥7 scored P=0.0 (real floor 1/6 — nat 6 hits); overwatch evaluation was the worst affected. Verified by `test_iss014_shared_ai_math.gd` (18/18 hand-computed cases + wrapper equivalence) and the golden corpus (chart delegation byte-identical); suite 644/644. Notes: Mathhammer was found to already Monte-Carlo through the real `resolve_shoot`/`resolve_melee_attacks` (no third math implementation existed there); the AI's bespoke cover/efficiency *scoring* heuristics are ISS-062's remit.
 
 ### ISS-015 — Multiplayer determinism: every dice action carries a seed
 - **Location:** `40k/autoloads/NetworkManager.gd:843-847` (seed embedded only for `BEGIN_ADVANCE`), `:2369-2378` (`get_next_rng_seed` exists), result-broadcast path at `:894`
@@ -801,7 +801,7 @@ Conventions:
 | ISS-011 | Triage archived/disabled tests | low | DONE | — |
 | ISS-012 | Unified AttackSequence (dedupe ranged/melee) | high | DONE | 002, 003 |
 | ISS-013 | Signal registry + phase lifecycle out of Main | high | DONE | 005 |
-| ISS-014 | AI consumes shared rules math | high | TODO | 012 |
+| ISS-014 | AI consumes shared rules math | high | DONE | 012 |
 | ISS-015 | Multiplayer: seeds on every dice action | high | TODO | 004, 001 |
 | ISS-016 | Consolidated modifier stack | high | TODO | 003, 012 |
 | ISS-017 | State accessors + diff-path hardening | medium | TODO | 001 |

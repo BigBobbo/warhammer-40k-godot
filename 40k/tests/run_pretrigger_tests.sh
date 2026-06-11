@@ -60,6 +60,7 @@ TESTS=(
     "tests/test_iss004_rng_seeding.gd"
     "tests/test_iss012_attack_goldens.gd"
     "tests/test_iss013_signal_registry.gd"
+    "tests/test_iss014_shared_ai_math.gd"
 )
 
 FAILED=0

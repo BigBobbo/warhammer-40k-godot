@@ -15320,36 +15320,19 @@ static func _generate_weapon_id(weapon_name: String, weapon_type: String = "") -
 # SCORING FUNCTIONS
 # =============================================================================
 
+# ISS-014: the probability math lives once, in AttackSequence (engine-true
+# semantics: nat 1 always fails, nat 6 always hits/wounds). These wrappers
+# keep the 30+ existing call sites stable. Note two edge corrections vs the
+# old local copies: skill<=1 now caps at 5/6 (was 1.0) and skill>=7 floors
+# at 1/6 (was 0.0) — matching what the dice actually do.
 static func _wound_probability(strength: int, toughness: int) -> float:
-	if strength >= toughness * 2:
-		return 5.0 / 6.0  # 2+
-	elif strength > toughness:
-		return 4.0 / 6.0  # 3+
-	elif strength == toughness:
-		return 3.0 / 6.0  # 4+
-	elif strength * 2 <= toughness:
-		return 1.0 / 6.0  # 6+
-	else:
-		return 2.0 / 6.0  # 5+
+	return AttackSequence.wound_probability(strength, toughness)
 
 static func _hit_probability(skill: int) -> float:
-	if skill <= 1:
-		return 1.0
-	if skill >= 7:
-		return 0.0
-	return (7.0 - skill) / 6.0
+	return AttackSequence.hit_probability(skill)
 
 static func _save_probability(save_val: int, ap: int, invuln: int = 0) -> float:
-	var modified_save = save_val + abs(ap)
-	# If the target has an invulnerable save, use whichever is better (lower)
-	# Invulnerable saves ignore AP, so they are compared against the AP-modified armour save
-	if invuln > 0 and invuln < modified_save:
-		modified_save = invuln
-	if modified_save >= 7:
-		return 0.0
-	if modified_save <= 1:
-		return 1.0
-	return (7.0 - modified_save) / 6.0
+	return AttackSequence.save_probability(save_val, ap, invuln)
 
 static func _get_target_invulnerable_save(target_unit: Dictionary) -> int:
 	"""Get the best (lowest) invulnerable save for a target unit.

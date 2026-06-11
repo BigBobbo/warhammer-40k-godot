@@ -3523,17 +3523,8 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 
 # Helper functions
 static func _calculate_wound_threshold(strength: int, toughness: int) -> int:
-	# 10e wound chart
-	if strength >= toughness * 2:
-		return 2  # 2+
-	elif strength > toughness:
-		return 3  # 3+
-	elif strength == toughness:
-		return 4  # 4+
-	elif strength * 2 <= toughness:
-		return 6  # 6+
-	else:
-		return 5  # 5+
+	# ISS-014: the S-vs-T chart lives once, in AttackSequence.
+	return AttackSequence.wound_threshold(strength, toughness)
 
 # P2-90: Resolve correct Toughness for attached units.
 # Per 10e rules: "Each time an attack targets an Attached unit, you must use the
