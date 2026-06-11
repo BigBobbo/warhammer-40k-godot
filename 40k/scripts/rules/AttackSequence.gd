@@ -114,3 +114,45 @@ static func save_probability(save_val: int, ap: int, invuln: int = 0) -> float:
 	if invuln > 0 and invuln < modified_save:
 		modified_save = invuln
 	return clampf((7.0 - modified_save) / 6.0, 0.0, 5.0 / 6.0)
+
+
+# ── 11e hazard rolls (ISS-044, core rules 06.03) ────────────────────
+## Make `count` hazard rolls for a unit, all rolled simultaneously
+## (06.03). Each roll fails on a 1-2; each failure inflicts 1 mortal
+## wound — or 3 mortal wounds if EVERY model in the unit is a
+## MONSTER/VEHICLE model.
+##
+## Consumers (when their 11e issues land): [HAZARDOUS] weapons after
+## attacks resolve (24.15), desperate-escape fall-backs (09.07), combat
+## and emergency disembarks (18.04/18.05).
+##
+## Returns {rolls: Array[int], failures: int, mortal_wounds: int,
+## per_model_mw: int}.
+static func hazard_rolls(unit: Dictionary, count: int, rng) -> Dictionary:
+	var out := {"rolls": [], "failures": 0, "mortal_wounds": 0, "per_model_mw": 1}
+	if count <= 0:
+		return out
+	# "3 mortal wounds instead if each model in that unit is a
+	# MONSTER/VEHICLE model" — checked on the unit's alive models.
+	var all_mv := true
+	var any_alive := false
+	var unit_keywords: Array = unit.get("meta", {}).get("keywords", [])
+	var unit_is_mv := "MONSTER" in unit_keywords or "VEHICLE" in unit_keywords
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		any_alive = true
+		var kw = model.get("keywords", [])
+		var model_is_mv = unit_is_mv or "MONSTER" in kw or "VEHICLE" in kw
+		if not model_is_mv:
+			all_mv = false
+			break
+	if any_alive and all_mv:
+		out.per_model_mw = 3
+	# 06.03: simultaneous rolls.
+	out.rolls = rng.roll_d6(count)
+	for roll in out.rolls:
+		if roll <= 2:
+			out.failures += 1
+	out.mortal_wounds = out.failures * out.per_model_mw
+	return out

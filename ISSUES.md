@@ -552,7 +552,7 @@ Conventions:
 - **Dependencies:** ISS-002, ISS-041 (MW routing via ISS-046)
 - **Affected files:** `RulesEngine.gd`, shooting/fight phases, move types (fall-back/disembark when implemented)
 - **Acceptance criteria:** unit tests: 1-2 fail rate, M/V 3MW variant, multi-roll simultaneity; hazardous weapon scenario applies MW after attack resolution.
-- **Status:** TODO
+- **Status:** DONE (primitive; consumer rewires ride with their issues) — `AttackSequence.hazard_rolls(unit, count, rng)` implements 06.03 exactly: simultaneous D6 batch, 1-2 fails, 1 MW per failure (3 if every model is MONSTER/VEHICLE — unit- and model-level keywords both honored, mixed units stay at 1). Verified by `test_iss044_hazard_rolls.gd` (8/8: fail band statistics, determinism, M/V variant, mixed-unit case, exact D6-stream equality, zero no-op); suite 730/730. The [HAZARDOUS]-weapon rewire (24.15 counting selected weapons), desperate-escape and disembark consumers land with ISS-047/040/058 respectively, per plan.
 
 ### ISS-045 — Wound-allocation UI rework for allocation groups
 - **Location:** `40k/scripts/WoundAllocationOverlay.gd` (1,999 lines), related dialogs; rules: 05.03-05.04
@@ -831,7 +831,7 @@ Conventions:
 | ISS-041 | 11e attack core: allocation groups | blocker | TODO | 012, 037 |
 | ISS-042 | 11e coherency + end-of-turn enforcement | high | TODO | 002, 038, 040 |
 | ISS-043 | 11e leadership + battle-shock rework | high | TODO | 037, 038, 016 |
-| ISS-044 | Hazard roll mechanic | medium | TODO | 002, 046 |
+| ISS-044 | Hazard roll mechanic | medium | DONE | 002, 046 |
 | ISS-045 | Wound-allocation UI for groups | high | TODO | 041 |
 | ISS-046 | 11e mortal wounds + dev-wounds cap | high | TODO | 041 |
 | ISS-047 | 11e weapon abilities | high | TODO | 003, 041 |
