@@ -356,7 +356,7 @@ Conventions:
 - **Dependencies:** ISS-017
 - **Affected files:** `StateSerializer.gd`, `SaveLoadManager.gd`, fixtures, tests
 - **Acceptance criteria:** fixtures for 1.0.0/1.1.0 load clean; adding a dummy 1.2.0 migration requires only a registry entry (demonstrated in test).
-- **Status:** TODO
+- **Status:** DONE — discovered the chained migration registry (`_migrations` + `migrate_save_data`) already existed (SAVE-3) and is sound; the missing pieces were fixtures + tests, now landed: committed `tests/fixtures/saves/v1_0_0.w40ksave` (downgraded, phase_log stripped) and `v1_1_0.w40ksave`, both deserializing through the chain and validating against StateSchema (the 1.0.0 fixture's missing section gets backfilled); registry-only extension demonstrated by swapping the 1.0.0 entry at runtime (versions below MINIMUM_MIGRATABLE are rejected by design, which the test respects). `test_iss028_save_migrations.gd` 8/8; suite green. The 11e schema bump (ISS-037) now has its harness: add a `1.1.0 → 1.2.0` registry entry + a v1_2_0 fixture.
 
 ### ISS-029 — Golden-master replay test harness
 - **Location:** new; consumes ISS-021's action logs; runners: `40k/tests/run_pretrigger_tests.sh`, `40k/tests/run_scenarios.sh`
@@ -815,7 +815,7 @@ Conventions:
 | ISS-025 | TurnManager vs PhaseManager ownership | medium | TODO | 001 |
 | ISS-026 | MP load-sync failure handling | medium | DONE | — |
 | ISS-027 | Main.gd remaining decomposition | medium | TODO | 013, 018 |
-| ISS-028 | Save migration framework + fixtures | medium | TODO | 017 |
+| ISS-028 | Save migration framework + fixtures | medium | DONE | 017 |
 | ISS-029 | Golden-master replay harness | medium | TODO | 021 |
 | ISS-030 | Split AIDecisionMaker into planners | medium | TODO | 014 |
 | ISS-031 | BoardState: merge away or document | low | DONE | 017 |
