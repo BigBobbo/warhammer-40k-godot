@@ -720,7 +720,7 @@ Conventions:
 - **Dependencies:** ISS-040, ISS-044, ISS-043 (battle-shock status)
 - **Affected files:** `TransportManager.gd`, `DisembarkController.gd`, `MovementPhase.gd`, destruction handling in `RulesEngine.gd`/phases, AI
 - **Acceptance criteria:** scenario per mode incl. tactical-disembark-then-advance; destroyed-transport sequence matches the Impulsor example ordering; capacity rules regression-tested.
-- **Status:** TODO
+- **Status:** IN PROGRESS (move types landed; TransportManager/destruction wiring pending) — `DisembarkMove` + `EmergencyDisembarkMove` join the registry implementing 18.04/18.05: mandatory mode selection from the transport's move history (normal/ingress → rapid 3" no-charge; unmoved → tactical 3" with the unit then selected for a normal/advance move, surfaced via `pending_post_disembark_move`; advanced/fell-back → combat 6" with per-model hazard rolls, may set up engaged with the transport's foes, battle-shocked + no charge), the embark-this-phase ban, and emergency disembark (6", hazard per model, battle-shocked, no charge). `test_iss058_disembark_11e.gd` 19/19; suite 931/931. Remaining: TransportManager/MovementPhase wiring (incl. embark-after-move ≤3" and the unplaceable-models-die rule), the 24.08 destruction ordering (attacks → emergency disembark → Deadly Demise → removal, Impulsor example), and windowed scenarios.
 
 ### ISS-059 — 11e attached units: Support, bodyguard toughness, ability persistence
 - **Location:** `40k/autoloads/CharacterAttachmentManager.gd`, `LeaderPairingsLoader.gd`; rules: 19.01-19.04, 24.22, 24.34
@@ -845,7 +845,7 @@ Conventions:
 | ISS-055 | 11e objectives + Secured | medium | IN PROGRESS | 051, 038, 043 |
 | ISS-056 | 11e core stratagems + per-unit limit | medium | IN PROGRESS | 043, 044, 048, 049, 050 |
 | ISS-057 | Actions system | high | IN PROGRESS | 038, 039, 040, 043 |
-| ISS-058 | 11e transports (modes, emergency) | high | TODO | 040, 044, 043 |
+| ISS-058 | 11e transports (modes, emergency) | high | IN PROGRESS | 040, 044, 043 |
 | ISS-059 | 11e attached units (Support, T, persistence) | medium | TODO | 037, 041 |
 | ISS-060 | 11e reserves/ingress/aircraft | medium | IN PROGRESS | 040, 038, 056 |
 | ISS-061 | 11e FLY/surge/hover | medium | IN PROGRESS | 040 |
