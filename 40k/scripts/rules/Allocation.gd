@@ -219,3 +219,97 @@ static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save
 		"damage_total": damage_total,
 		"remaining": remaining,
 	}
+
+
+# ── 11e mortal wounds (ISS-046; 06.02 + 24.10) ──────────────────────
+
+## 06.02 model-selection priority for each mortal wound:
+##   1. a wounded non-CHARACTER model, else
+##   2. any non-CHARACTER model, else
+##   3. a wounded CHARACTER model, else
+##   4. any CHARACTER model.
+## Returns the model index, or -1 when the unit is destroyed.
+static func select_mortal_wound_target(unit: Dictionary, remaining: Dictionary) -> int:
+	var models: Array = unit.get("models", [])
+	var unit_stats = unit.get("meta", {}).get("stats", {})
+	var unit_keywords: Array = unit.get("meta", {}).get("keywords", [])
+	var candidates := {"wnc": -1, "nc": -1, "wc": -1, "c": -1}
+	for i in range(models.size()):
+		if remaining.get(i, 0) <= 0:
+			continue
+		var m = models[i]
+		var w = int(m.get("wounds", unit_stats.get("wounds", 1)))
+		var wounded: bool = remaining[i] < w
+		var is_char: bool = m.get("is_character", false) \
+			or "CHARACTER" in m.get("keywords", []) \
+			or ("CHARACTER" in unit_keywords and models.size() == 1)
+		if not is_char and wounded and candidates.wnc == -1:
+			candidates.wnc = i
+		elif not is_char and candidates.nc == -1:
+			candidates.nc = i
+		elif is_char and wounded and candidates.wc == -1:
+			candidates.wc = i
+		elif is_char and candidates.c == -1:
+			candidates.c = i
+	for key in ["wnc", "nc", "wc", "c"]:
+		if candidates[key] != -1:
+			return candidates[key]
+	return -1
+
+
+## 06.02 — apply `count` mortal wounds one at a time (after all normal
+## damage), re-selecting the target model per wound, until they are all
+## inflicted or the unit is destroyed. Non-mutating; returns
+## {applied, lost, models_destroyed, remaining, events}.
+static func apply_mortal_wounds_11e(unit: Dictionary, count: int) -> Dictionary:
+	var models: Array = unit.get("models", [])
+	var unit_stats = unit.get("meta", {}).get("stats", {})
+	var remaining: Dictionary = {}
+	for i in range(models.size()):
+		if models[i].get("alive", true):
+			var w = int(models[i].get("wounds", unit_stats.get("wounds", 1)))
+			remaining[i] = int(models[i].get("current_wounds", w))
+	var out := {"applied": 0, "lost": 0, "models_destroyed": [], "remaining": remaining, "events": []}
+	for _n in range(count):
+		var target = select_mortal_wound_target(unit, remaining)
+		if target == -1:
+			out.lost = count - out.applied
+			break
+		remaining[target] -= 1
+		out.applied += 1
+		out.events.append({"model_index": target, "destroyed": remaining[target] <= 0})
+		if remaining[target] <= 0:
+			remaining[target] = 0
+			out.models_destroyed.append(target)
+	return out
+
+
+## 24.10 — [DEVASTATING WOUNDS]: each critical wound inflicts D mortal
+## wounds that may damage AT MOST ONE model; any of that crit's mortal
+## wounds beyond what destroys the selected model are LOST. Worked example
+## (pg 80): D3=3 dev wounds vs W2 Intercessors -> 2 MW destroy one model,
+## the third is lost. Non-mutating; same return shape as above.
+static func apply_devastating_wounds_11e(unit: Dictionary, crit_count: int, damage_per_crit: int) -> Dictionary:
+	var models: Array = unit.get("models", [])
+	var unit_stats = unit.get("meta", {}).get("stats", {})
+	var remaining: Dictionary = {}
+	for i in range(models.size()):
+		if models[i].get("alive", true):
+			var w = int(models[i].get("wounds", unit_stats.get("wounds", 1)))
+			remaining[i] = int(models[i].get("current_wounds", w))
+	var out := {"applied": 0, "lost": 0, "models_destroyed": [], "remaining": remaining, "events": []}
+	for _c in range(crit_count):
+		var target = select_mortal_wound_target(unit, remaining)
+		if target == -1:
+			out.lost += damage_per_crit
+			continue
+		var dealt = min(damage_per_crit, remaining[target])
+		remaining[target] -= dealt
+		out.applied += dealt
+		out.lost += damage_per_crit - dealt
+		out.events.append({"model_index": target, "damage": dealt,
+			"lost": damage_per_crit - dealt, "destroyed": remaining[target] <= 0})
+		if remaining[target] <= 0:
+			remaining[target] = 0
+			out.models_destroyed.append(target)
+	return out

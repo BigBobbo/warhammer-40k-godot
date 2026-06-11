@@ -576,7 +576,7 @@ Conventions:
 - **Dependencies:** ISS-041
 - **Affected files:** `AttackSequence.gd`/`Allocation.gd`, `RulesEngine.gd`
 - **Acceptance criteria:** unit test reproduces the Intercessor example (D3 dev wounds: 2MW kill one model, 1MW lost); MW selection priority tested with mixed wounded/character units.
-- **Status:** TODO
+- **Status:** DONE (primitives; resolution-flow wiring with ISS-041 step 2) — `Allocation` gains the 11e mortal-wound layer: `select_mortal_wound_target` (06.02 priority: wounded non-CHARACTER → non-CHARACTER → wounded CHARACTER → CHARACTER), `apply_mortal_wounds_11e` (one at a time, re-selecting per wound, excess lost on unit death) and `apply_devastating_wounds_11e` (24.10 cap: each crit damages AT MOST one model, that crit's excess MW lost). **The pg-80 Intercessor worked example reproduces exactly** (1 crit × D3 vs W2: 2 applied, 1 lost). `test_iss046_mortal_wounds_11e.gd` 8/8; suite 799/799. The normal-damage-before-MW ordering is enforced by the resolution flow when ISS-041 step 2 wires these in.
 
 ### ISS-047 — 11e weapon abilities (new + changed)
 - **Location:** `AbilityRegistry` (ISS-003), `AttackSequence` (ISS-041); rules: 24.01-24.38
@@ -833,7 +833,7 @@ Conventions:
 | ISS-043 | 11e leadership + battle-shock rework | high | IN PROGRESS | 037, 038, 016 |
 | ISS-044 | Hazard roll mechanic | medium | DONE | 002, 046 |
 | ISS-045 | Wound-allocation UI for groups | high | TODO | 041 |
-| ISS-046 | 11e mortal wounds + dev-wounds cap | high | TODO | 041 |
+| ISS-046 | 11e mortal wounds + dev-wounds cap | high | DONE | 041 |
 | ISS-047 | 11e weapon abilities | high | TODO | 003, 041 |
 | ISS-048 | 11e shooting types | high | TODO | 040, 037, 047 |
 | ISS-049 | 11e charge phase | high | TODO | 039, 040 |
