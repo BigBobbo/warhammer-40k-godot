@@ -39,7 +39,7 @@ func _run_tests():
 		return
 
 	print("-- A/B: fixtures deserialize through the chain --")
-	for fixture in ["v1_0_0", "v1_1_0"]:
+	for fixture in ["v1_0_0", "v1_1_0", "v1_2_0"]:
 		var f = FileAccess.open("res://tests/fixtures/saves/%s.w40ksave" % fixture, FileAccess.READ)
 		if f == null:
 			_check("%s fixture readable" % fixture, false)

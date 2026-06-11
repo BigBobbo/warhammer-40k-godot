@@ -5,7 +5,8 @@
     "detachment": "War Horde",
     "player_name": "",
     "team_name": "",
-    "created_date": "2025-03-06"
+    "created_date": "2025-03-06",
+    "schema": 2
   },
   "units": {
     "U_BEASTBOSS_A": {
@@ -30,7 +31,7 @@
           "wounds": 6,
           "leadership": 6,
           "objective_control": 1,
-          "invulnerable_save": 5
+          "invuln": 5
         },
         "points": 80,
         "is_warlord": true,
@@ -180,7 +181,7 @@
           "wounds": 6,
           "leadership": 6,
           "objective_control": 1,
-          "invulnerable_save": 5
+          "invuln": 5
         },
         "points": 75,
         "is_warlord": false,
@@ -309,7 +310,7 @@
           "wounds": 9,
           "leadership": 6,
           "objective_control": 3,
-          "invulnerable_save": 5
+          "invuln": 5
         },
         "points": 100,
         "is_warlord": false,
@@ -959,7 +960,7 @@
           "wounds": 16,
           "leadership": 7,
           "objective_control": 5,
-          "invulnerable_save": 6
+          "invuln": 6
         },
         "points": 160,
         "is_warlord": false,
@@ -1143,7 +1144,7 @@
           "wounds": 16,
           "leadership": 7,
           "objective_control": 5,
-          "invulnerable_save": 6
+          "invuln": 6
         },
         "points": 160,
         "is_warlord": false,
@@ -2916,7 +2917,7 @@
           "wounds": 3,
           "leadership": 7,
           "objective_control": 2,
-          "invulnerable_save": 6
+          "invuln": 6
         },
         "points": 130,
         "is_warlord": false,
@@ -3095,7 +3096,7 @@
           "wounds": 3,
           "leadership": 7,
           "objective_control": 2,
-          "invulnerable_save": 6
+          "invuln": 6
         },
         "points": 130,
         "is_warlord": false,

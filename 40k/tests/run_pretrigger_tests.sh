@@ -70,6 +70,7 @@ TESTS=(
     "tests/test_iss032_ai_cache_policy.gd"
     "tests/test_iss026_load_sync_block.gd"
     "tests/test_iss028_save_migrations.gd"
+    "tests/test_iss037_schema2.gd"
 )
 
 FAILED=0

@@ -5,7 +5,8 @@
     "detachment": "Shield Host",
     "player_name": "",
     "team_name": "",
-    "created_date": "2025-02-15"
+    "created_date": "2025-02-15",
+    "schema": 2
   },
   "units": {
     "U_BLADE_CHAMPION_A": {

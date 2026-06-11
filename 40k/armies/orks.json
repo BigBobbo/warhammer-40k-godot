@@ -5,7 +5,8 @@
     "detachment": "War Horde",
     "player_name": "",
     "team_name": "",
-    "created_date": "2025-02-20"
+    "created_date": "2025-02-20",
+    "schema": 2
   },
   "units": {
     "U_STRIKE_FORCE_A": {
@@ -26,7 +27,8 @@
         "points": 2000,
         "is_warlord": false,
         "enhancements": [],
-        "wargear": []
+        "wargear": [],
+        "needs_11e_review": true
       },
       "models": [
         {
@@ -2643,7 +2645,7 @@
           "wounds": 12,
           "leadership": 7,
           "objective_control": 0,
-          "invulnerable_save": 6
+          "invuln": 6
         },
         "points": 175,
         "is_warlord": false,

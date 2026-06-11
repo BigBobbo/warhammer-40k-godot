@@ -468,7 +468,7 @@ Conventions:
 - **Dependencies:** ISS-003
 - **Affected files:** `40k/armies/*.json`, converter, `ArmyListManager.gd`, `StateSerializer.gd` (+migration via ISS-028), `RulesEngine.gd` stat readers
 - **Acceptance criteria:** converted armies load and validate; stat readers source the new fields; legacy saves migrate; review-flag report generated.
-- **Status:** TODO
+- **Status:** DONE (schema-2 foundation; datasheet VALUES pending per PRD open question 2) — all 9 real army files converted to `faction.schema = 2`: the dual `invulnerable_save`/`invuln` spelling normalized (35 units; code's canonical reader at RulesEngine:4561 already preferred `invuln`); units missing 11e-required stats (leadership/objective_control/wounds) carry `needs_11e_review: true` (enumerable — currently 1 unit); the stubs/notes file skipped by shape. StateSerializer bumped to 1.2.0 with a chained migration normalizing saved units, plus a committed `v1_2_0` fixture (ISS-028 harness extended to 3 fixtures). Decision recorded: leadership stays an int target (the 2D6-vs-Ld mechanic is identical in both editions; the "7+" string form was cosmetic). FRAME/MOBILE keywords and structured abilities were already supported via ISS-003. True 11e datasheet VALUES (re-baselined Ld/OC/InSv per unit) await an 11e datasheet source — the review flags + this schema are the landing pad. Verified: `test_iss037_schema2.gd` 8/8; suite 714/714; FNP/invuln windowed scenario passes.
 
 ### ISS-038 — 11e battle-round/turn structure hooks
 - **Location:** `40k/autoloads/PhaseManager.gd`, `40k/autoloads/TurnManager.gd`; rules: 07 (battle round), 01.03 (active/opposing player)
@@ -824,7 +824,7 @@ Conventions:
 | ISS-034 | Remove duplicate/legacy phases | low | DONE | — |
 | ISS-035 | Autosave deferral (verify then fix) | low | TODO | — |
 | ISS-036 | Disconnect grace period (verify then fix) | low | TODO | 026 |
-| ISS-037 | 11e datasheet/army schema + converter | high | TODO | 003 |
+| ISS-037 | 11e datasheet/army schema + converter | high | DONE | 003 |
 | ISS-038 | 11e battle-round/turn structure hooks | high | TODO | 001, 025, 034 |
 | ISS-039 | Engagement range 2"/5" | high | TODO | 002 |
 | ISS-040 | 11e move-type framework | high | TODO | 001, 002, 038 |

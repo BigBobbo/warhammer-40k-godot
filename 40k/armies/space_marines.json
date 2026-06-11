@@ -5,7 +5,8 @@
     "detachment": "Gladius Task Force",
     "player_name": "",
     "team_name": "",
-    "created_date": "2025-02-25"
+    "created_date": "2025-02-25",
+    "schema": 2
   },
   "units": {
     "U_INTERCESSORS_A": {

@@ -5,7 +5,8 @@
     "detachment": "Shield Host",
     "player_name": "",
     "team_name": "",
-    "created_date": "2025-03-01"
+    "created_date": "2025-03-01",
+    "schema": 2
   },
   "units": {
     "U_SHIELD_CAPTAIN_A": {

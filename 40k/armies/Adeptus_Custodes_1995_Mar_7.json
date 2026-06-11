@@ -5,7 +5,8 @@
     "detachment": "Lions of the Emperor",
     "player_name": "",
     "team_name": "",
-    "created_date": "2025-03-07"
+    "created_date": "2025-03-07",
+    "schema": 2
   },
   "units": {
     "U_BLADE_CHAMPION_A": {
@@ -29,7 +30,7 @@
           "wounds": 6,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 120,
         "is_warlord": false,
@@ -161,7 +162,7 @@
           "wounds": 6,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 120,
         "is_warlord": false,
@@ -295,7 +296,7 @@
           "wounds": 8,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 160,
         "is_warlord": false,
@@ -413,7 +414,7 @@
           "wounds": 7,
           "leadership": 5,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 140,
         "is_warlord": true,
@@ -524,7 +525,7 @@
           "wounds": 3,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 190,
         "is_warlord": false,
@@ -679,7 +680,7 @@
           "wounds": 3,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 190,
         "is_warlord": false,
@@ -834,7 +835,7 @@
           "wounds": 3,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 190,
         "is_warlord": false,
@@ -989,7 +990,7 @@
           "wounds": 3,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 150,
         "is_warlord": false,
@@ -1135,7 +1136,7 @@
           "wounds": 3,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 150,
         "is_warlord": false,
@@ -1293,7 +1294,7 @@
           "wounds": 4,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 110,
         "is_warlord": false,
@@ -1532,7 +1533,7 @@
           "wounds": 5,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 150,
         "is_warlord": false,
@@ -1909,7 +1910,7 @@
           "wounds": 4,
           "leadership": 6,
           "objective_control": 1,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 100,
         "is_warlord": false,
@@ -2050,7 +2051,7 @@
           "wounds": 4,
           "leadership": 6,
           "objective_control": 1,
-          "invulnerable_save": 5
+          "invuln": 5
         },
         "points": 95,
         "is_warlord": false,
