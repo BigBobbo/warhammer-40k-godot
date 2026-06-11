@@ -92,6 +92,7 @@ TESTS=(
     "tests/test_iss049_charge_11e.gd"
     "tests/test_iss041b_resolution_11e.gd"
     "tests/test_iss016_modifier_stack.gd"
+    "tests/test_iss045_allocation_overlay.gd"
 )
 
 FAILED=0

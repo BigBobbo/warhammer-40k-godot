@@ -5414,6 +5414,27 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		var save_result_summary = save_results_list[i]
 		var save_data = pending_save_data[i]
 
+		# ISS-045 (11e): the allocation-group overlay already resolved the
+		# whole batch (05.03-05.04) on the defending peer — its summary
+		# carries idempotent set-diffs, so apply those instead of the 10e
+		# per-wound allocation_history conversion below.
+		if save_result_summary.get("is_allocation_11e", false):
+			all_diffs.append_array(save_result_summary.get("diffs", []))
+			var alloc_casualties = int(save_result_summary.get("casualties", 0))
+			total_casualties += alloc_casualties
+			var alloc_target_id = save_data.get("target_unit_id", save_result_summary.get("target_unit_id", ""))
+			if alloc_casualties > 0 and str(alloc_target_id) != "":
+				CharacterAttachmentManager.check_bodyguard_destroyed(alloc_target_id)
+			log_phase_message("%s: %d saves passed, %d failed → %d casualties (11e allocation)" % [
+				save_data.get("target_unit_name", alloc_target_id),
+				save_result_summary.get("saves_passed", 0),
+				save_result_summary.get("saves_failed", 0),
+				alloc_casualties])
+			save_log_parts.append("%s → %s: 11e allocation, order %s" % [
+				shooter_name, save_data.get("target_unit_name", alloc_target_id),
+				str(save_result_summary.get("order_used", []))])
+			continue
+
 		DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
 		DebugLogger.info(str("║ PROCESSING SAVE RESULT %d" % i))
 		DebugLogger.info(str("║ save_result_summary keys: ", save_result_summary.keys()))

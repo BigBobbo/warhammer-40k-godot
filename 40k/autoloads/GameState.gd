@@ -262,6 +262,16 @@ func get_units_for_player(player: int, include_destroyed: bool = false) -> Dicti
 func get_unit(unit_id: String) -> Dictionary:
 	return state["units"].get(unit_id, {})
 
+# ISS-045/063: edition switch access for scenarios/tools (ScenarioRunner's
+# execute_script resolves autoloads but not class_name globals).
+func set_edition(edition: int) -> int:
+	GameConstants.edition = edition
+	print("GameState: edition set to %d" % edition)
+	return GameConstants.edition
+
+func get_edition() -> int:
+	return GameConstants.edition
+
 func get_unit_display_name(unit_id: String) -> String:
 	var unit = get_unit(unit_id)
 	if unit.is_empty():

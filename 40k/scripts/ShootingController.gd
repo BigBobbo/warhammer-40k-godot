@@ -35,7 +35,7 @@ var selected_weapon_id: String = ""  # Currently selected weapon (drives damage 
 var _auto_assign_logged: bool = false  # Prevent duplicate auto-assign log messages
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
 var current_save_context: Dictionary = {}  # Track what we're showing dialog for (weapon, target)
-var active_allocation_overlay: WoundAllocationOverlay = null  # Track active overlay instance
+var active_allocation_overlay: Control = null  # WoundAllocationOverlay (10e) or AllocationGroupOverlay (11e)
 var processing_saves_signal: bool = false  # Flag to prevent re-entrant signal calls
 
 # T5-MP4: Save dialog timing reliability
@@ -2526,7 +2526,13 @@ func _on_saves_required(save_data_list: Array) -> void:
 	print("║ Weapon: ", weapon)
 	print("║ Wounds: ", wounds)
 
-	var overlay = WoundAllocationOverlay.new()
+	# ISS-045: at edition >= 11 the defender orders ALLOCATION GROUPS once
+	# per batch (05.03-05.04) instead of clicking per wound.
+	var overlay = null
+	if GameConstants.edition >= 11:
+		overlay = AllocationGroupOverlay.new()
+	else:
+		overlay = WoundAllocationOverlay.new()
 	print("║ Overlay instance created: ", overlay)
 	print("║ Overlay instance ID: ", overlay.get_instance_id())
 

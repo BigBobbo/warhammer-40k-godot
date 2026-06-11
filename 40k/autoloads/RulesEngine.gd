@@ -2276,7 +2276,16 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 	var groups = Allocation.build_groups(target_unit)
 	if groups.is_empty() or (wounds_to_save <= 0 and dev_wound_crits <= 0):
 		return out
+	# ISS-045: the defender's chosen allocation order (group ids) — must
+	# satisfy 05.03's constraints; otherwise the default legal order.
 	var order = Allocation.default_order(groups)
+	var chosen_order: Array = opts.get("order", [])
+	if not chosen_order.is_empty():
+		var order_check = Allocation.validate_order(groups, chosen_order)
+		if order_check.valid:
+			order = chosen_order
+		else:
+			print("RulesEngine: [11e ALLOCATION] rejected invalid allocation order %s (%s) — using default" % [str(chosen_order), str(order_check.errors)])
 	var models = target_unit.get("models", [])
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 	var save_modifier = clampi(int(target_unit.get("flags", {}).get("save_modifier", 0)), -1, 1)
@@ -2427,6 +2436,122 @@ static func _materialize_allocation_11e(result: Dictionary, target_unit: Diction
 		})
 		var label = get_model_display_label(models[di], target_unit)
 		print("RulesEngine: 💀 %s destroyed (11e allocation)" % label)
+
+
+# ── ISS-045: defender-driven allocation batch (11e interactive flow) ──
+# Non-mutating compute used by the AllocationGroupOverlay (and any AI
+# defender): takes the save_data produced by prepare_save_resolution, the
+# defender's chosen group order, and the live board; rolls the save batch
+# + per-crit devastating wounds on a SCRATCH copy of the target unit and
+# returns {diffs, dice, casualties, damage_applied, saves_passed,
+# saves_failed, save_rolls, order_used, groups}. The caller applies the
+# diffs (overlay → GameState; phase → snapshot) — both are idempotent
+# `set` ops.
+static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	if rng == null:
+		rng = make_rng()
+	var target_unit_id = str(save_data.get("target_unit_id", ""))
+	var live_unit = board.get("units", {}).get(target_unit_id, {})
+	var out = {
+		"is_allocation_11e": true, "target_unit_id": target_unit_id,
+		"diffs": [], "dice": [], "casualties": 0, "damage_applied": 0,
+		"saves_passed": 0, "saves_failed": 0, "save_rolls": [],
+		"order_used": [], "groups": [],
+	}
+	if live_unit.is_empty():
+		return out
+	# Attached units: characters live in SEPARATE linked units
+	# (CharacterAttachmentManager) — fold them into one virtual unit so
+	# 05.03 groups them per-CHARACTER and 05.04/06.02 reach them last;
+	# diffs are remapped back to the source units afterwards.
+	var virtual = _build_attached_allocation_unit_11e(target_unit_id, board)
+	var scratch_unit = virtual.unit
+	var sources: Array = virtual.sources
+	var groups = Allocation.build_groups(scratch_unit)
+	out.groups = groups
+
+	var wounds_to_save = int(save_data.get("wounds_to_save", 0))
+	var dev_crits = int(save_data.get("devastating_wounds", 0)) if save_data.get("has_devastating_wounds", false) else 0
+	var ap = int(save_data.get("ap", 0))
+	var damage_raw = str(save_data.get("damage_raw", str(save_data.get("damage", 1))))
+	var fnp_value = get_unit_fnp_for_attack(live_unit, save_data.get("is_psychic", false))
+
+	# Melta budget mirrors the auto-resolve path's proportional formula.
+	var melta_value = int(save_data.get("melta_bonus", 0))
+	var melta_wounds := 0
+	if melta_value > 0:
+		var in_half = int(save_data.get("melta_models_in_half_range", 0))
+		var total_models = maxi(1, int(save_data.get("melta_total_models", 1)))
+		if in_half >= total_models:
+			melta_wounds = wounds_to_save
+		elif in_half > 0:
+			melta_wounds = ceili(float(wounds_to_save) * float(in_half) / float(total_models))
+
+	var result = {"diffs": [], "dice": []}
+	var applied = _apply_saves_via_allocation_11e(result, scratch_unit, target_unit_id,
+		wounds_to_save, dev_crits, ap, damage_raw, rng, {
+			"order": order,
+			"melta_value": melta_value,
+			"melta_wounds": melta_wounds,
+			"half_damage": get_unit_half_damage(live_unit),
+			"fnp_value": fnp_value,
+		})
+	# Remap virtual-unit diff paths back to the source units (attached
+	# characters keep their own unit ids).
+	for diff in result.diffs:
+		var parts = str(diff.get("path", "")).split(".")
+		if parts.size() == 5 and parts[0] == "units" and parts[2] == "models":
+			var vi = int(parts[3])
+			if vi >= 0 and vi < sources.size():
+				var src = sources[vi]
+				diff["path"] = "units.%s.models.%d.%s" % [src.unit_id, src.model_index, parts[4]]
+	out.diffs = result.diffs
+	out.dice = result.dice
+	out.casualties = applied.casualties
+	out.damage_applied = applied.damage_applied
+	for d in result.dice:
+		if d.get("context", "") == "save":
+			out.save_rolls = d.get("rolls_raw", [])
+			out.saves_failed = int(d.get("fails", 0))
+			out.saves_passed = out.save_rolls.size() - out.saves_failed
+			out.order_used = d.get("allocation_11e", {}).get("order", [])
+	if out.order_used.is_empty():
+		out.order_used = order
+	return out
+
+
+# Fold a bodyguard unit and its attached character units (linked via
+# attachment_data.attached_characters) into ONE virtual unit for the 11e
+# allocation rules. Returns {unit, sources} where sources[i] maps virtual
+# model index i back to {unit_id, model_index}.
+static func _build_attached_allocation_unit_11e(target_unit_id: String, board: Dictionary) -> Dictionary:
+	var units = board.get("units", {})
+	var base_unit = units.get(target_unit_id, {})
+	var combined = base_unit.duplicate(true)
+	var sources: Array = []
+	var base_models = base_unit.get("models", [])
+	for i in range(base_models.size()):
+		sources.append({"unit_id": target_unit_id, "model_index": i})
+	for char_id in base_unit.get("attachment_data", {}).get("attached_characters", []):
+		var char_unit = units.get(str(char_id), {})
+		if char_unit.is_empty():
+			continue
+		var char_stats = char_unit.get("meta", {}).get("stats", {})
+		var char_models = char_unit.get("models", [])
+		for ci in range(char_models.size()):
+			var cm = char_models[ci].duplicate(true)
+			cm["is_character"] = true
+			# Carry the character unit's stat fallbacks onto the model so
+			# the combined unit's stats don't mask them (05.03 group keys).
+			if not cm.has("wounds") and char_stats.has("wounds"):
+				cm["wounds"] = char_stats.wounds
+			if not cm.has("save") and char_stats.has("save"):
+				cm["save"] = char_stats.save
+			if not cm.has("invuln") and char_stats.has("invuln"):
+				cm["invuln"] = char_stats.invuln
+			combined.models.append(cm)
+			sources.append({"unit_id": str(char_id), "model_index": ci})
+	return {"unit": combined, "sources": sources}
 
 
 static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:

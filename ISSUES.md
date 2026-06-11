@@ -564,7 +564,7 @@ Conventions:
 - **Dependencies:** ISS-041
 - **Affected files:** `WoundAllocationOverlay.gd`, `ShootingController.gd`, `FightController.gd`, NetworkManager decision routing
 - **Acceptance criteria:** windowed scenario reproduces the Celestine example (pg 22-23): groups offered, character forced last, damage applied lowest-first; multiplayer test routes the decision to the defender.
-- **Status:** TODO
+- **Status:** DONE (shooting; melee variant rides with ISS-050, PRECISION prompt with ISS-047) — new `40k/scripts/AllocationGroupOverlay.gd`: at edition≥11 ShootingController instantiates it instead of WoundAllocationOverlay (same setup/allocation_complete contract, defender-only display gate upstream is unchanged). The defender orders GROUP CARDS once per batch (cards show count/W/Sv/InSv/CHARACTER/wounded; ▲▼ reorder; `Allocation.validate_order` runs live and an illegal order — CHARACTER before non-CHARACTER — disables Confirm with the constraint text; single-group batches auto-resolve). Confirm batch-rolls saves through new `RulesEngine.resolve_allocation_batch_11e` (non-mutating; folds ATTACHED character units into a virtual unit via `_build_attached_allocation_unit_11e` so 05.03 groups them per-CHARACTER, honours the chosen order, falls back to the default legal order on invalid input, remaps diffs back to the source units) and applies the idempotent set-diffs to GameState; the summary travels through the existing APPLY_SAVES action (new 11e branch in `_process_apply_saves`). Headless: `test_iss045_allocation_overlay.gd` 16/16 incl. an INDEPENDENT reimplementation of the 05.04 lowest→highest walk matching the engine, and character damage remapped to the character's own unit. **Windowed scenario `iss045_allocation_groups.json` 31/31**: groups offered (screenshot), CHARACTER-first order rejected live, batch resolved (6 AP-3 wounds kill exactly 6 Boyz, attached Warboss untouched — reached last), overlay closes via Done. Multiplayer: the decision already routes to the defender via the unchanged `_on_saves_required` gate + save_broadcast_id reliability (pinned by `test_save_broadcast_reliability.gd`); a dedicated 11e MP scenario rides with ISS-063. GameState gained `set_edition/get_edition` for scenarios (Expression can't reach class_name globals).
 
 ### ISS-046 — 11e mortal wounds + DEVASTATING WOUNDS cap
 - **Location:** `RulesEngine.gd` `apply_mortal_wounds`, devastating-wounds conversion at `:5461-5483`; rules: 06.02, 24.10
@@ -832,7 +832,7 @@ Conventions:
 | ISS-042 | 11e coherency + end-of-turn enforcement | high | DONE | 002, 038, 040 |
 | ISS-043 | 11e leadership + battle-shock rework | high | DONE | 037, 038, 016 |
 | ISS-044 | Hazard roll mechanic | medium | DONE | 002, 046 |
-| ISS-045 | Wound-allocation UI for groups | high | TODO | 041 |
+| ISS-045 | Wound-allocation UI for groups | high | DONE | 041 |
 | ISS-046 | 11e mortal wounds + dev-wounds cap | high | DONE | 041 |
 | ISS-047 | 11e weapon abilities | high | IN PROGRESS | 003, 041 |
 | ISS-048 | 11e shooting types | high | TODO | 040, 037, 047 |
