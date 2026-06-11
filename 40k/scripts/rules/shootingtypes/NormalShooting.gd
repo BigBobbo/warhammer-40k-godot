@@ -16,4 +16,6 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 		reasons.append("unit is engaged (10.04)")
 	if _advanced(_unit(unit_id, board)):
 		reasons.append("unit made an advance move this turn (10.04)")
+	if _unit(unit_id, board).get("flags", {}).get("cannot_shoot", false):
+		reasons.append("unit cannot shoot (performing an action, 16.01)")
 	return {"eligible": reasons.is_empty(), "reasons": reasons}

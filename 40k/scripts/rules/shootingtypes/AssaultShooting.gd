@@ -20,6 +20,8 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 		reasons.append("unit did not make an advance move this turn (10.05)")
 	if not _unit_has_weapon_with(unit, "assault"):
 		reasons.append("no [ASSAULT] weapons (10.05)")
+	if _unit(unit_id, board).get("flags", {}).get("cannot_shoot", false):
+		reasons.append("unit cannot shoot (performing an action, 16.01)")
 	return {"eligible": reasons.is_empty(), "reasons": reasons}
 
 

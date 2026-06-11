@@ -57,6 +57,7 @@ func _ready() -> void:
 	# Removed models are destroyed but do NOT trigger on-death rules.
 	# Registered as a non-mission End-of-Turn rule (07.03 ordering).
 	register_turn_ending_hook(_enforce_coherency_11e, false)
+	register_turn_ending_hook(_complete_actions_11e, false)
 
 	# Don't automatically start deployment phase here
 	# Let the Main scene initialize it after armies are loaded
@@ -520,6 +521,19 @@ func get_available_actions() -> Array:
 		return current_phase_instance.get_available_actions()
 	else:
 		return []
+
+
+## ISS-057 step 2: actions that complete at the end of the turn resolve
+## through the ISS-038 hook (16.01; battle-shock blocks completion per
+## 01.07 — handled inside ActionsManager.complete_actions).
+func _complete_actions_11e(_player: int) -> void:
+	if GameConstants.edition < 11:
+		return
+	var result = ActionsManager.complete_actions("end_of_turn", GameState.state)
+	if not result.changes.is_empty():
+		apply_state_changes(result.changes)
+	for c in result.completed:
+		print("PhaseManager: [11e ACTIONS] %s completed action '%s' (effect: %s)" % [c.unit_id, c.action_id, str(c.effect)])
 
 
 ## ISS-042: 11e end-of-turn coherency enforcement. Auto-removes detected

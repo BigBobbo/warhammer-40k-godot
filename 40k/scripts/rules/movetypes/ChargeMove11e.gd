@@ -30,6 +30,8 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 	var flags = unit.get("flags", {})
 	if flags.get("advanced", false) or flags.get("fell_back", false):
 		return {"eligible": false, "reasons": ["advanced or fell back this turn"]}
+	if flags.get("cannot_charge", false):
+		return {"eligible": false, "reasons": ["unit cannot charge (action/disembark lock, 16.01/18.04)"]}
 	if _closest_enemy_inches(unit_id, board) > 12.0:
 		return {"eligible": false, "reasons": ["no enemy unit within 12\""]}
 	return {"eligible": true, "reasons": []}

@@ -125,6 +125,43 @@ func _run_tests():
 	_check("battle-shock prevents completion (01.07)",
 		done.completed.is_empty() and not done.changes.is_empty(), str(done))
 
+	print("\n-- step 2: lock consumers + end-of-turn hook --")
+	# cannot_shoot blocks every selectable shooting type (16.01).
+	var lb = _board()
+	lb.units["U_INF"].meta["weapons"] = [{"name": "Rifle", "type": "Ranged", "range": "24",
+		"attacks": "2", "ballistic_skill": "3", "strength": "4", "ap": "0", "damage": "1",
+		"special_rules": ""}]
+	lb.units["U_INF"].flags["cannot_shoot"] = true
+	_check("cannot_shoot lock: no shooting type selectable",
+		ShootingTypes.available_for("U_INF", lb).is_empty(), str(ShootingTypes.available_for("U_INF", lb)))
+	lb.units["U_INF"].flags.erase("cannot_shoot")
+	_check("lock cleared: normal shooting selectable again",
+		ShootingTypes.available_for("U_INF", lb) == ["normal"])
+	# cannot_charge blocks the 11e charge template.
+	var cb = _board()
+	cb.units["U_FOE"].models[0].position = {"x": 700, "y": 500}  # within 12"
+	cb.units["U_INF"].flags["cannot_charge"] = true
+	_check("cannot_charge lock: charge template refuses",
+		not MoveTypes.get_type("charge").eligible("U_INF", cb).eligible)
+	cb.units["U_INF"].flags.erase("cannot_charge")
+	_check("lock cleared: charge eligible again",
+		MoveTypes.get_type("charge").eligible("U_INF", cb).eligible)
+	# PhaseManager's end-of-turn hook completes actions against live state.
+	var pm = root.get_node_or_null("PhaseManager")
+	var gs = root.get_node_or_null("GameState")
+	_check("PhaseManager + GameState present", pm != null and gs != null)
+	gs.state.units["U_HOOK_TEST"] = {"id": "U_HOOK_TEST", "owner": 1,
+		"flags": {"performing_action": "deploy_device"},
+		"meta": {"keywords": ["INFANTRY"], "stats": {}},
+		"models": [{"id": "m0", "alive": true, "base_mm": 32, "base_type": "circular",
+			"position": {"x": 600, "y": 600}}]}
+	pm._complete_actions_11e(1)
+	var hf = gs.state.units["U_HOOK_TEST"].flags
+	_check("turn_ending hook completed the action through the diff pipeline",
+		hf.get("performing_action", "x") == "" and hf.get("action_completed", "") == "deploy_device",
+		str(hf))
+	gs.state.units.erase("U_HOOK_TEST")
+
 	GameConstants.edition = 10
 	ActionsManager.clear_registry()
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
