@@ -7394,24 +7394,10 @@ func _perform_quick_load() -> void:
 		_show_save_notification("Load failed - No save found!", Color.RED)
 
 func _sync_board_state_with_game_state() -> void:
-	# Sync the legacy BoardState with the loaded GameState
-	print("Syncing BoardState with loaded GameState...")
-	
-	var units = GameState.state.get("units", {})
-	print("Loaded units count: ", units.size())
-	
-	# Update BoardState units (for legacy visual components)
-	for unit_id in units:
-		var unit = units[unit_id]
-		if BoardState.units.has(unit_id):
-			# Update existing unit
-			BoardState.units[unit_id]["status"] = unit.get("status", BoardState.UnitStatus.UNDEPLOYED)
-			BoardState.units[unit_id]["models"] = unit.get("models", [])
-			print("Updated BoardState unit: ", unit_id, " status: ", unit.get("status", 0))
-		else:
-			# Add new unit to BoardState
-			BoardState.units[unit_id] = unit
-			print("Added new unit to BoardState: ", unit_id)
+	# ISS-031: BoardState no longer shadows unit state (GameState is the
+	# single source of truth); the legacy sync was write-only with zero
+	# readers. Kept as a no-op so the two load-path call sites stay stable.
+	pass
 
 func _recreate_unit_visuals() -> void:
 	# Clear existing tokens

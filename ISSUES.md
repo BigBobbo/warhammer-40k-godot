@@ -392,7 +392,7 @@ Conventions:
 - **Dependencies:** ISS-017
 - **Affected files:** `BoardState.gd`, its callers
 - **Acceptance criteria:** autoload removed or storage-free; suite passes.
-- **Status:** TODO
+- **Status:** DONE — BoardState is now storage-free (161 → 34 lines): the hardcoded shadow `units` dictionary + nine legacy unit helpers (zero external readers, verified by grep) deleted; only the deployment-zone px facade and the `active_player` forward remain, documented as such. Main's load-path "sync BoardState" block is a documented no-op. Verified: suite 687/687 + deployment windowed scenario passes.
 
 ### ISS-032 — Deliberate AI cache policy across save/load
 - **Location:** `40k/scripts/AIDecisionMaker.gd:141-172` (static caches: focus-fire plan, phase plan, secondary awareness…), not serialized by `SaveLoadManager`
@@ -818,7 +818,7 @@ Conventions:
 | ISS-028 | Save migration framework + fixtures | medium | TODO | 017 |
 | ISS-029 | Golden-master replay harness | medium | TODO | 021 |
 | ISS-030 | Split AIDecisionMaker into planners | medium | TODO | 014 |
-| ISS-031 | BoardState: merge away or document | low | TODO | 017 |
+| ISS-031 | BoardState: merge away or document | low | DONE | 017 |
 | ISS-032 | AI cache save/load policy | low | TODO | — |
 | ISS-033 | Shared dialog base class | low | TODO | — |
 | ISS-034 | Remove duplicate/legacy phases | low | TODO | — |
