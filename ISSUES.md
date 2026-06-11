@@ -540,7 +540,7 @@ Conventions:
 - **Dependencies:** ISS-037, ISS-038, ISS-016
 - **Affected files:** `CommandPhase.gd`, `Morale` module, `StratagemManager.gd`, `MissionManager.gd` (OC), UI badges
 - **Acceptance criteria:** unit tests: recovery roll, half-strength edge cases (starting strength 1 vehicle by wounds; attached-unit example from appendix pg 86); scenario: shocked unit can't be stratagem target and shows OC '-'.
-- **Status:** TODO
+- **Status:** IN PROGRESS (primitives landed; CommandPhase wiring pending) — `AttackSequence` gains `leadership_roll` (2D6 ≥ Ld, distribution-verified), edition-gated `battleshock_test_required` (10e: below-half only; 11e per 08.03: shocked OR at/below half — recovery emerges from eligibility since 11e offers shocked units the roll) and `battleshock_outcome`. `test_iss043_battleshock_11e.gd` 14/14; suite 744/744. Remaining: CommandPhase step rework consuming these (with ISS-038's step hooks), the while-shocked effects (stratagem-target ban in StratagemManager, action eligibility with ISS-057, OC '-' display), and the half-strength edge-case bookkeeping in GameState (starting-strength incl. attached units, pg 86).
 
 ### ISS-044 — Hazard roll mechanic
 - **Location:** `RulesEngine.gd:6711-6877` (current hazardous), `ShootingPhase.gd:47,1237`; rules: 06.03, 24.15
@@ -830,7 +830,7 @@ Conventions:
 | ISS-040 | 11e move-type framework | high | TODO | 001, 002, 038 |
 | ISS-041 | 11e attack core: allocation groups | blocker | TODO | 012, 037 |
 | ISS-042 | 11e coherency + end-of-turn enforcement | high | TODO | 002, 038, 040 |
-| ISS-043 | 11e leadership + battle-shock rework | high | TODO | 037, 038, 016 |
+| ISS-043 | 11e leadership + battle-shock rework | high | IN PROGRESS | 037, 038, 016 |
 | ISS-044 | Hazard roll mechanic | medium | DONE | 002, 046 |
 | ISS-045 | Wound-allocation UI for groups | high | TODO | 041 |
 | ISS-046 | 11e mortal wounds + dev-wounds cap | high | TODO | 041 |

@@ -156,3 +156,41 @@ static func hazard_rolls(unit: Dictionary, count: int, rng) -> Dictionary:
 			out.failures += 1
 	out.mortal_wounds = out.failures * out.per_model_mw
 	return out
+
+
+# ── Leadership & battle-shock primitives (ISS-043, 01.06-01.07, 08.03) ──
+## Make a leadership roll for a unit: 2D6, succeeds if the result is >= the
+## (best/lowest) Ld characteristic in the unit. The mechanic is identical
+## in 10e and 11e; what changes at edition 11 is WHO tests in the
+## battle-shock step and the recovery effect (see battleshock_step_required
+## below). Returns {dice: [d1, d2], total, threshold, success}.
+static func leadership_roll(unit: Dictionary, rng) -> Dictionary:
+	var threshold := 7  # conventional default when no Ld present
+	var st = unit.get("meta", {}).get("stats", {})
+	if st.has("leadership"):
+		threshold = int(st.leadership)
+	var dice = rng.roll_d6(2)
+	var total: int = dice[0] + dice[1]
+	return {"dice": dice, "total": total, "threshold": threshold, "success": total >= threshold}
+
+
+## Battle-shock step eligibility (Command phase).
+## 10e: units BELOW half-strength must test; battle-shock persists until
+##      the controlling player's next Command phase (no recovery roll).
+## 11e (08.03): units that are battle-shocked OR at-or-below half-strength
+##      must test, and a battle-shocked unit that passes RECOVERS.
+## `below_half` / `at_half` are computed by the caller (GameState owns the
+## starting-strength bookkeeping).
+static func battleshock_test_required(is_battle_shocked: bool, below_half: bool, at_half: bool) -> bool:
+	if GameConstants.edition >= 11:
+		return is_battle_shocked or below_half or at_half
+	return below_half
+
+
+## State after a battle-shock roll: pass -> not shocked, fail -> shocked.
+## The 11e recovery rule (08.03) emerges from ELIGIBILITY, not outcome:
+## 11e offers already-shocked units the roll (pass recovers them); 10e
+## never retests a shocked unit, so the pass-while-shocked case cannot
+## occur there.
+static func battleshock_outcome(roll_success: bool) -> bool:
+	return not roll_success
