@@ -332,7 +332,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** `NetworkManager.gd`, lobby/UI surfaces for the modal
 - **Acceptance criteria:** multiplayer test with simulated dropped ack: actions are blocked and resync retries occur; play resumes only after confirmed sync.
-- **Status:** TODO
+- **Status:** DONE — on load-sync ack timeout the host now: blocks `submit_action` (networked mode), re-sends the authoritative snapshot to unconfirmed peers via the existing `_send_loaded_state` RPC (up to 3 retries), and after exhausting retries stays blocked with a loud error (UI layer decides disconnect/save-and-exit via the existing `load_sync_confirmed(false)` signal). All-acks success unblocks and resets. Verified by `test_iss026_load_sync_block.gd` (4/4: exhausted-path stays blocked, retry path increments, success path unblocks); suite 695/695. Note: live two-peer drop simulation rides with the MP runner revival (ISS-011/036 family).
 
 ### ISS-027 — Decompose Main.gd's remaining non-orchestration responsibilities
 - **Location:** `40k/scripts/Main.gd` (12,004 lines; ~180 `_setup_*` functions: mathhammer UI, save dialog, terrain setup, camera, tooltips, dice log, deployment formations UI…)
@@ -813,7 +813,7 @@ Conventions:
 | ISS-023 | Single source of truth for positions | medium | TODO | 001 |
 | ISS-024 | Eliminate stale phase snapshots | medium | TODO | 001, 017 |
 | ISS-025 | TurnManager vs PhaseManager ownership | medium | TODO | 001 |
-| ISS-026 | MP load-sync failure handling | medium | TODO | — |
+| ISS-026 | MP load-sync failure handling | medium | DONE | — |
 | ISS-027 | Main.gd remaining decomposition | medium | TODO | 013, 018 |
 | ISS-028 | Save migration framework + fixtures | medium | TODO | 017 |
 | ISS-029 | Golden-master replay harness | medium | TODO | 021 |

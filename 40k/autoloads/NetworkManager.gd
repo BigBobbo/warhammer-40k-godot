@@ -829,6 +829,11 @@ func disconnect_network() -> void:
 # Action submission and routing
 func submit_action(action: Dictionary) -> void:
 	print("NetworkManager: submit_action called for type: ", action.get("type"))
+	# ISS-026: while a load sync is unconfirmed, peers are on different
+	# states — refuse to widen the divergence.
+	if _load_sync_blocked and is_networked():
+		push_error("NetworkManager: action %s refused — load sync unconfirmed (peers desynced)" % action.get("type", "?"))
+		return
 	print("NetworkManager: is_networked() = ", is_networked())
 	print("NetworkManager: web_relay_mode = ", web_relay_mode)
 
@@ -1906,7 +1911,17 @@ func _check_all_load_acks_received() -> void:
 	# All peers confirmed — stop timer and emit signal
 	print("NetworkManager: SAVE-2: All clients confirmed loaded state")
 	_stop_load_sync_timer()
+	_load_sync_blocked = false
+	_load_sync_retries = 0
 	load_sync_confirmed.emit(true)
+
+# ISS-026: a failed load sync must not silently continue — peers would be
+# on different states (guaranteed desync presented as a working game).
+# On timeout we retry the snapshot send up to LOAD_SYNC_MAX_RETRIES times;
+# while unsynced, submit_action refuses new actions.
+const LOAD_SYNC_MAX_RETRIES := 3
+var _load_sync_retries: int = 0
+var _load_sync_blocked: bool = false
 
 func _on_load_sync_timeout() -> void:
 	"""Handle timeout waiting for client load acknowledgments."""
@@ -1917,7 +1932,28 @@ func _on_load_sync_timeout() -> void:
 
 	push_warning("NetworkManager: SAVE-2: Load sync timeout — %d client(s) did not confirm: %s" % [unconfirmed.size(), str(unconfirmed)])
 	_stop_load_sync_timer()
+
+	if _load_sync_retries < LOAD_SYNC_MAX_RETRIES and not unconfirmed.is_empty():
+		_load_sync_retries += 1
+		_load_sync_blocked = true
+		push_warning("NetworkManager: ISS-026: retrying load sync (%d/%d) — actions blocked until peers confirm" % [_load_sync_retries, LOAD_SYNC_MAX_RETRIES])
+		_resend_loaded_state_to_unconfirmed(unconfirmed)
+		_start_load_sync_timer()
+		return
+
+	# Out of retries: stay blocked and surface the failure loudly. The UI
+	# layer decides between disconnect / save-and-exit.
+	_load_sync_blocked = not unconfirmed.is_empty()
+	if _load_sync_blocked:
+		push_error("NetworkManager: ISS-026: load sync FAILED after %d retries — multiplayer actions remain blocked" % LOAD_SYNC_MAX_RETRIES)
 	load_sync_confirmed.emit(false)
+
+func _resend_loaded_state_to_unconfirmed(unconfirmed: Array) -> void:
+	# Re-send the authoritative loaded snapshot to peers that have not
+	# acknowledged, via the same RPC the initial load sync used.
+	var snapshot = game_state.create_snapshot()
+	for peer_id in unconfirmed:
+		_send_loaded_state.rpc_id(peer_id, snapshot, "resync")
 
 func _start_load_sync_timer() -> void:
 	"""Start the timeout timer for load sync acknowledgments."""

@@ -68,6 +68,7 @@ TESTS=(
     "tests/test_iss022_undo_roundtrip.gd"
     "tests/test_iss019_unit_abilities.gd"
     "tests/test_iss032_ai_cache_policy.gd"
+    "tests/test_iss026_load_sync_block.gd"
 )
 
 FAILED=0
