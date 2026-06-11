@@ -1665,7 +1665,8 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			print("RulesEngine: Damaged profile -1 to hit applied for %s" % actor_unit_id)
 
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
-		if is_heavy_weapon(weapon_id, board):
+		# (at edition>=11 [HEAVY] routes through ModifierStack below — 24.16)
+		if GameConstants.edition < 11 and is_heavy_weapon(weapon_id, board):
 			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
 			if remained_stationary:
 				hit_modifiers |= HitModifier.PLUS_ONE
@@ -1683,10 +1684,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 		# STEALTH (T2-1): Check if target unit has Stealth (from effect or base ability)
 		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
-		if EffectPrimitivesData.has_effect_stealth(target_unit):
+		if GameConstants.edition < 11 and EffectPrimitivesData.has_effect_stealth(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (effect-granted) applied -1 to hit against %s" % target_unit_id)
-		elif has_stealth_ability(target_unit):
+		elif GameConstants.edition < 11 and has_stealth_ability(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
@@ -1759,6 +1760,32 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		if has_captain_general(actor_unit):
 			hit_modifiers = hit_modifiers & ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
 			print("RulesEngine: CAPTAIN-GENERAL — ignoring all hit roll modifiers for %s" % actor_unit_id)
+
+		# ── ISS-016/053 (11e): hit-side modifier stack — cover/STEALTH worsen
+		# BS (13.08/24.33), plunging fire improves it (22.05), [HEAVY] is +1
+		# to the hit roll (24.16). The ±1 dice-roll cap lives in ModifierStack.
+		if GameConstants.edition >= 11 and not is_overwatch:
+			var ms_firing_models: Array = []
+			for ms_mid in model_ids:
+				var ms_m = _get_model_by_id(actor_unit, ms_mid)
+				if not ms_m.is_empty() and ms_m.get("alive", true):
+					ms_firing_models.append(ms_m)
+			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models})
+			var ms_bs_delta = ms_stack.net("bs")
+			if ms_bs_delta != 0:
+				bs += ms_bs_delta
+				for ms_i in range(bs_per_attack.size()):
+					bs_per_attack[ms_i] += ms_bs_delta
+				print("RulesEngine: [11e MODIFIERS] BS %+d (%s)" % [ms_bs_delta, str(ms_stack.sources("bs"))])
+			var ms_hit_net = ms_stack.net("hit_roll")
+			if ms_hit_net > 0:
+				hit_modifiers |= HitModifier.PLUS_ONE
+				if "heavy" in ms_stack.sources("hit_roll"):
+					heavy_bonus_applied = true
+				print("RulesEngine: [11e MODIFIERS] +1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
+			elif ms_hit_net < 0:
+				hit_modifiers |= HitModifier.MINUS_ONE
+				print("RulesEngine: [11e MODIFIERS] -1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
 
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -2701,7 +2728,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			print("RulesEngine: Damaged profile -1 to hit (auto-resolve) applied for %s" % actor_unit_id)
 
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
-		if is_heavy_weapon(weapon_id, board):
+		# (at edition>=11 [HEAVY] routes through ModifierStack below — 24.16)
+		if GameConstants.edition < 11 and is_heavy_weapon(weapon_id, board):
 			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
 			if remained_stationary:
 				hit_modifiers |= HitModifier.PLUS_ONE
@@ -2718,10 +2746,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# STEALTH (T2-1): Check if target unit has Stealth (from effect or base ability)
 		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
-		if EffectPrimitivesData.has_effect_stealth(target_unit):
+		if GameConstants.edition < 11 and EffectPrimitivesData.has_effect_stealth(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (effect-granted) applied -1 to hit against %s" % target_unit_id)
-		elif has_stealth_ability(target_unit):
+		elif GameConstants.edition < 11 and has_stealth_ability(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
@@ -2779,6 +2807,32 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if blastajet_scope_ar == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: BLASTAJET ATTACK RUN (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
+
+		# ── ISS-016/053 (11e): hit-side modifier stack — cover/STEALTH worsen
+		# BS (13.08/24.33), plunging fire improves it (22.05), [HEAVY] is +1
+		# to the hit roll (24.16). The ±1 dice-roll cap lives in ModifierStack.
+		if GameConstants.edition >= 11 and not is_overwatch:
+			var ms_firing_models: Array = []
+			for ms_mid in model_ids:
+				var ms_m = _get_model_by_id(actor_unit, ms_mid)
+				if not ms_m.is_empty() and ms_m.get("alive", true):
+					ms_firing_models.append(ms_m)
+			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models})
+			var ms_bs_delta = ms_stack.net("bs")
+			if ms_bs_delta != 0:
+				bs += ms_bs_delta
+				for ms_i in range(bs_per_attack.size()):
+					bs_per_attack[ms_i] += ms_bs_delta
+				print("RulesEngine: [11e MODIFIERS] BS %+d (%s)" % [ms_bs_delta, str(ms_stack.sources("bs"))])
+			var ms_hit_net = ms_stack.net("hit_roll")
+			if ms_hit_net > 0:
+				hit_modifiers |= HitModifier.PLUS_ONE
+				if "heavy" in ms_stack.sources("hit_roll"):
+					heavy_bonus_applied = true
+				print("RulesEngine: [11e MODIFIERS] +1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
+			elif ms_hit_net < 0:
+				hit_modifiers |= HitModifier.MINUS_ONE
+				print("RulesEngine: [11e MODIFIERS] -1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
 
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)

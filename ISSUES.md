@@ -212,7 +212,7 @@ Conventions:
 - **Dependencies:** ISS-003, ISS-012
 - **Affected files:** `EffectPrimitives.gd`, `UnitAbilityManager.gd`, `FactionAbilityManager.gd`, `AttackSequence.gd`, `StratagemManager.gd`
 - **Acceptance criteria:** cover/stealth/heavy resolved via the stack with golden parity vs. old behavior; modifier cap enforceable in one place (unit test: +2 worth of hit bonuses nets +1).
-- **Status:** TODO (sequenced with ISS-041/053 deliberately) — building the stack now, with the 10e bitfield consumers untouched, would add an unused abstraction; its query points are created by the 11e attack-sequence rework. The AttackSequence evaluators (ISS-012) + golden corpus are the landing pad. Implement when ISS-041 starts.
+- **Status:** DONE (acceptance set migrated; wider flag migration is incremental per-issue work) — new `40k/scripts/rules/ModifierStack.gd`: typed entries (`add/net/raw_sum/sources/describe`), the ±1 net cap on DICE-ROLL modifiers in ONE place (acceptance test: +2 worth of hit bonuses nets +1), characteristic (BS/WS) modifiers cumulative and uncapped. `collect_hit_context_11e` migrates exactly the sources 11e changes: benefit of cover incl. STEALTH (13.08/24.33 — worsen BS by 1, honours IGNORES COVER + the attacker's effect flag), plunging fire (22.05 — improve BS by 1, every-firing-model qualification), [HEAVY] (24.16 — +1 hit roll while unengaged, not set up this turn, stationary; the 3" allowance refines with move-distance tracking in ISS-054). Both shooting resolution paths consume the stack at edition≥11 (BS delta applied to the per-attack thresholds; the inline 10e stealth/heavy bitfield lines are edition-gated so there is no double-dip). 10e parity pinned: goldens 63/63, stealth/heavy pipeline tests green. `test_iss016_modifier_stack.gd` 19/19 incl. engine integration with dice-stream replication (stealth flips a raw 3 from hit to miss at 11e). Remaining EffectPrimitives/UnitAbilityManager/FactionAbilityManager flags migrate as their owning issues are reworked (ISS-027/048/050).
 
 ### ISS-017 — Typed state accessors + diff-path hardening
 - **Location:** `40k/autoloads/PhaseManager.gd:328-444` (`_set_state_value` navigates `"units.U_1.models.0.current_wounds"` via `split(".")`, no existence validation)
@@ -660,7 +660,7 @@ Conventions:
 - **Dependencies:** ISS-051, ISS-052, ISS-016, ISS-041
 - **Affected files:** `RulesEngine.gd`, `AttackSequence.gd`, ModifierStack, AI scoring (via ISS-014 shared math)
 - **Acceptance criteria:** unit tests: cover worsens 3+ BS to 4+; cover + plunging fire net zero; IGNORES COVER vs Stealth; scenario shows hit-chance preview reflecting cover.
-- **Status:** IN PROGRESS (qualification primitives landed; BS application with ISS-041 flow + ModifierStack) — TerrainManager gains edition-gated `unit_has_cover_11e` (13.08's in-area half with the EVERY-model requirement and keyword gate; Stealth grants unconditionally per 24.33; the not-fully-visible half awaits ISS-052's fully-visible module) and `plunging_fire_applies` (22.05: attacker ≥3" elevation or TOWERING within 12", vs ground-level targets, via per-model `elevation_inches`). `test_iss053_cover_plunging_11e.gd` 10/10; suite 851/851. The BS-worsening/improving application and the net-zero cap arrive when ISS-041 step 2 + ISS-016's ModifierStack wire the hit step.
+- **Status:** IN PROGRESS (qualification primitives landed; BS application with ISS-041 flow + ModifierStack) — TerrainManager gains edition-gated `unit_has_cover_11e` (13.08's in-area half with the EVERY-model requirement and keyword gate; Stealth grants unconditionally per 24.33; the not-fully-visible half awaits ISS-052's fully-visible module) and `plunging_fire_applies` (22.05: attacker ≥3" elevation or TOWERING within 12", vs ground-level targets, via per-model `elevation_inches`). `test_iss053_cover_plunging_11e.gd` 10/10; suite 851/851. UPDATE (with ISS-016): the BS application is now LIVE — `ModifierStack.collect_hit_context_11e` feeds both shooting paths at edition≥11 (cover/STEALTH worsen the per-attack BS thresholds, plunging fire improves them, cover-vs-plunging sums to net zero; `test_iss016_modifier_stack.gd` 19/19). Remaining for ISS-053: the not-fully-visible cover half + Solid/fully-visible module (ISS-052 remainder).
 
 ### ISS-054 — 11e terrain movement + MOBILE keyword
 - **Location:** movement validation in `MovementPhase.gd`/`RulesEngine.gd`; rules: 13.06, 24.35
@@ -803,7 +803,7 @@ Conventions:
 | ISS-013 | Signal registry + phase lifecycle out of Main | high | DONE | 005 |
 | ISS-014 | AI consumes shared rules math | high | DONE | 012 |
 | ISS-015 | Multiplayer: seeds on every dice action | high | DONE | 004, 001 |
-| ISS-016 | Consolidated modifier stack | high | TODO | 003, 012 |
+| ISS-016 | Consolidated modifier stack | high | DONE | 003, 012 |
 | ISS-017 | State accessors + diff-path hardening | medium | DONE | 001 |
 | ISS-018 | Per-phase UI container teardown | medium | TODO | 005, 013 |
 | ISS-019 | Unify ability checks through ability layer | medium | DONE | 003 |

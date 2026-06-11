@@ -91,6 +91,7 @@ TESTS=(
     "tests/test_iss058_disembark_11e.gd"
     "tests/test_iss049_charge_11e.gd"
     "tests/test_iss041b_resolution_11e.gd"
+    "tests/test_iss016_modifier_stack.gd"
 )
 
 FAILED=0
