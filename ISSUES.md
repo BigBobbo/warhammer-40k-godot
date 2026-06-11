@@ -516,7 +516,7 @@ Conventions:
 - **Dependencies:** ISS-012, ISS-037
 - **Affected files:** `AttackSequence.gd`, new `Allocation.gd`, `RulesEngine.gd` wrappers, phases (resolution flow)
 - **Acceptance criteria:** unit tests reproduce both worked examples from the rules (pgs 20-23: boltgun/heavy-bolter sequence; Celestine attached-unit allocation) exactly; headless suite passes in edition=11.
-- **Status:** TODO
+- **Status:** IN PROGRESS (engine core landed; resolution-flow integration = step 2) — new `40k/scripts/rules/Allocation.gd` implements 05.03-05.04 exactly: `build_groups` (per-CHARACTER groups + identical-W/Sv/InSv pooling), `validate_order` (all three constraints: wounded non-CHARACTER first, no CHARACTER before non-CHARACTER, wounded CHARACTERs before unwounded), `default_order`, and `apply_save_rolls` (lowest→highest application, wounded-model priority, unmodified-1 auto-fail, invuln-vs-AP-modified-armour choice, model-by-model destruction, excess-attacks-lost). `test_iss041_allocation_groups.gd` 14/14 — **the Celestine attached-unit worked example (pp. 22-23) reproduces exactly** (two 1s destroy the Geminae, the AP-modified 3 destroys one Seraphim, 5/6 save, Celestine never reached). Suite 791/791. Step 2: identical-attack gathering (04.03) + edition-gated resolution flow wiring in RulesEngine, against the golden corpus; the defender UI is ISS-045.
 
 ### ISS-042 — 11e coherency (2" + 9" envelope) and end-of-turn enforcement
 - **Location:** coherency checks in `RulesEngine.gd:7737-7774` (charge-time), movement validation; rules: 03.03
@@ -828,7 +828,7 @@ Conventions:
 | ISS-038 | 11e battle-round/turn structure hooks | high | DONE | 001, 025, 034 |
 | ISS-039 | Engagement range 2"/5" | high | DONE | 002 |
 | ISS-040 | 11e move-type framework | high | IN PROGRESS | 001, 002, 038 |
-| ISS-041 | 11e attack core: allocation groups | blocker | TODO | 012, 037 |
+| ISS-041 | 11e attack core: allocation groups | blocker | IN PROGRESS | 012, 037 |
 | ISS-042 | 11e coherency + end-of-turn enforcement | high | IN PROGRESS | 002, 038, 040 |
 | ISS-043 | 11e leadership + battle-shock rework | high | IN PROGRESS | 037, 038, 016 |
 | ISS-044 | Hazard roll mechanic | medium | DONE | 002, 046 |

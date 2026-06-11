@@ -77,6 +77,7 @@ TESTS=(
     "tests/test_iss038_turn_hooks.gd"
     "tests/test_iss042_coherency_11e.gd"
     "tests/test_iss040_move_types.gd"
+    "tests/test_iss041_allocation_groups.gd"
 )
 
 FAILED=0
