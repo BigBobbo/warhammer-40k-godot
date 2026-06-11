@@ -738,6 +738,28 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 		result.log_text = "Actor unit not found"
 		return result
 
+	# ── ISS-041 (11e 04.03): gather identical attacks. Assignments whose
+	# attacks are identical (same skill/S/AP/D + same applicable abilities,
+	# same target) are resolved as ONE batch — which also makes their save
+	# rolls one batch, applied lowest→highest together (05.04). The engine
+	# merges same-weapon batches; cross-weapon dice gathering lands with
+	# the ISS-048 shooting-flow rework.
+	if GameConstants.edition >= 11 and assignments.size() > 1:
+		var gathered = AttackSequence.gather_identical_attacks(assignments, board)
+		if gathered.size() < assignments.size():
+			var merged: Array = []
+			for group in gathered:
+				if group.assignment_indices.size() > 1 and group.weapon_ids.size() == 1:
+					var combined = assignments[group.assignment_indices[0]].duplicate(true)
+					for k in range(1, group.assignment_indices.size()):
+						combined["model_ids"] = combined.get("model_ids", []) + assignments[group.assignment_indices[k]].get("model_ids", [])
+					merged.append(combined)
+					print("RulesEngine: [11e GATHER] %d identical-attack assignments (%s → %s) gathered into one batch" % [group.assignment_indices.size(), group.weapon_ids[0], group.target_unit_id])
+				else:
+					for ai in group.assignment_indices:
+						merged.append(assignments[ai])
+			assignments = merged
+
 	# Process each weapon assignment
 	for assignment in assignments:
 		var assignment_result = _resolve_assignment(assignment, actor_unit_id, board, rng_service)
@@ -2213,6 +2235,173 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 # Resolve a single weapon assignment (models with weapon -> target)
 # SUSTAINED HITS (PRP-011): This function is modified to handle Sustained Hits
 # BLAST (PRP-013): This function is modified to handle Blast keyword
+# ── ISS-041 step 2: 11e save/damage resolution via allocation groups ──
+# 05.03-05.04: the DEFENDER divides the target into allocation groups,
+# saves are batch-rolled, and damage is applied lowest roll → highest
+# against the current group. The engine resolves with the defender's
+# default legal order (Allocation.default_order); the interactive
+# order/PRECISION choice UI is ISS-045. [DEVASTATING WOUNDS] crits become
+# per-crit mortal wounds (24.10) applied AFTER the normal damage (06.02).
+# NOTE (11e 13.08): cover worsens the attack's BS — it does NOT modify
+# saves — so no cover bonus enters this flow (hit-side wiring: ISS-053).
+static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dictionary, target_unit_id: String, wounds_to_save: int, dev_wound_crits: int, ap: int, damage_raw: String, rng: RNGService, opts: Dictionary) -> Dictionary:
+	var out = {"casualties": 0, "damage_applied": 0, "damage_roll_log": []}
+	var groups = Allocation.build_groups(target_unit)
+	if groups.is_empty() or (wounds_to_save <= 0 and dev_wound_crits <= 0):
+		return out
+	var order = Allocation.default_order(groups)
+	var models = target_unit.get("models", [])
+	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
+	var save_modifier = clampi(int(target_unit.get("flags", {}).get("save_modifier", 0)), -1, 1)
+	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+	var melta_value = int(opts.get("melta_value", 0))
+	var melta_box = [int(opts.get("melta_wounds", 0))]
+	var has_half_damage = bool(opts.get("half_damage", false))
+	var unit_fnp_value = int(opts.get("fnp_value", 0))
+	var damage_roll_log: Array = out.damage_roll_log
+
+	print("RulesEngine: [11e ALLOCATION] %d save(s) + %d devastating crit(s) vs %d group(s), order=%s" % [wounds_to_save, dev_wound_crits, groups.size(), str(order)])
+
+	if wounds_to_save > 0:
+		var save_rolls = rng.roll_d6(wounds_to_save)
+		# Per inflicting attack: roll the D characteristic and apply the
+		# defender-side damage modifiers (melta/half/minus/FNP), mirroring
+		# the 10e loop so those abilities keep working under the 11e flow.
+		var damage_provider = func(_roll: int, model_index: int) -> int:
+			var dmg_result = roll_variable_characteristic(damage_raw, rng)
+			var dmg = dmg_result.value
+			if dmg_result.rolled:
+				damage_roll_log.append(dmg_result)
+			if melta_value > 0 and melta_box[0] > 0:
+				dmg += melta_value
+				melta_box[0] -= 1
+			if has_half_damage:
+				dmg = apply_half_damage(dmg)
+			var minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+			if minus_dmg > 0:
+				dmg = max(1, dmg - minus_dmg)
+			var fnp = unit_fnp_value
+			if model_index >= 0 and model_index < models.size():
+				fnp = get_model_fnp(target_unit, models[model_index])
+			if fnp > 0 and dmg > 0:
+				var fnp_result = roll_feel_no_pain(dmg, fnp, rng)
+				result.dice.append({
+					"context": "feel_no_pain",
+					"source": "failed_save",
+					"rolls": fnp_result.rolls,
+					"fnp_value": fnp,
+					"wounds_prevented": fnp_result.wounds_prevented,
+					"wounds_remaining": fnp_result.wounds_remaining,
+					"total_wounds": dmg
+				})
+				dmg = fnp_result.wounds_remaining
+			return dmg
+		var alloc = Allocation.apply_save_rolls(target_unit, groups, order, save_rolls, ap, 1, {
+			"save_modifier": save_modifier,
+			"effect_invuln": effect_invuln,
+			"damage_provider": damage_provider,
+		})
+		var fails := 0
+		for ev in alloc.events:
+			if ev.get("result", "") != "saved":
+				fails += 1
+		result.dice.append({
+			"context": "save",
+			"sv": str(base_save) + "+",
+			"ap": ap,
+			"cover": "n/a (11e: cover worsens BS, not saves)",
+			"save_modifier": save_modifier,
+			"rolls_raw": save_rolls,
+			"fails": fails,
+			"allocation_11e": {"order": order, "events": alloc.events}
+		})
+		_materialize_allocation_11e(result, target_unit, target_unit_id, alloc.remaining, alloc.models_destroyed)
+		out.casualties += alloc.models_destroyed.size()
+		out.damage_applied += alloc.damage_total
+
+	# [DEVASTATING WOUNDS] (24.10): each critical wound inflicts D mortal
+	# wounds against AT MOST one model, applied after the normal damage
+	# (06.02); each crit's excess beyond the selected model is lost.
+	if dev_wound_crits > 0:
+		var dw_events: Array = []
+		for _c in range(dev_wound_crits):
+			var dmg_result = roll_variable_characteristic(damage_raw, rng)
+			var dmg = dmg_result.value
+			if dmg_result.rolled:
+				damage_roll_log.append(dmg_result)
+			if melta_value > 0 and melta_box[0] > 0:
+				dmg += melta_value
+				melta_box[0] -= 1
+			if has_half_damage:
+				dmg = apply_half_damage(dmg)
+			var dw_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+			if dw_minus_dmg > 0:
+				dmg = max(1, dmg - dw_minus_dmg)
+			if unit_fnp_value > 0 and dmg > 0:
+				var fnp_result = roll_feel_no_pain(dmg, unit_fnp_value, rng)
+				result.dice.append({
+					"context": "feel_no_pain",
+					"source": "devastating_wounds",
+					"rolls": fnp_result.rolls,
+					"fnp_value": unit_fnp_value,
+					"wounds_prevented": fnp_result.wounds_prevented,
+					"wounds_remaining": fnp_result.wounds_remaining,
+					"total_wounds": dmg
+				})
+				dmg = fnp_result.wounds_remaining
+			if dmg <= 0:
+				continue
+			var dw = Allocation.apply_devastating_wounds_11e(target_unit, 1, dmg)
+			dw_events.append_array(dw.events)
+			_materialize_allocation_11e(result, target_unit, target_unit_id, dw.remaining, dw.models_destroyed)
+			out.casualties += dw.models_destroyed.size()
+			out.damage_applied += dw.applied
+		result.dice.append({
+			"context": "devastating_wounds_11e",
+			"crits": dev_wound_crits,
+			"events": dw_events
+		})
+		print("RulesEngine: [11e ALLOCATION] devastating wounds — %d crit(s) applied as per-crit mortal wounds" % dev_wound_crits)
+	return out
+
+
+# Turn an Allocation `remaining` map into diffs AND update the local board
+# unit so later assignments in the same action (and the per-crit
+# devastating-wound passes) see the post-damage state.
+static func _materialize_allocation_11e(result: Dictionary, target_unit: Dictionary, target_unit_id: String, remaining: Dictionary, models_destroyed: Array) -> void:
+	var models = target_unit.get("models", [])
+	for idx in remaining:
+		var i = int(idx)
+		if i < 0 or i >= models.size():
+			continue
+		var model = models[i]
+		var w = model.get("wounds", 1)
+		var cur = model.get("current_wounds", w)
+		var new_wounds = int(remaining[idx])
+		if new_wounds == cur:
+			continue
+		model["current_wounds"] = new_wounds
+		result.diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.current_wounds" % [target_unit_id, i],
+			"value": new_wounds
+		})
+	for di_raw in models_destroyed:
+		var di = int(di_raw)
+		if di < 0 or di >= models.size():
+			continue
+		if not models[di].get("alive", true):
+			continue
+		models[di]["alive"] = false
+		result.diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.alive" % [target_unit_id, di],
+			"value": false
+		})
+		var label = get_model_display_label(models[di], target_unit)
+		print("RulesEngine: 💀 %s destroyed (11e allocation)" % label)
+
+
 static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
 	var result = {
 		"diffs": [],
@@ -3009,6 +3198,24 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if ar_precision_wounds > 0:
 			print("RulesEngine: PRECISION (auto-resolve) — %d critical hits, %d precision wounds (can target CHARACTER)" % [critical_hits, ar_precision_wounds])
 
+	# ── ISS-041 (11e): defender allocation groups (05.03-05.04) replace the
+	# 10e attacker-driven allocation below. The 10e path is kept intact
+	# behind the edition gate (golden corpus pins it byte-for-byte).
+	var use_allocation_11e: bool = GameConstants.edition >= 11
+	if use_allocation_11e:
+		var alloc11 = _apply_saves_via_allocation_11e(result, target_unit, target_unit_id,
+			ar_regular_wound_count if ar_weapon_has_devastating_wounds else wounds_caused,
+			ar_critical_wound_count if ar_weapon_has_devastating_wounds else 0,
+			ap, damage_raw, rng, {
+				"melta_value": ar_melta_value,
+				"melta_wounds": ar_melta_wounds_remaining,
+				"half_damage": ar_has_half_damage,
+				"fnp_value": ar_fnp_value,
+			})
+		casualties += alloc11.casualties
+		damage_applied += alloc11.damage_applied
+		damage_roll_log.append_array(alloc11.damage_roll_log)
+
 	# Find allocation focus model (if any model was previously wounded)
 	var allocation_focus_model_id = null
 	var models = target_unit.get("models", [])
@@ -3025,7 +3232,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# Critical wounds with Devastating Wounds bypass saves entirely and deal mortal-wound-style
 	# damage that spills over between models — mirrors apply_save_damage() behavior.
 	var ar_devastating_damage_applied = 0
-	if ar_weapon_has_devastating_wounds and ar_critical_wound_count > 0:
+	if not use_allocation_11e and ar_weapon_has_devastating_wounds and ar_critical_wound_count > 0:
 		print("RulesEngine: DEVASTATING WOUNDS (auto-resolve) — %d critical wounds bypass saves, %d regular wounds need saves" % [ar_critical_wound_count, ar_regular_wound_count])
 
 		# Roll variable damage per devastating wound (D3, D6, etc.)
@@ -3105,6 +3312,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# Allocate regular wounds (roll saves) — only ar_regular_wound_count if DW active
 	var regular_wounds_to_save = ar_regular_wound_count if ar_weapon_has_devastating_wounds else wounds_caused
+	if use_allocation_11e:
+		regular_wounds_to_save = 0  # already resolved via 11e allocation groups above
 	for wound_idx in range(regular_wounds_to_save):
 		# Select target model
 		var target_model = null

@@ -247,3 +247,76 @@ static func check_unit_coherency(unit: Dictionary) -> Dictionary:
 		if neighbors < required_neighbors or not envelope_ok:
 			offenders.append(str(models[i].get("id", i)))
 	return {"coherent": offenders.is_empty(), "offenders": offenders}
+
+
+# ── Identical-attack gathering (ISS-041 step 2; 11e 04.03) ──────────
+## 04.03 box: "Identical attacks are those that have the same BS/WS, S,
+## AP and D characteristics, and which are affected by the same
+## applicable abilities and rules." Attacks can only be gathered together
+## when they also target the same unit.
+##
+## The key canonicalizes the weapon profile's skill / S / AP / D-notation
+## plus its structured ability list (AbilityRegistry); two weapons with
+## the same key targeting the same unit may have their attack dice
+## gathered and resolved as one batch.
+##
+## Targeting/eligibility-only abilities do NOT change what an attack does
+## once it is being resolved, so they are excluded from the identity —
+## the pg-20 worked example gathers a bolt pistol's attack die together
+## with the boltguns'.
+const NON_RESOLUTION_ABILITIES := ["pistol", "assault", "extra_attacks"]
+
+static func attack_identity_key(weapon_profile: Dictionary, target_unit_id: String) -> String:
+	var skill = weapon_profile.get("ws", weapon_profile.get("bs", 4))
+	var strength = weapon_profile.get("strength", 4)
+	var ap = weapon_profile.get("ap", 0)
+	var damage_raw = str(weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1))))
+	var ability_parts: Array = []
+	for entry in AbilityRegistry.from_weapon(weapon_profile):
+		if entry is Dictionary:
+			if str(entry.get("id", "")) in NON_RESOLUTION_ABILITIES:
+				continue
+			var keys = entry.keys()
+			keys.sort()
+			var fields: Array = []
+			for k in keys:
+				fields.append("%s=%s" % [str(k), str(entry[k])])
+			ability_parts.append(",".join(fields))
+	ability_parts.sort()
+	return "%s|skill=%s|s=%s|ap=%s|d=%s|abilities=[%s]" % [
+		target_unit_id, str(skill), str(strength), str(ap), damage_raw,
+		";".join(ability_parts)]
+
+
+## Group weapon assignments ({weapon_id, target_unit_id, model_ids, …})
+## into gatherable batches per 04.03. Returns an Array of
+## {key, target_unit_id, assignment_indices: [int], weapon_ids: [String]}
+## in first-seen order; assignments whose weapon profile cannot be
+## resolved get a group of their own.
+static func gather_identical_attacks(assignments: Array, board: Dictionary) -> Array:
+	var groups: Array = []
+	var by_key: Dictionary = {}
+	for i in range(assignments.size()):
+		var assignment = assignments[i]
+		var weapon_id = str(assignment.get("weapon_id", ""))
+		var target_unit_id = str(assignment.get("target_unit_id", ""))
+		var profile = _rules().get_weapon_profile(weapon_id, board)
+		var key: String
+		if profile.is_empty():
+			key = "__unresolved_%d" % i
+		else:
+			key = attack_identity_key(profile, target_unit_id)
+		# Overwatch/override flags change the applicable rules (04.03):
+		# only gather attacks resolved under the same special conditions.
+		if assignment.get("overwatch", false):
+			key += "|overwatch"
+		if assignment.has("attacks_override") and assignment.attacks_override != null:
+			key += "|override_%d" % i
+		if not by_key.has(key):
+			by_key[key] = {"key": key, "target_unit_id": target_unit_id,
+				"assignment_indices": [], "weapon_ids": []}
+			groups.append(by_key[key])
+		by_key[key].assignment_indices.append(i)
+		if not weapon_id in by_key[key].weapon_ids:
+			by_key[key].weapon_ids.append(weapon_id)
+	return groups

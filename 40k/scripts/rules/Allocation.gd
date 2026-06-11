@@ -135,7 +135,17 @@ static func default_order(groups: Array) -> Array:
 ## state — it returns {events: [...], casualties, damage_total,
 ## models_destroyed: [indices], remaining: {index: wounds}} for the caller
 ## to turn into diffs.
-static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save_rolls: Array, ap: int, damage: int) -> Dictionary:
+##
+## `opts` (all optional; ISS-041 step 2 — engine resolution wiring):
+##   save_modifier:  ±1 dice modifier on the save roll (capped; never
+##                   rescues an unmodified 1)
+##   effect_invuln:  ability/stratagem-granted InSv that applies if better
+##                   than the group's own
+##   damage_provider: Callable(roll: int, model_index: int) -> int called
+##                   per inflicting attack instead of the flat `damage`
+##                   (lets the engine roll variable D, melta, FNP, …);
+##                   a return of 0 means the damage was fully prevented.
+static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save_rolls: Array, ap: int, damage: int, opts: Dictionary = {}) -> Dictionary:
 	var by_id: Dictionary = {}
 	for g in groups:
 		by_id[g.id] = g
@@ -148,6 +158,10 @@ static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save
 		for i in g.model_indices:
 			var w = int(models[i].get("wounds", unit_stats.get("wounds", 1)))
 			remaining[i] = int(models[i].get("current_wounds", w))
+
+	var save_modifier: int = clampi(int(opts.get("save_modifier", 0)), -1, 1)
+	var effect_invuln: int = int(opts.get("effect_invuln", 0))
+	var damage_provider: Callable = opts.get("damage_provider", Callable())
 
 	var sorted_rolls = save_rolls.duplicate()
 	sorted_rolls.sort()  # lowest first (05.04)
@@ -188,21 +202,32 @@ static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save
 					break
 
 		# Check Save Roll (05.04 step 2): unmodified 1 fails; invuln
-		# (unmodified) vs AP-modified armour — best applies.
+		# (AP-free) vs AP-modified armour — best applies.
+		var insv: int = group.insv
+		if effect_invuln > 0 and (insv == 0 or effect_invuln < insv):
+			insv = effect_invuln
 		var inflicts := false
 		if roll == 1:
 			inflicts = true
 		else:
+			var eff_roll: int = roll + save_modifier
 			var saved := false
-			if group.insv > 0 and roll >= group.insv:
+			if insv > 0 and eff_roll >= insv:
 				saved = true
-			elif roll + ap >= group.sv:  # ap is negative or 0
+			elif eff_roll + ap >= group.sv:  # ap is negative or 0
 				saved = true
 			inflicts = not saved
 
 		if inflicts:
-			var dealt = min(damage, remaining[target_i])
-			remaining[target_i] -= damage
+			var attack_damage: int = damage
+			if damage_provider.is_valid():
+				attack_damage = int(damage_provider.call(roll, target_i))
+			if attack_damage <= 0:
+				events.append({"roll": roll, "result": "prevented", "model_index": target_i,
+					"group": group.id})
+				continue
+			var dealt = min(attack_damage, remaining[target_i])
+			remaining[target_i] -= attack_damage
 			damage_total += dealt
 			if remaining[target_i] <= 0:
 				remaining[target_i] = 0
