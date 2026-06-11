@@ -12,6 +12,7 @@ signal game_started()
 signal action_rejected(action_type: String, reason: String)  # Emitted when an action is rejected
 signal game_code_received(code: String)  # Emitted when server assigns a game code
 signal game_over(winner: int, reason: String)  # Emitted when game ends (timeout, disconnect, etc.)
+signal desync_detected(action_type: String)  # ISS-015
 signal peer_disconnect_grace_period(disconnected_player: int)  # P2-41: Emitted to trigger graceful disconnect dialog
 signal load_sync_confirmed(all_confirmed: bool)  # SAVE-2: Emitted when all clients confirm loaded state (or timeout)
 signal chat_message_received(sender_player: int, text: String)  # T-102: chat panel
@@ -837,14 +838,16 @@ func submit_action(action: Dictionary) -> void:
 		game_manager.apply_action(action)
 		return
 
-	# T5-MP9: Embed RNG seed in BEGIN_ADVANCE actions for deterministic optimistic execution.
-	# Both client (optimistic) and host (authoritative) read the same seed from the action,
-	# producing identical D6 advance rolls without a round-trip.
-	if action.get("type") == "BEGIN_ADVANCE" and not action.get("payload", {}).has("rng_seed"):
+	# T5-MP9 / ISS-015: Embed an RNG seed in EVERY submitted action that does
+	# not already carry one. Handlers that roll dice obtain their RNG via
+	# RulesEngine.rng_for_action (ISS-004), which honors this seed — so the
+	# client (optimistic) and host (authoritative) produce identical rolls
+	# without a round-trip. Handlers that do not roll dice ignore it.
+	if not action.get("payload", {}).has("rng_seed"):
 		if not action.has("payload"):
 			action["payload"] = {}
-		action["payload"]["rng_seed"] = randi()
-		print("NetworkManager: T5-MP9: Embedded rng_seed=%d in BEGIN_ADVANCE action" % action["payload"]["rng_seed"])
+		action["payload"]["rng_seed"] = randi() & 0x7FFFFFFF
+		print("NetworkManager: ISS-015: Embedded rng_seed=%d in %s action" % [action["payload"]["rng_seed"], action.get("type", "?")])
 
 	# Web relay mode - use WebSocketRelay for transport
 	if web_relay_mode:
@@ -891,6 +894,9 @@ func submit_action(action: Dictionary) -> void:
 		if result.success:
 			# Broadcast the result to client
 			print("NetworkManager: Broadcasting result to clients")
+			# ISS-015: attach a canonical post-action state hash so clients can
+			# detect divergence immediately instead of desyncing silently.
+			result["_state_hash"] = compute_state_hash()
 			_broadcast_result.rpc(result)
 	else:
 		print("NetworkManager: Client mode - sending to host")
@@ -1088,6 +1094,16 @@ func _broadcast_result(result: Dictionary) -> void:
 	# Client applies the result (with diffs already computed by host)
 	print("NetworkManager: Client applying result with %d diffs" % result.get("diffs", []).size())
 	game_manager.apply_result(result)
+
+	# ISS-015: desync detector — compare our post-apply state hash with the
+	# host's. A mismatch means the diff stream diverged (lost RPC, ordering
+	# bug, or a handler mutating state outside the pipeline).
+	if result.has("_state_hash"):
+		var local_hash = compute_state_hash()
+		if local_hash != result["_state_hash"]:
+			push_error("NetworkManager: DESYNC DETECTED after %s — local state hash %d != host %d" % [
+				result.get("action_type", "?"), local_hash, result["_state_hash"]])
+			emit_signal("desync_detected", result.get("action_type", "?"))
 
 	# Update phase snapshot so it stays in sync with GameState
 	_update_phase_snapshot()
@@ -2365,6 +2381,12 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 # ============================================================================
 # PHASE 4: DETERMINISTIC RNG - Seed Generation
 # ============================================================================
+
+## ISS-015: canonical hash of the full game state. JSON.stringify sorts
+## dictionary keys by default, so insertion-order differences between host
+## and client do not produce false positives.
+func compute_state_hash() -> int:
+	return JSON.stringify(game_state.state).hash()
 
 func get_next_rng_seed() -> int:
 	if not is_networked():

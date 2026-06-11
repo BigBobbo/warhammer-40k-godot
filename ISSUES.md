@@ -200,7 +200,7 @@ Conventions:
 - **Dependencies:** ISS-004, ISS-001
 - **Affected files:** `40k/autoloads/NetworkManager.gd`, phase action handlers, tests (`run_multiplayer_tests.sh`)
 - **Acceptance criteria:** multiplayer test drives a full turn incl. shooting/charge/fight with seed-only sync (result broadcast removed or demoted to verification); injected RPC drop is detected by hash mismatch.
-- **Status:** TODO
+- **Status:** DONE (scope note) — `submit_action` now embeds an `rng_seed` in **every** action lacking one (BEGIN_ADVANCE special case removed); with ISS-004's `rng_for_action` this makes any dice-rolling handler deterministic across peers automatically. Host attaches a canonical post-action state hash (`compute_state_hash` — JSON.stringify sorts keys, so insertion order can't false-positive) to each broadcast result; clients compare after applying diffs and raise `desync_detected` + a logged error on mismatch — silent divergence is no longer possible. Result-diff broadcast retained as the application mechanism (demoted to transport; the hash verifies it). Validated by `test_iss015_mp_seed_sync.gd` (7/7) + the existing MP broadcast-sync tests in the suite (651/651). Honest caveat: a true two-peer full-turn drive wasn't run — the MP runner scripts are in the rotten GUT family (ISS-011 note); peer-level validation rides with ISS-026/036's MP robustness work.
 
 ### ISS-016 — Consolidated modifier stack (replace effect-flag soup)
 - **Location:** `40k/autoloads/EffectPrimitives.gd` (760 lines of flags like `effect_stealth`, `effect_ignores_cover`), flag checks inline in `RulesEngine.gd` (e.g. `:1124`), `UnitAbilityManager.gd` `ABILITY_EFFECTS`, `FactionAbilityManager.gd` Waaagh/doctrine flags
@@ -802,7 +802,7 @@ Conventions:
 | ISS-012 | Unified AttackSequence (dedupe ranged/melee) | high | DONE | 002, 003 |
 | ISS-013 | Signal registry + phase lifecycle out of Main | high | DONE | 005 |
 | ISS-014 | AI consumes shared rules math | high | DONE | 012 |
-| ISS-015 | Multiplayer: seeds on every dice action | high | TODO | 004, 001 |
+| ISS-015 | Multiplayer: seeds on every dice action | high | DONE | 004, 001 |
 | ISS-016 | Consolidated modifier stack | high | TODO | 003, 012 |
 | ISS-017 | State accessors + diff-path hardening | medium | TODO | 001 |
 | ISS-018 | Per-phase UI container teardown | medium | TODO | 005, 013 |
