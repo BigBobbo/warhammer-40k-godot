@@ -404,7 +404,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** `AIDecisionMaker.gd` (or `ai/AIContext.gd` after ISS-030), `SaveLoadManager.gd`, test
 - **Acceptance criteria:** documented policy + passing test; AI completes a turn normally after loading mid-game.
-- **Status:** TODO
+- **Status:** DONE — policy formalized as reset-by-design: caches are deliberately not serialized and must clear on every load. Found `AIDecisionMaker.reset_caches()` (P2-92) already existed but only via Main's conditional `reconfigure_ai_after_load` branch; AIPlayer now also subscribes to `SaveLoadManager.load_completed` directly (belt-and-braces) and the policy is documented at the wiring site. Verified by `test_iss032_ai_cache_policy.gd` (4/4: seeded caches cleared by the load signal); suite green.
 
 ### ISS-033 — Shared dialog base for the 34 dialogs
 - **Location:** `40k/dialogs/` (34 files, ~6.3k lines, ~45% structural duplication: signals, `phase_reference`/`controller_reference`, timeout constants)
@@ -819,7 +819,7 @@ Conventions:
 | ISS-029 | Golden-master replay harness | medium | TODO | 021 |
 | ISS-030 | Split AIDecisionMaker into planners | medium | TODO | 014 |
 | ISS-031 | BoardState: merge away or document | low | DONE | 017 |
-| ISS-032 | AI cache save/load policy | low | TODO | — |
+| ISS-032 | AI cache save/load policy | low | DONE | — |
 | ISS-033 | Shared dialog base class | low | TODO | — |
 | ISS-034 | Remove duplicate/legacy phases | low | TODO | — |
 | ISS-035 | Autosave deferral (verify then fix) | low | TODO | — |

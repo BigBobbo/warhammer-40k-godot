@@ -67,6 +67,7 @@ TESTS=(
     "tests/test_iss021_action_replay.gd"
     "tests/test_iss022_undo_roundtrip.gd"
     "tests/test_iss019_unit_abilities.gd"
+    "tests/test_iss032_ai_cache_policy.gd"
 )
 
 FAILED=0
