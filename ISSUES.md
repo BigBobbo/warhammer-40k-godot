@@ -708,7 +708,7 @@ Conventions:
 - **Dependencies:** ISS-038, ISS-039, ISS-040, ISS-043
 - **Affected files:** new `ActionsManager.gd`, `MissionManager.gd`, phase eligibility checks, UI (start-action affordance), AI
 - **Acceptance criteria:** the example Deploy Device action (pg 58) implemented as a fixture: start in Shooting phase, blocked by advance/battle-shock, cancelled by moving, completes at end of turn with effect; unit shown ineligible to shoot after starting.
-- **Status:** TODO
+- **Status:** IN PROGRESS (engine module complete; phase/UI wiring pending) — new `scripts/rules/ActionsManager.gd`: data-defined actions with EVERY 16.01 eligibility gate (battlefield, AIRCRAFT/FORTIFICATION, battle-shock, OC 0/'-', engaged-unless-TITANIC, advance/fall-back, one-action-per-turn), keyword unit filters, once-per-turn use limits, start-locks (cannot shoot — TITANIC exempt — and cannot charge, as flags for phase eligibility), movement cancellation (pile-in/consolidation exempt), and trigger-driven completion (battle-shock blocks completion per 01.07). **The rulebook's Deploy Device example (pg 58) is the test fixture** — `test_iss057_actions_11e.gd` 19/19; suite 912/912. Remaining: phase eligibility checks consult the lock flags (with ISS-048), completion wiring to the ISS-038 turn_ending hook, the start-action UI, and mission-pack action definitions (PRD open question 3).
 
 ### ISS-058 — 11e transports: embark + disembark modes + emergency disembark
 - **Location:** `40k/autoloads/TransportManager.gd` (~534 lines), `40k/scripts/DisembarkController.gd`, `dialogs/TransportEmbarkDialog.gd`; rules: 18.01-18.05
@@ -844,7 +844,7 @@ Conventions:
 | ISS-054 | 11e terrain movement + MOBILE | medium | TODO | 051, 040, 037 |
 | ISS-055 | 11e objectives + Secured | medium | IN PROGRESS | 051, 038, 043 |
 | ISS-056 | 11e core stratagems + per-unit limit | medium | IN PROGRESS | 043, 044, 048, 049, 050 |
-| ISS-057 | Actions system | high | TODO | 038, 039, 040, 043 |
+| ISS-057 | Actions system | high | IN PROGRESS | 038, 039, 040, 043 |
 | ISS-058 | 11e transports (modes, emergency) | high | TODO | 040, 044, 043 |
 | ISS-059 | 11e attached units (Support, T, persistence) | medium | TODO | 037, 041 |
 | ISS-060 | 11e reserves/ingress/aircraft | medium | IN PROGRESS | 040, 038, 056 |
