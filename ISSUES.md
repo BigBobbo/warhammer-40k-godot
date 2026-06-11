@@ -504,7 +504,7 @@ Conventions:
 - **Dependencies:** ISS-001, ISS-002, ISS-038
 - **Affected files:** new `40k/scripts/rules/movetypes/`, `MovementPhase.gd`, `MovementController.gd`
 - **Acceptance criteria:** normal/advance/fall-back run through the framework in a windowed scenario; failed end-conditions return models to start positions; advance blocks charge/actions per 09.06.
-- **Status:** TODO
+- **Status:** IN PROGRESS (framework + four instances landed; MovementPhase wiring = step 2) — new `40k/scripts/rules/movetypes/`: `MoveType` base implementing the 11e template (ELIGIBLE IF / MAX DISTANCE / modes assessed in order / BEFORE / AFTER conditions incl. universal coherency check / AFTER effects as diffs), `MoveTypes` registry with `available_for(unit_id, board)`, and RemainStationary / Normal / Advance / FallBack instances. Edition-aware behaviors proven by `test_iss040_move_types.gd` (18/18): eligibility matrix per engagement state, advance D6 mechanics + 11e cannot-start-action flag, 11e fall-back modes (ordered retreat optional when unshocked, desperate escape mandatory when shocked, per-model hazard rolls via ISS-044, follow-up battle-shock requirement, move-through-enemies), end-condition voiding (must end unengaged; coherency universal; remain-stationary exempt per 09.04). Suite 777/777. Step 2: MovementPhase drives these instances (windowed scenario gate), then charge/pile-in/consolidation/disembark/ingress/surge instances land with ISS-049/050/058/060/061.
 
 ### ISS-041 — 11e attack resolution core: identical-attack gathering + defender allocation groups
 - **Location:** `AttackSequence.gd` (from ISS-012), `40k/autoloads/RulesEngine.gd`; rules: 04.03, 05.01-05.04
@@ -827,7 +827,7 @@ Conventions:
 | ISS-037 | 11e datasheet/army schema + converter | high | DONE | 003 |
 | ISS-038 | 11e battle-round/turn structure hooks | high | DONE | 001, 025, 034 |
 | ISS-039 | Engagement range 2"/5" | high | DONE | 002 |
-| ISS-040 | 11e move-type framework | high | TODO | 001, 002, 038 |
+| ISS-040 | 11e move-type framework | high | IN PROGRESS | 001, 002, 038 |
 | ISS-041 | 11e attack core: allocation groups | blocker | TODO | 012, 037 |
 | ISS-042 | 11e coherency + end-of-turn enforcement | high | IN PROGRESS | 002, 038, 040 |
 | ISS-043 | 11e leadership + battle-shock rework | high | IN PROGRESS | 037, 038, 016 |
