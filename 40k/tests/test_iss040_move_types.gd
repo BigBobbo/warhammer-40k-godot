@@ -58,8 +58,9 @@ func _run_tests():
 	GameConstants.edition = 10
 
 	print("-- A: registry + eligibility matrix --")
-	_check("registry has the four foundational types",
-		MoveTypes.all_ids().size() == 4 and MoveTypes.get_type("advance") != null)
+	_check("registry has the foundational types (and grows with 11e instances)",
+		MoveTypes.all_ids().size() >= 4 and MoveTypes.get_type("advance") != null
+		and MoveTypes.get_type("ingress") != null)
 	var far = _board(6.0)   # unengaged
 	var near = _board(0.5)  # engaged at 1\" ER
 	_check("unengaged: stationary/normal/advance available, fall back not",
