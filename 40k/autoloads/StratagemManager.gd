@@ -658,6 +658,17 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	if not restriction_check.can_use:
 		return restriction_check
 
+	# ISS-056 (11e 15.01): "each player cannot target the same unit with
+	# more than one stratagem in the same phase" (unless otherwise stated).
+	if GameConstants.edition >= 11 and target_unit_id != "":
+		var current_turn_11e = GameState.get_battle_round()
+		var current_phase_11e = GameState.get_current_phase()
+		for usage in _usage_history.get(str(player), []):
+			if usage.get("target_unit_id", "") == target_unit_id \
+					and usage.get("turn", -1) == current_turn_11e \
+					and usage.get("phase", -1) == current_phase_11e:
+				return {"can_use": false, "reason": "That unit has already been targeted by a stratagem this phase (11e core rules 15.01)"}
+
 	# P1-59: Out-of-phase rules restriction
 	# When an out-of-phase action is active (e.g. Fire Overwatch), block all stratagems
 	# except: (a) the stratagem that initiated the out-of-phase action, and

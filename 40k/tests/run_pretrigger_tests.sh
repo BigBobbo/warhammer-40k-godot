@@ -80,6 +80,7 @@ TESTS=(
     "tests/test_iss041_allocation_groups.gd"
     "tests/test_iss046_mortal_wounds_11e.gd"
     "tests/test_iss047_weapon_abilities_11e.gd"
+    "tests/test_iss056_stratagem_per_unit.gd"
 )
 
 FAILED=0

@@ -696,7 +696,7 @@ Conventions:
 - **Dependencies:** ISS-043, ISS-044, ISS-048 (snap shooting), ISS-049 (heroic intervention charge), ISS-050 (counteroffensive)
 - **Affected files:** `StratagemManager.gd`, stratagem data, UI prompts, AI stratagem advisor
 - **Acceptance criteria:** per-unit restriction test; each core stratagem has a unit/scenario test incl. Crushing Impact dice mechanics and Fire Overwatch timing window.
-- **Status:** TODO
+- **Status:** IN PROGRESS (restriction landed; new core set pending) — `can_use_stratagem` now enforces 15.01's "each player cannot target the same unit with more than one stratagem in the same phase" at edition 11 (per-player, per-phase, edition-gated; 10e unchanged), riding the existing usage-history records. `test_iss056_stratagem_per_unit.gd` 5/5; suite 817/817. Remaining: the reworked 11e core set (Explosives, Crushing Impact, snap-shooting Fire Overwatch with its Movement-phase-only window, Heroic Intervention as a real charge with modes, Counteroffensive 2CP+1, single-die Command Re-roll with full-charge-reroll exception) — several depend on ISS-048/049/050 mechanics.
 
 ### ISS-057 — Actions system
 - **Location:** new subsystem; rules: 16.00-16.01
@@ -843,7 +843,7 @@ Conventions:
 | ISS-053 | Cover + Plunging Fire as BS modifiers | high | TODO | 051, 052, 016, 041 |
 | ISS-054 | 11e terrain movement + MOBILE | medium | TODO | 051, 040, 037 |
 | ISS-055 | 11e objectives + Secured | medium | TODO | 051, 038, 043 |
-| ISS-056 | 11e core stratagems + per-unit limit | medium | TODO | 043, 044, 048, 049, 050 |
+| ISS-056 | 11e core stratagems + per-unit limit | medium | IN PROGRESS | 043, 044, 048, 049, 050 |
 | ISS-057 | Actions system | high | TODO | 038, 039, 040, 043 |
 | ISS-058 | 11e transports (modes, emergency) | high | TODO | 040, 044, 043 |
 | ISS-059 | 11e attached units (Support, T, persistence) | medium | TODO | 037, 041 |
