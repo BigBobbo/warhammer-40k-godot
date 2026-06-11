@@ -54,6 +54,58 @@ func _run_tests():
 	_check("11e: full-strength unshocked does not test", not AttackSequence.battleshock_test_required(false, false, false))
 	GameConstants.edition = 10
 
+	print("\n-- wired step behavior (CommandPhase + StratagemManager) --")
+	var gs = root.get_node_or_null("GameState")
+	var sm = root.get_node_or_null("StratagemManager")
+	var prev_state = gs.state.duplicate(true)
+	gs.initialize_default_state()
+	gs.state["units"]["U_SHOCKED"] = {"id": "U_SHOCKED", "owner": 1,
+		"flags": {"battle_shocked": true}, "status": 2,
+		"meta": {"name": "Shocked Boyz", "keywords": ["INFANTRY"],
+			"stats": {"leadership": 7, "objective_control": 2}},
+		"models": [{"id": "m0", "alive": true, "wounds": 1, "current_wounds": 1,
+			"position": {"x": 500, "y": 500}, "base_mm": 32, "base_type": "circular"}]}
+	gs.state["meta"]["active_player"] = 1
+	gs.state["players"]["1"]["cp"] = 10
+
+	# 01.07: battle-shocked units cannot be stratagem targets — discovered
+	# during ISS-043 wiring that the existing check already enforces this in
+	# BOTH editions (the rule is shared); asserted here so it never regresses.
+	GameConstants.edition = 11
+	var v = sm.can_use_stratagem(1, "go_to_ground", "U_SHOCKED")
+	_check("11e: battle-shocked unit cannot be a stratagem target",
+		v.can_use == false, str(v))
+	GameConstants.edition = 10
+	v = sm.can_use_stratagem(1, "go_to_ground", "U_SHOCKED")
+	_check("10e: same ban applies (shared rule, pre-existing check)",
+		v.can_use == false, str(v))
+
+	# CommandPhase: shocked unit is queued for a recovery test at 11e and
+	# its flag survives the phase start (no auto-clear).
+	GameConstants.edition = 11
+	var phase = load("res://phases/CommandPhase.gd").new()
+	root.add_child(phase)
+	phase.game_state_snapshot = gs.create_snapshot()
+	phase._clear_battle_shocked_flags()
+	_check("11e: battle-shocked flag persists into the step",
+		gs.state["units"]["U_SHOCKED"]["flags"]["battle_shocked"] == true)
+	phase._units_needing_test.clear()
+	phase._identify_units_needing_tests()
+	_check("11e: shocked unit queued for a recovery test",
+		"U_SHOCKED" in phase._units_needing_test, str(phase._units_needing_test))
+
+	# Recovery: pass the test with a forced roll of 12
+	var result = phase.execute_action({"type": "BATTLE_SHOCK_TEST", "unit_id": "U_SHOCKED",
+		"player": 1, "dice_roll": [6, 6]})
+	_check("recovery test executed", result.get("success", false), str(result))
+	_check("11e: passing recovers the unit (flag cleared)",
+		gs.state["units"]["U_SHOCKED"]["flags"]["battle_shocked"] == false)
+
+	GameConstants.edition = 10
+	root.remove_child(phase)
+	phase.free()
+	gs.state = prev_state
+
 	print("\n-- outcome --")
 	_check("pass -> not shocked (recovery when 11e offered the roll)",
 		AttackSequence.battleshock_outcome(true) == false)

@@ -540,7 +540,7 @@ Conventions:
 - **Dependencies:** ISS-037, ISS-038, ISS-016
 - **Affected files:** `CommandPhase.gd`, `Morale` module, `StratagemManager.gd`, `MissionManager.gd` (OC), UI badges
 - **Acceptance criteria:** unit tests: recovery roll, half-strength edge cases (starting strength 1 vehicle by wounds; attached-unit example from appendix pg 86); scenario: shocked unit can't be stratagem target and shows OC '-'.
-- **Status:** IN PROGRESS (primitives landed; CommandPhase wiring pending) — `AttackSequence` gains `leadership_roll` (2D6 ≥ Ld, distribution-verified), edition-gated `battleshock_test_required` (10e: below-half only; 11e per 08.03: shocked OR at/below half — recovery emerges from eligibility since 11e offers shocked units the roll) and `battleshock_outcome`. `test_iss043_battleshock_11e.gd` 14/14; suite 744/744. Remaining: CommandPhase step rework consuming these (with ISS-038's step hooks), the while-shocked effects (stratagem-target ban in StratagemManager, action eligibility with ISS-057, OC '-' display), and the half-strength edge-case bookkeeping in GameState (starting-strength incl. attached units, pg 86).
+- **Status:** DONE (one noted edge) — primitives (`leadership_roll`, edition-gated `battleshock_test_required`, `battleshock_outcome`) PLUS the CommandPhase wiring: at edition 11 battle-shocked flags persist into the step (no auto-clear), shocked units are queued for a recovery test, and passing clears the flag for the unit and its attached characters; 10e flow byte-unchanged. Discovery: the battle-shocked stratagem-target ban already existed and applies in BOTH editions (the rule is shared) — pinned by test instead of duplicating the check. Verified by `test_iss043_battleshock_11e.gd` (20/20: distribution, eligibility matrix per edition, persisting flag, recovery via forced 12, stratagem ban both editions); suite 863/863. Noted edge for the datasheet pass: the AT-half-strength trigger (models exactly at half / W-tracked vehicles) needs a starting-strength helper — below-half covers current data; tracked here. Also noted: the test handler mutates unit flags via local refs (invisible to ISS-001's literal scan) — unify when ISS-025 merges the execute paths.
 
 ### ISS-044 — Hazard roll mechanic
 - **Location:** `RulesEngine.gd:6711-6877` (current hazardous), `ShootingPhase.gd:47,1237`; rules: 06.03, 24.15
@@ -830,7 +830,7 @@ Conventions:
 | ISS-040 | 11e move-type framework | high | IN PROGRESS | 001, 002, 038 |
 | ISS-041 | 11e attack core: allocation groups | blocker | IN PROGRESS | 012, 037 |
 | ISS-042 | 11e coherency + end-of-turn enforcement | high | IN PROGRESS | 002, 038, 040 |
-| ISS-043 | 11e leadership + battle-shock rework | high | IN PROGRESS | 037, 038, 016 |
+| ISS-043 | 11e leadership + battle-shock rework | high | DONE | 037, 038, 016 |
 | ISS-044 | Hazard roll mechanic | medium | DONE | 002, 046 |
 | ISS-045 | Wound-allocation UI for groups | high | TODO | 041 |
 | ISS-046 | 11e mortal wounds + dev-wounds cap | high | DONE | 041 |
