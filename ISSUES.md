@@ -492,7 +492,7 @@ Conventions:
 - **Dependencies:** ISS-002
 - **Affected files:** `GameConstants.gd`, `Measurement.gd`, AI, overlays (`PersistentEngagementOverlay.gd`), charge/fight phases
 - **Acceptance criteria:** unit tests for engaged/unengaged at 1.9"/2.1"; charge completion at 2" verified in a windowed scenario; ER overlay renders 2".
-- **Status:** TODO
+- **Status:** DONE (engine layer; live-game flip pending edition rollout) — ISS-002 already routed every ER consumer (engine, overlays, AI px math, Measurement default) through `GameConstants.engagement_range_inches()`; this issue added the `is_unit_engaged`/`is_unit_unengaged` predicates (the eligibility gates 11e move/shooting/fight templates use) and edition-parameterized proof: at edition 11, 1.5"/1.9" gaps are engaged and 2.1" is not, while edition 10 behavior is unchanged (`test_iss039_engagement_range_11e.gd` 8/8; suite 722/722). Footgun noted: `_check_units_in_engagement_range` treats a model at exactly (0,0) as unpositioned — pre-existing, worth fixing in ISS-041's rework. Windowed 2"-charge scenario rides with the edition-11 scenario suite (ISS-063) once the edition default flips.
 
 ### ISS-040 — 11e move-type framework
 - **Location:** new module; consumers: `MovementPhase.gd` (7,795 lines), `ChargePhase.gd`, `FightPhase.gd`, `TransportManager.gd`; rules: 03.01, 09.04-09.07, 11.04, 12.03, 12.08, 18.04-18.05, 20.04, 21.02, 24.32
@@ -826,7 +826,7 @@ Conventions:
 | ISS-036 | Disconnect grace period (verify then fix) | low | TODO | 026 |
 | ISS-037 | 11e datasheet/army schema + converter | high | DONE | 003 |
 | ISS-038 | 11e battle-round/turn structure hooks | high | TODO | 001, 025, 034 |
-| ISS-039 | Engagement range 2"/5" | high | TODO | 002 |
+| ISS-039 | Engagement range 2"/5" | high | DONE | 002 |
 | ISS-040 | 11e move-type framework | high | TODO | 001, 002, 038 |
 | ISS-041 | 11e attack core: allocation groups | blocker | TODO | 012, 037 |
 | ISS-042 | 11e coherency + end-of-turn enforcement | high | TODO | 002, 038, 040 |

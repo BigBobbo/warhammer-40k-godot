@@ -71,6 +71,7 @@ TESTS=(
     "tests/test_iss026_load_sync_block.gd"
     "tests/test_iss028_save_migrations.gd"
     "tests/test_iss037_schema2.gd"
+    "tests/test_iss039_engagement_range_11e.gd"
 )
 
 FAILED=0

@@ -11682,3 +11682,27 @@ static func get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
 ## Legacy center-to-center LoS check (debug/visualization only).
 static func check_legacy_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary) -> bool:
 	return _check_legacy_line_of_sight(from_pos, to_pos, board)
+
+## ISS-039: core engagement predicates (11e 03.04 terminology). A unit is
+## "engaged" while any of its models is within engagement range of an enemy
+## model; "unengaged" otherwise. These are THE eligibility predicates the
+## 11e move/shooting/fight type templates gate on (edition-aware via
+## GameConstants through the shape-aware check's default ER).
+static func is_unit_engaged(unit_id: String, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return false
+	var owner = int(unit.get("owner", 0))
+	for other_id in units:
+		if other_id == unit_id:
+			continue
+		var other = units[other_id]
+		if int(other.get("owner", 0)) == owner:
+			continue
+		if _check_units_in_engagement_range(unit, other, board):
+			return true
+	return false
+
+static func is_unit_unengaged(unit_id: String, board: Dictionary) -> bool:
+	return not is_unit_engaged(unit_id, board)
