@@ -756,7 +756,7 @@ Conventions:
 - **Dependencies:** ISS-040
 - **Affected files:** move types, `MovementController.gd` (declaration UI), ability registry triggers
 - **Acceptance criteria:** unit test: 16" advance becomes 14" flying with vertical ignored (pg 71 example); surge move test reproduces the pg 70 example (D6 surge engaging closest unit).
-- **Status:** TODO
+- **Status:** IN PROGRESS (surge + FLY modifier landed; movement-path integration pending) — `SurgeMove` joins the registry implementing 21.02 (eligibility: triggered/unshocked/unengaged/unmoved; closest-enemy targeting per the pg-70 example's semantics; max distance from the triggering rule; AFTER: non-target engagement voids the move, no further moves this phase) and `MoveType.take_to_skies_modifier` implements 21.03/24.17 (-2" for FLY, 0 with HOVER, edition-gated — pg-71 example's 16"→14"). `test_iss061_surge_fly_11e.gd` 14/14; suite 893/893. Remaining: the move-through-everything/ignore-vertical pathing behavior when ISS-040 step 2 wires movement execution, and SUPER-HEAVY WALKER (24.35).
 
 ### ISS-062 — AI updated for 11e rules
 - **Location:** `40k/scripts/AIDecisionMaker.gd` / `40k/scripts/ai/*` (post ISS-030); depends on shared math (ISS-014)
@@ -848,6 +848,6 @@ Conventions:
 | ISS-058 | 11e transports (modes, emergency) | high | TODO | 040, 044, 043 |
 | ISS-059 | 11e attached units (Support, T, persistence) | medium | TODO | 037, 041 |
 | ISS-060 | 11e reserves/ingress/aircraft | medium | IN PROGRESS | 040, 038, 056 |
-| ISS-061 | 11e FLY/surge/hover | medium | TODO | 040 |
+| ISS-061 | 11e FLY/surge/hover | medium | IN PROGRESS | 040 |
 | ISS-062 | AI updated for 11e | medium | TODO | 014, 039, 041, 048, 050, 057 |
 | ISS-063 | 11e windowed scenario suite | medium | TODO | 038-061 (incremental) |

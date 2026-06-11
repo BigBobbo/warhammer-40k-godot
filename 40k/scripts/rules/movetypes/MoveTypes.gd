@@ -9,7 +9,7 @@ static var _registry: Dictionary = {}
 
 static func _ensure() -> void:
 	if _registry.is_empty():
-		for mt in [RemainStationaryMove.new(), NormalMove.new(), AdvanceMove.new(), FallBackMove.new(), IngressMove.new()]:
+		for mt in [RemainStationaryMove.new(), NormalMove.new(), AdvanceMove.new(), FallBackMove.new(), IngressMove.new(), SurgeMove.new()]:
 			_registry[mt.id] = mt
 
 static func get_type(id: String) -> MoveType:

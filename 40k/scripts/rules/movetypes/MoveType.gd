@@ -86,3 +86,18 @@ func _on_battlefield(unit: Dictionary) -> bool:
 
 func _unit(board: Dictionary, unit_id: String) -> Dictionary:
 	return board.get("units", {}).get(unit_id, {})
+
+
+## 21.03 / 24.17 (11e): when a FLYING unit "takes to the skies" its move
+## maximum is reduced by 2" (0" with HOVER) and it may move through all
+## models and terrain ignoring vertical distance. Returns the distance
+## modifier in inches for a declared take-to-the-skies move.
+static func take_to_skies_modifier(unit: Dictionary) -> float:
+	if GameConstants.edition < 11:
+		return 0.0
+	var keywords: Array = unit.get("meta", {}).get("keywords", [])
+	if not "FLY" in keywords:
+		return 0.0
+	if "HOVER" in keywords:
+		return 0.0
+	return -2.0
