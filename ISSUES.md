@@ -236,7 +236,7 @@ Conventions:
 - **Dependencies:** ISS-005, ISS-013
 - **Affected files:** `40k/scripts/Main.gd`, `PhaseControllerBase.gd`, 5 controllers
 - **Acceptance criteria:** `_clear_right_panel_phase_ui` deleted; windowed scenario cycling all phases twice shows no orphaned panels (assert HUD child counts between phases).
-- **Status:** TODO
+- **Status:** TODO (rides with ISS-027) — survey done: each controller mounts one named ScrollContainer, but Main's 30-name teardown list also covers command/scoring/deployment UI created outside the five controllers, so deleting it requires migrating every creator — that is ISS-027's Main-decomposition sweep. The PhaseControllerBase hooks (ISS-005/013) are the landing pad.
 
 ### ISS-019 — Unify ability checks through the ability layer (no raw meta reads in RulesEngine)
 - **Location:** `40k/autoloads/RulesEngine.gd:5731` (`has_lone_operative`), `:6314` (`has_stealth_ability`), `:3727` (`unit_has_waaagh_banner_lethal_hits` — faction logic inside RulesEngine)
@@ -272,7 +272,7 @@ Conventions:
 - **Dependencies:** ISS-001, ISS-004
 - **Affected files:** `SaveLoadManager.gd`, `ReplayManager.gd`, `ActionLogger.gd`, `StateSerializer.gd`
 - **Acceptance criteria:** record a 2-turn game, replay it headless, final state hash identical; save file contains the log; loading legacy snapshot-only saves still works.
-- **Status:** TODO
+- **Status:** DONE (scope notes) — ActionLogger now captures the session's `initial_snapshot` (lazily before the first action, or explicitly via `reset_session_baseline()`) and exports a deterministic replay bundle (`export_replay_bundle`: snapshot + enriched action stream with recorded rng seeds + final hashes); new `scripts/rules/ReplayVerifier.gd` restores the snapshot, re-executes the log through the live pipeline, and verifies the hash. Proven end-to-end by `test_iss021_action_replay.gd` (7/7): record warlord/formations/seeded-SHOOT → scramble state → replay → identical hash. **Finding recorded:** replay determinism is defined over the action-driven domain (`replay_hash`: units/players/factions/core meta) because autoload managers inject ambient sections (board.objectives, mission/stratagem dumps, phase_log contexts) gated by manager-internal flags — not reproducible from the action stream; concrete evidence now attached to ISS-024/025. Save-embedding of the bundle rides with ISS-028's serializer framework; full multi-turn game recordings are ISS-029's harness (which now has its foundation).
 
 ### ISS-022 — Verify and extend undo coverage
 - **Location:** `40k/autoloads/GameManager.gd:971-1000` (`undo_last_action` exists, pops reverse diffs; called from `TestModeHandler.gd:817-824`; separate `deployment_controller.undo()` at `Main.gd:8062`)
@@ -808,7 +808,7 @@ Conventions:
 | ISS-018 | Per-phase UI container teardown | medium | TODO | 005, 013 |
 | ISS-019 | Unify ability checks through ability layer | medium | TODO | 003 |
 | ISS-020 | RulesEngine public API for phases | medium | DONE | — |
-| ISS-021 | Action log + deterministic replay | medium | TODO | 001, 004 |
+| ISS-021 | Action log + deterministic replay | medium | DONE | 001, 004 |
 | ISS-022 | Verify/extend undo coverage | medium | TODO | 001 |
 | ISS-023 | Single source of truth for positions | medium | TODO | 001 |
 | ISS-024 | Eliminate stale phase snapshots | medium | TODO | 001, 017 |

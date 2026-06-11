@@ -64,6 +64,7 @@ TESTS=(
     "tests/test_iss015_mp_seed_sync.gd"
     "tests/test_iss020_public_api.gd"
     "tests/test_iss017_state_schema.gd"
+    "tests/test_iss021_action_replay.gd"
 )
 
 FAILED=0
