@@ -1302,7 +1302,7 @@ func _on_auto_fight_pressed() -> void:
 	for weapon in unit.get("meta", {}).get("weapons", []):
 		if weapon.get("type", "").to_lower() != "melee":
 			continue
-		var weapon_id = RulesEngine._generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
+		var weapon_id = RulesEngine.generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
 		assignments.append({
 			"attacker": current_fighter_id,
 			"weapon": weapon_id,

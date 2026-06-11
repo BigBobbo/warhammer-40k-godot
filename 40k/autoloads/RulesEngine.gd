@@ -11674,3 +11674,34 @@ static func validate_surge_move_eligibility(unit: Dictionary, unit_id: String, h
 		return {"valid": false, "errors": ["Unit has no alive models"]}
 
 	return {"valid": true, "errors": []}
+
+
+# ── ISS-020: public API for phases/controllers ──────────────────────
+# Phases and controllers must not reach into RulesEngine's underscore-
+# private internals (enforced by tests/test_iss020_public_api.gd). These
+# documented wrappers are the supported surface; the privates remain free
+# to be refactored.
+
+## True if any model of unit1 is within engagement range of any model of
+## unit2, barricade-aware (distinct from the simpler two-arg
+## units_in_engagement_range above, which ignores terrain).
+static func check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionary, board: Dictionary) -> bool:
+	return _check_units_in_engagement_range(unit1, unit2, board)
+
+## Canonical weapon id for a weapon name (+ optional type for the
+## type-aware format).
+static func generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
+	return _generate_weapon_id(weapon_name, weapon_type)
+
+## Allocate `total_damage` into the target unit's model pool; returns the
+## damage-application result (diffs, casualties).
+static func apply_damage_to_unit_pool(target_unit_id: String, total_damage: int, models: Array, board: Dictionary) -> Dictionary:
+	return _apply_damage_to_unit_pool(target_unit_id, total_damage, models, board)
+
+## Model dict lookup by id within a unit ({} if absent).
+static func get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
+	return _get_model_by_id(unit, model_id)
+
+## Legacy center-to-center LoS check (debug/visualization only).
+static func check_legacy_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary) -> bool:
+	return _check_legacy_line_of_sight(from_pos, to_pos, board)

@@ -4134,7 +4134,7 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 	for model_id in unit_weapons:
 		if not (weapon_id in unit_weapons[model_id]):
 			continue
-		var m = RulesEngine._get_model_by_id(shooter_unit, model_id)
+		var m = RulesEngine.get_model_by_id(shooter_unit, model_id)
 		if m.is_empty() or not m.get("alive", true):
 			continue
 		bearers.append(model_id)
@@ -4424,7 +4424,7 @@ func _count_unassigned_weapons() -> int:
 			for model_id in unit_weapons:
 				if not (weapon_id in unit_weapons[model_id]):
 					continue
-				var m = RulesEngine._get_model_by_id(shooter_unit, model_id)
+				var m = RulesEngine.get_model_by_id(shooter_unit, model_id)
 				if m.is_empty() or not m.get("alive", true):
 					continue
 				living += 1

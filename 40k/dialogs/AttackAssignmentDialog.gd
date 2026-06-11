@@ -124,7 +124,7 @@ func _build_ui() -> void:
 		var weapon = regular_melee_weapons[i]
 		var weapon_name = weapon.get("name", "Unknown")
 		# Generate weapon ID from name using RulesEngine to prevent collisions
-		var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
+		var weapon_id = RulesEngine.generate_weapon_id(weapon_name, weapon.get("type", ""))
 
 		var avg_attacks: float = _average_dice_notation(str(weapon.get("attacks", "1")))
 		var weapon_max_attacks: float = avg_attacks * float(max(1, eligible_indices.size()))
@@ -288,7 +288,7 @@ func _update_assignments_display() -> void:
 		var ea_target_id = _get_extra_attacks_target_id()
 		for weapon in extra_attacks_weapons:
 			var weapon_name = weapon.get("name", "Unknown")
-			var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
+			var weapon_id = RulesEngine.generate_weapon_id(weapon_name, weapon.get("type", ""))
 			var ed: float = _estimate_expected_damage(weapon_id, ea_target_id)
 			total_expected_damage += ed
 			assignments_display.append_text("- %s → %s [Extra Attacks, E[D]≈%.1f]\n" % [weapon_name, ea_target_id, ed])
@@ -310,7 +310,7 @@ func _estimate_expected_damage(weapon_id: String, target_id: String) -> float:
 	var weapon: Dictionary = {}
 	for w in attacker_unit.get("meta", {}).get("weapons", []):
 		var wname = w.get("name", "")
-		var wid = RulesEngine._generate_weapon_id(wname, w.get("type", ""))
+		var wid = RulesEngine.generate_weapon_id(wname, w.get("type", ""))
 		if wid == weapon_id or wname == weapon_id:
 			weapon = w
 			break
@@ -419,7 +419,7 @@ func _on_confirmed() -> void:
 		var ea_target_id = _get_extra_attacks_target_id()
 		for weapon in extra_attacks_weapons:
 			var weapon_name = weapon.get("name", "Unknown")
-			var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
+			var weapon_id = RulesEngine.generate_weapon_id(weapon_name, weapon.get("type", ""))
 			assignments.append({
 				"attacker": unit_id,
 				"weapon": weapon_id,

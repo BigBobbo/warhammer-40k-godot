@@ -308,7 +308,7 @@ func _compute_engagement_flags() -> void:
 				continue
 			if other.get("status", 0) != 2:
 				continue
-			if RulesEngine._check_units_in_engagement_range(unit, other, game_state_snapshot):
+			if RulesEngine.check_units_in_engagement_range(unit, other, game_state_snapshot):
 				in_engagement = true
 				break
 		var gs_unit = GameState.state["units"].get(unit_id, {})
@@ -647,7 +647,7 @@ func _validate_confirm_targets(action: Dictionary) -> Dictionary:
 			var tid = assignment.get("target_unit_id", "")
 			if not is_monster_vehicle and not RulesEngine.is_pistol_weapon(wid, game_state_snapshot):
 				return {"valid": false, "errors": ["Unit is in engagement — only Pistol weapons can fire"]}
-			if not RulesEngine._check_units_in_engagement_range(shooter_unit, get_unit(tid), game_state_snapshot):
+			if not RulesEngine.check_units_in_engagement_range(shooter_unit, get_unit(tid), game_state_snapshot):
 				return {"valid": false, "errors": ["Unit is in engagement — can only target engaged units"]}
 
 	return {"valid": true, "errors": []}
@@ -3356,7 +3356,7 @@ func _auto_inject_extra_attacks_weapons_shooting() -> void:
 
 	for weapon in ea_weapons:
 		var weapon_name = weapon.get("name", "Unknown")
-		var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
+		var weapon_id = RulesEngine.generate_weapon_id(weapon_name, weapon.get("type", ""))
 
 		if assigned_weapon_ids.has(weapon_id):
 			DebugLogger.info(str("[ShootingPhase] T3-3: Extra Attacks weapon '%s' already assigned, skipping" % weapon_name))
@@ -4793,7 +4793,7 @@ func _resolve_throat_slittas(unit_id: String) -> Dictionary:
 		if mortal_wounds > 0:
 			var target_unit = get_unit(target_unit_id)
 			var target_models = target_unit.get("models", []).duplicate(true)
-			var damage_result = RulesEngine._apply_damage_to_unit_pool(
+			var damage_result = RulesEngine.apply_damage_to_unit_pool(
 				target_unit_id, mortal_wounds, target_models, game_state_snapshot
 			)
 			all_diffs.append_array(damage_result.get("diffs", []))

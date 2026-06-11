@@ -62,6 +62,7 @@ TESTS=(
     "tests/test_iss013_signal_registry.gd"
     "tests/test_iss014_shared_ai_math.gd"
     "tests/test_iss015_mp_seed_sync.gd"
+    "tests/test_iss020_public_api.gd"
 )
 
 FAILED=0
@@ -75,7 +76,7 @@ for test in "${TESTS[@]}"; do
     echo "================================================"
 
     # Capture output, filter for test result lines
-    OUTPUT=$(godot --headless --path . -s "$test" 2>&1 | grep -E "PASS|FAIL|Result|=== test" || true)
+    OUTPUT=$(timeout 180 godot --headless --path . -s "$test" 2>&1 | grep -E "PASS|FAIL|Result|=== test" || true)
     echo "$OUTPUT"
 
     # Extract the final result line and parse pass/fail counts

@@ -212,7 +212,7 @@ Conventions:
 - **Dependencies:** ISS-003, ISS-012
 - **Affected files:** `EffectPrimitives.gd`, `UnitAbilityManager.gd`, `FactionAbilityManager.gd`, `AttackSequence.gd`, `StratagemManager.gd`
 - **Acceptance criteria:** cover/stealth/heavy resolved via the stack with golden parity vs. old behavior; modifier cap enforceable in one place (unit test: +2 worth of hit bonuses nets +1).
-- **Status:** TODO
+- **Status:** TODO (sequenced with ISS-041/053 deliberately) — building the stack now, with the 10e bitfield consumers untouched, would add an unused abstraction; its query points are created by the 11e attack-sequence rework. The AttackSequence evaluators (ISS-012) + golden corpus are the landing pad. Implement when ISS-041 starts.
 
 ### ISS-017 — Typed state accessors + diff-path hardening
 - **Location:** `40k/autoloads/PhaseManager.gd:328-444` (`_set_state_value` navigates `"units.U_1.models.0.current_wounds"` via `split(".")`, no existence validation)
@@ -260,7 +260,7 @@ Conventions:
 - **Dependencies:** none (do before/with ISS-012)
 - **Affected files:** `40k/autoloads/RulesEngine.gd`, `40k/phases/ShootingPhase.gd`, `40k/phases/FightPhase.gd`, lint test
 - **Acceptance criteria:** grep `RulesEngine\._` in `phases/` returns nothing; suite passes.
-- **Status:** TODO
+- **Status:** DONE — documented public wrappers added (`check_units_in_engagement_range` — named to avoid colliding with the pre-existing simpler two-arg `units_in_engagement_range`, `generate_weapon_id`, `apply_damage_to_unit_pool`, `get_model_by_id`, `check_legacy_line_of_sight`); all external callers migrated (ShootingPhase ×3, FightPhase, FightController, ShootingController ×2, LoSDebugVisual, AttackAssignmentDialog ×4). Lint enforced by `test_iss020_public_api.gd` (5/5) across phases/scripts/dialogs. Bonus hardening from a hang found during this work: the pretrigger runner now wraps each test in `timeout 180` so a mid-test script error can't stall the suite forever. Suite 656/656 across 34 tests.
 
 ### ISS-021 — Action log: save = snapshot + replayable action sequence
 - **Location:** `40k/autoloads/SaveLoadManager.gd:355-370` (snapshot-only saves), `40k/autoloads/ReplayManager.gd`, `40k/autoloads/ActionLogger.gd` (exists but not a replay source)
@@ -807,7 +807,7 @@ Conventions:
 | ISS-017 | State accessors + diff-path hardening | medium | TODO | 001 |
 | ISS-018 | Per-phase UI container teardown | medium | TODO | 005, 013 |
 | ISS-019 | Unify ability checks through ability layer | medium | TODO | 003 |
-| ISS-020 | RulesEngine public API for phases | medium | TODO | — |
+| ISS-020 | RulesEngine public API for phases | medium | DONE | — |
 | ISS-021 | Action log + deterministic replay | medium | TODO | 001, 004 |
 | ISS-022 | Verify/extend undo coverage | medium | TODO | 001 |
 | ISS-023 | Single source of truth for positions | medium | TODO | 001 |

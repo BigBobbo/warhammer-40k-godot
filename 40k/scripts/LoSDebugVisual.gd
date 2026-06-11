@@ -678,7 +678,7 @@ func compare_legacy_vs_enhanced_los(shooter_model: Dictionary, target_model: Dic
 	var target_pos = _get_model_position_from_dict(target_model)
 	
 	# Legacy check
-	var legacy_result = RulesEngine._check_legacy_line_of_sight(shooter_pos, target_pos, board)
+	var legacy_result = RulesEngine.check_legacy_line_of_sight(shooter_pos, target_pos, board)
 	
 	# Enhanced check
 	var enhanced_result = EnhancedLineOfSight.check_enhanced_visibility(shooter_model, target_model, board)
