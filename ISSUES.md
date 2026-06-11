@@ -744,7 +744,7 @@ Conventions:
 - **Dependencies:** ISS-040, ISS-038, ISS-056
 - **Affected files:** `DeploymentPhase.gd`, movement phase (ingress selection), `MissionManager` (round-3 destruction), AI reserves planning
 - **Acceptance criteria:** scenario: ingress placement constraints enforced by round; unit ingressing then charging same turn; round-3 destruction of unarrived reserves; aircraft cycles to reserves at end of opponent's turn.
-- **Status:** TODO
+- **Status:** IN PROGRESS (ingress move landed; aircraft + phase wiring pending) — `IngressMove` joins the MoveType registry implementing 20.04 (edition-gated eligibility from reserves; set-up validation: wholly within 6" of an edge, >8" horizontally from enemies, opponent-DZ ban before round 3; AFTER: locked out of further moves until the next Charge phase — so ingressed units CAN charge) with Deep Strike's 24.09 relaxation via a context flag. Round-3 destruction of unarrived reserves already existed (P1-37 in ScoringPhase). `test_iss060_ingress_11e.gd` 13/13; suite 879/879. Remaining: reinforcements-step wiring into MovementPhase (with ISS-040 step 2), Rapid Ingress timing via ISS-056's stratagem windows, and the AIRCRAFT reserve cycle (23.02).
 
 ### ISS-061 — 11e FLY (take to the skies), surge moves, HOVER
 - **Location:** movement/charge code paths with FLY special-casing; rules: 21.01-21.03, 24.17
@@ -847,7 +847,7 @@ Conventions:
 | ISS-057 | Actions system | high | TODO | 038, 039, 040, 043 |
 | ISS-058 | 11e transports (modes, emergency) | high | TODO | 040, 044, 043 |
 | ISS-059 | 11e attached units (Support, T, persistence) | medium | TODO | 037, 041 |
-| ISS-060 | 11e reserves/ingress/aircraft | medium | TODO | 040, 038, 056 |
+| ISS-060 | 11e reserves/ingress/aircraft | medium | IN PROGRESS | 040, 038, 056 |
 | ISS-061 | 11e FLY/surge/hover | medium | TODO | 040 |
 | ISS-062 | AI updated for 11e | medium | TODO | 014, 039, 041, 048, 050, 057 |
 | ISS-063 | 11e windowed scenario suite | medium | TODO | 038-061 (incremental) |
