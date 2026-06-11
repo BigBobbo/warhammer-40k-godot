@@ -878,3 +878,65 @@ func hidden_model_visible_to(model: Dictionary, unit: Dictionary, observer_model
 		return true
 	var det_px = Measurement.inches_to_px(GameConstants.hidden_detection_range_inches())
 	return Measurement.model_to_model_distance_px(observer_model, model) <= det_px
+
+
+## ISS-053 (step 1) — 13.08 BENEFIT OF COVER qualification (the in-area
+## half; the not-fully-visible half arrives with ISS-052's fully-visible
+## module). A unit has the benefit of cover against a ranged attack when
+## EVERY model meets a qualifying condition:
+##   ▪ INFANTRY/BEASTS/SWARM model within a terrain area, or
+##   ▪ (ISS-052, pending) not fully visible to the attacker.
+## In 11e the effect is WORSENING the attack's BS by 1 (not a save mod) —
+## applied by the resolution flow; this primitive answers qualification.
+## Stealth (24.33) grants the benefit unconditionally.
+func unit_has_cover_11e(unit: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return false
+	if UnitAbilities.unit_has(unit, "stealth"):
+		return true
+	var keywords: Array = unit.get("meta", {}).get("keywords", [])
+	var qualifies_kw := false
+	for kw in ["INFANTRY", "BEASTS", "SWARM"]:
+		if kw in keywords:
+			qualifies_kw = true
+			break
+	if not qualifies_kw:
+		return false
+	var any_model := false
+	for m in unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		any_model = true
+		var pos = m.get("position", null)
+		if pos == null:
+			return false
+		var p := Vector2(float(pos.x) if pos is Dictionary else pos.x, float(pos.y) if pos is Dictionary else pos.y)
+		if area_at(p).is_empty():
+			return false  # EVERY model must qualify (13.08)
+	return any_model
+
+
+## ISS-053 (step 1) — 22.05 PLUNGING FIRE qualification: the attack's BS
+## IMPROVES by 1 when the target unit has one or more models on ground
+## level and either:
+##   ▪ the attacking model is on a terrain section >= 3" in height
+##     (model "elevation_inches" field), or
+##   ▪ the attacker has TOWERING and the target is within 12".
+func plunging_fire_applies(attacker_model: Dictionary, attacker_unit: Dictionary, target_unit: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return false
+	var target_on_ground := false
+	for m in target_unit.get("models", []):
+		if m.get("alive", true) and float(m.get("elevation_inches", 0.0)) <= 0.0:
+			target_on_ground = true
+			break
+	if not target_on_ground:
+		return false
+	if float(attacker_model.get("elevation_inches", 0.0)) >= 3.0:
+		return true
+	if "TOWERING" in attacker_unit.get("meta", {}).get("keywords", []):
+		var det_px = Measurement.inches_to_px(12.0)
+		for m in target_unit.get("models", []):
+			if m.get("alive", true) and Measurement.model_to_model_distance_px(attacker_model, m) <= det_px:
+				return true
+	return false

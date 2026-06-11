@@ -660,7 +660,7 @@ Conventions:
 - **Dependencies:** ISS-051, ISS-052, ISS-016, ISS-041
 - **Affected files:** `RulesEngine.gd`, `AttackSequence.gd`, ModifierStack, AI scoring (via ISS-014 shared math)
 - **Acceptance criteria:** unit tests: cover worsens 3+ BS to 4+; cover + plunging fire net zero; IGNORES COVER vs Stealth; scenario shows hit-chance preview reflecting cover.
-- **Status:** TODO
+- **Status:** IN PROGRESS (qualification primitives landed; BS application with ISS-041 flow + ModifierStack) — TerrainManager gains edition-gated `unit_has_cover_11e` (13.08's in-area half with the EVERY-model requirement and keyword gate; Stealth grants unconditionally per 24.33; the not-fully-visible half awaits ISS-052's fully-visible module) and `plunging_fire_applies` (22.05: attacker ≥3" elevation or TOWERING within 12", vs ground-level targets, via per-model `elevation_inches`). `test_iss053_cover_plunging_11e.gd` 10/10; suite 851/851. The BS-worsening/improving application and the net-zero cap arrive when ISS-041 step 2 + ISS-016's ModifierStack wire the hit step.
 
 ### ISS-054 — 11e terrain movement + MOBILE keyword
 - **Location:** movement validation in `MovementPhase.gd`/`RulesEngine.gd`; rules: 13.06, 24.35
@@ -840,7 +840,7 @@ Conventions:
 | ISS-050 | 11e fight phase restructure | blocker | TODO | 039, 040, 049 |
 | ISS-051 | 11e terrain data model | blocker | IN PROGRESS | 002 |
 | ISS-052 | 11e visibility (Hidden/Obscuring/Solid) | blocker | IN PROGRESS | 051 |
-| ISS-053 | Cover + Plunging Fire as BS modifiers | high | TODO | 051, 052, 016, 041 |
+| ISS-053 | Cover + Plunging Fire as BS modifiers | high | IN PROGRESS | 051, 052, 016, 041 |
 | ISS-054 | 11e terrain movement + MOBILE | medium | TODO | 051, 040, 037 |
 | ISS-055 | 11e objectives + Secured | medium | TODO | 051, 038, 043 |
 | ISS-056 | 11e core stratagems + per-unit limit | medium | IN PROGRESS | 043, 044, 048, 049, 050 |
