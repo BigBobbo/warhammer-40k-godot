@@ -79,6 +79,7 @@ TESTS=(
     "tests/test_iss040_move_types.gd"
     "tests/test_iss041_allocation_groups.gd"
     "tests/test_iss046_mortal_wounds_11e.gd"
+    "tests/test_iss047_weapon_abilities_11e.gd"
 )
 
 FAILED=0

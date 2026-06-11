@@ -168,6 +168,11 @@ static func validate(abilities: Array) -> Array:
 		for key in entry:
 			if key == "id":
 				continue
+			if key == "scope":
+				# ISS-047 (24.01): any ability may be keyword-scoped.
+				if not entry[key] is Array:
+					errors.append("ability '%s' scope must be an Array of keywords" % id)
+				continue
 			if not params.has(key):
 				errors.append("ability '%s' has unexpected param '%s'" % [id, key])
 			elif typeof(entry[key]) != params[key] and not (params[key] == TYPE_INT and typeof(entry[key]) == TYPE_FLOAT and entry[key] == floor(entry[key])):
@@ -226,3 +231,47 @@ static func get_param(abilities: Array, id: String, key: String, default = null)
 		if entry is Dictionary and str(entry.get("id", "")) == id:
 			return entry.get(key, default)
 	return default
+
+
+# ── 11e additions (ISS-047) ─────────────────────────────────────────
+
+## 24.01: "If a weapon ability is followed by one or more keywords, that
+## ability only applies if the target unit has one or more of those
+## keywords." Structured entries carry it as {"id": ..., "scope":
+## ["VEHICLE", ...]}; entries without a scope always apply.
+static func entry_applies_to_target(entry: Dictionary, target_keywords: Array) -> bool:
+	var scope = entry.get("scope", [])
+	if not scope is Array or scope.is_empty():
+		return true
+	for kw in scope:
+		if str(kw).to_upper() in target_keywords:
+			return true
+	return false
+
+
+## Filter a weapon's structured abilities to those applying against the
+## given target (24.01 keyword scoping).
+static func abilities_vs_target(abilities: Array, target_keywords: Array) -> Array:
+	var out: Array = []
+	var upper: Array = []
+	for kw in target_keywords:
+		upper.append(str(kw).to_upper())
+	for entry in abilities:
+		if entry is Dictionary and entry_applies_to_target(entry, upper):
+			out.append(entry)
+	return out
+
+
+## 24.05 [BLAST X]: +X attack dice per five models in the target unit at
+## the Select Targets step (rounding down). Plain [BLAST] is X = 1.
+static func blast_bonus_dice(x: int, target_model_count: int) -> int:
+	return maxi(x, 1) * int(target_model_count / 5)
+
+
+## 24.06 [CLEAVE X]: as BLAST, but ONLY when one unit was selected as the
+## target of ALL of that weapon's attacks (melee multi-target split
+## disables it).
+static func cleave_bonus_dice(x: int, target_model_count: int, single_target: bool) -> int:
+	if not single_target:
+		return 0
+	return maxi(x, 1) * int(target_model_count / 5)

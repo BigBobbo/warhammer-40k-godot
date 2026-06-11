@@ -588,7 +588,7 @@ Conventions:
 - **Dependencies:** ISS-003, ISS-041 (PRECISION also ISS-045)
 - **Affected files:** `AbilityRegistry.gd`, `AttackSequence.gd`, army JSONs, UI prompts
 - **Acceptance criteria:** per-ability unit tests incl. worked examples (BLAST 2 vs 12 models = +4 dice; SUSTAINED HITS 2 = 3 hits; ANTI-VEHICLE 4+); keyword-scoped ability fires only vs matching target.
-- **Status:** TODO
+- **Status:** IN PROGRESS (registry primitives landed; resolution hooks with ISS-041 step 2) — AbilityRegistry gains 24.01 keyword scoping (`scope: ["VEHICLE"]` on any entry, validated, with `entry_applies_to_target`/`abilities_vs_target` filters) plus the dice math for `[BLAST X]` (24.05) and `[CLEAVE X]` (24.06, disabled when attacks were split). **Both rulebook worked examples reproduce** (BLAST 2 vs 12 models = +4 dice; CLEAVE 1 vs 16 models single-target = +3). `test_iss047_weapon_abilities_11e.gd` 13/13; suite 812/812. Remaining: wiring these into the 11e gather step (ISS-041 step 2), the LETHAL-HITS-as-a-choice decision point, PRECISION's allocation-group selection (with ISS-045), [PSYCHIC] modifier-ignore, ONE SHOT tracking, CLOSE-QUARTERS shooting-type interaction (ISS-048). SUSTAINED HITS = 3-hits semantics already covered by the existing keyword pipeline tests.
 
 ### ISS-048 — 11e shooting types
 - **Location:** `40k/phases/ShootingPhase.gd` (6,465 lines), `RulesEngine.gd` BGNT at `:5192-5254`, pistol handling at `:4886-4907`; rules: 10.04-10.07, 15.09, 17.03
@@ -834,7 +834,7 @@ Conventions:
 | ISS-044 | Hazard roll mechanic | medium | DONE | 002, 046 |
 | ISS-045 | Wound-allocation UI for groups | high | TODO | 041 |
 | ISS-046 | 11e mortal wounds + dev-wounds cap | high | DONE | 041 |
-| ISS-047 | 11e weapon abilities | high | TODO | 003, 041 |
+| ISS-047 | 11e weapon abilities | high | IN PROGRESS | 003, 041 |
 | ISS-048 | 11e shooting types | high | TODO | 040, 037, 047 |
 | ISS-049 | 11e charge phase | high | TODO | 039, 040 |
 | ISS-050 | 11e fight phase restructure | blocker | TODO | 039, 040, 049 |
