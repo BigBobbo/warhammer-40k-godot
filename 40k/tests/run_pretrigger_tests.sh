@@ -82,6 +82,7 @@ TESTS=(
     "tests/test_iss047_weapon_abilities_11e.gd"
     "tests/test_iss056_stratagem_per_unit.gd"
     "tests/test_iss051_terrain_model_11e.gd"
+    "tests/test_iss052_hidden_11e.gd"
 )
 
 FAILED=0

@@ -648,7 +648,7 @@ Conventions:
 - **Dependencies:** ISS-051
 - **Affected files:** LoS autoloads (likely merged into the module), `RulesEngine.gd` targeting, shooting/AI, overlays
 - **Acceptance criteria:** unit tests reproduce the pg 51 worked examples (units A-E cover/obscuring matrix; B visible to D at 15" but C not; Solid window cases); windowed scenario shows a hidden unit untargetable beyond 15".
-- **Status:** TODO
+- **Status:** IN PROGRESS (Hidden landed; fully-visible/Solid pending) — TerrainManager gains the 13.09 HIDDEN rule, edition-gated: INFANTRY/BEASTS/SWARM in a dense-containing area whose unit hasn't shot recently (`shot_recently` flag — the shooting phase maintains it when ISS-048 lands) are visible only within the 15" detection range (`hidden_model_visible_to`). `test_iss052_hidden_11e.gd` 9/9 covering qualification (keyword/category/shot gates), the 14"-visible/17"-not detection boundary, and the edition gate; suite 841/841. Obscuring's center-line approximation landed in ISS-051. Remaining: the visible-vs-FULLY-visible distinction (06.01, needed for 13.08 cover), the Solid ≤3"-gap rule (13.11), every-line obscuring semantics, and `get_eligible_targets` integration + the windowed scenario.
 
 ### ISS-053 — 11e benefit of cover + Plunging Fire as BS modifiers
 - **Location:** `RulesEngine.gd:4078-4145` (cover as save/AP interaction today), ModifierStack (ISS-016); rules: 13.08, 22.05, 24.18, 24.33
@@ -839,7 +839,7 @@ Conventions:
 | ISS-049 | 11e charge phase | high | TODO | 039, 040 |
 | ISS-050 | 11e fight phase restructure | blocker | TODO | 039, 040, 049 |
 | ISS-051 | 11e terrain data model | blocker | IN PROGRESS | 002 |
-| ISS-052 | 11e visibility (Hidden/Obscuring/Solid) | blocker | TODO | 051 |
+| ISS-052 | 11e visibility (Hidden/Obscuring/Solid) | blocker | IN PROGRESS | 051 |
 | ISS-053 | Cover + Plunging Fire as BS modifiers | high | TODO | 051, 052, 016, 041 |
 | ISS-054 | 11e terrain movement + MOBILE | medium | TODO | 051, 040, 037 |
 | ISS-055 | 11e objectives + Secured | medium | TODO | 051, 038, 043 |

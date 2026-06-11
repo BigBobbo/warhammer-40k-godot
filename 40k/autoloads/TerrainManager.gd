@@ -838,3 +838,43 @@ func is_obscured_between(p1: Vector2, p2: Vector2) -> bool:
 		if cat == CATEGORY_LIGHT or cat == CATEGORY_DENSE:
 			return true
 	return false
+
+
+## ISS-052 (step 1) — 13.09 HIDDEN. A model is hidden while:
+##   ▪ it has the INFANTRY/BEASTS/SWARM keyword AND is within a terrain
+##     area that contains one or more DENSE terrain features, and
+##   ▪ its unit made no ranged attacks this turn or the previous turn
+##     (tracked via the unit flag `shot_recently`, maintained by the
+##     shooting phase when ISS-048 lands; callers pass the unit).
+## While hidden, the model is only visible to enemies within its
+## detection range — 15" unless otherwise stated
+## (GameConstants.hidden_detection_range_inches()).
+func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return false
+	var keywords: Array = unit.get("meta", {}).get("keywords", [])
+	var qualifies := false
+	for kw in ["INFANTRY", "BEASTS", "SWARM"]:
+		if kw in keywords:
+			qualifies = true
+			break
+	if not qualifies:
+		return false
+	if unit.get("flags", {}).get("shot_recently", false):
+		return false
+	var pos = model.get("position", null)
+	if pos == null:
+		return false
+	var p := Vector2(float(pos.x) if pos is Dictionary else pos.x, float(pos.y) if pos is Dictionary else pos.y)
+	var area = area_at(p)
+	if area.is_empty():
+		return false
+	return category_of(area) == CATEGORY_DENSE
+
+## Visibility gate for hidden models: visible only when the observer is
+## within the detection range (13.09).
+func hidden_model_visible_to(model: Dictionary, unit: Dictionary, observer_model: Dictionary) -> bool:
+	if not is_model_hidden(model, unit):
+		return true
+	var det_px = Measurement.inches_to_px(GameConstants.hidden_detection_range_inches())
+	return Measurement.model_to_model_distance_px(observer_model, model) <= det_px
