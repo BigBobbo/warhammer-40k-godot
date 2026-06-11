@@ -1774,12 +1774,22 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 					ms_firing_models.append(ms_m)
 			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models})
 			var ms_bs_delta = ms_stack.net("bs")
+			var ms_hit_net_pre = ms_stack.net("hit_roll")
+			# ISS-047 (24.29): [PSYCHIC] attacks may ignore any or all BS/hit
+			# modifiers — the engine ignores exactly the harmful ones.
+			if is_psychic_weapon(weapon_id, board):
+				if ms_bs_delta > 0:
+					print("RulesEngine: [24.29] PSYCHIC — ignoring BS worsening (%+d)" % ms_bs_delta)
+					ms_bs_delta = 0
+				if ms_hit_net_pre < 0:
+					print("RulesEngine: [24.29] PSYCHIC — ignoring hit-roll penalty (%+d)" % ms_hit_net_pre)
+					ms_hit_net_pre = 0
 			if ms_bs_delta != 0:
 				bs += ms_bs_delta
 				for ms_i in range(bs_per_attack.size()):
 					bs_per_attack[ms_i] += ms_bs_delta
 				print("RulesEngine: [11e MODIFIERS] BS %+d (%s)" % [ms_bs_delta, str(ms_stack.sources("bs"))])
-			var ms_hit_net = ms_stack.net("hit_roll")
+			var ms_hit_net = ms_hit_net_pre
 			if ms_hit_net > 0:
 				hit_modifiers |= HitModifier.PLUS_ONE
 				if "heavy" in ms_stack.sources("hit_roll"):
@@ -2054,7 +2064,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
-	if weapon_has_lethal_hits and not is_torrent:
+	if weapon_has_lethal_hits and not is_torrent and lethal_hits_auto_wound_11e(weapon_id, board, assignment):
 		# Critical hits automatically wound - no roll needed
 		auto_wounds = critical_hits
 		# Per 10e rules, Lethal Hits auto-wounds are NOT critical wounds for Devastating Wounds
@@ -2264,6 +2274,26 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 # Resolve a single weapon assignment (models with weapon -> target)
 # SUSTAINED HITS (PRP-011): This function is modified to handle Sustained Hits
 # BLAST (PRP-013): This function is modified to handle Blast keyword
+# ISS-047 (11e 24.23): [LETHAL HITS] is a CHOICE per attack. Engine
+# default: auto-wound, EXCEPT when the weapon also has [DEVASTATING
+# WOUNDS] — rolling the wound preserves the critical-wound trigger (the
+# 24.23 designer's-note trade-off). assignment.lethal_hits_choice
+# ("auto"/"roll") overrides the default. 10e always auto-wounds.
+static func lethal_hits_auto_wound_11e(weapon_id: String, board: Dictionary, assignment: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return true
+	match str(assignment.get("lethal_hits_choice", "")):
+		"auto":
+			return true
+		"roll":
+			print("RulesEngine: [24.23] LETHAL HITS — attacker chose to ROLL critical hits' wounds")
+			return false
+	if has_devastating_wounds(weapon_id, board):
+		print("RulesEngine: [24.23] LETHAL HITS + DEVASTATING WOUNDS — defaulting to ROLL (keeps the crit-wound trigger)")
+		return false
+	return true
+
+
 # ── ISS-041 step 2: 11e save/damage resolution via allocation groups ──
 # 05.03-05.04: the DEFENDER divides the target into allocation groups,
 # saves are batch-rolled, and damage is applied lowest roll → highest
@@ -2288,6 +2318,17 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			order = chosen_order
 		else:
 			print("RulesEngine: [11e ALLOCATION] rejected invalid allocation order %s (%s) — using default" % [str(chosen_order), str(order_check.errors)])
+	# ISS-047 (24.28): [PRECISION] — the ATTACKER may make a CHARACTER
+	# group the CURRENT allocation group until it is destroyed; this
+	# explicitly overrides the 05.03 order constraints.
+	var precision_gid := str(opts.get("precision_group", ""))
+	if precision_gid != "":
+		for g in groups:
+			if str(g.id) == precision_gid and g.character:
+				order.erase(precision_gid)
+				order.push_front(precision_gid)
+				print("RulesEngine: [24.28] PRECISION — CHARACTER group %s is the current allocation group" % precision_gid)
+				break
 	var models = target_unit.get("models", [])
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 	var save_modifier = clampi(int(target_unit.get("flags", {}).get("save_modifier", 0)), -1, 1)
@@ -2403,6 +2444,18 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 	return out
 
 
+# The engine's default [PRECISION] pick (24.28): the first CHARACTER
+# group in the target. Visible-to-attacker refinement lands with the
+# ISS-052 visibility module; the attacker-facing prompt with ISS-063.
+static func _precision_group_11e(weapon_has_precision_flag: bool, target_unit: Dictionary) -> String:
+	if not weapon_has_precision_flag or GameConstants.edition < 11:
+		return ""
+	for g in Allocation.build_groups(target_unit):
+		if g.character:
+			return str(g.id)
+	return ""
+
+
 # Turn an Allocation `remaining` map into diffs AND update the local board
 # unit so later assignments in the same action (and the per-crit
 # devastating-wound passes) see the post-damage state.
@@ -2493,6 +2546,7 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 	var applied = _apply_saves_via_allocation_11e(result, scratch_unit, target_unit_id,
 		wounds_to_save, dev_crits, ap, damage_raw, rng, {
 			"order": order,
+			"precision_group": _precision_group_11e(save_data.get("has_precision", false), scratch_unit),
 			"melta_value": melta_value,
 			"melta_wounds": melta_wounds,
 			"half_damage": get_unit_half_damage(live_unit),
@@ -2948,12 +3002,22 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 					ms_firing_models.append(ms_m)
 			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models})
 			var ms_bs_delta = ms_stack.net("bs")
+			var ms_hit_net_pre = ms_stack.net("hit_roll")
+			# ISS-047 (24.29): [PSYCHIC] attacks may ignore any or all BS/hit
+			# modifiers — the engine ignores exactly the harmful ones.
+			if is_psychic_weapon(weapon_id, board):
+				if ms_bs_delta > 0:
+					print("RulesEngine: [24.29] PSYCHIC — ignoring BS worsening (%+d)" % ms_bs_delta)
+					ms_bs_delta = 0
+				if ms_hit_net_pre < 0:
+					print("RulesEngine: [24.29] PSYCHIC — ignoring hit-roll penalty (%+d)" % ms_hit_net_pre)
+					ms_hit_net_pre = 0
 			if ms_bs_delta != 0:
 				bs += ms_bs_delta
 				for ms_i in range(bs_per_attack.size()):
 					bs_per_attack[ms_i] += ms_bs_delta
 				print("RulesEngine: [11e MODIFIERS] BS %+d (%s)" % [ms_bs_delta, str(ms_stack.sources("bs"))])
-			var ms_hit_net = ms_stack.net("hit_roll")
+			var ms_hit_net = ms_hit_net_pre
 			if ms_hit_net > 0:
 				hit_modifiers |= HitModifier.PLUS_ONE
 				if "heavy" in ms_stack.sources("hit_roll"):
@@ -3208,7 +3272,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
-	if weapon_has_lethal_hits and not is_torrent:
+	if weapon_has_lethal_hits and not is_torrent and lethal_hits_auto_wound_11e(weapon_id, board, assignment):
 		# Critical hits automatically wound - no roll needed
 		auto_wounds = critical_hits
 		# Per 10e rules, Lethal Hits auto-wounds are NOT critical wounds for Devastating Wounds
@@ -3394,6 +3458,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				"melta_wounds": ar_melta_wounds_remaining,
 				"half_damage": ar_has_half_damage,
 				"fnp_value": ar_fnp_value,
+				"precision_group": _precision_group_11e(ar_weapon_has_precision, target_unit),
 			})
 		casualties += alloc11.casualties
 		damage_applied += alloc11.damage_applied
@@ -9532,7 +9597,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var all_critical_wound_count = 0  # OA-19: Track ALL critical wounds (for Hold Still and Say 'Aargh!')
 	var melee_wound_reroll_data = []  # Track twin-linked / modifier re-rolls
 
-	if weapon_has_lethal_hits and not is_torrent:
+	if weapon_has_lethal_hits and not is_torrent and lethal_hits_auto_wound_11e(weapon_id, board, assignment):
 		# Lethal Hits: Critical hits (unmodified 6s to hit) automatically wound - no wound roll
 		auto_wounds = critical_hits
 		# Per 10e: Lethal Hits auto-wounds are NOT critical wounds for Devastating Wounds
