@@ -284,7 +284,7 @@ Conventions:
 - **Dependencies:** ISS-001
 - **Affected files:** `40k/autoloads/GameManager.gd`, tests
 - **Acceptance criteria:** apply/undo round-trip test passes for move, advance, warlord designation, and a shooting action (or shooting is explicitly documented as non-undoable).
-- **Status:** TODO
+- **Status:** DONE (with documented coverage findings) — `test_iss022_undo_roundtrip.gd` (8/8) proves the undo machinery (`_create_reverse_diffs` → `apply_result` → `undo_last_action`) restores exact prior state hashes across stacked multi-diff actions and no-ops safely on empty history. **Findings recorded:** (1) GameManager's `process_action` is a hand-maintained allowlist — formations actions (warlord designation etc.) are rejected there and flow via `phase.execute_action` instead, so undo does NOT cover them; the test documents this. (2) Latent bug: `_delegate_to_current_phase` routes to `execute_action` (which applies changes) and then `apply_result` applies the same diffs again — idempotent for `set` ops but an `add` op would double-append. Both are consequences of the dual execute paths; the unification rides with ISS-025/027 and is noted there.
 
 ### ISS-023 — Single source of truth for model positions
 - **Location:** `40k/scripts/MovementController.gd:3590,3607` (`model_data.position = visual_pos` on local copies), `40k/scripts/TokenVisual.gd:9` (`model_data` copy), GameState canonical positions
@@ -316,7 +316,7 @@ Conventions:
 - **Severity:** medium
 - **Description:** Both autoloads manipulate turn/phase progression; responsibilities overlap and bug fixes routinely need both files. PhaseManager also doubles as the diff applier (unrelated concern).
 - **Root cause:** Organic growth.
-- **Proposed fix:** Decide: PhaseManager owns the phase state machine; TurnManager owns turn order/alternation/roll-offs and only requests transitions; move `apply_state_changes` to GameState (it's state's concern). Document in code headers. Implement alongside ISS-038 (11e turn structure) since that work touches the same seams.
+- **Proposed fix:** Decide: PhaseManager owns the phase state machine; TurnManager owns turn order/alternation/roll-offs and only requests transitions; move `apply_state_changes` to GameState (it's state's concern). Document in code headers. Implement alongside ISS-038 (11e turn structure) since that work touches the same seams. ALSO unify the dual execute paths found in ISS-022: `GameManager.process_action` allowlist + `_delegate_to_current_phase` double-applies set-diffs (an `add` op would double-append) while formations actions bypass GameManager (and undo) entirely. And the ISS-021 finding: autoload managers inject ambient state sections gated by manager-internal flags — make their setup explicit pipeline steps.
 - **Dependencies:** ISS-001
 - **Affected files:** `TurnManager.gd`, `PhaseManager.gd`, `GameState.gd`, callers of `apply_state_changes`
 - **Acceptance criteria:** one documented owner per concern; deployment alternation + full battle-round cycle pass in scenario tests.
@@ -809,7 +809,7 @@ Conventions:
 | ISS-019 | Unify ability checks through ability layer | medium | TODO | 003 |
 | ISS-020 | RulesEngine public API for phases | medium | DONE | — |
 | ISS-021 | Action log + deterministic replay | medium | DONE | 001, 004 |
-| ISS-022 | Verify/extend undo coverage | medium | TODO | 001 |
+| ISS-022 | Verify/extend undo coverage | medium | DONE | 001 |
 | ISS-023 | Single source of truth for positions | medium | TODO | 001 |
 | ISS-024 | Eliminate stale phase snapshots | medium | TODO | 001, 017 |
 | ISS-025 | TurnManager vs PhaseManager ownership | medium | TODO | 001 |

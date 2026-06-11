@@ -65,6 +65,7 @@ TESTS=(
     "tests/test_iss020_public_api.gd"
     "tests/test_iss017_state_schema.gd"
     "tests/test_iss021_action_replay.gd"
+    "tests/test_iss022_undo_roundtrip.gd"
 )
 
 FAILED=0
