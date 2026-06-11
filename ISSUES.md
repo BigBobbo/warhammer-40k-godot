@@ -528,7 +528,7 @@ Conventions:
 - **Dependencies:** ISS-002, ISS-038, ISS-040
 - **Affected files:** coherency module, `MovementPhase.gd`, end-of-turn handler, UI dialog, AI
 - **Acceptance criteria:** unit tests for the 2"/9" envelope (incl. the 9"-pairwise case); scenario: split a unit beyond 9", end turn, model-removal dialog appears and state reflects removals without triggering on-death rules.
-- **Status:** IN PROGRESS (check primitive landed; enforcement pending) — `AttackSequence.check_unit_coherency(unit)` is edition-aware: 10e per-model neighbor counts (2 neighbors at 7+ models) vs 11e 03.03 (2" of one AND 9" envelope to EVERY model), returning offender model ids. `test_iss042_coherency_11e.gd` 8/8 — including the documented 10e RAW quirk (split "islands" pass per-model checks; the 11e envelope is what catches them). Suite 759/759. Remaining: after-move validation via ISS-040's move templates, and the end-of-turn removal flow (turn_ending hook from ISS-038 + removal dialog/AI auto-pick + destroyed-without-triggers semantics). Side fix: AttackSequence's autoload references became lazy runtime lookups — the compile-time identifiers errored in bare `-s` contexts, tripping the no-errors gate.
+- **Status:** DONE (auto-pick removal; player-choice UI rides with ISS-063) — the check primitive (`AttackSequence.check_unit_coherency`, edition-aware incl. the 9" envelope and the documented 10e split-islands RAW quirk) PLUS enforcement: PhaseManager registers an edition-gated non-mission End-of-Turn hook (ISS-038, 07.03 ordering) that removes out-of-coherency models — **most-isolated-offender first**, preserving the largest coherent group — through the diff pipeline, destroyed without on-death triggers per 03.03. Verified by `test_iss042_coherency_11e.gd` (11/11: envelope matrix, minimal removal of the straggler with the pair surviving, edition-10 untouched); suite 866/866. After-move coherency is already a universal end condition in the ISS-040 move templates. Remaining nicety: the owning player's model-choice dialog (rules allow any choice; the auto-pick is legal and rational) — ISS-063's scenario work.
 
 ### ISS-043 — 11e leadership rolls + battle-shock rework
 - **Location:** `40k/phases/CommandPhase.gd:204+` (current battle-shock), `MovementPhase.gd:437,5312` (desperate escape thresholds), `StratagemManager.gd` (targeting); rules: 01.06-01.07, 08.03
@@ -829,7 +829,7 @@ Conventions:
 | ISS-039 | Engagement range 2"/5" | high | DONE | 002 |
 | ISS-040 | 11e move-type framework | high | IN PROGRESS | 001, 002, 038 |
 | ISS-041 | 11e attack core: allocation groups | blocker | IN PROGRESS | 012, 037 |
-| ISS-042 | 11e coherency + end-of-turn enforcement | high | IN PROGRESS | 002, 038, 040 |
+| ISS-042 | 11e coherency + end-of-turn enforcement | high | DONE | 002, 038, 040 |
 | ISS-043 | 11e leadership + battle-shock rework | high | DONE | 037, 038, 016 |
 | ISS-044 | Hazard roll mechanic | medium | DONE | 002, 046 |
 | ISS-045 | Wound-allocation UI for groups | high | TODO | 041 |

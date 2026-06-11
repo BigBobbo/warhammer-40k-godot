@@ -52,6 +52,12 @@ func _ready() -> void:
 	# Register all available phase classes
 	register_phase_classes()
 
+	# ISS-042 (11e 03.03 "Regaining Coherency"): in the End of Turn step,
+	# units that are not in coherency must remove models until they are.
+	# Removed models are destroyed but do NOT trigger on-death rules.
+	# Registered as a non-mission End-of-Turn rule (07.03 ordering).
+	register_turn_ending_hook(_enforce_coherency_11e, false)
+
 	# Don't automatically start deployment phase here
 	# Let the Main scene initialize it after armies are loaded
 	print("[PhaseManager] Ready - awaiting explicit phase initialization")
@@ -514,3 +520,67 @@ func get_available_actions() -> Array:
 		return current_phase_instance.get_available_actions()
 	else:
 		return []
+
+
+## ISS-042: 11e end-of-turn coherency enforcement. Auto-removes detected
+## offender models (the owning player's pick UI arrives with the 11e
+## scenario suite, ISS-063); diffs go through the pipeline so replay/
+## network observe the removals. No on-death triggers fire by design.
+func _enforce_coherency_11e(_player: int) -> void:
+	if GameConstants.edition < 11:
+		return
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		var alive := 0
+		for m in unit.get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				alive += 1
+		if alive <= 1:
+			continue
+		var removed: Array = []
+		# Remove offenders one at a time, rechecking, until coherent
+		# (capped at the model count to guarantee termination). The player
+		# may choose which models to remove (03.03); the auto-pick removes
+		# the MOST ISOLATED offender (greatest total distance to the rest),
+		# which preserves the largest coherent group.
+		for _i in range(unit.get("models", []).size()):
+			var coh = AttackSequence.check_unit_coherency(unit)
+			if coh.coherent:
+				break
+			var offender_id = _most_isolated_offender(unit, coh.offenders)
+			var changes: Array = []
+			for mi in range(unit.models.size()):
+				if str(unit.models[mi].get("id", mi)) == str(offender_id):
+					changes.append({"op": "set", "path": StateSchema.path_model_field(unit_id, mi, "alive"), "value": false})
+					changes.append({"op": "set", "path": StateSchema.path_model_field(unit_id, mi, "current_wounds"), "value": 0})
+					break
+			if changes.is_empty():
+				break
+			apply_state_changes(changes)
+			removed.append(offender_id)
+		if not removed.is_empty():
+			print("[PhaseManager] ISS-042: %s out of coherency at End of Turn — removed %s (destroyed, no on-death triggers per 03.03)" % [unit_id, str(removed)])
+
+
+func _most_isolated_offender(unit: Dictionary, offenders: Array) -> String:
+	var models: Array = unit.get("models", [])
+	var best_id := str(offenders[0])
+	var best_score := -1.0
+	for oid in offenders:
+		var om = null
+		for m in models:
+			if str(m.get("id", "")) == str(oid):
+				om = m
+				break
+		if om == null:
+			continue
+		var total := 0.0
+		for m in models:
+			if not m.get("alive", true) or str(m.get("id", "")) == str(oid):
+				continue
+			total += Measurement.model_to_model_distance_px(om, m)
+		if total > best_score:
+			best_score = total
+			best_id = str(oid)
+	return best_id

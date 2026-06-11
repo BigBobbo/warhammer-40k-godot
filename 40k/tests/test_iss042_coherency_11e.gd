@@ -78,5 +78,38 @@ func _run_tests():
 	_check("single model always coherent",
 		AttackSequence.check_unit_coherency(_unit([_m("solo", 0)])).coherent)
 
+	print("\n-- end-of-turn enforcement (03.03 Regaining Coherency) --")
+	var gs = root.get_node_or_null("GameState")
+	var pm = root.get_node_or_null("PhaseManager")
+	var prev_state = gs.state.duplicate(true)
+	gs.initialize_default_state()
+	var split_models = [_m("k0", 0.0), _m("k1", 1.0), _m("k2", 12.0)]
+	gs.state["units"] = {"U_SPLIT": {"id": "U_SPLIT", "owner": 1, "flags": {},
+		"meta": {"name": "Split", "keywords": ["INFANTRY"], "stats": {}},
+		"models": split_models}}
+	GameConstants.edition = 11
+	pm.run_turn_ending_hooks(1)
+	var u = gs.state["units"]["U_SPLIT"]
+	var alive_after := 0
+	for m in u.models:
+		if m.get("alive", true):
+			alive_after += 1
+	var coh_after = AttackSequence.check_unit_coherency(u)
+	_check("11e: minimal removal — the isolated straggler goes, pair stays",
+		alive_after == 2 and coh_after.coherent,
+		"alive=%d coherent=%s" % [alive_after, str(coh_after)])
+	_check("removed model destroyed (alive=false, wounds 0)",
+		u.models[2].get("alive", true) == false and int(u.models[2].get("current_wounds", 1)) == 0)
+	# Edition 10: untouched
+	gs.state["units"]["U_SPLIT"]["models"] = [_m("k0", 0.0), _m("k1", 1.0), _m("k2", 12.0)]
+	GameConstants.edition = 10
+	pm.run_turn_ending_hooks(1)
+	var alive10 := 0
+	for m in gs.state["units"]["U_SPLIT"].models:
+		if m.get("alive", true):
+			alive10 += 1
+	_check("10e: no end-of-turn removal", alive10 == 3)
+	gs.state = prev_state
+
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(0 if failed == 0 else 1)
