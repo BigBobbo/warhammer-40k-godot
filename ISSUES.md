@@ -684,7 +684,7 @@ Conventions:
 - **Dependencies:** ISS-051, ISS-038, ISS-043
 - **Affected files:** `MissionManager.gd`, `SecondaryMissionManager.gd`, `ScoringPhase.gd`, board rendering, AI objective play
 - **Acceptance criteria:** unit test reproduces the pg 53 OC example (5 vs 6); secured objective retains control after units leave; scenario scores correctly at phase end.
-- **Status:** TODO
+- **Status:** IN PROGRESS (timing + Secured landed; terrain-area objectives pending) — discovery: MissionManager already had most 11e semantics (battle-shock zeroes control participation; a sticky-objective mechanism with exactly 14.03's break-on-out-control rule, built for Get da Good Bitz / Vigilance Eternal). Landed: 14.02's evaluation timing (control re-checked on every `phase_completed` and `turn_ending`, edition-gated), a public army-level `secure_objective`/`is_objective_secured` API riding the proven mechanism, and the 14.03 fix that army-level secured locks persist without a source unit (the ability-level path required its source alive). `test_iss055_objectives_11e.gd` 6/6; suite 857/857. Remaining: terrain-area objectives (with ISS-051's area authoring) and the 3"-horizontal/5"-vertical marker range vs today's 3"+marker-radius (verify against 11e appendix when wiring scenarios).
 
 ### ISS-056 — 11e core stratagem set + targeting restrictions
 - **Location:** `40k/autoloads/StratagemManager.gd` (2,635 lines, current 10e core set at `:70-400`); rules: 15.01-15.12
@@ -842,7 +842,7 @@ Conventions:
 | ISS-052 | 11e visibility (Hidden/Obscuring/Solid) | blocker | IN PROGRESS | 051 |
 | ISS-053 | Cover + Plunging Fire as BS modifiers | high | IN PROGRESS | 051, 052, 016, 041 |
 | ISS-054 | 11e terrain movement + MOBILE | medium | TODO | 051, 040, 037 |
-| ISS-055 | 11e objectives + Secured | medium | TODO | 051, 038, 043 |
+| ISS-055 | 11e objectives + Secured | medium | IN PROGRESS | 051, 038, 043 |
 | ISS-056 | 11e core stratagems + per-unit limit | medium | IN PROGRESS | 043, 044, 048, 049, 050 |
 | ISS-057 | Actions system | high | TODO | 038, 039, 040, 043 |
 | ISS-058 | 11e transports (modes, emergency) | high | TODO | 040, 044, 043 |

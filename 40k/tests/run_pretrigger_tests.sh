@@ -84,6 +84,7 @@ TESTS=(
     "tests/test_iss051_terrain_model_11e.gd"
     "tests/test_iss052_hidden_11e.gd"
     "tests/test_iss053_cover_plunging_11e.gd"
+    "tests/test_iss055_objectives_11e.gd"
 )
 
 FAILED=0
