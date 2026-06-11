@@ -1741,36 +1741,25 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
+		# ISS-012: per-roll evaluation shared with the melee path
+		# (AttackSequence.evaluate_hit_roll). INDIRECT FIRE's unmodified-1-3
+		# fail band (#371, unseen targets only) and CONVERSION's crit
+		# threshold (T4-16) are parameters.
+		var hit_fail_band = 3 if (is_indirect_fire and not indirect_target_visible) else 1
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
-			var unmodified_roll = roll  # Store BEFORE any modifications
 			# MA-10: Use per-model BS for this attack's threshold
 			var attack_bs = bs_per_attack[i] if i < bs_per_attack.size() else bs
-			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, attack_bs)
-			var final_roll = modifier_result.modified_roll
-			modified_rolls.append(final_roll)
-
-			# Track reroll - if rerolled, the unmodified roll is the NEW roll
-			if modifier_result.rerolled:
+			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_bs, hit_modifiers, critical_hit_threshold, rng, hit_fail_band)
+			modified_rolls.append(hit_eval.final_roll)
+			if hit_eval.rerolled:
 				reroll_data.append({
-					"original": modifier_result.original_roll,
-					"rerolled_to": modifier_result.reroll_value
+					"original": hit_eval.reroll_from,
+					"rerolled_to": hit_eval.reroll_to
 				})
-				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
-
-			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
-			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
-			# Issue #371: per 10e RAW, the 1-3-fail rule only applies when target is
-			# NOT visible to the firing unit (same gate as the -1 BS penalty).
-			# CONVERSION X+ (T4-16): Critical hits on unmodified X+ at 12"+ distance
-			if unmodified_roll == 1:
-				pass  # Auto-miss regardless of modifiers
-			elif is_indirect_fire and not indirect_target_visible and unmodified_roll <= 3:
-				pass  # INDIRECT FIRE: Unmodified 1-3 always fail (only when target unseen)
-			elif unmodified_roll >= critical_hit_threshold or final_roll >= attack_bs:
+			if hit_eval.is_hit:
 				hits += 1
-				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
-				if unmodified_roll >= critical_hit_threshold:
+				if hit_eval.is_crit:
 					critical_hits += 1
 				else:
 					regular_hits += 1
@@ -2025,24 +2014,15 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-				var wmod_result = apply_wound_modifiers(roll, wound_modifiers, wound_threshold, rng)
-				var unmodified_roll = roll
-				if wmod_result.rerolled:
-					wound_reroll_data.append({"original": wmod_result.original_roll, "rerolled_to": wmod_result.reroll_value})
-					unmodified_roll = wmod_result.reroll_value  # Use rerolled value for crit check
-				var final_wound_roll = wmod_result.modified_roll
-
-				# 10e rules: Unmodified 1 always fails to wound
-				if unmodified_roll == 1:
+				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+				var wound_eval = AttackSequence.evaluate_wound_roll(roll, wound_modifiers, wound_threshold, critical_wound_threshold, rng)
+				if wound_eval.rerolled:
+					wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+				if wound_eval.auto_fail:
 					continue
-
-				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-				var is_critical_wound = (unmodified_roll >= critical_wound_threshold)
-				if is_critical_wound or final_wound_roll >= wound_threshold:
+				if wound_eval.is_wound:
 					wounds_from_rolls += 1
-					# Track critical wounds for Devastating Wounds interaction
-					if weapon_has_devastating_wounds and is_critical_wound:
+					if weapon_has_devastating_wounds and wound_eval.is_crit:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
@@ -2053,24 +2033,15 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
 		for roll in wound_rolls:
-			# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-			var wmod_result = apply_wound_modifiers(roll, wound_modifiers, wound_threshold, rng)
-			var unmodified_roll = roll
-			if wmod_result.rerolled:
-				wound_reroll_data.append({"original": wmod_result.original_roll, "rerolled_to": wmod_result.reroll_value})
-				unmodified_roll = wmod_result.reroll_value  # Use rerolled value for crit check
-			var final_wound_roll = wmod_result.modified_roll
-
-			# 10e rules: Unmodified 1 always fails to wound
-			if unmodified_roll == 1:
+			# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+			var wound_eval = AttackSequence.evaluate_wound_roll(roll, wound_modifiers, wound_threshold, critical_wound_threshold, rng)
+			if wound_eval.rerolled:
+				wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+			if wound_eval.auto_fail:
 				continue
-
-			# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-			var is_critical_wound = (unmodified_roll >= critical_wound_threshold)
-			if is_critical_wound or final_wound_roll >= wound_threshold:
+			if wound_eval.is_wound:
 				wounds_from_rolls += 1
-				# Track critical wounds for Devastating Wounds interaction
-				if weapon_has_devastating_wounds and is_critical_wound:
+				if weapon_has_devastating_wounds and wound_eval.is_crit:
 					critical_wound_count += 1
 				else:
 					regular_wound_count += 1
@@ -2623,37 +2594,25 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
+		# ISS-012: per-roll evaluation shared with the melee path
+		# (AttackSequence.evaluate_hit_roll). INDIRECT FIRE's unmodified-1-3
+		# fail band (#371, unseen targets only) and CONVERSION's crit
+		# threshold (T4-16) are parameters.
+		var hit_fail_band = 3 if (is_indirect_fire and not indirect_target_visible) else 1
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
-			var unmodified_roll = roll  # Store BEFORE any modifications
 			# MA-10: Use per-model BS for this attack's threshold
 			var attack_bs = bs_per_attack[i] if i < bs_per_attack.size() else bs
-			# Apply modifiers to this roll
-			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, attack_bs)
-			var final_roll = modifier_result.modified_roll
-			modified_rolls.append(final_roll)
-
-			# Track re-rolls for dice log
-			if modifier_result.rerolled:
+			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_bs, hit_modifiers, critical_hit_threshold, rng, hit_fail_band)
+			modified_rolls.append(hit_eval.final_roll)
+			if hit_eval.rerolled:
 				reroll_data.append({
-					"original": modifier_result.original_roll,
-					"rerolled_to": modifier_result.reroll_value
+					"original": hit_eval.reroll_from,
+					"rerolled_to": hit_eval.reroll_to
 				})
-				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
-
-			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
-			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
-			# Issue #371: per 10e RAW, the 1-3-fail rule only applies when target is
-			# NOT visible to the firing unit (same gate as the -1 BS penalty).
-			# CONVERSION X+ (T4-16): Critical hits on unmodified X+ at 12"+ distance
-			if unmodified_roll == 1:
-				pass  # Auto-miss regardless of modifiers
-			elif is_indirect_fire and not indirect_target_visible and unmodified_roll <= 3:
-				pass  # INDIRECT FIRE: Unmodified 1-3 always fail (only when target unseen)
-			elif unmodified_roll >= critical_hit_threshold or final_roll >= attack_bs:
+			if hit_eval.is_hit:
 				hits += 1
-				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
-				if unmodified_roll >= critical_hit_threshold:
+				if hit_eval.is_crit:
 					critical_hits += 1
 				else:
 					regular_hits += 1
@@ -2888,24 +2847,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-				var ar_wmod_result = apply_wound_modifiers(roll, ar_wound_modifiers, wound_threshold, rng)
-				var unmodified_roll = roll
-				if ar_wmod_result.rerolled:
-					ar_wound_reroll_data.append({"original": ar_wmod_result.original_roll, "rerolled_to": ar_wmod_result.reroll_value})
-					unmodified_roll = ar_wmod_result.reroll_value
-				var final_wound_roll = ar_wmod_result.modified_roll
-
-				# 10e rules: Unmodified 1 always fails to wound
-				if unmodified_roll == 1:
+				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+				var wound_eval = AttackSequence.evaluate_wound_roll(roll, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
+				if wound_eval.rerolled:
+					ar_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+				if wound_eval.auto_fail:
 					continue
-
-				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-				var ar_is_critical_wound = (unmodified_roll >= ar_critical_wound_threshold)
-				if ar_is_critical_wound or final_wound_roll >= wound_threshold:
+				if wound_eval.is_wound:
 					wounds_from_rolls += 1
-					# Track critical wounds for Devastating Wounds interaction
-					if ar_weapon_has_devastating_wounds and ar_is_critical_wound:
+					if ar_weapon_has_devastating_wounds and wound_eval.is_crit:
 						ar_critical_wound_count += 1
 					else:
 						ar_regular_wound_count += 1
@@ -2916,24 +2866,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
 		for roll in wound_rolls:
-			# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-			var ar_wmod_result = apply_wound_modifiers(roll, ar_wound_modifiers, wound_threshold, rng)
-			var unmodified_roll = roll
-			if ar_wmod_result.rerolled:
-				ar_wound_reroll_data.append({"original": ar_wmod_result.original_roll, "rerolled_to": ar_wmod_result.reroll_value})
-				unmodified_roll = ar_wmod_result.reroll_value
-			var final_wound_roll = ar_wmod_result.modified_roll
-
-			# 10e rules: Unmodified 1 always fails to wound
-			if unmodified_roll == 1:
+			# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+			var wound_eval = AttackSequence.evaluate_wound_roll(roll, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
+			if wound_eval.rerolled:
+				ar_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+			if wound_eval.auto_fail:
 				continue
-
-			# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-			var ar_is_critical_wound = (unmodified_roll >= ar_critical_wound_threshold)
-			if ar_is_critical_wound or final_wound_roll >= wound_threshold:
+			if wound_eval.is_wound:
 				wounds_from_rolls += 1
-				# Track critical wounds for Devastating Wounds interaction
-				if ar_weapon_has_devastating_wounds and ar_is_critical_wound:
+				if ar_weapon_has_devastating_wounds and wound_eval.is_crit:
 					ar_critical_wound_count += 1
 				else:
 					ar_regular_wound_count += 1
@@ -9076,31 +9017,23 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			print("RulesEngine: CAPTAIN-GENERAL (melee) — ignoring all hit roll modifiers for %s" % attacker_id)
 
 		var melee_hit_reroll_data = []
+		# ISS-012: per-roll evaluation shared with the ranged paths
+		# (AttackSequence.evaluate_hit_roll). melee_crit_threshold covers
+		# Martial Mastery (5+); it is always <= 6, so the legacy redundant
+		# `unmodified == 6` clause is subsumed by the crit check.
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
-			var unmodified_roll = roll
 			# MA-11: Use per-model WS for this attack's threshold
 			var attack_ws = ws_per_attack[i] if i < ws_per_attack.size() else ws
-
-			# Apply hit modifiers (re-rolls first, using HitModifier system)
-			var modifier_result = apply_hit_modifiers(roll, melee_hit_modifiers, rng, attack_ws)
-			roll = modifier_result.modified_roll
-
-			# Track re-rolls for dice log
-			if modifier_result.rerolled:
+			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_ws, melee_hit_modifiers, melee_crit_threshold, rng)
+			if hit_eval.rerolled:
 				melee_hit_reroll_data.append({
-					"original": modifier_result.original_roll,
-					"rerolled_to": modifier_result.reroll_value
+					"original": hit_eval.reroll_from,
+					"rerolled_to": hit_eval.reroll_to
 				})
-				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
-
-			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
-			if unmodified_roll == 1:
-				pass  # Auto-miss
-			elif unmodified_roll >= melee_crit_threshold or unmodified_roll == 6 or roll >= attack_ws:
+			if hit_eval.is_hit:
 				hits += 1
-				# Critical hit = unmodified roll >= threshold (6 normally, 5+ with Martial Mastery)
-				if unmodified_roll >= melee_crit_threshold:
+				if hit_eval.is_crit:
 					critical_hits += 1
 				else:
 					regular_hits += 1
@@ -9250,26 +9183,18 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-				var melee_wmod_result = apply_wound_modifiers(roll, melee_wound_modifiers, wound_threshold, rng)
-				var unmodified_roll = roll
-				if melee_wmod_result.rerolled:
-					melee_wound_reroll_data.append({"original": melee_wmod_result.original_roll, "rerolled_to": melee_wmod_result.reroll_value})
-					unmodified_roll = melee_wmod_result.reroll_value
-				var final_wound_roll = melee_wmod_result.modified_roll
-
-				# 10e rules: Unmodified 1 always fails to wound
-				if unmodified_roll == 1:
+				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+				var wound_eval = AttackSequence.evaluate_wound_roll(roll, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng)
+				if wound_eval.rerolled:
+					melee_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+				if wound_eval.auto_fail:
 					continue
-
-				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-				var melee_is_critical_wound = (unmodified_roll >= melee_critical_wound_threshold)
-				if melee_is_critical_wound or final_wound_roll >= wound_threshold:
+				if wound_eval.is_wound:
 					wounds_from_rolls += 1
 					# OA-19: Track all critical wounds for Hold Still ability
-					if melee_is_critical_wound:
+					if wound_eval.is_crit:
 						all_critical_wound_count += 1
-					if weapon_has_devastating_wounds and melee_is_critical_wound:
+					if weapon_has_devastating_wounds and wound_eval.is_crit:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
@@ -9281,26 +9206,18 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if total_hits_for_wounds > 0:
 			wound_rolls = rng.roll_d6(total_hits_for_wounds)
 			for roll in wound_rolls:
-				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-				var melee_wmod_result = apply_wound_modifiers(roll, melee_wound_modifiers, wound_threshold, rng)
-				var unmodified_roll = roll
-				if melee_wmod_result.rerolled:
-					melee_wound_reroll_data.append({"original": melee_wmod_result.original_roll, "rerolled_to": melee_wmod_result.reroll_value})
-					unmodified_roll = melee_wmod_result.reroll_value
-				var final_wound_roll = melee_wmod_result.modified_roll
-
-				# 10e rules: Unmodified 1 always fails to wound
-				if unmodified_roll == 1:
+				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+				var wound_eval = AttackSequence.evaluate_wound_roll(roll, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng)
+				if wound_eval.rerolled:
+					melee_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+				if wound_eval.auto_fail:
 					continue
-
-				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-				var melee_is_critical_wound = (unmodified_roll >= melee_critical_wound_threshold)
-				if melee_is_critical_wound or final_wound_roll >= wound_threshold:
+				if wound_eval.is_wound:
 					wounds_from_rolls += 1
 					# OA-19: Track all critical wounds for Hold Still ability
-					if melee_is_critical_wound:
+					if wound_eval.is_crit:
 						all_critical_wound_count += 1
-					if weapon_has_devastating_wounds and melee_is_critical_wound:
+					if weapon_has_devastating_wounds and wound_eval.is_crit:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1

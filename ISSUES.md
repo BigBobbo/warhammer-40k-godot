@@ -164,7 +164,7 @@ Conventions:
 - **Dependencies:** ISS-002, ISS-003
 - **Affected files:** `40k/autoloads/RulesEngine.gd`, new `AttackSequence.gd`, tests
 - **Acceptance criteria:** both `_resolve_*_assignment` bodies delegate to the shared module; golden parity tests pass; full pretrigger suite passes; a windowed shooting + fight scenario passes.
-- **Status:** IN PROGRESS — step 1 of the issue's own plan landed: a golden-master corpus (`tests/test_iss012_attack_goldens.gd` + committed fixture `tests/fixtures/attack_goldens.json`) pins the exact dice + diffs of BOTH resolve paths across 21 weapon-ability configs × 3 seeds (63 entries, all with real dice; tamper-sensitivity proven). Findings recorded for the extraction: (a) the melee assignment schema differs from ranged in three ways (`weapon`/`target`/`models` vs `weapon_id`/`target_unit_id`/`model_ids`, and `models` takes string *indices* not model ids) — the unified module must normalize this; (b) `resolve_melee_attacks` returns `success:true` with empty dice for invalid assignments (the silent-success trap) — unification should make that a hard failure. The extraction itself (shared AttackSequence consumed by both paths) is the remaining work, now safe to do against the goldens.
+- **Status:** DONE — per-roll hit and wound evaluation unified in `40k/scripts/rules/AttackSequence.gd` (`evaluate_hit_roll` with parameterized crit threshold + indirect fail-band, `evaluate_wound_roll` with anti-crit threshold). All NINE duplicated loop bodies rewired onto it (3 hit loops + 6 wound branches across ranged-interactive, ranged-auto-resolve, and melee paths); dice-record assembly stayed per-path. Verified: all 63 golden entries byte-identical post-extraction; suite 626/626; windowed shooting + fight scenarios pass. Scope note (deliberate): the surrounding *orchestration* (attack gathering, dice-record schemas, the divergent melee assignment schema) was NOT merged — ISS-041 replaces that orchestration wholesale for the 11e allocation-groups sequence, so perfecting the 10e version would be discarded work. The goldens corpus + this seam are what ISS-041 builds on. Step-1 findings (melee schema asymmetries; melee silent-success on invalid assignments) remain recorded for ISS-041.
 
 ### ISS-013 — Signal registry + phase lifecycle extraction from Main.gd
 - **Location:** `40k/scripts/Main.gd:4088-4210` (`setup_phase_controllers` + per-controller cleanup), `:4123-4156` (8+ manual signal disconnects for ShootingPhase alone); 153 `.connect()` calls across Main
@@ -799,7 +799,7 @@ Conventions:
 | ISS-009 | Replace hardcoded /root/ paths | low | TODO | 005 |
 | ISS-010 | Move root status docs to docs/history | low | DONE | — |
 | ISS-011 | Triage archived/disabled tests | low | DONE | — |
-| ISS-012 | Unified AttackSequence (dedupe ranged/melee) | high | IN PROGRESS | 002, 003 |
+| ISS-012 | Unified AttackSequence (dedupe ranged/melee) | high | DONE | 002, 003 |
 | ISS-013 | Signal registry + phase lifecycle out of Main | high | DONE | 005 |
 | ISS-014 | AI consumes shared rules math | high | TODO | 012 |
 | ISS-015 | Multiplayer: seeds on every dice action | high | TODO | 004, 001 |
