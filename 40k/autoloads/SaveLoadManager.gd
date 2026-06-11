@@ -456,6 +456,14 @@ func _load_game_from_path(file_path: String) -> bool:
 	if game_state.has("meta"):
 		print("SaveLoadManager: Loaded game meta: ", game_state["meta"])
 
+	# ISS-017: validate the loaded state's shape. Warn-only (legacy saves may
+	# predate sections that migrations backfill) but loud enough that a
+	# malformed save is diagnosable instead of failing somewhere downstream.
+	var schema_errors = StateSchema.validate(game_state)
+	if not schema_errors.is_empty():
+		push_warning("SaveLoadManager: loaded state failed schema validation (%d issues): %s" % [
+			schema_errors.size(), "; ".join(schema_errors)])
+
 	# Load state into GameState
 	emit_signal("operation_progress", "loading", "Restoring game state...")
 	print("SaveLoadManager: Loading snapshot into GameState...")

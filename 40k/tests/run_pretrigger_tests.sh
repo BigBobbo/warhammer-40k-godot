@@ -63,6 +63,7 @@ TESTS=(
     "tests/test_iss014_shared_ai_math.gd"
     "tests/test_iss015_mp_seed_sync.gd"
     "tests/test_iss020_public_api.gd"
+    "tests/test_iss017_state_schema.gd"
 )
 
 FAILED=0

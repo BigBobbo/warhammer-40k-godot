@@ -367,8 +367,12 @@ func _set_state_value(path: String, value) -> void:
 			if current is Array and index >= 0 and index < current.size():
 				current = current[index]
 			else:
+				# ISS-017: a silently-dropped diff is a state-corruption bug in
+				# the making — fail loudly so verify_delivery / tests catch it.
+				push_error("PhaseManager: diff path '%s' has out-of-range array index '%s' at segment %d — change DROPPED" % [path, part, i])
 				return
 		else:
+			push_error("PhaseManager: diff path '%s' traverses non-container at segment %d ('%s') — change DROPPED" % [path, i, part])
 			return
 
 	var final_key = parts[-1]
@@ -378,6 +382,10 @@ func _set_state_value(path: String, value) -> void:
 		var index = final_key.to_int()
 		if current is Array and index >= 0 and index < current.size():
 			current[index] = value
+		else:
+			push_error("PhaseManager: diff path '%s' final array index out of range — change DROPPED" % path)
+	else:
+		push_error("PhaseManager: diff path '%s' cannot set key '%s' on %s — change DROPPED" % [path, final_key, type_string(typeof(current))])
 
 func _add_to_state_array(path: String, value) -> void:
 	var parts = path.split(".")

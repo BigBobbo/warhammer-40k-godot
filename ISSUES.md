@@ -224,7 +224,7 @@ Conventions:
 - **Dependencies:** ISS-001
 - **Affected files:** `40k/autoloads/PhaseManager.gd`, new `StateSchema.gd`/`StatePaths.gd`, phases (incremental adoption)
 - **Acceptance criteria:** applying a diff with a bogus path produces a logged error (test); schema validation passes on a fresh game and on every shipped save in `40k/saves` retained as fixtures.
-- **Status:** TODO
+- **Status:** DONE — `PhaseManager._set_state_value` now push_errors (instead of silently returning) on out-of-range array indices, traversal through non-containers, and unsettable final keys; new `40k/scripts/rules/StateSchema.gd` validates top-level sections + meta fields + per-unit shape and provides canonical `path_*` builders (`path_unit_meta`/`path_unit_flag`/`path_model_field`/`path_meta`) for handlers to adopt incrementally; SaveLoadManager validates loaded states (warn-only — legacy saves may predate backfilled sections, per ISS-028). Note: shipped-save fixtures were removed from git in ISS-006, so the fixture half of the acceptance moved to ISS-028's fixture set. Verified by `test_iss017_state_schema.gd` (7/7) incl. proof that bad-path diffs no longer corrupt state; suite green.
 
 ### ISS-018 — Per-phase UI container (replace name-pattern teardown)
 - **Location:** `40k/scripts/Main.gd:9591-9648` (`_clear_right_panel_phase_ui` matches ~30 hardcoded node names + defensive substring pass)
@@ -804,7 +804,7 @@ Conventions:
 | ISS-014 | AI consumes shared rules math | high | DONE | 012 |
 | ISS-015 | Multiplayer: seeds on every dice action | high | DONE | 004, 001 |
 | ISS-016 | Consolidated modifier stack | high | TODO | 003, 012 |
-| ISS-017 | State accessors + diff-path hardening | medium | TODO | 001 |
+| ISS-017 | State accessors + diff-path hardening | medium | DONE | 001 |
 | ISS-018 | Per-phase UI container teardown | medium | TODO | 005, 013 |
 | ISS-019 | Unify ability checks through ability layer | medium | TODO | 003 |
 | ISS-020 | RulesEngine public API for phases | medium | DONE | — |
