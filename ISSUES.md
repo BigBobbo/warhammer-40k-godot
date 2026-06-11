@@ -636,7 +636,7 @@ Conventions:
 - **Dependencies:** ISS-002
 - **Affected files:** `TerrainManager.gd`, `terrain_layouts/*.json`, board rendering, layout editor if any
 - **Acceptance criteria:** migrated layouts load and render; queries unit-tested against a fixture layout (point-in-area, segment-crossing, heights).
-- **Status:** TODO
+- **Status:** IN PROGRESS (model + queries landed; visibility/movement consumers next) — TerrainManager gains the 11e layer over the existing runtime pieces (no layout migration needed yet — current layouts keep working): category derivation per 13.03-13.05 (ruins/woods/building/container → dense; barricade/wall/statuary → light; rest → exposed; explicit `category` field overrides), numeric `height_inches_of` (legacy low/medium/tall labels → 1.5"/3.5"/6.0", explicit field wins), `area_at(point)`, `features_crossing(segment)`, and `is_obscured_between` (13.10's center-line approximation: every-line semantics arrive with ISS-052's full visibility module). `test_iss051_terrain_model_11e.gd` 15/15; suite 832/832. Remaining: multi-feature area boundaries in layout schema v2, and the ISS-052/053/054 consumers.
 
 ### ISS-052 — 11e visibility: fully-visible, Hidden, Obscuring, Solid
 - **Location:** `40k/autoloads/LineOfSightManager.gd`, `40k/autoloads/EnhancedLineOfSight.gd` (562 lines — initial audit overstated as 22.6k), `RulesEngine.gd` `_check_target_visibility`; rules: 06.01, 13.07-13.11, 24.24
@@ -838,7 +838,7 @@ Conventions:
 | ISS-048 | 11e shooting types | high | TODO | 040, 037, 047 |
 | ISS-049 | 11e charge phase | high | TODO | 039, 040 |
 | ISS-050 | 11e fight phase restructure | blocker | TODO | 039, 040, 049 |
-| ISS-051 | 11e terrain data model | blocker | TODO | 002 |
+| ISS-051 | 11e terrain data model | blocker | IN PROGRESS | 002 |
 | ISS-052 | 11e visibility (Hidden/Obscuring/Solid) | blocker | TODO | 051 |
 | ISS-053 | Cover + Plunging Fire as BS modifiers | high | TODO | 051, 052, 016, 041 |
 | ISS-054 | 11e terrain movement + MOBILE | medium | TODO | 051, 040, 037 |

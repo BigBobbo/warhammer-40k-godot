@@ -752,3 +752,89 @@ func load_terrain_from_save(save_data: Array) -> void:
 		_add_terrain_piece(terrain_data.id, pos, size, height_cat, rotation, saved_type, saved_traits)
 
 	emit_signal("terrain_loaded", terrain_features)
+
+
+# ════════════════════════════════════════════════════════════════════
+# ISS-051 (step 1): 11e terrain model — categories + area queries
+# (core rules 13.01-13.05). Derived from the existing runtime pieces so
+# current layouts keep working; layout schema v2 can override per piece
+# via explicit "category" / "height_inches" fields when authored.
+# ════════════════════════════════════════════════════════════════════
+
+## 13.03-13.05 terrain categories.
+const CATEGORY_EXPOSED := "exposed"
+const CATEGORY_LIGHT := "light"
+const CATEGORY_DENSE := "dense"
+
+## Map a runtime terrain piece to its 11e category.
+## Explicit piece "category" wins; otherwise derived from type:
+##   ruins / woods / building / container -> dense (13.05)
+##   barricade / low walls / statuary     -> light (13.04)
+##   craters / debris / razorwire / other -> exposed (13.03)
+static func category_of(piece: Dictionary) -> String:
+	var explicit = str(piece.get("category", ""))
+	if explicit in [CATEGORY_EXPOSED, CATEGORY_LIGHT, CATEGORY_DENSE]:
+		return explicit
+	match str(piece.get("type", "")):
+		"ruins", "woods", "building", "container":
+			return CATEGORY_DENSE
+		"barricade", "wall", "statuary":
+			return CATEGORY_LIGHT
+		_:
+			return CATEGORY_EXPOSED
+
+## Numeric feature height in inches. Explicit "height_inches" wins;
+## otherwise derived from the legacy height_category labels
+## (low <2", medium 2-5", tall >5") at documented representative values.
+static func height_inches_of(piece: Dictionary) -> float:
+	if piece.has("height_inches"):
+		return float(piece.height_inches)
+	match str(piece.get("height_category", "")):
+		"low":
+			return 1.5
+		"medium":
+			return 3.5
+		"tall":
+			return 6.0
+		_:
+			return 0.0
+
+## 13.01: each piece footprint is its terrain AREA (until layouts author
+## multi-feature area boundaries explicitly via schema v2). Returns the
+## piece whose area contains the point, or {} if open ground.
+func area_at(point: Vector2) -> Dictionary:
+	for piece in terrain_features:
+		var poly = piece.get("polygon", PackedVector2Array())
+		if poly.size() >= 3 and Geometry2D.is_point_in_polygon(point, poly):
+			return piece
+	return {}
+
+## Pieces whose footprint the segment from `from_pos` to `to_pos` crosses
+## (entering, leaving, or passing through). Used by 11e obscuring/solid
+## visibility (ISS-052) and movement gating (ISS-054).
+func features_crossing(from_pos: Vector2, to_pos: Vector2) -> Array:
+	var crossed: Array = []
+	for piece in terrain_features:
+		if check_line_intersects_terrain(from_pos, to_pos, piece):
+			crossed.append(piece)
+	return crossed
+
+## True if every line between the two points crosses at least one
+## obscuring (light or dense) feature that NEITHER point is within —
+## the center-line approximation of 13.10 used until ISS-052's full
+## visibility module lands.
+func is_obscured_between(p1: Vector2, p2: Vector2) -> bool:
+	var inside_ids := {}
+	var a1 = area_at(p1)
+	var a2 = area_at(p2)
+	if not a1.is_empty():
+		inside_ids[a1.get("id")] = true
+	if not a2.is_empty():
+		inside_ids[a2.get("id")] = true
+	for piece in features_crossing(p1, p2):
+		if inside_ids.has(piece.get("id")):
+			continue
+		var cat = category_of(piece)
+		if cat == CATEGORY_LIGHT or cat == CATEGORY_DENSE:
+			return true
+	return false
