@@ -1,17 +1,20 @@
 class_name DisembarkMove
 extends MoveType
 
-## 18.04 DISEMBARK MOVE (11e) — modes selected by the TRANSPORT's state
-## this phase, assessed in order (mandatory if applicable):
+## 18.04 DISEMBARK MOVE (11e) — ELIGIBLE IF: embarked, did not embark
+## this phase, and the TRANSPORT has NOT made an advance or fall-back
+## move this phase (those bar disembarking entirely). Modes are then
+## assessed in order (mandatory if applicable):
 ##   ▪ rapid    — the transport made a normal or ingress move this phase.
 ##                SET-UP 3". AFTER: not eligible to declare a charge.
-##   ▪ tactical — the transport remained stationary / hasn't moved yet AND
-##                the unit can be set up. SET-UP 3". AFTER: the unit is
-##                then SELECTED TO MAKE a normal or advance move.
-##   ▪ combat   — otherwise (transport advanced or fell back). SET-UP 6".
-##                BEFORE: a hazard roll per model. WHILE: may set up
-##                engaged with units the transport is engaged with.
-##                AFTER: the unit is battle-shocked and cannot charge.
+##   ▪ tactical — otherwise (stationary / not yet moved) AND the unit CAN
+##                be set up within 3". AFTER: the unit is then SELECTED
+##                TO MAKE a normal or advance move.
+##   ▪ combat   — otherwise (e.g. no room for a tactical set-up, or the
+##                transport is engaged). SET-UP 6". BEFORE: a hazard roll
+##                per model. WHILE: may set up engaged with units the
+##                transport is engaged with. AFTER: battle-shocked and
+##                cannot charge.
 
 func _init():
 	id = "disembark"
@@ -31,8 +34,11 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 		return {"eligible": false, "reasons": ["transport not on the battlefield"]}
 	if unit.get("flags", {}).get("embarked_this_phase", false):
 		return {"eligible": false, "reasons": ["unit embarked this phase (18.04)"]}
-	if transport.get("flags", {}).get("advanced", false) and transport.get("flags", {}).get("moved_this_phase", false) and false:
-		pass  # combat disembark handles advanced transports via mode
+	# 18.04 RAW: an advanced or fallen-back transport bars disembarking.
+	if transport.get("flags", {}).get("advanced", false):
+		return {"eligible": false, "reasons": ["transport made an advance move this phase (18.04)"]}
+	if transport.get("flags", {}).get("fell_back", false):
+		return {"eligible": false, "reasons": ["transport made a fall-back move this phase (18.04)"]}
 	return {"eligible": true, "reasons": []}
 
 func mode_ids() -> Array:
@@ -40,14 +46,18 @@ func mode_ids() -> Array:
 
 ## Mode selection per 18.04's ordered, mandatory-if-applicable rules,
 ## driven by the transport's move history this phase.
-func select_mode(unit_id: String, board: Dictionary) -> Dictionary:
+func select_mode(unit_id: String, board: Dictionary, context: Dictionary = {}) -> Dictionary:
 	var unit = _unit(board, unit_id)
 	var transport = _unit(board, str(unit.get("embarked_in", "")))
 	var tf = transport.get("flags", {})
-	if tf.get("moved_this_phase", false) and not tf.get("advanced", false) and not tf.get("fell_back", false):
-		# normal or ingress move this phase
+	if tf.get("moved_this_phase", false):
+		# normal or ingress move this phase (advance/fall-back are barred
+		# by eligibility before mode selection is reached)
 		return {"mode": "rapid", "mandatory": true, "available": ["rapid"]}
-	if not tf.get("moved_this_phase", false):
+	# Tactical requires that the unit CAN be set up within 3" (18.04);
+	# the caller passes can_setup_tactical=false when the geometry check
+	# fails — combat disembark (6", hazard) is the fallback.
+	if context.get("can_setup_tactical", true):
 		return {"mode": "tactical", "mandatory": true, "available": ["tactical"]}
 	return {"mode": "combat", "mandatory": true, "available": ["combat"]}
 

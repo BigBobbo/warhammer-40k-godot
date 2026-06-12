@@ -73,15 +73,19 @@ func _run_tests():
 	sel = dis.select_mode("U_CARGO", _board({}))
 	_check("transport unmoved -> TACTICAL (mandatory)",
 		sel.mode == "tactical" and sel.mandatory, str(sel))
-	sel = dis.select_mode("U_CARGO", _board({"moved_this_phase": true, "advanced": true}))
-	_check("transport advanced -> COMBAT (mandatory)",
+	_check("transport advanced: NOT eligible to disembark (18.04 RAW)",
+		not dis.eligible("U_CARGO", _board({"moved_this_phase": true, "advanced": true})).eligible)
+	_check("transport fell back: NOT eligible to disembark (18.04 RAW)",
+		not dis.eligible("U_CARGO", _board({"moved_this_phase": true, "fell_back": true})).eligible)
+	sel = dis.select_mode("U_CARGO", _board({}), {"can_setup_tactical": false})
+	_check("tactical set-up impossible -> COMBAT (mandatory fallback)",
 		sel.mode == "combat" and sel.mandatory, str(sel))
 
 	print("\n-- distances + combat hazard --")
 	_check("rapid/tactical set-up distance 3\"", dis.setup_distance_inches({"mode": "rapid"}) == 3.0
 		and dis.setup_distance_inches({"mode": "tactical"}) == 3.0)
 	_check("combat set-up distance 6\"", dis.setup_distance_inches({"mode": "combat"}) == 6.0)
-	var ctx = dis.before_moving("U_CARGO", _board({"advanced": true, "moved_this_phase": true}),
+	var ctx = dis.before_moving("U_CARGO", _board({}),
 		rules.RNGService.new(11), {"mode": "combat"})
 	_check("combat disembark: one hazard roll per model (3)",
 		ctx.hazard.rolls.size() == 3, str(ctx))
@@ -107,6 +111,86 @@ func _run_tests():
 	fx = em.after_moving_effects("U_CARGO", {})
 	_check("emergency: battle-shocked, cannot charge, unembarked",
 		_fx_has(fx, "battle_shocked") and _fx_has(fx, "cannot_charge") and _fx_has(fx, "embarked_in"))
+
+	print("\n-- step 2: TransportManager wiring --")
+	var tm = root.get_node_or_null("TransportManager")
+	var gs = root.get_node_or_null("GameState")
+	_check("TransportManager + GameState present", tm != null and gs != null)
+	# 18.02: a unit set up this turn cannot embark at 11e.
+	gs.state.units["U_TM_TRUKK"] = {"id": "U_TM_TRUKK", "owner": 1, "flags": {},
+		"transport_data": {"capacity": 12, "embarked_units": []},
+		"meta": {"name": "Trukk", "keywords": ["VEHICLE", "TRANSPORT"], "stats": {}},
+		"models": [{"id": "t0", "alive": true, "wounds": 10, "current_wounds": 10,
+			"base_mm": 100, "base_type": "circular", "position": {"x": 800, "y": 800}}]}
+	gs.state.units["U_TM_BOYZ"] = {"id": "U_TM_BOYZ", "owner": 1,
+		"flags": {"set_up_this_turn": true},
+		"meta": {"name": "Boyz", "keywords": ["INFANTRY"], "stats": {}},
+		"models": [{"id": "b0", "alive": true, "wounds": 1, "current_wounds": 1,
+			"base_mm": 32, "base_type": "circular", "position": {"x": 820, "y": 820}}]}
+	var ce = tm.can_embark("U_TM_BOYZ", "U_TM_TRUKK")
+	_check("11e 18.02: unit set up this turn cannot embark",
+		not ce.valid and "18.02" in str(ce.reason), str(ce))
+	gs.state.units["U_TM_BOYZ"].flags.erase("set_up_this_turn")
+	_check("flag cleared: embark allowed", tm.can_embark("U_TM_BOYZ", "U_TM_TRUKK").valid)
+
+	# 18.05 destruction: hazard rolls (1-2 destroy; survivors battle-shocked).
+	gs.state.units["U_TM_BOYZ"].flags["embarked_in"] = ""  # unused; embark via fields
+	gs.state.units["U_TM_BOYZ"]["embarked_in"] = "U_TM_TRUKK"
+	gs.state.units["U_TM_BOYZ"].models.append({"id": "b1", "alive": true, "wounds": 1,
+		"current_wounds": 1, "base_mm": 32, "base_type": "circular", "position": null})
+	gs.state.units["U_TM_BOYZ"].models.append({"id": "b2", "alive": true, "wounds": 1,
+		"current_wounds": 1, "base_mm": 32, "base_type": "circular", "position": null})
+	gs.state.units["U_TM_TRUKK"].transport_data.embarked_units = ["U_TM_BOYZ"]
+	var dres = tm.resolve_transport_destroyed("U_TM_TRUKK")
+	var drolls: Array = dres.per_unit[0].rolls
+	var dfails := 0
+	for r in drolls:
+		if r <= 2:
+			dfails += 1
+	_check("11e destruction: hazard band — every 1-2 destroys a model (rolls %s)" % str(drolls),
+		dres.per_unit[0].casualties == dfails, str(dres.per_unit))
+	var shocked := false
+	for d in dres.diffs:
+		if "battle_shocked" in str(d.path) and d.value == true:
+			shocked = true
+	_check("11e 18.05: emergency-disembarked unit is battle-shocked", shocked)
+
+	# M/V cargo: failures become 3 MW each instead of deaths.
+	gs.state.units["U_TM_TRUKK"].transport_data.embarked_units = ["U_TM_DREAD"]
+	gs.state.units["U_TM_DREAD"] = {"id": "U_TM_DREAD", "owner": 1, "flags": {},
+		"embarked_in": "U_TM_TRUKK",
+		"meta": {"name": "Dread", "keywords": ["VEHICLE", "WALKER"], "stats": {"wounds": 12}},
+		"models": [{"id": "d0", "alive": true, "wounds": 12, "current_wounds": 12,
+			"base_mm": 100, "base_type": "circular", "position": null}]}
+	# Repeat until the single hazard die fails (P(fail)=1/3 per try) so the
+	# 3-MW branch is actually exercised, then assert it.
+	var mfails := 0
+	var dread_wounds := 12
+	var mrolls: Array = []
+	for _try in range(60):
+		gs.state.units["U_TM_DREAD"].models[0]["current_wounds"] = 12
+		gs.state.units["U_TM_DREAD"].models[0]["alive"] = true
+		gs.state.units["U_TM_DREAD"]["embarked_in"] = "U_TM_TRUKK"
+		gs.state.units["U_TM_TRUKK"].transport_data.embarked_units = ["U_TM_DREAD"]
+		var mres = tm.resolve_transport_destroyed("U_TM_TRUKK")
+		mrolls = mres.per_unit[0].rolls
+		mfails = 0
+		for r in mrolls:
+			if r <= 2:
+				mfails += 1
+		dread_wounds = 12
+		for d in mres.diffs:
+			if "U_TM_DREAD" in str(d.path) and str(d.path).ends_with("current_wounds"):
+				dread_wounds = int(d.value)
+		if mfails > 0:
+			break
+	_check("11e 06.03: MONSTER/VEHICLE hazard failure = 3 MW instead of death (fails=%d)" % mfails,
+		mfails > 0 and dread_wounds == 12 - 3 * mfails,
+		"wounds=%d rolls=%s" % [dread_wounds, str(mrolls)])
+	_check("the M/V model survives the hazard (wounded, not slain)",
+		gs.state.units["U_TM_DREAD"].models[0].get("alive", true))
+	for uid in ["U_TM_TRUKK", "U_TM_BOYZ", "U_TM_DREAD"]:
+		gs.state.units.erase(uid)
 
 	GameConstants.edition = 10
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])

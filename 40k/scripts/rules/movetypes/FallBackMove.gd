@@ -33,7 +33,7 @@ func max_distance_inches(unit: Dictionary, _context: Dictionary) -> float:
 func mode_ids() -> Array:
 	return ["ordered_retreat", "desperate_escape"] if GameConstants.edition >= 11 else []
 
-func select_mode(unit_id: String, board: Dictionary) -> Dictionary:
+func select_mode(unit_id: String, board: Dictionary, _context: Dictionary = {}) -> Dictionary:
 	if GameConstants.edition < 11:
 		return {"mode": "", "mandatory": false, "available": []}
 	var unit = _unit(board, unit_id)

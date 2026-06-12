@@ -56,6 +56,14 @@ func can_embark(unit_id: String, transport_id: String) -> Dictionary:
 	if unit.get("disembarked_this_phase", false):
 		return {"valid": false, "reason": "Unit already disembarked this phase"}
 
+	# ISS-058 (11e 18.02): a unit set up on the battlefield this turn
+	# cannot embark.
+	if GameConstants.edition >= 11:
+		var u_flags = unit.get("flags", {})
+		if u_flags.get("set_up_this_turn", false) or u_flags.get("arrived_from_reserves", false) \
+				or u_flags.get("deep_struck", false):
+			return {"valid": false, "reason": "Unit was set up on the battlefield this turn (18.02)"}
+
 	return {"valid": true}
 
 # Check if a unit can disembark from its transport
@@ -345,16 +353,26 @@ func resolve_transport_destroyed(transport_id: String) -> Dictionary:
 			if unit.models[i].get("alive", true):
 				alive_models.append(i)
 
-		# Roll D6 for each disembarking model — on a 1, one model is destroyed
+		# 10e: D6 per model, destroyed on a 1.
+		# 11e (18.05): an emergency disembark move — a HAZARD ROLL (06.03)
+		# per model: destroyed on 1-2 (a MONSTER/VEHICLE model suffers
+		# 3 mortal wounds instead).
 		# Issue #329: route through RNGService so RNGService.test_mode_seed applies for deterministic tests
 		var rng = RulesEngine.make_rng()
 		var casualties = 0
 		var rolls = []
+		var hazard_mortals := 0
+		var fail_at = 2 if GameConstants.edition >= 11 else 1
+		var unit_is_mv = "MONSTER" in unit.get("meta", {}).get("keywords", []) \
+				or "VEHICLE" in unit.get("meta", {}).get("keywords", [])
 		for model_idx in alive_models:
 			var roll = rng.randi_range(1, 6)
 			rolls.append(roll)
-			if roll == 1:
-				casualties += 1
+			if roll <= fail_at:
+				if GameConstants.edition >= 11 and unit_is_mv:
+					hazard_mortals += 3
+				else:
+					casualties += 1
 
 		print("TransportManager: P3-32   %s (%s): %d models disembark, rolls: %s, casualties: %d" % [
 			unit_name, unit_id, alive_models.size(), str(rolls), casualties])
@@ -393,6 +411,24 @@ func resolve_transport_destroyed(transport_id: String) -> Dictionary:
 			"path": "units.%s.disembarked_this_phase" % unit_id,
 			"value": true
 		})
+
+		# ISS-058 (11e 18.05): M/V hazard failures are 3 MW each (06.02
+		# allocation), and the emergency-disembarked unit is battle-shocked.
+		if GameConstants.edition >= 11:
+			if hazard_mortals > 0:
+				var mw_out = Allocation.apply_mortal_wounds_11e(unit, hazard_mortals)
+				for idx in mw_out.remaining:
+					var mi = int(idx)
+					if mi >= 0 and mi < unit.models.size() and int(mw_out.remaining[idx]) != int(unit.models[mi].get("current_wounds", unit.models[mi].get("wounds", 1))):
+						results.diffs.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, mi], "value": int(mw_out.remaining[idx])})
+				for di in mw_out.models_destroyed:
+					results.diffs.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, int(di)], "value": false})
+				results.total_casualties += mw_out.models_destroyed.size()
+			results.diffs.append({
+				"op": "set",
+				"path": "units.%s.flags.battle_shocked" % unit_id,
+				"value": true
+			})
 
 		# Disembarked from destroyed transport: cannot charge this turn
 		results.diffs.append({

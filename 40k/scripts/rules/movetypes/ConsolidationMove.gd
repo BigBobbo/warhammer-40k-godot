@@ -44,7 +44,7 @@ func mode_ids() -> Array:
 
 
 ## 12.08 BEFORE — modes are mandatory-if-applicable, assessed in order.
-func select_mode(unit_id: String, board: Dictionary) -> Dictionary:
+func select_mode(unit_id: String, board: Dictionary, _context: Dictionary = {}) -> Dictionary:
 	var rules = _rules()
 	if rules.is_unit_engaged(unit_id, board):
 		return {"mode": "ongoing", "mandatory": true, "available": ["ongoing"]}

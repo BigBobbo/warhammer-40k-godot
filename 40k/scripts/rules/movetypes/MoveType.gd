@@ -47,7 +47,7 @@ func mode_ids() -> Array:
 ## Select the mode for a unit per the sidebar rules: assess each mode in
 ## order; mandatory-if-applicable modes are chosen automatically. Returns
 ## {mode: String, mandatory: bool, available: Array} ("" = no modes).
-func select_mode(_unit_id: String, _board: Dictionary) -> Dictionary:
+func select_mode(_unit_id: String, _board: Dictionary, _context: Dictionary = {}) -> Dictionary:
 	return {"mode": "", "mandatory": false, "available": []}
 
 
