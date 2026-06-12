@@ -40,7 +40,9 @@ const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movemen
 const OVERLAP_TOLERANCE_PX: float = 0.5
 
 # Movement state tracking
-var active_moves: Dictionary = {}  # unit_id -> move_data
+var active_moves: Dictionary = {}
+# ISS-061: take-to-the-skies declarations awaiting the advance roll.
+var _pending_take_to_skies: Dictionary = {}  # unit_id -> move_data
 var dice_log: Array = []
 var _awaiting_reroll_decision: bool = false
 var _reroll_pending_unit_id: String = ""
@@ -1382,6 +1384,17 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
+	# ISS-061 (11e 21.03/24.17): "take to the skies" — an opt-in FLY
+	# declaration per move (payload.take_to_skies): -2\" cap (0 with
+	# HOVER); the mover ignores vertical distance and may move through
+	# models and terrain (pathing consumers read took_to_skies).
+	var took_to_skies := false
+	if GameConstants.edition >= 11 and action.get("payload", {}).get("take_to_skies", false) \
+			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", []):
+		took_to_skies = true
+		var fly_mod = MoveType.take_to_skies_modifier(GameState.get_unit(unit_id))
+		move_inches = max(0.0, move_inches + fly_mod)
+		log_phase_message("[11e] %s takes to the skies: cap %s\" (%+.1f\"), may move through models and terrain" % [unit_id, str(move_inches), fly_mod])
 
 	# If unit already had staged moves (e.g. switching modes), reset visuals first
 	_reset_staged_visuals_if_needed(unit_id)
@@ -1389,6 +1402,7 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "NORMAL",
+		"took_to_skies": took_to_skies,
 		"mode_locked": false,  # Track if mode is confirmed
 		"completed": false,  # Track if unit has completed movement
 		"move_cap_inches": move_inches,
@@ -1440,6 +1454,11 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
+	# ISS-061 (11e): record the take-to-the-skies declaration; the cap is
+	# applied in _resolve_advance_roll (after the D6 and any rerolls).
+	_pending_take_to_skies[unit_id] = GameConstants.edition >= 11 \
+			and action.get("payload", {}).get("take_to_skies", false) \
+			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
 
 	# If unit already had staged moves (e.g. switching from Normal to Advance), reset visuals early
 	# This ensures visuals are correct even if a reroll dialog delays _resolve_advance_roll
@@ -1540,6 +1559,13 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	"""Resolve an advance roll with the given die value."""
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
+	# ISS-061 (11e 21.03/24.17): apply the recorded take-to-the-skies cap.
+	var took_to_skies: bool = _pending_take_to_skies.get(unit_id, false)
+	_pending_take_to_skies.erase(unit_id)
+	if took_to_skies:
+		var fly_mod = MoveType.take_to_skies_modifier(GameState.get_unit(unit_id))
+		move_inches = max(0.0, move_inches + fly_mod)
+		log_phase_message("[11e] %s takes to the skies: advance cap (%s + %d)\" (%+.1f\")" % [unit_id, str(move_inches), advance_roll, fly_mod])
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
@@ -1549,6 +1575,7 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "ADVANCE",
+		"took_to_skies": took_to_skies,
 		"mode_locked": false,
 		"completed": false,
 		"move_cap_inches": total_move,
@@ -3741,6 +3768,13 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 		"value": GameState.get_battle_round()
 	})
 
+	# ISS-060 step 2 (11e 20.04): the arrival is an INGRESS MOVE — the
+	# template's AFTER effects apply (arrived_from_reserves +
+	# no-other-moves-until-the-next-Charge-phase, so the unit CAN charge).
+	if GameConstants.edition >= 11:
+		changes.append_array(MoveTypes.get_type("ingress").after_moving_effects(unit_id, {}))
+		log_phase_message("[11e] %s arrived via ingress move (may charge; no further moves this phase)" % unit_id)
+
 	# Deploy attached characters that are also in reserves (same logic as PLACE_REINFORCEMENT)
 	var unit = get_unit(unit_id)
 	var attachment_data = unit.get("attachment_data", {})
@@ -3924,6 +3958,17 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
+	# ISS-061 (11e 21.03/24.17): "take to the skies" — an opt-in FLY
+	# declaration per move (payload.take_to_skies): -2\" cap (0 with
+	# HOVER); the mover ignores vertical distance and may move through
+	# models and terrain (pathing consumers read took_to_skies).
+	var took_to_skies := false
+	if GameConstants.edition >= 11 and action.get("payload", {}).get("take_to_skies", false) \
+			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", []):
+		took_to_skies = true
+		var fly_mod = MoveType.take_to_skies_modifier(GameState.get_unit(unit_id))
+		move_inches = max(0.0, move_inches + fly_mod)
+		log_phase_message("[11e] %s takes to the skies: cap %s\" (%+.1f\"), may move through models and terrain" % [unit_id, str(move_inches), fly_mod])
 
 	# If unit already had staged moves (e.g. switching modes), reset visuals first
 	_reset_staged_visuals_if_needed(unit_id)
@@ -3931,6 +3976,7 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "FALL_BACK",
+		"took_to_skies": took_to_skies,
 		"mode_locked": false,  # Track if mode is confirmed
 		"completed": false,  # Track if unit has completed movement
 		"move_cap_inches": move_inches,
@@ -5009,6 +5055,33 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 			return {"valid": false, "errors": errors}
 		DebugLogger.info(str("MovementPhase: P2-80 — Unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id)))
 
+	# ISS-060 step 2 (11e 20.04/24.09): reinforcements arrive via an
+	# INGRESS MOVE — set-up validation through the template: wholly
+	# within 6\" of a battlefield edge (lifted by Deep Strike), more than
+	# 8\" from all enemies (vs 10e's 9\"), and not in the opponent's
+	# deployment zone before battle round 3.
+	if GameConstants.edition >= 11:
+		var ingress_tmpl = MoveTypes.get_type("ingress")
+		var pos_vecs: Array = []
+		for p in model_positions:
+			if p == null:
+				continue
+			if p is Array:
+				pos_vecs.append(Vector2(p[0], p[1]))
+			elif p is Dictionary:
+				pos_vecs.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
+			else:
+				pos_vecs.append(p)
+		var ingress_check = ingress_tmpl.validate_setup(unit_id, GameState.state, pos_vecs, {
+			"battle_round": battle_round,
+			"deep_strike": placement_type == "deep_strike",
+			"board_size_inches": Vector2(GameState.state.board.size.width, GameState.state.board.size.height),
+		})
+		if not ingress_check.valid:
+			return {"valid": false, "errors": ingress_check.errors}
+		log_phase_message("[11e] Ingress set-up validated for %s (%s, round %d)" % [unit_id, placement_type, battle_round])
+		return {"valid": true, "errors": []}
+
 	# Validate model positions
 	if model_positions is Array:
 		var board_width = GameState.state.board.size.width  # 44 inches
@@ -5152,6 +5225,13 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 		"path": "units.%s.arrived_from_reserves_turn" % unit_id,
 		"value": GameState.get_battle_round()
 	})
+
+	# ISS-060 step 2 (11e 20.04): the arrival is an INGRESS MOVE — the
+	# template's AFTER effects apply (arrived_from_reserves +
+	# no-other-moves-until-the-next-Charge-phase, so the unit CAN charge).
+	if GameConstants.edition >= 11:
+		changes.append_array(MoveTypes.get_type("ingress").after_moving_effects(unit_id, {}))
+		log_phase_message("[11e] %s arrived via ingress move (may charge; no further moves this phase)" % unit_id)
 
 	# Deploy attached characters that are also in reserves
 	# Per 10e rules, attached characters arrive together with their bodyguard
