@@ -310,6 +310,12 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 # ============================================================================
 
 func _do_screenshot(step: Dictionary) -> Dictionary:
+	# Screenshot hygiene: the PhaseTransitionBanner lingers mid-screen and
+	# obscures the board in captures — hide it (it re-shows on the next
+	# phase change, so live play is unaffected).
+	var banner = get_tree().root.find_child("PhaseTransitionBanner", true, false)
+	if banner != null and banner.visible:
+		banner.visible = false
 	var label: String = str(step.get("label", "step"))
 	var scenario_id: String = str(_scenario.get("id", "unnamed"))
 	var dir_path = "user://%s" % RESULTS_SUBDIR

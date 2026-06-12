@@ -1,0 +1,138 @@
+{
+  "id": "iss049_charge_11e",
+  "covers": [
+    "phases.ChargePhase.11e_charge_flow",
+    "movetypes.ChargeMove11e"
+  ],
+  "fixture": "audit_372_charge_modifier",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "ISS-049 step 2: at edition 11 ChargePhase drives the ChargeMove11e template. (1) A unit with no enemy within 12\" cannot declare (template veto); (2) DECLARE_CHARGE with an EMPTY target list is legal at 11e (targets are selected after the roll, 11.02); (3) CHARGE_ROLL computes selectable_targets = enemies within 12\" AND within the roll; (4) APPLY_CHARGE_MOVE rejects a target outside the selectable list.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 9
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "screenshot",
+      "label": "01_charge_phase_edition_11"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLARE_CHARGE",
+        "actor_unit_id": "U_STRIKE_FORCE_A",
+        "payload": {
+          "target_unit_ids": []
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLARE_CHARGE",
+        "actor_unit_id": "U_BOYZ_E",
+        "payload": {
+          "target_unit_ids": []
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_charge_declared_no_targets_11e"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CHARGE_ROLL",
+        "actor_unit_id": "U_BOYZ_E",
+        "payload": {
+          "rng_seed": 7
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_charges[\"U_BOYZ_E\"].has(\"selectable_targets\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().pending_charges[\"U_BOYZ_E\"][\"selectable_targets\"])",
+      "equals": "[\"U_SHIELD_CAPTAIN_A\"]"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_charges[\"U_BOYZ_E\"][\"distance\"]",
+      "equals": 10
+    },
+    {
+      "act": "screenshot",
+      "label": "03_charge_roll_selectable_targets"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "APPLY_CHARGE_MOVE",
+        "actor_unit_id": "U_BOYZ_E",
+        "payload": {
+          "target_unit_ids": [
+            "U_WITCHSEEKERS_C"
+          ],
+          "per_model_paths": {
+            "m1": [
+              [
+                1290.3,
+                1630.5
+              ],
+              [
+                1280.3,
+                1630.5
+              ]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "04_nonselectable_target_rejected"
+    }
+  ]
+}

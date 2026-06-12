@@ -310,7 +310,11 @@ func _validate_declare_charge(action: Dictionary) -> Dictionary:
 	if unit_id == "":
 		return {"valid": false, "errors": ["Missing actor_unit_id"]}
 	
-	if target_ids.is_empty():
+	# ISS-049 step 2 (11e 11.02): targets are selected AFTER the charge
+	# roll — declaring with an empty target list is legal at edition >= 11
+	# (it commits the unit to charging; selectable targets arrive with the
+	# roll). Pre-declared targets are still validated below.
+	if target_ids.is_empty() and GameConstants.edition < 11:
 		return {"valid": false, "errors": ["Missing target_unit_ids"]}
 	
 	var unit = get_unit(unit_id)
@@ -320,7 +324,11 @@ func _validate_declare_charge(action: Dictionary) -> Dictionary:
 	if unit.get("owner", 0) != get_current_player():
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 	
-	if not _can_unit_charge(unit):
+	if GameConstants.edition >= 11:
+		var el_11e = MoveTypes.get_type("charge").eligible(unit_id, GameState.state)
+		if not el_11e.eligible:
+			return {"valid": false, "errors": el_11e.reasons}
+	elif not _can_unit_charge(unit):
 		return {"valid": false, "errors": ["Unit cannot charge"]}
 
 	if unit_id in completed_charges:
@@ -378,6 +386,22 @@ func _validate_apply_charge_move(action: Dictionary) -> Dictionary:
 	var charge_data = pending_charges[unit_id]
 	if not charge_data.has("distance"):
 		return {"valid": false, "errors": ["No charge distance available"]}
+
+	# ISS-049 step 2 (11e 11.02): the post-roll target selection arrives
+	# with the move; it must come from the selectable list (within 12"
+	# AND within the roll). pending_charges is phase-local scratch, so
+	# recording the selection here (before constraint validation, which
+	# reads it) is safe.
+	if GameConstants.edition >= 11:
+		var sel_targets: Array = payload.get("target_unit_ids", [])
+		if not sel_targets.is_empty():
+			var selectable: Array = charge_data.get("selectable_targets", [])
+			for tid in sel_targets:
+				if not tid in selectable:
+					return {"valid": false, "errors": ["Target %s is not selectable (must be within 12\" and within the charge roll, 11.02)" % tid]}
+			charge_data.targets = sel_targets
+		if charge_data.targets.is_empty():
+			return {"valid": false, "errors": ["No charge targets selected (11e: select targets after the roll)"]}
 	
 	# Validate all movement constraints
 	var validation = _validate_charge_movement_constraints(unit_id, per_model_paths, charge_data)
@@ -539,6 +563,25 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	charge_data.distance = total_distance
 	charge_data.dice_rolls = rolls
 
+	# ISS-049 step 2 (11e 11.02): the roll IS the maximum distance —
+	# targets are selected after the roll, from enemies within 12" AND
+	# within the roll (the pg-37 example). Pre-declared targets that the
+	# roll cannot reach are dropped.
+	if GameConstants.edition >= 11:
+		var tmpl_11e = MoveTypes.get_type("charge")
+		var selectable: Array = tmpl_11e._targets_within(unit_id, GameState.state, min(12.0, float(total_distance)))
+		charge_data["selectable_targets"] = selectable
+		if not charge_data.targets.is_empty():
+			var kept: Array = []
+			for tid in charge_data.targets:
+				if tid in selectable:
+					kept.append(tid)
+				else:
+					log_phase_message("[11e] Charge target %s beyond the roll (%d\") — dropped" % [tid, total_distance])
+			charge_data.targets = kept
+		log_phase_message("[11e] Selectable charge targets after roll of %d: %s" % [total_distance, str(selectable)])
+		emit_signal("charge_targets_available", unit_id, selectable)
+
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var target_ids = charge_data.targets
 
@@ -662,6 +705,18 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	# Server-side feasibility check: can any model reach engagement range?
 	var roll_sufficient = _is_charge_roll_sufficient(unit_id, total_distance)
 	var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
+
+	# ISS-049 step 2 (11e 11.02): with no pre-declared targets, success is
+	# judged against the SELECTABLE list (enemies within 12" AND the roll)
+	# — the player picks targets with the move. Only an empty selectable
+	# list is a failed charge.
+	if GameConstants.edition >= 11 and target_ids.is_empty():
+		var selectable_11e: Array = charge_data.get("selectable_targets", [])
+		roll_sufficient = not selectable_11e.is_empty()
+		min_distance = _get_min_distance_to_any_target(unit_id, selectable_11e)
+		log_phase_message("[11e] No pre-declared targets — charge %s (selectable: %s)" % [
+			"continues, select targets with the move" if roll_sufficient else "FAILED (nothing reachable)",
+			str(selectable_11e)])
 
 	# Build dice result with success/failure flag so clients don't need to recompute
 	var dice_result = {
