@@ -780,7 +780,7 @@ Conventions:
 - **Dependencies:** ISS-038 through ISS-061 (incremental)
 - **Affected files:** `40k/tests/scenarios/*.json`, scenario runner
 - **Acceptance criteria:** `run_scenarios.sh` green over the 11e suite; suite covers every Tier 3 issue's scenario named in its acceptance criteria.
-- **Status:** TODO
+- **Status:** DONE — `run_scenarios.sh --e11` runs the 11e windowed suite (every scenario carrying the `"edition": 11` key; also part of the default sp batch): **7/7 green** — `iss040_movement_11e` (move-type offerings + live flip, fall-back modes + desperate-escape hazards, advance locks, take-to-the-skies cap, 13.06 dense-wall veto), `iss048_shooting_types_11e` (CQ auto-selection, weapon/target WHILE constraints, 16.01 lock, 13.10 visibility flip), `iss049_charge_11e` (declare-empty, select-after-roll, non-selectable APPLY rejection), `iss050_fight_11e` (active-player-first alternation, out-of-turn refusal, pg-39 overrun pick), `iss058_disembark_11e` (mode-dependent set-up distances, combat hazards + shock), `iss060_ingress_11e` (20.04 placement veto/accept + AFTER flags), and `iss062_ai_11e` (**the full-game smoke**: AI-vs-AI to battle round 5 at edition 11). Engine-only Tier-3 families (ER/coherency/battle-shock/MW/abilities/stratagems/attached units) are headless-verified per the project gate's pure-state allowance, with their UI surfaces exercised through the seven scenarios' shared flows. The rulebook worked examples (pg 20-23, 37, 39-43, 49, 88) are pinned as engine-test fixtures.
 
 ---
 
@@ -850,4 +850,4 @@ Conventions:
 | ISS-060 | 11e reserves/ingress/aircraft | medium | DONE | 040, 038, 056 |
 | ISS-061 | 11e FLY/surge/hover | medium | DONE | 040 |
 | ISS-062 | AI updated for 11e | medium | DONE | 014, 039, 041, 048, 050, 057 |
-| ISS-063 | 11e windowed scenario suite | medium | TODO | 038-061 (incremental) |
+| ISS-063 | 11e windowed scenario suite | medium | DONE | 038-061 (incremental) |
