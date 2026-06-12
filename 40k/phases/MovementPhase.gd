@@ -961,6 +961,21 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Model has no current position"]}
 	
 	var distance_inches = Measurement.distance_inches(current_pos, dest_vec)
+
+	# ISS-054 (11e 13.06): dense terrain blocks non-INFANTRY/BEASTS/
+	# SWARM/MOBILE models when a crossed section is >2\" high (>4\" with
+	# SUPER-HEAVY WALKER) — the 2D board cannot path the mandated
+	# vertical traversal, so the segment is refused.
+	if GameConstants.edition >= 11:
+		# Take-to-the-skies movers pass over models and terrain (21.03).
+		var flying_54: bool = active_moves.has(unit_id) and active_moves[unit_id].get("took_to_skies", false)
+		var tm_54 = get_node_or_null("/root/TerrainManager")
+		if not flying_54 and tm_54 != null and tm_54.has_method("can_move_through_11e"):
+			var kw_54 = GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
+			var trav = tm_54.can_move_through_11e(kw_54, current_pos, dest_vec)
+			if not trav.allowed:
+				return {"valid": false, "errors": ["Dense terrain blocks this model's path (13.06): %s" % str(trav.blockers)]}
+
 	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
 	var terrain_penalty = _get_movement_terrain_penalty(current_pos, dest_vec, unit_id)
 	var effective_distance = distance_inches + terrain_penalty

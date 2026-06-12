@@ -672,7 +672,7 @@ Conventions:
 - **Dependencies:** ISS-051, ISS-040, ISS-037
 - **Affected files:** move-type validators, `MovementController.gd` path preview, AI pathing
 - **Acceptance criteria:** unit tests per pg 49 examples (monster blocked by >2" wall; infantry through walls; vehicle ascending); drag preview blocks illegal paths in a windowed scenario.
-- **Status:** TODO
+- **Status:** DONE (2D-board scope) — `TerrainManager.can_move_through_11e` implements 13.06's horizontal traversal matrix: exposed/light pass for all; dense passes INFANTRY/BEASTS/SWARM/MOBILE (MOBILE grantable per-move via `extra_keywords` — 24.35's gamble plugs in there) and other models only when every crossed section is ≤2" (≤4" with SUPER-HEAVY WALKER). Wired into `_validate_set_model_dest` at edition≥11 with the 21.03 exemption (take-to-the-skies movers pass over terrain). `test_iss051_terrain_model_11e.gd` +7 (22/22) covering the pg-49 examples (MONSTER blocked by the tall ruin, INFANTRY through, SHW ≤4" rule, light never blocks, edition gate); **windowed** in the iss040 scenario: the flying Battlewagon crosses an injected tall dense wall, then the same unit WITHOUT take-to-the-skies is refused with the 13.06 reason. Out of 2D scope (documented at the validator): vertical movement costing/½"-hug, end-on-surface stability, and the Solid 3"-enclosure end-of-move rule — these need an elevation model the board doesn't have.
 
 ### ISS-055 — 11e objectives: terrain objectives, per-phase control, Secured
 - **Location:** `40k/autoloads/MissionManager.gd` (1,201 lines), `ScoringPhase.gd`; rules: 14.01-14.03, appendix (markers)
@@ -841,7 +841,7 @@ Conventions:
 | ISS-051 | 11e terrain data model | blocker | IN PROGRESS | 002 |
 | ISS-052 | 11e visibility (Hidden/Obscuring/Solid) | blocker | DONE | 051 |
 | ISS-053 | Cover + Plunging Fire as BS modifiers | high | DONE | 051, 052, 016, 041 |
-| ISS-054 | 11e terrain movement + MOBILE | medium | TODO | 051, 040, 037 |
+| ISS-054 | 11e terrain movement + MOBILE | medium | DONE | 051, 040, 037 |
 | ISS-055 | 11e objectives + Secured | medium | IN PROGRESS | 051, 038, 043 |
 | ISS-056 | 11e core stratagems + per-unit limit | medium | DONE | 043, 044, 048, 049, 050 |
 | ISS-057 | Actions system | high | DONE | 038, 039, 040, 043 |

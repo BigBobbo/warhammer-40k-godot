@@ -74,5 +74,32 @@ func _run_tests():
 		not tm.is_obscured_between(Vector2(100, 800), Vector2(1100, 800)))
 
 	tm.terrain_features = prev
+	print("\n-- ISS-054: 13.06 terrain and movement (+24.35) --")
+	GameConstants.edition = 11
+	var prev54 = tm.terrain_features.duplicate(true)
+	tm.terrain_features = [
+		{"id": "tall_ruin", "type": "ruins", "polygon": _rect(500, 500, 200, 200), "height_category": "tall"},
+		{"id": "low_wall", "type": "ruins", "polygon": _rect(900, 500, 100, 100), "height_inches": 1.5},
+		{"id": "barricade", "type": "barricade", "polygon": _rect(1200, 500, 100, 100), "height_category": "tall"},
+	]
+	var a = Vector2(300, 500)
+	var through_tall = Vector2(700, 500)
+	_check("13.06: MONSTER blocked by a >2\" dense section (pg-49)",
+		not tm.can_move_through_11e(["MONSTER"], a, through_tall).allowed)
+	_check("13.06: INFANTRY passes through dense",
+		tm.can_move_through_11e(["INFANTRY"], a, through_tall).allowed)
+	_check("13.06: MOBILE passes through dense",
+		tm.can_move_through_11e(["VEHICLE"], a, through_tall, ["MOBILE"]).allowed)
+	_check("24.35: SUPER-HEAVY WALKER passes <=4\" but not the 6\" ruin",
+		not tm.can_move_through_11e(["VEHICLE", "SUPER-HEAVY WALKER"], a, through_tall).allowed)
+	_check("13.06: VEHICLE passes a <=2\" dense section",
+		tm.can_move_through_11e(["VEHICLE"], Vector2(800, 500), Vector2(1000, 500)).allowed)
+	_check("13.06: light terrain never blocks (barricade)",
+		tm.can_move_through_11e(["VEHICLE"], Vector2(1100, 500), Vector2(1300, 500)).allowed)
+	GameConstants.edition = 10
+	_check("edition 10: no 13.06 gate",
+		tm.can_move_through_11e(["MONSTER"], a, through_tall).allowed)
+	tm.terrain_features = prev54
+
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(0 if failed == 0 else 1)

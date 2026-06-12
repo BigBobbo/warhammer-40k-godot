@@ -968,6 +968,40 @@ func unit_fully_visible_11e(observer: Dictionary, unit: Dictionary) -> bool:
 	return any
 
 
+## ISS-054 — 13.06 TERRAIN AND MOVEMENT (+24.35 SUPER-HEAVY WALKER),
+## 2D approximation. Horizontal traversal along from→to:
+##   ▪ exposed/light: every model passes.
+##   ▪ dense: INFANTRY/BEASTS/SWARM/MOBILE pass; other models pass only
+##     when every crossed dense feature is ≤2" high (≤4" with
+##     SUPER-HEAVY WALKER) — taller sections demand vertical movement,
+##     which the 2D board does not path (callers refuse the segment).
+## MOBILE may be granted per-move (e.g. 24.35's gamble) via the
+## extra_keywords argument.
+func can_move_through_11e(model_keywords: Array, from_pos: Vector2, to_pos: Vector2, extra_keywords: Array = []) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {"allowed": true, "blockers": []}
+	var kws: Array = []
+	for k in model_keywords:
+		kws.append(str(k).to_upper())
+	for k in extra_keywords:
+		kws.append(str(k).to_upper())
+	var passes_dense := false
+	for k in ["INFANTRY", "BEASTS", "SWARM", "MOBILE"]:
+		if k in kws:
+			passes_dense = true
+			break
+	var height_limit := 4.0 if "SUPER-HEAVY WALKER" in kws else 2.0
+	var blockers: Array = []
+	for piece in features_crossing(from_pos, to_pos):
+		if category_of(piece) != CATEGORY_DENSE:
+			continue  # exposed/light: all models pass (13.06)
+		if passes_dense:
+			continue
+		if height_inches_of(piece) > height_limit:
+			blockers.append(str(piece.get("id", piece.get("type", "terrain"))))
+	return {"allowed": blockers.is_empty(), "blockers": blockers}
+
+
 ## ISS-053 (step 1) — 13.08 BENEFIT OF COVER qualification (the in-area
 ## half; the not-fully-visible half arrives with ISS-052's fully-visible
 ## module). A unit has the benefit of cover against a ranged attack when
