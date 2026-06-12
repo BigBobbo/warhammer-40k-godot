@@ -68,15 +68,13 @@ func _run_tests():
 func _new_phase():
 	var ShootingPhaseScript = load("res://phases/ShootingPhase.gd")
 	var phase = ShootingPhaseScript.new()
-	# Provide a minimal snapshot so get_unit returns something with a name
-	phase.game_state_snapshot = {
-		"units": {
-			"U_SHOOTER_A": {"meta": {"name": "Boyz Mob"}, "owner": 1, "models": []},
-			"U_SHOOTER_B": {"meta": {"name": "Lootas"}, "owner": 1, "models": []},
-			"U_TARGET_X":  {"meta": {"name": "Intercessors"}, "owner": 2, "models": []},
-			"U_TARGET_Y":  {"meta": {"name": "Terminators"}, "owner": 2, "models": []}
-		}
-	}
+	# ISS-024: the phase snapshot is a live view — seed the test units
+	# into GameState so get_unit resolves names (merged, not replaced, so
+	# other tests in this file keep working; ids are test-unique).
+	root.get_node("GameState").state["units"]["U_SHOOTER_A"] = {"meta": {"name": "Boyz Mob"}, "owner": 1, "models": []}
+	root.get_node("GameState").state["units"]["U_SHOOTER_B"] = {"meta": {"name": "Lootas"}, "owner": 1, "models": []}
+	root.get_node("GameState").state["units"]["U_TARGET_X"] = {"meta": {"name": "Intercessors"}, "owner": 2, "models": []}
+	root.get_node("GameState").state["units"]["U_TARGET_Y"] = {"meta": {"name": "Terminators"}, "owner": 2, "models": []}
 	return phase
 
 func _completed_weapon_entry(weapon_id: String, target_id: String, target_name: String, hits: int, wounds: int, saves_failed: int, casualties: int) -> Dictionary:

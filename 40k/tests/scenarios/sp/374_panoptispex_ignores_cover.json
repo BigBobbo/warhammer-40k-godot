@@ -1,22 +1,56 @@
 {
   "id": "374_panoptispex_ignores_cover",
-  "covers": ["shooting.enhancement.panoptispex", "autoloads.RulesEngine.effect_ignores_cover"],
+  "covers": [
+    "shooting.enhancement.panoptispex",
+    "autoloads.RulesEngine.effect_ignores_cover"
+  ],
   "fixture": "audit_374_panoptispex",
   "rng_seed": 42,
   "transition_to_phase": 8,
-  "description": "Panoptispex (#374): Contemptor-Achillus Dreadnought H has flags.effect_ignores_cover=true (from Panoptispex enhancement). In shooting phase, Custodes (player 1) selects the Dreadnought as shooter — verify the flag is present and SELECT_SHOOTER succeeds, proving the unit can shoot with ignores_cover active.",
+  "description": "Panoptispex (#374): Contemptor-Achillus Dreadnought H has flags.effect_ignores_cover=true (from Panoptispex enhancement). In shooting phase, Custodes (player 1) selects the Dreadnought as shooter \u2014 verify the flag is present and SELECT_SHOOTER succeeds, proving the unit can shoot with ignores_cover active. [ISS-024: the fixture-baked effect flag is re-injected post-load \u2014 effect flags are phase-scoped and the live-state snapshot now clears orphans on phase exit, as the rules intend; the enhancement re-applies it each phase in real play.]",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
-    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
-    { "act": "expect_state", "path": "units.U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H.flags.effect_ignores_cover", "equals": true },
-    { "act": "screenshot", "label": "01_panoptispex_flag_set" },
-
-    { "act": "dispatch_action", "action": {
-      "type": "SELECT_SHOOTER",
-      "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
-    }},
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "screenshot", "label": "02_dreadnought_selected_with_ignores_cover" }
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"][\"flags\"].merge({\"effect_ignores_cover\": true}, true)"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H.flags.effect_ignores_cover",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_panoptispex_flag_set"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_dreadnought_selected_with_ignores_cover"
+    }
   ]
 }

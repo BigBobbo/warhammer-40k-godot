@@ -3290,11 +3290,11 @@ func _process_use_epic_challenge(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Player %d uses EPIC CHALLENGE on %s — melee attacks gain [PRECISION]" % [player, unit_name])
 
-	# Apply the flag to the game state snapshot so RulesEngine can see it
-	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
-		if not game_state_snapshot.units[unit_id].has("flags"):
-			game_state_snapshot.units[unit_id]["flags"] = {}
-		game_state_snapshot.units[unit_id].flags[EffectPrimitivesData.FLAG_PRECISION_MELEE] = true
+	# ISS-024: apply through the pipeline (the snapshot is a live view —
+	# direct writes would bypass replay/MP sync).
+	PhaseManager.apply_state_changes([{"op": "set",
+		"path": "units.%s.flags.%s" % [unit_id, EffectPrimitivesData.FLAG_PRECISION_MELEE],
+		"value": true}])
 
 	# Check for Martial Ka'tah before proceeding to pile-in
 	var katah_result = _check_katah_or_proceed_to_pile_in(unit_id)
@@ -3491,22 +3491,22 @@ func _process_select_katah_stance(action: Dictionary) -> Dictionary:
 
 	log_phase_message("MARTIAL KA'TAH: %s assumes %s stance" % [unit_name, stance_result.get("stance_display", stance)])
 
-	# Also apply the flag to the game state snapshot so RulesEngine can see it during this fight
-	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
-		if not game_state_snapshot.units[unit_id].has("flags"):
-			game_state_snapshot.units[unit_id]["flags"] = {}
+	# ISS-024: apply through the pipeline (the snapshot is a live view).
+	var katah_diffs: Array = []
+	if true:
 		if stance == "both":
-			game_state_snapshot.units[unit_id].flags["effect_sustained_hits"] = true
-			game_state_snapshot.units[unit_id].flags["effect_lethal_hits"] = true
-			game_state_snapshot.units[unit_id].flags["katah_stance"] = "both"
-			game_state_snapshot.units[unit_id].flags["katah_sustained_hits_value"] = 1
+			for kf in [["effect_sustained_hits", true], ["effect_lethal_hits", true],
+					["katah_stance", "both"], ["katah_sustained_hits_value", 1]]:
+				katah_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [unit_id, kf[0]], "value": kf[1]})
 		elif stance == "dacatarai":
-			game_state_snapshot.units[unit_id].flags["effect_sustained_hits"] = true
-			game_state_snapshot.units[unit_id].flags["katah_stance"] = "dacatarai"
-			game_state_snapshot.units[unit_id].flags["katah_sustained_hits_value"] = 1
+			for kf in [["effect_sustained_hits", true], ["katah_stance", "dacatarai"],
+					["katah_sustained_hits_value", 1]]:
+				katah_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [unit_id, kf[0]], "value": kf[1]})
 		elif stance == "rendax":
-			game_state_snapshot.units[unit_id].flags["effect_lethal_hits"] = true
-			game_state_snapshot.units[unit_id].flags["katah_stance"] = "rendax"
+			for kf in [["effect_lethal_hits", true], ["katah_stance", "rendax"]]:
+				katah_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [unit_id, kf[0]], "value": kf[1]})
+	if not katah_diffs.is_empty():
+		PhaseManager.apply_state_changes(katah_diffs)
 
 	# After Ka'tah — check for Dread Foe, then proceed to pile-in
 	return _resolve_dread_foe_then_pile_in(unit_id)

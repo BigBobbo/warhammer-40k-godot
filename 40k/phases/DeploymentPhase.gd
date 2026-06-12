@@ -107,7 +107,10 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		errors.append("Unit not found: " + unit_id)
-	elif unit.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
+	elif not unit.get("status", 0) in [GameStateData.UnitStatus.UNDEPLOYED, GameStateData.UnitStatus.DEPLOYING]:
+		# ISS-024: DEPLOYING is the mid-staging status the controller sets
+		# while models are being placed — confirming from that state is
+		# the normal flow (the old per-phase snapshot hid the transition).
 		errors.append("Unit is not available for deployment: " + unit_id)
 
 	# Check if unit belongs to active player

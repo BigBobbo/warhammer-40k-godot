@@ -82,7 +82,10 @@ func _run_tests():
 			{"id": "m2", "position": Vector2(0, 0), "base_mm": 32, "base_type": "circular", "alive": true}
 		]
 	}
-	mp.game_state_snapshot = {"units": {"U_TEST": test_unit}}
+	# ISS-024: the phase snapshot is a live view — seed the unit into
+	# GameState (and restore after the probe below).
+	var _prev_units_m6 = root.get_node("GameState").state.get("units", {})
+	root.get_node("GameState").state["units"] = {"U_TEST": test_unit}
 	mp.active_moves = {}
 
 	var pos_touching = Vector2(150.0, 100.0)
@@ -99,6 +102,7 @@ func _run_tests():
 	_check("Full path: real overlap (20px) still rejected",
 		overlaps_clearly,
 		"_position_overlaps_other_models returned false")
+	root.get_node("GameState").state["units"] = _prev_units_m6
 
 	mp.queue_free()
 	_finish()

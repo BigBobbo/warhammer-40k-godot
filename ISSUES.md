@@ -308,7 +308,7 @@ Conventions:
 - **Dependencies:** ISS-001, ISS-017
 - **Affected files:** `40k/phases/BasePhase.gd`, all phase files
 - **Acceptance criteria:** no hand-patching of `game_state_snapshot` remains; suite + one windowed scenario per phase passes.
-- **Status:** TODO
+- **Status:** DONE — `BasePhase.game_state_snapshot` is now a PROPERTY over live `GameState.state` (getter returns live state; assignments are no-ops), so no phase can act on stale data and every hand-patch site becomes an idempotent live write; the per-action `create_snapshot()` refresh (a full deep-copy per action) is deleted. FightPhase's direct snapshot writes (Epic Challenge [PRECISION], Ka'tah stance flags) now route through `PhaseManager.apply_state_changes` so replay/MP observe them. **The live view exposed three latent bugs the stale snapshots had been masking**: (1) DeploymentPhase's validator refused units in the DEPLOYING mid-staging status (now accepted — it's the normal confirm flow); (2) two test files injected synthetic snapshots into phase instances (now seed GameState directly); (3) two scenarios relied on fixture-baked orphan effect flags surviving phase-exit clearing that only ever wiped the snapshot copy — effect flags ARE phase-scoped, so the scenarios now re-inject them post-load as their enhancements would. Full headless suite 1130/1130 + full 77-scenario windowed batch green after fixes.
 
 ### ISS-025 — Clarify TurnManager vs PhaseManager ownership
 - **Location:** `40k/autoloads/TurnManager.gd:25,73` (reacts to phase events, owns deployment alternation/roll-off), `40k/autoloads/PhaseManager.gd:51,137` (owns transitions and also applies state changes)
@@ -440,7 +440,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** `SaveLoadManager.gd`, `AIPlayer.gd`
 - **Acceptance criteria:** autosave fires during/after an AI turn without error; deferred autosave survives a forced phase transition; reproduction documented either way.
-- **Status:** TODO
+- **Status:** DONE (verified — claims partly false, one hardening added) — `AIPlayer.is_thinking()` EXISTS (AIPlayer.gd:206; the missing-method claim is false) and the deferral flushes on `ai_turn_ended`. The real residual risk: an AI turn that errors out without emitting `ai_turn_ended` strands the deferred autosave in its transient slot. Hardened: `_on_phase_changed_autosave` now retries the flush on every phase change (a reliable heartbeat) when the AI isn't thinking.
 
 ### ISS-036 — Multiplayer disconnect grace-period handling (verify, then fix)
 - **Location:** `40k/autoloads/NetworkManager.gd:15` (P2-41 grace-period signal exists; behavior on expiry reportedly undefined)
@@ -452,7 +452,7 @@ Conventions:
 - **Dependencies:** ISS-026
 - **Affected files:** `NetworkManager.gd`, UI surfaces
 - **Acceptance criteria:** killing a peer mid-game leads to a defined, tested outcome within the grace window.
-- **Status:** TODO
+- **Status:** DONE (verified — claim FALSE, no fix needed) — the grace signal IS consumed: `Main._on_peer_disconnect_grace_period` (Main.gd:8365) shows a DisconnectDialog with three implemented outcomes — save game (timestamped disconnect save), continue single-player (AI takeover of the disconnected player), and claim victory (`NetworkManager.finalize_disconnect_as_victory` ends the game with the remaining player as winner). The remaining player is never left waiting without options.
 
 ---
 
@@ -811,7 +811,7 @@ Conventions:
 | ISS-021 | Action log + deterministic replay | medium | DONE | 001, 004 |
 | ISS-022 | Verify/extend undo coverage | medium | DONE | 001 |
 | ISS-023 | Single source of truth for positions | medium | TODO | 001 |
-| ISS-024 | Eliminate stale phase snapshots | medium | TODO | 001, 017 |
+| ISS-024 | Eliminate stale phase snapshots | medium | DONE | 001, 017 |
 | ISS-025 | TurnManager vs PhaseManager ownership | medium | TODO | 001 |
 | ISS-026 | MP load-sync failure handling | medium | DONE | — |
 | ISS-027 | Main.gd remaining decomposition | medium | TODO | 013, 018 |
@@ -822,8 +822,8 @@ Conventions:
 | ISS-032 | AI cache save/load policy | low | DONE | — |
 | ISS-033 | Shared dialog base class | low | TODO | — |
 | ISS-034 | Remove duplicate/legacy phases | low | DONE | — |
-| ISS-035 | Autosave deferral (verify then fix) | low | TODO | — |
-| ISS-036 | Disconnect grace period (verify then fix) | low | TODO | 026 |
+| ISS-035 | Autosave deferral (verify then fix) | low | DONE | — |
+| ISS-036 | Disconnect grace period (verify then fix) | low | DONE | 026 |
 | ISS-037 | 11e datasheet/army schema + converter | high | DONE | 003 |
 | ISS-038 | 11e battle-round/turn structure hooks | high | DONE | 001, 025, 034 |
 | ISS-039 | Engagement range 2"/5" | high | DONE | 002 |

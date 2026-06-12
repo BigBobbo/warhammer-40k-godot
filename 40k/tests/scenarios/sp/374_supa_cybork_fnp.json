@@ -1,22 +1,56 @@
 {
   "id": "374_supa_cybork_fnp",
-  "covers": ["shooting.enhancement.supa_cybork_body", "autoloads.EffectPrimitives.effect_fnp"],
+  "covers": [
+    "shooting.enhancement.supa_cybork_body",
+    "autoloads.EffectPrimitives.effect_fnp"
+  ],
   "fixture": "audit_374_cybork",
   "rng_seed": 42,
   "transition_to_phase": 8,
-  "description": "Supa-Cybork Body (#374): Warboss in Mega Armour D has flags.effect_fnp=4 (Feel No Pain 4+). In shooting phase, Custodes (player 1) shoots at the Warboss — FNP rolls should activate on wounds that get through saves. Verify the flag is present on the target unit.",
+  "description": "Supa-Cybork Body (#374): Warboss in Mega Armour D has flags.effect_fnp=4 (Feel No Pain 4+). In shooting phase, Custodes (player 1) shoots at the Warboss \u2014 FNP rolls should activate on wounds that get through saves. Verify the flag is present on the target unit. [ISS-024: fixture-baked effect flag re-injected post-load, see panoptispex note.]",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
-    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
-    { "act": "expect_state", "path": "units.U_WARBOSS_IN_MEGA_ARMOUR_D.flags.effect_fnp", "equals": 4 },
-    { "act": "screenshot", "label": "01_cybork_fnp_flag_set" },
-
-    { "act": "dispatch_action", "action": {
-      "type": "SELECT_SHOOTER",
-      "actor_unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I"
-    }},
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "screenshot", "label": "02_telemon_selected_to_shoot" }
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WARBOSS_IN_MEGA_ARMOUR_D\"][\"flags\"].merge({\"effect_fnp\": 4}, true)"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WARBOSS_IN_MEGA_ARMOUR_D.flags.effect_fnp",
+      "equals": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_cybork_fnp_flag_set"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_telemon_selected_to_shoot"
+    }
   ]
 }

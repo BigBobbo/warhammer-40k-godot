@@ -174,6 +174,16 @@ func _on_phase_completed_autosave(completed_phase: int) -> void:
 
 # P3-112: Handle phase transitions for phase-transition autosave
 func _on_phase_changed_autosave(new_phase: int) -> void:
+	# ISS-035: safety flush — if an AI turn errored out without emitting
+	# ai_turn_ended, a deferred autosave would otherwise sit in the
+	# transient slot until the next AI turn. Phase changes are a reliable
+	# heartbeat to retry the flush.
+	if _autosave_deferred_event != "" and not _is_ai_thinking():
+		print("SaveLoadManager: ISS-035 phase change — flushing deferred autosave: %s" % _autosave_deferred_event)
+		_perform_event_autosave(_autosave_deferred_event, _autosave_deferred_metadata)
+		_autosave_deferred_event = ""
+		_autosave_deferred_metadata = {}
+
 	if not autosave_on_phase_transition:
 		return
 
