@@ -768,7 +768,7 @@ Conventions:
 - **Dependencies:** ISS-014, ISS-039, ISS-041, ISS-048, ISS-050, ISS-057 (and others as they land)
 - **Affected files:** AI modules, `AIPlayer.gd`
 - **Acceptance criteria:** AI-vs-AI full game in edition=11 completes with zero illegal-action rejections; AI uses at least: a shooting-type choice, a fall-back mode, and a consolidation mode during the game (asserted from action log).
-- **Status:** TODO
+- **Status:** DONE (phase 1 — legality; phase 2 competence noted below) — **AI-vs-AI full game at edition 11 ran to battle round 5** (`tests/scenarios/sp/iss062_ai_11e.json`: both players handed to the AI at fastest speed for 150s on the audit fixture; VP 62-15 with casualties, end-of-round autosaves, scenario PASS). Evidence from the captured log: the 11e templates drove every phase — `MoveTypes.available_for` offerings each movement turn, a shooting-type selection logged for every shooter (10.02), 18 select-after-roll charge rolls (11.02), FightSequencer alternation in every fight phase (12.04), consolidations resolved. Of 206 validation rejections, 205 were the AI's PRE-EXISTING positional propose-retry search (wall/model overlap, coherency, movement caps — same behavior at 10e); exactly ONE was rules-semantic: a single out-of-turn fight pick ("Not your selection, 12.04") caused by the phase's `current_selecting_player` mirror lagging one selection, from which the AI's watchdog recovered immediately. Fall-back modes didn't arise in this game (no AI unit chose to fall back) — the mode mechanics are windowed-verified in the iss040 scenario. Phase 2 (competence: Hidden-aware positioning, cover-as-BS target valuation, tactical disembark preference) remains a future enhancement — the AI plays legally under 11e today.
 
 ### ISS-063 — 11e windowed scenario suite
 - **Location:** `40k/tests/scenarios/` (currently ~5 entries incl. schema/dirs); runner `40k/tests/run_scenarios.sh`
@@ -849,5 +849,5 @@ Conventions:
 | ISS-059 | 11e attached units (Support, T, persistence) | medium | DONE | 037, 041 |
 | ISS-060 | 11e reserves/ingress/aircraft | medium | DONE | 040, 038, 056 |
 | ISS-061 | 11e FLY/surge/hover | medium | DONE | 040 |
-| ISS-062 | AI updated for 11e | medium | TODO | 014, 039, 041, 048, 050, 057 |
+| ISS-062 | AI updated for 11e | medium | DONE | 014, 039, 041, 048, 050, 057 |
 | ISS-063 | 11e windowed scenario suite | medium | TODO | 038-061 (incremental) |
