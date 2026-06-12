@@ -872,7 +872,12 @@ func _validate_begin_normal_move(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit cannot move (disembarked from transport that moved)"]}
 
 	# Check if unit is in engagement range (cannot use Normal Move if engaged)
-	if _is_unit_engaged(unit_id):
+	# ISS-040 step 2: at 11e the template (live state) is authoritative.
+	if GameConstants.edition >= 11:
+		var el_11e = MoveTypes.get_type("normal").eligible(unit_id, GameState.state)
+		if not el_11e.eligible:
+			return {"valid": false, "errors": el_11e.reasons}
+	elif _is_unit_engaged(unit_id):
 		return {"valid": false, "errors": ["Unit is engaged, must Fall Back instead"]}
 
 	# Issue #339: Units that arrived from Strategic Reserves this turn cannot move further
@@ -912,7 +917,12 @@ func _validate_begin_fall_back(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit has already moved this phase"]}
 	
 	# Fall Back is only allowed if engaged
-	if not _is_unit_engaged(unit_id):
+	# ISS-040 step 2: at 11e the 09.07 template (live state) is authoritative.
+	if GameConstants.edition >= 11:
+		var el_11e = MoveTypes.get_type("fall_back").eligible(unit_id, GameState.state)
+		if not el_11e.eligible:
+			return {"valid": false, "errors": el_11e.reasons}
+	elif not _is_unit_engaged(unit_id):
 		return {"valid": false, "errors": ["Unit is not engaged, use Normal Move instead"]}
 
 	# Issue #339: Units that arrived from Strategic Reserves this turn cannot move further
@@ -3944,6 +3954,36 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	emit_signal("unit_move_begun", unit_id, "FALL_BACK")
 	log_phase_message("Beginning fall back for %s (M: %d\")" % [unit.get("meta", {}).get("name", unit_id), move_inches])
 
+	# ISS-040 step 2 (11e 09.07): fall-back MODES via the template —
+	# desperate escape is mandatory when battle-shocked and rolls one
+	# hazard per model BEFORE moving (06.03); ordered retreat otherwise
+	# (player may still opt into desperate escape via payload).
+	var fb_hazard_changes: Array = []
+	if GameConstants.edition >= 11:
+		var fb_template = MoveTypes.get_type("fall_back")
+		var fb_sel = fb_template.select_mode(unit_id, GameState.state)
+		var fb_mode = str(action.get("payload", {}).get("fall_back_mode", fb_sel.mode))
+		if not fb_mode in fb_sel.available:
+			fb_mode = str(fb_sel.mode)
+		active_moves[unit_id]["fall_back_mode"] = fb_mode
+		log_phase_message("[11e] Fall-back mode for %s: %s (available: %s)" % [unit_id, fb_mode, str(fb_sel.available)])
+		if fb_mode == "desperate_escape":
+			var fb_ctx = fb_template.before_moving(unit_id, GameState.state, RulesEngine.make_rng(), {"mode": fb_mode})
+			active_moves[unit_id]["desperate_escape_ctx"] = fb_ctx
+			var hz = fb_ctx.get("hazard", {})
+			log_phase_message("[11e] Desperate escape hazard rolls for %s: %s (%d failure(s))" % [unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0))])
+			# 06.03: each failure destroys a model (3 MW each instead for
+			# an all-MONSTER/VEHICLE unit, via the 06.02 allocation).
+			if int(hz.get("failures", 0)) > 0:
+				var mw = int(hz.get("mortal_wounds", 0))
+				var out = Allocation.apply_mortal_wounds_11e(unit, mw)
+				for ridx in out.remaining:
+					var mi = int(ridx)
+					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, mi], "value": int(out.remaining[ridx])})
+				for di in out.models_destroyed:
+					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, int(di)], "value": false})
+					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, int(di)], "value": 0})
+
 	var begin_changes = [
 		{
 			"op": "set",
@@ -3961,6 +4001,8 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 			"value": true
 		}
 	]
+
+	begin_changes.append_array(fb_hazard_changes)
 
 	# P2-88: Check for Fire Overwatch at fall back move start
 	# Balance Dataslate timing: "when an enemy unit starts a Fall Back move"
@@ -4517,6 +4559,18 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	if move_data.mode == "NORMAL":
 		_normal_moves_this_phase[unit_id] = true
 		log_phase_message("P2-72: Marked %s as having made a Normal move this phase" % unit_id)
+
+	# ISS-040 step 2: at 11e the confirmed move's template contributes its
+	# AFTER effects (16.01 action locks, desperate-escape battle-shock
+	# follow-up). Duplicate set-ops with the legacy flags below are
+	# idempotent.
+	if GameConstants.edition >= 11:
+		var mt_map_11e = {"NORMAL": "normal", "ADVANCE": "advance", "FALL_BACK": "fall_back"}
+		if mt_map_11e.has(move_data.mode):
+			var mt_fx = MoveTypes.get_type(mt_map_11e[move_data.mode]).after_moving_effects(
+				unit_id, {"mode": str(move_data.get("fall_back_mode", ""))})
+			changes.append_array(mt_fx)
+			log_phase_message("[11e] Applied %s template AFTER effects for %s (%d ops)" % [mt_map_11e[move_data.mode], unit_id, mt_fx.size()])
 
 	# Set movement restrictions for later phases
 	if move_data.mode == "ADVANCE":
@@ -6910,6 +6964,46 @@ func get_available_actions() -> Array:
 	else:
 		log_phase_message("[get_available_actions] ✗ NOT adding END_MOVEMENT (incomplete moves exist)")
 	
+	# ISS-040 step 2: at edition >= 11 the MoveType registry (09.04-09.07
+	# templates) is authoritative for the four basic moves — offerings the
+	# templates rule ineligible are dropped. Ability extras (Da Jump,
+	# infiltrator redeploys, reinforcements, disembarks) pass through.
+	if GameConstants.edition >= 11:
+		var basic_map = {"BEGIN_NORMAL_MOVE": "normal", "BEGIN_ADVANCE": "advance",
+			"BEGIN_FALL_BACK": "fall_back", "REMAIN_STATIONARY": "remain_stationary"}
+		var type_for_mt = {"normal": "BEGIN_NORMAL_MOVE", "advance": "BEGIN_ADVANCE",
+			"fall_back": "BEGIN_FALL_BACK", "remain_stationary": "REMAIN_STATIONARY"}
+		var label_for_mt = {"normal": "Move", "advance": "Advance with",
+			"fall_back": "Fall Back with", "remain_stationary": "Remain stationary:"}
+		var avail_cache: Dictionary = {}
+		var offered: Dictionary = {}
+		var filtered: Array = []
+		for a in actions:
+			var t = str(a.get("type", ""))
+			if basic_map.has(t):
+				var uid = str(a.get("actor_unit_id", ""))
+				if not avail_cache.has(uid):
+					avail_cache[uid] = MoveTypes.available_for(uid, GameState.state)
+					print("MovementPhase: [11e] MoveTypes.available_for(%s) -> %s" % [uid, str(avail_cache[uid])])
+				if not basic_map[t] in avail_cache[uid]:
+					continue
+				offered["%s:%s" % [uid, basic_map[t]]] = true
+			filtered.append(a)
+		# Top-up: basics the templates deem eligible that the 10e builder
+		# did not offer (e.g. engagement state divergence). Only units the
+		# builder considered movable (present in avail_cache) qualify.
+		for uid in avail_cache:
+			var u_name = get_unit(uid).get("meta", {}).get("name", uid)
+			for mt_id in avail_cache[uid]:
+				if not offered.has("%s:%s" % [uid, mt_id]):
+					filtered.append({
+						"type": type_for_mt[mt_id],
+						"actor_unit_id": uid,
+						"description": "%s %s" % [label_for_mt[mt_id], u_name]
+					})
+					print("MovementPhase: [11e] top-up offering %s for %s" % [type_for_mt[mt_id], uid])
+		return filtered
+
 	return actions
 
 func _should_complete_phase() -> bool:
