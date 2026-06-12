@@ -90,6 +90,14 @@ func _run_scenario() -> void:
 		game_state.state["meta"]["from_save"] = true
 		print("[ScenarioRunner] fixture loaded: %s" % fixture)
 
+	# 2b) Set the rules edition BEFORE the phase transition (optional) —
+	# 11e scenarios need the edition active when phase controllers build
+	# their initial UI, not injected mid-scenario via execute_script.
+	var edition = _scenario.get("edition", null)
+	if edition != null:
+		GameConstants.edition = int(edition)
+		print("[ScenarioRunner] edition set to %d" % int(edition))
+
 	# 3) Set RNG seed (optional)
 	var rng_seed = _scenario.get("rng_seed", null)
 	if rng_seed != null and typeof(rng_seed) == TYPE_FLOAT:
@@ -310,6 +318,12 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 # ============================================================================
 
 func _do_screenshot(step: Dictionary) -> Dictionary:
+	# Screenshot hygiene: the PhaseTransitionBanner lingers mid-screen and
+	# obscures the board in captures — hide it (it re-shows on the next
+	# phase change, so live play is unaffected).
+	var banner = get_tree().root.find_child("PhaseTransitionBanner", true, false)
+	if banner != null and banner.visible:
+		banner.visible = false
 	var label: String = str(step.get("label", "step"))
 	var scenario_id: String = str(_scenario.get("id", "unnamed"))
 	var dir_path = "user://%s" % RESULTS_SUBDIR

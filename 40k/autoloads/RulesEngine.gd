@@ -507,7 +507,7 @@ const UNIT_WEAPONS = {
 # RNG Service for deterministic dice rolling
 class RNGService:
 	# Test-only static seed override.
-	# When set to a non-negative value, every unseeded RNGService.new() call
+	# When set to a non-negative value, every unseeded make_rng() call
 	# derives a deterministic-but-unique seed via hash([test_mode_seed, _test_seed_counter]).
 	# Default (-1) preserves existing behavior: unseeded constructors call randomize().
 	# Multiplayer is unaffected because it always passes an explicit seed_value.
@@ -547,6 +547,49 @@ class RNGService:
 
 	func randf_range(from: float, to: float) -> float:
 		return rng.randf_range(from, to)
+
+
+# ── ISS-004: sanctioned RNG factories ────────────────────────────────
+# Every dice-rolling code path must obtain its RNGService from one of these
+# two factories (enforced by tests/test_iss004_rng_seeding.gd). Bare
+# `RNGService.new()` outside this file is a lint failure.
+
+## Factory for ACTION HANDLERS. Honors an explicit payload.rng_seed
+## (multiplayer / replay); otherwise generates a seed and RECORDS it back
+## into action.payload.rng_seed so the action log can reproduce the rolls.
+## Test mode (set_test_seed) takes the legacy deterministic-counter path.
+static func rng_for_action(action: Dictionary) -> RNGService:
+	var payload = action.get("payload", {})
+	var seed_val: int = -1
+	if payload is Dictionary:
+		seed_val = int(payload.get("rng_seed", -1))
+	if seed_val >= 0:
+		return RNGService.new(seed_val)
+	if RNGService.test_mode_seed >= 0:
+		return RNGService.new()
+	seed_val = randi() & 0x7FFFFFFF
+	if not (action.get("payload") is Dictionary):
+		action["payload"] = {}
+	action["payload"]["rng_seed"] = seed_val
+	return RNGService.new(seed_val)
+
+## Factory for NON-ACTION contexts (managers, UI overlays, phase helpers
+## that have no action dict in scope yet). Uses the session-deterministic
+## NetworkManager seed when hosting a networked game; preserves the
+## test_mode_seed path; otherwise falls back to randomize(). Sites using
+## this factory become replay-deterministic once their flows are converted
+## to actions (ISS-021).
+static func make_rng(_context: String = "") -> RNGService:
+	if RNGService.test_mode_seed >= 0:
+		return RNGService.new()
+	var ml = Engine.get_main_loop()
+	if ml != null and ml.root != null:
+		var nm = ml.root.get_node_or_null("NetworkManager")
+		if nm != null and nm.has_method("get_next_rng_seed"):
+			var s: int = nm.get_next_rng_seed()
+			if s >= 0:
+				return RNGService.new(s)
+	return RNGService.new()
 
 
 # Test/debug helpers exposing RNGService.test_mode_seed via a method, since
@@ -669,7 +712,7 @@ static func apply_wound_modifiers(roll: int, modifiers: int, wound_threshold: in
 # Main shooting resolution entry point
 static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
 	if not rng_service:
-		rng_service = RNGService.new()
+		rng_service = make_rng()
 
 	var result = {
 		"success": true,
@@ -694,6 +737,28 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 		result.success = false
 		result.log_text = "Actor unit not found"
 		return result
+
+	# ── ISS-041 (11e 04.03): gather identical attacks. Assignments whose
+	# attacks are identical (same skill/S/AP/D + same applicable abilities,
+	# same target) are resolved as ONE batch — which also makes their save
+	# rolls one batch, applied lowest→highest together (05.04). The engine
+	# merges same-weapon batches; cross-weapon dice gathering lands with
+	# the ISS-048 shooting-flow rework.
+	if GameConstants.edition >= 11 and assignments.size() > 1:
+		var gathered = AttackSequence.gather_identical_attacks(assignments, board)
+		if gathered.size() < assignments.size():
+			var merged: Array = []
+			for group in gathered:
+				if group.assignment_indices.size() > 1 and group.weapon_ids.size() == 1:
+					var combined = assignments[group.assignment_indices[0]].duplicate(true)
+					for k in range(1, group.assignment_indices.size()):
+						combined["model_ids"] = combined.get("model_ids", []) + assignments[group.assignment_indices[k]].get("model_ids", [])
+					merged.append(combined)
+					print("RulesEngine: [11e GATHER] %d identical-attack assignments (%s → %s) gathered into one batch" % [group.assignment_indices.size(), group.weapon_ids[0], group.target_unit_id])
+				else:
+					for ai in group.assignment_indices:
+						merged.append(assignments[ai])
+			assignments = merged
 
 	# Process each weapon assignment
 	for assignment in assignments:
@@ -730,7 +795,7 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 # Shooting resolution that stops before saves (for interactive save system)
 static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
 	if not rng_service:
-		rng_service = RNGService.new()
+		rng_service = make_rng()
 
 	var result = {
 		"success": true,
@@ -812,7 +877,7 @@ static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: 
 	Returns { success, diffs, dice, log_text, total_hits, total_wounds, total_damage, total_casualties, weapon_results }
 	"""
 	if not rng_service:
-		rng_service = RNGService.new()
+		rng_service = make_rng()
 
 	var result = {
 		"success": true,
@@ -1600,7 +1665,8 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			print("RulesEngine: Damaged profile -1 to hit applied for %s" % actor_unit_id)
 
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
-		if is_heavy_weapon(weapon_id, board):
+		# (at edition>=11 [HEAVY] routes through ModifierStack below — 24.16)
+		if GameConstants.edition < 11 and is_heavy_weapon(weapon_id, board):
 			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
 			if remained_stationary:
 				hit_modifiers |= HitModifier.PLUS_ONE
@@ -1609,7 +1675,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons only when shooter
 		# is engaged OR target is engaged with a friendly unit (issue #337). Eligibility
 		# is gated by the new two-arg helper rather than the buggy unit-only check.
-		if big_guns_never_tire_penalty_applies(actor_unit, target_unit, board):
+		# (10e only — 11e replaces BGNT with close-quarters shooting 10.06 +
+		# engaged-M/V targeting 17.03, applied via ModifierStack below)
+		if GameConstants.edition < 11 and big_guns_never_tire_penalty_applies(actor_unit, target_unit, board):
 			# Only apply penalty if this is NOT a Pistol weapon
 			if not is_pistol_weapon(weapon_id, board):
 				hit_modifiers |= HitModifier.MINUS_ONE
@@ -1618,10 +1686,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 		# STEALTH (T2-1): Check if target unit has Stealth (from effect or base ability)
 		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
-		if EffectPrimitivesData.has_effect_stealth(target_unit):
+		if GameConstants.edition < 11 and EffectPrimitivesData.has_effect_stealth(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (effect-granted) applied -1 to hit against %s" % target_unit_id)
-		elif has_stealth_ability(target_unit):
+		elif GameConstants.edition < 11 and has_stealth_ability(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
@@ -1695,39 +1763,64 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers = hit_modifiers & ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
 			print("RulesEngine: CAPTAIN-GENERAL — ignoring all hit roll modifiers for %s" % actor_unit_id)
 
+		# ── ISS-016/053 (11e): hit-side modifier stack — cover/STEALTH worsen
+		# BS (13.08/24.33), plunging fire improves it (22.05), [HEAVY] is +1
+		# to the hit roll (24.16). The ±1 dice-roll cap lives in ModifierStack.
+		if GameConstants.edition >= 11 and not is_overwatch:
+			var ms_firing_models: Array = []
+			for ms_mid in model_ids:
+				var ms_m = _get_model_by_id(actor_unit, ms_mid)
+				if not ms_m.is_empty() and ms_m.get("alive", true):
+					ms_firing_models.append(ms_m)
+			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models})
+			var ms_bs_delta = ms_stack.net("bs")
+			var ms_hit_net_pre = ms_stack.net("hit_roll")
+			# ISS-047 (24.29): [PSYCHIC] attacks may ignore any or all BS/hit
+			# modifiers — the engine ignores exactly the harmful ones.
+			if is_psychic_weapon(weapon_id, board):
+				if ms_bs_delta > 0:
+					print("RulesEngine: [24.29] PSYCHIC — ignoring BS worsening (%+d)" % ms_bs_delta)
+					ms_bs_delta = 0
+				if ms_hit_net_pre < 0:
+					print("RulesEngine: [24.29] PSYCHIC — ignoring hit-roll penalty (%+d)" % ms_hit_net_pre)
+					ms_hit_net_pre = 0
+			if ms_bs_delta != 0:
+				bs += ms_bs_delta
+				for ms_i in range(bs_per_attack.size()):
+					bs_per_attack[ms_i] += ms_bs_delta
+				print("RulesEngine: [11e MODIFIERS] BS %+d (%s)" % [ms_bs_delta, str(ms_stack.sources("bs"))])
+			var ms_hit_net = ms_hit_net_pre
+			if ms_hit_net > 0:
+				hit_modifiers |= HitModifier.PLUS_ONE
+				if "heavy" in ms_stack.sources("hit_roll"):
+					heavy_bonus_applied = true
+				print("RulesEngine: [11e MODIFIERS] +1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
+			elif ms_hit_net < 0:
+				hit_modifiers |= HitModifier.MINUS_ONE
+				print("RulesEngine: [11e MODIFIERS] -1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
+
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
+		# ISS-012: per-roll evaluation shared with the melee path
+		# (AttackSequence.evaluate_hit_roll). INDIRECT FIRE's unmodified-1-3
+		# fail band (#371, unseen targets only) and CONVERSION's crit
+		# threshold (T4-16) are parameters.
+		var hit_fail_band = 3 if (is_indirect_fire and not indirect_target_visible) else 1
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
-			var unmodified_roll = roll  # Store BEFORE any modifications
 			# MA-10: Use per-model BS for this attack's threshold
 			var attack_bs = bs_per_attack[i] if i < bs_per_attack.size() else bs
-			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, attack_bs)
-			var final_roll = modifier_result.modified_roll
-			modified_rolls.append(final_roll)
-
-			# Track reroll - if rerolled, the unmodified roll is the NEW roll
-			if modifier_result.rerolled:
+			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_bs, hit_modifiers, critical_hit_threshold, rng, hit_fail_band)
+			modified_rolls.append(hit_eval.final_roll)
+			if hit_eval.rerolled:
 				reroll_data.append({
-					"original": modifier_result.original_roll,
-					"rerolled_to": modifier_result.reroll_value
+					"original": hit_eval.reroll_from,
+					"rerolled_to": hit_eval.reroll_to
 				})
-				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
-
-			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
-			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
-			# Issue #371: per 10e RAW, the 1-3-fail rule only applies when target is
-			# NOT visible to the firing unit (same gate as the -1 BS penalty).
-			# CONVERSION X+ (T4-16): Critical hits on unmodified X+ at 12"+ distance
-			if unmodified_roll == 1:
-				pass  # Auto-miss regardless of modifiers
-			elif is_indirect_fire and not indirect_target_visible and unmodified_roll <= 3:
-				pass  # INDIRECT FIRE: Unmodified 1-3 always fail (only when target unseen)
-			elif unmodified_roll >= critical_hit_threshold or final_roll >= attack_bs:
+			if hit_eval.is_hit:
 				hits += 1
-				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
-				if unmodified_roll >= critical_hit_threshold:
+				if hit_eval.is_crit:
 					critical_hits += 1
 				else:
 					regular_hits += 1
@@ -1971,7 +2064,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
-	if weapon_has_lethal_hits and not is_torrent:
+	if weapon_has_lethal_hits and not is_torrent and lethal_hits_auto_wound_11e(weapon_id, board, assignment):
 		# Critical hits automatically wound - no roll needed
 		auto_wounds = critical_hits
 		# Per 10e rules, Lethal Hits auto-wounds are NOT critical wounds for Devastating Wounds
@@ -1982,24 +2075,15 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-				var wmod_result = apply_wound_modifiers(roll, wound_modifiers, wound_threshold, rng)
-				var unmodified_roll = roll
-				if wmod_result.rerolled:
-					wound_reroll_data.append({"original": wmod_result.original_roll, "rerolled_to": wmod_result.reroll_value})
-					unmodified_roll = wmod_result.reroll_value  # Use rerolled value for crit check
-				var final_wound_roll = wmod_result.modified_roll
-
-				# 10e rules: Unmodified 1 always fails to wound
-				if unmodified_roll == 1:
+				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+				var wound_eval = AttackSequence.evaluate_wound_roll(roll, wound_modifiers, wound_threshold, critical_wound_threshold, rng)
+				if wound_eval.rerolled:
+					wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+				if wound_eval.auto_fail:
 					continue
-
-				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-				var is_critical_wound = (unmodified_roll >= critical_wound_threshold)
-				if is_critical_wound or final_wound_roll >= wound_threshold:
+				if wound_eval.is_wound:
 					wounds_from_rolls += 1
-					# Track critical wounds for Devastating Wounds interaction
-					if weapon_has_devastating_wounds and is_critical_wound:
+					if weapon_has_devastating_wounds and wound_eval.is_crit:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
@@ -2010,24 +2094,15 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
 		for roll in wound_rolls:
-			# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-			var wmod_result = apply_wound_modifiers(roll, wound_modifiers, wound_threshold, rng)
-			var unmodified_roll = roll
-			if wmod_result.rerolled:
-				wound_reroll_data.append({"original": wmod_result.original_roll, "rerolled_to": wmod_result.reroll_value})
-				unmodified_roll = wmod_result.reroll_value  # Use rerolled value for crit check
-			var final_wound_roll = wmod_result.modified_roll
-
-			# 10e rules: Unmodified 1 always fails to wound
-			if unmodified_roll == 1:
+			# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+			var wound_eval = AttackSequence.evaluate_wound_roll(roll, wound_modifiers, wound_threshold, critical_wound_threshold, rng)
+			if wound_eval.rerolled:
+				wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+			if wound_eval.auto_fail:
 				continue
-
-			# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-			var is_critical_wound = (unmodified_roll >= critical_wound_threshold)
-			if is_critical_wound or final_wound_roll >= wound_threshold:
+			if wound_eval.is_wound:
 				wounds_from_rolls += 1
-				# Track critical wounds for Devastating Wounds interaction
-				if weapon_has_devastating_wounds and is_critical_wound:
+				if weapon_has_devastating_wounds and wound_eval.is_crit:
 					critical_wound_count += 1
 				else:
 					regular_wound_count += 1
@@ -2199,6 +2274,399 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 # Resolve a single weapon assignment (models with weapon -> target)
 # SUSTAINED HITS (PRP-011): This function is modified to handle Sustained Hits
 # BLAST (PRP-013): This function is modified to handle Blast keyword
+# ISS-047 (11e 24.23): [LETHAL HITS] is a CHOICE per attack. Engine
+# default: auto-wound, EXCEPT when the weapon also has [DEVASTATING
+# WOUNDS] — rolling the wound preserves the critical-wound trigger (the
+# 24.23 designer's-note trade-off). assignment.lethal_hits_choice
+# ("auto"/"roll") overrides the default. 10e always auto-wounds.
+static func lethal_hits_auto_wound_11e(weapon_id: String, board: Dictionary, assignment: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return true
+	match str(assignment.get("lethal_hits_choice", "")):
+		"auto":
+			return true
+		"roll":
+			print("RulesEngine: [24.23] LETHAL HITS — attacker chose to ROLL critical hits' wounds")
+			return false
+	if has_devastating_wounds(weapon_id, board):
+		print("RulesEngine: [24.23] LETHAL HITS + DEVASTATING WOUNDS — defaulting to ROLL (keeps the crit-wound trigger)")
+		return false
+	return true
+
+
+# ── ISS-041 step 2: 11e save/damage resolution via allocation groups ──
+# 05.03-05.04: the DEFENDER divides the target into allocation groups,
+# saves are batch-rolled, and damage is applied lowest roll → highest
+# against the current group. The engine resolves with the defender's
+# default legal order (Allocation.default_order); the interactive
+# order/PRECISION choice UI is ISS-045. [DEVASTATING WOUNDS] crits become
+# per-crit mortal wounds (24.10) applied AFTER the normal damage (06.02).
+# NOTE (11e 13.08): cover worsens the attack's BS — it does NOT modify
+# saves — so no cover bonus enters this flow (hit-side wiring: ISS-053).
+static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dictionary, target_unit_id: String, wounds_to_save: int, dev_wound_crits: int, ap: int, damage_raw: String, rng: RNGService, opts: Dictionary) -> Dictionary:
+	var out = {"casualties": 0, "damage_applied": 0, "damage_roll_log": []}
+	var groups = Allocation.build_groups(target_unit)
+	if groups.is_empty() or (wounds_to_save <= 0 and dev_wound_crits <= 0):
+		return out
+	# ISS-045: the defender's chosen allocation order (group ids) — must
+	# satisfy 05.03's constraints; otherwise the default legal order.
+	var order = Allocation.default_order(groups)
+	var chosen_order: Array = opts.get("order", [])
+	if not chosen_order.is_empty():
+		var order_check = Allocation.validate_order(groups, chosen_order)
+		if order_check.valid:
+			order = chosen_order
+		else:
+			print("RulesEngine: [11e ALLOCATION] rejected invalid allocation order %s (%s) — using default" % [str(chosen_order), str(order_check.errors)])
+	# ISS-047 (24.28): [PRECISION] — the ATTACKER may make a CHARACTER
+	# group the CURRENT allocation group until it is destroyed; this
+	# explicitly overrides the 05.03 order constraints.
+	var precision_gid := str(opts.get("precision_group", ""))
+	if precision_gid != "":
+		for g in groups:
+			if str(g.id) == precision_gid and g.character:
+				order.erase(precision_gid)
+				order.push_front(precision_gid)
+				print("RulesEngine: [24.28] PRECISION — CHARACTER group %s is the current allocation group" % precision_gid)
+				break
+	var models = target_unit.get("models", [])
+	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
+	var save_modifier = clampi(int(target_unit.get("flags", {}).get("save_modifier", 0)), -1, 1)
+	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+	var melta_value = int(opts.get("melta_value", 0))
+	var melta_box = [int(opts.get("melta_wounds", 0))]
+	var has_half_damage = bool(opts.get("half_damage", false))
+	var unit_fnp_value = int(opts.get("fnp_value", 0))
+	var damage_roll_log: Array = out.damage_roll_log
+
+	print("RulesEngine: [11e ALLOCATION] %d save(s) + %d devastating crit(s) vs %d group(s), order=%s" % [wounds_to_save, dev_wound_crits, groups.size(), str(order)])
+
+	if wounds_to_save > 0:
+		var save_rolls = rng.roll_d6(wounds_to_save)
+		# Per inflicting attack: roll the D characteristic and apply the
+		# defender-side damage modifiers (melta/half/minus/FNP), mirroring
+		# the 10e loop so those abilities keep working under the 11e flow.
+		var damage_provider = func(_roll: int, model_index: int) -> int:
+			var dmg_result = roll_variable_characteristic(damage_raw, rng)
+			var dmg = dmg_result.value
+			if dmg_result.rolled:
+				damage_roll_log.append(dmg_result)
+			if melta_value > 0 and melta_box[0] > 0:
+				dmg += melta_value
+				melta_box[0] -= 1
+			if has_half_damage:
+				dmg = apply_half_damage(dmg)
+			var minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+			if minus_dmg > 0:
+				dmg = max(1, dmg - minus_dmg)
+			var fnp = unit_fnp_value
+			if model_index >= 0 and model_index < models.size():
+				fnp = get_model_fnp(target_unit, models[model_index])
+			if fnp > 0 and dmg > 0:
+				var fnp_result = roll_feel_no_pain(dmg, fnp, rng)
+				result.dice.append({
+					"context": "feel_no_pain",
+					"source": "failed_save",
+					"rolls": fnp_result.rolls,
+					"fnp_value": fnp,
+					"wounds_prevented": fnp_result.wounds_prevented,
+					"wounds_remaining": fnp_result.wounds_remaining,
+					"total_wounds": dmg
+				})
+				dmg = fnp_result.wounds_remaining
+			return dmg
+		var alloc = Allocation.apply_save_rolls(target_unit, groups, order, save_rolls, ap, 1, {
+			"save_modifier": save_modifier,
+			"effect_invuln": effect_invuln,
+			"damage_provider": damage_provider,
+		})
+		var fails := 0
+		for ev in alloc.events:
+			if ev.get("result", "") != "saved":
+				fails += 1
+		result.dice.append({
+			"context": "save",
+			"sv": str(base_save) + "+",
+			"ap": ap,
+			"cover": "n/a (11e: cover worsens BS, not saves)",
+			"save_modifier": save_modifier,
+			"rolls_raw": save_rolls,
+			"fails": fails,
+			"allocation_11e": {"order": order, "events": alloc.events}
+		})
+		_materialize_allocation_11e(result, target_unit, target_unit_id, alloc.remaining, alloc.models_destroyed)
+		out.casualties += alloc.models_destroyed.size()
+		out.damage_applied += alloc.damage_total
+
+	# [DEVASTATING WOUNDS] (24.10): each critical wound inflicts D mortal
+	# wounds against AT MOST one model, applied after the normal damage
+	# (06.02); each crit's excess beyond the selected model is lost.
+	if dev_wound_crits > 0:
+		var dw_events: Array = []
+		for _c in range(dev_wound_crits):
+			var dmg_result = roll_variable_characteristic(damage_raw, rng)
+			var dmg = dmg_result.value
+			if dmg_result.rolled:
+				damage_roll_log.append(dmg_result)
+			if melta_value > 0 and melta_box[0] > 0:
+				dmg += melta_value
+				melta_box[0] -= 1
+			if has_half_damage:
+				dmg = apply_half_damage(dmg)
+			var dw_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+			if dw_minus_dmg > 0:
+				dmg = max(1, dmg - dw_minus_dmg)
+			if unit_fnp_value > 0 and dmg > 0:
+				var fnp_result = roll_feel_no_pain(dmg, unit_fnp_value, rng)
+				result.dice.append({
+					"context": "feel_no_pain",
+					"source": "devastating_wounds",
+					"rolls": fnp_result.rolls,
+					"fnp_value": unit_fnp_value,
+					"wounds_prevented": fnp_result.wounds_prevented,
+					"wounds_remaining": fnp_result.wounds_remaining,
+					"total_wounds": dmg
+				})
+				dmg = fnp_result.wounds_remaining
+			if dmg <= 0:
+				continue
+			var dw = Allocation.apply_devastating_wounds_11e(target_unit, 1, dmg)
+			dw_events.append_array(dw.events)
+			_materialize_allocation_11e(result, target_unit, target_unit_id, dw.remaining, dw.models_destroyed)
+			out.casualties += dw.models_destroyed.size()
+			out.damage_applied += dw.applied
+		result.dice.append({
+			"context": "devastating_wounds_11e",
+			"crits": dev_wound_crits,
+			"events": dw_events
+		})
+		print("RulesEngine: [11e ALLOCATION] devastating wounds — %d crit(s) applied as per-crit mortal wounds" % dev_wound_crits)
+	return out
+
+
+# ── ISS-056: 11e core stratagem dice effects ─────────────────────────
+## EXPLOSIVES (15.05): roll 6D6 — each 4+ inflicts 1 mortal wound on the
+## target, allocated per 06.02. Mutates the board's target unit and
+## returns {dice, diffs, mortal_wounds, casualties}.
+static func resolve_explosives_11e(target_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	if rng == null:
+		rng = make_rng()
+	var rolls = rng.roll_d6(6)
+	var mw := 0
+	for r in rolls:
+		if r >= 4:
+			mw += 1
+	var result = {"diffs": [], "dice": [{"context": "explosives_11e", "rolls": rolls, "mortal_wounds": mw}],
+		"mortal_wounds": mw, "casualties": 0}
+	var target = board.get("units", {}).get(target_unit_id, {})
+	if mw > 0 and not target.is_empty():
+		var out = Allocation.apply_mortal_wounds_11e(target, mw)
+		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
+		result.casualties = out.models_destroyed.size()
+	print("RulesEngine: [15.05] EXPLOSIVES vs %s — rolls %s -> %d mortal wound(s)" % [target_unit_id, str(rolls), mw])
+	return result
+
+
+## CRUSHING IMPACT (15.06): roll T dice for the selected model — each 1
+## inflicts 1 mortal wound on YOUR unit, each 5+ on the enemy unit, both
+## capped at 6 mortal wounds per unit.
+static func resolve_crushing_impact_11e(unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	if rng == null:
+		rng = make_rng()
+	var unit = board.get("units", {}).get(unit_id, {})
+	var target = board.get("units", {}).get(target_unit_id, {})
+	var toughness = int(unit.get("meta", {}).get("stats", {}).get("toughness", 6))
+	var rolls = rng.roll_d6(toughness)
+	var self_mw := 0
+	var enemy_mw := 0
+	for r in rolls:
+		if r == 1:
+			self_mw += 1
+		elif r >= 5:
+			enemy_mw += 1
+	self_mw = mini(self_mw, 6)
+	enemy_mw = mini(enemy_mw, 6)
+	var result = {"diffs": [], "dice": [{"context": "crushing_impact_11e", "rolls": rolls,
+		"self_mortals": self_mw, "enemy_mortals": enemy_mw}],
+		"self_mortals": self_mw, "enemy_mortals": enemy_mw, "casualties": 0}
+	if enemy_mw > 0 and not target.is_empty():
+		var out = Allocation.apply_mortal_wounds_11e(target, enemy_mw)
+		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
+		result.casualties += out.models_destroyed.size()
+	if self_mw > 0 and not unit.is_empty():
+		var self_out = Allocation.apply_mortal_wounds_11e(unit, self_mw)
+		_materialize_allocation_11e(result, unit, unit_id, self_out.remaining, self_out.models_destroyed)
+		result.casualties += self_out.models_destroyed.size()
+	print("RulesEngine: [15.06] CRUSHING IMPACT %s vs %s — T%d rolls %s -> %d enemy / %d self mortal wound(s)" % [unit_id, target_unit_id, toughness, str(rolls), enemy_mw, self_mw])
+	return result
+
+
+# The engine's default [PRECISION] pick (24.28): the first CHARACTER
+# group in the target. Visible-to-attacker refinement lands with the
+# ISS-052 visibility module; the attacker-facing prompt with ISS-063.
+static func _precision_group_11e(weapon_has_precision_flag: bool, target_unit: Dictionary) -> String:
+	if not weapon_has_precision_flag or GameConstants.edition < 11:
+		return ""
+	for g in Allocation.build_groups(target_unit):
+		if g.character:
+			return str(g.id)
+	return ""
+
+
+# Turn an Allocation `remaining` map into diffs AND update the local board
+# unit so later assignments in the same action (and the per-crit
+# devastating-wound passes) see the post-damage state.
+static func _materialize_allocation_11e(result: Dictionary, target_unit: Dictionary, target_unit_id: String, remaining: Dictionary, models_destroyed: Array) -> void:
+	var models = target_unit.get("models", [])
+	for idx in remaining:
+		var i = int(idx)
+		if i < 0 or i >= models.size():
+			continue
+		var model = models[i]
+		var w = model.get("wounds", 1)
+		var cur = model.get("current_wounds", w)
+		var new_wounds = int(remaining[idx])
+		if new_wounds == cur:
+			continue
+		model["current_wounds"] = new_wounds
+		result.diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.current_wounds" % [target_unit_id, i],
+			"value": new_wounds
+		})
+	for di_raw in models_destroyed:
+		var di = int(di_raw)
+		if di < 0 or di >= models.size():
+			continue
+		if not models[di].get("alive", true):
+			continue
+		models[di]["alive"] = false
+		result.diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.alive" % [target_unit_id, di],
+			"value": false
+		})
+		var label = get_model_display_label(models[di], target_unit)
+		print("RulesEngine: 💀 %s destroyed (11e allocation)" % label)
+
+
+# ── ISS-045: defender-driven allocation batch (11e interactive flow) ──
+# Non-mutating compute used by the AllocationGroupOverlay (and any AI
+# defender): takes the save_data produced by prepare_save_resolution, the
+# defender's chosen group order, and the live board; rolls the save batch
+# + per-crit devastating wounds on a SCRATCH copy of the target unit and
+# returns {diffs, dice, casualties, damage_applied, saves_passed,
+# saves_failed, save_rolls, order_used, groups}. The caller applies the
+# diffs (overlay → GameState; phase → snapshot) — both are idempotent
+# `set` ops.
+static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	if rng == null:
+		rng = make_rng()
+	var target_unit_id = str(save_data.get("target_unit_id", ""))
+	var live_unit = board.get("units", {}).get(target_unit_id, {})
+	var out = {
+		"is_allocation_11e": true, "target_unit_id": target_unit_id,
+		"diffs": [], "dice": [], "casualties": 0, "damage_applied": 0,
+		"saves_passed": 0, "saves_failed": 0, "save_rolls": [],
+		"order_used": [], "groups": [],
+	}
+	if live_unit.is_empty():
+		return out
+	# Attached units: characters live in SEPARATE linked units
+	# (CharacterAttachmentManager) — fold them into one virtual unit so
+	# 05.03 groups them per-CHARACTER and 05.04/06.02 reach them last;
+	# diffs are remapped back to the source units afterwards.
+	var virtual = _build_attached_allocation_unit_11e(target_unit_id, board)
+	var scratch_unit = virtual.unit
+	var sources: Array = virtual.sources
+	var groups = Allocation.build_groups(scratch_unit)
+	out.groups = groups
+
+	var wounds_to_save = int(save_data.get("wounds_to_save", 0))
+	var dev_crits = int(save_data.get("devastating_wounds", 0)) if save_data.get("has_devastating_wounds", false) else 0
+	var ap = int(save_data.get("ap", 0))
+	var damage_raw = str(save_data.get("damage_raw", str(save_data.get("damage", 1))))
+	var fnp_value = get_unit_fnp_for_attack(live_unit, save_data.get("is_psychic", false))
+
+	# Melta budget mirrors the auto-resolve path's proportional formula.
+	var melta_value = int(save_data.get("melta_bonus", 0))
+	var melta_wounds := 0
+	if melta_value > 0:
+		var in_half = int(save_data.get("melta_models_in_half_range", 0))
+		var total_models = maxi(1, int(save_data.get("melta_total_models", 1)))
+		if in_half >= total_models:
+			melta_wounds = wounds_to_save
+		elif in_half > 0:
+			melta_wounds = ceili(float(wounds_to_save) * float(in_half) / float(total_models))
+
+	var result = {"diffs": [], "dice": []}
+	var applied = _apply_saves_via_allocation_11e(result, scratch_unit, target_unit_id,
+		wounds_to_save, dev_crits, ap, damage_raw, rng, {
+			"order": order,
+			"precision_group": _precision_group_11e(save_data.get("has_precision", false), scratch_unit),
+			"melta_value": melta_value,
+			"melta_wounds": melta_wounds,
+			"half_damage": get_unit_half_damage(live_unit),
+			"fnp_value": fnp_value,
+		})
+	# Remap virtual-unit diff paths back to the source units (attached
+	# characters keep their own unit ids).
+	for diff in result.diffs:
+		var parts = str(diff.get("path", "")).split(".")
+		if parts.size() == 5 and parts[0] == "units" and parts[2] == "models":
+			var vi = int(parts[3])
+			if vi >= 0 and vi < sources.size():
+				var src = sources[vi]
+				diff["path"] = "units.%s.models.%d.%s" % [src.unit_id, src.model_index, parts[4]]
+	out.diffs = result.diffs
+	out.dice = result.dice
+	out.casualties = applied.casualties
+	out.damage_applied = applied.damage_applied
+	for d in result.dice:
+		if d.get("context", "") == "save":
+			out.save_rolls = d.get("rolls_raw", [])
+			out.saves_failed = int(d.get("fails", 0))
+			out.saves_passed = out.save_rolls.size() - out.saves_failed
+			out.order_used = d.get("allocation_11e", {}).get("order", [])
+	if out.order_used.is_empty():
+		out.order_used = order
+	return out
+
+
+# Fold a bodyguard unit and its attached character units (linked via
+# attachment_data.attached_characters) into ONE virtual unit for the 11e
+# allocation rules. Returns {unit, sources} where sources[i] maps virtual
+# model index i back to {unit_id, model_index}.
+static func _build_attached_allocation_unit_11e(target_unit_id: String, board: Dictionary) -> Dictionary:
+	var units = board.get("units", {})
+	var base_unit = units.get(target_unit_id, {})
+	var combined = base_unit.duplicate(true)
+	var sources: Array = []
+	var base_models = base_unit.get("models", [])
+	for i in range(base_models.size()):
+		sources.append({"unit_id": target_unit_id, "model_index": i})
+	for char_id in base_unit.get("attachment_data", {}).get("attached_characters", []):
+		var char_unit = units.get(str(char_id), {})
+		if char_unit.is_empty():
+			continue
+		var char_stats = char_unit.get("meta", {}).get("stats", {})
+		var char_models = char_unit.get("models", [])
+		for ci in range(char_models.size()):
+			var cm = char_models[ci].duplicate(true)
+			cm["is_character"] = true
+			# Carry the character unit's stat fallbacks onto the model so
+			# the combined unit's stats don't mask them (05.03 group keys).
+			if not cm.has("wounds") and char_stats.has("wounds"):
+				cm["wounds"] = char_stats.wounds
+			if not cm.has("save") and char_stats.has("save"):
+				cm["save"] = char_stats.save
+			if not cm.has("invuln") and char_stats.has("invuln"):
+				cm["invuln"] = char_stats.invuln
+			combined.models.append(cm)
+			sources.append({"unit_id": str(char_id), "model_index": ci})
+	return {"unit": combined, "sources": sources}
+
+
 static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
 	var result = {
 		"diffs": [],
@@ -2498,7 +2966,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			print("RulesEngine: Damaged profile -1 to hit (auto-resolve) applied for %s" % actor_unit_id)
 
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
-		if is_heavy_weapon(weapon_id, board):
+		# (at edition>=11 [HEAVY] routes through ModifierStack below — 24.16)
+		if GameConstants.edition < 11 and is_heavy_weapon(weapon_id, board):
 			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
 			if remained_stationary:
 				hit_modifiers |= HitModifier.PLUS_ONE
@@ -2506,7 +2975,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons only when shooter
 		# is engaged OR target is engaged with a friendly unit (issue #337).
-		if big_guns_never_tire_penalty_applies(actor_unit, target_unit, board):
+		# (10e only — 11e replaces BGNT with close-quarters shooting 10.06 +
+		# engaged-M/V targeting 17.03, applied via ModifierStack below)
+		if GameConstants.edition < 11 and big_guns_never_tire_penalty_applies(actor_unit, target_unit, board):
 			# Only apply penalty if this is NOT a Pistol weapon
 			if not is_pistol_weapon(weapon_id, board):
 				hit_modifiers |= HitModifier.MINUS_ONE
@@ -2515,10 +2986,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# STEALTH (T2-1): Check if target unit has Stealth (from effect or base ability)
 		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
-		if EffectPrimitivesData.has_effect_stealth(target_unit):
+		if GameConstants.edition < 11 and EffectPrimitivesData.has_effect_stealth(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (effect-granted) applied -1 to hit against %s" % target_unit_id)
-		elif has_stealth_ability(target_unit):
+		elif GameConstants.edition < 11 and has_stealth_ability(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
@@ -2577,40 +3048,64 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: BLASTAJET ATTACK RUN (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
+		# ── ISS-016/053 (11e): hit-side modifier stack — cover/STEALTH worsen
+		# BS (13.08/24.33), plunging fire improves it (22.05), [HEAVY] is +1
+		# to the hit roll (24.16). The ±1 dice-roll cap lives in ModifierStack.
+		if GameConstants.edition >= 11 and not is_overwatch:
+			var ms_firing_models: Array = []
+			for ms_mid in model_ids:
+				var ms_m = _get_model_by_id(actor_unit, ms_mid)
+				if not ms_m.is_empty() and ms_m.get("alive", true):
+					ms_firing_models.append(ms_m)
+			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models})
+			var ms_bs_delta = ms_stack.net("bs")
+			var ms_hit_net_pre = ms_stack.net("hit_roll")
+			# ISS-047 (24.29): [PSYCHIC] attacks may ignore any or all BS/hit
+			# modifiers — the engine ignores exactly the harmful ones.
+			if is_psychic_weapon(weapon_id, board):
+				if ms_bs_delta > 0:
+					print("RulesEngine: [24.29] PSYCHIC — ignoring BS worsening (%+d)" % ms_bs_delta)
+					ms_bs_delta = 0
+				if ms_hit_net_pre < 0:
+					print("RulesEngine: [24.29] PSYCHIC — ignoring hit-roll penalty (%+d)" % ms_hit_net_pre)
+					ms_hit_net_pre = 0
+			if ms_bs_delta != 0:
+				bs += ms_bs_delta
+				for ms_i in range(bs_per_attack.size()):
+					bs_per_attack[ms_i] += ms_bs_delta
+				print("RulesEngine: [11e MODIFIERS] BS %+d (%s)" % [ms_bs_delta, str(ms_stack.sources("bs"))])
+			var ms_hit_net = ms_hit_net_pre
+			if ms_hit_net > 0:
+				hit_modifiers |= HitModifier.PLUS_ONE
+				if "heavy" in ms_stack.sources("hit_roll"):
+					heavy_bonus_applied = true
+				print("RulesEngine: [11e MODIFIERS] +1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
+			elif ms_hit_net < 0:
+				hit_modifiers |= HitModifier.MINUS_ONE
+				print("RulesEngine: [11e MODIFIERS] -1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
+
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
+		# ISS-012: per-roll evaluation shared with the melee path
+		# (AttackSequence.evaluate_hit_roll). INDIRECT FIRE's unmodified-1-3
+		# fail band (#371, unseen targets only) and CONVERSION's crit
+		# threshold (T4-16) are parameters.
+		var hit_fail_band = 3 if (is_indirect_fire and not indirect_target_visible) else 1
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
-			var unmodified_roll = roll  # Store BEFORE any modifications
 			# MA-10: Use per-model BS for this attack's threshold
 			var attack_bs = bs_per_attack[i] if i < bs_per_attack.size() else bs
-			# Apply modifiers to this roll
-			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, attack_bs)
-			var final_roll = modifier_result.modified_roll
-			modified_rolls.append(final_roll)
-
-			# Track re-rolls for dice log
-			if modifier_result.rerolled:
+			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_bs, hit_modifiers, critical_hit_threshold, rng, hit_fail_band)
+			modified_rolls.append(hit_eval.final_roll)
+			if hit_eval.rerolled:
 				reroll_data.append({
-					"original": modifier_result.original_roll,
-					"rerolled_to": modifier_result.reroll_value
+					"original": hit_eval.reroll_from,
+					"rerolled_to": hit_eval.reroll_to
 				})
-				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
-
-			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
-			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
-			# Issue #371: per 10e RAW, the 1-3-fail rule only applies when target is
-			# NOT visible to the firing unit (same gate as the -1 BS penalty).
-			# CONVERSION X+ (T4-16): Critical hits on unmodified X+ at 12"+ distance
-			if unmodified_roll == 1:
-				pass  # Auto-miss regardless of modifiers
-			elif is_indirect_fire and not indirect_target_visible and unmodified_roll <= 3:
-				pass  # INDIRECT FIRE: Unmodified 1-3 always fail (only when target unseen)
-			elif unmodified_roll >= critical_hit_threshold or final_roll >= attack_bs:
+			if hit_eval.is_hit:
 				hits += 1
-				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
-				if unmodified_roll >= critical_hit_threshold:
+				if hit_eval.is_crit:
 					critical_hits += 1
 				else:
 					regular_hits += 1
@@ -2834,7 +3329,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
-	if weapon_has_lethal_hits and not is_torrent:
+	if weapon_has_lethal_hits and not is_torrent and lethal_hits_auto_wound_11e(weapon_id, board, assignment):
 		# Critical hits automatically wound - no roll needed
 		auto_wounds = critical_hits
 		# Per 10e rules, Lethal Hits auto-wounds are NOT critical wounds for Devastating Wounds
@@ -2845,24 +3340,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-				var ar_wmod_result = apply_wound_modifiers(roll, ar_wound_modifiers, wound_threshold, rng)
-				var unmodified_roll = roll
-				if ar_wmod_result.rerolled:
-					ar_wound_reroll_data.append({"original": ar_wmod_result.original_roll, "rerolled_to": ar_wmod_result.reroll_value})
-					unmodified_roll = ar_wmod_result.reroll_value
-				var final_wound_roll = ar_wmod_result.modified_roll
-
-				# 10e rules: Unmodified 1 always fails to wound
-				if unmodified_roll == 1:
+				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+				var wound_eval = AttackSequence.evaluate_wound_roll(roll, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
+				if wound_eval.rerolled:
+					ar_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+				if wound_eval.auto_fail:
 					continue
-
-				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-				var ar_is_critical_wound = (unmodified_roll >= ar_critical_wound_threshold)
-				if ar_is_critical_wound or final_wound_roll >= wound_threshold:
+				if wound_eval.is_wound:
 					wounds_from_rolls += 1
-					# Track critical wounds for Devastating Wounds interaction
-					if ar_weapon_has_devastating_wounds and ar_is_critical_wound:
+					if ar_weapon_has_devastating_wounds and wound_eval.is_crit:
 						ar_critical_wound_count += 1
 					else:
 						ar_regular_wound_count += 1
@@ -2873,24 +3359,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
 		for roll in wound_rolls:
-			# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-			var ar_wmod_result = apply_wound_modifiers(roll, ar_wound_modifiers, wound_threshold, rng)
-			var unmodified_roll = roll
-			if ar_wmod_result.rerolled:
-				ar_wound_reroll_data.append({"original": ar_wmod_result.original_roll, "rerolled_to": ar_wmod_result.reroll_value})
-				unmodified_roll = ar_wmod_result.reroll_value
-			var final_wound_roll = ar_wmod_result.modified_roll
-
-			# 10e rules: Unmodified 1 always fails to wound
-			if unmodified_roll == 1:
+			# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+			var wound_eval = AttackSequence.evaluate_wound_roll(roll, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
+			if wound_eval.rerolled:
+				ar_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+			if wound_eval.auto_fail:
 				continue
-
-			# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-			var ar_is_critical_wound = (unmodified_roll >= ar_critical_wound_threshold)
-			if ar_is_critical_wound or final_wound_roll >= wound_threshold:
+			if wound_eval.is_wound:
 				wounds_from_rolls += 1
-				# Track critical wounds for Devastating Wounds interaction
-				if ar_weapon_has_devastating_wounds and ar_is_critical_wound:
+				if ar_weapon_has_devastating_wounds and wound_eval.is_crit:
 					ar_critical_wound_count += 1
 				else:
 					ar_regular_wound_count += 1
@@ -3025,6 +3502,25 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if ar_precision_wounds > 0:
 			print("RulesEngine: PRECISION (auto-resolve) — %d critical hits, %d precision wounds (can target CHARACTER)" % [critical_hits, ar_precision_wounds])
 
+	# ── ISS-041 (11e): defender allocation groups (05.03-05.04) replace the
+	# 10e attacker-driven allocation below. The 10e path is kept intact
+	# behind the edition gate (golden corpus pins it byte-for-byte).
+	var use_allocation_11e: bool = GameConstants.edition >= 11
+	if use_allocation_11e:
+		var alloc11 = _apply_saves_via_allocation_11e(result, target_unit, target_unit_id,
+			ar_regular_wound_count if ar_weapon_has_devastating_wounds else wounds_caused,
+			ar_critical_wound_count if ar_weapon_has_devastating_wounds else 0,
+			ap, damage_raw, rng, {
+				"melta_value": ar_melta_value,
+				"melta_wounds": ar_melta_wounds_remaining,
+				"half_damage": ar_has_half_damage,
+				"fnp_value": ar_fnp_value,
+				"precision_group": _precision_group_11e(ar_weapon_has_precision, target_unit),
+			})
+		casualties += alloc11.casualties
+		damage_applied += alloc11.damage_applied
+		damage_roll_log.append_array(alloc11.damage_roll_log)
+
 	# Find allocation focus model (if any model was previously wounded)
 	var allocation_focus_model_id = null
 	var models = target_unit.get("models", [])
@@ -3041,7 +3537,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# Critical wounds with Devastating Wounds bypass saves entirely and deal mortal-wound-style
 	# damage that spills over between models — mirrors apply_save_damage() behavior.
 	var ar_devastating_damage_applied = 0
-	if ar_weapon_has_devastating_wounds and ar_critical_wound_count > 0:
+	if not use_allocation_11e and ar_weapon_has_devastating_wounds and ar_critical_wound_count > 0:
 		print("RulesEngine: DEVASTATING WOUNDS (auto-resolve) — %d critical wounds bypass saves, %d regular wounds need saves" % [ar_critical_wound_count, ar_regular_wound_count])
 
 		# Roll variable damage per devastating wound (D3, D6, etc.)
@@ -3121,6 +3617,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# Allocate regular wounds (roll saves) — only ar_regular_wound_count if DW active
 	var regular_wounds_to_save = ar_regular_wound_count if ar_weapon_has_devastating_wounds else wounds_caused
+	if use_allocation_11e:
+		regular_wounds_to_save = 0  # already resolved via 11e allocation groups above
 	for wound_idx in range(regular_wounds_to_save):
 		# Select target model
 		var target_model = null
@@ -3539,17 +4037,8 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 
 # Helper functions
 static func _calculate_wound_threshold(strength: int, toughness: int) -> int:
-	# 10e wound chart
-	if strength >= toughness * 2:
-		return 2  # 2+
-	elif strength > toughness:
-		return 3  # 3+
-	elif strength == toughness:
-		return 4  # 4+
-	elif strength * 2 <= toughness:
-		return 6  # 6+
-	else:
-		return 5  # 5+
+	# ISS-014: the S-vs-T chart lives once, in AttackSequence.
+	return AttackSequence.wound_threshold(strength, toughness)
 
 # P2-90: Resolve correct Toughness for attached units.
 # Per 10e rules: "Each time an attack targets an Attached unit, you must use the
@@ -3921,6 +4410,16 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 				if is_indirect:
 					print("RulesEngine: [INDIRECT FIRE] Weapon '%s' targeting without LoS" % weapon_profile.get("name", weapon_id))
 					return {"visible": true, "reason": ""}
+				# ISS-052: 11e visibility gates — HIDDEN detection range
+				# (13.09) and the obscuring/Solid line semantics
+				# (13.10/13.11) — before the base LoS check.
+				if GameConstants.edition >= 11:
+					var tm_11e = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
+					if tm_11e != null:
+						if not tm_11e.hidden_model_visible_to(target_model, target_unit, actor_model):
+							continue
+						if not tm_11e.model_visible_11e(actor_model, target_model):
+							continue
 				# Check LoS with enhanced base-aware visibility
 				if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
 					return {"visible": true, "reason": ""}
@@ -4691,6 +5190,10 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 			profile["attacks_raw"] = str(profile.get("attacks", 1))
 		if not profile.has("damage_raw"):
 			profile["damage_raw"] = str(profile.get("damage", 1))
+		# ISS-003: attach the structured ability list (derived from the
+		# legacy keywords/special_rules if no structured data is present)
+		if not profile.has("abilities"):
+			profile["abilities"] = AbilityRegistry.from_weapon(profile)
 		return profile
 	
 	# Search through all units for matching weapon
@@ -4758,6 +5261,14 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 				
 				# Parse keywords from special_rules string (e.g., "Pistol, Rapid Fire 1")
 				var special_rules = weapon.get("special_rules", "")
+				# ISS-003: structured abilities are authoritative. When the
+				# weapon carries them, the engine-facing special_rules string
+				# is synthesized from the structured data so every downstream
+				# matcher consumes what the structured entries describe.
+				var abilities = AbilityRegistry.from_weapon(weapon)
+				var raw_abilities = weapon.get("abilities", [])
+				if raw_abilities is Array and not raw_abilities.is_empty():
+					special_rules = AbilityRegistry.to_display_string(abilities)
 				var keywords = weapon.get("keywords", [])
 
 				# If keywords array is empty but special_rules has content, extract keywords
@@ -4792,7 +5303,8 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 					"damage": damage_value,  # Convert to int for calculations
 					"damage_raw": damage_str,  # Keep raw string for variable rolling (D3, D6, etc.)
 					"special_rules": special_rules,
-					"keywords": keywords
+					"keywords": keywords,
+					"abilities": abilities
 				}
 	
 	print("WARNING: Weapon profile not found: ", weapon_id)
@@ -5729,30 +6241,14 @@ static func unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
 # of a ranged attack if the attacking model is within 12"
 # Abilities can be stored as strings ("Lone Operative") or dicts ({"name": "Lone Operative", ...})
 static func has_lone_operative(unit: Dictionary) -> bool:
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = ""
-		if ability is String:
-			ability_name = ability
-		elif ability is Dictionary:
-			ability_name = ability.get("name", "")
-		if ability_name.to_lower() == "lone operative":
-			return true
-	return false
+	# ISS-019: unified query (datasheet + future dynamic grants).
+	return UnitAbilities.unit_has(unit, "lone operative")
 
 # OA-19: "Hold Still and Say 'Aargh!'" — Check if unit has this ability (Painboy)
 # On Critical Wound with 'urty syringe vs non-VEHICLE, target suffers D6 mortal wounds
 static func _has_hold_still_ability(unit: Dictionary) -> bool:
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = ""
-		if ability is String:
-			ability_name = ability
-		elif ability is Dictionary:
-			ability_name = ability.get("name", "")
-		if ability_name == "Hold Still and Say 'Aargh!'":
-			return true
-	return false
+	# ISS-019: unified query.
+	return UnitAbilities.has_datasheet_ability(unit, "Hold Still and Say 'Aargh!'")
 
 # Check if `target_unit_id` is the closest enemy unit to `actor_unit_id`.
 # Used by Gun-Crazy Show-offs (Ork) — the snazzgun gets +1 Attack when shooting the closest enemy.
@@ -6312,16 +6808,9 @@ static func get_pyromaniaks_reroll_scope(actor_unit: Dictionary, target_unit: Di
 # Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit
 # Abilities can be stored as strings ("Stealth") or dicts ({"name": "Stealth", ...})
 static func has_stealth_ability(unit: Dictionary) -> bool:
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = ""
-		if ability is String:
-			ability_name = ability
-		elif ability is Dictionary:
-			ability_name = ability.get("name", "")
-		if ability_name.to_lower() == "stealth":
-			return true
-	return false
+	# ISS-019: unified query — covers datasheet abilities AND the
+	# effect_stealth flag (dynamically granted, e.g. Smokescreen-likes).
+	return UnitAbilities.unit_has(unit, "stealth")
 
 # DAMAGED PROFILE (P1-14): Check if a unit's Damaged profile is active
 # Per 10e rules: When a model with a Damaged profile has wounds remaining at or below
@@ -6366,9 +6855,26 @@ static func get_critical_wound_threshold(weapon_id: String, target_unit: Diction
 	if anti_data.is_empty():
 		return 6  # Default: only 6s are critical wounds
 
+	# ISS-059 (11e 19.03): ANTI-[KEYWORD] matches against the ATTACHED
+	# unit's keyword union (the pg-67 ANTI-PSYKER example) — a leader's
+	# keyword exposes the whole unit even when attacks are allocated to
+	# bodyguard models.
+	var union_keywords: Array = []
+	if GameConstants.edition >= 11:
+		var cam = Engine.get_main_loop().root.get_node_or_null("CharacterAttachmentManager")
+		if cam != null and (target_unit.get("attachment_data", {}).get("attached_characters", []).size() > 0 \
+				or target_unit.get("attached_to") != null):
+			union_keywords = cam.attached_unit_keywords(str(target_unit.get("id", "")))
+
 	var lowest_threshold = 6
 	for anti in anti_data:
-		if unit_has_keyword(target_unit, anti.keyword):
+		var matches = unit_has_keyword(target_unit, anti.keyword)
+		if not matches and not union_keywords.is_empty():
+			for kw in union_keywords:
+				if str(kw).to_upper() == str(anti.keyword).to_upper():
+					matches = true
+					break
+		if matches:
 			lowest_threshold = min(lowest_threshold, anti.threshold)
 
 	return lowest_threshold
@@ -7554,8 +8060,6 @@ static func _path_point_to_vector2(point) -> Vector2:
 ## Returns 2" if a barricade terrain feature lies between the two positions, 1" otherwise.
 ## Uses board terrain_features data when available, falls back to TerrainManager autoload.
 static func _get_effective_engagement_range_rules(pos1: Vector2, pos2: Vector2, board: Dictionary) -> float:
-	const STANDARD_ER = 1.0
-	const BARRICADE_ER = 2.0
 
 	var terrain_features = board.get("terrain_features", [])
 	if terrain_features.is_empty():
@@ -7563,7 +8067,7 @@ static func _get_effective_engagement_range_rules(pos1: Vector2, pos2: Vector2, 
 		var terrain_manager = _get_terrain_manager_node()
 		if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
 			return terrain_manager.get_engagement_range_for_positions(pos1, pos2)
-		return STANDARD_ER
+		return GameConstants.engagement_range_inches()
 
 	# Check if any barricade terrain lies between the two positions
 	for terrain in terrain_features:
@@ -7580,9 +8084,9 @@ static func _get_effective_engagement_range_rules(pos1: Vector2, pos2: Vector2, 
 			var edge_end = polygon[(i + 1) % polygon.size()]
 			if Geometry2D.segment_intersects_segment(pos1, pos2, edge_start, edge_end) != null:
 				print("[RulesEngine] T3-9: Barricade '%s' between models — engagement range is 2\"" % terrain.get("id", "unknown"))
-				return BARRICADE_ER
+				return GameConstants.barricade_engagement_range_inches()
 
-	return STANDARD_ER
+	return GameConstants.engagement_range_inches()
 
 ## Helper to get TerrainManager node from static context.
 static func _get_terrain_manager_node():
@@ -7595,9 +8099,8 @@ static func _get_terrain_manager_node():
 
 # Validate engagement range constraints for charge
 static func _validate_engagement_range_constraints_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary) -> Dictionary:
-	const ENGAGEMENT_RANGE_INCHES = 1.0
 	var errors = []
-	var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
+	var er_px = Measurement.inches_to_px(GameConstants.engagement_range_inches())
 	var units = board.get("units", {})
 	var unit = units.get(unit_id, {})
 	var unit_owner = unit.get("owner", 0)
@@ -7779,7 +8282,6 @@ static func _validate_base_to_base_possible_rules(unit_id: String, per_model_pat
 	var unit_owner = unit.get("owner", 0)
 
 	const B2B_THRESHOLD_INCHES = 0.1
-	const ENGAGEMENT_RANGE_INCHES = 1.0
 
 	if unit.is_empty():
 		return {"valid": true, "errors": []}
@@ -7886,7 +8388,7 @@ static func _validate_base_to_base_possible_rules(unit_id: String, per_model_pat
 				for enemy_model in enemy_unit.get("models", []):
 					if not enemy_model.get("alive", true):
 						continue
-					if Measurement.is_in_engagement_range_shape_aware(b2b_model, enemy_model, ENGAGEMENT_RANGE_INCHES):
+					if Measurement.is_in_engagement_range_shape_aware(b2b_model, enemy_model, GameConstants.engagement_range_inches()):
 						non_target_er_ok = false
 						break
 
@@ -7935,7 +8437,7 @@ static func _validate_base_to_base_possible_rules(unit_id: String, per_model_pat
 					for check_tm in check_target_unit.get("models", []):
 						if not check_tm.get("alive", true):
 							continue
-						if Measurement.is_in_engagement_range_shape_aware(check_charging_model, check_tm, ENGAGEMENT_RANGE_INCHES):
+						if Measurement.is_in_engagement_range_shape_aware(check_charging_model, check_tm, GameConstants.engagement_range_inches()):
 							target_covered = true
 							break
 
@@ -8372,7 +8874,7 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 # Main melee combat resolution entry point
 static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
 	if not rng_service:
-		rng_service = RNGService.new()
+		rng_service = make_rng()
 	
 	var result = {
 		"success": true,
@@ -8547,7 +9049,7 @@ static func resolve_melee_attacks_interactive(action: Dictionary, board: Diction
 	"""Resolve melee hit and wound rolls only, returning save data for interactive allocation.
 	Used when the defending player is human and should choose wound allocation."""
 	if not rng_service:
-		rng_service = RNGService.new()
+		rng_service = make_rng()
 
 	var result = {
 		"success": true,
@@ -9024,31 +9526,23 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			print("RulesEngine: CAPTAIN-GENERAL (melee) — ignoring all hit roll modifiers for %s" % attacker_id)
 
 		var melee_hit_reroll_data = []
+		# ISS-012: per-roll evaluation shared with the ranged paths
+		# (AttackSequence.evaluate_hit_roll). melee_crit_threshold covers
+		# Martial Mastery (5+); it is always <= 6, so the legacy redundant
+		# `unmodified == 6` clause is subsumed by the crit check.
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
-			var unmodified_roll = roll
 			# MA-11: Use per-model WS for this attack's threshold
 			var attack_ws = ws_per_attack[i] if i < ws_per_attack.size() else ws
-
-			# Apply hit modifiers (re-rolls first, using HitModifier system)
-			var modifier_result = apply_hit_modifiers(roll, melee_hit_modifiers, rng, attack_ws)
-			roll = modifier_result.modified_roll
-
-			# Track re-rolls for dice log
-			if modifier_result.rerolled:
+			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_ws, melee_hit_modifiers, melee_crit_threshold, rng)
+			if hit_eval.rerolled:
 				melee_hit_reroll_data.append({
-					"original": modifier_result.original_roll,
-					"rerolled_to": modifier_result.reroll_value
+					"original": hit_eval.reroll_from,
+					"rerolled_to": hit_eval.reroll_to
 				})
-				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
-
-			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
-			if unmodified_roll == 1:
-				pass  # Auto-miss
-			elif unmodified_roll >= melee_crit_threshold or unmodified_roll == 6 or roll >= attack_ws:
+			if hit_eval.is_hit:
 				hits += 1
-				# Critical hit = unmodified roll >= threshold (6 normally, 5+ with Martial Mastery)
-				if unmodified_roll >= melee_crit_threshold:
+				if hit_eval.is_crit:
 					critical_hits += 1
 				else:
 					regular_hits += 1
@@ -9187,7 +9681,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var all_critical_wound_count = 0  # OA-19: Track ALL critical wounds (for Hold Still and Say 'Aargh!')
 	var melee_wound_reroll_data = []  # Track twin-linked / modifier re-rolls
 
-	if weapon_has_lethal_hits and not is_torrent:
+	if weapon_has_lethal_hits and not is_torrent and lethal_hits_auto_wound_11e(weapon_id, board, assignment):
 		# Lethal Hits: Critical hits (unmodified 6s to hit) automatically wound - no wound roll
 		auto_wounds = critical_hits
 		# Per 10e: Lethal Hits auto-wounds are NOT critical wounds for Devastating Wounds
@@ -9198,26 +9692,18 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-				var melee_wmod_result = apply_wound_modifiers(roll, melee_wound_modifiers, wound_threshold, rng)
-				var unmodified_roll = roll
-				if melee_wmod_result.rerolled:
-					melee_wound_reroll_data.append({"original": melee_wmod_result.original_roll, "rerolled_to": melee_wmod_result.reroll_value})
-					unmodified_roll = melee_wmod_result.reroll_value
-				var final_wound_roll = melee_wmod_result.modified_roll
-
-				# 10e rules: Unmodified 1 always fails to wound
-				if unmodified_roll == 1:
+				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+				var wound_eval = AttackSequence.evaluate_wound_roll(roll, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng)
+				if wound_eval.rerolled:
+					melee_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+				if wound_eval.auto_fail:
 					continue
-
-				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-				var melee_is_critical_wound = (unmodified_roll >= melee_critical_wound_threshold)
-				if melee_is_critical_wound or final_wound_roll >= wound_threshold:
+				if wound_eval.is_wound:
 					wounds_from_rolls += 1
 					# OA-19: Track all critical wounds for Hold Still ability
-					if melee_is_critical_wound:
+					if wound_eval.is_crit:
 						all_critical_wound_count += 1
-					if weapon_has_devastating_wounds and melee_is_critical_wound:
+					if weapon_has_devastating_wounds and wound_eval.is_crit:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
@@ -9229,26 +9715,18 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if total_hits_for_wounds > 0:
 			wound_rolls = rng.roll_d6(total_hits_for_wounds)
 			for roll in wound_rolls:
-				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
-				var melee_wmod_result = apply_wound_modifiers(roll, melee_wound_modifiers, wound_threshold, rng)
-				var unmodified_roll = roll
-				if melee_wmod_result.rerolled:
-					melee_wound_reroll_data.append({"original": melee_wmod_result.original_roll, "rerolled_to": melee_wmod_result.reroll_value})
-					unmodified_roll = melee_wmod_result.reroll_value
-				var final_wound_roll = melee_wmod_result.modified_roll
-
-				# 10e rules: Unmodified 1 always fails to wound
-				if unmodified_roll == 1:
+				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
+				var wound_eval = AttackSequence.evaluate_wound_roll(roll, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng)
+				if wound_eval.rerolled:
+					melee_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
+				if wound_eval.auto_fail:
 					continue
-
-				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
-				var melee_is_critical_wound = (unmodified_roll >= melee_critical_wound_threshold)
-				if melee_is_critical_wound or final_wound_roll >= wound_threshold:
+				if wound_eval.is_wound:
 					wounds_from_rolls += 1
 					# OA-19: Track all critical wounds for Hold Still ability
-					if melee_is_critical_wound:
+					if wound_eval.is_crit:
 						all_critical_wound_count += 1
-					if weapon_has_devastating_wounds and melee_is_critical_wound:
+					if weapon_has_devastating_wounds and wound_eval.is_crit:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
@@ -9796,7 +10274,7 @@ static func is_in_engagement_range(model1_pos: Vector2, model2_pos: Vector2, bas
 	# Legacy position-based check - create temporary model dicts for shape-aware calculation
 	var model1 = {"position": model1_pos, "base_mm": base1_mm}
 	var model2 = {"position": model2_pos, "base_mm": base2_mm}
-	return Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0)
+	return Measurement.is_in_engagement_range_shape_aware(model1, model2)
 
 # Check if any models from two units are in engagement range
 static func units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
@@ -9812,7 +10290,7 @@ static func units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> b
 				continue
 
 			# Use shape-aware engagement range check
-			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2):
 				return true
 
 	return false
@@ -11051,7 +11529,7 @@ static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, b
 	Returns: { triggered: bool, trigger_roll: int, diffs: Array, per_target: Array, total_mortal_wounds: int, total_casualties: int }
 	"""
 	if rng == null:
-		rng = RNGService.new()
+		rng = make_rng()
 
 	var units = board.get("units", {})
 	var destroyed_unit = units.get(destroyed_unit_id, {})
@@ -11180,7 +11658,7 @@ static func resolve_transport_destruction(transport_unit_id: String, board: Dict
 	Returns: { embarked_unit_ids: Array, per_unit: Array[{unit_id, unit_name, model_rolls: Array, mortal_wounds: int, models_destroyed: int, diffs: Array}], total_mortal_wounds: int, total_models_destroyed: int, all_diffs: Array }
 	"""
 	if rng == null:
-		rng = RNGService.new()
+		rng = make_rng()
 
 	var units = board.get("units", {})
 	var transport = units.get(transport_unit_id, {})
@@ -11370,7 +11848,7 @@ static func resolve_dread_foe(attacker_unit_id: String, target_unit_id: String, 
 	Returns: { roll: int, modified_roll: int, mortal_wounds: int, diffs: Array, casualties: int }
 	"""
 	if rng == null:
-		rng = RNGService.new()
+		rng = make_rng()
 
 	var units = board.get("units", {})
 	var attacker_unit = units.get(attacker_unit_id, {})
@@ -11442,7 +11920,7 @@ static func resolve_piston_driven_brutality(attacker_unit_id: String, target_uni
 	Returns: { roll: int, mortal_wounds: int, diffs: Array, casualties: int }
 	"""
 	if rng == null:
-		rng = RNGService.new()
+		rng = make_rng()
 
 	var units = board.get("units", {})
 	var attacker_unit = units.get(attacker_unit_id, {})
@@ -11701,7 +12179,7 @@ static func validate_surge_move_eligibility(unit: Dictionary, unit_id: String, h
 					epos = Vector2(enemy_pos.get("x", 0), enemy_pos.get("y", 0))
 
 				# Use standard 1" engagement range check
-				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, 1.0):
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model):
 					return {"valid": false, "errors": ["Units within Engagement Range cannot make surge moves"]}
 
 	# Unit must have alive models
@@ -11714,3 +12192,58 @@ static func validate_surge_move_eligibility(unit: Dictionary, unit_id: String, h
 		return {"valid": false, "errors": ["Unit has no alive models"]}
 
 	return {"valid": true, "errors": []}
+
+
+# ── ISS-020: public API for phases/controllers ──────────────────────
+# Phases and controllers must not reach into RulesEngine's underscore-
+# private internals (enforced by tests/test_iss020_public_api.gd). These
+# documented wrappers are the supported surface; the privates remain free
+# to be refactored.
+
+## True if any model of unit1 is within engagement range of any model of
+## unit2, barricade-aware (distinct from the simpler two-arg
+## units_in_engagement_range above, which ignores terrain).
+static func check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionary, board: Dictionary) -> bool:
+	return _check_units_in_engagement_range(unit1, unit2, board)
+
+## Canonical weapon id for a weapon name (+ optional type for the
+## type-aware format).
+static func generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
+	return _generate_weapon_id(weapon_name, weapon_type)
+
+## Allocate `total_damage` into the target unit's model pool; returns the
+## damage-application result (diffs, casualties).
+static func apply_damage_to_unit_pool(target_unit_id: String, total_damage: int, models: Array, board: Dictionary) -> Dictionary:
+	return _apply_damage_to_unit_pool(target_unit_id, total_damage, models, board)
+
+## Model dict lookup by id within a unit ({} if absent).
+static func get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
+	return _get_model_by_id(unit, model_id)
+
+## Legacy center-to-center LoS check (debug/visualization only).
+static func check_legacy_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary) -> bool:
+	return _check_legacy_line_of_sight(from_pos, to_pos, board)
+
+## ISS-039: core engagement predicates (11e 03.04 terminology). A unit is
+## "engaged" while any of its models is within engagement range of an enemy
+## model; "unengaged" otherwise. These are THE eligibility predicates the
+## 11e move/shooting/fight type templates gate on (edition-aware via
+## GameConstants through the shape-aware check's default ER).
+static func is_unit_engaged(unit_id: String, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return false
+	var owner = int(unit.get("owner", 0))
+	for other_id in units:
+		if other_id == unit_id:
+			continue
+		var other = units[other_id]
+		if int(other.get("owner", 0)) == owner:
+			continue
+		if _check_units_in_engagement_range(unit, other, board):
+			return true
+	return false
+
+static func is_unit_unengaged(unit_id: String, board: Dictionary) -> bool:
+	return not is_unit_engaged(unit_id, board)

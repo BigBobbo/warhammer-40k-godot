@@ -29,7 +29,7 @@ var _roll_complete: bool = false
 var _confirmed: bool = false
 
 func _init():
-	_rng = RulesEngine.RNGService.new()
+	_rng = RulesEngine.make_rng()
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.FIRST_TURN_ROLLOFF

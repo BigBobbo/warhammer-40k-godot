@@ -1,0 +1,70 @@
+{
+  "id": "iss045_allocation_groups",
+  "covers": [
+    "scripts.AllocationGroupOverlay.order_choice",
+    "rules.11e.allocation_groups.character_last",
+    "rules.11e.allocation_groups.batch_saves"
+  ],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "ISS-045 (11e 05.03-05.04): the defender-side allocation-group overlay. Sets edition 11, attaches Warboss B to Boyz F (attached unit -> per-CHARACTER group), then drives the real save-resolution entry point with a 6-wound AP-3 attack. The AllocationGroupOverlay must offer the groups, refuse an order that puts the CHARACTER before the Boyz (Confirm disabled), then batch-roll saves on confirm: Boyz at Sv5+/AP-3 cannot save, so exactly 6 Boyz die and the Warboss is untouched (CHARACTER group reached last).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_F\").merge({\"attachment_data\": {\"attached_characters\": [\"U_WARBOSS_B\"]}})" },
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WARBOSS_B\").merge({\"attached_to\": \"U_BOYZ_F\"})" },
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_F\").attachment_data.attached_characters.size()",
+      "equals": 1 },
+    { "act": "execute_script",
+      "script": "RulesEngine.count_alive_models(GameState.get_unit(\"U_BOYZ_F\"))",
+      "equals": 20 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._on_saves_required([RulesEngine.prepare_save_resolution(6, \"U_BOYZ_F\", \"U_CUSTODIAN_GUARD_B\", {\"name\": \"Allocation Test Cannon\", \"ap\": -3, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"\"}, GameState.state)])" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel", "timeout_s": 3.0 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"AllocationGroupOverlay/Center/Panel/VBox/GroupList\").get_child_count()",
+      "equals": 2 },
+    { "act": "screenshot", "label": "01_groups_offered" },
+
+    { "act": "click_node", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/GroupList/Row1/Up1", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_node_property", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton", "property": "disabled", "equals": true },
+    { "act": "screenshot", "label": "02_character_first_rejected" },
+
+    { "act": "click_node", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/GroupList/Row0/Down0", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_node_property", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton", "property": "disabled", "equals": false },
+
+    { "act": "click_node", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "03_batch_resolved" },
+
+    { "act": "execute_script",
+      "script": "RulesEngine.count_alive_models(GameState.get_unit(\"U_BOYZ_F\"))",
+      "equals": 14 },
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WARBOSS_B\").models[0].alive",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WARBOSS_B\").models[0].get(\"current_wounds\", -1) == GameState.get_unit(\"U_WARBOSS_B\").models[0].get(\"wounds\", -1)",
+      "equals": true },
+
+    { "act": "click_node", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel/DoneButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script",
+      "script": "main.get_node_or_null(\"AllocationGroupOverlay\") == null",
+      "equals": true },
+    { "act": "execute_script", "script": "GameState.set_edition(10)", "equals": 10 },
+    { "act": "screenshot", "label": "04_after_allocation" }
+  ]
+}

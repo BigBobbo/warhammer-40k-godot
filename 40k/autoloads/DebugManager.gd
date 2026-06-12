@@ -217,7 +217,7 @@ func _show_debug_overlay() -> void:
 		return
 	
 	# Create debug overlay dynamically
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if not main_node:
 		DebugLogger.error("Debug: Main node not found")
 		return
@@ -287,7 +287,7 @@ func _hide_debug_overlay() -> void:
 
 # Update all token visuals for debug state
 func _update_all_tokens_debug_state(debug_active: bool) -> void:
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if not main_node:
 		return
 	
@@ -303,7 +303,7 @@ func _update_all_tokens_debug_state(debug_active: bool) -> void:
 # Visual feedback helpers
 func _create_debug_ghost(model_data: Dictionary) -> void:
 	"""Create a ghost visual for the dragged model"""
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if not main_node:
 		DebugLogger.error("Debug: Main node not found for ghost creation")
 		return
@@ -355,7 +355,7 @@ func _get_full_model_data(unit_id: String, model_id: String) -> Dictionary:
 
 func _update_ghost_position(world_pos: Vector2) -> void:
 	# Update ghost visual position during drag
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if not main_node:
 		return
 	
@@ -366,7 +366,7 @@ func _update_ghost_position(world_pos: Vector2) -> void:
 
 func _clear_drag_visuals() -> void:
 	# Clear any drag-related visuals
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if not main_node:
 		return
 	
@@ -377,13 +377,13 @@ func _clear_drag_visuals() -> void:
 
 func _refresh_board_visuals() -> void:
 	# Trigger a visual refresh of the board
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("_recreate_unit_visuals"):
 		main_node._recreate_unit_visuals()
 
 # Utility functions
 func _screen_to_world_position(screen_pos: Vector2) -> Vector2:
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if not main_node:
 		return screen_pos
 	

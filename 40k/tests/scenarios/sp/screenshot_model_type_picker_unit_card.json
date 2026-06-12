@@ -8,17 +8,42 @@
   "disable_ai": true,
   "description": "Visual: starts deploying U_LOOTAS_A (which has 3 model_types: loota_deffgun, loota_kmb, spanner) and captures a screenshot to show the Select Model Type picker rendered inside the right-hand unit card next to the Deploy Formation Single/Spread/Tight buttons.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 1.0 },
-    { "act": "screenshot", "label": "01_deployment_phase_ready" },
-
-    { "act": "execute_script", "script": "Main.show_unit_card('U_LOOTAS_A')" },
-    { "act": "wait_frames", "frames": 6 },
-
-    { "act": "execute_script", "script": "Main.deployment_controller.begin_deploy('U_LOOTAS_A')" },
-    { "act": "wait_frames", "frames": 12 },
-
-    { "act": "screenshot", "label": "02_picker_in_unit_card" },
-
-    { "act": "execute_script", "script": "'has_picker=' + str(Main.deployment_controller.has_model_type_picker) + ' parent=' + (Main.deployment_controller.model_type_picker_panel.get_parent().name if Main.deployment_controller.model_type_picker_panel else 'null')" }
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_deployment_phase_ready"
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.show_unit_card('U_LOOTAS_A')"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.deployment_controller.begin_deploy('U_LOOTAS_A')"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "screenshot",
+      "label": "02_picker_in_unit_card"
+    },
+    {
+      "act": "execute_script",
+      "script": "'has_picker=' + str(Main.deployment_controller.has_model_type_picker)"
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.deployment_controller.model_type_picker_panel.get_parent().name",
+      "exists": true
+    }
   ]
 }

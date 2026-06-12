@@ -1571,7 +1571,7 @@ func use_da_kaptin(player: int, target_unit_id: String) -> Dictionary:
 
 	# Roll D3 for mortal wounds
 	# Issue #329: route through RNGService so static test_mode_seed applies
-	var rng = RulesEngine.RNGService.new()
+	var rng = RulesEngine.make_rng()
 	var d3_roll = rng.rng.randi_range(1, 3)
 
 	# Apply mortal wounds
@@ -1653,7 +1653,7 @@ func resolve_bionik_workshop(player: int) -> Dictionary:
 
 	# Roll D3
 	# Issue #329: route through RNGService so static test_mode_seed applies
-	var rng = RulesEngine.RNGService.new()
+	var rng = RulesEngine.make_rng()
 	var d3_roll = rng.rng.randi_range(1, 3)
 
 	var bonus_type = ""

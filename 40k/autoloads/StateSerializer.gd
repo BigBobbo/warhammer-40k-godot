@@ -11,7 +11,10 @@ signal serialization_error(error: String)
 # 1.0.0 - Initial save format
 # 1.1.0 - Added save format migration system (SAVE-3), formalized formations backfill,
 #          ensured all expected top-level sections and meta fields exist
-const CURRENT_VERSION = "1.1.0"
+# 1.2.0 - ISS-037 (11e schema): normalized invulnerable_save -> invuln in
+#          unit stats; army files carry faction.schema = 2 with
+#          needs_11e_review flags for units missing 11e-required stats
+const CURRENT_VERSION = "1.2.0"
 const MINIMUM_MIGRATABLE_VERSION = "1.0.0"
 
 # Migration registry: maps source_version -> { "target": next_version, "migrate": Callable }
@@ -45,6 +48,10 @@ func _register_migrations() -> void:
 	_migrations["1.0.0"] = {
 		"target": "1.1.0",
 		"migrate": _migrate_1_0_0_to_1_1_0
+	}
+	_migrations["1.1.0"] = {
+		"target": "1.2.0",
+		"migrate": _migrate_1_1_0_to_1_2_0
 	}
 
 func migrate_save_data(data: Dictionary) -> Dictionary:
@@ -222,6 +229,21 @@ func _migrate_1_0_0_to_1_1_0(data: Dictionary) -> Dictionary:
 					player_data["secondary_vp"] = 0
 
 	print("StateSerializer: _migrate_1_0_0_to_1_1_0: Migration complete")
+	return data
+
+func _migrate_1_1_0_to_1_2_0(data: Dictionary) -> Dictionary:
+	# ISS-037: normalize the invulnerable-save spelling in saved unit stats
+	# (armies were converted to schema 2; old saves may carry either form).
+	var normalized := 0
+	for unit_id in data.get("units", {}):
+		var stats = data["units"][unit_id].get("meta", {}).get("stats", {})
+		if stats.has("invulnerable_save"):
+			var v = stats["invulnerable_save"]
+			stats.erase("invulnerable_save")
+			if not stats.has("invuln") or (v > 0 and (stats.get("invuln", 0) == 0 or v < stats["invuln"])):
+				stats["invuln"] = v
+			normalized += 1
+	print("StateSerializer: _migrate_1_1_0_to_1_2_0: normalized %d invuln entries" % normalized)
 	return data
 
 # Main serialization methods

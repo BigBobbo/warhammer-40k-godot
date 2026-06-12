@@ -10,7 +10,17 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 signal phase_completed()
 signal action_taken(action: Dictionary)
 
-var game_state_snapshot: Dictionary = {}
+# ISS-024: phases read LIVE state — this is a property view over
+# GameState.state, so phase code can never act on stale data and the
+# old hand-patching sites become idempotent writes of live values.
+# Assignments (enter_phase, legacy refresh sites) are no-ops. Where a
+# frozen view is semantically required (e.g. "models in the target unit
+# at Select Targets"), take an explicit duplicate at that point.
+var game_state_snapshot: Dictionary:
+	get:
+		return GameState.state
+	set(_value):
+		pass
 var phase_type: GameStateData.Phase
 
 # Abstract methods that must be implemented by concrete phases
@@ -94,10 +104,8 @@ func execute_action(action: Dictionary) -> Dictionary:
 		if result.has("changes") and result.changes is Array:
 			PhaseManager.apply_state_changes(result.changes)
 
-			# CRITICAL: Update our local snapshot after applying changes
-			# Otherwise get_unit() will read stale data from the old snapshot
-			game_state_snapshot = GameState.create_snapshot()
-			DebugLogger.info("[BasePhase] Refreshed game_state_snapshot after applying changes")
+			# ISS-024: no refresh needed — the snapshot property reads
+			# live state.
 
 		# Attach human-readable log_text from result to the action dict
 		if result.has("log_text") and result.log_text != "":

@@ -1021,7 +1021,7 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 	# no `pending_save_data`), surface the most-recent shown broadcast id
 	# instead so multi-peer tests can verify the broadcast crossed the wire.
 	if state_data["save_broadcast_id"] == "":
-		var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+		var shooting_controller = SceneRefs.main_path("ShootingController")
 		if shooting_controller and "_shown_save_broadcast_ids" in shooting_controller:
 			var shown_ids = shooting_controller._shown_save_broadcast_ids
 			if shown_ids != null and shown_ids is Array and not shown_ids.is_empty():

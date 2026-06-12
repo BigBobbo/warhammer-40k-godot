@@ -98,6 +98,16 @@ signal turn_history_updated()
 signal ai_alpha_targets_selected(drawing_player: int, alpha_targets: Array, eligible_units: Array)  # AI opponent selected alphas; human card holder needs to pick gamma
 
 func _ready() -> void:
+	# ISS-032: AI cache policy is reset-by-design across save/load — the
+	# strategic caches (focus-fire plan, phase plan, secondary awareness…)
+	# are deliberately NOT serialized; they are cleared on every load so
+	# post-load decisions are recomputed from the loaded state. Subscribed
+	# directly here (belt-and-braces beyond Main's reconfigure path).
+	if has_node("/root/SaveLoadManager"):
+		var slm = get_node("/root/SaveLoadManager")
+		if slm.has_signal("load_completed") and not slm.load_completed.is_connected(_on_save_load_completed):
+			slm.load_completed.connect(_on_save_load_completed)
+
 	# Connect to signals - use call_deferred to avoid acting during signal emission
 	if has_node("/root/GameManager"):
 		var game_manager = get_node("/root/GameManager")
@@ -2010,7 +2020,7 @@ func _execute_ai_scout_movement(player: int, decision: Dictionary) -> void:
 
 func _show_ai_movement_paths(origin_positions: Dictionary, destinations: Dictionary, player: int) -> void:
 	"""Create an AIMovementPathVisual showing trails from origins to destinations."""
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		print("AIPlayer: T7-21: Cannot find BoardRoot for movement path visual")
 		return
@@ -2993,3 +3003,8 @@ func probe_t108_range_band_synthetic_grid() -> Array:
 			m = 0.85
 		out.append({"range_ratio": r, "multiplier": m})
 	return out
+
+
+func _on_save_load_completed(_file_path: String, _metadata: Dictionary) -> void:
+	# ISS-032: guarantee stale strategy caches never survive a load.
+	AIDecisionMaker.reset_caches()

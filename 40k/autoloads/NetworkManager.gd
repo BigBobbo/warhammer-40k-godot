@@ -12,6 +12,7 @@ signal game_started()
 signal action_rejected(action_type: String, reason: String)  # Emitted when an action is rejected
 signal game_code_received(code: String)  # Emitted when server assigns a game code
 signal game_over(winner: int, reason: String)  # Emitted when game ends (timeout, disconnect, etc.)
+signal desync_detected(action_type: String)  # ISS-015
 signal peer_disconnect_grace_period(disconnected_player: int)  # P2-41: Emitted to trigger graceful disconnect dialog
 signal load_sync_confirmed(all_confirmed: bool)  # SAVE-2: Emitted when all clients confirm loaded state (or timeout)
 signal chat_message_received(sender_player: int, text: String)  # T-102: chat panel
@@ -477,7 +478,7 @@ func _on_web_relay_message(data: Dictionary) -> void:
 			var ack_weapon = data.get("weapon_name", "")
 			var ack_sbid = data.get("save_broadcast_id", "")
 			print("NetworkManager: T5-MP4: Received save_dialog_ack — target=%s, weapon=%s, sbid=%s" % [ack_target, ack_weapon, ack_sbid])
-			var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+			var shooting_controller = SceneRefs.main_path("ShootingController")
 			if shooting_controller and shooting_controller.has_method("on_save_dialog_acknowledged"):
 				shooting_controller.on_save_dialog_acknowledged(ack_target, ack_weapon, ack_sbid)
 
@@ -567,12 +568,12 @@ func _handle_relayed_action(action: Dictionary) -> void:
 			var weapon_id = action.get("payload", {}).get("weapon_id", "")
 			if shooter_id != "" and target_unit_id != "":
 				print("NetworkManager: T5-MP3: Host (relay) showing remote player's ASSIGN_TARGET visual — %s → %s" % [shooter_id, target_unit_id])
-				var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+				var shooting_controller = SceneRefs.main_path("ShootingController")
 				if shooting_controller and shooting_controller.has_method("show_remote_target_assignment"):
 					shooting_controller.show_remote_target_assignment(shooter_id, target_unit_id, weapon_id)
 		elif relayed_action_type == "CLEAR_ASSIGNMENT" or relayed_action_type == "CLEAR_ALL_ASSIGNMENTS":
 			print("NetworkManager: T5-MP3: Host (relay) clearing remote player's assignment visuals")
-			var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+			var shooting_controller = SceneRefs.main_path("ShootingController")
 			if shooting_controller and shooting_controller.has_method("clear_remote_target_assignments"):
 				shooting_controller.clear_remote_target_assignments()
 
@@ -752,7 +753,7 @@ func retry_save_data_broadcast(save_data_list: Array) -> void:
 func _receive_save_dialog_ack(target_unit_id: String, weapon_name: String, save_broadcast_id: String = "") -> void:
 	"""RPC handler for save dialog acknowledgment (ENet mode)."""
 	print("NetworkManager: T5-MP4: Received save_dialog_ack via RPC — target=%s, weapon=%s, sbid=%s" % [target_unit_id, weapon_name, save_broadcast_id])
-	var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+	var shooting_controller = SceneRefs.main_path("ShootingController")
 	if shooting_controller and shooting_controller.has_method("on_save_dialog_acknowledged"):
 		shooting_controller.on_save_dialog_acknowledged(target_unit_id, weapon_name, save_broadcast_id)
 
@@ -828,6 +829,11 @@ func disconnect_network() -> void:
 # Action submission and routing
 func submit_action(action: Dictionary) -> void:
 	print("NetworkManager: submit_action called for type: ", action.get("type"))
+	# ISS-026: while a load sync is unconfirmed, peers are on different
+	# states — refuse to widen the divergence.
+	if _load_sync_blocked and is_networked():
+		push_error("NetworkManager: action %s refused — load sync unconfirmed (peers desynced)" % action.get("type", "?"))
+		return
 	print("NetworkManager: is_networked() = ", is_networked())
 	print("NetworkManager: web_relay_mode = ", web_relay_mode)
 
@@ -837,14 +843,16 @@ func submit_action(action: Dictionary) -> void:
 		game_manager.apply_action(action)
 		return
 
-	# T5-MP9: Embed RNG seed in BEGIN_ADVANCE actions for deterministic optimistic execution.
-	# Both client (optimistic) and host (authoritative) read the same seed from the action,
-	# producing identical D6 advance rolls without a round-trip.
-	if action.get("type") == "BEGIN_ADVANCE" and not action.get("payload", {}).has("rng_seed"):
+	# T5-MP9 / ISS-015: Embed an RNG seed in EVERY submitted action that does
+	# not already carry one. Handlers that roll dice obtain their RNG via
+	# RulesEngine.rng_for_action (ISS-004), which honors this seed — so the
+	# client (optimistic) and host (authoritative) produce identical rolls
+	# without a round-trip. Handlers that do not roll dice ignore it.
+	if not action.get("payload", {}).has("rng_seed"):
 		if not action.has("payload"):
 			action["payload"] = {}
-		action["payload"]["rng_seed"] = randi()
-		print("NetworkManager: T5-MP9: Embedded rng_seed=%d in BEGIN_ADVANCE action" % action["payload"]["rng_seed"])
+		action["payload"]["rng_seed"] = randi() & 0x7FFFFFFF
+		print("NetworkManager: ISS-015: Embedded rng_seed=%d in %s action" % [action["payload"]["rng_seed"], action.get("type", "?")])
 
 	# Web relay mode - use WebSocketRelay for transport
 	if web_relay_mode:
@@ -891,6 +899,9 @@ func submit_action(action: Dictionary) -> void:
 		if result.success:
 			# Broadcast the result to client
 			print("NetworkManager: Broadcasting result to clients")
+			# ISS-015: attach a canonical post-action state hash so clients can
+			# detect divergence immediately instead of desyncing silently.
+			result["_state_hash"] = compute_state_hash()
 			_broadcast_result.rpc(result)
 	else:
 		print("NetworkManager: Client mode - sending to host")
@@ -1049,12 +1060,12 @@ func _send_action_to_host(action: Dictionary) -> void:
 			var weapon_id = action.get("payload", {}).get("weapon_id", "")
 			if shooter_id != "" and target_unit_id != "":
 				print("NetworkManager: T5-MP3: Host (ENet) showing remote player's ASSIGN_TARGET visual — %s → %s" % [shooter_id, target_unit_id])
-				var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+				var shooting_controller = SceneRefs.main_path("ShootingController")
 				if shooting_controller and shooting_controller.has_method("show_remote_target_assignment"):
 					shooting_controller.show_remote_target_assignment(shooter_id, target_unit_id, weapon_id)
 		elif client_action_type == "CLEAR_ASSIGNMENT" or client_action_type == "CLEAR_ALL_ASSIGNMENTS":
 			print("NetworkManager: T5-MP3: Host (ENet) clearing remote player's assignment visuals")
-			var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+			var shooting_controller = SceneRefs.main_path("ShootingController")
 			if shooting_controller and shooting_controller.has_method("clear_remote_target_assignments"):
 				shooting_controller.clear_remote_target_assignments()
 
@@ -1088,6 +1099,16 @@ func _broadcast_result(result: Dictionary) -> void:
 	# Client applies the result (with diffs already computed by host)
 	print("NetworkManager: Client applying result with %d diffs" % result.get("diffs", []).size())
 	game_manager.apply_result(result)
+
+	# ISS-015: desync detector — compare our post-apply state hash with the
+	# host's. A mismatch means the diff stream diverged (lost RPC, ordering
+	# bug, or a handler mutating state outside the pipeline).
+	if result.has("_state_hash"):
+		var local_hash = compute_state_hash()
+		if local_hash != result["_state_hash"]:
+			push_error("NetworkManager: DESYNC DETECTED after %s — local state hash %d != host %d" % [
+				result.get("action_type", "?"), local_hash, result["_state_hash"]])
+			emit_signal("desync_detected", result.get("action_type", "?"))
 
 	# Update phase snapshot so it stays in sync with GameState
 	_update_phase_snapshot()
@@ -1162,13 +1183,13 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			if shooter_id != "" and target_unit_id != "":
 				print("NetworkManager: T5-MP3: Remote ASSIGN_TARGET visual — %s targeting %s with %s" % [shooter_id, target_unit_id, weapon_id])
 				# Update the ShootingController on the remote player to show LoS line
-				var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+				var shooting_controller = SceneRefs.main_path("ShootingController")
 				if shooting_controller and shooting_controller.has_method("show_remote_target_assignment"):
 					shooting_controller.show_remote_target_assignment(shooter_id, target_unit_id, weapon_id)
 
 	# Handle CLEAR_ASSIGNMENT / CLEAR_ALL_ASSIGNMENTS — clear LoS lines on remote
 	if action_type == "CLEAR_ASSIGNMENT" or action_type == "CLEAR_ALL_ASSIGNMENTS":
-		var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+		var shooting_controller = SceneRefs.main_path("ShootingController")
 		if shooting_controller and shooting_controller.has_method("clear_remote_target_assignments"):
 			print("NetworkManager: T5-MP3: Remote %s — clearing assignment visuals" % action_type)
 			shooting_controller.clear_remote_target_assignments()
@@ -1213,7 +1234,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 
 	# T5-MP4: Clear attacker's waiting-for-saves state when APPLY_SAVES result arrives
 	if action_type == "APPLY_SAVES":
-		var sc = get_node_or_null("/root/Main/ShootingController")
+		var sc = SceneRefs.main_path("ShootingController")
 		if sc and sc.has_method("clear_awaiting_saves_state"):
 			print("NetworkManager: T5-MP4: Clearing attacker's awaiting saves state (APPLY_SAVES received)")
 			sc.clear_awaiting_saves_state()
@@ -1635,7 +1656,7 @@ func _animate_fight_movement_tokens(unit_id: String, movements: Dictionary) -> v
 	"""Animate model tokens from current visual position to new positions.
 	T5-MP1: Called when PILE_IN or CONSOLIDATE results are received on the remote client
 	to provide smooth visual feedback instead of models teleporting."""
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		print("NetworkManager: T5-MP1: Cannot animate - TokenLayer not found")
 		return
@@ -1713,7 +1734,7 @@ func _receive_drag_preview(unit_id: String, model_id: String, pos_x: float, pos_
 
 func _apply_drag_preview(unit_id: String, model_id: String, pos_x: float, pos_y: float) -> void:
 	"""T5-MP1: Apply a drag preview by moving the token directly (no tween for real-time feel)."""
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		return
 
@@ -1890,7 +1911,17 @@ func _check_all_load_acks_received() -> void:
 	# All peers confirmed — stop timer and emit signal
 	print("NetworkManager: SAVE-2: All clients confirmed loaded state")
 	_stop_load_sync_timer()
+	_load_sync_blocked = false
+	_load_sync_retries = 0
 	load_sync_confirmed.emit(true)
+
+# ISS-026: a failed load sync must not silently continue — peers would be
+# on different states (guaranteed desync presented as a working game).
+# On timeout we retry the snapshot send up to LOAD_SYNC_MAX_RETRIES times;
+# while unsynced, submit_action refuses new actions.
+const LOAD_SYNC_MAX_RETRIES := 3
+var _load_sync_retries: int = 0
+var _load_sync_blocked: bool = false
 
 func _on_load_sync_timeout() -> void:
 	"""Handle timeout waiting for client load acknowledgments."""
@@ -1901,7 +1932,28 @@ func _on_load_sync_timeout() -> void:
 
 	push_warning("NetworkManager: SAVE-2: Load sync timeout — %d client(s) did not confirm: %s" % [unconfirmed.size(), str(unconfirmed)])
 	_stop_load_sync_timer()
+
+	if _load_sync_retries < LOAD_SYNC_MAX_RETRIES and not unconfirmed.is_empty():
+		_load_sync_retries += 1
+		_load_sync_blocked = true
+		push_warning("NetworkManager: ISS-026: retrying load sync (%d/%d) — actions blocked until peers confirm" % [_load_sync_retries, LOAD_SYNC_MAX_RETRIES])
+		_resend_loaded_state_to_unconfirmed(unconfirmed)
+		_start_load_sync_timer()
+		return
+
+	# Out of retries: stay blocked and surface the failure loudly. The UI
+	# layer decides between disconnect / save-and-exit.
+	_load_sync_blocked = not unconfirmed.is_empty()
+	if _load_sync_blocked:
+		push_error("NetworkManager: ISS-026: load sync FAILED after %d retries — multiplayer actions remain blocked" % LOAD_SYNC_MAX_RETRIES)
 	load_sync_confirmed.emit(false)
+
+func _resend_loaded_state_to_unconfirmed(unconfirmed: Array) -> void:
+	# Re-send the authoritative loaded snapshot to peers that have not
+	# acknowledged, via the same RPC the initial load sync used.
+	var snapshot = game_state.create_snapshot()
+	for peer_id in unconfirmed:
+		_send_loaded_state.rpc_id(peer_id, snapshot, "resync")
 
 func _start_load_sync_timer() -> void:
 	"""Start the timeout timer for load sync acknowledgments."""
@@ -2365,6 +2417,12 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 # ============================================================================
 # PHASE 4: DETERMINISTIC RNG - Seed Generation
 # ============================================================================
+
+## ISS-015: canonical hash of the full game state. JSON.stringify sorts
+## dictionary keys by default, so insertion-order differences between host
+## and client do not produce false positives.
+func compute_state_hash() -> int:
+	return JSON.stringify(game_state.state).hash()
 
 func get_next_rng_seed() -> int:
 	if not is_networked():

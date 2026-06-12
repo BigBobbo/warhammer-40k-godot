@@ -30,7 +30,8 @@ signal scatter_opportunity(player: int, eligible_units: Array, trigger_unit_id: 
 signal grot_oiler_available(unit_id: String, player: int, eligible_targets: Array)
 signal grot_oiler_result(unit_id: String, results: Dictionary)
 
-const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
+# ISS-002: engagement range comes from GameConstants.engagement_range_inches()
+# (edition-dependent). Do not re-declare it as a local constant.
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
 # Bases at the touching boundary (W40K base-to-base contact) should not be flagged as
 # overlapping. Strict `<` comparison in shape collision combined with mm→px rounding
@@ -39,7 +40,9 @@ const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movemen
 const OVERLAP_TOLERANCE_PX: float = 0.5
 
 # Movement state tracking
-var active_moves: Dictionary = {}  # unit_id -> move_data
+var active_moves: Dictionary = {}
+# ISS-061: take-to-the-skies declarations awaiting the advance roll.
+var _pending_take_to_skies: Dictionary = {}  # unit_id -> move_data
 var dice_log: Array = []
 var _awaiting_reroll_decision: bool = false
 var _reroll_pending_unit_id: String = ""
@@ -473,7 +476,7 @@ func _check_thievin_scavengers() -> void:
 
 	# Roll 1D6 per qualifying objective
 	# Issue #329: route through RNGService so static test_mode_seed applies
-	var rng = RulesEngine.RNGService.new()
+	var rng = RulesEngine.make_rng()
 	var rolls: Array = []
 	var any_success = false
 
@@ -542,7 +545,7 @@ func _check_thievin_scavengers() -> void:
 
 func _show_thievin_scavengers_notification(text: String, success: bool) -> void:
 	"""Show a temporary on-screen banner for Thievin' Scavengers result."""
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if not main_node:
 		return
 
@@ -871,7 +874,12 @@ func _validate_begin_normal_move(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit cannot move (disembarked from transport that moved)"]}
 
 	# Check if unit is in engagement range (cannot use Normal Move if engaged)
-	if _is_unit_engaged(unit_id):
+	# ISS-040 step 2: at 11e the template (live state) is authoritative.
+	if GameConstants.edition >= 11:
+		var el_11e = MoveTypes.get_type("normal").eligible(unit_id, GameState.state)
+		if not el_11e.eligible:
+			return {"valid": false, "errors": el_11e.reasons}
+	elif _is_unit_engaged(unit_id):
 		return {"valid": false, "errors": ["Unit is engaged, must Fall Back instead"]}
 
 	# Issue #339: Units that arrived from Strategic Reserves this turn cannot move further
@@ -911,7 +919,12 @@ func _validate_begin_fall_back(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit has already moved this phase"]}
 	
 	# Fall Back is only allowed if engaged
-	if not _is_unit_engaged(unit_id):
+	# ISS-040 step 2: at 11e the 09.07 template (live state) is authoritative.
+	if GameConstants.edition >= 11:
+		var el_11e = MoveTypes.get_type("fall_back").eligible(unit_id, GameState.state)
+		if not el_11e.eligible:
+			return {"valid": false, "errors": el_11e.reasons}
+	elif not _is_unit_engaged(unit_id):
 		return {"valid": false, "errors": ["Unit is not engaged, use Normal Move instead"]}
 
 	# Issue #339: Units that arrived from Strategic Reserves this turn cannot move further
@@ -948,6 +961,21 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Model has no current position"]}
 	
 	var distance_inches = Measurement.distance_inches(current_pos, dest_vec)
+
+	# ISS-054 (11e 13.06): dense terrain blocks non-INFANTRY/BEASTS/
+	# SWARM/MOBILE models when a crossed section is >2\" high (>4\" with
+	# SUPER-HEAVY WALKER) — the 2D board cannot path the mandated
+	# vertical traversal, so the segment is refused.
+	if GameConstants.edition >= 11:
+		# Take-to-the-skies movers pass over models and terrain (21.03).
+		var flying_54: bool = active_moves.has(unit_id) and active_moves[unit_id].get("took_to_skies", false)
+		var tm_54 = get_node_or_null("/root/TerrainManager")
+		if not flying_54 and tm_54 != null and tm_54.has_method("can_move_through_11e"):
+			var kw_54 = GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
+			var trav = tm_54.can_move_through_11e(kw_54, current_pos, dest_vec)
+			if not trav.allowed:
+				return {"valid": false, "errors": ["Dense terrain blocks this model's path (13.06): %s" % str(trav.blockers)]}
+
 	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
 	var terrain_penalty = _get_movement_terrain_penalty(current_pos, dest_vec, unit_id)
 	var effective_distance = distance_inches + terrain_penalty
@@ -1371,6 +1399,17 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
+	# ISS-061 (11e 21.03/24.17): "take to the skies" — an opt-in FLY
+	# declaration per move (payload.take_to_skies): -2\" cap (0 with
+	# HOVER); the mover ignores vertical distance and may move through
+	# models and terrain (pathing consumers read took_to_skies).
+	var took_to_skies := false
+	if GameConstants.edition >= 11 and action.get("payload", {}).get("take_to_skies", false) \
+			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", []):
+		took_to_skies = true
+		var fly_mod = MoveType.take_to_skies_modifier(GameState.get_unit(unit_id))
+		move_inches = max(0.0, move_inches + fly_mod)
+		log_phase_message("[11e] %s takes to the skies: cap %s\" (%+.1f\"), may move through models and terrain" % [unit_id, str(move_inches), fly_mod])
 
 	# If unit already had staged moves (e.g. switching modes), reset visuals first
 	_reset_staged_visuals_if_needed(unit_id)
@@ -1378,6 +1417,7 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "NORMAL",
+		"took_to_skies": took_to_skies,
 		"mode_locked": false,  # Track if mode is confirmed
 		"completed": false,  # Track if unit has completed movement
 		"move_cap_inches": move_inches,
@@ -1429,6 +1469,11 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
+	# ISS-061 (11e): record the take-to-the-skies declaration; the cap is
+	# applied in _resolve_advance_roll (after the D6 and any rerolls).
+	_pending_take_to_skies[unit_id] = GameConstants.edition >= 11 \
+			and action.get("payload", {}).get("take_to_skies", false) \
+			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
 
 	# If unit already had staged moves (e.g. switching from Normal to Advance), reset visuals early
 	# This ensures visuals are correct even if a reroll dialog delays _resolve_advance_roll
@@ -1529,6 +1574,13 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	"""Resolve an advance roll with the given die value."""
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
+	# ISS-061 (11e 21.03/24.17): apply the recorded take-to-the-skies cap.
+	var took_to_skies: bool = _pending_take_to_skies.get(unit_id, false)
+	_pending_take_to_skies.erase(unit_id)
+	if took_to_skies:
+		var fly_mod = MoveType.take_to_skies_modifier(GameState.get_unit(unit_id))
+		move_inches = max(0.0, move_inches + fly_mod)
+		log_phase_message("[11e] %s takes to the skies: advance cap (%s + %d)\" (%+.1f\")" % [unit_id, str(move_inches), advance_roll, fly_mod])
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
@@ -1538,6 +1590,7 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "ADVANCE",
+		"took_to_skies": took_to_skies,
 		"mode_locked": false,
 		"completed": false,
 		"move_cap_inches": total_move,
@@ -3730,6 +3783,13 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 		"value": GameState.get_battle_round()
 	})
 
+	# ISS-060 step 2 (11e 20.04): the arrival is an INGRESS MOVE — the
+	# template's AFTER effects apply (arrived_from_reserves +
+	# no-other-moves-until-the-next-Charge-phase, so the unit CAN charge).
+	if GameConstants.edition >= 11:
+		changes.append_array(MoveTypes.get_type("ingress").after_moving_effects(unit_id, {}))
+		log_phase_message("[11e] %s arrived via ingress move (may charge; no further moves this phase)" % unit_id)
+
 	# Deploy attached characters that are also in reserves (same logic as PLACE_REINFORCEMENT)
 	var unit = get_unit(unit_id)
 	var attachment_data = unit.get("attachment_data", {})
@@ -3913,6 +3973,17 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
+	# ISS-061 (11e 21.03/24.17): "take to the skies" — an opt-in FLY
+	# declaration per move (payload.take_to_skies): -2\" cap (0 with
+	# HOVER); the mover ignores vertical distance and may move through
+	# models and terrain (pathing consumers read took_to_skies).
+	var took_to_skies := false
+	if GameConstants.edition >= 11 and action.get("payload", {}).get("take_to_skies", false) \
+			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", []):
+		took_to_skies = true
+		var fly_mod = MoveType.take_to_skies_modifier(GameState.get_unit(unit_id))
+		move_inches = max(0.0, move_inches + fly_mod)
+		log_phase_message("[11e] %s takes to the skies: cap %s\" (%+.1f\"), may move through models and terrain" % [unit_id, str(move_inches), fly_mod])
 
 	# If unit already had staged moves (e.g. switching modes), reset visuals first
 	_reset_staged_visuals_if_needed(unit_id)
@@ -3920,6 +3991,7 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "FALL_BACK",
+		"took_to_skies": took_to_skies,
 		"mode_locked": false,  # Track if mode is confirmed
 		"completed": false,  # Track if unit has completed movement
 		"move_cap_inches": move_inches,
@@ -3943,6 +4015,36 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	emit_signal("unit_move_begun", unit_id, "FALL_BACK")
 	log_phase_message("Beginning fall back for %s (M: %d\")" % [unit.get("meta", {}).get("name", unit_id), move_inches])
 
+	# ISS-040 step 2 (11e 09.07): fall-back MODES via the template —
+	# desperate escape is mandatory when battle-shocked and rolls one
+	# hazard per model BEFORE moving (06.03); ordered retreat otherwise
+	# (player may still opt into desperate escape via payload).
+	var fb_hazard_changes: Array = []
+	if GameConstants.edition >= 11:
+		var fb_template = MoveTypes.get_type("fall_back")
+		var fb_sel = fb_template.select_mode(unit_id, GameState.state)
+		var fb_mode = str(action.get("payload", {}).get("fall_back_mode", fb_sel.mode))
+		if not fb_mode in fb_sel.available:
+			fb_mode = str(fb_sel.mode)
+		active_moves[unit_id]["fall_back_mode"] = fb_mode
+		log_phase_message("[11e] Fall-back mode for %s: %s (available: %s)" % [unit_id, fb_mode, str(fb_sel.available)])
+		if fb_mode == "desperate_escape":
+			var fb_ctx = fb_template.before_moving(unit_id, GameState.state, RulesEngine.make_rng(), {"mode": fb_mode})
+			active_moves[unit_id]["desperate_escape_ctx"] = fb_ctx
+			var hz = fb_ctx.get("hazard", {})
+			log_phase_message("[11e] Desperate escape hazard rolls for %s: %s (%d failure(s))" % [unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0))])
+			# 06.03: each failure destroys a model (3 MW each instead for
+			# an all-MONSTER/VEHICLE unit, via the 06.02 allocation).
+			if int(hz.get("failures", 0)) > 0:
+				var mw = int(hz.get("mortal_wounds", 0))
+				var out = Allocation.apply_mortal_wounds_11e(unit, mw)
+				for ridx in out.remaining:
+					var mi = int(ridx)
+					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, mi], "value": int(out.remaining[ridx])})
+				for di in out.models_destroyed:
+					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, int(di)], "value": false})
+					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, int(di)], "value": 0})
+
 	var begin_changes = [
 		{
 			"op": "set",
@@ -3960,6 +4062,8 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 			"value": true
 		}
 	]
+
+	begin_changes.append_array(fb_hazard_changes)
 
 	# P2-88: Check for Fire Overwatch at fall back move start
 	# Balance Dataslate timing: "when an enemy unit starts a Fall Back move"
@@ -4517,6 +4621,18 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		_normal_moves_this_phase[unit_id] = true
 		log_phase_message("P2-72: Marked %s as having made a Normal move this phase" % unit_id)
 
+	# ISS-040 step 2: at 11e the confirmed move's template contributes its
+	# AFTER effects (16.01 action locks, desperate-escape battle-shock
+	# follow-up). Duplicate set-ops with the legacy flags below are
+	# idempotent.
+	if GameConstants.edition >= 11:
+		var mt_map_11e = {"NORMAL": "normal", "ADVANCE": "advance", "FALL_BACK": "fall_back"}
+		if mt_map_11e.has(move_data.mode):
+			var mt_fx = MoveTypes.get_type(mt_map_11e[move_data.mode]).after_moving_effects(
+				unit_id, {"mode": str(move_data.get("fall_back_mode", ""))})
+			changes.append_array(mt_fx)
+			log_phase_message("[11e] Applied %s template AFTER effects for %s (%d ops)" % [mt_map_11e[move_data.mode], unit_id, mt_fx.size()])
+
 	# Set movement restrictions for later phases
 	if move_data.mode == "ADVANCE":
 		# ASSAULT RULES: Set the 'advanced' flag for Shooting phase to check
@@ -4954,6 +5070,33 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 			return {"valid": false, "errors": errors}
 		DebugLogger.info(str("MovementPhase: P2-80 — Unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id)))
 
+	# ISS-060 step 2 (11e 20.04/24.09): reinforcements arrive via an
+	# INGRESS MOVE — set-up validation through the template: wholly
+	# within 6\" of a battlefield edge (lifted by Deep Strike), more than
+	# 8\" from all enemies (vs 10e's 9\"), and not in the opponent's
+	# deployment zone before battle round 3.
+	if GameConstants.edition >= 11:
+		var ingress_tmpl = MoveTypes.get_type("ingress")
+		var pos_vecs: Array = []
+		for p in model_positions:
+			if p == null:
+				continue
+			if p is Array:
+				pos_vecs.append(Vector2(p[0], p[1]))
+			elif p is Dictionary:
+				pos_vecs.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
+			else:
+				pos_vecs.append(p)
+		var ingress_check = ingress_tmpl.validate_setup(unit_id, GameState.state, pos_vecs, {
+			"battle_round": battle_round,
+			"deep_strike": placement_type == "deep_strike",
+			"board_size_inches": Vector2(GameState.state.board.size.width, GameState.state.board.size.height),
+		})
+		if not ingress_check.valid:
+			return {"valid": false, "errors": ingress_check.errors}
+		log_phase_message("[11e] Ingress set-up validated for %s (%s, round %d)" % [unit_id, placement_type, battle_round])
+		return {"valid": true, "errors": []}
+
 	# Validate model positions
 	if model_positions is Array:
 		var board_width = GameState.state.board.size.width  # 44 inches
@@ -5097,6 +5240,13 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 		"path": "units.%s.arrived_from_reserves_turn" % unit_id,
 		"value": GameState.get_battle_round()
 	})
+
+	# ISS-060 step 2 (11e 20.04): the arrival is an INGRESS MOVE — the
+	# template's AFTER effects apply (arrived_from_reserves +
+	# no-other-moves-until-the-next-Charge-phase, so the unit CAN charge).
+	if GameConstants.edition >= 11:
+		changes.append_array(MoveTypes.get_type("ingress").after_moving_effects(unit_id, {}))
+		log_phase_message("[11e] %s arrived via ingress move (may charge; no further moves this phase)" % unit_id)
 
 	# Deploy attached characters that are also in reserves
 	# Per 10e rules, attached characters arrive together with their bodyguard
@@ -6047,11 +6197,11 @@ func _is_unit_engaged(unit_id: String) -> bool:
 ## accounting for barricade terrain (2" instead of 1" if barricade is between them).
 func _get_effective_engagement_range(pos1: Vector2, pos2: Vector2) -> float:
 	if not is_inside_tree():
-		return ENGAGEMENT_RANGE_INCHES
+		return GameConstants.engagement_range_inches()
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
 		return terrain_manager.get_engagement_range_for_positions(pos1, pos2)
-	return ENGAGEMENT_RANGE_INCHES
+	return GameConstants.engagement_range_inches()
 
 func _is_position_in_engagement_range(unit_id: String, model_id: String, pos: Vector2) -> bool:
 	var model = _get_model_in_unit(unit_id, model_id)
@@ -6909,6 +7059,46 @@ func get_available_actions() -> Array:
 	else:
 		log_phase_message("[get_available_actions] ✗ NOT adding END_MOVEMENT (incomplete moves exist)")
 	
+	# ISS-040 step 2: at edition >= 11 the MoveType registry (09.04-09.07
+	# templates) is authoritative for the four basic moves — offerings the
+	# templates rule ineligible are dropped. Ability extras (Da Jump,
+	# infiltrator redeploys, reinforcements, disembarks) pass through.
+	if GameConstants.edition >= 11:
+		var basic_map = {"BEGIN_NORMAL_MOVE": "normal", "BEGIN_ADVANCE": "advance",
+			"BEGIN_FALL_BACK": "fall_back", "REMAIN_STATIONARY": "remain_stationary"}
+		var type_for_mt = {"normal": "BEGIN_NORMAL_MOVE", "advance": "BEGIN_ADVANCE",
+			"fall_back": "BEGIN_FALL_BACK", "remain_stationary": "REMAIN_STATIONARY"}
+		var label_for_mt = {"normal": "Move", "advance": "Advance with",
+			"fall_back": "Fall Back with", "remain_stationary": "Remain stationary:"}
+		var avail_cache: Dictionary = {}
+		var offered: Dictionary = {}
+		var filtered: Array = []
+		for a in actions:
+			var t = str(a.get("type", ""))
+			if basic_map.has(t):
+				var uid = str(a.get("actor_unit_id", ""))
+				if not avail_cache.has(uid):
+					avail_cache[uid] = MoveTypes.available_for(uid, GameState.state)
+					print("MovementPhase: [11e] MoveTypes.available_for(%s) -> %s" % [uid, str(avail_cache[uid])])
+				if not basic_map[t] in avail_cache[uid]:
+					continue
+				offered["%s:%s" % [uid, basic_map[t]]] = true
+			filtered.append(a)
+		# Top-up: basics the templates deem eligible that the 10e builder
+		# did not offer (e.g. engagement state divergence). Only units the
+		# builder considered movable (present in avail_cache) qualify.
+		for uid in avail_cache:
+			var u_name = get_unit(uid).get("meta", {}).get("name", uid)
+			for mt_id in avail_cache[uid]:
+				if not offered.has("%s:%s" % [uid, mt_id]):
+					filtered.append({
+						"type": type_for_mt[mt_id],
+						"actor_unit_id": uid,
+						"description": "%s %s" % [label_for_mt[mt_id], u_name]
+					})
+					print("MovementPhase: [11e] top-up offering %s for %s" % [type_for_mt[mt_id], uid])
+		return filtered
+
 	return actions
 
 func _should_complete_phase() -> bool:
@@ -7344,6 +7534,21 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 	var transport_pos = _get_unit_center_position(transport_id)
 	DebugLogger.info(str("DEBUG MovementPhase: Transport position: ", transport_pos))
 
+	# ISS-058 (11e 18.04): the disembark MODE sets the set-up distance —
+	# 3\" for rapid/tactical, 6\" for combat. The template selects the
+	# mandatory mode from the transport's move history; the player may
+	# signal an impossible tactical set-up via payload.can_setup_tactical.
+	var setup_range_inches := 3.0
+	if GameConstants.edition >= 11:
+		var dis_tmpl = MoveTypes.get_type("disembark")
+		var dis_el = dis_tmpl.eligible(unit_id, GameState.state)
+		if not dis_el.eligible:
+			return {"valid": false, "errors": dis_el.reasons}
+		var dis_sel = dis_tmpl.select_mode(unit_id, GameState.state,
+			{"can_setup_tactical": action.get("payload", {}).get("can_setup_tactical", true)})
+		setup_range_inches = dis_tmpl.setup_distance_inches({"mode": dis_sel.mode})
+		log_phase_message("[11e] Disembark mode for %s: %s (set-up %0.0f\")" % [unit_id, dis_sel.mode, setup_range_inches])
+
 	for i in range(positions.size()):
 		if i >= unit.models.size():
 			break
@@ -7355,12 +7560,16 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 		DebugLogger.info(str("DEBUG MovementPhase: Model position: ", pos))
 
 		# P3-95: Use centralized shape-aware distance check from TransportManager
-		var pos_vec = pos if pos is Vector2 else Vector2(pos.x, pos.y)
-		var range_result = TransportManager.is_position_within_disembark_range(pos_vec, unit.models[i], transport)
+		var pos_vec = pos
+		if pos is Array:
+			pos_vec = Vector2(pos[0], pos[1])
+		elif pos is Dictionary:
+			pos_vec = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+		var range_result = TransportManager.is_position_within_disembark_range(pos_vec, unit.models[i], transport, setup_range_inches)
 		DebugLogger.info(str("DEBUG MovementPhase: Edge-to-edge distance (inches): ", range_result.distance_inches))
 
 		if not range_result.within_range:
-			return {"valid": false, "errors": ["Model must be placed within 3\" of transport (%.1f\" from edge)" % range_result.distance_inches]}
+			return {"valid": false, "errors": ["Model must be placed within %0.0f\" of transport (%.1f\" from edge)" % [setup_range_inches, range_result.distance_inches]]}
 
 		# Build model_at_pos for engagement range and board edge checks
 		var model_at_pos = unit.models[i].duplicate()
@@ -7581,6 +7790,28 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 	if not validation.valid:
 		return create_result(false, [], validation.errors[0])
 
+	# ISS-058 (11e 18.04): resolve the mode before the move executes —
+	# combat disembark rolls a hazard per model BEFORE moving.
+	var dis_mode := ""
+	var dis_changes: Array = []
+	if GameConstants.edition >= 11:
+		var dis_tmpl = MoveTypes.get_type("disembark")
+		var dis_sel = dis_tmpl.select_mode(unit_id, GameState.state,
+			{"can_setup_tactical": action.get("payload", {}).get("can_setup_tactical", true)})
+		dis_mode = str(dis_sel.mode)
+		if dis_mode == "combat":
+			var unit_pre = GameState.get_unit(unit_id)
+			var ctx = dis_tmpl.before_moving(unit_id, GameState.state, RulesEngine.make_rng(), {"mode": "combat"})
+			var hz = ctx.get("hazard", {})
+			log_phase_message("[11e] Combat disembark hazards for %s: %s (%d failure(s))" % [unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0))])
+			if int(hz.get("failures", 0)) > 0:
+				var mw_out = Allocation.apply_mortal_wounds_11e(unit_pre, int(hz.get("mortal_wounds", 0)))
+				for ridx in mw_out.remaining:
+					dis_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, int(ridx)], "value": int(mw_out.remaining[ridx])})
+				for di in mw_out.models_destroyed:
+					dis_changes.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, int(di)], "value": false})
+		dis_changes.append_array(dis_tmpl.after_moving_effects(unit_id, {"mode": dis_mode}))
+
 	# Execute disembark through TransportManager (single call site)
 	TransportManager.disembark_unit(unit_id, positions)
 
@@ -7591,6 +7822,13 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
 	log_phase_message("Unit %s disembarked via CONFIRM_DISEMBARK action" % unit.meta.get("name", unit_id))
 
+	if GameConstants.edition >= 11:
+		# 18.04 AFTER per mode: tactical = the unit is then SELECTED to
+		# make a normal or advance move; rapid/combat lock further moves.
+		if dis_mode == "tactical":
+			log_phase_message("[11e] Tactical disembark — %s is selected for a normal/advance move" % unit_id)
+			call_deferred("_initialize_movement_for_disembarked_unit", unit_id)
+		return create_result(true, dis_changes)
 	# Post-disembark: offer movement if the transport hadn't already moved
 	if unit and not unit.get("flags", {}).get("cannot_move", false):
 		log_phase_message("Unit %s can move after disembark" % unit.meta.get("name", unit_id))

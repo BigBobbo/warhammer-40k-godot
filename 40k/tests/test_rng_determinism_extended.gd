@@ -107,8 +107,10 @@ func _run_tests() -> void:
 	# and called randi_range, it gets the same sequence we get here.
 	var transport_mgr_path = "res://autoloads/TransportManager.gd"
 	var src := FileAccess.get_file_as_string(transport_mgr_path)
-	_check("TransportManager.gd uses RulesEngine.RNGService.new()",
-		src.find("RulesEngine.RNGService.new()") != -1)
+	# ISS-004: RNG must come from the sanctioned factory (make_rng routes
+	# through test_mode_seed exactly like the old direct construction did).
+	_check("TransportManager.gd uses RulesEngine.make_rng()",
+		src.find("RulesEngine.make_rng()") != -1)
 	_check("TransportManager.gd uses rng.randi_range(1, 6) (not raw randi_range)",
 		src.find("rng.randi_range(1, 6)") != -1)
 	_check("TransportManager.gd no longer contains raw 'randi_range(1, 6)' call",
@@ -122,8 +124,8 @@ func _run_tests() -> void:
 
 	var mission_mgr_path = "res://autoloads/MissionManager.gd"
 	var ms := FileAccess.get_file_as_string(mission_mgr_path)
-	_check("MissionManager.gd uses RulesEngine.RNGService.new() in Supply Drop",
-		ms.find("RulesEngine.RNGService.new()") != -1)
+	_check("MissionManager.gd uses RulesEngine.make_rng() in Supply Drop",
+		ms.find("RulesEngine.make_rng()") != -1)
 	_check("MissionManager.gd Supply Drop uses rng.randi_range",
 		ms.find("rng.randi_range") != -1)
 
@@ -134,8 +136,8 @@ func _run_tests() -> void:
 
 	var fp_path = "res://phases/FightPhase.gd"
 	var fp := FileAccess.get_file_as_string(fp_path)
-	_check("FightPhase.gd Mathhammer uses _mh_rng = RulesEngine.RNGService.new()",
-		fp.find("_mh_rng = RulesEngine.RNGService.new()") != -1)
+	_check("FightPhase.gd Mathhammer uses _mh_rng = RulesEngine.make_rng()",
+		fp.find("_mh_rng = RulesEngine.make_rng()") != -1)
 	_check("FightPhase.gd Mathhammer seed uses _mh_rng.randi()",
 		fp.find("_mh_rng.randi()") != -1)
 	_check("FightPhase.gd no longer has bare '\"seed\": randi()'",

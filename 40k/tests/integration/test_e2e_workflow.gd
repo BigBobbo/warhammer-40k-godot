@@ -20,7 +20,7 @@ const MovementPhaseScript = preload("res://phases/MovementPhase.gd")
 const ShootingPhaseScript = preload("res://phases/ShootingPhase.gd")
 const FightPhaseScript = preload("res://phases/FightPhase.gd")
 const ScoringPhaseScript = preload("res://phases/ScoringPhase.gd")
-const MoralePhaseScript = preload("res://phases/MoralePhase.gd")
+# ISS-034: MoralePhase deleted (no morale phase in 10e/11e); battle-shock is in COMMAND.
 const DeploymentPhaseScript = preload("res://phases/DeploymentPhase.gd")
 
 # ChargePhase has a pre-existing compilation error (duplicate function),
@@ -1091,34 +1091,9 @@ func test_movement_phase_action_sequence():
 # ==========================================
 
 func test_morale_phase_auto_complete():
-	"""E2E: Morale phase should accept END_MORALE and complete."""
-	var state = _create_e2e_game_state()
-	state.meta.phase = GameStateData.Phase.MORALE
-	_load_state_into_game(state)
-
-	var morale_phase = _create_phase(MoralePhaseScript, game_state_node.state)
-
-	# Verify END_MORALE is valid
-	var end_action = {"type": "END_MORALE"}
-	var validation = morale_phase.validate_action(end_action)
-	assert_true(validation.valid, "END_MORALE should be valid")
-
-	var result = morale_phase.process_action(end_action)
-	assert_true(result.success, "END_MORALE should succeed")
-
-	# Verify only END_MORALE is available (per 10e, no active morale mechanics)
-	var available = morale_phase.get_available_actions()
-	assert_eq(available.size(), 1, "Should have exactly 1 available action")
-	assert_eq(available[0].get("type"), "END_MORALE",
-		"Only available action should be END_MORALE")
-
-	print("[E2E] Morale phase auto-complete test PASSED")
-
-
-# ==========================================
-# TEST 10: Shooting Phase Skip All Units
-# Verifies that skipping all units correctly ends the shooting phase.
-# ==========================================
+	# ISS-034: MoralePhase deleted — 10e/11e has no morale phase
+	# (battle-shock lives in the Command phase). Kept as a documented skip.
+	pass_test("skipped: MoralePhase removed in ISS-034")
 
 func test_shooting_phase_skip_all_units():
 	"""E2E: Skipping all units in shooting phase should allow END_SHOOTING."""

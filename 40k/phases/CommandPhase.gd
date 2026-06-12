@@ -31,7 +31,7 @@ var _fix_dat_armour_up_used: Array = []  # Units that used Fix Dat Armour Up thi
 
 func _init():
 	# Issue #329: route through RNGService so static test_mode_seed applies
-	_rng = RulesEngine.RNGService.new()
+	_rng = RulesEngine.make_rng()
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.COMMAND
@@ -202,7 +202,12 @@ func _on_phase_exit() -> void:
 	_newly_drawn_missions.clear()
 
 func _clear_battle_shocked_flags() -> void:
-	# Per 10th edition: Clear battle-shocked status at the start of each Command Phase
+	# Per 10th edition: Clear battle-shocked status at the start of each Command Phase.
+	# ISS-043 (11e 08.03): battle-shock is NOT auto-cleared — shocked units
+	# must take the battle-shock test and recover only by passing it.
+	if GameConstants.edition >= 11:
+		DebugLogger.info("CommandPhase: edition 11 — battle-shocked flags persist into the battle-shock step (recovery via test)")
+		return
 	var current_player = get_current_player()
 	var units = GameState.state.get("units", {})
 
@@ -263,10 +268,15 @@ func _identify_units_needing_tests() -> void:
 
 		# Check if unit is below half-strength
 		# Use combined check that includes attached character models in starting strength
-		if GameState.is_below_half_strength_combined(unit_id):
+		var below_half = GameState.is_below_half_strength_combined(unit_id)
+		var is_shocked = unit.get("flags", {}).get("battle_shocked", false)
+		# ISS-043 (11e 08.03): battle-shocked units must ALSO test — passing
+		# recovers them. (At-or-below-half bookkeeping rides with the
+		# starting-strength helper; below-half covers it for W-tracked units.)
+		if AttackSequence.battleshock_test_required(is_shocked, below_half, false):
 			_units_needing_test.append(unit_id)
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			DebugLogger.info(str("CommandPhase: %s (%s) is below half-strength - needs battle-shock test" % [unit_name, unit_id]))
+			DebugLogger.info(str("CommandPhase: %s (%s) needs battle-shock test (below_half=%s shocked=%s)" % [unit_name, unit_id, below_half, is_shocked]))
 
 func _has_battle_shock_immunity(keywords: Array, abilities: Array) -> bool:
 	"""Check if a unit has FEARLESS or And They Shall Know No Fear keyword/ability,
@@ -915,6 +925,14 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 		_units_tested.append(unit_id)
 
 	# Apply battle-shocked flag if test failed
+	if test_passed and GameConstants.edition >= 11 and unit.get("flags", {}).get("battle_shocked", false):
+		# ISS-043 (11e 08.03): a battle-shocked unit that passes RECOVERS.
+		unit["flags"]["battle_shocked"] = false
+		for char_id in GameState.get_attached_characters(unit_id):
+			var char_unit = GameState.state.get("units", {}).get(char_id, {})
+			if not char_unit.is_empty() and char_unit.has("flags"):
+				char_unit["flags"]["battle_shocked"] = false
+		DebugLogger.info(str("CommandPhase: %s PASSED while battle-shocked — recovered (11e 08.03)" % unit_name))
 	if not test_passed:
 		if not unit.has("flags"):
 			unit["flags"] = {}

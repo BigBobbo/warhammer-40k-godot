@@ -146,10 +146,17 @@ func _test_process_mutates_state() -> void:
 		_check("phase exposes _process_designate_warlord", false)
 		gs.state = prev_state
 		return
-	var result = phase.call("_process_designate_warlord",
+	# ISS-001: drive the full action router (validate + process + apply).
+	# _process_designate_warlord now returns diffs without mutating state;
+	# execute_action applies them via PhaseManager.apply_state_changes.
+	var result = phase.execute_action(
 		{"type": "DESIGNATE_WARLORD", "unit_id": "U_CHAR_B", "player": 1})
-	_check("_process_designate_warlord returned a result dict",
+	_check("execute_action returned a result dict",
 		result is Dictionary)
+	_check("execute_action succeeded",
+		result is Dictionary and result.get("success", false))
+	_check("result carries pipeline changes (ISS-001 contract)",
+		result is Dictionary and result.get("changes", []).size() > 0)
 	_check("U_CHAR_B.meta.is_warlord set to true",
 		gs.state["units"]["U_CHAR_B"]["meta"].get("is_warlord", false) == true)
 	_check("U_CHAR_A.meta.is_warlord cleared (only one warlord allowed)",

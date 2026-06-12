@@ -1,4 +1,4 @@
-extends Node
+extends PhaseControllerBase
 # All classes (GameStateData, BaseShape, CircularBase, OvalBase) are available via class_name
 # No preloads needed - using global class names to avoid web export reload issues
 
@@ -218,21 +218,28 @@ func begin_deploy(_unit_id: String) -> void:
 		var player_formations = formations_meta.get(str(owner), {})
 		var leader_attachments = player_formations.get("leader_attachments", {})
 		# Check if any character is declared attached to this unit
-		var repaired_chars = []
+		var needs_repair = false
 		for char_id in leader_attachments:
 			if leader_attachments[char_id] == _unit_id:
-				repaired_chars.append(char_id)
-		if repaired_chars.size() > 0:
-			print("[DeploymentController] STATE REPAIR: Found %d unlinked attachment(s) in meta.formations for bodyguard %s" % [repaired_chars.size(), _unit_id])
-			# Apply the missing attachment state directly
-			if not unit_data.has("attachment_data"):
-				unit_data["attachment_data"] = {}
-			unit_data["attachment_data"]["attached_characters"] = repaired_chars
-			GameState.state["units"][_unit_id]["attachment_data"] = unit_data["attachment_data"]
-			for char_id in repaired_chars:
-				GameState.state["units"][char_id]["attached_to"] = _unit_id
+				needs_repair = true
+				break
+		if needs_repair:
+			print("[DeploymentController] STATE REPAIR: dispatching REPAIR_FORMATION_ATTACHMENT for bodyguard %s" % _unit_id)
+			# ISS-001: route the repair through the action pipeline (DeploymentPhase
+			# returns diffs) instead of writing GameState from the UI layer, so the
+			# repair is recorded for replay/undo and synced in multiplayer. On a
+			# multiplayer client this may resolve asynchronously via host broadcast;
+			# this selection then proceeds un-combined, same as the pre-repair state.
+			var repair_result = NetworkIntegration.route_action({
+				"type": "REPAIR_FORMATION_ATTACHMENT",
+				"unit_id": _unit_id
+			})
+			if repair_result is Dictionary and not repair_result.get("success", false) and not repair_result.get("pending", false):
+				push_error("[DeploymentController] STATE REPAIR failed for %s: %s" % [_unit_id, str(repair_result)])
+			unit_data = GameState.get_unit(unit_id)
+			attached_char_ids = unit_data.get("attachment_data", {}).get("attached_characters", [])
+			for char_id in attached_char_ids:
 				print("[DeploymentController] STATE REPAIR: Set %s.attached_to = %s" % [char_id, _unit_id])
-			attached_char_ids = repaired_chars
 
 	if GameState.formations_declared() and attached_char_ids.size() > 0:
 		is_combined_deployment = true
@@ -1375,7 +1382,7 @@ func _update_coherency_distance_display(ghost_pos: Vector2, ghost_model_data: Di
 		active_ghost.set_nearest_model(nearest_pos, min_distance_inches)
 
 	# Update label text and color
-	var is_in_coherency = min_distance_inches <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES
+	var is_in_coherency = min_distance_inches <= GameConstants.coherency_distance_inches() + Measurement.DISTANCE_TOLERANCE_INCHES
 	coherency_distance_label.text = "%.1f\"" % min_distance_inches
 	if is_in_coherency:
 		coherency_distance_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.2))  # Green
@@ -1513,7 +1520,7 @@ func _update_coherency_circles() -> void:
 		placed_model["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
 
 		var dist = Measurement.model_to_model_distance_inches(ghost_model, placed_model)
-		coherency_circles[i].set_in_range(dist <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES)
+		coherency_circles[i].set_in_range(dist <= GameConstants.coherency_distance_inches() + Measurement.DISTANCE_TOLERANCE_INCHES)
 
 func _update_coherency_circles_static() -> void:
 	"""DEPLOY-VIS-5: When no ghost is active, show coherency status between placed models.
@@ -1562,7 +1569,7 @@ func _update_coherency_circles_static() -> void:
 			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
 
 			var dist = Measurement.model_to_model_distance_inches(model_i, model_j)
-			if dist <= 2.0 + Measurement.DISTANCE_TOLERANCE_INCHES:
+			if dist <= GameConstants.coherency_distance_inches() + Measurement.DISTANCE_TOLERANCE_INCHES:
 				has_neighbor = true
 				break
 

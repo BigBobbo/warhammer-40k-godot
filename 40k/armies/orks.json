@@ -5,7 +5,8 @@
     "detachment": "War Horde",
     "player_name": "",
     "team_name": "",
-    "created_date": "2025-02-20"
+    "created_date": "2025-02-20",
+    "schema": 2
   },
   "units": {
     "U_STRIKE_FORCE_A": {
@@ -26,7 +27,8 @@
         "points": 2000,
         "is_warlord": false,
         "enhancements": [],
-        "wargear": []
+        "wargear": [],
+        "needs_11e_review": true
       },
       "models": [
         {
@@ -80,7 +82,21 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1"
+            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+            "abilities": [
+              {
+                "id": "anti",
+                "keyword": "INFANTRY",
+                "threshold": 4
+              },
+              {
+                "id": "devastating_wounds"
+              },
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Twin slugga",
@@ -91,7 +107,15 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "pistol, twin-linked"
+            "special_rules": "pistol, twin-linked",
+            "abilities": [
+              {
+                "id": "pistol"
+              },
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Attack squig",
@@ -102,7 +126,12 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "extra attacks"
+            "special_rules": "extra attacks",
+            "abilities": [
+              {
+                "id": "extra_attacks"
+              }
+            ]
           },
           {
             "name": "Big choppa",
@@ -154,7 +183,9 @@
           }
         ],
         "leader_data": {
-          "can_lead": ["BOYZ"]
+          "can_lead": [
+            "BOYZ"
+          ]
         }
       },
       "models": [
@@ -209,7 +240,21 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1"
+            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+            "abilities": [
+              {
+                "id": "anti",
+                "keyword": "INFANTRY",
+                "threshold": 4
+              },
+              {
+                "id": "devastating_wounds"
+              },
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Twin slugga",
@@ -220,7 +265,15 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "pistol, twin-linked"
+            "special_rules": "pistol, twin-linked",
+            "abilities": [
+              {
+                "id": "pistol"
+              },
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Attack squig",
@@ -231,7 +284,12 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "extra attacks"
+            "special_rules": "extra attacks",
+            "abilities": [
+              {
+                "id": "extra_attacks"
+              }
+            ]
           },
           {
             "name": "Big choppa",
@@ -283,7 +341,9 @@
           }
         ],
         "leader_data": {
-          "can_lead": ["BOYZ"]
+          "can_lead": [
+            "BOYZ"
+          ]
         }
       },
       "models": [
@@ -340,7 +400,13 @@
             "strength": "5",
             "ap": "0",
             "damage": "1",
-            "special_rules": "rapid fire 2"
+            "special_rules": "rapid fire 2",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 2
+              }
+            ]
           },
           {
             "name": "'Uge choppa",
@@ -382,7 +448,9 @@
           }
         ],
         "leader_data": {
-          "can_lead": ["BOYZ"]
+          "can_lead": [
+            "BOYZ"
+          ]
         }
       },
       "models": [
@@ -437,7 +505,13 @@
             "strength": "5",
             "ap": "0",
             "damage": "1",
-            "special_rules": "rapid fire 2"
+            "special_rules": "rapid fire 2",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 2
+              }
+            ]
           },
           {
             "name": "Kombi-weapon",
@@ -448,7 +522,21 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1"
+            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+            "abilities": [
+              {
+                "id": "anti",
+                "keyword": "INFANTRY",
+                "threshold": 4
+              },
+              {
+                "id": "devastating_wounds"
+              },
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Rokkit launcha",
@@ -459,7 +547,12 @@
             "strength": "9",
             "ap": "-2",
             "damage": "3",
-            "special_rules": "blast"
+            "special_rules": "blast",
+            "abilities": [
+              {
+                "id": "blast"
+              }
+            ]
           },
           {
             "name": "Shoota",
@@ -470,7 +563,13 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "rapid fire 1"
+            "special_rules": "rapid fire 1",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Slugga",
@@ -481,7 +580,12 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "pistol"
+            "special_rules": "pistol",
+            "abilities": [
+              {
+                "id": "pistol"
+              }
+            ]
           },
           {
             "name": "Big choppa",
@@ -553,26 +657,186 @@
         ]
       },
       "models": [
-        {"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m11", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m12", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m13", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m14", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m15", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m16", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m17", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m18", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m19", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m20", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+        {
+          "id": "m1",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m6",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m7",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m8",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m9",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m10",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m11",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m12",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m13",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m14",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m15",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m16",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m17",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m18",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m19",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m20",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
       ]
     },
     "U_BOYZ_F": {
@@ -615,7 +879,13 @@
             "strength": "5",
             "ap": "0",
             "damage": "1",
-            "special_rules": "rapid fire 2"
+            "special_rules": "rapid fire 2",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 2
+              }
+            ]
           },
           {
             "name": "Kombi-weapon",
@@ -626,7 +896,21 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1"
+            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+            "abilities": [
+              {
+                "id": "anti",
+                "keyword": "INFANTRY",
+                "threshold": 4
+              },
+              {
+                "id": "devastating_wounds"
+              },
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Rokkit launcha",
@@ -637,7 +921,12 @@
             "strength": "9",
             "ap": "-2",
             "damage": "3",
-            "special_rules": "blast"
+            "special_rules": "blast",
+            "abilities": [
+              {
+                "id": "blast"
+              }
+            ]
           },
           {
             "name": "Shoota",
@@ -648,7 +937,13 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "rapid fire 1"
+            "special_rules": "rapid fire 1",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Slugga",
@@ -659,7 +954,12 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "pistol"
+            "special_rules": "pistol",
+            "abilities": [
+              {
+                "id": "pistol"
+              }
+            ]
           },
           {
             "name": "Big choppa",
@@ -732,39 +1032,237 @@
         "model_profiles": {
           "boss_nob": {
             "label": "Boss Nob",
-            "stats_override": {"weapon_skill": 3, "save": 4},
-            "weapons": ["Big choppa", "Choppa", "Power klaw", "Slugga", "Kombi-weapon"],
+            "stats_override": {
+              "weapon_skill": 3,
+              "save": 4
+            },
+            "weapons": [
+              "Big choppa",
+              "Choppa",
+              "Power klaw",
+              "Slugga",
+              "Kombi-weapon"
+            ],
             "transport_slots": 1
           },
           "boy": {
             "label": "Boy",
-            "stats_override": {"weapon_skill": 4},
-            "weapons": ["Choppa", "Close combat weapon", "Shoota", "Slugga", "Big shoota", "Rokkit launcha"],
+            "stats_override": {
+              "weapon_skill": 4
+            },
+            "weapons": [
+              "Choppa",
+              "Close combat weapon",
+              "Shoota",
+              "Slugga",
+              "Big shoota",
+              "Rokkit launcha"
+            ],
             "transport_slots": 1
           }
         }
       },
       "models": [
-        {"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boss_nob"},
-        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m11", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m12", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m13", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m14", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m15", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m16", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m17", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m18", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m19", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"},
-        {"id": "m20", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "boy"}
+        {
+          "id": "m1",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boss_nob"
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m5",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m6",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m7",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m8",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m9",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m10",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m11",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m12",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m13",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m14",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m15",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m16",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m17",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m18",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m19",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        },
+        {
+          "id": "m20",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "boy"
+        }
       ]
     },
     "U_BATTLEWAGON_G": {
@@ -809,7 +1307,13 @@
             "strength": "5",
             "ap": "0",
             "damage": "1",
-            "special_rules": "rapid fire 2"
+            "special_rules": "rapid fire 2",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 2
+              }
+            ]
           },
           {
             "name": "Kannon – frag",
@@ -820,7 +1324,12 @@
             "strength": "6",
             "ap": "0",
             "damage": "1",
-            "special_rules": "blast"
+            "special_rules": "blast",
+            "abilities": [
+              {
+                "id": "blast"
+              }
+            ]
           },
           {
             "name": "Kannon – shell",
@@ -851,7 +1360,15 @@
             "strength": "5",
             "ap": "0",
             "damage": "1",
-            "special_rules": "blast, indirect fire"
+            "special_rules": "blast, indirect fire",
+            "abilities": [
+              {
+                "id": "blast"
+              },
+              {
+                "id": "indirect_fire"
+              }
+            ]
           },
           {
             "name": "Zzap gun",
@@ -862,7 +1379,14 @@
             "strength": "D6+6",
             "ap": "-3",
             "damage": "5",
-            "special_rules": "anti-vehicle 4+"
+            "special_rules": "anti-vehicle 4+",
+            "abilities": [
+              {
+                "id": "anti",
+                "keyword": "VEHICLE",
+                "threshold": 4
+              }
+            ]
           },
           {
             "name": "Deff rolla",
@@ -883,7 +1407,12 @@
             "strength": "8",
             "ap": "-2",
             "damage": "2",
-            "special_rules": "extra attacks"
+            "special_rules": "extra attacks",
+            "abilities": [
+              {
+                "id": "extra_attacks"
+              }
+            ]
           },
           {
             "name": "Tracks and wheels",
@@ -904,7 +1433,12 @@
             "strength": "10",
             "ap": "0",
             "damage": "D6",
-            "special_rules": "extra attacks"
+            "special_rules": "extra attacks",
+            "abilities": [
+              {
+                "id": "extra_attacks"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -1006,7 +1540,12 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "pistol"
+            "special_rules": "pistol",
+            "abilities": [
+              {
+                "id": "pistol"
+              }
+            ]
           },
           {
             "name": "Choppa",
@@ -1079,16 +1618,96 @@
         ]
       },
       "models": [
-        {"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+        {
+          "id": "m1",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m6",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m7",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m8",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m9",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m10",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
       ]
     },
     "U_PAINBOSS_I": {
@@ -1131,7 +1750,19 @@
             "strength": "9",
             "ap": "-2",
             "damage": "2",
-            "special_rules": "anti-monster 4+, anti-vehicle 4+"
+            "special_rules": "anti-monster 4+, anti-vehicle 4+",
+            "abilities": [
+              {
+                "id": "anti",
+                "keyword": "MONSTER",
+                "threshold": 4
+              },
+              {
+                "id": "anti",
+                "keyword": "VEHICLE",
+                "threshold": 4
+              }
+            ]
           }
         ],
         "abilities": [
@@ -1173,7 +1804,10 @@
           }
         ],
         "leader_data": {
-          "can_lead": ["BEAST SNAGGA BOYZ", "BOYZ"]
+          "can_lead": [
+            "BEAST SNAGGA BOYZ",
+            "BOYZ"
+          ]
         }
       },
       "models": [
@@ -1227,7 +1861,15 @@
             "strength": "6",
             "ap": "-3",
             "damage": "1",
-            "special_rules": "precision, psychic"
+            "special_rules": "precision, psychic",
+            "abilities": [
+              {
+                "id": "precision"
+              },
+              {
+                "id": "psychic"
+              }
+            ]
           },
           {
             "name": "Weirdboy staff",
@@ -1238,7 +1880,12 @@
             "strength": "8",
             "ap": "-1",
             "damage": "D3",
-            "special_rules": "psychic"
+            "special_rules": "psychic",
+            "abilities": [
+              {
+                "id": "psychic"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -1270,7 +1917,9 @@
           }
         ],
         "leader_data": {
-          "can_lead": ["BOYZ"]
+          "can_lead": [
+            "BOYZ"
+          ]
         }
       },
       "models": [
@@ -1325,7 +1974,13 @@
             "strength": "5",
             "ap": "0",
             "damage": "1",
-            "special_rules": "rapid fire 2"
+            "special_rules": "rapid fire 2",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 2
+              }
+            ]
           },
           {
             "name": "Kombi-weapon",
@@ -1336,7 +1991,21 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1"
+            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+            "abilities": [
+              {
+                "id": "anti",
+                "keyword": "INFANTRY",
+                "threshold": 4
+              },
+              {
+                "id": "devastating_wounds"
+              },
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Rokkit launcha",
@@ -1347,7 +2016,12 @@
             "strength": "9",
             "ap": "-2",
             "damage": "3",
-            "special_rules": "blast"
+            "special_rules": "blast",
+            "abilities": [
+              {
+                "id": "blast"
+              }
+            ]
           },
           {
             "name": "Shoota",
@@ -1358,7 +2032,13 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "rapid fire 1"
+            "special_rules": "rapid fire 1",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Slugga",
@@ -1369,7 +2049,12 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "pistol"
+            "special_rules": "pistol",
+            "abilities": [
+              {
+                "id": "pistol"
+              }
+            ]
           },
           {
             "name": "Big choppa",
@@ -1436,16 +2121,96 @@
         ]
       },
       "models": [
-        {"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+        {
+          "id": "m1",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m5",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m6",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m7",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m8",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m9",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m10",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
       ]
     },
     "U_LOOTAS_A": {
@@ -1492,7 +2257,16 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "6",
-            "special_rules": "heavy, rapid fire 1"
+            "special_rules": "heavy, rapid fire 1",
+            "abilities": [
+              {
+                "id": "heavy"
+              },
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Kustom mega-blasta",
@@ -1503,7 +2277,12 @@
             "ap": "-2",
             "damage": "D6",
             "ballistic_skill": "5",
-            "special_rules": "hazardous"
+            "special_rules": "hazardous",
+            "abilities": [
+              {
+                "id": "hazardous"
+              }
+            ]
           },
           {
             "name": "Close combat weapon",
@@ -1546,35 +2325,145 @@
           "loota_deffgun": {
             "label": "Loota (Deffgun)",
             "stats_override": {},
-            "weapons": ["Deffgun", "Close combat weapon"],
+            "weapons": [
+              "Deffgun",
+              "Close combat weapon"
+            ],
             "transport_slots": 1
           },
           "loota_kmb": {
             "label": "Loota (Kustom Mega-blasta)",
             "stats_override": {},
-            "weapons": ["Kustom mega-blasta", "Close combat weapon"],
+            "weapons": [
+              "Kustom mega-blasta",
+              "Close combat weapon"
+            ],
             "transport_slots": 1
           },
           "spanner": {
             "label": "Spanner",
-            "stats_override": {"ballistic_skill": 4},
-            "weapons": ["Kustom mega-blasta", "Close combat weapon"],
+            "stats_override": {
+              "ballistic_skill": 4
+            },
+            "weapons": [
+              "Kustom mega-blasta",
+              "Close combat weapon"
+            ],
             "transport_slots": 1
           }
         }
       },
       "models": [
-        {"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_deffgun"},
-        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_deffgun"},
-        {"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_deffgun"},
-        {"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_deffgun"},
-        {"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_deffgun"},
-        {"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_deffgun"},
-        {"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_deffgun"},
-        {"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_deffgun"},
-        {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_kmb"},
-        {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "loota_kmb"},
-        {"id": "m11", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": [], "model_type": "spanner"}
+        {
+          "id": "m1",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "loota_deffgun"
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "loota_deffgun"
+        },
+        {
+          "id": "m3",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "loota_deffgun"
+        },
+        {
+          "id": "m4",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "loota_deffgun"
+        },
+        {
+          "id": "m5",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "loota_deffgun"
+        },
+        {
+          "id": "m6",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "loota_deffgun"
+        },
+        {
+          "id": "m7",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "loota_deffgun"
+        },
+        {
+          "id": "m8",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "loota_deffgun"
+        },
+        {
+          "id": "m9",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "loota_kmb"
+        },
+        {
+          "id": "m10",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "loota_kmb"
+        },
+        {
+          "id": "m11",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "spanner"
+        }
       ]
     },
     "U_MEGANOBZ_L": {
@@ -1633,7 +2522,12 @@
             "strength": "12",
             "ap": "-3",
             "damage": "2",
-            "special_rules": "twin-linked"
+            "special_rules": "twin-linked",
+            "abilities": [
+              {
+                "id": "twin_linked"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -1658,23 +2552,74 @@
           "meganob_klaw": {
             "label": "Meganob (Power Klaw)",
             "stats_override": {},
-            "weapons": ["Kustom shoota", "Power klaw"],
+            "weapons": [
+              "Kustom shoota",
+              "Power klaw"
+            ],
             "transport_slots": 2
           },
           "meganob_saws": {
             "label": "Meganob (Killsaws)",
             "stats_override": {},
-            "weapons": ["Kustom shoota", "Killsaws"],
+            "weapons": [
+              "Kustom shoota",
+              "Killsaws"
+            ],
             "transport_slots": 2
           }
         }
       },
       "models": [
-        {"id": "m1", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_klaw"},
-        {"id": "m2", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_klaw"},
-        {"id": "m3", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_klaw"},
-        {"id": "m4", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_saws"},
-        {"id": "m5", "wounds": 3, "current_wounds": 3, "base_mm": 40, "position": null, "alive": true, "status_effects": [], "model_type": "meganob_saws"}
+        {
+          "id": "m1",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "meganob_klaw"
+        },
+        {
+          "id": "m2",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "meganob_klaw"
+        },
+        {
+          "id": "m3",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "meganob_klaw"
+        },
+        {
+          "id": "m4",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "meganob_saws"
+        },
+        {
+          "id": "m5",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": [],
+          "model_type": "meganob_saws"
+        }
       ]
     },
     "U_WAZBOM_BLASTAJET": {
@@ -1700,7 +2645,7 @@
           "wounds": 12,
           "leadership": 7,
           "objective_control": 0,
-          "invulnerable_save": 6
+          "invuln": 6
         },
         "points": 175,
         "is_warlord": false,
@@ -1716,7 +2661,12 @@
             "strength": "9",
             "ap": "-3",
             "damage": "4",
-            "special_rules": "blast"
+            "special_rules": "blast",
+            "abilities": [
+              {
+                "id": "blast"
+              }
+            ]
           },
           {
             "name": "Twin wazbom mega-kannon",
@@ -1727,7 +2677,18 @@
             "strength": "12",
             "ap": "-2",
             "damage": "D6",
-            "special_rules": "blast, hazardous, twin-linked"
+            "special_rules": "blast, hazardous, twin-linked",
+            "abilities": [
+              {
+                "id": "blast"
+              },
+              {
+                "id": "hazardous"
+              },
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Armoured hull",
@@ -1770,7 +2731,15 @@
         ]
       },
       "models": [
-        {"id": "m1", "wounds": 12, "current_wounds": 12, "base_mm": 120, "position": null, "alive": true, "status_effects": []}
+        {
+          "id": "m1",
+          "wounds": 12,
+          "current_wounds": 12,
+          "base_mm": 120,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
       ]
     },
     "U_KAPTIN_BADRUKK_A": {
@@ -1813,7 +2782,12 @@
             "strength": "6",
             "ap": "-1",
             "damage": "2",
-            "special_rules": "lethal hits"
+            "special_rules": "lethal hits",
+            "abilities": [
+              {
+                "id": "lethal_hits"
+              }
+            ]
           },
           {
             "name": "Kustom mega-blasta",
@@ -1824,7 +2798,12 @@
             "strength": "8",
             "ap": "-2",
             "damage": "D6",
-            "special_rules": "blast"
+            "special_rules": "blast",
+            "abilities": [
+              {
+                "id": "blast"
+              }
+            ]
           },
           {
             "name": "Power klaw",
@@ -1872,7 +2851,15 @@
         ]
       },
       "models": [
-        {"id": "m1", "wounds": 6, "current_wounds": 6, "base_mm": 40, "position": null, "alive": true, "status_effects": []}
+        {
+          "id": "m1",
+          "wounds": 6,
+          "current_wounds": 6,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
       ]
     },
     "U_GHAZGHKULL_THRAKA_A": {
@@ -1926,7 +2913,13 @@
             "strength": "7",
             "ap": "-1",
             "damage": "2",
-            "special_rules": "rapid fire 2"
+            "special_rules": "rapid fire 2",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 2
+              }
+            ]
           },
           {
             "name": "Makari's Stabba",
@@ -1973,8 +2966,24 @@
         ]
       },
       "models": [
-        {"id": "m1", "wounds": 12, "current_wounds": 12, "base_mm": 100, "position": null, "alive": true, "status_effects": []},
-        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+        {
+          "id": "m1",
+          "wounds": 12,
+          "current_wounds": 12,
+          "base_mm": 100,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        },
+        {
+          "id": "m2",
+          "wounds": 1,
+          "current_wounds": 1,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
       ]
     },
     "U_NOB_WAAAGH_BANNER_A": {
@@ -2015,7 +3024,13 @@
             "strength": "4",
             "ap": "0",
             "damage": "1",
-            "special_rules": "rapid fire 2"
+            "special_rules": "rapid fire 2",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 2
+              }
+            ]
           },
           {
             "name": "Waaagh! banner",
@@ -2063,7 +3078,15 @@
         ]
       },
       "models": [
-        {"id": "m1", "wounds": 3, "current_wounds": 3, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+        {
+          "id": "m1",
+          "wounds": 3,
+          "current_wounds": 3,
+          "base_mm": 32,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
       ]
     }
   }

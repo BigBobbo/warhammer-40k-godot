@@ -1,0 +1,30 @@
+{
+  "id": "iss062_ai_11e",
+  "covers": ["autoloads.AIPlayer.11e", "scripts.AIDecisionMaker.11e_legality"],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "description": "ISS-062 phase 1 (legality): AI-vs-AI at edition 11. Both players handed to the AI at fastest speed; the game must progress through phases/turns under the 11e template gating (offerings filtered by MoveTypes/ShootingTypes, charge select-after-roll, FightSequencer alternation). The runner asserts forward progress; the harness operator greps the captured log for 'Action validation failed' lines attributable to the AI as the zero-illegal-actions gate.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(0)" },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"})" },
+    { "act": "execute_script", "script": "AIPlayer.enabled", "equals": true },
+    { "act": "screenshot", "label": "01_ai_vs_ai_started_11e" },
+
+    { "act": "wait_seconds", "seconds": 60.0 },
+    { "act": "screenshot", "label": "02_ai_midgame" },
+    { "act": "execute_script",
+      "script": "GameState.get_battle_round() * 100 + GameState.get_current_phase()",
+      "expect_min": 101 },
+
+    { "act": "wait_seconds", "seconds": 90.0 },
+    { "act": "screenshot", "label": "03_ai_progressed" },
+    { "act": "execute_script",
+      "script": "PhaseManager.game_ended or GameState.get_battle_round() >= 2 or GameState.get_current_phase() >= 9",
+      "equals": true },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"HUMAN\"})" }
+  ]
+}

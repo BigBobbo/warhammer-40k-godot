@@ -262,15 +262,19 @@ func model_outside_board(pos: Vector2, model: Dictionary) -> bool:
 
 # Shape-aware engagement range check
 # This is the recommended function for all engagement range checks throughout the codebase
-# 10th Edition rules: Engagement Range = within er_inches horizontally AND within 5" vertically
-func is_in_engagement_range_shape_aware(model1: Dictionary, model2: Dictionary, er_inches: float = 1.0) -> bool:
+# Engagement Range = within er_inches horizontally AND within the vertical ER (5").
+# ISS-002: pass er_inches < 0 (or omit it) to use the edition-dependent
+# default from GameConstants.engagement_range_inches().
+func is_in_engagement_range_shape_aware(model1: Dictionary, model2: Dictionary, er_inches: float = -1.0) -> bool:
+	if er_inches < 0.0:
+		er_inches = GameConstants.engagement_range_inches()
 	var distance_px = model_to_model_distance_px(model1, model2)
 	var er_px = inches_to_px(er_inches)
 	if distance_px > er_px:
 		return false
-	# Vertical component: models must also be within 5" vertically
+	# Vertical component: models must also be within the vertical ER
 	var vertical = model_vertical_distance_inches(model1, model2)
-	return vertical <= 5.0
+	return vertical <= GameConstants.engagement_range_vertical_inches()
 
 # ── Polygon geometry helpers (single source of truth) ──────────────
 # Used by DeploymentPhase, DeploymentController, and any other code

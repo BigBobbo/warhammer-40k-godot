@@ -174,6 +174,16 @@ func _on_phase_completed_autosave(completed_phase: int) -> void:
 
 # P3-112: Handle phase transitions for phase-transition autosave
 func _on_phase_changed_autosave(new_phase: int) -> void:
+	# ISS-035: safety flush — if an AI turn errored out without emitting
+	# ai_turn_ended, a deferred autosave would otherwise sit in the
+	# transient slot until the next AI turn. Phase changes are a reliable
+	# heartbeat to retry the flush.
+	if _autosave_deferred_event != "" and not _is_ai_thinking():
+		print("SaveLoadManager: ISS-035 phase change — flushing deferred autosave: %s" % _autosave_deferred_event)
+		_perform_event_autosave(_autosave_deferred_event, _autosave_deferred_metadata)
+		_autosave_deferred_event = ""
+		_autosave_deferred_metadata = {}
+
 	if not autosave_on_phase_transition:
 		return
 
@@ -455,6 +465,14 @@ func _load_game_from_path(file_path: String) -> bool:
 	print("SaveLoadManager: Deserialized state keys: ", game_state.keys())
 	if game_state.has("meta"):
 		print("SaveLoadManager: Loaded game meta: ", game_state["meta"])
+
+	# ISS-017: validate the loaded state's shape. Warn-only (legacy saves may
+	# predate sections that migrations backfill) but loud enough that a
+	# malformed save is diagnosable instead of failing somewhere downstream.
+	var schema_errors = StateSchema.validate(game_state)
+	if not schema_errors.is_empty():
+		push_warning("SaveLoadManager: loaded state failed schema validation (%d issues): %s" % [
+			schema_errors.size(), "; ".join(schema_errors)])
 
 	# Load state into GameState
 	emit_signal("operation_progress", "loading", "Restoring game state...")

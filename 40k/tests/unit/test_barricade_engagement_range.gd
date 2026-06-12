@@ -315,12 +315,12 @@ func test_charge_without_barricade_requires_1_inch():
 # ==========================================
 
 func test_terrain_manager_constants():
-	"""Verify barricade engagement range constants"""
+	"""Verify engagement range constants (ISS-002: centralized in GameConstants)"""
 	assert_eq(
-		terrain_manager.STANDARD_ENGAGEMENT_RANGE_INCHES, 1.0,
-		"Standard ER should be 1\""
+		GameConstants.engagement_range_inches(), 1.0,
+		"Standard ER should be 1\" at edition 10"
 	)
 	assert_eq(
-		terrain_manager.BARRICADE_ENGAGEMENT_RANGE_INCHES, 2.0,
+		GameConstants.barricade_engagement_range_inches(), 2.0,
 		"Barricade ER should be 2\""
 	)

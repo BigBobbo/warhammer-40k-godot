@@ -1,4 +1,4 @@
-extends Node2D
+extends PhaseControllerBase
 class_name FightController
 
 const BasePhase = preload("res://phases/BasePhase.gd")
@@ -37,12 +37,10 @@ var drag_offset: Vector2 = Vector2.ZERO
 var drag_start_pos: Vector2 = Vector2.ZERO
 var locked_base_contact_models: Dictionary = {}  # T4-5: model_id -> true for models already in base contact
 
-# UI References
-var board_view: Node2D
+# UI References (board_view / hud_bottom / hud_right live in PhaseControllerBase)
 var movement_visual: Line2D
 var range_visual: Node2D
 var target_highlights: Node2D
-var hud_right: Control
 
 # T5-MP1: Drag preview sync throttle
 var _last_drag_preview_time: float = 0.0
@@ -88,7 +86,8 @@ const HIGHLIGHT_COLOR_SELECTED = Color.YELLOW
 const HIGHLIGHT_COLOR_ACTIVE_FIGHTER = Color.ORANGE
 const MOVEMENT_LINE_COLOR = Color.BLUE
 const MOVEMENT_LINE_WIDTH = 3.0
-const ENGAGEMENT_RANGE_MM = 25.4  # 1 inch in mm
+# ISS-002: engagement range comes from GameConstants.engagement_range_inches()
+# (edition-dependent). Do not re-declare it as a local constant.
 
 func _ready() -> void:
 	set_process_input(true)
@@ -117,7 +116,7 @@ func _exit_tree() -> void:
 		damage_feedback = null
 
 	# Right panel cleanup
-	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
+	var container = SceneRefs.hud_right_vbox()
 	if container and is_instance_valid(container):
 		var fight_elements = ["FightPanel", "FightScrollContainer", "FightSequence", "FightActions"]
 		for element in fight_elements:
@@ -127,11 +126,7 @@ func _exit_tree() -> void:
 				container.remove_child(node)
 				node.queue_free()
 
-func _setup_ui_references() -> void:
-	# Get references to UI nodes
-	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
-	hud_right = get_node_or_null("/root/Main/HUD_Right")
-
+func _on_ui_references_ready() -> void:
 	# T5-V12: Create damage feedback visual for floating numbers + flash effects
 	if board_view and not (damage_feedback and is_instance_valid(damage_feedback)):
 		damage_feedback = DamageFeedbackVisualScript.new()
@@ -142,16 +137,12 @@ func _setup_ui_references() -> void:
 	# T5-V10: Setup fight phase state banner (anchored below HUD_Top)
 	_setup_fight_state_banner()
 
-	# Setup fight-specific UI in right panel
-	if hud_right:
-		_setup_right_panel()
-
 func _setup_fight_state_banner() -> void:
 	# T5-V10: Create the persistent fight phase state banner below HUD_Top
 	if fight_state_banner and is_instance_valid(fight_state_banner):
 		return  # Already set up
 
-	var hud_top = get_node_or_null("/root/Main/HUD_Top")
+	var hud_top = SceneRefs.hud_top()
 	if not hud_top:
 		print("FightController: WARNING — HUD_Top not found, placing banner at top of Main")
 
@@ -159,7 +150,7 @@ func _setup_fight_state_banner() -> void:
 	fight_state_banner.name = "FightPhaseStateBanner"
 
 	# Insert after HUD_Top in the Main scene tree so it appears below the top bar
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node:
 		main_node.add_child(fight_state_banner)
 		# Position it below HUD_Top using anchors
@@ -178,7 +169,7 @@ func _setup_fight_state_banner() -> void:
 		print("FightController: ERROR — Cannot find Main node for state banner")
 
 func _create_fight_visuals() -> void:
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		print("ERROR: Cannot find BoardRoot for visual layers")
 		return
@@ -644,7 +635,7 @@ func _show_engagement_indicators() -> void:
 		var circle = Node2D.new()
 		circle.set_script(EngagementRangeVisualScript)
 		circle.position = model_pos
-		circle.setup_engagement_range(ENGAGEMENT_RANGE_MM, Color.ORANGE)
+		circle.setup_engagement_range(Measurement.inches_to_px(GameConstants.engagement_range_inches()), Color.ORANGE)
 
 		range_visual.add_child(circle)
 	
@@ -680,7 +671,7 @@ func _highlight_enemies_by_engagement(fighter_unit: Dictionary) -> void:
 					continue
 
 				# Use shape-aware edge-to-edge engagement range check
-				if Measurement.is_in_engagement_range_shape_aware(fighter_model, enemy_model, 1.0):
+				if Measurement.is_in_engagement_range_shape_aware(fighter_model, enemy_model):
 					is_in_engagement = true
 					break
 
@@ -1176,7 +1167,7 @@ func _get_unit_center(unit: Dictionary) -> Vector2:
 
 func _flash_fight_target_tokens(target_unit_id: String) -> void:
 	"""T5-V12: Flash the target unit's token nodes red briefly after melee damage."""
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		return
 
@@ -1311,7 +1302,7 @@ func _on_auto_fight_pressed() -> void:
 	for weapon in unit.get("meta", {}).get("weapons", []):
 		if weapon.get("type", "").to_lower() != "melee":
 			continue
-		var weapon_id = RulesEngine._generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
+		var weapon_id = RulesEngine.generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
 		assignments.append({
 			"attacker": current_fighter_id,
 			"weapon": weapon_id,
@@ -1332,6 +1323,9 @@ func _on_auto_fight_pressed() -> void:
 		"type": "CONFIRM_ATTACKS",
 	})
 
+# ISS-008: deliberately _input (not _unhandled_input) — interactive pile-in /
+# consolidate must receive mouse events while the PileInDialog (a modal
+# AcceptDialog) is open; _unhandled_input would never fire then.
 func _input(event: InputEvent) -> void:
 	if not current_phase or not current_phase is FightPhase:
 		return
@@ -1348,7 +1342,7 @@ func _input(event: InputEvent) -> void:
 
 	# Handle pile in or consolidate movement (legacy)
 	if (pending_pile_in_unit != "" or pending_consolidate_unit != "") and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var board_root = get_node_or_null("/root/Main/BoardRoot")
+		var board_root = SceneRefs.board_root()
 		if board_root:
 			var mouse_pos = board_root.get_local_mouse_position()
 			_handle_movement_click(mouse_pos)
@@ -1360,7 +1354,7 @@ func _input(event: InputEvent) -> void:
 
 	# Handle clicking on units for target selection
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var board_root = get_node_or_null("/root/Main/BoardRoot")
+		var board_root = SceneRefs.board_root()
 		if board_root:
 			var mouse_pos = board_root.get_local_mouse_position()
 			print("DEBUG: Mouse click at board position: ", mouse_pos)
@@ -1635,7 +1629,7 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 	print("[FightController] Counter-Offensive dialog shown")
 
 	# MA-42: Show blocking overlay to active player
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
 		main_node.show_reactive_stratagem_waiting("Counter-Offensive")
 
@@ -1643,7 +1637,7 @@ func _on_counter_offensive_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Counter-Offensive"""
 	print("[FightController] Counter-Offensive USED: player %d selects %s" % [player, unit_id])
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 
@@ -1666,7 +1660,7 @@ func _on_counter_offensive_declined(player: int) -> void:
 	"""Handle player declining Counter-Offensive"""
 	print("[FightController] Counter-Offensive DECLINED by player %d" % player)
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	var action = {
@@ -2362,7 +2356,7 @@ func _apply_model_positions_to_scene() -> void:
 		return
 
 	# Get token layer
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		return
 
@@ -2433,7 +2427,7 @@ func _handle_pile_in_input(event: InputEvent) -> void:
 		print("[FightController] Pile-in input: no board_view")
 		return
 
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		print("[FightController] Pile-in input: no board_root")
 		return
@@ -2462,7 +2456,7 @@ func _start_model_drag_pile_in(mouse_pos: Vector2) -> void:
 		return
 
 	# Get token layer from BoardRoot
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		print("[FightController] Could not find TokenLayer")
 		return
@@ -2891,7 +2885,7 @@ func _on_melee_saves_required(save_data_list: Array) -> void:
 	)
 
 	# Add to scene tree
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if not main:
 		push_error("FightController: P0-58: /root/Main not found!")
 		processing_melee_saves_signal = false

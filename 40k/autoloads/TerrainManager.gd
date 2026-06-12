@@ -294,9 +294,8 @@ func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat
 
 	terrain_features.append(terrain_piece)
 
-## T3-9: Standard engagement range (1") and barricade engagement range (2")
-const STANDARD_ENGAGEMENT_RANGE_INCHES: float = 1.0
-const BARRICADE_ENGAGEMENT_RANGE_INCHES: float = 2.0
+## T3-9: standard and barricade engagement ranges now live in GameConstants
+## (ISS-002) so the edition switch applies everywhere at once.
 
 ## T3-9: Check if a barricade terrain feature lies between two positions.
 ## Returns true if the line from pos1 to pos2 crosses a barricade terrain piece.
@@ -310,12 +309,12 @@ func is_barricade_between(pos1: Vector2, pos2: Vector2) -> bool:
 	return false
 
 ## T3-9: Get the effective engagement range between two model positions.
-## Returns 2" if a barricade lies between them, 1" otherwise.
-## Per 10e rules: engagement range through barricades is 2" instead of the standard 1".
+## Returns the barricade engagement range (2") if a barricade lies between
+## them, otherwise the standard edition-dependent engagement range.
 func get_engagement_range_for_positions(pos1: Vector2, pos2: Vector2) -> float:
 	if is_barricade_between(pos1, pos2):
-		return BARRICADE_ENGAGEMENT_RANGE_INCHES
-	return STANDARD_ENGAGEMENT_RANGE_INCHES
+		return GameConstants.barricade_engagement_range_inches()
+	return GameConstants.engagement_range_inches()
 
 func get_terrain_at_position(pos: Vector2) -> Dictionary:
 	for terrain in terrain_features:
@@ -753,3 +752,319 @@ func load_terrain_from_save(save_data: Array) -> void:
 		_add_terrain_piece(terrain_data.id, pos, size, height_cat, rotation, saved_type, saved_traits)
 
 	emit_signal("terrain_loaded", terrain_features)
+
+
+# ════════════════════════════════════════════════════════════════════
+# ISS-051 (step 1): 11e terrain model — categories + area queries
+# (core rules 13.01-13.05). Derived from the existing runtime pieces so
+# current layouts keep working; layout schema v2 can override per piece
+# via explicit "category" / "height_inches" fields when authored.
+# ════════════════════════════════════════════════════════════════════
+
+## 13.03-13.05 terrain categories.
+const CATEGORY_EXPOSED := "exposed"
+const CATEGORY_LIGHT := "light"
+const CATEGORY_DENSE := "dense"
+
+## Map a runtime terrain piece to its 11e category.
+## Explicit piece "category" wins; otherwise derived from type:
+##   ruins / woods / building / container -> dense (13.05)
+##   barricade / low walls / statuary     -> light (13.04)
+##   craters / debris / razorwire / other -> exposed (13.03)
+static func category_of(piece: Dictionary) -> String:
+	var explicit = str(piece.get("category", ""))
+	if explicit in [CATEGORY_EXPOSED, CATEGORY_LIGHT, CATEGORY_DENSE]:
+		return explicit
+	match str(piece.get("type", "")):
+		"ruins", "woods", "building", "container":
+			return CATEGORY_DENSE
+		"barricade", "wall", "statuary":
+			return CATEGORY_LIGHT
+		_:
+			return CATEGORY_EXPOSED
+
+## Numeric feature height in inches. Explicit "height_inches" wins;
+## otherwise derived from the legacy height_category labels
+## (low <2", medium 2-5", tall >5") at documented representative values.
+static func height_inches_of(piece: Dictionary) -> float:
+	if piece.has("height_inches"):
+		return float(piece.height_inches)
+	match str(piece.get("height_category", "")):
+		"low":
+			return 1.5
+		"medium":
+			return 3.5
+		"tall":
+			return 6.0
+		_:
+			return 0.0
+
+## 13.01: each piece footprint is its terrain AREA (until layouts author
+## multi-feature area boundaries explicitly via schema v2). Returns the
+## piece whose area contains the point, or {} if open ground.
+func area_at(point: Vector2) -> Dictionary:
+	for piece in terrain_features:
+		var poly = piece.get("polygon", PackedVector2Array())
+		if poly.size() >= 3 and Geometry2D.is_point_in_polygon(point, poly):
+			return piece
+	return {}
+
+## Pieces whose footprint the segment from `from_pos` to `to_pos` crosses
+## (entering, leaving, or passing through). Used by 11e obscuring/solid
+## visibility (ISS-052) and movement gating (ISS-054).
+func features_crossing(from_pos: Vector2, to_pos: Vector2) -> Array:
+	var crossed: Array = []
+	for piece in terrain_features:
+		if check_line_intersects_terrain(from_pos, to_pos, piece):
+			crossed.append(piece)
+	return crossed
+
+## True if every line between the two points crosses at least one
+## obscuring (light or dense) feature that NEITHER point is within —
+## the center-line approximation of 13.10 used until ISS-052's full
+## visibility module lands.
+func is_obscured_between(p1: Vector2, p2: Vector2) -> bool:
+	var inside_ids := {}
+	var a1 = area_at(p1)
+	var a2 = area_at(p2)
+	if not a1.is_empty():
+		inside_ids[a1.get("id")] = true
+	if not a2.is_empty():
+		inside_ids[a2.get("id")] = true
+	for piece in features_crossing(p1, p2):
+		if inside_ids.has(piece.get("id")):
+			continue
+		var cat = category_of(piece)
+		if cat == CATEGORY_LIGHT or cat == CATEGORY_DENSE:
+			return true
+	return false
+
+
+## ISS-052 (step 1) — 13.09 HIDDEN. A model is hidden while:
+##   ▪ it has the INFANTRY/BEASTS/SWARM keyword AND is within a terrain
+##     area that contains one or more DENSE terrain features, and
+##   ▪ its unit made no ranged attacks this turn or the previous turn
+##     (tracked via the unit flag `shot_recently`, maintained by the
+##     shooting phase when ISS-048 lands; callers pass the unit).
+## While hidden, the model is only visible to enemies within its
+## detection range — 15" unless otherwise stated
+## (GameConstants.hidden_detection_range_inches()).
+func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return false
+	var keywords: Array = unit.get("meta", {}).get("keywords", [])
+	var qualifies := false
+	for kw in ["INFANTRY", "BEASTS", "SWARM"]:
+		if kw in keywords:
+			qualifies = true
+			break
+	if not qualifies:
+		return false
+	if unit.get("flags", {}).get("shot_recently", false):
+		return false
+	var pos = model.get("position", null)
+	if pos == null:
+		return false
+	var p := Vector2(float(pos.x) if pos is Dictionary else pos.x, float(pos.y) if pos is Dictionary else pos.y)
+	var area = area_at(p)
+	if area.is_empty():
+		return false
+	return category_of(area) == CATEGORY_DENSE
+
+## Visibility gate for hidden models: visible only when the observer is
+## within the detection range (13.09).
+func hidden_model_visible_to(model: Dictionary, unit: Dictionary, observer_model: Dictionary) -> bool:
+	if not is_model_hidden(model, unit):
+		return true
+	var det_px = Measurement.inches_to_px(GameConstants.hidden_detection_range_inches())
+	return Measurement.model_to_model_distance_px(observer_model, model) <= det_px
+
+
+## ISS-052 (step 2) — 06.01/13.10/13.11 visibility, 2D approximation.
+## Sight lines run from the observer's base center to the target base's
+## center + 8 perimeter points (base_mm/2 radius approximation for all
+## base shapes). A line is BLOCKED when it crosses:
+##   ▪ an obscuring (light/dense) terrain area that NEITHER model is
+##     within — 13.10's every-line semantics fall out of the per-line
+##     test — or
+##   ▪ a DENSE feature's footprint while both models are at ground level
+##     (< 3" elevation): the Solid rule's 2D effect (13.11; windows and
+##     small gaps never help at ground level).
+## visible = at least one clear line (06.01 MODEL VISIBLE);
+## FULLY visible = every line clear (06.01 MODEL FULLY VISIBLE).
+
+func _model_vec(model: Dictionary) -> Vector2:
+	var pos = model.get("position", null)
+	if pos == null:
+		return Vector2.INF
+	return Vector2(float(pos.x) if pos is Dictionary else pos.x, float(pos.y) if pos is Dictionary else pos.y)
+
+func _sight_points(model: Dictionary) -> Array:
+	var c = _model_vec(model)
+	var out: Array = [c]
+	var radius_px = Measurement.base_radius_px(int(model.get("base_mm", 32)))
+	for i in range(8):
+		var ang = TAU * i / 8.0
+		out.append(c + Vector2(cos(ang), sin(ang)) * radius_px)
+	return out
+
+func _line_blocked_11e(a: Vector2, b: Vector2, exclude_ids: Dictionary, ground_level: bool) -> bool:
+	for piece in features_crossing(a, b):
+		var cat = category_of(piece)
+		if exclude_ids.has(piece.get("id")):
+			continue
+		if cat == CATEGORY_LIGHT or cat == CATEGORY_DENSE:
+			return true  # obscuring area crossed (13.10)
+		if ground_level and cat == CATEGORY_DENSE:
+			return true  # Solid at ground level (13.11)
+	return false
+
+func _visibility_lines_11e(observer: Dictionary, target: Dictionary) -> Dictionary:
+	var o = _model_vec(observer)
+	var t = _model_vec(target)
+	if o == Vector2.INF or t == Vector2.INF:
+		return {"clear": 0, "total": 0}
+	var exclude := {}
+	var ao = area_at(o)
+	var at_ = area_at(t)
+	if not ao.is_empty():
+		exclude[ao.get("id")] = true
+	if not at_.is_empty():
+		exclude[at_.get("id")] = true
+	var ground = float(observer.get("elevation_inches", 0.0)) < 3.0 \
+			and float(target.get("elevation_inches", 0.0)) < 3.0
+	var clear := 0
+	var pts = _sight_points(target)
+	for p in pts:
+		if not _line_blocked_11e(o, p, exclude, ground):
+			clear += 1
+	return {"clear": clear, "total": pts.size()}
+
+func model_visible_11e(observer: Dictionary, target: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return true
+	var v = _visibility_lines_11e(observer, target)
+	return v.total > 0 and v.clear > 0
+
+func model_fully_visible_11e(observer: Dictionary, target: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return true
+	var v = _visibility_lines_11e(observer, target)
+	return v.total > 0 and v.clear == v.total
+
+## 06.01 UNIT FULLY VISIBLE: every alive model fully visible (the
+## observer sees through the target unit's own models — inherent here,
+## since only terrain blocks these lines).
+func unit_fully_visible_11e(observer: Dictionary, unit: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return true
+	var any := false
+	for m in unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		any = true
+		if not model_fully_visible_11e(observer, m):
+			return false
+	return any
+
+
+## ISS-054 — 13.06 TERRAIN AND MOVEMENT (+24.35 SUPER-HEAVY WALKER),
+## 2D approximation. Horizontal traversal along from→to:
+##   ▪ exposed/light: every model passes.
+##   ▪ dense: INFANTRY/BEASTS/SWARM/MOBILE pass; other models pass only
+##     when every crossed dense feature is ≤2" high (≤4" with
+##     SUPER-HEAVY WALKER) — taller sections demand vertical movement,
+##     which the 2D board does not path (callers refuse the segment).
+## MOBILE may be granted per-move (e.g. 24.35's gamble) via the
+## extra_keywords argument.
+func can_move_through_11e(model_keywords: Array, from_pos: Vector2, to_pos: Vector2, extra_keywords: Array = []) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {"allowed": true, "blockers": []}
+	var kws: Array = []
+	for k in model_keywords:
+		kws.append(str(k).to_upper())
+	for k in extra_keywords:
+		kws.append(str(k).to_upper())
+	var passes_dense := false
+	for k in ["INFANTRY", "BEASTS", "SWARM", "MOBILE"]:
+		if k in kws:
+			passes_dense = true
+			break
+	var height_limit := 4.0 if "SUPER-HEAVY WALKER" in kws else 2.0
+	var blockers: Array = []
+	for piece in features_crossing(from_pos, to_pos):
+		if category_of(piece) != CATEGORY_DENSE:
+			continue  # exposed/light: all models pass (13.06)
+		if passes_dense:
+			continue
+		if height_inches_of(piece) > height_limit:
+			blockers.append(str(piece.get("id", piece.get("type", "terrain"))))
+	return {"allowed": blockers.is_empty(), "blockers": blockers}
+
+
+## ISS-053 (step 1) — 13.08 BENEFIT OF COVER qualification (the in-area
+## half; the not-fully-visible half arrives with ISS-052's fully-visible
+## module). A unit has the benefit of cover against a ranged attack when
+## EVERY model meets a qualifying condition:
+##   ▪ INFANTRY/BEASTS/SWARM model within a terrain area, or
+##   ▪ (ISS-052, pending) not fully visible to the attacker.
+## In 11e the effect is WORSENING the attack's BS by 1 (not a save mod) —
+## applied by the resolution flow; this primitive answers qualification.
+## Stealth (24.33) grants the benefit unconditionally.
+func unit_has_cover_11e(unit: Dictionary, attacker_model: Dictionary = {}) -> bool:
+	if GameConstants.edition < 11:
+		return false
+	if UnitAbilities.unit_has(unit, "stealth"):
+		return true
+	var keywords: Array = unit.get("meta", {}).get("keywords", [])
+	var qualifies_kw := false
+	for kw in ["INFANTRY", "BEASTS", "SWARM"]:
+		if kw in keywords:
+			qualifies_kw = true
+			break
+	var any_model := false
+	for m in unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		any_model = true
+		var pos = m.get("position", null)
+		if pos == null:
+			return false
+		var p := Vector2(float(pos.x) if pos is Dictionary else pos.x, float(pos.y) if pos is Dictionary else pos.y)
+		# 13.08: EVERY model meets one or more conditions —
+		#   ▪ INFANTRY/BEASTS/SWARM within a terrain area, or
+		#   ▪ not fully visible to the attacker due to intervening
+		#     terrain (ISS-052 module; terrain is the only blocker it
+		#     models, so the "due to terrain" clause is inherent).
+		var in_area_ok = qualifies_kw and not area_at(p).is_empty()
+		var nfv_ok = not attacker_model.is_empty() \
+				and not model_fully_visible_11e(attacker_model, m)
+		if not (in_area_ok or nfv_ok):
+			return false
+	return any_model
+
+
+## ISS-053 (step 1) — 22.05 PLUNGING FIRE qualification: the attack's BS
+## IMPROVES by 1 when the target unit has one or more models on ground
+## level and either:
+##   ▪ the attacking model is on a terrain section >= 3" in height
+##     (model "elevation_inches" field), or
+##   ▪ the attacker has TOWERING and the target is within 12".
+func plunging_fire_applies(attacker_model: Dictionary, attacker_unit: Dictionary, target_unit: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return false
+	var target_on_ground := false
+	for m in target_unit.get("models", []):
+		if m.get("alive", true) and float(m.get("elevation_inches", 0.0)) <= 0.0:
+			target_on_ground = true
+			break
+	if not target_on_ground:
+		return false
+	if float(attacker_model.get("elevation_inches", 0.0)) >= 3.0:
+		return true
+	if "TOWERING" in attacker_unit.get("meta", {}).get("keywords", []):
+		var det_px = Measurement.inches_to_px(12.0)
+		for m in target_unit.get("models", []):
+			if m.get("alive", true) and Measurement.model_to_model_distance_px(attacker_model, m) <= det_px:
+				return true
+	return false

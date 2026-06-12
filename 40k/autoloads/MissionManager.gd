@@ -70,6 +70,39 @@ var character_claimed_objectives: Dictionary = {}
 func _ready() -> void:
 	print("MissionManager: Initializing mission system")
 	initialize_default_mission()
+	# ISS-055 (11e 14.02): "At the end of each phase and turn", determine
+	# each player's level of control over every objective. Wired to the
+	# phase machine; edition-gated so 10e keeps its event-driven updates.
+	if has_node("/root/PhaseManager"):
+		var pm = get_node("/root/PhaseManager")
+		if pm.has_signal("phase_completed") and not pm.phase_completed.is_connected(_on_phase_completed_11e):
+			pm.phase_completed.connect(_on_phase_completed_11e)
+		if pm.has_signal("turn_ending") and not pm.turn_ending.is_connected(_on_turn_ending_11e):
+			pm.turn_ending.connect(_on_turn_ending_11e)
+
+func _on_phase_completed_11e(_phase) -> void:
+	if GameConstants.edition >= 11:
+		check_all_objectives()
+
+func _on_turn_ending_11e(_player: int) -> void:
+	if GameConstants.edition >= 11:
+		check_all_objectives()
+
+## ISS-055 (11e 14.03): public Secured-objective API. An objective secured
+## by a player's army stays under their control — even with no units in
+## range — until the opponent's level of control exceeds theirs at the end
+## of a phase. Reuses the proven sticky-objective mechanism the faction
+## abilities (Get da Good Bitz / Vigilance Eternal) already exercise.
+func secure_objective(obj_id: String, player: int, source_unit_id: String = "") -> void:
+	_sticky_objectives[obj_id] = {"player": player, "source_unit_id": source_unit_id}
+	if objective_control_state.get(obj_id, 0) == 0:
+		objective_control_state[obj_id] = player
+	print("MissionManager: objective %s SECURED by player %d (14.03)" % [obj_id, player])
+
+func is_objective_secured(obj_id: String) -> Dictionary:
+	if _sticky_objectives.has(obj_id):
+		return {"secured": true, "player": _sticky_objectives[obj_id].player}
+	return {"secured": false, "player": 0}
 
 func initialize_default_mission() -> void:
 	# Check if a mission was specified in the game config
@@ -238,6 +271,26 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 			# A model is within range of an objective if any part of its base
 			# is within the control radius. Use shape-aware distance to correctly
 			# handle oval and rectangular bases (not just circular).
+			# ISS-055 (11e 14.01/14.02): if a terrain area coincides with
+			# the objective point, that AREA is the objective — a model is
+			# in range while WITHIN the terrain area (not the marker
+			# radius). Falls through to the marker radius on open ground.
+			if GameConstants.edition >= 11:
+				var tm_55 = get_node_or_null("/root/TerrainManager")
+				if tm_55 != null and tm_55.has_method("area_at"):
+					var obj_area = tm_55.area_at(obj_pos)
+					if not obj_area.is_empty():
+						var in_area = Geometry2D.is_point_in_polygon(model_pos, obj_area.get("polygon", PackedVector2Array()))
+						if in_area:
+							units_in_range.append("%s (Player %d, OC: %d, terrain objective)" % [unit_id, owner, oc_value])
+							if owner == 1:
+								player1_oc += oc_value
+							elif owner == 2:
+								player2_oc += oc_value
+							unit_counted = true
+							print("    -> Within the TERRAIN OBJECTIVE area (14.01)! Adding OC: %d for Player %d" % [oc_value, owner])
+						continue
+
 			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
 			var edge_distance_inches = Measurement.px_to_inches(edge_distance)
 
@@ -293,9 +346,12 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 		var sticky_player = sticky_data.player
 		var source_unit_id = sticky_data.source_unit_id
 
-		# Verify the source unit is still alive on the battlefield
+		# Verify the source unit is still alive on the battlefield.
+		# ISS-055 (11e 14.03): an objective secured BY THE ARMY (empty
+		# source_unit_id) persists regardless of any unit's survival — only
+		# a greater enemy level of control breaks it.
 		var source_unit = GameState.state.get("units", {}).get(source_unit_id, {})
-		var source_alive = false
+		var source_alive = source_unit_id == ""
 		for model in source_unit.get("models", []):
 			if model.get("alive", true):
 				source_alive = true
@@ -643,7 +699,7 @@ func _process_supply_drop_removal(battle_round: int, active_player: int) -> void
 				available_for_removal.append(obj_id)
 
 		# Issue #329: route through RNGService so RNGService.test_mode_seed applies for deterministic tests
-		var rng = RulesEngine.RNGService.new()
+		var rng = RulesEngine.make_rng()
 		for i in range(min(remove_count, available_for_removal.size())):
 			# Pick randomly
 			var idx = rng.randi_range(0, available_for_removal.size() - 1)

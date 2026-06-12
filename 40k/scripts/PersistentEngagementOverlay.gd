@@ -12,7 +12,8 @@ class_name PersistentEngagementOverlay
 #
 # Self-installs under /root/Main/BoardRoot via Main._ready().
 
-const ENGAGEMENT_RANGE_INCHES := 1.0
+# ISS-002: engagement range comes from GameConstants.engagement_range_inches()
+# (edition-dependent). Do not re-declare it as a local constant.
 
 
 var _refresh_pending: bool = false
@@ -63,7 +64,7 @@ func refresh() -> void:
 		ring.is_persistent = true
 		ring.position = anchor
 		ring.setup_engagement_range(
-			Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES),
+			Measurement.inches_to_px(GameConstants.engagement_range_inches()),
 			Color(0.85, 0.6, 0.2, 1.0)  # subdued amber so it's not loud
 		)
 		ring.pulse_enabled = false  # ambient ring; pulsing reserved for active selection
@@ -88,7 +89,7 @@ func _compute_engaged_unit_ids() -> Array:
 	var owners: Array = by_owner.keys()
 	if owners.size() < 2:
 		return []
-	var threshold_px := float(Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES))
+	var threshold_px := float(Measurement.inches_to_px(GameConstants.engagement_range_inches()))
 	var threshold_sq := threshold_px * threshold_px
 	var engaged: Dictionary = {}
 	for i in range(owners.size()):

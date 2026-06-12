@@ -35,6 +35,9 @@ signal shooty_power_trip_result(unit_id: String, d6_roll: int, effect: String)  
 
 # Shooting state tracking
 var active_shooter_id: String = ""
+# ISS-048 step 2: the 11e shooting type selected for the active shooter
+# ("normal"/"assault"/"close_quarters"/"indirect"/"snap"); "" at 10e.
+var active_shooting_type: String = ""
 var pending_assignments: Array = []  # Weapon assignments before confirmation
 var confirmed_assignments: Array = []  # Assignments ready to resolve
 var resolution_state: Dictionary = {}  # State for step-by-step resolution
@@ -58,7 +61,7 @@ var awaiting_pulsa_rokkit: bool = false  # OA-31: True when waiting for Pulsa Ro
 var shooty_power_trip_pending_unit: String = ""  # OA-37: Unit awaiting Shooty Power Trip decision
 var awaiting_shooty_power_trip: bool = false  # OA-37: True when waiting for Shooty Power Trip response
 var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
-var _rng = RulesEngine.RNGService.new()  # P1-11: RNG for battle-shock tests (issue #329: routes through test_mode_seed)
+var _rng = RulesEngine.make_rng()  # P1-11: RNG for battle-shock tests (issue #329: routes through test_mode_seed)
 # Issue #386 Big Booms: queued struck-unit IDs from a supa-kannon target selection.
 # Resolved after the supa-kannon's attacks against the chosen target finish; D3 MW per struck unit.
 var _big_booms_pending: Array = []  # entries: {target_unit_id: String, struck_unit_ids: Array, rolls: Array}
@@ -308,7 +311,7 @@ func _compute_engagement_flags() -> void:
 				continue
 			if other.get("status", 0) != 2:
 				continue
-			if RulesEngine._check_units_in_engagement_range(unit, other, game_state_snapshot):
+			if RulesEngine.check_units_in_engagement_range(unit, other, game_state_snapshot):
 				in_engagement = true
 				break
 		var gs_unit = GameState.state["units"].get(unit_id, {})
@@ -550,7 +553,14 @@ func _validate_select_shooter(action: Dictionary) -> Dictionary:
 	if unit.get("owner", 0) != get_current_player():
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 	
-	if not _can_unit_shoot(unit):
+	# ISS-048 step 2: at 11e the shooting-type registry (10.02) is
+	# authoritative — a unit needs at least one selectable type.
+	if GameConstants.edition >= 11:
+		var types_11e = ShootingTypes.available_for(unit_id, GameState.state)
+		if types_11e.is_empty():
+			var why = ShootingTypes.get_type("normal").eligible(unit_id, GameState.state)
+			return {"valid": false, "errors": ["No shooting type selectable (10.02): " + str(why.reasons)]}
+	elif not _can_unit_shoot(unit):
 		return {"valid": false, "errors": ["Unit cannot shoot"]}
 
 	if unit_id in units_that_shot:
@@ -582,6 +592,21 @@ func _validate_assign_target(action: Dictionary) -> Dictionary:
 	# there's never two targets for the same weapon simultaneously.
 	# No validation needed here — reassignment is always valid.
 
+	var shooter_unit_pre = get_unit(active_shooter_id)
+	# ISS-048 step 2 (11e): the selected shooting type's WHILE constraints
+	# gate every assignment — weapon_allowed (e.g. [ASSAULT]-only when
+	# advanced, CQ weapons vs engaged targets) and target_allowed (17.03
+	# baseline + per-type relaxations).
+	if GameConstants.edition >= 11 and active_shooting_type != "":
+		var st_11e = ShootingTypes.get_type(active_shooting_type)
+		var wprofile = RulesEngine.get_weapon_profile(weapon_id, game_state_snapshot)
+		var w_ok = st_11e.weapon_allowed(wprofile, shooter_unit_pre, GameState.state)
+		if not w_ok.allowed:
+			return {"valid": false, "errors": [w_ok.reason]}
+		var t_ok = st_11e.target_allowed(active_shooter_id, target_unit_id, wprofile, GameState.state)
+		if not t_ok.allowed:
+			return {"valid": false, "errors": [t_ok.reason]}
+
 	# MA-25: PISTOL MUTUAL EXCLUSIVITY — per-model check (was unit-wide before MA-25)
 	# Per 10e: "If a model is equipped with one or more Pistols, unless it is a
 	# MONSTER or VEHICLE model, it can either shoot with its Pistols or with all
@@ -589,7 +614,7 @@ func _validate_assign_target(action: Dictionary) -> Dictionary:
 	# Per-model: each model individually must choose pistol or non-pistol, but
 	# different models in the same unit can make different choices.
 	var shooter_unit = get_unit(active_shooter_id)
-	if not RulesEngine.is_monster_or_vehicle(shooter_unit):
+	if GameConstants.edition < 11 and not RulesEngine.is_monster_or_vehicle(shooter_unit):
 		var new_weapon_is_pistol = RulesEngine.is_pistol_weapon(weapon_id, game_state_snapshot)
 		# Check each model in the new assignment against existing assignments
 		for new_model_id in model_ids:
@@ -647,7 +672,7 @@ func _validate_confirm_targets(action: Dictionary) -> Dictionary:
 			var tid = assignment.get("target_unit_id", "")
 			if not is_monster_vehicle and not RulesEngine.is_pistol_weapon(wid, game_state_snapshot):
 				return {"valid": false, "errors": ["Unit is in engagement — only Pistol weapons can fire"]}
-			if not RulesEngine._check_units_in_engagement_range(shooter_unit, get_unit(tid), game_state_snapshot):
+			if not RulesEngine.check_units_in_engagement_range(shooter_unit, get_unit(tid), game_state_snapshot):
 				return {"valid": false, "errors": ["Unit is in engagement — can only target engaged units"]}
 
 	return {"valid": true, "errors": []}
@@ -721,6 +746,22 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 	active_shooter_id = unit_id
 	pending_assignments.clear()
 	confirmed_assignments.clear()
+
+	# ISS-048 step 2 (11e 10.02): the unit selects ONE shooting type.
+	# payload.shooting_type overrides; default = first available
+	# (normal > assault > close_quarters > indirect).
+	active_shooting_type = ""
+	if GameConstants.edition >= 11:
+		var types_11e = ShootingTypes.available_for(unit_id, GameState.state)
+		var requested = str(action.get("payload", {}).get("shooting_type", ""))
+		if requested != "" and requested in types_11e:
+			active_shooting_type = requested
+		elif requested != "" and not requested in types_11e:
+			log_phase_message("[11e] Requested shooting type '%s' not selectable for %s (available: %s)" % [requested, unit_id, str(types_11e)])
+			active_shooting_type = types_11e[0] if not types_11e.is_empty() else ""
+		elif not types_11e.is_empty():
+			active_shooting_type = types_11e[0]
+		log_phase_message("[11e] %s shoots with type: %s (available: %s)" % [unit_id, active_shooting_type, str(types_11e)])
 	_targets_hit_by_shooter.clear()  # P1-11: Reset hit tracking for new shooter
 
 	var unit = get_unit(unit_id)
@@ -2456,7 +2497,7 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 			continue
 
 		# Roll saves: allocate wounds to models in priority order (wounded first)
-		var rng = RulesEngine.RNGService.new()
+		var rng = RulesEngine.make_rng()
 		var save_results = []
 		var saves_passed = 0
 		var saves_failed = 0
@@ -2565,7 +2606,7 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 			emit_signal("dice_rolled", save_dice_block)
 
 		# Apply damage using RulesEngine
-		var fnp_rng = RulesEngine.RNGService.new()
+		var fnp_rng = RulesEngine.make_rng()
 		var damage_result = RulesEngine.apply_save_damage(
 			save_results,
 			save_data,
@@ -2848,7 +2889,7 @@ func _resolve_next_weapon() -> Dictionary:
 	}
 
 	# Resolve with RulesEngine UP TO WOUNDS
-	var rng_service = RulesEngine.RNGService.new()
+	var rng_service = RulesEngine.make_rng()
 	DebugLogger.info("ShootingPhase: Calling RulesEngine.resolve_shoot_until_wounds()...")
 	var result = RulesEngine.resolve_shoot_until_wounds(shoot_action, game_state_snapshot, rng_service)
 	DebugLogger.info(str("ShootingPhase: RulesEngine returned: success=%s" % result.success))
@@ -3356,7 +3397,7 @@ func _auto_inject_extra_attacks_weapons_shooting() -> void:
 
 	for weapon in ea_weapons:
 		var weapon_name = weapon.get("name", "Unknown")
-		var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
+		var weapon_id = RulesEngine.generate_weapon_id(weapon_name, weapon.get("type", ""))
 
 		if assigned_weapon_ids.has(weapon_id):
 			DebugLogger.info(str("[ShootingPhase] T3-3: Extra Attacks weapon '%s' already assigned, skipping" % weapon_name))
@@ -3737,7 +3778,7 @@ func _clear_stratagem_phase_flags() -> void:
 func _clear_shooting_visuals() -> void:
 	"""Clear all shooting-related visuals from the board when phase ends"""
 	# Get the ShootingController from Main
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if not main:
 		DebugLogger.info("ShootingPhase: Warning - Main node not found for visual cleanup")
 		return
@@ -3756,7 +3797,7 @@ func _clear_shooting_visuals() -> void:
 
 func _cleanup_boardroot_visuals() -> void:
 	"""Fallback cleanup - remove shooting visuals directly from BoardRoot"""
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
 
@@ -3777,7 +3818,7 @@ func _cleanup_boardroot_visuals() -> void:
 
 func _clear_death_markers() -> void:
 	"""Clear all death markers from the board at phase end"""
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if not main:
 		DebugLogger.info("ShootingPhase: Warning - Main node not found for death marker cleanup")
 		return
@@ -4320,7 +4361,9 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	# Issue #386 Big Booms: apply D3 MW per struck unit after supa-kannon attacks finish.
 	if not _big_booms_pending.is_empty():
 		var bb_board = GameState.create_snapshot()
-		var bb_rng = RulesEngine.RNGService.new()
+		# ISS-004: action is in scope — honor/record payload.rng_seed so the
+		# action log can replay these rolls.
+		var bb_rng = RulesEngine.rng_for_action(action)
 		for entry in _big_booms_pending:
 			for struck_uid in entry.get("struck_unit_ids", []):
 				var d3 = bb_rng.randi_range(1, 3)
@@ -4791,7 +4834,7 @@ func _resolve_throat_slittas(unit_id: String) -> Dictionary:
 		if mortal_wounds > 0:
 			var target_unit = get_unit(target_unit_id)
 			var target_models = target_unit.get("models", []).duplicate(true)
-			var damage_result = RulesEngine._apply_damage_to_unit_pool(
+			var damage_result = RulesEngine.apply_damage_to_unit_pool(
 				target_unit_id, mortal_wounds, target_models, game_state_snapshot
 			)
 			all_diffs.append_array(damage_result.get("diffs", []))
@@ -5411,6 +5454,27 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 		var save_result_summary = save_results_list[i]
 		var save_data = pending_save_data[i]
+
+		# ISS-045 (11e): the allocation-group overlay already resolved the
+		# whole batch (05.03-05.04) on the defending peer — its summary
+		# carries idempotent set-diffs, so apply those instead of the 10e
+		# per-wound allocation_history conversion below.
+		if save_result_summary.get("is_allocation_11e", false):
+			all_diffs.append_array(save_result_summary.get("diffs", []))
+			var alloc_casualties = int(save_result_summary.get("casualties", 0))
+			total_casualties += alloc_casualties
+			var alloc_target_id = save_data.get("target_unit_id", save_result_summary.get("target_unit_id", ""))
+			if alloc_casualties > 0 and str(alloc_target_id) != "":
+				CharacterAttachmentManager.check_bodyguard_destroyed(alloc_target_id)
+			log_phase_message("%s: %d saves passed, %d failed → %d casualties (11e allocation)" % [
+				save_data.get("target_unit_name", alloc_target_id),
+				save_result_summary.get("saves_passed", 0),
+				save_result_summary.get("saves_failed", 0),
+				alloc_casualties])
+			save_log_parts.append("%s → %s: 11e allocation, order %s" % [
+				shooter_name, save_data.get("target_unit_name", alloc_target_id),
+				str(save_result_summary.get("order_used", []))])
+			continue
 
 		DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
 		DebugLogger.info(str("║ PROCESSING SAVE RESULT %d" % i))
@@ -6300,7 +6364,7 @@ func _emit_fnp_detail_log(fnp_block: Dictionary) -> void:
 
 func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 	"""Trigger an animation on all token visuals for a unit."""
-	var tl = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var tl = SceneRefs.token_layer()
 	if not tl:
 		return
 	for child in tl.get_children():

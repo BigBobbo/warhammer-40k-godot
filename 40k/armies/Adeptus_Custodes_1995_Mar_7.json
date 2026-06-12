@@ -5,7 +5,8 @@
     "detachment": "Lions of the Emperor",
     "player_name": "",
     "team_name": "",
-    "created_date": "2025-03-07"
+    "created_date": "2025-03-07",
+    "schema": 2
   },
   "units": {
     "U_BLADE_CHAMPION_A": {
@@ -29,7 +30,7 @@
           "wounds": 6,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 120,
         "is_warlord": false,
@@ -47,7 +48,12 @@
             "ap": "-2",
             "damage": "2",
             "weapon_skill": "2",
-            "special_rules": "precision"
+            "special_rules": "precision",
+            "abilities": [
+              {
+                "id": "precision"
+              }
+            ]
           },
           {
             "name": "Vaultswords – Hurricanus",
@@ -58,7 +64,13 @@
             "ap": "-1",
             "damage": "1",
             "weapon_skill": "2",
-            "special_rules": "sustained hits 1"
+            "special_rules": "sustained hits 1",
+            "abilities": [
+              {
+                "id": "sustained_hits",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Vaultswords – Victus",
@@ -69,7 +81,12 @@
             "ap": "-3",
             "damage": "3",
             "weapon_skill": "2",
-            "special_rules": "devastating wounds"
+            "special_rules": "devastating wounds",
+            "abilities": [
+              {
+                "id": "devastating_wounds"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -145,7 +162,7 @@
           "wounds": 6,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 120,
         "is_warlord": false,
@@ -163,7 +180,12 @@
             "ap": "-2",
             "damage": "2",
             "weapon_skill": "2",
-            "special_rules": "precision"
+            "special_rules": "precision",
+            "abilities": [
+              {
+                "id": "precision"
+              }
+            ]
           },
           {
             "name": "Vaultswords – Hurricanus",
@@ -174,7 +196,13 @@
             "ap": "-1",
             "damage": "1",
             "weapon_skill": "2",
-            "special_rules": "sustained hits 1"
+            "special_rules": "sustained hits 1",
+            "abilities": [
+              {
+                "id": "sustained_hits",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Vaultswords – Victus",
@@ -185,7 +213,12 @@
             "ap": "-3",
             "damage": "3",
             "weapon_skill": "2",
-            "special_rules": "devastating wounds"
+            "special_rules": "devastating wounds",
+            "abilities": [
+              {
+                "id": "devastating_wounds"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -263,7 +296,7 @@
           "wounds": 8,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 160,
         "is_warlord": false,
@@ -284,7 +317,12 @@
             "ap": "-3",
             "damage": "D6+1",
             "ballistic_skill": "2",
-            "special_rules": "twin-linked"
+            "special_rules": "twin-linked",
+            "abilities": [
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Interceptor lance",
@@ -295,7 +333,12 @@
             "ap": "-2",
             "damage": "2",
             "weapon_skill": "2",
-            "special_rules": "lance"
+            "special_rules": "lance",
+            "abilities": [
+              {
+                "id": "lance"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -371,7 +414,7 @@
           "wounds": 7,
           "leadership": 5,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 140,
         "is_warlord": true,
@@ -390,7 +433,12 @@
             "ap": "-2",
             "damage": "3",
             "ballistic_skill": "2",
-            "special_rules": "assault"
+            "special_rules": "assault",
+            "abilities": [
+              {
+                "id": "assault"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -477,7 +525,7 @@
           "wounds": 3,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 190,
         "is_warlord": false,
@@ -497,7 +545,12 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "2",
-            "special_rules": "assault"
+            "special_rules": "assault",
+            "abilities": [
+              {
+                "id": "assault"
+              }
+            ]
           },
           {
             "name": "Sentinel blade",
@@ -508,7 +561,15 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "2",
-            "special_rules": "assault, pistol"
+            "special_rules": "assault, pistol",
+            "abilities": [
+              {
+                "id": "assault"
+              },
+              {
+                "id": "pistol"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -619,7 +680,7 @@
           "wounds": 3,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 190,
         "is_warlord": false,
@@ -639,7 +700,12 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "2",
-            "special_rules": "assault"
+            "special_rules": "assault",
+            "abilities": [
+              {
+                "id": "assault"
+              }
+            ]
           },
           {
             "name": "Sentinel blade",
@@ -650,7 +716,15 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "2",
-            "special_rules": "assault, pistol"
+            "special_rules": "assault, pistol",
+            "abilities": [
+              {
+                "id": "assault"
+              },
+              {
+                "id": "pistol"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -761,7 +835,7 @@
           "wounds": 3,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 190,
         "is_warlord": false,
@@ -781,7 +855,12 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "2",
-            "special_rules": "assault"
+            "special_rules": "assault",
+            "abilities": [
+              {
+                "id": "assault"
+              }
+            ]
           },
           {
             "name": "Sentinel blade",
@@ -792,7 +871,15 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "2",
-            "special_rules": "assault, pistol"
+            "special_rules": "assault, pistol",
+            "abilities": [
+              {
+                "id": "assault"
+              },
+              {
+                "id": "pistol"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -903,7 +990,7 @@
           "wounds": 3,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 150,
         "is_warlord": false,
@@ -923,7 +1010,12 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "2",
-            "special_rules": "assault"
+            "special_rules": "assault",
+            "abilities": [
+              {
+                "id": "assault"
+              }
+            ]
           },
           {
             "name": "Sentinel blade",
@@ -934,7 +1026,15 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "2",
-            "special_rules": "assault, pistol"
+            "special_rules": "assault, pistol",
+            "abilities": [
+              {
+                "id": "assault"
+              },
+              {
+                "id": "pistol"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -1036,7 +1136,7 @@
           "wounds": 3,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 150,
         "is_warlord": false,
@@ -1058,7 +1158,12 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "2",
-            "special_rules": "assault"
+            "special_rules": "assault",
+            "abilities": [
+              {
+                "id": "assault"
+              }
+            ]
           },
           {
             "name": "Sentinel blade",
@@ -1069,7 +1174,15 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "2",
-            "special_rules": "assault, pistol"
+            "special_rules": "assault, pistol",
+            "abilities": [
+              {
+                "id": "assault"
+              },
+              {
+                "id": "pistol"
+              }
+            ]
           },
           {
             "name": "Misericordia",
@@ -1181,7 +1294,7 @@
           "wounds": 4,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 110,
         "is_warlord": false,
@@ -1200,7 +1313,12 @@
             "ap": "-1",
             "damage": "1",
             "ballistic_skill": "2",
-            "special_rules": "blast"
+            "special_rules": "blast",
+            "abilities": [
+              {
+                "id": "blast"
+              }
+            ]
           },
           {
             "name": "Castellan axe",
@@ -1211,7 +1329,12 @@
             "ap": "-1",
             "damage": "2",
             "ballistic_skill": "2",
-            "special_rules": "assault"
+            "special_rules": "assault",
+            "abilities": [
+              {
+                "id": "assault"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -1308,7 +1431,13 @@
             "ap": "0",
             "damage": "1",
             "ballistic_skill": "3",
-            "special_rules": "rapid fire 1"
+            "special_rules": "rapid fire 1",
+            "abilities": [
+              {
+                "id": "rapid_fire",
+                "x": 1
+              }
+            ]
           },
           {
             "name": "Close combat weapon",
@@ -1404,7 +1533,7 @@
           "wounds": 5,
           "leadership": 6,
           "objective_control": 2,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 150,
         "is_warlord": false,
@@ -1423,7 +1552,12 @@
             "ap": "-3",
             "damage": "D6+1",
             "ballistic_skill": "2",
-            "special_rules": "twin-linked"
+            "special_rules": "twin-linked",
+            "abilities": [
+              {
+                "id": "twin_linked"
+              }
+            ]
           },
           {
             "name": "Interceptor lance",
@@ -1434,7 +1568,12 @@
             "ap": "-2",
             "damage": "2",
             "weapon_skill": "2",
-            "special_rules": "lance"
+            "special_rules": "lance",
+            "abilities": [
+              {
+                "id": "lance"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -1531,7 +1670,15 @@
             "ap": "0",
             "damage": "1",
             "ballistic_skill": null,
-            "special_rules": "ignores cover, torrent"
+            "special_rules": "ignores cover, torrent",
+            "abilities": [
+              {
+                "id": "ignores_cover"
+              },
+              {
+                "id": "torrent"
+              }
+            ]
           },
           {
             "name": "Close combat weapon",
@@ -1651,7 +1798,15 @@
             "ap": "0",
             "damage": "1",
             "ballistic_skill": null,
-            "special_rules": "ignores cover, torrent"
+            "special_rules": "ignores cover, torrent",
+            "abilities": [
+              {
+                "id": "ignores_cover"
+              },
+              {
+                "id": "torrent"
+              }
+            ]
           },
           {
             "name": "Close combat weapon",
@@ -1755,7 +1910,7 @@
           "wounds": 4,
           "leadership": 6,
           "objective_control": 1,
-          "invulnerable_save": 4
+          "invuln": 4
         },
         "points": 100,
         "is_warlord": false,
@@ -1774,7 +1929,20 @@
             "ap": "-2",
             "damage": "1",
             "ballistic_skill": null,
-            "special_rules": "anti-infantry 2+, precision, torrent"
+            "special_rules": "anti-infantry 2+, precision, torrent",
+            "abilities": [
+              {
+                "id": "anti",
+                "keyword": "INFANTRY",
+                "threshold": 2
+              },
+              {
+                "id": "precision"
+              },
+              {
+                "id": "torrent"
+              }
+            ]
           },
           {
             "name": "Phase sword and poison blades",
@@ -1785,7 +1953,15 @@
             "ap": "-4",
             "damage": "2",
             "weapon_skill": "2",
-            "special_rules": "lethal hits, precision"
+            "special_rules": "lethal hits, precision",
+            "abilities": [
+              {
+                "id": "lethal_hits"
+              },
+              {
+                "id": "precision"
+              }
+            ]
           }
         ],
         "abilities": [
@@ -1875,7 +2051,7 @@
           "wounds": 4,
           "leadership": 6,
           "objective_control": 1,
-          "invulnerable_save": 5
+          "invuln": 5
         },
         "points": 95,
         "is_warlord": false,
@@ -1895,7 +2071,20 @@
             "ap": "0",
             "damage": "2",
             "ballistic_skill": "3",
-            "special_rules": "anti-infantry 4+, assault, devastating wounds"
+            "special_rules": "anti-infantry 4+, assault, devastating wounds",
+            "abilities": [
+              {
+                "id": "anti",
+                "keyword": "INFANTRY",
+                "threshold": 4
+              },
+              {
+                "id": "assault"
+              },
+              {
+                "id": "devastating_wounds"
+              }
+            ]
           },
           {
             "name": "Psychic Tempest",
@@ -1906,7 +2095,16 @@
             "ap": "0",
             "damage": "2",
             "ballistic_skill": "3",
-            "special_rules": "psychic, sustained hits 2"
+            "special_rules": "psychic, sustained hits 2",
+            "abilities": [
+              {
+                "id": "psychic"
+              },
+              {
+                "id": "sustained_hits",
+                "x": 2
+              }
+            ]
           },
           {
             "name": "Power fist",

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warhammer 40k Godot — Architecture Overhaul &amp; 11th Edition Migration: Progress Report</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --card: #ffffff; --ink: #1f2430; --muted: #6b7280;
+    --accent: #8b1e1e; --accent2: #1e4d8b; --good: #176b3a; --warn: #9a6b00;
+    --line: #e3e0d8; --chip-done: #e2f3e8; --chip-prog: #fff3d6; --chip-todo: #eef1f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, 'Times New Roman', serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+  header { border-bottom: 4px double var(--accent); padding-bottom: 18px; margin-bottom: 28px; }
+  h1 { font-size: 1.9rem; margin: 0 0 6px; letter-spacing: 0.3px; }
+  .sub { color: var(--muted); font-size: 0.95rem; }
+  .sub code { background: #eee9df; padding: 1px 6px; border-radius: 4px; font-size: 0.85rem; }
+  h2 { font-size: 1.3rem; border-left: 5px solid var(--accent); padding-left: 12px; margin: 40px 0 14px; }
+  h3 { font-size: 1.05rem; margin: 24px 0 8px; color: var(--accent2); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 22px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; text-align: center; }
+  .card .n { font-size: 1.9rem; font-weight: bold; }
+  .card .l { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .n.done { color: var(--good); } .n.prog { color: var(--warn); } .n.todo { color: var(--accent2); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); font-size: 0.92rem; margin: 10px 0 6px; }
+  th { text-align: left; background: #efece4; padding: 8px 10px; border-bottom: 2px solid var(--line); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .id { font-family: ui-monospace, Menlo, monospace; font-size: 0.82rem; white-space: nowrap; color: var(--accent2); font-weight: bold; }
+  .chip { display: inline-block; font-size: 0.72rem; font-family: ui-monospace, monospace; padding: 1px 8px; border-radius: 10px; }
+  .chip.done { background: var(--chip-done); color: var(--good); }
+  .chip.prog { background: var(--chip-prog); color: var(--warn); }
+  .chip.todo { background: var(--chip-todo); color: var(--accent2); }
+  .chip.blocker { background: #f7e1e1; color: var(--accent); }
+  .note { background: #fbf8ef; border: 1px solid #e9e0c8; border-radius: 8px; padding: 12px 16px; font-size: 0.92rem; margin: 14px 0; }
+  .bug { background: #fdf2f2; border: 1px solid #ecc8c8; border-radius: 8px; padding: 12px 16px; font-size: 0.92rem; margin: 10px 0; }
+  ul { margin: 6px 0 14px; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .small { font-size: 0.85rem; color: var(--muted); }
+  footer { margin-top: 50px; border-top: 1px solid var(--line); padding-top: 14px; color: var(--muted); font-size: 0.85rem; }
+  .roadphase { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .roadphase b { color: var(--accent2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Warhammer 40k (Godot) — Architecture Overhaul &amp; 11th Edition Migration</h1>
+  <div class="sub">Progress report · 2026-06-11 (updated) · branch <code>claude/wh40k-architecture-audit-n69bqn</code> ·
+  tracker <code>ISSUES.md</code> · spec <code>PRD.md</code> · findings <code>ARCHITECTURE_AUDIT_2026-06.md</code></div>
+</header>
+
+<div class="cards">
+  <div class="card"><div class="n done">31</div><div class="l">Issues done</div></div>
+  <div class="card"><div class="n prog">13</div><div class="l">In progress</div></div>
+  <div class="card"><div class="n todo">19</div><div class="l">Planned</div></div>
+  <div class="card"><div class="n">943</div><div class="l">Test checks green</div></div>
+  <div class="card"><div class="n">61</div><div class="l">Headless tests</div></div>
+  <div class="card"><div class="n">~50</div><div class="l">Session commits</div></div>
+</div>
+
+<div class="note">
+<b>Method.</b> Issues are worked in dependency order from <code>ISSUES.md</code>; every change lands with
+its own regression tests (the gate grew from 562 → <b>943 checks</b>), windowed-scenario validation over
+the in-game MCP bridge where player-facing, and an individual commit. The <b>63-entry golden corpus</b>
+pins both attack-resolution paths byte-for-byte, and the <b>edition switch</b>
+(<code>GameConstants.edition</code>, default 10) lets every 11th-edition behavior land provably without
+touching the playable 10e game. <b>The rulebook's own worked examples are the acceptance fixtures</b> —
+seven of them now reproduce exactly in tests.
+</div>
+
+<h2>Completed — Tier 1 &amp; 2: Foundations and Consolidation (24 issues)</h2>
+<table>
+<tr><th>Area</th><th>What landed</th></tr>
+<tr><td><b>State integrity</b></td><td>All in-game mutations through the action/diff pipeline (lint-enforced); loud failures on bad diff paths; <code>StateSchema</code> validation + canonical path builders; BoardState reduced to a storage-free facade; undo machinery proven with the dual-execute-path gaps documented. <span class="id">ISS-001/017/022/031</span></td></tr>
+<tr><td><b>Rules core</b></td><td><code>GameConstants</code> + edition switch (9 duplicate constants + 6 hidden literals centralized); structured weapon abilities on 236 weapons with load-time validation (typos = load errors); per-roll hit/wound evaluation unified in <code>AttackSequence</code> across all nine duplicated loops — proven byte-identical by the golden corpus; one S-vs-T chart in the codebase; public RulesEngine API with lint. <span class="id">ISS-002/003/012/014/019/020</span></td></tr>
+<tr><td><b>Determinism</b></td><td>Sanctioned RNG factories (seeds recorded into actions); every multiplayer action seeded with canonical state-hash desync detection; deterministic replay proven end-to-end (record → scramble → replay → identical hash); save-migration fixtures for three schema versions. <span class="id">ISS-004/015/021/028</span></td></tr>
+<tr><td><b>UI architecture</b></td><td><code>PhaseControllerBase</code> for all five controllers; symmetric signal attach/detach replacing 130 lines of manual blocks; teardown guards; deliberate input routing documented (pile-in's modal bypass preserved). <span class="id">ISS-005/007/008/013</span></td></tr>
+<tr><td><b>Hygiene</b></td><td>~165&nbsp;MB of artifacts untracked; 36 dated docs archived; dead test dirs deleted; deprecated SCOUT_MOVES/MORALE phases removed with save-safe enum slots; MP load-sync failures now block + retry; AI caches reset-by-design on load. <span class="id">ISS-006/010/011/026/032/034</span></td></tr>
+</table>
+
+<h2>Completed — Tier 3: 11th Edition (7 issues fully done)</h2>
+<table>
+<tr><th>ID</th><th>What landed</th><th>Rulebook fixture</th></tr>
+<tr><td class="id">ISS-037</td><td>Schema-2 army data: invuln normalization (35 units), <code>needs_11e_review</code> flags, save format 1.2.0 + migration.</td><td>—</td></tr>
+<tr><td class="id">ISS-038</td><td>Turn-structure events (<code>turn_started/ending</code>, <code>battle_round_started/ending</code>) + ordered end-of-turn hooks enforcing 07.03 (non-mission rules before mission rules).</td><td>07.02-07.03 sequencing</td></tr>
+<tr><td class="id">ISS-039</td><td>Engagement range 2"/5" with engaged/unengaged predicates, proven per edition.</td><td>03.04 boundaries (1.9"/2.1")</td></tr>
+<tr><td class="id">ISS-042</td><td>Coherency: the 2"+9"-envelope check <i>and</i> end-of-turn enforcement (most-isolated model removed via the pipeline, destroyed without triggers).</td><td>03.03 — incl. proof the envelope closes the 10e "split islands" quirk</td></tr>
+<tr><td class="id">ISS-043</td><td>Battle-shock rework wired into CommandPhase: flags persist, shocked units retest and <b>recover</b> on a pass; the shocked-stratagem ban confirmed pre-existing in both editions.</td><td>08.03 recovery; 01.07 ban</td></tr>
+<tr><td class="id">ISS-044</td><td>Hazard rolls: simultaneous batch, 1-2 fails, 3&nbsp;MW for all-MONSTER/VEHICLE units.</td><td>06.03 exactly</td></tr>
+<tr><td class="id">ISS-046</td><td>Mortal wounds with the 06.02 selection priority + the devastating-wounds one-model-per-crit cap.</td><td><b>pg-80 Intercessor example reproduces</b></td></tr>
+</table>
+
+<h2>In progress — Tier 3 engine modules (13 issues, each with a landed, tested core)</h2>
+<table>
+<tr><th>ID</th><th>Landed core</th><th>Remaining</th></tr>
+<tr><td class="id">ISS-041 <span class="chip blocker">BLOCKER</span></td><td>The allocation-groups engine (05.03-05.04): group partitioning, all three ordering constraints, lowest-roll-first damage, invuln-vs-AP, excess lost — <b>the Celestine worked example (pp. 22-23) reproduces exactly</b>.</td><td>Edition-gated resolution-flow wiring in RulesEngine (identical-attack gathering, 04.03) against the golden corpus.</td></tr>
+<tr><td class="id">ISS-040</td><td>The move-type framework (<code>ELIGIBLE IF / BEFORE / WHILE / AFTER</code> + ordered modes) with <b>nine instances</b>: stationary, normal, advance, fall-back (with 11e desperate-escape hazard rolls), ingress, surge, disembark, emergency disembark, charge.</td><td>MovementPhase drives the instances (windowed-scenario gate).</td></tr>
+<tr><td class="id">ISS-049</td><td>11e charge: roll-then-target selection, engage-all-targets/no-non-targets conditions, Fights First ability grant — <b>pg-37 example semantics reproduce</b>.</td><td>ChargePhase wiring (path validation, overwatch interplay).</td></tr>
+<tr><td class="id">ISS-057</td><td>The Actions system: every 16.01 gate, locks, movement cancellation, trigger completion — <b>the Deploy Device example (pg 58) is the fixture</b>.</td><td>Phase eligibility consults the locks; mission-pack definitions.</td></tr>
+<tr><td class="id">ISS-058</td><td>Disembark modes (rapid/tactical/combat, mandatory by transport state) + emergency disembark with per-model hazard rolls.</td><td>TransportManager wiring + the 24.08 destruction ordering.</td></tr>
+<tr><td class="id">ISS-060</td><td>Ingress move (edge/enemy/DZ-by-round validation) + Deep Strike relaxation; round-3 reserves destruction pre-existed.</td><td>Reinforcement-step wiring; AIRCRAFT reserve cycle.</td></tr>
+<tr><td class="id">ISS-061</td><td>Surge move (closest-enemy targeting, non-target voiding) + FLY take-to-the-skies modifier (-2", HOVER exempt).</td><td>Pathing behavior in movement execution; SUPER-HEAVY WALKER.</td></tr>
+<tr><td class="id">ISS-051/052/053</td><td>Terrain categories + area/crossing queries; the Hidden rule with its 15" detection boundary; cover qualification (every-model + Stealth) and Plunging Fire.</td><td>Fully-visible/Solid visibility; BS application via the resolution flow; layout area authoring.</td></tr>
+<tr><td class="id">ISS-055</td><td>Per-phase control evaluation (14.02) + army-level Secured objectives (14.03) riding the proven sticky mechanism.</td><td>Terrain-area objectives.</td></tr>
+<tr><td class="id">ISS-056</td><td>The 15.01 per-unit stratagem restriction, edition-gated.</td><td>The reworked 11e core stratagem set.</td></tr>
+<tr><td class="id">ISS-047</td><td>Keyword-scoped abilities (24.01) + BLAST/CLEAVE dice math — <b>both worked examples reproduce</b>.</td><td>Resolution hooks; LETHAL-HITS choice; PRECISION group selection.</td></tr>
+</table>
+
+<h2>Bugs found &amp; fixed along the way</h2>
+<div class="bug"><b>Fight-phase engagement ring at 0.635"</b> (mm passed to a px API) · <b>AI scored impossible probabilities</b> (P=1.0 at skill≤1, P=0.0 at skill≥7 — overwatch worst hit) · <b>silent multiplayer desync</b> (now hash-verified) · <b>typo'd abilities silently ignored</b> (now load errors) · documented latent issues: delegated-action double-apply, formations bypassing undo, melee silent-success, the (0,0)-position footgun — all parked against their owning issues in the tracker.</div>
+
+<h2>Plan — remaining 19 issues</h2>
+
+<div class="roadphase"><b>Next up (combat-flow completion)</b>
+<ul>
+<li><span class="id">ISS-041 step 2</span> — wire the 11e resolution flow (identical-attack gathering + allocation groups) into RulesEngine behind the edition switch, verified against the golden corpus.</li>
+<li><span class="id">ISS-045</span> — the defender-side allocation-groups UI (replaces the per-wound overlay). <span class="id">ISS-016</span> — ModifierStack, landing with the resolution flow that consumes it. <span class="id">ISS-048</span> — shooting types (normal/assault/close-quarters/indirect/snap; retires PISTOL &amp; Big Guns Never Tire). <span class="id">ISS-050</span> <span class="chip blocker">BLOCKER</span> — the fight-phase restructure (global Pile In → Fights First alternation → global Consolidate, overrun fights, consolidation modes).</li>
+</ul></div>
+
+<div class="roadphase"><b>Battlefield &amp; units completion</b>
+<ul>
+<li><span class="id">ISS-054</span> terrain movement + MOBILE keyword · <span class="id">ISS-059</span> attached units (Support slot, ability persistence — the bodyguard-toughness rule was found already correct) · step-2 wirings for visibility (fully-visible/Solid), cover-as-BS, transports, reserves/aircraft.</li>
+</ul></div>
+
+<div class="roadphase"><b>Intelligence &amp; verification</b>
+<ul>
+<li><span class="id">ISS-062</span> AI for 11e (legality via the shared eligibility APIs, then competence) · <span class="id">ISS-063</span> the 11e windowed-scenario suite (worked examples as scenario specs) · <span class="id">ISS-029</span> golden-master full-game replays (foundation landed in ISS-021).</li>
+</ul></div>
+
+<div class="roadphase"><b>Quality items (interleaved as their areas are touched)</b>
+<ul>
+<li><span class="id">ISS-023/024/025/027/030/033</span> — position SSOT, snapshot staleness, manager ownership + dual-execute-path unification, Main.gd decomposition (absorbs <span class="id">ISS-009/018</span>), AI planner split, dialog base · <span class="id">ISS-035/036</span> — autosave-deferral &amp; disconnect-grace (reproduce first).</li>
+</ul></div>
+
+<h2>Open decisions (from PRD.md)</h2>
+<ul>
+<li><b>Edition coexistence:</b> keep playable 10e after the migration or delete the dual paths once stable (recommend delete).</li>
+<li><b>11e datasheet values:</b> the uploaded core rules contain no datasheets — converted armies carry <code>needs_11e_review</code> flags awaiting an official source.</li>
+<li><b>Mission pack:</b> 11e missions/secondaries (and most Actions) live outside the core rules; current missions stay mechanically ported until a source is provided.</li>
+</ul>
+
+<footer>
+Generated 2026-06-11 (updated) · branch <code>claude/wh40k-architecture-audit-n69bqn</code> ·
+gate: <code>40k/tests/run_pretrigger_tests.sh</code> (943 checks / 61 tests, all green) +
+windowed scenarios via the MCP bridge · seven rulebook worked examples reproduce exactly in tests ·
+live state always in <code>ISSUES.md</code>.
+</footer>
+
+</div>
+</body>
+</html>

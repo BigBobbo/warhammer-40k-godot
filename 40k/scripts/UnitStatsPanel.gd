@@ -50,7 +50,7 @@ func set_prospective(shooter_id: String, target_id: String, in_cover: bool) -> b
 	displayed_expected_wounds = 0.0
 	if target_id == "":
 		return false
-	var sc = get_node_or_null("/root/Main/ShootingController")
+	var sc = SceneRefs.main_path("ShootingController")
 	if sc == null or not sc.has_method("compute_hover_forecast"):
 		return false
 	var forecast = sc.compute_hover_forecast(shooter_id, target_id)

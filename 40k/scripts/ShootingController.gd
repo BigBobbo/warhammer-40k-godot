@@ -1,4 +1,4 @@
-extends Node2D
+extends PhaseControllerBase
 class_name ShootingController
 
 const BasePhase = preload("res://phases/BasePhase.gd")
@@ -35,7 +35,7 @@ var selected_weapon_id: String = ""  # Currently selected weapon (drives damage 
 var _auto_assign_logged: bool = false  # Prevent duplicate auto-assign log messages
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
 var current_save_context: Dictionary = {}  # Track what we're showing dialog for (weapon, target)
-var active_allocation_overlay: WoundAllocationOverlay = null  # Track active overlay instance
+var active_allocation_overlay: Control = null  # WoundAllocationOverlay (10e) or AllocationGroupOverlay (11e)
 var processing_saves_signal: bool = false  # Flag to prevent re-entrant signal calls
 
 # T5-MP4: Save dialog timing reliability
@@ -60,14 +60,11 @@ var _expected_save_ack_broadcast_id: String = ""  # Set when attacker starts wai
 var _shown_save_broadcast_ids: Array = []  # Recent broadcast ids the defender has handled
 const SHOWN_SBID_HISTORY_CAP: int = 32  # Trim to last N to keep memory bounded
 
-# UI References
-var board_view: Node2D
+# UI References (board_view / hud_bottom / hud_right live in PhaseControllerBase)
 var los_visual: Line2D
 var range_visual: Node2D
 var target_highlights: Node2D
 var los_debug_visual: Node2D  # New LoS debug visualization
-var hud_bottom: Control
-var hud_right: Control
 
 # UI Elements
 var unit_selector: ItemList
@@ -287,37 +284,25 @@ func _exit_tree() -> void:
 		damage_feedback = null
 
 	# Clean up UI containers
-	var shooting_controls = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/ShootingControls")
+	var shooting_controls = SceneRefs.main_path("HUD_Bottom/HBoxContainer/ShootingControls")
 	if shooting_controls and is_instance_valid(shooting_controls):
 		shooting_controls.queue_free()
 	
 	# ENHANCEMENT: Comprehensive right panel cleanup
-	var shooting_panel = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/ShootingPanel")
+	var shooting_panel = SceneRefs.main_path("HUD_Right/VBoxContainer/ShootingPanel")
 	if shooting_panel and is_instance_valid(shooting_panel):
 		shooting_panel.get_parent().remove_child(shooting_panel)
 		shooting_panel.queue_free()
 	
-	var shooting_scroll = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer")
+	var shooting_scroll = SceneRefs.main_path("HUD_Right/VBoxContainer/ShootingScrollContainer")
 	if shooting_scroll and is_instance_valid(shooting_scroll):
 		shooting_scroll.get_parent().remove_child(shooting_scroll)
 		shooting_scroll.queue_free()
 	
 	# DON'T restore UnitListPanel/UnitCard visibility here - let Main.gd handle it
 
-func _setup_ui_references() -> void:
-	# Get references to UI nodes
-	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
-	hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
-	hud_right = get_node_or_null("/root/Main/HUD_Right")
-	
-	# Setup shooting-specific UI elements
-	if hud_bottom:
-		_setup_bottom_hud()
-	if hud_right:
-		_setup_right_panel()
-
 func _create_shooting_visuals() -> void:
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		print("ERROR: Cannot find BoardRoot for visual layers")
 		return
@@ -353,7 +338,7 @@ func _create_shooting_visuals() -> void:
 	board_root.add_child(shooting_lines_container)
 
 	# T7-53: Create damage feedback visual for floating damage numbers
-	var board_view_ref = get_node_or_null("/root/Main/BoardRoot/BoardView")
+	var board_view_ref = SceneRefs.board_view()
 	if board_view_ref and not (damage_feedback and is_instance_valid(damage_feedback)):
 		damage_feedback = DamageFeedbackVisualScript.new()
 		damage_feedback.name = "ShootingDamageFeedback"
@@ -697,6 +682,27 @@ func _add_shooting_gold_separator(parent: Control) -> void:
 	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parent.add_child(sep)
 
+## ISS-013: every ShootingPhase signal this controller consumes.
+## attach_phase()/detach_phase() (PhaseControllerBase) connect/disconnect
+## these symmetrically; signals absent on the phase instance are skipped.
+func phase_signal_map() -> Dictionary:
+	return {
+		"unit_selected_for_shooting": _on_unit_selected_for_shooting,
+		"targets_available": _on_targets_available,
+		"shooting_resolved": _on_shooting_resolved,
+		"dice_rolled": _on_dice_rolled,
+		"saves_required": _on_saves_required,
+		"weapon_order_required": _on_weapon_order_required,
+		"shooting_begun": _on_shooting_begun,  # T5-MP3 remote visual feedback
+		"next_weapon_confirmation_required": _on_next_weapon_confirmation_required,
+		"reactive_stratagem_opportunity": _on_reactive_stratagem_opportunity,
+		"grenade_result": _on_grenade_result,
+		"shooting_damage_applied": _on_shooting_damage_visual,  # T7-53
+		"ai_shooting_visual": _on_ai_shooting_visual,  # T7-38
+		"sentinel_storm_available": _on_sentinel_storm_available,  # P1-10
+		"throat_slittas_available": _on_throat_slittas_available,  # P1-12
+	}
+
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
 
@@ -707,95 +713,15 @@ func set_phase(phase: BasePhase) -> void:
 		print("║ Phase Instance ID: ", phase.get_instance_id())
 		print("╚═══════════════════════════════════════════════════════════════")
 
-		# CRITICAL FIX: Disconnect before connecting to prevent duplicate signal connections
-		# The is_connected() check was unreliable, so we guarantee single connection by
-		# disconnecting first (harmless if not connected)
-
-		if phase.unit_selected_for_shooting.is_connected(_on_unit_selected_for_shooting):
-			phase.unit_selected_for_shooting.disconnect(_on_unit_selected_for_shooting)
-			print("║ Disconnected existing unit_selected_for_shooting connection")
-		phase.unit_selected_for_shooting.connect(_on_unit_selected_for_shooting)
-
-		if phase.targets_available.is_connected(_on_targets_available):
-			phase.targets_available.disconnect(_on_targets_available)
-			print("║ Disconnected existing targets_available connection")
-		phase.targets_available.connect(_on_targets_available)
-
-		if phase.shooting_resolved.is_connected(_on_shooting_resolved):
-			phase.shooting_resolved.disconnect(_on_shooting_resolved)
-			print("║ Disconnected existing shooting_resolved connection")
-		phase.shooting_resolved.connect(_on_shooting_resolved)
-
-		if phase.dice_rolled.is_connected(_on_dice_rolled):
-			phase.dice_rolled.disconnect(_on_dice_rolled)
-			print("║ Disconnected existing dice_rolled connection")
-		phase.dice_rolled.connect(_on_dice_rolled)
-
-		if phase.saves_required.is_connected(_on_saves_required):
-			phase.saves_required.disconnect(_on_saves_required)
-			print("║ Disconnected existing saves_required connection from instance ", get_instance_id())
-		phase.saves_required.connect(_on_saves_required)
-		print("║ Connected saves_required signal to instance ", get_instance_id())
-
-		if phase.weapon_order_required.is_connected(_on_weapon_order_required):
-			phase.weapon_order_required.disconnect(_on_weapon_order_required)
-			print("║ Disconnected existing weapon_order_required connection")
-		phase.weapon_order_required.connect(_on_weapon_order_required)
-
-		# T5-MP3: Connect shooting_begun for remote player visual feedback
-		if phase.shooting_begun.is_connected(_on_shooting_begun):
-			phase.shooting_begun.disconnect(_on_shooting_begun)
-			print("║ Disconnected existing shooting_begun connection")
-		phase.shooting_begun.connect(_on_shooting_begun)
-
-		if phase.next_weapon_confirmation_required.is_connected(_on_next_weapon_confirmation_required):
-			phase.next_weapon_confirmation_required.disconnect(_on_next_weapon_confirmation_required)
-			print("║ Disconnected existing next_weapon_confirmation_required connection")
-		phase.next_weapon_confirmation_required.connect(_on_next_weapon_confirmation_required)
-
-		if phase.reactive_stratagem_opportunity.is_connected(_on_reactive_stratagem_opportunity):
-			phase.reactive_stratagem_opportunity.disconnect(_on_reactive_stratagem_opportunity)
-			print("║ Disconnected existing reactive_stratagem_opportunity connection")
-		phase.reactive_stratagem_opportunity.connect(_on_reactive_stratagem_opportunity)
-
-		if phase.grenade_result.is_connected(_on_grenade_result):
-			phase.grenade_result.disconnect(_on_grenade_result)
-			print("║ Disconnected existing grenade_result connection")
-		phase.grenade_result.connect(_on_grenade_result)
-
-		# T7-53: Connect shooting_damage_applied for floating damage numbers
-		if phase.has_signal("shooting_damage_applied"):
-			if phase.shooting_damage_applied.is_connected(_on_shooting_damage_visual):
-				phase.shooting_damage_applied.disconnect(_on_shooting_damage_visual)
-			phase.shooting_damage_applied.connect(_on_shooting_damage_visual)
-			print("║ T7-53: Connected shooting_damage_applied signal")
-
-		# T7-38: Connect ai_shooting_visual for AI targeting lines and result text
-		if phase.has_signal("ai_shooting_visual"):
-			if phase.ai_shooting_visual.is_connected(_on_ai_shooting_visual):
-				phase.ai_shooting_visual.disconnect(_on_ai_shooting_visual)
-			phase.ai_shooting_visual.connect(_on_ai_shooting_visual)
-			print("║ T7-38: Connected ai_shooting_visual signal")
-
-		# P1-10: Connect sentinel_storm_available for shoot-again prompt
-		if phase.has_signal("sentinel_storm_available"):
-			if phase.sentinel_storm_available.is_connected(_on_sentinel_storm_available):
-				phase.sentinel_storm_available.disconnect(_on_sentinel_storm_available)
-			phase.sentinel_storm_available.connect(_on_sentinel_storm_available)
-			print("║ P1-10: Connected sentinel_storm_available signal")
-
-		# P1-12: Connect throat_slittas_available for mortal wounds prompt
-		if phase.has_signal("throat_slittas_available"):
-			if phase.throat_slittas_available.is_connected(_on_throat_slittas_available):
-				phase.throat_slittas_available.disconnect(_on_throat_slittas_available)
-			phase.throat_slittas_available.connect(_on_throat_slittas_available)
-			print("║ P1-12: Connected throat_slittas_available signal")
+		# ISS-013: phase signals declared in phase_signal_map(); attach_phase
+		# guarantees single connections and detach_phase mirrors it on teardown.
+		attach_phase(phase)
 
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
 		
 		# Hide UnitListPanel and UnitCard when shooting phase starts
-		var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
+		var container = SceneRefs.hud_right_vbox()
 		if container:
 			var unit_list_panel = container.get_node_or_null("UnitListPanel")
 			if unit_list_panel:
@@ -1087,10 +1013,30 @@ func _refresh_weapon_tree() -> void:
 
 		# PISTOL RULES: Disable non-Pistol weapons when in engagement
 		# ASSAULT RULES: Disable non-Assault weapons when unit has advanced
+		# ISS-048 step 2 (11e): the selected shooting type's weapon_allowed
+		# is authoritative instead — e.g. CLOSE-QUARTERS lets MONSTER/
+		# VEHICLE models fire EVERY weapon while engaged (10.06), and
+		# [PISTOL] is just [CLOSE-QUARTERS] (24.27).
 		var weapon_disabled = false
 		var disable_reason = ""
 
-		if in_engagement and not is_pistol:
+		if GameConstants.edition >= 11:
+			var phase_inst = PhaseManager.get_current_phase_instance()
+			var st_id = str(phase_inst.active_shooting_type) if phase_inst != null and "active_shooting_type" in phase_inst else ""
+			if st_id == "":
+				# Pre-selection rebuild: derive the default type the phase
+				# would pick so the rows preview correctly.
+				var types_preview = ShootingTypes.available_for(active_shooter_id, GameState.state)
+				st_id = types_preview[0] if not types_preview.is_empty() else ""
+			if st_id != "":
+				var st = ShootingTypes.get_type(st_id)
+				var wprof = RulesEngine.get_weapon_profile(weapon_id, GameState.state)
+				var unit_dict = GameState.get_unit(active_shooter_id)
+				var w_ok = st.weapon_allowed(wprof, unit_dict, GameState.state)
+				if not w_ok.allowed:
+					weapon_disabled = true
+					disable_reason = "[Disabled - %s]" % w_ok.reason
+		elif in_engagement and not is_pistol:
 			weapon_disabled = true
 			disable_reason = "[Disabled - In Engagement]"
 		elif has_advanced and not is_assault:
@@ -1433,7 +1379,7 @@ func _clear_shooting_lines() -> void:
 func _create_shooting_line_visual(from_pos: Vector2, to_pos: Vector2, weapon: String, animate: bool) -> void:
 	"""Create an animated shooting line visual from shooter to target. T5-V2.
 	If animate=true, plays the full tracer animation. Otherwise shows a static line."""
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
 
@@ -1745,7 +1691,7 @@ func refresh_los_debug_visuals() -> void:
 
 				if enemy_units_direct.is_empty():
 					print("[ShootingController] WARNING: No enemy units found anywhere!")
-					var main = get_node_or_null("/root/Main")
+					var main = SceneRefs.main()
 					if main and main.has_method("_show_toast"):
 						main._show_toast("LoS Debug: No enemy units found", 3.0)
 					return
@@ -2061,7 +2007,7 @@ func _on_ai_shooting_visual(shooter_id: String, target_data: Array, result_summa
 	"""T7-38: Display red targeting lines from AI shooter to targets and show hit/wound result summary."""
 	print("[ShootingController] T7-38: AI shooting visual for %s → %d target(s)" % [shooter_id, target_data.size()])
 
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		print("[ShootingController] T7-38: No BoardRoot, skipping visual")
 		return
@@ -2600,7 +2546,13 @@ func _on_saves_required(save_data_list: Array) -> void:
 	print("║ Weapon: ", weapon)
 	print("║ Wounds: ", wounds)
 
-	var overlay = WoundAllocationOverlay.new()
+	# ISS-045: at edition >= 11 the defender orders ALLOCATION GROUPS once
+	# per batch (05.03-05.04) instead of clicking per wound.
+	var overlay = null
+	if GameConstants.edition >= 11:
+		overlay = AllocationGroupOverlay.new()
+	else:
+		overlay = WoundAllocationOverlay.new()
 	print("║ Overlay instance created: ", overlay)
 	print("║ Overlay instance ID: ", overlay.get_instance_id())
 
@@ -2667,7 +2619,7 @@ func _on_saves_required(save_data_list: Array) -> void:
 	print("║ Connected to allocation_complete signal")
 
 	# Add to scene tree
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if not main:
 		push_error("ShootingController: /root/Main not found!")
 		print("╚═══════════════════════════════════════════════════════════════")
@@ -2941,7 +2893,7 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	dialog.popup_centered()
 
 	# MA-42: Show blocking overlay to active player
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
 		main_node.show_reactive_stratagem_waiting("Reactive Stratagem")
 
@@ -2951,7 +2903,7 @@ func _on_reactive_stratagem_selected(stratagem_id: String, target_unit_id: Strin
 	"""Handle defender selecting a reactive stratagem."""
 	print("ShootingController: Reactive stratagem selected: %s on %s" % [stratagem_id, target_unit_id])
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("shoot_action_requested", {
@@ -2964,7 +2916,7 @@ func _on_reactive_stratagem_declined() -> void:
 	"""Handle defender declining all reactive stratagems."""
 	print("ShootingController: Reactive stratagems declined")
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("shoot_action_requested", {
@@ -3836,6 +3788,9 @@ func _update_ui_state() -> void:
 			child = child.get_next()
 	print("╚═══════════════════════════════════════════════════════════════")
 
+# ISS-008: deliberately _input (not _unhandled_input) — shooting hotkeys must
+# keep working while the wound-allocation overlay/dialogs hold GUI focus.
+# Guarded below by save_dialog_showing + phase-type + multiplayer-turn checks.
 func _input(event: InputEvent) -> void:
 	# CRITICAL: Skip ALL input handling if wound allocation dialog is showing
 	if save_dialog_showing:
@@ -3867,7 +3822,7 @@ func _input(event: InputEvent) -> void:
 	# Handle clicking on units for target selection
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		# Get the board root which contains the units
-		var board_root = get_node_or_null("/root/Main/BoardRoot")
+		var board_root = SceneRefs.board_root()
 		if board_root:
 			# Convert screen position to board local position
 			var mouse_pos = board_root.get_local_mouse_position()
@@ -3879,7 +3834,7 @@ func _input(event: InputEvent) -> void:
 	# Handle hovering for LoS preview
 	elif event is InputEventMouseMotion:
 		# Get the board root which contains the units
-		var board_root = get_node_or_null("/root/Main/BoardRoot")
+		var board_root = SceneRefs.board_root()
 		if board_root:
 			var mouse_pos = board_root.get_local_mouse_position()
 			_handle_board_hover(mouse_pos)
@@ -4205,7 +4160,7 @@ func _compute_split_fire_options(weapon_id: String, target_id: String) -> Dictio
 	for model_id in unit_weapons:
 		if not (weapon_id in unit_weapons[model_id]):
 			continue
-		var m = RulesEngine._get_model_by_id(shooter_unit, model_id)
+		var m = RulesEngine.get_model_by_id(shooter_unit, model_id)
 		if m.is_empty() or not m.get("alive", true):
 			continue
 		bearers.append(model_id)
@@ -4495,7 +4450,7 @@ func _count_unassigned_weapons() -> int:
 			for model_id in unit_weapons:
 				if not (weapon_id in unit_weapons[model_id]):
 					continue
-				var m = RulesEngine._get_model_by_id(shooter_unit, model_id)
+				var m = RulesEngine.get_model_by_id(shooter_unit, model_id)
 				if m.is_empty() or not m.get("alive", true):
 					continue
 				living += 1
@@ -4868,7 +4823,7 @@ func _show_waiting_for_saves_feedback(target_id: String, weapon_name: String) ->
 	var target_name = _wait_meta.get("display_name", _wait_meta.get("name", target_id)) if not target_unit.is_empty() else target_id
 
 	# Update status label via Main
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if main and "status_label" in main and main.status_label:
 		main.status_label.text = "Waiting for defender to make saves (%s vs %s)..." % [weapon_name, target_name]
 
@@ -4928,7 +4883,7 @@ func _retry_save_data_broadcast() -> void:
 				"Save dialog could not reach defender after %d attempts. Check network." % MAX_SAVE_RETRY_ATTEMPTS,
 				Color.RED, 6.0
 			)
-		var main = get_node_or_null("/root/Main")
+		var main = SceneRefs.main()
 		if main and "status_label" in main and main.status_label:
 			main.status_label.text = "ERROR: defender unreachable for saves (network issue)"
 		_pending_save_data_for_retry.clear()
@@ -5004,7 +4959,7 @@ func on_save_dialog_acknowledged(target_unit_id: String, weapon_name: String, sa
 	var _ack_meta = target_unit.get("meta", {}) if not target_unit.is_empty() else {}
 	var target_name = _ack_meta.get("display_name", _ack_meta.get("name", target_unit_id)) if not target_unit.is_empty() else target_unit_id
 
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if main and "status_label" in main and main.status_label:
 		main.status_label.text = "Defender is making saves (%s vs %s)..." % [weapon_name, target_name]
 

@@ -37,3 +37,28 @@ server/persistence.db
 .audit_runner_state
 .audit_logs/
 .audit_runner_stop
+
+# ── ISS-006: generated artifacts must not be version-controlled ──
+# Runtime test artifacts (screenshots, reports, command exchange).
+# The test_commands/commands directory structure is kept via .gitkeep.
+40k/test_results/
+!40k/test_results/test_commands/
+40k/test_results/test_commands/*
+!40k/test_results/test_commands/commands/
+40k/test_results/test_commands/commands/*
+!40k/test_results/test_commands/commands/.gitkeep
+# Player save files (SaveLoadManager writes to res://saves/ in dev)
+40k/saves/*
+!40k/saves/.gitkeep
+# Local godot homes used by CI shims
+40k/.godot_home/
+40k/.tmp_home/
+# Session logs and AI-loop outputs
+logs/
+test_results/
+ai_fix_loop_iterations/
+ai_fix_loop_log.txt
+ai_loop_log.txt
+ai_loop_status.txt
+ai_loop_tracker.json
+ai_loop_tracker.json.games

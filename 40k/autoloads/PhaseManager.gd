@@ -1,4 +1,11 @@
 extends Node
+
+## OWNERSHIP (ISS-025): PhaseManager owns the PHASE STATE MACHINE —
+## creating/destroying phase instances, transitions, and the turn_ending
+## hook pipeline (ISS-038). TurnManager owns TURN ORDER — alternation,
+## roll-offs, and battle-round advancement — and only REQUESTS
+## transitions. State mutation (the diff applier) is GameState's
+## concern; apply_state_changes here is a compatibility forwarder.
 const GameStateData = preload("res://autoloads/GameState.gd")
 const BasePhase = preload("res://phases/BasePhase.gd")
 
@@ -9,13 +16,55 @@ signal phase_changed(new_phase: GameStateData.Phase)
 signal phase_completed(phase: GameStateData.Phase)
 signal phase_action_taken(action: Dictionary)
 
+# ── ISS-038: 11e battle-round / turn step events (core rules 07) ────
+# Emitted at the structural seams so rules can hook the Start/End of Turn
+# and Battle Round steps (coherency enforcement ISS-042, action completion
+# ISS-057, battle-shock step wiring ISS-043, mission timing ISS-051/055).
+signal turn_started(player: int)
+signal turn_ending(player: int)
+signal battle_round_started(round: int)
+signal battle_round_ending(round: int)
+
 var current_phase_instance: BasePhase = null
 var phase_classes: Dictionary = {}
 var game_ended: bool = false
 
+# ISS-038: registered End of Turn hooks. Per 07.03 ordering, non-mission
+# rules resolve before mission rules; registration order is preserved
+# within each class. Hooks receive (player: int) and run BEFORE the
+# player-switch diffs are built in ScoringPhase.
+var _turn_ending_hooks: Array = []
+var _hook_seq: int = 0
+var _last_round_started: int = -1
+
+func register_turn_ending_hook(cb: Callable, is_mission_rule: bool = false) -> void:
+	_hook_seq += 1
+	_turn_ending_hooks.append({"cb": cb, "mission": is_mission_rule, "order": _hook_seq})
+
+func unregister_turn_ending_hook(cb: Callable) -> void:
+	_turn_ending_hooks = _turn_ending_hooks.filter(func(h): return h.cb != cb)
+
+func run_turn_ending_hooks(player: int) -> void:
+	var hooks = _turn_ending_hooks.duplicate()
+	hooks.sort_custom(func(a, b):
+		if a.mission != b.mission:
+			return not a.mission  # non-mission rules first (07.03)
+		return a.order < b.order)
+	for h in hooks:
+		if h.cb.is_valid():
+			h.cb.call(player)
+	emit_signal("turn_ending", player)
+
 func _ready() -> void:
 	# Register all available phase classes
 	register_phase_classes()
+
+	# ISS-042 (11e 03.03 "Regaining Coherency"): in the End of Turn step,
+	# units that are not in coherency must remove models until they are.
+	# Removed models are destroyed but do NOT trigger on-death rules.
+	# Registered as a non-mission End-of-Turn rule (07.03 ordering).
+	register_turn_ending_hook(_enforce_coherency_11e, false)
+	register_turn_ending_hook(_complete_actions_11e, false)
 
 	# Don't automatically start deployment phase here
 	# Let the Main scene initialize it after armies are loaded
@@ -37,7 +86,6 @@ func register_phase_classes() -> void:
 	phase_classes[GameStateData.Phase.DEPLOYMENT] = preload("res://phases/DeploymentPhase.gd")
 	phase_classes[GameStateData.Phase.REDEPLOYMENT] = preload("res://phases/RedeploymentPhase.gd")
 	phase_classes[GameStateData.Phase.SCOUT] = preload("res://phases/ScoutPhase.gd")
-	phase_classes[GameStateData.Phase.SCOUT_MOVES] = preload("res://phases/ScoutMovesPhase.gd")
 	phase_classes[GameStateData.Phase.ROLL_OFF] = preload("res://phases/RollOffPhase.gd")
 	phase_classes[GameStateData.Phase.FIRST_TURN_ROLLOFF] = preload("res://phases/FirstTurnRollOffPhase.gd")
 	phase_classes[GameStateData.Phase.COMMAND] = preload("res://phases/CommandPhase.gd")
@@ -46,9 +94,14 @@ func register_phase_classes() -> void:
 	phase_classes[GameStateData.Phase.CHARGE] = preload("res://phases/ChargePhase.gd")
 	phase_classes[GameStateData.Phase.FIGHT] = preload("res://phases/FightPhase.gd")
 	phase_classes[GameStateData.Phase.SCORING] = preload("res://phases/ScoringPhase.gd")
-	phase_classes[GameStateData.Phase.MORALE] = preload("res://phases/MoralePhase.gd")
 
 func transition_to_phase(new_phase: GameStateData.Phase) -> void:
+	# ISS-034: SCOUT_MOVES and MORALE are deprecated phases (scout moves run
+	# through SCOUT; battle-shock lives in COMMAND per 10e/11e). Their enum
+	# slots are kept so saved phase ints stay valid; transitions remap.
+	if new_phase == GameStateData.Phase.SCOUT_MOVES or new_phase == GameStateData.Phase.MORALE:
+		print("[PhaseManager] Deprecated phase %s requested — remapping to COMMAND (ISS-034)" % GameStateData.Phase.keys()[new_phase])
+		new_phase = GameStateData.Phase.COMMAND
 	print("[PhaseManager] transition_to_phase called for: ", GameStateData.Phase.keys()[new_phase])
 
 	# Clear sticky end-of-game flag when starting a new game.
@@ -109,6 +162,14 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 			print("[PhaseManager] Unit IDs: ", snapshot.units.keys())
 
 		current_phase_instance.enter_phase(snapshot)
+
+		# ISS-038: a player turn begins with its Command phase (07.02).
+		if new_phase == GameStateData.Phase.COMMAND:
+			var round_now = GameState.get_battle_round()
+			if round_now != _last_round_started:
+				_last_round_started = round_now
+				emit_signal("battle_round_started", round_now)
+			emit_signal("turn_started", GameState.get_active_player())
 
 		emit_signal("phase_changed", new_phase)
 	else:
@@ -290,9 +351,12 @@ func _handle_game_end() -> void:
 	game_ended = true
 
 	# Persist end-of-game flags to state so saves/replays/MCP queries observe them.
+	# ISS-001: applied through the diff pipeline so replay/undo/network record it.
 	if not GameState.state.get("meta", {}).get("game_ended", false):
-		GameState.state["meta"]["game_ended"] = true
-		GameState.state["meta"]["winner"] = _determine_vp_winner()
+		apply_state_changes([
+			{"op": "set", "path": "meta.game_ended", "value": true},
+			{"op": "set", "path": "meta.winner", "value": _determine_vp_winner()}
+		])
 
 	# Commit final phase log
 	GameState.commit_phase_log_to_history()
@@ -325,123 +389,11 @@ func _on_phase_action_taken(action: Dictionary) -> void:
 func get_game_state_snapshot() -> Dictionary:
 	return GameState.create_snapshot()
 
+## ISS-025: the diff applier lives in GameState (state's concern).
+## PhaseManager forwards for the existing call sites; new code should
+## call GameState.apply_state_changes directly.
 func apply_state_changes(changes: Array) -> void:
-	# Apply an array of state changes atomically
-	for change in changes:
-		_apply_single_change(change)
-
-func _apply_single_change(change: Dictionary) -> void:
-	# Apply a single state change based on operation type
-	match change.get("op", ""):
-		"set":
-			_set_state_value(change.path, change.value)
-		"add":
-			_add_to_state_array(change.path, change.value)
-		"remove":
-			# Remove can be used to delete a property or remove from array
-			if change.has("index"):
-				_remove_from_state_array(change.path, change.index)
-			else:
-				_remove_property(change.path)
-		_:
-			push_error("Unknown state change operation: " + str(change.get("op", "")))
-
-func _set_state_value(path: String, value) -> void:
-	var parts = path.split(".")
-	if parts.is_empty():
-		return
-
-	var current = GameState.state
-	for i in range(parts.size() - 1):
-		var part = parts[i]
-		if current is Dictionary:
-			# Dictionary keys take priority (even if key looks like an int, e.g. "1", "2")
-			if not current.has(part):
-				current[part] = {}
-			current = current[part]
-		elif part.is_valid_int():
-			var index = part.to_int()
-			if current is Array and index >= 0 and index < current.size():
-				current = current[index]
-			else:
-				return
-		else:
-			return
-
-	var final_key = parts[-1]
-	if current is Dictionary:
-		current[final_key] = value
-	elif final_key.is_valid_int():
-		var index = final_key.to_int()
-		if current is Array and index >= 0 and index < current.size():
-			current[index] = value
-
-func _add_to_state_array(path: String, value) -> void:
-	var parts = path.split(".")
-	var current = GameState.state
-	
-	for part in parts:
-		if part.is_valid_int():
-			var index = part.to_int()
-			if current is Array and index >= 0 and index < current.size():
-				current = current[index]
-			else:
-				return
-		else:
-			if current is Dictionary and current.has(part):
-				current = current[part]
-			else:
-				return
-	
-	if current is Array:
-		current.append(value)
-
-func _remove_from_state_array(path: String, index: int) -> void:
-	var parts = path.split(".")
-	var current = GameState.state
-	
-	for part in parts:
-		if part.is_valid_int():
-			var array_index = part.to_int()
-			if current is Array and array_index >= 0 and array_index < current.size():
-				current = current[array_index]
-			else:
-				return
-		else:
-			if current is Dictionary and current.has(part):
-				current = current[part]
-			else:
-				return
-	
-	if current is Array and index >= 0 and index < current.size():
-		current.remove_at(index)
-
-func _remove_property(path: String) -> void:
-	# Remove a property from a dictionary in the state
-	var parts = path.split(".")
-	if parts.is_empty():
-		return
-	
-	var current = GameState.state
-	# Navigate to the parent of the property to remove
-	for i in range(parts.size() - 1):
-		var part = parts[i]
-		if part.is_valid_int():
-			var index = part.to_int()
-			if current is Array and index >= 0 and index < current.size():
-				current = current[index]
-			else:
-				return
-		else:
-			if current is Dictionary and current.has(part):
-				current = current[part]
-			else:
-				return
-	
-	# Remove the final property
-	var final_key = parts[-1]
-	if current is Dictionary and current.has(final_key):
-		current.erase(final_key)
+	GameState.apply_state_changes(changes)
 
 # Method for phases to validate their actions
 func validate_phase_action(action: Dictionary) -> Dictionary:
@@ -456,3 +408,80 @@ func get_available_actions() -> Array:
 		return current_phase_instance.get_available_actions()
 	else:
 		return []
+
+
+## ISS-057 step 2: actions that complete at the end of the turn resolve
+## through the ISS-038 hook (16.01; battle-shock blocks completion per
+## 01.07 — handled inside ActionsManager.complete_actions).
+func _complete_actions_11e(_player: int) -> void:
+	if GameConstants.edition < 11:
+		return
+	var result = ActionsManager.complete_actions("end_of_turn", GameState.state)
+	if not result.changes.is_empty():
+		apply_state_changes(result.changes)
+	for c in result.completed:
+		print("PhaseManager: [11e ACTIONS] %s completed action '%s' (effect: %s)" % [c.unit_id, c.action_id, str(c.effect)])
+
+
+## ISS-042: 11e end-of-turn coherency enforcement. Auto-removes detected
+## offender models (the owning player's pick UI arrives with the 11e
+## scenario suite, ISS-063); diffs go through the pipeline so replay/
+## network observe the removals. No on-death triggers fire by design.
+func _enforce_coherency_11e(_player: int) -> void:
+	if GameConstants.edition < 11:
+		return
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		var alive := 0
+		for m in unit.get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				alive += 1
+		if alive <= 1:
+			continue
+		var removed: Array = []
+		# Remove offenders one at a time, rechecking, until coherent
+		# (capped at the model count to guarantee termination). The player
+		# may choose which models to remove (03.03); the auto-pick removes
+		# the MOST ISOLATED offender (greatest total distance to the rest),
+		# which preserves the largest coherent group.
+		for _i in range(unit.get("models", []).size()):
+			var coh = AttackSequence.check_unit_coherency(unit)
+			if coh.coherent:
+				break
+			var offender_id = _most_isolated_offender(unit, coh.offenders)
+			var changes: Array = []
+			for mi in range(unit.models.size()):
+				if str(unit.models[mi].get("id", mi)) == str(offender_id):
+					changes.append({"op": "set", "path": StateSchema.path_model_field(unit_id, mi, "alive"), "value": false})
+					changes.append({"op": "set", "path": StateSchema.path_model_field(unit_id, mi, "current_wounds"), "value": 0})
+					break
+			if changes.is_empty():
+				break
+			apply_state_changes(changes)
+			removed.append(offender_id)
+		if not removed.is_empty():
+			print("[PhaseManager] ISS-042: %s out of coherency at End of Turn — removed %s (destroyed, no on-death triggers per 03.03)" % [unit_id, str(removed)])
+
+
+func _most_isolated_offender(unit: Dictionary, offenders: Array) -> String:
+	var models: Array = unit.get("models", [])
+	var best_id := str(offenders[0])
+	var best_score := -1.0
+	for oid in offenders:
+		var om = null
+		for m in models:
+			if str(m.get("id", "")) == str(oid):
+				om = m
+				break
+		if om == null:
+			continue
+		var total := 0.0
+		for m in models:
+			if not m.get("alive", true) or str(m.get("id", "")) == str(oid):
+				continue
+			total += Measurement.model_to_model_distance_px(om, m)
+		if total > best_score:
+			best_score = total
+			best_id = str(oid)
+	return best_id

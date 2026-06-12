@@ -4101,59 +4101,28 @@ func setup_phase_controllers() -> void:
 	_clear_right_panel_phase_ui()
 
 	# Clean up existing controllers
-	if deployment_controller:
+	# ISS-007: guard every access with is_instance_valid — async signals can
+	# fire during teardown and a freed-but-non-null reference must not crash.
+	if deployment_controller and is_instance_valid(deployment_controller):
 		deployment_controller.queue_free()
-		deployment_controller = null
+	deployment_controller = null
 	if coherency_banner and is_instance_valid(coherency_banner):
 		coherency_banner.queue_free()
 		coherency_banner = null
-	if command_controller:
+	if command_controller and is_instance_valid(command_controller):
 		command_controller.queue_free()
-		command_controller = null
+	command_controller = null
 	# Clean up scout phase visuals
 	_scout_destroy_visuals()
 	_scout_clear_highlights()
-	if movement_controller:
+	if movement_controller and is_instance_valid(movement_controller):
 		movement_controller.queue_free()
-		movement_controller = null
-	if shooting_controller:
-		# CRITICAL: Disconnect ALL signals before freeing to prevent lingering connections
+	movement_controller = null
+	if shooting_controller and is_instance_valid(shooting_controller):
+		# ISS-013: signal teardown is symmetric with attach_phase — the
+		# controller disconnects everything its phase_signal_map declared.
 		print("Main: Cleaning up shooting_controller instance ID: ", shooting_controller.get_instance_id())
-		var phase_instance = PhaseManager.get_current_phase_instance()
-		if phase_instance and phase_instance is ShootingPhase:
-			# Disconnect all phase signals
-			if phase_instance.unit_selected_for_shooting.is_connected(shooting_controller._on_unit_selected_for_shooting):
-				phase_instance.unit_selected_for_shooting.disconnect(shooting_controller._on_unit_selected_for_shooting)
-				print("Main: Disconnected unit_selected_for_shooting")
-			if phase_instance.targets_available.is_connected(shooting_controller._on_targets_available):
-				phase_instance.targets_available.disconnect(shooting_controller._on_targets_available)
-				print("Main: Disconnected targets_available")
-			if phase_instance.shooting_resolved.is_connected(shooting_controller._on_shooting_resolved):
-				phase_instance.shooting_resolved.disconnect(shooting_controller._on_shooting_resolved)
-				print("Main: Disconnected shooting_resolved")
-			if phase_instance.dice_rolled.is_connected(shooting_controller._on_dice_rolled):
-				phase_instance.dice_rolled.disconnect(shooting_controller._on_dice_rolled)
-				print("Main: Disconnected dice_rolled")
-			if phase_instance.saves_required.is_connected(shooting_controller._on_saves_required):
-				phase_instance.saves_required.disconnect(shooting_controller._on_saves_required)
-				print("Main: Disconnected saves_required")
-			if phase_instance.weapon_order_required.is_connected(shooting_controller._on_weapon_order_required):
-				phase_instance.weapon_order_required.disconnect(shooting_controller._on_weapon_order_required)
-				print("Main: Disconnected weapon_order_required")
-			if phase_instance.next_weapon_confirmation_required.is_connected(shooting_controller._on_next_weapon_confirmation_required):
-				phase_instance.next_weapon_confirmation_required.disconnect(shooting_controller._on_next_weapon_confirmation_required)
-				print("Main: Disconnected next_weapon_confirmation_required")
-			if phase_instance.reactive_stratagem_opportunity.is_connected(shooting_controller._on_reactive_stratagem_opportunity):
-				phase_instance.reactive_stratagem_opportunity.disconnect(shooting_controller._on_reactive_stratagem_opportunity)
-				print("Main: Disconnected reactive_stratagem_opportunity")
-			if phase_instance.grenade_result.is_connected(shooting_controller._on_grenade_result):
-				phase_instance.grenade_result.disconnect(shooting_controller._on_grenade_result)
-				print("Main: Disconnected grenade_result")
-			# T7-53: Disconnect shooting_damage_applied
-			if phase_instance.has_signal("shooting_damage_applied") and shooting_controller.has_method("_on_shooting_damage_visual"):
-				if phase_instance.shooting_damage_applied.is_connected(shooting_controller._on_shooting_damage_visual):
-					phase_instance.shooting_damage_applied.disconnect(shooting_controller._on_shooting_damage_visual)
-					print("Main: Disconnected shooting_damage_applied")
+		shooting_controller.detach_phase()
 
 		# ENHANCEMENT: Clear visuals before freeing controller
 		if shooting_controller.has_method("_clear_visuals"):
@@ -4161,15 +4130,15 @@ func setup_phase_controllers() -> void:
 		shooting_controller.queue_free()
 		shooting_controller = null
 		print("Main: Shooting controller queued for deletion")
-	if charge_controller:
+	if charge_controller and is_instance_valid(charge_controller):
 		charge_controller.queue_free()
-		charge_controller = null
-	if fight_controller:
+	charge_controller = null
+	if fight_controller and is_instance_valid(fight_controller):
 		fight_controller.queue_free()
-		fight_controller = null
-	if scoring_controller:
+	fight_controller = null
+	if scoring_controller and is_instance_valid(scoring_controller):
 		scoring_controller.queue_free()
-		scoring_controller = null
+	scoring_controller = null
 	
 	# Wait TWO frames for complete cleanup
 	await get_tree().process_frame
@@ -7425,24 +7394,10 @@ func _perform_quick_load() -> void:
 		_show_save_notification("Load failed - No save found!", Color.RED)
 
 func _sync_board_state_with_game_state() -> void:
-	# Sync the legacy BoardState with the loaded GameState
-	print("Syncing BoardState with loaded GameState...")
-	
-	var units = GameState.state.get("units", {})
-	print("Loaded units count: ", units.size())
-	
-	# Update BoardState units (for legacy visual components)
-	for unit_id in units:
-		var unit = units[unit_id]
-		if BoardState.units.has(unit_id):
-			# Update existing unit
-			BoardState.units[unit_id]["status"] = unit.get("status", BoardState.UnitStatus.UNDEPLOYED)
-			BoardState.units[unit_id]["models"] = unit.get("models", [])
-			print("Updated BoardState unit: ", unit_id, " status: ", unit.get("status", 0))
-		else:
-			# Add new unit to BoardState
-			BoardState.units[unit_id] = unit
-			print("Added new unit to BoardState: ", unit_id)
+	# ISS-031: BoardState no longer shadows unit state (GameState is the
+	# single source of truth); the legacy sync was write-only with zero
+	# readers. Kept as a no-op so the two load-path call sites stay stable.
+	pass
 
 func _recreate_unit_visuals() -> void:
 	# Clear existing tokens
@@ -11878,8 +11833,10 @@ func _scout_clear_highlights() -> void:
 # P3-111: In-game Settings Menu (Escape key)
 # ============================================================================
 
-func _unhandled_input(_event: InputEvent) -> void:
-	pass
+# NOTE (ISS-008): global hotkeys (ESC etc.) are handled in Main._input on
+# purpose — they must pre-empt GUI focus and modal dialogs. Controllers
+# handle their phase input in _unhandled_input unless they need to bypass a
+# modal dialog (see ShootingController/FightController/ChargeController).
 
 func _open_settings_menu() -> void:
 	# Shared entry point for opening the in-game settings menu (used by the

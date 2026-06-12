@@ -1,0 +1,165 @@
+{
+  "id": "iss058_disembark_11e",
+  "covers": [
+    "phases.MovementPhase.11e_disembark",
+    "movetypes.DisembarkMove",
+    "autoloads.TransportManager"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "ISS-058 remainder: MovementPhase drives the 11e disembark modes (18.04). The Battlewagon is stationary, so TACTICAL is the mandatory mode (3\" set-up) \u2014 positions at ~4\" are REJECTED. Signalling an impossible tactical set-up (payload.can_setup_tactical=false) falls back to COMBAT disembark: the same positions are accepted under the 6\" set-up, a hazard is rolled per model, and the unit is battle-shocked and cannot charge.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_KOMMANDOS_H.embarked_in",
+      "equals": "U_BATTLEWAGON_G"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_kommandos_embarked"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_DISEMBARK",
+        "actor_unit_id": "U_KOMMANDOS_H",
+        "payload": {
+          "positions": [
+            {
+              "x": 1298.0,
+              "y": 2070.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2090.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2110.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2130.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2150.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2170.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2190.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2210.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2230.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2250.0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_tactical_3in_rejects_4in_positions"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_DISEMBARK",
+        "actor_unit_id": "U_KOMMANDOS_H",
+        "payload": {
+          "positions": [
+            {
+              "x": 1298.0,
+              "y": 2070.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2090.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2110.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2130.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2150.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2170.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2190.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2210.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2230.0
+            },
+            {
+              "x": 1298.0,
+              "y": 2250.0
+            }
+          ],
+          "can_setup_tactical": false
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_KOMMANDOS_H.flags.battle_shocked",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_KOMMANDOS_H.flags.cannot_charge",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_combat_disembark_6in_shocked"
+    }
+  ]
+}

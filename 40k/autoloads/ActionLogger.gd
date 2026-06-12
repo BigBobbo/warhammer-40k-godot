@@ -22,10 +22,16 @@ func _ready() -> void:
 		PhaseManager.phase_action_taken.connect(_on_phase_action_taken)
 		PhaseManager.phase_changed.connect(_on_phase_changed)
 
+# ISS-021: snapshot of GameState at session start (or last reset). Together
+# with session_actions (whose payloads carry rng_seed per ISS-004/015) this
+# forms a deterministic replay bundle.
+var initial_snapshot: Dictionary = {}
+
 func _initialize_session() -> void:
 	current_session_id = _generate_session_id()
 	action_sequence = 0
 	session_actions.clear()
+	initial_snapshot = {}
 	
 	# Set up log file path
 	var logs_dir = "user://logs/"
@@ -43,6 +49,10 @@ func _generate_session_id() -> String:
 
 # Main logging interface
 func log_action(action: Dictionary) -> void:
+	# ISS-021: capture the pre-game baseline lazily, before the first action
+	# mutates anything beyond it.
+	if initial_snapshot.is_empty() and GameState != null:
+		initial_snapshot = GameState.create_snapshot()
 	var enriched_action = _enrich_action(action)
 	
 	# Add to memory
@@ -334,3 +344,55 @@ func validate_action_integrity() -> Dictionary:
 		expected_sequence += 1
 	
 	return validation
+
+
+# ── ISS-021: deterministic replay bundle ────────────────────────────
+
+## Export everything needed to replay this session deterministically:
+## the initial snapshot, the enriched action stream (payloads include the
+## rng_seed each handler consumed), and the current state hash to verify
+## against. Consumed by ReplayVerifier and (later) embedded in saves.
+func export_replay_bundle() -> Dictionary:
+	return {
+		"version": 1,
+		"session_id": current_session_id,
+		"initial_snapshot": initial_snapshot.duplicate(true),
+		"actions": session_actions.duplicate(true),
+		"final_state_hash": state_hash(GameState.state),
+		"final_replay_hash": replay_hash(GameState.state),
+	}
+
+## Canonical state hash (JSON.stringify sorts keys — matches
+## NetworkManager.compute_state_hash semantics).
+static func state_hash(state: Dictionary) -> int:
+	return JSON.stringify(state).hash()
+
+## Hash of the ACTION-DRIVEN replay domain: units, players, factions and
+## the core meta fields. Ambient sections written by autoload managers on
+## phase transitions (board.objectives, mission/stratagem manager dumps,
+## phase_log) are excluded — their injection is gated by manager-internal
+## flags and is not reproducible from the action stream alone (tracked
+## under ISS-024/025). Replay determinism is defined over this view.
+static func replay_hash(state: Dictionary) -> int:
+	var meta = state.get("meta", {})
+	var view = {
+		"units": state.get("units", {}),
+		"players": state.get("players", {}),
+		"factions": state.get("factions", {}),
+		"meta": {
+			"turn_number": meta.get("turn_number", 0),
+			"battle_round": meta.get("battle_round", 0),
+			"active_player": meta.get("active_player", 0),
+			"phase": meta.get("phase", 0),
+			"formations": meta.get("formations", {}),
+			"formations_declared": meta.get("formations_declared", false),
+		},
+	}
+	return JSON.stringify(view).hash()
+
+## Reset the session baseline explicitly (e.g. right after armies load),
+## so the bundle replays from a clean, known starting point.
+func reset_session_baseline() -> void:
+	session_actions.clear()
+	action_sequence = 0
+	initial_snapshot = GameState.create_snapshot()

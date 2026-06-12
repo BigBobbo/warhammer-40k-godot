@@ -1,0 +1,150 @@
+{
+  "id": "iss048_shooting_types_11e",
+  "covers": [
+    "phases.ShootingPhase.11e_shooting_types",
+    "shootingtypes.ShootingTypes.available_for",
+    "shootingtypes.CloseQuartersShooting"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "ISS-048 step 2: at edition 11 ShootingPhase drives the shooting-type templates. (1) The engaged Dreadnought (VEHICLE) selects CLOSE-QUARTERS shooting (10.06) \u2014 NORMAL is not selectable while engaged and a request for it falls back; (2) the CQ assignment vs the engaging unit passes the type's weapon/target constraints (M/V may fire any weapon at the unit engaging it); (3) the 16.01 cannot_shoot action lock blocks SELECT_SHOOTER through the UI path. (4) ISS-052: an injected obscuring wall flips live target visibility off and back on (13.10 every-line semantics through the real targeting path).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shooting_phase_edition_11"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooting_type",
+      "equals": "close_quarters"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_engaged_vehicle_close_quarters"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+        "payload": {
+          "shooting_type": "normal"
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooting_type",
+      "equals": "close_quarters"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+        "payload": {
+          "weapon_id": "Infernus incinerator",
+          "target_unit_id": "U_BOYZ_K",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_cq_assignment_vs_engaging_unit"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"flags\"].merge({\"cannot_shoot\": true}, true)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_WITCHSEEKERS_C"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "04_action_lock_blocks_select"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine._check_target_visibility(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", \"U_KOMMANDOS_H\", \"Infernus incinerator\", GameState.state)[\"visible\"]",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.terrain_features.append({\"id\": \"iss052_wall\", \"type\": \"ruins\", \"polygon\": PackedVector2Array([Vector2(840, 900), Vector2(870, 900), Vector2(870, 1900), Vector2(840, 1900)]), \"height_category\": \"tall\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine._check_target_visibility(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", \"U_KOMMANDOS_H\", \"Infernus incinerator\", GameState.state)[\"visible\"]",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "05_obscuring_wall_blocks_targeting"
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.terrain_features.pop_back()"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine._check_target_visibility(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\", \"U_KOMMANDOS_H\", \"Infernus incinerator\", GameState.state)[\"visible\"]",
+      "equals": true
+    }
+  ],
+  "edition": 11
+}

@@ -1,0 +1,109 @@
+{
+  "id": "iss060_ingress_11e",
+  "covers": [
+    "phases.MovementPhase.11e_ingress",
+    "movetypes.IngressMove"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "ISS-060 step 2: reinforcements arrive via an INGRESS MOVE at edition 11 (20.04). U_STRIKE_FORCE_A is moved into strategic reserves and battle round set to 2. (1) A mid-board placement (more than 6\" from every edge) is REJECTED by the template; (2) an edge placement >8\" from enemies succeeds, and the unit carries the ingress AFTER effects: arrived_from_reserves + no_moves_until_charge_phase (it may still charge).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_STRIKE_FORCE_A\"].merge({\"status\": 7, \"reserve_type\": \"strategic_reserves\"}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"meta\"].merge({\"battle_round\": 2}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_STRIKE_FORCE_A\"].merge({\"status\": 7, \"reserve_type\": \"strategic_reserves\"}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_battle_round()",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "01_unit_in_reserves_round_2"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "PLACE_REINFORCEMENT",
+        "unit_id": "U_STRIKE_FORCE_A",
+        "model_positions": [
+          [
+            880.0,
+            1200.0
+          ]
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_midboard_placement_rejected"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "PLACE_REINFORCEMENT",
+        "unit_id": "U_STRIKE_FORCE_A",
+        "model_positions": [
+          [
+            300.0,
+            2350.0
+          ]
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_STRIKE_FORCE_A.flags.arrived_from_reserves",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_STRIKE_FORCE_A.flags.no_moves_until_charge_phase",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_STRIKE_FORCE_A.status",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "03_ingress_arrival_edge_placement"
+    }
+  ]
+}

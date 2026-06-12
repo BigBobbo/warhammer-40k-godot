@@ -54,6 +54,7 @@ var _out_of_phase_unit_id: String = ""  # The unit performing the out-of-phase a
 
 func _ready() -> void:
 	_load_core_stratagems()
+	_load_core_stratagems_11e()
 	_init_faction_loader()
 	print("StratagemManager: Loaded %d core stratagems" % stratagems.size())
 
@@ -630,6 +631,13 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 
 	var strat = stratagems[stratagem_id]
 
+	# ISS-056: edition-gated availability — the 11e core set (15.02-15.12)
+	# replaces the retired 10e core entries at edition >= 11.
+	if int(strat.get("edition", 0)) > GameConstants.edition:
+		return {"can_use": false, "reason": "%s requires edition %d" % [strat.name, int(strat.edition)]}
+	if strat.has("edition_max") and GameConstants.edition > int(strat.edition_max):
+		return {"can_use": false, "reason": "%s was retired — use the 11e core set" % strat.name}
+
 	# Check player ownership for faction stratagems
 	if is_faction_stratagem(stratagem_id):
 		var owner = get_stratagem_owner(stratagem_id)
@@ -657,6 +665,17 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	var restriction_check = _check_usage_restriction(player, stratagem_id, strat)
 	if not restriction_check.can_use:
 		return restriction_check
+
+	# ISS-056 (11e 15.01): "each player cannot target the same unit with
+	# more than one stratagem in the same phase" (unless otherwise stated).
+	if GameConstants.edition >= 11 and target_unit_id != "":
+		var current_turn_11e = GameState.get_battle_round()
+		var current_phase_11e = GameState.get_current_phase()
+		for usage in _usage_history.get(str(player), []):
+			if usage.get("target_unit_id", "") == target_unit_id \
+					and usage.get("turn", -1) == current_turn_11e \
+					and usage.get("phase", -1) == current_phase_11e:
+				return {"can_use": false, "reason": "That unit has already been targeted by a stratagem this phase (11e core rules 15.01)"}
 
 	# P1-59: Out-of-phase rules restriction
 	# When an out-of-phase action is active (e.g. Fire Overwatch), block all stratagems
@@ -1582,7 +1601,7 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 	})
 
 	# Roll 6D6
-	var rng = RulesEngine.RNGService.new()
+	var rng = RulesEngine.make_rng()
 	var rolls = rng.roll_d6(6)
 
 	# Count successes (4+)
@@ -1832,7 +1851,7 @@ func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 			if pos2_data == null:
 				continue
 
-			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2):
 				return true
 
 	return false
@@ -1946,7 +1965,7 @@ func execute_tank_shock(player: int, vehicle_unit_id: String, target_unit_id: St
 	})
 
 	# Roll D6 equal to Toughness (max 6)
-	var rng = RulesEngine.RNGService.new()
+	var rng = RulesEngine.make_rng()
 	var rolls = rng.roll_d6(dice_count)
 
 	# Count successes (5+)
@@ -2495,7 +2514,7 @@ func execute_fire_overwatch(player: int, shooter_unit_id: String, target_unit_id
 
 	# Build an action for RulesEngine.resolve_overwatch_shooting()
 	var board = GameState.create_snapshot()
-	var rng = RulesEngine.RNGService.new()
+	var rng = RulesEngine.make_rng()
 	var shooting_result = RulesEngine.resolve_overwatch_shooting(shooter_unit_id, target_unit_id, board, rng)
 
 	# Apply the diffs from shooting
@@ -2568,7 +2587,7 @@ func _is_unit_in_engagement_range(unit: Dictionary, all_units: Dictionary, owner
 				if not other_model.get("alive", true):
 					continue
 
-				if Measurement.is_in_engagement_range_shape_aware(model, other_model, 1.0):
+				if Measurement.is_in_engagement_range_shape_aware(model, other_model):
 					return true
 
 	return false
@@ -2633,3 +2652,113 @@ func load_state(data: Dictionary) -> void:
 		_player_faction_stratagems.get("1", []).size(),
 		_player_faction_stratagems.get("2", []).size()
 	])
+
+
+## ISS-056: the 11e core stratagem set (15.02-15.12). Definitions carry
+## "edition": 11 so can_use_stratagem hides them at 10e; the reworked 10e
+## entries above are retired at 11e via "edition_max": 10 (applied in
+## _retire_10e_core_at_11e). Dice effects resolve through
+## RulesEngine.resolve_explosives_11e / resolve_crushing_impact_11e;
+## Fire Overwatch grants SNAP shooting (15.09, ShootingTypes), Rapid
+## Ingress an ingress move (20.04, MoveTypes), Heroic Intervention a
+## charge with modes (11.02 + 15.11).
+func _load_core_stratagems_11e() -> void:
+	stratagems["command_re_roll_11e"] = {
+		"id": "command_re_roll_11e", "name": "COMMAND RE-ROLL", "type": "Core Stratagem",
+		"cp_cost": 1, "edition": 11,
+		"timing": {"turn": "either", "phase": "any", "trigger": "after_roll"},
+		"target": {"type": "unit", "owner": "friendly", "conditions": []},
+		"effects": [{"type": "reroll_single_die", "full_reroll_for": ["charge"]}],
+		"restrictions": {"once_per": "phase"},
+		"description": "Re-roll that roll. If rolling more than one dice together, select ONE die to re-roll — except charge rolls, which are re-rolled in full (15.02).",
+	}
+	stratagems["epic_challenge_11e"] = {
+		"id": "epic_challenge_11e", "name": "EPIC CHALLENGE", "type": "Core Stratagem",
+		"cp_cost": 1, "edition": 11,
+		"timing": {"turn": "either", "phase": "fight", "trigger": "after_selected_to_fight"},
+		"target": {"type": "unit", "owner": "friendly", "conditions": ["is_character"]},
+		"effects": [{"type": "grant_weapon_ability", "ability": "precision", "scope": "melee", "duration": "end_of_phase", "model_choice": "one_character"}],
+		"restrictions": {},
+		"description": "One CHARACTER model's melee weapons gain [PRECISION] until the end of the phase (15.03).",
+	}
+	stratagems["insane_bravery_11e"] = {
+		"id": "insane_bravery_11e", "name": "INSANE BRAVERY", "type": "Core Stratagem",
+		"cp_cost": 1, "edition": 11,
+		"timing": {"turn": "your", "phase": "command", "trigger": "before_battle_shock_roll"},
+		"target": {"type": "unit", "owner": "friendly", "conditions": ["needs_battle_shock_test"]},
+		"effects": [{"type": "auto_pass_battle_shock"}],
+		"restrictions": {"once_per": "battle"},
+		"description": "That battle-shock roll is automatically successful (15.04).",
+	}
+	stratagems["explosives"] = {
+		"id": "explosives", "name": "EXPLOSIVES", "type": "Core Stratagem",
+		"cp_cost": 1, "edition": 11,
+		"timing": {"turn": "your", "phase": "shooting", "trigger": "instead_of_shooting"},
+		"target": {"type": "unit", "owner": "friendly",
+			"conditions": ["unengaged", "eligible_to_shoot", "did_not_advance", "has_keyword:EXPLOSIVES|GRENADES"]},
+		"effects": [{"type": "explosives_11e", "dice": 6, "threshold": 4, "range": 8}],
+		"restrictions": {},
+		"description": "Select one EXPLOSIVES/GRENADES model; one unengaged enemy unit within 8\" and visible: roll 6D6 — each 4+ inflicts 1 mortal wound (15.05).",
+	}
+	stratagems["crushing_impact"] = {
+		"id": "crushing_impact", "name": "CRUSHING IMPACT", "type": "Core Stratagem",
+		"cp_cost": 1, "edition": 11,
+		"timing": {"turn": "your", "phase": "charge", "trigger": "after_charge_move"},
+		"target": {"type": "unit", "owner": "friendly", "conditions": ["has_keyword:MONSTER|VEHICLE", "charged_this_turn"]},
+		"effects": [{"type": "crushing_impact_11e", "max_mortals": 6}],
+		"restrictions": {},
+		"description": "Roll T dice for one engaged model: each 1 = 1 mortal wound to your unit, each 5+ = 1 mortal wound to the enemy (max 6) (15.06).",
+	}
+	stratagems["rapid_ingress_11e"] = {
+		"id": "rapid_ingress_11e", "name": "RAPID INGRESS", "type": "Core Stratagem",
+		"cp_cost": 1, "edition": 11,
+		"timing": {"turn": "opponent", "phase": "shooting", "trigger": "start_of_phase"},
+		"target": {"type": "unit", "owner": "friendly", "conditions": ["in_strategic_reserves", "not_keyword:AIRCRAFT"]},
+		"effects": [{"type": "move_type", "move": "ingress"}],
+		"restrictions": {"not_battle_round": 1},
+		"description": "Your reserves unit makes an ingress move (20.04); not during the first battle round (15.07).",
+	}
+	stratagems["fire_overwatch_11e"] = {
+		"id": "fire_overwatch_11e", "name": "FIRE OVERWATCH", "type": "Core Stratagem",
+		"cp_cost": 1, "edition": 11,
+		"timing": {"turn": "opponent", "phase": "movement", "trigger": "end_of_phase"},
+		"target": {"type": "unit", "owner": "friendly", "conditions": ["unengaged", "not_keyword:TITANIC"]},
+		"effects": [{"type": "shooting_type", "shooting": "snap"}],
+		"restrictions": {"once_per": "turn"},
+		"description": "Your unit shoots using SNAP shooting (15.08/15.09): one visible target within 24\", unmodified 6s hit, no re-rolls.",
+	}
+	stratagems["smokescreen_11e"] = {
+		"id": "smokescreen_11e", "name": "SMOKESCREEN", "type": "Core Stratagem",
+		"cp_cost": 1, "edition": 11,
+		"timing": {"turn": "opponent", "phase": "shooting", "trigger": "start_of_phase"},
+		"target": {"type": "unit", "owner": "friendly", "conditions": ["has_keyword:SMOKE"]},
+		"effects": [{"type": "benefit_of_cover_aura", "duration": "end_of_phase", "covers_screened": true}],
+		"restrictions": {},
+		"description": "Until end of phase, attacks against your SMOKE unit — or units screened by it — get the benefit of cover (15.10/13.08).",
+	}
+	stratagems["heroic_intervention_11e"] = {
+		"id": "heroic_intervention_11e", "name": "HEROIC INTERVENTION", "type": "Core Stratagem",
+		"cp_cost": 1, "edition": 11,
+		"timing": {"turn": "opponent", "phase": "charge", "trigger": "end_of_phase"},
+		"target": {"type": "unit", "owner": "friendly",
+			"conditions": ["unengaged", "enemy_within:12", "vehicle_only_if_character_or_walker"]},
+		"effects": [{"type": "charge_with_modes", "modes": ["leap_to_defend", "into_the_fray"]}],
+		"restrictions": {},
+		"description": "Resolve a charge (11.02) choosing a mode: LEAP TO DEFEND (only chargers as targets) or INTO THE FRAY (roll capped at 6; targets within 6\") (15.11).",
+	}
+	stratagems["counteroffensive_11e"] = {
+		"id": "counteroffensive_11e", "name": "COUNTEROFFENSIVE", "type": "Core Stratagem",
+		"cp_cost": 2, "edition": 11,
+		"timing": {"turn": "opponent", "phase": "fight", "trigger": "after_enemy_fight_resolved"},
+		"target": {"type": "unit", "owner": "friendly", "conditions": ["eligible_to_fight"]},
+		"effects": [{"type": "grant_fights_first", "duration": "end_of_phase", "must_be_next_selection": true}],
+		"restrictions": {},
+		"description": "Until end of phase your unit has Fights First and must be your next selection to fight (15.12).",
+	}
+	# The reworked 10e core entries are retired at edition >= 11.
+	for retired_id in ["insane_bravery", "command_re_roll", "go_to_ground", "smokescreen",
+			"epic_challenge", "grenade", "tank_shock", "fire_overwatch",
+			"heroic_intervention", "counter_offensive", "new_orders", "rapid_ingress"]:
+		if stratagems.has(retired_id):
+			stratagems[retired_id]["edition_max"] = 10
+

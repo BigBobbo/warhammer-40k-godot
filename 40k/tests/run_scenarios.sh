@@ -5,6 +5,7 @@
 #   bash 40k/tests/run_scenarios.sh                # all sp scenarios
 #   bash 40k/tests/run_scenarios.sh --all          # sp + mp scenarios
 #   bash 40k/tests/run_scenarios.sh --visual       # only design-guidelines visual scenarios
+#   bash 40k/tests/run_scenarios.sh --e11          # the 11e windowed suite (ISS-063)
 #   bash 40k/tests/run_scenarios.sh --changed-only # only scenarios whose
 #                                                  # 'covers' tags overlap
 #                                                  # with files changed since
@@ -35,6 +36,11 @@ elif [ "$MODE" = "--sp" ] || [ -z "$MODE" ]; then
     FULL_SUITE_RUN=1
 elif [ "$MODE" = "--mp" ]; then
     SCENARIOS=($(find tests/scenarios/mp -maxdepth 1 -name "*.json" 2>/dev/null | sort))
+elif [ "$MODE" = "--e11" ]; then
+    # ISS-063: the 11e windowed suite — every scenario that drives the
+    # edition-11 rules templates through the real UI (these also run in
+    # the default --sp batch; this mode is the focused gate).
+    SCENARIOS=($(grep -l '"edition": 11' tests/scenarios/sp/*.json 2>/dev/null | sort))
 elif [ "$MODE" = "--visual" ]; then
     SCENARIOS=($(find tests/scenarios/visual -maxdepth 1 -name "T*_*.json" 2>/dev/null | sort))
     FULL_SUITE_RUN=1

@@ -29,7 +29,7 @@ var _choice_made: bool = false
 
 func _init():
 	# Issue #329: route through RNGService so static test_mode_seed applies
-	_rng = RulesEngine.RNGService.new()
+	_rng = RulesEngine.make_rng()
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.ROLL_OFF

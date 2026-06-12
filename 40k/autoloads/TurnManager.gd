@@ -3,6 +3,11 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 
 # TurnManager - Manages turn flow and phase transitions using the new modular system
 # Now works with PhaseManager and GameState instead of BoardState
+#
+## OWNERSHIP (ISS-025): TurnManager owns TURN ORDER — player alternation,
+## roll-offs, and battle-round advancement. It REQUESTS phase transitions
+## from PhaseManager (which owns the phase state machine) and never
+## mutates state directly — diffs go through GameState.apply_state_changes.
 
 signal deployment_side_changed(player: int)
 signal deployment_phase_complete()

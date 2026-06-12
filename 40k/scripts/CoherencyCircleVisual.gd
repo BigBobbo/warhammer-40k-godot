@@ -10,7 +10,7 @@ var base_radius_px: float = 0.0  # The model's own base radius in pixels
 var circle_color: Color = Color(0.2, 0.9, 0.2, 0.25)  # Faint green default
 var _pulse_time: float = 0.0
 
-const COHERENCY_INCHES: float = 2.0
+# ISS-002: coherency distance comes from GameConstants.coherency_distance_inches().
 const DASH_LENGTH: float = 8.0
 const GAP_LENGTH: float = 6.0
 const OUTLINE_WIDTH: float = 1.5
@@ -25,7 +25,7 @@ func setup(model_base_radius_px: float) -> void:
 	base_radius_px = model_base_radius_px
 	# The coherency circle shows 2" from the edge of this model's base.
 	# So the drawn circle radius = base_radius + 2" in pixels.
-	circle_radius_px = base_radius_px + Measurement.inches_to_px(COHERENCY_INCHES)
+	circle_radius_px = base_radius_px + Measurement.inches_to_px(GameConstants.coherency_distance_inches())
 	z_index = 5  # Below tokens (z_index 10) but above board
 	queue_redraw()
 
