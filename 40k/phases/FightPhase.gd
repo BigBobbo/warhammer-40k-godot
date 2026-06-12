@@ -57,6 +57,9 @@ var awaiting_melee_saves: bool = false  # True while waiting for defender to all
 
 # New subphase tracking
 var fights_first_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
+# ISS-050 step 2: the 11e fight-step state machine (12.04-12.06);
+# null at edition 10.
+var sequencer_11e: FightSequencer = null
 var normal_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs, called "remaining_units" in PRP
 var fights_last_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
 var current_selecting_player: int = 2  # Which player is currently selecting (defending player starts)
@@ -222,6 +225,21 @@ func _initialize_fight_sequence() -> void:
 	# Set initial subphase and defending player (per 10e rules)
 	current_subphase = Subphase.FIGHTS_FIRST
 	current_selecting_player = _get_defending_player()
+
+	# ISS-050 step 2 (11e 12.04): the FightSequencer drives selection —
+	# alternation starts with the ACTIVE player, and the eligibility
+	# matrix includes charge-survivors that are no longer engaged
+	# (overrun fights, 12.06). The 10e tier lists above remain for UI
+	# display; ordering decisions defer to the sequencer.
+	sequencer_11e = null
+	if GameConstants.edition >= 11:
+		sequencer_11e = FightSequencer.new()
+		sequencer_11e.begin(GameState.state, GameState.get_active_player())
+		var sel_11e = sequencer_11e.next_selection(GameState.state)
+		if not sel_11e.done:
+			current_selecting_player = sel_11e.player
+		log_phase_message("[11e] FightSequencer: %s step, Player %d picks from %s" % [
+			sel_11e.step, sel_11e.player, str(sel_11e.candidates)])
 
 	log_phase_message("=== FIGHT PHASE INITIALIZATION ===")
 	log_phase_message("Active Player: %d" % GameState.get_active_player())
@@ -548,6 +566,19 @@ func _validate_select_fighter(action: Dictionary) -> Dictionary:
 	if unit.is_empty():
 		errors.append("Unit not found")
 		return {"valid": false, "errors": errors}
+
+	# ISS-050 step 2: at 11e the sequencer (12.04) is authoritative —
+	# including charge-survivors that are unengaged (pg-39 overrun case),
+	# which the 10e engagement check below would wrongly refuse.
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		var sel_11e = sequencer_11e.next_selection(GameState.state)
+		if sel_11e.done:
+			return {"valid": false, "errors": ["Fight step is over (no eligible units, 12.04)"]}
+		if int(unit.owner) != int(sel_11e.player):
+			return {"valid": false, "errors": ["Not your selection (Player %d picks, 12.04 %s step)" % [sel_11e.player, sel_11e.step]]}
+		if not unit_id in sel_11e.candidates:
+			return {"valid": false, "errors": ["Unit not eligible to fight in the %s step (12.04)" % sel_11e.step]}
+		return {"valid": true}
 
 	if unit.owner != current_selecting_player:
 		var error_msg = "Not your turn to select (Player %d's turn, you are Player %d)" % [current_selecting_player, unit.owner]
@@ -1185,6 +1216,14 @@ func _validate_skip_unit(action: Dictionary) -> Dictionary:
 # Action processing methods
 func _process_select_fighter(action: Dictionary) -> Dictionary:
 	active_fighter_id = action.unit_id
+
+	# ISS-050 step 2 (11e): commit the selection in the sequencer and
+	# surface the available fight types (NORMAL 12.05 / OVERRUN 12.06).
+	var fight_types_11e: Array = []
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		var ft = sequencer_11e.select_to_fight(active_fighter_id, GameState.state)
+		fight_types_11e = ft.fight_types
+		log_phase_message("[11e] %s selected to fight — types: %s" % [active_fighter_id, str(fight_types_11e)])
 
 	log_phase_message("Player %d selects %s to fight" % [
 		current_selecting_player,
@@ -2291,6 +2330,18 @@ func _get_eligible_units_for_selection() -> Dictionary:
 	return eligible
 
 func _switch_selecting_player() -> void:
+	# ISS-050 step 2 (11e 12.04): the sequencer decides who picks next
+	# (it skips a player with nothing eligible, returns to Fights First
+	# after a remaining-step fight, and ends the step when nobody can).
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		sequencer_11e.after_fight_resolved(GameState.state)
+		var sel_11e = sequencer_11e.next_selection(GameState.state)
+		if not sel_11e.done:
+			current_selecting_player = sel_11e.player
+			current_subphase = Subphase.FIGHTS_FIRST if sel_11e.step == "fights_first" else Subphase.REMAINING_COMBATS
+			log_phase_message("[11e] Next: Player %d picks in the %s step (%s)" % [sel_11e.player, sel_11e.step, str(sel_11e.candidates)])
+		return
+
 	"""Switch to the other player for unit selection"""
 	var old_player = current_selecting_player
 	current_selecting_player = 2 if current_selecting_player == 1 else 1
