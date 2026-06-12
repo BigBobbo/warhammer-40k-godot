@@ -236,7 +236,7 @@ Conventions:
 - **Dependencies:** ISS-005, ISS-013
 - **Affected files:** `40k/scripts/Main.gd`, `PhaseControllerBase.gd`, 5 controllers
 - **Acceptance criteria:** `_clear_right_panel_phase_ui` deleted; windowed scenario cycling all phases twice shows no orphaned panels (assert HUD child counts between phases).
-- **Status:** TODO (rides with ISS-027) — survey done: each controller mounts one named ScrollContainer, but Main's 30-name teardown list also covers command/scoring/deployment UI created outside the five controllers, so deleting it requires migrating every creator — that is ISS-027's Main-decomposition sweep. The PhaseControllerBase hooks (ISS-005/013) are the landing pad.
+- **Status:** TODO (scoped; protected by the ISS-063 windowed suite) — plan: add a `PhaseUIRoot` Control created by Main on each phase transition and passed to the phase controller's setup; controllers parent ALL phase UI under it; teardown becomes `phase_ui_root.queue_free()` and the hand-maintained name list in `_clear_right_panel_phase_ui` is deleted. Verify with a windowed scenario cycling all phases twice asserting HUD child counts. One controller at a time (Movement first), --e11 suite as the gate after each. (rides with ISS-027) — survey done: each controller mounts one named ScrollContainer, but Main's 30-name teardown list also covers command/scoring/deployment UI created outside the five controllers, so deleting it requires migrating every creator — that is ISS-027's Main-decomposition sweep. The PhaseControllerBase hooks (ISS-005/013) are the landing pad.
 
 ### ISS-019 — Unify ability checks through the ability layer (no raw meta reads in RulesEngine)
 - **Location:** `40k/autoloads/RulesEngine.gd:5731` (`has_lone_operative`), `:6314` (`has_stealth_ability`), `:3727` (`unit_has_waaagh_banner_lethal_hits` — faction logic inside RulesEngine)
@@ -296,7 +296,7 @@ Conventions:
 - **Dependencies:** ISS-001
 - **Affected files:** `TokenVisual.gd`, `MovementController.gd`, `ChargeController.gd`, `Main.gd` token creation
 - **Acceptance criteria:** windowed scenario: start a drag, cancel it, assert token returns to canonical position and GameState unchanged; move + save + load shows identical positions.
-- **Status:** TODO
+- **Status:** TODO (scoped) — plan: make controller drag state an explicit preview layer — TokenVisual renders ONLY from GameState plus an optional preview offset set/cleared by the controller; drags commit via the action pipeline or discard. Acceptance scenario already specified (drag-cancel returns token to canonical position with GameState unchanged). The ISS-024 live-snapshot work removed one of the three position stores; the remaining two (GameState + TokenVisual.position) converge with this change.
 
 ### ISS-024 — Eliminate stale phase snapshots
 - **Location:** `40k/phases/BasePhase.gd:13` (`game_state_snapshot`), `:99` (refresh after action); manual snapshot patching e.g. `FormationsPhase.gd:594-599`
@@ -344,7 +344,7 @@ Conventions:
 - **Dependencies:** ISS-013, ISS-018
 - **Affected files:** `40k/scripts/Main.gd`, new scene/script files, `40k/scenes/Main.tscn`
 - **Acceptance criteria:** Main.gd under ~3,000 lines; all windowed scenarios pass; no error lines during a full game.
-- **Status:** TODO
+- **Status:** TODO (scoped) — Main.gd decomposition: extract in dependency order (a) the settings/menu wiring, (b) the per-phase controller setup blocks (which shrink further with ISS-018's PhaseUIRoot), (c) the dialog spawners (with ISS-033's base class). Also absorbs ISS-025's recorded remainder: unify GameManager.process_action's allowlist with `_delegate_to_current_phase` (the double-apply risk for add-ops) and route formations actions through the same path so undo sees them. The ISS-029 goldens + 77-scenario batch are the regression gates.
 
 ### ISS-028 — Save schema migration framework + fixtures
 - **Location:** `40k/autoloads/StateSerializer.gd:14` (`CURRENT_VERSION = "1.1.0"`), `:45-48,149` (single migration 1.0.0→1.1.0)
@@ -380,7 +380,7 @@ Conventions:
 - **Dependencies:** ISS-014
 - **Affected files:** `AIDecisionMaker.gd` → new `40k/scripts/ai/` modules, `40k/autoloads/AIPlayer.gd`, `TestModeHandler.gd`
 - **Acceptance criteria:** AI-vs-AI headless game completes with comparable decisions (spot-check action log); no file over ~4k lines; suite passes.
-- **Status:** TODO
+- **Status:** TODO (scoped) — split AIDecisionMaker (17.6k lines) into per-phase planners behind a facade: extraction order movement → shooting → charge → fight (matching the shared-math seams from ISS-014); each step gated by the iss062 AI-vs-AI full-game scenario (which finishes a 5-round game today) plus the headless suite. No behavior changes during the split — scoring tweaks (ISS-062 phase 2 competence) come after.
 
 ### ISS-031 — Clarify BoardState's purpose or merge it away
 - **Location:** `40k/autoloads/BoardState.gd` (161 lines — note: initial audit overstated this as 5k lines)
@@ -416,7 +416,7 @@ Conventions:
 - **Dependencies:** none
 - **Affected files:** `40k/dialogs/*`, new base class
 - **Acceptance criteria:** base class exists and ≥5 dialogs migrated with scenario coverage; new-dialog template documented.
-- **Status:** TODO
+- **Status:** TODO (scoped) — `BaseDecisionDialog` (title, accepted/declined signals, shared MP timeout constant, phase ref) under `40k/dialogs/`; migrate opportunistically when a dialog is next touched, starting with the overwatch/reroll prompt pair (most duplicated). Per its own proposed fix this is explicitly NOT a big-bang sweep — kept open as the standing convention for new dialogs.
 
 ### ISS-034 — Remove or merge legacy/duplicate phase files
 - **Location:** `40k/phases/ScoutPhase.gd` AND `40k/phases/ScoutMovesPhase.gd` — **both registered** (`PhaseManager.gd:39-40`): SCOUT is in the standard chain, SCOUT_MOVES is kept as a non-chain compatibility route (`PhaseManager.gd:223-226`); `40k/phases/MoralePhase.gd` (logging stub — no morale phase exists in 10e/11e)
