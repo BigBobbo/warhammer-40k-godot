@@ -696,7 +696,7 @@ Conventions:
 - **Dependencies:** ISS-043, ISS-044, ISS-048 (snap shooting), ISS-049 (heroic intervention charge), ISS-050 (counteroffensive)
 - **Affected files:** `StratagemManager.gd`, stratagem data, UI prompts, AI stratagem advisor
 - **Acceptance criteria:** per-unit restriction test; each core stratagem has a unit/scenario test incl. Crushing Impact dice mechanics and Fire Overwatch timing window.
-- **Status:** IN PROGRESS (restriction landed; new core set pending) — `can_use_stratagem` now enforces 15.01's "each player cannot target the same unit with more than one stratagem in the same phase" at edition 11 (per-player, per-phase, edition-gated; 10e unchanged), riding the existing usage-history records. `test_iss056_stratagem_per_unit.gd` 5/5; suite 817/817. Remaining: the reworked 11e core set (Explosives, Crushing Impact, snap-shooting Fire Overwatch with its Movement-phase-only window, Heroic Intervention as a real charge with modes, Counteroffensive 2CP+1, single-die Command Re-roll with full-charge-reroll exception) — several depend on ISS-048/049/050 mechanics.
+- **Status:** DONE (live trigger windows/prompts ride with the phase step-2s + ISS-063) — `can_use_stratagem` now enforces 15.01's "each player cannot target the same unit with more than one stratagem in the same phase" at edition 11 (per-player, per-phase, edition-gated; 10e unchanged), riding the existing usage-history records. `test_iss056_stratagem_per_unit.gd` 5/5; suite 817/817. Remainder (landed): the full 11e core set 15.02-15.12 registered as data definitions with `edition: 11` (COMMAND RE-ROLL single-die + full-charge-reroll exception, EPIC CHALLENGE melee-[PRECISION] grant, INSANE BRAVERY once-per-battle, EXPLOSIVES, CRUSHING IMPACT, RAPID INGRESS via the 20.04 move, FIRE OVERWATCH via SNAP shooting 15.09, SMOKESCREEN screened-cover, HEROIC INTERVENTION as a real 11.02 charge with leap-to-defend/into-the-fray modes, COUNTEROFFENSIVE at 2CP with must-fight-next) — `can_use_stratagem` gates by edition both ways and the reworked 10e core entries carry `edition_max: 10` (retired at 11e). The two dice effects are engine functions: `RulesEngine.resolve_explosives_11e` (6D6, 4+ = MW via 06.02 allocation) and `resolve_crushing_impact_11e` (T dice, 1s wound SELF, 5+ wound the enemy, both capped at 6 per unit). `test_iss056_stratagem_per_unit.gd` 12/12; suite 1091/1091. The per-stratagem live trigger windows + prompts (overwatch's end-of-opponent-movement hook, heroic-intervention charge UI) ride with the phase step-2 wirings and ISS-063's scenario suite.
 
 ### ISS-057 — Actions system
 - **Location:** new subsystem; rules: 16.00-16.01
@@ -843,7 +843,7 @@ Conventions:
 | ISS-053 | Cover + Plunging Fire as BS modifiers | high | IN PROGRESS | 051, 052, 016, 041 |
 | ISS-054 | 11e terrain movement + MOBILE | medium | TODO | 051, 040, 037 |
 | ISS-055 | 11e objectives + Secured | medium | IN PROGRESS | 051, 038, 043 |
-| ISS-056 | 11e core stratagems + per-unit limit | medium | IN PROGRESS | 043, 044, 048, 049, 050 |
+| ISS-056 | 11e core stratagems + per-unit limit | medium | DONE | 043, 044, 048, 049, 050 |
 | ISS-057 | Actions system | high | DONE | 038, 039, 040, 043 |
 | ISS-058 | 11e transports (modes, emergency) | high | IN PROGRESS | 040, 044, 043 |
 | ISS-059 | 11e attached units (Support, T, persistence) | medium | TODO | 037, 041 |

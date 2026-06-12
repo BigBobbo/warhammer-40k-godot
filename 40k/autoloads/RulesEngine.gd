@@ -2444,6 +2444,63 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 	return out
 
 
+# ── ISS-056: 11e core stratagem dice effects ─────────────────────────
+## EXPLOSIVES (15.05): roll 6D6 — each 4+ inflicts 1 mortal wound on the
+## target, allocated per 06.02. Mutates the board's target unit and
+## returns {dice, diffs, mortal_wounds, casualties}.
+static func resolve_explosives_11e(target_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	if rng == null:
+		rng = make_rng()
+	var rolls = rng.roll_d6(6)
+	var mw := 0
+	for r in rolls:
+		if r >= 4:
+			mw += 1
+	var result = {"diffs": [], "dice": [{"context": "explosives_11e", "rolls": rolls, "mortal_wounds": mw}],
+		"mortal_wounds": mw, "casualties": 0}
+	var target = board.get("units", {}).get(target_unit_id, {})
+	if mw > 0 and not target.is_empty():
+		var out = Allocation.apply_mortal_wounds_11e(target, mw)
+		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
+		result.casualties = out.models_destroyed.size()
+	print("RulesEngine: [15.05] EXPLOSIVES vs %s — rolls %s -> %d mortal wound(s)" % [target_unit_id, str(rolls), mw])
+	return result
+
+
+## CRUSHING IMPACT (15.06): roll T dice for the selected model — each 1
+## inflicts 1 mortal wound on YOUR unit, each 5+ on the enemy unit, both
+## capped at 6 mortal wounds per unit.
+static func resolve_crushing_impact_11e(unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	if rng == null:
+		rng = make_rng()
+	var unit = board.get("units", {}).get(unit_id, {})
+	var target = board.get("units", {}).get(target_unit_id, {})
+	var toughness = int(unit.get("meta", {}).get("stats", {}).get("toughness", 6))
+	var rolls = rng.roll_d6(toughness)
+	var self_mw := 0
+	var enemy_mw := 0
+	for r in rolls:
+		if r == 1:
+			self_mw += 1
+		elif r >= 5:
+			enemy_mw += 1
+	self_mw = mini(self_mw, 6)
+	enemy_mw = mini(enemy_mw, 6)
+	var result = {"diffs": [], "dice": [{"context": "crushing_impact_11e", "rolls": rolls,
+		"self_mortals": self_mw, "enemy_mortals": enemy_mw}],
+		"self_mortals": self_mw, "enemy_mortals": enemy_mw, "casualties": 0}
+	if enemy_mw > 0 and not target.is_empty():
+		var out = Allocation.apply_mortal_wounds_11e(target, enemy_mw)
+		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
+		result.casualties += out.models_destroyed.size()
+	if self_mw > 0 and not unit.is_empty():
+		var self_out = Allocation.apply_mortal_wounds_11e(unit, self_mw)
+		_materialize_allocation_11e(result, unit, unit_id, self_out.remaining, self_out.models_destroyed)
+		result.casualties += self_out.models_destroyed.size()
+	print("RulesEngine: [15.06] CRUSHING IMPACT %s vs %s — T%d rolls %s -> %d enemy / %d self mortal wound(s)" % [unit_id, target_unit_id, toughness, str(rolls), enemy_mw, self_mw])
+	return result
+
+
 # The engine's default [PRECISION] pick (24.28): the first CHARACTER
 # group in the target. Visible-to-attacker refinement lands with the
 # ISS-052 visibility module; the attacker-facing prompt with ISS-063.
