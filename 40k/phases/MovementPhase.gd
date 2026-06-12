@@ -7519,6 +7519,21 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 	var transport_pos = _get_unit_center_position(transport_id)
 	DebugLogger.info(str("DEBUG MovementPhase: Transport position: ", transport_pos))
 
+	# ISS-058 (11e 18.04): the disembark MODE sets the set-up distance —
+	# 3\" for rapid/tactical, 6\" for combat. The template selects the
+	# mandatory mode from the transport's move history; the player may
+	# signal an impossible tactical set-up via payload.can_setup_tactical.
+	var setup_range_inches := 3.0
+	if GameConstants.edition >= 11:
+		var dis_tmpl = MoveTypes.get_type("disembark")
+		var dis_el = dis_tmpl.eligible(unit_id, GameState.state)
+		if not dis_el.eligible:
+			return {"valid": false, "errors": dis_el.reasons}
+		var dis_sel = dis_tmpl.select_mode(unit_id, GameState.state,
+			{"can_setup_tactical": action.get("payload", {}).get("can_setup_tactical", true)})
+		setup_range_inches = dis_tmpl.setup_distance_inches({"mode": dis_sel.mode})
+		log_phase_message("[11e] Disembark mode for %s: %s (set-up %0.0f\")" % [unit_id, dis_sel.mode, setup_range_inches])
+
 	for i in range(positions.size()):
 		if i >= unit.models.size():
 			break
@@ -7530,12 +7545,16 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 		DebugLogger.info(str("DEBUG MovementPhase: Model position: ", pos))
 
 		# P3-95: Use centralized shape-aware distance check from TransportManager
-		var pos_vec = pos if pos is Vector2 else Vector2(pos.x, pos.y)
-		var range_result = TransportManager.is_position_within_disembark_range(pos_vec, unit.models[i], transport)
+		var pos_vec = pos
+		if pos is Array:
+			pos_vec = Vector2(pos[0], pos[1])
+		elif pos is Dictionary:
+			pos_vec = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+		var range_result = TransportManager.is_position_within_disembark_range(pos_vec, unit.models[i], transport, setup_range_inches)
 		DebugLogger.info(str("DEBUG MovementPhase: Edge-to-edge distance (inches): ", range_result.distance_inches))
 
 		if not range_result.within_range:
-			return {"valid": false, "errors": ["Model must be placed within 3\" of transport (%.1f\" from edge)" % range_result.distance_inches]}
+			return {"valid": false, "errors": ["Model must be placed within %0.0f\" of transport (%.1f\" from edge)" % [setup_range_inches, range_result.distance_inches]]}
 
 		# Build model_at_pos for engagement range and board edge checks
 		var model_at_pos = unit.models[i].duplicate()
@@ -7756,6 +7775,28 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 	if not validation.valid:
 		return create_result(false, [], validation.errors[0])
 
+	# ISS-058 (11e 18.04): resolve the mode before the move executes —
+	# combat disembark rolls a hazard per model BEFORE moving.
+	var dis_mode := ""
+	var dis_changes: Array = []
+	if GameConstants.edition >= 11:
+		var dis_tmpl = MoveTypes.get_type("disembark")
+		var dis_sel = dis_tmpl.select_mode(unit_id, GameState.state,
+			{"can_setup_tactical": action.get("payload", {}).get("can_setup_tactical", true)})
+		dis_mode = str(dis_sel.mode)
+		if dis_mode == "combat":
+			var unit_pre = GameState.get_unit(unit_id)
+			var ctx = dis_tmpl.before_moving(unit_id, GameState.state, RulesEngine.make_rng(), {"mode": "combat"})
+			var hz = ctx.get("hazard", {})
+			log_phase_message("[11e] Combat disembark hazards for %s: %s (%d failure(s))" % [unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0))])
+			if int(hz.get("failures", 0)) > 0:
+				var mw_out = Allocation.apply_mortal_wounds_11e(unit_pre, int(hz.get("mortal_wounds", 0)))
+				for ridx in mw_out.remaining:
+					dis_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, int(ridx)], "value": int(mw_out.remaining[ridx])})
+				for di in mw_out.models_destroyed:
+					dis_changes.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, int(di)], "value": false})
+		dis_changes.append_array(dis_tmpl.after_moving_effects(unit_id, {"mode": dis_mode}))
+
 	# Execute disembark through TransportManager (single call site)
 	TransportManager.disembark_unit(unit_id, positions)
 
@@ -7766,6 +7807,13 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
 	log_phase_message("Unit %s disembarked via CONFIRM_DISEMBARK action" % unit.meta.get("name", unit_id))
 
+	if GameConstants.edition >= 11:
+		# 18.04 AFTER per mode: tactical = the unit is then SELECTED to
+		# make a normal or advance move; rapid/combat lock further moves.
+		if dis_mode == "tactical":
+			log_phase_message("[11e] Tactical disembark — %s is selected for a normal/advance move" % unit_id)
+			call_deferred("_initialize_movement_for_disembarked_unit", unit_id)
+		return create_result(true, dis_changes)
 	# Post-disembark: offer movement if the transport hadn't already moved
 	if unit and not unit.get("flags", {}).get("cannot_move", false):
 		log_phase_message("Unit %s can move after disembark" % unit.meta.get("name", unit_id))
