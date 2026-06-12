@@ -4410,6 +4410,16 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 				if is_indirect:
 					print("RulesEngine: [INDIRECT FIRE] Weapon '%s' targeting without LoS" % weapon_profile.get("name", weapon_id))
 					return {"visible": true, "reason": ""}
+				# ISS-052: 11e visibility gates — HIDDEN detection range
+				# (13.09) and the obscuring/Solid line semantics
+				# (13.10/13.11) — before the base LoS check.
+				if GameConstants.edition >= 11:
+					var tm_11e = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
+					if tm_11e != null:
+						if not tm_11e.hidden_model_visible_to(target_model, target_unit, actor_model):
+							continue
+						if not tm_11e.model_visible_11e(actor_model, target_model):
+							continue
 				# Check LoS with enhanced base-aware visibility
 				if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
 					return {"visible": true, "reason": ""}

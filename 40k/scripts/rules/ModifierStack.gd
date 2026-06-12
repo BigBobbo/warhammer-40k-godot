@@ -95,7 +95,14 @@ static func collect_hit_context_11e(attacker_unit: Dictionary, target_unit: Dict
 	if not ignores_cover:
 		var has_cover := false
 		if terrain != null and terrain.has_method("unit_has_cover_11e"):
-			has_cover = terrain.unit_has_cover_11e(target_unit)
+			# ISS-052/053: pass the first firing model so the
+			# not-fully-visible half of 13.08 participates.
+			var cover_attacker: Dictionary = {}
+			for fm in opts.get("attacker_models", []):
+				if fm is Dictionary and fm.get("alive", true):
+					cover_attacker = fm
+					break
+			has_cover = terrain.unit_has_cover_11e(target_unit, cover_attacker)
 		if not has_cover and target_unit.get("flags", {}).get("stratagem_cover", false):
 			has_cover = true
 		if not has_cover and not (terrain != null) and UnitAbilities.unit_has(target_unit, "stealth"):

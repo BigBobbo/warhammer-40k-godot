@@ -68,6 +68,48 @@ func _run_tests():
 	_check("no Hidden rule at edition 10", not tm.is_model_hidden(in_ruin, infantry))
 	GameConstants.edition = 10
 
+	GameConstants.edition = 11
+	print("\n-- step 2: 06.01 visible vs FULLY visible + 13.08 cover half --")
+	# A thin dense strip that crosses the CENTER line between observer
+	# (200,1000) and target (1200,1000) but not the off-center edge lines.
+	tm.terrain_features = [
+		{"id": "strip", "type": "ruins", "polygon": _rect(690, 1035, 20, 90), "height_category": "tall"},
+	]
+	var obs = {"id": "o1", "alive": true, "base_mm": 32, "base_type": "circular",
+		"position": {"x": 200, "y": 1000}}
+	var tgt = {"id": "t1", "alive": true, "base_mm": 32, "base_type": "circular",
+		"position": {"x": 1200, "y": 1000}}
+	_check("partial block: still VISIBLE (some lines clear, 06.01)",
+		tm.model_visible_11e(obs, tgt))
+	_check("partial block: NOT fully visible (a line crosses the strip)",
+		not tm.model_fully_visible_11e(obs, tgt))
+	tm.terrain_features = []
+	_check("open ground: fully visible", tm.model_fully_visible_11e(obs, tgt))
+	tm.terrain_features = [
+		{"id": "wall", "type": "ruins", "polygon": _rect(600, 1000, 100, 3000), "height_category": "tall"},
+	]
+	_check("full wall: not visible at all (13.10 every line)",
+		not tm.model_visible_11e(obs, tgt))
+	var obs_inside = {"id": "o2", "alive": true, "base_mm": 32, "base_type": "circular",
+		"position": {"x": 600, "y": 1000}}
+	_check("observer INSIDE the area sees out (13.10 exclusion)",
+		tm.model_visible_11e(obs_inside, tgt))
+
+	# 13.08's not-fully-visible half: a VEHICLE (no INFANTRY keyword, not
+	# within an area) still gets cover when partially blocked.
+	tm.terrain_features = [
+		{"id": "strip", "type": "ruins", "polygon": _rect(690, 1035, 20, 90), "height_category": "tall"},
+	]
+	var veh_unit = {"id": "U_V", "owner": 2, "flags": {},
+		"meta": {"keywords": ["VEHICLE"], "stats": {}},
+		"models": [tgt]}
+	_check("cover via not-fully-visible (13.08 second condition, VEHICLE)",
+		tm.unit_has_cover_11e(veh_unit, obs))
+	tm.terrain_features = []
+	_check("fully visible in the open: no cover",
+		not tm.unit_has_cover_11e(veh_unit, obs))
+
+	GameConstants.edition = 10
 	tm.terrain_features = prev
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(0 if failed == 0 else 1)

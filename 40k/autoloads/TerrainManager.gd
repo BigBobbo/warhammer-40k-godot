@@ -880,6 +880,94 @@ func hidden_model_visible_to(model: Dictionary, unit: Dictionary, observer_model
 	return Measurement.model_to_model_distance_px(observer_model, model) <= det_px
 
 
+## ISS-052 (step 2) — 06.01/13.10/13.11 visibility, 2D approximation.
+## Sight lines run from the observer's base center to the target base's
+## center + 8 perimeter points (base_mm/2 radius approximation for all
+## base shapes). A line is BLOCKED when it crosses:
+##   ▪ an obscuring (light/dense) terrain area that NEITHER model is
+##     within — 13.10's every-line semantics fall out of the per-line
+##     test — or
+##   ▪ a DENSE feature's footprint while both models are at ground level
+##     (< 3" elevation): the Solid rule's 2D effect (13.11; windows and
+##     small gaps never help at ground level).
+## visible = at least one clear line (06.01 MODEL VISIBLE);
+## FULLY visible = every line clear (06.01 MODEL FULLY VISIBLE).
+
+func _model_vec(model: Dictionary) -> Vector2:
+	var pos = model.get("position", null)
+	if pos == null:
+		return Vector2.INF
+	return Vector2(float(pos.x) if pos is Dictionary else pos.x, float(pos.y) if pos is Dictionary else pos.y)
+
+func _sight_points(model: Dictionary) -> Array:
+	var c = _model_vec(model)
+	var out: Array = [c]
+	var radius_px = Measurement.base_radius_px(int(model.get("base_mm", 32)))
+	for i in range(8):
+		var ang = TAU * i / 8.0
+		out.append(c + Vector2(cos(ang), sin(ang)) * radius_px)
+	return out
+
+func _line_blocked_11e(a: Vector2, b: Vector2, exclude_ids: Dictionary, ground_level: bool) -> bool:
+	for piece in features_crossing(a, b):
+		var cat = category_of(piece)
+		if exclude_ids.has(piece.get("id")):
+			continue
+		if cat == CATEGORY_LIGHT or cat == CATEGORY_DENSE:
+			return true  # obscuring area crossed (13.10)
+		if ground_level and cat == CATEGORY_DENSE:
+			return true  # Solid at ground level (13.11)
+	return false
+
+func _visibility_lines_11e(observer: Dictionary, target: Dictionary) -> Dictionary:
+	var o = _model_vec(observer)
+	var t = _model_vec(target)
+	if o == Vector2.INF or t == Vector2.INF:
+		return {"clear": 0, "total": 0}
+	var exclude := {}
+	var ao = area_at(o)
+	var at_ = area_at(t)
+	if not ao.is_empty():
+		exclude[ao.get("id")] = true
+	if not at_.is_empty():
+		exclude[at_.get("id")] = true
+	var ground = float(observer.get("elevation_inches", 0.0)) < 3.0 \
+			and float(target.get("elevation_inches", 0.0)) < 3.0
+	var clear := 0
+	var pts = _sight_points(target)
+	for p in pts:
+		if not _line_blocked_11e(o, p, exclude, ground):
+			clear += 1
+	return {"clear": clear, "total": pts.size()}
+
+func model_visible_11e(observer: Dictionary, target: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return true
+	var v = _visibility_lines_11e(observer, target)
+	return v.total > 0 and v.clear > 0
+
+func model_fully_visible_11e(observer: Dictionary, target: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return true
+	var v = _visibility_lines_11e(observer, target)
+	return v.total > 0 and v.clear == v.total
+
+## 06.01 UNIT FULLY VISIBLE: every alive model fully visible (the
+## observer sees through the target unit's own models — inherent here,
+## since only terrain blocks these lines).
+func unit_fully_visible_11e(observer: Dictionary, unit: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return true
+	var any := false
+	for m in unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		any = true
+		if not model_fully_visible_11e(observer, m):
+			return false
+	return any
+
+
 ## ISS-053 (step 1) — 13.08 BENEFIT OF COVER qualification (the in-area
 ## half; the not-fully-visible half arrives with ISS-052's fully-visible
 ## module). A unit has the benefit of cover against a ranged attack when
@@ -889,7 +977,7 @@ func hidden_model_visible_to(model: Dictionary, unit: Dictionary, observer_model
 ## In 11e the effect is WORSENING the attack's BS by 1 (not a save mod) —
 ## applied by the resolution flow; this primitive answers qualification.
 ## Stealth (24.33) grants the benefit unconditionally.
-func unit_has_cover_11e(unit: Dictionary) -> bool:
+func unit_has_cover_11e(unit: Dictionary, attacker_model: Dictionary = {}) -> bool:
 	if GameConstants.edition < 11:
 		return false
 	if UnitAbilities.unit_has(unit, "stealth"):
@@ -900,8 +988,6 @@ func unit_has_cover_11e(unit: Dictionary) -> bool:
 		if kw in keywords:
 			qualifies_kw = true
 			break
-	if not qualifies_kw:
-		return false
 	var any_model := false
 	for m in unit.get("models", []):
 		if not m.get("alive", true):
@@ -911,8 +997,16 @@ func unit_has_cover_11e(unit: Dictionary) -> bool:
 		if pos == null:
 			return false
 		var p := Vector2(float(pos.x) if pos is Dictionary else pos.x, float(pos.y) if pos is Dictionary else pos.y)
-		if area_at(p).is_empty():
-			return false  # EVERY model must qualify (13.08)
+		# 13.08: EVERY model meets one or more conditions —
+		#   ▪ INFANTRY/BEASTS/SWARM within a terrain area, or
+		#   ▪ not fully visible to the attacker due to intervening
+		#     terrain (ISS-052 module; terrain is the only blocker it
+		#     models, so the "due to terrain" clause is inherent).
+		var in_area_ok = qualifies_kw and not area_at(p).is_empty()
+		var nfv_ok = not attacker_model.is_empty() \
+				and not model_fully_visible_11e(attacker_model, m)
+		if not (in_area_ok or nfv_ok):
+			return false
 	return any_model
 
 
