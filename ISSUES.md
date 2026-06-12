@@ -368,7 +368,7 @@ Conventions:
 - **Dependencies:** ISS-021
 - **Affected files:** new harness under `40k/tests/`, recorded logs, runner scripts
 - **Acceptance criteria:** harness green on unmodified code; intentionally perturbing a rules constant makes it fail (proving sensitivity).
-- **Status:** TODO
+- **Status:** DONE — `test_iss029_golden_replay.gd` records a representative multi-phase game slice (formations incl. both confirms → normal move with dest+confirm → seeded shooting via direct resolution → charge declare + seeded roll) through the REAL phase pipeline at BOTH editions, persists the bundles under `user://goldens_replay/` as run artifacts, scrambles the state, replays via the recorded action stream (PHASE_CHANGE entries mirrored as real transitions; ActionLogger's `game_context` drives phase re-derivation and is stripped so `phase_log` matches byte-for-byte) and asserts the final replay hash reproduces — 10e and 11e goldens both green. **Sensitivity proven in-suite**: tampering the recorded dice seed breaks the golden (the slice is edition-neutral by construction, so the dice-stream probe is the drift detector — any behavioral change in resolution shows up identically). Wired into `run_pretrigger_tests.sh` (68 tests).
 
 ### ISS-030 — Split AIDecisionMaker into per-phase planners
 - **Location:** `40k/scripts/AIDecisionMaker.gd` (17,659 lines, 150+ static functions, 8 static caches at `:141-172`)
@@ -816,7 +816,7 @@ Conventions:
 | ISS-026 | MP load-sync failure handling | medium | DONE | — |
 | ISS-027 | Main.gd remaining decomposition | medium | TODO | 013, 018 |
 | ISS-028 | Save migration framework + fixtures | medium | DONE | 017 |
-| ISS-029 | Golden-master replay harness | medium | TODO | 021 |
+| ISS-029 | Golden-master replay harness | medium | DONE | 021 |
 | ISS-030 | Split AIDecisionMaker into planners | medium | TODO | 014 |
 | ISS-031 | BoardState: merge away or document | low | DONE | 017 |
 | ISS-032 | AI cache save/load policy | low | DONE | — |
