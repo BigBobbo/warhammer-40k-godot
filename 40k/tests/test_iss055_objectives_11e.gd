@@ -79,6 +79,42 @@ func _run_tests():
 		mm.objective_control_state.get("OBJ_T", 0) == 0,
 		str(mm.objective_control_state))
 
+	print("\n-- C: terrain objectives (14.01) --")
+	var tm = root.get_node_or_null("TerrainManager")
+	var prev_terrain = tm.terrain_features.duplicate(true)
+	# A ruin area covering the objective point: x 600-1000, y 600-1000.
+	tm.terrain_features = [{"id": "obj_ruin", "type": "ruins",
+		"polygon": PackedVector2Array([Vector2(600, 600), Vector2(880, 600),
+			Vector2(880, 1000), Vector2(600, 1000)]),
+		"height_category": "tall"}]
+	GameConstants.edition = 11
+	mm._sticky_objectives = {}
+	mm.objective_control_state["OBJ_T"] = 0
+	# Model INSIDE the area but ~6" from the marker point: counts (14.01).
+	gs.state["units"]["U_FOE"]["flags"].erase("battle_shocked")
+	gs.state["units"]["U_FOE"]["models"][0]["position"] = {"x": 620, "y": 620}
+	mm.check_all_objectives()
+	_check("model within the terrain area controls the terrain objective (even >3\" from the point)",
+		mm.objective_control_state.get("OBJ_T", 0) == 2,
+		str(mm.objective_control_state))
+	# Model OUTSIDE the area but within 3\" of the point: does NOT count.
+	mm._sticky_objectives = {}
+	mm.objective_control_state["OBJ_T"] = 0
+	gs.state["units"]["U_FOE"]["models"][0]["position"] = {"x": 920, "y": 800}
+	mm.check_all_objectives()
+	_check("model outside the area exerts no control on a terrain objective (14.02)",
+		mm.objective_control_state.get("OBJ_T", 0) == 0,
+		str(mm.objective_control_state))
+	# 10e unchanged: marker radius applies.
+	GameConstants.edition = 10
+	mm._sticky_objectives = {}
+	mm.objective_control_state["OBJ_T"] = 0
+	mm.check_all_objectives()
+	_check("10e: marker radius unchanged (the 920,800 model is within 3\"+radius)",
+		mm.objective_control_state.get("OBJ_T", 0) == 2,
+		str(mm.objective_control_state))
+	tm.terrain_features = prev_terrain
+
 	GameConstants.edition = 10
 	gs.state = prev_state
 	mm.objective_control_state = prev_ctrl

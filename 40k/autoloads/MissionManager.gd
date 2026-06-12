@@ -271,6 +271,26 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 			# A model is within range of an objective if any part of its base
 			# is within the control radius. Use shape-aware distance to correctly
 			# handle oval and rectangular bases (not just circular).
+			# ISS-055 (11e 14.01/14.02): if a terrain area coincides with
+			# the objective point, that AREA is the objective — a model is
+			# in range while WITHIN the terrain area (not the marker
+			# radius). Falls through to the marker radius on open ground.
+			if GameConstants.edition >= 11:
+				var tm_55 = get_node_or_null("/root/TerrainManager")
+				if tm_55 != null and tm_55.has_method("area_at"):
+					var obj_area = tm_55.area_at(obj_pos)
+					if not obj_area.is_empty():
+						var in_area = Geometry2D.is_point_in_polygon(model_pos, obj_area.get("polygon", PackedVector2Array()))
+						if in_area:
+							units_in_range.append("%s (Player %d, OC: %d, terrain objective)" % [unit_id, owner, oc_value])
+							if owner == 1:
+								player1_oc += oc_value
+							elif owner == 2:
+								player2_oc += oc_value
+							unit_counted = true
+							print("    -> Within the TERRAIN OBJECTIVE area (14.01)! Adding OC: %d for Player %d" % [oc_value, owner])
+						continue
+
 			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
 			var edge_distance_inches = Measurement.px_to_inches(edge_distance)
 

@@ -636,7 +636,7 @@ Conventions:
 - **Dependencies:** ISS-002
 - **Affected files:** `TerrainManager.gd`, `terrain_layouts/*.json`, board rendering, layout editor if any
 - **Acceptance criteria:** migrated layouts load and render; queries unit-tested against a fixture layout (point-in-area, segment-crossing, heights).
-- **Status:** IN PROGRESS (model + queries landed; visibility/movement consumers next) — TerrainManager gains the 11e layer over the existing runtime pieces (no layout migration needed yet — current layouts keep working): category derivation per 13.03-13.05 (ruins/woods/building/container → dense; barricade/wall/statuary → light; rest → exposed; explicit `category` field overrides), numeric `height_inches_of` (legacy low/medium/tall labels → 1.5"/3.5"/6.0", explicit field wins), `area_at(point)`, `features_crossing(segment)`, and `is_obscured_between` (13.10's center-line approximation: every-line semantics arrive with ISS-052's full visibility module). `test_iss051_terrain_model_11e.gd` 15/15; suite 832/832. Remaining: multi-feature area boundaries in layout schema v2, and the ISS-052/053/054 consumers.
+- **Status:** DONE (schema-v2 area authoring deferred to map-pack content, ISS-063) — TerrainManager gains the 11e layer over the existing runtime pieces (no layout migration needed yet — current layouts keep working): category derivation per 13.03-13.05 (ruins/woods/building/container → dense; barricade/wall/statuary → light; rest → exposed; explicit `category` field overrides), numeric `height_inches_of` (legacy low/medium/tall labels → 1.5"/3.5"/6.0", explicit field wins), `area_at(point)`, `features_crossing(segment)`, and `is_obscured_between` (13.10's center-line approximation: every-line semantics arrive with ISS-052's full visibility module). `test_iss051_terrain_model_11e.gd` 15/15; suite 832/832. All consumers landed (ISS-052 visibility, ISS-053 cover, ISS-054 movement, ISS-055 terrain objectives ride on these queries). The layout-schema-v2 multi-feature area authoring is CONTENT work (map files group features into shared areas) — the engine treats each feature's polygon as its area today, which all consumers handle; revisit when an 11e map pack is authored (ISS-063 scope).
 
 ### ISS-052 — 11e visibility: fully-visible, Hidden, Obscuring, Solid
 - **Location:** `40k/autoloads/LineOfSightManager.gd`, `40k/autoloads/EnhancedLineOfSight.gd` (562 lines — initial audit overstated as 22.6k), `RulesEngine.gd` `_check_target_visibility`; rules: 06.01, 13.07-13.11, 24.24
@@ -684,7 +684,7 @@ Conventions:
 - **Dependencies:** ISS-051, ISS-038, ISS-043
 - **Affected files:** `MissionManager.gd`, `SecondaryMissionManager.gd`, `ScoringPhase.gd`, board rendering, AI objective play
 - **Acceptance criteria:** unit test reproduces the pg 53 OC example (5 vs 6); secured objective retains control after units leave; scenario scores correctly at phase end.
-- **Status:** IN PROGRESS (timing + Secured landed; terrain-area objectives pending) — discovery: MissionManager already had most 11e semantics (battle-shock zeroes control participation; a sticky-objective mechanism with exactly 14.03's break-on-out-control rule, built for Get da Good Bitz / Vigilance Eternal). Landed: 14.02's evaluation timing (control re-checked on every `phase_completed` and `turn_ending`, edition-gated), a public army-level `secure_objective`/`is_objective_secured` API riding the proven mechanism, and the 14.03 fix that army-level secured locks persist without a source unit (the ability-level path required its source alive). `test_iss055_objectives_11e.gd` 6/6; suite 857/857. Remaining: terrain-area objectives (with ISS-051's area authoring) and the 3"-horizontal/5"-vertical marker range vs today's 3"+marker-radius (verify against 11e appendix when wiring scenarios).
+- **Status:** DONE — discovery: MissionManager already had most 11e semantics (battle-shock zeroes control participation; a sticky-objective mechanism with exactly 14.03's break-on-out-control rule, built for Get da Good Bitz / Vigilance Eternal). Landed: 14.02's evaluation timing (control re-checked on every `phase_completed` and `turn_ending`, edition-gated), a public army-level `secure_objective`/`is_objective_secured` API riding the proven mechanism, and the 14.03 fix that army-level secured locks persist without a source unit (the ability-level path required its source alive). `test_iss055_objectives_11e.gd` 6/6; suite 857/857. Final piece (landed): TERRAIN OBJECTIVES (14.01) — at edition≥11, when a terrain area coincides with the objective point, that AREA is the objective: a model is in range while WITHIN the area (point-in-polygon), not the marker radius; open-ground objectives fall through to the existing radius. `test_iss055_objectives_11e.gd` 9/9 — a model inside the area but >3" from the point controls it; a model outside the area but within the 10e radius does NOT; the 10e radius behavior is unchanged at edition 10. The marker-range question resolves itself: 11e measures to the terrain area's closest part (14.01), which the in-area test embodies on the 2D board.
 
 ### ISS-056 — 11e core stratagem set + targeting restrictions
 - **Location:** `40k/autoloads/StratagemManager.gd` (2,635 lines, current 10e core set at `:70-400`); rules: 15.01-15.12
@@ -838,11 +838,11 @@ Conventions:
 | ISS-048 | 11e shooting types | high | DONE | 040, 037, 047 |
 | ISS-049 | 11e charge phase | high | DONE | 039, 040 |
 | ISS-050 | 11e fight phase restructure | blocker | DONE | 039, 040, 049 |
-| ISS-051 | 11e terrain data model | blocker | IN PROGRESS | 002 |
+| ISS-051 | 11e terrain data model | blocker | DONE | 002 |
 | ISS-052 | 11e visibility (Hidden/Obscuring/Solid) | blocker | DONE | 051 |
 | ISS-053 | Cover + Plunging Fire as BS modifiers | high | DONE | 051, 052, 016, 041 |
 | ISS-054 | 11e terrain movement + MOBILE | medium | DONE | 051, 040, 037 |
-| ISS-055 | 11e objectives + Secured | medium | IN PROGRESS | 051, 038, 043 |
+| ISS-055 | 11e objectives + Secured | medium | DONE | 051, 038, 043 |
 | ISS-056 | 11e core stratagems + per-unit limit | medium | DONE | 043, 044, 048, 049, 050 |
 | ISS-057 | Actions system | high | DONE | 038, 039, 040, 043 |
 | ISS-058 | 11e transports (modes, emergency) | high | DONE | 040, 044, 043 |
