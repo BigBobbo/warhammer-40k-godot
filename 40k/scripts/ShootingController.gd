@@ -1013,10 +1013,30 @@ func _refresh_weapon_tree() -> void:
 
 		# PISTOL RULES: Disable non-Pistol weapons when in engagement
 		# ASSAULT RULES: Disable non-Assault weapons when unit has advanced
+		# ISS-048 step 2 (11e): the selected shooting type's weapon_allowed
+		# is authoritative instead — e.g. CLOSE-QUARTERS lets MONSTER/
+		# VEHICLE models fire EVERY weapon while engaged (10.06), and
+		# [PISTOL] is just [CLOSE-QUARTERS] (24.27).
 		var weapon_disabled = false
 		var disable_reason = ""
 
-		if in_engagement and not is_pistol:
+		if GameConstants.edition >= 11:
+			var phase_inst = PhaseManager.get_current_phase_instance()
+			var st_id = str(phase_inst.active_shooting_type) if phase_inst != null and "active_shooting_type" in phase_inst else ""
+			if st_id == "":
+				# Pre-selection rebuild: derive the default type the phase
+				# would pick so the rows preview correctly.
+				var types_preview = ShootingTypes.available_for(active_shooter_id, GameState.state)
+				st_id = types_preview[0] if not types_preview.is_empty() else ""
+			if st_id != "":
+				var st = ShootingTypes.get_type(st_id)
+				var wprof = RulesEngine.get_weapon_profile(weapon_id, GameState.state)
+				var unit_dict = GameState.get_unit(active_shooter_id)
+				var w_ok = st.weapon_allowed(wprof, unit_dict, GameState.state)
+				if not w_ok.allowed:
+					weapon_disabled = true
+					disable_reason = "[Disabled - %s]" % w_ok.reason
+		elif in_engagement and not is_pistol:
 			weapon_disabled = true
 			disable_reason = "[Disabled - In Engagement]"
 		elif has_advanced and not is_assault:

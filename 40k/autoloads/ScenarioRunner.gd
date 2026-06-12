@@ -90,6 +90,14 @@ func _run_scenario() -> void:
 		game_state.state["meta"]["from_save"] = true
 		print("[ScenarioRunner] fixture loaded: %s" % fixture)
 
+	# 2b) Set the rules edition BEFORE the phase transition (optional) —
+	# 11e scenarios need the edition active when phase controllers build
+	# their initial UI, not injected mid-scenario via execute_script.
+	var edition = _scenario.get("edition", null)
+	if edition != null:
+		GameConstants.edition = int(edition)
+		print("[ScenarioRunner] edition set to %d" % int(edition))
+
 	# 3) Set RNG seed (optional)
 	var rng_seed = _scenario.get("rng_seed", null)
 	if rng_seed != null and typeof(rng_seed) == TYPE_FLOAT:

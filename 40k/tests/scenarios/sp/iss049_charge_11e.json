@@ -134,5 +134,6 @@
       "act": "screenshot",
       "label": "04_nonselectable_target_rejected"
     }
-  ]
+  ],
+  "edition": 11
 }

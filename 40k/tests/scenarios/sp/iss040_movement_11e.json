@@ -1,82 +1,184 @@
 {
   "id": "iss040_movement_11e",
-  "covers": ["phases.MovementPhase.11e_move_types", "movetypes.MoveTypes.available_for", "movetypes.FallBackMove.modes"],
+  "covers": [
+    "phases.MovementPhase.11e_move_types",
+    "movetypes.MoveTypes.available_for",
+    "movetypes.FallBackMove.modes"
+  ],
   "fixture": "audit_374_kunnin",
   "rng_seed": 42,
   "transition_to_phase": 7,
   "disable_ai": true,
   "description": "ISS-040 step 2: at edition 11 MovementPhase drives the MoveType templates. (1) Unengaged U_BOYZ_K is offered BEGIN_ADVANCE but not BEGIN_FALL_BACK; (2) after an enemy Witchseeker is teleported into engagement range, the registry FLIPS the offering live (fall back appears, advance disappears); (3) BEGIN_FALL_BACK selects ordered_retreat for the unshocked unit, and opting into desperate_escape rolls one hazard per alive model (10 Boyz); (4) a confirmed ADVANCE on U_STRIKE_FORCE_A applies the template AFTER effects incl. the 11e cannot_start_action lock (16.01).",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
-    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
-    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
-    { "act": "screenshot", "label": "01_movement_phase_edition_11" },
-
-    { "act": "execute_script",
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "screenshot",
+      "label": "01_movement_phase_edition_11"
+    },
+    {
+      "act": "execute_script",
       "script": "\"\\\"type\\\": \\\"BEGIN_ADVANCE\\\", \\\"actor_unit_id\\\": \\\"U_BOYZ_K\\\"\" in str(PhaseManager.get_current_phase_instance().get_available_actions())",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "\"\\\"type\\\": \\\"BEGIN_FALL_BACK\\\", \\\"actor_unit_id\\\": \\\"U_BOYZ_K\\\"\" in str(PhaseManager.get_current_phase_instance().get_available_actions())",
-      "equals": false },
-
-    { "act": "execute_script",
-      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][0].merge({\"position\": {\"x\": 1648.0, \"y\": 1718.4}}, true)" },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"][\"models\"][0].merge({\"position\": {\"x\": 1648.0, \"y\": 1718.4}}, true)"
+    },
+    {
+      "act": "execute_script",
       "script": "RulesEngine.is_unit_engaged(\"U_BOYZ_K\", GameState.state)",
-      "equals": true },
-    { "act": "screenshot", "label": "02_witchseeker_teleported_into_engagement" },
-
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_witchseeker_teleported_into_engagement"
+    },
+    {
+      "act": "execute_script",
       "script": "\"\\\"type\\\": \\\"BEGIN_FALL_BACK\\\", \\\"actor_unit_id\\\": \\\"U_BOYZ_K\\\"\" in str(PhaseManager.get_current_phase_instance().get_available_actions())",
-      "equals": true },
-    { "act": "execute_script",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "\"\\\"type\\\": \\\"BEGIN_ADVANCE\\\", \\\"actor_unit_id\\\": \\\"U_BOYZ_K\\\"\" in str(PhaseManager.get_current_phase_instance().get_available_actions())",
-      "equals": false },
-
-    { "act": "dispatch_action", "action": {
-      "type": "BEGIN_FALL_BACK",
-      "actor_unit_id": "U_BOYZ_K"
-    }},
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "execute_script",
+      "equals": false
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_FALL_BACK",
+        "actor_unit_id": "U_BOYZ_K"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_BOYZ_K\"][\"fall_back_mode\"]",
-      "equals": "ordered_retreat" },
-    { "act": "screenshot", "label": "03_fall_back_ordered_retreat" },
-
-    { "act": "dispatch_action", "action": {
-      "type": "BEGIN_FALL_BACK",
-      "actor_unit_id": "U_BOYZ_K",
-      "payload": { "fall_back_mode": "desperate_escape" }
-    }},
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "execute_script",
+      "equals": "ordered_retreat"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_fall_back_ordered_retreat"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_FALL_BACK",
+        "actor_unit_id": "U_BOYZ_K",
+        "payload": {
+          "fall_back_mode": "desperate_escape"
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_BOYZ_K\"][\"fall_back_mode\"]",
-      "equals": "desperate_escape" },
-    { "act": "execute_script",
+      "equals": "desperate_escape"
+    },
+    {
+      "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_BOYZ_K\"][\"desperate_escape_ctx\"][\"hazard\"][\"rolls\"].size()",
-      "equals": 10 },
-    { "act": "screenshot", "label": "04_desperate_escape_hazard_rolled" },
-
-    { "act": "dispatch_action", "action": {
-      "type": "BEGIN_ADVANCE",
-      "actor_unit_id": "U_STRIKE_FORCE_A"
-    }},
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "dispatch_action", "action": {
-      "type": "SET_MODEL_DEST",
-      "actor_unit_id": "U_STRIKE_FORCE_A",
-      "payload": { "model_id": "m1", "dest": [1677.4, 2029.9] }
-    }},
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "dispatch_action", "action": {
-      "type": "CONFIRM_UNIT_MOVE",
-      "actor_unit_id": "U_STRIKE_FORCE_A"
-    }},
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "expect_state", "path": "units.U_STRIKE_FORCE_A.flags.advanced", "equals": true },
-    { "act": "expect_state", "path": "units.U_STRIKE_FORCE_A.flags.cannot_charge", "equals": true },
-    { "act": "expect_state", "path": "units.U_STRIKE_FORCE_A.flags.cannot_start_action", "equals": true },
-    { "act": "screenshot", "label": "05_advance_confirmed_11e_locks" }
-  ]
+      "equals": 10
+    },
+    {
+      "act": "screenshot",
+      "label": "04_desperate_escape_hazard_rolled"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_ADVANCE",
+        "actor_unit_id": "U_STRIKE_FORCE_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SET_MODEL_DEST",
+        "actor_unit_id": "U_STRIKE_FORCE_A",
+        "payload": {
+          "model_id": "m1",
+          "dest": [
+            1677.4,
+            2029.9
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_UNIT_MOVE",
+        "actor_unit_id": "U_STRIKE_FORCE_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_STRIKE_FORCE_A.flags.advanced",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_STRIKE_FORCE_A.flags.cannot_charge",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_STRIKE_FORCE_A.flags.cannot_start_action",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "05_advance_confirmed_11e_locks"
+    }
+  ],
+  "edition": 11
 }

@@ -35,6 +35,9 @@ signal shooty_power_trip_result(unit_id: String, d6_roll: int, effect: String)  
 
 # Shooting state tracking
 var active_shooter_id: String = ""
+# ISS-048 step 2: the 11e shooting type selected for the active shooter
+# ("normal"/"assault"/"close_quarters"/"indirect"/"snap"); "" at 10e.
+var active_shooting_type: String = ""
 var pending_assignments: Array = []  # Weapon assignments before confirmation
 var confirmed_assignments: Array = []  # Assignments ready to resolve
 var resolution_state: Dictionary = {}  # State for step-by-step resolution
@@ -550,7 +553,14 @@ func _validate_select_shooter(action: Dictionary) -> Dictionary:
 	if unit.get("owner", 0) != get_current_player():
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 	
-	if not _can_unit_shoot(unit):
+	# ISS-048 step 2: at 11e the shooting-type registry (10.02) is
+	# authoritative — a unit needs at least one selectable type.
+	if GameConstants.edition >= 11:
+		var types_11e = ShootingTypes.available_for(unit_id, GameState.state)
+		if types_11e.is_empty():
+			var why = ShootingTypes.get_type("normal").eligible(unit_id, GameState.state)
+			return {"valid": false, "errors": ["No shooting type selectable (10.02): " + str(why.reasons)]}
+	elif not _can_unit_shoot(unit):
 		return {"valid": false, "errors": ["Unit cannot shoot"]}
 
 	if unit_id in units_that_shot:
@@ -582,6 +592,21 @@ func _validate_assign_target(action: Dictionary) -> Dictionary:
 	# there's never two targets for the same weapon simultaneously.
 	# No validation needed here — reassignment is always valid.
 
+	var shooter_unit_pre = get_unit(active_shooter_id)
+	# ISS-048 step 2 (11e): the selected shooting type's WHILE constraints
+	# gate every assignment — weapon_allowed (e.g. [ASSAULT]-only when
+	# advanced, CQ weapons vs engaged targets) and target_allowed (17.03
+	# baseline + per-type relaxations).
+	if GameConstants.edition >= 11 and active_shooting_type != "":
+		var st_11e = ShootingTypes.get_type(active_shooting_type)
+		var wprofile = RulesEngine.get_weapon_profile(weapon_id, game_state_snapshot)
+		var w_ok = st_11e.weapon_allowed(wprofile, shooter_unit_pre, GameState.state)
+		if not w_ok.allowed:
+			return {"valid": false, "errors": [w_ok.reason]}
+		var t_ok = st_11e.target_allowed(active_shooter_id, target_unit_id, wprofile, GameState.state)
+		if not t_ok.allowed:
+			return {"valid": false, "errors": [t_ok.reason]}
+
 	# MA-25: PISTOL MUTUAL EXCLUSIVITY — per-model check (was unit-wide before MA-25)
 	# Per 10e: "If a model is equipped with one or more Pistols, unless it is a
 	# MONSTER or VEHICLE model, it can either shoot with its Pistols or with all
@@ -589,7 +614,7 @@ func _validate_assign_target(action: Dictionary) -> Dictionary:
 	# Per-model: each model individually must choose pistol or non-pistol, but
 	# different models in the same unit can make different choices.
 	var shooter_unit = get_unit(active_shooter_id)
-	if not RulesEngine.is_monster_or_vehicle(shooter_unit):
+	if GameConstants.edition < 11 and not RulesEngine.is_monster_or_vehicle(shooter_unit):
 		var new_weapon_is_pistol = RulesEngine.is_pistol_weapon(weapon_id, game_state_snapshot)
 		# Check each model in the new assignment against existing assignments
 		for new_model_id in model_ids:
@@ -721,6 +746,22 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 	active_shooter_id = unit_id
 	pending_assignments.clear()
 	confirmed_assignments.clear()
+
+	# ISS-048 step 2 (11e 10.02): the unit selects ONE shooting type.
+	# payload.shooting_type overrides; default = first available
+	# (normal > assault > close_quarters > indirect).
+	active_shooting_type = ""
+	if GameConstants.edition >= 11:
+		var types_11e = ShootingTypes.available_for(unit_id, GameState.state)
+		var requested = str(action.get("payload", {}).get("shooting_type", ""))
+		if requested != "" and requested in types_11e:
+			active_shooting_type = requested
+		elif requested != "" and not requested in types_11e:
+			log_phase_message("[11e] Requested shooting type '%s' not selectable for %s (available: %s)" % [requested, unit_id, str(types_11e)])
+			active_shooting_type = types_11e[0] if not types_11e.is_empty() else ""
+		elif not types_11e.is_empty():
+			active_shooting_type = types_11e[0]
+		log_phase_message("[11e] %s shoots with type: %s (available: %s)" % [unit_id, active_shooting_type, str(types_11e)])
 	_targets_hit_by_shooter.clear()  # P1-11: Reset hit tracking for new shooter
 
 	var unit = get_unit(unit_id)
