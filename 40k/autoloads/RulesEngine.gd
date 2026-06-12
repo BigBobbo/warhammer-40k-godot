@@ -6845,9 +6845,26 @@ static func get_critical_wound_threshold(weapon_id: String, target_unit: Diction
 	if anti_data.is_empty():
 		return 6  # Default: only 6s are critical wounds
 
+	# ISS-059 (11e 19.03): ANTI-[KEYWORD] matches against the ATTACHED
+	# unit's keyword union (the pg-67 ANTI-PSYKER example) — a leader's
+	# keyword exposes the whole unit even when attacks are allocated to
+	# bodyguard models.
+	var union_keywords: Array = []
+	if GameConstants.edition >= 11:
+		var cam = Engine.get_main_loop().root.get_node_or_null("CharacterAttachmentManager")
+		if cam != null and (target_unit.get("attachment_data", {}).get("attached_characters", []).size() > 0 \
+				or target_unit.get("attached_to") != null):
+			union_keywords = cam.attached_unit_keywords(str(target_unit.get("id", "")))
+
 	var lowest_threshold = 6
 	for anti in anti_data:
-		if unit_has_keyword(target_unit, anti.keyword):
+		var matches = unit_has_keyword(target_unit, anti.keyword)
+		if not matches and not union_keywords.is_empty():
+			for kw in union_keywords:
+				if str(kw).to_upper() == str(anti.keyword).to_upper():
+					matches = true
+					break
+		if matches:
 			lowest_threshold = min(lowest_threshold, anti.threshold)
 
 	return lowest_threshold

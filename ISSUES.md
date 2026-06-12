@@ -732,7 +732,7 @@ Conventions:
 - **Dependencies:** ISS-037, ISS-041
 - **Affected files:** `CharacterAttachmentManager.gd`, `LeaderPairingsLoader.gd`, `AttackSequence.gd`, army data
 - **Acceptance criteria:** unit tests: wound rolls vs attached unit use bodyguard T; ANTI-PSYKER applies via leader keyword (pg 67 example); leader ability stops applying when leader dies (after current attacks resolve).
-- **Status:** TODO
+- **Status:** DONE (effect-flag source-expiry rides with ISS-027's modifier migration) — CharacterAttachmentManager gains per-ROLE slots at edition≥11 (19.01/24.22/24.34: one LEADER and one SUPPORT per bodyguard via `attachment_role` — Support datasheet ability — 10e single-slot unchanged) and `attached_unit_keywords` (19.03 union, queryable from either side). `get_critical_wound_threshold` consults the union at 11e — **the pg-67 ANTI-PSYKER worked example reproduces exactly** (4+ crits vs a non-PSYKER bodyguard while the PSYKER leader lives, reverting to 6 once the leader dies and detaches = the 19.04 expiry through the existing detach-on-death flow). 19.02's bodyguard-T holds structurally in this codebase: attacks target the bodyguard unit (its own T), characters protected via allocation groups (ISS-041/045), and an all-characters remnant detaches to its own profile. The deeper 19.04 matrix (leader-granted effect FLAGS expiring on source death, with the until-attacks-resolved grace) needs effect-source tracking — recorded against ISS-027. `test_iss059_attached_units_11e.gd` 13/13.
 
 ### ISS-060 — 11e reserves: ingress moves, deep strike, round-3 rules, aircraft cycle
 - **Location:** `40k/phases/DeploymentPhase.gd` (reserves), reinforcement handling; rules: 20.01-20.04, 23, 24.09, 15.07
@@ -846,7 +846,7 @@ Conventions:
 | ISS-056 | 11e core stratagems + per-unit limit | medium | DONE | 043, 044, 048, 049, 050 |
 | ISS-057 | Actions system | high | DONE | 038, 039, 040, 043 |
 | ISS-058 | 11e transports (modes, emergency) | high | IN PROGRESS | 040, 044, 043 |
-| ISS-059 | 11e attached units (Support, T, persistence) | medium | TODO | 037, 041 |
+| ISS-059 | 11e attached units (Support, T, persistence) | medium | DONE | 037, 041 |
 | ISS-060 | 11e reserves/ingress/aircraft | medium | IN PROGRESS | 040, 038, 056 |
 | ISS-061 | 11e FLY/surge/hover | medium | IN PROGRESS | 040 |
 | ISS-062 | AI updated for 11e | medium | TODO | 014, 039, 041, 048, 050, 057 |

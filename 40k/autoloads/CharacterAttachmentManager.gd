@@ -79,9 +79,16 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 	if character.get("attached_to", null) != null:
 		return {"valid": false, "reason": "Character is already attached to another unit"}
 
-	# Check bodyguard doesn't already have a character attached
+	# 10e: one attached character. 11e (19.01/24.22/24.34): one LEADER
+	# unit AND one SUPPORT unit per bodyguard — slots are per-role.
 	var attached_chars = bodyguard.get("attachment_data", {}).get("attached_characters", [])
-	if attached_chars.size() > 0:
+	if GameConstants.edition >= 11:
+		var new_role = attachment_role(character)
+		for existing_id in attached_chars:
+			var existing = GameState.get_unit(str(existing_id))
+			if not existing.is_empty() and attachment_role(existing) == new_role:
+				return {"valid": false, "reason": "Unit already has an attached %s unit (19.01)" % new_role}
+	elif attached_chars.size() > 0:
 		return {"valid": false, "reason": "Unit already has an attached leader"}
 
 	# Check bodyguard is not itself a CHARACTER
@@ -89,6 +96,40 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 		return {"valid": false, "reason": "Cannot attach to another CHARACTER unit"}
 
 	return {"valid": true}
+
+## ISS-059 (11e 24.22/24.34): a character unit attaches as a "support"
+## when its datasheet carries the Support ability, otherwise as a
+## "leader".
+func attachment_role(character: Dictionary) -> String:
+	if UnitAbilities.has_datasheet_ability(character, "support"):
+		return "support"
+	return "leader"
+
+
+## ISS-059 (11e 19.03): an attached unit has ALL the keywords of all of
+## its component units (the unit, not the models — the pg-67
+## ANTI-PSYKER example). Returns the union for a bodyguard unit and its
+## attached characters; non-attached units return their own keywords.
+func attached_unit_keywords(unit_id: String) -> Array:
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return []
+	var out: Array = unit.get("meta", {}).get("keywords", []).duplicate()
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		var character = GameState.get_unit(str(char_id))
+		for kw in character.get("meta", {}).get("keywords", []):
+			if not kw in out:
+				out.append(kw)
+	# A character queried directly also carries its bodyguard's keywords
+	# while attached (the attack targets the whole attached unit).
+	var attached_to = str(unit.get("attached_to", "") if unit.get("attached_to") != null else "")
+	if attached_to != "":
+		var bodyguard = GameState.get_unit(attached_to)
+		for kw in bodyguard.get("meta", {}).get("keywords", []):
+			if not kw in out:
+				out.append(kw)
+	return out
+
 
 # Attach a character to a bodyguard unit
 func attach_character(character_id: String, bodyguard_id: String) -> void:

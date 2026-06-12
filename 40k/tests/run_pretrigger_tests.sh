@@ -95,6 +95,7 @@ TESTS=(
     "tests/test_iss045_allocation_overlay.gd"
     "tests/test_iss048_shooting_types_11e.gd"
     "tests/test_iss050_fight_phase_11e.gd"
+    "tests/test_iss059_attached_units_11e.gd"
 )
 
 FAILED=0
