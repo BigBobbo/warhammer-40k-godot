@@ -264,7 +264,11 @@ func _apply_diffs_to_gamestate(diffs: Array) -> void:
 
 
 func _refresh_board_visuals() -> void:
-	var main = get_node_or_null("/root/Main")
+	# Runtime-node form of the SceneRefs chokepoint: this overlay is also
+	# compiled standalone by headless tests, where autoload identifiers
+	# don't resolve at parse time.
+	var refs = Engine.get_main_loop().root.get_node_or_null("SceneRefs")
+	var main = refs.main() if refs != null else null
 	if main and main.has_method("refresh_all_model_visuals"):
 		main.refresh_all_model_visuals()
 

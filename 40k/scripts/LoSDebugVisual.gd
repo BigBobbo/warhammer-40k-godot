@@ -143,7 +143,7 @@ func clear_los_lines() -> void:
 func _highlight_terrain(terrain_id: String, color: Color) -> void:
 	# Highlight a terrain piece
 	if not terrain_visual_ref:
-		terrain_visual_ref = get_node_or_null("/root/Main/BoardRoot/TerrainVisual")
+		terrain_visual_ref = SceneRefs.terrain_visual()
 	
 	if terrain_visual_ref and terrain_visual_ref.has_method("highlight_terrain"):
 		terrain_visual_ref.highlight_terrain(terrain_id, true, color)

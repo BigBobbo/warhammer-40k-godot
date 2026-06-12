@@ -99,7 +99,7 @@ func _ready() -> void:
 
 	print("WoundAllocationOverlay: [READY STEP 7] Getting BoardView reference...")
 	# Get board reference
-	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
+	board_view = SceneRefs.board_view()
 	if not board_view:
 		push_error("WoundAllocationOverlay: BoardView not found!")
 		print("WoundAllocationOverlay: [READY STEP 8] ERROR - BoardView not found!")
@@ -107,7 +107,7 @@ func _ready() -> void:
 		print("WoundAllocationOverlay: [READY STEP 8] BoardView found at: ", board_view.get_path())
 
 	# P1-67: Get TokenLayer reference for reading actual visual positions
-	token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		push_error("WoundAllocationOverlay: TokenLayer not found!")
 		print("WoundAllocationOverlay: [READY STEP 8b] ERROR - TokenLayer not found!")
@@ -1359,7 +1359,7 @@ func _show_model_damage_effect(model_id: String, model: Dictionary, new_wounds: 
 
 func _flash_model_token(model_id: String) -> void:
 	"""T5-V4: Flash the actual TokenVisual node red briefly to show damage taken."""
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		return
 
@@ -1391,7 +1391,7 @@ func _hide_destroyed_model_token(model_id: String) -> void:
 	print("╚══════════════════════════════════════════════════════════════════")
 
 	# Get Main node which manages model visuals
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	print("WoundAllocationOverlay: Main node lookup...")
 	print("  - main is null: ", main == null)
 
@@ -1412,7 +1412,7 @@ func _hide_destroyed_model_token(model_id: String) -> void:
 	else:
 		print("WoundAllocationOverlay: ⚠ update_unit_visuals method not found, using fallback...")
 		# Fallback: full board redraw
-		var board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
+		var board_view = SceneRefs.board_view()
 		print("  - board_view is null: ", board_view == null)
 		if board_view:
 			print("WoundAllocationOverlay: Calling board_view.queue_redraw()...")
@@ -1432,7 +1432,7 @@ func _refresh_board_visuals() -> void:
 		print("WoundAllocationOverlay: Triggered board visual refresh")
 
 	# Also notify Main to update model tokens
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if main and main.has_method("refresh_all_model_visuals"):
 		main.refresh_all_model_visuals()
 

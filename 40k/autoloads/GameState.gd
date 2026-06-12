@@ -1340,3 +1340,134 @@ func auto_assign_unit_color(unit_id: String) -> Color:
 	var color = FactionPalettes.get_auto_color(faction_name, used)
 	set_unit_color(unit_id, color)
 	return color
+
+
+## ISS-025: the action-pipeline diff applier (moved from PhaseManager —
+## mutating `state` is this autoload's concern).
+func apply_state_changes(changes: Array) -> void:
+	# Apply an array of state changes atomically
+	for change in changes:
+		_apply_single_change(change)
+
+func _apply_single_change(change: Dictionary) -> void:
+	# Apply a single state change based on operation type
+	match change.get("op", ""):
+		"set":
+			_set_state_value(change.path, change.value)
+		"add":
+			_add_to_state_array(change.path, change.value)
+		"remove":
+			# Remove can be used to delete a property or remove from array
+			if change.has("index"):
+				_remove_from_state_array(change.path, change.index)
+			else:
+				_remove_property(change.path)
+		_:
+			push_error("Unknown state change operation: " + str(change.get("op", "")))
+
+func _set_state_value(path: String, value) -> void:
+	var parts = path.split(".")
+	if parts.is_empty():
+		return
+
+	var current = state
+	for i in range(parts.size() - 1):
+		var part = parts[i]
+		if current is Dictionary:
+			# Dictionary keys take priority (even if key looks like an int, e.g. "1", "2")
+			if not current.has(part):
+				current[part] = {}
+			current = current[part]
+		elif part.is_valid_int():
+			var index = part.to_int()
+			if current is Array and index >= 0 and index < current.size():
+				current = current[index]
+			else:
+				# ISS-017: a silently-dropped diff is a state-corruption bug in
+				# the making — fail loudly so verify_delivery / tests catch it.
+				push_error("PhaseManager: diff path '%s' has out-of-range array index '%s' at segment %d — change DROPPED" % [path, part, i])
+				return
+		else:
+			push_error("PhaseManager: diff path '%s' traverses non-container at segment %d ('%s') — change DROPPED" % [path, i, part])
+			return
+
+	var final_key = parts[-1]
+	if current is Dictionary:
+		current[final_key] = value
+	elif final_key.is_valid_int():
+		var index = final_key.to_int()
+		if current is Array and index >= 0 and index < current.size():
+			current[index] = value
+		else:
+			push_error("PhaseManager: diff path '%s' final array index out of range — change DROPPED" % path)
+	else:
+		push_error("PhaseManager: diff path '%s' cannot set key '%s' on %s — change DROPPED" % [path, final_key, type_string(typeof(current))])
+
+func _add_to_state_array(path: String, value) -> void:
+	var parts = path.split(".")
+	var current = state
+	
+	for part in parts:
+		if part.is_valid_int():
+			var index = part.to_int()
+			if current is Array and index >= 0 and index < current.size():
+				current = current[index]
+			else:
+				return
+		else:
+			if current is Dictionary and current.has(part):
+				current = current[part]
+			else:
+				return
+	
+	if current is Array:
+		current.append(value)
+
+func _remove_from_state_array(path: String, index: int) -> void:
+	var parts = path.split(".")
+	var current = state
+	
+	for part in parts:
+		if part.is_valid_int():
+			var array_index = part.to_int()
+			if current is Array and array_index >= 0 and array_index < current.size():
+				current = current[array_index]
+			else:
+				return
+		else:
+			if current is Dictionary and current.has(part):
+				current = current[part]
+			else:
+				return
+	
+	if current is Array and index >= 0 and index < current.size():
+		current.remove_at(index)
+
+func _remove_property(path: String) -> void:
+	# Remove a property from a dictionary in the state
+	var parts = path.split(".")
+	if parts.is_empty():
+		return
+	
+	var current = state
+	# Navigate to the parent of the property to remove
+	for i in range(parts.size() - 1):
+		var part = parts[i]
+		if part.is_valid_int():
+			var index = part.to_int()
+			if current is Array and index >= 0 and index < current.size():
+				current = current[index]
+			else:
+				return
+		else:
+			if current is Dictionary and current.has(part):
+				current = current[part]
+			else:
+				return
+	
+	# Remove the final property
+	var final_key = parts[-1]
+	if current is Dictionary and current.has(final_key):
+		current.erase(final_key)
+
+

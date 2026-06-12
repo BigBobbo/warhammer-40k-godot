@@ -3778,7 +3778,7 @@ func _clear_stratagem_phase_flags() -> void:
 func _clear_shooting_visuals() -> void:
 	"""Clear all shooting-related visuals from the board when phase ends"""
 	# Get the ShootingController from Main
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if not main:
 		DebugLogger.info("ShootingPhase: Warning - Main node not found for visual cleanup")
 		return
@@ -3797,7 +3797,7 @@ func _clear_shooting_visuals() -> void:
 
 func _cleanup_boardroot_visuals() -> void:
 	"""Fallback cleanup - remove shooting visuals directly from BoardRoot"""
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
 
@@ -3818,7 +3818,7 @@ func _cleanup_boardroot_visuals() -> void:
 
 func _clear_death_markers() -> void:
 	"""Clear all death markers from the board at phase end"""
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if not main:
 		DebugLogger.info("ShootingPhase: Warning - Main node not found for death marker cleanup")
 		return
@@ -6364,7 +6364,7 @@ func _emit_fnp_detail_log(fnp_block: Dictionary) -> void:
 
 func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 	"""Trigger an animation on all token visuals for a unit."""
-	var tl = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var tl = SceneRefs.token_layer()
 	if not tl:
 		return
 	for child in tl.get_children():

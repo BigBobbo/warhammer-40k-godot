@@ -124,7 +124,7 @@ Conventions:
 - **Dependencies:** ISS-005
 - **Affected files:** controllers, `40k/autoloads/SaveLoadManager.gd`, `40k/autoloads/PhaseManager.gd`, `40k/scripts/Main.gd`
 - **Acceptance criteria:** no `get_node("/root/Main/...")` string paths in controllers; game boots and a full turn plays with no errors.
-- **Status:** TODO (rides with ISS-013 as planned — PhaseControllerBase centralized the three main lookups; the lifecycle manager built in ISS-013 will inject board/HUD references at construction, removing the remaining string paths)
+- **Status:** DONE — new `SceneRefs` autoload is the single chokepoint for Main-scene layout lookups (null-safe getters for BoardRoot/TokenLayer/BoardView/TerrainVisual/HUD containers + `main_path()` for one-offs); all 99 deep `"/root/Main/..."` lookups across scripts/phases/autoloads now route through it, plus 42 bare scene-root lookups — renaming a scene node is now a one-function change. Kept deliberately: 9 guarded `has_node`/`get_node` pairs on the scene root (explicit-guard semantics) and one runtime-node form in AllocationGroupOverlay (headless tests compile it standalone, where autoload identifiers don't parse-resolve). Gates: suite 1138/1138 + all 7 windowed 11e scenarios green. (rides with ISS-013 as planned — PhaseControllerBase centralized the three main lookups; the lifecycle manager built in ISS-013 will inject board/HUD references at construction, removing the remaining string paths)
 
 ### ISS-010 — Move root-level status/plan documents into docs/history
 - **Location:** repo root: ~40 files (`MASTER_AUDIT.md`, `FEB21_AUDIT.md`, `DEPLOYMENT_FIX_STATUS.md`, `ai_fix_loop_log.txt`, `scrap.md`, …)
@@ -320,7 +320,7 @@ Conventions:
 - **Dependencies:** ISS-001
 - **Affected files:** `TurnManager.gd`, `PhaseManager.gd`, `GameState.gd`, callers of `apply_state_changes`
 - **Acceptance criteria:** one documented owner per concern; deployment alternation + full battle-round cycle pass in scenario tests.
-- **Status:** TODO
+- **Status:** DONE (ownership settled; the GameManager dual-path unification recorded against ISS-027's decomposition where that code lives) — the diff applier (`apply_state_changes` + path walkers) MOVED to GameState (state mutation is its concern); PhaseManager keeps a thin documented forwarder for the ~100 existing call sites. Ownership headers added: PhaseManager owns the PHASE STATE MACHINE (instances, transitions, turn_ending hooks), TurnManager owns TURN ORDER (alternation, roll-offs, battle rounds) and only requests transitions. Gates: full headless suite 1138/1138 (the ISS-029 golden harness specifically protects the applier move), deployment-alternation scenario + the AI-vs-AI full battle-round cycle both green.
 
 ### ISS-026 — Multiplayer load-sync failure must not continue silently
 - **Location:** `40k/autoloads/NetworkManager.gd:1785-1904` (10s ack timeout → `load_sync_confirmed(false)` but session continues)
@@ -796,7 +796,7 @@ Conventions:
 | ISS-006 | Remove committed artifacts from git | medium | DONE | — |
 | ISS-007 | Guard freed-node access in cleanup | medium | DONE | — |
 | ISS-008 | Standardize controller input handling | medium | DONE | (005) |
-| ISS-009 | Replace hardcoded /root/ paths | low | TODO | 005 |
+| ISS-009 | Replace hardcoded /root/ paths | low | DONE | 005 |
 | ISS-010 | Move root status docs to docs/history | low | DONE | — |
 | ISS-011 | Triage archived/disabled tests | low | DONE | — |
 | ISS-012 | Unified AttackSequence (dedupe ranged/melee) | high | DONE | 002, 003 |
@@ -812,7 +812,7 @@ Conventions:
 | ISS-022 | Verify/extend undo coverage | medium | DONE | 001 |
 | ISS-023 | Single source of truth for positions | medium | TODO | 001 |
 | ISS-024 | Eliminate stale phase snapshots | medium | DONE | 001, 017 |
-| ISS-025 | TurnManager vs PhaseManager ownership | medium | TODO | 001 |
+| ISS-025 | TurnManager vs PhaseManager ownership | medium | DONE | 001 |
 | ISS-026 | MP load-sync failure handling | medium | DONE | — |
 | ISS-027 | Main.gd remaining decomposition | medium | TODO | 013, 018 |
 | ISS-028 | Save migration framework + fixtures | medium | DONE | 017 |

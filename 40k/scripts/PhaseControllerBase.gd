@@ -21,9 +21,9 @@ var hud_right: Control
 
 func _setup_ui_references() -> void:
 	# Get references to UI nodes
-	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
-	hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
-	hud_right = get_node_or_null("/root/Main/HUD_Right")
+	board_view = SceneRefs.board_view()
+	hud_bottom = SceneRefs.hud_bottom()
+	hud_right = SceneRefs.hud_right()
 
 	_on_ui_references_ready()
 
@@ -50,7 +50,7 @@ func _setup_right_panel() -> void:
 
 
 func get_board_root() -> Node:
-	return get_node_or_null("/root/Main/BoardRoot")
+	return SceneRefs.board_root()
 
 
 # ── ISS-013: phase signal registry ──────────────────────────────────

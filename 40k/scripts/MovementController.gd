@@ -219,16 +219,16 @@ func _exit_tree() -> void:
 	selection_indicators.clear()
 	
 	# Clean up UI containers
-	var movement_info = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/MovementInfo")
+	var movement_info = SceneRefs.main_path("HUD_Bottom/HBoxContainer/MovementInfo")
 	if movement_info and is_instance_valid(movement_info):
 		movement_info.queue_free()
 
-	var movement_buttons = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/MovementButtons")
+	var movement_buttons = SceneRefs.main_path("HUD_Bottom/HBoxContainer/MovementButtons")
 	if movement_buttons and is_instance_valid(movement_buttons):
 		movement_buttons.queue_free()
 
 	# Clean up right panel elements (standard pattern)
-	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
+	var container = SceneRefs.hud_right_vbox()
 	if container and is_instance_valid(container):
 		var movement_elements = ["MovementScrollContainer", "MovementPanel"]
 		for element in movement_elements:
@@ -248,7 +248,7 @@ func _exit_tree() -> void:
 
 func _create_path_visuals() -> void:
 	# Get references to the proper layers in BoardRoot
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		print("ERROR: Cannot find BoardRoot for visual layers")
 		return
@@ -878,7 +878,7 @@ func _on_unit_selected(index: int) -> void:
 	# Route reserve units to Main's reinforcement placement flow
 	if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
 		print("MovementController: Reserve unit %s selected — routing to Main for reinforcement placement" % unit_id)
-		var main_node = get_node_or_null("/root/Main")
+		var main_node = SceneRefs.main()
 		if main_node:
 			var reserve_type = unit.get("reserve_type", "strategic_reserves")
 			if reserve_type == "strategic_reserves" and GameState.unit_has_deep_strike(unit_id):
@@ -891,7 +891,7 @@ func _on_unit_selected(index: int) -> void:
 	print("MovementController: Unit selected - ", unit_id)
 
 	# Update transport panel in Main for transport info display
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("update_transport_panel"):
 		main_node.update_transport_panel(unit_id)
 
@@ -1013,7 +1013,7 @@ func _highlight_unit_models(unit_id: String) -> void:
 			highlight_ids[char_id] = true
 
 	# Set all token visuals for this unit (and attached characters) as selected
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		return
 
@@ -1024,7 +1024,7 @@ func _highlight_unit_models(unit_id: String) -> void:
 
 func _clear_unit_highlight() -> void:
 	# Clear selection highlight from all token visuals
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		return
 
@@ -1535,7 +1535,7 @@ func _show_confirmed_movement_paths(unit_id: String) -> void:
 		return
 
 	# Create a new visual instance for the confirmed animation (it self-destructs after fade)
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
 
@@ -1565,7 +1565,7 @@ func _on_unit_move_reset(unit_id: String) -> void:
 	_reset_pivot_cost()
 
 	# Recreate unit visuals to reflect restored rotations
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("_recreate_unit_visuals"):
 		main_node._recreate_unit_visuals()
 
@@ -1682,7 +1682,7 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 				move_cap_inches = phase_cap
 	
 	# Get the board transform from Main
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 	
 	if board_root:
@@ -1739,7 +1739,7 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 		return
 
 	# Get the board transform from Main
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 
 	if board_root:
@@ -1824,7 +1824,7 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	print("Ending model drag")
 	
 	# Get the board transform from Main
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 	
 	if board_root:
@@ -1919,7 +1919,7 @@ func _get_model_near_position(world_pos: Vector2, tolerance: float) -> Dictionar
 		return {}
 
 	# FIRST: Check visual tokens on the board for actual positions
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if token_layer:
 		var closest_model = {}
 		var closest_distance = INF
@@ -2031,7 +2031,7 @@ func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 		return {}
 
 	# FIRST: Check visual tokens on the board for actual positions
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if token_layer:
 		var closest_model = {}
 		var closest_distance = INF
@@ -2284,7 +2284,7 @@ func _on_disembark_confirmed(unit_id: String) -> void:
 	controller.disembark_canceled.connect(_on_disembark_canceled)
 
 	# Add to scene
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if board_root:
 		board_root.add_child(controller)
 	else:
@@ -2319,7 +2319,7 @@ func _on_disembark_completed(unit_id: String, positions: Array) -> void:
 func _post_disembark_ui_update(unit_id: String) -> void:
 	"""Update controller UI after a CONFIRM_DISEMBARK action has been processed"""
 	# Refresh board visuals to show the disembarked models
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if main and main.has_method("_recreate_unit_visuals"):
 		print("MovementController: Refreshing board visuals after disembark")
 		main._recreate_unit_visuals()
@@ -2396,7 +2396,7 @@ func _update_staged_moves_visual() -> void:
 			movement_path_preview.clear_now()
 		return
 
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
 	
@@ -3102,7 +3102,7 @@ func _get_effective_move_cap() -> float:
 
 func _update_model_token_visual(model: Dictionary) -> void:
 	# Find and update the token visual directly
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		return
 
@@ -3180,7 +3180,7 @@ func _handle_ctrl_click_selection(mouse_pos: Vector2) -> void:
 		print("Cannot select - no active unit or mode")
 		return
 
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 
 	if board_root:
@@ -3230,7 +3230,7 @@ func _should_start_drag_box() -> bool:
 	# Start drag box only when Shift is held and we're not clicking directly on a model
 	# This prevents conflicts with normal drag-to-move operations
 	# Convert screen position to board-local coords before checking model overlap
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 	if board_root:
 		world_pos = board_root.transform.affine_inverse() * get_viewport().get_mouse_position()
@@ -3247,7 +3247,7 @@ func _is_clicking_on_model(world_pos: Vector2) -> bool:
 
 func _is_clicking_on_selected_model(mouse_pos: Vector2) -> bool:
 	"""Check if the mouse position is over one of the selected models"""
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 
 	if board_root:
@@ -3271,7 +3271,7 @@ func _is_clicking_on_selected_model(mouse_pos: Vector2) -> bool:
 
 func _start_drag_box_selection(mouse_pos: Vector2) -> void:
 	"""Start drag-box selection"""
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 
 	if board_root:
@@ -3296,7 +3296,7 @@ func _update_drag_box_selection(mouse_pos: Vector2) -> void:
 	if not drag_box_active:
 		return
 
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 
 	if board_root:
@@ -3312,7 +3312,7 @@ func _complete_drag_box_selection(mouse_pos: Vector2) -> void:
 	if not drag_box_active:
 		return
 
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 
 	if board_root:
@@ -3362,7 +3362,7 @@ func _update_drag_box_preview(min_pos: Vector2, max_pos: Vector2) -> void:
 	"""Show live preview highlights on models inside the current drag box"""
 	_clear_selection_indicators()
 
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root or active_unit_id == "":
 		return
 
@@ -3376,7 +3376,7 @@ func _update_drag_box_preview(min_pos: Vector2, max_pos: Vector2) -> void:
 
 	# Try visual tokens first
 	var found_via_tokens = false
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if token_layer:
 		for child in token_layer.get_children():
 			if not child.has_meta("unit_id") or child.get_meta("unit_id") not in group_unit_ids:
@@ -3451,7 +3451,7 @@ func _select_models_in_box() -> void:
 
 	# FIRST: Try visual tokens on the board
 	var found_via_tokens = false
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if token_layer:
 		for child in token_layer.get_children():
 			if not child.has_meta("unit_id") or child.get_meta("unit_id") not in group_unit_ids:
@@ -3554,7 +3554,7 @@ func _update_model_selection_visuals() -> void:
 	_clear_selection_indicators()
 
 	# Create selection indicators for each selected model
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
 
@@ -3565,7 +3565,7 @@ func _update_model_selection_visuals() -> void:
 		var found_token = false
 
 		# Try visual tokens first
-		var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+		var token_layer = SceneRefs.token_layer()
 		if token_layer:
 			for child in token_layer.get_children():
 				if child.has_meta("unit_id") and child.get_meta("unit_id") == active_unit_id and \
@@ -3611,7 +3611,7 @@ func _start_group_movement(mouse_pos: Vector2) -> void:
 	print("Starting group movement with ", selected_models.size(), " models")
 
 	# Get world position for the mouse click
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 
 	if board_root:
@@ -3746,7 +3746,7 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 	if not group_dragging or selected_models.is_empty():
 		return
 
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 
 	if board_root:
@@ -3880,7 +3880,7 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 
 	print("Ending group drag with ", selected_models.size(), " models")
 
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	var world_pos: Vector2
 
 	if board_root:
@@ -4235,7 +4235,7 @@ func _on_overwatch_opportunity(moved_unit_id: String, defending_player: int, eli
 		return
 
 	# Auto-decline if the player has toggled auto-decline overwatch
-	var auto_decline_btn = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch")
+	var auto_decline_btn = SceneRefs.main_path("HUD_Bottom/HBoxContainer/AutoDeclineOverwatch")
 	if auto_decline_btn and auto_decline_btn.button_pressed:
 		print("MovementController: Auto-declining Fire Overwatch for player %d (toggle enabled)" % defending_player)
 		_on_fire_overwatch_declined(defending_player)
@@ -4263,7 +4263,7 @@ func _on_overwatch_opportunity(moved_unit_id: String, defending_player: int, eli
 	print("MovementController: Fire Overwatch dialog shown for player %d" % defending_player)
 
 	# MA-42: Show blocking overlay to active player
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
 		main_node.show_reactive_stratagem_waiting("Fire Overwatch")
 
@@ -4271,7 +4271,7 @@ func _on_fire_overwatch_used(shooter_unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Fire Overwatch."""
 	print("MovementController: Fire Overwatch USED by %s" % shooter_unit_id)
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("move_action_requested", {
@@ -4286,7 +4286,7 @@ func _on_fire_overwatch_declined(player: int) -> void:
 	"""Handle player declining Fire Overwatch."""
 	print("MovementController: Fire Overwatch DECLINED by player %d" % player)
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("move_action_requested", {
@@ -4347,7 +4347,7 @@ func _on_rapid_ingress_opportunity(player: int, eligible_units: Array) -> void:
 	print("MovementController: Rapid Ingress dialog shown for player %d (10s countdown)" % player)
 
 	# MA-42: Show blocking overlay to active player
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
 		main_node.show_reactive_stratagem_waiting("Rapid Ingress")
 
@@ -4355,7 +4355,7 @@ func _on_rapid_ingress_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Rapid Ingress."""
 	print("MovementController: Rapid Ingress USED — unit %s by player %d" % [unit_id, player])
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("move_action_requested", {
@@ -4370,7 +4370,7 @@ func _on_rapid_ingress_declined(player: int) -> void:
 	"""Handle player declining Rapid Ingress."""
 	print("MovementController: Rapid Ingress DECLINED by player %d" % player)
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("move_action_requested", {
@@ -4674,7 +4674,7 @@ class _SelectionRingIndicator extends Node2D:
 
 func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 	"""Trigger an animation on all token visuals for a unit."""
-	var tl = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var tl = SceneRefs.token_layer()
 	if not tl:
 		return
 	for child in tl.get_children():

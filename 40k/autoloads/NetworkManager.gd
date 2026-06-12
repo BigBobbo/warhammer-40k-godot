@@ -478,7 +478,7 @@ func _on_web_relay_message(data: Dictionary) -> void:
 			var ack_weapon = data.get("weapon_name", "")
 			var ack_sbid = data.get("save_broadcast_id", "")
 			print("NetworkManager: T5-MP4: Received save_dialog_ack — target=%s, weapon=%s, sbid=%s" % [ack_target, ack_weapon, ack_sbid])
-			var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+			var shooting_controller = SceneRefs.main_path("ShootingController")
 			if shooting_controller and shooting_controller.has_method("on_save_dialog_acknowledged"):
 				shooting_controller.on_save_dialog_acknowledged(ack_target, ack_weapon, ack_sbid)
 
@@ -568,12 +568,12 @@ func _handle_relayed_action(action: Dictionary) -> void:
 			var weapon_id = action.get("payload", {}).get("weapon_id", "")
 			if shooter_id != "" and target_unit_id != "":
 				print("NetworkManager: T5-MP3: Host (relay) showing remote player's ASSIGN_TARGET visual — %s → %s" % [shooter_id, target_unit_id])
-				var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+				var shooting_controller = SceneRefs.main_path("ShootingController")
 				if shooting_controller and shooting_controller.has_method("show_remote_target_assignment"):
 					shooting_controller.show_remote_target_assignment(shooter_id, target_unit_id, weapon_id)
 		elif relayed_action_type == "CLEAR_ASSIGNMENT" or relayed_action_type == "CLEAR_ALL_ASSIGNMENTS":
 			print("NetworkManager: T5-MP3: Host (relay) clearing remote player's assignment visuals")
-			var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+			var shooting_controller = SceneRefs.main_path("ShootingController")
 			if shooting_controller and shooting_controller.has_method("clear_remote_target_assignments"):
 				shooting_controller.clear_remote_target_assignments()
 
@@ -753,7 +753,7 @@ func retry_save_data_broadcast(save_data_list: Array) -> void:
 func _receive_save_dialog_ack(target_unit_id: String, weapon_name: String, save_broadcast_id: String = "") -> void:
 	"""RPC handler for save dialog acknowledgment (ENet mode)."""
 	print("NetworkManager: T5-MP4: Received save_dialog_ack via RPC — target=%s, weapon=%s, sbid=%s" % [target_unit_id, weapon_name, save_broadcast_id])
-	var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+	var shooting_controller = SceneRefs.main_path("ShootingController")
 	if shooting_controller and shooting_controller.has_method("on_save_dialog_acknowledged"):
 		shooting_controller.on_save_dialog_acknowledged(target_unit_id, weapon_name, save_broadcast_id)
 
@@ -1060,12 +1060,12 @@ func _send_action_to_host(action: Dictionary) -> void:
 			var weapon_id = action.get("payload", {}).get("weapon_id", "")
 			if shooter_id != "" and target_unit_id != "":
 				print("NetworkManager: T5-MP3: Host (ENet) showing remote player's ASSIGN_TARGET visual — %s → %s" % [shooter_id, target_unit_id])
-				var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+				var shooting_controller = SceneRefs.main_path("ShootingController")
 				if shooting_controller and shooting_controller.has_method("show_remote_target_assignment"):
 					shooting_controller.show_remote_target_assignment(shooter_id, target_unit_id, weapon_id)
 		elif client_action_type == "CLEAR_ASSIGNMENT" or client_action_type == "CLEAR_ALL_ASSIGNMENTS":
 			print("NetworkManager: T5-MP3: Host (ENet) clearing remote player's assignment visuals")
-			var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+			var shooting_controller = SceneRefs.main_path("ShootingController")
 			if shooting_controller and shooting_controller.has_method("clear_remote_target_assignments"):
 				shooting_controller.clear_remote_target_assignments()
 
@@ -1183,13 +1183,13 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			if shooter_id != "" and target_unit_id != "":
 				print("NetworkManager: T5-MP3: Remote ASSIGN_TARGET visual — %s targeting %s with %s" % [shooter_id, target_unit_id, weapon_id])
 				# Update the ShootingController on the remote player to show LoS line
-				var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+				var shooting_controller = SceneRefs.main_path("ShootingController")
 				if shooting_controller and shooting_controller.has_method("show_remote_target_assignment"):
 					shooting_controller.show_remote_target_assignment(shooter_id, target_unit_id, weapon_id)
 
 	# Handle CLEAR_ASSIGNMENT / CLEAR_ALL_ASSIGNMENTS — clear LoS lines on remote
 	if action_type == "CLEAR_ASSIGNMENT" or action_type == "CLEAR_ALL_ASSIGNMENTS":
-		var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+		var shooting_controller = SceneRefs.main_path("ShootingController")
 		if shooting_controller and shooting_controller.has_method("clear_remote_target_assignments"):
 			print("NetworkManager: T5-MP3: Remote %s — clearing assignment visuals" % action_type)
 			shooting_controller.clear_remote_target_assignments()
@@ -1234,7 +1234,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 
 	# T5-MP4: Clear attacker's waiting-for-saves state when APPLY_SAVES result arrives
 	if action_type == "APPLY_SAVES":
-		var sc = get_node_or_null("/root/Main/ShootingController")
+		var sc = SceneRefs.main_path("ShootingController")
 		if sc and sc.has_method("clear_awaiting_saves_state"):
 			print("NetworkManager: T5-MP4: Clearing attacker's awaiting saves state (APPLY_SAVES received)")
 			sc.clear_awaiting_saves_state()
@@ -1656,7 +1656,7 @@ func _animate_fight_movement_tokens(unit_id: String, movements: Dictionary) -> v
 	"""Animate model tokens from current visual position to new positions.
 	T5-MP1: Called when PILE_IN or CONSOLIDATE results are received on the remote client
 	to provide smooth visual feedback instead of models teleporting."""
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		print("NetworkManager: T5-MP1: Cannot animate - TokenLayer not found")
 		return
@@ -1734,7 +1734,7 @@ func _receive_drag_preview(unit_id: String, model_id: String, pos_x: float, pos_
 
 func _apply_drag_preview(unit_id: String, model_id: String, pos_x: float, pos_y: float) -> void:
 	"""T5-MP1: Apply a drag preview by moving the token directly (no tween for real-time feel)."""
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		return
 

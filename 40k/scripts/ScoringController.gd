@@ -27,12 +27,12 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	# Clean up UI containers
-	var scoring_controls = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/ScoringControls")
+	var scoring_controls = SceneRefs.main_path("HUD_Bottom/HBoxContainer/ScoringControls")
 	if scoring_controls and is_instance_valid(scoring_controls):
 		scoring_controls.queue_free()
 	
 	# Clean up right panel elements
-	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
+	var container = SceneRefs.hud_right_vbox()
 	if container and is_instance_valid(container):
 		var scoring_elements = ["ScoringPanel", "ScoringScrollContainer"]
 		for element in scoring_elements:
@@ -44,8 +44,8 @@ func _exit_tree() -> void:
 
 func _setup_ui_references() -> void:
 	# Get references to UI nodes
-	hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
-	hud_right = get_node_or_null("/root/Main/HUD_Right")
+	hud_bottom = SceneRefs.hud_bottom()
+	hud_right = SceneRefs.hud_right()
 	
 	# Setup scoring-specific UI elements
 	if hud_bottom:

@@ -545,7 +545,7 @@ func _check_thievin_scavengers() -> void:
 
 func _show_thievin_scavengers_notification(text: String, success: bool) -> void:
 	"""Show a temporary on-screen banner for Thievin' Scavengers result."""
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if not main_node:
 		return
 

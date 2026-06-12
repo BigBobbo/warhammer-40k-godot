@@ -103,7 +103,7 @@ func _exit_tree() -> void:
 	_clear_movement_visuals()
 	
 	# Clean up bottom HUD elements (End Charge Phase button and related)
-	var hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
+	var hud_bottom = SceneRefs.hud_bottom()
 	if hud_bottom:
 		var main_container = hud_bottom.get_node_or_null("HBoxContainer")
 		if main_container and is_instance_valid(main_container):
@@ -117,7 +117,7 @@ func _exit_tree() -> void:
 						child.queue_free()
 	
 	# ENHANCEMENT: Comprehensive right panel cleanup
-	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
+	var container = SceneRefs.hud_right_vbox()
 	if container and is_instance_valid(container):
 		var charge_elements = ["ChargePanel", "ChargeScrollContainer", "ChargeActions"]
 		for element in charge_elements:
@@ -173,7 +173,7 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 	print("DEBUG: Mouse down at global pos: ", global_pos)
 
 	# Try a simpler approach - check token visual nodes directly
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		print("DEBUG: TokenLayer not found")
 		return
@@ -220,7 +220,7 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 
 					dragging_model = model
 					# Convert token position to BoardRoot local coordinates
-					var board_root = get_node_or_null("/root/Main/BoardRoot")
+					var board_root = SceneRefs.board_root()
 					if board_root:
 						var local_pos = board_root.to_local(token_global_pos)
 						_start_model_drag(model, local_pos)
@@ -233,7 +233,7 @@ func _handle_mouse_motion(global_pos: Vector2) -> void:
 		return
 	
 	# Convert global position to BoardRoot local coordinates
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
 	
@@ -245,7 +245,7 @@ func _handle_mouse_release(global_pos: Vector2) -> void:
 		return
 	
 	# Convert global position to BoardRoot local coordinates
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
 	
@@ -253,7 +253,7 @@ func _handle_mouse_release(global_pos: Vector2) -> void:
 	_end_model_drag(local_pos)
 
 func _create_charge_visuals() -> void:
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		print("ERROR: Cannot find BoardRoot for visual layers")
 		return
@@ -1070,7 +1070,7 @@ func _show_target_engagement_visuals(unit_id: String) -> void:
 	if charge_targets.is_empty() and current_phase:
 		charge_targets = _get_charge_targets_from_phase(unit_id)
 
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
 
@@ -1248,7 +1248,7 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 		dragging_model["original_position"] = original_pos
 
 	# Create ghost visual to show where the model will be moved
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if board_root:
 		# Create ghost visual
 		ghost_visual = Node2D.new()
@@ -1469,7 +1469,7 @@ func _end_model_drag(world_pos: Vector2) -> void:
 
 func _move_token_visual(unit_id: String, model_id: String, new_pos: Vector2, rotation: float = 0.0) -> void:
 	# Find and move the actual token visual on screen
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		print("ERROR: TokenLayer not found, cannot move token visual")
 		return
@@ -2667,7 +2667,7 @@ func _rotate_dragging_model(angle: float) -> void:
 
 func _update_token_rotation(unit_id: String, model_id: String, new_rotation: float) -> void:
 	# Find and update the actual token visual with new model data including rotation
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var token_layer = SceneRefs.token_layer()
 	if not token_layer:
 		print("ERROR: TokenLayer not found, cannot update token rotation")
 		return
@@ -2869,7 +2869,7 @@ func _on_overwatch_opportunity(charging_unit_id: String, defending_player: int, 
 		return
 
 	# Auto-decline if the player has toggled auto-decline overwatch
-	var auto_decline_btn = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch")
+	var auto_decline_btn = SceneRefs.main_path("HUD_Bottom/HBoxContainer/AutoDeclineOverwatch")
 	if auto_decline_btn and auto_decline_btn.button_pressed:
 		print("ChargeController: Auto-declining Fire Overwatch for player %d (toggle enabled)" % defending_player)
 		_on_fire_overwatch_declined(defending_player)
@@ -2894,7 +2894,7 @@ func _on_overwatch_opportunity(charging_unit_id: String, defending_player: int, 
 	dialog.popup_centered()
 
 	# MA-42: Show blocking overlay to active player
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
 		main_node.show_reactive_stratagem_waiting("Fire Overwatch")
 
@@ -2905,7 +2905,7 @@ func _on_fire_overwatch_used(shooter_unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Fire Overwatch during charge."""
 	print("ChargeController: Fire Overwatch USED by %s" % shooter_unit_id)
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	if is_instance_valid(dice_log_display):
@@ -2922,7 +2922,7 @@ func _on_fire_overwatch_declined(player: int) -> void:
 	"""Handle player declining Fire Overwatch during charge."""
 	print("ChargeController: Fire Overwatch DECLINED by player %d" % player)
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	if is_instance_valid(dice_log_display):
@@ -2975,7 +2975,7 @@ func _on_heroic_intervention_opportunity(player: int, eligible_units: Array, cha
 	print("ChargeController: Heroic Intervention dialog shown for player %d" % player)
 
 	# MA-42: Show blocking overlay to active player
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
 		main_node.show_reactive_stratagem_waiting("Heroic Intervention")
 
@@ -2983,7 +2983,7 @@ func _on_heroic_intervention_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Heroic Intervention."""
 	print("ChargeController: Heroic Intervention USED: player %d selects %s" % [player, unit_id])
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 
@@ -3001,7 +3001,7 @@ func _on_heroic_intervention_declined(player: int) -> void:
 	"""Handle player declining Heroic Intervention."""
 	print("ChargeController: Heroic Intervention DECLINED by player %d" % player)
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	if is_instance_valid(dice_log_display):
@@ -3122,7 +3122,7 @@ func _on_tank_shock_result(vehicle_unit_id: String, target_unit_id: String, resu
 
 func _create_charge_arrow_visual(from_pos: Vector2, to_pos: Vector2, animate: bool) -> ChargeArrowVisual:
 	"""Create and display a charge arrow visual from charger to target."""
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		print("[ChargeController] T7-58: Cannot find BoardRoot for charge arrow")
 		return null

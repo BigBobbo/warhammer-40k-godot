@@ -4438,7 +4438,7 @@ func _emit_melee_fnp_detail(fnp_block: Dictionary) -> void:
 
 func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
 	"""Trigger an animation on all token visuals for a unit."""
-	var tl = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	var tl = SceneRefs.token_layer()
 	if not tl:
 		return
 	for child in tl.get_children():

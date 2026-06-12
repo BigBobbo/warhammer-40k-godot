@@ -284,17 +284,17 @@ func _exit_tree() -> void:
 		damage_feedback = null
 
 	# Clean up UI containers
-	var shooting_controls = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/ShootingControls")
+	var shooting_controls = SceneRefs.main_path("HUD_Bottom/HBoxContainer/ShootingControls")
 	if shooting_controls and is_instance_valid(shooting_controls):
 		shooting_controls.queue_free()
 	
 	# ENHANCEMENT: Comprehensive right panel cleanup
-	var shooting_panel = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/ShootingPanel")
+	var shooting_panel = SceneRefs.main_path("HUD_Right/VBoxContainer/ShootingPanel")
 	if shooting_panel and is_instance_valid(shooting_panel):
 		shooting_panel.get_parent().remove_child(shooting_panel)
 		shooting_panel.queue_free()
 	
-	var shooting_scroll = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer")
+	var shooting_scroll = SceneRefs.main_path("HUD_Right/VBoxContainer/ShootingScrollContainer")
 	if shooting_scroll and is_instance_valid(shooting_scroll):
 		shooting_scroll.get_parent().remove_child(shooting_scroll)
 		shooting_scroll.queue_free()
@@ -302,7 +302,7 @@ func _exit_tree() -> void:
 	# DON'T restore UnitListPanel/UnitCard visibility here - let Main.gd handle it
 
 func _create_shooting_visuals() -> void:
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		print("ERROR: Cannot find BoardRoot for visual layers")
 		return
@@ -338,7 +338,7 @@ func _create_shooting_visuals() -> void:
 	board_root.add_child(shooting_lines_container)
 
 	# T7-53: Create damage feedback visual for floating damage numbers
-	var board_view_ref = get_node_or_null("/root/Main/BoardRoot/BoardView")
+	var board_view_ref = SceneRefs.board_view()
 	if board_view_ref and not (damage_feedback and is_instance_valid(damage_feedback)):
 		damage_feedback = DamageFeedbackVisualScript.new()
 		damage_feedback.name = "ShootingDamageFeedback"
@@ -721,7 +721,7 @@ func set_phase(phase: BasePhase) -> void:
 		_setup_ui_references()
 		
 		# Hide UnitListPanel and UnitCard when shooting phase starts
-		var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
+		var container = SceneRefs.hud_right_vbox()
 		if container:
 			var unit_list_panel = container.get_node_or_null("UnitListPanel")
 			if unit_list_panel:
@@ -1379,7 +1379,7 @@ func _clear_shooting_lines() -> void:
 func _create_shooting_line_visual(from_pos: Vector2, to_pos: Vector2, weapon: String, animate: bool) -> void:
 	"""Create an animated shooting line visual from shooter to target. T5-V2.
 	If animate=true, plays the full tracer animation. Otherwise shows a static line."""
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		return
 
@@ -1691,7 +1691,7 @@ func refresh_los_debug_visuals() -> void:
 
 				if enemy_units_direct.is_empty():
 					print("[ShootingController] WARNING: No enemy units found anywhere!")
-					var main = get_node_or_null("/root/Main")
+					var main = SceneRefs.main()
 					if main and main.has_method("_show_toast"):
 						main._show_toast("LoS Debug: No enemy units found", 3.0)
 					return
@@ -2007,7 +2007,7 @@ func _on_ai_shooting_visual(shooter_id: String, target_data: Array, result_summa
 	"""T7-38: Display red targeting lines from AI shooter to targets and show hit/wound result summary."""
 	print("[ShootingController] T7-38: AI shooting visual for %s → %d target(s)" % [shooter_id, target_data.size()])
 
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		print("[ShootingController] T7-38: No BoardRoot, skipping visual")
 		return
@@ -2619,7 +2619,7 @@ func _on_saves_required(save_data_list: Array) -> void:
 	print("║ Connected to allocation_complete signal")
 
 	# Add to scene tree
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if not main:
 		push_error("ShootingController: /root/Main not found!")
 		print("╚═══════════════════════════════════════════════════════════════")
@@ -2893,7 +2893,7 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	dialog.popup_centered()
 
 	# MA-42: Show blocking overlay to active player
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
 		main_node.show_reactive_stratagem_waiting("Reactive Stratagem")
 
@@ -2903,7 +2903,7 @@ func _on_reactive_stratagem_selected(stratagem_id: String, target_unit_id: Strin
 	"""Handle defender selecting a reactive stratagem."""
 	print("ShootingController: Reactive stratagem selected: %s on %s" % [stratagem_id, target_unit_id])
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("shoot_action_requested", {
@@ -2916,7 +2916,7 @@ func _on_reactive_stratagem_declined() -> void:
 	"""Handle defender declining all reactive stratagems."""
 	print("ShootingController: Reactive stratagems declined")
 	# MA-42: Hide blocking overlay
-	var main_node = get_node_or_null("/root/Main")
+	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("shoot_action_requested", {
@@ -3822,7 +3822,7 @@ func _input(event: InputEvent) -> void:
 	# Handle clicking on units for target selection
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		# Get the board root which contains the units
-		var board_root = get_node_or_null("/root/Main/BoardRoot")
+		var board_root = SceneRefs.board_root()
 		if board_root:
 			# Convert screen position to board local position
 			var mouse_pos = board_root.get_local_mouse_position()
@@ -3834,7 +3834,7 @@ func _input(event: InputEvent) -> void:
 	# Handle hovering for LoS preview
 	elif event is InputEventMouseMotion:
 		# Get the board root which contains the units
-		var board_root = get_node_or_null("/root/Main/BoardRoot")
+		var board_root = SceneRefs.board_root()
 		if board_root:
 			var mouse_pos = board_root.get_local_mouse_position()
 			_handle_board_hover(mouse_pos)
@@ -4823,7 +4823,7 @@ func _show_waiting_for_saves_feedback(target_id: String, weapon_name: String) ->
 	var target_name = _wait_meta.get("display_name", _wait_meta.get("name", target_id)) if not target_unit.is_empty() else target_id
 
 	# Update status label via Main
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if main and "status_label" in main and main.status_label:
 		main.status_label.text = "Waiting for defender to make saves (%s vs %s)..." % [weapon_name, target_name]
 
@@ -4883,7 +4883,7 @@ func _retry_save_data_broadcast() -> void:
 				"Save dialog could not reach defender after %d attempts. Check network." % MAX_SAVE_RETRY_ATTEMPTS,
 				Color.RED, 6.0
 			)
-		var main = get_node_or_null("/root/Main")
+		var main = SceneRefs.main()
 		if main and "status_label" in main and main.status_label:
 			main.status_label.text = "ERROR: defender unreachable for saves (network issue)"
 		_pending_save_data_for_retry.clear()
@@ -4959,7 +4959,7 @@ func on_save_dialog_acknowledged(target_unit_id: String, weapon_name: String, sa
 	var _ack_meta = target_unit.get("meta", {}) if not target_unit.is_empty() else {}
 	var target_name = _ack_meta.get("display_name", _ack_meta.get("name", target_unit_id)) if not target_unit.is_empty() else target_unit_id
 
-	var main = get_node_or_null("/root/Main")
+	var main = SceneRefs.main()
 	if main and "status_label" in main and main.status_label:
 		main.status_label.text = "Defender is making saves (%s vs %s)..." % [weapon_name, target_name]
 

@@ -2020,7 +2020,7 @@ func _execute_ai_scout_movement(player: int, decision: Dictionary) -> void:
 
 func _show_ai_movement_paths(origin_positions: Dictionary, destinations: Dictionary, player: int) -> void:
 	"""Create an AIMovementPathVisual showing trails from origins to destinations."""
-	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var board_root = SceneRefs.board_root()
 	if not board_root:
 		print("AIPlayer: T7-21: Cannot find BoardRoot for movement path visual")
 		return
