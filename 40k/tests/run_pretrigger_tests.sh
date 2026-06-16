@@ -101,6 +101,7 @@ TESTS=(
     "tests/test_iss065_at_half_battleshock.gd"
     "tests/test_iss066_fight_phase_wiring.gd"
     "tests/test_iss067_scouts_11e.gd"
+    "tests/test_iss068_infiltrators_11e.gd"
 )
 
 FAILED=0

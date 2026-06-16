@@ -825,8 +825,8 @@ pointer in the table.
 - **Location:** `40k/phases/DeploymentPhase.gd:348,361` (hardcoded 9.0, no edition gate)
 - **Category:** breaking-change — **Severity:** medium
 - **Description:** 11e Infiltrators deploy >8" horizontally from the enemy DZ and all enemy units; code uses 10e's 9".
-- **Proposed fix:** Edition-gate the distance to 8" (horizontal) at edition≥11; headless test the boundary.
-- **Status:** TODO
+- **Proposed fix:** Edition-gate the distance to 8" at edition≥11.
+- **Status:** DONE — `_validate_infiltrators_position` computes `infiltrate_min = 8.0 if edition>=11 else 9.0` and applies it to both the enemy-DZ and enemy-model edge checks (messages updated). `test_iss068_infiltrators_11e.gd` 4/4 drives the REAL DeploymentPhase validator at the boundary (~8.5" allowed at e11/rejected at e10; ~7.5" rejected at e11; ~9.5" allowed at e10). Headless 1187/1187.
 
 ### ISS-069 — 24.24 Lone Operative missing X" variant + [INDIRECT FIRE] clause
 - **Location:** `40k/autoloads/RulesEngine.gd:3967,4753,4857` (hardcoded 12.0, normal-target only)
@@ -943,7 +943,7 @@ pointer in the table.
 | ISS-065 | 08.03 at-half-strength battle-shock trigger | high | DONE | 043 |
 | ISS-066 | 12.02-12.08 pile-in/consolidation phase wiring | high | DONE | 050 |
 | ISS-067 | 24.31/24.32 Scouts 11e (8" + reserves option) | high | DONE | 040 |
-| ISS-068 | 24.20 Infiltrators 11e deploy distance | medium | TODO | — |
+| ISS-068 | 24.20 Infiltrators 11e deploy distance | medium | DONE | — |
 | ISS-069 | 24.24 Lone Operative X"/indirect clause | medium | TODO | — |
 | ISS-070 | 24.01 keyword-scoped abilities applied live | medium | TODO | 047 |
 | ISS-071 | 24.14 Firing Deck [ONE SHOT]/one-weapon limit | medium | TODO | 047 |

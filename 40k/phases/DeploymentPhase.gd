@@ -311,7 +311,10 @@ func _validate_model_position(position: Vector2, unit: Dictionary, model_index: 
 	return {"valid": errors.size() == 0, "errors": errors}
 
 func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_index: int, unit_owner: int, rotation: float = 0.0) -> Dictionary:
-	"""Validate Infiltrators deployment: anywhere on the board, >9 inches from enemy deployment zone and >9 inches from enemy models"""
+	"""Validate Infiltrators deployment: anywhere on the board, >9" (10e) /
+	>8" (11e, 24.20) from the enemy deployment zone and all enemy models."""
+	# ISS-068 (11e 24.20): 9" -> 8".
+	var infiltrate_min = 8.0 if GameConstants.edition >= 11 else 9.0
 	var errors = []
 
 	# Get model info
@@ -344,9 +347,9 @@ func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_
 		var edge_dist_inches = min_dist_inches - model_radius_inches
 		# Also check if model center is inside the enemy zone (distance would be 0)
 		if Geometry2D.is_point_in_polygon(position, enemy_zone_poly_pixels):
-			errors.append("Infiltrators must be >9\" from enemy deployment zone (model is inside enemy zone)")
-		elif edge_dist_inches < 9.0:
-			errors.append("Infiltrators must be >9\" from enemy deployment zone (%.1f\")" % edge_dist_inches)
+			errors.append("Infiltrators must be >%d\" from enemy deployment zone (model is inside enemy zone)" % int(infiltrate_min))
+		elif edge_dist_inches < infiltrate_min:
+			errors.append("Infiltrators must be >%d\" from enemy deployment zone (%.1f\")" % [int(infiltrate_min), edge_dist_inches])
 
 	# Check >9" from all enemy models (edge-to-edge)
 	var model_base_mm = model.get("base_mm", 32)
@@ -358,8 +361,8 @@ func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_
 		var dist_px = position.distance_to(enemy_pos_px)
 		var dist_inches = dist_px / px_per_inch
 		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-		if edge_dist < 9.0:
-			errors.append("Infiltrators must be >9\" from enemy models (%.1f\")" % edge_dist)
+		if edge_dist < infiltrate_min:
+			errors.append("Infiltrators must be >%d\" from enemy models (%.1f\")" % [int(infiltrate_min), edge_dist])
 			break
 
 	# Check overlap with other models using shape-aware collision
