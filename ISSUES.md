@@ -797,8 +797,8 @@ pointer in the table.
 - **Location:** `40k/phases/MovementPhase.gd` (`_process_confirm_unit_move` ~4596 calls `_process_desperate_escape`; the 11e `FallBackMove.before_moving` already rolled hazards at BEGIN)
 - **Category:** bug — **Severity:** high (active correctness bug at edition 11)
 - **Description:** The legacy 10e `_process_desperate_escape` runs unconditionally at move-confirm for any FALL_BACK with no `edition < 11` guard, while the 11e BEGIN_FALL_BACK path already rolled per-model hazards via the template. A battle-shocked unit falling back at edition 11 has hazard mortal wounds applied twice.
-- **Proposed fix:** Gate the legacy confirm-time desperate-escape call to `edition < 11`; at edition 11 the template's BEGIN-path hazard is authoritative (and the desperate-escape after-effect battle-shock follow-up already lives in the template). Add a windowed scenario that drives a battle-shocked fall-back to CONFIRM and asserts hazards apply exactly once.
-- **Status:** TODO
+- **Proposed fix:** Gate the legacy confirm-time desperate-escape call to `edition < 11`; at edition 11 the template's BEGIN-path hazard is authoritative.
+- **Status:** DONE — `_process_confirm_unit_move` gates the legacy `_process_desperate_escape` call to `edition < 11` (`MovementPhase.gd:4595`). `test_iss064_fallback_no_double_hazard.gd` 5/5 drives the REAL MovementPhase (BEGIN_FALL_BACK desperate_escape → CONFIRM_UNIT_MOVE) and proves single application at edition 11 plus a 10e sensitivity check (the legacy path still fires at CONFIRM, so the test would catch a regression). Windowed `sp/iss064_fallback_single_hazard_11e.json` 17/17 (battle-shocked unit loses a model at BEGIN, none added at CONFIRM). Headless 1143/1143.
 
 ### ISS-065 — 08.03 units at exactly half-strength skip their battle-shock test
 - **Location:** `40k/phases/CommandPhase.gd:276` (passes `at_half=false`); `40k/autoloads/GameState.gd:962` (`is_below_half_strength` strict `<`)
@@ -939,7 +939,7 @@ pointer in the table.
 | ISS-061 | 11e FLY/surge/hover | medium | DONE* (see ISS-073) | 040 |
 | ISS-062 | AI updated for 11e | medium | DONE | 014, 039, 041, 048, 050, 057 |
 | ISS-063 | 11e windowed scenario suite | medium | DONE | 038-061 (incremental) |
-| ISS-064 | 09.07 fall-back desperate-escape double-fire | high | TODO | 040 |
+| ISS-064 | 09.07 fall-back desperate-escape double-fire | high | DONE | 040 |
 | ISS-065 | 08.03 at-half-strength battle-shock trigger | high | TODO | 043 |
 | ISS-066 | 12.02-12.08 pile-in/consolidation phase wiring | high | TODO | 050 |
 | ISS-067 | 24.31/24.32 Scouts 11e (8" + reserves option) | high | TODO | 040 |

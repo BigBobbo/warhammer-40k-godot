@@ -4591,8 +4591,12 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"value": true
 		})
 
-	# Handle Desperate Escape for Fall Back
-	if move_data.mode == "FALL_BACK":
+	# Handle Desperate Escape for Fall Back.
+	# ISS-064 (11e 09.07): at edition >= 11 the desperate-escape BEFORE-MOVING
+	# hazard rolls (06.03) are already applied at BEGIN_FALL_BACK by the
+	# FallBackMove template; running the legacy 10e per-model destruction here
+	# too would double-apply (two different mechanics). Gate it to 10e only.
+	if move_data.mode == "FALL_BACK" and GameConstants.edition < 11:
 		var desperate_escape_result = _process_desperate_escape(unit_id, move_data)
 		changes.append_array(desperate_escape_result.changes)
 		additional_dice.append_array(desperate_escape_result.dice)

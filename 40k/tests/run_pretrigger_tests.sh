@@ -97,6 +97,7 @@ TESTS=(
     "tests/test_iss050_fight_phase_11e.gd"
     "tests/test_iss059_attached_units_11e.gd"
     "tests/test_iss029_golden_replay.gd"
+    "tests/test_iss064_fallback_no_double_hazard.gd"
 )
 
 FAILED=0
