@@ -540,7 +540,7 @@ Conventions:
 - **Dependencies:** ISS-037, ISS-038, ISS-016
 - **Affected files:** `CommandPhase.gd`, `Morale` module, `StratagemManager.gd`, `MissionManager.gd` (OC), UI badges
 - **Acceptance criteria:** unit tests: recovery roll, half-strength edge cases (starting strength 1 vehicle by wounds; attached-unit example from appendix pg 86); scenario: shocked unit can't be stratagem target and shows OC '-'.
-- **Status:** DONE (one noted edge) — primitives (`leadership_roll`, edition-gated `battleshock_test_required`, `battleshock_outcome`) PLUS the CommandPhase wiring: at edition 11 battle-shocked flags persist into the step (no auto-clear), shocked units are queued for a recovery test, and passing clears the flag for the unit and its attached characters; 10e flow byte-unchanged. Discovery: the battle-shocked stratagem-target ban already existed and applies in BOTH editions (the rule is shared) — pinned by test instead of duplicating the check. Verified by `test_iss043_battleshock_11e.gd` (20/20: distribution, eligibility matrix per edition, persisting flag, recovery via forced 12, stratagem ban both editions); suite 863/863. Noted edge for the datasheet pass: the AT-half-strength trigger (models exactly at half / W-tracked vehicles) needs a starting-strength helper — below-half covers current data; tracked here. Also noted: the test handler mutates unit flags via local refs (invisible to ISS-001's literal scan) — unify when ISS-025 merges the execute paths.
+- **Status:** DONE (one noted edge) — primitives (`leadership_roll`, edition-gated `battleshock_test_required`, `battleshock_outcome`) PLUS the CommandPhase wiring: at edition 11 battle-shocked flags persist into the step (no auto-clear), shocked units are queued for a recovery test, and passing clears the flag for the unit and its attached characters; 10e flow byte-unchanged. Discovery: the battle-shocked stratagem-target ban already existed and applies in BOTH editions (the rule is shared) — pinned by test instead of duplicating the check. Verified by `test_iss043_battleshock_11e.gd` (20/20: distribution, eligibility matrix per edition, persisting flag, recovery via forced 12, stratagem ban both editions); suite 863/863. Noted edge for the datasheet pass: the AT-half-strength trigger (models exactly at half / W-tracked vehicles) needs a starting-strength helper — below-half covers current data; tracked here as ISS-065 (now scheduled for fix). Also noted: the test handler mutates unit flags via local refs (invisible to ISS-001's literal scan) — unify when ISS-025 merges the execute paths.
 
 ### ISS-044 — Hazard roll mechanic
 - **Location:** `RulesEngine.gd:6711-6877` (current hazardous), `ShootingPhase.gd:47,1237`; rules: 06.03, 24.15
@@ -784,6 +784,94 @@ Conventions:
 
 ---
 
+## TIER 4 — 11e migration audit corrections (2026-06-16)
+
+These issues were surfaced by a fresh rule-by-rule re-audit of the 11e core
+rulebook against the code (documented in `docs/11e_migration_audit.html`). The
+earlier pass batched several abilities into a deferred bullet and marked their
+parent issues DONE while specific sub-mechanics remained unwired or 10e-only.
+Each issue below is the specific, verified gap; parent issues carry a `DONE*`
+pointer in the table.
+
+### ISS-064 — 09.07 fall-back desperate-escape double-fires at edition 11
+- **Location:** `40k/phases/MovementPhase.gd` (`_process_confirm_unit_move` ~4596 calls `_process_desperate_escape`; the 11e `FallBackMove.before_moving` already rolled hazards at BEGIN)
+- **Category:** bug — **Severity:** high (active correctness bug at edition 11)
+- **Description:** The legacy 10e `_process_desperate_escape` runs unconditionally at move-confirm for any FALL_BACK with no `edition < 11` guard, while the 11e BEGIN_FALL_BACK path already rolled per-model hazards via the template. A battle-shocked unit falling back at edition 11 has hazard mortal wounds applied twice.
+- **Proposed fix:** Gate the legacy confirm-time desperate-escape call to `edition < 11`; at edition 11 the template's BEGIN-path hazard is authoritative (and the desperate-escape after-effect battle-shock follow-up already lives in the template). Add a windowed scenario that drives a battle-shocked fall-back to CONFIRM and asserts hazards apply exactly once.
+- **Status:** TODO
+
+### ISS-065 — 08.03 units at exactly half-strength skip their battle-shock test
+- **Location:** `40k/phases/CommandPhase.gd:276` (passes `at_half=false`); `40k/autoloads/GameState.gd:962` (`is_below_half_strength` strict `<`)
+- **Category:** bug — **Severity:** high
+- **Description:** 11e 08.03 reads "at, or below, half-strength." `AttackSequence.battleshock_test_required(shocked, below_half, at_half)` has the right `at_half` param but CommandPhase hardcodes it false and `below_half` uses a strict `<`, so a unit at exactly half (5/10 models, or current*2 == max wounds) never tests. (ISS-043 self-noted this edge.)
+- **Proposed fix:** Add an `is_at_half_strength`/combined helper (current*2 == max, or alive*2 == total) and pass it as `at_half` at edition≥11. Headless test the boundary (4/10, 5/10, 6/10) at both editions.
+- **Status:** TODO
+
+### ISS-066 — 12.02-12.08 pile-in & consolidation modes never reach the live Fight phase
+- **Location:** `40k/phases/FightPhase.gd` `_validate_pile_in`/`_process_pile_in` (639/1267); `_validate_consolidate`/`_determine_consolidate_mode` (809/864)
+- **Category:** breaking-change — **Severity:** high
+- **Description:** `PileInMove` (5" target select, base-contact lock, 12.02-12.03) and `ConsolidationMove` (Ongoing/Engaging/Objective modes incl. engaging-consolidation forcing enemies to fight, 12.07-12.08) are implemented as MoveType instances and unit-tested, but FightPhase never calls them — both handlers run legacy 10e logic with no `edition >= 11` branch. ISS-050 step 2 only wired the selection FightSequencer, not the move templates.
+- **Proposed fix:** Branch `_validate_pile_in`/`_process_pile_in` and the consolidation handlers to the templates at edition≥11 (eligibility, target-set, base-contact lock, mode selection, and the engaging-consolidation forced-fight queue). Windowed scenario driving pile-in + each consolidation mode.
+- **Status:** TODO
+
+### ISS-067 — 24.31/24.32 Scouts still run 10e (distance + missing reserves option)
+- **Location:** `40k/phases/ScoutPhase.gd` (`SCOUT_MIN_ENEMY_DISTANCE_INCHES=9.0` :15; DEPLOYED-only :135; checks :215,:265); `40k/autoloads/GameState.gd.get_scout_units_for_player`
+- **Category:** breaking-change — **Severity:** high
+- **Description:** 11e 24.32 after-move distance is **>8" horizontally from enemy UNITS** (code: 9.0" straight-line per model); eligibility requires the unit **wholly within its DZ** (not enforced); and 24.31 adds a new option — a Scout unit **in strategic reserves** may **set up wholly within its DZ** (code rejects reserves outright). No edition gate anywhere in the phase.
+- **Proposed fix:** Edition-gate an 8" horizontal-from-units check, a wholly-within-DZ precondition, the lowest-shared-Scouts-X selection (24.31 cross-ref), and the strategic-reserves placement branch. Windowed scenario per option.
+- **Status:** TODO
+
+### ISS-068 — 24.20 Infiltrators deploy distance still 9" (should be 8" horizontal)
+- **Location:** `40k/phases/DeploymentPhase.gd:348,361` (hardcoded 9.0, no edition gate)
+- **Category:** breaking-change — **Severity:** medium
+- **Description:** 11e Infiltrators deploy >8" horizontally from the enemy DZ and all enemy units; code uses 10e's 9".
+- **Proposed fix:** Edition-gate the distance to 8" (horizontal) at edition≥11; headless test the boundary.
+- **Status:** TODO
+
+### ISS-069 — 24.24 Lone Operative missing X" variant + [INDIRECT FIRE] clause
+- **Location:** `40k/autoloads/RulesEngine.gd:3967,4753,4857` (hardcoded 12.0, normal-target only)
+- **Category:** missing-feature — **Severity:** medium
+- **Description:** 11e adds an explicit "[INDIRECT FIRE] weapons cannot target unless within X"" clause and a `Lone Operative X"` distance variant; code only restricts normal targeting at a fixed 12".
+- **Proposed fix:** Parse the `X"` variant, apply the gate to indirect-fire targeting too, edition-gated. Headless test.
+- **Status:** TODO
+
+### ISS-070 — 24.01 keyword-scoped weapon abilities not applied in live resolution
+- **Location:** `40k/autoloads/RulesEngine.gd` `has_lethal_hits`/`has_sustained_hits`/`has_twin_linked` etc. take `(weapon_id, board)` with no target (5813,5930,5997)
+- **Category:** bug — **Severity:** medium
+- **Description:** `[LETHAL HITS: VEHICLE]`-style scoping exists in `AbilityRegistry` but the live resolution helpers never receive the target unit, so a scoped ability fires against all targets.
+- **Proposed fix:** Thread the target unit into the ability checks at edition≥11 and consult `AbilityRegistry.entry_applies_to_target`. Headless test a scoped ability vs matching/non-matching targets.
+- **Status:** TODO
+
+### ISS-071 — 24.14 Firing Deck doesn't exclude [ONE SHOT] / one-weapon-per-model
+- **Location:** `40k/scripts/.../FiringDeckDialog.gd:101` (`_populate_available_weapons` lists all)
+- **Category:** missing-feature — **Severity:** medium
+- **Description:** Firing Deck selects up to X embarked models correctly but offers every weapon; 11e requires excluding `[ONE SHOT]` weapons and one ranged weapon per selected model.
+- **Proposed fix:** Filter `[ONE SHOT]` weapons and enforce one-ranged-weapon-per-model at edition≥11.
+- **Status:** TODO
+
+### ISS-072 — 24.02 duplicated-ability non-stacking not enforced
+- **Location:** resolution path (no implementation found)
+- **Category:** missing-feature — **Severity:** low
+- **Description:** Same ability is not cumulative in 11e (pick one instance; numbers/keywords still duplicated; Scouts lowest-number special case). No selection logic exists.
+- **Proposed fix:** De-duplicate identical abilities when gathering weapon/unit abilities at edition≥11. Headless test a doubled ability.
+- **Status:** TODO
+
+### ISS-073 — 24.35 Super-Heavy Walker MOBILE-grant + D6 battle-shock gamble
+- **Location:** `40k/autoloads/TerrainManager.gd:978` (comment only); MoveType `extra_keywords` hook
+- **Category:** missing-feature — **Severity:** low
+- **Description:** The ≤4" terrain traversal works; the optional "grant all models MOBILE for the move, then roll D6 — on a 1 the unit is battle-shocked" is not driven by any action.
+- **Proposed fix:** A move-time declaration that injects MOBILE and rolls the D6 at move end, edition-gated. Headless test.
+- **Status:** TODO
+
+### ISS-074 — 23.01/23.02 Aircraft reserve cycle
+- **Location:** deployment + end-of-turn (no implementation)
+- **Category:** missing-feature — **Severity:** low
+- **Description:** AIRCRAFT must start in strategic reserves and return to reserves at the end of each opponent's turn (ingress-only). Not implemented. Openly deferred under ISS-060 — no AIRCRAFT datasheets exist in the current armies.
+- **Proposed fix:** Force AIRCRAFT to reserves at deployment and add an end-of-opponent-turn return-to-reserves cycle, edition-gated. Gate behind an AIRCRAFT-keyword presence check so it is inert without aircraft data. Headless test with a synthetic AIRCRAFT unit.
+- **Status:** TODO
+
+---
+
 ## Summary table
 
 | ID | Title | Severity | Status | Dependencies |
@@ -827,17 +915,17 @@ Conventions:
 | ISS-037 | 11e datasheet/army schema + converter | high | DONE | 003 |
 | ISS-038 | 11e battle-round/turn structure hooks | high | DONE | 001, 025, 034 |
 | ISS-039 | Engagement range 2"/5" | high | DONE | 002 |
-| ISS-040 | 11e move-type framework | high | DONE | 001, 002, 038 |
+| ISS-040 | 11e move-type framework | high | DONE* (see ISS-064) | 001, 002, 038 |
 | ISS-041 | 11e attack core: allocation groups | blocker | DONE | 012, 037 |
 | ISS-042 | 11e coherency + end-of-turn enforcement | high | DONE | 002, 038, 040 |
-| ISS-043 | 11e leadership + battle-shock rework | high | DONE | 037, 038, 016 |
+| ISS-043 | 11e leadership + battle-shock rework | high | DONE* (see ISS-065) | 037, 038, 016 |
 | ISS-044 | Hazard roll mechanic | medium | DONE | 002, 046 |
 | ISS-045 | Wound-allocation UI for groups | high | DONE | 041 |
 | ISS-046 | 11e mortal wounds + dev-wounds cap | high | DONE | 041 |
-| ISS-047 | 11e weapon abilities | high | DONE | 003, 041 |
+| ISS-047 | 11e weapon abilities | high | DONE* (see ISS-070/071/072) | 003, 041 |
 | ISS-048 | 11e shooting types | high | DONE | 040, 037, 047 |
 | ISS-049 | 11e charge phase | high | DONE | 039, 040 |
-| ISS-050 | 11e fight phase restructure | blocker | DONE | 039, 040, 049 |
+| ISS-050 | 11e fight phase restructure | blocker | DONE* (see ISS-066) | 039, 040, 049 |
 | ISS-051 | 11e terrain data model | blocker | DONE | 002 |
 | ISS-052 | 11e visibility (Hidden/Obscuring/Solid) | blocker | DONE | 051 |
 | ISS-053 | Cover + Plunging Fire as BS modifiers | high | DONE | 051, 052, 016, 041 |
@@ -847,7 +935,18 @@ Conventions:
 | ISS-057 | Actions system | high | DONE | 038, 039, 040, 043 |
 | ISS-058 | 11e transports (modes, emergency) | high | DONE | 040, 044, 043 |
 | ISS-059 | 11e attached units (Support, T, persistence) | medium | DONE | 037, 041 |
-| ISS-060 | 11e reserves/ingress/aircraft | medium | DONE | 040, 038, 056 |
-| ISS-061 | 11e FLY/surge/hover | medium | DONE | 040 |
+| ISS-060 | 11e reserves/ingress/aircraft | medium | DONE* (see ISS-074) | 040, 038, 056 |
+| ISS-061 | 11e FLY/surge/hover | medium | DONE* (see ISS-073) | 040 |
 | ISS-062 | AI updated for 11e | medium | DONE | 014, 039, 041, 048, 050, 057 |
 | ISS-063 | 11e windowed scenario suite | medium | DONE | 038-061 (incremental) |
+| ISS-064 | 09.07 fall-back desperate-escape double-fire | high | TODO | 040 |
+| ISS-065 | 08.03 at-half-strength battle-shock trigger | high | TODO | 043 |
+| ISS-066 | 12.02-12.08 pile-in/consolidation phase wiring | high | TODO | 050 |
+| ISS-067 | 24.31/24.32 Scouts 11e (8" + reserves option) | high | TODO | 040 |
+| ISS-068 | 24.20 Infiltrators 11e deploy distance | medium | TODO | — |
+| ISS-069 | 24.24 Lone Operative X"/indirect clause | medium | TODO | — |
+| ISS-070 | 24.01 keyword-scoped abilities applied live | medium | TODO | 047 |
+| ISS-071 | 24.14 Firing Deck [ONE SHOT]/one-weapon limit | medium | TODO | 047 |
+| ISS-072 | 24.02 duplicated-ability non-stacking | low | TODO | 047 |
+| ISS-073 | 24.35 Super-Heavy Walker MOBILE gamble | low | TODO | 061 |
+| ISS-074 | 23.01/23.02 Aircraft reserve cycle | low | TODO | 060 |
