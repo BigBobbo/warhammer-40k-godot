@@ -270,13 +270,16 @@ func _identify_units_needing_tests() -> void:
 		# Use combined check that includes attached character models in starting strength
 		var below_half = GameState.is_below_half_strength_combined(unit_id)
 		var is_shocked = unit.get("flags", {}).get("battle_shocked", false)
-		# ISS-043 (11e 08.03): battle-shocked units must ALSO test — passing
-		# recovers them. (At-or-below-half bookkeeping rides with the
-		# starting-strength helper; below-half covers it for W-tracked units.)
-		if AttackSequence.battleshock_test_required(is_shocked, below_half, false):
+		# ISS-043/065 (11e 08.03): a unit tests if it is currently
+		# battle-shocked OR at-or-below half-strength. "At" half-strength
+		# (exactly half the starting strength) was previously omitted —
+		# now supplied via is_at_half_strength_combined (the even-divisibility
+		# rule is enforced inside it). 10e ignores at_half (below-half only).
+		var at_half = GameState.is_at_half_strength_combined(unit_id)
+		if AttackSequence.battleshock_test_required(is_shocked, below_half, at_half):
 			_units_needing_test.append(unit_id)
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			DebugLogger.info(str("CommandPhase: %s (%s) needs battle-shock test (below_half=%s shocked=%s)" % [unit_name, unit_id, below_half, is_shocked]))
+			DebugLogger.info(str("CommandPhase: %s (%s) needs battle-shock test (below_half=%s at_half=%s shocked=%s)" % [unit_name, unit_id, below_half, at_half, is_shocked]))
 
 func _has_battle_shock_immunity(keywords: Array, abilities: Array) -> bool:
 	"""Check if a unit has FEARLESS or And They Shall Know No Fear keyword/ability,

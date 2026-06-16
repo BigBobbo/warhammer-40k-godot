@@ -1000,6 +1000,62 @@ func is_below_half_strength_combined(unit_id: String) -> bool:
 	print("GameState: is_below_half_strength_combined(%s): %d alive / %d total (attached chars: %s)" % [unit_id, alive_models, total_models, str(attached_chars)])
 	return alive_models * 2 < total_models
 
+## ISS-065 (11e 08.03 / Starting Strength rules pg 86): a unit is AT
+## half-strength when its remaining models equal EXACTLY half its
+## starting strength (or, single-model, remaining wounds = half W).
+## CRITICAL: a unit whose starting strength (or a model's W) cannot be
+## evenly divided in half CANNOT be at half-strength (it can still be
+## below half-strength). Starting strength = the model-array size here
+## (dead models remain in the array as alive=false), matching the
+## established is_below_half_strength convention.
+func is_at_half_strength(unit: Dictionary) -> bool:
+	var models = unit.get("models", [])
+	if models.size() == 0:
+		return false
+	var total_models = models.size()
+	var alive_models = 0
+	for model in models:
+		if model.get("alive", true):
+			alive_models += 1
+	if alive_models == 0:
+		return false  # destroyed, not at half-strength
+	if total_models == 1:
+		var model = models[0]
+		var max_wounds = int(model.get("wounds", 1))
+		var current_wounds = int(model.get("current_wounds", max_wounds))
+		if max_wounds % 2 != 0:
+			return false  # W cannot be evenly halved -> cannot be at half
+		return current_wounds * 2 == max_wounds
+	if total_models % 2 != 0:
+		return false  # starting strength odd -> cannot be at half
+	return alive_models * 2 == total_models
+
+func is_at_half_strength_combined(unit_id: String) -> bool:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	var attached_chars = get_attached_characters(unit_id)
+	if attached_chars.size() == 0:
+		return is_at_half_strength(unit)
+	var total_models = unit.get("models", []).size()
+	var alive_models = 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			alive_models += 1
+	for char_id in attached_chars:
+		var char_unit = get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+		for model in char_unit.get("models", []):
+			total_models += 1
+			if model.get("alive", true):
+				alive_models += 1
+	if alive_models == 0:
+		return false
+	if total_models % 2 != 0:
+		return false  # combined starting strength odd -> cannot be at half
+	return alive_models * 2 == total_models
+
 func add_action_to_phase_log(action: Dictionary) -> void:
 	state["phase_log"].append(action)
 

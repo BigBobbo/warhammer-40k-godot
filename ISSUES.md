@@ -804,8 +804,8 @@ pointer in the table.
 - **Location:** `40k/phases/CommandPhase.gd:276` (passes `at_half=false`); `40k/autoloads/GameState.gd:962` (`is_below_half_strength` strict `<`)
 - **Category:** bug — **Severity:** high
 - **Description:** 11e 08.03 reads "at, or below, half-strength." `AttackSequence.battleshock_test_required(shocked, below_half, at_half)` has the right `at_half` param but CommandPhase hardcodes it false and `below_half` uses a strict `<`, so a unit at exactly half (5/10 models, or current*2 == max wounds) never tests. (ISS-043 self-noted this edge.)
-- **Proposed fix:** Add an `is_at_half_strength`/combined helper (current*2 == max, or alive*2 == total) and pass it as `at_half` at edition≥11. Headless test the boundary (4/10, 5/10, 6/10) at both editions.
-- **Status:** TODO
+- **Proposed fix:** Add `is_at_half_strength`/`is_at_half_strength_combined` and pass `at_half` to `battleshock_test_required`.
+- **Status:** DONE — `GameState.is_at_half_strength[_combined]` implement the rulebook's Starting Strength rules (pg 86): exactly half remaining, AND the caveat that a unit whose starting strength (or model W) is odd can NEVER be at half-strength (only below). `CommandPhase._identify_units_needing_tests` now passes `at_half` at edition≥11 (10e ignores it). `test_iss065_at_half_battleshock.gd` 21/21 covers the boundary matrix, the odd caveat, single-model wounds, the pg-86 Captain+5-Intercessors example, and the real CommandPhase at both editions. Windowed `sp/iss065_at_half_battleshock_11e.json` 15/15 (Kommandos at 5/10 queued for a test at e11, not e10 — at-half the sole trigger). Headless 1164/1164.
 
 ### ISS-066 — 12.02-12.08 pile-in & consolidation modes never reach the live Fight phase
 - **Location:** `40k/phases/FightPhase.gd` `_validate_pile_in`/`_process_pile_in` (639/1267); `_validate_consolidate`/`_determine_consolidate_mode` (809/864)
@@ -940,7 +940,7 @@ pointer in the table.
 | ISS-062 | AI updated for 11e | medium | DONE | 014, 039, 041, 048, 050, 057 |
 | ISS-063 | 11e windowed scenario suite | medium | DONE | 038-061 (incremental) |
 | ISS-064 | 09.07 fall-back desperate-escape double-fire | high | DONE | 040 |
-| ISS-065 | 08.03 at-half-strength battle-shock trigger | high | TODO | 043 |
+| ISS-065 | 08.03 at-half-strength battle-shock trigger | high | DONE | 043 |
 | ISS-066 | 12.02-12.08 pile-in/consolidation phase wiring | high | TODO | 050 |
 | ISS-067 | 24.31/24.32 Scouts 11e (8" + reserves option) | high | TODO | 040 |
 | ISS-068 | 24.20 Infiltrators 11e deploy distance | medium | TODO | — |
