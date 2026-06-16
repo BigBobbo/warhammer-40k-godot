@@ -839,8 +839,7 @@ pointer in the table.
 - **Location:** `40k/autoloads/RulesEngine.gd` `has_lethal_hits`/`has_sustained_hits`/`has_twin_linked` etc. take `(weapon_id, board)` with no target (5813,5930,5997)
 - **Category:** bug — **Severity:** medium
 - **Description:** `[LETHAL HITS: VEHICLE]`-style scoping exists in `AbilityRegistry` but the live resolution helpers never receive the target unit, so a scoped ability fires against all targets.
-- **Proposed fix:** Thread the target unit into the ability checks at edition≥11 and consult `AbilityRegistry.entry_applies_to_target`. Headless test a scoped ability vs matching/non-matching targets.
-- **Status:** TODO
+- **Status:** DONE — DISCOVERY: the only scoped abilities in the actual army data are `[ANTI-X]` (already correctly target-scoped via `get_critical_wound_threshold`); no current weapon has a scoped LETHAL HITS/SUSTAINED/TWIN-LINKED/DEVASTATING, so the bug was latent. Fixed correctly anyway: `get_weapon_ability_scope` parses a scope from `"<token>: KEYWORD"` (string form) or the structured `scope` array; `has_lethal_hits`/`has_sustained_hits`/`get_sustained_hits_value`/`has_twin_linked`/`has_devastating_wounds` gained an optional `target_unit` param and a top-guard that suppresses the ability when scoped-and-non-matching (empty scope or no target → unchanged, so all current data and legacy callers are byte-identical). The target unit (already local in every resolution loop) is now threaded through 16 call sites in `_resolve_assignment_until_wounds`/`_resolve_assignment`/`_resolve_melee_assignment` + `lethal_hits_auto_wound_11e`. `test_iss070_keyword_scoped_abilities.gd` 13/13 (scope parsing; scoped LH/sustained applies only vs the matching keyword; unscoped unchanged for any target; no-target legacy unchanged). Headless 1205/1205 incl. the attack goldens + keyword-pipeline tests (proof the threading is non-perturbing).
 
 ### ISS-071 — 24.14 Firing Deck doesn't exclude [ONE SHOT] / one-weapon-per-model
 - **Location:** `40k/scripts/.../FiringDeckDialog.gd:101` (`_populate_available_weapons` lists all)
@@ -945,7 +944,7 @@ pointer in the table.
 | ISS-067 | 24.31/24.32 Scouts 11e (8" + reserves option) | high | DONE | 040 |
 | ISS-068 | 24.20 Infiltrators 11e deploy distance | medium | DONE | — |
 | ISS-069 | 24.24 Lone Operative X"/indirect clause | medium | DONE | — |
-| ISS-070 | 24.01 keyword-scoped abilities applied live | medium | TODO | 047 |
+| ISS-070 | 24.01 keyword-scoped abilities applied live | medium | DONE | 047 |
 | ISS-071 | 24.14 Firing Deck [ONE SHOT]/one-weapon limit | medium | TODO | 047 |
 | ISS-072 | 24.02 duplicated-ability non-stacking | low | TODO | 047 |
 | ISS-073 | 24.35 Super-Heavy Walker MOBILE gamble | low | TODO | 061 |
