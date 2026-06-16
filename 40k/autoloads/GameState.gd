@@ -618,6 +618,27 @@ func get_scout_distance(unit_id: String) -> float:
 				return min_distance
 	return 0.0
 
+## ISS-067 (11e 24.31): Scout units that started embarked in strategic
+## reserves can SET UP wholly within their deployment zone during the
+## Resolve Pre-battle Abilities step (instead of a scout move). 11e only.
+func get_scout_reserve_units_for_player(player: int) -> Array:
+	var out := []
+	if GameConstants.edition < 11:
+		return out
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if unit.get("status", 0) != UnitStatus.IN_RESERVES:
+			continue
+		if str(unit.get("reserve_type", "strategic_reserves")) != "strategic_reserves":
+			continue
+		if unit.get("attached_to", null) != null:
+			continue
+		if unit_has_scout(unit_id):
+			out.append(unit_id)
+	return out
+
 func get_scout_range(unit_id: String) -> float:
 	"""Alias for get_scout_distance() for compatibility."""
 	return get_scout_distance(unit_id)

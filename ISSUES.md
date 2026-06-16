@@ -818,8 +818,8 @@ pointer in the table.
 - **Location:** `40k/phases/ScoutPhase.gd` (`SCOUT_MIN_ENEMY_DISTANCE_INCHES=9.0` :15; DEPLOYED-only :135; checks :215,:265); `40k/autoloads/GameState.gd.get_scout_units_for_player`
 - **Category:** breaking-change — **Severity:** high
 - **Description:** 11e 24.32 after-move distance is **>8" horizontally from enemy UNITS** (code: 9.0" straight-line per model); eligibility requires the unit **wholly within its DZ** (not enforced); and 24.31 adds a new option — a Scout unit **in strategic reserves** may **set up wholly within its DZ** (code rejects reserves outright). No edition gate anywhere in the phase.
-- **Proposed fix:** Edition-gate an 8" horizontal-from-units check, a wholly-within-DZ precondition, the lowest-shared-Scouts-X selection (24.31 cross-ref), and the strategic-reserves placement branch. Windowed scenario per option.
-- **Status:** TODO
+- **Proposed fix:** Edition-gate the 8" distance, the wholly-within-DZ precondition, and the strategic-reserves placement branch.
+- **Status:** DONE — ScoutPhase edition-gated at edition≥11: (A) after-move distance is >8" from enemies (`_scout_min_enemy_distance_inches`, 10e stays >9"); (B) `_validate_begin_scout_move` requires the unit wholly within its DZ (`_unit_wholly_in_own_dz` via `Measurement.shape_wholly_in_polygon`; permissive when no DZ poly); (C) the strategic-reserves option (24.31) — `GameState.get_scout_reserve_units_for_player` + a `SCOUT_RESERVES_DEPLOY` action (offered in `get_available_actions`, validated wholly-within-DZ/on-board/no-overlap, applied as status→DEPLOYED) replaces the previous outright reject of reserve units. The 24.31 lowest-shared-Scouts-X selection is N/A in the current unit-level ability data model (no per-model Scout values exist). `test_iss067_scouts_11e.gd` 11/11 drives the REAL ScoutPhase (8"/7.5" distance boundary both editions, DZ-containment, reserves deploy valid/invalid/process/edition-gate); windowed `sp/iss067_scout_reserves_11e.json` 12/12 (live phase offers the action, deploys into the DZ); all 11 existing scout scenarios + headless 1183/1183 stay green.
 
 ### ISS-068 — 24.20 Infiltrators deploy distance still 9" (should be 8" horizontal)
 - **Location:** `40k/phases/DeploymentPhase.gd:348,361` (hardcoded 9.0, no edition gate)
@@ -942,7 +942,7 @@ pointer in the table.
 | ISS-064 | 09.07 fall-back desperate-escape double-fire | high | DONE | 040 |
 | ISS-065 | 08.03 at-half-strength battle-shock trigger | high | DONE | 043 |
 | ISS-066 | 12.02-12.08 pile-in/consolidation phase wiring | high | DONE | 050 |
-| ISS-067 | 24.31/24.32 Scouts 11e (8" + reserves option) | high | TODO | 040 |
+| ISS-067 | 24.31/24.32 Scouts 11e (8" + reserves option) | high | DONE | 040 |
 | ISS-068 | 24.20 Infiltrators 11e deploy distance | medium | TODO | — |
 | ISS-069 | 24.24 Lone Operative X"/indirect clause | medium | TODO | — |
 | ISS-070 | 24.01 keyword-scoped abilities applied live | medium | TODO | 047 |

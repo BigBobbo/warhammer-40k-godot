@@ -1,0 +1,76 @@
+{
+  "id": "iss067_scout_reserves_11e",
+  "covers": [
+    "phases.ScoutPhase.reserves_deploy_11e",
+    "iss067.scout_reserves"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "ISS-067 (24.31): a Scout unit in strategic reserves may set up wholly within its deployment zone during the Scout phase at edition 11. A reserve scout is injected, the Scout phase is entered, the live phase offers SCOUT_RESERVES_DEPLOY, and deploying it into the player-1 DZ sets the unit DEPLOYED.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"].merge({\"U_RSCOUT\": {\"id\": \"U_RSCOUT\", \"owner\": 1, \"status\": 7, \"reserve_type\": \"strategic_reserves\", \"flags\": {}, \"meta\": {\"name\": \"ReserveScouts\", \"keywords\": [\"INFANTRY\"], \"abilities\": [{\"name\": \"Scouts 6\\\"\"}], \"stats\": {\"move\": 6}}, \"models\": [{\"id\": \"r0\", \"alive\": true, \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"base_type\": \"circular\", \"position\": null}]}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "(\"SCOUT_RESERVES_DEPLOY\" in str(PhaseManager.get_current_phase_instance().get_available_actions())) and (\"U_RSCOUT\" in str(PhaseManager.get_current_phase_instance().get_available_actions()))",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_scout_phase_offers_reserves_deploy"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SCOUT_RESERVES_DEPLOY",
+        "unit_id": "U_RSCOUT",
+        "model_positions": [
+          [
+            1450.0,
+            200.0
+          ]
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_RSCOUT.status",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "02_reserve_scout_deployed_in_dz"
+    }
+  ]
+}

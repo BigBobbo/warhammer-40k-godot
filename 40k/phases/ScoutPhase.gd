@@ -20,6 +20,9 @@ const OVERLAP_TOLERANCE_PX: float = 0.5
 var scout_units_pending: Dictionary = {}  # player -> [unit_ids]
 var scout_units_completed: Array = []
 var current_scout_player: int = 1  # Player going first moves Scouts first
+# ISS-067 (11e 24.31): Scout units in strategic reserves that may set up
+# wholly within their deployment zone. player -> [unit_id].
+var scout_reserve_units_pending: Dictionary = {1: [], 2: []}
 var active_scout_moves: Dictionary = {}  # unit_id -> move_data (mirrors MovementPhase pattern)
 
 func _init():
@@ -41,10 +44,18 @@ func _on_phase_enter() -> void:
 	scout_units_pending[1] = p1_scouts
 	scout_units_pending[2] = p2_scouts
 
-	log_phase_message("Player 1 Scout units: %s" % str(p1_scouts))
-	log_phase_message("Player 2 Scout units: %s" % str(p2_scouts))
+	# ISS-067 (11e 24.31): Scout units in strategic reserves may set up in
+	# their DZ instead of moving.
+	scout_reserve_units_pending = {1: [], 2: []}
+	if GameConstants.edition >= 11:
+		scout_reserve_units_pending[1] = GameState.get_scout_reserve_units_for_player(1)
+		scout_reserve_units_pending[2] = GameState.get_scout_reserve_units_for_player(2)
 
-	var total_scouts = p1_scouts.size() + p2_scouts.size()
+	log_phase_message("Player 1 Scout units: %s (reserves: %s)" % [str(p1_scouts), str(scout_reserve_units_pending[1])])
+	log_phase_message("Player 2 Scout units: %s (reserves: %s)" % [str(p2_scouts), str(scout_reserve_units_pending[2])])
+
+	var total_scouts = p1_scouts.size() + p2_scouts.size() \
+		+ scout_reserve_units_pending[1].size() + scout_reserve_units_pending[2].size()
 
 	if total_scouts == 0:
 		log_phase_message("No units with Scout ability found, skipping Scout phase")
@@ -55,8 +66,9 @@ func _on_phase_enter() -> void:
 	# Set active player to the first player (who goes first moves scouts first)
 	log_phase_message("Scout phase active - Player %d moves first" % current_scout_player)
 
-	# If the current first player has no scouts, switch to the other player
-	if scout_units_pending.get(current_scout_player, []).size() == 0:
+	# If the current first player has no scouts (moves or reserve placements), switch
+	if scout_units_pending.get(current_scout_player, []).size() == 0 \
+			and scout_reserve_units_pending.get(current_scout_player, []).size() == 0:
 		current_scout_player = 3 - current_scout_player
 		GameState.set_active_player(current_scout_player)
 		log_phase_message("First player has no scouts, switching to Player %d" % current_scout_player)
@@ -85,6 +97,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_confirm_scout_move(action)
 		"SKIP_SCOUT_MOVE":
 			return _validate_skip_scout_move(action)
+		"SCOUT_RESERVES_DEPLOY":
+			return _validate_scout_reserves_deploy(action)
 		"END_SCOUT_PHASE":
 			return _validate_end_scout_phase(action)
 		"DEBUG_MOVE":
@@ -104,6 +118,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_confirm_scout_move(action)
 		"SKIP_SCOUT_MOVE":
 			return _process_skip_scout_move(action)
+		"SCOUT_RESERVES_DEPLOY":
+			return _process_scout_reserves_deploy(action)
 		"END_SCOUT_PHASE":
 			return _process_end_scout_phase(action)
 		_:
@@ -112,6 +128,39 @@ func process_action(action: Dictionary) -> Dictionary:
 # ========================================
 # Validation Methods
 # ========================================
+
+func _scout_min_enemy_distance_inches() -> float:
+	# 11e 24.32: >8" horizontally from enemy units; 10e: >9".
+	return 8.0 if GameConstants.edition >= 11 else 9.0
+
+
+func _zone_poly_px(zone: Dictionary) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for c in zone.get("poly", []):
+		if c is Dictionary:
+			out.append(Vector2(c.get("x", 0) * PX_PER_INCH, c.get("y", 0) * PX_PER_INCH))
+	return out
+
+
+func _unit_wholly_in_own_dz(unit_id: String) -> bool:
+	# 11e 24.32 ELIGIBLE IF: the unit is wholly within its deployment zone.
+	# Permissive when no DZ polygon is defined (synthetic test boards).
+	var unit = get_unit(unit_id)
+	var zone = get_deployment_zone_for_player(int(unit.get("owner", 0)))
+	var poly_px = _zone_poly_px(zone)
+	if poly_px.is_empty():
+		return true
+	for m in unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		var p = m.get("position", null)
+		if p == null:
+			continue
+		var center = Vector2(p.get("x", 0) if p is Dictionary else p.x, p.get("y", 0) if p is Dictionary else p.y)
+		if not Measurement.shape_wholly_in_polygon(center, m, m.get("rotation", 0.0), poly_px):
+			return false
+	return true
+
 
 func _validate_begin_scout_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
@@ -134,6 +183,11 @@ func _validate_begin_scout_move(action: Dictionary) -> Dictionary:
 	# Must be deployed (not in reserves)
 	if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
 		return {"valid": false, "errors": ["Unit must be deployed to make a Scout move"]}
+
+	# ISS-067 (11e 24.32 ELIGIBLE IF): the unit must be wholly within its
+	# own deployment zone to make a scout move.
+	if GameConstants.edition >= 11 and not _unit_wholly_in_own_dz(unit_id):
+		return {"valid": false, "errors": ["Unit must be wholly within its deployment zone to Scout (24.32)"]}
 
 	# Must not have already completed scout move
 	if unit_id in scout_units_completed:
@@ -201,7 +255,7 @@ func _validate_set_scout_model_dest(action: Dictionary) -> Dictionary:
 	if distance_inches > scout_distance + 0.02:  # Small tolerance for floating point
 		return {"valid": false, "errors": ["Scout move exceeds max distance: %.1f\" > %d\"" % [distance_inches, scout_distance]]}
 
-	# Check >9" from all enemy models (edge-to-edge)
+	# Check >8" (11e) / >9" (10e) from all enemy models (edge-to-edge)
 	var model_base_mm = model.get("base_mm", 32)
 	var model_radius_inches = (model_base_mm / 2.0) / 25.4
 	var owner = unit.get("owner", 0)
@@ -212,8 +266,8 @@ func _validate_set_scout_model_dest(action: Dictionary) -> Dictionary:
 		var dist_px = dest_pos.distance_to(enemy_pos_px)
 		var dist_inches = dist_px / PX_PER_INCH
 		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-		if edge_dist < SCOUT_MIN_ENEMY_DISTANCE_INCHES:
-			return {"valid": false, "errors": ["Scout move must end >9\" from enemy models (%.1f\")" % edge_dist]}
+		if edge_dist < _scout_min_enemy_distance_inches():
+			return {"valid": false, "errors": ["Scout move must end >%d\" from enemy units (%.1f\")" % [int(_scout_min_enemy_distance_inches()), edge_dist]]}
 
 	# Check board bounds
 	var board_width_px = GameState.state.board.size.width * PX_PER_INCH
@@ -500,26 +554,33 @@ func _process_end_scout_phase(action: Dictionary) -> Dictionary:
 func _mark_scout_complete(unit_id: String) -> void:
 	scout_units_completed.append(unit_id)
 
-	# Remove from pending lists
+	# Remove from pending lists (moves AND reserve placements)
 	for player in scout_units_pending:
 		var pending = scout_units_pending[player]
 		var idx = pending.find(unit_id)
 		if idx >= 0:
 			pending.remove_at(idx)
+	for player in scout_reserve_units_pending:
+		var rpending = scout_reserve_units_pending[player]
+		var ridx = rpending.find(unit_id)
+		if ridx >= 0:
+			rpending.remove_at(ridx)
 
 func _check_scout_progression() -> void:
 	"""Check if all scouts for current player are done, and switch/complete accordingly.
 	Note: Phase completion is handled by BasePhase via _should_complete_phase() to avoid
 	double-emitting the phase_completed signal."""
 	var current_player = get_current_player()
-	var current_pending = scout_units_pending.get(current_player, [])
+	var current_pending = scout_units_pending.get(current_player, []).size() \
+		+ scout_reserve_units_pending.get(current_player, []).size()
 
-	if current_pending.size() == 0:
+	if current_pending == 0:
 		# Current player is done with scouts
 		var other_player = 3 - current_player
-		var other_pending = scout_units_pending.get(other_player, [])
+		var other_pending_n = scout_units_pending.get(other_player, []).size() \
+			+ scout_reserve_units_pending.get(other_player, []).size()
 
-		if other_pending.size() > 0:
+		if other_pending_n > 0:
 			# Switch to other player for their scouts
 			GameState.set_active_player(other_player)
 			# Update local snapshot
@@ -712,6 +773,23 @@ func get_available_actions() -> Array:
 			"description": "Skip Scout move for %s" % unit_name
 		})
 
+	# ISS-067 (11e 24.31): reserve Scout units may deploy into their DZ.
+	for unit_id in scout_reserve_units_pending.get(current_player, []):
+		if unit_id in scout_units_completed:
+			continue
+		var r_unit = get_unit(unit_id)
+		var r_name = r_unit.get("meta", {}).get("name", unit_id)
+		actions.append({
+			"type": "SCOUT_RESERVES_DEPLOY",
+			"unit_id": unit_id,
+			"description": "Deploy %s into your deployment zone (Scout reserves)" % r_name
+		})
+		actions.append({
+			"type": "SKIP_SCOUT_MOVE",
+			"unit_id": unit_id,
+			"description": "Keep %s in reserves" % r_name
+		})
+
 	# If there are active moves, offer confirm
 	for unit_id in active_scout_moves:
 		var unit = get_unit(unit_id)
@@ -739,4 +817,87 @@ func _should_complete_phase() -> bool:
 	var total_pending = 0
 	for player in scout_units_pending:
 		total_pending += scout_units_pending[player].size()
+	for player in scout_reserve_units_pending:
+		total_pending += scout_reserve_units_pending[player].size()
 	return total_pending == 0 and active_scout_moves.size() == 0
+
+
+# ============================================================================
+# ISS-067 — 11e 24.31 strategic-reserves Scout deployment
+# ============================================================================
+
+func _coerce_pos(p) -> Vector2:
+	# Position payloads arrive as Vector2 (ScenarioRunner), [x, y] (JSON),
+	# or {"x":, "y":} (UI) depending on the caller.
+	if p is Vector2:
+		return p
+	if p is Array:
+		return Vector2(p[0], p[1])
+	if p is Dictionary:
+		return Vector2(p.get("x", 0), p.get("y", 0))
+	return Vector2.ZERO
+
+
+func _validate_scout_reserves_deploy(action: Dictionary) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {"valid": false, "errors": ["Scout reserves deployment is an 11e rule (24.31)"]}
+	var unit_id = action.get("unit_id", "")
+	var positions = action.get("model_positions", [])
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing unit_id"]}
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
+	if int(unit.get("owner", 0)) != get_current_player():
+		return {"valid": false, "errors": ["Unit does not belong to active player"]}
+	if unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
+		return {"valid": false, "errors": ["Unit is not in strategic reserves"]}
+	if not GameState.unit_has_scout(unit_id):
+		return {"valid": false, "errors": ["Unit does not have Scout ability"]}
+	if unit_id in scout_units_completed:
+		return {"valid": false, "errors": ["Unit has already resolved its Scout option"]}
+	if unit_id not in scout_reserve_units_pending.get(get_current_player(), []):
+		return {"valid": false, "errors": ["Unit is not an eligible reserve Scout unit"]}
+	var alive_models: Array = []
+	for m in unit.get("models", []):
+		if m.get("alive", true):
+			alive_models.append(m)
+	if positions.size() != alive_models.size():
+		return {"valid": false, "errors": ["Must provide a position for each alive model (%d)" % alive_models.size()]}
+	var zone = get_deployment_zone_for_player(int(unit.get("owner", 0)))
+	var poly_px = _zone_poly_px(zone)
+	var board_w = GameState.state.board.size.width * PX_PER_INCH
+	var board_h = GameState.state.board.size.height * PX_PER_INCH
+	for i in range(positions.size()):
+		var p = positions[i]
+		var center = _coerce_pos(p)
+		if center.x < 0 or center.x > board_w or center.y < 0 or center.y > board_h:
+			return {"valid": false, "errors": ["Model %d is off the battlefield" % i]}
+		if not poly_px.is_empty() and not Measurement.shape_wholly_in_polygon(center, alive_models[i], alive_models[i].get("rotation", 0.0), poly_px):
+			return {"valid": false, "errors": ["Model %d must be set up wholly within your deployment zone (24.31)" % i]}
+		if _scout_position_overlaps_other_units(center, alive_models[i], unit_id):
+			return {"valid": false, "errors": ["Model %d overlaps another model" % i]}
+	return {"valid": true, "errors": []}
+
+
+func _process_scout_reserves_deploy(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var positions = action.get("model_positions", [])
+	var unit = get_unit(unit_id)
+	var changes: Array = []
+	var alive_indices: Array = []
+	var models = unit.get("models", [])
+	for i in range(models.size()):
+		if models[i].get("alive", true):
+			alive_indices.append(i)
+	for j in range(positions.size()):
+		if j >= alive_indices.size():
+			break
+		var p = positions[j]
+		var center = _coerce_pos(p)
+		changes.append({"op": "set", "path": "units.%s.models.%d.position" % [unit_id, alive_indices[j]], "value": {"x": center.x, "y": center.y}})
+	changes.append({"op": "set", "path": "units.%s.status" % unit_id, "value": GameStateData.UnitStatus.DEPLOYED})
+	_mark_scout_complete(unit_id)
+	log_phase_message("Scout reserve unit %s set up wholly within its deployment zone (24.31)" % unit_id)
+	_check_scout_progression()
+	return create_result(true, changes)
