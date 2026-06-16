@@ -3968,9 +3968,10 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 				var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
 				if attached_chars.is_empty():
 					var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
-					if min_dist > 12.0:
+					var lo_range = get_lone_operative_range(target_unit)
+					if min_dist > lo_range:
 						var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
-						errors.append("Cannot target '%s' — Lone Operative can only be targeted from within 12\" (closest model is %.1f\" away)" % [target_name, min_dist])
+						errors.append("Cannot target '%s' — Lone Operative can only be targeted from within %d\" (closest model is %.1f\" away)" % [target_name, int(lo_range), min_dist])
 
 			# PISTOL RULES: If in engagement, targets must be within engagement range
 			# Issue #370 (BGNT): MONSTER and VEHICLE actors firing in ER can target
@@ -4754,10 +4755,11 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 			# Check if the unit has attached characters (meaning it's leading a bodyguard)
 			var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
 			if attached_chars.is_empty():
-				# Standalone Lone Operative — check if any actor model is within 12"
+				# Standalone Lone Operative — check if any actor model is within range.
 				var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
-				if min_dist > 12.0:
-					print("RulesEngine: Lone Operative — target '%s' cannot be targeted (closest actor model is %.1f\" away, must be within 12\")" % [target_unit.get("meta", {}).get("name", target_unit_id), min_dist])
+				var lo_range = get_lone_operative_range(target_unit)
+				if min_dist > lo_range:
+					print("RulesEngine: Lone Operative — target '%s' cannot be targeted (closest actor model is %.1f\" away, must be within %d\")" % [target_unit.get("meta", {}).get("name", target_unit_id), min_dist, int(lo_range)])
 					continue
 
 		# PSYCHIC VEIL: Unit can only be targeted by ranged attacks within 18"
@@ -6241,8 +6243,43 @@ static func unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
 # of a ranged attack if the attacking model is within 12"
 # Abilities can be stored as strings ("Lone Operative") or dicts ({"name": "Lone Operative", ...})
 static func has_lone_operative(unit: Dictionary) -> bool:
-	# ISS-019: unified query (datasheet + future dynamic grants).
-	return UnitAbilities.unit_has(unit, "lone operative")
+	# ISS-019/069: unified query. Matches the plain "Lone Operative" ability
+	# AND the 11e "Lone Operative X\"" variant (whose full name carries the
+	# distance, so the exact-match datasheet query alone would miss it).
+	if UnitAbilities.unit_has(unit, "lone operative"):
+		return true
+	for ab in unit.get("meta", {}).get("abilities", []):
+		var nm := ""
+		if ab is String:
+			nm = ab
+		elif ab is Dictionary:
+			nm = str(ab.get("name", ""))
+		if nm.to_lower().contains("lone operative"):
+			return true
+	return false
+
+
+## ISS-069 (11e 24.24): "Lone Operative X\"" gates targeting at X" (visibility
+## AND [INDIRECT FIRE]); the default form is 12". Parses the first number in
+## any ability whose name contains "lone operative". Edition-agnostic — the
+## X" variant simply does not occur in 10e data, where 12" is universal.
+static func get_lone_operative_range(unit: Dictionary) -> float:
+	for ab in unit.get("meta", {}).get("abilities", []):
+		var nm := ""
+		if ab is String:
+			nm = ab
+		elif ab is Dictionary:
+			nm = str(ab.get("name", ""))
+		if nm.to_lower().contains("lone operative"):
+			var digits := ""
+			for c in nm:
+				if c >= "0" and c <= "9":
+					digits += c
+				elif digits != "":
+					break
+			if digits != "":
+				return float(digits.to_int())
+	return 12.0
 
 # OA-19: "Hold Still and Say 'Aargh!'" — Check if unit has this ability (Painboy)
 # On Critical Wound with 'urty syringe vs non-VEHICLE, target suffers D6 mortal wounds

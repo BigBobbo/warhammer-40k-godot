@@ -102,6 +102,7 @@ TESTS=(
     "tests/test_iss066_fight_phase_wiring.gd"
     "tests/test_iss067_scouts_11e.gd"
     "tests/test_iss068_infiltrators_11e.gd"
+    "tests/test_iss069_lone_operative_11e.gd"
 )
 
 FAILED=0

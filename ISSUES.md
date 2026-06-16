@@ -832,8 +832,8 @@ pointer in the table.
 - **Location:** `40k/autoloads/RulesEngine.gd:3967,4753,4857` (hardcoded 12.0, normal-target only)
 - **Category:** missing-feature — **Severity:** medium
 - **Description:** 11e adds an explicit "[INDIRECT FIRE] weapons cannot target unless within X"" clause and a `Lone Operative X"` distance variant; code only restricts normal targeting at a fixed 12".
-- **Proposed fix:** Parse the `X"` variant, apply the gate to indirect-fire targeting too, edition-gated. Headless test.
-- **Status:** TODO
+- **Proposed fix:** Parse the `X"` variant; confirm the gate covers indirect fire.
+- **Status:** DONE — `RulesEngine.get_lone_operative_range(unit)` parses the distance from a "Lone Operative X\"" ability (default 12"); both targeting sites (`validate_shoot` and `get_eligible_targets`) now gate at that range instead of a hardcoded 12". `has_lone_operative` was also fixed to recognise the X" variant name (the exact-match datasheet query missed "Lone Operative 9\""). The [INDIRECT FIRE] clause needed no separate code: both gates are weapon-agnostic (they `continue`/error on the target regardless of weapon or the indirect-fire visibility shortcut), so a Lone Operative unit beyond range is unselectable by indirect fire too — verified by reading the gate placement. `test_iss069_lone_operative_11e.gd` 5/5 (range parsing + the REAL get_eligible_targets excluding a "Lone Operative 9\"" unit at ~11" while including a default-12" unit at the same distance). Headless 1192/1192; 373_lone_operative_guard scenario regression-clean.
 
 ### ISS-070 — 24.01 keyword-scoped weapon abilities not applied in live resolution
 - **Location:** `40k/autoloads/RulesEngine.gd` `has_lethal_hits`/`has_sustained_hits`/`has_twin_linked` etc. take `(weapon_id, board)` with no target (5813,5930,5997)
@@ -944,7 +944,7 @@ pointer in the table.
 | ISS-066 | 12.02-12.08 pile-in/consolidation phase wiring | high | DONE | 050 |
 | ISS-067 | 24.31/24.32 Scouts 11e (8" + reserves option) | high | DONE | 040 |
 | ISS-068 | 24.20 Infiltrators 11e deploy distance | medium | DONE | — |
-| ISS-069 | 24.24 Lone Operative X"/indirect clause | medium | TODO | — |
+| ISS-069 | 24.24 Lone Operative X"/indirect clause | medium | DONE | — |
 | ISS-070 | 24.01 keyword-scoped abilities applied live | medium | TODO | 047 |
 | ISS-071 | 24.14 Firing Deck [ONE SHOT]/one-weapon limit | medium | TODO | 047 |
 | ISS-072 | 24.02 duplicated-ability non-stacking | low | TODO | 047 |
