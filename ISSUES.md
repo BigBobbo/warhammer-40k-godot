@@ -811,8 +811,8 @@ pointer in the table.
 - **Location:** `40k/phases/FightPhase.gd` `_validate_pile_in`/`_process_pile_in` (639/1267); `_validate_consolidate`/`_determine_consolidate_mode` (809/864)
 - **Category:** breaking-change — **Severity:** high
 - **Description:** `PileInMove` (5" target select, base-contact lock, 12.02-12.03) and `ConsolidationMove` (Ongoing/Engaging/Objective modes incl. engaging-consolidation forcing enemies to fight, 12.07-12.08) are implemented as MoveType instances and unit-tested, but FightPhase never calls them — both handlers run legacy 10e logic with no `edition >= 11` branch. ISS-050 step 2 only wired the selection FightSequencer, not the move templates.
-- **Proposed fix:** Branch `_validate_pile_in`/`_process_pile_in` and the consolidation handlers to the templates at edition≥11 (eligibility, target-set, base-contact lock, mode selection, and the engaging-consolidation forced-fight queue). Windowed scenario driving pile-in + each consolidation mode.
-- **Status:** TODO
+- **Proposed fix:** Branch the validators to the templates at edition≥11.
+- **Status:** DONE — `_validate_pile_in`/`_validate_consolidate` branch to new `_validate_pile_in_11e`/`_validate_consolidate_11e` at edition≥11 (legacy 10e untouched). These make `PileInMove`/`ConsolidationMove` authoritative: pile-in eligibility (engaged/charged/overrun), per-model base-contact lock + closer-to-pile-in-target (12.03), and the started-engaged-pairs AFTER rule (evaluated on a simulated post-move board); consolidation mandatory mode selection (ongoing/engaging/objective) + per-mode movement + AFTER conditions (12.08). The engaging-consolidation forced fights were ALREADY handled by the edition-agnostic `_scan_newly_eligible_units_after_consolidation` (T2-6) — newly-engaged enemies become selectable to fight. `test_iss066_fight_phase_wiring.gd` 8/8 drives the REAL FightPhase validators at edition 11 (eligibility veto, closer-to-target rejection, mode='ongoing', valid passes) with a 10e sensitivity check; `test_iss050_fight_phase_11e.gd` 37/37 (modules); the iss050 + three 10e fight windowed scenarios stay green. Headless 1172/1172.
 
 ### ISS-067 — 24.31/24.32 Scouts still run 10e (distance + missing reserves option)
 - **Location:** `40k/phases/ScoutPhase.gd` (`SCOUT_MIN_ENEMY_DISTANCE_INCHES=9.0` :15; DEPLOYED-only :135; checks :215,:265); `40k/autoloads/GameState.gd.get_scout_units_for_player`
@@ -941,7 +941,7 @@ pointer in the table.
 | ISS-063 | 11e windowed scenario suite | medium | DONE | 038-061 (incremental) |
 | ISS-064 | 09.07 fall-back desperate-escape double-fire | high | DONE | 040 |
 | ISS-065 | 08.03 at-half-strength battle-shock trigger | high | DONE | 043 |
-| ISS-066 | 12.02-12.08 pile-in/consolidation phase wiring | high | TODO | 050 |
+| ISS-066 | 12.02-12.08 pile-in/consolidation phase wiring | high | DONE | 050 |
 | ISS-067 | 24.31/24.32 Scouts 11e (8" + reserves option) | high | TODO | 040 |
 | ISS-068 | 24.20 Infiltrators 11e deploy distance | medium | TODO | — |
 | ISS-069 | 24.24 Lone Operative X"/indirect clause | medium | TODO | — |
