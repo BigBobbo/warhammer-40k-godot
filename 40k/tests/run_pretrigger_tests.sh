@@ -104,6 +104,7 @@ TESTS=(
     "tests/test_iss068_infiltrators_11e.gd"
     "tests/test_iss069_lone_operative_11e.gd"
     "tests/test_iss070_keyword_scoped_abilities.gd"
+    "tests/test_iss071_firing_deck_11e.gd"
 )
 
 FAILED=0

@@ -845,8 +845,8 @@ pointer in the table.
 - **Location:** `40k/scripts/.../FiringDeckDialog.gd:101` (`_populate_available_weapons` lists all)
 - **Category:** missing-feature — **Severity:** medium
 - **Description:** Firing Deck selects up to X embarked models correctly but offers every weapon; 11e requires excluding `[ONE SHOT]` weapons and one ranged weapon per selected model.
-- **Proposed fix:** Filter `[ONE SHOT]` weapons and enforce one-ranged-weapon-per-model at edition≥11.
-- **Status:** TODO
+- **Proposed fix:** Filter `[ONE SHOT]`/melee weapons and enforce one ranged weapon per model.
+- **Status:** DONE — discovery: `FiringDeckDialog._populate_available_weapons` called a NON-EXISTENT `RulesEngine.get_unit_weapon_profiles`, so the dialog was effectively broken (latent — the current Battlewagon's 'Ard Case wargear removes Firing Deck, so it isn't reached in default fixtures). Rewired to `get_unit_weapons` (ranged-only weapon ids per model), excludes `[ONE SHOT]` weapons via `is_one_shot_weapon` (24.14), and `_on_weapon_toggled` now rejects a second weapon from the same model (`_model_already_has_selection`). `test_iss071_firing_deck_11e.gd` 5/5 drives the REAL dialog logic (Shoota offered per model, [ONE SHOT] Rokkit excluded, melee Choppa not offered, one-per-model guard). Headless 1210/1210.
 
 ### ISS-072 — 24.02 duplicated-ability non-stacking not enforced
 - **Location:** resolution path (no implementation found)
@@ -945,7 +945,7 @@ pointer in the table.
 | ISS-068 | 24.20 Infiltrators 11e deploy distance | medium | DONE | — |
 | ISS-069 | 24.24 Lone Operative X"/indirect clause | medium | DONE | — |
 | ISS-070 | 24.01 keyword-scoped abilities applied live | medium | DONE | 047 |
-| ISS-071 | 24.14 Firing Deck [ONE SHOT]/one-weapon limit | medium | TODO | 047 |
+| ISS-071 | 24.14 Firing Deck [ONE SHOT]/one-weapon limit | medium | DONE | 047 |
 | ISS-072 | 24.02 duplicated-ability non-stacking | low | TODO | 047 |
 | ISS-073 | 24.35 Super-Heavy Walker MOBILE gamble | low | TODO | 061 |
 | ISS-074 | 23.01/23.02 Aircraft reserve cycle | low | TODO | 060 |
