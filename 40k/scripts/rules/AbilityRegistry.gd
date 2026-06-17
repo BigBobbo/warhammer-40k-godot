@@ -137,19 +137,34 @@ static func from_weapon(weapon: Dictionary) -> Array:
 	if abilities is Array and not abilities.is_empty():
 		return abilities.duplicate(true)
 	var out: Array = []
-	var seen := {}
+	var seen := {}  # id -> index in `out`
 	for entry in parse_special_rules(str(weapon.get("special_rules", ""))):
-		if entry.get("id") != "__unknown__" and not seen.has(entry.id):
-			seen[entry.id] = true
-			out.append(entry)
+		_merge_ability_entry(out, seen, entry)
 	# Some data (and legacy WEAPON_PROFILES) carries keyword tokens instead,
 	# e.g. ["PISTOL", "RAPID FIRE 1"].
 	for kw in weapon.get("keywords", []):
-		var entry := parse_token(str(kw))
-		if not entry.is_empty() and entry.get("id") != "__unknown__" and not seen.has(entry.id):
-			seen[entry.id] = true
-			out.append(entry)
+		_merge_ability_entry(out, seen, parse_token(str(kw)))
 	return out
+
+
+## ISS-072 (24.02): duplicated abilities are not cumulative — keep one
+## instance per id, auto-selecting the best (highest numeric param). The
+## [ANTI] family is keyword-scoped and resolved elsewhere from the raw
+## string, so collapsing it here is harmless.
+static func _merge_ability_entry(out: Array, seen: Dictionary, entry: Dictionary) -> void:
+	if entry.is_empty() or entry.get("id", "__unknown__") == "__unknown__":
+		return
+	var id = entry.id
+	if not seen.has(id):
+		seen[id] = out.size()
+		out.append(entry)
+		return
+	# Duplicate id: keep whichever carries the higher numeric value.
+	var existing = out[seen[id]]
+	var new_val = int(entry.get("x", entry.get("threshold", 0)))
+	var old_val = int(existing.get("x", existing.get("threshold", 0)))
+	if new_val > old_val:
+		out[seen[id]] = entry
 
 
 ## Validate structured entries. Returns an array of human-readable errors

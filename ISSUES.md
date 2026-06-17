@@ -852,8 +852,8 @@ pointer in the table.
 - **Location:** resolution path (no implementation found)
 - **Category:** missing-feature — **Severity:** low
 - **Description:** Same ability is not cumulative in 11e (pick one instance; numbers/keywords still duplicated; Scouts lowest-number special case). No selection logic exists.
-- **Proposed fix:** De-duplicate identical abilities when gathering weapon/unit abilities at edition≥11. Headless test a doubled ability.
-- **Status:** TODO
+- **Proposed fix:** De-duplicate identical abilities; auto-select the best of duplicated numeric instances.
+- **Status:** DONE — `AbilityRegistry.from_weapon` already collapsed boolean duplicates by id; now `_merge_ability_entry` keeps the HIGHEST-numeric instance on a duplicate id (24.02 'not cumulative, player selects'), and `_parse_sustained_hits_from_string` takes the highest of all instances (never the sum, never just the first). Latent in current data (no weapon carries duplicated numeric abilities); [ANTI] is keyword-scoped and resolved separately so is unaffected. `test_iss072_duplicated_abilities.gd` 4/4 (SUSTAINED HITS 1+2 -> 2; single -> 1; from_weapon yields exactly one entry at x=2). Headless 1214/1214; attack goldens + keyword-pipeline non-regressing.
 
 ### ISS-073 — 24.35 Super-Heavy Walker MOBILE-grant + D6 battle-shock gamble
 - **Location:** `40k/autoloads/TerrainManager.gd:978` (comment only); MoveType `extra_keywords` hook
@@ -946,6 +946,6 @@ pointer in the table.
 | ISS-069 | 24.24 Lone Operative X"/indirect clause | medium | DONE | — |
 | ISS-070 | 24.01 keyword-scoped abilities applied live | medium | DONE | 047 |
 | ISS-071 | 24.14 Firing Deck [ONE SHOT]/one-weapon limit | medium | DONE | 047 |
-| ISS-072 | 24.02 duplicated-ability non-stacking | low | TODO | 047 |
+| ISS-072 | 24.02 duplicated-ability non-stacking | low | DONE | 047 |
 | ISS-073 | 24.35 Super-Heavy Walker MOBILE gamble | low | TODO | 061 |
 | ISS-074 | 23.01/23.02 Aircraft reserve cycle | low | TODO | 060 |

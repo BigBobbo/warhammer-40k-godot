@@ -5975,17 +5975,21 @@ static func get_sustained_hits_value(weapon_id: String, board: Dictionary = {}, 
 
 # Parse "sustained hits X" or "sustained hits dX" from a string
 static func _parse_sustained_hits_from_string(text: String) -> Dictionary:
-	# Look for "sustained hits" followed by a value
+	# ISS-072 (24.02): duplicated weapon abilities are NOT cumulative — the
+	# controlling player selects which instance applies. For [SUSTAINED
+	# HITS X] we auto-select the best (highest) of all instances present,
+	# rather than the first (and never the sum).
 	var regex = RegEx.new()
 	regex.compile("sustained hits\\s*(d?)(\\d+)")
-	var result = regex.search(text)
-
-	if result:
+	var best := {"value": 0, "is_dice": false}
+	for result in regex.search_all(text):
 		var is_dice = result.get_string(1) == "d"
 		var value = result.get_string(2).to_int()
-		return {"value": value, "is_dice": is_dice}
-
-	return {"value": 0, "is_dice": false}
+		# Compare on value; a flat number beats an equal-or-lower dice form
+		# only when strictly higher (keep it simple: highest numeric wins).
+		if value > best.value:
+			best = {"value": value, "is_dice": is_dice}
+	return best
 
 # Check if a weapon has Sustained Hits
 static func has_sustained_hits(weapon_id: String, board: Dictionary = {}, target_unit: Dictionary = {}) -> bool:
