@@ -70,6 +70,14 @@ func _on_phase_completed(completed_phase: GameStateData.Phase) -> void:
 
 			print("TurnManager: Player turn switched to Player ", current_player)
 		GameStateData.Phase.MORALE:
+			# ISS-074 (11e 23.02): at the end of a turn, the active player's
+			# AIRCRAFT still on the battlefield streak away and return to
+			# Strategic Reserves (ingress-only) so they can arrive again later.
+			# No-op at edition < 11 and when no AIRCRAFT are on the board.
+			var ending_player = GameState.get_active_player()
+			var returned = GameState.return_aircraft_to_reserves(ending_player)
+			if returned.size() > 0:
+				print("TurnManager: [11e 23.02] Player %d AIRCRAFT returned to reserves: %s" % [ending_player, str(returned)])
 			# End of turn, advance turn number
 			var new_turn = GameState.get_turn_number() + 1
 			GameState.advance_turn()

@@ -12,9 +12,9 @@ deltas = [
 ("05.04","Inflict Damage — lowest→highest","resolve per model","resolve saves lowest→highest, current-group walk, excess lost on death","done","Allocation.apply_save_rolls; Celestine example reproduces (ISS-041)"),
 ("06.02","Mortal Wounds — selection priority","allocate like normal damage","explicit 4-tier select-model priority; normal damage before MW","done","Allocation.select_mortal_wound_target / apply_mortal_wounds_11e (ISS-046)"),
 ("06.03","Hazard Rolls","HAZARDOUS test, 1 = MW (3 for M/V)","generalised hazard primitive 1-2 fail; reused by Desperate Escape","done","AttackSequence.hazard_rolls (ISS-044)"),
-("08.03","Battle-shock step","clear at start; only below-half tests; no recovery","shock persists; tests if shocked OR at-or-below half; passing recovers","partial","Recovery+shocked-trigger DONE (CommandPhase 208-209,276); GAP: 'at EXACTLY half' never triggers — at_half hardcoded false (CommandPhase:276) + strict '<' (GameState:962). 11e text: 'at, or below, half-strength'"),
+("08.03","Battle-shock step","clear at start; only below-half tests; no recovery","shock persists; tests if shocked OR at-or-below half; passing recovers","done","Recovery + shocked-trigger + at-or-below-half all wired: GameState.is_at_half_strength(_combined) (exact-half + odd-strength caveat); CommandPhase passes at_half into battleshock_test_required (ISS-065)"),
 ("09.06","Advance move","advance roll+M; can't charge; ASSAULT only","+ not eligible to start an action until end of turn","done","AdvanceMove.after_moving_effects 41-43 (cannot_start_action); wired MovementPhase 4628-4634"),
-("09.07","Fall-back move — modes","single mode; per-model desperate-escape only when crossing enemies","Ordered Retreat vs Desperate Escape (hazard per model; may cross enemies; follow-up battle-shock)","partial","11e modes/hazards/follow-up DONE (FallBackMove 33-85, wired 4023-4046). BUG: legacy _process_desperate_escape (MovementPhase:4596) runs at CONFIRM with NO edition guard → double hazard application at edition 11"),
+("09.07","Fall-back move — modes","single mode; per-model desperate-escape only when crossing enemies","Ordered Retreat vs Desperate Escape (hazard per model; may cross enemies; follow-up battle-shock)","done","11e modes/hazards/follow-up via FallBackMove (33-85, wired 4023-4046); the legacy 10e _process_desperate_escape is now gated to edition < 11 so hazards apply exactly once at 11e (ISS-064)"),
 # SHOOTING / CHARGE / FIGHT (10-12)
 ("10.02","Shoot — select shooting type","no shooting-type sub-step","new 'Select Shooting Type' step (normal/assault/close-quarters/indirect)","done","ShootingTypes registry; ShootingPhase wires at ed≥11 (558-564,751-764) (ISS-048)"),
 ("10.05","Assault shooting","weapon-level only (advanced units shoot ASSAULT)","a selectable TYPE; only [ASSAULT] weapons usable","done","AssaultShooting.gd 12-31"),
@@ -22,9 +22,9 @@ deltas = [
 ("10.07","Indirect shooting","weapon-level (−1, cover)","a selectable type; per-attack cover, no hit re-rolls, 1-5 fail (1-3 w/ spotter)","done","IndirectShooting.gd 31-65"),
 ("11.02","Charge — declare/targets","targets chosen at declare, then roll","targets selected AFTER 2D6 roll: within 12\" AND within rolled distance","done","ChargeMove11e 42-48; ChargePhase ed≥11 (317,395-401,570-583) (ISS-049)"),
 ("11.04","Charge move","end within ER of a target","end engaged with EVERY target, NO non-target enemy; each model gains Fights First ABILITY","done","ChargeMove11e.after_moving_conditions/effects 55-82"),
-("12.02/03","Pile-in move","3\" toward nearest enemy model","global step (active first); targets = engaged enemies else within 5\"; base-contact locked","partial","PileInMove.gd module exists & unit-tested, but FightPhase._validate_pile_in/_process_pile_in (639,1267) still run legacy 3\"/closest with NO edition branch — module never called by the live phase"),
+("12.02/03","Pile-in move","3\" toward nearest enemy model","global step (active first); targets = engaged enemies else within 5\"; base-contact locked","done","FightPhase._validate_pile_in branches to _validate_pile_in_11e at edition≥11, driving the real PileInMove template (5\" target select, base-contact lock) (ISS-066)"),
 ("12.04-06","Fight types / sequencer","alternate; charging units fight first","Fights-First then Remaining steps w/ pass rules & return-to-FF; Overrun fight","done","FightSequencer.gd 33-141; FightPhase consults it at ed≥11 (573-582,1223) (ISS-050)"),
-("12.07/08","Consolidation — modes","3\" toward nearest enemy / objective","3 mandatory modes: Ongoing / Engaging (forces those enemies to fight!) / Objective","gap","ConsolidationMove.gd module exists & unit-tested, but FightPhase._validate_consolidate/_determine_consolidate_mode (809,864) still run legacy 10e modes with NO edition branch — module never called by the live phase"),
+("12.07/08","Consolidation — modes","3\" toward nearest enemy / objective","3 mandatory modes: Ongoing / Engaging (forces those enemies to fight!) / Objective","done","FightPhase._validate_consolidate branches to _validate_consolidate_11e at edition≥11, driving the real ConsolidationMove template (Ongoing / Engaging / Objective) (ISS-066)"),
 # TERRAIN / OBJECTIVES (13-14)
 ("13.06","Terrain & movement","simpler traversal","per-keyword dense traversal; ≤2\" (≤4\" SUPER-HEAVY WALKER) else vertical; MOBILE","done","TerrainManager.can_move_through_11e; wired into MovementPhase._validate_set_model_dest at ed≥11 (ISS-054, windowed)"),
 ("13.08","Benefit of cover","cover improves the SAVE by 1","cover WORSENS the attack's BS by 1 (no save bonus) — headline change","done","TerrainManager.unit_has_cover_11e 1014-1044; ModifierStack 91-112 (ISS-053)"),
@@ -55,28 +55,28 @@ deltas = [
 ("21.02","Surge move","did not exist as core","NEW triggered move toward closest enemy; must engage surge target","done","SurgeMove.gd 1-83 (ISS-061)"),
 ("21.03","Flying — take to the skies","FLY ignored vertical / moved through models","opt-in per move: −2\" max distance (0 with HOVER), ignore vertical, move through all","done","MoveType.take_to_skies_modifier 95-103; live in BEGIN_NORMAL/ADVANCE/FALL_BACK (ISS-061, windowed)"),
 ("22.05","Plunging Fire","did not exist","NEW +1 BS if attacker ≥3\" elevation or TOWERING within 12\", vs ground targets","done","ModifierStack 114-124 (ISS-053)"),
-("23.01/02/03","Aircraft reserve cycle","10e zoom/hover movement","AIRCRAFT must start in reserves; ingress-only; return to reserves each opp turn","gap","No forced-reserves at deploy, no return-to-reserves cycle anywhere. Tracked deferral (ISS-060): 'no aircraft datasheets in current armies'"),
+("23.01/02/03","Aircraft reserve cycle","10e zoom/hover movement","AIRCRAFT must start in reserves; ingress-only; return to reserves each opp turn","done","GameState.unit_must_start_in_reserves + return_aircraft_to_reserves; DeploymentPhase rejects on-board AIRCRAFT; TurnManager MORALE hook runs the end-of-turn return. Edition+keyword gated, inert without aircraft data (ISS-074)"),
 # ABILITY GLOSSARY (24.xx) — deltas only
-("24.01","[ABILITIES] keyword scoping","plain bracket abilities","trailing keyword scopes ability to matching targets ([LETHAL HITS: VEHICLE])","partial","Registry primitives exist (AbilityRegistry 171,243) but live has_* checks take (weapon,board) with NO target (RulesEngine 5813,5930,5997) → scoped abilities fire vs ALL targets"),
-("24.02","Duplicated abilities","—","same ability not cumulative; pick one instance","gap","No non-stacking / instance-selection logic in resolution anywhere"),
+("24.01","[ABILITIES] keyword scoping","plain bracket abilities","trailing keyword scopes ability to matching targets ([LETHAL HITS: VEHICLE])","done","RulesEngine.get_weapon_ability_scope + has_* helpers now take target_unit; scoped abilities checked against the target's keywords across all 16 resolution call sites. Unscoped data unchanged (ISS-070)"),
+("24.02","Duplicated abilities","—","same ability not cumulative; pick one instance","done","AbilityRegistry.from_weapon collapses duplicate ids keeping the highest numeric param; get_sustained_hits_value takes the highest instance, never the sum (ISS-072)"),
 ("24.05","[BLAST X]","+1 die per 5 models","+ [BLAST X] variant adds X per 5","done","AbilityRegistry.blast_bonus_dice 267; BLAST 2 vs 12 = +4 tested"),
 ("24.06","[CLEAVE X]","did not exist","NEW: like BLAST but only vs a single all-attacks target","done","AbilityRegistry.cleave_bonus_dice 274; CLEAVE 1 vs 16 = +3 tested"),
 ("24.07","[CLOSE-QUARTERS]","[PISTOL]","NEW keyword supersedes PISTOL","done","CloseQuartersShooting.gd; PISTOL→CQ map (ISS-048)"),
 ("24.09","Deep Strike","set up >9\" from enemies","set up >8\" horizontally; no opp DZ before round 3","done","IngressMove 47 (8.0), 75 (DZ ban) (ISS-060)"),
 ("24.10","[DEVASTATING WOUNDS]","crit wound → damage as mortals (no save)","crit ENDS the sequence; MW = weapon D; 1 model/crit, excess lost","done","Allocation.apply_devastating_wounds_11e 317; pg-80 example reproduces (ISS-046)"),
-("24.14","Firing Deck","select X embarked models","+ exclude [ONE SHOT]; one ranged weapon per model","partial","Selects up to X & marks has_shot, but FiringDeckDialog 101 lists ALL weapons — no [ONE SHOT] exclusion, no one-weapon-per-model limit"),
+("24.14","Firing Deck","select X embarked models","+ exclude [ONE SHOT]; one ranged weapon per model","done","FiringDeckDialog._populate_available_weapons uses get_unit_weapons, excludes [ONE SHOT] via is_one_shot_weapon, and enforces one ranged weapon per model (ISS-071)"),
 ("24.16","[HEAVY]","+1 to hit if Remained Stationary","+1 to hit in YOUR Shooting phase: unengaged, not set up this turn, moved ≤3\"","done","ModifierStack.heavy_applies_11e 150-169 (ISS-016)"),
 ("24.17","HOVER","FLY ignored vertical","when taking to the skies, no −2\" penalty","done","MoveType.take_to_skies_modifier (0 with HOVER) (ISS-061)"),
-("24.20","Infiltrators","deploy >9\" from enemy DZ & models","deploy >8\" HORIZONTALLY from enemy DZ & all enemy units","gap","DeploymentPhase 348,361 hardcode 9.0, NO edition gate — 10e behaviour"),
+("24.20","Infiltrators","deploy >9\" from enemy DZ & models","deploy >8\" HORIZONTALLY from enemy DZ & all enemy units","done","DeploymentPhase._validate_infiltrators_position uses infiltrate_min = 8.0 at ed≥11 (else 9.0) across all 6 sites (ISS-068)"),
 ("24.22/34","Leader / Support","Leader only","NEW SUPPORT role parallel to Leader","done","CharacterAttachmentManager.attachment_role 86-100 (ISS-059)"),
 ("24.23","[LETHAL HITS]","crit hit auto-wounds (mandatory)","now a CHOICE — declining keeps crit-wound triggers","done","RulesEngine.lethal_hits_auto_wound_11e 2282 (ISS-047)"),
-("24.24","Lone Operative","target only within 12\"","+ explicit [INDIRECT FIRE] clause + Lone Operative X\" variant","gap","RulesEngine 3967,4753,4857 hardcode 12.0, normal-target only; no indirect clause, no X\" variant, NO edition gate"),
+("24.24","Lone Operative","target only within 12\"","+ explicit [INDIRECT FIRE] clause + Lone Operative X\" variant","done","RulesEngine.get_lone_operative_range parses the 'Lone Operative X\"' variant (default 12); both targeting gates (visibility + indirect) use the parsed range, edition-gated (ISS-069)"),
 ("24.27","[PISTOL]","own pistol rules","now identical to [CLOSE-QUARTERS]","done","ShootingType 96 maps pistol→close_quarters (ISS-048)"),
 ("24.28","[PRECISION]","allocate the attack to a character","attacker makes the CHARACTER group the current allocation group","done","RulesEngine.has_precision/precision_data 2185 (ISS-047)"),
 ("24.29","[PSYCHIC]","no inherent rule","may ignore any/all BS/WS & hit-roll modifiers; attacks are 'psychic'","done","RulesEngine.is_psychic_weapon 1778-1785,3063-3070 (ISS-047)"),
-("24.31","Scouts","wholly-in-DZ → scout move (or transport)","+ if in STRATEGIC RESERVES, set up wholly within your DZ","gap","ScoutPhase 135 requires DEPLOYED & rejects reserves; the reserves→DZ option is absent; NO edition gate"),
-("24.32","Scout move","after move >9\" from enemy models","after move >8\" HORIZONTALLY from enemy UNITS; eligible if wholly in DZ","gap","ScoutPhase 15,215,265 use 9.0 straight-line; no DZ-containment; NO edition gate"),
-("24.35","Super-Heavy Walker","did not exist","move through models & ≤4\" terrain; optional MOBILE-grant then D6 (1 = shock)","partial","≤4\" traversal done (TerrainManager 993); MOBILE-grant + D6 gamble not driven by any action"),
+("24.31","Scouts","wholly-in-DZ → scout move (or transport)","+ if in STRATEGIC RESERVES, set up wholly within your DZ","done","ScoutPhase adds the reserves→DZ deploy path (SCOUT_RESERVES_DEPLOY + scout_reserve_units_pending), wholly-in-own-DZ check, edition-gated (ISS-067)"),
+("24.32","Scout move","after move >9\" from enemy models","after move >8\" HORIZONTALLY from enemy UNITS; eligible if wholly in DZ","done","ScoutPhase._scout_min_enemy_distance_inches = 8.0 at ed≥11 (else 9.0), horizontal from enemy units, DZ-containment precondition (ISS-067)"),
+("24.35","Super-Heavy Walker","did not exist","move through models & ≤4\" terrain; optional MOBILE-grant then D6 (1 = shock)","done","≤4\" traversal (TerrainManager); begin handlers record shw_mobile from payload.shw_mobile_gamble, MOBILE passed to the 13.06 traversal, D6 at move-confirm sets battle_shocked on a 1 (ISS-073)"),
 ]
 
 nodelta_24 = ["24.03 [ANTI]","24.04 [ASSAULT]","24.08 Deadly Demise","24.11 [EXTRA ATTACKS]","24.12 Feel No Pain","24.13 Fights First","24.15 [HAZARDOUS]","24.18 [IGNORES COVER]","24.19 [INDIRECT FIRE]","24.21 [LANCE]","24.25 [MELTA]","24.26 [ONE SHOT]","24.30 [RAPID FIRE]","24.33 Stealth","24.36 [SUSTAINED HITS]","24.37 [TORRENT]","24.38 [TWIN-LINKED]"]
@@ -146,25 +146,40 @@ issues = [
 ("ISS-061","11e FLY/surge/hover","done","11e"),
 ("ISS-062","AI updated for 11e","done","11e"),
 ("ISS-063","11e windowed scenario suite","done","11e"),
+("ISS-064","Fall-back desperate-escape single-fire at 11e (09.07)","done","11e"),
+("ISS-065","Battle-shock test at exactly half-strength (08.03)","done","11e"),
+("ISS-066","11e pile-in / consolidation reach the Fight phase (12.02-12.08)","done","11e"),
+("ISS-067","Scouts: 8\" + strategic-reserves→DZ option (24.31/32)","done","11e"),
+("ISS-068","Infiltrators deploy 8\" horizontal at 11e (24.20)","done","11e"),
+("ISS-069","Lone Operative X\" variant + indirect clause (24.24)","done","11e"),
+("ISS-070","Keyword-scoped weapon abilities honour the target (24.01)","done","11e"),
+("ISS-071","Firing Deck excludes [ONE SHOT], one weapon/model (24.14)","done","11e"),
+("ISS-072","Duplicated weapon abilities non-cumulative (24.02)","done","11e"),
+("ISS-073","Super-Heavy Walker MOBILE-grant + D6 gamble (24.35)","done","11e"),
+("ISS-074","Aircraft reserve cycle (23.01/23.02)","done","11e"),
 ("ISS-023","Single source of truth for positions","todo","arch"),
 ]
 
-# Confirmed gaps surfaced by THIS audit (beyond what tracker openly deferred)
+# Confirmed gaps surfaced by THIS audit (beyond what tracker openly deferred).
+# Every CRITICAL→LOW gap below has since been fixed, validated, and committed;
+# the `resolution` field records the fix + the issue id. Two INFO items remain
+# open (one a tracked deferral, one unverified).
+# (sev, code, title, desc, loc, resolution)
 gaps = [
-("CRITICAL","09.07","Fall-back desperate-escape double-fires at edition 11","The legacy 10e _process_desperate_escape runs at move-confirm with no edition guard, while the 11e FallBackMove.before_moving already rolled per-model hazards at move-begin. A battle-shocked unit falling back has hazard mortal wounds applied twice. Verified structurally (no guard; both paths active); runtime double-count not executed.","MovementPhase.gd:4596"),
-("CRITICAL","08.03","Units at EXACTLY half-strength skip their battle-shock test","11e 08.03 reads 'at, or below, half-strength'. battleshock_test_required() has the right at_half parameter but CommandPhase passes it hardcoded false, and below_half uses a strict '<'. A unit at exactly half (5/10 models) never tests.","CommandPhase.gd:276 / GameState.gd:962"),
-("HIGH","12.07/08","11e consolidation modes never reach the live Fight phase","ConsolidationMove (Ongoing/Engaging/Objective, incl. engaging-consolidation forcing enemies to fight) is implemented & unit-tested but FightPhase._validate_consolidate / _determine_consolidate_mode still run legacy 10e modes with no edition branch. A player consolidating at edition 11 gets 10e behaviour.","FightPhase.gd:809,864"),
-("HIGH","12.02/03","11e pile-in never reaches the live Fight phase","PileInMove (5\" target select, base-contact lock) is implemented & unit-tested but FightPhase._validate_pile_in / _process_pile_in run hardcoded legacy 3\"/closest-model logic with no edition branch.","FightPhase.gd:639,1267"),
-("HIGH","24.31/32","Scouts still run 10e: wrong distance + missing reserves option","ScoutPhase uses 9.0\" straight-line (11e: >8\" horizontal from enemy UNITS), requires DEPLOYED status (rejecting the new 11e strategic-reserves→'set up wholly within your DZ' option), and has no DZ-containment precondition. No edition gate anywhere in the phase.","ScoutPhase.gd:15,135,215,265"),
-("MEDIUM","24.20","Infiltrators deploy distance still 9\" (10e), should be 8\" horizontal","DeploymentPhase hardcodes 9.0\" for both the enemy-DZ and enemy-model checks, with no edition gate.","DeploymentPhase.gd:348,361"),
-("MEDIUM","24.24","Lone Operative missing the X\" variant and the [INDIRECT FIRE] clause","Code hardcodes a 12\" normal-targeting gate only; 11e adds an explicit indirect-fire restriction and a 'Lone Operative X\"' distance variant. No edition gate (10e code).","RulesEngine.gd:3967,4753,4857"),
-("MEDIUM","24.01","Keyword-scoped abilities fire against all targets","The [LETHAL HITS: KEYWORD] scoping primitives exist in AbilityRegistry but the live resolution helpers take (weapon, board) with no target, so a scoped ability is never restricted to matching targets.","RulesEngine.gd:5813,5930,5997"),
-("MEDIUM","24.14","Firing Deck doesn't exclude [ONE SHOT] / one-weapon-per-model","Selects up to X embarked models correctly, but lists every weapon — 11e requires excluding [ONE SHOT] and one ranged weapon per selected model.","FiringDeckDialog.gd:101"),
-("LOW","24.02","Duplicated-ability non-stacking not enforced","No instance-selection / non-cumulative logic exists in the resolution path.","(none — unimplemented)"),
-("LOW","24.35","Super-Heavy Walker MOBILE-grant + D6 battle-shock gamble not driven","The ≤4\" terrain traversal works; the optional 'grant all models MOBILE then roll D6, 1 = battle-shocked' is not applied by any action.","TerrainManager.gd:978 (comment only)"),
-("LOW","23.01/02","Aircraft reserve cycle absent (tracked deferral)","No forced-reserves at deployment and no return-to-reserves cycle. Openly deferred in the tracker — no aircraft datasheets exist in the current armies.","(none — unimplemented)"),
-("INFO","19.04","Attached-unit effect-flag source-expiry matrix is partial","Keyword/crit-threshold expiry on leader death works; the full effect-flag source-expiry with the until-attacks-resolved grace is deferred to ISS-027.","CharacterAttachmentManager.gd"),
-("INFO","20.02","Repositioned-units persistence rules unverified","The audit could not confirm the duration-effect persistence at a specific file:line.","(unverified)"),
+("CRITICAL","09.07","Fall-back desperate-escape double-fires at edition 11","The legacy 10e _process_desperate_escape runs at move-confirm with no edition guard, while the 11e FallBackMove.before_moving already rolled per-model hazards at move-begin. A battle-shocked unit falling back has hazard mortal wounds applied twice.","MovementPhase.gd:4596","FIXED (ISS-064): legacy desperate-escape gated to edition < 11; the 11e template owns the single hazard application at move-begin. Headless + windowed validation drive begin→confirm and assert the alive count does not change at confirm."),
+("CRITICAL","08.03","Units at EXACTLY half-strength skip their battle-shock test","11e 08.03 reads 'at, or below, half-strength'. battleshock_test_required() has the right at_half parameter but CommandPhase passes it hardcoded false, and below_half uses a strict '<'. A unit at exactly half (5/10 models) never tests.","CommandPhase.gd:276 / GameState.gd:962","FIXED (ISS-065): GameState.is_at_half_strength(_combined) added (exact-half + odd-strength caveat); CommandPhase passes at_half into battleshock_test_required. Headless + windowed validation."),
+("HIGH","12.07/08","11e consolidation modes never reach the live Fight phase","ConsolidationMove (Ongoing/Engaging/Objective, incl. engaging-consolidation forcing enemies to fight) is implemented & unit-tested but FightPhase._validate_consolidate / _determine_consolidate_mode still run legacy 10e modes with no edition branch.","FightPhase.gd:809,864","FIXED (ISS-066): _validate_consolidate branches to _validate_consolidate_11e at edition≥11, driving the real ConsolidationMove template. Validated headless against the real FightPhase validators."),
+("HIGH","12.02/03","11e pile-in never reaches the live Fight phase","PileInMove (5\" target select, base-contact lock) is implemented & unit-tested but FightPhase._validate_pile_in / _process_pile_in run hardcoded legacy 3\"/closest-model logic with no edition branch.","FightPhase.gd:639,1267","FIXED (ISS-066): _validate_pile_in branches to _validate_pile_in_11e at edition≥11. Validated headless against the real FightPhase validators + existing windowed fight scenarios."),
+("HIGH","24.31/32","Scouts still run 10e: wrong distance + missing reserves option","ScoutPhase uses 9.0\" straight-line (11e: >8\" horizontal from enemy UNITS), requires DEPLOYED status (rejecting the new 11e strategic-reserves→'set up wholly within your DZ' option), and has no DZ-containment precondition.","ScoutPhase.gd:15,135,215,265","FIXED (ISS-067): 8\" horizontal-from-units at ed≥11, SCOUT_RESERVES_DEPLOY reserves→DZ path with wholly-in-own-DZ check, progression includes reserves. Headless + windowed validation."),
+("MEDIUM","24.20","Infiltrators deploy distance still 9\" (10e), should be 8\" horizontal","DeploymentPhase hardcodes 9.0\" for both the enemy-DZ and enemy-model checks, with no edition gate.","DeploymentPhase.gd:348,361","FIXED (ISS-068): infiltrate_min = 8.0 at ed≥11 (else 9.0) across all 6 sites. Headless boundary test + 10e sensitivity."),
+("MEDIUM","24.24","Lone Operative missing the X\" variant and the [INDIRECT FIRE] clause","Code hardcodes a 12\" normal-targeting gate only; 11e adds an explicit indirect-fire restriction and a 'Lone Operative X\"' distance variant.","RulesEngine.gd:3967,4753,4857","FIXED (ISS-069): get_lone_operative_range parses the X\" variant; both targeting gates use the parsed range; has_lone_operative matches the 'Lone Operative X\"' name form. Headless validation of get_eligible_targets."),
+("MEDIUM","24.01","Keyword-scoped abilities fire against all targets","The [LETHAL HITS: KEYWORD] scoping primitives exist in AbilityRegistry but the live resolution helpers take (weapon, board) with no target, so a scoped ability is never restricted to matching targets.","RulesEngine.gd:5813,5930,5997","FIXED (ISS-070): has_*/get_* helpers take target_unit and check the scope against the target's keywords; target threaded through all 16 resolution call sites. Backward-compatible for unscoped data and no-target callers."),
+("MEDIUM","24.14","Firing Deck doesn't exclude [ONE SHOT] / one-weapon-per-model","Selects up to X embarked models correctly, but lists every weapon — 11e requires excluding [ONE SHOT] and one ranged weapon per selected model.","FiringDeckDialog.gd:101","FIXED (ISS-071): _populate_available_weapons rewired to get_unit_weapons, excludes [ONE SHOT], one-weapon-per-model guard. (Also fixed a pre-existing call to a non-existent method.) Headless validation drives the real dialog."),
+("LOW","24.02","Duplicated-ability non-stacking not enforced","No instance-selection / non-cumulative logic exists in the resolution path.","(was unimplemented)","FIXED (ISS-072): AbilityRegistry.from_weapon collapses duplicate ids keeping the highest numeric param; get_sustained_hits_value takes the highest instance, never the sum. Headless validation."),
+("LOW","24.35","Super-Heavy Walker MOBILE-grant + D6 battle-shock gamble not driven","The ≤4\" terrain traversal works; the optional 'grant all models MOBILE then roll D6, 1 = battle-shocked' is not applied by any action.","MovementPhase.gd + TerrainManager.gd","FIXED (ISS-073): begin handlers record shw_mobile from payload.shw_mobile_gamble (ed≥11 + SUPER-HEAVY WALKER); MOBILE passed to the 13.06 traversal; seeded D6 at move-confirm sets battle_shocked on a 1. 13-assertion headless test drives the real MovementPhase."),
+("LOW","23.01/02","Aircraft reserve cycle absent (tracked deferral)","No forced-reserves at deployment and no return-to-reserves cycle. Openly deferred in the tracker — no aircraft datasheets exist in the current armies.","(was unimplemented)","FIXED (ISS-074): GameState forced-reserves + return-to-reserves helpers; DeploymentPhase rejects on-board AIRCRAFT; TurnManager MORALE hook runs the end-of-turn return. Edition+keyword gated → inert without aircraft data. 23-assertion headless test drives the real path."),
+("INFO","19.04","Attached-unit effect-flag source-expiry matrix is partial","Keyword/crit-threshold expiry on leader death works; the full effect-flag source-expiry with the until-attacks-resolved grace is deferred to ISS-027.","CharacterAttachmentManager.gd","OPEN — deferred to ISS-027 (architecture workstream)."),
+("INFO","20.02","Repositioned-units persistence rules unverified","The audit could not confirm the duration-effect persistence at a specific file:line.","(unverified)","OPEN — still unverified; flagged rather than guessed."),
 ]
 
 # ---------- HTML ----------
@@ -185,8 +200,13 @@ for code,title,t10,t11,st,ev in deltas:
 
 gaprows=""
 sevcls={"CRITICAL":"sev-crit","HIGH":"sev-high","MEDIUM":"sev-med","LOW":"sev-low","INFO":"sev-info"}
-for sev,code,title,desc,loc in gaps:
-    gaprows+=f'<tr><td><span class="sev {sevcls[sev]}">{sev}</span></td><td class="code">{esc(code)}</td><td><b>{esc(title)}</b><div class="gd">{esc(desc)}</div></td><td class="ev">{esc(loc)}</td></tr>\n'
+for sev,code,title,desc,loc,resolution in gaps:
+    resolved = resolution.startswith("FIXED")
+    rcls = "res-fixed" if resolved else "res-open"
+    gaprows+=f'<tr class="{rcls}"><td><span class="sev {sevcls[sev]}">{sev}</span></td><td class="code">{esc(code)}</td><td><b>{esc(title)}</b><div class="gd">{esc(desc)}</div></td><td class="ev">{esc(loc)}</td><td class="res">{esc(resolution)}</td></tr>\n'
+
+n_gaps_fixed=sum(1 for g in gaps if g[5].startswith("FIXED"))
+n_gaps_open=sum(1 for g in gaps if not g[5].startswith("FIXED"))
 
 def issue_block(cat,heading,blurb):
     items=[i for i in issues if i[3]==cat]
@@ -228,6 +248,10 @@ td.muted{{color:var(--mut)}}
 td.ev{{color:var(--mut);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}}
 tr.r-gap{{background:rgba(248,81,73,.06)}}
 tr.r-partial{{background:rgba(210,153,34,.06)}}
+tr.res-fixed{{background:rgba(46,160,67,.06)}}
+tr.res-open{{background:rgba(88,166,255,.05)}}
+td.res{{font-size:12.5px;color:#9fe0ad}}
+tr.res-open td.res{{color:#9cd1ff}}
 .b{{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}}
 .b-done{{background:rgba(46,160,67,.18);color:#56d364}}
 .b-partial{{background:rgba(210,153,34,.18);color:#e3b341}}
@@ -256,7 +280,7 @@ code{{background:#11141a;padding:1px 5px;border-radius:4px;font-size:12.5px}}
 <p class="sub">Comprehensive rule-by-rule audit of the codebase against the uploaded 11th-edition core rules · generated {now}</p>
 
 <div class="callout warn">
-<b>Read this first — scope &amp; honesty.</b> This page was produced by a fresh, rule-by-rule re-audit (every numbered rule 01.xx–24.xx checked against the actual code, not against the issue tracker's "DONE" labels). It exists because an earlier pass batched several abilities into a single deferred bullet and reported the migration "complete" when it was not. The audit <b>confirmed that pattern is real and systemic</b>: parent issues were marked DONE while specific sub-mechanics remained unwired. Those are listed up front under <a href="#gaps">Confirmed Gaps</a>.
+<b>Read this first — scope &amp; honesty.</b> This page was produced by a fresh, rule-by-rule re-audit (every numbered rule 01.xx–24.xx checked against the actual code, not against the issue tracker's "DONE" labels). It exists because an earlier pass batched several abilities into a single deferred bullet and reported the migration "complete" when it was not. The audit <b>confirmed that pattern was real and systemic</b>: parent issues were marked DONE while specific sub-mechanics remained unwired. Every one of those gaps (CRITICAL → LOW) has since been <b>fixed, validated, and committed</b> (ISS-064 – ISS-074); they remain listed up front under <a href="#gaps">Confirmed Gaps</a> with their resolutions, so the record of what was wrong is preserved alongside the fix.
 </div>
 
 <div class="callout">
@@ -268,11 +292,12 @@ code{{background:#11141a;padding:1px 5px;border-radius:4px;font-size:12.5px}}
 <div class="stat"><div class="n" style="color:var(--done)">{n_done}</div><div class="l">implemented &amp; verified (edition-gated)</div></div>
 <div class="stat"><div class="n" style="color:var(--part)">{n_part}</div><div class="l">partial</div></div>
 <div class="stat"><div class="n" style="color:var(--gap)">{n_gap}</div><div class="l">gap (still 10e / unwired)</div></div>
+<div class="stat"><div class="n" style="color:var(--done)">{n_gaps_fixed}</div><div class="l">audit gaps fixed this pass (ISS-064–074)</div></div>
 </div>
 
-<h2 id="gaps">1 · Confirmed Gaps — what is NOT migrated</h2>
-<p class="sub">Surfaced by this audit and verified first-hand against the rulebook and code. Two are active correctness bugs at edition 11; the rest are missing or 10e-only behaviour. Ordered by severity.</p>
-<table><thead><tr><th>Severity</th><th>Rule</th><th>Gap</th><th>Location</th></tr></thead><tbody>
+<h2 id="gaps">1 · Confirmed Gaps — found by this audit, now resolved</h2>
+<p class="sub">Surfaced by this audit and verified first-hand against the rulebook and code. Two were active correctness bugs at edition 11; the rest were missing or 10e-only behaviour. <b>All {n_gaps_fixed} actionable gaps (CRITICAL → LOW) have since been fixed, validated, and committed</b> — the right-hand column records the fix and its issue id. The remaining {n_gaps_open} INFO rows are a tracked deferral (ISS-027) and one item that could not be pinned to a file:line. Ordered by severity.</p>
+<table><thead><tr><th>Severity</th><th>Rule</th><th>Gap (as found)</th><th>Location</th><th>Status / resolution</th></tr></thead><tbody>
 {gaprows}
 </tbody></table>
 
@@ -285,24 +310,24 @@ code{{background:#11141a;padding:1px 5px;border-radius:4px;font-size:12.5px}}
 <p class="sub" style="margin-top:14px"><b>Ability glossary — no delta (identical 10e/11e, present in code):</b><br><span class="muted" style="color:var(--mut);font-size:13px">{nodelta_html}</span></p>
 
 <h2>3 · Everything Changed This Session</h2>
-<p class="sub">All 63 tracker issues / 77 commits, grouped by intent. The 11e migration is one of three workstreams; the architecture and infrastructure work is included per the request to cover all session changes even where they are not strictly an edition change.</p>
+<p class="sub">All 74 tracker issues (ISS-001 – ISS-074), grouped by intent — including the 11 TIER-4 issues (ISS-064 – ISS-074) opened by this audit to fix the confirmed gaps. The 11e migration is one of three workstreams; the architecture and infrastructure work is included per the request to cover all session changes even where they are not strictly an edition change.</p>
 {issue_block("11e","11th-edition rules migration","The rule-conversion work catalogued in section 2 — schema, phases, attack resolution, terrain, stratagems, transports, attached units, reserves, AI, and the windowed scenario suite.")}
 {issue_block("arch","Architecture &amp; refactor (not edition-specific)","Structural cleanups that underpin the migration: routing all mutation through the action pipeline, the edition switch itself, ability schema, the consolidated modifier stack, live-view snapshots, the PhaseManager/TurnManager ownership split, the SceneRefs path chokepoint, and more. Dashed cards are the 5 remaining planned refactors.")}
 {issue_block("infra","Test &amp; safety infrastructure","The nets that make the migration verifiable: deterministic action-log replay, the save-migration framework, and the golden-master replay harness (records games, replays after scrambling, asserts hash-identical, proves sensitivity to rules drift).")}
 
-<h2>4 · Validation at time of audit</h2>
+<h2>4 · Validation</h2>
 <ul>
-<li>Headless regression suite: <b>1138 checks across 68 tests, 0 failures</b>.</li>
-<li>Windowed scenario batch (real UI, screenshots reviewed): <b>77/77</b>, including 7 dedicated edition-11 scenarios (<code>run_scenarios.sh --e11</code>) and an AI-vs-AI full game to battle round 5 at edition 11.</li>
-<li>Golden-master replay: 10e and 11e game slices reproduce hash-identical; tampering the dice stream provably breaks the golden.</li>
-<li><b>Caveat:</b> the gaps in section 1 are precisely the behaviours those suites do <i>not</i> exercise — e.g. the fall-back scenario asserted the begin-path hazard roll count but never confirmed the move, so it never caught the double-fire. Green suites did not, and do not, imply completeness.</li>
+<li>Headless regression suite after the gap fixes: <b>1250 checks across 79 tests, 0 failures</b> (was 1138/68 at the time of the original audit). Each ISS-064–074 fix added a dedicated test that drives the REAL phase/engine function (not a stub) plus a 10e sensitivity check.</li>
+<li>Windowed scenarios (real UI, screenshots reviewed) added for the player-facing fixes — fall-back single-hazard, at-half battle-shock, and the Scout strategic-reserves→DZ deploy — alongside the existing edition-11 scenario batch and the AI-vs-AI full game to battle round 5 at edition 11.</li>
+<li>Golden-master replay: 10e and 11e game slices reproduce hash-identical; tampering the dice stream provably breaks the golden. The keyword-scope / duplicated-ability / target-threading changes are backward-compatible — current (unscoped, single-instance) data keeps the goldens byte-identical.</li>
+<li><b>Why the original suites missed these:</b> the gaps in section 1 were precisely the behaviours those suites did <i>not</i> exercise — e.g. the fall-back scenario asserted the begin-path hazard roll count but never confirmed the move, so it never caught the double-fire. Green suites did not imply completeness; the new tests close exactly those holes.</li>
 </ul>
 
 <h2>5 · Method &amp; honest limitations</h2>
 <ul>
 <li>Four independent audit passes covered rule ranges 01–09, 10–14, 15–23, and the 24.xx ability glossary; each opened the cited code and checked the edition branch and constant values directly rather than trusting tracker status.</li>
-<li>Findings were not run live except where noted; the two CRITICAL items are confirmed from code structure and the rulebook wording, but the exact runtime double-count / skipped-test were not executed. They are reported as code-evident, not runtime-proven.</li>
-<li>One item (20.02 repositioned-units persistence) could not be pinned to a file:line and is flagged UNVERIFIED rather than guessed.</li>
+<li>The audit findings were initially reported as code-evident (not runtime-proven). Since then every CRITICAL → LOW gap has been driven live: each fix has a dedicated headless test exercising the real phase/engine function and a 10e sensitivity check, and the player-facing ones add a windowed scenario. The two original CRITICAL items (fall-back double-fire, at-half battle-shock) are now runtime-proven, not merely code-evident.</li>
+<li>One item (20.02 repositioned-units persistence) could not be pinned to a file:line and is still flagged UNVERIFIED rather than guessed. The 19.04 effect-flag source-expiry matrix remains partial and is deferred to ISS-027.</li>
 <li>The 11e datasheet <i>values</i> (per-unit Ld/OC/invuln re-baselining) are data, not rules, and remain a separate review (ISS-037 left the schema + review flags as the landing pad).</li>
 </ul>
 

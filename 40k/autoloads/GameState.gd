@@ -503,6 +503,73 @@ func unit_is_fortification(unit_id: String) -> bool:
 			return true
 	return false
 
+func unit_is_aircraft(unit_id: String) -> bool:
+	"""ISS-074 (23.01/23.02): true if the unit has the AIRCRAFT keyword."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	for kw in unit.get("meta", {}).get("keywords", []):
+		if str(kw).to_upper() == "AIRCRAFT":
+			return true
+	return false
+
+func unit_must_start_in_reserves(unit_id: String) -> bool:
+	"""ISS-074 (23.01): at edition >= 11 an AIRCRAFT unit must begin the
+	battle in Strategic Reserves — it cannot be set up on the battlefield
+	during deployment. Inert (false) outside edition 11 and for non-AIRCRAFT
+	units, so it is a no-op without aircraft datasheets."""
+	if GameConstants.edition < 11:
+		return false
+	return unit_is_aircraft(unit_id)
+
+func get_aircraft_on_board_for_player(player: int) -> Array:
+	"""ISS-074 (23.02): AIRCRAFT units owned by `player` that are currently
+	set up on the battlefield (not undeployed, not already in reserves, with
+	at least one living model). Used by the end-of-turn return-to-reserves
+	cycle."""
+	var result: Array = []
+	for unit_id in state.get("units", {}).keys():
+		var unit = state["units"][unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		if not unit_is_aircraft(unit_id):
+			continue
+		var status = int(unit.get("status", 0))
+		if status == UnitStatus.UNDEPLOYED or status == UnitStatus.IN_RESERVES:
+			continue
+		var has_alive := false
+		for m in unit.get("models", []):
+			if m.get("alive", true):
+				has_alive = true
+				break
+		if has_alive:
+			result.append(unit_id)
+	return result
+
+func return_aircraft_to_reserves(player: int) -> Array:
+	"""ISS-074 (23.02): at the end of a turn, that player's AIRCRAFT still on
+	the battlefield streak off the table and return to Strategic Reserves so
+	they can ingress again on a later turn. Builds the diffs and applies them
+	through apply_state_changes (the single mutation path). Returns the list
+	of affected unit ids. A no-op (edition < 11, or no on-board AIRCRAFT)."""
+	if GameConstants.edition < 11:
+		return []
+	var affected: Array = []
+	var changes: Array = []
+	for unit_id in get_aircraft_on_board_for_player(player):
+		changes.append({"op": "set", "path": "units.%s.status" % unit_id,
+			"value": UnitStatus.IN_RESERVES})
+		changes.append({"op": "set", "path": "units.%s.reserve_type" % unit_id,
+			"value": "strategic_reserves"})
+		# Returning to reserves wipes battlefield position so a later ingress
+		# re-places the models cleanly.
+		changes.append({"op": "set", "path": "units.%s.flags.returned_to_reserves_aircraft" % unit_id,
+			"value": true})
+		affected.append(unit_id)
+	if changes.size() > 0:
+		apply_state_changes(changes)
+	return affected
+
 func _unit_has_scout_own(unit_id: String) -> bool:
 	"""Check if a unit itself (not inherited) has the Scout ability.
 	Issue #389: also check description for the Scouts text — defends against

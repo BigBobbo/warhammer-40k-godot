@@ -107,6 +107,7 @@ TESTS=(
     "tests/test_iss071_firing_deck_11e.gd"
     "tests/test_iss072_duplicated_abilities.gd"
     "tests/test_iss073_shw_mobile_gamble.gd"
+    "tests/test_iss074_aircraft_reserves_11e.gd"
 )
 
 FAILED=0

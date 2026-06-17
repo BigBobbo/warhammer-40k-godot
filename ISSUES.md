@@ -869,7 +869,9 @@ pointer in the table.
 - **Category:** missing-feature — **Severity:** low
 - **Description:** AIRCRAFT must start in strategic reserves and return to reserves at the end of each opponent's turn (ingress-only). Not implemented. Openly deferred under ISS-060 — no AIRCRAFT datasheets exist in the current armies.
 - **Proposed fix:** Force AIRCRAFT to reserves at deployment and add an end-of-opponent-turn return-to-reserves cycle, edition-gated. Gate behind an AIRCRAFT-keyword presence check so it is inert without aircraft data. Headless test with a synthetic AIRCRAFT unit.
-- **Status:** TODO
+- **Resolution:** `GameState.gd` adds `unit_is_aircraft`, `unit_must_start_in_reserves` (23.01 — true only for AIRCRAFT at edition ≥ 11), `get_aircraft_on_board_for_player`, and `return_aircraft_to_reserves` (23.02 — moves on-board AIRCRAFT to `IN_RESERVES`/`strategic_reserves` via the single `apply_state_changes` path). `DeploymentPhase._validate_deploy_unit_action` rejects setting an AIRCRAFT up on the battlefield (it must use `PLACE_IN_RESERVES`). `TurnManager._on_phase_completed(MORALE)` calls the return cycle for the player whose turn just ended. All edition-gated and AIRCRAFT-keyword-gated, so inert without aircraft datasheets (this is a pure-state / no-UI feature → headless verification per the project gate).
+- **Validation:** `tests/test_iss074_aircraft_reserves_11e.gd` (23 assertions, in the suite) drives the REAL GameState helpers, `DeploymentPhase._validate_deploy_unit_action`/`_validate_place_in_reserves`, and the `TurnManager._on_phase_completed(MORALE)` hook with a synthetic AIRCRAFT unit: deploy-on-board is rejected at e11 (and inert at e10), reserves placement is allowed, the end-of-turn cycle returns only the owning player's on-board aircraft (non-aircraft, enemy aircraft, already-reserved, and e10 all untouched). Full suite green: 1250 passed / 0 failed across 79 tests.
+- **Status:** DONE
 
 ---
 
@@ -950,4 +952,4 @@ pointer in the table.
 | ISS-071 | 24.14 Firing Deck [ONE SHOT]/one-weapon limit | medium | DONE | 047 |
 | ISS-072 | 24.02 duplicated-ability non-stacking | low | DONE | 047 |
 | ISS-073 | 24.35 Super-Heavy Walker MOBILE gamble | low | DONE | 061 |
-| ISS-074 | 23.01/23.02 Aircraft reserve cycle | low | TODO | 060 |
+| ISS-074 | 23.01/23.02 Aircraft reserve cycle | low | DONE | 060 |

@@ -118,6 +118,12 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 	if unit.get("owner", 0) != active_player:
 		errors.append("Unit does not belong to active player")
 
+	# ISS-074 (11e 23.01): AIRCRAFT must begin the battle in Strategic
+	# Reserves — they cannot be set up on the battlefield during deployment.
+	# Inert at edition < 11 and for non-AIRCRAFT units.
+	if GameState.unit_must_start_in_reserves(unit_id):
+		errors.append("AIRCRAFT must start in Strategic Reserves (23.01) — place it in reserves instead of on the battlefield")
+
 	# Validate model positions — must be an Array, not a Dictionary or other type
 	if not (model_positions is Array):
 		errors.append("model_positions must be an Array of position objects, got %s" % typeof(model_positions))
