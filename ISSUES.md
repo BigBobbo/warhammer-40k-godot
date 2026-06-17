@@ -860,7 +860,9 @@ pointer in the table.
 - **Category:** missing-feature — **Severity:** low
 - **Description:** The ≤4" terrain traversal works; the optional "grant all models MOBILE for the move, then roll D6 — on a 1 the unit is battle-shocked" is not driven by any action.
 - **Proposed fix:** A move-time declaration that injects MOBILE and rolls the D6 at move end, edition-gated. Headless test.
-- **Status:** TODO
+- **Resolution:** `MovementPhase.gd` — all three move-begin handlers (`BEGIN_NORMAL_MOVE`, `BEGIN_ADVANCE` via `_pending_shw_mobile`, `BEGIN_FALL_BACK`) read `payload.shw_mobile_gamble` and record `shw_mobile` on the active move, gated to edition ≥ 11 AND the `SUPER-HEAVY WALKER` keyword. `_validate_set_model_dest` passes `["MOBILE"]` as `extra_keywords` to `TerrainManager.can_move_through_11e` when the gamble is taken, letting the SHW cross dense terrain it would otherwise be blocked by (>4" height limit). At move end `_process_confirm_unit_move` rolls one D6 (seeded via `payload.rng_seed` / NetworkManager seed when hosting); on a 1 it appends a `flags.battle_shocked = true` diff and logs the gamble. Backward-compatible: no gamble / non-SHW / edition < 10 records `shw_mobile = false` and rolls nothing.
+- **Validation:** `tests/test_iss073_shw_mobile_gamble.gd` (13 assertions, in the suite) drives the REAL MovementPhase: BEGIN records the flag only for SHW+gamble at e11; MOBILE-granted traversal crosses a dense 6" feature that blocks the same SHW without the gamble; CONFIRM with deterministic seeds battle-shocks on a 1 and not otherwise; no-gamble rolls nothing; e10 and non-SHW are inert. Full suite green (1227 passed / 0 failed / 78 tests).
+- **Status:** DONE
 
 ### ISS-074 — 23.01/23.02 Aircraft reserve cycle
 - **Location:** deployment + end-of-turn (no implementation)
@@ -947,5 +949,5 @@ pointer in the table.
 | ISS-070 | 24.01 keyword-scoped abilities applied live | medium | DONE | 047 |
 | ISS-071 | 24.14 Firing Deck [ONE SHOT]/one-weapon limit | medium | DONE | 047 |
 | ISS-072 | 24.02 duplicated-ability non-stacking | low | DONE | 047 |
-| ISS-073 | 24.35 Super-Heavy Walker MOBILE gamble | low | TODO | 061 |
+| ISS-073 | 24.35 Super-Heavy Walker MOBILE gamble | low | DONE | 061 |
 | ISS-074 | 23.01/23.02 Aircraft reserve cycle | low | TODO | 060 |

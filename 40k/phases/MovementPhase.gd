@@ -43,6 +43,8 @@ const OVERLAP_TOLERANCE_PX: float = 0.5
 var active_moves: Dictionary = {}
 # ISS-061: take-to-the-skies declarations awaiting the advance roll.
 var _pending_take_to_skies: Dictionary = {}  # unit_id -> move_data
+# ISS-073 (24.35): Super-Heavy Walker MOBILE-grant declarations awaiting the advance roll.
+var _pending_shw_mobile: Dictionary = {}  # unit_id -> bool
 var dice_log: Array = []
 var _awaiting_reroll_decision: bool = false
 var _reroll_pending_unit_id: String = ""
@@ -972,7 +974,9 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 		var tm_54 = get_node_or_null("/root/TerrainManager")
 		if not flying_54 and tm_54 != null and tm_54.has_method("can_move_through_11e"):
 			var kw_54 = GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
-			var trav = tm_54.can_move_through_11e(kw_54, current_pos, dest_vec)
+			# ISS-073 (24.35): the SHW MOBILE gamble grants MOBILE for the move.
+			var extra_kw_54: Array = ["MOBILE"] if active_moves[unit_id].get("shw_mobile", false) else []
+			var trav = tm_54.can_move_through_11e(kw_54, current_pos, dest_vec, extra_kw_54)
 			if not trav.allowed:
 				return {"valid": false, "errors": ["Dense terrain blocks this model's path (13.06): %s" % str(trav.blockers)]}
 
@@ -1411,6 +1415,13 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 		move_inches = max(0.0, move_inches + fly_mod)
 		log_phase_message("[11e] %s takes to the skies: cap %s\" (%+.1f\"), may move through models and terrain" % [unit_id, str(move_inches), fly_mod])
 
+	# ISS-073 (24.35): a SUPER-HEAVY WALKER may opt to grant all its models
+	# the MOBILE keyword for this move (payload.shw_mobile_gamble) — letting
+	# it move through dense terrain; at move end it rolls D6, on a 1 it is
+	# battle-shocked. Recorded here, the D6 is rolled at CONFIRM.
+	var shw_mobile: bool = GameConstants.edition >= 11 \
+			and bool(action.get("payload", {}).get("shw_mobile_gamble", false)) \
+			and "SUPER-HEAVY WALKER" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
 	# If unit already had staged moves (e.g. switching modes), reset visuals first
 	_reset_staged_visuals_if_needed(unit_id)
 
@@ -1418,6 +1429,7 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	active_moves[unit_id] = {
 		"mode": "NORMAL",
 		"took_to_skies": took_to_skies,
+		"shw_mobile": shw_mobile,
 		"mode_locked": false,  # Track if mode is confirmed
 		"completed": false,  # Track if unit has completed movement
 		"move_cap_inches": move_inches,
@@ -1474,6 +1486,9 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	_pending_take_to_skies[unit_id] = GameConstants.edition >= 11 \
 			and action.get("payload", {}).get("take_to_skies", false) \
 			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
+	_pending_shw_mobile[unit_id] = GameConstants.edition >= 11 \
+			and action.get("payload", {}).get("shw_mobile_gamble", false) \
+			and "SUPER-HEAVY WALKER" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
 
 	# If unit already had staged moves (e.g. switching from Normal to Advance), reset visuals early
 	# This ensures visuals are correct even if a reroll dialog delays _resolve_advance_roll
@@ -1577,6 +1592,8 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	# ISS-061 (11e 21.03/24.17): apply the recorded take-to-the-skies cap.
 	var took_to_skies: bool = _pending_take_to_skies.get(unit_id, false)
 	_pending_take_to_skies.erase(unit_id)
+	var shw_mobile: bool = _pending_shw_mobile.get(unit_id, false)
+	_pending_shw_mobile.erase(unit_id)
 	if took_to_skies:
 		var fly_mod = MoveType.take_to_skies_modifier(GameState.get_unit(unit_id))
 		move_inches = max(0.0, move_inches + fly_mod)
@@ -1591,6 +1608,7 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	active_moves[unit_id] = {
 		"mode": "ADVANCE",
 		"took_to_skies": took_to_skies,
+		"shw_mobile": shw_mobile,
 		"mode_locked": false,
 		"completed": false,
 		"move_cap_inches": total_move,
@@ -3985,6 +4003,13 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 		move_inches = max(0.0, move_inches + fly_mod)
 		log_phase_message("[11e] %s takes to the skies: cap %s\" (%+.1f\"), may move through models and terrain" % [unit_id, str(move_inches), fly_mod])
 
+	# ISS-073 (24.35): a SUPER-HEAVY WALKER may opt to grant all its models
+	# the MOBILE keyword for this move (payload.shw_mobile_gamble) — letting
+	# it move through dense terrain; at move end it rolls D6, on a 1 it is
+	# battle-shocked. Recorded here, the D6 is rolled at CONFIRM.
+	var shw_mobile: bool = GameConstants.edition >= 11 \
+			and bool(action.get("payload", {}).get("shw_mobile_gamble", false)) \
+			and "SUPER-HEAVY WALKER" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
 	# If unit already had staged moves (e.g. switching modes), reset visuals first
 	_reset_staged_visuals_if_needed(unit_id)
 
@@ -3992,6 +4017,7 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	active_moves[unit_id] = {
 		"mode": "FALL_BACK",
 		"took_to_skies": took_to_skies,
+		"shw_mobile": shw_mobile,
 		"mode_locked": false,  # Track if mode is confirmed
 		"completed": false,  # Track if unit has completed movement
 		"move_cap_inches": move_inches,
@@ -4636,6 +4662,41 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				unit_id, {"mode": str(move_data.get("fall_back_mode", ""))})
 			changes.append_array(mt_fx)
 			log_phase_message("[11e] Applied %s template AFTER effects for %s (%d ops)" % [mt_map_11e[move_data.mode], unit_id, mt_fx.size()])
+
+	# ISS-073 (11e 24.35): a SUPER-HEAVY WALKER that opted its models into MOBILE
+	# for this move (to cross dense/difficult terrain) gambles at move end: roll
+	# one D6 — on a 1 the unit becomes battle-shocked. Deterministic via the
+	# action payload rng_seed (network seed when hosting).
+	if move_data.get("shw_mobile", false):
+		var shw_seed = action.get("payload", {}).get("rng_seed", -1)
+		if shw_seed == -1 and has_node("/root/NetworkManager"):
+			var nm = get_node("/root/NetworkManager")
+			if nm.is_networked() and nm.is_host():
+				shw_seed = nm.get_next_rng_seed()
+		var shw_rng = RulesEngine.RNGService.new(shw_seed)
+		var shw_roll = shw_rng.roll_d6(1)[0]
+		additional_dice.append({
+			"context": "shw_mobile_gamble",
+			"n": 1,
+			"rolls": [shw_roll]
+		})
+		var shw_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+		if shw_roll == 1:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.flags.battle_shocked" % unit_id,
+				"value": true
+			})
+			dice_log.append({
+				"unit_id": unit_id,
+				"unit_name": shw_name,
+				"type": "Super-Heavy Walker MOBILE gamble",
+				"rolls": [shw_roll],
+				"result": "battle-shocked"
+			})
+			log_phase_message("[11e 24.35] %s gambled MOBILE — rolled 1 → battle-shocked" % shw_name)
+		else:
+			log_phase_message("[11e 24.35] %s gambled MOBILE — rolled %d → safe" % [shw_name, shw_roll])
 
 	# Set movement restrictions for later phases
 	if move_data.mode == "ADVANCE":
