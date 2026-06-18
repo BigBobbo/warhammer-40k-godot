@@ -1,0 +1,38 @@
+{
+  "id": "iss073_shw_mobile_gamble_11e",
+  "covers": [
+    "phases.MovementPhase.shw_mobile_gamble_11e",
+    "movement.shw_mobile_gamble_toggle",
+    "iss073.shw_gamble_ui"
+  ],
+  "fixture": "shw_walker_11e",
+  "edition": 11,
+  "rng_seed": 1,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "ISS-073 (24.35): a SUPER-HEAVY WALKER can DECLARE the optional MOBILE gamble through a real movement-mode toggle. The SHW unit is selected; the 'Risk MOBILE' checkbox appears (only for SUPER-HEAVY WALKER at edition 11); clicking it then the real 'Confirm Movement Mode' button begins a Normal move whose payload carries shw_mobile_gamble, recorded as shw_mobile=true on the active move. Proves the previously-missing UI affordance now wires through to MovementPhase.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"MovementController\").begin_unit_movement(\"U_STOMPA_TEST\")" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"MovementController\").active_unit_id", "equals": "U_STOMPA_TEST" },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/ShwMobileGambleCheckBox" },
+    { "act": "expect_node_property", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/ShwMobileGambleCheckBox", "property": "button_pressed", "equals": false },
+    { "act": "screenshot", "label": "01_shw_gamble_toggle_offered", "region": [1500, 378, 420, 168] },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/ShwMobileGambleCheckBox" },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "expect_node_property", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/ShwMobileGambleCheckBox", "property": "button_pressed", "equals": true },
+    { "act": "screenshot", "label": "02_shw_gamble_ticked", "region": [1500, 378, 420, 168] },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/ConfirmModeButton" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_STOMPA_TEST\"].get(\"shw_mobile\", false)", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_STOMPA_TEST\"].get(\"mode_locked\", false)", "equals": true },
+    { "act": "screenshot", "label": "03_shw_move_begun_with_gamble" }
+  ]
+}

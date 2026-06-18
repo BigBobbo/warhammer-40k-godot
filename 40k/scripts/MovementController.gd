@@ -86,6 +86,10 @@ var advance_radio: CheckBox
 var fall_back_radio: CheckBox
 var stationary_radio: CheckBox
 var confirm_mode_button: Button
+# ISS-073 (24.35): optional Super-Heavy Walker MOBILE gamble toggle. Visible only
+# for SUPER-HEAVY WALKER units at edition >= 11; its value is wired into the
+# BEGIN_NORMAL_MOVE / BEGIN_ADVANCE / BEGIN_FALL_BACK payload as shw_mobile_gamble.
+var shw_gamble_checkbox: CheckBox = null
 var advance_roll_label: Label
 
 # Flag to prevent duplicate actions when programmatically setting radio buttons
@@ -540,6 +544,22 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	confirm_mode_button.pressed.connect(_on_confirm_mode_pressed)
 	_WhiteDwarfTheme.apply_to_button(confirm_mode_button)
 	section.add_child(confirm_mode_button)
+
+	# ISS-073 (24.35): Super-Heavy Walker MOBILE gamble toggle. A SUPER-HEAVY
+	# WALKER may opt to grant all its models MOBILE for this move (letting it
+	# cross dense terrain it could not otherwise) — but at move end it rolls a
+	# D6 and on a 1 the unit is battle-shocked. Hidden by default; shown only
+	# for SUPER-HEAVY WALKER units at edition >= 11 (see _update_shw_gamble_visibility).
+	shw_gamble_checkbox = CheckBox.new()
+	shw_gamble_checkbox.name = "ShwMobileGambleCheckBox"
+	shw_gamble_checkbox.text = "Risk MOBILE (D6: 1 = battle-shock)"
+	shw_gamble_checkbox.toggle_mode = true
+	shw_gamble_checkbox.visible = false
+	shw_gamble_checkbox.tooltip_text = "Super-Heavy Walker (24.35): grant all models MOBILE for this move to cross dense terrain. At move end roll a D6 — on a 1 the unit is battle-shocked."
+	shw_gamble_checkbox.add_theme_font_size_override("font_size", 13)
+	shw_gamble_checkbox.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
+	shw_gamble_checkbox.add_theme_color_override("font_pressed_color", Color(1.0, 0.85, 0.4))
+	section.add_child(shw_gamble_checkbox)
 
 	parent.add_child(section)
 
@@ -1083,11 +1103,18 @@ func _on_fall_back_pressed() -> void:
 
 	if active_unit_id == "":
 		return
-	
+
+	# ISS-073 (24.35): a SUPER-HEAVY WALKER falling back may also take the MOBILE
+	# gamble. Fall Back is dispatched immediately on radio-press (no Confirm
+	# Movement Mode step), so read the toggle here.
+	var fb_payload := {}
+	if _shw_gamble_requested():
+		fb_payload["shw_mobile_gamble"] = true
+
 	var action = {
 		"type": "BEGIN_FALL_BACK",
 		"actor_unit_id": active_unit_id,
-		"payload": {}
+		"payload": fb_payload
 	}
 	emit_signal("move_action_requested", action)
 	_refresh_confirm_mode_button_enable()  # issue #51
@@ -1162,19 +1189,26 @@ func _on_confirm_mode_pressed() -> void:
 		print("No movement mode selected!")
 		return
 
+	# ISS-073 (24.35): capture the SHW MOBILE-gamble toggle before the panel is
+	# torn down below, and fold it into the BEGIN payload for the move modes
+	# that actually move the unit (Normal / Advance).
+	var shw_payload := {}
+	if _shw_gamble_requested():
+		shw_payload["shw_mobile_gamble"] = true
+
 	# Dispatch the actual movement action based on selected mode
 	match selected_mode:
 		"NORMAL":
 			emit_signal("move_action_requested", {
 				"type": "BEGIN_NORMAL_MOVE",
 				"actor_unit_id": active_unit_id,
-				"payload": {}
+				"payload": shw_payload
 			})
 		"ADVANCE":
 			emit_signal("move_action_requested", {
 				"type": "BEGIN_ADVANCE",
 				"actor_unit_id": active_unit_id,
-				"payload": {}
+				"payload": shw_payload
 			})
 		"REMAIN_STATIONARY":
 			emit_signal("move_action_requested", {
@@ -1265,6 +1299,37 @@ func _update_fall_back_visibility() -> void:
 		if normal_radio:
 			normal_radio.button_pressed = true
 
+func _unit_is_super_heavy_walker(unit_id: String) -> bool:
+	# ISS-073 (24.35): the MOBILE gamble is only available to SUPER-HEAVY WALKER
+	# units at edition >= 11.
+	if unit_id == "" or GameConstants.edition < 11:
+		return false
+	var unit = GameState.get_unit(unit_id)
+	if unit == null or unit.is_empty():
+		return false
+	return "SUPER-HEAVY WALKER" in unit.get("meta", {}).get("keywords", [])
+
+func _update_shw_gamble_visibility() -> void:
+	# ISS-073 (24.35): show the MOBILE-gamble toggle only for a SUPER-HEAVY
+	# WALKER at edition >= 11 whose mode is not already locked. When hidden,
+	# also clear its pressed state so a stale toggle can't leak into the next
+	# unit's BEGIN payload.
+	if not shw_gamble_checkbox:
+		return
+	var eligible := _unit_is_super_heavy_walker(active_unit_id)
+	var mode_locked := false
+	if eligible and current_phase and current_phase.active_moves.has(active_unit_id):
+		mode_locked = current_phase.active_moves[active_unit_id].get("mode_locked", false)
+	var show := eligible and not mode_locked
+	shw_gamble_checkbox.visible = show
+	if not show:
+		shw_gamble_checkbox.button_pressed = false
+
+func _shw_gamble_requested() -> bool:
+	# True only when the toggle is actually offered (visible) AND ticked, so a
+	# non-SHW / edition-10 unit can never accidentally pass the gamble flag.
+	return shw_gamble_checkbox != null and shw_gamble_checkbox.visible and shw_gamble_checkbox.button_pressed
+
 func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 	# Check if this unit already has its mode locked
 	var mode_is_locked = false
@@ -1295,6 +1360,9 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 		else:
 			# For non-advance locked modes, update display normally
 			_update_movement_display()
+
+		# ISS-073: keep the SHW gamble toggle hidden once the mode is locked.
+		_update_shw_gamble_visibility()
 	else:
 		# Unit's mode is not locked, enable fresh selection
 		_update_mode_buttons_state(true)
@@ -1317,6 +1385,9 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 		if _kunnin_infiltrator_button:
 			var has_ki = _get_special_movement_actions(unit_id).size() > 0 if current_phase else false
 			_kunnin_infiltrator_button.visible = has_ki
+
+		# ISS-073: show the SHW MOBILE-gamble toggle for an eligible fresh unit.
+		_update_shw_gamble_visibility()
 
 		# Update display for fresh unit
 		_update_movement_display()
