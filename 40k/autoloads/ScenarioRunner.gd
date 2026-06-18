@@ -603,8 +603,10 @@ func _do_execute_script(step: Dictionary) -> Dictionary:
 	for child in root.get_children():
 		input_names.append(child.name)
 		input_values.append(child)
-	input_names.append_array(["Engine", "OS", "Time", "Input", "RenderingServer", "ProjectSettings", "main"])
-	input_values.append_array([Engine, OS, Time, Input, RenderingServer, ProjectSettings, get_tree().current_scene])
+	# ResourceLoader/ClassDB let a scenario instantiate a script-backed node
+	# (e.g. a dialog) for windowed validation: ResourceLoader.load(path).new().
+	input_names.append_array(["Engine", "OS", "Time", "Input", "RenderingServer", "ProjectSettings", "ResourceLoader", "ClassDB", "main"])
+	input_values.append_array([Engine, OS, Time, Input, RenderingServer, ProjectSettings, ResourceLoader, ClassDB, get_tree().current_scene])
 
 	var expr := Expression.new()
 	var parse_err := expr.parse(code, input_names)
