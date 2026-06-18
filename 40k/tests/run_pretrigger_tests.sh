@@ -28,6 +28,16 @@ cd "$(dirname "$0")/.."
 # Add user's local godot to PATH if available
 export PATH="$HOME/bin:$PATH"
 
+# Ensure committed test fixtures are present where SaveLoadManager.load_game
+# resolves them. The pretrigger tests load co_/hi_/ri_pretrigger via
+# load_game(name), which reads res://saves/ (== 40k/saves/, gitignored); the
+# fixtures are committed under tests/saves/. Copy any that are missing so the
+# suite is reproducible from a fresh checkout. -n never clobbers an existing
+# save. Mirrors run_scenarios.sh.
+mkdir -p saves
+cp -n tests/saves/*.w40ksave saves/ 2>/dev/null || true
+cp -n tests/saves/*.meta saves/ 2>/dev/null || true
+
 TESTS=(
     "tests/test_co_pretrigger.gd"
     "tests/test_hi_pretrigger.gd"
