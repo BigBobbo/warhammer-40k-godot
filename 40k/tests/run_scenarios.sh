@@ -24,6 +24,15 @@ set -e
 cd "$(dirname "$0")/.."
 export PATH="$HOME/bin:$PATH"
 
+# Ensure committed test fixtures are present where SaveLoadManager.load_game
+# resolves them. load_game reads res://saves/ (== 40k/saves/, which is
+# gitignored), but the fixtures are committed under tests/saves/. Copy any
+# that are missing so a windowed scenario can load its fixture from a fresh
+# checkout. -n never clobbers an existing (e.g. freshly generated) save.
+mkdir -p saves
+cp -n tests/saves/*.w40ksave saves/ 2>/dev/null || true
+cp -n tests/saves/*.meta saves/ 2>/dev/null || true
+
 MODE="${1:---sp}"
 SCENARIOS=()
 FULL_SUITE_RUN=0  # only set to 1 when running a documented full-suite mode
