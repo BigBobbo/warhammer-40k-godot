@@ -934,6 +934,771 @@
       ],
       "last_verified_commit": "20774020",
       "status": "covered"
+    },
+    {
+      "id": "Main._sync_all_token_positions.handles_nested_deployment_tokens",
+      "description": "_sync_all_token_positions correctly handles nested (wrapper->TokenVisual) deployment tokens.",
+      "scenarios": [
+        "scout_invalid_move_snaps_back_nested"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "ai.AIPlayer.roll_off_suppressed",
+      "description": "AI does not auto-resolve the mutual roll-off while a human is present.",
+      "scenarios": [
+        "85d_rolloff_vs_ai",
+        "85f_first_turn_vs_ai"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.AIPlayer.11e",
+      "description": "AI-vs-AI at ed.11 progresses through phases/turns under 11e template gating (forward-progress asserted).",
+      "scenarios": [
+        "iss062_ai_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.RulesEngine.get_eligible_shooter_models",
+      "description": "RulesEngine.get_eligible_shooter_models returns the bearers eligible to split onto a target.",
+      "scenarios": [
+        "split_fire_per_model"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.SettingsService.set_auto_allocate_wounds",
+      "description": "SettingsService.set_auto_allocate_wounds(true) is honoured by the overlay.",
+      "scenarios": [
+        "auto_allocate_wounds",
+        "auto_allocate_wounds_off"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.TransportManager",
+      "description": "TransportManager tracks embarked unit and disembark eligibility.",
+      "scenarios": [
+        "iss058_disembark_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "deployment.first_turn_roll_off",
+      "description": "Post-deployment 'Determine First Turn' roll-off driven via real Roll+Continue clicks; winner takes first turn.",
+      "scenarios": [
+        "85e_first_turn_rolloff",
+        "85f_first_turn_vs_ai"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "deployment.formation_mode.same_unit_tight_then_single",
+      "description": "Fully place a unit in TIGHT then switch to SINGLE: set_formation_mode no longer creates a data-less invisible ghost; subsequent click still works.",
+      "scenarios": [
+        "regression_single_after_tight_same_unit"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "deployment.formation_mode.single_after_partial_tight",
+      "description": "Place 1 in SINGLE, switch TIGHT (place 2), switch back SINGLE: no invisible ghost spawned and clicks still place (get_placed_count progresses).",
+      "scenarios": [
+        "regression_single_after_partial_tight"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "deployment.model_type_picker.unit_card_placement",
+      "description": "Deploying a multi-model-type unit (Lootas) renders the Select-Model-Type picker inside the right-hand unit card (has_model_type_picker true + screenshot).",
+      "scenarios": [
+        "screenshot_model_type_picker_unit_card"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "deployment.search_and_destroy",
+      "description": "HONEST SCOPE: only asserts the deployment dropdown DEFAULTS to 'Search and Destroy'; does not exercise S&D deployment logic.",
+      "scenarios": [
+        "main_menu_defaults"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "iss064.no_double_hazard",
+      "description": "CONFIRM_UNIT_MOVE does not re-apply hazards at ed.11 (alive count unchanged after begin).",
+      "scenarios": [
+        "iss064_fallback_single_hazard_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "iss065.at_half_strength",
+      "description": "is_at_half_strength_combined drives the ed.11 trigger (sole trigger at exactly 5/10).",
+      "scenarios": [
+        "iss065_at_half_battleshock_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "iss067.scout_reserves",
+      "description": "Deploying a reserve scout into its DZ sets the unit DEPLOYED (status 2).",
+      "scenarios": [
+        "iss067_scout_reserves_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "mainmenu.defaults",
+      "description": "MainMenu boots with terrain defaulting to 'CA2025 02 Layout' and deployment to 'Search and Destroy' (live OptionButton widgets).",
+      "scenarios": [
+        "main_menu_defaults"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "movement.advance_distance_circle",
+      "description": "The per-model reach circle grows to the advanced cap (base6+advance4=10in) in place when the advance roll raises the cap.",
+      "scenarios": [
+        "move_range_advance_grows",
+        "move_range_advance_live",
+        "move_range_per_model_circle"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "movement.per_model_move_range_circle",
+      "description": "Reach overlay is per-picked-up-model (8 dash segments + 1 label), anchored at the model, not a unit-wide bubble.",
+      "scenarios": [
+        "move_range_per_model_circle"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "movement.terrain.infantry_tall_ruin_traversal",
+      "description": "INFANTRY may stage a move into a tall ruin; BEGIN_NORMAL_MOVE+STAGE_MODEL_MOVE accepted (no phantom climb cost).",
+      "scenarios": [
+        "infantry_tall_ruin_traversal"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "movement.terrain.no_phantom_climb_cost",
+      "description": "_get_vertical_climb_cost returns 0 for INFANTRY (regression: full terrain height no longer added).",
+      "scenarios": [
+        "infantry_tall_ruin_traversal"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "movetypes.ChargeMove11e",
+      "description": "ChargeMove11e template: select-after-roll, 12in declare veto, selectable=within 12in AND within roll.",
+      "scenarios": [
+        "iss049_charge_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "movetypes.DisembarkMove",
+      "description": "DisembarkMove template enforces tactical/combat set-up distances.",
+      "scenarios": [
+        "iss058_disembark_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "movetypes.FallBackMove.modes",
+      "description": "FallBackMove ordered_retreat vs desperate_escape modes (desperate rolls hazards).",
+      "scenarios": [
+        "iss040_movement_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "movetypes.IngressMove",
+      "description": "IngressMove template enforces 6in-from-edge + 9in-from-enemy and stamps reinforcement flags.",
+      "scenarios": [
+        "iss060_ingress_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "movetypes.MoveTypes.available_for",
+      "description": "MoveTypes.available_for gates which move actions a unit is offered.",
+      "scenarios": [
+        "iss040_movement_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ChargePhase.11e_charge_flow",
+      "description": "Ed.11 charge flow: declare with empty targets is legal (11.02), roll computes selectable targets, apply rejects out-of-range target.",
+      "scenarios": [
+        "iss049_charge_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.CommandPhase.battle_shock",
+      "description": "CommandPhase queues battle-shock tests; at-exactly-half-strength triggers at ed.11 (08.03) but not ed.10.",
+      "scenarios": [
+        "iss065_at_half_battleshock_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.11e_sequencer",
+      "description": "Ed.11 FightPhase defers selection to FightSequencer (12.04): alternation starts with active player; out-of-turn select refused.",
+      "scenarios": [
+        "iss050_fight_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.11e_disembark",
+      "description": "Ed.11 disembark modes (18.04): stationary transport forces TACTICAL 3in (4in rejected); COMBAT fallback accepts 6in + hazard + battle-shock.",
+      "scenarios": [
+        "iss058_disembark_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.11e_ingress",
+      "description": "Ed.11 ingress (20.04): mid-board placement rejected; edge placement >8in from enemies succeeds with arrived_from_reserves + no_moves_until_charge.",
+      "scenarios": [
+        "iss060_ingress_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.11e_move_types",
+      "description": "At ed.11 MovementPhase offers MoveType templates; offering flips live when engagement changes (advance<->fall back).",
+      "scenarios": [
+        "iss040_movement_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.BEGIN_ADVANCE",
+      "description": "BEGIN_ADVANCE dispatched live; pauses awaiting command-reroll decision.",
+      "scenarios": [
+        "move_range_advance_live"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.DECLINE_COMMAND_REROLL",
+      "description": "DECLINE_COMMAND_REROLL resolves the advance roll and emits unit_move_begun -> MovementController move cap updates.",
+      "scenarios": [
+        "move_range_advance_live"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.UI.advance_refreshes_range_overlay",
+      "description": "_update_movement_display_with_advance redraws the SAME MoveRangeVisual overlay to the new radius (asserted radius + label + screenshot).",
+      "scenarios": [
+        "move_range_advance_grows"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.UI.move_range_overlay",
+      "description": "_show_model_range_overlay / _clear_move_range_overlay draw and clear the MoveRangeVisual on pickup/drop.",
+      "scenarios": [
+        "move_range_per_model_circle"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.fall_back_desperate_escape",
+      "description": "Battle-shocked fall-back applies 06.03 desperate-escape hazards once at BEGIN_FALL_BACK.",
+      "scenarios": [
+        "iss064_fallback_single_hazard_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.PhaseManager.formations_to_rolloff",
+      "description": "Completing Formations (CONFIRM_FORMATIONS both players) transitions the live phase to ROLL_OFF (3).",
+      "scenarios": [
+        "85c_newgame_reaches_rolloff"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.CONFIRM_SCOUT_MOVE.position_writes_to_state",
+      "description": "CONFIRM_SCOUT_MOVE action commits staged positions into GameState.units[].models[].position and survives into the movement phase snapshot.",
+      "scenarios": [
+        "scout_confirm_persists_to_state"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.END_SCOUT_PHASE.commits_staged_moves_directly",
+      "description": "END_SCOUT_PHASE action (AI/MCP path) commits staged scout moves into GameState (token at moved pos after transition).",
+      "scenarios": [
+        "scout_end_phase_action_commits_staged"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.END_SCOUT_PHASE.rejects_when_staged_invalid",
+      "description": "END_SCOUT_PHASE rejects an incoherent staged config and leaves the phase SCOUT so the player can fix it.",
+      "scenarios": [
+        "scout_end_phase_rejects_invalid_staged"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.UI.confirm_button_persists_position_to_state",
+      "description": "Clicking the REAL Confirm button (pressed signal -> _on_scout_confirm_pressed -> CONFIRM_SCOUT_MOVE) writes staged positions into GameState.",
+      "scenarios": [
+        "scout_confirm_button_writes_state"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.UI.confirm_works_after_reselect_clears_active_unit",
+      "description": "After re-selecting a scout unit clears _scout_active_unit_id, the REAL Confirm button still commits staged positions to GameState.",
+      "scenarios": [
+        "scout_confirm_after_reselect"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.UI.invalid_move_snaps_back_nested_token",
+      "description": "Invalid scout confirm shows a toast and _sync_all_token_positions rolls the NESTED deployment token's visual back to state pos.",
+      "scenarios": [
+        "scout_invalid_move_snaps_back_nested"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.UI.unit_list_selection_enables_drag",
+      "description": "Selecting a scout unit from the right-panel list wires scout state (confirm button shown/connected) and the REAL Confirm commits; no fall-through to movement branch.",
+      "scenarios": [
+        "scout_unit_list_selection_enables_drag"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.UI.unit_selection_from_panel_enables_drag",
+      "description": "Selecting a scout unit via the stats panel sets _scout_active_unit_id and enables drag; REAL Confirm commits.",
+      "scenarios": [
+        "scout_unit_selection_enables_drag"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.e2e.drag_then_end_phase_commits_staged_move",
+      "description": "Real scout drag handlers (motion+release) stage moves; ending the phase via the real phase-action button commits them (token + state at moved pos).",
+      "scenarios": [
+        "scout_drag_then_end_phase_persists"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.e2e.real_drag_confirm_persists_to_state_through_movement",
+      "description": "E2E: interactive deploy -> real scout drag handlers -> REAL Confirm button click -> positions persist into GameState and the on-board token, through to the movement phase.",
+      "scenarios": [
+        "scout_real_drag_confirm_persists_e2e"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.reserves_deploy_11e",
+      "description": "Ed.11 (24.31): a Scout unit in strategic reserves is offered SCOUT_RESERVES_DEPLOY in the Scout phase.",
+      "scenarios": [
+        "iss067_scout_reserves_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ShootingPhase.11e_shooting_types",
+      "description": "At ed.11 ShootingPhase drives ShootingType templates; engaged VEHICLE falls back to CLOSE-QUARTERS when NORMAL requested.",
+      "scenarios": [
+        "iss048_shooting_types_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ShootingPhase.assign_target_split",
+      "description": "Typed split amount commits to a per-model assignment via the real OK button.",
+      "scenarios": [
+        "split_fire_spinbox_commit",
+        "split_fire_per_model"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "rules.11e.allocation_groups.batch_saves",
+      "description": "11e 05.04: confirming batch-rolls saves per group (Boyz first), verified by casualty counts.",
+      "scenarios": [
+        "iss045_allocation_groups"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "rules.11e.allocation_groups.character_last",
+      "description": "11e 05.03: order that puts the attached CHARACTER before the bodyguard is rejected (Confirm disabled).",
+      "scenarios": [
+        "iss045_allocation_groups"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "rules.FightSequencer",
+      "description": "FightSequencer picks next selecting player and allows the overrun case (charged-but-disengaged still selectable, 12.06).",
+      "scenarios": [
+        "iss050_fight_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.AIDecisionMaker.11e_legality",
+      "description": "AIDecisionMaker proposes only 11e-legal actions (no validation-failure spam).",
+      "scenarios": [
+        "iss062_ai_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.AllocationGroupOverlay.order_choice",
+      "description": "AllocationGroupOverlay: real Up/Down click reorders groups; Confirm disabled while CHARACTER is before Boyz (real click asserts .disabled).",
+      "scenarios": [
+        "iss045_allocation_groups"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.Main._open_settings_menu",
+      "description": "Main._open_settings_menu() (the Escape-key path) creates the live settings menu.",
+      "scenarios": [
+        "auto_allocate_wounds_settings_ui"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.SettingsMenu.gameplay_tab",
+      "description": "SettingsMenu Gameplay tab builds and contains the 'Computer allocates wounds' checkbox (asserted exists/visible/labelled + screenshot).",
+      "scenarios": [
+        "auto_allocate_wounds_settings_ui"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.WoundAllocationOverlay._start_wound_allocation",
+      "description": "WoundAllocationOverlay._start_wound_allocation drives manual allocation via real model-click.",
+      "scenarios": [
+        "wound_alloc_overkill_skips_when_wiped"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.WoundAllocationOverlay.auto_allocate",
+      "description": "WoundAllocationOverlay auto-allocates all wounds when the setting is ON.",
+      "scenarios": [
+        "auto_allocate_wounds",
+        "auto_allocate_wounds_off"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.WoundAllocationOverlay.overkill_completes_when_unit_wiped",
+      "description": "Overkill regression: once the unit is wiped, the overlay completes instead of freezing waiting for an impossible board click.",
+      "scenarios": [
+        "wound_alloc_overkill_skips_when_wiped"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "settings.auto_allocate_wounds",
+      "description": "auto_allocate_wounds setting ON: overlay auto-resolves saves instead of waiting for board clicks (verified via real save-resolution entry point + casualty count).",
+      "scenarios": [
+        "auto_allocate_wounds",
+        "auto_allocate_wounds_off",
+        "auto_allocate_wounds_settings_ui"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "shooting.split_fire_picker_ui",
+      "description": "REAL left-click on an enemy token opens the Split Fire picker; REAL keystroke types the amount (update_on_text_changed tracks each keystroke).",
+      "scenarios": [
+        "split_fire_spinbox_commit",
+        "split_fire_per_model"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "shootingtypes.CloseQuartersShooting",
+      "description": "CloseQuartersShooting (10.06) lets an engaged M/V fire at its engager.",
+      "scenarios": [
+        "iss048_shooting_types_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "shootingtypes.ShootingTypes.available_for",
+      "description": "ShootingTypes.available_for filters selectable shooting types by engagement.",
+      "scenarios": [
+        "iss048_shooting_types_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "terrain.parse_test",
+      "description": "HONEST SCOPE: only asserts the terrain dropdown DEFAULTS to the layout_parse_test option; does not exercise terrain parsing itself.",
+      "scenarios": [
+        "main_menu_defaults"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "ui.RollOffDialog.RollButton",
+      "description": "RollOffDialog Roll button (real click) resolves the deployment roll-off.",
+      "scenarios": [
+        "85b_rolloff_dramatic"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "ui.RollOffDialog.acknowledge_required",
+      "description": "Human must click the real Continue button to acknowledge before the roll-off completes.",
+      "scenarios": [
+        "85d_rolloff_vs_ai"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "ui.RollOffDialog.animated_dice",
+      "description": "RollOffDialog shows dramatic animated dice; verified by clicking the real Roll button and observing the settled winner + screenshot.",
+      "scenarios": [
+        "85b_rolloff_dramatic"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "ui.RollOffDialog.appears_in_new_game",
+      "description": "In a new game the RollOffDialog becomes visible on reaching the pre-deployment roll-off (asserted visible + screenshot).",
+      "scenarios": [
+        "85c_newgame_reaches_rolloff"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "ui.RollOffDialog.first_turn_context",
+      "description": "RollOffDialog in first-turn context shows no Deploy-choice buttons (winner just takes the turn).",
+      "scenarios": [
+        "85e_first_turn_rolloff",
+        "85f_first_turn_vs_ai"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "ui.RollOffDialog.shown_vs_ai",
+      "description": "Vs AI, the dramatic RollOffDialog is shown to the human (not auto-resolved).",
+      "scenarios": [
+        "85d_rolloff_vs_ai"
+      ],
+      "fidelity": "CLICK",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "ui.log.grouped_dice_icons",
+      "description": "Dice render GROUPED (one icon per value + xN), asserted via dice_row_has_visual + screenshot.",
+      "scenarios": [
+        "dice_grouped_log_render",
+        "dice_icons_simple_cards",
+        "resolution_log_dice_icons"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "ui.log.inline_dice_graphics",
+      "description": "GameLogPanel combat card renders rolls as graphical DiceRowVisual nodes (not BBCode text), via the real _create_card / roll_recorded path.",
+      "scenarios": [
+        "dice_grouped_log_render",
+        "dice_icons_simple_cards",
+        "inline_dice_log_render"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "ui.log.simple_card_dice",
+      "description": "p1/p2_action simple cards (advance/charge/battle-shock) show grouped die icons; single die shows no xN (screenshot).",
+      "scenarios": [
+        "dice_icons_simple_cards"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "ui.shooting.resolution_log_dice_icons",
+      "description": "ShootingController.dice_log_display renders inline grouped d6 icons via DiceFaceIcons/add_image (number arrays dropped from parsed text; screenshot).",
+      "scenarios": [
+        "resolution_log_dice_icons"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
+    },
+    {
+      "id": "visual.board_style.grass_texture_loads",
+      "description": "Default 'grass' board style loads its 128x128 tiled texture via the resource system on the live BoardBackground material; survives a grass->felt->grass switch (screenshot).",
+      "scenarios": [
+        "board_grass_texture_loads"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "28088acc",
+      "status": "covered"
     }
   ]
 }
