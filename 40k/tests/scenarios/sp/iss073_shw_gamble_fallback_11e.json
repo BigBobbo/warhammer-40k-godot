@@ -1,0 +1,41 @@
+{
+  "id": "iss073_shw_gamble_fallback_11e",
+  "covers": [
+    "phases.MovementPhase.shw_mobile_gamble_fallback_11e",
+    "movement.shw_mobile_gamble_toggle_fallback",
+    "iss073.shw_gamble_ui"
+  ],
+  "fixture": "shw_walker_11e",
+  "edition": 11,
+  "rng_seed": 1,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "ISS-073 (24.35): the SHW MOBILE-gamble toggle also feeds the FALL_BACK path. An enemy is injected adjacent to the SUPER-HEAVY WALKER so it is engaged (the Fall Back radio only shows then); the SHW is selected; the 'Risk MOBILE' toggle is real-clicked, then the real Fall Back radio is clicked. Fall Back dispatches BEGIN_FALL_BACK immediately on radio-press, and the move records shw_mobile=true (mode FALL_BACK) — proving the gamble affordance covers all three move modes, not just Normal.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "script": "GameState.state[\"units\"].merge({\"U_ENEMY_ADJ\": {\"id\":\"U_ENEMY_ADJ\",\"owner\":2,\"status\":2,\"flags\":{},\"meta\":{\"name\":\"Grots\",\"keywords\":[\"INFANTRY\"]},\"models\":[{\"id\":\"e0\",\"alive\":true,\"wounds\":1,\"current_wounds\":1,\"base_mm\":32,\"position\":{\"x\":1130.0,\"y\":250.0}}]}}, true)" },
+    { "act": "execute_script", "script": "RulesEngine.is_unit_engaged(\"U_STOMPA_TEST\", GameState.state)", "equals": true },
+
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"MovementController\").begin_unit_movement(\"U_STOMPA_TEST\")" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"MovementController\").active_unit_id", "equals": "U_STOMPA_TEST" },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/ShwMobileGambleCheckBox" },
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"MovementController\").fall_back_radio.visible", "equals": true },
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"MovementController\").fall_back_radio.set_name(\"FallBackRadio\")" },
+    { "act": "screenshot", "label": "01_engaged_shw_offers_gamble_and_fallback" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/ShwMobileGambleCheckBox" },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "expect_node_property", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/ShwMobileGambleCheckBox", "property": "button_pressed", "equals": true },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/ModeButtons/FallBackRadio" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_STOMPA_TEST\"].get(\"mode\")", "equals": "FALL_BACK" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_STOMPA_TEST\"].get(\"shw_mobile\", false)", "equals": true },
+    { "act": "screenshot", "label": "02_fall_back_begun_with_gamble" }
+  ]
+}

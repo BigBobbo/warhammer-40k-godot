@@ -637,6 +637,12 @@ func _validate_select_melee_weapon(action: Dictionary) -> Dictionary:
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_pile_in(action: Dictionary) -> Dictionary:
+	# ISS-066 (11e 12.02-12.03): the PileInMove template is authoritative
+	# at edition >= 11 (eligibility incl. charge-survivor/overrun, pile-in
+	# target selection, base-contact lock, and the started-engaged-pairs
+	# AFTER rule). 10e keeps the legacy path below.
+	if GameConstants.edition >= 11:
+		return _validate_pile_in_11e(action)
 	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
 	var movements = action.get("movements", {})
 	var errors = []
@@ -807,6 +813,11 @@ func _validate_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_consolidate(action: Dictionary) -> Dictionary:
+	# ISS-066 (11e 12.07-12.08): the ConsolidationMove template is
+	# authoritative at edition >= 11 (mandatory mode selection
+	# ongoing/engaging/objective + per-mode movement + AFTER conditions).
+	if GameConstants.edition >= 11:
+		return _validate_consolidate_11e(action)
 	# Consolidate has different rules than pile-in:
 	# 1. Try to end in engagement range (closer to enemy, base contact if possible)
 	# 2. If can't maintain engagement, move toward closest objective
@@ -4523,3 +4534,132 @@ func _process_decline_moment_shackle(action: Dictionary) -> Dictionary:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	log_phase_message("Moment Shackle: %s declined" % unit_name)
 	return create_result(true, [])
+
+
+# ============================================================================
+# ISS-066 — 11e pile-in / consolidation wiring (12.02-12.08)
+# ============================================================================
+
+func _fight_movements_from_action(action: Dictionary) -> Dictionary:
+	# Normalise the movement payload: a {model_key: Vector2} dict, or a
+	# single {"position": {...}} for model index 0 (FightController form).
+	var movements: Dictionary = action.get("movements", {}).duplicate()
+	if movements.is_empty() and action.has("position"):
+		var position = action.get("position")
+		movements["0"] = Vector2(position.get("x", 0), position.get("y", 0))
+	return movements
+
+func _resolve_fight_model(unit_id: String, key) -> Dictionary:
+	# A movement key may be an array index ("0") or a model id ("m1").
+	var models = get_unit(unit_id).get("models", [])
+	for i in models.size():
+		if str(i) == str(key) or str(models[i].get("id", "")) == str(key):
+			return models[i]
+	return {}
+
+func _simulate_fight_board_with_movements(unit_id: String, movements: Dictionary) -> Dictionary:
+	# Deep copy of live state with the proposed model positions applied —
+	# used to evaluate a template's AFTER conditions before committing.
+	var sim = GameState.state.duplicate(true)
+	var models = sim.get("units", {}).get(unit_id, {}).get("models", [])
+	for key in movements:
+		var np = movements[key]
+		for i in models.size():
+			if str(i) == str(key) or str(models[i].get("id", "")) == str(key):
+				models[i]["position"] = {"x": np.x, "y": np.y}
+				break
+	return sim
+
+func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
+	var movements = _fight_movements_from_action(action)
+	if unit_id != active_fighter_id:
+		return {"valid": false, "errors": ["Not the active fighter"]}
+	var unit = get_unit(unit_id)
+	if _unit_has_keyword(unit, "AIRCRAFT"):
+		if not movements.is_empty():
+			return {"valid": false, "errors": ["AIRCRAFT units cannot Pile In"]}
+		return {"valid": true, "errors": []}
+	var tmpl: PileInMove = MoveTypes.get_type("pile_in")
+	var el = tmpl.eligible(unit_id, GameState.state)
+	if not el.eligible:
+		return {"valid": false, "errors": el.reasons}
+	var ctx = tmpl.before_moving(unit_id, GameState.state, null, {})
+	if ctx.has("error"):
+		return {"valid": false, "errors": [ctx.error]}
+	var errors: Array = []
+	for key in movements:
+		var old_pos = _get_model_position(unit_id, key)
+		var new_pos = movements[key]
+		if old_pos == Vector2.ZERO:
+			errors.append("Model %s position not found" % str(key))
+			continue
+		var dist = Measurement.distance_inches(old_pos, new_pos)
+		if dist > 3.0 + MOVEMENT_CAP_EPSILON:
+			errors.append("Model %s pile in exceeds 3\" limit (%.1f\")" % [str(key), dist])
+		if dist > 0.01:
+			var model = _resolve_fight_model(unit_id, key)
+			var ok = tmpl.model_move_allowed(unit_id, model, {"x": new_pos.x, "y": new_pos.y}, GameState.state, ctx)
+			if not ok.allowed:
+				errors.append("Model %s: %s" % [str(key), ok.reason])
+	var overlap_check = _validate_no_overlaps_for_movement(unit_id, movements)
+	if not overlap_check.valid:
+		errors.append_array(overlap_check.errors)
+	var coherency_check = _validate_unit_coherency(unit_id, movements)
+	if not coherency_check.get("valid", false):
+		errors.append_array(coherency_check.get("errors", []))
+	# 12.03 AFTER — engaged + started-engaged pairs maintained.
+	var sim = _simulate_fight_board_with_movements(unit_id, movements)
+	var after = tmpl.after_moving_conditions(unit_id, sim, ctx)
+	if not after.ok:
+		errors.append_array(after.violations)
+	return {"valid": errors.is_empty(), "errors": errors}
+
+func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
+	var movements = _fight_movements_from_action(action)
+	if unit_id != active_fighter_id:
+		return {"valid": false, "errors": ["Not the active fighter"]}
+	if not pending_attacks.is_empty():
+		return {"valid": false, "errors": ["Must resolve attacks before consolidating"]}
+	var unit = get_unit(unit_id)
+	if _unit_has_keyword(unit, "AIRCRAFT"):
+		if not movements.is_empty():
+			return {"valid": false, "errors": ["AIRCRAFT units cannot Consolidate"]}
+		return {"valid": true, "errors": []}
+	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
+	var sel = tmpl.select_mode(unit_id, GameState.state)
+	var mode = str(sel.mode)
+	# Per-model consolidation is optional (FAQ): an empty payload completes
+	# the mandatory step without moving. Only validate geometry when models
+	# actually move.
+	if movements.is_empty():
+		return {"valid": true, "errors": []}
+	if mode == "":
+		return {"valid": false, "errors": ["no consolidation mode applies — the unit cannot move (12.08)"]}
+	var ctx = tmpl.before_moving(unit_id, GameState.state, null, {"mode": mode})
+	if ctx.has("error"):
+		return {"valid": false, "errors": [ctx.error]}
+	var errors: Array = []
+	for key in movements:
+		var old_pos = _get_model_position(unit_id, key)
+		var new_pos = movements[key]
+		if old_pos == Vector2.ZERO:
+			errors.append("Model %s position not found" % str(key))
+			continue
+		var dist = Measurement.distance_inches(old_pos, new_pos)
+		if dist > 3.0 + MOVEMENT_CAP_EPSILON:
+			errors.append("Model %s consolidation exceeds 3\" limit (%.1f\")" % [str(key), dist])
+		if dist > 0.01:
+			var model = _resolve_fight_model(unit_id, key)
+			var ok = tmpl.model_move_allowed(unit_id, model, {"x": new_pos.x, "y": new_pos.y}, GameState.state, ctx)
+			if not ok.allowed:
+				errors.append("Model %s: %s" % [str(key), ok.reason])
+	var overlap_check = _validate_no_overlaps_for_movement(unit_id, movements)
+	if not overlap_check.valid:
+		errors.append_array(overlap_check.errors)
+	var sim = _simulate_fight_board_with_movements(unit_id, movements)
+	var after = tmpl.after_moving_conditions(unit_id, sim, ctx)
+	if not after.ok:
+		errors.append_array(after.violations)
+	return {"valid": errors.is_empty(), "errors": errors}

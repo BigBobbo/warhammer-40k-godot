@@ -1,0 +1,38 @@
+{
+  "id": "iss069_lone_operative_range_11e",
+  "covers": [
+    "rules.lone_operative_range_11e",
+    "phases.ShootingPhase.lone_operative_targeting",
+    "iss069.lone_operative_xrange"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 3,
+  "disable_ai": true,
+  "description": "ISS-069 (24.24): the 11e 'Lone Operative X\\\"' variant gates targeting at X\\\" (default 12\\\"). Live in the Shooting phase: get_lone_operative_range parses the X\\\" variant (9\\\" -> 9, plain -> 12) and has_lone_operative recognises the X\\\" name. The REAL RulesEngine.get_eligible_targets for a player-1 shooter (Custodian Guard) at ~9.9\\\" from two injected standalone lone-operative enemies EXCLUDES the 'Lone Operative 9\\\"' unit (9.9 > 9) but INCLUDES the default-12\\\" unit (9.9 <= 12); swapping the excluded unit's ability to plain Lone Operative makes it targetable, isolating the X\\\" parse as the cause.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
+    { "act": "execute_script", "script": "GameState.set_active_player(1)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(8)" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "execute_script", "script": "RulesEngine.get_lone_operative_range({\"meta\":{\"abilities\":[{\"name\":\"Lone Operative 9\\\"\"}]}})", "equals": 9 },
+    { "act": "execute_script", "script": "RulesEngine.get_lone_operative_range({\"meta\":{\"abilities\":[{\"name\":\"Lone Operative\"}]}})", "equals": 12 },
+    { "act": "execute_script", "script": "RulesEngine.has_lone_operative({\"meta\":{\"abilities\":[{\"name\":\"Lone Operative 9\\\"\"}]}})", "equals": true },
+
+    { "act": "execute_script", "script": "GameState.state[\"units\"].merge({\"U_LONEOP_9\": {\"id\":\"U_LONEOP_9\",\"owner\":2,\"status\":2,\"flags\":{},\"meta\":{\"name\":\"LoneOp9\",\"keywords\":[\"INFANTRY\",\"CHARACTER\"],\"abilities\":[{\"name\":\"Lone Operative 9\\\"\"}]},\"models\":[{\"id\":\"a\",\"alive\":true,\"wounds\":4,\"current_wounds\":4,\"base_mm\":40,\"position\":{\"x\":200.0,\"y\":560.0}}]}}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"units\"].merge({\"U_LONEOP_12\": {\"id\":\"U_LONEOP_12\",\"owner\":2,\"status\":2,\"flags\":{},\"meta\":{\"name\":\"LoneOp12\",\"keywords\":[\"INFANTRY\",\"CHARACTER\"],\"abilities\":[{\"name\":\"Lone Operative\"}]},\"models\":[{\"id\":\"a\",\"alive\":true,\"wounds\":4,\"current_wounds\":4,\"base_mm\":40,\"position\":{\"x\":260.0,\"y\":560.0}}]}}, true)" },
+    { "act": "screenshot", "label": "01_shooting_phase_loneops_injected" },
+
+    { "act": "execute_script", "script": "RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot()).has(\"U_LONEOP_9\")", "equals": false },
+    { "act": "execute_script", "script": "RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot()).has(\"U_LONEOP_12\")", "equals": true },
+    { "act": "execute_script", "script": "RulesEngine._get_min_distance_to_target_rules(\"U_CUSTODIAN_GUARD_B\",\"U_LONEOP_9\", GameState.create_snapshot())", "expect_min": 9.0 },
+    { "act": "execute_script", "script": "RulesEngine._get_min_distance_to_target_rules(\"U_CUSTODIAN_GUARD_B\",\"U_LONEOP_9\", GameState.create_snapshot())", "expect_max": 12.0 },
+
+    { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_LONEOP_9\"][\"meta\"].merge({\"abilities\":[{\"name\":\"Lone Operative\"}]}, true)" },
+    { "act": "execute_script", "script": "RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot()).has(\"U_LONEOP_9\")", "equals": true },
+    { "act": "screenshot", "label": "02_loneop9_excluded_then_targetable_as_default12" }
+  ]
+}

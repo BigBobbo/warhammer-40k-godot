@@ -1,0 +1,42 @@
+{
+  "id": "iss071_firing_deck_11e",
+  "covers": [
+    "ui.FiringDeckDialog.one_shot_exclusion_11e",
+    "ui.FiringDeckDialog.one_weapon_per_model",
+    "iss071.firing_deck"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "description": "ISS-071 (24.14): the live FiringDeckDialog offers each embarked model ONE ranged weapon, EXCLUDING [ONE SHOT] weapons and melee weapons. The REAL dialog is instantiated in the running scene and setup() against an embarked unit with Shoota+Slugga (ranged), a Rokkit ([ONE SHOT]) and a Choppa (melee): the rendered weapon list offers Shoota/Slugga but excludes Rokkit and Choppa; real-toggling a model's Shoota then its Slugga is rejected by the one-weapon-per-model guard (the second checkbox reverts).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
+    { "act": "execute_script", "script": "GameState.state[\"units\"].merge({\"U_EMB\": {\"id\":\"U_EMB\",\"owner\":1,\"status\":2,\"flags\":{},\"embarked_in\":\"U_BATTLEWAGON_G\",\"meta\":{\"name\":\"Passengers\",\"keywords\":[\"INFANTRY\"],\"weapons\":[{\"name\":\"Shoota\",\"type\":\"Ranged\",\"range\":\"18\",\"attacks\":\"2\",\"ballistic_skill\":\"5\",\"strength\":\"4\",\"ap\":\"0\",\"damage\":\"1\",\"special_rules\":\"\"},{\"name\":\"Slugga\",\"type\":\"Ranged\",\"range\":\"12\",\"attacks\":\"1\",\"ballistic_skill\":\"5\",\"strength\":\"4\",\"ap\":\"0\",\"damage\":\"1\",\"special_rules\":\"\"},{\"name\":\"Rokkit\",\"type\":\"Ranged\",\"range\":\"24\",\"attacks\":\"1\",\"ballistic_skill\":\"5\",\"strength\":\"8\",\"ap\":\"2\",\"damage\":\"3\",\"special_rules\":\"one shot\"},{\"name\":\"Choppa\",\"type\":\"Melee\",\"range\":\"Melee\",\"attacks\":\"3\",\"weapon_skill\":\"3\",\"strength\":\"4\",\"ap\":\"0\",\"damage\":\"1\",\"special_rules\":\"\"}]},\"models\":[{\"id\":\"m0\",\"alive\":true,\"position\":{\"x\":100,\"y\":100},\"base_mm\":32},{\"id\":\"m1\",\"alive\":true,\"position\":{\"x\":130,\"y\":100},\"base_mm\":32}]}}, true)" },
+
+    { "act": "execute_script", "script": "SceneRefs.main().add_child(ResourceLoader.load(\"res://scripts/FiringDeckDialog.gd\").new())" },
+    { "act": "execute_script", "script": "SceneRefs.main().get_child(SceneRefs.main().get_child_count()-1).set_name(\"TestFiringDeckDialog\")" },
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"TestFiringDeckDialog\").setup(\"U_BATTLEWAGON_G\", [\"U_EMB\"], 2)" },
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"TestFiringDeckDialog\").popup_centered()" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/TestFiringDeckDialog" },
+    { "act": "execute_script", "script": "str(SceneRefs.main().get_node(\"TestFiringDeckDialog\").available_weapons).contains(\"Shoota\")", "equals": true },
+    { "act": "execute_script", "script": "str(SceneRefs.main().get_node(\"TestFiringDeckDialog\").available_weapons).contains(\"Slugga\")", "equals": true },
+    { "act": "execute_script", "script": "str(SceneRefs.main().get_node(\"TestFiringDeckDialog\").available_weapons).contains(\"Rokkit\")", "equals": false },
+    { "act": "execute_script", "script": "str(SceneRefs.main().get_node(\"TestFiringDeckDialog\").available_weapons).contains(\"Choppa\")", "equals": false },
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"TestFiringDeckDialog\").checkboxes.has(\"U_EMB_0_Shoota\")", "equals": true },
+    { "act": "screenshot", "label": "01_firing_deck_dialog_offers_ranged_excludes_oneshot_melee" },
+
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"TestFiringDeckDialog\").checkboxes[\"U_EMB_0_Shoota\"].set_pressed(true)" },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"TestFiringDeckDialog\").selected_weapons.size()", "equals": 1 },
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"TestFiringDeckDialog\")._model_already_has_selection(\"U_EMB\", 0)", "equals": true },
+
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"TestFiringDeckDialog\").checkboxes[\"U_EMB_0_Slugga\"].set_pressed(true)" },
+    { "act": "wait_seconds", "seconds": 0.2 },
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"TestFiringDeckDialog\").selected_weapons.size()", "equals": 1 },
+    { "act": "execute_script", "script": "SceneRefs.main().get_node(\"TestFiringDeckDialog\").checkboxes[\"U_EMB_0_Slugga\"].button_pressed", "equals": false },
+    { "act": "screenshot", "label": "02_one_weapon_per_model_guard" }
+  ]
+}

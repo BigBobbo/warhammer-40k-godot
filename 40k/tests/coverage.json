@@ -1,6 +1,6 @@
 {
   "$schema_version": 1,
-  "description": "Machine-readable coverage matrix for the windowed-scenario gate. Source of truth for what is verified \u2014 append-only AUDIT_REPORT.md is a generated narrative view. See SESSION_PLAYBOOK.md for the rules of the road.",
+  "description": "Machine-readable coverage matrix for the windowed-scenario gate. Source of truth for what is verified — append-only AUDIT_REPORT.md is a generated narrative view. See SESSION_PLAYBOOK.md for the rules of the road.",
   "$rules": [
     "A 'covered' tile must reference at least one scenario file under tests/scenarios/.",
     "Each tile's scenarios[] entries must exist as files; check_coverage.py enforces this.",
@@ -10,7 +10,7 @@
   "tiles": [
     {
       "id": "autoloads.EffectPrimitives.PLUS_CHARGE",
-      "description": "EffectPrimitives PLUS_CHARGE effect \u2014 sets effect_plus_charge flag on a unit",
+      "description": "EffectPrimitives PLUS_CHARGE effect — sets effect_plus_charge flag on a unit",
       "scenarios": [
         "372_ere_we_go_charge_modifier"
       ],
@@ -92,7 +92,7 @@
     },
     {
       "id": "autoloads.RulesEngine.validate_shoot",
-      "description": "RulesEngine: validates a SHOOT action against the current shooter state \u2014 eligibility, target legality, weapon assignments. Validated by '370_bgnt_vehicle_shoots_in_engagement (Big Guns Never Tire seam).",
+      "description": "RulesEngine: validates a SHOOT action against the current shooter state — eligibility, target legality, weapon assignments. Validated by '370_bgnt_vehicle_shoots_in_engagement (Big Guns Never Tire seam).",
       "scenarios": [
         "370_bgnt_vehicle_shoots_in_engagement"
       ],
@@ -137,7 +137,7 @@
     },
     {
       "id": "charge.modifier_primitive",
-      "description": "Charge-roll modifier flag (effect_plus_charge) honoured by DECLARE_CHARGE \u2014 'ERE WE GO stratagem path",
+      "description": "Charge-roll modifier flag (effect_plus_charge) honoured by DECLARE_CHARGE — 'ERE WE GO stratagem path",
       "scenarios": [
         "372_ere_we_go_charge_modifier"
       ],
@@ -264,7 +264,7 @@
     },
     {
       "id": "deployment.predeploy_roll_off",
-      "description": "Pre-deployment roll-off (issue #85): both players roll a D6. The winner chooses to be Attacker or Defender \u2014 Defender deploys first and takes the second turn, Attacker deploys second and takes the first turn.",
+      "description": "Pre-deployment roll-off (issue #85): both players roll a D6. The winner chooses to be Attacker or Defender — Defender deploys first and takes the second turn, Attacker deploys second and takes the first turn.",
       "scenarios": [
         "85_predeploy_rolloff"
       ],
@@ -318,7 +318,7 @@
     },
     {
       "id": "fight.self_targeting_fix",
-      "description": "Fight-phase AI does not select own units as melee targets \u2014 observational scenario captures before/after screenshots of AI fight decisions",
+      "description": "Fight-phase AI does not select own units as melee targets — observational scenario captures before/after screenshots of AI fight decisions",
       "scenarios": [
         "fight_self_targeting"
       ],
@@ -336,7 +336,7 @@
     },
     {
       "id": "fight.subphase_transition",
-      "description": "FIGHT phase: subphases (fights-first \u2192 normal \u2192 fights-last) transition correctly when no eligible fighters remain in the current subphase. Validated by 'fights_last_select_fighter.",
+      "description": "FIGHT phase: subphases (fights-first → normal → fights-last) transition correctly when no eligible fighters remain in the current subphase. Validated by 'fights_last_select_fighter.",
       "scenarios": [
         "fights_last_select_fighter"
       ],
@@ -363,7 +363,7 @@
     },
     {
       "id": "movement.da_jump_placement_bounds",
-      "description": "MOVEMENT phase: Da Jump teleports a unit to within 9\" of the warlord and \u22659\" from enemies. Bounds check rejects invalid placements. Validated by '376_da_jump_bounds.",
+      "description": "MOVEMENT phase: Da Jump teleports a unit to within 9\" of the warlord and ≥9\" from enemies. Bounds check rejects invalid placements. Validated by '376_da_jump_bounds.",
       "scenarios": [
         "376_da_jump_bounds"
       ],
@@ -417,7 +417,7 @@
     },
     {
       "id": "multiplayer.deployment.host_to_client_sync",
-      "description": "Multi-peer deployment sync \u2014 host deploys, client mirrors positions and coherency state",
+      "description": "Multi-peer deployment sync — host deploys, client mirrors positions and coherency state",
       "scenarios": [
         "mp:tests/integration/test_multiplayer_deployment.gd"
       ],
@@ -426,7 +426,7 @@
     },
     {
       "id": "multiplayer.dice.broadcast_sync",
-      "description": "Multi-peer dice broadcast \u2014 defender re-emits result.dice on remote (T5-MP5)",
+      "description": "Multi-peer dice broadcast — defender re-emits result.dice on remote (T5-MP5)",
       "scenarios": [
         "mp:tests/integration/test_multiplayer_dice_log_sync.gd"
       ],
@@ -435,7 +435,7 @@
     },
     {
       "id": "multiplayer.network.session",
-      "description": "Multi-peer network session lifecycle \u2014 host/join/disconnect, peer registration",
+      "description": "Multi-peer network session lifecycle — host/join/disconnect, peer registration",
       "scenarios": [
         "mp:tests/integration/test_multiplayer_network.gd"
       ],
@@ -444,7 +444,7 @@
     },
     {
       "id": "multiplayer.save.broadcast_reliability",
-      "description": "Multi-peer save broadcast \u2014 broadcast_id + retry budget + dedupe (T5-MP4-RELIABILITY)",
+      "description": "Multi-peer save broadcast — broadcast_id + retry budget + dedupe (T5-MP4-RELIABILITY)",
       "scenarios": [
         "mp:tests/integration/test_multiplayer_save_dialog_retry.gd"
       ],
@@ -453,7 +453,7 @@
     },
     {
       "id": "multiplayer.shooting.visual_broadcast",
-      "description": "Multi-peer shooting visual broadcast \u2014 SELECT_SHOOTER/ASSIGN_TARGET/CONFIRM/COMPLETE (T5-MP3)",
+      "description": "Multi-peer shooting visual broadcast — SELECT_SHOOTER/ASSIGN_TARGET/CONFIRM/COMPLETE (T5-MP3)",
       "scenarios": [
         "mp:tests/integration/test_multiplayer_shooting_visuals.gd"
       ],
@@ -602,7 +602,7 @@
     },
     {
       "id": "rules.abilities.stealth_t2",
-      "description": "T2-1 \u2014 STEALTH ability: -1 to hit on ranged attacks vs Stealth target",
+      "description": "T2-1 — STEALTH ability: -1 to hit on ranged attacks vs Stealth target",
       "scenarios": [
         "mp:tests/test_stealth_keyword_pipeline.gd"
       ],
@@ -611,7 +611,7 @@
     },
     {
       "id": "rules.command.cp_gain_336",
-      "description": "Issue #336 \u2014 no CP on R1 first command phase; otherwise active player only",
+      "description": "Issue #336 — no CP on R1 first command phase; otherwise active player only",
       "scenarios": [
         "mp:tests/test_audit_fixes_verification.gd"
       ],
@@ -620,7 +620,7 @@
     },
     {
       "id": "rules.keywords.melta_x_t1",
-      "description": "T1-1 \u2014 MELTA X auto-resolves damage bonus at half range",
+      "description": "T1-1 — MELTA X auto-resolves damage bonus at half range",
       "scenarios": [
         "mp:tests/test_melta_keyword_pipeline.gd"
       ],
@@ -629,7 +629,7 @@
     },
     {
       "id": "rules.keywords.twin_linked_t1",
-      "description": "T1-2 \u2014 TWIN-LINKED re-rolls all failed wound rolls",
+      "description": "T1-2 — TWIN-LINKED re-rolls all failed wound rolls",
       "scenarios": [
         "mp:tests/test_twin_linked_pipeline.gd"
       ],
@@ -638,7 +638,7 @@
     },
     {
       "id": "rules.movement.base_touching_m6",
-      "description": "T2-M6 \u2014 base-touching regression (#321/#327)",
+      "description": "T2-M6 — base-touching regression (#321/#327)",
       "scenarios": [
         "mp:tests/test_m6_base_touching_regression.gd"
       ],
@@ -647,7 +647,7 @@
     },
     {
       "id": "rules.rng.determinism_329",
-      "description": "Issue #329 \u2014 RNGService.test_mode_seed produces identical dice across runs; new helpers (randi/randi_range/randf) honor it; TransportManager + MissionManager + Mathhammer plumbed",
+      "description": "Issue #329 — RNGService.test_mode_seed produces identical dice across runs; new helpers (randi/randi_range/randf) honor it; TransportManager + MissionManager + Mathhammer plumbed",
       "scenarios": [
         "mp:tests/test_audit_fixes_verification.gd",
         "mp:tests/test_rng_determinism_extended.gd"
@@ -657,7 +657,7 @@
     },
     {
       "id": "rules.save_load.autoload_state_338",
-      "description": "Issue #338 \u2014 FactionAbilityManager + StratagemManager state round-trips through save/load",
+      "description": "Issue #338 — FactionAbilityManager + StratagemManager state round-trips through save/load",
       "scenarios": [
         "mp:tests/test_audit_fixes_verification.gd"
       ],
@@ -666,7 +666,7 @@
     },
     {
       "id": "rules.shooting.cover_save_cap_s7",
-      "description": "T2-S7 \u2014 Cover save bonus capped: Sv3+ vs AP0 in cover stays 3+ (was 2+)",
+      "description": "T2-S7 — Cover save bonus capped: Sv3+ vs AP0 in cover stays 3+ (was 2+)",
       "scenarios": [
         "mp:tests/test_s7_cover_save_bonus.gd"
       ],
@@ -675,7 +675,7 @@
     },
     {
       "id": "rules.shooting.fall_back_and_shoot_override_356",
-      "description": "Issue #356 \u2014 Multipotentiality stratagem: effect_fall_back_and_shoot overrides cannot_shoot gate in ShootingPhase + RulesEngine.validate_shoot",
+      "description": "Issue #356 — Multipotentiality stratagem: effect_fall_back_and_shoot overrides cannot_shoot gate in ShootingPhase + RulesEngine.validate_shoot",
       "scenarios": [
         "mp:tests/test_audit_fixes_verification.gd"
       ],
@@ -684,7 +684,7 @@
     },
     {
       "id": "rules.shooting.keyword_pipeline",
-      "description": "T2-S4..S6 \u2014 SUSTAINED HITS / LETHAL HITS / DEVASTATING WOUNDS keyword pipelines",
+      "description": "T2-S4..S6 — SUSTAINED HITS / LETHAL HITS / DEVASTATING WOUNDS keyword pipelines",
       "scenarios": [
         "mp:tests/test_keyword_pipeline.gd"
       ],
@@ -693,7 +693,7 @@
     },
     {
       "id": "rules.stratagem.excluding_keyword_parser_359",
-      "description": "Issue #359 \u2014 FactionStratagemLoader._map_target correctly handles 'excluding X' as not_keyword:X (was incorrectly mapping to keyword:X). Affects 'ARD AS NAILS, UNWAVERING SENTINELS, ARCHEOTECH MUNITIONS",
+      "description": "Issue #359 — FactionStratagemLoader._map_target correctly handles 'excluding X' as not_keyword:X (was incorrectly mapping to keyword:X). Affects 'ARD AS NAILS, UNWAVERING SENTINELS, ARCHEOTECH MUNITIONS",
       "scenarios": [
         "mp:tests/test_audit_fixes_verification.gd"
       ],
@@ -743,6 +743,196 @@
         "374_supa_cybork_fnp"
       ],
       "last_verified_commit": "1f48cc6",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.pile_in_11e",
+      "description": "Windowed scenario coverage for phases.FightPhase.pile_in_11e (verified by iss066_pile_in_consolidate_11e).",
+      "scenarios": [
+        "iss066_pile_in_consolidate_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.consolidate_11e",
+      "description": "Windowed scenario coverage for phases.FightPhase.consolidate_11e (verified by iss066_pile_in_consolidate_11e).",
+      "scenarios": [
+        "iss066_pile_in_consolidate_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "movetypes.PileInMove",
+      "description": "Windowed scenario coverage for movetypes.PileInMove (verified by iss066_pile_in_consolidate_11e).",
+      "scenarios": [
+        "iss066_pile_in_consolidate_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "movetypes.ConsolidationMove",
+      "description": "Windowed scenario coverage for movetypes.ConsolidationMove (verified by iss066_pile_in_consolidate_11e).",
+      "scenarios": [
+        "iss066_pile_in_consolidate_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "iss066.fight_templates_wired",
+      "description": "Windowed scenario coverage for iss066.fight_templates_wired (verified by iss066_pile_in_consolidate_11e).",
+      "scenarios": [
+        "iss066_pile_in_consolidate_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "phases.DeploymentPhase.infiltrators_distance_11e",
+      "description": "Windowed scenario coverage for phases.DeploymentPhase.infiltrators_distance_11e (verified by iss068_infiltrators_8in_11e).",
+      "scenarios": [
+        "iss068_infiltrators_8in_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "iss068.infiltrators_8in",
+      "description": "Windowed scenario coverage for iss068.infiltrators_8in (verified by iss068_infiltrators_8in_11e).",
+      "scenarios": [
+        "iss068_infiltrators_8in_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "rules.lone_operative_range_11e",
+      "description": "Windowed scenario coverage for rules.lone_operative_range_11e (verified by iss069_lone_operative_range_11e).",
+      "scenarios": [
+        "iss069_lone_operative_range_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ShootingPhase.lone_operative_targeting",
+      "description": "Windowed scenario coverage for phases.ShootingPhase.lone_operative_targeting (verified by iss069_lone_operative_range_11e).",
+      "scenarios": [
+        "iss069_lone_operative_range_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "iss069.lone_operative_xrange",
+      "description": "Windowed scenario coverage for iss069.lone_operative_xrange (verified by iss069_lone_operative_range_11e).",
+      "scenarios": [
+        "iss069_lone_operative_range_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "ui.FiringDeckDialog.one_shot_exclusion_11e",
+      "description": "Windowed scenario coverage for ui.FiringDeckDialog.one_shot_exclusion_11e (verified by iss071_firing_deck_11e).",
+      "scenarios": [
+        "iss071_firing_deck_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "ui.FiringDeckDialog.one_weapon_per_model",
+      "description": "Windowed scenario coverage for ui.FiringDeckDialog.one_weapon_per_model (verified by iss071_firing_deck_11e).",
+      "scenarios": [
+        "iss071_firing_deck_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "iss071.firing_deck",
+      "description": "Windowed scenario coverage for iss071.firing_deck (verified by iss071_firing_deck_11e).",
+      "scenarios": [
+        "iss071_firing_deck_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.shw_mobile_gamble_11e",
+      "description": "Windowed scenario coverage for phases.MovementPhase.shw_mobile_gamble_11e (verified by iss073_shw_mobile_gamble_11e).",
+      "scenarios": [
+        "iss073_shw_mobile_gamble_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "movement.shw_mobile_gamble_toggle",
+      "description": "Windowed scenario coverage for movement.shw_mobile_gamble_toggle (verified by iss073_shw_mobile_gamble_11e).",
+      "scenarios": [
+        "iss073_shw_mobile_gamble_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "iss073.shw_gamble_ui",
+      "description": "Windowed scenario coverage for iss073.shw_gamble_ui (verified by iss073_shw_mobile_gamble_11e).",
+      "scenarios": [
+        "iss073_shw_mobile_gamble_11e",
+        "iss073_shw_gamble_fallback_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.shw_mobile_gamble_fallback_11e",
+      "description": "Windowed scenario coverage for phases.MovementPhase.shw_mobile_gamble_fallback_11e (verified by iss073_shw_gamble_fallback_11e).",
+      "scenarios": [
+        "iss073_shw_gamble_fallback_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "movement.shw_mobile_gamble_toggle_fallback",
+      "description": "Windowed scenario coverage for movement.shw_mobile_gamble_toggle_fallback (verified by iss073_shw_gamble_fallback_11e).",
+      "scenarios": [
+        "iss073_shw_gamble_fallback_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "phases.DeploymentPhase.aircraft_reserves_11e",
+      "description": "Windowed scenario coverage for phases.DeploymentPhase.aircraft_reserves_11e (verified by iss074_aircraft_reserve_cycle_11e).",
+      "scenarios": [
+        "iss074_aircraft_reserve_cycle_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "turn.aircraft_return_to_reserves_11e",
+      "description": "Windowed scenario coverage for turn.aircraft_return_to_reserves_11e (verified by iss074_aircraft_reserve_cycle_11e).",
+      "scenarios": [
+        "iss074_aircraft_reserve_cycle_11e"
+      ],
+      "last_verified_commit": "20774020",
+      "status": "covered"
+    },
+    {
+      "id": "iss074.aircraft_cycle",
+      "description": "Windowed scenario coverage for iss074.aircraft_cycle (verified by iss074_aircraft_reserve_cycle_11e).",
+      "scenarios": [
+        "iss074_aircraft_reserve_cycle_11e"
+      ],
+      "last_verified_commit": "20774020",
       "status": "covered"
     }
   ]

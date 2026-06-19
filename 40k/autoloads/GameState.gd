@@ -503,6 +503,73 @@ func unit_is_fortification(unit_id: String) -> bool:
 			return true
 	return false
 
+func unit_is_aircraft(unit_id: String) -> bool:
+	"""ISS-074 (23.01/23.02): true if the unit has the AIRCRAFT keyword."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	for kw in unit.get("meta", {}).get("keywords", []):
+		if str(kw).to_upper() == "AIRCRAFT":
+			return true
+	return false
+
+func unit_must_start_in_reserves(unit_id: String) -> bool:
+	"""ISS-074 (23.01): at edition >= 11 an AIRCRAFT unit must begin the
+	battle in Strategic Reserves — it cannot be set up on the battlefield
+	during deployment. Inert (false) outside edition 11 and for non-AIRCRAFT
+	units, so it is a no-op without aircraft datasheets."""
+	if GameConstants.edition < 11:
+		return false
+	return unit_is_aircraft(unit_id)
+
+func get_aircraft_on_board_for_player(player: int) -> Array:
+	"""ISS-074 (23.02): AIRCRAFT units owned by `player` that are currently
+	set up on the battlefield (not undeployed, not already in reserves, with
+	at least one living model). Used by the end-of-turn return-to-reserves
+	cycle."""
+	var result: Array = []
+	for unit_id in state.get("units", {}).keys():
+		var unit = state["units"][unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		if not unit_is_aircraft(unit_id):
+			continue
+		var status = int(unit.get("status", 0))
+		if status == UnitStatus.UNDEPLOYED or status == UnitStatus.IN_RESERVES:
+			continue
+		var has_alive := false
+		for m in unit.get("models", []):
+			if m.get("alive", true):
+				has_alive = true
+				break
+		if has_alive:
+			result.append(unit_id)
+	return result
+
+func return_aircraft_to_reserves(player: int) -> Array:
+	"""ISS-074 (23.02): at the end of a turn, that player's AIRCRAFT still on
+	the battlefield streak off the table and return to Strategic Reserves so
+	they can ingress again on a later turn. Builds the diffs and applies them
+	through apply_state_changes (the single mutation path). Returns the list
+	of affected unit ids. A no-op (edition < 11, or no on-board AIRCRAFT)."""
+	if GameConstants.edition < 11:
+		return []
+	var affected: Array = []
+	var changes: Array = []
+	for unit_id in get_aircraft_on_board_for_player(player):
+		changes.append({"op": "set", "path": "units.%s.status" % unit_id,
+			"value": UnitStatus.IN_RESERVES})
+		changes.append({"op": "set", "path": "units.%s.reserve_type" % unit_id,
+			"value": "strategic_reserves"})
+		# Returning to reserves wipes battlefield position so a later ingress
+		# re-places the models cleanly.
+		changes.append({"op": "set", "path": "units.%s.flags.returned_to_reserves_aircraft" % unit_id,
+			"value": true})
+		affected.append(unit_id)
+	if changes.size() > 0:
+		apply_state_changes(changes)
+	return affected
+
 func _unit_has_scout_own(unit_id: String) -> bool:
 	"""Check if a unit itself (not inherited) has the Scout ability.
 	Issue #389: also check description for the Scouts text — defends against
@@ -617,6 +684,27 @@ func get_scout_distance(unit_id: String) -> float:
 			if all_have_scout and min_distance < INF:
 				return min_distance
 	return 0.0
+
+## ISS-067 (11e 24.31): Scout units that started embarked in strategic
+## reserves can SET UP wholly within their deployment zone during the
+## Resolve Pre-battle Abilities step (instead of a scout move). 11e only.
+func get_scout_reserve_units_for_player(player: int) -> Array:
+	var out := []
+	if GameConstants.edition < 11:
+		return out
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if unit.get("status", 0) != UnitStatus.IN_RESERVES:
+			continue
+		if str(unit.get("reserve_type", "strategic_reserves")) != "strategic_reserves":
+			continue
+		if unit.get("attached_to", null) != null:
+			continue
+		if unit_has_scout(unit_id):
+			out.append(unit_id)
+	return out
 
 func get_scout_range(unit_id: String) -> float:
 	"""Alias for get_scout_distance() for compatibility."""
@@ -999,6 +1087,62 @@ func is_below_half_strength_combined(unit_id: String) -> bool:
 	# Below half: alive_models * 2 < total_models
 	print("GameState: is_below_half_strength_combined(%s): %d alive / %d total (attached chars: %s)" % [unit_id, alive_models, total_models, str(attached_chars)])
 	return alive_models * 2 < total_models
+
+## ISS-065 (11e 08.03 / Starting Strength rules pg 86): a unit is AT
+## half-strength when its remaining models equal EXACTLY half its
+## starting strength (or, single-model, remaining wounds = half W).
+## CRITICAL: a unit whose starting strength (or a model's W) cannot be
+## evenly divided in half CANNOT be at half-strength (it can still be
+## below half-strength). Starting strength = the model-array size here
+## (dead models remain in the array as alive=false), matching the
+## established is_below_half_strength convention.
+func is_at_half_strength(unit: Dictionary) -> bool:
+	var models = unit.get("models", [])
+	if models.size() == 0:
+		return false
+	var total_models = models.size()
+	var alive_models = 0
+	for model in models:
+		if model.get("alive", true):
+			alive_models += 1
+	if alive_models == 0:
+		return false  # destroyed, not at half-strength
+	if total_models == 1:
+		var model = models[0]
+		var max_wounds = int(model.get("wounds", 1))
+		var current_wounds = int(model.get("current_wounds", max_wounds))
+		if max_wounds % 2 != 0:
+			return false  # W cannot be evenly halved -> cannot be at half
+		return current_wounds * 2 == max_wounds
+	if total_models % 2 != 0:
+		return false  # starting strength odd -> cannot be at half
+	return alive_models * 2 == total_models
+
+func is_at_half_strength_combined(unit_id: String) -> bool:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	var attached_chars = get_attached_characters(unit_id)
+	if attached_chars.size() == 0:
+		return is_at_half_strength(unit)
+	var total_models = unit.get("models", []).size()
+	var alive_models = 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			alive_models += 1
+	for char_id in attached_chars:
+		var char_unit = get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+		for model in char_unit.get("models", []):
+			total_models += 1
+			if model.get("alive", true):
+				alive_models += 1
+	if alive_models == 0:
+		return false
+	if total_models % 2 != 0:
+		return false  # combined starting strength odd -> cannot be at half
+	return alive_models * 2 == total_models
 
 func add_action_to_phase_log(action: Dictionary) -> void:
 	state["phase_log"].append(action)

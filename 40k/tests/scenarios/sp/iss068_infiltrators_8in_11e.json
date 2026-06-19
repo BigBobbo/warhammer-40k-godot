@@ -1,0 +1,95 @@
+{
+  "id": "iss068_infiltrators_8in_11e",
+  "covers": [
+    "phases.DeploymentPhase.infiltrators_distance_11e",
+    "iss068.infiltrators_8in"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "description": "ISS-068 (24.20): Infiltrators deploy distance is >8\" (horizontal) at edition 11, down from 10e's >9\". Driving the REAL live DeploymentPhase infiltrators validator for the Orks Kommandos (which have Infiltrators): a position 8.2\" from the enemy deployment zone is ACCEPTED at edition 11 but REJECTED at edition 10 (with a '>9\"' message), and a 7.9\" position is rejected at edition 11 with a '>8\"' message \u2014 proving the threshold is edition-gated 9->8.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.unit_has_infiltrators(\"U_KOMMANDOS_H\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_KOMMANDOS_H\"].merge({\"status\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(2)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(1)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(2)"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_deployment_infiltrators_kommandos"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._validate_infiltrators_position(Vector2(80,710), GameState.get_unit(\"U_KOMMANDOS_H\"), 0, 2, 0.0).get(\"valid\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance()._validate_infiltrators_position(Vector2(80,680), GameState.get_unit(\"U_KOMMANDOS_H\"), 0, 2, 0.0).get(\"errors\", [])).contains(\"must be >8\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(10)",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._validate_infiltrators_position(Vector2(80,710), GameState.get_unit(\"U_KOMMANDOS_H\"), 0, 2, 0.0).get(\"valid\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance()._validate_infiltrators_position(Vector2(80,710), GameState.get_unit(\"U_KOMMANDOS_H\"), 0, 2, 0.0).get(\"errors\", [])).contains(\"must be >9\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "screenshot",
+      "label": "02_infiltrators_8in_validated"
+    }
+  ]
+}

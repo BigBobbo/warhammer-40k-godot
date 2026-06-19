@@ -77,6 +77,10 @@ func setup(p_transport_id: String, p_embarked_unit_ids: Array, p_firing_deck_cap
 	_create_weapon_checkboxes()
 
 func _populate_available_weapons() -> void:
+	# ISS-071 (24.14): Firing Deck offers each embarked model ONE RANGED
+	# weapon, EXCLUDING weapons with the [ONE SHOT] ability. (Fixes a stale
+	# call to the non-existent get_unit_weapon_profiles; get_unit_weapons
+	# returns ranged-only weapon ids per model.)
 	available_weapons.clear()
 
 	for unit_id in embarked_unit_ids:
@@ -90,24 +94,27 @@ func _populate_available_weapons() -> void:
 
 		var unit_name = unit.meta.get("name", unit_id)
 
-		# Get weapons for this unit from RulesEngine
-		var weapon_profiles = RulesEngine.get_unit_weapon_profiles(unit_id)
+		# Ranged-only weapon ids per model id.
+		var model_weapons = RulesEngine.get_unit_weapons(unit_id, GameState.state)
 
-		# For each model in the unit
 		for model_idx in range(unit.models.size()):
 			var model = unit.models[model_idx]
 			if not model.alive:
 				continue
-
-			# Add each weapon the model can use
-			for weapon_name in weapon_profiles:
+			var mid = str(model.get("id", ""))
+			for weapon_id in model_weapons.get(mid, []):
+				# 24.14: exclude [ONE SHOT] weapons.
+				if RulesEngine.is_one_shot_weapon(weapon_id, GameState.state):
+					continue
+				var profile = RulesEngine.get_weapon_profile(weapon_id, GameState.state)
 				available_weapons.append({
 					"unit_id": unit_id,
 					"unit_name": unit_name,
 					"model_idx": model_idx,
-					"model_id": model.id,
-					"weapon_name": weapon_name,
-					"weapon_profile": weapon_profiles[weapon_name]
+					"model_id": mid,
+					"weapon_name": profile.get("name", weapon_id),
+					"weapon_id": weapon_id,
+					"weapon_profile": profile
 				})
 
 func _create_weapon_checkboxes() -> void:
@@ -176,6 +183,18 @@ func _create_weapon_checkboxes() -> void:
 
 func _on_weapon_toggled(pressed: bool, weapon_data: Dictionary) -> void:
 	if pressed:
+		# ISS-071 (24.14): one ranged weapon per selected model.
+		if _model_already_has_selection(weapon_data.unit_id, weapon_data.model_idx):
+			var cid = "%s_%d_%s" % [weapon_data.unit_id, weapon_data.model_idx, weapon_data.weapon_name]
+			if checkboxes.has(cid):
+				checkboxes[cid].set_pressed_no_signal(false)
+			var w := AcceptDialog.new()
+			w.title = "Firing Deck"
+			w.dialog_text = "Each embarked model may fire only ONE weapon through the firing deck (24.14)."
+			get_tree().root.add_child(w)
+			w.popup_centered()
+			w.confirmed.connect(func(): w.queue_free())
+			return
 		# Check capacity
 		if selected_weapons.size() >= firing_deck_capacity:
 			# Revert the toggle
@@ -231,3 +250,11 @@ func _on_confirm_pressed() -> void:
 	emit_signal("models_selected", selected_weapons)
 	hide()
 	queue_free()
+
+
+## ISS-071: true if a weapon from this (unit, model) is already selected.
+func _model_already_has_selection(unit_id: String, model_idx: int) -> bool:
+	for sel in selected_weapons:
+		if sel.get("unit_id", "") == unit_id and int(sel.get("model_idx", -1)) == model_idx:
+			return true
+	return false

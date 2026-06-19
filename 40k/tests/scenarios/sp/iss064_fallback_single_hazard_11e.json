@@ -1,0 +1,99 @@
+{
+  "id": "iss064_fallback_single_hazard_11e",
+  "covers": [
+    "phases.MovementPhase.fall_back_desperate_escape",
+    "iss064.no_double_hazard"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "ISS-064: a battle-shocked unit falling back at edition 11 applies its 06.03 desperate-escape hazards EXACTLY ONCE. Hazards land at BEGIN_FALL_BACK (FallBackMove template); CONFIRM_UNIT_MOVE must NOT re-apply them (legacy 10e desperate-escape gated to edition < 11). A 5-model synthetic unit (owner 2, the active player) is injected so it stays coherent after a loss. Assertion is relative: alive after CONFIRM equals alive after BEGIN.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(7)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"].merge({\"U_T064\": {\"id\": \"U_T064\", \"owner\": 2, \"status\": 2, \"flags\": {\"battle_shocked\": true}, \"status_effects\": {\"battle_shocked\": true}, \"meta\": {\"name\": \"Retreaters\", \"keywords\": [\"INFANTRY\"], \"stats\": {\"move\": 6, \"toughness\": 4, \"save\": 4, \"wounds\": 1, \"objective_control\": 1}}, \"models\": [{\"id\": \"m0\", \"alive\": true, \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 220.0, \"y\": 2400.0}}, {\"id\": \"m1\", \"alive\": true, \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 260.0, \"y\": 2400.0}}, {\"id\": \"m2\", \"alive\": true, \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 300.0, \"y\": 2400.0}}, {\"id\": \"m3\", \"alive\": true, \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 340.0, \"y\": 2400.0}}, {\"id\": \"m4\", \"alive\": true, \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 380.0, \"y\": 2400.0}}]}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"].merge({\"U_E064\": {\"id\": \"U_E064\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"Blockers\", \"keywords\": [\"INFANTRY\"], \"stats\": {\"move\": 6, \"toughness\": 4, \"save\": 4, \"wounds\": 1, \"objective_control\": 1}}, \"models\": [{\"id\": \"e0\", \"alive\": true, \"wounds\": 1, \"current_wounds\": 1, \"base_mm\": 32, \"base_type\": \"circular\", \"position\": {\"x\": 220.0, \"y\": 2445.0}}]}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.is_unit_engaged(\"U_T064\", GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_battleshocked_unit_engaged"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_FALL_BACK",
+        "actor_unit_id": "U_T064",
+        "payload": {
+          "fall_back_mode": "desperate_escape"
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"meta\"].merge({\"_t064_begin_alive\": RulesEngine.count_alive_models(GameState.state[\"units\"][\"U_T064\"])}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"meta\"][\"_t064_begin_alive\"] < 5",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_begin_hazards_applied"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_UNIT_MOVE",
+        "actor_unit_id": "U_T064"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.count_alive_models(GameState.state[\"units\"][\"U_T064\"]) == GameState.state[\"meta\"][\"_t064_begin_alive\"]",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_confirm_no_second_application"
+    }
+  ]
+}

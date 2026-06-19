@@ -1592,11 +1592,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 		# Note: We still check if weapon HAS these keywords for UI display
 		# but they won't have any effect since there's no hit roll
-		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board, target_unit)
 		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
 		if not weapon_has_lethal_hits:
 			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
-		sustained_data = get_sustained_hits_value(weapon_id, board)
+		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
 
 		result.dice.append({
 			"context": "auto_hit",  # Special context for Torrent
@@ -1832,7 +1832,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			regular_hits = 0
 
 		# Check for Lethal Hits keyword
-		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board, target_unit)
 		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
 		if not weapon_has_lethal_hits:
 			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
@@ -1842,7 +1842,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Ammo Runt)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
-		sustained_data = get_sustained_hits_value(weapon_id, board)
+		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
 
 		# HERE BE LOOT (OA-1): Freebooter Krew — Sustained Hits 1 near loot objective (ranged)
 		if sustained_data.value == 0 and FactionAbilityManager.check_here_be_loot_sustained_hits(actor_unit, target_unit, board):
@@ -1933,7 +1933,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
-	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
+	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board, target_unit)
 	# Issue #374 Headwoppa's Killchoppa: unit-level effect_devastating_wounds
 	# grants DEVASTATING WOUNDS to the bearer's melee weapons. Apply at the
 	# unit level here.
@@ -1959,7 +1959,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	var anti_keyword_active = critical_wound_threshold < 6
 
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
-	var weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
+	var weapon_has_twin_linked = has_twin_linked(weapon_id, board, target_unit) or assignment.get("twin_linked", false)
 
 	# WOUND MODIFIERS (T1-3): Build wound modifier flags from assignment and game state
 	var wound_modifiers = WoundModifier.NONE
@@ -2288,7 +2288,7 @@ static func lethal_hits_auto_wound_11e(weapon_id: String, board: Dictionary, ass
 		"roll":
 			print("RulesEngine: [24.23] LETHAL HITS — attacker chose to ROLL critical hits' wounds")
 			return false
-	if has_devastating_wounds(weapon_id, board):
+	if has_devastating_wounds(weapon_id, board, board.get("units", {}).get(str(assignment.get("target_unit_id", "")), {})):
 		print("RulesEngine: [24.23] LETHAL HITS + DEVASTATING WOUNDS — defaulting to ROLL (keeps the crit-wound trigger)")
 		return false
 	return true
@@ -2896,11 +2896,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# Note: We still check if weapon HAS these keywords for UI display
 		# but they won't have any effect since there's no hit roll
-		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board, target_unit)
 		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
 		if not weapon_has_lethal_hits:
 			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
-		sustained_data = get_sustained_hits_value(weapon_id, board)
+		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
 
 		result.dice.append({
 			"context": "auto_hit",  # Special context for Torrent
@@ -3117,7 +3117,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			regular_hits = 0
 
 		# Check for Lethal Hits keyword
-		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board, target_unit)
 		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
 		if not weapon_has_lethal_hits:
 			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
@@ -3127,7 +3127,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Ammo Runt)")
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
-		sustained_data = get_sustained_hits_value(weapon_id, board)
+		sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
 
 		# HERE BE LOOT (OA-1): Freebooter Krew — Sustained Hits 1 near loot objective (ranged)
 		if sustained_data.value == 0 and FactionAbilityManager.check_here_be_loot_sustained_hits(actor_unit, target_unit, board):
@@ -3218,7 +3218,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
-	var ar_weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
+	var ar_weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board, target_unit)
 	# Issue #374 Headwoppa's Killchoppa (auto-resolve path): unit-level
 	# effect_devastating_wounds grants DEVASTATING WOUNDS to the bearer's
 	# melee weapons.
@@ -3238,7 +3238,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var ar_anti_keyword_active = ar_critical_wound_threshold < 6
 
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
-	var ar_weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
+	var ar_weapon_has_twin_linked = has_twin_linked(weapon_id, board, target_unit) or assignment.get("twin_linked", false)
 
 	# WOUND MODIFIERS (T1-3): Build wound modifier flags for auto-resolve path
 	var ar_wound_modifiers = WoundModifier.NONE
@@ -3968,9 +3968,10 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 				var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
 				if attached_chars.is_empty():
 					var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
-					if min_dist > 12.0:
+					var lo_range = get_lone_operative_range(target_unit)
+					if min_dist > lo_range:
 						var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
-						errors.append("Cannot target '%s' — Lone Operative can only be targeted from within 12\" (closest model is %.1f\" away)" % [target_name, min_dist])
+						errors.append("Cannot target '%s' — Lone Operative can only be targeted from within %d\" (closest model is %.1f\" away)" % [target_name, int(lo_range), min_dist])
 
 			# PISTOL RULES: If in engagement, targets must be within engagement range
 			# Issue #370 (BGNT): MONSTER and VEHICLE actors firing in ER can target
@@ -4754,10 +4755,11 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 			# Check if the unit has attached characters (meaning it's leading a bodyguard)
 			var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
 			if attached_chars.is_empty():
-				# Standalone Lone Operative — check if any actor model is within 12"
+				# Standalone Lone Operative — check if any actor model is within range.
 				var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
-				if min_dist > 12.0:
-					print("RulesEngine: Lone Operative — target '%s' cannot be targeted (closest actor model is %.1f\" away, must be within 12\")" % [target_unit.get("meta", {}).get("name", target_unit_id), min_dist])
+				var lo_range = get_lone_operative_range(target_unit)
+				if min_dist > lo_range:
+					print("RulesEngine: Lone Operative — target '%s' cannot be targeted (closest actor model is %.1f\" away, must be within %d\")" % [target_unit.get("meta", {}).get("name", target_unit_id), min_dist, int(lo_range)])
 					continue
 
 		# PSYCHIC VEIL: Unit can only be targeted by ranged attacks within 18"
@@ -5810,7 +5812,63 @@ static func is_rapid_fire_weapon(weapon_id: String, board: Dictionary = {}) -> b
 
 # Check if a weapon has the LETHAL HITS keyword (case-insensitive)
 # Lethal Hits: Critical hits (unmodified 6s to hit) automatically wound without wound roll
-static func has_lethal_hits(weapon_id: String, board: Dictionary = {}) -> bool:
+## ISS-070 (11e 24.01): keyword-scoped weapon abilities. A scoped ability
+## written "<token>: KEYWORD" (e.g. "lethal hits: vehicle") applies only
+## against targets that have KEYWORD. Returns the scope keywords (upper),
+## or [] when the ability is unscoped (the case for all current data).
+static func get_weapon_ability_scope(weapon_id: String, board: Dictionary, token: String) -> Array:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return []
+	# Structured ability entries carry an explicit "scope" array.
+	for ab in AbilityRegistry.from_weapon(profile):
+		if ab is Dictionary:
+			var nm = str(ab.get("id", "")).to_lower().replace("_", " ")
+			if nm.contains(token.to_lower()):
+				var sc = ab.get("scope", [])
+				if sc is Array and not sc.is_empty():
+					var out: Array = []
+					for k in sc:
+						out.append(str(k).to_upper())
+					return out
+	# Flat special_rules form: "<token>: keyword" (comma-delimited list).
+	var sr = str(profile.get("special_rules", "")).to_lower()
+	for part in sr.split(","):
+		var p = str(part).strip_edges()
+		if p.begins_with(token.to_lower()) and ":" in p:
+			var kw = str(p.split(":")[1]).strip_edges()
+			if kw != "":
+				return [kw.to_upper()]
+	return []
+
+
+static func _ability_scope_matches(scope: Array, target_unit: Dictionary) -> bool:
+	if scope.is_empty():
+		return true
+	if target_unit.is_empty():
+		return true  # legacy caller with no target -> unscoped behaviour
+	var tk: Array = []
+	for k in target_unit.get("meta", {}).get("keywords", []):
+		tk.append(str(k).to_upper())
+	for s in scope:
+		if s in tk:
+			return true
+	return false
+
+
+## True only when a scoped ability does NOT apply to this target (so the
+## caller must suppress it). False when unscoped or no target given.
+static func _ability_suppressed_by_scope(weapon_id: String, board: Dictionary, token: String, target_unit: Dictionary) -> bool:
+	if target_unit.is_empty():
+		return false
+	var scope = get_weapon_ability_scope(weapon_id, board, token)
+	return not scope.is_empty() and not _ability_scope_matches(scope, target_unit)
+
+
+static func has_lethal_hits(weapon_id: String, board: Dictionary = {}, target_unit: Dictionary = {}) -> bool:
+	# ISS-070: 24.01 keyword-scope gate.
+	if _ability_suppressed_by_scope(weapon_id, board, "lethal hits", target_unit):
+		return false
 	var profile = get_weapon_profile(weapon_id, board)
 	if profile.is_empty():
 		return false
@@ -5892,7 +5950,10 @@ static func check_advanced_firepower_lethal_hits(weapon_id: String, attacker_uni
 #   - is_dice: Whether the value is a dice roll (D3, D6)
 # Examples: "Sustained Hits 1" -> {value: 1, is_dice: false}
 #           "Sustained Hits D3" -> {value: 3, is_dice: true}
-static func get_sustained_hits_value(weapon_id: String, board: Dictionary = {}) -> Dictionary:
+static func get_sustained_hits_value(weapon_id: String, board: Dictionary = {}, target_unit: Dictionary = {}) -> Dictionary:
+	# ISS-070: 24.01 keyword-scope gate.
+	if _ability_suppressed_by_scope(weapon_id, board, "sustained hits", target_unit):
+		return {"value": 0}
 	var profile = get_weapon_profile(weapon_id, board)
 	if profile.is_empty():
 		return {"value": 0, "is_dice": false}
@@ -5914,21 +5975,25 @@ static func get_sustained_hits_value(weapon_id: String, board: Dictionary = {}) 
 
 # Parse "sustained hits X" or "sustained hits dX" from a string
 static func _parse_sustained_hits_from_string(text: String) -> Dictionary:
-	# Look for "sustained hits" followed by a value
+	# ISS-072 (24.02): duplicated weapon abilities are NOT cumulative — the
+	# controlling player selects which instance applies. For [SUSTAINED
+	# HITS X] we auto-select the best (highest) of all instances present,
+	# rather than the first (and never the sum).
 	var regex = RegEx.new()
 	regex.compile("sustained hits\\s*(d?)(\\d+)")
-	var result = regex.search(text)
-
-	if result:
+	var best := {"value": 0, "is_dice": false}
+	for result in regex.search_all(text):
 		var is_dice = result.get_string(1) == "d"
 		var value = result.get_string(2).to_int()
-		return {"value": value, "is_dice": is_dice}
-
-	return {"value": 0, "is_dice": false}
+		# Compare on value; a flat number beats an equal-or-lower dice form
+		# only when strictly higher (keep it simple: highest numeric wins).
+		if value > best.value:
+			best = {"value": value, "is_dice": is_dice}
+	return best
 
 # Check if a weapon has Sustained Hits
-static func has_sustained_hits(weapon_id: String, board: Dictionary = {}) -> bool:
-	return get_sustained_hits_value(weapon_id, board).value > 0
+static func has_sustained_hits(weapon_id: String, board: Dictionary = {}, target_unit: Dictionary = {}) -> bool:
+	return get_sustained_hits_value(weapon_id, board, target_unit).value > 0
 
 # Roll for sustained hits based on the weapon's sustained hits value
 # Returns the total bonus hits generated for a given number of critical hits
@@ -5970,7 +6035,10 @@ static func get_sustained_hits_display(weapon_id: String, board: Dictionary = {}
 
 # Check if weapon has Devastating Wounds ability
 # Critical wounds (unmodified 6s to wound) bypass saves entirely
-static func has_devastating_wounds(weapon_id: String, board: Dictionary = {}) -> bool:
+static func has_devastating_wounds(weapon_id: String, board: Dictionary = {}, target_unit: Dictionary = {}) -> bool:
+	# ISS-070: 24.01 keyword-scope gate.
+	if _ability_suppressed_by_scope(weapon_id, board, "devastating wounds", target_unit):
+		return false
 	var profile = get_weapon_profile(weapon_id, board)
 	if profile.is_empty():
 		return false
@@ -5994,7 +6062,10 @@ static func has_devastating_wounds(weapon_id: String, board: Dictionary = {}) ->
 
 # Check if a weapon has the TWIN-LINKED keyword (case-insensitive)
 # Twin-linked: Re-roll all failed wound rolls
-static func has_twin_linked(weapon_id: String, board: Dictionary = {}) -> bool:
+static func has_twin_linked(weapon_id: String, board: Dictionary = {}, target_unit: Dictionary = {}) -> bool:
+	# ISS-070: 24.01 keyword-scope gate.
+	if _ability_suppressed_by_scope(weapon_id, board, "twin-linked", target_unit):
+		return false
 	var profile = get_weapon_profile(weapon_id, board)
 	if profile.is_empty():
 		return false
@@ -6241,8 +6312,43 @@ static func unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
 # of a ranged attack if the attacking model is within 12"
 # Abilities can be stored as strings ("Lone Operative") or dicts ({"name": "Lone Operative", ...})
 static func has_lone_operative(unit: Dictionary) -> bool:
-	# ISS-019: unified query (datasheet + future dynamic grants).
-	return UnitAbilities.unit_has(unit, "lone operative")
+	# ISS-019/069: unified query. Matches the plain "Lone Operative" ability
+	# AND the 11e "Lone Operative X\"" variant (whose full name carries the
+	# distance, so the exact-match datasheet query alone would miss it).
+	if UnitAbilities.unit_has(unit, "lone operative"):
+		return true
+	for ab in unit.get("meta", {}).get("abilities", []):
+		var nm := ""
+		if ab is String:
+			nm = ab
+		elif ab is Dictionary:
+			nm = str(ab.get("name", ""))
+		if nm.to_lower().contains("lone operative"):
+			return true
+	return false
+
+
+## ISS-069 (11e 24.24): "Lone Operative X\"" gates targeting at X" (visibility
+## AND [INDIRECT FIRE]); the default form is 12". Parses the first number in
+## any ability whose name contains "lone operative". Edition-agnostic — the
+## X" variant simply does not occur in 10e data, where 12" is universal.
+static func get_lone_operative_range(unit: Dictionary) -> float:
+	for ab in unit.get("meta", {}).get("abilities", []):
+		var nm := ""
+		if ab is String:
+			nm = ab
+		elif ab is Dictionary:
+			nm = str(ab.get("name", ""))
+		if nm.to_lower().contains("lone operative"):
+			var digits := ""
+			for c in nm:
+				if c >= "0" and c <= "9":
+					digits += c
+				elif digits != "":
+					break
+			if digits != "":
+				return float(digits.to_int())
+	return 12.0
 
 # OA-19: "Hold Still and Say 'Aargh!'" — Check if unit has this ability (Painboy)
 # On Critical Wound with 'urty syringe vs non-VEHICLE, target suffers D6 mortal wounds
@@ -9370,9 +9476,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
 	# ===== PHASE 3: DETECT WEAPON ABILITIES =====
-	var weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
-	var sustained_data = get_sustained_hits_value(weapon_id, board)
-	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
+	var weapon_has_lethal_hits = has_lethal_hits(weapon_id, board, target_unit)
+	var sustained_data = get_sustained_hits_value(weapon_id, board, target_unit)
+	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board, target_unit)
 	# BEASTLY RAGE: Beastboss on Squigosaur — melee weapons gain DEVASTATING WOUNDS after charging
 	if not weapon_has_devastating_wounds and has_beastly_rage_active(attacker_unit):
 		weapon_has_devastating_wounds = true
@@ -9594,7 +9700,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var melee_anti_keyword_active = melee_critical_wound_threshold < 6
 
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
-	var melee_weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
+	var melee_weapon_has_twin_linked = has_twin_linked(weapon_id, board, target_unit) or assignment.get("twin_linked", false)
 
 	# WOUND MODIFIERS (T1-3): Build wound modifier flags for melee path
 	var melee_wound_modifiers = WoundModifier.NONE

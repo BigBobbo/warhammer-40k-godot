@@ -1,0 +1,152 @@
+{
+  "id": "iss074_aircraft_reserve_cycle_11e",
+  "covers": [
+    "phases.DeploymentPhase.aircraft_reserves_11e",
+    "turn.aircraft_return_to_reserves_11e",
+    "iss074.aircraft_cycle"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 7,
+  "disable_ai": true,
+  "description": "ISS-074 (23.01/23.02): the real Orks Wazbom Blastajet (AIRCRAFT) is player-reachable. (A) the aircraft/must-start-in-reserves rule applies to it; (B) dispatching DEPLOY_UNIT to set it up on the battlefield is rejected, specifically with the Strategic-Reserves reason; (C) PLACE_IN_RESERVES succeeds (status -> IN_RESERVES); (D) the end-of-turn TurnManager MORALE hook streaks an on-board Wazbom back to Strategic Reserves and flags it.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.unit_is_aircraft(\"U_WAZBOM_BLASTAJET\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.unit_must_start_in_reserves(\"U_WAZBOM_BLASTAJET\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WAZBOM_BLASTAJET\"].merge({\"status\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(2)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(1)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(2)"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_deployment_phase_wazbom_undeployed"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DEPLOY_UNIT",
+        "unit_id": "U_WAZBOM_BLASTAJET",
+        "model_positions": [
+          [
+            1000.0,
+            2000.0
+          ]
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().validate_action({\"type\":\"DEPLOY_UNIT\",\"unit_id\": \"U_WAZBOM_BLASTAJET\", \"model_positions\": [Vector2(1000.0, 2000.0)]}).get(\"errors\", [])).to_lower().contains(\"reserves\")",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WAZBOM_BLASTAJET.status",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_BOYZ_K\"].merge({\"status\": 2, \"reserve_type\": \"\"}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_LOOTAS_A\"].merge({\"status\": 2, \"reserve_type\": \"\"}, true)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "PLACE_IN_RESERVES",
+        "unit_id": "U_WAZBOM_BLASTAJET",
+        "reserve_type": "strategic_reserves"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WAZBOM_BLASTAJET.status",
+      "equals": 7
+    },
+    {
+      "act": "screenshot",
+      "label": "02_wazbom_placed_in_reserves"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WAZBOM_BLASTAJET\"].merge({\"status\": 2}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_aircraft_on_board_for_player(2).has(\"U_WAZBOM_BLASTAJET\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_active_player(2)"
+    },
+    {
+      "act": "execute_script",
+      "script": "TurnManager._on_phase_completed(12)"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WAZBOM_BLASTAJET.status",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WAZBOM_BLASTAJET\"].get(\"flags\", {}).get(\"returned_to_reserves_aircraft\", false)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_wazbom_returned_to_reserves_eot"
+    }
+  ]
+}

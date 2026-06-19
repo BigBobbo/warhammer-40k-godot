@@ -1,0 +1,83 @@
+{
+  "id": "iss065_at_half_battleshock_11e",
+  "covers": [
+    "phases.CommandPhase.battle_shock",
+    "iss065.at_half_strength"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "description": "ISS-065: a unit at EXACTLY half-strength takes a battle-shock test at edition 11 (08.03 'at, or below, half-strength'), not at edition 10. U_KOMMANDOS_H starts the fixture at exactly 5 of 10 alive (at-half, not below-half); with battle_shock cleared, the live CommandPhase queues it at edition 11 but not edition 10 \u2014 so at-half is the sole trigger.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_KOMMANDOS_H\"][\"flags\"].merge({\"battle_shocked\": false}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.is_at_half_strength_combined(\"U_KOMMANDOS_H\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.is_below_half_strength_combined(\"U_KOMMANDOS_H\")",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_kommandos_at_exactly_half"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._identify_units_needing_tests()"
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_KOMMANDOS_H\" in PhaseManager.get_current_phase_instance()._units_needing_test",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_e11_queued_for_battleshock"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(10)",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._identify_units_needing_tests()"
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_KOMMANDOS_H\" in PhaseManager.get_current_phase_instance()._units_needing_test",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "03_e10_not_queued"
+    }
+  ]
+}

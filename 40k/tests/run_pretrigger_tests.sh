@@ -28,6 +28,16 @@ cd "$(dirname "$0")/.."
 # Add user's local godot to PATH if available
 export PATH="$HOME/bin:$PATH"
 
+# Ensure committed test fixtures are present where SaveLoadManager.load_game
+# resolves them. The pretrigger tests load co_/hi_/ri_pretrigger via
+# load_game(name), which reads res://saves/ (== 40k/saves/, gitignored); the
+# fixtures are committed under tests/saves/. Copy any that are missing so the
+# suite is reproducible from a fresh checkout. -n never clobbers an existing
+# save. Mirrors run_scenarios.sh.
+mkdir -p saves
+cp -n tests/saves/*.w40ksave saves/ 2>/dev/null || true
+cp -n tests/saves/*.meta saves/ 2>/dev/null || true
+
 TESTS=(
     "tests/test_co_pretrigger.gd"
     "tests/test_hi_pretrigger.gd"
@@ -97,6 +107,17 @@ TESTS=(
     "tests/test_iss050_fight_phase_11e.gd"
     "tests/test_iss059_attached_units_11e.gd"
     "tests/test_iss029_golden_replay.gd"
+    "tests/test_iss064_fallback_no_double_hazard.gd"
+    "tests/test_iss065_at_half_battleshock.gd"
+    "tests/test_iss066_fight_phase_wiring.gd"
+    "tests/test_iss067_scouts_11e.gd"
+    "tests/test_iss068_infiltrators_11e.gd"
+    "tests/test_iss069_lone_operative_11e.gd"
+    "tests/test_iss070_keyword_scoped_abilities.gd"
+    "tests/test_iss071_firing_deck_11e.gd"
+    "tests/test_iss072_duplicated_abilities.gd"
+    "tests/test_iss073_shw_mobile_gamble.gd"
+    "tests/test_iss074_aircraft_reserves_11e.gd"
 )
 
 FAILED=0
