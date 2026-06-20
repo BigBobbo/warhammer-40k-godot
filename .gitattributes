@@ -1,0 +1,7 @@
+# Game-state save fixtures are machine-serialized, pretty-printed JSON dumps of
+# the entire board/unit/model state. They are committed so the windowed
+# scenarios can load them from a clean checkout, but they are generated data —
+# not human-reviewed source. Treat them as binary so they don't render as
+# enormous (100k+ line) text diffs, and mark them generated so GitHub collapses
+# them in PR review.
+*.w40ksave binary linguist-generated=true
