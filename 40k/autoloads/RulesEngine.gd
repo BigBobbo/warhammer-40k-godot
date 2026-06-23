@@ -1697,7 +1697,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# Issue #371: per 10e RAW, the -1 penalty + Benefit of Cover only apply
 		# when the target is NOT visible to any model in the firing unit.
 		var indirect_target_visible = is_indirect_fire and _has_los_to_target_unit(actor_unit_id, target_unit_id, board)
-		if is_indirect_fire and not indirect_target_visible:
+		# 11e (10.07): the indirect penalty is a harsh UNMODIFIED fail band (see
+		# hit_fail_band below), not a -1 modifier — gate the 10e -1 off at e11.
+		if is_indirect_fire and not indirect_target_visible and GameConstants.edition < 11:
 			hit_modifiers |= HitModifier.MINUS_ONE
 			indirect_fire_applied = true
 			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s' (target not visible)" % weapon_profile.get("name", weapon_id))
@@ -1806,7 +1808,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# (AttackSequence.evaluate_hit_roll). INDIRECT FIRE's unmodified-1-3
 		# fail band (#371, unseen targets only) and CONVERSION's crit
 		# threshold (T4-16) are parameters.
-		var hit_fail_band = 3 if (is_indirect_fire and not indirect_target_visible) else 1
+		var hit_fail_band = 1
+		if is_indirect_fire and not indirect_target_visible:
+			# 11e (10.07): unmodified 1-5 fails (need a 6), unless the firing unit
+			# remained stationary AND the target is visible to a friendly unit, in
+			# which case 1-3 fails (need 4+). 10e: 1-3 fails (4+).
+			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
@@ -2997,7 +3004,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Issue #371: per 10e RAW, the -1 penalty + Benefit of Cover only apply
 		# when the target is NOT visible to any model in the firing unit.
 		var indirect_target_visible = is_indirect_fire and _has_los_to_target_unit(actor_unit_id, target_unit_id, board)
-		if is_indirect_fire and not indirect_target_visible:
+		# 11e (10.07): the indirect penalty is a harsh UNMODIFIED fail band (see
+		# hit_fail_band below), not a -1 modifier — gate the 10e -1 off at e11.
+		if is_indirect_fire and not indirect_target_visible and GameConstants.edition < 11:
 			hit_modifiers |= HitModifier.MINUS_ONE
 			indirect_fire_applied = true
 			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s' (target not visible)" % weapon_profile.get("name", weapon_id))
@@ -3091,7 +3100,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# (AttackSequence.evaluate_hit_roll). INDIRECT FIRE's unmodified-1-3
 		# fail band (#371, unseen targets only) and CONVERSION's crit
 		# threshold (T4-16) are parameters.
-		var hit_fail_band = 3 if (is_indirect_fire and not indirect_target_visible) else 1
+		var hit_fail_band = 1
+		if is_indirect_fire and not indirect_target_visible:
+			# 11e (10.07): unmodified 1-5 fails (need a 6), unless the firing unit
+			# remained stationary AND the target is visible to a friendly unit, in
+			# which case 1-3 fails (need 4+). 10e: 1-3 fails (4+).
+			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
@@ -4356,6 +4370,23 @@ static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, inv
 		"use_invuln": use_invuln,
 		"cap_applied": improvement > 1
 	}
+
+## 11e (10.07): the unmodified hit-roll fail band for INDIRECT shooting at a
+## non-visible target. 1-5 fail (need 6); 1-3 fail (need 4+) only if the firing
+## unit remained stationary AND the target is visible to one or more friendly
+## units (a spotter).
+static func _indirect_hit_fail_band_11e(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> int:
+	var units = board.get("units", {})
+	var actor = units.get(actor_unit_id, {})
+	if not actor.get("flags", {}).get("remained_stationary", false):
+		return 5
+	var owner = int(actor.get("owner", 0))
+	for uid in units:
+		if int(units[uid].get("owner", -1)) != owner:
+			continue
+		if _has_los_to_target_unit(uid, target_unit_id, board):
+			return 3  # remained stationary + a friendly spotter sees the target
+	return 5
 
 static func _has_los_to_target_unit(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
 	"""Issue #371: returns true if any alive model of actor has LoS to any alive
@@ -9684,6 +9715,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if has_captain_general(attacker_unit):
 			melee_hit_modifiers = melee_hit_modifiers & ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
 			print("RulesEngine: CAPTAIN-GENERAL (melee) — ignoring all hit roll modifiers for %s" % attacker_id)
+
+		# A10 (24.29): [PSYCHIC] melee weapons ignore modifiers to the hit roll —
+		# strip the harmful -1 (the shooting paths do the same). 11e only.
+		if GameConstants.edition >= 11 and is_psychic_weapon(weapon_id, board):
+			melee_hit_modifiers = melee_hit_modifiers & ~HitModifier.MINUS_ONE
+			print("RulesEngine: [PSYCHIC] (melee) — ignoring hit-roll penalties for %s" % weapon_name)
 
 		var melee_hit_reroll_data = []
 		# ISS-012: per-roll evaluation shared with the ranged paths
