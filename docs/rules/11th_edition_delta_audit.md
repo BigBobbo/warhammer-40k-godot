@@ -336,16 +336,20 @@ unchanged). Each is edition-gated so the shipped 10e default is byte-unchanged.
 | **A12** | Ingress "no opponent DZ before round 3" ban enforced (caller now supplies the opponent zone). | rejection inside DZ at round 2; passes when zone omitted (proving prior inert). |
 | **B6** | Leader+Support attach cap enforced in the deploy diff/network pipeline (max 2 e11 / 1 10e). | 3rd character rejected at e11 with the cap message. |
 | **B7** | AIRCRAFT can only ingress-move (normal/advance/fall-back validators reject them at e11). | `unit_is_aircraft` true for an AIRCRAFT unit; guard added. |
+| **B2** | FLY "take to the skies" UI toggle in the movement mode panel (FLY units, e11). | `_unit_can_fly` true for FLY / false for ground; folds `take_to_skies` into the move payload. |
+| **B1** | Actions can now be **started** — a generic "Hold Position" action is registered and a "Start Action" button (Shooting phase) dispatches `START_ACTION` (gives up shooting; sets the 16.01 locks; completes end of turn). | `get_startable_actions` → `["hold_position"]`; start sets `performing_action`/`cannot_shoot`/`cannot_charge`; completes at end of turn; a real deployed unit (Shield-Captain) yields the startable action. |
+| **A4** (partial, 5/10) | 11e core stratagem **effects** wired: Epic Challenge (`effect_precision_melee`), Smokescreen (`effect_cover`), Counteroffensive (`fights_first`) — fully player-usable; Explosives + Crushing Impact (MW via the ready dice handlers) — functional with a target. | Flags/MW verified live; `FightSequencer.is_fights_first` honors the Counteroffensive flag. |
 
-### Still open (larger UI / system features, not yet done)
-- **A4** — 11e core stratagem *effects* are still inert (defined but unwired). The two dice
-  handlers (`resolve_explosives_11e`, `resolve_crushing_impact_11e`) exist but need a targeting
-  flow; the other eight need EffectPrimitives effect-type registration.
-- **B1** — Actions cannot be *started* from the UI (the `ActionsManager` primitive is correct
-  and its lock flags are consumed, but no affordance starts an action).
-- **B2 / B3** — FLY "take to the skies" and Surge moves work in the engine but have no
-  MovementController UI (reachable only via `dispatch_action`).
-- **B4** — End-of-turn coherency removal auto-picks (no player model-choice dialog).
+### Still open
+- **A4 remainder (5/10)** — the phase-trigger core stratagems (Command Re-roll, Insane Bravery,
+  Rapid Ingress, Fire Overwatch, Heroic Intervention) reuse existing 10e phase mechanisms; each
+  needs its phase to recognize the `*_11e` id (per-phase aliasing). Also, Explosives/Crushing
+  Impact need an attacker-facing enemy-target prompt to be fully player-driven (they work when a
+  target is supplied via context/AI).
+- **B3** — Surge moves work in-engine but are ability-triggered; no current datasheet ability
+  triggers one, so there is nothing to surface yet.
+- **B4** — End-of-turn coherency removal auto-picks (no player model-choice dialog; the auto-pick
+  is rules-legal).
 - **B5** — `[DEVASTATING WOUNDS]`/`[LETHAL HITS]` attacker choice prompts are default-only.
 - **C1 / C2** — true 11e datasheet values and an 11e mission/secondary/action pack require
   external content (no code).
