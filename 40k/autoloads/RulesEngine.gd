@@ -9982,7 +9982,32 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		return result
 
 	# ===== PHASE 6: SAVE ROLLS =====
-	# With invulnerable saves and Devastating Wounds (bypass saves)
+	# A1 (11e): melee saves/damage via the SAME defender allocation-group path as
+	# ranged (05.03-05.04), giving allocation groups, the [DEVASTATING WOUNDS]
+	# one-model-per-crit cap (24.10), and 06.02 mortal-wound priority. The 10e
+	# melee save/damage below is skipped at edition >= 11. (Interactive defender
+	# allocation rides FightController's AllocationGroupOverlay.)
+	if GameConstants.edition >= 11:
+		var m_damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
+		if has_dead_brutal and weapon_name.to_lower().contains("uge choppa"):
+			m_damage_raw = "3"
+		var m_alloc = _apply_saves_via_allocation_11e(result, target_unit, target_id,
+			regular_wound_count if weapon_has_devastating_wounds else wounds_caused,
+			critical_wound_count if weapon_has_devastating_wounds else 0,
+			ap, m_damage_raw, rng, {
+				"half_damage": get_unit_half_damage(target_unit),
+				"fnp_value": get_unit_fnp_for_attack(target_unit, is_psychic_weapon(weapon_id, board)),
+				"precision_group": _precision_group_11e(weapon_has_precision, target_unit),
+			})
+		var m_log := []
+		m_log.append("Melee: %s (%s) → %s" % [attacker_name, weapon_name, target_name])
+		m_log.append("Hit: %d/%d" % [hits, total_attacks])
+		m_log.append("Wound: %d/%d" % [wounds_caused, total_hits_for_wounds])
+		if weapon_has_devastating_wounds and critical_wound_count > 0:
+			m_log.append("%d DEVASTATING" % critical_wound_count)
+		m_log.append("%d slain" % m_alloc.casualties)
+		result.log_text = " - ".join(m_log)
+		return result
 
 	# Devastating Wounds: Critical wounds (unmodified 6s to wound) bypass saves entirely
 	var wounds_needing_saves = regular_wound_count if weapon_has_devastating_wounds else wounds_caused
