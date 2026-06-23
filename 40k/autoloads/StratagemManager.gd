@@ -1126,6 +1126,11 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 					# SMOKESCREEN (15.10): the SMOKE unit gains the benefit of cover.
 					diffs11.append({"op": "set", "path": "units.%s.flags.effect_cover" % target_unit_id, "value": true})
 					print("StratagemManager: [11e] SMOKESCREEN — %s has the benefit of cover" % target_unit_id)
+				"grant_fights_first":
+					# COUNTEROFFENSIVE (15.12): the unit gains Fights First (the 11e
+					# FightSequencer reads flags.fights_first).
+					diffs11.append({"op": "set", "path": "units.%s.flags.fights_first" % target_unit_id, "value": true})
+					print("StratagemManager: [11e] COUNTEROFFENSIVE — %s gains Fights First" % target_unit_id)
 				"explosives_11e":
 					# EXPLOSIVES (15.05): 6D6, 4+ = 1 MW to an enemy unit within 8".
 					var enemy_e := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", "")))
