@@ -860,7 +860,17 @@ func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 			break
 	if not qualifies:
 		return false
-	if unit.get("flags", {}).get("shot_recently", false):
+	# 13.09: a model is hidden only while its unit did NOT make ranged attacks
+	# during this turn or the previous turn. ShootingPhase stamps
+	# flags.last_shot_idx = battle_round*2 + (player==1?0:1) whenever the unit
+	# actually shoots; "this or previous turn" = current_idx - last_shot_idx < 2.
+	var gs = get_node_or_null("/root/GameState")
+	if gs != null and gs.has_method("get_battle_round"):
+		var cur_idx := int(gs.get_battle_round()) * 2 + (0 if int(gs.get_active_player()) == 1 else 1)
+		var last_shot_idx := int(unit.get("flags", {}).get("last_shot_idx", -100))
+		if cur_idx - last_shot_idx < 2:
+			return false
+	elif unit.get("flags", {}).get("shot_recently", false):
 		return false
 	var pos = model.get("position", null)
 	if pos == null:

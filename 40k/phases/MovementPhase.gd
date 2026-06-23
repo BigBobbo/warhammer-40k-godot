@@ -4545,6 +4545,17 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"value": staged_move.get("rotation", 0.0)
 		})
 	
+	# 11e [HEAVY] (24.16): record the max distance any model moved this turn so
+	# the hit-modifier stack can grant +1 to hit when the unit moved <=3".
+	var _max_moved := 0.0
+	for _d in move_data.model_distances.values():
+		_max_moved = max(_max_moved, float(_d))
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.moved_max_inches" % unit_id,
+		"value": _max_moved
+	})
+
 	# Clear staged moves after converting them
 	move_data.staged_moves.clear()
 	move_data.accumulated_distance = 0.0
@@ -4978,6 +4989,12 @@ func _process_remain_stationary(action: Dictionary) -> Dictionary:
 			"op": "set",
 			"path": "units.%s.flags.remained_stationary" % unit_id,
 			"value": not is_disembarked
+		},
+		{
+			# 11e [HEAVY]: stationary = moved 0"; disembarked units don't qualify.
+			"op": "set",
+			"path": "units.%s.flags.moved_max_inches" % unit_id,
+			"value": 0.0 if not is_disembarked else 999.0
 		}
 	]
 
@@ -5152,10 +5169,19 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 				pos_vecs.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
 			else:
 				pos_vecs.append(p)
+		# A12 (20.04): supply the opponent's deployment-zone polygon (converted
+		# inches→px) so the "not in opponent DZ before battle round 3" ban is
+		# actually enforced (previously omitted, leaving the check inert).
+		var _opp_zone := GameState.get_deployment_zone_for_player(3 - active_player)
+		var _opp_zone_px := PackedVector2Array()
+		for _pt in _opp_zone.get("poly", []):
+			if _pt is Dictionary and _pt.has("x"):
+				_opp_zone_px.append(Vector2(float(_pt.x) * 40.0, float(_pt.y) * 40.0))
 		var ingress_check = ingress_tmpl.validate_setup(unit_id, GameState.state, pos_vecs, {
 			"battle_round": battle_round,
 			"deep_strike": placement_type == "deep_strike",
 			"board_size_inches": Vector2(GameState.state.board.size.width, GameState.state.board.size.height),
+			"opponent_zone": _opp_zone_px,
 		})
 		if not ingress_check.valid:
 			return {"valid": false, "errors": ingress_check.errors}

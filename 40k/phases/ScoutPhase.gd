@@ -316,8 +316,8 @@ func _validate_confirm_scout_move(action: Dictionary) -> Dictionary:
 			var dist_px = dest_pos.distance_to(enemy_pos_px)
 			var dist_inches = dist_px / PX_PER_INCH
 			var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-			if edge_dist < SCOUT_MIN_ENEMY_DISTANCE_INCHES:
-				return {"valid": false, "errors": ["Model %s ends <9\" from enemy models (%.1f\")" % [model_id, edge_dist]]}
+			if edge_dist < _scout_min_enemy_distance_inches():
+				return {"valid": false, "errors": ["Model %s ends <%d\" from enemy models (%.1f\")" % [model_id, int(_scout_min_enemy_distance_inches()), edge_dist]]}
 
 	# Validate no overlap between final positions and other models (shape-aware).
 	# Models in the scouting unit are checked against each other and against everything else.

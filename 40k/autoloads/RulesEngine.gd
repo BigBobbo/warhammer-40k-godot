@@ -4049,7 +4049,9 @@ static func _calculate_wound_threshold(strength: int, toughness: int) -> int:
 # - If target is a bodyguard with attached characters, use the bodyguard's own T (already correct)
 # - If target is standalone (no attachment), use its own T
 static func _get_attached_unit_toughness(target_unit: Dictionary, board: Dictionary) -> int:
-	var own_toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+	# 11e 19.02: attacks vs an attached unit use the HIGHEST Toughness of the
+	# bodyguard models (not just the unit's single profile value).
+	var own_toughness = _unit_highest_toughness(target_unit)
 
 	# Check if this unit is a CHARACTER attached to a bodyguard
 	var attached_to = target_unit.get("attached_to", null)
@@ -4057,13 +4059,28 @@ static func _get_attached_unit_toughness(target_unit: Dictionary, board: Diction
 		var units = board.get("units", {})
 		var bodyguard_unit = units.get(attached_to, {})
 		if not bodyguard_unit.is_empty():
-			var bodyguard_toughness = bodyguard_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+			var bodyguard_toughness = _unit_highest_toughness(bodyguard_unit)
 			if bodyguard_toughness != own_toughness:
-				print("RulesEngine: P2-90 Attached unit T resolution — using bodyguard T%d instead of character T%d" % [bodyguard_toughness, own_toughness])
+				print("RulesEngine: P2-90/19.02 Attached unit T resolution — using highest bodyguard T%d instead of character T%d" % [bodyguard_toughness, own_toughness])
 			return bodyguard_toughness
 
-	# Bodyguard unit or standalone unit — use own toughness
+	# Bodyguard unit or standalone unit — use own (highest-model) toughness
 	return own_toughness
+
+# 11e 19.02 helper: highest Toughness among a unit's (alive) models, falling
+# back to per-model meta.stats.toughness, then the unit's profile T.
+static func _unit_highest_toughness(unit: Dictionary) -> int:
+	var unit_t = int(unit.get("meta", {}).get("stats", {}).get("toughness", 4))
+	var best = -1
+	for m in unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		var mt = m.get("meta", {}).get("stats", {}).get("toughness", null)
+		if mt == null:
+			mt = m.get("toughness", null)
+		if mt != null:
+			best = max(best, int(mt))
+	return best if best > 0 else unit_t
 
 # OA-44: Ded Glowy Ammo (Aura) — Check if target INFANTRY unit suffers -1 Toughness.
 # Kaptin Badrukk's aura: enemy INFANTRY within 6" edge-to-edge of Kaptin Badrukk suffer -1T.
@@ -7112,6 +7129,22 @@ static func calculate_blast_bonus(weapon_id: String, target_unit: Dictionary, bo
 	# Per 10e Blast rules: +1 attack for every 5 models in the target unit (rounding down)
 	return int(model_count / 5)
 
+# 11e [CLEAVE X] (24.06): parse the X value from a melee weapon (0 if absent).
+static func get_cleave_value(weapon_id: String, board: Dictionary = {}) -> int:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return 0
+	var sources = [str(profile.get("special_rules", ""))]
+	for kw in profile.get("keywords", []):
+		sources.append(str(kw))
+	var rx = RegEx.new()
+	rx.compile("(?i)cleave\\s+(\\d+)")
+	for s in sources:
+		var m = rx.search(s)
+		if m:
+			return int(m.get_string(1))
+	return 0
+
 # Calculate minimum attacks for Blast
 # Per 10e rules: Blast weapons make minimum 3 attacks vs units with 6+ models
 static func calculate_blast_minimum(weapon_id: String, base_attacks: int, target_unit: Dictionary, board: Dictionary = {}) -> int:
@@ -7367,9 +7400,11 @@ static func resolve_hazardous_check(
 	var rolls = rng.roll_d6(models_that_fired)
 	result.rolls = rolls
 
+	# 11e 06.03/24.15: a hazard roll of 1-2 fails. 10e/Balance-Dataslate: only a 1.
+	var hazard_fail_threshold: int = 2 if GameConstants.edition >= 11 else 1
 	var ones_rolled = 0
 	for roll in rolls:
-		if roll == 1:
+		if roll <= hazard_fail_threshold:
 			ones_rolled += 1
 	result.ones_rolled = ones_rolled
 
@@ -7397,11 +7432,15 @@ static func resolve_hazardous_check(
 
 	result.hazardous_triggered = true
 
-	# Balance Dataslate v3.3: Always 3 mortal wounds per 1 rolled, allocated to selected model
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
 	var models = actor_unit.get("models", [])
-	var total_mw = 3 * ones_rolled
+	# 11e 06.03: 1 mortal wound per failed hazard roll (3 if every model in the
+	# unit is MONSTER/VEHICLE). 10e/Balance-Dataslate: always 3 per 1 rolled.
+	var mw_per_fail: int = 3
+	if GameConstants.edition >= 11:
+		mw_per_fail = 3 if is_monster_or_vehicle(actor_unit) else 1
+	var total_mw = mw_per_fail * ones_rolled
 
 	# Find allocation target using Hazardous-specific priority (Balance Dataslate v3.3):
 	#   (1) wounded model with Hazardous weapon
@@ -9405,6 +9444,21 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 				for _j in range(melee_ability_bonus):
 					ws_per_attack.append(melee_default_ws)
 				print("RulesEngine: [MA-29] Ability +%d Attacks for '%s' (melee) → +%d total (%d models × %d)" % [melee_bonus_value, weapon_name, melee_ability_bonus, model_count, melee_bonus_value])
+
+	# 11e [CLEAVE X] (24.06): if this weapon makes all its attacks against a
+	# single target unit, add X dice for every 5 models in the target (melee
+	# blast). Melee attack-splitting isn't modelled, so a melee weapon always
+	# has a single target here.
+	if GameConstants.edition >= 11:
+		var cleave_x = get_cleave_value(weapon_id, board)
+		if cleave_x > 0:
+			var cleave_extra = AbilityRegistry.cleave_bonus_dice(cleave_x, count_alive_models(target_unit), true)
+			if cleave_extra > 0:
+				total_attacks += cleave_extra
+				var cleave_ws = weapon_profile.get("ws", 4)
+				for _j in range(cleave_extra):
+					ws_per_attack.append(cleave_ws)
+				print("RulesEngine: [CLEAVE %d] +%d dice vs %d-model target (melee)" % [cleave_x, cleave_extra, count_alive_models(target_unit)])
 
 	if model_count < total_alive_models:
 		print("RulesEngine: Melee eligibility filter: %d/%d alive models eligible to fight" % [model_count, total_alive_models])

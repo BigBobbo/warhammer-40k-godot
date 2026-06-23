@@ -1395,6 +1395,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.has_shot" % active_shooter_id,
 			"value": true
 		}]
+		changes.append(_hidden_shot_stamp(active_shooter_id))
 		# HAZARDOUS (T2-3): Include hazardous diffs in changes
 		changes.append_array(haz_diffs_on_miss)
 		# ONE SHOT (T4-2): Include one-shot diffs in changes
@@ -2369,6 +2370,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 		"path": "units.%s.flags.has_shot" % unit_id,
 		"value": true
 	})
+	all_changes.append(_hidden_shot_stamp(unit_id))
 	units_that_shot.append(unit_id)
 
 	# T5-UX9: Record per-target shot summary for end-of-phase panel.
@@ -2782,6 +2784,7 @@ func _resolve_next_weapon() -> Dictionary:
 			"path": "units.%s.flags.has_shot" % active_shooter_id,
 			"value": true
 		}]
+		changes.append(_hidden_shot_stamp(active_shooter_id))
 
 		# Return shooter to idle animation
 		_trigger_unit_animation(active_shooter_id, "idle")
@@ -3755,6 +3758,13 @@ func _get_last_weapon_result() -> Dictionary:
 		"skipped": last_weapon.get("skipped", false),
 		"skip_reason": last_weapon.get("skip_reason", "")
 	}
+
+func _hidden_shot_stamp(unit_id: String) -> Dictionary:
+	# 13.09 HIDDEN: stamp the turn-index when this unit actually made ranged
+	# attacks, so TerrainManager.is_model_hidden can apply the "did not shoot
+	# this turn or the previous turn" condition. Monotonic across player turns.
+	var idx := GameState.get_battle_round() * 2 + (0 if get_current_player() == 1 else 1)
+	return {"op": "set", "path": "units.%s.flags.last_shot_idx" % unit_id, "value": idx}
 
 func _clear_phase_flags() -> void:
 	var units = game_state_snapshot.get("units", {})
