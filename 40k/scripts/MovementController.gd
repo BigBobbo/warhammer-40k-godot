@@ -90,6 +90,8 @@ var confirm_mode_button: Button
 # for SUPER-HEAVY WALKER units at edition >= 11; its value is wired into the
 # BEGIN_NORMAL_MOVE / BEGIN_ADVANCE / BEGIN_FALL_BACK payload as shw_mobile_gamble.
 var shw_gamble_checkbox: CheckBox = null
+# B2 (21.03): "take to the skies" toggle for FLY units at edition >= 11.
+var take_to_skies_checkbox: CheckBox = null
 var advance_roll_label: Label
 
 # Flag to prevent duplicate actions when programmatically setting radio buttons
@@ -560,6 +562,20 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	shw_gamble_checkbox.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
 	shw_gamble_checkbox.add_theme_color_override("font_pressed_color", Color(1.0, 0.85, 0.4))
 	section.add_child(shw_gamble_checkbox)
+
+	# B2 (21.03): "take to the skies" toggle. A FLY unit may declare it will fly
+	# over this move — -2" max distance (0 with HOVER), ignoring vertical and
+	# moving through all models/terrain. Shown only for FLY units at edition >= 11.
+	take_to_skies_checkbox = CheckBox.new()
+	take_to_skies_checkbox.name = "TakeToSkiesCheckBox"
+	take_to_skies_checkbox.text = "Take to the skies (-2\" move)"
+	take_to_skies_checkbox.toggle_mode = true
+	take_to_skies_checkbox.visible = false
+	take_to_skies_checkbox.tooltip_text = "FLY (21.03): fly over this move — subtract 2\" from the max distance (0 with HOVER), ignore vertical distance, and move through all models and terrain."
+	take_to_skies_checkbox.add_theme_font_size_override("font_size", 13)
+	take_to_skies_checkbox.add_theme_color_override("font_color", Color(0.55, 0.8, 1.0))
+	take_to_skies_checkbox.add_theme_color_override("font_pressed_color", Color(0.7, 0.9, 1.0))
+	section.add_child(take_to_skies_checkbox)
 
 	parent.add_child(section)
 
@@ -1110,6 +1126,8 @@ func _on_fall_back_pressed() -> void:
 	var fb_payload := {}
 	if _shw_gamble_requested():
 		fb_payload["shw_mobile_gamble"] = true
+	if _take_to_skies_requested():
+		fb_payload["take_to_skies"] = true
 
 	var action = {
 		"type": "BEGIN_FALL_BACK",
@@ -1195,6 +1213,8 @@ func _on_confirm_mode_pressed() -> void:
 	var shw_payload := {}
 	if _shw_gamble_requested():
 		shw_payload["shw_mobile_gamble"] = true
+	if _take_to_skies_requested():
+		shw_payload["take_to_skies"] = true
 
 	# Dispatch the actual movement action based on selected mode
 	match selected_mode:
@@ -1330,6 +1350,33 @@ func _shw_gamble_requested() -> bool:
 	# non-SHW / edition-10 unit can never accidentally pass the gamble flag.
 	return shw_gamble_checkbox != null and shw_gamble_checkbox.visible and shw_gamble_checkbox.button_pressed
 
+func _unit_can_fly(unit_id: String) -> bool:
+	# B2 (21.03): "take to the skies" is only available to FLY units at e11.
+	if unit_id == "" or GameConstants.edition < 11:
+		return false
+	var unit = GameState.get_unit(unit_id)
+	if unit == null or unit.is_empty():
+		return false
+	var kws = unit.get("meta", {}).get("keywords", [])
+	return "FLY" in kws or "FLYING" in kws
+
+func _update_take_to_skies_visibility() -> void:
+	# Show the take-to-skies toggle only for a FLY unit at e11 whose mode is not
+	# already locked; clear its pressed state when hidden so it can't leak.
+	if not take_to_skies_checkbox:
+		return
+	var eligible := _unit_can_fly(active_unit_id)
+	var mode_locked := false
+	if eligible and current_phase and current_phase.active_moves.has(active_unit_id):
+		mode_locked = current_phase.active_moves[active_unit_id].get("mode_locked", false)
+	var show := eligible and not mode_locked
+	take_to_skies_checkbox.visible = show
+	if not show:
+		take_to_skies_checkbox.button_pressed = false
+
+func _take_to_skies_requested() -> bool:
+	return take_to_skies_checkbox != null and take_to_skies_checkbox.visible and take_to_skies_checkbox.button_pressed
+
 func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 	# Check if this unit already has its mode locked
 	var mode_is_locked = false
@@ -1363,6 +1410,7 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 
 		# ISS-073: keep the SHW gamble toggle hidden once the mode is locked.
 		_update_shw_gamble_visibility()
+		_update_take_to_skies_visibility()
 	else:
 		# Unit's mode is not locked, enable fresh selection
 		_update_mode_buttons_state(true)
@@ -1388,6 +1436,7 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 
 		# ISS-073: show the SHW MOBILE-gamble toggle for an eligible fresh unit.
 		_update_shw_gamble_visibility()
+		_update_take_to_skies_visibility()
 
 		# Update display for fresh unit
 		_update_movement_display()
