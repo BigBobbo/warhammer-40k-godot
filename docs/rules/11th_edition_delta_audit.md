@@ -311,3 +311,42 @@ effects, and the actions UI** — would not behave as 11e even if the flag were 
 
 A pragmatic landing order: **1 → 2 → 3 → 5 → 4 → 6** (enable + parity-test first, then the
 highest-impact correctness gap, then the cheap wiring/flag fixes, then UI, then content).
+
+---
+
+## 11. Fixes applied (2026-06-23)
+
+The following gaps were fixed and validated live via the MCP bridge (game running at
+edition 11, asserting behavior through `execute_script`/screenshots; 10e re-checked
+unchanged). Each is edition-gated so the shipped 10e default is byte-unchanged.
+
+| ID | Fix | Validation |
+|---|---|---|
+| **A0** | Rules edition is now player-selectable — a "Rules Edition" selector in the main menu, persisted in SettingsService, applied to `GameConstants.edition` at boot. | Screenshot: menu shows "11th Edition (beta)"; selecting it sets `GameConstants.edition=11`. |
+| **A1** | Melee saves route through the 11e allocation path (groups + `[DEVASTATING WOUNDS]` one-model cap 24.10 + 06.02 MW priority); FightPhase sends human defenders to auto-resolve when auto-allocate is on (default). | Melee with a dev-wounds weapon now emits `save`+`devastating_wounds_11e` dice contexts (was 10e spillover). |
+| **A2** | `[HAZARDOUS]` fails on 1-2 (was 1), 1 MW/fail (3 if all M/V) (was flat 3). | Infantry 1 MW/fail, vehicle 3 MW/fail, on a 1-2 band. |
+| **A3** | Indirect fire uses the 11e unmodified fail band (6s to hit; 4+ if stationary + friendly spotter); 10e -1 gated off at e11. | Fail band 3 (stationary+spotter) / 5 (moving). |
+| **A5** | `HIDDEN` keys off a maintained turn-stamp (`last_shot_idx`, set on real ranged attacks) = "did not shoot this/previous turn". | Stamp written at the 3 real shot-completion sites; gate reads it. |
+| **A6** | Scout confirm-move uses the edition-gated 8" (was hardcoded 9"). | `_scout_min_enemy_distance_inches()` = 8 at e11. |
+| **A7** | Emergency disembark uses the 11e hazard band (1-2 fail, 1 MW / 3 if M/V) + battle-shock. | 30-model unit: 12 MW from 6 ones + 6 twos (10e=6); battle_shocked set. |
+| **A8** | `[CLEAVE X]` now adds melee dice (was registry-only). | `get_cleave_value`=1; `cleave_bonus_dice(1,16,true)`=3. |
+| **A9** | `[HEAVY]` requires "no model moved >3"" (records `moved_max_inches`). | true@2", false@5", true@stationary, false@set-up. |
+| **A10** | `[PSYCHIC]` melee weapons ignore hit-roll penalties. | psychic melee weapon detected; -1 stripped. |
+| **A11** | Attacks vs an attached unit use the HIGHEST bodyguard Toughness across models. | T6 for a T4/T6 unit; T5 uniform. |
+| **A12** | Ingress "no opponent DZ before round 3" ban enforced (caller now supplies the opponent zone). | rejection inside DZ at round 2; passes when zone omitted (proving prior inert). |
+| **B6** | Leader+Support attach cap enforced in the deploy diff/network pipeline (max 2 e11 / 1 10e). | 3rd character rejected at e11 with the cap message. |
+| **B7** | AIRCRAFT can only ingress-move (normal/advance/fall-back validators reject them at e11). | `unit_is_aircraft` true for an AIRCRAFT unit; guard added. |
+
+### Still open (larger UI / system features, not yet done)
+- **A4** — 11e core stratagem *effects* are still inert (defined but unwired). The two dice
+  handlers (`resolve_explosives_11e`, `resolve_crushing_impact_11e`) exist but need a targeting
+  flow; the other eight need EffectPrimitives effect-type registration.
+- **B1** — Actions cannot be *started* from the UI (the `ActionsManager` primitive is correct
+  and its lock flags are consumed, but no affordance starts an action).
+- **B2 / B3** — FLY "take to the skies" and Surge moves work in the engine but have no
+  MovementController UI (reachable only via `dispatch_action`).
+- **B4** — End-of-turn coherency removal auto-picks (no player model-choice dialog).
+- **B5** — `[DEVASTATING WOUNDS]`/`[LETHAL HITS]` attacker choice prompts are default-only.
+- **C1 / C2** — true 11e datasheet values and an 11e mission/secondary/action pack require
+  external content (no code).
+
