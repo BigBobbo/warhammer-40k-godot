@@ -861,6 +861,11 @@ func _validate_begin_normal_move(action: Dictionary) -> Dictionary:
 	if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
 		return {"valid": false, "errors": ["Unit is not deployed"]}
 
+	# B7 (23.02): AIRCRAFT are only eligible to make ingress moves — not
+	# normal/advance/fall-back moves.
+	if GameConstants.edition >= 11 and GameState.unit_is_aircraft(unit_id):
+		return {"valid": false, "errors": ["AIRCRAFT can only make ingress moves"]}
+
 	# Check if unit has already moved
 	if unit.get("flags", {}).get("moved", false):
 		return {"valid": false, "errors": ["Unit has already moved this phase"]}
@@ -915,11 +920,15 @@ func _validate_begin_fall_back(action: Dictionary) -> Dictionary:
 	
 	if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
 		return {"valid": false, "errors": ["Unit is not deployed"]}
-	
+
+	# B7 (23.02): AIRCRAFT are only eligible to make ingress moves.
+	if GameConstants.edition >= 11 and GameState.unit_is_aircraft(unit_id):
+		return {"valid": false, "errors": ["AIRCRAFT can only make ingress moves"]}
+
 	# Check if unit has already moved
 	if unit.get("flags", {}).get("moved", false):
 		return {"valid": false, "errors": ["Unit has already moved this phase"]}
-	
+
 	# Fall Back is only allowed if engaged
 	# ISS-040 step 2: at 11e the 09.07 template (live state) is authoritative.
 	if GameConstants.edition >= 11:
