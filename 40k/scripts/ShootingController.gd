@@ -81,6 +81,7 @@ var quick_assign_container: VBoxContainer  # P3-113: Quick-assign all weapons to
 var grenade_button: Button  # GRENADE stratagem button
 var shoot_all_remaining_button: Button  # T5-UX3: "Shoot All Remaining" button
 var perform_action_button: Button  # Secondary mission action button
+var start_action_button: Button  # B1 (11e): start a generic 11e action
 var burn_objective_button: Button  # Scorched Earth burn objective button
 var _auto_shoot_queue: Array = []  # T5-UX3: Queue of SHOOT actions to dispatch sequentially
 var _auto_shoot_in_progress: bool = false  # T5-UX3: Whether auto-shoot sequence is active
@@ -631,6 +632,17 @@ func _setup_right_panel() -> void:
 	WhiteDwarfTheme.apply_to_button(perform_action_button)
 	shooting_panel.add_child(perform_action_button)
 	perform_action_button.visible = false  # Hidden until a unit qualifies
+
+	# B1 (16.01): "Start Action" — give up shooting to start a generic 11e action.
+	start_action_button = Button.new()
+	start_action_button.name = "StartActionButton"
+	start_action_button.text = "Start Action"
+	start_action_button.custom_minimum_size = Vector2(230, 35)
+	start_action_button.pressed.connect(_on_start_action_pressed)
+	start_action_button.tooltip_text = "11e Action (16.01): give up shooting to start an action. The unit cannot charge this turn; the action completes at the end of your turn."
+	WhiteDwarfTheme.apply_to_button(start_action_button)
+	shooting_panel.add_child(start_action_button)
+	start_action_button.visible = false  # Shown only for FLY/edition>=11 eligible units
 
 	# Scorched Earth burn objective button
 	burn_objective_button = Button.new()
@@ -3634,6 +3646,53 @@ func _update_perform_action_button() -> void:
 
 	# Also update burn objective button
 	_update_burn_objective_button()
+	# B1: refresh the 11e Start Action button
+	_update_start_action_button()
+
+func _update_start_action_button() -> void:
+	"""B1 (16.01): show 'Start Action' for the active shooter when it is eligible
+	to start a registered 11e action (edition >= 11)."""
+	if not start_action_button:
+		return
+	if not current_phase or not current_phase is ShootingPhase or active_shooter_id == "" or GameConstants.edition < 11:
+		start_action_button.visible = false
+		return
+	if not current_phase.has_method("get_startable_11e_actions"):
+		start_action_button.visible = false
+		return
+	var actions = current_phase.get_startable_11e_actions(active_shooter_id)
+	if actions.is_empty():
+		start_action_button.visible = false
+	else:
+		var first = actions[0]
+		start_action_button.text = "Start Action: %s" % first.get("name", "Action")
+		start_action_button.set_meta("action_id", first.get("id", ""))
+		if first.get("description", "") != "":
+			start_action_button.tooltip_text = first.get("description", "")
+		start_action_button.visible = true
+		start_action_button.disabled = false
+
+func _on_start_action_pressed() -> void:
+	"""B1: the active shooter gives up shooting to start a generic 11e action."""
+	if active_shooter_id == "" or not start_action_button:
+		return
+	var action_id = start_action_button.get_meta("action_id") if start_action_button.has_meta("action_id") else ""
+	if action_id == "":
+		return
+	var unit_id = active_shooter_id
+	print("ShootingController: Start Action pressed — %s starts '%s'" % [unit_id, action_id])
+	shoot_action_requested.emit({
+		"type": "START_ACTION",
+		"actor_unit_id": unit_id,
+		"payload": {"action_id": action_id}
+	})
+	active_shooter_id = ""
+	weapon_assignments.clear()
+	assignment_history.clear()
+	eligible_targets.clear()
+	selected_target_id = ""
+	start_action_button.visible = false
+	_refresh_unit_list()
 
 func _update_burn_objective_button() -> void:
 	"""Show/hide the Burn Objective button for Scorched Earth mission."""

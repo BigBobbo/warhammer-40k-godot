@@ -34,6 +34,50 @@ static var _use_counts: Dictionary = {}  # "<player>|<action_id>|<turn>" -> int
 static func register_action(def: Dictionary) -> void:
 	_definitions[str(def.get("id", ""))] = def
 
+## Register the generic, army-agnostic 11e actions so the system is usable in
+## live play even before a mission pack is provided (ISS-057 / PRD open q.3).
+## These start in the Shooting phase (giving up shooting) and complete at end
+## of turn — the canonical 16.01 shape. Mission packs can register more.
+static func register_default_actions() -> void:
+	register_action({
+		"id": "hold_position",
+		"name": "Hold Position",
+		"starts": "shooting",
+		"units": {"keywords": ["INFANTRY"]},
+		"use_limit": "",
+		"completes": "end_of_turn",
+		"effect": "hold_position",
+		"description": "Dig in on this position. The unit gives up shooting and cannot charge this turn; the action completes at the end of your turn.",
+	})
+
+static func _ensure_defaults() -> void:
+	if _definitions.is_empty():
+		register_default_actions()
+
+## Actions the unit is eligible to START right now (registry ∩ eligibility ∩
+## per-unit keyword filter ∩ use limit), each as {id, name, description}.
+static func get_startable_actions(unit_id: String, board: Dictionary, player: int = -1, turn: int = -1) -> Array:
+	_ensure_defaults()
+	var out: Array = []
+	if not can_start_action(unit_id, board).eligible:
+		return out
+	var unit = board.get("units", {}).get(unit_id, {})
+	var unit_kws = unit.get("meta", {}).get("keywords", [])
+	for action_id in _definitions:
+		var def = _definitions[action_id]
+		var ok := true
+		for kw in def.get("units", {}).get("keywords", []):
+			if not str(kw) in unit_kws:
+				ok = false
+				break
+		if not ok:
+			continue
+		if def.get("use_limit", "") == "once_per_turn" and player >= 0 and turn >= 0:
+			if _use_counts.get("%d|%s|%d" % [player, action_id, turn], 0) >= 1:
+				continue
+		out.append({"id": action_id, "name": def.get("name", action_id), "description": def.get("description", "")})
+	return out
+
 static func get_action(id: String) -> Dictionary:
 	return _definitions.get(id, {})
 
@@ -88,6 +132,7 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 ## Start an action: returns {success, changes (diffs), errors}. The
 ## shooting/charge locks are flags the phase eligibility checks consult.
 static func start_action(unit_id: String, action_id: String, board: Dictionary, player: int, turn: int) -> Dictionary:
+	_ensure_defaults()
 	var def = get_action(action_id)
 	if def.is_empty():
 		return {"success": false, "errors": ["unknown action '%s'" % action_id], "changes": []}
