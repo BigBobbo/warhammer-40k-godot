@@ -11946,11 +11946,17 @@ static func resolve_transport_destruction(transport_unit_id: String, board: Dict
 		var rolls = rng.roll_d6(alive_model_count)
 		unit_result["model_rolls"] = rolls
 
-		# Count mortal wounds (roll of 1 = 1 MW to the unit)
+		# A7: emergency disembark hazard rolls. 11e (18.05/06.03): a roll of 1-2
+		# fails → 1 mortal wound (3 if every model in the unit is MONSTER/VEHICLE).
+		# 10e: only a roll of 1 → 1 MW.
+		var haz_fail_threshold: int = 2 if GameConstants.edition >= 11 else 1
+		var haz_mw_per_fail: int = 1
+		if GameConstants.edition >= 11 and is_monster_or_vehicle(embarked_unit):
+			haz_mw_per_fail = 3
 		var unit_mortal_wounds = 0
 		for roll in rolls:
-			if roll == 1:
-				unit_mortal_wounds += 1
+			if roll <= haz_fail_threshold:
+				unit_mortal_wounds += haz_mw_per_fail
 
 		unit_result["mortal_wounds"] = unit_mortal_wounds
 		print("║   Rolled %s — %d mortal wound(s) from rolls of 1" % [str(rolls), unit_mortal_wounds])
