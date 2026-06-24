@@ -338,14 +338,12 @@ unchanged). Each is edition-gated so the shipped 10e default is byte-unchanged.
 | **B7** | AIRCRAFT can only ingress-move (normal/advance/fall-back validators reject them at e11). | `unit_is_aircraft` true for an AIRCRAFT unit; guard added. |
 | **B2** | FLY "take to the skies" UI toggle in the movement mode panel (FLY units, e11). | `_unit_can_fly` true for FLY / false for ground; folds `take_to_skies` into the move payload. |
 | **B1** | Actions can now be **started** — a generic "Hold Position" action is registered and a "Start Action" button (Shooting phase) dispatches `START_ACTION` (gives up shooting; sets the 16.01 locks; completes end of turn). | `get_startable_actions` → `["hold_position"]`; start sets `performing_action`/`cannot_shoot`/`cannot_charge`; completes at end of turn; a real deployed unit (Shield-Captain) yields the startable action. |
-| **A4** (partial, 5/10) | 11e core stratagem **effects** wired: Epic Challenge (`effect_precision_melee`), Smokescreen (`effect_cover`), Counteroffensive (`fights_first`) — fully player-usable; Explosives + Crushing Impact (MW via the ready dice handlers) — functional with a target. | Flags/MW verified live; `FightSequencer.is_fights_first` honors the Counteroffensive flag. |
+| **A4** (10/10 reachable) | 11e core stratagem **effects** wired: Epic Challenge (`effect_precision_melee`), Smokescreen (`effect_cover`), Counteroffensive (`fights_first`) via `_apply_stratagem_effects`; Explosives + Crushing Impact (MW dice handlers, with a target); and the five phase-trigger stratagems (Command Re-roll, Insane Bravery, Rapid Ingress, Fire Overwatch, Heroic Intervention) via an edition-resolver that maps the canonical id → its `_11e` variant so the existing phase flows fire. | Flags/MW verified; resolver maps all 8 ids and `use_stratagem("command_re_roll")` at e11 succeeds, deducts CP, records `command_re_roll_11e`; `can_use("fire_overwatch")` reaches the 11e timing condition (not the edition gate). |
 
 ### Still open
-- **A4 remainder (5/10)** — the phase-trigger core stratagems (Command Re-roll, Insane Bravery,
-  Rapid Ingress, Fire Overwatch, Heroic Intervention) reuse existing 10e phase mechanisms; each
-  needs its phase to recognize the `*_11e` id (per-phase aliasing). Also, Explosives/Crushing
-  Impact need an attacker-facing enemy-target prompt to be fully player-driven (they work when a
-  target is supplied via context/AI).
+- **A4 remainder** — Explosives/Crushing Impact still need an attacker-facing enemy-target prompt
+  to be fully player-driven (they fire when a target is supplied via context/AI). The five
+  phase-trigger stratagems reuse the proven 10e phase flows via the id resolver.
 - **B3** — Surge moves work in-engine but are ability-triggered; no current datasheet ability
   triggers one, so there is nothing to surface yet.
 - **B4** — End-of-turn coherency removal auto-picks (no player model-choice dialog; the auto-pick
