@@ -621,11 +621,25 @@ func get_lord_of_deceit_cp_increase(player: int, target_unit_id: String) -> int:
 # VALIDATION
 # ============================================================================
 
+## A4: at edition >= 11 the retired 10e core stratagems map to their 11e
+## variants (<id>_11e). Phases keep calling can_use_stratagem/use_stratagem with
+## the canonical 10e id (insane_bravery, command_re_roll, rapid_ingress,
+## fire_overwatch, heroic_intervention, …); this redirects the lookup, CP cost
+## and usage-tracking to the live 11e definition so the 11e core set is reachable
+## without touching every phase trigger site. Idempotent; 10e unaffected.
+func _resolve_core_id(stratagem_id: String) -> String:
+	if GameConstants.edition >= 11 and not stratagem_id.ends_with("_11e"):
+		var v := stratagem_id + "_11e"
+		if stratagems.has(v):
+			return v
+	return stratagem_id
+
 func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "", context: Dictionary = {}) -> Dictionary:
 	"""
 	Check if a player can use a specific stratagem right now.
 	Returns { "can_use": bool, "reason": String }
 	"""
+	stratagem_id = _resolve_core_id(stratagem_id)
 	if not stratagems.has(stratagem_id):
 		return {"can_use": false, "reason": "Unknown stratagem: %s" % stratagem_id}
 
@@ -810,6 +824,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	Use a stratagem. Validates, deducts CP, records usage, and returns effect data.
 	Returns { "success": bool, "effects": Array, "diffs": Array, "message": String }
 	"""
+	stratagem_id = _resolve_core_id(stratagem_id)
 	# Validate
 	var validation = can_use_stratagem(player, stratagem_id, target_unit_id, context)
 	if not validation.can_use:
