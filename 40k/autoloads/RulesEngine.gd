@@ -1697,7 +1697,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# Issue #371: per 10e RAW, the -1 penalty + Benefit of Cover only apply
 		# when the target is NOT visible to any model in the firing unit.
 		var indirect_target_visible = is_indirect_fire and _has_los_to_target_unit(actor_unit_id, target_unit_id, board)
-		if is_indirect_fire and not indirect_target_visible:
+		# 11e (10.07): the indirect penalty is a harsh UNMODIFIED fail band (see
+		# hit_fail_band below), not a -1 modifier — gate the 10e -1 off at e11.
+		if is_indirect_fire and not indirect_target_visible and GameConstants.edition < 11:
 			hit_modifiers |= HitModifier.MINUS_ONE
 			indirect_fire_applied = true
 			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s' (target not visible)" % weapon_profile.get("name", weapon_id))
@@ -1806,7 +1808,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# (AttackSequence.evaluate_hit_roll). INDIRECT FIRE's unmodified-1-3
 		# fail band (#371, unseen targets only) and CONVERSION's crit
 		# threshold (T4-16) are parameters.
-		var hit_fail_band = 3 if (is_indirect_fire and not indirect_target_visible) else 1
+		var hit_fail_band = 1
+		if is_indirect_fire and not indirect_target_visible:
+			# 11e (10.07): unmodified 1-5 fails (need a 6), unless the firing unit
+			# remained stationary AND the target is visible to a friendly unit, in
+			# which case 1-3 fails (need 4+). 10e: 1-3 fails (4+).
+			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
@@ -2997,7 +3004,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Issue #371: per 10e RAW, the -1 penalty + Benefit of Cover only apply
 		# when the target is NOT visible to any model in the firing unit.
 		var indirect_target_visible = is_indirect_fire and _has_los_to_target_unit(actor_unit_id, target_unit_id, board)
-		if is_indirect_fire and not indirect_target_visible:
+		# 11e (10.07): the indirect penalty is a harsh UNMODIFIED fail band (see
+		# hit_fail_band below), not a -1 modifier — gate the 10e -1 off at e11.
+		if is_indirect_fire and not indirect_target_visible and GameConstants.edition < 11:
 			hit_modifiers |= HitModifier.MINUS_ONE
 			indirect_fire_applied = true
 			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s' (target not visible)" % weapon_profile.get("name", weapon_id))
@@ -3091,7 +3100,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# (AttackSequence.evaluate_hit_roll). INDIRECT FIRE's unmodified-1-3
 		# fail band (#371, unseen targets only) and CONVERSION's crit
 		# threshold (T4-16) are parameters.
-		var hit_fail_band = 3 if (is_indirect_fire and not indirect_target_visible) else 1
+		var hit_fail_band = 1
+		if is_indirect_fire and not indirect_target_visible:
+			# 11e (10.07): unmodified 1-5 fails (need a 6), unless the firing unit
+			# remained stationary AND the target is visible to a friendly unit, in
+			# which case 1-3 fails (need 4+). 10e: 1-3 fails (4+).
+			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
@@ -4049,7 +4063,9 @@ static func _calculate_wound_threshold(strength: int, toughness: int) -> int:
 # - If target is a bodyguard with attached characters, use the bodyguard's own T (already correct)
 # - If target is standalone (no attachment), use its own T
 static func _get_attached_unit_toughness(target_unit: Dictionary, board: Dictionary) -> int:
-	var own_toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+	# 11e 19.02: attacks vs an attached unit use the HIGHEST Toughness of the
+	# bodyguard models (not just the unit's single profile value).
+	var own_toughness = _unit_highest_toughness(target_unit)
 
 	# Check if this unit is a CHARACTER attached to a bodyguard
 	var attached_to = target_unit.get("attached_to", null)
@@ -4057,13 +4073,28 @@ static func _get_attached_unit_toughness(target_unit: Dictionary, board: Diction
 		var units = board.get("units", {})
 		var bodyguard_unit = units.get(attached_to, {})
 		if not bodyguard_unit.is_empty():
-			var bodyguard_toughness = bodyguard_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+			var bodyguard_toughness = _unit_highest_toughness(bodyguard_unit)
 			if bodyguard_toughness != own_toughness:
-				print("RulesEngine: P2-90 Attached unit T resolution — using bodyguard T%d instead of character T%d" % [bodyguard_toughness, own_toughness])
+				print("RulesEngine: P2-90/19.02 Attached unit T resolution — using highest bodyguard T%d instead of character T%d" % [bodyguard_toughness, own_toughness])
 			return bodyguard_toughness
 
-	# Bodyguard unit or standalone unit — use own toughness
+	# Bodyguard unit or standalone unit — use own (highest-model) toughness
 	return own_toughness
+
+# 11e 19.02 helper: highest Toughness among a unit's (alive) models, falling
+# back to per-model meta.stats.toughness, then the unit's profile T.
+static func _unit_highest_toughness(unit: Dictionary) -> int:
+	var unit_t = int(unit.get("meta", {}).get("stats", {}).get("toughness", 4))
+	var best = -1
+	for m in unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		var mt = m.get("meta", {}).get("stats", {}).get("toughness", null)
+		if mt == null:
+			mt = m.get("toughness", null)
+		if mt != null:
+			best = max(best, int(mt))
+	return best if best > 0 else unit_t
 
 # OA-44: Ded Glowy Ammo (Aura) — Check if target INFANTRY unit suffers -1 Toughness.
 # Kaptin Badrukk's aura: enemy INFANTRY within 6" edge-to-edge of Kaptin Badrukk suffer -1T.
@@ -4339,6 +4370,23 @@ static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, inv
 		"use_invuln": use_invuln,
 		"cap_applied": improvement > 1
 	}
+
+## 11e (10.07): the unmodified hit-roll fail band for INDIRECT shooting at a
+## non-visible target. 1-5 fail (need 6); 1-3 fail (need 4+) only if the firing
+## unit remained stationary AND the target is visible to one or more friendly
+## units (a spotter).
+static func _indirect_hit_fail_band_11e(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> int:
+	var units = board.get("units", {})
+	var actor = units.get(actor_unit_id, {})
+	if not actor.get("flags", {}).get("remained_stationary", false):
+		return 5
+	var owner = int(actor.get("owner", 0))
+	for uid in units:
+		if int(units[uid].get("owner", -1)) != owner:
+			continue
+		if _has_los_to_target_unit(uid, target_unit_id, board):
+			return 3  # remained stationary + a friendly spotter sees the target
+	return 5
 
 static func _has_los_to_target_unit(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
 	"""Issue #371: returns true if any alive model of actor has LoS to any alive
@@ -7112,6 +7160,22 @@ static func calculate_blast_bonus(weapon_id: String, target_unit: Dictionary, bo
 	# Per 10e Blast rules: +1 attack for every 5 models in the target unit (rounding down)
 	return int(model_count / 5)
 
+# 11e [CLEAVE X] (24.06): parse the X value from a melee weapon (0 if absent).
+static func get_cleave_value(weapon_id: String, board: Dictionary = {}) -> int:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return 0
+	var sources = [str(profile.get("special_rules", ""))]
+	for kw in profile.get("keywords", []):
+		sources.append(str(kw))
+	var rx = RegEx.new()
+	rx.compile("(?i)cleave\\s+(\\d+)")
+	for s in sources:
+		var m = rx.search(s)
+		if m:
+			return int(m.get_string(1))
+	return 0
+
 # Calculate minimum attacks for Blast
 # Per 10e rules: Blast weapons make minimum 3 attacks vs units with 6+ models
 static func calculate_blast_minimum(weapon_id: String, base_attacks: int, target_unit: Dictionary, board: Dictionary = {}) -> int:
@@ -7367,9 +7431,11 @@ static func resolve_hazardous_check(
 	var rolls = rng.roll_d6(models_that_fired)
 	result.rolls = rolls
 
+	# 11e 06.03/24.15: a hazard roll of 1-2 fails. 10e/Balance-Dataslate: only a 1.
+	var hazard_fail_threshold: int = 2 if GameConstants.edition >= 11 else 1
 	var ones_rolled = 0
 	for roll in rolls:
-		if roll == 1:
+		if roll <= hazard_fail_threshold:
 			ones_rolled += 1
 	result.ones_rolled = ones_rolled
 
@@ -7397,11 +7463,15 @@ static func resolve_hazardous_check(
 
 	result.hazardous_triggered = true
 
-	# Balance Dataslate v3.3: Always 3 mortal wounds per 1 rolled, allocated to selected model
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
 	var models = actor_unit.get("models", [])
-	var total_mw = 3 * ones_rolled
+	# 11e 06.03: 1 mortal wound per failed hazard roll (3 if every model in the
+	# unit is MONSTER/VEHICLE). 10e/Balance-Dataslate: always 3 per 1 rolled.
+	var mw_per_fail: int = 3
+	if GameConstants.edition >= 11:
+		mw_per_fail = 3 if is_monster_or_vehicle(actor_unit) else 1
+	var total_mw = mw_per_fail * ones_rolled
 
 	# Find allocation target using Hazardous-specific priority (Balance Dataslate v3.3):
 	#   (1) wounded model with Hazardous weapon
@@ -9406,6 +9476,21 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 					ws_per_attack.append(melee_default_ws)
 				print("RulesEngine: [MA-29] Ability +%d Attacks for '%s' (melee) → +%d total (%d models × %d)" % [melee_bonus_value, weapon_name, melee_ability_bonus, model_count, melee_bonus_value])
 
+	# 11e [CLEAVE X] (24.06): if this weapon makes all its attacks against a
+	# single target unit, add X dice for every 5 models in the target (melee
+	# blast). Melee attack-splitting isn't modelled, so a melee weapon always
+	# has a single target here.
+	if GameConstants.edition >= 11:
+		var cleave_x = get_cleave_value(weapon_id, board)
+		if cleave_x > 0:
+			var cleave_extra = AbilityRegistry.cleave_bonus_dice(cleave_x, count_alive_models(target_unit), true)
+			if cleave_extra > 0:
+				total_attacks += cleave_extra
+				var cleave_ws = weapon_profile.get("ws", 4)
+				for _j in range(cleave_extra):
+					ws_per_attack.append(cleave_ws)
+				print("RulesEngine: [CLEAVE %d] +%d dice vs %d-model target (melee)" % [cleave_x, cleave_extra, count_alive_models(target_unit)])
+
 	if model_count < total_alive_models:
 		print("RulesEngine: Melee eligibility filter: %d/%d alive models eligible to fight" % [model_count, total_alive_models])
 
@@ -9630,6 +9715,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if has_captain_general(attacker_unit):
 			melee_hit_modifiers = melee_hit_modifiers & ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
 			print("RulesEngine: CAPTAIN-GENERAL (melee) — ignoring all hit roll modifiers for %s" % attacker_id)
+
+		# A10 (24.29): [PSYCHIC] melee weapons ignore modifiers to the hit roll —
+		# strip the harmful -1 (the shooting paths do the same). 11e only.
+		if GameConstants.edition >= 11 and is_psychic_weapon(weapon_id, board):
+			melee_hit_modifiers = melee_hit_modifiers & ~HitModifier.MINUS_ONE
+			print("RulesEngine: [PSYCHIC] (melee) — ignoring hit-roll penalties for %s" % weapon_name)
 
 		var melee_hit_reroll_data = []
 		# ISS-012: per-roll evaluation shared with the ranged paths
@@ -9928,7 +10019,32 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		return result
 
 	# ===== PHASE 6: SAVE ROLLS =====
-	# With invulnerable saves and Devastating Wounds (bypass saves)
+	# A1 (11e): melee saves/damage via the SAME defender allocation-group path as
+	# ranged (05.03-05.04), giving allocation groups, the [DEVASTATING WOUNDS]
+	# one-model-per-crit cap (24.10), and 06.02 mortal-wound priority. The 10e
+	# melee save/damage below is skipped at edition >= 11. (Interactive defender
+	# allocation rides FightController's AllocationGroupOverlay.)
+	if GameConstants.edition >= 11:
+		var m_damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
+		if has_dead_brutal and weapon_name.to_lower().contains("uge choppa"):
+			m_damage_raw = "3"
+		var m_alloc = _apply_saves_via_allocation_11e(result, target_unit, target_id,
+			regular_wound_count if weapon_has_devastating_wounds else wounds_caused,
+			critical_wound_count if weapon_has_devastating_wounds else 0,
+			ap, m_damage_raw, rng, {
+				"half_damage": get_unit_half_damage(target_unit),
+				"fnp_value": get_unit_fnp_for_attack(target_unit, is_psychic_weapon(weapon_id, board)),
+				"precision_group": _precision_group_11e(weapon_has_precision, target_unit),
+			})
+		var m_log := []
+		m_log.append("Melee: %s (%s) → %s" % [attacker_name, weapon_name, target_name])
+		m_log.append("Hit: %d/%d" % [hits, total_attacks])
+		m_log.append("Wound: %d/%d" % [wounds_caused, total_hits_for_wounds])
+		if weapon_has_devastating_wounds and critical_wound_count > 0:
+			m_log.append("%d DEVASTATING" % critical_wound_count)
+		m_log.append("%d slain" % m_alloc.casualties)
+		result.log_text = " - ".join(m_log)
+		return result
 
 	# Devastating Wounds: Critical wounds (unmodified 6s to wound) bypass saves entirely
 	var wounds_needing_saves = regular_wound_count if weapon_has_devastating_wounds else wounds_caused
@@ -11830,11 +11946,17 @@ static func resolve_transport_destruction(transport_unit_id: String, board: Dict
 		var rolls = rng.roll_d6(alive_model_count)
 		unit_result["model_rolls"] = rolls
 
-		# Count mortal wounds (roll of 1 = 1 MW to the unit)
+		# A7: emergency disembark hazard rolls. 11e (18.05/06.03): a roll of 1-2
+		# fails → 1 mortal wound (3 if every model in the unit is MONSTER/VEHICLE).
+		# 10e: only a roll of 1 → 1 MW.
+		var haz_fail_threshold: int = 2 if GameConstants.edition >= 11 else 1
+		var haz_mw_per_fail: int = 1
+		if GameConstants.edition >= 11 and is_monster_or_vehicle(embarked_unit):
+			haz_mw_per_fail = 3
 		var unit_mortal_wounds = 0
 		for roll in rolls:
-			if roll == 1:
-				unit_mortal_wounds += 1
+			if roll <= haz_fail_threshold:
+				unit_mortal_wounds += haz_mw_per_fail
 
 		unit_result["mortal_wounds"] = unit_mortal_wounds
 		print("║   Rolled %s — %d mortal wound(s) from rolls of 1" % [str(rolls), unit_mortal_wounds])

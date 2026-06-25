@@ -148,9 +148,8 @@ static func collect_hit_context_11e(attacker_unit: Dictionary, target_unit: Dict
 			stack.add("hit_roll", -1, "engaged_monster_vehicle_target")
 
 	# [HEAVY] (24.16): +1 to the hit roll while the attacking unit is
-	# unengaged, was not set up this turn, and remained stationary (the
-	# 3" movement allowance refines this once move distance is tracked —
-	# ISS-054).
+	# unengaged, was not set up this turn, and no model moved more than 3"
+	# this turn (MovementPhase records flags.moved_max_inches).
 	if AbilityRegistry.has_ability(abilities, "heavy") and heavy_applies_11e(attacker_unit, board):
 		stack.add("hit_roll", 1, "heavy")
 
@@ -162,7 +161,15 @@ static func heavy_applies_11e(unit: Dictionary, board: Dictionary) -> bool:
 	if flags.get("set_up_this_turn", false) or flags.get("arrived_from_reserves", false) \
 			or flags.get("deep_struck", false):
 		return false
-	if not flags.get("remained_stationary", false):
+	# 11e 24.16: qualifies if it remained stationary OR no model moved more
+	# than 3" this turn (MovementPhase records flags.moved_max_inches on both
+	# the move-confirm and remain-stationary paths).
+	var qualifies := false
+	if flags.get("remained_stationary", false):
+		qualifies = true
+	elif flags.has("moved_max_inches"):
+		qualifies = float(flags.get("moved_max_inches", 999.0)) <= 3.0
+	if not qualifies:
 		return false
 	var rules := _rules()
 	if rules != null:

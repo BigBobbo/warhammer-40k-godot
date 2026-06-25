@@ -402,6 +402,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_decline_shooty_power_trip(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission (Establish Locus, Cleanse, Deploy Teleport Homer)
 			return _validate_perform_secondary_action(action)
+		"START_ACTION":  # B1 (16.01): start a generic 11e action (gives up shooting)
+			return _validate_start_action(action)
 		"BURN_OBJECTIVE":  # Scorched Earth: unit burns an objective instead of shooting
 			return _validate_burn_objective(action)
 		"PERFORM_RITUAL_ACTION":  # The Ritual: unit performs ritual action at objective
@@ -517,6 +519,9 @@ func process_action(action: Dictionary) -> Dictionary:
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission
 			DebugLogger.info("ShootingPhase: Matched PERFORM_SECONDARY_ACTION")
 			return _process_perform_secondary_action(action)
+		"START_ACTION":  # B1 (16.01): start a generic 11e action
+			DebugLogger.info("ShootingPhase: Matched START_ACTION")
+			return _process_start_action(action)
 		"BURN_OBJECTIVE":  # Scorched Earth: burn objective
 			DebugLogger.info("ShootingPhase: Matched BURN_OBJECTIVE")
 			return _process_burn_objective(action)
@@ -1395,6 +1400,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.has_shot" % active_shooter_id,
 			"value": true
 		}]
+		changes.append(_hidden_shot_stamp(active_shooter_id))
 		# HAZARDOUS (T2-3): Include hazardous diffs in changes
 		changes.append_array(haz_diffs_on_miss)
 		# ONE SHOT (T4-2): Include one-shot diffs in changes
@@ -1914,6 +1920,59 @@ func _determine_cleanse_objective(unit_id: String) -> String:
 
 	return ""
 
+# ── B1: 11e ACTIONS (16.00-16.01) — start a generic action, giving up shooting ──
+
+func get_startable_11e_actions(unit_id: String) -> Array:
+	# Exposed for ShootingController's "Start Action" button.
+	if GameConstants.edition < 11:
+		return []
+	var unit = get_unit(unit_id)
+	if unit.get("flags", {}).get("has_shot", false):
+		return []
+	return ActionsManager.get_startable_actions(unit_id, GameState.create_snapshot(), get_current_player(), GameState.get_battle_round())
+
+func _validate_start_action(action: Dictionary) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {"valid": false, "errors": ["Actions are an 11e system"]}
+	var unit_id = action.get("actor_unit_id", "")
+	var action_id = action.get("payload", {}).get("action_id", "")
+	if unit_id == "" or action_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id or action_id"]}
+	var unit = get_unit(unit_id)
+	if unit.get("owner", 0) != get_current_player():
+		return {"valid": false, "errors": ["Unit does not belong to active player"]}
+	if unit.get("flags", {}).get("has_shot", false):
+		return {"valid": false, "errors": ["Unit has already shot or acted this phase"]}
+	var board = GameState.create_snapshot()
+	for s in ActionsManager.get_startable_actions(unit_id, board, get_current_player(), GameState.get_battle_round()):
+		if s.get("id", "") == action_id:
+			return {"valid": true, "errors": []}
+	var elig = ActionsManager.can_start_action(unit_id, board)
+	return {"valid": false, "errors": elig.reasons if not elig.eligible else ["Action '%s' is not available to this unit" % action_id]}
+
+func _process_start_action(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var action_id = action.get("payload", {}).get("action_id", "")
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var player = get_current_player()
+	var turn = GameState.get_battle_round()
+	var board = GameState.create_snapshot()
+	var res = ActionsManager.start_action(unit_id, action_id, board, player, turn)
+	if not res.get("success", false):
+		return create_result(false, [], "Cannot start action: " + ", ".join(res.get("errors", [])))
+	var changes: Array = res.get("changes", []).duplicate()
+	# 16.01: starting an action in the Shooting phase gives up shooting.
+	units_that_shot.append(unit_id)
+	changes.append({"op": "set", "path": "units.%s.flags.has_shot" % unit_id, "value": true})
+	if active_shooter_id == unit_id:
+		active_shooter_id = ""
+		pending_assignments.clear()
+		confirmed_assignments.clear()
+	var action_name = ActionsManager.get_action(action_id).get("name", action_id)
+	log_phase_message("%s started action '%s' (16.01: gives up shooting, cannot charge; completes end of turn)" % [unit_name, action_name])
+	return create_result(true, changes)
+
 func _get_secondary_action_options(unit_id: String) -> Array:
 	"""Get available secondary action options for a unit based on its position.
 	Returns array of dicts: [{action_name, location, description, mission_id}]"""
@@ -2369,6 +2428,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 		"path": "units.%s.flags.has_shot" % unit_id,
 		"value": true
 	})
+	all_changes.append(_hidden_shot_stamp(unit_id))
 	units_that_shot.append(unit_id)
 
 	# T5-UX9: Record per-target shot summary for end-of-phase panel.
@@ -2782,6 +2842,7 @@ func _resolve_next_weapon() -> Dictionary:
 			"path": "units.%s.flags.has_shot" % active_shooter_id,
 			"value": true
 		}]
+		changes.append(_hidden_shot_stamp(active_shooter_id))
 
 		# Return shooter to idle animation
 		_trigger_unit_animation(active_shooter_id, "idle")
@@ -3755,6 +3816,13 @@ func _get_last_weapon_result() -> Dictionary:
 		"skipped": last_weapon.get("skipped", false),
 		"skip_reason": last_weapon.get("skip_reason", "")
 	}
+
+func _hidden_shot_stamp(unit_id: String) -> Dictionary:
+	# 13.09 HIDDEN: stamp the turn-index when this unit actually made ranged
+	# attacks, so TerrainManager.is_model_hidden can apply the "did not shoot
+	# this turn or the previous turn" condition. Monotonic across player turns.
+	var idx := GameState.get_battle_round() * 2 + (0 if get_current_player() == 1 else 1)
+	return {"op": "set", "path": "units.%s.flags.last_shot_idx" % unit_id, "value": idx}
 
 func _clear_phase_flags() -> void:
 	var units = game_state_snapshot.get("units", {})

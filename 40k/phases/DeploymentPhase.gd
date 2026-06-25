@@ -1189,6 +1189,14 @@ func _validate_attach_character_deployment(action: Dictionary) -> Dictionary:
 		if not has_match:
 			errors.append("Character cannot lead this unit type: " + char_id)
 
+	# B6 (19.01): enforce the attached-unit cap in the diff/network pipeline
+	# (previously only the single-player UI gated this). 11e: one Leader + one
+	# Support (max 2). 10e: one leader (max 1).
+	var existing_attached = bodyguard.get("attachment_data", {}).get("attached_characters", []).size()
+	var max_attached = 2 if GameConstants.edition >= 11 else 1
+	if existing_attached + character_ids.size() > max_attached:
+		errors.append("Bodyguard already at attachment cap (max %d; %d already attached, %d requested)" % [max_attached, existing_attached, character_ids.size()])
+
 	return {"valid": errors.size() == 0, "errors": errors}
 
 func _process_attach_character_deployment(action: Dictionary) -> Dictionary:

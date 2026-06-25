@@ -299,7 +299,12 @@ func select_unit(params: Dictionary) -> Dictionary:
 	if screen_pos == Vector2.INF:
 		return {"status": "error", "message": "Could not project unit token to screen"}
 
-	# Synthesize a click via Input — same path a human takes.
+	# Synthesize a click via Input — same path a human takes. Warp the live
+	# cursor first so board handlers that read get_viewport().get_mouse_position()
+	# (token hit-testing, placement) act on the token, not the OS cursor.
+	Input.warp_mouse(screen_pos)
+	if host and host.get_tree():
+		await host.get_tree().process_frame
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
 	press.position = screen_pos

@@ -1390,11 +1390,22 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 	# P0-58: Determine if defender is a human player for interactive wound allocation
 	var defender_is_human = _is_defender_human_player()
 
-	if defender_is_human:
+	# A1 (11e): the auto-resolve path now uses the 11e allocation groups +
+	# [DEVASTATING WOUNDS] cap (24.10) + 06.02 mortal-wound priority. When the
+	# auto-allocate-wounds setting is ON (its default), the computer picks
+	# casualties anyway, so route human defenders through auto-resolve so melee
+	# gets the correct 11e resolution. The legacy interactive overlay (still 10e)
+	# only applies at e11 when auto-allocate is explicitly OFF. 10e unchanged.
+	var _auto_alloc_11e := false
+	if GameConstants.edition >= 11:
+		var _ss = get_node_or_null("/root/SettingsService")
+		_auto_alloc_11e = _ss == null or _ss.get_auto_allocate_wounds()
+
+	if defender_is_human and not _auto_alloc_11e:
 		# P0-58: Interactive path — resolve hits+wounds only, then let defender allocate wounds
 		return _process_roll_dice_interactive(melee_action)
 	else:
-		# AI/auto-resolve path — existing full resolution
+		# AI/auto-resolve path — full resolution (11e allocation at edition >= 11)
 		return _process_roll_dice_auto(melee_action)
 
 # P0-58: Check if any target unit's owner is a human player

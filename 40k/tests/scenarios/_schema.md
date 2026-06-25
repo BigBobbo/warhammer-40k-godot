@@ -112,6 +112,18 @@ Each step is a dict with an `act` field plus act-specific keys.
   { "act": "click_node", "node": "/root/Main/UI/CO/AcceptButton", "emit_pressed": true }
   ```
 
+- `click_board_at`: click an arbitrary **board/world** position (`x`/`y` in
+  board px — the coordinate system used by deployment zones and model
+  positions). The world point is projected to screen via the live canvas
+  transform, the cursor is warped there, and a real mouse click is injected.
+  Use for model placement, scout-move drops, or any click on empty board where
+  there is no node/token to target (`click_node`/`click_unit` need an existing
+  node). Board input handlers read the live cursor, so the warp — also applied
+  by `click_unit`/`click_node`/`_send_click` — is what makes the placement land.
+  ```json
+  { "act": "click_board_at", "x": 170.0, "y": 170.0 }
+  ```
+
 - `simulate_key`: dispatch a keypress.
   ```json
   { "act": "simulate_key", "keycode": "KEY_ESCAPE" }

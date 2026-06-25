@@ -2209,6 +2209,143 @@ func _on_reinforcement_confirmed() -> void:
 	refresh_unit_list()
 	update_ui()
 
+# ISS-067 (11e 24.31) — Scout unit in Strategic Reserves may be set up wholly
+# within its own deployment zone during the Scout phase. Reuses the deployment
+# controller's ghost placement machinery in scout-reserves mode (normal
+# "wholly within DZ" validation), then dispatches SCOUT_RESERVES_DEPLOY.
+func _begin_scout_reserves_placement(unit_id: String) -> void:
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("Main: Beginning Scout reserves placement for %s (24.31)" % unit_name)
+
+	# Ensure deployment controller exists (it's freed during phase transitions)
+	if not deployment_controller:
+		print("Main: Creating deployment controller for Scout reserves placement")
+		setup_deployment_controller()
+
+	if not deployment_controller:
+		return
+
+	# Scout-reserves mode uses normal "wholly within deployment zone" validation
+	# but emits unit_confirmed on confirm so we can dispatch SCOUT_RESERVES_DEPLOY.
+	deployment_controller.is_scout_reserves_mode = true
+	deployment_controller.is_reinforcement_mode = false
+	deployment_controller.is_infiltrators_mode = false
+
+	# Temporarily set unit status to DEPLOYING so the controller can work with it
+	if has_node("/root/PhaseManager"):
+		var phase_manager = get_node("/root/PhaseManager")
+		if phase_manager.current_phase_instance:
+			phase_manager.apply_state_changes([{
+				"op": "set",
+				"path": "units.%s.status" % unit_id,
+				"value": GameStateData.UnitStatus.DEPLOYING
+			}])
+
+	deployment_controller.unit_id = unit_id
+	deployment_controller.model_idx = 0
+	deployment_controller.temp_positions.clear()
+	deployment_controller.temp_rotations.clear()
+	var unit_data = GameState.get_unit(unit_id)
+	deployment_controller.temp_positions.resize(unit_data["models"].size())
+	deployment_controller.temp_rotations.resize(unit_data["models"].size())
+	deployment_controller.temp_rotations.fill(0.0)
+	deployment_controller.formation_rotation = 0.0
+
+	# Create ghost for placement
+	deployment_controller._create_ghost()
+
+	_selected_unit_for_reserves = unit_id
+
+	# Connect to confirm signal for scout-reserves completion
+	if not deployment_controller.unit_confirmed.is_connected(_on_scout_reserves_confirmed):
+		deployment_controller.unit_confirmed.connect(_on_scout_reserves_confirmed)
+
+	status_label.text = "Scout reserves: set up %s wholly within your deployment zone (24.31)" % unit_name
+
+	# Wire the unit-card buttons for scout-reserves placement. Disconnect any
+	# scout-move handlers so Confirm/Reset/Undo route to the deployment controller
+	# (via the SCOUT cases of _on_confirm_pressed / _on_reset_pressed / _on_undo_pressed).
+	if confirm_button.pressed.is_connected(_on_scout_confirm_pressed):
+		confirm_button.pressed.disconnect(_on_scout_confirm_pressed)
+	if reset_button.pressed.is_connected(_on_scout_skip_pressed):
+		reset_button.pressed.disconnect(_on_scout_skip_pressed)
+	confirm_button.text = "Confirm Deploy"
+	reset_button.text = "Reset"
+	undo_button.text = "Undo"
+
+	unit_list.visible = false
+	show_unit_card(unit_id)
+	update_unit_card_buttons()
+	update_ui()
+
+func _on_scout_reserves_confirmed() -> void:
+	"""Handle Scout reserves placement completion — dispatch SCOUT_RESERVES_DEPLOY."""
+	if _selected_unit_for_reserves == "":
+		return
+
+	var unit_id = _selected_unit_for_reserves
+	var unit_data = GameState.get_unit(unit_id)
+
+	if unit_data.is_empty() or not deployment_controller:
+		return
+
+	# Collect model positions from the deployment controller
+	var model_positions = []
+	for pos in deployment_controller.temp_positions:
+		model_positions.append(pos)
+
+	print("Main: Scout reserves placement confirmed for %s with %d model positions" % [unit_id, model_positions.size()])
+
+	# Reset the unit status back to IN_RESERVES before sending the action
+	# (the action processor will set it to DEPLOYED).
+	if has_node("/root/PhaseManager"):
+		var phase_manager = get_node("/root/PhaseManager")
+		if phase_manager.current_phase_instance:
+			phase_manager.apply_state_changes([{
+				"op": "set",
+				"path": "units.%s.status" % unit_id,
+				"value": GameStateData.UnitStatus.IN_RESERVES
+			}])
+
+	var action = {
+		"type": "SCOUT_RESERVES_DEPLOY",
+		"unit_id": unit_id,
+		"model_positions": model_positions,
+		"player": GameState.get_active_player()
+	}
+	var result = NetworkIntegration.route_action(action)
+
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if result.get("success", false):
+		var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+		if toast_mgr:
+			toast_mgr.show_success("Scout reserves deployed: %s" % unit_name)
+		print("Main: Scout reserves deployed successfully for %s" % unit_name)
+	else:
+		var errors = result.get("errors", [])
+		var error_msg = errors[0] if errors.size() > 0 else "Failed to deploy Scout reserves"
+		if toast_mgr:
+			toast_mgr.show_error(error_msg)
+		print("Main: Scout reserves deployment failed: %s" % str(errors))
+
+	_selected_unit_for_reserves = ""
+
+	# Reset scout-reserves mode
+	if deployment_controller:
+		deployment_controller.is_scout_reserves_mode = false
+
+	# Disconnect scout-reserves signal
+	if deployment_controller.unit_confirmed.is_connected(_on_scout_reserves_confirmed):
+		deployment_controller.unit_confirmed.disconnect(_on_scout_reserves_confirmed)
+
+	_scout_active_unit_id = ""
+	refresh_unit_list()
+	update_ui()
+
 func _show_deep_strike_exclusion() -> void:
 	"""Show 9-inch exclusion bubbles around all enemy models for reinforcement placement."""
 	_hide_deep_strike_exclusion()  # Clean up any existing visual
@@ -5122,6 +5259,12 @@ func screen_to_world_position(screen_pos: Vector2) -> Vector2:
 	var board_transform = $BoardRoot.transform
 	return board_transform.affine_inverse() * screen_pos
 
+func world_to_screen_position(world_pos: Vector2) -> Vector2:
+	# Inverse of screen_to_world_position: project a board/world point to the
+	# screen using the live BoardRoot transform (camera pan/zoom). Used by the
+	# scenario runner's click_board_at to warp the cursor to a board position.
+	return $BoardRoot.transform * world_pos
+
 func _process(delta: float) -> void:
 	# MA-41: Skip camera/view keyboard controls when a text input has focus
 	var _text_focused = _is_text_input_focused()
@@ -5607,13 +5750,19 @@ func _refresh_unit_list_inner() -> void:
 			unit_list.visible = true
 			var phase_instance = PhaseManager.get_current_phase_instance()
 			var pending_scouts = []
+			var reserve_scouts = []
 			if phase_instance and phase_instance.has_method("get_available_actions"):
 				# Get pending scout unit IDs from the phase
 				var scout_pending = phase_instance.get("scout_units_pending")
 				if scout_pending:
 					pending_scouts = scout_pending.get(active_player, [])
+				# ISS-067 (11e 24.31): Scout units in Strategic Reserves may be
+				# set up wholly within their deployment zone.
+				var reserve_pending = phase_instance.get("scout_reserve_units_pending")
+				if reserve_pending:
+					reserve_scouts = reserve_pending.get(active_player, [])
 
-			if pending_scouts.size() == 0:
+			if pending_scouts.size() == 0 and reserve_scouts.size() == 0:
 				unit_list.add_item("No scout units remaining")
 				unit_list.set_item_disabled(0, true)
 			else:
@@ -5630,8 +5779,23 @@ func _refresh_unit_list_inner() -> void:
 					unit_list.set_item_metadata(idx, scout_unit_id)
 					unit_list.set_item_icon(idx, _get_status_dot(Color(0.3, 0.85, 0.3)))
 					unit_list.set_item_icon_modulate(idx, Color.WHITE)
+				# 11e 24.31: reserve Scouts deploy into their DZ (not a scout move).
+				for scout_unit_id in reserve_scouts:
+					var r_unit = GameState.get_unit(scout_unit_id)
+					if r_unit.is_empty():
+						continue
+					if r_unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
+						continue
+					var r_name = r_unit.get("meta", {}).get("name", scout_unit_id)
+					var r_models = r_unit.get("models", []).size()
+					var r_text = "%s (%d models) [Reserves -> DZ]" % [r_name, r_models]
+					unit_list.add_item(r_text)
+					var r_idx = unit_list.get_item_count() - 1
+					unit_list.set_item_metadata(r_idx, scout_unit_id)
+					unit_list.set_item_icon(r_idx, _get_status_dot(Color(0.65, 0.5, 1.0)))
+					unit_list.set_item_icon_modulate(r_idx, Color.WHITE)
 
-			print("Refreshing right panel unit list for scout - found ", pending_scouts.size(), " pending scout units")
+			print("Refreshing right panel unit list for scout - found ", pending_scouts.size(), " on-table + ", reserve_scouts.size(), " reserve scout units")
 
 		GameStateData.Phase.SCOUT_MOVES:
 			# Show scout-eligible units during Scout Moves phase
@@ -6241,6 +6405,11 @@ func _on_unit_selected(index: int) -> void:
 			show_unit_card(unit_id)
 			unit_list.visible = false
 	elif current_phase == GameStateData.Phase.SCOUT:
+		# ISS-067 (11e 24.31): a reserve Scout unit is set up wholly within its
+		# deployment zone instead of making a scout move.
+		if GameState.get_unit(unit_id).get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+			_begin_scout_reserves_placement(unit_id)
+			return
 		# Clean up any previous active scout move before starting a new one
 		if _scout_active_unit_id != "" and _scout_active_unit_id != unit_id:
 			_scout_reset_previous_unit(_scout_active_unit_id)
@@ -6351,6 +6520,10 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 				unit_list.visible = false
 		elif current_phase == GameStateData.Phase.SCOUT:
 			# Scout unit selected from bottom panel - trigger same logic as right panel
+			# ISS-067 (11e 24.31): reserve Scout units deploy into their DZ.
+			if GameState.get_unit(unit_id).get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+				_begin_scout_reserves_placement(unit_id)
+				return
 			# Clean up any previous active scout move before starting a new one
 			if _scout_active_unit_id != "" and _scout_active_unit_id != unit_id:
 				_scout_reset_previous_unit(_scout_active_unit_id)
@@ -6451,6 +6624,16 @@ func update_unit_card_buttons() -> void:
 					confirm_button.visible = false
 		
 		GameStateData.Phase.SCOUT:
+			# ISS-067 (11e 24.31): scout-reserves placement uses deployment-style buttons.
+			if deployment_controller and deployment_controller.is_scout_reserves_mode and deployment_controller.is_placing():
+				var placed = deployment_controller.get_placed_count()
+				var total = deployment_controller.get_total_model_count()
+				models_label.text = "Models: %d/%d — set up wholly in your DZ" % [placed, total]
+				undo_button.visible = placed > 0
+				reset_button.visible = placed > 0
+				confirm_button.visible = placed == total
+				unit_card.visible = true
+				return
 			# Scout phase buttons are managed by _setup_scout_unit_card_buttons
 			# Just hide default buttons here; they'll be set up when a unit is selected
 			if _scout_active_unit_id == "":
@@ -6526,6 +6709,12 @@ func update_movement_card_buttons() -> void:
 
 func _on_undo_pressed() -> void:
 	match current_phase:
+		GameStateData.Phase.SCOUT:
+			# ISS-067 (11e 24.31): per-model undo during scout-reserves placement.
+			if deployment_controller and deployment_controller.is_scout_reserves_mode and deployment_controller.is_placing():
+				if deployment_controller.undo_last_model():
+					update_unit_card_buttons()
+					update_ui()
 		GameStateData.Phase.DEPLOYMENT:
 			if deployment_controller:
 				# Per-model undo: remove only the last placed model
@@ -6553,6 +6742,15 @@ func _on_undo_pressed() -> void:
 
 func _on_reset_pressed() -> void:
 	match current_phase:
+		GameStateData.Phase.SCOUT:
+			# ISS-067 (11e 24.31): reset scout-reserves placement (re-place from scratch).
+			if deployment_controller and deployment_controller.is_scout_reserves_mode and deployment_controller.is_placing():
+				var reset_unit_id = deployment_controller.unit_id
+				deployment_controller.reset_unit()
+				if reset_unit_id != "":
+					_begin_scout_reserves_placement(reset_unit_id)
+				update_unit_card_buttons()
+				update_ui()
 		GameStateData.Phase.DEPLOYMENT:
 			if deployment_controller:
 				# Save unit_id before reset clears it
@@ -6586,6 +6784,11 @@ func _on_confirm_pressed() -> void:
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			if deployment_controller:
+				deployment_controller.confirm()
+		GameStateData.Phase.SCOUT:
+			# ISS-067 (11e 24.31): confirm scout-reserves placement.
+			if deployment_controller and deployment_controller.is_scout_reserves_mode and deployment_controller.is_placing():
+				print("Confirm button pressed for scout-reserves placement")
 				deployment_controller.confirm()
 		GameStateData.Phase.MOVEMENT:
 			# Route to deployment controller during reinforcement placement

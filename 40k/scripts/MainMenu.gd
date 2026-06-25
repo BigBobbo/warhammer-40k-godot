@@ -224,6 +224,9 @@ func _setup_dropdowns() -> void:
 	# P2-85: Create secondary mission mode selection
 	_create_secondary_mission_mode_ui()
 
+	# 11e go-live: rules edition selector
+	_create_edition_dropdown()
+
 	# Create army sort dropdown
 	_create_army_sort_dropdown()
 
@@ -326,6 +329,40 @@ func _on_player2_type_changed(index: int) -> void:
 		print("MainMenu: Player 2 type changed to %s, difficulty visible: %s" % [
 			"AI" if index == 1 else "Human", player2_difficulty_container.visible])
 	_update_ai_speed_visibility()
+
+func _create_edition_dropdown() -> void:
+	"""11e go-live: let the player choose the rules edition (10th / 11th).
+	Persisted via SettingsService and applied to GameConstants.edition."""
+	var mission_section = $ScrollContainer/MenuContainer/MissionSection
+
+	var edition_container := HBoxContainer.new()
+	edition_container.name = "EditionContainer"
+
+	var edition_label := Label.new()
+	edition_label.text = "Rules Edition:"
+	edition_label.custom_minimum_size = Vector2(150, 0)
+	edition_container.add_child(edition_label)
+
+	var edition_dropdown := OptionButton.new()
+	edition_dropdown.name = "EditionDropdown"
+	edition_dropdown.custom_minimum_size = Vector2(300, 0)
+	edition_dropdown.add_item("10th Edition")            # index 0 → edition 10
+	edition_dropdown.add_item("11th Edition (beta)")     # index 1 → edition 11
+	var cur_edition := 10
+	if has_node("/root/SettingsService"):
+		cur_edition = SettingsService.get_rules_edition()
+	edition_dropdown.selected = 1 if cur_edition >= 11 else 0
+	edition_dropdown.item_selected.connect(_on_edition_selected)
+	edition_container.add_child(edition_dropdown)
+
+	mission_section.add_child(edition_container)
+	print("MainMenu: rules edition dropdown created (current=%d)" % cur_edition)
+
+func _on_edition_selected(index: int) -> void:
+	var edition := 11 if index == 1 else 10
+	if has_node("/root/SettingsService"):
+		SettingsService.set_rules_edition(edition)
+	print("MainMenu: rules edition selected → %d" % edition)
 
 func _create_ai_speed_dropdown() -> void:
 	"""T7-36: Create an AI speed dropdown in the army section, shown when any player is AI."""

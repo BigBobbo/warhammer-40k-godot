@@ -51,6 +51,11 @@ var show_unit_labels: bool = true
 # we let the computer pick rather than forcing the attacker to choose them.
 var auto_allocate_wounds: bool = true
 
+# Rules edition: 10 (10th edition, default) or 11 (11th edition core rules).
+# Applied to GameConstants.edition at startup and whenever changed, so the whole
+# rules engine plays the selected edition. (ISS-A0 / 11e migration go-live.)
+var rules_edition: int = 10
+
 # Board texture style: "grass", "mud", "desert", "stone", "felt", "tilepack", "none"
 var board_style: String = "grass"
 
@@ -66,6 +71,7 @@ signal unit_labels_visibility_changed(visible: bool)
 signal board_style_changed(new_style: String)
 signal ruins_style_changed(new_style: String)
 signal auto_allocate_wounds_changed(enabled: bool)
+signal rules_edition_changed(new_edition: int)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -91,6 +97,11 @@ func set_save_pretty_print(enabled: bool) -> void:
 func _ready() -> void:
 	# P3-111: Load persisted settings before applying anything
 	_load_settings()
+
+	# 11e go-live: apply the persisted rules edition to the global rules switch
+	# (GameConstants is a static class) before any rules autoload initializes.
+	GameConstants.edition = rules_edition
+	print("[SettingsService] Rules edition applied: %d" % rules_edition)
 
 	# P3-111: Set up audio buses and apply saved audio settings
 	_setup_audio_buses()
@@ -258,6 +269,17 @@ func set_ruins_style(style: String) -> void:
 	_save_settings()
 	print("[SettingsService] Ruins style set to %s" % style)
 
+func get_rules_edition() -> int:
+	return rules_edition
+
+func set_rules_edition(edition: int) -> void:
+	var e := 11 if edition >= 11 else 10
+	rules_edition = e
+	GameConstants.edition = e
+	_save_settings()
+	emit_signal("rules_edition_changed", e)
+	print("[SettingsService] Rules edition set to %d" % e)
+
 func get_auto_allocate_wounds() -> bool:
 	return auto_allocate_wounds
 
@@ -307,6 +329,7 @@ func _save_settings() -> void:
 
 	# Gameplay
 	config.set_value("gameplay", "auto_allocate_wounds", auto_allocate_wounds)
+	config.set_value("gameplay", "rules_edition", rules_edition)
 
 	var err = config.save(SETTINGS_FILE_PATH)
 	if err != OK:
@@ -346,5 +369,6 @@ func _load_settings() -> void:
 
 	# Gameplay
 	auto_allocate_wounds = config.get_value("gameplay", "auto_allocate_wounds", true)
+	rules_edition = int(config.get_value("gameplay", "rules_edition", 10))
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)

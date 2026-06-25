@@ -95,6 +95,16 @@ func simulate_click(params: Dictionary) -> Dictionary:
 	var button: int = int(params.get("button", MOUSE_BUTTON_LEFT))
 	var double_click: bool = params.get("double_click", false)
 
+	# Move the real cursor to the target BEFORE injecting the event. GUI Controls
+	# (buttons, item lists) route by the event's own position and don't need
+	# this, but board/world handlers — e.g. DeploymentController, which reads
+	# get_viewport().get_mouse_position() to place a model — consult the LIVE
+	# cursor, not the event position. Without the warp those handlers act on
+	# wherever the OS cursor sits (the corner), so a board click no-ops.
+	Input.warp_mouse(pos)
+	if host and host.get_tree():
+		await host.get_tree().process_frame
+
 	var press := InputEventMouseButton.new()
 	press.button_index = button
 	press.position = pos
@@ -130,6 +140,9 @@ func simulate_mouse_move(params: Dictionary) -> Dictionary:
 	if not params.has("x") or not params.has("y"):
 		return {"status": "error", "message": "Missing 'x' or 'y'"}
 	var pos := Vector2(float(params["x"]), float(params["y"]))
+	# Warp the live cursor so handlers reading get_viewport().get_mouse_position()
+	# (board/world hover) see the intended location, not the OS cursor.
+	Input.warp_mouse(pos)
 	var motion := InputEventMouseMotion.new()
 	motion.position = pos
 	motion.global_position = pos
@@ -150,6 +163,13 @@ func simulate_drag(params: Dictionary) -> Dictionary:
 	var steps: int = int(params.get("steps", 10))
 	var button: int = int(params.get("button", MOUSE_BUTTON_LEFT))
 
+	# Warp the live cursor to the start so board/world handlers that read
+	# get_viewport().get_mouse_position() (e.g. drag-to-move) act on the
+	# intended position rather than the OS cursor.
+	Input.warp_mouse(start)
+	if host and host.get_tree():
+		await host.get_tree().process_frame
+
 	var press := InputEventMouseButton.new()
 	press.button_index = button
 	press.position = start
@@ -164,6 +184,7 @@ func simulate_drag(params: Dictionary) -> Dictionary:
 	for i in range(1, steps + 1):
 		var t := float(i) / float(steps)
 		var here := start.lerp(end, t)
+		Input.warp_mouse(here)
 		var motion := InputEventMouseMotion.new()
 		motion.position = here
 		motion.global_position = here

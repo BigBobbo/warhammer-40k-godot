@@ -621,11 +621,25 @@ func get_lord_of_deceit_cp_increase(player: int, target_unit_id: String) -> int:
 # VALIDATION
 # ============================================================================
 
+## A4: at edition >= 11 the retired 10e core stratagems map to their 11e
+## variants (<id>_11e). Phases keep calling can_use_stratagem/use_stratagem with
+## the canonical 10e id (insane_bravery, command_re_roll, rapid_ingress,
+## fire_overwatch, heroic_intervention, …); this redirects the lookup, CP cost
+## and usage-tracking to the live 11e definition so the 11e core set is reachable
+## without touching every phase trigger site. Idempotent; 10e unaffected.
+func _resolve_core_id(stratagem_id: String) -> String:
+	if GameConstants.edition >= 11 and not stratagem_id.ends_with("_11e"):
+		var v := stratagem_id + "_11e"
+		if stratagems.has(v):
+			return v
+	return stratagem_id
+
 func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "", context: Dictionary = {}) -> Dictionary:
 	"""
 	Check if a player can use a specific stratagem right now.
 	Returns { "can_use": bool, "reason": String }
 	"""
+	stratagem_id = _resolve_core_id(stratagem_id)
 	if not stratagems.has(stratagem_id):
 		return {"can_use": false, "reason": "Unknown stratagem: %s" % stratagem_id}
 
@@ -810,6 +824,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	Use a stratagem. Validates, deducts CP, records usage, and returns effect data.
 	Returns { "success": bool, "effects": Array, "diffs": Array, "message": String }
 	"""
+	stratagem_id = _resolve_core_id(stratagem_id)
 	# Validate
 	var validation = can_use_stratagem(player, stratagem_id, target_unit_id, context)
 	if not validation.can_use:
@@ -1107,6 +1122,47 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 	Returns an array of diffs that set the appropriate flags.
 	These flags are read by RulesEngine during combat resolution.
 	"""
+	# ── A4: 11e core stratagem effects (15.02-15.12). The 10e core entries are
+	# retired at edition 11 (edition_max), so these structured-effect handlers
+	# only fire for the *_11e definitions. Effects that map to a concrete unit
+	# flag or an immediate dice resolution are applied here; the phase-flow
+	# triggers (ingress/snap/charge/reroll/auto-pass/fights-first) fall through
+	# to their phase handlers. ──
+	if int(strat.get("edition", 10)) >= 11:
+		var diffs11: Array = []
+		for eff in strat.get("effects", []):
+			match str(eff.get("type", "")):
+				"grant_weapon_ability":
+					# EPIC CHALLENGE (15.03): [PRECISION] for one CHARACTER's melee weapons.
+					if str(eff.get("ability", "")) == "precision":
+						diffs11.append({"op": "set", "path": "units.%s.flags.effect_precision_melee" % target_unit_id, "value": true})
+						print("StratagemManager: [11e] EPIC CHALLENGE — %s melee weapons gain [PRECISION]" % target_unit_id)
+				"benefit_of_cover_aura":
+					# SMOKESCREEN (15.10): the SMOKE unit gains the benefit of cover.
+					diffs11.append({"op": "set", "path": "units.%s.flags.effect_cover" % target_unit_id, "value": true})
+					print("StratagemManager: [11e] SMOKESCREEN — %s has the benefit of cover" % target_unit_id)
+				"grant_fights_first":
+					# COUNTEROFFENSIVE (15.12): the unit gains Fights First (the 11e
+					# FightSequencer reads flags.fights_first).
+					diffs11.append({"op": "set", "path": "units.%s.flags.fights_first" % target_unit_id, "value": true})
+					print("StratagemManager: [11e] COUNTEROFFENSIVE — %s gains Fights First" % target_unit_id)
+				"explosives_11e":
+					# EXPLOSIVES (15.05): 6D6, 4+ = 1 MW to an enemy unit within 8".
+					var enemy_e := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", "")))
+					if enemy_e != "":
+						var re = RulesEngine.resolve_explosives_11e(enemy_e, GameState.create_snapshot(), RulesEngine.make_rng())
+						diffs11.append_array(re.get("diffs", []))
+						print("StratagemManager: [11e] EXPLOSIVES — %d MW to %s" % [int(re.get("total_mortal_wounds", re.get("mortal_wounds", 0))), enemy_e])
+				"crushing_impact_11e":
+					# CRUSHING IMPACT (15.06): T-dice ram vs an engaged enemy.
+					var enemy_c := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", "")))
+					if enemy_c != "" and target_unit_id != "":
+						var rc = RulesEngine.resolve_crushing_impact_11e(target_unit_id, enemy_c, GameState.create_snapshot(), RulesEngine.make_rng())
+						diffs11.append_array(rc.get("diffs", []))
+						print("StratagemManager: [11e] CRUSHING IMPACT — %d diffs vs %s" % [rc.get("diffs", []).size(), enemy_c])
+		if not diffs11.is_empty():
+			return diffs11
+
 	# GRAB AND BASH (OA-4): Apply per-unit Waaagh! effects to a single unit.
 	# Sets waaagh_active flag so RulesEngine applies +1S/+1A melee bonuses,
 	# plus 5+ invuln and advance+charge eligibility.
