@@ -55,27 +55,26 @@
       "script": "get_node('/root/Main').deployment_controller.get_current_unit()",
       "equals": "U_WITCHSEEKERS_C" },
 
-    { "act": "execute_script", "script": "get_node('/root/Main').deployment_controller.try_place_at(Vector2(170,170))" },
-    { "act": "execute_script", "script": "get_node('/root/Main').deployment_controller.try_place_at(Vector2(230,170))" },
-    { "act": "execute_script", "script": "get_node('/root/Main').deployment_controller.try_place_at(Vector2(170,230))" },
-    { "act": "execute_script", "script": "get_node('/root/Main').deployment_controller.try_place_at(Vector2(230,230))" },
+    { "act": "click_board_at", "x": 170.0, "y": 170.0 },
+    { "act": "click_board_at", "x": 230.0, "y": 170.0 },
+    { "act": "click_board_at", "x": 170.0, "y": 230.0 },
+    { "act": "click_board_at", "x": 230.0, "y": 230.0 },
     { "act": "execute_script",
       "script": "get_node('/root/Main').deployment_controller.get_placed_count()",
       "equals": 4 },
     { "act": "screenshot", "label": "02_models_placed_in_dz" },
 
     { "act": "click_node",
-      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
-      "emit_pressed": true },
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton" },
     { "act": "wait_frames", "frames": 3 },
 
     { "act": "expect_state", "path": "units.U_WITCHSEEKERS_C.status", "equals": 2 },
     { "act": "execute_script",
-      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x)",
-      "equals": 170.0 },
+      "script": "abs(float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x) - 170.0) < 5.0",
+      "equals": true },
     { "act": "execute_script",
-      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.y)",
-      "equals": 170.0 },
+      "script": "abs(float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.y) - 170.0) < 5.0",
+      "equals": true },
     { "act": "screenshot", "label": "03_scout_deployed" }
   ]
 }

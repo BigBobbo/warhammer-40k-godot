@@ -5259,6 +5259,12 @@ func screen_to_world_position(screen_pos: Vector2) -> Vector2:
 	var board_transform = $BoardRoot.transform
 	return board_transform.affine_inverse() * screen_pos
 
+func world_to_screen_position(world_pos: Vector2) -> Vector2:
+	# Inverse of screen_to_world_position: project a board/world point to the
+	# screen using the live BoardRoot transform (camera pan/zoom). Used by the
+	# scenario runner's click_board_at to warp the cursor to a board position.
+	return $BoardRoot.transform * world_pos
+
 func _process(delta: float) -> void:
 	# MA-41: Skip camera/view keyboard controls when a text input has focus
 	var _text_focused = _is_text_input_focused()

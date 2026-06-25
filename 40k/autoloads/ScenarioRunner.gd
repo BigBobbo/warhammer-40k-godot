@@ -283,6 +283,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_click_unit(step), true)
 		"click_node":
 			rec.merge(await _do_click_node(step), true)
+		"click_board_at":
+			rec.merge(await _do_click_board_at(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
 		"expect_state":
@@ -415,6 +417,36 @@ func _do_click_node(step: Dictionary) -> Dictionary:
 		return {"pass": false, "error": "could not compute click position"}
 	await _send_click(screen_pos)
 	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
+
+
+func _do_click_board_at(step: Dictionary) -> Dictionary:
+	# Click an arbitrary BOARD/WORLD position (board px, the coordinate system
+	# the scenario author reasons about — e.g. deployment-zone coords). The world
+	# point is projected to screen via the scene's world_to_screen_position, the
+	# cursor is warped there (so board handlers reading
+	# get_viewport().get_mouse_position() act on it), and a real mouse click is
+	# injected. Use for model placement, scout-move drops, or any click on empty
+	# board where no node/token exists.
+	if not (step.has("x") and step.has("y")):
+		return {"pass": false, "error": "click_board_at needs x and y (world/board px)"}
+	var world_pos := Vector2(float(step["x"]), float(step["y"]))
+	var scene := get_tree().current_scene
+	if scene == null:
+		return {"pass": false, "error": "no current scene"}
+	# Project board/world -> screen using the scene's OWN transform (the inverse
+	# of its screen_to_world_position), not the viewport canvas transform — the
+	# board lives under a BoardRoot node whose pan/zoom the canvas transform does
+	# not capture in the runner's context.
+	var screen_pos: Vector2
+	if scene.has_method("world_to_screen_position"):
+		screen_pos = scene.world_to_screen_position(world_pos)
+	else:
+		var viewport := scene.get_viewport()
+		if viewport == null:
+			return {"pass": false, "error": "no viewport and no world_to_screen_position"}
+		screen_pos = viewport.get_canvas_transform() * world_pos
+	await _send_click(screen_pos)
+	return {"pass": true, "world": [world_pos.x, world_pos.y], "screen": [screen_pos.x, screen_pos.y]}
 
 
 func _do_simulate_key(step: Dictionary) -> Dictionary:
@@ -746,6 +778,16 @@ func _do_expect_baseline_unchanged(_step: Dictionary) -> Dictionary:
 # ============================================================================
 
 func _send_click(screen_pos: Vector2) -> void:
+	# Warp the live cursor to the target BEFORE injecting the event. GUI Controls
+	# route by event position, but board/world handlers (e.g. DeploymentController
+	# placement, token hit-testing) read get_viewport().get_mouse_position() — the
+	# live cursor — so without the warp a board click acts on the OS cursor's spot
+	# and no-ops. Round to a whole pixel: the OS cursor is integer, and
+	# warp_mouse truncates, which at high zoom-out shifts the click by a board
+	# unit per fractional pixel.
+	screen_pos = screen_pos.round()
+	Input.warp_mouse(screen_pos)
+	await get_tree().process_frame
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
 	press.position = screen_pos
