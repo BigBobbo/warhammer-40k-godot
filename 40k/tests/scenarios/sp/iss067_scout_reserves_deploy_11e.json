@@ -1,0 +1,81 @@
+{
+  "id": "iss067_scout_reserves_deploy_11e",
+  "covers": [
+    "phases.ScoutPhase.11e_scout_reserves_deploy",
+    "phases.ScoutPhase.UI.reserve_scout_list_select_place_confirm"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "description": "ISS-067 (11e 24.31): a Scout unit in Strategic Reserves can be SET UP wholly within its own deployment zone during the Scout phase. Player report: 'When I test the game and have scouts in reserve, I'm not given an option to set them up during the Resolve Pre-battle Abilities step.' Root cause was a pure UI gap: ScoutPhase.get_available_actions() already returned SCOUT_RESERVES_DEPLOY and GameState.get_scout_reserve_units_for_player() already detected reserve scouts, but Main.gd's SCOUT-phase unit list only listed on-table scouts (get_scout_units_for_player) and selecting a unit unconditionally dispatched BEGIN_SCOUT_MOVE -- there was no UI consumer for SCOUT_RESERVES_DEPLOY at all. This scenario puts U_WITCHSEEKERS_C into strategic reserves at edition 11, enters the Scout phase, and asserts: (a) the reserve scout appears in the unit list, (b) selecting it from the list (the real _on_unit_selected path) starts scout-reserves placement on the deployment controller (is_scout_reserves_mode + is_placing), (c) placing 4 models wholly within the deployment zone raises the placed count to 4 using the NORMAL wholly-in-DZ validation, (d) the real Confirm button dispatches SCOUT_RESERVES_DEPLOY, deploying the unit (status DEPLOYED) at the chosen positions.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"].merge({\"status\": 7, \"reserve_type\": \"strategic_reserves\"}, true)" },
+
+    { "act": "execute_script",
+      "script": "str(GameState.unit_has_scout(\"U_WITCHSEEKERS_C\"))",
+      "equals": "true" },
+    { "act": "execute_script",
+      "script": "str(GameState.get_scout_reserve_units_for_player(1).has(\"U_WITCHSEEKERS_C\"))",
+      "equals": "true" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_phase", "equals": 4 },
+
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().scout_reserve_units_pending.get(1, []).has(\"U_WITCHSEEKERS_C\"))",
+      "equals": "true" },
+
+    { "act": "execute_script", "script": "get_node('/root/Main').refresh_unit_list()" },
+    { "act": "wait_frames", "frames": 1 },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').unit_list.get_item_metadata(0)",
+      "equals": "U_WITCHSEEKERS_C" },
+    { "act": "execute_script",
+      "script": "('[Reserves' in get_node('/root/Main').unit_list.get_item_text(0))",
+      "equals": true },
+    { "act": "screenshot", "label": "01_reserve_scout_listed" },
+
+    { "act": "execute_script", "script": "get_node('/root/Main')._on_unit_selected(0)" },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script",
+      "script": "str(get_node('/root/Main').deployment_controller.is_scout_reserves_mode)",
+      "equals": "true" },
+    { "act": "execute_script",
+      "script": "str(get_node('/root/Main').deployment_controller.is_placing())",
+      "equals": "true" },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').deployment_controller.get_current_unit()",
+      "equals": "U_WITCHSEEKERS_C" },
+
+    { "act": "execute_script", "script": "get_node('/root/Main').deployment_controller.try_place_at(Vector2(170,170))" },
+    { "act": "execute_script", "script": "get_node('/root/Main').deployment_controller.try_place_at(Vector2(230,170))" },
+    { "act": "execute_script", "script": "get_node('/root/Main').deployment_controller.try_place_at(Vector2(170,230))" },
+    { "act": "execute_script", "script": "get_node('/root/Main').deployment_controller.try_place_at(Vector2(230,230))" },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').deployment_controller.get_placed_count()",
+      "equals": 4 },
+    { "act": "screenshot", "label": "02_models_placed_in_dz" },
+
+    { "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
+      "emit_pressed": true },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "expect_state", "path": "units.U_WITCHSEEKERS_C.status", "equals": 2 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.x)",
+      "equals": 170.0 },
+    { "act": "execute_script",
+      "script": "float(GameState.state.units.U_WITCHSEEKERS_C.models[0].position.y)",
+      "equals": 170.0 },
+    { "act": "screenshot", "label": "03_scout_deployed" }
+  ]
+}

@@ -59,6 +59,12 @@ var reinforcement_placement_type: String = ""
 # Infiltrators mode (deploy anywhere >9" from enemy zone and enemy models)
 var is_infiltrators_mode: bool = false
 
+# Scout reserves mode (11e 24.31: a Scout unit in Strategic Reserves may be set
+# up wholly within its own deployment zone). Reuses the normal "wholly within
+# DZ" placement validation but, like reinforcement mode, emits unit_confirmed on
+# confirm so Main can dispatch SCOUT_RESERVES_DEPLOY instead of a normal deploy.
+var is_scout_reserves_mode: bool = false
+
 # MA-15: Model type picker state
 var has_model_type_picker: bool = false
 var selected_model_type: String = ""
@@ -748,8 +754,9 @@ func reset_unit() -> void:
 	if has_node("/root/PhaseManager"):
 		var phase_manager = get_node("/root/PhaseManager")
 		if phase_manager.current_phase_instance:
-			# If undoing reinforcement, restore to IN_RESERVES instead of UNDEPLOYED
-			var restore_status = GameStateData.UnitStatus.IN_RESERVES if is_reinforcement_mode else GameStateData.UnitStatus.UNDEPLOYED
+			# If undoing reinforcement or scout-reserves placement, restore to
+			# IN_RESERVES instead of UNDEPLOYED.
+			var restore_status = GameStateData.UnitStatus.IN_RESERVES if (is_reinforcement_mode or is_scout_reserves_mode) else GameStateData.UnitStatus.UNDEPLOYED
 			phase_manager.apply_state_changes([{
 				"op": "set",
 				"path": "units.%s.status" % unit_id,
@@ -758,6 +765,7 @@ func reset_unit() -> void:
 
 	is_reinforcement_mode = false
 	reinforcement_placement_type = ""  # P2-80: Clear placement type override
+	is_scout_reserves_mode = false
 	is_infiltrators_mode = false
 	_hide_infiltrator_exclusion()
 	is_combined_deployment = false
@@ -783,9 +791,10 @@ func confirm() -> void:
 		_show_toast("Cannot deploy: unit is not in coherency (all models must be within 2\" of mates)", Color.RED)
 		return
 
-	# In reinforcement mode, emit signal BEFORE clearing state so Main can collect positions
-	if is_reinforcement_mode:
-		print("[DeploymentController] Reinforcement confirm — emitting unit_confirmed (positions still available)")
+	# In reinforcement OR scout-reserves mode, emit signal BEFORE clearing state
+	# so Main can collect positions and dispatch the appropriate action.
+	if is_reinforcement_mode or is_scout_reserves_mode:
+		print("[DeploymentController] Reserve confirm — emitting unit_confirmed (positions still available)")
 		emit_signal("unit_confirmed")
 		# Clean up after Main has collected positions (signal is synchronous)
 		_finalize_tokens()
@@ -798,6 +807,7 @@ func confirm() -> void:
 		placement_order.clear()  # MA-16: Clear placement order tracking
 		is_reinforcement_mode = false
 		reinforcement_placement_type = ""
+		is_scout_reserves_mode = false
 		# MA-15: Clean up model type picker
 		has_model_type_picker = false
 		selected_model_type = ""
