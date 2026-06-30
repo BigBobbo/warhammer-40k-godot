@@ -373,9 +373,14 @@ func _validate_skip_scout_move(action: Dictionary) -> Dictionary:
 	if unit.get("owner", 0) != get_current_player():
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
 
-	# Must be in pending list
+	# Must be in a pending list — either an on-table Scout move OR (11e 24.31) a
+	# reserve Scout that may set up in its DZ. get_available_actions() offers
+	# SKIP_SCOUT_MOVE for both, so both must validate; otherwise a reserve Scout
+	# is un-skippable and the phase stalls (e.g. an AI looping on its own
+	# reserve Scout never hands off, locking the opponent out).
 	var pending = scout_units_pending.get(get_current_player(), [])
-	if unit_id not in pending:
+	var reserve_pending = scout_reserve_units_pending.get(get_current_player(), [])
+	if unit_id not in pending and unit_id not in reserve_pending:
 		return {"valid": false, "errors": ["Unit is not eligible for Scout move"]}
 
 	return {"valid": true, "errors": []}
@@ -800,10 +805,15 @@ func get_available_actions() -> Array:
 			"description": "Confirm Scout move for %s" % unit_name
 		})
 
-	# If all pending are done, offer end phase
+	# If all pending are done, offer end phase. Count BOTH on-table Scout moves
+	# and (11e 24.31) reserve Scout deployments — matching _should_complete_phase
+	# — so END_SCOUT_PHASE is not offered (and an AI cannot end the phase) while a
+	# reserve Scout is still pending, which would deny that player their setup.
 	var total_pending = 0
 	for player in scout_units_pending:
 		total_pending += scout_units_pending[player].size()
+	for player in scout_reserve_units_pending:
+		total_pending += scout_reserve_units_pending[player].size()
 
 	if total_pending == 0 and active_scout_moves.size() == 0:
 		actions.append({
