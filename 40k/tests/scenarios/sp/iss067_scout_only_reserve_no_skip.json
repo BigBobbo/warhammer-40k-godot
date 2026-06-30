@@ -1,0 +1,39 @@
+{
+  "id": "iss067_scout_only_reserve_no_skip",
+  "covers": [
+    "phases.ScoutPhase.no_skip_when_only_reserve_scouts"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "description": "Reported bug: 'When I only have scouts in reserve I never get a scout step — it goes from the first-turn roll-off straight to the Command phase.' This is the case where a player has ONLY a reserve scout and NO on-table scout. ScoutPhase._on_phase_enter skips (call_deferred _complete_phase) when total_scouts == 0; total_scouts must include reserve scouts at e11 or the phase is skipped and the player never gets the set-up option. This scenario gives U_WITCHSEEKERS_C the Scout ability and puts it in strategic reserves, with NO on-table scout for either player, transitions to SCOUT, and asserts the phase does NOT auto-skip to COMMAND and the reserve scout is offered.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"].merge({\"status\": 7, \"reserve_type\": \"strategic_reserves\"}, true)" },
+
+    { "act": "execute_script",
+      "script": "str(GameState.get_scout_reserve_units_for_player(1))",
+      "equals": "[\"U_WITCHSEEKERS_C\"]" },
+    { "act": "execute_script",
+      "script": "str(GameState.get_scout_units_for_player(1).size() + GameState.get_scout_units_for_player(2).size())",
+      "equals": "0" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_seconds", "seconds": 1.5 },
+
+    { "act": "expect_phase", "equals": 4 },
+
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().scout_reserve_units_pending.get(1, []).has(\"U_WITCHSEEKERS_C\"))",
+      "equals": "true" },
+    { "act": "execute_script", "script": "get_node('/root/Main').refresh_unit_list()" },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').unit_list.get_item_metadata(0)",
+      "equals": "U_WITCHSEEKERS_C" },
+    { "act": "screenshot", "label": "only_reserve_scout_phase_runs" }
+  ]
+}
