@@ -1,0 +1,36 @@
+{
+  "id": "iss067_scout_reserve_discoverability",
+  "covers": [
+    "phases.ScoutPhase.reserve_scout_status_prompt",
+    "phases.ScoutPhase.reserve_scout_listed_on_entry"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "description": "ISS-067 discoverability: when a player has a scout in Strategic Reserves and reaches the pre-battle Scout step, the option to set it up must be visible WITHOUT any manual refresh, and the on-screen status text must explicitly point to it (the prior text was just a generic 'Phase: SCOUT'). This scenario puts a P1 scout into strategic reserves, enters SCOUT with P1 active, and asserts (a) the unit list shows the reserve scout as '[Reserves -> DZ]' on natural entry, and (b) the status label calls out the '[Reserves -> DZ]' set-up option. Mirrors the real workflow where reserves are declared in the Formations phase (same resulting state: status IN_RESERVES + reserve_type strategic_reserves).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"].merge({\"status\": 7, \"reserve_type\": \"strategic_reserves\"}, true)" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_phase", "equals": 4 },
+    { "act": "execute_script", "script": "str(GameState.get_active_player())", "equals": "1" },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').unit_list.get_item_metadata(0)",
+      "equals": "U_WITCHSEEKERS_C" },
+    { "act": "execute_script",
+      "script": "('[Reserves' in get_node('/root/Main').unit_list.get_item_text(0))",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "('Reserves -> DZ' in get_node('/root/Main').status_label.text)",
+      "equals": true },
+    { "act": "screenshot", "label": "scout_entry_with_reserve_prompt" }
+  ]
+}

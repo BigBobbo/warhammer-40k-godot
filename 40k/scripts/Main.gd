@@ -6060,6 +6060,24 @@ func update_ui() -> void:
 				status_label.text = "Select a unit to move"
 			phase_action_button.disabled = false
 
+		GameStateData.Phase.SCOUT:
+			# ISS-067: explicit guidance for the pre-battle Scout step; call out
+			# reserve Scouts (listed as "[Reserves -> DZ]") so the set-up option is
+			# discoverable to the player.
+			var ai_scout = get_node_or_null("/root/AIPlayer")
+			if ai_scout and ai_scout.is_ai_player(active_player):
+				status_label.text = "AI Player %d is resolving Scout moves..." % active_player
+			else:
+				var n_reserve_scouts := 0
+				var pi_scout = PhaseManager.get_current_phase_instance()
+				if pi_scout and pi_scout.get("scout_reserve_units_pending") != null:
+					n_reserve_scouts = pi_scout.scout_reserve_units_pending.get(active_player, []).size()
+				if n_reserve_scouts > 0:
+					status_label.text = "Scout step: select a \"[Reserves -> DZ]\" unit (right panel) to set it up wholly within your deployment zone, or drag on-table scouts, then End Scout Moves."
+				else:
+					status_label.text = "Scout step: select a scout unit to move, or End Scout Moves."
+			phase_action_button.disabled = false
+
 		_:
 			var ai_general = get_node_or_null("/root/AIPlayer")
 			if ai_general and ai_general.is_ai_player(active_player):
