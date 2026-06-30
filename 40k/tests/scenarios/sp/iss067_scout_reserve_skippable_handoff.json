@@ -1,0 +1,58 @@
+{
+  "id": "iss067_scout_reserve_skippable_handoff",
+  "covers": [
+    "phases.ScoutPhase.reserve_scout_skippable",
+    "phases.ScoutPhase.reserve_scout_handoff"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "disable_ai": true,
+  "description": "ISS-067 follow-up — the reported bug: 'I have a scout squad in strategic reserve but I'm not given an option to set them up.' Root cause: _validate_skip_scout_move only checked scout_units_pending (on-table scouts), so SKIP_SCOUT_MOVE — although get_available_actions OFFERS it for reserve scouts — was rejected as 'not eligible'. When the AI is the first scout player and holds a reserve scout, its only resolving action (SKIP) failed, so it looped on the un-skippable unit, never handed off, and the human opponent was locked out of deploying THEIR reserve scout. This scenario puts both players' scouts in strategic reserves, enters SCOUT with P2 first, skips P2's reserve scout (must now succeed), and asserts the phase hands off to P1 with P1's reserve scout still pending and listed in the unit panel. Also asserts END_SCOUT_PHASE is not offered while a reserve scout is pending.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_KOMMANDOS_H.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"].merge({\"status\": 7, \"reserve_type\": \"strategic_reserves\"}, true)" },
+    { "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_KOMMANDOS_H\"].merge({\"status\": 7, \"reserve_type\": \"strategic_reserves\"}, true)" },
+    { "act": "execute_script", "script": "GameState.set_active_player(2)" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_phase", "equals": 4 },
+    { "act": "execute_script", "script": "str(GameState.get_active_player())", "equals": "2" },
+
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().scout_reserve_units_pending.get(2, []).has(\"U_KOMMANDOS_H\"))",
+      "equals": "true" },
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance()._should_complete_phase())",
+      "equals": "false" },
+
+    { "act": "dispatch_action", "action": { "type": "SKIP_SCOUT_MOVE", "unit_id": "U_KOMMANDOS_H" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script", "script": "str(GameState.get_active_player())", "equals": "1" },
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().scout_reserve_units_pending.get(2, []).size())",
+      "equals": "0" },
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().scout_reserve_units_pending.get(1, []).has(\"U_WITCHSEEKERS_C\"))",
+      "equals": "true" },
+
+    { "act": "execute_script", "script": "get_node('/root/Main').refresh_unit_list()" },
+    { "act": "wait_frames", "frames": 1 },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').unit_list.get_item_metadata(0)",
+      "equals": "U_WITCHSEEKERS_C" },
+    { "act": "execute_script",
+      "script": "('Reserves' in get_node('/root/Main').unit_list.get_item_text(0)) if get_node('/root/Main').unit_list.get_item_count() > 0 else false",
+      "equals": true },
+    { "act": "screenshot", "label": "handoff_to_p1_shows_reserve_option" }
+  ]
+}
