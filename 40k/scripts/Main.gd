@@ -2266,6 +2266,11 @@ func _begin_scout_reserves_placement(unit_id: String) -> void:
 
 	status_label.text = "Scout reserves: set up %s wholly within your deployment zone (24.31)" % unit_name
 
+	# Make sure the active player's deployment zone is shown/highlighted while
+	# placing — reserve Scouts must be set up wholly within it (24.31). This also
+	# corrects the highlight after a scout-phase hand-off to the other player.
+	update_deployment_zone_visibility()
+
 	# Wire the unit-card buttons for scout-reserves placement. Disconnect any
 	# scout-move handlers so Confirm/Reset/Undo route to the deployment controller
 	# (via the SCOUT cases of _on_confirm_pressed / _on_reset_pressed / _on_undo_pressed).
@@ -8961,9 +8966,11 @@ func update_ui_for_phase() -> void:
 				phase_action_button.disabled = false
 
 		GameStateData.Phase.SCOUT:
-			# Hide deployment zones during scout phase
-			p1_zone.visible = false
-			p2_zone.visible = false
+			# Show deployment zones so the player can see where reserve Scouts
+			# (24.31) may be set up — wholly within their own deployment zone.
+			# Highlights the active player's zone and dims the opponent's; also
+			# useful reference for on-table scout moves.
+			update_deployment_zone_visibility()
 			# Hide movement action buttons
 			_show_movement_action_buttons(false)
 			# Show unit list for scout unit selection, show unit card for details

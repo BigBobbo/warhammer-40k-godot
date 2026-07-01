@@ -31,6 +31,13 @@
     { "act": "execute_script",
       "script": "('Reserves -> DZ' in get_node('/root/Main').status_label.text)",
       "equals": true },
+
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').p1_zone.visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "get_node('/root/Main').p2_zone.visible",
+      "equals": true },
     { "act": "screenshot", "label": "scout_entry_with_reserve_prompt" }
   ]
 }
