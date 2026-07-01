@@ -1,0 +1,46 @@
+{
+  "id": "iss067_scout_only_reserve_e10_gated",
+  "covers": [
+    "phases.ScoutPhase.reserve_scout_gated_off_at_e10"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 10,
+  "disable_ai": true,
+  "description": "Confirms that at EDITION 10, a player with only a reserve scout (no on-table) gets the Scout phase SKIPPED to Command (the 24.31 reserve-scout option is 11e-only). This matches the reported screenshot and indicates the user is on edition 10, not 11.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"].merge({\"status\": 7, \"reserve_type\": \"strategic_reserves\"}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(GameState.get_scout_reserve_units_for_player(1))",
+      "equals": "[]"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(GameState.get_scout_units_for_player(1).size() + GameState.get_scout_units_for_player(2).size())",
+      "equals": "0"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    }
+  ]
+}
