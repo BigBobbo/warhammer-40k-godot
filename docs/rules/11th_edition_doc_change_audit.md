@@ -58,7 +58,7 @@ A full P1 turn was played as a user (Adeptus Custodes vs Orks, 11th Edition):
 | Battle-shock **no auto-recovery** (re-test next command) | ✅ | Recovery test in `CommandPhase`; Insane Bravery can't auto-pass a recovering unit. |
 | **Detachment Points** (pool, 3 @ 2000pts) | 🔴 | Army construction still 10e single-detachment; no DP pool. |
 | Leaders attach at **army construction** | ✅ | Attach happens in the pre-deploy Formations step; permanent for the game. |
-| **Support characters** (2nd attach slot, must attach) | 🟡 | Engine supports Leader+Support dual-slot & caps it (validated dialog); **no shipped datasheet carries the `support` ability**, so it is unusable with current army data. |
+| **Support characters** (2nd attach slot, must attach) | 🟡 | Engine + FormationsPhase per-role slots wired; the Bannernob (orks.json) now ships `Support` + `leader_data` and attaches alongside a Leader through the live Formations dialog (windowed `iss059b_support_attach_11e`, 30/30). Remaining: "must attach" not enforced; no other Support datasheets authored. |
 | **Enhancement after attach, 1/unit** | 🟡 | Enhancement validation exists (1/char) but not re-sequenced after attach; no post-attach UI gate. |
 | **Upgrades** (non-char, ×3, 1 enhancement pick) | 🔴 | Not implemented. |
 | **Warlord = army faction** | 🔴 | No warlord-faction restriction enforced. |
@@ -161,7 +161,7 @@ after abilities). Command-abilities-after-battleshock ordering ✅ in `CommandPh
 
 | # | Change | Status | Note |
 |---|---|---|---|
-| Leader + Support attach | 🟡 | Engine ✅ (validated dialog); **no Support data** (§1). |
+| Leader + Support attach | 🟡 | Engine ✅; Bannernob ships `Support` and is player-usable via the Formations dialog (§1, `iss059b`); other factions still have no Support data. |
 | Attachment permanent; parts not destroyed separately | 🟡 | Attached unit stays a unit; highest-T fixed (A11); keyword-destroyed-targeting & ability-source-model persistence partial. |
 | Abilities persist while source model alive | 🟡 | Ties to leader *unit* alive (≈ ok for 1-model leaders). |
 | Keyword union + destroyed-keyword targeting | 🟡 | Union present; wired into one consumer (ANTI). |
@@ -211,9 +211,13 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 2. **[data] 11e secondary mission deck.** Author the 11e Fixed four (Assassination, Bring it Down, A Grievous Blow,
    Engage on All Fronts) and the 18-card Tactical deck (Forward Position, Plunder, Beacon, Centre Ground, returning
    cards with tweaks), with no hand-size limit and the 45-VP cap. *(Tab 10.)*
-3. **[data] Support-role datasheets + true 11e stat lines.** Tag the appropriate characters (e.g. Bannernob) with the
-   `support` ability so the already-built Leader+Support dual-slot is usable, and source real 11e **Ld/OC/Invuln**
-   values to replace the `needs_11e_review` 10e numbers. *(Tab 1/7; §1, §7.)*
+3. **[data] Support-role datasheets + true 11e stat lines.** *(Partially done 2026-07-02:)* the Bannernob now carries
+   `Support` + `leader_data` in orks.json, FormationsPhase enforces the 11e per-role slots (one leader + one support),
+   and the flow is windowed-validated (`iss059b_support_attach_11e`). Still open: tag Support characters in other
+   factions, and source real 11e **Ld/OC/Invuln** values — note the invuln picture is better than first reported
+   (Custodes 4+/Draxus 5+/Beastboss 5+ etc. already present in `meta.stats.invuln`); what's missing is mostly
+   orks.json characters (Ghazghkull, Badrukk, Warbosses) and any true-11e deltas, which need an official source
+   (PRD §5 open q.2). *(Tab 1/7; §1, §7.)*
 4. **[code] Hidden / Gone to Ground / Detection Range.** Implement Gone to Ground (−3" → 12" when obscured behind a
    Dense/Solid feature) and datasheet Detection-Range modifiers (clamped ≥9"), and make Hidden actually suppress
    visibility in the live LoS/targeting path for INFANTRY/SWARM/BEAST. *(Tab 6; §6 — currently only flat 15".)*

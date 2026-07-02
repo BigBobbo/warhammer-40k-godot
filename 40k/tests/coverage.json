@@ -1699,6 +1699,33 @@
       "fidelity": "HANDLER",
       "last_verified_commit": "28088acc",
       "status": "covered"
+    },
+    {
+      "id": "phases.FormationsPhase.declare_leader_attachment.11e_role_slots",
+      "description": "11e (19.01/24.22/24.34): DECLARE_LEADER_ATTACHMENT allows one LEADER and one SUPPORT unit per bodyguard; a second character of the same role is rejected. Validated by iss059b (audit Tier-1 #3).",
+      "scenarios": [
+        "iss059b_support_attach_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.CharacterAttachmentManager.attachment_role",
+      "description": "attachment_role derives 'support' from the datasheet Support ability (ISS-059), 'leader' otherwise — driven live via the shipped orks.json Bannernob.",
+      "scenarios": [
+        "iss059b_support_attach_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "armies.orks.bannernob_support_ability",
+      "description": "Shipped orks.json Nob with Waaagh! Banner carries the Support ability + leader_data (BOYZ/BREAKA BOYZ/NOBZ), making the 11e Leader+Support dual-slot player-usable.",
+      "scenarios": [
+        "iss059b_support_attach_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
