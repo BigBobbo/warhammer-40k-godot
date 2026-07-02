@@ -6122,6 +6122,19 @@ func _validate_begin_surge_move(action: Dictionary) -> Dictionary:
 	if unit.is_empty():
 		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
 
+	# 21.02 (audit #8): at e11 the SurgeMove template is authoritative —
+	# eligibility plus a STATED max distance (payload.max_inches from the
+	# triggering rule, or the unit's "Surge X\"" datasheet ability).
+	if GameConstants.edition >= 11:
+		var surge_tmpl = MoveTypes.get_type("surge")
+		var surge_el = surge_tmpl.eligible(unit_id, GameState.state)
+		if not surge_el.eligible:
+			return {"valid": false, "errors": surge_el.reasons}
+		var max_in := float(action.get("payload", {}).get("max_inches", RulesEngine.get_surge_move_inches(unit)))
+		if max_in <= 0.0:
+			return {"valid": false, "errors": ["No rule grants this unit a surge move (21.02 needs a stated distance)"]}
+		return {"valid": true, "errors": []}
+
 	return validate_surge_move(unit_id, unit)
 
 func validate_surge_move(unit_id: String, unit: Dictionary) -> Dictionary:
@@ -6174,6 +6187,17 @@ func _process_begin_surge_move(action: Dictionary) -> Dictionary:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var surge_distance = action.get("payload", {}).get("surge_distance", 0)
 
+	# 21.02 (audit #8): at e11 the distance is STATED by the triggering rule
+	# (payload.max_inches / "Surge X\"" ability) — no D6 — and the CLOSEST
+	# enemy becomes the surge target (template BEFORE step).
+	var surge_target_11e := ""
+	if GameConstants.edition >= 11 and surge_distance <= 0:
+		surge_distance = float(action.get("payload", {}).get("max_inches", RulesEngine.get_surge_move_inches(unit)))
+		var surge_tmpl = MoveTypes.get_type("surge")
+		var surge_before = surge_tmpl.before_moving(unit_id, GameState.state, null, {})
+		surge_target_11e = str(surge_before.get("surge_target", ""))
+		log_phase_message("[11e 21.02] Surge move: %s up to %0.0f\" toward closest enemy %s" % [unit_name, surge_distance, surge_target_11e])
+
 	# If no distance specified, roll D6 for surge distance
 	if surge_distance <= 0:
 		var rng_seed = action.get("payload", {}).get("rng_seed", -1)
@@ -6195,6 +6219,7 @@ func _process_begin_surge_move(action: Dictionary) -> Dictionary:
 	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "SURGE",
+		"surge_target": surge_target_11e,
 		"mode_locked": true,
 		"completed": false,
 		"move_cap_inches": surge_distance,
@@ -7184,6 +7209,25 @@ func get_available_actions() -> Array:
 					continue
 				offered["%s:%s" % [uid, basic_map[t]]] = true
 			filtered.append(a)
+		# Audit #8 (21.02): offer a surge move to every current-player unit
+		# whose datasheet grants one ("Surge X\"" ability) and that the
+		# template rules eligible. No shipped datasheet carries one yet —
+		# this is the player affordance the data lights up.
+		for uid in GameState.state.get("units", {}):
+			var surge_unit = get_unit(str(uid))
+			if int(surge_unit.get("owner", 0)) != get_current_player():
+				continue
+			var surge_att = surge_unit.get("attached_to", null)
+			var surge_emb = surge_unit.get("embarked_in", null)
+			if (surge_att != null and str(surge_att) != "") or (surge_emb != null and str(surge_emb) != ""):
+				continue
+			var surge_inches = RulesEngine.get_surge_move_inches(surge_unit)
+			if surge_inches > 0.0 and MoveTypes.get_type("surge").eligible(str(uid), GameState.state).eligible:
+				filtered.append({
+					"type": "BEGIN_SURGE_MOVE",
+					"actor_unit_id": str(uid),
+					"description": "Surge %0.0f\" toward the closest enemy: %s" % [surge_inches, surge_unit.get("meta", {}).get("name", uid)]
+				})
 		# Top-up: basics the templates deem eligible that the 10e builder
 		# did not offer (e.g. engagement state divergence). Only units the
 		# builder considered movable (present in avail_cache) qualify.

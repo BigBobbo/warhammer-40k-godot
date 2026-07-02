@@ -126,6 +126,226 @@ func _run_tests():
 		and (prec_board.units["U_T"].models[0].alive == false) != (prec_board.units["U_T"].models[1].alive == false),
 		str(prec_board.units["U_T"].models))
 
+	print("\n-- E2: PRECISION visibility gate + attacker choice (24.28, audit #13) --")
+	# The character must be VISIBLE to an attacking model. A tall wall hides
+	# ONLY the character (bodyguard b0 stays clear, so the unit is still a
+	# legal target) — the promotion must NOT happen and the char survives.
+	var tm = root.get_node_or_null("TerrainManager")
+	var prev_tf = tm.terrain_features.duplicate(true)
+	var prec_wall = {"id": "prec_wall", "type": "ruins", "height_category": "tall",
+		"polygon": PackedVector2Array([Vector2(270, 120), Vector2(290, 120), Vector2(290, 220), Vector2(270, 220)])}
+	tm.terrain_features = [prec_wall]
+	var prec_board2 = {"units": {
+		"U_S": {"id": "U_S", "owner": 1, "flags": {},
+			"meta": {"name": "S", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 3, "wounds": 2},
+				"weapons": prec_board.units["U_S"].meta.weapons},
+			"models": [{"id": "s0", "alive": true, "wounds": 2, "current_wounds": 2,
+				"base_mm": 32, "base_type": "circular", "position": {"x": 100, "y": 100}}]},
+		"U_T": {"id": "U_T", "owner": 2, "flags": {},
+			"meta": {"name": "T", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 7, "wounds": 1}},
+			"models": [
+				{"id": "b0", "alive": true, "wounds": 1, "current_wounds": 1, "base_mm": 32,
+					"base_type": "circular", "position": {"x": 300, "y": 100}},
+				{"id": "b1", "alive": true, "wounds": 1, "current_wounds": 1, "base_mm": 32,
+					"base_type": "circular", "position": {"x": 300, "y": 135}},
+				{"id": "c0", "alive": true, "wounds": 3, "current_wounds": 3, "is_character": true,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 300, "y": 170}}]}},
+		"meta": {}, "terrain_features": [prec_wall]}
+	_check("wall hides the character from the shooter (setup sanity)",
+		not tm.model_visible_11e(prec_board2.units["U_S"].models[0], prec_board2.units["U_T"].models[2]))
+	_check("visibility gate: hidden character -> no promotion",
+		rules._precision_group_11e(true, prec_board2.units["U_T"],
+			prec_board2.units["U_S"], prec_board2, "") == "")
+	var pres2 = rules.resolve_shoot(paction, prec_board2, rules.RNGService.new(pseed))
+	_check("hidden character SURVIVES a PRECISION volley (wounds fall on bodyguards)",
+		prec_board2.units["U_T"].models[2].alive == true
+		and prec_board2.units["U_T"].models[0].alive == false
+		and prec_board2.units["U_T"].models[1].alive == false,
+		str(prec_board2.units["U_T"].models))
+	tm.terrain_features = prev_tf
+
+	# Attacker CHOICE: two visible character groups — chosen_gid wins.
+	var choice_unit = {"id": "U_C2", "owner": 2, "flags": {},
+		"meta": {"name": "C2", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 7, "wounds": 1}},
+		"models": [
+			{"id": "b0", "alive": true, "wounds": 1, "current_wounds": 1, "base_mm": 32,
+				"base_type": "circular", "position": {"x": 300, "y": 100}},
+			{"id": "cA", "alive": true, "wounds": 3, "current_wounds": 3, "is_character": true,
+				"base_mm": 32, "base_type": "circular", "position": {"x": 300, "y": 140}},
+			{"id": "cB", "alive": true, "wounds": 3, "current_wounds": 3, "is_character": true,
+				"base_mm": 32, "base_type": "circular", "position": {"x": 300, "y": 180}}]}
+	var choice_board = {"units": {"U_S": prec_board.units["U_S"], "U_C2": choice_unit}, "meta": {}}
+	var default_pick = rules._precision_group_11e(true, choice_unit, prec_board.units["U_S"], choice_board, "")
+	var chosen_pick = rules._precision_group_11e(true, choice_unit, prec_board.units["U_S"], choice_board, "char_2")
+	_check("auto-pick takes the first visible CHARACTER group", default_pick == "char_1", default_pick)
+	_check("attacker's chosen group wins when eligible", chosen_pick == "char_2", chosen_pick)
+	_check("bogus chosen group falls back to auto-pick",
+		rules._precision_group_11e(true, choice_unit, prec_board.units["U_S"], choice_board, "grp_nope") == "char_1")
+
+	print("\n-- E3: DEVASTATING WOUNDS is a CHOICE (24.10, audit #17) --")
+	# Torrent DW gun vs a 2+ save target: by default a critical wound becomes
+	# mortal wounds (bypasses the save, dice block context devastating_wounds_11e);
+	# with devastating_wounds_choice="normal" the crit rolls a normal save.
+	var dw_maker = func() -> Dictionary:
+		return {"units": {
+			"U_S": {"id": "U_S", "owner": 1, "flags": {},
+				"meta": {"name": "S", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 3, "wounds": 2},
+					"weapons": [{"name": "DWGun", "type": "Ranged", "range": "24", "attacks": "6",
+						"ballistic_skill": "3", "strength": "8", "ap": "0", "damage": "2",
+						"special_rules": "torrent, devastating wounds"}]},
+				"models": [{"id": "s0", "alive": true, "wounds": 2, "current_wounds": 2,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 100, "y": 100}}]},
+			"U_T": {"id": "U_T", "owner": 2, "flags": {},
+				"meta": {"name": "T", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 2, "wounds": 4}},
+				"models": [{"id": "t0", "alive": true, "wounds": 4, "current_wounds": 4,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 300, "y": 100}}]}},
+			"meta": {}}
+	# Seed with at least one 6 among the first 6 wound rolls (torrent skips hit rolls).
+	var dwseed := -1
+	for ds in range(500):
+		var has6 := false
+		for r in rules.RNGService.new(ds).roll_d6(6):
+			if r == 6:
+				has6 = true
+		if has6:
+			dwseed = ds
+			break
+	_check("DW seed found", dwseed != -1)
+	var dw_action_default = {"type": "SHOOT", "actor_unit_id": "U_S",
+		"payload": {"assignments": [{"weapon_id": "DWGun", "target_unit_id": "U_T", "model_ids": ["s0"]}]}}
+	var dw_board1 = dw_maker.call()
+	var dw_res1 = rules.resolve_shoot(dw_action_default, dw_board1, rules.RNGService.new(dwseed))
+	var dw_block1 := false
+	for d in dw_res1.get("dice", []):
+		if str(d.get("context", "")) == "devastating_wounds_11e":
+			dw_block1 = true
+	_check("default: critical wound converts to mortal wounds (devastating dice block present)",
+		dw_block1, str(dw_res1.get("dice", [])))
+	var dw_action_normal = {"type": "SHOOT", "actor_unit_id": "U_S",
+		"payload": {"assignments": [{"weapon_id": "DWGun", "target_unit_id": "U_T", "model_ids": ["s0"],
+			"devastating_wounds_choice": "normal"}]}}
+	var dw_board2 = dw_maker.call()
+	var dw_res2 = rules.resolve_shoot(dw_action_normal, dw_board2, rules.RNGService.new(dwseed))
+	var dw_block2 := false
+	for d in dw_res2.get("dice", []):
+		if str(d.get("context", "")) == "devastating_wounds_11e":
+			dw_block2 = true
+	_check("choice=normal: no mortal-wound conversion (crits roll normal saves)",
+		not dw_block2, str(dw_res2.get("dice", [])))
+
+	print("\n-- E4: damage modifier ORDER pins (audit #12: + before \u00f7 before \u2212) --")
+	# Melta +2 on a D6 weapon vs a half-damage defender: 6+2=8 -> halve -> 4.
+	# The wrong order (halve first) would give halve(6)=3, +2 = 5.
+	var ord_board = {"units": {
+		"U_S": {"id": "U_S", "owner": 1, "flags": {},
+			"meta": {"name": "S", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 3, "wounds": 2},
+				"weapons": [{"name": "MeltaGun", "type": "Ranged", "range": "24", "attacks": "1",
+					"ballistic_skill": "3", "strength": "8", "ap": "0", "damage": "6",
+					"special_rules": "torrent, melta 2"}]},
+			"models": [{"id": "s0", "alive": true, "wounds": 2, "current_wounds": 2,
+				"base_mm": 32, "base_type": "circular", "position": {"x": 100, "y": 100}}]},
+		"U_T": {"id": "U_T", "owner": 2, "flags": {},
+			"meta": {"name": "T", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 7, "wounds": 20, "half_damage": true}},
+			"models": [{"id": "t0", "alive": true, "wounds": 20, "current_wounds": 20,
+				"base_mm": 32, "base_type": "circular", "position": {"x": 200, "y": 100}}]}},
+		"meta": {}}
+	# Seed where the single wound roll is >= 2 (S8 vs T4 wounds on 2+).
+	var oseed := -1
+	for osd in range(200):
+		if rules.RNGService.new(osd).roll_d6(1)[0] >= 2:
+			oseed = osd
+			break
+	_check("order seed found", oseed != -1)
+	var ord_action = {"type": "SHOOT", "actor_unit_id": "U_S",
+		"payload": {"assignments": [{"weapon_id": "MeltaGun", "target_unit_id": "U_T", "model_ids": ["s0"]}]}}
+	rules.resolve_shoot(ord_action, ord_board, rules.RNGService.new(oseed))
+	var t_cw = int(ord_board.units["U_T"].models[0].get("current_wounds", 20))
+	_check("halve applies AFTER melta: 20W target drops to exactly 16 (6+2 -> 4), not 15",
+		t_cw == 16, "current_wounds=%d" % t_cw)
+
+	print("\n-- E5: [EXTRA ATTACKS] modifiable at e11 (audit #14) --")
+	# Waaagh! grants +1 melee attack. 10e Balance Dataslate suppressed it on
+	# EXTRA ATTACKS weapons; 11e removes the restriction. Count hit rolls.
+	var ea_maker = func() -> Dictionary:
+		return {"units": {
+			"U_EA": {"id": "U_EA", "owner": 1, "flags": {"waaagh_active": true},
+				"meta": {"name": "EA", "keywords": ["INFANTRY", "ORKS"],
+					"stats": {"toughness": 4, "save": 3, "wounds": 2},
+					"weapons": [{"name": "Tusks", "type": "Melee", "range": "Melee", "attacks": "2",
+						"weapon_skill": "3", "strength": "4", "ap": "0", "damage": "1",
+						"special_rules": "extra attacks"}]},
+				"models": [{"id": "e0", "alive": true, "wounds": 2, "current_wounds": 2,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 100, "y": 100}}]},
+			"U_D": {"id": "U_D", "owner": 2, "flags": {},
+				"meta": {"name": "D", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 7, "wounds": 4}},
+				"models": [{"id": "d0", "alive": true, "wounds": 4, "current_wounds": 4,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 130, "y": 100}}]}},
+			"meta": {}}
+	var ea_action = {"type": "FIGHT", "actor_unit_id": "U_EA",
+		"payload": {"assignments": [{"attacker": "U_EA", "weapon": "Tusks", "target": "U_D", "models": ["0"]}]}}
+	var ea_hit_count = func(res: Dictionary) -> int:
+		for d in res.get("dice", []):
+			if str(d.get("context", "")) == "hit_roll_melee":
+				return d.get("rolls_raw", d.get("rolls", [])).size()
+		return -1
+	GameConstants.edition = 10
+	var ea_res10 = rules.resolve_melee_attacks(ea_action, ea_maker.call(), rules.RNGService.new(7))
+	var ea_n10 = ea_hit_count.call(ea_res10)
+	GameConstants.edition = 11
+	var ea_res11 = rules.resolve_melee_attacks(ea_action, ea_maker.call(), rules.RNGService.new(7))
+	var ea_n11 = ea_hit_count.call(ea_res11)
+	_check("10e: Waaagh +1A suppressed on EXTRA ATTACKS (2 hit rolls)", ea_n10 == 2, "got %d" % ea_n10)
+	_check("11e: EXTRA ATTACKS takes the modifier (3 hit rolls)", ea_n11 == 3, "got %d" % ea_n11)
+
+	print("\n-- E6: benefit of cover PER ATTACKING MODEL (13.08, audit #7) --")
+	# Firer A shoots through an obscuring strip (target not fully visible to
+	# it -> cover); firer B has a clean line (no cover). BS3, one attack
+	# each, both rolls exactly 3: the covered attack needs 4+ and misses,
+	# the clear attack hits -> exactly 1 hit. Unit-level cover would give
+	# 0 hits (blanket cover) or 2 (no cover).
+	var pc_tm = root.get_node_or_null("TerrainManager")
+	var pc_prev_tf = pc_tm.terrain_features.duplicate(true)
+	var pc_strip = {"id": "pc_strip", "type": "ruins", "height_category": "tall",
+		"polygon": PackedVector2Array([Vector2(190, 85), Vector2(210, 85), Vector2(210, 115), Vector2(190, 115)])}
+	pc_tm.terrain_features = [pc_strip]
+	var pc_board = {"units": {
+		"U_S": {"id": "U_S", "owner": 1, "flags": {},
+			"meta": {"name": "S", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 3, "wounds": 2},
+				"weapons": [{"name": "PairGun", "type": "Ranged", "range": "24", "attacks": "1",
+					"ballistic_skill": "3", "strength": "4", "ap": "0", "damage": "1",
+					"special_rules": ""}]},
+			"models": [
+				{"id": "sA", "alive": true, "wounds": 2, "current_wounds": 2,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 100, "y": 100}},
+				{"id": "sB", "alive": true, "wounds": 2, "current_wounds": 2,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 300, "y": 300}}]},
+		"U_V": {"id": "U_V", "owner": 2, "flags": {},
+			"meta": {"name": "V", "keywords": ["VEHICLE"], "stats": {"toughness": 9, "save": 7, "wounds": 10}},
+			"models": [{"id": "v0", "alive": true, "wounds": 10, "current_wounds": 10,
+				"base_mm": 60, "base_type": "circular", "position": {"x": 300, "y": 100}}]}},
+		"meta": {}, "terrain_features": [pc_strip]}
+	_check("setup: target has cover vs firer A (obscured view)",
+		pc_tm.unit_has_cover_11e(pc_board.units["U_V"], pc_board.units["U_S"].models[0]))
+	_check("setup: target has NO cover vs firer B (clear view)",
+		not pc_tm.unit_has_cover_11e(pc_board.units["U_V"], pc_board.units["U_S"].models[1]))
+	var pc_seed := -1
+	for pcs in range(2000):
+		var rr = rules.RNGService.new(pcs).roll_d6(2)
+		if rr[0] == 3 and rr[1] == 3:
+			pc_seed = pcs
+			break
+	_check("per-model-cover seed found", pc_seed != -1)
+	var pc_action = {"type": "SHOOT", "actor_unit_id": "U_S",
+		"payload": {"assignments": [{"weapon_id": "PairGun", "target_unit_id": "U_V", "model_ids": ["sA", "sB"]}]}}
+	var pc_res = rules.resolve_shoot(pc_action, pc_board, rules.RNGService.new(pc_seed))
+	var pc_hits := -1
+	for d in pc_res.get("dice", []):
+		if str(d.get("context", "")) == "to_hit":
+			pc_hits = int(d.get("successes", d.get("hits", -1)))
+	_check("both rolls 3: covered attack misses (4+), clear attack hits -> exactly 1 hit",
+		pc_hits == 1, "hits=%d dice=%s" % [pc_hits, str(pc_res.get("dice", []))])
+	pc_tm.terrain_features = pc_prev_tf
+
 	print("\n-- F: PSYCHIC ignores harmful hit-side modifiers (24.29) --")
 	var psy_board = {"units": {
 		"U_P": {"id": "U_P", "owner": 1, "flags": {},

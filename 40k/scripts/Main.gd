@@ -11141,11 +11141,69 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	if strat_manager == null:
 		return
 	var active_player = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
+	# Audit #11 (15.05/15.06): EXPLOSIVES and CRUSHING IMPACT need the
+	# attacker to pick a friendly unit AND an enemy target — prompt for
+	# both instead of firing target-less (which no-oped the effect).
+	var sid_resolved := str(strat_manager._resolve_core_id(stratagem_id)) if strat_manager.has_method("_resolve_core_id") else stratagem_id
+	if sid_resolved in ["explosives", "crushing_impact"]:
+		_prompt_stratagem_targets(sid_resolved, active_player)
+		return
 	var result = strat_manager.use_stratagem(active_player, stratagem_id)
 	print("Main: stratagem panel requested use of %s -> %s" % [stratagem_id, str(result)])
 	# Refresh panel after use to update CP / once-per markers
 	if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
 		_stratagem_panel.populate(active_player, current_phase)
+
+## Audit #11: two-step target picker for attacker-driven stratagems.
+func _prompt_stratagem_targets(sid: String, player: int) -> void:
+	var strat_manager = get_node("/root/StratagemManager")
+	var friendly: Array = []
+	for uid in GameState.state.get("units", {}):
+		var u = GameState.state.units[uid]
+		if int(u.get("owner", 0)) != player:
+			continue
+		if strat_manager.can_use_stratagem(player, sid, uid).get("can_use", false):
+			friendly.append(uid)
+	if friendly.is_empty():
+		print("Main: %s — no eligible friendly unit" % sid)
+		return
+	_show_stratagem_pick_dialog("%s — select your unit" % sid.to_upper(), friendly,
+		func(fid: String):
+			var enemies: Array = strat_manager.get_stratagem_enemy_targets(sid, fid)
+			if enemies.is_empty():
+				print("Main: %s — no eligible enemy target for %s" % [sid, fid])
+				return
+			_show_stratagem_pick_dialog("%s — select the enemy target" % sid.to_upper(), enemies,
+				func(eid: String):
+					var result = strat_manager.use_stratagem(player, sid, fid, {"enemy_unit_id": eid})
+					print("Main: %s %s vs %s -> %s" % [sid, fid, eid, str(result)])
+					if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
+						_stratagem_panel.populate(player, current_phase)))
+
+func _show_stratagem_pick_dialog(title_text: String, unit_ids: Array, on_pick: Callable) -> void:
+	var dialog = AcceptDialog.new()
+	dialog.name = "StratagemTargetDialog"
+	dialog.title = title_text
+	dialog.get_ok_button().text = "Cancel"
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 6)
+	for uid_raw in unit_ids:
+		var uid := str(uid_raw)
+		var unit = GameState.get_unit(uid)
+		var btn = Button.new()
+		btn.name = "Pick_%s" % uid
+		btn.text = unit.get("meta", {}).get("name", uid)
+		btn.pressed.connect(func():
+			# queue_free is deferred — release the node NAME immediately so a
+			# follow-up picker can claim the stable path this frame.
+			dialog.name = "StratagemTargetDialogClosing"
+			dialog.queue_free()
+			on_pick.call(uid))
+		content.add_child(btn)
+	dialog.add_child(content)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
 
 
 func _on_army_panel_closed() -> void:

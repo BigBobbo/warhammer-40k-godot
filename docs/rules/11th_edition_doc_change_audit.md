@@ -62,7 +62,7 @@ A full P1 turn was played as a user (Adeptus Custodes vs Orks, 11th Edition):
 | **Enhancement after attach, 1/unit** | 🟡 | Enhancement validation exists (1/char) but not re-sequenced after attach; no post-attach UI gate. |
 | **Upgrades** (non-char, ×3, 1 enhancement pick) | 🔴 | Not implemented. |
 | **Warlord = army faction** | 🔴 | No warlord-faction restriction enforced. |
-| **Multiple-modifier order** (set→×→+→÷→−, set-0 stops) | 🟡 | Hit modifiers use a net-sum `ModifierStack`; the full damage-modifier *ordering* (halve-after-melta, set-0-stops-further) is not a single ordered pipeline — partial. |
+| **Multiple-modifier order** (set→×→+→÷→−, set-0 stops) | 🟡 | Damage-side ordering VERIFIED in every live path (melta/+dmg adds → halve → −1, all six sites; live pin `test_iss047` E4: 6+2→halve→4). Residual: no single shared pipeline (each site hand-ordered), and set-×/set-0 semantics have no data consumer yet. Hit modifiers remain a net-sum `ModifierStack`. |
 | **Lone Operative X"** + 9"–30" mod cap | 🟡 | `get_lone_operative_range` parses X" (validated `iss069`); the 9–30 modifier clamp is not separately enforced. |
 
 ## 2. Command Phase (Tab 2/9)
@@ -74,7 +74,7 @@ after abilities). Command-abilities-after-battleshock ordering ✅ in `CommandPh
 
 | # | Change | Status | Note |
 |---|---|---|---|
-| Coherency 2" **+ 9" envelope** | ✅ | Validated (deploy/move rejections). End-of-turn out-of-coherency removal auto-picks (no player-choice dialog). |
+| Coherency 2" **+ 9" envelope** | ✅ | Validated (deploy/move rejections). End-of-turn removal is now player-chosen for human owners (03.03 dialog, `iss042b`); auto-pick remains the AI/backstop. |
 | Engagement **2"** global | ✅ | Live `2.0`. |
 | Move **through** enemy ER (end outside) | ✅ | `MovementPhase` staging allows transit, checks end-position. |
 | Set-Up outside ER; **Engaged** as a term | ✅ | Deploy/ingress validators enforce. |
@@ -108,7 +108,7 @@ after abilities). Command-abilities-after-battleshock ordering ✅ in `CommandPh
 | **Mortal wounds per identical group**, priority order | ✅ | `Allocation.select_mortal_wound_target`; ranged + stratagems + melee (A1). |
 | Slow-roll only for random-D / FNP | ✅ | Honoured. |
 | **Cover = −1 BS** to shooter (stacks with −1 hit) | ✅ | `ModifierStack.collect_hit_context_11e` (bs side). |
-| Cover **per attacking model** (split groups) | 🟡 | Cover-as-BS correct; the per-attacking-model split of one unit's shots into covered/uncovered sub-groups is not fully modelled. |
+| Cover **per attacking model** (split groups) | ✅ | Each attack takes the 13.08 cover worsening from ITS OWN firing model's view (per-attack BS via `cover_model_per_attack`, both resolution paths); pinned in `test_iss047` E6 (obscured firer misses, clear firer hits, same volley). |
 | **Stealth → Cover** | ✅ | Routed through cover path. |
 | Four shooting modes (Normal/Assault/CQ/Indirect) | ✅ | `ShootingTypes.available_for`; `iss048`. |
 | Assault (advanced + [ASSAULT]) | ✅ | Validated (advanced unit shows only if it has Assault). |
@@ -176,16 +176,16 @@ after abilities). Command-abilities-after-battleshock ordering ✅ in `CommandPh
 **Stratagems:** One-per-unit-per-phase ✅ (`StratagemManager:685`). Modal costs (HI 1/2CP) ✅.
 Unchanged set (Epic Challenge, Insane Bravery, Counteroffensive, Explosives) present.
 Changed: Command Re-roll (single die) ✅ (validated — the movement-phase re-roll dialog offered one die);
-Crushing Impact (Tank Shock + monsters + self-MW-on-1) 🟡 (dice handler wired, needs attacker target prompt);
+Crushing Impact (Tank Shock + monsters + self-MW-on-1) ✅ (dice handler + attacker target prompt, `iss047d`);
 Rapid Ingress ✅; **Fire Overwatch + Snap Shooting** ✅; Smokescreen 🟡 (cover granted; "cover to units behind" nuance partial);
 Go-to-Ground stratagem removed ✅ (only the Hidden sub-rule name remains — though that sub-rule itself is unimplemented, §6).
 
 **Core abilities:** Blast X ✅, Lethal Hits optional ✅, Devastating Wounds batch+cap ✅ (ranged+melee),
 Infiltrators/Deep Strike 8" ✅, Hazardous → hazard roll ✅, Lone Operative X" ✅, Melta X (post-order) 🟡,
-Deadly Demise after disembark ✅, Extra Attacks modifiable 🟡, Stealth→Cover ✅, Super-Heavy Walker ✅ (`iss073`),
-Fight First (reworked value) ✅, **Precision** (allocation-order) 🟡 (no visibility check / attacker choice),
+Deadly Demise after disembark ✅, Extra Attacks modifiable ✅ (10e Balance-Dataslate suppression edition-gated off at e11; pinned in `test_iss047` E5), Stealth→Cover ✅, Super-Heavy Walker ✅ (`iss073`),
+Fight First (reworked value) ✅, **Precision** (allocation-order) ✅ (visibility-gated + attacker PrecisionPicker in the allocation overlay, `iss047b`),
 **Heavy ≤3"** ✅ (validated flag), **Cleave X** ✅ (A8 fix), **Hover** 🟡, **Psychic ignores hit mods** ✅ (ranged+melee A10),
-Scouts 8" + reserves→DZ ✅ (`iss067`), **Surge Moves** 🔴 (engine exists, no trigger/UI/data),
+Scouts 8" + reserves→DZ ✅ (`iss067`), **Surge Moves** 🟡 (engine + trigger + UI done: template-gated `BEGIN_SURGE_MOVE`, `Surge X"` ability parser, movement-list offering — `iss040b`; no shipped datasheet carries the ability yet),
 Plunging Fire 3"/+1 ✅, **Hunter X** 🔴 (unimplemented, no data), **Heal X** 🔴 (unimplemented, no data).
 
 ## 9. Missions (Tab 10)
@@ -230,28 +230,40 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 6. **[code+data] Terrain categories & areas:** author explicit Exposed/Light/Dense categories and Terrain-Area polygons
    per layout; implement the **Solid** <3"-gap rule and the Home/Expansion/Central objective designations used by
    missions. *(Tab 6.)*
-7. **[code] Cover per attacking model:** split a firing unit's attacks into covered/uncovered sub-groups when only some
-   attackers have LoS through an Obscuring area. *(Tab 4/6.)*
+7. **[code] Cover per attacking model:** *(Done 2026-07-02:)* each attack's BS worsening is computed from its own
+   firing model's view of the target (13.08 second condition is per-attack); attacks with no recorded firer (overrides/
+   bonus attacks) fall back to the first firer. Pinned in `test_iss047_weapon_abilities_11e` E6. *(Tab 4/6.)*
 
 ### Tier 3 — ability/affordance completeness (engine mostly present)
-8. **[code] Surge Moves** — add a trigger/UI (and at least one datasheet that uses one) so the existing `SurgeMove` is reachable. *(Tab 8.)*
+8. **[code] Surge Moves** — *(Code done 2026-07-02:)* `BEGIN_SURGE_MOVE` is template-gated at e11 (stated distance, closest-enemy target, no D6), a `Surge X"` datasheet ability lights up the movement-list offering (`iss040b_surge_move_11e`). Remaining: author a real datasheet with the ability once 11e data is sourced (PRD §5 q.2). *(Tab 8.)*
 9. **[code] Hunter X and Heal X** core abilities. *(Tab 8 — currently absent.)*
 10. **[code] Combat Disembark** — *(Done 2026-07-02:)* the validator honours "set up **engaged** within 6"" for enemy units the transport is engaged with (and only those); the placement UI gets a Combat Disembark toggle, 6" ring, and matching placement rules. Windowed `iss058b_combat_disembark_engaged_11e` 26/26. *(Tab 3.)*
-11. **[code] Explosives / Crushing Impact** — add the attacker-facing enemy-target prompt so they are fully player-driven. *(Tab 8.)*
-12. **[code] Modifier-order pipeline** — apply damage modifiers strictly as set→×→+→÷→−, so halve-after-melta and
-    set-to-0-stops-further hold in every path. *(Tab 1.)*
-13. **[code] Precision** — check the target character is **visible**, and let the attacker choose which character group is promoted. *(Tab 8.)*
-14. **[code] Melee/Extra-Attacks/Melta polish** — Extra Attacks modifiable value, Melta post-order, per audit. *(Tab 8.)*
+11. **[code] Explosives / Crushing Impact** — *(Done 2026-07-02:)* the stratagem panel now runs a two-step target prompt (friendly unit, then eligible enemy — engaged for Crushing Impact, within-8"-and-visible for Explosives) and resolves via `use_stratagem` with the chosen enemy in context (`iss047d_crushing_impact_prompt_11e`). *(Tab 8.)*
+12. **[code] Modifier-order pipeline** — *(Verified + pinned 2026-07-02:)* halve-after-melta already holds in every
+    damage path (interactive allocation, auto-resolve, melee, devastating, overwatch) — confirmed by reading all six
+    sites and pinned live (`test_iss047_weapon_abilities_11e` E4). Deferred: consolidating into one shared pipeline and
+    set-×/set-0 semantics, which no shipped modifier uses yet. *(Tab 1.)*
+13. **[code] Precision** — *(Done 2026-07-02:)* promotion is gated on the character being visible to an attacking model (13.09/13.10/13.11 + LoS), and the attacker chooses the promoted group (or declines) via the AllocationGroupOverlay PrecisionPicker; chosen group rides the save batch (`iss047b_precision_choice_11e`; headless E2 section). *(Tab 8.)*
+14. **[code] Melee/Extra-Attacks/Melta polish** — *(Extra Attacks done 2026-07-02:)* the 10e Balance-Dataslate "cannot modify A" suppression is edition-gated off at e11 (Waaagh/Da Biggest bonuses now apply; pinned 10e-vs-11e in `test_iss047` E5). Melta "post-order" remains — its precise semantics live in the review-doc deep-dive, which is not in the repo (needs source). *(Tab 8.)*
 
 ### Tier 4 — structural/cosmetic
 15. **[code] Fight-phase step structure** — make Pile-In and Consolidation single global both-player steps (active-first)
     rather than per-fighter; resolve the Engaging-consolidation 3"-vs-5" once GW FAQs. *(Tab 5.)*
-16. **[code] End-of-turn coherency removal dialog** — let the player choose the model removed (currently auto-picks). *(Tab 3.)*
-17. **[code] `[DEVASTATING WOUNDS]` / `[LETHAL HITS]` attacker-choice prompts** (currently default-only). *(Tab 4/8.)*
+16. **[code] End-of-turn coherency removal dialog** — *(Done 2026-07-02:)* END_TURN pauses for human-owned incoherent units; the CoherencyRemovalDialog lets the player pick each removed model, and the turn auto-completes once coherent (`iss042b_coherency_removal_choice_11e`). Auto-pick stays as the AI/backstop. *(Tab 3.)*
+17. **[code] `[DEVASTATING WOUNDS]` / `[LETHAL HITS]` attacker-choice prompts** — *(Done 2026-07-02:)* the AbilityChoiceDialog offers both choices when a DW weapon is assigned; choices ride the assignment into all three resolution paths, incl. the new 24.10 decline (`iss047c_ability_choice_prompts_11e`; headless E3). *(Tab 4/8.)*
 
 ---
 
 ## 11. Bottom line
+
+**Status 2026-07-02 (post-sweep):** every task-list item implementable from in-repo sources is done — Tier-1 #3
+(Support attach) and #4 (Hidden/Gone to Ground/Detection Range) code-complete; Tier-3 #7, #8, #10, #11, #12, #13,
+#14 (Extra Attacks), #16, #17 all landed with windowed/headless validation; delta-audit B6 closed. What remains is
+**source-blocked**: the 11e mission system (#1–2, mission-pack texts not in repo), true 11e stat lines and Support
+tags for other factions (#3, PRD §5 open q.2), Hunter X / Heal X (#9, zero rule text in the shipped core-rules PDF),
+Melta "post-order" (#14 remainder, deep-dive only), terrain-category authoring (#6, layout data decisions), the DP/
+Upgrades army-construction model (#5) — plus #15's fight-step restructure, which the audit itself parks pending a GW
+FAQ on the 3"-vs-5" Engaging consolidation.
 
 The **core engine** of 11th edition is in and genuinely playable at `edition == 11`: the new attack/allocation model,
 cover-as-BS, engagement 2" / coherency 9", the move-type framework incl. FLY, the select-after-roll charge, the

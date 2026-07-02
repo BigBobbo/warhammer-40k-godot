@@ -1197,6 +1197,26 @@ func _validate_attach_character_deployment(action: Dictionary) -> Dictionary:
 	if existing_attached + character_ids.size() > max_attached:
 		errors.append("Bodyguard already at attachment cap (max %d; %d already attached, %d requested)" % [max_attached, existing_attached, character_ids.size()])
 
+	# 11e (24.22/24.34): the slots are per-ROLE — one LEADER unit AND one
+	# SUPPORT unit per bodyguard, mirroring CharacterAttachmentManager /
+	# FormationsPhase. A raw count cap alone would let two Leaders through.
+	if GameConstants.edition >= 11:
+		var role_counts := {"leader": 0, "support": 0}
+		for existing_id in bodyguard.get("attachment_data", {}).get("attached_characters", []):
+			var existing_unit = get_unit(str(existing_id))
+			if existing_unit.is_empty():
+				continue
+			var existing_role: String = CharacterAttachmentManager.attachment_role(existing_unit)
+			role_counts[existing_role] = role_counts.get(existing_role, 0) + 1
+		for char_id in character_ids:
+			var role_char = get_unit(str(char_id))
+			if role_char.is_empty():
+				continue
+			var new_role: String = CharacterAttachmentManager.attachment_role(role_char)
+			role_counts[new_role] = role_counts.get(new_role, 0) + 1
+			if role_counts[new_role] > 1:
+				errors.append("Bodyguard already has a %s unit attached (11e 24.22/24.34): %s" % [new_role, char_id])
+
 	return {"valid": errors.size() == 0, "errors": errors}
 
 func _process_attach_character_deployment(action: Dictionary) -> Dictionary:

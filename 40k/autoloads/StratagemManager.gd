@@ -1406,6 +1406,58 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 			break
 	print("StratagemManager: Cleared %s flags from %s" % [stratagem_id, unit_id])
 
+## Audit #11: enemy targets for the two attacker-driven 11e core stratagems.
+## explosives (15.05): unengaged enemy units with a model within 8" of (and
+## visible to) a model in the friendly unit. crushing_impact (15.06): enemy
+## units the friendly MONSTER/VEHICLE is engaged with.
+func get_stratagem_enemy_targets(stratagem_id: String, friendly_unit_id: String) -> Array:
+	var out: Array = []
+	var snapshot = GameState.create_snapshot()
+	var friendly = snapshot.get("units", {}).get(friendly_unit_id, {})
+	if friendly.is_empty():
+		return out
+	var enemy_player = 3 - int(friendly.get("owner", 0))
+	var tm = get_node_or_null("/root/TerrainManager")
+	for uid in snapshot.get("units", {}):
+		var enemy = snapshot.units[uid]
+		if int(enemy.get("owner", 0)) != enemy_player:
+			continue
+		if enemy.get("embarked_in", null) != null:
+			continue
+		var has_alive := false
+		for m in enemy.get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+		match stratagem_id:
+			"crushing_impact":
+				if RulesEngine.check_units_in_engagement_range(friendly, enemy, snapshot):
+					out.append(uid)
+			"explosives":
+				if RulesEngine.is_unit_engaged(uid, snapshot):
+					continue
+				var in_range_and_visible := false
+				var range_px = Measurement.inches_to_px(8.0)
+				for fm in friendly.get("models", []):
+					if not fm.get("alive", true) or fm.get("position") == null:
+						continue
+					for em in enemy.get("models", []):
+						if not em.get("alive", true) or em.get("position") == null:
+							continue
+						if Measurement.model_to_model_distance_px(fm, em) > range_px:
+							continue
+						if tm != null and not tm.model_visible_11e(fm, em):
+							continue
+						in_range_and_visible = true
+						break
+					if in_range_and_visible:
+						break
+				if in_range_and_visible:
+					out.append(uid)
+	return out
+
 func get_grenade_eligible_units(player: int) -> Array:
 	"""
 	Get units that can use the GRENADE stratagem for the given player.

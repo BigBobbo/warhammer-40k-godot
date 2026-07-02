@@ -98,6 +98,42 @@ func _run_tests():
 	threshold = rules.get_critical_wound_threshold("Witch Rifle", gs.state.units["U_BG59"], anti_board)
 	_check("ANTI-PSYKER reverts to 6+ once the leader is gone", threshold == 6)
 
+	print("\n-- B6: per-role slots in the deploy diff/network pipeline --")
+	# DeploymentPhase._validate_attach_character_deployment is the gate for
+	# ATTACH_CHARACTER_DEPLOYMENT actions arriving without UI (composite
+	# deploys, multiplayer). The raw count cap (max 2 at e11) must not let
+	# two LEADERS through; roles mirror CharacterAttachmentManager.
+	gs.state.units["U_LEADER59"].models[0]["alive"] = true
+	gs.state.units["U_LEADER59"]["attached_to"] = null
+	gs.state.units["U_BG59"]["attachment_data"] = {"attached_characters": []}
+	for uid in ["U_LEADER59", "U_LEADER59B", "U_SUPPORT59"]:
+		gs.state.units[uid]["status"] = GameStateData.UnitStatus.UNDEPLOYED
+	var dp = load("res://phases/DeploymentPhase.gd").new()
+	dp.game_state_snapshot = gs.state
+	GameConstants.edition = 11
+	var dv = dp._validate_attach_character_deployment({
+		"bodyguard_id": "U_BG59", "character_ids": ["U_LEADER59", "U_SUPPORT59"]})
+	_check("deploy pipeline: leader + support batch accepted at e11", dv.valid, str(dv))
+	dv = dp._validate_attach_character_deployment({
+		"bodyguard_id": "U_BG59", "character_ids": ["U_LEADER59", "U_LEADER59B"]})
+	_check("deploy pipeline: two LEADERS in one batch refused (24.22)",
+		not dv.valid and "24.22" in str(dv.errors), str(dv))
+	gs.state.units["U_BG59"]["attachment_data"] = {"attached_characters": ["U_LEADER59"]}
+	dv = dp._validate_attach_character_deployment({
+		"bodyguard_id": "U_BG59", "character_ids": ["U_LEADER59B"]})
+	_check("deploy pipeline: second LEADER refused when one is already attached",
+		not dv.valid and "24.22" in str(dv.errors), str(dv))
+	dv = dp._validate_attach_character_deployment({
+		"bodyguard_id": "U_BG59", "character_ids": ["U_SUPPORT59"]})
+	_check("deploy pipeline: SUPPORT joins a leader-attached bodyguard", dv.valid, str(dv))
+	GameConstants.edition = 10
+	gs.state.units["U_BG59"]["attachment_data"] = {"attached_characters": []}
+	dv = dp._validate_attach_character_deployment({
+		"bodyguard_id": "U_BG59", "character_ids": ["U_LEADER59", "U_SUPPORT59"]})
+	_check("deploy pipeline: 10e keeps the single-slot cap",
+		not dv.valid and "cap" in str(dv.errors), str(dv))
+	dp.free()
+
 	for uid in ["U_BG59", "U_LEADER59", "U_LEADER59B", "U_SUPPORT59"]:
 		gs.state.units.erase(uid)
 	GameConstants.edition = 10

@@ -1,0 +1,42 @@
+{
+  "id": "iss047d_crushing_impact_prompt_11e",
+  "covers": [
+    "ui.StratagemTargetDialog",
+    "stratagems.crushing_impact_target_prompt"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Audit #11 (15.06 CRUSHING IMPACT): the stratagem panel's Use path previously fired target-less, so the effect no-oped. Now the attacker picks the friendly charged MONSTER/VEHICLE and then the engaged enemy via the StratagemTargetDialog, and the T-dice ram resolves against the chosen enemy. Setup: Battlewagon flagged charged_this_turn, Shield-Captain base-adjacent (engaged).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BATTLEWAGON_G\")[\"flags\"].merge({\"charged_this_turn\": true}, true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_SHIELD_CAPTAIN_A\")[\"models\"][0].merge({\"position\": {\"x\": 1193.0, \"y\": 2160.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.state[\"players\"][\"2\"].merge({\"cp\": 3}, true)" },
+    { "act": "execute_script",
+      "script": "StratagemManager.get_stratagem_enemy_targets(\"crushing_impact\", \"U_BATTLEWAGON_G\").has(\"U_SHIELD_CAPTAIN_A\")",
+      "equals": true },
+
+    { "act": "execute_script", "script": "main._prompt_stratagem_targets(\"crushing_impact\", 2)" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog", "timeout_s": 2.0 },
+    { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog/Content/Pick_U_BATTLEWAGON_G" },
+    { "act": "screenshot", "label": "01_pick_friendly_unit" },
+    { "act": "click_node", "node": "/root/StratagemTargetDialog/Content/Pick_U_BATTLEWAGON_G", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog", "timeout_s": 2.0 },
+    { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog/Content/Pick_U_SHIELD_CAPTAIN_A" },
+    { "act": "screenshot", "label": "02_pick_enemy_target" },
+    { "act": "click_node", "node": "/root/StratagemTargetDialog/Content/Pick_U_SHIELD_CAPTAIN_A", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_state", "path": "players.2.cp", "equals": 2 },
+    { "act": "screenshot", "label": "03_crushing_impact_resolved" }
+  ]
+}

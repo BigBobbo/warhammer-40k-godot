@@ -1416,6 +1416,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	var attacks_roll_log = []
 	# MA-10: Track per-model BS for each attack (supports stats_override.ballistic_skill)
 	var bs_per_attack = []
+	var cover_model_per_attack = []  # audit #7: firing model per attack (13.08 per-model cover)
 	var has_bs_override = false
 
 	# DECK FRAGGERS (OA-7): Check if ranged weapons gain BLAST vs INFANTRY targets
@@ -1456,8 +1457,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 		base_attacks += model_attacks
 		# MA-10: Record this model's BS for each of its attacks
+		# Audit #7: and its identity, for per-attack 13.08 cover.
 		for _j in range(model_attacks):
 			bs_per_attack.append(model_bs)
+			cover_model_per_attack.append(model)
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
 
@@ -1774,12 +1777,13 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				var ms_m = _get_model_by_id(actor_unit, ms_mid)
 				if not ms_m.is_empty() and ms_m.get("alive", true):
 					ms_firing_models.append(ms_m)
-			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models})
+			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models, "per_attack_cover": true})
 			var ms_bs_delta = ms_stack.net("bs")
 			var ms_hit_net_pre = ms_stack.net("hit_roll")
+			var ms_is_psychic := is_psychic_weapon(weapon_id, board)
 			# ISS-047 (24.29): [PSYCHIC] attacks may ignore any or all BS/hit
 			# modifiers — the engine ignores exactly the harmful ones.
-			if is_psychic_weapon(weapon_id, board):
+			if ms_is_psychic:
 				if ms_bs_delta > 0:
 					print("RulesEngine: [24.29] PSYCHIC — ignoring BS worsening (%+d)" % ms_bs_delta)
 					ms_bs_delta = 0
@@ -1791,6 +1795,27 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				for ms_i in range(bs_per_attack.size()):
 					bs_per_attack[ms_i] += ms_bs_delta
 				print("RulesEngine: [11e MODIFIERS] BS %+d (%s)" % [ms_bs_delta, str(ms_stack.sources("bs"))])
+			# Audit #7 (13.08 per attacking model): each attack takes the
+			# cover worsening based on ITS OWN firing model's view of the
+			# target. Attacks with no recorded firing model (overrides,
+			# bonus attacks) fall back to the first firing model's view.
+			if not ms_is_psychic and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {}):
+				var pa_terrain = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
+				if pa_terrain != null:
+					var pa_strat_cover: bool = target_unit.get("flags", {}).get("stratagem_cover", false)
+					var pa_fallback: Dictionary = ms_firing_models[0] if not ms_firing_models.is_empty() else {}
+					var pa_cover_cache: Dictionary = {}
+					var pa_covered_count := 0
+					for ms_i in range(bs_per_attack.size()):
+						var pa_model: Dictionary = cover_model_per_attack[ms_i] if ms_i < cover_model_per_attack.size() else pa_fallback
+						var pa_key := str(pa_model.get("id", "_"))
+						if not pa_cover_cache.has(pa_key):
+							pa_cover_cache[pa_key] = pa_strat_cover or pa_terrain.unit_has_cover_11e(target_unit, pa_model)
+						if pa_cover_cache[pa_key]:
+							bs_per_attack[ms_i] += 1
+							pa_covered_count += 1
+					if pa_covered_count > 0:
+						print("RulesEngine: [13.08 per-model] benefit of cover — %d/%d attack(s) worsened by 1 BS" % [pa_covered_count, bs_per_attack.size()])
 			var ms_hit_net = ms_hit_net_pre
 			if ms_hit_net > 0:
 				hit_modifiers |= HitModifier.PLUS_ONE
@@ -1953,6 +1978,14 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	if purity_of_execution_active:
 		weapon_has_devastating_wounds = true
 		print("RulesEngine: PURITY OF EXECUTION — Devastating Wounds vs PSYKER target %s" % target_unit_id)
+
+	# 24.10 (audit #17): [DEVASTATING WOUNDS] is a CHOICE — the attacker may
+	# decline the mortal-wound conversion for this batch; critical wounds
+	# then resolve through the normal save/damage sequence.
+	if GameConstants.edition >= 11 and weapon_has_devastating_wounds \
+			and str(assignment.get("devastating_wounds_choice", "")) == "normal":
+		weapon_has_devastating_wounds = false
+		print("RulesEngine: [24.10] DEVASTATING WOUNDS — attacker declined the mortal-wound conversion")
 
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
@@ -2508,16 +2541,86 @@ static func resolve_crushing_impact_11e(unit_id: String, target_unit_id: String,
 	return result
 
 
-# The engine's default [PRECISION] pick (24.28): the first CHARACTER
-# group in the target. Visible-to-attacker refinement lands with the
-# ISS-052 visibility module; the attacker-facing prompt with ISS-063.
-static func _precision_group_11e(weapon_has_precision_flag: bool, target_unit: Dictionary) -> String:
+# 24.28 [PRECISION] (audit #13): the ATTACKER may promote ONE allocation
+# group containing a CHARACTER model that is VISIBLE to at least one
+# attacking model. `chosen_gid` (the attacker's pick, e.g. from the
+# AllocationGroupOverlay / action payload) wins when eligible; otherwise
+# the first eligible group is auto-picked. Empty actor/board skips the
+# visibility gate (legacy callers), "" = no promotion.
+static func _precision_group_11e(weapon_has_precision_flag: bool, target_unit: Dictionary, actor_unit: Dictionary = {}, board: Dictionary = {}, chosen_gid: String = "") -> String:
 	if not weapon_has_precision_flag or GameConstants.edition < 11:
 		return ""
+	var eligible: Array = []
 	for g in Allocation.build_groups(target_unit):
-		if g.character:
-			return str(g.id)
-	return ""
+		if not g.character:
+			continue
+		if actor_unit.is_empty() or _character_group_visible_to_attackers(g, target_unit, actor_unit, board):
+			eligible.append(str(g.id))
+	if eligible.is_empty():
+		if not actor_unit.is_empty():
+			print("RulesEngine: [24.28] PRECISION — no CHARACTER group is visible to the attackers; no promotion")
+		return ""
+	if chosen_gid != "":
+		if chosen_gid in eligible:
+			return chosen_gid
+		print("RulesEngine: [24.28] requested PRECISION group %s is not an eligible visible CHARACTER group — auto-picking %s" % [chosen_gid, eligible[0]])
+	return eligible[0]
+
+# 24.28: at least one alive model of the CHARACTER group is visible to at
+# least one alive attacking model — the same per-model gates as the live
+# targeting path (13.09 hidden detection, 13.10/13.11 sight lines, base LoS).
+static func _character_group_visible_to_attackers(group: Dictionary, target_unit: Dictionary, actor_unit: Dictionary, board: Dictionary) -> bool:
+	var t_models = target_unit.get("models", [])
+	var tm = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
+	for actor_model in actor_unit.get("models", []):
+		if not actor_model.get("alive", true):
+			continue
+		var a_pos = _get_model_position(actor_model)
+		if not a_pos:
+			continue
+		for mi_raw in group.get("model_indices", []):
+			var mi = int(mi_raw)
+			if mi < 0 or mi >= t_models.size():
+				continue
+			var t_model = t_models[mi]
+			if not t_model.get("alive", true):
+				continue
+			var t_pos = _get_model_position(t_model)
+			if not t_pos:
+				continue
+			if tm != null:
+				if not tm.hidden_model_visible_to(t_model, target_unit, actor_model):
+					continue
+				if not tm.model_visible_11e(actor_model, t_model):
+					continue
+			if _check_line_of_sight(a_pos, t_pos, board, actor_model, t_model):
+				return true
+	return false
+
+## UI helper (audit #13): the [PRECISION] character groups the attacker may
+## promote for this save batch — group ids + display labels, visibility-gated.
+static func precision_eligible_groups_11e(save_data: Dictionary, board: Dictionary) -> Array:
+	if GameConstants.edition < 11 or not save_data.get("has_precision", false):
+		return []
+	var target_unit = board.get("units", {}).get(str(save_data.get("target_unit_id", "")), {})
+	var actor_unit = board.get("units", {}).get(str(save_data.get("shooter_unit_id", "")), {})
+	if target_unit.is_empty():
+		return []
+	var combined = _build_attached_allocation_unit_11e(str(save_data.get("target_unit_id", "")), board)
+	var scratch = combined.unit
+	var out: Array = []
+	for g in Allocation.build_groups(scratch):
+		if not g.character:
+			continue
+		if not actor_unit.is_empty() and not _character_group_visible_to_attackers(g, scratch, actor_unit, board):
+			continue
+		var label = str(g.id)
+		var indices = g.get("model_indices", [])
+		if not indices.is_empty():
+			var m = scratch.get("models", [])[int(indices[0])]
+			label = get_model_display_label(m, scratch)
+		out.append({"id": str(g.id), "label": label})
+	return out
 
 
 # Turn an Allocation `remaining` map into diffs AND update the local board
@@ -2610,7 +2713,9 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 	var applied = _apply_saves_via_allocation_11e(result, scratch_unit, target_unit_id,
 		wounds_to_save, dev_crits, ap, damage_raw, rng, {
 			"order": order,
-			"precision_group": _precision_group_11e(save_data.get("has_precision", false), scratch_unit),
+			"precision_group": _precision_group_11e(save_data.get("has_precision", false), scratch_unit,
+				board.get("units", {}).get(str(save_data.get("shooter_unit_id", "")), {}), board,
+				str(save_data.get("precision_group_choice", ""))),
 			"melta_value": melta_value,
 			"melta_wounds": melta_wounds,
 			"half_damage": get_unit_half_damage(live_unit),
@@ -2728,6 +2833,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var attacks_roll_log = []
 	# MA-10: Track per-model BS for each attack (supports stats_override.ballistic_skill)
 	var bs_per_attack = []
+	var cover_model_per_attack = []  # audit #7: firing model per attack (13.08 per-model cover)
 	var has_bs_override = false
 
 	# DECK FRAGGERS (OA-7): Check if ranged weapons gain BLAST vs INFANTRY targets (auto-resolve)
@@ -2768,8 +2874,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		base_attacks += model_attacks
 		# MA-10: Record this model's BS for each of its attacks
+		# Audit #7: and its identity, for per-attack 13.08 cover.
 		for _j in range(model_attacks):
 			bs_per_attack.append(model_bs)
+			cover_model_per_attack.append(model)
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
 
@@ -3066,12 +3174,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				var ms_m = _get_model_by_id(actor_unit, ms_mid)
 				if not ms_m.is_empty() and ms_m.get("alive", true):
 					ms_firing_models.append(ms_m)
-			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models})
+			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models, "per_attack_cover": true})
 			var ms_bs_delta = ms_stack.net("bs")
 			var ms_hit_net_pre = ms_stack.net("hit_roll")
+			var ms_is_psychic := is_psychic_weapon(weapon_id, board)
 			# ISS-047 (24.29): [PSYCHIC] attacks may ignore any or all BS/hit
 			# modifiers — the engine ignores exactly the harmful ones.
-			if is_psychic_weapon(weapon_id, board):
+			if ms_is_psychic:
 				if ms_bs_delta > 0:
 					print("RulesEngine: [24.29] PSYCHIC — ignoring BS worsening (%+d)" % ms_bs_delta)
 					ms_bs_delta = 0
@@ -3083,6 +3192,27 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				for ms_i in range(bs_per_attack.size()):
 					bs_per_attack[ms_i] += ms_bs_delta
 				print("RulesEngine: [11e MODIFIERS] BS %+d (%s)" % [ms_bs_delta, str(ms_stack.sources("bs"))])
+			# Audit #7 (13.08 per attacking model): each attack takes the
+			# cover worsening based on ITS OWN firing model's view of the
+			# target. Attacks with no recorded firing model (overrides,
+			# bonus attacks) fall back to the first firing model's view.
+			if not ms_is_psychic and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {}):
+				var pa_terrain = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
+				if pa_terrain != null:
+					var pa_strat_cover: bool = target_unit.get("flags", {}).get("stratagem_cover", false)
+					var pa_fallback: Dictionary = ms_firing_models[0] if not ms_firing_models.is_empty() else {}
+					var pa_cover_cache: Dictionary = {}
+					var pa_covered_count := 0
+					for ms_i in range(bs_per_attack.size()):
+						var pa_model: Dictionary = cover_model_per_attack[ms_i] if ms_i < cover_model_per_attack.size() else pa_fallback
+						var pa_key := str(pa_model.get("id", "_"))
+						if not pa_cover_cache.has(pa_key):
+							pa_cover_cache[pa_key] = pa_strat_cover or pa_terrain.unit_has_cover_11e(target_unit, pa_model)
+						if pa_cover_cache[pa_key]:
+							bs_per_attack[ms_i] += 1
+							pa_covered_count += 1
+					if pa_covered_count > 0:
+						print("RulesEngine: [13.08 per-model] benefit of cover — %d/%d attack(s) worsened by 1 BS" % [pa_covered_count, bs_per_attack.size()])
 			var ms_hit_net = ms_hit_net_pre
 			if ms_hit_net > 0:
 				hit_modifiers |= HitModifier.PLUS_ONE
@@ -3239,6 +3369,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if not ar_weapon_has_devastating_wounds and actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_DEVASTATING_WOUNDS, false):
 		ar_weapon_has_devastating_wounds = true
 		print("RulesEngine: Headwoppa's Killchoppa — unit-level effect_devastating_wounds applied (auto-resolve)")
+	# 24.10 (audit #17): attacker may decline the mortal-wound conversion.
+	if GameConstants.edition >= 11 and ar_weapon_has_devastating_wounds \
+			and str(assignment.get("devastating_wounds_choice", "")) == "normal":
+		ar_weapon_has_devastating_wounds = false
+		print("RulesEngine: [24.10] DEVASTATING WOUNDS — attacker declined the mortal-wound conversion (auto-resolve)")
 
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var ar_critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
@@ -3529,7 +3664,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				"melta_wounds": ar_melta_wounds_remaining,
 				"half_damage": ar_has_half_damage,
 				"fnp_value": ar_fnp_value,
-				"precision_group": _precision_group_11e(ar_weapon_has_precision, target_unit),
+				"precision_group": _precision_group_11e(ar_weapon_has_precision, target_unit,
+					board.get("units", {}).get(actor_unit_id, {}), board,
+					str(assignment.get("precision_group_choice", ""))),
 			})
 		casualties += alloc11.casualties
 		damage_applied += alloc11.damage_applied
@@ -6375,6 +6512,28 @@ static func has_lone_operative(unit: Dictionary) -> bool:
 			return true
 	return false
 
+
+## Audit #8 (11e 21.02): "Surge X\"" datasheet ability — the stated maximum
+## distance of the unit's surge move. 0.0 = no rule grants one. Mirrors the
+## Lone Operative X" parser; matched on the ability NAME starting with
+## "surge" to avoid substring hits.
+static func get_surge_move_inches(unit: Dictionary) -> float:
+	for ab in unit.get("meta", {}).get("abilities", []):
+		var nm := ""
+		if ab is String:
+			nm = ab
+		elif ab is Dictionary:
+			nm = str(ab.get("name", ""))
+		if nm.to_lower().begins_with("surge"):
+			var digits := ""
+			for c in nm:
+				if c >= "0" and c <= "9":
+					digits += c
+				elif digits != "":
+					break
+			if digits != "":
+				return float(digits.to_int())
+	return 0.0
 
 ## ISS-069 (11e 24.24): "Lone Operative X\"" gates targeting at X" (visibility
 ## AND [INDIRECT FIRE]); the default form is 12". Parses the first number in
@@ -9370,9 +9529,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	# BALANCE DATASLATE (P2-75): Extra Attacks weapons cannot have their attack count
 	# modified by other rules, unless the rule explicitly names the weapon.
-	var is_extra_attacks_weapon = has_extra_attacks(weapon_id, board)
+	# Audit #14 (11e): the 10e Balance-Dataslate restriction is GONE — at
+	# edition >= 11 [EXTRA ATTACKS] weapons take attack modifiers normally,
+	# so the suppression flag only arms at 10e.
+	var is_extra_attacks_weapon = has_extra_attacks(weapon_id, board) and GameConstants.edition < 11
 	if is_extra_attacks_weapon:
-		print("RulesEngine: Weapon '%s' has Extra Attacks — attack count cannot be modified by generic rules (Balance Dataslate)" % weapon_name)
+		print("RulesEngine: Weapon '%s' has Extra Attacks — attack count cannot be modified by generic rules (Balance Dataslate, 10e)" % weapon_name)
 
 	# WAAAGH! CHECK: Detect if Waaagh! is active for the attacker
 	var waaagh_active = FactionAbilityManager.is_waaagh_active_for_unit(attacker_unit)
@@ -9568,6 +9730,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if not weapon_has_devastating_wounds and has_beastly_rage_active(attacker_unit):
 		weapon_has_devastating_wounds = true
 		print("RulesEngine:   DEVASTATING WOUNDS granted by Beastly Rage (charged this turn)")
+	# 24.10 (audit #17): attacker may decline the mortal-wound conversion.
+	if GameConstants.edition >= 11 and weapon_has_devastating_wounds \
+			and str(assignment.get("devastating_wounds_choice", "")) == "normal":
+		weapon_has_devastating_wounds = false
+		print("RulesEngine: [24.10] DEVASTATING WOUNDS — attacker declined the mortal-wound conversion (melee)")
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
 	# PRECISION: Check both weapon keyword and stratagem flag on attacker
 	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)
@@ -10034,7 +10201,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			ap, m_damage_raw, rng, {
 				"half_damage": get_unit_half_damage(target_unit),
 				"fnp_value": get_unit_fnp_for_attack(target_unit, is_psychic_weapon(weapon_id, board)),
-				"precision_group": _precision_group_11e(weapon_has_precision, target_unit),
+				"precision_group": _precision_group_11e(weapon_has_precision, target_unit,
+					board.get("units", {}).get(actor_unit_id, {}), board,
+					str(assignment.get("precision_group_choice", ""))),
 			})
 		var m_log := []
 		m_log.append("Melee: %s (%s) → %s" % [attacker_name, weapon_name, target_name])

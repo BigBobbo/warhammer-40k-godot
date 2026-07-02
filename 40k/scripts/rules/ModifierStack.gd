@@ -81,6 +81,13 @@ static func _rules() -> Node:
 ##                             attack tracking refines this with ISS-048)
 ##   ignores_cover: bool     — override; otherwise derived from the weapon's
 ##                             abilities + the attacker's effect flag
+## 13.08/[IGNORES COVER]: whether this attack disregards the benefit of cover.
+static func attack_ignores_cover(attacker_unit: Dictionary, weapon_profile: Dictionary, opts: Dictionary = {}) -> bool:
+	var abilities: Array = AbilityRegistry.from_weapon(weapon_profile)
+	return bool(opts.get("ignores_cover", false)) \
+		or AbilityRegistry.has_ability(abilities, "ignores_cover") \
+		or attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_IGNORES_COVER, false)
+
 static func collect_hit_context_11e(attacker_unit: Dictionary, target_unit: Dictionary, weapon_profile: Dictionary, board: Dictionary, opts: Dictionary = {}) -> ModifierStack:
 	var stack := ModifierStack.new()
 	if GameConstants.edition < 11:
@@ -89,10 +96,11 @@ static func collect_hit_context_11e(attacker_unit: Dictionary, target_unit: Dict
 	var abilities: Array = AbilityRegistry.from_weapon(weapon_profile)
 
 	# Benefit of cover (13.08; STEALTH 24.33 grants it): worsen BS by 1.
-	var ignores_cover: bool = bool(opts.get("ignores_cover", false)) \
-		or AbilityRegistry.has_ability(abilities, "ignores_cover") \
-		or attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_IGNORES_COVER, false)
-	if not ignores_cover:
+	# Audit #7: callers that split cover PER ATTACKING MODEL (13.08's
+	# "not fully visible to the attacking model" is per-attack) pass
+	# per_attack_cover=true and apply the worsening per attack themselves.
+	var ignores_cover: bool = attack_ignores_cover(attacker_unit, weapon_profile, opts)
+	if not ignores_cover and not bool(opts.get("per_attack_cover", false)):
 		var has_cover := false
 		if terrain != null and terrain.has_method("unit_has_cover_11e"):
 			# ISS-052/053: pass the first firing model so the
