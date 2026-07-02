@@ -263,6 +263,40 @@ func _run_tests():
 	_check("halve applies AFTER melta: 20W target drops to exactly 16 (6+2 -> 4), not 15",
 		t_cw == 16, "current_wounds=%d" % t_cw)
 
+	print("\n-- E5: [EXTRA ATTACKS] modifiable at e11 (audit #14) --")
+	# Waaagh! grants +1 melee attack. 10e Balance Dataslate suppressed it on
+	# EXTRA ATTACKS weapons; 11e removes the restriction. Count hit rolls.
+	var ea_maker = func() -> Dictionary:
+		return {"units": {
+			"U_EA": {"id": "U_EA", "owner": 1, "flags": {"waaagh_active": true},
+				"meta": {"name": "EA", "keywords": ["INFANTRY", "ORKS"],
+					"stats": {"toughness": 4, "save": 3, "wounds": 2},
+					"weapons": [{"name": "Tusks", "type": "Melee", "range": "Melee", "attacks": "2",
+						"weapon_skill": "3", "strength": "4", "ap": "0", "damage": "1",
+						"special_rules": "extra attacks"}]},
+				"models": [{"id": "e0", "alive": true, "wounds": 2, "current_wounds": 2,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 100, "y": 100}}]},
+			"U_D": {"id": "U_D", "owner": 2, "flags": {},
+				"meta": {"name": "D", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 7, "wounds": 4}},
+				"models": [{"id": "d0", "alive": true, "wounds": 4, "current_wounds": 4,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 130, "y": 100}}]}},
+			"meta": {}}
+	var ea_action = {"type": "FIGHT", "actor_unit_id": "U_EA",
+		"payload": {"assignments": [{"attacker": "U_EA", "weapon": "Tusks", "target": "U_D", "models": ["0"]}]}}
+	var ea_hit_count = func(res: Dictionary) -> int:
+		for d in res.get("dice", []):
+			if str(d.get("context", "")) == "hit_roll_melee":
+				return d.get("rolls_raw", d.get("rolls", [])).size()
+		return -1
+	GameConstants.edition = 10
+	var ea_res10 = rules.resolve_melee_attacks(ea_action, ea_maker.call(), rules.RNGService.new(7))
+	var ea_n10 = ea_hit_count.call(ea_res10)
+	GameConstants.edition = 11
+	var ea_res11 = rules.resolve_melee_attacks(ea_action, ea_maker.call(), rules.RNGService.new(7))
+	var ea_n11 = ea_hit_count.call(ea_res11)
+	_check("10e: Waaagh +1A suppressed on EXTRA ATTACKS (2 hit rolls)", ea_n10 == 2, "got %d" % ea_n10)
+	_check("11e: EXTRA ATTACKS takes the modifier (3 hit rolls)", ea_n11 == 3, "got %d" % ea_n11)
+
 	print("\n-- F: PSYCHIC ignores harmful hit-side modifiers (24.29) --")
 	var psy_board = {"units": {
 		"U_P": {"id": "U_P", "owner": 1, "flags": {},

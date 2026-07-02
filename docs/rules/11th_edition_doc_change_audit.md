@@ -182,7 +182,7 @@ Go-to-Ground stratagem removed ✅ (only the Hidden sub-rule name remains — th
 
 **Core abilities:** Blast X ✅, Lethal Hits optional ✅, Devastating Wounds batch+cap ✅ (ranged+melee),
 Infiltrators/Deep Strike 8" ✅, Hazardous → hazard roll ✅, Lone Operative X" ✅, Melta X (post-order) 🟡,
-Deadly Demise after disembark ✅, Extra Attacks modifiable 🟡, Stealth→Cover ✅, Super-Heavy Walker ✅ (`iss073`),
+Deadly Demise after disembark ✅, Extra Attacks modifiable ✅ (10e Balance-Dataslate suppression edition-gated off at e11; pinned in `test_iss047` E5), Stealth→Cover ✅, Super-Heavy Walker ✅ (`iss073`),
 Fight First (reworked value) ✅, **Precision** (allocation-order) ✅ (visibility-gated + attacker PrecisionPicker in the allocation overlay, `iss047b`),
 **Heavy ≤3"** ✅ (validated flag), **Cleave X** ✅ (A8 fix), **Hover** 🟡, **Psychic ignores hit mods** ✅ (ranged+melee A10),
 Scouts 8" + reserves→DZ ✅ (`iss067`), **Surge Moves** 🟡 (engine + trigger + UI done: template-gated `BEGIN_SURGE_MOVE`, `Surge X"` ability parser, movement-list offering — `iss040b`; no shipped datasheet carries the ability yet),
@@ -243,7 +243,7 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
     sites and pinned live (`test_iss047_weapon_abilities_11e` E4). Deferred: consolidating into one shared pipeline and
     set-×/set-0 semantics, which no shipped modifier uses yet. *(Tab 1.)*
 13. **[code] Precision** — *(Done 2026-07-02:)* promotion is gated on the character being visible to an attacking model (13.09/13.10/13.11 + LoS), and the attacker chooses the promoted group (or declines) via the AllocationGroupOverlay PrecisionPicker; chosen group rides the save batch (`iss047b_precision_choice_11e`; headless E2 section). *(Tab 8.)*
-14. **[code] Melee/Extra-Attacks/Melta polish** — Extra Attacks modifiable value, Melta post-order, per audit. *(Tab 8.)*
+14. **[code] Melee/Extra-Attacks/Melta polish** — *(Extra Attacks done 2026-07-02:)* the 10e Balance-Dataslate "cannot modify A" suppression is edition-gated off at e11 (Waaagh/Da Biggest bonuses now apply; pinned 10e-vs-11e in `test_iss047` E5). Melta "post-order" remains — its precise semantics live in the review-doc deep-dive, which is not in the repo (needs source). *(Tab 8.)*
 
 ### Tier 4 — structural/cosmetic
 15. **[code] Fight-phase step structure** — make Pile-In and Consolidation single global both-player steps (active-first)

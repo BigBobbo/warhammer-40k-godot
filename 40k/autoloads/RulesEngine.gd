@@ -9479,9 +9479,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	# BALANCE DATASLATE (P2-75): Extra Attacks weapons cannot have their attack count
 	# modified by other rules, unless the rule explicitly names the weapon.
-	var is_extra_attacks_weapon = has_extra_attacks(weapon_id, board)
+	# Audit #14 (11e): the 10e Balance-Dataslate restriction is GONE — at
+	# edition >= 11 [EXTRA ATTACKS] weapons take attack modifiers normally,
+	# so the suppression flag only arms at 10e.
+	var is_extra_attacks_weapon = has_extra_attacks(weapon_id, board) and GameConstants.edition < 11
 	if is_extra_attacks_weapon:
-		print("RulesEngine: Weapon '%s' has Extra Attacks — attack count cannot be modified by generic rules (Balance Dataslate)" % weapon_name)
+		print("RulesEngine: Weapon '%s' has Extra Attacks — attack count cannot be modified by generic rules (Balance Dataslate, 10e)" % weapon_name)
 
 	# WAAAGH! CHECK: Detect if Waaagh! is active for the attacker
 	var waaagh_active = FactionAbilityManager.is_waaagh_active_for_unit(attacker_unit)
