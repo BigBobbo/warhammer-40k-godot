@@ -3065,11 +3065,18 @@
             "description": "While this model is gaining the benefits of the Waaagh! ability, it has a 4+ invulnerable save and an Objective Control characteristic of 5."
           },
           {
-            "name": "Leader",
+            "name": "Support",
             "type": "Core",
-            "description": "Nob with Waaagh! Banner can be attached to a Boyz, Breaka Boyz, or Nobz unit."
+            "description": "11e (24.34): Nob with Waaagh! Banner attaches as a support unit. It can be attached to a Boyz, Breaka Boyz, or Nobz unit, alongside that unit's Leader."
           }
         ],
+        "leader_data": {
+          "can_lead": [
+            "BOYZ",
+            "BREAKA BOYZ",
+            "NOBZ"
+          ]
+        },
         "unit_composition": [
           {
             "description": "1 Nob with Waaagh! Banner",

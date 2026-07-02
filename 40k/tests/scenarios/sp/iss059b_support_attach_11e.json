@@ -1,0 +1,76 @@
+{
+  "id": "iss059b_support_attach_11e",
+  "covers": [
+    "phases.FormationsPhase.declare_leader_attachment.11e_role_slots",
+    "autoloads.CharacterAttachmentManager.attachment_role",
+    "armies.orks.bannernob_support_ability"
+  ],
+  "fixture": "iss059b_support_formations",
+  "edition": 11,
+  "disable_ai": true,
+  "transition_to_phase": 0,
+  "description": "11e Leader+Support dual attach (24.22/24.34, audit Tier-1 #3): the Nob with Waaagh! Banner datasheet now carries the Support ability + leader_data, so in the FormationsPhase a Warboss (leader) AND the Bannernob (support) can both be declared onto the same Boyz unit, while a second Warboss (second leader) is rejected. Fixture was saved from a real New Game (Custodes vs Orks) so unit data comes from the shipped orks.json.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 0 },
+    { "act": "screenshot", "label": "01_formations_start" },
+
+    { "act": "execute_script",
+      "script": "CharacterAttachmentManager.attachment_role(GameState.get_unit(\"U_NOB_WAAAGH_BANNER_A\"))",
+      "equals": "support" },
+    { "act": "execute_script",
+      "script": "CharacterAttachmentManager.attachment_role(GameState.get_unit(\"U_WARBOSS_B\"))",
+      "equals": "leader" },
+    { "act": "execute_script",
+      "script": "GameState.get_eligible_bodyguards_for_character(\"U_NOB_WAAAGH_BANNER_A\").has(\"U_BOYZ_E\")",
+      "equals": true },
+
+    { "act": "dispatch_action", "action": { "type": "DESIGNATE_WARLORD", "player": 1, "unit_id": "U_SHIELD_CAPTAIN_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_FORMATIONS", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_LEADER_ATTACHMENT",
+      "character_id": "U_WARBOSS_B",
+      "bodyguard_id": "U_BOYZ_E"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "02_warboss_leader_declared" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_LEADER_ATTACHMENT",
+      "character_id": "U_NOB_WAAAGH_BANNER_A",
+      "bodyguard_id": "U_BOYZ_E"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "03_bannernob_support_declared_same_unit" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_LEADER_ATTACHMENT",
+      "character_id": "U_WARBOSS_C",
+      "bodyguard_id": "U_BOYZ_E"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "screenshot", "label": "04_second_leader_rejected" },
+
+    { "act": "dispatch_action", "action": { "type": "DESIGNATE_WARLORD", "player": 2, "unit_id": "U_GHAZGHKULL_THRAKA_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_FORMATIONS", "player": 2 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.attached_to", "equals": "U_BOYZ_E" },
+    { "act": "expect_state", "path": "units.U_NOB_WAAAGH_BANNER_A.attached_to", "equals": "U_BOYZ_E" },
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_E\")[\"attachment_data\"][\"attached_characters\"].has(\"U_NOB_WAAAGH_BANNER_A\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_E\")[\"attachment_data\"][\"attached_characters\"].has(\"U_WARBOSS_B\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_E\")[\"attachment_data\"][\"attached_characters\"].size()",
+      "equals": 2 },
+    { "act": "screenshot", "label": "05_both_players_confirmed_dual_attach_applied" }
+  ]
+}

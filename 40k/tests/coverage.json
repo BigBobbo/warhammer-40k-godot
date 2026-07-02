@@ -1699,6 +1699,150 @@
       "fidelity": "HANDLER",
       "last_verified_commit": "28088acc",
       "status": "covered"
+    },
+    {
+      "id": "phases.FormationsPhase.declare_leader_attachment.11e_role_slots",
+      "description": "11e (19.01/24.22/24.34): DECLARE_LEADER_ATTACHMENT allows one LEADER and one SUPPORT unit per bodyguard; a second character of the same role is rejected. Validated by iss059b (audit Tier-1 #3).",
+      "scenarios": [
+        "iss059b_support_attach_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.CharacterAttachmentManager.attachment_role",
+      "description": "attachment_role derives 'support' from the datasheet Support ability (ISS-059), 'leader' otherwise — driven live via the shipped orks.json Bannernob.",
+      "scenarios": [
+        "iss059b_support_attach_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "armies.orks.bannernob_support_ability",
+      "description": "Shipped orks.json Nob with Waaagh! Banner carries the Support ability + leader_data (BOYZ/BREAKA BOYZ/NOBZ), making the 11e Leader+Support dual-slot player-usable.",
+      "scenarios": [
+        "iss059b_support_attach_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.reserve_scout_gated_off_at_e10",
+      "description": "At edition 10 the 24.31 reserve-scout option is inert: a player with only a reserve scout gets the Scout phase skipped to Command.",
+      "scenarios": [
+        "iss067_scout_only_reserve_e10_gated"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.no_skip_when_only_reserve_scouts",
+      "description": "A player whose only scout is in Strategic Reserves still gets a Scout step at e11 (phase not skipped straight to Command).",
+      "scenarios": [
+        "iss067_scout_only_reserve_no_skip"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.reserve_scout_status_prompt",
+      "description": "ISS-067 discoverability: Scout-phase status text explicitly mentions the reserve scout set-up option without manual refresh.",
+      "scenarios": [
+        "iss067_scout_reserve_discoverability"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.reserve_scout_listed_on_entry",
+      "description": "ISS-067 discoverability: the reserve scout is listed as settable immediately on Scout-phase entry.",
+      "scenarios": [
+        "iss067_scout_reserve_discoverability"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.reserve_scout_skippable",
+      "description": "ISS-067 follow-up: SKIP_SCOUT_MOVE validates against reserve scouts too, so a player with only reserve scouts can decline the set-up without locking the phase.",
+      "scenarios": [
+        "iss067_scout_reserve_skippable_handoff"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.reserve_scout_handoff",
+      "description": "ISS-067 follow-up: after a player resolves/declines their reserve scout, the Scout phase hands off to the other player / next phase consistently.",
+      "scenarios": [
+        "iss067_scout_reserve_skippable_handoff"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.11e_scout_reserves_deploy",
+      "description": "ISS-067 (11e 24.31): a Scout unit in Strategic Reserves can be set up wholly within its own deployment zone during the Scout phase.",
+      "scenarios": [
+        "iss067_scout_reserves_deploy_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.UI.reserve_scout_list_select_place_confirm",
+      "description": "ISS-067 UI: reserve scout appears in the Scout-phase unit list; select → place → confirm flow works through the real panel.",
+      "scenarios": [
+        "iss067_scout_reserves_deploy_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.TerrainManager.detection_range_inches_for",
+      "description": "Audit Tier-1 #4: per-observer effective detection range for hidden models — datasheet base, Gone to Ground −3\", 9\" floor — consumed by hidden_model_visible_to in the live targeting path.",
+      "scenarios": [
+        "iss052b_gone_to_ground_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.TerrainManager.gone_to_ground_11e",
+      "description": "Gone to Ground (review doc Tab 6): a hidden model obscured behind an intervening dense/Solid feature detects at 12\" instead of 15\"; flips RulesEngine._check_target_visibility live.",
+      "scenarios": [
+        "iss052b_gone_to_ground_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.hidden.datasheet_detection_range_modifier",
+      "description": "'Detection Range X\"' datasheet ability overrides the 15\" base (Lone Operative-style parser), clamped to the 9\" floor even under Gone to Ground.",
+      "scenarios": [
+        "iss052b_gone_to_ground_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.combat_disembark_engaged_18_04",
+      "description": "18.04 Combat Disembark: CONFIRM_DISEMBARK accepts models set up engaged with enemy units the TRANSPORT is engaged with, and rejects engagement with any other enemy (audit Tier-3 #10 / delta-audit 18.04 caveat).",
+      "scenarios": [
+        "iss058b_combat_disembark_engaged_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.DisembarkController.combat_mode_placement",
+      "description": "DisembarkController resolves the 11e disembark mode like the phase validator: 6\" set-up ring and engaged-with-transport's-foes placement in combat mode; DisembarkDialog exposes the Combat Disembark toggle (payload.can_setup_tactical=false).",
+      "scenarios": [
+        "iss058b_combat_disembark_engaged_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

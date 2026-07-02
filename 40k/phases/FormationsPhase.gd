@@ -173,7 +173,7 @@ func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": errors}
 
 	# Must belong to declaring player
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 	if character.get("owner", 0) != player:
 		errors.append("Character does not belong to declaring player")
 	if bodyguard.get("owner", 0) != player:
@@ -223,7 +223,18 @@ func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 		if attachments[char_id] == bodyguard_id:
 			existing_leaders_on_bg.append(char_id)
 
-	if existing_leaders_on_bg.size() > 0:
+	if existing_leaders_on_bg.size() > 0 and GameConstants.edition >= 11:
+		# 11e (19.01/24.22/24.34): one LEADER unit AND one SUPPORT unit per
+		# bodyguard — slots are per-role, mirroring CharacterAttachmentManager.can_attach.
+		var new_role = CharacterAttachmentManager.attachment_role(character)
+		for existing_id in existing_leaders_on_bg:
+			var existing_role = CharacterAttachmentManager.attachment_role(get_unit(existing_id))
+			if existing_role == new_role:
+				errors.append("Bodyguard already has a %s unit attached: %s" % [new_role, existing_id])
+				break
+		if errors.is_empty():
+			DebugLogger.info(str("FormationsPhase: 11e %s attachment approved - %s joins %s on %s" % [new_role, character_id, str(existing_leaders_on_bg), bodyguard_id]))
+	elif existing_leaders_on_bg.size() > 0:
 		# Check if dual-leader is allowed (BODYGUARD ability + 20 models)
 		var bg_abilities = bodyguard.get("meta", {}).get("abilities", [])
 		var has_bodyguard_ability = false
@@ -276,7 +287,7 @@ func _validate_declare_transport_embarkation(action: Dictionary) -> Dictionary:
 		errors.append("Transport not found: " + transport_id)
 		return {"valid": false, "errors": errors}
 
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 	if transport.get("owner", 0) != player:
 		errors.append("Transport does not belong to declaring player")
 		return {"valid": false, "errors": errors}
@@ -349,7 +360,7 @@ func _validate_declare_reserves(action: Dictionary) -> Dictionary:
 		errors.append("Unit not found: " + unit_id)
 		return {"valid": false, "errors": errors}
 
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 	if unit.get("owner", 0) != player:
 		errors.append("Unit does not belong to declaring player")
 		return {"valid": false, "errors": errors}
@@ -396,7 +407,7 @@ func _validate_undeclare_leader_attachment(action: Dictionary) -> Dictionary:
 	if character_id == "":
 		return {"valid": false, "errors": ["Missing character_id"]}
 
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 	var formations = player_formations.get(player, {})
 	var attachments = formations.get("leader_attachments", {})
 
@@ -414,7 +425,7 @@ func _validate_undeclare_transport_embarkation(action: Dictionary) -> Dictionary
 	if transport_id == "":
 		return {"valid": false, "errors": ["Missing transport_id"]}
 
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 	var formations = player_formations.get(player, {})
 	var embarkations = formations.get("transport_embarkations", {})
 
@@ -431,7 +442,7 @@ func _validate_undeclare_reserves(action: Dictionary) -> Dictionary:
 	if unit_id == "":
 		return {"valid": false, "errors": ["Missing unit_id"]}
 
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 	if not _is_unit_declared_in_reserves(unit_id, player):
 		return {"valid": false, "errors": ["Unit not declared in reserves"]}
 
@@ -452,7 +463,7 @@ func _validate_designate_warlord(action: Dictionary) -> Dictionary:
 		errors.append("Unit not found: " + unit_id)
 		return {"valid": false, "errors": errors}
 
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 	if unit.get("owner", 0) != player:
 		errors.append("Unit does not belong to declaring player")
 		return {"valid": false, "errors": errors}
@@ -469,7 +480,7 @@ func _validate_designate_warlord(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _validate_confirm_formations(action: Dictionary) -> Dictionary:
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 
 	if _is_player_confirmed(player):
 		return {"valid": false, "errors": ["Player already confirmed formations"]}
@@ -499,7 +510,7 @@ func _validate_end_formations(action: Dictionary) -> Dictionary:
 func _process_declare_leader_attachment(action: Dictionary) -> Dictionary:
 	var character_id = action.get("character_id", "")
 	var bodyguard_id = action.get("bodyguard_id", "")
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 
 	player_formations[player]["leader_attachments"][character_id] = bodyguard_id
 
@@ -513,7 +524,7 @@ func _process_declare_leader_attachment(action: Dictionary) -> Dictionary:
 func _process_declare_transport_embarkation(action: Dictionary) -> Dictionary:
 	var transport_id = action.get("transport_id", "")
 	var unit_ids = action.get("unit_ids", [])
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 
 	if not player_formations[player]["transport_embarkations"].has(transport_id):
 		player_formations[player]["transport_embarkations"][transport_id] = []
@@ -531,7 +542,7 @@ func _process_declare_reserves(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var reserve_type = action.get("reserve_type", "strategic_reserves")
 	var attached_char_ids = action.get("attached_character_ids", [])
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 
 	player_formations[player]["reserves"].append({
 		"unit_id": unit_id,
@@ -553,7 +564,7 @@ func _process_declare_reserves(action: Dictionary) -> Dictionary:
 
 func _process_undeclare_leader_attachment(action: Dictionary) -> Dictionary:
 	var character_id = action.get("character_id", "")
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 
 	player_formations[player]["leader_attachments"].erase(character_id)
 	log_phase_message("Player %d undeclared leader attachment for %s" % [player, character_id])
@@ -562,7 +573,7 @@ func _process_undeclare_leader_attachment(action: Dictionary) -> Dictionary:
 
 func _process_undeclare_transport_embarkation(action: Dictionary) -> Dictionary:
 	var transport_id = action.get("transport_id", "")
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 
 	player_formations[player]["transport_embarkations"].erase(transport_id)
 	log_phase_message("Player %d undeclared transport embarkation for %s" % [player, transport_id])
@@ -571,7 +582,7 @@ func _process_undeclare_transport_embarkation(action: Dictionary) -> Dictionary:
 
 func _process_undeclare_reserves(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 
 	var reserves = player_formations[player]["reserves"]
 	for i in range(reserves.size()):
@@ -585,7 +596,7 @@ func _process_undeclare_reserves(action: Dictionary) -> Dictionary:
 
 func _process_designate_warlord(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 
 	# ISS-001: return diffs instead of writing GameState directly so the
 	# change is visible to replay/undo/network. execute_action applies the
@@ -616,7 +627,7 @@ func _process_designate_warlord(action: Dictionary) -> Dictionary:
 	return create_result(true, changes)
 
 func _process_confirm_formations(action: Dictionary) -> Dictionary:
-	var player = action.get("player", get_current_player())
+	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
 	players_confirmed[player] = true
 
 	log_phase_message("Player %d confirmed their battle formations" % player)

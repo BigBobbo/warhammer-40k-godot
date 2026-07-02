@@ -17,6 +17,9 @@ signal ui_update_requested()  # Signal to request UI refresh
 # Movement state
 var current_phase = null  # Can be MovementPhase or null
 var active_unit_id: String = ""
+# 11e 18.04: unit_id -> bool, set when the DisembarkDialog's Combat
+# Disembark toggle was checked; consumed when CONFIRM_DISEMBARK is built.
+var _pending_combat_disembark: Dictionary = {}
 var active_mode: String = ""  # NORMAL, ADVANCE, FALL_BACK
 var move_cap_inches: float = 0.0
 var selected_model: Dictionary = {}
@@ -2394,12 +2397,17 @@ func _handle_embarked_unit_selected(unit_id: String) -> void:
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
 
-func _on_disembark_confirmed(unit_id: String) -> void:
+func _on_disembark_confirmed(combat_mode: bool, unit_id: String) -> void:
 	"""Handle disembark confirmation - start placement controller"""
-	print("MovementController: Starting disembark placement for unit %s" % unit_id)
+	print("MovementController: Starting disembark placement for unit %s (combat_mode=%s)" % [unit_id, str(combat_mode)])
 
 	# Create disembark controller for model placement
 	var controller = preload("res://scripts/DisembarkController.gd").new()
+	# 11e 18.04: the dialog's Combat Disembark toggle switches the
+	# placement rules (6" set-up, engaged-with-transport's-foes allowed)
+	# and is echoed to the phase via payload.can_setup_tactical=false.
+	controller.combat_requested = combat_mode
+	_pending_combat_disembark[unit_id] = combat_mode
 	controller.disembark_completed.connect(_on_disembark_completed)
 	controller.disembark_canceled.connect(_on_disembark_canceled)
 
@@ -2427,9 +2435,11 @@ func _on_disembark_completed(unit_id: String, positions: Array) -> void:
 		"type": "CONFIRM_DISEMBARK",
 		"actor_unit_id": unit_id,
 		"payload": {
-			"positions": serialized_positions
+			"positions": serialized_positions,
+			"can_setup_tactical": not _pending_combat_disembark.get(unit_id, false)
 		}
 	}
+	_pending_combat_disembark.erase(unit_id)
 	print("MovementController: Routing CONFIRM_DISEMBARK through action system")
 	emit_signal("move_action_requested", action)
 

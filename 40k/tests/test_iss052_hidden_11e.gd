@@ -63,6 +63,41 @@ func _run_tests():
 	_check("non-hidden model visible regardless of range",
 		tm.hidden_model_visible_to(in_open, infantry, far_observer))
 
+	print("\n-- Gone to Ground (-3\" behind dense) + datasheet modifiers (audit Tier-1 #4) --")
+	# near_observer sits 14" center / ~12.7" edge from the hidden model:
+	# inside the default 15" detection but OUTSIDE the 12" Gone-to-Ground band.
+	_check("base detection range is 15\"",
+		tm.detection_range_base_inches(infantry) == 15.0)
+	_check("no intervening dense: full 15\" detection",
+		tm.detection_range_inches_for(in_ruin, infantry, near_observer) == 15.0)
+	var strip := {"id": "gtg_strip", "type": "ruins", "polygon": _rect(650, 400, 20, 60), "height_category": "tall"}
+	tm.terrain_features.append(strip)
+	_check("intervening dense strip -> obscured (Gone to Ground applies)",
+		tm._obscured_by_dense_11e(near_observer, in_ruin))
+	_check("Gone to Ground: detection drops to 12\"",
+		tm.detection_range_inches_for(in_ruin, infantry, near_observer) == 12.0)
+	_check("hidden model at ~12.7\" NOT visible behind dense (12\" detection)",
+		not tm.hidden_model_visible_to(in_ruin, infantry, near_observer))
+	var close_observer = {"id": "o3", "alive": true, "base_mm": 32, "base_type": "circular", "position": {"x": 400 + 13 * 40, "y": 400}}
+	_check("hidden model at ~11.7\" still visible behind dense",
+		tm.hidden_model_visible_to(in_ruin, infantry, close_observer))
+	tm.terrain_features.pop_back()
+
+	var stealthy = {"meta": {"keywords": ["INFANTRY"], "abilities": ["Detection Range 9\""]}, "flags": {}}
+	_check("datasheet 'Detection Range 9\"' overrides the 15\" base",
+		tm.detection_range_base_inches(stealthy) == 9.0)
+	_check("stealthy hidden model at ~12.7\" NOT visible (9\" detection)",
+		not tm.hidden_model_visible_to(in_ruin, stealthy, near_observer))
+	var point_blank = {"id": "o4", "alive": true, "base_mm": 32, "base_type": "circular", "position": {"x": 400 + 10 * 40, "y": 400}}
+	_check("stealthy hidden model at ~8.7\" visible (9\" detection)",
+		tm.hidden_model_visible_to(in_ruin, stealthy, point_blank))
+	tm.terrain_features.append(strip)
+	_check("floor: 9\" datasheet range minus Gone to Ground clamps at 9\", not 6\"",
+		tm.detection_range_inches_for(in_ruin, stealthy, point_blank) == 9.0)
+	_check("stealthy hidden model at ~8.7\" still visible behind dense (9\" floor)",
+		tm.hidden_model_visible_to(in_ruin, stealthy, point_blank))
+	tm.terrain_features.pop_back()
+
 	print("\n-- edition gate --")
 	GameConstants.edition = 10
 	_check("no Hidden rule at edition 10", not tm.is_model_hidden(in_ruin, infantry))

@@ -3,7 +3,7 @@ extends ConfirmationDialog
 # DisembarkDialog - Confirmation dialog for disembarking units from transports
 # Shows movement restrictions if transport has already moved
 
-signal disembark_confirmed()
+signal disembark_confirmed(combat_mode: bool)
 signal disembark_canceled()
 
 var unit_id: String
@@ -13,6 +13,9 @@ var transport_name: String = ""
 var transport_moved: bool = false
 var transport_advanced: bool = false
 var transport_fell_back: bool = false
+# 11e 18.04: Combat Disembark toggle — 6" set-up, hazard roll per model,
+# battle-shocked, no charge; may set up engaged with the transport's foes.
+var combat_checkbox: CheckBox = null
 
 func _ready() -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
@@ -105,8 +108,23 @@ func _build_dialog_text() -> void:
 
 	dialog_text = text
 
+	# 11e 18.04: offer Combat Disembark when tactical set-up may be
+	# impossible — transport stationary (rapid is forced after a normal/
+	# ingress move, and an advanced/fallen-back transport blocks
+	# disembarking entirely).
+	if GameConstants.edition >= 11 and not transport_advanced and not transport_fell_back and not transport_moved:
+		combat_checkbox = CheckBox.new()
+		combat_checkbox.text = "Combat Disembark (18.04): 6\" set-up, may be set up engaged with\nthe transport's foes — hazard roll per model, battle-shocked, no charge"
+		combat_checkbox.tooltip_text = "Select when you cannot (or choose not to) set up outside Engagement Range within 3\". The unit is set up within 6\" instead and may be placed engaged with enemy units the transport is engaged with."
+		var label = get_label()
+		if label != null and label.get_parent() != null:
+			label.get_parent().add_child(combat_checkbox)
+		else:
+			add_child(combat_checkbox)
+
 func _on_ok_pressed() -> void:
-	emit_signal("disembark_confirmed")
+	var combat_mode: bool = combat_checkbox != null and combat_checkbox.button_pressed
+	emit_signal("disembark_confirmed", combat_mode)
 	hide()
 	queue_free()
 
