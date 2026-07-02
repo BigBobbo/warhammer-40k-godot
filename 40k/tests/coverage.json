@@ -1861,6 +1861,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "ui.AllocationGroupOverlay.precision_picker",
+      "description": "24.28 [PRECISION] (audit #13): the AllocationGroupOverlay offers the attacker a PrecisionPicker (visibility-gated eligible CHARACTER groups + decline); the pick rides save_data.precision_group_choice into resolve_allocation_batch_11e.",
+      "scenarios": [
+        "iss047b_precision_choice_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.precision_visibility_gate_24_28",
+      "description": "A CHARACTER group is only promotable when a character model is VISIBLE to an attacking model (13.09/13.10/13.11 + LoS gates); hidden characters are never auto-promoted (validated live against fixture ruins and headless with a masking wall).",
+      "scenarios": [
+        "iss047b_precision_choice_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

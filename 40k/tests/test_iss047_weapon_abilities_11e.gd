@@ -126,6 +126,62 @@ func _run_tests():
 		and (prec_board.units["U_T"].models[0].alive == false) != (prec_board.units["U_T"].models[1].alive == false),
 		str(prec_board.units["U_T"].models))
 
+	print("\n-- E2: PRECISION visibility gate + attacker choice (24.28, audit #13) --")
+	# The character must be VISIBLE to an attacking model. A tall wall hides
+	# ONLY the character (bodyguard b0 stays clear, so the unit is still a
+	# legal target) — the promotion must NOT happen and the char survives.
+	var tm = root.get_node_or_null("TerrainManager")
+	var prev_tf = tm.terrain_features.duplicate(true)
+	var prec_wall = {"id": "prec_wall", "type": "ruins", "height_category": "tall",
+		"polygon": PackedVector2Array([Vector2(270, 120), Vector2(290, 120), Vector2(290, 220), Vector2(270, 220)])}
+	tm.terrain_features = [prec_wall]
+	var prec_board2 = {"units": {
+		"U_S": {"id": "U_S", "owner": 1, "flags": {},
+			"meta": {"name": "S", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 3, "wounds": 2},
+				"weapons": prec_board.units["U_S"].meta.weapons},
+			"models": [{"id": "s0", "alive": true, "wounds": 2, "current_wounds": 2,
+				"base_mm": 32, "base_type": "circular", "position": {"x": 100, "y": 100}}]},
+		"U_T": {"id": "U_T", "owner": 2, "flags": {},
+			"meta": {"name": "T", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 7, "wounds": 1}},
+			"models": [
+				{"id": "b0", "alive": true, "wounds": 1, "current_wounds": 1, "base_mm": 32,
+					"base_type": "circular", "position": {"x": 300, "y": 100}},
+				{"id": "b1", "alive": true, "wounds": 1, "current_wounds": 1, "base_mm": 32,
+					"base_type": "circular", "position": {"x": 300, "y": 135}},
+				{"id": "c0", "alive": true, "wounds": 3, "current_wounds": 3, "is_character": true,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 300, "y": 170}}]}},
+		"meta": {}, "terrain_features": [prec_wall]}
+	_check("wall hides the character from the shooter (setup sanity)",
+		not tm.model_visible_11e(prec_board2.units["U_S"].models[0], prec_board2.units["U_T"].models[2]))
+	_check("visibility gate: hidden character -> no promotion",
+		rules._precision_group_11e(true, prec_board2.units["U_T"],
+			prec_board2.units["U_S"], prec_board2, "") == "")
+	var pres2 = rules.resolve_shoot(paction, prec_board2, rules.RNGService.new(pseed))
+	_check("hidden character SURVIVES a PRECISION volley (wounds fall on bodyguards)",
+		prec_board2.units["U_T"].models[2].alive == true
+		and prec_board2.units["U_T"].models[0].alive == false
+		and prec_board2.units["U_T"].models[1].alive == false,
+		str(prec_board2.units["U_T"].models))
+	tm.terrain_features = prev_tf
+
+	# Attacker CHOICE: two visible character groups — chosen_gid wins.
+	var choice_unit = {"id": "U_C2", "owner": 2, "flags": {},
+		"meta": {"name": "C2", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 7, "wounds": 1}},
+		"models": [
+			{"id": "b0", "alive": true, "wounds": 1, "current_wounds": 1, "base_mm": 32,
+				"base_type": "circular", "position": {"x": 300, "y": 100}},
+			{"id": "cA", "alive": true, "wounds": 3, "current_wounds": 3, "is_character": true,
+				"base_mm": 32, "base_type": "circular", "position": {"x": 300, "y": 140}},
+			{"id": "cB", "alive": true, "wounds": 3, "current_wounds": 3, "is_character": true,
+				"base_mm": 32, "base_type": "circular", "position": {"x": 300, "y": 180}}]}
+	var choice_board = {"units": {"U_S": prec_board.units["U_S"], "U_C2": choice_unit}, "meta": {}}
+	var default_pick = rules._precision_group_11e(true, choice_unit, prec_board.units["U_S"], choice_board, "")
+	var chosen_pick = rules._precision_group_11e(true, choice_unit, prec_board.units["U_S"], choice_board, "char_2")
+	_check("auto-pick takes the first visible CHARACTER group", default_pick == "char_1", default_pick)
+	_check("attacker's chosen group wins when eligible", chosen_pick == "char_2", chosen_pick)
+	_check("bogus chosen group falls back to auto-pick",
+		rules._precision_group_11e(true, choice_unit, prec_board.units["U_S"], choice_board, "grp_nope") == "char_1")
+
 	print("\n-- F: PSYCHIC ignores harmful hit-side modifiers (24.29) --")
 	var psy_board = {"units": {
 		"U_P": {"id": "U_P", "owner": 1, "flags": {},

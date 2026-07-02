@@ -44,6 +44,11 @@ var result_label: RichTextLabel = null
 var done_button: Button = null
 
 
+# 24.28 [PRECISION] (audit #13): the ATTACKER's promotion pick — an
+# OptionButton listing the visibility-gated eligible CHARACTER groups.
+var precision_picker: OptionButton = null
+var _precision_eligible: Array = []
+
 func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 	save_data = p_save_data
 	defender_player = p_defender_player
@@ -117,6 +122,24 @@ func _build_ui() -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size", 13)
 	vbox.add_child(hint)
+
+	# 24.28 [PRECISION]: attacker's promotion choice (visibility-gated).
+	_precision_eligible = _rules().precision_eligible_groups_11e(save_data, _game_state().state)
+	if not _precision_eligible.is_empty():
+		var prec_label = Label.new()
+		prec_label.name = "PrecisionLabel"
+		prec_label.text = "PRECISION (24.28) — attacker may make a visible CHARACTER group the current allocation group:"
+		prec_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		prec_label.add_theme_font_size_override("font_size", 13)
+		prec_label.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
+		vbox.add_child(prec_label)
+		precision_picker = OptionButton.new()
+		precision_picker.name = "PrecisionPicker"
+		precision_picker.add_item("No promotion", 0)
+		for gi in range(_precision_eligible.size()):
+			precision_picker.add_item("Promote %s" % str(_precision_eligible[gi].label), gi + 1)
+		precision_picker.selected = 1  # default: promote the first eligible group
+		vbox.add_child(precision_picker)
 
 	group_list = VBoxContainer.new()
 	group_list.name = "GroupList"
@@ -236,6 +259,15 @@ func _on_confirm_pressed() -> void:
 		return
 	resolved = true
 	confirm_button.disabled = true
+	# 24.28: carry the attacker's PRECISION promotion pick (or explicit
+	# decline) into the engine; "" auto-picks / no-ops as appropriate.
+	if precision_picker != null:
+		var sel = precision_picker.selected
+		if sel >= 1 and sel - 1 < _precision_eligible.size():
+			save_data["precision_group_choice"] = str(_precision_eligible[sel - 1].id)
+		else:
+			save_data["precision_group_choice"] = ""
+			save_data["has_precision"] = false  # attacker declined the promotion
 	batch_result = _rules().resolve_allocation_batch_11e(save_data, order, _game_state().state, rng_service)
 	_apply_diffs_to_gamestate(batch_result.get("diffs", []))
 	var target_unit_id = str(save_data.get("target_unit_id", ""))

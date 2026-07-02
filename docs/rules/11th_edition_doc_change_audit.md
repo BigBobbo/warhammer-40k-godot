@@ -183,7 +183,7 @@ Go-to-Ground stratagem removed ✅ (only the Hidden sub-rule name remains — th
 **Core abilities:** Blast X ✅, Lethal Hits optional ✅, Devastating Wounds batch+cap ✅ (ranged+melee),
 Infiltrators/Deep Strike 8" ✅, Hazardous → hazard roll ✅, Lone Operative X" ✅, Melta X (post-order) 🟡,
 Deadly Demise after disembark ✅, Extra Attacks modifiable 🟡, Stealth→Cover ✅, Super-Heavy Walker ✅ (`iss073`),
-Fight First (reworked value) ✅, **Precision** (allocation-order) 🟡 (no visibility check / attacker choice),
+Fight First (reworked value) ✅, **Precision** (allocation-order) ✅ (visibility-gated + attacker PrecisionPicker in the allocation overlay, `iss047b`),
 **Heavy ≤3"** ✅ (validated flag), **Cleave X** ✅ (A8 fix), **Hover** 🟡, **Psychic ignores hit mods** ✅ (ranged+melee A10),
 Scouts 8" + reserves→DZ ✅ (`iss067`), **Surge Moves** 🔴 (engine exists, no trigger/UI/data),
 Plunging Fire 3"/+1 ✅, **Hunter X** 🔴 (unimplemented, no data), **Heal X** 🔴 (unimplemented, no data).
@@ -240,7 +240,7 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 11. **[code] Explosives / Crushing Impact** — add the attacker-facing enemy-target prompt so they are fully player-driven. *(Tab 8.)*
 12. **[code] Modifier-order pipeline** — apply damage modifiers strictly as set→×→+→÷→−, so halve-after-melta and
     set-to-0-stops-further hold in every path. *(Tab 1.)*
-13. **[code] Precision** — check the target character is **visible**, and let the attacker choose which character group is promoted. *(Tab 8.)*
+13. **[code] Precision** — *(Done 2026-07-02:)* promotion is gated on the character being visible to an attacking model (13.09/13.10/13.11 + LoS), and the attacker chooses the promoted group (or declines) via the AllocationGroupOverlay PrecisionPicker; chosen group rides the save batch (`iss047b_precision_choice_11e`; headless E2 section). *(Tab 8.)*
 14. **[code] Melee/Extra-Attacks/Melta polish** — Extra Attacks modifiable value, Melta post-order, per audit. *(Tab 8.)*
 
 ### Tier 4 — structural/cosmetic

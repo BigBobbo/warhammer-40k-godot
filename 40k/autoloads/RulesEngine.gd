@@ -2508,16 +2508,86 @@ static func resolve_crushing_impact_11e(unit_id: String, target_unit_id: String,
 	return result
 
 
-# The engine's default [PRECISION] pick (24.28): the first CHARACTER
-# group in the target. Visible-to-attacker refinement lands with the
-# ISS-052 visibility module; the attacker-facing prompt with ISS-063.
-static func _precision_group_11e(weapon_has_precision_flag: bool, target_unit: Dictionary) -> String:
+# 24.28 [PRECISION] (audit #13): the ATTACKER may promote ONE allocation
+# group containing a CHARACTER model that is VISIBLE to at least one
+# attacking model. `chosen_gid` (the attacker's pick, e.g. from the
+# AllocationGroupOverlay / action payload) wins when eligible; otherwise
+# the first eligible group is auto-picked. Empty actor/board skips the
+# visibility gate (legacy callers), "" = no promotion.
+static func _precision_group_11e(weapon_has_precision_flag: bool, target_unit: Dictionary, actor_unit: Dictionary = {}, board: Dictionary = {}, chosen_gid: String = "") -> String:
 	if not weapon_has_precision_flag or GameConstants.edition < 11:
 		return ""
+	var eligible: Array = []
 	for g in Allocation.build_groups(target_unit):
-		if g.character:
-			return str(g.id)
-	return ""
+		if not g.character:
+			continue
+		if actor_unit.is_empty() or _character_group_visible_to_attackers(g, target_unit, actor_unit, board):
+			eligible.append(str(g.id))
+	if eligible.is_empty():
+		if not actor_unit.is_empty():
+			print("RulesEngine: [24.28] PRECISION — no CHARACTER group is visible to the attackers; no promotion")
+		return ""
+	if chosen_gid != "":
+		if chosen_gid in eligible:
+			return chosen_gid
+		print("RulesEngine: [24.28] requested PRECISION group %s is not an eligible visible CHARACTER group — auto-picking %s" % [chosen_gid, eligible[0]])
+	return eligible[0]
+
+# 24.28: at least one alive model of the CHARACTER group is visible to at
+# least one alive attacking model — the same per-model gates as the live
+# targeting path (13.09 hidden detection, 13.10/13.11 sight lines, base LoS).
+static func _character_group_visible_to_attackers(group: Dictionary, target_unit: Dictionary, actor_unit: Dictionary, board: Dictionary) -> bool:
+	var t_models = target_unit.get("models", [])
+	var tm = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
+	for actor_model in actor_unit.get("models", []):
+		if not actor_model.get("alive", true):
+			continue
+		var a_pos = _get_model_position(actor_model)
+		if not a_pos:
+			continue
+		for mi_raw in group.get("model_indices", []):
+			var mi = int(mi_raw)
+			if mi < 0 or mi >= t_models.size():
+				continue
+			var t_model = t_models[mi]
+			if not t_model.get("alive", true):
+				continue
+			var t_pos = _get_model_position(t_model)
+			if not t_pos:
+				continue
+			if tm != null:
+				if not tm.hidden_model_visible_to(t_model, target_unit, actor_model):
+					continue
+				if not tm.model_visible_11e(actor_model, t_model):
+					continue
+			if _check_line_of_sight(a_pos, t_pos, board, actor_model, t_model):
+				return true
+	return false
+
+## UI helper (audit #13): the [PRECISION] character groups the attacker may
+## promote for this save batch — group ids + display labels, visibility-gated.
+static func precision_eligible_groups_11e(save_data: Dictionary, board: Dictionary) -> Array:
+	if GameConstants.edition < 11 or not save_data.get("has_precision", false):
+		return []
+	var target_unit = board.get("units", {}).get(str(save_data.get("target_unit_id", "")), {})
+	var actor_unit = board.get("units", {}).get(str(save_data.get("shooter_unit_id", "")), {})
+	if target_unit.is_empty():
+		return []
+	var combined = _build_attached_allocation_unit_11e(str(save_data.get("target_unit_id", "")), board)
+	var scratch = combined.unit
+	var out: Array = []
+	for g in Allocation.build_groups(scratch):
+		if not g.character:
+			continue
+		if not actor_unit.is_empty() and not _character_group_visible_to_attackers(g, scratch, actor_unit, board):
+			continue
+		var label = str(g.id)
+		var indices = g.get("model_indices", [])
+		if not indices.is_empty():
+			var m = scratch.get("models", [])[int(indices[0])]
+			label = get_model_display_label(m, scratch)
+		out.append({"id": str(g.id), "label": label})
+	return out
 
 
 # Turn an Allocation `remaining` map into diffs AND update the local board
@@ -2610,7 +2680,9 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 	var applied = _apply_saves_via_allocation_11e(result, scratch_unit, target_unit_id,
 		wounds_to_save, dev_crits, ap, damage_raw, rng, {
 			"order": order,
-			"precision_group": _precision_group_11e(save_data.get("has_precision", false), scratch_unit),
+			"precision_group": _precision_group_11e(save_data.get("has_precision", false), scratch_unit,
+				board.get("units", {}).get(str(save_data.get("shooter_unit_id", "")), {}), board,
+				str(save_data.get("precision_group_choice", ""))),
 			"melta_value": melta_value,
 			"melta_wounds": melta_wounds,
 			"half_damage": get_unit_half_damage(live_unit),
@@ -3529,7 +3601,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				"melta_wounds": ar_melta_wounds_remaining,
 				"half_damage": ar_has_half_damage,
 				"fnp_value": ar_fnp_value,
-				"precision_group": _precision_group_11e(ar_weapon_has_precision, target_unit),
+				"precision_group": _precision_group_11e(ar_weapon_has_precision, target_unit,
+					board.get("units", {}).get(actor_unit_id, {}), board,
+					str(assignment.get("precision_group_choice", ""))),
 			})
 		casualties += alloc11.casualties
 		damage_applied += alloc11.damage_applied
@@ -10034,7 +10108,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			ap, m_damage_raw, rng, {
 				"half_damage": get_unit_half_damage(target_unit),
 				"fnp_value": get_unit_fnp_for_attack(target_unit, is_psychic_weapon(weapon_id, board)),
-				"precision_group": _precision_group_11e(weapon_has_precision, target_unit),
+				"precision_group": _precision_group_11e(weapon_has_precision, target_unit,
+					board.get("units", {}).get(actor_unit_id, {}), board,
+					str(assignment.get("precision_group_choice", ""))),
 			})
 		var m_log := []
 		m_log.append("Melee: %s (%s) → %s" % [attacker_name, weapon_name, target_name])
