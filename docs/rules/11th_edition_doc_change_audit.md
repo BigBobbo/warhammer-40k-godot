@@ -256,6 +256,15 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 
 ## 11. Bottom line
 
+**Status 2026-07-02 (post-sweep):** every task-list item implementable from in-repo sources is done — Tier-1 #3
+(Support attach) and #4 (Hidden/Gone to Ground/Detection Range) code-complete; Tier-3 #7, #8, #10, #11, #12, #13,
+#14 (Extra Attacks), #16, #17 all landed with windowed/headless validation; delta-audit B6 closed. What remains is
+**source-blocked**: the 11e mission system (#1–2, mission-pack texts not in repo), true 11e stat lines and Support
+tags for other factions (#3, PRD §5 open q.2), Hunter X / Heal X (#9, zero rule text in the shipped core-rules PDF),
+Melta "post-order" (#14 remainder, deep-dive only), terrain-category authoring (#6, layout data decisions), the DP/
+Upgrades army-construction model (#5) — plus #15's fight-step restructure, which the audit itself parks pending a GW
+FAQ on the 3"-vs-5" Engaging consolidation.
+
 The **core engine** of 11th edition is in and genuinely playable at `edition == 11`: the new attack/allocation model,
 cover-as-BS, engagement 2" / coherency 9", the move-type framework incl. FLY, the select-after-roll charge, the
 active-first Fight sequencer, terrain-as-objectives with per-phase control, battle-shock, disembark modes, two-slot
