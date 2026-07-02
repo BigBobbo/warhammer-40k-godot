@@ -1915,6 +1915,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.surge_move_21_02",
+      "description": "Audit #8: BEGIN_SURGE_MOVE at e11 routes through the SurgeMove template — stated distance (payload.max_inches or the 'Surge X\"' datasheet ability, no D6), closest enemy recorded as the surge target, template eligibility gates; 10e D6 semantics untouched.",
+      "scenarios": [
+        "iss040b_surge_move_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movetypes.SurgeMove.reachable",
+      "description": "Units whose datasheet grants 'Surge X\"' get a BEGIN_SURGE_MOVE offering in the movement action list (the player affordance the 11e data lights up); no shipped datasheet carries one yet.",
+      "scenarios": [
+        "iss040b_surge_move_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

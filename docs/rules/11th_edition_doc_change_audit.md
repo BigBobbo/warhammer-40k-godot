@@ -185,7 +185,7 @@ Infiltrators/Deep Strike 8" ✅, Hazardous → hazard roll ✅, Lone Operative X
 Deadly Demise after disembark ✅, Extra Attacks modifiable 🟡, Stealth→Cover ✅, Super-Heavy Walker ✅ (`iss073`),
 Fight First (reworked value) ✅, **Precision** (allocation-order) ✅ (visibility-gated + attacker PrecisionPicker in the allocation overlay, `iss047b`),
 **Heavy ≤3"** ✅ (validated flag), **Cleave X** ✅ (A8 fix), **Hover** 🟡, **Psychic ignores hit mods** ✅ (ranged+melee A10),
-Scouts 8" + reserves→DZ ✅ (`iss067`), **Surge Moves** 🔴 (engine exists, no trigger/UI/data),
+Scouts 8" + reserves→DZ ✅ (`iss067`), **Surge Moves** 🟡 (engine + trigger + UI done: template-gated `BEGIN_SURGE_MOVE`, `Surge X"` ability parser, movement-list offering — `iss040b`; no shipped datasheet carries the ability yet),
 Plunging Fire 3"/+1 ✅, **Hunter X** 🔴 (unimplemented, no data), **Heal X** 🔴 (unimplemented, no data).
 
 ## 9. Missions (Tab 10)
@@ -234,7 +234,7 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
    attackers have LoS through an Obscuring area. *(Tab 4/6.)*
 
 ### Tier 3 — ability/affordance completeness (engine mostly present)
-8. **[code] Surge Moves** — add a trigger/UI (and at least one datasheet that uses one) so the existing `SurgeMove` is reachable. *(Tab 8.)*
+8. **[code] Surge Moves** — *(Code done 2026-07-02:)* `BEGIN_SURGE_MOVE` is template-gated at e11 (stated distance, closest-enemy target, no D6), a `Surge X"` datasheet ability lights up the movement-list offering (`iss040b_surge_move_11e`). Remaining: author a real datasheet with the ability once 11e data is sourced (PRD §5 q.2). *(Tab 8.)*
 9. **[code] Hunter X and Heal X** core abilities. *(Tab 8 — currently absent.)*
 10. **[code] Combat Disembark** — *(Done 2026-07-02:)* the validator honours "set up **engaged** within 6"" for enemy units the transport is engaged with (and only those); the placement UI gets a Combat Disembark toggle, 6" ring, and matching placement rules. Windowed `iss058b_combat_disembark_engaged_11e` 26/26. *(Tab 3.)*
 11. **[code] Explosives / Crushing Impact** — *(Done 2026-07-02:)* the stratagem panel now runs a two-step target prompt (friendly unit, then eligible enemy — engaged for Crushing Impact, within-8"-and-visible for Explosives) and resolves via `use_stratagem` with the chosen enemy in context (`iss047d_crushing_impact_prompt_11e`). *(Tab 8.)*

@@ -6463,6 +6463,28 @@ static func has_lone_operative(unit: Dictionary) -> bool:
 	return false
 
 
+## Audit #8 (11e 21.02): "Surge X\"" datasheet ability — the stated maximum
+## distance of the unit's surge move. 0.0 = no rule grants one. Mirrors the
+## Lone Operative X" parser; matched on the ability NAME starting with
+## "surge" to avoid substring hits.
+static func get_surge_move_inches(unit: Dictionary) -> float:
+	for ab in unit.get("meta", {}).get("abilities", []):
+		var nm := ""
+		if ab is String:
+			nm = ab
+		elif ab is Dictionary:
+			nm = str(ab.get("name", ""))
+		if nm.to_lower().begins_with("surge"):
+			var digits := ""
+			for c in nm:
+				if c >= "0" and c <= "9":
+					digits += c
+				elif digits != "":
+					break
+			if digits != "":
+				return float(digits.to_int())
+	return 0.0
+
 ## ISS-069 (11e 24.24): "Lone Operative X\"" gates targeting at X" (visibility
 ## AND [INDIRECT FIRE]); the default form is 12". Parses the first number in
 ## any ability whose name contains "lone operative". Edition-agnostic — the
