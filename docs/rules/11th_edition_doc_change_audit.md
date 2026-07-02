@@ -62,7 +62,7 @@ A full P1 turn was played as a user (Adeptus Custodes vs Orks, 11th Edition):
 | **Enhancement after attach, 1/unit** | 🟡 | Enhancement validation exists (1/char) but not re-sequenced after attach; no post-attach UI gate. |
 | **Upgrades** (non-char, ×3, 1 enhancement pick) | 🔴 | Not implemented. |
 | **Warlord = army faction** | 🔴 | No warlord-faction restriction enforced. |
-| **Multiple-modifier order** (set→×→+→÷→−, set-0 stops) | 🟡 | Hit modifiers use a net-sum `ModifierStack`; the full damage-modifier *ordering* (halve-after-melta, set-0-stops-further) is not a single ordered pipeline — partial. |
+| **Multiple-modifier order** (set→×→+→÷→−, set-0 stops) | 🟡 | Damage-side ordering VERIFIED in every live path (melta/+dmg adds → halve → −1, all six sites; live pin `test_iss047` E4: 6+2→halve→4). Residual: no single shared pipeline (each site hand-ordered), and set-×/set-0 semantics have no data consumer yet. Hit modifiers remain a net-sum `ModifierStack`. |
 | **Lone Operative X"** + 9"–30" mod cap | 🟡 | `get_lone_operative_range` parses X" (validated `iss069`); the 9–30 modifier clamp is not separately enforced. |
 
 ## 2. Command Phase (Tab 2/9)
@@ -238,8 +238,10 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 9. **[code] Hunter X and Heal X** core abilities. *(Tab 8 — currently absent.)*
 10. **[code] Combat Disembark** — *(Done 2026-07-02:)* the validator honours "set up **engaged** within 6"" for enemy units the transport is engaged with (and only those); the placement UI gets a Combat Disembark toggle, 6" ring, and matching placement rules. Windowed `iss058b_combat_disembark_engaged_11e` 26/26. *(Tab 3.)*
 11. **[code] Explosives / Crushing Impact** — *(Done 2026-07-02:)* the stratagem panel now runs a two-step target prompt (friendly unit, then eligible enemy — engaged for Crushing Impact, within-8"-and-visible for Explosives) and resolves via `use_stratagem` with the chosen enemy in context (`iss047d_crushing_impact_prompt_11e`). *(Tab 8.)*
-12. **[code] Modifier-order pipeline** — apply damage modifiers strictly as set→×→+→÷→−, so halve-after-melta and
-    set-to-0-stops-further hold in every path. *(Tab 1.)*
+12. **[code] Modifier-order pipeline** — *(Verified + pinned 2026-07-02:)* halve-after-melta already holds in every
+    damage path (interactive allocation, auto-resolve, melee, devastating, overwatch) — confirmed by reading all six
+    sites and pinned live (`test_iss047_weapon_abilities_11e` E4). Deferred: consolidating into one shared pipeline and
+    set-×/set-0 semantics, which no shipped modifier uses yet. *(Tab 1.)*
 13. **[code] Precision** — *(Done 2026-07-02:)* promotion is gated on the character being visible to an attacking model (13.09/13.10/13.11 + LoS), and the attacker chooses the promoted group (or declines) via the AllocationGroupOverlay PrecisionPicker; chosen group rides the save batch (`iss047b_precision_choice_11e`; headless E2 section). *(Tab 8.)*
 14. **[code] Melee/Extra-Attacks/Melta polish** — Extra Attacks modifiable value, Melta post-order, per audit. *(Tab 8.)*
 

@@ -233,6 +233,36 @@ func _run_tests():
 	_check("choice=normal: no mortal-wound conversion (crits roll normal saves)",
 		not dw_block2, str(dw_res2.get("dice", [])))
 
+	print("\n-- E4: damage modifier ORDER pins (audit #12: + before \u00f7 before \u2212) --")
+	# Melta +2 on a D6 weapon vs a half-damage defender: 6+2=8 -> halve -> 4.
+	# The wrong order (halve first) would give halve(6)=3, +2 = 5.
+	var ord_board = {"units": {
+		"U_S": {"id": "U_S", "owner": 1, "flags": {},
+			"meta": {"name": "S", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 3, "wounds": 2},
+				"weapons": [{"name": "MeltaGun", "type": "Ranged", "range": "24", "attacks": "1",
+					"ballistic_skill": "3", "strength": "8", "ap": "0", "damage": "6",
+					"special_rules": "torrent, melta 2"}]},
+			"models": [{"id": "s0", "alive": true, "wounds": 2, "current_wounds": 2,
+				"base_mm": 32, "base_type": "circular", "position": {"x": 100, "y": 100}}]},
+		"U_T": {"id": "U_T", "owner": 2, "flags": {},
+			"meta": {"name": "T", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 7, "wounds": 20, "half_damage": true}},
+			"models": [{"id": "t0", "alive": true, "wounds": 20, "current_wounds": 20,
+				"base_mm": 32, "base_type": "circular", "position": {"x": 200, "y": 100}}]}},
+		"meta": {}}
+	# Seed where the single wound roll is >= 2 (S8 vs T4 wounds on 2+).
+	var oseed := -1
+	for osd in range(200):
+		if rules.RNGService.new(osd).roll_d6(1)[0] >= 2:
+			oseed = osd
+			break
+	_check("order seed found", oseed != -1)
+	var ord_action = {"type": "SHOOT", "actor_unit_id": "U_S",
+		"payload": {"assignments": [{"weapon_id": "MeltaGun", "target_unit_id": "U_T", "model_ids": ["s0"]}]}}
+	rules.resolve_shoot(ord_action, ord_board, rules.RNGService.new(oseed))
+	var t_cw = int(ord_board.units["U_T"].models[0].get("current_wounds", 20))
+	_check("halve applies AFTER melta: 20W target drops to exactly 16 (6+2 -> 4), not 15",
+		t_cw == 16, "current_wounds=%d" % t_cw)
+
 	print("\n-- F: PSYCHIC ignores harmful hit-side modifiers (24.29) --")
 	var psy_board = {"units": {
 		"U_P": {"id": "U_P", "owner": 1, "flags": {},
