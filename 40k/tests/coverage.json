@@ -1825,6 +1825,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "phases.MovementPhase.combat_disembark_engaged_18_04",
+      "description": "18.04 Combat Disembark: CONFIRM_DISEMBARK accepts models set up engaged with enemy units the TRANSPORT is engaged with, and rejects engagement with any other enemy (audit Tier-3 #10 / delta-audit 18.04 caveat).",
+      "scenarios": [
+        "iss058b_combat_disembark_engaged_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.DisembarkController.combat_mode_placement",
+      "description": "DisembarkController resolves the 11e disembark mode like the phase validator: 6\" set-up ring and engaged-with-transport's-foes placement in combat mode; DisembarkDialog exposes the Combat Disembark toggle (payload.can_setup_tactical=false).",
+      "scenarios": [
+        "iss058b_combat_disembark_engaged_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

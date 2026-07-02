@@ -1,0 +1,225 @@
+{
+  "id": "iss058b_combat_disembark_engaged_11e",
+  "covers": [
+    "phases.MovementPhase.combat_disembark_engaged_18_04",
+    "scripts.DisembarkController.combat_mode_placement"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Audit 18.04 caveat (Tier-3 #10): Combat Disembark models CAN be set up engaged — but only with enemy units the TRANSPORT is engaged with. Setup: Shield-Captain (P1) is placed base-adjacent to the Battlewagon (engaged with it); Witchseekers D (P1) stand 2.6\" west of the hull (NOT engaged with it). A combat disembark (can_setup_tactical=false) placing a Kommando engaged with the Witchseekers is REJECTED; the same disembark placing Kommandos engaged with the Shield-Captain is ACCEPTED (previously rejected unconditionally), and the unit comes out battle-shocked and unable to charge.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_KOMMANDOS_H.embarked_in",
+      "equals": "U_BATTLEWAGON_G"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_SHIELD_CAPTAIN_A\")[\"models\"][0].merge({\"position\": {\"x\": 1193.0, \"y\": 2160.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][0].merge({\"position\": {\"x\": 700.0, \"y\": 2160.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][1].merge({\"position\": {\"x\": 700.0, \"y\": 2220.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][2].merge({\"position\": {\"x\": 700.0, \"y\": 2100.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][3].merge({\"position\": {\"x\": 640.0, \"y\": 2160.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_SHIELD_CAPTAIN_A\"][\"models\"][0].merge({\"position\": {\"x\": 1193.0, \"y\": 2160.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_D\"][\"models\"][0].merge({\"position\": {\"x\": 700.0, \"y\": 2160.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_D\"][\"models\"][1].merge({\"position\": {\"x\": 700.0, \"y\": 2220.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_D\"][\"models\"][2].merge({\"position\": {\"x\": 700.0, \"y\": 2100.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().game_state_snapshot[\"units\"][\"U_WITCHSEEKERS_D\"][\"models\"][3].merge({\"position\": {\"x\": 640.0, \"y\": 2160.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.check_units_in_engagement_range(GameState.get_unit(\"U_BATTLEWAGON_G\"), GameState.get_unit(\"U_SHIELD_CAPTAIN_A\"), GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.check_units_in_engagement_range(GameState.get_unit(\"U_BATTLEWAGON_G\"), GameState.get_unit(\"U_WITCHSEEKERS_D\"), GameState.state)",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_captain_engages_hull_witchseekers_stand_off"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_DISEMBARK",
+        "actor_unit_id": "U_KOMMANDOS_H",
+        "payload": {
+          "positions": [
+            {
+              "x": 1258.0,
+              "y": 2340.0
+            },
+            {
+              "x": 755.0,
+              "y": 2160.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2220.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2340.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2340.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2280.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2340.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2340.0
+            },
+            {
+              "x": 1318.0,
+              "y": 2160.0
+            },
+            {
+              "x": 1318.0,
+              "y": 2220.0
+            }
+          ],
+          "can_setup_tactical": false
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_engaged_with_non_transport_foe_rejected"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_DISEMBARK",
+        "actor_unit_id": "U_KOMMANDOS_H",
+        "payload": {
+          "positions": [
+            {
+              "x": 1258.0,
+              "y": 2340.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2160.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2220.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2340.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2340.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2280.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2340.0
+            },
+            {
+              "x": 1258.0,
+              "y": 2340.0
+            },
+            {
+              "x": 1318.0,
+              "y": 2160.0
+            },
+            {
+              "x": 1318.0,
+              "y": 2220.0
+            }
+          ],
+          "can_setup_tactical": false
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_KOMMANDOS_H.flags.battle_shocked",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_KOMMANDOS_H.flags.cannot_charge",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_KOMMANDOS_H\")[\"models\"][1][\"position\"][\"x\"]",
+      "equals": 1258.0
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.check_units_in_engagement_range(GameState.get_unit(\"U_KOMMANDOS_H\"), GameState.get_unit(\"U_SHIELD_CAPTAIN_A\"), GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_combat_disembark_set_up_engaged_with_transports_foe"
+    }
+  ]
+}

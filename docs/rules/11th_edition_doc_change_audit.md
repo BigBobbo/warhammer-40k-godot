@@ -95,7 +95,7 @@ after abilities). Command-abilities-after-battleshock ordering ✅ in `CommandPh
 | No movement after Ingress | ✅ | Ingress sets a no-further-move lock. |
 | Single 1000pt reserves cap; destroyed EoR3 | 🟡 | Reserve cap + R3 destruction present; the single-pool vs split not strictly enforced. |
 | **Embark blocked if set-up this turn** | 🟡 | `TransportManager.can_embark` gates it, but the live embark validator keys a generic `moved` flag (audit 18.02). |
-| Disembark modes Rapid/Tactical/**Combat** | 🟡 | Wired; Combat-mode "set up **engaged**" advertised but the validator still rejects models in ER (audit 18.04). |
+| Disembark modes Rapid/Tactical/**Combat** | ✅ | Wired; Combat-mode "set up **engaged**" honoured — models may be set up engaged with enemy units the transport is engaged with, others rejected (`iss058b_combat_disembark_engaged_11e`); DisembarkDialog exposes a Combat Disembark toggle with a 6" ring. |
 | **Emergency disembark** 6"+hazard+battle-shock | ✅ | 11e band wired (audit A7 fix). |
 
 ## 4. Attacks & Shooting (Tab 4)
@@ -236,7 +236,7 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 ### Tier 3 — ability/affordance completeness (engine mostly present)
 8. **[code] Surge Moves** — add a trigger/UI (and at least one datasheet that uses one) so the existing `SurgeMove` is reachable. *(Tab 8.)*
 9. **[code] Hunter X and Heal X** core abilities. *(Tab 8 — currently absent.)*
-10. **[code] Combat Disembark** — honour "set up **engaged** within 6"" (validator currently rejects models in ER). *(Tab 3.)*
+10. **[code] Combat Disembark** — *(Done 2026-07-02:)* the validator honours "set up **engaged** within 6"" for enemy units the transport is engaged with (and only those); the placement UI gets a Combat Disembark toggle, 6" ring, and matching placement rules. Windowed `iss058b_combat_disembark_engaged_11e` 26/26. *(Tab 3.)*
 11. **[code] Explosives / Crushing Impact** — add the attacker-facing enemy-target prompt so they are fully player-driven. *(Tab 8.)*
 12. **[code] Modifier-order pipeline** — apply damage modifiers strictly as set→×→+→÷→−, so halve-after-melta and
     set-to-0-stops-further hold in every path. *(Tab 1.)*

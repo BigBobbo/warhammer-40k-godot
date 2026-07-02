@@ -7639,6 +7639,7 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 	# mandatory mode from the transport's move history; the player may
 	# signal an impossible tactical set-up via payload.can_setup_tactical.
 	var setup_range_inches := 3.0
+	var dis_mode := ""
 	if GameConstants.edition >= 11:
 		var dis_tmpl = MoveTypes.get_type("disembark")
 		var dis_el = dis_tmpl.eligible(unit_id, GameState.state)
@@ -7646,6 +7647,7 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 			return {"valid": false, "errors": dis_el.reasons}
 		var dis_sel = dis_tmpl.select_mode(unit_id, GameState.state,
 			{"can_setup_tactical": action.get("payload", {}).get("can_setup_tactical", true)})
+		dis_mode = dis_sel.mode
 		setup_range_inches = dis_tmpl.setup_distance_inches({"mode": dis_sel.mode})
 		log_phase_message("[11e] Disembark mode for %s: %s (set-up %0.0f\")" % [unit_id, dis_sel.mode, setup_range_inches])
 
@@ -7675,8 +7677,15 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 		var model_at_pos = unit.models[i].duplicate()
 		model_at_pos["position"] = pos
 
-		# Check engagement range using shape-aware distance
-		if _model_in_engagement_range(model_at_pos, unit.owner):
+		# Check engagement range using shape-aware distance.
+		# 18.04 Combat Disembark: each model CAN be set up engaged, but only
+		# with enemy units the TRANSPORT itself is engaged with.
+		if GameConstants.edition >= 11 and dis_mode == "combat":
+			for engaged_enemy_id in _model_engaged_enemy_ids(model_at_pos, unit.owner):
+				var engaged_enemy = game_state_snapshot.units[engaged_enemy_id]
+				if not RulesEngine.check_units_in_engagement_range(transport, engaged_enemy, game_state_snapshot):
+					return {"valid": false, "errors": ["Combat Disembark: models may only be set up engaged with enemy units the transport is engaged with (18.04); %s is not engaged with the transport" % engaged_enemy_id]}
+		elif _model_in_engagement_range(model_at_pos, unit.owner):
 			return {"valid": false, "errors": ["Cannot disembark within Engagement Range of enemy"]}
 
 		# Check board edge - no part of model base can extend beyond the battlefield
@@ -7728,6 +7737,32 @@ func _model_in_engagement_range(model_data: Dictionary, owner: int) -> bool:
 				return true
 
 	return false
+
+func _model_engaged_enemy_ids(model_data: Dictionary, owner: int) -> Array:
+	"""Enemy unit ids with at least one model in engagement range of this
+	model (shape-aware) — used by the 18.04 Combat Disembark exception."""
+	var out: Array = []
+	var enemy_player = 3 - owner
+	for enemy_id in game_state_snapshot.units:
+		var enemy = game_state_snapshot.units[enemy_id]
+		if enemy.owner != enemy_player:
+			continue
+		if enemy.get("embarked_in", null) != null:
+			continue
+		for model in enemy.models:
+			if not model.alive or model.position == null:
+				continue
+			var model_pos = model_data.get("position", Vector2.ZERO)
+			if model_pos is Dictionary:
+				model_pos = Vector2(model_pos.get("x", 0), model_pos.get("y", 0))
+			var enemy_pos = model.get("position", Vector2.ZERO)
+			if enemy_pos is Dictionary:
+				enemy_pos = Vector2(enemy_pos.get("x", 0), enemy_pos.get("y", 0))
+			var effective_er = _get_effective_engagement_range(model_pos, enemy_pos)
+			if Measurement.is_in_engagement_range_shape_aware(model_data, model, effective_er):
+				out.append(enemy_id)
+				break
+	return out
 
 func _position_in_engagement_range(pos: Vector2, owner: int) -> bool:
 	"""Check if a position is within engagement range of any enemy model"""

@@ -19,6 +19,12 @@ var placed_tokens: Array = []
 var current_model_idx: int = 0
 var transport_position: Vector2
 var transport_base_shape: BaseShape = null  # Store the transport's base shape
+# 11e 18.04: the disembark mode drives the set-up distance (3"/6") and the
+# Combat-mode engaged-placement exception. combat_requested is set by the
+# dialog's Combat Disembark toggle (payload.can_setup_tactical=false).
+var combat_requested: bool = false
+var disembark_mode: String = ""
+var setup_range_inches: float = 3.0
 
 # Visual layers
 var ghost_layer: Node2D
@@ -85,7 +91,19 @@ func start_disembark(p_unit_id: String) -> void:
 			model_positions.append(null)
 			model_rotations.append(0.0)
 
-	# Draw 3" disembark range indicator
+	# 11e 18.04: resolve the mandatory disembark mode (rapid/tactical/combat)
+	# the same way the phase validator does, so the UI's range ring and
+	# placement rules match what CONFIRM_DISEMBARK will accept.
+	setup_range_inches = 3.0
+	disembark_mode = ""
+	if GameConstants.edition >= 11:
+		var dis_tmpl = MoveTypes.get_type("disembark")
+		var dis_sel = dis_tmpl.select_mode(unit_id, GameState.state, {"can_setup_tactical": not combat_requested})
+		disembark_mode = dis_sel.mode
+		setup_range_inches = dis_tmpl.setup_distance_inches({"mode": dis_sel.mode})
+		print("DisembarkController: 11e disembark mode %s (set-up %0.0f\")" % [disembark_mode, setup_range_inches])
+
+	# Draw the disembark range indicator (3", or 6" for Combat Disembark)
 	_draw_range_indicator()
 
 	# Create ghost for first model
@@ -117,14 +135,14 @@ func _draw_range_indicator() -> void:
 	for child in range_indicator.get_children():
 		child.queue_free()
 
-	# Create a visual range indicator (3" from transport edge)
+	# Create a visual range indicator (set-up distance from transport edge)
 	var range_visual = Node2D.new()
 	range_indicator.add_child(range_visual)
 
-	# Get the 3" range in pixels
-	var range_px = Measurement.inches_to_px(3.0)
+	# Get the set-up range in pixels (3", or 6" for Combat Disembark)
+	var range_px = Measurement.inches_to_px(setup_range_inches)
 
-	# Create a shape that represents 3" from the transport's actual base shape
+	# Create a shape that represents the set-up range from the transport's actual base shape
 	if transport_base_shape:
 		_draw_shape_based_range(range_visual, range_px)
 	else:
@@ -252,12 +270,15 @@ func _validate_disembark_position(pos: Vector2, model_idx: int) -> Dictionary:
 	var model = unit_data.models[model_idx]
 
 	# P3-95: Use centralized shape-aware distance check from TransportManager
-	var range_result = TransportManager.is_position_within_disembark_range(pos, model, transport_data)
+	var range_result = TransportManager.is_position_within_disembark_range(pos, model, transport_data, setup_range_inches)
 
 	if not range_result.within_range:
-		return {"valid": false, "reason": "Must be within 3\" of transport (%.1f\" away)" % range_result.distance_inches}
+		return {"valid": false, "reason": "Must be within %0.0f\" of transport (%.1f\" away)" % [setup_range_inches, range_result.distance_inches]}
 
-	# Cannot be in engagement range of enemies
+	# Cannot be in engagement range of enemies — except Combat Disembark
+	# (11e 18.04): models may be set up engaged with enemy units the
+	# TRANSPORT itself is engaged with.
+	var combat_mode := GameConstants.edition >= 11 and disembark_mode == "combat"
 	var enemy_player = 3 - unit_data.owner  # Switch between player 1 and 2
 	for enemy_id in GameState.state.units:
 		var enemy = GameState.state.units[enemy_id]
@@ -278,9 +299,11 @@ func _validate_disembark_position(pos: Vector2, model_idx: int) -> Dictionary:
 
 			# Use shape-aware distance calculation
 			var distance = Measurement.model_to_model_distance_px(test_model, enemy_model)
-			var engagement_dist = Measurement.inches_to_px(1.0)
+			var engagement_dist = Measurement.inches_to_px(GameConstants.engagement_range_inches())
 
 			if distance <= engagement_dist:
+				if combat_mode and RulesEngine.check_units_in_engagement_range(transport_data, enemy, GameState.state):
+					break  # 18.04: engaged with a unit the transport fights — allowed
 				return {"valid": false, "reason": "Cannot disembark within Engagement Range"}
 
 	# Check for model overlaps
@@ -505,9 +528,12 @@ func _cleanup() -> void:
 
 func _show_instructions() -> void:
 	var remaining = _count_alive_models() - current_model_idx
-	var msg = "Place model %d of %d within 3\" of transport (ESC to cancel, right-click to undo)" % [
+	var mode_note = " [Combat Disembark: may set up engaged with the transport's foes]" if disembark_mode == "combat" else ""
+	var msg = "Place model %d of %d within %0.0f\" of transport%s (ESC to cancel, right-click to undo)" % [
 		current_model_idx + 1,
-		_count_alive_models()
+		_count_alive_models(),
+		setup_range_inches,
+		mode_note
 	]
 
 	# This would normally show in a UI element - for now just print
