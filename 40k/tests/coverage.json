@@ -1897,6 +1897,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "ui.StratagemTargetDialog",
+      "description": "Audit #11: the stratagem panel's Use path prompts for the friendly unit and then the enemy target (two-step StratagemTargetDialog) for EXPLOSIVES / CRUSHING IMPACT instead of firing target-less.",
+      "scenarios": [
+        "iss047d_crushing_impact_prompt_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.crushing_impact_target_prompt",
+      "description": "15.06 CRUSHING IMPACT resolves against the attacker-chosen engaged enemy (StratagemManager.get_stratagem_enemy_targets), with CP deducted through the normal use_stratagem path.",
+      "scenarios": [
+        "iss047d_crushing_impact_prompt_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

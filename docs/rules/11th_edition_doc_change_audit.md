@@ -176,7 +176,7 @@ after abilities). Command-abilities-after-battleshock ordering ✅ in `CommandPh
 **Stratagems:** One-per-unit-per-phase ✅ (`StratagemManager:685`). Modal costs (HI 1/2CP) ✅.
 Unchanged set (Epic Challenge, Insane Bravery, Counteroffensive, Explosives) present.
 Changed: Command Re-roll (single die) ✅ (validated — the movement-phase re-roll dialog offered one die);
-Crushing Impact (Tank Shock + monsters + self-MW-on-1) 🟡 (dice handler wired, needs attacker target prompt);
+Crushing Impact (Tank Shock + monsters + self-MW-on-1) ✅ (dice handler + attacker target prompt, `iss047d`);
 Rapid Ingress ✅; **Fire Overwatch + Snap Shooting** ✅; Smokescreen 🟡 (cover granted; "cover to units behind" nuance partial);
 Go-to-Ground stratagem removed ✅ (only the Hidden sub-rule name remains — though that sub-rule itself is unimplemented, §6).
 
@@ -237,7 +237,7 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 8. **[code] Surge Moves** — add a trigger/UI (and at least one datasheet that uses one) so the existing `SurgeMove` is reachable. *(Tab 8.)*
 9. **[code] Hunter X and Heal X** core abilities. *(Tab 8 — currently absent.)*
 10. **[code] Combat Disembark** — *(Done 2026-07-02:)* the validator honours "set up **engaged** within 6"" for enemy units the transport is engaged with (and only those); the placement UI gets a Combat Disembark toggle, 6" ring, and matching placement rules. Windowed `iss058b_combat_disembark_engaged_11e` 26/26. *(Tab 3.)*
-11. **[code] Explosives / Crushing Impact** — add the attacker-facing enemy-target prompt so they are fully player-driven. *(Tab 8.)*
+11. **[code] Explosives / Crushing Impact** — *(Done 2026-07-02:)* the stratagem panel now runs a two-step target prompt (friendly unit, then eligible enemy — engaged for Crushing Impact, within-8"-and-visible for Explosives) and resolves via `use_stratagem` with the chosen enemy in context (`iss047d_crushing_impact_prompt_11e`). *(Tab 8.)*
 12. **[code] Modifier-order pipeline** — apply damage modifiers strictly as set→×→+→÷→−, so halve-after-melta and
     set-to-0-stops-further hold in every path. *(Tab 1.)*
 13. **[code] Precision** — *(Done 2026-07-02:)* promotion is gated on the character being visible to an attacking model (13.09/13.10/13.11 + LoS), and the attacker chooses the promoted group (or declines) via the AllocationGroupOverlay PrecisionPicker; chosen group rides the save batch (`iss047b_precision_choice_11e`; headless E2 section). *(Tab 8.)*
