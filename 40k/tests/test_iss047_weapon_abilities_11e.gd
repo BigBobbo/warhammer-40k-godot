@@ -297,6 +297,55 @@ func _run_tests():
 	_check("10e: Waaagh +1A suppressed on EXTRA ATTACKS (2 hit rolls)", ea_n10 == 2, "got %d" % ea_n10)
 	_check("11e: EXTRA ATTACKS takes the modifier (3 hit rolls)", ea_n11 == 3, "got %d" % ea_n11)
 
+	print("\n-- E6: benefit of cover PER ATTACKING MODEL (13.08, audit #7) --")
+	# Firer A shoots through an obscuring strip (target not fully visible to
+	# it -> cover); firer B has a clean line (no cover). BS3, one attack
+	# each, both rolls exactly 3: the covered attack needs 4+ and misses,
+	# the clear attack hits -> exactly 1 hit. Unit-level cover would give
+	# 0 hits (blanket cover) or 2 (no cover).
+	var pc_tm = root.get_node_or_null("TerrainManager")
+	var pc_prev_tf = pc_tm.terrain_features.duplicate(true)
+	var pc_strip = {"id": "pc_strip", "type": "ruins", "height_category": "tall",
+		"polygon": PackedVector2Array([Vector2(190, 85), Vector2(210, 85), Vector2(210, 115), Vector2(190, 115)])}
+	pc_tm.terrain_features = [pc_strip]
+	var pc_board = {"units": {
+		"U_S": {"id": "U_S", "owner": 1, "flags": {},
+			"meta": {"name": "S", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 3, "wounds": 2},
+				"weapons": [{"name": "PairGun", "type": "Ranged", "range": "24", "attacks": "1",
+					"ballistic_skill": "3", "strength": "4", "ap": "0", "damage": "1",
+					"special_rules": ""}]},
+			"models": [
+				{"id": "sA", "alive": true, "wounds": 2, "current_wounds": 2,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 100, "y": 100}},
+				{"id": "sB", "alive": true, "wounds": 2, "current_wounds": 2,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 300, "y": 300}}]},
+		"U_V": {"id": "U_V", "owner": 2, "flags": {},
+			"meta": {"name": "V", "keywords": ["VEHICLE"], "stats": {"toughness": 9, "save": 7, "wounds": 10}},
+			"models": [{"id": "v0", "alive": true, "wounds": 10, "current_wounds": 10,
+				"base_mm": 60, "base_type": "circular", "position": {"x": 300, "y": 100}}]}},
+		"meta": {}, "terrain_features": [pc_strip]}
+	_check("setup: target has cover vs firer A (obscured view)",
+		pc_tm.unit_has_cover_11e(pc_board.units["U_V"], pc_board.units["U_S"].models[0]))
+	_check("setup: target has NO cover vs firer B (clear view)",
+		not pc_tm.unit_has_cover_11e(pc_board.units["U_V"], pc_board.units["U_S"].models[1]))
+	var pc_seed := -1
+	for pcs in range(2000):
+		var rr = rules.RNGService.new(pcs).roll_d6(2)
+		if rr[0] == 3 and rr[1] == 3:
+			pc_seed = pcs
+			break
+	_check("per-model-cover seed found", pc_seed != -1)
+	var pc_action = {"type": "SHOOT", "actor_unit_id": "U_S",
+		"payload": {"assignments": [{"weapon_id": "PairGun", "target_unit_id": "U_V", "model_ids": ["sA", "sB"]}]}}
+	var pc_res = rules.resolve_shoot(pc_action, pc_board, rules.RNGService.new(pc_seed))
+	var pc_hits := -1
+	for d in pc_res.get("dice", []):
+		if str(d.get("context", "")) == "to_hit":
+			pc_hits = int(d.get("successes", d.get("hits", -1)))
+	_check("both rolls 3: covered attack misses (4+), clear attack hits -> exactly 1 hit",
+		pc_hits == 1, "hits=%d dice=%s" % [pc_hits, str(pc_res.get("dice", []))])
+	pc_tm.terrain_features = pc_prev_tf
+
 	print("\n-- F: PSYCHIC ignores harmful hit-side modifiers (24.29) --")
 	var psy_board = {"units": {
 		"U_P": {"id": "U_P", "owner": 1, "flags": {},

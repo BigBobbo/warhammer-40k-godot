@@ -108,7 +108,7 @@ after abilities). Command-abilities-after-battleshock ordering ✅ in `CommandPh
 | **Mortal wounds per identical group**, priority order | ✅ | `Allocation.select_mortal_wound_target`; ranged + stratagems + melee (A1). |
 | Slow-roll only for random-D / FNP | ✅ | Honoured. |
 | **Cover = −1 BS** to shooter (stacks with −1 hit) | ✅ | `ModifierStack.collect_hit_context_11e` (bs side). |
-| Cover **per attacking model** (split groups) | 🟡 | Cover-as-BS correct; the per-attacking-model split of one unit's shots into covered/uncovered sub-groups is not fully modelled. |
+| Cover **per attacking model** (split groups) | ✅ | Each attack takes the 13.08 cover worsening from ITS OWN firing model's view (per-attack BS via `cover_model_per_attack`, both resolution paths); pinned in `test_iss047` E6 (obscured firer misses, clear firer hits, same volley). |
 | **Stealth → Cover** | ✅ | Routed through cover path. |
 | Four shooting modes (Normal/Assault/CQ/Indirect) | ✅ | `ShootingTypes.available_for`; `iss048`. |
 | Assault (advanced + [ASSAULT]) | ✅ | Validated (advanced unit shows only if it has Assault). |
@@ -230,8 +230,9 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 6. **[code+data] Terrain categories & areas:** author explicit Exposed/Light/Dense categories and Terrain-Area polygons
    per layout; implement the **Solid** <3"-gap rule and the Home/Expansion/Central objective designations used by
    missions. *(Tab 6.)*
-7. **[code] Cover per attacking model:** split a firing unit's attacks into covered/uncovered sub-groups when only some
-   attackers have LoS through an Obscuring area. *(Tab 4/6.)*
+7. **[code] Cover per attacking model:** *(Done 2026-07-02:)* each attack's BS worsening is computed from its own
+   firing model's view of the target (13.08 second condition is per-attack); attacks with no recorded firer (overrides/
+   bonus attacks) fall back to the first firer. Pinned in `test_iss047_weapon_abilities_11e` E6. *(Tab 4/6.)*
 
 ### Tier 3 — ability/affordance completeness (engine mostly present)
 8. **[code] Surge Moves** — *(Code done 2026-07-02:)* `BEGIN_SURGE_MOVE` is template-gated at e11 (stated distance, closest-enemy target, no D6), a `Surge X"` datasheet ability lights up the movement-list offering (`iss040b_surge_move_11e`). Remaining: author a real datasheet with the ability once 11e data is sourced (PRD §5 q.2). *(Tab 8.)*
