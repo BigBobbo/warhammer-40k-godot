@@ -1726,6 +1726,78 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.reserve_scout_gated_off_at_e10",
+      "description": "At edition 10 the 24.31 reserve-scout option is inert: a player with only a reserve scout gets the Scout phase skipped to Command.",
+      "scenarios": [
+        "iss067_scout_only_reserve_e10_gated"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.no_skip_when_only_reserve_scouts",
+      "description": "A player whose only scout is in Strategic Reserves still gets a Scout step at e11 (phase not skipped straight to Command).",
+      "scenarios": [
+        "iss067_scout_only_reserve_no_skip"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.reserve_scout_status_prompt",
+      "description": "ISS-067 discoverability: Scout-phase status text explicitly mentions the reserve scout set-up option without manual refresh.",
+      "scenarios": [
+        "iss067_scout_reserve_discoverability"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.reserve_scout_listed_on_entry",
+      "description": "ISS-067 discoverability: the reserve scout is listed as settable immediately on Scout-phase entry.",
+      "scenarios": [
+        "iss067_scout_reserve_discoverability"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.reserve_scout_skippable",
+      "description": "ISS-067 follow-up: SKIP_SCOUT_MOVE validates against reserve scouts too, so a player with only reserve scouts can decline the set-up without locking the phase.",
+      "scenarios": [
+        "iss067_scout_reserve_skippable_handoff"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.reserve_scout_handoff",
+      "description": "ISS-067 follow-up: after a player resolves/declines their reserve scout, the Scout phase hands off to the other player / next phase consistently.",
+      "scenarios": [
+        "iss067_scout_reserve_skippable_handoff"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.11e_scout_reserves_deploy",
+      "description": "ISS-067 (11e 24.31): a Scout unit in Strategic Reserves can be set up wholly within its own deployment zone during the Scout phase.",
+      "scenarios": [
+        "iss067_scout_reserves_deploy_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.UI.reserve_scout_list_select_place_confirm",
+      "description": "ISS-067 UI: reserve scout appears in the Scout-phase unit list; select → place → confirm flow works through the real panel.",
+      "scenarios": [
+        "iss067_scout_reserves_deploy_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
