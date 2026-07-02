@@ -57,3 +57,14 @@ static func coherency_envelope_inches() -> float:
 ## Exposed now for ISS-052; not used by 10e checks.
 static func hidden_detection_range_inches() -> float:
 	return 15.0
+
+## 11e Hidden refinements (review doc Tab 6; audit Tier-1 #4):
+## "Gone to Ground" — a hidden model obscured behind a dense/Solid
+## feature subtracts 3" from its detection range (15" → 12").
+static func gone_to_ground_penalty_inches() -> float:
+	return 3.0
+
+## Detection-range modifiers (datasheet or Gone to Ground) can never
+## take a model's detection range below 9" (review doc Tab 6).
+static func detection_range_floor_inches() -> float:
+	return 9.0

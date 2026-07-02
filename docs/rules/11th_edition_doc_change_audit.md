@@ -145,9 +145,9 @@ after abilities). Command-abilities-after-battleshock ordering ✅ in `CommandPh
 | **Solid** rule (no ending in <3" enclosed gap) | 🔴 | Dead branch behind Obscuring; no real window/gap geometry (2D). |
 | Mixed-category areas | 🟡 | Supported structurally; not authored per layout. |
 | **Cover conditions** (INF/SWARM/BEAST in area, or not fully visible) | 🟡 | Cover-as-BS works; keyword-in-area condition partial. |
-| **Hidden** (15" detection, INF/SWARM/BEAST, no ranged this/prev turn) | 🟡 | Detection range = 15" + no-ranged-this/prev-turn gate present (`last_shot_idx`); wired into targeting. |
-| **Gone to Ground** (−3" → 12" when obscured) | 🔴 | **Not implemented** — no −3" detection-range reduction; only the flat 15" exists. |
-| **Detection Range datasheet modifiers** (down to 9") | 🔴 | No modifier plumbing. |
+| **Hidden** (15" detection, INF/SWARM/BEAST, no ranged this/prev turn) | ✅ | 13.09 gate (keywords + dense area + `last_shot_idx`/`shot_recently`) suppresses visibility in the live targeting path (`RulesEngine._check_target_visibility`); windowed `iss052b_gone_to_ground_11e`. |
+| **Gone to Ground** (−3" → 12" when obscured) | ✅ | `TerrainManager.detection_range_inches_for`: −3" while an intervening DENSE piece blocks a 13.10/13.11 sight line; validated live (visibility flips at 12"/15" bands, `iss052b`). |
+| **Detection Range datasheet modifiers** (down to 9") | 🟡 | Plumbing + parser done: a `Detection Range X"` datasheet ability overrides the 15" base (Lone Operative-style parse), clamped to the 9" floor even under Gone to Ground (`iss052b`). No shipped datasheet carries one yet (needs 11e data). |
 | **Obscuring** (block LoS unless firer *within* area) | 🟡 | `_line_blocked_11e` every-line test via 9-point sampling; "within (not wholly)" approximated. |
 | **Climbing** (0.5" horiz; Monsters may climb) | 🟡 | 2D board — vertical floors approximated. |
 | **Plunging Fire** (>3" height → +1 BS) | ✅ | `plunging_fire_applies` + ModifierStack; 3" threshold at e11. |
@@ -218,9 +218,11 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
    (Custodes 4+/Draxus 5+/Beastboss 5+ etc. already present in `meta.stats.invuln`); what's missing is mostly
    orks.json characters (Ghazghkull, Badrukk, Warbosses) and any true-11e deltas, which need an official source
    (PRD §5 open q.2). *(Tab 1/7; §1, §7.)*
-4. **[code] Hidden / Gone to Ground / Detection Range.** Implement Gone to Ground (−3" → 12" when obscured behind a
-   Dense/Solid feature) and datasheet Detection-Range modifiers (clamped ≥9"), and make Hidden actually suppress
-   visibility in the live LoS/targeting path for INFANTRY/SWARM/BEAST. *(Tab 6; §6 — currently only flat 15".)*
+4. **[code] Hidden / Gone to Ground / Detection Range.** *(Done 2026-07-02, code side:)* Gone to Ground (−3" → 12"
+   behind an intervening dense/Solid feature), the `Detection Range X"` datasheet parser with the 9" floor, and the
+   Hidden gate all validated in the live targeting path (windowed `iss052b_gone_to_ground_11e`, 46/46; headless
+   `test_iss052_hidden_11e`, 27/27). Remaining: author actual datasheet Detection-Range values once 11e data is
+   sourced. *(Tab 6; §6.)*
 
 ### Tier 2 — army construction & terrain fidelity
 5. **[code] Army construction 11e:** Detachment Points pool (3 @ 2000), Upgrades (non-char, ×3, one enhancement pick),

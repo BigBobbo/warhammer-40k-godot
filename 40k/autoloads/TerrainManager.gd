@@ -864,14 +864,16 @@ func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 	# during this turn or the previous turn. ShootingPhase stamps
 	# flags.last_shot_idx = battle_round*2 + (player==1?0:1) whenever the unit
 	# actually shoots; "this or previous turn" = current_idx - last_shot_idx < 2.
+	# The plain shot_recently flag is honoured unconditionally (headless tests
+	# and effect code set it directly, without a live battle-round counter).
+	if unit.get("flags", {}).get("shot_recently", false):
+		return false
 	var gs = get_node_or_null("/root/GameState")
 	if gs != null and gs.has_method("get_battle_round"):
 		var cur_idx := int(gs.get_battle_round()) * 2 + (0 if int(gs.get_active_player()) == 1 else 1)
 		var last_shot_idx := int(unit.get("flags", {}).get("last_shot_idx", -100))
 		if cur_idx - last_shot_idx < 2:
 			return false
-	elif unit.get("flags", {}).get("shot_recently", false):
-		return false
 	var pos = model.get("position", null)
 	if pos == null:
 		return false
@@ -882,12 +884,70 @@ func is_model_hidden(model: Dictionary, unit: Dictionary) -> bool:
 	return category_of(area) == CATEGORY_DENSE
 
 ## Visibility gate for hidden models: visible only when the observer is
-## within the detection range (13.09).
+## within the detection range (13.09), as refined per observer by
+## detection_range_inches_for (Gone to Ground, datasheet modifiers).
 func hidden_model_visible_to(model: Dictionary, unit: Dictionary, observer_model: Dictionary) -> bool:
 	if not is_model_hidden(model, unit):
 		return true
-	var det_px = Measurement.inches_to_px(GameConstants.hidden_detection_range_inches())
+	var det_px = Measurement.inches_to_px(detection_range_inches_for(model, unit, observer_model))
 	return Measurement.model_to_model_distance_px(observer_model, model) <= det_px
+
+## Audit Tier-1 #4 (review doc Tab 6) — a hidden model's effective
+## detection range against a specific observer:
+##   ▪ base: the unit's "Detection Range X\"" datasheet ability when
+##     present (parsed like Lone Operative X"), else 15" (13.09).
+##   ▪ Gone to Ground: −3" while the model is obscured from this
+##     observer behind a dense/Solid feature — i.e. at least one
+##     13.10/13.11 sight line is blocked by an intervening DENSE piece.
+##   ▪ floor: modifiers never take detection range below 9".
+func detection_range_inches_for(model: Dictionary, unit: Dictionary, observer_model: Dictionary) -> float:
+	var range_in := detection_range_base_inches(unit)
+	if _obscured_by_dense_11e(observer_model, model):
+		range_in -= GameConstants.gone_to_ground_penalty_inches()
+	return maxf(range_in, GameConstants.detection_range_floor_inches())
+
+## "Detection Range X\"" datasheet ability — mirrors the Lone Operative X"
+## parser (RulesEngine.get_lone_operative_range). Absent → 15" default.
+func detection_range_base_inches(unit: Dictionary) -> float:
+	for ab in unit.get("meta", {}).get("abilities", []):
+		var nm := ""
+		if ab is String:
+			nm = ab
+		elif ab is Dictionary:
+			nm = str(ab.get("name", ""))
+		if nm.to_lower().contains("detection range"):
+			var digits := ""
+			for c in nm:
+				if c >= "0" and c <= "9":
+					digits += c
+				elif digits != "":
+					break
+			if digits != "":
+				return float(digits.to_int())
+	return GameConstants.hidden_detection_range_inches()
+
+## Gone to Ground predicate: at least one observer→target sight line
+## (center + 8 base-perimeter points, 13.10/13.11 semantics with both
+## models' own areas excluded) is blocked by a DENSE-category piece.
+func _obscured_by_dense_11e(observer: Dictionary, target: Dictionary) -> bool:
+	var o = _model_vec(observer)
+	var t = _model_vec(target)
+	if o == Vector2.INF or t == Vector2.INF:
+		return false
+	var exclude := {}
+	var ao = area_at(o)
+	var at_ = area_at(t)
+	if not ao.is_empty():
+		exclude[ao.get("id")] = true
+	if not at_.is_empty():
+		exclude[at_.get("id")] = true
+	for p in _sight_points(target):
+		for piece in features_crossing(o, p):
+			if exclude.has(piece.get("id")):
+				continue
+			if category_of(piece) == CATEGORY_DENSE:
+				return true
+	return false
 
 
 ## ISS-052 (step 2) — 06.01/13.10/13.11 visibility, 2D approximation.

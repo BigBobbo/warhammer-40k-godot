@@ -1798,6 +1798,33 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "autoloads.TerrainManager.detection_range_inches_for",
+      "description": "Audit Tier-1 #4: per-observer effective detection range for hidden models — datasheet base, Gone to Ground −3\", 9\" floor — consumed by hidden_model_visible_to in the live targeting path.",
+      "scenarios": [
+        "iss052b_gone_to_ground_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.TerrainManager.gone_to_ground_11e",
+      "description": "Gone to Ground (review doc Tab 6): a hidden model obscured behind an intervening dense/Solid feature detects at 12\" instead of 15\"; flips RulesEngine._check_target_visibility live.",
+      "scenarios": [
+        "iss052b_gone_to_ground_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.hidden.datasheet_detection_range_modifier",
+      "description": "'Detection Range X\"' datasheet ability overrides the 15\" base (Lone Operative-style parser), clamped to the 9\" floor even under Gone to Ground.",
+      "scenarios": [
+        "iss052b_gone_to_ground_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
