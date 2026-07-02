@@ -558,6 +558,10 @@ func set_phase(phase: BasePhase) -> void:
 		if phase.has_signal("end_turn_redeploy_available") and not phase.end_turn_redeploy_available.is_connected(_on_end_turn_redeploy_available):
 			phase.end_turn_redeploy_available.connect(_on_end_turn_redeploy_available)
 
+		# Connect 03.03 out-of-coherency removal choice (audit #16)
+		if phase.has_signal("coherency_removal_required") and not phase.coherency_removal_required.is_connected(_on_coherency_removal_required):
+			phase.coherency_removal_required.connect(_on_coherency_removal_required)
+
 		# Update UI elements with current game state
 		_refresh_ui()
 		show()
@@ -589,6 +593,82 @@ func _on_end_turn_pressed() -> void:
 
 	print("ScoringController: End Turn button pressed")
 	emit_signal("scoring_action_requested", {"type": "END_TURN"})
+
+# ============================================================================
+# 03.03 OUT-OF-COHERENCY REMOVAL (End of Turn, audit #16)
+# ============================================================================
+
+func _on_coherency_removal_required(pending: Array, _player: int) -> void:
+	"""11e 03.03: the player chooses which model(s) to remove from
+	out-of-coherency units before the turn can end."""
+	print("[ScoringController] 03.03 coherency removal required for %d unit(s)" % pending.size())
+	_show_coherency_removal_dialog(pending)
+
+func _show_coherency_removal_dialog(pending: Array) -> void:
+	var dialog = AcceptDialog.new()
+	dialog.name = "CoherencyRemovalDialog"
+	dialog.title = "Out of Coherency — Remove Models (03.03)"
+	dialog.min_size = DialogConstants.MEDIUM
+	dialog.get_ok_button().visible = false
+	WhiteDwarfTheme.apply_to_dialog(dialog)
+
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 8)
+	content.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
+
+	var header = Label.new()
+	header.text = "REGAINING COHERENCY"
+	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(header)
+	content.add_child(HSeparator.new())
+
+	var desc = Label.new()
+	desc.text = "These units end the turn out of unit coherency. Choose a model to remove (destroyed, no on-death rules) until each unit is coherent."
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(desc)
+
+	for entry in pending:
+		content.add_child(HSeparator.new())
+		var unit_label = Label.new()
+		unit_label.text = "%s (Player %d)" % [entry.unit_name, entry.player]
+		unit_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+		content.add_child(unit_label)
+		var row = HBoxContainer.new()
+		row.name = "Row_%s" % str(entry.unit_id)
+		row.add_theme_constant_override("separation", 6)
+		for model_id in entry.offenders:
+			var btn = Button.new()
+			btn.name = "Remove_%s_%s" % [str(entry.unit_id), str(model_id)]
+			btn.text = "Remove %s" % str(model_id)
+			var uid: String = str(entry.unit_id)
+			var mid: String = str(model_id)
+			btn.pressed.connect(func():
+				emit_signal("scoring_action_requested", {
+					"type": "REMOVE_MODEL_FOR_COHERENCY",
+					"unit_id": uid,
+					"model_id": mid,
+				})
+				dialog.queue_free()
+				call_deferred("_recheck_coherency_removal"))
+			row.add_child(btn)
+		content.add_child(row)
+
+	dialog.add_child(content)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _recheck_coherency_removal() -> void:
+	# After each removal: re-open the dialog while units remain incoherent;
+	# when the phase clears the gate, finish the turn the player asked for.
+	if current_phase and is_instance_valid(current_phase) \
+			and current_phase.get("_awaiting_coherency_removal"):
+		_show_coherency_removal_dialog(current_phase.get("_coherency_removal_pending"))
+	else:
+		print("[ScoringController] 03.03 coherency restored — re-dispatching END_TURN")
+		emit_signal("scoring_action_requested", {"type": "END_TURN"})
 
 # ============================================================================
 # ACROBATIC ESCAPE VANISH (End of opponent's turn)

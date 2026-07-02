@@ -1843,6 +1843,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "phases.ScoringPhase.coherency_removal_choice_03_03",
+      "description": "11e 03.03 Regaining Coherency (audit #16): END_TURN pauses while a human-owned unit is out of coherency; REMOVE_MODEL_FOR_COHERENCY applies the player's chosen removal (destroyed, no on-death triggers); END_TURN is blocked until coherent. PhaseManager auto-pick hook remains the AI/backstop.",
+      "scenarios": [
+        "iss042b_coherency_removal_choice_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.CoherencyRemovalDialog",
+      "description": "ScoringController's CoherencyRemovalDialog lists each incoherent unit's offender models as buttons; a real button press routes the removal action and the turn auto-completes once coherent.",
+      "scenarios": [
+        "iss042b_coherency_removal_choice_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

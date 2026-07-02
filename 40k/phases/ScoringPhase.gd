@@ -48,6 +48,16 @@ var _end_turn_redeploy_offered: bool = false
 
 signal end_turn_redeploy_available(unit_id: String, unit_name: String, player: int, ability_name: String)
 
+# ISS-042 follow-up / audit #16 (11e 03.03 "Regaining Coherency"): at the End
+# of Turn step the PLAYER chooses which models to remove from units that are
+# out of coherency. Human-owned incoherent units pause END_TURN behind this
+# offer; AI owners (and anything left unresolved) fall through to the
+# PhaseManager auto-pick hook, which remains the enforcement backstop.
+var _awaiting_coherency_removal: bool = false
+var _coherency_removal_pending: Array = []  # [{unit_id, unit_name, player, offenders: [model ids]}]
+
+signal coherency_removal_required(pending: Array, player: int)
+
 func _on_phase_enter() -> void:
 	_turn_ended = false
 	_awaiting_acrobatic_escape_vanish = false
@@ -56,6 +66,8 @@ func _on_phase_enter() -> void:
 	_awaiting_end_turn_redeploy = false
 	_end_turn_redeploy_pending.clear()
 	_end_turn_redeploy_offered = false
+	_awaiting_coherency_removal = false
+	_coherency_removal_pending.clear()
 	phase_type = GameStateData.Phase.SCORING
 	var current_player = get_current_player()
 	DebugLogger.info(str("ScoringPhase: Entering scoring phase for player ", current_player))
@@ -119,6 +131,20 @@ func _on_phase_exit() -> void:
 func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
+
+	# 03.03 coherency removals when awaiting: one action per offender model.
+	# Mandatory — nothing else (incl. END_TURN) is offered until resolved.
+	if _awaiting_coherency_removal and not _coherency_removal_pending.is_empty():
+		for entry in _coherency_removal_pending:
+			for model_id in entry.offenders:
+				actions.append({
+					"type": "REMOVE_MODEL_FOR_COHERENCY",
+					"unit_id": entry.unit_id,
+					"model_id": model_id,
+					"description": "Remove %s (%s) — unit out of coherency (03.03)" % [model_id, entry.unit_name],
+					"player": entry.player,
+				})
+		return actions
 
 	# Acrobatic Escape vanish actions when awaiting
 	# Only list these if the pending unit is AI-controlled — human players
@@ -190,7 +216,21 @@ func validate_action(action: Dictionary) -> Dictionary:
 
 	match action_type:
 		"END_SCORING", "END_TURN":  # Support both for backward compatibility
-			pass
+			if _awaiting_coherency_removal:
+				errors.append("Out-of-coherency removals must be resolved first (03.03)")
+		"REMOVE_MODEL_FOR_COHERENCY":
+			if not _awaiting_coherency_removal:
+				errors.append("No coherency removal is pending")
+			else:
+				var rm_unit_id = str(action.get("unit_id", ""))
+				var rm_model_id = str(action.get("model_id", ""))
+				var found := false
+				for entry in _coherency_removal_pending:
+					if entry.unit_id == rm_unit_id and rm_model_id in entry.offenders.map(func(o): return str(o)):
+						found = true
+						break
+				if not found:
+					errors.append("Model %s of %s is not an out-of-coherency offender" % [rm_model_id, rm_unit_id])
 		"END_FIGHT":
 			# Idempotent no-op: previous phase auto-advanced before END_FIGHT was dispatched.
 			pass
@@ -222,6 +262,8 @@ func process_action(action: Dictionary) -> Dictionary:
 	match action.get("type", ""):
 		"END_SCORING", "END_TURN":
 			return _handle_end_turn()
+		"REMOVE_MODEL_FOR_COHERENCY":
+			return _handle_remove_model_for_coherency(action)
 		"END_FIGHT":
 			return {"success": true, "changes": []}
 		"DISCARD_SECONDARY":
@@ -257,6 +299,26 @@ func _handle_discard_secondary(action: Dictionary) -> Dictionary:
 func _handle_end_turn() -> Dictionary:
 	var current_player = get_current_player()
 	var next_player = 2 if current_player == 1 else 1
+
+	# 11e 03.03 (audit #16): units out of coherency must remove models at the
+	# End of Turn step — pause so a HUMAN owner chooses which. Re-checked on
+	# every END_TURN (no offered-flag): removals below re-validate, and the
+	# gate clears only when every human-owned unit is coherent.
+	if GameConstants.edition >= 11 and not _awaiting_coherency_removal:
+		var incoherent = _get_incoherent_human_units()
+		if not incoherent.is_empty():
+			_awaiting_coherency_removal = true
+			_coherency_removal_pending = incoherent
+			var names: Array = incoherent.map(func(e): return e.unit_name)
+			DebugLogger.info(str("ScoringPhase: 03.03 coherency removal required for %s — offering model choice" % str(names)))
+			emit_signal("coherency_removal_required", incoherent, current_player)
+			return {
+				"success": true,
+				"changes": [],
+				"message": "Out of coherency: choose models to remove (03.03): %s" % ", ".join(names),
+				"trigger_coherency_removal": true,
+				"coherency_removal_pending": incoherent,
+			}
 
 	# Check for Acrobatic Escape vanish eligibility before ending the turn
 	# "At the end of your opponent's turn" — the opponent is the NON-active player
@@ -353,6 +415,68 @@ func _handle_end_turn() -> Dictionary:
 		"success": true,
 		"changes": changes,
 		"message": "Turn ended, control switched to player %d" % next_player
+	}
+
+## 03.03 (audit #16): units with >1 positioned model, a HUMAN owner, and a
+## failed coherency check. AI-owned units are left to the PhaseManager
+## auto-pick hook.
+func _get_incoherent_human_units() -> Array:
+	var out: Array = []
+	var gc = GameState.state.get("meta", {}).get("game_config", {})
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		var alive := 0
+		for m in unit.get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				alive += 1
+		if alive <= 1:
+			continue
+		var owner := int(unit.get("owner", 0))
+		var ptype := str(gc.get("player%d_type" % owner, "HUMAN")).to_upper()
+		if ptype != "HUMAN":
+			continue
+		var coh = AttackSequence.check_unit_coherency(unit)
+		if not coh.coherent:
+			out.append({
+				"unit_id": str(unit_id),
+				"unit_name": unit.get("meta", {}).get("name", str(unit_id)),
+				"player": owner,
+				"offenders": coh.offenders.duplicate(),
+			})
+	return out
+
+## Player-chosen 03.03 removal: destroy the chosen offender (no on-death
+## triggers), then re-check — the gate clears when every human-owned unit
+## is coherent again, and END_TURN can be re-dispatched.
+func _handle_remove_model_for_coherency(action: Dictionary) -> Dictionary:
+	var unit_id = str(action.get("unit_id", ""))
+	var model_id = str(action.get("model_id", ""))
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var changes: Array = []
+	for mi in range(unit.get("models", []).size()):
+		if str(unit.models[mi].get("id", mi)) == model_id:
+			changes.append({"op": "set", "path": StateSchema.path_model_field(unit_id, mi, "alive"), "value": false})
+			changes.append({"op": "set", "path": StateSchema.path_model_field(unit_id, mi, "current_wounds"), "value": 0})
+			break
+	if changes.is_empty():
+		return {"success": false, "errors": ["Model not found: %s in %s" % [model_id, unit_id]]}
+	# Apply immediately so the re-check below sees the removal; the same
+	# diffs also ride in the result for network sync (idempotent set ops,
+	# so the pipeline re-apply is harmless).
+	PhaseManager.apply_state_changes(changes)
+	log_phase_message("03.03: removed %s from %s (player's choice, destroyed, no on-death triggers)" % [model_id, unit.get("meta", {}).get("name", unit_id)])
+
+	_coherency_removal_pending = _get_incoherent_human_units()
+	if _coherency_removal_pending.is_empty():
+		_awaiting_coherency_removal = false
+		DebugLogger.info("ScoringPhase: 03.03 coherency restored — END_TURN unblocked")
+	return {
+		"success": true,
+		"changes": changes,
+		"message": "Removed %s for coherency" % model_id,
+		"coherency_removal_pending": _coherency_removal_pending,
+		"awaiting_coherency_removal": _awaiting_coherency_removal,
 	}
 
 func _handle_game_end_turn() -> Dictionary:

@@ -74,7 +74,7 @@ after abilities). Command-abilities-after-battleshock ordering ✅ in `CommandPh
 
 | # | Change | Status | Note |
 |---|---|---|---|
-| Coherency 2" **+ 9" envelope** | ✅ | Validated (deploy/move rejections). End-of-turn out-of-coherency removal auto-picks (no player-choice dialog). |
+| Coherency 2" **+ 9" envelope** | ✅ | Validated (deploy/move rejections). End-of-turn removal is now player-chosen for human owners (03.03 dialog, `iss042b`); auto-pick remains the AI/backstop. |
 | Engagement **2"** global | ✅ | Live `2.0`. |
 | Move **through** enemy ER (end outside) | ✅ | `MovementPhase` staging allows transit, checks end-position. |
 | Set-Up outside ER; **Engaged** as a term | ✅ | Deploy/ingress validators enforce. |
@@ -246,7 +246,7 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 ### Tier 4 — structural/cosmetic
 15. **[code] Fight-phase step structure** — make Pile-In and Consolidation single global both-player steps (active-first)
     rather than per-fighter; resolve the Engaging-consolidation 3"-vs-5" once GW FAQs. *(Tab 5.)*
-16. **[code] End-of-turn coherency removal dialog** — let the player choose the model removed (currently auto-picks). *(Tab 3.)*
+16. **[code] End-of-turn coherency removal dialog** — *(Done 2026-07-02:)* END_TURN pauses for human-owned incoherent units; the CoherencyRemovalDialog lets the player pick each removed model, and the turn auto-completes once coherent (`iss042b_coherency_removal_choice_11e`). Auto-pick stays as the AI/backstop. *(Tab 3.)*
 17. **[code] `[DEVASTATING WOUNDS]` / `[LETHAL HITS]` attacker-choice prompts** (currently default-only). *(Tab 4/8.)*
 
 ---
