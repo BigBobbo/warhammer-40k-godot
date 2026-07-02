@@ -4367,16 +4367,29 @@ func _commit_split_assignment(weapon_id: String, target_id: String, chosen_model
 		"model_ids": chosen_model_ids.duplicate()
 	})
 
+	# Audit #17 (24.10/24.23): [LETHAL HITS] / [DEVASTATING WOUNDS] are
+	# attacker CHOICES at e11 — prompt before dispatching when they matter
+	# (LETHAL matters only alongside DEVASTATING; DW is always a choice).
+	var assign_payload = {
+		"weapon_id": weapon_id,
+		"target_unit_id": target_id,
+		"model_ids": chosen_model_ids
+	}
+	var has_lh = RulesEngine.has_lethal_hits(weapon_id)
+	var has_dw = RulesEngine.has_devastating_wounds(weapon_id)
+	if GameConstants.edition >= 11 and has_dw:
+		_prompt_ability_choices(assign_payload, has_lh, weapon_id)
+		return
+
 	# Dispatch to the phase
 	emit_signal("shoot_action_requested", {
 		"type": "ASSIGN_TARGET",
-		"payload": {
-			"weapon_id": weapon_id,
-			"target_unit_id": target_id,
-			"model_ids": chosen_model_ids
-		}
+		"payload": assign_payload
 	})
 
+	_post_assign_ui_update(weapon_id, target_id, chosen_model_ids)
+
+func _post_assign_ui_update(weapon_id: String, target_id: String, chosen_model_ids: Array) -> void:
 	# Update weapon-row text to reflect ALL current splits for this weapon
 	_refresh_weapon_row_split_text(weapon_id)
 
@@ -4401,6 +4414,52 @@ func _commit_split_assignment(weapon_id: String, target_id: String, chosen_model
 # SPLIT-FIRE: Re-render the column-2 text of a weapon row to show every pending
 # (target → count) entry for that weapon. Called after every assign / undo /
 # clear so the tree stays in sync with the phase's pending_assignments.
+## Audit #17: modal choice for [DEVASTATING WOUNDS] (24.10 — mortal wounds
+## vs normal damage) and, when combined, [LETHAL HITS] (24.23 — auto-wound
+## crits vs rolling them to keep the Devastating trigger). Applies to this
+## weapon->target batch; engine defaults are preserved when skipped.
+func _prompt_ability_choices(assign_payload: Dictionary, has_lethal: bool, weapon_id: String) -> void:
+	var dialog = AcceptDialog.new()
+	dialog.name = "AbilityChoiceDialog"
+	dialog.title = "Attacker Choices — %s" % str(weapon_id)
+	dialog.get_ok_button().text = "Confirm"
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 8)
+	var dw_check = CheckBox.new()
+	dw_check.name = "DevastatingCheck"
+	dw_check.text = "[DEVASTATING WOUNDS] (24.10): convert critical wounds to mortal wounds"
+	dw_check.button_pressed = true
+	content.add_child(dw_check)
+	var lh_check: CheckBox = null
+	if has_lethal:
+		lh_check = CheckBox.new()
+		lh_check.name = "LethalCheck"
+		lh_check.text = "[LETHAL HITS] (24.23): auto-wound critical hits (forfeits their Devastating trigger)"
+		lh_check.button_pressed = false
+		content.add_child(lh_check)
+	dialog.add_child(content)
+	dialog.confirmed.connect(func():
+		assign_payload["devastating_wounds_choice"] = "mortals" if dw_check.button_pressed else "normal"
+		if lh_check != null:
+			assign_payload["lethal_hits_choice"] = "auto" if lh_check.button_pressed else "roll"
+		_dispatch_assign_with_choices(assign_payload)
+		dialog.queue_free())
+	dialog.canceled.connect(func():
+		_dispatch_assign_with_choices(assign_payload)  # engine defaults
+		dialog.queue_free())
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _dispatch_assign_with_choices(assign_payload: Dictionary) -> void:
+	emit_signal("shoot_action_requested", {
+		"type": "ASSIGN_TARGET",
+		"payload": assign_payload
+	})
+	_post_assign_ui_update(str(assign_payload.get("weapon_id", "")),
+		str(assign_payload.get("target_unit_id", "")),
+		assign_payload.get("model_ids", []))
+
 func _refresh_weapon_row_split_text(weapon_id: String) -> void:
 	if not weapon_tree:
 		return

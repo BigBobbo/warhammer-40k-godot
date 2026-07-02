@@ -182,6 +182,57 @@ func _run_tests():
 	_check("bogus chosen group falls back to auto-pick",
 		rules._precision_group_11e(true, choice_unit, prec_board.units["U_S"], choice_board, "grp_nope") == "char_1")
 
+	print("\n-- E3: DEVASTATING WOUNDS is a CHOICE (24.10, audit #17) --")
+	# Torrent DW gun vs a 2+ save target: by default a critical wound becomes
+	# mortal wounds (bypasses the save, dice block context devastating_wounds_11e);
+	# with devastating_wounds_choice="normal" the crit rolls a normal save.
+	var dw_maker = func() -> Dictionary:
+		return {"units": {
+			"U_S": {"id": "U_S", "owner": 1, "flags": {},
+				"meta": {"name": "S", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 3, "wounds": 2},
+					"weapons": [{"name": "DWGun", "type": "Ranged", "range": "24", "attacks": "6",
+						"ballistic_skill": "3", "strength": "8", "ap": "0", "damage": "2",
+						"special_rules": "torrent, devastating wounds"}]},
+				"models": [{"id": "s0", "alive": true, "wounds": 2, "current_wounds": 2,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 100, "y": 100}}]},
+			"U_T": {"id": "U_T", "owner": 2, "flags": {},
+				"meta": {"name": "T", "keywords": ["INFANTRY"], "stats": {"toughness": 4, "save": 2, "wounds": 4}},
+				"models": [{"id": "t0", "alive": true, "wounds": 4, "current_wounds": 4,
+					"base_mm": 32, "base_type": "circular", "position": {"x": 300, "y": 100}}]}},
+			"meta": {}}
+	# Seed with at least one 6 among the first 6 wound rolls (torrent skips hit rolls).
+	var dwseed := -1
+	for ds in range(500):
+		var has6 := false
+		for r in rules.RNGService.new(ds).roll_d6(6):
+			if r == 6:
+				has6 = true
+		if has6:
+			dwseed = ds
+			break
+	_check("DW seed found", dwseed != -1)
+	var dw_action_default = {"type": "SHOOT", "actor_unit_id": "U_S",
+		"payload": {"assignments": [{"weapon_id": "DWGun", "target_unit_id": "U_T", "model_ids": ["s0"]}]}}
+	var dw_board1 = dw_maker.call()
+	var dw_res1 = rules.resolve_shoot(dw_action_default, dw_board1, rules.RNGService.new(dwseed))
+	var dw_block1 := false
+	for d in dw_res1.get("dice", []):
+		if str(d.get("context", "")) == "devastating_wounds_11e":
+			dw_block1 = true
+	_check("default: critical wound converts to mortal wounds (devastating dice block present)",
+		dw_block1, str(dw_res1.get("dice", [])))
+	var dw_action_normal = {"type": "SHOOT", "actor_unit_id": "U_S",
+		"payload": {"assignments": [{"weapon_id": "DWGun", "target_unit_id": "U_T", "model_ids": ["s0"],
+			"devastating_wounds_choice": "normal"}]}}
+	var dw_board2 = dw_maker.call()
+	var dw_res2 = rules.resolve_shoot(dw_action_normal, dw_board2, rules.RNGService.new(dwseed))
+	var dw_block2 := false
+	for d in dw_res2.get("dice", []):
+		if str(d.get("context", "")) == "devastating_wounds_11e":
+			dw_block2 = true
+	_check("choice=normal: no mortal-wound conversion (crits roll normal saves)",
+		not dw_block2, str(dw_res2.get("dice", [])))
+
 	print("\n-- F: PSYCHIC ignores harmful hit-side modifiers (24.29) --")
 	var psy_board = {"units": {
 		"U_P": {"id": "U_P", "owner": 1, "flags": {},

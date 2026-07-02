@@ -1,0 +1,117 @@
+{
+  "id": "iss047c_ability_choice_prompts_11e",
+  "covers": [
+    "ui.ShootingController.ability_choice_dialog",
+    "phases.ShootingPhase.assignment_ability_choices"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Audit #17 (24.10/24.23): [DEVASTATING WOUNDS] and [LETHAL HITS] are attacker CHOICES at e11. Assigning a DW weapon pops the AbilityChoiceDialog (DW conversion on by default; Lethal auto-wound off by default, preserving the Devastating trigger). Confirming routes the choices through ASSIGN_TARGET into the phase's pending assignment, where the engine honours them (headless E2/E3 prove the resolution semantics).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][0].merge({\"position\": {\"x\": 1013.0, \"y\": 1250.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][1].merge({\"position\": {\"x\": 1053.0, \"y\": 1250.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][2].merge({\"position\": {\"x\": 973.0, \"y\": 1250.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][3].merge({\"position\": {\"x\": 1013.0, \"y\": 1210.0}}, true)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_WITCHSEEKERS_D"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._prompt_ability_choices({\"weapon_id\": \"Witchseeker flamer\", \"target_unit_id\": \"U_KOMMANDOS_H\", \"model_ids\": [\"m1\", \"m2\", \"m3\", \"m4\"]}, true, \"Witchseeker flamer\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AbilityChoiceDialog",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AbilityChoiceDialog/Content/DevastatingCheck"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AbilityChoiceDialog/Content/LethalCheck"
+    },
+    {
+      "act": "execute_script",
+      "script": "AbilityChoiceDialog.get_node(\"Content/DevastatingCheck\").button_pressed",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "AbilityChoiceDialog.get_node(\"Content/LethalCheck\").button_pressed",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_ability_choice_dialog"
+    },
+    {
+      "act": "execute_script",
+      "script": "AbilityChoiceDialog.get_node(\"Content/LethalCheck\").set_pressed(true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "AbilityChoiceDialog.get_ok_button().emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_assignments.back()[\"devastating_wounds_choice\"]",
+      "equals": "mortals"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_assignments.back()[\"lethal_hits_choice\"]",
+      "equals": "auto"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_choices_persisted_on_assignment"
+    }
+  ]
+}

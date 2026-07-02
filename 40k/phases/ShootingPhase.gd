@@ -916,11 +916,20 @@ func _process_assign_target(action: Dictionary) -> Dictionary:
 			if mid not in combined:
 				combined.append(mid)
 		existing["model_ids"] = combined
+		# Audit #17: latest attacker choice for the batch wins.
+		if payload.has("lethal_hits_choice"):
+			existing["lethal_hits_choice"] = str(payload.get("lethal_hits_choice", ""))
+		if payload.has("devastating_wounds_choice"):
+			existing["devastating_wounds_choice"] = str(payload.get("devastating_wounds_choice", ""))
 	else:
 		pending_assignments.append({
 			"weapon_id": weapon_id,
 			"target_unit_id": target_unit_id,
-			"model_ids": filtered_model_ids
+			"model_ids": filtered_model_ids,
+			# Audit #17 (24.10/24.23): attacker's per-batch ability choices —
+			# "" keeps the engine defaults.
+			"lethal_hits_choice": str(payload.get("lethal_hits_choice", "")),
+			"devastating_wounds_choice": str(payload.get("devastating_wounds_choice", "")),
 		})
 
 	log_phase_message("Assigned %s × %d to target %s" % [weapon_id, filtered_model_ids.size(), target_unit_id])

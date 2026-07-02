@@ -1954,6 +1954,14 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		weapon_has_devastating_wounds = true
 		print("RulesEngine: PURITY OF EXECUTION — Devastating Wounds vs PSYKER target %s" % target_unit_id)
 
+	# 24.10 (audit #17): [DEVASTATING WOUNDS] is a CHOICE — the attacker may
+	# decline the mortal-wound conversion for this batch; critical wounds
+	# then resolve through the normal save/damage sequence.
+	if GameConstants.edition >= 11 and weapon_has_devastating_wounds \
+			and str(assignment.get("devastating_wounds_choice", "")) == "normal":
+		weapon_has_devastating_wounds = false
+		print("RulesEngine: [24.10] DEVASTATING WOUNDS — attacker declined the mortal-wound conversion")
+
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
 
@@ -3311,6 +3319,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if not ar_weapon_has_devastating_wounds and actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_DEVASTATING_WOUNDS, false):
 		ar_weapon_has_devastating_wounds = true
 		print("RulesEngine: Headwoppa's Killchoppa — unit-level effect_devastating_wounds applied (auto-resolve)")
+	# 24.10 (audit #17): attacker may decline the mortal-wound conversion.
+	if GameConstants.edition >= 11 and ar_weapon_has_devastating_wounds \
+			and str(assignment.get("devastating_wounds_choice", "")) == "normal":
+		ar_weapon_has_devastating_wounds = false
+		print("RulesEngine: [24.10] DEVASTATING WOUNDS — attacker declined the mortal-wound conversion (auto-resolve)")
 
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var ar_critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
@@ -9642,6 +9655,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if not weapon_has_devastating_wounds and has_beastly_rage_active(attacker_unit):
 		weapon_has_devastating_wounds = true
 		print("RulesEngine:   DEVASTATING WOUNDS granted by Beastly Rage (charged this turn)")
+	# 24.10 (audit #17): attacker may decline the mortal-wound conversion.
+	if GameConstants.edition >= 11 and weapon_has_devastating_wounds \
+			and str(assignment.get("devastating_wounds_choice", "")) == "normal":
+		weapon_has_devastating_wounds = false
+		print("RulesEngine: [24.10] DEVASTATING WOUNDS — attacker declined the mortal-wound conversion (melee)")
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
 	# PRECISION: Check both weapon keyword and stratagem flag on attacker
 	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)

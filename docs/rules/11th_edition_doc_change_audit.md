@@ -247,7 +247,7 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 15. **[code] Fight-phase step structure** — make Pile-In and Consolidation single global both-player steps (active-first)
     rather than per-fighter; resolve the Engaging-consolidation 3"-vs-5" once GW FAQs. *(Tab 5.)*
 16. **[code] End-of-turn coherency removal dialog** — *(Done 2026-07-02:)* END_TURN pauses for human-owned incoherent units; the CoherencyRemovalDialog lets the player pick each removed model, and the turn auto-completes once coherent (`iss042b_coherency_removal_choice_11e`). Auto-pick stays as the AI/backstop. *(Tab 3.)*
-17. **[code] `[DEVASTATING WOUNDS]` / `[LETHAL HITS]` attacker-choice prompts** (currently default-only). *(Tab 4/8.)*
+17. **[code] `[DEVASTATING WOUNDS]` / `[LETHAL HITS]` attacker-choice prompts** — *(Done 2026-07-02:)* the AbilityChoiceDialog offers both choices when a DW weapon is assigned; choices ride the assignment into all three resolution paths, incl. the new 24.10 decline (`iss047c_ability_choice_prompts_11e`; headless E3). *(Tab 4/8.)*
 
 ---
 

@@ -1879,6 +1879,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "ui.ShootingController.ability_choice_dialog",
+      "description": "Audit #17: assigning a [DEVASTATING WOUNDS] weapon at e11 pops the AbilityChoiceDialog — DW mortal-wound conversion (default on) and, when combined, LETHAL HITS auto-wound (default off, preserving the Devastating trigger).",
+      "scenarios": [
+        "iss047c_ability_choice_prompts_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ShootingPhase.assignment_ability_choices",
+      "description": "ASSIGN_TARGET persists lethal_hits_choice / devastating_wounds_choice per weapon->target batch; the engine honours them in all three resolution paths (interactive, ranged auto-resolve, melee).",
+      "scenarios": [
+        "iss047c_ability_choice_prompts_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
