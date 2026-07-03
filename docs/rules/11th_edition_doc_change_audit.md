@@ -192,9 +192,9 @@ Plunging Fire 3"/+1 ✅, **Hunter X** 🔴 (unimplemented, no data), **Heal X** 
 
 | # | Change | Status | Note |
 |---|---|---|---|
-| **Force Dispositions** (5, pick from detachment) | 🔴 | No disposition system — "disposition" appears only as a detachment flavour string in `Stratagems.csv`. |
-| **Asymmetric primaries** (15 pairings, e.g. Meatgrinder/Vital Link) | 🔴 | Game uses 10e-style **symmetric** primary selection (Take & Hold / Purge the Foe dropdowns). |
-| Primary caps (45 VP, 15/round, 2nd-player R5 EoT) | 🟡 | Take-and-Hold / Purge scoring exists; not the 11e pairing/caps model. |
+| **Force Dispositions** (5, pick from detachment) | 🟡 | Per-player Force Disposition dropdowns in the new-game menu (`PrimaryMissionData11e.DISPOSITIONS`); pairing resolved at game init from `meta.game_config` (`iss064b_primary_disposition_11e`). Pick is menu-level, not detachment-derived. |
+| **Asymmetric primaries** (25 pairings, e.g. Meatgrinder/Vital Link) | 🟡 | Full 25-card GDM 2026 pairing table authored from `docs/rules/11th_edition_missions_gdm2026.md`; each player scores their own card (own deck × opponent disposition). Concretely-specified conditions (hold/kill/enemy-home/central/quarters/escalation) are live; bespoke marker/action mechanics (Triangulate, Booby Trap, Sabotage, decoys, intel, Condemn, Consecrate…) score 0 and are flagged `approximate` pending card text. |
+| Primary caps (45 VP, 15/round, 2nd-player R5 EoT) | 🟡 | 45-total + 15-per-turn caps enforced at e11; Command-phase scoring switches to end-of-turn in Round 5; EOT/EOG conditions hooked into ScoringPhase/game-end (`test_primary_missions_11e` 26/26). Doc says "C switches to EOT in Round 5" — applied to both players, not only the 2nd. |
 | Secondary **Fixed vs Tactical** | ✅ | Both modes selectable + validated Tactical draw. |
 | 11e **secondary deck** (Forward Position, Plunder, Beacon, Centre Ground, A Grievous Blow; no hand limit; 45 cap) | 🟡 | GDM 2026 deck authored from `docs/rules/11th_edition_missions_gdm2026.md`: 18 cards (7 new), draw-2/no-hand-limit, fixed-four restriction, 45-total + 15/turn caps (`iss063b_secondary_deck_11e`; `test_secondary_deck_11e` 31/31). Cards without published text carry `approximate: true`; Attacker/Defender variants not modelled (no variant text). |
 
@@ -205,9 +205,17 @@ Plunging Fire 3"/+1 ✅, **Hunter X** 🔴 (unimplemented, no data), **Heal X** 
 Ordered by player impact. Engine-level items marked **[code]**; content-authoring **[data]**.
 
 ### Tier 1 — whole subsystems a player cannot use today
-1. **[code+data] 11e mission system.** Implement Force Dispositions (5), the 15 disposition-pairing table, and
-   asymmetric per-player primary missions (Meatgrinder, Vital Link, Destroyer's Wrath, …) with the 45/15 caps and
-   2nd-player round-5 end-of-turn scoring. Add disposition selection to army build/new-game. *(Ref: doc Tab 10.)*
+1. **[code+data] 11e mission system.** *(Core done 2026-07-03, approximations flagged:)* Force Dispositions (5) are
+   selectable per player in the new-game menu; the full 25-card GDM 2026 pairing table (`PrimaryMissionData11e`)
+   resolves each player's own primary mission; a condition-based scorer in MissionManager evaluates
+   hold/kill/enemy-home/central/quarters/hold-new/escalating-per-objective rules with the 45-total + 15-per-turn caps,
+   the Round-5 Command→EOT switch, EOT conditions every turn, and EOG conditions at game end (save/load covered).
+   Windowed `iss064b_primary_disposition_11e` (24/24) + live MainMenu→start→pairing check; headless
+   `test_primary_missions_11e` 26/26. **Remaining (source-blocked):** the bespoke action/marker mechanics on ~11 cards
+   (Triangulate, Booby Trap, Sabotage, decoy/intel/relic markers, Condemn, Consecrate, Secure Asset…) have no
+   published card text — they currently score 0 and are flagged `approximate`; rows with inferred numbers are
+   flagged per-rule. Also: disposition is a menu pick, not detachment-derived, and 6-objective Inescapable Dominion
+   maps aren't modelled (5-objective layouts). *(Ref: doc Tab 10.)*
 2. **[data] 11e secondary mission deck.** *(Done 2026-07-02, approximations flagged:)* the GDM 2026 deck is authored
    from `docs/rules/11th_edition_missions_gdm2026.md` — 18 cards incl. the Fixed four, draw-2-per-turn with no hand
    limit, the fixed-eligibility restriction, and the 45-total/15-per-turn caps. Cards whose full text was unpublished
@@ -258,21 +266,27 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 
 ## 11. Bottom line
 
-**Status 2026-07-02 (post-sweep):** every task-list item implementable from in-repo sources is done — Tier-1 #3
-(Support attach) and #4 (Hidden/Gone to Ground/Detection Range) code-complete; Tier-3 #7, #8, #10, #11, #12, #13,
-#14 (Extra Attacks), #16, #17 all landed with windowed/headless validation; delta-audit B6 closed. What remains is
-**source-blocked**: the 11e mission system (#1–2, mission-pack texts not in repo), true 11e stat lines and Support
-tags for other factions (#3, PRD §5 open q.2), Hunter X / Heal X (#9, zero rule text in the shipped core-rules PDF),
-Melta "post-order" (#14 remainder, deep-dive only), terrain-category authoring (#6, layout data decisions), the DP/
-Upgrades army-construction model (#5) — plus #15's fight-step restructure, which the audit itself parks pending a GW
-FAQ on the 3"-vs-5" Engaging consolidation.
+**Status 2026-07-03 (post-GDM-missions):** the mission system is no longer unbuilt — with the GDM 2026 document now
+in-repo, Tier-1 #2 (secondary deck, 2026-07-02) and the core of Tier-1 #1 (Force Dispositions, the 25-card pairing
+table, per-player primary scoring with 45/15 caps and the R5 EOT switch, 2026-07-03) are implemented and validated
+windowed + headless, with unpublished card components flagged `approximate` and scoring 0 rather than invented.
+Earlier sweep results stand: Tier-1 #3 (Support attach) and #4 (Hidden/Gone to Ground/Detection Range)
+code-complete; Tier-3 #7, #8, #10, #11, #12, #13, #14 (Extra Attacks), #16, #17 landed; delta-audit B6 closed. What
+remains **source-blocked**: the bespoke primary-card action mechanics (#1 remainder) and secondary Attacker/Defender
+variants (#2 remainder), true 11e stat lines and Support tags for other factions (#3, PRD §5 open q.2), Hunter X /
+Heal X (#9, zero rule text in the shipped core-rules PDF), Melta "post-order" (#14 remainder, deep-dive only),
+terrain-category authoring incl. Home/Expansion/Central designations (#6, layout data decisions), the DP/Upgrades
+army-construction model (#5) — plus #15's fight-step restructure, which the audit itself parks pending a GW FAQ on
+the 3"-vs-5" Engaging consolidation.
 
 The **core engine** of 11th edition is in and genuinely playable at `edition == 11`: the new attack/allocation model,
 cover-as-BS, engagement 2" / coherency 9", the move-type framework incl. FLY, the select-after-roll charge, the
 active-first Fight sequencer, terrain-as-objectives with per-phase control, battle-shock, disembark modes, two-slot
-attach, and the hazard/indirect/hazardous/heavy fixes all validate live or in the windowed suite. The **residual gap is
-concentrated in three places**: (1) the **11e mission system** (Force Dispositions + asymmetric primaries + the new
-secondary deck) is essentially unbuilt; (2) **Hidden/Gone-to-Ground/Detection-Range** and full **terrain-category /
-Solid** fidelity are partial; and (3) **content** — Support datasheets, true 11e stat lines, Upgrades/Detachment-Points
-army building, and the Hunter/Heal/Surge abilities that no shipped datasheet yet uses. Tiers 1–2 above are what stand
-between "the 11e rules engine runs" and "a player plays a complete, rules-accurate 11th-edition game."
+attach, and the hazard/indirect/hazardous/heavy fixes all validate live or in the windowed suite. The **11e mission
+system now runs end to end** — dispositions in the menu, the 25-card pairing table, per-player primary scoring with
+the GDM caps/timing, and the 18-card secondary deck — with the bespoke card actions the only unbuilt part (no
+published text). The **residual gap is concentrated in**: (1) those **card action mechanics** plus mission-facing
+terrain designations (Home/Expansion/Central); (2) full **terrain-category / Solid** fidelity; and (3) **content** —
+Support datasheets, true 11e stat lines, Upgrades/Detachment-Points army building, and the Hunter/Heal/Surge
+abilities that no shipped datasheet yet uses. Tiers 1–2 above are what stand between "the 11e rules engine runs" and
+"a player plays a complete, rules-accurate 11th-edition game."

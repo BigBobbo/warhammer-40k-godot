@@ -28,6 +28,10 @@ var p1_select_fixed_button: Button = null
 var p2_select_fixed_button: Button = null
 var _p1_fixed_mission_ids: Array = []
 var _p2_fixed_mission_ids: Array = []
+# 11e GDM 2026: Force Disposition selection (drives the primary mission pairing)
+var disposition_container: VBoxContainer = null
+var p1_disposition_dropdown: OptionButton = null
+var p2_disposition_dropdown: OptionButton = null
 @onready var start_button: Button = $ScrollContainer/MenuContainer/ButtonSection/StartButton
 @onready var multiplayer_button: Button = $ScrollContainer/MenuContainer/ButtonSection/MultiplayerButton
 @onready var load_button: Button = $ScrollContainer/MenuContainer/ButtonSection/LoadButton
@@ -223,6 +227,9 @@ func _setup_dropdowns() -> void:
 
 	# P2-85: Create secondary mission mode selection
 	_create_secondary_mission_mode_ui()
+
+	# 11e GDM 2026: Force Disposition selection (primary mission pairing)
+	_create_disposition_ui()
 
 	# 11e go-live: rules edition selector
 	_create_edition_dropdown()
@@ -469,6 +476,52 @@ func _create_secondary_mission_mode_ui() -> void:
 	p2_row.add_child(p2_select_fixed_button)
 
 	print("MainMenu: P2-85 Secondary mission mode UI created")
+
+func _create_disposition_ui() -> void:
+	"""11e GDM 2026: per-player Force Disposition selection. The primary
+	mission each player scores is their disposition paired against the
+	opponent's (25-card table in PrimaryMissionData11e). Ignored at 10e."""
+	var mission_section = $ScrollContainer/MenuContainer/MissionSection
+
+	disposition_container = VBoxContainer.new()
+	disposition_container.name = "DispositionContainer"
+	disposition_container.add_theme_constant_override("separation", 6)
+	mission_section.add_child(disposition_container)
+
+	var section_label = Label.new()
+	section_label.text = "Force Disposition (11th Edition):"
+	section_label.custom_minimum_size = Vector2(150, 0)
+	disposition_container.add_child(section_label)
+
+	for player in [1, 2]:
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		disposition_container.add_child(row)
+
+		var label = Label.new()
+		label.text = "Player %d:" % player
+		label.custom_minimum_size = Vector2(80, 0)
+		row.add_child(label)
+
+		var dropdown = OptionButton.new()
+		dropdown.name = "P%dDispositionDropdown" % player
+		dropdown.custom_minimum_size = Vector2(180, 0)
+		for disp_id in PrimaryMissionData11e.DISPOSITIONS:
+			dropdown.add_item(PrimaryMissionData11e.get_disposition_name(disp_id))
+		dropdown.selected = 0
+		row.add_child(dropdown)
+
+		if player == 1:
+			p1_disposition_dropdown = dropdown
+		else:
+			p2_disposition_dropdown = dropdown
+
+	print("MainMenu: 11e Force Disposition UI created")
+
+func _get_selected_disposition(dropdown: OptionButton) -> String:
+	if dropdown == null or dropdown.selected < 0 or dropdown.selected >= PrimaryMissionData11e.DISPOSITIONS.size():
+		return "take_and_hold"
+	return PrimaryMissionData11e.DISPOSITIONS[dropdown.selected]
 
 func _on_p1_secondary_mode_changed(index: int) -> void:
 	"""P2-85: Show/hide fixed mission select button for Player 1."""
@@ -850,6 +903,8 @@ func _on_start_button_pressed() -> void:
 		"player2_secondary_mode": p2_secondary_mode,
 		"player1_fixed_missions": _p1_fixed_mission_ids.duplicate() if p1_secondary_mode == "fixed" else [],
 		"player2_fixed_missions": _p2_fixed_mission_ids.duplicate() if p2_secondary_mode == "fixed" else [],
+		"player1_disposition": _get_selected_disposition(p1_disposition_dropdown),
+		"player2_disposition": _get_selected_disposition(p2_disposition_dropdown),
 	}
 
 	print("MainMenu: Starting game with config: ", config)
@@ -914,7 +969,12 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 
 	# Initialize base game state with selected deployment type
 	GameState.initialize_default_state(config.deployment)
-	
+
+	# Store configuration in game state BEFORE mission init — the 11e path in
+	# MissionManager.initialize_mission reads the Force Dispositions from
+	# meta.game_config (also re-stored below after army loading for clarity).
+	GameState.state.meta["game_config"] = config
+
 	# Apply terrain configuration
 	if TerrainManager:
 		TerrainManager.current_layout = config.terrain

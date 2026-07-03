@@ -1,0 +1,55 @@
+{
+  "id": "iss064b_primary_disposition_11e",
+  "covers": [
+    "missions.primary_11e.disposition_pairing",
+    "missions.primary_11e.command_scoring"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "description": "Audit Tier-1 #1 (GDM 2026 Force Dispositions): each player's primary mission is their own deck paired against the opponent's disposition. P1 Take and Hold vs P2 Purge the Foe resolves to Immovable Object (P1) and Unstoppable Force (P2) via the meta.game_config path in initialize_mission. Turn-start control is snapshotted while P2 only holds obj_nml_2; then the P1 centre garrison (Caladius OC4 + Contemptor OC3) withdraws and Boyz K capture obj_center. END_COMMAND live-scores P2's Unstoppable Force command conditions: 4VP (hold 1+ non-home) + 3VP (obj_center was not held at turn start) = 7 primary VP, while P1 scores nothing.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "GameState.state[\"meta\"].merge({\"game_config\": {\"deployment\": \"search_and_destroy\", \"player1_disposition\": \"take_and_hold\", \"player2_disposition\": \"purge_the_foe\"}}, true)" },
+    { "act": "execute_script", "script": "MissionManager.initialize_mission(\"take_and_hold\")" },
+    { "act": "execute_script",
+      "script": "MissionManager.get_primary_mission_for_player(2)[\"id\"]",
+      "equals": "unstoppable_force" },
+    { "act": "execute_script",
+      "script": "MissionManager.get_primary_mission_for_player(1)[\"id\"]",
+      "equals": "immovable_object" },
+
+    { "act": "execute_script", "script": "MissionManager.check_all_objectives()" },
+    { "act": "execute_script", "script": "MissionManager.on_turn_start_11e(2)" },
+    { "act": "execute_script",
+      "script": "\"obj_center\" in MissionManager._control_at_turn_start[\"2\"]",
+      "equals": false },
+
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_CALADIUS_GRAV-TANK_E\")[\"models\"][0].merge({\"position\": {\"x\": 200.0, \"y\": 300.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\")[\"models\"][0].merge({\"position\": {\"x\": 320.0, \"y\": 300.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][0].merge({\"position\": {\"x\": 900.0, \"y\": 1180.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][1].merge({\"position\": {\"x\": 860.0, \"y\": 1220.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][2].merge({\"position\": {\"x\": 910.0, \"y\": 1230.0}}, true)" },
+    { "act": "execute_script", "script": "MissionManager.check_all_objectives()" },
+    { "act": "execute_script",
+      "script": "MissionManager.objective_control_state[\"obj_center\"]",
+      "equals": 2 },
+    { "act": "screenshot", "label": "01_boyz_on_centre_objective" },
+
+    { "act": "dispatch_action", "action": { "type": "END_COMMAND" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "expect_state", "path": "players.2.primary_vp", "equals": 7 },
+    { "act": "expect_state", "path": "players.1.primary_vp", "equals": 0 },
+    { "act": "execute_script",
+      "script": "int(MissionManager._primary_vp_this_turn[\"2\"])",
+      "equals": 7 },
+    { "act": "screenshot", "label": "02_unstoppable_force_scored_7vp" }
+  ]
+}
