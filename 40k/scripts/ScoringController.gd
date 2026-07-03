@@ -315,13 +315,29 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 		summary_hbox.add_child(cont_sum)
 	panel.add_child(summary_hbox)
 
-	# Mission info
-	var mission_name = MissionManager.get_current_mission_name()
-	var mission_info = Label.new()
-	mission_info.text = "Mission: %s" % mission_name
-	mission_info.add_theme_font_size_override("font_size", 11)
-	mission_info.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
-	panel.add_child(mission_info)
+	# Mission info — at e11 (GDM 2026) each player scores their OWN
+	# disposition-paired primary card, so show both instead of the shared
+	# 10e mission name. "~" marks cards built from approximate source rows.
+	if GameConstants.edition >= 11 and not MissionManager.player_primary_missions.is_empty():
+		for p in [1, 2]:
+			var card = MissionManager.get_primary_mission_for_player(p)
+			var disp = MissionManager.player_dispositions.get(str(p), "")
+			var card_label = Label.new()
+			card_label.name = "P%dPrimaryMissionLabel" % p
+			card_label.text = "P%d Primary: %s%s (%s)" % [
+				p, card.get("name", "?"),
+				" ~" if card.get("approximate", false) else "",
+				PrimaryMissionData11e.get_disposition_name(disp)]
+			card_label.add_theme_font_size_override("font_size", 11)
+			card_label.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
+			panel.add_child(card_label)
+	else:
+		var mission_name = MissionManager.get_current_mission_name()
+		var mission_info = Label.new()
+		mission_info.text = "Mission: %s" % mission_name
+		mission_info.add_theme_font_size_override("font_size", 11)
+		mission_info.add_theme_color_override("font_color", Color(0.55, 0.52, 0.45))
+		panel.add_child(mission_info)
 
 func _add_gold_separator(parent: VBoxContainer) -> void:
 	var sep = ColorRect.new()

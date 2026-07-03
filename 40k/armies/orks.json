@@ -1276,7 +1276,8 @@
           "BATTLEWAGON",
           "ORKS",
           "TRANSPORT",
-          "VEHICLE"
+          "VEHICLE",
+          "FRAME"
         ],
         "stats": {
           "move": 10,

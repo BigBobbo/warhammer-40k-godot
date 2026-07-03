@@ -371,6 +371,12 @@ func _handle_end_turn() -> Dictionary:
 	# diffs are built.
 	PhaseManager.run_turn_ending_hooks(current_player)
 
+	# 11e GDM primary missions: EOT conditions score at the end of every turn,
+	# and Command-phase conditions switch to end of turn in Round 5.
+	if MissionManager and GameConstants.edition >= 11:
+		MissionManager.count_destroyed_units_this_round()
+		MissionManager.score_primary_eot_11e(current_player)
+
 	# P3-128: Record VP snapshot at end of each player's turn for the timeline chart
 	if MissionManager:
 		var battle_round = GameState.get_battle_round()
@@ -484,6 +490,11 @@ func _handle_game_end_turn() -> Dictionary:
 	# so the bonus VP counts toward the result.
 	if MissionManager and MissionManager.has_method("score_end_of_game_burn_bonus"):
 		MissionManager.score_end_of_game_burn_bonus()
+
+	# 11e GDM primary missions: end-of-game conditions (e.g. "5VP enemy home
+	# EOG") score before the winner is determined. Idempotent.
+	if MissionManager and GameConstants.edition >= 11:
+		MissionManager.score_primary_eog_11e()
 
 	var winner := _determine_winner()
 

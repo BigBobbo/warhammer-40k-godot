@@ -1327,6 +1327,79 @@ func validate_army_structure(army_data: Dictionary) -> Dictionary:
 # Standard game sizes per 10th Edition Muster Rules
 const STANDARD_GAME_SIZES: Array = [500, 1000, 1500, 2000, 3000]
 
+## 11e army construction rules (sourced 2026-07-03; see the missions doc
+## appendix): Warlord must share the army's Faction keyword; enhancement
+## count capped at 2 per 1000 pts (2 @ 1000 / 4 @ 2000); Upgrade-tagged
+## enhancements may sit on up to three non-CHARACTER units while counting
+## as one choice; Detachment Points pool is 3 at 2000 pts (only checked
+## when the army data declares detachment DP costs — current army JSONs
+## carry a single detachment with no cost, which passes trivially).
+func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
+	var result = {"valid": true, "errors": [], "warnings": []}
+	if not army_data.get("faction", null) is Dictionary:
+		result.valid = false
+		result.errors.append("Missing 'faction' field")
+		return result
+	var faction = army_data.faction
+	var faction_keyword = str(faction.get("name", "")).to_upper()
+	var points_limit = int(faction.get("points", 2000))
+	var units = army_data.get("units", {})
+
+	# --- Warlord must match the army faction ---
+	var warlord_found = false
+	for unit_id in units:
+		var meta = units[unit_id].get("meta", {})
+		if not meta.get("is_warlord", false):
+			continue
+		warlord_found = true
+		var keywords = []
+		for kw in meta.get("keywords", []):
+			keywords.append(str(kw).to_upper())
+		if faction_keyword != "" and not faction_keyword in keywords:
+			result.warnings.append("11e: Warlord %s lacks the army Faction keyword %s" % [unit_id, faction_keyword])
+	if not warlord_found:
+		result.warnings.append("11e: no Warlord designated")
+
+	# --- Enhancement cap: 2 per 1000 points; Upgrade-tag counts once ---
+	var enhancement_choices = {}
+	for unit_id in units:
+		var meta = units[unit_id].get("meta", {})
+		var upper_kw = []
+		for k in meta.get("keywords", []):
+			upper_kw.append(str(k).to_upper())
+		var is_character = "CHARACTER" in upper_kw
+		for enh in meta.get("enhancements", []):
+			var name = str(enh) if enh is String else str(enh.get("name", ""))
+			var is_upgrade = enh is Dictionary and enh.get("upgrade", false)
+			if is_upgrade:
+				if is_character:
+					result.warnings.append("11e: Upgrade enhancement '%s' on CHARACTER unit %s (Upgrades are non-CHARACTER only)" % [name, unit_id])
+				var entry = enhancement_choices.get(name, {"count": 0, "upgrade": true})
+				entry["count"] = int(entry.get("count", 0)) + 1
+				enhancement_choices[name] = entry
+				if entry["count"] > 3:
+					result.warnings.append("11e: Upgrade enhancement '%s' on more than three units" % name)
+			else:
+				enhancement_choices["%s@%s" % [name, unit_id]] = {"count": 1, "upgrade": false}
+	var max_enhancements = int(floor(points_limit / 1000.0)) * 2
+	if enhancement_choices.size() > max_enhancements and max_enhancements > 0:
+		result.warnings.append("11e: %d enhancement choices exceed the cap of %d at %d pts" % [
+			enhancement_choices.size(), max_enhancements, points_limit])
+
+	# --- Detachment Points: pool of 3 at 2000 pts ---
+	var detachments = army_data.get("detachments", [])
+	if detachments is Array and detachments.size() > 0:
+		var dp_total = 0
+		for det in detachments:
+			if det is Dictionary:
+				dp_total += int(det.get("dp_cost", 1))
+		var dp_pool = 3 if points_limit >= 2000 else maxi(1, int(floor(points_limit / 2000.0 * 3)))
+		if dp_total > dp_pool:
+			result.warnings.append("11e: detachments cost %d DP, pool is %d at %d pts" % [dp_total, dp_pool, points_limit])
+
+	result.valid = result.errors.is_empty()
+	return result
+
 func validate_army_construction_points(army_data: Dictionary) -> Dictionary:
 	"""Validate army construction points and detachment rules.
 	Returns a dictionary with 'valid' (bool), 'errors' (Array), and 'warnings' (Array).

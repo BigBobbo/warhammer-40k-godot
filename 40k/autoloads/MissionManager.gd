@@ -67,6 +67,37 @@ var kills_per_round: Dictionary = {}
 # Tracks which objectives have been claimed by a character: objective_id -> { "player": int, "claimed_round": int }
 var character_claimed_objectives: Dictionary = {}
 
+# --- 11e GDM 2026 Force Disposition primary missions ---
+# player_key ("1"/"2") -> disposition id ("take_and_hold" | "purge_the_foe" |
+# "reconnaissance" | "priority_assets" | "disruption")
+var player_dispositions: Dictionary = {}
+# player_key -> resolved primary mission card (own deck vs opponent disposition)
+var player_primary_missions: Dictionary = {}
+# player_key -> primary VP scored in the current turn window (15/turn cap)
+var _primary_vp_this_turn: Dictionary = {"1": 0, "2": 0}
+# player_key -> Array of objective ids controlled at the start of their turn
+# (for "hold an objective you didn't start your turn with" conditions)
+var _control_at_turn_start: Dictionary = {}
+# One-shot guard so end-of-game conditions only score once
+var _eog_primary_scored: bool = false
+# Action-type components we've already warned about (log once per game)
+var _warned_unimplemented_actions: Dictionary = {}
+# Per-player marker/action state for the GDM card mechanics (see the
+# missions doc appendix). Auto-resolved: the real cards let the player pick
+# targets; we pick deterministically and flag the cards approximate.
+# player_key -> { triangulated: [obj_id], consecrated: [obj_id],
+#   decoyed: [obj_id], decoyed_ever: [obj_id], trapped: [terrain_id],
+#   operation_markers: int, intel_tokens: [obj_id],
+#   intel_placed_this_turn: int, condemned: [unit_id],
+#   condemned_left_this_turn: bool, sensor_swept_this_turn: bool }
+var _primary_state_11e: Dictionary = {}
+# Shared relic/operation markers for the Extract Relic / Locate and Deny
+# pairing: terrain feature ids still carrying a marker
+var _relic_markers_11e: Array = []
+# player_key (turn owner) -> {unit_id: true} units on the battlefield at
+# the start of that player's turn (for left-battlefield / destroyed checks)
+var _alive_at_turn_start_11e: Dictionary = {}
+
 func _ready() -> void:
 	print("MissionManager: Initializing mission system")
 	initialize_default_mission()
@@ -162,6 +193,16 @@ func initialize_mission(mission_id: String) -> void:
 	# Store mission type in GameState meta for reference
 	GameState.state.meta["mission_type"] = mission_id
 
+	# 11e GDM 2026: primary missions come from the Force Disposition pairing
+	# table instead of the shared 10e mission card. The 10e current_mission is
+	# still initialized above (objectives, control tracking, UI compatibility);
+	# only the SCORING dispatch is replaced at e11.
+	if GameConstants.edition >= 11:
+		var config = GameState.state.get("meta", {}).get("game_config", {})
+		initialize_dispositions_11e(
+			str(config.get("player1_disposition", "take_and_hold")),
+			str(config.get("player2_disposition", "take_and_hold")))
+
 	print("MissionManager: Initialized '%s' mission (scoring_type: %s)" % [current_mission.name, current_mission.scoring_type])
 
 func _setup_objectives_for_deployment(deployment_type: String) -> void:
@@ -177,9 +218,46 @@ func _setup_objectives_for_deployment(deployment_type: String) -> void:
 	for obj in objectives:
 		objective_control_state[obj.id] = 0  # 0 = contested/uncontrolled
 
+	# 11e GDM: Chapter Approved objective designations — Home (one per
+	# deployment zone), Central (nearest the board centre), Expansion (the
+	# remaining NML objectives). Assigned for all editions; only 11e reads it.
+	_assign_objective_designations(objectives)
+
 	print("MissionManager: Set up %d objectives for %s deployment" % [objectives.size(), deployment_type])
 	for obj in objectives:
-		print("  - %s at position %s (zone: %s)" % [obj.id, obj.position, obj.get("zone", "unknown")])
+		print("  - %s at position %s (zone: %s, designation: %s)" % [obj.id, obj.position, obj.get("zone", "unknown"), obj.get("designation", "?")])
+
+func _assign_objective_designations(objectives: Array) -> void:
+	var board_size = GameState.state.get("board", {}).get("size", {})
+	var center = Vector2(
+		Measurement.inches_to_px(float(board_size.get("width", 44)) / 2.0),
+		Measurement.inches_to_px(float(board_size.get("height", 60)) / 2.0))
+	var central_id = ""
+	var best_dist = INF
+	for obj in objectives:
+		if obj.get("zone", "") != "no_mans_land":
+			obj["designation"] = "home"
+			continue
+		var pos = obj.get("position")
+		if pos is Dictionary:
+			pos = Vector2(pos.x, pos.y)
+		var d = pos.distance_to(center)
+		if d < best_dist:
+			best_dist = d
+			central_id = obj.get("id", "")
+	for obj in objectives:
+		if obj.get("zone", "") == "no_mans_land":
+			obj["designation"] = "central" if obj.get("id", "") == central_id else "expansion"
+
+func get_objective_designation(obj_id: String) -> String:
+	return _get_objective_by_id(obj_id).get("designation", "")
+
+func get_objective_ids_by_designation(designation: String) -> Array:
+	var out = []
+	for obj in GameState.state.board.get("objectives", []):
+		if obj.get("designation", "") == designation:
+			out.append(obj.get("id", ""))
+	return out
 
 # ============================================================
 # OBJECTIVE CONTROL (shared by all missions)
@@ -525,6 +603,18 @@ func find_nearest_controlled_objective(unit_id: String) -> String:
 func score_primary_objectives() -> void:
 	var battle_round = GameState.get_battle_round()
 	var active_player = GameState.get_active_player()
+
+	# 11e GDM 2026: score the active player's own disposition-paired card.
+	# Command-phase conditions switch to end-of-turn scoring in Round 5, so
+	# the Command-phase trigger is a no-op there (score_primary_eot_11e picks
+	# them up instead).
+	if GameConstants.edition >= 11 and not player_primary_missions.is_empty():
+		if battle_round >= 5:
+			print("MissionManager: 11e R5 — Command-phase primary scoring deferred to end of turn")
+			return
+		_score_primary_11e(active_player, battle_round, "command")
+		return
+
 	var start_round = current_mission.get("start_round", current_mission.get("scoring_rules", {}).get("start_round", 2))
 
 	print("MissionManager: Checking primary scoring for Player %d in battle round %d (mission: %s)" % [active_player, battle_round, current_mission.name])
@@ -974,6 +1064,717 @@ func _score_terraform(active_player: int, _battle_round: int) -> void:
 	_apply_primary_vp(active_player, vp_earned, "Terraform: held %d objectives, %d terraformed" % [controlled_count, terraform_bonus])
 
 # ============================================================
+# 11e GDM 2026 — FORCE DISPOSITION PRIMARY MISSIONS
+# ============================================================
+# Each player scores their OWN card: their deck (disposition) paired against
+# the opponent's disposition. Caps: 45 primary total, 15 per turn. Command
+# conditions score at the end of your Command phase in R1-4 and switch to end
+# of turn in R5. EOT conditions score every end of turn; EOG conditions score
+# once when the game ends.
+
+func initialize_dispositions_11e(p1_disposition: String, p2_disposition: String) -> void:
+	if not PrimaryMissionData11e.is_valid_disposition(p1_disposition):
+		print("MissionManager: 11e unknown disposition '%s' for P1, using take_and_hold" % p1_disposition)
+		p1_disposition = "take_and_hold"
+	if not PrimaryMissionData11e.is_valid_disposition(p2_disposition):
+		print("MissionManager: 11e unknown disposition '%s' for P2, using take_and_hold" % p2_disposition)
+		p2_disposition = "take_and_hold"
+
+	player_dispositions = {"1": p1_disposition, "2": p2_disposition}
+	player_primary_missions = {
+		"1": PrimaryMissionData11e.get_card(p1_disposition, p2_disposition),
+		"2": PrimaryMissionData11e.get_card(p2_disposition, p1_disposition),
+	}
+	_primary_vp_this_turn = {"1": 0, "2": 0}
+	_control_at_turn_start = {}
+	_eog_primary_scored = false
+	_warned_unimplemented_actions = {}
+	_primary_state_11e = {"1": _blank_primary_state_11e(), "2": _blank_primary_state_11e()}
+	_alive_at_turn_start_11e = {}
+	_setup_relic_markers_11e()
+
+	GameState.state.meta["dispositions_11e"] = player_dispositions.duplicate(true)
+	for pk in ["1", "2"]:
+		var card = player_primary_missions[pk]
+		print("MissionManager: 11e P%s disposition %s vs %s -> primary mission '%s'%s" % [
+			pk, player_dispositions[pk], player_dispositions["2" if pk == "1" else "1"],
+			card.get("name", "?"),
+			" (approximate)" if card.get("approximate", false) else ""])
+
+func _blank_primary_state_11e() -> Dictionary:
+	return {
+		"triangulated": [], "consecrated": [], "decoyed": [], "decoyed_ever": [],
+		"trapped": [], "operation_markers": 0, "intel_tokens": [],
+		"intel_placed_this_turn": 0, "condemned": [],
+		"condemned_left_this_turn": false, "sensor_swept_this_turn": false,
+	}
+
+## Extract Relic / Locate and Deny pairing: the Disruption player marks five
+## terrain areas outside their deployment zone at the start of the mission.
+## Auto-picked: the five terrain features farthest from the Disruption
+## player's home objective (deterministic; flagged approximate).
+func _setup_relic_markers_11e() -> void:
+	_relic_markers_11e = []
+	var ids = [player_primary_missions.get("1", {}).get("id", ""),
+		player_primary_missions.get("2", {}).get("id", "")]
+	if not ("extract_relic" in ids or "locate_and_deny" in ids):
+		return
+	var di_player = 1 if player_dispositions.get("1", "") == "disruption" else 2
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null or tm.terrain_features.is_empty():
+		print("MissionManager: 11e relic markers — no terrain features available")
+		return
+	var di_home_pos = null
+	for obj in GameState.state.board.get("objectives", []):
+		if obj.get("zone", "") == "player%d" % di_player:
+			di_home_pos = obj.get("position")
+			if di_home_pos is Dictionary:
+				di_home_pos = Vector2(di_home_pos.x, di_home_pos.y)
+			break
+	var candidates = []
+	for feature in tm.terrain_features:
+		var fpos = feature.get("position", Vector2.ZERO)
+		var dist = fpos.distance_to(di_home_pos) if di_home_pos != null else 0.0
+		candidates.append({"id": feature.get("id", ""), "dist": dist})
+	candidates.sort_custom(func(a, b): return a["dist"] > b["dist"])
+	for i in range(min(5, candidates.size())):
+		_relic_markers_11e.append(candidates[i]["id"])
+	print("MissionManager: 11e relic markers placed on %s" % str(_relic_markers_11e))
+
+## Called at Command phase entry (after check_all_objectives) — opens the
+## active player's per-turn VP window and snapshots start-of-turn control.
+func on_turn_start_11e(player: int) -> void:
+	if GameConstants.edition < 11:
+		return
+	var pk = str(player)
+	_primary_vp_this_turn[pk] = 0
+	_control_at_turn_start[pk] = _get_controlled_objectives(player)
+	# Snapshot who is on the battlefield for left-battlefield / kill checks
+	var alive = {}
+	for unit_id in GameState.state.get("units", {}):
+		if _unit_on_battlefield_11e(unit_id):
+			alive[unit_id] = true
+	_alive_at_turn_start_11e[pk] = alive
+	# Per-turn marker-state resets (both players — the windows are per turn)
+	for spk in _primary_state_11e:
+		var st = _primary_state_11e[spk]
+		st["intel_placed_this_turn"] = 0
+		st["sensor_swept_this_turn"] = false
+		st["condemned_left_this_turn"] = false
+	# Punishment: auto-Condemn up to 3 enemy units in range of an objective
+	# (real card: player's choice, incl. units that killed friendlies)
+	if player_primary_missions.get(pk, {}).get("id", "") == "punishment":
+		_auto_condemn_11e(player)
+	print("MissionManager: 11e turn start P%s — controls %s" % [pk, str(_control_at_turn_start[pk])])
+
+func _unit_on_battlefield_11e(unit_id: String) -> bool:
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var emb = unit.get("embarked_in", null)
+	if emb != null and str(emb) != "":
+		return false
+	for model in unit.get("models", []):
+		if model.get("alive", true) and model.get("position") != null:
+			return true
+	return false
+
+func _auto_condemn_11e(player: int) -> void:
+	var pk = str(player)
+	var st = _primary_state_11e.get(pk, {})
+	var opponent = 3 - player
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	var condemned = []
+	for unit_id in GameState.state.get("units", {}):
+		if condemned.size() >= 3:
+			break
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != opponent or not _unit_on_battlefield_11e(unit_id):
+			continue
+		if _unit_within_of_any_objective_11e(unit_id, control_radius):
+			condemned.append(unit_id)
+	st["condemned"] = condemned
+	if condemned.size() > 0:
+		print("MissionManager: 11e Punishment — P%s condemns %s" % [pk, str(condemned)])
+
+func _unit_within_of_any_objective_11e(unit_id: String, radius_px: float) -> bool:
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	for obj in GameState.state.board.get("objectives", []):
+		var obj_pos = obj.get("position")
+		if obj_pos is Dictionary:
+			obj_pos = Vector2(obj_pos.x, obj_pos.y)
+		for model in unit.get("models", []):
+			if not model.get("alive", true) or model.get("position") == null:
+				continue
+			if Measurement.model_edge_to_point_distance_px(model, obj_pos) <= radius_px:
+				return true
+	return false
+
+## End-of-turn primary scoring: auto-resolve card actions first, then EOT
+## conditions, plus Command conditions in Round 5 (GDM: "C ... switches to
+## end of turn in Round 5"). "End of ANY turn" conditions (eot_any) are also
+## evaluated for the non-active player.
+func score_primary_eot_11e(player: int) -> void:
+	if GameConstants.edition < 11 or player_primary_missions.is_empty():
+		return
+	var battle_round = GameState.get_battle_round()
+	_run_primary_auto_actions_11e(player, battle_round)
+	_score_primary_11e(player, battle_round, "eot")
+	_score_primary_11e(player, battle_round, "eot_any")
+	if battle_round >= 5:
+		_score_primary_11e(player, battle_round, "command")
+	# Opponent's end-of-ANY-turn conditions (e.g. Punishment's Condemned check)
+	var opponent = 3 - player
+	_update_condemned_left_11e(opponent, player)
+	_score_primary_11e(opponent, battle_round, "eot_any")
+
+## Auto-resolve the active player's card action for this turn. The real
+## cards let the player pick targets; we pick deterministically (flagged
+## approximate on the cards). Also scrubs decoy markers enemies reached.
+func _run_primary_auto_actions_11e(player: int, battle_round: int) -> void:
+	var pk = str(player)
+	var st = _primary_state_11e.get(pk, {})
+	if st.is_empty():
+		return
+	var card_id = player_primary_missions.get(pk, {}).get("id", "")
+	var control_radius = Measurement.inches_to_px(3.78740157)
+
+	# Decoy scrub (both players): a decoy is removed once an enemy unit is
+	# within range of the objective (approximates "ends a move within range")
+	for spk in _primary_state_11e:
+		var owner = int(spk)
+		var sst = _primary_state_11e[spk]
+		var kept = []
+		for obj_id in sst.get("decoyed", []):
+			if not _enemy_unit_in_range_of_objective_11e(owner, obj_id, control_radius):
+				kept.append(obj_id)
+			else:
+				print("MissionManager: 11e decoy on %s scrubbed (enemy in range)" % obj_id)
+		sst["decoyed"] = kept
+
+	match card_id:
+		"triangulation":
+			# Triangulate: once per turn, an objective you control at EOT
+			for obj_id in _get_controlled_objectives(player):
+				if not obj_id in st["triangulated"]:
+					st["triangulated"].append(obj_id)
+					print("MissionManager: 11e Triangulated %s (P%s)" % [obj_id, pk])
+					break
+		"consecrate":
+			# Killer unit becomes a Consecration unit; approximated as: a kill
+			# this turn lets one friendly unit in range consecrate an eligible
+			# (non-home, unconsecrated) objective at EOT.
+			if _kills_this_turn_11e(player) >= 1:
+				for obj_id in _get_controlled_objectives(player):
+					if _is_home_objective_11e(obj_id, player) or obj_id in st["consecrated"]:
+						continue
+					st["consecrated"].append(obj_id)
+					print("MissionManager: 11e Consecrated %s (P%s)" % [obj_id, pk])
+					break
+		"smoke_and_mirrors":
+			# Decoy action: unlimited uses at end of turn on controlled non-home
+			for obj_id in _get_controlled_objectives(player):
+				if _is_home_objective_11e(obj_id, player) or obj_id in st["decoyed"]:
+					continue
+				st["decoyed"].append(obj_id)
+				if not obj_id in st["decoyed_ever"]:
+					st["decoyed_ever"].append(obj_id)
+				print("MissionManager: 11e Decoyed %s (P%s)" % [obj_id, pk])
+		"vital_link":
+			var central = _get_central_objective_id_11e()
+			if central != "" and objective_control_state.get(central, 0) == player:
+				st["operation_markers"] = int(st.get("operation_markers", 0)) + 1
+				print("MissionManager: 11e Vital Link operation marker %d placed (P%s)" % [st["operation_markers"], pk])
+		"death_trap":
+			# Booby Trap: once per turn, an untrapped terrain area containing
+			# one of your models (eligibility simplified)
+			var tm = get_node_or_null("/root/TerrainManager")
+			if tm != null:
+				for feature in tm.terrain_features:
+					var fid = feature.get("id", "")
+					if fid == "" or fid in st["trapped"]:
+						continue
+					if _player_model_in_terrain_11e(player, feature):
+						st["trapped"].append(fid)
+						print("MissionManager: 11e Booby Trapped %s (P%s)" % [fid, pk])
+						break
+		"gather_intel":
+			if battle_round >= 2:
+				for obj in GameState.state.board.get("objectives", []):
+					var obj_id = obj.get("id", "")
+					if obj.get("zone", "") != "no_mans_land" or obj_id in st["intel_tokens"]:
+						continue
+					if _friendly_unit_in_range_of_objective_11e(player, obj_id, control_radius):
+						st["intel_tokens"].append(obj_id)
+						st["intel_placed_this_turn"] = int(st.get("intel_placed_this_turn", 0)) + 1
+						print("MissionManager: 11e intel token on %s (P%s)" % [obj_id, pk])
+		"extract_relic", "locate_and_deny":
+			# Sensor Sweep: once per turn while >1 marker remains, needs a unit
+			# in range of a controlled Central objective
+			if _relic_markers_11e.size() > 1:
+				var central2 = _get_central_objective_id_11e()
+				if central2 != "" and objective_control_state.get(central2, 0) == player \
+						and _friendly_unit_in_range_of_objective_11e(player, central2, control_radius):
+					var removed = _relic_markers_11e.pop_back()
+					st["sensor_swept_this_turn"] = true
+					print("MissionManager: 11e Sensor Sweep removed marker %s (P%s, %d left)" % [str(removed), pk, _relic_markers_11e.size()])
+
+	# The active player's own Condemned check also runs at their EOT
+	_update_condemned_left_11e(player, player)
+
+func _update_condemned_left_11e(card_owner: int, turn_owner: int) -> void:
+	var pk = str(card_owner)
+	var st = _primary_state_11e.get(pk, {})
+	if st.is_empty() or st.get("condemned", []).is_empty():
+		return
+	var turn_snapshot = _alive_at_turn_start_11e.get(str(turn_owner), {})
+	for unit_id in st["condemned"]:
+		if turn_snapshot.has(unit_id) and not _unit_on_battlefield_11e(unit_id):
+			st["condemned_left_this_turn"] = true
+			print("MissionManager: 11e Condemned unit %s left the battlefield" % unit_id)
+			return
+
+## End-of-game primary scoring for both players (idempotent).
+func score_primary_eog_11e() -> void:
+	if GameConstants.edition < 11 or player_primary_missions.is_empty():
+		return
+	if _eog_primary_scored:
+		return
+	_eog_primary_scored = true
+	var battle_round = GameState.get_battle_round()
+	for player in [1, 2]:
+		_score_primary_11e(player, battle_round, "eog")
+
+func _score_primary_11e(player: int, battle_round: int, timing: String) -> void:
+	var pk = str(player)
+	var card = player_primary_missions.get(pk, {})
+	if card.is_empty():
+		print("MissionManager: 11e — no primary mission card for P%s" % pk)
+		return
+
+	var vp_total = 0
+	var reasons = []
+	for rule in card.get("rules", []):
+		if rule.get("when", "command") != timing:
+			continue
+		var window = rule.get("rounds", [])
+		if window.size() == 2 and (battle_round < int(window[0]) or battle_round > int(window[1])):
+			continue
+		var vp = _evaluate_primary_rule_11e(player, rule, battle_round)
+		if vp > 0:
+			vp_total += vp
+			reasons.append("%s +%d" % [rule.get("type", "?"), vp])
+
+	var reason = "%s (%s): %s" % [card.get("name", "?"), timing,
+		"; ".join(reasons) if reasons.size() > 0 else "no conditions met"]
+	print("MissionManager: 11e primary P%s R%d — %s" % [pk, battle_round, reason])
+	_award_primary_vp_11e(player, vp_total, reason, timing)
+
+func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int) -> int:
+	var opponent = 3 - player
+	match rule.get("type", ""):
+		"hold_min":
+			var count = _count_controlled_filtered_11e(player, rule)
+			return rule.get("vp", 0) if count >= int(rule.get("min", 1)) else 0
+		"per_objective":
+			var count = _count_controlled_filtered_11e(player, rule)
+			var vp_per = int(rule.get("vp_per", 0))
+			var by_round = rule.get("vp_by_round", {})
+			if not by_round.is_empty():
+				vp_per = int(by_round.get(battle_round, by_round.get(str(battle_round), 0)))
+			return count * vp_per
+		"hold_more":
+			var mine = _get_controlled_objectives(player).size()
+			var theirs = _get_controlled_objectives(opponent).size()
+			return rule.get("vp", 0) if mine > theirs else 0
+		"hold_enemy_home":
+			return rule.get("vp", 0) if _controls_enemy_home_11e(player) else 0
+		"hold_central":
+			var central = _get_central_objective_id_11e()
+			return rule.get("vp", 0) if central != "" and objective_control_state.get(central, 0) == player else 0
+		"hold_central_plus_nml":
+			var central2 = _get_central_objective_id_11e()
+			if central2 == "" or objective_control_state.get(central2, 0) != player:
+				return 0
+			var other_nml = 0
+			for obj_id in _get_controlled_nml_objectives(player):
+				if obj_id != central2:
+					other_nml += 1
+			return rule.get("vp", 0) if other_nml >= 1 else 0
+		"hold_new":
+			var start_set = _control_at_turn_start.get(str(player), [])
+			for obj_id in _get_controlled_objectives(player):
+				if obj_id in start_set:
+					continue
+				if rule.get("exclude_home", false) and _is_home_objective_11e(obj_id, player):
+					continue
+				return rule.get("vp", 0)
+			return 0
+		"destroyed_min":
+			return rule.get("vp", 0) if _kills_this_turn_11e(player) >= int(rule.get("min", 1)) else 0
+		"destroyed_per_unit":
+			return _kills_this_turn_11e(player) * int(rule.get("vp_per", 0))
+		"killed_more_than_opponent_last_turn":
+			var my_kills = _kills_this_turn_11e(player)
+			# Opponent's most recent turn: same round if they already went this
+			# round (player 2 scoring), otherwise the previous round.
+			var opp_round = battle_round if player == 2 else battle_round - 1
+			var opp_kills = int(kills_per_round.get(str(opp_round), {}).get(str(opponent), 0))
+			return rule.get("vp", 0) if my_kills > opp_kills else 0
+		"quarters":
+			var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+			if secondary_mgr == null:
+				return 0
+			var params = {"count": int(rule.get("min", 3)), "min_distance_from_center": 6.0}
+			return rule.get("vp", 0) if secondary_mgr._check_table_quarter_presence(player, params) else 0
+		"triangulated_count":
+			var n = _primary_state_11e.get(str(player), {}).get("triangulated", []).size()
+			return 10 if n >= 3 else (6 if n == 2 else (3 if n == 1 else 0))
+		"consecrated_count":
+			var n2 = _primary_state_11e.get(str(player), {}).get("consecrated", []).size()
+			return 6 if n2 >= 3 else (3 if n2 >= 1 else 0)
+		"consecrated_enemy_home":
+			var enemy_home = _get_home_objective_id_11e(3 - player)
+			var consecrated = _primary_state_11e.get(str(player), {}).get("consecrated", [])
+			return rule.get("vp", 0) if enemy_home != "" and enemy_home in consecrated else 0
+		"condemned_left":
+			return rule.get("vp", 0) if _primary_state_11e.get(str(player), {}).get("condemned_left_this_turn", false) else 0
+		"sabotage_per_objective":
+			# Auto-completed Sabotage on each controlled non-home objective
+			var total = 0
+			for obj_id in _get_controlled_objectives(player):
+				if _is_home_objective_11e(obj_id, player):
+					continue
+				total += int(rule.get("vp_per", 3))
+				if _objective_in_enemy_territory_11e(obj_id, player):
+					total += int(rule.get("enemy_territory_bonus", 2))
+			return total
+		"central_operation_markers":
+			var central3 = _get_central_objective_id_11e()
+			if central3 == "" or objective_control_state.get(central3, 0) != player:
+				return 0
+			var markers = int(_primary_state_11e.get(str(player), {}).get("operation_markers", 0))
+			return int(rule.get("vp", 2)) + markers * int(rule.get("vp_per_marker", 1))
+		"destroyed_near_central":
+			var central4 = _get_central_objective_id_11e()
+			if central4 == "":
+				return 0
+			return rule.get("vp", 0) if _destroyed_enemy_near_objective_11e(player, central4) else 0
+		"vanguard_terrain_area":
+			return rule.get("vp", 0) if _vanguard_area_held_11e(player) else 0
+		"sensor_sweep_vp":
+			return rule.get("vp", 0) if _primary_state_11e.get(str(player), {}).get("sensor_swept_this_turn", false) else 0
+		"relic_final_marker":
+			return rule.get("vp", 0) if _final_relic_marker_held_11e(player) else 0
+		"decoyed_score":
+			var total2 = 0
+			for obj_id in _primary_state_11e.get(str(player), {}).get("decoyed", []):
+				total2 += int(rule.get("vp_per", 2))
+				if _objective_in_enemy_territory_11e(obj_id, player):
+					total2 += int(rule.get("enemy_territory_bonus", 2))
+			return total2
+		"decoyed_total_eog":
+			var ever = _primary_state_11e.get(str(player), {}).get("decoyed_ever", []).size()
+			return rule.get("vp", 0) if ever >= int(rule.get("min", 4)) else 0
+		"no_enemy_markers":
+			var opp_st = _primary_state_11e.get(str(3 - player), {})
+			return rule.get("vp", 0) if opp_st.get("decoyed", []).is_empty() else 0
+		"intel_tokens_placed":
+			return int(_primary_state_11e.get(str(player), {}).get("intel_placed_this_turn", 0)) * int(rule.get("vp_per", 7))
+		"trapped_score":
+			var tm2 = get_node_or_null("/root/TerrainManager")
+			var total3 = 0
+			for fid in _primary_state_11e.get(str(player), {}).get("trapped", []):
+				total3 += int(rule.get("vp_per", 2))
+				if tm2 != null and _terrain_contains_objective_11e(tm2, fid):
+					total3 += int(rule.get("objective_bonus", 3))
+			return total3
+		"destroyed_started_on_objective":
+			return rule.get("vp", 0) if _destroyed_enemy_near_any_objective_11e(player) else 0
+		"destroyed_in_terrain_area":
+			return rule.get("vp", 0) if _destroyed_enemy_in_terrain_11e(player) else 0
+		"no_enemy_wholly_in_my_dz":
+			return rule.get("vp", 0) if not _enemy_wholly_in_my_dz_11e(player) else 0
+		"action":
+			var action_name = rule.get("action_name", "?")
+			if not _warned_unimplemented_actions.has(action_name):
+				_warned_unimplemented_actions[action_name] = true
+				print("MissionManager: 11e primary action '%s' is not implemented yet — scores 0 (GDM source approximate)" % action_name)
+			return 0
+		_:
+			print("MissionManager: 11e unknown primary rule type '%s'" % rule.get("type", ""))
+			return 0
+
+func _count_controlled_filtered_11e(player: int, rule: Dictionary) -> int:
+	var exclude_home = rule.get("exclude_home", false)
+	var zone_filter = rule.get("zone", "any")
+	var opponent = 3 - player
+	var count = 0
+	for obj_id in _get_controlled_objectives(player):
+		if exclude_home and _is_home_objective_11e(obj_id, player):
+			continue
+		if zone_filter != "any":
+			var zone = _get_objective_by_id(obj_id).get("zone", "no_mans_land")
+			var in_enemy = (zone == "player%d" % opponent)
+			if zone_filter == "enemy_territory" and not in_enemy:
+				continue
+			if zone_filter == "not_enemy_territory" and in_enemy:
+				continue
+			if zone_filter == "nml" and zone != "no_mans_land":
+				continue
+		count += 1
+	return count
+
+func _is_home_objective_11e(obj_id: String, player: int) -> bool:
+	return _get_objective_by_id(obj_id).get("zone", "") == "player%d" % player
+
+func _controls_enemy_home_11e(player: int) -> bool:
+	var opponent = 3 - player
+	for obj in GameState.state.board.get("objectives", []):
+		if obj.get("zone", "") == "player%d" % opponent \
+				and objective_control_state.get(obj.get("id", ""), 0) == player:
+			return true
+	return false
+
+func _get_central_objective_id_11e() -> String:
+	# Prefer the Chapter Approved "central" designation; fall back to the
+	# objective nearest the board centre.
+	var centrals = get_objective_ids_by_designation("central")
+	if centrals.size() > 0:
+		return centrals[0]
+	var board_size = GameState.state.get("board", {}).get("size", {})
+	var center = Vector2(
+		Measurement.inches_to_px(float(board_size.get("width", 44)) / 2.0),
+		Measurement.inches_to_px(float(board_size.get("height", 60)) / 2.0))
+	var best_id = ""
+	var best_dist = INF
+	for obj in GameState.state.board.get("objectives", []):
+		var pos = obj.get("position")
+		if pos is Dictionary:
+			pos = Vector2(pos.x, pos.y)
+		if pos == null:
+			continue
+		var d = pos.distance_to(center)
+		if d < best_dist:
+			best_dist = d
+			best_id = obj.get("id", "")
+	return best_id
+
+func _get_home_objective_id_11e(player: int) -> String:
+	for obj in GameState.state.board.get("objectives", []):
+		if obj.get("zone", "") == "player%d" % player:
+			return obj.get("id", "")
+	return ""
+
+## "In the opponent's territory" — the objective sits in the enemy
+## deployment zone, or is the Central objective (per the Sabotage card
+## text: the central objective counts).
+func _objective_in_enemy_territory_11e(obj_id: String, player: int) -> bool:
+	var obj = _get_objective_by_id(obj_id)
+	if obj.get("zone", "") == "player%d" % (3 - player):
+		return true
+	return obj.get("designation", "") == "central"
+
+func _friendly_unit_in_range_of_objective_11e(player: int, obj_id: String, radius_px: float) -> bool:
+	return _any_unit_in_range_of_objective_11e(player, obj_id, radius_px)
+
+func _enemy_unit_in_range_of_objective_11e(player: int, obj_id: String, radius_px: float) -> bool:
+	return _any_unit_in_range_of_objective_11e(3 - player, obj_id, radius_px)
+
+func _any_unit_in_range_of_objective_11e(owner: int, obj_id: String, radius_px: float) -> bool:
+	var obj = _get_objective_by_id(obj_id)
+	var obj_pos = obj.get("position")
+	if obj_pos == null:
+		return false
+	if obj_pos is Dictionary:
+		obj_pos = Vector2(obj_pos.x, obj_pos.y)
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != owner:
+			continue
+		for model in unit.get("models", []):
+			if not model.get("alive", true) or model.get("position") == null:
+				continue
+			if Measurement.model_edge_to_point_distance_px(model, obj_pos) <= radius_px:
+				return true
+	return false
+
+func _player_model_in_terrain_11e(player: int, feature: Dictionary) -> bool:
+	var polygon = feature.get("polygon", PackedVector2Array())
+	if polygon.is_empty():
+		return false
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		for model in unit.get("models", []):
+			if not model.get("alive", true) or model.get("position") == null:
+				continue
+			var pos = model.get("position")
+			if pos is Dictionary:
+				pos = Vector2(pos.x, pos.y)
+			if Geometry2D.is_point_in_polygon(pos, polygon):
+				return true
+	return false
+
+## Enemy units destroyed this turn (on the battlefield at the active
+## player's turn start, fully dead now). Dead models keep their positions,
+## which the location-conditioned kill checks below rely on.
+func _destroyed_enemy_units_this_turn_11e(player: int) -> Array:
+	var out = []
+	var snapshot = _alive_at_turn_start_11e.get(str(GameState.get_active_player()), {})
+	for unit_id in snapshot:
+		var unit = GameState.state.get("units", {}).get(unit_id, {})
+		if unit.is_empty() or int(unit.get("owner", 0)) != 3 - player:
+			continue
+		var any_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				any_alive = true
+				break
+		if not any_alive:
+			out.append(unit_id)
+	return out
+
+func _destroyed_enemy_near_objective_11e(player: int, obj_id: String) -> bool:
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	var obj = _get_objective_by_id(obj_id)
+	var obj_pos = obj.get("position")
+	if obj_pos == null:
+		return false
+	if obj_pos is Dictionary:
+		obj_pos = Vector2(obj_pos.x, obj_pos.y)
+	for unit_id in _destroyed_enemy_units_this_turn_11e(player):
+		var unit = GameState.state.units[unit_id]
+		for model in unit.get("models", []):
+			if model.get("position") == null:
+				continue
+			if Measurement.model_edge_to_point_distance_px(model, obj_pos) <= control_radius:
+				return true
+	return false
+
+func _destroyed_enemy_near_any_objective_11e(player: int) -> bool:
+	for obj in GameState.state.board.get("objectives", []):
+		if _destroyed_enemy_near_objective_11e(player, obj.get("id", "")):
+			return true
+	return false
+
+func _destroyed_enemy_in_terrain_11e(player: int) -> bool:
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null:
+		return false
+	for unit_id in _destroyed_enemy_units_this_turn_11e(player):
+		var unit = GameState.state.units[unit_id]
+		for model in unit.get("models", []):
+			var pos = model.get("position")
+			if pos == null:
+				continue
+			if pos is Dictionary:
+				pos = Vector2(pos.x, pos.y)
+			if not tm.get_terrain_at_position(pos).is_empty():
+				return true
+	return false
+
+## Vanguard Operation: a friendly unit is inside a terrain area located in
+## enemy territory (feature position inside the enemy deployment zone —
+## approximation) with no enemy units in that area.
+func _vanguard_area_held_11e(player: int) -> bool:
+	var tm = get_node_or_null("/root/TerrainManager")
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if tm == null or secondary_mgr == null:
+		return false
+	var enemy_zone = secondary_mgr._get_deployment_zone_polygon(3 - player)
+	if enemy_zone.is_empty():
+		return false
+	for feature in tm.terrain_features:
+		var fpos = feature.get("position", Vector2.ZERO)
+		if not Geometry2D.is_point_in_polygon(fpos, enemy_zone):
+			continue
+		if _player_model_in_terrain_11e(player, feature) and not _player_model_in_terrain_11e(3 - player, feature):
+			return true
+	return false
+
+func _final_relic_marker_held_11e(player: int) -> bool:
+	if _relic_markers_11e.size() != 1:
+		return false
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null:
+		return false
+	for feature in tm.terrain_features:
+		if feature.get("id", "") != _relic_markers_11e[0]:
+			continue
+		return _player_model_in_terrain_11e(player, feature) and not _player_model_in_terrain_11e(3 - player, feature)
+	return false
+
+func _terrain_contains_objective_11e(tm, feature_id: String) -> bool:
+	for feature in tm.terrain_features:
+		if feature.get("id", "") != feature_id:
+			continue
+		var polygon = feature.get("polygon", PackedVector2Array())
+		for obj in GameState.state.board.get("objectives", []):
+			var pos = obj.get("position")
+			if pos is Dictionary:
+				pos = Vector2(pos.x, pos.y)
+			if not polygon.is_empty() and Geometry2D.is_point_in_polygon(pos, polygon):
+				return true
+	return false
+
+func _enemy_wholly_in_my_dz_11e(player: int) -> bool:
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr == null:
+		return false
+	var my_zone = secondary_mgr._get_deployment_zone_polygon(player)
+	if my_zone.is_empty():
+		return false
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != 3 - player or not _unit_on_battlefield_11e(unit_id):
+			continue
+		if secondary_mgr._is_unit_wholly_in_zone(unit, my_zone):
+			return true
+	return false
+
+func _kills_this_turn_11e(player: int) -> int:
+	# Best available proxy: kills recorded for this player this battle round
+	# (count_destroyed_units_this_round refreshes it before each scoring call).
+	var battle_round = str(GameState.get_battle_round())
+	var from_rounds = int(kills_per_round.get(battle_round, {}).get(str(player), 0))
+	return max(from_rounds, int(_kills_this_round.get(str(player), 0)))
+
+func _award_primary_vp_11e(player: int, vp_earned: int, reason: String, timing: String) -> void:
+	if vp_earned <= 0:
+		return
+	var pk = str(player)
+	if not GameState.state.players.has(pk):
+		GameState.state.players[pk] = {}
+
+	# 15 VP per-turn window (EOG scoring happens outside any turn — total cap only)
+	if timing != "eog":
+		var turn_so_far = int(_primary_vp_this_turn.get(pk, 0))
+		var turn_room = PrimaryMissionData11e.MAX_PRIMARY_VP_PER_TURN_11E - turn_so_far
+		if vp_earned > turn_room:
+			print("MissionManager: 11e P%s primary clipped by 15/turn cap (%d -> %d)" % [pk, vp_earned, max(0, turn_room)])
+			vp_earned = max(0, turn_room)
+
+	# 45 VP total cap
+	var primary_vp = int(GameState.state.players[pk].get("primary_vp", 0))
+	var total_room = PrimaryMissionData11e.MAX_PRIMARY_VP_11E - primary_vp
+	if vp_earned > total_room:
+		print("MissionManager: 11e P%s primary clipped by 45 total cap (%d -> %d)" % [pk, vp_earned, max(0, total_room)])
+		vp_earned = max(0, total_room)
+	if vp_earned <= 0:
+		return
+
+	if timing != "eog":
+		_primary_vp_this_turn[pk] = int(_primary_vp_this_turn.get(pk, 0)) + vp_earned
+	GameState.state.players[pk]["primary_vp"] = primary_vp + vp_earned
+	GameState.state.players[pk]["vp"] = int(GameState.state.players[pk].get("vp", 0)) + vp_earned
+	emit_signal("victory_points_scored", player, vp_earned, reason)
+	print("MissionManager: 11e P%s scored %d primary VP (%s) — primary total %d/45" % [
+		pk, vp_earned, reason, primary_vp + vp_earned])
+
+func get_primary_mission_for_player(player: int) -> Dictionary:
+	return player_primary_missions.get(str(player), {}).duplicate(true)
+
+# ============================================================
 # HELPER METHODS
 # ============================================================
 
@@ -1229,7 +2030,15 @@ func get_state_for_save() -> Dictionary:
 		"supply_drop_resolved_round_4": supply_drop_resolved_round_4,
 		"kills_per_round": kills_per_round.duplicate(true),
 		"character_claimed_objectives": character_claimed_objectives.duplicate(true),
-		"units_alive_at_round_start": _units_alive_at_round_start.duplicate(true)
+		"units_alive_at_round_start": _units_alive_at_round_start.duplicate(true),
+		"player_dispositions": player_dispositions.duplicate(true),
+		"player_primary_missions": player_primary_missions.duplicate(true),
+		"primary_vp_this_turn": _primary_vp_this_turn.duplicate(true),
+		"control_at_turn_start": _control_at_turn_start.duplicate(true),
+		"eog_primary_scored": _eog_primary_scored,
+		"primary_state_11e": _primary_state_11e.duplicate(true),
+		"relic_markers_11e": _relic_markers_11e.duplicate(true),
+		"alive_at_turn_start_11e": _alive_at_turn_start_11e.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
@@ -1252,6 +2061,14 @@ func load_state(data: Dictionary) -> void:
 	kills_per_round = data.get("kills_per_round", {})
 	character_claimed_objectives = data.get("character_claimed_objectives", {})
 	_units_alive_at_round_start = data.get("units_alive_at_round_start", {})
+	player_dispositions = data.get("player_dispositions", {})
+	player_primary_missions = data.get("player_primary_missions", {})
+	_primary_vp_this_turn = data.get("primary_vp_this_turn", {"1": 0, "2": 0})
+	_control_at_turn_start = data.get("control_at_turn_start", {})
+	_eog_primary_scored = data.get("eog_primary_scored", false)
+	_primary_state_11e = data.get("primary_state_11e", {})
+	_relic_markers_11e = data.get("relic_markers_11e", [])
+	_alive_at_turn_start_11e = data.get("alive_at_turn_start_11e", {})
 	print("MissionManager: Loaded state — %d sticky, %d burned, %d ritual" % [
 		_sticky_objectives.size(), burned_objectives.size(), _ritual_objectives.size()
 	])

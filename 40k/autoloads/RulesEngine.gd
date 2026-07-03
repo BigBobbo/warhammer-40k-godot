@@ -6535,6 +6535,58 @@ static func get_surge_move_inches(unit: Dictionary) -> float:
 				return float(digits.to_int())
 	return 0.0
 
+## 11e core ability "Heal X" (sourced 2026-07-03; see the missions doc
+## appendix): parses X from a "Heal X" ability name. 0 = no heal rule.
+static func get_heal_amount(unit: Dictionary) -> int:
+	for ab in unit.get("meta", {}).get("abilities", []):
+		var nm := ""
+		if ab is String:
+			nm = ab
+		elif ab is Dictionary:
+			nm = str(ab.get("name", ""))
+		if nm.to_lower().begins_with("heal"):
+			var digits := ""
+			for c in nm:
+				if c >= "0" and c <= "9":
+					digits += c
+				elif digits != "":
+					break
+			if digits != "":
+				return digits.to_int()
+	return 0
+
+## 11e Heal X resolution: X times — restore one lost wound to a wounded
+## model; if no wounded models exist, return one destroyed model with 1
+## wound. A unit at full strength/wounds wastes the remaining heals.
+## Mutates the unit dict in place; returns {"healed": n, "revived": n}.
+static func apply_heal_11e(unit: Dictionary, amount: int) -> Dictionary:
+	var healed := 0
+	var revived := 0
+	for _i in range(amount):
+		var wounded = null
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			if int(model.get("current_wounds", model.get("wounds", 1))) < int(model.get("wounds", 1)):
+				wounded = model
+				break
+		if wounded != null:
+			wounded["current_wounds"] = int(wounded.get("current_wounds", 0)) + 1
+			healed += 1
+			continue
+		var dead = null
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				dead = model
+				break
+		if dead != null:
+			dead["alive"] = true
+			dead["current_wounds"] = 1
+			revived += 1
+			continue
+		break  # everything alive at full wounds — excess heals are wasted
+	return {"healed": healed, "revived": revived}
+
 ## ISS-069 (11e 24.24): "Lone Operative X\"" gates targeting at X" (visibility
 ## AND [INDIRECT FIRE]); the default form is 12". Parses the first number in
 ## any ability whose name contains "lone operative". Edition-agnostic — the

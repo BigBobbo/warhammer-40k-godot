@@ -192,11 +192,11 @@ Plunging Fire 3"/+1 ✅, **Hunter X** 🔴 (unimplemented, no data), **Heal X** 
 
 | # | Change | Status | Note |
 |---|---|---|---|
-| **Force Dispositions** (5, pick from detachment) | 🔴 | No disposition system — "disposition" appears only as a detachment flavour string in `Stratagems.csv`. |
-| **Asymmetric primaries** (15 pairings, e.g. Meatgrinder/Vital Link) | 🔴 | Game uses 10e-style **symmetric** primary selection (Take & Hold / Purge the Foe dropdowns). |
-| Primary caps (45 VP, 15/round, 2nd-player R5 EoT) | 🟡 | Take-and-Hold / Purge scoring exists; not the 11e pairing/caps model. |
+| **Force Dispositions** (5, pick from detachment) | 🟡 | Per-player Force Disposition dropdowns in the new-game menu (`PrimaryMissionData11e.DISPOSITIONS`); pairing resolved at game init from `meta.game_config` (`iss064b_primary_disposition_11e`). Pick is menu-level, not detachment-derived. |
+| **Asymmetric primaries** (25 pairings, e.g. Meatgrinder/Vital Link) | 🟡 | Full 25-card GDM 2026 pairing table authored from `docs/rules/11th_edition_missions_gdm2026.md`; each player scores their own card (own deck × opponent disposition). Concretely-specified conditions (hold/kill/enemy-home/central/quarters/escalation) are live; bespoke marker/action mechanics (Triangulate, Booby Trap, Sabotage, decoys, intel, Condemn, Consecrate…) score 0 and are flagged `approximate` pending card text. |
+| Primary caps (45 VP, 15/round, 2nd-player R5 EoT) | 🟡 | 45-total + 15-per-turn caps enforced at e11; Command-phase scoring switches to end-of-turn in Round 5; EOT/EOG conditions hooked into ScoringPhase/game-end (`test_primary_missions_11e` 26/26). Doc says "C switches to EOT in Round 5" — applied to both players, not only the 2nd. |
 | Secondary **Fixed vs Tactical** | ✅ | Both modes selectable + validated Tactical draw. |
-| 11e **secondary deck** (Forward Position, Plunder, Beacon, Centre Ground, A Grievous Blow; no hand limit; 45 cap) | 🔴 | Current deck is 10e-derived; the specific 11e cards/rules not authored. |
+| 11e **secondary deck** (Forward Position, Plunder, Beacon, Centre Ground, A Grievous Blow; no hand limit; 45 cap) | 🟡 | GDM 2026 deck authored from `docs/rules/11th_edition_missions_gdm2026.md`: 18 cards (7 new), draw-2/no-hand-limit, fixed-four restriction, 45-total + 15/turn caps (`iss063b_secondary_deck_11e`; `test_secondary_deck_11e` 31/31). Cards without published text carry `approximate: true`; Attacker/Defender variants not modelled (no variant text). |
 
 ---
 
@@ -205,19 +205,43 @@ Plunging Fire 3"/+1 ✅, **Hunter X** 🔴 (unimplemented, no data), **Heal X** 
 Ordered by player impact. Engine-level items marked **[code]**; content-authoring **[data]**.
 
 ### Tier 1 — whole subsystems a player cannot use today
-1. **[code+data] 11e mission system.** Implement Force Dispositions (5), the 15 disposition-pairing table, and
-   asymmetric per-player primary missions (Meatgrinder, Vital Link, Destroyer's Wrath, …) with the 45/15 caps and
-   2nd-player round-5 end-of-turn scoring. Add disposition selection to army build/new-game. *(Ref: doc Tab 10.)*
-2. **[data] 11e secondary mission deck.** Author the 11e Fixed four (Assassination, Bring it Down, A Grievous Blow,
-   Engage on All Fronts) and the 18-card Tactical deck (Forward Position, Plunder, Beacon, Centre Ground, returning
-   cards with tweaks), with no hand-size limit and the 45-VP cap. *(Tab 10.)*
+1. **[code+data] 11e mission system.** *(Core done 2026-07-03, approximations flagged:)* Force Dispositions (5) are
+   selectable per player in the new-game menu; the full 25-card GDM 2026 pairing table (`PrimaryMissionData11e`)
+   resolves each player's own primary mission; a condition-based scorer in MissionManager evaluates
+   hold/kill/enemy-home/central/quarters/hold-new/escalating-per-objective rules with the 45-total + 15-per-turn caps,
+   the Round-5 Command→EOT switch, EOT conditions every turn, and EOG conditions at game end (save/load covered).
+   Windowed `iss064b_primary_disposition_11e` + live MainMenu→start→pairing check; headless
+   `test_primary_missions_11e` 37/37. **Update 2026-07-03 (web-sourced):** the bespoke action/marker mechanics were
+   recovered from gdmissions.app snippets + the Tabletop Battles disposition reviews (missions doc appendix) and are
+   now implemented AUTO-RESOLVED (deterministic target picks; the real cards let the player choose — cards stay
+   flagged `approximate`): Triangulate (3/6/10), Consecrate markers, Punishment Condemn (left-battlefield 5 VP),
+   Sabotage (3+2/objective), Vital Link operation markers (2+1/marker), Secure Asset (EOT 4 + destroyed-near-central
+   2), Vanguard Operation terrain areas, Extract Relic / Locate and Deny shared relic markers + Sensor Sweep, Smoke
+   and Mirrors decoys (2+2, EOG 10 at 4+, enemy-proximity scrub), Surveil (5 VP no-markers), Gather Intel tokens
+   (7 VP R2+), Death Trap (2+3/area). Home/Expansion/Central objective designations are assigned per layout and
+   drive the central/expansion conditions. Still open: disposition is a menu pick rather than detachment-derived;
+   6-objective Inescapable Dominion maps aren't modelled; the auto-picks should eventually become player prompts.
+   *(Ref: doc Tab 10 + appendix.)*
+2. **[data] 11e secondary mission deck.** *(Done 2026-07-02, approximations flagged:)* the GDM 2026 deck is authored
+   from `docs/rules/11th_edition_missions_gdm2026.md` — 18 cards incl. the Fixed four, draw-2-per-turn with no hand
+   limit, the fixed-eligibility restriction, and the 45-total/15-per-turn caps. Cards whose full text was unpublished
+   (Beacon, Plunder, Burden of Trust, Outflank, A Grievous Blow scoring numbers, Forward Position's Expansion
+   alternative) are marked `approximate: true` pending card text; Attacker/Defender variants are not modelled.
+   **Update 2026-07-03 (web-sourced):** A Grievous Blow now keys on Starting Strength 13+; Outflank scores 3/5 VP by
+   distinct board edges; Beacon scores a surviving unit outside your DZ at the end of the opponent's turn; Forward
+   Position's both-Expansion-objectives alternative is live (designations); fixed cards enforce the sourced 20 VP
+   per-card cap (`test_gdm_sourced_11e` 20/20). Attacker/Defender variants exist as separate cards upstream but
+   their texts were not retrievable — still not modelled. *(Tab 10 + appendix.)*
 3. **[data] Support-role datasheets + true 11e stat lines.** *(Partially done 2026-07-02:)* the Bannernob now carries
    `Support` + `leader_data` in orks.json, FormationsPhase enforces the 11e per-role slots (one leader + one support),
    and the flow is windowed-validated (`iss059b_support_attach_11e`). Still open: tag Support characters in other
    factions, and source real 11e **Ld/OC/Invuln** values — note the invuln picture is better than first reported
    (Custodes 4+/Draxus 5+/Beastboss 5+ etc. already present in `meta.stats.invuln`); what's missing is mostly
    orks.json characters (Ghazghkull, Badrukk, Warbosses) and any true-11e deltas, which need an official source
-   (PRD §5 open q.2). *(Tab 1/7; §1, §7.)*
+   (PRD §5 open q.2). *(Update 2026-07-03:)* the Tabletop Battles Orks/Custodes faction-pack review snippets yielded
+   ability-level changes, not full stat lines — the sourced FRAME keyword was added to the Battlewagon (the only
+   FRAME unit present in orks.json); Snikrot/Kommandos ability tweaks and per-datasheet Ld/OC values were not
+   retrievable and remain open. *(Tab 1/7; §1, §7 + appendix.)*
 4. **[code] Hidden / Gone to Ground / Detection Range.** *(Done 2026-07-02, code side:)* Gone to Ground (−3" → 12"
    behind an intervening dense/Solid feature), the `Detection Range X"` datasheet parser with the 9" floor, and the
    Hidden gate all validated in the live targeting path (windowed `iss052b_gone_to_ground_11e`, 46/46; headless
@@ -226,17 +250,28 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 
 ### Tier 2 — army construction & terrain fidelity
 5. **[code] Army construction 11e:** Detachment Points pool (3 @ 2000), Upgrades (non-char, ×3, one enhancement pick),
-   enhancement-after-attach sequencing, and the Warlord-must-match-army-faction rule. *(Tab 1.)*
-6. **[code+data] Terrain categories & areas:** author explicit Exposed/Light/Dense categories and Terrain-Area polygons
-   per layout; implement the **Solid** <3"-gap rule and the Home/Expansion/Central objective designations used by
-   missions. *(Tab 6.)*
+   enhancement-after-attach sequencing, and the Warlord-must-match-army-faction rule. *(Update 2026-07-03, partial:)*
+   `ArmyListManager.validate_army_construction_11e` enforces the sourced rules as warnings — Warlord faction-keyword
+   match, enhancement caps (2 per 1000 pts), Upgrade-tag ×3-non-CHARACTER semantics, and the 3-DP pool when army data
+   declares DP costs (current army JSONs carry one detachment with no cost). Full DP-based list building UI and
+   detachment data authoring remain. *(Tab 1 + appendix.)*
+6. **[code+data] Terrain categories & areas:** *(Update 2026-07-03:)* the sourced category definitions (Exposed:
+   craters/razorwire/debris; Light: barricades/low walls/statues; Dense: buildings/ruins/containers/woods) MATCH the
+   existing `TerrainManager.category_of` derivation exactly — the implementation is now source-validated, and layouts
+   can already override per piece via explicit `category`. **Home/Expansion/Central objective designations are DONE**
+   (assigned per layout in MissionManager, used by the 11e mission conditions). Remaining: the **Solid** <3"-gap rule
+   (no retrievable rule text yet) and authoring multi-feature Terrain-Area boundaries (schema v2). *(Tab 6 + appendix.)*
 7. **[code] Cover per attacking model:** *(Done 2026-07-02:)* each attack's BS worsening is computed from its own
    firing model's view of the target (13.08 second condition is per-attack); attacks with no recorded firer (overrides/
    bonus attacks) fall back to the first firer. Pinned in `test_iss047_weapon_abilities_11e` E6. *(Tab 4/6.)*
 
 ### Tier 3 — ability/affordance completeness (engine mostly present)
 8. **[code] Surge Moves** — *(Code done 2026-07-02:)* `BEGIN_SURGE_MOVE` is template-gated at e11 (stated distance, closest-enemy target, no D6), a `Surge X"` datasheet ability lights up the movement-list offering (`iss040b_surge_move_11e`). Remaining: author a real datasheet with the ability once 11e data is sourced (PRD §5 q.2). *(Tab 8.)*
-9. **[code] Hunter X and Heal X** core abilities. *(Tab 8 — currently absent.)*
+9. **[code] Hunter X and Heal X** core abilities. *(Update 2026-07-03:)* **Heal X** implemented from the sourced core
+   rule (restore a wound, else revive a model at 1 wound, X times; excess wasted) — `RulesEngine.get_heal_amount` /
+   `apply_heal_11e`, pinned in `test_gdm_sourced_11e`. **Hunter X**: no rule text exists in ANY available source
+   (core-rules deep dives, keyword cheat sheets, faction reviews all silent) — closed as not-in-shipped-rules; will
+   revisit if a source ever materialises. *(Tab 8.)*
 10. **[code] Combat Disembark** — *(Done 2026-07-02:)* the validator honours "set up **engaged** within 6"" for enemy units the transport is engaged with (and only those); the placement UI gets a Combat Disembark toggle, 6" ring, and matching placement rules. Windowed `iss058b_combat_disembark_engaged_11e` 26/26. *(Tab 3.)*
 11. **[code] Explosives / Crushing Impact** — *(Done 2026-07-02:)* the stratagem panel now runs a two-step target prompt (friendly unit, then eligible enemy — engaged for Crushing Impact, within-8"-and-visible for Explosives) and resolves via `use_stratagem` with the chosen enemy in context (`iss047d_crushing_impact_prompt_11e`). *(Tab 8.)*
 12. **[code] Modifier-order pipeline** — *(Verified + pinned 2026-07-02:)* halve-after-melta already holds in every
@@ -244,11 +279,16 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
     sites and pinned live (`test_iss047_weapon_abilities_11e` E4). Deferred: consolidating into one shared pipeline and
     set-×/set-0 semantics, which no shipped modifier uses yet. *(Tab 1.)*
 13. **[code] Precision** — *(Done 2026-07-02:)* promotion is gated on the character being visible to an attacking model (13.09/13.10/13.11 + LoS), and the attacker chooses the promoted group (or declines) via the AllocationGroupOverlay PrecisionPicker; chosen group rides the save batch (`iss047b_precision_choice_11e`; headless E2 section). *(Tab 8.)*
-14. **[code] Melee/Extra-Attacks/Melta polish** — *(Extra Attacks done 2026-07-02:)* the 10e Balance-Dataslate "cannot modify A" suppression is edition-gated off at e11 (Waaagh/Da Biggest bonuses now apply; pinned 10e-vs-11e in `test_iss047` E5). Melta "post-order" remains — its precise semantics live in the review-doc deep-dive, which is not in the repo (needs source). *(Tab 8.)*
+14. **[code] Melee/Extra-Attacks/Melta polish** — *(Extra Attacks done 2026-07-02:)* the 10e Balance-Dataslate "cannot modify A" suppression is edition-gated off at e11 (Waaagh/Da Biggest bonuses now apply; pinned 10e-vs-11e in `test_iss047` E5). *(Melta order RESOLVED 2026-07-03 by web source:)* the 11e sequence is base damage → add Melta bonus → apply damage-reduction (halve-after-melta) — exactly what the engine already does in all six damage paths (verified + pinned 2026-07-02, `test_iss047` E4). No code change needed; closed. *(Tab 8 + missions doc appendix.)*
 
 ### Tier 4 — structural/cosmetic
 15. **[code] Fight-phase step structure** — make Pile-In and Consolidation single global both-player steps (active-first)
-    rather than per-fighter; resolve the Engaging-consolidation 3"-vs-5" once GW FAQs. *(Tab 5.)*
+    rather than per-fighter. *(Update 2026-07-03:)* the 3"-vs-5" Engaging-consolidation question the audit parked is now
+    RESOLVED by source: Engaging Consolidation is **3"** (must engage the selected targets; otherwise move toward the
+    nearest objective), and consolidation happens **after all fighting across the battlefield, both players, active
+    player first**. The per-fighter `ConsolidationMove` template already enforces the 3" engaging/objective modes, so
+    outcomes match in the common case; the remaining work is purely the sequencer restructure (global end-of-phase
+    consolidation step) — an engineering refactor, no longer rules-blocked. *(Tab 5 + appendix.)*
 16. **[code] End-of-turn coherency removal dialog** — *(Done 2026-07-02:)* END_TURN pauses for human-owned incoherent units; the CoherencyRemovalDialog lets the player pick each removed model, and the turn auto-completes once coherent (`iss042b_coherency_removal_choice_11e`). Auto-pick stays as the AI/backstop. *(Tab 3.)*
 17. **[code] `[DEVASTATING WOUNDS]` / `[LETHAL HITS]` attacker-choice prompts** — *(Done 2026-07-02:)* the AbilityChoiceDialog offers both choices when a DW weapon is assigned; choices ride the assignment into all three resolution paths, incl. the new 24.10 decline (`iss047c_ability_choice_prompts_11e`; headless E3). *(Tab 4/8.)*
 
@@ -256,21 +296,32 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 
 ## 11. Bottom line
 
-**Status 2026-07-02 (post-sweep):** every task-list item implementable from in-repo sources is done — Tier-1 #3
-(Support attach) and #4 (Hidden/Gone to Ground/Detection Range) code-complete; Tier-3 #7, #8, #10, #11, #12, #13,
-#14 (Extra Attacks), #16, #17 all landed with windowed/headless validation; delta-audit B6 closed. What remains is
-**source-blocked**: the 11e mission system (#1–2, mission-pack texts not in repo), true 11e stat lines and Support
-tags for other factions (#3, PRD §5 open q.2), Hunter X / Heal X (#9, zero rule text in the shipped core-rules PDF),
-Melta "post-order" (#14 remainder, deep-dive only), terrain-category authoring (#6, layout data decisions), the DP/
-Upgrades army-construction model (#5) — plus #15's fight-step restructure, which the audit itself parks pending a GW
-FAQ on the 3"-vs-5" Engaging consolidation.
+**Status 2026-07-03 (post-GDM-missions):** the mission system is no longer unbuilt — with the GDM 2026 document now
+in-repo, Tier-1 #2 (secondary deck, 2026-07-02) and the core of Tier-1 #1 (Force Dispositions, the 25-card pairing
+table, per-player primary scoring with 45/15 caps and the R5 EOT switch, 2026-07-03) are implemented and validated
+windowed + headless, with unpublished card components flagged `approximate` and scoring 0 rather than invented.
+Earlier sweep results stand: Tier-1 #3 (Support attach) and #4 (Hidden/Gone to Ground/Detection Range)
+code-complete; Tier-3 #7, #8, #10, #11, #12, #13, #14 (Extra Attacks), #16, #17 landed; delta-audit B6 closed.
+**2026-07-03 web-source recovery:** the previously source-blocked card mechanics were recovered from
+gdmissions.app/Tabletop Battles snippets (appendix in the missions doc) and implemented — all 25 primary cards now
+score their sourced conditions with auto-resolved marker actions, the secondary corrections (Grievous Blow SS13+,
+Outflank edges, Beacon, Forward Position expansions, fixed 20-per-card cap) are in, Home/Expansion/Central
+designations exist per layout, Heal X is implemented, and army-construction rules validate as warnings. What
+remains **genuinely blocked**: Hunter X (no rule text exists anywhere — presumed not shipped), secondary
+Attacker/Defender variant texts, true 11e stat lines and Support tags for other factions (#3, PRD §5 open q.2),
+Melta "post-order" (#14 remainder, deep-dive only), terrain Exposed/Light/Dense category authoring (#6 remainder),
+DP costs per detachment + list-building UI (#5 remainder), player-choice prompts for the auto-resolved card actions
+— plus #15's fight-step restructure, which the audit itself parks pending a GW FAQ on the 3"-vs-5" Engaging
+consolidation.
 
 The **core engine** of 11th edition is in and genuinely playable at `edition == 11`: the new attack/allocation model,
 cover-as-BS, engagement 2" / coherency 9", the move-type framework incl. FLY, the select-after-roll charge, the
 active-first Fight sequencer, terrain-as-objectives with per-phase control, battle-shock, disembark modes, two-slot
-attach, and the hazard/indirect/hazardous/heavy fixes all validate live or in the windowed suite. The **residual gap is
-concentrated in three places**: (1) the **11e mission system** (Force Dispositions + asymmetric primaries + the new
-secondary deck) is essentially unbuilt; (2) **Hidden/Gone-to-Ground/Detection-Range** and full **terrain-category /
-Solid** fidelity are partial; and (3) **content** — Support datasheets, true 11e stat lines, Upgrades/Detachment-Points
-army building, and the Hunter/Heal/Surge abilities that no shipped datasheet yet uses. Tiers 1–2 above are what stand
-between "the 11e rules engine runs" and "a player plays a complete, rules-accurate 11th-edition game."
+attach, and the hazard/indirect/hazardous/heavy fixes all validate live or in the windowed suite. The **11e mission
+system now runs end to end** — dispositions in the menu, the 25-card pairing table, per-player primary scoring with
+the GDM caps/timing, and the 18-card secondary deck — with the bespoke card actions the only unbuilt part (no
+published text). The **residual gap is concentrated in**: (1) those **card action mechanics** plus mission-facing
+terrain designations (Home/Expansion/Central); (2) full **terrain-category / Solid** fidelity; and (3) **content** —
+Support datasheets, true 11e stat lines, Upgrades/Detachment-Points army building, and the Hunter/Heal/Surge
+abilities that no shipped datasheet yet uses. Tiers 1–2 above are what stand between "the 11e rules engine runs" and
+"a player plays a complete, rules-accurate 11th-edition game."

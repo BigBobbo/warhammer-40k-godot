@@ -106,6 +106,9 @@ func _on_phase_enter() -> void:
 		MissionManager.check_all_objectives()
 		# Snapshot alive units for kill detection (used by Purge the Foe)
 		MissionManager.snapshot_alive_units()
+		# 11e GDM: open the active player's 15-VP-per-turn primary window and
+		# snapshot start-of-turn control for "hold new objective" conditions.
+		MissionManager.on_turn_start_11e(current_player)
 
 	# Step 6: Draw secondary mission cards (tactical mode only — fixed mode skips drawing)
 	_newly_drawn_missions = []

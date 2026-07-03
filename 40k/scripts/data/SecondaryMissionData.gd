@@ -380,6 +380,151 @@ static func _load_missions() -> void:
 		"when_drawn": {},
 	}
 
+	# ====================================================================
+	# 11e (GDM 2026) DECK ADDITIONS — source:
+	# docs/rules/11th_edition_missions_gdm2026.md. Cards whose full text
+	# was not published carry "approximate": true; their scoring is a
+	# minimal defensible reading of the summary line, to be replaced when
+	# the card text lands.
+	# ====================================================================
+
+	_missions["a_grievous_blow"] = {
+		"id": "a_grievous_blow",
+		"name": "A Grievous Blow",
+		"number": 19,
+		"category": "Purge the Enemy",
+		"edition": 11,
+		"approximate": true,
+		"description": "Destroy an enemy unit with a Starting Strength of 13+ models (replaces Cull the Horde; VP value approximate).",
+		"scoring": {
+			"when": TIMING_END_OF_EITHER_TURN,
+			"conditions": [
+				{"check": "high_value_unit_destroyed_this_turn", "params": {"min_models": 13}, "vp": 5},
+			],
+		},
+		"requires_action": false,
+		"action": {},
+		"when_drawn": {},
+	}
+
+	_missions["forward_position"] = {
+		"id": "forward_position",
+		"name": "Forward Position",
+		"number": 20,
+		"category": "Battlefield Supremacy",
+		"edition": 11,
+		"approximate": true,
+		"description": "Control your opponent's home objective, or both Expansion objectives.",
+		"scoring": {
+			"when": TIMING_END_OF_YOUR_TURN,
+			"conditions": [
+				{"check": "holds_enemy_home_objective", "params": {}, "vp": 5},
+			],
+		},
+		"requires_action": false,
+		"action": {},
+		"when_drawn": {"condition": "first_battle_round", "effect": EFFECT_SHUFFLE_BACK},
+	}
+
+	_missions["burden_of_trust"] = {
+		"id": "burden_of_trust",
+		"name": "Burden of Trust",
+		"number": 21,
+		"category": "Battlefield Supremacy",
+		"edition": 11,
+		"approximate": true,
+		"description": "Guard your objectives (approx.: hold 2+ objectives you already held at the start of the turn).",
+		"scoring": {
+			"when": TIMING_END_OF_YOUR_TURN,
+			"conditions": [
+				{"check": "objectives_held_since_turn_start", "params": {"count": 2}, "vp": 5},
+				{"check": "objectives_held_since_turn_start", "params": {"count": 1}, "vp": 2},
+			],
+		},
+		"requires_action": false,
+		"action": {},
+		"when_drawn": {},
+	}
+
+	_missions["centre_ground"] = {
+		"id": "centre_ground",
+		"name": "Centre Ground",
+		"number": 22,
+		"category": "Battlefield Supremacy",
+		"edition": 11,
+		"approximate": true,
+		"description": "Control the centre of the battlefield (replaces Area Denial).",
+		"scoring": {
+			"when": TIMING_END_OF_YOUR_TURN,
+			"conditions": [
+				{"check": "units_within_center_no_enemies_within", "params": {"friendly_range": 6.0, "enemy_range": 6.0, "exclude": ["Battle-shocked"]}, "vp": 5},
+				{"check": "units_within_center_no_enemies_within", "params": {"friendly_range": 6.0, "enemy_range": 3.0, "exclude": ["Battle-shocked"]}, "vp": 3},
+			],
+		},
+		"requires_action": false,
+		"action": {},
+		"when_drawn": {},
+	}
+
+	_missions["beacon"] = {
+		"id": "beacon",
+		"name": "Beacon",
+		"number": 23,
+		"category": "Shadow Operations",
+		"edition": 11,
+		"approximate": true,
+		"description": "Your Beacon unit survives to the end of your opponent's turn outside your deployment zone (Beacon pick auto-resolved: any qualifying unit).",
+		"scoring": {
+			"when": TIMING_END_OF_OPPONENT_TURN,
+			"conditions": [
+				{"check": "unit_outside_own_dz", "params": {"exclude": ["Battle-shocked"]}, "vp": 5},
+			],
+		},
+		"requires_action": false,
+		"action": {},
+		"when_drawn": {},
+	}
+
+	_missions["outflank"] = {
+		"id": "outflank",
+		"name": "Outflank",
+		"number": 24,
+		"category": "Battlefield Supremacy",
+		"edition": 11,
+		"approximate": true,
+		"description": "Units within 6\" of a battlefield edge outside your deployment zone: 3 VP for one edge, 5 VP for two.",
+		"scoring": {
+			"when": TIMING_END_OF_YOUR_TURN,
+			"conditions": [
+				{"check": "units_near_board_edges", "params": {"min_edges": 2, "edge_inches": 6.0, "exclude": ["Battle-shocked"]}, "vp": 5},
+				{"check": "units_near_board_edges", "params": {"min_edges": 1, "edge_inches": 6.0, "exclude": ["Battle-shocked"]}, "vp": 3},
+			],
+		},
+		"requires_action": false,
+		"action": {},
+		"when_drawn": {},
+	}
+
+	_missions["plunder"] = {
+		"id": "plunder",
+		"name": "Plunder",
+		"number": 25,
+		"category": "Shadow Operations",
+		"edition": 11,
+		"approximate": true,
+		"description": "Loot objective markers by completing actions (approx.: Cleanse-style).",
+		"scoring": {
+			"when": TIMING_END_OF_YOUR_TURN,
+			"conditions": [
+				{"check": "objectives_cleansed", "params": {"count": 2, "action_name": "Plunder"}, "vp": 5},
+				{"check": "objectives_cleansed", "params": {"count": 1, "action_name": "Plunder"}, "vp": 2},
+			],
+		},
+		"requires_action": true,
+		"action": {"name": "Plunder", "phase": "shooting"},
+		"when_drawn": {},
+	}
+
 # ============================================================================
 # PUBLIC API
 # ============================================================================
@@ -388,6 +533,22 @@ static func get_mission_by_id(mission_id: String) -> Dictionary:
 	"""Get a single mission definition by ID. Returns empty dict if not found."""
 	_ensure_loaded()
 	return _missions.get(mission_id, {})
+
+## 11e (GDM 2026) 18-card tactical deck — the four returning-with-tweaks
+## cards keep their existing implementations; new cards are authored above.
+static func get_mission_ids_for_deck_11e() -> Array:
+	_ensure_loaded()
+	return [
+		"assassination", "a_grievous_blow", "bring_it_down", "engage_on_all_fronts",
+		"behind_enemy_lines", "no_prisoners", "cleanse", "defend_stronghold",
+		"overwhelming_force", "forward_position", "burden_of_trust", "centre_ground",
+		"a_tempting_target", "secure_no_mans_land", "beacon", "display_of_might",
+		"outflank", "plunder",
+	]
+
+## 11e Fixed mode: exactly these four cards are fixed-eligible.
+static func get_fixed_eligible_11e() -> Array:
+	return ["assassination", "a_grievous_blow", "bring_it_down", "engage_on_all_fronts"]
 
 static func get_mission_ids_for_deck(include_challenger: bool = false) -> Array:
 	"""Get the list of all mission IDs for building a tactical deck (18 cards)."""

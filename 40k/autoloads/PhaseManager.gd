@@ -347,6 +347,10 @@ func _handle_game_end() -> void:
 	# but trigger again here for paths that reach _handle_game_end without it.
 	if MissionManager:
 		MissionManager.score_end_of_game_burn_bonus()
+		# 11e GDM primary missions: end-of-game conditions (idempotent guard
+		# inside — ScoringPhase._handle_game_end_turn usually fires first).
+		if GameConstants.edition >= 11:
+			MissionManager.score_primary_eog_11e()
 
 	game_ended = true
 
