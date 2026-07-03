@@ -34,6 +34,7 @@ func setup(fighter_id: String, targets: Dictionary, phase) -> void:
 func _build_ui() -> void:
 	min_size = DialogConstants.MEDIUM
 	var container = VBoxContainer.new()
+	container.name = "Content"
 	container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Get unit's melee weapons from meta
@@ -165,6 +166,9 @@ func _build_ui() -> void:
 		var target_data = eligible_targets[target_id]
 		target_list.add_item("%s (in engagement range)" % target_data.get("name", target_id))
 		target_list.set_item_metadata(target_list.item_count - 1, target_id)
+	# Pre-select the first target so "All to Target" works immediately
+	if target_list.item_count > 0:
+		target_list.select(0)
 	container.add_child(target_list)
 
 	# Button container for assignment actions
@@ -173,16 +177,26 @@ func _build_ui() -> void:
 
 	# Assign button
 	var assign_button = Button.new()
+	assign_button.name = "AssignButton"
 	assign_button.text = "Add Assignment"
 	assign_button.pressed.connect(_on_assign_pressed)
 	button_container.add_child(assign_button)
 
 	# T5-UX5: "All to Target" button — assigns all unassigned weapons to the selected target
 	all_to_target_button = Button.new()
+	all_to_target_button.name = "AllToTargetButton"
 	all_to_target_button.text = "All to Target"
 	all_to_target_button.tooltip_text = "Assign all unassigned weapons to the selected target"
 	all_to_target_button.pressed.connect(_on_all_to_target_pressed)
 	button_container.add_child(all_to_target_button)
+
+	# Explicit confirm button with a stable path (the built-in AcceptDialog
+	# OK button lives under auto-named internal containers)
+	var confirm_attacks_button = Button.new()
+	confirm_attacks_button.name = "ConfirmButton"
+	confirm_attacks_button.text = "Fight!"
+	confirm_attacks_button.pressed.connect(_on_confirmed)
+	button_container.add_child(confirm_attacks_button)
 
 	container.add_child(button_container)
 

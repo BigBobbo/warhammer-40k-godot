@@ -1,0 +1,106 @@
+{
+  "id": "global_consolidation_step_11e",
+  "covers": [
+    "phases.FightPhase.consolidation_step_11e",
+    "phases.FightPhase.consolidate_11e",
+    "movetypes.ConsolidationMove",
+    "dialogs.ConsolidationStepDialog",
+    "scenario_runner.drag_board"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "11e 12.07-12.08 GLOBAL Consolidate step, played end-to-end as a human. The whole fight phase runs through the real UI: three activations (Warboss P2, then Custodian Guard and Telemon Dreadnought P1 — the Telemon is engaged only at the 11e 2-inch ER) via FightSelectionDialog unit buttons, Ka'tah stance buttons, PileInDialog skip, AttackAssignmentDialog all-to-target + confirm. Then End Fight Phase enters the new global Consolidate step: the ACTIVE player (P2) gets the ConsolidationStepDialog first and passes with End Consolidation (consolidation is optional per unit at 11e), then P1 picks the Custodian Guard, DRAGS a model with real mouse-motion events (drag_board), confirms, and ends their half with the Telemon deliberately unmoved. The phase then completes. Setup-only privileges: CP zeroed to suppress stratagem prompts not under test; model wounds inflated so no unit dies (deterministic aliveness for the drag target). Every in-game decision is a real click or drag.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[1].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[2].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[3].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "01_fight_selection_p2_warboss" },
+    { "act": "click_node", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_WARBOSS_B", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/PileInDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/SkipButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 8.0 },
+    { "act": "screenshot", "label": "02_fight_selection_p1" },
+    { "act": "click_node", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_CUSTODIAN_GUARD_B", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/KatahStanceDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/PileInDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/SkipButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "expect_node_visible", "node": "/root/FightSelectionDialog", "timeout_s": 8.0 },
+    { "act": "click_node", "node": "/root/FightSelectionDialog/Content/UnitScroll/UnitList/Fight_U_TELEMON_HEAVY_DREADNOUGHT_I", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/KatahStanceDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/PileInDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/SkipButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 0 },
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/ConsolidationStepDialog", "timeout_s": 5.0 },
+    { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "consolidating_player_11e", "equals": 2 },
+    { "act": "screenshot", "label": "03_consolidation_step_p2_active_player_first" },
+    { "act": "click_node", "node": "/root/ConsolidationStepDialog/Content/EndConsolidationButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/ConsolidationStepDialog", "timeout_s": 5.0 },
+    { "act": "expect_phase_property", "property": "consolidating_player_11e", "equals": 1 },
+    { "act": "screenshot", "label": "04_consolidation_step_p1_opponent_half" },
+    { "act": "click_node", "node": "/root/ConsolidationStepDialog/Content/UnitScroll/UnitList/Consolidate_U_CUSTODIAN_GUARD_B", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/ConsolidateDialog", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "05_consolidate_dialog_drag_mode" },
+    { "act": "drag_board", "from_x": 200, "from_y": 100, "to_x": 255, "to_y": 170 },
+    { "act": "screenshot", "label": "06_model_dragged_before_confirm" },
+    { "act": "click_node", "node": "/root/ConsolidateDialog/Content/Buttons/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[0].position.x", "expect_min": 240, "expect_max": 270 },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[0].position.y", "expect_min": 155, "expect_max": 185 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().units_that_consolidated_11e.has(\"U_CUSTODIAN_GUARD_B\")", "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/ConsolidationStepDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/ConsolidationStepDialog/Content/UnitScroll/UnitList/Consolidate_U_TELEMON_HEAVY_DREADNOUGHT_I", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "07_p1_picker_repops_with_telemon_remaining" },
+    { "act": "click_node", "node": "/root/ConsolidationStepDialog/Content/EndConsolidationButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.models.0.position.x", "equals": 503 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 11 },
+    { "act": "screenshot", "label": "08_phase_advanced_after_consolidation" }
+  ]
+}

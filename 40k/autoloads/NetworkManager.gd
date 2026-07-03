@@ -1425,6 +1425,24 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 		else:
 			print("NetworkManager: ⚠️ Phase doesn't support consolidate_required or missing unit_id")
 
+	# 11e 12.07: global Consolidate step — sync the client's step state and
+	# re-emit consolidation_step_required (mirrors trigger_fight_selection)
+	if result.get("trigger_consolidation_selection", false):
+		print("NetworkManager: Result has trigger_consolidation_selection flag")
+		var cons_data = result.get("consolidation_selection_data", {})
+		if not cons_data.is_empty() and phase.has_signal("consolidation_step_required"):
+			if "consolidating_player" in cons_data:
+				if "consolidating_player_11e" in phase:
+					phase.consolidating_player_11e = cons_data["consolidating_player"]
+				if "current_selecting_player" in phase:
+					phase.current_selecting_player = cons_data["consolidating_player"]
+			if "consolidation_step_11e" in phase:
+				phase.consolidation_step_11e = phase.ConsolidationStep11e.ACTIVE
+			print("NetworkManager: Client re-emitting consolidation_step_required for player %d" % cons_data.get("consolidating_player", -1))
+			phase.emit_signal("consolidation_step_required", cons_data)
+		else:
+			print("NetworkManager: ⚠️ Missing consolidation_selection_data or phase doesn't support signal")
+
 	# Handle sweeping_advance_available signal (after END_FIGHT)
 	if result.get("trigger_sweeping_advance", false):
 		print("NetworkManager: Result has trigger_sweeping_advance flag")
@@ -2091,6 +2109,7 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"CONFIRM_AND_RESOLVE_ATTACKS",
 		"ROLL_DICE",
 		"CONSOLIDATE",
+		"END_CONSOLIDATION",
 		"SKIP_UNIT",
 		"HEROIC_INTERVENTION",
 		# Heroic Intervention actions - defending player reacts during opponent's charge phase

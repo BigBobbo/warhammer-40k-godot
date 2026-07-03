@@ -447,6 +447,9 @@ func set_phase(phase: BasePhase) -> void:
 			phase.attack_assigned.connect(_on_attack_assigned)
 		if phase.has_signal("consolidate_required") and not phase.consolidate_required.is_connected(_on_consolidate_required):
 			phase.consolidate_required.connect(_on_consolidate_required)
+		# 11e 12.07: global Consolidate step — player picks units to consolidate
+		if phase.has_signal("consolidation_step_required") and not phase.consolidation_step_required.is_connected(_on_consolidation_step_required):
+			phase.consolidation_step_required.connect(_on_consolidation_step_required)
 		if phase.has_signal("subphase_transition") and not phase.subphase_transition.is_connected(_on_subphase_transition):
 			phase.subphase_transition.connect(_on_subphase_transition)
 		if phase.has_signal("epic_challenge_opportunity") and not phase.epic_challenge_opportunity.is_connected(_on_epic_challenge_opportunity):
@@ -1518,6 +1521,9 @@ func _on_fight_selection_required(data: Dictionary) -> void:
 	for child in get_tree().root.get_children():
 		if child is AcceptDialog and child.get_script() == load("res://dialogs/FightSelectionDialog.gd"):
 			print("DEBUG: Closing existing fight selection dialog")
+			# Release the stable node name NOW — queue_free is deferred, and
+			# the replacement dialog is added this frame under the same name
+			child.name = "StaleFightSelectionDialog"
 			child.queue_free()
 
 	# Load the dialog script
@@ -1528,6 +1534,7 @@ func _on_fight_selection_required(data: Dictionary) -> void:
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "FightSelectionDialog"
 	dialog.setup(data, current_phase)
 	dialog.fighter_selected.connect(_on_fighter_selected_from_dialog)
 	get_tree().root.add_child(dialog)
@@ -1698,6 +1705,7 @@ func _on_katah_stance_required(unit_id: String, player: int) -> void:
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "KatahStanceDialog"
 	dialog.setup(unit_id, player, master_available)
 	dialog.stance_selected.connect(_on_katah_stance_selected)
 	get_tree().root.add_child(dialog)
@@ -1766,6 +1774,7 @@ func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "PileInDialog"
 	dialog.setup(unit_id, max_distance, current_phase, self)  # Pass controller reference
 	dialog.pile_in_confirmed.connect(_on_pile_in_confirmed.bind(unit_id))
 	dialog.pile_in_skipped.connect(_on_pile_in_skipped.bind(unit_id))
@@ -1830,6 +1839,7 @@ func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> voi
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "AttackAssignmentDialog"
 	print("[FightController] Setting up dialog...")
 	dialog.setup(unit_id, targets, current_phase)
 	dialog.attacks_confirmed.connect(_on_attacks_confirmed)
@@ -1896,6 +1906,7 @@ func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "ConsolidateDialog"
 	dialog.setup(unit_id, max_distance, current_phase, self)  # Pass controller reference
 	dialog.consolidate_confirmed.connect(_on_consolidate_confirmed.bind(unit_id))
 	dialog.consolidate_skipped.connect(_on_consolidate_skipped.bind(unit_id))
@@ -1926,11 +1937,17 @@ func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
 
 	print("[FightController] Converted movements: ", converted_movements)
 
+	# current_fighter_owner can be stale (-1) on re-request paths — the
+	# unit's owner is always the right submitting player for CONSOLIDATE
+	var action_player = current_fighter_owner
+	if action_player < 0 and current_phase:
+		action_player = int(current_phase.get_unit(unit_id).get("owner", GameState.get_active_player()))
+
 	var action = {
 		"type": "CONSOLIDATE",
 		"unit_id": unit_id,
 		"movements": converted_movements,
-		"player": current_fighter_owner
+		"player": action_player
 	}
 	emit_signal("fight_action_requested", action)
 
@@ -1941,6 +1958,72 @@ func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
 func _on_consolidate_skipped(unit_id: String) -> void:
 	"""Submit CONSOLIDATE action with no movements"""
 	_on_consolidate_confirmed({}, unit_id)
+
+# ============================================================================
+# 11e 12.07: GLOBAL CONSOLIDATE STEP UI
+# ============================================================================
+
+func _on_consolidation_step_required(data: Dictionary) -> void:
+	"""Show the Consolidate-step unit picker for the consolidating player.
+	After all fighting, each player in turn consolidates the eligible units
+	they choose (optional per unit at 11e) or ends their half."""
+	var consolidating_player = data.get("consolidating_player", 0)
+	print("[FightController] Consolidation step: player %d, %d eligible unit(s)" % [
+		consolidating_player, data.get("eligible_units", {}).size()])
+
+	# Skip dialog for AI players — they submit CONSOLIDATE/END_CONSOLIDATION
+	# from get_available_actions directly
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(consolidating_player):
+		print("[FightController] Skipping consolidation step dialog for AI player %d" % consolidating_player)
+		return
+
+	# Multiplayer: only the consolidating player's client gets the picker
+	if NetworkManager.is_networked() and NetworkManager.get_local_player() != consolidating_player:
+		print("[FightController] Not local player's consolidation half — no dialog")
+		return
+
+	# Close any stale picker (e.g. re-emitted after each consolidation).
+	# Release the stable node name NOW — queue_free is deferred, and the
+	# replacement dialog is added this frame under the same name.
+	for child in get_tree().root.get_children():
+		if child is AcceptDialog and child.get_script() == load("res://dialogs/ConsolidationStepDialog.gd"):
+			child.name = "StaleConsolidationStepDialog"
+			child.queue_free()
+
+	var dialog_script = load("res://dialogs/ConsolidationStepDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load ConsolidationStepDialog.gd")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.name = "ConsolidationStepDialog"
+	dialog.setup(data, current_phase)
+	dialog.consolidate_unit_chosen.connect(_on_consolidation_unit_chosen)
+	dialog.end_consolidation.connect(_on_end_consolidation)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _on_consolidation_unit_chosen(unit_id: String) -> void:
+	"""Open the ConsolidateDialog + interactive movement for the chosen unit"""
+	var unit = GameState.get_unit(unit_id)
+	# The consolidate confirm path reads these for action.player / AI checks
+	current_fighter_id = unit_id
+	current_fighter_owner = int(unit.get("owner", GameState.get_active_player()))
+	var dist = 3.0
+	if current_phase and current_phase.has_method("_get_consolidation_distance"):
+		dist = current_phase._get_consolidation_distance(unit_id)
+	_on_consolidate_required(unit_id, dist)
+
+func _on_end_consolidation(player: int) -> void:
+	"""Current player passes — their consolidation half is over"""
+	print("[FightController] Player %d ends their consolidation half" % player)
+	var action = {
+		"type": "END_CONSOLIDATION",
+		"player": player
+	}
+	emit_signal("fight_action_requested", action)
 
 func _on_subphase_transition(from_subphase: String, to_subphase: String) -> void:
 	"""Show notification when transitioning between subphases"""

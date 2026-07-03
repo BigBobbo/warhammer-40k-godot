@@ -124,6 +124,16 @@ Each step is a dict with an `act` field plus act-specific keys.
   { "act": "click_board_at", "x": 170.0, "y": 170.0 }
   ```
 
+- `drag_board`: drag from one **board/world** position to another with real
+  input events — warp + LMB press at `from`, interpolated
+  `InputEventMouseMotion` steps (default 8, override with `steps`), LMB
+  release at `to`. This is the player path for drag-to-move flows (fight-phase
+  pile-in/consolidate model movement); no controller state is poked.
+  Coordinates are board px, projected like `click_board_at`.
+  ```json
+  { "act": "drag_board", "from_x": 200, "from_y": 100, "to_x": 255, "to_y": 170 }
+  ```
+
 - `simulate_key`: dispatch a keypress.
   ```json
   { "act": "simulate_key", "keycode": "KEY_ESCAPE" }

@@ -285,6 +285,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_click_node(step), true)
 		"click_board_at":
 			rec.merge(await _do_click_board_at(step), true)
+		"drag_board":
+			rec.merge(await _do_drag_board(step), true)
 		"simulate_key":
 			rec.merge(await _do_simulate_key(step), true)
 		"expect_state":
@@ -447,6 +449,74 @@ func _do_click_board_at(step: Dictionary) -> Dictionary:
 		screen_pos = viewport.get_canvas_transform() * world_pos
 	await _send_click(screen_pos)
 	return {"pass": true, "world": [world_pos.x, world_pos.y], "screen": [screen_pos.x, screen_pos.y]}
+
+
+func _do_drag_board(step: Dictionary) -> Dictionary:
+	# Drag from one BOARD/WORLD position to another with REAL input events:
+	# warp + LMB press at `from`, a series of InputEventMouseMotion steps,
+	# LMB release at `to`. This is the player path for drag-to-move flows
+	# (fight-phase pile-in/consolidate model movement, etc.) — no controller
+	# state is poked. Coordinates are board px, projected like click_board_at.
+	for k in ["from_x", "from_y", "to_x", "to_y"]:
+		if not step.has(k):
+			return {"pass": false, "error": "drag_board needs from_x/from_y/to_x/to_y (world/board px)"}
+	var from_world := Vector2(float(step["from_x"]), float(step["from_y"]))
+	var to_world := Vector2(float(step["to_x"]), float(step["to_y"]))
+	var scene := get_tree().current_scene
+	if scene == null:
+		return {"pass": false, "error": "no current scene"}
+	var from_screen: Vector2
+	var to_screen: Vector2
+	if scene.has_method("world_to_screen_position"):
+		from_screen = scene.world_to_screen_position(from_world)
+		to_screen = scene.world_to_screen_position(to_world)
+	else:
+		var viewport := scene.get_viewport()
+		if viewport == null:
+			return {"pass": false, "error": "no viewport and no world_to_screen_position"}
+		from_screen = viewport.get_canvas_transform() * from_world
+		to_screen = viewport.get_canvas_transform() * to_world
+	from_screen = from_screen.round()
+	to_screen = to_screen.round()
+
+	Input.warp_mouse(from_screen)
+	await get_tree().process_frame
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.position = from_screen
+	press.global_position = from_screen
+	press.pressed = true
+	press.button_mask = MOUSE_BUTTON_MASK_LEFT
+	Input.parse_input_event(press)
+	await get_tree().process_frame
+
+	var motion_steps: int = int(step.get("steps", 8))
+	motion_steps = max(motion_steps, 2)
+	var prev := from_screen
+	for i in range(1, motion_steps + 1):
+		var p := (from_screen.lerp(to_screen, float(i) / float(motion_steps))).round()
+		Input.warp_mouse(p)
+		var motion := InputEventMouseMotion.new()
+		motion.position = p
+		motion.global_position = p
+		motion.relative = p - prev
+		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+		Input.parse_input_event(motion)
+		prev = p
+		await get_tree().process_frame
+
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.position = to_screen
+	release.global_position = to_screen
+	release.pressed = false
+	release.button_mask = 0
+	Input.parse_input_event(release)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	return {"pass": true,
+		"from_world": [from_world.x, from_world.y], "to_world": [to_world.x, to_world.y],
+		"from_screen": [from_screen.x, from_screen.y], "to_screen": [to_screen.x, to_screen.y]}
 
 
 func _do_simulate_key(step: Dictionary) -> Dictionary:

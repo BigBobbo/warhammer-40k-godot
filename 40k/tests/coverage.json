@@ -756,11 +756,12 @@
     },
     {
       "id": "phases.FightPhase.consolidate_11e",
-      "description": "Windowed scenario coverage for phases.FightPhase.consolidate_11e (verified by iss066_pile_in_consolidate_11e).",
+      "description": "Windowed scenario coverage for phases.FightPhase.consolidate_11e (verified by iss066_pile_in_consolidate_11e). Since 2026-07-03 consolidation is the GLOBAL end-of-phase step (12.07) \u2014 full player path verified by global_consolidation_step_11e.",
       "scenarios": [
-        "iss066_pile_in_consolidate_11e"
+        "iss066_pile_in_consolidate_11e",
+        "global_consolidation_step_11e"
       ],
-      "last_verified_commit": "20774020",
+      "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
@@ -774,11 +775,12 @@
     },
     {
       "id": "movetypes.ConsolidationMove",
-      "description": "Windowed scenario coverage for movetypes.ConsolidationMove (verified by iss066_pile_in_consolidate_11e).",
+      "description": "Windowed scenario coverage for movetypes.ConsolidationMove (verified by iss066_pile_in_consolidate_11e). Since 2026-07-03 consolidation is the GLOBAL end-of-phase step (12.07) \u2014 full player path verified by global_consolidation_step_11e.",
       "scenarios": [
-        "iss066_pile_in_consolidate_11e"
+        "iss066_pile_in_consolidate_11e",
+        "global_consolidation_step_11e"
       ],
-      "last_verified_commit": "20774020",
+      "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
@@ -1975,6 +1977,34 @@
       "description": "Tier-1 #1 UI surface: the Scoring-phase right panel shows each player's own disposition-paired 11e primary card (name + disposition, ~ for approximate source rows) instead of the shared 10e mission line.",
       "scenarios": [
         "iss064c_primary_mission_panel_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.consolidation_step_11e",
+      "description": "11e 12.07-12.08 GLOBAL Consolidate step: END_FIGHT enters the step after all fighting; active player's half first, one optional move per eligible unit (was_eligible_to_fight), engaging-mode forced fights resolved mid-step, END_CONSOLIDATION passes; phase completes after both halves.",
+      "scenarios": [
+        "global_consolidation_step_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.ConsolidationStepDialog",
+      "description": "Consolidate-step unit picker: per-unit Consolidate_<id> buttons with mode hints + End Consolidation button; drives the ConsolidateDialog drag flow.",
+      "scenarios": [
+        "global_consolidation_step_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scenario_runner.drag_board",
+      "description": "ScenarioRunner drag_board primitive: real press/motion/release input events over board coordinates (the player path for fight-phase drag-to-move).",
+      "scenarios": [
+        "global_consolidation_step_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
