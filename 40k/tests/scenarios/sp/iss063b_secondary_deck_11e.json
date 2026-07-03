@@ -1,0 +1,76 @@
+{
+  "id": "iss063b_secondary_deck_11e",
+  "covers": [
+    "autoloads.SecondaryMissionManager.deck_11e",
+    "rules.secondaries.gdm2026_draw_rules"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "description": "Tier-1 #2 (GDM 2026 secondaries): entering the Command phase at e11 builds the 18-card GDM tactical deck and draws 2; re-entering draws 2 MORE (no hand limit — 10e capped the hand at 2). The deck contains the new GDM cards and none of the retired 10e cards; the discard-for-1CP flow still works from the grown hand.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"deck\"].size() + SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"active\"].size()",
+      "equals": 18
+    },
+    {
+      "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"active\"].size()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "str(SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"deck\"]) .contains(\"plunder\") or str(SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"active\"]).contains(\"plunder\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"deck\"]).contains(\"area_denial\")",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_first_command_draw_two"
+    },
+    {
+      "act": "execute_script",
+      "script": "SecondaryMissionManager.draw_missions_to_hand(GameState.get_active_player()).size()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"active\"].size()",
+      "equals": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "02_no_hand_limit_hand_of_four"
+    },
+    {
+      "act": "execute_script",
+      "script": "SecondaryMissionManager.voluntary_discard(GameState.get_active_player(), 0)[\"success\"]",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"active\"].size()",
+      "equals": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "03_discard_for_cp_from_grown_hand"
+    }
+  ]
+}

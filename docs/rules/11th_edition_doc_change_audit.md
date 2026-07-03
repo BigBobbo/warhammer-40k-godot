@@ -196,7 +196,7 @@ Plunging Fire 3"/+1 ✅, **Hunter X** 🔴 (unimplemented, no data), **Heal X** 
 | **Asymmetric primaries** (15 pairings, e.g. Meatgrinder/Vital Link) | 🔴 | Game uses 10e-style **symmetric** primary selection (Take & Hold / Purge the Foe dropdowns). |
 | Primary caps (45 VP, 15/round, 2nd-player R5 EoT) | 🟡 | Take-and-Hold / Purge scoring exists; not the 11e pairing/caps model. |
 | Secondary **Fixed vs Tactical** | ✅ | Both modes selectable + validated Tactical draw. |
-| 11e **secondary deck** (Forward Position, Plunder, Beacon, Centre Ground, A Grievous Blow; no hand limit; 45 cap) | 🔴 | Current deck is 10e-derived; the specific 11e cards/rules not authored. |
+| 11e **secondary deck** (Forward Position, Plunder, Beacon, Centre Ground, A Grievous Blow; no hand limit; 45 cap) | 🟡 | GDM 2026 deck authored from `docs/rules/11th_edition_missions_gdm2026.md`: 18 cards (7 new), draw-2/no-hand-limit, fixed-four restriction, 45-total + 15/turn caps (`iss063b_secondary_deck_11e`; `test_secondary_deck_11e` 31/31). Cards without published text carry `approximate: true`; Attacker/Defender variants not modelled (no variant text). |
 
 ---
 
@@ -208,9 +208,11 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 1. **[code+data] 11e mission system.** Implement Force Dispositions (5), the 15 disposition-pairing table, and
    asymmetric per-player primary missions (Meatgrinder, Vital Link, Destroyer's Wrath, …) with the 45/15 caps and
    2nd-player round-5 end-of-turn scoring. Add disposition selection to army build/new-game. *(Ref: doc Tab 10.)*
-2. **[data] 11e secondary mission deck.** Author the 11e Fixed four (Assassination, Bring it Down, A Grievous Blow,
-   Engage on All Fronts) and the 18-card Tactical deck (Forward Position, Plunder, Beacon, Centre Ground, returning
-   cards with tweaks), with no hand-size limit and the 45-VP cap. *(Tab 10.)*
+2. **[data] 11e secondary mission deck.** *(Done 2026-07-02, approximations flagged:)* the GDM 2026 deck is authored
+   from `docs/rules/11th_edition_missions_gdm2026.md` — 18 cards incl. the Fixed four, draw-2-per-turn with no hand
+   limit, the fixed-eligibility restriction, and the 45-total/15-per-turn caps. Cards whose full text was unpublished
+   (Beacon, Plunder, Burden of Trust, Outflank, A Grievous Blow scoring numbers, Forward Position's Expansion
+   alternative) are marked `approximate: true` pending card text; Attacker/Defender variants are not modelled. *(Tab 10.)*
 3. **[data] Support-role datasheets + true 11e stat lines.** *(Partially done 2026-07-02:)* the Bannernob now carries
    `Support` + `leader_data` in orks.json, FormationsPhase enforces the 11e per-role slots (one leader + one support),
    and the flow is windowed-validated (`iss059b_support_attach_11e`). Still open: tag Support characters in other

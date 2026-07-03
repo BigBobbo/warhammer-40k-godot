@@ -1933,6 +1933,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "autoloads.SecondaryMissionManager.deck_11e",
+      "description": "Tier-1 #2 (GDM 2026): the 18-card 11e tactical secondary deck (7 new cards authored from docs/rules/11th_edition_missions_gdm2026.md, retired 10e cards absent), built on first Command phase at e11.",
+      "scenarios": [
+        "iss063b_secondary_deck_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.secondaries.gdm2026_draw_rules",
+      "description": "11e secondary rules: draw 2/turn with NO hand limit (10e cap preserved), Fixed restricted to the four fixed-eligible cards, 45 VP total + 15 VP/turn caps, discard-for-1CP intact from a grown hand.",
+      "scenarios": [
+        "iss063b_secondary_deck_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
