@@ -84,9 +84,13 @@ func _populate_objective_list() -> void:
 
 	for obj in nml_objectives:
 		var obj_id = obj.get("id", "")
+		# Positions are Dictionaries in fresh state but deserialize as Vector2
+		# from saves — handle both.
 		var obj_pos = obj.get("position", {})
 		var pos_text = ""
-		if obj_pos.has("x") and obj_pos.has("y"):
+		if obj_pos is Vector2:
+			pos_text = " (%.0f\", %.0f\")" % [obj_pos.x, obj_pos.y]
+		elif obj_pos is Dictionary and obj_pos.has("x") and obj_pos.has("y"):
 			pos_text = " (%.0f\", %.0f\")" % [obj_pos.get("x", 0), obj_pos.get("y", 0)]
 
 		var btn = Button.new()

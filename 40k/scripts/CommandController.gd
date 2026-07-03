@@ -873,6 +873,12 @@ func set_phase(phase: BasePhase) -> void:
 		# BEFORE this signal handler was connected (signal timing gap fix)
 		if secondary_mgr:
 			_check_pending_interactions(secondary_mgr)
+
+		# 11e Punishment: offer the human owner the chance to revise the
+		# auto-Condemn picks made at turn start (same timing-gap pattern —
+		# on_turn_start_11e ran during phase entry, before this controller
+		# existed).
+		_check_pending_condemn_prompt()
 	else:
 		hide()
 
@@ -1120,6 +1126,135 @@ func _check_pending_interactions(secondary_mgr) -> void:
 				_show_tempting_target_dialog(current_player, opponent, details)
 			_:
 				print("CommandController: Unknown pending interaction type: %s" % interaction_type)
+
+# ============================================================================
+# 11e GDM PUNISHMENT — CONDEMN CHOICE (turn start)
+# ============================================================================
+
+func _check_pending_condemn_prompt() -> void:
+	"""11e Punishment: _auto_condemn_11e picked up to 3 enemy units at Command
+	entry (backstop). Offer a human owner the dialog to revise those picks."""
+	var current_player = GameState.get_active_player()
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(current_player):
+		return  # AI keeps the auto picks
+	var pending = MissionManager.get_pending_condemn_choice_11e(current_player)
+	if pending.is_empty():
+		return
+	print("CommandController: 11e Condemn choice pending for P%d (%d eligible, auto picks %s)" % [
+		current_player, pending.get("eligible", []).size(), str(pending.get("current", []))])
+	_show_condemn_dialog(pending, current_player)
+
+func _show_condemn_dialog(pending: Dictionary, player: int) -> void:
+	if get_tree().root.get_node_or_null("CondemnChoiceDialog") != null:
+		return
+	var dialog = AcceptDialog.new()
+	dialog.name = "CondemnChoiceDialog"
+	dialog.title = "%s — Condemn" % pending.get("card_name", "Punishment")
+	dialog.min_size = DialogConstants.MEDIUM
+	dialog.get_ok_button().visible = false
+	WhiteDwarfTheme.apply_to_dialog(dialog)
+
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 8)
+	content.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
+
+	var header = Label.new()
+	header.text = "CONDEMN UP TO 3 ENEMY UNITS"
+	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(header)
+	content.add_child(HSeparator.new())
+
+	var desc = Label.new()
+	desc.text = str(pending.get("description", ""))
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(desc)
+	content.add_child(HSeparator.new())
+
+	var max_picks: int = int(pending.get("max_picks", 3))
+	var current_picks: Array = pending.get("current", [])
+	var resolved = [false]
+	var checkboxes: Array = []
+
+	for entry in pending.get("eligible", []):
+		var uid: String = str(entry.get("id", ""))
+		var check = CheckBox.new()
+		check.name = "Check_%s" % uid
+		check.text = str(entry.get("label", uid))
+		check.button_pressed = uid in current_picks
+		check.set_meta("unit_id", uid)
+		# Enforce the up-to-3 cap: reject a toggle-on past the cap.
+		check.toggled.connect(func(pressed: bool):
+			if not pressed:
+				return
+			var checked = 0
+			for c in checkboxes:
+				if is_instance_valid(c) and c.button_pressed:
+					checked += 1
+			if checked > max_picks:
+				check.button_pressed = false)
+		content.add_child(check)
+		checkboxes.append(check)
+
+	content.add_child(HSeparator.new())
+	var button_row = HBoxContainer.new()
+	button_row.name = "Actions"
+	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	button_row.add_theme_constant_override("separation", 12)
+
+	var confirm_btn = Button.new()
+	confirm_btn.name = "ConfirmCondemn"
+	confirm_btn.text = "Confirm Condemned Units"
+	confirm_btn.custom_minimum_size = Vector2(190, 36)
+	confirm_btn.pressed.connect(func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		var picks = []
+		for c in checkboxes:
+			if is_instance_valid(c) and c.button_pressed:
+				picks.append(str(c.get_meta("unit_id")))
+		emit_signal("command_action_requested", {
+			"type": "RESOLVE_CONDEMN",
+			"player": player,
+			"unit_ids": picks,
+		})
+		dialog.queue_free())
+	button_row.add_child(confirm_btn)
+
+	var skip_btn = Button.new()
+	skip_btn.name = "SkipCondemn"
+	skip_btn.text = "Keep Current Picks"
+	skip_btn.custom_minimum_size = Vector2(160, 36)
+	skip_btn.pressed.connect(func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		emit_signal("command_action_requested", {
+			"type": "DISMISS_CONDEMN",
+			"player": player,
+		})
+		dialog.queue_free())
+	button_row.add_child(skip_btn)
+	content.add_child(button_row)
+
+	# Escape/close keeps the auto picks — never a dead end.
+	dialog.canceled.connect(func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		emit_signal("command_action_requested", {
+			"type": "DISMISS_CONDEMN",
+			"player": player,
+		})
+		dialog.queue_free())
+
+	dialog.add_child(content)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
 
 func _on_mission_drawn(player: int, mission_id: String) -> void:
 	"""Handle SecondaryMissionManager mission_drawn signal — rebuild the secondary missions UI."""

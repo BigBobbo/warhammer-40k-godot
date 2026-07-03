@@ -1,0 +1,58 @@
+{
+  "id": "iss064f_condemn_prompt_11e",
+  "covers": [
+    "missions.primary_11e.card_action_prompt",
+    "missions.primary_11e.condemn_choice"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "11e GDM Punishment Condemn prompt at turn start: P2 plays Punishment (Purge the Foe vs Disruption). Entering the Command phase auto-Condemns the first three eligible P1 units near objectives (Caladius, Contemptor, Custodian Guard — the backstop) and pops the CondemnChoiceDialog with those picks pre-checked and the other eligible units (Shield Captain, Witchseekers) unchecked. The player unchecks the Caladius and confirms — the revision replaces the auto picks and clears the pending prompt.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "GameState.state[\"meta\"].merge({\"game_config\": {\"deployment\": \"search_and_destroy\", \"player1_disposition\": \"disruption\", \"player2_disposition\": \"purge_the_foe\"}}, true)" },
+    { "act": "execute_script", "script": "MissionManager.initialize_mission(\"take_and_hold\")" },
+    { "act": "execute_script",
+      "script": "MissionManager.get_primary_mission_for_player(2)[\"id\"]",
+      "equals": "punishment" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "execute_script",
+      "script": "\"U_CALADIUS_GRAV-TANK_E\" in MissionManager._primary_state_11e[\"2\"][\"condemned\"]",
+      "equals": true },
+    { "act": "expect_node_visible", "node": "/root/CondemnChoiceDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/CondemnChoiceDialog/Content/Check_U_CALADIUS_GRAV-TANK_E", "timeout_s": 2.0 },
+    { "act": "expect_node_property", "node": "/root/CondemnChoiceDialog/Content/Check_U_CALADIUS_GRAV-TANK_E", "property": "button_pressed", "equals": true },
+    { "act": "expect_node_property", "node": "/root/CondemnChoiceDialog/Content/Check_U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H", "property": "button_pressed", "equals": true },
+    { "act": "expect_node_property", "node": "/root/CondemnChoiceDialog/Content/Check_U_CUSTODIAN_GUARD_B", "property": "button_pressed", "equals": true },
+    { "act": "expect_node_property", "node": "/root/CondemnChoiceDialog/Content/Check_U_WITCHSEEKERS_C", "property": "button_pressed", "equals": false },
+    { "act": "screenshot", "label": "01_condemn_dialog_auto_picks_prechecked" },
+
+    { "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"CondemnChoiceDialog/Content/Check_U_CALADIUS_GRAV-TANK_E\").set(\"button_pressed\", false)" },
+    { "act": "click_node", "node": "/root/CondemnChoiceDialog/Content/Actions/ConfirmCondemn", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "\"U_CALADIUS_GRAV-TANK_E\" in MissionManager._primary_state_11e[\"2\"][\"condemned\"]",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\" in MissionManager._primary_state_11e[\"2\"][\"condemned\"]",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "MissionManager._primary_state_11e[\"2\"][\"condemned\"].size()",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "MissionManager._primary_state_11e[\"2\"][\"condemn_prompt_pending\"]",
+      "equals": false },
+    { "act": "screenshot", "label": "02_condemn_revised_by_player" }
+  ]
+}

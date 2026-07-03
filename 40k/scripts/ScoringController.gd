@@ -578,6 +578,18 @@ func set_phase(phase: BasePhase) -> void:
 		if phase.has_signal("coherency_removal_required") and not phase.coherency_removal_required.is_connected(_on_coherency_removal_required):
 			phase.coherency_removal_required.connect(_on_coherency_removal_required)
 
+		# Connect 11e GDM primary card-action target choice
+		if phase.has_signal("card_action_choice_required") and not phase.card_action_choice_required.is_connected(_on_card_action_choice_required):
+			phase.card_action_choice_required.connect(_on_card_action_choice_required)
+
+		# Belt-and-braces for the signal-timing gap: if the phase is already
+		# awaiting a card-action choice (e.g. controller rebuilt while the
+		# gate is up), re-show the dialog from the pending state.
+		if phase.get("_awaiting_card_action"):
+			var pending_ca = phase.get("_card_action_pending")
+			if pending_ca is Dictionary and not pending_ca.is_empty():
+				call_deferred("_show_card_action_dialog", pending_ca, int(pending_ca.get("player", GameState.get_active_player())))
+
 		# Update UI elements with current game state
 		_refresh_ui()
 		show()
@@ -684,6 +696,159 @@ func _recheck_coherency_removal() -> void:
 		_show_coherency_removal_dialog(current_phase.get("_coherency_removal_pending"))
 	else:
 		print("[ScoringController] 03.03 coherency restored — re-dispatching END_TURN")
+		emit_signal("scoring_action_requested", {"type": "END_TURN"})
+
+# ============================================================================
+# 11e GDM PRIMARY CARD ACTION CHOICE (End of Turn)
+# ============================================================================
+
+func _on_card_action_choice_required(pending: Dictionary, player: int) -> void:
+	"""The active player's primary mission card grants an optional end-of-turn
+	action (Triangulate, Decoy, Booby Trap, ...) — let them pick the targets."""
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		# Should not happen (the phase gate skips AI players) — backstop only.
+		print("[ScoringController] Card action choice for AI P%d — skipping dialog" % player)
+		return
+	print("[ScoringController] 11e card action choice for P%d: %s (%d targets)" % [
+		player, pending.get("action_name", "?"), pending.get("targets", []).size()])
+	_show_card_action_dialog(pending, player)
+
+func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
+	if get_tree().root.get_node_or_null("CardActionDialog") != null:
+		return
+	var dialog = AcceptDialog.new()
+	dialog.name = "CardActionDialog"
+	dialog.title = "%s — %s" % [pending.get("card_name", "Primary Mission"), pending.get("action_name", "Card Action")]
+	dialog.min_size = DialogConstants.MEDIUM
+	dialog.get_ok_button().visible = false
+	WhiteDwarfTheme.apply_to_dialog(dialog)
+
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 8)
+	content.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
+
+	var header = Label.new()
+	header.text = str(pending.get("action_name", "CARD ACTION")).to_upper()
+	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(header)
+	content.add_child(HSeparator.new())
+
+	var desc = Label.new()
+	desc.text = str(pending.get("description", ""))
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(desc)
+	content.add_child(HSeparator.new())
+
+	# Double-fire guard shared by target buttons / confirm / skip / cancel
+	var resolved = [false]
+	var multi_mode: bool = str(pending.get("mode", "single")) == "multi"
+	var checkboxes: Array = []
+
+	for target in pending.get("targets", []):
+		var tid: String = str(target.get("id", ""))
+		var tlabel: String = str(target.get("label", tid))
+		if multi_mode:
+			var check = CheckBox.new()
+			check.name = "Check_%s" % tid
+			check.text = tlabel
+			# Default all-selected mirrors the auto-resolve (Decoy/Extract
+			# Intelligence place on every eligible objective).
+			check.button_pressed = true
+			check.set_meta("target_id", tid)
+			content.add_child(check)
+			checkboxes.append(check)
+		else:
+			var btn = Button.new()
+			btn.name = "Pick_%s" % tid
+			btn.text = tlabel
+			btn.pressed.connect(func():
+				if resolved[0]:
+					return
+				resolved[0] = true
+				emit_signal("scoring_action_requested", {
+					"type": "RESOLVE_CARD_ACTION",
+					"targets": [tid],
+					"player": player,
+				})
+				dialog.queue_free()
+				call_deferred("_recheck_card_action"))
+			content.add_child(btn)
+
+	content.add_child(HSeparator.new())
+	var button_row = HBoxContainer.new()
+	button_row.name = "Actions"
+	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	button_row.add_theme_constant_override("separation", 12)
+
+	if multi_mode:
+		var confirm_btn = Button.new()
+		confirm_btn.name = "ConfirmCardAction"
+		confirm_btn.text = "Confirm Selection"
+		confirm_btn.custom_minimum_size = Vector2(170, 36)
+		confirm_btn.pressed.connect(func():
+			if resolved[0]:
+				return
+			resolved[0] = true
+			var picks = []
+			for check in checkboxes:
+				if is_instance_valid(check) and check.button_pressed:
+					picks.append(str(check.get_meta("target_id")))
+			emit_signal("scoring_action_requested", {
+				"type": "RESOLVE_CARD_ACTION",
+				"targets": picks,
+				"player": player,
+			})
+			dialog.queue_free()
+			call_deferred("_recheck_card_action"))
+		button_row.add_child(confirm_btn)
+
+	var skip_btn = Button.new()
+	skip_btn.name = "SkipCardAction"
+	skip_btn.text = "Skip (no action this turn)"
+	skip_btn.custom_minimum_size = Vector2(190, 36)
+	skip_btn.pressed.connect(func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		emit_signal("scoring_action_requested", {
+			"type": "SKIP_CARD_ACTION",
+			"player": player,
+		})
+		dialog.queue_free()
+		call_deferred("_recheck_card_action"))
+	button_row.add_child(skip_btn)
+	content.add_child(button_row)
+
+	# Escape/close is never a dead end: treat it as Skip so END_TURN can finish.
+	dialog.canceled.connect(func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		emit_signal("scoring_action_requested", {
+			"type": "SKIP_CARD_ACTION",
+			"player": player,
+		})
+		dialog.queue_free()
+		call_deferred("_recheck_card_action"))
+
+	dialog.add_child(content)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _recheck_card_action() -> void:
+	# After resolve/skip the gate should be down — finish the turn the player
+	# asked for. If the phase still awaits (resolve rejected), re-show.
+	if current_phase and is_instance_valid(current_phase) \
+			and current_phase.get("_awaiting_card_action"):
+		var pending = current_phase.get("_card_action_pending")
+		if pending is Dictionary and not pending.is_empty():
+			_show_card_action_dialog(pending, int(pending.get("player", GameState.get_active_player())))
+	else:
+		print("[ScoringController] 11e card action resolved — re-dispatching END_TURN")
 		emit_signal("scoring_action_requested", {"type": "END_TURN"})
 
 # ============================================================================
