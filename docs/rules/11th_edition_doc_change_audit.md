@@ -238,7 +238,10 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
    factions, and source real 11e **Ld/OC/Invuln** values — note the invuln picture is better than first reported
    (Custodes 4+/Draxus 5+/Beastboss 5+ etc. already present in `meta.stats.invuln`); what's missing is mostly
    orks.json characters (Ghazghkull, Badrukk, Warbosses) and any true-11e deltas, which need an official source
-   (PRD §5 open q.2). *(Tab 1/7; §1, §7.)*
+   (PRD §5 open q.2). *(Update 2026-07-03:)* the Tabletop Battles Orks/Custodes faction-pack review snippets yielded
+   ability-level changes, not full stat lines — the sourced FRAME keyword was added to the Battlewagon (the only
+   FRAME unit present in orks.json); Snikrot/Kommandos ability tweaks and per-datasheet Ld/OC values were not
+   retrievable and remain open. *(Tab 1/7; §1, §7 + appendix.)*
 4. **[code] Hidden / Gone to Ground / Detection Range.** *(Done 2026-07-02, code side:)* Gone to Ground (−3" → 12"
    behind an intervening dense/Solid feature), the `Detection Range X"` datasheet parser with the 9" floor, and the
    Hidden gate all validated in the live targeting path (windowed `iss052b_gone_to_ground_11e`, 46/46; headless
@@ -252,9 +255,12 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
    match, enhancement caps (2 per 1000 pts), Upgrade-tag ×3-non-CHARACTER semantics, and the 3-DP pool when army data
    declares DP costs (current army JSONs carry one detachment with no cost). Full DP-based list building UI and
    detachment data authoring remain. *(Tab 1 + appendix.)*
-6. **[code+data] Terrain categories & areas:** author explicit Exposed/Light/Dense categories and Terrain-Area polygons
-   per layout; implement the **Solid** <3"-gap rule and the Home/Expansion/Central objective designations used by
-   missions. *(Tab 6.)*
+6. **[code+data] Terrain categories & areas:** *(Update 2026-07-03:)* the sourced category definitions (Exposed:
+   craters/razorwire/debris; Light: barricades/low walls/statues; Dense: buildings/ruins/containers/woods) MATCH the
+   existing `TerrainManager.category_of` derivation exactly — the implementation is now source-validated, and layouts
+   can already override per piece via explicit `category`. **Home/Expansion/Central objective designations are DONE**
+   (assigned per layout in MissionManager, used by the 11e mission conditions). Remaining: the **Solid** <3"-gap rule
+   (no retrievable rule text yet) and authoring multi-feature Terrain-Area boundaries (schema v2). *(Tab 6 + appendix.)*
 7. **[code] Cover per attacking model:** *(Done 2026-07-02:)* each attack's BS worsening is computed from its own
    firing model's view of the target (13.08 second condition is per-attack); attacks with no recorded firer (overrides/
    bonus attacks) fall back to the first firer. Pinned in `test_iss047_weapon_abilities_11e` E6. *(Tab 4/6.)*
@@ -273,11 +279,16 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
     sites and pinned live (`test_iss047_weapon_abilities_11e` E4). Deferred: consolidating into one shared pipeline and
     set-×/set-0 semantics, which no shipped modifier uses yet. *(Tab 1.)*
 13. **[code] Precision** — *(Done 2026-07-02:)* promotion is gated on the character being visible to an attacking model (13.09/13.10/13.11 + LoS), and the attacker chooses the promoted group (or declines) via the AllocationGroupOverlay PrecisionPicker; chosen group rides the save batch (`iss047b_precision_choice_11e`; headless E2 section). *(Tab 8.)*
-14. **[code] Melee/Extra-Attacks/Melta polish** — *(Extra Attacks done 2026-07-02:)* the 10e Balance-Dataslate "cannot modify A" suppression is edition-gated off at e11 (Waaagh/Da Biggest bonuses now apply; pinned 10e-vs-11e in `test_iss047` E5). Melta "post-order" remains — its precise semantics live in the review-doc deep-dive, which is not in the repo (needs source). *(Tab 8.)*
+14. **[code] Melee/Extra-Attacks/Melta polish** — *(Extra Attacks done 2026-07-02:)* the 10e Balance-Dataslate "cannot modify A" suppression is edition-gated off at e11 (Waaagh/Da Biggest bonuses now apply; pinned 10e-vs-11e in `test_iss047` E5). *(Melta order RESOLVED 2026-07-03 by web source:)* the 11e sequence is base damage → add Melta bonus → apply damage-reduction (halve-after-melta) — exactly what the engine already does in all six damage paths (verified + pinned 2026-07-02, `test_iss047` E4). No code change needed; closed. *(Tab 8 + missions doc appendix.)*
 
 ### Tier 4 — structural/cosmetic
 15. **[code] Fight-phase step structure** — make Pile-In and Consolidation single global both-player steps (active-first)
-    rather than per-fighter; resolve the Engaging-consolidation 3"-vs-5" once GW FAQs. *(Tab 5.)*
+    rather than per-fighter. *(Update 2026-07-03:)* the 3"-vs-5" Engaging-consolidation question the audit parked is now
+    RESOLVED by source: Engaging Consolidation is **3"** (must engage the selected targets; otherwise move toward the
+    nearest objective), and consolidation happens **after all fighting across the battlefield, both players, active
+    player first**. The per-fighter `ConsolidationMove` template already enforces the 3" engaging/objective modes, so
+    outcomes match in the common case; the remaining work is purely the sequencer restructure (global end-of-phase
+    consolidation step) — an engineering refactor, no longer rules-blocked. *(Tab 5 + appendix.)*
 16. **[code] End-of-turn coherency removal dialog** — *(Done 2026-07-02:)* END_TURN pauses for human-owned incoherent units; the CoherencyRemovalDialog lets the player pick each removed model, and the turn auto-completes once coherent (`iss042b_coherency_removal_choice_11e`). Auto-pick stays as the AI/backstop. *(Tab 3.)*
 17. **[code] `[DEVASTATING WOUNDS]` / `[LETHAL HITS]` attacker-choice prompts** — *(Done 2026-07-02:)* the AbilityChoiceDialog offers both choices when a DW weapon is assigned; choices ride the assignment into all three resolution paths, incl. the new 24.10 decline (`iss047c_ability_choice_prompts_11e`; headless E3). *(Tab 4/8.)*
 

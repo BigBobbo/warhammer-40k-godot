@@ -187,3 +187,30 @@ Introduction to Missions in 11th Edition", "Rules Deep Dive: Terrain and
 Objectives"; gdmissions.app / game-datamissions.com card pages (via search
 snippets); warhammer-community.com "Building an army in the new edition";
 frontlinegaming.org 11th-ed roundups; thrifthammer.com keywords cheat sheet.
+
+### Additional core-rules details recovered (2026-07-03, second sweep)
+- **Melta modifier order (11e)**: base damage → add the Melta bonus → apply
+  damage-reduction effects (halving is NO longer bypassed by Melta).
+- **Consolidation (11e)**: after ALL fighting across the battlefield, both
+  players make consolidation moves, active player first. Engaging
+  Consolidation is **3"** — select enemy units within 3", move up to 3"
+  under pile-in conditions and engage all selected targets; if you cannot
+  engage, move toward the nearest objective.
+- **Terrain categories (11e)**: Exposed = craters, razorwire, debris
+  (can still grant cover); Light = barricades, low walls, statues; Dense =
+  buildings, ruins, armoured containers, woods. Cover = -1 to the
+  attacker's BS for units within a terrain area or partially obscured by
+  intervening terrain. Obscuring applies to any terrain area with 1+
+  Light/Dense features — LoS cannot pass completely through it.
+- **Faction packs (Orks/Custodes snippets)**: Battlewagon, Blitza-bommer,
+  Burna-bommer, Dakkajet, Hunta Rig, Kill Rig, Stompa, Trukk gain the
+  FRAME keyword; Snikrot's Red Skull Kommandos grants +1 Sv vs ranged;
+  Kommandos' Sneaky Gitz blocks snap-shooting targeting (incl. Overwatch);
+  Custodes Ares Gunship gains FRAME, loses Move/OC as an Aircraft. Full
+  11e stat lines (Ld/OC per datasheet) were not retrievable.
+
+Additional sources: dakkadakka Melta/modifier threads, goonhammer
+Ruleshammer pile-in/consolidate, tabletopbattles "Rules Deep Dive: The
+Charge and Fight Phases" / "Ruleshammer 11th Edition: Terrain Guide" /
+faction pack reviews (Orks, Adeptus Custodes), warhammer-community terrain
+article, spruesandbrews core-rules deep dive.
