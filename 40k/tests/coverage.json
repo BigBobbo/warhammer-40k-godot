@@ -1969,6 +1969,15 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "ui.ScoringPanel.primary_missions_11e",
+      "description": "Tier-1 #1 UI surface: the Scoring-phase right panel shows each player's own disposition-paired 11e primary card (name + disposition, ~ for approximate source rows) instead of the shared 10e mission line.",
+      "scenarios": [
+        "iss064c_primary_mission_panel_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

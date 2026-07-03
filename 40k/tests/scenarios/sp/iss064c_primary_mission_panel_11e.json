@@ -1,0 +1,32 @@
+{
+  "id": "iss064c_primary_mission_panel_11e",
+  "covers": [
+    "ui.ScoringPanel.primary_missions_11e"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 11,
+  "disable_ai": true,
+  "description": "Audit Tier-1 #1 UI surface (GDM 2026): at e11 the Scoring-phase right panel shows each player's OWN disposition-paired primary card instead of the shared 10e mission name. P1 Priority Assets vs P2 Purge the Foe pairs to Vital Link (flagged ~ approximate) and Destroyer's Wrath; the panel rebuild renders both named labels with the exact card + disposition text.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 11 },
+
+    { "act": "execute_script", "script": "MissionManager.initialize_dispositions_11e(\"priority_assets\", \"purge_the_foe\")" },
+    { "act": "execute_script", "script": "main.get_node(\"ScoringController\")._rebuild_right_panel()" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P1PrimaryMissionLabel", "timeout_s": 2.0 },
+    { "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P1PrimaryMissionLabel",
+      "property": "text",
+      "equals": "P1 Primary: Vital Link ~ (Priority Assets)" },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P2PrimaryMissionLabel" },
+    { "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P2PrimaryMissionLabel",
+      "property": "text",
+      "equals": "P2 Primary: Destroyer's Wrath (Purge the Foe)" },
+    { "act": "screenshot", "label": "01_per_player_primary_cards_in_panel" }
+  ]
+}
