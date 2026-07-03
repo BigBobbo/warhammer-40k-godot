@@ -286,9 +286,14 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
     rather than per-fighter. *(Update 2026-07-03:)* the 3"-vs-5" Engaging-consolidation question the audit parked is now
     RESOLVED by source: Engaging Consolidation is **3"** (must engage the selected targets; otherwise move toward the
     nearest objective), and consolidation happens **after all fighting across the battlefield, both players, active
-    player first**. The per-fighter `ConsolidationMove` template already enforces the 3" engaging/objective modes, so
-    outcomes match in the common case; the remaining work is purely the sequencer restructure (global end-of-phase
-    consolidation step) — an engineering refactor, no longer rules-blocked. *(Tab 5 + appendix.)*
+    player first**. *(CONSOLIDATION HALF DONE 2026-07-03:)* at e11 the per-fighter consolidate is gone — activations end
+    at attack resolution, END_FIGHT enters a global end-of-phase Consolidate step (active player's half first, one
+    optional move per eligible unit, `flags.was_eligible_to_fight` stamped in production, 12.08 engaging-mode forced
+    fights resolved mid-step), with a `ConsolidationStepDialog` player flow, AI ladder support (`END_CONSOLIDATION`),
+    and multiplayer trigger metadata. Validated windowed (`global_consolidation_step_11e`, mouse-only player path incl.
+    a new real-input `drag_board` primitive) + headless (`test_global_consolidation_11e`, `_ai_11e`). **Remaining: the
+    global Pile-In step (12.02)** — pile-in still runs per-activation, and the 12.06 overrun extra pile-in is still not
+    distinct. *(Tab 5 + appendix.)*
 16. **[code] End-of-turn coherency removal dialog** — *(Done 2026-07-02:)* END_TURN pauses for human-owned incoherent units; the CoherencyRemovalDialog lets the player pick each removed model, and the turn auto-completes once coherent (`iss042b_coherency_removal_choice_11e`). Auto-pick stays as the AI/backstop. *(Tab 3.)*
 17. **[code] `[DEVASTATING WOUNDS]` / `[LETHAL HITS]` attacker-choice prompts** — *(Done 2026-07-02:)* the AbilityChoiceDialog offers both choices when a DW weapon is assigned; choices ride the assignment into all three resolution paths, incl. the new 24.10 decline (`iss047c_ability_choice_prompts_11e`; headless E3). *(Tab 4/8.)*
 
