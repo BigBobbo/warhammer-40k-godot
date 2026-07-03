@@ -138,22 +138,27 @@ func _run_tests():
 		int(gs.state.players["1"]["primary_vp"]) == 4, str(gs.state.players["1"]["primary_vp"]))
 	mgr.kills_per_round.clear()
 
-	print("\n-- hold_new: Unstoppable Force --")
+	print("\n-- hold_new: Unstoppable Force (hold_new scores at EOT) --")
 	mgr.initialize_dispositions_11e("purge_the_foe", "take_and_hold")
 	gs.state.meta["battle_round"] = 2
+	gs.state.meta["active_player"] = 1
 	_reset_vp(null)
 	mgr._kills_this_round = {"1": 0, "2": 0}
+	mgr.kills_per_round.clear()
 	for obj_id in mgr.objective_control_state:
 		mgr.objective_control_state[obj_id] = 0
 	mgr._control_at_turn_start["1"] = []
 	mgr.objective_control_state[nml] = 1
 	mgr.score_primary_objectives()
-	# hold_min 1 non-home (4) + hold_new non-home (3) = 7
-	_check("newly captured NML objective: 4 (hold) + 3 (new) = 7 VP",
+	_check("command: hold 1+ non-home = 4 VP",
+		int(gs.state.players["1"]["primary_vp"]) == 4, str(gs.state.players["1"]["primary_vp"]))
+	mgr.score_primary_eot_11e(1)
+	_check("EOT adds 3 VP for the newly captured objective (total 7)",
 		int(gs.state.players["1"]["primary_vp"]) == 7, str(gs.state.players["1"]["primary_vp"]))
 	_reset_vp(null)
 	mgr._control_at_turn_start["1"] = [nml]
 	mgr.score_primary_objectives()
+	mgr.score_primary_eot_11e(1)
 	_check("already-held objective: hold only (4 VP)",
 		int(gs.state.players["1"]["primary_vp"]) == 4, str(gs.state.players["1"]["primary_vp"]))
 
@@ -187,6 +192,92 @@ func _run_tests():
 	mgr.score_primary_objectives()
 	_check("R4: escalates to 6 VP per non-home objective",
 		int(gs.state.players["1"]["primary_vp"]) == 6, str(gs.state.players["1"]["primary_vp"]))
+
+	print("\n-- objective designations (Home / Expansion / Central) --")
+	_check("home objectives designated", mgr.get_objective_designation(home1) == "home"
+		and mgr.get_objective_designation(home2) == "home")
+	var centrals = mgr.get_objective_ids_by_designation("central")
+	var expansions = mgr.get_objective_ids_by_designation("expansion")
+	_check("exactly one central objective", centrals.size() == 1, str(centrals))
+	_check("remaining NML objectives are expansions", expansions.size() == 2, str(expansions))
+
+	print("\n-- marker mechanics: Triangulation 3/6/10 --")
+	mgr.initialize_dispositions_11e("reconnaissance", "purge_the_foe")
+	gs.state.meta["battle_round"] = 2
+	gs.state.meta["active_player"] = 1
+	_reset_vp(null)
+	mgr._kills_this_round = {"1": 0, "2": 0}
+	mgr.kills_per_round.clear()
+	for obj_id in mgr.objective_control_state:
+		mgr.objective_control_state[obj_id] = 0
+	mgr.objective_control_state[nml] = 1
+	mgr.score_primary_eot_11e(1)
+	var st1t = mgr._primary_state_11e["1"]
+	_check("Triangulate auto-marks the controlled objective",
+		st1t["triangulated"] == [nml], str(st1t["triangulated"]))
+	_check("1 triangulated objective scores 3 VP at EOT",
+		int(gs.state.players["1"]["primary_vp"]) == 3, str(gs.state.players["1"]["primary_vp"]))
+	_reset_vp(null)
+	st1t["triangulated"] = [nml, home1, home2]
+	mgr.score_primary_eot_11e(1)
+	# 3 triangulated -> 10, but a 4th mark is auto-added only for controlled
+	# non-marked objectives; nml already marked so the count stays 3 -> 10 VP
+	_check("3+ triangulated objectives score 10 VP",
+		int(gs.state.players["1"]["primary_vp"]) == 10, str(gs.state.players["1"]["primary_vp"]))
+
+	print("\n-- marker mechanics: Sabotage per-objective + territory bonus --")
+	mgr.initialize_dispositions_11e("priority_assets", "priority_assets")
+	_reset_vp(null)
+	for obj_id in mgr.objective_control_state:
+		mgr.objective_control_state[obj_id] = 0
+	mgr.objective_control_state[nml] = 1
+	var central_id = mgr.get_objective_ids_by_designation("central")[0]
+	mgr.objective_control_state[central_id] = 1
+	mgr.score_primary_eot_11e(1)
+	# Compute the expectation over the unique controlled non-home objectives
+	var sab_ids = [nml]
+	if central_id != nml:
+		sab_ids.append(central_id)
+	var expected_sab = 0
+	for oid in sab_ids:
+		expected_sab += 3
+		if mgr._objective_in_enemy_territory_11e(oid, 1):
+			expected_sab += 2
+	_check("Sabotage: 3 VP per non-home + 2 territory/central bonus",
+		int(gs.state.players["1"]["primary_vp"]) == expected_sab,
+		"%s vs %d" % [gs.state.players["1"]["primary_vp"], expected_sab])
+
+	print("\n-- marker mechanics: Vital Link operation markers --")
+	mgr.initialize_dispositions_11e("priority_assets", "purge_the_foe")
+	_reset_vp(null)
+	for obj_id in mgr.objective_control_state:
+		mgr.objective_control_state[obj_id] = 0
+	mgr.objective_control_state[central_id] = 1
+	mgr.score_primary_eot_11e(1)
+	# turn 1: marker placed (1), EOT central 2 + 1 marker = 3; command hold non-home 4
+	var vl1 = int(gs.state.players["1"]["primary_vp"])
+	mgr.score_primary_eot_11e(1)
+	var vl2 = int(gs.state.players["1"]["primary_vp"]) - vl1
+	_check("Vital Link escalates: 2nd sweep scores 1 more than the 1st",
+		vl2 == vl1 + 1, "first %d then %d" % [vl1, vl2])
+
+	print("\n-- marker mechanics: Punishment condemned-left --")
+	mgr.initialize_dispositions_11e("purge_the_foe", "disruption")
+	_reset_vp(null)
+	gs.state["units"]["U_COND"] = {"id": "U_COND", "owner": 2,
+		"meta": {"name": "Runner", "keywords": [], "stats": {"objective_control": 1}},
+		"models": [{"id": "m1", "alive": true, "wounds": 1, "current_wounds": 1,
+			"base_mm": 32, "base_type": "circular",
+			"position": {"x": gs.state.board.objectives[0].position.x, "y": gs.state.board.objectives[0].position.y}}]}
+	mgr.on_turn_start_11e(1)
+	_check("enemy unit on an objective is auto-condemned",
+		"U_COND" in mgr._primary_state_11e["1"]["condemned"],
+		str(mgr._primary_state_11e["1"]["condemned"]))
+	gs.state.units["U_COND"]["models"][0]["alive"] = false
+	mgr.score_primary_eot_11e(1)
+	_check("condemned unit leaving the battlefield scores 5 VP",
+		int(gs.state.players["1"]["primary_vp"]) >= 5, str(gs.state.players["1"]["primary_vp"]))
+	gs.state.units.erase("U_COND")
 
 	print("\n-- 10e regression: dispatch unchanged --")
 	GameConstants.edition = 10

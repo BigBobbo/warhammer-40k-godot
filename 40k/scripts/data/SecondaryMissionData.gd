@@ -395,11 +395,11 @@ static func _load_missions() -> void:
 		"category": "Purge the Enemy",
 		"edition": 11,
 		"approximate": true,
-		"description": "Destroy a high-value enemy unit (approx.: 100+ points, or any 10+ wound model).",
+		"description": "Destroy an enemy unit with a Starting Strength of 13+ models (replaces Cull the Horde; VP value approximate).",
 		"scoring": {
 			"when": TIMING_END_OF_EITHER_TURN,
 			"conditions": [
-				{"check": "high_value_unit_destroyed_this_turn", "params": {"min_points": 100, "min_wounds": 10}, "vp": 5},
+				{"check": "high_value_unit_destroyed_this_turn", "params": {"min_models": 13}, "vp": 5},
 			],
 		},
 		"requires_action": false,
@@ -414,7 +414,7 @@ static func _load_missions() -> void:
 		"category": "Battlefield Supremacy",
 		"edition": 11,
 		"approximate": true,
-		"description": "Control your opponent's home objective (the both-Expansion-objectives alternative awaits Home/Expansion designations).",
+		"description": "Control your opponent's home objective, or both Expansion objectives.",
 		"scoring": {
 			"when": TIMING_END_OF_YOUR_TURN,
 			"conditions": [
@@ -473,16 +473,15 @@ static func _load_missions() -> void:
 		"category": "Shadow Operations",
 		"edition": 11,
 		"approximate": true,
-		"description": "Plant a beacon in enemy territory (approx.: Deploy-Teleport-Homer-style action).",
+		"description": "Your Beacon unit survives to the end of your opponent's turn outside your deployment zone (Beacon pick auto-resolved: any qualifying unit).",
 		"scoring": {
-			"when": TIMING_END_OF_YOUR_TURN,
+			"when": TIMING_END_OF_OPPONENT_TURN,
 			"conditions": [
-				{"check": "teleport_homer_deployed_in_opponent_zone", "params": {"action_name": "Plant Beacon"}, "vp": 5},
-				{"check": "teleport_homer_deployed_not_in_opponent_zone", "params": {"action_name": "Plant Beacon"}, "vp": 3},
+				{"check": "unit_outside_own_dz", "params": {"exclude": ["Battle-shocked"]}, "vp": 5},
 			],
 		},
-		"requires_action": true,
-		"action": {"name": "Plant Beacon", "phase": "shooting"},
+		"requires_action": false,
+		"action": {},
 		"when_drawn": {},
 	}
 
@@ -493,12 +492,12 @@ static func _load_missions() -> void:
 		"category": "Battlefield Supremacy",
 		"edition": 11,
 		"approximate": true,
-		"description": "Have units on the flanks (approx.: wholly within 6\" of a battlefield edge, outside your deployment zone).",
+		"description": "Units within 6\" of a battlefield edge outside your deployment zone: 3 VP for one edge, 5 VP for two.",
 		"scoring": {
 			"when": TIMING_END_OF_YOUR_TURN,
 			"conditions": [
-				{"check": "units_near_board_edges", "params": {"count": 2, "edge_inches": 6.0, "exclude": ["Battle-shocked"]}, "vp": 5},
-				{"check": "units_near_board_edges", "params": {"count": 1, "edge_inches": 6.0, "exclude": ["Battle-shocked"]}, "vp": 2},
+				{"check": "units_near_board_edges", "params": {"min_edges": 2, "edge_inches": 6.0, "exclude": ["Battle-shocked"]}, "vp": 5},
+				{"check": "units_near_board_edges", "params": {"min_edges": 1, "edge_inches": 6.0, "exclude": ["Battle-shocked"]}, "vp": 3},
 			],
 		},
 		"requires_action": false,

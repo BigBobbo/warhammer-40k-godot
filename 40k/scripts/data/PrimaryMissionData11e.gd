@@ -13,16 +13,25 @@ class_name PrimaryMissionData11e
 #   when: "command" — scored at the end of your Command phase (GDM: switches
 #                     to end of turn in battle round 5)
 #         "eot"     — scored at the end of your turn
+#         "eot_any" — scored at the end of EVERY turn (yours and opponent's)
 #         "eog"     — scored once at the end of the game
 #   type: hold_min | per_objective | hold_more | hold_enemy_home |
 #         hold_central | hold_central_plus_nml | hold_new | destroyed_min |
-#         destroyed_per_unit | killed_more_than_opponent_last_turn |
-#         quarters | action
+#         destroyed_per_unit | killed_more_than_opponent_last_turn | quarters
+#         — plus the marker/action mechanics (auto-resolved by
+#         MissionManager._run_primary_auto_actions_11e; the real cards let
+#         the player choose targets — see the missions doc appendix):
+#         triangulated_count | consecrated_count | consecrated_enemy_home |
+#         condemned_left | sabotage_per_objective | central_operation_markers |
+#         destroyed_near_central | vanguard_terrain_area | sensor_sweep_vp |
+#         relic_final_marker | decoyed_score | decoyed_total_eog |
+#         no_enemy_markers | intel_tokens_placed | trapped_score |
+#         destroyed_started_on_objective | destroyed_in_terrain_area |
+#         no_enemy_wholly_in_my_dz | action (unimplemented placeholder)
 #   vp / vp_per / vp_by_round: victory points awarded
 #   rounds: [from, to] inclusive battle-round window (default all rounds)
-#   approximate: the GDM source row had no exact card text for this component
-#   type "action" components are NOT implemented yet (bespoke marker/action
-#   mechanics) — they score nothing and are logged once per game.
+#   approximate: numbers/mechanics reconstructed from review text or the
+#   GDM summary table rather than exact card text.
 #
 # VP caps (GDM 2026): 45 primary total, 15 per turn.
 
@@ -67,10 +76,10 @@ static func _load_cards() -> void:
 	_add({
 		"id": "immovable_object", "name": "Immovable Object",
 		"deck": "take_and_hold", "played_vs": "purge_the_foe",
-		"approximate": true,
+		"approximate": true,  # review text; summary-table row differed in shape
 		"rules": [
-			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": false, "vp": 4, "approximate": true},
-			{"when": "command", "type": "hold_min", "min": 2, "exclude_home": false, "vp": 4, "approximate": true},
+			{"when": "eot", "type": "per_objective", "vp_per": 5, "exclude_home": true},
+			{"when": "eot", "type": "hold_central", "vp": 3},
 		],
 	})
 	_add({
@@ -80,7 +89,7 @@ static func _load_cards() -> void:
 		"rules": [
 			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
 			{"when": "command", "type": "hold_more", "vp": 4},
-			{"when": "command", "type": "action", "action_name": "Kill on objectives / capture new"},
+			{"when": "eot", "type": "destroyed_started_on_objective", "vp": 2, "approximate": true},
 		],
 	})
 	_add({
@@ -112,7 +121,7 @@ static func _load_cards() -> void:
 		"rules": [
 			{"when": "eot", "type": "destroyed_min", "min": 1, "vp": 3},
 			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
-			{"when": "command", "type": "hold_new", "vp": 3, "exclude_home": true, "approximate": true},
+			{"when": "eot", "type": "hold_new", "vp": 3, "exclude_home": true},
 			{"when": "eog", "type": "hold_central", "vp": 5},
 		],
 	})
@@ -129,9 +138,9 @@ static func _load_cards() -> void:
 	_add({
 		"id": "punishment", "name": "Punishment",
 		"deck": "purge_the_foe", "played_vs": "disruption",
-		"approximate": true,
+		"approximate": true,  # condemn auto-picked; 5 VP per review (table said 3)
 		"rules": [
-			{"when": "command", "type": "action", "action_name": "Condemn"},
+			{"when": "eot_any", "type": "condemned_left", "vp": 5},
 			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
 			{"when": "command", "type": "hold_more", "vp": 5},
 			{"when": "eog", "type": "hold_enemy_home", "vp": 8},
@@ -140,11 +149,11 @@ static func _load_cards() -> void:
 	_add({
 		"id": "consecrate", "name": "Consecrate",
 		"deck": "purge_the_foe", "played_vs": "reconnaissance",
-		"approximate": true,
+		"approximate": true,  # auto-resolved marker placement
 		"rules": [
-			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
-			{"when": "command", "type": "hold_more", "vp": 4},
-			{"when": "command", "type": "action", "action_name": "Consecrate"},
+			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4, "rounds": [2, 5]},
+			{"when": "eot", "type": "consecrated_count"},
+			{"when": "eog", "type": "consecrated_enemy_home", "vp": 5},
 		],
 	})
 	_add({
@@ -172,18 +181,18 @@ static func _load_cards() -> void:
 	_add({
 		"id": "triangulation", "name": "Triangulation",
 		"deck": "reconnaissance", "played_vs": "purge_the_foe",
-		"approximate": true,
+		"approximate": true,  # Triangulate target auto-picked
 		"rules": [
 			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
-			{"when": "eot", "type": "action", "action_name": "Triangulate"},
+			{"when": "eot", "type": "triangulated_count"},
 		],
 	})
 	_add({
 		"id": "gather_intel", "name": "Gather Intel",
 		"deck": "reconnaissance", "played_vs": "reconnaissance",
-		"approximate": true,
+		"approximate": true,  # extract auto-completed for units in range
 		"rules": [
-			{"when": "command", "type": "action", "action_name": "Extract Intelligence"},
+			{"when": "eot", "type": "intel_tokens_placed", "vp_per": 7, "rounds": [2, 5]},
 			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4, "approximate": true},
 		],
 	})
@@ -192,16 +201,18 @@ static func _load_cards() -> void:
 		"deck": "reconnaissance", "played_vs": "priority_assets",
 		"approximate": true,
 		"rules": [
-			{"when": "command", "type": "action", "action_name": "Sweep operation markers"},
-			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4, "approximate": true},
+			{"when": "command", "type": "hold_central", "vp": 3},
+			{"when": "eot", "type": "destroyed_in_terrain_area", "vp": 2, "approximate": true},
+			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
+			{"when": "eog", "type": "no_enemy_wholly_in_my_dz", "vp": 5},
 		],
 	})
 	_add({
 		"id": "surveil_the_foe", "name": "Surveil the Foe",
 		"deck": "reconnaissance", "played_vs": "disruption",
-		"approximate": true,
+		"approximate": true,  # Surveil-tag VP not published; decoy-scrub side modelled
 		"rules": [
-			{"when": "command", "type": "action", "action_name": "Surveil / scrub decoys"},
+			{"when": "eot", "type": "no_enemy_markers", "vp": 5},
 			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4, "approximate": true},
 		],
 	})
@@ -210,9 +221,10 @@ static func _load_cards() -> void:
 	_add({
 		"id": "secure_asset", "name": "Secure Asset",
 		"deck": "priority_assets", "played_vs": "take_and_hold",
-		"approximate": true,
+		"approximate": true,  # Secure Asset auto-completes on controlled non-home
 		"rules": [
-			{"when": "command", "type": "action", "action_name": "Secure Asset"},
+			{"when": "eot", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
+			{"when": "eot", "type": "destroyed_near_central", "vp": 2},
 			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
 			{"when": "command", "type": "hold_min", "min": 3, "exclude_home": true, "vp": 4},
 		],
@@ -220,9 +232,9 @@ static func _load_cards() -> void:
 	_add({
 		"id": "vital_link", "name": "Vital Link",
 		"deck": "priority_assets", "played_vs": "purge_the_foe",
-		"approximate": true,
+		"approximate": true,  # marker action auto-completes while central is held
 		"rules": [
-			{"when": "command", "type": "hold_central", "vp": 2, "approximate": true},
+			{"when": "eot", "type": "central_operation_markers", "vp": 2, "vp_per_marker": 1},
 			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
 			{"when": "command", "type": "hold_central", "vp": 4},
 			{"when": "eog", "type": "hold_enemy_home", "vp": 10},
@@ -231,9 +243,9 @@ static func _load_cards() -> void:
 	_add({
 		"id": "vanguard_operation", "name": "Vanguard Operation",
 		"deck": "priority_assets", "played_vs": "reconnaissance",
-		"approximate": true,
+		"approximate": true,  # enemy territory approximated by deployment zone
 		"rules": [
-			{"when": "command", "type": "action", "action_name": "Vanguard Op"},
+			{"when": "eot", "type": "vanguard_terrain_area", "vp": 4},
 			{"when": "eot", "type": "destroyed_min", "min": 1, "vp": 2},
 			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
 			{"when": "eog", "type": "hold_enemy_home", "vp": 10},
@@ -242,19 +254,21 @@ static func _load_cards() -> void:
 	_add({
 		"id": "sabotage", "name": "Sabotage",
 		"deck": "priority_assets", "played_vs": "priority_assets",
-		"approximate": true,
+		"approximate": true,  # Sabotage auto-completes on controlled non-home
 		"rules": [
-			{"when": "command", "type": "action", "action_name": "Sabotage"},
+			{"when": "eot", "type": "sabotage_per_objective", "vp_per": 3, "enemy_territory_bonus": 2},
 			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
 		],
 	})
 	_add({
 		"id": "extract_relic", "name": "Extract Relic",
 		"deck": "priority_assets", "played_vs": "disruption",
-		"approximate": true,
+		"approximate": true,  # marker placement + sweeps auto-resolved
 		"rules": [
-			{"when": "command", "type": "action", "action_name": "Sensor Sweep"},
-			{"when": "eot", "type": "destroyed_min", "min": 1, "vp": 3, "approximate": true},
+			{"when": "eot", "type": "sensor_sweep_vp", "vp": 4},
+			{"when": "eot", "type": "relic_final_marker", "vp": 4},
+			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
+			{"when": "eog", "type": "relic_final_marker", "vp": 5},
 		],
 	})
 
@@ -262,9 +276,9 @@ static func _load_cards() -> void:
 	_add({
 		"id": "death_trap", "name": "Death Trap",
 		"deck": "disruption", "played_vs": "take_and_hold",
-		"approximate": true,
+		"approximate": true,  # trap eligibility/auto-pick simplified
 		"rules": [
-			{"when": "command", "type": "action", "action_name": "Booby Trap"},
+			{"when": "eot", "type": "trapped_score", "vp_per": 2, "objective_bonus": 3},
 		],
 	})
 	_add({
@@ -288,17 +302,21 @@ static func _load_cards() -> void:
 	_add({
 		"id": "smoke_and_mirrors", "name": "Smoke and Mirrors",
 		"deck": "disruption", "played_vs": "reconnaissance",
-		"approximate": true,
+		"approximate": true,  # decoy placement/removal auto-resolved
 		"rules": [
-			{"when": "command", "type": "action", "action_name": "Decoy markers"},
+			{"when": "eot", "type": "decoyed_score", "vp_per": 2, "enemy_territory_bonus": 2},
+			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4, "rounds": [2, 5]},
+			{"when": "eog", "type": "decoyed_total_eog", "min": 4, "vp": 10},
 		],
 	})
 	_add({
 		"id": "locate_and_deny", "name": "Locate and Deny",
 		"deck": "disruption", "played_vs": "priority_assets",
-		"approximate": true,
+		"approximate": true,  # shares the relic markers with Extract Relic
 		"rules": [
-			{"when": "command", "type": "action", "action_name": "Locate and Deny"},
+			{"when": "eot", "type": "destroyed_started_on_objective", "vp": 4},
+			{"when": "eot", "type": "relic_final_marker", "vp": 4},
+			{"when": "command", "type": "hold_min", "min": 1, "exclude_home": true, "vp": 4},
 		],
 	})
 

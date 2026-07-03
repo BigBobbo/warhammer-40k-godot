@@ -66,3 +66,124 @@ Each card is played based on your Force Disposition vs your opponent's.
 - Choose **Fixed** (2 from the fixed list) or **Tactical** (draw 2/turn, no hand limit)
 - Discard a secondary at end of turn for **1CP**
 - Max **15VP/turn**, **45VP total** from secondaries
+
+---
+
+## Appendix: web-sourced card texts (retrieved 2026-07-03)
+
+Retrieved via web search from gdmissions.app / game-datamissions.com search
+snippets and the Tabletop Battles Force Disposition review series
+(tabletopbattles.com: take-and-hold, purge-the-foe, reconnaissance,
+priority-assets, disruption reviews + "An Introduction to Missions in 11th
+Edition"), plus warhammer-community.com / frontlinegaming.org for core rules.
+Search-result synthesis — treat numbers as good-faith but still approximate
+where only one source stated them.
+
+### Objective designations (Chapter Approved maps)
+- **Home**: one objective in each player's deployment zone.
+- **Expansion**: two NML objectives, each closer to one player's zone.
+- **Central**: the single central objective (or two slightly-offset centrals
+  on some layouts).
+
+### Primary card details recovered
+- **Triangulation**: *Triangulate* action, once per turn, applies the
+  Triangulated descriptor to an objective you control at the end of your
+  turn. EOT score 3/6/10 VP for 1/2/3+ Triangulated objectives (control of
+  them not needed). Markers permanent.
+- **Consecrate**: destroying an enemy unit makes the killer a Consecration
+  unit; at end of your turn each Consecration unit in range of a non-home,
+  non-Consecrated objective places a marker (permanent) and stops being one.
+  EOT: 3 VP if 1–2 objectives Consecrated, 6 VP if 3+. From R2 each C (EOT in
+  final round): 4 VP for holding 1+ non-home. EOG: +5 VP if opponent's home
+  is Consecrated.
+- **Punishment (Condemn)**: at the start of each of your turns choose up to
+  3 enemy units on the battlefield in range of an objective and/or that
+  destroyed a friendly unit the previous turn — they are Condemned. At the
+  end of any turn, if 1+ Condemned units left the battlefield that turn,
+  score 5 VP (review text; the summary table above said 3).
+- **Unstoppable Force**: kill 1+ each turn (EOT); from R2, C-phase VP per
+  non-home objective; EOT +3 VP for controlling an objective you didn't
+  control at the start of your turn; EOG +5 VP for holding a Central
+  objective.
+- **Immovable Object**: EOT 5 VP per objective controlled excluding home;
+  3 VP for controlling 1+ Central objective (review text; per-objective
+  shape differs from the summary table row).
+- **Sabotage**: EOT 3 VP for each non-home objective a unit performed
+  Sabotage on (hold-the-objective action completing at end of your turn);
+  +2 VP each if in opponent's territory (the central objective counts).
+- **Vital Link**: *Operation Marker* action once per turn on a Central
+  objective, completes at EOT if you control it. EOT: 2 VP for holding 1+
+  Central, +1 VP per Operation Marker on those objectives.
+- **Secure Asset**: EOT 4 VP for performing Secure Asset on a non-home
+  objective (completes if you control it at EOT); EOT 2 VP if you destroyed
+  1+ units in range of a Central objective.
+- **Vanguard Operation**: action once per turn, started in your Shooting
+  phase by a unit within a terrain area in your opponent's territory
+  (within, not wholly within); completes at EOT if no enemy units are in
+  that area → 4 VP.
+- **Extract Relic / Locate and Deny (PA vs DI pairing)**: the Disruption
+  player marks five terrain areas outside their deployment zone at the
+  start; both players get *Sensor Sweep* (once per turn, unit in range of a
+  Central objective, completes if you control it at EOT) which removes one
+  marker until one is left. PA: 4 VP per Sensor Sweep; 4 VP if exactly one
+  marker is left with 1+ friendly units within that area and no enemy units
+  in it; 4 VP hold 1+ non-home; EOG 5 VP under the same marker condition.
+  DI (Locate and Deny): 4 VP destroy 1+ enemy units that started the turn
+  on an objective; the same one-marker-left condition for 4 VP; 4 VP hold
+  1+ non-home.
+- **Smoke and Mirrors**: *Decoy* action (end of turn, unlimited uses) puts
+  the Decoyed descriptor on a non-home objective you control. Score 2 VP
+  per Decoyed objective (+2 if in opponent's territory). Markers are
+  removed immediately if an enemy unit ends a move within range. From R2:
+  4 VP hold 1+ non-home. EOG: 10 VP if 4+ objectives were Decoyed in total.
+- **Surveil the Foe**: *Surveil* action (unlimited) tags a visible enemy
+  unit within 18" (the acting unit cannot shoot/charge). Opponent has the
+  Decoy action; EOT flat 5 VP if none of their markers remain on the board.
+- **Gather Intel**: *Extract Intelligence* action from R2, units in range
+  of an NML objective place an intel token; EOT 7 VP per friendly unit that
+  completed the action.
+- **Search and Scour (RE side)**: C 3 VP hold 1+ Central (R1–5); EOT 2 VP
+  destroy 1+ units that started the turn in a terrain area; 4 VP non-home
+  hold; EOG 5 VP if no enemy units wholly within your deployment zone.
+- **Death Trap (Booby Trap)**: action started in the Shooting phase by a
+  unit within an eligible terrain area/objective not yet Trapped; Trapped
+  is permanent. EOT 2 VP per Trapped terrain area (+3 if the area is an
+  objective).
+
+### Secondary details recovered
+- Fixed secondaries: max **20 VP from each fixed card per game** (plus the
+  15/turn, 45 total caps).
+- **A Grievous Blow**: replaces Cull the Horde — destroy enemy units with a
+  **Starting Strength of 13+ models** (VP value not stated in snippets).
+- **Beacon**: pick a unit (on the battlefield or embarked) as your Beacon;
+  if it survives to the end of your opponent's turn and is outside your
+  deployment zone, score VP.
+- **Outflank**: units within 6" of a board edge and not in your deployment
+  zone — 3 VP for one edge, 5 VP for two edges.
+- **Display of Might**: as 10e, but scores more at the end of your
+  opponent's turn in No Man's Land (numbers not stated).
+- **Plunder**: replaces the 10e Sabotage secondary; redraw if you already
+  have Cleanse (and vice versa).
+- Attacker/Defender variants exist as separate cards (e.g. "A Grievous
+  Blow — Defender"); full variant texts were not retrievable.
+
+### Core rules recovered
+- **Heal X**: when a unit is Healed, restore one lost wound to a wounded
+  model; if no wounded models exist, return one destroyed model with 1
+  wound. Repeat X times. A single-model unit wastes excess heals.
+- **Hunter X**: no rule text found in ANY available source (core-rules
+  deep dives, keyword cheat sheets, faction reviews) — presumed not in the
+  shipped core rules; cannot be implemented without fabrication.
+- **Army construction**: Detachment Points pool — 3 DP at 2000 pts,
+  detachments cost 1–3 DP, multiple detachments allowed. Enhancements: max
+  2 at 1000 pts / 4 at 2000 pts; **Upgrade**-tagged enhancements go on up
+  to three non-CHARACTER units while counting as one choice. Leader/Support
+  attachment is fixed at list-build time. The **Warlord must share the
+  army's Faction keyword**.
+
+Sources: tabletopbattles.com Force Disposition reviews (take-and-hold,
+purge-the-foe, reconnaissance, priority-assets, disruption), "An
+Introduction to Missions in 11th Edition", "Rules Deep Dive: Terrain and
+Objectives"; gdmissions.app / game-datamissions.com card pages (via search
+snippets); warhammer-community.com "Building an army in the new edition";
+frontlinegaming.org 11th-ed roundups; thrifthammer.com keywords cheat sheet.

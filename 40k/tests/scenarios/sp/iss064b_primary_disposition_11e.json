@@ -9,7 +9,7 @@
   "rng_seed": 42,
   "transition_to_phase": 6,
   "disable_ai": true,
-  "description": "Audit Tier-1 #1 (GDM 2026 Force Dispositions): each player's primary mission is their own deck paired against the opponent's disposition. P1 Take and Hold vs P2 Purge the Foe resolves to Immovable Object (P1) and Unstoppable Force (P2) via the meta.game_config path in initialize_mission. Turn-start control is snapshotted while P2 only holds obj_nml_2; then the P1 centre garrison (Caladius OC4 + Contemptor OC3) withdraws and Boyz K capture obj_center. END_COMMAND live-scores P2's Unstoppable Force command conditions: 4VP (hold 1+ non-home) + 3VP (obj_center was not held at turn start) = 7 primary VP, while P1 scores nothing.",
+  "description": "Audit Tier-1 #1 (GDM 2026 Force Dispositions): each player plays their own deck paired against the opponent disposition. P1 Take and Hold vs P2 Purge the Foe resolves to Immovable Object (P1) and Unstoppable Force (P2) via the meta.game_config path. Turn-start control snapshotted while P2 only holds obj_nml_2; the P1 centre garrison withdraws and Boyz K capture obj_center. END_COMMAND scores the command condition (4VP hold 1+ non-home); the sourced card text puts hold-new at end of turn, so the EOT pass adds 3VP for the freshly captured obj_center = 7 total, P1 scores nothing.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 6 },
@@ -45,8 +45,11 @@
     { "act": "dispatch_action", "action": { "type": "END_COMMAND" } },
     { "act": "expect_action_result", "path": "success", "equals": true },
 
-    { "act": "expect_state", "path": "players.2.primary_vp", "equals": 7 },
+    { "act": "expect_state", "path": "players.2.primary_vp", "equals": 4 },
     { "act": "expect_state", "path": "players.1.primary_vp", "equals": 0 },
+
+    { "act": "execute_script", "script": "MissionManager.score_primary_eot_11e(2)" },
+    { "act": "expect_state", "path": "players.2.primary_vp", "equals": 7 },
     { "act": "execute_script",
       "script": "int(MissionManager._primary_vp_this_turn[\"2\"])",
       "equals": 7 },

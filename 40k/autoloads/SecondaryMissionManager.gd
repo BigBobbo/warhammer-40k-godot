@@ -24,6 +24,7 @@ const MAX_ACTIVE_MISSIONS = 2
 # (source: docs/rules/11th_edition_missions_gdm2026.md).
 const MAX_SECONDARY_VP_11E = 45
 const MAX_SECONDARY_VP_PER_TURN_11E = 15
+const MAX_VP_PER_FIXED_CARD_11E = 20  # GDM sourced: 20 VP max from each fixed card per game
 const CARDS_DRAWN_PER_TURN_11E = 2
 const MAX_FIXED_MISSION_VP = 20  # Max VP per individual fixed mission card
 
@@ -63,6 +64,7 @@ static func _create_default_player_state() -> Dictionary:
 		"discard": [],       # Array of discarded mission IDs
 		"secondary_vp": 0,   # Total secondary VP scored
 		"secondary_vp_this_turn": 0,  # 11e: 15/turn cap window
+		"vp_by_mission": {},  # 11e fixed mode: 20 VP cap per fixed card
 		"initialized": false,
 	}
 
@@ -664,6 +666,8 @@ func _check_condition(player: int, check: String, params: Dictionary, mission: D
 			return _check_objectives_held_since_turn_start(player, params)
 		"units_near_board_edges":
 			return _check_units_near_board_edges(player, params)
+		"unit_outside_own_dz":
+			return _check_unit_outside_own_dz(player, params)
 		"units_recovered_assets":
 			return _check_recovered_assets(player, params)
 
@@ -1060,6 +1064,16 @@ func _award_secondary_vp(player: int, vp: int, mission_id: String) -> int:
 			print("SecondaryMissionManager: Player %d at per-turn secondary VP cap (%d)" % [player, MAX_SECONDARY_VP_PER_TURN_11E])
 			return 0
 
+	# 11e Fixed mode (GDM sourced): each fixed card can score at most 20 VP
+	# over the game
+	if GameConstants.edition >= 11 and state.get("mode", "tactical") == "fixed":
+		var by_mission = state.get("vp_by_mission", {})
+		var card_available = MAX_VP_PER_FIXED_CARD_11E - int(by_mission.get(mission_id, 0))
+		actual_vp = mini(actual_vp, card_available)
+		if actual_vp <= 0:
+			print("SecondaryMissionManager: Player %d fixed card %s at its 20 VP cap" % [player, mission_id])
+			return 0
+
 	# Also check combined cap
 	var primary_vp = GameState.state.get("players", {}).get(player_key, {}).get("primary_vp", 0)
 	var combined_available = MAX_COMBINED_VP - primary_vp - current_secondary
@@ -1072,6 +1086,9 @@ func _award_secondary_vp(player: int, vp: int, mission_id: String) -> int:
 	# Award VP
 	state["secondary_vp"] += actual_vp
 	state["secondary_vp_this_turn"] = int(state.get("secondary_vp_this_turn", 0)) + actual_vp
+	if not state.has("vp_by_mission"):
+		state["vp_by_mission"] = {}
+	state["vp_by_mission"][mission_id] = int(state["vp_by_mission"].get(mission_id, 0)) + actual_vp
 
 	# Update GameState total VP
 	var total_vp = GameState.state.get("players", {}).get(player_key, {}).get("vp", 0)
@@ -1124,25 +1141,42 @@ func _discard_achieved_missions(player: int) -> void:
 ## A Grievous Blow (approx.): an enemy unit worth min_points+ points, or
 ## containing a model with min_wounds+ starting wounds, was destroyed this turn.
 func _check_high_value_unit_destroyed(player: int, params: Dictionary) -> bool:
-	var min_points = int(params.get("min_points", 100))
-	var min_wounds = int(params.get("min_wounds", 10))
+	# GDM sourced text: A Grievous Blow targets units with a Starting
+	# Strength of 13+ models (min_models). The points/wounds params remain
+	# for any card that wants a value-based threshold.
+	var min_models = int(params.get("min_models", 0))
+	var min_points = int(params.get("min_points", 0))
+	var min_wounds = int(params.get("min_wounds", 0))
 	for destroyed in _units_destroyed_this_turn:
 		if int(destroyed.get("owner", 0)) == player:
 			continue
-		if int(destroyed.get("points", 0)) >= min_points:
+		if min_models > 0 and int(destroyed.get("starting_strength", 0)) >= min_models:
 			return true
-		if int(destroyed.get("max_model_wounds", 0)) >= min_wounds:
+		if min_points > 0 and int(destroyed.get("points", 0)) >= min_points:
+			return true
+		if min_wounds > 0 and int(destroyed.get("max_model_wounds", 0)) >= min_wounds:
 			return true
 	return false
 
 ## Forward Position: the player controls the objective in the OPPONENT's
-## deployment zone (their home objective).
+## deployment zone (their home objective), OR — per the card's alternative —
+## BOTH Expansion objectives.
 func _check_enemy_home_objective(player: int) -> bool:
 	var opponent = 3 - player
 	var opponent_zone = "player%d" % opponent
 	for obj in GameState.state.get("board", {}).get("objectives", []):
 		if obj.get("zone", "") == opponent_zone:
 			if MissionManager.objective_control_state.get(obj["id"], 0) == player:
+				return true
+	if MissionManager.has_method("get_objective_ids_by_designation"):
+		var expansions = MissionManager.get_objective_ids_by_designation("expansion")
+		if expansions.size() >= 2:
+			var all_mine = true
+			for obj_id in expansions:
+				if MissionManager.objective_control_state.get(obj_id, 0) != player:
+					all_mine = false
+					break
+			if all_mine:
 				return true
 	return false
 
@@ -1157,17 +1191,21 @@ func _check_objectives_held_since_turn_start(player: int, params: Dictionary) ->
 			count += 1
 	return count >= required
 
-## Outflank (approx.): units with every alive model within edge_inches of a
+## Outflank: units with every alive model within edge_inches of a
 ## battlefield edge, outside the player's own deployment zone.
+## params.count — require N qualifying units (legacy); params.min_edges —
+## require qualifying units on N DISTINCT battlefield edges (sourced card
+## text: 3 VP for one edge, 5 VP for two).
 func _check_units_near_board_edges(player: int, params: Dictionary) -> bool:
 	var required = int(params.get("count", 1))
+	var min_edges = int(params.get("min_edges", 0))
 	var edge_in = float(params.get("edge_inches", 6.0))
 	var exclude = params.get("exclude", [])
 	var board_w_px = Measurement.inches_to_px(float(GameState.state.get("board", {}).get("size", {}).get("width", 44)))
 	var board_h_px = Measurement.inches_to_px(float(GameState.state.get("board", {}).get("size", {}).get("height", 60)))
 	var edge_px = Measurement.inches_to_px(edge_in)
-	var own_zone = GameState.get_deployment_zone_for_player(player) if GameState.has_method("get_deployment_zone_for_player") else {}
 	var count = 0
+	var edges_hit = {}
 	for unit_id in GameState.state.get("units", {}):
 		var unit = GameState.state.units[unit_id]
 		if int(unit.get("owner", 0)) != player:
@@ -1176,6 +1214,7 @@ func _check_units_near_board_edges(player: int, params: Dictionary) -> bool:
 			continue
 		var any_alive = false
 		var all_near_edge = true
+		var unit_edges = {}
 		for m in unit.get("models", []):
 			if not m.get("alive", true) or m.get("position") == null:
 				continue
@@ -1183,14 +1222,56 @@ func _check_units_near_board_edges(player: int, params: Dictionary) -> bool:
 			var pos = m["position"]
 			var px = float(pos.x) if not (pos is Dictionary) else float(pos.get("x", 0))
 			var py = float(pos.y) if not (pos is Dictionary) else float(pos.get("y", 0))
-			var near = px <= edge_px or py <= edge_px \
-				or px >= board_w_px - edge_px or py >= board_h_px - edge_px
-			if not near:
+			var model_edges = {}
+			if px <= edge_px:
+				model_edges["left"] = true
+			if py <= edge_px:
+				model_edges["top"] = true
+			if px >= board_w_px - edge_px:
+				model_edges["right"] = true
+			if py >= board_h_px - edge_px:
+				model_edges["bottom"] = true
+			if model_edges.is_empty():
 				all_near_edge = false
 				break
+			for e in model_edges:
+				unit_edges[e] = true
 		if any_alive and all_near_edge:
 			count += 1
+			for e in unit_edges:
+				edges_hit[e] = true
+	if min_edges > 0:
+		return edges_hit.size() >= min_edges
 	return count >= required
+
+## Beacon (sourced, pick auto-resolved): a friendly unit is alive on the
+## battlefield with every model outside the player's own deployment zone.
+func _check_unit_outside_own_dz(player: int, params: Dictionary) -> bool:
+	var exclude = params.get("exclude", [])
+	var own_zone = _get_deployment_zone_polygon(player)
+	if own_zone.is_empty():
+		return false
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if "Battle-shocked" in exclude and unit.get("flags", {}).get("battle_shocked", false):
+			continue
+		var any_alive = false
+		var any_inside = false
+		for m in unit.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			any_alive = true
+			var pos = m["position"]
+			if pos is Dictionary:
+				pos = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+			if Geometry2D.is_point_in_polygon(pos, own_zone):
+				any_inside = true
+				break
+		if any_alive and not any_inside:
+			return true
+	return false
 
 # ============================================================================
 # EVENT HOOKS - Called by other systems to track game events
