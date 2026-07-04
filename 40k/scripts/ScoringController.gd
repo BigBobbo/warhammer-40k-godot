@@ -164,6 +164,24 @@ func _setup_right_panel() -> void:
 	# Objective Control display
 	_build_objective_control_section(scoring_panel, current_player)
 
+	# 11e GDM card-action marker state — make the players' picks reviewable
+	# off-board (Triangulated/Decoys/traps/Condemned/...)
+	if GameConstants.edition >= 11 and MissionManager and MissionManager.has_method("get_card_action_summary_11e"):
+		for p in [1, 2]:
+			var marker_lines: Array = MissionManager.get_card_action_summary_11e(p)
+			if marker_lines.is_empty():
+				continue
+			var marker_label = Label.new()
+			marker_label.name = "P%dCardActionState" % p
+			var line_strs = []
+			for l in marker_lines:
+				line_strs.append(str(l))
+			marker_label.text = "P%d markers — %s" % [p, " | ".join(PackedStringArray(line_strs))]
+			marker_label.add_theme_font_size_override("font_size", 11)
+			marker_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0))
+			marker_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			scoring_panel.add_child(marker_label)
+
 	_add_gold_separator(scoring_panel)
 
 	# Secondary Missions display with discard buttons and progress tracking

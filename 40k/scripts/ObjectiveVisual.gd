@@ -12,6 +12,7 @@ var objective_circle: Line2D
 var objective_polygon: Polygon2D
 var tempting_target_label: Label = null  # Visual indicator for A Tempting Target
 var loot_objective_label: Label = null  # Visual indicator for Here Be Loot (OA-1)
+var card_action_label: Label = null  # 11e GDM card-action markers (Triangulated/Decoy/...)
 
 # Constants
 const OBJECTIVE_RADIUS_INCHES = 3.78740157  # 3" + 20mm (0.78740157")
@@ -293,6 +294,31 @@ func set_loot_objective(enabled: bool, player: int = 0) -> void:
 		if loot_objective_label != null:
 			loot_objective_label.visible = false
 		print("[ObjectiveVisual] Unmarked %s as Loot Objective" % objective_data.get("id", "?"))
+
+func set_card_action_badges(badges: Array) -> void:
+	"""11e GDM card-action markers on this objective (Triangulated, Consecrated,
+	Decoy, intel tokens, operation markers). Empty array clears the badge."""
+	if badges.is_empty():
+		if card_action_label != null:
+			card_action_label.visible = false
+		return
+	if card_action_label == null:
+		card_action_label = Label.new()
+		card_action_label.name = "CardActionBadges"
+		card_action_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+		card_action_label.add_theme_font_size_override("font_size", 16)
+		card_action_label.add_theme_constant_override("outline_size", 3)
+		card_action_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+		card_action_label.add_theme_color_override("font_color", Color(0.55, 0.9, 1.0, 1.0))
+		card_action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		card_action_label.z_index = 10
+		card_action_label.size = Vector2(240, 20)
+		var control_radius = Measurement.inches_to_px(OBJECTIVE_RADIUS_INCHES)
+		# Below the objective, under the Tempting Target / Loot labels
+		card_action_label.position = Vector2(-120, control_radius + 25)
+		add_child(card_action_label)
+	card_action_label.text = " · ".join(PackedStringArray(badges))
+	card_action_label.visible = true
 
 func highlight(enabled: bool) -> void:
 	if enabled:

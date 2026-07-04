@@ -6,6 +6,9 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 
 signal objective_control_changed(objective_id: String, controller: int, old_controller: int)
 signal victory_points_scored(player: int, points: int, reason: String)
+# 11e GDM card-action marker state changed (Triangulated/Decoy/traps/...)
+# — board overlays and HUD panels refresh on this.
+signal card_action_state_changed()
 signal objective_removed(objective_id: String)
 signal objective_burned(objective_id: String, player: int)
 signal objective_burn_started(objective_id: String, player: int)
@@ -1193,6 +1196,7 @@ func on_turn_start_11e(player: int) -> void:
 			_auto_condemn_11e(player)
 			if not _condemn_eligible_units_11e(player).is_empty():
 				_primary_state_11e[pk]["condemn_prompt_pending"] = true
+	refresh_card_action_visuals_11e()
 	print("MissionManager: 11e turn start P%s — controls %s" % [pk, str(_control_at_turn_start[pk])])
 
 func _unit_on_battlefield_11e(unit_id: String) -> bool:
@@ -1365,6 +1369,7 @@ func _run_primary_auto_actions_11e(player: int, battle_round: int) -> void:
 
 	# The active player's own Condemned check also runs at their EOT
 	_update_condemned_left_11e(player, player)
+	refresh_card_action_visuals_11e()
 
 func _update_condemned_left_11e(card_owner: int, turn_owner: int) -> void:
 	var pk = str(card_owner)
@@ -1377,6 +1382,91 @@ func _update_condemned_left_11e(card_owner: int, turn_owner: int) -> void:
 			st["condemned_left_this_turn"] = true
 			print("MissionManager: 11e Condemned unit %s left the battlefield" % unit_id)
 			return
+
+# ============================================================
+# 11e CARD-ACTION STATE VISIBILITY (board badges + HUD summaries)
+# ============================================================
+
+## Push the marker state onto the objective visuals and notify overlays.
+## Safe headless (no visual refs registered) — still emits the signal so
+## HUD listeners stay in sync.
+func refresh_card_action_visuals_11e() -> void:
+	if GameConstants.edition >= 11 and not player_primary_missions.is_empty():
+		var central = _get_central_objective_id_11e()
+		for obj in GameState.state.board.get("objectives", []):
+			var obj_id = obj.get("id", "")
+			var vis = objectives_visual_refs.get(obj_id, null)
+			if vis == null or not is_instance_valid(vis) or not vis.has_method("set_card_action_badges"):
+				continue
+			var badges = []
+			for pk in ["1", "2"]:
+				var st = _primary_state_11e.get(pk, {})
+				if st.is_empty():
+					continue
+				if obj_id in st.get("triangulated", []):
+					badges.append("TRIANGULATED (P%s)" % pk)
+				if obj_id in st.get("consecrated", []):
+					badges.append("CONSECRATED (P%s)" % pk)
+				if obj_id in st.get("decoyed", []):
+					badges.append("DECOY (P%s)" % pk)
+				if obj_id in st.get("intel_tokens", []):
+					badges.append("INTEL (P%s)" % pk)
+				if obj_id == central and int(st.get("operation_markers", 0)) > 0:
+					badges.append("OP MARKERS x%d (P%s)" % [int(st["operation_markers"]), pk])
+			vis.set_card_action_badges(badges)
+	emit_signal("card_action_state_changed")
+
+## Badges for a terrain feature (Booby Traps + shared relic markers) —
+## consumed by CardActionOverlay.
+func get_terrain_badges_11e(feature_id: String) -> Array:
+	var lines = []
+	if GameConstants.edition < 11:
+		return lines
+	for pk in ["1", "2"]:
+		if feature_id in _primary_state_11e.get(pk, {}).get("trapped", []):
+			lines.append("BOOBY TRAP (P%s)" % pk)
+	if feature_id in _relic_markers_11e:
+		lines.append("OP MARKER")
+	return lines
+
+## Compact per-player marker summary for HUD panels. Empty when the player
+## has no markers/picks in play.
+func get_card_action_summary_11e(player: int) -> Array:
+	var pk = str(player)
+	var st = _primary_state_11e.get(pk, {})
+	var out = []
+	if GameConstants.edition < 11 or st.is_empty():
+		return out
+	var list_parts = [
+		["Triangulated", st.get("triangulated", [])],
+		["Consecrated", st.get("consecrated", [])],
+		["Decoys", st.get("decoyed", [])],
+		["Intel tokens", st.get("intel_tokens", [])],
+		["Booby traps", st.get("trapped", [])],
+	]
+	for part in list_parts:
+		var vals: Array = part[1]
+		if not vals.is_empty():
+			var strs = []
+			for v in vals:
+				strs.append(str(v))
+			out.append("%s: %s" % [part[0], ", ".join(PackedStringArray(strs))])
+	if int(st.get("operation_markers", 0)) > 0:
+		out.append("Operation markers: %d" % int(st["operation_markers"]))
+	var condemned: Array = st.get("condemned", [])
+	if not condemned.is_empty():
+		var names = []
+		for uid in condemned:
+			var unit = GameState.state.get("units", {}).get(uid, {})
+			names.append(str(unit.get("meta", {}).get("name", uid)))
+		out.append("Condemned: %s" % ", ".join(PackedStringArray(names)))
+	var card_id = player_primary_missions.get(pk, {}).get("id", "")
+	if card_id in ["extract_relic", "locate_and_deny"] and not _relic_markers_11e.is_empty():
+		var marker_strs = []
+		for m in _relic_markers_11e:
+			marker_strs.append(str(m))
+		out.append("Relic markers left: %s" % ", ".join(PackedStringArray(marker_strs)))
+	return out
 
 # ============================================================
 # 11e CARD-ACTION PLAYER CHOICE (prompts; auto-resolve backstop)
@@ -1559,6 +1649,7 @@ func resolve_card_action_11e(player: int, target_ids: Array) -> Dictionary:
 		_:
 			return {"success": false, "error": "Card %s has no resolvable action" % card_id}
 	st["card_action_resolved_this_turn"] = true
+	refresh_card_action_visuals_11e()
 	return {"success": true, "card_id": card_id, "action_name": pending.get("action_name", ""), "applied": picks}
 
 ## Decline the optional card action for this turn: nothing is placed and
@@ -1626,6 +1717,7 @@ func resolve_condemn_choice_11e(player: int, unit_ids: Array) -> Dictionary:
 	st["condemn_prompt_pending"] = false
 	st["condemn_resolved_turn"] = "R%dP%d" % [GameState.get_battle_round(), player]
 	print("MissionManager: 11e Punishment — P%s condemns %s (player choice)" % [pk, str(picks)])
+	refresh_card_action_visuals_11e()
 	return {"success": true, "condemned": picks}
 
 ## Keep the auto-Condemn picks and dismiss the prompt for this turn.
@@ -2374,6 +2466,7 @@ func load_state(data: Dictionary) -> void:
 	_primary_state_11e = data.get("primary_state_11e", {})
 	_relic_markers_11e = data.get("relic_markers_11e", [])
 	_alive_at_turn_start_11e = data.get("alive_at_turn_start_11e", {})
+	refresh_card_action_visuals_11e()
 	print("MissionManager: Loaded state — %d sticky, %d burned, %d ritual" % [
 		_sticky_objectives.size(), burned_objectives.size(), _ritual_objectives.size()
 	])
