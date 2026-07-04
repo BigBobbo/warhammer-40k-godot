@@ -14,6 +14,7 @@ extends SceneTree
 var passed := 0
 var failed := 0
 var _phase_completed := false
+var _rejected_moves := 0  # engine rejections of AI-computed movements (b2b knife-edge bug)
 
 func _check(label: String, cond: bool, detail: String = "") -> void:
 	if cond:
@@ -78,6 +79,7 @@ func _run_tests():
 		var pi_res = fp.execute_action(pi_decision)
 		if not pi_res.get("success", false) and pi_decision.get("type", "") == "PILE_IN" \
 				and not pi_decision.get("movements", {}).is_empty():
+			_rejected_moves += 1
 			print("  AI (P%d) -> PILE_IN %s retry with no movement (was: %s)" % [
 				fp.current_selecting_player, pi_decision.get("unit_id", ""), str(pi_res.get("errors", []))])
 			pi_decision["movements"] = {}
@@ -119,6 +121,7 @@ func _run_tests():
 			# Production behavior: AIPlayer retries a rejected CONSOLIDATE
 			# with empty movements (AIPlayer.gd T12-4 fallback) — the unit
 			# forgoes its move rather than stalling the step.
+			_rejected_moves += 1
 			print("  AI (P%d) -> CONSOLIDATE %s retry with no movement (was: %s)" % [
 				acting_player, decision.get("unit_id", ""), str(res.get("errors", []))])
 			decision["movements"] = {}
@@ -134,6 +137,18 @@ func _run_tests():
 		fp.units_that_consolidated_11e.has("U_A") and fp.units_that_consolidated_11e.has("U_B"),
 		str(fp.units_that_consolidated_11e))
 	_check("no AI stall (well under the iteration cap)", steps_taken < 10, str(steps_taken))
+	# AI_B2B_GAP_PX regression: the engine must ACCEPT the AI's computed
+	# movements — b2b placements used to sit on the strict-overlap knife
+	# edge, every move was rejected, and the fallback made the AI fully
+	# passive in both global steps.
+	_check("no AI movement was rejected by the engine (b2b placements accepted)",
+		_rejected_moves == 0, "rejected=%d" % _rejected_moves)
+	# And the AI actually MOVED: U_A's model piled in from x=500 to base
+	# contact with the enemy at x=560 (center distance = sum radii + gap
+	# ~= 39.9px -> x ~= 520.1).
+	var ua_x = float(gs.state["units"]["U_A"]["models"][0]["position"]["x"])
+	_check("U_A's model physically piled in to base contact (x ~520, was 500)",
+		ua_x > 518.0 and ua_x < 523.0, "x=%.2f" % ua_x)
 
 	gs.state = prev_state
 	GameConstants.edition = prev_edition
