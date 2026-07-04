@@ -9,21 +9,31 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 const WEAPON_PROFILES = {
 	"bolt_rifle": {
 		"name": "Bolt Rifle",
-		"range": 30,
+		"range": 24,  # 11e (40kdc bolt-rifle): 24" (was 30" in 10e)
 		"attacks": 2,
 		"bs": 3,
 		"strength": 4,
 		"ap": 1,
 		"damage": 1,
-		"keywords": ["RAPID FIRE 1"]  # Rapid Fire 1 - +1 attack at half range
+		"keywords": ["ASSAULT", "HEAVY"]  # 11e: Assault + Heavy (10e Rapid Fire 1 dropped)
+	},
+	"boltgun": {
+		"name": "Boltgun",
+		"range": 24,  # 11e (40kdc boltgun, Adeptus Astartes copy)
+		"attacks": 2,
+		"bs": 3,
+		"strength": 4,
+		"ap": 0,
+		"damage": 1,
+		"keywords": []  # 11e boltgun has no weapon keywords
 	},
 	"plasma_pistol": {
-		"name": "Plasma Pistol", 
-		"range": 120,  # Extended range for debugging
+		"name": "Plasma Pistol",
+		"range": 120,  # Extended range for debugging (11e real range: 12)
 		"attacks": 1,
 		"bs": 3,
 		"strength": 7,
-		"ap": 3,
+		"ap": 2,  # 11e Standard profile: S7 AP-2 D1 (Supercharge S8 AP-3 D2 [HAZARDOUS] not modelled — single-profile dict)
 		"damage": 1,
 		"keywords": ["PISTOL"]
 	},
@@ -35,7 +45,19 @@ const WEAPON_PROFILES = {
 		"strength": 4,
 		"ap": 0,
 		"damage": 1,
-		"keywords": ["PISTOL", "ASSAULT"]  # Slugga has both keywords in 10e
+		"keywords": ["PISTOL"]  # 11e: Pistol only (10e Assault dropped)
+	},
+	"choppa": {
+		"name": "Choppa",
+		"range": 0,
+		"attacks": 3,
+		"bs": 4,
+		"ws": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 1,
+		"type": "melee",
+		"keywords": []  # 11e (40kdc choppa, Orks copy): A3 WS3+ S4 AP-1 D1
 	},
 	"grot_blasta": {
 		"name": "Grot Blasta",
@@ -45,7 +67,7 @@ const WEAPON_PROFILES = {
 		"strength": 3,
 		"ap": 0,
 		"damage": 1,
-		"keywords": []
+		"keywords": ["PISTOL"]  # 11e: gained Pistol
 	},
 	"shoota": {
 		"name": "Shoota",
@@ -55,7 +77,7 @@ const WEAPON_PROFILES = {
 		"strength": 4,
 		"ap": 0,
 		"damage": 1,
-		"keywords": ["ASSAULT"]  # Ork shoota has Assault keyword
+		"keywords": ["RAPID FIRE 1"]  # 11e: Rapid Fire 1 (10e Assault dropped)
 	},
 	"heavy_bolter": {
 		"name": "Heavy Bolter",
@@ -65,7 +87,7 @@ const WEAPON_PROFILES = {
 		"strength": 5,
 		"ap": 1,
 		"damage": 2,
-		"keywords": ["HEAVY"]  # Heavy keyword - +1 to hit if stationary
+		"keywords": ["ASSAULT", "SUSTAINED HITS 1"]  # 11e Astartes copy: Assault + Sustained Hits 1 (10e Heavy dropped)
 	},
 	"lascannon": {
 		"name": "Lascannon",
@@ -74,8 +96,9 @@ const WEAPON_PROFILES = {
 		"bs": 3,
 		"strength": 12,
 		"ap": 3,
-		"damage": 6,
-		"keywords": ["HEAVY"]  # Heavy keyword - +1 to hit if stationary
+		"damage": 4,  # int fallback only (≈avg of D6+1); resolution uses damage_raw
+		"damage_raw": "D6+1",  # 11e: D6+1 variable damage (was flat 6)
+		"keywords": []  # 11e Astartes copy: no keywords (10e Heavy dropped)
 	},
 	# TEST WEAPON: Lethal Hits keyword for PRP-010 testing
 	"lethal_bolter": {
@@ -477,14 +500,18 @@ const UNIT_WEAPONS = {
 		"m5": ["bolt_rifle", "plasma_pistol"]  # Sergeant
 	},
 	"U_TACTICAL_A": {
-		"m1": ["bolt_rifle"],
-		"m2": ["bolt_rifle"],
-		"m3": ["bolt_rifle"],
-		"m4": ["bolt_rifle"],
-		"m5": ["bolt_rifle", "plasma_pistol"]  # Sergeant
+		# 11e (40kdc tactical-squad): Tactical Marines carry boltguns, not bolt rifles
+		"m1": ["boltgun"],
+		"m2": ["boltgun"],
+		"m3": ["boltgun"],
+		"m4": ["boltgun"],
+		"m5": ["boltgun", "plasma_pistol"]  # Sergeant
 	},
 	"U_BOYZ_A": {
-		"m1": ["slugga", "shoota"],  # Boyz have both slugga and shoota
+		# 11e: each Boy carries slugga (+choppa) OR shoota (+CCW). This legacy
+		# table is ranged-only and keeps the MVP simplification of both guns
+		# per model; melee falls back to the default close combat weapon.
+		"m1": ["slugga", "shoota"],
 		"m2": ["slugga", "shoota"],
 		"m3": ["slugga", "shoota"],
 		"m4": ["slugga", "shoota"],

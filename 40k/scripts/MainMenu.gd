@@ -120,6 +120,9 @@ func _ready() -> void:
 	# Apply theme to dynamically created dropdowns
 	_apply_theme_to_dynamic_elements()
 
+	# 40kdc dataset licensing credit (see data/40kdc/ATTRIBUTION.md)
+	_create_data_attribution_credit()
+
 	print("MainMenu: Ready with default selections")
 
 func _apply_theme() -> void:
@@ -169,6 +172,28 @@ func _apply_theme() -> void:
 	WhiteDwarfThemeData.apply_primary_button(start_button)
 	for btn in [multiplayer_button, load_button, replay_button, settings_button, quit_button]:
 		WhiteDwarfThemeData.apply_secondary_button(btn)
+
+func _create_data_attribution_credit() -> void:
+	"""License requirement (data/40kdc/ATTRIBUTION.md): publicly shipped builds
+	must display a visible 'Powered by 40kdc-data' credit with a link to
+	40kdc.alpacasoft.dev. Small, unobtrusive footer pinned to the bottom of
+	the menu; clicking it opens the dataset site."""
+	var credit := LinkButton.new()
+	credit.name = "DataAttributionCredit"
+	credit.text = "Powered by 40kdc-data — 40kdc.alpacasoft.dev"
+	credit.uri = "https://40kdc.alpacasoft.dev"
+	credit.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
+	credit.tooltip_text = "Dataset: @alpaca-software/40kdc-data (CC BY 4.0)"
+	credit.focus_mode = Control.FOCUS_NONE
+	credit.add_theme_font_size_override("font_size", 11)
+	credit.add_theme_color_override("font_color", Color(WhiteDwarfThemeData.WH_PARCHMENT, 0.55))
+	credit.add_theme_color_override("font_hover_color", WhiteDwarfThemeData.WH_GOLD)
+	credit.add_theme_color_override("font_pressed_color", WhiteDwarfThemeData.WH_GOLD)
+	# Bottom-center of the screen, 6 px above the edge
+	credit.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 6)
+	credit.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	add_child(credit)
+	print("MainMenu: 40kdc data attribution credit added")
 
 func _apply_theme_to_dynamic_elements() -> void:
 	# Style dynamically created dropdowns and buttons
