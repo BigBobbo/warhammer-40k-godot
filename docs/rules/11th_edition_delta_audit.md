@@ -32,21 +32,25 @@ settings, menu, lobby, or save-load path to select the edition. (This is *by des
 mid-migration — see PRD §5 open question 1 — but it means none of the 11e work is reachable
 by a player today.)
 
-**Most important residual gaps (full list in §7):**
-1. **Melee/fight save resolution still runs 10e at edition 11** — allocation groups, the
-   `[DEVASTATING WOUNDS]` one-model cap, and mortal-wound priority are bypassed in the live
-   fight flow (`FightController.gd:2856` is hard-wired to the legacy overlay; ranged is gated).
-2. **`[HAZARDOUS]` uses the wrong dice band** at edition 11 (fires on `1` only, flat `3×` MW —
-   10e/Balance-Dataslate semantics, not the 11e 1–2-fail / 1-MW rule).
-3. **Indirect fire still 10e** in the live path (the harsh 11e "6s-to-hit unless stationary +
-   spotter" exists only in an unwired module method).
-4. **11e core stratagems are mechanically inert** — defined and gated, but using one deducts CP
-   and applies **no effect** (no EffectPrimitives/UI wiring).
+**Most important residual gaps (original audit list — see §8 for the fix log; struck items
+are resolved and re-validated):**
+1. ~~Melee/fight save resolution still runs 10e at edition 11~~ — **resolved** (§8 A1: melee
+   saves route through the 11e allocation path).
+2. ~~`[HAZARDOUS]` uses the wrong dice band~~ — **resolved** (§8 A2: 1–2 fail, 1 MW / 3 if M/V).
+3. ~~Indirect fire still 10e in the live path~~ — **resolved** (§8 A3 wired the unmodified fail
+   band into both resolve loops; completed 2026-07-04 with the remaining 10.07 clauses: the
+   benefit of cover now worsens the attacker's BS per attack at e11 — the save-side grant is
+   gated to 10e — and hit re-rolls are suppressed at an unseen target. Validated through the
+   REAL resolve path headless (`test_indirect_fire_band_11e.gd`, 17) and live windowed
+   (`iss15_indirect_band_11e`: only unmodified 6s hit after the unit moved)).
+4. ~~11e core stratagems are mechanically inert~~ — **resolved 2026-07-04** (§7 A4 / §4 row
+   15.02–15.12: alias + effect/expiry fixes + the 15.11 end-of-phase HI window with modes).
 5. **The Actions system can't be started** — the module is correct but no live path *starts* an
    action; only the end-of-turn *completion* hook runs (with nothing to complete).
-6. **`HIDDEN` (13.09) is non-functional** — keyed off a `shot_recently` flag nothing writes.
-7. **No player UI for FLY "take to the skies" or SURGE moves**; **Scout confirm-move** still
-   hardcodes the 10e 9".
+6. ~~`HIDDEN` (13.09) is non-functional~~ — §8 A5 replaced the dead `shot_recently` key with a
+   maintained `last_shot_idx` turn-stamp (see §4 row 13.09 for validation state).
+7. ~~No player UI for FLY "take to the skies" or SURGE moves; Scout confirm-move hardcodes 9"~~
+   — **resolved** (§8 B2/B3/A6).
 8. **Datasheet values are still 10e** — army JSONs carry 10e-derived stats with
    `needs_11e_review` flags; true 11e Ld/OC/InSv values were never sourced (PRD §5 open q.2).
 
@@ -109,7 +113,7 @@ re-running the windowed suite at edition 11 is the recommended next step (§10).
 | 10.04 | Normal shooting (unengaged, not advanced) | ✅ | `NormalShooting`. |
 | 10.05 | **Assault** shooting (advanced + [ASSAULT]; only [ASSAULT] fire) | ✅ | `AssaultShooting`; weapon gate enforced live (`ShootingPhase.gd:600`). |
 | 10.06 | **Close-Quarters** shooting (engaged + [CLOSE-QUARTERS] or M/V; M/V −1 except CQ-vs-engaged; non-M/V CQ-only; [BLAST] never vs engaged) | ✅ | `CloseQuartersShooting` + live target/weapon gates; M/V −1 applied via `ModifierStack` at e11. The pg-88 FAQ "no BLAST vs engaged either direction" reproduced in tests. |
-| 10.07 | **Indirect** shooting: target non-visible; gets cover; no hit re-rolls; **unmod 1–5 fails (1–3 if stationary + friendly spotter)** | 🔴 | Live `RulesEngine.gd:1809/3094` still runs **10e** (`−1 to hit` + `fail_band 3 only if unseen`), **no edition gate**. The harsh 11e band exists only in `IndirectShooting.hit_consequences`, which is **never called in live play**. |
+| 10.07 | **Indirect** shooting: target non-visible; gets cover; no hit re-rolls; **unmod 1–5 fails (1–3 if stationary + friendly spotter)** | ✅ | *Resolved (§8 A3; completed 2026-07-04).* Both live resolve loops select the band via `_indirect_hit_fail_band_11e` (5, or 3 with stationary + friendly spotter) inside the unseen-target branch; the 10e −1 is gated `< 11`. The remaining clauses are now live too: the benefit of cover is folded into the per-attack 13.08 BS worsening (`pa_indirect_cover`) — the save-side grant is 10e-gated — and hit re-rolls (REROLL_ONES/FAILED bits) are stripped at e11 while indirect-unseen. Real-resolve-path headless: `tests/test_indirect_fire_band_11e.gd` (17, in the suite; e10 sensitivity included). Windowed: `iss15_indirect_band_11e` (32) — unseen target assignable under the INDIRECT type, `successes == rolls_raw.count(6)` after moving (seed-independent), no 10e −1 flag. |
 | 11.02 | Charge eligibility (within 12", unengaged, no advance/fall-back); **targets chosen after the 2D6 roll** (≤12" AND ≤roll) | ✅ | `ChargeMove11e` + live wiring accepts empty declare then post-roll selection (`ChargePhase.gd:317,327,567`); pg-37 semantics reproduced. |
 | 11.04 | End engaged with **all** targets, none non-target; chargers gain **Fights First** ability to EoT | ✅ | Constraints use 2" ER at e11; Fights First granted (`ChargePhase.gd:1203`). *Cosmetic:* failure messages hardcode `1"`. |
 | 12.02–12.03 | **Pile-in as a separate step** (both players, active first); 5" select for unengaged charge-survivors; base-contact lock; closer-to-target | ✅ | **Global step since 2026-07-04:** the fight phase OPENS with the Pile In step (`_begin_pile_in_step_11e`, active player first, one optional move per unit, END_PILE_IN passes); SELECT_FIGHTER gated until it ends; a step pile-in that engages a new enemy makes it fight-eligible. `selected_for_overrun_fight` now set in production for the 12.06 extra move. UI: `PileInStepDialog` → `PileInDialog` drag flow. Windowed `global_consolidation_step_11e` + headless `test_global_pile_in_11e`. |
@@ -180,7 +184,7 @@ re-running the windowed suite at edition 11 is the recommended next step (§10).
 | 24.15 | **`[HAZARDOUS]`** (one hazard roll per selected weapon; 1–2 fail → 1 MW) | 🔴 | Live `resolve_hazardous_check` (`RulesEngine.gd:7372,7404`) fires on **`1` only** with flat **3 MW** (10e/Balance-Dataslate), **no edition gate**; the correct `hazard_rolls` primitive isn't wired here. |
 | 24.16 | **`[HEAVY]`** +1 hit if unengaged, not set up this turn, **moved ≤3"** (was "remained stationary") | 🔴 | `ModifierStack.heavy_applies_11e:160` still keys on `flags.remained_stationary`, **not the ≤3"-moved allowance** (code comment defers the 3" rule to ISS-054). A unit that moved 2" gets no `[HEAVY]` bonus. |
 | 24.18 | `[IGNORES COVER]` (incl. negating Stealth) | ✅ | Present. |
-| 24.19 | `[INDIRECT FIRE]` | 🔴 | Enables indirect shooting, but the **resolution is 10e** (see 10.07). |
+| 24.19 | `[INDIRECT FIRE]` | ✅ | Enables indirect shooting; resolution follows the 11e 10.07 band/cover/no-re-roll semantics at e11 (see 10.07 — resolved). |
 | 24.20 | **Infiltrators** deploy **>8"** (was 9") | ✅ | `DeploymentPhase.gd:323` gated 9→8; windowed. |
 | 24.21 | `[LANCE]` (+1 wound on charge) | ✅ | Present. |
 | 24.22 / 24.34 | Leader / **Support** | ✅ | Two-slot attach at e11. |
@@ -214,7 +218,7 @@ re-running the windowed suite at edition 11 is the recommended next step (§10).
 - **A0. The edition switch is never flipped in production** (`GameConstants.gd:22`; `set_edition` has zero callers). *Everything below only matters once a player can select 11e.*
 - **A1. Melee/fight saves run 10e** — no allocation groups, no `[DEVASTATING WOUNDS]` cap (active spillover at `RulesEngine.gd:10028`), no 06.02 MW priority. `FightController.gd:2856`.
 - **A2. `[HAZARDOUS]` wrong dice band / damage** at e11 (`RulesEngine.gd:7372,7404` — fires on `1`, flat `3×` MW).
-- **A3. Indirect fire resolves as 10e** (`RulesEngine.gd:1809/3094`); the harsh 11e module method is unwired.
+- **A3. RESOLVED** (§8 fix; completed 2026-07-04) — 11e band live in both resolve loops, indirect cover folded into the hit-side 13.08 worsening, hit re-rolls suppressed at unseen targets; validated through the real resolve path + windowed (§4 row 10.07). |
 - **A4. RESOLVED 2026-07-04** — 11e core stratagems live end-to-end via the `_resolve_core_id` alias (all 10e entry points drive the `*_11e` defs); smokescreen sets the hit-side cover flag, 11e effect flags expire, HI has its end-of-phase window with modes + full defender UI (§15.02–15.12).
 - **A5. `HIDDEN` non-functional** — `shot_recently` flag never written; no previous-turn memory.
 - **A6. Scout confirm-move hardcodes 9"** (`ScoutPhase.gd:319`) — contradicts the gated staging path.
@@ -267,8 +271,8 @@ standard weapon-ability set (`[ANTI]`/`[BLAST]`/`[RAPID FIRE]`/`[SUSTAINED HITS]
 | Attack resolution (ranged) | ISS-041/045/046/053 | DONE | Accurate for ranged. |
 | **Melee saves/dev-wounds** | ISS-050 (DONE*) | "fight selection only" | **Gap real** — melee save resolution still 10e (A1). |
 | `[HAZARDOUS]` | ISS-044 (primitive) | DONE | Primitive correct but **live path still 10e** (A2). |
-| Indirect fire | ISS-048 | DONE | **Live resolution still 10e** (A3). |
-| Core stratagems | ISS-056 | DONE | Definitions only; **effects inert** (A4). |
+| Indirect fire | ISS-048 | DONE | Resolved — live 11e band/cover/no-re-rolls (A3, completed 2026-07-04). |
+| Core stratagems | ISS-056 | DONE | Resolved — live end-to-end via the A4 alias + effect/expiry fixes + 15.11 HI window (2026-07-04). |
 | Actions | ISS-057 | DONE | Primitive correct; **not startable in UI** (B1). |
 | Hidden | ISS-052 | DONE | **Flag never set → inert** (A5). |
 | Scouts | ISS-067 | DONE | Confirm-move 8" (A6 fixed); reserves→DZ player UI added (B8). |

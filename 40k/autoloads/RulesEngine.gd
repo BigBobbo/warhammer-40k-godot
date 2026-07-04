@@ -1803,6 +1803,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				var pa_terrain = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
 				if pa_terrain != null:
 					var pa_strat_cover: bool = target_unit.get("flags", {}).get("stratagem_cover", false)
+					# 11e 10.07: an [INDIRECT FIRE] attack at an unseen target
+					# has the benefit of cover per attack, regardless of terrain
+					# — at 11e that worsens the attacker's BS here (13.08), not
+					# the save.
+					var pa_indirect_cover: bool = is_indirect_fire and not indirect_target_visible
 					var pa_fallback: Dictionary = ms_firing_models[0] if not ms_firing_models.is_empty() else {}
 					var pa_cover_cache: Dictionary = {}
 					var pa_covered_count := 0
@@ -1810,7 +1815,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 						var pa_model: Dictionary = cover_model_per_attack[ms_i] if ms_i < cover_model_per_attack.size() else pa_fallback
 						var pa_key := str(pa_model.get("id", "_"))
 						if not pa_cover_cache.has(pa_key):
-							pa_cover_cache[pa_key] = pa_strat_cover or pa_terrain.unit_has_cover_11e(target_unit, pa_model)
+							pa_cover_cache[pa_key] = pa_strat_cover or pa_indirect_cover or pa_terrain.unit_has_cover_11e(target_unit, pa_model)
 						if pa_cover_cache[pa_key]:
 							bs_per_attack[ms_i] += 1
 							pa_covered_count += 1
@@ -1839,6 +1844,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			# remained stationary AND the target is visible to a friendly unit, in
 			# which case 1-3 fails (need 4+). 10e: 1-3 fails (4+).
 			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
+			# 11e (10.07): "hit rolls cannot be re-rolled" while shooting
+			# indirect at an unseen target.
+			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)):
+				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)
+				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed (unseen target)")
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
@@ -3200,6 +3210,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				var pa_terrain = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
 				if pa_terrain != null:
 					var pa_strat_cover: bool = target_unit.get("flags", {}).get("stratagem_cover", false)
+					# 11e 10.07: an [INDIRECT FIRE] attack at an unseen target
+					# has the benefit of cover per attack, regardless of terrain
+					# — at 11e that worsens the attacker's BS here (13.08), not
+					# the save.
+					var pa_indirect_cover: bool = is_indirect_fire and not indirect_target_visible
 					var pa_fallback: Dictionary = ms_firing_models[0] if not ms_firing_models.is_empty() else {}
 					var pa_cover_cache: Dictionary = {}
 					var pa_covered_count := 0
@@ -3207,7 +3222,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 						var pa_model: Dictionary = cover_model_per_attack[ms_i] if ms_i < cover_model_per_attack.size() else pa_fallback
 						var pa_key := str(pa_model.get("id", "_"))
 						if not pa_cover_cache.has(pa_key):
-							pa_cover_cache[pa_key] = pa_strat_cover or pa_terrain.unit_has_cover_11e(target_unit, pa_model)
+							pa_cover_cache[pa_key] = pa_strat_cover or pa_indirect_cover or pa_terrain.unit_has_cover_11e(target_unit, pa_model)
 						if pa_cover_cache[pa_key]:
 							bs_per_attack[ms_i] += 1
 							pa_covered_count += 1
@@ -3236,6 +3251,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			# remained stationary AND the target is visible to a friendly unit, in
 			# which case 1-3 fails (need 4+). 10e: 1-3 fails (4+).
 			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
+			# 11e (10.07): "hit rolls cannot be re-rolled" while shooting
+			# indirect at an unseen target.
+			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)):
+				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)
+				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed (unseen target)")
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
@@ -3805,7 +3825,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var auto_stratagem_cover = auto_target_flags.get("stratagem_cover", false)
 		var has_cover = false
 		if not auto_weapon_ignores_cover:
-			if is_indirect_fire and not _has_los_to_target_unit(actor_unit_id, target_unit_id, board):
+			# 11e (10.07/13.08): indirect's benefit of cover worsens the
+			# attacker's BS on the hit side (applied per attack above), NOT
+			# the save — the save grant is the 10e mechanic.
+			if is_indirect_fire and GameConstants.edition < 11 and not _has_los_to_target_unit(actor_unit_id, target_unit_id, board):
 				has_cover = true
 				print("RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (target not visible, auto-resolve)")
 			else:
@@ -10952,7 +10975,9 @@ static func prepare_save_resolution(
 		# when target is not visible to firing unit (Issue #371 — 10e RAW gate).
 		var has_cover = false
 		if not weapon_ignores_cover:
-			if weapon_is_indirect_fire and not _has_los_to_target_unit(shooter_unit_id, target_unit_id, board):
+			# 11e (10.07/13.08): indirect cover is applied on the HIT side
+			# (BS worsening in the resolve loop) — the save grant is 10e.
+			if weapon_is_indirect_fire and GameConstants.edition < 11 and not _has_los_to_target_unit(shooter_unit_id, target_unit_id, board):
 				has_cover = true
 				print("RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (target not visible)")
 			else:

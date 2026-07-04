@@ -2096,6 +2096,25 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "rules.RulesEngine.indirect_hit_fail_band_11e",
+      "description": "10.07 (11e): unseen-target indirect band selected in both live resolve loops \u2014 5 (only unmodified 6s hit) normally, 3 (4+ hits) when the firer remained stationary AND a friendly unit sees the target; 10e -1 gated off; hit re-rolls suppressed; cover folded into the per-attack 13.08 BS worsening while the save-side grant stays 10e-only.",
+      "scenarios": [
+        "iss15_indirect_band_11e",
+        "mp:tests/test_indirect_fire_band_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "shootingtypes.IndirectShooting.live_resolve",
+      "description": "INDIRECT shooting drives live play end-to-end: the unseen target is assignable under the indirect type (_check_target_visibility bypass), CONFIRM_TARGETS resolves through the real path, and the recorded to_hit block obeys the seed-independent band invariant (successes == count of unmodified 6s after the unit moved).",
+      "scenarios": [
+        "iss15_indirect_band_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

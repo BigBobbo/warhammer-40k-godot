@@ -125,6 +125,8 @@ TESTS=(
     "tests/test_iss073_shw_mobile_gamble.gd"
     "tests/test_iss074_aircraft_reserves_11e.gd"
     "tests/test_core_stratagems_11e.gd"
+    "tests/test_indirect_fire_band_11e.gd"
+    "tests/test_t003_indirect_fire_visibility_pin.gd"
 )
 
 FAILED=0
