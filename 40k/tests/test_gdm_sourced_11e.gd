@@ -112,7 +112,12 @@ func _run_tests():
 	_check("both expansions controlled satisfies Forward Position",
 		sec._check_enemy_home_objective(1))
 	mm.objective_control_state[expansions[0]] = 2
-	_check("one expansion is not enough (and enemy home not held)",
+	# Official 11e launch card: controlling ONE expansion objective is enough
+	# (controls-objective, objective_role: expansion, count_min: 1).
+	_check("one expansion still satisfies Forward Position (official count_min 1)",
+		sec._check_enemy_home_objective(1))
+	mm.objective_control_state[expansions[1]] = 2
+	_check("no expansions and no enemy home fails Forward Position",
 		not sec._check_enemy_home_objective(1))
 
 	print("\n-- Fixed secondaries: 20 VP per-card cap --")
