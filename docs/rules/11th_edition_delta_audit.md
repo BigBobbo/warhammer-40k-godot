@@ -47,8 +47,9 @@ are resolved and re-validated):**
    15.02–15.12: alias + effect/expiry fixes + the 15.11 end-of-phase HI window with modes).
 5. **The Actions system can't be started** — the module is correct but no live path *starts* an
    action; only the end-of-turn *completion* hook runs (with nothing to complete).
-6. ~~`HIDDEN` (13.09) is non-functional~~ — §8 A5 replaced the dead `shot_recently` key with a
-   maintained `last_shot_idx` turn-stamp (see §4 row 13.09 for validation state).
+6. ~~`HIDDEN` (13.09) is non-functional~~ — **resolved** (§8 A5 turn-stamp; completed
+   2026-07-04: the stamp was missing from the post-saves and all-targets-destroyed
+   completions, so units whose shots caused wounds never lost Hidden — see §4 row 13.09).
 7. ~~No player UI for FLY "take to the skies" or SURGE moves; Scout confirm-move hardcodes 9"~~
    — **resolved** (§8 B2/B3/A6).
 8. **Datasheet values are still 10e** — army JSONs carry 10e-derived stats with
@@ -130,7 +131,7 @@ re-running the windowed suite at edition 11 is the recommended next step (§10).
 | 13.03–13.05 | Terrain categories **Exposed/Light/Dense** + height model | 🟡 | `TerrainManager.category_of`/`height_inches_of` derive from legacy type/label heuristically; no layout authors explicit categories; two height functions disagree on unknown-default. |
 | 13.06 | Terrain movement by category/keyword (Dense: INFANTRY/BEASTS/SWARM/**MOBILE** horiz; others ≤2"; ≤4" for SUPER-HEAVY WALKER) | ✅ | `TerrainManager.can_move_through_11e` wired into `MovementPhase` per-model-dest. *Gap:* the **charge** path still uses the 10e penalty model. |
 | 13.08 | **Benefit of cover = worsen attacker BS by 1** (NOT +1 save) | ✅ | The headline mechanic change is correct & gated: `ModifierStack.collect_hit_context_11e` worsens BS hit-side; saves untouched. *Latent risk:* the 10e cover-on-save code (`_calculate_save_needed:4320`) is **not edition-gated**, merely bypassed because the 11e shooting overlay rebuilds saves from base — if melee/legacy paths ever consumed it, cover would wrongly help saves. |
-| 13.09 | **Hidden:** INFANTRY/BEASTS/SWARM in dense-containing area that didn't shoot → visible only within 15" | 🔴 | Logic exists & gated, **but keys off `unit.flags.shot_recently`, which no production code ever writes** (ShootingPhase writes `has_shot`); no previous-turn memory. Net effect: every qualifying unit is "hidden" every turn. Effectively broken. |
+| 13.09 | **Hidden:** INFANTRY/BEASTS/SWARM in dense-containing area that didn't shoot → visible only within 15" | ✅ | *Resolved (§8 A5; completed 2026-07-04).* `is_model_hidden` keys off `flags.last_shot_idx` (battle_round×2 + player) vs the live counter — "this or previous turn" = delta < 2; the legacy `shot_recently` remains as a test hook only. **Completed 2026-07-04:** the stamp was missing from the interactive completions that real shooting takes — `COMPLETE_SHOOTING_FOR_UNIT` (the player's "Complete Shooting" confirm after wounds/saves) and the all-targets-destroyed auto-completion never stamped, so any unit whose shots caused wounds stayed Hidden. Both now stamp; give-up-shooting actions (16.01 etc.) correctly do not. Headless: `test_iss052_hidden_11e.gd` (+5 stamp-semantics checks: this-turn/previous-turn suppress, two-turns-ago restores, cross-player-turn expiry). Windowed: `iss15_hidden_shot_stamp_11e` (35) — hidden unit shoots through the real flow (reactive decline + AllocationGroupOverlay saves + Complete Shooting), stamp lands, hidden drops, the far observer regains sight. |
 | 13.10 | **Obscuring:** light/dense areas block LoS when every line crosses them | 🟡 | `_line_blocked_11e` implements the every-line test (gated, wired into targeting) — but via 9-point sampling, and lives in `TerrainManager`, not `EnhancedLineOfSight`. |
 | 13.11 | **Solid:** no LoS through enclosed gaps ≤3" from ground | 🔴 | Dead code — the Obscuring branch returns first, so the ≤3"/ground-level branch is unreachable; dense always blocks regardless of elevation, and there's no real gap/window geometry (2D board). |
 | 14.01 | **Terrain objectives:** in-range = inside the coincident terrain area; 40mm marker only when no area | ✅ | `MissionManager.gd:278` point-in-polygon at e11; marker-radius fallback. *Caveat:* fallback radius shared across editions; vertical 5" unmodeled (2D). |
@@ -220,7 +221,7 @@ re-running the windowed suite at edition 11 is the recommended next step (§10).
 - **A2. `[HAZARDOUS]` wrong dice band / damage** at e11 (`RulesEngine.gd:7372,7404` — fires on `1`, flat `3×` MW).
 - **A3. RESOLVED** (§8 fix; completed 2026-07-04) — 11e band live in both resolve loops, indirect cover folded into the hit-side 13.08 worsening, hit re-rolls suppressed at unseen targets; validated through the real resolve path + windowed (§4 row 10.07). |
 - **A4. RESOLVED 2026-07-04** — 11e core stratagems live end-to-end via the `_resolve_core_id` alias (all 10e entry points drive the `*_11e` defs); smokescreen sets the hit-side cover flag, 11e effect flags expire, HI has its end-of-phase window with modes + full defender UI (§15.02–15.12).
-- **A5. `HIDDEN` non-functional** — `shot_recently` flag never written; no previous-turn memory.
+- **A5. RESOLVED** (§8 fix; completed 2026-07-04) — `last_shot_idx` turn-stamp written by every real shot completion (incl. the previously-missing post-saves confirm and all-targets-destroyed paths) and consumed by the live hidden gate; validated headless + windowed (§4 row 13.09).
 - **A6. Scout confirm-move hardcodes 9"** (`ScoutPhase.gd:319`) — contradicts the gated staging path.
 - **A7. Emergency disembark runs 10e** — live `RulesEngine.resolve_transport_destruction` uses D6-fail-on-1 + 3" placement; the compliant 6"+hazard `EmergencyDisembarkMove`/`TransportManager.resolve_transport_destroyed` are dead code.
 - **A8. `[CLEAVE X]` adds no dice** — registry-only, zero resolution callers.

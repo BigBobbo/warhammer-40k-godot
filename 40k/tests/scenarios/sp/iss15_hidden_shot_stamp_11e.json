@@ -1,0 +1,186 @@
+{
+  "id": "iss15_hidden_shot_stamp_11e",
+  "covers": [
+    "phases.ShootingPhase.hidden_shot_stamp",
+    "autoloads.TerrainManager.is_model_hidden.last_shot_idx"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "13.09 HIDDEN 'did not shoot this turn or the previous turn' through the LIVE game (A5: the dead shot_recently key was replaced by a last_shot_idx turn-stamp written on real ranged attacks \u2014 this proves the stamp is actually written by the live shooting flow and consumed by the live hidden gate). The Witchseekers (INFANTRY) stand in an injected dense area: hidden, and not visible to a far Ork observer (detection 15\"). They then shoot (Siege Mortar at the Boyz through the real SELECT/ASSIGN/CONFIRM flow; the Boyz' reactive 'ARD AS NAILS offer is declined by clicking the real dialog). After the attack resolves, flags.last_shot_idx == battle_round*2 (round 1, P1), the unit is no longer hidden, and the far observer can now see it. The defender resolves saves through the real AllocationGroupOverlay (Confirm rolls the batch, Done applies) \u2014 the stamp lands with the completion changes. The player then confirms the final weapon results ('Complete Shooting' \u2014 the NextWeaponDialog OK button, pressed via its signal since AcceptDialog buttons are internal nodes), which dispatches COMPLETE_SHOOTING_FOR_UNIT \u2014 the completion that must write the stamp.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shooting_phase_edition_11"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"meta\"][\"weapons\"].append({\"name\": \"Siege Mortar\", \"type\": \"Ranged\", \"range\": \"48\", \"attacks\": \"6\", \"ballistic_skill\": \"4\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"indirect fire\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][1].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][2].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][3].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.terrain_features.append({\"id\": \"iss15_dense\", \"type\": \"ruins\", \"height_category\": \"tall\", \"polygon\": PackedVector2Array([Vector2(763, 347), Vector2(883, 347), Vector2(883, 467), Vector2(763, 467)])})"
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.is_model_hidden(GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][0], GameState.get_unit(\"U_WITCHSEEKERS_D\"))",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.hidden_model_visible_to(GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][0], GameState.get_unit(\"U_WITCHSEEKERS_D\"), GameState.get_unit(\"U_WARBOSS_B\")[\"models\"][0])",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_hidden_in_dense_area"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_WITCHSEEKERS_D"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_WITCHSEEKERS_D",
+        "payload": {
+          "weapon_id": "Siege Mortar",
+          "target_unit_id": "U_BOYZ_E",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02b_defender_save_allocation"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/VBox/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/NextWeaponDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02c_final_weapon_results"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"/root/NextWeaponDialog\").get_ok_button().emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WITCHSEEKERS_D.flags.last_shot_idx",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.is_model_hidden(GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][0], GameState.get_unit(\"U_WITCHSEEKERS_D\"))",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.hidden_model_visible_to(GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][0], GameState.get_unit(\"U_WITCHSEEKERS_D\"), GameState.get_unit(\"U_WARBOSS_B\")[\"models\"][0])",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_shot_fired_no_longer_hidden"
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.terrain_features.pop_back()"
+    }
+  ]
+}

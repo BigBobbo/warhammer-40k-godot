@@ -2115,6 +2115,25 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "phases.ShootingPhase.hidden_shot_stamp",
+      "description": "13.09 A5: flags.last_shot_idx (battle_round*2 + player) is stamped by EVERY real shot completion \u2014 miss path, sequential all-weapons-complete, AI atomic path, the player's COMPLETE_SHOOTING_FOR_UNIT confirm after wounds/saves, and the all-targets-destroyed auto-completion (the last two were missing: units whose shots caused wounds never lost Hidden). Give-up-shooting actions do not stamp.",
+      "scenarios": [
+        "iss15_hidden_shot_stamp_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.TerrainManager.is_model_hidden.last_shot_idx",
+      "description": "13.09: the hidden gate consumes the turn-stamp \u2014 'made ranged attacks this turn or the previous turn' = cur_idx - last_shot_idx < 2; stamps from two player-turns ago restore Hidden; expiry advances across player turns.",
+      "scenarios": [
+        "iss15_hidden_shot_stamp_11e",
+        "mp:tests/test_iss052_hidden_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
