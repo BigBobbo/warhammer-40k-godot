@@ -99,12 +99,18 @@ func set_save_pretty_print(enabled: bool) -> void:
 		StateSerializer.set_pretty_print(enabled)
 
 func _is_automated_harness() -> bool:
-	# True when running under the windowed-scenario runner (--scenario-file=…) or
-	# the headless GUT suite (gut_cmdln.gd). Those harnesses set the rules edition
-	# explicitly and expect a 10e baseline, so SettingsService must not apply the
-	# player's default (11e) over them. A normal player/game launch returns false.
+	# True when running under the windowed-scenario runner (--scenario-file=…),
+	# the headless GUT suite (gut_cmdln.gd), or a direct script run
+	# (`godot -s tests/test_*.gd` — the audit-suite SceneTree tests). Those
+	# harnesses set the rules edition explicitly and expect a 10e baseline, so
+	# SettingsService must not apply the player's default (11e) over them.
+	# A normal player/game launch never passes -s/--script, so it returns false.
 	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
-		if typeof(a) == TYPE_STRING and (a.begins_with("--scenario-file=") or a.find("gut_cmdln") != -1):
+		if typeof(a) != TYPE_STRING:
+			continue
+		if a.begins_with("--scenario-file=") or a.find("gut_cmdln") != -1:
+			return true
+		if a == "-s" or a == "--script":
 			return true
 	return false
 
