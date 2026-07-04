@@ -2,6 +2,10 @@ extends "res://addons/gut/test.gd"
 
 # Tests for Faction Stratagem Loading (Step 9)
 #
+# 11e note: data CSVs are generated from the 40kdc dataset by
+# scripts/40kdc/generate-stratagems.mjs. Real-row expectations below cite
+# 40kdc ids (e.g. harmonised-exorcism-chorus-of-condemnation).
+#
 # Tests verify:
 # 1. CSV parsing (pipe-delimited, BOM handling, header extraction)
 # 2. Faction code lookup (name → code mapping)
@@ -97,7 +101,9 @@ func test_faction_code_lookup_unknown_returns_empty():
 func test_faction_name_reverse_lookup():
 	"""Should map code back to name."""
 	_loader.load_faction_codes()
-	assert_eq(_loader.get_faction_name("SM"), "Space Marines")
+	# 11e (40kdc) Factions.csv names the SM faction "Adeptus Astartes";
+	# forward lookups for "Space Marines" still resolve via the alias map.
+	assert_eq(_loader.get_faction_name("SM"), "Adeptus Astartes")
 	assert_eq(_loader.get_faction_name("AC"), "Adeptus Custodes")
 
 
@@ -462,134 +468,114 @@ func test_unknown_faction_returns_empty():
 
 
 # ==========================================
-# Section 10: Effect Mapping on Real Stratagems
+# Section 10: Effect Mapping on Real Stratagems (11e 40kdc data)
 # ==========================================
+# The 11e CSVs are generated from the 40kdc dataset
+# (scripts/40kdc/generate-stratagems.mjs), which contains NO GW rules prose.
+# Stratagems whose 40kdc ability-DSL compiles to EffectPrimitives carry a
+# pre-compiled effects_json column; the rest are display-only rows whose
+# effects fall back to "custom:*" (implemented=false).
 
-func test_armour_of_contempt_maps_to_worsen_ap():
-	"""ARMOUR OF CONTEMPT (SM Gladius) should map to worsen_ap."""
-	_loader.load_faction_codes()
-	var strats = _loader.load_faction_stratagems("Space Marines", "Gladius Task Force")
-	var aoc = null
+func _find_strat(strats: Array, name_fragment: String):
 	for s in strats:
-		if "ARMOUR OF CONTEMPT" in s.name:
-			aoc = s
-			break
-	assert_not_null(aoc, "Should find ARMOUR OF CONTEMPT")
-	if aoc:
-		var has_worsen_ap = false
-		for e in aoc.effects:
-			if e.type == EffectPrimitivesData.WORSEN_AP:
-				has_worsen_ap = true
-		assert_true(has_worsen_ap, "Should have worsen_ap effect")
-		assert_true(aoc.implemented, "Should be marked as implemented")
+		if name_fragment in s.name:
+			return s
+	return null
 
-func test_storm_of_fire_maps_to_ignores_cover():
-	"""STORM OF FIRE (SM Gladius) should map to grant_ignores_cover."""
+func test_harmonised_exorcism_effects_json_plus_one_hit():
+	"""HARMONISED EXORCISM (AS Chorus of Condemnation) ships a compiled
+	effects_json column (40kdc ability roll-modifier hit +1) that the loader
+	must pass through as plus_one_hit and mark implemented."""
 	_loader.load_faction_codes()
-	var strats = _loader.load_faction_stratagems("Space Marines", "Gladius Task Force")
-	var sof = null
-	for s in strats:
-		if "STORM OF FIRE" in s.name:
-			sof = s
-			break
-	assert_not_null(sof, "Should find STORM OF FIRE")
-	if sof:
-		var has_ignores_cover = false
-		for e in sof.effects:
-			if e.type == EffectPrimitivesData.GRANT_IGNORES_COVER:
-				has_ignores_cover = true
-		assert_true(has_ignores_cover, "Should have grant_ignores_cover effect")
-		assert_true(sof.implemented, "Should be marked as implemented")
+	var strats = _loader.load_faction_stratagems("Adepta Sororitas", "Chorus of Condemnation")
+	var he = _find_strat(strats, "HARMONISED EXORCISM")
+	assert_not_null(he, "Should find HARMONISED EXORCISM")
+	if he:
+		var has_plus_hit = false
+		for e in he.effects:
+			if e.type == EffectPrimitivesData.PLUS_ONE_HIT:
+				has_plus_hit = true
+		assert_true(has_plus_hit, "Should have plus_one_hit effect from effects_json")
+		assert_true(he.implemented, "Should be marked as implemented")
 
-func test_honour_the_chapter_maps_to_lance():
-	"""HONOUR THE CHAPTER (SM Gladius) should map to grant_lance."""
+func test_sanctified_blows_effects_json_multi_effect():
+	"""SANCTIFIED BLOWS (AS Sacred Champions) compiles to plus_attacks +
+	plus_strength_melee (40kdc sequence of two stat-modifiers); values must
+	arrive as ints (JSON floats normalised by the loader)."""
 	_loader.load_faction_codes()
-	var strats = _loader.load_faction_stratagems("Space Marines", "Gladius Task Force")
-	var htc = null
-	for s in strats:
-		if "HONOUR THE CHAPTER" in s.name:
-			htc = s
-			break
-	assert_not_null(htc, "Should find HONOUR THE CHAPTER")
-	if htc:
-		var has_lance = false
-		for e in htc.effects:
-			if e.type == EffectPrimitivesData.GRANT_LANCE:
-				has_lance = true
-		assert_true(has_lance, "Should have grant_lance effect")
+	var strats = _loader.load_faction_stratagems("Adepta Sororitas", "Sacred Champions")
+	var sb = _find_strat(strats, "SANCTIFIED BLOWS")
+	assert_not_null(sb, "Should find SANCTIFIED BLOWS")
+	if sb:
+		var has_attacks = false
+		var has_strength = false
+		for e in sb.effects:
+			if e.type == EffectPrimitivesData.PLUS_ATTACKS:
+				has_attacks = true
+				assert_eq(e.value, 1, "plus_attacks value should be int 1")
+				assert_eq(e.scope, "melee", "plus_attacks should be melee-scoped")
+			if e.type == EffectPrimitivesData.PLUS_STRENGTH_MELEE:
+				has_strength = true
+		assert_true(has_attacks, "Should have plus_attacks effect")
+		assert_true(has_strength, "Should have plus_strength_melee effect")
+		assert_true(sb.implemented, "Should be marked as implemented")
 
-func test_ard_as_nails_maps_to_minus_wound():
-	"""'ARD AS NAILS (ORK War Horde) should map to minus_one_wound."""
+func test_faithful_fortitude_effects_json_fnp():
+	"""FAITHFUL FORTITUDE (AS Sacred Champions) compiles to
+	grant_fnp_psychic_mortal 5 (40kdc feel-no-pain threshold 5, scope mortal)."""
+	_loader.load_faction_codes()
+	var strats = _loader.load_faction_stratagems("Adepta Sororitas", "Sacred Champions")
+	var ff = _find_strat(strats, "FAITHFUL FORTITUDE")
+	assert_not_null(ff, "Should find FAITHFUL FORTITUDE")
+	if ff:
+		var has_fnp = false
+		for e in ff.effects:
+			if e.type == EffectPrimitivesData.GRANT_FNP_PSYCHIC_MORTAL:
+				has_fnp = true
+				assert_eq(e.value, 5, "FNP value should be 5")
+		assert_true(has_fnp, "Should have grant_fnp_psychic_mortal effect")
+
+func test_p0_rows_present_but_display_only():
+	"""The P0 detachment stratagems (Gladius / War Horde / Shield Host /
+	1st Company) exist in the 11e data but have no 40kdc ability-DSL, so
+	they load as display-only rows (custom:* effects, implemented=false)
+	unless StratagemManager custom-marks them."""
+	_loader.load_faction_codes()
+	var gladius = _loader.load_faction_stratagems("Space Marines", "Gladius Task Force")
+	var war_horde = _loader.load_faction_stratagems("Orks", "War Horde")
+	var shield_host = _loader.load_faction_stratagems("Adeptus Custodes", "Shield Host")
+	var first_co = _loader.load_faction_stratagems("Space Marines", "1st Company Task Force")
+
+	var expected = [
+		[gladius, "ARMOUR OF CONTEMPT"],
+		[gladius, "STORM OF FIRE"],
+		[gladius, "HONOUR THE CHAPTER"],
+		[war_horde, "ARD AS NAILS"],
+		[war_horde, "UNBRIDLED CARNAGE"],
+		[shield_host, "MULTIPOTENTIALITY"],
+		[first_co, "LEGENDARY FORTITUDE"],
+	]
+	for pair in expected:
+		var s = _find_strat(pair[0], pair[1])
+		assert_not_null(s, "Should find %s in 11e CSV" % pair[1])
+		if s:
+			assert_true(s.effects.size() > 0, "%s should still carry a (custom) effect entry" % pair[1])
+			assert_true(String(s.effects[0].get("type", "")).begins_with("custom:"),
+				"%s has no 40kdc ability-DSL — expected custom:* placeholder effect" % pair[1])
+			assert_false(s.implemented, "%s should be display-only (not implemented)" % pair[1])
+
+func test_careen_timing_column_overrides_epic_deed_default():
+	"""CAREEN! (ORK War Horde) is an Epic Deed Stratagem, but the 11e
+	timing column says once-per-phase — the timing column must win over
+	the legacy 'Epic Deed => once per battle' text default."""
 	_loader.load_faction_codes()
 	var strats = _loader.load_faction_stratagems("Orks", "War Horde")
-	var aan = null
-	for s in strats:
-		if "ARD AS NAILS" in s.name:
-			aan = s
-			break
-	assert_not_null(aan, "Should find 'ARD AS NAILS")
-	if aan:
-		var has_minus_wound = false
-		for e in aan.effects:
-			if e.type == EffectPrimitivesData.MINUS_ONE_WOUND:
-				has_minus_wound = true
-		assert_true(has_minus_wound, "Should have minus_one_wound effect")
-
-func test_unbridled_carnage_maps_to_crit_hit():
-	"""UNBRIDLED CARNAGE (ORK War Horde) should map to crit_hit_on 5."""
-	_loader.load_faction_codes()
-	var strats = _loader.load_faction_stratagems("Orks", "War Horde")
-	var uc = null
-	for s in strats:
-		if "UNBRIDLED CARNAGE" in s.name:
-			uc = s
-			break
-	assert_not_null(uc, "Should find UNBRIDLED CARNAGE")
-	if uc:
-		var has_crit = false
-		for e in uc.effects:
-			if e.type == EffectPrimitivesData.CRIT_HIT_ON:
-				has_crit = true
-				assert_eq(e.value, 5, "Should be crit on 5+")
-		assert_true(has_crit, "Should have crit_hit_on effect")
-
-func test_multipotentiality_maps_to_fall_back_and_shoot():
-	"""MULTIPOTENTIALITY (AC Shield Host) should map to fall_back_and_shoot + fall_back_and_charge."""
-	_loader.load_faction_codes()
-	var strats = _loader.load_faction_stratagems("Adeptus Custodes", "Shield Host")
-	var mp = null
-	for s in strats:
-		if "MULTIPOTENTIALITY" in s.name:
-			mp = s
-			break
-	assert_not_null(mp, "Should find MULTIPOTENTIALITY")
-	if mp:
-		var has_fbs = false
-		var has_fbc = false
-		for e in mp.effects:
-			if e.type == EffectPrimitivesData.FALL_BACK_AND_SHOOT:
-				has_fbs = true
-			if e.type == EffectPrimitivesData.FALL_BACK_AND_CHARGE:
-				has_fbc = true
-		assert_true(has_fbs, "Should have fall_back_and_shoot effect")
-		assert_true(has_fbc, "Should have fall_back_and_charge effect")
-
-func test_legendary_fortitude_maps_to_minus_damage():
-	"""LEGENDARY FORTITUDE (SM 1st Company) should map to minus_damage."""
-	_loader.load_faction_codes()
-	var strats = _loader.load_faction_stratagems("Space Marines", "1st Company Task Force")
-	var lf = null
-	for s in strats:
-		if "LEGENDARY FORTITUDE" in s.name:
-			lf = s
-			break
-	assert_not_null(lf, "Should find LEGENDARY FORTITUDE")
-	if lf:
-		var has_minus_damage = false
-		for e in lf.effects:
-			if e.type == EffectPrimitivesData.MINUS_DAMAGE:
-				has_minus_damage = true
-		assert_true(has_minus_damage, "Should have minus_damage effect")
+	var careen = _find_strat(strats, "CAREEN")
+	assert_not_null(careen, "Should find CAREEN!")
+	if careen:
+		assert_true("Epic Deed" in careen.type, "CAREEN! should still be typed as an Epic Deed Stratagem")
+		assert_eq(careen.restrictions.once_per, "phase",
+			"timing column (once-per-phase) should override the Epic Deed once-per-battle default")
 
 
 # ==========================================
@@ -664,19 +650,25 @@ func test_core_stratagem_not_faction():
 # ==========================================
 
 func test_implemented_flag_set_for_mapped_effects():
-	"""Stratagems with mapped effects should be marked as implemented."""
+	"""Stratagems with compiled effects_json should be marked as implemented.
+	11e note: the P0 rows (e.g. ARMOUR OF CONTEMPT) no longer auto-map —
+	the 40kdc dataset has no rules prose for them — so this now pins an
+	effects_json-carrying row instead."""
 	_loader.load_faction_codes()
-	var strats = _loader.load_faction_stratagems("Space Marines", "Gladius Task Force")
-	# ARMOUR OF CONTEMPT maps to worsen_ap → should be implemented
+	var strats = _loader.load_faction_stratagems("Adepta Sororitas", "Chorus of Condemnation")
+	var found = false
 	for s in strats:
-		if "ARMOUR OF CONTEMPT" in s.name:
-			assert_true(s.implemented, "ARMOUR OF CONTEMPT should be implemented")
+		if "HARMONISED EXORCISM" in s.name:
+			found = true
+			assert_true(s.implemented, "HARMONISED EXORCISM should be implemented (effects_json)")
+	assert_true(found, "Should find HARMONISED EXORCISM")
 
 func test_implemented_flag_false_for_unmapped_effects():
 	"""Stratagems with only custom effects should NOT be marked as implemented."""
 	_loader.load_faction_codes()
 	var strats = _loader.load_faction_stratagems("Space Marines", "Gladius Task Force")
-	# ONLY IN DEATH DOES DUTY END is fight-on-death → complex → should NOT be implemented
+	# ONLY IN DEATH DOES DUTY END has no 40kdc ability-DSL → stub EFFECT
+	# text → custom:* → should NOT be implemented
 	for s in strats:
 		if "ONLY IN DEATH DOES DUTY END" in s.name:
 			assert_false(s.implemented, "ONLY IN DEATH DOES DUTY END should not be implemented")
