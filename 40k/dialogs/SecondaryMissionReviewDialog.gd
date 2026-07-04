@@ -108,6 +108,7 @@ func _build_ui() -> void:
 
 	# Done button
 	var button_container = HBoxContainer.new()
+	button_container.name = "ButtonRow"
 	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	main_container.add_child(button_container)
 

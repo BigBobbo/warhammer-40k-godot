@@ -715,7 +715,10 @@ func _on_card_action_choice_required(pending: Dictionary, player: int) -> void:
 	_show_card_action_dialog(pending, player)
 
 func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
-	if get_tree().root.get_node_or_null("CardActionDialog") != null:
+	# A just-queue_free'd dialog still occupies the name for a frame — treat
+	# it as absent so a legitimate re-show is never suppressed.
+	var existing = get_tree().root.get_node_or_null("CardActionDialog")
+	if existing != null and not existing.is_queued_for_deletion():
 		return
 	var dialog = AcceptDialog.new()
 	dialog.name = "CardActionDialog"

@@ -1040,6 +1040,7 @@ func _show_drawn_missions_review_dialog() -> void:
 		current_player, drawn_missions.size(), player_cp, deck_size])
 
 	var dialog = SecondaryMissionReviewDialog.new()
+	dialog.name = "SecondaryMissionReviewDialog"
 	dialog.setup(current_player, drawn_missions, player_cp, deck_size)
 	dialog.mission_replacement_requested.connect(_on_mission_replacement_requested)
 	dialog.review_completed.connect(_on_mission_review_completed)
@@ -1141,12 +1142,26 @@ func _check_pending_condemn_prompt() -> void:
 	var pending = MissionManager.get_pending_condemn_choice_11e(current_player)
 	if pending.is_empty():
 		return
+	# Let the player read the drawn-missions review dialog first: two
+	# exclusive popups in the same frame trip the engine's exclusive-child
+	# guard and the condemn dialog would cover the review. Re-check once
+	# the review closes.
+	if _active_review_dialog and is_instance_valid(_active_review_dialog):
+		if not _active_review_dialog.tree_exited.is_connected(_on_review_closed_recheck_condemn):
+			_active_review_dialog.tree_exited.connect(_on_review_closed_recheck_condemn)
+		return
 	print("CommandController: 11e Condemn choice pending for P%d (%d eligible, auto picks %s)" % [
 		current_player, pending.get("eligible", []).size(), str(pending.get("current", []))])
 	_show_condemn_dialog(pending, current_player)
 
+func _on_review_closed_recheck_condemn() -> void:
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	call_deferred("_check_pending_condemn_prompt")
+
 func _show_condemn_dialog(pending: Dictionary, player: int) -> void:
-	if get_tree().root.get_node_or_null("CondemnChoiceDialog") != null:
+	var existing = get_tree().root.get_node_or_null("CondemnChoiceDialog")
+	if existing != null and not existing.is_queued_for_deletion():
 		return
 	var dialog = AcceptDialog.new()
 	dialog.name = "CondemnChoiceDialog"

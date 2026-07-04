@@ -28,6 +28,11 @@
     { "act": "execute_script",
       "script": "\"U_CALADIUS_GRAV-TANK_E\" in MissionManager._primary_state_11e[\"2\"][\"condemned\"]",
       "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "00_drawn_missions_review_first" },
+    { "act": "click_node", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true },
+
     { "act": "expect_node_visible", "node": "/root/CondemnChoiceDialog", "timeout_s": 5.0 },
     { "act": "expect_node_visible", "node": "/root/CondemnChoiceDialog/Content/Check_U_CALADIUS_GRAV-TANK_E", "timeout_s": 2.0 },
     { "act": "expect_node_property", "node": "/root/CondemnChoiceDialog/Content/Check_U_CALADIUS_GRAV-TANK_E", "property": "button_pressed", "equals": true },
