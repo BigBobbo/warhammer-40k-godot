@@ -475,7 +475,9 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if not stratagems.has(strat_id):
 			continue
 		var strat = stratagems[strat_id]
-		var name_upper = strat.get("name", "").to_upper()
+		# Data sources use typographic apostrophes (BOARDIN’ RUSH) — normalize
+		# so the straight-quoted handler names below keep matching.
+		var name_upper = strat.get("name", "").replace("’", "'").to_upper()
 		# GRAB AND BASH (OA-4): Waaagh! effects on single unit — custom implementation
 		if name_upper == "GRAB AND BASH":
 			strat["implemented"] = true
@@ -1203,7 +1205,7 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 	# BOARDIN' RUSH (OA-5): Skip advance roll, add flat 6" to Move.
 	# Sets a flag so MovementPhase._process_begin_advance() skips the D6 roll
 	# and uses a flat 6" bonus instead. Expires at end of phase.
-	if strat.get("name", "").to_upper() == "BOARDIN' RUSH":
+	if strat.get("name", "").replace("’", "'").to_upper() == "BOARDIN' RUSH":
 		var diffs = [{
 			"op": "set",
 			"path": "units.%s.flags.effect_boardin_rush" % target_unit_id,
@@ -1388,7 +1390,7 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 		return
 
 	# BOARDIN' RUSH (OA-5): Clear custom flag
-	if strat.get("name", "").to_upper() == "BOARDIN' RUSH":
+	if strat.get("name", "").replace("’", "'").to_upper() == "BOARDIN' RUSH":
 		if flags.has("effect_boardin_rush"):
 			flags.erase("effect_boardin_rush")
 			print("StratagemManager: Cleared effect_boardin_rush from %s" % unit_id)

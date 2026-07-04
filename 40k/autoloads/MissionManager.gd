@@ -85,14 +85,16 @@ var _control_at_turn_start: Dictionary = {}
 var _eog_primary_scored: bool = false
 # Action-type components we've already warned about (log once per game)
 var _warned_unimplemented_actions: Dictionary = {}
-# Per-player marker/action state for the GDM card mechanics (see the
-# missions doc appendix). Auto-resolved: the real cards let the player pick
-# targets; we pick deterministically and flag the cards approximate.
+# Per-player marker/action state for the card mechanics (awards sourced
+# from data/40kdc/missionCards.json). Auto-resolved backstop: the real cards
+# let the player pick targets; we pick deterministically and the prompts let
+# a human revise the picks.
 # player_key -> { triangulated: [obj_id], consecrated: [obj_id],
 #   decoyed: [obj_id], decoyed_ever: [obj_id], trapped: [terrain_id],
-#   operation_markers: int, intel_tokens: [obj_id],
-#   intel_placed_this_turn: int, condemned: [unit_id],
-#   condemned_left_this_turn: bool, sensor_swept_this_turn: bool }
+#   trapped_this_turn: [terrain_id], operation_markers: int,
+#   intel_tokens: [obj_id], intel_placed_this_turn: int,
+#   condemned: [unit_id], condemned_left_this_turn: bool,
+#   sensor_swept_this_turn: bool }
 var _primary_state_11e: Dictionary = {}
 # Shared relic/operation markers for the Extract Relic / Locate and Deny
 # pairing: terrain feature ids still carrying a marker
@@ -1071,10 +1073,12 @@ func _score_terraform(active_player: int, _battle_round: int) -> void:
 	_apply_primary_vp(active_player, vp_earned, "Terraform: held %d objectives, %d terraformed" % [controlled_count, terraform_bonus])
 
 # ============================================================
-# 11e GDM 2026 — FORCE DISPOSITION PRIMARY MISSIONS
+# 11e FORCE DISPOSITION PRIMARY MISSIONS
 # ============================================================
-# Each player scores their OWN card: their deck (disposition) paired against
-# the opponent's disposition. Caps: 45 primary total, 15 per turn. Command
+# Awards sourced from data/40kdc/missionCards.json (official 11e launch
+# dataset, effective 2026-06-20) via PrimaryMissionData11e. Each player
+# scores their OWN card: their deck (disposition) paired against the
+# opponent's disposition. Caps: 45 primary total, 15 per turn. Command
 # conditions score at the end of your Command phase in R1-4 and switch to end
 # of turn in R5. EOT conditions score every end of turn; EOG conditions score
 # once when the game ends.
@@ -1113,6 +1117,8 @@ func _blank_primary_state_11e() -> Dictionary:
 	return {
 		"triangulated": [], "consecrated": [], "decoyed": [], "decoyed_ever": [],
 		"trapped": [], "operation_markers": 0, "intel_tokens": [],
+		# Death Trap official award: pays per terrain area trapped THIS TURN
+		"trapped_this_turn": [],
 		"intel_placed_this_turn": 0, "condemned": [],
 		"condemned_left_this_turn": false, "sensor_swept_this_turn": false,
 		# Decoys placed this turn are exempt from this turn's scrub: the card
@@ -1200,6 +1206,7 @@ func on_turn_start_11e(player: int) -> void:
 		st["card_action_resolved_this_turn"] = false
 		st["condemn_prompt_pending"] = false
 		st["decoyed_this_turn"] = []
+		st["trapped_this_turn"] = []
 		st["sabotage_started_this_turn"] = false
 		st["sabotaged_this_turn"] = []
 		st["vanguard_started_this_turn"] = false
@@ -1290,8 +1297,9 @@ func score_primary_eot_11e(player: int) -> void:
 	_score_primary_11e(opponent, battle_round, "eot_any")
 
 ## Auto-resolve the active player's card action for this turn. The real
-## cards let the player pick targets; we pick deterministically (flagged
-## approximate on the cards). Also scrubs decoy markers enemies reached.
+## cards let the player pick targets; we pick deterministically as the
+## headless/AI backstop (the prompts let a human choose instead). Also
+## scrubs decoy markers enemies reached.
 func _run_primary_auto_actions_11e(player: int, battle_round: int) -> void:
 	var pk = str(player)
 	var st = _primary_state_11e.get(pk, {})
@@ -1342,11 +1350,14 @@ func _run_primary_auto_actions_11e(player: int, battle_round: int) -> void:
 						print("MissionManager: 11e Consecrated %s (P%s)" % [obj_id, pk])
 						break
 			"smoke_and_mirrors":
-				# Decoy action: unlimited uses at end of turn on controlled non-home
+				# Decoy action: unlimited uses at end of turn on controlled
+				# non-home objectives. Official "undecoyed" means never tagged
+				# — the Decoyed tag never clears — so scrubbed markers cannot
+				# be replenished by re-decoying (guard on decoyed_ever).
 				if not st.has("decoyed_this_turn"):
 					st["decoyed_this_turn"] = []
 				for obj_id in _get_controlled_objectives(player):
-					if _is_home_objective_11e(obj_id, player) or obj_id in st["decoyed"]:
+					if _is_home_objective_11e(obj_id, player) or obj_id in st["decoyed_ever"]:
 						continue
 					st["decoyed"].append(obj_id)
 					st["decoyed_this_turn"].append(obj_id)
@@ -1369,6 +1380,9 @@ func _run_primary_auto_actions_11e(player: int, battle_round: int) -> void:
 							continue
 						if _player_model_in_terrain_11e(player, feature):
 							st["trapped"].append(fid)
+							if not st.has("trapped_this_turn"):
+								st["trapped_this_turn"] = []
+							st["trapped_this_turn"].append(fid)
 							print("MissionManager: 11e Booby Trapped %s (P%s)" % [fid, pk])
 							break
 			"gather_intel":
@@ -1743,15 +1757,15 @@ func get_pending_card_action_11e(player: int, battle_round: int = -1) -> Diction
 				targets.append(_objective_target_entry_11e(obj_id))
 		"smoke_and_mirrors":
 			pending["action_name"] = "Decoy"
-			pending["description"] = "Unlimited uses: place Decoy markers on non-home objectives you control. A marker is removed if an enemy unit reaches its objective."
+			pending["description"] = "Unlimited uses: place Decoy markers on undecoyed non-home objectives you control. A decoyed objective keeps scoring; its marker is removed if an enemy unit reaches the objective."
 			pending["mode"] = "multi"
 			for obj_id in _get_controlled_objectives(player):
-				if _is_home_objective_11e(obj_id, player) or obj_id in st.get("decoyed", []):
+				if _is_home_objective_11e(obj_id, player) or obj_id in st.get("decoyed_ever", []):
 					continue
 				targets.append(_objective_target_entry_11e(obj_id))
 		"death_trap":
 			pending["action_name"] = "Booby Trap"
-			pending["description"] = "Once per turn: trap an untrapped terrain area containing one of your models (permanent; bonus VP if it holds an objective)."
+			pending["description"] = "Once per turn: trap an untrapped terrain area containing one of your models (2 VP this turn, +3 more if it holds an objective; kills in trapped terrain pay separately)."
 			var tm = get_node_or_null("/root/TerrainManager")
 			if tm != null:
 				for feature in tm.terrain_features:
@@ -1852,8 +1866,11 @@ func resolve_card_action_11e(player: int, target_ids: Array) -> Dictionary:
 					st["decoyed_ever"].append(tid)
 				print("MissionManager: 11e Decoyed %s (P%s, player choice)" % [tid, pk])
 		"death_trap":
+			if not st.has("trapped_this_turn"):
+				st["trapped_this_turn"] = []
 			for tid in picks:
 				st["trapped"].append(tid)
+				st["trapped_this_turn"].append(tid)
 				print("MissionManager: 11e Booby Trapped %s (P%s, player choice)" % [tid, pk])
 		"gather_intel":
 			for tid in picks:
@@ -2045,6 +2062,7 @@ func _score_primary_11e(player: int, battle_round: int, timing: String) -> void:
 
 	var vp_total = 0
 	var reasons = []
+	var group_best = {}  # exclusive_group -> {"vp": int, "type": String}
 	for rule in card.get("rules", []):
 		if rule.get("when", "command") != timing:
 			continue
@@ -2052,9 +2070,22 @@ func _score_primary_11e(player: int, battle_round: int, timing: String) -> void:
 		if window.size() == 2 and (battle_round < int(window[0]) or battle_round > int(window[1])):
 			continue
 		var vp = _evaluate_primary_rule_11e(player, rule, battle_round)
+		var group = str(rule.get("exclusive_group", ""))
+		if group != "":
+			# Official OR tiers: rules sharing an exclusive_group resolve as
+			# only-the-highest (e.g. Consecrate 3/6, Triangulation 3/6/10,
+			# Reconnaissance Sweep quarters 3/6, Purge and Secure's kill pair).
+			if vp > int(group_best.get(group, {}).get("vp", 0)):
+				group_best[group] = {"vp": vp, "type": rule.get("type", "?")}
+			continue
 		if vp > 0:
 			vp_total += vp
 			reasons.append("%s +%d" % [rule.get("type", "?"), vp])
+	for gkey in group_best:
+		var best = group_best[gkey]
+		if int(best.get("vp", 0)) > 0:
+			vp_total += int(best["vp"])
+			reasons.append("%s +%d (best tier)" % [best.get("type", "?"), best["vp"]])
 
 	var reason = "%s (%s): %s" % [card.get("name", "?"), timing,
 		"; ".join(reasons) if reasons.size() > 0 else "no conditions met"]
@@ -2068,12 +2099,31 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 			var count = _count_controlled_filtered_11e(player, rule)
 			return rule.get("vp", 0) if count >= int(rule.get("min", 1)) else 0
 		"per_objective":
+			# require_hold_home: the official cumulative bonus rows only pay
+			# while the player also controls their own home objective
+			# (Battlefield Dominance award 3).
+			if rule.get("require_hold_home", false):
+				var own_home = _get_home_objective_id_11e(player)
+				if own_home == "" or objective_control_state.get(own_home, 0) != player:
+					return 0
 			var count = _count_controlled_filtered_11e(player, rule)
 			var vp_per = int(rule.get("vp_per", 0))
 			var by_round = rule.get("vp_by_round", {})
 			if not by_round.is_empty():
 				vp_per = int(by_round.get(battle_round, by_round.get(str(battle_round), 0)))
 			return count * vp_per
+		"per_new_objective":
+			# vp_per for EACH objective controlled now but not at the start of
+			# the turn (Determined Acquisition award 1).
+			var start_ctrl = _control_at_turn_start.get(str(player), [])
+			var newly = 0
+			for obj_id in _get_controlled_objectives(player):
+				if obj_id in start_ctrl:
+					continue
+				if rule.get("exclude_home", false) and _is_home_objective_11e(obj_id, player):
+					continue
+				newly += 1
+			return newly * int(rule.get("vp_per", 0))
 		"hold_more":
 			var mine = _get_controlled_objectives(player).size()
 			var theirs = _get_controlled_objectives(opponent).size()
@@ -2120,9 +2170,21 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 			return rule.get("vp", 0) if secondary_mgr._check_table_quarter_presence(player, params) else 0
 		"triangulated_count":
 			var n = _primary_state_11e.get(str(player), {}).get("triangulated", []).size()
+			if rule.has("count_min"):
+				# Official tier row: pays vp while the marker count is within
+				# [count_min, count_max]; exclusive_group keeps only the best.
+				if n >= int(rule.get("count_min", 1)) and n <= int(rule.get("count_max", 9999)):
+					return rule.get("vp", 0)
+				return 0
+			# Legacy rule shape (pre-40kdc saves): hardcoded 3/6/10 tiering
 			return 10 if n >= 3 else (6 if n == 2 else (3 if n == 1 else 0))
 		"consecrated_count":
 			var n2 = _primary_state_11e.get(str(player), {}).get("consecrated", []).size()
+			if rule.has("count_min"):
+				if n2 >= int(rule.get("count_min", 1)) and n2 <= int(rule.get("count_max", 9999)):
+					return rule.get("vp", 0)
+				return 0
+			# Legacy rule shape (pre-40kdc saves): hardcoded 3/6 tiering
 			return 6 if n2 >= 3 else (3 if n2 >= 1 else 0)
 		"consecrated_enemy_home":
 			var enemy_home = _get_home_objective_id_11e(3 - player)
@@ -2172,8 +2234,12 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 		"relic_final_marker":
 			return rule.get("vp", 0) if _final_relic_marker_held_11e(player) else 0
 		"decoyed_score":
+			# Official: the Decoyed tag never clears, so every objective ever
+			# decoyed keeps paying — the scrubbed marker list only matters for
+			# the opponent's no_enemy_markers check (Surveil the Foe).
 			var total2 = 0
-			for obj_id in _primary_state_11e.get(str(player), {}).get("decoyed", []):
+			var d_st = _primary_state_11e.get(str(player), {})
+			for obj_id in d_st.get("decoyed_ever", d_st.get("decoyed", [])):
 				total2 += int(rule.get("vp_per", 2))
 				if _objective_in_enemy_territory_11e(obj_id, player):
 					total2 += int(rule.get("enemy_territory_bonus", 2))
@@ -2190,10 +2256,30 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 				# Real card: 7 VP per UNIT that completed Extract Intelligence
 				return int(gi_st.get("intel_units_this_turn", 0)) * int(rule.get("vp_per", 7))
 			return int(gi_st.get("intel_placed_this_turn", 0)) * int(rule.get("vp_per", 7))
+		"operation_markers_min":
+			# Gather Intel EOG: min+ of your operation markers remain on the
+			# battlefield. A player's markers are their intel tokens plus the
+			# Vital Link marker counter (only one card is in play per player,
+			# so the sum is that card's marker count).
+			var om_st = _primary_state_11e.get(str(player), {})
+			var marker_count = om_st.get("intel_tokens", []).size() + int(om_st.get("operation_markers", 0))
+			return rule.get("vp", 0) if marker_count >= int(rule.get("min", 3)) else 0
+		"intel_token_on_enemy_home":
+			# Gather Intel EOG: one of your markers is within range of the
+			# opponent's home objective. Tokens are keyed by objective id, so
+			# the check is exact — but the placement wiring is NML-only, so it
+			# cannot currently trigger (rule stays flagged approximate).
+			var enemy_home_gi = _get_home_objective_id_11e(3 - player)
+			var gi_tokens = _primary_state_11e.get(str(player), {}).get("intel_tokens", [])
+			return rule.get("vp", 0) if enemy_home_gi != "" and enemy_home_gi in gi_tokens else 0
 		"trapped_score":
+			# Official: pays per terrain area trapped THIS TURN (+bonus when
+			# the trapped area holds an objective). Pre-40kdc saves lack the
+			# per-turn key and fall back to the old all-time list.
 			var tm2 = get_node_or_null("/root/TerrainManager")
+			var t_st = _primary_state_11e.get(str(player), {})
 			var total3 = 0
-			for fid in _primary_state_11e.get(str(player), {}).get("trapped", []):
+			for fid in t_st.get("trapped_this_turn", t_st.get("trapped", [])):
 				total3 += int(rule.get("vp_per", 2))
 				if tm2 != null and _terrain_contains_objective_11e(tm2, fid):
 					total3 += int(rule.get("objective_bonus", 3))
@@ -2201,7 +2287,7 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 		"destroyed_started_on_objective":
 			return rule.get("vp", 0) if _destroyed_enemy_near_any_objective_11e(player) else 0
 		"destroyed_in_terrain_area":
-			return rule.get("vp", 0) if _destroyed_enemy_in_terrain_11e(player) else 0
+			return rule.get("vp", 0) if _destroyed_enemy_in_terrain_11e(player, rule.get("trapped_only", false)) else 0
 		"no_enemy_wholly_in_my_dz":
 			return rule.get("vp", 0) if not _enemy_wholly_in_my_dz_11e(player) else 0
 		"action":
@@ -2368,10 +2454,12 @@ func _destroyed_enemy_near_any_objective_11e(player: int) -> bool:
 			return true
 	return false
 
-func _destroyed_enemy_in_terrain_11e(player: int) -> bool:
+func _destroyed_enemy_in_terrain_11e(player: int, trapped_only: bool = false) -> bool:
 	var tm = get_node_or_null("/root/TerrainManager")
 	if tm == null:
 		return false
+	# Death Trap: only kills inside terrain the player Booby Trapped count
+	var trapped = _primary_state_11e.get(str(player), {}).get("trapped", []) if trapped_only else []
 	for unit_id in _destroyed_enemy_units_this_turn_11e(player):
 		var unit = GameState.state.units[unit_id]
 		for model in unit.get("models", []):
@@ -2380,8 +2468,12 @@ func _destroyed_enemy_in_terrain_11e(player: int) -> bool:
 				continue
 			if pos is Dictionary:
 				pos = Vector2(pos.x, pos.y)
-			if not tm.get_terrain_at_position(pos).is_empty():
-				return true
+			var terrain = tm.get_terrain_at_position(pos)
+			if terrain.is_empty():
+				continue
+			if trapped_only and not str(terrain.get("id", "")) in trapped:
+				continue
+			return true
 	return false
 
 ## Vanguard Operation: a friendly unit is inside a terrain area located in
