@@ -1107,12 +1107,20 @@ func _blank_primary_state_11e() -> Dictionary:
 		"trapped": [], "operation_markers": 0, "intel_tokens": [],
 		"intel_placed_this_turn": 0, "condemned": [],
 		"condemned_left_this_turn": false, "sensor_swept_this_turn": false,
+		# Decoys placed this turn are exempt from this turn's scrub: the card
+		# removes a marker when an enemy ENDS A MOVE in range, which cannot
+		# have happened after an end-of-turn placement.
+		"decoyed_this_turn": [],
 		# Player-prompt bookkeeping: once the owner resolves (or declines) their
 		# card action for the turn, the deterministic auto-pick must stand down.
 		"card_action_resolved_this_turn": false,
 		# Punishment: a human owner may revise the auto-Condemn picks during
 		# their Command phase while this is set.
 		"condemn_prompt_pending": false,
+		# Turn key ("R<round>P<player>") of the last answered Condemn prompt —
+		# lets a save/load phase re-entry keep the player's revision instead
+		# of re-running the auto pick over it.
+		"condemn_resolved_turn": "",
 	}
 
 ## Extract Relic / Locate and Deny pairing: the Disruption player marks five
@@ -1169,14 +1177,22 @@ func on_turn_start_11e(player: int) -> void:
 		st["condemned_left_this_turn"] = false
 		st["card_action_resolved_this_turn"] = false
 		st["condemn_prompt_pending"] = false
+		st["decoyed_this_turn"] = []
 	# Punishment: auto-Condemn up to 3 enemy units in range of an objective as
 	# the backstop (real card: player's choice, incl. units that killed
 	# friendlies). A human owner can revise the picks via the Command-phase
-	# Condemn prompt while condemn_prompt_pending is set.
+	# Condemn prompt while condemn_prompt_pending is set. Skip when the
+	# player already answered for THIS turn — a save/load re-enters the
+	# Command phase and must not clobber their revision.
 	if player_primary_missions.get(pk, {}).get("id", "") == "punishment":
-		_auto_condemn_11e(player)
-		if not _condemn_eligible_units_11e(player).is_empty():
-			_primary_state_11e[pk]["condemn_prompt_pending"] = true
+		var turn_key = "R%dP%d" % [GameState.get_battle_round(), player]
+		if _primary_state_11e[pk].get("condemn_resolved_turn", "") == turn_key:
+			print("MissionManager: 11e Condemn already answered for %s — keeping %s" % [
+				turn_key, str(_primary_state_11e[pk].get("condemned", []))])
+		else:
+			_auto_condemn_11e(player)
+			if not _condemn_eligible_units_11e(player).is_empty():
+				_primary_state_11e[pk]["condemn_prompt_pending"] = true
 	print("MissionManager: 11e turn start P%s — controls %s" % [pk, str(_control_at_turn_start[pk])])
 
 func _unit_on_battlefield_11e(unit_id: String) -> bool:
@@ -1256,13 +1272,17 @@ func _run_primary_auto_actions_11e(player: int, battle_round: int) -> void:
 	var control_radius = Measurement.inches_to_px(3.78740157)
 
 	# Decoy scrub (both players): a decoy is removed once an enemy unit is
-	# within range of the objective (approximates "ends a move within range")
+	# within range of the objective (approximates "ends a move within range").
+	# Markers placed THIS turn are exempt — no enemy move can have ended
+	# after an end-of-turn placement (keeps the player-pick path scoring the
+	# same as the auto path, which places after this scrub).
 	for spk in _primary_state_11e:
 		var owner = int(spk)
 		var sst = _primary_state_11e[spk]
 		var kept = []
 		for obj_id in sst.get("decoyed", []):
-			if not _enemy_unit_in_range_of_objective_11e(owner, obj_id, control_radius):
+			if obj_id in sst.get("decoyed_this_turn", []) \
+					or not _enemy_unit_in_range_of_objective_11e(owner, obj_id, control_radius):
 				kept.append(obj_id)
 			else:
 				print("MissionManager: 11e decoy on %s scrubbed (enemy in range)" % obj_id)
@@ -1294,10 +1314,13 @@ func _run_primary_auto_actions_11e(player: int, battle_round: int) -> void:
 						break
 			"smoke_and_mirrors":
 				# Decoy action: unlimited uses at end of turn on controlled non-home
+				if not st.has("decoyed_this_turn"):
+					st["decoyed_this_turn"] = []
 				for obj_id in _get_controlled_objectives(player):
 					if _is_home_objective_11e(obj_id, player) or obj_id in st["decoyed"]:
 						continue
 					st["decoyed"].append(obj_id)
+					st["decoyed_this_turn"].append(obj_id)
 					if not obj_id in st["decoyed_ever"]:
 						st["decoyed_ever"].append(obj_id)
 					print("MissionManager: 11e Decoyed %s (P%s)" % [obj_id, pk])
@@ -1511,8 +1534,11 @@ func resolve_card_action_11e(player: int, target_ids: Array) -> Dictionary:
 				st["consecrated"].append(tid)
 				print("MissionManager: 11e Consecrated %s (P%s, player choice)" % [tid, pk])
 		"smoke_and_mirrors":
+			if not st.has("decoyed_this_turn"):
+				st["decoyed_this_turn"] = []
 			for tid in picks:
 				st["decoyed"].append(tid)
+				st["decoyed_this_turn"].append(tid)
 				if not tid in st["decoyed_ever"]:
 					st["decoyed_ever"].append(tid)
 				print("MissionManager: 11e Decoyed %s (P%s, player choice)" % [tid, pk])
@@ -1598,6 +1624,7 @@ func resolve_condemn_choice_11e(player: int, unit_ids: Array) -> Dictionary:
 	var st = _primary_state_11e.get(pk, {})
 	st["condemned"] = picks
 	st["condemn_prompt_pending"] = false
+	st["condemn_resolved_turn"] = "R%dP%d" % [GameState.get_battle_round(), player]
 	print("MissionManager: 11e Punishment — P%s condemns %s (player choice)" % [pk, str(picks)])
 	return {"success": true, "condemned": picks}
 
@@ -1607,6 +1634,7 @@ func dismiss_condemn_prompt_11e(player: int) -> Dictionary:
 	var st = _primary_state_11e.get(pk, {})
 	if not st.is_empty():
 		st["condemn_prompt_pending"] = false
+		st["condemn_resolved_turn"] = "R%dP%d" % [GameState.get_battle_round(), player]
 	return {"success": true, "condemned": st.get("condemned", []).duplicate()}
 
 ## End-of-game primary scoring for both players (idempotent).

@@ -168,6 +168,28 @@ func _run_tests():
 		not central_id in mgr._primary_state_11e["1"]["decoyed"] or central_id == nml,
 		str(mgr._primary_state_11e["1"]["decoyed"]))
 
+	print("\n-- Decoy scrub parity: same-turn pick survives, later turns scrub --")
+	mgr.initialize_dispositions_11e("disruption", "reconnaissance")
+	_reset_vp()
+	_clear_control()
+	mgr.objective_control_state[nml] = 1
+	_spawn_unit("U_SCRUB", 2, _obj_position(nml))
+	res = mgr.resolve_card_action_11e(1, [nml])
+	_check("decoy pick allowed with an enemy in range (parity with auto)",
+		res.get("success", false), str(res))
+	mgr.score_primary_eot_11e(1)
+	_check("player-picked decoy survives its own EOT scrub",
+		nml in mgr._primary_state_11e["1"]["decoyed"],
+		str(mgr._primary_state_11e["1"]["decoyed"]))
+	_check("and scores like the auto path would",
+		int(gs.state.players["1"]["primary_vp"]) >= 2, str(gs.state.players["1"]["primary_vp"]))
+	mgr.on_turn_start_11e(2)
+	mgr.score_primary_eot_11e(2)
+	_check("the decoy is scrubbed on a later turn while the enemy remains",
+		not nml in mgr._primary_state_11e["1"]["decoyed"],
+		str(mgr._primary_state_11e["1"]["decoyed"]))
+	gs.state.units.erase("U_SCRUB")
+
 	print("\n-- Gather Intel: R2 gate + token placement --")
 	mgr.initialize_dispositions_11e("reconnaissance", "reconnaissance")
 	_reset_vp()
@@ -235,11 +257,23 @@ func _run_tests():
 	_check("prompt cleared after resolution",
 		mgr.get_pending_condemn_choice_11e(1).is_empty())
 	mgr.on_turn_start_11e(1)
+	_check("same-turn re-entry (save/load) keeps the player's revision",
+		mgr._primary_state_11e["1"]["condemned"] == ["U_C2"],
+		str(mgr._primary_state_11e["1"]["condemned"]))
+	_check("same-turn re-entry does not re-raise the prompt",
+		mgr.get_pending_condemn_choice_11e(1).is_empty())
+	gs.state.meta["battle_round"] = int(gs.state.meta["battle_round"]) + 1
+	mgr.on_turn_start_11e(1)
+	_check("a NEW turn re-arms the prompt with fresh auto picks",
+		not mgr.get_pending_condemn_choice_11e(1).is_empty()
+		and mgr._primary_state_11e["1"]["condemned"].size() > 1,
+		str(mgr._primary_state_11e["1"]["condemned"]))
 	var cdis = mgr.dismiss_condemn_prompt_11e(1)
 	_check("dismiss keeps the auto picks", cdis.get("success", false)
 		and not cdis.get("condemned", []).is_empty(), str(cdis))
 	_check("dismiss clears the pending prompt",
 		mgr.get_pending_condemn_choice_11e(1).is_empty())
+	gs.state.meta["battle_round"] = 2
 	gs.state.units.erase("U_C1")
 	gs.state.units.erase("U_C2")
 

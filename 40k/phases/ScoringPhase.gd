@@ -406,6 +406,10 @@ func _handle_end_turn() -> Dictionary:
 	if GameConstants.edition >= 11 and MissionManager and not _card_action_offered:
 		_card_action_offered = true
 		if _is_human_player_11e(current_player):
+			# Refresh kill counts before enumerating: Consecrate's kill gate
+			# must see kills only detected by the end-of-turn recount (e.g. a
+			# unit wiped by Tank Shock, which no live hook records).
+			MissionManager.count_destroyed_units_this_round()
 			var pending_ca = MissionManager.get_pending_card_action_11e(current_player)
 			if not pending_ca.is_empty():
 				_awaiting_card_action = true
