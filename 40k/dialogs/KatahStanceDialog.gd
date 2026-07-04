@@ -39,6 +39,7 @@ func setup(p_unit_id: String, p_player: int, p_master_available: bool = false) -
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
+	main_container.name = "Content"
 	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
@@ -70,6 +71,7 @@ func _build_ui() -> void:
 
 	# Stance buttons
 	var button_container = VBoxContainer.new()
+	button_container.name = "Buttons"
 
 	# Master of the Stances button (if available)
 	if master_of_stances_available:
@@ -93,6 +95,7 @@ func _build_ui() -> void:
 
 	# Dacatarai button
 	var dacatarai_button = Button.new()
+	dacatarai_button.name = "DacataraiButton"
 	dacatarai_button.text = "Dacatarai — Sustained Hits 1"
 	dacatarai_button.custom_minimum_size = Vector2(400, 50)
 	dacatarai_button.pressed.connect(_on_dacatarai_pressed)
@@ -112,6 +115,7 @@ func _build_ui() -> void:
 
 	# Rendax button
 	var rendax_button = Button.new()
+	rendax_button.name = "RendaxButton"
 	rendax_button.text = "Rendax — Lethal Hits"
 	rendax_button.custom_minimum_size = Vector2(400, 50)
 	rendax_button.pressed.connect(_on_rendax_pressed)

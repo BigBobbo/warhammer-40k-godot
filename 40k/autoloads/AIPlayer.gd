@@ -1560,19 +1560,31 @@ func _execute_next_action(player: int) -> void:
 			if failed_unit_id != "":
 				var pile_unit_name = _get_unit_name(failed_unit_id)
 				if failed_unit_id in _pile_in_retry_units:
-					# T12-4: Already retried with empty movements — force CONSOLIDATE to break loop
-					print("AIPlayer: T12-4 Pile-in retry also failed for %s — sending CONSOLIDATE" % failed_unit_id)
-					_log_ai_event(player, "%s pile-in double failure — consolidating" % pile_unit_name)
+					# T12-4: Already retried with empty movements — break the loop.
+					# 11e: consolidation is the global 12.07 step (invalid
+					# mid-activation), so end the activation with SKIP_UNIT.
 					_pile_in_retry_units.erase(failed_unit_id)
 					_current_phase_actions += 1
-					NetworkIntegration.route_action({
-						"type": "CONSOLIDATE",
-						"unit_id": failed_unit_id,
-						"actor_unit_id": failed_unit_id,
-						"movements": {},
-						"player": player,
-						"_ai_description": "Consolidate %s — pile-in double failure" % pile_unit_name
-					})
+					if GameConstants.edition >= 11:
+						print("AIPlayer: T12-4 Pile-in retry also failed for %s — sending SKIP_UNIT (11e)" % failed_unit_id)
+						_log_ai_event(player, "%s pile-in double failure — skipping unit" % pile_unit_name)
+						NetworkIntegration.route_action({
+							"type": "SKIP_UNIT",
+							"unit_id": failed_unit_id,
+							"player": player,
+							"_ai_description": "Skip %s — pile-in double failure" % pile_unit_name
+						})
+					else:
+						print("AIPlayer: T12-4 Pile-in retry also failed for %s — sending CONSOLIDATE" % failed_unit_id)
+						_log_ai_event(player, "%s pile-in double failure — consolidating" % pile_unit_name)
+						NetworkIntegration.route_action({
+							"type": "CONSOLIDATE",
+							"unit_id": failed_unit_id,
+							"actor_unit_id": failed_unit_id,
+							"movements": {},
+							"player": player,
+							"_ai_description": "Consolidate %s — pile-in double failure" % pile_unit_name
+						})
 				else:
 					print("AIPlayer: Pile-in failed for %s, retrying with no movement" % failed_unit_id)
 					_log_ai_event(player, "%s pile-in failed — skipping movement" % pile_unit_name)
@@ -1611,20 +1623,32 @@ func _execute_next_action(player: int) -> void:
 						"_ai_description": "Consolidate %s — no movement (validation failed)" % consol_unit_name
 					})
 
-		# Handle failed fight attacks — consolidate so the game can continue
+		# Handle failed fight attacks — end the activation so the game can
+		# continue (11e: SKIP_UNIT — consolidation is the global 12.07 step;
+		# 10e: CONSOLIDATE as before)
 		elif decision.get("type") == "ASSIGN_ATTACKS":
 			var failed_unit_id = decision.get("unit_id", "")
 			if failed_unit_id != "":
 				var fight_unit_name = _get_unit_name(failed_unit_id)
-				print("AIPlayer: Fight attacks failed for %s, sending CONSOLIDATE" % failed_unit_id)
-				_log_ai_event(player, "%s fight failed — consolidating" % fight_unit_name)
 				_current_phase_actions += 1
-				NetworkIntegration.route_action({
-					"type": "CONSOLIDATE",
-					"unit_id": failed_unit_id,
-					"player": player,
-					"_ai_description": "Consolidate %s — attack validation failed" % fight_unit_name
-				})
+				if GameConstants.edition >= 11:
+					print("AIPlayer: Fight attacks failed for %s, sending SKIP_UNIT (11e)" % failed_unit_id)
+					_log_ai_event(player, "%s fight failed — skipping unit" % fight_unit_name)
+					NetworkIntegration.route_action({
+						"type": "SKIP_UNIT",
+						"unit_id": failed_unit_id,
+						"player": player,
+						"_ai_description": "Skip %s — attack validation failed" % fight_unit_name
+					})
+				else:
+					print("AIPlayer: Fight attacks failed for %s, sending CONSOLIDATE" % failed_unit_id)
+					_log_ai_event(player, "%s fight failed — consolidating" % fight_unit_name)
+					NetworkIntegration.route_action({
+						"type": "CONSOLIDATE",
+						"unit_id": failed_unit_id,
+						"player": player,
+						"_ai_description": "Consolidate %s — attack validation failed" % fight_unit_name
+					})
 
 		# Handle failed shooting — skip the unit so we don't retry the same one
 		elif decision.get("type") == "SHOOT":
