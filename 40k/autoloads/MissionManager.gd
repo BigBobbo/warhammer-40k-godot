@@ -97,6 +97,10 @@ var _primary_state_11e: Dictionary = {}
 # Shared relic/operation markers for the Extract Relic / Locate and Deny
 # pairing: terrain feature ids still carrying a marker
 var _relic_markers_11e: Array = []
+# The real card lets the DISRUPTION player choose the five marked areas at
+# mission start; the auto-pick stands as backstop and a human DI player may
+# revise it during their first Command phase while this is set.
+var _relic_setup_prompt_pending: bool = false
 # player_key (turn owner) -> {unit_id: true} units on the battlefield at
 # the start of that player's turn (for left-battlefield / destroyed checks)
 var _alive_at_turn_start_11e: Dictionary = {}
@@ -1132,6 +1136,7 @@ func _blank_primary_state_11e() -> Dictionary:
 ## player's home objective (deterministic; flagged approximate).
 func _setup_relic_markers_11e() -> void:
 	_relic_markers_11e = []
+	_relic_setup_prompt_pending = false
 	var ids = [player_primary_missions.get("1", {}).get("id", ""),
 		player_primary_missions.get("2", {}).get("id", "")]
 	if not ("extract_relic" in ids or "locate_and_deny" in ids):
@@ -1156,6 +1161,9 @@ func _setup_relic_markers_11e() -> void:
 	candidates.sort_custom(func(a, b): return a["dist"] > b["dist"])
 	for i in range(min(5, candidates.size())):
 		_relic_markers_11e.append(candidates[i]["id"])
+	# A human Disruption player may revise these picks in their first
+	# Command phase (real card: their choice at mission start).
+	_relic_setup_prompt_pending = not _relic_markers_11e.is_empty()
 	print("MissionManager: 11e relic markers placed on %s" % str(_relic_markers_11e))
 
 ## Called at Command phase entry (after check_all_objectives) — opens the
@@ -1365,6 +1373,7 @@ func _run_primary_auto_actions_11e(player: int, battle_round: int) -> void:
 							and _friendly_unit_in_range_of_objective_11e(player, central2, control_radius):
 						var removed = _relic_markers_11e.pop_back()
 						st["sensor_swept_this_turn"] = true
+						_relic_setup_prompt_pending = false
 						print("MissionManager: 11e Sensor Sweep removed marker %s (P%s, %d left)" % [str(removed), pk, _relic_markers_11e.size()])
 
 	# The active player's own Condemned check also runs at their EOT
@@ -1645,6 +1654,7 @@ func resolve_card_action_11e(player: int, target_ids: Array) -> Dictionary:
 			for tid in picks:
 				_relic_markers_11e.erase(tid)
 				st["sensor_swept_this_turn"] = true
+				_relic_setup_prompt_pending = false
 				print("MissionManager: 11e Sensor Sweep removed marker %s (P%s, player choice, %d left)" % [tid, pk, _relic_markers_11e.size()])
 		_:
 			return {"success": false, "error": "Card %s has no resolvable action" % card_id}
@@ -1728,6 +1738,82 @@ func dismiss_condemn_prompt_11e(player: int) -> Dictionary:
 		st["condemn_prompt_pending"] = false
 		st["condemn_resolved_turn"] = "R%dP%d" % [GameState.get_battle_round(), player]
 	return {"success": true, "condemned": st.get("condemned", []).duplicate()}
+
+## Extract Relic / Locate and Deny setup: the DISRUPTION player chooses the
+## five marked terrain areas (outside their deployment zone). The auto-pick
+## stands as backstop; a human DI player may revise it during their first
+## Command phase — until any Sensor Sweep consumes a marker.
+func get_pending_relic_setup_11e(player: int) -> Dictionary:
+	if GameConstants.edition < 11 or not _relic_setup_prompt_pending:
+		return {}
+	if player_dispositions.get(str(player), "") != "disruption":
+		return {}
+	var eligible_ids = _relic_eligible_features_11e(player)
+	if eligible_ids.is_empty():
+		return {}
+	var required = min(5, eligible_ids.size())
+	if _relic_markers_11e.size() < required:
+		# A sweep already removed a marker — the setup window is closed.
+		_relic_setup_prompt_pending = false
+		return {}
+	var eligible = []
+	for fid in eligible_ids:
+		eligible.append({"id": fid, "label": fid})
+	return {
+		"player": player,
+		"action_name": "Mark Terrain Areas",
+		"description": "As the Disruption player, choose the %d terrain areas outside your deployment zone that carry the operation markers." % required,
+		"required_picks": required,
+		"eligible": eligible,
+		"current": _relic_markers_11e.duplicate(),
+	}
+
+func _relic_eligible_features_11e(di_player: int) -> Array:
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null:
+		return []
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	var di_zone = secondary_mgr._get_deployment_zone_polygon(di_player) if secondary_mgr != null else PackedVector2Array()
+	var out = []
+	for feature in tm.terrain_features:
+		var fid = str(feature.get("id", ""))
+		if fid == "":
+			continue
+		var fpos = feature.get("position", Vector2.ZERO)
+		if fpos is Dictionary:
+			fpos = Vector2(fpos.get("x", 0), fpos.get("y", 0))
+		if not di_zone.is_empty() and Geometry2D.is_point_in_polygon(fpos, di_zone):
+			continue
+		out.append(fid)
+	return out
+
+func resolve_relic_setup_11e(player: int, feature_ids: Array) -> Dictionary:
+	var pending = get_pending_relic_setup_11e(player)
+	if pending.is_empty():
+		return {"success": false, "error": "No pending relic-marker setup for player %d" % player}
+	var required = int(pending.get("required_picks", 5))
+	var valid_ids = []
+	for e in pending.get("eligible", []):
+		valid_ids.append(str(e.get("id", "")))
+	var picks = []
+	for fid in feature_ids:
+		var fid_s = str(fid)
+		if not fid_s in valid_ids:
+			return {"success": false, "error": "Terrain %s is not eligible for a marker" % fid_s}
+		if not fid_s in picks:
+			picks.append(fid_s)
+	if picks.size() != required:
+		return {"success": false, "error": "Exactly %d terrain areas must be marked (got %d)" % [required, picks.size()]}
+	_relic_markers_11e = picks
+	_relic_setup_prompt_pending = false
+	print("MissionManager: 11e relic markers revised to %s (P%d choice)" % [str(picks), player])
+	refresh_card_action_visuals_11e()
+	return {"success": true, "markers": picks.duplicate()}
+
+## Keep the auto-picked marker locations and close the setup window.
+func dismiss_relic_setup_11e(_player: int) -> Dictionary:
+	_relic_setup_prompt_pending = false
+	return {"success": true, "markers": _relic_markers_11e.duplicate()}
 
 ## End-of-game primary scoring for both players (idempotent).
 func score_primary_eog_11e() -> void:
@@ -2435,6 +2521,7 @@ func get_state_for_save() -> Dictionary:
 		"eog_primary_scored": _eog_primary_scored,
 		"primary_state_11e": _primary_state_11e.duplicate(true),
 		"relic_markers_11e": _relic_markers_11e.duplicate(true),
+		"relic_setup_prompt_pending": _relic_setup_prompt_pending,
 		"alive_at_turn_start_11e": _alive_at_turn_start_11e.duplicate(true)
 	}
 
@@ -2465,6 +2552,7 @@ func load_state(data: Dictionary) -> void:
 	_eog_primary_scored = data.get("eog_primary_scored", false)
 	_primary_state_11e = data.get("primary_state_11e", {})
 	_relic_markers_11e = data.get("relic_markers_11e", [])
+	_relic_setup_prompt_pending = data.get("relic_setup_prompt_pending", false)
 	_alive_at_turn_start_11e = data.get("alive_at_turn_start_11e", {})
 	refresh_card_action_visuals_11e()
 	print("MissionManager: Loaded state — %d sticky, %d burned, %d ritual" % [

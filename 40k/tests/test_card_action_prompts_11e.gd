@@ -277,6 +277,50 @@ func _run_tests():
 	gs.state.units.erase("U_C1")
 	gs.state.units.erase("U_C2")
 
+	print("\n-- Relic-marker setup: Disruption player's revision window --")
+	var tm = root.get_node_or_null("TerrainManager")
+	_check("TerrainManager present", tm != null)
+	var saved_features = tm.terrain_features
+	tm.terrain_features = []
+	for i in range(6):
+		tm.terrain_features.append({"id": "T_R%d" % i,
+			"position": Vector2(200 + i * 220, 300 + i * 260),
+			"polygon": PackedVector2Array([Vector2(0, 0), Vector2(50, 0), Vector2(50, 50), Vector2(0, 50)])})
+	mgr.initialize_dispositions_11e("priority_assets", "disruption")
+	_check("markers auto-placed at init", mgr._relic_markers_11e.size() == 5,
+		str(mgr._relic_markers_11e))
+	_check("setup window pending after init", mgr._relic_setup_prompt_pending)
+	var rp = mgr.get_pending_relic_setup_11e(2)
+	_check("Disruption player (P2) gets the setup prompt", not rp.is_empty()
+		and int(rp.get("required_picks", 0)) == 5, str(rp.get("required_picks")))
+	_check("non-Disruption player (P1) gets no prompt",
+		mgr.get_pending_relic_setup_11e(1).is_empty())
+	var wrong_count = mgr.resolve_relic_setup_11e(2, ["T_R0", "T_R1"])
+	_check("wrong pick count rejected", not wrong_count.get("success", true), str(wrong_count))
+	var bad_id = mgr.resolve_relic_setup_11e(2, ["T_R0", "T_R1", "T_R2", "T_R3", "T_BOGUS"])
+	_check("ineligible terrain rejected", not bad_id.get("success", true), str(bad_id))
+	var rres = mgr.resolve_relic_setup_11e(2, ["T_R0", "T_R1", "T_R2", "T_R3", "T_R4"])
+	_check("valid revision replaces the markers", rres.get("success", false)
+		and mgr._relic_markers_11e == ["T_R0", "T_R1", "T_R2", "T_R3", "T_R4"],
+		str(mgr._relic_markers_11e))
+	_check("window closed after resolution",
+		mgr.get_pending_relic_setup_11e(2).is_empty() and not mgr._relic_setup_prompt_pending)
+	mgr.initialize_dispositions_11e("priority_assets", "disruption")
+	mgr._relic_markers_11e.pop_back()
+	_check("a consumed marker (sweep) closes the setup window",
+		mgr.get_pending_relic_setup_11e(2).is_empty() and not mgr._relic_setup_prompt_pending)
+	mgr.initialize_dispositions_11e("priority_assets", "disruption")
+	var rdis = mgr.dismiss_relic_setup_11e(2)
+	_check("dismiss keeps the auto locations", rdis.get("success", false)
+		and rdis.get("markers", []).size() == 5 and not mgr._relic_setup_prompt_pending)
+	mgr.initialize_dispositions_11e("priority_assets", "disruption")
+	var relic_save = mgr.get_state_for_save()
+	mgr._relic_setup_prompt_pending = false
+	mgr.load_state(relic_save)
+	_check("setup-pending flag round-trips through save/load",
+		mgr._relic_setup_prompt_pending == true)
+	tm.terrain_features = saved_features
+
 	print("\n-- save/load: resolved flag round-trips --")
 	mgr.initialize_dispositions_11e("reconnaissance", "purge_the_foe")
 	_clear_control()

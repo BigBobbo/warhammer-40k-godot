@@ -712,6 +712,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_resolve_condemn(action)
 		"DISMISS_CONDEMN":
 			pass  # Always valid — keeps the auto-Condemn picks
+		"RESOLVE_RELIC_SETUP":
+			errors = _validate_resolve_relic_setup(action)
+		"DISMISS_RELIC_SETUP":
+			pass  # Always valid — keeps the auto-picked marker locations
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true, "errors": []}
@@ -801,6 +805,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_resolve_condemn(action)
 		"DISMISS_CONDEMN":
 			return _handle_dismiss_condemn(action)
+		"RESOLVE_RELIC_SETUP":
+			return _handle_resolve_relic_setup(action)
+		"DISMISS_RELIC_SETUP":
+			return _handle_dismiss_relic_setup(action)
 		_:
 			return {"success": false, "error": "Unknown action type"}
 
@@ -2265,6 +2273,50 @@ func _handle_dismiss_condemn(action: Dictionary) -> Dictionary:
 		"condemned": res.get("condemned", []),
 	}
 
+# ============================================================================
+# 11e GDM EXTRACT RELIC / LOCATE AND DENY — MARKER SETUP CHOICE
+# ============================================================================
+
+func _validate_resolve_relic_setup(action: Dictionary) -> Array:
+	var errors = []
+	var player = action.get("player", get_current_player())
+	if not (action.get("feature_ids", null) is Array):
+		errors.append("RESOLVE_RELIC_SETUP requires a feature_ids array")
+		return errors
+	if MissionManager.get_pending_relic_setup_11e(player).is_empty():
+		errors.append("No pending relic-marker setup for player %d" % player)
+	return errors
+
+func _handle_resolve_relic_setup(action: Dictionary) -> Dictionary:
+	var player = action.get("player", get_current_player())
+	var res = MissionManager.resolve_relic_setup_11e(player, action.get("feature_ids", []))
+	if not res.get("success", false):
+		return {"success": false, "error": res.get("error", "Relic setup failed")}
+	log_phase_message("11e relic markers set by P%d: %s (player's choice)" % [player, str(res.get("markers", []))])
+	GameState.add_action_to_phase_log({
+		"type": "RESOLVE_RELIC_SETUP",
+		"player": player,
+		"feature_ids": res.get("markers", []),
+		"turn": GameState.get_battle_round(),
+	})
+	return {
+		"success": true,
+		"changes": [],
+		"message": "Relic markers placed: %s" % str(res.get("markers", [])),
+		"markers": res.get("markers", []),
+	}
+
+func _handle_dismiss_relic_setup(action: Dictionary) -> Dictionary:
+	var player = action.get("player", get_current_player())
+	var res = MissionManager.dismiss_relic_setup_11e(player)
+	log_phase_message("11e relic markers: P%d keeps the auto-picked locations %s" % [player, str(res.get("markers", []))])
+	return {
+		"success": true,
+		"changes": [],
+		"message": "Kept relic markers: %s" % str(res.get("markers", [])),
+		"markers": res.get("markers", []),
+	}
+
 func get_untested_battle_shock_units() -> Array:
 	"""Return info about units that need battle-shock tests but haven't been tested yet."""
 	var untested = []
@@ -2317,6 +2369,10 @@ func _handle_end_command() -> Dictionary:
 		if not MissionManager.get_pending_condemn_choice_11e(current_player).is_empty():
 			MissionManager.dismiss_condemn_prompt_11e(current_player)
 			DebugLogger.info("CommandPhase: Condemn prompt unresolved at END_COMMAND — keeping auto picks")
+		# Same for the Disruption player's relic-marker setup window.
+		if not MissionManager.get_pending_relic_setup_11e(current_player).is_empty():
+			MissionManager.dismiss_relic_setup_11e(current_player)
+			DebugLogger.info("CommandPhase: relic-marker setup unresolved at END_COMMAND — keeping auto picks")
 
 	# Apply sticky objective locks at end of Command phase
 	# "Get Da Good Bitz" / "Objective Secured": if a unit with this ability is within range
