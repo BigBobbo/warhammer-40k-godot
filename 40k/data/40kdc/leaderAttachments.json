@@ -1,0 +1,3449 @@
+[
+ {
+  "leader_id": "aestred-thurga-and-agathae-dolan",
+  "eligible_bodyguard_ids": [
+   "battle-sisters-squad",
+   "celestian-insidiants",
+   "celestian-sacresants",
+   "dominion-squad",
+   "retributor-squad",
+   "sisters-novitiate-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "canoness",
+  "eligible_bodyguard_ids": [
+   "battle-sisters-squad",
+   "celestian-insidiants",
+   "celestian-sacresants",
+   "dominion-squad",
+   "retributor-squad",
+   "sisters-novitiate-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "canoness-with-jump-pack",
+  "eligible_bodyguard_ids": [
+   "seraphim-squad",
+   "zephyrim-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "dialogus",
+  "eligible_bodyguard_ids": [
+   "battle-sisters-squad",
+   "celestian-insidiants",
+   "celestian-sacresants",
+   "dominion-squad",
+   "retributor-squad",
+   "sisters-novitiate-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "dogmata",
+  "eligible_bodyguard_ids": [
+   "battle-sisters-squad",
+   "celestian-insidiants",
+   "celestian-sacresants",
+   "dominion-squad",
+   "retributor-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "hospitaller",
+  "eligible_bodyguard_ids": [
+   "battle-sisters-squad",
+   "celestian-insidiants",
+   "celestian-sacresants",
+   "dominion-squad",
+   "retributor-squad",
+   "sisters-novitiate-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "imagifier",
+  "eligible_bodyguard_ids": [
+   "battle-sisters-squad",
+   "celestian-insidiants",
+   "celestian-sacresants",
+   "dominion-squad",
+   "retributor-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "junith-eruita",
+  "eligible_bodyguard_ids": [
+   "battle-sisters-squad",
+   "celestian-insidiants",
+   "celestian-sacresants",
+   "dominion-squad",
+   "retributor-squad",
+   "sisters-novitiate-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ministorum-priest",
+  "eligible_bodyguard_ids": [
+   "arco-flagellants",
+   "battle-sisters-squad",
+   "celestian-insidiants",
+   "dominion-squad",
+   "sanctifiers",
+   "sisters-novitiate-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "morvenn-vahl",
+  "eligible_bodyguard_ids": [
+   "paragon-warsuits"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "palatine",
+  "eligible_bodyguard_ids": [
+   "battle-sisters-squad",
+   "celestian-insidiants",
+   "celestian-sacresants",
+   "dominion-squad",
+   "retributor-squad",
+   "sisters-novitiate-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "saint-celestine",
+  "eligible_bodyguard_ids": [
+   "seraphim-squad",
+   "zephyrim-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "triumph-of-saint-katherine",
+  "eligible_bodyguard_ids": [
+   "battle-sisters-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "adrax-agatone",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "company-heroes",
+   "infernus-squad",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ancient",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "crusader-squad",
+   "deathwatch-veterans",
+   "decimus-kill-team",
+   "desolation-squad",
+   "devastator-squad",
+   "fortis-kill-team",
+   "hellblaster-squad",
+   "infernus-squad",
+   "inner-circle-companions",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "sword-brethren-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ancient-in-terminator-armour",
+  "eligible_bodyguard_ids": [
+   "deathwatch-terminator-squad",
+   "deathwing-knights",
+   "deathwing-terminator-squad",
+   "terminator-assault-squad",
+   "terminator-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "apothecary",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "crusader-squad",
+   "deathwatch-veterans",
+   "decimus-kill-team",
+   "desolation-squad",
+   "devastator-squad",
+   "fortis-kill-team",
+   "hellblaster-squad",
+   "infernus-squad",
+   "inner-circle-companions",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "sword-brethren-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "apothecary-biologis",
+  "eligible_bodyguard_ids": [
+   "aggressor-squad",
+   "eradicator-squad",
+   "heavy-intercessor-squad",
+   "indomitor-kill-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "arjac-rockfist",
+  "eligible_bodyguard_ids": [
+   "wolf-guard-terminators"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "asmodai",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "hellblaster-squad",
+   "infernus-squad",
+   "inner-circle-companions",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "astorath",
+  "eligible_bodyguard_ids": [
+   "death-company-marines-with-jump-packs"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "azrael",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "hellblaster-squad",
+   "infernus-squad",
+   "inner-circle-companions",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "belial",
+  "eligible_bodyguard_ids": [
+   "deathwing-knights",
+   "deathwing-terminator-squad",
+   "terminator-assault-squad",
+   "terminator-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "bladeguard-ancient",
+  "eligible_bodyguard_ids": [
+   "bladeguard-veteran-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "blood-angels-captain",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "company-heroes",
+   "infernus-squad",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "caanok-var",
+  "eligible_bodyguard_ids": [
+   "terminator-assault-squad",
+   "terminator-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "captain",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "company-heroes",
+   "crusader-squad",
+   "deathwatch-veterans",
+   "decimus-kill-team",
+   "desolation-squad",
+   "fortis-kill-team",
+   "hellblaster-squad",
+   "infernus-squad",
+   "inner-circle-companions",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "sword-brethren-squad",
+   "tactical-squad",
+   "victrix-honour-guard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "captain-in-gravis-armour",
+  "eligible_bodyguard_ids": [
+   "aggressor-squad",
+   "eradicator-squad",
+   "heavy-intercessor-squad",
+   "indomitor-kill-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "captain-in-phobos-armour",
+  "eligible_bodyguard_ids": [
+   "eliminator-squad",
+   "incursor-squad",
+   "infiltrator-squad",
+   "reiver-squad",
+   "scout-squad",
+   "spectrus-kill-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "captain-in-terminator-armour",
+  "eligible_bodyguard_ids": [
+   "deathwatch-terminator-squad",
+   "deathwing-knights",
+   "deathwing-terminator-squad",
+   "terminator-assault-squad",
+   "terminator-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "captain-titus",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "company-heroes",
+   "hellblaster-squad",
+   "infernus-squad",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "victrix-honour-guard",
+   "wardens-of-ultramar"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "captain-with-jump-pack",
+  "eligible_bodyguard_ids": [
+   "assault-intercessors-with-jump-packs",
+   "sanguinary-guard",
+   "talonstrike-kill-team",
+   "vanguard-veteran-squad-with-jump-packs"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "castellan",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "crusader-squad",
+   "infernus-squad",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "sword-brethren-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "cato-sicarius",
+  "eligible_bodyguard_ids": [
+   "victrix-honour-guard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "chaplain",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "crusader-squad",
+   "death-company-marines",
+   "death-company-marines-with-bolt-rifles",
+   "deathwatch-veterans",
+   "decimus-kill-team",
+   "fortis-kill-team",
+   "hellblaster-squad",
+   "infernus-squad",
+   "inner-circle-companions",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "sword-brethren-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "chaplain-grimaldus",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "crusader-squad",
+   "infernus-squad",
+   "intercessor-squad",
+   "sword-brethren-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "chaplain-in-terminator-armour",
+  "eligible_bodyguard_ids": [
+   "deathwatch-terminator-squad",
+   "deathwing-knights",
+   "deathwing-terminator-squad",
+   "terminator-assault-squad",
+   "terminator-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "chaplain-on-bike",
+  "eligible_bodyguard_ids": [
+   "outrider-squad",
+   "ravenwing-black-knights"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "chaplain-with-jump-pack",
+  "eligible_bodyguard_ids": [
+   "assault-intercessors-with-jump-packs",
+   "death-company-marines-with-jump-packs",
+   "talonstrike-kill-team",
+   "vanguard-veteran-squad-with-jump-packs"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "chief-librarian-tigurius",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "desolation-squad",
+   "devastator-squad",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "commander-dante",
+  "eligible_bodyguard_ids": [
+   "assault-intercessors-with-jump-packs",
+   "sanguinary-guard",
+   "vanguard-veteran-squad-with-jump-packs"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "crusade-ancient",
+  "eligible_bodyguard_ids": [
+   "crusader-squad",
+   "sword-brethren-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "darnath-lysander",
+  "eligible_bodyguard_ids": [
+   "terminator-assault-squad",
+   "terminator-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "death-company-captain",
+  "eligible_bodyguard_ids": [
+   "death-company-marines",
+   "death-company-marines-with-bolt-rifles"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "death-company-captain-with-jump-pack",
+  "eligible_bodyguard_ids": [
+   "death-company-marines-with-jump-packs"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "emperors-champion",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "crusader-squad",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "sword-brethren-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "execrator",
+  "eligible_bodyguard_ids": [
+   "crusader-squad",
+   "sword-brethren-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ezekiel",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "hellblaster-squad",
+   "infernus-squad",
+   "inner-circle-companions",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "high-marshal-helbrecht",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "crusader-squad",
+   "intercessor-squad",
+   "sword-brethren-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "iron-father-feirros",
+  "eligible_bodyguard_ids": [
+   "aggressor-squad",
+   "eradicator-squad",
+   "heavy-intercessor-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "iron-priest",
+  "eligible_bodyguard_ids": [
+   "blood-claws",
+   "grey-hunters",
+   "wolf-guard-headtakers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "judiciar",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "crusader-squad",
+   "deathwatch-veterans",
+   "decimus-kill-team",
+   "fortis-kill-team",
+   "infernus-squad",
+   "inner-circle-companions",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "sword-brethren-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "kayvaan-shrike",
+  "eligible_bodyguard_ids": [
+   "assault-intercessors-with-jump-packs",
+   "vanguard-veteran-squad-with-jump-packs"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "korsarro-khan",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "company-heroes",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lazarus",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "infernus-squad",
+   "inner-circle-companions",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lemartes",
+  "eligible_bodyguard_ids": [
+   "death-company-marines-with-jump-packs"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "librarian",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "deathwatch-veterans",
+   "decimus-kill-team",
+   "desolation-squad",
+   "devastator-squad",
+   "fortis-kill-team",
+   "hellblaster-squad",
+   "infernus-squad",
+   "inner-circle-companions",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "librarian-in-phobos-armour",
+  "eligible_bodyguard_ids": [
+   "eliminator-squad",
+   "incursor-squad",
+   "infiltrator-squad",
+   "reiver-squad",
+   "scout-squad",
+   "spectrus-kill-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "librarian-in-terminator-armour",
+  "eligible_bodyguard_ids": [
+   "deathwatch-terminator-squad",
+   "deathwing-knights",
+   "deathwing-terminator-squad",
+   "terminator-assault-squad",
+   "terminator-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lieutenant",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "company-heroes",
+   "crusader-squad",
+   "deathwatch-veterans",
+   "decimus-kill-team",
+   "desolation-squad",
+   "fortis-kill-team",
+   "hellblaster-squad",
+   "infernus-squad",
+   "inner-circle-companions",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "sword-brethren-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lieutenant-in-phobos-armour",
+  "eligible_bodyguard_ids": [
+   "incursor-squad",
+   "infiltrator-squad",
+   "reiver-squad",
+   "spectrus-kill-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lieutenant-in-reiver-armour",
+  "eligible_bodyguard_ids": [
+   "reiver-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "logan-grimnar",
+  "eligible_bodyguard_ids": [
+   "wolf-guard-terminators"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "marneus-calgar-in-armour-of-antilochus",
+  "eligible_bodyguard_ids": [
+   "aggressor-squad",
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "company-heroes",
+   "eradicator-squad",
+   "heavy-intercessor-squad",
+   "infernus-squad",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad",
+   "terminator-assault-squad",
+   "terminator-squad",
+   "victrix-honour-guard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "marshal",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "crusader-squad",
+   "infernus-squad",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "sword-brethren-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "njal-stormcaller",
+  "eligible_bodyguard_ids": [
+   "blood-claws",
+   "grey-hunters",
+   "wolf-guard-headtakers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "pedro-kantor",
+  "eligible_bodyguard_ids": [
+   "bladeguard-veteran-squad",
+   "company-heroes",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ragnar-blackmane",
+  "eligible_bodyguard_ids": [
+   "blood-claws",
+   "wolf-guard-headtakers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ravenwing-command-squad",
+  "eligible_bodyguard_ids": [
+   "outrider-squad",
+   "ravenwing-black-knights"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "sammael",
+  "eligible_bodyguard_ids": [
+   "outrider-squad",
+   "ravenwing-black-knights"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "sanguinary-priest",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "desolation-squad",
+   "devastator-squad",
+   "hellblaster-squad",
+   "infernus-squad",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "suboden-khan",
+  "eligible_bodyguard_ids": [
+   "outrider-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "techmarine",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "crusader-squad",
+   "decimus-kill-team",
+   "desolation-squad",
+   "devastator-squad",
+   "fortis-kill-team",
+   "intercessor-squad",
+   "sword-brethren-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "tor-garadon",
+  "eligible_bodyguard_ids": [
+   "aggressor-squad",
+   "eradicator-squad",
+   "heavy-intercessor-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ulrik-the-slayer",
+  "eligible_bodyguard_ids": [
+   "blood-claws",
+   "grey-hunters",
+   "wolf-guard-headtakers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "uriel-ventris",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "company-heroes",
+   "intercessor-squad",
+   "sternguard-veteran-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "vulkan-hestan",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "company-heroes",
+   "infernus-squad",
+   "tactical-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "wardens-of-ultramar",
+  "eligible_bodyguard_ids": [
+   "assault-intercessor-squad",
+   "bladeguard-veteran-squad",
+   "intercessor-squad",
+   "sternguard-veteran-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "watch-captain-artemis",
+  "eligible_bodyguard_ids": [
+   "deathwatch-veterans",
+   "decimus-kill-team",
+   "fortis-kill-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "watch-master",
+  "eligible_bodyguard_ids": [
+   "deathwatch-veterans",
+   "decimus-kill-team",
+   "fortis-kill-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "wolf-guard-battle-leader",
+  "eligible_bodyguard_ids": [
+   "blood-claws",
+   "grey-hunters",
+   "wolf-guard-headtakers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "wolf-priest",
+  "eligible_bodyguard_ids": [
+   "blood-claws",
+   "grey-hunters",
+   "wolf-guard-headtakers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "aleya",
+  "eligible_bodyguard_ids": [
+   "prosecutors",
+   "vigilators",
+   "witchseekers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "blade-champion",
+  "eligible_bodyguard_ids": [
+   "custodian-guard",
+   "custodian-guard-with-adrasite-and-pyrithite-spears",
+   "custodian-wardens",
+   "sagittarum-custodians"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "knight-centura",
+  "eligible_bodyguard_ids": [
+   "prosecutors",
+   "vigilators",
+   "witchseekers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "shield-captain",
+  "eligible_bodyguard_ids": [
+   "custodian-guard",
+   "custodian-guard-with-adrasite-and-pyrithite-spears",
+   "custodian-wardens",
+   "sagittarum-custodians"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "shield-captain-in-allarus-terminator-armour",
+  "eligible_bodyguard_ids": [
+   "allarus-custodians",
+   "aquilon-custodians"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "shield-captain-on-dawneagle-jetbike",
+  "eligible_bodyguard_ids": [
+   "agamatus-custodians",
+   "vertus-praetors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "trajann-valoris",
+  "eligible_bodyguard_ids": [
+   "custodian-guard",
+   "custodian-guard-with-adrasite-and-pyrithite-spears",
+   "custodian-wardens",
+   "sagittarum-custodians"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "valerian",
+  "eligible_bodyguard_ids": [
+   "custodian-guard",
+   "custodian-guard-with-adrasite-and-pyrithite-spears",
+   "custodian-wardens",
+   "sagittarum-custodians"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "cybernetica-datasmith",
+  "eligible_bodyguard_ids": [
+   "kastelan-robots"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "skitarii-marshal",
+  "eligible_bodyguard_ids": [
+   "skitarii-rangers",
+   "skitarii-vanguard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "tech-priest-dominus",
+  "eligible_bodyguard_ids": [
+   "corpuscarii-electro-priests",
+   "fulgurite-electro-priests",
+   "kataphron-breachers",
+   "kataphron-destroyers",
+   "servitor-battleclade",
+   "skitarii-rangers",
+   "skitarii-vanguard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "tech-priest-enginseer",
+  "eligible_bodyguard_ids": [
+   "corpuscarii-electro-priests",
+   "fulgurite-electro-priests",
+   "kataphron-breachers",
+   "kataphron-destroyers",
+   "servitor-battleclade",
+   "skitarii-rangers",
+   "skitarii-vanguard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "tech-priest-manipulus",
+  "eligible_bodyguard_ids": [
+   "corpuscarii-electro-priests",
+   "fulgurite-electro-priests",
+   "kataphron-breachers",
+   "kataphron-destroyers",
+   "servitor-battleclade",
+   "skitarii-rangers",
+   "skitarii-vanguard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "technoarcheologist",
+  "eligible_bodyguard_ids": [
+   "corpuscarii-electro-priests",
+   "fulgurite-electro-priests",
+   "kataphron-breachers",
+   "kataphron-destroyers",
+   "servitor-battleclade",
+   "skitarii-rangers",
+   "skitarii-vanguard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "asurmen",
+  "eligible_bodyguard_ids": [
+   "dire-avengers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "autarch",
+  "eligible_bodyguard_ids": [
+   "dark-reapers",
+   "dire-avengers",
+   "fire-dragons",
+   "guardian-defenders",
+   "howling-banshees",
+   "storm-guardians",
+   "striking-scorpions"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "autarch-wayleaper",
+  "eligible_bodyguard_ids": [
+   "swooping-hawks",
+   "warp-spiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "baharroth",
+  "eligible_bodyguard_ids": [
+   "swooping-hawks"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "eldrad-ulthran",
+  "eligible_bodyguard_ids": [
+   "guardian-defenders",
+   "storm-guardians",
+   "warlock-conclave"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "farseer",
+  "eligible_bodyguard_ids": [
+   "guardian-defenders",
+   "storm-guardians",
+   "warlock-conclave"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "farseer-skyrunner",
+  "eligible_bodyguard_ids": [
+   "warlock-skyrunners",
+   "windriders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "fuegan",
+  "eligible_bodyguard_ids": [
+   "fire-dragons"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "jain-zar",
+  "eligible_bodyguard_ids": [
+   "howling-banshees"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "kharseth",
+  "eligible_bodyguard_ids": [
+   "corsair-voidreavers",
+   "corsair-voidscarred"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lhykhis",
+  "eligible_bodyguard_ids": [
+   "warp-spiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "maugan-ra",
+  "eligible_bodyguard_ids": [
+   "dark-reapers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "prince-yriel",
+  "eligible_bodyguard_ids": [
+   "corsair-voidreavers",
+   "corsair-voidscarred"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "shadowseer",
+  "eligible_bodyguard_ids": [
+   "troupe"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "the-visarch",
+  "eligible_bodyguard_ids": [
+   "corsair-voidreavers",
+   "corsair-voidscarred",
+   "guardian-defenders",
+   "storm-guardians",
+   "ynnari-incubi",
+   "ynnari-kabalite-warriors",
+   "ynnari-wyches"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "troupe-master",
+  "eligible_bodyguard_ids": [
+   "troupe"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "warlock",
+  "eligible_bodyguard_ids": [
+   "guardian-defenders",
+   "storm-guardians"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "warlock-conclave",
+  "eligible_bodyguard_ids": [
+   "guardian-defenders",
+   "storm-guardians"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "warlock-skyrunners",
+  "eligible_bodyguard_ids": [
+   "windriders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ynnari-archon",
+  "eligible_bodyguard_ids": [
+   "ynnari-incubi",
+   "ynnari-kabalite-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ynnari-succubus",
+  "eligible_bodyguard_ids": [
+   "ynnari-wyches"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "yvraine",
+  "eligible_bodyguard_ids": [
+   "corsair-voidreavers",
+   "corsair-voidscarred",
+   "guardian-defenders",
+   "storm-guardians",
+   "ynnari-incubi",
+   "ynnari-kabalite-warriors",
+   "ynnari-wyches"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "inquisitor",
+  "eligible_bodyguard_ids": [
+   "aquila-kill-team",
+   "exaction-squad",
+   "grey-knights-terminator-squad",
+   "imperial-navy-breachers",
+   "inquisitorial-agents",
+   "sanctifiers",
+   "sisters-of-battle-squad",
+   "subductor-squad",
+   "vigilant-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "inquisitor-coteaz",
+  "eligible_bodyguard_ids": [
+   "exaction-squad",
+   "grey-knights-terminator-squad",
+   "imperial-navy-breachers",
+   "inquisitorial-agents",
+   "subductor-squad",
+   "vigilant-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "inquisitor-draxus",
+  "eligible_bodyguard_ids": [
+   "aquila-kill-team",
+   "exaction-squad",
+   "imperial-navy-breachers",
+   "inquisitorial-agents",
+   "subductor-squad",
+   "vigilant-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "inquisitor-greyfax",
+  "eligible_bodyguard_ids": [
+   "exaction-squad",
+   "imperial-navy-breachers",
+   "inquisitorial-agents",
+   "sanctifiers",
+   "sisters-of-battle-squad",
+   "subductor-squad",
+   "vigilant-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ministorum-priest",
+  "eligible_bodyguard_ids": [
+   "exaction-squad",
+   "imperial-navy-breachers",
+   "inquisitorial-agents",
+   "sanctifiers",
+   "sisters-of-battle-squad",
+   "subductor-squad",
+   "vigilant-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "navigator",
+  "eligible_bodyguard_ids": [
+   "imperial-navy-breachers",
+   "voidsmen-at-arms"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "rogue-trader-entourage",
+  "eligible_bodyguard_ids": [
+   "imperial-navy-breachers",
+   "voidsmen-at-arms"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "watch-captain-artemis",
+  "eligible_bodyguard_ids": [
+   "aquila-kill-team",
+   "deathwatch-kill-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "watch-master",
+  "eligible_bodyguard_ids": [
+   "aquila-kill-team",
+   "deathwatch-kill-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "cadian-castellan",
+  "eligible_bodyguard_ids": [
+   "cadian-shock-troops",
+   "kasrkin"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "cadian-command-squad",
+  "eligible_bodyguard_ids": [
+   "cadian-shock-troops"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "catachan-command-squad",
+  "eligible_bodyguard_ids": [
+   "catachan-jungle-fighters"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "commissar",
+  "eligible_bodyguard_ids": [
+   "cadian-shock-troops",
+   "catachan-jungle-fighters",
+   "death-korps-of-krieg",
+   "kasrkin",
+   "krieg-combat-engineers",
+   "tempestus-scions"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "krieg-command-squad",
+  "eligible_bodyguard_ids": [
+   "death-korps-of-krieg",
+   "krieg-combat-engineers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lord-marshal-dreir",
+  "eligible_bodyguard_ids": [
+   "death-riders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lord-solar-leontus",
+  "eligible_bodyguard_ids": [
+   "attilan-rough-riders",
+   "cadian-shock-troops",
+   "catachan-jungle-fighters",
+   "death-korps-of-krieg",
+   "death-riders",
+   "kasrkin",
+   "krieg-combat-engineers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "militarum-tempestus-command-squad",
+  "eligible_bodyguard_ids": [
+   "tempestus-scions"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ministorum-priest",
+  "eligible_bodyguard_ids": [
+   "cadian-shock-troops",
+   "catachan-jungle-fighters",
+   "death-korps-of-krieg",
+   "kasrkin",
+   "krieg-combat-engineers",
+   "tempestus-scions"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "primaris-psyker",
+  "eligible_bodyguard_ids": [
+   "cadian-shock-troops",
+   "catachan-jungle-fighters",
+   "death-korps-of-krieg",
+   "kasrkin",
+   "krieg-combat-engineers",
+   "tempestus-scions"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "tech-priest-enginseer",
+  "eligible_bodyguard_ids": [
+   "cadian-shock-troops",
+   "catachan-jungle-fighters",
+   "death-korps-of-krieg",
+   "kasrkin",
+   "krieg-combat-engineers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ursula-creed",
+  "eligible_bodyguard_ids": [
+   "cadian-shock-troops",
+   "kasrkin"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "bloodmaster",
+  "eligible_bodyguard_ids": [
+   "bloodletters"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "changecaster",
+  "eligible_bodyguard_ids": [
+   "blue-horrors",
+   "pink-horrors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "contorted-epitome",
+  "eligible_bodyguard_ids": [
+   "daemonettes"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "epidemius",
+  "eligible_bodyguard_ids": [
+   "plaguebearers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "exalted-flamer",
+  "eligible_bodyguard_ids": [
+   "flamers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "fateskimmer",
+  "eligible_bodyguard_ids": [
+   "screamers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "fluxmaster",
+  "eligible_bodyguard_ids": [
+   "blue-horrors",
+   "pink-horrors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "horticulous-slimux",
+  "eligible_bodyguard_ids": [
+   "beasts-of-nurgle"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "infernal-enrapturess",
+  "eligible_bodyguard_ids": [
+   "daemonettes"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "karanak",
+  "eligible_bodyguard_ids": [
+   "flesh-hounds"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "poxbringer",
+  "eligible_bodyguard_ids": [
+   "plaguebearers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "skullmaster",
+  "eligible_bodyguard_ids": [
+   "bloodcrushers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "skulltaker",
+  "eligible_bodyguard_ids": [
+   "bloodletters"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "sloppity-bilepiper",
+  "eligible_bodyguard_ids": [
+   "plaguebearers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "spoilpox-scrivener",
+  "eligible_bodyguard_ids": [
+   "plaguebearers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "syllesske",
+  "eligible_bodyguard_ids": [
+   "daemonettes"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "tormentbringer",
+  "eligible_bodyguard_ids": [
+   "hellflayers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "tranceweaver",
+  "eligible_bodyguard_ids": [
+   "daemonettes"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "abaddon-the-despoiler",
+  "eligible_bodyguard_ids": [
+   "chaos-terminator-squad",
+   "chosen"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "chaos-lord",
+  "eligible_bodyguard_ids": [
+   "chosen",
+   "legionaries",
+   "nemesis-claw",
+   "red-corsairs-raiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "chaos-lord-in-terminator-armour",
+  "eligible_bodyguard_ids": [
+   "chaos-terminator-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "chaos-lord-with-jump-pack",
+  "eligible_bodyguard_ids": [
+   "raptors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "cultist-firebrand",
+  "eligible_bodyguard_ids": [
+   "accursed-cultists",
+   "cultist-mob"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "dark-apostle",
+  "eligible_bodyguard_ids": [
+   "accursed-cultists",
+   "chosen",
+   "cultist-mob",
+   "legionaries",
+   "nemesis-claw",
+   "red-corsairs-raiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "dark-commune",
+  "eligible_bodyguard_ids": [
+   "accursed-cultists",
+   "cultist-mob"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "fabius-bile",
+  "eligible_bodyguard_ids": [
+   "accursed-cultists",
+   "chosen",
+   "cultist-mob",
+   "legionaries",
+   "red-corsairs-raiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "haarken-worldclaimer",
+  "eligible_bodyguard_ids": [
+   "raptors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "huron-blackheart",
+  "eligible_bodyguard_ids": [
+   "chaos-terminator-squad",
+   "chosen",
+   "legionaries",
+   "masters-of-the-maelstrom",
+   "red-corsairs-raiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "master-of-executions",
+  "eligible_bodyguard_ids": [
+   "chosen",
+   "legionaries",
+   "nemesis-claw",
+   "red-corsairs-raiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "master-of-possession",
+  "eligible_bodyguard_ids": [
+   "chosen",
+   "legionaries",
+   "nemesis-claw",
+   "possessed",
+   "red-corsairs-raiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "masters-of-the-maelstrom",
+  "eligible_bodyguard_ids": [
+   "chosen",
+   "legionaries",
+   "red-corsairs-raiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "red-corsairs-reave-captain",
+  "eligible_bodyguard_ids": [
+   "chosen",
+   "legionaries",
+   "nemesis-claw",
+   "red-corsairs-raiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "sorcerer",
+  "eligible_bodyguard_ids": [
+   "chosen",
+   "legionaries",
+   "nemesis-claw",
+   "red-corsairs-raiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "sorcerer-in-terminator-armour",
+  "eligible_bodyguard_ids": [
+   "chaos-terminator-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "traitor-enforcer",
+  "eligible_bodyguard_ids": [
+   "traitor-guardsmen-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "warpsmith",
+  "eligible_bodyguard_ids": [
+   "chosen",
+   "havocs",
+   "legionaries",
+   "nemesis-claw",
+   "red-corsairs-raiders"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "biologus-putrifier",
+  "eligible_bodyguard_ids": [
+   "plague-marines"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "foul-blightspawn",
+  "eligible_bodyguard_ids": [
+   "plague-marines"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "icon-bearer",
+  "eligible_bodyguard_ids": [
+   "plague-marines"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lord-of-contagion",
+  "eligible_bodyguard_ids": [
+   "blightlord-terminators",
+   "deathshroud-terminators"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lord-of-poxes",
+  "eligible_bodyguard_ids": [
+   "plague-marines"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lord-of-virulence",
+  "eligible_bodyguard_ids": [
+   "blightlord-terminators",
+   "deathshroud-terminators"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "malignant-plaguecaster",
+  "eligible_bodyguard_ids": [
+   "plague-marines",
+   "poxwalkers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "noxious-blightbringer",
+  "eligible_bodyguard_ids": [
+   "plague-marines",
+   "poxwalkers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "plague-surgeon",
+  "eligible_bodyguard_ids": [
+   "plague-marines"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "tallyman",
+  "eligible_bodyguard_ids": [
+   "plague-marines"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "typhus",
+  "eligible_bodyguard_ids": [
+   "blightlord-terminators",
+   "deathshroud-terminators",
+   "poxwalkers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "archon",
+  "eligible_bodyguard_ids": [
+   "hand-of-the-archon",
+   "incubi",
+   "kabalite-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "drazhar",
+  "eligible_bodyguard_ids": [
+   "incubi"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "haemonculus",
+  "eligible_bodyguard_ids": [
+   "wracks"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lady-malys",
+  "eligible_bodyguard_ids": [
+   "hand-of-the-archon",
+   "incubi",
+   "kabalite-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lelith-hesperax",
+  "eligible_bodyguard_ids": [
+   "wyches"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "succubus",
+  "eligible_bodyguard_ids": [
+   "wyches"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lord-exultant",
+  "eligible_bodyguard_ids": [
+   "flawless-blades",
+   "infractors",
+   "tormentors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lord-kakophonist",
+  "eligible_bodyguard_ids": [
+   "chaos-terminators",
+   "noise-marines",
+   "tormentors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lucius-the-eternal",
+  "eligible_bodyguard_ids": [
+   "flawless-blades"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "sorcerer",
+  "eligible_bodyguard_ids": [
+   "infractors",
+   "noise-marines",
+   "tormentors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "abominant",
+  "eligible_bodyguard_ids": [
+   "aberrants"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "acolyte-iconward",
+  "eligible_bodyguard_ids": [
+   "acolyte-hybrids-with-autopistols",
+   "acolyte-hybrids-with-hand-flamers",
+   "hybrid-metamorphs",
+   "neophyte-hybrids"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "benefictus",
+  "eligible_bodyguard_ids": [
+   "acolyte-hybrids-with-autopistols",
+   "acolyte-hybrids-with-hand-flamers",
+   "hybrid-metamorphs",
+   "neophyte-hybrids"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "biophagus",
+  "eligible_bodyguard_ids": [
+   "aberrants",
+   "acolyte-hybrids-with-autopistols",
+   "acolyte-hybrids-with-hand-flamers",
+   "hybrid-metamorphs",
+   "neophyte-hybrids"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "clamavus",
+  "eligible_bodyguard_ids": [
+   "acolyte-hybrids-with-autopistols",
+   "acolyte-hybrids-with-hand-flamers",
+   "hybrid-metamorphs",
+   "neophyte-hybrids"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "jackal-alphus",
+  "eligible_bodyguard_ids": [
+   "atalan-jackals"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "locus",
+  "eligible_bodyguard_ids": [
+   "acolyte-hybrids-with-autopistols",
+   "acolyte-hybrids-with-hand-flamers",
+   "hybrid-metamorphs",
+   "neophyte-hybrids"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "magus",
+  "eligible_bodyguard_ids": [
+   "acolyte-hybrids-with-autopistols",
+   "acolyte-hybrids-with-hand-flamers",
+   "hybrid-metamorphs",
+   "neophyte-hybrids"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "nexos",
+  "eligible_bodyguard_ids": [
+   "acolyte-hybrids-with-autopistols",
+   "acolyte-hybrids-with-hand-flamers",
+   "hybrid-metamorphs",
+   "neophyte-hybrids"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "patriarch",
+  "eligible_bodyguard_ids": [
+   "purestrain-genestealers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "primus",
+  "eligible_bodyguard_ids": [
+   "acolyte-hybrids-with-autopistols",
+   "acolyte-hybrids-with-hand-flamers",
+   "hybrid-metamorphs",
+   "neophyte-hybrids"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "brother-captain",
+  "eligible_bodyguard_ids": [
+   "brotherhood-terminator-squad",
+   "paladin-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "brotherhood-champion",
+  "eligible_bodyguard_ids": [
+   "purgation-squad",
+   "strike-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "brotherhood-chaplain",
+  "eligible_bodyguard_ids": [
+   "brotherhood-terminator-squad",
+   "paladin-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "brotherhood-librarian",
+  "eligible_bodyguard_ids": [
+   "brotherhood-terminator-squad",
+   "paladin-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "brotherhood-techmarine",
+  "eligible_bodyguard_ids": [
+   "purgation-squad",
+   "purifier-squad",
+   "strike-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "castellan-crowe",
+  "eligible_bodyguard_ids": [
+   "purifier-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "grand-master",
+  "eligible_bodyguard_ids": [
+   "brotherhood-terminator-squad",
+   "paladin-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "grand-master-voldus",
+  "eligible_bodyguard_ids": [
+   "brotherhood-terminator-squad",
+   "paladin-squad"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "berehk-stornbrow",
+  "eligible_bodyguard_ids": [
+   "cthonian-beserks"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "brokhyr-iron-master",
+  "eligible_bodyguard_ids": [
+   "brokhyr-thunderkyn",
+   "hearthkyn-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "einhyr-champion",
+  "eligible_bodyguard_ids": [
+   "einhyr-hearthguard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "grimnyr",
+  "eligible_bodyguard_ids": [
+   "hearthkyn-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "kahl",
+  "eligible_bodyguard_ids": [
+   "einhyr-hearthguard",
+   "hearthkyn-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "memnyr-strategist",
+  "eligible_bodyguard_ids": [
+   "ironkin-steeljacks-with-heavy-volkanite-disintegrators",
+   "ironkin-steeljacks-with-melee-weapons"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "uthar-the-destined",
+  "eligible_bodyguard_ids": [
+   "einhyr-hearthguard",
+   "hearthkyn-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "chronomancer",
+  "eligible_bodyguard_ids": [
+   "immortals",
+   "necron-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "geomancer",
+  "eligible_bodyguard_ids": [
+   "canoptek-macrocytes",
+   "immortals",
+   "necron-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "imotekh-the-stormlord",
+  "eligible_bodyguard_ids": [
+   "immortals",
+   "lychguard",
+   "necron-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lokhust-lord",
+  "eligible_bodyguard_ids": [
+   "lokhust-destroyers",
+   "lokhust-heavy-destroyers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "orikan-the-diviner",
+  "eligible_bodyguard_ids": [
+   "immortals",
+   "necron-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "overlord",
+  "eligible_bodyguard_ids": [
+   "immortals",
+   "lychguard",
+   "necron-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "overlord-with-translocation-shroud",
+  "eligible_bodyguard_ids": [
+   "immortals",
+   "lychguard",
+   "necron-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "plasmancer",
+  "eligible_bodyguard_ids": [
+   "immortals",
+   "necron-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "psychomancer",
+  "eligible_bodyguard_ids": [
+   "immortals",
+   "necron-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "royal-warden",
+  "eligible_bodyguard_ids": [
+   "immortals",
+   "necron-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "skorpekh-lord",
+  "eligible_bodyguard_ids": [
+   "skorpekh-destroyers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "technomancer",
+  "eligible_bodyguard_ids": [
+   "canoptek-wraiths",
+   "immortals",
+   "necron-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "trazyn-the-infinite",
+  "eligible_bodyguard_ids": [
+   "immortals",
+   "lychguard",
+   "necron-warriors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "beastboss",
+  "eligible_bodyguard_ids": [
+   "beast-snagga-boyz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "beastboss-on-squigosaur",
+  "eligible_bodyguard_ids": [
+   "squighog-boyz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "big-mek",
+  "eligible_bodyguard_ids": [
+   "boyz",
+   "breaka-boyz",
+   "flash-gitz",
+   "lootas",
+   "mek-gunz",
+   "nobz",
+   "tankbustas"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "big-mek-in-mega-armour",
+  "eligible_bodyguard_ids": [
+   "meganobz",
+   "mek-gunz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "big-mek-with-shokk-attack-gun",
+  "eligible_bodyguard_ids": [
+   "boyz",
+   "breaka-boyz",
+   "flash-gitz",
+   "lootas",
+   "mek-gunz",
+   "nobz",
+   "tankbustas"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "boss-snikrot",
+  "eligible_bodyguard_ids": [
+   "kommandos"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "deffkilla-wartrike",
+  "eligible_bodyguard_ids": [
+   "warbikers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ghazghkull-thraka",
+  "eligible_bodyguard_ids": [
+   "boyz",
+   "breaka-boyz",
+   "meganobz",
+   "nobz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "mek",
+  "eligible_bodyguard_ids": [
+   "boyz",
+   "flash-gitz",
+   "lootas",
+   "mek-gunz",
+   "nobz",
+   "tankbustas"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "mozrog-skragbad",
+  "eligible_bodyguard_ids": [
+   "squighog-boyz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "painboss",
+  "eligible_bodyguard_ids": [
+   "beast-snagga-boyz",
+   "squighog-boyz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "painboy",
+  "eligible_bodyguard_ids": [
+   "boyz",
+   "breaka-boyz",
+   "burna-boyz",
+   "flash-gitz",
+   "lootas",
+   "nobz",
+   "tankbustas"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "warboss",
+  "eligible_bodyguard_ids": [
+   "boyz",
+   "breaka-boyz",
+   "nobz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "warboss-in-mega-armour",
+  "eligible_bodyguard_ids": [
+   "meganobz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "weirdboy",
+  "eligible_bodyguard_ids": [
+   "beast-snagga-boyz",
+   "boyz",
+   "breaka-boyz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "wurrboy",
+  "eligible_bodyguard_ids": [
+   "beast-snagga-boyz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "zodgrod-wortsnagga",
+  "eligible_bodyguard_ids": [
+   "gretchin"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "cadre-fireblade",
+  "eligible_bodyguard_ids": [
+   "breacher-team",
+   "strike-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "commander-farsight",
+  "eligible_bodyguard_ids": [
+   "crisis-fireknife-battlesuits",
+   "crisis-starscythe-battlesuits",
+   "crisis-sunforge-battlesuits"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "commander-in-coldstar-battlesuit",
+  "eligible_bodyguard_ids": [
+   "crisis-fireknife-battlesuits",
+   "crisis-starscythe-battlesuits",
+   "crisis-sunforge-battlesuits"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "commander-in-enforcer-battlesuit",
+  "eligible_bodyguard_ids": [
+   "crisis-fireknife-battlesuits",
+   "crisis-starscythe-battlesuits",
+   "crisis-sunforge-battlesuits"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "darkstrider",
+  "eligible_bodyguard_ids": [
+   "pathfinder-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ethereal",
+  "eligible_bodyguard_ids": [
+   "breacher-team",
+   "strike-team"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "kroot-flesh-shaper",
+  "eligible_bodyguard_ids": [
+   "kroot-carnivores",
+   "kroot-farstalkers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "kroot-trail-shaper",
+  "eligible_bodyguard_ids": [
+   "kroot-carnivores",
+   "kroot-farstalkers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "kroot-war-shaper",
+  "eligible_bodyguard_ids": [
+   "kroot-carnivores",
+   "kroot-farstalkers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "ahriman",
+  "eligible_bodyguard_ids": [
+   "rubric-marines",
+   "tzaangor-enlightened",
+   "tzaangor-enlightened-with-fatecaster-greatbows"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "exalted-sorcerer",
+  "eligible_bodyguard_ids": [
+   "rubric-marines"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "exalted-sorcerer-on-disc-of-tzeentch",
+  "eligible_bodyguard_ids": [
+   "rubric-marines",
+   "tzaangor-enlightened",
+   "tzaangor-enlightened-with-fatecaster-greatbows"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "infernal-master",
+  "eligible_bodyguard_ids": [
+   "rubric-marines"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "sorcerer",
+  "eligible_bodyguard_ids": [
+   "rubric-marines"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "sorcerer-in-terminator-armour",
+  "eligible_bodyguard_ids": [
+   "scarab-occult-terminators"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "tzaangor-shaman",
+  "eligible_bodyguard_ids": [
+   "tzaangor-enlightened",
+   "tzaangor-enlightened-with-fatecaster-greatbows",
+   "tzaangors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "broodlord",
+  "eligible_bodyguard_ids": [
+   "genestealers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "hive-tyrant",
+  "eligible_bodyguard_ids": [
+   "tyrant-guard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "hyperadapted-raveners",
+  "eligible_bodyguard_ids": [
+   "raveners"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "neurotyrant",
+  "eligible_bodyguard_ids": [
+   "neurogaunts",
+   "tyrant-guard",
+   "zoanthropes"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "old-one-eye",
+  "eligible_bodyguard_ids": [
+   "carnifexes"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "the-swarmlord",
+  "eligible_bodyguard_ids": [
+   "tyrant-guard"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "tyranid-prime-with-lash-whip",
+  "eligible_bodyguard_ids": [
+   "hormagaunts",
+   "termagants",
+   "tyranid-warriors-with-melee-bio-weapons",
+   "tyranid-warriors-with-ranged-bio-weapons"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "winged-tyranid-prime",
+  "eligible_bodyguard_ids": [
+   "gargoyles",
+   "tyranid-warriors-with-melee-bio-weapons",
+   "tyranid-warriors-with-ranged-bio-weapons"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "kharn-the-betrayer",
+  "eligible_bodyguard_ids": [
+   "khorne-berzerkers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lord-invocatus",
+  "eligible_bodyguard_ids": [
+   "eightbound",
+   "exalted-eightbound",
+   "khorne-berzerkers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "lord-on-juggernaut",
+  "eligible_bodyguard_ids": [
+   "eightbound",
+   "exalted-eightbound",
+   "khorne-berzerkers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "master-of-executions",
+  "eligible_bodyguard_ids": [
+   "khorne-berzerkers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "leader_id": "slaughterbound",
+  "eligible_bodyguard_ids": [
+   "eightbound",
+   "exalted-eightbound"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ }
+]

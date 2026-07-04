@@ -1,0 +1,534 @@
+[
+ {
+  "id": "area-large",
+  "name": "Large Area",
+  "kind": "area",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "rectangle",
+   "width": 11.5,
+   "height": 7
+  },
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "area-trapezoid",
+  "name": "Trapezoid Area",
+  "kind": "area",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "polygon",
+   "points": [
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 8,
+     "y": 0
+    },
+    {
+     "x": 2,
+     "y": 11.5
+    },
+    {
+     "x": 0,
+     "y": 11.5
+    }
+   ]
+  },
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "area-medium",
+  "name": "Medium Area",
+  "kind": "area",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "rectangle",
+   "width": 6,
+   "height": 4
+  },
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "area-long-line",
+  "name": "Long Line Area",
+  "kind": "area",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "rectangle",
+   "width": 10,
+   "height": 2.5
+  },
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "area-short-line",
+  "name": "Short Line Area",
+  "kind": "area",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "rectangle",
+   "width": 6,
+   "height": 2
+  },
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "corner-tiny",
+  "name": "Tiny Corner L",
+  "kind": "feature",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "polygon",
+   "points": [
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 2,
+     "y": 0
+    },
+    {
+     "x": 2,
+     "y": 0.5
+    },
+    {
+     "x": 0.5,
+     "y": 0.5
+    },
+    {
+     "x": 0.5,
+     "y": 2
+    },
+    {
+     "x": 0,
+     "y": 2
+    }
+   ]
+  },
+  "default_height_inches": 5,
+  "default_blocking": true,
+  "terrain_category": "light",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "corner-short",
+  "name": "Short Corner L",
+  "kind": "feature",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "polygon",
+   "points": [
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 2,
+     "y": 0
+    },
+    {
+     "x": 2,
+     "y": 0.5
+    },
+    {
+     "x": 0.5,
+     "y": 0.5
+    },
+    {
+     "x": 0.5,
+     "y": 3
+    },
+    {
+     "x": 0,
+     "y": 3
+    }
+   ]
+  },
+  "default_height_inches": 5,
+  "default_blocking": true,
+  "terrain_category": "light",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "barricade",
+  "name": "Barricade",
+  "kind": "feature",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "polygon",
+   "points": [
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 3.5,
+     "y": 0
+    },
+    {
+     "x": 3.5,
+     "y": 1
+    },
+    {
+     "x": 3,
+     "y": 1
+    },
+    {
+     "x": 3,
+     "y": 0.5
+    },
+    {
+     "x": 0.5,
+     "y": 0.5
+    },
+    {
+     "x": 0.5,
+     "y": 1
+    },
+    {
+     "x": 0,
+     "y": 1
+    }
+   ]
+  },
+  "default_height_inches": 2,
+  "default_blocking": false,
+  "terrain_category": "light",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "pipe",
+  "name": "Pipe",
+  "kind": "feature",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "rectangle",
+   "width": 5.5,
+   "height": 1
+  },
+  "default_height_inches": 2,
+  "default_blocking": true,
+  "terrain_category": "light",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "gantry",
+  "name": "Gantry",
+  "kind": "feature",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "rectangle",
+   "width": 2,
+   "height": 2
+  },
+  "default_height_inches": 3,
+  "default_blocking": true,
+  "ground_accessible": false,
+  "terrain_category": "dense",
+  "upper_floor": {
+   "footprint": {
+    "type": "rectangle",
+    "width": 2,
+    "height": 2
+   },
+   "floor": 1
+  },
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "catwalk",
+  "name": "Catwalk",
+  "kind": "feature",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "rectangle",
+   "width": 7,
+   "height": 2
+  },
+  "default_height_inches": 3,
+  "default_blocking": true,
+  "ground_accessible": false,
+  "terrain_category": "dense",
+  "upper_floor": {
+   "footprint": {
+    "type": "rectangle",
+    "width": 7,
+    "height": 2
+   },
+   "floor": 1
+  },
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "generator",
+  "name": "Generator",
+  "kind": "feature",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "rectangle",
+   "width": 3,
+   "height": 4
+  },
+  "default_height_inches": 3,
+  "default_blocking": true,
+  "ground_accessible": false,
+  "terrain_category": "dense",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "corner-ruin-balanced-left",
+  "name": "Corner Ruin (Balanced, Left)",
+  "kind": "feature",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "polygon",
+   "points": [
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 5,
+     "y": 0
+    },
+    {
+     "x": 5,
+     "y": 0.5
+    },
+    {
+     "x": 0.5,
+     "y": 0.5
+    },
+    {
+     "x": 0.5,
+     "y": 4.5
+    },
+    {
+     "x": 0,
+     "y": 4.5
+    }
+   ]
+  },
+  "default_height_inches": 5,
+  "default_blocking": true,
+  "upper_floor": {
+   "footprint": {
+    "type": "rectangle",
+    "width": 3,
+    "height": 4
+   },
+   "floor": 1
+  },
+  "terrain_category": "dense",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "corner-ruin-balanced-right",
+  "name": "Corner Ruin (Balanced, Right)",
+  "kind": "feature",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "polygon",
+   "points": [
+    {
+     "x": 5,
+     "y": 0
+    },
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 0,
+     "y": 0.5
+    },
+    {
+     "x": 4.5,
+     "y": 0.5
+    },
+    {
+     "x": 4.5,
+     "y": 4.5
+    },
+    {
+     "x": 5,
+     "y": 4.5
+    }
+   ]
+  },
+  "default_height_inches": 5,
+  "default_blocking": true,
+  "upper_floor": {
+   "footprint": {
+    "type": "polygon",
+    "points": [
+     {
+      "x": 2,
+      "y": 0
+     },
+     {
+      "x": 5,
+      "y": 0
+     },
+     {
+      "x": 5,
+      "y": 4
+     },
+     {
+      "x": 2,
+      "y": 4
+     }
+    ]
+   },
+   "floor": 1
+  },
+  "terrain_category": "dense",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "corner-ruin-right",
+  "name": "Corner Ruin (Right)",
+  "kind": "feature",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "polygon",
+   "points": [
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 3,
+     "y": 0
+    },
+    {
+     "x": 3,
+     "y": 6.5
+    },
+    {
+     "x": 2.5,
+     "y": 6.5
+    },
+    {
+     "x": 2.5,
+     "y": 0.5
+    },
+    {
+     "x": 0,
+     "y": 0.5
+    }
+   ]
+  },
+  "default_height_inches": 5,
+  "default_blocking": true,
+  "upper_floor": {
+   "footprint": {
+    "type": "rectangle",
+    "width": 3,
+    "height": 5
+   },
+   "floor": 1
+  },
+  "terrain_category": "dense",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "corner-ruin-left",
+  "name": "Corner Ruin (Left)",
+  "kind": "feature",
+  "source": "gw-11e",
+  "footprint": {
+   "type": "polygon",
+   "points": [
+    {
+     "x": 3,
+     "y": 0
+    },
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 0,
+     "y": 6.5
+    },
+    {
+     "x": 0.5,
+     "y": 6.5
+    },
+    {
+     "x": 0.5,
+     "y": 0.5
+    },
+    {
+     "x": 3,
+     "y": 0.5
+    }
+   ]
+  },
+  "default_height_inches": 5,
+  "default_blocking": true,
+  "upper_floor": {
+   "footprint": {
+    "type": "rectangle",
+    "width": 3,
+    "height": 5
+   },
+   "floor": 1
+  },
+  "terrain_category": "dense",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ }
+]

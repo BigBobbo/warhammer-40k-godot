@@ -1,494 +1,455 @@
 {
-  "faction": {
-    "name": "Space Marines",
-    "points": 500,
-    "detachment": "Gladius Task Force",
-    "player_name": "",
-    "team_name": "",
-    "created_date": "2025-02-25",
-    "schema": 2
-  },
-  "units": {
-    "U_INTERCESSORS_A": {
-      "id": "U_INTERCESSORS_A",
-      "squad_id": "U_INTERCESSORS_A",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Intercessor Squad",
-        "keywords": [
-          "INFANTRY",
-          "PRIMARIS",
-          "IMPERIUM",
-          "ADEPTUS ASTARTES"
-        ],
-        "stats": {
-          "move": 6,
-          "toughness": 4,
-          "save": 3,
-          "wounds": 2,
-          "leadership": 6,
-          "objective_control": 2
-        },
-        "points": 100,
-        "is_warlord": false,
-        "enhancements": [],
-        "wargear": [],
-        "weapons": [
-          {
-            "name": "Bolt rifle",
-            "type": "Ranged",
-            "range": "24",
-            "attacks": "2",
-            "ballistic_skill": "3",
-            "strength": "4",
-            "ap": "-1",
-            "damage": "1",
-            "special_rules": "assault, heavy",
-            "abilities": [
-              {
-                "id": "assault"
-              },
-              {
-                "id": "heavy"
-              }
-            ]
-          },
-          {
-            "name": "Bolt pistol",
-            "type": "Ranged",
-            "range": "12",
-            "attacks": "1",
-            "ballistic_skill": "3",
-            "strength": "4",
-            "ap": "0",
-            "damage": "1",
-            "special_rules": "pistol",
-            "abilities": [
-              {
-                "id": "pistol"
-              }
-            ]
-          },
-          {
-            "name": "Close combat weapon",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "3",
-            "weapon_skill": "3",
-            "strength": "4",
-            "ap": "0",
-            "damage": "1"
-          },
-          {
-            "name": "Power fist",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "3",
-            "weapon_skill": "3",
-            "strength": "8",
-            "ap": "-2",
-            "damage": "2"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Oath of Moment",
-            "type": "Faction",
-            "description": "At the start of your Command phase, select one unit from your opponent's army. Until the start of your next Command phase, that enemy unit is your Oath of Moment target. Each time a model with this ability makes an attack that targets your Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
-          },
-          {
-            "name": "Objective Secured",
-            "type": "Datasheet",
-            "description": "If you control an objective marker at the end of your Command phase and this unit is within range of that objective marker, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn."
-          },
-          {
-            "name": "Target Elimination",
-            "type": "Datasheet",
-            "description": "Each time this unit is selected to shoot, it can use this ability. If it does, until the end of the phase, add 2 to the Attacks characteristic of bolt rifles equipped by models in this unit and you can only select one enemy unit as the target of all of this unit's attacks."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "1 Intercessor Sergeant",
-            "line": 1
-          },
-          {
-            "description": "4 Intercessors",
-            "line": 2
-          }
-        ],
-        "model_profiles": {
-          "intercessor": {
-            "label": "Intercessor",
-            "stats_override": {},
-            "weapons": [
-              "Bolt rifle",
-              "Bolt pistol",
-              "Close combat weapon"
-            ],
-            "transport_slots": 1
-          },
-          "intercessor_sergeant": {
-            "label": "Intercessor Sergeant",
-            "stats_override": {
-              "leadership": 6,
-              "attacks": 4
-            },
-            "weapons": [
-              "Bolt rifle",
-              "Bolt pistol",
-              "Power fist"
-            ],
-            "transport_slots": 1
-          }
-        }
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": [],
-          "model_type": "intercessor_sergeant"
-        },
-        {
-          "id": "m2",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": [],
-          "model_type": "intercessor"
-        },
-        {
-          "id": "m3",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": [],
-          "model_type": "intercessor"
-        },
-        {
-          "id": "m4",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": [],
-          "model_type": "intercessor"
-        },
-        {
-          "id": "m5",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": [],
-          "model_type": "intercessor"
-        }
-      ]
+ "faction": {
+  "name": "Space Marines",
+  "points": 500,
+  "detachment": "Gladius Task Force",
+  "player_name": "",
+  "team_name": "",
+  "created_date": "2025-02-25",
+  "schema": 2,
+  "edition": 11,
+  "data_source": "40kdc-data 1.0.19 (11th edition, launch)"
+ },
+ "units": {
+  "U_INTERCESSORS_A": {
+   "id": "U_INTERCESSORS_A",
+   "squad_id": "U_INTERCESSORS_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Intercessor Squad",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "BATTLELINE",
+     "GRENADES",
+     "IMPERIUM",
+     "INFANTRY",
+     "INTERCESSOR SQUAD",
+     "TACTICUS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 4,
+     "save": 3,
+     "wounds": 2,
+     "leadership": 6,
+     "objective_control": 2
     },
-    "U_TACTICAL_A": {
-      "id": "U_TACTICAL_A",
-      "squad_id": "U_TACTICAL_A",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Tactical Squad",
-        "keywords": [
-          "INFANTRY",
-          "IMPERIUM",
-          "ADEPTUS ASTARTES"
-        ],
-        "stats": {
-          "move": 6,
-          "toughness": 4,
-          "save": 3,
-          "wounds": 2,
-          "leadership": 6,
-          "objective_control": 2
-        },
-        "points": 90,
-        "is_warlord": false,
-        "enhancements": [],
-        "wargear": [],
-        "weapons": [
-          {
-            "name": "Boltgun",
-            "type": "Ranged",
-            "range": "24",
-            "attacks": "2",
-            "ballistic_skill": "3",
-            "strength": "4",
-            "ap": "0",
-            "damage": "1",
-            "special_rules": "rapid fire 1",
-            "abilities": [
-              {
-                "id": "rapid_fire",
-                "x": 1
-              }
-            ]
-          },
-          {
-            "name": "Bolt pistol",
-            "type": "Ranged",
-            "range": "12",
-            "attacks": "1",
-            "ballistic_skill": "3",
-            "strength": "4",
-            "ap": "0",
-            "damage": "1",
-            "special_rules": "pistol",
-            "abilities": [
-              {
-                "id": "pistol"
-              }
-            ]
-          },
-          {
-            "name": "Close combat weapon",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "2",
-            "weapon_skill": "3",
-            "strength": "4",
-            "ap": "0",
-            "damage": "1"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Oath of Moment",
-            "type": "Faction",
-            "description": "At the start of your Command phase, select one unit from your opponent's army. Until the start of your next Command phase, that enemy unit is your Oath of Moment target. Each time a model with this ability makes an attack that targets your Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
-          },
-          {
-            "name": "Combat Squads",
-            "type": "Datasheet",
-            "description": "At the start of the Declare Battle Formations step, before any units have been set up, this unit can be split into two units, each containing five models."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "5 Space Marines",
-            "line": 1
-          }
-        ]
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m2",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m3",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m4",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m5",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        }
+    "points": 80,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [],
+    "weapons": [
+     {
+      "name": "Bolt pistol",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "pistol",
+      "abilities": [
+       {
+        "id": "pistol"
+       }
       ]
+     },
+     {
+      "name": "Bolt rifle",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "3",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "assault, heavy",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "heavy"
+       }
+      ]
+     },
+     {
+      "name": "Close combat weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1"
+     },
+     {
+      "name": "Power fist",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "8",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Oath of Moment",
+      "type": "Faction",
+      "description": "At the start of the Command phase, select one enemy unit (your Oath of Moment target). Until your next Command phase, each time a friendly unit makes an attack against it, you can re-roll the Hit roll."
+     },
+     {
+      "name": "Objective Secured",
+      "type": "Datasheet",
+      "description": "The unit retains control of objective markers even after no models remain in range, until the enemy retakes them (sticky objectives)."
+     },
+     {
+      "name": "Target Elimination",
+      "type": "Datasheet",
+      "description": "Until the end of the phase, add 2 to the unit's Attacks characteristic."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Intercessor Sergeant",
+      "line": 1
+     },
+     {
+      "description": "4-9 Intercessor",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
     },
-    "U_INFILTRATORS_A": {
-      "id": "U_INFILTRATORS_A",
-      "squad_id": "U_INFILTRATORS_A",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Infiltrator Squad",
-        "keywords": [
-          "INFANTRY",
-          "PRIMARIS",
-          "PHOBOS",
-          "IMPERIUM",
-          "ADEPTUS ASTARTES"
-        ],
-        "stats": {
-          "move": 6,
-          "toughness": 4,
-          "save": 3,
-          "wounds": 2,
-          "leadership": 6,
-          "objective_control": 1
-        },
-        "points": 100,
-        "is_warlord": false,
-        "enhancements": [],
-        "wargear": [],
-        "weapons": [
-          {
-            "name": "Bolt pistol",
-            "type": "Ranged",
-            "range": "12",
-            "attacks": "1",
-            "ballistic_skill": "3",
-            "strength": "4",
-            "ap": "0",
-            "damage": "1",
-            "special_rules": "pistol",
-            "abilities": [
-              {
-                "id": "pistol"
-              }
-            ]
-          },
-          {
-            "name": "Marksman bolt carbine",
-            "type": "Ranged",
-            "range": "24",
-            "attacks": "2",
-            "ballistic_skill": "3",
-            "strength": "4",
-            "ap": "0",
-            "damage": "1",
-            "special_rules": "heavy, ignores cover",
-            "abilities": [
-              {
-                "id": "heavy"
-              },
-              {
-                "id": "ignores_cover"
-              }
-            ]
-          },
-          {
-            "name": "Close combat weapon",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "3",
-            "weapon_skill": "3",
-            "strength": "4",
-            "ap": "0",
-            "damage": "1"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Infiltrators",
-            "type": "Core",
-            "description": "During deployment, this unit can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and more than 9\" away from all enemy models."
-          },
-          {
-            "name": "Scout 6\"",
-            "type": "Core",
-            "range": 6,
-            "description": "After deployment, this unit can make a Normal Move of up to 6\", but must end that move more than 9\" horizontally away from all enemy models."
-          },
-          {
-            "name": "Oath of Moment",
-            "type": "Faction",
-            "description": "At the start of your Command phase, select one unit from your opponent's army. Until the start of your next Command phase, that enemy unit is your Oath of Moment target. Each time a model with this ability makes an attack that targets your Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
-          },
-          {
-            "name": "Omni-scramblers",
-            "type": "Datasheet",
-            "description": "Enemy units that are set up on the battlefield as Reinforcements cannot be set up within 12\" of this unit."
-          },
-          {
-            "name": "Scout 6\"",
-            "type": "Core",
-            "value": 6,
-            "description": "After both players have deployed their armies, this unit can make a Normal Move of up to 6\". It cannot end this move within 9\" of any enemy models."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "5 Infiltrators",
-            "line": 1
-          }
-        ]
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m2",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m3",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m4",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m5",
-          "wounds": 2,
-          "current_wounds": 2,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        }
-      ]
+    {
+     "id": "m2",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
     }
+   ]
+  },
+  "U_TACTICAL_A": {
+   "id": "U_TACTICAL_A",
+   "squad_id": "U_TACTICAL_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Tactical Squad",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "BATTLELINE",
+     "GRENADES",
+     "IMPERIUM",
+     "INFANTRY",
+     "TACTICAL SQUAD"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 4,
+     "save": 3,
+     "wounds": 2,
+     "leadership": 6,
+     "objective_control": 2
+    },
+    "points": 140,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [],
+    "weapons": [
+     {
+      "name": "Bolt pistol",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "pistol",
+      "abilities": [
+       {
+        "id": "pistol"
+       }
+      ]
+     },
+     {
+      "name": "Boltgun",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1"
+     },
+     {
+      "name": "Close combat weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Oath of Moment",
+      "type": "Faction",
+      "description": "At the start of the Command phase, select one enemy unit (your Oath of Moment target). Until your next Command phase, each time a friendly unit makes an attack against it, you can re-roll the Hit roll."
+     },
+     {
+      "name": "Combat Squads",
+      "type": "Datasheet",
+      "description": "The unit gains the Combat Squads ability."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Tactical Sergeant",
+      "line": 1
+     },
+     {
+      "description": "9 Tactical Marine",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_INFILTRATORS_A": {
+   "id": "U_INFILTRATORS_A",
+   "squad_id": "U_INFILTRATORS_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Infiltrator Squad",
+    "keywords": [
+     "ADEPTUS ASTARTES",
+     "GRENADES",
+     "IMPERIUM",
+     "INFANTRY",
+     "INFILTRATOR SQUAD",
+     "PHOBOS",
+     "SMOKE"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 4,
+     "save": 3,
+     "wounds": 2,
+     "leadership": 6,
+     "objective_control": 1
+    },
+    "points": 110,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [],
+    "weapons": [
+     {
+      "name": "Bolt pistol",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "pistol",
+      "abilities": [
+       {
+        "id": "pistol"
+       }
+      ]
+     },
+     {
+      "name": "Marksman bolt carbine",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "heavy",
+      "abilities": [
+       {
+        "id": "heavy"
+       }
+      ]
+     },
+     {
+      "name": "Close combat weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Oath of Moment",
+      "type": "Faction",
+      "description": "At the start of the Command phase, select one enemy unit (your Oath of Moment target). Until your next Command phase, each time a friendly unit makes an attack against it, you can re-roll the Hit roll."
+     },
+     {
+      "name": "Omni-scramblers",
+      "type": "Datasheet",
+      "description": "For the rest of the battle, enemy units within 12\": prevents enemy reserves within 12."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Infiltrator Sergeant",
+      "line": 1
+     },
+     {
+      "description": "4-9 Infiltrator",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m5",
+     "wounds": 2,
+     "current_wounds": 2,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
   }
+ }
 }

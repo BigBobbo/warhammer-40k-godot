@@ -1,0 +1,574 @@
+[
+ {
+  "id": "adepta-sororitas",
+  "name": "Adepta Sororitas",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adepta Sororitas"
+  ],
+  "aliases": [],
+  "faction_rule_id": "acts-of-faith",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adepta-sororitas.svg"
+ },
+ {
+  "id": "adeptus-astartes",
+  "name": "Adeptus Astartes",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes"
+  ],
+  "aliases": [],
+  "faction_rule_id": "oath-of-moment",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adeptus-astartes.svg"
+ },
+ {
+  "id": "adeptus-custodes",
+  "name": "Adeptus Custodes",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Custodes"
+  ],
+  "aliases": [],
+  "faction_rule_id": "martial-katah",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adeptus-custodes.svg"
+ },
+ {
+  "id": "adeptus-mechanicus",
+  "name": "Adeptus Mechanicus",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Mechanicus"
+  ],
+  "aliases": [],
+  "faction_rule_id": "doctrina-imperatives",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adeptus-mechanicus.svg"
+ },
+ {
+  "id": "aeldari",
+  "name": "Aeldari",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Aeldari",
+   "Asuryani"
+  ],
+  "aliases": [],
+  "faction_rule_id": "strands-of-fate",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/eldar/craftworld-eldar.svg"
+ },
+ {
+  "id": "agents-of-the-imperium",
+  "name": "Agents of the Imperium",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Agents of the Imperium"
+  ],
+  "aliases": [],
+  "faction_rule_id": "assigned-agents",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/imperial-aquila.svg"
+ },
+ {
+  "id": "astra-militarum",
+  "name": "Astra Militarum",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Astra Militarum"
+  ],
+  "aliases": [],
+  "faction_rule_id": "voice-of-command",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astra-militarum.svg"
+ },
+ {
+  "id": "black-templars",
+  "name": "Black Templars",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Black Templars"
+  ],
+  "aliases": [],
+  "faction_rule_id": "templar-vows",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/black-templars.svg"
+ },
+ {
+  "id": "blood-angels",
+  "name": "Blood Angels",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Blood Angels"
+  ],
+  "aliases": [],
+  "faction_rule_id": "the-red-thirst",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/blood-angels.svg"
+ },
+ {
+  "id": "chaos-daemons",
+  "name": "Chaos Daemons",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Chaos",
+   "Daemons",
+   "Legiones Daemonica"
+  ],
+  "aliases": [],
+  "faction_rule_id": "the-shadow-of-chaos",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/chaos-daemons.svg"
+ },
+ {
+  "id": "chaos-knights",
+  "name": "Chaos Knights",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Chaos",
+   "Chaos Knights"
+  ],
+  "aliases": [],
+  "faction_rule_id": "harbingers-of-dread",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/questor-traitoris.svg"
+ },
+ {
+  "id": "chaos-space-marines",
+  "name": "Chaos Space Marines",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Chaos",
+   "Heretic Astartes"
+  ],
+  "aliases": [],
+  "faction_rule_id": "dark-pacts",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/heretic-astartes.svg"
+ },
+ {
+  "id": "crimson-fists",
+  "name": "Crimson Fists",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Crimson Fists"
+  ],
+  "aliases": [],
+  "faction_rule_id": "oath-of-moment",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/crimson-fists.svg"
+ },
+ {
+  "id": "dark-angels",
+  "name": "Dark Angels",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Dark Angels"
+  ],
+  "aliases": [],
+  "faction_rule_id": "oath-of-moment",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/dark-angels.svg"
+ },
+ {
+  "id": "death-guard",
+  "name": "Death Guard",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Chaos",
+   "Nurgle",
+   "Death Guard"
+  ],
+  "aliases": [],
+  "faction_rule_id": "nurgles-gift",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/death-guard.svg"
+ },
+ {
+  "id": "deathwatch",
+  "name": "Deathwatch",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Deathwatch"
+  ],
+  "aliases": [],
+  "faction_rule_id": "mission-tactics",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/deathwatch.svg"
+ },
+ {
+  "id": "drukhari",
+  "name": "Drukhari",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Aeldari",
+   "Drukhari"
+  ],
+  "aliases": [],
+  "faction_rule_id": "power-from-pain",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/durhkari/drukhari-2.svg"
+ },
+ {
+  "id": "emperors-children",
+  "name": "Emperor’s Children",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Chaos",
+   "Slaanesh",
+   "Emperor’s Children"
+  ],
+  "aliases": [],
+  "faction_rule_id": "thrill-seekers",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/emperors-children-1.svg"
+ },
+ {
+  "id": "genestealer-cults",
+  "name": "Genestealer Cults",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Genestealer Cults"
+  ],
+  "aliases": [],
+  "faction_rule_id": "cult-ambush",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/genestealer_cult/genestealer-cults.svg"
+ },
+ {
+  "id": "grey-knights",
+  "name": "Grey Knights",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Grey Knights"
+  ],
+  "aliases": [],
+  "faction_rule_id": "gate-of-infinity",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/grey-knights.svg"
+ },
+ {
+  "id": "imperial-fists",
+  "name": "Imperial Fists",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Imperial Fists"
+  ],
+  "aliases": [],
+  "faction_rule_id": "oath-of-moment",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/imperial-fists.svg"
+ },
+ {
+  "id": "imperial-knights",
+  "name": "Imperial Knights",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Imperial Knights"
+  ],
+  "aliases": [],
+  "faction_rule_id": "code-chivalric",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/imperial-knights.svg"
+ },
+ {
+  "id": "iron-hands",
+  "name": "Iron Hands",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Iron Hands"
+  ],
+  "aliases": [],
+  "faction_rule_id": "oath-of-moment",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/iron-hands.svg"
+ },
+ {
+  "id": "leagues-of-votann",
+  "name": "Leagues of Votann",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Leagues of Votann"
+  ],
+  "aliases": [],
+  "faction_rule_id": "prioritised-efficiency",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/leagues-of-votann.svg"
+ },
+ {
+  "id": "necrons",
+  "name": "Necrons",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Necrons"
+  ],
+  "aliases": [],
+  "faction_rule_id": "reanimation-protocols",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/necrons/necrons.svg"
+ },
+ {
+  "id": "orks",
+  "name": "Orks",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Orks"
+  ],
+  "aliases": [],
+  "faction_rule_id": "waaagh",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/orks/orks.svg"
+ },
+ {
+  "id": "raven-guard",
+  "name": "Raven Guard",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Raven Guard"
+  ],
+  "aliases": [],
+  "faction_rule_id": "oath-of-moment",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/raven-guard.svg"
+ },
+ {
+  "id": "salamanders",
+  "name": "Salamanders",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Salamanders"
+  ],
+  "aliases": [],
+  "faction_rule_id": "oath-of-moment",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/salamanders.svg"
+ },
+ {
+  "id": "space-wolves",
+  "name": "Space Wolves",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Space Wolves"
+  ],
+  "aliases": [],
+  "faction_rule_id": "oath-of-moment",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/space-wolves.svg"
+ },
+ {
+  "id": "tau-empire",
+  "name": "T’au Empire",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "T’au Empire"
+  ],
+  "aliases": [],
+  "faction_rule_id": "for-the-greater-good",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/tau_empire/tau-sept.svg"
+ },
+ {
+  "id": "thousand-sons",
+  "name": "Thousand Sons",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Chaos",
+   "Tzeentch",
+   "Thousand Sons"
+  ],
+  "aliases": [],
+  "faction_rule_id": "cabal-of-sorcerers",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/thousand-sons.svg"
+ },
+ {
+  "id": "tyranids",
+  "name": "Tyranids",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Tyranids"
+  ],
+  "aliases": [],
+  "faction_rule_id": "shadow-in-the-warp",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/tyranids.svg"
+ },
+ {
+  "id": "ultramarines",
+  "name": "Ultramarines",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "Ultramarines"
+  ],
+  "aliases": [],
+  "faction_rule_id": "oath-of-moment",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/ultramarines.svg"
+ },
+ {
+  "id": "white-scars",
+  "name": "White Scars",
+  "parent_faction_id": "adeptus-astartes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Imperium",
+   "Adeptus Astartes",
+   "White Scars"
+  ],
+  "aliases": [],
+  "faction_rule_id": "oath-of-moment",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/white-scars.svg"
+ },
+ {
+  "id": "world-eaters",
+  "name": "World Eaters",
+  "parent_faction_id": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "keywords": [
+   "Chaos",
+   "Khorne",
+   "World Eaters"
+  ],
+  "aliases": [],
+  "faction_rule_id": "blessings-of-khorne",
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/world-eaters-1.svg"
+ }
+]

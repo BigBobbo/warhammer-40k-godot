@@ -1,1212 +1,1230 @@
 {
-  "faction": {
-    "name": "Adeptus Custodes",
-    "points": 1000,
-    "detachment": "Shield Host",
-    "player_name": "",
-    "team_name": "",
-    "created_date": "2025-03-01",
-    "schema": 2
-  },
-  "units": {
-    "U_SHIELD_CAPTAIN_A": {
-      "id": "U_SHIELD_CAPTAIN_A",
-      "squad_id": "U_SHIELD_CAPTAIN_A",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Shield-Captain",
-        "keywords": [
-          "ADEPTUS CUSTODES",
-          "CHARACTER",
-          "IMPERIUM",
-          "INFANTRY",
-          "SHIELD-CAPTAIN"
-        ],
-        "stats": {
-          "move": 6,
-          "toughness": 6,
-          "save": 2,
-          "wounds": 6,
-          "leadership": 6,
-          "objective_control": 2,
-          "invuln": 4
-        },
-        "points": 120,
-        "is_warlord": true,
-        "enhancements": [],
-        "wargear": [
-          "Shield-Captain (Shield), Praesidium Shield"
-        ],
-        "weapons": [
-          {
-            "name": "Sentinel blade",
-            "type": "Ranged",
-            "range": "12",
-            "attacks": "2",
-            "ballistic_skill": "2",
-            "strength": "4",
-            "ap": "-1",
-            "damage": "2",
-            "special_rules": "assault, pistol",
-            "abilities": [
-              {
-                "id": "assault"
-              },
-              {
-                "id": "pistol"
-              }
-            ]
-          },
-          {
-            "name": "Sentinel blade",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "7",
-            "weapon_skill": "2",
-            "strength": "6",
-            "ap": "-2",
-            "damage": "1"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Deep Strike",
-            "type": "Core",
-            "description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting."
-          },
-          {
-            "name": "Martial Ka'tah",
-            "type": "Faction",
-            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
-          },
-          {
-            "name": "Master of the Stances",
-            "type": "Datasheet",
-            "description": "Once per battle, when this model's unit is selected to fight, it can use this ability. If it does, until that fight is resolved, both Ka'tah Stances are active for that unit instead of only one."
-          },
-          {
-            "name": "Strategic Mastery",
-            "type": "Datasheet",
-            "description": "Once per battle round, you can select one model from your army with this ability and target that model's unit with a Stratagem. If you do, reduce the CP cost of that use of that Stratagem by 1CP."
-          },
-          {
-            "name": "Praesidium Shield",
-            "type": "Wargear",
-            "description": "Add 1 to the bearer's Wounds characteristic."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "1 Shield-Captain",
-            "line": 1
-          }
-        ],
-        "leader_data": {
-          "can_lead": [
-            "CUSTODIAN GUARD"
-          ]
-        }
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 6,
-          "current_wounds": 6,
-          "base_mm": 40,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        }
-      ]
+ "faction": {
+  "name": "Adeptus Custodes",
+  "points": 1000,
+  "detachment": "Shield Host",
+  "player_name": "",
+  "team_name": "",
+  "created_date": "2025-03-01",
+  "schema": 2,
+  "edition": 11,
+  "data_source": "40kdc-data 1.0.19 (11th edition, launch)"
+ },
+ "units": {
+  "U_SHIELD_CAPTAIN_A": {
+   "id": "U_SHIELD_CAPTAIN_A",
+   "squad_id": "U_SHIELD_CAPTAIN_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Shield-Captain",
+    "keywords": [
+     "ADEPTUS CUSTODES",
+     "CHARACTER",
+     "IMPERIUM",
+     "INFANTRY",
+     "SHIELD-CAPTAIN"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 6,
+     "leadership": 6,
+     "objective_control": 2,
+     "invuln": 4
     },
-    "U_BLADE_CHAMPION_A": {
-      "id": "U_BLADE_CHAMPION_A",
-      "squad_id": "U_BLADE_CHAMPION_A",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Blade Champion",
-        "keywords": [
-          "ADEPTUS CUSTODES",
-          "BLADE CHAMPION",
-          "CHARACTER",
-          "IMPERIUM",
-          "INFANTRY"
-        ],
-        "stats": {
-          "move": 6,
-          "toughness": 6,
-          "save": 2,
-          "wounds": 6,
-          "leadership": 6,
-          "objective_control": 2,
-          "invuln": 4
-        },
-        "points": 145,
-        "is_warlord": false,
-        "enhancements": [
-          "Adamantine Talisman (+25 pts)"
-        ],
-        "wargear": [],
-        "weapons": [
-          {
-            "name": "Vaultswords – Behemor",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "6",
-            "weapon_skill": "2",
-            "strength": "7",
-            "ap": "-2",
-            "damage": "2",
-            "special_rules": "precision",
-            "abilities": [
-              {
-                "id": "precision"
-              }
-            ]
-          },
-          {
-            "name": "Vaultswords – Hurricanus",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "9",
-            "weapon_skill": "2",
-            "strength": "5",
-            "ap": "-1",
-            "damage": "1",
-            "special_rules": "sustained hits 1",
-            "abilities": [
-              {
-                "id": "sustained_hits",
-                "x": 1
-              }
-            ]
-          },
-          {
-            "name": "Vaultswords – Victus",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "5",
-            "weapon_skill": "2",
-            "strength": "6",
-            "ap": "-3",
-            "damage": "3",
-            "special_rules": "devastating wounds",
-            "abilities": [
-              {
-                "id": "devastating_wounds"
-              }
-            ]
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Deep Strike",
-            "type": "Core",
-            "description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting."
-          },
-          {
-            "name": "Core",
-            "type": "Core",
-            "description": ""
-          },
-          {
-            "name": "Martial Ka'tah",
-            "type": "Faction",
-            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
-          },
-          {
-            "name": "Swift Onslaught",
-            "type": "Datasheet",
-            "description": "While this model is leading a unit, you can re-roll Charge rolls made for that unit"
-          },
-          {
-            "name": "Martial Inspiration",
-            "type": "Datasheet",
-            "description": "Once per battle, in your Charge phase, this model's unit is eligible to declare a charge in a turn which it Advanced."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "1 Blade Champion",
-            "line": 1
-          }
-        ],
-        "leader_data": {
-          "can_lead": [
-            "CUSTODIAN GUARD"
-          ]
-        }
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 6,
-          "current_wounds": 6,
-          "base_mm": 40,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        }
+    "points": 110,
+    "is_warlord": true,
+    "enhancements": [],
+    "wargear": [
+     "Shield-Captain (Shield), Praesidium Shield"
+    ],
+    "weapons": [
+     {
+      "name": "Guardian spear – Ranged",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "2",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "2",
+      "special_rules": "assault",
+      "abilities": [
+       {
+        "id": "assault"
+       }
       ]
-    },
-    "U_CUSTODIAN_GUARD_B": {
-      "id": "U_CUSTODIAN_GUARD_B",
-      "squad_id": "U_CUSTODIAN_GUARD_B",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Custodian Guard",
-        "keywords": [
-          "ADEPTUS CUSTODES",
-          "BATTLELINE",
-          "CUSTODIAN GUARD",
-          "IMPERIUM",
-          "INFANTRY"
-        ],
-        "stats": {
-          "move": 6,
-          "toughness": 6,
-          "save": 2,
-          "wounds": 3,
-          "leadership": 6,
-          "objective_control": 2,
-          "invuln": 4
-        },
-        "points": 170,
-        "is_warlord": false,
-        "enhancements": [],
-        "wargear": [
-          "Custodian Guard",
-          "Custodian Guard (Shield), Praesidium Shield"
-        ],
-        "weapons": [
-          {
-            "name": "Guardian spear",
-            "type": "Ranged",
-            "range": "24",
-            "attacks": "2",
-            "ballistic_skill": "2",
-            "strength": "4",
-            "ap": "-1",
-            "damage": "2",
-            "special_rules": "assault",
-            "abilities": [
-              {
-                "id": "assault"
-              }
-            ]
-          },
-          {
-            "name": "Sentinel blade",
-            "type": "Ranged",
-            "range": "12",
-            "attacks": "2",
-            "ballistic_skill": "2",
-            "strength": "4",
-            "ap": "-1",
-            "damage": "2",
-            "special_rules": "assault, pistol",
-            "abilities": [
-              {
-                "id": "assault"
-              },
-              {
-                "id": "pistol"
-              }
-            ]
-          },
-          {
-            "name": "Guardian spear",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "5",
-            "weapon_skill": "2",
-            "strength": "7",
-            "ap": "-2",
-            "damage": "2"
-          },
-          {
-            "name": "Misericordia",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "5",
-            "weapon_skill": "2",
-            "strength": "5",
-            "ap": "-2",
-            "damage": "1"
-          },
-          {
-            "name": "Sentinel blade",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "5",
-            "weapon_skill": "2",
-            "strength": "6",
-            "ap": "-2",
-            "damage": "1"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Deep Strike",
-            "type": "Core",
-            "description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting."
-          },
-          {
-            "name": "Martial Ka'tah",
-            "type": "Faction",
-            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
-          },
-          {
-            "name": "Praesidium Shield",
-            "type": "Wargear",
-            "description": "Add 1 to the bearer's Wounds characteristic."
-          },
-          {
-            "name": "Vexilla",
-            "type": "Wargear",
-            "description": "Add 1 to the Objective Control characteristic of models in the bearer's unit."
-          },
-          {
-            "name": "Stand Vigil",
-            "type": "Datasheet",
-            "description": "Each time a model in this unit makes an attack, re-roll a Wound roll of 1. While this unit is within range of an objective marker you control, you can re-roll the Wound roll instead."
-          },
-          {
-            "name": "Sentinel Storm",
-            "type": "Datasheet",
-            "description": "Once per battle, in your Shooting phase, after this unit has shot, it can shoot again."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "4-5 Custodian Guard",
-            "line": 1
-          }
-        ]
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 3,
-          "current_wounds": 3,
-          "base_mm": 40,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m2",
-          "wounds": 3,
-          "current_wounds": 3,
-          "base_mm": 40,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m3",
-          "wounds": 3,
-          "current_wounds": 3,
-          "base_mm": 40,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m4",
-          "wounds": 3,
-          "current_wounds": 3,
-          "base_mm": 40,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        }
+     },
+     {
+      "name": "Sentinel blade – Ranged",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "2",
+      "ballistic_skill": "2",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "2",
+      "special_rules": "assault, pistol",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "pistol"
+       }
       ]
-    },
-    "U_WITCHSEEKERS_C": {
-      "id": "U_WITCHSEEKERS_C",
-      "squad_id": "U_WITCHSEEKERS_C",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Witchseekers",
-        "keywords": [
-          "ADEPTUS CUSTODES",
-          "ANATHEMA PSYKANA",
-          "IMPERIUM",
-          "INFANTRY",
-          "WITCHSEEKERS"
-        ],
-        "stats": {
-          "move": 6,
-          "toughness": 3,
-          "save": 3,
-          "wounds": 1,
-          "leadership": 6,
-          "objective_control": 1
-        },
-        "points": 50,
-        "is_warlord": false,
-        "enhancements": [],
-        "wargear": [
-          "Witchseeker Sister Superior",
-          "Witchseeker"
-        ],
-        "weapons": [
-          {
-            "name": "Witchseeker flamer",
-            "type": "Ranged",
-            "range": "12",
-            "attacks": "D6",
-            "ballistic_skill": null,
-            "strength": "4",
-            "ap": "0",
-            "damage": "1",
-            "special_rules": "ignores cover, torrent",
-            "abilities": [
-              {
-                "id": "ignores_cover"
-              },
-              {
-                "id": "torrent"
-              }
-            ]
-          },
-          {
-            "name": "Close combat weapon",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "2",
-            "weapon_skill": "3",
-            "strength": "3",
-            "ap": "0",
-            "damage": "1"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Scouts 6\"",
-            "type": "Core",
-            "description": "Some or all models in this unit can make a Scout 6\" move at the end of deployment.",
-            "parameter": "6\""
-          },
-          {
-            "name": "Daughters of the Abyss",
-            "type": "Datasheet",
-            "description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds."
-          },
-          {
-            "name": "Sanctified Flames",
-            "type": "Datasheet",
-            "description": "In your Shooting phase, after this unit has shot, select one enemy unit hit by one or more of those attacks. That enemy unit must take a Battle-shock test."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "1 Witchseeker Sister Superior",
-            "line": 1
-          },
-          {
-            "description": "3-9 Witchseekers",
-            "line": 2
-          }
-        ]
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 1,
-          "current_wounds": 1,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m2",
-          "wounds": 1,
-          "current_wounds": 1,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m3",
-          "wounds": 1,
-          "current_wounds": 1,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m4",
-          "wounds": 1,
-          "current_wounds": 1,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        }
-      ]
-    },
-    "U_WITCHSEEKERS_D": {
-      "id": "U_WITCHSEEKERS_D",
-      "squad_id": "U_WITCHSEEKERS_D",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Witchseekers",
-        "keywords": [
-          "ADEPTUS CUSTODES",
-          "ANATHEMA PSYKANA",
-          "IMPERIUM",
-          "INFANTRY",
-          "WITCHSEEKERS"
-        ],
-        "stats": {
-          "move": 6,
-          "toughness": 3,
-          "save": 3,
-          "wounds": 1,
-          "leadership": 6,
-          "objective_control": 1
-        },
-        "points": 65,
-        "is_warlord": false,
-        "enhancements": [],
-        "wargear": [
-          "Witchseeker Sister Superior",
-          "Witchseeker"
-        ],
-        "weapons": [
-          {
-            "name": "Witchseeker flamer",
-            "type": "Ranged",
-            "range": "12",
-            "attacks": "D6",
-            "ballistic_skill": null,
-            "strength": "4",
-            "ap": "0",
-            "damage": "1",
-            "special_rules": "ignores cover, torrent",
-            "abilities": [
-              {
-                "id": "ignores_cover"
-              },
-              {
-                "id": "torrent"
-              }
-            ]
-          },
-          {
-            "name": "Close combat weapon",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "2",
-            "weapon_skill": "3",
-            "strength": "3",
-            "ap": "0",
-            "damage": "1"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Scouts 6\"",
-            "type": "Core",
-            "description": "Some or all models in this unit can make a Scout 6\" move at the end of deployment.",
-            "parameter": "6\""
-          },
-          {
-            "name": "Daughters of the Abyss",
-            "type": "Datasheet",
-            "description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds."
-          },
-          {
-            "name": "Sanctified Flames",
-            "type": "Datasheet",
-            "description": "In your Shooting phase, after this unit has shot, select one enemy unit hit by one or more of those attacks. That enemy unit must take a Battle-shock test."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "1 Witchseeker Sister Superior",
-            "line": 1
-          },
-          {
-            "description": "3-9 Witchseekers",
-            "line": 2
-          }
-        ]
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 1,
-          "current_wounds": 1,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m2",
-          "wounds": 1,
-          "current_wounds": 1,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m3",
-          "wounds": 1,
-          "current_wounds": 1,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        },
-        {
-          "id": "m4",
-          "wounds": 1,
-          "current_wounds": 1,
-          "base_mm": 32,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        }
-      ]
-    },
-    "U_CALADIUS_GRAV-TANK_E": {
-      "id": "U_CALADIUS_GRAV-TANK_E",
-      "squad_id": "U_CALADIUS_GRAV-TANK_E",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Caladius Grav-tank",
-        "keywords": [
-          "ADEPTUS CUSTODES",
-          "CALADIUS GRAV-TANK",
-          "FLY",
-          "IMPERIUM",
-          "VEHICLE"
-        ],
-        "stats": {
-          "move": 10,
-          "toughness": 11,
-          "save": 2,
-          "wounds": 14,
-          "leadership": 6,
-          "objective_control": 4
-        },
-        "points": 215,
-        "is_warlord": false,
-        "enhancements": [],
-        "wargear": [],
-        "weapons": [
-          {
-            "name": "Twin arachnus heavy blaze cannon",
-            "type": "Ranged",
-            "range": "48",
-            "attacks": "4",
-            "ballistic_skill": "2",
-            "strength": "12",
-            "ap": "-3",
-            "damage": "D6+2",
-            "special_rules": "twin-linked",
-            "abilities": [
-              {
-                "id": "twin_linked"
-              }
-            ]
-          },
-          {
-            "name": "Twin iliastus accelerator cannon",
-            "type": "Ranged",
-            "range": "48",
-            "attacks": "4",
-            "ballistic_skill": "2",
-            "strength": "10",
-            "ap": "-1",
-            "damage": "3",
-            "special_rules": "rapid fire 4, twin-linked",
-            "abilities": [
-              {
-                "id": "rapid_fire",
-                "x": 4
-              },
-              {
-                "id": "twin_linked"
-              }
-            ]
-          },
-          {
-            "name": "Twin lastrum bolt cannon",
-            "type": "Ranged",
-            "range": "36",
-            "attacks": "3",
-            "ballistic_skill": "2",
-            "strength": "6",
-            "ap": "-1",
-            "damage": "1",
-            "special_rules": "sustained hits 1",
-            "abilities": [
-              {
-                "id": "sustained_hits",
-                "x": 1
-              }
-            ]
-          },
-          {
-            "name": "Armoured hull",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "4",
-            "weapon_skill": "4",
-            "strength": "6",
-            "ap": "0",
-            "damage": "1"
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Deadly Demise D3",
-            "type": "Core",
-            "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds."
-          },
-          {
-            "name": "Martial Ka'tah",
-            "type": "Faction",
-            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
-          },
-          {
-            "name": "Advanced Firepower",
-            "type": "Datasheet",
-            "description": "Each time this model makes an attack with its twin iliastus accelerator cannon that targets an enemy unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time this model makes an attack with its twin arachnus heavy blaze cannon that targets an enemy MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability."
-          },
-          {
-            "name": "Damaged: 1-5 Wounds Remaining",
-            "type": "Datasheet",
-            "description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "1 Caladius Grav-tank",
-            "line": 1
-          }
-        ]
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 14,
-          "current_wounds": 14,
-          "base_mm": 170,
-          "base_type": "oval",
-          "base_dimensions": {
-            "length": 170,
-            "width": 105
-          },
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        }
-      ]
-    },
-    "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H": {
-      "id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
-      "squad_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Contemptor-Achillus Dreadnought",
-        "keywords": [
-          "ADEPTUS CUSTODES",
-          "CONTEMPTOR-ACHILLUS DREADNOUGHT",
-          "IMPERIUM",
-          "VEHICLE",
-          "WALKER"
-        ],
-        "stats": {
-          "move": 6,
-          "toughness": 9,
-          "save": 2,
-          "wounds": 10,
-          "leadership": 6,
-          "objective_control": 3
-        },
-        "points": 155,
-        "is_warlord": false,
-        "enhancements": [],
-        "wargear": [],
-        "weapons": [
-          {
-            "name": "Achillus dreadspear",
-            "type": "Ranged",
-            "range": "12",
-            "attacks": "1",
-            "ballistic_skill": "2",
-            "strength": "9",
-            "ap": "-2",
-            "damage": "3"
-          },
-          {
-            "name": "Infernus incinerator",
-            "type": "Ranged",
-            "range": "12",
-            "attacks": "D6",
-            "ballistic_skill": null,
-            "strength": "6",
-            "ap": "-1",
-            "damage": "1",
-            "special_rules": "torrent, ignores cover",
-            "abilities": [
-              {
-                "id": "torrent"
-              },
-              {
-                "id": "ignores_cover"
-              }
-            ]
-          },
-          {
-            "name": "Twin adrathic destructor",
-            "type": "Ranged",
-            "range": "18",
-            "attacks": "1",
-            "ballistic_skill": "2",
-            "strength": "6",
-            "ap": "-2",
-            "damage": "3",
-            "special_rules": "twin-linked",
-            "abilities": [
-              {
-                "id": "twin_linked"
-              }
-            ]
-          },
-          {
-            "name": "Achillus dreadspear",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "5",
-            "weapon_skill": "2",
-            "strength": "12",
-            "ap": "-2",
-            "damage": "D6+1",
-            "special_rules": "lance",
-            "abilities": [
-              {
-                "id": "lance"
-              }
-            ]
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Deadly Demise 1",
-            "type": "Core",
-            "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers 1 mortal wound."
-          },
-          {
-            "name": "Martial Ka'tah",
-            "type": "Faction",
-            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
-          },
-          {
-            "name": "Dread Foe",
-            "type": "Datasheet",
-            "description": "Each time this model is selected to fight, you can select one enemy unit within Engagement Range of it and roll one D6, adding 2 to the result if this model made a Charge move this turn: on a 4-5, that enemy unit suffers D3 mortal wounds; on a 6+, that enemy unit suffers 3 mortal wounds."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "1 Contemptor-Achillus Dreadnought",
-            "line": 1
-          }
-        ]
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 10,
-          "current_wounds": 10,
-          "base_mm": 60,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        }
-      ]
-    },
-    "U_TELEMON_HEAVY_DREADNOUGHT_I": {
-      "id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
-      "squad_id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Telemon Heavy Dreadnought",
-        "keywords": [
-          "ADEPTUS CUSTODES",
-          "IMPERIUM",
-          "TELEMON HEAVY DREADNOUGHT",
-          "VEHICLE",
-          "WALKER"
-        ],
-        "stats": {
-          "move": 8,
-          "toughness": 12,
-          "save": 2,
-          "wounds": 12,
-          "leadership": 6,
-          "objective_control": 5
-        },
-        "points": 265,
-        "is_warlord": false,
-        "enhancements": [],
-        "wargear": [],
-        "weapons": [
-          {
-            "name": "Telemon Caestus",
-            "type": "Ranged",
-            "range": "12",
-            "attacks": "3",
-            "ballistic_skill": "2",
-            "strength": "7",
-            "ap": "-1",
-            "damage": "2",
-            "special_rules": "twin-linked",
-            "abilities": [
-              {
-                "id": "twin_linked"
-              }
-            ]
-          },
-          {
-            "name": "Spiculus bolt launcher",
-            "type": "Ranged",
-            "range": "36",
-            "attacks": "6",
-            "ballistic_skill": "2",
-            "strength": "5",
-            "ap": "-1",
-            "damage": "1",
-            "special_rules": ""
-          },
-          {
-            "name": "Iliastus accelerator culverin",
-            "type": "Ranged",
-            "range": "48",
-            "attacks": "8",
-            "ballistic_skill": "2",
-            "strength": "6",
-            "ap": "-1",
-            "damage": "2",
-            "special_rules": ""
-          },
-          {
-            "name": "Telemon Caestus",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "5",
-            "weapon_skill": "2",
-            "strength": "12",
-            "ap": "-2",
-            "damage": "3",
-            "special_rules": ""
-          },
-          {
-            "name": "Telemon Storm Cannon",
-            "type": "Ranged",
-            "range": "72",
-            "attacks": "16",
-            "ballistic_skill": "2",
-            "strength": "6",
-            "ap": "-1",
-            "damage": "1",
-            "special_rules": ""
-          },
-          {
-            "name": "Twin arachnus las-blaze",
-            "type": "Ranged",
-            "range": "48",
-            "attacks": "2",
-            "ballistic_skill": "2",
-            "strength": "14",
-            "ap": "-4",
-            "damage": "D6+1",
-            "special_rules": "twin-linked",
-            "abilities": [
-              {
-                "id": "twin_linked"
-              }
-            ]
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Deadly Demise D3",
-            "type": "Core",
-            "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds."
-          },
-          {
-            "name": "Martial Ka'tah",
-            "type": "Faction",
-            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
-          },
-          {
-            "name": "Guardian Eternal",
-            "type": "Datasheet",
-            "description": "Each time an attack is allocated to this model, subtract 1 from the Damage characteristic of that attack."
-          },
-          {
-            "name": "Damaged: 1-4 Wounds Remaining",
-            "type": "Datasheet",
-            "description": "While this model has 1-4 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "1 Telemon Heavy Dreadnought",
-            "line": 1
-          }
-        ]
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 12,
-          "current_wounds": 12,
-          "base_mm": 100,
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        }
-      ]
-    },
-    "U_SHIELD_CAPTAIN_JETBIKE_A": {
-      "id": "U_SHIELD_CAPTAIN_JETBIKE_A",
-      "squad_id": "U_SHIELD_CAPTAIN_JETBIKE_A",
-      "owner": 1,
-      "status": "UNDEPLOYED",
-      "meta": {
-        "name": "Shield-captain On Dawneagle Jetbike",
-        "keywords": [
-          "ADEPTUS CUSTODES",
-          "MOUNTED",
-          "CHARACTER",
-          "FLY",
-          "SHIELD-CAPTAIN",
-          "DAWNEAGLE JETBIKE",
-          "IMPERIUM"
-        ],
-        "stats": {
-          "move": 12,
-          "toughness": 7,
-          "save": 2,
-          "wounds": 8,
-          "leadership": 6,
-          "objective_control": 2,
-          "invuln": 4
-        },
-        "points": 150,
-        "is_warlord": false,
-        "enhancements": [],
-        "wargear": [],
-        "weapons": [
-          {
-            "name": "Salvo launcher",
-            "type": "Ranged",
-            "range": "24",
-            "attacks": "1",
-            "ballistic_skill": "2",
-            "strength": "10",
-            "ap": "-3",
-            "damage": "D6+1",
-            "special_rules": "twin-linked",
-            "abilities": [
-              {
-                "id": "twin_linked"
-              }
-            ]
-          },
-          {
-            "name": "Interceptor lance",
-            "type": "Melee",
-            "range": "Melee",
-            "attacks": "6",
-            "weapon_skill": "2",
-            "strength": "7",
-            "ap": "-2",
-            "damage": "2",
-            "special_rules": "lance",
-            "abilities": [
-              {
-                "id": "lance"
-              }
-            ]
-          }
-        ],
-        "abilities": [
-          {
-            "name": "Leader",
-            "type": "Core",
-            "description": "This model can be attached to a unit of Vertus Praetors."
-          },
-          {
-            "name": "Martial Ka'tah",
-            "type": "Faction",
-            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
-          },
-          {
-            "name": "Sweeping Advance",
-            "type": "Datasheet",
-            "description": "Once per battle, at the end of the Fight phase, if this model's unit has fought this phase, if it is within Engagement Range of one or more enemy units, it can make a Fall Back move or, if it is not within Engagement Range of one or more enemy units, it can make a Normal move"
-          },
-          {
-            "name": "Strategic Mastery",
-            "type": "Datasheet",
-            "description": "Once per battle round, you can select one model from your army with this ability and target that model's unit with a Stratagem. If you do, reduce the CP cost of that use of that Stratagem by 1CP."
-          }
-        ],
-        "unit_composition": [
-          {
-            "description": "1 Shield-Captain on Dawneagle Jetbike",
-            "line": 1
-          }
-        ],
-        "leader_data": {
-          "can_lead": [
-            "VERTUS PRAETORS"
-          ]
-        },
-        "base_type": "oval",
-        "base_dimensions": {
-          "length": 75,
-          "width": 42
-        }
-      },
-      "models": [
-        {
-          "id": "m1",
-          "wounds": 8,
-          "current_wounds": 8,
-          "base_mm": 75,
-          "base_type": "oval",
-          "base_dimensions": {
-            "length": 75,
-            "width": 42
-          },
-          "position": null,
-          "alive": true,
-          "status_effects": []
-        }
-      ]
+     },
+     {
+      "name": "Guardian spear – Melee",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "7",
+      "weapon_skill": "2",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "2"
+     },
+     {
+      "name": "Sentinel blade – Melee",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "7",
+      "weapon_skill": "2",
+      "strength": "6",
+      "ap": "-2",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Martial Ka'tah",
+      "type": "Faction",
+      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     },
+     {
+      "name": "Master of the Stances",
+      "type": "Datasheet",
+      "description": "Once per battle, the unit gains the Once Per Battle Special ability."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Shield-Captain",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "CUSTODIAN GUARD",
+      "CUSTODIAN GUARD WITH ADRASITE AND PYRITHITE SPEARS",
+      "CUSTODIAN WARDENS",
+      "SAGITTARUM CUSTODIANS"
+     ]
     }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 6,
+     "current_wounds": 6,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_BLADE_CHAMPION_A": {
+   "id": "U_BLADE_CHAMPION_A",
+   "squad_id": "U_BLADE_CHAMPION_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Blade Champion",
+    "keywords": [
+     "ADEPTUS CUSTODES",
+     "BLADE CHAMPION",
+     "CHARACTER",
+     "IMPERIUM",
+     "INFANTRY"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 6,
+     "leadership": 6,
+     "objective_control": 2,
+     "invuln": 4
+    },
+    "points": 110,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [],
+    "weapons": [
+     {
+      "name": "Vaultswords – Behemor",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "6",
+      "weapon_skill": "2",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "2",
+      "special_rules": "precision",
+      "abilities": [
+       {
+        "id": "precision"
+       }
+      ]
+     },
+     {
+      "name": "Vaultswords – Hurricanis",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "9",
+      "weapon_skill": "2",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "sustained hits 1",
+      "abilities": [
+       {
+        "id": "sustained_hits",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Vaultswords – Victus",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "6",
+      "ap": "-3",
+      "damage": "3",
+      "special_rules": "devastating wounds",
+      "abilities": [
+       {
+        "id": "devastating_wounds"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Martial Ka'tah",
+      "type": "Faction",
+      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     },
+     {
+      "name": "Martial Inspiration",
+      "type": "Datasheet",
+      "description": "Once per battle, the unit gains the Advance & Charge ability."
+     },
+     {
+      "name": "Swift Onslaught",
+      "type": "Datasheet",
+      "description": "After being attached to a unit, you can re-roll the Charge roll."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Blade Champion",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "CUSTODIAN GUARD",
+      "CUSTODIAN GUARD WITH ADRASITE AND PYRITHITE SPEARS",
+      "CUSTODIAN WARDENS",
+      "SAGITTARUM CUSTODIANS"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 6,
+     "current_wounds": 6,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_CUSTODIAN_GUARD_B": {
+   "id": "U_CUSTODIAN_GUARD_B",
+   "squad_id": "U_CUSTODIAN_GUARD_B",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Custodian Guard",
+    "keywords": [
+     "ADEPTUS CUSTODES",
+     "BATTLELINE",
+     "CUSTODIAN GUARD",
+     "IMPERIUM",
+     "INFANTRY"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 6,
+     "save": 2,
+     "wounds": 3,
+     "leadership": 6,
+     "objective_control": 2,
+     "invuln": 4
+    },
+    "points": 170,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "Custodian Guard",
+     "Custodian Guard (Shield), Praesidium Shield"
+    ],
+    "weapons": [
+     {
+      "name": "Guardian spear – Ranged",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "2",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "2",
+      "special_rules": "assault",
+      "abilities": [
+       {
+        "id": "assault"
+       }
+      ]
+     },
+     {
+      "name": "Sentinel blade – Ranged",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "2",
+      "ballistic_skill": "2",
+      "strength": "4",
+      "ap": "-1",
+      "damage": "2",
+      "special_rules": "assault, pistol",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "pistol"
+       }
+      ]
+     },
+     {
+      "name": "Guardian spear – Melee",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "2"
+     },
+     {
+      "name": "Misericordia",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "5",
+      "ap": "-2",
+      "damage": "1"
+     },
+     {
+      "name": "Sentinel blade – Melee",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "6",
+      "ap": "-2",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Martial Ka'tah",
+      "type": "Faction",
+      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Praesidium Shield",
+      "type": "Datasheet",
+      "description": "Add 1 to this model's Wounds characteristic."
+     },
+     {
+      "name": "Sentinel Storm",
+      "type": "Datasheet",
+      "description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability."
+     },
+     {
+      "name": "Stand Vigil",
+      "type": "Datasheet",
+      "description": "You can re-roll a Wound roll of 1."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "4-5 Custodian Guard",
+      "line": 1
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 40,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_WITCHSEEKERS_C": {
+   "id": "U_WITCHSEEKERS_C",
+   "squad_id": "U_WITCHSEEKERS_C",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Witchseekers",
+    "keywords": [
+     "ADEPTUS CUSTODES",
+     "ANATHEMA PSYKANA",
+     "IMPERIUM",
+     "INFANTRY",
+     "WITCHSEEKERS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 3,
+     "save": 3,
+     "wounds": 1,
+     "leadership": 6,
+     "objective_control": 1
+    },
+    "points": 50,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "Witchseeker Sister Superior",
+     "Witchseeker"
+    ],
+    "weapons": [
+     {
+      "name": "Witchseeker flamer",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "D6",
+      "ballistic_skill": "N/A",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "ignores cover, torrent",
+      "abilities": [
+       {
+        "id": "ignores_cover"
+       },
+       {
+        "id": "torrent"
+       }
+      ]
+     },
+     {
+      "name": "Close combat weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "3",
+      "strength": "3",
+      "ap": "0",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Martial Ka'tah",
+      "type": "Faction",
+      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Sanctified Flames",
+      "type": "Datasheet",
+      "description": "During the Shooting phase, enemy units nearby must take a Battle-shock test."
+     },
+     {
+      "name": "Scouts 6\"",
+      "type": "Core",
+      "description": "Before the first battle round, the unit can make a Scout move of up to 6\"."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Witchseeker Sister Superior",
+      "line": 1
+     },
+     {
+      "description": "3-9 Witchseeker",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_WITCHSEEKERS_D": {
+   "id": "U_WITCHSEEKERS_D",
+   "squad_id": "U_WITCHSEEKERS_D",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Witchseekers",
+    "keywords": [
+     "ADEPTUS CUSTODES",
+     "ANATHEMA PSYKANA",
+     "IMPERIUM",
+     "INFANTRY",
+     "WITCHSEEKERS"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 3,
+     "save": 3,
+     "wounds": 1,
+     "leadership": 6,
+     "objective_control": 1
+    },
+    "points": 50,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "Witchseeker Sister Superior",
+     "Witchseeker"
+    ],
+    "weapons": [
+     {
+      "name": "Witchseeker flamer",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "D6",
+      "ballistic_skill": "N/A",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "ignores cover, torrent",
+      "abilities": [
+       {
+        "id": "ignores_cover"
+       },
+       {
+        "id": "torrent"
+       }
+      ]
+     },
+     {
+      "name": "Close combat weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "3",
+      "strength": "3",
+      "ap": "0",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Martial Ka'tah",
+      "type": "Faction",
+      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Sanctified Flames",
+      "type": "Datasheet",
+      "description": "During the Shooting phase, enemy units nearby must take a Battle-shock test."
+     },
+     {
+      "name": "Scouts 6\"",
+      "type": "Core",
+      "description": "Before the first battle round, the unit can make a Scout move of up to 6\"."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Witchseeker Sister Superior",
+      "line": 1
+     },
+     {
+      "description": "3-9 Witchseeker",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m2",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m3",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    },
+    {
+     "id": "m4",
+     "wounds": 1,
+     "current_wounds": 1,
+     "base_mm": 32,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_CALADIUS_GRAV-TANK_E": {
+   "id": "U_CALADIUS_GRAV-TANK_E",
+   "squad_id": "U_CALADIUS_GRAV-TANK_E",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Caladius Grav-tank",
+    "keywords": [
+     "ADEPTUS CUSTODES",
+     "CALADIUS GRAV-TANK",
+     "FLY",
+     "IMPERIUM",
+     "VEHICLE"
+    ],
+    "stats": {
+     "move": 10,
+     "toughness": 11,
+     "save": 2,
+     "wounds": 14,
+     "leadership": 6,
+     "objective_control": 4,
+     "invuln": 5
+    },
+    "points": 210,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [],
+    "weapons": [
+     {
+      "name": "Twin arachnus heavy blaze cannon",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "4",
+      "ballistic_skill": "2",
+      "strength": "12",
+      "ap": "-3",
+      "damage": "D6+2",
+      "special_rules": "twin linked",
+      "abilities": [
+       {
+        "id": "twin_linked"
+       }
+      ]
+     },
+     {
+      "name": "Twin iliastus accelerator cannon",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "4",
+      "ballistic_skill": "2",
+      "strength": "10",
+      "ap": "-1",
+      "damage": "3",
+      "special_rules": "rapid fire 4, twin linked",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 4
+       },
+       {
+        "id": "twin_linked"
+       }
+      ]
+     },
+     {
+      "name": "Twin lastrum bolt cannon",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "3",
+      "ballistic_skill": "2",
+      "strength": "6",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "sustained hits 1",
+      "abilities": [
+       {
+        "id": "sustained_hits",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "name": "Armoured hull",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "4",
+      "strength": "6",
+      "ap": "0",
+      "damage": "1"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Martial Ka'tah",
+      "type": "Faction",
+      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Advanced Firepower",
+      "type": "Datasheet",
+      "description": "The unit's weapons gain [LETHAL HITS]."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Caladius Grav-tank",
+      "line": 1
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 14,
+     "current_wounds": 14,
+     "base_mm": 170,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 109,
+      "width": 170
+     }
+    }
+   ]
+  },
+  "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H": {
+   "id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+   "squad_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Contemptor-Achillus Dreadnought",
+    "keywords": [
+     "ADEPTUS CUSTODES",
+     "CONTEMPTOR-ACHILLUS DREADNOUGHT",
+     "IMPERIUM",
+     "VEHICLE",
+     "WALKER"
+    ],
+    "stats": {
+     "move": 6,
+     "toughness": 9,
+     "save": 2,
+     "wounds": 10,
+     "leadership": 6,
+     "objective_control": 3,
+     "invuln": 5
+    },
+    "points": 155,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [],
+    "weapons": [
+     {
+      "name": "Achillus dreadspear – Achillus dreadspear",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "2",
+      "strength": "9",
+      "ap": "-2",
+      "damage": "3"
+     },
+     {
+      "name": "Infernus incinerator",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "D6",
+      "ballistic_skill": "N/A",
+      "strength": "6",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "ignores cover, torrent",
+      "abilities": [
+       {
+        "id": "ignores_cover"
+       },
+       {
+        "id": "torrent"
+       }
+      ]
+     },
+     {
+      "name": "Lastrum storm bolter",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "2",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "rapid fire 2",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 2
+       }
+      ]
+     },
+     {
+      "name": "Twin adrathic destructor",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "1",
+      "ballistic_skill": "2",
+      "strength": "6",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "twin linked",
+      "abilities": [
+       {
+        "id": "twin_linked"
+       }
+      ]
+     },
+     {
+      "name": "Achillus dreadspear – Achillus dreadspear",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "12",
+      "ap": "-2",
+      "damage": "D6+1",
+      "special_rules": "lance",
+      "abilities": [
+       {
+        "id": "lance"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Martial Ka'tah",
+      "type": "Faction",
+      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Deadly Demise 1",
+      "type": "Core",
+      "description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers 1 mortal wound."
+     },
+     {
+      "name": "Dread Foe",
+      "type": "Datasheet",
+      "description": "If the unit charged this turn, the target suffers d3 mortal wounds."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Contemptor-Achillus Dreadnought",
+      "line": 1
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 10,
+     "current_wounds": 10,
+     "base_mm": 60,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_TELEMON_HEAVY_DREADNOUGHT_I": {
+   "id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
+   "squad_id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Telemon Heavy Dreadnought",
+    "keywords": [
+     "ADEPTUS CUSTODES",
+     "IMPERIUM",
+     "TELEMON HEAVY DREADNOUGHT",
+     "VEHICLE",
+     "WALKER"
+    ],
+    "stats": {
+     "move": 8,
+     "toughness": 10,
+     "save": 2,
+     "wounds": 12,
+     "leadership": 6,
+     "objective_control": 4,
+     "invuln": 4
+    },
+    "points": 225,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [],
+    "weapons": [
+     {
+      "name": "Arachnus storm cannon",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "12",
+      "ballistic_skill": "2",
+      "strength": "6",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "devastating wounds",
+      "abilities": [
+       {
+        "id": "devastating_wounds"
+       }
+      ]
+     },
+     {
+      "name": "Iliastus accelerator culverin",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "4",
+      "ballistic_skill": "2",
+      "strength": "9",
+      "ap": "-1",
+      "damage": "3"
+     },
+     {
+      "name": "Spiculus bolt launcher",
+      "type": "Ranged",
+      "range": "36",
+      "attacks": "D6+3",
+      "ballistic_skill": "2",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "blast",
+      "abilities": [
+       {
+        "id": "blast"
+       }
+      ]
+     },
+     {
+      "name": "Twin arachnus heavy blaze cannon",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "4",
+      "ballistic_skill": "2",
+      "strength": "12",
+      "ap": "-3",
+      "damage": "D6+2",
+      "special_rules": "twin linked",
+      "abilities": [
+       {
+        "id": "twin_linked"
+       }
+      ]
+     },
+     {
+      "name": "Armoured feet",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "7",
+      "ap": "0",
+      "damage": "1"
+     },
+     {
+      "name": "Telemon caestus",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "5",
+      "weapon_skill": "2",
+      "strength": "12",
+      "ap": "-2",
+      "damage": "3"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Martial Ka'tah",
+      "type": "Faction",
+      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Deadly Demise D3",
+      "type": "Core",
+      "description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers D3 mortal wounds."
+     },
+     {
+      "name": "Devoted to Destruction",
+      "type": "Datasheet",
+      "description": "Add 2 to the unit's Attacks characteristic."
+     },
+     {
+      "name": "Guardian Eternal",
+      "type": "Datasheet",
+      "description": "Each time an attack targets the unit, reduce the Damage of that attack by 1."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Telemon Heavy Dreadnought",
+      "line": 1
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 12,
+     "current_wounds": 12,
+     "base_mm": 100,
+     "position": null,
+     "alive": true,
+     "status_effects": []
+    }
+   ]
+  },
+  "U_SHIELD_CAPTAIN_JETBIKE_A": {
+   "id": "U_SHIELD_CAPTAIN_JETBIKE_A",
+   "squad_id": "U_SHIELD_CAPTAIN_JETBIKE_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Shield-Captain on Dawneagle Jetbike",
+    "keywords": [
+     "ADEPTUS CUSTODES",
+     "CHARACTER",
+     "DAWNEAGLE JETBIKE",
+     "FLY",
+     "IMPERIUM",
+     "MOUNTED",
+     "SHIELD-CAPTAIN"
+    ],
+    "stats": {
+     "move": 12,
+     "toughness": 7,
+     "save": 2,
+     "wounds": 8,
+     "leadership": 6,
+     "objective_control": 2,
+     "invuln": 4
+    },
+    "points": 140,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [],
+    "weapons": [
+     {
+      "name": "Salvo launcher",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "1",
+      "ballistic_skill": "2",
+      "strength": "10",
+      "ap": "-3",
+      "damage": "D6+1",
+      "special_rules": "twin linked",
+      "abilities": [
+       {
+        "id": "twin_linked"
+       }
+      ]
+     },
+     {
+      "name": "Interceptor lance",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "6",
+      "weapon_skill": "2",
+      "strength": "7",
+      "ap": "-2",
+      "damage": "2",
+      "special_rules": "lance",
+      "abilities": [
+       {
+        "id": "lance"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Martial Ka'tah",
+      "type": "Faction",
+      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+     },
+     {
+      "name": "Leader",
+      "type": "Core",
+      "description": "The unit gains the Leader ability."
+     },
+     {
+      "name": "Strategic Mastery",
+      "type": "Datasheet",
+      "description": "Once per battle, you can use one Stratagem on this model for 0CP."
+     },
+     {
+      "name": "Sweeping Advance",
+      "type": "Datasheet",
+      "description": "Once per battle, during the Fight phase, the unit is eligible to shoot and declare a charge in a turn in which it Fell Back."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Shield-Captain on Dawneagle Jetbike",
+      "line": 1
+     }
+    ],
+    "leader_data": {
+     "can_lead": [
+      "AGAMATUS CUSTODIANS",
+      "VERTUS PRAETORS"
+     ]
+    }
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 8,
+     "current_wounds": 8,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    }
+   ]
   }
+ }
 }

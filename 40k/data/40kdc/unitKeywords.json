@@ -1,0 +1,140 @@
+[
+ {
+  "id": "deadly-demise",
+  "name": "Deadly Demise",
+  "required_parameters": [
+   "value"
+  ],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "deep-strike",
+  "name": "Deep Strike",
+  "required_parameters": [],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "feel-no-pain",
+  "name": "Feel No Pain",
+  "required_parameters": [
+   "value"
+  ],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "fights-first",
+  "name": "Fights First",
+  "required_parameters": [],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "firing-deck",
+  "name": "Firing Deck",
+  "required_parameters": [
+   "value"
+  ],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "hover",
+  "name": "Hover",
+  "required_parameters": [],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "infiltrators",
+  "name": "Infiltrators",
+  "required_parameters": [],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "leader",
+  "name": "Leader",
+  "required_parameters": [],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "lone-operative",
+  "name": "Lone Operative",
+  "required_parameters": [],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "scouts",
+  "name": "Scouts",
+  "required_parameters": [
+   "value"
+  ],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "stealth",
+  "name": "Stealth",
+  "required_parameters": [],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "support",
+  "name": "Support",
+  "required_parameters": [],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "super-heavy-walker",
+  "name": "Super-Heavy Walker",
+  "required_parameters": [],
+  "effect": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ }
+]

@@ -1,0 +1,277 @@
+[
+ {
+  "id": "battlefield-dominance",
+  "name": "Battlefield Dominance",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "determined-acquisition",
+  "name": "Determined Acquisition",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "immovable-object",
+  "name": "Immovable Object",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "inescapable-dominion",
+  "name": "Inescapable Dominion",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "purge-and-secure",
+  "name": "Purge and Secure",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "death-trap",
+  "name": "Death Trap",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "outmanoeuvre",
+  "name": "Outmanoeuvre",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "delaying-action",
+  "name": "Delaying Action",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "locate-and-deny",
+  "name": "Locate and Deny",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "smoke-and-mirrors",
+  "name": "Smoke and Mirrors",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "unstoppable-force",
+  "name": "Unstoppable Force",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "punishment",
+  "name": "Punishment",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "meatgrinder",
+  "name": "Meatgrinder",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "destroyers-wrath",
+  "name": "Destroyer's Wrath",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "consecrate",
+  "name": "Consecrate",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "secure-asset",
+  "name": "Secure Asset",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "extract-relic",
+  "name": "Extract Relic",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "vital-link",
+  "name": "Vital Link",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "sabotage",
+  "name": "Sabotage",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "vanguard-operation",
+  "name": "Vanguard Operation",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "reconnaissance-sweep",
+  "name": "Reconnaissance Sweep",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "surveil-the-foe",
+  "name": "Surveil the Foe",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "triangulation",
+  "name": "Triangulation",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "search-and-scour",
+  "name": "Search and Scour",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ },
+ {
+  "id": "gather-intel",
+  "name": "Gather Intel",
+  "vp_per_game_cap": 45,
+  "vp_per_round_cap": 15,
+  "deployment_pattern_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  }
+ }
+]

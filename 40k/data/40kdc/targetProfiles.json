@@ -1,0 +1,134 @@
+[
+ {
+  "id": "geq-guardsmen",
+  "name": "Guardsmen (GEQ)",
+  "description": "Guard-equivalent infantry: the baseline light-infantry chaff target.",
+  "faction_id": "astra-militarum",
+  "unit_id": "cadian-shock-troops",
+  "model_count_override": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "meq-intercessors",
+  "name": "Intercessors (MEQ)",
+  "description": "Marine-equivalent infantry: the canonical T4 2-wound 3+ save benchmark.",
+  "faction_id": "adeptus-astartes",
+  "unit_id": "intercessor-squad",
+  "model_count_override": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "teq-terminators",
+  "name": "Terminators (TEQ)",
+  "description": "Terminator-equivalent infantry: 2+ save with a 4++ invuln and 3 wounds.",
+  "faction_id": "adeptus-astartes",
+  "unit_id": "terminator-squad",
+  "model_count_override": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "atv-invader",
+  "name": "Invader ATV (light vehicle)",
+  "description": "Light fast-attack vehicle: the low-wound vehicle benchmark.",
+  "faction_id": "adeptus-astartes",
+  "unit_id": "invader-atv",
+  "model_count_override": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "predator",
+  "name": "Predator (battle tank)",
+  "description": "Generic tracked battle tank: the mid-toughness armour benchmark.",
+  "faction_id": "adeptus-astartes",
+  "unit_id": "predator-destructor",
+  "model_count_override": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "rhino",
+  "name": "Rhino (transport)",
+  "description": "Dedicated transport: the T9 10-wound transport benchmark.",
+  "faction_id": "adeptus-astartes",
+  "unit_id": "rhino",
+  "model_count_override": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "armiger",
+  "name": "Armiger (light knight)",
+  "description": "Light walker / knight-armiger: the T9 14-wound 5++ benchmark.",
+  "faction_id": "imperial-knights",
+  "unit_id": "armiger-warglaive",
+  "model_count_override": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "questoris-knight",
+  "name": "Questoris Knight",
+  "description": "Questoris-class super-heavy walker: the T11 26-wound 5++ benchmark.",
+  "faction_id": "imperial-knights",
+  "unit_id": "knight-paladin",
+  "model_count_override": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "cerastus-lancer",
+  "name": "Cerastus Knight Lancer",
+  "description": "Cerastus-class knight: the T11 28-wound 4++ heavy-armour benchmark.",
+  "faction_id": "imperial-knights",
+  "unit_id": "cerastus-knight-lancer",
+  "model_count_override": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "rogal-dorn",
+  "name": "Rogal Dorn Battle Tank",
+  "description": "Heavy Guard battle tank: the T12 2+ save 18-wound benchmark.",
+  "faction_id": "astra-militarum",
+  "unit_id": "rogal-dorn-battle-tank",
+  "model_count_override": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "ctan-shard",
+  "name": "C'tan Shard (monster)",
+  "description": "Monster with an ability-granted invuln and (often) damage reduction: the resilient-monster benchmark.",
+  "faction_id": "necrons",
+  "unit_id": "ctan-shard-of-the-nightbringer",
+  "model_count_override": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ }
+]
