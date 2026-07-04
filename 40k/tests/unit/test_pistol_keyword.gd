@@ -99,10 +99,10 @@ func test_unit_has_pistol_weapons_ork_boyz():
 	var result = rules_engine.unit_has_pistol_weapons("U_BOYZ_A")
 	assert_true(result, "Ork Boyz (U_BOYZ_A) should have Pistol weapons (slugga)")
 
-func test_unit_has_no_pistol_weapons_gretchin():
-	"""Test that Gretchin unit does NOT have Pistol weapons"""
+func test_unit_has_pistol_weapons_gretchin():
+	"""11e: grot blastas gained the Pistol keyword"""
 	var result = rules_engine.unit_has_pistol_weapons("U_GRETCHIN_A")
-	assert_false(result, "Gretchin should NOT have Pistol weapons")
+	assert_true(result, "Gretchin should have Pistol weapons in 11e (grot blasta)")
 
 func test_unit_has_pistol_weapons_unknown_unit():
 	"""Test that unknown unit returns false"""
@@ -126,10 +126,10 @@ func test_get_unit_pistol_weapons_intercessors():
 				break
 	assert_true(has_pistol, "Should find plasma_pistol in Intercessors weapons")
 
-func test_get_unit_pistol_weapons_gretchin_empty():
-	"""Test that Gretchin have no pistol weapons"""
+func test_get_unit_pistol_weapons_gretchin():
+	"""11e: grot blastas are Pistols"""
 	var weapons = rules_engine.get_unit_pistol_weapons("U_GRETCHIN_A")
-	assert_true(weapons.is_empty(), "Gretchin should have no pistol weapons")
+	assert_false(weapons.is_empty(), "Gretchin should have pistol weapons in 11e")
 
 # ==========================================
 # Pistol + Other Keywords Tests

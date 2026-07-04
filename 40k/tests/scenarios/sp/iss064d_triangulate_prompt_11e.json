@@ -1,60 +1,153 @@
 {
-  "id": "iss064d_triangulate_prompt_11e",
-  "covers": [
-    "missions.primary_11e.card_action_prompt",
-    "missions.primary_11e.triangulate_choice"
-  ],
-  "fixture": "audit_374_kunnin",
-  "edition": 11,
-  "rng_seed": 42,
-  "transition_to_phase": 11,
-  "disable_ai": true,
-  "description": "11e GDM card-action player prompt (single-pick): P2 plays Triangulation (Reconnaissance vs Purge the Foe); the P1 centre garrison withdraws and Warboss B takes obj_center so P2 controls obj_center + obj_nml_2 at end of turn. Clicking the real End Turn button pauses END_TURN behind the CardActionDialog listing both controlled objectives; a second END_TURN is rejected while the gate is up. The player clicks Pick_obj_nml_2 — the pick is applied, the deterministic auto-pick stands down (exactly one mark), EOT scores 3 VP for 1 Triangulated objective, and the turn ends.",
-  "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_state", "path": "meta.phase", "equals": 11 },
-    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
-
-    { "act": "execute_script",
-      "script": "GameState.state[\"meta\"].merge({\"game_config\": {\"deployment\": \"search_and_destroy\", \"player1_disposition\": \"purge_the_foe\", \"player2_disposition\": \"reconnaissance\"}}, true)" },
-    { "act": "execute_script", "script": "MissionManager.initialize_mission(\"take_and_hold\")" },
-    { "act": "execute_script",
-      "script": "MissionManager.get_primary_mission_for_player(2)[\"id\"]",
-      "equals": "triangulation" },
-    { "act": "execute_script", "script": "GameState.get_unit(\"U_CALADIUS_GRAV-TANK_E\")[\"models\"][0].merge({\"position\": {\"x\": 200.0, \"y\": 300.0}}, true)" },
-    { "act": "execute_script", "script": "GameState.get_unit(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\")[\"models\"][0].merge({\"position\": {\"x\": 320.0, \"y\": 300.0}}, true)" },
-    { "act": "execute_script", "script": "GameState.get_unit(\"U_WARBOSS_B\")[\"models\"][0].merge({\"position\": {\"x\": 880.0, \"y\": 1180.0}}, true)" },
-    { "act": "execute_script", "script": "MissionManager.check_all_objectives()" },
-    { "act": "execute_script", "script": "MissionManager.on_turn_start_11e(2)" },
-    { "act": "execute_script",
-      "script": "MissionManager._get_controlled_objectives(2).size()",
-      "equals": 2 },
-    { "act": "execute_script",
-      "script": "MissionManager.get_pending_card_action_11e(2)[\"mode\"]",
-      "equals": "single" },
-    { "act": "screenshot", "label": "01_before_end_turn" },
-
-    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
-    { "act": "expect_node_visible", "node": "/root/CardActionDialog", "timeout_s": 3.0 },
-    { "act": "expect_node_visible", "node": "/root/CardActionDialog/Content/Pick_obj_nml_2", "timeout_s": 2.0 },
-    { "act": "expect_node_visible", "node": "/root/CardActionDialog/Content/Pick_obj_center", "timeout_s": 2.0 },
-    { "act": "expect_node_visible", "node": "/root/CardActionDialog/Content/Actions/SkipCardAction", "timeout_s": 2.0 },
-    { "act": "screenshot", "label": "02_triangulate_dialog_open" },
-
-    { "act": "dispatch_action", "action": { "type": "END_TURN" } },
-    { "act": "expect_action_result", "path": "success", "equals": false },
-
-    { "act": "click_node", "node": "/root/CardActionDialog/Content/Pick_obj_nml_2", "emit_pressed": true },
-    { "act": "wait_seconds", "seconds": 1.0 },
-
-    { "act": "execute_script",
-      "script": "\"obj_nml_2\" in MissionManager._primary_state_11e[\"2\"][\"triangulated\"]",
-      "equals": true },
-    { "act": "execute_script",
-      "script": "MissionManager._primary_state_11e[\"2\"][\"triangulated\"].size()",
-      "equals": 1 },
-    { "act": "expect_state", "path": "players.2.primary_vp", "equals": 3 },
-    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
-    { "act": "screenshot", "label": "03_turn_ended_choice_scored" }
-  ]
+ "id": "iss064d_triangulate_prompt_11e",
+ "covers": [
+  "missions.primary_11e.card_action_prompt",
+  "missions.primary_11e.triangulate_choice"
+ ],
+ "fixture": "audit_374_kunnin",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 11,
+ "disable_ai": true,
+ "description": "11e GDM card-action player prompt (single-pick): P2 plays Triangulation (Reconnaissance vs Purge the Foe); the P1 centre garrison withdraws and Warboss B takes obj_center so P2 controls obj_center + obj_nml_2 at end of turn. Clicking the real End Turn button pauses END_TURN behind the CardActionDialog listing both controlled objectives; a second END_TURN is rejected while the gate is up. The player clicks Pick_obj_nml_2 \u2014 the pick is applied, the deterministic auto-pick stands down (exactly one mark), EOT scores 3 VP for 1 Triangulated objective, and the turn ends.",
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.phase",
+   "equals": 11
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.active_player",
+   "equals": 2
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.state[\"meta\"].merge({\"game_config\": {\"deployment\": \"search_and_destroy\", \"player1_disposition\": \"purge_the_foe\", \"player2_disposition\": \"reconnaissance\"}}, true)"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.state[\"meta\"].merge({\"battle_round\": 2}, true)"
+  },
+  {
+   "act": "execute_script",
+   "script": "MissionManager.initialize_mission(\"take_and_hold\")"
+  },
+  {
+   "act": "execute_script",
+   "script": "MissionManager.get_primary_mission_for_player(2)[\"id\"]",
+   "equals": "triangulation"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_CALADIUS_GRAV-TANK_E\")[\"models\"][0].merge({\"position\": {\"x\": 200.0, \"y\": 300.0}}, true)"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\")[\"models\"][0].merge({\"position\": {\"x\": 320.0, \"y\": 300.0}}, true)"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_WARBOSS_B\")[\"models\"][0].merge({\"position\": {\"x\": 880.0, \"y\": 1180.0}}, true)"
+  },
+  {
+   "act": "execute_script",
+   "script": "MissionManager.check_all_objectives()"
+  },
+  {
+   "act": "execute_script",
+   "script": "MissionManager.on_turn_start_11e(2)"
+  },
+  {
+   "act": "execute_script",
+   "script": "MissionManager._get_controlled_objectives(2).size()",
+   "equals": 2
+  },
+  {
+   "act": "execute_script",
+   "script": "MissionManager.get_pending_card_action_11e(2)[\"mode\"]",
+   "equals": "single"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_before_end_turn"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/PhaseActionButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/CardActionDialog",
+   "timeout_s": 3.0
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/CardActionDialog/Content/Pick_obj_nml_2",
+   "timeout_s": 2.0
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/CardActionDialog/Content/Pick_obj_center",
+   "timeout_s": 2.0
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/CardActionDialog/Content/Actions/SkipCardAction",
+   "timeout_s": 2.0
+  },
+  {
+   "act": "screenshot",
+   "label": "02_triangulate_dialog_open"
+  },
+  {
+   "act": "dispatch_action",
+   "action": {
+    "type": "END_TURN"
+   }
+  },
+  {
+   "act": "expect_action_result",
+   "path": "success",
+   "equals": false
+  },
+  {
+   "act": "click_node",
+   "node": "/root/CardActionDialog/Content/Pick_obj_nml_2",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "execute_script",
+   "script": "\"obj_nml_2\" in MissionManager._primary_state_11e[\"2\"][\"triangulated\"]",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "MissionManager._primary_state_11e[\"2\"][\"triangulated\"].size()",
+   "equals": 1
+  },
+  {
+   "act": "expect_state",
+   "path": "players.2.primary_vp",
+   "equals": 3
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.active_player",
+   "equals": 1
+  },
+  {
+   "act": "screenshot",
+   "label": "03_turn_ended_choice_scored"
+  }
+ ]
 }

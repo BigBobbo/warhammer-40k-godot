@@ -1170,11 +1170,22 @@ func _setup_relic_markers_11e() -> void:
 			if di_home_pos is Dictionary:
 				di_home_pos = Vector2(di_home_pos.x, di_home_pos.y)
 			break
+	# The real card marks terrain areas OUTSIDE the Disruption player's
+	# deployment zone. Restrict the auto-pick to the same eligible set the
+	# revision dialog offers, so the pre-checked count always meets the
+	# required count (otherwise an auto-pick inside the DZ has no checkbox and
+	# the player can never confirm the required number of markers).
+	var eligible_ids := _relic_eligible_features_11e(di_player)
 	var candidates = []
 	for feature in tm.terrain_features:
+		var fid = str(feature.get("id", ""))
+		if not eligible_ids.is_empty() and not fid in eligible_ids:
+			continue
 		var fpos = feature.get("position", Vector2.ZERO)
+		if fpos is Dictionary:
+			fpos = Vector2(fpos.get("x", 0), fpos.get("y", 0))
 		var dist = fpos.distance_to(di_home_pos) if di_home_pos != null else 0.0
-		candidates.append({"id": feature.get("id", ""), "dist": dist})
+		candidates.append({"id": fid, "dist": dist})
 	candidates.sort_custom(func(a, b): return a["dist"] > b["dist"])
 	for i in range(min(5, candidates.size())):
 		_relic_markers_11e.append(candidates[i]["id"])
