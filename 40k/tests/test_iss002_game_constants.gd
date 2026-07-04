@@ -45,7 +45,9 @@ func _run_tests():
 
 func _test_edition_values() -> void:
 	print("\n-- A: GameConstants edition values --")
-	_check("default edition is 10", GameConstants.edition == 10)
+	# The static default is 11 (11th edition only); the automated harness pins
+	# GameConstants.edition to the legacy 10e baseline for this suite.
+	_check("harness baseline edition is 10", GameConstants.edition == 10)
 	_check("edition 10: engagement range 1.0\"",
 		GameConstants.engagement_range_inches() == 1.0)
 	_check("vertical engagement range 5.0\"",

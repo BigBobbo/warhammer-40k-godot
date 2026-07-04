@@ -17,9 +17,13 @@ extends RefCounted
 ##   11 — the new-edition core rules (see PRD.md / warhammer40k_core_rules8).
 ## Enforced by tests/test_iss002_game_constants.gd.
 
-## Active rules edition. Default 10 until the 11e migration lands (ISS-037+
-## will wire this to settings/save state).
-static var edition: int = 10
+## Active rules edition. The game is 11th edition only — every player launch
+## runs at 11 (SettingsService re-asserts this at boot). The variable remains
+## writable solely for the legacy regression suite: the automated harness
+## (SettingsService._is_automated_harness) pins it to the historical 10e
+## baseline, and scenarios/tests may set it explicitly, until the 10e code
+## paths are deleted outright.
+static var edition: int = 11
 
 
 # ── Engagement range ────────────────────────────────────────────────
