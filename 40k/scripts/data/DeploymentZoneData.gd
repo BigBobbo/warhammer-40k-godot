@@ -12,13 +12,16 @@ class_name DeploymentZoneData
 const BOARD_WIDTH: float = 44.0
 const BOARD_HEIGHT: float = 60.0
 
-# All supported deployment types
+# All supported deployment types. Zone geometry comes from the JSON overrides
+# in res://deployment_zones/, regenerated from the official 40kdc 11e dataset
+# by scripts/40kdc/generate-deployment-zones.mjs (tipping_point is 11e-new).
 const DEPLOYMENT_TYPES = [
 	"hammer_anvil",
 	"dawn_of_war",
 	"search_and_destroy",
 	"sweeping_engagement",
-	"crucible_of_battle"
+	"crucible_of_battle",
+	"tipping_point"
 ]
 
 # Returns deployment zone polygons for both players (in inches)

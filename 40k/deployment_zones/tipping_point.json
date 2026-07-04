@@ -1,7 +1,7 @@
 {
- "id": "sweeping_engagement",
- "name": "Sweeping Engagement",
- "description": "Sweeping Engagement — official geometry from the 40kdc 11e dataset (transposed to the game's 44x60 portrait board).",
+ "id": "tipping_point",
+ "name": "Tipping Point",
+ "description": "Tipping Point — official geometry from the 40kdc 11e dataset (transposed to the game's 44x60 portrait board).",
  "zones": [
   {
    "player": 1,
@@ -12,22 +12,22 @@
     },
     {
      "x": 0,
-     "y": 60
+     "y": 12
     },
     {
-     "x": 14,
-     "y": 60
+     "x": 22,
+     "y": 12
     },
     {
-     "x": 14,
-     "y": 30
+     "x": 22,
+     "y": 20
     },
     {
-     "x": 8,
-     "y": 30
+     "x": 44,
+     "y": 20
     },
     {
-     "x": 8,
+     "x": 44,
      "y": 0
     }
    ]
@@ -37,27 +37,27 @@
    "poly": [
     {
      "x": 44,
-     "y": 0
+     "y": 60
     },
     {
      "x": 44,
+     "y": 48
+    },
+    {
+     "x": 22,
+     "y": 48
+    },
+    {
+     "x": 22,
+     "y": 40
+    },
+    {
+     "x": 0,
+     "y": 40
+    },
+    {
+     "x": 0,
      "y": 60
-    },
-    {
-     "x": 36,
-     "y": 60
-    },
-    {
-     "x": 36,
-     "y": 30
-    },
-    {
-     "x": 30,
-     "y": 30
-    },
-    {
-     "x": 30,
-     "y": 0
     }
    ]
   }
@@ -73,28 +73,19 @@
    "zone": "no_mans_land"
   },
   {
-   "id": "obj_home_1",
-   "position": [
-    38,
-    18
-   ],
-   "radius_mm": 40,
-   "zone": "player2"
-  },
-  {
    "id": "obj_nml_1",
    "position": [
-    18,
-    10
+    8,
+    22
    ],
    "radius_mm": 40,
    "zone": "no_mans_land"
   },
   {
-   "id": "obj_home_2",
+   "id": "obj_home_1",
    "position": [
-    6,
-    42
+    34,
+    14
    ],
    "radius_mm": 40,
    "zone": "player1"
@@ -102,11 +93,20 @@
   {
    "id": "obj_nml_2",
    "position": [
-    26,
-    50
+    36,
+    38
    ],
    "radius_mm": 40,
    "zone": "no_mans_land"
+  },
+  {
+   "id": "obj_home_2",
+   "position": [
+    10,
+    46
+   ],
+   "radius_mm": 40,
+   "zone": "player2"
   }
  ],
  "territories": [
@@ -119,22 +119,22 @@
     },
     {
      "x": 0,
-     "y": 60
+     "y": 26
     },
     {
-     "x": 25,
-     "y": 60
+     "x": 22,
+     "y": 26
     },
     {
-     "x": 25,
-     "y": 30
+     "x": 22,
+     "y": 34
     },
     {
-     "x": 19,
-     "y": 30
+     "x": 44,
+     "y": 34
     },
     {
-     "x": 19,
+     "x": 44,
      "y": 0
     }
    ]
@@ -143,19 +143,11 @@
    "player": 2,
    "poly": [
     {
-     "x": 19,
-     "y": 0
+     "x": 0,
+     "y": 26
     },
     {
-     "x": 19,
-     "y": 30
-    },
-    {
-     "x": 25,
-     "y": 30
-    },
-    {
-     "x": 25,
+     "x": 0,
      "y": 60
     },
     {
@@ -164,7 +156,15 @@
     },
     {
      "x": 44,
-     "y": 0
+     "y": 34
+    },
+    {
+     "x": 22,
+     "y": 34
+    },
+    {
+     "x": 22,
+     "y": 26
     }
    ]
   }
