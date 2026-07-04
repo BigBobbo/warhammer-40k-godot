@@ -99,10 +99,10 @@ func test_unit_has_pistol_weapons_ork_boyz():
 	var result = rules_engine.unit_has_pistol_weapons("U_BOYZ_A")
 	assert_true(result, "Ork Boyz (U_BOYZ_A) should have Pistol weapons (slugga)")
 
-func test_unit_has_no_pistol_weapons_gretchin():
-	"""Test that Gretchin unit does NOT have Pistol weapons"""
+func test_unit_has_pistol_weapons_gretchin():
+	"""11e: grot blastas gained the Pistol keyword"""
 	var result = rules_engine.unit_has_pistol_weapons("U_GRETCHIN_A")
-	assert_false(result, "Gretchin should NOT have Pistol weapons")
+	assert_true(result, "Gretchin should have Pistol weapons in 11e (grot blasta)")
 
 func test_unit_has_pistol_weapons_unknown_unit():
 	"""Test that unknown unit returns false"""
@@ -126,21 +126,21 @@ func test_get_unit_pistol_weapons_intercessors():
 				break
 	assert_true(has_pistol, "Should find plasma_pistol in Intercessors weapons")
 
-func test_get_unit_pistol_weapons_gretchin_empty():
-	"""Test that Gretchin have no pistol weapons"""
+func test_get_unit_pistol_weapons_gretchin():
+	"""11e: grot blastas are Pistols"""
 	var weapons = rules_engine.get_unit_pistol_weapons("U_GRETCHIN_A")
-	assert_true(weapons.is_empty(), "Gretchin should have no pistol weapons")
+	assert_false(weapons.is_empty(), "Gretchin should have pistol weapons in 11e")
 
 # ==========================================
 # Pistol + Other Keywords Tests
 # ==========================================
 
-func test_slugga_has_both_pistol_and_assault():
-	"""Test that slugga has both PISTOL and ASSAULT keywords"""
+func test_slugga_is_pistol_without_assault():
+	"""11e: slugga is a Pistol; the 10e extra Assault keyword was dropped"""
 	var is_pistol = rules_engine.is_pistol_weapon("slugga")
 	var is_assault = rules_engine.is_assault_weapon("slugga")
 	assert_true(is_pistol, "slugga should be a Pistol weapon")
-	assert_true(is_assault, "slugga should also be an Assault weapon")
+	assert_false(is_assault, "slugga should NOT be an Assault weapon in 11e")
 
 # ==========================================
 # Pistol Mutual Exclusivity Tests (T2-5)

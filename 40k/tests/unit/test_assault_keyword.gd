@@ -29,20 +29,20 @@ func before_each():
 # Tests the actual RulesEngine.is_assault_weapon() method
 # ==========================================
 
-func test_is_assault_weapon_returns_true_for_shoota():
-	"""Test that shoota is recognized as an Assault weapon"""
-	var result = rules_engine.is_assault_weapon("shoota")
-	assert_true(result, "shoota should be recognized as an Assault weapon")
-
-func test_is_assault_weapon_returns_true_for_slugga():
-	"""Test that slugga is recognized as an Assault weapon (has both PISTOL and ASSAULT)"""
-	var result = rules_engine.is_assault_weapon("slugga")
-	assert_true(result, "slugga should be recognized as an Assault weapon")
-
-func test_is_assault_weapon_returns_false_for_bolt_rifle():
-	"""Test that bolt_rifle is NOT an Assault weapon"""
+func test_is_assault_weapon_returns_true_for_bolt_rifle():
+	"""11e: bolt rifle is Assault + Heavy"""
 	var result = rules_engine.is_assault_weapon("bolt_rifle")
-	assert_false(result, "bolt_rifle should NOT be recognized as an Assault weapon")
+	assert_true(result, "bolt_rifle should be recognized as an Assault weapon in 11e")
+
+func test_is_assault_weapon_returns_false_for_slugga():
+	"""11e: slugga is Pistol-only (10e's extra Assault keyword dropped)"""
+	var result = rules_engine.is_assault_weapon("slugga")
+	assert_false(result, "slugga should NOT be an Assault weapon in 11e")
+
+func test_is_assault_weapon_returns_false_for_shoota():
+	"""11e: shoota is Rapid Fire 1, no longer Assault"""
+	var result = rules_engine.is_assault_weapon("shoota")
+	assert_false(result, "shoota should NOT be an Assault weapon in 11e")
 
 func test_is_assault_weapon_returns_false_for_grot_blasta():
 	"""Test that grot_blasta is NOT an Assault weapon"""
@@ -58,34 +58,34 @@ func test_is_assault_weapon_returns_false_for_unknown_weapon():
 # is_pistol_weapon() Tests (for weapons with multiple keywords)
 # ==========================================
 
-func test_slugga_has_both_pistol_and_assault():
-	"""Test that slugga has both PISTOL and ASSAULT keywords"""
+func test_slugga_is_pistol_only():
+	"""11e: slugga is a Pistol without the 10e Assault keyword"""
 	var is_pistol = rules_engine.is_pistol_weapon("slugga")
 	var is_assault = rules_engine.is_assault_weapon("slugga")
 	assert_true(is_pistol, "slugga should be a Pistol weapon")
-	assert_true(is_assault, "slugga should also be an Assault weapon")
+	assert_false(is_assault, "slugga should NOT be an Assault weapon in 11e")
 
-func test_shoota_has_only_assault():
-	"""Test that shoota has only ASSAULT keyword (not PISTOL)"""
-	var is_pistol = rules_engine.is_pistol_weapon("shoota")
-	var is_assault = rules_engine.is_assault_weapon("shoota")
-	assert_false(is_pistol, "shoota should NOT be a Pistol weapon")
-	assert_true(is_assault, "shoota should be an Assault weapon")
+func test_bolt_rifle_assault_not_pistol():
+	"""11e: bolt rifle is Assault (+Heavy) but not a Pistol"""
+	var is_pistol = rules_engine.is_pistol_weapon("bolt_rifle")
+	var is_assault = rules_engine.is_assault_weapon("bolt_rifle")
+	assert_false(is_pistol, "bolt_rifle should NOT be a Pistol weapon")
+	assert_true(is_assault, "bolt_rifle should be an Assault weapon in 11e")
 
 # ==========================================
 # unit_has_assault_weapons() Tests
 # Tests the actual RulesEngine.unit_has_assault_weapons() method
 # ==========================================
 
-func test_unit_has_assault_weapons_ork_boyz():
-	"""Test that Ork Boyz unit has Assault weapons (slugga and shoota)"""
+func test_unit_has_no_assault_weapons_ork_boyz():
+	"""11e: boyz sluggas/shootas are Pistol / Rapid Fire — no Assault weapons"""
 	var result = rules_engine.unit_has_assault_weapons("U_BOYZ_A")
-	assert_true(result, "Ork Boyz (U_BOYZ_A) should have Assault weapons")
+	assert_false(result, "Ork Boyz (U_BOYZ_A) should NOT have Assault weapons in 11e")
 
-func test_unit_has_no_assault_weapons_intercessors():
-	"""Test that Intercessors unit does NOT have Assault weapons (only bolt_rifle)"""
+func test_unit_has_assault_weapons_intercessors():
+	"""11e: bolt rifles are Assault, so Intercessors have Assault weapons"""
 	var result = rules_engine.unit_has_assault_weapons("U_INTERCESSORS_A")
-	assert_false(result, "Intercessors should NOT have Assault weapons (bolt_rifle is not Assault)")
+	assert_true(result, "Intercessors should have Assault weapons in 11e (bolt rifle)")
 
 func test_unit_has_no_assault_weapons_gretchin():
 	"""Test that Gretchin unit does NOT have Assault weapons"""
@@ -101,39 +101,38 @@ func test_unit_has_assault_weapons_unknown_unit():
 # get_unit_assault_weapons() Tests
 # ==========================================
 
-func test_get_unit_assault_weapons_ork_boyz():
-	"""Test that we can get the assault weapons for Ork Boyz"""
-	var weapons = rules_engine.get_unit_assault_weapons("U_BOYZ_A")
-	assert_false(weapons.is_empty(), "Ork Boyz should have assault weapons")
-	# The weapons should include shoota and slugga
+func test_get_unit_assault_weapons_intercessors():
+	"""11e: Intercessor bolt rifles are the placeholder Assault exemplar"""
+	var weapons = rules_engine.get_unit_assault_weapons("U_INTERCESSORS_A")
+	assert_false(weapons.is_empty(), "Intercessors should have assault weapons")
 	var has_assault_weapon = false
 	for model_id in weapons:
 		for weapon_id in weapons[model_id]:
-			if weapon_id == "shoota" or weapon_id == "slugga":
+			if weapon_id == "bolt_rifle":
 				has_assault_weapon = true
 				break
-	assert_true(has_assault_weapon, "Should find shoota or slugga in assault weapons")
+	assert_true(has_assault_weapon, "Should find bolt_rifle in assault weapons")
 
-func test_get_unit_assault_weapons_intercessors_empty():
-	"""Test that Intercessors have no assault weapons"""
-	var weapons = rules_engine.get_unit_assault_weapons("U_INTERCESSORS_A")
-	assert_true(weapons.is_empty(), "Intercessors should have no assault weapons")
+func test_get_unit_assault_weapons_boyz_empty():
+	"""11e: Boyz have no Assault weapons (Pistol slugga, Rapid Fire shoota)"""
+	var weapons = rules_engine.get_unit_assault_weapons("U_BOYZ_A")
+	assert_true(weapons.is_empty(), "Boyz should have no assault weapons in 11e")
 
 # ==========================================
 # Weapon Profile Tests
 # Verify WEAPON_PROFILES are correctly configured
 # ==========================================
 
-func test_weapon_profile_shoota_has_assault_keyword():
-	"""Test that shoota profile contains ASSAULT keyword"""
-	var profile = rules_engine.get_weapon_profile("shoota")
-	assert_false(profile.is_empty(), "Should find shoota profile")
-	var keywords = profile.get("keywords", [])
-	assert_has(keywords, "ASSAULT", "Shoota should have ASSAULT keyword")
-
-func test_weapon_profile_bolt_rifle_no_assault_keyword():
-	"""Test that bolt_rifle profile does NOT contain ASSAULT keyword"""
+func test_weapon_profile_bolt_rifle_has_assault_keyword():
+	"""11e: bolt rifle profile contains ASSAULT keyword"""
 	var profile = rules_engine.get_weapon_profile("bolt_rifle")
 	assert_false(profile.is_empty(), "Should find bolt_rifle profile")
 	var keywords = profile.get("keywords", [])
-	assert_does_not_have(keywords, "ASSAULT", "Bolt rifle should NOT have ASSAULT keyword")
+	assert_has(keywords, "ASSAULT", "Bolt rifle should have ASSAULT keyword in 11e")
+
+func test_weapon_profile_shoota_no_assault_keyword():
+	"""11e: shoota profile does NOT contain ASSAULT (it is Rapid Fire 1)"""
+	var profile = rules_engine.get_weapon_profile("shoota")
+	assert_false(profile.is_empty(), "Should find shoota profile")
+	var keywords = profile.get("keywords", [])
+	assert_does_not_have(keywords, "ASSAULT", "Shoota should NOT have ASSAULT keyword in 11e")

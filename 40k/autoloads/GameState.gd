@@ -128,8 +128,10 @@ func _initialize_placeholder_armies_player(player: int) -> void:
 			"status": UnitStatus.UNDEPLOYED,
 			"meta": {
 				"name": "Intercessor Squad",
-				"keywords": ["INFANTRY", "PRIMARIS", "IMPERIUM", "ADEPTUS ASTARTES"],
-				"stats": {"move": 6, "toughness": 4, "save": 3}
+				# 11e (40kdc intercessor-squad): Tacticus replaces the retired Primaris keyword
+				"keywords": ["INFANTRY", "BATTLELINE", "GRENADES", "IMPERIUM", "TACTICUS", "ADEPTUS ASTARTES"],
+				# 11e statline: M6 T4 Sv3+ W2 Ld6+ OC2 (no invuln)
+				"stats": {"move": 6, "toughness": 4, "save": 3, "wounds": 2, "leadership": 6, "objective_control": 2}
 			},
 			"models": [
 				{"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
@@ -147,8 +149,9 @@ func _initialize_placeholder_armies_player(player: int) -> void:
 			"status": UnitStatus.UNDEPLOYED,
 			"meta": {
 				"name": "Tactical Squad",
-				"keywords": ["INFANTRY", "IMPERIUM", "ADEPTUS ASTARTES"],
-				"stats": {"move": 6, "toughness": 4, "save": 3}
+				"keywords": ["INFANTRY", "BATTLELINE", "GRENADES", "IMPERIUM", "ADEPTUS ASTARTES"],
+				# 11e (40kdc tactical-squad): M6 T4 Sv3+ W2 Ld6+ OC2 (no invuln)
+				"stats": {"move": 6, "toughness": 4, "save": 3, "wounds": 2, "leadership": 6, "objective_control": 2}
 			},
 			"models": [
 				{"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
@@ -170,8 +173,9 @@ func _initialize_placeholder_armies_player(player: int) -> void:
 			"status": UnitStatus.UNDEPLOYED,
 			"meta": {
 				"name": "Boyz",
-				"keywords": ["INFANTRY", "MOB", "ORKS"],
-				"stats": {"move": 6, "toughness": 5, "save": 6}
+				"keywords": ["INFANTRY", "BATTLELINE", "MOB", "GRENADES", "ORKS"],
+				# 11e (40kdc boyz, Boy profile): M6 T5 Sv5+ W1 Ld7+ OC2 (save improved from 10e 6+)
+				"stats": {"move": 6, "toughness": 5, "save": 5, "wounds": 1, "leadership": 7, "objective_control": 2}
 			},
 			"models": [
 				{"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
@@ -195,7 +199,8 @@ func _initialize_placeholder_armies_player(player: int) -> void:
 			"meta": {
 				"name": "Gretchin",
 				"keywords": ["INFANTRY", "GROTS", "ORKS"],
-				"stats": {"move": 5, "toughness": 3, "save": 7}
+				# 11e (40kdc gretchin, Gretchin profile): M6 T2 Sv7+ W1 Ld8+ OC2 (10e was M5 T3)
+				"stats": {"move": 6, "toughness": 2, "save": 7, "wounds": 1, "leadership": 8, "objective_control": 2}
 			},
 			"models": [
 				{"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},

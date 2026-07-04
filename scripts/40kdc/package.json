@@ -1,0 +1,12 @@
+{
+  "name": "40kdc-pipeline",
+  "private": true,
+  "type": "module",
+  "description": "Data pipeline: converts the @alpaca-software/40kdc-data 11th-edition dataset into this game's data formats (army rosters, mission cards, stratagems/detachments/factions, leader pairings). Run `npm install` then `node extract.mjs` to refresh 40k/data/40kdc/, and the generate-*.mjs scripts to regenerate game data.",
+  "scripts": {
+    "extract": "node extract.mjs"
+  },
+  "dependencies": {
+    "@alpaca-software/40kdc-data": "1.0.19"
+  }
+}

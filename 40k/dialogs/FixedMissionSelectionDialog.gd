@@ -69,10 +69,19 @@ func _build_ui() -> void:
 	mission_list.add_theme_constant_override("separation", 4)
 	scroll.add_child(mission_list)
 
-	# Group missions by category
+	# Group missions by category. Only offer missions legal for the current
+	# edition: 11e restricts Fixed mode to the four fixed-eligible cards;
+	# 10e offers only 10e cards (edition-11 cards must not leak in).
 	var all_missions = SecondaryMissionData.get_all_missions()
+	var offered_ids: Array
+	if GameConstants.edition >= 11:
+		offered_ids = SecondaryMissionData.get_fixed_eligible_11e()
+	else:
+		offered_ids = SecondaryMissionData.get_mission_ids_for_deck(false)
 	var categories = {}
-	for mission_id in all_missions:
+	for mission_id in offered_ids:
+		if not all_missions.has(mission_id):
+			continue
 		var mission = all_missions[mission_id]
 		var category = mission.get("category", "Other")
 		if category not in categories:
@@ -155,12 +164,23 @@ func _add_mission_row(parent: VBoxContainer, mission: Dictionary) -> void:
 	name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
 	info_vbox.add_child(name_label)
 
-	# VP conditions (compact)
-	var scoring = mission.get("scoring", {})
+	# VP conditions (compact). Use the edition-resolved scoring block; this
+	# dialog selects FIXED missions, so mode-split cards show their
+	# fixed-mode awards only.
+	var scoring = SecondaryMissionData.get_scoring(mission)
 	var conditions = scoring.get("conditions", [])
 	var vp_parts = []
 	for c in conditions:
-		vp_parts.append("%dVP" % c.get("vp", 0))
+		if str(c.get("mode", "")) == "tactical":
+			continue
+		var part = "%dVP" % c.get("vp", 0)
+		if c.get("per_count", false):
+			part = "%dVP each" % c.get("vp", 0)
+			if int(c.get("vp_max", 0)) > 0:
+				part += " (max %d)" % int(c.get("vp_max", 0))
+		if c.get("cumulative", false):
+			part = "+" + part
+		vp_parts.append(part)
 	var timing_text = _get_timing_display(scoring.get("when", ""))
 
 	var detail_label = Label.new()

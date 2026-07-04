@@ -8,6 +8,6 @@ server_config.local.json
 # Export builds
 exports/
 
-# Wahapedia data exports — kept locally, not committed
-data/*.csv
+# Game data CSVs are generated from the 40kdc 11e dataset (see
+# scripts/40kdc/) and ARE committed. Only Godot's import metadata stays local.
 data/*.csv.import

@@ -1,0 +1,172 @@
+{
+ "id": "tipping_point",
+ "name": "Tipping Point",
+ "description": "Tipping Point — official geometry from the 40kdc 11e dataset (transposed to the game's 44x60 portrait board).",
+ "zones": [
+  {
+   "player": 1,
+   "poly": [
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 0,
+     "y": 12
+    },
+    {
+     "x": 22,
+     "y": 12
+    },
+    {
+     "x": 22,
+     "y": 20
+    },
+    {
+     "x": 44,
+     "y": 20
+    },
+    {
+     "x": 44,
+     "y": 0
+    }
+   ]
+  },
+  {
+   "player": 2,
+   "poly": [
+    {
+     "x": 44,
+     "y": 60
+    },
+    {
+     "x": 44,
+     "y": 48
+    },
+    {
+     "x": 22,
+     "y": 48
+    },
+    {
+     "x": 22,
+     "y": 40
+    },
+    {
+     "x": 0,
+     "y": 40
+    },
+    {
+     "x": 0,
+     "y": 60
+    }
+   ]
+  }
+ ],
+ "objectives": [
+  {
+   "id": "obj_center",
+   "position": [
+    22,
+    30
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land"
+  },
+  {
+   "id": "obj_nml_1",
+   "position": [
+    8,
+    22
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land"
+  },
+  {
+   "id": "obj_home_1",
+   "position": [
+    34,
+    14
+   ],
+   "radius_mm": 40,
+   "zone": "player1"
+  },
+  {
+   "id": "obj_nml_2",
+   "position": [
+    36,
+    38
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land"
+  },
+  {
+   "id": "obj_home_2",
+   "position": [
+    10,
+    46
+   ],
+   "radius_mm": 40,
+   "zone": "player2"
+  }
+ ],
+ "territories": [
+  {
+   "player": 1,
+   "poly": [
+    {
+     "x": 0,
+     "y": 0
+    },
+    {
+     "x": 0,
+     "y": 26
+    },
+    {
+     "x": 22,
+     "y": 26
+    },
+    {
+     "x": 22,
+     "y": 34
+    },
+    {
+     "x": 44,
+     "y": 34
+    },
+    {
+     "x": 44,
+     "y": 0
+    }
+   ]
+  },
+  {
+   "player": 2,
+   "poly": [
+    {
+     "x": 0,
+     "y": 26
+    },
+    {
+     "x": 0,
+     "y": 60
+    },
+    {
+     "x": 44,
+     "y": 60
+    },
+    {
+     "x": 44,
+     "y": 34
+    },
+    {
+     "x": 22,
+     "y": 34
+    },
+    {
+     "x": 22,
+     "y": 26
+    }
+   ]
+  }
+ ]
+}

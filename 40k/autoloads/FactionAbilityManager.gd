@@ -109,6 +109,9 @@ const DETACHMENT_ABILITIES = {
 # Enhancement abilities available to the Freebooter Krew detachment.
 # Each enhancement can be equipped on a specific CHARACTER model.
 # The enhancement name is stored in unit.meta.enhancements[].
+# Points verified against 11e data (data/40kdc/enhancements.json,
+# detachment_id "freebooter-krew"): Da Kaptin 10, Git-spotter Squig 20,
+# Bionik Workshop 15, Razgit's Magik Map 25 — all four still exist in 11e.
 
 const FREEBOOTER_ENHANCEMENTS = {
 	"Da Kaptin": {

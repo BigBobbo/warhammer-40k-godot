@@ -1,27 +1,36 @@
-﻿id|name|link|
-AoI|Imperial Agents|https://wahapedia.ru/wh40k10ed/factions/imperial-agents|
-AM|Astra Militarum|https://wahapedia.ru/wh40k10ed/factions/astra-militarum|
-GC|Genestealer Cults|https://wahapedia.ru/wh40k10ed/factions/genestealer-cults|
-NEC|Necrons|https://wahapedia.ru/wh40k10ed/factions/necrons|
-AE|Aeldari|https://wahapedia.ru/wh40k10ed/factions/aeldari|
-TL|Adeptus Titanicus|https://wahapedia.ru/wh40k10ed/factions/adeptus-titanicus|
-ORK|Orks|https://wahapedia.ru/wh40k10ed/factions/orks|
-UN|Unaligned Forces|https://wahapedia.ru/wh40k10ed/factions/unaligned-forces|
-GK|Grey Knights|https://wahapedia.ru/wh40k10ed/factions/grey-knights|
-TAU|T’au Empire|https://wahapedia.ru/wh40k10ed/factions/t-au-empire|
-LoV|Leagues of Votann|https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann|
-AdM|Adeptus Mechanicus|https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus|
-TS|Thousand Sons|https://wahapedia.ru/wh40k10ed/factions/thousand-sons|
-DG|Death Guard|https://wahapedia.ru/wh40k10ed/factions/death-guard|
-EC|Emperor’s Children|https://wahapedia.ru/wh40k10ed/factions/emperor-s-children|
-WE|World Eaters|https://wahapedia.ru/wh40k10ed/factions/world-eaters|
-QT|Chaos Knights|https://wahapedia.ru/wh40k10ed/factions/chaos-knights|
-CD|Chaos Daemons|https://wahapedia.ru/wh40k10ed/factions/chaos-daemons|
-QI|Imperial Knights|https://wahapedia.ru/wh40k10ed/factions/imperial-knights|
-SM|Space Marines|https://wahapedia.ru/wh40k10ed/factions/space-marines|
-TYR|Tyranids|https://wahapedia.ru/wh40k10ed/factions/tyranids|
-AC|Adeptus Custodes|https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes|
-AS|Adepta Sororitas|https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas|
-CSM|Chaos Space Marines|https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines|
-DRU|Drukhari|https://wahapedia.ru/wh40k10ed/factions/drukhari|
-UA|Unbound Adversaries|https://wahapedia.ru/wh40k10ed/factions/unbound-adversaries|
+id|name|link
+AS|Adepta Sororitas|https://40kdc.alpacasoft.dev
+SM|Adeptus Astartes|https://40kdc.alpacasoft.dev
+AC|Adeptus Custodes|https://40kdc.alpacasoft.dev
+AdM|Adeptus Mechanicus|https://40kdc.alpacasoft.dev
+AE|Aeldari|https://40kdc.alpacasoft.dev
+AoI|Agents of the Imperium|https://40kdc.alpacasoft.dev
+AM|Astra Militarum|https://40kdc.alpacasoft.dev
+BT|Black Templars|https://40kdc.alpacasoft.dev
+BA|Blood Angels|https://40kdc.alpacasoft.dev
+CD|Chaos Daemons|https://40kdc.alpacasoft.dev
+QT|Chaos Knights|https://40kdc.alpacasoft.dev
+CSM|Chaos Space Marines|https://40kdc.alpacasoft.dev
+CF|Crimson Fists|https://40kdc.alpacasoft.dev
+DA|Dark Angels|https://40kdc.alpacasoft.dev
+DG|Death Guard|https://40kdc.alpacasoft.dev
+DW|Deathwatch|https://40kdc.alpacasoft.dev
+DRU|Drukhari|https://40kdc.alpacasoft.dev
+EC|Emperor’s Children|https://40kdc.alpacasoft.dev
+GC|Genestealer Cults|https://40kdc.alpacasoft.dev
+GK|Grey Knights|https://40kdc.alpacasoft.dev
+IF|Imperial Fists|https://40kdc.alpacasoft.dev
+QI|Imperial Knights|https://40kdc.alpacasoft.dev
+IH|Iron Hands|https://40kdc.alpacasoft.dev
+LoV|Leagues of Votann|https://40kdc.alpacasoft.dev
+NEC|Necrons|https://40kdc.alpacasoft.dev
+ORK|Orks|https://40kdc.alpacasoft.dev
+RG|Raven Guard|https://40kdc.alpacasoft.dev
+SAL|Salamanders|https://40kdc.alpacasoft.dev
+SW|Space Wolves|https://40kdc.alpacasoft.dev
+TAU|T’au Empire|https://40kdc.alpacasoft.dev
+TS|Thousand Sons|https://40kdc.alpacasoft.dev
+TYR|Tyranids|https://40kdc.alpacasoft.dev
+UM|Ultramarines|https://40kdc.alpacasoft.dev
+WS|White Scars|https://40kdc.alpacasoft.dev
+WE|World Eaters|https://40kdc.alpacasoft.dev

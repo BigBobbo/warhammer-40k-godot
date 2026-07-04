@@ -89,8 +89,16 @@ func load_faction_codes(factions_csv_path: String = "res://data/Factions.csv") -
 			_faction_code_to_name[code] = name
 
 	# Add common aliases
+	# 11e note: the 40kdc-generated Factions.csv names the Space Marines
+	# faction "Adeptus Astartes" and Imperial Agents "Agents of the
+	# Imperium" — keep the legacy names (used by armies/*.json) resolving
+	# to the same codes.
 	_faction_name_to_code["space marines"] = "SM"
 	_faction_name_to_code["Space Marines"] = "SM"
+	_faction_name_to_code["adeptus astartes"] = "SM"
+	_faction_name_to_code["Adeptus Astartes"] = "SM"
+	_faction_name_to_code["imperial agents"] = "AoI"
+	_faction_name_to_code["Imperial Agents"] = "AoI"
 	_faction_name_to_code["adeptus custodes"] = "AC"
 	_faction_name_to_code["Adeptus Custodes"] = "AC"
 	_faction_name_to_code["orks"] = "ORK"
@@ -111,6 +119,35 @@ func load_faction_codes(factions_csv_path: String = "res://data/Factions.csv") -
 	_faction_name_to_code["Death Guard"] = "DG"
 	_faction_name_to_code["drukhari"] = "DRU"
 	_faction_name_to_code["Drukhari"] = "DRU"
+
+	# Brand-new 11e factions: the 40kdc dataset promotes Space Marine
+	# chapters to first-class factions. Codes must stay in sync with
+	# NEW_FACTION_CODES in scripts/40kdc/generate-stratagems.mjs (which
+	# writes them into Factions.csv).
+	_faction_name_to_code["black templars"] = "BT"
+	_faction_name_to_code["Black Templars"] = "BT"
+	_faction_name_to_code["blood angels"] = "BA"
+	_faction_name_to_code["Blood Angels"] = "BA"
+	_faction_name_to_code["crimson fists"] = "CF"
+	_faction_name_to_code["Crimson Fists"] = "CF"
+	_faction_name_to_code["dark angels"] = "DA"
+	_faction_name_to_code["Dark Angels"] = "DA"
+	_faction_name_to_code["deathwatch"] = "DW"
+	_faction_name_to_code["Deathwatch"] = "DW"
+	_faction_name_to_code["imperial fists"] = "IF"
+	_faction_name_to_code["Imperial Fists"] = "IF"
+	_faction_name_to_code["iron hands"] = "IH"
+	_faction_name_to_code["Iron Hands"] = "IH"
+	_faction_name_to_code["raven guard"] = "RG"
+	_faction_name_to_code["Raven Guard"] = "RG"
+	_faction_name_to_code["salamanders"] = "SAL"
+	_faction_name_to_code["Salamanders"] = "SAL"
+	_faction_name_to_code["space wolves"] = "SW"
+	_faction_name_to_code["Space Wolves"] = "SW"
+	_faction_name_to_code["ultramarines"] = "UM"
+	_faction_name_to_code["Ultramarines"] = "UM"
+	_faction_name_to_code["white scars"] = "WS"
+	_faction_name_to_code["White Scars"] = "WS"
 
 	print("FactionStratagemLoader: Loaded %d faction codes" % _faction_name_to_code.size())
 
@@ -222,6 +259,9 @@ func _parse_stratagem_row(row: Dictionary, faction_code: String) -> Dictionary:
 	var csv_phase = row.get("phase", "").strip_edges()
 	var csv_detachment = row.get("detachment", "").strip_edges()
 	var csv_description = row.get("description", "").strip_edges()
+	# Optional 11e (40kdc) columns — absent in legacy CSVs.
+	var csv_timing = row.get("timing", "").strip_edges()
+	var csv_effects_json = row.get("effects_json", "").strip_edges()
 
 	if csv_name == "":
 		return {}
@@ -238,11 +278,18 @@ func _parse_stratagem_row(row: Dictionary, faction_code: String) -> Dictionary:
 	# Parse target conditions from the TARGET text
 	var target = _parse_target(parsed_desc.get("target_text", ""))
 
-	# Map effects from the EFFECT text
-	var effects = _map_effects(parsed_desc.get("effect_text", ""))
+	# Map effects: prefer the generator-compiled effects_json column
+	# (EffectPrimitives-shaped dicts passed straight through, marking the
+	# stratagem implemented); fall back to the legacy effect-text regexes.
+	var effects = _parse_effects_json(csv_effects_json)
+	if effects.is_empty():
+		effects = _map_effects(parsed_desc.get("effect_text", ""))
 
 	# Parse restrictions from RESTRICTIONS text
 	var restrictions = _parse_restrictions(parsed_desc.get("restriction_text", ""), csv_type)
+	# Optional "timing" column drives once-per limits directly (overrides
+	# the text-derived value when present).
+	_apply_timing_column(restrictions, csv_timing)
 
 	# Determine if this stratagem is mechanically implemented
 	var implemented = effects.size() > 0 and not effects[0].get("type", "").begins_with("custom:")
@@ -588,6 +635,30 @@ func _strip_excluding_clauses(t: String) -> Dictionary:
 # EFFECT MAPPING
 # ============================================================================
 
+static func _parse_effects_json(csv_effects_json: String) -> Array:
+	"""Parse the optional effects_json CSV column: a JSON array of
+	EffectPrimitives-shaped effect dicts emitted by the 40kdc generator
+	(scripts/40kdc/generate-stratagems.mjs). Passed straight through as the
+	stratagem's effects when non-empty. Returns [] when the column is
+	absent/empty/invalid so the caller falls back to text mapping."""
+	if csv_effects_json == "":
+		return []
+	var parsed = JSON.parse_string(csv_effects_json)
+	if not (parsed is Array):
+		print("FactionStratagemLoader: Invalid effects_json ignored: %s" % csv_effects_json)
+		return []
+	var effects: Array = []
+	for e in parsed:
+		if not (e is Dictionary) or String(e.get("type", "")) == "":
+			print("FactionStratagemLoader: Invalid effects_json entry ignored: %s" % str(e))
+			return []
+		# JSON numbers arrive as floats; the primitives expect ints
+		# (invuln 4, FNP 5, +2 charge, ...).
+		if e.has("value") and e["value"] is float and e["value"] == floor(e["value"]):
+			e["value"] = int(e["value"])
+		effects.append(e)
+	return effects
+
 func _map_effects(effect_text: String) -> Array:
 	"""Map effect description text to EffectPrimitives effect types."""
 	if effect_text == "":
@@ -854,6 +925,22 @@ func _parse_restrictions(restriction_text: String, strat_type: String) -> Dictio
 			result.once_per = "battle"
 
 	return result
+
+static func _apply_timing_column(restrictions: Dictionary, csv_timing: String) -> void:
+	"""Optional 'timing' CSV column (40kdc 11e data): drives the once-per
+	limit directly instead of sniffing the RESTRICTIONS text. Empty/unknown
+	values leave the text-derived restriction untouched (legacy fallback)."""
+	match csv_timing:
+		"once-per-phase":
+			restrictions.once_per = "phase"
+		"once-per-turn":
+			restrictions.once_per = "turn"
+		"once-per-battle":
+			restrictions.once_per = "battle"
+		"unlimited":
+			# null = no once-per restriction (StratagemManager treats null
+			# as unrestricted in _check_usage_restriction).
+			restrictions.once_per = null
 
 # ============================================================================
 # UTILITY: CHECK IF UNIT MATCHES TARGET CONDITIONS

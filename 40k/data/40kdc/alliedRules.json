@@ -1,0 +1,1111 @@
+[
+ {
+  "id": "aeldari-harlequins",
+  "name": "Harlequins",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Harlequins",
+  "army_keywords_any": [
+   "Asuryani"
+  ],
+  "source_faction_id": "aeldari",
+  "source_datasheet_ids": [
+   "death-jester",
+   "shadowseer",
+   "skyweavers",
+   "solitaire",
+   "starweaver",
+   "troupe",
+   "troupe-master",
+   "voidweaver"
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true
+ },
+ {
+  "id": "aeldari-ynnari",
+  "name": "Ynnari",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Ynnari",
+  "army_keywords_any": [
+   "Asuryani"
+  ],
+  "detachment_ids": [
+   "devoted-of-ynnead"
+  ],
+  "source_faction_id": "aeldari",
+  "source_datasheet_ids": [
+   "the-visarch",
+   "the-yncarne",
+   "ynnari-archon",
+   "ynnari-incubi",
+   "ynnari-kabalite-warriors",
+   "ynnari-raider",
+   "ynnari-reavers",
+   "ynnari-succubus",
+   "ynnari-venom",
+   "ynnari-wyches",
+   "yvraine"
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true
+ },
+ {
+  "id": "agents-of-the-imperium-allies",
+  "name": "Agents of the Imperium",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Imperial Agents",
+  "army_keywords_any": [
+   "Adepta Sororitas",
+   "Adeptus Astartes",
+   "Adeptus Custodes",
+   "Adeptus Mechanicus",
+   "Adeptus Titanicus",
+   "Astra Militarum",
+   "Black Templars",
+   "Blood Angels",
+   "Dark Angels",
+   "Grey Knights",
+   "Imperial Fists",
+   "Imperial Knights",
+   "Iron Hands",
+   "Raven Guard",
+   "Salamanders",
+   "Space Wolves",
+   "Ultramarines",
+   "White Scars"
+  ],
+  "source_faction_id": "agents-of-the-imperium",
+  "source_datasheet_ids": [
+   "aquila-kill-team",
+   "callidus-assassin",
+   "corvus-blackstar",
+   "culexus-assassin",
+   "deathwatch-kill-team",
+   "eversor-assassin",
+   "exaction-squad",
+   "grey-knights-terminator-squad",
+   "imperial-navy-breachers",
+   "imperial-rhino",
+   "inquisitor",
+   "inquisitor-coteaz",
+   "inquisitor-draxus",
+   "inquisitor-greyfax",
+   "inquisitor-kroyle",
+   "inquisitorial-agents",
+   "inquisitorial-chimera",
+   "ministorum-priest",
+   "navigator",
+   "rogue-trader-entourage",
+   "sanctifiers",
+   "sisters-of-battle-immolator",
+   "sisters-of-battle-squad",
+   "subductor-squad",
+   "vigilant-squad",
+   "vindicare-assassin",
+   "voidsmen-at-arms",
+   "watch-captain-artemis",
+   "watch-master"
+  ],
+  "keyword_limits": [
+   {
+    "keyword": "Character",
+    "battle_size": "incursion",
+    "max_count": 1
+   },
+   {
+    "keyword": "Character",
+    "battle_size": "strike-force",
+    "max_count": 2
+   },
+   {
+    "keyword": "Character",
+    "battle_size": "onslaught",
+    "max_count": 3
+   },
+   {
+    "keyword": "Requisitioned",
+    "battle_size": "incursion",
+    "max_count": 1
+   },
+   {
+    "keyword": "Requisitioned",
+    "battle_size": "strike-force",
+    "max_count": 1
+   },
+   {
+    "keyword": "Requisitioned",
+    "battle_size": "onslaught",
+    "max_count": 2
+   },
+   {
+    "keyword": "Retinue",
+    "battle_size": "incursion",
+    "max_count": 1
+   },
+   {
+    "keyword": "Retinue",
+    "battle_size": "strike-force",
+    "max_count": 2
+   },
+   {
+    "keyword": "Retinue",
+    "battle_size": "onslaught",
+    "max_count": 3
+   }
+  ],
+  "warlord_datasheet_ids": [
+   "inquisitor",
+   "inquisitor-coteaz",
+   "inquisitor-draxus",
+   "inquisitor-greyfax",
+   "inquisitor-kroyle",
+   "ministorum-priest",
+   "navigator",
+   "rogue-trader-entourage",
+   "watch-captain-artemis",
+   "watch-master"
+  ],
+  "cannot_take_enhancements": true
+ },
+ {
+  "id": "agents-of-the-imperium-deathwatch",
+  "name": "Agents of the Imperium — Deathwatch",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Imperial Agents",
+  "army_keywords_any": [
+   "Deathwatch"
+  ],
+  "source_faction_id": "agents-of-the-imperium",
+  "source_datasheet_ids": [
+   "callidus-assassin",
+   "culexus-assassin",
+   "eversor-assassin",
+   "exaction-squad",
+   "grey-knights-terminator-squad",
+   "imperial-navy-breachers",
+   "imperial-rhino",
+   "inquisitor",
+   "inquisitor-coteaz",
+   "inquisitor-draxus",
+   "inquisitor-greyfax",
+   "inquisitor-kroyle",
+   "inquisitorial-agents",
+   "inquisitorial-chimera",
+   "ministorum-priest",
+   "navigator",
+   "rogue-trader-entourage",
+   "sanctifiers",
+   "sisters-of-battle-immolator",
+   "sisters-of-battle-squad",
+   "subductor-squad",
+   "vigilant-squad",
+   "vindicare-assassin",
+   "voidsmen-at-arms"
+  ],
+  "keyword_limits": [
+   {
+    "keyword": "Character",
+    "battle_size": "incursion",
+    "max_count": 1
+   },
+   {
+    "keyword": "Character",
+    "battle_size": "strike-force",
+    "max_count": 2
+   },
+   {
+    "keyword": "Character",
+    "battle_size": "onslaught",
+    "max_count": 3
+   },
+   {
+    "keyword": "Requisitioned",
+    "battle_size": "incursion",
+    "max_count": 1
+   },
+   {
+    "keyword": "Requisitioned",
+    "battle_size": "strike-force",
+    "max_count": 1
+   },
+   {
+    "keyword": "Requisitioned",
+    "battle_size": "onslaught",
+    "max_count": 2
+   },
+   {
+    "keyword": "Retinue",
+    "battle_size": "incursion",
+    "max_count": 1
+   },
+   {
+    "keyword": "Retinue",
+    "battle_size": "strike-force",
+    "max_count": 2
+   },
+   {
+    "keyword": "Retinue",
+    "battle_size": "onslaught",
+    "max_count": 3
+   }
+  ],
+  "warlord_datasheet_ids": [
+   "inquisitor",
+   "inquisitor-coteaz",
+   "inquisitor-draxus",
+   "inquisitor-greyfax",
+   "inquisitor-kroyle",
+   "ministorum-priest",
+   "navigator",
+   "rogue-trader-entourage"
+  ],
+  "cannot_take_enhancements": true
+ },
+ {
+  "id": "brood-brothers",
+  "name": "Brood Brothers",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Brood Brothers",
+  "army_keywords_any": [
+   "Genestealer Cults"
+  ],
+  "detachment_ids": [
+   "brood-brothers-auxilia"
+  ],
+  "source_faction_id": "astra-militarum",
+  "source_datasheet_ids": [
+   "aegis-defence-line",
+   "armoured-sentinels",
+   "artillery-team",
+   "attilan-rough-riders",
+   "baneblade",
+   "banehammer",
+   "banesword",
+   "basilisk",
+   "cadian-castellan",
+   "cadian-command-squad",
+   "cadian-heavy-weapons-squad",
+   "cadian-recon-squad",
+   "cadian-shock-troops",
+   "catachan-command-squad",
+   "catachan-heavy-weapons-squad",
+   "catachan-jungle-fighters",
+   "centaur-rsv",
+   "chimera",
+   "cyclops-demolition-vehicle",
+   "death-korps-of-krieg",
+   "death-riders",
+   "deathstrike",
+   "doomhammer",
+   "field-ordnance-battery",
+   "hellhammer",
+   "hellhound",
+   "hippogriff-afv",
+   "hydra",
+   "kasrkin",
+   "krieg-combat-engineers",
+   "krieg-command-squad",
+   "krieg-heavy-weapons-squad",
+   "leman-russ-battle-tank",
+   "leman-russ-commander",
+   "leman-russ-demolisher",
+   "leman-russ-eradicator",
+   "leman-russ-executioner",
+   "leman-russ-exterminator",
+   "leman-russ-punisher",
+   "leman-russ-vanquisher",
+   "manticore",
+   "primaris-psyker",
+   "rogal-dorn-battle-tank",
+   "rogal-dorn-commander",
+   "scout-sentinels",
+   "shadowsword",
+   "stormlord",
+   "stormsword",
+   "taurox",
+   "wyvern"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 500
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 1000
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 1500
+   }
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true,
+  "warlord_required_keyword": "Genestealer Cults",
+  "removes_ability_ids": [
+   "voice-of-command"
+  ],
+  "notes": "A Genestealer Cults army may include ASTRA MILITARUM units. A GENESTEALER CULTS model must be the Warlord; included Astra Militarum models lose Voice of Command."
+ },
+ {
+  "id": "chaos-daemons-shadow-legion",
+  "name": "Shadow Legion",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Heretic Astartes",
+  "army_keywords_any": [
+   "Legiones Daemonica"
+  ],
+  "detachment_ids": [
+   "shadow-legion"
+  ],
+  "source_faction_id": "chaos-space-marines",
+  "source_datasheet_ids": [
+   "accursed-cultists",
+   "chaos-lord",
+   "chaos-lord-in-terminator-armour",
+   "chaos-lord-with-jump-pack",
+   "chaos-terminator-squad",
+   "chosen",
+   "cultist-firebrand",
+   "cultist-mob",
+   "dark-apostle",
+   "dark-commune",
+   "fellgor-beastmen",
+   "havocs",
+   "legionaries",
+   "master-of-possession",
+   "possessed",
+   "raptors",
+   "sorcerer",
+   "sorcerer-in-terminator-armour",
+   "traitor-enforcer",
+   "traitor-guardsmen-squad",
+   "warp-talons"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 500
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 1000
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 1500
+   }
+  ],
+  "warlord_datasheet_ids": [
+   "chaos-lord",
+   "chaos-lord-in-terminator-armour",
+   "chaos-lord-with-jump-pack",
+   "cultist-firebrand",
+   "dark-apostle",
+   "dark-commune",
+   "master-of-possession",
+   "sorcerer",
+   "sorcerer-in-terminator-armour",
+   "traitor-enforcer"
+  ]
+ },
+ {
+  "id": "chaos-knights-allies",
+  "name": "Chaos Knights Allies",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Chaos Knights",
+  "army_keywords_any": [
+   "Death Guard",
+   "Emperor’s Children",
+   "Heretic Astartes",
+   "Legiones Daemonica",
+   "Thousand Sons",
+   "Titanicus Traitoris",
+   "World Eaters"
+  ],
+  "source_faction_id": "chaos-knights",
+  "source_datasheet_ids": [
+   "chaos-acastus-knight-asterius",
+   "chaos-acastus-knight-porphyrion",
+   "chaos-cerastus-knight-acheron",
+   "chaos-cerastus-knight-atrapos",
+   "chaos-cerastus-knight-castigator",
+   "chaos-cerastus-knight-lancer",
+   "chaos-questoris-knight-magaera",
+   "chaos-questoris-knight-styrix",
+   "knight-abominant",
+   "knight-desecrator",
+   "knight-despoiler",
+   "knight-rampager",
+   "knight-ruinator",
+   "knight-tyrant",
+   "war-dog-brigand",
+   "war-dog-executioner",
+   "war-dog-huntsman",
+   "war-dog-karnivore",
+   "war-dog-moirax",
+   "war-dog-stalker"
+  ],
+  "keyword_limits": [
+   {
+    "keyword": "Titanic",
+    "battle_size": "incursion",
+    "max_count": 1
+   },
+   {
+    "keyword": "Titanic",
+    "battle_size": "strike-force",
+    "max_count": 1
+   },
+   {
+    "keyword": "Titanic",
+    "battle_size": "onslaught",
+    "max_count": 1
+   },
+   {
+    "keyword": "War Dog",
+    "battle_size": "incursion",
+    "max_count": 3
+   },
+   {
+    "keyword": "War Dog",
+    "battle_size": "strike-force",
+    "max_count": 3
+   },
+   {
+    "keyword": "War Dog",
+    "battle_size": "onslaught",
+    "max_count": 3
+   }
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true
+ },
+ {
+  "id": "chaos-space-marines-renegades",
+  "name": "Renegades",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Renegades",
+  "army_keywords_any": [
+   "Heretic Astartes"
+  ],
+  "detachment_ids": [
+   "chaos-cult",
+   "creations-of-bile",
+   "cult-of-the-arkifane",
+   "deceptors",
+   "dread-talons",
+   "fellhammer-siege-host",
+   "hurons-marauders",
+   "nightmare-hunt",
+   "pactbound-zealots",
+   "renegade-raiders",
+   "soulforged-warpack",
+   "veterans-of-the-long-war",
+   "warpstrike-champions"
+  ],
+  "source_datasheet_ids": [
+   "khorne-berzerkers",
+   "noise-marines",
+   "plague-marines",
+   "rubric-marines"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 250
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 500
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 750
+   }
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true
+ },
+ {
+  "id": "daemonic-pact",
+  "name": "Daemonic Pact",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Daemons",
+  "army_keywords_any": [
+   "Chaos Knights",
+   "Heretic Astartes"
+  ],
+  "source_faction_id": "chaos-daemons",
+  "source_datasheet_ids": [
+   "beasts-of-nurgle",
+   "belakor",
+   "bloodcrushers",
+   "bloodletters",
+   "bloodmaster",
+   "bloodthirster",
+   "blue-horrors",
+   "burning-chariot",
+   "changecaster",
+   "contorted-epitome",
+   "daemon-prince-of-chaos",
+   "daemon-prince-of-chaos-with-wings",
+   "daemonettes",
+   "epidemius",
+   "exalted-flamer",
+   "fateskimmer",
+   "feculent-gnarlmaw",
+   "fiends",
+   "flamers",
+   "flesh-hounds",
+   "fluxmaster",
+   "great-unclean-one",
+   "hellflayers",
+   "horticulous-slimux",
+   "infernal-enrapturess",
+   "kairos-fateweaver",
+   "karanak",
+   "keeper-of-secrets",
+   "lord-of-change",
+   "nurglings",
+   "pink-horrors",
+   "plague-drones",
+   "plaguebearers",
+   "poxbringer",
+   "rendmaster-on-blood-throne",
+   "rotigus",
+   "screamers",
+   "seekers",
+   "shalaxi-helbane",
+   "skarbrand",
+   "skull-altar",
+   "skull-cannon",
+   "skullmaster",
+   "skulltaker",
+   "sloppity-bilepiper",
+   "soul-grinder",
+   "spoilpox-scrivener",
+   "syllesske",
+   "the-blue-scribes",
+   "the-changeling",
+   "the-masque-of-slaanesh",
+   "tormentbringer",
+   "tranceweaver"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 250
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 500
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 750
+   }
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true,
+  "battleline_ratio_keywords": [
+   "Khorne",
+   "Tzeentch",
+   "Nurgle",
+   "Slaanesh"
+  ],
+  "notes": "Shared by Chaos Knights and Heretic Astartes armies. Per-god Battleline ratio: non-Battleline units of a god included this way cannot exceed Battleline units of that god included this way."
+ },
+ {
+  "id": "death-guard-nurgle-daemons",
+  "name": "Death Guard — Nurgle Daemons Allies",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Daemons of Nurgle",
+  "army_keywords_any": [
+   "Death Guard"
+  ],
+  "detachment_ids": [
+   "tallyband-summoners"
+  ],
+  "source_faction_id": "chaos-daemons",
+  "source_datasheet_ids": [
+   "beasts-of-nurgle",
+   "great-unclean-one",
+   "nurglings",
+   "plague-drones",
+   "plaguebearers",
+   "rotigus"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 500
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 1000
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 1500
+   }
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true
+ },
+ {
+  "id": "drukhari-aeldari",
+  "name": "Aeldari Allies",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Aeldari",
+  "army_keywords_any": [
+   "Drukhari"
+  ],
+  "detachment_ids": [
+   "covenite-coterie",
+   "kabalite-cartel",
+   "realspace-raiders",
+   "skysplinter-assault",
+   "spectacle-of-spite"
+  ],
+  "source_faction_id": "aeldari",
+  "source_datasheet_ids": [
+   "corsair-skyreavers",
+   "corsair-voidreavers",
+   "corsair-voidscarred",
+   "death-jester",
+   "kharseth",
+   "prince-yriel",
+   "shadowseer",
+   "skyweavers",
+   "solitaire",
+   "starfangs",
+   "starweaver",
+   "troupe",
+   "troupe-master",
+   "voidweaver"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 250
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 500
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 750
+   }
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true
+ },
+ {
+  "id": "drukhari-harlequins",
+  "name": "Harlequins",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Harlequins",
+  "army_keywords_any": [
+   "Drukhari"
+  ],
+  "detachment_ids": [
+   "reapers-wager"
+  ],
+  "source_faction_id": "aeldari",
+  "source_datasheet_ids": [
+   "death-jester",
+   "shadowseer",
+   "skyweavers",
+   "solitaire",
+   "starweaver",
+   "troupe",
+   "troupe-master",
+   "voidweaver"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 500
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 1000
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 1500
+   }
+  ],
+  "cannot_be_warlord": true
+ },
+ {
+  "id": "emperors-children-slaanesh-daemons",
+  "name": "Emperor's Children — Slaanesh Daemons Allies",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Daemons of Slaanesh",
+  "army_keywords_any": [
+   "Emperor’s Children"
+  ],
+  "detachment_ids": [
+   "carnival-of-excess"
+  ],
+  "source_faction_id": "chaos-daemons",
+  "source_datasheet_ids": [
+   "daemonettes",
+   "fiends",
+   "keeper-of-secrets",
+   "seekers",
+   "shalaxi-helbane"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 500
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 1000
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 1500
+   }
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true
+ },
+ {
+  "id": "iconoclast-fiefdom-damned",
+  "name": "Iconoclast Fiefdom — Wretched Thralls",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Damned",
+  "army_keywords_any": [
+   "Chaos Knights"
+  ],
+  "detachment_ids": [
+   "iconoclast-fiefdom"
+  ],
+  "source_faction_id": "chaos-space-marines",
+  "source_datasheet_ids": [
+   "accursed-cultists",
+   "cultist-firebrand",
+   "cultist-mob",
+   "dark-commune",
+   "fellgor-beastmen",
+   "traitor-enforcer",
+   "traitor-guardsmen-squad"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 250
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 500
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 750
+   }
+  ],
+  "cannot_be_warlord": true
+ },
+ {
+  "id": "imperial-knights-allies",
+  "name": "Questoris Allies",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Questoris Allies",
+  "army_keywords_any": [
+   "Adepta Sororitas",
+   "Adeptus Astartes",
+   "Adeptus Custodes",
+   "Adeptus Mechanicus",
+   "Adeptus Titanicus",
+   "Agents of the Imperium",
+   "Astra Militarum",
+   "Black Templars",
+   "Blood Angels",
+   "Dark Angels",
+   "Deathwatch",
+   "Grey Knights",
+   "Imperial Fists",
+   "Iron Hands",
+   "Raven Guard",
+   "Salamanders",
+   "Space Wolves",
+   "Ultramarines",
+   "White Scars"
+  ],
+  "source_faction_id": "imperial-knights",
+  "source_datasheet_ids": [
+   "acastus-knight-asterius",
+   "acastus-knight-porphyrion",
+   "armiger-helverin",
+   "armiger-moirax",
+   "armiger-warglaive",
+   "canis-rex",
+   "cerastus-knight-acheron",
+   "cerastus-knight-atrapos",
+   "cerastus-knight-castigator",
+   "cerastus-knight-lancer",
+   "knight-castellan",
+   "knight-crusader",
+   "knight-defender",
+   "knight-destrier",
+   "knight-errant",
+   "knight-gallant",
+   "knight-paladin",
+   "knight-preceptor",
+   "knight-valiant",
+   "knight-warden",
+   "questoris-knight-magaera",
+   "questoris-knight-styrix"
+  ],
+  "keyword_limits": [
+   {
+    "keyword": "Armiger",
+    "battle_size": "incursion",
+    "max_count": 3
+   },
+   {
+    "keyword": "Armiger",
+    "battle_size": "strike-force",
+    "max_count": 3
+   },
+   {
+    "keyword": "Armiger",
+    "battle_size": "onslaught",
+    "max_count": 3
+   },
+   {
+    "keyword": "Titanic",
+    "battle_size": "incursion",
+    "max_count": 1
+   },
+   {
+    "keyword": "Titanic",
+    "battle_size": "strike-force",
+    "max_count": 1
+   },
+   {
+    "keyword": "Titanic",
+    "battle_size": "onslaught",
+    "max_count": 1
+   }
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true
+ },
+ {
+  "id": "imperial-knights-questor-forgepact",
+  "name": "Questor Forgepact",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Questor Forgepact",
+  "army_keywords_any": [
+   "Imperial Knights"
+  ],
+  "detachment_ids": [
+   "questor-forgepact"
+  ],
+  "source_faction_id": "adeptus-mechanicus",
+  "source_datasheet_ids": [
+   "skitarii-marshal",
+   "skitarii-rangers",
+   "skitarii-vanguard",
+   "tech-priest-dominus",
+   "tech-priest-manipulus"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 250
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 500
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 750
+   }
+  ],
+  "cannot_be_warlord": true
+ },
+ {
+  "id": "star-childrens-blessings",
+  "name": "The Star Children's Blessings",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Tyranids",
+  "army_keywords_any": [
+   "Genestealer Cults"
+  ],
+  "detachment_ids": [
+   "final-day"
+  ],
+  "source_faction_id": "tyranids",
+  "source_datasheet_ids": [
+   "deathleaper",
+   "gargoyles",
+   "hyperadapted-raveners",
+   "lictor",
+   "mawloc",
+   "neurolictor",
+   "parasite-of-mortrex",
+   "raveners",
+   "the-red-terror",
+   "trygon",
+   "tyrannocyte",
+   "von-ryans-leapers",
+   "winged-hive-tyrant",
+   "winged-tyranid-prime"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 500
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 1000
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 1500
+   }
+  ],
+  "cannot_be_warlord": true
+ },
+ {
+  "id": "thousand-sons-tzeentch-daemons",
+  "name": "Thousand Sons — Tzeentch Daemons Allies",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Daemons of Tzeentch",
+  "army_keywords_any": [
+   "Thousand Sons"
+  ],
+  "detachment_ids": [
+   "changehost-of-deceit"
+  ],
+  "source_faction_id": "chaos-daemons",
+  "source_datasheet_ids": [
+   "blue-horrors",
+   "flamers",
+   "kairos-fateweaver",
+   "lord-of-change",
+   "pink-horrors",
+   "screamers"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 500
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 1000
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 1500
+   }
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true
+ },
+ {
+  "id": "world-eaters-khorne-daemons",
+  "name": "World Eaters — Khorne Daemons Allies",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "label": "Daemons of Khorne",
+  "army_keywords_any": [
+   "World Eaters"
+  ],
+  "detachment_ids": [
+   "khorne-daemonkin"
+  ],
+  "source_faction_id": "chaos-daemons",
+  "source_datasheet_ids": [
+   "bloodcrushers",
+   "bloodletters",
+   "bloodthirster",
+   "flesh-hounds",
+   "skarbrand"
+  ],
+  "points_limits": [
+   {
+    "battle_size": "incursion",
+    "max_points": 500
+   },
+   {
+    "battle_size": "strike-force",
+    "max_points": 1000
+   },
+   {
+    "battle_size": "onslaught",
+    "max_points": 1500
+   }
+  ],
+  "cannot_be_warlord": true,
+  "cannot_take_enhancements": true
+ }
+]

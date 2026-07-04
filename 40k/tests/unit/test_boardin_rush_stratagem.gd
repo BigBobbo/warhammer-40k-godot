@@ -63,13 +63,16 @@ func _setup_game_state_for_movement(unit_id: String = "U_ORK_BOYZ_A") -> Diction
 	GameState.state.meta.phase = GameStateData.Phase.MOVEMENT
 	GameState.state.meta.active_player = 1
 	GameState.state.players["1"]["cp"] = 3
+	# The 11e CSV timing column enforces once-per-phase — clear the usage
+	# ledger so each test case gets a fresh phase window.
+	StratagemManager._usage_history = {"1": [], "2": []}
 	return unit
 
 func _find_boardin_rush_stratagem_id() -> String:
 	"""Find the Boardin' Rush stratagem ID from loaded stratagems."""
 	for strat_id in StratagemManager.stratagems:
 		var strat = StratagemManager.stratagems[strat_id]
-		if strat.get("name", "").to_upper() == "BOARDIN' RUSH":
+		if strat.get("name", "").replace("’", "'").to_upper() == "BOARDIN' RUSH":
 			return strat_id
 	return ""
 
@@ -233,6 +236,10 @@ func test_advance_without_boardin_rush_rolls_normally():
 	"""Without effect_boardin_rush, advance should use normal D6 roll."""
 	var unit = _setup_game_state_for_movement()
 	var unit_id = "U_ORK_BOYZ_A"
+
+	# No CP: with CP available the 11e flow pauses BEGIN_ADVANCE for a
+	# Command Re-roll decision and active_moves stays empty until resolved.
+	GameState.state.players["1"]["cp"] = 0
 
 	# Do NOT set the flag — normal advance
 	var phase = preload("res://phases/MovementPhase.gd").new()

@@ -1,0 +1,996 @@
+id|name|faction_id|
+adepta-sororitas::celestian-sacresants|Celestian Sacresants|adepta-sororitas|
+adepta-sororitas::mortifiers|Mortifiers|adepta-sororitas|
+adepta-sororitas::canoness-with-jump-pack|Canoness with Jump Pack|adepta-sororitas|
+adepta-sororitas::palatine|Palatine|adepta-sororitas|
+adepta-sororitas::sanctifiers|Sanctifiers|adepta-sororitas|
+adepta-sororitas::arco-flagellants|Arco-flagellants|adepta-sororitas|
+adepta-sororitas::celestian-insidiants|Celestian Insidiants|adepta-sororitas|
+adepta-sororitas::imagifier|Imagifier|adepta-sororitas|
+adepta-sororitas::triumph-of-saint-katherine|Triumph of Saint Katherine|adepta-sororitas|
+adepta-sororitas::seraphim-squad|Seraphim Squad|adepta-sororitas|
+adepta-sororitas::repentia-squad|Repentia Squad|adepta-sororitas|
+adepta-sororitas::dialogus|Dialogus|adepta-sororitas|
+adepta-sororitas::dogmata|Dogmata|adepta-sororitas|
+adepta-sororitas::immolator|Immolator|adepta-sororitas|
+adepta-sororitas::hospitaller|Hospitaller|adepta-sororitas|
+adepta-sororitas::morvenn-vahl|Morvenn Vahl|adepta-sororitas|
+adepta-sororitas::retributor-squad|Retributor Squad|adepta-sororitas|
+adepta-sororitas::sisters-novitiate-squad|Sisters Novitiate Squad|adepta-sororitas|
+adepta-sororitas::daemonifuge|Daemonifuge|adepta-sororitas|
+adepta-sororitas::sororitas-rhino|Sororitas Rhino|adepta-sororitas|
+adepta-sororitas::paragon-warsuits|Paragon Warsuits|adepta-sororitas|
+adepta-sororitas::castigator|Castigator|adepta-sororitas|
+adepta-sororitas::exorcist|Exorcist|adepta-sororitas|
+adepta-sororitas::penitent-engines|Penitent Engines|adepta-sororitas|
+adepta-sororitas::junith-eruita|Junith Eruita|adepta-sororitas|
+adepta-sororitas::ministorum-priest|Ministorum Priest|adepta-sororitas|
+adepta-sororitas::zephyrim-squad|Zephyrim Squad|adepta-sororitas|
+adepta-sororitas::dominion-squad|Dominion Squad|adepta-sororitas|
+adepta-sororitas::saint-celestine|Saint Celestine|adepta-sororitas|
+adepta-sororitas::battle-sisters-squad|Battle Sisters Squad|adepta-sororitas|
+adepta-sororitas::canoness|Canoness|adepta-sororitas|
+adepta-sororitas::aestred-thurga-and-agathae-dolan|Aestred Thurga and Agathae Dolan|adepta-sororitas|
+adepta-sororitas::intranzia-fraye|Intranzia Fraye|adepta-sororitas|
+adeptus-astartes::high-marshal-helbrecht|High Marshal Helbrecht|adeptus-astartes|
+adeptus-astartes::gladiator-lancer|Gladiator Lancer|adeptus-astartes|
+adeptus-astartes::terminator-squad|Terminator Squad|adeptus-astartes|
+adeptus-astartes::marshal|Marshal|adeptus-astartes|
+adeptus-astartes::sword-brethren-squad|Sword Brethren Squad|adeptus-astartes|
+adeptus-astartes::crusader-squad|Crusader Squad|adeptus-astartes|
+adeptus-astartes::execrator|Execrator|adeptus-astartes|
+adeptus-astartes::sternguard-veteran-squad|Sternguard Veteran Squad|adeptus-astartes|
+adeptus-astartes::land-raider-crusader|Land Raider Crusader|adeptus-astartes|
+adeptus-astartes::chaplain-grimaldus|Chaplain Grimaldus|adeptus-astartes|
+adeptus-astartes::castellan|Castellan|adeptus-astartes|
+adeptus-astartes::emperors-champion|Emperor’s Champion|adeptus-astartes|
+adeptus-astartes::impulsor|Impulsor|adeptus-astartes|
+adeptus-astartes::repulsor-executioner|Repulsor Executioner|adeptus-astartes|
+adeptus-astartes::gladiator-valiant|Gladiator Valiant|adeptus-astartes|
+adeptus-astartes::crusade-ancient|Crusade Ancient|adeptus-astartes|
+adeptus-astartes::repulsor|Repulsor|adeptus-astartes|
+adeptus-astartes::gladiator-reaper|Gladiator Reaper|adeptus-astartes|
+adeptus-astartes::death-company-dreadnought|Death Company Dreadnought|adeptus-astartes|
+adeptus-astartes::sanguinary-priest|Sanguinary Priest|adeptus-astartes|
+adeptus-astartes::death-company-captain-with-jump-pack|Death Company Captain with Jump Pack|adeptus-astartes|
+adeptus-astartes::death-company-marines|Death Company Marines|adeptus-astartes|
+adeptus-astartes::astorath|Astorath|adeptus-astartes|
+adeptus-astartes::blood-angels-captain|Blood Angels Captain|adeptus-astartes|
+adeptus-astartes::chief-librarian-mephiston|Chief Librarian Mephiston|adeptus-astartes|
+adeptus-astartes::lemartes|Lemartes|adeptus-astartes|
+adeptus-astartes::commander-dante|Commander Dante|adeptus-astartes|
+adeptus-astartes::death-company-marines-with-bolt-rifles|Death Company Marines with Bolt Rifles|adeptus-astartes|
+adeptus-astartes::the-sanguinor|The Sanguinor|adeptus-astartes|
+adeptus-astartes::sanguinary-guard|Sanguinary Guard|adeptus-astartes|
+adeptus-astartes::baal-predator|Baal Predator|adeptus-astartes|
+adeptus-astartes::death-company-marines-with-jump-packs|Death Company Marines with Jump Packs|adeptus-astartes|
+adeptus-astartes::death-company-captain|Death Company Captain|adeptus-astartes|
+adeptus-astartes::ravenwing-darkshroud|Ravenwing Darkshroud|adeptus-astartes|
+adeptus-astartes::ravenwing-black-knights|Ravenwing Black Knights|adeptus-astartes|
+adeptus-astartes::ezekiel|Ezekiel|adeptus-astartes|
+adeptus-astartes::deathwing-terminator-squad|Deathwing Terminator Squad|adeptus-astartes|
+adeptus-astartes::inner-circle-companions|Inner Circle Companions|adeptus-astartes|
+adeptus-astartes::azrael|Azrael|adeptus-astartes|
+adeptus-astartes::land-speeder-vengeance|Land Speeder Vengeance|adeptus-astartes|
+adeptus-astartes::nephilim-jetfighter|Nephilim Jetfighter|adeptus-astartes|
+adeptus-astartes::asmodai|Asmodai|adeptus-astartes|
+adeptus-astartes::deathwing-knights|Deathwing Knights|adeptus-astartes|
+adeptus-astartes::belial|Belial|adeptus-astartes|
+adeptus-astartes::lion-eljonson|Lion El’Jonson|adeptus-astartes|
+adeptus-astartes::ravenwing-command-squad|Ravenwing Command Squad|adeptus-astartes|
+adeptus-astartes::lazarus|Lazarus|adeptus-astartes|
+adeptus-astartes::ravenwing-dark-talon|Ravenwing Dark Talon|adeptus-astartes|
+adeptus-astartes::sammael|Sammael|adeptus-astartes|
+adeptus-astartes::watch-captain-artemis|Watch Captain Artemis|adeptus-astartes|
+adeptus-astartes::indomitor-kill-team|Indomitor Kill Team|adeptus-astartes|
+adeptus-astartes::deathwatch-veterans|Deathwatch Veterans|adeptus-astartes|
+adeptus-astartes::decimus-kill-team|Decimus Kill Team|adeptus-astartes|
+adeptus-astartes::talonstrike-kill-team|Talonstrike Kill Team|adeptus-astartes|
+adeptus-astartes::watch-master|Watch Master|adeptus-astartes|
+adeptus-astartes::corvus-blackstar|Corvus Blackstar|adeptus-astartes|
+adeptus-astartes::deathwatch-terminator-squad|Deathwatch Terminator Squad|adeptus-astartes|
+adeptus-astartes::fortis-kill-team|Fortis Kill Team|adeptus-astartes|
+adeptus-astartes::spectrus-kill-team|Spectrus Kill Team|adeptus-astartes|
+adeptus-astartes::captain-in-gravis-armour|Captain in Gravis Armour|adeptus-astartes|
+adeptus-astartes::adrax-agatone|Adrax Agatone|adeptus-astartes|
+adeptus-astartes::assault-intercessor-squad|Assault Intercessor Squad|adeptus-astartes|
+adeptus-astartes::inceptor-squad|Inceptor Squad|adeptus-astartes|
+adeptus-astartes::ancient-in-terminator-armour|Ancient in Terminator Armour|adeptus-astartes|
+adeptus-astartes::storm-speeder-hailstrike|Storm Speeder Hailstrike|adeptus-astartes|
+adeptus-astartes::techmarine|Techmarine|adeptus-astartes|
+adeptus-astartes::korsarro-khan|Kor’sarro Khan|adeptus-astartes|
+adeptus-astartes::suboden-khan|Suboden Khan|adeptus-astartes|
+adeptus-astartes::aethon-shaan|Aethon Shaan|adeptus-astartes|
+adeptus-astartes::eradicator-squad|Eradicator Squad|adeptus-astartes|
+adeptus-astartes::librarian|Librarian|adeptus-astartes|
+adeptus-astartes::darnath-lysander|Darnath Lysander|adeptus-astartes|
+adeptus-astartes::dreadnought|Dreadnought|adeptus-astartes|
+adeptus-astartes::terminator-assault-squad|Terminator Assault Squad|adeptus-astartes|
+adeptus-astartes::predator-destructor|Predator Destructor|adeptus-astartes|
+adeptus-astartes::bladeguard-veteran-squad|Bladeguard Veteran Squad|adeptus-astartes|
+adeptus-astartes::firestrike-servo-turrets|Firestrike Servo-turrets|adeptus-astartes|
+adeptus-astartes::storm-speeder-hammerstrike|Storm Speeder Hammerstrike|adeptus-astartes|
+adeptus-astartes::tor-garadon|Tor Garadon|adeptus-astartes|
+adeptus-astartes::judiciar|Judiciar|adeptus-astartes|
+adeptus-astartes::victrix-honour-guard|Victrix Honour Guard|adeptus-astartes|
+adeptus-astartes::captain-in-terminator-armour|Captain in Terminator Armour|adeptus-astartes|
+adeptus-astartes::roboute-guilliman|Roboute Guilliman|adeptus-astartes|
+adeptus-astartes::drop-pod|Drop Pod|adeptus-astartes|
+adeptus-astartes::captain-with-jump-pack|Captain with Jump Pack|adeptus-astartes|
+adeptus-astartes::storm-speeder-thunderstrike|Storm Speeder Thunderstrike|adeptus-astartes|
+adeptus-astartes::hammerfall-bunker|Hammerfall Bunker|adeptus-astartes|
+adeptus-astartes::suppressor-squad|Suppressor Squad|adeptus-astartes|
+adeptus-astartes::librarian-in-terminator-armour|Librarian in Terminator Armour|adeptus-astartes|
+adeptus-astartes::devastator-squad|Devastator Squad|adeptus-astartes|
+adeptus-astartes::vulkan-hestan|Vulkan He’stan|adeptus-astartes|
+adeptus-astartes::centurion-devastator-squad|Centurion Devastator Squad|adeptus-astartes|
+adeptus-astartes::hellblaster-squad|Hellblaster Squad|adeptus-astartes|
+adeptus-astartes::heavy-intercessor-squad|Heavy Intercessor Squad|adeptus-astartes|
+adeptus-astartes::iron-father-feirros|Iron Father Feirros|adeptus-astartes|
+adeptus-astartes::scout-squad|Scout Squad|adeptus-astartes|
+adeptus-astartes::marneus-calgar-in-armour-of-antilochus|Marneus Calgar in Armour of Antilochus|adeptus-astartes|
+adeptus-astartes::apothecary-biologis|Apothecary Biologis|adeptus-astartes|
+adeptus-astartes::brutalis-dreadnought|Brutalis Dreadnought|adeptus-astartes|
+adeptus-astartes::librarian-in-phobos-armour|Librarian in Phobos Armour|adeptus-astartes|
+adeptus-astartes::apothecary|Apothecary|adeptus-astartes|
+adeptus-astartes::land-raider|Land Raider|adeptus-astartes|
+adeptus-astartes::lieutenant|Lieutenant|adeptus-astartes|
+adeptus-astartes::chief-librarian-tigurius|Chief Librarian Tigurius|adeptus-astartes|
+adeptus-astartes::stormtalon-gunship|Stormtalon Gunship|adeptus-astartes|
+adeptus-astartes::captain-titus|Captain Titus|adeptus-astartes|
+adeptus-astartes::razorback|Razorback|adeptus-astartes|
+adeptus-astartes::eliminator-squad|Eliminator Squad|adeptus-astartes|
+adeptus-astartes::outrider-squad|Outrider Squad|adeptus-astartes|
+adeptus-astartes::desolation-squad|Desolation Squad|adeptus-astartes|
+adeptus-astartes::centurion-assault-squad|Centurion Assault Squad|adeptus-astartes|
+adeptus-astartes::vindicator|Vindicator|adeptus-astartes|
+adeptus-astartes::tactical-squad|Tactical Squad|adeptus-astartes|
+adeptus-astartes::whirlwind|Whirlwind|adeptus-astartes|
+adeptus-astartes::cato-sicarius|Cato Sicarius|adeptus-astartes|
+adeptus-astartes::wardens-of-ultramar|Wardens of Ultramar|adeptus-astartes|
+adeptus-astartes::redemptor-dreadnought|Redemptor Dreadnought|adeptus-astartes|
+adeptus-astartes::ancient|Ancient|adeptus-astartes|
+adeptus-astartes::pedro-kantor|Pedro Kantor|adeptus-astartes|
+adeptus-astartes::chaplain-in-terminator-armour|Chaplain in Terminator Armour|adeptus-astartes|
+adeptus-astartes::lieutenant-with-combi-weapon|Lieutenant with Combi-weapon|adeptus-astartes|
+adeptus-astartes::incursor-squad|Incursor Squad|adeptus-astartes|
+adeptus-astartes::assault-intercessors-with-jump-packs|Assault Intercessors with Jump Packs|adeptus-astartes|
+adeptus-astartes::caanok-var|Caanok Var|adeptus-astartes|
+adeptus-astartes::vanguard-veteran-squad-with-jump-packs|Vanguard Veteran Squad with Jump Packs|adeptus-astartes|
+adeptus-astartes::company-heroes|Company Heroes|adeptus-astartes|
+adeptus-astartes::aggressor-squad|Aggressor Squad|adeptus-astartes|
+adeptus-astartes::stormhawk-interceptor|Stormhawk Interceptor|adeptus-astartes|
+adeptus-astartes::captain|Captain|adeptus-astartes|
+adeptus-astartes::predator-annihilator|Predator Annihilator|adeptus-astartes|
+adeptus-astartes::chaplain-on-bike|Chaplain on Bike|adeptus-astartes|
+adeptus-astartes::stormraven-gunship|Stormraven Gunship|adeptus-astartes|
+adeptus-astartes::lieutenant-in-reiver-armour|Lieutenant in Reiver Armour|adeptus-astartes|
+adeptus-astartes::captain-in-phobos-armour|Captain in Phobos Armour|adeptus-astartes|
+adeptus-astartes::chaplain-with-jump-pack|Chaplain with Jump Pack|adeptus-astartes|
+adeptus-astartes::intercessor-squad|Intercessor Squad|adeptus-astartes|
+adeptus-astartes::astraeus|Astraeus|adeptus-astartes|
+adeptus-astartes::land-raider-redeemer|Land Raider Redeemer|adeptus-astartes|
+adeptus-astartes::thunderhawk-gunship|Thunderhawk Gunship|adeptus-astartes|
+adeptus-astartes::rhino|Rhino|adeptus-astartes|
+adeptus-astartes::invader-atv|Invader ATV|adeptus-astartes|
+adeptus-astartes::infiltrator-squad|Infiltrator Squad|adeptus-astartes|
+adeptus-astartes::ballistus-dreadnought|Ballistus Dreadnought|adeptus-astartes|
+adeptus-astartes::infernus-squad|Infernus Squad|adeptus-astartes|
+adeptus-astartes::kayvaan-shrike|Kayvaan Shrike|adeptus-astartes|
+adeptus-astartes::uriel-ventris|Uriel Ventris|adeptus-astartes|
+adeptus-astartes::lieutenant-in-phobos-armour|Lieutenant in Phobos Armour|adeptus-astartes|
+adeptus-astartes::reiver-squad|Reiver Squad|adeptus-astartes|
+adeptus-astartes::chaplain|Chaplain|adeptus-astartes|
+adeptus-astartes::invictor-tactical-warsuit|Invictor Tactical Warsuit|adeptus-astartes|
+adeptus-astartes::bladeguard-ancient|Bladeguard Ancient|adeptus-astartes|
+adeptus-astartes::venerable-dreadnought|Venerable Dreadnought|adeptus-astartes|
+adeptus-astartes::ragnar-blackmane|Ragnar Blackmane|adeptus-astartes|
+adeptus-astartes::thunderwolf-cavalry|Thunderwolf Cavalry|adeptus-astartes|
+adeptus-astartes::grey-hunters|Grey Hunters|adeptus-astartes|
+adeptus-astartes::fenrisian-wolves|Fenrisian Wolves|adeptus-astartes|
+adeptus-astartes::wolf-priest|Wolf Priest|adeptus-astartes|
+adeptus-astartes::wolf-guard-headtakers|Wolf Guard Headtakers|adeptus-astartes|
+adeptus-astartes::iron-priest|Iron Priest|adeptus-astartes|
+adeptus-astartes::njal-stormcaller|Njal Stormcaller|adeptus-astartes|
+adeptus-astartes::blood-claws|Blood Claws|adeptus-astartes|
+adeptus-astartes::ulrik-the-slayer|Ulrik the Slayer|adeptus-astartes|
+adeptus-astartes::logan-grimnar|Logan Grimnar|adeptus-astartes|
+adeptus-astartes::wolf-guard-terminators|Wolf Guard Terminators|adeptus-astartes|
+adeptus-astartes::wulfen-dreadnought|Wulfen Dreadnought|adeptus-astartes|
+adeptus-astartes::wulfen-with-storm-shields|Wulfen with Storm Shields|adeptus-astartes|
+adeptus-astartes::bjorn-the-fell-handed|Bjorn the Fell-Handed|adeptus-astartes|
+adeptus-astartes::arjac-rockfist|Arjac Rockfist|adeptus-astartes|
+adeptus-astartes::wolf-guard-battle-leader|Wolf Guard Battle Leader|adeptus-astartes|
+adeptus-astartes::wolf-scouts|Wolf Scouts|adeptus-astartes|
+adeptus-astartes::wulfen|Wulfen|adeptus-astartes|
+adeptus-astartes::murderfang|Murderfang|adeptus-astartes|
+adeptus-astartes::eradicator-squad-with-heavy-bolters|Eradicator Squad with Heavy Bolters|adeptus-astartes|
+adeptus-astartes::land-speeder|Land Speeder|adeptus-astartes|
+adeptus-custodes::telemon-heavy-dreadnought|Telemon Heavy Dreadnought|adeptus-custodes|
+adeptus-custodes::contemptor-achillus-dreadnought|Contemptor-Achillus Dreadnought|adeptus-custodes|
+adeptus-custodes::contemptor-galatus-dreadnought|Contemptor-Galatus Dreadnought|adeptus-custodes|
+adeptus-custodes::venerable-contemptor-dreadnought|Venerable Contemptor Dreadnought|adeptus-custodes|
+adeptus-custodes::blade-champion|Blade Champion|adeptus-custodes|
+adeptus-custodes::caladius-grav-tank|Caladius Grav-tank|adeptus-custodes|
+adeptus-custodes::allarus-custodians|Allarus Custodians|adeptus-custodes|
+adeptus-custodes::shield-captain-on-dawneagle-jetbike|Shield-Captain on Dawneagle Jetbike|adeptus-custodes|
+adeptus-custodes::vigilators|Vigilators|adeptus-custodes|
+adeptus-custodes::sagittarum-custodians|Sagittarum Custodians|adeptus-custodes|
+adeptus-custodes::witchseekers|Witchseekers|adeptus-custodes|
+adeptus-custodes::ares-gunship|Ares Gunship|adeptus-custodes|
+adeptus-custodes::custodian-guard|Custodian Guard|adeptus-custodes|
+adeptus-custodes::orion-assault-dropship|Orion Assault Dropship|adeptus-custodes|
+adeptus-custodes::knight-centura|Knight-Centura|adeptus-custodes|
+adeptus-custodes::anathema-psykana-rhino|Anathema Psykana Rhino|adeptus-custodes|
+adeptus-custodes::aleya|Aleya|adeptus-custodes|
+adeptus-custodes::agamatus-custodians|Agamatus Custodians|adeptus-custodes|
+adeptus-custodes::venerable-land-raider|Venerable Land Raider|adeptus-custodes|
+adeptus-custodes::custodian-wardens|Custodian Wardens|adeptus-custodes|
+adeptus-custodes::pallas-grav-attack|Pallas Grav-attack|adeptus-custodes|
+adeptus-custodes::vertus-praetors|Vertus Praetors|adeptus-custodes|
+adeptus-custodes::valerian|Valerian|adeptus-custodes|
+adeptus-custodes::venatari-custodians|Venatari Custodians|adeptus-custodes|
+adeptus-custodes::shield-captain-in-allarus-terminator-armour|Shield-Captain in Allarus Terminator Armour|adeptus-custodes|
+adeptus-custodes::aquilon-custodians|Aquilon Custodians|adeptus-custodes|
+adeptus-custodes::custodian-guard-with-adrasite-and-pyrithite-spears|Custodian Guard with Adrasite and Pyrithite Spears|adeptus-custodes|
+adeptus-custodes::coronus-grav-carrier|Coronus Grav-carrier|adeptus-custodes|
+adeptus-custodes::prosecutors|Prosecutors|adeptus-custodes|
+adeptus-custodes::shield-captain|Shield-Captain|adeptus-custodes|
+adeptus-custodes::trajann-valoris|Trajann Valoris|adeptus-custodes|
+adeptus-mechanicus::archaeopter-stratoraptor|Archaeopter Stratoraptor|adeptus-mechanicus|
+adeptus-mechanicus::onager-dunecrawler|Onager Dunecrawler|adeptus-mechanicus|
+adeptus-mechanicus::kataphron-destroyers|Kataphron Destroyers|adeptus-mechanicus|
+adeptus-mechanicus::cybernetica-datasmith|Cybernetica Datasmith|adeptus-mechanicus|
+adeptus-mechanicus::ironstrider-ballistarii|Ironstrider Ballistarii|adeptus-mechanicus|
+adeptus-mechanicus::tech-priest-manipulus|Tech-Priest Manipulus|adeptus-mechanicus|
+adeptus-mechanicus::sydonian-dragoons-with-radium-jezzails|Sydonian Dragoons with Radium Jezzails|adeptus-mechanicus|
+adeptus-mechanicus::belisarius-cawl|Belisarius Cawl|adeptus-mechanicus|
+adeptus-mechanicus::servitor-battleclade|Servitor Battleclade|adeptus-mechanicus|
+adeptus-mechanicus::fulgurite-electro-priests|Fulgurite Electro-Priests|adeptus-mechanicus|
+adeptus-mechanicus::skorpius-disintegrator|Skorpius Disintegrator|adeptus-mechanicus|
+adeptus-mechanicus::sydonian-skatros|Sydonian Skatros|adeptus-mechanicus|
+adeptus-mechanicus::sicarian-infiltrators|Sicarian Infiltrators|adeptus-mechanicus|
+adeptus-mechanicus::archaeopter-transvector|Archaeopter Transvector|adeptus-mechanicus|
+adeptus-mechanicus::skitarii-vanguard|Skitarii Vanguard|adeptus-mechanicus|
+adeptus-mechanicus::tech-priest-dominus|Tech-Priest Dominus|adeptus-mechanicus|
+adeptus-mechanicus::pteraxii-skystalkers|Pteraxii Skystalkers|adeptus-mechanicus|
+adeptus-mechanicus::kataphron-breachers|Kataphron Breachers|adeptus-mechanicus|
+adeptus-mechanicus::sicarian-ruststalkers|Sicarian Ruststalkers|adeptus-mechanicus|
+adeptus-mechanicus::technoarcheologist|Technoarcheologist|adeptus-mechanicus|
+adeptus-mechanicus::corpuscarii-electro-priests|Corpuscarii Electro-Priests|adeptus-mechanicus|
+adeptus-mechanicus::serberys-raiders|Serberys Raiders|adeptus-mechanicus|
+adeptus-mechanicus::sydonian-dragoons-with-taser-lances|Sydonian Dragoons with Taser Lances|adeptus-mechanicus|
+adeptus-mechanicus::serberys-sulphurhounds|Serberys Sulphurhounds|adeptus-mechanicus|
+adeptus-mechanicus::tech-priest-enginseer|Tech-Priest Enginseer|adeptus-mechanicus|
+adeptus-mechanicus::skitarii-marshal|Skitarii Marshal|adeptus-mechanicus|
+adeptus-mechanicus::skorpius-dunerider|Skorpius Dunerider|adeptus-mechanicus|
+adeptus-mechanicus::kastelan-robots|Kastelan Robots|adeptus-mechanicus|
+adeptus-mechanicus::pteraxii-sterylizors|Pteraxii Sterylizors|adeptus-mechanicus|
+adeptus-mechanicus::archaeopter-fusilave|Archaeopter Fusilave|adeptus-mechanicus|
+adeptus-mechanicus::skitarii-rangers|Skitarii Rangers|adeptus-mechanicus|
+adeptus-mechanicus::hastarii-exterminators|Hastarii Exterminators|adeptus-mechanicus|
+adeptus-mechanicus::hastarii-fusiliers|Hastarii Fusiliers|adeptus-mechanicus|
+adeptus-mechanicus::thulia-ghuld|Thulia Ghuld|adeptus-mechanicus|
+aeldari::revenant-titan|Revenant Titan|aeldari|
+aeldari::shadow-weaver-platform|Shadow Weaver Platform|aeldari|
+aeldari::striking-scorpions|Striking Scorpions|aeldari|
+aeldari::eldrad-ulthran|Eldrad Ulthran|aeldari|
+aeldari::wraithlord|Wraithlord|aeldari|
+aeldari::wave-serpent|Wave Serpent|aeldari|
+aeldari::yvraine|Yvraine|aeldari|
+aeldari::corsair-voidscarred|Corsair Voidscarred|aeldari|
+aeldari::fire-prism|Fire Prism|aeldari|
+aeldari::autarch|Autarch|aeldari|
+aeldari::ynnari-incubi|Ynnari Incubi|aeldari|
+aeldari::fire-dragons|Fire Dragons|aeldari|
+aeldari::asurmen|Asurmen|aeldari|
+aeldari::storm-guardians|Storm Guardians|aeldari|
+aeldari::d-cannon-platform|D-cannon Platform|aeldari|
+aeldari::warlock-skyrunners|Warlock Skyrunners|aeldari|
+aeldari::lhykhis|Lhykhis|aeldari|
+aeldari::death-jester|Death Jester|aeldari|
+aeldari::prince-yriel|Prince Yriel|aeldari|
+aeldari::the-yncarne|The Yncarne|aeldari|
+aeldari::farseer-skyrunner|Farseer Skyrunner|aeldari|
+aeldari::solitaire|Solitaire|aeldari|
+aeldari::maugan-ra|Maugan Ra|aeldari|
+aeldari::corsair-skyreavers|Corsair Skyreavers|aeldari|
+aeldari::guardian-defenders|Guardian Defenders|aeldari|
+aeldari::phantom-titan|Phantom Titan|aeldari|
+aeldari::avatar-of-khaine|Avatar of Khaine|aeldari|
+aeldari::war-walkers|War Walkers|aeldari|
+aeldari::kharseth|Kharseth|aeldari|
+aeldari::hemlock-wraithfighter|Hemlock Wraithfighter|aeldari|
+aeldari::wraithknight|Wraithknight|aeldari|
+aeldari::ynnari-reavers|Ynnari Reavers|aeldari|
+aeldari::swooping-hawks|Swooping Hawks|aeldari|
+aeldari::wraithguard|Wraithguard|aeldari|
+aeldari::fuegan|Fuegan|aeldari|
+aeldari::ynnari-succubus|Ynnari Succubus|aeldari|
+aeldari::shining-spears|Shining Spears|aeldari|
+aeldari::the-visarch|The Visarch|aeldari|
+aeldari::corsair-voidreavers|Corsair Voidreavers|aeldari|
+aeldari::vibro-cannon-platform|Vibro Cannon Platform|aeldari|
+aeldari::shadowseer|Shadowseer|aeldari|
+aeldari::jain-zar|Jain Zar|aeldari|
+aeldari::warp-spiders|Warp Spiders|aeldari|
+aeldari::dark-reapers|Dark Reapers|aeldari|
+aeldari::ynnari-kabalite-warriors|Ynnari Kabalite Warriors|aeldari|
+aeldari::voidweaver|Voidweaver|aeldari|
+aeldari::shroud-runners|Shroud Runners|aeldari|
+aeldari::warlock|Warlock|aeldari|
+aeldari::wraithknight-with-ghostglaive|Wraithknight with Ghostglaive|aeldari|
+aeldari::ynnari-wyches|Ynnari Wyches|aeldari|
+aeldari::warlock-conclave|Warlock Conclave|aeldari|
+aeldari::farseer|Farseer|aeldari|
+aeldari::night-spinner|Night Spinner|aeldari|
+aeldari::autarch-wayleaper|Autarch Wayleaper|aeldari|
+aeldari::dire-avengers|Dire Avengers|aeldari|
+aeldari::howling-banshees|Howling Banshees|aeldari|
+aeldari::falcon|Falcon|aeldari|
+aeldari::windriders|Windriders|aeldari|
+aeldari::troupe-master|Troupe Master|aeldari|
+aeldari::rangers|Rangers|aeldari|
+aeldari::crimson-hunter|Crimson Hunter|aeldari|
+aeldari::ynnari-raider|Ynnari Raider|aeldari|
+aeldari::starfangs|Starfangs|aeldari|
+aeldari::skyweavers|Skyweavers|aeldari|
+aeldari::ynnari-archon|Ynnari Archon|aeldari|
+aeldari::baharroth|Baharroth|aeldari|
+aeldari::wraithblades|Wraithblades|aeldari|
+aeldari::troupe|Troupe|aeldari|
+aeldari::ynnari-venom|Ynnari Venom|aeldari|
+aeldari::vyper|Vyper|aeldari|
+aeldari::spiritseer|Spiritseer|aeldari|
+aeldari::starweaver|Starweaver|aeldari|
+agents-of-the-imperium::sanctifiers|Sanctifiers|agents-of-the-imperium|
+agents-of-the-imperium::watch-captain-artemis|Watch Captain Artemis|agents-of-the-imperium|
+agents-of-the-imperium::inquisitorial-chimera|Inquisitorial Chimera|agents-of-the-imperium|
+agents-of-the-imperium::callidus-assassin|Callidus Assassin|agents-of-the-imperium|
+agents-of-the-imperium::inquisitor-greyfax|Inquisitor Greyfax|agents-of-the-imperium|
+agents-of-the-imperium::sisters-of-battle-immolator|Sisters of Battle Immolator|agents-of-the-imperium|
+agents-of-the-imperium::inquisitorial-agents|Inquisitorial Agents|agents-of-the-imperium|
+agents-of-the-imperium::inquisitor|Inquisitor|agents-of-the-imperium|
+agents-of-the-imperium::grey-knights-terminator-squad|Grey Knights Terminator Squad|agents-of-the-imperium|
+agents-of-the-imperium::voidsmen-at-arms|Voidsmen-at-Arms|agents-of-the-imperium|
+agents-of-the-imperium::deathwatch-kill-team|Deathwatch Kill Team|agents-of-the-imperium|
+agents-of-the-imperium::eversor-assassin|Eversor Assassin|agents-of-the-imperium|
+agents-of-the-imperium::imperial-rhino|Imperial Rhino|agents-of-the-imperium|
+agents-of-the-imperium::aquila-kill-team|Aquila Kill Team|agents-of-the-imperium|
+agents-of-the-imperium::vindicare-assassin|Vindicare Assassin|agents-of-the-imperium|
+agents-of-the-imperium::exaction-squad|Exaction Squad|agents-of-the-imperium|
+agents-of-the-imperium::imperial-navy-breachers|Imperial Navy Breachers|agents-of-the-imperium|
+agents-of-the-imperium::culexus-assassin|Culexus Assassin|agents-of-the-imperium|
+agents-of-the-imperium::vigilant-squad|Vigilant Squad|agents-of-the-imperium|
+agents-of-the-imperium::subductor-squad|Subductor Squad|agents-of-the-imperium|
+agents-of-the-imperium::navigator|Navigator|agents-of-the-imperium|
+agents-of-the-imperium::inquisitor-draxus|Inquisitor Draxus|agents-of-the-imperium|
+agents-of-the-imperium::watch-master|Watch Master|agents-of-the-imperium|
+agents-of-the-imperium::inquisitor-coteaz|Inquisitor Coteaz|agents-of-the-imperium|
+agents-of-the-imperium::sisters-of-battle-squad|Sisters of Battle Squad|agents-of-the-imperium|
+agents-of-the-imperium::corvus-blackstar|Corvus Blackstar|agents-of-the-imperium|
+agents-of-the-imperium::ministorum-priest|Ministorum Priest|agents-of-the-imperium|
+agents-of-the-imperium::rogue-trader-entourage|Rogue Trader Entourage|agents-of-the-imperium|
+agents-of-the-imperium::inquisitor-kroyle|Inquisitor Kroyle|agents-of-the-imperium|
+astra-militarum::scout-sentinels|Scout Sentinels|astra-militarum|
+astra-militarum::cadian-castellan|Cadian Castellan|astra-militarum|
+astra-militarum::gaunts-ghosts|Gaunt’s Ghosts|astra-militarum|
+astra-militarum::nork-deddog|Nork Deddog|astra-militarum|
+astra-militarum::cadian-shock-troops|Cadian Shock Troops|astra-militarum|
+astra-militarum::militarum-tempestus-command-squad|Militarum Tempestus Command Squad|astra-militarum|
+astra-militarum::lord-solar-leontus|Lord Solar Leontus|astra-militarum|
+astra-militarum::tempestus-aquilons|Tempestus Aquilons|astra-militarum|
+astra-militarum::krieg-heavy-weapons-squad|Krieg Heavy Weapons Squad|astra-militarum|
+astra-militarum::ratlings|Ratlings|astra-militarum|
+astra-militarum::leman-russ-battle-tank|Leman Russ Battle Tank|astra-militarum|
+astra-militarum::stormsword|Stormsword|astra-militarum|
+astra-militarum::taurox-prime|Taurox Prime|astra-militarum|
+astra-militarum::field-ordnance-battery|Field Ordnance Battery|astra-militarum|
+astra-militarum::cyclops-demolition-vehicle|Cyclops Demolition Vehicle|astra-militarum|
+astra-militarum::rogal-dorn-commander|Rogal Dorn Commander|astra-militarum|
+astra-militarum::leman-russ-exterminator|Leman Russ Exterminator|astra-militarum|
+astra-militarum::bullgryn-squad|Bullgryn Squad|astra-militarum|
+astra-militarum::primaris-psyker|Primaris Psyker|astra-militarum|
+astra-militarum::cadian-heavy-weapons-squad|Cadian Heavy Weapons Squad|astra-militarum|
+astra-militarum::catachan-heavy-weapons-squad|Catachan Heavy Weapons Squad|astra-militarum|
+astra-militarum::hellhammer|Hellhammer|astra-militarum|
+astra-militarum::aegis-defence-line|Aegis Defence Line|astra-militarum|
+astra-militarum::armoured-sentinels|Armoured Sentinels|astra-militarum|
+astra-militarum::commissar|Commissar|astra-militarum|
+astra-militarum::deathstrike|Deathstrike|astra-militarum|
+astra-militarum::death-riders|Death Riders|astra-militarum|
+astra-militarum::artillery-team|Artillery Team|astra-militarum|
+astra-militarum::leman-russ-executioner|Leman Russ Executioner|astra-militarum|
+astra-militarum::tempestus-scions|Tempestus Scions|astra-militarum|
+astra-militarum::stormlord|Stormlord|astra-militarum|
+astra-militarum::ogryn-bodyguard|Ogryn Bodyguard|astra-militarum|
+astra-militarum::kasrkin|Kasrkin|astra-militarum|
+astra-militarum::cadian-command-squad|Cadian Command Squad|astra-militarum|
+astra-militarum::catachan-command-squad|Catachan Command Squad|astra-militarum|
+astra-militarum::doomhammer|Doomhammer|astra-militarum|
+astra-militarum::rogal-dorn-battle-tank|Rogal Dorn Battle Tank|astra-militarum|
+astra-militarum::ministorum-priest|Ministorum Priest|astra-militarum|
+astra-militarum::death-korps-of-krieg|Death Korps of Krieg|astra-militarum|
+astra-militarum::banesword|Banesword|astra-militarum|
+astra-militarum::wyvern|Wyvern|astra-militarum|
+astra-militarum::attilan-rough-riders|Attilan Rough Riders|astra-militarum|
+astra-militarum::hellhound|Hellhound|astra-militarum|
+astra-militarum::leman-russ-punisher|Leman Russ Punisher|astra-militarum|
+astra-militarum::krieg-command-squad|Krieg Command Squad|astra-militarum|
+astra-militarum::sly-marbo|Sly Marbo|astra-militarum|
+astra-militarum::leman-russ-demolisher|Leman Russ Demolisher|astra-militarum|
+astra-militarum::taurox|Taurox|astra-militarum|
+astra-militarum::ogryn-squad|Ogryn Squad|astra-militarum|
+astra-militarum::lord-marshal-dreir|Lord Marshal Dreir|astra-militarum|
+astra-militarum::tech-priest-enginseer|Tech-Priest Enginseer|astra-militarum|
+astra-militarum::banehammer|Banehammer|astra-militarum|
+astra-militarum::catachan-jungle-fighters|Catachan Jungle Fighters|astra-militarum|
+astra-militarum::leman-russ-commander|Leman Russ Commander|astra-militarum|
+astra-militarum::valkyrie|Valkyrie|astra-militarum|
+astra-militarum::ursula-creed|Ursula Creed|astra-militarum|
+astra-militarum::shadowsword|Shadowsword|astra-militarum|
+astra-militarum::manticore|Manticore|astra-militarum|
+astra-militarum::chimera|Chimera|astra-militarum|
+astra-militarum::avenger-strike-fighter|Avenger Strike Fighter|astra-militarum|
+astra-militarum::leman-russ-vanquisher|Leman Russ Vanquisher|astra-militarum|
+astra-militarum::basilisk|Basilisk|astra-militarum|
+astra-militarum::baneblade|Baneblade|astra-militarum|
+astra-militarum::krieg-combat-engineers|Krieg Combat Engineers|astra-militarum|
+astra-militarum::hydra|Hydra|astra-militarum|
+astra-militarum::leman-russ-eradicator|Leman Russ Eradicator|astra-militarum|
+astra-militarum::cadian-recon-squad|Cadian Recon Squad|astra-militarum|
+astra-militarum::centaur-rsv|Centaur RSV|astra-militarum|
+astra-militarum::commissar-graves|Commissar Graves|astra-militarum|
+astra-militarum::commissar-graves-on-foot|Commissar Graves on Foot|astra-militarum|
+astra-militarum::commissar-yarrick|Commissar Yarrick|astra-militarum|
+astra-militarum::hippogriff-afv|Hippogriff AFV|astra-militarum|
+chaos-daemons::soul-grinder|Soul Grinder|chaos-daemons|
+chaos-daemons::daemon-prince-of-chaos-with-wings|Daemon Prince of Chaos with Wings|chaos-daemons|
+chaos-daemons::daemon-prince-of-chaos|Daemon Prince of Chaos|chaos-daemons|
+chaos-daemons::rotigus|Rotigus|chaos-daemons|
+chaos-daemons::the-masque-of-slaanesh|The Masque of Slaanesh|chaos-daemons|
+chaos-daemons::daemonettes|Daemonettes|chaos-daemons|
+chaos-daemons::nurglings|Nurglings|chaos-daemons|
+chaos-daemons::bloodmaster|Bloodmaster|chaos-daemons|
+chaos-daemons::tranceweaver|Tranceweaver|chaos-daemons|
+chaos-daemons::burning-chariot|Burning Chariot|chaos-daemons|
+chaos-daemons::pink-horrors|Pink Horrors|chaos-daemons|
+chaos-daemons::infernal-enrapturess|Infernal Enrapturess|chaos-daemons|
+chaos-daemons::plaguebearers|Plaguebearers|chaos-daemons|
+chaos-daemons::keeper-of-secrets|Keeper of Secrets|chaos-daemons|
+chaos-daemons::shalaxi-helbane|Shalaxi Helbane|chaos-daemons|
+chaos-daemons::seekers|Seekers|chaos-daemons|
+chaos-daemons::syllesske|Syll’Esske|chaos-daemons|
+chaos-daemons::screamers|Screamers|chaos-daemons|
+chaos-daemons::bloodletters|Bloodletters|chaos-daemons|
+chaos-daemons::lord-of-change|Lord of Change|chaos-daemons|
+chaos-daemons::changecaster|Changecaster|chaos-daemons|
+chaos-daemons::feculent-gnarlmaw|Feculent Gnarlmaw|chaos-daemons|
+chaos-daemons::great-unclean-one|Great Unclean One|chaos-daemons|
+chaos-daemons::bloodcrushers|Bloodcrushers|chaos-daemons|
+chaos-daemons::fiends|Fiends|chaos-daemons|
+chaos-daemons::skarbrand|Skarbrand|chaos-daemons|
+chaos-daemons::belakor|Be’lakor|chaos-daemons|
+chaos-daemons::horticulous-slimux|Horticulous Slimux|chaos-daemons|
+chaos-daemons::contorted-epitome|Contorted Epitome|chaos-daemons|
+chaos-daemons::poxbringer|Poxbringer|chaos-daemons|
+chaos-daemons::fateskimmer|Fateskimmer|chaos-daemons|
+chaos-daemons::hellflayers|Hellflayers|chaos-daemons|
+chaos-daemons::plague-drones|Plague Drones|chaos-daemons|
+chaos-daemons::bloodthirster|Bloodthirster|chaos-daemons|
+chaos-daemons::exalted-flamer|Exalted Flamer|chaos-daemons|
+chaos-daemons::skullmaster|Skullmaster|chaos-daemons|
+chaos-daemons::epidemius|Epidemius|chaos-daemons|
+chaos-daemons::karanak|Karanak|chaos-daemons|
+chaos-daemons::spoilpox-scrivener|Spoilpox Scrivener|chaos-daemons|
+chaos-daemons::tormentbringer|Tormentbringer|chaos-daemons|
+chaos-daemons::skulltaker|Skulltaker|chaos-daemons|
+chaos-daemons::rendmaster-on-blood-throne|Rendmaster on Blood Throne|chaos-daemons|
+chaos-daemons::skull-altar|Skull Altar|chaos-daemons|
+chaos-daemons::sloppity-bilepiper|Sloppity Bilepiper|chaos-daemons|
+chaos-daemons::kairos-fateweaver|Kairos Fateweaver|chaos-daemons|
+chaos-daemons::blue-horrors|Blue Horrors|chaos-daemons|
+chaos-daemons::the-blue-scribes|The Blue Scribes|chaos-daemons|
+chaos-daemons::the-changeling|The Changeling|chaos-daemons|
+chaos-daemons::fluxmaster|Fluxmaster|chaos-daemons|
+chaos-daemons::flamers|Flamers|chaos-daemons|
+chaos-daemons::beasts-of-nurgle|Beasts of Nurgle|chaos-daemons|
+chaos-daemons::flesh-hounds|Flesh Hounds|chaos-daemons|
+chaos-daemons::skull-cannon|Skull Cannon|chaos-daemons|
+chaos-knights::war-dog-huntsman|War Dog Huntsman|chaos-knights|
+chaos-knights::war-dog-brigand|War Dog Brigand|chaos-knights|
+chaos-knights::war-dog-executioner|War Dog Executioner|chaos-knights|
+chaos-knights::war-dog-stalker|War Dog Stalker|chaos-knights|
+chaos-knights::war-dog-moirax|War Dog Moirax|chaos-knights|
+chaos-knights::war-dog-karnivore|War Dog Karnivore|chaos-knights|
+chaos-knights::knight-despoiler|Knight Despoiler|chaos-knights|
+chaos-knights::chaos-cerastus-knight-acheron|Chaos Cerastus Knight Acheron|chaos-knights|
+chaos-knights::knight-ruinator|Knight Ruinator|chaos-knights|
+chaos-knights::knight-desecrator|Knight Desecrator|chaos-knights|
+chaos-knights::chaos-acastus-knight-porphyrion|Chaos Acastus Knight Porphyrion|chaos-knights|
+chaos-knights::chaos-cerastus-knight-atrapos|Chaos Cerastus Knight Atrapos|chaos-knights|
+chaos-knights::chaos-acastus-knight-asterius|Chaos Acastus Knight Asterius|chaos-knights|
+chaos-knights::chaos-cerastus-knight-castigator|Chaos Cerastus Knight Castigator|chaos-knights|
+chaos-knights::chaos-cerastus-knight-lancer|Chaos Cerastus Knight Lancer|chaos-knights|
+chaos-knights::knight-rampager|Knight Rampager|chaos-knights|
+chaos-knights::chaos-questoris-knight-magaera|Chaos Questoris Knight Magaera|chaos-knights|
+chaos-knights::knight-tyrant|Knight Tyrant|chaos-knights|
+chaos-knights::knight-abominant|Knight Abominant|chaos-knights|
+chaos-knights::chaos-questoris-knight-styrix|Chaos Questoris Knight Styrix|chaos-knights|
+chaos-space-marines::heretic-astartes-daemon-prince|Heretic Astartes Daemon Prince|chaos-space-marines|
+chaos-space-marines::heretic-astartes-daemon-prince-with-wings|Heretic Astartes Daemon Prince with Wings|chaos-space-marines|
+chaos-space-marines::sorcerer-in-terminator-armour|Sorcerer in Terminator Armour|chaos-space-marines|
+chaos-space-marines::nemesis-claw|Nemesis Claw|chaos-space-marines|
+chaos-space-marines::sorcerer|Sorcerer|chaos-space-marines|
+chaos-space-marines::dark-commune|Dark Commune|chaos-space-marines|
+chaos-space-marines::master-of-possession|Master of Possession|chaos-space-marines|
+chaos-space-marines::obliterators|Obliterators|chaos-space-marines|
+chaos-space-marines::lord-discordant-on-helstalker|Lord Discordant on Helstalker|chaos-space-marines|
+chaos-space-marines::chaos-terminator-squad|Chaos Terminator Squad|chaos-space-marines|
+chaos-space-marines::cultist-firebrand|Cultist Firebrand|chaos-space-marines|
+chaos-space-marines::chaos-land-raider|Chaos Land Raider|chaos-space-marines|
+chaos-space-marines::possessed|Possessed|chaos-space-marines|
+chaos-space-marines::traitor-enforcer|Traitor Enforcer|chaos-space-marines|
+chaos-space-marines::dark-apostle|Dark Apostle|chaos-space-marines|
+chaos-space-marines::chaos-spawn|Chaos Spawn|chaos-space-marines|
+chaos-space-marines::chaos-predator-annihilator|Chaos Predator Annihilator|chaos-space-marines|
+chaos-space-marines::venomcrawler|Venomcrawler|chaos-space-marines|
+chaos-space-marines::havocs|Havocs|chaos-space-marines|
+chaos-space-marines::noctilith-crown|Noctilith Crown|chaos-space-marines|
+chaos-space-marines::raptors|Raptors|chaos-space-marines|
+chaos-space-marines::defiler|Defiler|chaos-space-marines|
+chaos-space-marines::chaos-predator-destructor|Chaos Predator Destructor|chaos-space-marines|
+chaos-space-marines::chosen|Chosen|chaos-space-marines|
+chaos-space-marines::traitor-guardsmen-squad|Traitor Guardsmen Squad|chaos-space-marines|
+chaos-space-marines::heldrake|Heldrake|chaos-space-marines|
+chaos-space-marines::chaos-vindicator|Chaos Vindicator|chaos-space-marines|
+chaos-space-marines::forgefiend|Forgefiend|chaos-space-marines|
+chaos-space-marines::warpsmith|Warpsmith|chaos-space-marines|
+chaos-space-marines::chaos-lord-in-terminator-armour|Chaos Lord in Terminator Armour|chaos-space-marines|
+chaos-space-marines::red-corsairs-raiders|Red Corsairs Raiders|chaos-space-marines|
+chaos-space-marines::master-of-executions|Master of Executions|chaos-space-marines|
+chaos-space-marines::accursed-cultists|Accursed Cultists|chaos-space-marines|
+chaos-space-marines::helbrute|Helbrute|chaos-space-marines|
+chaos-space-marines::chaos-lord-with-jump-pack|Chaos Lord with Jump Pack|chaos-space-marines|
+chaos-space-marines::cultist-mob|Cultist Mob|chaos-space-marines|
+chaos-space-marines::chaos-lord|Chaos Lord|chaos-space-marines|
+chaos-space-marines::chaos-bikers|Chaos Bikers|chaos-space-marines|
+chaos-space-marines::warp-talons|Warp Talons|chaos-space-marines|
+chaos-space-marines::fellgor-beastmen|Fellgor Beastmen|chaos-space-marines|
+chaos-space-marines::maulerfiend|Maulerfiend|chaos-space-marines|
+chaos-space-marines::chaos-rhino|Chaos Rhino|chaos-space-marines|
+chaos-space-marines::legionaries|Legionaries|chaos-space-marines|
+chaos-space-marines::red-corsairs-reave-captain|Red Corsairs Reave-Captain|chaos-space-marines|
+chaos-space-marines::masters-of-the-maelstrom|Masters of the Maelstrom|chaos-space-marines|
+chaos-space-marines::vashtorr-the-arkifane|Vashtorr the Arkifane|chaos-space-marines|
+chaos-space-marines::huron-blackheart|Huron Blackheart|chaos-space-marines|
+chaos-space-marines::haarken-worldclaimer|Haarken Worldclaimer|chaos-space-marines|
+chaos-space-marines::abaddon-the-despoiler|Abaddon the Despoiler|chaos-space-marines|
+chaos-space-marines::fabius-bile|Fabius Bile|chaos-space-marines|
+chaos-space-marines::cypher|Cypher|chaos-space-marines|
+chaos-space-marines::khorne-lord-of-skulls|Khorne Lord of Skulls|chaos-space-marines|
+chaos-space-marines::mutilators|Mutilators|chaos-space-marines|
+chaos-space-marines::kravek-morne|Kravek Morne|chaos-space-marines|
+death-guard::lord-of-poxes|Lord of Poxes|death-guard|
+death-guard::defiler|Defiler|death-guard|
+death-guard::chaos-spawn|Chaos Spawn|death-guard|
+death-guard::tallyman|Tallyman|death-guard|
+death-guard::poxwalkers|Poxwalkers|death-guard|
+death-guard::lord-of-contagion|Lord of Contagion|death-guard|
+death-guard::chaos-predator-annihilator|Chaos Predator Annihilator|death-guard|
+death-guard::chaos-predator-destructor|Chaos Predator Destructor|death-guard|
+death-guard::foetid-bloat-drone-with-heavy-blight-launcher|Foetid Bloat-Drone with Heavy Blight Launcher|death-guard|
+death-guard::plagueburst-crawler|Plagueburst Crawler|death-guard|
+death-guard::biologus-putrifier|Biologus Putrifier|death-guard|
+death-guard::plague-marines|Plague Marines|death-guard|
+death-guard::plague-surgeon|Plague Surgeon|death-guard|
+death-guard::daemon-prince-of-nurgle|Daemon Prince of Nurgle|death-guard|
+death-guard::deathshroud-terminators|Deathshroud Terminators|death-guard|
+death-guard::lord-of-virulence|Lord of Virulence|death-guard|
+death-guard::foetid-bloat-drone|Foetid Bloat-Drone|death-guard|
+death-guard::noxious-blightbringer|Noxious Blightbringer|death-guard|
+death-guard::daemon-prince-of-nurgle-with-wings|Daemon Prince of Nurgle with Wings|death-guard|
+death-guard::miasmic-malignifier|Miasmic Malignifier|death-guard|
+death-guard::helbrute|Helbrute|death-guard|
+death-guard::myphitic-blight-haulers|Myphitic Blight-haulers|death-guard|
+death-guard::mortarion|Mortarion|death-guard|
+death-guard::malignant-plaguecaster|Malignant Plaguecaster|death-guard|
+death-guard::chaos-rhino|Chaos Rhino|death-guard|
+death-guard::chaos-land-raider|Chaos Land Raider|death-guard|
+death-guard::foul-blightspawn|Foul Blightspawn|death-guard|
+death-guard::icon-bearer|Icon Bearer|death-guard|
+death-guard::typhus|Typhus|death-guard|
+death-guard::blightlord-terminators|Blightlord Terminators|death-guard|
+drukhari::reavers|Reavers|drukhari|
+drukhari::cronos|Cronos|drukhari|
+drukhari::succubus|Succubus|drukhari|
+drukhari::hellions|Hellions|drukhari|
+drukhari::venom|Venom|drukhari|
+drukhari::scourges-with-shardcarbines|Scourges with Shardcarbines|drukhari|
+drukhari::kabalite-warriors|Kabalite Warriors|drukhari|
+drukhari::raider|Raider|drukhari|
+drukhari::lelith-hesperax|Lelith Hesperax|drukhari|
+drukhari::razorwing-jetfighter|Razorwing Jetfighter|drukhari|
+drukhari::scourges-with-heavy-weapons|Scourges with Heavy Weapons|drukhari|
+drukhari::talos|Talos|drukhari|
+drukhari::wracks|Wracks|drukhari|
+drukhari::haemonculus|Haemonculus|drukhari|
+drukhari::archon|Archon|drukhari|
+drukhari::lady-malys|Lady Malys|drukhari|
+drukhari::ravager|Ravager|drukhari|
+drukhari::wyches|Wyches|drukhari|
+drukhari::hand-of-the-archon|Hand of the Archon|drukhari|
+drukhari::voidraven-bomber|Voidraven Bomber|drukhari|
+drukhari::drazhar|Drazhar|drukhari|
+drukhari::incubi|Incubi|drukhari|
+drukhari::mandrakes|Mandrakes|drukhari|
+emperors-children::chaos-land-raider|Chaos Land Raider|emperors-children|
+emperors-children::chaos-terminators|Chaos Terminators|emperors-children|
+emperors-children::sorcerer|Sorcerer|emperors-children|
+emperors-children::lord-exultant|Lord Exultant|emperors-children|
+emperors-children::lord-kakophonist|Lord Kakophonist|emperors-children|
+emperors-children::chaos-spawn|Chaos Spawn|emperors-children|
+emperors-children::daemon-prince-of-slaanesh|Daemon Prince of Slaanesh|emperors-children|
+emperors-children::noise-marines|Noise Marines|emperors-children|
+emperors-children::tormentors|Tormentors|emperors-children|
+emperors-children::chaos-rhino|Chaos Rhino|emperors-children|
+emperors-children::daemon-prince-of-slaanesh-with-wings|Daemon Prince of Slaanesh with Wings|emperors-children|
+emperors-children::fulgrim|Fulgrim|emperors-children|
+emperors-children::lucius-the-eternal|Lucius the Eternal|emperors-children|
+emperors-children::heldrake|Heldrake|emperors-children|
+emperors-children::infractors|Infractors|emperors-children|
+emperors-children::maulerfiend|Maulerfiend|emperors-children|
+emperors-children::flawless-blades|Flawless Blades|emperors-children|
+genestealer-cults::atalan-jackals|Atalan Jackals|genestealer-cults|
+genestealer-cults::kelermorph|Kelermorph|genestealer-cults|
+genestealer-cults::neophyte-hybrids|Neophyte Hybrids|genestealer-cults|
+genestealer-cults::clamavus|Clamavus|genestealer-cults|
+genestealer-cults::reductus-saboteur|Reductus Saboteur|genestealer-cults|
+genestealer-cults::patriarch|Patriarch|genestealer-cults|
+genestealer-cults::goliath-truck|Goliath Truck|genestealer-cults|
+genestealer-cults::biophagus|Biophagus|genestealer-cults|
+genestealer-cults::acolyte-iconward|Acolyte Iconward|genestealer-cults|
+genestealer-cults::achilles-ridgerunners|Achilles Ridgerunners|genestealer-cults|
+genestealer-cults::primus|Primus|genestealer-cults|
+genestealer-cults::abominant|Abominant|genestealer-cults|
+genestealer-cults::nexos|Nexos|genestealer-cults|
+genestealer-cults::sanctus|Sanctus|genestealer-cults|
+genestealer-cults::jackal-alphus|Jackal Alphus|genestealer-cults|
+genestealer-cults::aberrants|Aberrants|genestealer-cults|
+genestealer-cults::acolyte-hybrids-with-autopistols|Acolyte Hybrids with Autopistols|genestealer-cults|
+genestealer-cults::hybrid-metamorphs|Hybrid Metamorphs|genestealer-cults|
+genestealer-cults::acolyte-hybrids-with-hand-flamers|Acolyte Hybrids with Hand Flamers|genestealer-cults|
+genestealer-cults::locus|Locus|genestealer-cults|
+genestealer-cults::goliath-rockgrinder|Goliath Rockgrinder|genestealer-cults|
+genestealer-cults::benefictus|Benefictus|genestealer-cults|
+genestealer-cults::purestrain-genestealers|Purestrain Genestealers|genestealer-cults|
+genestealer-cults::magus|Magus|genestealer-cults|
+grey-knights::land-raider-redeemer|Land Raider Redeemer|grey-knights|
+grey-knights::grand-master-in-nemesis-dreadknight|Grand Master in Nemesis Dreadknight|grey-knights|
+grey-knights::land-raider-crusader|Land Raider Crusader|grey-knights|
+grey-knights::grand-master|Grand Master|grey-knights|
+grey-knights::razorback|Razorback|grey-knights|
+grey-knights::purifier-squad|Purifier Squad|grey-knights|
+grey-knights::nemesis-dreadknight|Nemesis Dreadknight|grey-knights|
+grey-knights::grey-knights-thunderhawk-gunship|Grey Knights Thunderhawk Gunship|grey-knights|
+grey-knights::rhino|Rhino|grey-knights|
+grey-knights::brother-captain|Brother-Captain|grey-knights|
+grey-knights::venerable-dreadnought|Venerable Dreadnought|grey-knights|
+grey-knights::castellan-crowe|Castellan Crowe|grey-knights|
+grey-knights::strike-squad|Strike Squad|grey-knights|
+grey-knights::brotherhood-techmarine|Brotherhood Techmarine|grey-knights|
+grey-knights::brotherhood-librarian|Brotherhood Librarian|grey-knights|
+grey-knights::brotherhood-champion|Brotherhood Champion|grey-knights|
+grey-knights::purgation-squad|Purgation Squad|grey-knights|
+grey-knights::stormtalon-gunship|Stormtalon Gunship|grey-knights|
+grey-knights::interceptor-squad|Interceptor Squad|grey-knights|
+grey-knights::brotherhood-chaplain|Brotherhood Chaplain|grey-knights|
+grey-knights::paladin-squad|Paladin Squad|grey-knights|
+grey-knights::land-raider|Land Raider|grey-knights|
+grey-knights::grand-master-voldus|Grand Master Voldus|grey-knights|
+grey-knights::brotherhood-terminator-squad|Brotherhood Terminator Squad|grey-knights|
+grey-knights::stormhawk-interceptor|Stormhawk Interceptor|grey-knights|
+grey-knights::stormraven-gunship|Stormraven Gunship|grey-knights|
+imperial-knights::acastus-knight-asterius|Acastus Knight Asterius|imperial-knights|
+imperial-knights::knight-defender|Knight Defender|imperial-knights|
+imperial-knights::cerastus-knight-acheron|Cerastus Knight Acheron|imperial-knights|
+imperial-knights::acastus-knight-porphyrion|Acastus Knight Porphyrion|imperial-knights|
+imperial-knights::cerastus-knight-castigator|Cerastus Knight Castigator|imperial-knights|
+imperial-knights::knight-paladin|Knight Paladin|imperial-knights|
+imperial-knights::knight-errant|Knight Errant|imperial-knights|
+imperial-knights::knight-crusader|Knight Crusader|imperial-knights|
+imperial-knights::knight-warden|Knight Warden|imperial-knights|
+imperial-knights::knight-preceptor|Knight Preceptor|imperial-knights|
+imperial-knights::cerastus-knight-lancer|Cerastus Knight Lancer|imperial-knights|
+imperial-knights::armiger-moirax|Armiger Moirax|imperial-knights|
+imperial-knights::knight-gallant|Knight Gallant|imperial-knights|
+imperial-knights::armiger-warglaive|Armiger Warglaive|imperial-knights|
+imperial-knights::knight-valiant|Knight Valiant|imperial-knights|
+imperial-knights::sir-hekhtur|Sir Hekhtur|imperial-knights|
+imperial-knights::canis-rex|Canis Rex|imperial-knights|
+imperial-knights::knight-castellan|Knight Castellan|imperial-knights|
+imperial-knights::armiger-helverin|Armiger Helverin|imperial-knights|
+imperial-knights::questoris-knight-magaera|Questoris Knight Magaera|imperial-knights|
+imperial-knights::questoris-knight-styrix|Questoris Knight Styrix|imperial-knights|
+imperial-knights::cerastus-knight-atrapos|Cerastus Knight Atrapos|imperial-knights|
+imperial-knights::knight-destrier|Knight Destrier|imperial-knights|
+leagues-of-votann::memnyr-strategist|Memnyr Strategist|leagues-of-votann|
+leagues-of-votann::einhyr-hearthguard|Einhyr Hearthguard|leagues-of-votann|
+leagues-of-votann::grimnyr|Grimnyr|leagues-of-votann|
+leagues-of-votann::hernkyn-pioneers|Hernkyn Pioneers|leagues-of-votann|
+leagues-of-votann::cthonian-earthshakers|Cthonian Earthshakers|leagues-of-votann|
+leagues-of-votann::kapricus-carrier|Kapricus Carrier|leagues-of-votann|
+leagues-of-votann::ironkin-steeljacks-with-heavy-volkanite-disintegrators|Ironkin Steeljacks with Heavy Volkanite Disintegrators|leagues-of-votann|
+leagues-of-votann::hekaton-land-fortress|Hekaton Land Fortress|leagues-of-votann|
+leagues-of-votann::buri-aegnirssen|Buri Aegnirssen|leagues-of-votann|
+leagues-of-votann::brokhyr-iron-master|Brôkhyr Iron-master|leagues-of-votann|
+leagues-of-votann::berehk-stornbrow|Berehk Stornbröw|leagues-of-votann|
+leagues-of-votann::ironkin-steeljacks-with-melee-weapons|Ironkin Steeljacks with Melee Weapons|leagues-of-votann|
+leagues-of-votann::uthar-the-destined|Ûthar the Destined|leagues-of-votann|
+leagues-of-votann::hernkyn-yaegirs|Hernkyn Yaegirs|leagues-of-votann|
+leagues-of-votann::einhyr-champion|Einhyr Champion|leagues-of-votann|
+leagues-of-votann::brokhyr-thunderkyn|Brôkhyr Thunderkyn|leagues-of-votann|
+leagues-of-votann::arkanyst-evaluator|Arkanyst Evaluator|leagues-of-votann|
+leagues-of-votann::kapricus-defenders|Kapricus Defenders|leagues-of-votann|
+leagues-of-votann::cthonian-beserks|Cthonian Beserks|leagues-of-votann|
+leagues-of-votann::sagitaur|Sagitaur|leagues-of-votann|
+leagues-of-votann::kahl|Kâhl|leagues-of-votann|
+leagues-of-votann::hearthkyn-warriors|Hearthkyn Warriors|leagues-of-votann|
+necrons::ghost-ark|Ghost Ark|necrons|
+necrons::seraptek-heavy-construct|Seraptek Heavy Construct|necrons|
+necrons::triarch-praetorians|Triarch Praetorians|necrons|
+necrons::necron-warriors|Necron Warriors|necrons|
+necrons::canoptek-macrocytes|Canoptek Macrocytes|necrons|
+necrons::technomancer|Technomancer|necrons|
+necrons::night-scythe|Night Scythe|necrons|
+necrons::overlord|Overlord|necrons|
+necrons::royal-warden|Royal Warden|necrons|
+necrons::canoptek-doomstalker|Canoptek Doomstalker|necrons|
+necrons::immortals|Immortals|necrons|
+necrons::cryptothralls|Cryptothralls|necrons|
+necrons::orikan-the-diviner|Orikan the Diviner|necrons|
+necrons::tesseract-vault|Tesseract Vault|necrons|
+necrons::tomb-blades|Tomb Blades|necrons|
+necrons::psychomancer|Psychomancer|necrons|
+necrons::lokhust-heavy-destroyers|Lokhust Heavy Destroyers|necrons|
+necrons::skorpekh-destroyers|Skorpekh Destroyers|necrons|
+necrons::convergence-of-dominion|Convergence of Dominion|necrons|
+necrons::skorpekh-lord|Skorpekh Lord|necrons|
+necrons::deathmarks|Deathmarks|necrons|
+necrons::triarch-stalker|Triarch Stalker|necrons|
+necrons::imotekh-the-stormlord|Imotekh the Stormlord|necrons|
+necrons::obelisk|Obelisk|necrons|
+necrons::canoptek-reanimator|Canoptek Reanimator|necrons|
+necrons::catacomb-command-barge|Catacomb Command Barge|necrons|
+necrons::lokhust-destroyers|Lokhust Destroyers|necrons|
+necrons::lychguard|Lychguard|necrons|
+necrons::monolith|Monolith|necrons|
+necrons::overlord-with-translocation-shroud|Overlord with Translocation Shroud|necrons|
+necrons::canoptek-scarab-swarms|Canoptek Scarab Swarms|necrons|
+necrons::canoptek-wraiths|Canoptek Wraiths|necrons|
+necrons::trazyn-the-infinite|Trazyn the Infinite|necrons|
+necrons::lokhust-lord|Lokhust Lord|necrons|
+necrons::ctan-shard-of-the-nightbringer|C’tan Shard of the Nightbringer|necrons|
+necrons::flayed-ones|Flayed Ones|necrons|
+necrons::annihilation-barge|Annihilation Barge|necrons|
+necrons::illuminor-szeras|Illuminor Szeras|necrons|
+necrons::nekrosor-ammentar|Nekrosor Ammentar|necrons|
+necrons::canoptek-tomb-crawlers|Canoptek Tomb Crawlers|necrons|
+necrons::ophydian-destroyers|Ophydian Destroyers|necrons|
+necrons::plasmancer|Plasmancer|necrons|
+necrons::doomsday-ark|Doomsday Ark|necrons|
+necrons::hexmark-destroyer|Hexmark Destroyer|necrons|
+necrons::ctan-shard-of-the-void-dragon|C’tan Shard of the Void Dragon|necrons|
+necrons::ctan-shard-of-the-deceiver|C’tan Shard of the Deceiver|necrons|
+necrons::doom-scythe|Doom Scythe|necrons|
+necrons::geomancer|Geomancer|necrons|
+necrons::the-silent-king|The Silent King|necrons|
+necrons::chronomancer|Chronomancer|necrons|
+necrons::transcendent-ctan|Transcendent C’tan|necrons|
+necrons::canoptek-spyders|Canoptek Spyders|necrons|
+orks::weirdboy|Weirdboy|orks|
+orks::megatrakk-scrapjet|Megatrakk Scrapjet|orks|
+orks::warbikers|Warbikers|orks|
+orks::deffkoptas|Deffkoptas|orks|
+orks::kustom-boosta-blasta|Kustom Boosta-blasta|orks|
+orks::painboy|Painboy|orks|
+orks::killa-kans|Killa Kans|orks|
+orks::lootas|Lootas|orks|
+orks::big-mek|Big Mek|orks|
+orks::squighog-boyz|Squighog Boyz|orks|
+orks::warboss-in-mega-armour|Warboss in Mega Armour|orks|
+orks::wazbom-blastajet|Wazbom Blastajet|orks|
+orks::battlewagon|Battlewagon|orks|
+orks::boss-snikrot|Boss Snikrot|orks|
+orks::morkanaut|Morkanaut|orks|
+orks::ghazghkull-thraka|Ghazghkull Thraka|orks|
+orks::breaka-boyz|Breaka Boyz|orks|
+orks::stompa|Stompa|orks|
+orks::biged-bossbunka|Big’ed Bossbunka|orks|
+orks::tankbustas|Tankbustas|orks|
+orks::kommandos|Kommandos|orks|
+orks::boyz|Boyz|orks|
+orks::trukk|Trukk|orks|
+orks::painboss|Painboss|orks|
+orks::gorkanaut|Gorkanaut|orks|
+orks::mek-gunz|Mek Gunz|orks|
+orks::stormboyz|Stormboyz|orks|
+orks::flash-gitz|Flash Gitz|orks|
+orks::blitza-bommer|Blitza-bommer|orks|
+orks::deff-dread|Deff Dread|orks|
+orks::wurrboy|Wurrboy|orks|
+orks::beastboss|Beastboss|orks|
+orks::dakkajet|Dakkajet|orks|
+orks::big-mek-in-mega-armour|Big Mek in Mega Armour|orks|
+orks::rukkatrukk-squigbuggy|Rukkatrukk Squigbuggy|orks|
+orks::beast-snagga-boyz|Beast Snagga Boyz|orks|
+orks::deffkilla-wartrike|Deffkilla Wartrike|orks|
+orks::mek|Mek|orks|
+orks::shokkjump-dragsta|Shokkjump Dragsta|orks|
+orks::mozrog-skragbad|Mozrog Skragbad|orks|
+orks::zodgrod-wortsnagga|Zodgrod Wortsnagga|orks|
+orks::gretchin|Gretchin|orks|
+orks::big-mek-with-shokk-attack-gun|Big Mek with Shokk Attack Gun|orks|
+orks::kill-rig|Kill Rig|orks|
+orks::burna-boyz|Burna Boyz|orks|
+orks::nobz|Nobz|orks|
+orks::beastboss-on-squigosaur|Beastboss on Squigosaur|orks|
+orks::meganobz|Meganobz|orks|
+orks::boomdakka-snazzwagon|Boomdakka Snazzwagon|orks|
+orks::gargantuan-squiggoth|Gargantuan Squiggoth|orks|
+orks::burna-bommer|Burna-bommer|orks|
+orks::hunta-rig|Hunta Rig|orks|
+orks::warboss|Warboss|orks|
+orks::bannernob|Bannernob|orks|
+orks::big-mek-dakkarig|Big Mek Dakkarig|orks|
+orks::bigboss|Bigboss|orks|
+orks::wartrakk|Wartrakk|orks|
+orks::wazdakka-gutsmek|Wazdakka Gutsmek|orks|
+tau-empire::krootox-rampagers|Krootox Rampagers|tau-empire|
+tau-empire::manta|Manta|tau-empire|
+tau-empire::crisis-fireknife-battlesuits|Crisis Fireknife Battlesuits|tau-empire|
+tau-empire::piranhas|Piranhas|tau-empire|
+tau-empire::stealth-battlesuits|Stealth Battlesuits|tau-empire|
+tau-empire::sun-shark-bomber|Sun Shark Bomber|tau-empire|
+tau-empire::kroot-farstalkers|Kroot Farstalkers|tau-empire|
+tau-empire::taunar-supremacy-armour|Ta’unar Supremacy Armour|tau-empire|
+tau-empire::pathfinder-team|Pathfinder Team|tau-empire|
+tau-empire::strike-team|Strike Team|tau-empire|
+tau-empire::the-twin-lance|The Twin Lance|tau-empire|
+tau-empire::crisis-starscythe-battlesuits|Crisis Starscythe Battlesuits|tau-empire|
+tau-empire::tiger-shark|Tiger Shark|tau-empire|
+tau-empire::breacher-team|Breacher Team|tau-empire|
+tau-empire::stormsurge|Stormsurge|tau-empire|
+tau-empire::tidewall-gunrig|Tidewall Gunrig|tau-empire|
+tau-empire::kroot-hounds|Kroot Hounds|tau-empire|
+tau-empire::ethereal|Ethereal|tau-empire|
+tau-empire::riptide-battlesuit|Riptide Battlesuit|tau-empire|
+tau-empire::commander-farsight|Commander Farsight|tau-empire|
+tau-empire::krootox-riders|Krootox Riders|tau-empire|
+tau-empire::commander-shadowsun|Commander Shadowsun|tau-empire|
+tau-empire::ghostkeel-battlesuit|Ghostkeel Battlesuit|tau-empire|
+tau-empire::ax-1-0-tiger-shark|AX-1-0 Tiger Shark|tau-empire|
+tau-empire::sky-ray-gunship|Sky Ray Gunship|tau-empire|
+tau-empire::vespid-stingwings|Vespid Stingwings|tau-empire|
+tau-empire::commander-in-coldstar-battlesuit|Commander in Coldstar Battlesuit|tau-empire|
+tau-empire::kroot-trail-shaper|Kroot Trail Shaper|tau-empire|
+tau-empire::tidewall-shieldline|Tidewall Shieldline|tau-empire|
+tau-empire::broadside-battlesuits|Broadside Battlesuits|tau-empire|
+tau-empire::commander-in-enforcer-battlesuit|Commander in Enforcer Battlesuit|tau-empire|
+tau-empire::cadre-fireblade|Cadre Fireblade|tau-empire|
+tau-empire::razorshark-strike-fighter|Razorshark Strike Fighter|tau-empire|
+tau-empire::devilfish|Devilfish|tau-empire|
+tau-empire::darkstrider|Darkstrider|tau-empire|
+tau-empire::hammerhead-gunship|Hammerhead Gunship|tau-empire|
+tau-empire::tidewall-droneport|Tidewall Droneport|tau-empire|
+tau-empire::crisis-sunforge-battlesuits|Crisis Sunforge Battlesuits|tau-empire|
+tau-empire::firesight-team|Firesight Team|tau-empire|
+tau-empire::kroot-carnivores|Kroot Carnivores|tau-empire|
+tau-empire::kroot-war-shaper|Kroot War Shaper|tau-empire|
+tau-empire::kroot-lone-spear|Kroot Lone-spear|tau-empire|
+tau-empire::kroot-flesh-shaper|Kroot Flesh Shaper|tau-empire|
+thousand-sons::helbrute|Helbrute|thousand-sons|
+thousand-sons::mutalith-vortex-beast|Mutalith Vortex Beast|thousand-sons|
+thousand-sons::chaos-land-raider|Chaos Land Raider|thousand-sons|
+thousand-sons::tzaangor-shaman|Tzaangor Shaman|thousand-sons|
+thousand-sons::chaos-spawn|Chaos Spawn|thousand-sons|
+thousand-sons::sorcerer|Sorcerer|thousand-sons|
+thousand-sons::chaos-vindicator|Chaos Vindicator|thousand-sons|
+thousand-sons::chaos-rhino|Chaos Rhino|thousand-sons|
+thousand-sons::ahriman|Ahriman|thousand-sons|
+thousand-sons::rubric-marines|Rubric Marines|thousand-sons|
+thousand-sons::infernal-master|Infernal Master|thousand-sons|
+thousand-sons::tzaangor-enlightened|Tzaangor Enlightened|thousand-sons|
+thousand-sons::tzaangor-enlightened-with-fatecaster-greatbows|Tzaangor Enlightened with Fatecaster Greatbows|thousand-sons|
+thousand-sons::scarab-occult-terminators|Scarab Occult Terminators|thousand-sons|
+thousand-sons::magnus-the-red|Magnus the Red|thousand-sons|
+thousand-sons::chaos-predator-destructor|Chaos Predator Destructor|thousand-sons|
+thousand-sons::defiler|Defiler|thousand-sons|
+thousand-sons::daemon-prince-of-tzeentch-with-wings|Daemon Prince of Tzeentch with Wings|thousand-sons|
+thousand-sons::tzaangors|Tzaangors|thousand-sons|
+thousand-sons::sekhetar-robots|Sekhetar Robots|thousand-sons|
+thousand-sons::exalted-sorcerer-on-disc-of-tzeentch|Exalted Sorcerer on Disc of Tzeentch|thousand-sons|
+thousand-sons::maulerfiend|Maulerfiend|thousand-sons|
+thousand-sons::exalted-sorcerer|Exalted Sorcerer|thousand-sons|
+thousand-sons::sorcerer-in-terminator-armour|Sorcerer in Terminator Armour|thousand-sons|
+thousand-sons::chaos-predator-annihilator|Chaos Predator Annihilator|thousand-sons|
+thousand-sons::forgefiend|Forgefiend|thousand-sons|
+thousand-sons::heldrake|Heldrake|thousand-sons|
+thousand-sons::daemon-prince-of-tzeentch|Daemon Prince of Tzeentch|thousand-sons|
+tyranids::trygon|Trygon|tyranids|
+tyranids::mawloc|Mawloc|tyranids|
+tyranids::tyranid-warriors-with-ranged-bio-weapons|Tyranid Warriors with Ranged Bio-weapons|tyranids|
+tyranids::winged-hive-tyrant|Winged Hive Tyrant|tyranids|
+tyranids::harridan|Harridan|tyranids|
+tyranids::norn-emissary|Norn Emissary|tyranids|
+tyranids::winged-tyranid-prime|Winged Tyranid Prime|tyranids|
+tyranids::von-ryans-leapers|Von Ryan’s Leapers|tyranids|
+tyranids::hierophant|Hierophant|tyranids|
+tyranids::the-swarmlord|The Swarmlord|tyranids|
+tyranids::exocrine|Exocrine|tyranids|
+tyranids::venomthropes|Venomthropes|tyranids|
+tyranids::tyranid-warriors-with-melee-bio-weapons|Tyranid Warriors with Melee Bio-weapons|tyranids|
+tyranids::spore-mines|Spore Mines|tyranids|
+tyranids::tyrannocyte|Tyrannocyte|tyranids|
+tyranids::ripper-swarms|Ripper Swarms|tyranids|
+tyranids::biovores|Biovores|tyranids|
+tyranids::deathleaper|Deathleaper|tyranids|
+tyranids::hyperadapted-raveners|Hyperadapted Raveners|tyranids|
+tyranids::norn-assimilator|Norn Assimilator|tyranids|
+tyranids::sporocyst|Sporocyst|tyranids|
+tyranids::tyrannofex|Tyrannofex|tyranids|
+tyranids::neurolictor|Neurolictor|tyranids|
+tyranids::psychophage|Psychophage|tyranids|
+tyranids::zoanthropes|Zoanthropes|tyranids|
+tyranids::broodlord|Broodlord|tyranids|
+tyranids::harpy|Harpy|tyranids|
+tyranids::parasite-of-mortrex|Parasite of Mortrex|tyranids|
+tyranids::tyrant-guard|Tyrant Guard|tyranids|
+tyranids::screamer-killer|Screamer-Killer|tyranids|
+tyranids::mucolid-spores|Mucolid Spores|tyranids|
+tyranids::hormagaunts|Hormagaunts|tyranids|
+tyranids::genestealers|Genestealers|tyranids|
+tyranids::toxicrene|Toxicrene|tyranids|
+tyranids::pyrovores|Pyrovores|tyranids|
+tyranids::neurotyrant|Neurotyrant|tyranids|
+tyranids::termagants|Termagants|tyranids|
+tyranids::tyranid-prime-with-lash-whip|Tyranid Prime with Lash Whip|tyranids|
+tyranids::hive-guard|Hive Guard|tyranids|
+tyranids::barbgaunts|Barbgaunts|tyranids|
+tyranids::neurogaunts|Neurogaunts|tyranids|
+tyranids::hive-crone|Hive Crone|tyranids|
+tyranids::tervigon|Tervigon|tyranids|
+tyranids::old-one-eye|Old One Eye|tyranids|
+tyranids::maleceptor|Maleceptor|tyranids|
+tyranids::carnifexes|Carnifexes|tyranids|
+tyranids::hive-tyrant|Hive Tyrant|tyranids|
+tyranids::gargoyles|Gargoyles|tyranids|
+tyranids::haruspex|Haruspex|tyranids|
+tyranids::lictor|Lictor|tyranids|
+tyranids::raveners|Raveners|tyranids|
+tyranids::the-red-terror|The Red Terror|tyranids|
+world-eaters::forgefiend|Forgefiend|world-eaters|
+world-eaters::kharn-the-betrayer|Khârn the Betrayer|world-eaters|
+world-eaters::master-of-executions|Master of Executions|world-eaters|
+world-eaters::khorne-berzerkers|Khorne Berzerkers|world-eaters|
+world-eaters::jakhals|Jakhals|world-eaters|
+world-eaters::lord-on-juggernaut|Lord on Juggernaut|world-eaters|
+world-eaters::daemon-prince-of-khorne-with-wings|Daemon Prince of Khorne with Wings|world-eaters|
+world-eaters::chaos-land-raider|Chaos Land Raider|world-eaters|
+world-eaters::maulerfiend|Maulerfiend|world-eaters|
+world-eaters::defiler|Defiler|world-eaters|
+world-eaters::heldrake|Heldrake|world-eaters|
+world-eaters::daemon-prince-of-khorne|Daemon Prince of Khorne|world-eaters|
+world-eaters::eightbound|Eightbound|world-eaters|
+world-eaters::slaughterbound|Slaughterbound|world-eaters|
+world-eaters::exalted-eightbound|Exalted Eightbound|world-eaters|
+world-eaters::lord-invocatus|Lord Invocatus|world-eaters|
+world-eaters::chaos-rhino|Chaos Rhino|world-eaters|
+world-eaters::helbrute|Helbrute|world-eaters|
+world-eaters::chaos-predator-destructor|Chaos Predator Destructor|world-eaters|
+world-eaters::angron|Angron|world-eaters|
+world-eaters::chaos-predator-annihilator|Chaos Predator Annihilator|world-eaters|
+world-eaters::chaos-terminators|Chaos Terminators|world-eaters|
+world-eaters::khorne-lord-of-skulls|Khorne Lord of Skulls|world-eaters|
+world-eaters::chaos-spawn|Chaos Spawn|world-eaters|
+world-eaters::goremongers|Goremongers|world-eaters|

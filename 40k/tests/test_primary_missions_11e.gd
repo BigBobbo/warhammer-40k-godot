@@ -1,11 +1,13 @@
 extends SceneTree
 
-# 11e (GDM 2026) Force Disposition primary missions — source:
-# docs/rules/11th_edition_missions_gdm2026.md.
+# 11e Force Disposition primary missions — source:
+# 40k/data/40kdc/missionCards.json (official 11e launch dataset,
+# @alpaca-software/40kdc-data 1.0.19, effective 2026-06-20).
 #  - 5 dispositions; each player's card = own deck paired vs opponent's
 #    disposition (25-card table, PrimaryMissionData11e).
 #  - Command conditions score at end of your Command phase R1-4, switching
 #    to end of turn in R5; EOT every turn; EOG once at game end.
+#  - exclusive_group rules are OR tiers: only the highest applies.
 #  - Caps: 45 primary total, 15 per turn.
 #
 # Usage: godot --headless --path . -s tests/test_primary_missions_11e.gd
@@ -39,6 +41,182 @@ func _reset_vp(_m) -> void:
 		gs.state.players[pk]["primary_vp"] = 0
 	mgr._primary_vp_this_turn = {"1": 0, "2": 0}
 
+func _clear_control() -> void:
+	for obj_id in mgr.objective_control_state:
+		mgr.objective_control_state[obj_id] = 0
+
+## Compact signature of a rule dict for the 25-card table pin.
+func _rule_sig(rule: Dictionary) -> String:
+	var bits = [str(rule.get("when", "?")), str(rule.get("type", "?"))]
+	if rule.has("min"):
+		bits.append("min=%d" % int(rule["min"]))
+	if rule.has("vp_per"):
+		bits.append("per=%d" % int(rule["vp_per"]))
+	if rule.has("vp"):
+		bits.append("vp=%d" % int(rule["vp"]))
+	if rule.has("rounds"):
+		bits.append("r%d-%d" % [int(rule["rounds"][0]), int(rule["rounds"][1])])
+	if rule.has("exclusive_group"):
+		bits.append("x")
+	return "|".join(PackedStringArray(bits))
+
+# Official award table (40kdc missionCards.json) as rule signatures, in card
+# rule order. A silent revert of any number/trigger/window breaks this pin.
+const EXPECTED_AWARDS := {
+	"battlefield_dominance": [
+		"eot|hold_more|vp=2|r1-2",
+		"command|per_objective|per=3|r2-5",
+		"command|per_objective|per=2|r2-5",
+	],
+	"immovable_object": [
+		"eot|hold_central|vp=3",
+		"command|per_objective|per=5|r2-5",
+	],
+	"purge_and_secure": [
+		"eot|destroyed_started_on_objective|vp=3|x",
+		"command|per_objective|per=4|r2-5",
+		"eot|hold_new|vp=3|r2-5",
+	],
+	"inescapable_dominion": [
+		"eot|hold_min|min=3|vp=4",
+		"command|hold_min|min=2|vp=5|r2-5",
+		"command|hold_more|vp=4|r2-5",
+		"eog|hold_enemy_home|vp=5",
+	],
+	"determined_acquisition": [
+		"eot|per_new_objective|per=2",
+		"command|per_objective|per=3|r2-5",
+		"command|per_objective|per=3|r2-5",
+	],
+	"unstoppable_force": [
+		"eot|destroyed_min|min=1|vp=3",
+		"command|per_objective|per=4|r2-5",
+		"eot|hold_new|vp=3|r2-5",
+		"eog|hold_central|vp=5",
+	],
+	"meatgrinder": [
+		"eot|destroyed_min|min=1|vp=3",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"eot|killed_more_than_opponent_last_turn|vp=5|r2-5",
+		"eot|hold_enemy_home|vp=5|r2-5",
+	],
+	"punishment": [
+		"eot_any|condemned_left|vp=5",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"command|hold_more|vp=5|r2-5",
+		"eog|hold_enemy_home|vp=8",
+	],
+	"consecrate": [
+		"eot|consecrated_count|vp=3|x",
+		"eot|consecrated_count|vp=6|x",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"command|hold_more|vp=4|r2-5",
+		"eog|consecrated_enemy_home|vp=5",
+	],
+	"destroyers_wrath": [
+		"eot|destroyed_min|min=1|vp=3",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"command|hold_more|vp=6|r2-5",
+		"eot|killed_more_than_opponent_last_turn|vp=4|r2-5",
+	],
+	"reconnaissance_sweep": [
+		"eot|quarters|min=3|vp=3|x",
+		"eot|quarters|min=4|vp=6|x",
+		"eot|destroyed_per_unit|per=1",
+		"command|hold_min|min=1|vp=3|r2-5",
+	],
+	"triangulation": [
+		"command|hold_min|min=1|vp=4|r2-5",
+		"eot|triangulated_count|vp=3|r2-5|x",
+		"eot|triangulated_count|vp=6|r2-5|x",
+		"eot|triangulated_count|vp=10|r2-5|x",
+		"eog|hold_min|min=4|vp=10",
+	],
+	"gather_intel": [
+		"eot|hold_central|vp=6|r1-1",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"eot|intel_tokens_placed|per=7|r2-5",
+		"eog|operation_markers_min|min=3|vp=5",
+		"eog|intel_token_on_enemy_home|vp=5",
+	],
+	"search_and_scour": [
+		"eot|hold_central|vp=3",
+		"eot|destroyed_in_terrain_area|vp=2",
+		"command|per_objective|per=4|r2-5",
+		"eog|no_enemy_wholly_in_my_dz|vp=5",
+	],
+	"surveil_the_foe": [
+		"eot|action|vp=4",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"command|hold_more|vp=4|r2-5",
+		"eot|no_enemy_markers|vp=5|r2-5",
+	],
+	"secure_asset": [
+		"eot|hold_min|min=1|vp=4",
+		"eot|destroyed_near_central|vp=2",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"command|hold_min|min=3|vp=4|r2-5",
+	],
+	"vital_link": [
+		"eot|central_operation_markers|vp=2",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"command|hold_central|vp=4|r2-5",
+		"eog|hold_enemy_home|vp=10",
+	],
+	"vanguard_operation": [
+		"eot|vanguard_terrain_area|vp=4",
+		"eot|destroyed_min|min=1|vp=2",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"eog|hold_enemy_home|vp=10",
+	],
+	"sabotage": [
+		"eot|sabotage_per_objective|per=3",
+		"command|hold_min|min=1|vp=4|r2-5",
+	],
+	"extract_relic": [
+		"eot|sensor_sweep_vp|vp=4",
+		"eot|destroyed_started_on_objective|vp=3",
+		"eot|relic_final_marker|vp=4",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"eog|relic_final_marker|vp=5",
+	],
+	"death_trap": [
+		"eot|trapped_score|per=2",
+		"eot|destroyed_in_terrain_area|vp=3",
+		"command|hold_min|min=1|vp=4|r2-5",
+	],
+	"delaying_action": [
+		"eot|destroyed_per_unit|per=2",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"eot|hold_central_plus_nml|vp=3|r2-5",
+	],
+	"outmanoeuvre": [
+		"eot|hold_enemy_home|vp=10",
+		"eot|per_objective|per=4|r1-1",
+		"command|per_objective|per=5|r2-3",
+		"eot|per_objective|per=6|r4-5",
+	],
+	"smoke_and_mirrors": [
+		"eot|decoyed_score|per=2",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"eog|decoyed_total_eog|min=4|vp=10",
+	],
+	"locate_and_deny": [
+		"eot|destroyed_started_on_objective|vp=4",
+		"eot|relic_final_marker|vp=4",
+		"command|hold_min|min=1|vp=4|r2-5",
+		"eog|relic_final_marker|vp=5",
+	],
+}
+
+# Cards that keep an approximate rule (engine stand-ins) — everything else
+# is an exact translation of the official awards and must NOT be flagged.
+const EXPECTED_APPROX := [
+	"purge_and_secure", "gather_intel", "search_and_scour", "surveil_the_foe",
+	"secure_asset", "vital_link", "vanguard_operation", "extract_relic",
+	"death_trap", "locate_and_deny",
+]
+
 func _run_tests():
 	if passed > 0 or failed > 0:
 		return
@@ -65,9 +243,27 @@ func _run_tests():
 		PrimaryMissionData11e.get_card("take_and_hold", "take_and_hold").get("id", "") == "battlefield_dominance")
 	_check("DI vs PF is Delaying Action",
 		PrimaryMissionData11e.get_card("disruption", "purge_the_foe").get("id", "") == "delaying_action")
-	_check("approximate rows are flagged",
-		PrimaryMissionData11e.get_card_by_id("smoke_and_mirrors").get("approximate", false)
-		and PrimaryMissionData11e.get_card_by_id("gather_intel").get("approximate", false))
+
+	print("\n-- official award table pin (40kdc missionCards.json) --")
+	var table_ok = true
+	for cid in EXPECTED_AWARDS:
+		var card = PrimaryMissionData11e.get_card_by_id(cid)
+		var sigs = []
+		for rule in card.get("rules", []):
+			sigs.append(_rule_sig(rule))
+		if sigs != EXPECTED_AWARDS[cid]:
+			table_ok = false
+			print("    MISMATCH %s:\n      got      %s\n      expected %s" % [
+				cid, str(sigs), str(EXPECTED_AWARDS[cid])])
+	_check("all 25 cards carry the official award rows", table_ok)
+	var flags_ok = true
+	for card in cards:
+		var cid2 = str(card.get("id", ""))
+		var flagged = card.get("approximate", false)
+		if flagged != (cid2 in EXPECTED_APPROX):
+			flags_ok = false
+			print("    FLAG MISMATCH %s: approximate=%s" % [cid2, str(flagged)])
+	_check("approximate flags only on cards with engine stand-ins", flags_ok)
 
 	print("\n-- disposition initialization --")
 	GameConstants.edition = 11
@@ -91,14 +287,25 @@ func _run_tests():
 	gs.state.meta["battle_round"] = 2
 	gs.state.meta["active_player"] = 1
 	_reset_vp(null)
-	for obj_id in mgr.objective_control_state:
-		mgr.objective_control_state[obj_id] = 0
+	_clear_control()
 	mgr.objective_control_state[home1] = 1
 	mgr.objective_control_state[nml] = 1
 	mgr.score_primary_objectives()
-	# R2: hold_more (2VP, P1 holds 2 vs 0) + per_objective 3VP x2 = 8
-	_check("R2 command: 2 (hold more) + 3x2 objectives = 8 VP",
+	# R2 command: 3x2 per objective + home-held bonus 2x1 non-home = 8
+	# (objective majority moved to EOT per the official trigger)
+	_check("R2 command: 3x2 objectives + 2x1 home-held bonus = 8 VP",
 		int(gs.state.players["1"]["primary_vp"]) == 8, str(gs.state.players["1"]["primary_vp"]))
+	mgr.score_primary_eot_11e(1)
+	# R1-2 EOT: objective majority (2 held vs 0) pays 2 more
+	_check("R2 EOT adds the majority award (total 10)",
+		int(gs.state.players["1"]["primary_vp"]) == 10, str(gs.state.players["1"]["primary_vp"]))
+	_reset_vp(null)
+	mgr.objective_control_state[home1] = 0
+	mgr.score_primary_objectives()
+	# Without the home objective the +2/objective bonus row is off: 3x1 = 3
+	_check("home objective lost: bonus row off (3 VP)",
+		int(gs.state.players["1"]["primary_vp"]) == 3, str(gs.state.players["1"]["primary_vp"]))
+	mgr.objective_control_state[home1] = 1
 
 	print("\n-- caps: 15/turn and 45 total --")
 	_reset_vp(null)
@@ -117,13 +324,16 @@ func _run_tests():
 	mgr.initialize_dispositions_11e("take_and_hold", "take_and_hold")
 	gs.state.meta["battle_round"] = 5
 	_reset_vp(null)
+	_clear_control()
+	mgr.objective_control_state[home1] = 1
+	mgr.objective_control_state[nml] = 1
 	mgr.score_primary_objectives()
 	_check("R5 Command phase awards nothing", int(gs.state.players["1"]["primary_vp"]) == 0,
 		str(gs.state.players["1"]["primary_vp"]))
 	mgr.score_primary_eot_11e(1)
-	# R5 EOT: hold_more window is R1-2 (skipped); per_objective 3x2 = 6
-	_check("R5 EOT scores the command conditions (3x2 = 6 VP)",
-		int(gs.state.players["1"]["primary_vp"]) == 6, str(gs.state.players["1"]["primary_vp"]))
+	# R5 EOT: majority window is R1-2 (skipped); command rows 3x2 + 2x1 = 8
+	_check("R5 EOT scores the command conditions (3x2 + 2x1 = 8 VP)",
+		int(gs.state.players["1"]["primary_vp"]) == 8, str(gs.state.players["1"]["primary_vp"]))
 
 	print("\n-- EOT kill conditions: Delaying Action --")
 	mgr.initialize_dispositions_11e("disruption", "purge_the_foe")
@@ -131,26 +341,24 @@ func _run_tests():
 	_reset_vp(null)
 	mgr.kills_per_round["3"] = {"1": 2, "2": 0}
 	mgr._kills_this_round = {"1": 0, "2": 0}
-	for obj_id in mgr.objective_control_state:
-		mgr.objective_control_state[obj_id] = 0
+	_clear_control()
 	mgr.score_primary_eot_11e(1)
 	_check("EOT: 2 VP per destroyed unit x2 = 4 VP",
 		int(gs.state.players["1"]["primary_vp"]) == 4, str(gs.state.players["1"]["primary_vp"]))
 	mgr.kills_per_round.clear()
 
-	print("\n-- hold_new: Unstoppable Force (hold_new scores at EOT) --")
+	print("\n-- hold_new: Unstoppable Force (per-objective command + EOT seize) --")
 	mgr.initialize_dispositions_11e("purge_the_foe", "take_and_hold")
 	gs.state.meta["battle_round"] = 2
 	gs.state.meta["active_player"] = 1
 	_reset_vp(null)
 	mgr._kills_this_round = {"1": 0, "2": 0}
 	mgr.kills_per_round.clear()
-	for obj_id in mgr.objective_control_state:
-		mgr.objective_control_state[obj_id] = 0
+	_clear_control()
 	mgr._control_at_turn_start["1"] = []
 	mgr.objective_control_state[nml] = 1
 	mgr.score_primary_objectives()
-	_check("command: hold 1+ non-home = 4 VP",
+	_check("command: 4 VP per non-home objective x1 = 4 VP",
 		int(gs.state.players["1"]["primary_vp"]) == 4, str(gs.state.players["1"]["primary_vp"]))
 	mgr.score_primary_eot_11e(1)
 	_check("EOT adds 3 VP for the newly captured objective (total 7)",
@@ -159,15 +367,37 @@ func _run_tests():
 	mgr._control_at_turn_start["1"] = [nml]
 	mgr.score_primary_objectives()
 	mgr.score_primary_eot_11e(1)
-	_check("already-held objective: hold only (4 VP)",
+	_check("already-held objective: per-objective hold only (4 VP)",
 		int(gs.state.players["1"]["primary_vp"]) == 4, str(gs.state.players["1"]["primary_vp"]))
+
+	print("\n-- per_new_objective: Determined Acquisition --")
+	mgr.initialize_dispositions_11e("take_and_hold", "disruption")
+	gs.state.meta["battle_round"] = 2
+	gs.state.meta["active_player"] = 1
+	_reset_vp(null)
+	_clear_control()
+	mgr._control_at_turn_start["1"] = []
+	mgr.objective_control_state[home1] = 1
+	mgr.objective_control_state[nml] = 1
+	mgr.score_primary_objectives()
+	# NML objective is not in enemy territory, so the +3 zone row stays off
+	_check("command: 3 VP per controlled objective x2 = 6 VP",
+		int(gs.state.players["1"]["primary_vp"]) == 6, str(gs.state.players["1"]["primary_vp"]))
+	mgr.score_primary_eot_11e(1)
+	_check("EOT: 2 VP per objective newly controlled this turn x2 (total 10)",
+		int(gs.state.players["1"]["primary_vp"]) == 10, str(gs.state.players["1"]["primary_vp"]))
+	_reset_vp(null)
+	mgr._control_at_turn_start["1"] = [home1, nml]
+	mgr.score_primary_objectives()
+	mgr.score_primary_eot_11e(1)
+	_check("no new captures: command row only (6 VP)",
+		int(gs.state.players["1"]["primary_vp"]) == 6, str(gs.state.players["1"]["primary_vp"]))
 
 	print("\n-- EOG conditions: enemy home (Inescapable Dominion) --")
 	mgr.initialize_dispositions_11e("take_and_hold", "priority_assets")
 	gs.state.meta["battle_round"] = 5
 	_reset_vp(null)
-	for obj_id in mgr.objective_control_state:
-		mgr.objective_control_state[obj_id] = 0
+	_clear_control()
 	mgr.objective_control_state[home2] = 1
 	mgr.score_primary_eog_11e()
 	_check("EOG: 5 VP for holding the enemy home objective",
@@ -176,21 +406,35 @@ func _run_tests():
 	_check("EOG scoring is idempotent",
 		int(gs.state.players["1"]["primary_vp"]) == 5, str(gs.state.players["1"]["primary_vp"]))
 
-	print("\n-- Outmanoeuvre escalation --")
+	print("\n-- Outmanoeuvre escalation (official triggers: EOT R1, command R2-3, EOT R4+) --")
 	mgr.initialize_dispositions_11e("disruption", "disruption")
-	mgr._eog_primary_scored = false
-	for obj_id in mgr.objective_control_state:
-		mgr.objective_control_state[obj_id] = 0
+	_clear_control()
 	mgr.objective_control_state[nml] = 1
 	gs.state.meta["battle_round"] = 1
+	gs.state.meta["active_player"] = 1
 	_reset_vp(null)
 	mgr.score_primary_objectives()
-	_check("R1: 4 VP per non-home objective", int(gs.state.players["1"]["primary_vp"]) == 4,
-		str(gs.state.players["1"]["primary_vp"]))
+	_check("R1 command: nothing (the R1 rate pays at EOT)",
+		int(gs.state.players["1"]["primary_vp"]) == 0, str(gs.state.players["1"]["primary_vp"]))
+	mgr.score_primary_eot_11e(1)
+	_check("R1 EOT: 4 VP per non-home objective",
+		int(gs.state.players["1"]["primary_vp"]) == 4, str(gs.state.players["1"]["primary_vp"]))
+	gs.state.meta["battle_round"] = 2
+	_reset_vp(null)
+	mgr.score_primary_objectives()
+	_check("R2 command: 5 VP per non-home objective",
+		int(gs.state.players["1"]["primary_vp"]) == 5, str(gs.state.players["1"]["primary_vp"]))
 	gs.state.meta["battle_round"] = 4
 	_reset_vp(null)
 	mgr.score_primary_objectives()
-	_check("R4: escalates to 6 VP per non-home objective",
+	mgr.score_primary_eot_11e(1)
+	_check("R4: rate escalates to 6 VP at EOT (command row closed)",
+		int(gs.state.players["1"]["primary_vp"]) == 6, str(gs.state.players["1"]["primary_vp"]))
+	gs.state.meta["battle_round"] = 5
+	_reset_vp(null)
+	mgr.score_primary_objectives()
+	mgr.score_primary_eot_11e(1)
+	_check("R5 EOT still pays the 6 VP rate",
 		int(gs.state.players["1"]["primary_vp"]) == 6, str(gs.state.players["1"]["primary_vp"]))
 
 	print("\n-- objective designations (Home / Expansion / Central) --")
@@ -201,15 +445,14 @@ func _run_tests():
 	_check("exactly one central objective", centrals.size() == 1, str(centrals))
 	_check("remaining NML objectives are expansions", expansions.size() == 2, str(expansions))
 
-	print("\n-- marker mechanics: Triangulation 3/6/10 --")
+	print("\n-- marker mechanics: Triangulation tiers 3/6/10 (exclusive) --")
 	mgr.initialize_dispositions_11e("reconnaissance", "purge_the_foe")
 	gs.state.meta["battle_round"] = 2
 	gs.state.meta["active_player"] = 1
 	_reset_vp(null)
 	mgr._kills_this_round = {"1": 0, "2": 0}
 	mgr.kills_per_round.clear()
-	for obj_id in mgr.objective_control_state:
-		mgr.objective_control_state[obj_id] = 0
+	_clear_control()
 	mgr.objective_control_state[nml] = 1
 	mgr.score_primary_eot_11e(1)
 	var st1t = mgr._primary_state_11e["1"]
@@ -220,16 +463,84 @@ func _run_tests():
 	_reset_vp(null)
 	st1t["triangulated"] = [nml, home1, home2]
 	mgr.score_primary_eot_11e(1)
-	# 3 triangulated -> 10, but a 4th mark is auto-added only for controlled
-	# non-marked objectives; nml already marked so the count stays 3 -> 10 VP
-	_check("3+ triangulated objectives score 10 VP",
+	# 3 triangulated -> only the 10 VP tier of the exclusive group applies
+	# (NOT 3+6+10); nml is already marked so the auto-pick adds nothing.
+	_check("3+ triangulated: only the best tier pays (10 VP, not 19)",
 		int(gs.state.players["1"]["primary_vp"]) == 10, str(gs.state.players["1"]["primary_vp"]))
+	_reset_vp(null)
+	mgr._eog_primary_scored = false
+	for obj_id in mgr.objective_control_state:
+		mgr.objective_control_state[obj_id] = 1
+	mgr.score_primary_eog_11e()
+	_check("EOG: holding 4+ objectives pays 10 VP",
+		int(gs.state.players["1"]["primary_vp"]) == 10, str(gs.state.players["1"]["primary_vp"]))
+
+	print("\n-- exclusive tiers: Consecrate 3/6 --")
+	mgr.initialize_dispositions_11e("purge_the_foe", "reconnaissance")
+	gs.state.meta["battle_round"] = 3
+	gs.state.meta["active_player"] = 1
+	_reset_vp(null)
+	mgr._kills_this_round = {"1": 0, "2": 0}
+	mgr.kills_per_round.clear()
+	_clear_control()
+	var st1c = mgr._primary_state_11e["1"]
+	st1c["consecrated"] = ["obj_a"]
+	mgr.score_primary_eot_11e(1)
+	_check("1-2 consecrated objectives pay the 3 VP tier",
+		int(gs.state.players["1"]["primary_vp"]) == 3, str(gs.state.players["1"]["primary_vp"]))
+	_reset_vp(null)
+	st1c["consecrated"] = ["obj_a", "obj_b", "obj_c"]
+	mgr.score_primary_eot_11e(1)
+	_check("3+ consecrated: only the 6 VP tier pays (not 9)",
+		int(gs.state.players["1"]["primary_vp"]) == 6, str(gs.state.players["1"]["primary_vp"]))
+
+	print("\n-- Death Trap: trapped_score pays per terrain trapped THIS TURN --")
+	mgr.initialize_dispositions_11e("disruption", "take_and_hold")
+	var st1d = mgr._primary_state_11e["1"]
+	st1d["trapped"] = ["T_OLD", "T_NEW"]
+	st1d["trapped_this_turn"] = ["T_NEW"]
+	var dt_rule = {"type": "trapped_score", "vp_per": 2, "objective_bonus": 3}
+	_check("only this turn's trap pays (2 VP)",
+		int(mgr._evaluate_primary_rule_11e(1, dt_rule, 2)) == 2,
+		str(mgr._evaluate_primary_rule_11e(1, dt_rule, 2)))
+	st1d.erase("trapped_this_turn")
+	_check("legacy saves without the per-turn key fall back to all traps (4 VP)",
+		int(mgr._evaluate_primary_rule_11e(1, dt_rule, 2)) == 4,
+		str(mgr._evaluate_primary_rule_11e(1, dt_rule, 2)))
+
+	print("\n-- Gather Intel: EOG operation-marker awards --")
+	mgr.initialize_dispositions_11e("reconnaissance", "reconnaissance")
+	var st1g = mgr._primary_state_11e["1"]
+	var om_rule = {"type": "operation_markers_min", "min": 3, "vp": 5}
+	var eh_rule = {"type": "intel_token_on_enemy_home", "vp": 5}
+	st1g["intel_tokens"] = [nml]
+	_check("fewer than 3 markers score 0",
+		int(mgr._evaluate_primary_rule_11e(1, om_rule, 5)) == 0)
+	_check("no token near the opponent's home scores 0",
+		int(mgr._evaluate_primary_rule_11e(1, eh_rule, 5)) == 0)
+	st1g["intel_tokens"] = [nml, home1, home2]
+	_check("3+ markers on the battlefield pay 5 VP at EOG",
+		int(mgr._evaluate_primary_rule_11e(1, om_rule, 5)) == 5)
+	_check("a marker at the opponent's home objective pays 5 VP at EOG",
+		int(mgr._evaluate_primary_rule_11e(1, eh_rule, 5)) == 5)
+
+	print("\n-- Smoke and Mirrors: decoyed objectives keep paying after a scrub --")
+	mgr.initialize_dispositions_11e("disruption", "reconnaissance")
+	var st1s = mgr._primary_state_11e["1"]
+	st1s["decoyed_ever"] = [nml]
+	st1s["decoyed"] = []  # marker scrubbed — the Decoyed tag never clears
+	var sm_rule = {"type": "decoyed_score", "vp_per": 2, "enemy_territory_bonus": 2}
+	var sm_expected = 2 + (2 if mgr._objective_in_enemy_territory_11e(nml, 1) else 0)
+	_check("decoyed_score reads the never-clearing tag (decoyed_ever)",
+		int(mgr._evaluate_primary_rule_11e(1, sm_rule, 2)) == sm_expected,
+		"%s vs %d" % [str(mgr._evaluate_primary_rule_11e(1, sm_rule, 2)), sm_expected])
 
 	print("\n-- marker mechanics: Sabotage per-objective + territory bonus --")
 	mgr.initialize_dispositions_11e("priority_assets", "priority_assets")
+	gs.state.meta["battle_round"] = 2
+	gs.state.meta["active_player"] = 1
 	_reset_vp(null)
-	for obj_id in mgr.objective_control_state:
-		mgr.objective_control_state[obj_id] = 0
+	_clear_control()
 	mgr.objective_control_state[nml] = 1
 	var central_id = mgr.get_objective_ids_by_designation("central")[0]
 	mgr.objective_control_state[central_id] = 1
@@ -250,11 +561,10 @@ func _run_tests():
 	print("\n-- marker mechanics: Vital Link operation markers --")
 	mgr.initialize_dispositions_11e("priority_assets", "purge_the_foe")
 	_reset_vp(null)
-	for obj_id in mgr.objective_control_state:
-		mgr.objective_control_state[obj_id] = 0
+	_clear_control()
 	mgr.objective_control_state[central_id] = 1
 	mgr.score_primary_eot_11e(1)
-	# turn 1: marker placed (1), EOT central 2 + 1 marker = 3; command hold non-home 4
+	# turn 1: marker placed (1), EOT central 2 + 1 marker = 3
 	var vl1 = int(gs.state.players["1"]["primary_vp"])
 	mgr.score_primary_eot_11e(1)
 	var vl2 = int(gs.state.players["1"]["primary_vp"]) - vl1
@@ -284,8 +594,7 @@ func _run_tests():
 	gs.state.meta["battle_round"] = 2
 	_reset_vp(null)
 	mgr.initialize_mission("take_and_hold")
-	for obj_id in mgr.objective_control_state:
-		mgr.objective_control_state[obj_id] = 0
+	_clear_control()
 	mgr.objective_control_state[nml] = 1
 	mgr.score_primary_objectives()
 	_check("10e Take and Hold still scores 5 VP/objective",
