@@ -291,9 +291,14 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
     optional move per eligible unit, `flags.was_eligible_to_fight` stamped in production, 12.08 engaging-mode forced
     fights resolved mid-step), with a `ConsolidationStepDialog` player flow, AI ladder support (`END_CONSOLIDATION`),
     and multiplayer trigger metadata. Validated windowed (`global_consolidation_step_11e`, mouse-only player path incl.
-    a new real-input `drag_board` primitive) + headless (`test_global_consolidation_11e`, `_ai_11e`). **Remaining: the
-    global Pile-In step (12.02)** — pile-in still runs per-activation, and the 12.06 overrun extra pile-in is still not
-    distinct. *(Tab 5 + appendix.)*
+    a new real-input `drag_board` primitive) + headless (`test_global_consolidation_11e`, `_ai_11e`).
+    *(PILE-IN HALF DONE 2026-07-04 — item CLOSED:)* the fight phase now OPENS with the global Pile In step (12.02):
+    active player's half first, one optional move per eligible unit (engaged/charged), END_PILE_IN passes,
+    SELECT_FIGHTER gated until the step ends, `PileInStepDialog` player flow, AI ladder + multiplayer metadata. The
+    12.06 overrun fight is now DISTINCT: normal fights get no mid-activation pile-in; overrun-eligible units
+    (unengaged, or engaged but unengaged at the Fight-step start) get one additional pile-in move on selection
+    (`selected_for_overrun_fight` now set in production). Validated windowed (`global_consolidation_step_11e` covers
+    both global steps mouse-only) + headless (`test_global_pile_in_11e`). *(Tab 5 + appendix.)*
 16. **[code] End-of-turn coherency removal dialog** — *(Done 2026-07-02:)* END_TURN pauses for human-owned incoherent units; the CoherencyRemovalDialog lets the player pick each removed model, and the turn auto-completes once coherent (`iss042b_coherency_removal_choice_11e`). Auto-pick stays as the AI/backstop. *(Tab 3.)*
 17. **[code] `[DEVASTATING WOUNDS]` / `[LETHAL HITS]` attacker-choice prompts** — *(Done 2026-07-02:)* the AbilityChoiceDialog offers both choices when a DW weapon is assigned; choices ride the assignment into all three resolution paths, incl. the new 24.10 decline (`iss047c_ability_choice_prompts_11e`; headless E3). *(Tab 4/8.)*
 
