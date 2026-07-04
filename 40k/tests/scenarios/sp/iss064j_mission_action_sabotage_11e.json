@@ -197,13 +197,50 @@
       "emit_pressed": true
     },
     {
+      "act": "expect_node_visible",
+      "node": "/root/HeroicInterventionDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
       "act": "wait_seconds",
-      "seconds": 0.8
+      "seconds": 1.0
     },
     {
       "act": "expect_state",
       "path": "meta.phase",
       "equals": 10
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/PileInStepDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInStepDialog/Content/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"PileInStepDialog\") != null and main.get_tree().root.get_node(\"PileInStepDialog\").visible",
+      "label": "second_half_maybe"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"PileInStepDialog\") == null or main.get_tree().root.get_node(\"PileInStepDialog\").get_node(\"Content/EndPileInButton\").emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
     },
     {
       "act": "click_node",
@@ -219,6 +256,32 @@
       "act": "click_node",
       "node": "/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight",
       "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/ConsolidationStepDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/ConsolidationStepDialog/Content/EndConsolidationButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"ConsolidationStepDialog\") == null or main.get_tree().root.get_node(\"ConsolidationStepDialog\").get_node(\"Content/EndConsolidationButton\").emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
     },
     {
       "act": "wait_seconds",
