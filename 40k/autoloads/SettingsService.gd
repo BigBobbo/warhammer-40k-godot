@@ -58,7 +58,9 @@ var auto_allocate_wounds: bool = true
 # (ISS-A0 / 11e migration go-live; default flipped to 11 per owner request.)
 # NOTE: the automated test/scenario harness controls edition explicitly and
 # keeps a 10e baseline — _ready() below does NOT apply this default there.
-var rules_edition: int = 11
+# Rules edition is no longer a player setting — the game is 11th edition
+# only (the 10e data/code paths survive solely for the legacy regression
+# suite and are pinned by the harness carve-out in _ready).
 
 # Board texture style: "grass", "mud", "desert", "stone", "felt", "tilepack", "none"
 var board_style: String = "grass"
@@ -75,7 +77,6 @@ signal unit_labels_visibility_changed(visible: bool)
 signal board_style_changed(new_style: String)
 signal ruins_style_changed(new_style: String)
 signal auto_allocate_wounds_changed(enabled: bool)
-signal rules_edition_changed(new_edition: int)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -118,17 +119,19 @@ func _ready() -> void:
 	# P3-111: Load persisted settings before applying anything
 	_load_settings()
 
-	# 11e go-live: apply the persisted rules edition to the global rules switch
-	# (GameConstants is a static class) before any rules autoload initializes.
-	# EXCEPTION: in the automated test/scenario harness the edition is controlled
-	# explicitly (per scenario JSON `edition`, or per GUT test) against a 10e
-	# baseline — do not let the player default (11) override that, or the ~70
-	# fieldless scenarios and edition-default assertions would silently flip.
+	# The game is 11th edition only: every player launch runs at 11, no matter
+	# what an old settings.cfg carried (pre-removal builds persisted a
+	# rules_edition that could silently pin players to 10e).
+	# EXCEPTION: the automated test/scenario harness keeps the historical 10e
+	# baseline — scenarios/GUT tests control the edition explicitly, and the
+	# ~70 fieldless legacy scenarios were authored against 10e. This carve-out
+	# disappears when the 10e code paths are deleted.
 	if _is_automated_harness():
-		print("[SettingsService] Automated harness — leaving GameConstants.edition at default %d (not applying player setting %d)" % [GameConstants.edition, rules_edition])
+		GameConstants.edition = 10
+		print("[SettingsService] Automated harness — GameConstants.edition pinned to the legacy 10e test baseline")
 	else:
-		GameConstants.edition = rules_edition
-		print("[SettingsService] Rules edition applied: %d" % rules_edition)
+		GameConstants.edition = 11
+		print("[SettingsService] Rules edition: 11 (11th edition only)")
 
 	# P3-111: Set up audio buses and apply saved audio settings
 	_setup_audio_buses()
@@ -296,17 +299,6 @@ func set_ruins_style(style: String) -> void:
 	_save_settings()
 	print("[SettingsService] Ruins style set to %s" % style)
 
-func get_rules_edition() -> int:
-	return rules_edition
-
-func set_rules_edition(edition: int) -> void:
-	var e := 11 if edition >= 11 else 10
-	rules_edition = e
-	GameConstants.edition = e
-	_save_settings()
-	emit_signal("rules_edition_changed", e)
-	print("[SettingsService] Rules edition set to %d" % e)
-
 func get_auto_allocate_wounds() -> bool:
 	return auto_allocate_wounds
 
@@ -356,7 +348,6 @@ func _save_settings() -> void:
 
 	# Gameplay
 	config.set_value("gameplay", "auto_allocate_wounds", auto_allocate_wounds)
-	config.set_value("gameplay", "rules_edition", rules_edition)
 
 	var err = config.save(SETTINGS_FILE_PATH)
 	if err != OK:
@@ -398,6 +389,5 @@ func _load_settings() -> void:
 	auto_allocate_wounds = config.get_value("gameplay", "auto_allocate_wounds", true)
 	# Default 11e for configs that predate the edition setting / fresh installs.
 	# A config that explicitly saved 10 is respected (the player chose 10th).
-	rules_edition = int(config.get_value("gameplay", "rules_edition", 11))
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)

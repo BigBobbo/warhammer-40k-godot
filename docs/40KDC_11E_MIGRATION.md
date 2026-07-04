@@ -44,10 +44,14 @@ faction block (nearest-anchor assignment; 0 unresolved references across all
 
 Removed 10e-only roster content: units with no 11e datasheet (Kaptin
 Badrukk, Big Gunz), placeholder "Strike Force" import artifacts, retired
-enhancements (Tellyporta, Adamantine Talisman). The engine's 10e *mode*
-(edition-gated mission/secondary/stratagem code paths behind
-`GameConstants.edition < 11`) is retained so old saves, scenarios, and the
-10e regression suite keep working; it no longer leaks into 11e play.
+enhancements (Tellyporta, Adamantine Talisman).
+
+**The game is 11th edition only.** `GameConstants.edition` defaults to 11,
+every player launch re-asserts 11 at boot (a stale `settings.cfg` from older
+builds can no longer pin a player to 10e), and the main-menu "Rules Edition"
+selector was removed. The 10e code paths and data tables survive *only* for
+the legacy regression suite — the automated harness pins its historical 10e
+baseline explicitly — until they are deleted outright.
 
 ## Licensing
 

@@ -185,11 +185,17 @@ func _filter_unachievable_missions_for_ai(deck_ids: Array, player: int) -> int:
 # CARD DRAWING
 # ============================================================================
 
-func draw_missions_to_hand(player: int) -> Array:
+func draw_missions_to_hand(player: int, draw_count: int = 0) -> Array:
 	"""
-	Draw cards until player has MAX_ACTIVE_MISSIONS active cards.
+	Draw secondary mission cards for the player.
+	draw_count = 0: the normal turn draw — 11e draws exactly
+	CARDS_DRAWN_PER_TURN_11E cards (no hand limit); 10e fills the hand up to
+	MAX_ACTIVE_MISSIONS. Called at the start of Command Phase.
+	draw_count > 0: draw exactly that many cards regardless of the turn-draw
+	rules — used by 1-for-1 swaps (replace_drawn_mission, New Orders), which
+	previously drew a full 11e turn draw (2 cards) for a single discard and
+	inflated the hand.
 	Returns array of newly drawn mission dicts.
-	Called at the start of Command Phase.
 	"""
 	var player_key = str(player)
 	var state = _player_state[player_key]
@@ -201,9 +207,10 @@ func draw_missions_to_hand(player: int) -> Array:
 	var drawn = []
 	# 11e (GDM 2026): draw TWO cards each turn with NO hand limit;
 	# 10e: fill the hand up to MAX_ACTIVE_MISSIONS.
-	var draws_remaining_11e := CARDS_DRAWN_PER_TURN_11E
-	while ((GameConstants.edition >= 11 and draws_remaining_11e > 0)
-			or (GameConstants.edition < 11 and state["active"].size() < MAX_ACTIVE_MISSIONS)) \
+	var draws_remaining_11e := CARDS_DRAWN_PER_TURN_11E if draw_count <= 0 else draw_count
+	while ((draw_count > 0 and draws_remaining_11e > 0)
+			or (draw_count <= 0 and GameConstants.edition >= 11 and draws_remaining_11e > 0)
+			or (draw_count <= 0 and GameConstants.edition < 11 and state["active"].size() < MAX_ACTIVE_MISSIONS)) \
 			and state["deck"].size() > 0:
 		var mission_id = state["deck"].pop_front()
 		var mission_data = SecondaryMissionData.get_mission_by_id(mission_id)
@@ -405,7 +412,8 @@ func use_new_orders(player: int, mission_index: int) -> Dictionary:
 	print("SecondaryMissionManager: Player %d used New Orders to discard %s" % [player, discarded["name"]])
 
 	# Draw a replacement
-	var drawn = draw_missions_to_hand(player)
+	# New Orders is a 1-for-1 swap — draw exactly one card.
+	var drawn = draw_missions_to_hand(player, 1)
 
 	return {
 		"success": true,
@@ -451,8 +459,9 @@ func replace_drawn_mission(player: int, mission_index: int) -> Dictionary:
 	# After drawing, we insert the replaced card back and re-shuffle.
 	_shuffle_array(state["deck"])
 
-	# Draw a replacement (replaced card is NOT in the deck yet)
-	var drawn = draw_missions_to_hand(player)
+	# Draw exactly ONE replacement (replaced card is NOT in the deck yet).
+	# A plain turn-draw here would deal 2 cards at 11e and inflate the hand.
+	var drawn = draw_missions_to_hand(player, 1)
 
 	# Now put the replaced card back into the deck and shuffle
 	state["deck"].append(replaced_id)
