@@ -213,6 +213,7 @@ static func on_unit_moved(unit_id: String, unit: Dictionary, move_type_id: Strin
 ## Resolve actions whose COMPLETES trigger fired. Returns
 ## {completed: [{unit_id, action_id, effect}], changes (diffs)}.
 static func complete_actions(trigger: String, board: Dictionary) -> Dictionary:
+	_ensure_defaults()
 	var completed: Array = []
 	var changes: Array = []
 	for unit_id in board.get("units", {}):

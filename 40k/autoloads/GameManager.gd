@@ -749,8 +749,34 @@ func process_end_scoring(action: Dictionary) -> Dictionary:
 
 	print("GameManager: Player %d ending turn, switching to player %d" % [current_player, next_player])
 
+	# Run the same end-of-turn pipeline as ScoringPhase._handle_end_turn
+	# (post-gates): turn-ending hooks (16.01 action completion, coherency
+	# enforcement), kill counting, 11e primary EOT scoring, VP snapshot.
+	# Player prompts stay single-player-only — the deterministic auto-pick
+	# backstop stands in multiplayer, same as for AI players.
+	var phase_mgr = _get_phase_manager()
+	if phase_mgr and phase_mgr.has_method("run_turn_ending_hooks"):
+		phase_mgr.run_turn_ending_hooks(current_player)
+	if MissionManager and GameConstants.edition >= 11:
+		MissionManager.count_destroyed_units_this_round()
+		MissionManager.score_primary_eot_11e(current_player)
+	if MissionManager and MissionManager.has_method("record_vp_snapshot"):
+		MissionManager.record_vp_snapshot(GameState.get_battle_round())
+
 	# Reset unit flags for the player whose turn is starting
 	var diffs = _create_flag_reset_diffs(next_player)
+
+	# Scoring wrote the host's players.* totals directly — mirror them into
+	# the broadcast diffs so clients converge (idempotent set ops).
+	for pk in ["1", "2"]:
+		var pdata = GameState.state.get("players", {}).get(pk, {})
+		for field in ["vp", "primary_vp", "secondary_vp"]:
+			if pdata.has(field):
+				diffs.append({
+					"op": "set",
+					"path": "players.%s.%s" % [pk, field],
+					"value": pdata[field]
+				})
 
 	# Add phase transition
 	diffs.append({

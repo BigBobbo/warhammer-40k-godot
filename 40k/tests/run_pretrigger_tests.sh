@@ -110,6 +110,7 @@ TESTS=(
     "tests/test_primary_missions_11e.gd"
     "tests/test_gdm_sourced_11e.gd"
     "tests/test_card_action_prompts_11e.gd"
+    "tests/test_mp_scoring_11e.gd"
     "tests/test_iss029_golden_replay.gd"
     "tests/test_iss064_fallback_no_double_hazard.gd"
     "tests/test_iss065_at_half_battleshock.gd"
