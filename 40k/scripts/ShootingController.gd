@@ -2838,9 +2838,13 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 
 	await get_tree().process_frame
 
-	# Load NextWeaponDialog
+	# Load NextWeaponDialog (stable name so windowed scenarios can reach it)
 	var weapon_dialog_script = preload("res://scripts/NextWeaponDialog.gd")
 	var dialog = weapon_dialog_script.new()
+	var stale_nwd = get_tree().root.get_node_or_null("NextWeaponDialog")
+	if stale_nwd:
+		stale_nwd.name = "NextWeaponDialog_stale"
+	dialog.name = "NextWeaponDialog"
 
 	# Connect to confirmation signal - when user clicks Continue, show WeaponOrderDialog
 	dialog.continue_confirmed.connect(_on_show_weapon_order_from_next_weapon_dialog)
@@ -2893,9 +2897,14 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 		})
 		return
 
-	# Show StratagemDialog
+	# Show StratagemDialog (stable name so windowed scenarios can find it)
 	var dialog_script = preload("res://dialogs/StratagemDialog.gd")
 	var dialog = dialog_script.new()
+
+	var stale_dialog = get_tree().root.get_node_or_null("StratagemDialog")
+	if stale_dialog:
+		stale_dialog.name = "StratagemDialog_stale"
+	dialog.name = "StratagemDialog"
 
 	dialog.stratagem_selected.connect(_on_reactive_stratagem_selected)
 	dialog.stratagem_declined.connect(_on_reactive_stratagem_declined)

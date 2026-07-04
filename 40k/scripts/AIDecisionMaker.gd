@@ -10,6 +10,13 @@ const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const PIXELS_PER_INCH: float = 40.0
 const CHARGE_RANGE_PX: float = 480.0     # 12 inches
+# Clearance added to base-to-base placements (pile-in/consolidate). The
+# engine's overlap check is a strict `distance < r1 + r2` — placing at
+# EXACTLY r1 + r2 lands on the float knife-edge and gets rejected about
+# half the time ("would overlap"), after which AIPlayer's fallback retried
+# with empty movements and the AI never moved in the 11e global steps.
+# 0.5px = 0.0125" — negligible for engagement range and base contact.
+const AI_B2B_GAP_PX: float = 0.5
 
 # ISS-002: engagement range comes from GameConstants (edition-dependent).
 # Do not re-declare it as a local constant.
@@ -12147,12 +12154,18 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 			var uid = a.get("unit_id", "")
 
 			# T12-3: If this unit has already tried ASSIGN_ATTACKS 2+ times without
-			# progressing (0 eligible models), choose CONSOLIDATE instead to break the loop
+			# progressing (0 eligible models), break the loop: at 11e end the
+			# activation with SKIP_UNIT (consolidation is the global 12.07
+			# step, not valid mid-activation); at 10e consolidate as before.
 			var retry_count = _fight_attack_retry_count.get(uid, 0)
-			if retry_count >= 2 and action_types.has("CONSOLIDATE"):
-				print("AIDecisionMaker: T12-3 %s already attempted %d fight attacks — forcing CONSOLIDATE to break loop" % [uid, retry_count])
+			if retry_count >= 2:
 				_fight_attack_retry_count.erase(uid)
-				return _compute_consolidate_action(snapshot, uid, player)
+				if GameConstants.edition >= 11:
+					print("AIDecisionMaker: T12-3 %s already attempted %d fight attacks — skipping unit to break loop (11e)" % [uid, retry_count])
+					return {"type": "SKIP_UNIT", "unit_id": uid, "_ai_description": "Skip %s (attacks unassignable)" % uid}
+				elif action_types.has("CONSOLIDATE"):
+					print("AIDecisionMaker: T12-3 %s already attempted %d fight attacks — forcing CONSOLIDATE to break loop" % [uid, retry_count])
+					return _compute_consolidate_action(snapshot, uid, player)
 
 			_fight_attack_retry_count[uid] = retry_count + 1
 			return _assign_fight_attacks(snapshot, uid, player)
@@ -12221,11 +12234,33 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 			"_ai_description": fighter_desc
 		}
 
-	# Step 5: Consolidate if available
+	# Step 5: Consolidate if available (10e: after own attacks; 11e: the
+	# global 12.07 step offers one CONSOLIDATE per remaining eligible unit)
 	if action_types.has("CONSOLIDATE"):
 		var a = action_types["CONSOLIDATE"][0]
 		var uid = a.get("unit_id", "")
 		return _compute_consolidate_action(snapshot, uid, player)
+
+	# Step 5b (11e 12.07): all our units consolidated (or none eligible) —
+	# end our half of the global Consolidate step
+	if action_types.has("END_CONSOLIDATION"):
+		var ec = action_types["END_CONSOLIDATION"][0]
+		return {
+			"type": "END_CONSOLIDATION",
+			"player": ec.get("player", player),
+			"_ai_description": "End consolidation (Player %d)" % ec.get("player", player)
+		}
+
+	# Step 5c (11e 12.02): all our units piled in (or none eligible) — end
+	# our half of the global Pile In step (the PILE_IN offers themselves
+	# are consumed by step 3's PILE_IN branch above)
+	if action_types.has("END_PILE_IN"):
+		var ep = action_types["END_PILE_IN"][0]
+		return {
+			"type": "END_PILE_IN",
+			"player": ep.get("player", player),
+			"_ai_description": "End pile-in (Player %d)" % ep.get("player", player)
+		}
 
 	# Step 6: Sweeping Advance if available
 	if action_types.has("SWEEPING_ADVANCE"):
@@ -12283,9 +12318,18 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	for entry in engaged_entries:
 		enemies[entry.enemy_id] = entry.enemy_unit
 
-	# If no enemies in engagement range, skip attacks and consolidate instead
+	# If no enemies in engagement range, skip attacks. At 10e that means
+	# consolidating (ends the activation); at 11e consolidation is the
+	# global 12.07 end-of-phase step, so end the activation with SKIP_UNIT.
 	# Falling back to all enemies causes ASSIGN_ATTACKS to fail validation ("Units are not within engagement range")
 	if enemies.is_empty():
+		if GameConstants.edition >= 11:
+			print("AIDecisionMaker: T7-29 no engaged enemies found for %s, skipping attacks — SKIP_UNIT (11e)" % unit_id)
+			return {
+				"type": "SKIP_UNIT",
+				"unit_id": unit_id,
+				"_ai_description": "%s has no enemies in engagement range — activation ends" % unit.get("meta", {}).get("name", unit_id)
+			}
 		print("AIDecisionMaker: T7-29 no engaged enemies found for %s, skipping attacks — will consolidate" % unit_id)
 		return {
 			"type": "CONSOLIDATE",
@@ -12986,7 +13030,8 @@ static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, un
 
 		# Calculate ideal destination: base-to-base contact with closest enemy
 		# Center-to-center distance for base contact = my_radius + enemy_radius
-		var b2b_center_dist = my_radius + closest_enemy_radius
+		# (+ AI_B2B_GAP_PX so the strict engine overlap check accepts it)
+		var b2b_center_dist = my_radius + closest_enemy_radius + AI_B2B_GAP_PX
 		var current_center_dist = start_pos.distance_to(closest_enemy_pos)
 		var desired_move_dist_px = current_center_dist - b2b_center_dist
 
@@ -13454,7 +13499,8 @@ static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit
 			pass
 
 		# Priority 2: Wrapping — calculate a wrap position around the target enemy
-		var b2b_center_dist = my_radius + target_enemy_radius
+		# (+ AI_B2B_GAP_PX so the strict engine overlap check accepts it)
+		var b2b_center_dist = my_radius + target_enemy_radius + AI_B2B_GAP_PX
 		var current_center_dist = start_pos.distance_to(target_enemy_pos)
 		var can_reach_b2b = (current_center_dist - b2b_center_dist) <= consolidate_range_px
 

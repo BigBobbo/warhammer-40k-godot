@@ -132,6 +132,26 @@ func select_to_fight(unit_id: String, board: Dictionary) -> Dictionary:
 	return {"fight_types": types, "fight_type": types[0]}
 
 
+## Pure query — true while ANY unit (either player) is still eligible to
+## fight. Unlike next_selection() this never mutates picker/step, so
+## validators and get_available_actions can poll it safely. Used by the
+## 11e global Consolidate step (12.07) to tell "fight step still running /
+## forced fights pending" apart from "consolidation may proceed".
+func has_eligible(board: Dictionary) -> bool:
+	for unit_id in board.get("units", {}):
+		if eligible_to_fight(unit_id, board):
+			return true
+	return false
+
+
+## Mark a unit as fought without a real selection — used when a player
+## forfeits remaining fights (END_FIGHT escape hatch) or skips a unit, so
+## the sequencer's candidate list stays consistent (a skipped unit must
+## not be offered forever).
+func mark_fought(unit_id: String) -> void:
+	fought[unit_id] = true
+
+
 ## Call after each fight resolved in the remaining-combats step: if
 ## Fights First units are now eligible, return to step 1 (12.04).
 func after_fight_resolved(board: Dictionary) -> void:

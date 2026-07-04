@@ -12,23 +12,33 @@
   "rng_seed": 42,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "ISS-066 (12.02-12.08): the 11e PileInMove/ConsolidationMove templates are now wired into the LIVE FightPhase validators (previously the handlers ran legacy 10e logic with no edition branch). At edition 11, after selecting a fighter (real SELECT_FIGHTER) with the 11e FightSequencer active: empty pile-in/consolidate complete the mandatory steps; a pile-in or consolidation that does NOT end closer is rejected with the 12.03 / 12.08 reason, while the SAME move at edition 10 is rejected with the DIFFERENT legacy 'toward closest enemy' message — proving BOTH validators branch by edition.",
+  "description": "ISS-066 (12.02-12.08): the 11e PileInMove/ConsolidationMove templates are now wired into the LIVE FightPhase validators (previously the handlers ran legacy 10e logic with no edition branch). At edition 11 the phase OPENS with the global Pile In step: pile-in geometry is validated in step context (empty is a legal decline; a move that does NOT end closer is rejected with the 12.03 reason) and SELECT_FIGHTER is rejected until the step ends (12.02). After both halves pass, a fighter is selected (real SELECT_FIGHTER via the 11e FightSequencer) and CONSOLIDATE mid-activation is rejected with the 12.07 reason (consolidation is the GLOBAL end-of-phase step — full step coverage in global_consolidation_step_11e). The SAME moves at edition 10 are rejected with the DIFFERENT legacy 'toward closest enemy' message — proving the validators branch by edition.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 10 },
 
-    { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H" } },
-    { "act": "expect_action_result", "path": "success", "equals": true },
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e != null", "equals": true },
-    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_fighter_id", "equals": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H" },
-    { "act": "screenshot", "label": "01_fight_phase_fighter_selected_11e" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().pile_in_step_11e", "equals": 1 },
+    { "act": "screenshot", "label": "01_fight_phase_opens_with_pile_in_step" },
 
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().validate_action({\"type\":\"PILE_IN\",\"unit_id\":\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\",\"movements\":{}}).get(\"valid\")", "equals": true },
     { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().validate_action({\"type\":\"PILE_IN\",\"unit_id\":\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\",\"movements\":{\"m1\":Vector2(720.0,1170.0)}}).get(\"errors\", [])).contains(\"12.03\")", "equals": true },
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().validate_action({\"type\":\"PILE_IN\",\"unit_id\":\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\",\"movements\":{\"m1\":Vector2(720.0,1170.0)}}).get(\"valid\")", "equals": false },
+    { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().validate_action({\"type\":\"SELECT_FIGHTER\",\"unit_id\":\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"}).get(\"errors\", [])).contains(\"12.02\")", "equals": true },
 
-    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().validate_action({\"type\":\"CONSOLIDATE\",\"unit_id\":\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\",\"movements\":{}}).get(\"valid\")", "equals": true },
-    { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().validate_action({\"type\":\"CONSOLIDATE\",\"unit_id\":\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\",\"movements\":{\"m1\":Vector2(720.0,1170.0)}}).get(\"errors\", [])).contains(\"12.08\")", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 2 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().pile_in_step_11e", "equals": 2 },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_fighter_id", "equals": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H" },
+    { "act": "screenshot", "label": "02_fighter_selected_after_pile_in_step" },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().validate_action({\"type\":\"CONSOLIDATE\",\"unit_id\":\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\",\"movements\":{}}).get(\"valid\")", "equals": false },
+    { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().validate_action({\"type\":\"CONSOLIDATE\",\"unit_id\":\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\",\"movements\":{\"m1\":Vector2(720.0,1170.0)}}).get(\"errors\", [])).contains(\"12.07\")", "equals": true },
 
     { "act": "execute_script", "script": "GameState.set_edition(10)", "equals": 10 },
     { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().validate_action({\"type\":\"PILE_IN\",\"unit_id\":\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\",\"movements\":{\"m1\":Vector2(720.0,1170.0)}}).get(\"errors\", [])).contains(\"toward closest enemy\")", "equals": true },

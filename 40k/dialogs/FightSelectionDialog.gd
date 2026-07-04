@@ -18,8 +18,9 @@ func setup(data: Dictionary, phase) -> void:
 
 func _build_ui() -> void:
 	min_size = DialogConstants.MEDIUM
-	# Main container
+	# Main container (stable name so windowed scenarios can address buttons)
 	var main_container = VBoxContainer.new()
+	main_container.name = "Content"
 	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# NEW: Player turn indicator with color
@@ -48,9 +49,11 @@ func _build_ui() -> void:
 
 	# Scroll container for unit list
 	var scroll = ScrollContainer.new()
+	scroll.name = "UnitScroll"
 	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 300)
 
 	var units_container = VBoxContainer.new()
+	units_container.name = "UnitList"
 
 	# Show all units organized by subphase
 	_add_subphase_units(units_container, "FIGHTS_FIRST", dialog_data.fights_first_units)
@@ -121,6 +124,7 @@ func _add_subphase_units(container: VBoxContainer, subphase_name: String, units_
 			var is_eligible = dialog_data.eligible_units.has(unit_id)
 
 			var unit_button = Button.new()
+			unit_button.name = "Fight_%s" % unit_id
 			var unit_data = dialog_data.eligible_units.get(unit_id, {})
 			var unit_name = unit_data.get("name", unit_id)
 

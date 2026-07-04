@@ -115,6 +115,9 @@ TESTS=(
     "tests/test_iss064_fallback_no_double_hazard.gd"
     "tests/test_iss065_at_half_battleshock.gd"
     "tests/test_iss066_fight_phase_wiring.gd"
+    "tests/test_global_consolidation_11e.gd"
+    "tests/test_global_consolidation_ai_11e.gd"
+    "tests/test_global_pile_in_11e.gd"
     "tests/test_iss067_scouts_11e.gd"
     "tests/test_iss068_infiltrators_11e.gd"
     "tests/test_iss069_lone_operative_11e.gd"
@@ -123,6 +126,9 @@ TESTS=(
     "tests/test_iss072_duplicated_abilities.gd"
     "tests/test_iss073_shw_mobile_gamble.gd"
     "tests/test_iss074_aircraft_reserves_11e.gd"
+    "tests/test_core_stratagems_11e.gd"
+    "tests/test_indirect_fire_band_11e.gd"
+    "tests/test_t003_indirect_fire_visibility_pin.gd"
 )
 
 FAILED=0

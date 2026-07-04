@@ -29,6 +29,7 @@ func setup(fighter_id: String, max_dist: float, phase, controller = null) -> voi
 
 func _build_ui() -> void:
 	var container = VBoxContainer.new()
+	container.name = "Content"
 	container.add_theme_constant_override("separation", 10)
 
 	var instruction = Label.new()
@@ -46,19 +47,30 @@ func _build_ui() -> void:
 
 	# Button container
 	var button_container = HBoxContainer.new()
+	button_container.name = "Buttons"
 	button_container.add_theme_constant_override("separation", 10)
 
 	# Reset button
 	reset_button = Button.new()
+	reset_button.name = "ResetButton"
 	reset_button.text = "Reset Positions"
 	reset_button.pressed.connect(_on_reset_pressed)
 	button_container.add_child(reset_button)
 
 	# Skip pile in button
 	var skip_button = Button.new()
+	skip_button.name = "SkipButton"
 	skip_button.text = "Skip (No Movement)"
 	skip_button.pressed.connect(_on_skip_pressed)
 	button_container.add_child(skip_button)
+
+	# Explicit confirm button with a stable path (the built-in AcceptDialog
+	# OK button lives under auto-named internal containers)
+	var confirm_button = Button.new()
+	confirm_button.name = "ConfirmButton"
+	confirm_button.text = "Confirm Move"
+	confirm_button.pressed.connect(_on_confirmed)
+	button_container.add_child(confirm_button)
 
 	container.add_child(button_container)
 

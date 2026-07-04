@@ -144,6 +144,33 @@ func _run_tests():
 	_check("fully visible in the open: no cover",
 		not tm.unit_has_cover_11e(veh_unit, obs))
 
+	print("\n-- A5: the last_shot_idx turn-stamp (\"did not shoot this or previous turn\") --")
+	# ShootingPhase stamps flags.last_shot_idx = battle_round*2 + (P1 ? 0 : 1)
+	# on every real ranged attack; is_model_hidden reads it against the live
+	# battle-round counter: cur_idx - last_shot_idx < 2 -> not hidden.
+	GameConstants.edition = 11
+	tm.terrain_features = [
+		{"id": "ruin2", "type": "ruins", "polygon": _rect(400, 400, 200, 200), "height_category": "tall"},
+	]
+	var gs = root.get_node("GameState")
+	var prev_round = gs.state["meta"].get("battle_round", 1)
+	var prev_active = gs.state["meta"].get("active_player", 1)
+	gs.state["meta"]["battle_round"] = 3
+	gs.state["meta"]["active_player"] = 1  # cur_idx = 3*2 + 0 = 6
+	var shooter = {"meta": {"keywords": ["INFANTRY"]}, "flags": {}}
+	_check("no stamp: hidden", tm.is_model_hidden(in_ruin, shooter))
+	shooter.flags["last_shot_idx"] = 6
+	_check("shot THIS player turn (idx 6): not hidden", not tm.is_model_hidden(in_ruin, shooter))
+	shooter.flags["last_shot_idx"] = 5
+	_check("shot the PREVIOUS player turn (idx 5): not hidden", not tm.is_model_hidden(in_ruin, shooter))
+	shooter.flags["last_shot_idx"] = 4
+	_check("shot two player turns ago (idx 4): hidden again", tm.is_model_hidden(in_ruin, shooter))
+	gs.state["meta"]["active_player"] = 2  # cur_idx advances to 7
+	_check("next player turn: an idx-5 stamp expires too",
+		tm.is_model_hidden(in_ruin, {"meta": {"keywords": ["INFANTRY"]}, "flags": {"last_shot_idx": 5}}))
+	gs.state["meta"]["battle_round"] = prev_round
+	gs.state["meta"]["active_player"] = prev_active
+
 	GameConstants.edition = 10
 	tm.terrain_features = prev
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])

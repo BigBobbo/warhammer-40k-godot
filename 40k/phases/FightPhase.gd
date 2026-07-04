@@ -37,6 +37,12 @@ signal dread_foe_resolved(unit_id: String, result: Dictionary)  # P1-17: Dread F
 signal saves_required(save_data_list: Array)  # P0-58: Interactive wound allocation for defender
 signal sweeping_advance_available(unit_id: String, player: int, in_engagement: bool, move_distance: float)  # Sweeping Advance opportunity
 signal acrobatic_escape_available(unit_id: String, player: int, move_distance: float)  # Acrobatic Escape opportunity (Callidus Assassin)
+signal consolidation_step_required(data: Dictionary)  # 11e 12.07: global Consolidate step — a player must consolidate/pass
+signal pile_in_step_required(data: Dictionary)  # 11e 12.02: global Pile In step — a player must pile in/pass
+# Emitted when a fighter's attack assignments are confirmed (the melee
+# analogue of ShootingPhase.shooting_begun — remote/visual feedback hook).
+# Was emitted UNDECLARED, raising a runtime error on every melee confirm.
+signal fighting_begun(unit_id: String)
 
 # Fight state tracking
 var active_fighter_id: String = ""
@@ -102,12 +108,33 @@ var acrobatic_escape_pending_units: Array = []  # Units eligible for Acrobatic E
 # Moment Shackle tracking (Trajann Valoris)
 var _moment_shackle_pending_units: Array = []  # Unit IDs with Moment Shackle available this phase
 
-# 11e (12.08 sourced): consolidations happen AFTER all fighting across the
-# battlefield — both players, active player first — not per fighter. Units
-# that finish attacking are queued here and consolidate in the global
-# end-of-phase step.
-var _deferred_consolidations_11e: Array = []
-var _consolidation_step_11e: bool = false
+# 11e 12.07-12.08: the global end-of-phase CONSOLIDATE step (edition >= 11
+# only). NOT_STARTED while the Fight step runs; ACTIVE once END_FIGHT is
+# requested with every fight resolved — the active player consolidates all
+# eligible units they choose, then the opponent; DONE when both halves are
+# finished, at which point the end-of-fight-phase triggers (Sweeping
+# Advance, Acrobatic Escape) run and the phase can complete.
+enum ConsolidationStep11e { NOT_STARTED, ACTIVE, DONE }
+var consolidation_step_11e: int = ConsolidationStep11e.NOT_STARTED
+var consolidating_player_11e: int = 0                # whose half of the step it is
+var consolidation_done_players_11e: Dictionary = {}  # player(int) -> true once they passed
+var units_that_consolidated_11e: Dictionary = {}     # unit_id -> true (12.07: one move per unit)
+
+# 11e 12.02-12.03: the global PILE IN step at the START of the fight phase
+# (edition >= 11 only). ACTIVE from phase entry while each player in turn
+# (active player first) makes pile-in moves with the eligible units they
+# choose (engaged / charged this turn; one move per unit, optional per
+# unit); DONE when both halves finish, at which point the Fight step's
+# selection begins. During the Fight step only an OVERRUN fight (12.06)
+# gets an additional pile-in move — tracked by overrun_pile_in_unit_11e.
+enum PileInStep11e { NOT_STARTED, ACTIVE, DONE }
+var pile_in_step_11e: int = PileInStep11e.NOT_STARTED
+var piling_in_player_11e: int = 0                # whose half of the step it is
+var pile_in_done_players_11e: Dictionary = {}    # player(int) -> true once they passed
+var overrun_pile_in_unit_11e: String = ""        # unit granted the 12.06 additional pile-in
+# T3-13-style pending data so the controller can pull the step dialog it
+# missed while connecting (the step starts during phase entry).
+var _pending_pile_in_step_data: Dictionary = {}
 
 func _init():
 	phase_type = GameStateData.Phase.FIGHT
@@ -133,8 +160,18 @@ func _on_phase_enter() -> void:
 	awaiting_acrobatic_escape = false
 	acrobatic_escape_pending_units.clear()
 	_moment_shackle_pending_units.clear()
-	_deferred_consolidations_11e.clear()
-	_consolidation_step_11e = false
+	consolidation_step_11e = ConsolidationStep11e.NOT_STARTED
+	consolidating_player_11e = 0
+	consolidation_done_players_11e.clear()
+	units_that_consolidated_11e.clear()
+	pile_in_step_11e = PileInStep11e.NOT_STARTED
+	piling_in_player_11e = 0
+	pile_in_done_players_11e.clear()
+	overrun_pile_in_unit_11e = ""
+	_pending_pile_in_step_data = {}
+	# Clear stale eligibility stamps from a previous fight phase (e.g. a
+	# loaded save) before this phase re-stamps them.
+	_clear_fight_eligibility_stamps_11e()
 
 	# Detect Moment Shackle eligible units
 	var ms_units = GameState.state.get("units", {})
@@ -167,6 +204,9 @@ func _on_phase_exit() -> void:
 
 	# T5-V13: Clear engagement indicator flags
 	_clear_engagement_flags()
+
+	# 11e: eligibility stamps are phase-scoped — clear them on exit
+	_clear_fight_eligibility_stamps_11e()
 
 	# Clear unit ability effect flags
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -249,6 +289,9 @@ func _initialize_fight_sequence() -> void:
 			current_selecting_player = sel_11e.player
 		log_phase_message("[11e] FightSequencer: %s step, Player %d picks from %s" % [
 			sel_11e.step, sel_11e.player, str(sel_11e.candidates)])
+		# 12.08: consolidation eligibility ("was eligible to fight this
+		# phase") is cumulative — stamp the units eligible from the start.
+		_stamp_fight_eligibility_11e()
 
 	log_phase_message("=== FIGHT PHASE INITIALIZATION ===")
 	log_phase_message("Active Player: %d" % GameState.get_active_player())
@@ -275,8 +318,14 @@ func _initialize_fight_sequence() -> void:
 	emit_signal("fight_sequence_updated")
 	emit_signal("fight_sequence_updated", fight_sequence)  # Compatibility signal
 
-	# Emit fight selection required signal to show dialog
-	_emit_fight_selection_required()
+	# 11e 12.02: the fight phase OPENS with the global Pile In step — both
+	# players pile in their eligible units (active player first) before any
+	# unit is selected to fight. At 10e, fight selection starts immediately.
+	if GameConstants.edition >= 11:
+		_begin_pile_in_step_11e()
+	else:
+		# Emit fight selection required signal to show dialog
+		_emit_fight_selection_required()
 
 func _check_for_combats() -> void:
 	if fight_sequence.size() == 0:
@@ -470,6 +519,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_select_katah_stance(action)
 		"END_FIGHT":
 			return _validate_end_fight(action)
+		"END_CONSOLIDATION":
+			return _validate_end_consolidation(action)
+		"END_PILE_IN":
+			return _validate_end_pile_in(action)
 		"SWEEPING_ADVANCE":
 			return _validate_sweeping_advance(action)
 		"DECLINE_SWEEPING_ADVANCE":
@@ -537,6 +590,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_select_katah_stance(action)
 		"END_FIGHT":
 			return _process_end_fight(action)
+		"END_CONSOLIDATION":
+			return _process_end_consolidation(action)
+		"END_PILE_IN":
+			return _process_end_pile_in(action)
 		"SWEEPING_ADVANCE":
 			return _process_sweeping_advance(action)
 		"DECLINE_SWEEPING_ADVANCE":
@@ -575,6 +632,10 @@ func _validate_select_fighter(action: Dictionary) -> Dictionary:
 	if unit.is_empty():
 		errors.append("Unit not found")
 		return {"valid": false, "errors": errors}
+
+	# 11e 12.02: no unit is selected to fight until the Pile In step is over
+	if GameConstants.edition >= 11 and pile_in_step_11e == PileInStep11e.ACTIVE:
+		return {"valid": false, "errors": ["The Pile In step (12.02) must finish before units are selected to fight"]}
 
 	# ISS-050 step 2: at 11e the sequencer (12.04) is authoritative —
 	# including charge-survivors that are unengaged (pg-39 overrun case),
@@ -1217,10 +1278,20 @@ func _validate_skip_unit(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var errors = []
 
-	# FGT-1 / P2-78: Cannot skip a unit that is mid-fight and needs to consolidate.
-	# Consolidation is mandatory at the unit level per FAQ.
-	if active_fighter_id == unit_id and pending_attacks.is_empty() and confirmed_attacks.is_empty():
+	# FGT-1 / P2-78 (10e FAQ): Cannot skip a unit that is mid-fight and needs
+	# to consolidate — consolidation is mandatory at the unit level. 11e has
+	# no per-fighter consolidation (12.07 global step, optional per unit),
+	# so the block does not apply there.
+	if GameConstants.edition < 11 and active_fighter_id == unit_id and pending_attacks.is_empty() and confirmed_attacks.is_empty():
 		errors.append("Unit must complete mandatory consolidation before being skipped (FAQ: consolidation is not optional)")
+		return {"valid": false, "errors": errors}
+
+	# 11e: the sequencer governs order — SKIP_UNIT is valid for the active
+	# fighter (aborting its activation) or any unit still owed a fight.
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		if unit_id == active_fighter_id or sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+			return {"valid": true, "errors": []}
+		errors.append("Unit %s has no fight to skip" % unit_id)
 		return {"valid": false, "errors": errors}
 
 	# Check it's this unit's turn
@@ -1244,6 +1315,9 @@ func _process_select_fighter(action: Dictionary) -> Dictionary:
 		var ft = sequencer_11e.select_to_fight(active_fighter_id, GameState.state)
 		fight_types_11e = ft.fight_types
 		log_phase_message("[11e] %s selected to fight — types: %s" % [active_fighter_id, str(fight_types_11e)])
+		# 12.08 stamps stay cumulative: positions have settled since the
+		# last activation, so re-stamp anything that became eligible.
+		_stamp_fight_eligibility_11e()
 
 	log_phase_message("Player %d selects %s to fight" % [
 		current_selecting_player,
@@ -1308,12 +1382,31 @@ func _process_pile_in(action: Dictionary) -> Dictionary:
 	units_that_piled_in[unit_id] = true
 	log_phase_message("Unit %s piled in" % unit_id)
 
+	# 11e 12.02: a move in the global Pile In step — apply now (idempotent
+	# re-apply, same pattern as the Consolidate step) so newly-engaged
+	# enemies become fight-eligible, then continue the step.
+	if GameConstants.edition >= 11 and pile_in_step_11e == PileInStep11e.ACTIVE:
+		if not changes.is_empty():
+			PhaseManager.apply_state_changes(changes)
+		_stamp_fight_eligibility_11e()
+		return _advance_pile_in_step_11e(create_result(true, changes))
+
+	# 11e 12.06: the Overrun fight's additional pile-in — the grant is
+	# used up; apply the move so attack targets reflect the new engagement.
+	if GameConstants.edition >= 11 and unit_id == overrun_pile_in_unit_11e:
+		overrun_pile_in_unit_11e = ""
+		if not changes.is_empty():
+			PhaseManager.apply_state_changes(changes)
+		_stamp_fight_eligibility_11e()
+
 	# After pile-in, request attack assignment
+	return _request_attack_assignment(unit_id, create_result(true, changes))
+
+# Ask the active fighter's player to assign melee attacks (signal for the
+# local UI + trigger metadata for the NetworkManager client re-emit).
+func _request_attack_assignment(unit_id: String, result: Dictionary) -> Dictionary:
 	var targets = _get_eligible_melee_targets(unit_id)
 	emit_signal("attack_assignment_required", unit_id, targets)
-
-	# Add metadata for NetworkManager to re-emit signal on client
-	var result = create_result(true, changes)
 	result["trigger_attack_assignment"] = true
 	result["attack_unit_id"] = unit_id
 	result["attack_targets"] = targets
@@ -1471,11 +1564,22 @@ func _process_roll_dice_interactive(melee_action: Dictionary) -> Dictionary:
 			emit_signal("fight_resolved", active_fighter_id, result)
 		confirmed_attacks.clear()
 		log_phase_message("Melee combat resolved for %s (no wounds)" % active_fighter_id)
+
 		var final_result = create_result(true, result.get("diffs", []))
 		final_result["log_text"] = result.get("log_text", "")
 		if result.has("dice"):
 			final_result["dice"] = result["dice"]
-		return _request_consolidation_or_defer_11e(final_result)
+		# 11e: no per-fighter consolidation — the activation ends when the
+		# attacks are resolved (consolidation is the global 12.07 step).
+		if GameConstants.edition >= 11:
+			return _finish_fight_activation_11e(final_result)
+
+		var consol_dist = _get_consolidation_distance(active_fighter_id)
+		emit_signal("consolidate_required", active_fighter_id, consol_dist)
+		final_result["trigger_consolidate"] = true
+		final_result["consolidate_unit_id"] = active_fighter_id
+		final_result["consolidate_distance"] = consol_dist
+		return final_result
 
 	# Wounds caused — store state and emit saves_required for WoundAllocationOverlay
 	pending_melee_save_data = save_data_list
@@ -1559,8 +1663,6 @@ func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
 
 	log_phase_message("Melee combat resolved for %s" % active_fighter_id)
 
-	# After attacks: request consolidate (pre-11e) or defer it to the
-	# global end-of-phase step (11e, 12.08 sourced)
 	var final_result = create_result(true, result.get("diffs", []))
 	final_result["log_text"] = result.get("log_text", "")
 
@@ -1570,7 +1672,21 @@ func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
 	if result.has("save_data_list"):
 		final_result["save_data_list"] = result["save_data_list"]
 
-	return _request_consolidation_or_defer_11e(final_result)
+	# 11e: no per-fighter consolidation — the activation ends when the
+	# attacks are resolved (consolidation is the global 12.07 step).
+	if GameConstants.edition >= 11:
+		return _finish_fight_activation_11e(final_result)
+
+	# After attacks, request consolidate
+	var consol_dist = _get_consolidation_distance(active_fighter_id)
+	emit_signal("consolidate_required", active_fighter_id, consol_dist)
+
+	# Add metadata for NetworkManager to re-emit signal on client
+	final_result["trigger_consolidate"] = true
+	final_result["consolidate_unit_id"] = active_fighter_id
+	final_result["consolidate_distance"] = consol_dist
+
+	return final_result
 
 # T3-12: Batch fight actions to avoid multiplayer race conditions
 # Instead of sending individual ASSIGN_ATTACKS + CONFIRM + ROLL_DICE with fixed delays,
@@ -1855,15 +1971,26 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Melee combat resolved for %s (interactive saves)" % active_fighter_id)
 
-	# Build final result; consolidate now (pre-11e) or defer to the global
-	# end-of-phase step (11e)
+	# Build final result
 	var final_result = create_result(true, all_diffs)
 	final_result["log_text"] = "Melee saves applied — %d casualties" % total_casualties
 	final_result["dice"] = save_dice_blocks
 
 	DebugLogger.info(str("[FightPhase] P0-58: APPLY_MELEE_SAVES complete — %d casualties, %d diffs" % [total_casualties, all_diffs.size()]))
 
-	return _request_consolidation_or_defer_11e(final_result)
+	# 11e: no per-fighter consolidation — the activation ends when the
+	# attacks are resolved (consolidation is the global 12.07 step).
+	if GameConstants.edition >= 11:
+		return _finish_fight_activation_11e(final_result)
+
+	# After attacks, request consolidate
+	var consol_dist = _get_consolidation_distance(active_fighter_id)
+	emit_signal("consolidate_required", active_fighter_id, consol_dist)
+	final_result["trigger_consolidate"] = true
+	final_result["consolidate_unit_id"] = active_fighter_id
+	final_result["consolidate_distance"] = consol_dist
+
+	return final_result
 
 # T3-3: Auto-inject Extra Attacks weapons that aren't already in confirmed_attacks
 # Extra Attacks weapons must be used IN ADDITION to the selected weapon, not instead of it.
@@ -2044,28 +2171,27 @@ func _get_consolidation_distance(unit_id: String) -> float:
 			return 6.0
 	return 3.0
 
-# ============================================================================
-# 11e GLOBAL END-OF-PHASE CONSOLIDATION (12.08 sourced)
-# ============================================================================
-# "Consolidation happens after all fighting across the battlefield, both
-# players, active player first." Pre-11e keeps the per-fighter request.
-
-func _request_consolidation_or_defer_11e(final_result: Dictionary) -> Dictionary:
-	if GameConstants.edition < 11:
-		var consol_dist = _get_consolidation_distance(active_fighter_id)
-		emit_signal("consolidate_required", active_fighter_id, consol_dist)
-		final_result["trigger_consolidate"] = true
-		final_result["consolidate_unit_id"] = active_fighter_id
-		final_result["consolidate_distance"] = consol_dist
-		return final_result
-	return _finish_fight_deferred_11e(final_result)
-
-## e11: the unit finishes fighting NOW (has_fought, sequencing, katah
-## cleanup, Counter-Offensive window, next fighter selection) and its
-## consolidation is queued for the global end-of-phase step.
-func _finish_fight_deferred_11e(final_result: Dictionary) -> Dictionary:
+# 11e: a unit's activation ends when its attacks are resolved — there is
+# NO per-fighter consolidation (that is the global 12.07 step at the end
+# of the phase). This performs the activation-completion bookkeeping that
+# _process_consolidate performs at edition 10 (has_fought, Ka'tah clear,
+# Counter-Offensive window, next-fighter handoff), then either offers the
+# next fight selection or — when the Fight step is over — waits for
+# END_FIGHT, or resumes the Consolidate step if a 12.08 forced fight just
+# finished. Augments and returns the caller's final_result so the
+# trigger_* metadata rides the same result NetworkManager broadcasts.
+func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	var unit_id = active_fighter_id
 	var changes: Array = final_result.get("changes", [])
+
+	# The attack-resolution diffs are normally applied by execute_action
+	# AFTER process returns — but the next-selection / Counter-Offensive /
+	# Consolidate-step decisions below must see the post-attack board
+	# (casualties change eligibility). Apply them now; execute_action's
+	# re-apply is idempotent (set ops), same pattern as Dread Foe.
+	if not changes.is_empty():
+		PhaseManager.apply_state_changes(changes)
+
 	changes.append({
 		"op": "set",
 		"path": "units.%s.flags.has_fought" % unit_id,
@@ -2073,11 +2199,16 @@ func _finish_fight_deferred_11e(final_result: Dictionary) -> Dictionary:
 	})
 	final_result["changes"] = changes
 	units_that_fought.append(unit_id)
-	_deferred_consolidations_11e.append(unit_id)
 	active_fighter_id = ""
 	confirmed_attacks.clear()
-	log_phase_message("[11e] %s finished fighting — consolidation deferred to the end of the phase (12.08)" % unit_id)
 
+	# The 12.06 overrun grant (if any) ends with the activation
+	overrun_pile_in_unit_11e = ""
+	var _of_unit = GameState.get_unit(unit_id)
+	if not _of_unit.is_empty():
+		_of_unit.get("flags", {}).erase("selected_for_overrun_fight")
+
+	# Clear Martial Ka'tah stance — "active until the unit finishes attacking"
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if faction_mgr:
 		faction_mgr.clear_katah_stance(unit_id)
@@ -2088,16 +2219,23 @@ func _finish_fight_deferred_11e(final_result: Dictionary) -> Dictionary:
 			snap_flags.erase("katah_stance")
 			snap_flags.erase("katah_sustained_hits_value")
 
+	# Legacy support - update old index
 	current_fight_index += 1
 
-	# Counter-Offensive still interleaves between fights
+	# Units engaged mid-phase (pile-ins, overruns) become eligible to fight
+	# — keep the 12.08 consolidation-eligibility stamps cumulative.
+	_stamp_fight_eligibility_11e()
+
+	# Counter-Offensive window: "after an enemy unit has fought"
 	var fought_unit = get_unit(unit_id)
-	var opponent_player = 2 if int(fought_unit.get("owner", 0)) == 1 else 1
+	var fought_unit_owner = int(fought_unit.get("owner", 0))
+	var opponent_player = 2 if fought_unit_owner == 1 else 1
 	var co_check = StratagemManager.is_counter_offensive_available(opponent_player)
 	var co_eligible = []
 	if co_check.available:
 		co_eligible = StratagemManager.get_counter_offensive_eligible_units(
-			opponent_player, units_that_fought, game_state_snapshot)
+			opponent_player, units_that_fought, game_state_snapshot
+		)
 	if not co_eligible.is_empty():
 		awaiting_counter_offensive = true
 		counter_offensive_player = opponent_player
@@ -2108,6 +2246,7 @@ func _finish_fight_deferred_11e(final_result: Dictionary) -> Dictionary:
 		final_result["counter_offensive_eligible_units"] = co_eligible
 		return final_result
 
+	# Hand over to the next fighter selection (the sequencer decides).
 	_switch_selecting_player()
 	var dialog_data = _build_fight_selection_dialog_data()
 	if not dialog_data.is_empty():
@@ -2116,51 +2255,20 @@ func _finish_fight_deferred_11e(final_result: Dictionary) -> Dictionary:
 		final_result["fight_selection_data"] = dialog_data
 		return final_result
 
-	# Nobody left to fight — begin the global consolidation step
-	return _begin_consolidation_step_11e(final_result)
-
-func _begin_consolidation_step_11e(final_result: Dictionary) -> Dictionary:
-	if _deferred_consolidations_11e.is_empty():
-		return final_result
-	_consolidation_step_11e = true
-	# Active player's units consolidate first, then the opponent's, each in
-	# the order they fought.
-	var active_player = GameState.get_active_player()
-	var ordered: Array = []
-	for pass_owner in [active_player, 3 - active_player]:
-		for uid in _deferred_consolidations_11e:
-			if int(get_unit(uid).get("owner", 0)) == pass_owner and not uid in ordered:
-				ordered.append(uid)
-	_deferred_consolidations_11e = ordered
-	log_phase_message("[11e] All fighting complete — end-of-phase consolidation step (active player first): %s" % str(ordered))
-	return _advance_consolidation_step_11e(final_result)
-
-func _advance_consolidation_step_11e(final_result: Dictionary) -> Dictionary:
-	while not _deferred_consolidations_11e.is_empty():
-		var uid = str(_deferred_consolidations_11e[0])
-		var unit = get_unit(uid)
-		var alive := false
-		for m in unit.get("models", []):
-			if m.get("alive", true) and m.get("position") != null:
-				alive = true
-				break
-		if not alive:
-			_deferred_consolidations_11e.pop_front()
-			continue
-		active_fighter_id = uid
-		var consol_dist = _get_consolidation_distance(uid)
-		emit_signal("consolidate_required", uid, consol_dist)
-		log_phase_message("[11e] End-of-phase consolidation: %s (up to %.0f\")" % [uid, consol_dist])
-		final_result["trigger_consolidate"] = true
-		final_result["consolidate_unit_id"] = uid
-		final_result["consolidate_distance"] = consol_dist
-		return final_result
-	_consolidation_step_11e = false
-	active_fighter_id = ""
-	log_phase_message("[11e] End-of-phase consolidation step complete")
+	# Nobody left to fight. If this was a fight forced by an Engaging
+	# Consolidation (12.08), resume the Consolidate step; otherwise the
+	# Fight step is over and the phase waits for END_FIGHT.
+	if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
+		return _advance_consolidation_step_11e(final_result)
+	log_phase_message("[11e] Fight step complete — waiting for END_FIGHT to enter the Consolidate step (12.07)")
 	return final_result
 
 func _process_consolidate(action: Dictionary) -> Dictionary:
+	# 11e 12.07-12.08: consolidation is a move in the global end-of-phase
+	# Consolidate step, not the tail of a unit's activation.
+	if GameConstants.edition >= 11:
+		return _process_consolidate_step_11e(action)
+
 	var changes = []
 	var unit_id = action.get("unit_id", "")
 	var movements = action.get("movements", {})
@@ -2181,15 +2289,6 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 			"path": "units.%s.models.%s.position" % [unit_id, model_id],
 			"value": {"x": new_pos.x, "y": new_pos.y}
 		})
-
-	# 11e global consolidation step: the unit already finished fighting when
-	# its attacks resolved — apply the moves and advance the queue.
-	if GameConstants.edition >= 11 and _consolidation_step_11e:
-		if not _deferred_consolidations_11e.is_empty() and str(_deferred_consolidations_11e[0]) == unit_id:
-			_deferred_consolidations_11e.pop_front()
-		active_fighter_id = ""
-		var step_result = create_result(true, changes)
-		return _advance_consolidation_step_11e(step_result)
 
 	# Mark unit as having fought
 	changes.append({
@@ -2275,10 +2374,86 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 
 	return result
 
+# 11e 12.07-12.08: one consolidation move during the global Consolidate
+# step. Applies the movement, marks the unit's single move used, and —
+# for an Engaging Consolidation that tagged unfought enemy units — hands
+# those units to the opponent to fight (12.08 AFTER MOVING) before the
+# step continues.
+func _process_consolidate_step_11e(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var movements = _fight_movements_from_action(action)
+	var changes = []
+
+	if movements.is_empty():
+		log_phase_message("[11e 12.07] %s consolidates — no models moved" % unit_id)
+	else:
+		log_phase_message("[11e 12.07] %s consolidates — %d model(s) moved" % [unit_id, movements.size()])
+
+	for model_id in movements:
+		var new_pos = movements[model_id]
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%s.position" % [unit_id, model_id],
+			"value": {"x": new_pos.x, "y": new_pos.y}
+		})
+	units_that_consolidated_11e[unit_id] = true
+
+	# Apply the movement now (execute_action's re-apply is idempotent) so
+	# the step data / forced-fight decisions below see the real positions.
+	if not changes.is_empty():
+		PhaseManager.apply_state_changes(changes)
+
+	var result = create_result(true, changes)
+
+	# 12.08 AFTER MOVING (Engaging Consolidation): enemy units engaged by
+	# this move that have not been selected to fight this phase must be
+	# selected by the opponent, one at a time, and fight now. The scan
+	# simulates the post-move positions (diffs apply after this returns)
+	# and patches the selection lists; the sequencer picks the units up
+	# from live engagement once the positions land.
+	var newly_eligible = _scan_newly_eligible_units_after_consolidation(unit_id, movements)
+	if not newly_eligible.is_empty():
+		var forced_owner = 0
+		for forced_id in newly_eligible:
+			var forced_unit = get_unit(forced_id)
+			forced_owner = int(forced_unit.get("owner", 0))
+			# Stamp eligibility now (positions are only simulated yet, so
+			# the cumulative stamp helper cannot see the new engagement).
+			var gs_unit = GameState.get_unit(forced_id)
+			if not gs_unit.is_empty():
+				if not gs_unit.has("flags"):
+					gs_unit["flags"] = {}
+				gs_unit["flags"]["was_eligible_to_fight"] = true
+		log_phase_message("[11e 12.08] Engaging Consolidation by %s forces %d enemy unit(s) to fight: %s" % [
+			unit_id, newly_eligible.size(), str(newly_eligible)])
+		current_selecting_player = forced_owner
+		current_subphase = Subphase.REMAINING_COMBATS
+		var dialog_data = _build_fight_selection_dialog_data_internal()
+		_pending_fight_selection_data = dialog_data
+		emit_signal("fight_selection_required", dialog_data)
+		result["trigger_fight_selection"] = true
+		result["fight_selection_data"] = dialog_data
+		result["forced_by_consolidation"] = true
+		return result
+
+	# Step continues: same player until they pass or run out of units.
+	return _advance_consolidation_step_11e(result)
+
 func _process_skip_unit(action: Dictionary) -> Dictionary:
 	# Skip this unit and advance to next
 	units_that_fought.append(action.unit_id)
 	active_fighter_id = ""
+
+	# 11e: keep the sequencer's candidate list consistent — a skipped unit
+	# forfeits its fight and must not be re-offered forever.
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		sequencer_11e.mark_fought(action.unit_id)
+		# A skipped activation also forfeits any 12.06 overrun grant
+		if overrun_pile_in_unit_11e == action.unit_id:
+			overrun_pile_in_unit_11e = ""
+		var _sk_unit = GameState.get_unit(action.unit_id)
+		if not _sk_unit.is_empty():
+			_sk_unit.get("flags", {}).erase("selected_for_overrun_fight")
 
 	# Clear Martial Ka'tah stance if any
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
@@ -2291,11 +2466,20 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	# Switch to next player
 	_switch_selecting_player()
 
-	# Request next fight selection
-	_emit_fight_selection_required()
-
 	log_phase_message("Skipped unit %s" % action.unit_id)
-	return create_result(true, [])
+
+	# Request next fight selection; when nobody is left and the 11e global
+	# Consolidate step is running (a forced fight was skipped), resume it.
+	var result = create_result(true, [])
+	var dialog_data = _build_fight_selection_dialog_data()
+	if not dialog_data.is_empty():
+		_pending_fight_selection_data = dialog_data
+		emit_signal("fight_selection_required", dialog_data)
+		result["trigger_fight_selection"] = true
+		result["fight_selection_data"] = dialog_data
+	elif GameConstants.edition >= 11 and consolidation_step_11e == ConsolidationStep11e.ACTIVE:
+		return _advance_consolidation_step_11e(result)
+	return result
 
 func _process_heroic_intervention(action: Dictionary) -> Dictionary:
 	# Heroic Intervention is now handled in ChargePhase.gd (after enemy charge move).
@@ -2443,6 +2627,22 @@ func get_pending_fight_selection_data() -> Dictionary:
 func _get_eligible_units_for_selection() -> Dictionary:
 	"""Get units eligible for selection by current player in current subphase"""
 	var eligible = {}
+
+	# 11e: the FightSequencer is the eligibility authority — the 10e tier
+	# lists drift from it (units added mid-phase, mark_fought bookkeeping)
+	# and would offer/withhold the wrong candidates.
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		var only_ff = sequencer_11e.step == "fights_first"
+		for unit_id in sequencer_11e.eligible_units(GameState.state, current_selecting_player, only_ff):
+			var unit = get_unit(unit_id)
+			if not unit.is_empty():
+				eligible[unit_id] = {
+					"name": unit.get("meta", {}).get("name", unit_id),
+					"weapons": RulesEngine.get_unit_melee_weapons(unit_id, game_state_snapshot),
+					"targets": _get_eligible_melee_targets(unit_id)
+				}
+		return eligible
+
 	var player_key = str(current_selecting_player)
 	var source_list: Dictionary
 	match current_subphase:
@@ -2872,6 +3072,250 @@ func _clear_engagement_flags() -> void:
 	if cleared > 0:
 		log_phase_message("T5-V13: Cleared is_engaged flag from %d units" % cleared)
 
+# ============================================================================
+# 11e 12.02-12.03: GLOBAL PILE IN STEP
+# ============================================================================
+
+# 12.03 ELIGIBLE IF: engaged, or made a charge move this turn (the third
+# clause — selected for an overrun fight — grants the ADDITIONAL pile-in
+# during the Fight step, not a move in this step). Plus alive, hasn't made
+# its one step move yet (12.02), and not AIRCRAFT (T4-4: cannot Pile In).
+func _pile_in_eligible_units_11e(player: int) -> Array:
+	var out: Array = []
+	var tmpl: PileInMove = MoveTypes.get_type("pile_in")
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if units_that_piled_in.get(unit_id, false):
+			continue
+		if _unit_has_keyword(unit, "AIRCRAFT"):
+			continue
+		var any_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				any_alive = true
+				break
+		if not any_alive:
+			continue
+		if tmpl == null or not tmpl.eligible(unit_id, GameState.state).eligible:
+			continue
+		out.append(unit_id)
+	return out
+
+# Enter the Pile In step (12.02) — the fight phase opens here at e11:
+# both players make pile-in moves with the eligible units they choose,
+# the player whose turn it is first.
+func _begin_pile_in_step_11e() -> void:
+	pile_in_step_11e = PileInStep11e.ACTIVE
+	pile_in_done_players_11e = {}
+	piling_in_player_11e = GameState.get_active_player()
+	log_phase_message("[11e 12.02] PILE IN step begins — Player %d (active) first" % piling_in_player_11e)
+	emit_signal("subphase_transition", "START_OF_FIGHT_PHASE", "PILE_IN")
+	_advance_pile_in_step_11e(create_result(true, []))
+
+# Drive the Pile In step forward: offer the current player their remaining
+# eligible units, auto-pass a player with none left, and when both players
+# are done begin the Fight step's selection.
+func _advance_pile_in_step_11e(result: Dictionary) -> Dictionary:
+	while true:
+		var eligible = _pile_in_eligible_units_11e(piling_in_player_11e)
+		if not eligible.is_empty() and not pile_in_done_players_11e.has(piling_in_player_11e):
+			current_selecting_player = piling_in_player_11e
+			var data = _build_pile_in_step_data_11e(eligible)
+			_pending_pile_in_step_data = data
+			emit_signal("pile_in_step_required", data)
+			result["trigger_pile_in_selection"] = true
+			result["pile_in_selection_data"] = data
+			return result
+		# Nothing (left) for this player — their half is over.
+		if not pile_in_done_players_11e.has(piling_in_player_11e):
+			pile_in_done_players_11e[piling_in_player_11e] = true
+			log_phase_message("[11e 12.02] Player %d's pile-in half complete" % piling_in_player_11e)
+		var other = 2 if piling_in_player_11e == 1 else 1
+		if not pile_in_done_players_11e.has(other):
+			piling_in_player_11e = other
+			continue
+		# Both players done — the Fight step begins.
+		pile_in_step_11e = PileInStep11e.DONE
+		_pending_pile_in_step_data = {}
+		log_phase_message("[11e 12.02] PILE IN step complete — the Fight step begins (12.04)")
+		emit_signal("subphase_transition", "PILE_IN", "FIGHT")
+		# Selection order is the sequencer's; sync the pointer before the dialog.
+		if sequencer_11e != null:
+			var sel_11e = sequencer_11e.next_selection(GameState.state)
+			if not sel_11e.done:
+				current_selecting_player = sel_11e.player
+		var dialog_data = _build_fight_selection_dialog_data()
+		if not dialog_data.is_empty():
+			_pending_fight_selection_data = dialog_data
+			emit_signal("fight_selection_required", dialog_data)
+			result["trigger_fight_selection"] = true
+			result["fight_selection_data"] = dialog_data
+		return result
+	return result
+
+func _build_pile_in_step_data_11e(eligible: Array) -> Dictionary:
+	var units := {}
+	for unit_id in eligible:
+		var unit = get_unit(unit_id)
+		units[unit_id] = {
+			"name": unit.get("meta", {}).get("name", unit_id),
+			"engaged": RulesEngine.is_unit_engaged(unit_id, GameState.state)
+		}
+	return {
+		"piling_in_player": piling_in_player_11e,
+		"eligible_units": units,
+		"piled_in_units": units_that_piled_in.keys(),
+		"done_players": pile_in_done_players_11e.keys()
+	}
+
+func get_pending_pile_in_step_data() -> Dictionary:
+	"""T3-13 pattern: the Pile In step starts during phase entry, before the
+	controller connects — it pulls (and clears) the missed dialog data here."""
+	var data = _pending_pile_in_step_data
+	_pending_pile_in_step_data = {}
+	return data
+
+# ============================================================================
+# 11e 12.07-12.08: GLOBAL CONSOLIDATE STEP
+# ============================================================================
+
+# 12.08 consolidation eligibility is "was eligible to fight this phase" — a
+# CUMULATIVE predicate, while FightSequencer.eligible_to_fight is
+# point-in-time. Stamp flags.was_eligible_to_fight (the flag
+# ConsolidationMove.eligible() reads) whenever a unit is, or becomes,
+# eligible: at phase init, on every fighter selection, after each
+# activation, and when a consolidation tags new units into the fight.
+# Same direct-GameState idiom as _set_engagement_flags (T5-V13).
+func _stamp_fight_eligibility_11e() -> void:
+	if GameConstants.edition < 11 or sequencer_11e == null:
+		return
+	var stamped = 0
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if unit.get("flags", {}).get("was_eligible_to_fight", false):
+			continue
+		if sequencer_11e.fought.get(unit_id, false) or sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+			if not unit.has("flags"):
+				unit["flags"] = {}
+			unit["flags"]["was_eligible_to_fight"] = true
+			stamped += 1
+	if stamped > 0:
+		log_phase_message("[11e 12.08] Stamped was_eligible_to_fight on %d unit(s)" % stamped)
+
+func _clear_fight_eligibility_stamps_11e() -> void:
+	var all_units = GameState.state.get("units", {}) if GameState.state is Dictionary else {}
+	for unit_id in all_units:
+		var flags = all_units[unit_id].get("flags", {})
+		flags.erase("was_eligible_to_fight")
+		flags.erase("selected_for_overrun_fight")
+
+# 12.08 ELIGIBLE IF: the unit was eligible to fight this phase — plus it
+# is alive, hasn't already made its one consolidation move this step
+# (12.07), and isn't an AIRCRAFT (T4-4: cannot Consolidate, so offering
+# it would only ever be a no-op).
+func _consolidation_eligible_units_11e(player: int) -> Array:
+	var out: Array = []
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if units_that_consolidated_11e.has(unit_id):
+			continue
+		if not unit.get("flags", {}).get("was_eligible_to_fight", false):
+			continue
+		if _unit_has_keyword(unit, "AIRCRAFT"):
+			continue
+		var any_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				any_alive = true
+				break
+		if not any_alive:
+			continue
+		out.append(unit_id)
+	return out
+
+# True while fights forced by an Engaging Consolidation (12.08 AFTER
+# MOVING) are still unresolved — consolidation pauses until the opponent
+# has selected each of those units and their attacks are resolved.
+func _forced_fights_pending_11e() -> bool:
+	if consolidation_step_11e != ConsolidationStep11e.ACTIVE:
+		return false
+	return sequencer_11e != null and sequencer_11e.has_eligible(GameState.state)
+
+# Enter the Consolidate step (12.07). Called from _process_end_fight at
+# edition >= 11: after all fighting, both players make consolidation
+# moves with the eligible units they choose — the player whose turn it
+# is resolves ALL of their moves first, followed by their opponent.
+func _begin_consolidation_step_11e() -> Dictionary:
+	consolidation_step_11e = ConsolidationStep11e.ACTIVE
+	consolidation_done_players_11e = {}
+	units_that_consolidated_11e = {}
+	_stamp_fight_eligibility_11e()
+
+	# END_FIGHT is an always-valid escape hatch (T5-UX7): if the player
+	# ended the phase with fights still owed, those units forfeit their
+	# fight — mark them fought so the sequencer doesn't re-offer them as
+	# 12.08 forced fights mid-consolidation.
+	if sequencer_11e != null:
+		for unit_id in GameState.state.get("units", {}):
+			if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+				log_phase_message("[11e 12.07] %s forfeits its fight (phase ended early)" % unit_id)
+				sequencer_11e.mark_fought(unit_id)
+
+	consolidating_player_11e = GameState.get_active_player()
+	log_phase_message("[11e 12.07] CONSOLIDATE step begins — Player %d (active) first" % consolidating_player_11e)
+	emit_signal("subphase_transition", Subphase.keys()[current_subphase], "CONSOLIDATE")
+	return _advance_consolidation_step_11e(create_result(true, []))
+
+# Drive the Consolidate step forward: offer the current player their
+# remaining eligible units, auto-pass a player with none left, and when
+# both players are done run the end-of-fight-phase triggers.
+func _advance_consolidation_step_11e(result: Dictionary) -> Dictionary:
+	while true:
+		var eligible = _consolidation_eligible_units_11e(consolidating_player_11e)
+		if not eligible.is_empty() and not consolidation_done_players_11e.has(consolidating_player_11e):
+			current_selecting_player = consolidating_player_11e
+			var data = _build_consolidation_step_data_11e(eligible)
+			emit_signal("consolidation_step_required", data)
+			result["trigger_consolidation_selection"] = true
+			result["consolidation_selection_data"] = data
+			return result
+		# Nothing (left) for this player — their half is over.
+		if not consolidation_done_players_11e.has(consolidating_player_11e):
+			consolidation_done_players_11e[consolidating_player_11e] = true
+			log_phase_message("[11e 12.07] Player %d's consolidation half complete" % consolidating_player_11e)
+		var other = 2 if consolidating_player_11e == 1 else 1
+		if not consolidation_done_players_11e.has(other):
+			consolidating_player_11e = other
+			continue
+		# Both players done — the Consolidate step ends.
+		consolidation_step_11e = ConsolidationStep11e.DONE
+		log_phase_message("[11e 12.07] CONSOLIDATE step complete — resolving end-of-fight-phase triggers")
+		return _run_end_of_fight_triggers(result)
+	return result
+
+func _build_consolidation_step_data_11e(eligible: Array) -> Dictionary:
+	var units := {}
+	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
+	for unit_id in eligible:
+		var unit = get_unit(unit_id)
+		var mode = ""
+		if tmpl != null:
+			mode = str(tmpl.select_mode(unit_id, GameState.state).mode)
+		units[unit_id] = {
+			"name": unit.get("meta", {}).get("name", unit_id),
+			"mode": mode
+		}
+	return {
+		"consolidating_player": consolidating_player_11e,
+		"eligible_units": units,
+		"consolidated_units": units_that_consolidated_11e.keys(),
+		"done_players": consolidation_done_players_11e.keys()
+	}
+
 func get_available_actions() -> Array:
 	var actions = []
 
@@ -2914,6 +3358,44 @@ func get_available_actions() -> Array:
 		log_phase_message("P0-58: Awaiting melee saves — returning APPLY_MELEE_SAVES only")
 		return actions
 
+	# 11e 12.02: during the global Pile In step, the piling-in player's
+	# options are exactly: pile in one of their remaining eligible units,
+	# or end their half.
+	if GameConstants.edition >= 11 and pile_in_step_11e == PileInStep11e.ACTIVE:
+		for pi_uid in _pile_in_eligible_units_11e(piling_in_player_11e):
+			actions.append({
+				"type": "PILE_IN",
+				"unit_id": pi_uid,
+				"description": "Pile in with %s" % pi_uid
+			})
+		actions.append({
+			"type": "END_PILE_IN",
+			"player": piling_in_player_11e,
+			"description": "End Player %d's pile-in" % piling_in_player_11e
+		})
+		log_phase_message("[11e 12.02] Pile In step — returning %d pile-in action(s)" % actions.size())
+		return actions
+
+	# 11e 12.07: during the global Consolidate step, the consolidating
+	# player's options are exactly: consolidate one of their remaining
+	# eligible units, or end their half. (While an Engaging Consolidation
+	# has forced fights pending, fall through to the normal fight actions.)
+	if GameConstants.edition >= 11 and consolidation_step_11e == ConsolidationStep11e.ACTIVE \
+			and not _forced_fights_pending_11e():
+		for cons_uid in _consolidation_eligible_units_11e(consolidating_player_11e):
+			actions.append({
+				"type": "CONSOLIDATE",
+				"unit_id": cons_uid,
+				"description": "Consolidate %s" % cons_uid
+			})
+		actions.append({
+			"type": "END_CONSOLIDATION",
+			"player": consolidating_player_11e,
+			"description": "End Player %d's consolidation" % consolidating_player_11e
+		})
+		log_phase_message("[11e 12.07] Consolidate step — returning %d consolidation action(s)" % actions.size())
+		return actions
+
 	# If no active fighter, need to select one
 	# Skip units that are no longer in engagement range (enemies may have been destroyed during earlier fights)
 	if active_fighter_id == "" and current_fight_index < fight_sequence.size():
@@ -2939,8 +3421,15 @@ func get_available_actions() -> Array:
 	# If active fighter is selected, show simple control actions
 	if active_fighter_id != "":
 		if pending_attacks.is_empty():
-			# Only offer pile-in if the unit hasn't already piled in
-			if not units_that_piled_in.get(active_fighter_id, false):
+			# 10e: per-activation pile-in (once per unit). 11e: only the
+			# Overrun fight's additional pile-in (12.06) is offered here —
+			# the routine pile-in happened in the global 12.02 step.
+			var offer_pile_in: bool
+			if GameConstants.edition >= 11:
+				offer_pile_in = overrun_pile_in_unit_11e == active_fighter_id
+			else:
+				offer_pile_in = not units_that_piled_in.get(active_fighter_id, false)
+			if offer_pile_in:
 				actions.append({
 					"type": "PILE_IN",
 					"unit_id": active_fighter_id,
@@ -2968,21 +3457,28 @@ func get_available_actions() -> Array:
 			"description": "Roll dice"
 		})
 	
-	# If attacks resolved, can consolidate
-	if active_fighter_id != "" and pending_attacks.is_empty() and confirmed_attacks.is_empty():
+	# If attacks resolved, can consolidate (10e per-fighter flow only —
+	# at 11e consolidation lives in the global 12.07 step above)
+	if GameConstants.edition < 11 and active_fighter_id != "" and pending_attacks.is_empty() and confirmed_attacks.is_empty():
 		actions.append({
 			"type": "CONSOLIDATE",
 			"unit_id": active_fighter_id,
 			"description": "Consolidate %s" % active_fighter_id
 		})
-	
+
 	# Add END_FIGHT action when appropriate
 	# The END_FIGHT button should ALWAYS be available to the active player
 	# This allows them to end the fight phase even if there are eligible units
 	var can_end_fight = false
 
+	# 11e: the sequencer is the authority on "everyone has fought" — the
+	# 10e tier lists can disagree (T2-6 additions, overrun eligibility).
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		if active_fighter_id == "" and not sequencer_11e.has_eligible(GameState.state):
+			can_end_fight = true
+			log_phase_message("Adding END_FIGHT action - fight step complete (11e sequencer)")
 	# Can always end if no units are in combat
-	if fight_sequence.is_empty():
+	elif fight_sequence.is_empty():
 		can_end_fight = true
 		log_phase_message("Adding END_FIGHT action - no units in combat")
 	# Can end if all eligible units have fought
@@ -3537,7 +4033,41 @@ func _resolve_dread_foe_then_pile_in(unit_id: String) -> Dictionary:
 			if not dread_foe_diffs.is_empty():
 				_check_kill_diffs(dread_foe_diffs)
 
-	# Proceed to pile-in
+	# Proceed to the activation's fight moves
+	return _proceed_to_fight_moves(unit_id)
+
+# What happens between "selected to fight" and "assign attacks":
+# - 10e: the per-activation pile-in.
+# - 11e: pile-in already happened in the global 12.02 step. Only an
+#   OVERRUN fight (12.06 — unengaged, or engaged now but unengaged at the
+#   start of the Fight step) gets ONE additional pile-in move here; a
+#   normal fight (12.05) goes straight to attack assignment.
+func _proceed_to_fight_moves(unit_id: String) -> Dictionary:
+	if GameConstants.edition >= 11:
+		var overrun_available := false
+		if sequencer_11e != null:
+			var engaged_now = RulesEngine.is_unit_engaged(unit_id, GameState.state)
+			overrun_available = (not engaged_now) or not sequencer_11e.engaged_at_step_start.get(unit_id, false)
+		if overrun_available:
+			overrun_pile_in_unit_11e = unit_id
+			# The template's 12.03 eligibility reads this flag (a unit that
+			# neither is engaged nor charged may still make the overrun
+			# move). Same direct-flag idiom as _set_engagement_flags.
+			var gs_unit = GameState.get_unit(unit_id)
+			if not gs_unit.is_empty():
+				if not gs_unit.has("flags"):
+					gs_unit["flags"] = {}
+				gs_unit["flags"]["selected_for_overrun_fight"] = true
+			log_phase_message("[11e 12.06] %s makes an OVERRUN fight — one additional pile-in move" % unit_id)
+			emit_signal("pile_in_required", unit_id, 3.0)
+			var overrun_result = create_result(true, [])
+			overrun_result["trigger_pile_in"] = true
+			overrun_result["pile_in_unit_id"] = unit_id
+			overrun_result["pile_in_distance"] = 3.0
+			return overrun_result
+		# Normal fight (12.05): straight to attack assignment.
+		return _request_attack_assignment(unit_id, create_result(true, []))
+
 	log_phase_message("Emitting pile_in_required for %s" % unit_id)
 	emit_signal("pile_in_required", unit_id, 3.0)
 
@@ -3708,6 +4238,11 @@ func _process_use_counter_offensive(action: Dictionary) -> Dictionary:
 	current_selecting_player = player
 	active_fighter_id = unit_id
 
+	# 11e: register the out-of-sequence selection with the sequencer, or it
+	# would keep offering this unit as an unfought candidate forever.
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		sequencer_11e.mark_fought(unit_id)
+
 	log_phase_message("Player %d selects %s to fight (via COUNTER-OFFENSIVE)" % [player, unit_name])
 
 	emit_signal("unit_selected_for_fighting", active_fighter_id)
@@ -3725,14 +4260,13 @@ func _process_use_counter_offensive(action: Dictionary) -> Dictionary:
 		result["epic_challenge_player"] = player
 		return result
 
-	# No Epic Challenge — proceed directly to pile-in
-	log_phase_message("Emitting pile_in_required for %s" % unit_id)
-	emit_signal("pile_in_required", unit_id, 3.0)
-
-	var result = create_result(true, strat_result.get("diffs", []))
-	result["trigger_pile_in"] = true
-	result["pile_in_unit_id"] = unit_id
-	result["pile_in_distance"] = 3.0
+	# No Epic Challenge — proceed to the activation's fight moves (10e:
+	# pile-in; 11e: overrun extra pile-in or straight to attacks)
+	var result = _proceed_to_fight_moves(unit_id)
+	if not strat_result.get("diffs", []).is_empty():
+		var merged_changes = strat_result.get("diffs", [])
+		merged_changes.append_array(result.get("changes", []))
+		result["changes"] = merged_changes
 	return result
 
 func _process_decline_counter_offensive(action: Dictionary) -> Dictionary:
@@ -3749,30 +4283,94 @@ func _process_decline_counter_offensive(action: Dictionary) -> Dictionary:
 
 	var dialog_data = _build_fight_selection_dialog_data()
 
-	emit_signal("fight_selection_required", dialog_data)
-
 	var result = create_result(true, [])
-	result["trigger_fight_selection"] = true
-	result["fight_selection_data"] = dialog_data
+	if not dialog_data.is_empty():
+		emit_signal("fight_selection_required", dialog_data)
+		result["trigger_fight_selection"] = true
+		result["fight_selection_data"] = dialog_data
+		return result
+
+	# Nobody left to fight — if a 12.08 forced fight triggered this
+	# Counter-Offensive window, resume the Consolidate step (11e).
+	if GameConstants.edition >= 11 and consolidation_step_11e == ConsolidationStep11e.ACTIVE:
+		return _advance_consolidation_step_11e(result)
 	return result
 
 func _validate_end_fight(action: Dictionary) -> Dictionary:
 	# END_FIGHT is always valid - it's the manual way to end the fight phase
 	return {"valid": true, "errors": []}
 
+# 11e 12.02: the piling-in player passes — ends their half of the global
+# Pile In step (any units they didn't move forfeit their pile-in; it is
+# optional per unit).
+func _validate_end_pile_in(action: Dictionary) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {"valid": false, "errors": ["END_PILE_IN is an 11e action (12.02)"]}
+	if pile_in_step_11e != PileInStep11e.ACTIVE:
+		return {"valid": false, "errors": ["The Pile In step is not in progress (12.02)"]}
+	var player = int(action.get("player", piling_in_player_11e))
+	if player != piling_in_player_11e:
+		return {"valid": false, "errors": ["Not your half of the Pile In step — Player %d piles in first (12.02)" % piling_in_player_11e]}
+	return {"valid": true, "errors": []}
+
+func _process_end_pile_in(action: Dictionary) -> Dictionary:
+	pile_in_done_players_11e[piling_in_player_11e] = true
+	log_phase_message("[11e 12.02] Player %d ends their pile-in half" % piling_in_player_11e)
+	return _advance_pile_in_step_11e(create_result(true, []))
+
+# 11e 12.07: the consolidating player passes — ends their half of the
+# global Consolidate step (any units they didn't move forfeit their
+# consolidation; it is optional per unit at 11e).
+func _validate_end_consolidation(action: Dictionary) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {"valid": false, "errors": ["END_CONSOLIDATION is an 11e action (12.07)"]}
+	if consolidation_step_11e != ConsolidationStep11e.ACTIVE:
+		return {"valid": false, "errors": ["The Consolidate step is not in progress (12.07)"]}
+	if _forced_fights_pending_11e():
+		return {"valid": false, "errors": ["Fights forced by an Engaging Consolidation must be resolved first (12.08)"]}
+	var player = int(action.get("player", consolidating_player_11e))
+	if player != consolidating_player_11e:
+		return {"valid": false, "errors": ["Not your half of the Consolidate step — Player %d is consolidating (12.07)" % consolidating_player_11e]}
+	return {"valid": true, "errors": []}
+
+func _process_end_consolidation(action: Dictionary) -> Dictionary:
+	consolidation_done_players_11e[consolidating_player_11e] = true
+	log_phase_message("[11e 12.07] Player %d ends their consolidation half" % consolidating_player_11e)
+	return _advance_consolidation_step_11e(create_result(true, []))
+
 func _process_end_fight(action: Dictionary) -> Dictionary:
 	log_phase_message("Fight phase ending...")
 
-	# 11e: flush any consolidations still queued for the global step — the
-	# step is mandatory but per-model movement is optional (FGT-1), so
-	# unresolved units complete it without moving.
-	if GameConstants.edition >= 11 and not _deferred_consolidations_11e.is_empty():
-		for uid in _deferred_consolidations_11e:
-			log_phase_message("[11e] END_FIGHT: %s completes its consolidation without moving (backstop)" % uid)
-		_deferred_consolidations_11e.clear()
-		_consolidation_step_11e = false
-		active_fighter_id = ""
+	# 11e 12.07: the global CONSOLIDATE step happens after all fighting and
+	# BEFORE the end-of-fight-phase triggers. The first END_FIGHT enters
+	# the step; while it is active, END_FIGHT doubles as "end my
+	# consolidation half" (keeps turn-timer and escape-hatch semantics:
+	# repeated END_FIGHT still walks the phase to completion).
+	if GameConstants.edition >= 11:
+		# 12.02: END_FIGHT during the Pile In step ends the current half
+		# (same walk-forward semantics as the Consolidate step below).
+		if pile_in_step_11e == PileInStep11e.ACTIVE:
+			pile_in_done_players_11e[piling_in_player_11e] = true
+			log_phase_message("[11e 12.02] Player %d ends their pile-in half via END_FIGHT" % piling_in_player_11e)
+			return _advance_pile_in_step_11e(create_result(true, []))
+		if consolidation_step_11e == ConsolidationStep11e.NOT_STARTED:
+			return _begin_consolidation_step_11e()
+		if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
+			if sequencer_11e != null:
+				for uid in GameState.state.get("units", {}):
+					if sequencer_11e.eligible_to_fight(uid, GameState.state):
+						log_phase_message("[11e 12.08] %s forfeits its forced fight (END_FIGHT during Consolidate step)" % uid)
+						sequencer_11e.mark_fought(uid)
+			consolidation_done_players_11e[consolidating_player_11e] = true
+			log_phase_message("[11e 12.07] Player %d ends their consolidation half via END_FIGHT" % consolidating_player_11e)
+			return _advance_consolidation_step_11e(create_result(true, []))
 
+	return _run_end_of_fight_triggers(create_result(true, []))
+
+# End-of-fight-phase triggers (12.09): Sweeping Advance, then Acrobatic
+# Escape, then phase completion. At edition >= 11 this runs only after the
+# global Consolidate step is DONE; at edition 10 it is END_FIGHT's tail.
+func _run_end_of_fight_triggers(result: Dictionary) -> Dictionary:
 	# Check for Sweeping Advance eligibility before ending the phase
 	var sa_eligible = _get_sweeping_advance_eligible_units()
 	if not sa_eligible.is_empty() and not awaiting_sweeping_advance:
@@ -3784,7 +4382,6 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 		log_phase_message("SWEEPING ADVANCE: %s (player %d) is eligible — offering ability" % [first.unit_name, first.player])
 		emit_signal("sweeping_advance_available", first.unit_id, first.player, first.in_engagement, first.move_distance)
 
-		var result = create_result(true, [])
 		result["trigger_sweeping_advance"] = true
 		result["sweeping_advance_unit_id"] = first.unit_id
 		result["sweeping_advance_player"] = first.player
@@ -3793,13 +4390,13 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 		return result
 
 	# Check for Acrobatic Escape before ending
-	var ae_result = _check_acrobatic_escape_or_complete([])
+	var ae_result = _check_acrobatic_escape_or_complete(result.get("changes", []))
 	if ae_result != null:
 		return ae_result
 
 	log_phase_message("Fight phase ended")
 	emit_signal("phase_completed")
-	return create_result(true, [])
+	return result
 
 # ============================================================================
 # SWEEPING ADVANCE
@@ -4280,6 +4877,21 @@ func get_unfought_eligible_units() -> Array:
 	"""Return array of {unit_id, unit_name, player, subphase} for units that haven't fought yet.
 	Used by the end-fight-phase confirmation dialog (T5-UX7)."""
 	var unfought = []
+
+	# 11e: the sequencer is authoritative — the 10e tier lists can disagree
+	# (T2-6 additions, unengaged charge-survivors owed an overrun fight).
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		for unit_id in GameState.state.get("units", {}):
+			if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+				var unit = GameState.state.units[unit_id]
+				unfought.append({
+					"unit_id": unit_id,
+					"unit_name": unit.get("meta", {}).get("name", unit_id),
+					"player": int(unit.get("owner", 0)),
+					"subphase": "Fights First" if sequencer_11e.is_fights_first(unit) else "Remaining Combats"
+				})
+		return unfought
+
 	var all_units = game_state_snapshot.get("units", {})
 
 	for player_key in ["1", "2"]:
@@ -4710,9 +5322,23 @@ func _simulate_fight_board_with_movements(unit_id: String, movements: Dictionary
 func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
 	var movements = _fight_movements_from_action(action)
-	if unit_id != active_fighter_id:
-		return {"valid": false, "errors": ["Not the active fighter"]}
 	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit %s not found" % unit_id]}
+
+	# 12.02: pile-in happens in the global step at the START of the fight
+	# phase — or as an Overrun fight's ADDITIONAL move (12.06), never as a
+	# routine part of an activation.
+	if pile_in_step_11e == PileInStep11e.ACTIVE:
+		if int(unit.get("owner", 0)) != piling_in_player_11e:
+			return {"valid": false, "errors": ["Not your half of the Pile In step — Player %d piles in first (12.02)" % piling_in_player_11e]}
+		if units_that_piled_in.get(unit_id, false):
+			return {"valid": false, "errors": ["%s has already made its pile-in move this step (12.02)" % unit_id]}
+	elif unit_id == active_fighter_id and unit_id == overrun_pile_in_unit_11e:
+		pass  # 12.06: the overrun fight's one additional pile-in move
+	else:
+		return {"valid": false, "errors": ["Pile-in happens in the Pile In step at the start of the Fight phase (12.02), or as an Overrun fight's additional move (12.06)"]}
+
 	if _unit_has_keyword(unit, "AIRCRAFT"):
 		if not movements.is_empty():
 			return {"valid": false, "errors": ["AIRCRAFT units cannot Pile In"]}
@@ -4721,6 +5347,9 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 	var el = tmpl.eligible(unit_id, GameState.state)
 	if not el.eligible:
 		return {"valid": false, "errors": el.reasons}
+	# An eligible unit may decline to move (the step/extra move is optional)
+	if movements.is_empty():
+		return {"valid": true, "errors": []}
 	var ctx = tmpl.before_moving(unit_id, GameState.state, null, {})
 	if ctx.has("error"):
 		return {"valid": false, "errors": [ctx.error]}
@@ -4755,16 +5384,28 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
 	var movements = _fight_movements_from_action(action)
-	if unit_id != active_fighter_id:
-		return {"valid": false, "errors": ["Not the active fighter"]}
-	if not pending_attacks.is_empty():
-		return {"valid": false, "errors": ["Must resolve attacks before consolidating"]}
+	# 12.07: consolidation happens in the global end-of-phase Consolidate
+	# step — never during a unit's activation.
+	if consolidation_step_11e != ConsolidationStep11e.ACTIVE:
+		return {"valid": false, "errors": ["Consolidation happens in the Consolidate step at the end of the Fight phase (12.07) — finish the Fight step first"]}
+	if _forced_fights_pending_11e():
+		return {"valid": false, "errors": ["Fights forced by an Engaging Consolidation must be resolved first (12.08)"]}
 	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit %s not found" % unit_id]}
+	if int(unit.get("owner", 0)) != consolidating_player_11e:
+		return {"valid": false, "errors": ["Not your half of the Consolidate step — Player %d consolidates first (12.07)" % consolidating_player_11e]}
+	if units_that_consolidated_11e.has(unit_id):
+		return {"valid": false, "errors": ["%s has already made its consolidation move this step (12.07)" % unit_id]}
 	if _unit_has_keyword(unit, "AIRCRAFT"):
 		if not movements.is_empty():
 			return {"valid": false, "errors": ["AIRCRAFT units cannot Consolidate"]}
 		return {"valid": true, "errors": []}
 	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
+	# 12.08 ELIGIBLE IF: the unit was eligible to fight this phase.
+	var el = tmpl.eligible(unit_id, GameState.state)
+	if not el.eligible:
+		return {"valid": false, "errors": el.reasons}
 	var sel = tmpl.select_mode(unit_id, GameState.state)
 	var mode = str(sel.mode)
 	# Per-model consolidation is optional (FAQ): an empty payload completes

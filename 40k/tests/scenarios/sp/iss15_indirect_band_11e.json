@@ -1,0 +1,176 @@
+{
+  "id": "iss15_indirect_band_11e",
+  "covers": [
+    "rules.RulesEngine.indirect_hit_fail_band_11e",
+    "shootingtypes.IndirectShooting.live_resolve"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "10.07 (11e) INDIRECT shooting through the live game: the Witchseekers get a Siege Mortar ([INDIRECT FIRE]) and a tall wall is injected so the Boyz are not visible to them (_has_los_to_target_unit false) \u2014 yet _check_target_visibility reports the target as targetable (the indirect bypass, the player-facing affordance). CONFIRM_TARGETS resolves through the real path and the recorded to_hit block must obey the 11e band \u2014 the unit moved this turn, so successes == rolls_raw.count(6) (unmodified 1-5 fail), a seed-independent invariant, with no 10e -1 modifier. Also pins live band selection: 5 for the moved unit, 3 once remained_stationary (a friendly unit spots the Boyz). Shooter-side actions use dispatch (committed precedent); assertions are read-only. The Boyz' 'ARD AS NAILS reactive offer pops the real StratagemDialog for the defender, who declines it by clicking the dialog's Decline button (human path).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shooting_phase_edition_11"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"meta\"][\"weapons\"].append({\"name\": \"Siege Mortar\", \"type\": \"Ranged\", \"range\": \"48\", \"attacks\": \"6\", \"ballistic_skill\": \"4\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"indirect fire\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][1].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][2].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][3].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"flags\"].merge({\"remained_stationary\": false, \"moved\": true}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.terrain_features.append({\"id\": \"iss15_wall\", \"type\": \"ruins\", \"height_category\": \"tall\", \"polygon\": PackedVector2Array([Vector2(500, 890), Vector2(1500, 890), Vector2(1500, 910), Vector2(500, 910)])})"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine._has_los_to_target_unit(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", GameState.state)",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine._check_target_visibility(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", \"Siege Mortar\", GameState.state)[\"visible\"]",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine._indirect_hit_fail_band_11e(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", GameState.create_snapshot())",
+      "equals": 5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_WITCHSEEKERS_D",
+        "payload": {
+          "shooting_type": "indirect"
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooting_type",
+      "equals": "indirect"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_WITCHSEEKERS_D",
+        "payload": {
+          "weapon_id": "Siege Mortar",
+          "target_unit_id": "U_BOYZ_E",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_indirect_assigned_unseen_target"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02b_ard_as_nails_reactive_offer"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().dice_log[0][\"context\"]",
+      "equals": "to_hit"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().dice_log[0][\"successes\"] == PhaseManager.get_current_phase_instance().dice_log[0][\"rolls_raw\"].count(6)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().dice_log[0][\"indirect_fire_applied\"]",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "03_band5_only_sixes_hit"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"flags\"].merge({\"remained_stationary\": true, \"moved\": false}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine._indirect_hit_fail_band_11e(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", GameState.create_snapshot())",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "TerrainManager.terrain_features.pop_back()"
+    }
+  ]
+}

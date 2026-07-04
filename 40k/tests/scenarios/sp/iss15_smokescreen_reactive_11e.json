@@ -1,0 +1,53 @@
+{
+  "id": "iss15_smokescreen_reactive_11e",
+  "covers": [
+    "autoloads.StratagemManager.smokescreen_11e",
+    "autoloads.StratagemManager.get_reactive_stratagems_for_shooting",
+    "rules.ModifierStack.collect_hit_context_11e.stratagem_cover"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "15.10 SMOKESCREEN through the real defender dialog: the engaged Contemptor (P1, close-quarters) targets the SMOKE-keyword Boyz K; CONFIRM_TARGETS pauses on the reactive window and the defending player (P2) clicks 'Use on Boyz' in the live StratagemDialog. The click must set flags.stratagem_cover (the flag the 11e hit-side cover check in ModifierStack.collect_hit_context_11e reads — it used to set only effect_cover, burning 1 CP for zero effect), deduct 1 CP, and worsen the attacker's BS by 1 in the live hit context. Shooter-side actions use dispatch (committed precedent); the feature under test — the defender's reactive stratagem — is driven by clicking the same button a player sees.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "screenshot", "label": "01_shooting_phase_edition_11" },
+
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_K\")[\"meta\"][\"keywords\"].append(\"SMOKE\")" },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://scripts/rules/ModifierStack.gd\").collect_hit_context_11e(GameState.get_unit(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"), GameState.get_unit(\"U_BOYZ_K\"), {}, GameState.state, {}).net(\"bs\")",
+      "equals": 0 },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": {
+      "type": "ASSIGN_TARGET",
+      "actor_unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+      "payload": { "weapon_id": "Infernus incinerator", "target_unit_id": "U_BOYZ_K", "model_ids": ["m1"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "02_reactive_stratagem_dialog" },
+    { "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_smokescreen_11e/Buttons/Use_smokescreen_11e_U_BOYZ_K",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_state", "path": "units.U_BOYZ_K.flags.stratagem_cover", "equals": true },
+    { "act": "expect_state", "path": "units.U_BOYZ_K.flags.effect_cover", "equals": true },
+    { "act": "expect_cp", "player": 2, "delta_from_start": -1 },
+    { "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://scripts/rules/ModifierStack.gd\").collect_hit_context_11e(GameState.get_unit(\"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H\"), GameState.get_unit(\"U_BOYZ_K\"), {}, GameState.state, {}).net(\"bs\")",
+      "equals": 1 },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().awaiting_reactive_stratagem",
+      "equals": false },
+    { "act": "screenshot", "label": "03_smokescreen_applied_shooting_resolved" }
+  ]
+}

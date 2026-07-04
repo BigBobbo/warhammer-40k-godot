@@ -37,6 +37,7 @@ func setup(player: int, stratagems: Array, targets: Array) -> void:
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
+	main_container.name = "Content"
 	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
@@ -55,11 +56,14 @@ func _build_ui() -> void:
 
 	main_container.add_child(HSeparator.new())
 
-	# Scroll container for stratagem cards
+	# Scroll container for stratagem cards (stable names so windowed
+	# scenarios can click the same affordances a player sees)
 	var scroll = ScrollContainer.new()
+	scroll.name = "StratScroll"
 	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 180)
 
 	var strat_container = VBoxContainer.new()
+	strat_container.name = "StratList"
 
 	for entry in available_stratagems:
 		var strat = entry.stratagem
@@ -76,6 +80,7 @@ func _build_ui() -> void:
 
 	# Decline button
 	var decline_button = Button.new()
+	decline_button.name = "DeclineButton"
 	decline_button.text = "Decline All Stratagems"
 	decline_button.custom_minimum_size = Vector2(480, 35)
 	decline_button.pressed.connect(_on_decline_pressed)
@@ -113,6 +118,7 @@ func _on_countdown_tick() -> void:
 
 func _create_stratagem_card(strat: Dictionary, eligible_units: Array) -> VBoxContainer:
 	var card = VBoxContainer.new()
+	card.name = "Card_%s" % strat.get("id", "unknown")
 
 	# Stratagem name and cost
 	var name_hbox = HBoxContainer.new()
@@ -157,12 +163,14 @@ func _create_stratagem_card(strat: Dictionary, eligible_units: Array) -> VBoxCon
 	card.add_child(units_label)
 
 	var button_container = HBoxContainer.new()
+	button_container.name = "Buttons"
 	for unit_id in eligible_units:
 		var unit = GameState.get_unit(unit_id)
 		var _sd_meta = unit.get("meta", {})
 		var unit_name = _sd_meta.get("display_name", _sd_meta.get("name", unit_id))
 
 		var use_button = Button.new()
+		use_button.name = "Use_%s_%s" % [strat.get("id", "unknown"), unit_id]
 		use_button.text = "Use on %s" % unit_name
 		use_button.custom_minimum_size = Vector2(150, 30)
 		use_button.pressed.connect(_on_use_pressed.bind(strat.get("id", ""), unit_id))

@@ -4437,6 +4437,12 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 		"path": "units.%s.flags.has_shot" % unit_id,
 		"value": true
 	}]
+	# 13.09 HIDDEN: this is the completion the interactive flow reaches after
+	# real ranged attacks (the player confirms the final weapon results) —
+	# without the stamp here, any unit whose shots caused wounds never lost
+	# Hidden. The give-up-shooting action paths (16.01 etc.) correctly do
+	# NOT stamp.
+	changes.append(_hidden_shot_stamp(unit_id))
 	changes.append_array(sanctified_changes)
 
 	# Issue #386 Big Booms: apply D3 MW per struck unit after supa-kannon attacks finish.
@@ -5981,6 +5987,9 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 					"path": "units.%s.flags.has_shot" % active_shooter_id,
 					"value": true
 				})
+				# 13.09 HIDDEN: real ranged attacks were made (they destroyed
+				# every remaining target) — stamp the turn index.
+				all_diffs.append(_hidden_shot_stamp(active_shooter_id))
 				units_that_shot.append(active_shooter_id)
 
 				# P1-11: Check for Sanctified Flames before clearing state

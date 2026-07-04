@@ -560,6 +560,13 @@ func set_phase(phase_instance) -> void:
 		if not current_phase.heroic_intervention_opportunity.is_connected(_on_heroic_intervention_opportunity):
 			current_phase.heroic_intervention_opportunity.connect(_on_heroic_intervention_opportunity)
 
+	# The HI success path emits ONLY charge_path_tools_enabled (never
+	# charge_roll_made) — without this connection the defender is told the
+	# counter-charge roll succeeded but gets no way to move the models.
+	if current_phase.has_signal("charge_path_tools_enabled"):
+		if not current_phase.charge_path_tools_enabled.is_connected(_on_charge_path_tools_enabled):
+			current_phase.charge_path_tools_enabled.connect(_on_charge_path_tools_enabled)
+
 	if current_phase.has_signal("tank_shock_opportunity"):
 		if not current_phase.tank_shock_opportunity.is_connected(_on_tank_shock_opportunity):
 			current_phase.tank_shock_opportunity.connect(_on_tank_shock_opportunity)
@@ -902,6 +909,13 @@ func _get_charge_targets_from_phase(unit_id: String) -> Array:
 		print("WARNING: No current_phase available to get charge targets")
 		return []
 
+	# Heroic Intervention: the counter-charge targets live on the phase's HI
+	# pending charge, not in pending_charges.
+	if str(current_phase.get("heroic_intervention_unit_id")) == unit_id:
+		var hi_pending = current_phase.get("heroic_intervention_pending_charge")
+		if hi_pending is Dictionary and not hi_pending.is_empty():
+			return hi_pending.get("targets", [])
+
 	if not current_phase.has_method("get_pending_charges"):
 		print("ERROR: current_phase doesn't have get_pending_charges method")
 		return []
@@ -1129,15 +1143,17 @@ func _add_confirm_button() -> void:
 		return
 	
 	confirm_button = Button.new()
+	confirm_button.name = "ConfirmChargeButton"
 	confirm_button.text = "Confirm Charge Moves"
 	confirm_button.visible = false
 	_WhiteDwarfTheme.apply_to_button(confirm_button)
 	print("DEBUG: Connecting confirm button signal...")
 	confirm_button.pressed.connect(_on_confirm_charge_moves)
 	print("DEBUG: Signal connected, adding to right panel...")
-	
+
 	# Add confirm button as a separate row in action container
 	var confirm_row = HBoxContainer.new()
+	confirm_row.name = "ConfirmRow"
 	confirm_row.add_child(confirm_button)
 
 	# T-092: per-model undo button next to confirm
@@ -1797,13 +1813,17 @@ func _on_confirm_charge_moves() -> void:
 		var new_pos = move_data["position"] if move_data is Dictionary else move_data
 		var new_rotation = move_data["rotation"] if move_data is Dictionary and move_data.has("rotation") else 0.0
 		print("DEBUG: Processing moved model ", model_id, " to position ", new_pos, " with rotation ", rad_to_deg(new_rotation), " degrees")
-		# For charge moves, we just need start and end positions
-		var unit = GameState.get_unit(active_unit_id)
-		var old_pos = null
-		for model in unit.get("models", []):
-			if model.get("id", "") == model_id:
-				old_pos = _get_model_position(model)
-				break
+		# Path start must be the PRE-DRAG origin (T-092 cache). The drag
+		# already wrote the drop position into GameState (_end_model_drag), so
+		# reading the live model here yields start == end — a degenerate path
+		# the phase validator rightly rejects ("must end closer to a target").
+		var old_pos = _model_origin_positions.get(model_id, null)
+		if old_pos == null:
+			var unit = GameState.get_unit(active_unit_id)
+			for model in unit.get("models", []):
+				if model.get("id", "") == model_id:
+					old_pos = _get_model_position(model)
+					break
 
 		if old_pos and new_pos:
 			per_model_paths[model_id] = [[old_pos.x, old_pos.y], [new_pos.x, new_pos.y]]
@@ -1812,15 +1832,34 @@ func _on_confirm_charge_moves() -> void:
 		else:
 			print("DEBUG: Failed to create path for ", model_id, " - old_pos: ", old_pos, " new_pos: ", new_pos)
 
+	# The APPLY action is the authoritative state mutation: restore the
+	# pre-drag origins so the phase validates against the real start state
+	# and its result diffs perform the actual move. Token visuals stay at
+	# the drop position (no flicker); a validation failure snaps them back
+	# via charge_resolved.
+	for model_id in per_model_paths:
+		var origin = _model_origin_positions.get(model_id, null)
+		if origin != null:
+			_update_model_position_in_gamestate(active_unit_id, model_id, origin)
+
+	# A Heroic Intervention counter-charge has its own apply action — its
+	# charge data lives in heroic_intervention_pending_charge, so
+	# APPLY_CHARGE_MOVE would fail with "No pending charge data found". It
+	# also never sends COMPLETE_UNIT_CHARGE (that is charger bookkeeping).
+	var is_hi_move: bool = current_phase != null \
+		and str(current_phase.get("heroic_intervention_unit_id")) == active_unit_id \
+		and active_unit_id != ""
+
 	# Store the unit_id so the charge_resolved handler can send COMPLETE_UNIT_CHARGE
-	_pending_complete_unit_id = active_unit_id
+	if not is_hi_move:
+		_pending_complete_unit_id = active_unit_id
 
 	# Send APPLY_CHARGE_MOVE action with the paths and rotations we built
 	# NOTE: COMPLETE_UNIT_CHARGE is now sent from _on_charge_resolved() after
 	# the server confirms the charge succeeded, preventing state corruption if
 	# APPLY_CHARGE_MOVE fails validation.
 	var action = {
-		"type": "APPLY_CHARGE_MOVE",
+		"type": "APPLY_HEROIC_INTERVENTION_MOVE" if is_hi_move else "APPLY_CHARGE_MOVE",
 		"actor_unit_id": active_unit_id,
 		"payload": {
 			"per_model_paths": per_model_paths,
@@ -2421,6 +2460,10 @@ func _on_charge_resolved(unit_id: String, success: bool, result: Dictionary) -> 
 	if is_instance_valid(dice_log_display):
 		dice_log_display.append_text(result_text)
 
+	# A Heroic Intervention resolution never completes a charger's activation
+	if result.get("heroic_intervention", false):
+		_pending_complete_unit_id = ""
+
 	# Send COMPLETE_UNIT_CHARGE only after charge_resolved confirms the result.
 	# This prevents state corruption that occurred when both APPLY_CHARGE_MOVE and
 	# COMPLETE_UNIT_CHARGE were fired simultaneously without waiting for confirmation.
@@ -2967,6 +3010,7 @@ func _on_heroic_intervention_opportunity(player: int, eligible_units: Array, cha
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "HeroicInterventionDialog"
 	dialog.setup(player, charging_unit_id, eligible_units)
 	dialog.heroic_intervention_used.connect(_on_heroic_intervention_used)
 	dialog.heroic_intervention_declined.connect(_on_heroic_intervention_declined)
@@ -2979,9 +3023,9 @@ func _on_heroic_intervention_opportunity(player: int, eligible_units: Array, cha
 	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
 		main_node.show_reactive_stratagem_waiting("Heroic Intervention")
 
-func _on_heroic_intervention_used(unit_id: String, player: int) -> void:
+func _on_heroic_intervention_used(unit_id: String, player: int, mode: String = "leap_to_defend") -> void:
 	"""Handle player choosing to use Heroic Intervention."""
-	print("ChargeController: Heroic Intervention USED: player %d selects %s" % [player, unit_id])
+	print("ChargeController: Heroic Intervention USED: player %d selects %s (mode: %s)" % [player, unit_id, mode])
 	# MA-42: Hide blocking overlay
 	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
@@ -2995,7 +3039,38 @@ func _on_heroic_intervention_used(unit_id: String, player: int) -> void:
 		"type": "USE_HEROIC_INTERVENTION",
 		"unit_id": unit_id,
 		"player": player,
+		"mode": mode,
 	})
+
+func _on_charge_path_tools_enabled(unit_id: String, distance: int) -> void:
+	"""Enable board movement for a HEROIC INTERVENTION counter-charge.
+
+	Normal charges enter movement mode via charge_roll_made; the HI flow
+	emits only charge_path_tools_enabled, so this is the defender's single
+	entry point into dragging the counter-charging models."""
+	if not current_phase:
+		return
+	var hi_unit = str(current_phase.get("heroic_intervention_unit_id"))
+	if hi_unit == "" or hi_unit != unit_id:
+		return  # normal charge — handled by _on_charge_roll_made
+
+	print("ChargeController: HI charge roll sufficient — enabling movement for %s (max %d\")" % [unit_id, distance])
+	active_unit_id = unit_id
+	charge_distance = distance
+	awaiting_roll = false
+	awaiting_movement = true
+	# The counter-charge target list lives on the phase's HI pending charge,
+	# not in the local selection (the defender never clicked targets).
+	var hi_pending = current_phase.get("heroic_intervention_pending_charge")
+	if hi_pending is Dictionary:
+		selected_targets = hi_pending.get("targets", []).duplicate()
+	if is_instance_valid(charge_info_label):
+		charge_info_label.text = "Heroic Intervention! Rolled %d\" - Drag models toward %s - they auto-snap to base contact (max %d\" each)" % [distance, str(selected_targets), distance]
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gold]Heroic Intervention charge successful! Move models into engagement range.[/color]\n")
+	_enable_charge_movement(unit_id, distance)
+	_show_charge_distance_display(distance)
+	_update_button_states()
 
 func _on_heroic_intervention_declined(player: int) -> void:
 	"""Handle player declining Heroic Intervention."""

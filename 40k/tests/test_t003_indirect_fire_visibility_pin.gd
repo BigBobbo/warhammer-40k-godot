@@ -62,18 +62,25 @@ func _test_hit_minus_one_gated() -> void:
 		"would apply -1 even when target is visible (silent rule break)")
 
 func _test_one_three_fail_gated() -> void:
-	print("\n-- B: 1-3 always fail gated on `not visible` --")
+	print("\n-- B: unmodified fail band gated on `not visible` --")
+	# ba768da refactored the inline `unmodified_roll <= 3` check into the
+	# hit_fail_band parameter of AttackSequence.evaluate_hit_roll: band 3 at
+	# 10e, _indirect_hit_fail_band_11e (5, or 3 with stationary+spotter) at 11e
+	# — still selected ONLY inside the `not indirect_target_visible` branch.
 	var src = _read("res://autoloads/RulesEngine.gd")
-	_check("1-3 fail rule gated on not indirect_target_visible",
-		"is_indirect_fire and not indirect_target_visible and unmodified_roll <= 3" in src,
-		"would force 1-3 fail even with line of sight (NOT 10e)")
+	_check("fail band selected only when target NOT visible (10e: 3; 11e: band helper)",
+		"if is_indirect_fire and not indirect_target_visible:" in src
+			and "_indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3" in src,
+		"would force the fail band even with line of sight (NOT RAW in either edition)")
 
 func _test_cover_gated() -> void:
 	print("\n-- C: Indirect cover bonus gated on `not visible` --")
 	var src = _read("res://autoloads/RulesEngine.gd")
-	# In the auto-resolve resolver, cover is set true only when indirect AND no LoS
+	# In the auto-resolve resolver, cover is set true only when indirect AND
+	# no LoS — and (10.07/13.08) the save-side grant is additionally gated to
+	# 10e; at 11e indirect cover worsens the attacker's BS on the hit side.
 	_check("auto-resolve indirect cover gated",
-		"is_indirect_fire and not _has_los_to_target_unit" in src,
+		"is_indirect_fire and GameConstants.edition < 11 and not _has_los_to_target_unit" in src,
 		"target would always gain Benefit of Cover from Indirect Fire — silently wrong")
 
 func _test_helpers_exist() -> void:

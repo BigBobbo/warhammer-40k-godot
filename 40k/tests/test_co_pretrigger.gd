@@ -10,6 +10,7 @@ const FIXTURE := "co_pretrigger"
 
 var passed := 0
 var failed := 0
+var _prev_edition_for_restore := 10
 
 func _check(label: String, cond: bool, detail: String = "") -> void:
 	if cond:
@@ -29,6 +30,15 @@ func _run_tests():
 	if passed > 0 or failed > 0:
 		return  # already ran
 	print("\n=== test_co_pretrigger ===\n")
+
+	# This fixture/flow tests the 10e Counter-Offensive anchor: the CO
+	# window opens when a unit finishes its per-activation CONSOLIDATE. At
+	# 11e consolidation is the global end-of-phase step (12.07) and the CO
+	# window anchors to attack resolution instead — pin the edition so the
+	# test drives the flow it was written for regardless of the environment
+	# default.
+	_prev_edition_for_restore = GameConstants.edition
+	GameConstants.edition = 10
 
 	var save_mgr = root.get_node("SaveLoadManager")
 	var game_state = root.get_node("GameState")
@@ -120,5 +130,6 @@ func _run_tests():
 	_finish()
 
 func _finish():
+	GameConstants.edition = _prev_edition_for_restore
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(1 if failed > 0 else 0)
