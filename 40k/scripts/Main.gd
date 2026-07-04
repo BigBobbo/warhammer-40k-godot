@@ -9363,6 +9363,7 @@ func _show_end_fight_confirmation_dialog(unfought_units: Array, active_player: i
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "EndFightConfirmationDialog"
 	dialog.setup(unfought_units)
 	dialog.end_fight_confirmed.connect(_on_end_fight_confirmed.bind(active_player))
 	dialog.end_fight_cancelled.connect(_on_end_fight_cancelled)
@@ -9559,6 +9560,7 @@ func _show_shooting_phase_summary_dialog(end_action: Dictionary, active_player: 
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "ShootingPhaseSummaryDialog"
 	dialog.setup(summary_data)
 	dialog.shooting_confirmed.connect(_on_shooting_summary_confirmed.bind(end_action))
 	dialog.shooting_cancelled.connect(_on_shooting_summary_cancelled)

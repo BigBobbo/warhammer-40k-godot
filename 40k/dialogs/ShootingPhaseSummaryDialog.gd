@@ -36,6 +36,7 @@ func setup(p_summary_data: Dictionary) -> void:
 func _build_ui() -> void:
 	min_size = DialogConstants.MEDIUM
 	var main_container = VBoxContainer.new()
+	main_container.name = "Content"
 	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
@@ -178,9 +179,11 @@ func _build_ui() -> void:
 
 	# Buttons
 	var button_container = HBoxContainer.new()
+	button_container.name = "Actions"
 	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	var cancel_button = Button.new()
+	cancel_button.name = "GoBackButton"
 	cancel_button.text = "Go Back"
 	cancel_button.custom_minimum_size = Vector2(150, 40)
 	cancel_button.pressed.connect(_on_cancel_pressed)
@@ -191,6 +194,7 @@ func _build_ui() -> void:
 	button_container.add_child(spacer)
 
 	var confirm_button = Button.new()
+	confirm_button.name = "ConfirmEndShooting"
 	confirm_button.text = "End Shooting Phase"
 	confirm_button.custom_minimum_size = Vector2(200, 40)
 	confirm_button.add_theme_color_override("font_color", Color.GREEN)

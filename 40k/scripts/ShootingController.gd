@@ -3663,12 +3663,23 @@ func _update_start_action_button() -> void:
 	var actions = current_phase.get_startable_11e_actions(active_shooter_id)
 	if actions.is_empty():
 		start_action_button.visible = false
-	else:
+	elif actions.size() == 1:
 		var first = actions[0]
 		start_action_button.text = "Start Action: %s" % first.get("name", "Action")
 		start_action_button.set_meta("action_id", first.get("id", ""))
+		if start_action_button.has_meta("action_options"):
+			start_action_button.remove_meta("action_options")
 		if first.get("description", "") != "":
 			start_action_button.tooltip_text = first.get("description", "")
+		start_action_button.visible = true
+		start_action_button.disabled = false
+	else:
+		# Multiple startable actions (e.g. Hold Position + a mission-card
+		# action) — pressing opens a chooser dialog.
+		start_action_button.text = "Start Action… (%d available)" % actions.size()
+		start_action_button.set_meta("action_id", "")
+		start_action_button.set_meta("action_options", actions)
+		start_action_button.tooltip_text = "Choose which action this unit starts (it gives up shooting either way)."
 		start_action_button.visible = true
 		start_action_button.disabled = false
 
@@ -3678,8 +3689,16 @@ func _on_start_action_pressed() -> void:
 		return
 	var action_id = start_action_button.get_meta("action_id") if start_action_button.has_meta("action_id") else ""
 	if action_id == "":
+		var options = start_action_button.get_meta("action_options") if start_action_button.has_meta("action_options") else []
+		if options is Array and not options.is_empty():
+			_show_action_choice_dialog(options)
 		return
+	_dispatch_start_action(action_id)
+
+func _dispatch_start_action(action_id: String) -> void:
 	var unit_id = active_shooter_id
+	if unit_id == "":
+		return
 	print("ShootingController: Start Action pressed — %s starts '%s'" % [unit_id, action_id])
 	shoot_action_requested.emit({
 		"type": "START_ACTION",
@@ -3691,8 +3710,82 @@ func _on_start_action_pressed() -> void:
 	assignment_history.clear()
 	eligible_targets.clear()
 	selected_target_id = ""
-	start_action_button.visible = false
+	if start_action_button:
+		start_action_button.visible = false
 	_refresh_unit_list()
+
+func _show_action_choice_dialog(options: Array) -> void:
+	"""Chooser when a unit can start more than one 11e action."""
+	var existing = get_tree().root.get_node_or_null("ActionChoiceDialog")
+	if existing != null and not existing.is_queued_for_deletion():
+		return
+	var dialog = AcceptDialog.new()
+	dialog.name = "ActionChoiceDialog"
+	dialog.title = "Start an Action"
+	dialog.min_size = DialogConstants.MEDIUM
+	dialog.get_ok_button().visible = false
+	WhiteDwarfTheme.apply_to_dialog(dialog)
+
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 8)
+	content.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
+
+	var header = Label.new()
+	header.text = "CHOOSE AN ACTION (16.01)"
+	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(header)
+	content.add_child(HSeparator.new())
+
+	var desc = Label.new()
+	desc.text = "The unit gives up shooting and cannot charge this turn; the action completes at the end of your turn."
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(desc)
+	content.add_child(HSeparator.new())
+
+	var resolved = [false]
+	for option in options:
+		var oid: String = str(option.get("id", ""))
+		var btn = Button.new()
+		btn.name = "Pick_%s" % oid
+		btn.text = str(option.get("name", oid))
+		if option.get("description", "") != "":
+			btn.tooltip_text = str(option.get("description", ""))
+		btn.pressed.connect(func():
+			if resolved[0]:
+				return
+			resolved[0] = true
+			dialog.queue_free()
+			_dispatch_start_action(oid))
+		content.add_child(btn)
+
+	content.add_child(HSeparator.new())
+	var button_row = HBoxContainer.new()
+	button_row.name = "Actions"
+	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var cancel_btn = Button.new()
+	cancel_btn.name = "CancelActionChoice"
+	cancel_btn.text = "Cancel (keep shooting)"
+	cancel_btn.custom_minimum_size = Vector2(170, 36)
+	cancel_btn.pressed.connect(func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		dialog.queue_free())
+	button_row.add_child(cancel_btn)
+	content.add_child(button_row)
+
+	dialog.canceled.connect(func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		dialog.queue_free())
+
+	dialog.add_child(content)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
 
 func _update_burn_objective_button() -> void:
 	"""Show/hide the Burn Objective button for Scorched Earth mission."""

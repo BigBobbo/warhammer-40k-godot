@@ -1099,6 +1099,7 @@ func initialize_dispositions_11e(p1_disposition: String, p2_disposition: String)
 	_primary_state_11e = {"1": _blank_primary_state_11e(), "2": _blank_primary_state_11e()}
 	_alive_at_turn_start_11e = {}
 	_setup_relic_markers_11e()
+	_register_mission_actions_11e()
 
 	GameState.state.meta["dispositions_11e"] = player_dispositions.duplicate(true)
 	for pk in ["1", "2"]:
@@ -1128,6 +1129,16 @@ func _blank_primary_state_11e() -> Dictionary:
 		# lets a save/load phase re-entry keep the player's revision instead
 		# of re-running the auto pick over it.
 		"condemn_resolved_turn": "",
+		# Per-unit mission ACTIONS (16.01, started in the Shooting phase).
+		# When the *_started flag is set the action path is authoritative for
+		# that rule this turn (a failed action scores 0 — no fallback); when
+		# unset the positional approximation scores as before (AI/headless).
+		"sabotage_started_this_turn": false,
+		"sabotaged_this_turn": [],
+		"vanguard_started_this_turn": false,
+		"vanguard_completed_this_turn": false,
+		"intel_started_this_turn": false,
+		"intel_units_this_turn": 0,
 	}
 
 ## Extract Relic / Locate and Deny pairing: the Disruption player marks five
@@ -1189,6 +1200,12 @@ func on_turn_start_11e(player: int) -> void:
 		st["card_action_resolved_this_turn"] = false
 		st["condemn_prompt_pending"] = false
 		st["decoyed_this_turn"] = []
+		st["sabotage_started_this_turn"] = false
+		st["sabotaged_this_turn"] = []
+		st["vanguard_started_this_turn"] = false
+		st["vanguard_completed_this_turn"] = false
+		st["intel_started_this_turn"] = false
+		st["intel_units_this_turn"] = 0
 	# Punishment: auto-Condemn up to 3 enemy units in range of an objective as
 	# the backstop (real card: player's choice, incl. units that killed
 	# friendlies). A human owner can revise the picks via the Command-phase
@@ -1391,6 +1408,199 @@ func _update_condemned_left_11e(card_owner: int, turn_owner: int) -> void:
 			st["condemned_left_this_turn"] = true
 			print("MissionManager: 11e Condemned unit %s left the battlefield" % unit_id)
 			return
+
+# ============================================================
+# 11e PER-UNIT MISSION ACTIONS (16.01, started in the Shooting phase)
+# ============================================================
+# Sabotage / Vanguard Operation / Extract Intelligence are real per-unit
+# actions on the sourced cards: a unit gives up shooting to start one and
+# it completes at end of turn. Registered into ActionsManager per game;
+# when the owner USES the action, its rule scores from the action state
+# for that turn; otherwise the positional approximation stands (AI and
+# headless backstop). Secure Asset is intentionally NOT an action here —
+# its modelled hold rule already equals the action outcome. Consecrate's
+# killer-unit attribution needs per-unit kill tracking that doesn't exist
+# yet, so it stays with the end-of-turn prompt approximation.
+
+func _register_mission_actions_11e() -> void:
+	ActionsManager.unregister_actions_by_prefix("mission_")
+	if GameConstants.edition < 11:
+		return
+	for pk in ["1", "2"]:
+		var player = int(pk)
+		var card_id = player_primary_missions.get(pk, {}).get("id", "")
+		match card_id:
+			"sabotage":
+				ActionsManager.register_action({
+					"id": "mission_sabotage_p%s" % pk,
+					"name": "Sabotage",
+					"starts": "shooting",
+					"units": {},
+					"use_limit": "",
+					"completes": "end_of_turn",
+					"effect": "mission:sabotage",
+					"mission_check": "sabotage",
+					"player": player,
+					"description": "Sabotage the objective this unit is on (non-home). Completes at end of turn: 3 VP per sabotaged objective (+2 in enemy territory).",
+				})
+			"vanguard_operation":
+				ActionsManager.register_action({
+					"id": "mission_vanguard_p%s" % pk,
+					"name": "Vanguard Operation",
+					"starts": "shooting",
+					"units": {},
+					"use_limit": "once_per_turn",
+					"completes": "end_of_turn",
+					"effect": "mission:vanguard",
+					"mission_check": "vanguard",
+					"player": player,
+					"description": "Operate from a terrain area in your opponent's territory. Completes at end of turn if no enemy units are in that area: 4 VP.",
+				})
+			"gather_intel":
+				ActionsManager.register_action({
+					"id": "mission_extract_intel_p%s" % pk,
+					"name": "Extract Intelligence",
+					"starts": "shooting",
+					"units": {},
+					"use_limit": "",
+					"completes": "end_of_turn",
+					"effect": "mission:gather_intel",
+					"mission_check": "gather_intel",
+					"player": player,
+					"description": "Extract intelligence at a No Man's Land objective (from Round 2). Completes at end of turn: 7 VP per unit that completed the action.",
+				})
+	print("MissionManager: 11e mission actions registered for the disposition cards")
+
+## Contextual eligibility for the mission actions (ActionsManager gate).
+func can_start_mission_action_11e(check_id: String, unit_id: String, player: int) -> bool:
+	if GameConstants.edition < 11:
+		return false
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	match check_id:
+		"sabotage":
+			var obj_id = _nearest_objective_in_range_11e(unit_id, control_radius, "non_home", player)
+			return obj_id != ""
+		"vanguard":
+			return _unit_terrain_area_in_enemy_territory_11e(unit_id, player) != ""
+		"gather_intel":
+			if GameState.get_battle_round() < 2:
+				return false
+			var st = _primary_state_11e.get(str(player), {})
+			var obj_id = _nearest_objective_in_range_11e(unit_id, control_radius, "nml", player)
+			return obj_id != "" and not obj_id in st.get("intel_tokens", [])
+		_:
+			return false
+
+## ShootingPhase hook: a mission action was STARTED — from now the action
+## path is authoritative for that rule this turn (a failed action scores 0).
+func on_mission_action_started_11e(action_id: String, unit_id: String, player: int) -> void:
+	var st = _primary_state_11e.get(str(player), {})
+	if st.is_empty():
+		return
+	var def = ActionsManager.get_action(action_id)
+	match str(def.get("effect", "")):
+		"mission:sabotage":
+			st["sabotage_started_this_turn"] = true
+		"mission:vanguard":
+			st["vanguard_started_this_turn"] = true
+		"mission:gather_intel":
+			st["intel_started_this_turn"] = true
+			# The action IS this turn's Extract Intelligence choice — the
+			# end-of-turn prompt/auto placement stands down.
+			st["card_action_resolved_this_turn"] = true
+	print("MissionManager: 11e mission action %s started by %s (P%d)" % [action_id, unit_id, player])
+
+## PhaseManager hook: a mission action COMPLETED at end of turn (unit did
+## not move, is not battle-shocked). Resolve its target from the unit's
+## position now and write the scoring state.
+func on_mission_action_completed_11e(unit_id: String, effect: String) -> void:
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var player = int(unit.get("owner", 0))
+	var st = _primary_state_11e.get(str(player), {})
+	if st.is_empty():
+		return
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	match effect:
+		"mission:sabotage":
+			var obj_id = _nearest_objective_in_range_11e(unit_id, control_radius, "non_home", player)
+			if obj_id != "" and not obj_id in st.get("sabotaged_this_turn", []):
+				st["sabotaged_this_turn"].append(obj_id)
+				print("MissionManager: 11e Sabotage completed on %s by %s (P%d)" % [obj_id, unit_id, player])
+		"mission:vanguard":
+			var fid = _unit_terrain_area_in_enemy_territory_11e(unit_id, player)
+			if fid != "":
+				var tm = get_node_or_null("/root/TerrainManager")
+				var enemy_inside = false
+				if tm != null:
+					for feature in tm.terrain_features:
+						if feature.get("id", "") == fid:
+							enemy_inside = _player_model_in_terrain_11e(3 - player, feature)
+							break
+				if not enemy_inside:
+					st["vanguard_completed_this_turn"] = true
+					print("MissionManager: 11e Vanguard Operation completed in %s by %s (P%d)" % [fid, unit_id, player])
+		"mission:gather_intel":
+			var obj_id = _nearest_objective_in_range_11e(unit_id, control_radius, "nml", player)
+			if obj_id != "":
+				if not obj_id in st.get("intel_tokens", []):
+					st["intel_tokens"].append(obj_id)
+				st["intel_units_this_turn"] = int(st.get("intel_units_this_turn", 0)) + 1
+				print("MissionManager: 11e Extract Intelligence completed at %s by %s (P%d)" % [obj_id, unit_id, player])
+	refresh_card_action_visuals_11e()
+
+## Nearest objective within radius of any of the unit's models. Filters:
+## "non_home" (not the acting player's home) or "nml" (No Man's Land only).
+func _nearest_objective_in_range_11e(unit_id: String, radius_px: float, obj_filter: String, player: int) -> String:
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var best_id = ""
+	var best_dist = INF
+	for obj in GameState.state.board.get("objectives", []):
+		var obj_id = obj.get("id", "")
+		if obj_filter == "non_home" and _is_home_objective_11e(obj_id, player):
+			continue
+		if obj_filter == "nml" and obj.get("zone", "") != "no_mans_land":
+			continue
+		var obj_pos = obj.get("position")
+		if obj_pos is Dictionary:
+			obj_pos = Vector2(obj_pos.x, obj_pos.y)
+		for model in unit.get("models", []):
+			if not model.get("alive", true) or model.get("position") == null:
+				continue
+			var d = Measurement.model_edge_to_point_distance_px(model, obj_pos)
+			if d <= radius_px and d < best_dist:
+				best_dist = d
+				best_id = obj_id
+	return best_id
+
+## The terrain feature (id) in enemy territory that contains one of the
+## unit's models, or "" — Vanguard Operation eligibility/completion.
+func _unit_terrain_area_in_enemy_territory_11e(unit_id: String, player: int) -> String:
+	var tm = get_node_or_null("/root/TerrainManager")
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if tm == null or secondary_mgr == null:
+		return ""
+	var enemy_zone = secondary_mgr._get_deployment_zone_polygon(3 - player)
+	if enemy_zone.is_empty():
+		return ""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	for feature in tm.terrain_features:
+		var fpos = feature.get("position", Vector2.ZERO)
+		if fpos is Dictionary:
+			fpos = Vector2(fpos.get("x", 0), fpos.get("y", 0))
+		if not Geometry2D.is_point_in_polygon(fpos, enemy_zone):
+			continue
+		var polygon = feature.get("polygon", PackedVector2Array())
+		if polygon.is_empty():
+			continue
+		for model in unit.get("models", []):
+			if not model.get("alive", true) or model.get("position") == null:
+				continue
+			var pos = model.get("position")
+			if pos is Dictionary:
+				pos = Vector2(pos.x, pos.y)
+			if Geometry2D.is_point_in_polygon(pos, polygon):
+				return str(feature.get("id", ""))
+	return ""
 
 # ============================================================
 # 11e CARD-ACTION STATE VISIBILITY (board badges + HUD summaries)
@@ -1921,8 +2131,18 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 		"condemned_left":
 			return rule.get("vp", 0) if _primary_state_11e.get(str(player), {}).get("condemned_left_this_turn", false) else 0
 		"sabotage_per_objective":
-			# Auto-completed Sabotage on each controlled non-home objective
+			var sab_st = _primary_state_11e.get(str(player), {})
 			var total = 0
+			if sab_st.get("sabotage_started_this_turn", false):
+				# Player used the real per-unit action: only objectives a unit
+				# completed Sabotage on score (a failed action scores 0).
+				for obj_id in sab_st.get("sabotaged_this_turn", []):
+					total += int(rule.get("vp_per", 3))
+					if _objective_in_enemy_territory_11e(obj_id, player):
+						total += int(rule.get("enemy_territory_bonus", 2))
+				return total
+			# Approximation backstop: auto-completed Sabotage on each
+			# controlled non-home objective
 			for obj_id in _get_controlled_objectives(player):
 				if _is_home_objective_11e(obj_id, player):
 					continue
@@ -1942,6 +2162,10 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 				return 0
 			return rule.get("vp", 0) if _destroyed_enemy_near_objective_11e(player, central4) else 0
 		"vanguard_terrain_area":
+			var vg_st = _primary_state_11e.get(str(player), {})
+			if vg_st.get("vanguard_started_this_turn", false):
+				# Player used the real per-unit action this turn
+				return rule.get("vp", 0) if vg_st.get("vanguard_completed_this_turn", false) else 0
 			return rule.get("vp", 0) if _vanguard_area_held_11e(player) else 0
 		"sensor_sweep_vp":
 			return rule.get("vp", 0) if _primary_state_11e.get(str(player), {}).get("sensor_swept_this_turn", false) else 0
@@ -1961,7 +2185,11 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 			var opp_st = _primary_state_11e.get(str(3 - player), {})
 			return rule.get("vp", 0) if opp_st.get("decoyed", []).is_empty() else 0
 		"intel_tokens_placed":
-			return int(_primary_state_11e.get(str(player), {}).get("intel_placed_this_turn", 0)) * int(rule.get("vp_per", 7))
+			var gi_st = _primary_state_11e.get(str(player), {})
+			if gi_st.get("intel_started_this_turn", false):
+				# Real card: 7 VP per UNIT that completed Extract Intelligence
+				return int(gi_st.get("intel_units_this_turn", 0)) * int(rule.get("vp_per", 7))
+			return int(gi_st.get("intel_placed_this_turn", 0)) * int(rule.get("vp_per", 7))
 		"trapped_score":
 			var tm2 = get_node_or_null("/root/TerrainManager")
 			var total3 = 0

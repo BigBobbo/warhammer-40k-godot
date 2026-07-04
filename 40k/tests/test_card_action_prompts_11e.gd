@@ -321,6 +321,99 @@ func _run_tests():
 		mgr._relic_setup_prompt_pending == true)
 	tm.terrain_features = saved_features
 
+	print("\n-- Per-unit mission actions: Sabotage / Vanguard / Extract Intel --")
+	var pm = root.get_node_or_null("PhaseManager")
+	_check("PhaseManager present", pm != null)
+	# Sabotage (PA vs PA): action path becomes authoritative when used
+	mgr.initialize_dispositions_11e("priority_assets", "priority_assets")
+	_reset_vp()
+	_clear_control()
+	gs.state.meta["battle_round"] = 2
+	gs.state.meta["active_player"] = 1
+	var central_obj = mgr.get_objective_ids_by_designation("central")[0]
+	var expansion_obj = mgr.get_objective_ids_by_designation("expansion")[0]
+	mgr.objective_control_state[expansion_obj] = 1
+	mgr.objective_control_state[central_obj] = 1
+	_spawn_unit("U_SAB", 1, _obj_position(expansion_obj))
+	var startable = ActionsManager.get_startable_actions("U_SAB", gs.create_snapshot(), 1, 2)
+	var startable_ids = []
+	for s in startable:
+		startable_ids.append(str(s.get("id", "")))
+	_check("Sabotage action offered to the card owner's eligible unit",
+		"mission_sabotage_p1" in startable_ids, str(startable_ids))
+	_check("opponent's card action not offered",
+		not "mission_sabotage_p2" in startable_ids, str(startable_ids))
+	var sres = ActionsManager.start_action("U_SAB", "mission_sabotage_p1", gs.create_snapshot(), 1, 2)
+	_check("Sabotage action starts", sres.get("success", false), str(sres))
+	pm.apply_state_changes(sres.get("changes", []))
+	mgr.on_mission_action_started_11e("mission_sabotage_p1", "U_SAB", 1)
+	_check("started flag set", mgr._primary_state_11e["1"]["sabotage_started_this_turn"] == true)
+	pm._complete_actions_11e(1)
+	_check("completion records the acted objective",
+		mgr._primary_state_11e["1"]["sabotaged_this_turn"] == [expansion_obj],
+		str(mgr._primary_state_11e["1"]["sabotaged_this_turn"]))
+	mgr.score_primary_eot_11e(1)
+	# Action path: only the acted expansion objective scores (3 VP, no
+	# territory bonus) even though central is also controlled — the
+	# approximation would have scored 3 + (3+2 central) = 8.
+	_check("action path scores ONLY the acted objective",
+		int(gs.state.players["1"]["primary_vp"]) == 3, str(gs.state.players["1"]["primary_vp"]))
+	gs.state.units.erase("U_SAB")
+
+	# No action started -> approximation backstop unchanged
+	mgr.initialize_dispositions_11e("priority_assets", "priority_assets")
+	_reset_vp()
+	_clear_control()
+	mgr.objective_control_state[nml] = 1
+	mgr.score_primary_eot_11e(1)
+	_check("without an action the approximation still scores",
+		int(gs.state.players["1"]["primary_vp"]) >= 3, str(gs.state.players["1"]["primary_vp"]))
+
+	# Extract Intelligence (gather_intel): per-UNIT scoring + prompt stands down
+	mgr.initialize_dispositions_11e("reconnaissance", "reconnaissance")
+	_reset_vp()
+	_clear_control()
+	gs.state.meta["battle_round"] = 2
+	_spawn_unit("U_GI1", 1, _obj_position(nml))
+	var gi_start = ActionsManager.get_startable_actions("U_GI1", gs.create_snapshot(), 1, 2)
+	var gi_ids = []
+	for s in gi_start:
+		gi_ids.append(str(s.get("id", "")))
+	_check("Extract Intelligence offered near an NML objective",
+		"mission_extract_intel_p1" in gi_ids, str(gi_ids))
+	var gres = ActionsManager.start_action("U_GI1", "mission_extract_intel_p1", gs.create_snapshot(), 1, 2)
+	pm.apply_state_changes(gres.get("changes", []))
+	mgr.on_mission_action_started_11e("mission_extract_intel_p1", "U_GI1", 1)
+	_check("intel action suppresses the end-of-turn prompt",
+		mgr.get_pending_card_action_11e(1).is_empty())
+	pm._complete_actions_11e(1)
+	mgr.score_primary_eot_11e(1)
+	_check("7 VP per completing UNIT",
+		int(gs.state.players["1"]["primary_vp"]) == 7, str(gs.state.players["1"]["primary_vp"]))
+	_check("intel token recorded on the objective",
+		nml in mgr._primary_state_11e["1"]["intel_tokens"],
+		str(mgr._primary_state_11e["1"]["intel_tokens"]))
+	gs.state.units.erase("U_GI1")
+
+	# A moved unit fails its action (16.01 Completing) and scores nothing
+	mgr.initialize_dispositions_11e("priority_assets", "priority_assets")
+	_reset_vp()
+	_clear_control()
+	mgr.objective_control_state[nml] = 1
+	_spawn_unit("U_SAB2", 1, _obj_position(nml))
+	var s2 = ActionsManager.start_action("U_SAB2", "mission_sabotage_p1", gs.create_snapshot(), 1, 2)
+	pm.apply_state_changes(s2.get("changes", []))
+	mgr.on_mission_action_started_11e("mission_sabotage_p1", "U_SAB2", 1)
+	var cancel = ActionsManager.on_unit_moved("U_SAB2", gs.state.units["U_SAB2"], "normal")
+	pm.apply_state_changes(cancel)
+	pm._complete_actions_11e(1)
+	mgr.score_primary_eot_11e(1)
+	_check("a cancelled action scores 0 (no fallback to the approximation)",
+		int(gs.state.players["1"]["primary_vp"]) == 0
+		and mgr._primary_state_11e["1"]["sabotaged_this_turn"].is_empty(),
+		str(gs.state.players["1"]["primary_vp"]))
+	gs.state.units.erase("U_SAB2")
+
 	print("\n-- save/load: resolved flag round-trips --")
 	mgr.initialize_dispositions_11e("reconnaissance", "purge_the_foe")
 	_clear_control()

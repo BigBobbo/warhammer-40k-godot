@@ -425,6 +425,10 @@ func _complete_actions_11e(_player: int) -> void:
 		apply_state_changes(result.changes)
 	for c in result.completed:
 		print("PhaseManager: [11e ACTIONS] %s completed action '%s' (effect: %s)" % [c.unit_id, c.action_id, str(c.effect)])
+		# Mission-card actions (Sabotage / Vanguard Operation / Extract
+		# Intelligence) resolve their scoring state in MissionManager.
+		if str(c.effect).begins_with("mission:") and MissionManager.has_method("on_mission_action_completed_11e"):
+			MissionManager.on_mission_action_completed_11e(c.unit_id, str(c.effect))
 
 
 ## ISS-042: 11e end-of-turn coherency enforcement. Auto-removes detected

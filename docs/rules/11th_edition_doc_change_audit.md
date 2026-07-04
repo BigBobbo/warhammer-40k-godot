@@ -235,7 +235,16 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
    Command-phase `RelicSetupDialog` revision window that closes at END_COMMAND or the first Sensor Sweep
    (`iss064i`; headless pins in `test_card_action_prompts_11e`, now 58). Still open: disposition is a menu pick
    rather than detachment-derived; 6-objective Inescapable Dominion maps aren't modelled; Vital Link stays fully
-   automatic (its Operation Marker has no target choice). *(Ref: doc Tab 10 + appendix.)*
+   automatic (its Operation Marker has no target choice). **Update 2026-07-04 (per-unit actions):** Sabotage,
+   Vanguard Operation and Extract Intelligence are now REAL 16.01 per-unit actions — registered into
+   ActionsManager per game for the owning player, started from the Shooting phase Start Action button (an
+   ActionChoiceDialog picks between them and Hold Position), completing at end of turn via the ISS-038 hook.
+   When the owner uses the action its rule scores from the action state (Extract Intelligence at the sourced
+   7 VP per completing UNIT; a moved/failed action scores 0); otherwise the positional approximation remains the
+   AI/headless backstop. Windowed `iss064j_mission_action_sabotage_11e` drives the whole flow with real clicks
+   (headless pins in `test_card_action_prompts_11e`, 71). Secure Asset is deliberately not an action (its
+   modelled hold rule already equals the outcome); Consecrate's killer-unit attribution still needs per-unit
+   kill tracking. *(Ref: doc Tab 10 + appendix.)*
 2. **[data] 11e secondary mission deck.** *(Done 2026-07-02, approximations flagged:)* the GDM 2026 deck is authored
    from `docs/rules/11th_edition_missions_gdm2026.md` — 18 cards incl. the Fixed four, draw-2-per-turn with no hand
    limit, the fixed-eligibility restriction, and the 45-total/15-per-turn caps. Cards whose full text was unpublished
