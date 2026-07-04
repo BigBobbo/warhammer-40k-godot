@@ -135,12 +135,12 @@ func test_get_unit_pistol_weapons_gretchin_empty():
 # Pistol + Other Keywords Tests
 # ==========================================
 
-func test_slugga_has_both_pistol_and_assault():
-	"""Test that slugga has both PISTOL and ASSAULT keywords"""
+func test_slugga_is_pistol_without_assault():
+	"""11e: slugga is a Pistol; the 10e extra Assault keyword was dropped"""
 	var is_pistol = rules_engine.is_pistol_weapon("slugga")
 	var is_assault = rules_engine.is_assault_weapon("slugga")
 	assert_true(is_pistol, "slugga should be a Pistol weapon")
-	assert_true(is_assault, "slugga should also be an Assault weapon")
+	assert_false(is_assault, "slugga should NOT be an Assault weapon in 11e")
 
 # ==========================================
 # Pistol Mutual Exclusivity Tests (T2-5)
