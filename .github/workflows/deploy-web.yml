@@ -10,6 +10,13 @@ on:
       - '.github/workflows/deploy-web.yml'
   workflow_dispatch:  # Allow manual trigger
 
+# Only one web deploy at a time. A newer push cancels an in-progress run so we
+# never have two butler pushes racing the same itch.io channel (a hung push
+# would otherwise sit until GitHub's job timeout and block the channel).
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
 env:
   GODOT_VERSION: "4.4.1"
   EXPORT_NAME: "Warhammer40K"
@@ -121,7 +128,10 @@ jobs:
           delay=30
           for i in $(seq 1 "$attempts"); do
             echo "::group::butler push attempt $i/$attempts"
-            out="$(./butler push web-build "$target" 2>&1)"
+            # Bound each push: butler can hang waiting on itch (a stuck
+            # channel), and without a cap that would freeze the whole job.
+            # SIGTERM at 8m, SIGKILL 30s later.
+            out="$(timeout -k 30 480 ./butler push web-build "$target" 2>&1)"
             status=$?
             echo "$out"
             echo "::endgroup::"
@@ -129,8 +139,12 @@ jobs:
               echo "butler push succeeded on attempt $i"
               exit 0
             fi
-            if echo "$out" | grep -q "still processing"; then
-              echo "itch.io is still processing the previous build; retrying in ${delay}s…"
+            if [ "$status" -eq 124 ] || echo "$out" | grep -q "still processing"; then
+              if [ "$status" -eq 124 ]; then
+                echo "butler push timed out (itch.io likely has a build stuck processing); retrying in ${delay}s…"
+              else
+                echo "itch.io is still processing the previous build; retrying in ${delay}s…"
+              fi
               sleep "$delay"
               delay=$((delay * 2))
               continue
@@ -138,7 +152,7 @@ jobs:
             echo "butler push failed with a non-transient error (see output above)"
             exit "$status"
           done
-          echo "butler push still failing after $attempts attempts"
+          echo "::error::butler push still failing after $attempts attempts — itch.io's html5 channel likely has a build stuck in 'processing'. Check the itch.io dashboard for the warhammer40k-simulator project and clear/cancel any stuck build, then re-run this workflow."
           exit 1
 
       - name: Deployment Summary
