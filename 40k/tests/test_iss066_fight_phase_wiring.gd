@@ -83,10 +83,12 @@ func _run_tests():
 	_check("engaged unit -> consolidation mode 'ongoing'",
 		consol.select_mode("U_A", gs.state).mode == "ongoing")
 	# 12.07: consolidation now lives in the GLOBAL end-of-phase Consolidate
-	# step — enter it (all fights resolved -> END_FIGHT) before validating
-	# the 12.08 movement rules.
+	# step — finish the (also global) Pile In step, then enter it (all
+	# fights resolved -> END_FIGHT) before validating the 12.08 rules.
 	fp.active_fighter_id = ""
 	fp.pending_attacks.clear()
+	fp.execute_action({"type": "END_PILE_IN", "player": 1})
+	fp.execute_action({"type": "END_PILE_IN", "player": 2})
 	fp.sequencer_11e.mark_fought("U_A")
 	fp.sequencer_11e.mark_fought("U_B")
 	fp.execute_action({"type": "END_FIGHT", "player": 1})

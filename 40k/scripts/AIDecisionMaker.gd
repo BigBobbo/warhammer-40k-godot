@@ -12244,6 +12244,17 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 			"_ai_description": "End consolidation (Player %d)" % ec.get("player", player)
 		}
 
+	# Step 5c (11e 12.02): all our units piled in (or none eligible) — end
+	# our half of the global Pile In step (the PILE_IN offers themselves
+	# are consumed by step 3's PILE_IN branch above)
+	if action_types.has("END_PILE_IN"):
+		var ep = action_types["END_PILE_IN"][0]
+		return {
+			"type": "END_PILE_IN",
+			"player": ep.get("player", player),
+			"_ai_description": "End pile-in (Player %d)" % ep.get("player", player)
+		}
+
 	# Step 6: Sweeping Advance if available
 	if action_types.has("SWEEPING_ADVANCE"):
 		var sa_action = action_types["SWEEPING_ADVANCE"][0]

@@ -450,6 +450,9 @@ func set_phase(phase: BasePhase) -> void:
 		# 11e 12.07: global Consolidate step — player picks units to consolidate
 		if phase.has_signal("consolidation_step_required") and not phase.consolidation_step_required.is_connected(_on_consolidation_step_required):
 			phase.consolidation_step_required.connect(_on_consolidation_step_required)
+		# 11e 12.02: global Pile In step — player picks units to pile in
+		if phase.has_signal("pile_in_step_required") and not phase.pile_in_step_required.is_connected(_on_pile_in_step_required):
+			phase.pile_in_step_required.connect(_on_pile_in_step_required)
 		if phase.has_signal("subphase_transition") and not phase.subphase_transition.is_connected(_on_subphase_transition):
 			phase.subphase_transition.connect(_on_subphase_transition)
 		if phase.has_signal("epic_challenge_opportunity") and not phase.epic_challenge_opportunity.is_connected(_on_epic_challenge_opportunity):
@@ -486,6 +489,14 @@ func set_phase(phase: BasePhase) -> void:
 				_on_fight_selection_required(pending_data)
 			else:
 				print("DEBUG: T3-13 - No pending fight selection data (phase may not have entered yet)")
+
+		# 11e 12.02: the Pile In step starts during phase entry, before this
+		# controller connects — pull the missed step dialog (T3-13 pattern)
+		if phase.has_method("get_pending_pile_in_step_data"):
+			var pending_pile_in = phase.get_pending_pile_in_step_data()
+			if not pending_pile_in.is_empty():
+				print("DEBUG: Retrieved pending pile-in step data after signal connection")
+				_on_pile_in_step_required(pending_pile_in)
 		
 		_refresh_fight_sequence()
 		
@@ -1805,11 +1816,17 @@ func _on_pile_in_confirmed(movements: Dictionary, unit_id: String) -> void:
 
 	print("[FightController] Converted movements: ", converted_movements)
 
+	# current_fighter_owner can be stale (-1) on re-request paths — the
+	# unit's owner is always the right submitting player for PILE_IN
+	var pile_in_player = current_fighter_owner
+	if pile_in_player < 0 and current_phase:
+		pile_in_player = int(current_phase.get_unit(unit_id).get("owner", GameState.get_active_player()))
+
 	var action = {
 		"type": "PILE_IN",
 		"unit_id": unit_id,
 		"movements": converted_movements,
-		"player": current_fighter_owner
+		"player": pile_in_player
 	}
 	emit_signal("fight_action_requested", action)
 
@@ -1958,6 +1975,69 @@ func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
 func _on_consolidate_skipped(unit_id: String) -> void:
 	"""Submit CONSOLIDATE action with no movements"""
 	_on_consolidate_confirmed({}, unit_id)
+
+# ============================================================================
+# 11e 12.02: GLOBAL PILE IN STEP UI
+# ============================================================================
+
+func _on_pile_in_step_required(data: Dictionary) -> void:
+	"""Show the Pile In-step unit picker for the piling-in player. The fight
+	phase opens here at 11e: each player in turn piles in the eligible units
+	they choose (optional per unit) or ends their half."""
+	var piling_in_player = data.get("piling_in_player", 0)
+	print("[FightController] Pile In step: player %d, %d eligible unit(s)" % [
+		piling_in_player, data.get("eligible_units", {}).size()])
+
+	# Skip dialog for AI players — they submit PILE_IN/END_PILE_IN from
+	# get_available_actions directly
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(piling_in_player):
+		print("[FightController] Skipping pile-in step dialog for AI player %d" % piling_in_player)
+		return
+
+	# Multiplayer: only the piling-in player's client gets the picker
+	if NetworkManager.is_networked() and NetworkManager.get_local_player() != piling_in_player:
+		print("[FightController] Not local player's pile-in half — no dialog")
+		return
+
+	# Close any stale picker (re-emitted after each pile-in). Release the
+	# stable node name NOW — queue_free is deferred, and the replacement
+	# dialog is added this frame under the same name.
+	for child in get_tree().root.get_children():
+		if child is AcceptDialog and child.get_script() == load("res://dialogs/PileInStepDialog.gd"):
+			child.name = "StalePileInStepDialog"
+			child.queue_free()
+
+	var dialog_script = load("res://dialogs/PileInStepDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load PileInStepDialog.gd")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.name = "PileInStepDialog"
+	dialog.setup(data, current_phase)
+	dialog.pile_in_unit_chosen.connect(_on_pile_in_step_unit_chosen)
+	dialog.end_pile_in.connect(_on_end_pile_in)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _on_pile_in_step_unit_chosen(unit_id: String) -> void:
+	"""Open the PileInDialog + interactive movement for the chosen unit"""
+	var unit = GameState.get_unit(unit_id)
+	# The pile-in confirm path reads these for action.player / AI checks
+	current_fighter_id = unit_id
+	current_fighter_owner = int(unit.get("owner", GameState.get_active_player()))
+	_on_pile_in_required(unit_id, 3.0)
+
+func _on_end_pile_in(player: int) -> void:
+	"""Current player passes — their pile-in half is over"""
+	print("[FightController] Player %d ends their pile-in half" % player)
+	var action = {
+		"type": "END_PILE_IN",
+		"player": player
+	}
+	emit_signal("fight_action_requested", action)
 
 # ============================================================================
 # 11e 12.07: GLOBAL CONSOLIDATE STEP UI

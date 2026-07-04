@@ -11,7 +11,7 @@
   "rng_seed": 42,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "ISS-050 step 2: at edition 11 FightPhase defers selection to the FightSequencer (12.04). (1) Alternation starts with the ACTIVE player (10e started with the defender); (2) after a fight resolves, the sequencer picks the next player; (3) selecting out of turn is refused with the 12.04 reason; (4) the pg-39 case: a unit that charged but is no longer engaged IS selectable (overrun, 12.06) \u2014 the 10e engagement check would refuse it.",
+  "description": "ISS-050 step 2: at edition 11 FightPhase defers selection to the FightSequencer (12.04). (1) Alternation starts with the ACTIVE player (10e started with the defender); (2) after a fight resolves, the sequencer picks the next player; (3) selecting out of turn is refused with the 12.04 reason; (4) the pg-39 case: a unit that charged but is no longer engaged IS selectable (overrun, 12.06) — the 10e engagement check would refuse it. (Updated for the 12.02 global Pile In step: the phase now opens with it, so both halves are passed before the first SELECT_FIGHTER.)",
   "steps": [
     {
       "act": "wait_seconds",
@@ -35,6 +35,35 @@
     {
       "act": "screenshot",
       "label": "01_fight_phase_active_player_picks_first"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pile_in_step_11e",
+      "equals": 1
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_PILE_IN",
+        "player": 1
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_PILE_IN",
+        "player": 2
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
     },
     {
       "act": "dispatch_action",

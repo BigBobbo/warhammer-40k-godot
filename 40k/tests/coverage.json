@@ -747,11 +747,12 @@
     },
     {
       "id": "phases.FightPhase.pile_in_11e",
-      "description": "Windowed scenario coverage for phases.FightPhase.pile_in_11e (verified by iss066_pile_in_consolidate_11e).",
+      "description": "Windowed scenario coverage for phases.FightPhase.pile_in_11e (verified by iss066_pile_in_consolidate_11e). Since 2026-07-04 pile-in is the GLOBAL step opening the fight phase (12.02) \u2014 full player path verified by global_consolidation_step_11e.",
       "scenarios": [
-        "iss066_pile_in_consolidate_11e"
+        "iss066_pile_in_consolidate_11e",
+        "global_consolidation_step_11e"
       ],
-      "last_verified_commit": "20774020",
+      "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
@@ -766,11 +767,12 @@
     },
     {
       "id": "movetypes.PileInMove",
-      "description": "Windowed scenario coverage for movetypes.PileInMove (verified by iss066_pile_in_consolidate_11e).",
+      "description": "Windowed scenario coverage for movetypes.PileInMove (verified by iss066_pile_in_consolidate_11e). Since 2026-07-04 pile-in is the GLOBAL step opening the fight phase (12.02) \u2014 full player path verified by global_consolidation_step_11e.",
       "scenarios": [
-        "iss066_pile_in_consolidate_11e"
+        "iss066_pile_in_consolidate_11e",
+        "global_consolidation_step_11e"
       ],
-      "last_verified_commit": "20774020",
+      "last_verified_commit": "HEAD",
       "status": "covered"
     },
     {
@@ -2003,6 +2005,25 @@
     {
       "id": "scenario_runner.drag_board",
       "description": "ScenarioRunner drag_board primitive: real press/motion/release input events over board coordinates (the player path for fight-phase drag-to-move).",
+      "scenarios": [
+        "global_consolidation_step_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.pile_in_step_11e",
+      "description": "11e 12.02-12.03 GLOBAL Pile In step: the fight phase opens with it; active player's half first, one optional move per eligible unit (engaged/charged), SELECT_FIGHTER gated until both halves pass; a step pile-in that engages a new enemy makes it fight-eligible. Overrun fights (12.06) get the only mid-activation pile-in.",
+      "scenarios": [
+        "global_consolidation_step_11e"
+      ],
+      "fidelity": "RULES",
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.PileInStepDialog",
+      "description": "Pile In-step unit picker: per-unit PileIn_<id> buttons with engaged/charged hints + End Pile In button; drives the PileInDialog drag flow.",
       "scenarios": [
         "global_consolidation_step_11e"
       ],

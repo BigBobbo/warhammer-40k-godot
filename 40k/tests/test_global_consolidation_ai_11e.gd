@@ -61,6 +61,34 @@ func _run_tests():
 	var fp = pm.get_current_phase_instance()
 	fp.phase_completed.connect(func(): _phase_completed = true)
 
+	# The phase opens with the global Pile In step (12.02) — the AI ladder
+	# plays it too (PILE_IN per offered unit with the production
+	# empty-retry fallback, then END_PILE_IN or auto-pass).
+	print("-- AI plays the Pile In step --")
+	var pi_steps := 0
+	while fp.pile_in_step_11e == fp.PileInStep11e.ACTIVE and pi_steps < 10:
+		var pi_actions = fp.get_available_actions()
+		if pi_actions.is_empty():
+			break
+		var pi_decision = AIDecisionMaker._decide_fight(gs.state, pi_actions, fp.current_selecting_player)
+		if pi_decision.is_empty():
+			_check("AI produced a pile-in decision for the offered actions", false, str(pi_actions))
+			break
+		print("  AI (P%d) -> %s %s" % [fp.current_selecting_player, pi_decision.get("type", "?"), pi_decision.get("unit_id", "")])
+		var pi_res = fp.execute_action(pi_decision)
+		if not pi_res.get("success", false) and pi_decision.get("type", "") == "PILE_IN" \
+				and not pi_decision.get("movements", {}).is_empty():
+			print("  AI (P%d) -> PILE_IN %s retry with no movement (was: %s)" % [
+				fp.current_selecting_player, pi_decision.get("unit_id", ""), str(pi_res.get("errors", []))])
+			pi_decision["movements"] = {}
+			pi_res = fp.execute_action(pi_decision)
+		_check("AI pile-in action %s succeeded" % pi_decision.get("type", "?"), pi_res.get("success", false), str(pi_res))
+		if not pi_res.get("success", false):
+			break
+		pi_steps += 1
+	_check("AI played the Pile In step to completion",
+		fp.pile_in_step_11e == fp.PileInStep11e.DONE, "pi_steps=%d" % pi_steps)
+
 	# Fight step resolved (attack-flow AI coverage lives elsewhere) —
 	# enter the Consolidate step the way the AI does (END_FIGHT from the
 	# offered actions).

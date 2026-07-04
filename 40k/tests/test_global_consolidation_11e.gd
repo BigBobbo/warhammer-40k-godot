@@ -96,6 +96,13 @@ func _run_tests():
 	pm.transition_to_phase(10)  # FIGHT
 	var fp = pm.get_current_phase_instance()
 
+	# The phase now OPENS with the global Pile In step (12.02) — pass both
+	# halves so the Fight step begins (pile-in coverage lives in
+	# test_global_pile_in_11e).
+	fp.execute_action({"type": "END_PILE_IN", "player": 1})
+	fp.execute_action({"type": "END_PILE_IN", "player": 2})
+	_check("Pile In step passed — Fight step running", fp.pile_in_step_11e == fp.PileInStep11e.DONE)
+
 	print("-- 12.08 eligibility stamps (was_eligible_to_fight) --")
 	var u = gs.state["units"]
 	_check("engaged unit U_A stamped", u["U_A"].get("flags", {}).get("was_eligible_to_fight", false))

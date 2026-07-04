@@ -38,6 +38,7 @@ signal saves_required(save_data_list: Array)  # P0-58: Interactive wound allocat
 signal sweeping_advance_available(unit_id: String, player: int, in_engagement: bool, move_distance: float)  # Sweeping Advance opportunity
 signal acrobatic_escape_available(unit_id: String, player: int, move_distance: float)  # Acrobatic Escape opportunity (Callidus Assassin)
 signal consolidation_step_required(data: Dictionary)  # 11e 12.07: global Consolidate step — a player must consolidate/pass
+signal pile_in_step_required(data: Dictionary)  # 11e 12.02: global Pile In step — a player must pile in/pass
 
 # Fight state tracking
 var active_fighter_id: String = ""
@@ -115,6 +116,22 @@ var consolidating_player_11e: int = 0                # whose half of the step it
 var consolidation_done_players_11e: Dictionary = {}  # player(int) -> true once they passed
 var units_that_consolidated_11e: Dictionary = {}     # unit_id -> true (12.07: one move per unit)
 
+# 11e 12.02-12.03: the global PILE IN step at the START of the fight phase
+# (edition >= 11 only). ACTIVE from phase entry while each player in turn
+# (active player first) makes pile-in moves with the eligible units they
+# choose (engaged / charged this turn; one move per unit, optional per
+# unit); DONE when both halves finish, at which point the Fight step's
+# selection begins. During the Fight step only an OVERRUN fight (12.06)
+# gets an additional pile-in move — tracked by overrun_pile_in_unit_11e.
+enum PileInStep11e { NOT_STARTED, ACTIVE, DONE }
+var pile_in_step_11e: int = PileInStep11e.NOT_STARTED
+var piling_in_player_11e: int = 0                # whose half of the step it is
+var pile_in_done_players_11e: Dictionary = {}    # player(int) -> true once they passed
+var overrun_pile_in_unit_11e: String = ""        # unit granted the 12.06 additional pile-in
+# T3-13-style pending data so the controller can pull the step dialog it
+# missed while connecting (the step starts during phase entry).
+var _pending_pile_in_step_data: Dictionary = {}
+
 func _init():
 	phase_type = GameStateData.Phase.FIGHT
 
@@ -143,6 +160,11 @@ func _on_phase_enter() -> void:
 	consolidating_player_11e = 0
 	consolidation_done_players_11e.clear()
 	units_that_consolidated_11e.clear()
+	pile_in_step_11e = PileInStep11e.NOT_STARTED
+	piling_in_player_11e = 0
+	pile_in_done_players_11e.clear()
+	overrun_pile_in_unit_11e = ""
+	_pending_pile_in_step_data = {}
 	# Clear stale eligibility stamps from a previous fight phase (e.g. a
 	# loaded save) before this phase re-stamps them.
 	_clear_fight_eligibility_stamps_11e()
@@ -292,8 +314,14 @@ func _initialize_fight_sequence() -> void:
 	emit_signal("fight_sequence_updated")
 	emit_signal("fight_sequence_updated", fight_sequence)  # Compatibility signal
 
-	# Emit fight selection required signal to show dialog
-	_emit_fight_selection_required()
+	# 11e 12.02: the fight phase OPENS with the global Pile In step — both
+	# players pile in their eligible units (active player first) before any
+	# unit is selected to fight. At 10e, fight selection starts immediately.
+	if GameConstants.edition >= 11:
+		_begin_pile_in_step_11e()
+	else:
+		# Emit fight selection required signal to show dialog
+		_emit_fight_selection_required()
 
 func _check_for_combats() -> void:
 	if fight_sequence.size() == 0:
@@ -489,6 +517,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_end_fight(action)
 		"END_CONSOLIDATION":
 			return _validate_end_consolidation(action)
+		"END_PILE_IN":
+			return _validate_end_pile_in(action)
 		"SWEEPING_ADVANCE":
 			return _validate_sweeping_advance(action)
 		"DECLINE_SWEEPING_ADVANCE":
@@ -558,6 +588,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_end_fight(action)
 		"END_CONSOLIDATION":
 			return _process_end_consolidation(action)
+		"END_PILE_IN":
+			return _process_end_pile_in(action)
 		"SWEEPING_ADVANCE":
 			return _process_sweeping_advance(action)
 		"DECLINE_SWEEPING_ADVANCE":
@@ -596,6 +628,10 @@ func _validate_select_fighter(action: Dictionary) -> Dictionary:
 	if unit.is_empty():
 		errors.append("Unit not found")
 		return {"valid": false, "errors": errors}
+
+	# 11e 12.02: no unit is selected to fight until the Pile In step is over
+	if GameConstants.edition >= 11 and pile_in_step_11e == PileInStep11e.ACTIVE:
+		return {"valid": false, "errors": ["The Pile In step (12.02) must finish before units are selected to fight"]}
 
 	# ISS-050 step 2: at 11e the sequencer (12.04) is authoritative —
 	# including charge-survivors that are unengaged (pg-39 overrun case),
@@ -1342,12 +1378,31 @@ func _process_pile_in(action: Dictionary) -> Dictionary:
 	units_that_piled_in[unit_id] = true
 	log_phase_message("Unit %s piled in" % unit_id)
 
+	# 11e 12.02: a move in the global Pile In step — apply now (idempotent
+	# re-apply, same pattern as the Consolidate step) so newly-engaged
+	# enemies become fight-eligible, then continue the step.
+	if GameConstants.edition >= 11 and pile_in_step_11e == PileInStep11e.ACTIVE:
+		if not changes.is_empty():
+			PhaseManager.apply_state_changes(changes)
+		_stamp_fight_eligibility_11e()
+		return _advance_pile_in_step_11e(create_result(true, changes))
+
+	# 11e 12.06: the Overrun fight's additional pile-in — the grant is
+	# used up; apply the move so attack targets reflect the new engagement.
+	if GameConstants.edition >= 11 and unit_id == overrun_pile_in_unit_11e:
+		overrun_pile_in_unit_11e = ""
+		if not changes.is_empty():
+			PhaseManager.apply_state_changes(changes)
+		_stamp_fight_eligibility_11e()
+
 	# After pile-in, request attack assignment
+	return _request_attack_assignment(unit_id, create_result(true, changes))
+
+# Ask the active fighter's player to assign melee attacks (signal for the
+# local UI + trigger metadata for the NetworkManager client re-emit).
+func _request_attack_assignment(unit_id: String, result: Dictionary) -> Dictionary:
 	var targets = _get_eligible_melee_targets(unit_id)
 	emit_signal("attack_assignment_required", unit_id, targets)
-
-	# Add metadata for NetworkManager to re-emit signal on client
-	var result = create_result(true, changes)
 	result["trigger_attack_assignment"] = true
 	result["attack_unit_id"] = unit_id
 	result["attack_targets"] = targets
@@ -2143,6 +2198,12 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	active_fighter_id = ""
 	confirmed_attacks.clear()
 
+	# The 12.06 overrun grant (if any) ends with the activation
+	overrun_pile_in_unit_11e = ""
+	var _of_unit = GameState.get_unit(unit_id)
+	if not _of_unit.is_empty():
+		_of_unit.get("flags", {}).erase("selected_for_overrun_fight")
+
 	# Clear Martial Ka'tah stance — "active until the unit finishes attacking"
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if faction_mgr:
@@ -2383,6 +2444,12 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	# forfeits its fight and must not be re-offered forever.
 	if GameConstants.edition >= 11 and sequencer_11e != null:
 		sequencer_11e.mark_fought(action.unit_id)
+		# A skipped activation also forfeits any 12.06 overrun grant
+		if overrun_pile_in_unit_11e == action.unit_id:
+			overrun_pile_in_unit_11e = ""
+		var _sk_unit = GameState.get_unit(action.unit_id)
+		if not _sk_unit.is_empty():
+			_sk_unit.get("flags", {}).erase("selected_for_overrun_fight")
 
 	# Clear Martial Ka'tah stance if any
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
@@ -3002,6 +3069,111 @@ func _clear_engagement_flags() -> void:
 		log_phase_message("T5-V13: Cleared is_engaged flag from %d units" % cleared)
 
 # ============================================================================
+# 11e 12.02-12.03: GLOBAL PILE IN STEP
+# ============================================================================
+
+# 12.03 ELIGIBLE IF: engaged, or made a charge move this turn (the third
+# clause — selected for an overrun fight — grants the ADDITIONAL pile-in
+# during the Fight step, not a move in this step). Plus alive, hasn't made
+# its one step move yet (12.02), and not AIRCRAFT (T4-4: cannot Pile In).
+func _pile_in_eligible_units_11e(player: int) -> Array:
+	var out: Array = []
+	var tmpl: PileInMove = MoveTypes.get_type("pile_in")
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if units_that_piled_in.get(unit_id, false):
+			continue
+		if _unit_has_keyword(unit, "AIRCRAFT"):
+			continue
+		var any_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				any_alive = true
+				break
+		if not any_alive:
+			continue
+		if tmpl == null or not tmpl.eligible(unit_id, GameState.state).eligible:
+			continue
+		out.append(unit_id)
+	return out
+
+# Enter the Pile In step (12.02) — the fight phase opens here at e11:
+# both players make pile-in moves with the eligible units they choose,
+# the player whose turn it is first.
+func _begin_pile_in_step_11e() -> void:
+	pile_in_step_11e = PileInStep11e.ACTIVE
+	pile_in_done_players_11e = {}
+	piling_in_player_11e = GameState.get_active_player()
+	log_phase_message("[11e 12.02] PILE IN step begins — Player %d (active) first" % piling_in_player_11e)
+	emit_signal("subphase_transition", "START_OF_FIGHT_PHASE", "PILE_IN")
+	_advance_pile_in_step_11e(create_result(true, []))
+
+# Drive the Pile In step forward: offer the current player their remaining
+# eligible units, auto-pass a player with none left, and when both players
+# are done begin the Fight step's selection.
+func _advance_pile_in_step_11e(result: Dictionary) -> Dictionary:
+	while true:
+		var eligible = _pile_in_eligible_units_11e(piling_in_player_11e)
+		if not eligible.is_empty() and not pile_in_done_players_11e.has(piling_in_player_11e):
+			current_selecting_player = piling_in_player_11e
+			var data = _build_pile_in_step_data_11e(eligible)
+			_pending_pile_in_step_data = data
+			emit_signal("pile_in_step_required", data)
+			result["trigger_pile_in_selection"] = true
+			result["pile_in_selection_data"] = data
+			return result
+		# Nothing (left) for this player — their half is over.
+		if not pile_in_done_players_11e.has(piling_in_player_11e):
+			pile_in_done_players_11e[piling_in_player_11e] = true
+			log_phase_message("[11e 12.02] Player %d's pile-in half complete" % piling_in_player_11e)
+		var other = 2 if piling_in_player_11e == 1 else 1
+		if not pile_in_done_players_11e.has(other):
+			piling_in_player_11e = other
+			continue
+		# Both players done — the Fight step begins.
+		pile_in_step_11e = PileInStep11e.DONE
+		_pending_pile_in_step_data = {}
+		log_phase_message("[11e 12.02] PILE IN step complete — the Fight step begins (12.04)")
+		emit_signal("subphase_transition", "PILE_IN", "FIGHT")
+		# Selection order is the sequencer's; sync the pointer before the dialog.
+		if sequencer_11e != null:
+			var sel_11e = sequencer_11e.next_selection(GameState.state)
+			if not sel_11e.done:
+				current_selecting_player = sel_11e.player
+		var dialog_data = _build_fight_selection_dialog_data()
+		if not dialog_data.is_empty():
+			_pending_fight_selection_data = dialog_data
+			emit_signal("fight_selection_required", dialog_data)
+			result["trigger_fight_selection"] = true
+			result["fight_selection_data"] = dialog_data
+		return result
+	return result
+
+func _build_pile_in_step_data_11e(eligible: Array) -> Dictionary:
+	var units := {}
+	for unit_id in eligible:
+		var unit = get_unit(unit_id)
+		units[unit_id] = {
+			"name": unit.get("meta", {}).get("name", unit_id),
+			"engaged": RulesEngine.is_unit_engaged(unit_id, GameState.state)
+		}
+	return {
+		"piling_in_player": piling_in_player_11e,
+		"eligible_units": units,
+		"piled_in_units": units_that_piled_in.keys(),
+		"done_players": pile_in_done_players_11e.keys()
+	}
+
+func get_pending_pile_in_step_data() -> Dictionary:
+	"""T3-13 pattern: the Pile In step starts during phase entry, before the
+	controller connects — it pulls (and clears) the missed dialog data here."""
+	var data = _pending_pile_in_step_data
+	_pending_pile_in_step_data = {}
+	return data
+
+# ============================================================================
 # 11e 12.07-12.08: GLOBAL CONSOLIDATE STEP
 # ============================================================================
 
@@ -3033,6 +3205,7 @@ func _clear_fight_eligibility_stamps_11e() -> void:
 	for unit_id in all_units:
 		var flags = all_units[unit_id].get("flags", {})
 		flags.erase("was_eligible_to_fight")
+		flags.erase("selected_for_overrun_fight")
 
 # 12.08 ELIGIBLE IF: the unit was eligible to fight this phase — plus it
 # is alive, hasn't already made its one consolidation move this step
@@ -3181,6 +3354,24 @@ func get_available_actions() -> Array:
 		log_phase_message("P0-58: Awaiting melee saves — returning APPLY_MELEE_SAVES only")
 		return actions
 
+	# 11e 12.02: during the global Pile In step, the piling-in player's
+	# options are exactly: pile in one of their remaining eligible units,
+	# or end their half.
+	if GameConstants.edition >= 11 and pile_in_step_11e == PileInStep11e.ACTIVE:
+		for pi_uid in _pile_in_eligible_units_11e(piling_in_player_11e):
+			actions.append({
+				"type": "PILE_IN",
+				"unit_id": pi_uid,
+				"description": "Pile in with %s" % pi_uid
+			})
+		actions.append({
+			"type": "END_PILE_IN",
+			"player": piling_in_player_11e,
+			"description": "End Player %d's pile-in" % piling_in_player_11e
+		})
+		log_phase_message("[11e 12.02] Pile In step — returning %d pile-in action(s)" % actions.size())
+		return actions
+
 	# 11e 12.07: during the global Consolidate step, the consolidating
 	# player's options are exactly: consolidate one of their remaining
 	# eligible units, or end their half. (While an Engaging Consolidation
@@ -3226,8 +3417,15 @@ func get_available_actions() -> Array:
 	# If active fighter is selected, show simple control actions
 	if active_fighter_id != "":
 		if pending_attacks.is_empty():
-			# Only offer pile-in if the unit hasn't already piled in
-			if not units_that_piled_in.get(active_fighter_id, false):
+			# 10e: per-activation pile-in (once per unit). 11e: only the
+			# Overrun fight's additional pile-in (12.06) is offered here —
+			# the routine pile-in happened in the global 12.02 step.
+			var offer_pile_in: bool
+			if GameConstants.edition >= 11:
+				offer_pile_in = overrun_pile_in_unit_11e == active_fighter_id
+			else:
+				offer_pile_in = not units_that_piled_in.get(active_fighter_id, false)
+			if offer_pile_in:
 				actions.append({
 					"type": "PILE_IN",
 					"unit_id": active_fighter_id,
@@ -3831,7 +4029,41 @@ func _resolve_dread_foe_then_pile_in(unit_id: String) -> Dictionary:
 			if not dread_foe_diffs.is_empty():
 				_check_kill_diffs(dread_foe_diffs)
 
-	# Proceed to pile-in
+	# Proceed to the activation's fight moves
+	return _proceed_to_fight_moves(unit_id)
+
+# What happens between "selected to fight" and "assign attacks":
+# - 10e: the per-activation pile-in.
+# - 11e: pile-in already happened in the global 12.02 step. Only an
+#   OVERRUN fight (12.06 — unengaged, or engaged now but unengaged at the
+#   start of the Fight step) gets ONE additional pile-in move here; a
+#   normal fight (12.05) goes straight to attack assignment.
+func _proceed_to_fight_moves(unit_id: String) -> Dictionary:
+	if GameConstants.edition >= 11:
+		var overrun_available := false
+		if sequencer_11e != null:
+			var engaged_now = RulesEngine.is_unit_engaged(unit_id, GameState.state)
+			overrun_available = (not engaged_now) or not sequencer_11e.engaged_at_step_start.get(unit_id, false)
+		if overrun_available:
+			overrun_pile_in_unit_11e = unit_id
+			# The template's 12.03 eligibility reads this flag (a unit that
+			# neither is engaged nor charged may still make the overrun
+			# move). Same direct-flag idiom as _set_engagement_flags.
+			var gs_unit = GameState.get_unit(unit_id)
+			if not gs_unit.is_empty():
+				if not gs_unit.has("flags"):
+					gs_unit["flags"] = {}
+				gs_unit["flags"]["selected_for_overrun_fight"] = true
+			log_phase_message("[11e 12.06] %s makes an OVERRUN fight — one additional pile-in move" % unit_id)
+			emit_signal("pile_in_required", unit_id, 3.0)
+			var overrun_result = create_result(true, [])
+			overrun_result["trigger_pile_in"] = true
+			overrun_result["pile_in_unit_id"] = unit_id
+			overrun_result["pile_in_distance"] = 3.0
+			return overrun_result
+		# Normal fight (12.05): straight to attack assignment.
+		return _request_attack_assignment(unit_id, create_result(true, []))
+
 	log_phase_message("Emitting pile_in_required for %s" % unit_id)
 	emit_signal("pile_in_required", unit_id, 3.0)
 
@@ -4002,6 +4234,11 @@ func _process_use_counter_offensive(action: Dictionary) -> Dictionary:
 	current_selecting_player = player
 	active_fighter_id = unit_id
 
+	# 11e: register the out-of-sequence selection with the sequencer, or it
+	# would keep offering this unit as an unfought candidate forever.
+	if GameConstants.edition >= 11 and sequencer_11e != null:
+		sequencer_11e.mark_fought(unit_id)
+
 	log_phase_message("Player %d selects %s to fight (via COUNTER-OFFENSIVE)" % [player, unit_name])
 
 	emit_signal("unit_selected_for_fighting", active_fighter_id)
@@ -4019,14 +4256,13 @@ func _process_use_counter_offensive(action: Dictionary) -> Dictionary:
 		result["epic_challenge_player"] = player
 		return result
 
-	# No Epic Challenge — proceed directly to pile-in
-	log_phase_message("Emitting pile_in_required for %s" % unit_id)
-	emit_signal("pile_in_required", unit_id, 3.0)
-
-	var result = create_result(true, strat_result.get("diffs", []))
-	result["trigger_pile_in"] = true
-	result["pile_in_unit_id"] = unit_id
-	result["pile_in_distance"] = 3.0
+	# No Epic Challenge — proceed to the activation's fight moves (10e:
+	# pile-in; 11e: overrun extra pile-in or straight to attacks)
+	var result = _proceed_to_fight_moves(unit_id)
+	if not strat_result.get("diffs", []).is_empty():
+		var merged_changes = strat_result.get("diffs", [])
+		merged_changes.append_array(result.get("changes", []))
+		result["changes"] = merged_changes
 	return result
 
 func _process_decline_counter_offensive(action: Dictionary) -> Dictionary:
@@ -4060,6 +4296,24 @@ func _validate_end_fight(action: Dictionary) -> Dictionary:
 	# END_FIGHT is always valid - it's the manual way to end the fight phase
 	return {"valid": true, "errors": []}
 
+# 11e 12.02: the piling-in player passes — ends their half of the global
+# Pile In step (any units they didn't move forfeit their pile-in; it is
+# optional per unit).
+func _validate_end_pile_in(action: Dictionary) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {"valid": false, "errors": ["END_PILE_IN is an 11e action (12.02)"]}
+	if pile_in_step_11e != PileInStep11e.ACTIVE:
+		return {"valid": false, "errors": ["The Pile In step is not in progress (12.02)"]}
+	var player = int(action.get("player", piling_in_player_11e))
+	if player != piling_in_player_11e:
+		return {"valid": false, "errors": ["Not your half of the Pile In step — Player %d piles in first (12.02)" % piling_in_player_11e]}
+	return {"valid": true, "errors": []}
+
+func _process_end_pile_in(action: Dictionary) -> Dictionary:
+	pile_in_done_players_11e[piling_in_player_11e] = true
+	log_phase_message("[11e 12.02] Player %d ends their pile-in half" % piling_in_player_11e)
+	return _advance_pile_in_step_11e(create_result(true, []))
+
 # 11e 12.07: the consolidating player passes — ends their half of the
 # global Consolidate step (any units they didn't move forfeit their
 # consolidation; it is optional per unit at 11e).
@@ -4089,6 +4343,12 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 	# consolidation half" (keeps turn-timer and escape-hatch semantics:
 	# repeated END_FIGHT still walks the phase to completion).
 	if GameConstants.edition >= 11:
+		# 12.02: END_FIGHT during the Pile In step ends the current half
+		# (same walk-forward semantics as the Consolidate step below).
+		if pile_in_step_11e == PileInStep11e.ACTIVE:
+			pile_in_done_players_11e[piling_in_player_11e] = true
+			log_phase_message("[11e 12.02] Player %d ends their pile-in half via END_FIGHT" % piling_in_player_11e)
+			return _advance_pile_in_step_11e(create_result(true, []))
 		if consolidation_step_11e == ConsolidationStep11e.NOT_STARTED:
 			return _begin_consolidation_step_11e()
 		if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
@@ -5058,9 +5318,23 @@ func _simulate_fight_board_with_movements(unit_id: String, movements: Dictionary
 func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
 	var movements = _fight_movements_from_action(action)
-	if unit_id != active_fighter_id:
-		return {"valid": false, "errors": ["Not the active fighter"]}
 	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit %s not found" % unit_id]}
+
+	# 12.02: pile-in happens in the global step at the START of the fight
+	# phase — or as an Overrun fight's ADDITIONAL move (12.06), never as a
+	# routine part of an activation.
+	if pile_in_step_11e == PileInStep11e.ACTIVE:
+		if int(unit.get("owner", 0)) != piling_in_player_11e:
+			return {"valid": false, "errors": ["Not your half of the Pile In step — Player %d piles in first (12.02)" % piling_in_player_11e]}
+		if units_that_piled_in.get(unit_id, false):
+			return {"valid": false, "errors": ["%s has already made its pile-in move this step (12.02)" % unit_id]}
+	elif unit_id == active_fighter_id and unit_id == overrun_pile_in_unit_11e:
+		pass  # 12.06: the overrun fight's one additional pile-in move
+	else:
+		return {"valid": false, "errors": ["Pile-in happens in the Pile In step at the start of the Fight phase (12.02), or as an Overrun fight's additional move (12.06)"]}
+
 	if _unit_has_keyword(unit, "AIRCRAFT"):
 		if not movements.is_empty():
 			return {"valid": false, "errors": ["AIRCRAFT units cannot Pile In"]}
@@ -5069,6 +5343,9 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 	var el = tmpl.eligible(unit_id, GameState.state)
 	if not el.eligible:
 		return {"valid": false, "errors": el.reasons}
+	# An eligible unit may decline to move (the step/extra move is optional)
+	if movements.is_empty():
+		return {"valid": true, "errors": []}
 	var ctx = tmpl.before_moving(unit_id, GameState.state, null, {})
 	if ctx.has("error"):
 		return {"valid": false, "errors": [ctx.error]}

@@ -1376,6 +1376,12 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 				phase.current_selecting_player = dialog_data["selecting_player"]
 				print("NetworkManager: Updated client current_selecting_player to: %d" % dialog_data["selecting_player"])
 
+			# 11e: fight selection only happens after the Pile In step —
+			# keep the client's step state in lockstep
+			if "pile_in_step_11e" in phase and phase.pile_in_step_11e == phase.PileInStep11e.ACTIVE:
+				phase.pile_in_step_11e = phase.PileInStep11e.DONE
+				print("NetworkManager: Client pile_in_step_11e -> DONE (fight selection began)")
+
 			# Emit the signal with the host's dialog data
 			phase.emit_signal("fight_selection_required", dialog_data)
 		else:
@@ -1424,6 +1430,24 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			phase.emit_signal("consolidate_required", unit_id, distance)
 		else:
 			print("NetworkManager: ⚠️ Phase doesn't support consolidate_required or missing unit_id")
+
+	# 11e 12.02: global Pile In step — sync the client's step state and
+	# re-emit pile_in_step_required (mirrors trigger_fight_selection)
+	if result.get("trigger_pile_in_selection", false):
+		print("NetworkManager: Result has trigger_pile_in_selection flag")
+		var pi_data = result.get("pile_in_selection_data", {})
+		if not pi_data.is_empty() and phase.has_signal("pile_in_step_required"):
+			if "piling_in_player" in pi_data:
+				if "piling_in_player_11e" in phase:
+					phase.piling_in_player_11e = pi_data["piling_in_player"]
+				if "current_selecting_player" in phase:
+					phase.current_selecting_player = pi_data["piling_in_player"]
+			if "pile_in_step_11e" in phase:
+				phase.pile_in_step_11e = phase.PileInStep11e.ACTIVE
+			print("NetworkManager: Client re-emitting pile_in_step_required for player %d" % pi_data.get("piling_in_player", -1))
+			phase.emit_signal("pile_in_step_required", pi_data)
+		else:
+			print("NetworkManager: ⚠️ Missing pile_in_selection_data or phase doesn't support signal")
 
 	# 11e 12.07: global Consolidate step — sync the client's step state and
 	# re-emit consolidation_step_required (mirrors trigger_fight_selection)
@@ -2110,6 +2134,7 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"ROLL_DICE",
 		"CONSOLIDATE",
 		"END_CONSOLIDATION",
+		"END_PILE_IN",
 		"SKIP_UNIT",
 		"HEROIC_INTERVENTION",
 		# Heroic Intervention actions - defending player reacts during opponent's charge phase
