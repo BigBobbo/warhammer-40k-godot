@@ -80,9 +80,17 @@ func _run_tests():
 	_check("edition 10: 11e entries unavailable",
 		not sm.can_use_stratagem(1, "explosives", "").can_use)
 	GameConstants.edition = 11
+	# A4 alias: the reworked 10e ids now RESOLVE to the 11e definitions
+	# (grenade -> explosives_11e) instead of dead-ending on the retired
+	# entry — the refusal below is EXPLOSIVES' own timing rule, proving the
+	# alias handed the check to the 11e def. Make it deterministic by
+	# validating outside the shooting phase.
+	var prev_phase_iss056 = gs.state["meta"].get("phase", 0)
+	gs.state["meta"]["phase"] = 10  # fight — not EXPLOSIVES' window
 	var r10 = sm.can_use_stratagem(1, "grenade", "")
-	_check("edition 11: reworked 10e core entries retired",
-		not r10.can_use and "retired" in r10.reason, str(r10))
+	_check("edition 11: reworked 10e core ids alias to the 11e set (grenade -> EXPLOSIVES)",
+		not r10.can_use and "EXPLOSIVES" in str(r10.reason), str(r10))
+	gs.state["meta"]["phase"] = prev_phase_iss056
 
 	print("\n-- EXPLOSIVES (15.05) + CRUSHING IMPACT (15.06) dice effects --")
 	var board = {"units": {

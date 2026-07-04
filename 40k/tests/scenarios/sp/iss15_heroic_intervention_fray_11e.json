@@ -1,0 +1,59 @@
+{
+  "id": "iss15_heroic_intervention_fray_11e",
+  "covers": [
+    "phases.ChargePhase.11e_heroic_intervention_end_of_phase",
+    "phases.ChargePhase.into_the_fray_mode",
+    "scripts.ChargeController.hi_charge_movement"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "15.11 HEROIC INTERVENTION (11e end-of-phase window, INTO THE FRAY) fully through the player path: the active player (P1) clicks the real 'End Charge Phase' button; instead of completing, the phase opens the HI window and the defender's HeroicInterventionDialog appears with per-unit mode buttons. The defender clicks 'Into the Fray (1 CP)' for the Warboss (placed 2.5\" edge-to-edge from the Shield-Captain in setup — just outside the 11e 2\" engagement range so the unit is offerable, and close enough that the seeded 2D6 reaches ER), pays 1 CP, gets movement tools (charge_path_tools_enabled wiring — before this fix the defender was told the roll succeeded but could never move), drags the model into base contact on the board, and clicks 'Confirm Charge Moves' (which must route to APPLY_HEROIC_INTERVENTION_MOVE, not APPLY_CHARGE_MOVE). The unit ends charged_this_turn WITHOUT fights_first and the phase then completes to Fight.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "screenshot", "label": "01_charge_phase_edition_11" },
+
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_WARBOSS_C\")[\"models\"][0].merge({\"position\": {\"x\": 933.24, \"y\": 1343.63}}, true)" },
+    { "act": "execute_script", "script": "main._sync_all_token_positions()" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/HeroicInterventionDialog", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "02_hi_dialog_end_of_phase" },
+    { "act": "click_node",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WARBOSS_C/Fray_U_WARBOSS_C",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_cp", "player": 2, "delta_from_start": -1 },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().heroic_intervention_pending_charge[\"mode\"]",
+      "equals": "into_the_fray" },
+    { "act": "execute_script",
+      "script": "str(PhaseManager.get_current_phase_instance().heroic_intervention_pending_charge[\"targets\"])",
+      "equals": "[\"U_SHIELD_CAPTAIN_A\"]" },
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().heroic_intervention_pending_charge[\"distance\"]",
+      "expect_min": 2, "expect_max": 6 },
+    { "act": "screenshot", "label": "03_hi_movement_enabled" },
+
+    { "act": "drag_board", "from_x": 933, "from_y": 1344, "to_x": 933, "to_y": 1246 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/ConfirmChargeButton",
+      "property": "disabled", "equals": false },
+    { "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/ConfirmChargeButton",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_state", "path": "units.U_WARBOSS_C.flags.charged_this_turn", "equals": true },
+    { "act": "expect_state", "path": "units.U_WARBOSS_C.flags.heroic_intervention", "equals": true },
+    { "act": "expect_state", "path": "units.U_WARBOSS_C.flags.fights_first", "not_equals": true },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "screenshot", "label": "04_hi_applied_phase_complete" }
+  ]
+}

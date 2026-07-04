@@ -389,9 +389,12 @@ func _add_vp_player_row(parent: VBoxContainer, faction: String, total: int, prim
 	card.add_theme_stylebox_override("panel", style)
 	parent.add_child(card)
 
+	# NOTE: the hbox is parented at the END, inside the vbox. It used to be
+	# added to `card` here and then re-added to the vbox WITHOUT reparenting
+	# — add_child failed ("already has a parent") and the faction/VP labels
+	# were silently orphaned from the panel.
 	var hbox = HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 6)
-	card.add_child(hbox)
 
 	var name_label = Label.new()
 	name_label.text = faction
@@ -420,8 +423,6 @@ func _add_vp_player_row(parent: VBoxContainer, faction: String, total: int, prim
 	vbox.add_child(hbox)
 	vbox.add_child(breakdown)
 	card.add_child(vbox)
-	# Remove the hbox from card, add vbox instead
-	card.remove_child(hbox)
 
 func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, progress: Dictionary = {}) -> void:
 	var card_container = PanelContainer.new()

@@ -59,9 +59,13 @@ var fire_overwatch_eligible_units: Array = []  # Units eligible for Overwatch
 # Heroic Intervention state tracking
 var awaiting_heroic_intervention: bool = false  # True when waiting for Heroic Intervention response
 var heroic_intervention_player: int = 0  # Defending player being offered HI
-var heroic_intervention_charging_unit_id: String = ""  # The enemy unit that just charged
+var heroic_intervention_charging_unit_id: String = ""  # The enemy unit that just charged (10e window; "" at the 11e end-of-phase window)
 var heroic_intervention_unit_id: String = ""  # Unit selected for HI (set on USE)
 var heroic_intervention_pending_charge: Dictionary = {}  # Pending charge data for HI unit
+# 11e 15.11: HI happens once, at the END of the opponent's Charge phase,
+# with a mode choice — not after each enemy charge like 10e.
+var _hi_end_phase_offered: bool = false        # the end-of-phase window has been offered
+var _hi_pending_phase_complete: bool = false   # END_CHARGE arrived; complete the phase after HI resolves
 
 # Tank Shock state tracking
 var awaiting_tank_shock: bool = false  # True when waiting for Tank Shock response
@@ -122,6 +126,8 @@ func _on_phase_enter() -> void:
 	heroic_intervention_charging_unit_id = ""
 	heroic_intervention_unit_id = ""
 	heroic_intervention_pending_charge = {}
+	_hi_end_phase_offered = false
+	_hi_pending_phase_complete = false
 	awaiting_tank_shock = false
 	tank_shock_vehicle_unit_id = ""
 	tank_shock_pending_changes = []
@@ -379,7 +385,13 @@ func _validate_apply_charge_move(action: Dictionary) -> Dictionary:
 	
 	if per_model_paths.is_empty():
 		return {"valid": false, "errors": ["Missing per_model_paths"]}
-	
+
+	# A Heroic Intervention unit's charge lives in
+	# heroic_intervention_pending_charge, not pending_charges — route any
+	# APPLY_CHARGE_MOVE sent for it to the HI validator.
+	if unit_id == heroic_intervention_unit_id and not heroic_intervention_pending_charge.is_empty():
+		return _validate_apply_heroic_intervention_move(action)
+
 	if not pending_charges.has(unit_id):
 		return {"valid": false, "errors": ["No charge roll made for unit"]}
 	
@@ -1000,8 +1012,9 @@ func _check_heroic_intervention_after_tank_shock(vehicle_unit_id: String, pendin
 	var charging_owner = int(charging_unit.get("owner", 0))
 	var defending_player = 2 if charging_owner == 1 else 1
 
+	# 11e (15.11): HI happens at the END of the Charge phase, not per charge
 	var strat_manager = get_node_or_null("/root/StratagemManager")
-	if strat_manager:
+	if strat_manager and GameConstants.edition < 11:
 		var hi_check = strat_manager.is_heroic_intervention_available(defending_player)
 		if hi_check.available:
 			# Build a temporary snapshot with the charge move applied
@@ -1116,6 +1129,10 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	if per_model_paths.is_empty():
 		DebugLogger.info("ERROR: No model paths provided for charge movement")
 		return create_result(false, [], "No model paths provided")
+
+	# Heroic Intervention counter-charge routed through the generic action
+	if unit_id == heroic_intervention_unit_id and not heroic_intervention_pending_charge.is_empty():
+		return _process_apply_heroic_intervention_move(action)
 
 	if not pending_charges.has(unit_id):
 		DebugLogger.info(str("ERROR: No pending charge data found for unit ", unit_id))
@@ -1299,8 +1316,10 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 					return result
 
 	# Check if Heroic Intervention is available for the defending player
-	# Per 10e rules: "just after an enemy unit ends a Charge move"
-	if strat_manager:
+	# Per 10e rules: "just after an enemy unit ends a Charge move".
+	# 11e (15.11) moved HI to the END of the Charge phase — see
+	# _process_end_charge; the per-charge window is 10e-only.
+	if strat_manager and GameConstants.edition < 11:
 		var hi_check = strat_manager.is_heroic_intervention_available(defending_player)
 		if hi_check.available:
 			# Need to apply changes first so the snapshot is up-to-date for distance checks
@@ -1363,9 +1382,43 @@ func _process_skip_charge(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_end_charge(action: Dictionary) -> Dictionary:
+	# 11e 15.11: HEROIC INTERVENTION happens once, at the END of the
+	# opponent's Charge phase (the 10e per-charge window is retired) —
+	# offer it to the defender before the phase completes.
+	if GameConstants.edition >= 11 and not _hi_end_phase_offered:
+		_hi_end_phase_offered = true
+		var strat_manager = get_node_or_null("/root/StratagemManager")
+		if strat_manager:
+			var defending_player = 2 if GameState.get_active_player() == 1 else 1
+			var hi_check = strat_manager.is_heroic_intervention_available(defending_player)
+			if hi_check.available and strat_manager.has_method("get_heroic_intervention_eligible_units_11e"):
+				var hi_eligible = strat_manager.get_heroic_intervention_eligible_units_11e(defending_player)
+				if not hi_eligible.is_empty():
+					awaiting_heroic_intervention = true
+					heroic_intervention_player = defending_player
+					heroic_intervention_charging_unit_id = ""  # end-of-phase window: no single charger
+					_hi_pending_phase_complete = true
+					log_phase_message("[11e 15.11] HEROIC INTERVENTION window at end of Charge phase — Player %d (%d eligible units)" % [defending_player, hi_eligible.size()])
+					emit_signal("heroic_intervention_opportunity", defending_player, hi_eligible, "")
+					var result = create_result(true, [])
+					result["trigger_heroic_intervention"] = true
+					result["awaiting_heroic_intervention"] = true
+					result["heroic_intervention_player"] = defending_player
+					result["heroic_intervention_eligible_units"] = hi_eligible
+					result["heroic_intervention_charging_unit_id"] = ""
+					return result
+
 	log_phase_message("Ending Charge Phase")
 	emit_signal("phase_completed")
 	return create_result(true, [])
+
+# 11e: the END_CHARGE that opened the HI window still owes a phase
+# completion once HI resolves (used, declined, failed, or moved).
+func _complete_phase_after_heroic_intervention_if_pending() -> void:
+	if _hi_pending_phase_complete:
+		_hi_pending_phase_complete = false
+		log_phase_message("Ending Charge Phase (after Heroic Intervention window)")
+		emit_signal("phase_completed")
 
 # Helper Methods
 
@@ -1687,7 +1740,11 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 
 func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
 	var errors = []
-	var current_player = get_current_player()
+	# "Friendly" is relative to the CHARGING UNIT's owner, not the active
+	# player — a Heroic Intervention charge is made by the DEFENDER, and
+	# keying on get_current_player() made every defender unit (including the
+	# HI unit itself) count as a "non-target enemy", self-rejecting the move.
+	var charging_owner = int(get_unit(unit_id).get("owner", get_current_player()))
 	var all_units = game_state_snapshot.get("units", {})
 
 	# Check that unit ends within ER of ALL targets
@@ -1745,8 +1802,8 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 	# Check that unit does NOT end in ER of non-target enemies
 	for enemy_unit_id in all_units:
 		var enemy_unit = all_units[enemy_unit_id]
-		if enemy_unit.get("owner", 0) == current_player:
-			continue  # Skip friendly
+		if int(enemy_unit.get("owner", 0)) == charging_owner:
+			continue  # Skip friendly (relative to the charging unit)
 
 		if enemy_unit_id in target_ids:
 			continue  # Skip declared targets
@@ -2362,15 +2419,26 @@ func get_available_actions() -> Array:
 	return actions
 
 func _should_complete_phase() -> bool:
+	# 11e 15.11: the end-of-phase Heroic Intervention window is part of the
+	# Charge phase — never auto-complete while it is pending, and don't
+	# auto-complete past it before it has been offered (END_CHARGE opens
+	# it; the window's resolution completes the phase).
+	if GameConstants.edition >= 11:
+		if awaiting_heroic_intervention or _hi_pending_phase_complete \
+				or not heroic_intervention_pending_charge.is_empty():
+			return false
+		if not _hi_end_phase_offered:
+			return false
+
 	# Check if all eligible units have charged or been skipped
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
-	
+
 	for unit_id in units:
 		var unit = units[unit_id]
 		if _can_unit_charge(unit) and unit_id not in completed_charges:
 			return false
-	
+
 	return true
 
 func get_dice_log() -> Array:
@@ -2933,9 +3001,32 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var player = action.get("player", heroic_intervention_player)
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+
+	# Targets: 10e — only the enemy unit that just charged. 11e (15.11) —
+	# mode choice: LEAP TO DEFEND (only units that made a charge move this
+	# turn may be targets) or INTO THE FRAY (targets within 6"; roll capped
+	# at 6). Single-target selection uses the closest qualifying enemy —
+	# the same one-target shape as the 10e flow. Resolve the target BEFORE
+	# spending CP so a mode with no reachable target costs nothing.
+	var hi_mode := str(action.get("mode", "leap_to_defend"))
+	var target_ids: Array = [heroic_intervention_charging_unit_id]
+	if GameConstants.edition >= 11:
+		var max_range := 6.0 if hi_mode == "into_the_fray" else 12.0
+		var require_charged := hi_mode != "into_the_fray"
+		var picked := _closest_hi_target_11e(unit_id, player, max_range, require_charged)
+		if picked == "":
+			# Let the player pick the other mode or decline — the dialog
+			# self-closed on Use, so re-open the window.
+			awaiting_heroic_intervention = true
+			if strat_manager and strat_manager.has_method("get_heroic_intervention_eligible_units_11e"):
+				emit_signal("heroic_intervention_opportunity", player,
+					strat_manager.get_heroic_intervention_eligible_units_11e(player), "")
+			return create_result(false, [], "No eligible %s target (%s)" % [
+				"charged enemy within 12\"" if require_charged else "enemy within 6\"", hi_mode])
+		target_ids = [picked]
 
 	# Use the stratagem via StratagemManager (deducts CP, records usage)
-	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager:
 		var strat_result = strat_manager.use_stratagem(player, "heroic_intervention", unit_id)
 		if not strat_result.success:
@@ -2947,9 +3038,9 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 	awaiting_heroic_intervention = false
 	heroic_intervention_unit_id = unit_id
 
-	# Set up pending charge data targeting only the charging enemy unit
 	heroic_intervention_pending_charge = {
-		"targets": [heroic_intervention_charging_unit_id],
+		"targets": target_ids.duplicate(),
+		"mode": hi_mode,
 		"declared_at": Time.get_unix_time_from_system()
 	}
 
@@ -2959,14 +3050,17 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 	var rng = RulesEngine.RNGService.new(rng_seed)
 	var rolls = rng.roll_d6(2)
 	var total_distance = rolls[0] + rolls[1]
+	# 11e INTO THE FRAY: "the charge roll cannot exceed 6"
+	if GameConstants.edition >= 11 and hi_mode == "into_the_fray" and total_distance > 6:
+		log_phase_message("[11e 15.11] INTO THE FRAY — charge roll %d capped at 6" % total_distance)
+		total_distance = 6
 
 	heroic_intervention_pending_charge.distance = total_distance
 	heroic_intervention_pending_charge.dice_rolls = rolls
 
-	log_phase_message("HEROIC INTERVENTION charge roll: 2D6 = %d (%d + %d)" % [total_distance, rolls[0], rolls[1]])
-
-	# Check if the charge roll is sufficient
-	var target_ids = [heroic_intervention_charging_unit_id]
+	log_phase_message("HEROIC INTERVENTION charge roll: 2D6 = %d (%d + %d)%s" % [
+		total_distance, rolls[0], rolls[1],
+		" [mode: %s]" % hi_mode if GameConstants.edition >= 11 else ""])
 	var roll_sufficient = _is_heroic_intervention_roll_sufficient(unit_id, total_distance, target_ids)
 
 	var dice_result = {
@@ -2991,6 +3085,9 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 		heroic_intervention_pending_charge = {}
 		heroic_intervention_charging_unit_id = ""
 		heroic_intervention_player = 0
+
+		# 11e end-of-phase window: the phase completes once HI resolves
+		_complete_phase_after_heroic_intervention_if_pending()
 
 		return create_result(true, [], "", {
 			"dice": [dice_result],
@@ -3019,6 +3116,9 @@ func _process_decline_heroic_intervention(action: Dictionary) -> Dictionary:
 	heroic_intervention_charging_unit_id = ""
 	heroic_intervention_unit_id = ""
 	heroic_intervention_pending_charge = {}
+
+	# 11e end-of-phase window: the phase completes once HI resolves
+	_complete_phase_after_heroic_intervention_if_pending()
 
 	return create_result(true, [])
 
@@ -3055,6 +3155,8 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 			"reason": validation.errors[0],
 			"heroic_intervention": true,
 		})
+		# 11e end-of-phase window: the phase completes once HI resolves
+		_complete_phase_after_heroic_intervention_if_pending()
 		return create_result(true, [])
 
 	# Apply successful HI charge movement
@@ -3114,7 +3216,43 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 	heroic_intervention_charging_unit_id = ""
 	heroic_intervention_player = 0
 
+	# 11e end-of-phase window: the phase completes once HI resolves
+	_complete_phase_after_heroic_intervention_if_pending()
+
 	return create_result(true, changes)
+
+# 11e 15.11: pick the closest enemy unit within max_range inches
+# (edge-to-edge) as the HI charge target; LEAP TO DEFEND additionally
+# requires the target to have made a charge move this turn.
+func _closest_hi_target_11e(unit_id: String, player: int, max_range: float, require_charged: bool) -> String:
+	var unit = get_unit(unit_id)
+	var best_id := ""
+	var best_px := INF
+	var range_px = Measurement.inches_to_px(max_range)
+	for other_id in game_state_snapshot.get("units", {}):
+		var other = game_state_snapshot.units[other_id]
+		if int(other.get("owner", 0)) == player:
+			continue
+		if require_charged and not other.get("flags", {}).get("charged_this_turn", false):
+			continue
+		var any_alive := false
+		for em in other.get("models", []):
+			if em.get("alive", true) and em.get("position") != null:
+				any_alive = true
+				break
+		if not any_alive:
+			continue
+		for m in unit.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			for em in other.get("models", []):
+				if not em.get("alive", true) or em.get("position") == null:
+					continue
+				var d = Measurement.model_to_model_distance_px(m, em)
+				if d <= range_px and d < best_px:
+					best_px = d
+					best_id = other_id
+	return best_id
 
 func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: int, target_ids: Array) -> bool:
 	"""Check if the HI charge roll is sufficient to reach engagement range of the target.

@@ -629,6 +629,16 @@ func get_lord_of_deceit_cp_increase(player: int, target_unit_id: String) -> int:
 ## without touching every phase trigger site. Idempotent; 10e unaffected.
 func _resolve_core_id(stratagem_id: String) -> String:
 	if GameConstants.edition >= 11 and not stratagem_id.ends_with("_11e"):
+		# Irregular renames: the 11e ids that are not just "<10e id>_11e".
+		# Without this, counter_offensive resolved to the RETIRED 10e entry
+		# and Counter-Offensive was unusable (never offered) at edition 11.
+		match stratagem_id:
+			"counter_offensive":
+				return "counteroffensive_11e"
+			"grenade":
+				return "explosives"
+			"tank_shock":
+				return "crushing_impact"
 		var v := stratagem_id + "_11e"
 		if stratagems.has(v):
 			return v
@@ -768,6 +778,12 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 
 func _check_usage_restriction(player: int, stratagem_id: String, strat: Dictionary) -> Dictionary:
 	"""Check once-per restrictions for a stratagem."""
+	# 11e 15.07: RAPID INGRESS "cannot be used during the first battle
+	# round" — generic not_battle_round restriction.
+	var blocked_round = int(strat.get("restrictions", {}).get("not_battle_round", 0))
+	if blocked_round > 0 and GameState.get_battle_round() == blocked_round:
+		return {"can_use": false, "reason": "%s cannot be used during battle round %d" % [strat.name, blocked_round]}
+
 	var restriction = strat.get("restrictions", {}).get("once_per", null)
 	if restriction == null:
 		return {"can_use": true, "reason": ""}
@@ -1139,6 +1155,12 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 						print("StratagemManager: [11e] EPIC CHALLENGE — %s melee weapons gain [PRECISION]" % target_unit_id)
 				"benefit_of_cover_aura":
 					# SMOKESCREEN (15.10): the SMOKE unit gains the benefit of cover.
+					# At 11e cover worsens the attacker's BS on the HIT side —
+					# ModifierStack.collect_hit_context_11e reads
+					# flags.stratagem_cover, so that flag is the one that makes
+					# the effect real; effect_cover stays for the 10e save-side
+					# readers and AI heuristics.
+					diffs11.append({"op": "set", "path": "units.%s.flags.stratagem_cover" % target_unit_id, "value": true})
 					diffs11.append({"op": "set", "path": "units.%s.flags.effect_cover" % target_unit_id, "value": true})
 					print("StratagemManager: [11e] SMOKESCREEN — %s has the benefit of cover" % target_unit_id)
 				"grant_fights_first":
@@ -1333,6 +1355,24 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 
 	var flags = unit.get("flags", {})
 	var strat = stratagems.get(stratagem_id, {})
+
+	# A4/11e core set: the structured-effect handlers in
+	# _apply_stratagem_effects set flags EffectPrimitives doesn't know
+	# about — clear them here or they leak past the phase (a unit that
+	# used COUNTEROFFENSIVE would keep Fights First all battle).
+	if int(strat.get("edition", 10)) >= 11:
+		for eff in strat.get("effects", []):
+			match str(eff.get("type", "")):
+				"grant_weapon_ability":
+					if str(eff.get("ability", "")) == "precision":
+						flags.erase("effect_precision_melee")
+				"benefit_of_cover_aura":
+					flags.erase("stratagem_cover")
+					flags.erase("effect_cover")
+				"grant_fights_first":
+					flags.erase("fights_first")
+		print("StratagemManager: Cleared [11e] %s flags from %s" % [stratagem_id, unit_id])
+		return
 
 	# GRAB AND BASH (OA-4): Clear per-unit Waaagh! effects
 	if strat.get("name", "").to_upper() == "GRAB AND BASH":
@@ -2265,6 +2305,59 @@ func is_heroic_intervention_available(player: int) -> Dictionary:
 		return {"available": false, "reason": validation.reason}
 	return {"available": true, "reason": ""}
 
+# 11e 15.11: eligibility for the END-of-charge-phase HI window — one
+# friendly unit that is unengaged and within 12" of one or more enemy
+# units (not a VEHICLE unless CHARACTER or WALKER; not battle-shocked).
+func get_heroic_intervention_eligible_units_11e(player: int) -> Array:
+	var eligible: Array = []
+	var snapshot = GameState.create_snapshot()
+	var range_px = Measurement.inches_to_px(12.0)
+	for unit_id in snapshot.get("units", {}):
+		var unit = snapshot.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if unit.get("flags", {}).get("battle_shocked", false):
+			continue
+		if unit.get("embarked_in", null) != null:
+			continue
+		var has_alive := false
+		for m in unit.get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+		var keywords: Array = unit.get("meta", {}).get("keywords", [])
+		if "VEHICLE" in keywords and not ("WALKER" in keywords or "CHARACTER" in keywords):
+			continue
+		if RulesEngine.is_unit_engaged(unit_id, snapshot):
+			continue
+		# enemy within 12" (edge-to-edge)
+		var enemy_near := false
+		for other_id in snapshot.get("units", {}):
+			var other = snapshot.units[other_id]
+			if int(other.get("owner", 0)) == player:
+				continue
+			for m in unit.get("models", []):
+				if not m.get("alive", true) or m.get("position") == null:
+					continue
+				for em in other.get("models", []):
+					if not em.get("alive", true) or em.get("position") == null:
+						continue
+					if Measurement.model_to_model_distance_px(m, em) <= range_px:
+						enemy_near = true
+						break
+				if enemy_near:
+					break
+			if enemy_near:
+				break
+		if enemy_near:
+			eligible.append({
+				"unit_id": unit_id,
+				"unit_name": unit.get("meta", {}).get("name", unit_id)
+			})
+	return eligible
+
 func get_heroic_intervention_eligible_units(player: int, charging_enemy_unit_id: String, game_state_snapshot: Dictionary) -> Array:
 	"""
 	Get units eligible for Heroic Intervention for a given player after an enemy charge.
@@ -2426,7 +2519,9 @@ func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids
 		var validation = can_use_stratagem(defending_player, "smokescreen")
 		if validation.can_use:
 			results.append({
-				"stratagem": stratagems["smokescreen"],
+				# A4: offer the definition the use will actually resolve to
+				# (smokescreen_11e at edition >= 11, the 10e entry otherwise)
+				"stratagem": stratagems[_resolve_core_id("smokescreen")],
 				"eligible_units": smoke_eligible_units
 			})
 

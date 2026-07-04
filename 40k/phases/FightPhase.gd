@@ -39,6 +39,10 @@ signal sweeping_advance_available(unit_id: String, player: int, in_engagement: b
 signal acrobatic_escape_available(unit_id: String, player: int, move_distance: float)  # Acrobatic Escape opportunity (Callidus Assassin)
 signal consolidation_step_required(data: Dictionary)  # 11e 12.07: global Consolidate step — a player must consolidate/pass
 signal pile_in_step_required(data: Dictionary)  # 11e 12.02: global Pile In step — a player must pile in/pass
+# Emitted when a fighter's attack assignments are confirmed (the melee
+# analogue of ShootingPhase.shooting_begun — remote/visual feedback hook).
+# Was emitted UNDECLARED, raising a runtime error on every melee confirm.
+signal fighting_begun(unit_id: String)
 
 # Fight state tracking
 var active_fighter_id: String = ""

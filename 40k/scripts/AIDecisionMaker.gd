@@ -10,6 +10,13 @@ const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const PIXELS_PER_INCH: float = 40.0
 const CHARGE_RANGE_PX: float = 480.0     # 12 inches
+# Clearance added to base-to-base placements (pile-in/consolidate). The
+# engine's overlap check is a strict `distance < r1 + r2` — placing at
+# EXACTLY r1 + r2 lands on the float knife-edge and gets rejected about
+# half the time ("would overlap"), after which AIPlayer's fallback retried
+# with empty movements and the AI never moved in the 11e global steps.
+# 0.5px = 0.0125" — negligible for engagement range and base contact.
+const AI_B2B_GAP_PX: float = 0.5
 
 # ISS-002: engagement range comes from GameConstants (edition-dependent).
 # Do not re-declare it as a local constant.
@@ -13023,7 +13030,8 @@ static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, un
 
 		# Calculate ideal destination: base-to-base contact with closest enemy
 		# Center-to-center distance for base contact = my_radius + enemy_radius
-		var b2b_center_dist = my_radius + closest_enemy_radius
+		# (+ AI_B2B_GAP_PX so the strict engine overlap check accepts it)
+		var b2b_center_dist = my_radius + closest_enemy_radius + AI_B2B_GAP_PX
 		var current_center_dist = start_pos.distance_to(closest_enemy_pos)
 		var desired_move_dist_px = current_center_dist - b2b_center_dist
 
@@ -13491,7 +13499,8 @@ static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit
 			pass
 
 		# Priority 2: Wrapping — calculate a wrap position around the target enemy
-		var b2b_center_dist = my_radius + target_enemy_radius
+		# (+ AI_B2B_GAP_PX so the strict engine overlap check accepts it)
+		var b2b_center_dist = my_radius + target_enemy_radius + AI_B2B_GAP_PX
 		var current_center_dist = start_pos.distance_to(target_enemy_pos)
 		var can_reach_b2b = (current_center_dist - b2b_center_dist) <= consolidate_range_px
 
