@@ -708,6 +708,14 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
 			errors = _validate_resolve_tempting_target(action)
+		"RESOLVE_CONDEMN":
+			errors = _validate_resolve_condemn(action)
+		"DISMISS_CONDEMN":
+			pass  # Always valid — keeps the auto-Condemn picks
+		"RESOLVE_RELIC_SETUP":
+			errors = _validate_resolve_relic_setup(action)
+		"DISMISS_RELIC_SETUP":
+			pass  # Always valid — keeps the auto-picked marker locations
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true, "errors": []}
@@ -793,6 +801,14 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
 			return _handle_resolve_tempting_target(action)
+		"RESOLVE_CONDEMN":
+			return _handle_resolve_condemn(action)
+		"DISMISS_CONDEMN":
+			return _handle_dismiss_condemn(action)
+		"RESOLVE_RELIC_SETUP":
+			return _handle_resolve_relic_setup(action)
+		"DISMISS_RELIC_SETUP":
+			return _handle_dismiss_relic_setup(action)
 		_:
 			return {"success": false, "error": "Unknown action type"}
 
@@ -2198,6 +2214,109 @@ func _handle_resolve_tempting_target(action: Dictionary) -> Dictionary:
 		"message": "A Tempting Target resolved — Objective: %s" % objective_id
 	}
 
+# ============================================================================
+# 11e GDM PUNISHMENT — CONDEMN CHOICE (turn start)
+# ============================================================================
+# _auto_condemn_11e already picked up to 3 enemy units at Command entry (the
+# backstop every headless test pins); a human owner may revise those picks
+# via the Command-phase Condemn dialog while the prompt is pending.
+
+func _validate_resolve_condemn(action: Dictionary) -> Array:
+	var errors = []
+	var player = action.get("player", get_current_player())
+	var unit_ids = action.get("unit_ids", null)
+	if not (unit_ids is Array):
+		errors.append("RESOLVE_CONDEMN requires a unit_ids array")
+		return errors
+	if unit_ids.size() > 3:
+		errors.append("Condemn allows at most 3 units")
+	var pending = MissionManager.get_pending_condemn_choice_11e(player)
+	if pending.is_empty():
+		errors.append("No pending Condemn choice for player %d" % player)
+		return errors
+	var valid_ids = []
+	for e in pending.get("eligible", []):
+		valid_ids.append(str(e.get("id", "")))
+	for uid in unit_ids:
+		if not str(uid) in valid_ids:
+			errors.append("Unit %s is not eligible for Condemn" % str(uid))
+	return errors
+
+func _handle_resolve_condemn(action: Dictionary) -> Dictionary:
+	var player = action.get("player", get_current_player())
+	var unit_ids = action.get("unit_ids", [])
+	var res = MissionManager.resolve_condemn_choice_11e(player, unit_ids)
+	if not res.get("success", false):
+		return {"success": false, "error": res.get("error", "Condemn failed")}
+	log_phase_message("11e Punishment: P%d condemns %s (player's choice)" % [player, str(res.get("condemned", []))])
+	GameState.add_action_to_phase_log({
+		"type": "RESOLVE_CONDEMN",
+		"player": player,
+		"unit_ids": res.get("condemned", []),
+		"turn": GameState.get_battle_round(),
+	})
+	return {
+		"success": true,
+		"changes": [],
+		"message": "Condemned: %s" % str(res.get("condemned", [])),
+		"condemned": res.get("condemned", []),
+	}
+
+func _handle_dismiss_condemn(action: Dictionary) -> Dictionary:
+	var player = action.get("player", get_current_player())
+	var res = MissionManager.dismiss_condemn_prompt_11e(player)
+	log_phase_message("11e Punishment: P%d keeps the auto-Condemn picks %s" % [player, str(res.get("condemned", []))])
+	return {
+		"success": true,
+		"changes": [],
+		"message": "Kept Condemn picks: %s" % str(res.get("condemned", [])),
+		"condemned": res.get("condemned", []),
+	}
+
+# ============================================================================
+# 11e GDM EXTRACT RELIC / LOCATE AND DENY — MARKER SETUP CHOICE
+# ============================================================================
+
+func _validate_resolve_relic_setup(action: Dictionary) -> Array:
+	var errors = []
+	var player = action.get("player", get_current_player())
+	if not (action.get("feature_ids", null) is Array):
+		errors.append("RESOLVE_RELIC_SETUP requires a feature_ids array")
+		return errors
+	if MissionManager.get_pending_relic_setup_11e(player).is_empty():
+		errors.append("No pending relic-marker setup for player %d" % player)
+	return errors
+
+func _handle_resolve_relic_setup(action: Dictionary) -> Dictionary:
+	var player = action.get("player", get_current_player())
+	var res = MissionManager.resolve_relic_setup_11e(player, action.get("feature_ids", []))
+	if not res.get("success", false):
+		return {"success": false, "error": res.get("error", "Relic setup failed")}
+	log_phase_message("11e relic markers set by P%d: %s (player's choice)" % [player, str(res.get("markers", []))])
+	GameState.add_action_to_phase_log({
+		"type": "RESOLVE_RELIC_SETUP",
+		"player": player,
+		"feature_ids": res.get("markers", []),
+		"turn": GameState.get_battle_round(),
+	})
+	return {
+		"success": true,
+		"changes": [],
+		"message": "Relic markers placed: %s" % str(res.get("markers", [])),
+		"markers": res.get("markers", []),
+	}
+
+func _handle_dismiss_relic_setup(action: Dictionary) -> Dictionary:
+	var player = action.get("player", get_current_player())
+	var res = MissionManager.dismiss_relic_setup_11e(player)
+	log_phase_message("11e relic markers: P%d keeps the auto-picked locations %s" % [player, str(res.get("markers", []))])
+	return {
+		"success": true,
+		"changes": [],
+		"message": "Kept relic markers: %s" % str(res.get("markers", [])),
+		"markers": res.get("markers", []),
+	}
+
 func get_untested_battle_shock_units() -> Array:
 	"""Return info about units that need battle-shock tests but haven't been tested yet."""
 	var untested = []
@@ -2243,6 +2362,17 @@ func _handle_end_command() -> Dictionary:
 				if mission.get("pending_interaction", false):
 					DebugLogger.info(str("CommandPhase: WARNING — Player %d has pending interaction for %s, auto-resolving" % [p, mission["name"]]))
 					_auto_resolve_pending_interaction(p, mission, secondary_mgr)
+
+	# 11e Punishment: the Condemn revision window closes with the Command
+	# phase — the auto picks (or the player's revision) stand for the turn.
+	if MissionManager and GameConstants.edition >= 11:
+		if not MissionManager.get_pending_condemn_choice_11e(current_player).is_empty():
+			MissionManager.dismiss_condemn_prompt_11e(current_player)
+			DebugLogger.info("CommandPhase: Condemn prompt unresolved at END_COMMAND — keeping auto picks")
+		# Same for the Disruption player's relic-marker setup window.
+		if not MissionManager.get_pending_relic_setup_11e(current_player).is_empty():
+			MissionManager.dismiss_relic_setup_11e(current_player)
+			DebugLogger.info("CommandPhase: relic-marker setup unresolved at END_COMMAND — keeping auto picks")
 
 	# Apply sticky objective locks at end of Command phase
 	# "Get Da Good Bitz" / "Objective Secured": if a unit with this ability is within range

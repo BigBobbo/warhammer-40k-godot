@@ -3851,6 +3851,11 @@ func _setup_terrain() -> void:
 	$BoardRoot.add_child(terrain_visual)
 	print("Added TerrainVisual to BoardRoot")
 
+	# 11e GDM card-action badges on terrain (Booby Traps, relic markers)
+	var card_action_overlay = preload("res://scripts/CardActionOverlay.gd").new()
+	$BoardRoot.add_child(card_action_overlay)
+	print("Added CardActionOverlay to BoardRoot")
+
 	# Create Line of Sight visual layer
 	var los_visual = preload("res://scripts/LineOfSightVisual.gd").new()
 	los_visual.name = "LineOfSightVisual"
@@ -4127,6 +4132,10 @@ func _setup_objectives() -> void:
 
 		# Do initial control check
 		MissionManager.check_all_objectives()
+
+		# 11e: show any card-action markers already in play (loaded saves)
+		if MissionManager.has_method("refresh_card_action_visuals_11e"):
+			MissionManager.refresh_card_action_visuals_11e()
 
 		print("Main: Objectives setup complete")
 	else:
@@ -9354,6 +9363,7 @@ func _show_end_fight_confirmation_dialog(unfought_units: Array, active_player: i
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "EndFightConfirmationDialog"
 	dialog.setup(unfought_units)
 	dialog.end_fight_confirmed.connect(_on_end_fight_confirmed.bind(active_player))
 	dialog.end_fight_cancelled.connect(_on_end_fight_cancelled)
@@ -9550,6 +9560,7 @@ func _show_shooting_phase_summary_dialog(end_action: Dictionary, active_player: 
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "ShootingPhaseSummaryDialog"
 	dialog.setup(summary_data)
 	dialog.shooting_confirmed.connect(_on_shooting_summary_confirmed.bind(end_action))
 	dialog.shooting_cancelled.connect(_on_shooting_summary_cancelled)

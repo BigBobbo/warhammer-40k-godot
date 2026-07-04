@@ -1,0 +1,44 @@
+{
+  "id": "iss064g_card_action_skip_11e",
+  "covers": [
+    "missions.primary_11e.card_action_prompt",
+    "missions.primary_11e.card_action_skip"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 11,
+  "disable_ai": true,
+  "description": "11e GDM card-action skip path: P2 plays Triangulation and controls two objectives. End Turn opens the CardActionDialog; the player clicks Skip — the optional action is declined, the deterministic auto-pick stands down too (nothing is Triangulated, 0 VP from the marker condition), and the turn still ends cleanly.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 11 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "GameState.state[\"meta\"].merge({\"game_config\": {\"deployment\": \"search_and_destroy\", \"player1_disposition\": \"purge_the_foe\", \"player2_disposition\": \"reconnaissance\"}}, true)" },
+    { "act": "execute_script", "script": "MissionManager.initialize_mission(\"take_and_hold\")" },
+    { "act": "execute_script",
+      "script": "MissionManager.get_primary_mission_for_player(2)[\"id\"]",
+      "equals": "triangulation" },
+    { "act": "execute_script", "script": "MissionManager.check_all_objectives()" },
+    { "act": "execute_script", "script": "MissionManager.on_turn_start_11e(2)" },
+
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/CardActionDialog", "timeout_s": 3.0 },
+    { "act": "expect_node_visible", "node": "/root/CardActionDialog/Content/Actions/SkipCardAction", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_dialog_open_before_skip" },
+
+    { "act": "click_node", "node": "/root/CardActionDialog/Content/Actions/SkipCardAction", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script",
+      "script": "MissionManager._primary_state_11e[\"2\"][\"triangulated\"].size()",
+      "equals": 0 },
+    { "act": "execute_script",
+      "script": "int(GameState.state.players[\"2\"].get(\"primary_vp\", 0))",
+      "equals": 0 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "screenshot", "label": "02_skipped_turn_ended_no_marks" }
+  ]
+}

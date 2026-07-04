@@ -219,9 +219,32 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
    2), Vanguard Operation terrain areas, Extract Relic / Locate and Deny shared relic markers + Sensor Sweep, Smoke
    and Mirrors decoys (2+2, EOG 10 at 4+, enemy-proximity scrub), Surveil (5 VP no-markers), Gather Intel tokens
    (7 VP R2+), Death Trap (2+3/area). Home/Expansion/Central objective designations are assigned per layout and
-   drive the central/expansion conditions. Still open: disposition is a menu pick rather than detachment-derived;
-   6-objective Inescapable Dominion maps aren't modelled; the auto-picks should eventually become player prompts.
-   *(Ref: doc Tab 10 + appendix.)*
+   drive the central/expansion conditions. **Update 2026-07-03 (player prompts):** the auto-picks are now PLAYER
+   CHOICES for a human owner — END_TURN pauses behind a CardActionDialog (single-pick: Triangulate / Consecrate /
+   Booby Trap / Sensor Sweep-marker; multi-pick with all pre-selected: Decoy / Extract Intelligence; Skip declines
+   the optional action and the auto-pick stands down), and Punishment's Condemn pops a Command-phase revision
+   dialog over the auto picks (up-to-3 cap enforced). AI players and headless callers keep the deterministic
+   auto-resolve backstop (`MissionManager.get/resolve/decline_card_action_11e`,
+   `get/resolve/dismiss_condemn_*_11e`; `card_action_resolved_this_turn` rides the save). Windowed
+   `iss064d_triangulate_prompt_11e` / `iss064e_decoy_prompt_11e` / `iss064f_condemn_prompt_11e` /
+   `iss064g_card_action_skip_11e` drive the real End Turn button and dialogs; headless
+   `test_card_action_prompts_11e` 39/39. **Update 2026-07-04:** the marker state is now VISIBLE — objective badges
+   (Triangulated/Consecrated/Decoy/Intel/Op-marker) via `ObjectiveVisual.set_card_action_badges`, Booby-Trap and
+   relic-marker badges on terrain via the new `CardActionOverlay` layer, and per-player marker rows in the Scoring
+   panel (`iss064h`); and the relic-marker SETUP is now the Disruption player's choice too — auto-pick backstop +
+   Command-phase `RelicSetupDialog` revision window that closes at END_COMMAND or the first Sensor Sweep
+   (`iss064i`; headless pins in `test_card_action_prompts_11e`, now 58). Still open: disposition is a menu pick
+   rather than detachment-derived; 6-objective Inescapable Dominion maps aren't modelled; Vital Link stays fully
+   automatic (its Operation Marker has no target choice). **Update 2026-07-04 (per-unit actions):** Sabotage,
+   Vanguard Operation and Extract Intelligence are now REAL 16.01 per-unit actions — registered into
+   ActionsManager per game for the owning player, started from the Shooting phase Start Action button (an
+   ActionChoiceDialog picks between them and Hold Position), completing at end of turn via the ISS-038 hook.
+   When the owner uses the action its rule scores from the action state (Extract Intelligence at the sourced
+   7 VP per completing UNIT; a moved/failed action scores 0); otherwise the positional approximation remains the
+   AI/headless backstop. Windowed `iss064j_mission_action_sabotage_11e` drives the whole flow with real clicks
+   (headless pins in `test_card_action_prompts_11e`, 71). Secure Asset is deliberately not an action (its
+   modelled hold rule already equals the outcome); Consecrate's killer-unit attribution still needs per-unit
+   kill tracking. *(Ref: doc Tab 10 + appendix.)*
 2. **[data] 11e secondary mission deck.** *(Done 2026-07-02, approximations flagged:)* the GDM 2026 deck is authored
    from `docs/rules/11th_edition_missions_gdm2026.md` — 18 cards incl. the Fixed four, draw-2-per-turn with no hand
    limit, the fixed-eligibility restriction, and the 45-total/15-per-turn caps. Cards whose full text was unpublished
@@ -320,9 +343,12 @@ designations exist per layout, Heal X is implemented, and army-construction rule
 remains **genuinely blocked**: Hunter X (no rule text exists anywhere — presumed not shipped), secondary
 Attacker/Defender variant texts, true 11e stat lines and Support tags for other factions (#3, PRD §5 open q.2),
 Melta "post-order" (#14 remainder, deep-dive only), terrain Exposed/Light/Dense category authoring (#6 remainder),
-DP costs per detachment + list-building UI (#5 remainder), player-choice prompts for the auto-resolved card actions
-— plus #15's fight-step restructure, which the audit itself parks pending a GW FAQ on the 3"-vs-5" Engaging
-consolidation.
+DP costs per detachment + list-building UI (#5 remainder) — plus #15's fight-step restructure, which the audit
+itself parks pending a GW FAQ on the 3"-vs-5" Engaging consolidation. *(Resolved 2026-07-03: player-choice prompts
+for the auto-resolved card actions are DONE — CardActionDialog at end of turn + Condemn revision dialog in the
+Command phase, with the deterministic auto-resolve kept as the AI/headless backstop. Resolved 2026-07-04: the
+Extract Relic / Locate and Deny five-marker SETUP choice is a player prompt too, and all marker state renders on
+the board + Scoring panel.)*
 
 The **core engine** of 11th edition is in and genuinely playable at `edition == 11`: the new attack/allocation model,
 cover-as-BS, engagement 2" / coherency 9", the move-type framework incl. FLY, the select-after-roll charge, the

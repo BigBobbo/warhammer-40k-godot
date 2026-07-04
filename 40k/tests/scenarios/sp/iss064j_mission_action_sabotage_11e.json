@@ -1,0 +1,324 @@
+{
+  "id": "iss064j_mission_action_sabotage_11e",
+  "covers": [
+    "missions.primary_11e.per_unit_actions",
+    "missions.primary_11e.sabotage_action"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "11e per-unit mission actions: P2 plays Sabotage (Priority Assets vs Priority Assets). Boyz K (10 models, coherent cluster) stand on the obj_nml_1 expansion objective in the Shooting phase; the player clicks the unit, presses the real Start Action button, and picks Sabotage in the ActionChoiceDialog (Hold Position is also offered \u2014 16.01 generic action). The unit gives up shooting, the action completes at end of turn, and ONLY the acted objective scores (3 VP) even though P2 also controls obj_nml_2 \u2014 proving the action path replaced the hold-based approximation. The turn is ended by clicking the phase button through Charge/Fight to Scoring and End Turn.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"meta\"].merge({\"game_config\": {\"deployment\": \"search_and_destroy\", \"player1_disposition\": \"priority_assets\", \"player2_disposition\": \"priority_assets\"}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.initialize_mission(\"take_and_hold\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.get_primary_mission_for_player(2)[\"id\"]",
+      "equals": "sabotage"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][0].merge({\"position\": {\"x\": 380.0, \"y\": 915.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][1].merge({\"position\": {\"x\": 425.0, \"y\": 915.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][2].merge({\"position\": {\"x\": 470.0, \"y\": 915.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][3].merge({\"position\": {\"x\": 515.0, \"y\": 915.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][4].merge({\"position\": {\"x\": 560.0, \"y\": 915.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][5].merge({\"position\": {\"x\": 380.0, \"y\": 960.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][6].merge({\"position\": {\"x\": 425.0, \"y\": 960.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][7].merge({\"position\": {\"x\": 470.0, \"y\": 960.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][8].merge({\"position\": {\"x\": 515.0, \"y\": 960.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_K\")[\"models\"][9].merge({\"position\": {\"x\": 560.0, \"y\": 960.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.check_all_objectives()"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.on_turn_start_11e(2)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_BOYZ_K"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\")._on_unit_selected_for_shooting(\"U_BOYZ_K\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/StartActionButton",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_start_action_button_visible"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/StartActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/ActionChoiceDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/ActionChoiceDialog/Content/Pick_mission_sabotage_p2",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/ActionChoiceDialog/Content/Pick_hold_position",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_action_choice_dialog"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/ActionChoiceDialog/Content/Pick_mission_sabotage_p2",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_K.flags.performing_action",
+      "equals": "mission_sabotage_p2"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_K.flags.has_shot",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager._primary_state_11e[\"2\"][\"sabotage_started_this_turn\"]",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_sabotage_action_started"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/ShootingPhaseSummaryDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/ShootingPhaseSummaryDialog/Content/Actions/ConfirmEndShooting",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 9
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/HeroicInterventionDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/PileInStepDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInStepDialog/Content/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"PileInStepDialog\") != null and main.get_tree().root.get_node(\"PileInStepDialog\").visible",
+      "label": "second_half_maybe"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"PileInStepDialog\") == null or main.get_tree().root.get_node(\"PileInStepDialog\").get_node(\"Content/EndPileInButton\").emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/EndFightConfirmationDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/ConsolidationStepDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/ConsolidationStepDialog/Content/EndConsolidationButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"ConsolidationStepDialog\") == null or main.get_tree().root.get_node(\"ConsolidationStepDialog\").get_node(\"Content/EndConsolidationButton\").emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 11
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "players.2.primary_vp",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_K\")[\"flags\"][\"action_completed\"]",
+      "equals": "mission_sabotage_p2"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_sabotage_scored_only_acted_objective"
+    }
+  ]
+}

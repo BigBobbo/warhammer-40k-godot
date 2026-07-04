@@ -6,6 +6,9 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 
 signal objective_control_changed(objective_id: String, controller: int, old_controller: int)
 signal victory_points_scored(player: int, points: int, reason: String)
+# 11e GDM card-action marker state changed (Triangulated/Decoy/traps/...)
+# — board overlays and HUD panels refresh on this.
+signal card_action_state_changed()
 signal objective_removed(objective_id: String)
 signal objective_burned(objective_id: String, player: int)
 signal objective_burn_started(objective_id: String, player: int)
@@ -94,6 +97,10 @@ var _primary_state_11e: Dictionary = {}
 # Shared relic/operation markers for the Extract Relic / Locate and Deny
 # pairing: terrain feature ids still carrying a marker
 var _relic_markers_11e: Array = []
+# The real card lets the DISRUPTION player choose the five marked areas at
+# mission start; the auto-pick stands as backstop and a human DI player may
+# revise it during their first Command phase while this is set.
+var _relic_setup_prompt_pending: bool = false
 # player_key (turn owner) -> {unit_id: true} units on the battlefield at
 # the start of that player's turn (for left-battlefield / destroyed checks)
 var _alive_at_turn_start_11e: Dictionary = {}
@@ -1092,6 +1099,7 @@ func initialize_dispositions_11e(p1_disposition: String, p2_disposition: String)
 	_primary_state_11e = {"1": _blank_primary_state_11e(), "2": _blank_primary_state_11e()}
 	_alive_at_turn_start_11e = {}
 	_setup_relic_markers_11e()
+	_register_mission_actions_11e()
 
 	GameState.state.meta["dispositions_11e"] = player_dispositions.duplicate(true)
 	for pk in ["1", "2"]:
@@ -1107,6 +1115,30 @@ func _blank_primary_state_11e() -> Dictionary:
 		"trapped": [], "operation_markers": 0, "intel_tokens": [],
 		"intel_placed_this_turn": 0, "condemned": [],
 		"condemned_left_this_turn": false, "sensor_swept_this_turn": false,
+		# Decoys placed this turn are exempt from this turn's scrub: the card
+		# removes a marker when an enemy ENDS A MOVE in range, which cannot
+		# have happened after an end-of-turn placement.
+		"decoyed_this_turn": [],
+		# Player-prompt bookkeeping: once the owner resolves (or declines) their
+		# card action for the turn, the deterministic auto-pick must stand down.
+		"card_action_resolved_this_turn": false,
+		# Punishment: a human owner may revise the auto-Condemn picks during
+		# their Command phase while this is set.
+		"condemn_prompt_pending": false,
+		# Turn key ("R<round>P<player>") of the last answered Condemn prompt —
+		# lets a save/load phase re-entry keep the player's revision instead
+		# of re-running the auto pick over it.
+		"condemn_resolved_turn": "",
+		# Per-unit mission ACTIONS (16.01, started in the Shooting phase).
+		# When the *_started flag is set the action path is authoritative for
+		# that rule this turn (a failed action scores 0 — no fallback); when
+		# unset the positional approximation scores as before (AI/headless).
+		"sabotage_started_this_turn": false,
+		"sabotaged_this_turn": [],
+		"vanguard_started_this_turn": false,
+		"vanguard_completed_this_turn": false,
+		"intel_started_this_turn": false,
+		"intel_units_this_turn": 0,
 	}
 
 ## Extract Relic / Locate and Deny pairing: the Disruption player marks five
@@ -1115,6 +1147,7 @@ func _blank_primary_state_11e() -> Dictionary:
 ## player's home objective (deterministic; flagged approximate).
 func _setup_relic_markers_11e() -> void:
 	_relic_markers_11e = []
+	_relic_setup_prompt_pending = false
 	var ids = [player_primary_missions.get("1", {}).get("id", ""),
 		player_primary_missions.get("2", {}).get("id", "")]
 	if not ("extract_relic" in ids or "locate_and_deny" in ids):
@@ -1139,6 +1172,9 @@ func _setup_relic_markers_11e() -> void:
 	candidates.sort_custom(func(a, b): return a["dist"] > b["dist"])
 	for i in range(min(5, candidates.size())):
 		_relic_markers_11e.append(candidates[i]["id"])
+	# A human Disruption player may revise these picks in their first
+	# Command phase (real card: their choice at mission start).
+	_relic_setup_prompt_pending = not _relic_markers_11e.is_empty()
 	print("MissionManager: 11e relic markers placed on %s" % str(_relic_markers_11e))
 
 ## Called at Command phase entry (after check_all_objectives) — opens the
@@ -1161,10 +1197,31 @@ func on_turn_start_11e(player: int) -> void:
 		st["intel_placed_this_turn"] = 0
 		st["sensor_swept_this_turn"] = false
 		st["condemned_left_this_turn"] = false
-	# Punishment: auto-Condemn up to 3 enemy units in range of an objective
-	# (real card: player's choice, incl. units that killed friendlies)
+		st["card_action_resolved_this_turn"] = false
+		st["condemn_prompt_pending"] = false
+		st["decoyed_this_turn"] = []
+		st["sabotage_started_this_turn"] = false
+		st["sabotaged_this_turn"] = []
+		st["vanguard_started_this_turn"] = false
+		st["vanguard_completed_this_turn"] = false
+		st["intel_started_this_turn"] = false
+		st["intel_units_this_turn"] = 0
+	# Punishment: auto-Condemn up to 3 enemy units in range of an objective as
+	# the backstop (real card: player's choice, incl. units that killed
+	# friendlies). A human owner can revise the picks via the Command-phase
+	# Condemn prompt while condemn_prompt_pending is set. Skip when the
+	# player already answered for THIS turn — a save/load re-enters the
+	# Command phase and must not clobber their revision.
 	if player_primary_missions.get(pk, {}).get("id", "") == "punishment":
-		_auto_condemn_11e(player)
+		var turn_key = "R%dP%d" % [GameState.get_battle_round(), player]
+		if _primary_state_11e[pk].get("condemn_resolved_turn", "") == turn_key:
+			print("MissionManager: 11e Condemn already answered for %s — keeping %s" % [
+				turn_key, str(_primary_state_11e[pk].get("condemned", []))])
+		else:
+			_auto_condemn_11e(player)
+			if not _condemn_eligible_units_11e(player).is_empty():
+				_primary_state_11e[pk]["condemn_prompt_pending"] = true
+	refresh_card_action_visuals_11e()
 	print("MissionManager: 11e turn start P%s — controls %s" % [pk, str(_control_at_turn_start[pk])])
 
 func _unit_on_battlefield_11e(unit_id: String) -> bool:
@@ -1180,20 +1237,26 @@ func _unit_on_battlefield_11e(unit_id: String) -> bool:
 func _auto_condemn_11e(player: int) -> void:
 	var pk = str(player)
 	var st = _primary_state_11e.get(pk, {})
+	var condemned = _condemn_eligible_units_11e(player).slice(0, 3)
+	st["condemned"] = condemned
+	if condemned.size() > 0:
+		print("MissionManager: 11e Punishment — P%s condemns %s" % [pk, str(condemned)])
+
+## Punishment eligibility: enemy units on the battlefield in range of an
+## objective. (The card's second branch — units that destroyed a friendly
+## unit the previous turn — needs per-unit kill attribution, which the
+## engine doesn't track; still approximate.)
+func _condemn_eligible_units_11e(player: int) -> Array:
 	var opponent = 3 - player
 	var control_radius = Measurement.inches_to_px(3.78740157)
-	var condemned = []
+	var eligible = []
 	for unit_id in GameState.state.get("units", {}):
-		if condemned.size() >= 3:
-			break
 		var unit = GameState.state.units[unit_id]
 		if int(unit.get("owner", 0)) != opponent or not _unit_on_battlefield_11e(unit_id):
 			continue
 		if _unit_within_of_any_objective_11e(unit_id, control_radius):
-			condemned.append(unit_id)
-	st["condemned"] = condemned
-	if condemned.size() > 0:
-		print("MissionManager: 11e Punishment — P%s condemns %s" % [pk, str(condemned)])
+			eligible.append(unit_id)
+	return eligible
 
 func _unit_within_of_any_objective_11e(unit_id: String, radius_px: float) -> bool:
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
@@ -1238,87 +1301,101 @@ func _run_primary_auto_actions_11e(player: int, battle_round: int) -> void:
 	var control_radius = Measurement.inches_to_px(3.78740157)
 
 	# Decoy scrub (both players): a decoy is removed once an enemy unit is
-	# within range of the objective (approximates "ends a move within range")
+	# within range of the objective (approximates "ends a move within range").
+	# Markers placed THIS turn are exempt — no enemy move can have ended
+	# after an end-of-turn placement (keeps the player-pick path scoring the
+	# same as the auto path, which places after this scrub).
 	for spk in _primary_state_11e:
 		var owner = int(spk)
 		var sst = _primary_state_11e[spk]
 		var kept = []
 		for obj_id in sst.get("decoyed", []):
-			if not _enemy_unit_in_range_of_objective_11e(owner, obj_id, control_radius):
+			if obj_id in sst.get("decoyed_this_turn", []) \
+					or not _enemy_unit_in_range_of_objective_11e(owner, obj_id, control_radius):
 				kept.append(obj_id)
 			else:
 				print("MissionManager: 11e decoy on %s scrubbed (enemy in range)" % obj_id)
 		sst["decoyed"] = kept
 
-	match card_id:
-		"triangulation":
-			# Triangulate: once per turn, an objective you control at EOT
-			for obj_id in _get_controlled_objectives(player):
-				if not obj_id in st["triangulated"]:
-					st["triangulated"].append(obj_id)
-					print("MissionManager: 11e Triangulated %s (P%s)" % [obj_id, pk])
-					break
-		"consecrate":
-			# Killer unit becomes a Consecration unit; approximated as: a kill
-			# this turn lets one friendly unit in range consecrate an eligible
-			# (non-home, unconsecrated) objective at EOT.
-			if _kills_this_turn_11e(player) >= 1:
+	# Stand down when the player already resolved (or declined) their card
+	# action this turn via the prompt — their choice replaces the auto-pick.
+	if st.get("card_action_resolved_this_turn", false):
+		print("MissionManager: 11e card action already resolved by P%s this turn — auto-pick skipped" % pk)
+	else:
+		match card_id:
+			"triangulation":
+				# Triangulate: once per turn, an objective you control at EOT
 				for obj_id in _get_controlled_objectives(player):
-					if _is_home_objective_11e(obj_id, player) or obj_id in st["consecrated"]:
-						continue
-					st["consecrated"].append(obj_id)
-					print("MissionManager: 11e Consecrated %s (P%s)" % [obj_id, pk])
-					break
-		"smoke_and_mirrors":
-			# Decoy action: unlimited uses at end of turn on controlled non-home
-			for obj_id in _get_controlled_objectives(player):
-				if _is_home_objective_11e(obj_id, player) or obj_id in st["decoyed"]:
-					continue
-				st["decoyed"].append(obj_id)
-				if not obj_id in st["decoyed_ever"]:
-					st["decoyed_ever"].append(obj_id)
-				print("MissionManager: 11e Decoyed %s (P%s)" % [obj_id, pk])
-		"vital_link":
-			var central = _get_central_objective_id_11e()
-			if central != "" and objective_control_state.get(central, 0) == player:
-				st["operation_markers"] = int(st.get("operation_markers", 0)) + 1
-				print("MissionManager: 11e Vital Link operation marker %d placed (P%s)" % [st["operation_markers"], pk])
-		"death_trap":
-			# Booby Trap: once per turn, an untrapped terrain area containing
-			# one of your models (eligibility simplified)
-			var tm = get_node_or_null("/root/TerrainManager")
-			if tm != null:
-				for feature in tm.terrain_features:
-					var fid = feature.get("id", "")
-					if fid == "" or fid in st["trapped"]:
-						continue
-					if _player_model_in_terrain_11e(player, feature):
-						st["trapped"].append(fid)
-						print("MissionManager: 11e Booby Trapped %s (P%s)" % [fid, pk])
+					if not obj_id in st["triangulated"]:
+						st["triangulated"].append(obj_id)
+						print("MissionManager: 11e Triangulated %s (P%s)" % [obj_id, pk])
 						break
-		"gather_intel":
-			if battle_round >= 2:
-				for obj in GameState.state.board.get("objectives", []):
-					var obj_id = obj.get("id", "")
-					if obj.get("zone", "") != "no_mans_land" or obj_id in st["intel_tokens"]:
+			"consecrate":
+				# Killer unit becomes a Consecration unit; approximated as: a kill
+				# this turn lets one friendly unit in range consecrate an eligible
+				# (non-home, unconsecrated) objective at EOT.
+				if _kills_this_turn_11e(player) >= 1:
+					for obj_id in _get_controlled_objectives(player):
+						if _is_home_objective_11e(obj_id, player) or obj_id in st["consecrated"]:
+							continue
+						st["consecrated"].append(obj_id)
+						print("MissionManager: 11e Consecrated %s (P%s)" % [obj_id, pk])
+						break
+			"smoke_and_mirrors":
+				# Decoy action: unlimited uses at end of turn on controlled non-home
+				if not st.has("decoyed_this_turn"):
+					st["decoyed_this_turn"] = []
+				for obj_id in _get_controlled_objectives(player):
+					if _is_home_objective_11e(obj_id, player) or obj_id in st["decoyed"]:
 						continue
-					if _friendly_unit_in_range_of_objective_11e(player, obj_id, control_radius):
-						st["intel_tokens"].append(obj_id)
-						st["intel_placed_this_turn"] = int(st.get("intel_placed_this_turn", 0)) + 1
-						print("MissionManager: 11e intel token on %s (P%s)" % [obj_id, pk])
-		"extract_relic", "locate_and_deny":
-			# Sensor Sweep: once per turn while >1 marker remains, needs a unit
-			# in range of a controlled Central objective
-			if _relic_markers_11e.size() > 1:
-				var central2 = _get_central_objective_id_11e()
-				if central2 != "" and objective_control_state.get(central2, 0) == player \
-						and _friendly_unit_in_range_of_objective_11e(player, central2, control_radius):
-					var removed = _relic_markers_11e.pop_back()
-					st["sensor_swept_this_turn"] = true
-					print("MissionManager: 11e Sensor Sweep removed marker %s (P%s, %d left)" % [str(removed), pk, _relic_markers_11e.size()])
+					st["decoyed"].append(obj_id)
+					st["decoyed_this_turn"].append(obj_id)
+					if not obj_id in st["decoyed_ever"]:
+						st["decoyed_ever"].append(obj_id)
+					print("MissionManager: 11e Decoyed %s (P%s)" % [obj_id, pk])
+			"vital_link":
+				var central = _get_central_objective_id_11e()
+				if central != "" and objective_control_state.get(central, 0) == player:
+					st["operation_markers"] = int(st.get("operation_markers", 0)) + 1
+					print("MissionManager: 11e Vital Link operation marker %d placed (P%s)" % [st["operation_markers"], pk])
+			"death_trap":
+				# Booby Trap: once per turn, an untrapped terrain area containing
+				# one of your models (eligibility simplified)
+				var tm = get_node_or_null("/root/TerrainManager")
+				if tm != null:
+					for feature in tm.terrain_features:
+						var fid = feature.get("id", "")
+						if fid == "" or fid in st["trapped"]:
+							continue
+						if _player_model_in_terrain_11e(player, feature):
+							st["trapped"].append(fid)
+							print("MissionManager: 11e Booby Trapped %s (P%s)" % [fid, pk])
+							break
+			"gather_intel":
+				if battle_round >= 2:
+					for obj in GameState.state.board.get("objectives", []):
+						var obj_id = obj.get("id", "")
+						if obj.get("zone", "") != "no_mans_land" or obj_id in st["intel_tokens"]:
+							continue
+						if _friendly_unit_in_range_of_objective_11e(player, obj_id, control_radius):
+							st["intel_tokens"].append(obj_id)
+							st["intel_placed_this_turn"] = int(st.get("intel_placed_this_turn", 0)) + 1
+							print("MissionManager: 11e intel token on %s (P%s)" % [obj_id, pk])
+			"extract_relic", "locate_and_deny":
+				# Sensor Sweep: once per turn while >1 marker remains, needs a unit
+				# in range of a controlled Central objective
+				if _relic_markers_11e.size() > 1:
+					var central2 = _get_central_objective_id_11e()
+					if central2 != "" and objective_control_state.get(central2, 0) == player \
+							and _friendly_unit_in_range_of_objective_11e(player, central2, control_radius):
+						var removed = _relic_markers_11e.pop_back()
+						st["sensor_swept_this_turn"] = true
+						_relic_setup_prompt_pending = false
+						print("MissionManager: 11e Sensor Sweep removed marker %s (P%s, %d left)" % [str(removed), pk, _relic_markers_11e.size()])
 
 	# The active player's own Condemned check also runs at their EOT
 	_update_condemned_left_11e(player, player)
+	refresh_card_action_visuals_11e()
 
 func _update_condemned_left_11e(card_owner: int, turn_owner: int) -> void:
 	var pk = str(card_owner)
@@ -1331,6 +1408,622 @@ func _update_condemned_left_11e(card_owner: int, turn_owner: int) -> void:
 			st["condemned_left_this_turn"] = true
 			print("MissionManager: 11e Condemned unit %s left the battlefield" % unit_id)
 			return
+
+# ============================================================
+# 11e PER-UNIT MISSION ACTIONS (16.01, started in the Shooting phase)
+# ============================================================
+# Sabotage / Vanguard Operation / Extract Intelligence are real per-unit
+# actions on the sourced cards: a unit gives up shooting to start one and
+# it completes at end of turn. Registered into ActionsManager per game;
+# when the owner USES the action, its rule scores from the action state
+# for that turn; otherwise the positional approximation stands (AI and
+# headless backstop). Secure Asset is intentionally NOT an action here —
+# its modelled hold rule already equals the action outcome. Consecrate's
+# killer-unit attribution needs per-unit kill tracking that doesn't exist
+# yet, so it stays with the end-of-turn prompt approximation.
+
+func _register_mission_actions_11e() -> void:
+	ActionsManager.unregister_actions_by_prefix("mission_")
+	if GameConstants.edition < 11:
+		return
+	for pk in ["1", "2"]:
+		var player = int(pk)
+		var card_id = player_primary_missions.get(pk, {}).get("id", "")
+		match card_id:
+			"sabotage":
+				ActionsManager.register_action({
+					"id": "mission_sabotage_p%s" % pk,
+					"name": "Sabotage",
+					"starts": "shooting",
+					"units": {},
+					"use_limit": "",
+					"completes": "end_of_turn",
+					"effect": "mission:sabotage",
+					"mission_check": "sabotage",
+					"player": player,
+					"description": "Sabotage the objective this unit is on (non-home). Completes at end of turn: 3 VP per sabotaged objective (+2 in enemy territory).",
+				})
+			"vanguard_operation":
+				ActionsManager.register_action({
+					"id": "mission_vanguard_p%s" % pk,
+					"name": "Vanguard Operation",
+					"starts": "shooting",
+					"units": {},
+					"use_limit": "once_per_turn",
+					"completes": "end_of_turn",
+					"effect": "mission:vanguard",
+					"mission_check": "vanguard",
+					"player": player,
+					"description": "Operate from a terrain area in your opponent's territory. Completes at end of turn if no enemy units are in that area: 4 VP.",
+				})
+			"gather_intel":
+				ActionsManager.register_action({
+					"id": "mission_extract_intel_p%s" % pk,
+					"name": "Extract Intelligence",
+					"starts": "shooting",
+					"units": {},
+					"use_limit": "",
+					"completes": "end_of_turn",
+					"effect": "mission:gather_intel",
+					"mission_check": "gather_intel",
+					"player": player,
+					"description": "Extract intelligence at a No Man's Land objective (from Round 2). Completes at end of turn: 7 VP per unit that completed the action.",
+				})
+	print("MissionManager: 11e mission actions registered for the disposition cards")
+
+## Contextual eligibility for the mission actions (ActionsManager gate).
+func can_start_mission_action_11e(check_id: String, unit_id: String, player: int) -> bool:
+	if GameConstants.edition < 11:
+		return false
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	match check_id:
+		"sabotage":
+			var obj_id = _nearest_objective_in_range_11e(unit_id, control_radius, "non_home", player)
+			return obj_id != ""
+		"vanguard":
+			return _unit_terrain_area_in_enemy_territory_11e(unit_id, player) != ""
+		"gather_intel":
+			if GameState.get_battle_round() < 2:
+				return false
+			var st = _primary_state_11e.get(str(player), {})
+			var obj_id = _nearest_objective_in_range_11e(unit_id, control_radius, "nml", player)
+			return obj_id != "" and not obj_id in st.get("intel_tokens", [])
+		_:
+			return false
+
+## ShootingPhase hook: a mission action was STARTED — from now the action
+## path is authoritative for that rule this turn (a failed action scores 0).
+func on_mission_action_started_11e(action_id: String, unit_id: String, player: int) -> void:
+	var st = _primary_state_11e.get(str(player), {})
+	if st.is_empty():
+		return
+	var def = ActionsManager.get_action(action_id)
+	match str(def.get("effect", "")):
+		"mission:sabotage":
+			st["sabotage_started_this_turn"] = true
+		"mission:vanguard":
+			st["vanguard_started_this_turn"] = true
+		"mission:gather_intel":
+			st["intel_started_this_turn"] = true
+			# The action IS this turn's Extract Intelligence choice — the
+			# end-of-turn prompt/auto placement stands down.
+			st["card_action_resolved_this_turn"] = true
+	print("MissionManager: 11e mission action %s started by %s (P%d)" % [action_id, unit_id, player])
+
+## PhaseManager hook: a mission action COMPLETED at end of turn (unit did
+## not move, is not battle-shocked). Resolve its target from the unit's
+## position now and write the scoring state.
+func on_mission_action_completed_11e(unit_id: String, effect: String) -> void:
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var player = int(unit.get("owner", 0))
+	var st = _primary_state_11e.get(str(player), {})
+	if st.is_empty():
+		return
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	match effect:
+		"mission:sabotage":
+			var obj_id = _nearest_objective_in_range_11e(unit_id, control_radius, "non_home", player)
+			if obj_id != "" and not obj_id in st.get("sabotaged_this_turn", []):
+				st["sabotaged_this_turn"].append(obj_id)
+				print("MissionManager: 11e Sabotage completed on %s by %s (P%d)" % [obj_id, unit_id, player])
+		"mission:vanguard":
+			var fid = _unit_terrain_area_in_enemy_territory_11e(unit_id, player)
+			if fid != "":
+				var tm = get_node_or_null("/root/TerrainManager")
+				var enemy_inside = false
+				if tm != null:
+					for feature in tm.terrain_features:
+						if feature.get("id", "") == fid:
+							enemy_inside = _player_model_in_terrain_11e(3 - player, feature)
+							break
+				if not enemy_inside:
+					st["vanguard_completed_this_turn"] = true
+					print("MissionManager: 11e Vanguard Operation completed in %s by %s (P%d)" % [fid, unit_id, player])
+		"mission:gather_intel":
+			var obj_id = _nearest_objective_in_range_11e(unit_id, control_radius, "nml", player)
+			if obj_id != "":
+				if not obj_id in st.get("intel_tokens", []):
+					st["intel_tokens"].append(obj_id)
+				st["intel_units_this_turn"] = int(st.get("intel_units_this_turn", 0)) + 1
+				print("MissionManager: 11e Extract Intelligence completed at %s by %s (P%d)" % [obj_id, unit_id, player])
+	refresh_card_action_visuals_11e()
+
+## Nearest objective within radius of any of the unit's models. Filters:
+## "non_home" (not the acting player's home) or "nml" (No Man's Land only).
+func _nearest_objective_in_range_11e(unit_id: String, radius_px: float, obj_filter: String, player: int) -> String:
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var best_id = ""
+	var best_dist = INF
+	for obj in GameState.state.board.get("objectives", []):
+		var obj_id = obj.get("id", "")
+		if obj_filter == "non_home" and _is_home_objective_11e(obj_id, player):
+			continue
+		if obj_filter == "nml" and obj.get("zone", "") != "no_mans_land":
+			continue
+		var obj_pos = obj.get("position")
+		if obj_pos is Dictionary:
+			obj_pos = Vector2(obj_pos.x, obj_pos.y)
+		for model in unit.get("models", []):
+			if not model.get("alive", true) or model.get("position") == null:
+				continue
+			var d = Measurement.model_edge_to_point_distance_px(model, obj_pos)
+			if d <= radius_px and d < best_dist:
+				best_dist = d
+				best_id = obj_id
+	return best_id
+
+## The terrain feature (id) in enemy territory that contains one of the
+## unit's models, or "" — Vanguard Operation eligibility/completion.
+func _unit_terrain_area_in_enemy_territory_11e(unit_id: String, player: int) -> String:
+	var tm = get_node_or_null("/root/TerrainManager")
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if tm == null or secondary_mgr == null:
+		return ""
+	var enemy_zone = secondary_mgr._get_deployment_zone_polygon(3 - player)
+	if enemy_zone.is_empty():
+		return ""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	for feature in tm.terrain_features:
+		var fpos = feature.get("position", Vector2.ZERO)
+		if fpos is Dictionary:
+			fpos = Vector2(fpos.get("x", 0), fpos.get("y", 0))
+		if not Geometry2D.is_point_in_polygon(fpos, enemy_zone):
+			continue
+		var polygon = feature.get("polygon", PackedVector2Array())
+		if polygon.is_empty():
+			continue
+		for model in unit.get("models", []):
+			if not model.get("alive", true) or model.get("position") == null:
+				continue
+			var pos = model.get("position")
+			if pos is Dictionary:
+				pos = Vector2(pos.x, pos.y)
+			if Geometry2D.is_point_in_polygon(pos, polygon):
+				return str(feature.get("id", ""))
+	return ""
+
+# ============================================================
+# 11e CARD-ACTION STATE VISIBILITY (board badges + HUD summaries)
+# ============================================================
+
+## Push the marker state onto the objective visuals and notify overlays.
+## Safe headless (no visual refs registered) — still emits the signal so
+## HUD listeners stay in sync.
+func refresh_card_action_visuals_11e() -> void:
+	if GameConstants.edition >= 11 and not player_primary_missions.is_empty():
+		var central = _get_central_objective_id_11e()
+		for obj in GameState.state.board.get("objectives", []):
+			var obj_id = obj.get("id", "")
+			var vis = objectives_visual_refs.get(obj_id, null)
+			if vis == null or not is_instance_valid(vis) or not vis.has_method("set_card_action_badges"):
+				continue
+			var badges = []
+			for pk in ["1", "2"]:
+				var st = _primary_state_11e.get(pk, {})
+				if st.is_empty():
+					continue
+				if obj_id in st.get("triangulated", []):
+					badges.append("TRIANGULATED (P%s)" % pk)
+				if obj_id in st.get("consecrated", []):
+					badges.append("CONSECRATED (P%s)" % pk)
+				if obj_id in st.get("decoyed", []):
+					badges.append("DECOY (P%s)" % pk)
+				if obj_id in st.get("intel_tokens", []):
+					badges.append("INTEL (P%s)" % pk)
+				if obj_id == central and int(st.get("operation_markers", 0)) > 0:
+					badges.append("OP MARKERS x%d (P%s)" % [int(st["operation_markers"]), pk])
+			vis.set_card_action_badges(badges)
+	emit_signal("card_action_state_changed")
+
+## Badges for a terrain feature (Booby Traps + shared relic markers) —
+## consumed by CardActionOverlay.
+func get_terrain_badges_11e(feature_id: String) -> Array:
+	var lines = []
+	if GameConstants.edition < 11:
+		return lines
+	for pk in ["1", "2"]:
+		if feature_id in _primary_state_11e.get(pk, {}).get("trapped", []):
+			lines.append("BOOBY TRAP (P%s)" % pk)
+	if feature_id in _relic_markers_11e:
+		lines.append("OP MARKER")
+	return lines
+
+## Compact per-player marker summary for HUD panels. Empty when the player
+## has no markers/picks in play.
+func get_card_action_summary_11e(player: int) -> Array:
+	var pk = str(player)
+	var st = _primary_state_11e.get(pk, {})
+	var out = []
+	if GameConstants.edition < 11 or st.is_empty():
+		return out
+	var list_parts = [
+		["Triangulated", st.get("triangulated", [])],
+		["Consecrated", st.get("consecrated", [])],
+		["Decoys", st.get("decoyed", [])],
+		["Intel tokens", st.get("intel_tokens", [])],
+		["Booby traps", st.get("trapped", [])],
+	]
+	for part in list_parts:
+		var vals: Array = part[1]
+		if not vals.is_empty():
+			var strs = []
+			for v in vals:
+				strs.append(str(v))
+			out.append("%s: %s" % [part[0], ", ".join(PackedStringArray(strs))])
+	if int(st.get("operation_markers", 0)) > 0:
+		out.append("Operation markers: %d" % int(st["operation_markers"]))
+	var condemned: Array = st.get("condemned", [])
+	if not condemned.is_empty():
+		var names = []
+		for uid in condemned:
+			var unit = GameState.state.get("units", {}).get(uid, {})
+			names.append(str(unit.get("meta", {}).get("name", uid)))
+		out.append("Condemned: %s" % ", ".join(PackedStringArray(names)))
+	var card_id = player_primary_missions.get(pk, {}).get("id", "")
+	if card_id in ["extract_relic", "locate_and_deny"] and not _relic_markers_11e.is_empty():
+		var marker_strs = []
+		for m in _relic_markers_11e:
+			marker_strs.append(str(m))
+		out.append("Relic markers left: %s" % ", ".join(PackedStringArray(marker_strs)))
+	return out
+
+# ============================================================
+# 11e CARD-ACTION PLAYER CHOICE (prompts; auto-resolve backstop)
+# ============================================================
+# The bespoke GDM card actions stay auto-resolved deterministically inside
+# score_primary_eot_11e — that is the headless/AI backstop and the behavior
+# every existing test pins. The interactive layer opts a HUMAN player into
+# choosing instead: ScoringPhase's END_TURN gate queries
+# get_pending_card_action_11e, the ScoringController dialog dispatches
+# RESOLVE_CARD_ACTION / SKIP_CARD_ACTION, and resolve_card_action_11e
+# applies the picks and stands the auto-pick down for the turn.
+# (Vital Link is deliberately absent: its Operation Marker has no target
+# choice — the Central objective is the only legal spot — so it stays
+# fully automatic.)
+
+## Enumerate the player's end-of-turn card-action choice. Returns {} when
+## the card has no target choice, nothing is eligible right now, or the
+## action was already resolved/declined this turn. Pure query — no mutation.
+## Shape: { card_id, card_name, player, action_name, description,
+##   mode: "single"|"multi", targets: [{id, label}] }
+func get_pending_card_action_11e(player: int, battle_round: int = -1) -> Dictionary:
+	if GameConstants.edition < 11 or player_primary_missions.is_empty():
+		return {}
+	var pk = str(player)
+	var st = _primary_state_11e.get(pk, {})
+	if st.is_empty() or st.get("card_action_resolved_this_turn", false):
+		return {}
+	if battle_round < 0:
+		battle_round = GameState.get_battle_round()
+	var card = player_primary_missions.get(pk, {})
+	var card_id = card.get("id", "")
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	var targets = []
+	var pending = {
+		"card_id": card_id,
+		"card_name": card.get("name", "?"),
+		"player": player,
+		"mode": "single",
+	}
+	match card_id:
+		"triangulation":
+			pending["action_name"] = "Triangulate"
+			pending["description"] = "Once per turn: apply the Triangulated descriptor to an objective you control (permanent)."
+			for obj_id in _get_controlled_objectives(player):
+				if not obj_id in st.get("triangulated", []):
+					targets.append(_objective_target_entry_11e(obj_id))
+		"consecrate":
+			if _kills_this_turn_11e(player) < 1:
+				return {}
+			pending["action_name"] = "Consecrate"
+			pending["description"] = "You destroyed a unit this turn: place a Consecrated marker (permanent) on a non-home objective you control."
+			for obj_id in _get_controlled_objectives(player):
+				if _is_home_objective_11e(obj_id, player) or obj_id in st.get("consecrated", []):
+					continue
+				targets.append(_objective_target_entry_11e(obj_id))
+		"smoke_and_mirrors":
+			pending["action_name"] = "Decoy"
+			pending["description"] = "Unlimited uses: place Decoy markers on non-home objectives you control. A marker is removed if an enemy unit reaches its objective."
+			pending["mode"] = "multi"
+			for obj_id in _get_controlled_objectives(player):
+				if _is_home_objective_11e(obj_id, player) or obj_id in st.get("decoyed", []):
+					continue
+				targets.append(_objective_target_entry_11e(obj_id))
+		"death_trap":
+			pending["action_name"] = "Booby Trap"
+			pending["description"] = "Once per turn: trap an untrapped terrain area containing one of your models (permanent; bonus VP if it holds an objective)."
+			var tm = get_node_or_null("/root/TerrainManager")
+			if tm != null:
+				for feature in tm.terrain_features:
+					var fid = feature.get("id", "")
+					if fid == "" or fid in st.get("trapped", []):
+						continue
+					if _player_model_in_terrain_11e(player, feature):
+						var label = str(fid)
+						if _terrain_contains_objective_11e(tm, fid):
+							label += " (holds an objective)"
+						targets.append({"id": fid, "label": label})
+		"gather_intel":
+			if battle_round < 2:
+				return {}
+			pending["action_name"] = "Extract Intelligence"
+			pending["description"] = "From Round 2: place intel tokens on No Man's Land objectives your units are in range of (7 VP each this turn)."
+			pending["mode"] = "multi"
+			for obj in GameState.state.board.get("objectives", []):
+				var obj_id = obj.get("id", "")
+				if obj.get("zone", "") != "no_mans_land" or obj_id in st.get("intel_tokens", []):
+					continue
+				if _friendly_unit_in_range_of_objective_11e(player, obj_id, control_radius):
+					targets.append(_objective_target_entry_11e(obj_id))
+		"extract_relic", "locate_and_deny":
+			if _relic_markers_11e.size() <= 1:
+				return {}
+			var central = _get_central_objective_id_11e()
+			if central == "" or objective_control_state.get(central, 0) != player \
+					or not _friendly_unit_in_range_of_objective_11e(player, central, control_radius):
+				return {}
+			pending["action_name"] = "Sensor Sweep"
+			pending["description"] = "Once per turn: remove one operation marker of your choice (markers stop being removable when one remains)."
+			for marker_id in _relic_markers_11e:
+				targets.append({"id": str(marker_id), "label": "Marker on %s" % str(marker_id)})
+		_:
+			return {}
+	if targets.is_empty():
+		return {}
+	pending["targets"] = targets
+	return pending
+
+func _objective_target_entry_11e(obj_id: String) -> Dictionary:
+	var obj = _get_objective_by_id(obj_id)
+	var bits = []
+	var designation = str(obj.get("designation", ""))
+	if designation != "":
+		bits.append(designation.capitalize())
+	match str(obj.get("zone", "")):
+		"no_mans_land":
+			bits.append("No Man's Land")
+		"player1":
+			bits.append("P1 zone")
+		"player2":
+			bits.append("P2 zone")
+	var label = obj_id
+	if not bits.is_empty():
+		label += " (%s)" % ", ".join(PackedStringArray(bits))
+	return {"id": obj_id, "label": label}
+
+## Apply the player's chosen targets for their card action this turn.
+## Validates against the live pending enumeration; an empty pick list is a
+## decline. Sets card_action_resolved_this_turn so the auto-pick stands down.
+func resolve_card_action_11e(player: int, target_ids: Array) -> Dictionary:
+	var pending = get_pending_card_action_11e(player)
+	if pending.is_empty():
+		return {"success": false, "error": "No pending card action for player %d" % player}
+	var pk = str(player)
+	var st = _primary_state_11e.get(pk, {})
+	var valid_ids = []
+	for t in pending.get("targets", []):
+		valid_ids.append(str(t.get("id", "")))
+	if pending.get("mode", "single") == "single" and target_ids.size() > 1:
+		return {"success": false, "error": "%s allows only one target" % pending.get("action_name", "Card action")}
+	var picks = []
+	for tid in target_ids:
+		var tid_s = str(tid)
+		if not tid_s in valid_ids:
+			return {"success": false, "error": "Ineligible target %s for %s" % [tid_s, pending.get("action_name", "card action")]}
+		if not tid_s in picks:
+			picks.append(tid_s)
+	var card_id = pending.get("card_id", "")
+	match card_id:
+		"triangulation":
+			for tid in picks:
+				st["triangulated"].append(tid)
+				print("MissionManager: 11e Triangulated %s (P%s, player choice)" % [tid, pk])
+		"consecrate":
+			for tid in picks:
+				st["consecrated"].append(tid)
+				print("MissionManager: 11e Consecrated %s (P%s, player choice)" % [tid, pk])
+		"smoke_and_mirrors":
+			if not st.has("decoyed_this_turn"):
+				st["decoyed_this_turn"] = []
+			for tid in picks:
+				st["decoyed"].append(tid)
+				st["decoyed_this_turn"].append(tid)
+				if not tid in st["decoyed_ever"]:
+					st["decoyed_ever"].append(tid)
+				print("MissionManager: 11e Decoyed %s (P%s, player choice)" % [tid, pk])
+		"death_trap":
+			for tid in picks:
+				st["trapped"].append(tid)
+				print("MissionManager: 11e Booby Trapped %s (P%s, player choice)" % [tid, pk])
+		"gather_intel":
+			for tid in picks:
+				st["intel_tokens"].append(tid)
+				st["intel_placed_this_turn"] = int(st.get("intel_placed_this_turn", 0)) + 1
+				print("MissionManager: 11e intel token on %s (P%s, player choice)" % [tid, pk])
+		"extract_relic", "locate_and_deny":
+			for tid in picks:
+				_relic_markers_11e.erase(tid)
+				st["sensor_swept_this_turn"] = true
+				_relic_setup_prompt_pending = false
+				print("MissionManager: 11e Sensor Sweep removed marker %s (P%s, player choice, %d left)" % [tid, pk, _relic_markers_11e.size()])
+		_:
+			return {"success": false, "error": "Card %s has no resolvable action" % card_id}
+	st["card_action_resolved_this_turn"] = true
+	refresh_card_action_visuals_11e()
+	return {"success": true, "card_id": card_id, "action_name": pending.get("action_name", ""), "applied": picks}
+
+## Decline the optional card action for this turn: nothing is placed and
+## the auto-pick stands down.
+func decline_card_action_11e(player: int) -> Dictionary:
+	var pk = str(player)
+	var st = _primary_state_11e.get(pk, {})
+	if st.is_empty():
+		return {"success": false, "error": "No 11e primary state for player %d" % player}
+	st["card_action_resolved_this_turn"] = true
+	print("MissionManager: 11e P%s declined their card action this turn" % pk)
+	return {"success": true, "applied": []}
+
+## Punishment: the Command-phase prompt lets the human owner revise the
+## auto-Condemn picks (which already stand as the backstop). Returns {}
+## unless the prompt is still pending this turn.
+func get_pending_condemn_choice_11e(player: int) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {}
+	var pk = str(player)
+	var st = _primary_state_11e.get(pk, {})
+	if st.is_empty() or not st.get("condemn_prompt_pending", false):
+		return {}
+	if player_primary_missions.get(pk, {}).get("id", "") != "punishment":
+		return {}
+	var eligible = []
+	for unit_id in _condemn_eligible_units_11e(player):
+		var unit = GameState.state.get("units", {}).get(unit_id, {})
+		eligible.append({
+			"id": unit_id,
+			"label": unit.get("meta", {}).get("name", unit_id),
+		})
+	if eligible.is_empty():
+		return {}
+	return {
+		"player": player,
+		"card_id": "punishment",
+		"card_name": player_primary_missions.get(pk, {}).get("name", "Punishment"),
+		"action_name": "Condemn",
+		"description": "Choose up to 3 enemy units in range of an objective to Condemn. 5 VP at the end of any turn in which a Condemned unit left the battlefield.",
+		"max_picks": 3,
+		"eligible": eligible,
+		"current": st.get("condemned", []).duplicate(),
+	}
+
+func resolve_condemn_choice_11e(player: int, unit_ids: Array) -> Dictionary:
+	var pending = get_pending_condemn_choice_11e(player)
+	if pending.is_empty():
+		return {"success": false, "error": "No pending Condemn choice for player %d" % player}
+	if unit_ids.size() > 3:
+		return {"success": false, "error": "Condemn allows at most 3 units"}
+	var valid_ids = []
+	for e in pending.get("eligible", []):
+		valid_ids.append(str(e.get("id", "")))
+	var picks = []
+	for uid in unit_ids:
+		var uid_s = str(uid)
+		if not uid_s in valid_ids:
+			return {"success": false, "error": "Unit %s is not eligible for Condemn" % uid_s}
+		if not uid_s in picks:
+			picks.append(uid_s)
+	var pk = str(player)
+	var st = _primary_state_11e.get(pk, {})
+	st["condemned"] = picks
+	st["condemn_prompt_pending"] = false
+	st["condemn_resolved_turn"] = "R%dP%d" % [GameState.get_battle_round(), player]
+	print("MissionManager: 11e Punishment — P%s condemns %s (player choice)" % [pk, str(picks)])
+	refresh_card_action_visuals_11e()
+	return {"success": true, "condemned": picks}
+
+## Keep the auto-Condemn picks and dismiss the prompt for this turn.
+func dismiss_condemn_prompt_11e(player: int) -> Dictionary:
+	var pk = str(player)
+	var st = _primary_state_11e.get(pk, {})
+	if not st.is_empty():
+		st["condemn_prompt_pending"] = false
+		st["condemn_resolved_turn"] = "R%dP%d" % [GameState.get_battle_round(), player]
+	return {"success": true, "condemned": st.get("condemned", []).duplicate()}
+
+## Extract Relic / Locate and Deny setup: the DISRUPTION player chooses the
+## five marked terrain areas (outside their deployment zone). The auto-pick
+## stands as backstop; a human DI player may revise it during their first
+## Command phase — until any Sensor Sweep consumes a marker.
+func get_pending_relic_setup_11e(player: int) -> Dictionary:
+	if GameConstants.edition < 11 or not _relic_setup_prompt_pending:
+		return {}
+	if player_dispositions.get(str(player), "") != "disruption":
+		return {}
+	var eligible_ids = _relic_eligible_features_11e(player)
+	if eligible_ids.is_empty():
+		return {}
+	var required = min(5, eligible_ids.size())
+	if _relic_markers_11e.size() < required:
+		# A sweep already removed a marker — the setup window is closed.
+		_relic_setup_prompt_pending = false
+		return {}
+	var eligible = []
+	for fid in eligible_ids:
+		eligible.append({"id": fid, "label": fid})
+	return {
+		"player": player,
+		"action_name": "Mark Terrain Areas",
+		"description": "As the Disruption player, choose the %d terrain areas outside your deployment zone that carry the operation markers." % required,
+		"required_picks": required,
+		"eligible": eligible,
+		"current": _relic_markers_11e.duplicate(),
+	}
+
+func _relic_eligible_features_11e(di_player: int) -> Array:
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null:
+		return []
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	var di_zone = secondary_mgr._get_deployment_zone_polygon(di_player) if secondary_mgr != null else PackedVector2Array()
+	var out = []
+	for feature in tm.terrain_features:
+		var fid = str(feature.get("id", ""))
+		if fid == "":
+			continue
+		var fpos = feature.get("position", Vector2.ZERO)
+		if fpos is Dictionary:
+			fpos = Vector2(fpos.get("x", 0), fpos.get("y", 0))
+		if not di_zone.is_empty() and Geometry2D.is_point_in_polygon(fpos, di_zone):
+			continue
+		out.append(fid)
+	return out
+
+func resolve_relic_setup_11e(player: int, feature_ids: Array) -> Dictionary:
+	var pending = get_pending_relic_setup_11e(player)
+	if pending.is_empty():
+		return {"success": false, "error": "No pending relic-marker setup for player %d" % player}
+	var required = int(pending.get("required_picks", 5))
+	var valid_ids = []
+	for e in pending.get("eligible", []):
+		valid_ids.append(str(e.get("id", "")))
+	var picks = []
+	for fid in feature_ids:
+		var fid_s = str(fid)
+		if not fid_s in valid_ids:
+			return {"success": false, "error": "Terrain %s is not eligible for a marker" % fid_s}
+		if not fid_s in picks:
+			picks.append(fid_s)
+	if picks.size() != required:
+		return {"success": false, "error": "Exactly %d terrain areas must be marked (got %d)" % [required, picks.size()]}
+	_relic_markers_11e = picks
+	_relic_setup_prompt_pending = false
+	print("MissionManager: 11e relic markers revised to %s (P%d choice)" % [str(picks), player])
+	refresh_card_action_visuals_11e()
+	return {"success": true, "markers": picks.duplicate()}
+
+## Keep the auto-picked marker locations and close the setup window.
+func dismiss_relic_setup_11e(_player: int) -> Dictionary:
+	_relic_setup_prompt_pending = false
+	return {"success": true, "markers": _relic_markers_11e.duplicate()}
 
 ## End-of-game primary scoring for both players (idempotent).
 func score_primary_eog_11e() -> void:
@@ -1438,8 +2131,18 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 		"condemned_left":
 			return rule.get("vp", 0) if _primary_state_11e.get(str(player), {}).get("condemned_left_this_turn", false) else 0
 		"sabotage_per_objective":
-			# Auto-completed Sabotage on each controlled non-home objective
+			var sab_st = _primary_state_11e.get(str(player), {})
 			var total = 0
+			if sab_st.get("sabotage_started_this_turn", false):
+				# Player used the real per-unit action: only objectives a unit
+				# completed Sabotage on score (a failed action scores 0).
+				for obj_id in sab_st.get("sabotaged_this_turn", []):
+					total += int(rule.get("vp_per", 3))
+					if _objective_in_enemy_territory_11e(obj_id, player):
+						total += int(rule.get("enemy_territory_bonus", 2))
+				return total
+			# Approximation backstop: auto-completed Sabotage on each
+			# controlled non-home objective
 			for obj_id in _get_controlled_objectives(player):
 				if _is_home_objective_11e(obj_id, player):
 					continue
@@ -1459,6 +2162,10 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 				return 0
 			return rule.get("vp", 0) if _destroyed_enemy_near_objective_11e(player, central4) else 0
 		"vanguard_terrain_area":
+			var vg_st = _primary_state_11e.get(str(player), {})
+			if vg_st.get("vanguard_started_this_turn", false):
+				# Player used the real per-unit action this turn
+				return rule.get("vp", 0) if vg_st.get("vanguard_completed_this_turn", false) else 0
 			return rule.get("vp", 0) if _vanguard_area_held_11e(player) else 0
 		"sensor_sweep_vp":
 			return rule.get("vp", 0) if _primary_state_11e.get(str(player), {}).get("sensor_swept_this_turn", false) else 0
@@ -1478,7 +2185,11 @@ func _evaluate_primary_rule_11e(player: int, rule: Dictionary, battle_round: int
 			var opp_st = _primary_state_11e.get(str(3 - player), {})
 			return rule.get("vp", 0) if opp_st.get("decoyed", []).is_empty() else 0
 		"intel_tokens_placed":
-			return int(_primary_state_11e.get(str(player), {}).get("intel_placed_this_turn", 0)) * int(rule.get("vp_per", 7))
+			var gi_st = _primary_state_11e.get(str(player), {})
+			if gi_st.get("intel_started_this_turn", false):
+				# Real card: 7 VP per UNIT that completed Extract Intelligence
+				return int(gi_st.get("intel_units_this_turn", 0)) * int(rule.get("vp_per", 7))
+			return int(gi_st.get("intel_placed_this_turn", 0)) * int(rule.get("vp_per", 7))
 		"trapped_score":
 			var tm2 = get_node_or_null("/root/TerrainManager")
 			var total3 = 0
@@ -2038,6 +2749,7 @@ func get_state_for_save() -> Dictionary:
 		"eog_primary_scored": _eog_primary_scored,
 		"primary_state_11e": _primary_state_11e.duplicate(true),
 		"relic_markers_11e": _relic_markers_11e.duplicate(true),
+		"relic_setup_prompt_pending": _relic_setup_prompt_pending,
 		"alive_at_turn_start_11e": _alive_at_turn_start_11e.duplicate(true)
 	}
 
@@ -2068,7 +2780,9 @@ func load_state(data: Dictionary) -> void:
 	_eog_primary_scored = data.get("eog_primary_scored", false)
 	_primary_state_11e = data.get("primary_state_11e", {})
 	_relic_markers_11e = data.get("relic_markers_11e", [])
+	_relic_setup_prompt_pending = data.get("relic_setup_prompt_pending", false)
 	_alive_at_turn_start_11e = data.get("alive_at_turn_start_11e", {})
+	refresh_card_action_visuals_11e()
 	print("MissionManager: Loaded state — %d sticky, %d burned, %d ritual" % [
 		_sticky_objectives.size(), burned_objectives.size(), _ritual_objectives.size()
 	])

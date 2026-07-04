@@ -1,0 +1,71 @@
+{
+  "id": "iss064i_relic_setup_prompt_11e",
+  "covers": [
+    "missions.primary_11e.card_action_prompt",
+    "missions.primary_11e.relic_setup_choice"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "11e Extract Relic / Locate and Deny setup choice: P2 is the Disruption player (Locate and Deny vs P1 Priority Assets). Mission init auto-places the five operation markers on the terrain farthest from P2's home (ruins_1/2/9/5/6 — the backstop) and opens the revision window. Entering P2's Command phase (after closing the drawn-missions review like a player) pops the RelicSetupDialog with those five pre-checked. Confirming with only four selected is refused with a status hint; swapping ruins_6 for ruins_12 and confirming replaces the markers, closes the window, and the OP MARKER badge appears on ruins_12.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "GameState.state[\"meta\"].merge({\"game_config\": {\"deployment\": \"search_and_destroy\", \"player1_disposition\": \"priority_assets\", \"player2_disposition\": \"disruption\"}}, true)" },
+    { "act": "execute_script", "script": "MissionManager.initialize_mission(\"take_and_hold\")" },
+    { "act": "execute_script",
+      "script": "MissionManager.get_primary_mission_for_player(2)[\"id\"]",
+      "equals": "locate_and_deny" },
+    { "act": "execute_script",
+      "script": "MissionManager._relic_markers_11e.size()",
+      "equals": 5 },
+    { "act": "execute_script",
+      "script": "\"ruins_6\" in MissionManager._relic_markers_11e",
+      "equals": true },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/RelicSetupDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_property", "node": "/root/RelicSetupDialog/Content/EligibleScroll/EligibleList/Check_ruins_1", "property": "button_pressed", "equals": true },
+    { "act": "expect_node_property", "node": "/root/RelicSetupDialog/Content/EligibleScroll/EligibleList/Check_ruins_6", "property": "button_pressed", "equals": true },
+    { "act": "expect_node_property", "node": "/root/RelicSetupDialog/Content/EligibleScroll/EligibleList/Check_ruins_12", "property": "button_pressed", "equals": false },
+    { "act": "screenshot", "label": "01_relic_setup_dialog_auto_prechecked" },
+
+    { "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"RelicSetupDialog/Content/EligibleScroll/EligibleList/Check_ruins_6\").set(\"button_pressed\", false)" },
+    { "act": "click_node", "node": "/root/RelicSetupDialog/Content/Actions/ConfirmRelicSetup", "emit_pressed": true },
+    { "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"RelicSetupDialog/Content/StatusLabel\").text != \"\"",
+      "equals": true },
+    { "act": "expect_node_visible", "node": "/root/RelicSetupDialog", "timeout_s": 1.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"RelicSetupDialog/Content/EligibleScroll/EligibleList/Check_ruins_12\").set(\"button_pressed\", true)" },
+    { "act": "click_node", "node": "/root/RelicSetupDialog/Content/Actions/ConfirmRelicSetup", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "\"ruins_12\" in MissionManager._relic_markers_11e",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "\"ruins_6\" in MissionManager._relic_markers_11e",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "MissionManager._relic_markers_11e.size()",
+      "equals": 5 },
+    { "act": "execute_script",
+      "script": "MissionManager._relic_setup_prompt_pending",
+      "equals": false },
+    { "act": "expect_node_visible", "node": "/root/Main/BoardRoot/CardActionOverlay/Badge_ruins_12", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "02_markers_revised_badge_on_ruins_12" }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "id": "iss064h_card_action_visibility_11e",
+  "covers": [
+    "missions.primary_11e.card_action_visibility",
+    "missions.primary_11e.board_badges"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 11,
+  "disable_ai": true,
+  "description": "11e card-action state visibility: after the player Triangulates obj_nml_2 through the real End Turn button + CardActionDialog click, the objective visual shows a TRIANGULATED (P2) badge on the board. Booby-Trap and relic markers render on the CardActionOverlay at their terrain features, and the next Scoring panel lists P2's marker state row naming the picked objective.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 11 },
+
+    { "act": "execute_script",
+      "script": "GameState.state[\"meta\"].merge({\"game_config\": {\"deployment\": \"search_and_destroy\", \"player1_disposition\": \"purge_the_foe\", \"player2_disposition\": \"reconnaissance\"}}, true)" },
+    { "act": "execute_script", "script": "MissionManager.initialize_mission(\"take_and_hold\")" },
+    { "act": "execute_script",
+      "script": "MissionManager.get_primary_mission_for_player(2)[\"id\"]",
+      "equals": "triangulation" },
+    { "act": "execute_script", "script": "MissionManager.check_all_objectives()" },
+    { "act": "execute_script", "script": "MissionManager.on_turn_start_11e(2)" },
+
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/CardActionDialog", "timeout_s": 3.0 },
+    { "act": "click_node", "node": "/root/CardActionDialog/Content/Pick_obj_nml_2", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/Main/BoardRoot/Objectives/obj_nml_2/CardActionBadges", "timeout_s": 3.0 },
+    { "act": "execute_script",
+      "script": "\"TRIANGULATED (P2)\" in main.get_node(\"BoardRoot/Objectives/obj_nml_2/CardActionBadges\").text",
+      "equals": true },
+    { "act": "screenshot", "label": "01_triangulated_badge_on_board" },
+    { "act": "screenshot", "label": "01b_badge_closeup", "region": [960, 500, 400, 260] },
+
+    { "act": "execute_script",
+      "script": "MissionManager._primary_state_11e[\"2\"][\"trapped\"].append(\"ruins_1\")" },
+    { "act": "execute_script",
+      "script": "MissionManager._relic_markers_11e.append(\"ruins_2\")" },
+    { "act": "execute_script", "script": "MissionManager.refresh_card_action_visuals_11e()" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "expect_node_visible", "node": "/root/Main/BoardRoot/CardActionOverlay/Badge_ruins_1", "timeout_s": 2.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/BoardRoot/CardActionOverlay/Badge_ruins_2", "timeout_s": 2.0 },
+    { "act": "execute_script",
+      "script": "\"BOOBY TRAP (P2)\" in main.get_node(\"BoardRoot/CardActionOverlay/Badge_ruins_1\").text",
+      "equals": true },
+    { "act": "screenshot", "label": "02_trap_and_relic_badges_on_terrain" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(11)" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P2CardActionState", "timeout_s": 3.0 },
+    { "act": "execute_script",
+      "script": "\"obj_nml_2\" in main.get_node(\"HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P2CardActionState\").text",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "\"Booby traps: ruins_1\" in main.get_node(\"HUD_Right/VBoxContainer/ScoringScrollContainer/ScoringPanel/P2CardActionState\").text",
+      "equals": true },
+    { "act": "screenshot", "label": "03_marker_summary_in_scoring_panel" }
+  ]
+}

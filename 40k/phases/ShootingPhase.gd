@@ -1971,6 +1971,10 @@ func _process_start_action(action: Dictionary) -> Dictionary:
 	if not res.get("success", false):
 		return create_result(false, [], "Cannot start action: " + ", ".join(res.get("errors", [])))
 	var changes: Array = res.get("changes", []).duplicate()
+	# Mission-card actions flip their card's scoring to the action path for
+	# this turn (started = authoritative, even if the action later fails).
+	if action_id.begins_with("mission_") and MissionManager.has_method("on_mission_action_started_11e"):
+		MissionManager.on_mission_action_started_11e(action_id, unit_id, player)
 	# 16.01: starting an action in the Shooting phase gives up shooting.
 	units_that_shot.append(unit_id)
 	changes.append({"op": "set", "path": "units.%s.flags.has_shot" % unit_id, "value": true})

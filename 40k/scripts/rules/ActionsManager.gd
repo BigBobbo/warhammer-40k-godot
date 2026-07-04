@@ -75,8 +75,35 @@ static func get_startable_actions(unit_id: String, board: Dictionary, player: in
 		if def.get("use_limit", "") == "once_per_turn" and player >= 0 and turn >= 0:
 			if _use_counts.get("%d|%s|%d" % [player, action_id, turn], 0) >= 1:
 				continue
+		# Mission-pack actions are restricted to the owning player and can
+		# carry a contextual eligibility check (unit near an objective etc.)
+		if not _mission_gate_ok(def, unit_id, unit, player):
+			continue
 		out.append({"id": action_id, "name": def.get("name", action_id), "description": def.get("description", "")})
 	return out
+
+## Mission-pack gate: per-definition owning player + contextual check
+## delegated to MissionManager (e.g. "unit in range of an eligible
+## objective"). Definitions without these fields are unrestricted.
+static func _mission_gate_ok(def: Dictionary, unit_id: String, unit: Dictionary, player: int) -> bool:
+	if def.has("player"):
+		var owner = int(unit.get("owner", player))
+		if int(def["player"]) != owner:
+			return false
+	if def.get("mission_check", "") != "":
+		var mm = Engine.get_main_loop().root.get_node_or_null("/root/MissionManager")
+		if mm == null or not mm.has_method("can_start_mission_action_11e"):
+			return false
+		if not mm.can_start_mission_action_11e(str(def["mission_check"]), unit_id, int(unit.get("owner", player))):
+			return false
+	return true
+
+## Remove all registered actions whose id starts with the prefix (used by
+## mission packs to re-register per game).
+static func unregister_actions_by_prefix(prefix: String) -> void:
+	for action_id in _definitions.keys():
+		if str(action_id).begins_with(prefix):
+			_definitions.erase(action_id)
 
 static func get_action(id: String) -> Dictionary:
 	return _definitions.get(id, {})
@@ -146,6 +173,10 @@ static func start_action(unit_id: String, action_id: String, board: Dictionary, 
 		if not str(kw) in unit.get("meta", {}).get("keywords", []):
 			return {"success": false, "errors": ["unit lacks required keyword %s" % kw], "changes": []}
 
+	# Mission-pack restrictions (owning player + contextual eligibility)
+	if not _mission_gate_ok(def, unit_id, unit, player):
+		return {"success": false, "errors": ["%s is not available to this unit right now" % def.get("name", action_id)], "changes": []}
+
 	# Use limit
 	if def.get("use_limit", "") == "once_per_turn":
 		var key = "%d|%s|%d" % [player, action_id, turn]
@@ -182,6 +213,7 @@ static func on_unit_moved(unit_id: String, unit: Dictionary, move_type_id: Strin
 ## Resolve actions whose COMPLETES trigger fired. Returns
 ## {completed: [{unit_id, action_id, effect}], changes (diffs)}.
 static func complete_actions(trigger: String, board: Dictionary) -> Dictionary:
+	_ensure_defaults()
 	var completed: Array = []
 	var changes: Array = []
 	for unit_id in board.get("units", {}):

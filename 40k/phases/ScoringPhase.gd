@@ -58,6 +58,17 @@ var _coherency_removal_pending: Array = []  # [{unit_id, unit_name, player, offe
 
 signal coherency_removal_required(pending: Array, player: int)
 
+# 11e GDM primary card actions (Triangulate, Decoy, Booby Trap, ...): the
+# real cards let the player pick the targets. A HUMAN active player pauses
+# END_TURN behind this offer once per phase; AI owners (and anything left
+# unresolved) fall through to the deterministic auto-pick inside
+# MissionManager.score_primary_eot_11e, which remains the backstop.
+var _awaiting_card_action: bool = false
+var _card_action_pending: Dictionary = {}  # MissionManager.get_pending_card_action_11e shape
+var _card_action_offered: bool = false
+
+signal card_action_choice_required(pending: Dictionary, player: int)
+
 func _on_phase_enter() -> void:
 	_turn_ended = false
 	_awaiting_acrobatic_escape_vanish = false
@@ -68,6 +79,9 @@ func _on_phase_enter() -> void:
 	_end_turn_redeploy_offered = false
 	_awaiting_coherency_removal = false
 	_coherency_removal_pending.clear()
+	_awaiting_card_action = false
+	_card_action_pending = {}
+	_card_action_offered = false
 	phase_type = GameStateData.Phase.SCORING
 	var current_player = get_current_player()
 	DebugLogger.info(str("ScoringPhase: Entering scoring phase for player ", current_player))
@@ -168,6 +182,13 @@ func get_available_actions() -> Array:
 			})
 		return actions
 
+	# 11e card-action choice when awaiting: the gate only ever fires for a
+	# human active player (AI keeps the auto-resolve), so return empty — the
+	# human interacts via the CardActionDialog, and an empty list blocks the
+	# AI/harness from ending the turn while the dialog is open.
+	if _awaiting_card_action:
+		return actions
+
 	# End-of-turn redeploy to reserves actions (From Golden Light, etc.)
 	if _awaiting_end_turn_redeploy and not _end_turn_redeploy_pending.is_empty():
 		var rd_unit = _end_turn_redeploy_pending[0]
@@ -218,6 +239,16 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"END_SCORING", "END_TURN":  # Support both for backward compatibility
 			if _awaiting_coherency_removal:
 				errors.append("Out-of-coherency removals must be resolved first (03.03)")
+			if _awaiting_card_action:
+				errors.append("The primary mission card action must be resolved or skipped first")
+		"RESOLVE_CARD_ACTION":
+			if not _awaiting_card_action:
+				errors.append("No card action choice is pending")
+			elif not (action.get("targets", null) is Array):
+				errors.append("RESOLVE_CARD_ACTION requires a targets array")
+		"SKIP_CARD_ACTION":
+			if not _awaiting_card_action:
+				errors.append("No card action choice is pending")
 		"REMOVE_MODEL_FOR_COHERENCY":
 			if not _awaiting_coherency_removal:
 				errors.append("No coherency removal is pending")
@@ -276,6 +307,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_end_turn_redeploy(action)
 		"DECLINE_END_TURN_REDEPLOY":
 			return _handle_decline_end_turn_redeploy(action)
+		"RESOLVE_CARD_ACTION":
+			return _handle_resolve_card_action(action)
+		"SKIP_CARD_ACTION":
+			return _handle_skip_card_action(action)
 		_:
 			return {"success": false, "error": "Unknown action type"}
 
@@ -361,6 +396,34 @@ func _handle_end_turn() -> Dictionary:
 			"end_turn_redeploy_player": first.player,
 			"end_turn_redeploy_ability": first.ability_name,
 		}
+
+	# 11e GDM primary card action (Triangulate / Consecrate / Decoy / Booby
+	# Trap / Extract Intelligence / Sensor Sweep): the real cards let the
+	# player pick the targets. Offer the choice to a HUMAN active player once
+	# per phase; AI players (and headless direct calls, which never route
+	# through this handler) keep the deterministic auto-pick inside
+	# MissionManager.score_primary_eot_11e.
+	if GameConstants.edition >= 11 and MissionManager and not _card_action_offered:
+		_card_action_offered = true
+		if _is_human_player_11e(current_player):
+			# Refresh kill counts before enumerating: Consecrate's kill gate
+			# must see kills only detected by the end-of-turn recount (e.g. a
+			# unit wiped by Tank Shock, which no live hook records).
+			MissionManager.count_destroyed_units_this_round()
+			var pending_ca = MissionManager.get_pending_card_action_11e(current_player)
+			if not pending_ca.is_empty():
+				_awaiting_card_action = true
+				_card_action_pending = pending_ca
+				DebugLogger.info(str("ScoringPhase: 11e card action choice for P%d — %s (%d eligible targets)" % [
+					current_player, pending_ca.get("action_name", "?"), pending_ca.get("targets", []).size()]))
+				emit_signal("card_action_choice_required", pending_ca, current_player)
+				return {
+					"success": true,
+					"changes": [],
+					"message": "%s: choose your card action target(s)" % pending_ca.get("action_name", "Card action"),
+					"trigger_card_action_prompt": true,
+					"card_action_pending": pending_ca,
+				}
 
 	_turn_ended = true
 
@@ -451,6 +514,44 @@ func _get_incoherent_human_units() -> Array:
 				"offenders": coh.offenders.duplicate(),
 			})
 	return out
+
+func _is_human_player_11e(player: int) -> bool:
+	var gc = GameState.state.get("meta", {}).get("game_config", {})
+	return str(gc.get("player%d_type" % player, "HUMAN")).to_upper() == "HUMAN"
+
+## Player-chosen card action targets: MissionManager validates the picks
+## against the live eligibility and stands the auto-pick down; the UI then
+## re-dispatches END_TURN to finish the turn the player asked for.
+func _handle_resolve_card_action(action: Dictionary) -> Dictionary:
+	var targets = action.get("targets", [])
+	var res = MissionManager.resolve_card_action_11e(get_current_player(), targets)
+	if not res.get("success", false):
+		return {"success": false, "error": res.get("error", "Card action failed")}
+	_awaiting_card_action = false
+	_card_action_pending = {}
+	log_phase_message("11e card action %s resolved: %s (player's choice)" % [
+		res.get("action_name", "?"), str(res.get("applied", []))])
+	return {
+		"success": true,
+		"changes": [],
+		"message": "%s resolved" % res.get("action_name", "Card action"),
+		"card_action_applied": res.get("applied", []),
+		"awaiting_card_action": false,
+	}
+
+func _handle_skip_card_action(_action: Dictionary) -> Dictionary:
+	var res = MissionManager.decline_card_action_11e(get_current_player())
+	if not res.get("success", false):
+		return {"success": false, "error": res.get("error", "Card action decline failed")}
+	_awaiting_card_action = false
+	_card_action_pending = {}
+	log_phase_message("11e card action skipped (player's choice)")
+	return {
+		"success": true,
+		"changes": [],
+		"message": "Card action skipped",
+		"awaiting_card_action": false,
+	}
 
 ## Player-chosen 03.03 removal: destroy the chosen offender (no on-death
 ## triggers), then re-check — the gate clears when every human-owned unit

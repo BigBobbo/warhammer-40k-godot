@@ -22,6 +22,9 @@ var roll_total: int = 0
 var roll_context_text: String = ""
 
 func setup(p_unit_id: String, p_player: int, p_roll_type: String, p_original_rolls: Array, p_context_text: String = "") -> void:
+	# Stable node name so windowed scenarios can address the dialog and its
+	# buttons regardless of which controller spawned it.
+	name = "CommandRerollDialog"
 	WhiteDwarfTheme.apply_to_dialog(self)
 	unit_id = p_unit_id
 	player = p_player
@@ -47,6 +50,7 @@ func setup(p_unit_id: String, p_player: int, p_roll_type: String, p_original_rol
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
+	main_container.name = "Content"
 	main_container.custom_minimum_size = Vector2(DialogConstants.SMALL.x - 20, 0)
 	main_container.add_theme_constant_override("separation", 8)
 
@@ -138,10 +142,12 @@ func _build_ui() -> void:
 
 	# Action buttons
 	var button_container = HBoxContainer.new()
+	button_container.name = "ButtonRow"
 	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	button_container.add_theme_constant_override("separation", 16)
 
 	var use_button = Button.new()
+	use_button.name = "UseRerollButton"
 	use_button.text = "Re-roll (1 CP)"
 	use_button.custom_minimum_size = Vector2(160, 42)
 	use_button.pressed.connect(_on_use_pressed)
@@ -149,6 +155,7 @@ func _build_ui() -> void:
 	button_container.add_child(use_button)
 
 	var decline_button = Button.new()
+	decline_button.name = "KeepRollButton"
 	decline_button.text = "Keep Roll"
 	decline_button.custom_minimum_size = Vector2(130, 42)
 	decline_button.pressed.connect(_on_decline_pressed)
