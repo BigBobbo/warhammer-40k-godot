@@ -42,7 +42,9 @@ func _run_tests():
 	_check("autoloads present", mgr != null and gs != null and gm != null)
 
 	GameConstants.edition = 11
-	gs.state.meta["battle_round"] = 1
+	# Official 11e launch awards: Triangulation's tier VP pays from battle
+	# round 2 onwards, so the MP-path scoring check runs in round 2.
+	gs.state.meta["battle_round"] = 2
 	gs.state.meta["active_player"] = 1
 	for pk in ["1", "2"]:
 		gs.state.players[pk]["vp"] = 0

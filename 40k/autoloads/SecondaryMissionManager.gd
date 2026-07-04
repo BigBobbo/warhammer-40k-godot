@@ -27,6 +27,9 @@ const MAX_SECONDARY_VP_PER_TURN_11E = 15
 const MAX_VP_PER_FIXED_CARD_11E = 20  # GDM sourced: 20 VP max from each fixed card per game
 const CARDS_DRAWN_PER_TURN_11E = 2
 const MAX_FIXED_MISSION_VP = 20  # Max VP per individual fixed mission card
+# 11e official: a tactical secondary card scores at most 5 VP per scoring
+# (fixed-mode cards use their printed per-award caps instead).
+const MAX_VP_PER_TACTICAL_SCORING_11E = 5
 
 # Per-player secondary mission state
 var _player_state: Dictionary = {
@@ -256,8 +259,10 @@ func draw_missions_to_hand(player: int) -> Array:
 	return drawn
 
 func _handle_when_drawn(player: int, mission_data: Dictionary) -> Dictionary:
-	"""Process when-drawn conditions. Returns action to take."""
-	var when_drawn = mission_data.get("when_drawn", {})
+	"""Process when-drawn conditions. Returns action to take.
+	The when-drawn block is edition-resolved: cards shared between editions
+	may carry an 11e-specific override under "when_drawn_11e"."""
+	var when_drawn = SecondaryMissionData.get_when_drawn(mission_data)
 	if when_drawn.is_empty():
 		return {"action": "add_to_active"}
 
@@ -316,16 +321,46 @@ func _handle_when_drawn(player: int, mission_data: Dictionary) -> Dictionary:
 				"details": when_drawn.get("details", {}),
 			}
 
+		"no_enemy_model_wounds_10_plus":
+			# 11e Bring it Down: replace (discard and redraw) if the opponent
+			# has no unit containing a model with W10+ on the battlefield.
+			var min_wounds = int(when_drawn.get("details", {}).get("min_wounds", 10))
+			if not _has_enemy_model_with_wounds(player, min_wounds):
+				return {"action": "discard_and_draw"}
+			return {"action": "add_to_active"}
+
+		"no_enemy_unit_13_plus_models":
+			# 11e A Grievous Blow: replace (discard and redraw) if the opponent
+			# has no unit with a Starting Strength of min_models+ models.
+			var min_models = int(when_drawn.get("details", {}).get("min_models", 13))
+			if not _has_enemy_unit_with_models(player, min_models):
+				return {"action": "discard_and_draw"}
+			return {"action": "add_to_active"}
+
+		"other_mission_active":
+			# 11e Plunder/Cleanse mutual redraw: if the named mission is
+			# already active for this player, shuffle this card back in and
+			# draw again.
+			var other_id = str(when_drawn.get("details", {}).get("mission_id", ""))
+			if other_id != "":
+				for m in _player_state[str(player)]["active"]:
+					if m.get("id", "") == other_id:
+						print("SecondaryMissionManager: Player %d has %s active — shuffling %s back (mutual redraw)" % [player, other_id, mission_data.get("id", "?")])
+						return {"action": "shuffle_back"}
+			return {"action": "add_to_active"}
+
 	return {"action": "add_to_active"}
 
 func _create_active_mission(mission_data: Dictionary) -> Dictionary:
-	"""Create an active mission instance from mission data."""
+	"""Create an active mission instance from mission data. The scoring block
+	is edition-resolved (shared cards carry official 11e awards under
+	"scoring_11e")."""
 	return {
 		"id": mission_data["id"],
 		"name": mission_data["name"],
 		"number": mission_data["number"],
 		"category": mission_data["category"],
-		"scoring": mission_data["scoring"],
+		"scoring": SecondaryMissionData.get_scoring(mission_data),
 		"requires_action": mission_data["requires_action"],
 		"action": mission_data["action"],
 		"vp_scored": 0,  # VP scored from this specific card instance
@@ -574,31 +609,85 @@ func score_secondary_missions_for_player(player: int) -> Array:
 
 func _evaluate_mission_conditions(player: int, mission: Dictionary) -> int:
 	"""
-	Evaluate the scoring conditions for a mission.
-	Returns the VP to award (highest matching condition).
-	Conditions are evaluated from last to first (highest VP first).
+	Evaluate the scoring conditions for a mission and return the VP to award.
+
+	Official 11e award semantics (also backwards-compatible with 10e data):
+	- "mode": "fixed"|"tactical" — the condition only applies when the player
+	  is using that secondary-mission approach; mode-less applies to both.
+	- "timing": "your_turn"|"opponent_turn" — per-condition turn restriction
+	  (used by cards whose awards differ by whose turn is ending).
+	- "min_round": per-condition battle-round gate.
+	- Non-cumulative conditions compete: the highest value wins (this covers
+	  the dataset's exclusive_group tiers). "cumulative": true conditions add
+	  on top of the exclusive winner.
+	- "per_count": true conditions score vp * count (count via
+	  _count_condition), clamped to "vp_max" when present.
+	- 11e tactical mode: a card scores at most 5 VP per scoring.
 	"""
 	var scoring = mission["scoring"]
 	var conditions = scoring.get("conditions", [])
-
-	# Evaluate from highest VP to lowest - first match wins
-	var sorted_conditions = conditions.duplicate()
-	sorted_conditions.sort_custom(func(a, b): return a.get("vp", 0) > b.get("vp", 0))
-
+	var player_mode = _player_state[str(player)].get("mode", "tactical")
+	var is_your_turn = (GameState.get_active_player() == player)
+	var battle_round = GameState.get_battle_round()
 	var mission_name = mission.get("name", mission.get("id", "unknown"))
-	for condition in sorted_conditions:
+
+	var best_exclusive := 0
+	var cumulative_total := 0
+
+	for condition in conditions:
 		var check = condition.get("check", "")
-		var params = condition.get("params", {})
-		var vp = condition.get("vp", 0)
+		var cond_mode = str(condition.get("mode", ""))
+		if cond_mode != "" and cond_mode != player_mode:
+			continue
+		var cond_timing = str(condition.get("timing", ""))
+		if cond_timing == "your_turn" and not is_your_turn:
+			continue
+		if cond_timing == "opponent_turn" and is_your_turn:
+			continue
+		if battle_round < int(condition.get("min_round", 1)):
+			continue
 
-		var result = _check_condition(player, check, params, mission)
-		if result:
-			print("SecondaryMissionManager: [SCORING] P%d '%s' condition '%s' PASSED — awarding %d VP" % [player, mission_name, check, vp])
-			return vp
+		var value = _evaluate_condition_value(player, condition, mission)
+		if value > 0:
+			print("SecondaryMissionManager: [SCORING] P%d '%s' condition '%s' PASSED — worth %d VP%s" % [
+				player, mission_name, check, value, " (cumulative)" if condition.get("cumulative", false) else ""])
 		else:
-			print("SecondaryMissionManager: [SCORING] P%d '%s' condition '%s' FAILED (would give %d VP)" % [player, mission_name, check, vp])
+			print("SecondaryMissionManager: [SCORING] P%d '%s' condition '%s' FAILED (would give up to %d VP)" % [
+				player, mission_name, check, condition.get("vp", 0)])
 
-	return 0
+		if condition.get("cumulative", false):
+			cumulative_total += value
+		else:
+			best_exclusive = maxi(best_exclusive, value)
+
+	var total = best_exclusive + cumulative_total
+
+	# 11e: tactical cards are capped at 5 VP per scoring (they score once and
+	# are then discarded); fixed cards use their printed award caps.
+	if total > 0 and GameConstants.edition >= 11 and player_mode == "tactical" \
+			and total > MAX_VP_PER_TACTICAL_SCORING_11E:
+		print("SecondaryMissionManager: [SCORING] P%d '%s' clipped from %d to %d VP (11e tactical per-scoring cap)" % [
+			player, mission_name, total, MAX_VP_PER_TACTICAL_SCORING_11E])
+		total = MAX_VP_PER_TACTICAL_SCORING_11E
+
+	return total
+
+func _evaluate_condition_value(player: int, condition: Dictionary, mission: Dictionary) -> int:
+	"""Compute the VP value of a single condition: flat vp for boolean checks,
+	vp * count (clamped to vp_max) for per_count checks."""
+	var check = condition.get("check", "")
+	var params = condition.get("params", {})
+	var vp = int(condition.get("vp", 0))
+
+	if condition.get("per_count", false):
+		var count = _count_condition(player, check, params, mission)
+		var value = vp * count
+		var vp_max = int(condition.get("vp_max", 0))
+		if vp_max > 0:
+			value = mini(value, vp_max)
+		return value
+
+	return vp if _check_condition(player, check, params, mission) else 0
 
 func _check_condition(player: int, check: String, params: Dictionary, mission: Dictionary) -> bool:
 	"""Route to the appropriate condition checker."""
@@ -611,7 +700,7 @@ func _check_condition(player: int, check: String, params: Dictionary, mission: D
 		"units_within_center_no_enemies_within":
 			return _check_area_denial(player, params)
 		"more_units_wholly_in_no_mans_land_than_opponent":
-			return _check_display_of_might(player)
+			return _check_display_of_might(player, params)
 
 		# Objective control checks
 		"control_objectives_opponent_controlled_at_start":
@@ -668,12 +757,48 @@ func _check_condition(player: int, check: String, params: Dictionary, mission: D
 			return _check_units_near_board_edges(player, params)
 		"unit_outside_own_dz":
 			return _check_unit_outside_own_dz(player, params)
+		"unit_outside_own_territory":
+			return _check_unit_outside_own_territory(player, params)
 		"units_recovered_assets":
 			return _check_recovered_assets(player, params)
+
+		# 11e (official launch data) checks
+		"no_enemy_units_wholly_in_own_deployment_zone":
+			return _check_no_enemy_wholly_in_own_dz(player)
+		"action_completed_this_turn":
+			return _check_objectives_cleansed(player, params)
 
 		_:
 			push_warning("SecondaryMissionManager: Unknown condition check: %s" % check)
 			return false
+
+func _count_condition(player: int, check: String, params: Dictionary, _mission: Dictionary) -> int:
+	"""Route per-count (vp_per) condition checks. Each returns HOW MANY times
+	the award's 'per' criterion was met; the caller multiplies by the
+	condition's vp and clamps to vp_max."""
+	match check:
+		"enemy_units_destroyed_this_turn":
+			return _count_enemy_units_destroyed(player, params)
+		"enemy_units_destroyed_near_objective_this_turn":
+			var p = params.duplicate()
+			p["near_objective"] = true
+			return _count_enemy_units_destroyed(player, p)
+		"enemy_units_13_plus_destroyed_this_turn":
+			var p13 = params.duplicate()
+			if not p13.has("min_models"):
+				p13["min_models"] = 13
+			return _count_enemy_units_destroyed(player, p13)
+		"enemy_character_models_destroyed_this_turn":
+			return _count_enemy_character_models_destroyed(player, params)
+		"enemy_models_wounds_10_plus_destroyed_this_turn":
+			return _count_enemy_models_destroyed_with_wounds(player, int(params.get("min_wounds", 10)))
+		"units_wholly_in_opponent_deployment_zone":
+			return _count_units_in_opponent_zone(player, params)
+		"guarded_objectives":
+			return _count_guarded_objectives(player, params)
+		_:
+			push_warning("SecondaryMissionManager: Unknown count condition check: %s" % check)
+			return 0
 
 # ============================================================================
 # CONDITION CHECKERS - POSITIONAL
@@ -682,13 +807,20 @@ func _check_condition(player: int, check: String, params: Dictionary, mission: D
 func _check_units_in_opponent_zone(player: int, params: Dictionary) -> bool:
 	"""Check how many units are wholly within opponent's deployment zone."""
 	var required = params.get("count", 1)
+	var qualifying_count = _count_units_in_opponent_zone(player, params)
+	print("SecondaryMissionManager: [BEL-CHECK] P%d — %d/%d units in opponent zone" % [player, qualifying_count, required])
+	return qualifying_count >= required
+
+func _count_units_in_opponent_zone(player: int, params: Dictionary) -> int:
+	"""Count units wholly within the opponent's deployment zone (11e Behind
+	Enemy Lines scores 3 VP per such unit)."""
 	var exclude = params.get("exclude", [])
 	var opponent = 2 if player == 1 else 1
 	var opponent_zone = _get_deployment_zone_polygon(opponent)
 
 	if opponent_zone.is_empty():
 		print("SecondaryMissionManager: [BEL-CHECK] P%d — opponent zone polygon is empty!" % player)
-		return false
+		return 0
 
 	var qualifying_count = 0
 	var units = GameState.state.get("units", {})
@@ -705,8 +837,7 @@ func _check_units_in_opponent_zone(player: int, params: Dictionary) -> bool:
 			qualifying_count += 1
 			print("SecondaryMissionManager: [BEL-CHECK] P%d %s IS wholly in opponent zone" % [player, unit_name])
 
-	print("SecondaryMissionManager: [BEL-CHECK] P%d — %d/%d units in opponent zone" % [player, qualifying_count, required])
-	return qualifying_count >= required
+	return qualifying_count
 
 func _check_table_quarter_presence(player: int, params: Dictionary) -> bool:
 	"""Check presence in table quarters (>6\" from center)."""
@@ -794,11 +925,13 @@ func _check_area_denial(player: int, params: Dictionary) -> bool:
 
 	return true
 
-func _check_display_of_might(player: int) -> bool:
-	"""Check if player has more units wholly in NML than opponent."""
+func _check_display_of_might(player: int, params: Dictionary = {}) -> bool:
+	"""Check if player has more units wholly in NML than opponent.
+	11e passes exclude: [Battle-shocked, Aircraft]; 10e passes nothing."""
+	var exclude = params.get("exclude", [])
 	var opponent = 2 if player == 1 else 1
-	var player_count = _count_units_wholly_in_nml(player)
-	var opponent_count = _count_units_wholly_in_nml(opponent)
+	var player_count = _count_units_wholly_in_nml(player, exclude)
+	var opponent_count = _count_units_wholly_in_nml(opponent, exclude)
 	return player_count > opponent_count
 
 # ============================================================================
@@ -896,11 +1029,13 @@ func _check_extend_battle_lines(player: int, params: Dictionary) -> bool:
 # CONDITION CHECKERS - KILL-BASED
 # ============================================================================
 
-func _check_characters_destroyed_this_turn(_player: int, params: Dictionary) -> bool:
-	"""Check if CHARACTER models were destroyed this turn."""
+func _check_characters_destroyed_this_turn(player: int, params: Dictionary) -> bool:
+	"""Check if enemy CHARACTER models were destroyed this turn."""
 	var required = params.get("count", 1)
 	var count = 0
 	for destroyed in _units_destroyed_this_turn:
+		if int(destroyed.get("owner", 0)) == player:
+			continue  # a player never scores for losing their own characters
 		if destroyed.get("is_character", false):
 			count += 1
 	return count >= required
@@ -985,6 +1120,79 @@ func _check_overwhelming_force(_player: int) -> bool:
 		if destroyed.get("was_near_objective", false):
 			return true
 	return false
+
+# ============================================================================
+# COUNT-BASED CHECKERS — 11e official vp_per awards (value = vp * count)
+# ============================================================================
+
+func _count_enemy_units_destroyed(player: int, params: Dictionary) -> int:
+	"""Count enemy units destroyed this turn. Optional filters:
+	min_models (starting strength threshold, e.g. A Grievous Blow 13+) and
+	near_objective (Overwhelming Force)."""
+	var min_models = int(params.get("min_models", 0))
+	var near_objective = bool(params.get("near_objective", false))
+	var count = 0
+	for destroyed in _units_destroyed_this_turn:
+		if int(destroyed.get("owner", 0)) == player:
+			continue
+		if min_models > 0 and int(destroyed.get("starting_strength", 0)) < min_models:
+			continue
+		if near_objective and not destroyed.get("was_near_objective", false):
+			continue
+		count += 1
+	return count
+
+func _count_enemy_character_models_destroyed(player: int, params: Dictionary) -> int:
+	"""Count enemy CHARACTER models destroyed this turn (11e Assassination).
+	Optional min_wounds filters to models with W>=N (the W4+ bonus row)."""
+	var min_wounds = int(params.get("min_wounds", 0))
+	var count = 0
+	for destroyed in _units_destroyed_this_turn:
+		if int(destroyed.get("owner", 0)) == player:
+			continue
+		if not destroyed.get("is_character", false):
+			continue
+		count += _count_destroyed_models_with_wounds(destroyed, min_wounds)
+	return count
+
+func _count_enemy_models_destroyed_with_wounds(player: int, min_wounds: int) -> int:
+	"""Count enemy MODELS with W>=min_wounds destroyed this turn (11e Bring
+	it Down scores per 10+W model)."""
+	var count = 0
+	for destroyed in _units_destroyed_this_turn:
+		if int(destroyed.get("owner", 0)) == player:
+			continue
+		count += _count_destroyed_models_with_wounds(destroyed, min_wounds)
+	return count
+
+func _count_destroyed_models_with_wounds(destroyed: Dictionary, min_wounds: int) -> int:
+	"""How many models of a destroyed unit had a Wounds characteristic of
+	min_wounds or more (0 = all models). Uses the per-model wound stats
+	recorded at destruction time; falls back to unit-level info for records
+	that predate model_wounds."""
+	var model_wounds = destroyed.get("model_wounds", [])
+	if model_wounds is Array and model_wounds.size() > 0:
+		var n = 0
+		for w in model_wounds:
+			if int(w) >= min_wounds:
+				n += 1
+		return n
+	# Fallback (older save data): approximate from unit-level stats.
+	if min_wounds <= 0:
+		return int(destroyed.get("starting_strength", 0))
+	if int(destroyed.get("max_model_wounds", 0)) >= min_wounds:
+		return int(destroyed.get("starting_strength", 1))
+	return 0
+
+## Burden of Trust (guard selection auto-resolved): every objective the
+## player controls counts as guarded — controlling an objective implies a
+## friendly unit within range of it acting as the guard.
+func _count_guarded_objectives(player: int, _params: Dictionary) -> int:
+	var count = 0
+	for obj_id in MissionManager.objective_control_state:
+		if MissionManager.objective_control_state.get(obj_id, 0) == player:
+			count += 1
+	return count
 
 # ============================================================================
 # CONDITION CHECKERS - ACTION-BASED (stubs for future implementation)
@@ -1158,9 +1366,9 @@ func _check_high_value_unit_destroyed(player: int, params: Dictionary) -> bool:
 			return true
 	return false
 
-## Forward Position: the player controls the objective in the OPPONENT's
-## deployment zone (their home objective), OR — per the card's alternative —
-## BOTH Expansion objectives.
+## Forward Position (11e official): the player controls the objective in the
+## OPPONENT's deployment zone (their home objective), OR one or more
+## Expansion objectives.
 func _check_enemy_home_objective(player: int) -> bool:
 	var opponent = 3 - player
 	var opponent_zone = "player%d" % opponent
@@ -1170,13 +1378,8 @@ func _check_enemy_home_objective(player: int) -> bool:
 				return true
 	if MissionManager.has_method("get_objective_ids_by_designation"):
 		var expansions = MissionManager.get_objective_ids_by_designation("expansion")
-		if expansions.size() >= 2:
-			var all_mine = true
-			for obj_id in expansions:
-				if MissionManager.objective_control_state.get(obj_id, 0) != player:
-					all_mine = false
-					break
-			if all_mine:
+		for obj_id in expansions:
+			if MissionManager.objective_control_state.get(obj_id, 0) == player:
 				return true
 	return false
 
@@ -1191,26 +1394,37 @@ func _check_objectives_held_since_turn_start(player: int, params: Dictionary) ->
 			count += 1
 	return count >= required
 
-## Outflank: units with every alive model within edge_inches of a
-## battlefield edge, outside the player's own deployment zone.
-## params.count — require N qualifying units (legacy); params.min_edges —
-## require qualifying units on N DISTINCT battlefield edges (sourced card
-## text: 3 VP for one edge, 5 VP for two).
+## Outflank (11e official): units with every alive model within edge_inches
+## of a battlefield edge.
+## params.count — require N qualifying units;
+## params.outside_own_territory — qualifying units must not be within the
+##   player's territory (approximated as their board half, see
+##   _get_own_territory_rect);
+## params.opposite_edges — the official 5 VP tier: 2+ qualifying units within
+##   edge_inches of OPPOSITE (parallel) battlefield edges, at least one of
+##   them not within the player's territory;
+## params.min_edges — legacy: qualifying units on N DISTINCT edges.
 func _check_units_near_board_edges(player: int, params: Dictionary) -> bool:
 	var required = int(params.get("count", 1))
 	var min_edges = int(params.get("min_edges", 0))
+	var opposite_edges = bool(params.get("opposite_edges", false))
+	var require_outside_territory = bool(params.get("outside_own_territory", false))
 	var edge_in = float(params.get("edge_inches", 6.0))
 	var exclude = params.get("exclude", [])
 	var board_w_px = Measurement.inches_to_px(float(GameState.state.get("board", {}).get("size", {}).get("width", 44)))
 	var board_h_px = Measurement.inches_to_px(float(GameState.state.get("board", {}).get("size", {}).get("height", 60)))
 	var edge_px = Measurement.inches_to_px(edge_in)
-	var count = 0
-	var edges_hit = {}
+	var territory_rect = {}
+	if require_outside_territory or opposite_edges:
+		territory_rect = _get_own_territory_rect(player)
+	var qualifying = []  # [{edges: {left/right/top/bottom}, outside: bool}]
 	for unit_id in GameState.state.get("units", {}):
 		var unit = GameState.state.units[unit_id]
 		if int(unit.get("owner", 0)) != player:
 			continue
 		if "Battle-shocked" in exclude and unit.get("flags", {}).get("battle_shocked", false):
+			continue
+		if _unit_has_excluded_keyword(unit, exclude):
 			continue
 		var any_alive = false
 		var all_near_edge = true
@@ -1237,9 +1451,31 @@ func _check_units_near_board_edges(player: int, params: Dictionary) -> bool:
 			for e in model_edges:
 				unit_edges[e] = true
 		if any_alive and all_near_edge:
-			count += 1
-			for e in unit_edges:
-				edges_hit[e] = true
+			var outside = territory_rect.is_empty() or not _is_unit_partly_in_rect(unit, territory_rect)
+			qualifying.append({"edges": unit_edges, "outside": outside})
+
+	if opposite_edges:
+		# 5 VP tier: two units within range of opposite (parallel) edges,
+		# at least one of the pair not within the player's territory.
+		for pair in [["left", "right"], ["top", "bottom"]]:
+			for i in range(qualifying.size()):
+				if not qualifying[i]["edges"].has(pair[0]):
+					continue
+				for j in range(qualifying.size()):
+					if i == j or not qualifying[j]["edges"].has(pair[1]):
+						continue
+					if qualifying[i]["outside"] or qualifying[j]["outside"]:
+						return true
+		return false
+
+	var count = 0
+	var edges_hit = {}
+	for q in qualifying:
+		if require_outside_territory and not q["outside"]:
+			continue
+		count += 1
+		for e in q["edges"]:
+			edges_hit[e] = true
 	if min_edges > 0:
 		return edges_hit.size() >= min_edges
 	return count >= required
@@ -1270,6 +1506,88 @@ func _check_unit_outside_own_dz(player: int, params: Dictionary) -> bool:
 				any_inside = true
 				break
 		if any_alive and not any_inside:
+			return true
+	return false
+
+## Beacon 5 VP tier (official). "Your territory" is approximated as the
+## player's board half (see _get_own_territory_rect): a friendly unit is
+## alive on the battlefield with no model within that half.
+func _check_unit_outside_own_territory(player: int, params: Dictionary) -> bool:
+	var exclude = params.get("exclude", [])
+	var rect = _get_own_territory_rect(player)
+	if rect.is_empty():
+		return false
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if _is_unit_excluded(unit, exclude):
+			continue
+		var any_alive_positioned = false
+		for m in unit.get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				any_alive_positioned = true
+				break
+		if any_alive_positioned and not _is_unit_partly_in_rect(unit, rect):
+			return true
+	return false
+
+## Defend Stronghold (11e) bonus row: no enemy unit is wholly within the
+## player's deployment zone.
+func _check_no_enemy_wholly_in_own_dz(player: int) -> bool:
+	var own_zone = _get_deployment_zone_polygon(player)
+	if own_zone.is_empty():
+		return false
+	var opponent = 2 if player == 1 else 1
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != opponent:
+			continue
+		if _is_unit_excluded(unit, []):
+			continue  # undeployed / destroyed units cannot contest the zone
+		if _is_unit_wholly_in_zone(unit, own_zone):
+			return false
+	return true
+
+## Approximation of "your territory" (11e Outflank / Beacon): the board half
+## containing the player's deployment zone, split along the axis where the
+## DZ centroid deviates most from the board centre. Diagonal deployment
+## layouts are approximated by their dominant axis.
+func _get_own_territory_rect(player: int) -> Dictionary:
+	var zone = _get_deployment_zone_polygon(player)
+	if zone.is_empty():
+		return {}
+	var board_w = Measurement.inches_to_px(float(GameState.state.get("board", {}).get("size", {}).get("width", 44)))
+	var board_h = Measurement.inches_to_px(float(GameState.state.get("board", {}).get("size", {}).get("height", 60)))
+	var centroid = Vector2.ZERO
+	for p in zone:
+		centroid += p
+	centroid /= zone.size()
+	var center = Vector2(board_w / 2.0, board_h / 2.0)
+	var d = centroid - center
+	if abs(d.x) >= abs(d.y):
+		if d.x <= 0:
+			return {"min": Vector2(0, 0), "max": Vector2(center.x, board_h)}
+		return {"min": Vector2(center.x, 0), "max": Vector2(board_w, board_h)}
+	if d.y <= 0:
+		return {"min": Vector2(0, 0), "max": Vector2(board_w, center.y)}
+	return {"min": Vector2(0, center.y), "max": Vector2(board_w, board_h)}
+
+func _is_unit_partly_in_rect(unit: Dictionary, rect: Dictionary) -> bool:
+	"""True if ANY alive model of the unit is within the rect ("within" in
+	40k terms — any part of the unit)."""
+	if rect.is_empty():
+		return false
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var pos = model.get("position")
+		if pos == null:
+			continue
+		if pos is Dictionary:
+			pos = Vector2(pos.x, pos.y)
+		if pos.x >= rect["min"].x and pos.x <= rect["max"].x \
+				and pos.y >= rect["min"].y and pos.y <= rect["max"].y:
 			return true
 	return false
 
@@ -1404,8 +1722,13 @@ func check_and_report_unit_destroyed(unit_id: String) -> void:
 				model_type_labels.append(label)
 
 	var max_model_wounds := 0
+	# Per-model Wounds characteristics — 11e Bring it Down / Assassination
+	# score per destroyed MODEL over a wounds threshold.
+	var model_wounds: Array = []
 	for m in models:
-		max_model_wounds = maxi(max_model_wounds, int(m.get("wounds", 1)))
+		var w := int(m.get("wounds", 1))
+		model_wounds.append(w)
+		max_model_wounds = maxi(max_model_wounds, w)
 	var destroyed_dict = {
 		"unit_id": unit_id,
 		"unit_name": unit_name,
@@ -1413,6 +1736,7 @@ func check_and_report_unit_destroyed(unit_id: String) -> void:
 		"keywords": keywords,
 		"points": int(unit.get("meta", {}).get("points", 0)),
 		"max_model_wounds": max_model_wounds,
+		"model_wounds": model_wounds,
 		"starting_strength": starting_strength,
 		"is_character": "CHARACTER" in upper_keywords,
 		"is_infantry": "INFANTRY" in upper_keywords,
@@ -1610,24 +1934,37 @@ func evaluate_mission_progress(player: int) -> Array:
 
 		var scoring = mission.get("scoring", {})
 		var conditions = scoring.get("conditions", [])
+		var player_mode = state.get("mode", "tactical")
 		var condition_results = []
-		var best_vp = 0
+		var best_exclusive = 0
+		var cumulative_total = 0
 
 		for condition in conditions:
 			var check = condition.get("check", "")
 			var params = condition.get("params", {})
 			var vp = condition.get("vp", 0)
-			var met = _check_condition(player, check, params, mission)
+			# Mode-split awards (11e fixed/tactical) only show/score for the
+			# player's current approach.
+			var cond_mode = str(condition.get("mode", ""))
+			if cond_mode != "" and cond_mode != player_mode:
+				continue
+			var value = _evaluate_condition_value(player, condition, mission)
+			var met = value > 0
 
 			condition_results.append({
 				"check": check,
 				"vp": vp,
 				"met": met,
+				"value": value,
 				"description": _humanize_condition(check, params),
 			})
 
-			if met and vp > best_vp:
-				best_vp = vp
+			if condition.get("cumulative", false):
+				cumulative_total += value
+			elif value > best_exclusive:
+				best_exclusive = value
+
+		var best_vp = best_exclusive + cumulative_total
 
 		progress_list.append({
 			"mission_id": mission["id"],
@@ -1704,6 +2041,35 @@ func _humanize_condition(check: String, params: Dictionary) -> String:
 			return "Homer deployed (not opponent zone)"
 		"units_recovered_assets":
 			return "Assets recovered"
+		"enemy_units_destroyed_this_turn":
+			return "Per enemy unit destroyed this turn"
+		"enemy_units_destroyed_near_objective_this_turn":
+			return "Per enemy unit destroyed near an objective"
+		"enemy_character_models_destroyed_this_turn":
+			var min_w = int(params.get("min_wounds", 0))
+			if min_w > 0:
+				return "Per enemy CHARACTER (W%d+) destroyed" % min_w
+			return "Per enemy CHARACTER model destroyed"
+		"enemy_models_wounds_10_plus_destroyed_this_turn":
+			return "Per enemy model (W%d+) destroyed" % int(params.get("min_wounds", 10))
+		"enemy_units_13_plus_destroyed_this_turn":
+			return "Per enemy unit (%d+ models) destroyed" % int(params.get("min_models", 13))
+		"guarded_objectives":
+			return "Per objective you guard (control)"
+		"no_enemy_units_wholly_in_own_deployment_zone":
+			return "No enemy units wholly in your DZ"
+		"holds_enemy_home_objective":
+			return "Control opponent's home / an expansion objective"
+		"units_near_board_edges":
+			if params.get("opposite_edges", false):
+				return "Units near opposite battlefield edges"
+			return "Unit near a battlefield edge, outside your territory"
+		"unit_outside_own_dz":
+			return "Beacon unit outside your deployment zone"
+		"unit_outside_own_territory":
+			return "Beacon unit outside your territory"
+		"action_completed_this_turn":
+			return "%s action completed this turn" % str(params.get("action_name", "Mission"))
 		_:
 			return check.replace("_", " ").capitalize()
 
@@ -1753,6 +2119,19 @@ func _get_deployment_zone_polygon(player: int) -> PackedVector2Array:
 				))
 			return poly
 	return PackedVector2Array()
+
+func _unit_has_excluded_keyword(unit: Dictionary, exclusions: Array) -> bool:
+	"""Keyword-only exclusion check (e.g. AIRCRAFT), without the status /
+	alive-model filtering of _is_unit_excluded. 'Battle-shocked' entries are
+	flag-based and handled by callers."""
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	for excl in exclusions:
+		if excl == "Battle-shocked":
+			continue
+		for kw in keywords:
+			if kw.to_upper() == str(excl).to_upper():
+				return true
+	return false
 
 func _is_unit_excluded(unit: Dictionary, exclusions: Array) -> bool:
 	"""Check if a unit should be excluded based on keywords/flags."""
@@ -1847,7 +2226,7 @@ func _has_model_within_range(unit: Dictionary, point: Vector2, max_range: float)
 			return true
 	return false
 
-func _count_units_wholly_in_nml(player: int) -> int:
+func _count_units_wholly_in_nml(player: int, exclude: Array = []) -> int:
 	"""Count units wholly within No Man's Land."""
 	# NML is the area between both deployment zones
 	# For simplicity, use the NML definition based on deployment type
@@ -1860,7 +2239,7 @@ func _count_units_wholly_in_nml(player: int) -> int:
 		var unit = units[unit_id]
 		if unit.get("owner", 0) != player:
 			continue
-		if _is_unit_excluded(unit, []):
+		if _is_unit_excluded(unit, exclude):
 			continue
 		# Unit is in NML if wholly NOT in either deployment zone
 		var in_p1 = false
@@ -1911,6 +2290,41 @@ func _has_enemy_infantry_13_plus(player: int) -> bool:
 		if starting_strength >= 13:
 			return true
 
+	return false
+
+func _has_enemy_model_with_wounds(player: int, min_wounds: int) -> bool:
+	"""11e Bring it Down when-drawn: does the opponent have any unit on the
+	battlefield containing an alive model with W >= min_wounds?"""
+	var opponent = 2 if player == 1 else 1
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != opponent:
+			continue
+		if unit.get("status", GameStateData.UnitStatus.UNDEPLOYED) == GameStateData.UnitStatus.UNDEPLOYED:
+			continue
+		for model in unit.get("models", []):
+			if model.get("alive", true) and int(model.get("wounds", 1)) >= min_wounds:
+				return true
+	return false
+
+func _has_enemy_unit_with_models(player: int, min_models: int) -> bool:
+	"""11e A Grievous Blow when-drawn: does the opponent have any unit on the
+	battlefield with a Starting Strength of min_models or more (any keyword,
+	unlike the 10e INFANTRY-only Cull the Horde check)?"""
+	var opponent = 2 if player == 1 else 1
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != opponent:
+			continue
+		if unit.get("status", GameStateData.UnitStatus.UNDEPLOYED) == GameStateData.UnitStatus.UNDEPLOYED:
+			continue
+		if unit.get("models", []).size() < min_models:
+			continue
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				return true
 	return false
 
 func _has_enemy_monster_or_vehicle(player: int) -> bool:
