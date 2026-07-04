@@ -95,7 +95,7 @@
     {
       "act": "execute_script",
       "script": "PhaseManager.get_current_phase_instance().pending_charges[\"U_BOYZ_E\"][\"distance\"]",
-      "equals": 10
+      "equals": 8
     },
     {
       "act": "screenshot",

@@ -2029,6 +2029,73 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "autoloads.StratagemManager.smokescreen_11e",
+      "description": "15.10: SMOKESCREEN (via the A4 alias) sets flags.stratagem_cover \u2014 the flag the 11e hit-side cover check reads (it previously set only effect_cover, burning 1 CP for zero effect) \u2014 plus effect_cover for 10e save-side readers, and both expire at end of phase.",
+      "scenarios": [
+        "iss15_smokescreen_reactive_11e",
+        "mp:tests/test_core_stratagems_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.StratagemManager.get_reactive_stratagems_for_shooting",
+      "description": "Reactive shooting offers resolve through the A4 alias so the defender is offered (and uses) the smokescreen_11e definition at e11; retired go_to_ground drops out of the offer list.",
+      "scenarios": [
+        "iss15_smokescreen_reactive_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.ModifierStack.collect_hit_context_11e.stratagem_cover",
+      "description": "13.08/15.10: the live hit context worsens attacker BS by 1 when the target carries flags.stratagem_cover \u2014 asserted 0 before and 1 after the defender's dialog click in the running game.",
+      "scenarios": [
+        "iss15_smokescreen_reactive_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ChargePhase.11e_heroic_intervention_end_of_phase",
+      "description": "15.11: at e11 the per-charge HI window is retired; END_CHARGE opens a single end-of-phase window (deferring phase completion) for the defender, and decline/failed-roll/apply paths complete the deferred phase. _should_complete_phase never auto-completes past the open window.",
+      "scenarios": [
+        "iss15_heroic_intervention_fray_11e",
+        "iss15_heroic_intervention_decline_11e",
+        "mp:tests/test_core_stratagems_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ChargePhase.into_the_fray_mode",
+      "description": "15.11 INTO THE FRAY: 1 CP, targets the closest enemy within 6\" (charged or not), 2D6 roll capped at 6; target resolved before CP spend so a mode with no reachable target costs nothing; LEAP TO DEFEND targets the closest enemy that charged this turn within 12\". No fights-first either way.",
+      "scenarios": [
+        "iss15_heroic_intervention_fray_11e",
+        "mp:tests/test_core_stratagems_11e.gd"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.ChargeController.hi_charge_movement",
+      "description": "Defender completes the HI counter-charge by mouse: charge_path_tools_enabled enables dragging for the HI unit (sole movement-enable path for HI), Confirm routes to APPLY_HEROIC_INTERVENTION_MOVE with pre-drag-origin paths (degenerate-path fix), and the non-target ER check is relative to the charging unit's owner. Unit ends charged_this_turn WITHOUT fights_first; phase completes to Fight.",
+      "scenarios": [
+        "iss15_heroic_intervention_fray_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.HeroicInterventionDialog.decline",
+      "description": "15.11 decline path: the end-of-phase dialog's DeclineButton completes the deferred charge phase with no CP spent; the auto-decline timer now actually arms (autostart \u2014 setup() runs before the dialog enters the tree).",
+      "scenarios": [
+        "iss15_heroic_intervention_decline_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

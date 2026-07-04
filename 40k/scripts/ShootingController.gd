@@ -2893,9 +2893,14 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 		})
 		return
 
-	# Show StratagemDialog
+	# Show StratagemDialog (stable name so windowed scenarios can find it)
 	var dialog_script = preload("res://dialogs/StratagemDialog.gd")
 	var dialog = dialog_script.new()
+
+	var stale_dialog = get_tree().root.get_node_or_null("StratagemDialog")
+	if stale_dialog:
+		stale_dialog.name = "StratagemDialog_stale"
+	dialog.name = "StratagemDialog"
 
 	dialog.stratagem_selected.connect(_on_reactive_stratagem_selected)
 	dialog.stratagem_declined.connect(_on_reactive_stratagem_declined)
