@@ -108,6 +108,10 @@ jobs:
         env:
           BUTLER_API_KEY: ${{ secrets.ITCH_BUTLER_KEY }}
         run: |
+          # NOTE: this step runs under `bash -e`; without `set +e` the
+          # `out=$(butler …)` assignment would abort the whole step the moment
+          # butler returns non-zero, before the retry logic below can run.
+          set +e
           # itch.io rejects a push with a 400 ("latest build is still
           # processing, try again later") while it is still scanning the
           # previous upload. That is transient — retry with backoff instead
@@ -117,7 +121,8 @@ jobs:
           delay=30
           for i in $(seq 1 "$attempts"); do
             echo "::group::butler push attempt $i/$attempts"
-            out="$(./butler push web-build "$target" 2>&1)"; status=$?
+            out="$(./butler push web-build "$target" 2>&1)"
+            status=$?
             echo "$out"
             echo "::endgroup::"
             if [ "$status" -eq 0 ]; then
@@ -130,7 +135,7 @@ jobs:
               delay=$((delay * 2))
               continue
             fi
-            echo "butler push failed with a non-transient error"
+            echo "butler push failed with a non-transient error (see output above)"
             exit "$status"
           done
           echo "butler push still failing after $attempts attempts"
