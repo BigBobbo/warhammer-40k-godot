@@ -305,13 +305,15 @@ Ordered by player impact. Engine-level items marked **[code]**; content-authorin
 14. **[code] Melee/Extra-Attacks/Melta polish** — *(Extra Attacks done 2026-07-02:)* the 10e Balance-Dataslate "cannot modify A" suppression is edition-gated off at e11 (Waaagh/Da Biggest bonuses now apply; pinned 10e-vs-11e in `test_iss047` E5). *(Melta order RESOLVED 2026-07-03 by web source:)* the 11e sequence is base damage → add Melta bonus → apply damage-reduction (halve-after-melta) — exactly what the engine already does in all six damage paths (verified + pinned 2026-07-02, `test_iss047` E4). No code change needed; closed. *(Tab 8 + missions doc appendix.)*
 
 ### Tier 4 — structural/cosmetic
-15. **[code] Fight-phase step structure** — make Pile-In and Consolidation single global both-player steps (active-first)
-    rather than per-fighter. *(Update 2026-07-03:)* the 3"-vs-5" Engaging-consolidation question the audit parked is now
-    RESOLVED by source: Engaging Consolidation is **3"** (must engage the selected targets; otherwise move toward the
-    nearest objective), and consolidation happens **after all fighting across the battlefield, both players, active
-    player first**. The per-fighter `ConsolidationMove` template already enforces the 3" engaging/objective modes, so
-    outcomes match in the common case; the remaining work is purely the sequencer restructure (global end-of-phase
-    consolidation step) — an engineering refactor, no longer rules-blocked. *(Tab 5 + appendix.)*
+15. **[code] Fight-phase step structure** — *(Done 2026-07-04:)* at e11 consolidation is now a GLOBAL end-of-phase
+    step per the sourced text: units finish fighting (has_fought, sequencing, Counter-Offensive window) when their
+    attacks resolve and their consolidations are deferred; once nobody is left to fight, the step runs **active
+    player first**, one ConsolidateDialog per queued unit (the 3" engaging/objective `ConsolidationMove` template
+    unchanged), with END_FIGHT auto-completing any unresolved consolidations without movement (FGT-1). Pre-11e
+    keeps the per-fighter flow. Windowed `iss050b_global_consolidation_11e` proves the sequencing with real dialog
+    clicks (no consolidate prompt mid-fighting; Captain before Boyz in the step); `test_iss050_fight_phase_11e`
+    37/37 and `test_iss066_fight_phase_wiring` 8/8 hold. Pile-In remains part of each unit's fight activation (it
+    is inherent to making attacks; the sourced resolution only moves consolidation). *(Tab 5 + appendix.)*
 16. **[code] End-of-turn coherency removal dialog** — *(Done 2026-07-02:)* END_TURN pauses for human-owned incoherent units; the CoherencyRemovalDialog lets the player pick each removed model, and the turn auto-completes once coherent (`iss042b_coherency_removal_choice_11e`). Auto-pick stays as the AI/backstop. *(Tab 3.)*
 17. **[code] `[DEVASTATING WOUNDS]` / `[LETHAL HITS]` attacker-choice prompts** — *(Done 2026-07-02:)* the AbilityChoiceDialog offers both choices when a DW weapon is assigned; choices ride the assignment into all three resolution paths, incl. the new 24.10 decline (`iss047c_ability_choice_prompts_11e`; headless E3). *(Tab 4/8.)*
 

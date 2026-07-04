@@ -29,6 +29,7 @@ func setup(fighter_id: String, max_dist: float, phase, controller = null) -> voi
 
 func _build_ui() -> void:
 	var container = VBoxContainer.new()
+	container.name = "Content"
 	container.add_theme_constant_override("separation", 10)
 
 	var instruction = Label.new()
@@ -48,10 +49,12 @@ func _build_ui() -> void:
 
 	# Button container
 	var button_container = HBoxContainer.new()
+	button_container.name = "Actions"
 	button_container.add_theme_constant_override("separation", 10)
 
 	# Reset button
 	reset_button = Button.new()
+	reset_button.name = "ResetPositionsButton"
 	reset_button.text = "Reset Positions"
 	reset_button.pressed.connect(_on_reset_pressed)
 	button_container.add_child(reset_button)
@@ -60,6 +63,7 @@ func _build_ui() -> void:
 	# individual model movement is optional. This button confirms the step
 	# with no models electing to move (not "skipping" consolidation).
 	var no_move_button = Button.new()
+	no_move_button.name = "ConfirmNoMoveButton"
 	no_move_button.text = "Confirm (No Models Move)"
 	no_move_button.pressed.connect(_on_skip_pressed)
 	button_container.add_child(no_move_button)

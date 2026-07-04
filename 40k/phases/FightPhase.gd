@@ -102,6 +102,13 @@ var acrobatic_escape_pending_units: Array = []  # Units eligible for Acrobatic E
 # Moment Shackle tracking (Trajann Valoris)
 var _moment_shackle_pending_units: Array = []  # Unit IDs with Moment Shackle available this phase
 
+# 11e (12.08 sourced): consolidations happen AFTER all fighting across the
+# battlefield — both players, active player first — not per fighter. Units
+# that finish attacking are queued here and consolidate in the global
+# end-of-phase step.
+var _deferred_consolidations_11e: Array = []
+var _consolidation_step_11e: bool = false
+
 func _init():
 	phase_type = GameStateData.Phase.FIGHT
 
@@ -126,6 +133,8 @@ func _on_phase_enter() -> void:
 	awaiting_acrobatic_escape = false
 	acrobatic_escape_pending_units.clear()
 	_moment_shackle_pending_units.clear()
+	_deferred_consolidations_11e.clear()
+	_consolidation_step_11e = false
 
 	# Detect Moment Shackle eligible units
 	var ms_units = GameState.state.get("units", {})
@@ -1462,17 +1471,11 @@ func _process_roll_dice_interactive(melee_action: Dictionary) -> Dictionary:
 			emit_signal("fight_resolved", active_fighter_id, result)
 		confirmed_attacks.clear()
 		log_phase_message("Melee combat resolved for %s (no wounds)" % active_fighter_id)
-		var consol_dist = _get_consolidation_distance(active_fighter_id)
-		emit_signal("consolidate_required", active_fighter_id, consol_dist)
-
 		var final_result = create_result(true, result.get("diffs", []))
-		final_result["trigger_consolidate"] = true
-		final_result["consolidate_unit_id"] = active_fighter_id
-		final_result["consolidate_distance"] = consol_dist
 		final_result["log_text"] = result.get("log_text", "")
 		if result.has("dice"):
 			final_result["dice"] = result["dice"]
-		return final_result
+		return _request_consolidation_or_defer_11e(final_result)
 
 	# Wounds caused — store state and emit saves_required for WoundAllocationOverlay
 	pending_melee_save_data = save_data_list
@@ -1556,15 +1559,9 @@ func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
 
 	log_phase_message("Melee combat resolved for %s" % active_fighter_id)
 
-	# After attacks, request consolidate
-	var consol_dist = _get_consolidation_distance(active_fighter_id)
-	emit_signal("consolidate_required", active_fighter_id, consol_dist)
-
-	# Add metadata for NetworkManager to re-emit signal on client
+	# After attacks: request consolidate (pre-11e) or defer it to the
+	# global end-of-phase step (11e, 12.08 sourced)
 	var final_result = create_result(true, result.get("diffs", []))
-	final_result["trigger_consolidate"] = true
-	final_result["consolidate_unit_id"] = active_fighter_id
-	final_result["consolidate_distance"] = consol_dist
 	final_result["log_text"] = result.get("log_text", "")
 
 	# Preserve dice and save_data_list from combat resolution
@@ -1573,7 +1570,7 @@ func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
 	if result.has("save_data_list"):
 		final_result["save_data_list"] = result["save_data_list"]
 
-	return final_result
+	return _request_consolidation_or_defer_11e(final_result)
 
 # T3-12: Batch fight actions to avoid multiplayer race conditions
 # Instead of sending individual ASSIGN_ATTACKS + CONFIRM + ROLL_DICE with fixed delays,
@@ -1858,21 +1855,15 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Melee combat resolved for %s (interactive saves)" % active_fighter_id)
 
-	# After attacks, request consolidate
-	var consol_dist = _get_consolidation_distance(active_fighter_id)
-	emit_signal("consolidate_required", active_fighter_id, consol_dist)
-
-	# Build final result
+	# Build final result; consolidate now (pre-11e) or defer to the global
+	# end-of-phase step (11e)
 	var final_result = create_result(true, all_diffs)
-	final_result["trigger_consolidate"] = true
-	final_result["consolidate_unit_id"] = active_fighter_id
-	final_result["consolidate_distance"] = consol_dist
 	final_result["log_text"] = "Melee saves applied — %d casualties" % total_casualties
 	final_result["dice"] = save_dice_blocks
 
 	DebugLogger.info(str("[FightPhase] P0-58: APPLY_MELEE_SAVES complete — %d casualties, %d diffs" % [total_casualties, all_diffs.size()]))
 
-	return final_result
+	return _request_consolidation_or_defer_11e(final_result)
 
 # T3-3: Auto-inject Extra Attacks weapons that aren't already in confirmed_attacks
 # Extra Attacks weapons must be used IN ADDITION to the selected weapon, not instead of it.
@@ -2053,6 +2044,122 @@ func _get_consolidation_distance(unit_id: String) -> float:
 			return 6.0
 	return 3.0
 
+# ============================================================================
+# 11e GLOBAL END-OF-PHASE CONSOLIDATION (12.08 sourced)
+# ============================================================================
+# "Consolidation happens after all fighting across the battlefield, both
+# players, active player first." Pre-11e keeps the per-fighter request.
+
+func _request_consolidation_or_defer_11e(final_result: Dictionary) -> Dictionary:
+	if GameConstants.edition < 11:
+		var consol_dist = _get_consolidation_distance(active_fighter_id)
+		emit_signal("consolidate_required", active_fighter_id, consol_dist)
+		final_result["trigger_consolidate"] = true
+		final_result["consolidate_unit_id"] = active_fighter_id
+		final_result["consolidate_distance"] = consol_dist
+		return final_result
+	return _finish_fight_deferred_11e(final_result)
+
+## e11: the unit finishes fighting NOW (has_fought, sequencing, katah
+## cleanup, Counter-Offensive window, next fighter selection) and its
+## consolidation is queued for the global end-of-phase step.
+func _finish_fight_deferred_11e(final_result: Dictionary) -> Dictionary:
+	var unit_id = active_fighter_id
+	var changes: Array = final_result.get("changes", [])
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.has_fought" % unit_id,
+		"value": true
+	})
+	final_result["changes"] = changes
+	units_that_fought.append(unit_id)
+	_deferred_consolidations_11e.append(unit_id)
+	active_fighter_id = ""
+	confirmed_attacks.clear()
+	log_phase_message("[11e] %s finished fighting — consolidation deferred to the end of the phase (12.08)" % unit_id)
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr:
+		faction_mgr.clear_katah_stance(unit_id)
+		if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
+			var snap_flags = game_state_snapshot.units[unit_id].get("flags", {})
+			snap_flags.erase("effect_sustained_hits")
+			snap_flags.erase("effect_lethal_hits")
+			snap_flags.erase("katah_stance")
+			snap_flags.erase("katah_sustained_hits_value")
+
+	current_fight_index += 1
+
+	# Counter-Offensive still interleaves between fights
+	var fought_unit = get_unit(unit_id)
+	var opponent_player = 2 if int(fought_unit.get("owner", 0)) == 1 else 1
+	var co_check = StratagemManager.is_counter_offensive_available(opponent_player)
+	var co_eligible = []
+	if co_check.available:
+		co_eligible = StratagemManager.get_counter_offensive_eligible_units(
+			opponent_player, units_that_fought, game_state_snapshot)
+	if not co_eligible.is_empty():
+		awaiting_counter_offensive = true
+		counter_offensive_player = opponent_player
+		log_phase_message("COUNTER-OFFENSIVE available for Player %d (%d eligible units)" % [opponent_player, co_eligible.size()])
+		emit_signal("counter_offensive_opportunity", opponent_player, co_eligible)
+		final_result["trigger_counter_offensive"] = true
+		final_result["counter_offensive_player"] = opponent_player
+		final_result["counter_offensive_eligible_units"] = co_eligible
+		return final_result
+
+	_switch_selecting_player()
+	var dialog_data = _build_fight_selection_dialog_data()
+	if not dialog_data.is_empty():
+		emit_signal("fight_selection_required", dialog_data)
+		final_result["trigger_fight_selection"] = true
+		final_result["fight_selection_data"] = dialog_data
+		return final_result
+
+	# Nobody left to fight — begin the global consolidation step
+	return _begin_consolidation_step_11e(final_result)
+
+func _begin_consolidation_step_11e(final_result: Dictionary) -> Dictionary:
+	if _deferred_consolidations_11e.is_empty():
+		return final_result
+	_consolidation_step_11e = true
+	# Active player's units consolidate first, then the opponent's, each in
+	# the order they fought.
+	var active_player = GameState.get_active_player()
+	var ordered: Array = []
+	for pass_owner in [active_player, 3 - active_player]:
+		for uid in _deferred_consolidations_11e:
+			if int(get_unit(uid).get("owner", 0)) == pass_owner and not uid in ordered:
+				ordered.append(uid)
+	_deferred_consolidations_11e = ordered
+	log_phase_message("[11e] All fighting complete — end-of-phase consolidation step (active player first): %s" % str(ordered))
+	return _advance_consolidation_step_11e(final_result)
+
+func _advance_consolidation_step_11e(final_result: Dictionary) -> Dictionary:
+	while not _deferred_consolidations_11e.is_empty():
+		var uid = str(_deferred_consolidations_11e[0])
+		var unit = get_unit(uid)
+		var alive := false
+		for m in unit.get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				alive = true
+				break
+		if not alive:
+			_deferred_consolidations_11e.pop_front()
+			continue
+		active_fighter_id = uid
+		var consol_dist = _get_consolidation_distance(uid)
+		emit_signal("consolidate_required", uid, consol_dist)
+		log_phase_message("[11e] End-of-phase consolidation: %s (up to %.0f\")" % [uid, consol_dist])
+		final_result["trigger_consolidate"] = true
+		final_result["consolidate_unit_id"] = uid
+		final_result["consolidate_distance"] = consol_dist
+		return final_result
+	_consolidation_step_11e = false
+	active_fighter_id = ""
+	log_phase_message("[11e] End-of-phase consolidation step complete")
+	return final_result
+
 func _process_consolidate(action: Dictionary) -> Dictionary:
 	var changes = []
 	var unit_id = action.get("unit_id", "")
@@ -2074,6 +2181,15 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 			"path": "units.%s.models.%s.position" % [unit_id, model_id],
 			"value": {"x": new_pos.x, "y": new_pos.y}
 		})
+
+	# 11e global consolidation step: the unit already finished fighting when
+	# its attacks resolved — apply the moves and advance the queue.
+	if GameConstants.edition >= 11 and _consolidation_step_11e:
+		if not _deferred_consolidations_11e.is_empty() and str(_deferred_consolidations_11e[0]) == unit_id:
+			_deferred_consolidations_11e.pop_front()
+		active_fighter_id = ""
+		var step_result = create_result(true, changes)
+		return _advance_consolidation_step_11e(step_result)
 
 	# Mark unit as having fought
 	changes.append({
@@ -3646,6 +3762,16 @@ func _validate_end_fight(action: Dictionary) -> Dictionary:
 
 func _process_end_fight(action: Dictionary) -> Dictionary:
 	log_phase_message("Fight phase ending...")
+
+	# 11e: flush any consolidations still queued for the global step — the
+	# step is mandatory but per-model movement is optional (FGT-1), so
+	# unresolved units complete it without moving.
+	if GameConstants.edition >= 11 and not _deferred_consolidations_11e.is_empty():
+		for uid in _deferred_consolidations_11e:
+			log_phase_message("[11e] END_FIGHT: %s completes its consolidation without moving (backstop)" % uid)
+		_deferred_consolidations_11e.clear()
+		_consolidation_step_11e = false
+		active_fighter_id = ""
 
 	# Check for Sweeping Advance eligibility before ending the phase
 	var sa_eligible = _get_sweeping_advance_eligible_units()

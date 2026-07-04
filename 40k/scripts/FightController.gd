@@ -1894,8 +1894,18 @@ func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 		push_error("Failed to load ConsolidateDialog.gd")
 		return
 
+	# A just-freed predecessor still holds the node name for a frame (11e
+	# global step opens dialogs back-to-back) — rename it out of the way so
+	# the new dialog keeps the stable scenario-addressable name.
+	var stale = get_tree().root.get_node_or_null("ConsolidateDialog")
+	if stale != null:
+		stale.name = "ConsolidateDialogStale"
+		if not stale.is_queued_for_deletion():
+			stale.queue_free()
+
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "ConsolidateDialog"
 	dialog.setup(unit_id, max_distance, current_phase, self)  # Pass controller reference
 	dialog.consolidate_confirmed.connect(_on_consolidate_confirmed.bind(unit_id))
 	dialog.consolidate_skipped.connect(_on_consolidate_skipped.bind(unit_id))

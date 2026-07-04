@@ -1,0 +1,266 @@
+{
+  "id": "iss050b_global_consolidation_11e",
+  "covers": [
+    "phases.FightPhase.11e_global_consolidation",
+    "movetypes.ConsolidationMove.end_of_phase_step"
+  ],
+  "fixture": "test_self_targeting",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "11e 12.08 sourced sequencing: consolidations happen AFTER all fighting, both players, active player first. P1's Shield Captain and P2's Boyz are engaged. After the Captain's attacks resolve there is NO consolidate prompt (deferred; next fight selection fires instead). After the Boyz \u2014 the last fighters \u2014 resolve, the global consolidation step begins with the ACTIVE player's Captain first: the ConsolidateDialog appears, the player clicks Confirm (No Models Move), the Boyz dialog follows, and after both the step is complete and End Fight advances the phase cleanly.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_SHIELD_CAPTAIN_FL\")[\"meta\"][\"weapons\"][1].merge({\"attacks\": \"0\"}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_FL\")[\"meta\"][\"weapons\"][6].merge({\"attacks\": \"0\"}, true)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_FIGHTER",
+        "unit_id": "U_SHIELD_CAPTAIN_FL"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "PILE_IN",
+        "unit_id": "U_SHIELD_CAPTAIN_FL",
+        "movements": {},
+        "payload": {
+          "movements": {}
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_ATTACKS",
+        "unit_id": "U_SHIELD_CAPTAIN_FL",
+        "actor_unit_id": "U_SHIELD_CAPTAIN_FL",
+        "target_id": "U_BOYZ_FL",
+        "weapon_id": "sentinel_blade_melee",
+        "payload": {
+          "weapon_id": "sentinel_blade_melee",
+          "target_id": "U_BOYZ_FL"
+        }
+      }
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_AND_RESOLVE_ATTACKS",
+        "unit_id": "U_SHIELD_CAPTAIN_FL",
+        "actor_unit_id": "U_SHIELD_CAPTAIN_FL"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ROLL_DICE",
+        "unit_id": "U_SHIELD_CAPTAIN_FL",
+        "actor_unit_id": "U_SHIELD_CAPTAIN_FL"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_captain_attacks_resolved"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"ConsolidateDialog\") == null",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_SHIELD_CAPTAIN_FL\" in PhaseManager.get_current_phase_instance()._deferred_consolidations_11e",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_SHIELD_CAPTAIN_FL.flags.has_fought",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_FIGHTER",
+        "unit_id": "U_BOYZ_FL"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "PILE_IN",
+        "unit_id": "U_BOYZ_FL",
+        "movements": {},
+        "payload": {
+          "movements": {}
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_ATTACKS",
+        "unit_id": "U_BOYZ_FL",
+        "actor_unit_id": "U_BOYZ_FL",
+        "target_id": "U_SHIELD_CAPTAIN_FL",
+        "weapon_id": "Choppa",
+        "payload": {
+          "weapon_id": "Choppa",
+          "target_id": "U_SHIELD_CAPTAIN_FL"
+        }
+      }
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_AND_RESOLVE_ATTACKS",
+        "unit_id": "U_BOYZ_FL",
+        "actor_unit_id": "U_BOYZ_FL"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ROLL_DICE",
+        "unit_id": "U_BOYZ_FL",
+        "actor_unit_id": "U_BOYZ_FL"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/ConsolidateDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_fighter_id",
+      "equals": "U_SHIELD_CAPTAIN_FL"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_global_step_active_player_first"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/ConsolidateDialog/Content/Actions/ConfirmNoMoveButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/ConsolidateDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_fighter_id",
+      "equals": "U_BOYZ_FL"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_opponent_consolidates_second"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/ConsolidateDialog/Content/Actions/ConfirmNoMoveButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._consolidation_step_11e",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._deferred_consolidations_11e.size()",
+      "equals": 0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 11
+    },
+    {
+      "act": "screenshot",
+      "label": "04_phase_advanced_after_step"
+    }
+  ]
+}
