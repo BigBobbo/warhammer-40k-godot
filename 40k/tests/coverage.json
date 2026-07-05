@@ -2301,6 +2301,132 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "ui.main_menu.army_builder_link",
+      "description": "Main menu 'Army Builder (browser)' button exists and clicking it records the cloud server URL on MainMenu.last_army_builder_url (opens the in-browser list builder; shell_open itself is unobservable in-tree).",
+      "scenarios": [
+        "army_builder_menu_link"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.main_menu.refresh_cloud_armies",
+      "description": "Main menu 'Refresh Cloud Armies' button re-fetches /api/armies without duplicate-signal errors and without duplicating army dropdown entries across repeated refreshes.",
+      "scenarios": [
+        "army_builder_menu_link"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "formations.warlord.supreme_commander",
+      "description": "Supreme Commander forces Ghazghkull to be the Warlord: designating a plain Warboss is rejected, Ghazghkull is accepted.",
+      "scenarios": [
+        "fullauto_formations_rules"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "formations.leader_attachment.bodyguard_extra_leader",
+      "description": "Boyz Bodyguard ability allows a SECOND leader to attach to the unit during formations.",
+      "scenarios": [
+        "fullauto_formations_rules"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.CharacterAttachmentManager.bodyguard_role_cap",
+      "description": "CharacterAttachmentManager enforces the bodyguard role cap when stacking leaders on a Bodyguard unit.",
+      "scenarios": [
+        "fullauto_formations_rules"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "armies.load.wargear_stat_bonuses",
+      "description": "11e army files load with wargear stat bonuses applied ('Ard Case Battlewagon T10->12 with Firing Deck removed, Praesidium Shield Custodian Guard W3->4).",
+      "scenarios": [
+        "fullauto_load_stats_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "armies.load.ability_name_canonicalization",
+      "description": "Renamed 11e abilities are canonicalized to the game's dispatch spellings at army load.",
+      "scenarios": [
+        "fullauto_load_stats_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.ArmyListManager.WARGEAR_STAT_BONUSES",
+      "description": "ArmyListManager.WARGEAR_STAT_BONUSES table drives stat modification at army-build time.",
+      "scenarios": [
+        "fullauto_load_stats_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.war_horde.ere_we_go",
+      "description": "'ERE WE GO activates via USE_STRATAGEM with the curated 11e effects: effect_plus_charge=2 and 1 CP spent.",
+      "scenarios": [
+        "fullauto_movement_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "movement.da_jump.canonical_name",
+      "description": "Da Jump works end-to-end from the current roster under its canonicalized ability name (USE_DA_JUMP flow).",
+      "scenarios": [
+        "fullauto_movement_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.FactionStratagemLoader.curated_effects",
+      "description": "FactionStratagemLoader's curated 11e stratagem effects wire into the engine (movement-phase package).",
+      "scenarios": [
+        "fullauto_movement_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.war_horde.unbridled_carnage",
+      "description": "UNBRIDLED CARNAGE (crit on 5+ melee) activates via USE_STRATAGEM, sets its engine flag, and deducts CP.",
+      "scenarios": [
+        "fullauto_fight_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "stratagems.war_horde.ard_as_nails",
+      "description": "'ARD AS NAILS (defender-side -1 to wound) activates via USE_STRATAGEM, sets its engine flag, and deducts CP.",
+      "scenarios": [
+        "fullauto_fight_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.EffectPrimitives.minus_one_wound_defense",
+      "description": "EffectPrimitives minus-one-to-wound defensive effect applies from the fight-phase stratagem package.",
+      "scenarios": [
+        "fullauto_fight_stratagems"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

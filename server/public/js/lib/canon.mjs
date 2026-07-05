@@ -200,6 +200,10 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Authority of the Inquisition"
  ],
  [
+  "devoted to destruction",
+  "Devoted to Destruction"
+ ],
+ [
   "dread foe",
   "Dread Foe"
  ],
@@ -290,6 +294,10 @@ export const GAME_NAME_CANON_ENTRIES = [
  [
   "blastajet attack run",
   "Blastajet Attack Run"
+ ],
+ [
+  "blastajet force field",
+  "Blastajet Force Field"
  ],
  [
   "drive by dakka",
@@ -624,7 +632,15 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Vexilla"
  ],
  [
-  "wargear",
-  "Wargear"
+  "da jump psychic",
+  "Da Jump (Psychic)"
+ ],
+ [
+  "ramshackle but rugged",
+  "Ramshackle but Rugged"
+ ],
+ [
+  "datasheet",
+  "Datasheet"
  ]
 ];
