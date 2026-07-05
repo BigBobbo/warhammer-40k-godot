@@ -1,5 +1,4 @@
 # GitHub Actions workflow to build and deploy web export to itch.io
-# (probe: re-trigger deploy to test the itch.io html5 channel is unblocked)
 name: Deploy Web Build
 
 on:
