@@ -9,5 +9,8 @@
   "dependencies": {
     "better-sqlite3": "^11.0.0",
     "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
   }
 }
