@@ -8,6 +8,69 @@
  "recommended_deployments": [
   "search_and_destroy"
  ],
+ "objectives": [
+  {
+   "id": "obj_home_1",
+   "position": [
+    37.5,
+    15.75
+   ],
+   "radius_mm": 40,
+   "zone": "player1",
+   "source_pieces": [
+    "area-large-12"
+   ]
+  },
+  {
+   "id": "obj_home_2",
+   "position": [
+    6.5,
+    44.25
+   ],
+   "radius_mm": 40,
+   "zone": "player2",
+   "source_pieces": [
+    "area-large-11"
+   ]
+  },
+  {
+   "id": "obj_nml_1",
+   "position": [
+    8.52,
+    9.56
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-large-30"
+   ]
+  },
+  {
+   "id": "obj_nml_2",
+   "position": [
+    35.48,
+    50.44
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-large-29"
+   ]
+  },
+  {
+   "id": "obj_center",
+   "position": [
+    22,
+    30
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-trapezoid-1",
+    "area-trapezoid-2"
+   ]
+  }
+ ],
  "pieces": [
   {
    "id": "area-trapezoid-1",

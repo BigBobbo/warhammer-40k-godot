@@ -2282,6 +2282,25 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "missions.objectives.layout_sourced",
+      "description": "D3-a: a game started on an official 11e layout uses the layout's five authored objective markers (per-matchup placement; obj_center = the linked centre pair's midpoint, designated central); legacy layouts fall back to the deployment-zone objectives",
+      "scenarios": [
+        "terrain_11e_menu_matchup"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.objectives.terrain_area_visuals",
+      "description": "ISS-055/14.01 visuals: terrain-hosted objectives render as their highlighted area polygon(s) instead of the control-radius circle (obj_center spans both linked centre trapezoids; circle nodes absent); control uses the union of the linked areas",
+      "scenarios": [
+        "terrain_11e_menu_matchup",
+        "terrain_11e_layouts"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

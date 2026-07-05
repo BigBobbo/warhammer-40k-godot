@@ -8,6 +8,69 @@
  "recommended_deployments": [
   "sweeping_engagement"
  ],
+ "objectives": [
+  {
+   "id": "obj_home_1",
+   "position": [
+    35.5,
+    10.75
+   ],
+   "radius_mm": 40,
+   "zone": "player1",
+   "source_pieces": [
+    "area-large-2"
+   ]
+  },
+  {
+   "id": "obj_home_2",
+   "position": [
+    8.5,
+    49.25
+   ],
+   "radius_mm": 40,
+   "zone": "player2",
+   "source_pieces": [
+    "area-large-1"
+   ]
+  },
+  {
+   "id": "obj_nml_1",
+   "position": [
+    18.86,
+    9.96
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-large-10"
+   ]
+  },
+  {
+   "id": "obj_nml_2",
+   "position": [
+    25.14,
+    50.04
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-large-9"
+   ]
+  },
+  {
+   "id": "obj_center",
+   "position": [
+    22,
+    30
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-trapezoid-3",
+    "area-trapezoid-4"
+   ]
+  }
+ ],
  "pieces": [
   {
    "id": "area-large-1",
