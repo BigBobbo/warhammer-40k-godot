@@ -109,6 +109,15 @@ var _reactive_stratagem_overlay_label: Label = null
 var _reactive_stratagem_overlay_timer_label: Label = null
 var _reactive_stratagem_overlay_pulse_tween: Tween = null
 var _reactive_stratagem_pending: bool = false
+# Safety net: the overlay blocks all input while a reactive stratagem window is
+# open. It is normally hidden by the controller that owns the decision dialog
+# (e.g. ChargeController on a Heroic Intervention decline/use). If that callback
+# is ever orphaned — the phase advances and tears the controller down while the
+# window is still open — the overlay would stay up forever and permanently block
+# input (game-freeze-heroic-intervention). This timer guarantees the overlay
+# self-dismisses shortly after every reactive window's own auto-decline elapses.
+var _reactive_stratagem_safety_timer: Timer = null
+const REACTIVE_STRATAGEM_SAFETY_SECONDS: float = 10.0
 
 # T5-V3: Phase transition animation banner
 var phase_transition_banner: PhaseTransitionBanner = null
@@ -1171,6 +1180,16 @@ func _setup_reactive_stratagem_overlay() -> void:
 	vbox.add_child(_reactive_stratagem_overlay_timer_label)
 
 	_reactive_stratagem_overlay.add_child(_reactive_stratagem_overlay_panel)
+
+	# Safety-net timer — see _reactive_stratagem_safety_timer declaration. One-shot;
+	# (re)started every time the overlay is shown, cancelled when it is hidden.
+	_reactive_stratagem_safety_timer = Timer.new()
+	_reactive_stratagem_safety_timer.name = "ReactiveStratagemSafetyTimer"
+	_reactive_stratagem_safety_timer.one_shot = true
+	_reactive_stratagem_safety_timer.wait_time = REACTIVE_STRATAGEM_SAFETY_SECONDS
+	_reactive_stratagem_safety_timer.timeout.connect(_on_reactive_stratagem_safety_timeout)
+	add_child(_reactive_stratagem_safety_timer)
+
 	print("Main: MA-42 Reactive stratagem blocking overlay created")
 
 func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> void:
@@ -1181,6 +1200,11 @@ func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> vo
 	_reactive_stratagem_overlay_label.text = "Waiting for opponent's %s decision..." % stratagem_name
 	_reactive_stratagem_overlay_timer_label.text = "Auto-declining in 5 seconds..."
 	_reactive_stratagem_overlay.visible = true
+
+	# (Re)arm the safety-net auto-dismiss so a lost hide-callback can never leave
+	# the input-blocking overlay up forever.
+	if _reactive_stratagem_safety_timer and is_instance_valid(_reactive_stratagem_safety_timer):
+		_reactive_stratagem_safety_timer.start(REACTIVE_STRATAGEM_SAFETY_SECONDS)
 
 	# Start pulse animation
 	if _reactive_stratagem_overlay_pulse_tween:
@@ -1203,12 +1227,26 @@ func hide_reactive_stratagem_waiting() -> void:
 		return
 	_reactive_stratagem_pending = false
 	_reactive_stratagem_overlay.visible = false
+	if _reactive_stratagem_safety_timer and is_instance_valid(_reactive_stratagem_safety_timer):
+		_reactive_stratagem_safety_timer.stop()
 	if _reactive_stratagem_overlay_pulse_tween:
 		_reactive_stratagem_overlay_pulse_tween.kill()
 		_reactive_stratagem_overlay_pulse_tween = null
 	if _reactive_stratagem_overlay_panel:
 		_reactive_stratagem_overlay_panel.modulate = Color(1, 1, 1, 1)
 	print("Main: MA-42 Hiding reactive stratagem blocking overlay")
+
+func _on_reactive_stratagem_safety_timeout() -> void:
+	# Safety net: the owning controller never called hide_reactive_stratagem_waiting()
+	# (e.g. its decision dialog was orphaned by a phase transition). Force the
+	# input-blocking overlay down so the player is never permanently locked out.
+	# This only clears the UI — the reactive window's own auto-decline already
+	# resolved (or will resolve) the game state via the decision dialog / AI path.
+	if not _reactive_stratagem_pending:
+		return
+	push_warning("Main: Reactive stratagem overlay safety-timeout fired — force-hiding stuck blocking overlay")
+	print("Main: Reactive stratagem overlay safety-timeout fired — force-hiding stuck blocking overlay")
+	hide_reactive_stratagem_waiting()
 
 # =============================================================================
 # P3-56: Web Relay "Waiting for game state" Loading Screen
@@ -8470,6 +8508,15 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 
 	# Close any lingering SecondaryMissionReviewDialog from command phase
 	_close_stale_review_dialogs()
+
+	# A reactive-stratagem window (Heroic Intervention, Fire Overwatch, …) never
+	# legitimately spans a phase change — it resolves inside the phase that opened
+	# it. If we reach here with the input-blocking overlay still up, its owning
+	# controller lost the hide-callback (game-freeze-heroic-intervention); clear it
+	# now so the incoming phase is interactable.
+	if _reactive_stratagem_pending:
+		print("Main: Phase changed with reactive stratagem overlay still up — force-hiding it")
+		hide_reactive_stratagem_waiting()
 
 	# Clean up scout UI state when leaving the scout phase
 	if _scout_active_unit_id != "":
