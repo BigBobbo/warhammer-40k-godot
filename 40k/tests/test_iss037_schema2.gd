@@ -77,8 +77,8 @@ func _run_tests():
 	var uid0 = data["units"].keys()[0]
 	data["units"][uid0]["meta"]["stats"]["invulnerable_save"] = 5
 	var migrated = ser.migrate_save_data(data)
-	_check("migration reaches 1.2.0",
-		migrated["_serialization"]["version"] == "1.2.0")
+	_check("migration reaches CURRENT_VERSION (chain includes 1.2.0 normalization)",
+		migrated["_serialization"]["version"] == ser.CURRENT_VERSION)
 	var st = migrated["units"][uid0]["meta"]["stats"]
 	_check("invuln normalized in saved unit",
 		not st.has("invulnerable_save") and int(st.get("invuln", 0)) == 5, str(st))

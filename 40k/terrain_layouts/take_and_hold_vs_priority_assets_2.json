@@ -8,6 +8,69 @@
  "recommended_deployments": [
   "hammer_anvil"
  ],
+ "objectives": [
+  {
+   "id": "obj_home_1",
+   "position": [
+    32.25,
+    10.5
+   ],
+   "radius_mm": 40,
+   "zone": "player1",
+   "source_pieces": [
+    "area-large-17"
+   ]
+  },
+  {
+   "id": "obj_home_2",
+   "position": [
+    11.75,
+    49.5
+   ],
+   "radius_mm": 40,
+   "zone": "player2",
+   "source_pieces": [
+    "area-large-18"
+   ]
+  },
+  {
+   "id": "obj_nml_1",
+   "position": [
+    6.5,
+    24.75
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-large-32"
+   ]
+  },
+  {
+   "id": "obj_nml_2",
+   "position": [
+    37.5,
+    35.25
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-large-31"
+   ]
+  },
+  {
+   "id": "obj_center",
+   "position": [
+    22,
+    30
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-trapezoid-1",
+    "area-trapezoid-2"
+   ]
+  }
+ ],
  "pieces": [
   {
    "id": "area-trapezoid-1",

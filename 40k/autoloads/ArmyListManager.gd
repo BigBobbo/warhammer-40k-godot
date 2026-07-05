@@ -247,6 +247,10 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# MA-13: Apply stats_override.wounds from model_profiles before wargear bonuses
 			_apply_model_profile_wounds(unit_id, unit)
 
+			# Canonicalize renamed 11e ability names to the engine's spellings
+			# (must run before wargear bonuses / ability dispatch)
+			_canonicalize_ability_names(unit_id, unit)
+
 			# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
 			_apply_wargear_stat_bonuses(unit_id, unit)
 
@@ -635,6 +639,9 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 		# MA-13: Apply stats_override.wounds from model_profiles before wargear bonuses
 		_apply_model_profile_wounds(unit_id, unit)
 
+		# Canonicalize renamed 11e ability names to the engine's spellings
+		_canonicalize_ability_names(unit_id, unit)
+
 		# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
 		_apply_wargear_stat_bonuses(unit_id, unit)
 
@@ -754,6 +761,34 @@ const WARGEAR_STAT_BONUSES: Dictionary = {
 	}
 }
 
+# ============================================================================
+# 11e ABILITY NAME CANONICALIZATION
+# ============================================================================
+# The 40kdc 11e dataset renamed several datasheet abilities that already have
+# engine implementations under their 10e names. The engine dispatches on EXACT
+# ability names (UnitAbilityManager.ABILITY_EFFECTS lookups, MovementPhase's
+# USE_DA_JUMP check), so a renamed entry silently loses its mechanics — the
+# text shows on the unit card but nothing fires. Canonicalize at army load so
+# the name the rules dispatch on is also the name the player reads.
+
+const ABILITY_NAME_CANON: Dictionary = {
+	"Da Jump (Psychic)": "Da Jump",         # MovementPhase requires exactly "Da Jump"
+	"Ramshackle but Rugged": "Ramshackle",  # ABILITY_EFFECTS worsen-AP entry
+}
+
+func _canonicalize_ability_names(unit_id: String, unit: Dictionary) -> void:
+	"""Map renamed 11e dataset ability names onto the engine's canonical
+	spellings. Descriptions are kept — only the dispatch name changes."""
+	if not unit.has("meta") or not unit.meta.has("abilities"):
+		return
+	for ability in unit.meta.abilities:
+		if ability is Dictionary:
+			var canon = ABILITY_NAME_CANON.get(ability.get("name", ""), "")
+			if canon != "":
+				print("ArmyListManager: %s ability '%s' canonicalized to '%s'" % [
+					unit_id, ability.get("name", ""), canon])
+				ability["name"] = canon
+
 func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 	"""Check unit abilities for wargear stat bonuses and apply them to stats/models."""
 	if not unit.has("meta"):
@@ -763,6 +798,7 @@ func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 	if not meta.has("abilities"):
 		return
 
+	var strip_firing_deck = false
 	for ability in meta.abilities:
 		if not ability is Dictionary:
 			continue
@@ -774,9 +810,12 @@ func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 		if wargear_def.is_empty():
 			continue
 
-		# Only apply to Wargear-type abilities
+		# Wargear-type abilities in hand-authored rosters; the 40kdc generator
+		# emits every non-faction/non-core ability as type "Datasheet" (there is
+		# no "Wargear" type in the 11e dataset), so accept both — the name-keyed
+		# WARGEAR_STAT_BONUSES table is the actual gate.
 		var ability_type = ability.get("type", "")
-		if ability_type != "Wargear":
+		if ability_type != "Wargear" and ability_type != "Datasheet":
 			continue
 
 		var stat_name = wargear_def.get("stat", "")
@@ -816,6 +855,19 @@ func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 					print("ArmyListManager: Wargear '%s' on %s: removed Firing Deck %d" % [
 						ability_name, meta.get("name", unit_id), old_fd
 					])
+			strip_firing_deck = true
+
+	# 'Ard Case: strip the Firing Deck ability entry too (outside the loop —
+	# never mutate meta.abilities while iterating it), so the unit card doesn't
+	# advertise a rule the wargear removed.
+	if strip_firing_deck:
+		for i in range(meta.abilities.size() - 1, -1, -1):
+			var other = meta.abilities[i]
+			if other is Dictionary and str(other.get("name", "")).begins_with("Firing Deck"):
+				meta.abilities.remove_at(i)
+				print("ArmyListManager: removed '%s' ability entry from %s ('Ard Case)" % [
+					other.get("name", ""), meta.get("name", unit_id)
+				])
 
 # ============================================================================
 # ENHANCEMENT STAT BONUSES (Issue #396)

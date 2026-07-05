@@ -1,0 +1,80 @@
+{
+	"created_at": 1783271760.1714,
+	"description": "Fixture: orks (War Horde) vs custodes (Shield Host), 11e army files, all deployed, command phase R1P1",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "c82eb33d-5b6e-f841-aa09-3f9272a7bc449210",
+		"is_multiplayer": false,
+		"phase": 6,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 1
+	},
+	"preview": {
+		"battle_round": 1,
+		"players": {
+			"1": {
+				"alive_models": 86,
+				"alive_units": 15,
+				"cp": 3,
+				"detachment": "War Horde",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 0,
+				"secondary_vp": 0,
+				"total_models": 86,
+				"total_units": 15,
+				"unit_names": [
+					"Warboss",
+					"Warboss",
+					"Warboss in Mega Armour",
+					"Boyz",
+					"Boyz",
+					"Battlewagon",
+					"Kommandos",
+					"Painboss",
+					"Weirdboy",
+					"Boyz",
+					"Lootas",
+					"Meganobz",
+					"Wazbom Blastajet",
+					"Ghazghkull Thraka",
+					"Bannernob"
+				],
+				"vp": 0
+			},
+			"2": {
+				"alive_models": 18,
+				"alive_units": 9,
+				"cp": 3,
+				"detachment": "Shield Host",
+				"faction": "Adeptus Custodes",
+				"points": 1000.0,
+				"primary_vp": 0,
+				"secondary_vp": 0,
+				"total_models": 18,
+				"total_units": 9,
+				"unit_names": [
+					"Shield-Captain",
+					"Blade Champion",
+					"Custodian Guard",
+					"Witchseekers",
+					"Witchseekers",
+					"Caladius Grav-tank",
+					"Contemptor-Achillus Dreadnought",
+					"Telemon Heavy Dreadnought",
+					"Shield-Captain on Dawneagle Jetbike"
+				],
+				"vp": 0
+			}
+		}
+	},
+	"save_info": {
+		"description": "Fixture: orks (War Horde) vs custodes (Shield Host), 11e army files, all deployed, command phase R1P1",
+		"save_type": "manual",
+		"tags": []
+	},
+	"version": "1.2.0"
+}

@@ -11,6 +11,12 @@ var terrain_features: Array = []
 var terrain_visible: bool = true
 var current_layout: String = "layout_2"
 
+# D3-a: objective markers authored by the loaded layout (the converted 11e
+# layouts carry an objectives[] array; legacy layouts don't). Raw JSON dicts
+# — id, position [x,y] inches, radius_mm, zone. MissionManager prefers these
+# over the deployment-zone objectives when non-empty.
+var layout_objectives: Array = []
+
 # Cache of loaded layout metadata for UI recommendations
 var _layout_metadata: Dictionary = {}
 
@@ -133,12 +139,34 @@ func get_all_layout_ids() -> Array:
 func get_11e_layout_ids() -> Array:
 	return _layout_ids_11e.duplicate()
 
+## D5: the official 11e layouts for a Force-Disposition pairing. Takes the
+## game's underscore disposition ids (e.g. "take_and_hold", as used by
+## PrimaryMissionData11e.DISPOSITIONS), converts to the dataset's hyphenated
+## form, and tries both orderings of the matchup id — the dataset authors one
+## canonical ordering per unordered pairing (mirrors use "<a>-vs-<a>").
+## Returns the layout metadata dictionaries sorted by variant (1..3);
+## empty if the 11e index isn't present or the pairing is unknown.
+func get_layouts_for_matchup(disposition_a: String, disposition_b: String) -> Array:
+	var a := disposition_a.replace("_", "-")
+	var b := disposition_b.replace("_", "-")
+	for candidate in ["%s-vs-%s" % [a, b], "%s-vs-%s" % [b, a]]:
+		var found: Array = []
+		for layout_id in _layout_ids_11e:
+			var meta = _layout_metadata.get(layout_id, {})
+			if str(meta.get("mission_matchup_id", "")) == candidate:
+				found.append(meta)
+		if not found.is_empty():
+			found.sort_custom(func(x, y): return int(x.get("variant", 0)) < int(y.get("variant", 0)))
+			return found
+	return []
+
 func get_recommended_deployments(layout_id: String) -> Array:
 	var metadata = get_layout_metadata(layout_id)
 	return metadata.get("recommended_deployments", [])
 
 func load_terrain_layout(layout_name: String) -> void:
 	terrain_features.clear()
+	layout_objectives.clear()
 	current_layout = layout_name
 
 	# Try loading from JSON first
@@ -187,6 +215,11 @@ func _load_layout_from_json(layout_name: String) -> bool:
 	if not data.has("pieces"):
 		print("[TerrainManager] JSON layout missing 'pieces' array")
 		return false
+
+	# D3-a: converted 11e layouts author their own objective markers.
+	layout_objectives = data.get("objectives", [])
+	if layout_objectives.size() > 0:
+		print("[TerrainManager] Layout '%s' authors %d objective markers (layout-sourced, D3-a)" % [layout_name, layout_objectives.size()])
 
 	var px_per_inch = Measurement.PX_PER_INCH
 

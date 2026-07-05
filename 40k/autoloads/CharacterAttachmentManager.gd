@@ -81,13 +81,23 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 
 	# 10e: one attached character. 11e (19.01/24.22/24.34): one LEADER
 	# unit AND one SUPPORT unit per bodyguard — slots are per-role.
+	# Bodyguard ability (40kdc 11e, e.g. Ork Boyz): grants Extra Leader
+	# Attachment — the unit accepts a SECOND leader-role character.
 	var attached_chars = bodyguard.get("attachment_data", {}).get("attached_characters", [])
 	if GameConstants.edition >= 11:
 		var new_role = attachment_role(character)
+		var role_cap = 1
+		if new_role == "leader" and UnitAbilities.has_datasheet_ability(bodyguard, "bodyguard"):
+			role_cap = 2
+		var role_count = 0
 		for existing_id in attached_chars:
 			var existing = GameState.get_unit(str(existing_id))
 			if not existing.is_empty() and attachment_role(existing) == new_role:
-				return {"valid": false, "reason": "Unit already has an attached %s unit (19.01)" % new_role}
+				role_count += 1
+		if role_count >= role_cap:
+			if role_cap > 1:
+				return {"valid": false, "reason": "Unit already has %d attached leader units (Bodyguard limit)" % role_cap}
+			return {"valid": false, "reason": "Unit already has an attached %s unit (19.01)" % new_role}
 	elif attached_chars.size() > 0:
 		return {"valid": false, "reason": "Unit already has an attached leader"}
 

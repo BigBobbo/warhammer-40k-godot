@@ -14,7 +14,11 @@ signal serialization_error(error: String)
 # 1.2.0 - ISS-037 (11e schema): normalized invulnerable_save -> invuln in
 #          unit stats; army files carry faction.schema = 2 with
 #          needs_11e_review flags for units missing 11e-required stats
-const CURRENT_VERSION = "1.2.0"
+# 1.3.0 - canonicalize renamed 11e dataset ability names to the engine's
+#          dispatch spellings (Da Jump (Psychic) -> Da Jump, Ramshackle but
+#          Rugged -> Ramshackle) — mirrors ArmyListManager.ABILITY_NAME_CANON
+#          so saves made from the renamed rosters regain their mechanics
+const CURRENT_VERSION = "1.3.0"
 const MINIMUM_MIGRATABLE_VERSION = "1.0.0"
 
 # Migration registry: maps source_version -> { "target": next_version, "migrate": Callable }
@@ -52,6 +56,10 @@ func _register_migrations() -> void:
 	_migrations["1.1.0"] = {
 		"target": "1.2.0",
 		"migrate": _migrate_1_1_0_to_1_2_0
+	}
+	_migrations["1.2.0"] = {
+		"target": "1.3.0",
+		"migrate": _migrate_1_2_0_to_1_3_0
 	}
 
 func migrate_save_data(data: Dictionary) -> Dictionary:
@@ -244,6 +252,21 @@ func _migrate_1_1_0_to_1_2_0(data: Dictionary) -> Dictionary:
 				stats["invuln"] = v
 			normalized += 1
 	print("StateSerializer: _migrate_1_1_0_to_1_2_0: normalized %d invuln entries" % normalized)
+	return data
+
+func _migrate_1_2_0_to_1_3_0(data: Dictionary) -> Dictionary:
+	# Canonicalize renamed 11e dataset ability names so exact-name dispatch
+	# (ABILITY_EFFECTS, MovementPhase USE_DA_JUMP) fires for units saved from
+	# the renamed rosters. Mirrors ArmyListManager.ABILITY_NAME_CANON.
+	var renamed := 0
+	for unit_id in data.get("units", {}):
+		for ability in data["units"][unit_id].get("meta", {}).get("abilities", []):
+			if ability is Dictionary:
+				var canon = ArmyListManager.ABILITY_NAME_CANON.get(ability.get("name", ""), "")
+				if canon != "":
+					ability["name"] = canon
+					renamed += 1
+	print("StateSerializer: _migrate_1_2_0_to_1_3_0: canonicalized %d ability names" % renamed)
 	return data
 
 # Main serialization methods

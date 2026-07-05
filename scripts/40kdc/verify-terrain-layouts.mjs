@@ -11,6 +11,11 @@
 //   - rotation is baked into the polygon (rotation == 0, no walls)
 //   - piece_class mirrors the dataset piece_type
 //   - index_11e.json lists exactly the emitted layouts
+//   - objectives (D3-a/D4): exactly the five markers obj_home_1/2 (player1
+//     = smaller y), obj_nml_1/2, obj_center; home/nml markers sit on their
+//     source piece's centroid, obj_center on the linked centre pair's
+//     midpoint AND is the no-man's-land marker nearest the board centre
+//     (the invariant MissionManager's "central" designation relies on)
 //
 // Run standalone (exit 1 on any failure):
 //   cd scripts/40kdc && node verify-terrain-layouts.mjs
@@ -37,7 +42,7 @@ export function verifyAll() {
   const templates = loadCollection('terrainTemplates');
 
   let failures = 0;
-  let checkedLayouts = 0, checkedPieces = 0, checkedVerts = 0;
+  let checkedLayouts = 0, checkedPieces = 0, checkedVerts = 0, checkedObjectives = 0;
   const emittedIds = [];
   const fail = msg => { failures++; console.error(`FAIL ${msg}`); };
 
@@ -95,7 +100,53 @@ export function verifyAll() {
       }
       checkedPieces++;
     });
+
+    verifyObjectives(gameId, game, fail);
     checkedLayouts++;
+  }
+
+  // D3-a/D4: the five layout-sourced objective markers.
+  function verifyObjectives(gameId, game, fail) {
+    const objs = game.objectives ?? [];
+    const byId = Object.fromEntries(objs.map(o => [o.id, o]));
+    const wantIds = ['obj_home_1', 'obj_home_2', 'obj_nml_1', 'obj_nml_2', 'obj_center'];
+    if (objs.length !== 5 || !wantIds.every(id => byId[id])) {
+      fail(`${gameId}: objectives must be exactly ${wantIds.join(',')} — got ${objs.map(o => o.id).join(',')}`);
+      return;
+    }
+    const pieceById = Object.fromEntries((game.pieces ?? []).map(p => [p.id, p]));
+    const near = (a, b) => Math.abs(a[0] - b[0]) <= EPS && Math.abs(a[1] - b[1]) <= EPS;
+    for (const id of ['obj_home_1', 'obj_home_2', 'obj_nml_1', 'obj_nml_2']) {
+      const o = byId[id];
+      const src = pieceById[(o.source_pieces ?? [])[0]];
+      if (!src || !src.is_objective) fail(`${gameId} ${id}: source piece missing or not an objective piece`);
+      else if (!near(o.position, src.position)) fail(`${gameId} ${id}: marker ${JSON.stringify(o.position)} != source centroid ${JSON.stringify(src.position)}`);
+    }
+    if (byId.obj_home_1.zone !== 'player1' || byId.obj_home_2.zone !== 'player2') fail(`${gameId}: home zones wrong`);
+    if (byId.obj_home_1.position[1] >= byId.obj_home_2.position[1]) fail(`${gameId}: obj_home_1 must be the top (player 1) marker`);
+    const c = byId.obj_center;
+    const srcs = (c.source_pieces ?? []).map(id => pieceById[id]).filter(Boolean);
+    // The pair is defined by objective_role "center" (upstream link_group
+    // labels vary: "Center", "1", or absent).
+    if (srcs.length !== 2 || srcs.some(p => p.objective_role !== 'center')) {
+      fail(`${gameId} obj_center: must come from the two center-role pieces`);
+    } else {
+      const mid = [r4((srcs[0].position[0] + srcs[1].position[0]) / 2), r4((srcs[0].position[1] + srcs[1].position[1]) / 2)];
+      if (!near(c.position, mid)) fail(`${gameId} obj_center: ${JSON.stringify(c.position)} != pair midpoint ${JSON.stringify(mid)}`);
+    }
+    // MissionManager designates "central" = the NML marker nearest the board
+    // centre; obj_center must win that strictly.
+    const d2 = o => (o.position[0] - BOARD_W / 2) ** 2 + (o.position[1] - BOARD_H / 2) ** 2;
+    for (const id of ['obj_nml_1', 'obj_nml_2']) {
+      if (d2(byId[id]) <= d2(c)) fail(`${gameId}: ${id} is nearer the board centre than obj_center — designation would misfire`);
+    }
+    for (const o of objs) {
+      if (o.position[0] < -EPS || o.position[0] > BOARD_W + EPS || o.position[1] < -EPS || o.position[1] > BOARD_H + EPS) {
+        fail(`${gameId} ${o.id}: marker ${JSON.stringify(o.position)} outside the board`);
+      }
+      if ((o.radius_mm ?? 0) !== 40) fail(`${gameId} ${o.id}: radius_mm must be 40`);
+      checkedObjectives++;
+    }
   }
 
   // Index consistency.
@@ -111,7 +162,7 @@ export function verifyAll() {
   }
 
   if (failures === 0) {
-    console.log(`VERIFY PASS — ${checkedLayouts} layouts, ${checkedPieces} pieces, ${checkedVerts} vertices match resolveLayout() transposed to the 44x60 board (4-dp)`);
+    console.log(`VERIFY PASS — ${checkedLayouts} layouts, ${checkedPieces} pieces, ${checkedVerts} vertices match resolveLayout() transposed to the 44x60 board (4-dp); ${checkedObjectives} objective markers verified (5 per layout)`);
   } else {
     console.error(`VERIFY FAIL — ${failures} failure(s)`);
   }

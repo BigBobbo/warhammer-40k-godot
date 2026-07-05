@@ -36,10 +36,25 @@
 //                    by the engine (spec §9.5, out of v1 scope) and only warn.
 //   walls         -> none (spec Decision D2-a: the dataset has no wall/window
 //                    data; obscuring polygons carry the LoS blocking)
-//   objectives    -> NOT emitted (spec Decision D3-b: objectives stay in
-//                    40k/deployment_zones/*.json); the per-piece objective
-//                    flags (is_objective / objective_role / link_group) are
-//                    carried through for the 14.01 terrain-objective rule.
+//   objectives    -> spec Decision D3-a: each layout emits its own
+//                    objectives[] derived from the objective pieces. Every
+//                    dataset layout carries exactly 6 objective pieces that
+//                    resolve to FIVE markers (D4: no 6-objective boards):
+//                      - 2 "home" areas -> obj_home_1 (player1, smaller game
+//                        y = top of the portrait board, the game's zone
+//                        convention) and obj_home_2 (player2), marker at the
+//                        piece centroid;
+//                      - 2 "expansion" areas -> obj_nml_1 / obj_nml_2 (by the
+//                        same y-order), markers at the piece centroids;
+//                      - 2 linked "center" areas (link_group "Center") ->
+//                        ONE obj_center at the pair's centroid midpoint,
+//                        which is exactly the board centre (22,30) in all 45
+//                        layouts (asserted by the verifier).
+//                    MissionManager prefers these over the deployment-zone
+//                    objectives when the loaded layout carries them; legacy
+//                    layouts keep the deployment-zone source (fallback).
+//                    The per-piece flags (is_objective / objective_role /
+//                    link_group) are still carried for the 14.01 rule.
 //
 // Also emits 40k/terrain_layouts/index_11e.json so TerrainManager can
 // register the 45 ids without a hardcoded list (and for future D5 UI wiring).
@@ -169,8 +184,38 @@ export function convertLayout(layout, templates, tplById) {
     mission_matchup_id: layout.mission_matchup_id,
     variant: layout.variant,
     recommended_deployments: [deployment],
+    objectives: layoutObjectives(layout.id, outPieces),
     pieces: outPieces,
   };
+}
+
+/** D3-a: the layout's five objective markers, derived from its objective
+ *  pieces (see the header). Positions are game inches, matching the
+ *  40k/deployment_zones/*.json objective schema. */
+export function layoutObjectives(layoutId, outPieces) {
+  const byRole = { home: [], expansion: [], center: [] };
+  for (const p of outPieces) {
+    if (p.is_objective) (byRole[p.objective_role] ??= []).push(p);
+  }
+  if (byRole.home.length !== 2 || byRole.expansion.length !== 2 || byRole.center.length !== 2) {
+    throw new Error(`${layoutId}: expected 2 home / 2 expansion / 2 linked center objective pieces, got ` +
+      `${byRole.home.length}/${byRole.expansion.length}/${byRole.center.length}`);
+  }
+  const byY = arr => [...arr].sort((a, b) => a.position[1] - b.position[1]);
+  const [homeTop, homeBottom] = byY(byRole.home);
+  const [nmlTop, nmlBottom] = byY(byRole.expansion);
+  const [c1, c2] = byRole.center;
+  const centre = [r4((c1.position[0] + c2.position[0]) / 2), r4((c1.position[1] + c2.position[1]) / 2)];
+  const obj = (id, position, zone, sourcePieces) => ({ id, position, radius_mm: 40, zone, source_pieces: sourcePieces });
+  return [
+    // Game convention (see generate-deployment-zones.mjs): player 1 owns the
+    // top of the portrait board (smaller y).
+    obj('obj_home_1', homeTop.position, 'player1', [homeTop.id]),
+    obj('obj_home_2', homeBottom.position, 'player2', [homeBottom.id]),
+    obj('obj_nml_1', nmlTop.position, 'no_mans_land', [nmlTop.id]),
+    obj('obj_nml_2', nmlBottom.position, 'no_mans_land', [nmlBottom.id]),
+    obj('obj_center', centre, 'no_mans_land', [c1.id, c2.id]),
+  ];
 }
 
 function main() {

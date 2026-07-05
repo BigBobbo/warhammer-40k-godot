@@ -8,6 +8,69 @@
  "recommended_deployments": [
   "dawn_of_war"
  ],
+ "objectives": [
+  {
+   "id": "obj_home_1",
+   "position": [
+    36,
+    12.75
+   ],
+   "radius_mm": 40,
+   "zone": "player1",
+   "source_pieces": [
+    "area-large-4"
+   ]
+  },
+  {
+   "id": "obj_home_2",
+   "position": [
+    8,
+    47.25
+   ],
+   "radius_mm": 40,
+   "zone": "player2",
+   "source_pieces": [
+    "area-large-3"
+   ]
+  },
+  {
+   "id": "obj_nml_1",
+   "position": [
+    16.5,
+    10.75
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-large-17"
+   ]
+  },
+  {
+   "id": "obj_nml_2",
+   "position": [
+    27.5,
+    49.25
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-large-18"
+   ]
+  },
+  {
+   "id": "obj_center",
+   "position": [
+    22,
+    30
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-trapezoid-1",
+    "area-trapezoid-2"
+   ]
+  }
+ ],
  "pieces": [
   {
    "id": "area-trapezoid-1",

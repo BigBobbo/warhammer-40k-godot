@@ -1,0 +1,31 @@
+{
+  "id": "fullauto_movement_stratagems",
+  "covers": [
+    "stratagems.war_horde.ere_we_go",
+    "movement.da_jump.canonical_name",
+    "autoloads.FactionStratagemLoader.curated_effects"
+  ],
+  "fixture": "fullauto_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "War Horde movement-phase package: 'ERE WE GO activates via USE_STRATAGEM (curated 11e effects -> effect_plus_charge=2, 1 CP spent) and Da Jump works end-to-end from the CURRENT roster (canonicalized name): USE_DA_JUMP rolls 2+ (seed 2) then PLACE_DA_JUMP teleports the Weirdboy 9\"+ from enemies.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "screenshot", "label": "01_movement_phase" },
+    { "act": "dispatch_action", "action": { "type": "USE_STRATAGEM", "stratagem_id": "faction_ork_war_horde_’ere_we_go", "target_unit_id": "U_BOYZ_E" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_BOYZ_E.flags.effect_plus_charge", "equals": 2 },
+    { "act": "expect_cp", "player": 1, "delta_from_start": -1 },
+    { "act": "screenshot", "label": "02_ere_we_go_active" },
+    { "act": "dispatch_action", "action": { "type": "USE_DA_JUMP", "actor_unit_id": "U_WEIRDBOY_J", "payload": { "rng_seed": 2 } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_WEIRDBOY_J.flags.awaiting_da_jump_placement", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "PLACE_DA_JUMP", "actor_unit_id": "U_WEIRDBOY_J", "payload": { "model_positions": [ { "model_id": "m1", "x": 1200.0, "y": 400.0 } ] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_WEIRDBOY_J.models.0.position.x", "equals": 1200 },
+    { "act": "screenshot", "label": "03_da_jump_teleported" }
+  ]
+}

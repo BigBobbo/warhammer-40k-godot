@@ -1,0 +1,25 @@
+{
+  "id": "fullauto_load_stats_11e",
+  "covers": [
+    "armies.load.wargear_stat_bonuses",
+    "armies.load.ability_name_canonicalization",
+    "autoloads.ArmyListManager.WARGEAR_STAT_BONUSES"
+  ],
+  "fixture": "fullauto_pretrigger",
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Full-auto armies audit: the 11e army files load with wargear stat bonuses applied ('Ard Case Battlewagon T10->12 + Firing Deck removed, Praesidium Shield Custodian Guard W3->4) and renamed abilities canonicalized. Asserts live GameState after the real load pipeline and screenshots the board with the Battlewagon selected.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "units.U_BATTLEWAGON_G.meta.stats.toughness", "equals": 12 },
+    { "act": "expect_state", "path": "units.U_BATTLEWAGON_G.transport_data.firing_deck", "equals": 0 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.meta.stats.wounds", "equals": 4 },
+    { "act": "expect_token_visible", "unit_id": "U_BATTLEWAGON_G" },
+    { "act": "click_unit", "unit_id": "U_BATTLEWAGON_G" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "screenshot", "label": "01_battlewagon_selected_T12" },
+    { "act": "click_unit", "unit_id": "U_CUSTODIAN_GUARD_B" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "screenshot", "label": "02_custodian_guard_W4" }
+  ]
+}

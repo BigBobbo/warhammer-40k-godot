@@ -7,7 +7,7 @@
   ],
   "fixture": "audit_383_battleshock_shoot",
   "edition": 11,
-  "description": "Official 11e terrain layouts (40kdc conversion, docs/40KDC_TERRAIN_MIGRATION_SPEC.md): loads the converted disruption_vs_purge_the_foe_1 layout into a live shooting-phase game, asserts all 44 polygon pieces reach the runtime with exact transposed geometry, and drives two real terrain interactions. (1) LoS: the Contemptor-Achillus Dreadnought's eligible-target list (the same RulesEngine query the shooting UI uses) keeps the clear-lane Kommandos but loses Boyz E, and model_visible_11e confirms the converted obscuring area blocks that sight line. (2) 14.01 terrain-as-objective: with legacy layout_1 the Shield-Captain (OC 2, unshocked, 1.42\" from the marker) controls obj_center via the classic 3.79\" radius (control=1); after the swap a Center-linked terrain area covers the objective, so only models inside the area count — the sole occupant (the Dreadnought) is battle-shocked, and control flips to 0.",
+  "description": "Official 11e terrain layouts (40kdc conversion, docs/40KDC_TERRAIN_MIGRATION_SPEC.md): loads the converted disruption_vs_purge_the_foe_1 layout into a live shooting-phase game, asserts all 44 polygon pieces reach the runtime with exact transposed geometry, and drives two real terrain interactions. (1) LoS: the Contemptor-Achillus Dreadnought's eligible-target list (the same RulesEngine query the shooting UI uses) keeps the clear-lane Kommandos but loses Boyz E, and model_visible_11e confirms the converted obscuring area blocks that sight line. (2) 14.01 terrain-as-objective: with legacy layout_1 the Shield-Captain (OC 2, unshocked, 1.42\" from the marker) controls obj_center via the classic 3.79\" radius (control=1); after the swap a Center-linked terrain area covers the objective, so only models inside the area count — with the save-restored deployment-zone objectives (no source_pieces) the single area_at area applies, whose sole occupant (the Dreadnought) is battle-shocked, and control flips to 0. (3) Linked-pair union: re-deriving objectives from the loaded layout gives obj_center its two source_pieces (both centre trapezoids count as ONE objective), and control flips to 1 — the Shield-Captain stands in the OTHER trapezoid (area-trapezoid-2) and now counts.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 8 },
@@ -73,6 +73,17 @@
     { "act": "execute_script",
       "script": "MissionManager.objective_control_state.get(\"obj_center\", -1)",
       "equals": 0 },
+
+    { "act": "execute_script",
+      "script": "MissionManager._setup_objectives_for_deployment(\"search_and_destroy\")" },
+    { "act": "execute_script",
+      "script": "MissionManager._get_objective_by_id(\"obj_center\").get(\"source_pieces\", []).size()",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "MissionManager.check_all_objectives()" },
+    { "act": "execute_script",
+      "script": "MissionManager.objective_control_state.get(\"obj_center\", -1)",
+      "equals": 1 },
 
     { "act": "wait_frames", "frames": 4 },
     { "act": "screenshot", "label": "03_shooting_ui_and_1401_checked" }

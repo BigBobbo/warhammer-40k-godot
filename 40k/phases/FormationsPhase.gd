@@ -477,7 +477,30 @@ func _validate_designate_warlord(action: Dictionary) -> Dictionary:
 		errors.append("Cannot modify formations after confirming")
 		return {"valid": false, "errors": errors}
 
+	# Supreme Commander (e.g. Ghazghkull Thraka): "This model must be your
+	# Warlord." If the player's army contains a Supreme Commander unit, only
+	# that unit may be designated.
+	var supreme_id = _find_supreme_commander_unit(player)
+	if supreme_id != "" and supreme_id != unit_id:
+		var supreme_name = get_unit(supreme_id).get("meta", {}).get("name", supreme_id)
+		errors.append("%s has Supreme Commander and must be your Warlord" % supreme_name)
+		return {"valid": false, "errors": errors}
+
 	return {"valid": true, "errors": []}
+
+func _find_supreme_commander_unit(player: int) -> String:
+	"""Return the player's unit carrying the Supreme Commander ability
+	(must-be-warlord), or "" if none."""
+	var units = GameState.state.get("units", {})
+	for uid in units:
+		var u = units[uid]
+		if u.get("owner", 0) != player:
+			continue
+		for ab in u.get("meta", {}).get("abilities", []):
+			var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
+			if ab_name == "Supreme Commander":
+				return uid
+	return ""
 
 func _validate_confirm_formations(action: Dictionary) -> Dictionary:
 	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
@@ -780,6 +803,13 @@ func _validate_warlord_designation(player: int) -> Dictionary:
 			warlord_ids.append(char_id)
 
 	if warlord_ids.size() == 1:
+		# Supreme Commander: if the army contains one, it must BE the warlord.
+		var supreme_id = _find_supreme_commander_unit(player)
+		if supreme_id != "" and supreme_id != warlord_ids[0]:
+			var supreme_name = get_unit(supreme_id).get("meta", {}).get("name", supreme_id)
+			return {"valid": false, "errors": [
+				"%s has Supreme Commander and must be your Warlord" % supreme_name
+			]}
 		var warlord_name = get_unit(warlord_ids[0]).get("meta", {}).get("name", warlord_ids[0])
 		log_phase_message("Player %d warlord validated: %s (%s)" % [player, warlord_name, warlord_ids[0]])
 		return {"valid": true, "errors": []}

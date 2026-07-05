@@ -103,17 +103,19 @@ Engine-level (this codebase, pre-existing):
 9. **AI has no logic for the seven new 11e secondary cards** (Beacon,
    Outflank, Plunder, Forward Position, Burden of Trust, Centre Ground,
    A Grievous Blow) — it can draw and score them, but won't pursue them.
-10. **Five-objective maps.** Objectives still come from
-    `40k/deployment_zones/*.json` (5 markers per pattern; Decision D3-b of
-    `docs/40KDC_TERRAIN_MIGRATION_SPEC.md`); some 11e cards assume 6-objective
-    maps (Inescapable Dominion) — scoring stays capped accordingly. The
-    converted terrain layouts DO carry the dataset's per-matchup objective
-    pieces (per-piece `is_objective` / `objective_role` / `link_group`, 2 home
-    + 2 expansion + 1 linked centre pair per layout), so moving objectives
-    into layout data (D3-a) is now a data-plumbing follow-up, not a
-    conversion. Where a converted terrain area coincides with a
-    deployment-zone marker, the 11e 14.01 terrain-as-objective rule already
-    applies (control by models within the area).
+10. **Objective sourcing & count: RESOLVED for the official layouts (D3-a +
+    D4).** Every converted 11e layout now authors its own `objectives[]` —
+    five markers derived from the card's objective pieces: `obj_home_1/2` at
+    the two home-area centroids (player 1 = top of the portrait board),
+    `obj_nml_1/2` at the expansion-area centroids, and `obj_center` at the
+    linked centre pair's midpoint, which is exactly the board centre (22,30)
+    in all 45 layouts (asserted by `verify-terrain-layouts.mjs`).
+    `MissionManager._setup_objectives_for_deployment` prefers the loaded
+    layout's markers; legacy layouts keep the `40k/deployment_zones/*.json`
+    source. D4 finding: the dataset's 6 objective *pieces* per layout are 5
+    *markers* (the centre pair straddles one objective), so no 6-objective
+    board support is needed for official play — the Inescapable Dominion
+    6-objective caveat remains only for hypothetical custom maps.
 11. **11e "territory" rules approximated by deployment zones** in a few
     checks (e.g. Search and Scour's end-of-battle condition). The official
     territory polygons are now carried in `40k/deployment_zones/*.json` for a
@@ -131,13 +133,20 @@ Engine-level (this codebase, pre-existing):
     equals the transposed resolver output (4-dp) for all 1,966 pieces, and
     the windowed scenario `tests/scenarios/sp/terrain_11e_layouts.json`
     drives a converted layout in the live game (LoS block through an
-    obscuring area + the 14.01 terrain-objective control flip). Remaining
-    follow-ups: matchup→layout selection UI (spec D5), layout-sourced
-    objectives (D3-a), and the dataset's `hidden` / `plunging-fire` area
-    keywords (spec §9.5 — no engine rules yet; the current 16 templates
-    carry no such overrides). Walls/windows are intentionally not emitted
-    (spec D2-a): obscuring polygons carry LoS blocking, so converted ruins
-    have no see-through-window nuance.
+    obscuring area + the 14.01 terrain-objective control flip). The
+    matchup→layout selection UI (spec D5) is wired: changing a
+    Force-Disposition dropdown in the main menu offers the pairing's 3
+    official layouts (auto-selecting variant 1) and snaps the deployment
+    dropdown to the layout card's pattern — incl. the 11e-new
+    `tipping_point` option — while the legacy layouts stay available as a
+    manual override (windowed scenario
+    `tests/scenarios/sp/terrain_11e_menu_matchup.json`). Layout-sourced
+    objectives are wired too (D3-a — see gap #10). Remaining follow-up:
+    the dataset's `hidden` / `plunging-fire` area keywords (spec §9.5 — no
+    engine rules yet; the current 16 templates carry no such overrides).
+    Walls/windows are intentionally not emitted (spec D2-a): obscuring
+    polygons carry LoS blocking, so converted ruins have no
+    see-through-window nuance.
 13. **Points validation** treats over-limit armies as warnings, and 11e
     per-army-copy price tiers (2nd+ copies of a datasheet costing more) are
     not enforced by the builder — rosters price every unit at first-copy cost.

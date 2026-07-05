@@ -2255,6 +2255,52 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "mainmenu.matchup_terrain_selection",
+      "description": "D5: changing a Force-Disposition dropdown rebuilds the terrain dropdown with the matchup's 3 official 11e layouts and auto-selects variant 1 (boot defaults preserved; legacy layouts stay as manual override)",
+      "scenarios": [
+        "terrain_11e_menu_matchup"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "mainmenu.deployment_follows_layout",
+      "description": "D5: selecting an official 11e layout snaps the deployment dropdown to the layout card's paired pattern (incl. the 11e-new tipping_point option); legacy layouts leave it untouched",
+      "scenarios": [
+        "terrain_11e_menu_matchup"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "terrain.layouts_11e.menu_reachable",
+      "description": "A game started from the main menu with an official 11e layout selected actually runs it: current_layout, 44 polygon pieces and the paired deployment_type reach the live game",
+      "scenarios": [
+        "terrain_11e_menu_matchup"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.objectives.layout_sourced",
+      "description": "D3-a: a game started on an official 11e layout uses the layout's five authored objective markers (per-matchup placement; obj_center = the linked centre pair's midpoint, designated central); legacy layouts fall back to the deployment-zone objectives",
+      "scenarios": [
+        "terrain_11e_menu_matchup"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.objectives.terrain_area_visuals",
+      "description": "ISS-055/14.01 visuals: terrain-hosted objectives render as their highlighted area polygon(s) instead of the control-radius circle (obj_center spans both linked centre trapezoids; circle nodes absent); control uses the union of the linked areas",
+      "scenarios": [
+        "terrain_11e_menu_matchup",
+        "terrain_11e_layouts"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
