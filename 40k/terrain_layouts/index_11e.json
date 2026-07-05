@@ -1,0 +1,457 @@
+{
+ "source": "gw-11e",
+ "generated_by": "scripts/40kdc/generate-terrain-layouts.mjs",
+ "description": "Registry of the 45 converted official 11e terrain layouts. Read by TerrainManager._preload_layout_metadata.",
+ "layouts": [
+  {
+   "id": "disruption_vs_disruption_1",
+   "name": "Disruption vs Disruption 1",
+   "mission_matchup_id": "disruption-vs-disruption",
+   "variant": 1,
+   "recommended_deployments": [
+    "crucible_of_battle"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "disruption_vs_disruption_2",
+   "name": "Disruption vs Disruption 2",
+   "mission_matchup_id": "disruption-vs-disruption",
+   "variant": 2,
+   "recommended_deployments": [
+    "tipping_point"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "disruption_vs_disruption_3",
+   "name": "Disruption vs Disruption 3",
+   "mission_matchup_id": "disruption-vs-disruption",
+   "variant": 3,
+   "recommended_deployments": [
+    "sweeping_engagement"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "disruption_vs_priority_assets_1",
+   "name": "Disruption vs Priority Assets 1",
+   "mission_matchup_id": "disruption-vs-priority-assets",
+   "variant": 1,
+   "recommended_deployments": [
+    "sweeping_engagement"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "disruption_vs_priority_assets_2",
+   "name": "Disruption vs Priority Assets 2",
+   "mission_matchup_id": "disruption-vs-priority-assets",
+   "variant": 2,
+   "recommended_deployments": [
+    "tipping_point"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "disruption_vs_priority_assets_3",
+   "name": "Disruption vs Priority Assets 3",
+   "mission_matchup_id": "disruption-vs-priority-assets",
+   "variant": 3,
+   "recommended_deployments": [
+    "search_and_destroy"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "disruption_vs_purge_the_foe_1",
+   "name": "Disruption vs Purge The Foe 1",
+   "mission_matchup_id": "disruption-vs-purge-the-foe",
+   "variant": 1,
+   "recommended_deployments": [
+    "search_and_destroy"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "disruption_vs_purge_the_foe_2",
+   "name": "Disruption vs Purge The Foe 2",
+   "mission_matchup_id": "disruption-vs-purge-the-foe",
+   "variant": 2,
+   "recommended_deployments": [
+    "tipping_point"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "disruption_vs_purge_the_foe_3",
+   "name": "Disruption vs Purge The Foe 3",
+   "mission_matchup_id": "disruption-vs-purge-the-foe",
+   "variant": 3,
+   "recommended_deployments": [
+    "sweeping_engagement"
+   ],
+   "piece_count": 40
+  },
+  {
+   "id": "disruption_vs_reconnaissance_1",
+   "name": "Disruption vs Reconnaissance 1",
+   "mission_matchup_id": "disruption-vs-reconnaissance",
+   "variant": 1,
+   "recommended_deployments": [
+    "tipping_point"
+   ],
+   "piece_count": 42
+  },
+  {
+   "id": "disruption_vs_reconnaissance_2",
+   "name": "Disruption vs Reconnaissance 2",
+   "mission_matchup_id": "disruption-vs-reconnaissance",
+   "variant": 2,
+   "recommended_deployments": [
+    "dawn_of_war"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "disruption_vs_reconnaissance_3",
+   "name": "Disruption vs Reconnaissance 3",
+   "mission_matchup_id": "disruption-vs-reconnaissance",
+   "variant": 3,
+   "recommended_deployments": [
+    "search_and_destroy"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "priority_assets_vs_priority_assets_1",
+   "name": "Priority Assets vs Priority Assets 1",
+   "mission_matchup_id": "priority-assets-vs-priority-assets",
+   "variant": 1,
+   "recommended_deployments": [
+    "sweeping_engagement"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "priority_assets_vs_priority_assets_2",
+   "name": "Priority Assets vs Priority Assets 2",
+   "mission_matchup_id": "priority-assets-vs-priority-assets",
+   "variant": 2,
+   "recommended_deployments": [
+    "crucible_of_battle"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "priority_assets_vs_priority_assets_3",
+   "name": "Priority Assets vs Priority Assets 3",
+   "mission_matchup_id": "priority-assets-vs-priority-assets",
+   "variant": 3,
+   "recommended_deployments": [
+    "tipping_point"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "priority_assets_vs_reconnaissance_1",
+   "name": "Priority Assets vs Reconnaissance 1",
+   "mission_matchup_id": "priority-assets-vs-reconnaissance",
+   "variant": 1,
+   "recommended_deployments": [
+    "crucible_of_battle"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "priority_assets_vs_reconnaissance_2",
+   "name": "Priority Assets vs Reconnaissance 2",
+   "mission_matchup_id": "priority-assets-vs-reconnaissance",
+   "variant": 2,
+   "recommended_deployments": [
+    "tipping_point"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "priority_assets_vs_reconnaissance_3",
+   "name": "Priority Assets vs Reconnaissance 3",
+   "mission_matchup_id": "priority-assets-vs-reconnaissance",
+   "variant": 3,
+   "recommended_deployments": [
+    "sweeping_engagement"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "purge_the_foe_vs_priority_assets_1",
+   "name": "Purge The Foe vs Priority Assets 1",
+   "mission_matchup_id": "purge-the-foe-vs-priority-assets",
+   "variant": 1,
+   "recommended_deployments": [
+    "dawn_of_war"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "purge_the_foe_vs_priority_assets_2",
+   "name": "Purge The Foe vs Priority Assets 2",
+   "mission_matchup_id": "purge-the-foe-vs-priority-assets",
+   "variant": 2,
+   "recommended_deployments": [
+    "search_and_destroy"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "purge_the_foe_vs_priority_assets_3",
+   "name": "Purge The Foe vs Priority Assets 3",
+   "mission_matchup_id": "purge-the-foe-vs-priority-assets",
+   "variant": 3,
+   "recommended_deployments": [
+    "hammer_anvil"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "purge_the_foe_vs_purge_the_foe_1",
+   "name": "Purge The Foe vs Purge The Foe 1",
+   "mission_matchup_id": "purge-the-foe-vs-purge-the-foe",
+   "variant": 1,
+   "recommended_deployments": [
+    "search_and_destroy"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "purge_the_foe_vs_purge_the_foe_2",
+   "name": "Purge The Foe vs Purge The Foe 2",
+   "mission_matchup_id": "purge-the-foe-vs-purge-the-foe",
+   "variant": 2,
+   "recommended_deployments": [
+    "tipping_point"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "purge_the_foe_vs_purge_the_foe_3",
+   "name": "Purge The Foe vs Purge The Foe 3",
+   "mission_matchup_id": "purge-the-foe-vs-purge-the-foe",
+   "variant": 3,
+   "recommended_deployments": [
+    "sweeping_engagement"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "purge_the_foe_vs_reconnaissance_1",
+   "name": "Purge The Foe vs Reconnaissance 1",
+   "mission_matchup_id": "purge-the-foe-vs-reconnaissance",
+   "variant": 1,
+   "recommended_deployments": [
+    "hammer_anvil"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "purge_the_foe_vs_reconnaissance_2",
+   "name": "Purge The Foe vs Reconnaissance 2",
+   "mission_matchup_id": "purge-the-foe-vs-reconnaissance",
+   "variant": 2,
+   "recommended_deployments": [
+    "dawn_of_war"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "purge_the_foe_vs_reconnaissance_3",
+   "name": "Purge The Foe vs Reconnaissance 3",
+   "mission_matchup_id": "purge-the-foe-vs-reconnaissance",
+   "variant": 3,
+   "recommended_deployments": [
+    "crucible_of_battle"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "reconnaissance_vs_reconnaissance_1",
+   "name": "Reconnaissance vs Reconnaissance 1",
+   "mission_matchup_id": "reconnaissance-vs-reconnaissance",
+   "variant": 1,
+   "recommended_deployments": [
+    "sweeping_engagement"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "reconnaissance_vs_reconnaissance_2",
+   "name": "Reconnaissance vs Reconnaissance 2",
+   "mission_matchup_id": "reconnaissance-vs-reconnaissance",
+   "variant": 2,
+   "recommended_deployments": [
+    "crucible_of_battle"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "reconnaissance_vs_reconnaissance_3",
+   "name": "Reconnaissance vs Reconnaissance 3",
+   "mission_matchup_id": "reconnaissance-vs-reconnaissance",
+   "variant": 3,
+   "recommended_deployments": [
+    "tipping_point"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_mirror_1",
+   "name": "Take and Hold Mirror 1",
+   "mission_matchup_id": "take-and-hold-vs-take-and-hold",
+   "variant": 1,
+   "recommended_deployments": [
+    "tipping_point"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_mirror_2",
+   "name": "Take and Hold Mirror 2",
+   "mission_matchup_id": "take-and-hold-vs-take-and-hold",
+   "variant": 2,
+   "recommended_deployments": [
+    "dawn_of_war"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_mirror_3",
+   "name": "Take and Hold Mirror 3",
+   "mission_matchup_id": "take-and-hold-vs-take-and-hold",
+   "variant": 3,
+   "recommended_deployments": [
+    "search_and_destroy"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_vs_disruption_1",
+   "name": "Take and Hold vs Disruption 1",
+   "mission_matchup_id": "take-and-hold-vs-disruption",
+   "variant": 1,
+   "recommended_deployments": [
+    "sweeping_engagement"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_vs_disruption_2",
+   "name": "Take and Hold vs Disruption 2",
+   "mission_matchup_id": "take-and-hold-vs-disruption",
+   "variant": 2,
+   "recommended_deployments": [
+    "crucible_of_battle"
+   ],
+   "piece_count": 40
+  },
+  {
+   "id": "take_and_hold_vs_disruption_3",
+   "name": "Take and Hold vs Disruption 3",
+   "mission_matchup_id": "take-and-hold-vs-disruption",
+   "variant": 3,
+   "recommended_deployments": [
+    "hammer_anvil"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_vs_priority_assets_1",
+   "name": "Take And Hold vs Priority Assets 1",
+   "mission_matchup_id": "take-and-hold-vs-priority-assets",
+   "variant": 1,
+   "recommended_deployments": [
+    "crucible_of_battle"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_vs_priority_assets_2",
+   "name": "Take And Hold vs Priority Assets 2",
+   "mission_matchup_id": "take-and-hold-vs-priority-assets",
+   "variant": 2,
+   "recommended_deployments": [
+    "hammer_anvil"
+   ],
+   "piece_count": 40
+  },
+  {
+   "id": "take_and_hold_vs_priority_assets_3",
+   "name": "Take And Hold vs Priority Assets 3",
+   "mission_matchup_id": "take-and-hold-vs-priority-assets",
+   "variant": 3,
+   "recommended_deployments": [
+    "dawn_of_war"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_vs_purge_the_foe_1",
+   "name": "Take And Hold vs Purge The Foe 1",
+   "mission_matchup_id": "take-and-hold-vs-purge-the-foe",
+   "variant": 1,
+   "recommended_deployments": [
+    "sweeping_engagement"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_vs_purge_the_foe_2",
+   "name": "Take and Hold vs Purge the Foe 2",
+   "mission_matchup_id": "take-and-hold-vs-purge-the-foe",
+   "variant": 2,
+   "recommended_deployments": [
+    "search_and_destroy"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_vs_purge_the_foe_3",
+   "name": "Take and Hold vs Purge the Foe 3",
+   "mission_matchup_id": "take-and-hold-vs-purge-the-foe",
+   "variant": 3,
+   "recommended_deployments": [
+    "hammer_anvil"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_vs_reconnaissance_1",
+   "name": "Take And Hold vs Reconnaissance 1",
+   "mission_matchup_id": "take-and-hold-vs-reconnaissance",
+   "variant": 1,
+   "recommended_deployments": [
+    "tipping_point"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_vs_reconnaissance_2",
+   "name": "Take And Hold vs Reconnaissance 2",
+   "mission_matchup_id": "take-and-hold-vs-reconnaissance",
+   "variant": 2,
+   "recommended_deployments": [
+    "dawn_of_war"
+   ],
+   "piece_count": 44
+  },
+  {
+   "id": "take_and_hold_vs_reconnaissance_3",
+   "name": "Take and Hold vs Reconnaissance 3",
+   "mission_matchup_id": "take-and-hold-vs-reconnaissance",
+   "variant": 3,
+   "recommended_deployments": [
+    "search_and_destroy"
+   ],
+   "piece_count": 44
+  }
+ ]
+}

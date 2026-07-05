@@ -92,7 +92,6 @@ def render(json_path, out_path, horizontal=False):
 
     for piece in data["pieces"]:
         cx_in, cy_in = piece["position"]
-        w_in, h_in = piece["size"]
         rot_deg = piece.get("rotation", 0)
         height = piece.get("height", "tall")
         if horizontal:
@@ -105,7 +104,15 @@ def render(json_path, out_path, horizontal=False):
             "low": COLOR_LOW_FILL,
         }.get(height, COLOR_TALL_FILL)
 
-        corners_in = piece_corners(cx_in, cy_in, w_in, h_in, rot_deg)
+        if "polygon" in piece:
+            # Explicit-polygon piece (11e converted layouts): vertices are
+            # already absolute game inches with rotation baked in.
+            corners_in = [tuple(v) for v in piece["polygon"]]
+            if horizontal:
+                corners_in = [(60.0 - vy, vx) for vx, vy in corners_in]
+        else:
+            w_in, h_in = piece["size"]
+            corners_in = piece_corners(cx_in, cy_in, w_in, h_in, rot_deg)
         corners_px = [(c[0] * PX_PER_IN, c[1] * PX_PER_IN) for c in corners_in]
         draw.polygon(corners_px, fill=fill, outline=COLOR_OUTLINE)
 

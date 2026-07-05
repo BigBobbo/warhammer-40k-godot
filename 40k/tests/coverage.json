@@ -2134,6 +2134,33 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "terrain.layouts_11e",
+      "description": "Official 11e GW terrain layouts converted from the 40kdc dataset (scripts/40kdc/generate-terrain-layouts.mjs) load into the running game with exact transposed polygon geometry (all 45 layouts; windowed scenario drives one end-to-end)",
+      "scenarios": [
+        "terrain_11e_layouts"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.TerrainManager.polygon_loader",
+      "description": "TerrainManager._load_layout_from_json explicit-polygon branch (spec D1): polygon pieces reach the runtime dict with piece_class/category/height_inches/objective metadata; legacy size-rectangle path preserved",
+      "scenarios": [
+        "terrain_11e_layouts"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scoring.terrain_objective_14_01",
+      "description": "11e 14.01 terrain-as-objective: when a terrain area covers an objective marker, control is decided by models inside the area, not the 3.79\" marker radius (control flips 1->0 when the converted layout replaces open ground at obj_center)",
+      "scenarios": [
+        "terrain_11e_layouts"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

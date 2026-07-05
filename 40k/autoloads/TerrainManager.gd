@@ -14,6 +14,10 @@ var current_layout: String = "layout_2"
 # Cache of loaded layout metadata for UI recommendations
 var _layout_metadata: Dictionary = {}
 
+# Ids of the converted official 11e layouts (from terrain_layouts/index_11e.json),
+# in index order. Kept separate so get_all_layout_ids can list legacy first.
+var _layout_ids_11e: Array = []
+
 # Terrain height categories affect line of sight
 enum HeightCategory {
 	LOW,      # <2" - provides cover but doesn't block LoS
@@ -71,7 +75,43 @@ func _preload_layout_metadata() -> void:
 						"description": data.get("description", ""),
 						"recommended_deployments": data.get("recommended_deployments", [])
 					}
+	_preload_11e_layout_index()
 	print("[TerrainManager] Preloaded metadata for ", _layout_metadata.size(), " terrain layouts")
+
+## Register the converted official 11e layouts from the generated registry
+## (scripts/40kdc/generate-terrain-layouts.mjs writes index_11e.json alongside
+## the 45 layout files). Metadata-only — layout JSON parses on demand.
+func _preload_11e_layout_index() -> void:
+	var index_path = "res://terrain_layouts/index_11e.json"
+	if not FileAccess.file_exists(index_path):
+		print("[TerrainManager] No 11e layout index at ", index_path)
+		return
+	var file = FileAccess.open(index_path, FileAccess.READ)
+	if not file:
+		return
+	var json = JSON.new()
+	var parse_result = json.parse(file.get_as_text())
+	file.close()
+	if parse_result != OK:
+		print("[TerrainManager] Failed to parse index_11e.json: ", json.get_error_message())
+		return
+	_layout_ids_11e.clear()
+	for entry in json.data.get("layouts", []):
+		var layout_id = str(entry.get("id", ""))
+		if layout_id == "":
+			continue
+		_layout_ids_11e.append(layout_id)
+		_layout_metadata[layout_id] = {
+			"id": layout_id,
+			"name": entry.get("name", layout_id),
+			"description": "",
+			"recommended_deployments": entry.get("recommended_deployments", []),
+			"mission_matchup_id": entry.get("mission_matchup_id", ""),
+			"variant": int(entry.get("variant", 0)),
+			"piece_count": int(entry.get("piece_count", 0)),
+			"source": "gw-11e"
+		}
+	print("[TerrainManager] Registered ", _layout_ids_11e.size(), " official 11e terrain layouts")
 
 func get_layout_metadata(layout_id: String) -> Dictionary:
 	return _layout_metadata.get(layout_id, {})
@@ -85,7 +125,13 @@ func get_all_layout_ids() -> Array:
 	for extra_id in ["layout_parse_test", "layout_parse_test_1"]:
 		if _layout_metadata.has(extra_id):
 			ids.append(extra_id)
+	ids.append_array(_layout_ids_11e)
 	return ids
+
+## Ids of the converted official 11e layouts (matchup/variant metadata is in
+## get_layout_metadata). Empty if the generated index is absent.
+func get_11e_layout_ids() -> Array:
+	return _layout_ids_11e.duplicate()
 
 func get_recommended_deployments(layout_id: String) -> Array:
 	var metadata = get_layout_metadata(layout_id)
@@ -146,20 +192,24 @@ func _load_layout_from_json(layout_name: String) -> bool:
 
 	for piece_data in data.pieces:
 		var pos_inches = piece_data.get("position", [0, 0])
-		var size_inches = piece_data.get("size", [6, 4])
 		var height_str = piece_data.get("height", "tall")
 		var rotation_deg = piece_data.get("rotation", 0.0)
 		var piece_id = piece_data.get("id", "terrain")
 		var piece_type = piece_data.get("type", "ruins")
 
-		# Convert inches to pixels
 		var position_px = Vector2(pos_inches[0] * px_per_inch, pos_inches[1] * px_per_inch)
-		var size_px = Vector2(size_inches[0] * px_per_inch, size_inches[1] * px_per_inch)
-
 		var height_cat = _parse_height_category(height_str)
 		var piece_traits = piece_data.get("traits", [])  # T3-16: load terrain traits
 
-		_add_terrain_piece(piece_id, position_px, size_px, height_cat, rotation_deg, piece_type, piece_traits)
+		if piece_data.has("polygon"):
+			# Explicit-polygon piece (11e converted layouts, spec Decision D1):
+			# vertices are absolute board inches with rotation already baked in.
+			_add_polygon_terrain_piece(piece_data, position_px, height_cat, piece_type, piece_traits, px_per_inch)
+		else:
+			# Legacy path: axis-aligned rectangle from position + size + rotation.
+			var size_inches = piece_data.get("size", [6, 4])
+			var size_px = Vector2(size_inches[0] * px_per_inch, size_inches[1] * px_per_inch)
+			_add_terrain_piece(piece_id, position_px, size_px, height_cat, rotation_deg, piece_type, piece_traits)
 
 		# Process walls from JSON (local coordinates -> absolute world coordinates)
 		var json_walls = piece_data.get("walls", [])
@@ -168,6 +218,69 @@ func _load_layout_from_json(layout_name: String) -> bool:
 			_add_walls_to_terrain(piece_id, converted_walls)
 
 	return true
+
+## Build a runtime terrain piece from an explicit-polygon JSON piece (the 11e
+## converted layouts emitted by scripts/40kdc/generate-terrain-layouts.mjs).
+## Also plumbs the 11e metadata fields (piece_class, floor, category,
+## height_inches, objective flags, link_group) onto the runtime dict so
+## mission/rules code can read them (spec §4).
+func _add_polygon_terrain_piece(piece_data: Dictionary, position_px: Vector2, height_cat: HeightCategory, terrain_type: String, piece_traits: Array, px_per_inch: float) -> void:
+	var piece_id = piece_data.get("id", "terrain")
+	var polygon = PackedVector2Array()
+	for vert in piece_data.get("polygon", []):
+		polygon.append(Vector2(float(vert[0]) * px_per_inch, float(vert[1]) * px_per_inch))
+	if polygon.size() < 3:
+		print("[TerrainManager] Skipping polygon piece '%s' — fewer than 3 vertices" % str(piece_id))
+		return
+
+	# Bounding box: keeps save-data and badge placement working for shapes
+	# that have no explicit size.
+	var min_v = polygon[0]
+	var max_v = polygon[0]
+	for v in polygon:
+		min_v = min_v.min(v)
+		max_v = max_v.max(v)
+
+	var height_name = ""
+	match height_cat:
+		HeightCategory.LOW:
+			height_name = "low"
+		HeightCategory.MEDIUM:
+			height_name = "medium"
+		HeightCategory.TALL:
+			height_name = "tall"
+
+	var terrain_piece = {
+		"id": piece_id,
+		"type": terrain_type,
+		"polygon": polygon,
+		"height_category": height_name,
+		"position": position_px,
+		"size": max_v - min_v,
+		"rotation": float(piece_data.get("rotation", 0.0)),
+		"can_move_through": {
+			"INFANTRY": true,
+			"VEHICLE": false,
+			"MONSTER": false
+		},
+		"traits": piece_traits,
+		"piece_class": str(piece_data.get("piece_class", "feature")),
+		"floor": int(piece_data.get("floor", 0))
+	}
+	if piece_data.has("height_inches"):
+		terrain_piece["height_inches"] = float(piece_data["height_inches"])
+	if piece_data.has("category"):
+		terrain_piece["category"] = str(piece_data["category"])
+	if piece_data.has("is_objective"):
+		terrain_piece["is_objective"] = bool(piece_data["is_objective"])
+	if piece_data.has("objective_role"):
+		terrain_piece["objective_role"] = str(piece_data["objective_role"])
+	if piece_data.has("link_group"):
+		terrain_piece["link_group"] = str(piece_data["link_group"])
+	if piece_data.has("parent_area_id"):
+		terrain_piece["parent_area_id"] = str(piece_data["parent_area_id"])
+
+	terrain_features.append(terrain_piece)
 
 func _parse_height_category(height_str: String) -> HeightCategory:
 	match height_str:

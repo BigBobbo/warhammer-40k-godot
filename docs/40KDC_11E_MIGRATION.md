@@ -17,11 +17,16 @@ scripts/40kdc/
   generate-leader-pairings.mjs    # -> 40k/data/Datasheets.csv + Datasheets_leader.csv
   generate-deployment-zones.mjs   # -> 40k/deployment_zones/*.json (official geometry)
   generate-stratagems.mjs         # -> 40k/data/Stratagems.csv + Factions.csv + Detachments.csv
+  generate-terrain-layouts.mjs    # -> 40k/terrain_layouts/*.json + index_11e.json (45 official layouts)
+  verify-terrain-layouts.mjs      # geometry gate: emitted polygons == resolveLayout() transposed (4-dp)
 ```
 
 Refresh flow: `cd scripts/40kdc && npm install && node extract.mjs && node
 generate-armies.mjs && node generate-leader-pairings.mjs && node
-generate-deployment-zones.mjs && node generate-stratagems.mjs`.
+generate-deployment-zones.mjs && node generate-stratagems.mjs && node
+generate-terrain-layouts.mjs` (the terrain generator runs
+`verify-terrain-layouts.mjs` automatically and fails on any geometry drift;
+it can also be run standalone).
 
 The extractor reads the package's raw embedded bundle rather than its public
 API: the API dedups shared record ids first-wins with no faction scoping,
@@ -98,18 +103,41 @@ Engine-level (this codebase, pre-existing):
 9. **AI has no logic for the seven new 11e secondary cards** (Beacon,
    Outflank, Plunder, Forward Position, Burden of Trust, Centre Ground,
    A Grievous Blow) — it can draw and score them, but won't pursue them.
-10. **Five-objective maps.** All layouts place 5 objectives; some 11e cards
-    assume 6-objective maps (Inescapable Dominion) — scoring stays capped
-    accordingly.
+10. **Five-objective maps.** Objectives still come from
+    `40k/deployment_zones/*.json` (5 markers per pattern; Decision D3-b of
+    `docs/40KDC_TERRAIN_MIGRATION_SPEC.md`); some 11e cards assume 6-objective
+    maps (Inescapable Dominion) — scoring stays capped accordingly. The
+    converted terrain layouts DO carry the dataset's per-matchup objective
+    pieces (per-piece `is_objective` / `objective_role` / `link_group`, 2 home
+    + 2 expansion + 1 linked centre pair per layout), so moving objectives
+    into layout data (D3-a) is now a data-plumbing follow-up, not a
+    conversion. Where a converted terrain area coincides with a
+    deployment-zone marker, the 11e 14.01 terrain-as-objective rule already
+    applies (control by models within the area).
 11. **11e "territory" rules approximated by deployment zones** in a few
     checks (e.g. Search and Scour's end-of-battle condition). The official
     territory polygons are now carried in `40k/deployment_zones/*.json` for a
-    future fix.
-12. **Official 11e terrain layouts not yet converted.** The dataset ships all
-    45 GW layout cards (15 matchup pairings x 3 variants, template-based,
-    keyed to the Force Disposition matrix) in `40k/data/40kdc/terrainLayouts.json`;
-    the game still uses its own 8 hand-made layouts. Conversion is scoped as
-    follow-up work (footprint -> piece/wall translation + 90° board rotation).
+    future fix. (Unchanged by the terrain-layout conversion.)
+12. **Official 11e terrain layouts: CONVERTED.** All 45 GW layout cards
+    (15 matchup pairings x 3 variants) are generated into
+    `40k/terrain_layouts/<matchup>_<variant>.json` (+ `index_11e.json`
+    registry) by `scripts/40kdc/generate-terrain-layouts.mjs`, using the
+    package's pinned `resolveLayout()` for geometry, transposed to the game's
+    44x60 portrait board with rotation baked into explicit `polygon` vertices
+    (spec Decision D1). `TerrainManager` loads polygon pieces natively
+    (legacy `size`-rectangle layouts `layout_1..8` still work) and registers
+    the 45 ids from the index. Acceptance is **faithful-to-dataset**:
+    `scripts/40kdc/verify-terrain-layouts.mjs` asserts every emitted vertex
+    equals the transposed resolver output (4-dp) for all 1,966 pieces, and
+    the windowed scenario `tests/scenarios/sp/terrain_11e_layouts.json`
+    drives a converted layout in the live game (LoS block through an
+    obscuring area + the 14.01 terrain-objective control flip). Remaining
+    follow-ups: matchup→layout selection UI (spec D5), layout-sourced
+    objectives (D3-a), and the dataset's `hidden` / `plunging-fire` area
+    keywords (spec §9.5 — no engine rules yet; the current 16 templates
+    carry no such overrides). Walls/windows are intentionally not emitted
+    (spec D2-a): obscuring polygons carry LoS blocking, so converted ruins
+    have no see-through-window nuance.
 13. **Points validation** treats over-limit armies as warnings, and 11e
     per-army-copy price tiers (2nd+ copies of a datasheet costing more) are
     not enforced by the builder — rosters price every unit at first-copy cost.
