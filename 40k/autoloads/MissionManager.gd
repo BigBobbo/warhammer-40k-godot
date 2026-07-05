@@ -230,7 +230,10 @@ func _setup_objectives_for_deployment(deployment_type: String) -> void:
 					Measurement.inches_to_px(float(pos[0])),
 					Measurement.inches_to_px(float(pos[1]))),
 				"radius_mm": int(obj.get("radius_mm", 40)),
-				"zone": str(obj.get("zone", "no_mans_land"))
+				"zone": str(obj.get("zone", "no_mans_land")),
+				# 14.01: the terrain areas that ARE this objective (the
+				# linked centre pair lists both areas).
+				"source_pieces": obj.get("source_pieces", []).duplicate()
 			})
 		print("MissionManager: Using %d layout-sourced objectives from terrain layout '%s' (D3-a)" % [objectives.size(), tm_d3.current_layout])
 	else:
@@ -319,11 +322,40 @@ func check_all_objectives() -> void:
 			emit_signal("objective_control_changed", obj.id, controller, old_controller)
 			print("MissionManager: %s control changed from %d to %d" % [obj.id, old_controller, controller])
 
+## ISS-055 / D3-a: the terrain areas hosting an objective (14.01: those
+## areas ARE the objective). Layout-sourced objectives name their areas via
+## source_pieces — the linked centre pair counts as ONE objective spanning
+## both areas. Objectives without source_pieces (deployment-zone data, old
+## saves) fall back to the single area containing the marker, if any.
+func _objective_host_areas(objective: Dictionary) -> Array:
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null:
+		return []
+	var areas: Array = []
+	for piece_id in objective.get("source_pieces", []):
+		for piece in tm.terrain_features:
+			if str(piece.get("id", "")) == str(piece_id) and str(piece.get("piece_class", "")) == "area":
+				areas.append(piece)
+				break
+	if areas.is_empty() and tm.has_method("area_at"):
+		var obj_pos = objective.position
+		if obj_pos is Dictionary:
+			obj_pos = Vector2(obj_pos.x, obj_pos.y)
+		var hit = tm.area_at(obj_pos)
+		if not hit.is_empty():
+			areas.append(hit)
+	return areas
+
 func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 	# Control radius is 3" + 20mm (radius of objective marker)
 	# 20mm = 0.78740157 inches, so total is 3.78740157 inches
 	var control_radius = Measurement.inches_to_px(3.78740157)
 	var obj_pos = objective.position
+
+	# 14.01: hoisted per-objective — the hosting terrain area(s), if any.
+	var host_areas_11e: Array = []
+	if GameConstants.edition >= 11:
+		host_areas_11e = _objective_host_areas(objective)
 
 	var player1_oc = 0
 	var player2_oc = 0
@@ -377,25 +409,27 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 			# A model is within range of an objective if any part of its base
 			# is within the control radius. Use shape-aware distance to correctly
 			# handle oval and rectangular bases (not just circular).
-			# ISS-055 (11e 14.01/14.02): if a terrain area coincides with
-			# the objective point, that AREA is the objective — a model is
-			# in range while WITHIN the terrain area (not the marker
-			# radius). Falls through to the marker radius on open ground.
-			if GameConstants.edition >= 11:
-				var tm_55 = get_node_or_null("/root/TerrainManager")
-				if tm_55 != null and tm_55.has_method("area_at"):
-					var obj_area = tm_55.area_at(obj_pos)
-					if not obj_area.is_empty():
-						var in_area = Geometry2D.is_point_in_polygon(model_pos, obj_area.get("polygon", PackedVector2Array()))
-						if in_area:
-							units_in_range.append("%s (Player %d, OC: %d, terrain objective)" % [unit_id, owner, oc_value])
-							if owner == 1:
-								player1_oc += oc_value
-							elif owner == 2:
-								player2_oc += oc_value
-							unit_counted = true
-							print("    -> Within the TERRAIN OBJECTIVE area (14.01)! Adding OC: %d for Player %d" % [oc_value, owner])
-						continue
+			# ISS-055 (11e 14.01/14.02): if terrain area(s) host the
+			# objective, those AREAS are the objective — a model is in range
+			# while WITHIN any of them (not the marker radius). The linked
+			# centre pair of the official layouts spans two areas that count
+			# as one objective (source_pieces). Falls through to the marker
+			# radius on open ground.
+			if GameConstants.edition >= 11 and not host_areas_11e.is_empty():
+				var in_area = false
+				for host_area in host_areas_11e:
+					if Geometry2D.is_point_in_polygon(model_pos, host_area.get("polygon", PackedVector2Array())):
+						in_area = true
+						break
+				if in_area:
+					units_in_range.append("%s (Player %d, OC: %d, terrain objective)" % [unit_id, owner, oc_value])
+					if owner == 1:
+						player1_oc += oc_value
+					elif owner == 2:
+						player2_oc += oc_value
+					unit_counted = true
+					print("    -> Within the TERRAIN OBJECTIVE area (14.01)! Adding OC: %d for Player %d" % [oc_value, owner])
+				continue
 
 			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
 			var edge_distance_inches = Measurement.px_to_inches(edge_distance)

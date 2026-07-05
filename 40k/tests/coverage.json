@@ -2291,6 +2291,16 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "missions.objectives.terrain_area_visuals",
+      "description": "ISS-055/14.01 visuals: terrain-hosted objectives render as their highlighted area polygon(s) instead of the control-radius circle (obj_center spans both linked centre trapezoids; circle nodes absent); control uses the union of the linked areas",
+      "scenarios": [
+        "terrain_11e_menu_matchup",
+        "terrain_11e_layouts"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

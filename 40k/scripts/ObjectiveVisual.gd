@@ -14,6 +14,15 @@ var tempting_target_label: Label = null  # Visual indicator for A Tempting Targe
 var loot_objective_label: Label = null  # Visual indicator for Here Be Loot (OA-1)
 var card_action_label: Label = null  # 11e GDM card-action markers (Triangulated/Decoy/...)
 
+# ISS-055 / 14.01: when terrain area(s) host this objective, the AREAS are
+# the objective — rendered as highlighted polygons instead of the misleading
+# control-radius circle. The official layouts' linked centre pair spans two
+# areas that form one objective.
+var is_terrain_objective: bool = false
+var terrain_area_ids: Array = []
+var _area_fills: Array = []     # Polygon2D per hosting area
+var _area_outlines: Array = []  # Line2D per hosting area
+
 # Constants
 const OBJECTIVE_RADIUS_INCHES = 3.78740157  # 3" + 20mm (0.78740157")
 
@@ -29,6 +38,30 @@ func setup(data: Dictionary) -> void:
 	name = data.id
 	_create_visuals()
 
+## 14.01: the terrain area pieces hosting this objective. Layout-sourced
+## objectives name them via source_pieces (the centre pair lists both);
+## otherwise the single area containing the marker point, if any. Mirrors
+## MissionManager._objective_host_areas so what the player sees is exactly
+## what controls.
+func _find_hosting_areas() -> Array:
+	# setup() runs before this node enters the tree (Main calls setup() then
+	# add_child), so self-relative autoload paths don't resolve — go through
+	# the main loop root instead.
+	var tm = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if Engine.get_main_loop() else null
+	if tm == null:
+		return []
+	var areas: Array = []
+	for piece_id in objective_data.get("source_pieces", []):
+		for piece in tm.terrain_features:
+			if str(piece.get("id", "")) == str(piece_id) and str(piece.get("piece_class", "")) == "area":
+				areas.append(piece)
+				break
+	if areas.is_empty() and tm.has_method("area_at"):
+		var hit = tm.area_at(position)
+		if not hit.is_empty():
+			areas.append(hit)
+	return areas
+
 func _create_visuals() -> void:
 	# Create objective marker container
 	objective_marker = Node2D.new()
@@ -38,6 +71,41 @@ func _create_visuals() -> void:
 	# Calculate the full control radius (3" + 20mm)
 	var control_radius = Measurement.inches_to_px(OBJECTIVE_RADIUS_INCHES)
 
+	# ISS-055 / 14.01: terrain-hosted objectives render as their area(s) —
+	# control comes from being WITHIN the area, so the radius circle would
+	# mislead. The centre cross + labels still mark the objective point.
+	var host_areas = _find_hosting_areas()
+	if not host_areas.is_empty():
+		is_terrain_objective = true
+		for area in host_areas:
+			terrain_area_ids.append(str(area.get("id", "")))
+			var local_points = PackedVector2Array()
+			for p in area.get("polygon", PackedVector2Array()):
+				local_points.append(p - position)
+			if local_points.size() < 3:
+				continue
+			var fill = Polygon2D.new()
+			fill.name = "AreaFill_%s" % str(area.get("id", ""))
+			fill.color = Color(OBJ_FILL_COLOR.r, OBJ_FILL_COLOR.g, OBJ_FILL_COLOR.b, 0.28)
+			fill.polygon = local_points
+			fill.z_index = 0
+			objective_marker.add_child(fill)
+			_area_fills.append(fill)
+			var outline = Line2D.new()
+			outline.name = "AreaOutline_%s" % str(area.get("id", ""))
+			outline.width = 5.0
+			outline.default_color = OBJ_OUTLINE_COLOR
+			outline.z_index = 1
+			outline.closed = true
+			for p in local_points:
+				outline.add_point(p)
+			objective_marker.add_child(outline)
+			_area_outlines.append(outline)
+		_create_marker_cross_and_labels(40.0)
+		print("[ObjectiveVisual] %s rendered as terrain objective (areas: %s)" % [objective_data.get("id", "?"), str(terrain_area_ids)])
+		return
+
+	# Open-ground objective: classic marker + control-radius circle.
 	# Outer glow ring for extra visibility
 	var glow_ring = Polygon2D.new()
 	glow_ring.name = "GlowRing"
@@ -79,6 +147,12 @@ func _create_visuals() -> void:
 	objective_circle.closed = true
 	objective_marker.add_child(objective_circle)
 
+	_create_marker_cross_and_labels(control_radius + 35)
+
+## The objective-point cross, control label, and id label — shared by the
+## circle and terrain-area rendering modes. label_offset is how far above
+## the marker the control label sits.
+func _create_marker_cross_and_labels(label_offset: float) -> void:
 	# Center marker - larger cross to indicate exact center
 	var marker_size = 22.0
 	var center_marker = Line2D.new()
@@ -128,7 +202,7 @@ func _create_visuals() -> void:
 	control_indicator.add_theme_color_override("font_color", Color(1.0, 0.95, 0.7, 1.0))
 	control_indicator.add_theme_constant_override("outline_size", 3)
 	control_indicator.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.8))
-	control_indicator.position = Vector2(-55, -control_radius - 35)
+	control_indicator.position = Vector2(-55, -label_offset)
 	control_indicator.z_index = 10
 	add_child(control_indicator)
 
@@ -154,23 +228,35 @@ func update_control(player: int) -> void:
 	if GameState and player > 0:
 		faction_name = GameState.get_faction_name(player)
 	var p_color = FactionPalettes.get_player_border_color(player) if FactionPalettes and player > 0 else Color.WHITE
+	var outline_color: Color
+	var fill_color: Color
 	match player:
 		0:
 			control_indicator.text = "CONTESTED"
 			control_indicator.modulate = Color(1.0, 1.0, 0.5, 1.0)
-			objective_circle.default_color = Color(1.0, 1.0, 0.4, 1.0)
-			objective_polygon.color = Color(1.0, 1.0, 0.3, 0.4)
+			outline_color = Color(1.0, 1.0, 0.4, 1.0)
+			fill_color = Color(1.0, 1.0, 0.3, 0.4)
 		1, 2:
 			var label_text = faction_name if faction_name != "" else "Player %d" % player
 			control_indicator.text = label_text
 			control_indicator.modulate = Color(p_color, 1.0)
-			objective_circle.default_color = Color(p_color.r, p_color.g, p_color.b, 1.0)
-			objective_polygon.color = Color(p_color.r, p_color.g, p_color.b, 0.35)
+			outline_color = Color(p_color.r, p_color.g, p_color.b, 1.0)
+			fill_color = Color(p_color.r, p_color.g, p_color.b, 0.35)
 		_:
 			control_indicator.text = "Uncontrolled"
 			control_indicator.modulate = Color.WHITE
-			objective_circle.default_color = OBJ_OUTLINE_COLOR
-			objective_polygon.color = OBJ_FILL_COLOR
+			outline_color = OBJ_OUTLINE_COLOR
+			fill_color = OBJ_FILL_COLOR
+	# Circle mode nodes are absent for terrain objectives (and vice versa).
+	if objective_circle:
+		objective_circle.default_color = outline_color
+	if objective_polygon:
+		objective_polygon.color = fill_color
+	for outline in _area_outlines:
+		outline.default_color = outline_color
+	for fill in _area_fills:
+		# Areas are big — keep the wash translucent so terrain reads through.
+		fill.color = Color(fill_color.r, fill_color.g, fill_color.b, 0.28)
 
 # T7-39: Flash effect constants for objective control changes
 const FLASH_DURATION := 0.8  # Total flash animation duration
