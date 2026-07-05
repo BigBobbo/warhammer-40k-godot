@@ -38,54 +38,6 @@ theme_override_font_sizes/font_size = 32
 [node name="HSeparator" type="HSeparator" parent="ScrollContainer/MenuContainer"]
 layout_mode = 2
 
-[node name="MissionSection" type="VBoxContainer" parent="ScrollContainer/MenuContainer"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="MissionLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection"]
-layout_mode = 2
-text = "Mission Settings"
-theme_override_font_sizes/font_size = 20
-
-[node name="TerrainContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/MissionSection"]
-layout_mode = 2
-
-[node name="TerrainLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection/TerrainContainer"]
-layout_mode = 2
-custom_minimum_size = Vector2(150, 0)
-text = "Terrain Layout:"
-
-[node name="TerrainDropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/MissionSection/TerrainContainer"]
-layout_mode = 2
-custom_minimum_size = Vector2(300, 0)
-
-[node name="MissionContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/MissionSection"]
-layout_mode = 2
-
-[node name="MissionLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection/MissionContainer"]
-layout_mode = 2
-custom_minimum_size = Vector2(150, 0)
-text = "Primary Mission:"
-
-[node name="MissionDropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/MissionSection/MissionContainer"]
-layout_mode = 2
-custom_minimum_size = Vector2(300, 0)
-
-[node name="DeploymentContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/MissionSection"]
-layout_mode = 2
-
-[node name="DeploymentLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection/DeploymentContainer"]
-layout_mode = 2
-custom_minimum_size = Vector2(150, 0)
-text = "Deployment Zone:"
-
-[node name="DeploymentDropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/MissionSection/DeploymentContainer"]
-layout_mode = 2
-custom_minimum_size = Vector2(300, 0)
-
-[node name="HSeparator2" type="HSeparator" parent="ScrollContainer/MenuContainer"]
-layout_mode = 2
-
 [node name="ArmySection" type="VBoxContainer" parent="ScrollContainer/MenuContainer"]
 layout_mode = 2
 theme_override_constants/separation = 10
@@ -140,6 +92,54 @@ custom_minimum_size = Vector2(150, 0)
 text = "Player 2 Army:"
 
 [node name="Player2Dropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/ArmySection/Player2Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+
+[node name="HSeparator2" type="HSeparator" parent="ScrollContainer/MenuContainer"]
+layout_mode = 2
+
+[node name="MissionSection" type="VBoxContainer" parent="ScrollContainer/MenuContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="MissionLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection"]
+layout_mode = 2
+text = "Mission Settings"
+theme_override_font_sizes/font_size = 20
+
+[node name="TerrainContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/MissionSection"]
+layout_mode = 2
+
+[node name="TerrainLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection/TerrainContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Terrain Layout:"
+
+[node name="TerrainDropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/MissionSection/TerrainContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+
+[node name="MissionContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/MissionSection"]
+layout_mode = 2
+
+[node name="MissionLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection/MissionContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Primary Mission:"
+
+[node name="MissionDropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/MissionSection/MissionContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+
+[node name="DeploymentContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/MissionSection"]
+layout_mode = 2
+
+[node name="DeploymentLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection/DeploymentContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Deployment Zone:"
+
+[node name="DeploymentDropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/MissionSection/DeploymentContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(300, 0)
 
