@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const WebSocket = require('ws');
 const path = require('path');
+const zlib = require('zlib');
 
 const PORT = parseInt(process.env.PORT || '9080', 10);
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'persistence.db');
@@ -256,6 +257,7 @@ const MIME_TYPES = {
   '.html': 'text/html',
   '.css': 'text/css',
   '.js': 'application/javascript',
+  '.mjs': 'application/javascript',
   '.json': 'application/json',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -264,6 +266,13 @@ const MIME_TYPES = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
 };
+
+// Text assets above this size are served gzip-compressed (the army-builder
+// dataset bundle is ~7.6MB raw / ~0.8MB gzipped). Compressed buffers are
+// cached in memory keyed by path+mtime.
+const GZIP_TYPES = new Set(['.html', '.css', '.js', '.mjs', '.json', '.svg']);
+const GZIP_MIN_SIZE = 4096;
+const gzipCache = new Map(); // filePath -> { mtimeMs, buffer }
 
 function serveStaticFile(req, res) {
   // Only serve GET requests
@@ -292,18 +301,45 @@ function serveStaticFile(req, res) {
           sendJSON(res, 200, { service: 'w40k-relay-server', status: 'running' });
           return;
         }
-        streamFile(res, indexPath, '.html');
+        streamFile(req, res, indexPath, '.html', stats2);
       });
       return;
     }
 
     const ext = path.extname(filePath).toLowerCase();
-    streamFile(res, filePath, ext);
+    streamFile(req, res, filePath, ext, stats);
   });
 }
 
-function streamFile(res, filePath, ext) {
+function streamFile(req, res, filePath, ext, stats) {
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+  const cacheControl = (ext === '.html' || ext === '.js' || ext === '.mjs' || ext === '.css') ? 'no-cache' : 'public, max-age=86400';
+  const acceptsGzip = /\bgzip\b/.test(req.headers['accept-encoding'] || '');
+
+  if (acceptsGzip && GZIP_TYPES.has(ext) && stats && stats.size >= GZIP_MIN_SIZE) {
+    const cached = gzipCache.get(filePath);
+    if (cached && cached.mtimeMs === stats.mtimeMs) {
+      sendGzipped(res, contentType, cacheControl, cached.buffer);
+      return;
+    }
+    fs.readFile(filePath, (err, raw) => {
+      if (err) {
+        sendError(res, 500, 'Failed to read file');
+        return;
+      }
+      zlib.gzip(raw, { level: 9 }, (gzErr, buffer) => {
+        if (gzErr) {
+          res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': cacheControl });
+          res.end(raw);
+          return;
+        }
+        gzipCache.set(filePath, { mtimeMs: stats.mtimeMs, buffer });
+        sendGzipped(res, contentType, cacheControl, buffer);
+      });
+    });
+    return;
+  }
+
   const stream = fs.createReadStream(filePath);
 
   stream.on('error', () => {
@@ -312,9 +348,20 @@ function streamFile(res, filePath, ext) {
 
   res.writeHead(200, {
     'Content-Type': contentType,
-    'Cache-Control': (ext === '.html' || ext === '.js' || ext === '.css') ? 'no-cache' : 'public, max-age=86400',
+    'Cache-Control': cacheControl,
   });
   stream.pipe(res);
+}
+
+function sendGzipped(res, contentType, cacheControl, buffer) {
+  res.writeHead(200, {
+    'Content-Type': contentType,
+    'Content-Encoding': 'gzip',
+    'Cache-Control': cacheControl,
+    'Vary': 'Accept-Encoding',
+    'Content-Length': buffer.length,
+  });
+  res.end(buffer);
 }
 
 // ============================================================================

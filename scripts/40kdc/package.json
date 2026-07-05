@@ -8,5 +8,8 @@
   },
   "dependencies": {
     "@alpaca-software/40kdc-data": "1.0.19"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
   }
 }
