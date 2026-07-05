@@ -1130,6 +1130,10 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if ow_da_boss_ladz_mod == WoundModifier.MINUS_ONE:
 		ow_wound_modifier = -1
 		print("RulesEngine: DA BOSS' LADZ (overwatch) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
+	# DEFENDER FLAG ('ARD AS NAILS): -1 to wound for attacks targeting the flagged unit
+	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
+		ow_wound_modifier = -1
+		print("RulesEngine: Defender effect -1 to wound (overwatch attacks vs %s)" % target_unit_id)
 	# PYROMANIAKS (OA-14): Check for wound re-rolls with Torrent weapons vs enemies within 6" (Overwatch)
 	var ow_pyromaniaks_scope = get_pyromaniaks_reroll_scope(shooter_unit, target_unit, weapon_id, board)
 	if ow_pyromaniaks_scope == "failed":
@@ -2066,6 +2070,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	if EffectPrimitivesData.has_effect_minus_one_wound(actor_unit):
 		wound_modifiers |= WoundModifier.MINUS_ONE
 		print("RulesEngine: Effect -1 to wound applied for %s" % actor_unit_id)
+	# DEFENDER FLAG ('ARD AS NAILS): -1 to wound for attacks targeting the flagged unit
+	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
+		wound_modifiers |= WoundModifier.MINUS_ONE
+		print("RulesEngine: Defender effect -1 to wound (attacks vs %s)" % target_unit_id)
 	var reroll_wounds_scope = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if reroll_wounds_scope == "ones":
 		wound_modifiers |= WoundModifier.REROLL_ONES
@@ -3464,6 +3472,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if EffectPrimitivesData.has_effect_minus_one_wound(actor_unit):
 		ar_wound_modifiers |= WoundModifier.MINUS_ONE
 		print("RulesEngine: Effect -1 to wound (auto-resolve) applied for %s" % actor_unit_id)
+	# DEFENDER FLAG ('ARD AS NAILS): -1 to wound for attacks targeting the flagged unit
+	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
+		ar_wound_modifiers |= WoundModifier.MINUS_ONE
+		print("RulesEngine: Defender effect -1 to wound (auto-resolve, attacks vs %s)" % target_unit_id)
 	var reroll_wounds_scope_ar = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if reroll_wounds_scope_ar == "ones":
 		ar_wound_modifiers |= WoundModifier.REROLL_ONES
@@ -9947,6 +9959,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if EffectPrimitivesData.has_effect_minus_one_hit(attacker_unit):
 			melee_hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Effect -1 to hit (melee) applied for %s" % attacker_id)
+		# DEFENDER FLAG (UNWAVERING SENTINELS): -1 to hit for melee attacks targeting the flagged unit
+		if EffectPrimitivesData.has_effect_minus_one_hit_defense_melee(target_unit):
+			melee_hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Defender effect -1 to hit (melee attacks vs %s)" % target_unit.get("meta", {}).get("name", "?"))
 		var melee_reroll_hits_scope = attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_HITS, "")
 		if melee_reroll_hits_scope == "ones":
 			melee_hit_modifiers |= HitModifier.REROLL_ONES
@@ -10090,6 +10106,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if EffectPrimitivesData.has_effect_minus_one_wound(attacker_unit):
 		melee_wound_modifiers |= WoundModifier.MINUS_ONE
 		print("RulesEngine: Effect -1 to wound (melee) applied for %s" % attacker_id)
+	# DEFENDER FLAG ('ARD AS NAILS): -1 to wound for attacks targeting the flagged unit
+	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
+		melee_wound_modifiers |= WoundModifier.MINUS_ONE
+		print("RulesEngine: Defender effect -1 to wound (melee attacks vs %s)" % target_name)
 	var melee_reroll_wounds_scope = attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if melee_reroll_wounds_scope == "ones":
 		melee_wound_modifiers |= WoundModifier.REROLL_ONES
@@ -12133,6 +12153,67 @@ static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, b
 		"total_mortal_wounds": total_mortal_wounds,
 		"total_casualties": total_casualties
 	}
+
+static func resolve_admonimortis(destroyed_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	"""Admonimortis (Lions of the Emperor enhancement): when the bearer is
+	destroyed, roll one D6 — on 4+, one enemy unit within 6\" suffers D3 mortal
+	wounds. The nearest enemy unit is auto-selected (logged for the player).
+	Returns { applicable, triggered, trigger_roll, diffs, target_unit_id,
+	target_name, mortal_wounds, casualties }."""
+	var not_applicable = {"applicable": false, "triggered": false, "trigger_roll": 0,
+		"diffs": [], "target_unit_id": "", "target_name": "", "mortal_wounds": 0, "casualties": 0}
+
+	var units = board.get("units", {})
+	var destroyed_unit = units.get(destroyed_unit_id, {})
+	if destroyed_unit.is_empty():
+		return not_applicable
+
+	var has_admonimortis = false
+	for enh in destroyed_unit.get("meta", {}).get("enhancements", []):
+		var enh_name = enh if enh is String else (enh.get("name", "") if enh is Dictionary else "")
+		if enh_name == "Admonimortis":
+			has_admonimortis = true
+			break
+	if not has_admonimortis:
+		return not_applicable
+
+	if rng == null:
+		rng = make_rng()
+
+	var destroyed_name = destroyed_unit.get("meta", {}).get("name", destroyed_unit_id)
+	var destroyed_owner = destroyed_unit.get("owner", 0)
+	var trigger_roll = rng.roll_d6(1)[0]
+	print("RulesEngine: ADMONIMORTIS — %s destroyed, trigger roll %d (needs 4+)" % [destroyed_name, trigger_roll])
+
+	if trigger_roll < 4:
+		return {"applicable": true, "triggered": false, "trigger_roll": trigger_roll,
+			"diffs": [], "target_unit_id": "", "target_name": "", "mortal_wounds": 0, "casualties": 0}
+
+	# Nearest ENEMY unit within 6" (auto-selected; helper returns friend+foe).
+	var nearest_id = ""
+	var nearest_name = ""
+	var nearest_dist = INF
+	for target_info in _find_units_within_range_of_unit(destroyed_unit_id, 6.0, board):
+		var tid = target_info.get("unit_id", "")
+		if units.get(tid, {}).get("owner", 0) == destroyed_owner:
+			continue
+		var dist = float(target_info.get("distance", INF))
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest_id = tid
+			nearest_name = target_info.get("unit_name", tid)
+
+	if nearest_id == "":
+		print("RulesEngine: ADMONIMORTIS triggered but no enemy unit within 6\"")
+		return {"applicable": true, "triggered": true, "trigger_roll": trigger_roll,
+			"diffs": [], "target_unit_id": "", "target_name": "", "mortal_wounds": 0, "casualties": 0}
+
+	var mortal_wounds = _roll_deadly_demise_damage("D3", rng)
+	print("RulesEngine: ADMONIMORTIS — %s suffers %d mortal wound(s)" % [nearest_name, mortal_wounds])
+	var mw_result = apply_mortal_wounds(nearest_id, mortal_wounds, board, rng)
+	return {"applicable": true, "triggered": true, "trigger_roll": trigger_roll,
+		"diffs": mw_result.get("diffs", []), "target_unit_id": nearest_id, "target_name": nearest_name,
+		"mortal_wounds": mortal_wounds, "casualties": mw_result.get("casualties", 0)}
 
 # ==========================================
 # TRANSPORT DESTRUCTION (P1-60)

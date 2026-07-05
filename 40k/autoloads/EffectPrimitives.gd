@@ -81,6 +81,11 @@ const PLUS_ONE_HIT = "plus_one_hit"
 const MINUS_ONE_HIT = "minus_one_hit"
 const PLUS_ONE_WOUND = "plus_one_wound"
 const MINUS_ONE_WOUND = "minus_one_wound"
+# Defensive variants — set on the DEFENDER; resolvers subtract from rolls of
+# attacks TARGETING the flagged unit ('ARD AS NAILS -1 wound vs all attacks,
+# UNWAVERING SENTINELS -1 hit vs melee attacks).
+const MINUS_ONE_WOUND_DEFENSE = "minus_one_wound_defense"
+const MINUS_ONE_HIT_DEFENSE_MELEE = "minus_one_hit_defense_melee"
 const REROLL_HITS = "reroll_hits"                 # scope: "ones"/"failed"/"all"
 const REROLL_WOUNDS = "reroll_wounds"             # scope: "ones"/"failed"/"all"
 const REROLL_SAVES = "reroll_saves"               # scope: "ones"/"failed"/"all"
@@ -162,6 +167,8 @@ const FLAG_PLUS_ONE_HIT = "effect_plus_one_hit"
 const FLAG_MINUS_ONE_HIT = "effect_minus_one_hit"
 const FLAG_PLUS_ONE_WOUND = "effect_plus_one_wound"
 const FLAG_MINUS_ONE_WOUND = "effect_minus_one_wound"
+const FLAG_MINUS_ONE_WOUND_DEFENSE = "effect_minus_one_wound_defense"          # on DEFENDER: -1 wound for attacks targeting it
+const FLAG_MINUS_ONE_HIT_DEFENSE_MELEE = "effect_minus_one_hit_defense_melee"  # on DEFENDER: -1 hit for melee attacks targeting it
 const FLAG_REROLL_HITS = "effect_reroll_hits"         # value: "ones"/"failed"/"all"
 const FLAG_REROLL_WOUNDS = "effect_reroll_wounds"     # value: "ones"/"failed"/"all"
 const FLAG_REROLL_SAVES = "effect_reroll_saves"       # value: "ones"/"failed"/"all"
@@ -233,6 +240,8 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	MINUS_ONE_HIT: [{"flag": FLAG_MINUS_ONE_HIT, "value": true}],
 	PLUS_ONE_WOUND: [{"flag": FLAG_PLUS_ONE_WOUND, "value": true}],
 	MINUS_ONE_WOUND: [{"flag": FLAG_MINUS_ONE_WOUND, "value": true}],
+	MINUS_ONE_WOUND_DEFENSE: [{"flag": FLAG_MINUS_ONE_WOUND_DEFENSE, "value": true}],
+	MINUS_ONE_HIT_DEFENSE_MELEE: [{"flag": FLAG_MINUS_ONE_HIT_DEFENSE_MELEE, "value": true}],
 	REROLL_HITS: [{"flag": FLAG_REROLL_HITS, "value_from": "scope"}],
 	REROLL_WOUNDS: [{"flag": FLAG_REROLL_WOUNDS, "value_from": "scope"}],
 	REROLL_SAVES: [{"flag": FLAG_REROLL_SAVES, "value_from": "scope"}],
@@ -607,6 +616,16 @@ static func has_effect_plus_one_wound(unit: Dictionary) -> bool:
 static func has_effect_minus_one_wound(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted -1 to wound."""
 	return unit.get("flags", {}).get(FLAG_MINUS_ONE_WOUND, false)
+
+static func has_effect_minus_one_wound_defense(unit: Dictionary) -> bool:
+	"""DEFENDER flag: attacks targeting this unit subtract 1 from Wound rolls
+	('ARD AS NAILS)."""
+	return unit.get("flags", {}).get(FLAG_MINUS_ONE_WOUND_DEFENSE, false)
+
+static func has_effect_minus_one_hit_defense_melee(unit: Dictionary) -> bool:
+	"""DEFENDER flag: melee attacks targeting this unit subtract 1 from Hit
+	rolls (UNWAVERING SENTINELS)."""
+	return unit.get("flags", {}).get(FLAG_MINUS_ONE_HIT_DEFENSE_MELEE, false)
 
 static func has_effect_worsen_ap(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted AP worsening."""

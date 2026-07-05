@@ -594,6 +594,19 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "While leading, can embark in any TRANSPORT the bodyguard can. N/A: no transports in current list."
 	},
 
+	# Custodes Telemon Heavy Dreadnought — +2 Attacks in melee.
+	# 40kdc 11e models this as a "dual-melee" conditional (+2 A, attack_type
+	# melee); the dual-melee wargear keyword isn't modeled in rosters yet, so
+	# the melee bonus applies unconditionally (matches the shipped card text).
+	"Devoted to Destruction": {
+		"condition": "always",
+		"effects": [{"type": "plus_attacks", "value": 2}],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "Add 2 to the Attacks characteristic of this model's melee weapons"
+	},
+
 	# Custodes Contemptor-Achillus Dreadnought — mortal wounds on fight selection
 	# Resolved directly in FightPhase when unit is selected to fight.
 	# Roll 1D6 (+2 if charged): on 4-5, target suffers D3 mortal wounds; on 6+, 3 mortal wounds.
@@ -916,6 +929,18 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "ranged",
 		"implemented": true,
 		"description": "Re-roll Hit rolls of 1 when targeting non-FLY units — checked directly in RulesEngine"
+	},
+
+	# Ork Wazbom Blastajet — kustom force field wargear: 4+ invulnerable save.
+	# 40kdc 11e: {"type": "invulnerable-save", "modifier": {"invuln_sv": 4}} —
+	# unconditional 4++ (statline carries 6++; save resolution takes the better).
+	"Blastajet Force Field": {
+		"condition": "always",
+		"effects": [{"type": "grant_invuln", "value": 4}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "This model has a 4+ invulnerable save"
 	},
 
 	# Ork Warbikers / Wartrakks — improve AP by 1 for ranged attacks vs targets within 9"

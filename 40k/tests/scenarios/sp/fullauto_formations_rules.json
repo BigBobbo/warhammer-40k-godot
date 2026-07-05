@@ -1,0 +1,28 @@
+{
+  "id": "fullauto_formations_rules",
+  "covers": [
+    "formations.warlord.supreme_commander",
+    "formations.leader_attachment.bodyguard_extra_leader",
+    "autoloads.CharacterAttachmentManager.bodyguard_role_cap"
+  ],
+  "fixture": "fullauto_formations",
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Formations rules from the 11e rosters: Supreme Commander forces Ghazghkull to be the Warlord (designating a plain Warboss is rejected, Ghazghkull is accepted), and the Boyz Bodyguard ability allows a SECOND leader to attach (third is rejected by the role cap).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 0 },
+    { "act": "dispatch_action", "action": { "type": "DESIGNATE_WARLORD", "player": 1, "unit_id": "U_WARBOSS_B" } },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "dispatch_action", "action": { "type": "DESIGNATE_WARLORD", "player": 1, "unit_id": "U_GHAZGHKULL_THRAKA_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "01_ghaz_warlord" },
+    { "act": "dispatch_action", "action": { "type": "DECLARE_LEADER_ATTACHMENT", "character_id": "U_WARBOSS_B", "bodyguard_id": "U_BOYZ_E" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "DECLARE_LEADER_ATTACHMENT", "character_id": "U_WEIRDBOY_J", "bodyguard_id": "U_BOYZ_E" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "DECLARE_LEADER_ATTACHMENT", "character_id": "U_WARBOSS_C", "bodyguard_id": "U_BOYZ_E" } },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "screenshot", "label": "02_two_leaders_attached_third_rejected" }
+  ]
+}

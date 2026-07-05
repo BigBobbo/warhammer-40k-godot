@@ -129,6 +129,7 @@ TESTS=(
     "tests/test_core_stratagems_11e.gd"
     "tests/test_indirect_fire_band_11e.gd"
     "tests/test_t003_indirect_fire_visibility_pin.gd"
+    "tests/test_fullauto_faction_rules.gd"
 )
 
 FAILED=0

@@ -535,24 +535,20 @@ func test_faithful_fortitude_effects_json_fnp():
 				assert_eq(e.value, 5, "FNP value should be 5")
 		assert_true(has_fnp, "Should have grant_fnp_psychic_mortal effect")
 
-func test_p0_rows_present_but_display_only():
-	"""The P0 detachment stratagems (Gladius / War Horde / Shield Host /
-	1st Company) exist in the 11e data but have no 40kdc ability-DSL, so
-	they load as display-only rows (custom:* effects, implemented=false)
-	unless StratagemManager custom-marks them."""
+func test_p0_rows_display_only_without_curated_effects():
+	"""Stratagems with no 40kdc ability-DSL AND no curated effects_json load
+	as display-only rows (custom:* effects, implemented=false). The shipped
+	detachments (War Horde / Shield Host) now carry curated effects_json in
+	generate-stratagems.mjs, so only detachments the game doesn't ship armies
+	for stay display-only."""
 	_loader.load_faction_codes()
 	var gladius = _loader.load_faction_stratagems("Space Marines", "Gladius Task Force")
-	var war_horde = _loader.load_faction_stratagems("Orks", "War Horde")
-	var shield_host = _loader.load_faction_stratagems("Adeptus Custodes", "Shield Host")
 	var first_co = _loader.load_faction_stratagems("Space Marines", "1st Company Task Force")
 
 	var expected = [
 		[gladius, "ARMOUR OF CONTEMPT"],
 		[gladius, "STORM OF FIRE"],
 		[gladius, "HONOUR THE CHAPTER"],
-		[war_horde, "ARD AS NAILS"],
-		[war_horde, "UNBRIDLED CARNAGE"],
-		[shield_host, "MULTIPOTENTIALITY"],
 		[first_co, "LEGENDARY FORTITUDE"],
 	]
 	for pair in expected:
@@ -563,6 +559,43 @@ func test_p0_rows_present_but_display_only():
 			assert_true(String(s.effects[0].get("type", "")).begins_with("custom:"),
 				"%s has no 40kdc ability-DSL — expected custom:* placeholder effect" % pair[1])
 			assert_false(s.implemented, "%s should be display-only (not implemented)" % pair[1])
+
+func test_shipped_detachment_stratagems_fully_implemented():
+	"""War Horde and Shield Host (the detachments the game ships armies for)
+	carry curated effects_json — every stratagem must load mechanically
+	implemented with the expected primitive."""
+	_loader.load_faction_codes()
+	var war_horde = _loader.load_faction_stratagems("Orks", "War Horde")
+	var shield_host = _loader.load_faction_stratagems("Adeptus Custodes", "Shield Host")
+	assert_eq(war_horde.size(), 6, "War Horde should have 6 stratagems")
+	assert_eq(shield_host.size(), 6, "Shield Host should have 6 stratagems")
+	for s in war_horde + shield_host:
+		assert_true(s.get("implemented", false), "%s should be implemented" % s.get("name", "?"))
+
+	var expected_effects = {
+		"UNBRIDLED CARNAGE": "crit_hit_on",
+		"ARD AS NAILS": "minus_one_wound_defense",
+		"MOB RULE": "remove_battle_shock",
+		"ERE WE GO": "plus_charge",
+		"CAREEN": "deadly_demise_move",
+		"ORKS IS NEVER BEATEN": "swing_back_before_remove",
+		"ARCANE GENETIC ALCHEMY": "grant_fnp_psychic_mortal",
+		"AVENGE THE FALLEN": "plus_attacks",
+		"UNWAVERING SENTINELS": "minus_one_hit_defense_melee",
+		"MULTIPOTENTIALITY": "fall_back_and_shoot",
+		"VIGILANCE ETERNAL": "sticky_objective_control",
+		"ARCHEOTECH MUNITIONS": "grant_lethal_hits",
+	}
+	for name in expected_effects:
+		var pool = war_horde if _find_strat(war_horde, name) != null else shield_host
+		var s = _find_strat(pool, name)
+		assert_not_null(s, "Should find %s" % name)
+		if s:
+			var types := []
+			for e in s.get("effects", []):
+				types.append(str(e.get("type", "")))
+			assert_true(expected_effects[name] in types,
+				"%s should carry effect %s (got %s)" % [name, expected_effects[name], str(types)])
 
 func test_careen_timing_column_overrides_epic_deed_default():
 	"""CAREEN! (ORK War Horde) is an Epic Deed Stratagem, but the 11e

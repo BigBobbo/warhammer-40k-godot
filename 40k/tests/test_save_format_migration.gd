@@ -50,7 +50,7 @@ func _init():
 		ss_file.close()
 
 		var checks = {
-			"CURRENT_VERSION = \"1.1.0\"": "CURRENT_VERSION is 1.1.0",
+			"CURRENT_VERSION = \"1.3.0\"": "CURRENT_VERSION is 1.3.0",
 			"MINIMUM_MIGRATABLE_VERSION": "Has MINIMUM_MIGRATABLE_VERSION constant",
 			"_register_migrations": "Has migration registration function",
 			"migrate_save_data": "Has migrate_save_data function",

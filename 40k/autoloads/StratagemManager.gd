@@ -1287,6 +1287,23 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		print("StratagemManager: Applied Unleash the Lions to %s (unit will be split)" % target_unit_id)
 		return diffs
 
+	# CAREEN! (War Horde): arm the just-destroyed ORKS VEHICLE to slide to
+	# context.destination before its Deadly Demise mortal-wound roll resolves
+	# (Issue #390 — RulesEngine.resolve_deadly_demise honours the pending-move
+	# flags). The action layer supplies {"destination": {"x":..,"y":..}}.
+	if strat.get("name", "").to_upper() == "CAREEN!":
+		var careen_dest = context.get("destination", null) if typeof(context) == TYPE_DICTIONARY else null
+		if careen_dest != null:
+			var dest_vec: Vector2
+			if careen_dest is Dictionary:
+				dest_vec = Vector2(float(careen_dest.get("x", 0.0)), float(careen_dest.get("y", 0.0)))
+			else:
+				dest_vec = careen_dest
+			RulesEngine.queue_careen_move(target_unit_id, dest_vec, GameState.state)
+		else:
+			print("StratagemManager: CAREEN! used without context.destination — no pending move queued")
+		return []
+
 	var effects = strat.get("effects", [])
 	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
 
@@ -2233,6 +2250,18 @@ func get_fire_overwatch_eligible_units(player: int, enemy_unit_id: String, game_
 				is_titanic = true
 				break
 		if is_titanic:
+			continue
+
+		# Sneaky Gitz (Kommandos, 40kdc 11e): this unit cannot fire Overwatch
+		# (rule-state "fire-overwatch" suppressed on self).
+		var has_sneaky_gitz = false
+		for ab in unit.get("meta", {}).get("abilities", []):
+			var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
+			if ab_name == "Sneaky Gitz":
+				has_sneaky_gitz = true
+				break
+		if has_sneaky_gitz:
+			print("StratagemManager: %s has Sneaky Gitz — cannot Fire Overwatch" % unit_id)
 			continue
 
 		# Must not be battle-shocked
