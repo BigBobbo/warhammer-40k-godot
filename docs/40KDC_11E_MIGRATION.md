@@ -131,13 +131,19 @@ Engine-level (this codebase, pre-existing):
     equals the transposed resolver output (4-dp) for all 1,966 pieces, and
     the windowed scenario `tests/scenarios/sp/terrain_11e_layouts.json`
     drives a converted layout in the live game (LoS block through an
-    obscuring area + the 14.01 terrain-objective control flip). Remaining
-    follow-ups: matchup→layout selection UI (spec D5), layout-sourced
-    objectives (D3-a), and the dataset's `hidden` / `plunging-fire` area
-    keywords (spec §9.5 — no engine rules yet; the current 16 templates
-    carry no such overrides). Walls/windows are intentionally not emitted
-    (spec D2-a): obscuring polygons carry LoS blocking, so converted ruins
-    have no see-through-window nuance.
+    obscuring area + the 14.01 terrain-objective control flip). The
+    matchup→layout selection UI (spec D5) is wired: changing a
+    Force-Disposition dropdown in the main menu offers the pairing's 3
+    official layouts (auto-selecting variant 1) and snaps the deployment
+    dropdown to the layout card's pattern — incl. the 11e-new
+    `tipping_point` option — while the legacy layouts stay available as a
+    manual override (windowed scenario
+    `tests/scenarios/sp/terrain_11e_menu_matchup.json`). Remaining
+    follow-ups: layout-sourced objectives (D3-a) and the dataset's
+    `hidden` / `plunging-fire` area keywords (spec §9.5 — no engine rules
+    yet; the current 16 templates carry no such overrides). Walls/windows
+    are intentionally not emitted (spec D2-a): obscuring polygons carry
+    LoS blocking, so converted ruins have no see-through-window nuance.
 13. **Points validation** treats over-limit armies as warnings, and 11e
     per-army-copy price tiers (2nd+ copies of a datasheet costing more) are
     not enforced by the builder — rosters price every unit at first-copy cost.
