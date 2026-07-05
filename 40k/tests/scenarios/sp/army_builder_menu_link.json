@@ -1,0 +1,55 @@
+{
+  "id": "army_builder_menu_link",
+  "covers": ["ui.main_menu.army_builder_link", "ui.main_menu.refresh_cloud_armies"],
+  "description": "The main menu exposes the browser Army Builder: an 'Army Builder (browser)' button that opens the builder page at the cloud server URL (asserted via MainMenu.last_army_builder_url — the shell_open side effect is unobservable in-tree), and a 'Refresh Cloud Armies' button that re-fetches the cloud army list without a duplicate-signal error and without duplicating dropdown entries. No fixture: the scenario runs on the boot scene (MainMenu itself). Works with or without a local relay server running.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ScrollContainer/MenuContainer/ArmySection/ArmyBuilderContainer/ArmyBuilderButton\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.get_node(\"ScrollContainer/MenuContainer/ArmySection/ArmyBuilderContainer/RefreshCloudArmiesButton\") != null",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.last_army_builder_url",
+      "equals": "" },
+
+    { "act": "screenshot", "label": "01_menu_with_builder_row" },
+
+    { "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ArmySection/ArmyBuilderContainer/ArmyBuilderButton",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "main.last_army_builder_url == CloudStorage.base_url and CloudStorage.base_url != \"\"",
+      "equals": true },
+
+    { "act": "screenshot", "label": "02_after_builder_click" },
+
+    { "act": "execute_script",
+      "script": "main.army_options.size()" },
+
+    { "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ArmySection/ArmyBuilderContainer/RefreshCloudArmiesButton",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.5 },
+
+    { "act": "execute_script",
+      "script": "main.player1_dropdown.item_count == main.army_options.size()",
+      "equals": true },
+
+    { "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ArmySection/ArmyBuilderContainer/RefreshCloudArmiesButton",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.5 },
+
+    { "act": "execute_script",
+      "script": "main.player1_dropdown.item_count == main.army_options.size()",
+      "equals": true },
+
+    { "act": "screenshot", "label": "03_after_refresh" }
+  ]
+}

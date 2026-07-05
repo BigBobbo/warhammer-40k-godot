@@ -3,129 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Warhammer 40K - Army List Uploader</title>
+  <title>Warhammer 40K — Army Builder</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-  <!-- Loading overlay -->
-  <div id="loading-overlay" class="loading-overlay hidden">Loading unit database...</div>
+  <div id="boot-overlay" class="loading-overlay">Loading dataset…</div>
 
-  <div class="container">
-    <header>
-      <h1>Warhammer 40K Army List Uploader</h1>
-      <p class="subtitle">Convert and upload army lists for the online simulator</p>
-      <div id="db-status" class="db-status"></div>
-    </header>
+  <div id="app" class="app"></div>
 
-    <main>
+  <footer class="page-footer">
+    <p>
+      Powered by <a href="https://40kdc.alpacasoft.dev" target="_blank" rel="noopener">40kdc-data</a>
+      (Alpaca Software and the 40kdc community contributors, CC BY 4.0)
+      · Lists save to the <a href="/api/health">w40k relay server</a> and appear in the game's army menu.
+    </p>
+  </footer>
 
-      <!-- Step 1: Paste army list -->
-      <section class="section" id="input-section">
-        <h2 class="section-title">1. Paste your army list</h2>
-        <p class="section-desc">
-          Paste text from GW App, New Recruit, ListEngine, or BattleScribe.
-        </p>
-
-        <div class="faction-override-row">
-          <label for="faction-override">Faction:</label>
-          <select id="faction-override">
-            <option value="">Auto-detect from text</option>
-          </select>
-        </div>
-
-        <textarea
-          id="army-text"
-          class="army-textarea"
-          placeholder="Space Marines (2000 pts)
-Gladius Task Force
-
-Intercessor Squad (90 pts)
-&bull; Bolt rifle
-&bull; Bolt pistol
-
-Bladeguard Veterans (100 pts)
-&bull; Master-crafted power sword
-&bull; Storm shield
-..."
-          rows="14"
-        ></textarea>
-
-        <div class="btn-row">
-          <button id="parse-btn" class="btn btn-primary">Parse Army List</button>
-          <button id="sample-btn" class="btn btn-secondary">Load Sample</button>
-          <button id="clear-btn" class="btn btn-secondary">Clear</button>
-        </div>
-      </section>
-
-      <!-- Parse errors -->
-      <div id="parse-errors" class="parse-errors hidden"></div>
-
-      <!-- Step 2: Parsed results -->
-      <section class="section hidden" id="results-section">
-        <h2 class="section-title">2. Review parsed results</h2>
-
-        <div class="army-summary">
-          <div class="summary-item">
-            <span class="summary-label">Faction</span>
-            <span id="faction-name" class="summary-value">-</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">Detachment</span>
-            <span id="detachment-name" class="summary-value">-</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">Points</span>
-            <span id="total-points" class="summary-value">-</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">Units</span>
-            <span id="unit-count" class="summary-value">-</span>
-          </div>
-        </div>
-
-        <ul id="unit-list" class="unit-list"></ul>
-      </section>
-
-      <!-- Step 3: JSON preview -->
-      <section class="section hidden" id="json-section">
-        <h2 class="section-title">
-          3. Generated JSON
-          <button id="json-toggle-btn" class="btn btn-small">Collapse JSON</button>
-        </h2>
-        <pre id="json-preview" class="json-preview"></pre>
-      </section>
-
-      <!-- Step 4: Download / Upload -->
-      <section class="section hidden" id="actions-section">
-        <h2 class="section-title">4. Save or upload</h2>
-
-        <div class="action-form">
-          <div class="form-row">
-            <label for="army-name-input">Army name:</label>
-            <input type="text" id="army-name-input" placeholder="My_Space_Marines_2000" class="text-input">
-          </div>
-
-<div class="btn-row">
-            <button id="download-btn" class="btn btn-primary">Download JSON</button>
-            <button id="save-local-btn" class="btn btn-accent">Save to Game</button>
-          </div>
-
-          <div id="upload-status" class="upload-status"></div>
-        </div>
-      </section>
-
-    </main>
-
-    <footer>
-      <p>Unit data sourced from <a href="https://wahapedia.ru/wh40k10ed/the-rules/core-rules/" target="_blank" rel="noopener">Wahapedia</a>. Powered by <a href="/api/health">w40k-relay-server</a>.</p>
-    </footer>
-  </div>
-
-  <!-- Scripts: order matters (datasheets, parser, generator must load before app) -->
-  <script src="/js/datasheets.js"></script>
+  <!-- Legacy loose-format text parser (fallback import path; classic script). -->
   <script src="/js/parser.js"></script>
-  <script src="/js/generator.js"></script>
-  <script src="/js/app.js"></script>
+
+  <script type="module">
+    import('/js/builder/main.js')
+      .then(() => document.getElementById('boot-overlay').remove())
+      .catch((err) => {
+        const el = document.getElementById('boot-overlay');
+        el.textContent = 'Failed to load the army builder: ' + err.message;
+        el.classList.add('boot-error');
+        console.error(err);
+      });
+  </script>
 </body>
 </html>

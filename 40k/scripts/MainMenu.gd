@@ -101,6 +101,10 @@ var _save_load_progress_overlay: PanelContainer = null
 var _save_load_progress_label: Label = null
 var _save_load_progress_pulse_tween: Tween = null
 
+# Set when the Army Builder button opens the browser (windowed scenarios
+# assert on it — the shell_open side effect itself is unobservable in-tree).
+var last_army_builder_url: String = ""
+
 # Cloud army loading state
 var _waiting_for_cloud_armies: bool = false
 var _cloud_army_fetch_pending: bool = false
@@ -361,6 +365,9 @@ func _setup_dropdowns() -> void:
 
 	# Create army sort dropdown
 	_create_army_sort_dropdown()
+
+	# Browser army builder link + cloud army refresh
+	_create_army_builder_row()
 
 	# Dynamically populate army dropdowns from ArmyListManager
 	_load_available_armies()
@@ -951,6 +958,64 @@ func _create_army_sort_dropdown() -> void:
 
 	print("MainMenu: Army sort dropdown created")
 
+func _create_army_builder_row() -> void:
+	"""Row under the army sort dropdown: open the browser army builder (build /
+	edit lists against the same cloud store these dropdowns read), and re-fetch
+	cloud armies without restarting the game."""
+	var army_section = $ScrollContainer/MenuContainer/ArmySection
+
+	var container = HBoxContainer.new()
+	container.name = "ArmyBuilderContainer"
+
+	var row_label = Label.new()
+	row_label.text = "Army Lists:"
+	row_label.custom_minimum_size = Vector2(150, 0)
+	container.add_child(row_label)
+
+	var builder_button = Button.new()
+	builder_button.name = "ArmyBuilderButton"
+	builder_button.text = "Army Builder (browser)"
+	builder_button.tooltip_text = "Build or edit army lists in your browser.\nLists saved to the cloud appear in these dropdowns."
+	builder_button.custom_minimum_size = Vector2(220, 0)
+	builder_button.pressed.connect(_on_army_builder_pressed)
+	container.add_child(builder_button)
+
+	var refresh_button = Button.new()
+	refresh_button.name = "RefreshCloudArmiesButton"
+	refresh_button.text = "Refresh Cloud Armies"
+	refresh_button.tooltip_text = "Re-fetch the cloud army list (after saving from the Army Builder)."
+	refresh_button.custom_minimum_size = Vector2(180, 0)
+	refresh_button.pressed.connect(_on_refresh_cloud_armies_pressed)
+	container.add_child(refresh_button)
+
+	# Insert directly under the sort row (ArmyLabel = 0, sort = 1)
+	army_section.add_child(container)
+	army_section.move_child(container, 2)
+
+	print("MainMenu: Army builder row created")
+
+func _on_army_builder_pressed() -> void:
+	var url = CloudStorage.base_url if CloudStorage else "http://localhost:9080"
+	last_army_builder_url = url
+	print("MainMenu: Opening army builder: ", url)
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.open('%s', '_blank')" % url)
+	else:
+		var err = OS.shell_open(url)
+		if err != OK:
+			print("MainMenu: shell_open failed (%d) for %s" % [err, url])
+			if ToastManager:
+				ToastManager.show_error("Could not open browser — army builder is at %s" % url)
+			return
+	if ToastManager:
+		ToastManager.show_toast("Army builder opened in your browser — use Refresh Cloud Armies after saving")
+
+func _on_refresh_cloud_armies_pressed() -> void:
+	print("MainMenu: Refreshing cloud armies")
+	if ToastManager:
+		ToastManager.show_toast("Refreshing cloud armies...")
+	_load_cloud_armies()
+
 func _on_army_sort_changed(index: int) -> void:
 	"""Handle sort mode change."""
 	var previous_p1_id = ""
@@ -1007,9 +1072,13 @@ func _set_default_army_selections() -> void:
 func _load_cloud_armies() -> void:
 	if not ArmyListManager:
 		return
-	ArmyListManager.cloud_armies_loaded.connect(_on_cloud_armies_loaded)
-	ArmyListManager.cloud_army_fetched.connect(_on_cloud_army_fetched)
-	ArmyListManager.cloud_army_fetch_failed.connect(_on_cloud_army_fetch_failed)
+	# Callable on refresh too — only connect once.
+	if not ArmyListManager.cloud_armies_loaded.is_connected(_on_cloud_armies_loaded):
+		ArmyListManager.cloud_armies_loaded.connect(_on_cloud_armies_loaded)
+	if not ArmyListManager.cloud_army_fetched.is_connected(_on_cloud_army_fetched):
+		ArmyListManager.cloud_army_fetched.connect(_on_cloud_army_fetched)
+	if not ArmyListManager.cloud_army_fetch_failed.is_connected(_on_cloud_army_fetch_failed):
+		ArmyListManager.cloud_army_fetch_failed.connect(_on_cloud_army_fetch_failed)
 	ArmyListManager.load_cloud_armies()
 
 func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
@@ -1025,11 +1094,14 @@ func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
 	if player2_dropdown.selected >= 0 and player2_dropdown.selected < army_options.size():
 		p2_selected_id = army_options[player2_dropdown.selected].id
 
-	# Add cloud armies that aren't already available locally
-	var local_ids = available_armies_ids()
+	# Add cloud armies that aren't already in the dropdowns (locally or from a
+	# previous fetch — this handler also runs on Refresh Cloud Armies).
+	var existing_ids = []
+	for option in army_options:
+		existing_ids.append(option.id)
 	var added_count = 0
 	for cloud_name in cloud_armies:
-		if cloud_name not in local_ids:
+		if cloud_name not in existing_ids:
 			var base_name = _format_army_name(cloud_name) + " (Cloud)"
 			var date_str = ArmyListManager.get_army_date(cloud_name)
 			var display_name = base_name

@@ -787,3 +787,8 @@ const ArmyParser = (function () {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = ArmyParser;
 }
+// ES modules can't see top-level `const` bindings from classic scripts —
+// register explicitly for the army builder's fallback import path.
+if (typeof globalThis !== 'undefined') {
+  globalThis.ArmyParser = ArmyParser;
+}
