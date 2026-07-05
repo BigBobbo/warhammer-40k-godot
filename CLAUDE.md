@@ -6,6 +6,22 @@ The project we are working on is located at /Users/robertocallaghan/Documents/cl
 
 Do not remove debugging logs unless specifically asked to do so.
 
+## Version / changelog (update on EVERY player-facing change)
+
+The main menu shows the current version + a "What's New" summary so it is easy
+to tell which build is running (e.g. the itch.io release vs the latest GitHub
+branch). The single source of truth is `40k/data/version_history.json`
+(newest release first), surfaced via `40k/scripts/VersionInfo.gd` and rendered
+by `MainMenu._create_version_display()`.
+
+**From now on, whenever you make a player-facing change, PREPEND a new entry to
+`40k/data/version_history.json`** before committing:
+- Bump `version` (semver: patch for fixes, minor for new features).
+- Set `date` to the day the change was made (YYYY-MM-DD).
+- Write a one-line `summary` and a `changes` bullet list a player would understand.
+
+Pure-internal changes (refactors, tests, tooling) do not need a new entry.
+
 If godot is not running in the command line run export PATH="$HOME/bin:$PATH" and try again.
 
 The debug output of godot is being piped to files in the format `<godot-userdata>/40k/logs/debug_YYYYMMDD_HHMMSS.log`.
