@@ -32,6 +32,13 @@ var _p2_fixed_mission_ids: Array = []
 var disposition_container: VBoxContainer = null
 var p1_disposition_dropdown: OptionButton = null
 var p2_disposition_dropdown: OptionButton = null
+# 11e: at 11th edition the primary mission and deployment zone are DERIVED from
+# the Force Disposition matchup (+ chosen terrain variant), not player choices.
+# Their dropdowns are hidden and replaced with read-only value labels that show
+# exactly what will be used. Populated in _setup_derived_mission_displays().
+var mission_value_label: Label = null
+var deployment_value_label: Label = null
+var _derived_displays_active: bool = false
 @onready var start_button: Button = $ScrollContainer/MenuContainer/ButtonSection/StartButton
 @onready var multiplayer_button: Button = $ScrollContainer/MenuContainer/ButtonSection/MultiplayerButton
 @onready var load_button: Button = $ScrollContainer/MenuContainer/ButtonSection/LoadButton
@@ -348,6 +355,10 @@ func _setup_dropdowns() -> void:
 	# 11e GDM 2026: Force Disposition selection (primary mission pairing)
 	_create_disposition_ui()
 
+	# 11e: replace the derived Primary Mission / Deployment dropdowns with
+	# read-only value labels (they follow from the disposition matchup + terrain).
+	_setup_derived_mission_displays()
+
 	# Create army sort dropdown
 	_create_army_sort_dropdown()
 
@@ -567,6 +578,13 @@ func _create_disposition_ui() -> void:
 	disposition_container.name = "DispositionContainer"
 	disposition_container.add_theme_constant_override("separation", 6)
 	mission_section.add_child(disposition_container)
+	# The Force Disposition pairing is what a player actually chooses in 11e —
+	# it drives the primary mission, terrain matchup and deployment. Put it at
+	# the top of the Mission section (right after the "Mission Settings" header),
+	# above the derived values it produces.
+	var mission_label_idx = _get_child_index(mission_section, "MissionLabel")
+	if mission_label_idx >= 0:
+		mission_section.move_child(disposition_container, mission_label_idx + 1)
 
 	var section_label = Label.new()
 	section_label.text = "Force Disposition (11th Edition):"
@@ -600,6 +618,68 @@ func _create_disposition_ui() -> void:
 
 	print("MainMenu: 11e Force Disposition UI created")
 
+func _setup_derived_mission_displays() -> void:
+	"""11e: the Primary Mission and Deployment Zone are not player choices —
+	they are derived from the Force Disposition matchup and the chosen terrain
+	variant. Hide their OptionButtons (kept as data-holders so config building
+	is unchanged) and add read-only value labels in their place."""
+	# Only official 11e matchup layouts make these values fully derived. If the
+	# generated 11e index is missing (unexpected for a player build), leave the
+	# original editable dropdowns so the menu still works.
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null or not tm.has_method("get_11e_layout_ids") or tm.get_11e_layout_ids().is_empty():
+		print("MainMenu: no 11e layout index — keeping editable Mission/Deployment dropdowns")
+		return
+	_derived_displays_active = true
+
+	# --- Primary Mission (per-player card from the disposition pairing) ---
+	mission_dropdown.visible = false
+	mission_value_label = Label.new()
+	mission_value_label.name = "MissionValueLabel"
+	mission_value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	mission_value_label.custom_minimum_size = Vector2(300, 0)
+	mission_value_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	mission_dropdown.get_parent().add_child(mission_value_label)
+
+	# --- Deployment Zone (follows from the selected terrain variant) ---
+	deployment_dropdown.visible = false
+	deployment_value_label = Label.new()
+	deployment_value_label.name = "DeploymentValueLabel"
+	deployment_value_label.custom_minimum_size = Vector2(300, 0)
+	deployment_value_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	deployment_dropdown.get_parent().add_child(deployment_value_label)
+
+	print("MainMenu: 11e derived Mission/Deployment read-only displays created")
+
+func _refresh_derived_mission_display() -> void:
+	"""Update the read-only Primary Mission / Deployment labels to reflect the
+	current Force Dispositions and the selected terrain variant's deployment."""
+	if not _derived_displays_active:
+		return
+
+	if mission_value_label:
+		var p1_disp = _get_selected_disposition(p1_disposition_dropdown)
+		var p2_disp = _get_selected_disposition(p2_disposition_dropdown)
+		var p1_card = _primary_card_name_for_player(p1_disp, p2_disp)
+		var p2_card = _primary_card_name_for_player(p2_disp, p1_disp)
+		# Each player scores their OWN disposition-vs-opponent card, so the two
+		# players usually play different primaries — show both.
+		if p1_card == p2_card:
+			mission_value_label.text = p1_card
+		else:
+			mission_value_label.text = "Player 1: %s\nPlayer 2: %s" % [p1_card, p2_card]
+
+	if deployment_value_label:
+		var dep_name := "—"
+		if deployment_dropdown.selected >= 0 and deployment_dropdown.selected < deployment_options.size():
+			dep_name = str(deployment_options[deployment_dropdown.selected].name)
+		deployment_value_label.text = dep_name
+
+func _primary_card_name_for_player(own_disposition: String, opponent_disposition: String) -> String:
+	"""Name of the primary mission card a player scores (own deck vs opponent)."""
+	var card = PrimaryMissionData11e.get_card(own_disposition, opponent_disposition)
+	return str(card.get("name", "—"))
+
 ## D5: rebuild the terrain dropdown as base layouts + the official 11e
 ## layouts of the currently selected Force-Disposition matchup.
 ## select_official=true (player changed a disposition) selects the matchup's
@@ -618,30 +698,67 @@ func _refresh_matchup_terrain_options(select_official: bool) -> void:
 	if terrain_dropdown.selected >= 0 and terrain_dropdown.selected < terrain_options.size():
 		selected_id = terrain_options[terrain_dropdown.selected].id
 
-	terrain_options = _base_terrain_options.duplicate()
-	for meta in _matchup_layouts:
-		terrain_options.append({
-			"id": str(meta.get("id", "")),
-			"name": "11e: %s" % str(meta.get("name", meta.get("id", "")))
-		})
+	if _derived_displays_active and not _matchup_layouts.is_empty():
+		# 11e: the disposition matchup fixes the terrain matchup; the player only
+		# chooses which of the 3 official variants to play (each variant also
+		# carries its own deployment pattern). Offer just those variants — the
+		# legacy hand-made layouts are not part of an 11th-edition game.
+		terrain_options = []
+		for meta in _matchup_layouts:
+			terrain_options.append({
+				"id": str(meta.get("id", "")),
+				"name": _terrain_variant_label(meta)
+			})
+	else:
+		# Fallback (no official matchup layouts / 10e regression harness):
+		# keep the base layouts plus any matchup layouts, all editable.
+		terrain_options = _base_terrain_options.duplicate()
+		for meta in _matchup_layouts:
+			terrain_options.append({
+				"id": str(meta.get("id", "")),
+				"name": "11e: %s" % str(meta.get("name", meta.get("id", "")))
+			})
 	terrain_dropdown.clear()
 	for option in terrain_options:
 		terrain_dropdown.add_item(option.name)
 
 	var target_id = selected_id
-	if select_official and _matchup_layouts.size() > 0:
-		target_id = str(_matchup_layouts[0].get("id", selected_id))
+	if (select_official or _derived_displays_active) and _matchup_layouts.size() > 0:
+		# On a disposition change (or first-run in derived mode) default to the
+		# matchup's variant 1 unless the old selection is still one of the
+		# offered variants.
+		if _find_option_index(terrain_options, selected_id) == 0 and (terrain_options.is_empty() or terrain_options[0].id != selected_id):
+			target_id = str(_matchup_layouts[0].get("id", selected_id))
 	terrain_dropdown.selected = _find_option_index(terrain_options, target_id)
-	if select_official:
+	# Keep deployment (and its read-only label) in step with the chosen variant.
+	if select_official or _derived_displays_active:
 		_apply_layout_deployment_default()
+	_refresh_derived_mission_display()
 	print("MainMenu: matchup %s vs %s -> %d official layouts (terrain: %s)" % [
 		p1_disp, p2_disp, _matchup_layouts.size(), terrain_options[terrain_dropdown.selected].id])
+
+## Short, informative name for one official 11e terrain variant. The matchup is
+## already conveyed by the Force Disposition dropdowns, so surface the variant
+## number plus the deployment it brings (variants differ by deployment).
+func _terrain_variant_label(meta: Dictionary) -> String:
+	var variant = int(meta.get("variant", 0))
+	var recs: Array = meta.get("recommended_deployments", [])
+	if recs.is_empty():
+		return "Variant %d" % variant
+	return "Variant %d (%s)" % [variant, _deployment_display_name(str(recs[0]))]
+
+func _deployment_display_name(deployment_id: String) -> String:
+	for option in deployment_options:
+		if str(option.get("id", "")) == deployment_id:
+			return str(option.get("name", deployment_id))
+	return deployment_id
 
 func _on_disposition_changed(_index: int) -> void:
 	_refresh_matchup_terrain_options(true)
 
 func _on_terrain_layout_selected(_index: int) -> void:
 	_apply_layout_deployment_default()
+	_refresh_derived_mission_display()
 
 ## D5: each official 11e layout card pairs with exactly one deployment
 ## pattern — follow it when such a layout is selected. Legacy layouts
