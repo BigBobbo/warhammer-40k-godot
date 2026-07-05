@@ -9,6 +9,13 @@ This document is self-contained. Read it top to bottom. Everything references
 concrete files and fields in this repo. **Section 9 flags what is NOT known and
 what external resources you will need** — read it before starting.
 
+> **ACCEPTANCE BAR (decided): faithful to the 40kdc dataset.** "Done" means the
+> converted layouts reproduce the dataset's geometry (via `resolveLayout`),
+> transposed to the game board — NOT verified against Games Workshop's printed
+> cards. This makes geometry acceptance fully automatable in-repo (compare the
+> emitted JSON to the transposed resolver output; §8) and needs no external card
+> images. Resolves unknown §9.1.
+
 ---
 
 ## 0. Definition of done
@@ -319,10 +326,14 @@ verify them against how the engine reads height/traits (`TerrainManager.gd`
 
 ## 8. Validation & acceptance
 
-- Geometry: for a sample of layouts, assert the transposed resolved polygons lie
-  within the 44×60 board and match the dataset (a headless Node check comparing
-  `resolveLayout` output transposed vs the emitted JSON is a good regression
-  net).
+- **Geometry (the primary acceptance gate — "faithful to the dataset"):** a
+  headless Node check MUST assert, for **all 45 layouts**, that every emitted
+  piece polygon equals `resolveLayout(layout, templates)` output with the §3
+  transpose applied (compare vertex-for-vertex, 4-dp; account for emission
+  order). This is the definition of "done" for geometry — make it a committed
+  test (e.g. `scripts/40kdc/verify-terrain-layouts.mjs`) and run it in the
+  generator's flow. No GW card images are required or in scope.
+- Also assert every transposed polygon lies within the 44×60 board.
 - Engine: the **windowed scenario** is the gate (project rule — headless is
   necessary but NOT sufficient; see `CLAUDE.md`). Must show terrain rendered and
   a real terrain interaction working, with a screenshot and `verify_delivery`
@@ -337,13 +348,14 @@ verify them against how the engine reads height/traits (`TerrainManager.gd`
 These are things I could not determine from the repo/dataset and that the
 implementer must obtain or decide:
 
-1. **Official GW terrain-card images (for correctness QA).** The dataset geometry
-   is *community-authored* ("source":"gw-11e") — I cannot confirm it matches the
-   real GW Chapter Approved / gdmissions terrain-layout cards without the card
-   images. To sign off "these are the official maps," you need the source card
-   images (GW Chapter Approved 2025–26 pack, or gdmissions.app/11th). Without
-   them, you can guarantee "faithful to the 40kdc dataset" but not "verified
-   against GW."
+1. **RESOLVED — no GW card images needed.** The acceptance bar is **faithful to
+   the 40kdc dataset** (decided by the product owner), not verified against
+   GW's printed cards. So the geometry gate is the automated resolver-equality
+   check in §8; the community-authored ("source":"gw-11e") dataset geometry is
+   taken as the source of truth. Do NOT block on obtaining official GW /
+   gdmissions card images — they are explicitly out of scope. (If the bar is
+   ever raised to "verified against GW," you would then need those card images;
+   until then, ignore.)
 
 2. **Terrain-type semantics (ruins vs woods vs area).** The dataset's 16
    templates are ruins/industrial scenery + abstract "area" zones; there is no
