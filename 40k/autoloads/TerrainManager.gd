@@ -11,6 +11,12 @@ var terrain_features: Array = []
 var terrain_visible: bool = true
 var current_layout: String = "layout_2"
 
+# D3-a: objective markers authored by the loaded layout (the converted 11e
+# layouts carry an objectives[] array; legacy layouts don't). Raw JSON dicts
+# — id, position [x,y] inches, radius_mm, zone. MissionManager prefers these
+# over the deployment-zone objectives when non-empty.
+var layout_objectives: Array = []
+
 # Cache of loaded layout metadata for UI recommendations
 var _layout_metadata: Dictionary = {}
 
@@ -160,6 +166,7 @@ func get_recommended_deployments(layout_id: String) -> Array:
 
 func load_terrain_layout(layout_name: String) -> void:
 	terrain_features.clear()
+	layout_objectives.clear()
 	current_layout = layout_name
 
 	# Try loading from JSON first
@@ -208,6 +215,11 @@ func _load_layout_from_json(layout_name: String) -> bool:
 	if not data.has("pieces"):
 		print("[TerrainManager] JSON layout missing 'pieces' array")
 		return false
+
+	# D3-a: converted 11e layouts author their own objective markers.
+	layout_objectives = data.get("objectives", [])
+	if layout_objectives.size() > 0:
+		print("[TerrainManager] Layout '%s' authors %d objective markers (layout-sourced, D3-a)" % [layout_name, layout_objectives.size()])
 
 	var px_per_inch = Measurement.PX_PER_INCH
 

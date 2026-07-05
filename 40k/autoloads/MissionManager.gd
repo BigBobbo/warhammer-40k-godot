@@ -215,8 +215,27 @@ func initialize_mission(mission_id: String) -> void:
 	print("MissionManager: Initialized '%s' mission (scoring_type: %s)" % [current_mission.name, current_mission.scoring_type])
 
 func _setup_objectives_for_deployment(deployment_type: String) -> void:
-	# Get objective positions from centralized data source (already in pixels)
-	var objectives = DeploymentZoneData.get_objectives_px(deployment_type)
+	# D3-a (docs/40KDC_TERRAIN_MIGRATION_SPEC.md): the converted official 11e
+	# terrain layouts author their own objective markers (per-matchup
+	# placement from the GW card). Prefer those when the loaded layout
+	# carries them; legacy layouts fall back to the deployment-zone data.
+	var objectives = []
+	var tm_d3 = get_node_or_null("/root/TerrainManager")
+	if tm_d3 != null and not tm_d3.layout_objectives.is_empty():
+		for obj in tm_d3.layout_objectives:
+			var pos = obj.get("position", [0, 0])
+			objectives.append({
+				"id": str(obj.get("id", "")),
+				"position": Vector2(
+					Measurement.inches_to_px(float(pos[0])),
+					Measurement.inches_to_px(float(pos[1]))),
+				"radius_mm": int(obj.get("radius_mm", 40)),
+				"zone": str(obj.get("zone", "no_mans_land"))
+			})
+		print("MissionManager: Using %d layout-sourced objectives from terrain layout '%s' (D3-a)" % [objectives.size(), tm_d3.current_layout])
+	else:
+		# Get objective positions from centralized data source (already in pixels)
+		objectives = DeploymentZoneData.get_objectives_px(deployment_type)
 
 	# Store objectives in GameState
 	GameState.state.board["objectives"] = objectives

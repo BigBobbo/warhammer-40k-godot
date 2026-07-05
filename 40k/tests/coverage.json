@@ -2282,6 +2282,15 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "missions.objectives.layout_sourced",
+      "description": "D3-a: a game started on an official 11e layout uses the layout's five authored objective markers (per-matchup placement; obj_center = the linked centre pair's midpoint, designated central); legacy layouts fall back to the deployment-zone objectives",
+      "scenarios": [
+        "terrain_11e_menu_matchup"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

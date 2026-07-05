@@ -8,6 +8,69 @@
  "recommended_deployments": [
   "crucible_of_battle"
  ],
+ "objectives": [
+  {
+   "id": "obj_home_1",
+   "position": [
+    33.25,
+    8.5
+   ],
+   "radius_mm": 40,
+   "zone": "player1",
+   "source_pieces": [
+    "area-large-2"
+   ]
+  },
+  {
+   "id": "obj_home_2",
+   "position": [
+    10.75,
+    51.5
+   ],
+   "radius_mm": 40,
+   "zone": "player2",
+   "source_pieces": [
+    "area-large-1"
+   ]
+  },
+  {
+   "id": "obj_nml_1",
+   "position": [
+    9.72,
+    15.16
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-large-28"
+   ]
+  },
+  {
+   "id": "obj_nml_2",
+   "position": [
+    34.28,
+    44.84
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-large-27"
+   ]
+  },
+  {
+   "id": "obj_center",
+   "position": [
+    22,
+    30
+   ],
+   "radius_mm": 40,
+   "zone": "no_mans_land",
+   "source_pieces": [
+    "area-trapezoid-33",
+    "area-trapezoid-34"
+   ]
+  }
+ ],
  "pieces": [
   {
    "id": "area-large-1",
