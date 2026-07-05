@@ -1,0 +1,1849 @@
+{
+ "id": "priority_assets_vs_reconnaissance_3",
+ "name": "Priority Assets vs Reconnaissance 3",
+ "description": "Official 11e GW terrain layout (priority-assets-vs-reconnaissance, variant 3) from the 40kdc dataset, transposed to the game's 44x60 portrait board.",
+ "source": "gw-11e",
+ "mission_matchup_id": "priority-assets-vs-reconnaissance",
+ "variant": 3,
+ "recommended_deployments": [
+  "sweeping_engagement"
+ ],
+ "pieces": [
+  {
+   "id": "area-trapezoid-1",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     17,
+     24.25
+    ],
+    [
+     25,
+     24.25
+    ],
+    [
+     19,
+     35.75
+    ],
+    [
+     17,
+     35.75
+    ]
+   ],
+   "position": [
+    19.8,
+    28.85
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "is_objective": true,
+   "objective_role": "center",
+   "link_group": "Center"
+  },
+  {
+   "id": "area-trapezoid-2",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     27,
+     35.75
+    ],
+    [
+     19,
+     35.75
+    ],
+    [
+     25,
+     24.25
+    ],
+    [
+     27,
+     24.25
+    ]
+   ],
+   "position": [
+    24.2,
+    31.15
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "is_objective": true,
+   "objective_role": "center",
+   "link_group": "Center"
+  },
+  {
+   "id": "corner-ruin-balanced-left-3",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     17.25,
+     24.54
+    ],
+    [
+     22.25,
+     24.54
+    ],
+    [
+     22.25,
+     25.04
+    ],
+    [
+     17.75,
+     25.04
+    ],
+    [
+     17.75,
+     29.04
+    ],
+    [
+     17.25,
+     29.04
+    ]
+   ],
+   "position": [
+    18.75,
+    25.79
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-trapezoid-1"
+  },
+  {
+   "id": "corner-ruin-balanced-left-4",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     26.75,
+     35.46
+    ],
+    [
+     21.75,
+     35.46
+    ],
+    [
+     21.75,
+     34.96
+    ],
+    [
+     26.25,
+     34.96
+    ],
+    [
+     26.25,
+     30.96
+    ],
+    [
+     26.75,
+     30.96
+    ]
+   ],
+   "position": [
+    25.25,
+    34.21
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-trapezoid-2"
+  },
+  {
+   "id": "corner-tiny-5",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     17.2514,
+     35.5386
+    ],
+    [
+     17.2514,
+     33.5386
+    ],
+    [
+     17.7514,
+     33.5386
+    ],
+    [
+     17.7514,
+     35.0386
+    ],
+    [
+     19.2514,
+     35.0386
+    ],
+    [
+     19.2514,
+     35.5386
+    ]
+   ],
+   "position": [
+    17.93,
+    34.86
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-trapezoid-1"
+  },
+  {
+   "id": "corner-tiny-6",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     26.7486,
+     24.4614
+    ],
+    [
+     26.7486,
+     26.4614
+    ],
+    [
+     26.2486,
+     26.4614
+    ],
+    [
+     26.2486,
+     24.9614
+    ],
+    [
+     24.7486,
+     24.9614
+    ],
+    [
+     24.7486,
+     24.4614
+    ]
+   ],
+   "position": [
+    26.07,
+    25.14
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-trapezoid-2"
+  },
+  {
+   "id": "area-large-7",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     9,
+     4
+    ],
+    [
+     9,
+     15.5
+    ],
+    [
+     16,
+     15.5
+    ],
+    [
+     16,
+     4
+    ]
+   ],
+   "position": [
+    12.5,
+    9.75
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "is_objective": true,
+   "objective_role": "expansion"
+  },
+  {
+   "id": "area-large-8",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     35,
+     56
+    ],
+    [
+     35,
+     44.5
+    ],
+    [
+     28,
+     44.5
+    ],
+    [
+     28,
+     56
+    ]
+   ],
+   "position": [
+    31.5,
+    50.25
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "is_objective": true,
+   "objective_role": "expansion"
+  },
+  {
+   "id": "corner-ruin-left-9",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     12.8667,
+     4.2033
+    ],
+    [
+     15.8667,
+     4.2033
+    ],
+    [
+     15.8667,
+     10.7033
+    ],
+    [
+     15.3667,
+     10.7033
+    ],
+    [
+     15.3667,
+     4.7033
+    ],
+    [
+     12.8667,
+     4.7033
+    ]
+   ],
+   "position": [
+    15.2,
+    6.62
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-large-7"
+  },
+  {
+   "id": "corner-ruin-left-10",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     31.1333,
+     55.7967
+    ],
+    [
+     28.1333,
+     55.7967
+    ],
+    [
+     28.1333,
+     49.2967
+    ],
+    [
+     28.6333,
+     49.2967
+    ],
+    [
+     28.6333,
+     55.2967
+    ],
+    [
+     31.1333,
+     55.2967
+    ]
+   ],
+   "position": [
+    28.8,
+    53.38
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-large-8"
+  },
+  {
+   "id": "corner-ruin-right-11",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     9.1733,
+     12.2667
+    ],
+    [
+     9.1733,
+     15.2667
+    ],
+    [
+     15.6733,
+     15.2667
+    ],
+    [
+     15.6733,
+     14.7667
+    ],
+    [
+     9.6733,
+     14.7667
+    ],
+    [
+     9.6733,
+     12.2667
+    ]
+   ],
+   "position": [
+    11.59,
+    14.6
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-large-7"
+  },
+  {
+   "id": "corner-ruin-right-12",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     34.8267,
+     47.7333
+    ],
+    [
+     34.8267,
+     44.7333
+    ],
+    [
+     28.3267,
+     44.7333
+    ],
+    [
+     28.3267,
+     45.2333
+    ],
+    [
+     34.3267,
+     45.2333
+    ],
+    [
+     34.3267,
+     47.7333
+    ]
+   ],
+   "position": [
+    32.41,
+    45.4
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-large-8"
+  },
+  {
+   "id": "area-large-13",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     5,
+     42.5
+    ],
+    [
+     5,
+     54
+    ],
+    [
+     12,
+     54
+    ],
+    [
+     12,
+     42.5
+    ]
+   ],
+   "position": [
+    8.5,
+    48.25
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "is_objective": true,
+   "objective_role": "home"
+  },
+  {
+   "id": "area-large-14",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     39,
+     17.5
+    ],
+    [
+     39,
+     6
+    ],
+    [
+     32,
+     6
+    ],
+    [
+     32,
+     17.5
+    ]
+   ],
+   "position": [
+    35.5,
+    11.75
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "is_objective": true,
+   "objective_role": "home"
+  },
+  {
+   "id": "corner-ruin-balanced-right-15",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     11.88,
+     42.65
+    ],
+    [
+     11.88,
+     47.65
+    ],
+    [
+     11.38,
+     47.65
+    ],
+    [
+     11.38,
+     43.15
+    ],
+    [
+     7.38,
+     43.15
+    ],
+    [
+     7.38,
+     42.65
+    ]
+   ],
+   "position": [
+    10.63,
+    44.15
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-large-13"
+  },
+  {
+   "id": "corner-ruin-balanced-right-16",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     32.12,
+     17.35
+    ],
+    [
+     32.12,
+     12.35
+    ],
+    [
+     32.62,
+     12.35
+    ],
+    [
+     32.62,
+     16.85
+    ],
+    [
+     36.62,
+     16.85
+    ],
+    [
+     36.62,
+     17.35
+    ]
+   ],
+   "position": [
+    33.37,
+    15.85
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-large-14"
+  },
+  {
+   "id": "corner-short-17",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     11.7133,
+     53.7233
+    ],
+    [
+     9.7133,
+     53.7233
+    ],
+    [
+     9.7133,
+     53.2233
+    ],
+    [
+     11.2133,
+     53.2233
+    ],
+    [
+     11.2133,
+     50.7233
+    ],
+    [
+     11.7133,
+     50.7233
+    ]
+   ],
+   "position": [
+    11.13,
+    52.64
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-large-13"
+  },
+  {
+   "id": "corner-short-18",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     32.2867,
+     6.2767
+    ],
+    [
+     34.2867,
+     6.2767
+    ],
+    [
+     34.2867,
+     6.7767
+    ],
+    [
+     32.7867,
+     6.7767
+    ],
+    [
+     32.7867,
+     9.2767
+    ],
+    [
+     32.2867,
+     9.2767
+    ]
+   ],
+   "position": [
+    32.87,
+    7.36
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-large-14"
+  },
+  {
+   "id": "area-long-line-23",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     3.9999,
+     27.8177
+    ],
+    [
+     11.2884,
+     34.6644
+    ],
+    [
+     13.0001,
+     32.8423
+    ],
+    [
+     5.7116,
+     25.9956
+    ]
+   ],
+   "position": [
+    8.5,
+    30.33
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "link_group": "1"
+  },
+  {
+   "id": "area-long-line-24",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     40.0001,
+     32.1823
+    ],
+    [
+     32.7116,
+     25.3356
+    ],
+    [
+     30.9999,
+     27.1577
+    ],
+    [
+     38.2884,
+     34.0044
+    ]
+   ],
+   "position": [
+    35.5,
+    29.67
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "link_group": "1"
+  },
+  {
+   "id": "gantry-25",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     7.0865,
+     30.3742
+    ],
+    [
+     8.5442,
+     31.7435
+    ],
+    [
+     9.9135,
+     30.2858
+    ],
+    [
+     8.4558,
+     28.9165
+    ]
+   ],
+   "position": [
+    8.5,
+    30.33
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-long-line-23"
+  },
+  {
+   "id": "gantry-26",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     36.9135,
+     29.6258
+    ],
+    [
+     35.4558,
+     28.2565
+    ],
+    [
+     34.0865,
+     29.7142
+    ],
+    [
+     35.5442,
+     31.0835
+    ]
+   ],
+   "position": [
+    35.5,
+    29.67
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-long-line-24"
+  },
+  {
+   "id": "barricade-27",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     12.1583,
+     33.2711
+    ],
+    [
+     9.6073,
+     30.8747
+    ],
+    [
+     8.9226,
+     31.6036
+    ],
+    [
+     9.287,
+     31.9459
+    ],
+    [
+     9.6294,
+     31.5815
+    ],
+    [
+     11.4515,
+     33.2932
+    ],
+    [
+     11.1092,
+     33.6576
+    ],
+    [
+     11.4736,
+     33.9999
+    ]
+   ],
+   "position": [
+    10.6355,
+    32.3361
+   ],
+   "height": "medium",
+   "height_inches": 2,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-long-line-23"
+  },
+  {
+   "id": "barricade-28",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     31.8417,
+     26.7289
+    ],
+    [
+     34.3927,
+     29.1253
+    ],
+    [
+     35.0774,
+     28.3964
+    ],
+    [
+     34.713,
+     28.0541
+    ],
+    [
+     34.3706,
+     28.4185
+    ],
+    [
+     32.5485,
+     26.7068
+    ],
+    [
+     32.8908,
+     26.3424
+    ],
+    [
+     32.5264,
+     26.0001
+    ]
+   ],
+   "position": [
+    33.3645,
+    27.6639
+   ],
+   "height": "medium",
+   "height_inches": 2,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-long-line-24"
+  },
+  {
+   "id": "barricade-29",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     7.8872,
+     29.2589
+    ],
+    [
+     5.3362,
+     26.8625
+    ],
+    [
+     4.6516,
+     27.5914
+    ],
+    [
+     5.016,
+     27.9337
+    ],
+    [
+     5.3583,
+     27.5693
+    ],
+    [
+     7.1804,
+     29.281
+    ],
+    [
+     6.8381,
+     29.6454
+    ],
+    [
+     7.2025,
+     29.9877
+    ]
+   ],
+   "position": [
+    6.3645,
+    28.3239
+   ],
+   "height": "medium",
+   "height_inches": 2,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-long-line-23"
+  },
+  {
+   "id": "barricade-30",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     36.1128,
+     30.7411
+    ],
+    [
+     38.6638,
+     33.1375
+    ],
+    [
+     39.3484,
+     32.4086
+    ],
+    [
+     38.984,
+     32.0663
+    ],
+    [
+     38.6417,
+     32.4307
+    ],
+    [
+     36.8196,
+     30.719
+    ],
+    [
+     37.1619,
+     30.3546
+    ],
+    [
+     36.7975,
+     30.0123
+    ]
+   ],
+   "position": [
+    37.6355,
+    31.6761
+   ],
+   "height": "medium",
+   "height_inches": 2,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-long-line-24"
+  },
+  {
+   "id": "area-medium-31",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     5,
+     15.5
+    ],
+    [
+     5,
+     21.5
+    ],
+    [
+     9,
+     21.5
+    ],
+    [
+     9,
+     15.5
+    ]
+   ],
+   "position": [
+    7,
+    18.5
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": []
+  },
+  {
+   "id": "area-medium-32",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     39,
+     44.5
+    ],
+    [
+     39,
+     38.5
+    ],
+    [
+     35,
+     38.5
+    ],
+    [
+     35,
+     44.5
+    ]
+   ],
+   "position": [
+    37,
+    41.5
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": []
+  },
+  {
+   "id": "corner-short-33",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     5.3167,
+     15.8667
+    ],
+    [
+     5.3167,
+     17.8667
+    ],
+    [
+     5.8167,
+     17.8667
+    ],
+    [
+     5.8167,
+     16.3667
+    ],
+    [
+     8.3167,
+     16.3667
+    ],
+    [
+     8.3167,
+     15.8667
+    ]
+   ],
+   "position": [
+    6.4,
+    16.45
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-medium-31"
+  },
+  {
+   "id": "corner-short-34",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     38.6833,
+     44.1333
+    ],
+    [
+     38.6833,
+     42.1333
+    ],
+    [
+     38.1833,
+     42.1333
+    ],
+    [
+     38.1833,
+     43.6333
+    ],
+    [
+     35.6833,
+     43.6333
+    ],
+    [
+     35.6833,
+     44.1333
+    ]
+   ],
+   "position": [
+    37.6,
+    43.55
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-medium-32"
+  },
+  {
+   "id": "corner-short-35",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     8.6833,
+     21.1333
+    ],
+    [
+     8.6833,
+     19.1333
+    ],
+    [
+     8.1833,
+     19.1333
+    ],
+    [
+     8.1833,
+     20.6333
+    ],
+    [
+     5.6833,
+     20.6333
+    ],
+    [
+     5.6833,
+     21.1333
+    ]
+   ],
+   "position": [
+    7.6,
+    20.55
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-medium-31"
+  },
+  {
+   "id": "corner-short-36",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     35.3167,
+     38.8667
+    ],
+    [
+     35.3167,
+     40.8667
+    ],
+    [
+     35.8167,
+     40.8667
+    ],
+    [
+     35.8167,
+     39.3667
+    ],
+    [
+     38.3167,
+     39.3667
+    ],
+    [
+     38.3167,
+     38.8667
+    ]
+   ],
+   "position": [
+    36.4,
+    39.45
+   ],
+   "height": "tall",
+   "height_inches": 5,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-medium-32"
+  },
+  {
+   "id": "area-short-line-37",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     9.6552,
+     33.1288
+    ],
+    [
+     5.5471,
+     37.5019
+    ],
+    [
+     7.0048,
+     38.8712
+    ],
+    [
+     11.1129,
+     34.4981
+    ]
+   ],
+   "position": [
+    8.33,
+    36
+   ],
+   "height": "medium",
+   "height_inches": 2,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "link_group": "1"
+  },
+  {
+   "id": "area-short-line-38",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     34.3448,
+     26.8712
+    ],
+    [
+     38.4529,
+     22.4981
+    ],
+    [
+     36.9952,
+     21.1288
+    ],
+    [
+     32.8871,
+     25.5019
+    ]
+   ],
+   "position": [
+    35.67,
+    24
+   ],
+   "height": "medium",
+   "height_inches": 2,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "link_group": "1"
+  },
+  {
+   "id": "pipe-39",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     9.8484,
+     33.6533
+    ],
+    [
+     6.0827,
+     37.662
+    ],
+    [
+     6.8116,
+     38.3467
+    ],
+    [
+     10.5773,
+     34.338
+    ]
+   ],
+   "position": [
+    8.33,
+    36
+   ],
+   "height": "medium",
+   "height_inches": 2,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-short-line-37"
+  },
+  {
+   "id": "pipe-40",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     34.1516,
+     26.3467
+    ],
+    [
+     37.9173,
+     22.338
+    ],
+    [
+     37.1884,
+     21.6533
+    ],
+    [
+     33.4227,
+     25.662
+    ]
+   ],
+   "position": [
+    35.67,
+    24
+   ],
+   "height": "medium",
+   "height_inches": 2,
+   "category": "light",
+   "rotation": 0,
+   "traits": [
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-short-line-38"
+  },
+  {
+   "id": "area-short-line-41",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     22.9981,
+     46.264
+    ],
+    [
+     17.8019,
+     49.264
+    ],
+    [
+     18.8019,
+     50.996
+    ],
+    [
+     23.9981,
+     47.996
+    ]
+   ],
+   "position": [
+    20.9,
+    48.63
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": []
+  },
+  {
+   "id": "area-short-line-42",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     21.0019,
+     13.736
+    ],
+    [
+     26.1981,
+     10.736
+    ],
+    [
+     25.1981,
+     9.004
+    ],
+    [
+     20.0019,
+     12.004
+    ]
+   ],
+   "position": [
+    23.1,
+    11.37
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": []
+  },
+  {
+   "id": "catwalk-43",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     23.4311,
+     46.014
+    ],
+    [
+     17.3689,
+     49.514
+    ],
+    [
+     18.3689,
+     51.246
+    ],
+    [
+     24.4311,
+     47.746
+    ]
+   ],
+   "position": [
+    20.9,
+    48.63
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-short-line-41"
+  },
+  {
+   "id": "catwalk-44",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     20.5689,
+     13.986
+    ],
+    [
+     26.6311,
+     10.486
+    ],
+    [
+     25.6311,
+     8.754
+    ],
+    [
+     19.5689,
+     12.254
+    ]
+   ],
+   "position": [
+    23.1,
+    11.37
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-short-line-42"
+  },
+  {
+   "id": "area-medium-45",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     16.6479,
+     43.0019
+    ],
+    [
+     19.6479,
+     48.1981
+    ],
+    [
+     23.1121,
+     46.1981
+    ],
+    [
+     20.1121,
+     41.0019
+    ]
+   ],
+   "position": [
+    19.88,
+    44.6
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "link_group": "2"
+  },
+  {
+   "id": "area-medium-46",
+   "type": "ruins",
+   "piece_class": "area",
+   "polygon": [
+    [
+     27.3521,
+     16.9981
+    ],
+    [
+     24.3521,
+     11.8019
+    ],
+    [
+     20.8879,
+     13.8019
+    ],
+    [
+     23.8879,
+     18.9981
+    ]
+   ],
+   "position": [
+    24.12,
+    15.4
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring",
+    "difficult_ground"
+   ],
+   "floor": 0,
+   "walls": [],
+   "link_group": "2"
+  },
+  {
+   "id": "generator-47",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     19.581,
+     47.0821
+    ],
+    [
+     22.179,
+     45.5821
+    ],
+    [
+     20.179,
+     42.1179
+    ],
+    [
+     17.581,
+     43.6179
+    ]
+   ],
+   "position": [
+    19.88,
+    44.6
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-medium-45"
+  },
+  {
+   "id": "generator-48",
+   "type": "ruins",
+   "piece_class": "feature",
+   "polygon": [
+    [
+     24.419,
+     12.9179
+    ],
+    [
+     21.821,
+     14.4179
+    ],
+    [
+     23.821,
+     17.8821
+    ],
+    [
+     26.419,
+     16.3821
+    ]
+   ],
+   "position": [
+    24.12,
+    15.4
+   ],
+   "height": "medium",
+   "height_inches": 3,
+   "category": "dense",
+   "rotation": 0,
+   "traits": [
+    "obscuring"
+   ],
+   "floor": 0,
+   "walls": [],
+   "parent_area_id": "area-medium-46"
+  }
+ ]
+}

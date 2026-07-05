@@ -2134,6 +2134,127 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "terrain.layouts_11e",
+      "description": "Official 11e GW terrain layouts converted from the 40kdc dataset (scripts/40kdc/generate-terrain-layouts.mjs) load into the running game with exact transposed polygon geometry (all 45 layouts; windowed scenario drives one end-to-end)",
+      "scenarios": [
+        "terrain_11e_layouts"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.TerrainManager.polygon_loader",
+      "description": "TerrainManager._load_layout_from_json explicit-polygon branch (spec D1): polygon pieces reach the runtime dict with piece_class/category/height_inches/objective metadata; legacy size-rectangle path preserved",
+      "scenarios": [
+        "terrain_11e_layouts"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scoring.terrain_objective_14_01",
+      "description": "11e 14.01 terrain-as-objective: when a terrain area covers an objective marker, control is decided by models inside the area, not the 3.79\" marker radius (control flips 1->0 when the converted layout replaces open ground at obj_center)",
+      "scenarios": [
+        "terrain_11e_layouts"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.primary_11e.card_action_prompt",
+      "description": "11e GDM optional card actions surface a real player prompt (CardActionDialog) at End Turn instead of silent auto-resolve; auto-pick remains the AI/headless backstop",
+      "scenarios": [
+        "iss064d_triangulate_prompt_11e",
+        "iss064e_decoy_prompt_11e",
+        "iss064f_condemn_prompt_11e",
+        "iss064g_card_action_skip_11e",
+        "iss064i_relic_setup_prompt_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.primary_11e.triangulate_choice",
+      "description": "Triangulation (Reconnaissance) single-pick objective choice resolves through the CardActionDialog and marks the chosen objective",
+      "scenarios": [
+        "iss064d_triangulate_prompt_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.primary_11e.decoy_choice_multi",
+      "description": "Smoke and Mirrors (Disruption) multi-pick decoy choice: player selects multiple objectives in the CardActionDialog",
+      "scenarios": [
+        "iss064e_decoy_prompt_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.primary_11e.condemn_choice",
+      "description": "Punishment (Purge the Foe) Condemn choice at Command-phase start marks eligible enemy units near objectives",
+      "scenarios": [
+        "iss064f_condemn_prompt_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.primary_11e.card_action_skip",
+      "description": "CardActionDialog Skip path: declining the optional card action stands down without resolving it",
+      "scenarios": [
+        "iss064g_card_action_skip_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.primary_11e.card_action_visibility",
+      "description": "Resolved card actions are visible on the board (e.g. TRIANGULATED (P2) badge on the objective) after the real End Turn + dialog flow",
+      "scenarios": [
+        "iss064h_card_action_visibility_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.primary_11e.board_badges",
+      "description": "Objective visuals render card-action state badges (Triangulated / Booby-Trap / relic markers) in the live scene",
+      "scenarios": [
+        "iss064h_card_action_visibility_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.primary_11e.relic_setup_choice",
+      "description": "Extract Relic / Locate and Deny setup: Disruption player's five-marker placement choice (auto-placement backstop kept)",
+      "scenarios": [
+        "iss064i_relic_setup_prompt_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.primary_11e.per_unit_actions",
+      "description": "11e 16.01 per-unit mission actions: eligible unit near an objective can start a mission action via the unit's Start Action UI",
+      "scenarios": [
+        "iss064j_mission_action_sabotage_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "missions.primary_11e.sabotage_action",
+      "description": "Sabotage (Priority Assets) mission action driven end-to-end by the player in the Shooting phase",
+      "scenarios": [
+        "iss064j_mission_action_sabotage_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
