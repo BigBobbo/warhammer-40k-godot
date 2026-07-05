@@ -564,3 +564,63 @@ func test_friendly_units_not_eligible():
 		eligible_ids.append(e.unit_id)
 
 	assert_false("U_CHARGER" in eligible_ids, "Charging unit should not be eligible for its own player's HI")
+
+
+# ==========================================
+# 11e END-OF-PHASE WINDOW eligibility (15.11) — mode-aware tightening
+# ==========================================
+#
+# get_heroic_intervention_eligible_units_11e must only offer the window when a
+# unit has a legal target for at least one HI mode:
+#   LEAP TO DEFEND: an enemy that CHARGED this turn, within 12".
+#   INTO THE FRAY:  any enemy within 6".
+# It previously offered on "any enemy within 12"", so a unit whose only nearby
+# enemy sat at 8-12" and did not charge got an un-actionable Heroic Intervention
+# prompt (neither mode had a target). These tests pin the tightened behaviour.
+
+func _setup_11e_two_unit_board(enemy_offset_inches: float, enemy_charged: bool) -> void:
+	# One P2 defender at a fixed point, one P1 enemy `enemy_offset_inches` south of it.
+	GameState.state.units.clear()
+	var defender = _create_unit("U_DEF", 3, 2, ["INFANTRY"])
+	for i in range(defender.models.size()):
+		defender.models[i].position = {"x": 1000 + i * 20, "y": 1000}
+	GameState.state.units["U_DEF"] = defender
+
+	var offset_px = Measurement.inches_to_px(enemy_offset_inches)
+	var enemy = _create_unit("U_ENEMY", 3, 1, ["INFANTRY"])
+	for i in range(enemy.models.size()):
+		enemy.models[i].position = {"x": 1000 + i * 20, "y": 1000 + offset_px}
+	if enemy_charged:
+		enemy.flags["charged_this_turn"] = true
+	GameState.state.units["U_ENEMY"] = enemy
+
+func _11e_eligible_ids() -> Array:
+	var eligible = StratagemManager.get_heroic_intervention_eligible_units_11e(2)
+	var ids = []
+	for e in eligible:
+		ids.append(e.unit_id)
+	return ids
+
+func test_11e_uncharged_enemy_at_9in_not_eligible():
+	"""Tightening: an enemy at ~9" that did NOT charge triggers neither mode."""
+	_setup_11e_two_unit_board(9.0, false)
+	assert_false("U_DEF" in _11e_eligible_ids(),
+		"Unit whose only nearby enemy is 9\" away and un-charged must NOT be offered HI")
+
+func test_11e_charged_enemy_at_9in_eligible_leap():
+	"""LEAP TO DEFEND: an enemy that charged this turn within 12" is a valid target."""
+	_setup_11e_two_unit_board(9.0, true)
+	assert_true("U_DEF" in _11e_eligible_ids(),
+		"Enemy that charged this turn within 12\" should make the unit HI-eligible (Leap)")
+
+func test_11e_uncharged_enemy_at_4in_eligible_fray():
+	"""INTO THE FRAY: any enemy within 6" is a valid target, charged or not."""
+	_setup_11e_two_unit_board(4.0, false)
+	assert_true("U_DEF" in _11e_eligible_ids(),
+		"Enemy within 6\" should make the unit HI-eligible (Into the Fray)")
+
+func test_11e_charged_enemy_beyond_12in_not_eligible():
+	"""Even a charged enemy is out of Leap range beyond 12"."""
+	_setup_11e_two_unit_board(15.0, true)
+	assert_false("U_DEF" in _11e_eligible_ids(),
+		"Charged enemy beyond 12\" is out of Leap range — unit must NOT be offered HI")

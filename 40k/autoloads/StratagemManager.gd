@@ -2308,12 +2308,20 @@ func is_heroic_intervention_available(player: int) -> Dictionary:
 	return {"available": true, "reason": ""}
 
 # 11e 15.11: eligibility for the END-of-charge-phase HI window — one
-# friendly unit that is unengaged and within 12" of one or more enemy
-# units (not a VEHICLE unless CHARACTER or WALKER; not battle-shocked).
+# friendly unit that is unengaged, not battle-shocked, not a VEHICLE (unless
+# CHARACTER or WALKER), AND has a legal target for at least one of the two HI
+# modes. The modes (see ChargePhase._closest_hi_target_11e / the HI dialog):
+#   LEAP TO DEFEND: closest enemy that CHARGED this turn, within 12".
+#   INTO THE FRAY:  closest enemy within 6" (regardless of whether it charged).
+# Offering the window on "any enemy within 12"" over-triggers — an enemy that
+# merely sits at 8-12" and did not charge satisfies NEITHER mode, so the prompt
+# was un-actionable (Leap finds no charged target, Fray finds none within 6")
+# and the player was shown a Heroic Intervention offer they could not use.
 func get_heroic_intervention_eligible_units_11e(player: int) -> Array:
 	var eligible: Array = []
 	var snapshot = GameState.create_snapshot()
-	var range_px = Measurement.inches_to_px(12.0)
+	var leap_range_px = Measurement.inches_to_px(12.0)  # LEAP TO DEFEND: charged enemy within 12"
+	var fray_range_px = Measurement.inches_to_px(6.0)   # INTO THE FRAY:  any enemy within 6"
 	for unit_id in snapshot.get("units", {}):
 		var unit = snapshot.units[unit_id]
 		if int(unit.get("owner", 0)) != player:
@@ -2334,26 +2342,30 @@ func get_heroic_intervention_eligible_units_11e(player: int) -> Array:
 			continue
 		if RulesEngine.is_unit_engaged(unit_id, snapshot):
 			continue
-		# enemy within 12" (edge-to-edge)
-		var enemy_near := false
+		# A legal target for at least one HI mode (edge-to-edge):
+		#   any enemy within 6" (Into the Fray), OR
+		#   an enemy that charged this turn within 12" (Leap to Defend).
+		var has_target := false
 		for other_id in snapshot.get("units", {}):
 			var other = snapshot.units[other_id]
 			if int(other.get("owner", 0)) == player:
 				continue
+			var other_charged: bool = other.get("flags", {}).get("charged_this_turn", false)
 			for m in unit.get("models", []):
 				if not m.get("alive", true) or m.get("position") == null:
 					continue
 				for em in other.get("models", []):
 					if not em.get("alive", true) or em.get("position") == null:
 						continue
-					if Measurement.model_to_model_distance_px(m, em) <= range_px:
-						enemy_near = true
+					var d = Measurement.model_to_model_distance_px(m, em)
+					if d <= fray_range_px or (other_charged and d <= leap_range_px):
+						has_target = true
 						break
-				if enemy_near:
+				if has_target:
 					break
-			if enemy_near:
+			if has_target:
 				break
-		if enemy_near:
+		if has_target:
 			eligible.append({
 				"unit_id": unit_id,
 				"unit_name": unit.get("meta", {}).get("name", unit_id)
