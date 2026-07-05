@@ -520,6 +520,10 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     const seenWeaponNames = new Set();
     const wargearStrings = [];
     const validIds = new Set(dcUnit.weapon_ids ?? []);
+    // Alias targets are faction-authored weapons a renamed datasheet entry
+    // points at (e.g. the Telemon's arachnus guns) — allowed like the Node
+    // generator allows them.
+    for (const wid of Object.values(WEAPON_ALIASES_SRC[unitFactionId] ?? {})) validIds.add(wid);
     for (const [wid, count] of counts) {
       if (!count || count <= 0) continue;
       if (!validIds.has(wid)) {
@@ -745,9 +749,12 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         if (w) nameToId.set(looseName(w.name), wid);
       }
       const aliasMap = {};
+      const aliasTargets = new Set();
       for (const [k2, v2] of Object.entries(WEAPON_ALIASES_SRC[unitFactionId] ?? {})) {
         aliasMap[looseName(k2)] = v2;
+        aliasTargets.add(v2);
       }
+      const acceptableId = (wid) => (dcUnit.weapon_ids ?? []).includes(wid) || aliasTargets.has(wid);
       function weaponIdFor(rawName) {
         const base = weaponBaseName(rawName).replace(/^\d+\s*x\s*/i, '');
         return nameToId.get(looseName(base)) ?? aliasMap[looseName(base)] ?? null;
@@ -763,7 +770,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
         if (!m) continue;
         const rawName = m[2].trim();
         const wid = weaponIdFor(rawName);
-        if (wid && (dcUnit.weapon_ids ?? []).includes(wid)) {
+        if (wid && acceptableId(wid)) {
           counts.set(wid, (counts.get(wid) ?? 0) + parseInt(m[1], 10));
         } else if (compModelNames.has(looseName(rawName)) ||
                    compModelNames.has(looseName(rawName.replace(/s$/i, '')))) {
@@ -775,7 +782,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
       }
       for (const w of meta.weapons ?? []) {
         const wid = weaponIdFor(w.name ?? '');
-        if (wid && (dcUnit.weapon_ids ?? []).includes(wid) && !counts.has(wid)) {
+        if (wid && acceptableId(wid) && !counts.has(wid)) {
           counts.set(wid, 1);
           approximate = true;
         }
