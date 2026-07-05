@@ -2255,6 +2255,33 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "mainmenu.matchup_terrain_selection",
+      "description": "D5: changing a Force-Disposition dropdown rebuilds the terrain dropdown with the matchup's 3 official 11e layouts and auto-selects variant 1 (boot defaults preserved; legacy layouts stay as manual override)",
+      "scenarios": [
+        "terrain_11e_menu_matchup"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "mainmenu.deployment_follows_layout",
+      "description": "D5: selecting an official 11e layout snaps the deployment dropdown to the layout card's paired pattern (incl. the 11e-new tipping_point option); legacy layouts leave it untouched",
+      "scenarios": [
+        "terrain_11e_menu_matchup"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "terrain.layouts_11e.menu_reachable",
+      "description": "A game started from the main menu with an official 11e layout selected actually runs it: current_layout, 44 polygon pieces and the paired deployment_type reach the live game",
+      "scenarios": [
+        "terrain_11e_menu_matchup"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }

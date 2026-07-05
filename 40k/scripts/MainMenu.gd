@@ -70,8 +70,15 @@ var deployment_options = [
 	{"id": "dawn_of_war", "name": "Dawn of War"},
 	{"id": "search_and_destroy", "name": "Search and Destroy"},
 	{"id": "sweeping_engagement", "name": "Sweeping Engagement"},
-	{"id": "crucible_of_battle", "name": "Crucible of Battle"}
+	{"id": "crucible_of_battle", "name": "Crucible of Battle"},
+	{"id": "tipping_point", "name": "Tipping Point"}
 ]
+
+# D5 (docs/40KDC_TERRAIN_MIGRATION_SPEC.md): the base terrain list above is
+# fixed; the dropdown is rebuilt as base + the official 11e layouts for the
+# currently selected Force-Disposition matchup (3 variants per pairing).
+var _base_terrain_options: Array = []
+var _matchup_layouts: Array = []
 
 # Army options - dynamically populated from ArmyListManager
 var army_options = []
@@ -102,6 +109,7 @@ func _ready() -> void:
 		NetworkManager.disconnect_network()
 
 	_apply_theme()
+	_base_terrain_options = terrain_options.duplicate()
 	_setup_dropdowns()
 	_connect_signals()
 	_setup_save_load_dialog()
@@ -110,6 +118,11 @@ func _ready() -> void:
 	terrain_dropdown.selected = _find_option_index(terrain_options, "layout_parse_test")
 	mission_dropdown.selected = 0
 	deployment_dropdown.selected = _find_option_index(deployment_options, "search_and_destroy")
+
+	# D5: list the default matchup's official 11e layouts in the terrain
+	# dropdown. Boot-time refresh preserves the selection above — official
+	# layouts are only auto-selected when a player changes a disposition.
+	_refresh_matchup_terrain_options(false)
 
 	# Set default army selections based on available armies
 	_set_default_army_selections()
@@ -497,6 +510,8 @@ func _create_disposition_ui() -> void:
 		for disp_id in PrimaryMissionData11e.DISPOSITIONS:
 			dropdown.add_item(PrimaryMissionData11e.get_disposition_name(disp_id))
 		dropdown.selected = 0
+		# D5: the disposition pairing selects the official terrain layouts
+		dropdown.item_selected.connect(_on_disposition_changed)
 		row.add_child(dropdown)
 
 		if player == 1:
@@ -505,6 +520,70 @@ func _create_disposition_ui() -> void:
 			p2_disposition_dropdown = dropdown
 
 	print("MainMenu: 11e Force Disposition UI created")
+
+## D5: rebuild the terrain dropdown as base layouts + the official 11e
+## layouts of the currently selected Force-Disposition matchup.
+## select_official=true (player changed a disposition) selects the matchup's
+## variant 1 and snaps the deployment dropdown to its official pattern;
+## select_official=false (boot) preserves the current selection so the
+## first-run defaults and manual overrides stay intact.
+func _refresh_matchup_terrain_options(select_official: bool) -> void:
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null or not tm.has_method("get_layouts_for_matchup"):
+		return
+	var p1_disp = _get_selected_disposition(p1_disposition_dropdown)
+	var p2_disp = _get_selected_disposition(p2_disposition_dropdown)
+	_matchup_layouts = tm.get_layouts_for_matchup(p1_disp, p2_disp)
+
+	var selected_id = ""
+	if terrain_dropdown.selected >= 0 and terrain_dropdown.selected < terrain_options.size():
+		selected_id = terrain_options[terrain_dropdown.selected].id
+
+	terrain_options = _base_terrain_options.duplicate()
+	for meta in _matchup_layouts:
+		terrain_options.append({
+			"id": str(meta.get("id", "")),
+			"name": "11e: %s" % str(meta.get("name", meta.get("id", "")))
+		})
+	terrain_dropdown.clear()
+	for option in terrain_options:
+		terrain_dropdown.add_item(option.name)
+
+	var target_id = selected_id
+	if select_official and _matchup_layouts.size() > 0:
+		target_id = str(_matchup_layouts[0].get("id", selected_id))
+	terrain_dropdown.selected = _find_option_index(terrain_options, target_id)
+	if select_official:
+		_apply_layout_deployment_default()
+	print("MainMenu: matchup %s vs %s -> %d official layouts (terrain: %s)" % [
+		p1_disp, p2_disp, _matchup_layouts.size(), terrain_options[terrain_dropdown.selected].id])
+
+func _on_disposition_changed(_index: int) -> void:
+	_refresh_matchup_terrain_options(true)
+
+func _on_terrain_layout_selected(_index: int) -> void:
+	_apply_layout_deployment_default()
+
+## D5: each official 11e layout card pairs with exactly one deployment
+## pattern — follow it when such a layout is selected. Legacy layouts
+## (several recommendations, player's choice) leave the dropdown alone.
+func _apply_layout_deployment_default() -> void:
+	if terrain_dropdown.selected < 0 or terrain_dropdown.selected >= terrain_options.size():
+		return
+	var layout_id = str(terrain_options[terrain_dropdown.selected].id)
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null:
+		return
+	var meta = tm.get_layout_metadata(layout_id)
+	if str(meta.get("source", "")) != "gw-11e":
+		return
+	var recs: Array = meta.get("recommended_deployments", [])
+	if recs.is_empty():
+		return
+	var idx = _find_option_index(deployment_options, str(recs[0]))
+	if deployment_options[idx].get("id", "") == str(recs[0]) and deployment_dropdown.selected != idx:
+		deployment_dropdown.selected = idx
+		print("MainMenu: deployment defaulted to %s (official pattern for %s)" % [recs[0], layout_id])
 
 func _get_selected_disposition(dropdown: OptionButton) -> String:
 	if dropdown == null or dropdown.selected < 0 or dropdown.selected >= PrimaryMissionData11e.DISPOSITIONS.size():
@@ -817,6 +896,8 @@ func _is_cloud_selection(army_id: String) -> bool:
 	return ArmyListManager and ArmyListManager.is_cloud_army(army_id)
 
 func _connect_signals() -> void:
+	# D5: picking an official 11e layout snaps deployment to its pattern
+	terrain_dropdown.item_selected.connect(_on_terrain_layout_selected)
 	start_button.pressed.connect(_on_start_button_pressed)
 	multiplayer_button.pressed.connect(_on_multiplayer_button_pressed)
 	load_button.pressed.connect(_on_load_button_pressed)

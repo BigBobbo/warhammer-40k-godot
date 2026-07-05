@@ -1,0 +1,83 @@
+{
+  "id": "terrain_11e_menu_matchup",
+  "covers": [
+    "mainmenu.matchup_terrain_selection",
+    "mainmenu.deployment_follows_layout",
+    "terrain.layouts_11e.menu_reachable"
+  ],
+  "edition": 11,
+  "description": "D5 (docs/40KDC_TERRAIN_MIGRATION_SPEC.md): the Force-Disposition pairing selects the official 11e terrain layouts in the main menu. Boots the MainMenu (no fixture) and asserts the first-run defaults are untouched (layout_parse_test + 13 terrain options: 10 base + the default mirror matchup's 3 variants). Changes P2's disposition to Purge the Foe through the real dropdown handler: the terrain dropdown rebuilds and auto-selects take_and_hold_vs_purge_the_foe_1 and the deployment dropdown snaps to its official pattern (sweeping_engagement). Picking variant 2 in the terrain dropdown moves deployment to search_and_destroy. A mirror-pairing check proves the new tipping_point deployment option works (take_and_hold_mirror_1). Then sets P2 to Human, clicks Start with variant 2 selected, and asserts the started game actually runs the official layout: 44 polygon pieces, current_layout take_and_hold_vs_purge_the_foe_2, deployment_type search_and_destroy. Confirms formations for both players (85c pattern) to reach ROLL_OFF and screenshots the board with the official terrain rendered.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script",
+      "script": "main.get_script().resource_path",
+      "equals": "res://scripts/MainMenu.gd" },
+
+    { "act": "execute_script",
+      "script": "main.terrain_options.size()",
+      "equals": 13 },
+    { "act": "execute_script",
+      "script": "main.terrain_options[main.terrain_dropdown.selected].id",
+      "equals": "layout_parse_test" },
+    { "act": "screenshot", "label": "01_menu_boot_defaults" },
+
+    { "act": "execute_script", "script": "main.p2_disposition_dropdown.select(1)" },
+    { "act": "execute_script", "script": "main.p2_disposition_dropdown.item_selected.emit(1)" },
+    { "act": "execute_script",
+      "script": "main.terrain_options[main.terrain_dropdown.selected].id",
+      "equals": "take_and_hold_vs_purge_the_foe_1" },
+    { "act": "execute_script",
+      "script": "main.deployment_options[main.deployment_dropdown.selected].id",
+      "equals": "sweeping_engagement" },
+
+    { "act": "execute_script", "script": "main.terrain_dropdown.select(11)" },
+    { "act": "execute_script", "script": "main.terrain_dropdown.item_selected.emit(11)" },
+    { "act": "execute_script",
+      "script": "main.terrain_options[main.terrain_dropdown.selected].id",
+      "equals": "take_and_hold_vs_purge_the_foe_2" },
+    { "act": "execute_script",
+      "script": "main.deployment_options[main.deployment_dropdown.selected].id",
+      "equals": "search_and_destroy" },
+
+    { "act": "execute_script", "script": "main.p2_disposition_dropdown.select(0)" },
+    { "act": "execute_script", "script": "main.p2_disposition_dropdown.item_selected.emit(0)" },
+    { "act": "execute_script",
+      "script": "main.terrain_options[main.terrain_dropdown.selected].id",
+      "equals": "take_and_hold_mirror_1" },
+    { "act": "execute_script",
+      "script": "main.deployment_options[main.deployment_dropdown.selected].id",
+      "equals": "tipping_point" },
+
+    { "act": "execute_script", "script": "main.p2_disposition_dropdown.select(1)" },
+    { "act": "execute_script", "script": "main.p2_disposition_dropdown.item_selected.emit(1)" },
+    { "act": "execute_script", "script": "main.terrain_dropdown.select(11)" },
+    { "act": "execute_script", "script": "main.terrain_dropdown.item_selected.emit(11)" },
+    { "act": "screenshot", "label": "02_matchup_variant2_selected" },
+
+    { "act": "execute_script", "script": "main.player2_type_dropdown.select(0)" },
+    { "act": "execute_script", "script": "main.player2_type_dropdown.item_selected.emit(0)" },
+    { "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton",
+      "emit_pressed": true },
+    { "act": "expect_node_visible", "node": "/root/Main/BoardRoot/TokenLayer", "timeout_s": 20.0 },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "expect_state", "path": "meta.phase", "equals": 0 },
+    { "act": "expect_state", "path": "meta.deployment_type", "equals": "search_and_destroy" },
+    { "act": "execute_script",
+      "script": "TerrainManager.current_layout",
+      "equals": "take_and_hold_vs_purge_the_foe_2" },
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.size()",
+      "equals": 44 },
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features[0][\"piece_class\"]",
+      "equals": "area" },
+
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_FORMATIONS", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_FORMATIONS", "player": 2 } },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 3 },
+    { "act": "screenshot", "label": "03_official_terrain_on_board" }
+  ]
+}
