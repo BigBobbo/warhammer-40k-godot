@@ -1,0 +1,25 @@
+{
+  "id": "fullauto_fight_stratagems",
+  "covers": [
+    "stratagems.war_horde.unbridled_carnage",
+    "stratagems.war_horde.ard_as_nails",
+    "autoloads.EffectPrimitives.minus_one_wound_defense"
+  ],
+  "fixture": "fullauto_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "War Horde fight-phase package: UNBRIDLED CARNAGE (crit on 5+ melee) and 'ARD AS NAILS (defender-side -1 to wound) both activate via USE_STRATAGEM with the curated 11e effects, set their engine flags, and deduct CP (3 -> 1).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "dispatch_action", "action": { "type": "USE_STRATAGEM", "stratagem_id": "faction_ork_war_horde_unbridled_carnage", "target_unit_id": "U_BOYZ_E" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_BOYZ_E.flags.effect_crit_hit_on", "equals": 5 },
+    { "act": "dispatch_action", "action": { "type": "USE_STRATAGEM", "stratagem_id": "faction_ork_war_horde_’ard_as_nails", "target_unit_id": "U_BOYZ_F" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_BOYZ_F.flags.effect_minus_one_wound_defense", "equals": true },
+    { "act": "expect_cp", "player": 1, "delta_from_start": -2 },
+    { "act": "screenshot", "label": "01_fight_stratagems_active" }
+  ]
+}
