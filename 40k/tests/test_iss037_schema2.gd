@@ -57,7 +57,12 @@ func _run_tests():
 	dir.list_dir_end()
 	_check("all %d army files at schema 2" % files, not_schema2.is_empty(), str(not_schema2))
 	_check("no legacy invulnerable_save spelling", legacy_spelling.is_empty(), str(legacy_spelling))
-	_check("11e-review flags present and enumerable (%d)" % review_flags, review_flags >= 1)
+	# The manual-review pass is complete: the 40kdc 11e regeneration
+	# (docs/40KDC_11E_MIGRATION.md) rebuilt every roster from official data,
+	# so no unit should carry needs_11e_review anymore. The original >= 1
+	# expectation guarded the flags' enumerability while the pass was open;
+	# it now guards the opposite — unreviewed 11e data must not creep back in.
+	_check("no lingering 11e-review flags (%d)" % review_flags, review_flags == 0)
 
 	print("\n-- C: armies still load --")
 	var alm = root.get_node_or_null("ArmyListManager")
