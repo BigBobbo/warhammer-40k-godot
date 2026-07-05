@@ -136,6 +136,9 @@ func _ready() -> void:
 	# 40kdc dataset licensing credit (see data/40kdc/ATTRIBUTION.md)
 	_create_data_attribution_credit()
 
+	# Version badge + "What's New" summary (helps tell which build is running)
+	_create_version_display()
+
 	print("MainMenu: Ready with default selections")
 
 func _apply_theme() -> void:
@@ -207,6 +210,82 @@ func _create_data_attribution_credit() -> void:
 	credit.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(credit)
 	print("MainMenu: 40kdc data attribution credit added")
+
+func _create_version_display() -> void:
+	"""Show the game version + a summary of the most recent changes near the top
+	of the menu. Data comes from res://data/version_history.json via VersionInfo
+	so it can be told at a glance which build is running (e.g. itch.io vs GitHub)."""
+	var menu_container := $ScrollContainer/MenuContainer as VBoxContainer
+	if menu_container == null:
+		return
+
+	var title_idx := _get_child_index(menu_container, "TitleLabel")
+
+	# --- Compact version badge directly under the title ---
+	var badge := Label.new()
+	badge.name = "VersionBadge"
+	badge.text = VersionInfo.get_version_badge()
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.add_theme_font_size_override("font_size", 13)
+	badge.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+	menu_container.add_child(badge)
+	if title_idx >= 0:
+		menu_container.move_child(badge, title_idx + 1)
+
+	# --- "What's New" panel listing the latest release summary + changes ---
+	var changes := VersionInfo.get_latest_changes()
+	var summary := VersionInfo.get_latest_summary()
+	if changes.is_empty() and summary.is_empty():
+		return
+
+	var panel := PanelContainer.new()
+	panel.name = "WhatsNewPanel"
+	WhiteDwarfThemeData.apply_to_panel(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	margin.add_child(vbox)
+
+	var header := Label.new()
+	header.name = "WhatsNewHeader"
+	header.text = "What's New — v%s (%s)" % [VersionInfo.get_version(), VersionInfo.get_version_date()]
+	header.add_theme_font_size_override("font_size", 14)
+	header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+	vbox.add_child(header)
+
+	if not summary.is_empty():
+		var summary_label := Label.new()
+		summary_label.name = "WhatsNewSummary"
+		summary_label.text = summary
+		summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		summary_label.custom_minimum_size = Vector2(560, 0)
+		summary_label.add_theme_font_size_override("font_size", 12)
+		summary_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+		vbox.add_child(summary_label)
+
+	for change in changes:
+		var change_label := Label.new()
+		change_label.text = "•  %s" % str(change)
+		change_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		change_label.custom_minimum_size = Vector2(560, 0)
+		change_label.add_theme_font_size_override("font_size", 12)
+		change_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+		vbox.add_child(change_label)
+
+	menu_container.add_child(panel)
+	# Place the panel just below the version badge, above the first separator.
+	var badge_idx := _get_child_index(menu_container, "VersionBadge")
+	if badge_idx >= 0:
+		menu_container.move_child(panel, badge_idx + 1)
+
+	print("MainMenu: Version display added (%s, %d changes)" % [VersionInfo.get_version(), changes.size()])
 
 func _apply_theme_to_dynamic_elements() -> void:
 	# Style dynamically created dropdowns and buttons

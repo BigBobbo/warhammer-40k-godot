@@ -1,0 +1,14 @@
+{
+	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
+	"releases": [
+		{
+			"version": "0.1.0",
+			"date": "2026-07-05",
+			"summary": "Show the game version and recent changes on the main menu.",
+			"changes": [
+				"Added a version badge (number + date) beneath the main-menu title so it is easy to tell which build is running.",
+				"Added a 'What's New' panel to the main menu summarizing the most recent changes."
+			]
+		}
+	]
+}
