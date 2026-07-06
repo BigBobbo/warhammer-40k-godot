@@ -1242,6 +1242,50 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "ORKS only. Bearer has Feel No Pain 4+ (sets effect_fnp=4)"
 	},
 
+	# Lions of the Emperor: Praesidius — "The bearer has the Lone Operative
+	# and Stealth abilities." Bearer-scoped: flags go on the character's own
+	# unit entry (Stealth/Lone Op only matter while the bearer is standalone).
+	"Praesidius": {
+		"condition": "enhancement",
+		"effects": [
+			{"type": EffectPrimitivesData.GRANT_LONE_OPERATIVE},
+			{"type": EffectPrimitivesData.GRANT_STEALTH}
+		],
+		"target": "bearer_model",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Adeptus Custodes model only. The bearer has the Lone Operative and Stealth abilities (effect_lone_operative + effect_stealth on the bearer's unit)"
+	},
+
+	# Lions of the Emperor: Superior Creation — "The first time the bearer is
+	# destroyed, roll one D6 at the end of the phase. On a 2+, set the bearer
+	# back up ... with its full wounds remaining." Resolved by
+	# _process_superior_creation_resurrections at phase end (once per battle,
+	# roll consumed even on a 1). Placement approximates 'as close as possible'
+	# by reusing the death position.
+	"Superior Creation": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_model",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Adeptus Custodes Infantry model only. First time the bearer is destroyed, roll a D6 at end of phase: on 2+ it returns with full wounds — resolved by UnitAbilityManager at phase end"
+	},
+
+	# Lions of the Emperor: Fierce Conqueror — "At the start of the Fight
+	# phase ... add 2 to the Attacks characteristic of melee weapons equipped
+	# by the bearer for every 5 enemy models within 6\" of the bearer
+	# (rounding down)." Computed live in the RulesEngine melee path
+	# (get_fierce_conqueror_attack_bonus) since the count changes each fight.
+	"Fierce Conqueror": {
+		"condition": "enhancement",
+		"effects": [],
+		"target": "bearer_model",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "Shield-Captain model only. +2 Attacks on the bearer's melee weapons per 5 enemy models within 6\" of the bearer — computed in RulesEngine melee resolution"
+	},
+
 	# ======================================================================
 	# FREEBOOTER KREW ENHANCEMENT ABILITIES (OA-2)
 	# These are checked via unit.meta.enhancements[] rather than abilities[].
@@ -1710,12 +1754,57 @@ var _mekaniak_used_this_turn: Dictionary = {}
 # Key: unit_id, Value: true
 var _scatter_used_this_turn: Dictionary = {}
 
+# Generated ability definitions compiled from the 40kdc effect DSL by
+# scripts/40kdc/generate-ability-effects.mjs. Hand-written ABILITY_EFFECTS
+# entries always take precedence (get_effect_def checks the const first).
+var _generated_effects: Dictionary = {}
+
+const GENERATED_EFFECTS_PATH = "res://data/generated_ability_effects.json"
+
 func _ready() -> void:
+	_load_generated_effects()
 	var implemented_count = 0
-	for ability_name in ABILITY_EFFECTS:
-		if ABILITY_EFFECTS[ability_name].get("implemented", false):
+	var merged = get_all_effect_defs()
+	for ability_name in merged:
+		if merged[ability_name].get("implemented", false):
 			implemented_count += 1
-	print("UnitAbilityManager: Ready — %d ability definitions (%d implemented)" % [ABILITY_EFFECTS.size(), implemented_count])
+	print("UnitAbilityManager: Ready — %d ability definitions (%d hand-written, %d generated, %d implemented)" % [
+		merged.size(), ABILITY_EFFECTS.size(), _generated_effects.size(), implemented_count])
+
+func _load_generated_effects() -> void:
+	if not FileAccess.file_exists(GENERATED_EFFECTS_PATH):
+		print("UnitAbilityManager: no generated ability effects file (%s)" % GENERATED_EFFECTS_PATH)
+		return
+	var text = FileAccess.get_file_as_string(GENERATED_EFFECTS_PATH)
+	var parsed = JSON.parse_string(text)
+	if parsed is Dictionary:
+		_generated_effects = parsed
+	else:
+		push_error("UnitAbilityManager: failed to parse %s" % GENERATED_EFFECTS_PATH)
+
+func get_effect_def(ability_name: String, default: Dictionary = {}) -> Dictionary:
+	"""Resolve an ability/enhancement name to its effect definition.
+	Hand-written ABILITY_EFFECTS entries win; generated (40kdc-compiled)
+	entries fill the gaps. Tolerant of straight-vs-typographic apostrophes —
+	army data and the 40kdc dataset use both forms (a recurring mismatch)."""
+	if ABILITY_EFFECTS.has(ability_name):
+		return ABILITY_EFFECTS[ability_name]
+	if _generated_effects.has(ability_name):
+		return _generated_effects[ability_name]
+	var alt = ability_name.replace("'", "’") if ability_name.find("'") != -1 else ability_name.replace("’", "'")
+	if alt != ability_name:
+		if ABILITY_EFFECTS.has(alt):
+			return ABILITY_EFFECTS[alt]
+		if _generated_effects.has(alt):
+			return _generated_effects[alt]
+	return default
+
+func get_all_effect_defs() -> Dictionary:
+	"""Merged view (generated overlaid by hand-written) for UI/AI iteration."""
+	var merged = _generated_effects.duplicate()
+	for k in ABILITY_EFFECTS:
+		merged[k] = ABILITY_EFFECTS[k]
+	return merged
 
 # ============================================================================
 # PHASE LIFECYCLE
@@ -1735,6 +1824,60 @@ func on_phase_end(phase: int) -> void:
 		_clear_all_ability_effects()
 		var phase_name = _phase_to_string(phase)
 		print("UnitAbilityManager: Cleared ability effects at end of %s phase" % phase_name)
+
+	# SUPERIOR CREATION (Lions of the Emperor): destroyed bearers roll to
+	# return at the end of ANY phase, so this runs unconditionally.
+	_process_superior_creation_resurrections()
+
+func _process_superior_creation_resurrections() -> void:
+	"""SUPERIOR CREATION: the first time the bearer is destroyed, roll one D6
+	at the end of the phase — on a 2+ the bearer is set back up with full
+	wounds. Once per battle; the roll is consumed even on a 1. Placement
+	approximates 'as close as possible to where it was destroyed' by reusing
+	the death position (exact ER-avoiding placement is not modeled)."""
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		var has_sc = false
+		for e in unit.get("meta", {}).get("enhancements", []):
+			if str(e).replace("’", "'") == "Superior Creation":
+				has_sc = true
+				break
+		if not has_sc:
+			continue
+		if _has_alive_models(unit):
+			continue
+		var usage_key = unit_id + ":Superior Creation"
+		if _once_per_battle_used.get(usage_key, false):
+			continue
+		_once_per_battle_used[usage_key] = true
+		var rng = RulesEngine.make_rng()
+		var roll = rng.roll_d6(1)[0]
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		if roll < 2:
+			print("UnitAbilityManager: SUPERIOR CREATION — %s rolled %d, bearer stays destroyed" % [unit_name, roll])
+			var gel_fail = get_node_or_null("/root/GameEventLog")
+			if gel_fail:
+				gel_fail.add_player_entry(int(unit.get("owner", 0)),
+					"Superior Creation: %s rolled a %d — no return" % [unit_name, roll])
+			continue
+		var diffs: Array = []
+		var models = unit.get("models", [])
+		for i in range(models.size()):
+			var m = models[i]
+			if m.get("position", null) == null:
+				continue
+			diffs.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, i], "value": true})
+			diffs.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, i], "value": m.get("wounds", 1)})
+		if diffs.is_empty():
+			print("UnitAbilityManager: SUPERIOR CREATION — %s rolled %d but no death position recorded; cannot return" % [unit_name, roll])
+			continue
+		PhaseManager.apply_state_changes(diffs)
+		print("UnitAbilityManager: SUPERIOR CREATION — %s rolled %d, bearer returns with full wounds" % [unit_name, roll])
+		var gel = get_node_or_null("/root/GameEventLog")
+		if gel:
+			gel.add_player_entry(int(unit.get("owner", 0)),
+				"Superior Creation: %s returns to the battlefield with full wounds (rolled %d)" % [unit_name, roll])
 
 func on_movement_phase_start() -> void:
 	"""Called at movement phase start. Applies eligibility abilities (fall_back_and_charge, etc.)."""
@@ -1773,6 +1916,9 @@ func _apply_all_ability_effects(phase: int) -> void:
 	# 3. Check for enhancement abilities (OA-2: Git-spotter Squig, Bionik Workshop)
 	_apply_enhancement_abilities(phase)
 
+	# 3.5 Detachment passive rules (faction-wide sweep — data-driven)
+	_apply_detachment_passive_effects(phase)
+
 	# 4. Check for aura abilities (after all units have been scanned,
 	#    since auras affect OTHER units within range)
 	_apply_aura_abilities(phase)
@@ -1809,7 +1955,7 @@ func _apply_leader_abilities(bodyguard_unit_id: String, bodyguard_unit: Dictiona
 				continue
 
 			# Look up in our effects table
-			var effect_def = ABILITY_EFFECTS.get(ability_name, {})
+			var effect_def = get_effect_def(ability_name, {})
 			if effect_def.is_empty():
 				continue
 			if not effect_def.get("implemented", false):
@@ -1897,7 +2043,7 @@ func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> voi
 			continue
 
 		# Look up in our effects table
-		var effect_def = ABILITY_EFFECTS.get(ability_name, {})
+		var effect_def = get_effect_def(ability_name, {})
 		if effect_def.is_empty():
 			continue
 		if not effect_def.get("implemented", false):
@@ -1910,6 +2056,17 @@ func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> voi
 			var arrival_turn = unit.get("arrived_from_reserves_turn", -1)
 			var current_round = GameState.get_battle_round()
 			if arrival_turn != current_round:
+				continue
+		elif condition == "unit_flag":
+			# Generated entries (40kdc DSL): apply only while a unit flag is
+			# truthy (charged_this_turn, advanced, disembarked_this_phase, ...).
+			var flag_name = str(effect_def.get("condition_flag", ""))
+			if flag_name == "" or not unit.get("flags", {}).get(flag_name, false):
+				continue
+		elif condition == "while_led":
+			# Generated entries: apply while the unit has an attached CHARACTER
+			# (Resolute Will-style bodyguard buffs).
+			if (unit.get("attachment_data", {}).get("attached_characters", []) as Array).is_empty():
 				continue
 		elif condition != "always":
 			continue
@@ -1997,7 +2154,7 @@ func _apply_enhancement_abilities(phase: int) -> void:
 			if enhancement_name == "":
 				continue
 
-			var effect_def = ABILITY_EFFECTS.get(enhancement_name, {})
+			var effect_def = get_effect_def(enhancement_name, {})
 			if effect_def.is_empty():
 				continue
 			if not effect_def.get("implemented", false):
@@ -2012,6 +2169,21 @@ func _apply_enhancement_abilities(phase: int) -> void:
 			if effect_def.get("target", "") == "bearer_unit":
 				# Find the bodyguard unit the bearer is attached to
 				target_unit_id = _get_combined_unit_for_enhancement(unit_id)
+
+			# Generated enhancement entries may carry a runtime sub-condition
+			# (unit_flag / while_led) checked against the TARGET unit.
+			var sub_condition = str(effect_def.get("sub_condition", ""))
+			if sub_condition != "":
+				var tgt = units.get(target_unit_id, {})
+				if sub_condition == "unit_flag":
+					var flag_name = str(effect_def.get("condition_flag", ""))
+					if flag_name == "" or not tgt.get("flags", {}).get(flag_name, false):
+						continue
+				elif sub_condition == "while_led":
+					if (tgt.get("attachment_data", {}).get("attached_characters", []) as Array).is_empty():
+						continue
+				else:
+					continue
 
 			# Don't double-apply
 			if _applied_this_phase.has(target_unit_id) and enhancement_name in _applied_this_phase[target_unit_id]:
@@ -2151,6 +2323,20 @@ func _apply_aura_abilities(phase: int) -> void:
 			# Apply to nearby units
 			for target_info in nearby_units:
 				var target_unit_id = target_info.unit_id
+
+				# Generated auras may filter recipients by keyword (aura_keyword,
+				# e.g. Shoutin' Pole only buffs ORKS units)
+				var aura_keyword = str(effect_def.get("aura_keyword", ""))
+				if aura_keyword != "":
+					var kws = units.get(target_unit_id, {}).get("meta", {}).get("keywords", [])
+					var has_kw = false
+					for kw in kws:
+						if str(kw).to_upper() == aura_keyword.to_upper():
+							has_kw = true
+							break
+					if not has_kw:
+						continue
+
 				var aura_key = target_unit_id + ":" + ability_name
 
 				# Check stacking — same aura from multiple sources doesn't stack
@@ -2178,7 +2364,7 @@ func _collect_aura_sources(unit_id: String, unit: Dictionary, all_units: Diction
 		if ability_name == "" or ability_name == "Core":
 			continue
 
-		var effect_def = ABILITY_EFFECTS.get(ability_name, {})
+		var effect_def = get_effect_def(ability_name, {})
 		if effect_def.is_empty():
 			continue
 		if not effect_def.get("implemented", false):
@@ -2208,7 +2394,7 @@ func _collect_aura_sources(unit_id: String, unit: Dictionary, all_units: Diction
 			if ability_name == "" or ability_name == "Core":
 				continue
 
-			var effect_def = ABILITY_EFFECTS.get(ability_name, {})
+			var effect_def = get_effect_def(ability_name, {})
 			if effect_def.is_empty():
 				continue
 			if not effect_def.get("implemented", false):
@@ -2430,7 +2616,23 @@ func get_battle_shock_bonus(unit_id: String) -> int:
 	"""Check if a unit benefits from the Waaagh! Effigy (Aura) ability on a nearby Stompa.
 	Returns +1 if the unit has the ORKS keyword and is within 12\" edge-to-edge of a
 	friendly unit with the 'Waaagh! Effigy (Aura)' ability. Returns 0 otherwise.
-	Per 10th Edition: same aura from multiple sources does not stack — returns 1 at most."""
+	Per 10th Edition: same aura from multiple sources does not stack — returns 1 at most.
+	Also adds any effect-granted Leadership improvement (effect_improve_leadership,
+	e.g. Shoutin' Pole aura) — those DO stack with the Effigy."""
+	var units = GameState.state.get("units", {})
+	var target_unit = units.get(unit_id, {})
+	if target_unit.is_empty():
+		return 0
+
+	var flag_bonus = int(target_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_IMPROVE_LEADERSHIP, 0))
+	if flag_bonus > 0:
+		print("UnitAbilityManager: %s has effect-granted +%d to Battle-shock tests" % [unit_id, flag_bonus])
+		return flag_bonus + _waaagh_effigy_bonus(unit_id)
+	return _waaagh_effigy_bonus(unit_id)
+
+func _waaagh_effigy_bonus(unit_id: String) -> int:
+	"""The original Waaagh! Effigy (Aura) check — split out so effect-granted
+	Leadership bonuses can stack on top."""
 	var units = GameState.state.get("units", {})
 	var target_unit = units.get(unit_id, {})
 	if target_unit.is_empty():
@@ -2754,7 +2956,7 @@ func _apply_eligibility_effects() -> void:
 				if ability_name == "":
 					continue
 
-				var effect_def = ABILITY_EFFECTS.get(ability_name, {})
+				var effect_def = get_effect_def(ability_name, {})
 				if effect_def.is_empty() or not effect_def.get("implemented", false):
 					continue
 				if effect_def.get("condition", "") != "while_leading":
@@ -2811,7 +3013,7 @@ func _apply_eligibility_effects() -> void:
 			if ability_name == "":
 				continue
 
-			var effect_def = ABILITY_EFFECTS.get(ability_name, {})
+			var effect_def = get_effect_def(ability_name, {})
 			if effect_def.is_empty() or not effect_def.get("implemented", false):
 				continue
 			if effect_def.get("condition", "") != "always":
@@ -2856,6 +3058,144 @@ func _apply_eligibility_effects() -> void:
 				var unit_name = unit.get("meta", {}).get("name", unit_id)
 				var target_note = "" if target_unit_id == unit_id else " (applied to bodyguard %s)" % target_unit_id
 				print("UnitAbilityManager: %s has own eligibility ability '%s'%s" % [unit_name, ability_name, target_note])
+
+	# Detachment passive rules also matter during movement (Kult of Speed
+	# advance/fall-back eligibility, reroll_advance, plus_move, ...)
+	const GameStateData = preload("res://autoloads/GameState.gd")
+	_apply_detachment_passive_effects(GameStateData.Phase.MOVEMENT)
+
+# ============================================================================
+# DETACHMENT PASSIVE RULES (faction-wide sweep — data-driven)
+# ============================================================================
+# Applies DETACHMENT_ABILITIES entries with trigger "passive_effects"
+# (per-unit EffectPrimitives grants, optional keyword grants) and
+# "proximity_pair" (Talons of the Emperor). Effects are registered in
+# _active_ability_effects so they clear at phase end like unit abilities.
+
+func _apply_detachment_passive_effects(phase: int) -> void:
+	var units = GameState.state.get("units", {})
+	for player in [1, 2]:
+		var det_def = FactionAbilityManager.get_detachment_def(player)
+		if det_def.is_empty():
+			continue
+		var trigger = str(det_def.get("trigger", ""))
+		if trigger != "passive_effects" and trigger != "proximity_pair":
+			continue
+		if str(det_def.get("special_condition", "")) == "auric_armour":
+			# Solar Spearhead OC bonus is computed live by MissionManager
+			continue
+
+		var ability_name = str(det_def.get("ability_name", "Detachment Rule"))
+		var det_effects: Array = det_def.get("unit_effects", [])
+		var keyword_grants: Dictionary = det_def.get("keyword_grants", {})
+		var faction_kw = str(det_def.get("faction_keyword", ""))
+
+		for unit_id in units:
+			var unit = units[unit_id]
+			if int(unit.get("owner", 0)) != player:
+				continue
+			if not _has_alive_models(unit):
+				continue
+			var embk = unit.get("embarked_in", "")
+			if embk != null and embk != "":
+				continue
+			# proximity_pair defines its own eligibility via pair_keywords —
+			# Talons of the Emperor buffs ANATHEMA PSYKANA units, which do NOT
+			# carry the ADEPTUS CUSTODES faction keyword
+			if faction_kw != "" and trigger != "proximity_pair" and not _det_unit_has_keyword(unit, faction_kw):
+				continue
+
+			# Keyword grants (e.g. Taktikal Brigade: Stormboyz gain BATTLELINE)
+			# — idempotent and persistent (detachments don't change mid-battle)
+			for grant_kw in keyword_grants:
+				var unit_name_l = str(unit.get("meta", {}).get("name", ""))
+				for name_match in keyword_grants[grant_kw]:
+					if unit_name_l.findn(str(name_match)) == -1:
+						continue
+					if _det_unit_has_keyword(unit, grant_kw):
+						continue
+					if not unit.has("meta"):
+						unit["meta"] = {}
+					if not unit["meta"].has("keywords"):
+						unit["meta"]["keywords"] = []
+					unit["meta"]["keywords"].append(grant_kw)
+					print("UnitAbilityManager: %s — '%s' grants keyword %s to %s" % [
+						str(det_def.get("ability_name", "")), name_match, grant_kw, unit_id])
+
+			if det_effects.is_empty():
+				continue
+			if _applied_this_phase.has(unit_id) and ability_name in _applied_this_phase[unit_id]:
+				continue
+
+			if trigger == "proximity_pair":
+				if not _det_proximity_pair_ok(unit, unit_id, det_def, player, units):
+					continue
+			else:
+				if not FactionAbilityManager.detachment_passive_qualifies(unit, det_def):
+					continue
+
+			var diffs = EffectPrimitivesData.apply_effects(det_effects, unit_id)
+			if not diffs.is_empty():
+				PhaseManager.apply_state_changes(diffs)
+
+				for eff in det_effects:
+					if eff.get("type", "") == "grant_invuln":
+						PhaseManager.apply_state_changes([{
+							"op": "set",
+							"path": "units.%s.flags.effect_invuln_source" % unit_id,
+							"value": ability_name
+						}])
+						break
+
+				_active_ability_effects.append({
+					"ability_name": ability_name,
+					"source_unit_id": unit_id,
+					"target_unit_id": unit_id,
+					"effects": det_effects,
+					"attack_type": "all",
+					"condition": "detachment"
+				})
+				if not _applied_this_phase.has(unit_id):
+					_applied_this_phase[unit_id] = []
+				_applied_this_phase[unit_id].append(ability_name)
+
+				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				var flag_names = EffectPrimitivesData.get_flag_names_for_effects(det_effects)
+				print("UnitAbilityManager: detachment rule '%s' active on %s (%s) — flags: %s" % [
+					ability_name, unit_name, unit_id, str(flag_names)])
+
+func _det_unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
+	for kw in unit.get("meta", {}).get("keywords", []):
+		if str(kw).to_upper() == keyword.to_upper():
+			return true
+	return false
+
+func _det_proximity_pair_ok(unit: Dictionary, unit_id: String, det_def: Dictionary, player: int, units: Dictionary) -> bool:
+	"""Talons of the Emperor: unit with pair keyword A within range of a
+	friendly unit with pair keyword B (or vice versa)."""
+	var pair: Array = det_def.get("pair_keywords", [])
+	if pair.size() != 2:
+		return false
+	var pair_range = float(det_def.get("pair_range", 6.0))
+	for i in range(2):
+		var own_kw = str(pair[i])
+		var other_kw = str(pair[1 - i])
+		if not _det_unit_has_keyword(unit, own_kw):
+			continue
+		for other_id in units:
+			if other_id == unit_id:
+				continue
+			var other = units[other_id]
+			if int(other.get("owner", 0)) != player or not _has_alive_models(other):
+				continue
+			var oe = other.get("embarked_in", "")
+			if oe != null and oe != "":
+				continue
+			if not _det_unit_has_keyword(other, other_kw):
+				continue
+			if _closest_model_distance(unit, other) <= pair_range:
+				return true
+	return false
 
 # ============================================================================
 # CLEAR ABILITY EFFECTS
@@ -2908,12 +3248,25 @@ func unit_has_active_ability(unit_id: String, ability_name: String) -> bool:
 
 func get_ability_effect_definition(ability_name: String) -> Dictionary:
 	"""Get the effect definition for an ability name. Returns empty dict if not found."""
-	return ABILITY_EFFECTS.get(ability_name, {})
+	return get_effect_def(ability_name, {})
 
 func is_ability_implemented(ability_name: String) -> bool:
 	"""Check if an ability has a mechanical implementation."""
-	var def_data = ABILITY_EFFECTS.get(ability_name, {})
+	var def_data = get_effect_def(ability_name, {})
 	return def_data.get("implemented", false)
+
+func reset_once_per_battle(unit_id: String) -> int:
+	"""Clear all once-per-battle usage records for a unit (GILDED CHAMPION /
+	SUPERHUMAN RESERVES let a model reuse a 'once per battle' ability).
+	Returns how many records were cleared."""
+	var cleared: Array = []
+	for usage_key in _once_per_battle_used:
+		if str(usage_key).begins_with(unit_id + ":"):
+			cleared.append(usage_key)
+	for k in cleared:
+		_once_per_battle_used.erase(k)
+	print("UnitAbilityManager: reset %d once-per-battle record(s) for %s" % [cleared.size(), unit_id])
+	return cleared.size()
 
 func mark_once_per_battle_used(unit_id: String, ability_name: String) -> void:
 	"""Mark a once-per-battle ability as used for a specific unit."""
@@ -3963,10 +4316,11 @@ func clear_scatter_turn_tracking() -> void:
 	_scatter_used_this_turn.clear()
 
 func get_implemented_abilities() -> Array:
-	"""Get all ability names that are mechanically implemented."""
+	"""Get all ability names that are mechanically implemented (hand-written + generated)."""
 	var result = []
-	for ability_name in ABILITY_EFFECTS:
-		if ABILITY_EFFECTS[ability_name].get("implemented", false):
+	var merged = get_all_effect_defs()
+	for ability_name in merged:
+		if merged[ability_name].get("implemented", false):
 			result.append(ability_name)
 	return result
 
@@ -3988,7 +4342,7 @@ func get_unit_ability_summary(unit_id: String) -> Array:
 		if ability is Dictionary:
 			ability_type = ability.get("type", "")
 
-		var effect_def = ABILITY_EFFECTS.get(ability_name, {})
+		var effect_def = get_effect_def(ability_name, {})
 		summary.append({
 			"name": ability_name,
 			"type": ability_type,
@@ -4051,9 +4405,11 @@ static func unit_has_leader_ability(bodyguard_unit: Dictionary, ability_name: St
 
 	return false
 
-static func get_ability_attack_type(ability_name: String) -> String:
-	"""Get the attack_type restriction for an ability (melee/ranged/all)."""
-	var def_data = ABILITY_EFFECTS.get(ability_name, {})
+func get_ability_attack_type(ability_name: String) -> String:
+	"""Get the attack_type restriction for an ability (melee/ranged/all).
+	Non-static: resolves through get_effect_def so generated (40kdc-compiled)
+	entries are covered too."""
+	var def_data = get_effect_def(ability_name, {})
 	return def_data.get("attack_type", "all")
 
 # ============================================================================

@@ -100,6 +100,148 @@ const DETACHMENT_ABILITIES = {
 		"trigger": "passive",
 		"effect": "plus_one_hit_wound_when_isolated",
 		"description": "Each time a model in a non-VEHICLE unit makes an attack, if no other friendly units within 6\", add 1 to the Hit roll and add 1 to the Wound roll."
+	},
+
+	# ── Faction-wide sweep: remaining Ork detachments (40kdc 11e rules) ──
+	# trigger "passive_effects": data-driven — UnitAbilityManager applies
+	# unit_effects (EffectPrimitives dicts) each combat phase to qualifying
+	# units. unit_filter is an array of alternatives; each alternative is a
+	# "+"-joined list of keywords that must ALL be present. condition_flag
+	# additionally requires a truthy unit flag.
+	"Kult of Speed": {
+		"faction_keyword": "ORKS",
+		"ability_name": "Adrenaline Junkies",
+		"trigger": "passive_effects",
+		"unit_filter": ["SPEED FREEKS"],
+		"unit_effects": [{"type": "advance_and_shoot"}, {"type": "advance_and_charge"},
+			{"type": "fall_back_and_shoot"}, {"type": "fall_back_and_charge"}],
+		"description": "SPEED FREEKS units are eligible to shoot and declare a charge in a turn in which they Advanced or Fell Back."
+	},
+	"Green Tide": {
+		"faction_keyword": "ORKS",
+		"ability_name": "Mob Mentality",
+		"trigger": "passive_effects",
+		"unit_filter": ["BOYZ"],
+		"unit_effects": [{"type": "grant_invuln", "value": 5}],
+		"description": "BOYZ units have a 5+ invulnerable save."
+	},
+	"Blitz Brigade": {
+		"faction_keyword": "ORKS",
+		"ability_name": "Eager for the Fight",
+		"trigger": "passive_effects",
+		"unit_filter": [],
+		"condition_flag": "disembarked_this_phase",
+		"unit_effects": [{"type": "reroll_advance"}, {"type": "reroll_charge"}],
+		"description": "Units that disembarked this turn can re-roll Advance and Charge rolls."
+	},
+	"Rollin’ Deff": {
+		"faction_keyword": "ORKS",
+		"ability_name": "Thundering Wagons",
+		"trigger": "passive_effects",
+		"unit_filter": ["BATTLEWAGON", "HUNTA RIG", "KILL RIG"],
+		"unit_effects": [{"type": "reroll_charge"}],
+		"description": "WAGON units (Battlewagons, Hunta Rigs, Kill Rigs) can re-roll Charge rolls. (The Advance-override half of the rule is not modeled.)"
+	},
+	"More Dakka!": {
+		"faction_keyword": "ORKS",
+		"ability_name": "Dakka! Dakka! Dakka!",
+		"trigger": "passive_effects",
+		"unit_filter": ["ORKS+INFANTRY"],
+		"unit_effects": [{"type": "grant_assault"}],
+		"description": "Ranged weapons equipped by ORKS INFANTRY models have the [ASSAULT] ability."
+	},
+	"Taktikal Brigade": {
+		"faction_keyword": "ORKS",
+		"ability_name": "Lissen ’Ere",
+		"trigger": "passive_effects",
+		"unit_filter": ["BOYZ", "KOMMANDOS", "STORMBOYZ"],
+		"unit_effects": [],
+		"keyword_grants": {"BATTLELINE": ["Stormboyz"]},
+		"description": "Stormboyz gain BATTLELINE. BOYZ, KOMMANDOS and STORMBOYZ can start Actions after Advancing or Falling Back (Actions are not advance-gated in this engine, so that half is always available)."
+	},
+	"Da Big Hunt": {
+		"faction_keyword": "ORKS",
+		"ability_name": "Da Hunt Is On",
+		"trigger": "command_phase_start",
+		"designate": "prey",
+		"description": "At the start of your Command phase, select one enemy unit as your Prey. BEAST SNAGGA units can re-roll Charge rolls, and improve the AP of their attacks against your Prey by 1."
+	},
+	"Bully Boyz": {
+		"faction_keyword": "ORKS",
+		"ability_name": "Da Boss Is Watchin’",
+		"trigger": "activated_unit_waaagh",
+		"once_per_battle": true,
+		"unit_filter": ["WARBOSS", "NOBZ", "MEGANOBZ"],
+		"description": "Once per battle, at the start of your Command phase, select one WARBOSS, NOBZ or MEGANOBZ unit: the Waaagh! is active for that unit for the rest of the battle."
+	},
+	"Dread Mob": {
+		"faction_keyword": "ORKS",
+		"ability_name": "Try Dat Button!",
+		"trigger": "unimplemented",
+		"description": "MEK, ORKS WALKER and GROTS VEHICLE units choose a button effect each turn — the per-unit choice mechanic is not modeled yet (display-only)."
+	},
+	"Speedwaaagh!": {
+		"faction_keyword": "ORKS",
+		"ability_name": "Turbo Boostas",
+		"trigger": "unimplemented",
+		"description": "Advance override (no roll, Move 24\", straight line, ranged [ASSAULT]) — the movement-override subsystem is not modeled yet (display-only)."
+	},
+
+	# ── Faction-wide sweep: remaining Custodes detachments ──
+	"Auric Champions": {
+		"faction_keyword": "ADEPTUS CUSTODES",
+		"ability_name": "Assemblage of Might",
+		"trigger": "command_phase_start",
+		"designate": "assemblage",
+		"description": "At the start of your Command phase, select one enemy unit. ADEPTUS CUSTODES CHARACTER units add 1 to Wound rolls against it."
+	},
+	"Might of the Moritoi": {
+		"faction_keyword": "ADEPTUS CUSTODES",
+		"ability_name": "March of the Honoured Dead",
+		"trigger": "passive_effects",
+		"unit_filter": [],
+		"unit_effects": [{"type": "plus_move", "value": 2}, {"type": "plus_charge", "value": 1}],
+		"description": "Add 2\" to the Move characteristic of models from your army and 1 to Charge rolls made for them."
+	},
+	"Silent Hunters": {
+		"faction_keyword": "ADEPTUS CUSTODES",
+		"ability_name": "Skin-Crawling Disorientation",
+		"trigger": "passive_effects",
+		"unit_filter": [],
+		"unit_effects": [],
+		"description": "Units can start Actions after Advancing (Actions are not advance-gated in this engine, so this is always available)."
+	},
+	"Tharanatoi Hammerblow": {
+		"faction_keyword": "ADEPTUS CUSTODES",
+		"ability_name": "The Hammer Falls",
+		"trigger": "passive_effects",
+		"unit_filter": [],
+		"condition_flag": "arrived_from_reserves",
+		"unit_effects": [{"type": "reroll_charge"}],
+		"description": "Units that arrived from Reserves this turn can re-roll Charge rolls."
+	},
+	"Solar Spearhead": {
+		"faction_keyword": "ADEPTUS CUSTODES",
+		"ability_name": "Auric Armour",
+		"trigger": "passive_effects",
+		"unit_filter": [],
+		"special_condition": "auric_armour",
+		"unit_effects": [{"type": "plus_oc", "value": 2}],
+		"description": "Non-AIRCRAFT units at Starting Strength that are not Battle-shocked add 2 to their models' Objective Control."
+	},
+	"Null Maiden Vigil": {
+		"faction_keyword": "ADEPTUS CUSTODES",
+		"ability_name": "Creeping Dread (Aura)",
+		"trigger": "opponent_command_battle_shock",
+		"description": "In your opponent's Command phase, enemy PSYKER units and enemy units Below Starting Strength within 6\" of your ANATHEMA PSYKANA units must take a Battle-shock test."
+	},
+	"Talons of the Emperor": {
+		"faction_keyword": "ADEPTUS CUSTODES",
+		"ability_name": "Revered Companions",
+		"trigger": "proximity_pair",
+		"pair_keywords": ["ADEPTUS CUSTODES", "ANATHEMA PSYKANA"],
+		"unit_effects": [{"type": "grant_fnp", "value": 5}, {"type": "plus_one_hit"}],
+		"description": "While an ADEPTUS CUSTODES unit is within 6\" of a friendly ANATHEMA PSYKANA unit (or vice versa), it has Feel No Pain 5+ and adds 1 to its Hit rolls."
 	}
 }
 
@@ -242,6 +384,238 @@ var _razgit_resolved: bool = false
 
 func _ready():
 	print("FactionAbilityManager: Ready")
+
+# ============================================================================
+# FACTION-WIDE SWEEP — designated targets (Prey / Assemblage of Might),
+# per-unit Waaagh (Da Boss Is Watchin'), Creeping Dread battle-shock aura
+# ============================================================================
+
+# player(str) -> { "prey": unit_id, "assemblage": unit_id }
+var _detachment_targets: Dictionary = {}
+# player(str) -> true once Da Boss Is Watchin' has been used
+var _da_boss_watchin_used: Dictionary = {}
+
+func get_detachment_target(player: int, kind: String) -> String:
+	return _detachment_targets.get(str(player), {}).get(kind, "")
+
+func set_detachment_target(player: int, kind: String, enemy_unit_id: String) -> Dictionary:
+	"""Designate an enemy unit for a detachment rule ('prey' for Da Big Hunt,
+	'assemblage' for Assemblage of Might). Sets a flag on the enemy unit that
+	RulesEngine reads at resolution time; clears the previous designation."""
+	var units = GameState.state.get("units", {})
+	if not units.has(enemy_unit_id):
+		return {"success": false, "error": "Unknown unit %s" % enemy_unit_id}
+	var flag_name = "prey_target" if kind == "prey" else "assemblage_target"
+	var old_id = get_detachment_target(player, kind)
+	if old_id != "" and units.has(old_id):
+		units[old_id].get("flags", {}).erase(flag_name)
+		units[old_id].get("flags", {}).erase(flag_name + "_owner")
+	if not units[enemy_unit_id].has("flags"):
+		units[enemy_unit_id]["flags"] = {}
+	units[enemy_unit_id]["flags"][flag_name] = true
+	units[enemy_unit_id]["flags"][flag_name + "_owner"] = player
+	if not _detachment_targets.has(str(player)):
+		_detachment_targets[str(player)] = {}
+	_detachment_targets[str(player)][kind] = enemy_unit_id
+	print("FactionAbilityManager: player %d designated %s as %s" % [player, enemy_unit_id, kind])
+	return {"success": true}
+
+static func attacker_benefits_from_prey_ap(attacker_unit: Dictionary, target_unit: Dictionary) -> int:
+	"""Da Hunt Is On: BEAST SNAGGA attackers improve AP by 1 against the Prey.
+	Static (flag-driven) so RulesEngine resolvers can call it like
+	attacker_benefits_from_oath."""
+	if not target_unit.get("flags", {}).get("prey_target", false):
+		return 0
+	var prey_owner = int(target_unit.get("flags", {}).get("prey_target_owner", 0))
+	if prey_owner != 0 and int(attacker_unit.get("owner", 0)) != prey_owner:
+		return 0
+	if attacker_unit.get("owner", 0) == target_unit.get("owner", 0):
+		return 0
+	if _unit_has_keyword(attacker_unit, "BEAST SNAGGA"):
+		return 1
+	return 0
+
+static func attacker_benefits_from_assemblage(attacker_unit: Dictionary, target_unit: Dictionary) -> bool:
+	"""Assemblage of Might: ADEPTUS CUSTODES CHARACTER units add 1 to Wound
+	rolls against the designated enemy. Static (flag-driven) for RulesEngine."""
+	if not target_unit.get("flags", {}).get("assemblage_target", false):
+		return false
+	var asm_owner = int(target_unit.get("flags", {}).get("assemblage_target_owner", 0))
+	if asm_owner != 0 and int(attacker_unit.get("owner", 0)) != asm_owner:
+		return false
+	if attacker_unit.get("owner", 0) == target_unit.get("owner", 0):
+		return false
+	return _unit_has_keyword(attacker_unit, "ADEPTUS CUSTODES") and _unit_has_keyword(attacker_unit, "CHARACTER")
+
+func unit_benefits_from_prey_charge_reroll(unit: Dictionary) -> bool:
+	"""Da Hunt Is On: BEAST SNAGGA units re-roll Charge rolls (the Prey must
+	be designated; the reroll nominally applies to charges at the Prey — the
+	declared-target check is approximated as prey-existence)."""
+	if not _unit_has_keyword(unit, "BEAST SNAGGA"):
+		return false
+	var player = unit.get("owner", 0)
+	if get_player_detachment(player) != "Da Big Hunt":
+		return false
+	return get_detachment_target(player, "prey") != ""
+
+func is_da_boss_watchin_available(player: int) -> bool:
+	"""Bully Boyz: once-per-battle per-unit Waaagh grant."""
+	if get_player_detachment(player) != "Bully Boyz":
+		return false
+	return not _da_boss_watchin_used.get(str(player), false)
+
+func get_da_boss_watchin_eligible_units(player: int) -> Array:
+	var out: Array = []
+	if not is_da_boss_watchin_available(player):
+		return out
+	var units = GameState.state.get("units", {})
+	for uid in units:
+		var u = units[uid]
+		if u.get("owner", 0) != player or not _unit_has_alive_models(u):
+			continue
+		for kw in ["WARBOSS", "NOBZ", "MEGANOBZ"]:
+			if _unit_has_keyword(u, kw):
+				out.append({"unit_id": uid, "unit_name": u.get("meta", {}).get("name", uid)})
+				break
+	return out
+
+func activate_da_boss_watchin(player: int, unit_id: String) -> Dictionary:
+	if not is_da_boss_watchin_available(player):
+		return {"success": false, "error": "Da Boss Is Watchin' is not available"}
+	var units = GameState.state.get("units", {})
+	if not units.has(unit_id):
+		return {"success": false, "error": "Unknown unit %s" % unit_id}
+	var unit = units[unit_id]
+	# Full Waaagh! flag set (incl. ability-conditional extras like Krumpin'
+	# Time FNP), persistent for the rest of the battle — the permanent marker
+	# makes _clear_waaagh_effects skip this unit when an army Waaagh! ends.
+	_apply_waaagh_flags_to_unit(unit_id, unit, units)
+	unit["flags"]["da_boss_watchin_permanent"] = true
+	unit["flags"]["effect_invuln_source"] = "Da Boss Is Watchin'"
+	_da_boss_watchin_used[str(player)] = true
+	print("FactionAbilityManager: Da Boss Is Watchin' — Waaagh! active for %s (rest of battle)" % unit_id)
+	return {"success": true}
+
+func get_creeping_dread_forced_units(active_player: int) -> Array:
+	"""Null Maiden Vigil: during ACTIVE player's Command phase, their units
+	within 6\" of an enemy Null-Maiden ANATHEMA PSYKANA unit must take a
+	Battle-shock test if they are PSYKER or Below Starting Strength."""
+	var forced: Array = []
+	var opponent = 2 if active_player == 1 else 1
+	if get_player_detachment(opponent) != "Null Maiden Vigil":
+		return forced
+	var units = GameState.state.get("units", {})
+	for uid in units:
+		var u = units[uid]
+		if u.get("owner", 0) != active_player or not _unit_has_alive_models(u):
+			continue
+		var qualifies = _unit_has_keyword(u, "PSYKER") or _unit_below_starting_strength(u)
+		if not qualifies:
+			continue
+		for sid in units:
+			var s = units[sid]
+			if s.get("owner", 0) != opponent or not _unit_has_alive_models(s):
+				continue
+			if not _unit_has_keyword(s, "ANATHEMA PSYKANA"):
+				continue
+			if _is_unit_within_range_inches(u, s, 6.0):
+				forced.append(uid)
+				break
+	return forced
+
+func unit_benefits_from_detachment_reroll(unit: Dictionary, reroll_type: String) -> bool:
+	"""Live check: does the owner's detachment passively grant `reroll_type`
+	('reroll_advance' / 'reroll_charge') to this unit right now? Used at
+	decision time where phase-start flags may be stale (e.g. Blitz Brigade
+	grants the re-roll on disembark, which happens mid-Movement phase)."""
+	var det_def = get_detachment_def(int(unit.get("owner", 0)))
+	if str(det_def.get("trigger", "")) != "passive_effects":
+		return false
+	var grants = false
+	for eff in det_def.get("unit_effects", []):
+		if str(eff.get("type", "")) == reroll_type:
+			grants = true
+			break
+	if not grants:
+		return false
+	return detachment_passive_qualifies(unit, det_def)
+
+func detachment_passive_qualifies(unit: Dictionary, det_def: Dictionary) -> bool:
+	"""Faction / unit_filter / condition_flag gate for a 'passive_effects'
+	detachment entry. unit_filter is a list of alternatives, each a '+'-joined
+	AND of keywords; empty filter matches every unit."""
+	var faction_kw = str(det_def.get("faction_keyword", ""))
+	if faction_kw != "" and not _unit_has_keyword(unit, faction_kw):
+		return false
+	var unit_filter: Array = det_def.get("unit_filter", [])
+	if not unit_filter.is_empty():
+		var any_alt = false
+		for alt in unit_filter:
+			var all_ok = true
+			for kw in str(alt).split("+"):
+				if not _unit_has_keyword(unit, kw):
+					all_ok = false
+					break
+			if all_ok:
+				any_alt = true
+				break
+		if not any_alt:
+			return false
+	var condition_flag = str(det_def.get("condition_flag", ""))
+	if condition_flag != "" and not _detachment_condition_flag_ok(unit, condition_flag):
+		return false
+	return true
+
+func _detachment_condition_flag_ok(unit: Dictionary, flag_name: String) -> bool:
+	if flag_name == "arrived_from_reserves":
+		# Same battle-round gate as the ability condition of the same name
+		if int(unit.get("arrived_from_reserves_turn", -1)) == GameState.get_battle_round():
+			return true
+		return bool(unit.get("flags", {}).get("arrived_from_reserves", false))
+	if unit.get(flag_name, false):
+		return true
+	var flags = unit.get("flags", {})
+	if flags.get(flag_name, false):
+		return true
+	# DisembarkMove records flags.disembarked_this_turn
+	if flag_name == "disembarked_this_phase" and flags.get("disembarked_this_turn", false):
+		return true
+	return false
+
+func get_detachment_oc_bonus(unit: Dictionary) -> int:
+	"""Solar Spearhead — Auric Armour: +2 OC for non-AIRCRAFT units at Starting
+	Strength that are not Battle-shocked. Computed live at scoring time (OC is
+	read outside the combat-phase ability-flag window)."""
+	var det_def = get_detachment_def(int(unit.get("owner", 0)))
+	if str(det_def.get("special_condition", "")) != "auric_armour":
+		return 0
+	if not _unit_has_alive_models(unit):
+		return 0
+	if _unit_has_keyword(unit, "AIRCRAFT"):
+		return 0
+	if unit.get("flags", {}).get("battle_shocked", false):
+		return 0
+	if _unit_below_starting_strength(unit):
+		return 0
+	for eff in det_def.get("unit_effects", []):
+		if eff.get("type", "") == "plus_oc":
+			return int(eff.get("value", 2))
+	return 0
+
+func _unit_has_alive_models(unit: Dictionary) -> bool:
+	for m in unit.get("models", []):
+		if m.get("alive", true):
+			return true
+	return false
+
+func _unit_below_starting_strength(unit: Dictionary) -> bool:
+	var total = 0
+	var alive = 0
+	for m in unit.get("models", []):
+		total += 1
+		if m.get("alive", true):
+			alive += 1
+	return alive < total
 
 # ============================================================================
 # ABILITY DETECTION
@@ -452,73 +826,78 @@ func _apply_waaagh_effects(player: int) -> void:
 			continue
 
 		# Apply Waaagh! flags
-		if not unit.has("flags"):
-			unit["flags"] = {}
-		unit["flags"]["waaagh_active"] = true
-		# 5+ invulnerable save
-		unit["flags"]["effect_invuln"] = 5
-		unit["flags"]["effect_invuln_source"] = "Waaagh!"
-		# Advance and charge eligibility
-		unit["flags"]["effect_advance_and_charge"] = true
+		_apply_waaagh_flags_to_unit(unit_id, unit, units)
 
-		# OA-17: Krumpin' Time — FNP 5+ while Waaagh! active (Meganobz)
-		if _unit_has_ability(unit, "Krumpin' Time"):
-			# Only set FNP if no better (lower) FNP already present
-			var current_fnp = unit["flags"].get("effect_fnp", 0)
-			if current_fnp == 0 or 5 <= current_fnp:
-				unit["flags"]["effect_fnp"] = 5
-				unit["flags"]["effect_fnp_source"] = "Krumpin' Time"
-				print("FactionAbilityManager: Krumpin' Time FNP 5+ applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+func _apply_waaagh_flags_to_unit(unit_id: String, unit: Dictionary, units: Dictionary) -> void:
+	"""Full Waaagh! flag set (plus ability-conditional extras) for one unit.
+	Shared by the army-wide Waaagh! and Bully Boyz' Da Boss Is Watchin'."""
+	if not unit.has("flags"):
+		unit["flags"] = {}
+	unit["flags"]["waaagh_active"] = true
+	# 5+ invulnerable save
+	unit["flags"]["effect_invuln"] = 5
+	unit["flags"]["effect_invuln_source"] = "Waaagh!"
+	# Advance and charge eligibility
+	unit["flags"]["effect_advance_and_charge"] = true
 
-		# OA-41: Big an' Shooty — +1 to Hit for ranged attacks while Waaagh! active (Morkanaut)
-		if _unit_has_ability(unit, "Big an' Shooty"):
-			unit["flags"]["big_an_shooty_active"] = true
-			print("FactionAbilityManager: Big an' Shooty +1 Hit (ranged) applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+	# OA-17: Krumpin' Time — FNP 5+ while Waaagh! active (Meganobz)
+	if _unit_has_ability(unit, "Krumpin' Time"):
+		# Only set FNP if no better (lower) FNP already present
+		var current_fnp = unit["flags"].get("effect_fnp", 0)
+		if current_fnp == 0 or 5 <= current_fnp:
+			unit["flags"]["effect_fnp"] = 5
+			unit["flags"]["effect_fnp_source"] = "Krumpin' Time"
+			print("FactionAbilityManager: Krumpin' Time FNP 5+ applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
 
-		# OA-41: Big an' Stompy — +1 to Hit for melee attacks while Waaagh! active (Gorkanaut)
-		if _unit_has_ability(unit, "Big an' Stompy"):
-			unit["flags"]["big_an_stompy_active"] = true
-			print("FactionAbilityManager: Big an' Stompy +1 Hit (melee) applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+	# OA-41: Big an' Shooty — +1 to Hit for ranged attacks while Waaagh! active (Morkanaut)
+	if _unit_has_ability(unit, "Big an' Shooty"):
+		unit["flags"]["big_an_shooty_active"] = true
+		print("FactionAbilityManager: Big an' Shooty +1 Hit (ranged) applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
 
-		# OA-20: Prophet of Da Great Waaagh! — Crit Hit on 5+ while Waaagh! active (Ghazghkull leading)
-		# Check if any attached character has this ability and apply crit threshold to the led unit
-		var attachment_data = unit.get("attachment_data", {})
-		var attached_characters = attachment_data.get("attached_characters", [])
-		for char_id in attached_characters:
-			var char_unit = units.get(char_id, {})
-			if char_unit.is_empty():
-				continue
-			if _unit_has_ability(char_unit, "Prophet of Da Great Waaagh!"):
-				# Only set crit threshold if no better (lower) threshold already present
-				var current_crit = unit["flags"].get("effect_crit_hit_on", 0)
-				if current_crit == 0 or 5 < current_crit:
-					unit["flags"]["effect_crit_hit_on"] = 5
-					unit["flags"]["effect_crit_hit_on_source"] = "Prophet of Da Great Waaagh!"
-					print("FactionAbilityManager: Prophet of Da Great Waaagh! Crit Hit 5+ applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-				break
+	# OA-41: Big an' Stompy — +1 to Hit for melee attacks while Waaagh! active (Gorkanaut)
+	if _unit_has_ability(unit, "Big an' Stompy"):
+		unit["flags"]["big_an_stompy_active"] = true
+		print("FactionAbilityManager: Big an' Stompy +1 Hit (melee) applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
 
-		# OA-46: Da Boss Iz Watchin' — 4+ invuln and OC 5 while Waaagh! active (Nob with Waaagh! Banner)
-		# Upgrade invuln from 5+ to 4+ and set OC 5 for units with this ability
-		if _unit_has_ability(unit, "Da Boss Iz Watchin'"):
-			_apply_da_boss_iz_watchin(unit, unit_id)
+	# OA-20: Prophet of Da Great Waaagh! — Crit Hit on 5+ while Waaagh! active (Ghazghkull leading)
+	# Check if any attached character has this ability and apply crit threshold to the led unit
+	var attachment_data = unit.get("attachment_data", {})
+	var attached_characters = attachment_data.get("attached_characters", [])
+	for char_id in attached_characters:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty():
+			continue
+		if _unit_has_ability(char_unit, "Prophet of Da Great Waaagh!"):
+			# Only set crit threshold if no better (lower) threshold already present
+			var current_crit = unit["flags"].get("effect_crit_hit_on", 0)
+			if current_crit == 0 or 5 < current_crit:
+				unit["flags"]["effect_crit_hit_on"] = 5
+				unit["flags"]["effect_crit_hit_on_source"] = "Prophet of Da Great Waaagh!"
+				print("FactionAbilityManager: Prophet of Da Great Waaagh! Crit Hit 5+ applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+			break
 
-		# Special Dose — +6" to Move characteristic while Waaagh! active (Zodgrod Wortsnagga leading)
-		# Check if any attached character has this ability and apply movement bonus to the led unit
-		for char_id in attached_characters:
-			var char_unit = units.get(char_id, {})
-			if char_unit.is_empty():
-				continue
-			if _unit_has_ability(char_unit, "Special Dose"):
-				unit["flags"]["special_dose_active"] = true
-				# Also apply to the character unit itself (Zodgrod is part of the unit)
-				if not char_unit.has("flags"):
-					char_unit["flags"] = {}
-				char_unit["flags"]["special_dose_active"] = true
-				print("FactionAbilityManager: Special Dose +6\" Move applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
-				break
+	# OA-46: Da Boss Iz Watchin' — 4+ invuln and OC 5 while Waaagh! active (Nob with Waaagh! Banner)
+	# Upgrade invuln from 5+ to 4+ and set OC 5 for units with this ability
+	if _unit_has_ability(unit, "Da Boss Iz Watchin'"):
+		_apply_da_boss_iz_watchin(unit, unit_id)
 
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		print("FactionAbilityManager: Waaagh! effects applied to %s (%s) — 5+ invuln, advance+charge" % [unit_name, unit_id])
+	# Special Dose — +6" to Move characteristic while Waaagh! active (Zodgrod Wortsnagga leading)
+	# Check if any attached character has this ability and apply movement bonus to the led unit
+	for char_id in attached_characters:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty():
+			continue
+		if _unit_has_ability(char_unit, "Special Dose"):
+			unit["flags"]["special_dose_active"] = true
+			# Also apply to the character unit itself (Zodgrod is part of the unit)
+			if not char_unit.has("flags"):
+				char_unit["flags"] = {}
+			char_unit["flags"]["special_dose_active"] = true
+			print("FactionAbilityManager: Special Dose +6\" Move applied to %s (%s)" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+			break
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("FactionAbilityManager: Waaagh! effects applied to %s (%s) — 5+ invuln, advance+charge" % [unit_name, unit_id])
 
 func _clear_waaagh_effects(player: int) -> void:
 	"""Clear Waaagh! flags from all Ork units."""
@@ -530,6 +909,10 @@ func _clear_waaagh_effects(player: int) -> void:
 			continue
 
 		var flags = unit.get("flags", {})
+		if flags.get("da_boss_watchin_permanent", false):
+			# Bully Boyz — Da Boss Is Watchin': the Waaagh! stays active for
+			# this unit for the rest of the battle; never cleared here.
+			continue
 		if flags.get("waaagh_active", false):
 			flags.erase("waaagh_active")
 			flags.erase("effect_advance_and_charge")
@@ -748,9 +1131,16 @@ func get_eligible_oath_targets(player: int) -> Array:
 		if unit.get("owner", 0) != opponent:
 			continue
 
-		# Must be deployed
+		# Must be deployed. Saves loaded from JSON carry numeric statuses as
+		# floats — comparing those against a String is a runtime error in
+		# Godot 4, so normalize instead of the old typed ternary.
 		var status = unit.get("status", "UNDEPLOYED")
-		if status == GameStateData.UnitStatus.UNDEPLOYED if typeof(status) == TYPE_INT else status == "UNDEPLOYED":
+		var undeployed := false
+		if typeof(status) == TYPE_INT or typeof(status) == TYPE_FLOAT:
+			undeployed = int(status) == GameStateData.UnitStatus.UNDEPLOYED
+		else:
+			undeployed = str(status) == "UNDEPLOYED"
+		if undeployed:
 			continue
 
 		# Must have alive models
@@ -793,6 +1183,20 @@ func has_detachment_ability(player: int) -> bool:
 	"""Check if a player's detachment has a known detachment ability."""
 	var detachment = get_player_detachment(player)
 	return detachment in DETACHMENT_ABILITIES
+
+func get_detachment_def(player: int) -> Dictionary:
+	"""DETACHMENT_ABILITIES entry for the player's detachment, tolerant of
+	straight-vs-typographic apostrophes in army-list data."""
+	var detachment = get_player_detachment(player)
+	if detachment == "":
+		return {}
+	if DETACHMENT_ABILITIES.has(detachment):
+		return DETACHMENT_ABILITIES[detachment]
+	var norm = detachment.replace("’", "'")
+	for key in DETACHMENT_ABILITIES:
+		if key.replace("’", "'") == norm:
+			return DETACHMENT_ABILITIES[key]
+	return {}
 
 # ---- COMBAT DOCTRINES (Space Marines — Gladius Task Force) ----
 
@@ -1390,7 +1794,7 @@ func get_grab_and_bash_eligible_units(player: int) -> Array:
 
 # ---- DETACHMENT HELPER ----
 
-func _unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
+static func _unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
 	"""Check if a unit has a specific keyword (case-insensitive)."""
 	var keywords = unit.get("meta", {}).get("keywords", [])
 	for kw in keywords:
@@ -2039,7 +2443,10 @@ func get_state_for_save() -> Dictionary:
 		"razgit_redeploys_used": _razgit_redeploys_used.duplicate(true),
 		"razgit_resolved": _razgit_resolved,
 		# OA-46: Plant the Waaagh! Banner state
-		"plant_waaagh_banner_used": _plant_waaagh_banner_used.duplicate(true)
+		"plant_waaagh_banner_used": _plant_waaagh_banner_used.duplicate(true),
+		# Faction-wide sweep: designated targets + Da Boss Is Watchin'
+		"detachment_targets": _detachment_targets.duplicate(true),
+		"da_boss_watchin_used": _da_boss_watchin_used.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
@@ -2071,6 +2478,9 @@ func load_state(data: Dictionary) -> void:
 	_razgit_resolved = data.get("razgit_resolved", false)
 	# OA-46: Plant the Waaagh! Banner state
 	_plant_waaagh_banner_used = data.get("plant_waaagh_banner_used", {})
+	# Faction-wide sweep: designated targets + Da Boss Is Watchin'
+	_detachment_targets = data.get("detachment_targets", {})
+	_da_boss_watchin_used = data.get("da_boss_watchin_used", {})
 	# Restore bionik workshop flags on units
 	for bearer_id in _bionik_workshop_results:
 		var bw_data = _bionik_workshop_results[bearer_id]

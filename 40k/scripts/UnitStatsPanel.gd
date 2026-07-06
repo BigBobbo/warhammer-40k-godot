@@ -562,14 +562,16 @@ func _get_ability_state(ability: Dictionary, unit_data: Dictionary) -> Dictionar
 	var owner: int = unit_data.get("owner", 0)
 	var unit_flags: Dictionary = unit_data.get("flags", {})
 
-	# Look up the ability definition in UnitAbilityManager
-	var ability_def: Dictionary = UnitAbilityManager.ABILITY_EFFECTS.get(ability_name, {})
+	# Look up the ability definition in UnitAbilityManager (hand-written +
+	# 40kdc-generated entries)
+	var ability_def: Dictionary = UnitAbilityManager.get_effect_def(ability_name, {})
 
 	# Prefix-match fallback (e.g. "Deadly Demise D6" → "Deadly Demise", "Damaged: 1-5 Wounds" → "Damaged")
 	if ability_def.is_empty():
-		for def_name in UnitAbilityManager.ABILITY_EFFECTS:
+		var all_defs: Dictionary = UnitAbilityManager.get_all_effect_defs()
+		for def_name in all_defs:
 			if ability_name.begins_with(def_name):
-				ability_def = UnitAbilityManager.ABILITY_EFFECTS[def_name]
+				ability_def = all_defs[def_name]
 				break
 
 	if ability_def.is_empty():

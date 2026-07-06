@@ -319,6 +319,13 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 		var oc_value = unit.get("flags", {}).get("effect_oc_override", 0)
 		if oc_value == 0:
 			oc_value = unit.get("meta", {}).get("stats", {}).get("objective_control", 0)
+		# Dat's Ours etc.: effect-granted OC bonus on top of the base value
+		var oc_bonus = int(unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_OC, 0))
+		# Solar Spearhead — Auric Armour: +2 OC computed live (not flag-driven,
+		# since ability flags are cleared outside combat phases)
+		oc_bonus += FactionAbilityManager.get_detachment_oc_bonus(unit)
+		if oc_bonus > 0 and oc_value > 0:
+			oc_value += oc_bonus
 		if oc_value <= 0:
 			print("  Skipping %s - no OC value (OC: %d)" % [unit_id, oc_value])
 			continue

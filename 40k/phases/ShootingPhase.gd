@@ -3356,6 +3356,10 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	if flags.get("advanced", false):
 		if EffectPrimitivesData.has_effect_advance_and_shoot(unit):
 			DebugLogger.info(str("ShootingPhase: Unit %s advanced but has advance_and_shoot effect — eligible to shoot with all weapons" % unit.get("id", "unknown")))
+		elif flags.get(EffectPrimitivesData.FLAG_ASSAULT_RANGED, false):
+			# Effect-granted [ASSAULT] on all ranged weapons (Superfuelled
+			# Boiler, Dakka! Dakka! Dakka! detachment rule)
+			DebugLogger.info(str("ShootingPhase: Unit %s advanced but has effect-granted ASSAULT — eligible to shoot" % unit.get("id", "unknown")))
 		else:
 			# Unit advanced - can only shoot if it has Assault weapons
 			return _unit_has_assault_weapons(unit)

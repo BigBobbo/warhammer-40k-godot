@@ -1,0 +1,652 @@
+{
+ "unbridled-carnage-war-horde": {
+  "target": "One ORKS unit from your army that has not been selected to fight this phase.",
+  "effect": "Until the end of the phase, each time a model in your unit makes a melee attack, an unmodified Hit roll of 5+ scores a Critical Hit.",
+  "effects": [
+   {
+    "type": "crit_hit_on",
+    "value": 5
+   }
+  ]
+ },
+ "ard-as-nails-war-horde": {
+  "when": "Your opponent's Shooting phase or the Fight phase, just after an enemy unit has selected its targets.",
+  "target": "One ORKS unit from your army (excluding GROTS, MONSTER and VEHICLE units) that was selected as the target of one or more of the attacking unit's attacks.",
+  "effect": "Until the end of the phase, each time an attack targets your unit, subtract 1 from the Wound roll.",
+  "effects": [
+   {
+    "type": "minus_one_wound_defense"
+   }
+  ]
+ },
+ "mob-rule-war-horde": {
+  "when": "End of your Command phase.",
+  "target": "One MOB unit from your army that contains 10 or more models and is not Below Half-strength.",
+  "effect": "Select one friendly Battle-shocked ORKS INFANTRY unit within 6\" of that MOB unit. That ORKS INFANTRY unit is no longer Battle-shocked.",
+  "effects": [
+   {
+    "type": "remove_battle_shock"
+   }
+  ]
+ },
+ "ere-we-go-war-horde": {
+  "when": "Start of your Movement phase.",
+  "target": "One ORKS INFANTRY unit from your army.",
+  "effect": "Until the end of the turn, add 2 to Advance and Charge rolls made for your unit.",
+  "effects": [
+   {
+    "type": "plus_charge",
+    "value": 2
+   }
+  ]
+ },
+ "careen-war-horde": {
+  "when": "Any phase, just after an ORKS VEHICLE unit from your army with the Deadly Demise ability is destroyed.",
+  "target": "That destroyed ORKS VEHICLE unit. You can use this Stratagem on that unit even though it was just destroyed.",
+  "effect": "Your unit can make a Normal or Fall Back move before its Deadly Demise ability is resolved. When making this move, your unit can move over enemy units (excluding MONSTER and VEHICLE units) as if they were not there.",
+  "effects": [
+   {
+    "type": "deadly_demise_move"
+   }
+  ]
+ },
+ "orks-is-never-beaten-war-horde": {
+  "when": "Fight phase, just after an enemy unit has selected its targets.",
+  "target": "One ORKS unit from your army that was selected as the target of one or more of the attacking unit's attacks.",
+  "effect": "Until the end of the phase, each time a model in your unit is destroyed, if that model has not fought this phase, do not remove it from play. The destroyed model can fight after the attacking model's unit has finished making attacks, and is then removed from play.",
+  "effects": [
+   {
+    "type": "swing_back_before_remove"
+   }
+  ]
+ },
+ "arcane-genetic-alchemy-shield-host": {
+  "when": "Any phase, just after a mortal wound is allocated to a model in an ADEPTUS CUSTODES unit from your army.",
+  "target": "That ADEPTUS CUSTODES unit.",
+  "effect": "Until the end of the phase, models in your unit have the Feel No Pain 4+ ability against mortal wounds.",
+  "effects": [
+   {
+    "type": "grant_fnp_psychic_mortal",
+    "value": 4
+   }
+  ]
+ },
+ "avenge-the-fallen-shield-host": {
+  "when": "Start of the Fight phase.",
+  "target": "One ADEPTUS CUSTODES unit from your army that is below its Starting Strength.",
+  "effect": "Until the end of the phase, add 1 to the Attacks characteristic of melee weapons equipped by models in your unit. If your unit is Below Half-strength, add 2 to the Attacks characteristic of those weapons instead.",
+  "effects": [
+   {
+    "type": "plus_attacks",
+    "value": 1,
+    "scope": "melee"
+   },
+   {
+    "type": "plus_attacks_below_half",
+    "value": 2,
+    "scope": "melee"
+   }
+  ]
+ },
+ "unwavering-sentinels-shield-host": {
+  "when": "Fight phase, just after an enemy unit has selected its targets.",
+  "target": "One ADEPTUS CUSTODES INFANTRY unit from your army that is within range of an objective marker you control and that was selected as the target of one or more of the attacking unit's attacks.",
+  "effect": "Until the end of the phase, each time a melee attack targets your unit, subtract 1 from the Hit roll.",
+  "effects": [
+   {
+    "type": "minus_one_hit_defense_melee"
+   }
+  ]
+ },
+ "multipotentiality-shield-host": {
+  "target": "One ADEPTUS CUSTODES unit from your army that Fell Back this phase.",
+  "effect": "Until the end of the turn, your unit is eligible to shoot and declare a charge in a turn in which it Fell Back.",
+  "effects": [
+   {
+    "type": "fall_back_and_shoot"
+   },
+   {
+    "type": "fall_back_and_charge"
+   }
+  ]
+ },
+ "vigilance-eternal-shield-host": {
+  "target": "One ADEPTUS CUSTODES BATTLELINE unit from your army within range of an objective marker you control.",
+  "effect": "That objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+  "effects": [
+   {
+    "type": "sticky_objective_control"
+   }
+  ]
+ },
+ "archeotech-munitions-shield-host": {
+  "target": "One ADEPTUS CUSTODES unit from your army that has not been selected to shoot this phase.",
+  "effect": "Select either the [LETHAL HITS] or [SUSTAINED HITS 1] ability. Until the end of the phase, ranged weapons equipped by models in your unit have the selected ability.",
+  "effects": [
+   {
+    "type": "grant_lethal_hits"
+   }
+  ]
+ },
+ "peerless-warrior-lions-of-the-emperor": {
+  "when": "Fight phase.",
+  "target": "One ADEPTUS CUSTODES unit from your army that has not been selected to fight this phase.",
+  "effect": "Until the end of the phase, melee weapons equipped by models in your unit have the [PRECISION] ability."
+ },
+ "gilded-champion-lions-of-the-emperor": {
+  "when": "Any phase, just after an Adeptus Custodes Character model from your army has used an ability on its datasheet that states it can only be used ‘once per battle’.",
+  "target": "That ADEPTUS CUSTODES CHARACTER model.",
+  "effect": "Your model can use that ‘once per battle’ ability one additional time during the battle (but not in the same phase).",
+  "restrictions": "You cannot use this Stratagem on the same ADEPTUS CUSTODES CHARACTER model more than once per battle."
+ },
+ "defiant-to-the-last-lions-of-the-emperor": {
+  "when": "Fight phase, just after an enemy unit has selected its targets.",
+  "target": "One ADEPTUS CUSTODES unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the end of the phase, each time a model in your unit is destroyed, if that model has not fought this phase, roll one D6, adding 2 to the result if that model has the CHARACTER keyword. On a 4+, do not remove it from play; the destroyed model can fight after the attacking unit has finished making its attacks (when doing so, it is treated as having 1 wound remaining), and is then removed from play."
+ },
+ "unleash-the-lions-lions-of-the-emperor": {
+  "when": "Your Command phase.",
+  "target": "One Allarus Custodians or Aquilon Custodians unit from your army that is on the battlefield.",
+  "effect": "That unit is split into separate units, each containing one model. These new units each have a Starting Strength of 1."
+ },
+ "manoeuvre-and-fire-lions-of-the-emperor": {
+  "when": "Your Movement phase, just after an ADEPTUS CUSTODES unit from your army Falls Back.",
+  "target": "That ADEPTUS CUSTODES unit.",
+  "effect": "Until the end of the turn, your unit is eligible to shoot and declare a charge in a turn in which it Fell Back."
+ },
+ "swift-as-the-eagle-lions-of-the-emperor": {
+  "when": "Your opponent’s Shooting phase, just after an enemy unit has shot.",
+  "target": "One ADEPTUS CUSTODES unit from your army (excluding VEHICLE units) that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Your unit can make a Normal move of up to D6\"."
+ },
+ "slayer-of-champions-auric-champions": {
+  "when": "Any phase.",
+  "target": "One Adeptus Custodes Character unit from your army that has just destroyed the unit you selected at the start of your Command phase as the target of your Assemblage of Might ability.",
+  "effect": "Select one enemy unit on the battlefield Until the start of your next Command phase, each time an ADEPTUS CUSTODES CHARACTER model from your army makes an attack that target that enemy unit, add 1 to the Wound roll In addition, if the destroyed unit was a CHARACTER unit, gain 1CP."
+ },
+ "the-emperors-auspice-auric-champions": {
+  "when": "Your opponent’s Shooting phase or the Fight phase, just after an enemy unit has selected its targets.",
+  "target": "One Adeptus Custodes Character unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the end of the phase, CHARACTER models in your unit have the Feel No Pain 4+ ability."
+ },
+ "earning-of-a-name-auric-champions": {
+  "when": "Fight phase.",
+  "target": "Up to two Adeptus Custodes Character units from your army that have not been selected to fight this phase.",
+  "effect": "Until the end of the phase, each time a CHARACTER model in either of your units makes an attack that targets a MONSTER or VEHICLE unit, you can re-roll the Hit roll and you can re-roll the Wound roll."
+ },
+ "shoulder-the-mantle-auric-champions": {
+  "when": "Your Movement phase, before the Reinforcements step.",
+  "target": "One Adeptus Custodes Character model from your army that is not leading a unit.",
+  "effect": "Select one friendly unit (excluding Battle-shocked and Attached units) within 2\" horizontally and 5\" vertically of your model that it could lead (as described in the Leader section of its datasheet). Your model attaches to that unit as a Leader. Change that unit’s Starting Strength accordingly."
+ },
+ "superhuman-reserves-auric-champions": {
+  "when": "Any phase, just after an Adeptus Custodes Warlord model from your army has used an ability on its datasheet or from an Enhancement that says it can only be used Once per battle.",
+  "target": "That Adeptus Custodes Warlord model.",
+  "effect": "Your model can use its Once per battle’ ability one additional time during this battle (but not in the same phase).",
+  "restrictions": "You cannot use this Stratagem more than once per battle."
+ },
+ "vigil-unending-auric-champions": {
+  "when": "Fight phase.",
+  "target": "One Adeptus Custodes Character model from your army that was just destroyed and has not fought this phase. You can use this Stratagem on that unit even though it was just destroyed.",
+  "effect": "Do not remove your destroyed model from play. The destroyed model can fight after the attacking unit has finished making attacks, and is then removed from play.",
+  "effects": [
+   {
+    "type": "swing_back_before_remove"
+   }
+  ]
+ },
+ "flawless-construction-solar-spearhead": {
+  "when": "Your opponent’s Shooting phase or the Fight phase, just after an enemy unit has selected its targets.",
+  "target": "One Adeptus Custodes Vehicle unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the end of the phase, each time an attack targets a model in your unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of your unit, subtract 1 from the Wound roll.",
+  "effects": [
+   {
+    "type": "minus_one_wound_defense"
+   }
+  ]
+ },
+ "emperors-vengeance-solar-spearhead": {
+  "when": "Fight phase, just after an enemy unit has selected its targets.",
+  "target": "One ADEPTUS CUSTODES unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the end of the phase, each time a model in your unit is destroyed, if that model has not fought this phase, roll one D6, adding 1 to the result if your unit has the Walker keyword. On a 4+, do not remove it from play; The destroyed model can fight after the attacking unit has finished making its attacks (when doing so, it is assumed to have 1 wound remaining), and is then removed from play."
+ },
+ "wrathful-advance-solar-spearhead": {
+  "when": "Fight phase, just before an ADEPTUS CUSTODES unit from your army Piles In.",
+  "target": "That ADEPTUS CUSTODES unit.",
+  "effect": "Until the end of the phase, each time a model in your unit makes a Pile-in move, it can move up to D3+3\" instead of up to 3\"."
+ },
+ "unstoppable-solar-spearhead": {
+  "when": "Your Movement phase or your Charge phase.",
+  "target": "One Adeptus Custodes Vehicle or Adeptus Custodes Mounted unit from your army.",
+  "effect": "Until the end of the phase, each time a model in your unit makes a move, it can move through terrain features.",
+  "effects": [
+   {
+    "type": "move_through_terrain"
+   }
+  ]
+ },
+ "relentless-persecution-solar-spearhead": {
+  "when": "Your Movement phase, just after an ADEPTUS CUSTODES VEHICLE unit from your army Advances.",
+  "target": "That Adeptus Custodes Vehicle unit.",
+  "effect": "Until the end of the turn, your unit is eligible to shoot in a turn in which it Advanced. If your unit has the Walker keyword, until the end of the turn, your unit is eligible to shoot and declare a charge in a turn in which it Advanced instead.",
+  "effects": [
+   {
+    "type": "advance_and_shoot"
+   }
+  ]
+ },
+ "punishment-inescapable-solar-spearhead": {
+  "when": "Your Shooting phase.",
+  "target": "One ADEPTUS CUSTODES unit from your army that has not been selected to shoot this phase.",
+  "effect": "Until the end of the phase, ranged weapons equipped by models in your unit have the [IGNORES COVER] ability, and until the end of the phase, each time a model in your unit makes an attack, you can ignore any or all modifiers to that attack’s Ballistic Skill characteristic and/or any or all modifiers to the Hit roll."
+ },
+ "witch-hunters-null-maiden-vigil": {
+  "when": "Your Shooting phase or the Fight phase.",
+  "target": "One Anathema Psykana unit from your army that has not been selected to shoot or fight this phase.",
+  "effect": "Select either the [LETHAL HITS] or [SUSTAINED HITS 1] ability. Until the end of the phase, weapons equipped by models in your unit have the selected ability, but models in your unit can only target PSYKER units with their attacks."
+ },
+ "anathema-blademastery-null-maiden-vigil": {
+  "when": "Fight phase.",
+  "target": "One Vigilators unit from your army that has not been selected to fight this phase.",
+  "effect": "Until the end of the phase, each time a model in your unit makes a melee attack, you can re-roll the Hit roll If the target of that attack is Battle-shocked or a PSYKER, you can re-roll the Wound roll as well."
+ },
+ "purgation-sweep-null-maiden-vigil": {
+  "when": "Your Shooting phase.",
+  "target": "One Witchseekers unit from your army that has not been selected to shoot this phase.",
+  "effect": "Until the end of the phase, add 1 to the Attacks characteristic of Torrent weapons equipped by models in your unit. If such a weapon targets a PSYKER or Battle-shocked unit this phase, add 2 to its Attacks characteristic instead."
+ },
+ "desperations-price-null-maiden-vigil": {
+  "when": "Any phase, just after an enemy PSYKER unit has either finished using a Psychic ability that targets a unit, or finished making Psychic Attacks.",
+  "target": "One Anathema Psykana unit from your army within 18\" of that enemy PSYKER unit.",
+  "effect": "That enemy PSYKER unit must take a Leadership test If the test is passed, that PSYKER unit is Battle-shocked; if the test is failed that PSYKER unit suffers 3 mortal wounds and is Battle-shocked."
+ },
+ "psy-chaff-volley-null-maiden-vigil": {
+  "when": "Your Shooting phase.",
+  "target": "One Prosecutors unit from your army that has just shot.",
+  "effect": "Select one enemy unit hit by one or more of those attacks. Until the start of your next turn, while your unit is on the battlefield, that enemy unit is prosecuted. While a unit is prosecuted, each time an Anathema Psykana model makes an attack against that unit, improve the Armour Penetration characteristic of that attack by 1. While a PSYKER or Battle-shocked unit is prosecuted, each time a model in that unit makes an attack, subtract 1 from the Hit roll."
+ },
+ "psychic-abominations-null-maiden-vigil": {
+  "when": "Your opponent’s Shooting phase, just after an enemy unit has selected its targets.",
+  "target": "One Anathema Psykana Infantry unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the end of the phase, your unit has the Stealth ability, and Battle-shocked and PSYKER models can only select your unit as a target of a ranged attack if they are within 12\"."
+ },
+ "talons-interlocked-talons-of-the-emperor": {
+  "when": "Your Shooting phase.",
+  "target": "Up to two ADEPTUS CUSTODES INFANTRY units from your army, and one enemy unit that is an eligible target for all of those units.",
+  "effect": "Until the end of the phase, your units can only target that enemy unit, but each time a model in one of your units makes a ranged attack, improve the Strength and Armour Penetration characteristics of that attack by 1.",
+  "restrictions": "You can only select two units if one (and only one) of them is an ANATHEMA PSYKANA unit and both are within 6\" of each other.",
+  "effects": [
+   {
+    "type": "improve_ap",
+    "value": 1
+   },
+   {
+    "type": "plus_strength_ranged",
+    "value": 1
+   }
+  ]
+ },
+ "empyric-severance-talons-of-the-emperor": {
+  "when": "Your opponent’s Shooting phase or the Fight phase, just after an enemy unit has selected its targets.",
+  "target": "One ADEPTUS CusTODES unit from your army that was selected as the target of one or more of the attacking unit’s attacks, and one friendly ANATHEMA PSYKANA unit within 6\" of that ADEPTUS CUSTODES unit.",
+  "effect": "Until the end of the phase, your unit has the Feel No Pain 4+ ability against Psychic attacks and mortal wounds."
+ },
+ "taloned-pincer-talons-of-the-emperor": {
+  "when": "Your opponent’s Movement phase, just after an enemy unit ends a Normal, Advance or Fall Back move.",
+  "target": "Up to two Adeptus Custodes units from your army that are within 9\" of that enemy unit.",
+  "effect": "Your units can make a Normal move of up to 6\".",
+  "restrictions": "You cannot select units that are within Engagement Range of one or more enemy units. You can only select two units if one (and only one) of them is an Anathema Psykana unit and both are within 6\" of each other."
+ },
+ "emperors-executioners-talons-of-the-emperor": {
+  "when": "Start of the Fight phase.",
+  "target": "Up to two Adeptus Custodes units from your army.",
+  "effect": "Until the end of the phase, each time a model in one of your units targets an enemy unit that is below its Starting Strength, add 1 to the Wound roll.",
+  "restrictions": "You can only select two units if one (and only one) of them is an Anathema Psykana unit and both are within 6\" of each other."
+ },
+ "shield-of-honour-talons-of-the-emperor": {
+  "when": "Your opponent’s Shooting phase, just after an enemy unit has selected its targets.",
+  "target": "One Anathema Psykana Infantry unit from your army that was selected as the target of one or more of the attacking unit’s attacks, and one other friendly Adeptus Custodes Infantry unit (excluding ANATHEMA PSYKANA units) within 6\" of that ANATHEMA PSYKANA INFANTRY unit.",
+  "effect": "Until the end of the phase, any attack that targets your ANATHEMA PSYKANA unit must instead target your other ADEPTUS CUSTODES unit (unless it is not an eligible target)."
+ },
+ "hunt-as-one-talons-of-the-emperor": {
+  "when": "Start of your Movement phase.",
+  "target": "Up to two ADEPTUS CUSTODES units from your army.",
+  "effect": "Until the end of the turn, your units are eilgible to shoot and/or declare a charge in a turn in which they Fell Back.",
+  "restrictions": "You can only select two units if one (and only one) of them is an ANATHEMA PSYKANA unit and both are within 6\" of each other.",
+  "effects": [
+   {
+    "type": "fall_back_and_shoot"
+   },
+   {
+    "type": "fall_back_and_charge"
+   }
+  ]
+ },
+ "flawless-construction-might-of-the-moritoi": {
+  "when": "Your opponent’s Shooting phase or the Fight phase, just after an enemy unit has selected its targets.",
+  "target": "One Adeptus Custodes Vehicle unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the end of the phase, each time an attack targets a model in your unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of your unit, subtract 1 from the Wound roll.",
+  "effects": [
+   {
+    "type": "minus_one_wound_defense"
+   }
+  ]
+ },
+ "unleash-the-lions-tharanatoi-hammerblow": {
+  "when": "Your Command phase.",
+  "target": "One Allarus Custodians or Aquilon Custodians unit from your army that is on the battlefield.",
+  "effect": "That unit is split into separate units, each containing one model. These new units each have a Starting Strength of 1."
+ },
+ "dakkastorm-kult-of-speed": {
+  "when": "Your Shooting phase.",
+  "target": "One Speed Freeks unit from your army that has not been selected to shoot this phase.",
+  "effect": "Until the end of the phase, ranged weapons equipped by models in your unit have the [SUSTAINED HITS 1] ability. While targeting a unit within 9\", they have the [SUSTAINED HITS 2] ability instead.",
+  "restrictions": "A unit cannot be targeted by this and the Blitza Fire Stratagem in the same phase."
+ },
+ "blitza-fire-kult-of-speed": {
+  "when": "Your Shooting phase.",
+  "target": "One Speed Freeks unit from your army that has not been selected to shoot this phase.",
+  "effect": "Until the end of the phase, ranged weapons equipped by models in your unit have the [LETHAL HITS] ability and, each time a model in your unit makes an attack that targets a unit within 9\", a Critical Hit is scored on an unmodified Hit roll of 5+, instead of only a 6.",
+  "restrictions": "A unit cannot be targeted by this and the Dakkastorm Stratagem in the same phase."
+ },
+ "speediest-freeks-kult-of-speed": {
+  "when": "Your opponent’s Shooting phase or the Fight phase, just after an enemy unit has selected its targets.",
+  "target": "One Speed Freeks or Trukk unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the end of the phase, models in your unit have a 5+ invulnerable save. If your unit is a VEHICLE unit with an unmodified Toughness characteristic of 8 or less, until the end of the phase, models in your unit have a 4+ invulnerable save instead."
+ },
+ "squig-flingin-kult-of-speed": {
+  "when": "Your Movement phase, just after a SPEED FREEKS or TRUKK unit from your army ends a Normal, Advance or Fall Back move.",
+  "target": "That Speed Freeks or Trukk unit.",
+  "effect": "Select one enemy unit within 9\" of your unit. That enemy unit must take a Battle-shock test and, when doing so, subtract 1 from the result."
+ },
+ "more-gitz-over-ere-kult-of-speed": {
+  "when": "Your opponent’s Movement phase, just after an enemy unit ends a Normal, Advance or Fall Back move.",
+  "target": "One Speed Freeks unit from your army that is within 9\" of that enemy unit and is not within Engagement Range of one or more enemy units.",
+  "effect": "Your unit can make a Normal move of up to 6\"."
+ },
+ "stalkin-taktiks-da-big-hunt": {
+  "when": "Your opponent’s Shooting phase, just after an enemy unit has selected its targets.",
+  "target": "One Beast Snagga Infantry or Beast Snagga Mounted unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the end of the phase, each time a ranged attack targets your unit, models in your unit have the Benefit of Cover against that attack. In addition, if your unit has the INFANTRY keyword, until the end of the phase, models in your unit have the Stealth ability."
+ },
+ "drag-it-down-da-big-hunt": {
+  "when": "Fight phase.",
+  "target": "One Beast Snagga unit from your army that has not been selected to fight this phase.",
+  "effect": "Until the end of the phase, melee weapons equipped by models in your unit have the [SUSTAINED HITS 1] ability. In addition, each time a model in your unit makes a melee attack that targets your Prey, a Critical Hit is scored on an unmodified Hit roll of 5+, instead of only a 6."
+ },
+ "where-dya-fink-youre-going-da-big-hunt": {
+  "when": "Your opponent’s Movement phase, just after an enemy unit ends a Fall Back move.",
+  "target": "One Beast Snagga Infantry or Beast Snagga Mounted unit from your army that was within Engagement Range of that enemy unit at the start of the phase.",
+  "effect": "If your unit is not within Engagement Range of one or more enemy units, it can make a Normal move of up to 6\"."
+ },
+ "instinctive-hunters-da-big-hunt": {
+  "when": "End of your opponent’s Fight phase.",
+  "target": "One Beast Snagga unit from your army that is not within Engagement Range of one or more enemy unit.",
+  "effect": "Remove your unit from the battlefield and place it into Strategic Reserves."
+ },
+ "unstoppable-momentum-da-big-hunt": {
+  "when": "Your Charge phase, just after a Beast Snagga Mounted unit from your army ends a Charge move.",
+  "target": "That Beast Snagga unit.",
+  "effect": "Select one enemy unit within Engagement Range of your unit and roll one D6 for each model in your unit: for each 4+, that enemy unit suffers 1 mortal wound (to a maximum of 6 mortal wounds). If that enemy unit is your Prey, roll three additional D6."
+ },
+ "dat-ones-even-bigga-da-big-hunt": {
+  "when": "Your Charge phase.",
+  "target": "One Beast Snagga unit from your army.",
+  "effect": "Until the end of the phase, your unit is eligible to charge in a turn in which it Advanced or Fell Back. In addition, you can re-roll Charge rolls made for your unit, provided one of the targets of that charge is your Prey."
+ },
+ "klankin-klaws-dread-mob": {
+  "when": "Fight phase.",
+  "target": "One Orks Walker unit from your army that has not been selected to fight this phase.",
+  "effect": "Each time you use this Stratagem, you can choose to push it. Until the end of the phase, add 2 to the Strength characteristic of melee weapons equipped by models in your unit and, if you chose to push it, until the end of the phase, add 1 to the Damage characteristic of those weapons and they have the [HAZARDOUS] ability as well.",
+  "effects": [
+   {
+    "type": "plus_strength_melee",
+    "value": 2
+   }
+  ]
+ },
+ "bigger-shells-for-bigger-gitz-dread-mob": {
+  "when": "Your Shooting phase.",
+  "target": "One Mek, Orks Walker or Grots Vehicle unit from your army that has not been selected to shoot this phase.",
+  "effect": "Each time you use this Stratagem, you can choose to push it. Until the end of the phase, each time a model in your unit makes an attack that targets a MONSTER or VEHICLE, add 1 to the Wound roll. If you chose to push it, add 1 to the Damage characteristic of that attack and, until the end of the phase, ranged weapons equipped by models in your unit have the [HAZARDOUS] ability as well."
+ },
+ "dakka-dakka-dakka-dread-mob": {
+  "when": "Your Shooting phase.",
+  "target": "One Orks Walker or Grots Vehicle unit from your army that has not been selected to shoot this phase.",
+  "effect": "Each time you use this Stratagem, you can choose to push it. Until the end of the phase, each time a model in your unit makes an attack, re-roll a Hit roll of 1. If you chose to push it, you can re-roll the Hit roll instead and, until the end of the phase, ranged weapons equipped by models in your unit have the [HAZARDOUS] ability as well."
+ },
+ "extra-gubbinz-dread-mob": {
+  "when": "Your opponent’s Shooting phase, just after an enemy unit has selected its targets.",
+  "target": "One Orks Walker or Grots Vehicle unit from your army (excluding TITANIC units) that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the end of the phase, each time an attack is allocated to a model in your unit, subtract 1 from the Damage characteristic of that attack."
+ },
+ "superfuelled-boiler-dread-mob": {
+  "when": "Your Movement phase, just after an Orks Walker unit from your army has been selected to Advance.",
+  "target": "That Orks Walker unit.",
+  "effect": "Until the end of the turn, you can re-roll Advance rolls made for your unit and ranged weapons equipped by models in your unit have the [ASSAULT] ability.",
+  "effects": [
+   {
+    "type": "reroll_advance"
+   },
+   {
+    "type": "grant_assault"
+   }
+  ]
+ },
+ "conniving-runts-dread-mob": {
+  "when": "Your opponent’s Movement phase, just after an enemy unit ends a Normal, Advance or Fall Back move.",
+  "target": "One Gretchin unit from your army that is within 9\" of that enemy unit and not within Engagement Range of any enemy units.",
+  "effect": "Roll one D6: on a 4+, that enemy unit suffers D3+1 mortal wounds. Your unit can then make a Normal move."
+ },
+ "hulking-brutes-bully-boyz": {
+  "when": "Your opponent’s Shooting phase, just after an enemy unit has selected its targets.",
+  "target": "One Nobz or Meganobz unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the attacking unit has finished making its attacks, each time an attack targets your unit, worsen the Armour Penetration characteristic of that attack by 1."
+ },
+ "crushing-impact-bully-boyz": {
+  "when": "Your Charge phase, just after a Nobz or Meganobz unit from your army ends a Charge move.",
+  "target": "That NOBZ or MEGANOBZ unit.",
+  "effect": "Select one enemy unit within Engagement Range of your unit, then roll one D6 for each model in your unit that is within Engagement Range of that enemy unit: for each 5+, that enemy unit suffers 1 mortal wound (to a maximum of 6 mortal wounds). If a Waaagh! is active for your unit, that enemy unit suffers 1 mortal wound for each 4+ instead."
+ },
+ "too-arrogant-to-die-bully-boyz": {
+  "when": "Your opponent’s Shooting phase or the Fight phase, just after an enemy unit has selected its targets.",
+  "target": "One Nobz or Meganobz unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the end of the phase, each time a model in your unit is destroyed, if that model has not shot or fought this phase, roll one D6, adding 2 to the result if a Waaagh! is active for your unit. On a 5+, do not remove the destroyed model from play; it can shoot or fight after the attacking unit has finished making its attacks, and is then removed from play."
+ },
+ "always-lookin-fer-a-fight-bully-boyz": {
+  "when": "Fight phase, just after an enemy unit is destroyed.",
+  "target": "One Nobz or Meganobz unit from your army that destroyed that enemy unit.",
+  "effect": "Until the end of the phase, each time your unit makes a Consolidation move, it can move up to D3+3\" instead of up to 3\". If a Waaagh! is active for your unit, it can move up to 6\" instead."
+ },
+ "competitive-streak-green-tide": {
+  "when": "Fight phase.",
+  "target": "One Boyz unit from your army that has not been selected to fight this phase.",
+  "effect": "Until the end of the phase, each time a model in your unit makes an attack, re-roll a Wound roll of 1. If your unit contains 10 or more models, re-roll the Wound roll instead."
+ },
+ "bulldozer-brutality-green-tide": {
+  "when": "Fight phase.",
+  "target": "One Boyz unit from your army that has not been selected to fight this phase and is within Engagement Range of one or more enemy units.",
+  "effect": "Until the end of the phase, each time your unit is selected to fight, when determining which models in your unit are eligible to fight, any models in your unit that are within 3\" of one or more enemy models are eligible to fight. When resolving those attacks, such models can target one of those enemy units that is within 3\" of them and within Engagement Range of their unit.",
+  "effects": [
+   {
+    "type": "fight_range_3"
+   }
+  ]
+ },
+ "tide-of-muscle-green-tide": {
+  "when": "Your Charge phase.",
+  "target": "One Boyz unit from your army that has not declared a charge this phase.",
+  "effect": "Until the end of the phase, each time your unit declares a charge, add 1 to the Charge roll and, if your unit contains 10 or more models, you can re-roll the Charge roll.’"
+ },
+ "braggin-rights-green-tide": {
+  "when": "Your Command phase.",
+  "target": "Two Boyz units from your army that are within 6\" of each other.",
+  "effect": "Until the start of your next Command phase, while those two units are within 6\" of each other, they both count as containing 10 or more models for the purposes of your Detachment rule, any Enhancements models from your army have and any Stratagems you use.",
+  "effects": [
+   {
+    "type": "counts_as_ten_models"
+   }
+  ]
+ },
+ "come-on-ladz-green-tide": {
+  "when": "Your Command phase.",
+  "target": "One Boyz unit from your army.",
+  "effect": "Return up to D3+2 destroyed models to your unit (excluding Character models)."
+ },
+ "go-get-em-green-tide": {
+  "when": "Your opponent’s Shooting phase, just after an enemy unit has selected its targets.",
+  "target": "One Boyz unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "After the attacking unit has shot, your unit can make a Go Get ’Em! move. To do so, roll one D6: each model in your unit can move a distance in inches up to the result, but your unit must end that move as close as possible to the closest enemy unit. When doing so, those models can be moved within Engagement Range of that enemy unit. If your unit contains 10 or more models, you can re-roll the D6 to determine how far your unit can move."
+ },
+ "fight-proppa-taktikal-brigade": {
+  "when": "Fight phase.",
+  "target": "One Orks Infantry or Orks Mounted unit from your army that has not been selected to fight this phase.",
+  "effect": "Select the [SUSTAINED HITS 1] or [LETHAL HITS] ability. Until the end of the phase, melee weapons equipped by models in your unit have the selected ability."
+ },
+ "krunchin-descent-taktikal-brigade": {
+  "when": "Your Charge phase, just after a STORMBOYZ unit from your army ends a Charge move.",
+  "target": "That Stormboyz unit.",
+  "effect": "Select one enemy unit within Engagement Range of your unit, then roll one D6 for each model in your unit that is within Engagement Range of that enemy unit: for each 4+, that enemy unit suffers 1 mortal wound (to a maximum of 6 mortal wounds)."
+ },
+ "dats-ours-taktikal-brigade": {
+  "when": "Command phase.",
+  "target": "One ORKS unit from your army that is within Engagement Range of one or more enemy units.",
+  "effect": "Until the start of the next Command phase, add 1 to the Objective Control characteristic of models in your unit.",
+  "effects": [
+   {
+    "type": "plus_oc",
+    "value": 1
+   }
+  ]
+ },
+ "taktikal-retreat-taktikal-brigade": {
+  "when": "Your Movement phase, just after an ORKS unit from your army Falls Back.",
+  "target": "That ORKS unit.",
+  "effect": "Until the end of the turn, your unit is eligible to shoot and declare a charge in a turn in which it Fell Back."
+ },
+ "on-to-da-next-taktikal-brigade": {
+  "when": "Your opponent’s Movement phase, just after an enemy unit Falls Back.",
+  "target": "One ORKS unit from your army that was within Engagement Range of that enemy unit at the start of the phase.",
+  "effect": "Your unit can make a Normal move of up to 6\"."
+ },
+ "ded-sneaky-taktikal-brigade": {
+  "when": "End of your opponent’s Fight phase.",
+  "target": "One Kommandos or Stormboyz unit from your army that is not within Engagement Range of one or more enemy units.",
+  "effect": "Remove your unit from the battlefield and place it into Strategic Reserves."
+ },
+ "orks-is-still-orks-more-dakka": {
+  "when": "Fight phase.",
+  "target": "One ORKS unit from your army that has not been selected to fight this phase.",
+  "effect": "Until the end of the phase, each time a model in your unit makes an attack that targets an enemy unit, re-roll a Wound roll of 1. If that enemy unit is within range of an objective marker, you can re-roll the Wound roll instead."
+ },
+ "long-uncontrolled-bursts-more-dakka": {
+  "when": "Your Shooting phase.",
+  "target": "One ORKS unit from your army that has not been selected to shoot this phase.",
+  "effect": "Until the end of the phase, ranged weapons equipped by models in your unit have the [IGNORES COVER] ability."
+ },
+ "huge-show-offs-more-dakka": {
+  "when": "Your Command phase.",
+  "target": "One Orks Walker unit (excluding Killa Kans) from your army.",
+  "effect": "Until the start of your next Command phase, improve your unit’s Move, Leadership and Objective Control characteristics by 1, and each time a model in your unit makes an attack, add 1 to the Hit roll."
+ },
+ "get-stuck-in-ladz-more-dakka": {
+  "when": "Your Command phase.",
+  "target": "One ORKS unit from your army (excluding Gretchin units).",
+  "effect": "Until the start of your next Command phase, the Waaagh! is active for your unit, even if you have already called a Waaagh! this battle.  Designer’s Note: This means that any abilities that are in effect while the Waaagh! is active for your army will be in effect for your unit."
+ },
+ "call-dat-dakka-more-dakka": {
+  "when": "Your opponent’s Shooting phase, just after an enemy unit has shot.",
+  "target": "One ORKS unit from your army that had one or more of its models destroyed as a result of the attacking unit’s attacks.",
+  "effect": "Your unit can shoot as if it were your Shooting phase, but must target only that enemy unit when doing so, and can only do so if that enemy unit is an eligible target."
+ },
+ "speshul-shells-more-dakka": {
+  "when": "Your Shooting phase.",
+  "target": "One ORKS unit from your army that has not been selected to shoot this phase.",
+  "effect": "Until the end of the phase, each time a model in your unit makes a ranged attack that targets the closest eligible target within 18\", improve the Armour Penetration characteristic of ranged weapons equipped by models in your unit by 1."
+ },
+ "bash-and-grab-freebooter-krew": {
+  "when": "The Fight phase.",
+  "target": "One ORKS unit from your army that has not been selected to fight this phase.",
+  "effect": "Until the end of the phase, each time a model in your unit makes an attack that targets an enemy unit within range of the loot objective, you can re-roll the Wound roll."
+ },
+ "boardin-rush-freebooter-krew": {
+  "when": "Your Movement phase.",
+  "target": "One ORKS unit from your army that has not been selected to move this phase.",
+  "effect": "Until the end of the phase, each time your unit Advances, do not make an Advance roll. Instead, until the end of the phase, add 6\" to the Move characteristic of models in your unit."
+ },
+ "grab-and-bash-freebooter-krew": {
+  "when": "Your Command phase.",
+  "target": "One ORKS unit from your army (excluding Gretchin units) that is within range of the loot objective.",
+  "effect": "Until the start of your next Command phase, the Waaagh! is active for your unit, even if you have already called a Waaagh! this battle.  Designer’s Note: This means that any abilities that are in effect while the Waaagh! is active for your army will be in effect for your unit."
+ },
+ "deck-fraggers-freebooter-krew": {
+  "when": "Your Shooting phase.",
+  "target": "One ORKS unit from your army that has not been selected to shoot this phase.",
+  "effect": "Until the end of the phase, each time a model in your unit targets an INFANTRY unit with a ranged weapon, that weapon has the [BLAST] ability."
+ },
+ "rolling-loot-heap-freebooter-krew": {
+  "when": "Your Shooting phase.",
+  "target": "One Flash Gitz unit from your army that has not been selected to shoot this phase.",
+  "effect": "Until the end of the phase, ranged weapons equipped by models in your unit have the [ANTI-VEHICLE 4+] ability."
+ },
+ "krump-and-run-freebooter-krew": {
+  "when": "Your opponent’s Movement phase, just after an enemy unit falls back.",
+  "target": "One ORKS unit from your army that was within engagement range of that enemy unit at the start of the phase and is not within range of one or more enemy units.",
+  "effect": "Your unit can make a Normal move of up to 6\"."
+ },
+ "long-uncontrolled-bursts-rollin-deff": {
+  "when": "Your Shooting phase.",
+  "target": "One ORKS unit from your army that has not been selected to shoot this phase.",
+  "effect": "Until the end of the phase, ranged weapons equipped by models in your unit have the [IGNORES COVER] ability."
+ },
+ "speshul-shells-rollin-deff": {
+  "when": "Your Shooting phase.",
+  "target": "One ORKS unit from your army that has not been selected to shoot this phase.",
+  "effect": "Until the end of the phase, each time a model in your unit makes a ranged attack that targets the closest eligible target within 18\", improve the Armour Penetration characteristic of ranged weapons equipped by models in your unit by 1."
+ },
+ "mount-up-ladz-blitz-brigade": {
+  "when": "End of the Fight phase.",
+  "target": "One Orks Infantry unit from your army that is not within Engagement Range of one or more enemy units, and one friendly Transport it is able to embark within.",
+  "effect": "If your ORKS INFANTRY unit is wholly within 6\" of that TRANSPORT, it can embark within it."
+ },
+ "armoured-duellists-blitz-brigade": {
+  "when": "Your Shooting phase.",
+  "target": "One Orks Vehicle unit from your army that has not been selected to shoot this phase.",
+  "effect": "Until the end of the phase, each time your unit makes an attack that targets a MONSTER or VEHICLE unit, add 1 to the Hit roll and add 1 to the Wound roll."
+ },
+ "impervious-blitz-brigade": {
+  "when": "Your opponent’s Shooting phase, just after an enemy unit has selected its targets.",
+  "target": "One Battlewagon, Kill Rig or Hunta Rig unit from your army that was selected as the target of one or more of the attacking unit’s attacks.",
+  "effect": "Until the end of the phase, each time an attack targets your unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of your unit, subtract 1 from the Wound roll.",
+  "effects": [
+   {
+    "type": "minus_one_wound_defense"
+   }
+  ]
+ },
+ "mekanised-brutality-blitz-brigade": {
+  "when": "Your Movement phase.",
+  "target": "One Battlewagon, Kill Rig or Hunta Rig unit from your army that has not been selected to move this phase.",
+  "effect": "Until the end of the turn, each time a unit disembarks from your unit after your unit makes a Normal move, that disembarked unit is still eligible to declare a charge this turn.",
+  "effects": [
+   {
+    "type": "disembark_charge_ok"
+   }
+  ]
+ },
+ "run-em-down-blitz-brigade": {
+  "when": "Your Movement phase.",
+  "target": "One Battlewagon, Kill Rig or Hunta Rig unit from your army that has not been selected to move this phase.",
+  "effect": "Select up to two other friendly Orks Vehicle or Orks Monster units within 6\" of your unit. Until the end of the turn, your unit and each unit you selected are eligible to declare a charge in a turn in which they Advanced.",
+  "effects": [
+   {
+    "type": "advance_and_charge"
+   }
+  ]
+ },
+ "yooz-in-trouble-now-blitz-brigade": {
+  "when": "Your opponent’s Shooting phase, just after an enemy unit has shot.",
+  "target": "One Battlewagon, Hunta Rig or Kill Rig model from your army that was hit by one or more of the attacking unit’s attacks.",
+  "effect": "One Orks Infantry unit embarked within your model can disembark and make a Surge move. To do so, roll one D6: models in that unit move a number of inches up to this result, but that unit must end that move as close as possible to the closest enemy unit (excluding AIRCRAFT). When doing so, those models can be moved within Engagement Range of that enemy unit."
+ }
+}

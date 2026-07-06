@@ -1,0 +1,31 @@
+{
+  "id": "fullauto_da_boss_watchin",
+  "covers": [
+    "detachments.bully_boyz.da_boss_is_watchin",
+    "detachments.might_of_the_moritoi.march_of_the_honoured_dead",
+    "command.actions.activate_da_boss_watchin"
+  ],
+  "fixture": "fullauto_bullyboyz",
+  "rng_seed": 42,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "description": "Bully Boyz (Orks): the new ACTIVATE_DA_BOSS_WATCHIN command-phase action gives the Meganobz a persistent per-unit Waaagh! (5+ invuln, advance+charge, rest of battle) exactly once per battle. Then the shooting-phase pass proves the data-driven detachment passives run live in the windowed game: Might of the Moritoi (Custodes) puts +2\" Move on a Custodian unit.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+    { "act": "dispatch_action", "action": { "type": "ACTIVATE_DA_BOSS_WATCHIN", "unit_id": "U_MEGANOBZ_L" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_MEGANOBZ_L.flags.waaagh_active", "equals": true },
+    { "act": "expect_state", "path": "units.U_MEGANOBZ_L.flags.effect_invuln", "equals": 5 },
+    { "act": "expect_state", "path": "units.U_MEGANOBZ_L.flags.effect_advance_and_charge", "equals": true },
+    { "act": "expect_state", "path": "units.U_MEGANOBZ_L.flags.da_boss_watchin_permanent", "equals": true },
+    { "act": "screenshot", "label": "01_da_boss_watchin_active" },
+    { "act": "dispatch_action", "action": { "type": "ACTIVATE_DA_BOSS_WATCHIN", "unit_id": "U_WARBOSS_B" } },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "dispatch_action", "action": { "type": "END_COMMAND" } },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.flags.effect_plus_move", "equals": 2 },
+    { "act": "screenshot", "label": "02_moritoi_passive_plus_move" }
+  ]
+}

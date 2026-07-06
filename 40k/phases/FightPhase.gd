@@ -775,10 +775,16 @@ func _validate_pile_in(action: Dictionary) -> Dictionary:
 				log_phase_message("[T4-5] Model %s rejected: already in base contact, moved %.2f\"" % [model_id, move_distance])
 				continue
 
-		# Check 3" movement limit (with floating-point tolerance)
+		# Check 3" movement limit (with floating-point tolerance).
+		# WRATHFUL ADVANCE etc. can raise the cap via flags.effect_pile_in_distance.
+		var pile_in_cap = 3.0
+		var _pi_unit = get_unit(unit_id)
+		var _pi_flag = float(_pi_unit.get("flags", {}).get("effect_pile_in_distance", 0.0))
+		if _pi_flag > 0.0:
+			pile_in_cap = _pi_flag
 		var distance = Measurement.distance_inches(old_pos, new_pos)
-		if distance > 3.0 + MOVEMENT_CAP_EPSILON:
-			errors.append("Model %s pile in exceeds 3\" limit (%.1f\")" % [model_id, distance])
+		if distance > pile_in_cap + MOVEMENT_CAP_EPSILON:
+			errors.append("Model %s pile in exceeds %.0f\" limit (%.1f\")" % [model_id, pile_in_cap, distance])
 
 		# Check movement is toward closest enemy
 		if not _is_moving_toward_closest_enemy(unit_id, model_id, old_pos, new_pos):
@@ -2176,10 +2182,16 @@ func _show_mathhammer_predictions() -> void:
 
 func _get_consolidation_distance(unit_id: String) -> float:
 	"""OA-26: Returns the consolidation distance for a unit.
-	Normally 3\", but 6\" for units with 'Drive-by Krumpin'' ability."""
+	Normally 3\", but 6\" for units with 'Drive-by Krumpin'' ability, and
+	stratagems can set flags.effect_consolidation_distance (Always Lookin'
+	Fer a Fight rolls D3+3, or flat 6 during a Waaagh!)."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return 3.0
+	var flag_dist = float(unit.get("flags", {}).get("effect_consolidation_distance", 0.0))
+	if flag_dist > 0.0:
+		log_phase_message("Consolidation distance %.0f\" for %s (stratagem effect)" % [flag_dist, unit_id])
+		return flag_dist
 	var abilities = unit.get("meta", {}).get("abilities", [])
 	for ability in abilities:
 		var ability_name = ""

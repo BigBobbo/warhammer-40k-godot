@@ -14,6 +14,7 @@ extends RefCounted
 
 const _EFFECT_FLAGS := {
 	"stealth": "effect_stealth",
+	"lone operative": "effect_lone_operative",
 }
 
 

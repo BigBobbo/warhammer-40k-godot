@@ -284,6 +284,24 @@ func _identify_units_needing_tests() -> void:
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			DebugLogger.info(str("CommandPhase: %s (%s) needs battle-shock test (below_half=%s at_half=%s shocked=%s)" % [unit_name, unit_id, below_half, at_half, is_shocked]))
 
+	# Creeping Dread (Null Maiden Vigil): the OPPONENT's detachment rule forces
+	# active-player PSYKER / below-starting-strength units within 6" of an
+	# ANATHEMA PSYKANA unit to test, even at full strength
+	var faction_mgr_cd = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr_cd:
+		for forced_id in faction_mgr_cd.get_creeping_dread_forced_units(current_player):
+			if forced_id in _units_needing_test:
+				continue
+			var forced_unit = units.get(forced_id, {})
+			if forced_unit.get("attached_to", null) != null:
+				continue
+			var f_keywords = forced_unit.get("meta", {}).get("keywords", [])
+			var f_abilities = forced_unit.get("meta", {}).get("abilities", [])
+			if _has_battle_shock_immunity(f_keywords, f_abilities):
+				continue
+			_units_needing_test.append(forced_id)
+			DebugLogger.info(str("CommandPhase: %s needs battle-shock test (Creeping Dread — Null Maiden Vigil)" % forced_id))
+
 func _has_battle_shock_immunity(keywords: Array, abilities: Array) -> bool:
 	"""Check if a unit has FEARLESS or And They Shall Know No Fear keyword/ability,
 	which grants automatic immunity to battle-shock tests."""
@@ -487,6 +505,36 @@ func get_available_actions() -> Array:
 				"player": current_player
 			})
 
+	# Detachment designated-target rules — Da Big Hunt (Prey) / Auric Champions
+	# (Assemblage of Might): select one enemy unit at the start of your Command phase
+	if faction_mgr:
+		var det_def = faction_mgr.get_detachment_def(current_player)
+		var designate_kind = str(det_def.get("designate", ""))
+		if str(det_def.get("trigger", "")) == "command_phase_start" and designate_kind != "":
+			var current_det_target = faction_mgr.get_detachment_target(current_player, designate_kind)
+			var det_ability_name = str(det_def.get("ability_name", designate_kind.capitalize()))
+			for target_info in faction_mgr.get_eligible_oath_targets(current_player):
+				var is_current_det = (target_info.unit_id == current_det_target)
+				actions.append({
+					"type": "SELECT_DETACHMENT_TARGET",
+					"kind": designate_kind,
+					"target_unit_id": target_info.unit_id,
+					"description": "%s: designate %s%s" % [det_ability_name, target_info.unit_name, " (current)" if is_current_det else ""],
+					"player": current_player,
+					"is_current_target": is_current_det
+				})
+
+	# Da Boss Is Watchin' (Bully Boyz) — once per battle, Waaagh! active for one
+	# WARBOSS/NOBZ/MEGANOBZ unit for the rest of the battle
+	if faction_mgr and faction_mgr.is_da_boss_watchin_available(current_player):
+		for target in faction_mgr.get_da_boss_watchin_eligible_units(current_player):
+			actions.append({
+				"type": "ACTIVATE_DA_BOSS_WATCHIN",
+				"unit_id": target.unit_id,
+				"description": "Da Boss Is Watchin': %s — Waaagh! active for the rest of the battle (once per battle)" % target.unit_name,
+				"player": current_player
+			})
+
 	# Grab and Bash — per-unit Waaagh! for non-Gretchin ORKS unit near loot objective (OA-4)
 	if faction_mgr and faction_mgr.get_player_detachment(current_player) == "Freebooter Krew":
 		var strat_manager_gab = get_node_or_null("/root/StratagemManager")
@@ -663,6 +711,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_replace_secondary_mission(action)
 		"SELECT_OATH_TARGET":
 			errors = _validate_select_oath_target(action)
+		"SELECT_DETACHMENT_TARGET":
+			errors = _validate_select_detachment_target(action)
+		"ACTIVATE_DA_BOSS_WATCHIN":
+			errors = _validate_activate_da_boss_watchin(action)
 		"CALL_WAAAGH":
 			errors = _validate_call_waaagh(action)
 		"PLANT_WAAAGH_BANNER":
@@ -775,6 +827,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_replace_secondary_mission(action)
 		"SELECT_OATH_TARGET":
 			return _handle_select_oath_target(action)
+		"SELECT_DETACHMENT_TARGET":
+			return _handle_select_detachment_target(action)
+		"ACTIVATE_DA_BOSS_WATCHIN":
+			return _handle_activate_da_boss_watchin(action)
 		"CALL_WAAAGH":
 			return _handle_call_waaagh(action)
 		"PLANT_WAAAGH_BANNER":
@@ -1379,6 +1435,132 @@ func _handle_select_oath_target(action: Dictionary) -> Dictionary:
 			"turn": GameState.get_battle_round()
 		}
 		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+# ============================================================================
+# DETACHMENT ABILITIES — DESIGNATED TARGETS + DA BOSS IS WATCHIN'
+# (faction-wide sweep: Da Big Hunt, Auric Champions, Bully Boyz)
+# ============================================================================
+
+func _validate_select_detachment_target(action: Dictionary) -> Array:
+	var errors = []
+	var current_player = get_current_player()
+	var target_unit_id = action.get("target_unit_id", "")
+	var kind = str(action.get("kind", ""))
+
+	if target_unit_id == "":
+		errors.append("Missing target_unit_id for detachment target designation")
+		return errors
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	var det_def = faction_mgr.get_detachment_def(current_player)
+	var expected_kind = str(det_def.get("designate", ""))
+	if str(det_def.get("trigger", "")) != "command_phase_start" or expected_kind == "":
+		errors.append("Player %d's detachment has no designated-target rule" % current_player)
+		return errors
+	if kind != "" and kind != expected_kind:
+		errors.append("Wrong designation kind '%s' (expected '%s')" % [kind, expected_kind])
+
+	var target = GameState.state.get("units", {}).get(target_unit_id, {})
+	if target.is_empty():
+		errors.append("Target unit not found: %s" % target_unit_id)
+		return errors
+	if target.get("owner", 0) == current_player:
+		errors.append("Cannot designate own unit")
+	var has_alive = false
+	for model in target.get("models", []):
+		if model.get("alive", true):
+			has_alive = true
+			break
+	if not has_alive:
+		errors.append("Target unit is destroyed")
+
+	return errors
+
+func _handle_select_detachment_target(action: Dictionary) -> Dictionary:
+	var target_unit_id = action.get("target_unit_id", "")
+	var current_player = get_current_player()
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var det_def = faction_mgr.get_detachment_def(current_player)
+	var kind = str(det_def.get("designate", ""))
+	if kind == "":
+		return {"success": false, "error": "No designated-target detachment rule for player %d" % current_player}
+
+	var result = faction_mgr.set_detachment_target(current_player, kind, target_unit_id)
+
+	if result.success:
+		var det_ability_name = str(det_def.get("ability_name", kind.capitalize()))
+		var target_name = GameState.state.get("units", {}).get(target_unit_id, {}).get("meta", {}).get("name", target_unit_id)
+		log_phase_message("%s: Player %d designates %s" % [det_ability_name, current_player, target_name])
+		GameState.add_action_to_phase_log({
+			"type": "SELECT_DETACHMENT_TARGET",
+			"player": current_player,
+			"kind": kind,
+			"target_unit_id": target_unit_id,
+			"target_name": target_name,
+			"turn": GameState.get_battle_round()
+		})
+
+	return result
+
+func _validate_activate_da_boss_watchin(action: Dictionary) -> Array:
+	var errors = []
+	var current_player = get_current_player()
+	var unit_id = action.get("unit_id", "")
+
+	if unit_id == "":
+		errors.append("Missing unit_id for Da Boss Is Watchin'")
+		return errors
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if not faction_mgr.is_da_boss_watchin_available(current_player):
+		errors.append("Da Boss Is Watchin' is not available (wrong detachment or already used)")
+		return errors
+
+	var eligible = faction_mgr.get_da_boss_watchin_eligible_units(current_player)
+	var found = false
+	for entry in eligible:
+		if entry.unit_id == unit_id:
+			found = true
+			break
+	if not found:
+		errors.append("Unit %s is not an eligible WARBOSS/NOBZ/MEGANOBZ unit" % unit_id)
+
+	return errors
+
+func _handle_activate_da_boss_watchin(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var current_player = get_current_player()
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var result = faction_mgr.activate_da_boss_watchin(current_player, unit_id)
+
+	if result.success:
+		var unit_name = GameState.state.get("units", {}).get(unit_id, {}).get("meta", {}).get("name", unit_id)
+		log_phase_message("DA BOSS IS WATCHIN': Waaagh! active for %s for the rest of the battle" % unit_name)
+		GameState.add_action_to_phase_log({
+			"type": "ACTIVATE_DA_BOSS_WATCHIN",
+			"player": current_player,
+			"unit_id": unit_id,
+			"unit_name": unit_name,
+			"turn": GameState.get_battle_round()
+		})
 
 	return result
 

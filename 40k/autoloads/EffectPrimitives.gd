@@ -131,6 +131,18 @@ const REROLL_CHARGE = "reroll_charge"                   # Re-roll charge rolls (
 const PLUS_CHARGE = "plus_charge"                       # value: amount to add to charge roll total ('ERE WE GO etc.)
 const FLAT_ADVANCE = "flat_advance"                     # Replace Advance roll with flat +6" to Move
 const AUTO_ADVANCE_6 = "auto_advance_6"                 # Skip advance roll, auto +6" to Move
+const REROLL_ADVANCE = "reroll_advance"                 # Re-roll Advance rolls (auto-rerolled when low; see MovementPhase)
+const GRANT_FIGHTS_FIRST = "grant_fights_first"         # Fights First (FightSequencer reads flags.fights_first)
+const IMPROVE_LEADERSHIP = "improve_leadership"         # value: bonus added to Battle-shock/Leadership test totals
+const GRANT_LONE_OPERATIVE = "grant_lone_operative"     # Lone Operative (UnitAbilities dynamic grant)
+const GRANT_ASSAULT = "grant_assault"                   # ranged weapons count as [ASSAULT] (shoot after Advance)
+const PLUS_OC = "plus_oc"                               # value: added to models' Objective Control
+const MOVE_THROUGH_TERRAIN = "move_through_terrain"     # models can move through terrain features
+const PLUS_STRENGTH_RANGED = "plus_strength_ranged"     # value: Strength bonus on ranged weapons
+const DISEMBARK_CHARGE_OK = "disembark_charge_ok"       # on a TRANSPORT: units disembarking after it moved may still charge
+const COUNTS_AS_TEN_MODELS = "counts_as_ten_models"     # unit counts as 10+ models for detachment/enhancement rules
+const FIGHT_RANGE_3 = "fight_range_3"                   # models within 3" are eligible to fight (instead of the normal reach)
+const PLUS_TOUGHNESS = "plus_toughness"                 # value: Toughness bonus (HARDENED RESOLVE etc.)
 
 # Instant effects (no persistent flags — executed immediately by the caller)
 const MORTAL_WOUNDS = "mortal_wounds"                     # dice: int, threshold: int
@@ -186,6 +198,18 @@ const FLAG_REROLL_CHARGE = "effect_reroll_charge"
 const FLAG_PLUS_CHARGE = "effect_plus_charge"             # value: int (amount to add to charge roll total)
 const FLAG_FLAT_ADVANCE = "effect_flat_advance"
 const FLAG_AUTO_ADVANCE_6 = "effect_auto_advance_6"
+const FLAG_REROLL_ADVANCE = "effect_reroll_advance"       # MovementPhase auto-rerolls low Advance rolls
+const FLAG_FIGHTS_FIRST = "fights_first"                  # shared with the 11e core flag FightSequencer reads
+const FLAG_IMPROVE_LEADERSHIP = "effect_improve_leadership"  # value: int, added to Battle-shock test totals
+const FLAG_LONE_OPERATIVE = "effect_lone_operative"       # dynamic Lone Operative grant (UnitAbilities reads)
+const FLAG_ASSAULT_RANGED = "effect_assault_ranged"       # ShootingPhase treats ranged weapons as [ASSAULT]
+const FLAG_PLUS_OC = "effect_plus_oc"                     # value: int (MissionManager adds to model OC)
+const FLAG_MOVE_THROUGH_TERRAIN = "effect_move_through_terrain"  # MovementPhase pathing exemption
+const FLAG_PLUS_STRENGTH_RANGED = "effect_plus_strength_ranged"  # value: int (RulesEngine ranged S bonus)
+const FLAG_DISEMBARK_CHARGE_OK = "effect_disembark_charge_ok"    # TransportManager: post-move disembark may charge
+const FLAG_COUNTS_AS_TEN = "effect_counts_as_ten_models"  # Green Tide bookkeeping (detachment rule helpers read)
+const FLAG_FIGHT_RANGE_3 = "effect_fight_range_3"         # FightPhase eligibility reach override
+const FLAG_PLUS_TOUGHNESS = "effect_plus_toughness"       # value: int (RulesEngine toughness lookup adds it)
 const FLAG_PLUS_ATTACKS = "effect_plus_attacks"            # value: int (amount to add)
 # Issue #393 AVENGE THE FALLEN: applies INSTEAD OF effect_plus_attacks when the
 # bearer's unit is Below Half-strength at attack time. RulesEngine reads both
@@ -259,6 +283,18 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	PLUS_CHARGE: [{"flag": FLAG_PLUS_CHARGE, "value_from": "value"}],
 	FLAT_ADVANCE: [{"flag": FLAG_FLAT_ADVANCE, "value": true}],
 	AUTO_ADVANCE_6: [{"flag": FLAG_AUTO_ADVANCE_6, "value": true}],
+	REROLL_ADVANCE: [{"flag": FLAG_REROLL_ADVANCE, "value": true}],
+	GRANT_FIGHTS_FIRST: [{"flag": FLAG_FIGHTS_FIRST, "value": true}],
+	IMPROVE_LEADERSHIP: [{"flag": FLAG_IMPROVE_LEADERSHIP, "value_from": "value"}],
+	GRANT_LONE_OPERATIVE: [{"flag": FLAG_LONE_OPERATIVE, "value": true}],
+	GRANT_ASSAULT: [{"flag": FLAG_ASSAULT_RANGED, "value": true}],
+	PLUS_OC: [{"flag": FLAG_PLUS_OC, "value_from": "value"}],
+	MOVE_THROUGH_TERRAIN: [{"flag": FLAG_MOVE_THROUGH_TERRAIN, "value": true}],
+	PLUS_STRENGTH_RANGED: [{"flag": FLAG_PLUS_STRENGTH_RANGED, "value_from": "value"}],
+	DISEMBARK_CHARGE_OK: [{"flag": FLAG_DISEMBARK_CHARGE_OK, "value": true}],
+	COUNTS_AS_TEN_MODELS: [{"flag": FLAG_COUNTS_AS_TEN, "value": true}],
+	FIGHT_RANGE_3: [{"flag": FLAG_FIGHT_RANGE_3, "value": true}],
+	PLUS_TOUGHNESS: [{"flag": FLAG_PLUS_TOUGHNESS, "value_from": "value"}],
 	PLUS_ATTACKS: [{"flag": FLAG_PLUS_ATTACKS, "value_from": "value"}],
 	# Issue #393: AVENGE THE FALLEN below-half variant.
 	PLUS_ATTACKS_BELOW_HALF: [{"flag": FLAG_PLUS_ATTACKS_BELOW_HALF, "value_from": "value"}],

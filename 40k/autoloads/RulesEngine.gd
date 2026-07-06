@@ -1098,6 +1098,11 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var pre_s_pr = strength
 		strength += 1
 		print("RulesEngine: Pulsa Rokkit (Overwatch) — ranged strength %d → %d (+1)" % [pre_s_pr, strength])
+	# Effect-granted ranged Strength bonus (Talons Interlocked etc.)
+	var _psr_bonus = int(shooter_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_STRENGTH_RANGED, 0))
+	if _psr_bonus > 0:
+		strength += _psr_bonus
+		print("RulesEngine: Effect +%d ranged Strength for %s" % [_psr_bonus, shooter_unit.get("meta", {}).get("name", "?")])
 	# SHOOTY POWER TRIP (OA-37): +1 Strength to ranged weapons for the phase (D6 roll 3-4)
 	if shooter_unit.get("flags", {}).get("effect_shooty_power_trip_strength", false):
 		var pre_s_spt = strength
@@ -1194,6 +1199,12 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var pre_ap_dbd = ap
 		ap = ap + ow_dbd_bonus
 		print("RulesEngine: Drive-by Dakka (Overwatch) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ow_dbd_bonus])
+	# DA HUNT IS ON (Da Big Hunt): BEAST SNAGGA attacks improve AP by 1 vs the Prey
+	var ow_prey_bonus = FactionAbilityManager.attacker_benefits_from_prey_ap(shooter_unit, target_unit)
+	if ow_prey_bonus > 0:
+		var pre_ap_prey = ap
+		ap = ap + ow_prey_bonus
+		print("RulesEngine: Da Hunt Is On (Overwatch) — AP %d → %d (+%d vs Prey)" % [pre_ap_prey, ap, ow_prey_bonus])
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ow_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ow_worsen_ap > 0 and ap > 0:
@@ -1987,6 +1998,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		var pre_s_pr = strength
 		strength += 1
 		print("RulesEngine: Pulsa Rokkit — ranged strength %d → %d (+1)" % [pre_s_pr, strength])
+	# Effect-granted ranged Strength bonus (Talons Interlocked etc.)
+	var _psr_bonus = int(actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_STRENGTH_RANGED, 0))
+	if _psr_bonus > 0:
+		strength += _psr_bonus
+		print("RulesEngine: Effect +%d ranged Strength for %s" % [_psr_bonus, actor_unit.get("meta", {}).get("name", "?")])
 	# SHOOTY POWER TRIP (OA-37): +1 Strength to ranged weapons for the phase (D6 roll 3-4)
 	if actor_unit.get("flags", {}).get("effect_shooty_power_trip_strength", false):
 		var pre_s_spt = strength
@@ -2062,6 +2078,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
 		wound_modifiers |= WoundModifier.PLUS_ONE
 		print("RulesEngine: OATH OF MOMENT — +1 to wound against %s" % target_unit_id)
+
+	# ASSEMBLAGE OF MIGHT (Auric Champions): +1 to wound for CUSTODES CHARACTERS vs designated target
+	if FactionAbilityManager.attacker_benefits_from_assemblage(actor_unit, target_unit):
+		wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: ASSEMBLAGE OF MIGHT — +1 to wound against %s" % target_unit_id)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker
 	if EffectPrimitivesData.has_effect_plus_one_wound(actor_unit):
@@ -3398,6 +3419,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var pre_s_pr = strength
 		strength += 1
 		print("RulesEngine: Pulsa Rokkit (auto-resolve) — ranged strength %d → %d (+1)" % [pre_s_pr, strength])
+	# Effect-granted ranged Strength bonus (Talons Interlocked etc.)
+	var _psr_bonus = int(actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_STRENGTH_RANGED, 0))
+	if _psr_bonus > 0:
+		strength += _psr_bonus
+		print("RulesEngine: Effect +%d ranged Strength for %s" % [_psr_bonus, actor_unit.get("meta", {}).get("name", "?")])
 	# SHOOTY POWER TRIP (OA-37): +1 Strength to ranged weapons for the phase (D6 roll 3-4)
 	if actor_unit.get("flags", {}).get("effect_shooty_power_trip_strength", false):
 		var pre_s_spt = strength
@@ -3464,6 +3490,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
 		print("RulesEngine: OATH OF MOMENT (auto-resolve) — +1 to wound against %s" % target_unit_id)
+
+	# ASSEMBLAGE OF MIGHT (Auric Champions): +1 to wound for CUSTODES CHARACTERS vs designated target
+	if FactionAbilityManager.attacker_benefits_from_assemblage(actor_unit, target_unit):
+		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: ASSEMBLAGE OF MIGHT (auto-resolve) — +1 to wound against %s" % target_unit_id)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker
 	if EffectPrimitivesData.has_effect_plus_one_wound(actor_unit):
@@ -3647,6 +3678,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var pre_ap_dbd = ap
 		ap = ap + ar_dbd_bonus
 		print("RulesEngine: Drive-by Dakka (auto-resolve) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ar_dbd_bonus])
+	# DA HUNT IS ON (Da Big Hunt): BEAST SNAGGA attacks improve AP by 1 vs the Prey
+	var ar_prey_bonus = FactionAbilityManager.attacker_benefits_from_prey_ap(actor_unit, target_unit)
+	if ar_prey_bonus > 0:
+		var pre_ap_prey = ap
+		ap = ap + ar_prey_bonus
+		print("RulesEngine: Da Hunt Is On (auto-resolve) — AP %d → %d (+%d vs Prey)" % [pre_ap_prey, ap, ar_prey_bonus])
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ar_worsen_ap > 0 and ap > 0:
@@ -4129,8 +4166,11 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					errors.append("Non-Pistol weapon '%s' cannot be fired while in engagement range" % weapon_profile.get("name", weapon_id))
 
 				# ASSAULT RULES: If unit Advanced, only Assault weapons can be used
-				# EXCEPTION: Units with advance_and_shoot effect can fire all weapons after Advancing
-				if actor_advanced and not is_assault_weapon(weapon_id, board) and not EffectPrimitivesData.has_effect_advance_and_shoot(actor_unit):
+				# EXCEPTIONS: advance_and_shoot fires all weapons; effect-granted
+				# [ASSAULT] (effect_assault_ranged) makes every ranged weapon count
+				if actor_advanced and not is_assault_weapon(weapon_id, board) \
+						and not EffectPrimitivesData.has_effect_advance_and_shoot(actor_unit) \
+						and not actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_ASSAULT_RANGED, false):
 					errors.append("Cannot fire non-Assault weapon '%s' after Advancing" % weapon_profile.get("name", weapon_id))
 
 				# MA-26: WEAPON OWNERSHIP VALIDATION — verify each model in the assignment
@@ -4264,7 +4304,9 @@ static func _calculate_wound_threshold(strength: int, toughness: int) -> int:
 static func _get_attached_unit_toughness(target_unit: Dictionary, board: Dictionary) -> int:
 	# 11e 19.02: attacks vs an attached unit use the HIGHEST Toughness of the
 	# bodyguard models (not just the unit's single profile value).
-	var own_toughness = _unit_highest_toughness(target_unit)
+	# Effect-granted Toughness (HARDENED RESOLVE etc.) applies on top.
+	var own_toughness = _unit_highest_toughness(target_unit) \
+		+ int(target_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_TOUGHNESS, 0))
 
 	# Check if this unit is a CHARACTER attached to a bodyguard
 	var attached_to = target_unit.get("attached_to", null)
@@ -7100,6 +7142,39 @@ static func is_target_within_range_inches(actor_unit: Dictionary, target_unit: D
 				return true
 	return false
 
+# FIERCE CONQUEROR (Lions of the Emperor enhancement): +2 Attacks on the
+# bearer's melee weapons for every 5 enemy models within 6" of the bearer
+# (rounding down). Computed live because the enemy-model count changes.
+static func get_fierce_conqueror_attack_bonus(attacker_unit: Dictionary, board: Dictionary) -> int:
+	var has_fc = false
+	for e in attacker_unit.get("meta", {}).get("enhancements", []):
+		if str(e).replace("’", "'") == "Fierce Conqueror":
+			has_fc = true
+			break
+	if not has_fc:
+		return 0
+	var owner = int(attacker_unit.get("owner", 0))
+	var enemy_models_within_6 = 0
+	var units = board.get("units", {})
+	for uid in units:
+		var u = units[uid]
+		if int(u.get("owner", 0)) == owner:
+			continue
+		for em in u.get("models", []):
+			if not em.get("alive", true):
+				continue
+			if em.get("position", null) == null:
+				continue
+			for bm in attacker_unit.get("models", []):
+				if not bm.get("alive", true):
+					continue
+				if bm.get("position", null) == null:
+					continue
+				if Measurement.model_to_model_distance_inches(bm, em) <= 6.0:
+					enemy_models_within_6 += 1
+					break
+	return floori(enemy_models_within_6 / 5.0) * 2
+
 # DRIVE-BY DAKKA (OA-13): Get AP improvement for Drive-by Dakka.
 # Returns 1 if attacker has Drive-by Dakka and target is within 9", otherwise 0.
 static func get_drive_by_dakka_ap_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
@@ -9284,6 +9359,10 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 					# T3-9: Use barricade-aware engagement range (2" through barricades)
 					var enemy_pos = _get_model_position(enemy_model)
 					var effective_er = _get_effective_engagement_range_rules(model_pos, enemy_pos, board)
+					# BULLDOZER BRUTALITY (Green Tide): flagged units count models
+					# within 3" as eligible to fight.
+					if attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_FIGHT_RANGE_3, false):
+						effective_er = max(effective_er, 3.0)
 					if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
 						in_er = true
 			if in_base_contact:
@@ -9357,14 +9436,22 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 		var target_unit_id_pre: String = assignment.get("target", "")
 		var swing_back_pre_alive: Array = []
 		var swing_back_is_defiant: bool = false
+		var swing_back_roll_needed: int = 0
+		var swing_back_waaagh_bonus: bool = false
 		if not target_unit_id_pre.is_empty():
 			var pre_target_unit = units.get(target_unit_id_pre, {})
 			var pre_flags = pre_target_unit.get("flags", {})
+			var custom_roll: int = int(pre_flags.get("effect_swing_back_roll", 0))
 			if pre_flags.get(EffectPrimitivesData.FLAG_SWING_BACK_BEFORE_REMOVE, false) \
-					or pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false):
+					or pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false) \
+					or custom_roll > 0:
 				for m in pre_target_unit.get("models", []):
 					swing_back_pre_alive.append(m.get("alive", true))
 				swing_back_is_defiant = pre_flags.get(EffectPrimitivesData.FLAG_DEFIANT_TO_THE_LAST, false)
+				# TOO ARROGANT TO DIE: roll-gated swing-back with +2 during a Waaagh!
+				if custom_roll > 0 and not swing_back_is_defiant:
+					swing_back_roll_needed = custom_roll
+					swing_back_waaagh_bonus = pre_flags.get("waaagh_active", false)
 
 		var assignment_result = _resolve_melee_assignment(assignment, actor_unit_id, board, rng_service)
 		result.diffs.append_array(assignment_result.diffs)
@@ -9376,7 +9463,7 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 		# original assignment has resolved (and may have killed models), trigger
 		# the deferred swing-back attack from the dying-but-not-yet-removed models.
 		if not swing_back_pre_alive.is_empty():
-			var sb_diffs_dice = _resolve_swing_back_before_remove(target_unit_id_pre, actor_unit_id, swing_back_pre_alive, board, rng_service, swing_back_is_defiant)
+			var sb_diffs_dice = _resolve_swing_back_before_remove(target_unit_id_pre, actor_unit_id, swing_back_pre_alive, board, rng_service, swing_back_is_defiant, swing_back_roll_needed, swing_back_waaagh_bonus)
 			result.diffs.append_array(sb_diffs_dice.get("diffs", []))
 			result.dice.append_array(sb_diffs_dice.get("dice", []))
 			if sb_diffs_dice.get("log_text", "") != "":
@@ -9401,7 +9488,7 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 # / engagement checks in `_resolve_melee_assignment` accept them, then we
 # re-apply alive=false. Models that already fought this phase do NOT swing back
 # (per Wahapedia: "if that model has not fought this phase").
-static func _resolve_swing_back_before_remove(target_unit_id: String, original_attacker_id: String, pre_alive: Array, board: Dictionary, rng: RNGService, is_defiant: bool = false) -> Dictionary:
+static func _resolve_swing_back_before_remove(target_unit_id: String, original_attacker_id: String, pre_alive: Array, board: Dictionary, rng: RNGService, is_defiant: bool = false, custom_roll_needed: int = 0, waaagh_bonus: bool = false) -> Dictionary:
 	var sb_result := {"diffs": [], "dice": [], "log_text": ""}
 	var units = board.get("units", {})
 	var defender = units.get(target_unit_id, {})
@@ -9423,25 +9510,30 @@ static func _resolve_swing_back_before_remove(target_unit_id: String, original_a
 			var model_flags = defender_models[idx].get("flags", {})
 			if model_flags.get("fought_this_phase", false):
 				continue
-			if is_defiant:
-				# DEFIANT TO THE LAST: roll D6, +2 if CHARACTER, need 4+
+			if is_defiant or custom_roll_needed > 0:
+				# DEFIANT TO THE LAST: roll D6, +2 if CHARACTER, need 4+.
+				# TOO ARROGANT TO DIE: roll D6, +2 during a Waaagh!, need custom_roll_needed.
 				var roll = rng.randi_range(1, 6)
-				var model_keywords = defender_models[idx].get("keywords", [])
-				if model_keywords.is_empty():
-					model_keywords = defender.get("meta", {}).get("keywords", [])
-				var is_character = false
-				for kw in model_keywords:
-					if kw.to_upper() == "CHARACTER":
-						is_character = true
-						break
-				var modifier = 2 if is_character else 0
+				var needed = 4 if is_defiant else custom_roll_needed
+				var modifier = 0
+				if is_defiant:
+					var model_keywords = defender_models[idx].get("keywords", [])
+					if model_keywords.is_empty():
+						model_keywords = defender.get("meta", {}).get("keywords", [])
+					for kw in model_keywords:
+						if kw.to_upper() == "CHARACTER":
+							modifier = 2
+							break
+				elif waaagh_bonus:
+					modifier = 2
 				var total = roll + modifier
-				sb_result.dice.append({"type": "defiant_to_the_last", "roll": roll, "modifier": modifier, "total": total, "passed": total >= 4})
-				if total >= 4:
+				var label = "DEFIANT TO THE LAST" if is_defiant else "TOO ARROGANT TO DIE"
+				sb_result.dice.append({"type": "swing_back_roll", "roll": roll, "modifier": modifier, "total": total, "needed": needed, "passed": total >= needed})
+				if total >= needed:
 					dying_models.append(idx)
-					print("RulesEngine: DEFIANT TO THE LAST — model %d rolled %d+%d=%d (4+ needed), PASSES — will swing back" % [idx, roll, modifier, total])
+					print("RulesEngine: %s — model %d rolled %d+%d=%d (%d+ needed), PASSES — will swing back" % [label, idx, roll, modifier, total, needed])
 				else:
-					print("RulesEngine: DEFIANT TO THE LAST — model %d rolled %d+%d=%d (4+ needed), FAILS — removed normally" % [idx, roll, modifier, total])
+					print("RulesEngine: %s — model %d rolled %d+%d=%d (%d+ needed), FAILS — removed normally" % [label, idx, roll, modifier, total, needed])
 			else:
 				dying_models.append(idx)
 
@@ -9752,6 +9844,18 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 					ws_per_attack.append(melee_default_ws)
 				print("RulesEngine: [MA-29] Ability +%d Attacks for '%s' (melee) → +%d total (%d models × %d)" % [melee_bonus_value, weapon_name, melee_ability_bonus, model_count, melee_bonus_value])
 
+	# FIERCE CONQUEROR (Lions of the Emperor): +2 Attacks on the bearer's melee
+	# weapons for every 5 enemy models within 6" of the bearer (rounding down)
+	if model_count > 0 and not is_extra_attacks_weapon:
+		var fc_per_model = get_fierce_conqueror_attack_bonus(attacker_unit, board)
+		if fc_per_model > 0:
+			var fc_total = fc_per_model * model_count
+			total_attacks += fc_total
+			var fc_ws = weapon_profile.get("ws", 4)
+			for _j in range(fc_total):
+				ws_per_attack.append(fc_ws)
+			print("RulesEngine: FIERCE CONQUEROR — +%d Attacks for '%s' (melee, %d models × %d)" % [fc_total, weapon_name, model_count, fc_per_model])
+
 	# 11e [CLEAVE X] (24.06): if this weapon makes all its attacks against a
 	# single target unit, add X dice for every 5 models in the target (melee
 	# blast). Melee attack-splitting isn't modelled, so a melee weapon always
@@ -9820,6 +9924,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var pre_ap_mm = ap
 		ap = ap + 1
 		print("RulesEngine: Martial Mastery (Improve AP) — melee AP %d → %d" % [pre_ap_mm, ap])
+	# DA HUNT IS ON (Da Big Hunt): BEAST SNAGGA attacks improve AP by 1 vs the Prey
+	var melee_prey_bonus = FactionAbilityManager.attacker_benefits_from_prey_ap(attacker_unit, target_unit)
+	if melee_prey_bonus > 0:
+		var pre_ap_prey = ap
+		ap = ap + melee_prey_bonus
+		print("RulesEngine: Da Hunt Is On (melee) — AP %d → %d (+%d vs Prey)" % [pre_ap_prey, ap, melee_prey_bonus])
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var melee_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if melee_worsen_ap > 0 and ap > 0:
@@ -10098,6 +10208,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
 		melee_wound_modifiers |= WoundModifier.PLUS_ONE
 		print("RulesEngine: OATH OF MOMENT (melee) — +1 to wound against %s" % target_name)
+
+	# ASSEMBLAGE OF MIGHT (Auric Champions): +1 to wound for CUSTODES CHARACTERS vs designated target
+	if FactionAbilityManager.attacker_benefits_from_assemblage(attacker_unit, target_unit):
+		melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: ASSEMBLAGE OF MIGHT (melee) — +1 to wound against %s" % target_name)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker (melee)
 	if EffectPrimitivesData.has_effect_plus_one_wound(attacker_unit):
@@ -10962,6 +11077,12 @@ static func prepare_save_resolution(
 		var pre_ap_dbd = ap
 		ap = ap + int_dbd_bonus
 		print("RulesEngine: Drive-by Dakka (interactive) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, int_dbd_bonus])
+	# DA HUNT IS ON (Da Big Hunt): BEAST SNAGGA attacks improve AP by 1 vs the Prey
+	var int_prey_bonus = FactionAbilityManager.attacker_benefits_from_prey_ap(shooter_unit, target_unit)
+	if int_prey_bonus > 0:
+		var pre_ap_prey = ap
+		ap = ap + int_prey_bonus
+		print("RulesEngine: Da Hunt Is On (interactive) — AP %d → %d (+%d vs Prey)" % [pre_ap_prey, ap, int_prey_bonus])
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if int_worsen_ap > 0 and ap > 0:
@@ -11155,6 +11276,13 @@ static func prepare_melee_save_resolution(
 		var pre_ap_mm = ap
 		ap = ap + 1
 		print("RulesEngine: Martial Mastery (Improve AP) — melee interactive AP %d → %d" % [pre_ap_mm, ap])
+
+	# DA HUNT IS ON (Da Big Hunt): BEAST SNAGGA attacks improve AP by 1 vs the Prey
+	var mi_prey_bonus = FactionAbilityManager.attacker_benefits_from_prey_ap(attacker_unit, target_unit)
+	if mi_prey_bonus > 0:
+		var pre_ap_prey = ap
+		ap = ap + mi_prey_bonus
+		print("RulesEngine: Da Hunt Is On (melee interactive) — AP %d → %d (+%d vs Prey)" % [pre_ap_prey, ap, mi_prey_bonus])
 
 	var damage = weapon_profile.get("damage", 1)
 
@@ -12153,6 +12281,41 @@ static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, b
 		"total_mortal_wounds": total_mortal_wounds,
 		"total_casualties": total_casualties
 	}
+
+static func resolve_engagement_mortal_wounds(actor_unit_id: String, enemy_unit_id: String, threshold: int, extra_dice: int, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	"""Shared resolver for CRUSHING IMPACT (Bully Boyz) / UNSTOPPABLE MOMENTUM /
+	KRUNCHIN' DESCENT: roll one D6 per actor model within Engagement Range of
+	the chosen enemy (+extra_dice); each roll >= threshold deals 1 mortal
+	wound, capped at 6. Returns { dice_rolled, successes, mortal_wounds, diffs }."""
+	if rng == null:
+		rng = make_rng()
+	var units = board.get("units", {})
+	var actor = units.get(actor_unit_id, {})
+	var enemy = units.get(enemy_unit_id, {})
+	if actor.is_empty() or enemy.is_empty():
+		return {"dice_rolled": 0, "successes": 0, "mortal_wounds": 0, "diffs": []}
+	var dice_count := extra_dice
+	for m in actor.get("models", []):
+		if not m.get("alive", true):
+			continue
+		for em in enemy.get("models", []):
+			if not em.get("alive", true):
+				continue
+			if Measurement.is_in_engagement_range_shape_aware(m, em, 1.0):
+				dice_count += 1
+				break
+	var successes := 0
+	for _i in range(dice_count):
+		if rng.roll_d6(1)[0] >= threshold:
+			successes += 1
+	var mortal_wounds: int = min(successes, 6)
+	var result := {"dice_rolled": dice_count, "successes": successes, "mortal_wounds": mortal_wounds, "diffs": []}
+	print("RulesEngine: engagement MW — %d dice vs %d+, %d success(es), %d mortal wound(s) to %s" % [
+		dice_count, threshold, successes, mortal_wounds, enemy_unit_id])
+	if mortal_wounds > 0:
+		var mw_res = apply_mortal_wounds(enemy_unit_id, mortal_wounds, board, rng)
+		result["diffs"] = mw_res.get("diffs", [])
+	return result
 
 static func resolve_admonimortis(destroyed_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
 	"""Admonimortis (Lions of the Emperor enhancement): when the bearer is

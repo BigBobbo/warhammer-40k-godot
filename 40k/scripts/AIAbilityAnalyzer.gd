@@ -28,10 +28,17 @@ static var _ability_effects_cache: Dictionary = {}
 # ============================================================================
 
 static func _get_ability_effects() -> Dictionary:
-	"""Get the ABILITY_EFFECTS lookup table. Uses cache after first access."""
+	"""Get the merged ability-effects lookup table (hand-written const +
+	40kdc-generated entries). Uses cache after first access."""
 	if _ability_effects_cache.is_empty():
-		# Access the const directly from the script resource
-		_ability_effects_cache = UnitAbilityManagerData.ABILITY_EFFECTS
+		# Prefer the live autoload (carries the generated entries); fall back
+		# to the const when no scene tree exists (bare -s test contexts).
+		var loop = Engine.get_main_loop()
+		var uam = loop.root.get_node_or_null("UnitAbilityManager") if (loop != null and loop.root != null) else null
+		if uam != null and uam.has_method("get_all_effect_defs"):
+			_ability_effects_cache = uam.get_all_effect_defs()
+		else:
+			_ability_effects_cache = UnitAbilityManagerData.ABILITY_EFFECTS
 	return _ability_effects_cache
 
 # ============================================================================

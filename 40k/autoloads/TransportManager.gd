@@ -158,8 +158,14 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 
 	if transport.get("flags", {}).get("moved", false):
 		unit.flags["cannot_move"] = true
-		unit.flags["cannot_charge"] = true
-		print("Transport has moved - disembarked unit cannot move or charge")
+		# Mekanised Brutality (Blitz Brigade): a flagged TRANSPORT lets units
+		# disembarking after it moved still declare a charge this turn.
+		if transport.get("flags", {}).get(EffectPrimitivesData.FLAG_DISEMBARK_CHARGE_OK, false):
+			unit.flags["cannot_charge"] = false
+			print("Transport has moved but has disembark_charge_ok — disembarked unit may still charge")
+		else:
+			unit.flags["cannot_charge"] = true
+			print("Transport has moved - disembarked unit cannot move or charge")
 	else:
 		# Ensure flags are clear if transport hasn't moved
 		unit.flags["cannot_move"] = false

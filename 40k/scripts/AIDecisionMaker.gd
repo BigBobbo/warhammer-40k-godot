@@ -3251,6 +3251,57 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		if not best_target.is_empty():
 			return best_target
 
+	# Faction-wide sweep: designated-target detachment rules (Da Big Hunt Prey /
+	# Auric Champions Assemblage of Might). Reuses the Oath target heuristic.
+	# Skip once a target is designated this phase (is_current_target) so the
+	# decision loop doesn't re-designate forever.
+	var det_target_actions = []
+	var det_target_done := false
+	for action in available_actions:
+		if action.get("type") == "SELECT_DETACHMENT_TARGET":
+			if action.get("is_current_target", false):
+				det_target_done = true
+				break
+			det_target_actions.append(action)
+	if not det_target_done and not det_target_actions.is_empty():
+		var det_kind = str(det_target_actions[0].get("kind", "prey"))
+		_add_thinking_step("Selecting %s target — evaluating %d enemy units" % [det_kind, det_target_actions.size()])
+		var best_det = _select_oath_of_moment_target(snapshot, det_target_actions, player)
+		if not best_det.is_empty():
+			var det_target_id = str(best_det.get("target_unit_id", ""))
+			print("AIDecisionMaker: detachment %s target selected: %s" % [det_kind, det_target_id])
+			return {
+				"type": "SELECT_DETACHMENT_TARGET",
+				"kind": det_kind,
+				"target_unit_id": det_target_id,
+				"_ai_description": "%s: designate %s" % [det_kind.capitalize(), det_target_id]
+			}
+
+	# Bully Boyz: Da Boss Is Watchin' — persistent per-unit Waaagh!, worth using
+	# early; put it on the eligible unit with the most alive models (most
+	# attacks benefit). The action disappears once used (once per battle).
+	var boss_actions = []
+	for action in available_actions:
+		if action.get("type") == "ACTIVATE_DA_BOSS_WATCHIN":
+			boss_actions.append(action)
+	if not boss_actions.is_empty():
+		var best_boss_id := ""
+		var best_models := -1
+		var my_units = _get_units_for_player(snapshot, player)
+		for action in boss_actions:
+			var boss_uid = str(action.get("unit_id", ""))
+			var n = _get_alive_models(my_units.get(boss_uid, {})).size()
+			if n > best_models:
+				best_models = n
+				best_boss_id = boss_uid
+		if best_boss_id != "":
+			print("AIDecisionMaker: Da Boss Is Watchin' — activating on %s (%d models)" % [best_boss_id, best_models])
+			return {
+				"type": "ACTIVATE_DA_BOSS_WATCHIN",
+				"unit_id": best_boss_id,
+				"_ai_description": "Da Boss Is Watchin': permanent Waaagh! on %s" % best_boss_id
+			}
+
 	# P2-27: Combat Doctrines selection (Space Marines — Gladius Task Force)
 	# AI strategy: Assault Doctrine early (advance+charge), Tactical mid-game (fall back flexibility),
 	# Devastator late (shoot after advancing when fewer units remain)

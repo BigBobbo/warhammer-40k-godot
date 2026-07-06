@@ -1,0 +1,1260 @@
+{
+ "Drill Through": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "The target suffers d3 mortal wounds.",
+  "generated": true,
+  "source_id": "drill-through"
+ },
+ "Rivetin’ Dakka": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "grant_stealth"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "ranged",
+  "implemented": true,
+  "description": "During the Shooting phase, the attacking unit gets -1 to Hit rolls.",
+  "generated": true,
+  "source_id": "rivetin-dakka"
+ },
+ "Shokk-boosta": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "For the rest of the battle: The unit gains the Re Roll Advance Characteristic Rolls ability. At making normal advance or fallback move:   -> The unit can move over non-Titanic models and terrain features as though they were not there.   -> The unit can move through enemy models, but cannot end that move within Engagement Range of any enemy unit.   -> The unit automatically passes Desperate Escape tests.",
+  "generated": true,
+  "source_id": "shokk-boosta"
+ },
+ "Bomb Squig": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Once per battle, the target suffers d3 mortal wounds.",
+  "generated": true,
+  "source_id": "bomb-squig"
+ },
+ "Attached Unit": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "After being attached to a unit, the unit gains the Attached Unit Eligibility ability.",
+  "generated": true,
+  "source_id": "attached-unit"
+ },
+ "Trophy Hunters": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "reroll_charge"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": true,
+  "description": "You can re-roll the Charge roll.",
+  "generated": true,
+  "source_id": "trophy-hunters"
+ },
+ "Ramshackle Cover": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "This model has the Benefit of Cover.",
+  "generated": true,
+  "source_id": "ramshackle-cover"
+ },
+ "Shoutin’ Pole (Aura)": {
+  "condition": "aura",
+  "aura_range": 6,
+  "aura_target": "friendly",
+  "effects": [
+   {
+    "type": "improve_leadership",
+    "value": 1
+   }
+  ],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": true,
+  "description": "Against orks targets, for the rest of the battle, add 1 to the Leadership characteristic of friendly units within 6\".",
+  "aura_keyword": "ORKS",
+  "generated": true,
+  "source_id": "shoutin-pole-aura"
+ },
+ "Boom Bomb": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "The target suffers d6 mortal wounds.",
+  "generated": true,
+  "source_id": "boom-bomb"
+ },
+ "Ferocious Rage": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "grant_devastating_wounds"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": true,
+  "description": "Until the end of the turn, the unit's weapons gain [DEVASTATING WOUNDS].",
+  "generated": true,
+  "source_id": "ferocious-rage"
+ },
+ "Buzzer Squigs": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "During the Shooting phase, the target gains the Post Attack Debuff ability.",
+  "generated": true,
+  "source_id": "buzzer-squigs"
+ },
+ "Squig Mine": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Once per battle, the target suffers d6 mortal wounds.",
+  "generated": true,
+  "source_id": "squig-mine"
+ },
+ "Know-wotz": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "grant_lone_operative"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": true,
+  "description": "This model gains the Lone Operative ability.",
+  "generated": true,
+  "source_id": "know-wotz"
+ },
+ "Shokk Tunnel": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "When the unit is selected to Advance, until the end of the turn, unless while an enemy unit is within 9\", this model has the Deep Strike ability; this model gains the Counts As Advanced This Turn ability.",
+  "generated": true,
+  "source_id": "shokk-tunnel"
+ },
+ "Deranged Snotling Assault": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "During the Shooting phase, enemy units nearby must take a Battle-shock test.",
+  "generated": true,
+  "source_id": "deranged-snotling-assault"
+ },
+ "Grot Assistant": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Once per battle, the unit gains the Once Per Battle Special ability.",
+  "generated": true,
+  "source_id": "grot-assistant"
+ },
+ "Single-minded Predator": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "You can use the Fire Overwatch or Heroic Stratagem on this model for 0CP.",
+  "generated": true,
+  "source_id": "single-minded-predator"
+ },
+ "Thundering Stampede": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "While this model leads a unit, for the rest of the battle, the unit gets +1 to Charge rolls.",
+  "generated": true,
+  "source_id": "thundering-stampede"
+ },
+ "Billowing Fumes (Aura)": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "The attacking unit gets -1 to Hit rolls.",
+  "generated": true,
+  "source_id": "billowing-fumes-aura"
+ },
+ "Gargantuan": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "This model can move over terrain features as though they were not there.",
+  "generated": true,
+  "source_id": "gargantuan"
+ },
+ "Walking Bastion": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "During the Shooting phase, ignore engagement penalty this model's Hit rolls.",
+  "generated": true,
+  "source_id": "walking-bastion"
+ },
+ "Burna Bomb": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Roll one D6 for each model in the target unit: for each 6+, the target suffers 1 mortal wound.",
+  "generated": true,
+  "source_id": "burna-bomb"
+ },
+ "Galatus Shield": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "minus_one_wound_defense"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "melee",
+  "implemented": true,
+  "description": "During the Fight phase, the attacking unit gets -1 to Wound rolls.",
+  "generated": true,
+  "source_id": "galatus-shield"
+ },
+ "Unyielding Ancient": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "This model is set up again with full wounds remaining.",
+  "generated": true,
+  "source_id": "unyielding-ancient"
+ },
+ "Deft Parry": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "minus_one_hit_defense_melee"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "melee",
+  "implemented": true,
+  "description": "During the Fight phase, the attacking unit gets -1 to Hit rolls.",
+  "generated": true,
+  "source_id": "deft-parry"
+ },
+ "Custodian Guard": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "After being attached to a unit, the unit gains the Attached Unit Eligibility ability.",
+  "generated": true,
+  "source_id": "custodian-guard"
+ },
+ "Disintegration Beams": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "grant_devastating_wounds"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "ranged",
+  "implemented": true,
+  "description": "During the Shooting phase, until the end of the phase, the unit's weapons gain [DEVASTATING WOUNDS].",
+  "generated": true,
+  "source_id": "disintegration-beams"
+ },
+ "Saturation Volleys": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "grant_stealth"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "ranged",
+  "implemented": true,
+  "description": "During the Shooting phase, the attacking unit gets -1 to Hit rolls.",
+  "generated": true,
+  "source_id": "saturation-volleys"
+ },
+ "Infernus Firebombs": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Until the end of the turn, the target suffers 1 mortal wound.",
+  "generated": true,
+  "source_id": "infernus-firebombs"
+ },
+ "Assault Dropship": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Until the end of the turn, units can disembark from this model before it moves, and are still eligible to declare a charge this turn.",
+  "generated": true,
+  "source_id": "assault-dropship"
+ },
+ "Corner the Quarry": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Enemy units nearby cannot Fall Back.",
+  "generated": true,
+  "source_id": "corner-the-quarry"
+ },
+ "Daughter of the Abyss": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "grant_fnp",
+    "value": 3
+   }
+  ],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": true,
+  "description": "The unit has the Feel No Pain 3+ ability.",
+  "generated": true,
+  "source_id": "daughter-of-the-abyss"
+ },
+ "Seeker’s Instincts": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "After being attached to a unit, friendly units nearby get +2 to Charge rolls.",
+  "generated": true,
+  "source_id": "seeker-s-instincts"
+ },
+ "Self Repair": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "This model regains up to 1 lost wound.",
+  "generated": true,
+  "source_id": "self-repair"
+ },
+ "Tactical Perception": {
+  "condition": "while_led",
+  "effects": [
+   {
+    "type": "grant_fights_first"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": true,
+  "description": "After being attached to a unit, the unit has the Fights First ability.",
+  "generated": true,
+  "source_id": "tactical-perception"
+ },
+ "Tenacious Spirit": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "While the unit is below its starting strength, while the unit is below half strength, after being attached to a unit:   -> The unit gets +1 to Hit rolls.   -> The unit gets +1 to Wound rolls.",
+  "generated": true,
+  "source_id": "tenacious-spirit"
+ },
+ "Implacable Vanguard": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "During the Shooting phase, until the end of the turn, the unit gains the Once Per Battle Special ability.",
+  "generated": true,
+  "source_id": "implacable-vanguard"
+ },
+ "Jetbike Outriders": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "After being attached to a unit, the unit gains the Attached Unit Eligibility ability.",
+  "generated": true,
+  "source_id": "jetbike-outriders"
+ },
+ "Assault Ramp": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Units can disembark from this model after it has made a Normal move, and are still eligible to declare a charge this turn.",
+  "generated": true,
+  "source_id": "assault-ramp"
+ },
+ "Living Fortress": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "grant_fnp",
+    "value": 4
+   }
+  ],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": true,
+  "description": "Until the end of the phase, the unit has the Feel No Pain 4+ ability.",
+  "generated": true,
+  "source_id": "living-fortress"
+ },
+ "Resolute Will": {
+  "condition": "while_led",
+  "effects": [
+   {
+    "type": "minus_one_wound_defense"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": true,
+  "description": "After being attached to a unit, the attacking unit gets -1 to Wound rolls.",
+  "generated": true,
+  "source_id": "resolute-will"
+ },
+ "Merciless Hunter": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "During the Shooting phase, while the unit is below half strength, the unit gets +1 to Wound rolls.",
+  "generated": true,
+  "source_id": "merciless-hunter"
+ },
+ "Golden Laurels": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "During the Fight phase, after being attached to a unit, subtract 1 from the attacking unit's Armour Penetration characteristic.",
+  "generated": true,
+  "source_id": "golden-laurels"
+ },
+ "Hero of Lion’s Gate": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Once per battle, this model can change Any rolls to a 6.",
+  "generated": true,
+  "source_id": "hero-of-lion-s-gate"
+ },
+ "Jump Packs": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "This model gains the Cannot Embark Venerable Land Raider ability.",
+  "generated": true,
+  "source_id": "jump-packs"
+ },
+ "Strike from the Skies": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "fall_back_and_shoot"
+   },
+   {
+    "type": "fall_back_and_charge"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": true,
+  "description": "The unit is eligible to shoot and declare a charge in a turn in which it Fell Back.",
+  "generated": true,
+  "source_id": "strike-from-the-skies"
+ },
+ "Swooping Dive": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Once per battle, you can use one Stratagem on this model for 0CP.",
+  "generated": true,
+  "source_id": "swooping-dive"
+ },
+ "Tarsis buckler": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Modify this model's Wounds characteristic to 4.",
+  "generated": true,
+  "source_id": "tarsis-buckler"
+ },
+ "Auramite and Adamantine": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Until the end of the phase, the unit gains the Once Per Battle Special ability.",
+  "generated": true,
+  "source_id": "auramite-and-adamantine"
+ },
+ "Heavy Assault Infantry": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "reroll_wounds",
+    "scope": "ones"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "ranged",
+  "implemented": true,
+  "description": "During the Shooting phase, you can re-roll a Wound roll of 1.",
+  "generated": true,
+  "source_id": "heavy-assault-infantry"
+ },
+ "Lions of the Emperor": {
+  "condition": "always",
+  "effects": [],
+  "target": "unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "After being attached to a unit, the unit gains the Attached Unit Eligibility ability.",
+  "generated": true,
+  "source_id": "lions-of-the-emperor"
+ },
+ "No Foe Shall Stand": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "grant_lethal_hits"
+   },
+   {
+    "type": "grant_ignores_cover"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "ranged",
+  "implemented": true,
+  "description": "During the Shooting phase, until the end of the phase:   -> The unit's weapons gain [LETHAL HITS].   -> The unit's weapons gain [IGNORES COVER].",
+  "generated": true,
+  "source_id": "no-foe-shall-stand"
+ },
+ "Fire Support": {
+  "condition": "always",
+  "effects": [
+   {
+    "type": "reroll_wounds",
+    "scope": "failed"
+   }
+  ],
+  "target": "unit",
+  "attack_type": "ranged",
+  "implemented": true,
+  "description": "During the Shooting phase, until the end of the phase, you can re-roll the Wound roll.",
+  "generated": true,
+  "source_id": "fire-support"
+ },
+ "Radiant Mantle": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "radiant-mantle-talons-of-the-emperor"
+ },
+ "Gift of Terran Artifice": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "gift-of-terran-artifice-talons-of-the-emperor"
+ },
+ "Champion of the Imperium": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "champion-of-the-imperium-talons-of-the-emperor"
+ },
+ "Aegis Projector": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "aegis-projector-talons-of-the-emperor"
+ },
+ "Raptor Blade": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "raptor-blade-null-maiden-vigil"
+ },
+ "Enhanced Voidsheen Cloak": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "enhanced-voidsheen-cloak-null-maiden-vigil"
+ },
+ "Huntress’ Eye": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "huntress-eye-null-maiden-vigil"
+ },
+ "Oblivion Knight": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "oblivion-knight-null-maiden-vigil"
+ },
+ "Blade Imperator": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "blade-imperator-auric-champions"
+ },
+ "Inspirational Exemplar": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "inspirational-exemplar-auric-champions"
+ },
+ "Veiled Blade": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "veiled-blade-auric-champions"
+ },
+ "Martial Philosopher": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "martial-philosopher-auric-champions"
+ },
+ "Adamantine Talisman": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "adamantine-talisman-solar-spearhead"
+ },
+ "Augury Uplink": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "augury-uplink-solar-spearhead"
+ },
+ "Honoured Fallen (Aura)": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "honoured-fallen-aura-solar-spearhead"
+ },
+ "Veteran of the Kataphraktoi": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "veteran-of-the-kataphraktoi-solar-spearhead"
+ },
+ "Superior Creation": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "superior-creation-lions-of-the-emperor"
+ },
+ "Praesidius": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "praesidius-lions-of-the-emperor"
+ },
+ "Fierce Conqueror": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "fierce-conqueror-lions-of-the-emperor"
+ },
+ "Admonimortis": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "admonimortis-lions-of-the-emperor"
+ },
+ "Interred Expertise": {
+  "condition": "enhancement",
+  "effects": [
+   {
+    "type": "reroll_hits",
+    "scope": "ones"
+   },
+   {
+    "type": "reroll_wounds",
+    "scope": "ones"
+   }
+  ],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": true,
+  "description": "You can re-roll a Hit roll of 1. You can re-roll a Wound roll of 1. Applies to: units with Adeptus Custodes, Walker.",
+  "generated": true,
+  "source_id": "interred-expertise-might-of-the-moritoi"
+ },
+ "Auramite Sarcophagus": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "You can use one Stratagem on this model for 0CP. Applies to: units with Adeptus Custodes, Walker.",
+  "generated": true,
+  "source_id": "auramite-sarcophagus-might-of-the-moritoi"
+ },
+ "Encircling Hunter": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Once per battle, up to 3 units can be placed into Strategic Reserves. Applies to: units with Anathema Psykana, Infantry.",
+  "generated": true,
+  "source_id": "encircling-hunter-silent-hunters"
+ },
+ "Psyk-out Grenades": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "The unit's weapons gain [EXPLOSIVES]. Applies to: units with Anathema Psykana.",
+  "generated": true,
+  "source_id": "psyk-out-grenades-silent-hunters"
+ },
+ "Mnemo-locked Shrine Cipher": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Once per battle, the unit gains the Ingress Move ability. Applies to: units with Adeptus Custodes, Terminator.",
+  "generated": true,
+  "source_id": "mnemo-locked-shrine-cipher-tharanatoi-hammerblow"
+ },
+ "Efficient Aggression": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Once per battle, while the model has lost wounds, the unit can make a Normal move of up to D6+1\". Applies to: units with Adeptus Custodes, Terminator.",
+  "generated": true,
+  "source_id": "efficient-aggression-tharanatoi-hammerblow"
+ },
+ "Glory Hog": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "glory-hog-da-big-hunt"
+ },
+ "Skrag Every Stash!": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "skrag-every-stash-da-big-hunt"
+ },
+ "Proper Killy": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "proper-killy-da-big-hunt"
+ },
+ "Surly As A Squiggoth": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "surly-as-a-squiggoth-da-big-hunt"
+ },
+ "Wazblasta": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "wazblasta-kult-of-speed"
+ },
+ "Fasta Than Yooz": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "fasta-than-yooz-kult-of-speed"
+ },
+ "Squig-hide Tyres": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "squig-hide-tyres-kult-of-speed"
+ },
+ "Speed Makes Right": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "speed-makes-right-kult-of-speed"
+ },
+ "Smoky Gubbinz": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "smoky-gubbinz-dread-mob"
+ },
+ "Supa-glowy Fing": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "supa-glowy-fing-dread-mob"
+ },
+ "Press It Fasta!": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "press-it-fasta-dread-mob"
+ },
+ "Gitfinder Gogglez": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "gitfinder-gogglez-dread-mob"
+ },
+ "Ferocious Show Off": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "ferocious-show-off-green-tide"
+ },
+ "Brutal But Kunnin’": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "brutal-but-kunnin-green-tide"
+ },
+ "Bloodthirsty Belligerence": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "bloodthirsty-belligerence-green-tide"
+ },
+ "Raucous Warcaller": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "raucous-warcaller-green-tide"
+ },
+ "Tellyporta": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "tellyporta-bully-boyz"
+ },
+ "Big Gob": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "big-gob-bully-boyz"
+ },
+ "Da Biggest Boss": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "da-biggest-boss-bully-boyz"
+ },
+ "’Eadstompa": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "eadstompa-bully-boyz"
+ },
+ "Skwad Leader": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "skwad-leader-taktikal-brigade"
+ },
+ "Mek Kaptin": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "mek-kaptin-taktikal-brigade"
+ },
+ "Mork’s Kunnin’": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "morks-kunnin-taktikal-brigade"
+ },
+ "Gob Boomer": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "gob-boomer-taktikal-brigade"
+ },
+ "Da Gobshot Thunderbuss": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "da-gobshot-thunderbuss-more-dakka"
+ },
+ "Dead Shiny Shootas": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "dead-shiny-shootas-more-dakka"
+ },
+ "Targetin’ Squigs": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "targetin-squigs-more-dakka"
+ },
+ "Zog Off and Eat Dakka!": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "zog-off-and-eat-dakka-more-dakka"
+ },
+ "Da Kaptin": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "da-kaptin-freebooter-krew"
+ },
+ "Bionik Workshop": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "bionik-workshop-freebooter-krew"
+ },
+ "Razgit’s Magik Map": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "No compilable 40kdc effect tree for this enhancement.",
+  "generated": true,
+  "source_id": "razgits-magik-map-freebooter-krew"
+ },
+ "Boarding Ramps": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "If the unit has the WAGON keyword, at disembark, until the end of the turn, the unit gets +1 to Charge rolls.",
+  "generated": true,
+  "source_id": "boarding-ramps-rollin-deff"
+ },
+ "Targetin’ Gizmos": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "The unit's ranged weapons gain [IGNORES COVER]. While the Waaagh is active, the unit's ranged weapons gain [SUSTAINED HITS 1].",
+  "generated": true,
+  "source_id": "targetin-gizmos-rollin-deff"
+ },
+ "Runnin’ Boots": {
+  "condition": "enhancement",
+  "effects": [
+   {
+    "type": "plus_charge",
+    "value": 1
+   }
+  ],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": true,
+  "description": "If the unit disembarked from a Transport this turn, until the end of the turn, the unit gets +1 to Charge rolls.",
+  "sub_condition": "unit_flag",
+  "condition_flag": "disembarked_this_phase",
+  "generated": true,
+  "source_id": "runnin-boots-blitz-brigade"
+ },
+ "Blitzkaptin": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Once per battle: Select up to 3 friendly Orks Vehicle units: the unit gains the Redeploy ability.",
+  "generated": true,
+  "source_id": "blitzkaptin-blitz-brigade"
+ },
+ "Supercharged Squig Oil": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "Until the end of the turn: Select up to 1 friendly Orks Vehicle unit: you can re-roll the Charge roll.",
+  "generated": true,
+  "source_id": "supercharged-squig-oil-blitz-brigade"
+ },
+ "Tuff Git": {
+  "condition": "enhancement",
+  "effects": [],
+  "target": "bearer_unit",
+  "attack_type": "all",
+  "implemented": false,
+  "description": "If the unit disembarked from a Transport this turn, while the unit is Battle-shocked, the unit is no longer Battle-shocked.",
+  "generated": true,
+  "source_id": "tuff-git-blitz-brigade"
+ }
+}

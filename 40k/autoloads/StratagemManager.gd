@@ -466,6 +466,33 @@ func load_faction_stratagems_for_player(player: int) -> void:
 
 	print("StratagemManager: Loaded %d faction stratagems for player %d (%d mechanically implemented)" % [loaded_count, player, implemented_count])
 
+# Stratagems whose rules are enforced by name-matched custom handlers in
+# _apply_stratagem_effects / _clear_stratagem_flags / phase hooks rather than
+# by auto-parsed effects_json. Names use straight apostrophes and UPPERCASE;
+# loader names are normalized before comparison. tests/test_faction_sweep.gd
+# reads this list to assert coverage.
+const CUSTOM_IMPLEMENTED_STRATAGEMS = [
+	# OA-4..OA-8 (Freebooter Krew) + Lions of the Emperor originals
+	"GRAB AND BASH",        # Waaagh! effects on a single unit
+	"BOARDIN' RUSH",        # skip advance roll, flat +6\" Move
+	"ROLLING LOOT-HEAP",    # Anti-Vehicle 4+ on Flash Gitz ranged weapons
+	"DECK FRAGGERS",        # BLAST vs INFANTRY
+	"KRUMP AND RUN",        # reactive Normal move after enemy falls back
+	"DEFIANT TO THE LAST",  # D6 per dying model, 4+ swing back
+	"SWIFT AS THE EAGLE",   # D6\" Normal move after being shot at
+	"UNLEASH THE LIONS",    # split Allarus/Aquilon into single-model units
+	"BASH AND GRAB",
+	# Faction-wide sweep: handler-based Ork + Custodes detachment stratagems
+	"GET STUCK IN, LADZ!", "SUPERHUMAN RESERVES", "GILDED CHAMPION",
+	"INSTINCTIVE HUNTERS", "DED SNEAKY", "CRUSHING IMPACT", "UNSTOPPABLE MOMENTUM",
+	"KRUNCHIN' DESCENT", "SQUIG FLINGIN'", "DESPERATION'S PRICE",
+	"ALWAYS LOOKIN' FER A FIGHT", "WRATHFUL ADVANCE", "COME ON LADZ!",
+	"SHOULDER THE MANTLE", "MOUNT UP, LADZ", "TOO ARROGANT TO DIE",
+	"RELENTLESS PERSECUTION", "BRAGGIN' RIGHTS", "RUN 'EM DOWN",
+	"HUNT AS ONE", "CONNIVING RUNTS", "KLANKIN' KLAWS", "GO GET 'EM!",
+	"VIGIL UNENDING", "EMPEROR'S VENGEANCE"
+]
+
 func _mark_custom_implemented_stratagems(player: int) -> void:
 	"""Mark stratagems with custom implementations as 'implemented'.
 	These are stratagems whose CSV effect text can't be auto-parsed by FactionStratagemLoader
@@ -476,38 +503,9 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 			continue
 		var strat = stratagems[strat_id]
 		# Data sources use typographic apostrophes (BOARDIN’ RUSH) — normalize
-		# so the straight-quoted handler names below keep matching.
+		# so the straight-quoted handler names keep matching.
 		var name_upper = strat.get("name", "").replace("’", "'").to_upper()
-		# GRAB AND BASH (OA-4): Waaagh! effects on single unit — custom implementation
-		if name_upper == "GRAB AND BASH":
-			strat["implemented"] = true
-			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
-		# BOARDIN' RUSH (OA-5): Skip advance roll, add flat 6" to Move — custom implementation
-		if name_upper == "BOARDIN' RUSH":
-			strat["implemented"] = true
-			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
-		# ROLLING LOOT-HEAP (OA-6): Grant Anti-Vehicle 4+ to Flash Gitz ranged weapons
-		if name_upper == "ROLLING LOOT-HEAP":
-			strat["implemented"] = true
-			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
-		# DECK FRAGGERS (OA-7): Grant BLAST to ranged weapons targeting INFANTRY
-		if name_upper == "DECK FRAGGERS":
-			strat["implemented"] = true
-			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
-		# KRUMP AND RUN (OA-8): Reactive Normal move after enemy falls back
-		if name_upper == "KRUMP AND RUN":
-			strat["implemented"] = true
-			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
-		# DEFIANT TO THE LAST (Lions): D6 roll per dying model, +2 CHARACTER, 4+ swing back
-		if name_upper == "DEFIANT TO THE LAST":
-			strat["implemented"] = true
-			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
-		# SWIFT AS THE EAGLE (Lions): D6" Normal move after being shot at
-		if name_upper == "SWIFT AS THE EAGLE":
-			strat["implemented"] = true
-			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
-		# UNLEASH THE LIONS (Lions): Split Allarus/Aquilon into single-model units
-		if name_upper == "UNLEASH THE LIONS":
+		if name_upper in CUSTOM_IMPLEMENTED_STRATAGEMS:
 			strat["implemented"] = true
 			print("StratagemManager: Marked '%s' as implemented (custom handler)" % strat.get("name", ""))
 
@@ -1265,15 +1263,16 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		print("StratagemManager: Applied Defiant to the Last to %s (D6 roll per dying model, +2 CHARACTER, 4+ swing back)" % target_unit_id)
 		return diffs
 
-	# SWIFT AS THE EAGLE (Lions): D6" Normal move after being shot at.
-	# Sets a flag so the shooting resolution can trigger the reactive move.
-	if strat.get("name", "").to_upper() == "SWIFT AS THE EAGLE":
+	# SWIFT AS THE EAGLE (Lions) / GO GET 'EM! (Green Tide): D6" Normal move
+	# after being shot at. Sets a flag so the shooting resolution can trigger
+	# the reactive move.
+	if strat.get("name", "").replace("’", "'").to_upper() in ["SWIFT AS THE EAGLE", "GO GET 'EM!"]:
 		var diffs = [{
 			"op": "set",
 			"path": "units.%s.flags.effect_swift_as_the_eagle" % target_unit_id,
 			"value": true
 		}]
-		print("StratagemManager: Applied Swift as the Eagle to %s (D6\" Normal move after being shot)" % target_unit_id)
+		print("StratagemManager: Applied %s to %s (D6\" Normal move after being shot)" % [strat.get("name", ""), target_unit_id])
 		return diffs
 
 	# UNLEASH THE LIONS (Lions): Split unit into single-model units.
@@ -1286,6 +1285,230 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 		}]
 		print("StratagemManager: Applied Unleash the Lions to %s (unit will be split)" % target_unit_id)
 		return diffs
+
+	# ── Faction-wide custom handlers (Ork + Custodes detachment sweep) ──
+	var strat_name_norm = strat.get("name", "").replace("’", "'").to_upper()
+
+	# GET STUCK IN, LADZ! (More Dakka!): per-unit Waaagh! — Grab and Bash twin.
+	if strat_name_norm == "GET STUCK IN, LADZ!":
+		print("StratagemManager: Applied Get Stuck In, Ladz! — per-unit Waaagh! for %s" % target_unit_id)
+		return [
+			{"op": "set", "path": "units.%s.flags.waaagh_active" % target_unit_id, "value": true},
+			{"op": "set", "path": "units.%s.flags.effect_invuln" % target_unit_id, "value": 5},
+			{"op": "set", "path": "units.%s.flags.effect_invuln_source" % target_unit_id, "value": "Get Stuck In, Ladz!"},
+			{"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % target_unit_id, "value": true},
+		]
+
+	# SUPERHUMAN RESERVES (Auric Champions) / GILDED CHAMPION (Lions): the
+	# model can reuse its 'once per battle' ability.
+	if strat_name_norm in ["SUPERHUMAN RESERVES", "GILDED CHAMPION"]:
+		var ability_mgr_r = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr_r:
+			ability_mgr_r.reset_once_per_battle(target_unit_id)
+		print("StratagemManager: %s — once-per-battle abilities reset for %s" % [strat.get("name", ""), target_unit_id])
+		return []
+
+	# INSTINCTIVE HUNTERS (Da Big Hunt) / DED SNEAKY (Taktikal Brigade):
+	# remove the unit into Strategic Reserves.
+	if strat_name_norm in ["INSTINCTIVE HUNTERS", "DED SNEAKY"]:
+		print("StratagemManager: %s — %s returns to Strategic Reserves" % [strat.get("name", ""), target_unit_id])
+		return [
+			{"op": "set", "path": "units.%s.status" % target_unit_id, "value": GameStateData.UnitStatus.IN_RESERVES},
+			{"op": "set", "path": "units.%s.flags.in_strategic_reserves" % target_unit_id, "value": true},
+		]
+
+	# CRUSHING IMPACT (Bully Boyz, 5+) / UNSTOPPABLE MOMENTUM (Da Big Hunt,
+	# 4+, +3 dice vs Prey) / KRUNCHIN' DESCENT (Taktikal Brigade, 4+):
+	# roll one D6 per model in Engagement Range of the chosen enemy — each
+	# success is 1 mortal wound (max 6).
+	if strat_name_norm in ["CRUSHING IMPACT", "UNSTOPPABLE MOMENTUM", "KRUNCHIN' DESCENT"]:
+		var enemy_mw = str(context.get("enemy_unit_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+		if enemy_mw == "":
+			print("StratagemManager: %s used without context.enemy_unit_id — no mortal wounds rolled" % strat.get("name", ""))
+			return []
+		var threshold = 5 if strat_name_norm == "CRUSHING IMPACT" else 4
+		var extra_dice = 0
+		if strat_name_norm == "UNSTOPPABLE MOMENTUM":
+			var enemy_unit_mw = GameState.state.get("units", {}).get(enemy_mw, {})
+			if enemy_unit_mw.get("flags", {}).get("prey_target", false):
+				extra_dice = 3
+		var mw_res = RulesEngine.resolve_engagement_mortal_wounds(target_unit_id, enemy_mw, threshold, extra_dice, GameState.create_snapshot())
+		if not mw_res.get("diffs", []).is_empty():
+			_safe_apply_state_changes(mw_res.diffs)
+		print("StratagemManager: %s — %d mortal wound(s) on %s" % [strat.get("name", ""), mw_res.get("mortal_wounds", 0), enemy_mw])
+		return []
+
+	# SQUIG FLINGIN' (Kult of Speed): forced Battle-shock test at -1.
+	# DESPERATION'S PRICE (Null Maiden Vigil): PSYKER Leadership test — pass =
+	# Battle-shocked, fail = 3 mortal wounds AND Battle-shocked.
+	if strat_name_norm in ["SQUIG FLINGIN'", "DESPERATION'S PRICE"]:
+		var enemy_bs = str(context.get("enemy_unit_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+		if enemy_bs == "":
+			print("StratagemManager: %s used without context.enemy_unit_id" % strat.get("name", ""))
+			return []
+		var enemy_u = GameState.state.get("units", {}).get(enemy_bs, {})
+		var ld = int(enemy_u.get("meta", {}).get("stats", {}).get("leadership", 7))
+		var rng_bs = RulesEngine.make_rng()
+		var rolls_bs = rng_bs.roll_d6(2)
+		var total_bs = rolls_bs[0] + rolls_bs[1] + (-1 if strat_name_norm == "SQUIG FLINGIN'" else 0)
+		var passed_bs = total_bs >= ld
+		var diffs_bs: Array = []
+		if strat_name_norm == "SQUIG FLINGIN'":
+			if not passed_bs:
+				diffs_bs.append({"op": "set", "path": "units.%s.flags.battle_shocked" % enemy_bs, "value": true})
+		else:
+			diffs_bs.append({"op": "set", "path": "units.%s.flags.battle_shocked" % enemy_bs, "value": true})
+			if not passed_bs:
+				var mw3 = RulesEngine.apply_mortal_wounds(enemy_bs, 3, GameState.create_snapshot())
+				diffs_bs.append_array(mw3.get("diffs", []))
+		if not diffs_bs.is_empty():
+			_safe_apply_state_changes(diffs_bs)
+		print("StratagemManager: %s — test %d vs Ld %d (%s) on %s" % [strat.get("name", ""), total_bs, ld, "passed" if passed_bs else "FAILED", enemy_bs])
+		return []
+
+	# ALWAYS LOOKIN' FER A FIGHT (Bully Boyz): consolidation D3+3" (6" during
+	# a Waaagh!). WRATHFUL ADVANCE (Solar Spearhead): pile-in D3+3".
+	if strat_name_norm in ["ALWAYS LOOKIN' FER A FIGHT", "WRATHFUL ADVANCE"]:
+		var rng_c = RulesEngine.make_rng()
+		var dist = 6
+		var tgt_u = GameState.state.get("units", {}).get(target_unit_id, {})
+		if strat_name_norm == "WRATHFUL ADVANCE" or not tgt_u.get("flags", {}).get("waaagh_active", false):
+			dist = int(ceil(rng_c.roll_d6(1)[0] / 2.0)) + 3  # D3+3
+		var flag_c = "effect_pile_in_distance" if strat_name_norm == "WRATHFUL ADVANCE" else "effect_consolidation_distance"
+		print("StratagemManager: %s — %s = %d\" for %s" % [strat.get("name", ""), flag_c, dist, target_unit_id])
+		return [{"op": "set", "path": "units.%s.flags.%s" % [target_unit_id, flag_c], "value": dist}]
+
+	# COME ON LADZ! (Green Tide): return up to D3+2 destroyed models
+	# (excluding CHARACTER models).
+	if strat_name_norm == "COME ON LADZ!":
+		var rng_m = RulesEngine.make_rng()
+		var to_return = int(ceil(rng_m.roll_d6(1)[0] / 2.0)) + 2
+		var unit_r = GameState.state.get("units", {}).get(target_unit_id, {})
+		var diffs_r: Array = []
+		var models_r = unit_r.get("models", [])
+		var revived = 0
+		for i in range(models_r.size()):
+			if revived >= to_return:
+				break
+			var m_r = models_r[i]
+			if not m_r.get("alive", true):
+				diffs_r.append({"op": "set", "path": "units.%s.models.%d.alive" % [target_unit_id, i], "value": true})
+				diffs_r.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [target_unit_id, i], "value": m_r.get("wounds", 1)})
+				revived += 1
+		if not diffs_r.is_empty():
+			_safe_apply_state_changes(diffs_r)
+		print("StratagemManager: Come On Ladz! — returned %d model(s) to %s (rolled D3+2=%d)" % [revived, target_unit_id, to_return])
+		return []
+
+	# SHOULDER THE MANTLE (Auric Champions): the CHARACTER attaches to a
+	# nearby leadable unit mid-battle (context.bodyguard_id).
+	if strat_name_norm == "SHOULDER THE MANTLE":
+		var bg_id = str(context.get("bodyguard_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+		var cam = get_node_or_null("/root/CharacterAttachmentManager")
+		if bg_id != "" and cam:
+			var v_att = cam.can_attach(target_unit_id, bg_id)
+			if v_att.get("valid", false):
+				cam.attach_character(target_unit_id, bg_id)
+				print("StratagemManager: Shoulder the Mantle — %s attached to %s" % [target_unit_id, bg_id])
+			else:
+				print("StratagemManager: Shoulder the Mantle refused: %s" % str(v_att.get("reason", "")))
+		else:
+			print("StratagemManager: Shoulder the Mantle used without context.bodyguard_id")
+		return []
+
+	# MOUNT UP, LADZ (Blitz Brigade): embark a nearby ORKS INFANTRY unit
+	# (context.transport_id).
+	if strat_name_norm == "MOUNT UP, LADZ":
+		var tr_id = str(context.get("transport_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+		var tm = get_node_or_null("/root/TransportManager")
+		if tr_id != "" and tm:
+			tm.embark_unit(target_unit_id, tr_id)
+			print("StratagemManager: Mount Up, Ladz — %s embarked in %s" % [target_unit_id, tr_id])
+		else:
+			print("StratagemManager: Mount Up, Ladz used without context.transport_id")
+		return []
+
+	# TOO ARROGANT TO DIE (Bully Boyz): dying models swing back on 5+ (+2
+	# during a Waaagh!) — RulesEngine reads effect_swing_back_roll.
+	if strat_name_norm == "TOO ARROGANT TO DIE":
+		print("StratagemManager: Too Arrogant to Die — %s dying models fight on 5+" % target_unit_id)
+		return [{"op": "set", "path": "units.%s.flags.effect_swing_back_roll" % target_unit_id, "value": 5}]
+
+	# RELENTLESS PERSECUTION (Solar Spearhead): advance-and-shoot; WALKER
+	# units also get advance-and-charge.
+	if strat_name_norm == "RELENTLESS PERSECUTION":
+		var diffs_rp: Array = [{"op": "set", "path": "units.%s.flags.effect_advance_and_shoot" % target_unit_id, "value": true}]
+		var u_rp = GameState.state.get("units", {}).get(target_unit_id, {})
+		for kw_rp in u_rp.get("meta", {}).get("keywords", []):
+			if str(kw_rp).to_upper() == "WALKER":
+				diffs_rp.append({"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % target_unit_id, "value": true})
+				break
+		print("StratagemManager: Relentless Persecution applied to %s" % target_unit_id)
+		return diffs_rp
+
+	# BRAGGIN' RIGHTS (Green Tide): both units count as 10+ models while near
+	# each other (paired unit via context.second_unit_id).
+	if strat_name_norm == "BRAGGIN' RIGHTS":
+		var diffs_br: Array = [{"op": "set", "path": "units.%s.flags.effect_counts_as_ten_models" % target_unit_id, "value": true}]
+		var second_br = str(context.get("second_unit_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+		if second_br != "":
+			diffs_br.append({"op": "set", "path": "units.%s.flags.effect_counts_as_ten_models" % second_br, "value": true})
+		print("StratagemManager: Braggin' Rights applied")
+		return diffs_br
+
+	# RUN 'EM DOWN (Blitz Brigade): target + up to two more vehicles/monsters
+	# (context.extra_unit_ids) may charge after Advancing.
+	if strat_name_norm == "RUN 'EM DOWN":
+		var diffs_rd: Array = [{"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % target_unit_id, "value": true}]
+		if typeof(context) == TYPE_DICTIONARY:
+			for extra_id in context.get("extra_unit_ids", []):
+				diffs_rd.append({"op": "set", "path": "units.%s.flags.effect_advance_and_charge" % str(extra_id), "value": true})
+		print("StratagemManager: Run 'Em Down applied")
+		return diffs_rd
+
+	# HUNT AS ONE (Talons): the paired CUSTODES + ANATHEMA units may shoot and
+	# charge after Falling Back (pair via context.second_unit_id).
+	if strat_name_norm == "HUNT AS ONE":
+		var diffs_h1: Array = [
+			{"op": "set", "path": "units.%s.flags.effect_fall_back_and_shoot" % target_unit_id, "value": true},
+			{"op": "set", "path": "units.%s.flags.effect_fall_back_and_charge" % target_unit_id, "value": true},
+		]
+		var second_h1 = str(context.get("second_unit_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+		if second_h1 != "":
+			diffs_h1.append({"op": "set", "path": "units.%s.flags.effect_fall_back_and_shoot" % second_h1, "value": true})
+			diffs_h1.append({"op": "set", "path": "units.%s.flags.effect_fall_back_and_charge" % second_h1, "value": true})
+		print("StratagemManager: Hunt As One applied")
+		return diffs_h1
+
+	# CONNIVING RUNTS (Dread Mob): D6 — on 4+ the chosen enemy suffers D3+1
+	# mortal wounds. (The follow-up Normal move is the player's to take.)
+	if strat_name_norm == "CONNIVING RUNTS":
+		var enemy_cr = str(context.get("enemy_unit_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+		if enemy_cr == "":
+			print("StratagemManager: Conniving Runts used without context.enemy_unit_id")
+			return []
+		var rng_cr = RulesEngine.make_rng()
+		var trig = rng_cr.roll_d6(1)[0]
+		if trig >= 4:
+			var mw_cr = int(ceil(rng_cr.roll_d6(1)[0] / 2.0)) + 1
+			var res_cr = RulesEngine.apply_mortal_wounds(enemy_cr, mw_cr, GameState.create_snapshot())
+			if not res_cr.get("diffs", []).is_empty():
+				_safe_apply_state_changes(res_cr.diffs)
+			print("StratagemManager: Conniving Runts — rolled %d, %d mortal wound(s) on %s" % [trig, mw_cr, enemy_cr])
+		else:
+			print("StratagemManager: Conniving Runts — rolled %d, no effect (needed 4+)" % trig)
+		return []
+
+	# KLANKIN' KLAWS (Dread Mob): +2 melee Strength; pushed (context.push)
+	# also adds +1 Damage.
+	if strat_name_norm == "KLANKIN' KLAWS":
+		var diffs_kk: Array = [{"op": "set", "path": "units.%s.flags.effect_plus_strength_melee" % target_unit_id, "value": 2}]
+		if typeof(context) == TYPE_DICTIONARY and context.get("push", false):
+			diffs_kk.append({"op": "set", "path": "units.%s.flags.effect_plus_damage" % target_unit_id, "value": 1})
+			print("StratagemManager: Klankin' Klaws (PUSHED) — +2S and +1D melee for %s" % target_unit_id)
+		else:
+			print("StratagemManager: Klankin' Klaws — +2S melee for %s" % target_unit_id)
+		return diffs_kk
 
 	# CAREEN! (War Horde): arm the just-destroyed ORKS VEHICLE to slide to
 	# context.destination before its Deadly Demise mortal-wound roll resolves

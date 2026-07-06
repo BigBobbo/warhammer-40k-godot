@@ -602,9 +602,14 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	# Reset ability reroll tracking for this charge attempt
 	ability_reroll_used = false
 
-	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught, Plummeting Descent)
+	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught, Plummeting Descent).
+	# Detachment sources: Da Big Hunt (BEAST SNAGGA re-roll charges once Prey is
+	# designated) and live passive grants that may postdate phase-start flags
+	# (Blitz Brigade after a Charge-phase state change, Rollin' Deff, Tharanatoi).
 	var unit_data = get_unit(unit_id)
-	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data)
+	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data) \
+		or FactionAbilityManager.unit_benefits_from_prey_charge_reroll(unit_data) \
+		or FactionAbilityManager.unit_benefits_from_detachment_reroll(unit_data, "reroll_charge")
 
 	if has_ability_reroll:
 		# Offer free ability reroll first (before Command Re-roll)
@@ -2634,6 +2639,8 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 				for effect in entry.get("effects", []):
 					if effect.get("type", "") == "reroll_charge":
 						return entry.get("ability_name", "ability")
+	if FactionAbilityManager.unit_benefits_from_prey_charge_reroll(get_unit(unit_id)):
+		return "Da Hunt Is On"
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:

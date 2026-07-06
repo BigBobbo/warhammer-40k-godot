@@ -1,0 +1,26 @@
+{
+  "id": "fullauto_detachment_prey",
+  "covers": [
+    "detachments.da_big_hunt.da_hunt_is_on",
+    "command.actions.select_detachment_target"
+  ],
+  "fixture": "fullauto_dethunt",
+  "rng_seed": 42,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "description": "Da Big Hunt (Orks): the new SELECT_DETACHMENT_TARGET command-phase action designates a Custodes unit as Prey (flag + owner recorded on the enemy unit), and re-designating moves the flag to the new target. BEAST SNAGGA AP/charge benefits are asserted headless in tests/test_faction_sweep.gd.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+    { "act": "dispatch_action", "action": { "type": "SELECT_DETACHMENT_TARGET", "kind": "prey", "target_unit_id": "U_CUSTODIAN_GUARD_B" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.flags.prey_target", "equals": true },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.flags.prey_target_owner", "equals": 1 },
+    { "act": "screenshot", "label": "01_prey_designated" },
+    { "act": "dispatch_action", "action": { "type": "SELECT_DETACHMENT_TARGET", "kind": "prey", "target_unit_id": "U_WITCHSEEKERS_C" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_WITCHSEEKERS_C.flags.prey_target", "equals": true },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.flags.prey_target", "exists": false },
+    { "act": "screenshot", "label": "02_prey_redesignated" }
+  ]
+}

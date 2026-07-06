@@ -233,7 +233,7 @@ const KEYWORD_EFFECTS = {
 };
 
 function compileKeyword(kw, attackType) {
-  const k = String(kw).toLowerCase();
+  const k = String(kw).toLowerCase().replace(/-/g, ' ');
   if (KEYWORD_EFFECTS[k]) return KEYWORD_EFFECTS[k]();
   if (/^sustained hits\b/.test(k)) return { type: 'grant_sustained_hits' };
   if (k === 'precision') {
@@ -257,13 +257,26 @@ function compileLeaf(node) {
   const tgt = node.target || 'unit';
   const own = tgt === 'unit' || tgt === 'self';
   switch (t) {
-    case 'roll-modifier':
+    case 'roll-modifier': {
+      const defensive = tgt === 'attacker';
       if (m.roll === 'hit' && m.operation === 'add' && m.value === 1 && own) return [{ type: 'plus_one_hit' }];
       if (m.roll === 'wound' && m.operation === 'add' && m.value === 1 && own) return [{ type: 'plus_one_wound' }];
+      if (m.roll === 'hit' && m.operation === 'subtract' && m.value === 1 && defensive) {
+        if (m.attack_type === 'melee') return [{ type: 'minus_one_hit_defense_melee' }];
+        if (m.attack_type === 'ranged') return [{ type: 'grant_stealth' }];
+        return [{ type: 'grant_stealth' }, { type: 'minus_one_hit_defense_melee' }];
+      }
+      if (m.roll === 'wound' && m.operation === 'subtract' && m.value === 1 && defensive) {
+        return [{ type: 'minus_one_wound_defense' }];
+      }
       if (m.roll === 'hit' && m.operation === 'crit-on' && own && Number.isInteger(m.value)) {
         return [{ type: 'crit_hit_on', value: m.value }];
       }
+      if (m.roll === 'wound' && m.operation === 'crit-on' && own && Number.isInteger(m.value)) {
+        return [{ type: 'crit_wound_on', value: m.value }];
+      }
       return null;
+    }
     case 'keyword-grant': {
       if (!own || !Array.isArray(m.keywords) || m.keywords.length === 0) return null;
       const out = [];
@@ -288,6 +301,7 @@ function compileLeaf(node) {
     case 're-roll': {
       if (!own) return null;
       if (m.roll === 'charge') return [{ type: 'reroll_charge' }];
+      if (m.roll === 'advance') return [{ type: 'reroll_advance' }];
       const scope = REROLL_SCOPE[m.subset];
       if (!scope) return null;
       if (m.roll === 'hit') return [{ type: 'reroll_hits', scope }];
@@ -305,6 +319,7 @@ function compileLeaf(node) {
         return [{ type: 'plus_strength_melee', value: m.value }];
       }
       if (m.stat === 'M' && m.operation === 'add' && own) return [{ type: 'plus_move', value: m.value }];
+      if (m.stat === 'T' && m.operation === 'add' && own) return [{ type: 'plus_toughness', value: m.value }];
       if (m.stat === 'AP' && m.operation === 'improve' && own && m.value > 0) {
         return [{ type: 'improve_ap', value: m.value }];
       }
@@ -335,8 +350,13 @@ function compileLeaf(node) {
         return [{ type: 'remove_battle_shock' }];
       }
       return null;
+    case 'fight-first':
+      return own ? [{ type: 'grant_fights_first' }] : null;
     case 'ability-grant': {
-      const g = m.grant_type;
+      const g = m.grant_type || m.ability_id;
+      if (g === 'lone-operative' && own) return [{ type: 'grant_lone_operative' }];
+      if (g === 'charge-after-advance' && own) return [{ type: 'advance_and_charge' }];
+      if (g === 'shoot-after-advance' && own) return [{ type: 'advance_and_shoot' }];
       if (g === 'remove-battle-shock' && own) return [{ type: 'remove_battle_shock' }];
       if ((g === 'Stealth' || g === 'stealth') && own) return [{ type: 'grant_stealth' }];
       if (g === 'act-after-move' && own) {
@@ -395,95 +415,21 @@ function compileAbility(ability) {
 // ---------------------------------------------------------------------------
 // The 40kdc dataset ships name/cost/phase/timing metadata but no effect
 // payload for most detachment stratagems (ability_id: null) — those rows get
-// the stub sentence and are display-only. For the detachments the game ships
-// armies for, the engine already has purpose-built primitives (issues #372/
-// #375/#390/#391/#393) that the 10e text pipeline used to drive. These
-// curated entries restore that wiring:
+// the stub sentence and are display-only. curated-stratagems.json restores
+// the wiring for detachments whose rules text survives in this repo (the
+// pre-11e Wahapedia export in git history):
 //   - `when`/`target` strings use the exact template phrases
 //     FactionStratagemLoader._infer_trigger/_parse_target parse (trigger
 //     windows + target conditions),
 //   - `effect` carries the duration phrase StratagemManager.use_stratagem
 //     reads ("until the end of the turn/phase"),
-//   - `effects` is the pre-compiled EffectPrimitives array written to
-//     effects_json, which marks the stratagem mechanically implemented.
+//   - optional `effects` is a pre-compiled EffectPrimitives array written to
+//     effects_json (marks the stratagem mechanically implemented). Entries
+//     without `effects` rely on FactionStratagemLoader._map_effects parsing
+//     the effect text at load.
 // Keys are 40kdc stratagem ids.
-const CURATED_STRATAGEMS = {
-  // ── Orks — War Horde ──────────────────────────────────────────────────
-  'unbridled-carnage-war-horde': {
-    target: 'One ORKS unit from your army that has not been selected to fight this phase.',
-    effect: 'Until the end of the phase, each time a model in your unit makes a melee attack, an unmodified Hit roll of 5+ scores a Critical Hit.',
-    effects: [{ type: 'crit_hit_on', value: 5 }],
-  },
-  'ard-as-nails-war-horde': {
-    when: "Your opponent's Shooting phase or the Fight phase, just after an enemy unit has selected its targets.",
-    target: "One ORKS unit from your army (excluding GROTS, MONSTER and VEHICLE units) that was selected as the target of one or more of the attacking unit's attacks.",
-    effect: 'Until the end of the phase, each time an attack targets your unit, subtract 1 from the Wound roll.',
-    effects: [{ type: 'minus_one_wound_defense' }],
-  },
-  'mob-rule-war-horde': {
-    when: 'End of your Command phase.',
-    target: 'One MOB unit from your army that contains 10 or more models and is not Below Half-strength.',
-    effect: 'Select one friendly Battle-shocked ORKS INFANTRY unit within 6" of that MOB unit. That ORKS INFANTRY unit is no longer Battle-shocked.',
-    effects: [{ type: 'remove_battle_shock' }],
-  },
-  'ere-we-go-war-horde': {
-    when: 'Start of your Movement phase.',
-    target: 'One ORKS INFANTRY unit from your army.',
-    effect: 'Until the end of the turn, add 2 to Advance and Charge rolls made for your unit.',
-    effects: [{ type: 'plus_charge', value: 2 }],
-  },
-  'careen-war-horde': {
-    when: 'Any phase, just after an ORKS VEHICLE unit from your army with the Deadly Demise ability is destroyed.',
-    target: 'That destroyed ORKS VEHICLE unit. You can use this Stratagem on that unit even though it was just destroyed.',
-    effect: 'Your unit can make a Normal or Fall Back move before its Deadly Demise ability is resolved. When making this move, your unit can move over enemy units (excluding MONSTER and VEHICLE units) as if they were not there.',
-    effects: [{ type: 'deadly_demise_move' }],
-  },
-  'orks-is-never-beaten-war-horde': {
-    when: 'Fight phase, just after an enemy unit has selected its targets.',
-    target: "One ORKS unit from your army that was selected as the target of one or more of the attacking unit's attacks.",
-    effect: "Until the end of the phase, each time a model in your unit is destroyed, if that model has not fought this phase, do not remove it from play. The destroyed model can fight after the attacking model's unit has finished making attacks, and is then removed from play.",
-    effects: [{ type: 'swing_back_before_remove' }],
-  },
-  // ── Adeptus Custodes — Shield Host ────────────────────────────────────
-  'arcane-genetic-alchemy-shield-host': {
-    when: 'Any phase, just after a mortal wound is allocated to a model in an ADEPTUS CUSTODES unit from your army.',
-    target: 'That ADEPTUS CUSTODES unit.',
-    effect: 'Until the end of the phase, models in your unit have the Feel No Pain 4+ ability against mortal wounds.',
-    effects: [{ type: 'grant_fnp_psychic_mortal', value: 4 }],
-  },
-  'avenge-the-fallen-shield-host': {
-    when: 'Start of the Fight phase.',
-    target: 'One ADEPTUS CUSTODES unit from your army that is below its Starting Strength.',
-    effect: 'Until the end of the phase, add 1 to the Attacks characteristic of melee weapons equipped by models in your unit. If your unit is Below Half-strength, add 2 to the Attacks characteristic of those weapons instead.',
-    effects: [
-      { type: 'plus_attacks', value: 1, scope: 'melee' },
-      { type: 'plus_attacks_below_half', value: 2, scope: 'melee' },
-    ],
-  },
-  'unwavering-sentinels-shield-host': {
-    when: 'Fight phase, just after an enemy unit has selected its targets.',
-    target: "One ADEPTUS CUSTODES INFANTRY unit from your army that is within range of an objective marker you control and that was selected as the target of one or more of the attacking unit's attacks.",
-    effect: 'Until the end of the phase, each time a melee attack targets your unit, subtract 1 from the Hit roll.',
-    effects: [{ type: 'minus_one_hit_defense_melee' }],
-  },
-  'multipotentiality-shield-host': {
-    target: 'One ADEPTUS CUSTODES unit from your army that Fell Back this phase.',
-    effect: 'Until the end of the turn, your unit is eligible to shoot and declare a charge in a turn in which it Fell Back.',
-    effects: [{ type: 'fall_back_and_shoot' }, { type: 'fall_back_and_charge' }],
-  },
-  'vigilance-eternal-shield-host': {
-    target: 'One ADEPTUS CUSTODES BATTLELINE unit from your army within range of an objective marker you control.',
-    effect: 'That objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.',
-    effects: [{ type: 'sticky_objective_control' }],
-  },
-  'archeotech-munitions-shield-host': {
-    target: 'One ADEPTUS CUSTODES unit from your army that has not been selected to shoot this phase.',
-    effect: 'Select either the [LETHAL HITS] or [SUSTAINED HITS 1] ability. Until the end of the phase, ranged weapons equipped by models in your unit have the selected ability.',
-    // Issue #381 (either/or): default to the first option, [LETHAL HITS];
-    // a UI choice prompt is the tracked follow-up.
-    effects: [{ type: 'grant_lethal_hits' }],
-  },
-};
+const CURATED_STRATAGEMS = JSON.parse(
+  readFileSync(join(new URL('.', import.meta.url).pathname, 'curated-stratagems.json'), 'utf8'));
 
 // ---------------------------------------------------------------------------
 // Main

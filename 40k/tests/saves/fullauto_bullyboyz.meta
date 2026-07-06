@@ -1,0 +1,82 @@
+{
+	"created_at": 1783300584.94506,
+	"description": "Fixture: orks (Bully Boyz) vs custodes (Might of the Moritoi), from fullauto_pretrigger",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "c82eb33d-5b6e-f841-aa09-3f9272a7bc449210",
+		"is_multiplayer": false,
+		"phase": 6,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 1
+	},
+	"note": "detachment sweep: Da Boss Is Watchin' + Moritoi passives",
+	"preview": {
+		"battle_round": 1.0,
+		"players": {
+			"1": {
+				"alive_models": 86,
+				"alive_units": 15,
+				"cp": 3.0,
+				"detachment": "Bully Boyz",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 0.0,
+				"secondary_vp": 0.0,
+				"total_models": 86,
+				"total_units": 15,
+				"unit_names": [
+					"Battlewagon",
+					"Boyz",
+					"Boyz",
+					"Boyz",
+					"Ghazghkull Thraka",
+					"Kommandos",
+					"Lootas",
+					"Meganobz",
+					"Bannernob",
+					"Painboss",
+					"Warboss",
+					"Warboss",
+					"Warboss in Mega Armour",
+					"Wazbom Blastajet",
+					"Weirdboy"
+				],
+				"vp": 0.0
+			},
+			"2": {
+				"alive_models": 18,
+				"alive_units": 9,
+				"cp": 3.0,
+				"detachment": "Might of the Moritoi",
+				"faction": "Adeptus Custodes",
+				"points": 1000.0,
+				"primary_vp": 0.0,
+				"secondary_vp": 0.0,
+				"total_models": 18,
+				"total_units": 9,
+				"unit_names": [
+					"Blade Champion",
+					"Caladius Grav-tank",
+					"Contemptor-Achillus Dreadnought",
+					"Custodian Guard",
+					"Shield-Captain",
+					"Shield-Captain on Dawneagle Jetbike",
+					"Telemon Heavy Dreadnought",
+					"Witchseekers",
+					"Witchseekers"
+				],
+				"vp": 0.0
+			}
+		}
+	},
+	"save_info": {
+		"description": "Fixture: orks (Bully Boyz) vs custodes (Might of the Moritoi), from fullauto_pretrigger",
+		"save_type": "test_fixture",
+		"tags": []
+	},
+	"type": "test_fixture",
+	"version": "1.3.0"
+}

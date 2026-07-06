@@ -980,6 +980,9 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	if GameConstants.edition >= 11:
 		# Take-to-the-skies movers pass over models and terrain (21.03).
 		var flying_54: bool = active_moves.has(unit_id) and active_moves[unit_id].get("took_to_skies", false)
+		# UNSTOPPABLE (Solar Spearhead) etc.: effect-granted terrain passage.
+		if GameState.get_unit(unit_id).get("flags", {}).get(EffectPrimitivesData.FLAG_MOVE_THROUGH_TERRAIN, false):
+			flying_54 = true
 		var tm_54 = get_node_or_null("/root/TerrainManager")
 		if not flying_54 and tm_54 != null and tm_54.has_method("can_move_through_11e"):
 			var kw_54 = GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
@@ -1553,6 +1556,18 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
 	log_phase_message("Advance: %s → D6 = %d" % [unit_name, advance_roll])
+
+	# Ability-granted Advance re-roll (effect_reroll_advance — Eager for the
+	# Fight etc.): a free re-roll is auto-taken when the first roll is low
+	# (<=3); both rolls are logged so the player sees the sequence.
+	# The live detachment check covers flags earned mid-phase (Blitz Brigade
+	# grants the re-roll on disembark, after phase-start flags were applied).
+	var has_advance_reroll = unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_ADVANCE, false) \
+		or FactionAbilityManager.unit_benefits_from_detachment_reroll(unit, "reroll_advance")
+	if advance_roll <= 3 and has_advance_reroll:
+		var ability_reroll = rng_service.roll_d6(1)[0]
+		log_phase_message("Advance re-roll (ability): %s → %d re-rolled to %d" % [unit_name, advance_roll, ability_reroll])
+		advance_roll = ability_reroll
 
 	# Check if Command Re-roll is available
 	var current_player = get_current_player()
