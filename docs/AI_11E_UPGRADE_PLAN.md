@@ -1,8 +1,32 @@
 # AI 11th-Edition Upgrade Plan
 
-Status: **in progress** (this document is the working plan; each workstream lists
-its acceptance evidence). Authored 2026-07-06 on branch
-`claude/game-ai-11th-edition-dyik2h`.
+Status: **implemented** (v0.3.0, 2026-07-06) on branch
+`claude/game-ai-11th-edition-dyik2h`. Acceptance evidence: windowed scenario
+`tests/scenarios/sp/ai_11e_verbose_thinking.json` (18/18 asserts — verbose
+thinking incl. negative decisions in the left Game Log, AI thinking cards
+rendered, Waaagh! called at its stated timing, zero debug-log errors), plus
+adjacent regression scenarios (382 CP grant, 387 Waaagh energy, 372 'Ere We
+Go, 374 Kunnin fall back, iss049 11e charge, CO/HI offer windows) all green.
+`iss15_heroic_intervention_decline_11e` fails 3 steps identically on
+pre-change main — pre-existing, not from this work.
+
+Implementation findings that amended the plan:
+
+- WS1 1.2 (deep-strike 8"): the engine's general reinforcement placement
+  still enforces **>9"** (only the ingress move type uses 8"), so the AI's
+  9" screening constants already mirror the engine and were left unchanged.
+- WS1 1.4: the engine's overwatch resolves EVERY attack (even TORRENT) on
+  unmodified 6s — the AI's 1/6 estimator already matched; only narration was
+  added.
+- WS3c: the fight-phase reactive stratagem window ('ARD AS NAILS in fight,
+  UNWAVERING SENTINELS, ORKS IS NEVER BEATEN) is not wired engine-side for
+  ANY player (`get_reactive_stratagems_for_fight` has no caller) — those
+  cards work for the AI via the shooting-phase window where applicable;
+  wiring the fight window is engine work recorded as a follow-up.
+- Bonus fixes found during the work: the AI never used Smokescreen at 11e
+  (id mismatch), never re-rolled failed battle-shock tests (inverted
+  pass/fail logic), and an AI Custodes fight activation could stall forever
+  on the unanswered Ka'tah stance window.
 
 ## Why
 

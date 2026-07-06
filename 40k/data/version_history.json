@@ -2,6 +2,20 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.3.0",
+			"date": "2026-07-06",
+			"summary": "The AI now plays 11th edition properly — stratagems, faction rules, mission play — and explains every decision in the Game Log.",
+			"changes": [
+				"The AI's reasoning is now shown in detail in the left Game Log panel: each decision appears as a card with the options it weighed — including moves, charges and stratagems it considered and REJECTED, with the why. Click 'considerations' on a card to expand them.",
+				"The AI now uses the full 11th-edition core stratagem set: Insane Bravery before critical battle-shock tests, Epic Challenge to strike attached characters, Crushing Impact after Monster/Vehicle charges, Fire Overwatch, Smokescreen (fixed — it never fired before), Heroic Intervention with the 11e Leap to Defend / Into the Fray modes, Counteroffensive, Rapid Ingress and Command Re-rolls.",
+				"The AI now uses its detachment stratagems: War Horde Orks throw 'Ere We Go, Mob Rule, Grab and Bash and Unbridled Carnage; Shield Host Custodes use Archeotech Munitions, Avenge the Fallen, Multipotentiality, Vigilance Eternal and defensive reactions.",
+				"The AI answers faction rule windows it previously ignored or stalled on: Martial Ka'tah stances, Plant the Waaagh! Banner, Da Kaptin, Grot Orderly, Fix Dat Armour Up, Unleash the Lions and Psychic Veil.",
+				"The AI now reads its own 11th-edition primary mission card and plays to it — pushing the enemy home objective, the board centre, or kills, whichever its card actually pays for — and pursues all seven new secondary cards (Beacon, Outflank, Plunder, Forward Position, Burden of Trust, Centre Ground, A Grievous Blow).",
+				"11th-edition rules fixes in the AI's math: 2-inch engagement range in charge planning, cover as -1 to hit, post-roll charge target re-selection, Ordered Retreat vs Desperate Escape fall-back modes, and a fixed battle-shock re-roll that was evaluating the wrong way around.",
+				"Normal difficulty (the default) now uses stratagems and survival judgement — the AI should be noticeably more challenging out of the box. Easy is unchanged for learning the game."
+			]
+		},
+		{
 			"version": "0.2.0",
 			"date": "2026-07-05",
 			"summary": "Reworked the main menu around 11th-edition Force Dispositions.",

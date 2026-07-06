@@ -408,5 +408,31 @@ func _format_dice_rolls(rolls: Array) -> String:
 func get_all_entries() -> Array:
 	return entries.duplicate()
 
+func count_entries_of_type(entry_type: String) -> int:
+	"""Count log entries of a given type (e.g. 'ai_thinking', 'ai_thinking_block')."""
+	var n := 0
+	for e in entries:
+		if e.get("type", "") == entry_type:
+			n += 1
+	return n
+
+func count_ai_thinking_entries() -> int:
+	"""All AI reasoning entries — plain lines plus per-decision blocks."""
+	return count_entries_of_type("ai_thinking") + count_entries_of_type("ai_thinking_block")
+
+func has_ai_entry_containing_any(substrings: Array) -> bool:
+	"""True if any AI thinking entry/block contains one of the given substrings.
+	Used by windowed scenarios to assert that negative decisions (holds,
+	declines, rejections) are actually narrated to the player."""
+	for e in entries:
+		var t = e.get("type", "")
+		if t != "ai_thinking" and t != "ai_thinking_block":
+			continue
+		var text = str(e.get("text", ""))
+		for s in substrings:
+			if str(s) in text:
+				return true
+	return false
+
 func clear() -> void:
 	entries.clear()

@@ -201,6 +201,14 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 func get_toggle_button() -> Button:
 	return _toggle_button
 
+func get_ai_card_count() -> int:
+	"""Live AI thinking cards currently in the panel (scenario assertions)."""
+	var n := 0
+	for c in _ai_cards:
+		if is_instance_valid(c):
+			n += 1
+	return n
+
 # ==========================================================================
 # Card creation — entry point
 # ==========================================================================
