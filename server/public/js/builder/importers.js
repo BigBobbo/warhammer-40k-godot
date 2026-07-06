@@ -25,31 +25,51 @@ export function importText(text, { factionOverride = null } = {}) {
   let roster = null;
   let source = null;
 
-  const res = dc.tryImportRoster(text);
-  if (res.ok && res.roster) {
-    const r = res.roster;
-    const resolvedUnits = r.diagnostics?.resolved_units ?? 0;
-    const totalUnits = (r.units ?? []).length;
-    const usable = r.faction_id && totalUnits > 0 && resolvedUnits >= Math.ceil(totalUnits / 2);
-    if (usable) {
-      roster = r;
-      source = `package importer (${r.source?.format ?? '?'})`;
-      for (const w of r.diagnostics?.warnings ?? []) {
-        notes.push(w.raw_name ? `${w.code}: ${w.raw_name}` : `${w.code}: ${w.message}`);
+  // Modern GW app exports (v2.x, 11e) put the faction on line 1, join
+  // multiple detachments in one "(N Detachment Points)" header, list Force
+  // Dispositions, and wrap leader/bodyguard pairs in ATTACHED UNITS blocks —
+  // none of which the generic text adapter understands. Normalize first.
+  if (looksLikeGwAppV2(text)) {
+    roster = importGwAppV2(text, notes);
+    if (roster) source = 'GW app export (11e)';
+  }
+
+  if (!roster) {
+    const res = dc.tryImportRoster(text);
+    if (res.ok && res.roster) {
+      const r = res.roster;
+      // The adapter can resolve every unit yet miss the faction when the
+      // header shape is unusual — recover it from the units themselves.
+      if (!r.faction_id) {
+        const inferred = inferFactionFromUnits(r);
+        if (inferred) {
+          r.faction_id = inferred;
+          notes.push(`faction inferred from the resolved units: ${inferred}`);
+        }
       }
-    } else {
-      notes.push(`package importer matched ${resolvedUnits}/${totalUnits} units` +
-        (r.faction_id ? '' : ' and no faction') + ' — trying the legacy parser');
+      const resolvedUnits = (r.units ?? []).filter(u => u.ref?.resolved).length;
+      const totalUnits = (r.units ?? []).length;
+      const usable = r.faction_id && totalUnits > 0 && resolvedUnits >= Math.ceil(totalUnits / 2);
+      if (usable) {
+        roster = r;
+        source = `package importer (${r.source?.format ?? '?'})`;
+        for (const w of r.diagnostics?.warnings ?? []) {
+          notes.push(w.raw_name ? `${w.code}: ${w.raw_name}` : `${w.code}: ${w.message}`);
+        }
+      } else {
+        notes.push(`package importer matched ${resolvedUnits}/${totalUnits} units` +
+          (r.faction_id ? '' : ' and no faction') + ' — trying the legacy parser');
+      }
+    } else if (res.reason) {
+      notes.push(`package importer: ${res.reason}`);
     }
-  } else if (res.reason) {
-    notes.push(`package importer: ${res.reason}`);
   }
 
   if (!roster) {
     roster = legacyParse(text, factionOverride, notes);
   }
   if (!roster) {
-    throw new Error('Could not parse the list. Supported: GW app, New Recruit (text/JSON), ListForge, rosterizer, or the plain "Faction (points)" format.');
+    throw new Error('Could not parse the list. Supported: GW app exports, New Recruit (text/JSON), ListForge, rosterizer, or the plain "Faction (points)" format.');
   }
 
   if (factionOverride && !roster.faction_id) {
@@ -59,6 +79,238 @@ export function importText(text, { factionOverride = null } = {}) {
 
   normalizeImportedRoster(roster, notes);
   return { roster, report: { title: `Imported via ${source ?? 'legacy parser'}`, warnings: notes } };
+}
+
+// ---------------------------------------------------------------------------
+// Modern GW app export (v2.x / 11th edition).
+//
+// Shape (see server/tests/fixtures/gw_app_v2_death_guard.txt):
+//   Death Guard
+//   Contagion Engines and Death Lord's Chosen (3 Detachment Points)
+//   Force Dispositions: Priority Assets, Purge the Foe
+//   Strike Force (2,000 Points)
+//
+//   ATTACHED UNITS
+//   Attached unit 1
+//   <leader>  (• Attached as: Leader (Character))
+//   <bodyguard> (• Attached as: Bodyguard ())
+//   ...
+//   Exported with App Version: ...
+//
+// Strategy: capture the 11e-only information (multi-detachments + DP,
+// dispositions, attachments, warlord bullets), rewrite the text into the
+// classic header shape the package's `gw` adapter parses, import, then graft
+// the captured information back onto the roster.
+
+const GW2_BATTLE_RE = /^(Incursion|Strike Force|Onslaught)\s*\((\d[\d,]*)\s*Points?\)$/i;
+const GW2_DETACH_RE = /^(.*?)\s*\((\d+)\s*Detachment Points?\)$/i;
+const GW2_UNIT_RE = /^(.+?)\s*\((\d[\d,]*)\s*Points?\)$/;
+const GW2_SECTION_RE = /^[A-Z][A-Z0-9 &'’-]+$/;
+
+export function looksLikeGwAppV2(text) {
+  return /Exported with App Version/i.test(text) ||
+    /\(\d+\s*Detachment Points?\)/i.test(text) ||
+    /^\s*Force Dispositions?\s*:/im.test(text) ||
+    /^\s*[•◦]\s*Attached as\s*:/im.test(text);
+}
+
+function importGwAppV2(rawText, notes) {
+  const lines = String(rawText).replace(/﻿/g, '').replace(/ /g, ' ')
+    .replace(/\r\n?/g, '\n').split('\n');
+
+  let factionRaw = null;
+  let detachmentRaw = null;
+  let battleLine = null;
+  let dispositionsRaw = [];
+  let inHeader = true;
+  const bodyLines = [];
+  const attachments = [];    // { leader, bodyguard } by unit display name
+  const warlords = [];       // unit display names flagged by a Warlord bullet
+  let currentAttach = null;
+  let currentUnit = null;
+
+  const stripThousands = (s) => s.replace(/(\d),(\d)/g, '$1$2');
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) { if (!inHeader) bodyLines.push(''); continue; }
+    if (/^Exported with App Version/i.test(t)) continue;
+
+    if (inHeader) {
+      if (GW2_BATTLE_RE.test(t)) { battleLine = stripThousands(t); continue; }
+      const dm = t.match(GW2_DETACH_RE);
+      if (dm) { detachmentRaw = dm[1].trim(); continue; }
+      if (/^Force Dispositions?\s*:/i.test(t)) {
+        dispositionsRaw = t.split(':').slice(1).join(':').split(',').map(s => s.trim()).filter(Boolean);
+        continue;
+      }
+      const isSection = GW2_SECTION_RE.test(t);
+      const isUnit = !/^[•◦]/.test(t) && GW2_UNIT_RE.test(t);
+      if (!isSection && !isUnit) {
+        if (!factionRaw) factionRaw = t;
+        // any further free line in the header (list name variants) is ignored
+        continue;
+      }
+      inHeader = false; // fall through into body handling for this line
+    }
+
+    if (/^Attached unit \d+/i.test(t)) {
+      currentAttach = { leader: null, bodyguard: null };
+      attachments.push(currentAttach);
+      continue;
+    }
+    if (GW2_SECTION_RE.test(t)) {
+      if (!/^ATTACHED UNITS$/i.test(t)) currentAttach = null;
+      bodyLines.push(t);
+      continue;
+    }
+    if (!/^[•◦]/.test(t)) {
+      const uh = t.match(GW2_UNIT_RE);
+      if (uh) {
+        currentUnit = uh[1].trim();
+        bodyLines.push(stripThousands(t));
+        continue;
+      }
+    }
+    const attachAs = t.match(/^[•◦]\s*Attached as\s*:\s*(Leader|Bodyguard)/i);
+    if (attachAs) {
+      if (currentAttach && currentUnit) {
+        if (/^leader$/i.test(attachAs[1])) currentAttach.leader = currentUnit;
+        else currentAttach.bodyguard = currentUnit;
+      }
+      continue; // the adapter would misread this bullet as wargear
+    }
+    if (/^[•◦]\s*Warlord$/i.test(t)) {
+      if (currentUnit) warlords.push(currentUnit);
+      continue;
+    }
+    bodyLines.push(stripThousands(
+      line.replace(/^(\s*[•◦]\s*)Enhancements\s*:/i, '$1Enhancement:')));
+  }
+
+  if (!factionRaw) return null;
+  const factionId = conv.factionIdForName(factionRaw);
+  if (!factionId) {
+    notes.push(`GW app export: faction "${factionRaw}" not in the dataset`);
+    return null;
+  }
+
+  // Multi-detachment header: try the whole string, then "A and B" style splits,
+  // matching against the faction's real detachment names.
+  const detachments = resolveDetachmentHeader(factionId, detachmentRaw, notes);
+
+  const pts = battleLine ? battleLine.match(GW2_BATTLE_RE)[2] : null;
+  const header = [
+    `${factionRaw} (${pts ?? '2000'} Points)`,
+    '',
+    factionRaw,
+    detachments[0]?.name ?? detachmentRaw ?? '',
+    battleLine ?? '',
+  ].filter(l => l !== null);
+
+  const normalized = header.join('\n') + '\n\n' + bodyLines.join('\n') + '\n';
+  const res = dc.tryImportRoster(normalized);
+  if (!res.ok || !res.roster) {
+    notes.push(`GW app export: adapter failed after normalization (${res.reason ?? '?'})`);
+    return null;
+  }
+  const roster = res.roster;
+  for (const w of roster.diagnostics?.warnings ?? []) {
+    if (w.code === 'faction-unresolved' || w.code === 'detachment-unresolved') continue; // fixed below
+    notes.push(w.raw_name ? `${w.code}: ${w.raw_name}` : `${w.code}: ${w.message}`);
+  }
+
+  // --- graft the captured 11e information back on ---
+  roster.name = `${factionRaw} ${pts ?? ''}`.trim();
+  if (!roster.faction_id) roster.faction_id = factionId;
+  if (detachments.length) {
+    roster.detachments = detachments.map(d => ({
+      ref: { id: d.id, raw_name: d.name, resolved: true, candidates: [] },
+      dp_cost: d.detachment_points ?? 1,
+    }));
+  } else if (detachmentRaw) {
+    roster.detachments = [{ ref: { id: null, raw_name: detachmentRaw, resolved: false, candidates: [] }, dp_cost: null }];
+    notes.push(`detachment "${detachmentRaw}" not matched — pick one in the editor`);
+  }
+  if (dispositionsRaw.length) {
+    // The export lists one disposition per detachment; the roster carries one,
+    // validated against the primary detachment — pick the listed disposition
+    // that detachment actually allows, else the first listed.
+    const fds = dispositionsRaw
+      .map(nameRaw => (dc.RAW_DATA.forceDispositions ?? []).find(
+        x => looseName(x.name) === looseName(nameRaw)))
+      .filter(Boolean);
+    const primaryAllowed = new Set(detachments[0]?.force_dispositions ?? []);
+    const pick = fds.find(fd => primaryAllowed.has(fd.id)) ?? fds[0];
+    if (pick) roster.force_disposition = pick.id;
+    if (dispositionsRaw.length > 1 && pick) {
+      notes.push(`export lists ${dispositionsRaw.length} Force Dispositions (one per detachment); the builder keeps ${pick.name}`);
+    }
+  }
+  if (pts) {
+    const limit = parseInt(pts, 10);
+    roster.points.declared_limit = limit;
+    roster.battle_size = limit <= 1000 ? 'incursion' : 'strike-force';
+    roster.points.detachment_cap = limit <= 1000 ? 2 : 3;
+  }
+  for (const name of warlords) {
+    const u = roster.units.find(x => x.ref?.raw_name === name);
+    if (u) u.is_warlord = true;
+  }
+  const claimed = new Set();
+  for (const pair of attachments) {
+    if (!pair.leader || !pair.bodyguard) continue;
+    const leader = roster.units.find(x => x.ref?.raw_name === pair.leader && !x.leader_attachment && !claimed.has(x));
+    const bodyguard = roster.units.find(x => x.ref?.raw_name === pair.bodyguard);
+    if (leader && bodyguard) {
+      claimed.add(leader);
+      leader.leader_attachment = {
+        bodyguard_ref: { id: bodyguard.ref.id, raw_name: pair.bodyguard, resolved: !!bodyguard.ref.id, candidates: [] },
+        role: 'leader',
+        provisional: false,
+      };
+    }
+  }
+
+  const resolved = roster.units.filter(u => u.ref?.resolved).length;
+  if (!roster.units.length || resolved < Math.ceil(roster.units.length / 2)) {
+    notes.push(`GW app export: only ${resolved}/${roster.units.length} units matched — falling back`);
+    return null;
+  }
+  return roster;
+}
+
+/** Resolve a possibly-compound detachment header ("A and B") to dataset records. */
+function resolveDetachmentHeader(factionId, raw, notes) {
+  if (!raw) return [];
+  const whole = conv.findDetachment(factionId, raw);
+  if (whole) return [whole];
+  const out = [];
+  for (const part of raw.split(/\s+and\s+|\s*[,+]\s*/i)) {
+    if (!part.trim()) continue;
+    const d = conv.findDetachment(factionId, part.trim());
+    if (d) out.push(d);
+    else notes.push(`detachment "${part.trim()}" not found for this faction`);
+  }
+  return out;
+}
+
+/** Majority faction among the resolved unit ids (unit ids are faction-scoped). */
+export function inferFactionFromUnits(roster) {
+  const votes = new Map();
+  for (const u of roster.units ?? []) {
+    if (!u.ref?.id) continue;
+    for (const raw of dc.RAW_DATA.units) {
+      if (raw.id === u.ref.id) {
+        votes.set(raw.faction_id, (votes.get(raw.faction_id) ?? 0) + 1);
+      }
+    }
+  }
+  let best = null, bestN = 0;
+  for (const [fid, n] of votes) {
+    if (n > bestN) { best = fid; bestN = n; }
+  }
+  return best;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +472,15 @@ export function normalizeImportedRoster(roster, notes = []) {
     const counts = new Map(base.counts);
 
     if (sourceCounts.size) {
-      for (const [wid, n] of sourceCounts) {
+      for (let [wid, n] of sourceCounts) {
+        // Shared chassis author the same weapon under per-faction ids — the
+        // importer may resolve a name to another faction's copy. Remap onto
+        // the datasheet's own id (by display name) so counts merge correctly.
+        if (!(data.raw.weapon_ids ?? []).includes(wid)) {
+          const w0 = conv.wres.resolve(data.factionId, wid);
+          const remapped = w0 ? weaponIdForName(data, w0.name) : null;
+          if (remapped) wid = remapped;
+        }
         const baseN = counts.get(wid) ?? 0;
         if (n > baseN) applyWeaponDelta(data, ru.model_count, counts, wid, n);
       }

@@ -524,7 +524,23 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     // points at (e.g. the Telemon's arachnus guns) — allowed like the Node
     // generator allows them.
     for (const wid of Object.values(WEAPON_ALIASES_SRC[unitFactionId] ?? {})) validIds.add(wid);
-    for (const [wid, count] of counts) {
+    // Shared chassis (Chaos Spawn & co) author the same weapon under
+    // per-faction ids ('hideous-mutations' vs 'hideous-mutations-chaos-spawn');
+    // importers may resolve the name to another faction's copy. Remap unknown
+    // ids onto the datasheet's own weapon with the same display name before
+    // giving up on them.
+    const normCounts = new Map();
+    for (const [rawWid, count] of counts) {
+      let wid = rawWid;
+      if (!validIds.has(wid)) {
+        const w0 = wres.resolve(unitFactionId, wid);
+        const remap = w0 ? (dcUnit.weapon_ids ?? []).find(dw =>
+          looseName(wres.resolve(unitFactionId, dw)?.name ?? '') === looseName(w0.name)) : null;
+        if (remap) wid = remap;
+      }
+      normCounts.set(wid, (normCounts.get(wid) ?? 0) + count);
+    }
+    for (const [wid, count] of normCounts) {
       if (!count || count <= 0) continue;
       if (!validIds.has(wid)) {
         warnings.push(`${id}: weapon "${wid}" not on ${dcUnit.name} datasheet — dropped`);

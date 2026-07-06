@@ -633,6 +633,13 @@ export function repriceAll() {
         ru._tier_missing = DC.pointsTierMissing(data.raw, ru.model_count, ordinal);
       }
     }
+    // Imports carry the enhancement ref but rarely its cost — backfill from
+    // the dataset so the running total matches what export will charge.
+    const enhId = ru.enhancement?.id ?? ru.enhancement?.ref?.id;
+    if (enhId && ru.enhancement_points == null) {
+      const e = (DC.RAW_DATA.enhancements ?? []).find(x => x.id === enhId);
+      if (e) ru.enhancement_points = e.cost ?? 0;
+    }
     total += (ru.points ?? 0) + (ru.enhancement_points ?? 0);
   }
   r.points.total_computed = total;

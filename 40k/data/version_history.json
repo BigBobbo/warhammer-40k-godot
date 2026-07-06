@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.3.0",
+			"date": "2026-07-06",
+			"summary": "In-browser Army Builder: build, import and edit lists; saved lists appear in the game's army menus.",
+			"changes": [
+				"New Army Builder web page (relay server home page): build lists from scratch for every 40kdc faction with real point costs, squad sizes, wargear swaps, enhancements, warlord and leader attachments.",
+				"Import lists from the official GW app (including the latest 11th-edition export format with attached units, multiple detachments and Force Dispositions), New Recruit, ListForge, rosterizer, or saved army JSON files - then edit them before saving.",
+				"Lists saved to the cloud show up in the game's army dropdowns as '(Cloud)' and are playable immediately; re-open and edit them any time from 'My Lists'.",
+				"Main menu: new 'Army Builder (browser)' button and a 'Refresh Cloud Armies' button so new lists appear without restarting."
+			]
+		},
+		{
 			"version": "0.2.0",
 			"date": "2026-07-05",
 			"summary": "Reworked the main menu around 11th-edition Force Dispositions.",
