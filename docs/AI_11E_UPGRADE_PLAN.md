@@ -28,6 +28,35 @@ Implementation findings that amended the plan:
   pass/fail logic), and an AI Custodes fight activation could stall forever
   on the unanswered Ka'tah stance window.
 
+## Follow-up wave (v0.4.0, same branch)
+
+Implemented per the agreed priority order from the improvement review:
+
+1. **VP-denominated objective scoring** — `_estimate_objective_vp_value`
+   prices each objective from the player's ACTIVE primary rules
+   (`_build_primary_awareness.vp_rules`, with marginal analysis for
+   hold-min/majority) plus secondary `vp_objective_hints`; feeds
+   `_evaluate_all_objectives` at `WEIGHT_VP_PER_POINT` and is narrated
+   ("VP stakes this round: …"; candidates say "worth ~N VP").
+2. **Board-linked thinking cards** — decision records with positions
+   (movement objective candidates, charge targets) produce an
+   `_ai_thinking_context` that rides the thinking block into the log;
+   linked cards (bright accent) hover-preview / click-pin the considered
+   options on the board via the new `AIThoughtLinkVisual` (chosen = solid
+   green arrow, rejected = dashed red, score tags).
+3. **AI-vs-AI benchmark harness** — `AIBenchmarkRunner` autoload
+   (`--ai-benchmark`, ScenarioRunner-style activation) plays one full
+   headless game from a post-deployment fixture with optional
+   `load_player_profile` parameter overrides; `tests/run_ai_benchmark.sh N`
+   loops games and aggregates win rate / VP differential into a report.
+   This is the regression bar for future AI changes: run the benchmark,
+   demand the win rate holds.
+
+Remaining suggestions from the review (not yet implemented): one-ply
+opponent-response netting, shared CP planner, overwatch-bait charge
+sequencing, per-phase plan card, verbosity setting, faction voice, thinking
+in turn replay/saves.
+
 ## Why
 
 The engine, data, phases, missions and scoring are fully 11th edition

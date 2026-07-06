@@ -377,6 +377,45 @@ static func _add_decision_record(decision_type: String, unit_id: String, unit_na
 	}
 	_decision_records.append(record)
 	_narrate_decision_record(decision_type, unit_name, candidates, chosen_index)
+	_capture_thinking_context(decision_type, unit_id, unit_name, candidates, chosen_index, context)
+
+# Board-link context: when a decision's candidates carry board positions,
+# capture a structured summary so the game log can draw the considered
+# options on the board (chosen vs rejected) when the player hovers the card.
+static var _thinking_context: Dictionary = {}
+
+static func _capture_thinking_context(decision_type: String, unit_id: String,
+		unit_name: String, candidates: Array, chosen_index: int, context: Dictionary) -> void:
+	var linked: Array = []
+	for i in range(candidates.size()):
+		var cand = candidates[i]
+		var pos = cand.get("pos", [])
+		if pos is Array and pos.size() == 2:
+			linked.append({
+				"label": str(cand.get("description", "")),
+				"score": float(cand.get("score", 0.0)),
+				"pos": [float(pos[0]), float(pos[1])],
+				"chosen": i == chosen_index,
+			})
+	if linked.is_empty():
+		return
+	# Keep the FIRST linkable record per decision — one card, one spatial story
+	if not _thinking_context.is_empty():
+		return
+	_thinking_context = {
+		"decision_type": decision_type,
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"unit_pos": context.get("unit_pos", []),
+		"candidates": linked,
+	}
+
+static func take_thinking_context() -> Dictionary:
+	"""Return and clear the captured board-link context (paired with the
+	thinking steps taken by the same decision)."""
+	var ctx = _thinking_context
+	_thinking_context = {}
+	return ctx
 
 # Turn a structured decision record into verbose thinking text: the chosen
 # option plus the best rejected alternatives with scores, so the player can
@@ -462,6 +501,12 @@ const HEAVY_STATIONARY_MIN_BENEFIT: float = 0.15    # ~1 extra expected hit acro
 const HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE: float = 10.0  # High-priority objectives override Heavy hold
 
 # Movement AI tuning weights
+# VP-denominated objective scoring: expected VP an objective yields at the
+# next scoring point (from the player's actual primary + secondary cards)
+# feeds the priority at this weight per VP. A 5-VP objective adds 6.0 —
+# comparable to the strongest heuristic weight without drowning the tuned
+# base (threat, screening, OC efficiency all still matter).
+const WEIGHT_VP_PER_POINT: float = 1.2
 const WEIGHT_UNCONTROLLED_OBJ: float = 10.0
 const WEIGHT_CONTESTED_OBJ: float = 8.0
 const WEIGHT_ENEMY_WEAK_OBJ: float = 7.0
@@ -889,6 +934,7 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		evaluate_rules(player, rule_context)
 	_thinking_steps.clear()  # Reset thinking log for this decision
 	_decision_records.clear()  # Reset decision records for this decision
+	_thinking_context = {}  # Reset board-link context for this decision
 	var diff_name = AIDifficultyConfigData.difficulty_name(difficulty)
 	# T7-43: Log round strategy mode
 	var current_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
@@ -999,6 +1045,9 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		result["_ai_thinking_steps"] = _thinking_steps.duplicate()
 	if not _decision_records.is_empty() and not result.is_empty():
 		result["_ai_decision_records"] = _decision_records.duplicate(true)
+	if not _thinking_context.is_empty() and not result.is_empty():
+		result["_ai_thinking_context"] = _thinking_context.duplicate(true)
+		_thinking_context = {}
 	return result
 
 # =============================================================================
@@ -5659,6 +5708,21 @@ static func _evaluate_all_objectives(
 	var evaluations = []
 	var obj_data = snapshot.get("board", {}).get("objectives", [])
 
+	# Pre-pass: OC per objective + current hold counts (the VP estimator's
+	# marginal analysis for hold-N / majority rules needs the totals).
+	var oc_cache: Array = []
+	var my_holds := 0
+	var their_holds := 0
+	for i in range(objectives.size()):
+		var pre_f_oc = _get_oc_at_position(objectives[i], friendly_units, player, true)
+		var pre_e_oc = _get_oc_at_position(objectives[i], enemies, player, false)
+		oc_cache.append({"f": pre_f_oc, "e": pre_e_oc})
+		if pre_f_oc > 0 and pre_f_oc > pre_e_oc:
+			my_holds += 1
+		elif pre_e_oc > 0 and pre_e_oc > pre_f_oc:
+			their_holds += 1
+	var vp_stake_notes: Array = []
+
 	for i in range(objectives.size()):
 		var obj_pos = objectives[i]
 		var obj_id = ""
@@ -5667,9 +5731,9 @@ static func _evaluate_all_objectives(
 			obj_id = obj_data[i].get("id", "obj_%d" % i)
 			obj_zone = obj_data[i].get("zone", "no_mans_land")
 
-		# Calculate OC totals within control range
-		var friendly_oc = _get_oc_at_position(obj_pos, friendly_units, player, true)
-		var enemy_oc = _get_oc_at_position(obj_pos, enemies, player, false)
+		# OC totals within control range (from the pre-pass)
+		var friendly_oc = oc_cache[i].f
+		var enemy_oc = oc_cache[i].e
 
 		# Count friendly/enemy units nearby (within 12")
 		var friendly_nearby = _count_units_near_position(obj_pos, friendly_units, CHARGE_RANGE_PX)
@@ -5804,7 +5868,22 @@ static func _evaluate_all_objectives(
 			priority += threatened_retention
 			print("AIDecisionMaker: [OBJ-DEFEND] Objective %s: +%.1f threatened retention bonus (round=%d)" % [obj_id, threatened_retention, battle_round])
 
-		print("AIDecisionMaker: Objective %s: state=%s, friendly_oc=%d, enemy_oc=%d, priority=%.1f (tempo=%.2f)" % [obj_id, state, friendly_oc, enemy_oc, priority, tempo_mod])
+		# VP-denominated value: what THIS objective pays at the next scoring
+		# point per the player's actual cards. This is the dominant mission
+		# term — the heuristic weights above keep handling threat/tempo/OC.
+		var is_central = obj_pos.distance_to(Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)) <= 4.0 * PIXELS_PER_INCH
+		var vp_result = _estimate_objective_vp_value({
+			"is_home": is_home,
+			"is_enemy_home": is_enemy_home,
+			"is_central": is_central,
+			"is_held_by_me": friendly_oc > 0 and friendly_oc > enemy_oc,
+		}, player, my_holds, their_holds)
+		var vp_value: float = vp_result.vp
+		if vp_value > 0.0:
+			priority += vp_value * get_param("WEIGHT_VP_PER_POINT", WEIGHT_VP_PER_POINT)
+			vp_stake_notes.append({"id": obj_id, "vp": vp_value, "sources": vp_result.sources})
+
+		print("AIDecisionMaker: Objective %s: state=%s, friendly_oc=%d, enemy_oc=%d, priority=%.1f (tempo=%.2f, vp=%.1f)" % [obj_id, state, friendly_oc, enemy_oc, priority, tempo_mod, vp_value])
 
 		evaluations.append({
 			"index": i,
@@ -5819,8 +5898,20 @@ static func _evaluate_all_objectives(
 			"is_home": is_home,
 			"is_enemy_home": is_enemy_home,
 			"priority": priority,
+			"vp_value": vp_value,
+			"vp_sources": vp_result.sources,
 			"oc_needed": max(0, enemy_oc - friendly_oc + 1)  # OC we need to add to flip control
 		})
+
+	# Narrate the VP stakes once per evaluation (top objectives by VP), so the
+	# player sees WHAT the AI is playing for in mission terms.
+	if not vp_stake_notes.is_empty():
+		vp_stake_notes.sort_custom(func(a, b): return a.vp > b.vp)
+		var stake_parts: Array = []
+		for n in range(min(3, vp_stake_notes.size())):
+			var note = vp_stake_notes[n]
+			stake_parts.append("%s ~%.0f VP (%s)" % [note.id, note.vp, "; ".join(note.sources.slice(0, 2))])
+		_add_thinking_step("VP stakes this round (holding %d, enemy %d): %s" % [my_holds, their_holds, ", ".join(stake_parts)])
 
 	return evaluations
 
@@ -6183,7 +6274,8 @@ static func _assign_units_to_objectives(
 				"distance": dist_px,
 				"unit_oc": unit_oc,
 				"already_on_obj": already_on_obj,
-				"turns_to_reach": turns_to_reach
+				"turns_to_reach": turns_to_reach,
+				"vp_value": eval.get("vp_value", 0.0)
 			})
 
 	# Sort by score (highest first)
@@ -6467,17 +6559,24 @@ static func _assign_units_to_objectives(
 		var a = assignments[uid]
 		var u = snapshot.get("units", {}).get(uid, {})
 		var u_name = u.get("meta", {}).get("name", uid)
+		var u_pos = _get_unit_centroid(u)
 		# Find all candidates for this unit from the sorted candidates array
 		var unit_candidates = []
 		var chosen_idx = 0
 		var c_idx = 0
 		for cand in candidates:
 			if cand.unit_id == uid:
+				var cand_vp = float(cand.get("vp_value", 0.0))
+				var vp_note = " — worth ~%.0f VP" % cand_vp if cand_vp >= 1.0 else ""
 				unit_candidates.append({
-					"description": "%s %s (%s)" % [cand.action.capitalize(), cand.objective_id, cand.reason],
+					"description": "%s %s (%s%s)" % [cand.action.capitalize(), cand.objective_id, cand.reason, vp_note],
 					"score": cand.score,
+					# Board-link context: recorded positions let the game log
+					# draw this consideration on the board later.
+					"pos": [cand.objective_pos.x, cand.objective_pos.y],
 					"score_breakdown": {
 						"objective_priority": cand.score,
+						"expected_vp": cand_vp,
 						"distance_inches": cand.distance / PIXELS_PER_INCH if cand.distance > 0 else 0.0,
 						"unit_oc": cand.unit_oc,
 					}
@@ -6489,8 +6588,9 @@ static func _assign_units_to_objectives(
 			_add_decision_record("movement", uid, u_name, unit_candidates, chosen_idx,
 				{"WEIGHT_UNCONTROLLED_OBJ": get_param("WEIGHT_UNCONTROLLED_OBJ", WEIGHT_UNCONTROLLED_OBJ),
 				 "WEIGHT_CONTESTED_OBJ": get_param("WEIGHT_CONTESTED_OBJ", WEIGHT_CONTESTED_OBJ),
-				 "WEIGHT_HOME_UNDEFENDED": get_param("WEIGHT_HOME_UNDEFENDED", WEIGHT_HOME_UNDEFENDED)},
-				{"phase": "movement", "round": battle_round})
+				 "WEIGHT_VP_PER_POINT": get_param("WEIGHT_VP_PER_POINT", WEIGHT_VP_PER_POINT)},
+				{"phase": "movement", "round": battle_round,
+				 "unit_pos": [u_pos.x, u_pos.y] if u_pos != Vector2.INF else []})
 
 	return assignments
 
@@ -11166,9 +11266,11 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			# Score comes from best_score for the chosen target, 0.0 for others
 			if tid == best_action.get("payload", {}).get("target_unit_ids", [null])[0] if not best_action.get("payload", {}).get("target_unit_ids", []).is_empty() else "":
 				t_score = best_score
+			var t_pos = _get_unit_centroid(t_unit) if not t_unit.is_empty() else Vector2.INF
 			charge_candidates.append({
 				"description": "Charge %s (%.1f\" away, %.0f%% chance)" % [t_name, t_dist, t_prob * 100.0],
 				"score": t_score,
+				"pos": [t_pos.x, t_pos.y] if t_pos != Vector2.INF else [],
 				"score_breakdown": {
 					"charge_probability": t_prob,
 					"melee_damage": t_melee,
@@ -11180,11 +11282,13 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 				charge_chosen_idx = idx
 			idx += 1
 	if not charge_candidates.is_empty():
+		var charger_pos = _get_unit_centroid(charge_unit)
 		_add_decision_record("charge", charge_unit_id, charge_unit_name,
 			charge_candidates, charge_chosen_idx,
 			{"TEMPO_CHARGE_THRESHOLD_REDUCTION": TEMPO_CHARGE_THRESHOLD_REDUCTION,
 			 "charge_threshold": charge_threshold},
-			{"phase": "charge", "round": ct_battle_round})
+			{"phase": "charge", "round": ct_battle_round,
+			 "unit_pos": [charger_pos.x, charger_pos.y] if charger_pos != Vector2.INF else []})
 
 	var result = best_action.duplicate()
 	result["_ai_description"] = best_description
@@ -14351,6 +14455,9 @@ static func _build_primary_awareness(snapshot: Dictionary, player: int) -> Dicti
 		"kill_pressure": false,      # kill-based rules (destroyed_min / killed_more)
 		"quarters": false,           # table-quarter presence rules
 		"active_rules": 0,
+		# The card's objective rules active THIS round, verbatim — the VP
+		# estimator prices individual objectives from these.
+		"vp_rules": [],
 	}
 
 	var mm = _mission_manager()
@@ -14369,6 +14476,7 @@ static func _build_primary_awareness(snapshot: Dictionary, player: int) -> Dicti
 		if battle_round < int(rounds[0]) or battle_round > int(rounds[1]):
 			continue
 		awareness.active_rules += 1
+		awareness.vp_rules.append(rule)
 		var vp = float(rule.get("vp", rule.get("vp_per", 0)))
 		match str(rule.get("type", "")):
 			"hold_min", "per_objective", "per_new_objective", "hold_new":
@@ -14408,6 +14516,101 @@ static func _get_primary_awareness(player: int) -> Dictionary:
 	if player == 1:
 		return _primary_awareness_p1
 	return _primary_awareness_p2
+
+# =============================================================================
+# VP-DENOMINATED OBJECTIVE VALUE
+# =============================================================================
+
+static func _estimate_objective_vp_value(obj_info: Dictionary, player: int,
+		my_holds: int, their_holds: int) -> Dictionary:
+	"""Price ONE objective in expected VP at the next scoring point, from the
+	player's ACTUAL mission cards (primary rules via _build_primary_awareness's
+	vp_rules + secondary vp_objective_hints). Marginal analysis: a hold_min-3
+	rule pays nothing for a 4th objective, everything for the 3rd.
+	obj_info: {is_home, is_enemy_home, is_central, is_held_by_me}
+	Returns {vp: float, sources: [String]} — sources feed the narration."""
+	var vp := 0.0
+	var sources: Array = []
+	var is_home: bool = obj_info.get("is_home", false)
+	var is_enemy_home: bool = obj_info.get("is_enemy_home", false)
+	var is_central: bool = obj_info.get("is_central", false)
+	var is_held: bool = obj_info.get("is_held_by_me", false)
+
+	# --- Primary card rules (active this round) ---
+	var primary = _get_primary_awareness(player)
+	for rule in primary.get("vp_rules", []):
+		var rule_vp = float(rule.get("vp", rule.get("vp_per", 0)))
+		if rule_vp <= 0.0:
+			continue
+		match str(rule.get("type", "")):
+			"per_objective":
+				if rule.get("exclude_home", false) and is_home:
+					# Home doesn't pay directly, but a require_hold_home rider
+					# makes holding home the enabler for every other payout.
+					if rule.get("require_hold_home", false):
+						vp += rule_vp
+						sources.append("home enables +%s/obj (primary)" % str(rule_vp))
+				else:
+					vp += rule_vp
+					sources.append("+%s/obj (primary)" % str(rule_vp))
+			"hold_min":
+				if rule.get("exclude_home", false) and is_home:
+					continue
+				var needed = int(rule.get("min", 1))
+				# Marginal value: full VP for the objective that reaches the
+				# threshold, a taper for insurance/overshoot.
+				if my_holds < needed:
+					if is_held or my_holds + 1 >= needed:
+						vp += rule_vp
+						sources.append("reaches hold-%d (%s VP primary)" % [needed, str(rule_vp)])
+					else:
+						vp += rule_vp * 0.5
+						sources.append("builds toward hold-%d (primary)" % needed)
+				elif is_held and my_holds == needed:
+					# Already exactly at threshold — losing THIS one loses the VP
+					vp += rule_vp
+					sources.append("keeps hold-%d alive (%s VP primary)" % [needed, str(rule_vp)])
+				else:
+					vp += rule_vp * 0.2
+					sources.append("insurance for hold-%d (primary)" % needed)
+			"hold_more":
+				# Majority: full value when this objective flips or preserves it
+				var decisive = (my_holds == their_holds) or (is_held and my_holds == their_holds + 1)
+				vp += rule_vp if decisive else rule_vp * 0.3
+				if decisive:
+					sources.append("swings majority (%s VP primary)" % str(rule_vp))
+			"hold_enemy_home":
+				if is_enemy_home:
+					vp += rule_vp
+					sources.append("ENEMY HOME pays %s VP (primary)" % str(rule_vp))
+			"hold_central", "hold_central_plus_nml":
+				if is_central:
+					vp += rule_vp
+					sources.append("CENTRE pays %s VP (primary)" % str(rule_vp))
+				elif str(rule.get("type", "")) == "hold_central_plus_nml" and not is_home and not is_enemy_home:
+					vp += rule_vp * 0.4
+					sources.append("NML rider on centre rule (primary)")
+			"hold_new", "per_new_objective":
+				if not is_held:
+					vp += rule_vp
+					sources.append("newly taken pays %s VP (primary)" % str(rule_vp))
+
+	# --- Secondary card hints ---
+	var secondary = _get_secondary_awareness(player)
+	for hint in secondary.get("vp_objective_hints", []):
+		var kind = str(hint.get("kind", ""))
+		var matched = false
+		match kind:
+			"enemy_home": matched = is_enemy_home
+			"home": matched = is_home
+			"central": matched = is_central
+			"nml": matched = not is_home and not is_enemy_home
+			"any": matched = true
+		if matched:
+			vp += float(hint.get("vp", 0.0))
+			sources.append("%s pays %s VP" % [hint.get("card", "secondary"), str(hint.get("vp", 0))])
+
+	return {"vp": vp, "sources": sources}
 
 static func _evaluate_mission_achievability(snapshot: Dictionary, mission: Dictionary, player: int, battle_round: int) -> float:
 	"""
@@ -15352,6 +15555,10 @@ static func _build_secondary_awareness(snapshot: Dictionary, player: int) -> Dic
 		"nml_priority": 0.0,           # bonus for no man's land positioning
 		"defend_home": 0.0,            # bonus for defending own zone objectives
 		"active_mission_ids": [],      # for reference/logging
+		# Secondary cards that pay VP for CONTROLLING objectives — the VP
+		# estimator prices individual objectives from these hints.
+		# Each hint: {kind: "enemy_home"|"home"|"nml"|"central"|"any", vp: float}
+		"vp_objective_hints": [],
 	}
 
 	var secondary_mgr = _secondary_mission_manager()
@@ -15408,17 +15615,20 @@ static func _build_secondary_awareness(snapshot: Dictionary, player: int) -> Dic
 				# Need to control objectives in own deployment zone
 				awareness.defend_home = get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
 				awareness.objective_zone_bonuses[player_zone] = awareness.objective_zone_bonuses.get(player_zone, 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
+				awareness.vp_objective_hints.append({"kind": "home", "vp": 3.0, "card": "Defend Stronghold"})
 				print("AIDecisionMaker: [T7-25] Defend Stronghold active — defending home zone objectives")
 
 			"secure_no_mans_land":
 				# Need to control NML objectives
 				awareness.nml_priority += get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
 				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
+				awareness.vp_objective_hints.append({"kind": "nml", "vp": 2.5, "card": "Secure No Man's Land"})
 				print("AIDecisionMaker: [T7-25] Secure NML active — prioritizing no man's land objectives")
 
 			"a_tempting_target":
 				# Need to control opponent-selected objective (in NML)
 				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
+				awareness.vp_objective_hints.append({"kind": "nml", "vp": 2.0, "card": "A Tempting Target"})
 				print("AIDecisionMaker: [T7-25] A Tempting Target active — contesting NML objectives")
 
 			"extend_battle_lines":
@@ -15485,6 +15695,8 @@ static func _build_secondary_awareness(snapshot: Dictionary, player: int) -> Dic
 				awareness.enemy_zone_push = maxf(awareness.enemy_zone_push, get_param("SECONDARY_ENEMY_ZONE_PUSH_BONUS", SECONDARY_ENEMY_ZONE_PUSH_BONUS) * 0.8)
 				awareness.objective_zone_bonuses[enemy_zone] = awareness.objective_zone_bonuses.get(enemy_zone, 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
 				awareness.nml_priority += get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.5
+				awareness.vp_objective_hints.append({"kind": "enemy_home", "vp": 5.0, "card": "Forward Position"})
+				awareness.vp_objective_hints.append({"kind": "nml", "vp": 2.5, "card": "Forward Position"})
 				_add_thinking_step("Secondary 'Forward Position': 5 VP for holding the enemy home / an expansion objective — pushing forward")
 
 			"burden_of_trust":
@@ -15493,12 +15705,14 @@ static func _build_secondary_awareness(snapshot: Dictionary, player: int) -> Dic
 				awareness.defend_home = maxf(awareness.defend_home, get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.7)
 				awareness.nml_priority += get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.7
 				awareness["hold_objectives"] = true
+				awareness.vp_objective_hints.append({"kind": "any", "vp": 2.0, "card": "Burden of Trust"})
 				_add_thinking_step("Secondary 'Burden of Trust': scores per objective still guarded at the END of the enemy turn — holding ground beats pushing")
 
 			"centre_ground":
 				# 3/5 VP tiers around the board centre (enemy exclusion 3\"/6\")
 				awareness.center_priority = maxf(awareness.center_priority, get_param("SECONDARY_CENTER_BONUS", SECONDARY_CENTER_BONUS))
 				awareness["kill_proximity"] = true  # clearing enemies off the centre doubles the tier
+				awareness.vp_objective_hints.append({"kind": "central", "vp": 4.0, "card": "Centre Ground"})
 				_add_thinking_step("Secondary 'Centre Ground': 3-5 VP for owning the middle — pushing centre and clearing enemies near it")
 
 			"beacon":

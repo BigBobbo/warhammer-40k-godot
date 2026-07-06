@@ -66,6 +66,7 @@ KeybindingManager="*res://autoloads/KeybindingManager.gd"
 UIConstants="*res://autoloads/UIConstants.gd"
 MCPServer="*res://addons/godot_mcp/mcp_server.gd"
 ScenarioRunner="*res://autoloads/ScenarioRunner.gd"
+AIBenchmarkRunner="*res://autoloads/AIBenchmarkRunner.gd"
 
 [display]
 

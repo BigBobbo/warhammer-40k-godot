@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.4.0",
+			"date": "2026-07-06",
+			"summary": "The AI now plays for Victory Points by the numbers, and its thinking cards can draw their options on the board.",
+			"changes": [
+				"AI decisions are now Victory-Point-denominated: each objective is priced from the AI's actual mission cards (its primary Force-Disposition rules plus active secondaries), so it pushes where the VP really are — and the Game Log states the stakes ('VP stakes this round: obj_center ~9 VP...', 'worth ~5 VP').",
+				"AI thinking cards with a bright blue accent are now board-linked: hover one to see the options that decision weighed drawn on the battlefield — a solid green arrow to the chosen option and dashed red arrows to the rejected ones, each tagged with its score. Click the card to pin the arrows; click again to clear.",
+				"New AI-vs-AI benchmark harness for development: plays full headless games and reports win rate and VP differential, so future AI changes are verified by results (bash 40k/tests/run_ai_benchmark.sh)."
+			]
+		},
+		{
 			"version": "0.3.0",
 			"date": "2026-07-06",
 			"summary": "The AI now plays 11th edition properly — stratagems, faction rules, mission play — and explains every decision in the Game Log.",

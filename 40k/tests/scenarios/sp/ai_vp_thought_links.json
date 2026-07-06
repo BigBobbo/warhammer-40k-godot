@@ -1,0 +1,32 @@
+{
+  "id": "ai_vp_thought_links",
+  "covers": [
+    "ai.thinking.vp_denominated_scoring",
+    "ai.thinking.board_linked_cards",
+    "ui.AIThoughtLinkVisual.render"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "rng_seed": 7,
+  "description": "Follow-up gate: (a) the AI's objective decisions are VP-denominated — the log states the VP stakes derived from its actual mission cards; (b) thinking cards are board-linked — activating the latest linked card (same handler as clicking it) draws the considered options on the board via AIThoughtLinkVisual. Screenshot captures the arrows.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(1)" },
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "GameState.set_active_player(2)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+
+    { "act": "wait_seconds", "seconds": 10.0 },
+
+    { "act": "execute_script", "script": "GameEventLog.has_ai_entry_containing_any([\"VP stakes\", \"worth ~\"])", "equals": true },
+    { "act": "execute_script", "script": "main.game_log_panel.get_linked_ai_card_count()", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.activate_latest_ai_link()", "equals": true },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.get_node(\"BoardRoot/AIThoughtLinkVisual\").is_active()", "equals": true },
+    { "act": "execute_script", "script": "main.get_node(\"BoardRoot/AIThoughtLinkVisual\").get_link_count()", "expect_min": 2 },
+    { "act": "screenshot", "label": "01_thought_links_on_board" },
+    { "act": "execute_script", "script": "main.game_log_panel.activate_latest_ai_link()", "equals": false },
+    { "act": "execute_script", "script": "main.get_node(\"BoardRoot/AIThoughtLinkVisual\").is_active()", "equals": false },
+    { "act": "screenshot", "label": "02_links_cleared", "region": [0, 105, 400, 720] }
+  ]
+}
