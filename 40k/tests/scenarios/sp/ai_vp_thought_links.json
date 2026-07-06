@@ -6,12 +6,14 @@
     "ui.AIThoughtLinkVisual.render"
   ],
   "fixture": "audit_382_cp_grant",
+  "edition": 11,
   "rng_seed": 7,
   "description": "Follow-up gate: (a) the AI's objective decisions are VP-denominated — the log states the VP stakes derived from its actual mission cards; (b) thinking cards are board-linked — activating the latest linked card (same handler as clicking it) draws the considered options on the board via AIThoughtLinkVisual. Screenshot captures the arrows.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
     { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(1)" },
+    { "act": "execute_script", "script": "MissionManager.initialize_dispositions_11e(\"take_and_hold\", \"purge_the_foe\")" },
     { "act": "execute_script", "script": "GameEventLog.clear()" },
     { "act": "execute_script", "script": "GameState.set_active_player(2)" },
     { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
