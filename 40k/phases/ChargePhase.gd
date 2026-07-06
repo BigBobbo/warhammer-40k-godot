@@ -2398,6 +2398,9 @@ func get_available_actions() -> Array:
 					"actor_unit_id": unit_id,
 					"rolled_distance": rolled_distance,
 					"target_ids": charge_data.get("targets", []),
+					# 11e 11.02: targets are picked after the roll from this list
+					# (enemies within 12" AND within the roll). Empty at 10e.
+					"selectable_targets": charge_data.get("selectable_targets", []),
 					"description": "Apply charge movement for " + unit.get("meta", {}).get("name", unit_id)
 				})
 

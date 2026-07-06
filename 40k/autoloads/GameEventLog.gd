@@ -246,6 +246,16 @@ func add_ai_thinking_entry(player: int, text: String) -> void:
 	var prefix = "P%d AI: " % player
 	_add_entry(prefix + text, "ai_thinking")
 
+func add_ai_thinking_block(player: int, header: String, lines: Array) -> void:
+	"""One AI decision's reasoning as a single block: a headline plus the
+	detail lines (candidates considered, rejections, scores). GameLogPanel
+	renders this as a collapsible AI-thinking card so verbosity doesn't flood
+	the log. The first line of the entry text is the header; the rest are details."""
+	var text = "P%d AI: %s" % [player, header]
+	for line in lines:
+		text += "\n" + str(line)
+	_add_entry(text, "ai_thinking_block")
+
 func add_info_entry(text: String) -> void:
 	"""Add a general information entry (VP scoring, mission status, CP generation, etc.)."""
 	_add_entry(text, "info")
