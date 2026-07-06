@@ -104,6 +104,14 @@ static var _secondary_awareness_p1: Dictionary = {}
 static var _secondary_awareness_p2: Dictionary = {}
 static var _secondary_awareness_round_p1: int = -1
 static var _secondary_awareness_round_p2: int = -1
+
+# Per-player PRIMARY mission awareness (11e Force-Disposition cards) — what the
+# player's own primary card pays for this game: which objectives score, when,
+# and whether kills score. Built once per round in the command phase.
+static var _primary_awareness_p1: Dictionary = {}
+static var _primary_awareness_p2: Dictionary = {}
+static var _primary_awareness_round_p1: int = -1
+static var _primary_awareness_round_p2: int = -1
 static var _failed_disembark_unit_ids: Array = []  # Units that failed disembark — skip to avoid loop
 static var _fight_attack_retry_count: Dictionary = {}  # {unit_id: count} — track repeated fight attack attempts
 
@@ -162,6 +170,10 @@ static func reset_caches() -> void:
 	_secondary_awareness_p2.clear()
 	_secondary_awareness_round_p1 = -1
 	_secondary_awareness_round_p2 = -1
+	_primary_awareness_p1.clear()
+	_primary_awareness_p2.clear()
+	_primary_awareness_round_p1 = -1
+	_primary_awareness_round_p2 = -1
 	_failed_disembark_unit_ids.clear()
 	_fight_attack_retry_count.clear()
 	_charge_coordination.clear()
@@ -935,10 +947,14 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		if _secondary_awareness_round_p1 != current_round:
 			_secondary_awareness_p1.clear()
 			_secondary_awareness_round_p1 = current_round
+		if _primary_awareness_round_p1 != current_round:
+			_primary_awareness_p1.clear()
 	else:
 		if _secondary_awareness_round_p2 != current_round:
 			_secondary_awareness_p2.clear()
 			_secondary_awareness_round_p2 = current_round
+		if _primary_awareness_round_p2 != current_round:
+			_primary_awareness_p2.clear()
 
 	# T7-40: Normal and below skip multi-phase planning
 	if not AIDifficultyConfigData.use_multi_phase_planning(difficulty):
@@ -3488,6 +3504,19 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			_secondary_awareness_p2 = built
 			_secondary_awareness_round_p2 = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 
+	# 11e: build PRIMARY (Force-Disposition) awareness so movement pursues the
+	# player's own card conditions — enemy home, centre, kill rules, quarters.
+	var _p_primary = _primary_awareness_p1 if player == 1 else _primary_awareness_p2
+	var _cmd_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	if _p_primary.is_empty() or (_primary_awareness_round_p1 if player == 1 else _primary_awareness_round_p2) != _cmd_round:
+		var built_primary = _build_primary_awareness(snapshot, player)
+		if player == 1:
+			_primary_awareness_p1 = built_primary
+			_primary_awareness_round_p1 = _cmd_round
+		else:
+			_primary_awareness_p2 = built_primary
+			_primary_awareness_round_p2 = _cmd_round
+
 	# Evaluate REPLACE_SECONDARY_MISSION — replace bad newly-drawn missions (1 CP, back to deck)
 	var replace_actions = []
 	for action in available_actions:
@@ -3906,6 +3935,17 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		else:
 			_secondary_awareness_p2 = built_mv
 			_secondary_awareness_round_p2 = battle_round
+
+	# 11e: primary awareness fallback build (command phase may have been skipped)
+	var _mv_primary = _primary_awareness_p1 if player == 1 else _primary_awareness_p2
+	if _mv_primary.is_empty():
+		var built_pr = _build_primary_awareness(snapshot, player)
+		if player == 1:
+			_primary_awareness_p1 = built_pr
+			_primary_awareness_round_p1 = battle_round
+		else:
+			_primary_awareness_p2 = built_pr
+			_primary_awareness_round_p2 = battle_round
 
 	# Movement-phase faction stratagems ('ERE WE GO +2 advance/charge before a
 	# key charger moves, VIGILANCE ETERNAL sticky objective, MULTIPOTENTIALITY
@@ -5968,6 +6008,28 @@ static func _assign_units_to_objectives(
 								if dist_to_lane_target <= max_weapon_range:
 									score += get_param("PHASE_PLAN_SHOOTING_LANE_BONUS", PHASE_PLAN_SHOOTING_LANE_BONUS) * 0.5
 
+			# --- 11e PRIMARY MISSION (FORCE-DISPOSITION) INFLUENCE ---
+			# The player's own primary card decides which objectives actually
+			# pay VP: enemy home, the centre, objective count, quarters.
+			var primary_awareness = _get_primary_awareness(player)
+			if not primary_awareness.is_empty() and primary_awareness.get("active_rules", 0) > 0:
+				var pr_obj_pressure = primary_awareness.get("objective_pressure", 0.0)
+				if pr_obj_pressure > 0.0:
+					score += minf(pr_obj_pressure, 6.0) * 0.5
+				if primary_awareness.get("enemy_home_bonus", 0.0) > 0.0 and eval.get("is_enemy_home", false):
+					score += primary_awareness.enemy_home_bonus
+				if primary_awareness.get("central_bonus", 0.0) > 0.0:
+					var pr_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
+					if obj_pos.distance_to(pr_center) <= 4.0 * PIXELS_PER_INCH:
+						score += primary_awareness.central_bonus
+				if primary_awareness.get("hold_home_required", false) and eval.get("is_home", false):
+					score += 3.0
+				if primary_awareness.get("quarters", false):
+					var pr_covered = _get_covered_quarters(snapshot.get("units", {}), player)
+					var pr_quarter = _get_table_quarter(estimated_dest)
+					if not pr_covered[pr_quarter]:
+						score += get_param("SECONDARY_SPREAD_BONUS", SECONDARY_SPREAD_BONUS) * 0.7
+
 			# --- T7-25: SECONDARY MISSION AWARENESS INFLUENCE ---
 			# Factor active secondary missions into movement positioning (per-player)
 			var sec_awareness = _get_secondary_awareness(player)
@@ -6031,6 +6093,16 @@ static func _assign_units_to_objectives(
 					if not covered[dest_quarter]:
 						# Moving into an uncovered quarter — valuable for scoring
 						score += get_param("SECONDARY_SPREAD_BONUS", SECONDARY_SPREAD_BONUS)
+
+				# Outflank (11e): bonus for destinations within 6" of a side board
+				# edge and beyond our own half — where the card scores.
+				var edge_flank = sec_awareness.get("edge_flank_priority", 0.0)
+				if edge_flank > 0.0:
+					var edge_dist_in = minf(estimated_dest.x, BOARD_WIDTH_PX - estimated_dest.x) / PIXELS_PER_INCH
+					var in_own_half = (player == 1 and estimated_dest.y < BOARD_HEIGHT_PX * 0.5) or \
+						(player == 2 and estimated_dest.y >= BOARD_HEIGHT_PX * 0.5)
+					if edge_dist_in <= 6.0 and not in_own_half:
+						score += edge_flank
 
 				# Kill target proximity: bias positioning toward secondary kill targets
 				var kill_kws = sec_awareness.get("kill_keywords", [])
@@ -10416,6 +10488,17 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 		print("AIDecisionMaker: [SEC-TARGET] +50%% priority for %s (Marked for Death target)" % [
 			meta.get("name", unit_id)])
 
+	# A Grievous Blow (11e): boost kills on units with a big Starting Strength
+	var big_unit_min = int(sec_awareness.get("kill_big_units_min", 0))
+	if big_unit_min > 0 and target_unit.get("models", []).size() >= big_unit_min:
+		value *= 1.4
+		print("AIDecisionMaker: [SEC-TARGET] +40%% priority for %s (Starting Strength %d ≥ %d — A Grievous Blow)" % [
+			meta.get("name", unit_id), target_unit.get("models", []).size(), big_unit_min])
+
+	# 11e primary kill rules (Purge the Foe style): kills score primary VP too
+	if _get_primary_awareness(player).get("kill_pressure", false):
+		value *= 1.15
+
 	# T7-43: Apply round strategy aggression modifier to overall target value
 	# Early game: boost kill-seeking (aggression > 1.0), Late game: reduce (aggression < 1.0)
 	# T7-41: Combine with army archetype modifiers
@@ -14232,6 +14315,89 @@ static func _secondary_mission_manager():
 		return main.root.get_node_or_null("SecondaryMissionManager")
 	return null
 
+# Late-bound reference to MissionManager autoload
+static func _mission_manager():
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		return main.root.get_node_or_null("MissionManager")
+	return null
+
+# =============================================================================
+# 11e PRIMARY MISSION (FORCE-DISPOSITION) AWARENESS
+# =============================================================================
+
+static func _build_primary_awareness(snapshot: Dictionary, player: int) -> Dictionary:
+	"""Read the player's OWN 11e primary card (their disposition deck played vs
+	the opponent's disposition) and derive positional/kill biases from its rule
+	list, so movement and target choices pursue what actually scores VP.
+	Rule schema: PrimaryMissionData11e.gd — {when, type, vp/vp_per, rounds, …}."""
+	var awareness = {
+		"card_name": "",
+		"objective_pressure": 0.0,   # generic bonus on taking/holding objectives
+		"enemy_home_bonus": 0.0,     # bonus on the opponent's home objective
+		"central_bonus": 0.0,        # bonus on the board-centre objective
+		"hold_home_required": false, # a rule needs our own home held
+		"kill_pressure": false,      # kill-based rules (destroyed_min / killed_more)
+		"quarters": false,           # table-quarter presence rules
+		"active_rules": 0,
+	}
+
+	var mm = _mission_manager()
+	if mm == null or GameConstants.edition < 11:
+		return awareness
+	var card = mm.player_primary_missions.get(str(player), {})
+	if card.is_empty():
+		return awareness
+
+	awareness.card_name = card.get("name", card.get("id", "?"))
+	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	var rule_notes: Array = []
+
+	for rule in card.get("rules", []):
+		var rounds = rule.get("rounds", [1, 5])
+		if battle_round < int(rounds[0]) or battle_round > int(rounds[1]):
+			continue
+		awareness.active_rules += 1
+		var vp = float(rule.get("vp", rule.get("vp_per", 0)))
+		match str(rule.get("type", "")):
+			"hold_min", "per_objective", "per_new_objective", "hold_new":
+				awareness.objective_pressure += maxf(2.0, vp)
+				rule_notes.append("%s (%s VP, %s)" % [rule.get("type"), str(vp), rule.get("when", "?")])
+				if rule.get("require_hold_home", false):
+					awareness.hold_home_required = true
+			"hold_more":
+				awareness.objective_pressure += maxf(2.0, vp) * 1.2
+				rule_notes.append("hold MORE than opponent (%s VP, %s)" % [str(vp), rule.get("when", "?")])
+			"hold_enemy_home":
+				awareness.enemy_home_bonus += maxf(4.0, vp * 1.5)
+				rule_notes.append("hold ENEMY HOME (%s VP, %s)" % [str(vp), rule.get("when", "?")])
+			"hold_central", "hold_central_plus_nml":
+				awareness.central_bonus += maxf(3.0, vp)
+				rule_notes.append("hold CENTRE (%s VP, %s)" % [str(vp), rule.get("when", "?")])
+			"destroyed_min", "destroyed_per_unit", "killed_more_than_opponent_last_turn", \
+			"destroyed_started_on_objective", "destroyed_near_central", "destroyed_in_terrain_area":
+				awareness.kill_pressure = true
+				rule_notes.append("kill-based: %s (%s VP)" % [rule.get("type"), str(vp)])
+			"quarters":
+				awareness.quarters = true
+				rule_notes.append("table quarters (%s VP)" % str(vp))
+			_:
+				# Marker/action mechanics auto-resolve in MissionManager; generic
+				# objective pressure still helps most of them.
+				awareness.objective_pressure += 1.0
+				rule_notes.append("%s (auto-resolved mechanic)" % rule.get("type", "?"))
+
+	if awareness.active_rules > 0:
+		_add_thinking_step("Primary '%s' this round: %s" % [awareness.card_name, "; ".join(rule_notes)])
+		if awareness.hold_home_required:
+			_add_thinking_step("  → my home objective must stay held for the per-objective bonus")
+	return awareness
+
+static func _get_primary_awareness(player: int) -> Dictionary:
+	if player == 1:
+		return _primary_awareness_p1
+	return _primary_awareness_p2
+
 static func _evaluate_mission_achievability(snapshot: Dictionary, mission: Dictionary, player: int, battle_round: int) -> float:
 	"""
 	T7-47: Evaluate how achievable a secondary mission is.
@@ -14338,6 +14504,23 @@ static func _evaluate_mission_achievability(snapshot: Dictionary, mission: Dicti
 			# We can't easily tell if the AI will execute these actions in the future,
 			# so give a moderate achievability score — only discard if the AI has very
 			# few units left to perform actions with.
+			return _assess_action_mission(units, player)
+
+		# --- 11e (GDM 2026) CARDS ---
+		"a_grievous_blow":
+			return _assess_grievous_blow(units, opponent)
+		"forward_position":
+			return _assess_forward_position(units, snapshot, player)
+		"burden_of_trust":
+			return _assess_burden_of_trust(units, snapshot, player)
+		"centre_ground":
+			# Same shape as the old Area Denial: presence near the board centre
+			return _assess_area_denial(units, player, opponent)
+		"beacon":
+			return _assess_beacon(units, player)
+		"outflank":
+			return _assess_outflank(units, player)
+		"plunder":
 			return _assess_action_mission(units, player)
 
 		_:
@@ -14718,6 +14901,132 @@ static func _assess_cull_the_horde(units: Dictionary, opponent: int) -> float:
 		return 0.3  # Half-strength — difficult but possible
 	else:
 		return 0.15  # Full/near-full squad (13-20 models) — very hard to fully wipe in one turn
+
+static func _assess_grievous_blow(units: Dictionary, opponent: int) -> float:
+	"""11e 'A Grievous Blow': destroy enemy units with Starting Strength 13+
+	(any keyword, unlike the old Cull the Horde's INFANTRY limit)."""
+	var target_count = 0
+	var easiest_target_alive = 999
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != opponent:
+			continue
+		var starting_strength = unit.get("meta", {}).get("starting_strength", unit.get("models", []).size())
+		if starting_strength < 13:
+			continue
+		var alive_count = 0
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				alive_count += 1
+		if alive_count > 0:
+			target_count += 1
+			easiest_target_alive = mini(easiest_target_alive, alive_count)
+	if target_count == 0:
+		return 0.0  # The card itself redraws in this case, but be safe
+	if easiest_target_alive <= 5:
+		return 0.6
+	elif easiest_target_alive <= 10:
+		return 0.35
+	return 0.2
+
+static func _assess_forward_position(units: Dictionary, snapshot: Dictionary, player: int) -> float:
+	"""11e 'Forward Position': control the enemy home objective or an expansion
+	objective at the end of my turn. Feasible when we have OC pushed forward."""
+	# How close is our closest OC-bearing unit to the enemy's half?
+	var forward_units = 0
+	var total_alive = 0
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		if _get_alive_models(unit).is_empty():
+			continue
+		total_alive += 1
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+		var in_enemy_half = (player == 1 and centroid.y > BOARD_HEIGHT_PX * 0.5) or \
+			(player == 2 and centroid.y < BOARD_HEIGHT_PX * 0.5)
+		if in_enemy_half:
+			forward_units += 1
+	if total_alive == 0:
+		return 0.0
+	if forward_units >= 2:
+		return 0.8
+	elif forward_units == 1:
+		return 0.55
+	return 0.35  # Nothing forward yet — still achievable with a push
+
+static func _assess_burden_of_trust(units: Dictionary, snapshot: Dictionary, player: int) -> float:
+	"""11e 'Burden of Trust': 2 VP per objective still guarded at the end of the
+	OPPONENT's turn (max 5). Feasible in proportion to objectives we hold."""
+	var objectives = _get_objectives(snapshot)
+	if objectives.is_empty():
+		return 0.2
+	var held = 0
+	for obj_pos in objectives:
+		var our_oc = _get_oc_at_position(obj_pos, units, player, true)
+		var their_oc = _get_oc_at_position(obj_pos, units, player, false)
+		if our_oc > their_oc and our_oc > 0:
+			held += 1
+	if held >= 2:
+		return 0.85
+	elif held == 1:
+		return 0.6
+	return 0.3
+
+static func _assess_beacon(units: Dictionary, player: int) -> float:
+	"""11e 'Beacon': a friendly unit outside my DZ/territory at the end of the
+	opponent's turn. Needs at least one healthy unit past the halfway line."""
+	var best = 0.0
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		var alive = _get_alive_models(unit)
+		if alive.is_empty():
+			continue
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+		var in_enemy_half = (player == 1 and centroid.y > BOARD_HEIGHT_PX * 0.5) or \
+			(player == 2 and centroid.y < BOARD_HEIGHT_PX * 0.5)
+		if in_enemy_half:
+			# Durability matters — it must SURVIVE the opponent's turn
+			best = maxf(best, 0.5 + minf(0.35, alive.size() * 0.05))
+	if best > 0.0:
+		return best
+	return 0.4  # Nobody forward yet, but any advance can qualify
+
+static func _assess_outflank(units: Dictionary, player: int) -> float:
+	"""11e 'Outflank': units within 6\" of board edges outside my territory
+	(5 VP needs opposite edges). Feasible when fast units can go wide."""
+	var near_edges = 0
+	var mobile_units = 0
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		if _get_alive_models(unit).is_empty():
+			continue
+		var move_in = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+		if move_in >= 8.0:
+			mobile_units += 1
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+		var edge_dist_in = minf(centroid.x, BOARD_WIDTH_PX - centroid.x) / PIXELS_PER_INCH
+		var in_enemy_half = (player == 1 and centroid.y > BOARD_HEIGHT_PX * 0.5) or \
+			(player == 2 and centroid.y < BOARD_HEIGHT_PX * 0.5)
+		if edge_dist_in <= 6.0 and in_enemy_half:
+			near_edges += 1
+	if near_edges >= 2:
+		return 0.85
+	elif near_edges == 1:
+		return 0.6
+	elif mobile_units >= 2:
+		return 0.45
+	return 0.25
 
 static func _assess_marked_for_death(units: Dictionary, mission: Dictionary) -> float:
 	"""Destroy specific marked targets. Check if any alpha/gamma targets still alive and damageable."""
@@ -15152,6 +15461,55 @@ static func _build_secondary_awareness(snapshot: Dictionary, player: int) -> Dic
 				awareness["kill_near_objectives"] = true
 				awareness["nml_priority"] = awareness.get("nml_priority", 0.0) + 1.5
 				print("AIDecisionMaker: [T7-25] %s active (kill near objectives bonus enabled)" % mission_id)
+
+			# --- 11e (GDM 2026) CARDS — the seven new secondaries ---
+			"a_grievous_blow":
+				# Destroy enemy units with Starting Strength 13+ (4/5 VP each)
+				awareness["kill_big_units_min"] = 13
+				_add_thinking_step("Secondary 'A Grievous Blow': prioritizing kills on enemy units that started at 13+ models")
+
+			"forward_position":
+				# 5 VP at end of my turn holding the enemy home objective or an
+				# expansion objective — push hard at enemy home + NML markers.
+				awareness.enemy_zone_push = maxf(awareness.enemy_zone_push, get_param("SECONDARY_ENEMY_ZONE_PUSH_BONUS", SECONDARY_ENEMY_ZONE_PUSH_BONUS) * 0.8)
+				awareness.objective_zone_bonuses[enemy_zone] = awareness.objective_zone_bonuses.get(enemy_zone, 0.0) + get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS)
+				awareness.nml_priority += get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.5
+				_add_thinking_step("Secondary 'Forward Position': 5 VP for holding the enemy home / an expansion objective — pushing forward")
+
+			"burden_of_trust":
+				# 2 VP per guarded objective (max 5) at the end of the OPPONENT's
+				# turn — hold multiple markers with units that stay on them.
+				awareness.defend_home = maxf(awareness.defend_home, get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.7)
+				awareness.nml_priority += get_param("SECONDARY_OBJECTIVE_ZONE_BONUS", SECONDARY_OBJECTIVE_ZONE_BONUS) * 0.7
+				awareness["hold_objectives"] = true
+				_add_thinking_step("Secondary 'Burden of Trust': scores per objective still guarded at the END of the enemy turn — holding ground beats pushing")
+
+			"centre_ground":
+				# 3/5 VP tiers around the board centre (enemy exclusion 3\"/6\")
+				awareness.center_priority = maxf(awareness.center_priority, get_param("SECONDARY_CENTER_BONUS", SECONDARY_CENTER_BONUS))
+				awareness["kill_proximity"] = true  # clearing enemies off the centre doubles the tier
+				_add_thinking_step("Secondary 'Centre Ground': 3-5 VP for owning the middle — pushing centre and clearing enemies near it")
+
+			"beacon":
+				# 3/5 VP if a unit is outside my DZ / my territory at the end of
+				# the OPPONENT's turn — send something durable forward and keep it alive.
+				awareness.enemy_zone_push = maxf(awareness.enemy_zone_push, get_param("SECONDARY_ENEMY_ZONE_PUSH_BONUS", SECONDARY_ENEMY_ZONE_PUSH_BONUS) * 0.6)
+				awareness.nml_priority += get_param("SECONDARY_POSITIONAL_BONUS", SECONDARY_POSITIONAL_BONUS) * 0.5
+				_add_thinking_step("Secondary 'Beacon': needs a surviving unit outside my territory at the end of the enemy turn — advancing a durable unit")
+
+			"outflank":
+				# 3/5 VP for units within 6\" of board edges outside my territory
+				# (5 needs opposite edges) — send fast/cheap units wide.
+				awareness["edge_flank_priority"] = get_param("SECONDARY_POSITIONAL_BONUS", SECONDARY_POSITIONAL_BONUS)
+				_add_thinking_step("Secondary 'Outflank': scores for units hugging board edges outside my territory — sending fast units wide on both flanks")
+
+			"plunder":
+				# Shooting-phase action in a terrain area outside my territory —
+				# the action itself flows through PERFORM_SECONDARY_ACTION; bias
+				# movement toward forward terrain so a unit is eligible.
+				awareness.nml_priority += get_param("SECONDARY_POSITIONAL_BONUS", SECONDARY_POSITIONAL_BONUS) * 0.5
+				awareness["wants_forward_terrain"] = true
+				_add_thinking_step("Secondary 'Plunder': needs a Shooting-phase action in forward terrain — routing a unit to qualifying cover")
 
 			# --- ACTION MISSIONS ---
 			"establish_locus", "cleanse", "deploy_teleport_homer":
