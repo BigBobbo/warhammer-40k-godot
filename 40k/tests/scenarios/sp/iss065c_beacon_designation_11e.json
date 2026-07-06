@@ -1,0 +1,50 @@
+{
+  "id": "iss065c_beacon_designation_11e",
+  "covers": [
+    "rules.secondaries.beacon.designation_prompt",
+    "autoloads.SecondaryMissionManager.beacon_unit"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "11e Beacon designation UX: a human P2 draws Beacon in their Command phase. After closing the drawn-missions review dialog (exclusive-popup sequencing), the BeaconUnitDialog lists P2's eligible units; picking the Warboss stores mission_data.beacon_unit_id, clears the pending interaction, and sets the unit's beacon flag so the token shows the cyan beacon badge.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+    { "act": "execute_script", "script": "SecondaryMissionManager.setup_tactical_deck(2)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"].merge({\"deck\": [\"beacon\"], \"active\": []}, true)" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"pending_interaction\"]",
+      "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/BeaconUnitDialog", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "01_beacon_designation_dialog" },
+
+    { "act": "click_node",
+      "node": "/root/BeaconUnitDialog/Content/UnitScroll/UnitList/Pick_U_WARBOSS_B",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script",
+      "script": "str(SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"].get(\"beacon_unit_id\", \"\"))",
+      "equals": "U_WARBOSS_B" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"pending_interaction\"]",
+      "equals": false },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.beacon", "equals": true },
+    { "act": "screenshot", "label": "02_beacon_designated_badge_on_token" }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "id": "iss065a_tempting_target_prompt_11e",
+  "covers": [
+    "rules.secondaries.a_tempting_target.opponent_prompt",
+    "autoloads.SecondaryMissionManager.pending_interactions"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "description": "THE reported bug: when the AI (P2) draws A Tempting Target, the HUMAN opponent (P1) must pick the No Man's Land objective — previously AIPlayer auto-resolved the pick randomly and no dialog ever appeared. With P2 running as a live AI, entering P2's Command phase draws the stacked card, the AI does NOT steal the choice (card stays pending, AI turn waits on the gate), the TemptingTargetDialog pops for the human, and clicking Objective NML 1 resolves the card to obj_nml_1.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+    { "act": "execute_script", "script": "SecondaryMissionManager.setup_tactical_deck(2)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"].merge({\"deck\": [\"a_tempting_target\"], \"active\": []}, true)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"deck\"].size()",
+      "equals": 1 },
+
+    { "act": "execute_script",
+      "script": "GameState.state[\"meta\"][\"game_config\"].merge({\"player2_type\": \"AI\"}, true)" },
+    { "act": "execute_script", "script": "AIPlayer.ai_players.merge({2: true}, true)" },
+    { "act": "execute_script", "script": "AIPlayer.set(\"enabled\", true)" },
+    { "act": "execute_script", "script": "AIPlayer.is_ai_player(2)", "equals": true },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"pending_interaction\"]",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "str(SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"].get(\"tempting_target_id\", \"\"))",
+      "equals": "" },
+    { "act": "execute_script",
+      "script": "AIPlayer._human_secondary_interaction_pending()",
+      "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/TemptingTargetDialog", "timeout_s": 6.0 },
+    { "act": "screenshot", "label": "01_dialog_prompts_human_opponent" },
+
+    { "act": "click_node",
+      "node": "/root/TemptingTargetDialog/MainContainer/ObjectiveScroll/ObjectiveListContainer/Pick_obj_nml_1",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script",
+      "script": "str(SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"].get(\"tempting_target_id\", \"\"))",
+      "equals": "obj_nml_1" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"pending_interaction\"]",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "AIPlayer._human_secondary_interaction_pending()",
+      "equals": false },
+
+    { "act": "execute_script", "script": "AIPlayer.set(\"enabled\", false)" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "screenshot", "label": "02_objective_resolved_and_marked" }
+  ]
+}

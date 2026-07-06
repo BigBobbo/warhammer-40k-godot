@@ -22,8 +22,13 @@
     },
     {
       "act": "execute_script",
-      "script": "SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"deck\"].size() + SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"active\"].size()",
+      "script": "SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"deck\"].size() + SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"active\"].size() + SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"discard\"].size()",
       "equals": 18
+    },
+    {
+      "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"discard\"].size() - SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"discard\"].count(\"a_grievous_blow\") - SecondaryMissionManager._player_state[str(GameState.get_active_player())][\"discard\"].count(\"bring_it_down\")",
+      "equals": 0
     },
     {
       "act": "execute_script",

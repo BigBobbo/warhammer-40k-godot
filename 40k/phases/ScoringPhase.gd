@@ -107,8 +107,16 @@ func _on_phase_enter() -> void:
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
-		# Score end-of-your-turn missions for active player
-		_secondary_results = secondary_mgr.score_secondary_missions_for_player(current_player)
+		# Score end-of-your-turn missions for active player.
+		# 11e: on the game's FINAL turn (P2, last battle round) cards that say
+		# "at the end of your opponent's turn or the end of the fifth battle
+		# round, whichever comes first" (Beacon, Burden of Trust, Defend
+		# Stronghold) also score for the active player — they get no further
+		# opponent-turn end.
+		var is_final_turn: bool = GameConstants.edition >= 11 \
+			and current_player == 2 \
+			and GameState.get_battle_round() >= GameState.MAX_BATTLE_ROUNDS
+		_secondary_results = secondary_mgr.score_secondary_missions_for_player(current_player, is_final_turn)
 		if _secondary_results.size() > 0:
 			DebugLogger.info(str("ScoringPhase: Player %d scored secondary missions:" % current_player))
 			for result in _secondary_results:

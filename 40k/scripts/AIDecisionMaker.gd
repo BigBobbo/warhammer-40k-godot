@@ -15207,10 +15207,20 @@ static func _assess_burden_of_trust(units: Dictionary, snapshot: Dictionary, pla
 	return 0.3
 
 static func _assess_beacon(units: Dictionary, player: int) -> float:
-	"""11e 'Beacon': a friendly unit outside my DZ/territory at the end of the
-	opponent's turn. Needs at least one healthy unit past the halfway line."""
+	"""11e 'Beacon': the DESIGNATED beacon unit outside my DZ/territory at the
+	end of the opponent's turn. When a designation exists only that unit
+	matters (destroyed beacon = the card can never score — discard fodder)."""
+	var beacon_id := ""
+	var secondary_mgr = Engine.get_main_loop().root.get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr:
+		for mission in secondary_mgr.get_active_missions(player):
+			if mission.get("id", "") == "beacon":
+				beacon_id = str(mission.get("mission_data", {}).get("beacon_unit_id", ""))
+				break
 	var best = 0.0
 	for unit_id in units:
+		if beacon_id != "" and str(unit_id) != beacon_id:
+			continue
 		var unit = units[unit_id]
 		if unit.get("owner", 0) != player:
 			continue
@@ -15225,8 +15235,12 @@ static func _assess_beacon(units: Dictionary, player: int) -> float:
 		if in_enemy_half:
 			# Durability matters — it must SURVIVE the opponent's turn
 			best = maxf(best, 0.5 + minf(0.35, alive.size() * 0.05))
+		elif beacon_id != "":
+			best = maxf(best, 0.4)  # designated unit alive but not forward yet
 	if best > 0.0:
 		return best
+	if beacon_id != "":
+		return 0.0  # designated beacon unit destroyed — card is dead weight
 	return 0.4  # Nobody forward yet, but any advance can qualify
 
 static func _assess_outflank(units: Dictionary, player: int) -> float:

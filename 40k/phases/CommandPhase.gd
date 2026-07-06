@@ -708,6 +708,12 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
 			errors = _validate_resolve_tempting_target(action)
+		"RESOLVE_BEACON_UNIT":
+			errors = _validate_resolve_beacon_unit(action)
+		"RESOLVE_GUARDS":
+			errors = _validate_resolve_guards(action)
+		"DISMISS_GUARDS":
+			pass  # Always valid — keeps the auto-assigned guards
 		"RESOLVE_CONDEMN":
 			errors = _validate_resolve_condemn(action)
 		"DISMISS_CONDEMN":
@@ -801,6 +807,12 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
 			return _handle_resolve_tempting_target(action)
+		"RESOLVE_BEACON_UNIT":
+			return _handle_resolve_beacon_unit(action)
+		"RESOLVE_GUARDS":
+			return _handle_resolve_guards(action)
+		"DISMISS_GUARDS":
+			return _handle_dismiss_guards(action)
 		"RESOLVE_CONDEMN":
 			return _handle_resolve_condemn(action)
 		"DISMISS_CONDEMN":
@@ -2215,6 +2227,121 @@ func _handle_resolve_tempting_target(action: Dictionary) -> Dictionary:
 		"success": true,
 		"message": "A Tempting Target resolved — Objective: %s" % objective_id
 	}
+
+# ============================================================================
+# 11e BEACON — DESIGNATION RESOLUTION
+# ============================================================================
+
+func _validate_resolve_beacon_unit(action: Dictionary) -> Array:
+	var errors = []
+	var player = action.get("player", 0)
+	var unit_id = str(action.get("unit_id", ""))
+
+	if player == 0:
+		errors.append("Missing player for RESOLVE_BEACON_UNIT")
+		return errors
+	if unit_id == "":
+		errors.append("Missing unit_id for RESOLVE_BEACON_UNIT")
+		return errors
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		errors.append("SecondaryMissionManager not available")
+		return errors
+
+	var found_pending = false
+	for mission in secondary_mgr._player_state.get(str(player), {}).get("active", []):
+		if mission["id"] == "beacon" and mission.get("pending_interaction", false):
+			found_pending = true
+			break
+	if not found_pending:
+		errors.append("No pending Beacon designation for player %d" % player)
+		return errors
+
+	var eligible = secondary_mgr.get_beacon_eligible_units(player)
+	var is_eligible = false
+	for entry in eligible:
+		if str(entry.get("unit_id", "")) == unit_id:
+			is_eligible = true
+			break
+	if not is_eligible:
+		errors.append("Unit %s is not an eligible Beacon unit" % unit_id)
+
+	return errors
+
+func _handle_resolve_beacon_unit(action: Dictionary) -> Dictionary:
+	var player = action.get("player", 0)
+	var unit_id = str(action.get("unit_id", ""))
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return {"success": false, "error": "SecondaryMissionManager not available"}
+
+	secondary_mgr.resolve_beacon_unit(player, unit_id)
+
+	DebugLogger.info(str("CommandPhase: Resolved Beacon for player %d — unit %s" % [player, unit_id]))
+	GameState.add_action_to_phase_log({
+		"type": "RESOLVE_BEACON_UNIT",
+		"player": player,
+		"unit_id": unit_id,
+		"turn": GameState.get_battle_round()
+	})
+
+	return {"success": true, "message": "Beacon designated — %s" % unit_id}
+
+# ============================================================================
+# 11e BURDEN OF TRUST — GUARD RESOLUTION
+# ============================================================================
+
+func _validate_resolve_guards(action: Dictionary) -> Array:
+	var errors = []
+	var player = action.get("player", 0)
+	if player == 0:
+		errors.append("Missing player for RESOLVE_GUARDS")
+		return errors
+	if not (action.get("guards", null) is Dictionary):
+		errors.append("RESOLVE_GUARDS requires a guards dictionary")
+		return errors
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		errors.append("SecondaryMissionManager not available")
+		return errors
+	var has_burden = false
+	for mission in secondary_mgr._player_state.get(str(player), {}).get("active", []):
+		if mission["id"] == "burden_of_trust":
+			has_burden = true
+			break
+	if not has_burden:
+		errors.append("No active Burden of Trust card for player %d" % player)
+	return errors
+
+func _handle_resolve_guards(action: Dictionary) -> Dictionary:
+	var player = action.get("player", 0)
+	var guards = action.get("guards", {})
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return {"success": false, "error": "SecondaryMissionManager not available"}
+
+	var res = secondary_mgr.resolve_burden_guards(player, guards)
+	if not res.get("success", false):
+		return {"success": false, "error": res.get("error", "Guard assignment failed")}
+
+	DebugLogger.info(str("CommandPhase: Burden of Trust guards for player %d: %s" % [player, str(res.get("guards", {}))]))
+	GameState.add_action_to_phase_log({
+		"type": "RESOLVE_GUARDS",
+		"player": player,
+		"guards": res.get("guards", {}),
+		"turn": GameState.get_battle_round()
+	})
+	return {"success": true, "message": "Guards assigned"}
+
+func _handle_dismiss_guards(action: Dictionary) -> Dictionary:
+	var player = action.get("player", get_current_player())
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr:
+		secondary_mgr.dismiss_guard_prompt(player)
+	return {"success": true, "message": "Auto-assigned guards kept"}
 
 # ============================================================================
 # 11e GDM PUNISHMENT — CONDEMN CHOICE (turn start)

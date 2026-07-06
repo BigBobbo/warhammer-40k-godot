@@ -174,12 +174,14 @@ static func _load_missions() -> void:
 				{"check": "control_objectives_in_own_deployment_zone", "params": {"count": 1}, "vp": 2},
 			],
 		},
-		# 11e official: from round 2, at the end of the OPPONENT's turn —
-		# 3 VP for holding your home objective + cumulative 2 VP if no enemy
-		# units are wholly within your deployment zone. Redraw in round 1.
+		# 11e official: from round 2, at the end of the OPPONENT's turn (or the
+		# end of the fifth battle round, whichever comes first) — 3 VP for
+		# holding your home objective + cumulative 2 VP if no enemy units are
+		# wholly within your deployment zone. Redraw in round 1.
 		"scoring_11e": {
 			"when": TIMING_END_OF_OPPONENT_TURN,
 			"min_round": 2,
+			"final_round_clause": true,
 			"conditions": [
 				{"check": "control_objectives_in_own_deployment_zone", "params": {"count": 1}, "vp": 3},
 				{"check": "no_enemy_units_wholly_in_own_deployment_zone", "params": {}, "vp": 2, "cumulative": true},
@@ -535,13 +537,18 @@ static func _load_missions() -> void:
 		"number": 21,
 		"category": "Battlefield Supremacy",
 		"edition": 11,
-		# Guard-unit selection is auto-resolved: every objective you control
-		# counts as guarded (controlling implies a friendly unit in range).
-		"approximate": true,
 		"description": "Guard objectives — score per guarded objective at the end of your opponent's turn.",
-		# Official: 2 VP per guarded objective, max 5, end of OPPONENT's turn.
+		# Official: when drawn and at the start of each of your turns, select
+		# one friendly unit per objective to guard it. An objective is guarded
+		# while that unit is within range of it and you control it. 2 VP per
+		# guarded objective, max 5, at the end of the OPPONENT's turn (or the
+		# end of the fifth battle round, whichever comes first). Guards are
+		# auto-assigned as a backstop; a human owner can revise via the
+		# Command-phase prompt. Legacy saves without a guards map fall back to
+		# "every controlled objective counts".
 		"scoring": {
 			"when": TIMING_END_OF_OPPONENT_TURN,
+			"final_round_clause": true,
 			"conditions": [
 				{"check": "guarded_objectives", "per_count": true, "params": {}, "vp": 2, "vp_max": 5},
 			],
@@ -579,15 +586,18 @@ static func _load_missions() -> void:
 		"number": 23,
 		"category": "Shadow Operations",
 		"edition": 11,
-		# Beacon designation is auto-resolved (any qualifying friendly unit
-		# counts) and "your territory" is approximated as your board half.
+		# "Your territory" is approximated as your board half; the beacon unit
+		# itself is a real when-drawn designation (drawer selects one friendly
+		# unit; falls back to any-unit for legacy saves without a designation).
 		"approximate": true,
 		"description": "Your Beacon unit pushes into enemy-held ground; scored at the end of your opponent's turn.",
 		# Official tiers (exclusive — best applies): 3 VP if the beacon unit
 		# is on the battlefield and not within your deployment zone; 5 VP if
-		# it is on the battlefield and not within your territory.
+		# it is on the battlefield and not within your territory. Also scores
+		# at the end of the fifth battle round, whichever comes first.
 		"scoring": {
 			"when": TIMING_END_OF_OPPONENT_TURN,
+			"final_round_clause": true,
 			"conditions": [
 				{"check": "unit_outside_own_dz", "params": {}, "vp": 3},
 				{"check": "unit_outside_own_territory", "params": {}, "vp": 5},
@@ -595,7 +605,9 @@ static func _load_missions() -> void:
 		},
 		"requires_action": false,
 		"action": {},
-		"when_drawn": {},
+		# Official: "When drawn, designate one friendly unit on the battlefield
+		# (or embarked within a TRANSPORT on the battlefield) as your beacon unit."
+		"when_drawn": {"condition": "drawer_selects_unit", "details": {"purpose": "beacon"}},
 	}
 
 	_missions["outflank"] = {

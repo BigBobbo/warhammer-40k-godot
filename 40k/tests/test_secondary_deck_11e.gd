@@ -77,10 +77,16 @@ func _run_tests():
 	for exact in ["forward_position", "centre_ground", "outflank", "plunder", "a_grievous_blow"]:
 		_check("official card %s not flagged approximate" % exact,
 			not SecondaryMissionData.get_mission_by_id(exact).get("approximate", false))
-	# Beacon designation and Burden of Trust guard selection stay approximate.
-	_check("beacon + burden_of_trust keep approximate flag",
-		SecondaryMissionData.get_mission_by_id("beacon").get("approximate", false)
-		and SecondaryMissionData.get_mission_by_id("burden_of_trust").get("approximate", false))
+	# Beacon designation and Burden of Trust guard selection are now REAL
+	# interactions (when-drawn unit pick / per-objective guard assignment).
+	# Beacon keeps the approximate flag only for the territory-as-board-half
+	# approximation; Burden of Trust is fully modelled.
+	_check("beacon keeps approximate flag (territory approximation only)",
+		SecondaryMissionData.get_mission_by_id("beacon").get("approximate", false))
+	_check("burden_of_trust no longer approximate (real guard selection)",
+		not SecondaryMissionData.get_mission_by_id("burden_of_trust").get("approximate", false))
+	_check("beacon when-drawn requires drawer unit designation",
+		SecondaryMissionData.get_when_drawn(SecondaryMissionData.get_mission_by_id("beacon")).get("condition", "") == "drawer_selects_unit")
 
 	print("\n-- 10e deck leak fix --")
 	var deck10 = SecondaryMissionData.get_mission_ids_for_deck(false)

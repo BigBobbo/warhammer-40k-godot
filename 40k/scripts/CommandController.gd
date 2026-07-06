@@ -883,6 +883,10 @@ func set_phase(phase: BasePhase) -> void:
 		# 11e Extract Relic / Locate and Deny: the Disruption player may
 		# revise the auto-picked marker terrain in their first Command phase.
 		_check_pending_relic_setup()
+
+		# 11e Burden of Trust: the holder may revise the auto-assigned guard
+		# units at the start of each of their turns.
+		_check_pending_guard_prompt()
 	else:
 		hide()
 
@@ -1112,6 +1116,14 @@ func _check_pending_interactions(secondary_mgr) -> void:
 	var player_key = str(current_player)
 	var state = secondary_mgr._player_state.get(player_key, {})
 
+	# Let the player read the drawn-missions review dialog first — two
+	# exclusive popups in the same frame trip the engine's exclusive-child
+	# guard. Re-check once the review closes (same pattern as Condemn).
+	if _active_review_dialog and is_instance_valid(_active_review_dialog):
+		if not _active_review_dialog.tree_exited.is_connected(_on_review_closed_recheck_condemn):
+			_active_review_dialog.tree_exited.connect(_on_review_closed_recheck_condemn)
+		return
+
 	for mission in state.get("active", []):
 		if not mission.get("pending_interaction", false):
 			continue
@@ -1129,6 +1141,8 @@ func _check_pending_interactions(secondary_mgr) -> void:
 				_show_marked_for_death_dialog(current_player, opponent, details)
 			"opponent_selects_objective":
 				_show_tempting_target_dialog(current_player, opponent, details)
+			"drawer_selects_unit":
+				_show_beacon_dialog(current_player)
 			_:
 				print("CommandController: Unknown pending interaction type: %s" % interaction_type)
 
@@ -1163,6 +1177,12 @@ func _on_review_closed_recheck_condemn() -> void:
 		return
 	call_deferred("_check_pending_condemn_prompt")
 	call_deferred("_check_pending_relic_setup")
+	# Secondary-card prompts queued behind the review dialog (Beacon
+	# designation, Tempting Target pick, Burden of Trust guards).
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr:
+		call_deferred("_check_pending_interactions", secondary_mgr)
+	call_deferred("_check_pending_guard_prompt")
 
 func _show_condemn_dialog(pending: Dictionary, player: int) -> void:
 	var existing = get_tree().root.get_node_or_null("CondemnChoiceDialog")
@@ -1455,6 +1475,8 @@ func _on_when_drawn_requires_interaction(player: int, mission_id: String, intera
 			_show_marked_for_death_dialog(player, opponent, details)
 		"opponent_selects_objective":
 			_show_tempting_target_dialog(player, opponent, details)
+		"drawer_selects_unit":
+			_show_beacon_dialog(player)
 		_:
 			push_error("CommandController: Unknown interaction type: %s" % interaction_type)
 
@@ -1560,6 +1582,11 @@ func _show_tempting_target_dialog(drawing_player: int, opponent: int, details: D
 		print("CommandController: Skipping Tempting Target dialog for AI player %d" % opponent)
 		return
 
+	# Dedup: the direct signal AND the set_phase pending-recheck can both fire
+	var existing = get_tree().root.get_node_or_null("TemptingTargetDialog")
+	if existing != null and not existing.is_queued_for_deletion():
+		return
+
 	# Get objectives in No Man's Land
 	var all_objectives = GameState.state.get("board", {}).get("objectives", [])
 	var nml_objectives = []
@@ -1572,6 +1599,7 @@ func _show_tempting_target_dialog(drawing_player: int, opponent: int, details: D
 		return
 
 	var dialog = TemptingTargetDialog.new()
+	dialog.name = "TemptingTargetDialog"
 	dialog.setup(opponent, nml_objectives)
 	dialog.tempting_target_resolved.connect(_on_tempting_target_resolved.bind(drawing_player))
 	get_tree().root.add_child(dialog)
@@ -1587,6 +1615,267 @@ func _on_tempting_target_resolved(objective_id: String, drawing_player: int) -> 
 		"player": drawing_player,
 		"objective_id": objective_id,
 	})
+
+# ============================================================================
+# 11e BEACON — DRAWER DESIGNATES THE BEACON UNIT
+# ============================================================================
+
+func _show_beacon_dialog(drawing_player: int) -> void:
+	"""11e Beacon: the DRAWER designates one friendly unit on the battlefield
+	(or embarked in a TRANSPORT on the battlefield) as their beacon unit."""
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(drawing_player):
+		print("CommandController: Skipping Beacon dialog for AI player %d" % drawing_player)
+		return
+
+	var existing = get_tree().root.get_node_or_null("BeaconUnitDialog")
+	if existing != null and not existing.is_queued_for_deletion():
+		return
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return
+	var eligible = secondary_mgr.get_beacon_eligible_units(drawing_player)
+	if eligible.is_empty():
+		print("CommandController: No eligible Beacon units for player %d — skipping dialog" % drawing_player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.name = "BeaconUnitDialog"
+	dialog.title = "Beacon — Designate Your Beacon Unit"
+	dialog.min_size = DialogConstants.MEDIUM
+	dialog.get_ok_button().visible = false
+	WhiteDwarfTheme.apply_to_dialog(dialog)
+
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 8)
+	content.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
+
+	var header = Label.new()
+	header.text = "BEACON"
+	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(header)
+
+	var desc = Label.new()
+	desc.text = "Designate one friendly unit as your beacon unit.\nScore at the end of your opponent's turn: 3 VP if it is on the battlefield and not within your deployment zone, 5 VP if it is not within your territory."
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.add_theme_font_size_override("font_size", 12)
+	desc.add_theme_color_override("font_color", Color.GRAY)
+	content.add_child(desc)
+	content.add_child(HSeparator.new())
+
+	var scroll = ScrollContainer.new()
+	scroll.name = "UnitScroll"
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 220)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var unit_list = VBoxContainer.new()
+	unit_list.name = "UnitList"
+	unit_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(unit_list)
+	content.add_child(scroll)
+
+	var resolved = [false]
+	for entry in eligible:
+		var unit_id: String = str(entry.get("unit_id", ""))
+		var label: String = str(entry.get("unit_name", unit_id))
+		if entry.get("embarked", false):
+			label += " (embarked)"
+		var btn = Button.new()
+		btn.name = "Pick_%s" % unit_id
+		btn.text = label
+		btn.custom_minimum_size = Vector2(410, 36)
+		btn.pressed.connect(func():
+			if resolved[0]:
+				return
+			resolved[0] = true
+			emit_signal("command_action_requested", {
+				"type": "RESOLVE_BEACON_UNIT",
+				"player": drawing_player,
+				"unit_id": unit_id,
+			})
+			dialog.queue_free())
+		unit_list.add_child(btn)
+
+	# Closing without picking is not a dead end — the card just stays pending
+	# and the prompt reopens on the next Command phase entry.
+	dialog.add_child(content)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("CommandController: Beacon designation dialog shown for player %d (%d eligible units)" % [drawing_player, eligible.size()])
+
+# ============================================================================
+# 11e BURDEN OF TRUST — GUARD SELECTION PROMPT
+# ============================================================================
+
+func _check_pending_guard_prompt() -> void:
+	"""11e Burden of Trust: guards were auto-assigned when drawn / at turn
+	start. Offer the HUMAN holder a dialog to revise them."""
+	var current_player = GameState.get_active_player()
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(current_player):
+		return  # AI keeps the auto picks
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr or not secondary_mgr.has_method("get_pending_guard_choice"):
+		return
+	var pending = secondary_mgr.get_pending_guard_choice(current_player)
+	if pending.is_empty():
+		return
+	# Sequence behind the drawn-missions review dialog (exclusive popups).
+	if _active_review_dialog and is_instance_valid(_active_review_dialog):
+		if not _active_review_dialog.tree_exited.is_connected(_on_review_closed_recheck_condemn):
+			_active_review_dialog.tree_exited.connect(_on_review_closed_recheck_condemn)
+		return
+	_show_guard_dialog(pending, current_player)
+
+func _show_guard_dialog(pending: Dictionary, player: int) -> void:
+	var existing = get_tree().root.get_node_or_null("GuardSelectionDialog")
+	if existing != null and not existing.is_queued_for_deletion():
+		return
+	var objectives: Array = pending.get("objectives", [])
+	if objectives.is_empty():
+		# Nothing in range of any marker — keep the (empty) auto picks quietly.
+		emit_signal("command_action_requested", {"type": "DISMISS_GUARDS", "player": player})
+		return
+
+	var current_guards: Dictionary = pending.get("guards", {})
+
+	var dialog = AcceptDialog.new()
+	dialog.name = "GuardSelectionDialog"
+	dialog.title = "Burden of Trust — Assign Guards"
+	dialog.min_size = DialogConstants.MEDIUM
+	dialog.get_ok_button().visible = false
+	WhiteDwarfTheme.apply_to_dialog(dialog)
+
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 8)
+	content.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
+
+	var header = Label.new()
+	header.text = "SELECT ONE FRIENDLY UNIT PER OBJECTIVE TO GUARD IT"
+	header.add_theme_font_size_override("font_size", 16)
+	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(header)
+
+	var desc = Label.new()
+	desc.text = "At the end of your opponent's turn you score 2 VP (max 5) for each guarded objective you control while its guard is within range of it."
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.add_theme_font_size_override("font_size", 12)
+	desc.add_theme_color_override("font_color", Color.GRAY)
+	content.add_child(desc)
+	content.add_child(HSeparator.new())
+
+	var scroll = ScrollContainer.new()
+	scroll.name = "ObjectiveScroll"
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 220)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var rows = VBoxContainer.new()
+	rows.name = "ObjectiveRows"
+	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(rows)
+	content.add_child(scroll)
+
+	var pickers: Array = []  # [{objective_id, option_button, unit_ids}]
+	for entry in objectives:
+		var obj_id: String = str(entry.get("objective_id", ""))
+		var row = HBoxContainer.new()
+		row.name = "Row_%s" % obj_id
+		row.add_theme_constant_override("separation", 8)
+		var obj_label = Label.new()
+		obj_label.text = obj_id.replace("obj_", "Objective ").replace("_", " ").capitalize()
+		obj_label.custom_minimum_size = Vector2(150, 0)
+		row.add_child(obj_label)
+
+		var picker = OptionButton.new()
+		picker.name = "Guard_%s" % obj_id
+		picker.custom_minimum_size = Vector2(230, 32)
+		picker.add_item("— No guard —")
+		picker.set_item_metadata(0, "")
+		var unit_ids := [""]
+		var idx := 1
+		for eu in entry.get("eligible", []):
+			var uid: String = str(eu.get("unit_id", ""))
+			picker.add_item(str(eu.get("unit_name", uid)))
+			picker.set_item_metadata(idx, uid)
+			unit_ids.append(uid)
+			if str(current_guards.get(obj_id, "")) == uid:
+				picker.select(idx)
+			idx += 1
+		row.add_child(picker)
+		rows.add_child(row)
+		pickers.append({"objective_id": obj_id, "picker": picker})
+
+	content.add_child(HSeparator.new())
+	var status = Label.new()
+	status.name = "StatusLabel"
+	status.text = ""
+	status.add_theme_color_override("font_color", Color.ORANGE)
+	content.add_child(status)
+
+	var button_row = HBoxContainer.new()
+	button_row.name = "Actions"
+	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	button_row.add_theme_constant_override("separation", 12)
+
+	var resolved = [false]
+	var confirm_btn = Button.new()
+	confirm_btn.name = "ConfirmGuards"
+	confirm_btn.text = "Confirm Guards"
+	confirm_btn.custom_minimum_size = Vector2(170, 36)
+	confirm_btn.pressed.connect(func():
+		if resolved[0]:
+			return
+		# One distinct unit per objective — refuse duplicate picks in place.
+		var picks: Dictionary = {}
+		var used: Dictionary = {}
+		for p in pickers:
+			var picker: OptionButton = p["picker"]
+			var uid = str(picker.get_item_metadata(picker.selected)) if picker.selected >= 0 else ""
+			if uid == "":
+				continue
+			if used.has(uid):
+				status.text = "Each unit can guard only one objective."
+				return
+			used[uid] = true
+			picks[p["objective_id"]] = uid
+		resolved[0] = true
+		emit_signal("command_action_requested", {
+			"type": "RESOLVE_GUARDS",
+			"player": player,
+			"guards": picks,
+		})
+		dialog.queue_free())
+	button_row.add_child(confirm_btn)
+
+	var skip_btn = Button.new()
+	skip_btn.name = "KeepAutoGuards"
+	skip_btn.text = "Keep Auto Picks"
+	skip_btn.custom_minimum_size = Vector2(150, 36)
+	skip_btn.pressed.connect(func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		emit_signal("command_action_requested", {"type": "DISMISS_GUARDS", "player": player})
+		dialog.queue_free())
+	button_row.add_child(skip_btn)
+	content.add_child(button_row)
+
+	# Escape/close keeps the auto picks — never a dead end.
+	dialog.canceled.connect(func():
+		if resolved[0]:
+			return
+		resolved[0] = true
+		emit_signal("command_action_requested", {"type": "DISMISS_GUARDS", "player": player})
+		dialog.queue_free())
+
+	dialog.add_child(content)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("CommandController: Burden of Trust guard dialog shown for player %d (%d objectives)" % [player, objectives.size()])
 
 
 # T-096: compute command phase sub-step progress (1/3 → 3/3)

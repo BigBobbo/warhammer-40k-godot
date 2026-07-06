@@ -15,6 +15,10 @@ signal secondary_vp_scored(player: int, vp: int, mission_id: String)
 signal deck_depleted(player: int)
 signal when_drawn_requires_interaction(player: int, mission_id: String, interaction_type: String, details: Dictionary)
 signal missions_drawn_for_review(player: int, drawn_missions: Array)
+## Emitted when a pending when-drawn interaction is resolved (Tempting Target
+## objective picked, Beacon unit designated, Marked for Death targets set).
+## AIPlayer listens so a waiting AI turn resumes immediately.
+signal interaction_resolved(player: int, mission_id: String)
 
 # VP caps per Chapter Approved 2025-26
 const MAX_SECONDARY_VP = 40
@@ -259,6 +263,11 @@ func draw_missions_to_hand(player: int, draw_count: int = 0) -> Array:
 		emit_signal("mission_drawn", player, mission_id)
 		print("SecondaryMissionManager: Player %d drew %s" % [player, mission_data["name"]])
 
+		# 11e Burden of Trust: guards can be selected when drawn — auto-assign
+		# a backstop now; a human owner may revise via the Command-phase prompt.
+		if mission_id == "burden_of_trust":
+			_auto_assign_guards(player, active_mission)
+
 	if state["deck"].size() == 0 and state["active"].size() < MAX_ACTIVE_MISSIONS:
 		emit_signal("deck_depleted", player)
 		print("SecondaryMissionManager: Player %d deck is depleted!" % player)
@@ -325,6 +334,21 @@ func _handle_when_drawn(player: int, mission_data: Dictionary) -> Dictionary:
 			return {
 				"action": "requires_interaction",
 				"interaction_type": "opponent_selects_objective",
+				"details": when_drawn.get("details", {}),
+			}
+
+		"drawer_selects_unit":
+			# 11e Beacon — the DRAWER designates one friendly unit on the
+			# battlefield (or embarked in a TRANSPORT on the battlefield).
+			if _get_beacon_eligible_units(player).is_empty():
+				# No unit to designate (all destroyed / in reserves) — the card
+				# can never score this turn; keep official behavior (no redraw
+				# clause) and just add it without a designation.
+				print("SecondaryMissionManager: No eligible Beacon units for Player %d — card added without designation" % player)
+				return {"action": "add_to_active"}
+			return {
+				"action": "requires_interaction",
+				"interaction_type": "drawer_selects_unit",
 				"details": when_drawn.get("details", {}),
 			}
 
@@ -500,7 +524,7 @@ func voluntary_discard(player: int, mission_index: int) -> Dictionary:
 	state["active"].remove_at(mission_index)
 	state["discard"].append(discarded["id"])
 
-	# Clear visual indicators if this was A Tempting Target or Marked for Death
+	# Clear visual indicators if this was A Tempting Target, Marked for Death or Beacon
 	if discarded["id"] == "a_tempting_target":
 		var target_id = discarded.get("mission_data", {}).get("tempting_target_id", "")
 		if target_id != "":
@@ -508,6 +532,8 @@ func voluntary_discard(player: int, mission_index: int) -> Dictionary:
 	elif discarded["id"] == "marked_for_death":
 		var mfd_data = discarded.get("mission_data", {})
 		_clear_mfd_target_visuals(mfd_data.get("alpha_targets", []), mfd_data.get("gamma_target", ""))
+	elif discarded["id"] == "beacon":
+		_clear_beacon_visual(discarded.get("mission_data", {}).get("beacon_unit_id", ""))
 
 	# Grant 1 CP if it's the player's turn (subject to bonus CP cap per battle round)
 	var cp_gained = 0
@@ -539,11 +565,15 @@ func voluntary_discard(player: int, mission_index: int) -> Dictionary:
 # SCORING
 # ============================================================================
 
-func score_secondary_missions_for_player(player: int) -> Array:
+func score_secondary_missions_for_player(player: int, final_turn: bool = false) -> Array:
 	"""
 	Evaluate and score all active secondary missions for a player.
 	Called at end of player's turn (for end_of_your_turn missions)
 	or at end of either player's turn (for end_of_either_turn missions).
+	final_turn: the game's last turn is ending — 11e cards whose text says
+	"at the end of your opponent's turn OR the end of the fifth battle round,
+	whichever comes first" (final_round_clause) also score for the ACTIVE
+	player, who otherwise gets no further opponent-turn end.
 	Returns array of scoring results.
 	"""
 	var player_key = str(player)
@@ -571,6 +601,12 @@ func score_secondary_missions_for_player(player: int) -> Array:
 				should_score = true
 			SecondaryMissionData.TIMING_END_OF_OPPONENT_TURN:
 				should_score = (active_player != player)
+				# "…or the end of the fifth battle round, whichever comes
+				# first": the last player of the final round scores these at
+				# the end of their own turn (end of the battle round).
+				if final_turn and active_player == player and scoring.get("final_round_clause", false):
+					should_score = true
+					print("SecondaryMissionManager: [FINAL-ROUND] P%d '%s' scores at end of the final battle round" % [player, mission.get("name", "?")])
 			SecondaryMissionData.TIMING_WHILE_ACTIVE:
 				# While-active missions are scored via events (unit destruction etc.)
 				# At end of turn we just finalize the accumulated VP
@@ -765,9 +801,9 @@ func _check_condition(player: int, check: String, params: Dictionary, mission: D
 		"units_near_board_edges":
 			return _check_units_near_board_edges(player, params)
 		"unit_outside_own_dz":
-			return _check_unit_outside_own_dz(player, params)
+			return _check_unit_outside_own_dz(player, params, mission)
 		"unit_outside_own_territory":
-			return _check_unit_outside_own_territory(player, params)
+			return _check_unit_outside_own_territory(player, params, mission)
 		"units_recovered_assets":
 			return _check_recovered_assets(player, params)
 
@@ -804,7 +840,7 @@ func _count_condition(player: int, check: String, params: Dictionary, _mission: 
 		"units_wholly_in_opponent_deployment_zone":
 			return _count_units_in_opponent_zone(player, params)
 		"guarded_objectives":
-			return _count_guarded_objectives(player, params)
+			return _count_guarded_objectives(player, params, _mission)
 		_:
 			push_warning("SecondaryMissionManager: Unknown count condition check: %s" % check)
 			return 0
@@ -1193,14 +1229,42 @@ func _count_destroyed_models_with_wounds(destroyed: Dictionary, min_wounds: int)
 		return int(destroyed.get("starting_strength", 1))
 	return 0
 
-## Burden of Trust (guard selection auto-resolved): every objective the
-## player controls counts as guarded — controlling an objective implies a
-## friendly unit within range of it acting as the guard.
-func _count_guarded_objectives(player: int, _params: Dictionary) -> int:
+## Burden of Trust: an objective is guarded while its designated guard unit is
+## within range of it AND the player controls it. Uses the guards map selected
+## when drawn / at the start of the holder's turns (mission_data.guards).
+## Legacy saves without a guards map fall back to the old approximation
+## (every controlled objective counts as guarded).
+func _count_guarded_objectives(player: int, _params: Dictionary, mission: Dictionary = {}) -> int:
+	var guards: Dictionary = mission.get("mission_data", {}).get("guards", {})
+	if guards.is_empty() and not mission.get("mission_data", {}).has("guards"):
+		# Legacy fallback: no designation data at all
+		var legacy_count = 0
+		for obj_id in MissionManager.objective_control_state:
+			if MissionManager.objective_control_state.get(obj_id, 0) == player:
+				legacy_count += 1
+		return legacy_count
+
+	var control_radius = Measurement.inches_to_px(3.0) + Measurement.base_radius_px(40)
+	var objectives = GameState.state.get("board", {}).get("objectives", [])
 	var count = 0
-	for obj_id in MissionManager.objective_control_state:
-		if MissionManager.objective_control_state.get(obj_id, 0) == player:
+	for obj_id in guards:
+		if MissionManager.objective_control_state.get(obj_id, 0) != player:
+			continue
+		var unit = GameState.state.get("units", {}).get(str(guards[obj_id]), {})
+		if unit.is_empty() or _is_unit_excluded(unit, []):
+			continue  # guard destroyed or off the battlefield
+		var obj_pos = null
+		for obj in objectives:
+			if str(obj.get("id", "")) == str(obj_id):
+				obj_pos = obj.get("position", null)
+				break
+		if obj_pos == null:
+			continue
+		if obj_pos is Dictionary:
+			obj_pos = Vector2(obj_pos.get("x", 0), obj_pos.get("y", 0))
+		if _has_model_within_range(unit, obj_pos, control_radius):
 			count += 1
+			print("SecondaryMissionManager: [GUARD] P%d objective %s is guarded by %s" % [player, obj_id, guards[obj_id]])
 	return count
 
 # ============================================================================
@@ -1225,13 +1289,38 @@ func _check_locus_opponent_zone(player: int) -> bool:
 
 func _check_objectives_cleansed(player: int, params: Dictionary) -> bool:
 	"""Check if objectives were cleansed/looted this turn. The 11e Plunder
-	card reuses this check with its own action name."""
+	card reuses this check with its own action name.
+
+	11e Cleanse rules honoured here:
+	- "one objective each": DISTINCT objectives count, not raw action count
+	  (two units cleansing the same marker is still one cleansed objective).
+	- "completes at the end of your turn if that unit is controlling that
+	  objective": at 11e a cleanse only counts if the performing unit is still
+	  alive and the player controls the target objective when scoring."""
 	var required = params.get("count", 1)
 	var wanted_action = str(params.get("action_name", "Cleanse"))
 	var count = 0
+	var seen_objectives = {}
 	for action in _active_actions[str(player)]:
-		if action.get("action_name", "") == wanted_action and action.get("completed", false):
-			count += 1
+		if action.get("action_name", "") != wanted_action or not action.get("completed", false):
+			continue
+		var obj_id = str(action.get("objective_id", ""))
+		if obj_id == "":
+			count += 1  # actions without an objective target (e.g. Plunder) count directly
+			continue
+		if seen_objectives.has(obj_id):
+			continue
+		if GameConstants.edition >= 11 and wanted_action == "Cleanse":
+			# Completion condition: performing unit alive + objective controlled.
+			if MissionManager.objective_control_state.get(obj_id, 0) != player:
+				print("SecondaryMissionManager: [CLEANSE] %s not controlled by P%d at end of turn — cleanse does not complete" % [obj_id, player])
+				continue
+			var unit = GameState.state.get("units", {}).get(str(action.get("unit_id", "")), {})
+			if unit.is_empty() or _is_unit_excluded(unit, []):
+				print("SecondaryMissionManager: [CLEANSE] cleansing unit %s destroyed — cleanse of %s does not complete" % [str(action.get("unit_id", "")), obj_id])
+				continue
+		seen_objectives[obj_id] = true
+		count += 1
 	return count >= required
 
 func _check_teleport_homer(player: int, in_opponent_zone: bool, params: Dictionary = {}) -> bool:
@@ -1337,7 +1426,7 @@ func _discard_achieved_missions(player: int) -> void:
 	for mission in state["active"]:
 		if mission["achieved"]:
 			state["discard"].append(mission["id"])
-			# Clear visual indicators if this was A Tempting Target or Marked for Death
+			# Clear visual indicators if this was A Tempting Target, Marked for Death or Beacon
 			if mission["id"] == "a_tempting_target":
 				var target_id = mission.get("mission_data", {}).get("tempting_target_id", "")
 				if target_id != "":
@@ -1345,6 +1434,8 @@ func _discard_achieved_missions(player: int) -> void:
 			elif mission["id"] == "marked_for_death":
 				var mfd_data = mission.get("mission_data", {})
 				_clear_mfd_target_visuals(mfd_data.get("alpha_targets", []), mfd_data.get("gamma_target", ""))
+			elif mission["id"] == "beacon":
+				_clear_beacon_visual(mission.get("mission_data", {}).get("beacon_unit_id", ""))
 			print("SecondaryMissionManager: Player %d achieved and discarded %s" % [player, mission["name"]])
 		else:
 			remaining.append(mission)
@@ -1489,14 +1580,18 @@ func _check_units_near_board_edges(player: int, params: Dictionary) -> bool:
 		return edges_hit.size() >= min_edges
 	return count >= required
 
-## Beacon (sourced, pick auto-resolved): a friendly unit is alive on the
-## battlefield with every model outside the player's own deployment zone.
-func _check_unit_outside_own_dz(player: int, params: Dictionary) -> bool:
+## Beacon: the DESIGNATED beacon unit is alive on the battlefield with every
+## model outside the player's own deployment zone. When no designation exists
+## (legacy save), any friendly unit qualifies.
+func _check_unit_outside_own_dz(player: int, params: Dictionary, mission: Dictionary = {}) -> bool:
 	var exclude = params.get("exclude", [])
 	var own_zone = _get_deployment_zone_polygon(player)
 	if own_zone.is_empty():
 		return false
+	var beacon_id = str(mission.get("mission_data", {}).get("beacon_unit_id", ""))
 	for unit_id in GameState.state.get("units", {}):
+		if beacon_id != "" and str(unit_id) != beacon_id:
+			continue
 		var unit = GameState.state.units[unit_id]
 		if int(unit.get("owner", 0)) != player:
 			continue
@@ -1519,14 +1614,18 @@ func _check_unit_outside_own_dz(player: int, params: Dictionary) -> bool:
 	return false
 
 ## Beacon 5 VP tier (official). "Your territory" is approximated as the
-## player's board half (see _get_own_territory_rect): a friendly unit is
-## alive on the battlefield with no model within that half.
-func _check_unit_outside_own_territory(player: int, params: Dictionary) -> bool:
+## player's board half (see _get_own_territory_rect): the DESIGNATED beacon
+## unit is alive on the battlefield with no model within that half. When no
+## designation exists (legacy save), any friendly unit qualifies.
+func _check_unit_outside_own_territory(player: int, params: Dictionary, mission: Dictionary = {}) -> bool:
 	var exclude = params.get("exclude", [])
 	var rect = _get_own_territory_rect(player)
 	if rect.is_empty():
 		return false
+	var beacon_id = str(mission.get("mission_data", {}).get("beacon_unit_id", ""))
 	for unit_id in GameState.state.get("units", {}):
+		if beacon_id != "" and str(unit_id) != beacon_id:
+			continue
 		var unit = GameState.state.units[unit_id]
 		if int(unit.get("owner", 0)) != player:
 			continue
@@ -1615,6 +1714,12 @@ func on_turn_start(player: int) -> void:
 	_objective_control_at_turn_start = MissionManager.objective_control_state.duplicate()
 	# Clear completed actions from previous turn
 	_active_actions[str(player)].clear()
+	# 11e Burden of Trust: "at the start of each of your turns you can select
+	# one friendly unit per objective to guard it" — refresh the auto picks and
+	# reopen the revision window for the card holder.
+	for mission in _player_state[str(player)]["active"]:
+		if mission.get("id", "") == "burden_of_trust" and not mission.get("pending_interaction", false):
+			_auto_assign_guards(player, mission)
 	print("SecondaryMissionManager: Turn start for Player %d - snapshot objectives" % player)
 
 func on_unit_destroyed(destroyed_unit: Dictionary) -> void:
@@ -1814,6 +1919,7 @@ func resolve_marked_for_death(player: int, alpha_targets: Array, gamma_target: S
 			print("SecondaryMissionManager: Marked for Death resolved - Alpha: %s, Gamma: %s" % [str(alpha_targets), gamma_target])
 			# Set visual flags on targeted units
 			_mark_mfd_target_visuals(alpha_targets, gamma_target, player)
+			emit_signal("interaction_resolved", player, "marked_for_death")
 			return
 
 func resolve_tempting_target(player: int, objective_id: String) -> void:
@@ -1828,7 +1934,221 @@ func resolve_tempting_target(player: int, objective_id: String) -> void:
 			print("SecondaryMissionManager: A Tempting Target resolved - Objective: %s" % objective_id)
 			# Mark the objective visually on the board
 			_mark_tempting_target_visual(objective_id, player)
+			emit_signal("interaction_resolved", player, "a_tempting_target")
 			return
+
+func resolve_beacon_unit(player: int, unit_id: String) -> void:
+	"""Resolve the 11e Beacon designation — the drawer selected their beacon unit."""
+	var player_key = str(player)
+	var state = _player_state[player_key]
+
+	for mission in state["active"]:
+		if mission["id"] == "beacon" and mission.get("pending_interaction", false):
+			mission["mission_data"]["beacon_unit_id"] = unit_id
+			mission["pending_interaction"] = false
+			print("SecondaryMissionManager: Beacon resolved — Player %d designated %s" % [player, unit_id])
+			_mark_beacon_visual(unit_id)
+			emit_signal("interaction_resolved", player, "beacon")
+			return
+
+## Units the drawer may designate as their Beacon: friendly, at least one
+## alive model, and either deployed on the battlefield or embarked in a
+## TRANSPORT that is on the battlefield.
+func get_beacon_eligible_units(player: int) -> Array:
+	return _get_beacon_eligible_units(player)
+
+func _get_beacon_eligible_units(player: int) -> Array:
+	var result = []
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+		var status = unit.get("status", GameStateData.UnitStatus.UNDEPLOYED)
+		var embarked_in = unit.get("embarked_in", null)
+		var on_field = (status == GameStateData.UnitStatus.DEPLOYED)
+		var embarked_on_field = false
+		if embarked_in != null:
+			var transport = units.get(embarked_in, {})
+			embarked_on_field = transport.get("status", GameStateData.UnitStatus.UNDEPLOYED) == GameStateData.UnitStatus.DEPLOYED
+		if not on_field and not embarked_on_field:
+			continue
+		result.append({
+			"unit_id": unit_id,
+			"unit_name": unit.get("meta", {}).get("name", unit_id),
+			"embarked": embarked_in != null,
+		})
+	return result
+
+func _mark_beacon_visual(unit_id: String) -> void:
+	"""Set the 'beacon' flag on the designated unit so TokenVisual draws a badge."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if not unit.is_empty():
+		if not unit.has("flags"):
+			unit["flags"] = {}
+		unit["flags"]["beacon"] = true
+		print("SecondaryMissionManager: Marked unit %s as Beacon" % unit_id)
+
+func _clear_beacon_visual(unit_id: String) -> void:
+	"""Remove the 'beacon' flag from a previously designated unit."""
+	if unit_id == "":
+		return
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if not unit.is_empty() and unit.has("flags"):
+		unit["flags"].erase("beacon")
+
+func _restore_beacon_visuals() -> void:
+	"""Re-apply Beacon flags after loading save data."""
+	for player_key in _player_state:
+		for mission in _player_state[player_key].get("active", []):
+			if mission.get("id", "") == "beacon":
+				var beacon_id = mission.get("mission_data", {}).get("beacon_unit_id", "")
+				if beacon_id != "":
+					_mark_beacon_visual(beacon_id)
+
+# ============================================================================
+# BURDEN OF TRUST — GUARD SELECTION (11e)
+# ============================================================================
+
+## Auto-assign one distinct friendly unit per objective as its guard (backstop
+## pick, revisable by a human owner). A unit qualifies for an objective while
+## it has a model within objective-control range of the marker.
+func _auto_assign_guards(player: int, mission: Dictionary) -> void:
+	var guards: Dictionary = {}
+	var used_units: Dictionary = {}
+	var control_radius = Measurement.inches_to_px(3.0) + Measurement.base_radius_px(40)
+	var objectives = GameState.state.get("board", {}).get("objectives", [])
+	var units = GameState.state.get("units", {})
+
+	for obj in objectives:
+		var obj_id = str(obj.get("id", ""))
+		var obj_pos = obj.get("position", null)
+		if obj_id == "" or obj_pos == null:
+			continue
+		if obj_pos is Dictionary:
+			obj_pos = Vector2(obj_pos.get("x", 0), obj_pos.get("y", 0))
+		# Prefer the highest-OC unassigned friendly unit within range.
+		var best_unit = ""
+		var best_oc = -1
+		for unit_id in units:
+			var unit = units[unit_id]
+			if unit.get("owner", 0) != player or used_units.has(unit_id):
+				continue
+			if _is_unit_excluded(unit, []):
+				continue
+			if not _has_model_within_range(unit, obj_pos, control_radius):
+				continue
+			var oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
+			if oc > best_oc:
+				best_oc = oc
+				best_unit = unit_id
+		if best_unit != "":
+			guards[obj_id] = best_unit
+			used_units[best_unit] = true
+
+	mission["mission_data"]["guards"] = guards
+	mission["mission_data"]["guards_prompt_pending"] = true
+	print("SecondaryMissionManager: Burden of Trust auto-guards for Player %d: %s" % [player, str(guards)])
+
+## The pending guard-revision window for the Command-phase prompt. Returns {}
+## when no Burden of Trust card is waiting on the player.
+func get_pending_guard_choice(player: int) -> Dictionary:
+	for mission in _player_state[str(player)]["active"]:
+		if mission.get("id", "") != "burden_of_trust" or mission.get("pending_interaction", false):
+			continue
+		if not mission.get("mission_data", {}).get("guards_prompt_pending", false):
+			continue
+		var control_radius = Measurement.inches_to_px(3.0) + Measurement.base_radius_px(40)
+		var objectives_out = []
+		var units = GameState.state.get("units", {})
+		for obj in GameState.state.get("board", {}).get("objectives", []):
+			var obj_id = str(obj.get("id", ""))
+			var obj_pos = obj.get("position", null)
+			if obj_id == "" or obj_pos == null:
+				continue
+			if obj_pos is Dictionary:
+				obj_pos = Vector2(obj_pos.get("x", 0), obj_pos.get("y", 0))
+			var eligible = []
+			for unit_id in units:
+				var unit = units[unit_id]
+				if unit.get("owner", 0) != player:
+					continue
+				if _is_unit_excluded(unit, []):
+					continue
+				if _has_model_within_range(unit, obj_pos, control_radius):
+					eligible.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id)})
+			if not eligible.is_empty():
+				objectives_out.append({"objective_id": obj_id, "eligible": eligible})
+		return {
+			"mission_id": "burden_of_trust",
+			"guards": mission.get("mission_data", {}).get("guards", {}).duplicate(),
+			"objectives": objectives_out,
+		}
+	return {}
+
+## Apply the player's revised guard picks. Enforces one distinct unit per
+## objective; unknown objectives/units are dropped.
+func resolve_burden_guards(player: int, guards: Dictionary) -> Dictionary:
+	for mission in _player_state[str(player)]["active"]:
+		if mission.get("id", "") != "burden_of_trust":
+			continue
+		var clean: Dictionary = {}
+		var used: Dictionary = {}
+		var units = GameState.state.get("units", {})
+		for obj_id in guards:
+			var unit_id = str(guards[obj_id])
+			if unit_id == "" or used.has(unit_id):
+				continue
+			var unit = units.get(unit_id, {})
+			if unit.is_empty() or unit.get("owner", 0) != player:
+				continue
+			clean[str(obj_id)] = unit_id
+			used[unit_id] = true
+		mission["mission_data"]["guards"] = clean
+		mission["mission_data"]["guards_prompt_pending"] = false
+		print("SecondaryMissionManager: Burden of Trust guards set by Player %d: %s" % [player, str(clean)])
+		emit_signal("interaction_resolved", player, "burden_of_trust")
+		return {"success": true, "guards": clean}
+	return {"success": false, "error": "No active Burden of Trust card for player %d" % player}
+
+func dismiss_guard_prompt(player: int) -> void:
+	"""The player kept the auto-assigned guards — close the revision window."""
+	for mission in _player_state[str(player)]["active"]:
+		if mission.get("id", "") == "burden_of_trust":
+			mission["mission_data"]["guards_prompt_pending"] = false
+
+# ============================================================================
+# PENDING-INTERACTION QUERY (AI wait gate)
+# ============================================================================
+
+## All when-drawn interactions still waiting on a decision, with the player
+## who must decide ("responder"). AIPlayer uses this to pause its turn while
+## a HUMAN responder has a selection dialog open.
+func get_pending_interactions() -> Array:
+	var pending = []
+	for player_key in _player_state:
+		var player = int(player_key)
+		for mission in _player_state[player_key].get("active", []):
+			if not mission.get("pending_interaction", false):
+				continue
+			var itype = mission.get("interaction_type", "")
+			var responder = player  # drawer decides by default (e.g. Beacon)
+			if itype in ["opponent_selects_objective", "opponent_selects_units"]:
+				responder = 2 if player == 1 else 1
+			pending.append({
+				"player": player,
+				"mission_id": mission.get("id", ""),
+				"interaction_type": itype,
+				"responder": responder,
+			})
+	return pending
 
 func _mark_tempting_target_visual(objective_id: String, player: int) -> void:
 	"""Mark an objective on the board as the Tempting Target for the given player."""
@@ -2432,6 +2752,7 @@ func load_save_data(data: Dictionary) -> void:
 	# Restore visual indicators after load
 	_restore_tempting_target_visuals()
 	_restore_mfd_target_visuals()
+	_restore_beacon_visuals()
 
 func _restore_tempting_target_visuals() -> void:
 	"""Re-apply Tempting Target visual indicators after loading save data."""
