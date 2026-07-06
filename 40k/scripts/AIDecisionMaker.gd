@@ -3204,6 +3204,18 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 				"_ai_description": "Decline Command Re-roll (command phase fallback)"
 			}
 
+	# INSANE BRAVERY (11e 15.04): consider auto-passing a critical battle-shock
+	# test BEFORE rolling it. CommandPhase surfaces the option as USE_STRATAGEM.
+	if AIDifficultyConfigData.use_stratagems(_current_difficulty):
+		var ib_actions = []
+		for action in available_actions:
+			if action.get("type") == "USE_STRATAGEM" and str(action.get("stratagem_id", "")).begins_with("insane_bravery"):
+				ib_actions.append(action)
+		if not ib_actions.is_empty():
+			var ib_decision = _evaluate_insane_bravery(snapshot, ib_actions, player)
+			if not ib_decision.is_empty():
+				return ib_decision
+
 	# Take any pending battle-shock tests
 	for action in available_actions:
 		if action.get("type") == "BATTLE_SHOCK_TEST":
@@ -3273,6 +3285,161 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			else:
 				print("AIDecisionMaker: [WAAAGH] Holding WAAAGH! (round %d, %d/%d units in range — waiting for better timing)" % [
 					waaagh_round, units_in_range, total_friendly_alive])
+
+	# --- Faction command-phase abilities the AI must not idle past ---
+
+	# Plant the Waaagh! Banner (free, once per battle): Waaagh! effects + 4++
+	# and OC 5 for the Nob. Round 2+ it's use-it-or-lose-it; round 1 only if
+	# the fight is already close.
+	for action in available_actions:
+		if action.get("type") == "PLANT_WAAAGH_BANNER":
+			var pb_round = snapshot.get("meta", {}).get("battle_round", 1)
+			var pb_unit = snapshot.get("units", {}).get(action.get("unit_id", ""), {})
+			var pb_enemies = _get_enemy_units(snapshot, player)
+			var pb_nearest = _get_nearest_enemy_for_charge(pb_unit, pb_enemies)
+			var pb_dist = pb_nearest.get("distance_inches", 99.0) if not pb_nearest.is_empty() else 99.0
+			if pb_round >= 2 or pb_dist <= 18.0:
+				_add_thinking_step("Planting the Waaagh! Banner (round %d, nearest enemy %.0f\") — free buff, no reason to wait" % [pb_round, pb_dist])
+				return {
+					"type": "PLANT_WAAAGH_BANNER",
+					"unit_id": action.get("unit_id", ""),
+					"_ai_description": "Plant the Waaagh! Banner (Waaagh! effects, 4+ invuln, OC 5)"
+				}
+			else:
+				_add_thinking_step("Holding the Waaagh! Banner: round 1 and nearest enemy %.0f\" away — the buff would be wasted" % pb_dist)
+
+	# Da Kaptin (once per battle): unshock an ORKS unit at the cost of D3 MW.
+	# Worth it for a valuable or objective-holding unit; not for chaff.
+	for action in available_actions:
+		if action.get("type") == "USE_DA_KAPTIN":
+			var dk_uid = action.get("target_unit_id", "")
+			var dk_unit = snapshot.get("units", {}).get(dk_uid, {})
+			var dk_pts = float(dk_unit.get("meta", {}).get("points", 0))
+			var dk_name = dk_unit.get("meta", {}).get("name", dk_uid)
+			var dk_on_obj = false
+			var dk_centroid = _get_unit_centroid(dk_unit)
+			if dk_centroid != Vector2.INF:
+				for obj_pos in _get_objectives(snapshot):
+					if dk_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+						dk_on_obj = true
+						break
+			if dk_pts >= 100.0 or dk_on_obj:
+				_add_thinking_step("Da Kaptin unshocks %s (%d pts%s) — D3 MW is a fair price for its OC back" % [
+					dk_name, int(dk_pts), ", on objective" if dk_on_obj else ""])
+				return {
+					"type": "USE_DA_KAPTIN",
+					"target_unit_id": dk_uid,
+					"_ai_description": "Da Kaptin: %s is no longer Battle-shocked (D3 MW)" % dk_name
+				}
+			else:
+				_add_thinking_step("Skipping Da Kaptin on %s: %d pts and off-objective — not worth D3 MW or the once-per-battle" % [dk_name, int(dk_pts)])
+
+	# Grot Orderly (once per battle): return up to D3 destroyed Bodyguard
+	# models — hold it until 3+ are down so the D3 isn't wasted.
+	for action in available_actions:
+		if action.get("type") == "USE_GROT_ORDERLY":
+			var go_destroyed = 0
+			var go_desc = str(action.get("description", ""))
+			var go_re = RegEx.new()
+			go_re.compile("\\((\\d+) destroyed\\)")
+			var go_m = go_re.search(go_desc)
+			if go_m:
+				go_destroyed = int(go_m.get_string(1))
+			var go_round = snapshot.get("meta", {}).get("battle_round", 1)
+			if go_destroyed >= 3 or (go_round >= 4 and go_destroyed >= 1):
+				_add_thinking_step("Grot Orderly: %d bodyguard models down — reviving up to D3 now" % go_destroyed)
+				return {
+					"type": "USE_GROT_ORDERLY",
+					"unit_id": action.get("unit_id", ""),
+					"bodyguard_unit_id": action.get("bodyguard_unit_id", ""),
+					"_ai_description": action.get("description", "Grot Orderly revives bodyguard models")
+				}
+			else:
+				_add_thinking_step("Holding Grot Orderly (once per battle): only %d model(s) destroyed — waiting for a bigger heal" % go_destroyed)
+
+	# Fix Dat Armour Up (every Command phase): free 1-model return — always take it.
+	for action in available_actions:
+		if action.get("type") == "USE_FIX_DAT_ARMOUR_UP":
+			_add_thinking_step("Fix Dat Armour Up: free model return each Command phase — using it")
+			return {
+				"type": "USE_FIX_DAT_ARMOUR_UP",
+				"unit_id": action.get("unit_id", ""),
+				"bodyguard_unit_id": action.get("bodyguard_unit_id", ""),
+				"_ai_description": action.get("description", "Fix Dat Armour Up returns a model")
+			}
+
+	# Unleash the Lions (1 CP): split Allarus/Aquilon into single-model units —
+	# multiplies objective coverage. Best in the mid-game with CP to spare.
+	for action in available_actions:
+		if action.get("type") == "USE_UNLEASH_THE_LIONS":
+			var utl_round = snapshot.get("meta", {}).get("battle_round", 1)
+			var utl_cp = _get_player_cp_from_snapshot(snapshot, player)
+			if utl_round >= 2 and utl_cp >= 2:
+				_add_thinking_step("Unleash the Lions (round %d, %d CP): splitting into single models to cover more objectives" % [utl_round, utl_cp])
+				return {
+					"type": "USE_UNLEASH_THE_LIONS",
+					"unit_id": action.get("unit_id", ""),
+					"cp_cost": 1,
+					"_ai_description": action.get("description", "Unleash the Lions — split into single-model units")
+				}
+			else:
+				_add_thinking_step("Holding Unleash the Lions: round %d / %d CP — want round 2+ with CP to spare" % [utl_round, utl_cp])
+
+	# Psychic Veil (per turn): 2+ = enemies can only target the unit within
+	# 18\"; 1 = D3 MW. Use while the unit is healthy — EV is clearly positive.
+	for action in available_actions:
+		if action.get("type") == "USE_PSYCHIC_VEIL":
+			var pv_uid = action.get("unit_id", "")
+			var pv_unit = snapshot.get("units", {}).get(pv_uid, {})
+			var pv_wounds = _estimate_unit_remaining_wounds(pv_unit)
+			if pv_wounds >= 3.0:
+				_add_thinking_step("Psychic Veil on %s: 5/6 chance of an 18\" targeting shield vs 1/6 of D3 MW — casting" % pv_unit.get("meta", {}).get("name", pv_uid))
+				return {
+					"type": "USE_PSYCHIC_VEIL",
+					"unit_id": pv_uid,
+					"_ai_description": action.get("description", "Psychic Veil")
+				}
+			else:
+				_add_thinking_step("Skipping Psychic Veil: caster is at %.0f wounds — a rolled 1 (D3 MW) could kill it" % pv_wounds)
+
+	# Here Be Loot (Freebooters): pick the loot objective nearest our units.
+	var loot_actions = []
+	for action in available_actions:
+		if action.get("type") == "SELECT_LOOT_OBJECTIVE":
+			loot_actions.append(action)
+	if not loot_actions.is_empty():
+		var army_centroid = Vector2.ZERO
+		var army_n = 0
+		for uid in _get_units_for_player(snapshot, player):
+			var c = _get_unit_centroid(_get_units_for_player(snapshot, player)[uid])
+			if c != Vector2.INF:
+				army_centroid += c
+				army_n += 1
+		if army_n > 0:
+			army_centroid /= army_n
+		var best_loot = loot_actions[0]
+		var best_loot_dist = INF
+		# Match each offered objective_id to its board position by id
+		var obj_pos_by_id = {}
+		for obj in snapshot.get("board", {}).get("objectives", []):
+			var raw_pos = obj.get("position", null)
+			if raw_pos != null:
+				var v = raw_pos if raw_pos is Vector2 else Vector2(float(raw_pos.get("x", 0)), float(raw_pos.get("y", 0)))
+				obj_pos_by_id[str(obj.get("id", ""))] = v
+		for action in loot_actions:
+			var oid = str(action.get("objective_id", ""))
+			if not obj_pos_by_id.has(oid):
+				continue
+			var d = army_centroid.distance_to(obj_pos_by_id[oid])
+			if d < best_loot_dist:
+				best_loot_dist = d
+				best_loot = action
+		_add_thinking_step("Here Be Loot: marking %s (closest to the army's mass)" % best_loot.get("objective_id", "?"))
+		return {
+			"type": "SELECT_LOOT_OBJECTIVE",
+			"objective_id": best_loot.get("objective_id", ""),
+			"_ai_description": best_loot.get("description", "Here Be Loot objective selected")
+		}
 
 	# T7-45: Handle faction ability activation (Oath of Moment target selection)
 	var oath_actions = []
@@ -3391,6 +3558,12 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			else:
 				print("AIDecisionMaker: [NEW-ORDERS] Keeping missions (worst='%s' score=%.2f, threshold=%.2f, CP=%d)" % [
 					worst_name, worst_score, swap_threshold, player_cp])
+
+	# Implemented faction/detachment stratagems with a command-phase window
+	# (MOB RULE unshock, GRAB AND BASH single-unit Waaagh!, …)
+	var command_strat = evaluate_proactive_faction_stratagems(snapshot, player, "command")
+	if not command_strat.is_empty():
+		return command_strat
 
 	# All tests and faction abilities done, end command phase
 	return {"type": "END_COMMAND", "_ai_description": "End Command Phase"}
@@ -3733,6 +3906,13 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		else:
 			_secondary_awareness_p2 = built_mv
 			_secondary_awareness_round_p2 = battle_round
+
+	# Movement-phase faction stratagems ('ERE WE GO +2 advance/charge before a
+	# key charger moves, VIGILANCE ETERNAL sticky objective, MULTIPOTENTIALITY
+	# after a fall back). The engine's once-per gates stop repeats.
+	var movement_strat = evaluate_proactive_faction_stratagems(snapshot, player, "movement")
+	if not movement_strat.is_empty():
+		return movement_strat
 
 	# =========================================================================
 	# THREAT DATA: Calculate enemy threat zones once for all units (AI-TACTIC-4)
@@ -9119,6 +9299,13 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 					"_ai_description": grenade_eval.description
 				}
 
+	# Step 4.6: Shooting-phase faction stratagems (ARCHEOTECH MUNITIONS lethal
+	# hits on the best shooter before it fires, …). Once-per gates in the engine.
+	if action_types.has("SELECT_SHOOTER"):
+		var shooting_strat = evaluate_proactive_faction_stratagems(snapshot, player, "shooting")
+		if not shooting_strat.is_empty():
+			return shooting_strat
+
 	# Step 4.7: Check for secondary mission actions (Establish Locus, Cleanse, Deploy Teleport Homer)
 	# Low-firepower units in scoring positions should perform actions instead of shooting
 	if action_types.has("PERFORM_SECONDARY_ACTION"):
@@ -12335,6 +12522,17 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 
 		if chosen_uid != offered_uid:
 			print("AIDecisionMaker: T7-46 fight order optimization — selected %s over offered %s" % [unit_name, offered_uid])
+
+		# Fight-phase faction stratagems on the unit about to be selected
+		# (UNBRIDLED CARNAGE crit 5+, AVENGE THE FALLEN +attacks) — they target
+		# "a unit that has not been selected to fight", so fire them first.
+		# Only on our own fighters (fighter_owner may differ mid-activation).
+		if fighter_owner == player:
+			var fight_strat = evaluate_proactive_faction_stratagems(snapshot, player, "fight")
+			if not fight_strat.is_empty():
+				# Re-queue the chosen fighter — the stratagem resolves first
+				_fight_order_plan.insert(0, chosen_uid)
+				return fight_strat
 
 		return {
 			"type": "SELECT_FIGHTER",
@@ -16427,6 +16625,504 @@ static func _score_grenade_target(target_unit: Dictionary) -> float:
 
 # --- GO TO GROUND / SMOKESCREEN (Reactive — during opponent's shooting) ---
 
+# =============================================================================
+# PROACTIVE STRATAGEM USE (11e core set + implemented faction stratagems)
+# =============================================================================
+
+static func _stratagem_manager():
+	"""Access the StratagemManager autoload from static context (may be null headless)."""
+	var main_loop = Engine.get_main_loop()
+	if main_loop and main_loop is SceneTree and main_loop.root:
+		return main_loop.root.get_node_or_null("/root/StratagemManager")
+	return null
+
+static func _get_stratagem_cp_cost(strat_id: String, default_cp: int = 1) -> int:
+	"""Read a stratagem's CP cost from its definition instead of hardcoding."""
+	var sm = _stratagem_manager()
+	if sm and sm.stratagems.has(strat_id):
+		return int(sm.stratagems[strat_id].get("cp_cost", default_cp))
+	return default_cp
+
+static func _p_2d6_fail(needed: int) -> float:
+	"""P(2D6 < needed) — e.g. probability of FAILING a battle-shock test vs Ld."""
+	return 1.0 - _charge_success_probability(float(needed))
+
+static func _evaluate_insane_bravery(snapshot: Dictionary, use_strat_actions: Array, player: int) -> Dictionary:
+	"""INSANE BRAVERY (11e 15.04, once per battle): auto-pass one battle-shock
+	test. Worth its 1 CP + once-per-battle slot only when a valuable unit —
+	especially one whose OC is holding an objective — is likely to fail."""
+	var best_action = {}
+	var best_score = 0.0
+	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	var objectives = _get_objectives(snapshot)
+
+	for action in use_strat_actions:
+		var uid = action.get("target_unit_id", "")
+		var unit = snapshot.get("units", {}).get(uid, {})
+		if unit.is_empty():
+			continue
+		var unit_name = unit.get("meta", {}).get("name", uid)
+		var leadership = int(unit.get("meta", {}).get("stats", {}).get("leadership", 7))
+		var p_fail = _p_2d6_fail(leadership)
+
+		# Value of NOT being battle-shocked: OC on an objective, unit worth,
+		# and late-round scoring pressure (shocked = 0 OC, no stratagems).
+		var value = 0.0
+		var centroid = _get_unit_centroid(unit)
+		var on_objective = false
+		if centroid != Vector2.INF:
+			for obj_pos in objectives:
+				if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+					on_objective = true
+					break
+		if on_objective:
+			value += 3.0
+		value += float(unit.get("meta", {}).get("points", 0)) / 100.0
+		if battle_round >= 3:
+			value += 1.0
+
+		var score = p_fail * value
+		_add_thinking_step("Insane Bravery check for %s: fail chance %.0f%% (Ld %d), value %.1f → score %.2f" % [
+			unit_name, p_fail * 100.0, leadership, value, score])
+		if score > best_score:
+			best_score = score
+			best_action = action
+
+	# Once per battle — demand real value before burning it
+	if best_score >= 1.2 and not best_action.is_empty():
+		var uid = best_action.get("target_unit_id", "")
+		var unit_name = snapshot.get("units", {}).get(uid, {}).get("meta", {}).get("name", uid)
+		_add_thinking_step("Using INSANE BRAVERY on %s (score %.2f ≥ 1.2) — auto-pass the battle-shock test" % [unit_name, best_score])
+		return {
+			"type": "USE_STRATAGEM",
+			"stratagem_id": best_action.get("stratagem_id", "insane_bravery"),
+			"target_unit_id": uid,
+			"cp_cost": _get_stratagem_cp_cost(best_action.get("stratagem_id", "insane_bravery"), 1),
+			"_ai_description": "AI uses INSANE BRAVERY on %s (auto-pass battle-shock)" % unit_name
+		}
+	if best_score > 0.0:
+		_add_thinking_step("Holding INSANE BRAVERY (once per battle): best score %.2f < 1.2 — the risk doesn't justify it yet" % best_score)
+	return {}
+
+static func _implemented_faction_stratagems(player: int) -> Array:
+	"""Implemented (mechanically working) faction stratagems for this player."""
+	var sm = _stratagem_manager()
+	if sm == null:
+		return []
+	if not sm.has_method("get_implemented_faction_stratagems_for_player"):
+		return []
+	return sm.get_implemented_faction_stratagems_for_player(player)
+
+static func _faction_stratagem_usable(player: int, strat: Dictionary, target_unit_id: String) -> bool:
+	var sm = _stratagem_manager()
+	if sm == null:
+		return false
+	var check = sm.can_use_stratagem(player, strat.get("id", ""), target_unit_id)
+	return check.get("can_use", false)
+
+static func evaluate_proactive_faction_stratagems(snapshot: Dictionary, player: int, phase_name: String) -> Dictionary:
+	"""Consider the player's implemented faction/detachment stratagems that are
+	proactively usable in the current phase, with a named heuristic per known
+	stratagem and an effects-based fallback. Returns a USE_STRATAGEM action or {}.
+	The engine's can_use_stratagem gate (CP, once-per, one-per-unit-per-phase,
+	turn+phase timing) is the authority — the AI only ranks the legal options."""
+	if not AIDifficultyConfigData.use_stratagems(_current_difficulty):
+		return {}
+	var strats = _implemented_faction_stratagems(player)
+	if strats.is_empty():
+		return {}
+
+	var friendly_units = _get_units_for_player(snapshot, player)
+	var enemy_units = _get_enemy_units(snapshot, player)
+	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	var player_cp = _get_player_cp_from_snapshot(snapshot, player)
+
+	var best: Dictionary = {}
+	var best_score := 0.0
+	var considered: Array = []
+
+	for strat in strats:
+		var strat_name = strat.get("name", "").replace("’", "'").to_upper()
+		var strat_phase = str(strat.get("timing", {}).get("phase", ""))
+		# Phase gate (loose — can_use_stratagem re-checks authoritatively)
+		if strat_phase != "any" and strat_phase != phase_name and not phase_name in strat_phase.split("_or_"):
+			continue
+		var cp_cost = int(strat.get("cp_cost", 1))
+		if player_cp < cp_cost:
+			continue
+
+		var pick = _score_faction_stratagem_use(strat_name, strat, snapshot, player, phase_name,
+			friendly_units, enemy_units, battle_round)
+		if pick.is_empty():
+			continue
+		considered.append("%s on %s: %.1f" % [strat_name, pick.get("unit_name", "?"), pick.get("score", 0.0)])
+		if pick.get("score", 0.0) > best_score and _faction_stratagem_usable(player, strat, pick.get("unit_id", "")):
+			best_score = pick.get("score", 0.0)
+			best = {
+				"strat": strat,
+				"unit_id": pick.get("unit_id", ""),
+				"unit_name": pick.get("unit_name", ""),
+				"reason": pick.get("reason", ""),
+				"context": pick.get("context", {}),
+			}
+
+	# CP discipline: entering the opponent-facing half of the round, keep 1 CP
+	# for reactions unless the play is clearly strong.
+	var use_threshold = 2.0
+	if player_cp <= int(best.get("strat", {}).get("cp_cost", 1)):
+		use_threshold = 3.0
+
+	if not best.is_empty() and best_score >= use_threshold:
+		var strat = best.strat
+		for c in considered:
+			_add_thinking_step("  weighed %s" % c)
+		_add_thinking_step("Using %s on %s — %s (score %.1f, %d CP)" % [
+			strat.get("name", "?"), best.unit_name, best.reason, best_score, int(strat.get("cp_cost", 1))])
+		var action = {
+			"type": "USE_STRATAGEM",
+			"stratagem_id": strat.get("id", ""),
+			"target_unit_id": best.unit_id,
+			"cp_cost": int(strat.get("cp_cost", 1)),
+			"_ai_description": "AI uses %s on %s (%s)" % [strat.get("name", "?"), best.unit_name, best.reason]
+		}
+		if not best.context.is_empty():
+			action["context"] = best.context
+		return action
+
+	if not considered.is_empty():
+		for c in considered:
+			_add_thinking_step("  weighed %s" % c)
+		_add_thinking_step("Holding faction stratagems this phase: best %.1f < %.1f threshold (CP: %d)" % [
+			best_score, use_threshold, player_cp])
+	return {}
+
+static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
+		snapshot: Dictionary, player: int, phase_name: String,
+		friendly_units: Dictionary, enemy_units: Dictionary, battle_round: int) -> Dictionary:
+	"""Named heuristics for the implemented detachment stratagems of the shipped
+	armies (War Horde, Shield Host, Lions), plus an effects-based fallback.
+	Returns {unit_id, unit_name, score, reason, context} or {} when no target."""
+	match strat_name:
+		"'ERE WE GO":
+			# +2 to Advance and Charge rolls — best on a melee unit that plans
+			# to charge this turn (13-24" band: needs the boost to connect).
+			if phase_name != "movement":
+				return {}
+			var best = {}
+			var best_score = 0.0
+			for uid in friendly_units:
+				var unit = friendly_units[uid]
+				if _get_alive_models(unit).is_empty() or unit.get("flags", {}).get("moved", false):
+					continue
+				if not _is_melee_focused_unit(unit):
+					continue
+				var nearest = _get_nearest_enemy_for_charge(unit, enemy_units)
+				if nearest.is_empty():
+					continue
+				var dist = nearest.get("distance_inches", 99.0)
+				var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+				# Needs to reach: gap after moving = dist - move; +2 matters most
+				# when the remaining charge is 8-11" (2d6+2 band) or advance+charge
+				var gap_after_move = dist - move_inches
+				if gap_after_move >= 6.0 and gap_after_move <= 13.0:
+					var melee_power = float(_get_alive_models(unit).size())
+					var s = 2.0 + melee_power * 0.15 + (2.0 if gap_after_move >= 8.0 else 1.0)
+					if s > best_score:
+						best_score = s
+						best = {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+							"score": s, "reason": "+2 Advance/Charge closes an %.0f\" gap" % gap_after_move}
+			return best
+
+		"MOB RULE":
+			# Unshock an ORKS INFANTRY unit within 6" of a 10+ model MOB.
+			if phase_name != "command":
+				return {}
+			var mob_units: Array = []
+			for uid in friendly_units:
+				var unit = friendly_units[uid]
+				var alive_n = _get_alive_models(unit).size()
+				if alive_n >= 10 and "MOB" in unit.get("meta", {}).get("keywords", []):
+					mob_units.append(unit)
+			if mob_units.is_empty():
+				return {}
+			for uid in friendly_units:
+				var unit = friendly_units[uid]
+				if not unit.get("flags", {}).get("battle_shocked", false):
+					continue
+				var kw = unit.get("meta", {}).get("keywords", [])
+				if not ("INFANTRY" in kw):
+					continue
+				var u_pos = _get_unit_centroid(unit)
+				for mob in mob_units:
+					var mob_pos = _get_unit_centroid(mob)
+					if u_pos != Vector2.INF and mob_pos != Vector2.INF and u_pos.distance_to(mob_pos) <= 6.0 * PIXELS_PER_INCH:
+						var mob_id = ""
+						for m_uid in friendly_units:
+							if friendly_units[m_uid] == mob:
+								mob_id = m_uid
+								break
+						var pts = float(unit.get("meta", {}).get("points", 0))
+						return {"unit_id": mob_id, "unit_name": mob.get("meta", {}).get("name", mob_id),
+							"score": 2.5 + pts / 100.0,
+							"reason": "unshocks %s (regains OC + stratagem access)" % unit.get("meta", {}).get("name", uid),
+							"context": {"battle_shock_target_id": uid}}
+			return {}
+
+		"GRAB AND BASH":
+			# Waaagh! effects for one unit (5++ / +1S/+1A / advance+charge).
+			# Use when the army Waaagh! is NOT active and a melee unit is in reach.
+			if phase_name != "command":
+				return {}
+			var best = {}
+			var best_score = 0.0
+			for uid in friendly_units:
+				var unit = friendly_units[uid]
+				if unit.get("flags", {}).get("waaagh_active", false):
+					continue
+				if not _is_melee_focused_unit(unit) or _get_alive_models(unit).is_empty():
+					continue
+				var nearest = _get_nearest_enemy_for_charge(unit, enemy_units)
+				if nearest.is_empty():
+					continue
+				var dist = nearest.get("distance_inches", 99.0)
+				var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+				if dist <= move_inches + 14.0:  # can realistically fight this turn
+					var s = 2.0 + float(_get_alive_models(unit).size()) * 0.2
+					if s > best_score:
+						best_score = s
+						best = {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+							"score": s, "reason": "Waaagh! buffs before a %.0f\" engagement" % dist}
+			return best
+
+		"ARCHEOTECH MUNITIONS":
+			# LETHAL/SUSTAINED for a shooting unit — use on the highest-output
+			# shooter that has not shot yet and has a target in range.
+			if phase_name != "shooting":
+				return {}
+			var best = {}
+			var best_score = 0.0
+			for uid in friendly_units:
+				var unit = friendly_units[uid]
+				if unit.get("flags", {}).get("has_shot", false) or _get_alive_models(unit).is_empty():
+					continue
+				var strength = _estimate_unit_ranged_strength(unit)
+				if strength < 4.0:
+					continue
+				var in_range = false
+				var centroid = _get_unit_centroid(unit)
+				var max_range = _get_max_weapon_range(unit)
+				if centroid != Vector2.INF:
+					for e_uid in enemy_units:
+						var e_pos = _get_unit_centroid(enemy_units[e_uid])
+						if e_pos != Vector2.INF and centroid.distance_to(e_pos) <= max_range * PIXELS_PER_INCH:
+							in_range = true
+							break
+				if not in_range:
+					continue
+				var s = 1.0 + strength * 0.25
+				if s > best_score:
+					best_score = s
+					best = {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+						"score": s, "reason": "Lethal Hits on ranged output %.1f before it shoots" % strength}
+			return best
+
+		"AVENGE THE FALLEN":
+			# +1 (or +2 below half) melee Attacks for a below-strength unit.
+			if phase_name != "fight":
+				return {}
+			var best = {}
+			var best_score = 0.0
+			for uid in friendly_units:
+				var unit = friendly_units[uid]
+				var alive_n = _get_alive_models(unit).size()
+				if alive_n == 0 or unit.get("flags", {}).get("fought_this_phase", false):
+					continue
+				var starting = unit.get("models", []).size()
+				if alive_n >= starting:
+					continue
+				# Must actually be in combat to benefit
+				if _get_engaging_enemy_units(unit, uid, enemy_units).is_empty():
+					continue
+				var below_half = alive_n * 2 <= starting
+				var bonus_attacks = (2 if below_half else 1) * alive_n
+				var s = 1.0 + float(bonus_attacks) * 0.35
+				if s > best_score:
+					best_score = s
+					best = {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+						"score": s, "reason": "+%d melee attacks (%s)" % [bonus_attacks, "below half" if below_half else "below strength"]}
+			return best
+
+		"UNBRIDLED CARNAGE":
+			# Crit hits on 5+ for one ORKS unit's melee — biggest engaged unit
+			# that has not fought yet.
+			if phase_name != "fight":
+				return {}
+			var best = {}
+			var best_score = 0.0
+			for uid in friendly_units:
+				var unit = friendly_units[uid]
+				var alive_n = _get_alive_models(unit).size()
+				if alive_n == 0 or unit.get("flags", {}).get("fought_this_phase", false):
+					continue
+				var engaging = _get_engaging_enemy_units(unit, uid, enemy_units)
+				if engaging.is_empty():
+					continue
+				# Value scales with volume of melee attacks (crit 5+ ≈ doubles crit rate)
+				var s = 0.5 + float(alive_n) * 0.3
+				if s > best_score:
+					best_score = s
+					best = {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+						"score": s, "reason": "crit on 5+ across %d models' melee attacks" % alive_n}
+			return best
+
+		"MULTIPOTENTIALITY":
+			# Custodes unit that Fell Back this phase may still shoot + charge.
+			if phase_name != "movement":
+				return {}
+			for uid in friendly_units:
+				var unit = friendly_units[uid]
+				if not unit.get("flags", {}).get("fell_back", false):
+					continue
+				if _get_alive_models(unit).is_empty():
+					continue
+				var strength = _estimate_unit_ranged_strength(unit)
+				var s = 1.5 + strength * 0.2
+				return {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+					"score": s, "reason": "fell back but can still shoot/charge"}
+			return {}
+
+		"VIGILANCE ETERNAL":
+			# Sticky objective for a BATTLELINE unit on a controlled marker —
+			# frees the holder to advance while the marker stays ours.
+			if phase_name != "movement" or battle_round < 2:
+				return {}
+			var objectives = _get_objectives(snapshot)
+			for uid in friendly_units:
+				var unit = friendly_units[uid]
+				if _get_alive_models(unit).is_empty():
+					continue
+				if not ("BATTLELINE" in unit.get("meta", {}).get("keywords", [])):
+					continue
+				if unit.get("flags", {}).get("moved", false):
+					continue
+				var centroid = _get_unit_centroid(unit)
+				if centroid == Vector2.INF:
+					continue
+				for obj_pos in objectives:
+					if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+						# Only worth it when enemies aren't about to contest anyway
+						var enemy_oc = _get_oc_at_position(obj_pos, snapshot.get("units", {}), player, false)
+						if enemy_oc == 0:
+							return {"unit_id": uid, "unit_name": unit.get("meta", {}).get("name", uid),
+								"score": 2.2, "reason": "locks the objective so the holder can push out"}
+			return {}
+
+		_:
+			return {}
+
+static func evaluate_epic_challenge(player: int, unit_id: String, snapshot: Dictionary) -> Dictionary:
+	"""EPIC CHALLENGE (11e 15.03, 1 CP): one CHARACTER model's melee weapons
+	gain [PRECISION] — attacks can be allocated straight to an attached enemy
+	CHARACTER. Worth it when an engaged enemy unit is hiding a character our
+	melee can realistically wound. Returns USE_EPIC_CHALLENGE or {} to decline."""
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {}
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var player_cp = _get_player_cp_from_snapshot(snapshot, player)
+	var cp_cost = _get_stratagem_cp_cost("epic_challenge_11e", 1)
+	if player_cp < cp_cost:
+		_add_thinking_step("Epic Challenge for %s: no CP (%d) — declining" % [unit_name, player_cp])
+		return {}
+
+	var enemies = _get_enemy_units(snapshot, player)
+	var engaging = _get_engaging_enemy_units(unit, unit_id, enemies)
+	var best_char_name = ""
+	var best_value = 0.0
+	var best_dmg = 0.0
+	for enemy in engaging:
+		# Find this enemy unit's id, then its attached characters
+		var enemy_id = ""
+		for eid in enemies:
+			if enemies[eid] == enemy:
+				enemy_id = eid
+				break
+		if enemy_id == "":
+			continue
+		var attached = enemy.get("attachment_data", {}).get("attached_characters", [])
+		for char_id in attached:
+			var char_unit = snapshot.get("units", {}).get(char_id, {})
+			if char_unit.is_empty() or _get_alive_models(char_unit).is_empty():
+				continue
+			var char_name = char_unit.get("meta", {}).get("name", char_id)
+			var expected_dmg = _estimate_melee_damage(unit, char_unit)
+			var char_pts = float(char_unit.get("meta", {}).get("points", 0))
+			var char_hp = _estimate_unit_remaining_wounds(char_unit)
+			# Value: how much of the character we chunk × how expensive it is
+			var value = (expected_dmg / max(1.0, char_hp)) * (1.0 + char_pts / 100.0)
+			_add_thinking_step("Epic Challenge check: %s could strike %s directly (~%.1f dmg vs %.0f W, %d pts) — value %.2f" % [
+				unit_name, char_name, expected_dmg, char_hp, int(char_pts), value])
+			if value > best_value:
+				best_value = value
+				best_char_name = char_name
+				best_dmg = expected_dmg
+
+	if best_value >= 0.8 and best_dmg >= 2.0:
+		_add_thinking_step("Using EPIC CHALLENGE: %s targets %s with [PRECISION] melee (value %.2f)" % [
+			unit_name, best_char_name, best_value])
+		return {
+			"type": "USE_EPIC_CHALLENGE",
+			"unit_id": unit_id,
+			"cp_cost": cp_cost,
+			"_ai_description": "AI uses EPIC CHALLENGE — %s strikes at %s directly" % [unit_name, best_char_name]
+		}
+	if best_value > 0.0:
+		_add_thinking_step("Declining Epic Challenge: best value %.2f below 0.8 (or damage %.1f too low) — not worth %d CP" % [
+			best_value, best_dmg, cp_cost])
+	return {}
+
+static func evaluate_katah_stance(player: int, unit_id: String, snapshot: Dictionary, master_available: bool) -> Dictionary:
+	"""Martial Ka'tah (Custodes): pick a stance when this unit is selected to
+	fight. Dacatarai = Sustained Hits 1 (volume, best into hordes / poor saves);
+	Rendax = Lethal Hits (auto-wound on crits, best into high Toughness).
+	'both' needs Master of the Stances (once per battle) — save it for a
+	valuable engagement."""
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var enemies = _get_enemy_units(snapshot, player)
+	var engaging = _get_engaging_enemy_units(unit, unit_id, enemies)
+
+	# Assess the toughest engaged target to pick the stance
+	var max_t = 0
+	var max_pts = 0.0
+	var target_name = ""
+	for enemy in engaging:
+		var t = int(enemy.get("meta", {}).get("stats", {}).get("toughness", 4))
+		var pts = float(enemy.get("meta", {}).get("points", 0))
+		if t > max_t:
+			max_t = t
+			target_name = enemy.get("meta", {}).get("name", "")
+		max_pts = maxf(max_pts, pts)
+
+	var stance = "dacatarai"
+	var reason = "Sustained Hits for attack volume"
+	# Our melee strength vs their toughness: when wounding on 5+/6+, Lethal
+	# Hits (auto-wound on crit) is worth more than extra hits.
+	if max_t >= 7:
+		stance = "rendax"
+		reason = "Lethal Hits into T%d (%s)" % [max_t, target_name]
+	if master_available and max_pts >= 150.0:
+		stance = "both"
+		reason = "Master of the Stances on a %d-pt engagement" % int(max_pts)
+
+	_add_thinking_step("Ka'tah stance for %s: %s — %s" % [unit_name, stance, reason])
+	return {
+		"type": "SELECT_KATAH_STANCE",
+		"unit_id": unit_id,
+		"stance": stance,
+		"_ai_description": "%s assumes %s stance (%s)" % [unit_name, stance, reason]
+	}
+
 static func evaluate_reactive_stratagem(defending_player: int, available_stratagems: Array, target_unit_ids: Array, snapshot: Dictionary) -> Dictionary:
 	"""
 	Evaluate whether the AI should use a defensive reactive stratagem when its
@@ -16856,8 +17552,10 @@ static func evaluate_counter_offensive(player: int, eligible_units: Array, snaps
 	"""
 	var player_cp = _get_player_cp_from_snapshot(snapshot, player)
 
-	# Counter-Offensive costs 2 CP
-	if player_cp < 2:
+	# CP cost from the live definition (2 CP at both editions today)
+	var co_cp = _get_stratagem_cp_cost("counteroffensive_11e" if GameConstants.edition >= 11 else "counter_offensive", 2)
+	if player_cp < co_cp:
+		_add_thinking_step("Declining Counteroffensive: costs %d CP, I have %d" % [co_cp, player_cp])
 		return {
 			"type": "DECLINE_COUNTER_OFFENSIVE",
 			"player": player,
@@ -16950,8 +17648,10 @@ static func evaluate_counter_offensive(player: int, eligible_units: Array, snaps
 	# Use Counter-Offensive if score justifies the 2 CP cost
 	# Threshold of 3.0 for Counter-Offensive (2 CP cost)
 	if best_score >= 3.0 and best_unit_id != "":
-		# If CP is tight (exactly 2), only use for very valuable units
-		if player_cp <= 2 and best_score < 5.0:
+		# If CP is tight (exactly the cost), only use for very valuable units
+		if player_cp <= co_cp and best_score < 5.0:
+			_add_thinking_step("Counteroffensive on %s scores %.1f — decent, but it's my last %d CP; holding for a bigger moment" % [
+				best_unit_name, best_score, player_cp])
 			print("AIDecisionMaker: Counter-Offensive — declining for %s (score: %.1f, saving CP)" % [best_unit_name, best_score])
 			return {
 				"type": "DECLINE_COUNTER_OFFENSIVE",
@@ -16959,14 +17659,20 @@ static func evaluate_counter_offensive(player: int, eligible_units: Array, snaps
 				"_ai_description": "AI declines Counter-Offensive (saving CP, score: %.1f)" % best_score
 			}
 
+		_add_thinking_step("Using COUNTEROFFENSIVE (%d CP): %s fights next before more of it dies (score %.1f)" % [
+			co_cp, best_unit_name, best_score])
 		print("AIDecisionMaker: Counter-Offensive — %s fights next! (score: %.1f)" % [best_unit_name, best_score])
 		return {
 			"type": "USE_COUNTER_OFFENSIVE",
 			"unit_id": best_unit_id,
 			"player": player,
+			"cp_cost": co_cp,
 			"_ai_description": "AI uses Counter-Offensive with %s (score: %.1f)" % [best_unit_name, best_score]
 		}
 
+	if best_unit_id != "":
+		_add_thinking_step("Declining Counteroffensive: best candidate %s scores %.1f < 3.0 — not worth %d CP" % [
+			best_unit_name, best_score, co_cp])
 	print("AIDecisionMaker: Counter-Offensive — declining (best score: %.1f below threshold)" % best_score)
 	return {
 		"type": "DECLINE_COUNTER_OFFENSIVE",

@@ -669,6 +669,13 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "epic_challenge_opportunity", "callable": callable_ec})
 		print("AIPlayer: Connected to FightPhase.epic_challenge_opportunity")
 
+	# Martial Ka'tah stance selection (Custodes) — AI must respond or the fight stalls
+	if phase.has_signal("katah_stance_required"):
+		var callable_ks = Callable(self, "_on_katah_stance_required")
+		phase.katah_stance_required.connect(callable_ks)
+		_connected_phase_signals.append({"signal_name": "katah_stance_required", "callable": callable_ks})
+		print("AIPlayer: Connected to FightPhase.katah_stance_required")
+
 func _disconnect_phase_stratagem_signals() -> void:
 	"""Disconnect all previously connected phase stratagem signals."""
 	if _current_phase_ref and is_instance_valid(_current_phase_ref):
@@ -1031,20 +1038,26 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 func _on_epic_challenge_opportunity(unit_id: String, player: int) -> void:
 	"""
 	Called when the FightPhase detects a CHARACTER unit is selected to fight
-	and an Epic Challenge is available. The AI must respond or the game stalls.
-	For now, AI always declines — Epic Challenge is niche and rarely beneficial.
+	and an Epic Challenge is available (11e 15.03: 1 CP, one CHARACTER model's
+	melee weapons gain [PRECISION]). Worth it when an enemy CHARACTER is hiding
+	inside an engaged unit and our melee output can realistically hurt it.
 	"""
 	if not is_ai_player(player):
 		return
 
-	print("AIPlayer: Epic Challenge opportunity for AI player %d, unit %s — declining" % [player, unit_id])
-	var decline = {
-		"type": "DECLINE_EPIC_CHALLENGE",
-		"unit_id": unit_id,
-		"player": player,
-		"_ai_description": "AI declines Epic Challenge for %s" % _get_unit_name(unit_id)
-	}
-	_submit_reactive_action(player, decline)
+	var unit_name = _get_unit_name(unit_id)
+	var snapshot = GameState.create_snapshot()
+	var decision = AIDecisionMaker.evaluate_epic_challenge(player, unit_id, snapshot)
+	_flush_reactive_thinking(player, "Epic Challenge window (%s selected to fight)" % unit_name)
+	if decision.is_empty():
+		decision = {
+			"type": "DECLINE_EPIC_CHALLENGE",
+			"unit_id": unit_id,
+			"player": player,
+			"_ai_description": "AI declines Epic Challenge for %s" % unit_name
+		}
+	decision["player"] = player
+	_submit_reactive_action(player, decision)
 
 # --- Reactive Stratagem: Command Re-roll (any phase) ---
 
@@ -1084,6 +1097,24 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 			"_ai_description": "AI declines %s reroll (charge already sufficient)" % ability_name
 		}
 
+	_submit_reactive_action(player, decision)
+
+func _on_katah_stance_required(unit_id: String, player: int) -> void:
+	"""Martial Ka'tah (Custodes): the FightPhase pauses until a stance is
+	selected for the active fighter. Without this handler an AI Custodes
+	fight activation would stall forever."""
+	if not is_ai_player(player):
+		return
+
+	var master_available = false
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr and ability_mgr.has_method("has_master_of_the_stances"):
+		master_available = ability_mgr.has_master_of_the_stances(unit_id)
+
+	var snapshot = GameState.create_snapshot()
+	var decision = AIDecisionMaker.evaluate_katah_stance(player, unit_id, snapshot, master_available)
+	_flush_reactive_thinking(player, "Ka'tah stance (%s activating)" % _get_unit_name(unit_id))
+	decision["player"] = player
 	_submit_reactive_action(player, decision)
 
 func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:

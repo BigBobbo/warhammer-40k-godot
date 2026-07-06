@@ -1165,8 +1165,10 @@ func _handle_use_stratagem(action: Dictionary) -> Dictionary:
 	if not strat_manager:
 		return {"success": false, "error": "StratagemManager not available"}
 
-	# Use the stratagem (validates, deducts CP, records usage)
-	var result = strat_manager.use_stratagem(current_player, stratagem_id, target_unit_id)
+	# Use the stratagem (validates, deducts CP, records usage). The action may
+	# carry a context dict for effects with a secondary target (MOB RULE's
+	# battle_shock_target_id — the shocked unit differs from the MOB target).
+	var result = strat_manager.use_stratagem(current_player, stratagem_id, target_unit_id, action.get("context", {}))
 	if not result.success:
 		return result
 
