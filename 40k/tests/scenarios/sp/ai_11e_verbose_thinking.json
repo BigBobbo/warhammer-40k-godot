@@ -7,6 +7,7 @@
     "ui.GameLogPanel.ai_thinking_cards"
   ],
   "fixture": "audit_382_cp_grant",
+  "edition": 11,
   "rng_seed": 11,
   "description": "AI 11e upgrade gate: P2 (Orks, AI at default Normal difficulty) plays its Command phase live. Asserts (a) verbose AI reasoning reaches GameEventLog — including at least one NEGATIVE decision (hold/decline/reject/skip) with its why, (b) the left GameLogPanel actually renders AI thinking cards, (c) the AI drives its faction rules: round 2 means WAAAGH! must be called per its own stated timing rule. Screenshots capture the left panel with the reasoning visible.",
   "steps": [

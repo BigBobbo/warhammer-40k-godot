@@ -68,6 +68,10 @@ var _collapse_button: Button
 var _ai_filter_button: Button
 var _show_ai_thinking: bool = true
 var _ai_cards: Array[PanelContainer] = []
+# Board-linked thinking cards (carry ai_link_context metadata) + pin state
+var _linked_ai_cards: Array[PanelContainer] = []
+var _pinned_link_card: PanelContainer = null
+var _thought_link_visual: Node2D = null
 var _card_count: int = 0
 var _is_visible: bool = true
 var _current_combat_card: PanelContainer = null
@@ -205,6 +209,64 @@ func get_ai_card_count() -> int:
 	"""Live AI thinking cards currently in the panel (scenario assertions)."""
 	var n := 0
 	for c in _ai_cards:
+		if is_instance_valid(c):
+			n += 1
+	return n
+
+# ==========================================================================
+# Board-linked thinking — hover/click a card to see the options on the board
+# ==========================================================================
+
+func _get_thought_link_visual() -> Node2D:
+	"""Lazily create the AIThoughtLinkVisual under Main/BoardRoot so arrows
+	draw in board space alongside tokens."""
+	if _thought_link_visual != null and is_instance_valid(_thought_link_visual):
+		return _thought_link_visual
+	var main = get_parent()
+	if main == null:
+		return null
+	var board_root = main.get_node_or_null("BoardRoot")
+	if board_root == null:
+		return null
+	_thought_link_visual = board_root.get_node_or_null("AIThoughtLinkVisual")
+	if _thought_link_visual == null:
+		_thought_link_visual = preload("res://scripts/AIThoughtLinkVisual.gd").new()
+		board_root.add_child(_thought_link_visual)
+		print("GameLogPanel: Created AIThoughtLinkVisual in BoardRoot")
+	return _thought_link_visual
+
+func _show_thought_links(context: Dictionary) -> void:
+	var visual = _get_thought_link_visual()
+	if visual:
+		visual.show_links(context)
+
+func _hide_thought_links() -> void:
+	if _thought_link_visual != null and is_instance_valid(_thought_link_visual):
+		_thought_link_visual.clear_links()
+
+func _toggle_thought_link_pin(card: PanelContainer) -> void:
+	"""Click behaviour: pin this card's option arrows on the board; clicking
+	the pinned card again (or another linked card) unpins/switches."""
+	if _pinned_link_card == card:
+		_pinned_link_card = null
+		_hide_thought_links()
+		return
+	_pinned_link_card = card
+	_show_thought_links(card.get_meta("ai_link_context", {}))
+
+func activate_latest_ai_link() -> bool:
+	"""Pin the most recent board-linked thinking card — same path as clicking
+	it. Used by windowed scenarios to validate the feature end-to-end."""
+	for i in range(_linked_ai_cards.size() - 1, -1, -1):
+		var card = _linked_ai_cards[i]
+		if is_instance_valid(card):
+			_toggle_thought_link_pin(card)
+			return _pinned_link_card == card
+	return false
+
+func get_linked_ai_card_count() -> int:
+	var n := 0
+	for c in _linked_ai_cards:
 		if is_instance_valid(c):
 			n += 1
 	return n
@@ -635,7 +697,13 @@ func _create_simple_card(text: String, entry_type: String, animate: bool) -> voi
 		"ai_thinking":
 			card = _make_simple_entry_card(text, entry_type, EntryCategory.AI_THINKING)
 		"ai_thinking_block":
-			card = _make_ai_thinking_block_card(text)
+			# Board-link context (unit + candidate positions) travels alongside
+			# the entry — read it synchronously from the emitting autoload.
+			var block_context: Dictionary = {}
+			var gel = Engine.get_main_loop().root.get_node_or_null("GameEventLog") if Engine.get_main_loop() else null
+			if gel and gel.has_method("get_last_entry_context"):
+				block_context = gel.get_last_entry_context()
+			card = _make_ai_thinking_block_card(text, block_context)
 		_:
 			card = _make_simple_entry_card(text, entry_type, category)
 
@@ -785,22 +853,42 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 
 	return card
 
-func _make_ai_thinking_block_card(text: String) -> PanelContainer:
+func _make_ai_thinking_block_card(text: String, link_context: Dictionary = {}) -> PanelContainer:
 	"""Collapsible card for one AI decision's verbose reasoning.
 	First line of `text` is the headline; remaining lines are the considered
 	options / rejections, hidden behind a 'considerations' toggle so heavy
-	verbosity stays scannable."""
+	verbosity stays scannable. When `link_context` carries board positions,
+	the card becomes interactive: hover previews the considered options as
+	arrows on the board (chosen green, rejected red); click pins them."""
 	var lines = text.split("\n")
 	var header_text = lines[0] if lines.size() > 0 else text
 	var detail_lines: Array = []
 	for i in range(1, lines.size()):
 		detail_lines.append(lines[i])
 
+	var is_linked: bool = not link_context.is_empty() and not link_context.get("candidates", []).is_empty()
 	var accent = BORDER_COLORS[EntryCategory.AI_THINKING]
+	if is_linked:
+		# Brighter accent signals "hover me — I draw on the board"
+		accent = Color(0.45, 0.65, 0.9)
 	var card = PanelContainer.new()
-	card.add_theme_stylebox_override("panel", _make_card_style(Color(0.08, 0.08, 0.11, 0.7), accent, 2))
+	card.add_theme_stylebox_override("panel", _make_card_style(Color(0.08, 0.08, 0.11, 0.7), accent, 3 if is_linked else 2))
 	card.custom_minimum_size = Vector2(0, 24)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if is_linked:
+		card.set_meta("ai_link_context", link_context)
+		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		card.tooltip_text = "Hover: show this decision's options on the board. Click: pin/unpin."
+		card.mouse_entered.connect(func():
+			if _pinned_link_card == null:
+				_show_thought_links(link_context))
+		card.mouse_exited.connect(func():
+			if _pinned_link_card == null:
+				_hide_thought_links())
+		card.gui_input.connect(func(event):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				_toggle_thought_link_pin(card))
+		_linked_ai_cards.append(card)
 
 	var card_vbox = VBoxContainer.new()
 	card_vbox.add_theme_constant_override("separation", 2)
@@ -821,6 +909,8 @@ func _make_ai_thinking_block_card(text: String) -> PanelContainer:
 	header_label.add_theme_font_size_override("normal_font_size", 11)
 	header_label.add_theme_font_size_override("bold_font_size", 12)
 	header_label.append_text("[i][color=#8899AA]%s[/color][/i]" % header_text)
+	# Let the card itself receive hover/click for the board-link interaction
+	header_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header_hbox.add_child(header_label)
 
 	if detail_lines.is_empty():
@@ -842,6 +932,7 @@ func _make_ai_thinking_block_card(text: String) -> PanelContainer:
 	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	details.add_theme_font_size_override("normal_font_size", 10)
 	details.visible = false
+	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for line in detail_lines:
 		var l = str(line)
 		# Rejections get a dim red tint so declined options stand out from
@@ -1117,6 +1208,11 @@ func _trim_old_cards(count: int) -> void:
 		var old_card = _card_container.get_child(0)
 		if old_card in _ai_cards:
 			_ai_cards.erase(old_card)
+		if old_card in _linked_ai_cards:
+			_linked_ai_cards.erase(old_card)
+		if old_card == _pinned_link_card:
+			_pinned_link_card = null
+			_hide_thought_links()
 		_card_container.remove_child(old_card)
 		old_card.queue_free()
 		_card_count -= 1

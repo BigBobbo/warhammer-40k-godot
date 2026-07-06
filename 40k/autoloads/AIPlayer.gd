@@ -1489,11 +1489,12 @@ func _execute_next_action(player: int) -> void:
 	# grouped into a collapsible block headed by the decision description so
 	# the left game log stays readable at high verbosity.
 	var thinking_steps = decision.get("_ai_thinking_steps", [])
+	var thinking_context = decision.get("_ai_thinking_context", {})
 	if thinking_steps.size() == 1:
 		_log_ai_thinking(player, thinking_steps[0])
 	elif thinking_steps.size() > 1:
 		var block_header = decision.get("_ai_description", str(decision.get("type", "decision")))
-		_log_ai_thinking_block(player, "Thinking: %s" % block_header, thinking_steps)
+		_log_ai_thinking_block(player, "Thinking: %s" % block_header, thinking_steps, thinking_context)
 
 	# Collect decision records for AI Gameplay Visualizer export
 	var decision_records = decision.get("_ai_decision_records", [])
@@ -2505,16 +2506,18 @@ func _log_ai_thinking(player: int, text: String) -> void:
 	print("AIPlayer: [THINKING] P%d: %s" % [player, text])
 	DebugLogger.info("AIPlayer thinking: %s" % text, {"player": player})
 
-func _log_ai_thinking_block(player: int, header: String, lines: Array) -> void:
+func _log_ai_thinking_block(player: int, header: String, lines: Array, context: Dictionary = {}) -> void:
 	"""Log one decision's reasoning as a single collapsible block in the game
 	log (header + detail lines), while still streaming individual lines to the
-	bottom-right overlay. Falls back to a plain entry when there are no details."""
+	bottom-right overlay. Falls back to a plain entry when there are no details.
+	`context` (optional) carries board positions of the considered options so
+	the log card can highlight them on the board."""
 	if lines.is_empty():
 		_log_ai_thinking(player, header)
 		return
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log and game_event_log.has_method("add_ai_thinking_block"):
-		game_event_log.add_ai_thinking_block(player, header, lines)
+		game_event_log.add_ai_thinking_block(player, header, lines, context)
 	else:
 		_log_ai_thinking(player, header)
 	# Overlay + stdout still get the full stream, line by line

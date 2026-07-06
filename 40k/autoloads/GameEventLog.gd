@@ -246,15 +246,28 @@ func add_ai_thinking_entry(player: int, text: String) -> void:
 	var prefix = "P%d AI: " % player
 	_add_entry(prefix + text, "ai_thinking")
 
-func add_ai_thinking_block(player: int, header: String, lines: Array) -> void:
+func add_ai_thinking_block(player: int, header: String, lines: Array, context: Dictionary = {}) -> void:
 	"""One AI decision's reasoning as a single block: a headline plus the
 	detail lines (candidates considered, rejections, scores). GameLogPanel
 	renders this as a collapsible AI-thinking card so verbosity doesn't flood
-	the log. The first line of the entry text is the header; the rest are details."""
+	the log. The first line of the entry text is the header; the rest are details.
+	`context` (optional): board-link data — unit position + candidate positions
+	with chosen/rejected flags — letting the card highlight the considered
+	options on the board when hovered/clicked."""
 	var text = "P%d AI: %s" % [player, header]
 	for line in lines:
 		text += "\n" + str(line)
-	_add_entry(text, "ai_thinking_block")
+	entries.append({"text": text, "type": "ai_thinking_block", "context": context})
+	print("[GameEventLog] %s" % text)
+	DebugLogger.info("GameEventLog: %s" % text, {})
+	emit_signal("entry_added", text, "ai_thinking_block")
+
+func get_last_entry_context() -> Dictionary:
+	"""Board-link context of the most recent entry (empty if none). GameLogPanel
+	reads this synchronously from its entry_added handler."""
+	if entries.is_empty():
+		return {}
+	return entries[entries.size() - 1].get("context", {})
 
 func add_info_entry(text: String) -> void:
 	"""Add a general information entry (VP scoring, mission status, CP generation, etc.)."""
