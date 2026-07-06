@@ -12,7 +12,7 @@ const PANEL_WIDTH := 340.0
 const CARD_GAP := 3
 const CARD_CORNER_RADIUS := 5
 const CARD_PADDING := 8
-const MAX_CARDS := 200
+const MAX_CARDS := 300
 
 # --- Entry Categories ---
 enum EntryCategory {
@@ -200,6 +200,14 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 
 func get_toggle_button() -> Button:
 	return _toggle_button
+
+func get_ai_card_count() -> int:
+	"""Live AI thinking cards currently in the panel (scenario assertions)."""
+	var n := 0
+	for c in _ai_cards:
+		if is_instance_valid(c):
+			n += 1
+	return n
 
 # ==========================================================================
 # Card creation — entry point
@@ -626,6 +634,8 @@ func _create_simple_card(text: String, entry_type: String, animate: bool) -> voi
 			card = _make_simple_entry_card(text, entry_type, EntryCategory.OVERWATCH)
 		"ai_thinking":
 			card = _make_simple_entry_card(text, entry_type, EntryCategory.AI_THINKING)
+		"ai_thinking_block":
+			card = _make_ai_thinking_block_card(text)
 		_:
 			card = _make_simple_entry_card(text, entry_type, category)
 
@@ -633,7 +643,7 @@ func _create_simple_card(text: String, entry_type: String, animate: bool) -> voi
 	_card_count += 1
 
 	# Track AI cards for filtering
-	if entry_type == "ai_thinking":
+	if entry_type == "ai_thinking" or entry_type == "ai_thinking_block":
 		_ai_cards.append(card)
 		card.visible = _show_ai_thinking
 
@@ -772,6 +782,81 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 		label.tooltip_text = "Click to expand"
 
 	hbox.add_child(label)
+
+	return card
+
+func _make_ai_thinking_block_card(text: String) -> PanelContainer:
+	"""Collapsible card for one AI decision's verbose reasoning.
+	First line of `text` is the headline; remaining lines are the considered
+	options / rejections, hidden behind a 'considerations' toggle so heavy
+	verbosity stays scannable."""
+	var lines = text.split("\n")
+	var header_text = lines[0] if lines.size() > 0 else text
+	var detail_lines: Array = []
+	for i in range(1, lines.size()):
+		detail_lines.append(lines[i])
+
+	var accent = BORDER_COLORS[EntryCategory.AI_THINKING]
+	var card = PanelContainer.new()
+	card.add_theme_stylebox_override("panel", _make_card_style(Color(0.08, 0.08, 0.11, 0.7), accent, 2))
+	card.custom_minimum_size = Vector2(0, 24)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var card_vbox = VBoxContainer.new()
+	card_vbox.add_theme_constant_override("separation", 2)
+	card.add_child(card_vbox)
+
+	var header_hbox = HBoxContainer.new()
+	header_hbox.add_theme_constant_override("separation", 6)
+	card_vbox.add_child(header_hbox)
+
+	var icon = _create_icon(EntryCategory.AI_THINKING)
+	header_hbox.add_child(icon)
+
+	var header_label = RichTextLabel.new()
+	header_label.bbcode_enabled = true
+	header_label.fit_content = true
+	header_label.scroll_active = false
+	header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_label.add_theme_font_size_override("normal_font_size", 11)
+	header_label.add_theme_font_size_override("bold_font_size", 12)
+	header_label.append_text("[i][color=#8899AA]%s[/color][/i]" % header_text)
+	header_hbox.add_child(header_label)
+
+	if detail_lines.is_empty():
+		return card
+
+	var toggle_btn = Button.new()
+	toggle_btn.text = "  %d considerations…" % detail_lines.size()
+	toggle_btn.add_theme_font_size_override("font_size", 9)
+	toggle_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	toggle_btn.flat = true
+	toggle_btn.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7))
+	toggle_btn.add_theme_color_override("font_hover_color", Color(0.7, 0.8, 0.9))
+	card_vbox.add_child(toggle_btn)
+
+	var details = RichTextLabel.new()
+	details.bbcode_enabled = true
+	details.fit_content = true
+	details.scroll_active = false
+	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	details.add_theme_font_size_override("normal_font_size", 10)
+	details.visible = false
+	for line in detail_lines:
+		var l = str(line)
+		# Rejections get a dim red tint so declined options stand out from
+		# chosen/analysis lines when the block is expanded
+		if l.strip_edges().begins_with("✗") or "rejected" in l.to_lower() or "declined" in l.to_lower() or "holding" in l.to_lower():
+			details.append_text("[color=#A07070]%s[/color]\n" % l)
+		else:
+			details.append_text("[color=#8899AA]%s[/color]\n" % l)
+	card_vbox.add_child(details)
+
+	var detail_count = detail_lines.size()
+	toggle_btn.pressed.connect(func():
+		details.visible = !details.visible
+		toggle_btn.text = ("  hide considerations" if details.visible else "  %d considerations…" % detail_count)
+	)
 
 	return card
 
@@ -917,7 +1002,7 @@ func _categorize_entry_type(entry_type: String) -> int:
 			return EntryCategory.PHASE
 		"p1_action", "p2_action":
 			return EntryCategory.MOVEMENT
-		"ai_thinking":
+		"ai_thinking", "ai_thinking_block":
 			return EntryCategory.AI_THINKING
 		"overwatch":
 			return EntryCategory.OVERWATCH

@@ -462,19 +462,27 @@ The analyzer provides the decision engine with comprehensive unit ability profil
 
 ---
 
-## Secondary Mission Awareness (Hard+)
+## Secondary Mission Awareness (Normal+)
 
-At the start of each turn, the AI analyzes active secondary missions and builds positional bonuses:
+At the start of each turn, the AI analyzes active secondary missions and builds positional bonuses. The full 11e (GDM 2026) 18-card deck is covered, including the seven launch-new cards:
 
-| Mission Type | AI Adjustment |
+| Mission | AI Adjustment |
 |-------------|---------------|
 | Behind Enemy Lines | +7.0 bonus for moving into enemy deployment zone |
 | Engage on All Fronts | +6.0 bonus for spreading to uncovered table quarters |
-| Area Denial | +3.5 bonus for center-of-board positioning |
+| Centre Ground | +3.5 bonus for centre positioning + clears enemies near centre |
+| Forward Position | Enemy-home / expansion objective push |
+| Burden of Trust | Hold-and-stay bias on controlled objectives (scores at end of enemy turn) |
+| Beacon | Pushes a durable unit outside own territory and keeps it alive |
+| Outflank | Sends fast units within 6" of side edges beyond own half |
+| Plunder | Routes a unit toward forward terrain for the Shooting-phase action |
+| A Grievous Blow | +40% kill priority on enemy units with Starting Strength 13+ |
 | Assassination | +2.0 bonus for positioning near enemy CHARACTERs |
 | Bring it Down | +2.0 bonus for positioning near enemy VEHICLEs |
 | Objective missions | +3.5 bonus for objectives in relevant zones |
 | Action missions | Low-firepower units perform actions instead of shooting |
+
+10e-only cards (Area Denial, Storm Hostile Objective, Extend Battle Lines, Cull the Horde, Marked for Death) keep their handlers for the legacy 10e regression harness but cannot be drawn from the 11e deck.
 
 ---
 

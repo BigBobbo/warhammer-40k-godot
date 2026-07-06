@@ -23,9 +23,11 @@ enum Difficulty {
 static func use_random_actions(difficulty: int) -> bool:
 	return difficulty == Difficulty.EASY
 
-# Whether the AI considers stratagems (reactive and proactive)
+# Whether the AI considers stratagems (reactive and proactive).
+# 11e rebalance: stratagems are core to a challenging game, so the default
+# (Normal) difficulty uses them; Easy stays fully random.
 static func use_stratagems(difficulty: int) -> bool:
-	return difficulty >= Difficulty.HARD
+	return difficulty >= Difficulty.NORMAL
 
 # Whether the AI uses multi-phase planning (movement→shooting→charge coordination)
 static func use_multi_phase_planning(difficulty: int) -> bool:
@@ -52,8 +54,10 @@ static func use_weapon_efficiency(difficulty: int) -> bool:
 	return difficulty >= Difficulty.NORMAL
 
 # Whether the AI uses survival assessment for fall-back decisions
+# (Normal+ since the 11e rebalance — falling back out of losing combats is
+# basic competence, not an expert move)
 static func use_survival_assessment(difficulty: int) -> bool:
-	return difficulty >= Difficulty.HARD
+	return difficulty >= Difficulty.NORMAL
 
 # Whether the AI uses screening/deep strike denial positioning
 static func use_screening(difficulty: int) -> bool:
@@ -117,7 +121,7 @@ static func use_overwatch(difficulty: int) -> bool:
 
 # Counter-offensive evaluation — whether AI uses counter-offensive stratagem
 static func use_counter_offensive(difficulty: int) -> bool:
-	return difficulty >= Difficulty.HARD
+	return difficulty >= Difficulty.NORMAL
 
 # --- Display helpers ---
 
@@ -139,9 +143,9 @@ static func difficulty_description(difficulty: int) -> String:
 		Difficulty.EASY:
 			return "Random valid actions — good for learning the game"
 		Difficulty.NORMAL:
-			return "Tactical decisions with standard optimization"
+			return "Tactical decisions with stratagems and mission play"
 		Difficulty.HARD:
-			return "Enhanced tactics with stratagems and coordinated planning"
+			return "Enhanced tactics — multi-phase planning, screening, tighter focus fire"
 		Difficulty.COMPETITIVE:
 			return "Optimal play with look-ahead planning and trade analysis"
 		_:

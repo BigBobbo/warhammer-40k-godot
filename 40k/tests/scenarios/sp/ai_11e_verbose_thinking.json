@@ -1,0 +1,35 @@
+{
+  "id": "ai_11e_verbose_thinking",
+  "covers": [
+    "ai.thinking.verbose_game_log",
+    "ai.thinking.negative_decisions_narrated",
+    "ai.stratagems.command_phase_window",
+    "ui.GameLogPanel.ai_thinking_cards"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "rng_seed": 11,
+  "description": "AI 11e upgrade gate: P2 (Orks, AI at default Normal difficulty) plays its Command phase live. Asserts (a) verbose AI reasoning reaches GameEventLog — including at least one NEGATIVE decision (hold/decline/reject/skip) with its why, (b) the left GameLogPanel actually renders AI thinking cards, (c) the AI drives its faction rules: round 2 means WAAAGH! must be called per its own stated timing rule. Screenshots capture the left panel with the reasoning visible.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})" },
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(1)" },
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "GameState.set_active_player(2)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+
+    { "act": "wait_seconds", "seconds": 3.5 },
+    { "act": "screenshot", "label": "01_ai_command_phase_left_log", "region": [0, 105, 400, 720] },
+
+    { "act": "execute_script", "script": "GameEventLog.count_ai_thinking_entries()", "expect_min": 2 },
+    { "act": "execute_script", "script": "FactionAbilityManager.is_waaagh_active(2)", "equals": true },
+    { "act": "execute_script", "script": "main.game_log_panel.get_ai_card_count()", "expect_min": 1 },
+
+    { "act": "wait_seconds", "seconds": 9.0 },
+    { "act": "screenshot", "label": "02_ai_movement_thinking_blocks", "region": [0, 105, 400, 720] },
+    { "act": "execute_script", "script": "GameEventLog.count_ai_thinking_entries()", "expect_min": 4 },
+    { "act": "execute_script", "script": "GameEventLog.has_ai_entry_containing_any([\"Holding\", \"Declining\", \"declines\", \"rejected\", \"Keeping\", \"Skipping\", \"not worth\", \"Letting\", \"Accepting\", \"passed on\"])", "equals": true },
+    { "act": "execute_script", "script": "main.game_log_panel.get_ai_card_count()", "expect_min": 2 },
+    { "act": "wait_seconds", "seconds": 12.0 },
+    { "act": "screenshot", "label": "03_full_screen_ai_turn" }
+  ]
+}

@@ -669,6 +669,13 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "epic_challenge_opportunity", "callable": callable_ec})
 		print("AIPlayer: Connected to FightPhase.epic_challenge_opportunity")
 
+	# Martial Ka'tah stance selection (Custodes) — AI must respond or the fight stalls
+	if phase.has_signal("katah_stance_required"):
+		var callable_ks = Callable(self, "_on_katah_stance_required")
+		phase.katah_stance_required.connect(callable_ks)
+		_connected_phase_signals.append({"signal_name": "katah_stance_required", "callable": callable_ks})
+		print("AIPlayer: Connected to FightPhase.katah_stance_required")
+
 func _disconnect_phase_stratagem_signals() -> void:
 	"""Disconnect all previously connected phase stratagem signals."""
 	if _current_phase_ref and is_instance_valid(_current_phase_ref):
@@ -708,6 +715,7 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	var decision = AIDecisionMaker.evaluate_reactive_stratagem(
 		defending_player, available_stratagems, target_unit_ids, snapshot
 	)
+	_flush_reactive_thinking(defending_player, "Defensive stratagem window (being shot at)")
 
 	if decision.is_empty():
 		decision = {
@@ -792,6 +800,7 @@ func _on_movement_fire_overwatch_opportunity(defending_player: int, eligible_uni
 	var decision = AIDecisionMaker.evaluate_fire_overwatch(
 		defending_player, eligible_units, enemy_unit_id, snapshot
 	)
+	_flush_reactive_thinking(defending_player, "Fire Overwatch window (enemy moved)")
 
 	decision["player"] = defending_player
 	_submit_reactive_action(defending_player, decision)
@@ -823,6 +832,7 @@ func _on_movement_rapid_ingress_opportunity(defending_player: int, eligible_unit
 
 	var snapshot = GameState.create_snapshot()
 	var decision = AIDecisionMaker.evaluate_rapid_ingress(defending_player, eligible_units, snapshot)
+	_flush_reactive_thinking(defending_player, "Rapid Ingress window (end of enemy movement)")
 
 	if decision.is_empty():
 		decision = {
@@ -1018,6 +1028,7 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 
 	var snapshot = GameState.create_snapshot()
 	var decision = AIDecisionMaker.evaluate_counter_offensive(player, eligible_units, snapshot)
+	_flush_reactive_thinking(player, "Counteroffensive window (enemy just fought)")
 
 	print("AIPlayer: Counter-Offensive decision for player %d — %s" % [player, decision.get("_ai_description", "?")])
 	_submit_reactive_action(player, decision)
@@ -1027,20 +1038,26 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 func _on_epic_challenge_opportunity(unit_id: String, player: int) -> void:
 	"""
 	Called when the FightPhase detects a CHARACTER unit is selected to fight
-	and an Epic Challenge is available. The AI must respond or the game stalls.
-	For now, AI always declines — Epic Challenge is niche and rarely beneficial.
+	and an Epic Challenge is available (11e 15.03: 1 CP, one CHARACTER model's
+	melee weapons gain [PRECISION]). Worth it when an enemy CHARACTER is hiding
+	inside an engaged unit and our melee output can realistically hurt it.
 	"""
 	if not is_ai_player(player):
 		return
 
-	print("AIPlayer: Epic Challenge opportunity for AI player %d, unit %s — declining" % [player, unit_id])
-	var decline = {
-		"type": "DECLINE_EPIC_CHALLENGE",
-		"unit_id": unit_id,
-		"player": player,
-		"_ai_description": "AI declines Epic Challenge for %s" % _get_unit_name(unit_id)
-	}
-	_submit_reactive_action(player, decline)
+	var unit_name = _get_unit_name(unit_id)
+	var snapshot = GameState.create_snapshot()
+	var decision = AIDecisionMaker.evaluate_epic_challenge(player, unit_id, snapshot)
+	_flush_reactive_thinking(player, "Epic Challenge window (%s selected to fight)" % unit_name)
+	if decision.is_empty():
+		decision = {
+			"type": "DECLINE_EPIC_CHALLENGE",
+			"unit_id": unit_id,
+			"player": player,
+			"_ai_description": "AI declines Epic Challenge for %s" % unit_name
+		}
+	decision["player"] = player
+	_submit_reactive_action(player, decision)
 
 # --- Reactive Stratagem: Command Re-roll (any phase) ---
 
@@ -1054,7 +1071,8 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 
 	var total = roll_context.get("total", 0)
 	var min_distance = roll_context.get("min_distance", 99.0)
-	var needed = max(0.0, min_distance - 1.0)  # Subtract engagement range (1")
+	# A charge succeeds when the roll reaches engagement range (2" at 11e, 1" at 10e)
+	var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
 	var ability_name = roll_context.get("ability_name", "ability")
 
 	# Since it's free, always reroll if the roll is insufficient
@@ -1079,6 +1097,24 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 			"_ai_description": "AI declines %s reroll (charge already sufficient)" % ability_name
 		}
 
+	_submit_reactive_action(player, decision)
+
+func _on_katah_stance_required(unit_id: String, player: int) -> void:
+	"""Martial Ka'tah (Custodes): the FightPhase pauses until a stance is
+	selected for the active fighter. Without this handler an AI Custodes
+	fight activation would stall forever."""
+	if not is_ai_player(player):
+		return
+
+	var master_available = false
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr and ability_mgr.has_method("has_master_of_the_stances"):
+		master_available = ability_mgr.has_master_of_the_stances(unit_id)
+
+	var snapshot = GameState.create_snapshot()
+	var decision = AIDecisionMaker.evaluate_katah_stance(player, unit_id, snapshot, master_available)
+	_flush_reactive_thinking(player, "Ka'tah stance (%s activating)" % _get_unit_name(unit_id))
+	decision["player"] = player
 	_submit_reactive_action(player, decision)
 
 func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:
@@ -1112,7 +1148,7 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		"charge_roll":
 			var total = roll_context.get("total", 0)
 			var min_distance = roll_context.get("min_distance", 99.0)
-			var needed = max(0.0, min_distance - 1.0)  # Subtract engagement range (1")
+			var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
 			should_reroll = AIDecisionMaker.evaluate_command_reroll_charge(
 				player, total, int(ceil(needed)), snapshot
 			)
@@ -1132,6 +1168,8 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		_:
 			# Unknown roll type — decline
 			print("AIPlayer: Unknown reroll type '%s' — declining" % roll_type)
+
+	_flush_reactive_thinking(player, "Command Re-roll window (%s)" % roll_type)
 
 	var decision: Dictionary
 	if should_reroll:
@@ -1446,10 +1484,16 @@ func _execute_next_action(player: int) -> void:
 	# Ensure player field is set
 	decision["player"] = player
 
-	# Process any thinking steps returned by the decision maker
+	# Process any thinking steps returned by the decision maker.
+	# A single step logs as a plain line; multiple steps for one decision are
+	# grouped into a collapsible block headed by the decision description so
+	# the left game log stays readable at high verbosity.
 	var thinking_steps = decision.get("_ai_thinking_steps", [])
-	for step in thinking_steps:
-		_log_ai_thinking(player, step)
+	if thinking_steps.size() == 1:
+		_log_ai_thinking(player, thinking_steps[0])
+	elif thinking_steps.size() > 1:
+		var block_header = decision.get("_ai_description", str(decision.get("type", "decision")))
+		_log_ai_thinking_block(player, "Thinking: %s" % block_header, thinking_steps)
 
 	# Collect decision records for AI Gameplay Visualizer export
 	var decision_records = decision.get("_ai_decision_records", [])
@@ -1831,6 +1875,31 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 			return
 		elif result != "staging_failed":
 			break
+
+	# 11e 09.07: a fall back that Ordered Retreat couldn't stage (e.g. the only
+	# way out crosses enemy models) can still work as Desperate Escape — models
+	# may move through enemies at the cost of a hazard roll each. Worth it when
+	# the alternative is staying locked in a losing combat.
+	if move_type == "BEGIN_FALL_BACK" and GameConstants.edition >= 11:
+		var de_unit = GameState.get_unit(unit_id)
+		var de_alive := 0
+		for m in de_unit.get("models", []):
+			if m.get("alive", true):
+				de_alive += 1
+		_log_ai_thinking(player, "%s: Ordered Retreat found no clear path — trying Desperate Escape (through enemies, ~%.1f of %d models at risk to hazard rolls)" % [
+			unit_name, de_alive / 3.0, de_alive])
+		_current_phase_actions += 1
+		var de_begin = NetworkIntegration.route_action({
+			"type": "BEGIN_FALL_BACK",
+			"actor_unit_id": unit_id,
+			"player": player,
+			"payload": {"fall_back_mode": "desperate_escape"}
+		})
+		if de_begin != null and de_begin.get("success", false):
+			var de_result = _try_stage_and_confirm(player, unit_id, destinations, description + " (Desperate Escape)", origin_positions, unit_name)
+			if de_result == "success":
+				print("AIPlayer: Desperate Escape fall back succeeded for %s" % unit_id)
+				return
 
 	# All attempts failed — remain stationary
 	print("AIPlayer: All movement attempts failed for %s, remaining stationary" % unit_id)
@@ -2435,6 +2504,36 @@ func _log_ai_thinking(player: int, text: String) -> void:
 	emit_signal("ai_thinking_step", player, text)
 	print("AIPlayer: [THINKING] P%d: %s" % [player, text])
 	DebugLogger.info("AIPlayer thinking: %s" % text, {"player": player})
+
+func _log_ai_thinking_block(player: int, header: String, lines: Array) -> void:
+	"""Log one decision's reasoning as a single collapsible block in the game
+	log (header + detail lines), while still streaming individual lines to the
+	bottom-right overlay. Falls back to a plain entry when there are no details."""
+	if lines.is_empty():
+		_log_ai_thinking(player, header)
+		return
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log and game_event_log.has_method("add_ai_thinking_block"):
+		game_event_log.add_ai_thinking_block(player, header, lines)
+	else:
+		_log_ai_thinking(player, header)
+	# Overlay + stdout still get the full stream, line by line
+	emit_signal("ai_thinking_step", player, header)
+	print("AIPlayer: [THINKING] P%d: %s" % [player, header])
+	for line in lines:
+		emit_signal("ai_thinking_step", player, str(line))
+		print("AIPlayer: [THINKING] P%d:   %s" % [player, str(line)])
+	DebugLogger.info("AIPlayer thinking block: %s (%d details)" % [header, lines.size()], {"player": player})
+
+func _flush_reactive_thinking(player: int, header: String) -> void:
+	"""Surface reasoning accumulated by AIDecisionMaker.evaluate_* calls that
+	run OUTSIDE decide() (reactive windows: overwatch, heroic intervention,
+	rerolls, reactive stratagems). Without this, the AI's reasoning about
+	opponent-turn decisions — including declines — never reaches the log."""
+	var steps = AIDecisionMaker.take_thinking_steps()
+	if steps.is_empty():
+		return
+	_log_ai_thinking_block(player, header, steps)
 
 const PHASE_DISPLAY_NAMES: Dictionary = {
 	GameStateData.Phase.FORMATIONS: "Formations",

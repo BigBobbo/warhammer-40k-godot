@@ -246,6 +246,16 @@ func add_ai_thinking_entry(player: int, text: String) -> void:
 	var prefix = "P%d AI: " % player
 	_add_entry(prefix + text, "ai_thinking")
 
+func add_ai_thinking_block(player: int, header: String, lines: Array) -> void:
+	"""One AI decision's reasoning as a single block: a headline plus the
+	detail lines (candidates considered, rejections, scores). GameLogPanel
+	renders this as a collapsible AI-thinking card so verbosity doesn't flood
+	the log. The first line of the entry text is the header; the rest are details."""
+	var text = "P%d AI: %s" % [player, header]
+	for line in lines:
+		text += "\n" + str(line)
+	_add_entry(text, "ai_thinking_block")
+
 func add_info_entry(text: String) -> void:
 	"""Add a general information entry (VP scoring, mission status, CP generation, etc.)."""
 	_add_entry(text, "info")
@@ -397,6 +407,32 @@ func _format_dice_rolls(rolls: Array) -> String:
 
 func get_all_entries() -> Array:
 	return entries.duplicate()
+
+func count_entries_of_type(entry_type: String) -> int:
+	"""Count log entries of a given type (e.g. 'ai_thinking', 'ai_thinking_block')."""
+	var n := 0
+	for e in entries:
+		if e.get("type", "") == entry_type:
+			n += 1
+	return n
+
+func count_ai_thinking_entries() -> int:
+	"""All AI reasoning entries — plain lines plus per-decision blocks."""
+	return count_entries_of_type("ai_thinking") + count_entries_of_type("ai_thinking_block")
+
+func has_ai_entry_containing_any(substrings: Array) -> bool:
+	"""True if any AI thinking entry/block contains one of the given substrings.
+	Used by windowed scenarios to assert that negative decisions (holds,
+	declines, rejections) are actually narrated to the player."""
+	for e in entries:
+		var t = e.get("type", "")
+		if t != "ai_thinking" and t != "ai_thinking_block":
+			continue
+		var text = str(e.get("text", ""))
+		for s in substrings:
+			if str(s) in text:
+				return true
+	return false
 
 func clear() -> void:
 	entries.clear()
