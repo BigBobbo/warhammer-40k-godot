@@ -76,6 +76,17 @@ func _kick_off() -> void:
 	GameState.state["meta"]["from_save"] = true
 	GameConstants.edition = 11
 
+	# Both players are AI for the whole game. This must be written into
+	# game_config, not just AIPlayer — engine human-gates (e.g. the 03.03
+	# coherency-removal pause in ScoringPhase) read playerN_type and DEFAULT
+	# to HUMAN, which would stall an unattended game.
+	var meta = GameState.state.get("meta", {})
+	var gc = meta.get("game_config", {})
+	gc["player1_type"] = "AI"
+	gc["player2_type"] = "AI"
+	meta["game_config"] = gc
+	GameState.state["meta"] = meta
+
 	# 2) Deterministic dice
 	if _seed >= 0:
 		var rules = get_node_or_null("/root/RulesEngine")

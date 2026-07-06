@@ -14318,6 +14318,23 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 			action_types_map[t] = []
 		action_types_map[t].append(action)
 
+	# 11e 03.03: out-of-coherency model removal is a MANDATORY gate — nothing
+	# else (including END_TURN) is offered until it resolves. Answer it or the
+	# turn stalls forever (found by the AI-vs-AI benchmark: a fixture without
+	# player types made the engine treat AI units as human-gated here).
+	if action_types_map.has("REMOVE_MODEL_FOR_COHERENCY"):
+		var rm = action_types_map["REMOVE_MODEL_FOR_COHERENCY"][0]
+		var rm_unit = snapshot.get("units", {}).get(rm.get("unit_id", ""), {})
+		var rm_name = rm_unit.get("meta", {}).get("name", rm.get("unit_id", ""))
+		_add_thinking_step("%s is out of coherency — removing %s to satisfy 03.03 (mandatory)" % [
+			rm_name, rm.get("model_id", "?")])
+		return {
+			"type": "REMOVE_MODEL_FOR_COHERENCY",
+			"unit_id": rm.get("unit_id", ""),
+			"model_id": rm.get("model_id", ""),
+			"_ai_description": "Remove %s from %s (out of coherency, 03.03)" % [rm.get("model_id", "?"), rm_name]
+		}
+
 	if action_types_map.has("ACROBATIC_ESCAPE_VANISH"):
 		var ae_action = action_types_map["ACROBATIC_ESCAPE_VANISH"][0]
 		var ae_unit_id = ae_action.get("unit_id", "")
