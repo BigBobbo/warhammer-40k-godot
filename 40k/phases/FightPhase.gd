@@ -3438,6 +3438,31 @@ func get_available_actions() -> Array:
 			})
 	else:
 		log_phase_message("NOT adding SELECT_FIGHTER: active_fighter_id='%s', index=%d, size=%d" % [active_fighter_id, current_fight_index, fight_sequence.size()])
+
+	# ISS-050 / AI-vs-AI benchmark finding: at 11e the sequencer (12.04) is the
+	# selection authority — _validate_select_fighter accepts its candidates even
+	# when the legacy fight_sequence queue is empty (e.g. a Fights-First unit
+	# with no queued fights). If the queue-based branch above offered nothing
+	# while a selection is actually pending, surface the sequencer's candidates
+	# so action-driven players (the AI) can answer instead of hanging.
+	if GameConstants.edition >= 11 and active_fighter_id == "" and sequencer_11e != null:
+		var has_select := false
+		for a in actions:
+			if a.get("type", "") == "SELECT_FIGHTER":
+				has_select = true
+				break
+		if not has_select:
+			var sel_11e = sequencer_11e.next_selection(GameState.state)
+			if not sel_11e.done:
+				for cand_id in sel_11e.candidates:
+					actions.append({
+						"type": "SELECT_FIGHTER",
+						"unit_id": cand_id,
+						"player": sel_11e.player,
+						"description": "Select %s to fight (%s step, 12.04)" % [cand_id, sel_11e.step]
+					})
+				log_phase_message("[11e 12.04] Sequencer offers %d SELECT_FIGHTER candidate(s) for Player %d (%s step)" % [
+					sel_11e.candidates.size(), sel_11e.player, sel_11e.step])
 	
 	# If active fighter is selected, show simple control actions
 	if active_fighter_id != "":
