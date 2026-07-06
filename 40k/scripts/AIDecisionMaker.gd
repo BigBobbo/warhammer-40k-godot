@@ -3293,12 +3293,15 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 				reason = "round 1, %d units in range (alpha strike)" % units_in_range
 
 			if should_waaagh:
+				_add_thinking_step("Calling WAAAGH! — %s (advance+charge, +1 S/A melee, 5+ invuln for the army)" % reason)
 				print("AIDecisionMaker: [WAAAGH] Calling WAAAGH! (%s) — advance+charge, +1 S/A melee, 5+ invuln" % reason)
 				return {
 					"type": "CALL_WAAAGH",
 					"_ai_description": "WAAAGH! — %s" % reason
 				}
 			else:
+				_add_thinking_step("Holding WAAAGH!: round %d with only %d/%d units within ~22\" of the enemy — the buff would be wasted this turn" % [
+					waaagh_round, units_in_range, total_friendly_alive])
 				print("AIDecisionMaker: [WAAAGH] Holding WAAAGH! (round %d, %d/%d units in range — waiting for better timing)" % [
 					waaagh_round, units_in_range, total_friendly_alive])
 
@@ -14266,6 +14269,9 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 		var score = _evaluate_mission_achievability(snapshot, mission, player, battle_round)
 		var mission_name = mission.get("name", "Unknown")
 		print("AIDecisionMaker: [SCORING]   Mission '%s': achievability score = %.1f" % [mission_name, score])
+		_add_thinking_step("Secondary '%s': achievability %.2f %s" % [
+			mission_name, score,
+			"— looks scoreable, keeping" if score >= 0.5 else ("— difficult" if score >= 0.2 else "— close to impossible")])
 
 		if score < worst_mission_score:
 			worst_mission_score = score
@@ -14296,6 +14302,8 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 		for action in discard_actions:
 			if action.get("mission_index") == worst_mission_index:
 				var cp_note = "+1 CP" if can_gain_cp else "+0 CP (cap reached)"
+				_add_thinking_step("Discarding '%s': achievability %.2f < %.2f threshold — trading it for %s" % [
+					worst_mission_name, worst_mission_score, discard_threshold, cp_note])
 				print("AIDecisionMaker: [SCORING] Discarding unachievable mission '%s' (score=%.1f) for %s" % [
 					worst_mission_name, worst_mission_score, cp_note])
 				return {
@@ -14304,6 +14312,9 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 					"_ai_description": "Discard unachievable '%s' (%s)" % [worst_mission_name, cp_note],
 				}
 
+	if worst_mission_name != "":
+		_add_thinking_step("Keeping all secondaries: worst '%s' at %.2f is still above the %.2f discard bar" % [
+			worst_mission_name, worst_mission_score, discard_threshold])
 	print("AIDecisionMaker: [SCORING] All missions are potentially achievable (worst: '%s' score=%.1f), ending turn" % [
 		worst_mission_name if worst_mission_name != "" else "none", worst_mission_score])
 	return {"type": "END_SCORING", "_ai_description": "End Turn"}
@@ -18076,9 +18087,10 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 	- Counter-charger would be outmatched
 	"""
 	var player_cp = _get_player_cp_from_snapshot(snapshot, defending_player)
+	var hi_cp = _get_stratagem_cp_cost("heroic_intervention_11e" if GameConstants.edition >= 11 else "heroic_intervention", 1)
 
-	# Heroic Intervention costs 1 CP (Balance Dataslate v3.3) — need at least 1, prefer 2+
-	if player_cp < 1:
+	if player_cp < hi_cp:
+		_add_thinking_step("Declining Heroic Intervention: %d CP available, costs %d" % [player_cp, hi_cp])
 		return {
 			"type": "DECLINE_HEROIC_INTERVENTION",
 			"player": defending_player,
@@ -18086,10 +18098,7 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 		}
 
 	# Get eligible units from StratagemManager
-	var main_loop = Engine.get_main_loop()
-	var strat_manager_node = null
-	if main_loop and main_loop is SceneTree and main_loop.root:
-		strat_manager_node = main_loop.root.get_node_or_null("/root/StratagemManager")
+	var strat_manager_node = _stratagem_manager()
 	if not strat_manager_node:
 		return {
 			"type": "DECLINE_HEROIC_INTERVENTION",
@@ -18097,9 +18106,16 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 			"_ai_description": "AI declines Heroic Intervention"
 		}
 
-	var eligible_units = strat_manager_node.get_heroic_intervention_eligible_units(
-		defending_player, charging_unit_id, snapshot
-	)
+	# 11e (15.11): the end-of-phase window has its own eligibility (unengaged,
+	# enemy within 12", CHARACTER/WALKER-only for vehicles); 10e keys off the
+	# specific charging unit.
+	var eligible_units: Array = []
+	if GameConstants.edition >= 11 and strat_manager_node.has_method("get_heroic_intervention_eligible_units_11e"):
+		eligible_units = strat_manager_node.get_heroic_intervention_eligible_units_11e(defending_player)
+	else:
+		eligible_units = strat_manager_node.get_heroic_intervention_eligible_units(
+			defending_player, charging_unit_id, snapshot
+		)
 
 	if eligible_units.is_empty():
 		return {
@@ -18154,25 +18170,54 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 			best_unit_id = unit_id
 			best_unit_name = unit_name
 
-	# Use if score is high enough to justify 1 CP (Balance Dataslate v3.3, was 2 CP)
-	# Lower threshold since HI now costs only 1 CP
+	# Use if score is high enough to justify the CP
 	if best_score >= 2.0 and best_unit_id != "":
-		# If CP is tight (exactly 1), only use against very valuable targets
-		if player_cp <= 1 and best_score < 4.0:
+		# If CP is tight (exactly the cost), only use against very valuable targets
+		if player_cp <= hi_cp and best_score < 4.0:
+			_add_thinking_step("Holding Heroic Intervention: %s scores %.1f but it's my last CP — keeping it" % [best_unit_name, best_score])
 			return {
 				"type": "DECLINE_HEROIC_INTERVENTION",
 				"player": defending_player,
 				"_ai_description": "AI declines Heroic Intervention (saving CP)"
 			}
 
-		print("AIDecisionMaker: Heroic Intervention — %s counter-charges (score: %.1f)" % [best_unit_name, best_score])
-		return {
+		var hi_action = {
 			"type": "USE_HEROIC_INTERVENTION",
 			"player": defending_player,
 			"unit_id": best_unit_id,
+			"cp_cost": hi_cp,
 			"_ai_description": "AI uses Heroic Intervention with %s (score: %.1f)" % [best_unit_name, best_score]
 		}
+		# 11e 15.11 mode: LEAP TO DEFEND counter-charges a unit that charged
+		# (12", uncapped roll); INTO THE FRAY reaches any enemy within 6" but
+		# caps the roll at 6. Prefer leap when a charged enemy is close.
+		if GameConstants.edition >= 11:
+			var best_unit = snapshot.get("units", {}).get(best_unit_id, {})
+			var enemies_hi = _get_enemy_units(snapshot, defending_player)
+			var charged_close = false
+			var any_close = false
+			for eid in enemies_hi:
+				var e = enemies_hi[eid]
+				if _get_alive_models(e).is_empty():
+					continue
+				var d = _get_closest_model_distance_inches(best_unit, e)
+				if d <= 6.0:
+					any_close = true
+				if e.get("flags", {}).get("charged_this_turn", false) and d <= 12.0:
+					charged_close = true
+			var hi_mode = "leap_to_defend" if charged_close else ("into_the_fray" if any_close else "leap_to_defend")
+			hi_action["mode"] = hi_mode
+			_add_thinking_step("Heroic Intervention with %s: mode %s (%s)" % [
+				best_unit_name, hi_mode,
+				"a charger is within 12\"" if hi_mode == "leap_to_defend" else "enemy within 6\", roll capped at 6"])
+		else:
+			_add_thinking_step("Heroic Intervention: %s counter-charges (score %.1f)" % [best_unit_name, best_score])
 
+		print("AIDecisionMaker: Heroic Intervention — %s counter-charges (score: %.1f)" % [best_unit_name, best_score])
+		return hi_action
+
+	if best_unit_id != "":
+		_add_thinking_step("Declining Heroic Intervention: best counter-charger %s scores %.1f < 2.0" % [best_unit_name, best_score])
 	return {
 		"type": "DECLINE_HEROIC_INTERVENTION",
 		"player": defending_player,
@@ -18239,29 +18284,37 @@ static func evaluate_command_reroll_charge(player: int, rolled_distance: int, re
 	- The charging unit is important (character, elite unit)
 	"""
 	if rolled_distance >= required_distance:
+		_add_thinking_step("Charge roll %d already reaches the %d\" needed — no re-roll" % [rolled_distance, required_distance])
 		return false  # Charge already succeeded — no need to reroll
 
-	var gap = required_distance - rolled_distance
-	# Probability of rolling required on 2D6:
-	# 2D6 average = 7, so if we need 7+ the chance is ~58.3%
-	# Need 8+ = ~41.7%, 9+ = ~27.8%, 10+ = ~16.7%, 11+ = ~8.3%, 12 = ~2.8%
+	var reroll_chance = _charge_success_probability(float(required_distance)) * 100.0
 	# Don't reroll if we need 11+ (too unlikely)
 	if required_distance > 10:
+		_add_thinking_step("Failed charge (%d vs %d\") — re-roll only succeeds %.0f%% of the time; keeping the CP" % [
+			rolled_distance, required_distance, reroll_chance])
 		return false
 
+	var gap = required_distance - rolled_distance
 	# If the roll was close to required (within 2), always reroll
 	if gap <= 2 and required_distance <= 9:
+		_add_thinking_step("Command Re-roll on the charge: rolled %d, need %d — %.0f%% to make it on the re-roll" % [
+			rolled_distance, required_distance, reroll_chance])
 		return true
 
 	# If the roll was terrible (e.g. rolled 3 on 2D6, needed 7), reroll
 	if rolled_distance <= 4 and required_distance <= 9:
+		_add_thinking_step("Command Re-roll on the charge: %d was a bad roll and %d\" is makeable (%.0f%%)" % [
+			rolled_distance, required_distance, reroll_chance])
 		return true
 
 	# For moderate gaps, check CP affordability
 	var player_cp = _get_player_cp_from_snapshot(snapshot, player)
 	if player_cp >= 3 and required_distance <= 9:
-		return true  # We can afford it, take the shot
+		_add_thinking_step("Command Re-roll on the charge: %d CP banked, %.0f%% odds — taking the shot" % [player_cp, reroll_chance])
+		return true
 
+	_add_thinking_step("Letting the failed charge stand (rolled %d vs %d\"): odds %.0f%% and only %d CP left" % [
+		rolled_distance, required_distance, reroll_chance, player_cp])
 	return false
 
 static func evaluate_command_reroll_battleshock(player: int, roll: int, leadership: int, snapshot: Dictionary) -> bool:
@@ -18273,28 +18326,21 @@ static func evaluate_command_reroll_battleshock(player: int, roll: int, leadersh
 	- The unit needs the test to pass (e.g. holding an objective)
 	- The gap between roll and leadership is small
 	"""
-	if roll <= leadership:
-		return false  # Already passed
+	# Battle-shock passes on 2D6 >= Leadership (engine: _resolve_battle_shock_test)
+	if roll >= leadership:
+		return false  # Already passed — nothing to fix
 
-	var gap = roll - leadership
-	# Re-rolling 2D6: if we need to roll <= leadership, higher leadership = more likely
-	# Leadership 6: need 6 or less = 41.7% on 2D6
-	# Leadership 7: need 7 or less = 58.3%
-	# Leadership 8: need 8 or less = 72.2%
-
-	# Always reroll if leadership is 7+ (good chance of passing)
-	if leadership >= 7:
+	# Chance the re-roll passes: P(2D6 >= Ld)
+	var pass_chance = _charge_success_probability(float(leadership))
+	# Ld 6 → 72%, Ld 7 → 58%, Ld 8 → 42%
+	if pass_chance >= 0.4:
+		_add_thinking_step("Command Re-roll on battle-shock: failed %d vs Ld %d — re-roll passes %.0f%% of the time" % [
+			roll, leadership, pass_chance * 100.0])
 		return true
 
-	# Reroll if the gap is small (within 2)
-	if gap <= 2:
-		return true
-
-	# If leadership is very low (5 or less), don't waste CP
-	if leadership <= 5:
-		return false
-
-	return true
+	_add_thinking_step("Accepting the failed battle-shock (%d vs Ld %d): a re-roll only passes %.0f%% — saving the CP" % [
+		roll, leadership, pass_chance * 100.0])
+	return false
 
 static func evaluate_command_reroll_advance(player: int, advance_roll: int, snapshot: Dictionary) -> bool:
 	"""
@@ -18306,13 +18352,17 @@ static func evaluate_command_reroll_advance(player: int, advance_roll: int, snap
 	"""
 	# Only reroll very low advance rolls — a 1 is the worst possible
 	if advance_roll <= 1:
+		_add_thinking_step("Command Re-roll on the advance: a 1 is the floor — re-rolling can only help")
 		return true
 	if advance_roll <= 2:
 		# Check if CP is plentiful
 		var player_cp = _get_player_cp_from_snapshot(snapshot, player)
 		if player_cp >= 3:
+			_add_thinking_step("Command Re-roll on the advance: rolled %d with %d CP banked — trying for more" % [advance_roll, player_cp])
 			return true
 
+	if advance_roll <= 2:
+		_add_thinking_step("Keeping the advance roll of %d — not worth CP for ~1\" expected gain" % advance_roll)
 	return false
 
 # --- RAPID INGRESS (T7-35 — Reactive, end of opponent's Movement phase) ---
@@ -18491,6 +18541,8 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 
 		var ri_chosen_type = ri_best_result.placement_type
 		var type_label = "Deep Strike" if ri_chosen_type == "deep_strike" else "Strategic Reserves"
+		_add_thinking_step("Rapid Ingress: bringing %s in early via %s (score %.1f) — it arrives before my opponent can screen next turn" % [
+			unit_name, type_label, candidate.score])
 		print("AIDecisionMaker: [RAPID INGRESS] Using Rapid Ingress for %s via %s at (%.0f, %.0f)" % [
 			unit_name, type_label, ri_best_result.centroid.x, ri_best_result.centroid.y])
 		if ri_chosen_type != reserve_type:
@@ -18514,6 +18566,9 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 			"_placement_action": ri_placement_action
 		}
 
+	if not scored_units.is_empty():
+		_add_thinking_step("Declining Rapid Ingress: best reserve unit %s scored %.1f (need ≥ 3.0) — arriving on my own turn is fine" % [
+			scored_units[0].name, scored_units[0].score])
 	print("AIDecisionMaker: [RAPID INGRESS] No suitable unit found — declining")
 	return {"type": "DECLINE_RAPID_INGRESS", "_ai_description": "AI declines Rapid Ingress (no worthwhile targets)"}
 
