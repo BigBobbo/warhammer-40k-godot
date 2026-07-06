@@ -1,0 +1,75 @@
+{
+  "id": "iss065b_plunder_action_11e",
+  "covers": [
+    "rules.secondaries.plunder.action_button",
+    "shooting.perform_secondary_action.plunder"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "11e Plunder card action UX: with Plunder active for P2 and the Warboss teleported into a low ruin wholly inside P1's half (outside P2's territory), selecting the Warboss in the Shooting phase surfaces the 'Plunder ... (5 VP)' Perform Action button. Clicking it gives up shooting, records the completed Plunder with its terrain id, refuses a second Plunder the same turn, and the Scoring phase awards the flat 5 VP.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+    { "act": "execute_script", "script": "SecondaryMissionManager.setup_tactical_deck(2)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"].merge({\"deck\": [], \"active\": [SecondaryMissionManager._create_active_mission(SecondaryMissionManager.SecondaryMissionData.get_mission_by_id(\"plunder\"))]}, true)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"id\"]",
+      "equals": "plunder" },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.apply_state_changes([{\"op\": \"set\", \"path\": \"units.U_WARBOSS_B.models.0.position\", \"value\": Vector2(500, 1000)}])" },
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.append({\"id\": \"ruins_plunder_test\", \"type\": \"ruins\", \"height_category\": \"low\", \"polygon\": PackedVector2Array([Vector2(400, 900), Vector2(600, 900), Vector2(600, 1100), Vector2(400, 1100)])})" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(8)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance._get_secondary_action_options(\"U_WARBOSS_B\").size()",
+      "equals": 1 },
+
+    { "act": "dispatch_action", "action": { "type": "SELECT_SHOOTER", "actor_unit_id": "U_WARBOSS_B" } },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script",
+      "script": "\"Plunder\" in main.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/PerformActionButton\").text",
+      "equals": true },
+    { "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/PerformActionButton",
+      "timeout_s": 4.0 },
+    { "act": "execute_script",
+      "script": "main.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/PerformActionButton\").has_meta(\"action_option\")",
+      "equals": true },
+    { "act": "screenshot", "label": "01_plunder_button_visible" },
+
+    { "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/PerformActionButton",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._active_actions[\"2\"].size()",
+      "equals": 1 },
+    { "act": "execute_script",
+      "script": "str(SecondaryMissionManager._active_actions[\"2\"][0][\"terrain_id\"]) != \"\"",
+      "equals": true },
+    { "act": "expect_state", "path": "units.U_WARBOSS_B.flags.has_shot", "equals": true },
+    { "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance._get_secondary_action_options(\"U_BOYZ_E\").size()",
+      "equals": 0 },
+    { "act": "screenshot", "label": "02_plunder_performed" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(11)" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager.get_secondary_vp(2)",
+      "equals": 5 },
+    { "act": "screenshot", "label": "03_plunder_scored_5vp" }
+  ]
+}

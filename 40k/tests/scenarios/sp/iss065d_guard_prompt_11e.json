@@ -1,0 +1,59 @@
+{
+  "id": "iss065d_guard_prompt_11e",
+  "covers": [
+    "rules.secondaries.burden_of_trust.guard_prompt",
+    "autoloads.SecondaryMissionManager.guards"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "11e Burden of Trust guard selection UX: with the Warboss teleported onto the centre objective, a human P2 draws Burden of Trust — guards auto-assign (Warboss guards obj_center) and, after the drawn-missions review closes, the GuardSelectionDialog offers the per-objective pickers. 'Keep Auto Picks' closes the revision window while keeping the guard map, and guarded scoring counts obj_center while controlled.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.apply_state_changes([{\"op\": \"set\", \"path\": \"units.U_WARBOSS_B.models.0.position\", \"value\": Vector2(880, 1230)}])" },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+    { "act": "execute_script", "script": "SecondaryMissionManager.setup_tactical_deck(2)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"].merge({\"deck\": [\"burden_of_trust\"], \"active\": []}, true)" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "execute_script",
+      "script": "str(SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"].get(\"guards\", {}).get(\"obj_center\", \"\"))",
+      "equals": "U_WARBOSS_B" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"].get(\"guards_prompt_pending\", false)",
+      "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/GuardSelectionDialog", "timeout_s": 5.0 },
+    { "act": "expect_node_visible", "node": "/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_guard_selection_dialog" },
+
+    { "act": "click_node", "node": "/root/GuardSelectionDialog/Content/Actions/KeepAutoGuards", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"].get(\"guards_prompt_pending\", true)",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "str(SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"][\"guards\"].get(\"obj_center\", \"\"))",
+      "equals": "U_WARBOSS_B" },
+
+    { "act": "execute_script", "script": "MissionManager.check_all_objectives()" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._count_guarded_objectives(2, {}, SecondaryMissionManager._player_state[\"2\"][\"active\"][0])",
+      "equals": 1 },
+    { "act": "screenshot", "label": "02_guards_kept_and_counting" }
+  ]
+}

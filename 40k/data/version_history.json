@@ -2,6 +2,19 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.5.0",
+			"date": "2026-07-06",
+			"summary": "11th-edition secondary missions are now fully playable: every card that needs your input asks for it, and every card action has a button.",
+			"changes": [
+				"A Tempting Target fixed: when your AI opponent draws it, YOU now get the objective-selection dialog (the AI used to pick secretly on your behalf). The AI waits at its Command phase until you choose, and picks sensibly when the roles are reversed.",
+				"Beacon: when you draw it you now designate your beacon unit in a new dialog (embarked units included); the chosen unit shows a pulsing cyan beacon badge, and only that unit scores the card.",
+				"Burden of Trust: guards are now real — one distinct unit per objective, auto-assigned each of your turns with a revision dialog; an objective only scores while its guard is alive, in range and you control it.",
+				"Plunder finally has its Shooting-phase action: a unit inside a terrain feature outside your territory shows a 'Plunder … (5 VP)' button (once per turn) — previously the card could never be scored by anyone.",
+				"Cleanse now follows the 11e card: home objectives can't be cleansed, two units cleansing the same marker count once, and a cleanse only completes if you still control the objective at the end of your turn.",
+				"Beacon, Burden of Trust and Defend Stronghold now also score at the end of the fifth battle round for the second player, per their 'whichever comes first' clause."
+			]
+		},
+		{
 			"version": "0.4.0",
 			"date": "2026-07-06",
 			"summary": "The AI now plays for Victory Points by the numbers, and its thinking cards can draw their options on the board.",

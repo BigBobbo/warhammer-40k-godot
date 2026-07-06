@@ -414,6 +414,9 @@ func _process(delta: float) -> void:
 	elif _has_marked_for_death_flag():
 		# Marked for Death pulsing indicator
 		needs_redraw = true
+	elif _has_beacon_flag():
+		# Beacon designation pulsing indicator
+		needs_redraw = true
 	elif _has_performed_action_flag():
 		# Secondary action pulsing indicator
 		needs_redraw = true
@@ -484,6 +487,7 @@ func _draw() -> void:
 			_draw_fought_overlay(classic_radius, base_shape.get_type(), classic_rot)
 			_draw_engaged_overlay(classic_radius)
 			_draw_marked_for_death_indicator(classic_radius)
+			_draw_beacon_indicator(classic_radius)
 			_draw_action_overlay(classic_radius)
 
 	# MA-20: Draw model type colored ring (all styles except letter which handles it separately)
@@ -600,6 +604,9 @@ func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 
 	# --- Layer 7b: Marked for Death target indicator ---
 	_draw_marked_for_death_indicator(radius)
+
+	# --- Layer 7b2: Beacon designation indicator (11e secondary) ---
+	_draw_beacon_indicator(radius)
 
 	# --- Layer 7c: Secondary action indicator ---
 	_draw_action_overlay(radius)
@@ -1048,6 +1055,38 @@ func _draw_marked_for_death_indicator(radius: float) -> void:
 			var label_pos = Vector2(indicator_radius * 0.6, -indicator_radius * 0.6)
 			draw_string(font, label_pos + Vector2(1, 1), "G", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.BLACK)
 			draw_string(font, label_pos, "G", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1.0, 0.8, 0.2))
+
+func _draw_beacon_indicator(radius: float) -> void:
+	"""11e Beacon secondary: cyan pulsing ring + 'B' label on the designated unit."""
+	if not has_meta("unit_id"):
+		return
+	var unit_id = get_meta("unit_id")
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+	if not unit.get("flags", {}).get("beacon", false):
+		return
+
+	var pulse = (sin(_pulse_time * 3.0) + 1.0) / 2.0
+	var indicator_radius = radius + 6.0
+	var alpha_val = 0.45 + pulse * 0.35
+	var ring_color = Color(0.2, 0.9, 1.0, alpha_val)
+	draw_arc(Vector2.ZERO, indicator_radius, 0, TAU, 48, ring_color, 2.0)
+	# Rotating "signal" dot on the ring for a beacon feel
+	var dot_angle = fmod(_pulse_time * 2.0, TAU)
+	var dot_pos = Vector2(cos(dot_angle), sin(dot_angle)) * indicator_radius
+	draw_circle(dot_pos, 3.0, ring_color)
+	var font = ThemeDB.fallback_font
+	if font:
+		var label_pos = Vector2(indicator_radius * 0.6, -indicator_radius * 0.6)
+		draw_string(font, label_pos + Vector2(1, 1), "B", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.BLACK)
+		draw_string(font, label_pos, "B", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.4, 0.95, 1.0))
+
+func _has_beacon_flag() -> bool:
+	if not has_meta("unit_id"):
+		return false
+	var unit = GameState.get_unit(get_meta("unit_id"))
+	return not unit.is_empty() and unit.get("flags", {}).get("beacon", false)
 
 func _draw_selection_ring(radius: float) -> void:
 	var pulse = (sin(_pulse_time * 4.0) + 1.0) / 2.0

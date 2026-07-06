@@ -27,6 +27,7 @@ func setup(opponent: int, objectives: Array) -> void:
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
+	main_container.name = "MainContainer"
 	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
@@ -57,6 +58,7 @@ func _build_ui() -> void:
 
 	# Scroll container for objective list
 	var scroll = ScrollContainer.new()
+	scroll.name = "ObjectiveScroll"
 	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 150)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
@@ -94,6 +96,7 @@ func _populate_objective_list() -> void:
 			pos_text = " (%.0f\", %.0f\")" % [obj_pos.get("x", 0), obj_pos.get("y", 0)]
 
 		var btn = Button.new()
+		btn.name = "Pick_%s" % obj_id
 		btn.text = "%s%s" % [obj_id.replace("obj_", "Objective ").to_upper(), pos_text]
 		btn.custom_minimum_size = Vector2(410, 40)
 		btn.pressed.connect(_on_objective_selected.bind(obj_id))

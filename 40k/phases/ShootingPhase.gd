@@ -744,6 +744,14 @@ func _validate_perform_secondary_action(action: Dictionary) -> Dictionary:
 	if action_name == "":
 		return {"valid": false, "errors": ["Missing action_name in payload"]}
 
+	# 11e Plunder: once per turn, and the unit must be within a terrain area
+	# that is not within the player's territory.
+	if action_name == "Plunder":
+		if _plunder_done_this_turn(get_current_player()):
+			return {"valid": false, "errors": ["Plunder has already been performed this turn (once per turn)"]}
+		if _get_plunder_terrain_for_unit(unit_id, get_current_player()).is_empty():
+			return {"valid": false, "errors": ["Unit is not within a terrain area outside your territory"]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_shoot(action: Dictionary) -> Dictionary:
@@ -1567,6 +1575,11 @@ func _process_perform_secondary_action(action: Dictionary) -> Dictionary:
 			var obj_id = _determine_cleanse_objective(unit_id)
 			if obj_id != "":
 				action_data["objective_id"] = obj_id
+		"Plunder":
+			# Eligibility was checked in _validate_perform_secondary_action.
+			action_data["location"] = "terrain"
+			var terrain = _get_plunder_terrain_for_unit(unit_id, player)
+			action_data["terrain_id"] = terrain.get("id", "")
 
 	# Report action completion to SecondaryMissionManager
 	SecondaryMissionManager.on_action_completed(player, action_data)
@@ -1936,19 +1949,89 @@ func _determine_homer_location(unit_id: String, player: int) -> String:
 	return "other"
 
 func _determine_cleanse_objective(unit_id: String) -> String:
-	"""Find the objective within control range (3\" + 20mm marker base) of a unit's model for Cleanse action. Returns objective id or empty."""
+	"""Find the objective within control range (3\" + 20mm marker base) of a unit's model for Cleanse action. Returns objective id or empty.
+	11e: only NON-HOME objectives are cleansable, and an objective another
+	unit already cleansed this turn is skipped in favour of a fresh one
+	(officially each Cleanse targets one objective; duplicates score nothing)."""
 	var unit = get_unit(unit_id)
 	var objectives = GameState.state.get("board", {}).get("objectives", [])
 	var control_radius = Measurement.inches_to_px(3.78740157)
+	var player = get_current_player()
 
+	var fallback := ""
 	for obj in objectives:
 		var obj_pos = obj.get("position", Vector2.ZERO)
 		if obj_pos == Vector2.ZERO:
 			continue
-		if SecondaryMissionManager._has_model_within_range(unit, obj_pos, control_radius):
-			return obj.get("id", "")
+		var obj_id = str(obj.get("id", ""))
+		if GameConstants.edition >= 11 and _is_home_objective(obj):
+			continue
+		if not SecondaryMissionManager._has_model_within_range(unit, obj_pos, control_radius):
+			continue
+		if _objective_cleansed_this_turn(player, obj_id):
+			if fallback == "":
+				fallback = obj_id
+			continue
+		return obj_id
 
-	return ""
+	return fallback
+
+func _is_home_objective(obj: Dictionary) -> bool:
+	"""A home objective sits in a player's deployment zone (zone 'player1'/'player2')."""
+	return str(obj.get("zone", "")).begins_with("player")
+
+func _objective_cleansed_this_turn(player: int, obj_id: String) -> bool:
+	for action in SecondaryMissionManager._active_actions.get(str(player), []):
+		if action.get("action_name", "") == "Cleanse" and action.get("completed", false) \
+				and str(action.get("objective_id", "")) == obj_id:
+			return true
+	return false
+
+func _plunder_done_this_turn(player: int) -> bool:
+	"""11e Plunder is once per turn."""
+	for action in SecondaryMissionManager._active_actions.get(str(player), []):
+		if action.get("action_name", "") == "Plunder" and action.get("completed", false):
+			return true
+	return false
+
+func _get_plunder_terrain_for_unit(unit_id: String, player: int) -> Dictionary:
+	"""11e Plunder: the unit must be within a terrain area that is NOT within
+	the player's territory (approximated as their board half, matching the
+	Outflank/Beacon territory approximation). Returns the terrain dict or {}."""
+	var unit = get_unit(unit_id)
+	var terrain_mgr = get_node_or_null("/root/TerrainManager")
+	if not terrain_mgr:
+		return {}
+	var territory = SecondaryMissionManager._get_own_territory_rect(player)
+
+	for terrain in terrain_mgr.terrain_features:
+		if terrain.get("type", "") == "barricade":
+			continue  # barricades are obstacles, not terrain areas
+		var polygon: PackedVector2Array = terrain.get("polygon", PackedVector2Array())
+		if polygon.is_empty():
+			continue
+		# "not within your territory": no part of the terrain area inside it
+		if not territory.is_empty():
+			var any_inside := false
+			for p in polygon:
+				if p.x >= territory["min"].x and p.x <= territory["max"].x \
+						and p.y >= territory["min"].y and p.y <= territory["max"].y:
+					any_inside = true
+					break
+			if any_inside:
+				continue
+		# Unit is within the terrain area while any alive model is inside it
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos = model.get("position")
+			if pos == null:
+				continue
+			if pos is Dictionary:
+				pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+			if Geometry2D.is_point_in_polygon(pos, polygon):
+				return terrain
+	return {}
 
 # ── B1: 11e ACTIONS (16.00-16.01) — start a generic action, giving up shooting ──
 
@@ -2084,6 +2167,8 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 
 			"cleanse":
 				# Check if unit has a model within objective control range (3" + 20mm marker base)
+				# 11e: only NON-HOME objectives can be cleansed; prefer one not
+				# already cleansed this turn (each Cleanse targets one objective).
 				var objectives = GameState.state.get("board", {}).get("objectives", [])
 				var control_radius = Measurement.inches_to_px(3.78740157)
 				DebugLogger.info(str("ShootingPhase: Cleanse check - %d objectives, control_radius=%.1fpx, unit=%s" % [objectives.size(), control_radius, unit_id]))
@@ -2093,8 +2178,14 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 					if obj_pos == Vector2.ZERO:
 						DebugLogger.info("ShootingPhase: Cleanse - skipping objective with zero position")
 						continue
-					var in_range = SecondaryMissionManager._has_model_within_range(unit, obj_pos, control_radius)
 					var obj_id = obj.get("id", "unknown")
+					if GameConstants.edition >= 11 and _is_home_objective(obj):
+						DebugLogger.info(str("ShootingPhase: Cleanse - %s is a home objective (11e: non-home only)" % obj_id))
+						continue
+					if _objective_cleansed_this_turn(player, str(obj_id)):
+						DebugLogger.info(str("ShootingPhase: Cleanse - %s already cleansed this turn" % obj_id))
+						continue
+					var in_range = SecondaryMissionManager._has_model_within_range(unit, obj_pos, control_radius)
 					DebugLogger.info(str("ShootingPhase: Cleanse - obj %s at %s, in_range=%s" % [obj_id, obj_pos, in_range]))
 					if in_range:
 						var obj_label = _friendly_objective_name(obj_id)
@@ -2110,6 +2201,26 @@ func _get_secondary_action_options(unit_id: String) -> Array:
 						break  # One cleanse per unit
 				if not found_cleanse:
 					DebugLogger.info(str("ShootingPhase: Cleanse - no objective in range for unit %s" % unit_id))
+
+			"plunder":
+				# 11e Plunder: one unit within a terrain area outside your
+				# territory; once per turn; flat 5 VP at end of your turn.
+				if _plunder_done_this_turn(player):
+					DebugLogger.info("ShootingPhase: Plunder - already performed this turn (once per turn)")
+					continue
+				var terrain = _get_plunder_terrain_for_unit(unit_id, player)
+				if terrain.is_empty():
+					DebugLogger.info(str("ShootingPhase: Plunder - %s is not within an eligible terrain area" % unit_id))
+					continue
+				var terrain_label = str(terrain.get("id", "terrain")).replace("_", " ").capitalize()
+				options.append({
+					"action_name": action_name,
+					"location": "terrain",
+					"description": "Plunder %s (5 VP)" % terrain_label,
+					"mission_id": mission_id,
+					"vp_value": 5,
+					"terrain_id": terrain.get("id", "")
+				})
 
 	return options
 

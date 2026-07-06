@@ -139,6 +139,10 @@ func _ready() -> void:
 		var secondary_mgr = get_node("/root/SecondaryMissionManager")
 		secondary_mgr.when_drawn_requires_interaction.connect(_on_secondary_requires_interaction)
 		print("AIPlayer: Connected to SecondaryMissionManager.when_drawn_requires_interaction")
+		# Resume a paused AI turn as soon as the human resolves an interaction
+		# (Tempting Target objective pick, Beacon designation, MFD targets).
+		if secondary_mgr.has_signal("interaction_resolved"):
+			secondary_mgr.interaction_resolved.connect(_on_secondary_interaction_resolved)
 
 	# Load AI config overrides on startup
 	AIDecisionMaker.load_config_overrides()
@@ -1387,6 +1391,16 @@ func _evaluate_and_act() -> void:
 		_end_ai_thinking()
 		return
 
+	# Pause the AI turn while a secondary-mission when-drawn interaction is
+	# waiting on a HUMAN decision (e.g. AI drew A Tempting Target — the human
+	# opponent must pick the objective before the game moves on). The watchdog
+	# re-evaluates every couple of seconds, and interaction_resolved nudges an
+	# immediate resume when the human confirms their choice.
+	if _human_secondary_interaction_pending():
+		DebugLogger.info("AIPlayer._evaluate_and_act - waiting on human secondary-mission interaction", {})
+		_end_ai_thinking()
+		return
+
 	# Safety check - prevent infinite action loops
 	if _current_phase_actions >= MAX_ACTIONS_PER_PHASE:
 		push_error("AIPlayer: Hit max actions (%d) for current phase! Attempting to end phase." % MAX_ACTIONS_PER_PHASE)
@@ -2283,9 +2297,40 @@ func _on_vp_scored(player: int, points: int, reason: String) -> void:
 		return
 	record_ai_key_moment(player, "Scored %d VP (%s)" % [points, reason])
 
+func _human_secondary_interaction_pending() -> bool:
+	"""True while any when-drawn secondary interaction is waiting on a HUMAN
+	responder — the AI must not advance the game past the decision window."""
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr or not secondary_mgr.has_method("get_pending_interactions"):
+		return false
+	for pending in secondary_mgr.get_pending_interactions():
+		if not is_ai_player(int(pending.get("responder", 0))):
+			return true
+		# Marked for Death resolves in two steps: after an AI opponent picks
+		# alphas, a HUMAN drawer still owes the gamma pick — keep waiting
+		# while the card is pending and any human is involved.
+		if pending.get("interaction_type", "") == "opponent_selects_units" \
+				and not is_ai_player(int(pending.get("player", 0))):
+			return true
+	return false
+
+func _on_secondary_interaction_resolved(_player: int, _mission_id: String) -> void:
+	"""A pending when-drawn interaction was resolved (usually by a human via
+	dialog) — nudge the AI so a turn paused on the interaction gate resumes
+	immediately instead of waiting for the watchdog."""
+	if enabled:
+		_request_evaluation()
+
 func _on_secondary_requires_interaction(player: int, mission_id: String, interaction_type: String, details: Dictionary) -> void:
-	"""Auto-resolve secondary mission interactions for AI players."""
-	# Determine which player needs to respond — it's typically the opponent
+	"""Auto-resolve secondary mission interactions when the deciding player is
+	an AI. The RESPONDER depends on the card:
+	- opponent_selects_objective (A Tempting Target): the DRAWER's OPPONENT picks
+	- opponent_selects_units (Marked for Death): the OPPONENT picks alphas,
+	  then the DRAWER picks the gamma
+	- drawer_selects_unit (Beacon): the DRAWER picks
+	When the responder is HUMAN this handler must NOT resolve anything — the
+	CommandController shows the selection dialog and _evaluate_and_act pauses
+	the AI turn until the human decides."""
 	var opponent = 2 if player == 1 else 1
 	# For AI-vs-AI, the "opponent" is also AI, so auto-resolve regardless
 	if not is_ai_player(player) and not is_ai_player(opponent):
@@ -2301,6 +2346,11 @@ func _on_secondary_requires_interaction(player: int, mission_id: String, interac
 			# Step 1: OPPONENT selects Alpha targets from their own army
 			# Step 2: CARD HOLDER (drawing player) selects Gamma target from remaining opponent units
 			# 'player' here is the DRAWING player. 'opponent' selects from the OPPONENT's army.
+			if not is_ai_player(opponent):
+				# Human opponent picks alphas via the MarkedForDeathDialog —
+				# never steal that choice.
+				print("AIPlayer: Marked for Death drawn by AI P%d — HUMAN opponent P%d selects via dialog (not auto-resolving)" % [player, opponent])
+				return
 			var required_alpha = details.get("alpha_targets", 3)
 			var snapshot = GameState.create_snapshot()
 			var units = snapshot.get("units", {})
@@ -2368,19 +2418,116 @@ func _on_secondary_requires_interaction(player: int, mission_id: String, interac
 				print("AIPlayer: Cannot resolve Marked for Death — no valid targets")
 
 		"opponent_selects_objective":
-			# A Tempting Target — opponent selects an objective in no man's land
-			var objectives = GameState.state.get("board", {}).get("objectives", [])
-			var nml_objectives = []
-			for obj in objectives:
-				if obj.get("zone", "") == "no_mans_land":
-					nml_objectives.append(obj.get("id", ""))
-			if nml_objectives.size() > 0:
-				# Pick randomly
-				var chosen = nml_objectives[randi() % nml_objectives.size()]
+			# A Tempting Target — the DRAWER'S OPPONENT selects an objective in
+			# no man's land. Only auto-resolve when that opponent is an AI; a
+			# human opponent picks via the TemptingTargetDialog and the AI turn
+			# waits on the pending interaction (see _evaluate_and_act gate).
+			if not is_ai_player(opponent):
+				print("AIPlayer: A Tempting Target drawn by AI P%d — HUMAN opponent P%d selects via dialog (not auto-resolving)" % [player, opponent])
+				return
+			var chosen = _pick_tempting_target_objective(player, opponent)
+			if chosen != "":
 				secondary_mgr.resolve_tempting_target(player, chosen)
-				print("AIPlayer: Auto-resolved A Tempting Target for Player %d — objective: %s" % [player, chosen])
+				print("AIPlayer: Auto-resolved A Tempting Target for Player %d — opponent P%d chose objective: %s" % [player, opponent, chosen])
 			else:
 				print("AIPlayer: Cannot resolve A Tempting Target — no NML objectives found")
+
+		"drawer_selects_unit":
+			# 11e Beacon — the DRAWER designates one friendly unit. Only
+			# auto-resolve when the drawer is an AI; a human drawer picks via
+			# the BeaconUnitDialog.
+			if not is_ai_player(player):
+				print("AIPlayer: Beacon drawn by HUMAN P%d — designation via dialog (not auto-resolving)" % player)
+				return
+			var beacon_id = _pick_beacon_unit(player)
+			if beacon_id != "":
+				secondary_mgr.resolve_beacon_unit(player, beacon_id)
+				print("AIPlayer: Auto-resolved Beacon for Player %d — designated %s" % [player, beacon_id])
+			else:
+				print("AIPlayer: Cannot resolve Beacon — no eligible friendly units")
+
+## A Tempting Target: the chooser (the drawer's opponent) wants the objective
+## the DRAWER is least likely to control — prefer markers far from the
+## drawer's units and close to the chooser's own forces.
+func _pick_tempting_target_objective(drawing_player: int, chooser: int) -> String:
+	var objectives = GameState.state.get("board", {}).get("objectives", [])
+	var units = GameState.state.get("units", {})
+	var best_id = ""
+	var best_score = -INF
+	for obj in objectives:
+		if obj.get("zone", "") != "no_mans_land":
+			continue
+		var obj_id = str(obj.get("id", ""))
+		var obj_pos = obj.get("position", null)
+		if obj_id == "" or obj_pos == null:
+			continue
+		if obj_pos is Dictionary:
+			obj_pos = Vector2(obj_pos.get("x", 0), obj_pos.get("y", 0))
+		var drawer_dist = _nearest_unit_distance_px(units, drawing_player, obj_pos)
+		var chooser_dist = _nearest_unit_distance_px(units, chooser, obj_pos)
+		# Far from the drawer, near the chooser; big bonus if the chooser
+		# already controls it (the drawer must wrestle it away).
+		var score = drawer_dist - 0.5 * chooser_dist
+		if MissionManager.objective_control_state.get(obj_id, 0) == chooser:
+			score += Measurement.inches_to_px(24.0)
+		elif MissionManager.objective_control_state.get(obj_id, 0) == drawing_player:
+			score -= Measurement.inches_to_px(24.0)
+		if score > best_score:
+			best_score = score
+			best_id = obj_id
+	return best_id
+
+func _nearest_unit_distance_px(units: Dictionary, player: int, point: Vector2) -> float:
+	var best := INF
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos = model.get("position")
+			if pos == null:
+				continue
+			if pos is Dictionary:
+				pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+			best = minf(best, pos.distance_to(point))
+	return best if best != INF else Measurement.inches_to_px(120.0)
+
+## Beacon: prefer a durable unit that is already outside the AI's deployment
+## zone (immediately worth 3-5 VP), tie-broken by total remaining wounds.
+func _pick_beacon_unit(player: int) -> String:
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return ""
+	var eligible = secondary_mgr.get_beacon_eligible_units(player)
+	if eligible.is_empty():
+		return ""
+	var own_zone = secondary_mgr._get_deployment_zone_polygon(player)
+	var units = GameState.state.get("units", {})
+	var best_id = ""
+	var best_score = -INF
+	for entry in eligible:
+		var unit_id = str(entry.get("unit_id", ""))
+		var unit = units.get(unit_id, {})
+		var wounds_total := 0.0
+		var outside_dz := true
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			wounds_total += float(model.get("current_wounds", model.get("wounds", 1)))
+			var pos = model.get("position")
+			if pos == null:
+				continue
+			if pos is Dictionary:
+				pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+			if not own_zone.is_empty() and Geometry2D.is_point_in_polygon(pos, own_zone):
+				outside_dz = false
+		var score = wounds_total + (100.0 if outside_dz and not entry.get("embarked", false) else 0.0)
+		if score > best_score:
+			best_score = score
+			best_id = unit_id
+	return best_id
 
 # =============================================================================
 # T7-57: Post-Game Performance Summary
