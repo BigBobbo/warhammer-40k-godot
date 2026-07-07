@@ -2,12 +2,22 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
-			"version": "0.6.2",
+			"version": "0.6.3",
 			"date": "2026-07-07",
 			"summary": "Fixed the broken 'missing glyph' icons flanking the SHOOTING PHASE title on the phase-transition banner.",
 			"changes": [
 				"The two icons on either side of 'SHOOTING PHASE' on the phase banner (shown when you End the Movement Phase) rendered as empty boxes containing a code number ('2316') instead of a real symbol. The crosshair character they used isn't included in any of the game's bundled fonts, so it only ever showed up if your operating system happened to provide it — most players saw the missing-glyph box.",
 				"They now use a bundled bullseye/target icon that ships with the game, so the Shooting Phase banner renders correctly everywhere, matching the other phases (Charge, Scoring, etc.)."
+			]
+		},
+		{
+			"version": "0.6.2",
+			"date": "2026-07-07",
+			"summary": "Fixed the AI advancing 'aggressively toward the enemy' but not actually moving — Ork mobs (and any advancing AI unit) now cover ground instead of shuffling in place.",
+			"changes": [
+				"Fixed a bug where an AI unit that Advanced — often an Ork mob after calling a WAAAGH! — would announce it was advancing toward your army, roll the Advance, then barely move (or stay put entirely). After the Advance roll came in, the AI was recomputing its move toward the nearest objective (usually its own home objective, sitting right behind the unit) instead of toward the enemy it had chosen, so a packed mob just collided with itself and never left its deployment.",
+				"AI Advances (and the retry path for any move that gets boxed in) now keep heading in the direction the AI originally picked — toward the enemy, the objective it was grabbing, or away from danger for a Fall Back — and use the full Advance distance rolled.",
+				"This only affected the AI; your own units were never impacted."
 			]
 		},
 		{
