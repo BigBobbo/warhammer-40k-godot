@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.5.2",
+			"date": "2026-07-07",
+			"summary": "The Shooting phase's wound-allocation window now matches the weapon-order window — one consistent gothic look across both.",
+			"changes": [
+				"The 'Allocate Attacks' window (where you order allocation groups before saves are rolled) now wears the same White Dwarf gold-and-red theme as the 'Choose Weapon Order' window: gold-bordered panel, gold section headers, gold-outlined arrow reorder buttons, and a red primary action button.",
+				"Added an 'ALLOCATION ORDER' heading and gold section dividers so the wound window reads the same way the weapon-order window does.",
+				"No behaviour change — only the styling was unified so the two Shooting-phase ordering windows feel like the same UI."
+			]
+		},
+		{
 			"version": "0.5.1",
 			"date": "2026-07-07",
 			"summary": "Movement phase no longer nags you to click 'Confirm Move' — moving on auto-confirms.",

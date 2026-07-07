@@ -1,6 +1,8 @@
 extends Control
 class_name AllocationGroupOverlay
 
+const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+
 ## ISS-045 — the 11e defender allocation UI (core rules 05.03-05.04).
 ## Replaces WoundAllocationOverlay's per-wound click loop at edition ≥ 11:
 ## the defender divides the target into allocation groups ONCE per attack
@@ -77,6 +79,12 @@ func _build_ui() -> void:
 	z_index = 2000  # above the phase banner / HUD (UI_MODAL_Z)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
+	# UI-CONSISTENCY: share the White Dwarf chrome with WeaponOrderDialog and
+	# the other shooting dialogs. The theme cascades to every Button / Label /
+	# OptionButton descendant (including the reorder rows rebuilt later), so the
+	# wound-allocation window reads as the same UI as the weapon-order window.
+	_WhiteDwarfTheme.apply_to_control_theme(self)
+
 	dim = ColorRect.new()
 	dim.name = "Dim"
 	dim.color = Color(0, 0, 0, 0.55)
@@ -91,6 +99,13 @@ func _build_ui() -> void:
 	panel = PanelContainer.new()
 	panel.name = "Panel"
 	panel.custom_minimum_size = Vector2(560, 0)
+	# Gothic gold-bordered parchment-dark panel + inner padding. Content margins
+	# live on the stylebox (not a wrapper node) so the scenario node paths
+	# Panel/VBox/... stay intact.
+	var panel_style = _WhiteDwarfTheme.create_panel_style()
+	panel_style.bg_color = Color(0.1, 0.09, 0.07, 0.97)
+	panel_style.set_content_margin_all(14)
+	panel.add_theme_stylebox_override("panel", panel_style)
 	center.add_child(panel)
 
 	var vbox = VBoxContainer.new()
@@ -102,7 +117,11 @@ func _build_ui() -> void:
 	title.name = "Title"
 	title.text = "Allocate Attacks — %s" % str(save_data.get("target_unit_name", save_data.get("target_unit_id", "")))
 	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
+
+	_WhiteDwarfTheme.add_gold_separator(vbox)
 
 	var info = Label.new()
 	info.name = "Info"
@@ -114,6 +133,8 @@ func _build_ui() -> void:
 		int(save_data.get("wounds_to_save", 0)), dev_txt,
 		int(save_data.get("ap", 0)),
 		str(save_data.get("damage_raw", save_data.get("damage", 1)))]
+	info.add_theme_font_size_override("font_size", 14)
+	info.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	vbox.add_child(info)
 
 	var hint = Label.new()
@@ -121,6 +142,7 @@ func _build_ui() -> void:
 	hint.text = "Declare the allocation order (05.03). Damage is applied lowest save roll → highest against the current group."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size", 13)
+	hint.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	vbox.add_child(hint)
 
 	# 24.28 [PRECISION]: attacker's promotion choice (visibility-gated).
@@ -141,6 +163,17 @@ func _build_ui() -> void:
 		precision_picker.selected = 1  # default: promote the first eligible group
 		vbox.add_child(precision_picker)
 
+	_WhiteDwarfTheme.add_gold_separator(vbox)
+
+	# Section label so the ordered rows read as "FIRING ORDER" does in the
+	# weapon-order window.
+	var order_label = Label.new()
+	order_label.name = "OrderLabel"
+	order_label.text = "ALLOCATION ORDER"
+	order_label.add_theme_font_size_override("font_size", 13)
+	order_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	vbox.add_child(order_label)
+
 	group_list = VBoxContainer.new()
 	group_list.name = "GroupList"
 	group_list.add_theme_constant_override("separation", 4)
@@ -148,19 +181,24 @@ func _build_ui() -> void:
 
 	error_label = Label.new()
 	error_label.name = "ErrorLabel"
-	error_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	error_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_RED)
 	error_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	error_label.text = ""
 	vbox.add_child(error_label)
 
+	_WhiteDwarfTheme.add_gold_separator(vbox)
+
 	confirm_button = Button.new()
 	confirm_button.name = "ConfirmButton"
 	confirm_button.text = "Confirm Order & Roll Saves"
+	confirm_button.custom_minimum_size = Vector2(0, 42)
 	confirm_button.pressed.connect(_on_confirm_pressed)
+	_WhiteDwarfTheme.apply_primary_button(confirm_button)
 	vbox.add_child(confirm_button)
 
 	result_panel = VBoxContainer.new()
 	result_panel.name = "ResultPanel"
+	result_panel.add_theme_constant_override("separation", 8)
 	result_panel.visible = false
 	vbox.add_child(result_panel)
 
@@ -169,12 +207,15 @@ func _build_ui() -> void:
 	result_label.bbcode_enabled = false
 	result_label.fit_content = true
 	result_label.custom_minimum_size = Vector2(520, 0)
+	result_label.add_theme_color_override("default_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	result_panel.add_child(result_label)
 
 	done_button = Button.new()
 	done_button.name = "DoneButton"
 	done_button.text = "Done"
+	done_button.custom_minimum_size = Vector2(0, 42)
 	done_button.pressed.connect(_on_done_pressed)
+	_WhiteDwarfTheme.apply_primary_button(done_button)
 	result_panel.add_child(done_button)
 
 
