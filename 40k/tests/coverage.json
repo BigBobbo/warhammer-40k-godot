@@ -2321,6 +2321,15 @@
       "status": "covered"
     },
     {
+      "id": "ui.main_menu.version_display_bottom",
+      "description": "Main menu version badge + 'What's New' panel are appended at the bottom of the menu VBox (below the Start/Load/Quit ButtonSection), with the panel as the very last child.",
+      "scenarios": [
+        "version_display_at_bottom"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "formations.warlord.supreme_commander",
       "description": "Supreme Commander forces Ghazghkull to be the Warlord: designating a plain Warboss is rejected, Ghazghkull is accepted.",
       "scenarios": [
