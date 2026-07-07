@@ -9522,9 +9522,7 @@ func _show_mission_discard_dialog(active_missions: Array, active_player: int) ->
 		return
 
 	var can_gain_cp = GameState.can_gain_bonus_cp(active_player)
-	var dialog = AcceptDialog.new()
-	dialog.set_script(dialog_script)
-	dialog.setup(active_missions, can_gain_cp)
+	var dialog = dialog_script.create(active_missions, can_gain_cp)
 	dialog.mission_discard_requested.connect(_on_mission_discard_from_dialog.bind(active_player))
 	dialog.end_turn_without_discard.connect(_on_end_scoring_without_discard.bind(active_player))
 	get_tree().root.add_child(dialog)
