@@ -3818,7 +3818,9 @@ func _show_action_choice_dialog(options: Array) -> void:
 
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	# Cap to the viewport so the action's description can't push the buttons
+	# off-screen (see DialogUtils.popup_centered_capped).
+	DialogUtils.popup_centered_capped(dialog)
 
 func _update_burn_objective_button() -> void:
 	"""Show/hide the Burn Objective button for Scorched Earth mission."""

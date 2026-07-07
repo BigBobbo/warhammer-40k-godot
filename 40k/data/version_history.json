@@ -14,6 +14,23 @@
 			]
 		},
 		{
+			"version": "0.6.7",
+			"date": "2026-07-07",
+			"summary": "Fixed a whole family of pop-up windows that could stretch off the bottom of the screen and hide their buttons — the same bug as the Burden of Trust window, across many other prompts.",
+			"changes": [
+				"Several pop-up windows could balloon far taller than the screen (a long description line inside them was mis-measured), pushing their action buttons off the bottom where you couldn't click them. Fixed the secondary-mission prompts (A Tempting Target, Marked for Death, Beacon, Extract Relic, Condemn), the 'Deploy Unit in Transport' window, the out-of-coherency model-removal prompt, the shooting action prompt, the transport firing-deck picker, and more.",
+				"Added a global safety net so ANY pop-up window is automatically kept within the screen and re-centered if it would ever open too tall — its confirm/cancel buttons can no longer end up unreachable. Windows that already fit are left exactly as they were."
+			]
+		},
+		{
+			"version": "0.6.6",
+			"date": "2026-07-07",
+			"summary": "Fixed the Burden of Trust guard-assignment window overflowing off the bottom of the screen so its Confirm / Keep buttons were unreachable.",
+			"changes": [
+				"Burden of Trust (secondary mission): the 'Assign Guards' window no longer stretches thousands of pixels tall and off the bottom of the screen. The dialog is now capped to fit within the view, the objective list scrolls inside it, and the 'Confirm Guards' and 'Keep Auto Picks' buttons stay pinned and visible so you can actually confirm which unit guards which objective."
+			]
+		},
+		{
 			"version": "0.6.5",
 			"date": "2026-07-07",
 			"summary": "Fixed Infantry being wrongly charged an extra 2\" to move through or across Ruins — including the '2\" stuck on even after you move away' bug.",

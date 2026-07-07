@@ -705,7 +705,7 @@ func _show_coherency_removal_dialog(pending: Array) -> void:
 
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_centered_capped(dialog)
 
 func _recheck_coherency_removal() -> void:
 	# After each removal: re-open the dialog while units remain incoherent;
@@ -859,7 +859,7 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_centered_capped(dialog)
 
 func _recheck_card_action() -> void:
 	# After resolve/skip the gate should be down — finish the turn the player
@@ -972,7 +972,7 @@ func _on_acrobatic_escape_vanish_available(unit_id: String, unit_name: String, p
 	dialog.add_child(content)
 
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_centered_capped(dialog)
 
 	# 60-second countdown timer
 	var time_remaining = [60.0]
@@ -1088,7 +1088,7 @@ func _on_end_turn_redeploy_available(unit_id: String, unit_name: String, player:
 	dialog.add_child(content)
 
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_centered_capped(dialog)
 
 	var time_remaining = [60.0]
 	var countdown_timer = Timer.new()

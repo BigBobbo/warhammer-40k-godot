@@ -4769,7 +4769,9 @@ func _show_firing_deck_dialog(transport_id: String) -> void:
 	dialog.models_selected.connect(_on_firing_deck_models_selected.bind(transport_id))
 
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	# Cap to the viewport so the firing-deck instructions can't push the
+	# Confirm button off-screen (see DialogUtils.popup_centered_capped).
+	DialogUtils.popup_centered_capped(dialog)
 
 func _on_firing_deck_models_selected(selected_weapons: Array, transport_id: String) -> void:
 	"""Handle selection of weapons from embarked units for firing deck"""

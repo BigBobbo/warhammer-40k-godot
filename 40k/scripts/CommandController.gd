@@ -1294,7 +1294,9 @@ func _show_condemn_dialog(pending: Dictionary, player: int) -> void:
 
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	# Cap to the viewport so the dynamic Punishment description can't push the
+	# confirm/skip buttons off-screen (see DialogUtils.popup_centered_capped).
+	DialogUtils.popup_centered_capped(dialog)
 
 # ============================================================================
 # 11e GDM EXTRACT RELIC / LOCATE AND DENY — MARKER SETUP CHOICE
@@ -1449,7 +1451,9 @@ func _show_relic_setup_dialog(pending: Dictionary, player: int) -> void:
 
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	# Cap to the viewport so the relic description can't push the confirm/skip
+	# buttons off-screen (see DialogUtils.popup_centered_capped).
+	DialogUtils.popup_centered_capped(dialog)
 
 func _on_mission_drawn(player: int, mission_id: String) -> void:
 	"""Handle SecondaryMissionManager mission_drawn signal — rebuild the secondary missions UI."""
@@ -1522,7 +1526,7 @@ func _show_marked_for_death_dialog(drawing_player: int, opponent: int, details: 
 	dialog.setup(drawing_player, opponent, opponent_units, details)
 	dialog.marked_for_death_resolved.connect(_on_marked_for_death_resolved.bind(drawing_player))
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_centered_capped(dialog)
 	print("CommandController: Marked for Death dialog shown — P%d (opponent) selects Alpha, P%d (card holder) selects Gamma" % [opponent, drawing_player])
 
 func _on_marked_for_death_resolved(alpha_targets: Array, gamma_target: String, drawing_player: int) -> void:
@@ -1571,7 +1575,7 @@ func _on_ai_alpha_targets_selected(drawing_player: int, alpha_targets: Array, el
 	dialog.setup_gamma_only(drawing_player, opponent, all_opponent_units, alpha_targets)
 	dialog.marked_for_death_resolved.connect(_on_marked_for_death_resolved.bind(drawing_player))
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_centered_capped(dialog)
 	print("CommandController: Marked for Death gamma-only dialog shown for P%d (card holder)" % drawing_player)
 
 func _show_tempting_target_dialog(drawing_player: int, opponent: int, details: Dictionary) -> void:
@@ -1603,7 +1607,7 @@ func _show_tempting_target_dialog(drawing_player: int, opponent: int, details: D
 	dialog.setup(opponent, nml_objectives)
 	dialog.tempting_target_resolved.connect(_on_tempting_target_resolved.bind(drawing_player))
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_centered_capped(dialog)
 	print("CommandController: A Tempting Target dialog shown for player %d to select objective" % opponent)
 
 func _on_tempting_target_resolved(objective_id: String, drawing_player: int) -> void:
@@ -1703,7 +1707,7 @@ func _show_beacon_dialog(drawing_player: int) -> void:
 	# and the prompt reopens on the next Command phase entry.
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+	DialogUtils.popup_centered_capped(dialog)
 	print("CommandController: Beacon designation dialog shown for player %d (%d eligible units)" % [drawing_player, eligible.size()])
 
 # ============================================================================
@@ -1771,7 +1775,11 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 
 	var scroll = ScrollContainer.new()
 	scroll.name = "ObjectiveScroll"
-	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 220)
+	# Keep a modest minimum so the objective list can shrink (and the fixed
+	# Confirm / Keep buttons stay on-screen) when the dialog is capped to a
+	# small viewport; SIZE_EXPAND_FILL still grows it on roomier screens.
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 160)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var rows = VBoxContainer.new()
 	rows.name = "ObjectiveRows"
@@ -1874,7 +1882,16 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
+
+	# Cap the dialog to the viewport so the Confirm / Keep buttons can never be
+	# pushed off the bottom of the screen. The autowrap description Label reports
+	# a very tall minimum height during the initial popup_centered() (before it
+	# has been laid out to a width), which previously sized the AcceptDialog
+	# window to thousands of pixels tall and scrolled the action buttons
+	# off-screen — the player could see the objective pickers but had no way to
+	# confirm. Height grows with the objective count but never past 90% of the
+	# viewport; the inner ObjectiveScroll absorbs any overflow.
+	DialogUtils.popup_centered_capped(dialog, DialogConstants.MEDIUM, 230.0 + float(objectives.size()) * 40.0)
 	print("CommandController: Burden of Trust guard dialog shown for player %d (%d objectives)" % [player, objectives.size()])
 
 
