@@ -6467,7 +6467,12 @@ func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: 
 	var penalty = 0.0
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if terrain_manager and terrain_manager.has_method("calculate_movement_terrain_penalty"):
-		penalty += float(terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false))
+		# Pass the unit's keywords so INFANTRY (and anything that can move through
+		# the piece) are not charged the ruins/difficult-ground penalty — 10e: they
+		# move through walls/floors freely. FLY is already handled above.
+		var _mv_unit = get_unit(unit_id) if unit_id != "" else {}
+		var _mv_keywords = _mv_unit.get("meta", {}).get("keywords", []) if not _mv_unit.is_empty() else []
+		penalty += float(terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false, _mv_keywords))
 	# T-103: multi-floor vertical climb cost.
 	penalty += _get_vertical_climb_cost(from_pos, to_pos, unit_id)
 	if penalty > 0.0:
