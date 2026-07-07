@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.6.9",
+			"date": "2026-07-07",
+			"summary": "Fixed a shooting entry in the Game Log stretching to almost the full height of the screen instead of showing as a compact line of dice.",
+			"changes": [
+				"When you shot a weapon, the Game Log entry summarising the attack (e.g. 'Telemon Heavy Dreadnought → Boyz … Hit: 7/9 … Wound: 0/7 …') could balloon to nearly the entire height of the log, with the dice icons floating far out to the right and a huge empty gap. The trailing part of the line was being squeezed into a one-character-wide column and wrapped down the whole card.",
+				"These log lines now flow naturally like a sentence — the text wraps across a few lines and the dice icons sit inline exactly where the rolls happened, so the entry is a tidy, compact card.",
+				"Both sets of dice on a combined hit-and-wound line now render as icons (previously only the hit dice became icons and the wound dice stayed as raw '[2, 2, 3, …]' numbers), each coloured against its own target — the hit dice vs the hit roll needed and the wound dice vs the wound roll needed."
+			]
+		},
+		{
 			"version": "0.6.8",
 			"date": "2026-07-07",
 			"summary": "Fixed the Fight phase 'Pile In' and 'Consolidate' step windows opening as a giant blacked-out box instead of showing the unit picker.",
