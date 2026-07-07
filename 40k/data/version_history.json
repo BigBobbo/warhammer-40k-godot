@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.6.2",
+			"date": "2026-07-07",
+			"summary": "Fixed the broken 'missing glyph' icons flanking the SHOOTING PHASE title on the phase-transition banner.",
+			"changes": [
+				"The two icons on either side of 'SHOOTING PHASE' on the phase banner (shown when you End the Movement Phase) rendered as empty boxes containing a code number ('2316') instead of a real symbol. The crosshair character they used isn't included in any of the game's bundled fonts, so it only ever showed up if your operating system happened to provide it — most players saw the missing-glyph box.",
+				"They now use a bundled bullseye/target icon that ships with the game, so the Shooting Phase banner renders correctly everywhere, matching the other phases (Charge, Scoring, etc.)."
+			]
+		},
+		{
 			"version": "0.6.1",
 			"date": "2026-07-07",
 			"summary": "Charge phase overhaul: no more false 'charge failed' verdicts near ruins, plus a batch of charge bug fixes.",
