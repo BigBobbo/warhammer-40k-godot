@@ -680,12 +680,16 @@ func line_has_dice_array(text: String) -> bool:
 	return _dice_regex.search(text) != null
 
 func _build_dice_aware_line(text: String, color_hex: String, normal_size: int, bold_size: int) -> Control:
-	"""Generic builder shared by combat details and simple cards. A line with a
-	dice array renders as [prefix label][grouped DiceRowVisual][suffix label];
-	otherwise it renders as a single styled label. Keyword highlighting and the
-	supplied text color/font size are applied to the surrounding text either way."""
-	var dice_match = _dice_regex.search(text)
-	if dice_match == null:
+	"""Generic builder shared by combat details and simple cards. A line WITHOUT a
+	dice array renders as one wrapping styled label. A line WITH one or more dice
+	arrays renders as an HFlowContainer that flows the surrounding words together
+	with inline dice icons, wrapping to the panel width.
+
+	Flowing word-sized cells (rather than a rigid [prefix][dice][suffix] HBox) is
+	what keeps a long combined shooting summary — e.g. "… Hit: 7/9 [rolls] vs 3+ -
+	Wound: 0/7 [rolls] vs 4+" — from starving a trailing autowrap label down into a
+	~1px-wide, full-card-height skyscraper column."""
+	if _dice_regex.search(text) == null:
 		var label := RichTextLabel.new()
 		label.bbcode_enabled = true
 		label.fit_content = true
@@ -696,20 +700,98 @@ func _build_dice_aware_line(text: String, color_hex: String, normal_size: int, b
 		label.append_text("[color=%s]%s[/color]" % [color_hex, _highlight_keywords(text)])
 		return label
 
-	# Split the line around the dice array: [prefix] [dice icons] [suffix]
-	var threshold := _extract_threshold(text)
-	var prefix_text := text.substr(0, dice_match.get_start()).strip_edges()
-	var suffix_text := text.substr(dice_match.get_end()).strip_edges()
+	var flow := HFlowContainer.new()
+	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	flow.add_theme_constant_override("h_separation", 4)
+	flow.add_theme_constant_override("v_separation", 3)
 
-	var rolls := []
-	for d in dice_match.get_string(1).split(","):
-		var dval := d.strip_edges()
-		if dval != "":
-			rolls.append(int(dval))
+	var matches := _dice_regex.search_all(text)
+	var cursor := 0
+	for i in range(matches.size()):
+		var m: RegExMatch = matches[i]
+		_flow_append_text(flow, text.substr(cursor, m.get_start() - cursor), color_hex, normal_size)
 
-	var prefix_bbcode := "[color=%s]%s[/color]" % [color_hex, _highlight_keywords(prefix_text)] if prefix_text != "" else ""
-	var suffix_bbcode := "[color=%s]%s[/color]" % [color_hex, _highlight_keywords(suffix_text)] if suffix_text != "" else ""
-	return _make_dice_row(prefix_bbcode, rolls, threshold, threshold > 0, suffix_bbcode, normal_size, bold_size)
+		var rolls := []
+		for d in m.get_string(1).split(","):
+			var dval := d.strip_edges()
+			if dval != "":
+				rolls.append(int(dval))
+		if not rolls.is_empty():
+			# Colour each array by the threshold in its own clause (the window
+			# between the previous and next arrays), so hit dice use the hit target
+			# and wound dice the wound target on a combined summary line.
+			var win_start: int = 0 if i == 0 else matches[i - 1].get_end()
+			var win_end: int = text.length() if i == matches.size() - 1 else matches[i + 1].get_start()
+			var thr := _threshold_in_window(text, win_start, win_end)
+			var dice := DiceRowVisualScript.new()
+			dice.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			dice.set_dice(rolls, thr, thr > 0)
+			flow.add_child(dice)
+		cursor = m.get_end()
+	_flow_append_text(flow, text.substr(cursor), color_hex, normal_size)
+	return flow
+
+# Keyword highlight colours, longest phrase first so multi-word phrases win over
+# their sub-words. Mirrors _highlight_keywords for the flow-based dice lines.
+const _KEYWORD_COLORS := [
+	["DEVASTATING WOUNDS", "#FF4444"],
+	["DEVASTATING", "#FF4444"],
+	["Lethal Hits", "#FF8844"],
+	["Sustained Hits", "#EEDD44"],
+	["Feel No Pain", "#44CC88"],
+	["Invulnerable Save", "#BB88FF"],
+	["Re-rolls:", "#88BBFF"],
+	["Torrent", "#FF8844"],
+]
+
+func _flow_append_text(flow: HFlowContainer, seg: String, base_color: String, font_size: int) -> void:
+	"""Split a text segment into individual word cells and add them to `flow` so
+	the line can wrap between words. Keyword phrases keep their highlight colour;
+	every other word uses `base_color`. Each cell is DIE_SIZE tall with centred
+	text so words line up vertically with the inline dice icons."""
+	for chunk in _split_keyword_chunks(seg):
+		var chunk_color: String = base_color if chunk[1] == "" else chunk[1]
+		for word in String(chunk[0]).split(" ", false):
+			var lbl := Label.new()
+			lbl.text = word
+			lbl.add_theme_font_size_override("font_size", font_size)
+			lbl.add_theme_color_override("font_color", Color(chunk_color))
+			lbl.custom_minimum_size = Vector2(0, DiceRowVisualScript.DIE_SIZE)
+			lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			flow.add_child(lbl)
+
+func _split_keyword_chunks(seg: String) -> Array:
+	"""Break a segment into [text, color] chunks. Keyword phrases carry their
+	highlight colour; other runs carry "" (meaning: use the caller's base color)."""
+	var chunks := []
+	var buf := ""
+	var i := 0
+	while i < seg.length():
+		var matched := false
+		for kw in _KEYWORD_COLORS:
+			var phrase: String = kw[0]
+			if seg.substr(i, phrase.length()) == phrase:
+				if buf != "":
+					chunks.append([buf, ""])
+					buf = ""
+				chunks.append([phrase, kw[1]])
+				i += phrase.length()
+				matched = true
+				break
+		if not matched:
+			buf += seg[i]
+			i += 1
+	if buf != "":
+		chunks.append([buf, ""])
+	return chunks
+
+func _threshold_in_window(text: String, start: int, end: int) -> int:
+	"""Success threshold token (e.g. 'vs 3+') within [start, end); 0 if none."""
+	var m := _threshold_regex.search(text, start, end)
+	if m:
+		return int(m.get_string(1))
+	return 0
 
 func _finalize_combat_card(text: String, animate: bool) -> void:
 	if _current_combat_card and is_instance_valid(_current_combat_card) and _current_combat_summary_label:
