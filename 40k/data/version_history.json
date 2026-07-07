@@ -2,6 +2,15 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.6.8",
+			"date": "2026-07-07",
+			"summary": "Fixed the Fight phase 'Pile In' and 'Consolidate' step windows opening as a giant blacked-out box instead of showing the unit picker.",
+			"changes": [
+				"When the Fight phase opened, the 'Pile In Step' pop-up (and the end-of-phase 'Consolidate Step' pop-up) could appear as a huge, mostly-black window that filled the screen with no visible content. The window was being stretched to roughly 5,500 pixels tall — far bigger than the screen — because a long description line inside it was mis-measured, and an off-screen-sized window renders as a black rectangle.",
+				"Both windows now size to their content: a compact picker showing the banner, the instructions, the list of eligible units to pile in / consolidate (each as a button), and the 'End Pile In' / 'End Consolidation' button — all visible and clickable."
+			]
+		},
+		{
 			"version": "0.6.7",
 			"date": "2026-07-07",
 			"summary": "Fixed a whole family of pop-up windows that could stretch off the bottom of the screen and hide their buttons — the same bug as the Burden of Trust window, across many other prompts.",
