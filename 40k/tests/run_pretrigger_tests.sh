@@ -54,6 +54,7 @@ TESTS=(
     "tests/test_shooting_visual_broadcast.gd"
     "tests/test_shooting_phase_summary.gd"
     "tests/test_shooting_phase_shortcuts.gd"
+    "tests/test_phase_banner_icons.gd"
     "tests/test_wound_allocation_priority_pulse.gd"
     "tests/test_test_mode_handler_shooting.gd"
     "tests/test_test_mode_handler_command_dedupe.gd"

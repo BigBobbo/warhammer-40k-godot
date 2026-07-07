@@ -1,0 +1,11 @@
+{
+  "id": "shooting_phase_banner_icon",
+  "covers": ["ui.phase_banner.shooting_icon"],
+  "fixture": "shooting_phase",
+  "transition_to_phase": 8,
+  "description": "Regression for the SHOOTING PHASE transition banner icons. The banner used to flank the title with U+2316 (position indicator / crosshair), which is present in NONE of the bundled fonts (Rajdhani, DejaVuSans, NotoColorEmoji) and rendered as a .notdef 'missing glyph' box (a rectangle showing '2316') on any machine whose OS did not happen to supply that glyph. It now uses U+25CE (BULLSEYE), covered by the bundled DejaVuSans, so it renders for every player. This drives the real PhaseManager phase_changed -> Main._on_phase_changed -> show_phase_banner path and asserts the banner is shown with the bundled bullseye icon.",
+  "steps": [
+    { "act": "expect_node_visible", "node": "/root/Main/PhaseTransitionBanner", "timeout_s": 3.0 },
+    { "act": "expect_node_property", "node": "/root/Main/PhaseTransitionBanner/PhaseNameLabel", "property": "text", "equals": "◎  SHOOTING PHASE  ◎" }
+  ]
+}

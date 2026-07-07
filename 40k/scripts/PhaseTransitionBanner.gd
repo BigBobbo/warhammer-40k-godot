@@ -25,7 +25,12 @@ static func _get_phase_display(phase: GameStateData.Phase) -> Dictionary:
 		GameStateData.Phase.FIRST_TURN_ROLLOFF: return {"name": "DETERMINE FIRST TURN", "icon": "\u2684"}
 		GameStateData.Phase.COMMAND: return {"name": "COMMAND PHASE", "icon": "\u2655"}
 		GameStateData.Phase.MOVEMENT: return {"name": "MOVEMENT PHASE", "icon": "\u21C4"}
-		GameStateData.Phase.SHOOTING: return {"name": "SHOOTING PHASE", "icon": "\u2316"}
+		# Icon must exist in a BUNDLED font (Rajdhani + DejaVuSans + NotoColorEmoji).
+		# Do NOT use U+2316 (position indicator): it is in NONE of the bundled fonts
+		# and only renders through an OS system-font fallback, so a player whose OS
+		# lacks it sees a .notdef box (a rectangle showing "2316"). U+25CE (BULLSEYE)
+		# is covered by the bundled DejaVuSans and reads as a target for the shooting phase.
+		GameStateData.Phase.SHOOTING: return {"name": "SHOOTING PHASE", "icon": "\u25ce"}
 		GameStateData.Phase.CHARGE: return {"name": "CHARGE PHASE", "icon": "\u2694"}
 		GameStateData.Phase.FIGHT: return {"name": "FIGHT PHASE", "icon": "\u2620"}
 		GameStateData.Phase.SCORING: return {"name": "SCORING PHASE", "icon": "\u2605"}
@@ -136,6 +141,8 @@ func _ready() -> void:
 
 	# Phase name label (centered, large) — top portion
 	_phase_label = Label.new()
+	# Stable node name so windowed scenarios can assert the rendered title/icons.
+	_phase_label.name = "PhaseNameLabel"
 	_phase_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_phase_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_phase_label.anchor_left = 0.0

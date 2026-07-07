@@ -1238,8 +1238,19 @@ func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: S
 		var enemies = _get_enemies_for_recompute(player, snapshot)
 		var objectives = snapshot.get("board", {}).get("objectives", [])
 
-		# Find the target position from the original decision description
-		var target_pos = _get_target_pos_for_unit(unit, snapshot, objectives)
+		# BUGFIX (orc-waagh-movement-bug): recompute toward the SAME heading the AI
+		# originally chose for this advance — derived from the pre-roll per-model
+		# destinations — NOT the nearest objective. The old _get_target_pos_for_unit()
+		# snapped every advance to the closest objective, which at the start of the
+		# game is the unit's OWN home objective sitting directly behind it. That turned
+		# "advance toward the enemy" into a ~1" shuffle backward that collided with the
+		# unit's own tightly-packed models, so a Boyz blob barely moved (or, when boxed
+		# in, remained stationary) even though the log said it was advancing.
+		var target_pos = _advance_heading_target(unit, decision.get("_ai_model_destinations", {}), actual_move_cap)
+		if target_pos == Vector2.INF:
+			# No usable heading from the original destinations — fall back to the
+			# previous behaviour so a degenerate case still produces some move.
+			target_pos = _get_target_pos_for_unit(unit, snapshot, objectives)
 
 		var new_destinations = AIDecisionMaker._compute_movement_toward_target(
 			unit, unit_id, target_pos, actual_move_cap, snapshot, enemies,
@@ -1274,6 +1285,37 @@ func _get_target_pos_for_unit(unit: Dictionary, snapshot: Dictionary, objectives
 	if parsed_objectives.is_empty():
 		return Vector2.INF
 	return AIDecisionMaker._nearest_objective_pos(centroid, parsed_objectives)
+
+func _advance_heading_target(unit: Dictionary, orig_destinations: Dictionary, move_cap_inches: float) -> Vector2:
+	"""Project a target point far along the heading the AI originally picked for a
+	move, taken from its pre-roll per-model destinations. Recomputing a move toward
+	THIS keeps the unit heading where the AI intended (the enemy it chose to advance
+	on, the objective it was grabbing, or away from danger for a fall back) at the
+	real move cap — instead of snapping to the nearest objective, which is often the
+	unit's own home objective directly behind it. Returns Vector2.INF when no usable
+	heading can be derived so callers can fall back to their previous target."""
+	if orig_destinations.is_empty():
+		return Vector2.INF
+	var origin_centroid = AIDecisionMaker._get_unit_centroid(unit)
+	if origin_centroid == Vector2.INF:
+		return Vector2.INF
+	# Centroid of the original (pre-roll) destinations encodes the intended heading.
+	var dest_sum = Vector2.ZERO
+	var counted = 0
+	for mid in orig_destinations:
+		var d = orig_destinations[mid]
+		if d is Array and d.size() >= 2:
+			dest_sum += Vector2(float(d[0]), float(d[1]))
+			counted += 1
+	if counted == 0:
+		return Vector2.INF
+	var heading = (dest_sum / counted) - origin_centroid
+	if heading.length() < 1.0:
+		return Vector2.INF
+	# Project past the cap so _compute_movement_toward_target uses the full distance
+	# (it clamps the move to min(cap, distance-to-target)).
+	var reach_px = Measurement.inches_to_px(move_cap_inches) + Measurement.inches_to_px(6.0)
+	return origin_centroid + heading.normalized() * reach_px
 
 # --- Submit reactive action ---
 
@@ -1873,7 +1915,13 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 		var snapshot = GameState.create_snapshot()
 		var enemies = _get_enemies_for_recompute(player, snapshot)
 		var parsed_objectives = AIDecisionMaker._get_objectives(snapshot)
-		var target_pos = _get_target_pos_for_unit(unit_fresh, snapshot, parsed_objectives)
+		# Head toward the AI's originally chosen target (from the pre-scale
+		# destinations), not the nearest objective — same fix as the pending-advance
+		# recompute above. Otherwise a failed staging retry drifts the unit toward its
+		# own home objective instead of the enemy/objective it was told to move to.
+		var target_pos = _advance_heading_target(unit_fresh, decision.get("_ai_model_destinations", {}), move_stat)
+		if target_pos == Vector2.INF:
+			target_pos = _get_target_pos_for_unit(unit_fresh, snapshot, parsed_objectives)
 		var scaled_move = move_stat * recompute_scale
 
 		var new_dests = AIDecisionMaker._compute_movement_toward_target(

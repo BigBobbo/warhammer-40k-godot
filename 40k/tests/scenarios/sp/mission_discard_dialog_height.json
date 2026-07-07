@@ -1,0 +1,38 @@
+{
+  "id": "mission_discard_dialog_height",
+  "covers": ["ui.layout.MissionDiscardDialog_fits_content"],
+  "fixture": "co_pretrigger",
+  "disable_ai": true,
+  "description": "The end-of-turn 'Discard for CP?' pop-up (MissionDiscardDialog) must size to its content, not span the screen. Regression guard for the autowrap-Label minimum-height blowup that inflated the dialog to ~2762px tall. Instantiates the real dialog via its create() factory with two secondary missions, pops it up, and asserts the window height stays well under the viewport (would be ~2762px if the bug returns) while remaining tall enough to show its content and staying visible.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "main.get_tree().root.add_child(ResourceLoader.load('res://dialogs/MissionDiscardDialog.gd').create([{'name': 'Storm Hostile Objective', 'category': 'tactical'}, {'name': 'Behind Enemy Lines', 'category': 'tactical'}], true))" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script",
+      "script": "main.get_tree().root.get_node('MissionDiscardDialog').popup_centered()" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "01_discard_dialog" },
+
+    { "act": "execute_script",
+      "script": "main.get_tree().root.get_node('MissionDiscardDialog').visible",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.get_tree().root.get_node('MissionDiscardDialog').size.y",
+      "expect_max": 500 },
+
+    { "act": "execute_script",
+      "script": "main.get_tree().root.get_node('MissionDiscardDialog').size.y",
+      "expect_min": 150 },
+
+    { "act": "execute_script",
+      "script": "main.get_tree().root.get_node('MissionDiscardDialog').size.y < main.get_viewport().get_visible_rect().size.y",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.get_tree().root.get_node('MissionDiscardDialog').free()" }
+  ]
+}
