@@ -42,6 +42,11 @@
       "equals": true },
 
     { "act": "expect_node_visible", "node": "/root/TemptingTargetDialog", "timeout_s": 6.0 },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"TemptingTargetDialog\").position.y >= 0 and (get_tree().root.get_node(\"TemptingTargetDialog\").position.y + get_tree().root.get_node(\"TemptingTargetDialog\").size.y) <= get_tree().root.get_viewport().get_visible_rect().size.y",
+      "equals": true },
+
     { "act": "screenshot", "label": "01_dialog_prompts_human_opponent" },
 
     { "act": "click_node",
