@@ -1,0 +1,45 @@
+{
+  "id": "version_display_at_bottom",
+  "covers": ["ui.main_menu.version_display_bottom"],
+  "description": "Boots the MainMenu scene (no fixture) and asserts the version badge + 'What's New' panel are appended at the BOTTOM of the menu VBox — below the Start/Load/Quit ButtonSection — with the What's New panel as the very last child. Drives the live scene root created by MainMenu._create_version_display().",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script",
+      "script": "main.get_script().resource_path",
+      "equals": "res://scripts/MainMenu.gd" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ScrollContainer/MenuContainer/VersionBadge\").is_visible_in_tree()",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ScrollContainer/MenuContainer/WhatsNewPanel\").is_visible_in_tree()",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main._get_child_index(main.get_node(\"ScrollContainer/MenuContainer\"), \"VersionBadge\") > main._get_child_index(main.get_node(\"ScrollContainer/MenuContainer\"), \"ButtonSection\")",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main._get_child_index(main.get_node(\"ScrollContainer/MenuContainer\"), \"WhatsNewPanel\") > main._get_child_index(main.get_node(\"ScrollContainer/MenuContainer\"), \"ButtonSection\")",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main._get_child_index(main.get_node(\"ScrollContainer/MenuContainer\"), \"WhatsNewPanel\") == main.get_node(\"ScrollContainer/MenuContainer\").get_child_count() - 1",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main._get_child_index(main.get_node(\"ScrollContainer/MenuContainer\"), \"WhatsNewPanel\") == main._get_child_index(main.get_node(\"ScrollContainer/MenuContainer\"), \"VersionBadge\") + 1",
+      "equals": true },
+
+    { "act": "screenshot", "label": "top_no_version" },
+
+    { "act": "execute_script",
+      "script": "main.get_node(\"ScrollContainer\").set_deferred(\"scroll_vertical\", 100000)" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "screenshot", "label": "version_at_bottom" }
+  ]
+}

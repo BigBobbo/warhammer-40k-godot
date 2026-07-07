@@ -223,25 +223,24 @@ func _create_data_attribution_credit() -> void:
 	print("MainMenu: 40kdc data attribution credit added")
 
 func _create_version_display() -> void:
-	"""Show the game version + a summary of the most recent changes near the top
+	"""Show the game version + a summary of the most recent changes at the bottom
 	of the menu. Data comes from res://data/version_history.json via VersionInfo
 	so it can be told at a glance which build is running (e.g. itch.io vs GitHub)."""
 	var menu_container := $ScrollContainer/MenuContainer as VBoxContainer
 	if menu_container == null:
 		return
 
-	var title_idx := _get_child_index(menu_container, "TitleLabel")
-
-	# --- Compact version badge directly under the title ---
+	# --- Compact version badge at the bottom of the menu ---
 	var badge := Label.new()
 	badge.name = "VersionBadge"
 	badge.text = VersionInfo.get_version_badge()
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	badge.add_theme_font_size_override("font_size", 13)
 	badge.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+	# add_child appends to the end of the VBox. Since _create_version_display()
+	# is the last step of _ready(), the version info lands below the
+	# Start/Load/Quit button section, at the very bottom of the menu.
 	menu_container.add_child(badge)
-	if title_idx >= 0:
-		menu_container.move_child(badge, title_idx + 1)
 
 	# --- "What's New" panel listing the latest release summary + changes ---
 	var changes := VersionInfo.get_latest_changes()
@@ -290,13 +289,11 @@ func _create_version_display() -> void:
 		change_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 		vbox.add_child(change_label)
 
+	# Appended after the badge, so the "What's New" panel is the very last
+	# element in the menu, directly below the version badge.
 	menu_container.add_child(panel)
-	# Place the panel just below the version badge, above the first separator.
-	var badge_idx := _get_child_index(menu_container, "VersionBadge")
-	if badge_idx >= 0:
-		menu_container.move_child(panel, badge_idx + 1)
 
-	print("MainMenu: Version display added (%s, %d changes)" % [VersionInfo.get_version(), changes.size()])
+	print("MainMenu: Version display added at bottom (%s, %d changes)" % [VersionInfo.get_version(), changes.size()])
 
 func _apply_theme_to_dynamic_elements() -> void:
 	# Style dynamically created dropdowns and buttons
