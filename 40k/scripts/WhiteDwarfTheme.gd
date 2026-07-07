@@ -138,21 +138,11 @@ static func apply_to_item_list(item_list: ItemList) -> void:
 	item_list.add_theme_stylebox_override("selected", selected_style)
 	item_list.add_theme_stylebox_override("selected_focus", selected_style)
 
-static func apply_to_dialog(dialog: Window) -> void:
-	if not dialog:
-		return
-	# Style the dialog window background and chrome
-	var theme = Theme.new()
-	# Window panel background
-	var panel_style = StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.1, 0.09, 0.07, 0.97)
-	panel_style.border_color = WH_GOLD
-	panel_style.set_border_width_all(2)
-	panel_style.set_corner_radius_all(4)
-	panel_style.set_content_margin_all(10)
-	theme.set_stylebox("embedded_border", "Window", panel_style)
-	# Title font color
-	theme.set_color("title_color", "Window", WH_GOLD)
+# Populate the shared White Dwarf control chrome (buttons, labels, option
+# buttons, separators, item lists) into a Theme. Used by both apply_to_dialog
+# (Window-based AcceptDialogs) and apply_to_control_theme (Control-based
+# overlays) so every modal shares one visual language.
+static func _apply_common_theme_entries(theme: Theme) -> void:
 	# Button styles for dialog buttons (OK, Cancel, etc.)
 	theme.set_stylebox("normal", "Button", create_button_normal())
 	theme.set_stylebox("hover", "Button", create_button_hover())
@@ -192,7 +182,36 @@ static func apply_to_dialog(dialog: Window) -> void:
 	item_selected_style.set_corner_radius_all(2)
 	theme.set_stylebox("selected", "ItemList", item_selected_style)
 	theme.set_stylebox("selected_focus", "ItemList", item_selected_style)
+
+static func apply_to_dialog(dialog: Window) -> void:
+	if not dialog:
+		return
+	# Style the dialog window background and chrome
+	var theme = Theme.new()
+	# Window panel background
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.1, 0.09, 0.07, 0.97)
+	panel_style.border_color = WH_GOLD
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(4)
+	panel_style.set_content_margin_all(10)
+	theme.set_stylebox("embedded_border", "Window", panel_style)
+	# Title font color
+	theme.set_color("title_color", "Window", WH_GOLD)
+	_apply_common_theme_entries(theme)
 	dialog.theme = theme
+
+# Apply the White Dwarf chrome to a Control-based overlay (not a Window).
+# Cascades to every Button / Label / OptionButton / ItemList descendant so a
+# hand-built overlay matches the AcceptDialog-based dialogs without theming
+# each widget individually. Per-widget overrides still win where an accent is
+# wanted (gold headers, primary/red action buttons).
+static func apply_to_control_theme(control: Control) -> void:
+	if not control:
+		return
+	var theme = Theme.new()
+	_apply_common_theme_entries(theme)
+	control.theme = theme
 
 static func apply_to_overlay_panel(panel: PanelContainer) -> void:
 	if not panel:
@@ -200,6 +219,18 @@ static func apply_to_overlay_panel(panel: PanelContainer) -> void:
 	var style = create_panel_style()
 	style.bg_color = Color(0.1, 0.09, 0.07, 0.97)
 	panel.add_theme_stylebox_override("panel", style)
+
+# Shared gold accent separator — a thin translucent-gold bar between sections.
+# Matches the divider used across the shooting dialogs so every modal breaks
+# its sections up the same way.
+static func add_gold_separator(parent: Control) -> void:
+	if not parent:
+		return
+	var sep = ColorRect.new()
+	sep.custom_minimum_size = Vector2(0, 2)
+	sep.color = Color(WH_GOLD.r, WH_GOLD.g, WH_GOLD.b, 0.4)
+	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(sep)
 
 # ── Color Helpers for BBCode ─────────────────────────────────────────
 # Hex color strings for use in RichTextLabel BBCode
