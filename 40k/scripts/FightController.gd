@@ -2022,10 +2022,7 @@ func _on_pile_in_step_required(data: Dictionary) -> void:
 		push_error("Failed to load PileInStepDialog.gd")
 		return
 
-	var dialog = AcceptDialog.new()
-	dialog.set_script(dialog_script)
-	dialog.name = "PileInStepDialog"
-	dialog.setup(data, current_phase)
+	var dialog = dialog_script.create(data, current_phase)
 	dialog.pile_in_unit_chosen.connect(_on_pile_in_step_unit_chosen)
 	dialog.end_pile_in.connect(_on_end_pile_in)
 	get_tree().root.add_child(dialog)
@@ -2085,10 +2082,7 @@ func _on_consolidation_step_required(data: Dictionary) -> void:
 		push_error("Failed to load ConsolidationStepDialog.gd")
 		return
 
-	var dialog = AcceptDialog.new()
-	dialog.set_script(dialog_script)
-	dialog.name = "ConsolidationStepDialog"
-	dialog.setup(data, current_phase)
+	var dialog = dialog_script.create(data, current_phase)
 	dialog.consolidate_unit_chosen.connect(_on_consolidation_unit_chosen)
 	dialog.end_consolidation.connect(_on_end_consolidation)
 	get_tree().root.add_child(dialog)

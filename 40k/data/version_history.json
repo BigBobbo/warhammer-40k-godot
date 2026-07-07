@@ -14,6 +14,25 @@
 			]
 		},
 		{
+			"version": "0.6.9",
+			"date": "2026-07-07",
+			"summary": "Fixed a shooting entry in the Game Log stretching to almost the full height of the screen instead of showing as a compact line of dice.",
+			"changes": [
+				"When you shot a weapon, the Game Log entry summarising the attack (e.g. 'Telemon Heavy Dreadnought → Boyz … Hit: 7/9 … Wound: 0/7 …') could balloon to nearly the entire height of the log, with the dice icons floating far out to the right and a huge empty gap. The trailing part of the line was being squeezed into a one-character-wide column and wrapped down the whole card.",
+				"These log lines now flow naturally like a sentence — the text wraps across a few lines and the dice icons sit inline exactly where the rolls happened, so the entry is a tidy, compact card.",
+				"Both sets of dice on a combined hit-and-wound line now render as icons (previously only the hit dice became icons and the wound dice stayed as raw '[2, 2, 3, …]' numbers), each coloured against its own target — the hit dice vs the hit roll needed and the wound dice vs the wound roll needed."
+			]
+		},
+		{
+			"version": "0.6.8",
+			"date": "2026-07-07",
+			"summary": "Fixed the Fight phase 'Pile In' and 'Consolidate' step windows opening as a giant blacked-out box instead of showing the unit picker.",
+			"changes": [
+				"When the Fight phase opened, the 'Pile In Step' pop-up (and the end-of-phase 'Consolidate Step' pop-up) could appear as a huge, mostly-black window that filled the screen with no visible content. The window was being stretched to roughly 5,500 pixels tall — far bigger than the screen — because a long description line inside it was mis-measured, and an off-screen-sized window renders as a black rectangle.",
+				"Both windows now size to their content: a compact picker showing the banner, the instructions, the list of eligible units to pile in / consolidate (each as a button), and the 'End Pile In' / 'End Consolidation' button — all visible and clickable."
+			]
+		},
+		{
 			"version": "0.6.7",
 			"date": "2026-07-07",
 			"summary": "Fixed a whole family of pop-up windows that could stretch off the bottom of the screen and hide their buttons — the same bug as the Burden of Trust window, across many other prompts.",
