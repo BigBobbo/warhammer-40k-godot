@@ -2,6 +2,18 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.7.0",
+			"date": "2026-07-07",
+			"summary": "The Shooting Phase 'Choose Weapon Order' sequence is now step-by-step and much clearer — it names each weapon, pauses after the hit roll and again after the wound roll, and lets you spend a Command Re-roll on a single die at each pause.",
+			"changes": [
+				"The resolution log is now verbose and readable. Each weapon gets its own header naming the weapon and target (e.g. 'Weapon 1 of 2 — Bolt Rifle → Ork Boyz'), and each step reads 'Rolling to Hit (need 2+): [ 5 4 4 2 ] → 3 hits, 1 miss' then 'Rolling to Wound (need 3+): [ 6 1 5 6 ] → 3 wounds' — instead of a terse summary that never said which weapon fired.",
+				"Sequential resolution now pauses after the hit roll and waits for you to click 'Roll to Wound ▶', then pauses again after the wound roll and waits for 'Continue to Saving Throws ▶'. You can read each result before moving on.",
+				"At each pause you can use the Command Re-roll stratagem (1 CP) on a single die: click a hit die (or a wound die) to re-roll it. It spends 1 CP, is limited to once per phase, and the wound roll is only made after you've finished with the hit roll — so re-rolling a hit correctly changes how many wound dice you roll.",
+				"Fixed the confusing button: after a weapon caused wounds, the only option used to be a bare 'Close' that actually took you to the defender's saving throws. It now reads 'Continue to Saving Throws ▶' so it's clear what happens next.",
+				"This staged flow applies to local/hotseat games; online multiplayer keeps the existing one-shot sequential resolution."
+			]
+		},
+		{
 			"version": "0.6.9",
 			"date": "2026-07-07",
 			"summary": "Fixed a shooting entry in the Game Log stretching to almost the full height of the screen instead of showing as a compact line of dice.",

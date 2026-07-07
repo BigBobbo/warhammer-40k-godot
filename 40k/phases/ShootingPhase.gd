@@ -15,6 +15,7 @@ signal dice_rolled(dice_data: Dictionary)
 signal saves_required(save_data_list: Array)  # For interactive save resolution
 signal weapon_order_required(assignments: Array)  # For weapon ordering when 2+ weapon types
 signal next_weapon_confirmation_required(remaining_weapons: Array, current_index: int, last_weapon_result: Dictionary)  # For sequential resolution pause
+signal shooting_stage_paused(stage: String, info: Dictionary)  # Staged sequential: "hits" or "wounds" pause reached (drives WeaponOrderDialog buttons + Command Re-roll)
 signal reactive_stratagem_opportunity(defending_player: int, available_stratagems: Array, target_unit_ids: Array)  # For opponent reactive stratagems
 signal grenade_result(result: Dictionary)  # For grenade stratagem result display
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)  # For Command Re-roll on save rolls (future expansion)
@@ -387,6 +388,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_apply_saves(action)
 		"CONTINUE_SEQUENCE":  # Continue to next weapon in sequential mode
 			return _validate_continue_sequence(action)
+		"CONTINUE_TO_WOUNDS", "CONTINUE_TO_SAVES", "USE_SHOOTING_REROLL":  # Staged sequential steps
+			return _validate_staged_continue(action)
 		"COMPLETE_SHOOTING_FOR_UNIT":  # Complete shooting after final weapon
 			return _validate_complete_shooting_for_unit(action)
 		"USE_REACTIVE_STRATAGEM":  # Defender uses a reactive stratagem
@@ -486,6 +489,15 @@ func process_action(action: Dictionary) -> Dictionary:
 		"CONTINUE_SEQUENCE":  # Continue to next weapon in sequential mode
 			DebugLogger.info("ShootingPhase: Matched CONTINUE_SEQUENCE")
 			return _process_continue_sequence(action)
+		"CONTINUE_TO_WOUNDS":  # Staged: roll the wound roll for the current weapon
+			DebugLogger.info("ShootingPhase: Matched CONTINUE_TO_WOUNDS")
+			return _staged_continue_to_wounds()
+		"CONTINUE_TO_SAVES":  # Staged: proceed from wound roll to saving throws
+			DebugLogger.info("ShootingPhase: Matched CONTINUE_TO_SAVES")
+			return _staged_continue_to_saves()
+		"USE_SHOOTING_REROLL":  # Staged: Command Re-roll a hit or wound die
+			DebugLogger.info("ShootingPhase: Matched USE_SHOOTING_REROLL")
+			return _process_use_shooting_reroll(action)
 		"COMPLETE_SHOOTING_FOR_UNIT":  # Complete shooting after final weapon
 			DebugLogger.info("ShootingPhase: Matched COMPLETE_SHOOTING_FOR_UNIT")
 			return _process_complete_shooting_for_unit(action)
@@ -2895,7 +2907,7 @@ func _process_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 	DebugLogger.info(str("ShootingPhase: confirmed_assignments before = ", confirmed_assignments))
 
 	# If this is a reorder during sequential resolution, update the weapon_order
-	if is_reorder and resolution_state.get("mode", "") == "sequential":
+	if is_reorder and resolution_state.get("mode", "") in ["sequential", "sequential_staged"]:
 		DebugLogger.info("ShootingPhase: Updating weapon order for remaining weapons")
 		var current_index = resolution_state.get("current_index", 0)
 		var existing_order = resolution_state.get("weapon_order", [])
@@ -2942,15 +2954,25 @@ func _process_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 		DebugLogger.info("========================================")
 		return resolve_result
 	else:
-		# Sequential resolution - resolve one weapon at a time
-		log_phase_message("Starting sequential weapon resolution")
-		DebugLogger.info("ShootingPhase: Starting sequential resolution...")
+		# Sequential resolution - resolve one weapon at a time.
+		# In non-networked play we use the STAGED variant: each weapon rolls to
+		# hit, PAUSES (so the attacker can read the result / use Command Re-roll),
+		# then rolls to wound, PAUSES again, then goes to saves. Networked games
+		# keep the original one-shot "sequential" mode (its saves ack/retry sync
+		# is unchanged) to avoid desync — mirrors how Command Re-roll is host/SP
+		# only elsewhere.
+		var seq_mode = "sequential"
+		if not NetworkManager.is_networked():
+			seq_mode = "sequential_staged"
+		log_phase_message("Starting sequential weapon resolution (%s)" % seq_mode)
+		DebugLogger.info("ShootingPhase: Starting sequential resolution... mode=%s" % seq_mode)
 		resolution_state = {
-			"mode": "sequential",
+			"mode": seq_mode,
 			"weapon_order": weapon_order,
 			"current_index": 0,
 			"completed_weapons": [],
-			"awaiting_saves": false
+			"awaiting_saves": false,
+			"stage": ""
 		}
 		DebugLogger.info(str("ShootingPhase: resolution_state = ", resolution_state))
 
@@ -3065,6 +3087,12 @@ func _resolve_next_weapon() -> Dictionary:
 
 	DebugLogger.info(str("ShootingPhase: Resolving weapon %d of %d: %s" % [current_index + 1, weapon_order.size(), weapon_id]))
 
+	# STAGED sequential resolution (non-networked): roll ONLY the hit roll now and
+	# pause. CONTINUE_TO_WOUNDS rolls the wound roll, CONTINUE_TO_SAVES emits saves.
+	# Command Re-roll can be used at each pause (USE_SHOOTING_REROLL).
+	if resolution_state.get("mode", "") == "sequential_staged":
+		return _staged_roll_hits(current_assignment, weapon_id, current_index)
+
 	# VERBOSE COMBAT LOG: Header BEFORE resolution so dice can display in real-time
 	var _seq_shooter = game_state_snapshot.get("units", {}).get(active_shooter_id, {})
 	var _seq_shooter_name = _seq_shooter.get("meta", {}).get("name", active_shooter_id)
@@ -3159,8 +3187,17 @@ func _resolve_next_weapon() -> Dictionary:
 	resolution_state.last_weapon_target_name = target_unit_name
 	resolution_state.last_weapon_target_id = current_assignment.target_unit_id
 
-	# Check if saves are needed
+	# Check if saves are needed (shared tail — see _finish_weapon_resolution)
 	var save_data_list = result.get("save_data_list", [])
+	return _finish_weapon_resolution(current_assignment, weapon_id, current_index, dice_data, hit_data, wound_data, target_unit_name, save_data_list, result.get("log_text", ""), result.get("hazardous_weapons", []))
+
+# Shared tail for sequential weapon resolution: given a fully-rolled weapon
+# (hit + wound dice already emitted), either pauses for saves (wounds) or for
+# next-weapon confirmation (no wounds). Called by _resolve_next_weapon (fast /
+# non-staged path) AND by the staged re-roll path after the wound stage.
+func _finish_weapon_resolution(current_assignment: Dictionary, weapon_id: String, current_index: int, dice_data: Array, hit_data: Dictionary, wound_data: Dictionary, target_unit_name: String, save_data_list: Array, log_text: String, hazardous_weapons: Array) -> Dictionary:
+	var weapon_order = resolution_state.get("weapon_order", [])
+	# Check if saves are needed
 	DebugLogger.info(str("ShootingPhase: save_data_list.size() = %d" % save_data_list.size()))
 
 	if save_data_list.is_empty():
@@ -3306,7 +3343,7 @@ func _resolve_next_weapon() -> Dictionary:
 
 			return create_result(true, auto_changes, "Sequential weapon resolution complete (remaining targets destroyed)", {
 				"dice": dice_data,
-				"log_text": result.get("log_text", "")
+				"log_text": log_text
 			})
 
 		# Get last weapon result for dialog display
@@ -3332,7 +3369,7 @@ func _resolve_next_weapon() -> Dictionary:
 			"remaining_weapons": remaining_weapons,
 			"last_weapon_result": last_weapon_result,
 			"dice": dice_data,
-			"log_text": result.get("log_text", "")
+			"log_text": log_text
 		})
 
 	# Store save data and trigger interactive saves
@@ -3340,7 +3377,7 @@ func _resolve_next_weapon() -> Dictionary:
 	resolution_state.awaiting_saves = true
 
 	# HAZARDOUS (T2-3): Store hazardous weapon data for post-save resolution
-	pending_hazardous_weapons = result.get("hazardous_weapons", [])
+	pending_hazardous_weapons = hazardous_weapons
 
 	# Add sequence context to save data for WoundAllocationOverlay
 	for save_data in save_data_list:
@@ -3391,8 +3428,296 @@ func _resolve_next_weapon() -> Dictionary:
 	return create_result(true, [], "Awaiting save resolution", {
 		"dice": dice_data,
 		"save_data_list": save_data_list,
-		"log_text": result.get("log_text", "")
+		"log_text": log_text
 	})
+
+
+# ==========================================================================
+# STAGED sequential resolution (non-networked): hit roll -> pause -> wound roll
+# -> pause -> saves, with Command Re-roll (USE_SHOOTING_REROLL) at each pause.
+# ==========================================================================
+
+func _shooting_reroll_available() -> bool:
+	# A staged hit/wound Command Re-roll is offered when the active player has not
+	# already used Command Re-roll this phase and can pay the CP.
+	var sm = get_node_or_null("/root/StratagemManager")
+	if sm == null or not sm.has_method("is_command_reroll_available"):
+		return false
+	var chk = sm.is_command_reroll_available(get_current_player())
+	return chk.get("available", false)
+
+func _extract_staged_hit_wound(dice_data: Array) -> Array:
+	# Pull hit/wound summary dicts out of the emitted to_hit / to_wound blocks so
+	# the completed-weapon record (and NextWeaponDialog summary) show real counts.
+	var hit_data = {}
+	var wound_data = {}
+	for db in dice_data:
+		var ctx = db.get("context", "")
+		if ctx == "to_hit" or ctx == "auto_hit":
+			hit_data = {
+				"rolls": db.get("rolls_raw", []),
+				"modified_rolls": db.get("rolls_modified", []),
+				"successes": db.get("successes", 0),
+				"total": (db.get("rolls_raw", []) as Array).size(),
+				"rerolls": db.get("rerolls", []),
+				"threshold": db.get("threshold", "")
+			}
+		elif ctx == "to_wound":
+			wound_data = {
+				"rolls": db.get("rolls_raw", []),
+				"successes": db.get("successes", 0),
+				"total": (db.get("rolls_raw", []) as Array).size(),
+				"threshold": db.get("threshold", "")
+			}
+	return [hit_data, wound_data]
+
+func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, current_index: int) -> Dictionary:
+	var weapon_order = resolution_state.get("weapon_order", [])
+	var shooter = game_state_snapshot.get("units", {}).get(active_shooter_id, {})
+	var shooter_name = shooter.get("meta", {}).get("name", active_shooter_id)
+	var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
+	var weapon_name = weapon_profile.get("name", weapon_id)
+	var target = get_unit(current_assignment.get("target_unit_id", ""))
+	var target_name = target.get("meta", {}).get("name", current_assignment.get("target_unit_id", ""))
+
+	GameEventLog.add_combat_header("P%d: %s → %s with %s (weapon %d/%d)" % [
+		get_current_player(), shooter_name, target_name, weapon_name, current_index + 1, weapon_order.size()])
+
+	# Verbose progress line that NAMES the weapon and target (Part A).
+	var progress = {
+		"context": "weapon_progress",
+		"message": "Weapon %d of %d — %s → %s" % [current_index + 1, weapon_order.size(), weapon_name, target_name],
+		"weapon_name": weapon_name,
+		"target_name": target_name,
+		"current_index": current_index,
+		"total_weapons": weapon_order.size(),
+		"stage": "hits"
+	}
+	emit_signal("dice_rolled", progress)
+
+	# Roll ONLY the hit roll for this weapon.
+	var shoot_action = {"type": "SHOOT", "actor_unit_id": active_shooter_id, "payload": {"assignments": [current_assignment]}}
+	var rng = RulesEngine.make_rng()
+	var hres = RulesEngine.resolve_shoot_hits(shoot_action, game_state_snapshot, rng)
+	if not hres.get("success", false):
+		DebugLogger.info("ShootingPhase: staged hit roll FAILED: " + str(hres.get("log_text", "")))
+		return create_result(false, [], hres.get("log_text", "Hit resolution failed"))
+
+	pending_one_shot_diffs.append_array(hres.get("one_shot_diffs", []))
+
+	var dice_data = [progress]
+	for db in hres.get("dice", []):
+		dice_log.append(db)
+		emit_signal("dice_rolled", db)
+		dice_data.append(db)
+	log_phase_message(hres.get("log_text", ""))
+	_emit_verbose_combat_log(active_shooter_id, dice_data, [], 0, "sequential_hits")
+
+	# Stash everything the wound / save stages and the re-roll need.
+	resolution_state.stage = "hits_pending"
+	resolution_state.staged_hit_context = hres.get("hit_context", {})
+	resolution_state.staged_assignment = current_assignment
+	resolution_state.staged_weapon_id = weapon_id
+	resolution_state.staged_weapon_name = weapon_name
+	resolution_state.staged_target_name = target_name
+	resolution_state.staged_hazardous = hres.get("hazardous_weapons", [])
+	resolution_state.staged_dice = dice_data
+	resolution_state.staged_wound_context = {}
+	resolution_state.staged_save_data_list = []
+
+	var hc = hres.get("hit_context", {})
+	var can_reroll = _shooting_reroll_available() and not hc.get("is_torrent", false) and not (hc.get("hit_rolls", []) as Array).is_empty()
+
+	# Tell the attacker's dialog we are paused after the hit roll (show a
+	# "Roll to Wound" button + optional per-die Command Re-roll).
+	emit_signal("shooting_stage_paused", "hits", {
+		"weapon_name": weapon_name,
+		"target_name": target_name,
+		"current_index": current_index,
+		"total_weapons": weapon_order.size(),
+		"reroll_available": can_reroll,
+		"hit_rolls": hc.get("hit_rolls", []),
+		"modified_rolls": hc.get("modified_rolls", []),
+		"hits": hc.get("hits", 0)
+	})
+
+	log_phase_message("Weapon %d of %d hit roll complete — awaiting attacker to continue to wound roll" % [current_index + 1, weapon_order.size()])
+	return create_result(true, [], "Weapon %d hits rolled — awaiting continue" % (current_index + 1), {
+		"staged_pause": "hits",
+		"current_weapon_index": current_index,
+		"total_weapons": weapon_order.size(),
+		"weapon_name": weapon_name,
+		"target_name": target_name,
+		"reroll_available": can_reroll,
+		"hit_rolls": hc.get("hit_rolls", []),
+		"hits": hc.get("hits", 0),
+		"dice": dice_data
+	})
+
+func _staged_continue_to_wounds() -> Dictionary:
+	if resolution_state.get("stage", "") != "hits_pending":
+		return create_result(false, [], "Not awaiting continue-to-wounds")
+	var hit_context = resolution_state.get("staged_hit_context", {})
+	var current_assignment = resolution_state.get("staged_assignment", {})
+	var weapon_id = resolution_state.get("staged_weapon_id", "")
+	var target_name = resolution_state.get("staged_target_name", "")
+	var current_index = int(resolution_state.get("current_index", 0))
+	var weapon_order = resolution_state.get("weapon_order", [])
+
+	var rng = RulesEngine.make_rng()
+	var wres = RulesEngine.resolve_shoot_wounds(hit_context, game_state_snapshot, rng)
+
+	var dice_data = (resolution_state.get("staged_dice", []) as Array).duplicate()
+	for db in wres.get("dice", []):
+		dice_log.append(db)
+		emit_signal("dice_rolled", db)
+		dice_data.append(db)
+	resolution_state.staged_dice = dice_data
+	log_phase_message(wres.get("log_text", ""))
+
+	var save_data_list = wres.get("save_data_list", [])
+	resolution_state.staged_wound_context = wres.get("wound_context", {})
+	resolution_state.staged_save_data_list = save_data_list
+
+	var hw = _extract_staged_hit_wound(dice_data)
+	var hit_data = hw[0]
+	var wound_data = hw[1]
+	resolution_state.last_weapon_dice_data = dice_data
+	resolution_state.last_weapon_hit_data = hit_data
+	resolution_state.last_weapon_wound_data = wound_data
+	resolution_state.last_weapon_target_name = target_name
+	resolution_state.last_weapon_target_id = current_assignment.get("target_unit_id", "")
+
+	if save_data_list.is_empty():
+		# No wounds — go straight to the shared no-wounds / next-weapon tail.
+		resolution_state.stage = ""
+		return _finish_weapon_resolution(current_assignment, weapon_id, current_index, dice_data, hit_data, wound_data, target_name, [], wres.get("log_text", ""), resolution_state.get("staged_hazardous", []))
+
+	# Wounds caused — PAUSE so the attacker can read the wound roll / Command
+	# Re-roll a wound die before the defender makes saves.
+	resolution_state.stage = "wounds_pending"
+	var wc = resolution_state.get("staged_wound_context", {})
+	var can_reroll = _shooting_reroll_available() and not (wc.get("wound_evals", []) as Array).is_empty()
+	emit_signal("shooting_stage_paused", "wounds", {
+		"current_index": current_index,
+		"total_weapons": weapon_order.size(),
+		"reroll_available": can_reroll,
+		"wound_rolls": wc.get("wound_rolls", []),
+		"wounds": save_data_list[0].get("wounds_to_save", 0) if not save_data_list.is_empty() else 0,
+		"target_name": target_name
+	})
+	log_phase_message("Weapon %d of %d wound roll complete — awaiting attacker to continue to saving throws" % [current_index + 1, weapon_order.size()])
+	return create_result(true, [], "Weapon %d wounds rolled — awaiting continue to saves" % (current_index + 1), {
+		"staged_pause": "wounds",
+		"current_weapon_index": current_index,
+		"total_weapons": weapon_order.size(),
+		"reroll_available": can_reroll,
+		"wounds": save_data_list[0].get("wounds_to_save", 0) if not save_data_list.is_empty() else 0,
+		"dice": dice_data
+	})
+
+func _staged_continue_to_saves() -> Dictionary:
+	if resolution_state.get("stage", "") != "wounds_pending":
+		return create_result(false, [], "Not awaiting continue-to-saves")
+	var current_assignment = resolution_state.get("staged_assignment", {})
+	var weapon_id = resolution_state.get("staged_weapon_id", "")
+	var target_name = resolution_state.get("staged_target_name", "")
+	var current_index = int(resolution_state.get("current_index", 0))
+	var dice_data = resolution_state.get("staged_dice", [])
+	var save_data_list = resolution_state.get("staged_save_data_list", [])
+	var hw = _extract_staged_hit_wound(dice_data)
+	resolution_state.stage = ""
+	# Route through the shared tail — emits saves_required with sequence context.
+	return _finish_weapon_resolution(current_assignment, weapon_id, current_index, dice_data, hw[0], hw[1], target_name, save_data_list, "", resolution_state.get("staged_hazardous", []))
+
+func _replace_staged_dice_block(context: String, new_block: Dictionary) -> void:
+	var dd = resolution_state.get("staged_dice", [])
+	for i in range(dd.size()):
+		if dd[i].get("context", "") == context:
+			dd[i] = new_block
+			return
+	dd.append(new_block)
+
+func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
+	var payload = action.get("payload", {})
+	var stage = str(payload.get("stage", ""))
+	var die_index = int(payload.get("die_index", -1))
+	var expected = "hits_pending" if stage == "hits" else ("wounds_pending" if stage == "wounds" else "")
+	if expected == "" or resolution_state.get("stage", "") != expected:
+		return create_result(false, [], "No re-roll available at this stage")
+
+	# Spend the CP + record the once-per-phase Command Re-roll usage.
+	var sm = get_node_or_null("/root/StratagemManager")
+	if sm == null or not sm.has_method("execute_command_reroll"):
+		return create_result(false, [], "Command Re-roll unavailable")
+	var player = get_current_player()
+	var strat_result = sm.execute_command_reroll(player, active_shooter_id, {"roll_type": stage + "_roll"})
+	if not strat_result.get("success", false):
+		return create_result(false, [], str(strat_result.get("reason", "Cannot use Command Re-roll")))
+
+	var rng = RulesEngine.make_rng()
+	if stage == "hits":
+		var hc = resolution_state.get("staged_hit_context", {})
+		var rr = RulesEngine.reroll_hit_die(hc, die_index, rng)
+		if not rr.get("success", false):
+			return create_result(false, [], str(rr.get("error", "Re-roll failed")))
+		emit_signal("dice_rolled", {"context": "reroll_note",
+			"message": "Command Re-roll (1 CP): hit die %d → %d" % [rr.get("old_display", rr.get("old_value", 0)), rr.get("new_display", rr.get("new_value", 0))]})
+		emit_signal("dice_rolled", rr.get("dice_block", {}))
+		_replace_staged_dice_block("to_hit", rr.get("dice_block", {}))
+		var uhc = rr.get("hit_context", {})
+		emit_signal("shooting_stage_paused", "hits", {
+			"reroll_available": false,
+			"hit_rolls": uhc.get("hit_rolls", []),
+			"modified_rolls": uhc.get("modified_rolls", []),
+			"hits": uhc.get("hits", 0)
+		})
+		return create_result(true, [], "Hit die re-rolled", {
+			"staged_pause": "hits", "reroll_used": true, "reroll_available": false,
+			"dice_block": rr.get("dice_block", {}), "hits": rr.get("hit_context", {}).get("hits", 0)
+		})
+	else:
+		var wc = resolution_state.get("staged_wound_context", {})
+		var rr = RulesEngine.reroll_wound_die(wc, die_index, game_state_snapshot, rng)
+		if not rr.get("success", false):
+			return create_result(false, [], str(rr.get("error", "Re-roll failed")))
+		var new_wounds = int(rr.get("wounds_caused", 0))
+		# Rebuild the pending save list (may now have more/fewer wounds).
+		if new_wounds > 0:
+			var sd = rr.get("save_data", {})
+			# Preserve the sequence context stamped later by _finish_weapon_resolution.
+			resolution_state.staged_save_data_list = [sd]
+		else:
+			resolution_state.staged_save_data_list = []
+		emit_signal("dice_rolled", {"context": "reroll_note",
+			"message": "Command Re-roll (1 CP): wound die %d → %d" % [rr.get("old_value", 0), rr.get("new_value", 0)]})
+		emit_signal("dice_rolled", rr.get("dice_block", {}))
+		_replace_staged_dice_block("to_wound", rr.get("dice_block", {}))
+		emit_signal("shooting_stage_paused", "wounds", {
+			"reroll_available": false,
+			"wound_rolls": rr.get("wound_context", {}).get("wound_rolls", []),
+			"wounds": new_wounds
+		})
+		return create_result(true, [], "Wound die re-rolled", {
+			"staged_pause": "wounds", "reroll_used": true, "reroll_available": false,
+			"dice_block": rr.get("dice_block", {}), "wounds": new_wounds
+		})
+
+func _validate_staged_continue(action: Dictionary) -> Dictionary:
+	var t = action.get("type", "")
+	if t == "CONTINUE_TO_WOUNDS":
+		if resolution_state.get("stage", "") != "hits_pending":
+			return {"valid": false, "errors": ["Not awaiting continue-to-wounds"]}
+	elif t == "CONTINUE_TO_SAVES":
+		if resolution_state.get("stage", "") != "wounds_pending":
+			return {"valid": false, "errors": ["Not awaiting continue-to-saves"]}
+	elif t == "USE_SHOOTING_REROLL":
+		var stage = str(action.get("payload", {}).get("stage", ""))
+		var expected = "hits_pending" if stage == "hits" else ("wounds_pending" if stage == "wounds" else "")
+		if expected == "" or resolution_state.get("stage", "") != expected:
+			return {"valid": false, "errors": ["No re-roll available at this stage"]}
+	return {"valid": true, "errors": []}
+
 
 # T5-MP4-RELIABILITY: Save broadcast identity helpers
 #

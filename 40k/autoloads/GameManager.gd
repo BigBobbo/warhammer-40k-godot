@@ -126,7 +126,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _delegate_to_current_phase(action)
 		"CONFIRM_TARGETS", "RESOLVE_SHOOTING", "SKIP_UNIT":
 			return _delegate_to_current_phase(action)
-		"SHOOT", "APPLY_SAVES", "RESOLVE_WEAPON_SEQUENCE", "CONTINUE_SEQUENCE":
+		"SHOOT", "APPLY_SAVES", "RESOLVE_WEAPON_SEQUENCE", "CONTINUE_SEQUENCE", \
+		"CONTINUE_TO_WOUNDS", "CONTINUE_TO_SAVES", "USE_SHOOTING_REROLL":
 			return _delegate_to_current_phase(action)
 
 		# Legacy shooting actions (kept for compatibility)
