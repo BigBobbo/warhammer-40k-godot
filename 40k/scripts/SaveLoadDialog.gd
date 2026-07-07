@@ -937,6 +937,14 @@ func show_dialog() -> void:
 	save_name_input.text = ""
 	visible = true
 
+	# Z-ORDER FIX: This dialog is set up in Main._ready() BEFORE sibling overlays
+	# like the GameLogPanel (and LeftRosterStrip), so those later siblings would
+	# otherwise draw on top of it. Main sets our z_index to UI_MODAL_Z so we draw
+	# above them; raising to the front of the sibling order as well guarantees the
+	# modal also receives input first (it is an early sibling) so clicks in the
+	# region overlapping the log land on the dialog, not the panel behind it.
+	move_to_front()
+
 	# SAVE-8: Hide load button for non-host multiplayer clients
 	if load_button:
 		load_button.visible = not _is_multiplayer_client

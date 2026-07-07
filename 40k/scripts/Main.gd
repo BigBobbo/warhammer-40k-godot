@@ -4240,7 +4240,15 @@ func _setup_save_load_dialog() -> void:
 	
 	# Add to scene tree
 	add_child(save_load_dialog)
-	
+
+	# Z-ORDER: This is a modal menu — it must render above every HUD panel
+	# (GameLogPanel, LeftRosterStrip, etc.). Those panels are bumped to UI_PANEL_Z
+	# by _ensure_ui_panels_on_top(); without an explicit z_index this dialog is
+	# bumped to the SAME level and, being set up EARLIER, loses the tree-order
+	# tie-break and gets drawn underneath. UI_MODAL_Z (2000) is the documented
+	# layer for save/load (see the constant above), matching SettingsMenu et al.
+	save_load_dialog.z_index = UI_MODAL_Z
+
 	# Connect dialog signals
 	save_load_dialog.save_requested.connect(_on_save_requested)
 	save_load_dialog.load_requested.connect(_on_load_requested)

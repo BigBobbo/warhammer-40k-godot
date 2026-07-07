@@ -263,6 +263,15 @@
       "status": "covered"
     },
     {
+      "id": "ui.save_load_dialog.z_order",
+      "description": "The Save & Load dialog is a modal menu and must render above every HUD panel (GameLogPanel, LeftRosterStrip). Main sets up the dialog early in _ready() and _ensure_ui_panels_on_top() bumps all HUD Controls to UI_PANEL_Z, so without an explicit modal z_index the later-added GameLogPanel won the tree-order tie-break and drew over it. Fixed by giving the dialog z_index = UI_MODAL_Z at setup and move_to_front() in show_dialog() (front-most sibling => draws on top and receives input in the overlap region).",
+      "scenarios": [
+        "save_load_dialog_above_log"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "deployment.predeploy_roll_off",
       "description": "Pre-deployment roll-off (issue #85): both players roll a D6. The winner chooses to be Attacker or Defender \u2014 Defender deploys first and takes the second turn, Attacker deploys second and takes the first turn.",
       "scenarios": [
