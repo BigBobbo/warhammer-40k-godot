@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.6.4",
+			"date": "2026-07-07",
+			"summary": "Fixed Infantry being wrongly charged an extra 2\" to move through or across Ruins — including the '2\" stuck on even after you move away' bug.",
+			"changes": [
+				"Infantry (and anything that can move through a terrain feature) no longer has 2\" added to its move distance for going into, across, or through a Ruin. In 10th edition these models move through Ruins' walls and floors freely, so a Ruin costs them no extra inches — the game was treating every Ruin as 'difficult ground' for everyone.",
+				"Fixed the related 'sticky' bug: dragging a model onto a Ruin used to add the 2\" penalty and then keep it added even after you dragged the model back off the Ruin to open ground. The distance now reflects the actual path every frame, so moving away from a Ruin correctly drops the penalty.",
+				"Units that genuinely cannot move through a piece (e.g. Vehicles crossing low difficult-ground terrain) still pay the 2\", so real difficult-ground terrain still slows the models it should."
+			]
+		},
+		{
 			"version": "0.6.3",
 			"date": "2026-07-07",
 			"summary": "Fixed the broken 'missing glyph' icons flanking the SHOOTING PHASE title on the phase-transition banner.",

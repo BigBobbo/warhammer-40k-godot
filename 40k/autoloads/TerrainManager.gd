@@ -605,8 +605,15 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 ## FLY units ignore difficult ground entirely — penalty is always 0.
 ## T3-16: Applies difficult_ground trait penalty (flat 2" per piece crossed).
 ##
+## 10e Ruins fix: a unit that can move through a terrain piece (e.g. INFANTRY
+## through a Ruin's walls/floors) is NOT slowed by it — Ruins are not Difficult
+## Ground for such a unit, so no distance is added. Only units that cannot
+## traverse the piece (e.g. VEHICLES over a low ruin) pay the flat penalty.
+## Pass the moving unit's keywords via unit_keywords to enable this exemption;
+## callers that omit it (legacy/tests) get the pre-fix "everyone pays" behaviour.
+##
 ## Returns the extra distance in inches that must be added to the movement distance.
-func calculate_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool) -> float:
+func calculate_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool, unit_keywords: Array = []) -> float:
 	# FLY units ignore difficult ground entirely during movement
 	if has_fly:
 		print("[TerrainManager] FLY unit ignores difficult ground during movement")
@@ -628,11 +635,16 @@ func calculate_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_
 		# Infantry move through ruins walls freely per 10e rules.
 		print("[TerrainManager] Movement path interacts with %s: no height penalty (ground floor)" % terrain.get("id", "unknown"))
 
-		# T3-16: Difficult ground trait penalty — flat 2" per terrain piece crossed
+		# T3-16: Difficult ground trait penalty — flat 2" per terrain piece crossed.
+		# 10e Ruins fix: units that can move through this piece (INFANTRY through a
+		# Ruin) move freely and pay nothing — Ruins are not Difficult Ground for them.
 		if has_terrain_trait(terrain, "difficult_ground"):
-			total_penalty += DIFFICULT_GROUND_PENALTY_INCHES
-			print("[TerrainManager] Difficult ground penalty for %s: +%.1f\"" % [
-				terrain.get("id", "unknown"), DIFFICULT_GROUND_PENALTY_INCHES])
+			if can_unit_move_through_terrain(unit_keywords, terrain):
+				print("[TerrainManager] %s traversable by unit — no difficult ground penalty (moves through freely)" % terrain.get("id", "unknown"))
+			else:
+				total_penalty += DIFFICULT_GROUND_PENALTY_INCHES
+				print("[TerrainManager] Difficult ground penalty for %s: +%.1f\"" % [
+					terrain.get("id", "unknown"), DIFFICULT_GROUND_PENALTY_INCHES])
 
 	return total_penalty
 
