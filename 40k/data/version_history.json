@@ -2,6 +2,21 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.6.1",
+			"date": "2026-07-07",
+			"summary": "Charge phase overhaul: no more false 'charge failed' verdicts near ruins, plus a batch of charge bug fixes.",
+			"changes": [
+				"Fixed the false [INSUFFICIENT_ROLL] failure: a charge roll big enough to reach the target (e.g. rolling 6\" against a target 2.5\" away) no longer fails just because a ruin clips the straight line — the check now knows models stop at engagement range and can move around terrain, matching what the charge move actually allows.",
+				"Failure messages and tooltips now show the real 11th-edition 2\" engagement range (they hardcoded 1\"), and the orange engagement rings + 'charge needed' preview around targets are sized to 2\" as well.",
+				"Command Re-rolls and +N charge bonuses now count: the list of chargeable targets is recomputed from your FINAL roll total, so a re-rolled charge no longer fails against the stale first-roll list (your CP is no longer wasted).",
+				"A rejected charge confirm now tells you why (toast + dice log) and lets you re-position and try again — previously it silently reset the UI and left tokens displayed in the wrong place.",
+				"11e target selection is completed with the move: confirming a charge now declares the enemy units you actually moved into engagement with, so charges whose pre-declared target was dropped by the roll can still be completed against a nearer unit.",
+				"Fire Overwatch is usable by human players again in 10e mode (the confirm button dispatched a format the rules engine rejected; only the AI could ever fire it).",
+				"Fixed a crash in the AI's multi-target charge evaluation that fired every time the AI weighed charging two or more units.",
+				"Rules tightening: charge dice can no longer be re-rolled by re-declaring the charge; unit coherency is checked for the whole unit (a single model can no longer be dragged away from its squad); moving inside one ruin at ground level no longer pays a phantom climb penalty; Heroic Intervention counter-charges evaluate base-contact from the defender's perspective; units in Reserves no longer block charges as phantom 'units at the board corner'."
+			]
+		},
+		{
 			"version": "0.6.0",
 			"date": "2026-07-07",
 			"summary": "The Game Log is clearer, covers more of what happens, and now has per-category filter toggles so you can focus on the events you care about.",

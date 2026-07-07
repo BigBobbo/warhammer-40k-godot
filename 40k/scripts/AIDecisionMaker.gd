@@ -11386,10 +11386,11 @@ static func _score_multi_target_combo(
 	# A model can reach ~base_radius + 1" ER in each direction, so targets must be
 	# within about charger_diameter + 2" of each other (plus target base sizes).
 	var charger_base_mm = charger.get("meta", {}).get("base_mm", 32)
-	var charger_models = charger.get("models", {})
+	# `models` is an Array of model dicts — indexing it with the loop variable
+	# (a dict) crashed every multi-target combo evaluation the AI attempted.
+	var charger_models = charger.get("models", [])
 	var num_charger_models = 0
-	for _mid in charger_models:
-		var m = charger_models[_mid]
+	for m in charger_models:
 		if m.get("current_wounds", 1) > 0 and m.get("position") != null:
 			num_charger_models += 1
 	var charger_reach_inches = (float(charger_base_mm) / 25.4) + 2.0

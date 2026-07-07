@@ -9354,8 +9354,27 @@ func _on_charge_action_requested(action: Dictionary) -> void:
 				# Update UI after successful action (state changes applied by BasePhase)
 				update_after_charge_action()
 		else:
-			print("Main: Charge action failed: ", result.get("error", "Unknown error"))
+			# BasePhase validation failures carry `errors` (array); processing
+			# failures carry `error` (string) — surface whichever exists.
+			var charge_errs: Array = result.get("errors", [])
+			var charge_error_msg: String = str(result.get("error", ""))
+			if charge_error_msg == "" and not charge_errs.is_empty():
+				charge_error_msg = str(charge_errs[0])
+			if charge_error_msg == "":
+				charge_error_msg = "Unknown error"
+			print("Main: Charge action failed: ", charge_error_msg)
 			print("Main: Full charge action result: ", result)
+			var charge_action_type = action.get("type", "")
+			if charge_action_type == "APPLY_CHARGE_MOVE" or charge_action_type == "APPLY_HEROIC_INTERVENTION_MOVE":
+				# A rejected charge move previously vanished silently: no toast,
+				# and the dragged token visuals stayed at the drop spots while
+				# GameState kept the origins. Tell the player why and re-sync.
+				ToastManager.show_error("Charge move rejected: %s" % charge_error_msg)
+				update_after_charge_action()
+				if charge_controller and charge_controller.has_method("on_charge_move_rejected"):
+					charge_controller.on_charge_move_rejected(action, result)
+			else:
+				ToastManager.show_error("Charge action failed: %s" % charge_error_msg)
 	else:
 		print("Main: Unexpected result from charge action")
 
