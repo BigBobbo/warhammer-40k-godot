@@ -100,6 +100,12 @@ var advance_roll_label: Label
 # Flag to prevent duplicate actions when programmatically setting radio buttons
 var setting_radio_programmatically: bool = false
 
+# QoL: when the player has moved models for a unit but never clicked "Confirm
+# Move", treat that move as confirmed the moment they end the phase or switch to
+# another unit. This guard prevents re-entrancy while the auto-dispatched
+# CONFIRM_UNIT_MOVE runs (it fires unit_move_confirmed → _auto_select_next_unmoved).
+var _auto_confirming_pending_move: bool = false
+
 # OA-24: PopupMenu for special movement actions (e.g. Kunnin' Infiltrator)
 var _movement_action_popup: PopupMenu = null
 var _popup_pending_unit_id: String = ""  # Unit awaiting action choice from popup
@@ -914,6 +920,12 @@ func _on_unit_selected(index: int) -> void:
 	if not unit:
 		return
 
+	# QoL: switching to a different unit auto-confirms the previously selected
+	# unit's moved-but-unconfirmed move (same as clicking "Confirm Move"). Do this
+	# before we repoint active_unit_id so the pending unit is the one confirmed.
+	if unit_id != active_unit_id:
+		_auto_confirm_pending_move(active_unit_id)
+
 	# Route reserve units to Main's reinforcement placement flow
 	if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
 		print("MovementController: Reserve unit %s selected — routing to Main for reinforcement placement" % unit_id)
@@ -987,6 +999,20 @@ func _on_unit_selected(index: int) -> void:
 	emit_signal("ui_update_requested")
 
 # This function has been moved below to avoid duplication
+
+func _select_unit_in_list_by_id(unit_id: String) -> bool:
+	"""Select `unit_id` in the unit list exactly as clicking its row would
+	(emits item_selected → _on_unit_selected). Unlike begin_unit_movement it does
+	NOT pre-set active_unit_id, so switching from a previously moved unit still
+	triggers that unit's auto-confirm. Returns false if the unit is not listed."""
+	if not unit_list or not is_instance_valid(unit_list):
+		return false
+	for i in range(unit_list.get_item_count()):
+		if unit_list.get_item_metadata(i) == unit_id:
+			unit_list.select(i)
+			unit_list.emit_signal("item_selected", i)
+			return true
+	return false
 
 func begin_unit_movement(unit_id: String) -> void:
 	"""Begin movement for a unit (called after disembark if transport hasn't moved)"""
@@ -1183,10 +1209,50 @@ func _on_reset_unit_pressed() -> void:
 	}
 	emit_signal("move_action_requested", action)
 
+func _has_pending_unconfirmed_move(unit_id: String) -> bool:
+	"""True when `unit_id` has an active move with at least one moved model that
+	has NOT yet been confirmed (the player dragged models but skipped the
+	"Confirm Move" button). Fall Back / Remain Stationary that never moved a
+	model, and already-completed moves, return false."""
+	if unit_id == "":
+		return false
+	if not current_phase or not current_phase.has_method("get_active_move_data"):
+		return false
+	var move_data = current_phase.get_active_move_data(unit_id)
+	if move_data.is_empty():
+		return false
+	if move_data.get("completed", false):
+		return false
+	# Staged (drag flow) or committed-but-unconfirmed (direct-set flow) moves both count.
+	var has_staged = not move_data.get("staged_moves", []).is_empty()
+	var has_committed = not move_data.get("model_moves", []).is_empty()
+	return has_staged or has_committed
+
+func _auto_confirm_pending_move(unit_id: String) -> bool:
+	"""If `unit_id` moved models but was never confirmed, dispatch the same
+	CONFIRM_UNIT_MOVE the "Confirm Move" button sends so the player does not have
+	to click it before ending the phase or moving a different unit. Returns true
+	if a confirm was dispatched. Reuses the full action pipeline, so coherency
+	checks, Fire Overwatch, network sync, etc. behave exactly as a manual confirm."""
+	if _auto_confirming_pending_move:
+		return false
+	if not _has_pending_unconfirmed_move(unit_id):
+		return false
+	print("MovementController: Auto-confirming pending move for %s (player did not click Confirm Move)" % unit_id)
+	DebugLogger.info(str("[MovementController] Auto-confirming pending move for ", unit_id, " (no explicit Confirm Move)"))
+	_auto_confirming_pending_move = true
+	emit_signal("move_action_requested", {
+		"type": "CONFIRM_UNIT_MOVE",
+		"actor_unit_id": unit_id,
+		"payload": {}
+	})
+	_auto_confirming_pending_move = false
+	return true
+
 func _on_confirm_move_pressed() -> void:
 	if active_unit_id == "":
 		return
-	
+
 	var action = {
 		"type": "CONFIRM_UNIT_MOVE",
 		"actor_unit_id": active_unit_id,
@@ -1195,11 +1261,27 @@ func _on_confirm_move_pressed() -> void:
 	emit_signal("move_action_requested", action)
 
 func _on_end_phase_pressed() -> void:
+	# NOTE: The live "End Phase" button in the Movement phase is wired to
+	# Main._on_phase_action_pressed (which auto-confirms via
+	# _auto_confirm_all_pending_moves before dispatching END_MOVEMENT), not to
+	# this handler. This is kept for parity and any legacy/local wiring.
+	_auto_confirm_all_pending_moves()
+
 	var action = {
 		"type": "END_MOVEMENT",
 		"payload": {}
 	}
 	emit_signal("move_action_requested", action)
+
+func _auto_confirm_all_pending_moves() -> void:
+	"""Auto-confirm every unit that moved models but was never confirmed. Used
+	when ending the phase so no stray staged move blocks END_MOVEMENT."""
+	if not current_phase or not "active_moves" in current_phase:
+		return
+	# Copy the keys — confirming flips each move's `completed` flag as we go.
+	var unit_ids: Array = current_phase.active_moves.keys()
+	for uid in unit_ids:
+		_auto_confirm_pending_move(uid)
 
 func _on_confirm_mode_pressed() -> void:
 	if not active_unit_id:
@@ -1590,8 +1672,12 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 	_refresh_unit_list()
 	emit_signal("ui_update_requested")
 
-	# T-094: auto-select next unmoved unit in the list
-	_auto_select_next_unmoved()
+	# T-094: auto-select next unmoved unit in the list.
+	# Skip when this confirm was auto-triggered by the player switching units or
+	# ending the phase — they already chose what happens next, and re-selecting
+	# here would fight that choice (and could spawn a stray active move).
+	if not _auto_confirming_pending_move:
+		_auto_select_next_unmoved()
 
 
 func _auto_select_next_unmoved() -> void:

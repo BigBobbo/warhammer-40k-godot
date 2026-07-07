@@ -1,0 +1,73 @@
+{
+  "id": "movement_auto_confirm",
+  "covers": [
+    "movement.auto_confirm_on_unit_switch",
+    "movement.auto_confirm_on_end_phase"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Movement phase QoL: a unit whose models were moved but never explicitly confirmed is auto-confirmed when the player selects a different unit (unit-switch trigger) or ends the phase (end-phase trigger). Drives the real controller/Main UI handlers, not a direct CONFIRM_UNIT_MOVE dispatch.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "screenshot", "label": "01_movement_loaded" },
+
+    { "act": "execute_script",
+      "script": "main.movement_controller._select_unit_in_list_by_id(\"U_BLADE_CHAMPION_A\")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_BLADE_CHAMPION_A" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "STAGE_MODEL_MOVE",
+      "actor_unit_id": "U_BLADE_CHAMPION_A",
+      "payload": { "model_id": "m1", "dest": [120, 320], "rotation": 0.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\").get(\"flags\", {}).get(\"moved\", false)",
+      "equals": false },
+    { "act": "screenshot", "label": "02_blade_champion_staged_not_confirmed" },
+
+    { "act": "execute_script",
+      "script": "main.movement_controller._select_unit_in_list_by_id(\"U_SHIELD_CAPTAIN_A\")",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\").get(\"flags\", {}).get(\"moved\", false)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_BLADE_CHAMPION_A\").get(\"models\")[0].get(\"position\").get(\"y\"))",
+      "equals": 320 },
+    { "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_SHIELD_CAPTAIN_A" },
+    { "act": "screenshot", "label": "03_blade_champion_auto_confirmed_on_switch" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "STAGE_MODEL_MOVE",
+      "actor_unit_id": "U_SHIELD_CAPTAIN_A",
+      "payload": { "model_id": "m1", "dest": [50, 280], "rotation": 0.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_SHIELD_CAPTAIN_A\").get(\"flags\", {}).get(\"moved\", false)",
+      "equals": false },
+    { "act": "screenshot", "label": "04_shield_captain_staged_not_confirmed" },
+
+    { "act": "execute_script",
+      "script": "main.phase_action_button.emit_signal(\"pressed\")" },
+
+    { "act": "execute_script",
+      "script": "GameState.get_unit(\"U_SHIELD_CAPTAIN_A\").get(\"flags\", {}).get(\"moved\", false)",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_SHIELD_CAPTAIN_A\").get(\"models\")[0].get(\"position\").get(\"y\"))",
+      "equals": 280 },
+    { "act": "screenshot", "label": "05_shield_captain_auto_confirmed_on_end_phase" }
+  ]
+}

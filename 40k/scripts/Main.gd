@@ -8847,6 +8847,16 @@ func _on_phase_action_pressed() -> void:
 					return
 			action = {"type": "END_COMMAND", "player": active_player}
 		GameStateData.Phase.MOVEMENT:
+			# QoL: auto-confirm any unit the player moved but never clicked
+			# "Confirm Move" for, so ending the phase doesn't get blocked by
+			# "active moves that need to be confirmed or reset" (and, in
+			# single-player, so the staged move is committed instead of being
+			# discarded by the local-advance fallback below). Mirrors the Scout
+			# phase's end-of-phase commit. In single-player the confirm routes
+			# synchronously, so the move is committed before END_MOVEMENT validates.
+			if movement_controller and is_instance_valid(movement_controller) \
+					and movement_controller.has_method("_auto_confirm_all_pending_moves"):
+				movement_controller._auto_confirm_all_pending_moves()
 			action = {"type": "END_MOVEMENT", "player": active_player}
 		GameStateData.Phase.SHOOTING:
 			# T5-UX9: Show end-of-phase shooting summary dialog (skipped for AI)
