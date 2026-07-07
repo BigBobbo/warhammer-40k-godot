@@ -1,0 +1,71 @@
+{
+  "id": "infantry_ruin_no_move_penalty",
+  "covers": [
+    "movement.terrain.infantry_difficult_ground_exemption",
+    "terrain.difficult_ground.traversable_exemption",
+    "TerrainManager.calculate_movement_terrain_penalty"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "10e Ruins fix: INFANTRY move through a Ruin's walls/floors freely, so a difficult_ground ruin adds NO distance to their movement. A difficult_ground ruin is injected straddling U_CUSTODIAN_GUARD_B m1's downward lane. (1) Live math: calculate_movement_terrain_penalty across the ruin returns 0\" for INFANTRY, 2\" for a non-traversing VEHICLE, and 2\" with no keywords (legacy). (2) Sticky-bug proof: a segment starting INSIDE the ruin and ending in open ground still returns 0\" for INFANTRY — no residual penalty when moving away. (3) Player path: m1 makes a real 5\" Normal Move straight through the ruin. Pre-fix this cost 5\"+2\"=7\" > the 6\" cap and was silently rejected; post-fix it succeeds and the tracked per-model distance is exactly the 5\" geometry.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.append({\"id\": \"dg_ruin_test\", \"type\": \"ruins\", \"polygon\": PackedVector2Array([Vector2(150,180),Vector2(250,180),Vector2(250,220),Vector2(150,220)]), \"height_category\": \"low\", \"position\": Vector2(200,200), \"size\": Vector2(100,40), \"rotation\": 0.0, \"can_move_through\": {\"INFANTRY\": true, \"VEHICLE\": false, \"MONSTER\": false}, \"traits\": [\"obscuring\", \"difficult_ground\"]})"
+    },
+    { "act": "screenshot", "label": "01_difficult_ground_ruin_injected" },
+
+    { "act": "execute_script",
+      "script": "TerrainManager.calculate_movement_terrain_penalty(Vector2(200,100), Vector2(200,300), false, [\"INFANTRY\"])",
+      "equals": 0.0
+    },
+    { "act": "execute_script",
+      "script": "TerrainManager.calculate_movement_terrain_penalty(Vector2(200,100), Vector2(200,300), false, [\"VEHICLE\"])",
+      "equals": 2.0
+    },
+    { "act": "execute_script",
+      "script": "TerrainManager.calculate_movement_terrain_penalty(Vector2(200,100), Vector2(200,300), false)",
+      "equals": 2.0
+    },
+    { "act": "execute_script",
+      "script": "TerrainManager.calculate_movement_terrain_penalty(Vector2(200,200), Vector2(200,400), false, [\"INFANTRY\"])",
+      "equals": 0.0
+    },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_NORMAL_MOVE",
+      "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+      "payload": {}
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_CUSTODIAN_GUARD_B\"][\"move_cap_inches\"]",
+      "equals": 6.0
+    },
+
+    { "act": "dispatch_action", "action": {
+      "type": "STAGE_MODEL_MOVE",
+      "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+      "payload": {
+        "model_id": "m1",
+        "dest": [200, 300],
+        "rotation": 0.0
+      }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "abs(PhaseManager.get_current_phase_instance().active_moves[\"U_CUSTODIAN_GUARD_B\"][\"model_distances\"][\"U_CUSTODIAN_GUARD_B:m1\"] - 5.0) < 0.01",
+      "equals": true
+    },
+    { "act": "screenshot", "label": "02_infantry_moved_across_ruin_no_penalty" },
+
+    { "act": "execute_script", "script": "TerrainManager.terrain_features.pop_back()" }
+  ]
+}

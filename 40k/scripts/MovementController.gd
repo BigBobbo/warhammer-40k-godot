@@ -3345,8 +3345,13 @@ func _get_terrain_penalty_for_move(from_pos: Vector2, to_pos: Vector2) -> float:
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
 		return 0.0
-	var has_fly = "FLY" in _get_active_unit_keywords()
-	return terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly)
+	# Pass keywords so INFANTRY moving through a ruin are not charged the 2"
+	# difficult-ground penalty (10e: they move through walls/floors freely). This
+	# also fixes the "sticky" penalty: the live preview recomputes from keywords
+	# each frame, so an infantry model dragged onto then away from a ruin shows 0.
+	var keywords = _get_active_unit_keywords()
+	var has_fly = "FLY" in keywords
+	return terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly, keywords)
 
 func _check_position_would_overlap(position: Vector2) -> bool:
 	# Check if placing the selected model at the given position would overlap
