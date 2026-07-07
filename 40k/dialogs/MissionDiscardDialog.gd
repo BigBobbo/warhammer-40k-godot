@@ -9,8 +9,24 @@ extends AcceptDialog
 signal mission_discard_requested(mission_index: int)
 signal end_turn_without_discard()
 
+# Max height for the mission list before it starts scrolling. Below this the
+# scroll area shrinks to hug its content so the dialog doesn't leave a gap.
+const MISSION_LIST_MAX_HEIGHT := 180.0
+
 var active_missions: Array = []
 var can_gain_cp: bool = false
+var _mission_scroll: ScrollContainer = null
+var _mission_list: VBoxContainer = null
+
+# Factory: build a ready-to-show dialog (script attached + UI built). The caller
+# connects the signals, adds it to the tree, and calls popup_centered(). Shared
+# by Main.gd and the windowed regression scenario so both exercise one path.
+static func create(p_active_missions: Array, p_can_gain_cp: bool) -> AcceptDialog:
+	var dialog := AcceptDialog.new()
+	dialog.set_script(load("res://dialogs/MissionDiscardDialog.gd"))
+	dialog.name = "MissionDiscardDialog"
+	dialog.setup(p_active_missions, p_can_gain_cp)
+	return dialog
 
 func setup(p_active_missions: Array, p_can_gain_cp: bool) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
@@ -18,7 +34,10 @@ func setup(p_active_missions: Array, p_can_gain_cp: bool) -> void:
 	can_gain_cp = p_can_gain_cp
 
 	title = "Discard a Secondary Mission?"
-	min_size = DialogConstants.MEDIUM
+	# Keep the MEDIUM width, but let the height follow the content. The dialog is
+	# short (a prompt, a fixed-height mission list, and one button), so pinning it
+	# to the 400px MEDIUM height left a large empty gap at the bottom.
+	min_size = Vector2(DialogConstants.MEDIUM.x, 0)
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
@@ -48,13 +67,17 @@ func _build_ui() -> void:
 	explain_label.add_theme_font_size_override("font_size", 13)
 	explain_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explain_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Constrain the wrapped label's width so it reports a correct minimum HEIGHT.
+	# An autowrap Label with no width, measured while the dialog is popped up,
+	# assumes ~zero width and returns a huge minimum height; with wrap_controls
+	# that inflated the whole dialog to span the screen.
+	explain_label.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 40, 0)
 	main_container.add_child(explain_label)
 
 	main_container.add_child(HSeparator.new())
 
 	# Mission cards with discard buttons
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 180)
 	var mission_list = VBoxContainer.new()
 	mission_list.add_theme_constant_override("separation", 6)
 
@@ -63,6 +86,14 @@ func _build_ui() -> void:
 		_add_mission_option(mission_list, mission, i)
 
 	scroll.add_child(mission_list)
+	# Fit the scroll area to its content, capped so a long list scrolls instead
+	# of stretching the dialog. The previous fixed 180px height left an empty gap
+	# below the list for the common 1-2 mission case. The final fit happens in
+	# _ready() once the list is in the tree (its measured height is a few px
+	# larger there); this pre-tree estimate just seeds a sensible size.
+	_mission_scroll = scroll
+	_mission_list = mission_list
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, _clamped_list_height())
 	main_container.add_child(scroll)
 
 	main_container.add_child(HSeparator.new())
@@ -80,6 +111,21 @@ func _build_ui() -> void:
 	main_container.add_child(button_container)
 
 	add_child(main_container)
+
+func _ready() -> void:
+	# Re-fit the scroll to the list's real (in-tree) height, which is a few px
+	# taller than the pre-tree estimate used while building. Runs before the
+	# caller's popup_centered(), so the dialog sizes correctly the first time and
+	# short lists don't show a spurious scrollbar.
+	if _mission_scroll and _mission_list:
+		_mission_scroll.custom_minimum_size.y = _clamped_list_height()
+
+func _clamped_list_height() -> float:
+	# Mission list content height, capped so long lists scroll instead of growing
+	# the dialog past the screen.
+	if not _mission_list:
+		return MISSION_LIST_MAX_HEIGHT
+	return min(_mission_list.get_combined_minimum_size().y, MISSION_LIST_MAX_HEIGHT)
 
 func _add_mission_option(parent: VBoxContainer, mission: Dictionary, index: int) -> void:
 	var card = PanelContainer.new()

@@ -2,6 +2,16 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.6.4",
+			"date": "2026-07-07",
+			"summary": "Fixed the end-of-turn 'discard a Secondary Mission for CP' pop-up stretching to the full height of the screen.",
+			"changes": [
+				"The 'Discard for CP?' pop-up shown when you end your turn (offering to discard a Secondary Mission for +1 CP) used to open as a giant window spanning the whole screen, with a small amount of content at the top and a huge empty gap below it.",
+				"The window now sizes itself to its content, so it's a compact, tidy pop-up. Everything is still visible — the prompt, each Secondary Mission with its Discard button, and the 'End Turn Without Discarding' button.",
+				"When you happen to hold more Secondary Missions than fit, the mission list now scrolls inside the pop-up instead of the window growing off-screen."
+			]
+		},
+		{
 			"version": "0.6.3",
 			"date": "2026-07-07",
 			"summary": "Fixed the broken 'missing glyph' icons flanking the SHOOTING PHASE title on the phase-transition banner.",
