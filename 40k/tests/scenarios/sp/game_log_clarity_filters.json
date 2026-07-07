@@ -1,0 +1,90 @@
+{
+  "id": "game_log_clarity_filters",
+  "covers": [
+    "ui.GameLogPanel.category_filters",
+    "ui.GameLogPanel.filter_toggle",
+    "log.coverage.fall_back",
+    "log.coverage.transport_embark",
+    "log.coverage.reserves_arrival",
+    "log.coverage.katah_stance",
+    "log.coverage.secondary_action",
+    "log.coverage.designate_warlord"
+  ],
+  "fixture": "audit_367_warlord",
+  "transition_to_phase": 0,
+  "description": "Game-log clarity + filters. Part A drives the new category toggle filters in the left GameLogPanel: injects one entry per category via the real GameEventLog API, expands the filter bar with a real click on the 'Filters' button, then hides/shows categories and asserts exactly the right cards become (in)visible — including a real chip click and that the legacy AI shortcut stays in sync. Part B validates newly-covered events (Fall Back, embark, Deep Strike arrival, Ka'tah stance, secondary action) produce verbose log text, and that a real DESIGNATE_WARLORD dispatch reaches the log end-to-end.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 0 },
+
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, 'Intercessor Squad shot at Ork Boyz')" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, 'Rhino moved 6 inches up the flank')" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(2, 'Warboss charged the Intercessor Squad')" },
+    { "act": "execute_script", "script": "GameEventLog.add_info_entry('CP generated — P1: 3 CP, P2: 3 CP')" },
+    { "act": "execute_script", "script": "GameEventLog.add_info_entry('VP Totals — P1: 5 (Pri 5 + Sec 0) | P2: 3 (Pri 3 + Sec 0)')" },
+    { "act": "execute_script", "script": "GameEventLog.add_ai_thinking_entry(2, 'Weighing charge targets for the Warboss')" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "screenshot", "label": "01_all_categories_visible", "region": [0, 100, 360, 760] },
+
+    { "act": "execute_script", "script": "main.game_log_panel.count_cards_in_category('shoot')", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_cards_in_category('move')", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_cards_in_category('charge')", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_cards_in_category('info')", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_cards_in_category('vp')", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_cards_in_category('ai')", "expect_min": 1 },
+
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/HeaderRow/FilterToggle", "emit_pressed": true },
+    { "act": "execute_script", "script": "main.game_log_panel.is_filter_bar_expanded()", "equals": true },
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel/VBox/FilterBar", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "02_filter_bar_open", "region": [0, 100, 360, 760] },
+
+    { "act": "execute_script", "script": "main.game_log_panel.set_category_filter('info', false)" },
+    { "act": "execute_script", "script": "main.game_log_panel.is_category_visible('info')", "equals": false },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('info')", "equals": 0 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('shoot')", "expect_min": 1 },
+    { "act": "screenshot", "label": "03_info_hidden", "region": [0, 100, 360, 760] },
+
+    { "act": "execute_script", "script": "main.game_log_panel.set_category_filter('info', true)" },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('info')", "expect_min": 1 },
+
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/FilterBar/Chip_shoot", "emit_pressed": true },
+    { "act": "execute_script", "script": "main.game_log_panel.is_category_visible('shoot')", "equals": false },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('shoot')", "equals": 0 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('charge')", "expect_min": 1 },
+    { "act": "screenshot", "label": "04_shoot_hidden_via_chip", "region": [0, 100, 360, 760] },
+
+    { "act": "execute_script", "script": "main.game_log_panel.set_category_filter('ai', false)" },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('ai')", "equals": 0 },
+    { "act": "execute_script", "script": "main.game_log_panel._show_ai_thinking", "equals": false },
+    { "act": "execute_script", "script": "main.game_log_panel.get_ai_card_count()", "expect_min": 1 },
+
+    { "act": "execute_script", "script": "main.game_log_panel.set_category_filter('shoot', true)" },
+    { "act": "execute_script", "script": "main.game_log_panel.set_category_filter('ai', true)" },
+    { "act": "screenshot", "label": "05_all_restored", "region": [0, 100, 360, 760] },
+
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "GameEventLog._on_action_taken({'type':'BEGIN_FALL_BACK','player':1,'unit_id':'U_SHIELD_CAPTAIN_A'})" },
+    { "act": "execute_script", "script": "str(GameEventLog.entries.back().get('text','')).contains('Falls Back')", "equals": true },
+
+    { "act": "execute_script", "script": "GameEventLog._on_action_taken({'type':'EMBARK_UNIT','player':1,'actor_unit_id':'U_SHIELD_CAPTAIN_A','payload':{'transport_id':'U_BLADE_CHAMPION_A'}})" },
+    { "act": "execute_script", "script": "str(GameEventLog.entries.back().get('text','')).contains('embarked')", "equals": true },
+
+    { "act": "execute_script", "script": "GameEventLog._on_action_taken({'type':'PLACE_REINFORCEMENT','player':1,'unit_id':'U_SHIELD_CAPTAIN_A'})" },
+    { "act": "execute_script", "script": "str(GameEventLog.entries.back().get('text','')).contains('Reserves')", "equals": true },
+
+    { "act": "execute_script", "script": "GameEventLog._on_action_taken({'type':'SELECT_KATAH_STANCE','player':1,'unit_id':'U_SHIELD_CAPTAIN_A','stance':'aggressive'})" },
+    { "act": "execute_script", "script": "str(GameEventLog.entries.back().get('text','')).contains('Ka')", "equals": true },
+
+    { "act": "execute_script", "script": "GameEventLog._on_action_taken({'type':'PERFORM_SECONDARY_ACTION','player':1,'actor_unit_id':'U_SHIELD_CAPTAIN_A','payload':{'action_name':'Cleanse'}})" },
+    { "act": "execute_script", "script": "str(GameEventLog.entries.back().get('text','')).contains('Cleanse')", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "screenshot", "label": "06_new_event_coverage", "region": [0, 100, 360, 760] },
+
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "dispatch_action", "action": { "type": "DESIGNATE_WARLORD", "unit_id": "U_SHIELD_CAPTAIN_A" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script", "script": "str(GameEventLog.entries.back().get('text','')).contains('Warlord')", "equals": true },
+    { "act": "screenshot", "label": "07_designate_warlord_logged", "region": [0, 100, 360, 760] }
+  ]
+}

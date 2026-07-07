@@ -2,6 +2,17 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.6.0",
+			"date": "2026-07-07",
+			"summary": "The Game Log is clearer, covers more of what happens, and now has per-category filter toggles so you can focus on the events you care about.",
+			"changes": [
+				"New: a 'Filters' button on the Game Log opens a row of toggle chips — Phase, Move, Shoot, Fight, Charge, Overwatch, VP, Info and AI. Click one to hide/show that kind of event; 'All' and 'None' bulk-toggle. Each entry is colour-coded to match its filter.",
+				"More events now appear in the log: units Falling Back, embarking/disembarking transports, arriving from Reserves / Deep Strike, Combat Doctrine and Ka'tah stance selections, mission (secondary) actions, Warlord designation, Advance and Surge moves, and Scout moves — many of these were previously silent.",
+				"Existing entries read more clearly: phase headers now spell out 'Movement Phase — Battle Round 2, Player 1's turn', and deployed / reinforcing units show their model count.",
+				"The AI-thinking quick-toggle in the header still works and now stays in sync with the AI filter chip."
+			]
+		},
+		{
 			"version": "0.5.3",
 			"date": "2026-07-07",
 			"summary": "The version + 'What's New' box now sits at the bottom of the main menu, so the menu leads with army and mission setup.",
