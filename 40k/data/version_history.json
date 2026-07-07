@@ -13,6 +13,15 @@
 			]
 		},
 		{
+			"version": "0.5.3",
+			"date": "2026-07-07",
+			"summary": "The version + 'What's New' box now sits at the bottom of the main menu, so the menu leads with army and mission setup.",
+			"changes": [
+				"Moved the version badge and the 'What's New' changelog panel from just under the title to the very bottom of the main menu, below the Start/Load/Quit buttons.",
+				"No behaviour change — the same version info is shown, just relocated so the game-setup options are the first thing you see."
+			]
+		},
+		{
 			"version": "0.5.2",
 			"date": "2026-07-07",
 			"summary": "The Shooting phase's wound-allocation window now matches the weapon-order window — one consistent gothic look across both.",
