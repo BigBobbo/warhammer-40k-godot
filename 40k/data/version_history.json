@@ -2,6 +2,14 @@
 	"_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
 	"releases": [
 		{
+			"version": "0.6.2",
+			"date": "2026-07-07",
+			"summary": "Fixed the Burden of Trust guard-assignment window overflowing off the bottom of the screen so its Confirm / Keep buttons were unreachable.",
+			"changes": [
+				"Burden of Trust (secondary mission): the 'Assign Guards' window no longer stretches thousands of pixels tall and off the bottom of the screen. The dialog is now capped to fit within the view, the objective list scrolls inside it, and the 'Confirm Guards' and 'Keep Auto Picks' buttons stay pinned and visible so you can actually confirm which unit guards which objective."
+			]
+		},
+		{
 			"version": "0.6.1",
 			"date": "2026-07-07",
 			"summary": "Charge phase overhaul: no more false 'charge failed' verdicts near ruins, plus a batch of charge bug fixes.",

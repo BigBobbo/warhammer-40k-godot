@@ -8,7 +8,7 @@
   "edition": 11,
   "rng_seed": 42,
   "disable_ai": true,
-  "description": "11e Burden of Trust guard selection UX: with the Warboss teleported onto the centre objective, a human P2 draws Burden of Trust — guards auto-assign (Warboss guards obj_center) and, after the drawn-missions review closes, the GuardSelectionDialog offers the per-objective pickers. 'Keep Auto Picks' closes the revision window while keeping the guard map, and guarded scoring counts obj_center while controlled.",
+  "description": "11e Burden of Trust guard selection UX: with the Warboss teleported onto the centre objective, a human P2 draws Burden of Trust — guards auto-assign (Warboss guards obj_center) and, after the drawn-missions review closes, the GuardSelectionDialog offers the per-objective pickers. The dialog must fit fully within the viewport so the Confirm / Keep action buttons are reachable (regression guard: the AcceptDialog previously blew up to thousands of pixels tall from the autowrap description Label's minimum size, pushing the buttons off-screen so selections could not be confirmed). 'Keep Auto Picks' closes the revision window while keeping the guard map, and guarded scoring counts obj_center while controlled.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
@@ -38,6 +38,14 @@
 
     { "act": "expect_node_visible", "node": "/root/GuardSelectionDialog", "timeout_s": 5.0 },
     { "act": "expect_node_visible", "node": "/root/GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center", "timeout_s": 2.0 },
+
+    { "act": "execute_script",
+      "script": "get_tree().root.get_node(\"GuardSelectionDialog\").position.y >= 0 and (get_tree().root.get_node(\"GuardSelectionDialog\").position.y + get_tree().root.get_node(\"GuardSelectionDialog\").size.y) <= get_tree().root.get_viewport().get_visible_rect().size.y",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "(get_tree().root.get_node(\"GuardSelectionDialog\").position.y + get_tree().root.get_node(\"GuardSelectionDialog/Content/Actions/ConfirmGuards\").global_position.y + get_tree().root.get_node(\"GuardSelectionDialog/Content/Actions/ConfirmGuards\").size.y) <= get_tree().root.get_viewport().get_visible_rect().size.y",
+      "equals": true },
+
     { "act": "screenshot", "label": "01_guard_selection_dialog" },
 
     { "act": "click_node", "node": "/root/GuardSelectionDialog/Content/Actions/KeepAutoGuards", "emit_pressed": true },

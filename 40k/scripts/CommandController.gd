@@ -1771,7 +1771,11 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 
 	var scroll = ScrollContainer.new()
 	scroll.name = "ObjectiveScroll"
-	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 220)
+	# Keep a modest minimum so the objective list can shrink (and the fixed
+	# Confirm / Keep buttons stay on-screen) when the dialog is capped to a
+	# small viewport; SIZE_EXPAND_FILL still grows it on roomier screens.
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 160)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var rows = VBoxContainer.new()
 	rows.name = "ObjectiveRows"
@@ -1874,8 +1878,26 @@ func _show_guard_dialog(pending: Dictionary, player: int) -> void:
 
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
-	dialog.popup_centered()
-	print("CommandController: Burden of Trust guard dialog shown for player %d (%d objectives)" % [player, objectives.size()])
+
+	# Cap the dialog to the viewport so the Confirm / Keep buttons can never be
+	# pushed off the bottom of the screen. The autowrap description Label reports
+	# a very tall minimum height during the initial popup_centered() (before it
+	# has been laid out to a width), which previously sized the AcceptDialog
+	# window to thousands of pixels tall and scrolled the action buttons
+	# off-screen — the player could see the objective pickers but had no way to
+	# confirm. Forcing the window size (min == max) makes the inner
+	# ObjectiveScroll absorb any overflow instead. Height grows with the
+	# objective count but never past 90% of the viewport, and the MEDIUM floor
+	# keeps the fixed chrome (buttons) on-screen on normal displays.
+	var vp := get_viewport()
+	var vp_h: float = vp.get_visible_rect().size.y if vp else DialogConstants.MEDIUM.y
+	var desired_h: float = 230.0 + float(objectives.size()) * 40.0
+	var cap_w: int = int(DialogConstants.MEDIUM.x)
+	var cap_h: int = int(clamp(desired_h, DialogConstants.MEDIUM.y, vp_h * 0.9))
+	dialog.min_size = Vector2i(cap_w, cap_h)
+	dialog.max_size = Vector2i(cap_w, cap_h)
+	dialog.popup_centered(Vector2i(cap_w, cap_h))
+	print("CommandController: Burden of Trust guard dialog shown for player %d (%d objectives), dialog size %dx%d (vp_h=%d)" % [player, objectives.size(), cap_w, cap_h, int(vp_h)])
 
 
 # T-096: compute command phase sub-step progress (1/3 → 3/3)
